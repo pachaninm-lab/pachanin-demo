@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE, SESSION_COOKIE } from '../../../../lib/auth-cookies';
 import { demoLoginAllowed } from '../../../../lib/platform-v7/demo-login-policy';
 import { assertCsrf } from '../../../../lib/server-request-security';
+import { encodeUpstreamPath } from '../../../../lib/server/upstream-path';
 
 const API_URL = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
 type CookieStore = Awaited<ReturnType<typeof cookies>>;
@@ -402,8 +403,15 @@ async function proxy(request: Request, params: { path: string[] }) {
   if (!API_URL && !isDemo) return realBackendUnavailable('api_url_missing');
 
   if (!isDemo) {
+    const upstreamPath = encodeUpstreamPath(params.path);
+    if (!upstreamPath) {
+      return NextResponse.json(
+        { ok: false, code: 'PROXY_PATH_REJECTED' },
+        { status: 404, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
     try {
-      const target = `${API_URL}/${path}`;
+      const target = `${API_URL}/${upstreamPath}`;
       const headers = new Headers(request.headers);
       headers.set('Authorization', `Bearer ${token}`);
       headers.delete('host');
