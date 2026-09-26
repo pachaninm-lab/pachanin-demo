@@ -1651,6 +1651,19 @@
       "scripts/check-production-auth-mail-outbox-cutover.mjs",
       "docs/platform-v7/autopilot/scopes/auth-mail-post-release-db-authority-20260926.json",
       ".github/workflows/production-auth-mail-runtime-authority-diagnostic-20260926.yml"
+    ],
+    "fix/public-mobile-trust-gekta-return-20260926": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/web-unit.yml",
+      "apps/web/components/platform-v7/PublicContactDock.tsx",
+      "apps/web/styles/platform-v7-canonical-home-v1.css",
+      "apps/web/styles/platform-v7-canonical-public-v1.css",
+      "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+      "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
+      "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+      "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+      "apps/web/tests/unit/platformV7MobileTrustAndGektaReturn.test.ts",
+      "docs/platform-v7/autopilot/scopes/public-mobile-trust-gekta-return-20260926.json"
     ]
   },
   "currentAcceptance": [
@@ -2095,6 +2108,38 @@
         "CI/security/readiness gate weakening"
       ],
       "teamHubDependency": "#5372 inventory comment 5833248230; #5604 guard prerequisite; PUBLIC #5559 main serialization; #5535 CORE next-action dependency"
+    },
+    "public-mobile-trust-gekta-return-20260926-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Narrow P0 PUBLIC mobile repair: make canonical Trust cards readable and return the existing Gekta assistant launcher above bottom navigation.",
+      "authorityBaseExactMain": "35ce3841f15572bfcba7c8d7e03afb858da0888d",
+      "implementationBranch": "fix/public-mobile-trust-gekta-return-20260926",
+      "allowedPaths": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/web-unit.yml",
+        "apps/web/components/platform-v7/PublicContactDock.tsx",
+        "apps/web/styles/platform-v7-canonical-home-v1.css",
+        "apps/web/styles/platform-v7-canonical-public-v1.css",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+        "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
+        "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+        "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+        "apps/web/tests/unit/platformV7MobileTrustAndGektaReturn.test.ts",
+        "docs/platform-v7/autopilot/scopes/public-mobile-trust-gekta-return-20260926.json"
+      ],
+      "requiredTruthBoundaries": [
+        "The implementation PR changes only these 11 exact paths; its own scope manifest is documentation, not independent authorization.",
+        "Preserve the existing PublicPlatformAssistant and contact dock; no parallel chat, API, database, tenant, role, market, Deal, outbox, auth-mail, Kubernetes or production-topology authority.",
+        "RU/EN/ZH mobile Trust cards remain readable and the canonical Gekta action is visible, enabled, at least 44 by 44 CSS pixels, above bottom navigation, and opens the existing composer.",
+        "After this separate state-only admission merges, independently review the complete refreshed implementation diff against the accepted main state, rerun exact-head CI/security/readiness, then require exact-main REG.RU release and live browser acceptance.",
+        "The generic guard is not an immutable trusted-base route for this implementation branch; do not describe a candidate-owned manifest as trusted-base admission."
+      ],
+      "forbiddenAuthority": [
+        "Candidate manifest self-authorization or widening beyond the 11 accepted paths",
+        "API/DB/tenant/role/market/Deal/outbox/auth-mail/production operation changes",
+        "CI/security/readiness gate weakening or unsupported production acceptance claims"
+      ],
+      "teamHubDependency": "#5469; #5631; exact-head inline P1 #4112623681"
     }
   }
 }
