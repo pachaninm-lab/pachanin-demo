@@ -328,18 +328,24 @@ function percentiles(values) {
 }
 
 function tally(items) {
-  const counts = {};
-  for (const item of items) counts[item] = (counts[item] || 0) + 1;
-  return counts;
+  // A Map, not an object literal: error strings are free-form, so a sample
+  // whose error is `__proto__` would otherwise be counted into the prototype
+  // and vanish from the tally without any sign that it did.
+  const counts = new Map();
+  for (const item of items) counts.set(item, (counts.get(item) ?? 0) + 1);
+  return Object.fromEntries(counts);
 }
 
 export function groupBy(samples, key) {
-  const groups = {};
+  // Bucket names come from sample data, so the grouping container must not
+  // have inherited keys.
+  const groups = new Map();
   for (const sample of samples) {
     const bucket = sample[key] ?? 'unknown';
-    (groups[bucket] ||= []).push(sample);
+    if (!groups.has(bucket)) groups.set(bucket, []);
+    groups.get(bucket).push(sample);
   }
-  return Object.fromEntries(Object.entries(groups).map(([name, rows]) => [name, summarize(rows)]));
+  return Object.fromEntries([...groups].map(([name, rows]) => [name, summarize(rows)]));
 }
 
 /**
@@ -585,13 +591,14 @@ async function runMultiTurn(scenarios, options) {
 }
 
 export function summarizeMultiTurn(scenarios) {
-  const byKind = {};
+  const byKind = new Map();
   for (const scenario of scenarios) {
     // Turn 1 is a cold question; the conversational cost is in the later turns.
     const laterTurns = scenario.turns.filter((turn) => turn.turn > 1);
-    (byKind[scenario.kind] ||= []).push(...laterTurns);
+    if (!byKind.has(scenario.kind)) byKind.set(scenario.kind, []);
+    byKind.get(scenario.kind).push(...laterTurns);
   }
-  return Object.fromEntries(Object.entries(byKind).map(([kind, turns]) => [kind, summarize(turns)]));
+  return Object.fromEntries([...byKind].map(([kind, turns]) => [kind, summarize(turns)]));
 }
 
 async function main() {
