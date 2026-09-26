@@ -46,7 +46,7 @@ restore_atomic_secret_from_file() {
   local source="$1" destination="$2" tmp
   tmp="$(mktemp "$AUTHORITY_DIR/.auth-mail-secret.XXXXXX")"
   cleanup_files+=("$tmp")
-  cat -- "$source" > "$tmp"
+  cat -- "$source" > "$tmp" || return 1
   [[ -s "$tmp" ]] || return 1
   chmod 0600 "$tmp"; chown 0:0 "$tmp"
   mv -f "$tmp" "$destination"
@@ -157,11 +157,16 @@ api_id="${api_ids[0]}"
 api_database_url="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" \
   | sed -n 's/^AUTH_DATABASE_URL=//p' | head -1)"
 [[ -n "$api_database_url" ]] || { echo 'AUTH_MAIL_PROVISION=FAIL_API_AUTH_DATABASE_URL_MISSING'; exit 40; }
-python3 - "$api_database_url" <<'PY' >/dev/null \
+api_auth_database_url_file="$(mktemp "$AUTHORITY_DIR/.auth-mail-api-datasource.XXXXXX")"
+cleanup_files+=("$api_auth_database_url_file")
+printf '%s\n' "$api_database_url" > "$api_auth_database_url_file"
+chmod 0600 "$api_auth_database_url_file"; chown 0:0 "$api_auth_database_url_file"
+unset api_database_url
+python3 - "$api_auth_database_url_file" <<'PY' >/dev/null \
   || { echo 'AUTH_MAIL_PROVISION=FAIL_API_AUTH_DATABASE_URL_INVALID'; exit 41; }
 import sys
 from urllib.parse import parse_qsl, urlsplit
-url=urlsplit(sys.argv[1])
+url=urlsplit(open(sys.argv[1], encoding='utf-8').read().strip())
 if url.scheme not in ('postgresql','postgres') or not url.username or not url.password or not url.hostname or not url.path.strip('/'):
     raise SystemExit(1)
 PY
@@ -172,11 +177,11 @@ validate_runtime_database_projection() {
   [[ "$(stat -c '%a:%u:%g' "$RUNTIME_PROJECTION_DIR")" == '700:0:0' ]] || return 1
   [[ -f "$projected" && ! -L "$projected" ]] || return 1
   [[ "$(stat -c '%a:%u:%g' "$projected")" == '444:0:0' ]] || return 1
-  python3 - "$projected" "$api_database_url" <<'PY' >/dev/null
+  python3 - "$projected" "$api_auth_database_url_file" <<'PY' >/dev/null
 import sys
 from urllib.parse import parse_qsl, urlsplit
 worker=urlsplit(open(sys.argv[1], encoding='utf-8').read().strip())
-api=urlsplit(sys.argv[2])
+api=urlsplit(open(sys.argv[2], encoding='utf-8').read().strip())
 def authority(url):
     return (
         (url.hostname or '').lower(),
@@ -228,11 +233,11 @@ if [[ "$ACTION" == rotate-db || ! -e "$DATABASE_URL_FILE" ]]; then
 elif ! validate_secret_file "$DATABASE_URL_FILE"; then
   echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_SECRET_AUTHORITY'
   exit 21
-elif ! python3 - "$DATABASE_URL_FILE" "$api_database_url" <<'PY' >/dev/null
+elif ! python3 - "$DATABASE_URL_FILE" "$api_auth_database_url_file" <<'PY' >/dev/null
 import sys
 from urllib.parse import parse_qsl, urlsplit
 worker=urlsplit(open(sys.argv[1], encoding='utf-8').read().strip())
-api=urlsplit(sys.argv[2])
+api=urlsplit(open(sys.argv[2], encoding='utf-8').read().strip())
 def authority(url):
     return (
         (url.hostname or '').lower(),
@@ -284,12 +289,12 @@ PY
   [[ -n "$migration_service" && -n "$migration_database_url" ]] \
     || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_DATABASE_AUTHORITY'; exit 14; }
 
-  python3 - "$migration_database_url" "$api_database_url" <<'PY' >/dev/null \
+  python3 - "$migration_database_url" "$api_auth_database_url_file" <<'PY' >/dev/null \
     || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_API_DATASOURCE_MISMATCH'; exit 42; }
 import sys
 from urllib.parse import parse_qsl, urlsplit
 migration=urlsplit(sys.argv[1])
-api=urlsplit(sys.argv[2])
+api=urlsplit(open(sys.argv[2], encoding='utf-8').read().strip())
 def authority(url):
     return (
         (url.hostname or '').lower(),
@@ -347,12 +352,12 @@ PY
 fi
 
 validate_secret_file "$DATABASE_URL_FILE" || { echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_SECRET_AUTHORITY'; exit 21; }
-python3 - "$DATABASE_URL_FILE" "$api_database_url" <<'PY' >/dev/null \
+python3 - "$DATABASE_URL_FILE" "$api_auth_database_url_file" <<'PY' >/dev/null \
   || { echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_DATASOURCE_MISMATCH'; exit 38; }
 import sys
 from urllib.parse import parse_qsl, urlsplit
 worker=urlsplit(open(sys.argv[1], encoding='utf-8').read().strip())
-api=urlsplit(sys.argv[2])
+api=urlsplit(open(sys.argv[2], encoding='utf-8').read().strip())
 def authority(url):
     return (
         (url.hostname or '').lower(),
