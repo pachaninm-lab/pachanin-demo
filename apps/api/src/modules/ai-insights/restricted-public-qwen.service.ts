@@ -373,6 +373,7 @@ async function* callProviderStream(
 }, void, undefined> {
   const response = await fetch(endpoint, {
     method: 'POST',
+    redirect: 'error',
     headers: {
       Accept: 'text/event-stream',
       'Content-Type': 'application/json; charset=utf-8',
@@ -428,6 +429,7 @@ async function callProvider(
 ): Promise<ProviderResult> {
   const response = await fetch(endpoint, {
     method: 'POST',
+    redirect: 'error',
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json; charset=utf-8',
