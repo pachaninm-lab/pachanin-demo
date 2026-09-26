@@ -6,6 +6,22 @@ import { fileURLToPath } from 'node:url';
 
 const SEVERITIES = ['info', 'low', 'moderate', 'high', 'critical'];
 
+/**
+ * Severities that stop a merge.
+ *
+ * Was 'critical' alone. Extended to 'high' because ASVS 5.0 V15.1.1 asks for a
+ * documented remediation time frame and V15.2.1 asks that components respect
+ * it - and a time frame nothing enforces is a statement of intent, not a
+ * control. Measured on the production graph before tightening: 0 critical,
+ * 0 high, 16 moderate, 1 low. Blocking high therefore costs nothing today and
+ * makes the written window real from the moment it is written.
+ *
+ * Moderate and low stay unblocked deliberately: sixteen of them exist, and a
+ * policy that fails immediately would be reverted rather than respected. The
+ * document says so plainly instead of inventing a window nothing keeps.
+ */
+const BLOCKING_SEVERITIES = ['critical', 'high'];
+
 export function validatePnpmAuditReport(report, options = {}) {
   const rawExitStatus = normalizeExitStatus(options.rawExitStatus ?? 0);
   if (!report || typeof report !== 'object' || Array.isArray(report)) {
@@ -33,13 +49,13 @@ export function validatePnpmAuditReport(report, options = {}) {
   if (!advisories || typeof advisories !== 'object' || Array.isArray(advisories)) {
     throw new Error('pnpm audit advisories must be an object');
   }
-  const criticalAdvisories = Object.values(advisories).filter(
-    (advisory) => advisory?.severity === 'critical',
-  );
-  if (criticalAdvisories.length > counts.critical) {
-    throw new Error(
-      'pnpm audit report is contradictory: critical advisories exceed metadata count',
-    );
+  for (const severity of BLOCKING_SEVERITIES) {
+    const listed = Object.values(advisories).filter((advisory) => advisory?.severity === severity);
+    if (listed.length > counts[severity]) {
+      throw new Error(
+        `pnpm audit report is contradictory: ${severity} advisories exceed metadata count`,
+      );
+    }
   }
 
   const totalDependencies = report.metadata?.totalDependencies;
@@ -47,17 +63,18 @@ export function validatePnpmAuditReport(report, options = {}) {
     throw new Error('pnpm audit report has an invalid totalDependencies count');
   }
 
-  const accepted = counts.critical === 0;
+  const blocking = BLOCKING_SEVERITIES.filter((severity) => counts[severity] > 0);
+  const accepted = blocking.length === 0;
   const result = {
     accepted,
-    policy: 'critical-only',
+    policy: 'critical-and-high',
     pnpm_exit_status: rawExitStatus,
     total_dependencies: totalDependencies,
     vulnerabilities: counts,
   };
   if (!accepted) {
     const error = new Error(
-      `pnpm audit rejected: ${counts.critical} critical vulnerabilities found`,
+      `pnpm audit rejected: ${blocking.map((s) => `${counts[s]} ${s}`).join(', ')} vulnerabilities found`,
     );
     error.policyResult = result;
     throw error;
