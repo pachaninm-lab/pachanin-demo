@@ -196,6 +196,38 @@ if authority(worker) != authority(api):
 PY
 }
 
+validate_source_database_shape() {
+  local candidate="$1"
+  python3 - "$candidate" <<'PY' >/dev/null
+import sys
+from urllib.parse import urlsplit
+worker=urlsplit(open(sys.argv[1], encoding='utf-8').read().strip())
+if worker.scheme not in ('postgresql','postgres') or worker.username != 'pc_auth_mail_runtime' or not worker.password or not worker.hostname or not worker.path.strip('/'):
+    raise SystemExit(1)
+PY
+}
+
+source_database_matches_api_auth() {
+  local candidate="$1"
+  python3 - "$candidate" "$api_auth_database_url_file" <<'PY' >/dev/null
+import sys
+from urllib.parse import parse_qsl, urlsplit
+worker=urlsplit(open(sys.argv[1], encoding='utf-8').read().strip())
+api=urlsplit(open(sys.argv[2], encoding='utf-8').read().strip())
+def authority(url):
+    return (
+        (url.hostname or '').lower(),
+        url.port or 5432,
+        url.path,
+        tuple(sorted(parse_qsl(url.query, keep_blank_values=True))),
+    )
+if worker.scheme not in ('postgresql','postgres') or worker.username != 'pc_auth_mail_runtime' or not worker.password:
+    raise SystemExit(1)
+if authority(worker) != authority(api):
+    raise SystemExit(1)
+PY
+}
+
 # Key bootstrap is idempotent. Rotation is explicit and keeps all previous key
 # versions so already-enqueued ciphertext remains decryptable until retention
 # has redacted every row using the old version.
@@ -219,10 +251,20 @@ fi
 # datasource. Only bootstrap of a missing/mismatched authority or explicit
 # rotate-db may require the one-shot migration admin authority.
 database_authority_state='API_DATASOURCE_EXISTING'
-if [[ "$ACTION" == bootstrap && ! -e "$DATABASE_URL_FILE" ]] && validate_runtime_database_projection; then
-  restore_atomic_secret_from_file "$RUNTIME_PROJECTION_DIR/database-url" "$DATABASE_URL_FILE" \
-    || { echo 'AUTH_MAIL_PROVISION=FAIL_RUNTIME_DATABASE_AUTHORITY_RECOVERY'; exit 43; }
-  database_authority_state='API_DATASOURCE_RUNTIME_PROJECTION_RECOVERED'
+database_source_recovery_candidate=0
+if [[ "$ACTION" == bootstrap ]]; then
+  if [[ ! -e "$DATABASE_URL_FILE" ]]; then
+    database_source_recovery_candidate=1
+  elif validate_secret_file "$DATABASE_URL_FILE" \
+    && validate_source_database_shape "$DATABASE_URL_FILE" \
+    && ! source_database_matches_api_auth "$DATABASE_URL_FILE"; then
+    database_source_recovery_candidate=1
+  fi
+  if [[ "$database_source_recovery_candidate" == 1 ]] && validate_runtime_database_projection; then
+    restore_atomic_secret_from_file "$RUNTIME_PROJECTION_DIR/database-url" "$DATABASE_URL_FILE" \
+      || { echo 'AUTH_MAIL_PROVISION=FAIL_RUNTIME_DATABASE_AUTHORITY_RECOVERY'; exit 43; }
+    database_authority_state='API_DATASOURCE_RUNTIME_PROJECTION_RECOVERED'
+  fi
 fi
 
 database_reconcile_required=0
