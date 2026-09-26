@@ -483,8 +483,19 @@ test.describe('canonical cross-browser public smoke', () => {
         expect(box).not.toBeNull();
         expect(box!.height).toBeGreaterThanOrEqual(43.999);
       }
-      const gektaDock=page.locator(".pc-public-contact-dock[data-public-mode='gekta']");
-      await expect(gektaDock).toBeHidden();
+      const publicDock=page.locator(".pc-public-contact-dock[data-assistant-context='public']");
+      const gektaAction=publicDock.locator('.pc-public-contact-dock-assistant');
+      await expect(publicDock).toHaveAttribute('data-public-mode',route.includes('/login')?'full':'gekta');
+      await expect(publicDock).toBeVisible();
+      await expect(gektaAction).toBeVisible();
+      await expect(gektaAction).toBeEnabled();
+      const gektaBox=await gektaAction.boundingBox();
+      const bottomBeforeScroll=await bottom.boundingBox();
+      expect(gektaBox).not.toBeNull();
+      expect(bottomBeforeScroll).not.toBeNull();
+      expect(gektaBox!.width).toBeGreaterThanOrEqual(44);
+      expect(gektaBox!.height).toBeGreaterThanOrEqual(44);
+      expect(gektaBox!.y+gektaBox!.height).toBeLessThanOrEqual(bottomBeforeScroll!.y-4);
 
       await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
       const bottomBox=await bottom.boundingBox();
