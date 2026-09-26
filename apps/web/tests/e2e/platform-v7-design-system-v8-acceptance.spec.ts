@@ -420,7 +420,7 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
           await expect(gektaDock.locator('.pc-public-contact-dock-assistant')).toHaveCount(1);
           await expect(gektaDock.locator('.pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)')).toHaveCount(0);
           await expect(gektaDock.locator('.pc-public-contact-dock-call')).toHaveCount(0);
-          if (width >= 981) {
+          if (width >= 1101) {
             await expect(gektaDock).toBeHidden();
           } else {
             await expect(gektaDock).toBeVisible();
