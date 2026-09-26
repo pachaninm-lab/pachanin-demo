@@ -37,9 +37,9 @@ describe('platform-v7 mobile trust readability and Gekta return', () => {
     expect(productionMobile).toContain(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
     expect(productionMobile).toContain("await expect(panel).toBeVisible({ timeout: 15_000 })");
     expect(productionMobile).toContain("name: 'Закрыть Гекту'");
-    expect(designSystem).toContain('if (width >= 981)');
+    expect(designSystem).toContain('if (width >= 1101)');
     expect(designSystem).not.toContain('if (width <= 760 || width >= 981)');
     expect(intelligence).toContain(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
-    expect(intelligence).toContain('if (item.width <= 900)');
+    expect(intelligence).toContain('if (item.width <= 1100)');
   });
 });
