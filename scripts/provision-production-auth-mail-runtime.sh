@@ -42,6 +42,16 @@ write_atomic_secret() {
   mv -f "$tmp" "$destination"
 }
 
+restore_atomic_secret_from_file() {
+  local source="$1" destination="$2" tmp
+  tmp="$(mktemp "$AUTHORITY_DIR/.auth-mail-secret.XXXXXX")"
+  cleanup_files+=("$tmp")
+  cat -- "$source" > "$tmp"
+  [[ -s "$tmp" ]] || return 1
+  chmod 0600 "$tmp"; chown 0:0 "$tmp"
+  mv -f "$tmp" "$destination"
+}
+
 read_key_version() {
   validate_secret_file "$CURRENT_VERSION_FILE" || return 1
   local value
@@ -156,6 +166,26 @@ if url.scheme not in ('postgresql','postgres') or not url.username or not url.pa
     raise SystemExit(1)
 PY
 
+validate_runtime_database_projection() {
+  local projected="$RUNTIME_PROJECTION_DIR/database-url"
+  [[ -d "$RUNTIME_PROJECTION_DIR" && ! -L "$RUNTIME_PROJECTION_DIR" ]] || return 1
+  [[ "$(stat -c '%a:%u:%g' "$RUNTIME_PROJECTION_DIR")" == '700:0:0' ]] || return 1
+  [[ -f "$projected" && ! -L "$projected" ]] || return 1
+  [[ "$(stat -c '%a:%u:%g' "$projected")" == '444:0:0' ]] || return 1
+  python3 - "$projected" "$api_database_url" <<'PY' >/dev/null
+import sys
+from urllib.parse import urlsplit
+worker=urlsplit(open(sys.argv[1], encoding='utf-8').read().strip())
+api=urlsplit(sys.argv[2])
+def authority(url):
+    return ((url.hostname or '').lower(), url.port or 5432, url.path, url.query)
+if worker.scheme not in ('postgresql','postgres') or worker.username != 'pc_auth_mail_runtime' or not worker.password:
+    raise SystemExit(1)
+if authority(worker) != authority(api):
+    raise SystemExit(1)
+PY
+}
+
 # Key bootstrap is idempotent. Rotation is explicit and keeps all previous key
 # versions so already-enqueued ciphertext remains decryptable until retention
 # has redacted every row using the old version.
@@ -179,6 +209,12 @@ fi
 # datasource. Only bootstrap of a missing/mismatched authority or explicit
 # rotate-db may require the one-shot migration admin authority.
 database_authority_state='API_DATASOURCE_EXISTING'
+if [[ "$ACTION" == bootstrap && ! -e "$DATABASE_URL_FILE" ]] && validate_runtime_database_projection; then
+  restore_atomic_secret_from_file "$RUNTIME_PROJECTION_DIR/database-url" "$DATABASE_URL_FILE" \
+    || { echo 'AUTH_MAIL_PROVISION=FAIL_RUNTIME_DATABASE_AUTHORITY_RECOVERY'; exit 43; }
+  database_authority_state='API_DATASOURCE_RUNTIME_PROJECTION_RECOVERED'
+fi
+
 database_reconcile_required=0
 if [[ "$ACTION" == rotate-db || ! -e "$DATABASE_URL_FILE" ]]; then
   [[ "$ACTION" == bootstrap || "$ACTION" == rotate-db ]] \
@@ -396,6 +432,8 @@ echo "AUTH_MAIL_CURRENT_KEY_VERSION=$current_version"
 echo 'AUTH_MAIL_GITHUB_SECRET_REQUIRED=0'
 if [[ "$database_authority_state" == 'MIGRATION_DATASOURCE_RECONCILED' ]]; then
   echo 'AUTH_MAIL_DATABASE_AUTHORITY=MIGRATION_DATASOURCE_RECONCILED'
+elif [[ "$database_authority_state" == 'API_DATASOURCE_RUNTIME_PROJECTION_RECOVERED' ]]; then
+  echo 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_RUNTIME_PROJECTION_RECOVERED'
 else
   echo 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_EXISTING'
 fi
