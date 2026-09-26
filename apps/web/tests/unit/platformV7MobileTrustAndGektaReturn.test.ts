@@ -44,6 +44,7 @@ describe('platform-v7 mobile trust readability and Gekta return', () => {
     expect(intelligence).toContain(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
     expect(intelligence).toContain('if (item.width <= 1100)');
     expect(visual).toContain(".pc-public-contact-dock[data-assistant-context='public']");
+    expect(visual).toContain("toHaveAttribute('data-public-mode',route.includes('/login')?'full':'gekta')");
     expect(visual).toContain("const gektaAction=publicDock.locator('.pc-public-contact-dock-assistant')");
     expect(visual).toContain('await expect(publicDock).toBeVisible()');
     expect(visual).toContain("expect(gektaBox!.height).toBeGreaterThanOrEqual(44)");
