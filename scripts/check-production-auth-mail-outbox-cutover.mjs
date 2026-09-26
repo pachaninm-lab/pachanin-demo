@@ -134,6 +134,13 @@ has(provision, 'if [[ "$ACTION" == rotate-db || ! -e "$DATABASE_URL_FILE" ]]', '
 has(provision, 'if [[ "$database_reconcile_required" == 1 ]]', 'migration admin authority must be conditional');
 has(provision, 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_API_DATASOURCE_MISMATCH', 'migration/API datasource parity fail-closed marker missing');
 has(provision, 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_EXISTING', 'existing live API-bound DB authority evidence missing');
+has(provision, 'validate_runtime_database_projection() {', 'runtime DB projection validator missing');
+has(provision, '"$(stat -c \'%a:%u:%g\' "$RUNTIME_PROJECTION_DIR")" == \'700:0:0\'', 'runtime DB projection parent authority check missing');
+has(provision, '"$(stat -c \'%a:%u:%g\' "$projected")" == \'444:0:0\'', 'runtime DB projection file authority check missing');
+has(provision, 'if [[ "$ACTION" == bootstrap && ! -e "$DATABASE_URL_FILE" ]] && validate_runtime_database_projection; then', 'bootstrap-only runtime DB authority recovery missing');
+has(provision, 'restore_atomic_secret_from_file "$RUNTIME_PROJECTION_DIR/database-url" "$DATABASE_URL_FILE"', 'runtime DB authority must be recovered atomically into source authority');
+has(provision, 'AUTH_MAIL_PROVISION=FAIL_RUNTIME_DATABASE_AUTHORITY_RECOVERY', 'runtime DB authority recovery fail-closed marker missing');
+has(provision, 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_RUNTIME_PROJECTION_RECOVERED', 'runtime projection recovery evidence missing');
 lacks(provision, 'if [[ "$ACTION" == bootstrap || "$ACTION" == rotate-db ]]; then', 'bootstrap must not rotate DB credentials unconditionally');
 has(provision, 'DO $$ BEGIN', 'PostgreSQL credential reconciliation DO block quoting missing');
 has(provision, 'END $$;', 'PostgreSQL credential reconciliation DO block terminator missing');
