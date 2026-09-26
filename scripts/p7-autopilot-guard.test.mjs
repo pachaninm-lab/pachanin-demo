@@ -31,6 +31,7 @@ const productImplementationManifests = new Map([
   ['ux/first-customer-next-action-unknown-20260924', 'docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json'],
   ['fix/public-registration-participation-choice-20260923', 'docs/platform-v7/autopilot/scopes/public-registration-participation-choice-20260923.json'],
   ['ux/buyer-first-customer-home-20260925', 'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json'],
+  ['bank/first-customer-home-20260926', 'docs/platform-v7/autopilot/scopes/bank-first-customer-home-20260926.json'],
 ]);
 const productAdmissionBranch = 'governance/product-bank-fgis-ux-source-admission-20260924';
 const buyerAdmissionBranch = 'governance/product-buyer-home-admission-20260925';
@@ -42,6 +43,15 @@ const buyerPaths = [
   'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts',
   'apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx',
   'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json',
+];
+const bankHomeAdmissionBranch = 'governance/product-bank-home-admission-20260926';
+const bankHomeBranch = 'bank/first-customer-home-20260926';
+const bankHomeCoordinationKey = 'bank-first-customer-home-20260926-coordination';
+const bankHomePaths = [
+  'apps/web/components/platform-v7/FirstCustomerWorkspace.tsx',
+  'apps/web/components/platform-v7/FirstCustomerWorkspace.module.css',
+  'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts',
+  'docs/platform-v7/autopilot/scopes/bank-first-customer-home-20260926.json',
 ];
 const dealCommandImplementationBranch = 'ux/deal-command-unknown-20260925';
 const productAdmissionPaths = new Map([
@@ -1726,9 +1736,9 @@ test('product source admission uses both trusted-base workflow routes', () => {
   const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
     .split('  standard_validation:')[0];
   assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${productAdmissionBranch}'`));
-  assert.ok(trusted.includes(`|${productAdmissionBranch}|${buyerAdmissionBranch})`));
+  assert.ok(trusted.includes(`|${productAdmissionBranch}|${buyerAdmissionBranch}|${bankHomeAdmissionBranch})`));
   assert.ok(prHead.includes(`github.head_ref == '${productAdmissionBranch}'`));
-  assert.ok(prHead.includes(`|${productAdmissionBranch}|${buyerAdmissionBranch})`));
+  assert.ok(prHead.includes(`|${productAdmissionBranch}|${buyerAdmissionBranch}|${bankHomeAdmissionBranch})`));
   assert.ok(standard.includes(`github.head_ref != '${productAdmissionBranch}'`));
 });
 
@@ -1789,10 +1799,75 @@ test('buyer admission uses trusted base guard in both workflow entry points', ()
   const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
     .split('  standard_validation:')[0];
   assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${buyerAdmissionBranch}'`));
-  assert.ok(trusted.includes(`|${buyerAdmissionBranch})`));
+  assert.ok(trusted.includes(`|${buyerAdmissionBranch}|${bankHomeAdmissionBranch})`));
   assert.ok(prHead.includes(`github.head_ref == '${buyerAdmissionBranch}'`));
-  assert.ok(prHead.includes(`|${buyerAdmissionBranch})`));
+  assert.ok(prHead.includes(`|${buyerAdmissionBranch}|${bankHomeAdmissionBranch})`));
   assert.ok(standard.includes(`github.head_ref != '${buyerAdmissionBranch}'`));
+});
+
+for (const mutation of ['accepted', 'wrong base', 'extra path', 'global scope', 'weakened boundary',
+  'unrelated admission', 'source file', 'missing state diff']) {
+  test(`bank home state-only admission is exact and base-bound: ${mutation}`, (t) => {
+    const context = fixture(t, bankHomeAdmissionBranch);
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    delete state.approvedConcurrentScopes[bankHomeAdmissionBranch];
+    state.coordinationAdmissions = {};
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, 'trusted base without bank home source authority');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    state.approvedConcurrentScopes[bankHomeBranch] = [...bankHomePaths];
+    state.coordinationAdmissions[bankHomeCoordinationKey] = {
+      owner: 'ACCOUNT_2_PRODUCT',
+      purpose: 'Bank first-customer production-home hierarchy from existing server-scoped Deal navigation; no bank operation, provider or settlement authority.',
+      authorityBaseExactMain: context.baseline,
+      implementationBranch: bankHomeBranch,
+      allowedPaths: [...bankHomePaths],
+      requiredTruthBoundaries: [
+        'The bank Deal queue is navigation, not a BankOperation read, provider binding, release decision, payment instruction or external bank confirmation.',
+        'UNKNOWN next action, empty, forbidden and degraded remain explicit; no demo amounts, concrete provider or settlement finality.',
+        'RU/EN/ZH, mobile, focus, buyer/seller and other role regressions remain covered; owner-controlled showroom does not gain customer authority.',
+        'Bank source changes start only after the trusted immutable guard prerequisite and this state-only admission are merged.',
+      ],
+      forbiddenAuthority: [
+        'API/backend/domain/DB/RLS/tenant/role/BankOperation/IntegrationBinding/provider/payment authority',
+        'homepage/public implementation or parallel App Shell/design system',
+        'CI/security/readiness gate weakening or production PASS claim',
+      ],
+      teamHubDependency: '#5469 comment 5842845723; CORE #5525; external #5530; buyer #5610 review; P0 release serialization',
+    };
+    if (mutation === 'wrong base') state.coordinationAdmissions[bankHomeCoordinationKey].authorityBaseExactMain = '0'.repeat(40);
+    if (mutation === 'extra path') state.approvedConcurrentScopes[bankHomeBranch].push('apps/api/src/app.module.ts');
+    if (mutation === 'global scope') state.allowedCurrentScope.push('apps/api/**');
+    if (mutation === 'weakened boundary') state.coordinationAdmissions[bankHomeCoordinationKey].requiredTruthBoundaries.pop();
+    if (mutation === 'unrelated admission') state.coordinationAdmissions.extra = { owner: 'ACCOUNT_2_PRODUCT' };
+    if (mutation !== 'missing state diff') write(context.root, statePath, JSON.stringify(state));
+    if (mutation === 'source file') write(context.root, 'apps/api/src/app.module.ts', 'unapproved\n');
+    if (mutation === 'missing state diff') write(context.root, 'allowed.txt', 'changed\n');
+    commit(context.root, `bank home admission ${mutation}`);
+    const result = runGuard(context);
+    if (mutation === 'accepted') assert.equal(result.status, 0, output(result));
+    else {
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /PRODUCT_BANK_HOME_ADMISSION_(STATE_MUTATION|DIFF_SCOPE)/u);
+    }
+  });
+}
+
+test('bank home implementation and admission use trusted base guard in both workflow entry points', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
+  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
+    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
+  const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
+    .split('  standard_validation:')[0];
+  for (const branch of [bankHomeBranch, bankHomeAdmissionBranch]) {
+    assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${branch}'`));
+    assert.ok(trusted.includes(`|${branch}|`) || trusted.includes(`|${branch})`));
+    assert.ok(prHead.includes(`github.head_ref == '${branch}'`));
+    assert.ok(prHead.includes(`|${branch}|`) || prHead.includes(`|${branch})`));
+    assert.ok(standard.includes(`github.head_ref != '${branch}'`));
+  }
 });
 
 test('security remediation pins the three affected dependency families', () => {
