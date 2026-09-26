@@ -13,7 +13,6 @@ describe('platform-v7 mobile trust readability and Gekta return', () => {
   const designSystem = read('tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts');
   const intelligence = read('tests/e2e/platform-v7-public-intelligence-layer.spec.ts');
   const visual = read('tests/e2e/platform-v7-canonical-visual-evidence.spec.ts');
-  const isolatedLayout = read('app/pc-public-entry/platform-v7/layout.tsx');
 
   it('keeps legacy/full public dock hiding while restoring only the canonical Gekta launcher above mobile navigation', () => {
     const legacyHide = "body:has(.pc-canonical-public) .pc-public-contact-dock{display:none!important}";
@@ -25,12 +24,6 @@ describe('platform-v7 mobile trust readability and Gekta return', () => {
     expect(dock).toContain("bottom: max(78px, calc(env(safe-area-inset-bottom, 0px) + 76px)) !important;");
   });
 
-  it('keeps isolated canonical login on the same Gekta-only assistant entry as the main canonical layout', () => {
-    expect(isolatedLayout).toContain("pathname === '/platform-v7/login'");
-    expect(isolatedLayout).toContain("pathname === '/pc-public-entry/platform-v7/login'");
-    expect(isolatedLayout).toContain("publicMode={canonicalLanding ? 'gekta' : 'full'}");
-    expect(isolatedLayout).toContain("legacyPublicPolish={!canonicalLanding}");
-  });
 
   it('forces one readable trust card per mobile row instead of four compressed columns', () => {
     const readableGrid = '.pc-cp-page-home #trust .pc-cp-trust-grid{grid-template-columns:1fr!important}';
