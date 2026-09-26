@@ -1664,6 +1664,11 @@
       "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
       "apps/web/tests/unit/platformV7MobileTrustAndGektaReturn.test.ts",
       "docs/platform-v7/autopilot/scopes/public-mobile-trust-gekta-return-20260926.json"
+    ],
+    "fix/production-web-full-stack-image-preflight-20260926": [
+      "scripts/production-web-remote-entrypoint.sh",
+      "scripts/production-web-remote-entrypoint.test.sh",
+      "docs/platform-v7/autopilot/scopes/production-web-full-stack-image-preflight-20260926.json"
     ]
   },
   "currentAcceptance": [
