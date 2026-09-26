@@ -8,6 +8,7 @@
   "allowedPaths": [
     ".github/workflows/pc-crop-scope-governance.yml",
     "docs/platform-v7/autopilot/scopes/pc-crop-scope-autodiscovery-3170.json",
+    "docs/platform-v7/autopilot/scopes/production-like-outbox-poison-isolation-3793.json",
     "scripts/p7-autopilot-guard.sh",
     "scripts/p7-source-controlled-scope.mjs",
     "scripts/p7-source-controlled-scope.test.mjs",
