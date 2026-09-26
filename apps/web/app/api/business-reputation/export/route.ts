@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '../../../../lib/auth-cookies';
+import { jsonNoStore } from '../../../../lib/http/no-store';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 
@@ -11,6 +12,6 @@ export async function GET() {
     const text = await response.text();
     return new NextResponse(text, { status: response.ok ? 200 : response.status, headers: { 'content-type': 'text/csv; charset=utf-8' } });
   } catch {
-    return NextResponse.json({ ok: false }, { status: 200 });
+    return jsonNoStore({ ok: false }, { status: 200 });
   }
 }

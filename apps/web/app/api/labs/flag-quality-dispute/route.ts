@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { jsonNoStore } from '../../../../lib/http/no-store';
 
 /**
  * Deprecated stub. This route previously returned a fabricated "sample moved to
@@ -8,7 +8,7 @@ import { NextResponse } from 'next/server';
  * and creates the money hold.
  */
 export async function POST() {
-  return NextResponse.json(
+  return jsonNoStore(
     {
       ok: false,
       code: 'NOT_IMPLEMENTED',
