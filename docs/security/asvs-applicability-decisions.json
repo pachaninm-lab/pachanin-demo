@@ -9760,23 +9760,53 @@
     {
       "requirementId": "V15.1.5",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "documentation-set:SECURITY.md"
+        "docs/security/DANGEROUS_FUNCTIONALITY.md",
+        "docs/security/dangerous-functionality.json",
+        "scripts/security/build-dangerous-functionality-inventory.mjs",
+        "scripts/security/build-dangerous-functionality-inventory.test.mjs"
       ],
       "conditions": [
         {
-          "condition": "no document naming where \"dangerous functionality\" is used in the application still exists",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the inventory is generated from the tree rather than written by hand, and still covers the categories it claims",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "SECURITY.md"
+            "scripts/security/build-dangerous-functionality-inventory.mjs"
           ],
           "patterns": [
-            "dangerous functionality"
+            "raw_sql_execution",
+            "outbound_network",
+            "process_execution",
+            "dynamic_code_evaluation",
+            "object_storage_presigned"
+          ]
+        },
+        {
+          "condition": "the staleness check is still in place, so the document cannot quietly stop describing the code",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/build-dangerous-functionality-inventory.test.mjs"
+          ],
+          "patterns": [
+            "committed inventory is not stale",
+            "regenerate the inventory"
+          ]
+        },
+        {
+          "condition": "the rendered document still states where the scan stops and still defers key handling to the cryptographic inventory",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "docs/security/DANGEROUS_FUNCTIONALITY.md"
+          ],
+          "patterns": [
+            "cryptographic_inventory.md",
+            "не означает дефекта",
+            "измеренный ноль"
           ]
         }
       ],
-      "note": "No document names where in the application \"dangerous functionality\" (raw SQL execution, outbound webhook dispatch, cryptographic key handling, and similar) is used. Checked docs/security and SECURITY.md directly for the relevant vocabulary; neither exists."
+      "note": "docs/security/DANGEROUS_FUNCTIONALITY.md now names where dangerous functionality is used, and it is generated from the tree rather than written by hand - a hand-written list of paths is accurate on the day it is written and wrong by the end of the month, and a document that has quietly stopped describing the code is read as current. A staleness test fails the build when the committed inventory drifts, the same guard the cryptographic inventory carries. Seven categories over 1283 scanned files: raw SQL execution 95, outbound network calls 120, JSON parsing 60, filesystem access 6, presigned object-storage URLs 3, process execution 1, dynamic code evaluation 0. Two of those numbers were wrong before they were right, and both errors are recorded in the generator so they are not repeated. The process-execution pattern originally included a bare exec( and matched RegExp.prototype.exec, so the document would have claimed twenty-two places that run processes where there is one; it is now anchored on the child_process import. And the scan roots used a **-glob that git does not expand over files sitting directly in a directory, which silently dropped 32 files carrying outbound calls - the category agreed with an independent grep only after that was fixed, and a test now asserts that agreement on every run. Categories with no findings are recorded as measured zeros rather than omitted, because 'nothing was found' and 'nobody looked' are different statements. Each category carries the limit of its own check: the scan cannot tell whether a JSON.parse is fed by a request body or a constant, so that count is deliberately an overcount rather than a guess narrowed to look precise. The single process-execution site is a public attachments route running OCR binaries; it uses execFile with an argument array rather than a shell, with a timeout and an output ceiling, so it is inventoried as a location rather than reported as a defect - the document says plainly that presence in the list is not a finding."
     },
     {
       "requirementId": "V15.2.1",
