@@ -26,17 +26,44 @@ fail() {
 
 reclaim_web_pull_space() {
   local current_web_id current_image_ref current_image_id current_revision short_sha target_image docker_root
-  local image_ref image_id
+  local image_ref image_id expected_project current_project current_working_dir raw_file resolved_file
+  local -a reclaim_dc compose_web_ids
 
   short_sha="${TARGET_SHA:0:7}"
   target_image="ghcr.io/pachaninm-lab/grainflow-web:sha-${short_sha}"
 
-  # Full-stack pinned-SSH releases run the same Compose web service from a
-  # local transfer tag, whose image reference does not contain grainflow-web.
-  # Resolve that authoritative service first, retaining the legacy image
-  # fallback only for pre-Compose deployments.
+  # The full-stack release uses a local transfer tag. Bind its Compose service
+  # to the already-resolved production directory, files and project before any
+  # Docker reclaim or persistent override mutation.
+  reclaim_dc=(docker compose --project-directory "$prod_dir")
+  [[ -z "$prod_project" ]] || reclaim_dc+=(--project-name "$prod_project")
+  for raw_file in "${resolved_files[@]}"; do
+    resolved_file="$(trim "$raw_file")"
+    [[ -z "$resolved_file" ]] && continue
+    [[ "$resolved_file" == /* ]] || resolved_file="${prod_dir%/}/$resolved_file"
+    reclaim_dc+=(-f "$resolved_file")
+  done
+  mapfile -t compose_web_ids < <("${reclaim_dc[@]}" ps --status running -q web 2>/dev/null || true)
   mapfile -t running_web_ids < <(docker ps -q --no-trunc --filter 'label=com.docker.compose.service=web')
-  if (( ${#running_web_ids[@]} == 0 )); then
+  if (( ${#running_web_ids[@]} > 0 )); then
+    (( ${#compose_web_ids[@]} == 1 && ${#running_web_ids[@]} == 1 )) ||
+      fail 'safe Docker reclaim requires exactly one production Compose web service'
+    [[ "${compose_web_ids[0]}" == "${running_web_ids[0]}" ]] ||
+      fail 'running web service is outside resolved production Compose authority'
+    expected_project="$("${reclaim_dc[@]}" config --format json | python3 -c \
+      'import json,sys; name=json.load(sys.stdin).get("name"); print(name) if isinstance(name,str) and name else sys.exit(1)')" ||
+      fail 'production Compose project name is not proven'
+    current_project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "${running_web_ids[0]}" 2>/dev/null || true)"
+    current_working_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "${running_web_ids[0]}" 2>/dev/null || true)"
+    [[ "$current_project" == "$expected_project" ]] ||
+      fail 'running web project label differs from resolved production Compose project'
+    [[ -n "$current_working_dir" && -d "$current_working_dir" &&
+       "$(cd "$current_working_dir" && pwd -P)" == "$(cd "$prod_dir" && pwd -P)" ]] ||
+      fail 'running web working directory differs from resolved production Compose directory'
+  else
+    (( ${#compose_web_ids[@]} == 0 )) ||
+      fail 'production Compose web service is not visible in running containers'
+    # Legacy pre-Compose deployment: no running Compose web service anywhere.
     mapfile -t running_web_ids < <(
       docker ps -q --no-trunc |
       while read -r id; do
