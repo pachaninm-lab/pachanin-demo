@@ -14,7 +14,7 @@ import {
 } from '@/lib/platform-v7/registration-outcome';
 
 type Locale = 'ru' | 'en' | 'zh';
-type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank';
+type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank' | 'employee';
 
 type RegistrationStatus = RegistrationStatusSnapshot;
 type StatusReadState = 'idle' | 'loading' | 'available' | 'unavailable' | 'invalid';
@@ -88,6 +88,8 @@ type Copy = {
   statusLabels: Record<string, string>;
   nextLabels: Record<string, string>;
   workspaces: Array<{ value: string; label: string }>;
+  workspacePlaceholder: string;
+  employeeJoinLabel: string;
   orgTypes: Array<{ value: string; label: string }>;
 };
 
@@ -179,6 +181,8 @@ const COPY: Record<Locale, Copy> = {
       START_NEW_APPLICATION: 'Подайте новую заявку на регистрацию.',
       WAIT: 'Ожидайте обновления информации по заявке.',
     },
+    workspacePlaceholder: 'Выберите формат участия',
+    employeeJoinLabel: 'Присоединиться к организации',
     workspaces: [
       { value: 'seller', label: 'Сельхозпроизводитель / продавец продукции' },
       { value: 'buyer', label: 'Покупатель продукции' },
@@ -283,6 +287,8 @@ const COPY: Record<Locale, Copy> = {
       START_NEW_APPLICATION: 'Submit a new registration application.',
       WAIT: 'Wait for updated application information.',
     },
+    workspacePlaceholder: 'Choose your participation',
+    employeeJoinLabel: 'Join an existing organisation',
     workspaces: [
       { value: 'seller', label: 'Agricultural producer / seller' },
       { value: 'buyer', label: 'Buyer' },
@@ -387,6 +393,8 @@ const COPY: Record<Locale, Copy> = {
       START_NEW_APPLICATION: '重新提交注册申请。',
       WAIT: '请等待申请信息更新。',
     },
+    workspacePlaceholder: '请选择参与方式',
+    employeeJoinLabel: '加入已有机构',
     workspaces: [
       { value: 'seller', label: '农业生产者 / 卖方' },
       { value: 'buyer', label: '买方' },
@@ -522,6 +530,8 @@ export function RegisterFormClient({
       () => globalThis.crypto?.randomUUID?.() || `reg-${Date.now()}-${Math.random()}`,
     );
     submitLockRef.current = true;
+    element.dataset.registrationSubmitting = 'true';
+    window.dispatchEvent(new CustomEvent('pc-registration-pending', { detail: true }));
     setSubmitting(true);
     setError('');
     setCorrelationId('');
@@ -557,6 +567,7 @@ export function RegisterFormClient({
         unknownOperationRef.current = null;
         setSubmittedEmail(payload.email);
         setDeliveryUnconfirmed(row?.deliveryConfirmed === false);
+        window.dispatchEvent(new Event('pc-registration-accepted'));
         setSubmissionAccepted(true);
         return;
       }
@@ -569,6 +580,8 @@ export function RegisterFormClient({
       setError(verdict === 'invalid' ? copy.invalid : copy.unavailable);
     } finally {
       submitLockRef.current = false;
+      delete element.dataset.registrationSubmitting;
+      window.dispatchEvent(new CustomEvent('pc-registration-pending', { detail: false }));
       setSubmitting(false);
     }
   }
@@ -778,7 +791,7 @@ export function RegisterFormClient({
       <section className='p0-register-card'>
         <div className='p0-register-section-heading'><h2>1. {copy.participationSection}</h2><p>{copy.participationLead}</p></div>
         <div className='p0-register-grid'>
-          <label><span>{copy.workspace} *</span><select name='workspace' defaultValue={initialWorkspace || 'seller'} required>{copy.workspaces.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+          <label><span>{copy.workspace} *</span><select name='workspace' defaultValue={initialWorkspace || ''} required><option value='' disabled>{copy.workspacePlaceholder}</option>{copy.workspaces.filter((item) => item.value !== 'employee').map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}<optgroup label={copy.employeeJoinLabel}><option value='employee'>{copy.workspaces.find((item) => item.value === 'employee')?.label}</option></optgroup></select></label>
           <label><span>{copy.orgType} *</span><select name='orgType' defaultValue='LEGAL' required>{copy.orgTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
         </div>
       </section>

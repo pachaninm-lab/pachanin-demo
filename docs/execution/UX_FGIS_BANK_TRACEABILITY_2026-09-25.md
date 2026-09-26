@@ -1,6 +1,6 @@
 # UX, ФГИС и банки — полный контур исполнения MASTER v2.1
 
-Точка сверки: `main=67dfca2e6f2169d1bb5a9838621708b05b1497ee`, 25.09.2026. Этот реестр задаёт объём работы и порядок проверки, а не объявляет его выполненным. Последняя подтверждённая web revision на REG.RU: `952a305849224a46d96256ca2621f0438c8165cc`; новая приёмка требует проверки фактически запущенного exact SHA. Официальный прогресс остаётся `5/100` до приёмки полного блока. Источники: MASTER v2.1, `R1_1_EXACT_INVENTORY_2026-09-20.md`, текущие route/component imports и задачи #5372, #5370, #5525, #5526, #5530, #5531, #5535, #5580.
+Точка сверки: `main=18e02668f84f7f88842779a9097f145504b105bb`, 26.09.2026. Этот реестр задаёт объём работы и порядок проверки, а не объявляет его выполненным. Exact-main full-stack выпуск на REG.RU зафиксировал эту revision; свежая production mobile browser-приёмка остаётся открытой. Официальный прогресс MASTER остаётся `5/100` до приёмки следующего полного R-блока. Источники: MASTER v2.1, `R1_1_EXACT_INVENTORY_2026-09-20.md`, текущие route/component imports и задачи #5372, #5370, #5525, #5526, #5530, #5531, #5535, #5580.
 
 ## UX охватывает весь продукт
 
@@ -19,7 +19,7 @@
 | № | Кабинет | Production route | Текущий вход | Следующая предметная приёмка |
 | ---: | --- | --- | --- | --- |
 | 1 | Оператор | `/platform-v7/operator` | собственная page, canonical Deal/outbox reads | triage, ownership, conflict/recovery, server task authority |
-| 2 | Покупатель | `/platform-v7/buyer` | FirstCustomerWorkspace | первый вход, Deal journey и честный UNKNOWN; следующий Product vertical #5604 prerequisite |
+| 2 | Покупатель | `/platform-v7/buyer` | FirstCustomerWorkspace | первый вход, Deal journey и честный UNKNOWN; #5604/#5609 merged, source vertical #5610 открыт и ещё не принят live |
 | 3 | Продавец | `/platform-v7/seller` | FirstCustomerWorkspace | farmer-first end-to-end #5371, реальные партии/сделки и отрицательные состояния |
 | 4 | Логистика | `/platform-v7/logistics` | FirstCustomerWorkspace | shipment plan, назначение, outage/recovery, роль/права |
 | 5 | Водитель | `/platform-v7/driver/field` | FirstCustomerWorkspace | mobile/offline evidence, повторная отправка и конфликт синхронизации |
@@ -32,7 +32,7 @@
 | 12 | Комплаенс | `/platform-v7/compliance` | собственная page | review/restriction/reason, permission/step-up |
 | 13 | Руководитель | `/platform-v7/executive` | собственная page, Deal/dispute/outbox reads | sourced health/drill-down, freshness и no fake KPI |
 
-Общий экран восьми ролей сейчас показывает UNKNOWN для неподтверждённого обязательного следующего шага (#5589); это truth guard, а не полный UX этих восьми кабинетов. В каждой роли дополнительно нужны object journey, settings, action/error/outage/recovery и мобильная приёмка. Founder controlled mode не превращает тестовую организацию в customer authority.
+Общий экран восьми ролей сейчас показывает UNKNOWN для неподтверждённого обязательного следующего шага (#5589); это truth guard, а не полный UX этих восьми кабинетов. #5621 подготавливает допуск банковской главной, но не меняет её runtime; #5610 меняет только ограниченный экран покупателя. В каждой роли дополнительно нужны object journey, settings, action/error/outage/recovery и мобильная приёмка. Founder controlled mode не превращает тестовую организацию в customer authority.
 
 ## Банк и деньги
 
@@ -52,11 +52,11 @@
 | R8-006–010, ACX-003 | FGIS Grain contract 1.0.23 pinned, чтение/запись registry пока disabled или sandbox-only без живого доступа; ZSN public PDF source pinned. | #5370: lot/СДИЗ read+delta, immutable evidence, Grain→canonical Inventory и conflict/reconciliation; #5531: org/delegation, credentials, signature, operator, external E2E. Mutation/sign/cancel только после доказанных предпосылок. |
 | R8-011–018, ACX-001–002 | Остальные government/EPD systems записаны как disabled/not assessed, а не подключённые. | Field geometry/right/season, seeds separate operations, Saturn metadata contract; EPD lifecycle и аккредитованный оператор, обязательный stage gate; Argus/VetIS/Росаккредитация только по server applicability. Никакой реальной юридической mutation ради теста. |
 
-Внешняя блокировка записывается отдельно по системе/банку: владелец, `checkedAt`, нужный договор/доступ/сертификат/подпись/оператор, затронутая capability. Нельзя конвертировать её в PASS или подставлять фиктивный статус.
+Внешняя блокировка записывается отдельно по системе/банку: владелец, `checkedAt`, нужный договор/доступ/сертификат/подпись/оператор, затронутая capability. Нельзя конвертировать её в PASS или подставлять фиктивный статус. #5622 исправляет UNKNOWN результат команды в Control Tower, но не добавляет применимость к сделке или внешний доступ.
 
 ## Порядок работы и критерий окончания
 
-1. Завершить PUBLIC #5559 и exact-main release sequencing; закрыть guard #5604 с независимой проверкой. Затем отдельный state-only buyer admission и его реализация на accepted base. Каждый дальнейший экран допускается узким scope.
+1. Завершить production mobile browser-приёмку exact `18e02668...` после PUBLIC #5559/#5631; guard #5604 и buyer admission #5609 уже merged. Довести #5610 через проверки текущего HEAD, merge и live acceptance. Каждый дальнейший экран допускается узким scope.
 2. Сохранить единые shell/status/action primitives; завершить role-by-role buyer → logistics/driver → elevator/lab/surveyor → bank/employee/operator/arbitrator/compliance/executive, с общими settings/search/notification/support и RU/EN/ZH/mobile/a11y. Публичные маршруты проходят по PUBLIC handoff. Роль-mode #5477 ждёт CORE #5580 и `READY_FOR_CONSUMER`.
 3. После CORE read projections #5525/#5526 Product подключает только типизированные bank/FGIS server facts. Реальная активация #5530/#5531 требует внешних артефактов; R8/R9 внутренние контракты и внешняя приёмка фиксируются раздельно.
 4. Для каждого vertical: exact-head tests/CI/security, независимый просмотр полного diff, author audit, SHA-bound merge, exact-current-main REG.RU image/revision и live функциональная/mobile/negative приёмка. Только 13/13 и все соответствующие UX/R8/R9/BNX/ACX acceptance cases дают полное закрытие блока; зелёный CI или документ сами по себе этого не доказывают.

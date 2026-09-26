@@ -256,7 +256,7 @@ export async function PlatformV7StrategicHome() {
             <p>{copy.heroLead}</p>
             <div className='pc-cp-actions'>
               <a className='pc-cp-button' href={`${registerBase}&intent=sell`}>{copy.sell}<ArrowRight size={17} aria-hidden='true' /></a>
-              <a className='pc-cp-button pc-cp-button--secondary' href={`${registerBase}&intent=buy`}>{copy.buy}<ArrowRight size={17} aria-hidden='true' /></a>
+              <a className='pc-cp-button' href={`${registerBase}&intent=buy`}>{copy.buy}<ArrowRight size={17} aria-hidden='true' /></a>
             </div>
             <div className='pc-cp-hero-proof'>{copy.proof.map((item) => <span key={item}>{item}</span>)}</div>
           </div>

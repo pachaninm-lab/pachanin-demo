@@ -11,7 +11,16 @@ import RegisterPage from '../../app/platform-v7/register/page';
 import TrustPage from '../../app/platform-v7/trust/page';
 import { ContactClient } from '../../app/platform-v7/contact/ContactClient';
 import { PublicHeaderInteractions } from '../../components/platform-v7/PublicHeaderInteractions';
-import { RegisterFormClientPublic } from '../../app/platform-v7/register/RegisterFormClientPublic';
+import { EmployeeParticipationEntry, RegisterFormClientPublic } from '../../app/platform-v7/register/RegisterFormClientPublic';
+import {
+  CONTACT_RESULT_COOKIE,
+  CONTACT_RESULT_TTL_SECONDS,
+  contactResultCookieOptions,
+  contactResultFromRequest,
+  createContactResultReceipt,
+  renderNativeContactResult,
+  verifyContactResultReceipt,
+} from '../../lib/platform-v7/contact-result-receipt';
 import {
   CanonicalBottomNav,
   CanonicalDealSpine,
@@ -141,17 +150,22 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
   });
 
   it('prefills only a bounded public participation class without granting role authority', () => {
-    expect(registrationPage).toContain("type PublicRegistrationIntent = 'sell' | 'buy' | 'execution' | 'finance'");
+    expect(registrationPage).toContain("type PublicRegistrationIntent = 'sell' | 'buy' | 'execution' | 'finance' | 'employee'");
     expect(registrationPage).toContain("sell: 'seller'");
     expect(registrationPage).toContain("buy: 'buyer'");
-    expect(registrationPage).toContain("execution: 'logistics'");
+    expect(registrationPage).not.toContain("execution: 'logistics'");
     expect(registrationPage).toContain("finance: 'bank'");
+    expect(registrationPage).toContain("employee: 'employee'");
     expect(registrationPage).toContain("if (intent) query.set('intent', intent)");
     expect(registrationPage).toContain("className='pc-site-locale-cluster'");
     expect(registrationPage).toContain('initialWorkspace={initialWorkspace}');
-    expect(registrationClient).toContain("React.useState<RegistrationWorkspace>(initialWorkspace || 'seller')");
-    expect(registrationBaseClient).toContain("defaultValue={initialWorkspace || 'seller'}");
+    expect(registrationClient).toContain("React.useState<RegistrationWorkspace | ''>(initialWorkspace || '')");
+    expect(registrationBaseClient).toContain("defaultValue={initialWorkspace || ''}");
     expect(registrationClient).toContain("event.target.value as RegistrationWorkspace");
+    expect(registrationClient).toContain("<option value='' disabled>Выберите формат участия</option>");
+    expect(registrationClient).toContain("<optgroup label='Присоединиться к организации'>");
+    expect(registrationBaseClient).toContain("<optgroup label={copy.employeeJoinLabel}>");
+    expect(registrationUxSpec).toContain("T15 ");
     expect(registrationClient).not.toContain('requestedRole');
     expect(registrationBaseClient).not.toContain('requestedRole');
   });
@@ -210,13 +224,13 @@ function elements(node: ReactNode): Array<React.ReactElement<Record<string, any>
 
 describe('public registration intent and locale behaviour', () => {
   for (const locale of ['ru', 'en', 'zh'] as const) {
-    for (const [intent, workspace] of [['sell', 'seller'], ['buy', 'buyer'], ['execution', 'logistics'], ['finance', 'bank']] as const) {
+    for (const [intent, workspace] of [['sell', 'seller'], ['buy', 'buyer'], ['execution', ''], ['finance', 'bank'], ['employee', 'employee']] as const) {
       it(`${locale}: ${intent} reaches the actual form and survives locale change without new authority`, async () => {
         const tree = await RegisterPage({ searchParams: Promise.resolve({ lang: locale, intent, verify: 'token-v', statusToken: 'token-s', role: 'PLATFORM_OWNER', tenantId: 'untrusted' }) });
         const all = elements(tree);
         const form = all.find((node) => node.type === RegisterFormClientPublic)!;
         expect(form).toBeDefined();
-        expect(form.props).toMatchObject({ locale, initialWorkspace: workspace, verifyToken: 'token-v', initialStatusToken: 'token-s' });
+        expect(form.props).toMatchObject({ locale, initialWorkspace: workspace || undefined, verifyToken: 'token-v', initialStatusToken: 'token-s' });
         expect(form.props).not.toHaveProperty('role');
         expect(form.props).not.toHaveProperty('tenantId');
         const header = all.find((node) => node.props.localeControl)!;
@@ -233,11 +247,22 @@ describe('public registration intent and locale behaviour', () => {
         expect(query.get('lang')).toBe(nextLocale);
         expect(query.has('role')).toBe(false);
         expect(query.has('tenantId')).toBe(false);
-        const html = renderToStaticMarkup(createElement(RegisterFormClientPublic, { locale, initialWorkspace: workspace }));
+        const html = renderToStaticMarkup(createElement(RegisterFormClientPublic, { locale, initialWorkspace: workspace || undefined }));
         expect(html).toMatch(new RegExp(`<option[^>]*value="${workspace}"[^>]*selected=""`));
       });
     }
   }
+  it('offers employee participation only when the editable registration form is shown', async () => {
+    for (const locale of ['ru', 'en', 'zh'] as const) {
+      const form = elements(await RegisterPage({ searchParams: Promise.resolve({ lang: locale }) }));
+      expect(form.some((node) => node.type === EmployeeParticipationEntry)).toBe(true);
+      for (const context of [{ verify: 'token-v' }, { statusToken: 'token-s' }, { intent: 'employee' }]) {
+        const screen = elements(await RegisterPage({ searchParams: Promise.resolve({ lang: locale, ...context }) }));
+        expect(screen.some((node) => node.type === EmployeeParticipationEntry)).toBe(false);
+      }
+    }
+  });
+
   it.each(['owner', '__proto__', 'constructor', '<script>', 'BUY'])('rejects unknown intent %s', async (intent) => {
     const all = elements(await RegisterPage({ searchParams: Promise.resolve({ intent }) }));
     expect(all.find((node) => node.type === RegisterFormClientPublic)!.props.initialWorkspace).toBeUndefined();
@@ -548,13 +573,20 @@ describe('registration snapshot remains immutable while the request is pending',
   for (const locale of ['ru', 'en', 'zh'] as const) {
     it(locale + ': snapshots the entire request before disabling editable controls', async () => {
       vi.stubGlobal('crypto', { randomUUID: () => 'fixture-submit-key' });
-      let complete!: (response: unknown) => void;
-      const post = vi.fn(() => new Promise((resolve) => { complete = resolve; }));
+      let rejectFirst!: (error: Error) => void;
+      const post = vi.fn()
+        .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectFirst = reject; }))
+        .mockResolvedValue({ ok: true, status: 202, json: async () => ({ accepted: true }) });
       vi.stubGlobal('fetch', post);
-      const { container } = render(createElement(RegisterFormClientPublic, { locale }));
+      const { container } = render(createElement('div', null,
+        createElement(EmployeeParticipationEntry, { label: 'Join' }),
+        createElement(RegisterFormClientPublic, { locale }),
+      ));
+      const entry = container.querySelector<HTMLButtonElement>('button.p0-register-secondary')!;
       const form = container.querySelector<HTMLFormElement>('form.p0-register-form')!;
       const fill = (name: string, value: string) =>
         fireEvent.change(form.querySelector<HTMLInputElement>('[name="' + name + '"]')!, { target: { value } });
+      fireEvent.change(form.querySelector<HTMLSelectElement>('[name="workspace"]')!, { target: { value: 'seller' } });
       fill('orgLegalName', 'Fixture Organisation');
       fill('orgInn', '1234567890');
       fill('region', 'Tambov');
@@ -592,10 +624,21 @@ describe('registration snapshot remains immutable while the request is pending',
       // The pending POST retains the immutable snapshot, while real-browser
       // coverage verifies disabled interaction and omission from FormData.
       expect(body.email).toBe('fixture@example.invalid');
+      expect(entry.disabled).toBe(true);
+      fireEvent.click(entry);
+      expect(form.querySelector<HTMLSelectElement>('[name="workspace"]')?.value).toBe('seller');
 
-      complete({ ok: true, status: 202, json: async () => ({ accepted: true }) });
+      await act(async () => rejectFirst(new Error('network result unknown')));
+      await waitFor(() => expect(entry.disabled).toBe(false));
+      expect(form.dataset.registrationSubmitting).toBeUndefined();
+      expect(form.querySelector('[role="alert"]')?.textContent).toBeTruthy();
+      fireEvent.submit(form);
+      await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+      const [, retryOptions] = post.mock.calls[1] as unknown as [string, RequestInit];
+      expect(retryOptions.body).toBe(options.body);
+      expect(new Headers(retryOptions.headers).get('idempotency-key')).toBe('fixture-submit-key');
       await waitFor(() => expect(container.querySelector('.p0-register-state')).toBeTruthy());
-      expect(post).toHaveBeenCalledTimes(1);
+      expect(entry.disabled).toBe(true);
     });
   }
 });
@@ -615,6 +658,7 @@ describe('canonical public registration confirmation error UX-13', () => {
         fireEvent.change(input, { target: { value } });
         return input;
       };
+      fireEvent.change(form.querySelector<HTMLSelectElement>('[name="workspace"]')!, { target: { value: 'seller' } });
       fill('orgLegalName', 'Fixture Organisation');
       fill('orgInn', '1234567890');
       fill('region', 'Tambov');
@@ -675,6 +719,7 @@ describe('canonical public registration accepted next step UX-30', () => {
       const form = container.querySelector<HTMLFormElement>('form.p0-register-form')!;
       const fill = (name: string, value: string) =>
         fireEvent.change(form.querySelector<HTMLInputElement>(`[name="${name}"]`)!, { target: { value } });
+      fireEvent.change(form.querySelector<HTMLSelectElement>('[name="workspace"]')!, { target: { value: 'seller' } });
       fill('orgLegalName', 'Fixture Organisation');
       fill('orgInn', '1234567890');
       fill('region', 'Tambov');
@@ -751,5 +796,111 @@ describe('public registration verified continuation UX-14', () => {
     for (const token of ['', 'x'.repeat(513), 'bad\nheader']) {
       expect(() => verifiedRegistrationContinuationHref('?verify=spent', token, 'ru')).toThrow(TypeError);
     }
+  });
+});
+
+describe('contact native result receipt authority', () => {
+  const env = {
+    CONTACT_RESULT_HMAC_SECRET: 'contact_receipt_secret_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    NODE_ENV: 'production',
+  } as NodeJS.ProcessEnv;
+  const otherEnv = {
+    CONTACT_RESULT_HMAC_SECRET: 'contact_receipt_secret_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    NODE_ENV: 'production',
+  } as NodeJS.ProcessEnv;
+  const now = 1_790_000_000;
+  const nonce = 'abcdefghijklmnopqrstuvwx';
+
+  it('ignores forged sent/error query parameters without a verified receipt marker and cookie', () => {
+    for (const query of [
+      { sent: '1' }, { sent: 'true' }, { sent: ['1', 'true'] }, { error: 'provider_failure' },
+      { sent: '1', error: 'anything' }, { receipt: 'true' }, { receipt: ['1'] },
+    ]) {
+      expect(contactResultFromRequest(query, undefined, now, env)).toBeNull();
+    }
+  });
+
+  it.each(['delivered', 'failed'] as const)('round-trips a signed %s result without PII', (result) => {
+    const receipt = createContactResultReceipt(result, now, env, nonce);
+    expect(receipt).toBeTruthy();
+    expect(receipt).not.toContain('QA User');
+    expect(receipt).not.toContain('qa@example.invalid');
+    expect(verifyContactResultReceipt(receipt, now, env)).toBe(result);
+    expect(contactResultFromRequest({ receipt: '1', sent: '1', error: 'forged' }, receipt, now, env)).toBe(result);
+  });
+
+  it('rejects tampering, the wrong key, expiry, future issue time and malformed tokens', () => {
+    const receipt = createContactResultReceipt('delivered', now, env, nonce)!;
+    const parts = receipt.split('.');
+    expect(verifyContactResultReceipt(receipt, now, otherEnv)).toBeNull();
+    expect(verifyContactResultReceipt(receipt, now + CONTACT_RESULT_TTL_SECONDS, env)).toBeNull();
+    expect(verifyContactResultReceipt(createContactResultReceipt('delivered', now + 31, env, nonce), now, env)).toBeNull();
+
+    const changedStatus = [...parts];
+    changedStatus[1] = 'failed';
+    expect(verifyContactResultReceipt(changedStatus.join('.'), now, env)).toBeNull();
+
+    const changedSignature = [...parts];
+    changedSignature[5] = '0'.repeat(64);
+    expect(verifyContactResultReceipt(changedSignature.join('.'), now, env)).toBeNull();
+
+    for (const malformed of ['', 'v1.delivered', receipt + '.extra', 'x'.repeat(300)]) {
+      expect(verifyContactResultReceipt(malformed, now, env)).toBeNull();
+    }
+  });
+
+  it('fails closed when no dedicated contact-result signing secret is configured', () => {
+    expect(createContactResultReceipt('delivered', now, {}, nonce)).toBeNull();
+    expect(contactResultFromRequest({ receipt: '1' }, 'forged', now, {})).toBeNull();
+  });
+
+  it('uses a short-lived HttpOnly same-site cookie scoped only to the contact page', () => {
+    expect(contactResultCookieOptions(env)).toEqual({
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      path: '/platform-v7/contact',
+      maxAge: CONTACT_RESULT_TTL_SECONDS,
+    });
+    expect(CONTACT_RESULT_COOKIE).toBe('pc_contact_result_v1');
+  });
+
+  it('keeps GET success/error authority out of user-controlled sent/error parameters', () => {
+    const pageSource = read('apps/web/app/platform-v7/contact/page.tsx');
+    const routeSource = read('apps/web/app/api/platform-v7/inquiries/route.ts');
+    expect(pageSource).toContain('contactResultFromRequest(');
+    expect(pageSource).toContain('cookieStore.get(CONTACT_RESULT_COOKIE)?.value');
+    expect(pageSource).not.toContain('isSent(params)');
+    expect(pageSource).not.toContain('hasDeliveryError(params)');
+    expect(routeSource).toContain("url.searchParams.set('receipt', '1')");
+    expect(routeSource).toContain('response.cookies.set(CONTACT_RESULT_COOKIE');
+    expect(routeSource).not.toContain("url.searchParams.set('sent'");
+    expect(routeSource).not.toContain("url.searchParams.set('error'");
+  });
+
+  it('preserves and escapes a native POST draft when delivery is unconfirmed', () => {
+    const html = renderNativeContactResult('ru', 'unknown', {
+      type: 'bank_partner', name: 'Анна <script>alert(1)</script>',
+      organization: 'КФХ & партнёры', contact: 'anna@example.test',
+      message: 'Заявка </textarea><script>alert(2)</script>', consent: 'yes',
+    });
+    const page = new DOMParser().parseFromString(html, 'text/html');
+    expect(page.querySelector('script')).toBeNull();
+    expect(page.querySelector('form')?.getAttribute('action')).toBe('/api/platform-v7/inquiries');
+    expect(page.querySelector<HTMLInputElement>('input[name="name"]')?.value).toBe('Анна <script>alert(1)</script>');
+    expect(page.querySelector<HTMLInputElement>('input[name="organization"]')?.value).toBe('КФХ & партнёры');
+    expect(page.querySelector<HTMLTextAreaElement>('textarea[name="message"]')?.value).toBe('Заявка </textarea><script>alert(2)</script>');
+    expect(page.querySelector('select[name="type"] option[selected]')?.getAttribute('value')).toBe('bank_partner');
+    expect(page.querySelector<HTMLInputElement>('input[name="consent"]')?.checked).toBe(true);
+    expect(page.querySelector('a[href^="tel:"]')).toBeTruthy();
+    expect(html).not.toContain('name="message" value=');
+    expect(html).not.toContain('<script>alert');
+  });
+
+  it('shows a truthful known success without a draft when signing is unavailable', () => {
+    const html = renderNativeContactResult('en', 'delivered');
+    const page = new DOMParser().parseFromString(html, 'text/html');
+    expect(page.querySelector('h1')?.textContent).toBe('Inquiry sent');
+    expect(page.querySelector('form')).toBeNull();
   });
 });

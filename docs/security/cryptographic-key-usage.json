@@ -1,7 +1,7 @@
 {
   "schemaVersion": "pc-crop.key-usage.v1",
   "purpose": "ASVS 5.0 V11.1.2 asks the cryptographic inventory to record where each key may and may not be used and what data it may and may not protect. The generated inventory answers what exists and where it appears; that is discoverable by scanning. This answers what each key is for, which is not - so it is written here and held to the generated inventory by scripts/security/verify-key-usage.mjs. A key that spreads to a new file fails the build until the decision is revisited.",
-  "boundKeys": 27,
+  "boundKeys": 28,
   "keys": [
     {
       "name": "ACCESS_TOKEN_SECRET",
@@ -107,6 +107,19 @@
       ],
       "mustNotProtect": [
         "Any session, credential or application data at rest. It authenticates an inbound counterparty message and nothing else"
+      ]
+    },
+    {
+      "name": "CONTACT_RESULT_HMAC_SECRET",
+      "kind": "secret",
+      "usedIn": [
+        "apps/web/lib/platform-v7/contact-result-receipt.ts"
+      ],
+      "mayProtect": [
+        "Short-lived no-PII contact submission result receipts used only to prove the native contact redirect result in the same browser"
+      ],
+      "mustNotProtect": [
+        "Authentication, cabinet sessions, roles, tenants, Deals, money, registration, password reset, marketing webhooks, provider credentials or any other platform authority"
       ]
     },
     {
