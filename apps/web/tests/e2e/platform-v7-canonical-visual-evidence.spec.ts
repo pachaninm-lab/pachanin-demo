@@ -484,10 +484,17 @@ test.describe('canonical cross-browser public smoke', () => {
         expect(box!.height).toBeGreaterThanOrEqual(43.999);
       }
       const gektaDock=page.locator(".pc-public-contact-dock[data-public-mode='gekta']");
-      await expect(gektaDock).toBeHidden();
+      await expect(gektaDock).toBeVisible();
+      const gektaTarget=await gektaDock.locator('.pc-public-contact-dock-assistant').boundingBox();
+      expect(gektaTarget).not.toBeNull();
+      expect(gektaTarget!.width).toBeGreaterThanOrEqual(44);
+      expect(gektaTarget!.height).toBeGreaterThanOrEqual(44);
 
       await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
       const bottomBox=await bottom.boundingBox();
+      const dockBox=await gektaDock.boundingBox();
+      expect(dockBox).not.toBeNull();
+      expect(dockBox!.y+dockBox!.height).toBeLessThanOrEqual(bottomBox!.y-4);
       expect(bottomBox).not.toBeNull();
       const last=route.includes('/login')
         ? page.locator('.pc-auth-register').last()
