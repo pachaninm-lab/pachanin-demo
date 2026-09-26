@@ -465,6 +465,8 @@ export function IntegrationControlTowerClient({
       setPending(null);
       setReceipt('');
     };
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 12_000);
     setExecuting(true);
     try {
       const path = command.action === 'REDRIVE'
@@ -486,6 +488,7 @@ export function IntegrationControlTowerClient({
           reason: command.reason.trim(),
         }),
         cache: 'no-store',
+        signal: controller.signal,
       });
       const payload = await readJson(response);
       if (!response.ok) {
@@ -512,6 +515,7 @@ export function IntegrationControlTowerClient({
       // A thrown fetch/read cannot prove whether the server committed the command.
       markUnknown();
     } finally {
+      window.clearTimeout(timeoutId);
       setExecuting(false);
     }
   };

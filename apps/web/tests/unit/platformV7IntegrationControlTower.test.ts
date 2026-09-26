@@ -154,6 +154,7 @@ describe('Platform V7 Integration Control Tower vertical', () => {
     expect(client).toContain('disabled={!selected.primaryAction.allowed || !!unknownCommand}');
     expect(client).toContain('if (!selected || unknownCommand) return;');
     expect(client).toContain('if (!matchesControlTowerCommandReceipt(payload, command))');
+    expect(client).toContain('signal: controller.signal');
     expect(client).toContain('markUnknown();');
     expect(client).toContain('setPending(null);');
     expect(client).toContain("receipt: 'Сервер подтвердил запись команды в audit/outbox.");
