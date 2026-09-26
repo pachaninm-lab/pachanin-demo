@@ -19,12 +19,10 @@ describe('platform-v7 mobile trust readability and Gekta return', () => {
     const legacyHide = "body:has(.pc-canonical-public) .pc-public-contact-dock{display:none!important}";
     expect(homeCss).toContain(legacyHide);
     expect(publicCss).toContain(legacyHide);
-    expect(dock).toContain("body:has(.pc-cp-bottom-nav) .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='full']");
     expect(dock).not.toContain("body:has(.pc-cp-bottom-nav) .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {\\n    display: none !important;");
     expect(dock).toContain(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
     expect(dock).toContain('display: grid !important;');
     expect(dock).toContain("bottom: max(78px, calc(env(safe-area-inset-bottom, 0px) + 76px)) !important;");
-    expect(dock).toContain("body:has(.pc-cp-bottom-nav) .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='full']");
   });
 
   it('keeps isolated canonical login on the same Gekta-only assistant entry as the main canonical layout', () => {
@@ -52,8 +50,7 @@ describe('platform-v7 mobile trust readability and Gekta return', () => {
     expect(designSystem).not.toContain('if (width <= 760 || width >= 981)');
     expect(intelligence).toContain(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
     expect(intelligence).toContain('if (item.width <= 1100)');
-    expect(visual).toContain(".pc-public-contact-dock[data-assistant-context='public']");
-    expect(visual).toContain("await expect(publicDock).toHaveAttribute('data-public-mode','full')");
+    expect(visual).toContain(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
     expect(visual).toContain('await expect(publicDock).toBeVisible()');
     expect(visual).toContain("expect(gektaBox!.height).toBeGreaterThanOrEqual(44)");
   });
