@@ -1498,8 +1498,7 @@
       ".github/workflows/production-auth-mail-outbox-cutover.yml",
       "scripts/check-production-auth-mail-outbox-cutover.mjs",
       "scripts/production-web-remote-entrypoint.sh",
-      "scripts/production-web-remote-entrypoint.test.sh",
-      "docs/platform-v7/autopilot/scopes/production-web-full-stack-image-preflight-20260926.json"
+      "scripts/production-web-remote-entrypoint.test.sh"
     ],
     "r1-owner-role-server-authority-20260920": [
       "apps/api/src/modules/staff-access/**",
