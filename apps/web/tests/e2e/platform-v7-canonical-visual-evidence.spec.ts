@@ -483,18 +483,21 @@ test.describe('canonical cross-browser public smoke', () => {
         expect(box).not.toBeNull();
         expect(box!.height).toBeGreaterThanOrEqual(43.999);
       }
-      const gektaDock=page.locator(".pc-public-contact-dock[data-assistant-context='public']");
+      const gektaDock=page.locator(".pc-public-contact-dock[data-public-mode='gekta']");
+      const gektaAction=gektaDock.locator('.pc-public-contact-dock-assistant');
       await expect(gektaDock).toBeVisible();
-      const gektaTarget=await gektaDock.locator('.pc-public-contact-dock-assistant').boundingBox();
-      expect(gektaTarget).not.toBeNull();
-      expect(gektaTarget!.width).toBeGreaterThanOrEqual(44);
-      expect(gektaTarget!.height).toBeGreaterThanOrEqual(44);
+      await expect(gektaAction).toBeVisible();
+      await expect(gektaAction).toBeEnabled();
+      const gektaBox=await gektaAction.boundingBox();
+      const bottomBeforeScroll=await bottom.boundingBox();
+      expect(gektaBox).not.toBeNull();
+      expect(bottomBeforeScroll).not.toBeNull();
+      expect(gektaBox!.width).toBeGreaterThanOrEqual(44);
+      expect(gektaBox!.height).toBeGreaterThanOrEqual(44);
+      expect(gektaBox!.y+gektaBox!.height).toBeLessThanOrEqual(bottomBeforeScroll!.y-4);
 
       await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
       const bottomBox=await bottom.boundingBox();
-      const dockBox=await gektaDock.boundingBox();
-      expect(dockBox).not.toBeNull();
-      expect(dockBox!.y+dockBox!.height).toBeLessThanOrEqual(bottomBox!.y-4);
       expect(bottomBox).not.toBeNull();
       const last=route.includes('/login')
         ? page.locator('.pc-auth-register').last()
