@@ -1,6 +1,6 @@
 # UX implementation ready — full product and 13 cabinets
 
-Baseline: MASTER v2.1, `main` `bfbcd7642e54678153073a6d864695739b550b9c` at 25 September 2026. This is an execution contract, not UX acceptance or a deployment record. Re-resolve `main`, the active hosting revision, and the server role registry before each implementation slice. The companion route and dependency inventory is #5605; it is not a substitute for this acceptance plan.
+Baseline: MASTER v2.1, `main` `18e02668f84f7f88842779a9097f145504b105bb` at 26 September 2026 after public mobile repair #5631. This is an execution contract, not UX acceptance or a deployment record. Re-resolve `main`, the active hosting revision, and the server role registry before each implementation slice. The companion route and dependency inventory is #5605; it is not a substitute for this acceptance plan.
 
 ## CURRENT STATE
 
@@ -8,7 +8,7 @@ Baseline: MASTER v2.1, `main` `bfbcd7642e54678153073a6d864695739b550b9c` at 25 S
 - Eight production role roots select `FirstCustomerWorkspace` through `firstCustomerWorkspaceRequired()`: seller, buyer, logistics, driver/field, surveyor, elevator, lab, and bank. The server snapshot in `apps/web/lib/first-customer-workspace-server.ts` supplies identity, organization and a scoped Deal/shipment/sample queue. Its order is recency, not server action priority. The screen therefore says UNKNOWN for the required next step.
 - Operator, employee/profile, arbitrator, compliance and executive have distinct route bodies. The complete 13-root list and factual imports are in `docs/execution/R1_1_EXACT_INVENTORY_2026-09-20.md`; changes to that server registry require a new inventory, not an invented fourteenth role.
 - Seller, Deal 360, role-mode and truthful bank/FGIS presentation have bounded prior work. Their PRs, green tests and controlled-pilot wording do not prove the complete 13/13 journey, mobile, accessibility, language or live acceptance.
-- The current buyer source vertical is gated by #5604's immutable guard, then a separate trusted-base state-only admission. Its five exact planned paths are `FirstCustomerWorkspace.tsx`, its new module CSS, `designSystemV8MoneyRoles.test.ts`, a focused buyer UX test and its scope manifest. No buyer source edit is authorized by the guard alone.
+- Buyer guard #5604 and its separate state-only admission #5609 have merged. The bounded buyer source vertical is open as #5610 and uses four direct paths: `FirstCustomerWorkspace.tsx`, its module CSS, `designSystemV8MoneyRoles.test.ts` and its scope manifest. Its head, CI and review must be checked again after every synchronization; an open PR is not buyer live acceptance.
 
 ## KEEP
 
@@ -46,7 +46,7 @@ For each server-authorized role, the first five to ten seconds show the role and
 - Shared protected UI: `apps/web/components/v7r/AppShellV4.tsx`, `.module.css`; `apps/web/components/transaction-ux/OperationalDecisionCockpit.tsx`, `.module.css`; `apps/web/components/platform-v7/FirstCustomerWorkspace.tsx`; `apps/web/lib/first-customer-workspace-server.ts`; `apps/web/lib/platform-v7/navigation.ts` and `routes.ts`.
 - Role roots: `apps/web/app/platform-v7/{operator,buyer,seller,logistics,surveyor,elevator,lab,bank,profile,arbitrator,compliance,executive}/page.tsx` and `apps/web/app/platform-v7/driver/field/page.tsx` (driver root redirects/renders according to registry). Verify exact imports and route security at each slice.
 - Shared adjacent routes: `apps/web/app/platform-v7/{notifications,support}/page.tsx`, `apps/web/components/platform-v7/staff/StaffControlCenter.tsx`, Deal workspace components under `apps/web/components/platform-v7/`, and server-side search/settings modules discovered per admitted slice.
-- Immediate buyer slice: the five paths pinned in #5604's later state-only admission. Its local CSS must use existing tokens, and focused tests must render buyer in RU/EN/ZH for ready/empty/forbidden/degraded and owner-controlled paths. No broader source path is implicitly admitted by this document.
+- Immediate buyer slice: the four paths admitted for #5610 after #5604/#5609. Its local CSS must use existing tokens, and focused tests must render buyer in RU/EN/ZH for ready/empty/forbidden/degraded and owner-controlled paths. No broader source path is implicitly admitted by this document.
 - Public files and tests: enumerate exact Home, supporting pages, PublicHeader and auth entry imports in the separate PUBLIC PR before mutation. Do not infer a single path from URL naming.
 
 ## DATA / SCHEMA
@@ -94,12 +94,12 @@ For each slice: exact admitted paths; full diff review by an independent nonauth
 
 ## DEPENDENCIES
 
-PUBLIC #5559 merged to main at baseline but needs exact-main release/live acceptance. #5604 guard must merge, followed by a new exact-base buyer state admission. #5605 inventory needs independent review and lawful merge. CORE #5580, #5534/#5535, #5525, #5526 and #5370 provide server facts; #5530/#5531 provide external activation evidence. Coordinate serial main/state writer slots through #5469. An incomplete dependency keeps its dependent UX state visibly UNKNOWN and its aggregate acceptance open.
+PUBLIC #5559 and mobile repair #5631 are merged. The exact `18e02668...` full-stack REG.RU release has reported matching runtime revisions; fresh production mobile browser acceptance is still pending. Buyer guard #5604 and state admission #5609 are merged; #5610 still needs its current-head gates, merge and live acceptance. #5605 inventory needs independent review and lawful merge. CORE #5580, #5534/#5535, #5525, #5526 and #5370 provide server facts; #5530/#5531 provide external activation evidence. Coordinate serial main/state writer slots through #5469. An incomplete dependency keeps its dependent UX state visibly UNKNOWN and its aggregate acceptance open.
 
 ## IMPLEMENTATION ORDER
 
-1. Finish PUBLIC exact-main release and actual public route/mobile acceptance; keep source ownership with PUBLIC.
-2. Merge #5604 after exact-head gates and nonauthor review. Rebase the one-file buyer admission on that exact main, test it through the accepted-base guard, independently review and merge. Then implement the buyer five-path vertical and accept it live.
+1. Complete #5631 public route/mobile acceptance against the matching `18e02668...` REG.RU revision; keep source ownership with PUBLIC.
+2. Finish the admitted four-path #5610 buyer vertical through current-head CI, independent review, merge and exact-main live acceptance.
 3. Add server-owned action decisions farmer-first, then buyer and the other six shared roles; replace UNKNOWN only per accepted handoff. Complete each role object journey with one narrow admitted slice at a time.
 4. Complete operator, employee, arbitrator, compliance and executive journeys, controlled Founder 13/13, then Action Center, inbox, notifications, search, settings, support, documents and Gekta context without a second shell.
 5. Consume bank and regulatory CORE read contracts and only evidence-backed external maturity; run cross-role, weak-network, mobile, RU/EN/ZH and accessibility reality acceptance on the exact production revision.
