@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "production-web-full-stack-image-preflight-20260926",
+  "branch": "fix/production-web-full-stack-image-preflight-20260926",
+  "issue": 3048,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "18e02668f84f7f88842779a9097f145504b105bb"
+  },
+  "intent": "Recognize the exact local web transfer tag from the canonical full-stack release during the bounded web-only preflight, before writing a persistent hardening override.",
+  "allowedPaths": [
+    "scripts/production-web-remote-entrypoint.sh",
+    "scripts/production-web-remote-entrypoint.test.sh",
+    "docs/platform-v7/autopilot/scopes/production-web-full-stack-image-preflight-20260926.json"
+  ],
+  "forbidden": [
+    "application runtime or public market API changes",
+    "replacing the exact OCI revision requirement",
+    "multiple web container acceptance",
+    "weakening mobile acceptance or release gates",
+    "direct server mutation outside the canonical release workflow"
+  ],
+  "acceptance": [
+    "bounded mocked preflight accepts a unique full-stack web service with matching transfer tag and OCI revision",
+    "ambiguous web services and revision mismatch fail before Docker reclaim",
+    "production web hardening contract and shell syntax pass",
+    "fresh exact-head CI and independent review before merge"
+  ]
+}

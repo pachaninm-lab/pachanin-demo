@@ -25,25 +25,41 @@ fail() {
 }
 
 reclaim_web_pull_space() {
-  local current_web_id current_image_ref current_image_id short_sha target_image docker_root
+  local current_web_id current_image_ref current_image_id current_revision short_sha target_image docker_root
   local image_ref image_id
 
   short_sha="${TARGET_SHA:0:7}"
   target_image="ghcr.io/pachaninm-lab/grainflow-web:sha-${short_sha}"
 
-  mapfile -t running_web_ids < <(
-    docker ps -q --no-trunc |
+  # Full-stack pinned-SSH releases run the same Compose web service from a
+  # local transfer tag, whose image reference does not contain grainflow-web.
+  # Resolve that authoritative service first, retaining the legacy image
+  # fallback only for pre-Compose deployments.
+  mapfile -t running_web_ids < <(docker ps -q --no-trunc --filter 'label=com.docker.compose.service=web')
+  if (( ${#running_web_ids[@]} == 0 )); then
+    mapfile -t running_web_ids < <(
+      docker ps -q --no-trunc |
       while read -r id; do
         image="$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null || true)"
         if [[ "$image" == *grainflow-web* ]]; then printf '%s\n' "$id"; fi
       done
-  )
+    )
+  fi
   (( ${#running_web_ids[@]} == 1 )) ||
-    fail "safe Docker reclaim requires exactly one running grainflow-web container; found ${#running_web_ids[@]}"
+    fail "safe Docker reclaim requires exactly one running web service; found ${#running_web_ids[@]}"
 
   current_web_id="${running_web_ids[0]}"
   current_image_ref="$(docker inspect --format '{{.Config.Image}}' "$current_web_id")"
   current_image_id="$(docker inspect --format '{{.Image}}' "$current_web_id")"
+  current_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$current_web_id" 2>/dev/null || true)"
+  [[ "$current_revision" =~ ^[0-9a-f]{40}$ ]] || fail 'running web image lacks exact OCI revision'
+  if [[ "$current_image_ref" == pc-crop-transfer/web:* ]]; then
+    [[ "$current_image_ref" == "pc-crop-transfer/web:$current_revision" ]] ||
+      fail 'running web transfer tag does not match OCI revision'
+  else
+    [[ "$current_image_ref" == *grainflow-web* ]] ||
+      fail 'running web image is outside accepted release images'
+  fi
   docker_root="$(docker info --format '{{.DockerRootDir}}')"
   [[ -d "$docker_root" ]] || fail "Docker root directory is unavailable: $docker_root"
 
@@ -176,9 +192,9 @@ if [[ "$ACTION" == audit ]]; then
   printf 'PERSISTENT_OVERRIDE_MUTATED=0\n'
 else
   active_hardening_override="${prod_dir%/}/compose.production-hardening.override.yml"
+  reclaim_web_pull_space
   install -m 0644 "$remote_override" "$active_hardening_override"
   printf 'PERSISTENT_OVERRIDE_MUTATED=1\n'
-  reclaim_web_pull_space
 fi
 
 image_override="${prod_dir%/}/compose.production-web-image.override.yml"
