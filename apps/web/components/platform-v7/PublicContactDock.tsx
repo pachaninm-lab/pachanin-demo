@@ -463,12 +463,8 @@ const css = `
 }
 
 
-/* Canonical mobile navigation owns the bottom edge; chat remains available in the header menu. */
-@media (max-width:760px) {
-  body:has(.pc-cp-bottom-nav) .pc-public-contact-dock[data-assistant-context='public'] {
-    display: none !important;
-  }
-}
+/* Canonical mobile navigation owns the bottom edge. The Gekta launcher remains
+   visible above it using the safe-area-aware mobile offset declared above. */
 
 /* FINAL PUBLIC EXPERIENCE v1 — desktop chat lives in the canonical header */
 @media (min-width:981px) {
