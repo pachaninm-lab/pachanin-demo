@@ -467,7 +467,7 @@ const css = `
    visible above it using the safe-area-aware mobile offset declared above. */
 
 /* FINAL PUBLIC EXPERIENCE v1 — desktop chat lives in the canonical header */
-@media (min-width:981px) {
+@media (min-width:1101px) {
   .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
     display: none !important;
   }
