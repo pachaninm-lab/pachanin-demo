@@ -1645,6 +1645,12 @@
       "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
       "docs/security/cryptographic-inventory.json",
       "docs/security/cryptographic-key-usage.json"
+    ],
+    "fix/auth-mail-runtime-projection-recovery-20260926": [
+      "scripts/provision-production-auth-mail-runtime.sh",
+      "scripts/check-production-auth-mail-outbox-cutover.mjs",
+      "docs/platform-v7/autopilot/scopes/auth-mail-post-release-db-authority-20260926.json",
+      ".github/workflows/production-auth-mail-runtime-authority-diagnostic-20260926.yml"
     ]
   },
   "currentAcceptance": [
