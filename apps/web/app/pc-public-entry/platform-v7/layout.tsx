@@ -7,16 +7,19 @@ function normalizePath(value: string | null): string {
 }
 
 function isCanonicalLanding(pathname: string): boolean {
-  return pathname === '/platform-v7' || pathname === '/pc-public-entry/platform-v7';
+  return pathname === '/platform-v7'
+    || pathname === '/pc-public-entry/platform-v7'
+    || pathname === '/platform-v7/login'
+    || pathname === '/pc-public-entry/platform-v7/login';
 }
 
 /**
- * The canonical landing already owns its public navigation, Gekta entry and
- * bottom mobile navigation. Do not hydrate legacy contact/support surfaces
- * that are deliberately hidden by the canonical UI: they add client JS/CSS
- * without adding a visible or permitted action.
+ * The canonical landing and canonical login own the same public navigation,
+ * Gekta entry and bottom mobile navigation. Do not hydrate legacy support
+ * presentation on those surfaces: the existing PublicPlatformAssistant remains
+ * the single chat authority while the Gekta-only dock is the visible entry.
  *
- * Login/recovery and older rewritten public entry routes retain the legacy
+ * Recovery and older rewritten public entry routes retain the legacy full
  * support mount unchanged.
  */
 export default async function PublicEntryLayout({ children }: { children: ReactNode }) {
