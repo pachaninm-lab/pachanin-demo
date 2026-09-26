@@ -3,8 +3,8 @@
   "branch": "fix/final-public-production-mobile-oracle-20260921",
   "status": "active",
   "authorizedBy": "explicit-user-finish-final-public-experience-20260921",
-  "purpose": "Bounded post-production acceptance-oracle synchronization for FINAL PUBLIC EXPERIENCE v1. Align stale Playwright selectors with the already deployed canonical public DOM proven by exact-SHA REG.RU revision evidence, without changing runtime product code, acceptance thresholds, browser coverage, security authority or production release semantics.",
-  "authorityBaseExactMain": "3375d6b668eb1425f197c2f5adb3c22efb4a1970",
+  "purpose": "Bounded post-production acceptance-oracle synchronization for FINAL PUBLIC EXPERIENCE v1. Align stale production mobile assertions with the exact deployed canonical RU/EN/ZH brand and the intentional single fixed-bottom-nav safe-area reserve, without changing runtime product code, browser coverage, touch-target/overflow thresholds, security authority or production release semantics.",
+  "authorityBaseExactMain": "46fcc9d10d5df0c35b92a5907133a85cbccf12ec",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
@@ -18,8 +18,9 @@
     "Canonical role assertions remain exact and are scoped to the authoritative #participants role-tag surface rather than matching duplicate explanatory text elsewhere.",
     "Desktop navigation asserts the six canonical primary nav links while separately rendered mobile-only login/register links are excluded from the desktop primary-nav count.",
     "Trust linked-page acceptance binds to the current four canonical trust pillars and does not remove RU/EN/ZH checks.",
-    "The public-home mobile navigation target assertion binds to the visible canonical bottom navigation and explicitly requires the canonical footer to be hidden at mobile width, preserving the no-double-reserve invariant.",
-    "Manual expected-head merge remains conditional on exact-head technical gates and zero unresolved threads."
+    "Manual expected-head merge remains conditional on exact-head technical gates and zero unresolved threads.",
+    "The public-home mobile navigation target assertion binds to the visible canonical bottom navigation, requires the canonical footer and public floating dock to be hidden at mobile width, requires the header Gekta entry to remain >=44px, and requires exactly one 80-100px bottom safe-area reserve instead of the obsolete zero-reserve contract.",
+    "Canonical public brand assertions are locale-aware: RU=Прозрачная Цена, EN=Transparent Price, ZH=透明价格."
   ],
   "acceptance": [
     "Platform V7 production-mobile Playwright source remains zero-retry and retains all existing viewport/browser/overflow/touch-target checks.",

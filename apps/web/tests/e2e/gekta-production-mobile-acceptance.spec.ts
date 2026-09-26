@@ -407,22 +407,31 @@ test.describe('Gekta exact production mobile acceptance', () => {
     await expectNoHorizontalOverflow(page);
   });
 
-  test('public platform keeps one floating communication surface and no double mobile footer reserve', async ({ page }) => {
+  test('public platform keeps one canonical mobile communication path and one bottom-nav reserve', async ({ page }) => {
     await page.setViewportSize({ width: 430, height: 932 });
     const response = await page.goto('/platform-v7', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
     await expectNoHorizontalOverflow(page);
 
-    const competingLauncher = page.locator('.pc-public-contact-dock, .pc-public-assistant-shortcut, .p7-support-chat-button').filter({ visible: true });
-    if (await competingLauncher.count()) {
-      await expect(page.locator('.pc-gekta-floating')).not.toBeVisible();
-    }
+    const publicDock = page.locator('.pc-public-contact-dock[data-assistant-context="public"]');
+    await expect(publicDock).toHaveCount(1);
+    await expect(publicDock).toBeHidden();
+    await expect(page.locator('.pc-gekta-floating')).not.toBeVisible();
+
+    const header = page.locator('[data-public-site-header="canonical"]');
+    const mobileMenu = header.locator('details.pc-site-mobile-menu');
+    await mobileMenu.locator('summary').click();
+    const chatEntry = mobileMenu.locator('.pc-site-mobile-nav [data-gekta-chat-entry="true"]');
+    await expect(chatEntry).toBeVisible();
+    await expectTargetsAtLeast(chatEntry, 44);
+    await mobileMenu.locator('summary').click();
 
     const mobileNavLinks = page.locator('.pc-cp-bottom-nav a:visible');
     await expect(mobileNavLinks).toHaveCount(5);
     await expectTargetsAtLeast(mobileNavLinks, 44);
     await expect(page.locator('.pc-cp-footer')).toBeHidden();
     const pageBottomReserve = await page.locator('main.pc-canonical-public').evaluate((node) => Number.parseFloat(getComputedStyle(node).paddingBottom));
-    expect(pageBottomReserve).toBeLessThanOrEqual(1);
+    expect(pageBottomReserve).toBeGreaterThanOrEqual(80);
+    expect(pageBottomReserve).toBeLessThanOrEqual(100);
   });
 });
