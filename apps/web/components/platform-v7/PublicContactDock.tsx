@@ -466,7 +466,7 @@ const css = `
 /* Canonical mobile navigation owns the bottom edge. The Gekta launcher remains
    visible above it using the safe-area-aware mobile offset declared above. */
 
-/* FINAL PUBLIC EXPERIENCE v1 — desktop chat lives in the canonical header */
+/* FINAL PUBLIC EXPERIENCE v1 — once the canonical header chat is persistent, retire the floating launcher */
 @media (min-width:1101px) {
   .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
     display: none !important;
