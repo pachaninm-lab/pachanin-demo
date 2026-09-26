@@ -34,7 +34,7 @@ const PUBLIC_SITE_HEADER_STYLES = `
 .pc-site-mobile-nav a{min-height:44px;padding:0 12px;border-radius:9px;justify-content:flex-start}
 .pc-site-header :is(.pc-v6-header-cta,.pc-ppe-primary-button,.p7-about-register,.p7-contact-register){box-sizing:border-box;min-width:44px;height:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:0 13px;border:1px solid #087a3b;border-radius:9px;background:#087a3b;color:#fff!important;font-size:13px;font-weight:800;text-decoration:none;white-space:nowrap}
 .pc-site-header :focus-visible{outline:3px solid rgba(25,117,82,.34);outline-offset:2px}
-@media(max-width:980px){.pc-site-nav{display:none}.pc-site-mobile-menu{display:block}.pc-site-brand-text small{display:none}}
+@media(max-width:1100px){.pc-site-nav{display:none}.pc-site-mobile-menu{display:block}.pc-site-brand-text small{display:none}}
 @media(max-width:760px){
 .pc-site-locale-option{min-width:44px;min-height:44px;padding-inline:2px}
 .pc-site-header{height:64px;min-height:64px;gap:5px;padding:0 8px}
@@ -94,7 +94,7 @@ const PUBLIC_SITE_HEADER_STYLES = `
 .pc-site-mobile-nav-links>a,.pc-site-mobile-nav-links>.pc-gekta-chat-button{width:100%;min-height:48px;justify-content:flex-start;padding:0 13px;border-radius:11px;font-size:14px}
 .pc-site-mobile-nav-links>a[data-active='true']{background:#e7f4eb;color:#0a5d43}
 .pc-site-mobile-nav-links>.pc-gekta-chat-button{border-color:#c5ddcf;background:#eef8f2}
-@media(max-width:980px){
+@media(max-width:1100px){
   .pc-gekta-chat-button--header{display:none}
   .pc-site-mobile-nav-links>a{
     display:grid!important;
