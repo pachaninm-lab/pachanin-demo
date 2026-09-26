@@ -1736,9 +1736,9 @@ test('product source admission uses both trusted-base workflow routes', () => {
   const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
     .split('  standard_validation:')[0];
   assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${productAdmissionBranch}'`));
-  assert.ok(trusted.includes(`|${productAdmissionBranch}|${buyerAdmissionBranch})`));
+  assert.ok(trusted.includes(`|${productAdmissionBranch}|${buyerAdmissionBranch}|${bankHomeAdmissionBranch})`));
   assert.ok(prHead.includes(`github.head_ref == '${productAdmissionBranch}'`));
-  assert.ok(prHead.includes(`|${productAdmissionBranch}|${buyerAdmissionBranch})`));
+  assert.ok(prHead.includes(`|${productAdmissionBranch}|${buyerAdmissionBranch}|${bankHomeAdmissionBranch})`));
   assert.ok(standard.includes(`github.head_ref != '${productAdmissionBranch}'`));
 });
 
@@ -1799,9 +1799,9 @@ test('buyer admission uses trusted base guard in both workflow entry points', ()
   const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
     .split('  standard_validation:')[0];
   assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${buyerAdmissionBranch}'`));
-  assert.ok(trusted.includes(`|${buyerAdmissionBranch})`));
+  assert.ok(trusted.includes(`|${buyerAdmissionBranch}|${bankHomeAdmissionBranch})`));
   assert.ok(prHead.includes(`github.head_ref == '${buyerAdmissionBranch}'`));
-  assert.ok(prHead.includes(`|${buyerAdmissionBranch})`));
+  assert.ok(prHead.includes(`|${buyerAdmissionBranch}|${bankHomeAdmissionBranch})`));
   assert.ok(standard.includes(`github.head_ref != '${buyerAdmissionBranch}'`));
 });
 
