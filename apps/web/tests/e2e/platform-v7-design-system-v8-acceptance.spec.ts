@@ -406,11 +406,26 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
           await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--gekta-visual-viewport-height'))).not.toBe('');
         } else if (route === 'terms' || route === 'privacy' || route === 'docs' || route === 'oferta' || route === 'contact') {
           const publicDock = page.locator('.pc-public-contact-dock[data-assistant-context="public"]');
+          const assistantTarget = publicDock.locator('.pc-public-contact-dock-assistant');
           await expect(publicDock).toHaveCount(1);
-          // Public floating contact UI must never compete with canonical mobile
-          // navigation. Desktop visibility is route/design-owned, so do not
-          // manufacture a requirement that the dock be visible there.
-          if (width <= 760) await expect(publicDock).toBeHidden();
+          // The existing public assistant remains reachable on mobile linked
+          // surfaces. If a canonical bottom nav is present, the same launcher
+          // must clear it rather than disappearing behind or because of it.
+          if (width <= 760) {
+            await expect(publicDock).toBeVisible();
+            await expect(assistantTarget).toBeVisible();
+            await expect(assistantTarget).toBeEnabled();
+            const assistantBox = await assistantTarget.boundingBox();
+            expect(assistantBox, `${path} ${width}px public Gekta launcher`).not.toBeNull();
+            expect(assistantBox!.width).toBeGreaterThanOrEqual(44);
+            expect(assistantBox!.height).toBeGreaterThanOrEqual(44);
+            const bottomNav = page.locator('.pc-cp-bottom-nav');
+            if (await bottomNav.isVisible()) {
+              const bottomNavBox = await bottomNav.boundingBox();
+              expect(bottomNavBox, `${path} ${width}px bottom nav`).not.toBeNull();
+              expect(assistantBox!.y + assistantBox!.height).toBeLessThanOrEqual(bottomNavBox!.y - 4);
+            }
+          }
         } else {
           // The existing assistant transport remains mounted. Canonical mobile
           // navigation and desktop header actions replace its floating launcher.
