@@ -36,6 +36,6 @@
     "The existing public-intelligence responsive matrix now requires the canonical Gekta dock through 1100px and the canonical header Gekta action from 1101px, preventing the previous hidden-chat contract from returning.",
     "Fresh exact-head CI/security/governance and independent complete-diff review have zero unresolved P0/P1/P2 findings before normal merge.",
     "After merge, exact-main REG.RU full-stack release, auth-mail cutover, reviewer readiness and fresh production mobile acceptance all PASS before FULL_SCOPE_ACCEPTED is restored.",
-    "Canonical Visual Acceptance must require the restored Gekta launcher on 390x844 login/register mobile chrome, including >=44px target geometry and non-overlap with bottom navigation; the former hidden-dock assertion is prohibited."
+    "Canonical Visual Acceptance must require the public assistant launcher on 390x844 login/register mobile chrome regardless of isolated-route publicMode (full or gekta), including >=44px target geometry and non-overlap with bottom navigation; the former hidden-dock assertion is prohibited."
   ]
 }
