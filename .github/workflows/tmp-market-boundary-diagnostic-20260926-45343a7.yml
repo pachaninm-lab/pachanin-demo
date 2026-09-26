@@ -1,4 +1,4 @@
-name: Temporary read-only market SQL diagnostic
+name: Temporary read-only market Prisma binding diagnostic
 
 on:
   push:
@@ -22,12 +22,12 @@ jobs:
       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
       PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
     steps:
-      - name: Classify market SQL under exact API runtime principal
+      - name: Compare literal and tagged Prisma function binding read-only
         shell: bash
         run: |
           set -Eeuo pipefail
           DEFAULT_HOST='195.19.12.120'
-          current="$(curl -fsSL -H 'Accept: application/vnd.github+json' -H 'User-Agent: pc-crop-market-sql-diagnostic' "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/main" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sha"])')"
+          current="$(curl -fsSL -H 'Accept: application/vnd.github+json' -H 'User-Agent: pc-crop-market-prisma-diagnostic' "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/main" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sha"])')"
           [[ "$current" == "$TARGET_SHA" ]]
           trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
           host="$(trim "${PC_PROD_HOST:-$DEFAULT_HOST}")"; user="$(trim "${PC_PROD_SSH_USER:-}")"; port="$(trim "${PC_PROD_SSH_PORT:-22}")"; expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
@@ -39,8 +39,7 @@ jobs:
           try_key "${PC_PROD_SSH_KEY:-}" || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_key "${VPS_SSH_KEY:-}"
           pinned=0
           for attempt in 1 2 3; do
-            : > "$scan"; : > "$match"
-            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            : > "$scan"; : > "$match"; ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
             while IFS= read -r line; do [[ -n "$line" ]] || continue; fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"
             sort -u -o "$match" "$match"; if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned=1; break; fi; (( attempt == 3 )) || sleep "$attempt"
           done
@@ -52,67 +51,40 @@ jobs:
           mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
           [[ "${#api_ids[@]}" == 1 ]]
           api_id="${api_ids[0]}"
-          api_rev="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
-          [[ "$api_rev" == "$TARGET_SHA" ]]
+          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")" == "$TARGET_SHA" ]]
           docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - <<'NODE'
-          const { PrismaClient } = require('@prisma/client');
-          const p = new PrismaClient();
-          const known = [
-            'PUBLIC_MARKET_RLS_AUTHORITY_INVALID','PUBLIC_MARKET_READER_DENIED','PUBLIC_MARKET_LIMIT_INVALID',
-            'PUBLIC_MARKET_PAGE_BOUND_EXCEEDED','PUBLIC_MARKET_POSTGRESQL_CLOCK_UNAVAILABLE',
-            'PUBLIC_MARKET_POSTGRESQL_CLOCK_DRIFT','PUBLIC_MARKET_EMPTY_ROW_INVALID',
-            'PUBLIC_MARKET_AUCTION_NOT_LIVE','PUBLIC_MARKET_PROJECTION_INVALID'
-          ];
-          const boundedText=(v,max)=>typeof v==='string'&&v.trim().length>0&&v.length<=max&&!/[\u0000-\u001F\u007F]/u.test(v);
+          const { PrismaClient, Prisma } = require('@prisma/client');
+          const p=new PrismaClient();
+          const classify=(e)=>{
+            const msg=String(e?.message||'');
+            if (/function auction\.list_public_market_lot_cards\(bigint\) does not exist/i.test(msg)) return 'BIGINT_FUNCTION_SIGNATURE_MISMATCH';
+            if (/function .* does not exist/i.test(msg)) return 'FUNCTION_SIGNATURE_MISMATCH';
+            if (/PUBLIC_MARKET_RLS_AUTHORITY_INVALID/.test(msg)) return 'RLS_AUTHORITY_INVALID';
+            if (/PUBLIC_MARKET_READER_DENIED/.test(msg)) return 'READER_DENIED';
+            return 'OTHER';
+          };
           (async()=>{
             try {
-              const rows=await p.$queryRawUnsafe(`
+              await p.$queryRawUnsafe('SELECT * FROM auction.list_public_market_lot_cards(7) ORDER BY projected_at DESC NULLS LAST, auction_ends_at ASC NULLS LAST, public_ref ASC NULLS LAST');
+              console.log('LITERAL_QUERY=PASS');
+            } catch(e) {
+              console.log('LITERAL_QUERY=FAIL');
+              console.log('LITERAL_REASON='+classify(e));
+            }
+            try {
+              await p.$queryRaw(Prisma.sql`
                 SELECT *
-                FROM auction.list_public_market_lot_cards(7)
+                FROM auction.list_public_market_lot_cards(${7})
                 ORDER BY projected_at DESC NULLS LAST, auction_ends_at ASC NULLS LAST, public_ref ASC NULLS LAST
               `);
-              console.log('SQL_CALL=PASS');
-              if (!Array.isArray(rows) || rows.length<1 || rows.length>7) { console.log('SERVICE_SHAPE=ROW_BOUND_INVALID'); return; }
-              const observed=rows[0]?.observed_at;
-              if (!(observed instanceof Date) || !Number.isFinite(observed.getTime())) { console.log('SERVICE_SHAPE=CLOCK_UNAVAILABLE'); return; }
-              for (const row of rows) {
-                if (!(row.observed_at instanceof Date) || row.observed_at.getTime()!==observed.getTime()) { console.log('SERVICE_SHAPE=CLOCK_DRIFT'); return; }
-                if (row.public_ref===null) {
-                  const keys=['culture','grade','volume_tons','start_price_kopecks_per_ton','region','auction_ends_at','status','verification_status','trade_permission','lot_version','projected_at'];
-                  if (rows.length!==1 || keys.some(k=>row[k]!==null)) { console.log('SERVICE_SHAPE=EMPTY_ROW_INVALID'); return; }
-                  console.log('SERVICE_SHAPE=VALID_EMPTY');
-                  return;
-                }
-                if (typeof row.public_ref!=='string' || !/^market-[0-9a-f-]{36}$/i.test(row.public_ref)
-                    || !boundedText(row.culture,200) || (row.grade!==null && !boundedText(row.grade,200))
-                    || typeof row.volume_tons!=='string' || !/^(?:0|[1-9][0-9]{0,19})(?:\.[0-9]{1,6})?$/.test(row.volume_tons)
-                    || typeof row.start_price_kopecks_per_ton!=='string' || !/^(?:0|[1-9][0-9]{0,18})$/.test(row.start_price_kopecks_per_ton)
-                    || !boundedText(row.region,500) || !(row.auction_ends_at instanceof Date) || row.auction_ends_at.getTime()<=observed.getTime()
-                    || row.status!=='BIDDING' || row.verification_status!=='DECLARED' || row.trade_permission!=='PUBLIC_ALLOWED'
-                    || typeof row.lot_version!=='string' || !/^[1-9][0-9]{0,18}$/.test(row.lot_version)
-                    || !(row.projected_at instanceof Date)) {
-                  const types = [
-                    typeof row.public_ref, typeof row.culture, row.grade===null?'null':typeof row.grade,
-                    typeof row.volume_tons, typeof row.start_price_kopecks_per_ton, typeof row.region,
-                    row.auction_ends_at instanceof Date?'date':typeof row.auction_ends_at,
-                    typeof row.status, typeof row.verification_status, typeof row.trade_permission,
-                    typeof row.lot_version, row.projected_at instanceof Date?'date':typeof row.projected_at
-                  ];
-                  console.log('SERVICE_SHAPE=PROJECTION_INVALID');
-                  console.log('SAFE_TYPE_VECTOR='+types.join('|'));
-                  return;
-                }
-              }
-              console.log('SERVICE_SHAPE=VALID_LIVE');
+              console.log('TAGGED_QUERY=PASS');
             } catch(e) {
-              const msg=String(e?.message||'');
-              const cls=known.find(k=>msg.includes(k)) || (/permission denied/i.test(msg)?'DB_PERMISSION_DENIED':(/does not exist/i.test(msg)?'DB_OBJECT_MISSING':'UNCLASSIFIED_DB_ERROR'));
-              const sqlstate=String(e?.meta?.code||'');
-              console.log('SQL_CALL=FAIL');
-              console.log('SQL_REASON='+cls);
-              console.log('SQLSTATE='+(/^[0-9A-Z]{5}$/.test(sqlstate)?sqlstate:'NOT_EXPOSED'));
-            } finally { await p.$disconnect(); }
-          })().catch(()=>process.exit(1));
+              console.log('TAGGED_QUERY=FAIL');
+              console.log('TAGGED_REASON='+classify(e));
+              const s=String(e?.meta?.code||'');
+              console.log('TAGGED_SQLSTATE='+(/^[0-9A-Z]{5}$/.test(s)?s:'NOT_EXPOSED'));
+            }
+          })().finally(async()=>p.$disconnect());
           NODE
           echo 'PRODUCTION_MUTATION=NONE'
           REMOTE
