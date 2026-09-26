@@ -16,7 +16,7 @@ concurrency:
 
 env:
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
-  RELEASE_ISSUE_NUMBER: 3072
+  RELEASE_ISSUE_NUMBER: 3048
   SOURCE_SHA: 24590ce52413ab28e23e6a50036923fbe0baaff0
   SOURCE_SINCE: '2026-08-14T21:04:00Z'
   SOURCE_UNTIL: '2026-08-14T21:09:00Z'
@@ -34,9 +34,9 @@ jobs:
     if: >-
       github.event_name == 'pull_request' ||
       (github.event_name == 'issue_comment' &&
-       github.event.issue.number == 3072 &&
+       github.event.issue.number == 3048 &&
        github.event.comment.user.login == github.repository_owner &&
-       github.event.comment.body == '/production gekta-email-verify-diagnose current-main')
+       github.event.comment.body == '/production gekta-admission-runtime-diagnose current-main')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -152,6 +152,38 @@ jobs:
           [[ -n "$api_delivery" && -n "$web_delivery" && "$api_delivery" == "$web_delivery" ]] && echo 'REGISTRATION_DELIVERY_KEYS=MATCH' || echo 'REGISTRATION_DELIVERY_KEYS=MISMATCH_OR_MISSING'
           [[ -n "$web_ticket" ]] && echo 'WEB_MFA_LOGIN_TICKET_SECRET=PRESENT' || echo 'WEB_MFA_LOGIN_TICKET_SECRET=MISSING'
           (( ${#web_ticket} >= 32 )) && echo 'WEB_MFA_LOGIN_TICKET_SECRET_LENGTH=VALID' || echo 'WEB_MFA_LOGIN_TICKET_SECRET_LENGTH=INVALID'
+
+          web_api_url="$(env_value "$web_id" API_URL 2>/dev/null || true)"
+          [[ "$web_api_url" == 'http://api:3001/api' ]] && echo 'WEB_API_URL_CANONICAL=1' || echo 'WEB_API_URL_CANONICAL=0'
+
+          admission_http="$(docker exec "$web_id" node -e '
+            const base=String(process.env.API_URL||"").replace(/\/$/,"");
+            const key=String(process.env.REGISTRATION_DELIVERY_KEY||"");
+            if (!base) { console.log("0"); process.exit(0); }
+            fetch(base+"/gekta/internal/anonymous-answer/admit",{
+              method:"POST",
+              headers:{"content-type":"application/json","x-registration-delivery-key":key},
+              body:JSON.stringify({sid:"invalid",ticket:"invalid"}),
+              redirect:"manual",
+              signal:AbortSignal.timeout(5000),
+            }).then(r=>console.log(String(r.status))).catch(()=>console.log("0"));
+          ' 2>/dev/null | tail -n1 | tr -dc '0-9' || true)"
+          [[ -n "$admission_http" ]] || admission_http=0
+          printf 'GEKTA_ADMISSION_INVALID_TICKET_HTTP=%s\n' "$admission_http"
+
+          if [[ -z "$api_delivery" || -z "$web_delivery" || "$api_delivery" != "$web_delivery" ]]; then
+            echo 'GEKTA_ADMISSION_RUNTIME_CLASSIFICATION=DELIVERY_KEY_MISMATCH_OR_MISSING'
+          elif [[ "$web_api_url" != 'http://api:3001/api' ]]; then
+            echo 'GEKTA_ADMISSION_RUNTIME_CLASSIFICATION=WEB_API_URL_NONCANONICAL'
+          elif [[ "$admission_http" == 400 ]]; then
+            echo 'GEKTA_ADMISSION_RUNTIME_CLASSIFICATION=KEY_AND_ROUTE_PASS'
+          elif [[ "$admission_http" == 403 ]]; then
+            echo 'GEKTA_ADMISSION_RUNTIME_CLASSIFICATION=DELIVERY_KEY_REJECTED'
+          elif [[ "$admission_http" == 404 ]]; then
+            echo 'GEKTA_ADMISSION_RUNTIME_CLASSIFICATION=ADMISSION_ROUTE_MISSING'
+          else
+            echo 'GEKTA_ADMISSION_RUNTIME_CLASSIFICATION=ADMISSION_ROUTE_OR_API_FAILURE'
+          fi
           api_log="$(docker logs --since "$SOURCE_SINCE" --until "$SOURCE_UNTIL" "$api_id" 2>&1 || true)"
           web_log="$(docker logs --since "$SOURCE_SINCE" --until "$SOURCE_UNTIL" "$web_id" 2>&1 || true)"
           grep -Fq 'MFA_ENCRYPTION_KEY is required in production' <<<"$api_log" && echo 'SOURCE_API_MFA_KEY_RUNTIME_ERROR=YES' || echo 'SOURCE_API_MFA_KEY_RUNTIME_ERROR=NO'
