@@ -146,6 +146,15 @@ has(provision, 'if [[ "$ACTION" == bootstrap && ! -e "$DATABASE_URL_FILE" ]] && 
 has(provision, 'restore_atomic_secret_from_file "$RUNTIME_PROJECTION_DIR/database-url" "$DATABASE_URL_FILE"', 'runtime DB authority must be recovered atomically into source authority');
 has(provision, 'AUTH_MAIL_PROVISION=FAIL_RUNTIME_DATABASE_AUTHORITY_RECOVERY', 'runtime DB authority recovery fail-closed marker missing');
 has(provision, 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_RUNTIME_PROJECTION_RECOVERED', 'runtime projection recovery evidence missing');
+has(provision, 'cat -- "$source" > "$tmp" || return 1', 'runtime DB projection restore must abort on read failure before install');
+has(provision, 'api_auth_database_url_file="$(mktemp "$AUTHORITY_DIR/.auth-mail-api-datasource.XXXXXX")"', 'live auth datasource must be staged in a protected temporary file');
+has(provision, 'chmod 0600 "$api_auth_database_url_file"; chown 0:0 "$api_auth_database_url_file"', 'live auth datasource staging file must remain root-only');
+has(provision, 'unset api_database_url', 'live auth datasource shell value must be cleared after protected staging');
+lacks(provision, 'python3 - "$api_database_url"', 'live auth datasource secret must not be passed in process argv');
+lacks(provision, '"$DATABASE_URL_FILE" "$api_database_url"', 'worker/API parity must not pass live auth datasource secret in argv');
+lacks(provision, '"$migration_database_url" "$api_database_url"', 'migration/API parity must not pass live auth datasource secret in argv');
+assert((provision.match(/api=urlsplit\(open\(sys\.argv\[2\], encoding='utf-8'\)\.read\(\)\.strip\(\)\)/g) || []).length >= 4,
+  'all datasource parity checks must read live auth datasource from protected file rather than argv');
 lacks(provision, 'if [[ "$ACTION" == bootstrap || "$ACTION" == rotate-db ]]; then', 'bootstrap must not rotate DB credentials unconditionally');
 has(provision, 'DO $$ BEGIN', 'PostgreSQL credential reconciliation DO block quoting missing');
 has(provision, 'END $$;', 'PostgreSQL credential reconciliation DO block terminator missing');
