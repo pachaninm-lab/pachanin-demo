@@ -6,6 +6,7 @@ on:
       - 'Production Web Exact-SHA Release'
       - 'Production Web Owner Exact-SHA Command'
       - 'Production Full-Stack Exact-SHA Release'
+      - 'platform-v7 safe merge'
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -41,16 +42,82 @@ jobs:
       release_run_id: ${{ github.event.workflow_run.id }}
       manual_sha: ''
 
+  controller-accepted:
+    name: Resolve accepted owner full-stack controller
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.name == 'platform-v7 safe merge'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      controller_accepted: ${{ steps.verify.outputs.controller_accepted }}
+    steps:
+      - name: Verify exact owner production controller evidence
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_EVENT: ${{ github.event.workflow_run.event }}
+          SOURCE_ACTOR: ${{ github.event.workflow_run.actor.login }}
+          SOURCE_TRIGGERING_ACTOR: ${{ github.event.workflow_run.triggering_actor.login }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$SOURCE_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$SOURCE_EVENT" == issue_comment ]]
+          [[ "$SOURCE_ACTOR" == "$REPOSITORY_OWNER" ]]
+          [[ "$SOURCE_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]]
+
+          run="$(gh api "repos/$REPO/actions/runs/$SOURCE_RUN_ID")"
+          [[ "$(jq -r '.name' <<< "$run")" == 'platform-v7 safe merge' ]]
+          [[ "$(jq -r '.event' <<< "$run")" == issue_comment ]]
+          [[ "$(jq -r '.conclusion' <<< "$run")" == success ]]
+          [[ "$(jq -r '.head_sha' <<< "$run")" == "$SOURCE_HEAD_SHA" ]]
+
+          jobs="$(gh api "repos/$REPO/actions/runs/$SOURCE_RUN_ID/jobs?filter=latest&per_page=100")"
+          required=(
+            'production-release-control-3072'
+            'production-full-stack-execution-3072 / Validate full-stack release contract'
+            'production-full-stack-execution-3072 / Migrate, deploy API/web and canonical outbox, verify live delivery'
+            'production-auth-mail-cutover-3072 / Validate auth-mail cutover contract'
+            'production-auth-mail-cutover-3072 / Cut over exact production to durable auth-mail worker'
+            'production-reviewer-readiness-3072 / Validate production reviewer inspect contract'
+            'production-reviewer-readiness-3072 / Read-only REG.RU reviewer login readiness'
+          )
+          for job_name in "${required[@]}"; do
+            count="$(jq --arg name "$job_name" '[.jobs[] | select(.name == $name)] | length' <<< "$jobs")"
+            [[ "$count" == 1 ]] || {
+              echo "Controller evidence cardinality mismatch for: $job_name count=$count" >&2
+              exit 20
+            }
+            conclusion="$(jq -r --arg name "$job_name" '.jobs[] | select(.name == $name) | .conclusion' <<< "$jobs")"
+            [[ "$conclusion" == success ]] || {
+              echo "Controller evidence is not success for: $job_name conclusion=$conclusion" >&2
+              exit 21
+            }
+          done
+
+          echo 'controller_accepted=true' >> "$GITHUB_OUTPUT"
+
   mobile-acceptance:
     name: Chromium + WebKit 320x700, 375x812, 390x844 and 430x932 production acceptance
-    needs: accepted
+    needs: [accepted, controller-accepted]
     if: >-
       always() &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'workflow_run' &&
         github.event.workflow_run.conclusion == 'success' &&
         github.event.workflow_run.name == 'Production Full-Stack Exact-SHA Release') ||
-       needs.accepted.outputs.deployment_accepted == 'true')
+       needs.accepted.outputs.deployment_accepted == 'true' ||
+       needs.controller-accepted.outputs.controller_accepted == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
