@@ -1,0 +1,32 @@
+name: Temporary reopen PR5631 final head
+
+on:
+  push:
+    branches:
+      - ops/tmp-reopen-pr5631-final-20260926
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  reopen:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify and reopen exact PR head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: '5631'
+          EXPECTED_HEAD: '50f772ea75738a8b1ce92d15c8dce65c6b695699'
+        shell: bash
+        run: |
+          set -euo pipefail
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")"
+          [[ "$(jq -r '.head.sha' <<<"$pr")" == "$EXPECTED_HEAD" ]]
+          [[ "$(jq -r '.state' <<<"$pr")" == "open" ]]
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" -f state=closed >/dev/null
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" -f state=open >/dev/null
+          final="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")"
+          [[ "$(jq -r '.head.sha' <<<"$final")" == "$EXPECTED_HEAD" ]]
+          [[ "$(jq -r '.state' <<<"$final")" == "open" ]]
