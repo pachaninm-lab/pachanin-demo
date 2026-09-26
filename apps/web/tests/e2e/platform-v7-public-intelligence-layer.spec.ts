@@ -163,7 +163,7 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
       expect(home?.ok(), 'home ' + item.width + 'px ' + item.locale).toBe(true);
       for (const selector of ['#market', '#deal-path', '#participants', '#live', '#trust', '#gekta', '#capabilities']) await expect(page.locator(selector)).toBeVisible();
       const publicDock = page.locator(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
-      if (item.width <= 900) {
+      if (item.width <= 1100) {
         await expect(publicDock).toBeVisible();
         await expect(publicDock.locator('.pc-public-contact-dock-assistant')).toBeEnabled();
       } else {
