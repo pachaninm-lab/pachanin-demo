@@ -483,9 +483,8 @@ test.describe('canonical cross-browser public smoke', () => {
         expect(box).not.toBeNull();
         expect(box!.height).toBeGreaterThanOrEqual(43.999);
       }
-      const publicDock=page.locator(".pc-public-contact-dock[data-assistant-context='public']");
+      const publicDock=page.locator(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
       const gektaAction=publicDock.locator('.pc-public-contact-dock-assistant');
-      await expect(publicDock).toHaveAttribute('data-public-mode','full');
       await expect(publicDock).toBeVisible();
       await expect(gektaAction).toBeVisible();
       await expect(gektaAction).toBeEnabled();
