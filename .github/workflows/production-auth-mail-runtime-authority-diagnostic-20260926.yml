@@ -285,7 +285,8 @@ jobs:
           emit RUNTIME_PROJECTION_CLASS "$projection_class"
 
           probe_rebased_credential() {
-            local candidate="$1" candidate_class="$2" label="$3" rebased="$tmp/rebased-$label" result_file="$tmp/rebased-$label.result"
+            local candidate="$1" candidate_class="$2" label="$3"
+            local rebased="$tmp/rebased-$label" result_file="$tmp/rebased-$label.result"
             if [[ "$candidate_class" != 'VALID_STALE' && "$candidate_class" != 'VALID_PARITY' ]]; then
               printf 'NOT_RUN'
               return 0
@@ -435,7 +436,7 @@ jobs:
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
           while IFS='=' read -r key value; do
             case "$key" in
-              DEPLOYED_REVISION|API_AUTHORITY_CLASS|SOURCE_AUTHORITY_CLASS|RUNTIME_PROJECTION_CLASS|MIGRATION_AUTHORITY_CLASS|PROJECTION_RECOVERY_CANDIDATE|PREDICTED_BOOTSTRAP_PATH|DIAGNOSTIC_RESULT|SAFE_ERROR|PRODUCTION_MUTATION|SECRETS_PUBLISHED)
+              DEPLOYED_REVISION|API_AUTHORITY_CLASS|SOURCE_AUTHORITY_CLASS|RUNTIME_PROJECTION_CLASS|SOURCE_REBASED_CONNECT_CLASS|PROJECTION_REBASED_CONNECT_CLASS|MIGRATION_AUTHORITY_CLASS|PROJECTION_RECOVERY_CANDIDATE|PREDICTED_BOOTSTRAP_PATH|DIAGNOSTIC_RESULT|SAFE_ERROR|PRODUCTION_MUTATION|SECRETS_PUBLISHED)
                 echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
                 ;;
             esac
@@ -483,18 +484,20 @@ jobs:
           {
             echo '## Auth-mail runtime authority diagnostic'
             echo
-            echo "- current main: `${TARGET_SHA:-unknown}`"
-            echo "- deployed API/Web revision: `${DEPLOYED_REVISION:-unknown}`"
-            echo "- deployed revision relation: `${ANCESTRY_CLASS:-unknown}`"
-            echo "- API auth datasource: `${API_AUTHORITY_CLASS:-unknown}`"
-            echo "- source DB authority: `${SOURCE_AUTHORITY_CLASS:-unknown}`"
-            echo "- runtime projection: `${RUNTIME_PROJECTION_CLASS:-unknown}`"
-            echo "- migration authority: `${MIGRATION_AUTHORITY_CLASS:-unknown}`"
-            echo "- projection recovery candidate: `${PROJECTION_RECOVERY_CANDIDATE:-unknown}`"
-            echo "- predicted bootstrap path: `${PREDICTED_BOOTSTRAP_PATH:-unknown}`"
-            echo "- diagnostic: `${DIAGNOSTIC_RESULT:-unknown}` (rc=`${REMOTE_RC:-unknown}`, safe=`${SAFE_ERROR:-unknown}`)"
-            echo "- production mutation: `${PRODUCTION_MUTATION:-unknown}`"
-            echo "- secrets published: `${SECRETS_PUBLISHED:-unknown}`"
+            printf -- '- current main: `%s`\n' "${TARGET_SHA:-unknown}"
+            printf -- '- deployed API/Web revision: `%s`\n' "${DEPLOYED_REVISION:-unknown}"
+            printf -- '- deployed revision relation: `%s`\n' "${ANCESTRY_CLASS:-unknown}"
+            printf -- '- API auth datasource: `%s`\n' "${API_AUTHORITY_CLASS:-unknown}"
+            printf -- '- source DB authority: `%s`\n' "${SOURCE_AUTHORITY_CLASS:-unknown}"
+            printf -- '- runtime projection: `%s`\n' "${RUNTIME_PROJECTION_CLASS:-unknown}"
+            printf -- '- source rebased credential: `%s`\n' "${SOURCE_REBASED_CONNECT_CLASS:-unknown}"
+            printf -- '- projection rebased credential: `%s`\n' "${PROJECTION_REBASED_CONNECT_CLASS:-unknown}"
+            printf -- '- migration authority: `%s`\n' "${MIGRATION_AUTHORITY_CLASS:-unknown}"
+            printf -- '- projection recovery candidate: `%s`\n' "${PROJECTION_RECOVERY_CANDIDATE:-unknown}"
+            printf -- '- predicted bootstrap path: `%s`\n' "${PREDICTED_BOOTSTRAP_PATH:-unknown}"
+            printf -- '- diagnostic: `%s` (rc=`%s`, safe=`%s`)\n' "${DIAGNOSTIC_RESULT:-unknown}" "${REMOTE_RC:-unknown}" "${SAFE_ERROR:-unknown}"
+            printf -- '- production mutation: `%s`\n' "${PRODUCTION_MUTATION:-unknown}"
+            printf -- '- secrets published: `%s`\n' "${SECRETS_PUBLISHED:-unknown}"
             echo '- no DSN, hostname, database name, credential, password, raw Compose, raw Docker inspect or customer data is published.'
           } > "$record"
           gh issue comment "$CONTINUATION_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
