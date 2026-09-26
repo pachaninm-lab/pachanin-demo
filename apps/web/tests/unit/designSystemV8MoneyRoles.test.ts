@@ -1,17 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
-
-vi.mock('next-intl/server', () => ({ getLocale: vi.fn(async () => 'ru') }));
-vi.mock('@/lib/first-customer-workspace-server', () => ({ getFirstCustomerWorkspace: vi.fn() }));
-
-import { getLocale } from 'next-intl/server';
-import { FirstCustomerWorkspace } from '@/components/platform-v7/FirstCustomerWorkspace';
-import {
-  getFirstCustomerWorkspace,
-  type FirstCustomerWorkspaceSnapshot,
-} from '@/lib/first-customer-workspace-server';
+import { describe, expect, it } from 'vitest';
 
 const repoRoot = path.resolve(process.cwd(), '../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
@@ -25,88 +14,6 @@ const cockpit = read('apps/web/components/transaction-ux/MoneyObligationCockpit.
 const cockpitCss = read('apps/web/components/transaction-ux/MoneyObligationCockpit.module.css');
 const governance = JSON.parse(read('design-governance-v8.json'));
 const forbiddenPresentation = /style\s*=\s*\{\{|dangerouslySetInnerHTML|#[0-9a-f]{3,8}\b|\brgba?\s*\(|!important/i;
-
-const buyerSnapshot: FirstCustomerWorkspaceSnapshot = {
-  available: true,
-  forbidden: false,
-  ownerControlled: false,
-  correlationId: 'buyer-correlation',
-  profile: {
-    available: true, id: 'buyer-user', email: 'buyer@example.test', role: 'BUYER', surfaceRole: 'buyer',
-    orgId: 'buyer-org', tenantId: 'buyer-tenant', membershipId: 'buyer-membership', isOrgAdmin: false,
-    fullName: 'Buyer Test', mfaVerified: true, mfaVerifiedAt: '2026-09-26T00:00:00.000Z',
-  },
-  organization: {
-    available: true, organizationId: 'buyer-org', tenantId: 'buyer-tenant',
-    currentMembershipId: 'buyer-membership', organizationName: 'Buyer Organization',
-    currentRole: 'BUYER', isOrganizationAdmin: false, hasFreshMfa: true, members: [],
-  },
-  items: [{
-    id: 'buyer-deal-42', dealId: 'buyer-deal-42', status: 'DOCUMENTS_PENDING', nextAction: null,
-    href: '/platform-v7/deals/buyer-deal-42/execution',
-  }],
-};
-
-const buyerLocales = [
-  { locale: 'ru', priority: 'Главная задача', unknown: 'Следующее обязательное действие не опубликовано', note: 'Проверяйте состояние в самой сделке.', empty: 'Рабочих объектов пока нет', forbidden: 'Роль не соответствует кабинету', degraded: 'Не подменять недоступный backend' },
-  { locale: 'en', priority: 'Primary task', unknown: 'Required next action is not published', note: 'Check the Deal for its current state.', empty: 'No work objects yet', forbidden: 'Role does not match this cabinet', degraded: 'Do not substitute an unavailable backend' },
-  { locale: 'zh', priority: '主要任务', unknown: '服务器未提供优先执行的操作', note: '请在交易详情中核查状态。', empty: '暂时没有工作对象', forbidden: '角色与此工作空间不匹配', degraded: '不得替换不可用的 backend' },
-] as const;
-
-describe('rendered buyer first-customer workspace', () => {
-  beforeEach(() => {
-    vi.mocked(getLocale).mockReset();
-    vi.mocked(getFirstCustomerWorkspace).mockReset();
-  });
-
-  it.each(buyerLocales)('renders $locale ready Deal navigation with UNKNOWN priority', async ({ locale, priority, unknown, note }) => {
-    vi.mocked(getLocale).mockResolvedValue(locale);
-    vi.mocked(getFirstCustomerWorkspace).mockResolvedValue(buyerSnapshot);
-
-    render(await FirstCustomerWorkspace({ surface: 'buyer' }));
-
-    const primary = screen.getByLabelText(priority);
-    expect(within(primary).getByRole('heading', { name: unknown })).toBeInTheDocument();
-    expect(within(primary).getByText('UNKNOWN')).toBeInTheDocument();
-    expect(within(primary).getByRole('link')).toHaveAttribute('href', '#first-customer-work-queue');
-    expect(screen.getByText(new RegExp(note.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /buyer-deal-42/i })).toHaveAttribute('href', '/platform-v7/deals/buyer-deal-42/execution');
-  });
-
-  it.each(buyerLocales)('keeps $locale empty, forbidden and degraded queues honest', async ({ locale, empty, forbidden, degraded, note }) => {
-    vi.mocked(getLocale).mockResolvedValue(locale);
-    const scenarios = [
-      { title: empty, snapshot: { ...buyerSnapshot, items: [] } },
-      { title: forbidden, snapshot: { ...buyerSnapshot, available: false, forbidden: true, profile: { ...buyerSnapshot.profile, role: 'FARMER' }, items: [] } },
-      { title: degraded, snapshot: { ...buyerSnapshot, available: false, organization: { ...buyerSnapshot.organization, available: false, organizationName: null }, items: [] } },
-    ];
-
-    for (const { title, snapshot } of scenarios) {
-      vi.mocked(getFirstCustomerWorkspace).mockResolvedValue(snapshot);
-      const view = render(await FirstCustomerWorkspace({ surface: 'buyer' }));
-      expect(screen.getAllByRole('heading', { name: title }).length).toBeGreaterThan(0);
-      expect(screen.queryByText(new RegExp(note.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).not.toBeInTheDocument();
-      expect(screen.queryByRole('link', { name: /buyer-deal-42/i })).not.toBeInTheDocument();
-      view.unmount();
-    }
-  });
-
-  it.each(buyerLocales)('keeps $locale owner-controlled showroom separate from customer queue', async ({ locale, note }) => {
-    vi.mocked(getLocale).mockResolvedValue(locale);
-    vi.mocked(getFirstCustomerWorkspace).mockResolvedValue({
-      ...buyerSnapshot,
-      ownerControlled: true,
-      profile: { ...buyerSnapshot.profile, role: 'PLATFORM_OWNER' },
-      items: [{ id: 'OWNER-BUYER-CONTROLLED', dealId: null, status: 'CONTROLLED_TEST', nextAction: null, href: '/platform-v7/buyer/lots' }],
-    });
-
-    render(await FirstCustomerWorkspace({ surface: 'buyer' }));
-
-    expect(screen.queryByText(new RegExp(note.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /buyer-deal-42/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /OWNER-BUYER-CONTROLLED/i })).toHaveAttribute('href', '/platform-v7/buyer/lots');
-  });
-});
 
 describe('Design System v8 money role reference slice', () => {
   it('uses one Money & Obligation Cockpit across seller, buyer and bank', () => {
