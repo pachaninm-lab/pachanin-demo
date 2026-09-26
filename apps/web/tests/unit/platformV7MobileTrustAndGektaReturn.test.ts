@@ -43,7 +43,8 @@ describe('platform-v7 mobile trust readability and Gekta return', () => {
     expect(designSystem).not.toContain('if (width <= 760 || width >= 981)');
     expect(intelligence).toContain(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
     expect(intelligence).toContain('if (item.width <= 1100)');
-    expect(visual).toContain(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
+    expect(visual).toContain(".pc-public-contact-dock[data-assistant-context='public']");
+    expect(visual).toContain("const gektaAction=publicDock.locator('.pc-public-contact-dock-assistant')");
     expect(visual).toContain('await expect(publicDock).toBeVisible()');
     expect(visual).toContain("expect(gektaBox!.height).toBeGreaterThanOrEqual(44)");
   });
