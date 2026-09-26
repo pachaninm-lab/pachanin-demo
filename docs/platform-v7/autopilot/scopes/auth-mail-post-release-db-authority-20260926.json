@@ -3,7 +3,7 @@
   "branch": "fix/auth-mail-runtime-projection-recovery-20260926",
   "status": "active",
   "authorizedBy": "explicit-user-finish-public-ux-release-20260926",
-  "purpose": "Repair the remaining exact auth-mail post-release cutover failure on main b8a3cffbb527468edaf12186b1cf78e71c1880a1. Keep live API AUTH_DATABASE_URL as canonical auth-mail datasource authority. During bootstrap only, recover the root source auth-mail database authority from the existing protected runtime projection when the source is missing or is itself root-only, well-formed and endpoint-stale, but only after the runtime projection independently proves filesystem authority, pc_auth_mail_runtime principal shape and exact auth-datasource parity. Explicit rotate-db and malformed or mis-owned source authority remain on the fail-closed migration-admin path.",
+  "purpose": "Repair the exact auth-mail post-release cutover rc=14 observed on deployed current main b8a3cffbb527468edaf12186b1cf78e71c1880a1. Keep live API AUTH_DATABASE_URL as the canonical auth-mail datasource. During bootstrap, recover a missing source authority as before and additionally restore a stale but structurally valid root-only source authority only from the existing protected runtime projection when that projection independently proves pc_auth_mail_runtime principal shape plus exact current AUTH_DATABASE_URL endpoint/query parity. Keep malformed source authority, unusable projection and explicit rotate-db on the existing fail-closed migration-admin path.",
   "authorityBaseExactMain": "b8a3cffbb527468edaf12186b1cf78e71c1880a1",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
@@ -14,7 +14,7 @@
   ],
   "requiredInvariants": [
     "No API, Web, database schema, RLS, tenant, role, MFA, SMTP credential, outbox delivery, IR-20 or public UX behavior may change.",
-    "The running API container remains the live application datasource authority and its DATABASE_URL value is never published.",
+    "The running API container remains the live datasource authority source; neither DATABASE_URL nor AUTH_DATABASE_URL values are published.",
     "The auth-mail runtime database authority must match the running API AUTH_DATABASE_URL endpoint; API DATABASE_URL is not an auth-mail authority substitute.",
     "An existing root-only pc_auth_mail_runtime database URL may be reused only when its host, port, database path and query exactly match the live API AUTH_DATABASE_URL auth datasource.",
     "A missing source auth-mail database authority, or an existing root-only 0600 source authority with valid pc_auth_mail_runtime shape but stale datasource endpoint, may be recovered only during bootstrap from /var/lib/pc-secret-authority/runtime/database-url when the runtime parent is root-owned 0700, the projected file is root-owned 0444, the principal is pc_auth_mail_runtime with a non-empty password, and host/port/database path/query exactly match the running API AUTH_DATABASE_URL auth datasource.",
@@ -25,7 +25,7 @@
   ],
   "acceptance": [
     "bash syntax and auth-mail cutover contract checker pass on the exact PR head.",
-    "Exact-head contract coverage proves runtime-projection recovery is bootstrap-only, handles missing or safe-but-endpoint-stale source authority, remains filesystem-authority checked and atomic, is datasource-parity bounded, never serves rotate-db, and emits a distinct safe evidence marker.",
+    "Exact-head contract coverage proves missing/stale-source runtime-projection recovery is bootstrap-only, source-shape checked, filesystem-authority checked, atomic, datasource-parity bounded, secret-safe, and emits a safe runtime-projection recovery marker.",
     "Fresh exact-head CI/security/governance gates are terminal green with zero unresolved review threads.",
     "After exact-SHA merge and REG.RU release, full-stack API/Web/outbox evidence and IR-20 observation pass.",
     "Auth-mail cutover passes on the same exact deployed SHA without FAIL_MIGRATION_DATABASE_AUTHORITY.",
