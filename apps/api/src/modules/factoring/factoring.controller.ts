@@ -4,6 +4,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { FactoringService } from './factoring.service';
 import { ForbiddenException } from '@nestjs/common';
+import { CreateFactoringApplicationDto } from './dto/create-factoring-application.dto';
 
 const OVERDUE_CHECK_ROLES: ReadonlySet<Role> = new Set([Role.ADMIN, Role.ACCOUNTING]);
 
@@ -19,7 +20,7 @@ export class FactoringController {
 
   @Post('applications')
   createApplication(
-    @Body() body: { dealId: string; organizationId: string; factorName: string; requestedAmountKopecks: number },
+    @Body() body: CreateFactoringApplicationDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.factoring.createApplication(body, user);
