@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 5,
-  "currentStep": "R1.2 Controlled open-as-role server authority",
-  "lastCompletedStep": "R1.1 exact 13-cabinet inventory admitted by PR #5468",
+  "currentStep": "R1.3 CEO overview and P0/P1 decision queue",
+  "lastCompletedStep": "R1.2 controlled open-as-role server authority merged by PR #5473",
   "openPr": null,
   "blockedBy": [],
-  "nextStep": "R1.2 canonical 13 role-mode API/server authority; no visual implementation",
-  "updatedAt": "2026-09-20T23:20:00+03:00",
+  "nextStep": "R1.3 real-PostgreSQL Company Health + server P0/P1 decision queue; backend/data authority only",
+  "updatedAt": "2026-09-21",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
@@ -19,9 +19,9 @@
   "masterV21": {
     "overallProductionProgress": "5/100=5%",
     "r1TargetAfterProductionPass": "12/100=12%",
-    "exactMain": "5da8e80744908413102214f91dd68018911b892e",
+    "exactMain": "51d63c5f7e2a22d1ccbbe38d15c475a7e93de863",
     "productionSha": "5da8e80744908413102214f91dd68018911b892e",
     "productionControllerRun": 35520784872
   },
-  "currentTaskExecution": "R1.1 inventory complete in this admission; main should start at R1.2 after merge; R1 points remain uncredited until full PRODUCTION_PASS"
+  "currentTaskExecution": "R1.3 started from current main; implementation/checks pending; R1 official points remain 0 until whole-block PRODUCTION_PASS"
 }

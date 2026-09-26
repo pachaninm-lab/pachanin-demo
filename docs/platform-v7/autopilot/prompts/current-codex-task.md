@@ -1,20 +1,19 @@
-# Current task — MASTER v2.1 R1.2
+# Current task — MASTER v2.1 R1.3
 
-Active slice: **Controlled open-as-role server authority**.
+Active slice: **CEO overview + P0/P1 decision queue (backend/data authority)**.
 Official progress remains **5/100 = 5%** until full R1 PRODUCTION_PASS.
 
-Use the existing Staff Access Control Plane. Do not create a Founder business/domain role and do not replace user identity.
+Use only real PostgreSQL/domain authority. Do not consume legacy analytics mock/fixed scenario values and do not create demo/zero success fallbacks.
 
-Required backend result:
-- one canonical server-owned 13-cabinet role-mode registry;
-- client selects only a bounded cabinet intent + organization; effective API role and tenant are server-derived;
-- PLATFORM_OWNER active assignment + recent MFA required;
-- role-mode request is VIEW_AS and read-only;
-- existing durable request → grant → opaque session flow is reused;
-- reason/ticket/effective org/effective role/expiry/audit survive through activation and end/revoke;
-- high-risk actions stay outside VIEW_AS;
-- negative tests cover forged role/cabinet, target scope, expiry/revoke and writes.
+Required result:
+- one Founder/CEO read contract for Company Health across business, operations, finance, risk and system health;
+- every metric exposes source, asOf/freshness, grain/definition, availability state and drill-down reference;
+- source failure is explicit UNAVAILABLE/STALE, never a fabricated number;
+- one server-owned P0/P1 decision queue with stable item/object/version identity, owner or UNASSIGNED, deadline, impact, next action, escalation and evidence/source reference;
+- PLATFORM_OWNER + current durable assignment + MFA are revalidated server-side;
+- no client-selected tenant/role/provider authority and no cross-tenant leakage;
+- no UI/visual implementation, no FGIS/bank product work, no parallel finance/settlement authority.
 
-Do not touch visual UX, FGIS or bank/finance product surfaces. Team Hub #5469 PRODUCT dependency is for R1.5 only.
+R1.2 consumer contract is already READY_FOR_CONSUMER via Team Hub #5469. R1.5 presentation remains ACCOUNT_2_PRODUCT scope.
 
-After exact-head review/CI and merge, advance to R1.3 Company Health + P0/P1 queue.
+After exact-head CI/review and merge, advance to R1.4 financial/commercial Founder metrics.
