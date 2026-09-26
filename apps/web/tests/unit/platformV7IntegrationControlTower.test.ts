@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import React from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { IntegrationControlTowerClient } from '@/components/crop-platform/IntegrationControlTowerClient';
 import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
 import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-route-policy';
 import { PLATFORM_V7_INTEGRATIONS_ROUTE } from '@/lib/platform-v7/routes';
@@ -131,6 +134,9 @@ describe('Platform V7 Integration Control Tower vertical', () => {
     expect(client).toContain('receipt.adapterCode === command.adapterCode');
     expect(client).toContain("typeof receipt.aggregateVersion === 'string' && !!receipt.aggregateVersion.trim()");
     expect(client).toContain('if (!matchesControlTowerCommandReceipt(payload, command))');
+    expect(client).toContain('const receiptNotice = receipt ? (');
+    expect(client.match(/\{receiptNotice\}/g)).toHaveLength(2);
+    expect(client).toMatch(/if \(state\.phase !== 'ready'\)[\s\S]*?\{receiptNotice\}[\s\S]*?<Surface/);
   });
 
   it('keeps an ambiguous command outcome visible and blocks another command in the mounted screen', () => {
@@ -177,5 +183,88 @@ describe('Platform V7 Integration Control Tower vertical', () => {
     expect(css).toContain(':focus-visible');
     expect(css).toContain('prefers-reduced-motion');
     expect(css).toContain('safe-area-inset-bottom');
+  });
+});
+
+function controlTowerRecord() {
+  return {
+    adapterCode: 'FGIS_GRAIN', adapterVersion: '1.0.0', provider: 'government-adapter',
+    capabilities: [], environment: 'SANDBOX', honestStatus: 'ADAPTER_READY',
+    schemaVersion: 'v1', mappingVersion: 'm1', freshnessAt: '2026-09-26T07:00:00.000Z',
+    lastSuccessAt: null, lastErrorAt: null, lastErrorCode: null, inboxDepth: 0,
+    oldestEventAt: null, retryCount: 0, quarantineCount: 0, deadCount: 0,
+    processingCount: 0, conflictCount: 0, providerAcknowledgedCount: 0, businessAcceptedCount: 0,
+    reconciliationState: 'NOT_REQUESTED', reconciliationUpdatedAt: null,
+    credentialReferenceExpiresAt: null, credentialMetadataAvailable: false, aggregateVersion: '1',
+    primaryAction: {
+      id: 'RECONCILE', allowed: true, reasonCode: 'ALLOWED',
+      requiresConfirmation: true, owner: 'OPERATOR', impact: 'HIGH', entryId: null,
+    },
+    recentEvents: [],
+  };
+}
+
+async function submitReconcile() {
+  fireEvent.click(await screen.findByRole('button', { name: 'Запустить сверку' }));
+  const dialog = screen.getByRole('dialog');
+  fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Сверить серверную запись и статус' } });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Подтвердить на сервере' }));
+}
+
+describe('Integration Control Tower command outcome in the mounted screen', () => {
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  it.each([
+    { name: 'unverifiable 2xx', reply: async () => ({ ok: true, json: async () => ({ ok: true }) }) },
+    { name: 'thrown POST', reply: async () => { throw new TypeError('connection lost'); } },
+  ])('keeps $name UNKNOWN after refresh and prevents a second command', async ({ reply }) => {
+    const record = controlTowerRecord();
+    const fetchMock = vi.fn(async (_url: string, options?: RequestInit) => options?.method === 'POST'
+      ? reply()
+      : { ok: true, status: 200, json: async () => _url.includes('?limit=')
+        ? { items: [record], nextCursor: null }
+        : record });
+    vi.stubGlobal('fetch', fetchMock);
+    render(React.createElement(IntegrationControlTowerClient, { locale: 'ru', csrfToken: 'test-csrf' }));
+    await submitReconcile();
+
+    expect(await screen.findByText('Исход команды не подтверждён')).toBeInTheDocument();
+    const warning = document.querySelector('[data-command-outcome="UNKNOWN"]');
+    expect(warning).toHaveTextContent('Command ID');
+    expect(warning).toHaveTextContent('Correlation ID');
+    expect(screen.getByRole('button', { name: 'Запустить сверку' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Обновить' }));
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([, options]) => options?.method !== 'POST')).toHaveLength(4));
+    expect(screen.getByText('Исход команды не подтверждён')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Запустить сверку' })).toBeDisabled();
+    expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
+  });
+
+  it('keeps a verified server receipt visible when the subsequent read fails', async () => {
+    const record = controlTowerRecord();
+    let reads = 0;
+    const fetchMock = vi.fn(async (_url: string, options?: RequestInit) => {
+      if (options?.method === 'POST') {
+        const command = JSON.parse(String(options.body)) as { correlationId: string };
+        return { ok: true, status: 200, json: async () => ({
+          kind: 'APPLIED', adapterCode: record.adapterCode, correlationId: command.correlationId,
+          auditEventId: 'audit-1', outboxEntryId: 'outbox-1', aggregateVersion: '2',
+        }) };
+      }
+      reads += 1;
+      if (reads > 2) throw new TypeError('read failed after server receipt');
+      return { ok: true, status: 200, json: async () => _url.includes('?limit=')
+        ? { items: [record], nextCursor: null }
+        : record };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(React.createElement(IntegrationControlTowerClient, { locale: 'ru', csrfToken: 'test-csrf' }));
+    await submitReconcile();
+
+    expect(await screen.findByText('read failed after server receipt')).toBeInTheDocument();
+    expect(screen.getByText(/Сервер подтвердил запись команды в audit\/outbox/)).toBeInTheDocument();
+    expect(screen.getByText(/Это не подтверждает обработку внешней системой/)).toBeInTheDocument();
+    expect(screen.queryByText('Исход команды не подтверждён')).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
   });
 });
