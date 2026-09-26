@@ -10619,7 +10619,6 @@
       "evidence": [
         "object-literal-aggregation:apps/api/src/modules/exports/exports.service.ts",
         "traced-by:PR#5102",
-        "fix-prepared:PR#5102",
         "fix-prepared:PR#5135",
         "repository-scan:no-prototype-sink",
         "repository-scan:map-set-usage"
@@ -10666,7 +10665,7 @@
           ]
         }
       ],
-      "note": "Corrected from PASS to FAIL. The earlier PASS rested on the absence of dedicated pollution sinks - no recursive merge, no setPrototypeOf, no write to __proto__, which the last condition still verifies - and its own note conceded that a dynamic obj[key] write with an unvalidated key is too generic to scan for. A traced instance of exactly that shape exists on main, and it is the construct this requirement names: buildRosstatCsv in exports.service.ts aggregates tonnage into an object literal keyed by the deal's culture, which reaches the key as free text. A key that names an inherited Object.prototype member does not create an own entry the way an ordinary key does, so the regulatory return can silently misreport volume. PR #5102 measured this against the real service, and it is credited here rather than re-derived. Fixes are prepared in two open PRs, #5102 and #5135, each replacing the literal with a Map; only one of them should land, and that choice is recorded for the owner. The first condition quotes the aggregation verbatim, so replacing it revokes this decision for re-assessment. Re-assessment then still has to consider the requirement codebase-wide, since the sink scan below cannot see a generic dynamic key write."
+      "note": "Corrected from PASS to FAIL. The earlier PASS rested on the absence of dedicated pollution sinks - no recursive merge, no setPrototypeOf, no write to __proto__, which the last condition still verifies - and its own note conceded that a dynamic obj[key] write with an unvalidated key is too generic to scan for. A traced instance of exactly that shape exists on main, and it is the construct this requirement names: buildRosstatCsv in exports.service.ts aggregates tonnage into an object literal keyed by the deal's culture, which reaches the key as free text. A key that names an inherited Object.prototype member does not create an own entry the way an ordinary key does, so the regulatory return can silently misreport volume. PR #5102 measured this against the real service, and it is credited here rather than re-derived. The fix for the pinned instance is prepared in PR #5135, which replaces the literal with a Map and reconciles the totals. PR #5102 carried the same change until it was narrowed on 2026-09-26; it now fixes two further sites of the same class, the adapter statistics in compliance and integration-events. The first condition quotes the aggregation verbatim, so replacing it revokes this decision for re-assessment. Re-assessment then still has to consider the requirement codebase-wide, since the sink scan below cannot see a generic dynamic key write."
     },
     {
       "requirementId": "V15.3.7",
@@ -10676,7 +10675,7 @@
         "first-match-cookie-reader:apps/web/lib/server-request-security.ts",
         "first-match-cookie-reader:apps/web/lib/server-request-actor.ts",
         "traced-by:PR#5102",
-        "fix-prepared:PR#5102",
+        "fix-prepared:PR#5625",
         "apps/api/src/main.ts",
         "repository-scan:explicit-parameter-binding",
         "repository-scan:no-getall-in-web-tier"
@@ -10715,7 +10714,7 @@
           ]
         }
       ],
-      "note": "Corrected from PASS to FAIL. The earlier PASS assessed query and body parameters, where it still holds and is kept below as credit, and did not assess cookies, which the requirement names explicitly among the parameter sources. On main the same Cookie header is resolved two ways. readCookie in server-request-security.ts, which assertCsrf uses, and the equivalent readers in server-request-actor.ts and csrf.ts take the FIRST occurrence of a name. Next's RequestCookies, behind request.cookies and cookies(), keeps the LAST, because it builds a map by name. For a header that carries a name twice, which value decides depends on which code path a route uses. That is parameter pollution in the source this requirement calls out. Why it is reachable in principle: the control host is a subdomain of the public host, so a sibling under the same registrable domain can set a Domain-scoped cookie with the same name. PR #5102 (open, unmerged) measured the disagreement on the real parsers and prepares a single shared reader that refuses an ambiguous header instead of picking a side; it is credited here. The first condition quotes the first-match reader verbatim, so replacing it revokes this decision for re-assessment."
+      "note": "Corrected from PASS to FAIL. The earlier PASS assessed query and body parameters, where it still holds and is kept below as credit, and did not assess cookies, which the requirement names explicitly among the parameter sources. On main the same Cookie header is resolved two ways. readCookie in server-request-security.ts, which assertCsrf uses, and the equivalent readers in server-request-actor.ts and csrf.ts take the FIRST occurrence of a name. Next's RequestCookies, behind request.cookies and cookies(), keeps the LAST, because it builds a map by name. For a header that carries a name twice, which value decides depends on which code path a route uses. That is parameter pollution in the source this requirement calls out. Why it is reachable in principle: the control host is a subdomain of the public host, so a sibling under the same registrable domain can set a Domain-scoped cookie with the same name. PR #5102 measured the disagreement on the real parsers and prepared a single shared reader that refuses an ambiguous header instead of picking a side; that reader is now PR #5625, unchanged. Both are credited here. The first condition quotes the first-match reader verbatim, so replacing it revokes this decision for re-assessment."
     },
     {
       "requirementId": "V15.4.1",
