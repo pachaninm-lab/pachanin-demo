@@ -1,0 +1,38 @@
+name: Temporary force-cancel stale PR5631 retries
+
+on:
+  push:
+    branches:
+      - ops/force-cancel-stale-pr5631-6b56-20260926
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cancel-stale:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Force-cancel only stale exact-head retries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STALE_SHA: '6b56b156a87865aac92e4492accf0d5e6686682c'
+          CURRENT_SHA: '6e0d75d02fa7747ccd4da3309f45d21792d29153'
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(gh api "repos/$GITHUB_REPOSITORY/pulls/5631" --jq .head.sha)"
+          [[ "$current" == "$CURRENT_SHA" ]]
+          for run_id in 36264044057 36264044086 36264044097 36264043980 36264043959; do
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
+            head_sha="$(jq -r '.head_sha' <<<"$run")"
+            status="$(jq -r '.status' <<<"$run")"
+            [[ "$head_sha" == "$STALE_SHA" ]] || { echo "refusing mismatched run $run_id" >&2; exit 31; }
+            if [[ "$status" == "completed" ]]; then
+              echo "stale run $run_id already terminal"
+              continue
+            fi
+            gh api --method POST               -H 'Accept: application/vnd.github+json'               -H 'X-GitHub-Api-Version: 2022-11-28'               "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/force-cancel"
+            echo "force-cancel requested for stale run $run_id"
+          done
