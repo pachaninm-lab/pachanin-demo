@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
 import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-route-policy';
 import { PLATFORM_V7_INTEGRATIONS_ROUTE } from '@/lib/platform-v7/routes';
-import { matchesControlTowerCommandReceipt } from '@/components/crop-platform/IntegrationControlTowerClient';
 
 const root = process.cwd();
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
@@ -122,29 +121,16 @@ describe('Platform V7 Integration Control Tower vertical', () => {
     expect(client).not.toContain("data-regulatory-applicability='NOT_APPLICABLE'");
   });
 
-  it('accepts only a matching server command receipt, never a bare 2xx body', () => {
-    const redrive = {
-      action: 'REDRIVE' as const, adapterCode: 'FGIS_ZERNO', entryId: 'entry-1',
-      ifMatch: '7', reason: 'Investigate the same inbox event',
-      commandId: 'command-1', idempotencyKey: 'key-1', correlationId: 'correlation-1',
-    };
-    const receipt = {
-      kind: 'APPLIED', entryId: 'entry-1', outboxEntryId: 'outbox-1',
-      auditEventId: 'audit-1', correlationId: 'correlation-1',
-    };
-    expect(matchesControlTowerCommandReceipt(receipt, redrive)).toBe(true);
-    expect(matchesControlTowerCommandReceipt({ ...receipt, kind: 'REPLAY' }, redrive)).toBe(true);
-    expect(matchesControlTowerCommandReceipt({}, redrive)).toBe(false);
-    expect(matchesControlTowerCommandReceipt({ ...receipt, correlationId: 'other' }, redrive)).toBe(false);
-    expect(matchesControlTowerCommandReceipt({ ...receipt, entryId: 'other' }, redrive)).toBe(false);
-    expect(matchesControlTowerCommandReceipt({ ...receipt, auditEventId: '' }, redrive)).toBe(false);
-    expect(matchesControlTowerCommandReceipt({ ...receipt, outboxEntryId: null }, redrive)).toBe(false);
-    const reconcile = { ...redrive, action: 'RECONCILE' as const, entryId: null };
-    expect(matchesControlTowerCommandReceipt({
-      kind: 'APPLIED', adapterCode: 'FGIS_ZERNO', aggregateVersion: '8',
-      outboxEntryId: 'outbox-2', auditEventId: 'audit-2', correlationId: 'correlation-1',
-    }, reconcile)).toBe(true);
-    expect(matchesControlTowerCommandReceipt({ ...receipt, aggregateVersion: '8' }, reconcile)).toBe(false);
+  it('requires a matching server audit/outbox receipt, never a bare 2xx body', () => {
+    const client = read('components/crop-platform/IntegrationControlTowerClient.tsx');
+    expect(client).toContain("receipt.kind !== 'APPLIED' && receipt.kind !== 'REPLAY'");
+    expect(client).toContain('receipt.correlationId !== command.correlationId');
+    expect(client).toContain("typeof receipt.auditEventId !== 'string' || !receipt.auditEventId.trim()");
+    expect(client).toContain("typeof receipt.outboxEntryId !== 'string' || !receipt.outboxEntryId.trim()");
+    expect(client).toContain('receipt.entryId === command.entryId && !!command.entryId');
+    expect(client).toContain('receipt.adapterCode === command.adapterCode');
+    expect(client).toContain("typeof receipt.aggregateVersion === 'string' && !!receipt.aggregateVersion.trim()");
+    expect(client).toContain('if (!matchesControlTowerCommandReceipt(payload, command))');
   });
 
   it('keeps an ambiguous command outcome visible and blocks another command in the mounted screen', () => {

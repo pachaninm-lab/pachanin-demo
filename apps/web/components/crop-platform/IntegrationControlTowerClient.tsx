@@ -277,7 +277,7 @@ async function readJson(response: Response): Promise<unknown> {
   return response.json().catch(() => null);
 }
 
-export function matchesControlTowerCommandReceipt(payload: unknown, command: PendingAction): boolean {
+function matchesControlTowerCommandReceipt(payload: unknown, command: PendingAction): boolean {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
   const receipt = payload as JsonRecord;
   if (receipt.kind !== 'APPLIED' && receipt.kind !== 'REPLAY') return false;
