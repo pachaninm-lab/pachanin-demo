@@ -6,7 +6,7 @@
   "authorizedBy": "trusted-base-immutable-scope-admission-5646",
   "baseline": {
     "branch": "main",
-    "commit": "9f8ae70cf13401702c20869e2c7c986dd22eade2"
+    "commit": "002bddf693b3645d8ba127bd5d33c50811965809"
   },
   "intent": "Admit only event-gated engineering-readiness evaluations to the global publication queue.",
   "allowedPaths": [
