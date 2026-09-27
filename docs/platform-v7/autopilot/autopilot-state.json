@@ -1592,6 +1592,9 @@
       "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
       "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
       "apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx",
+      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+      "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
       "docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json"
     ],
     "agent/platform-v7-product-copy": [
@@ -2139,6 +2142,9 @@
         "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
         "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
         "apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx",
+        "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+        "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
         "docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json"
       ],
       "requiredTruthBoundaries": [
@@ -2153,6 +2159,28 @@
         "CI/security/readiness gate weakening"
       ],
       "teamHubDependency": "#5372 inventory comment 5833248230; #5604 guard prerequisite; PUBLIC #5559 main serialization; #5535 CORE next-action dependency"
+    },
+    "ux-buyer-first-customer-route-20260927-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Render the admitted server-scoped buyer home at the verified buyer root and prove the actual route across RU/EN/ZH and desktop/mobile browsers.",
+      "authorityBaseExactMain": "dcf10faa093d3d911c3ddaa06afde2be65897c0d",
+      "implementationBranch": "ux/buyer-first-customer-home-20260925",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+        "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "Only the server-verified buyer root renders its server page; other role roots and the controlled owner preview remain separate.",
+        "A real authenticated buyer route is checked in RU/EN/ZH on desktop and mobile; component source tests alone do not prove rendering.",
+        "Buyer queue order stays navigation, with UNKNOWN required action and no bank or regulatory finality."
+      ],
+      "forbiddenAuthority": [
+        "API/backend/domain/DB/RLS/tenant/role/session or priority authority",
+        "other role root or public route behavior",
+        "CI/security/readiness gate weakening"
+      ],
+      "teamHubDependency": "#5610 exact-head P1 route composition review; Team Hub #5469"
     },
     "public-mobile-trust-gekta-return-20260926-coordination": {
       "owner": "ACCOUNT_2_PRODUCT",

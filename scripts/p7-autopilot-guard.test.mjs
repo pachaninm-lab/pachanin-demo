@@ -1877,6 +1877,125 @@ test('buyer admission uses trusted base guard in both workflow entry points', ()
   assert.ok(standard.includes(`github.head_ref != '${buyerAdmissionBranch}'`));
 });
 
+const buyerRouteCoordinationKey = 'ux-buyer-first-customer-route-20260927-coordination';
+const buyerRouteAdditions = [
+  'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx',
+  'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts',
+  'apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts',
+];
+const buyerRoutePaths = [...buyerPaths.slice(0, -1), ...buyerRouteAdditions, buyerPaths.at(-1)];
+
+test('buyer route admission adds only shell composition and actual-route checks', () => {
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  assert.deepEqual(state.approvedConcurrentScopes[buyerBranch], buyerRoutePaths);
+  assert.deepEqual(state.coordinationAdmissions[buyerCoordinationKey].allowedPaths, buyerRoutePaths);
+  assert.deepEqual(state.coordinationAdmissions[buyerRouteCoordinationKey].allowedPaths, buyerRouteAdditions);
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
+  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
+    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
+  assert.ok(trusted.includes("github.event.pull_request.head.ref == 'governance/pc-crop-inventory-reservation-scope-4997'"));
+  assert.ok(prHead.includes("github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997'"));
+});
+
+for (const mutation of ['accepted', 'wrong base', 'extra buyer path', 'missing browser check', 'missing route record', 'global scope', 'unrelated state']) {
+  test(`buyer route governance exact state transform: ${mutation}`, (t) => {
+    const branch = 'governance/pc-crop-inventory-reservation-scope-4997';
+    const context = fixture(t, branch);
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    state.approvedConcurrentScopes[branch] = [
+      statePath, 'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs',
+      '.github/workflows/platform-v7-autopilot-guard.yml',
+    ];
+    state.approvedConcurrentScopes[buyerBranch] = [...buyerPaths];
+    state.coordinationAdmissions = { [buyerCoordinationKey]: { allowedPaths: [...buyerPaths] } };
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, 'trusted buyer route governance baseline');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+
+    state.approvedConcurrentScopes[buyerBranch] = [...buyerRoutePaths];
+    state.coordinationAdmissions[buyerCoordinationKey].allowedPaths = [...buyerRoutePaths];
+    const metadata = JSON.parse(fs.readFileSync(statePath, 'utf8')).coordinationAdmissions[buyerRouteCoordinationKey];
+    state.coordinationAdmissions[buyerRouteCoordinationKey] = {
+      ...metadata, authorityBaseExactMain: context.baseline,
+    };
+    if (mutation === 'wrong base') state.coordinationAdmissions[buyerRouteCoordinationKey].authorityBaseExactMain = '0'.repeat(40);
+    if (mutation === 'extra buyer path') state.approvedConcurrentScopes[buyerBranch].push('apps/api/src/app.module.ts');
+    if (mutation === 'missing browser check') state.approvedConcurrentScopes[buyerBranch] = buyerRoutePaths.filter((file) => !file.endsWith('canonical-visual-evidence.spec.ts'));
+    if (mutation === 'missing route record') delete state.coordinationAdmissions[buyerRouteCoordinationKey];
+    if (mutation === 'global scope') state.allowedCurrentScope.push('apps/api/**');
+    if (mutation === 'unrelated state') state.coordinationAdmissions.unrelated = { owner: 'ACCOUNT_2_PRODUCT' };
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, `buyer route ${mutation}`);
+    const result = runGuard(context);
+    if (mutation === 'accepted') assert.equal(result.status, 0, output(result));
+    else {
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /BUYER_ROUTE_ADMISSION_STATE_MUTATION/u);
+    }
+  });
+}
+
+for (const mutation of ['edit existing route record', 'delete existing route record']) {
+  test(`buyer route governance preserves accepted route record: ${mutation}`, (t) => {
+    const branch = 'governance/pc-crop-inventory-reservation-scope-4997';
+    const context = fixture(t, branch);
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    state.approvedConcurrentScopes[branch] = [
+      statePath, 'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs',
+      '.github/workflows/platform-v7-autopilot-guard.yml',
+    ];
+    state.approvedConcurrentScopes[buyerBranch] = [...buyerRoutePaths];
+    state.coordinationAdmissions = {
+      [buyerCoordinationKey]: { allowedPaths: [...buyerRoutePaths] },
+      [buyerRouteCoordinationKey]: JSON.parse(fs.readFileSync(statePath, 'utf8')).coordinationAdmissions[buyerRouteCoordinationKey],
+    };
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, 'accepted buyer route admission');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+
+    if (mutation === 'edit existing route record') {
+      state.coordinationAdmissions[buyerRouteCoordinationKey].purpose += ' changed';
+    } else {
+      delete state.coordinationAdmissions[buyerRouteCoordinationKey];
+    }
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, mutation);
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /BUYER_ROUTE_ADMISSION_STATE_MUTATION/u);
+  });
+}
+
+test('buyer route implementation stays inside the accepted shell and browser scope', (t) => {
+  const context = fixture(t, buyerBranch);
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const manifestPath = buyerPaths.at(-1);
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+  state.approvedConcurrentScopes[buyerBranch] = [...buyerRoutePaths];
+  write(context.root, statePath, JSON.stringify(state));
+  commit(context.root, 'trusted buyer route scope');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+
+  for (const file of buyerRouteAdditions) write(context.root, file, `accepted ${file}\n`);
+  const manifest = {
+    schemaVersion: 'platform-v7.concurrent-scope.v1', status: 'active', branch: buyerBranch,
+    allowedPaths: [...buyerRoutePaths],
+  };
+  write(context.root, manifestPath, JSON.stringify(manifest));
+  commit(context.root, 'buyer route implementation');
+  assert.equal(runGuard(context).status, 0);
+
+  manifest.allowedPaths.push('apps/api/src/app.module.ts');
+  write(context.root, manifestPath, JSON.stringify(manifest));
+  commit(context.root, 'attempt to widen buyer manifest');
+  const rejected = runGuard(context);
+  assert.notEqual(rejected.status, 0, output(rejected));
+  assert.match(output(rejected), /PRODUCT_MANIFEST_BASE_SCOPE_MISMATCH/u);
+});
+
 test('security remediation pins the three affected dependency families', () => {
   const root = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   const web = JSON.parse(fs.readFileSync('apps/web/package.json', 'utf8'));

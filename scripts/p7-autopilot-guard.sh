@@ -538,6 +538,76 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
   }
   scopes = state.approvedConcurrentScopes?.[branch];
 
+  if (branch === 'governance/pc-crop-inventory-reservation-scope-4997') {
+    // The already-admitted writer lane may extend the buyer slice only by this
+    // reviewed route composition and rendered acceptance trio. Preserve every
+    // unrelated state byte and bind the new coordination record to trusted main.
+    const { isDeepStrictEqual } = require('node:util');
+    const headRef = String(process.env.HEAD_REF || 'HEAD');
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${statePath}`], { encoding: 'utf8' }));
+    const key = 'ux-buyer-first-customer-route-20260927-coordination';
+    const implementationBranch = 'ux/buyer-first-customer-home-20260925';
+    const originalKey = 'ux-buyer-first-customer-home-20260925-coordination';
+    const buyerScopeChanged = !isDeepStrictEqual(
+      candidate.approvedConcurrentScopes?.[implementationBranch],
+      state.approvedConcurrentScopes?.[implementationBranch],
+    ) || !isDeepStrictEqual(
+      candidate.coordinationAdmissions?.[originalKey]?.allowedPaths,
+      state.coordinationAdmissions?.[originalKey]?.allowedPaths,
+    );
+    const trustedAdmissions = state.coordinationAdmissions || {};
+    const candidateAdmissions = candidate.coordinationAdmissions || {};
+    const routeRecordAlreadyAdmitted = Object.hasOwn(trustedAdmissions, key);
+    if (routeRecordAlreadyAdmitted &&
+        (!Object.hasOwn(candidateAdmissions, key) ||
+         !isDeepStrictEqual(candidateAdmissions[key], trustedAdmissions[key]))) {
+      throw new Error('BUYER_ROUTE_ADMISSION_STATE_MUTATION');
+    }
+    const routeRecordAdded = !routeRecordAlreadyAdmitted && Object.hasOwn(candidateAdmissions, key);
+    if (buyerScopeChanged || routeRecordAdded) {
+      const originalPaths = [
+        'apps/web/components/platform-v7/FirstCustomerWorkspace.tsx',
+        'apps/web/components/platform-v7/FirstCustomerWorkspace.module.css',
+        'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts',
+        'apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx',
+        'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json',
+      ];
+      const additions = [
+        'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx',
+        'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts',
+        'apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts',
+      ];
+      if (!isDeepStrictEqual(state.approvedConcurrentScopes?.[implementationBranch], originalPaths) ||
+          !isDeepStrictEqual(state.coordinationAdmissions?.[originalKey]?.allowedPaths, originalPaths)) {
+        throw new Error('BUYER_ROUTE_TRUSTED_BASE_SCOPE_MISMATCH');
+      }
+      const paths = [...originalPaths.slice(0, -1), ...additions, originalPaths.at(-1)];
+      const expected = structuredClone(state);
+      expected.approvedConcurrentScopes[implementationBranch] = paths;
+      expected.coordinationAdmissions[originalKey].allowedPaths = paths;
+      expected.coordinationAdmissions[key] = {
+        owner: 'ACCOUNT_2_PRODUCT',
+        purpose: 'Render the admitted server-scoped buyer home at the verified buyer root and prove the actual route across RU/EN/ZH and desktop/mobile browsers.',
+        authorityBaseExactMain: execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim(),
+        implementationBranch,
+        allowedPaths: additions,
+        requiredTruthBoundaries: [
+          'Only the server-verified buyer root renders its server page; other role roots and the controlled owner preview remain separate.',
+          'A real authenticated buyer route is checked in RU/EN/ZH on desktop and mobile; component source tests alone do not prove rendering.',
+          'Buyer queue order stays navigation, with UNKNOWN required action and no bank or regulatory finality.',
+        ],
+        forbiddenAuthority: [
+          'API/backend/domain/DB/RLS/tenant/role/session or priority authority',
+          'other role root or public route behavior',
+          'CI/security/readiness gate weakening',
+        ],
+        teamHubDependency: '#5610 exact-head P1 route composition review; Team Hub #5469',
+      };
+      if (!isDeepStrictEqual(candidate, expected)) throw new Error('BUYER_ROUTE_ADMISSION_STATE_MUTATION');
+    }
+  }
+
   if (branch === 'governance/product-buyer-home-admission-20260925') {
     const { isDeepStrictEqual } = require('node:util');
     const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
