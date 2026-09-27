@@ -1676,7 +1676,8 @@
       "apps/web/lib/platform-v7/public-assistant-knowledge.ts",
       "apps/web/lib/platform-v7/assistant-question-understanding.ts",
       "apps/web/tests/unit/publicFarmerStarterQuestions.test.ts",
-      "apps/web/tests/unit/taiPublicAssistantRetryRegenerate.test.tsx"
+      "apps/web/tests/unit/taiPublicAssistantRetryRegenerate.test.tsx",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json"
     ]
   },
   "currentAcceptance": [
