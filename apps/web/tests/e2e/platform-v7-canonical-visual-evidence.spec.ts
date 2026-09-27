@@ -402,7 +402,7 @@ test.describe('canonical protected cabinet boundary', () => {
       zh: { description: '服务器会核查买方角色的交易访问权限', ready: '服务器已确认', empty: '队列为空', unknown: '服务器未提供优先执行的操作', emptyTitle: '暂时没有工作对象' },
     } as const;
     for (const [locale, expected] of Object.entries(copy)) {
-      const response = await page.goto(`/platform-v7/buyer?lang=${locale}`, { waitUntil: 'networkidle' });
+      const response = await page.goto(`/platform-v7/buyer?lang=${locale}`, { waitUntil: 'domcontentloaded' });
       expect(response?.status(), `${locale} buyer route`).toBe(200);
       const workspace = page.getByTestId('p0-first-customer-workspace-buyer');
       await expect(workspace).toBeVisible();
