@@ -40,6 +40,7 @@ export const LIVE_CAPABILITY_PATTERN = /(?:уже\s+(?:работает|дост
 // JavaScript word boundaries do not treat Cyrillic letters as Unicode words reliably.
 // Deliberately avoid \b around units such as "руб." and match only in the
 // already-classified current-evidence contour.
+export const CURRENT_SOURCE_AVAILABILITY_CLAIM_PATTERN = /(?:не\s+явля(?:ется|ются)\s+публичн\w*\s+информац\w*|недоступн\w*\s+(?:в\s+реальном\s+времени|публично)|не\s+может\s+быть\s+(?:определен\w*|получен\w*)\s+автоматически|not\s+public(?:ly)?\s+available|not\s+available\s+in\s+real[-\s]?time|cannot\s+be\s+determined\s+automatically|非公开|无法自动确定)/iu;
 export const EXACT_CURRENT_CLAIM_PATTERN = /(?:\d{1,3}(?:[ \u00A0\u202F]\d{3})*(?:[.,]\d+)?\s*(?:%|₽|руб(?:\.|лей|ля)?|долл(?:\.|аров)?|т\/га|ц\/га|тонн(?:а|ы)?|тыс\.?|млн\.?|°c)|\d{1,2}[./-]\d{1,2}[./-]\d{2,4})/iu;
 
 // Public general-agro answers do not carry a governed, current pesticide-registration
@@ -161,7 +162,8 @@ export function enforcePlatformGrounding(
 
 /** Whether one block may stand when the question needs current, governed evidence. */
 export function currentEvidenceVerdict(block: string): boolean {
-  return !EXACT_CURRENT_CLAIM_PATTERN.test(block.replace(/^\s*\d+[.)]\s*/u, ''));
+  const body = block.replace(/^\s*\d+[.)]\s*/u, '');
+  return !EXACT_CURRENT_CLAIM_PATTERN.test(body) && !CURRENT_SOURCE_AVAILABILITY_CLAIM_PATTERN.test(body);
 }
 
 export function enforceCurrentEvidenceBoundary(
