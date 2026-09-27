@@ -325,17 +325,33 @@ def stop_candidate():
             time.sleep(0.25)
     PID_PATH.unlink(missing_ok=True)
 
+def baseline_runtime_healthy():
+    _, _, argv, _ = snapshot_baseline()
+    alias = (flag_value(argv, "alias") or b"").decode("utf-8", "replace")
+    raw_host = (flag_value(argv, "host", required=False) or b"127.0.0.1").decode("ascii", "ignore")
+    host = "127.0.0.1" if raw_host in {"0.0.0.0", "::", "localhost"} else raw_host
+    raw_port = (flag_value(argv, "port", required=False) or b"8080").decode("ascii", "ignore")
+    key = (flag_value(argv, "api_key") or b"").decode("utf-8", "replace")
+    if alias != BASELINE_ALIAS or not raw_port.isdigit() or len(key) < 32:
+        return False
+    try:
+        status_code, payload = http_json(host, int(raw_port), "/v1/models", key, timeout=3)
+    except OSError:
+        return False
+    ids = [row.get("id") for row in payload.get("data", []) if isinstance(row, dict)]
+    return status_code == 200 and BASELINE_ALIAS in ids
+
+
 def verify_baseline():
     systemctl("start", SERVICE, check=False)
     deadline = time.monotonic() + 90
     last = "unknown"
     while time.monotonic() < deadline:
         try:
-            _, _, argv, _ = snapshot_baseline()
-            alias = (flag_value(argv, "alias") or b"").decode("utf-8", "replace")
-            if alias == BASELINE_ALIAS:
+            if baseline_runtime_healthy():
                 emit("ROLLBACK", "PASS")
                 return
+            last = "runtime_not_healthy"
         except Exception as exc:
             last = type(exc).__name__
         time.sleep(1)
@@ -397,7 +413,10 @@ def rollback():
     emit("ROLLBACK_STATUS", "PASS")
 
 def status():
-    baseline = systemctl("is-active", "--quiet", SERVICE, check=False).returncode == 0
+    try:
+        baseline = baseline_runtime_healthy()
+    except Exception:
+        baseline = False
     candidate = 0
     if PID_PATH.exists():
         try:
