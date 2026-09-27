@@ -35,7 +35,7 @@ CANDIDATE_HOST = "127.0.0.1"
 CANDIDATE_PORT = 18081
 MIN_CANDIDATE_MEM_AVAILABLE = 3 * 1024 * 1024 * 1024
 MAX_CASE_TOKENS = 180
-ROLLBACK_UNIT = "gekta-qwen35-ab-rollback"
+ROLLBACK_UNIT_PREFIX = "gekta-qwen35-ab-rollback"
 
 SYSTEM_PROMPT = """Ты практический эксперт по сельскому хозяйству и агробизнесу. Отвечай на русском языке, конкретно и кратко. Не выдумывай актуальные цены, погоду, законы или статистику, если свежий источник не дан. Без региона, фазы развития культуры и актуальной регистрационной информации не называй конкретный препарат, действующее вещество, дозу или интервал обработки: объясни безопасную диагностику и какие данные нужны. Не утверждай, что цифровая платформа сама принимает юридически или коммерчески значимое решение. В экономических задачах сохраняй числа и единицы пользователя, считай арифметику точно и отделяй валовую выручку от чистой. Не повторяй уже известные исходные данные как вопрос."""
 
@@ -418,7 +418,7 @@ def self_test() -> int:
         "candidate_size": CANDIDATE_BYTES > 5_000_000_000,
         "cases": len(CASES) == 7,
         "critical_cases": all(x in {c["id"] for c in CASES} for x in ("current", "pesticide", "storage", "math")),
-        "rollback_unit": ROLLBACK_UNIT.startswith("gekta-qwen35-ab-"),
+        "rollback_unit": ROLLBACK_UNIT_PREFIX.startswith("gekta-qwen35-ab-"),
     }
     if not all(checks.values()):
         print("GEKTA_QWEN35_AB_SELF_TEST=FAIL")
@@ -478,6 +478,7 @@ def main() -> int:
     log_file = run_root / "candidate.log"
     candidate_proc: subprocess.Popen[bytes] | None = None
     rollback_armed = False
+    rollback_unit = ROLLBACK_UNIT_PREFIX + "-" + str(os.getpid())
 
     def restore_baseline() -> None:
         nonlocal candidate_proc, rollback_armed
@@ -497,14 +498,14 @@ def main() -> int:
         if model_id(BASELINE_HOST, BASELINE_PORT, api_key) != EXPECTED_BASELINE_MODEL:
             raise ABError("baseline_restore_model_mismatch")
         if rollback_armed:
-            run(["systemctl", "stop", ROLLBACK_UNIT + ".timer"], check=False, timeout=10)
-            run(["systemctl", "reset-failed", ROLLBACK_UNIT + ".timer", ROLLBACK_UNIT + ".service"], check=False, timeout=10)
+            run(["systemctl", "stop", rollback_unit + ".timer"], check=False, timeout=10)
+            run(["systemctl", "reset-failed", rollback_unit + ".timer", rollback_unit + ".service"], check=False, timeout=10)
             rollback_armed = False
         result["restored"] = True
 
     try:
         run([
-            "/usr/bin/systemd-run", "--unit=" + ROLLBACK_UNIT, "--on-active=12min",
+            "/usr/bin/systemd-run", "--unit=" + rollback_unit, "--on-active=12min",
             "/usr/bin/systemctl", "start", SERVICE
         ], check=True, timeout=20)
         rollback_armed = True
@@ -551,6 +552,17 @@ def main() -> int:
         candidate_model = model_id(CANDIDATE_HOST, CANDIDATE_PORT, api_key)
         candidate = run_suite(CANDIDATE_HOST, CANDIDATE_PORT, api_key, candidate_model)
         result["candidate"] = candidate
+
+        post_swap = process_swap_bytes(cpid)
+        post_available = mem_available_bytes()
+        post_rss = process_rss_bytes(cpid)
+        result["candidateMemory"]["postSuiteRssBytes"] = post_rss
+        result["candidateMemory"]["postSuiteSwapBytes"] = post_swap
+        result["candidateMemory"]["postSuiteMemAvailableBytes"] = post_available
+        if post_swap != 0:
+            raise ABError("candidate_post_suite_swap_nonzero")
+        if post_available < MIN_CANDIDATE_MEM_AVAILABLE:
+            raise ABError("candidate_post_suite_memory_headroom_low")
 
         speed_ok = (
             candidate["ttftP50Ms"] <= max(round(baseline["ttftP50Ms"] * 1.15), baseline["ttftP50Ms"] + 1500)
