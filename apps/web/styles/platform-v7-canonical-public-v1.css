@@ -1464,6 +1464,14 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-home .pc-cp-final p{display:block!important;font-size:14px!important;line-height:1.45!important}
   .pc-cp-bottom-nav a,.pc-cp-bottom-nav a[data-center='true']{font-size:12px!important}
 }
+/* At 320px, keep the full headline readable within the five-line hero gate. */
+@media(max-width:350px){
+  .pc-cp-page-home .pc-cp-hero-copy h1{
+    font-size:32px!important;
+    max-width:calc(100vw - 28px)!important;
+  }
+}
+
 @media(max-width:600px){
   .pc-cp-page-home .pc-cp-role-grid,
   .pc-cp-page-home .pc-cp-trust-grid{grid-template-columns:1fr!important}
