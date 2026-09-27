@@ -1684,6 +1684,10 @@
       "scripts/p7-autopilot-guard.test.mjs",
       ".github/workflows/platform-v7-autopilot-guard.yml",
       "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
+    "fix/gekta-web-release-compose-20260927": [
+      "scripts/production-web-remote-entrypoint.sh",
+      "scripts/check-production-web-hardening.mjs"
     ]
   },
   "currentAcceptance": [
