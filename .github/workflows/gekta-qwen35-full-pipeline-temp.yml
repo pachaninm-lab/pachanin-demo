@@ -87,7 +87,7 @@ jobs:
           export AI_ASSISTANT_TIMEOUT_MS=150000
           export AI_ASSISTANT_MAX_TOKENS=500
           cd apps/api
-          pnpm exec ts-node --transpile-only ../../scripts/gekta-qwen35-fullpipe-temp.ts
+          pnpm exec ts-node --transpile-only --compiler-options '{"module":"CommonJS","moduleResolution":"Node"}' ../../scripts/gekta-qwen35-fullpipe-temp.ts
           cd ../..
           curl -fsS http://127.0.0.1:18083/metrics | grep -E 'llamacpp:(prompt_tokens_seconds|predicted_tokens_seconds)' | tail -10 || true
           echo 'FULLPIPE_PRODUCTION_MUTATION=NONE'
