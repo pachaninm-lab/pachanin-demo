@@ -1649,7 +1649,40 @@
     "fix/auth-mail-runtime-projection-recovery-20260926": [
       "scripts/provision-production-auth-mail-runtime.sh",
       "scripts/check-production-auth-mail-outbox-cutover.mjs",
-      "docs/platform-v7/autopilot/scopes/auth-mail-post-release-db-authority-20260926.json"
+      "docs/platform-v7/autopilot/scopes/auth-mail-post-release-db-authority-20260926.json",
+      ".github/workflows/production-auth-mail-runtime-authority-diagnostic-20260926.yml"
+    ],
+    "fix/public-mobile-trust-gekta-return-20260926": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/web-unit.yml",
+      "apps/web/components/platform-v7/PublicContactDock.tsx",
+      "apps/web/styles/platform-v7-canonical-home-v1.css",
+      "apps/web/styles/platform-v7-canonical-public-v1.css",
+      "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+      "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
+      "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+      "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+      "apps/web/tests/unit/platformV7MobileTrustAndGektaReturn.test.ts",
+      "docs/platform-v7/autopilot/scopes/public-mobile-trust-gekta-return-20260926.json"
+    ],
+    "fix/production-mobile-controller-handoff-20260927": [
+      ".github/workflows/platform-v7-production-mobile-acceptance.yml",
+      "docs/platform-v7/autopilot/scopes/production-mobile-controller-handoff-20260927.json"
+    ],
+    "fix/gekta-farmer-questions-20260927": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/web-unit.yml",
+      "apps/web/app/api/public-platform-assistant/route.ts",
+      "apps/web/lib/platform-v7/public-assistant-knowledge.ts",
+      "apps/web/lib/platform-v7/assistant-question-understanding.ts",
+      "apps/web/tests/unit/publicFarmerStarterQuestions.test.ts",
+      "apps/web/tests/unit/taiPublicAssistantRetryRegenerate.test.tsx",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json"
+    ],
+    "governance/gekta-recovery-trusted-routes-20260927": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+      "scripts/p7-autopilot-guard.sh"
     ]
   },
   "currentAcceptance": [
@@ -2094,6 +2127,69 @@
         "CI/security/readiness gate weakening"
       ],
       "teamHubDependency": "#5372 inventory comment 5833248230; #5604 guard prerequisite; PUBLIC #5559 main serialization; #5535 CORE next-action dependency"
+    },
+    "public-mobile-trust-gekta-return-20260926-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Narrow P0 PUBLIC mobile repair: make canonical Trust cards readable and return the existing Gekta assistant launcher above bottom navigation.",
+      "authorityBaseExactMain": "35ce3841f15572bfcba7c8d7e03afb858da0888d",
+      "implementationBranch": "fix/public-mobile-trust-gekta-return-20260926",
+      "allowedPaths": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/web-unit.yml",
+        "apps/web/components/platform-v7/PublicContactDock.tsx",
+        "apps/web/styles/platform-v7-canonical-home-v1.css",
+        "apps/web/styles/platform-v7-canonical-public-v1.css",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+        "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
+        "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+        "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+        "apps/web/tests/unit/platformV7MobileTrustAndGektaReturn.test.ts",
+        "docs/platform-v7/autopilot/scopes/public-mobile-trust-gekta-return-20260926.json"
+      ],
+      "requiredTruthBoundaries": [
+        "The implementation PR changes only these 11 exact paths; its own scope manifest is documentation, not independent authorization.",
+        "Preserve the existing PublicPlatformAssistant and contact dock; no parallel chat, API, database, tenant, role, market, Deal, outbox, auth-mail, Kubernetes or production-topology authority.",
+        "RU/EN/ZH mobile Trust cards remain readable and the canonical Gekta action is visible, enabled, at least 44 by 44 CSS pixels, above bottom navigation, and opens the existing composer.",
+        "After this separate state-only admission merges, independently review the complete refreshed implementation diff against the accepted main state, rerun exact-head CI/security/readiness, then require exact-main REG.RU release and live browser acceptance.",
+        "The generic guard is not an immutable trusted-base route for this implementation branch; do not describe a candidate-owned manifest as trusted-base admission."
+      ],
+      "forbiddenAuthority": [
+        "Candidate manifest self-authorization or widening beyond the 11 accepted paths",
+        "API/DB/tenant/role/market/Deal/outbox/auth-mail/production operation changes",
+        "CI/security/readiness gate weakening or unsupported production acceptance claims"
+      ],
+      "teamHubDependency": "#5469; #5631; exact-head inline P1 #4112623681"
+    },
+    "gekta-reviewed-bootstrap-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "One-time owner-authorized Gekta recovery governance bootstrap: exact reviewed three-file candidate only.",
+      "authorityBaseExactMain": "2b302725a14d518382f533f38495c568c9a4691b",
+      "implementationBranch": "governance/gekta-recovery-trusted-routes-20260927",
+      "reviewedCandidateSha": "1f746d7e457af6d1815ea050a0211939d84a8a89",
+      "reviewedCandidateTree": "6f5fe6c391737c818607144baf84a32138dc40d9",
+      "allowedPaths": [
+        ".github/workflows/platform-v7-autopilot-guard.yml",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+        "scripts/p7-autopilot-guard.sh"
+      ],
+      "reviewedBlobs": {
+        ".github/workflows/platform-v7-autopilot-guard.yml": "a0271cd4eff83a430882fe3e089b60b57b28e9e6",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "242d07fcab5a06bb2a9cce807f16590c0e874fa3",
+        "scripts/p7-autopilot-guard.sh": "80dce5c8fa2e8c53e391adb14decb95b27ac60d1"
+      },
+      "requiredTruthBoundaries": [
+        "Owner explicitly authorized the one-time bootstrap and autonomous completion in the active session. This state-only change admits no product, production operation or implementation branch.",
+        "Before merging the governance candidate, independently verify its complete diff and three blob identities against this record. Changed content requires renewed review and source admission.",
+        "This is documented exact-content admission with independent manual enforcement. Existing generic routing does not automatically enforce recorded SHA fields. Do not claim immutable enforcement before the reviewed bootstrap is accepted.",
+        "The four implementation branches obtain only literal trusted-base path sets after the bootstrap merges. Candidate state, global scope, guard, workflow, R1.2 and renames cannot widen those scopes.",
+        "All substantive CI, exact-head independent review, unresolved-thread resolution and fresh manual SHA-bound readiness remain required. Deployment is separately pending exact OCI identity, health and live acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Implementation paths in this state-only PR",
+        "State, scope or unrelated authority changes in the three-file bootstrap",
+        "Automatic merge, check override, force merge or new recurring costs"
+      ],
+      "reviewDependency": "PR #5650; native P1 4114326800; independent reviewer /root/review_gekta"
     }
   }
 }
