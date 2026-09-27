@@ -276,7 +276,55 @@ describe('RestrictedPublicQwenService.generateStream', () => {
       if (event.type === 'delta') deltas.push(event.text);
     }
 
-    expect(deltas[0]).toContain('не могу подтвердить точное актуальное значение');
+    expect(deltas[0]).toBe('Свежие данные по этому вопросу я сейчас не могу проверить. Ниже — что стоит учесть для решения.\n\n');
+    expect(deltas.join('')).toContain('решения.\n\nСтабильный');
+  });
+
+  it.each([
+    ['Какая цена пшеницы сегодня?', true],
+    ['Что влияет на рост цен?', true],
+    ['Как сравнить цены покупателей?', true],
+    ['Оцени экономическую обстановку в АПК', false],
+    ['Какие ценности важны для кооператива?', false],
+  ])('keeps the current-data notice relevant to %s', async (question, isPriceQuestion) => {
+    installRuntime({ deltas: ['Сравните качество и условия оплаты. '] });
+    const deltas: string[] = [];
+    for await (const event of service.generateStream(request({
+      question, originalQuestion: question, currentDataRequired: true,
+    }))) {
+      if (event.type === 'delta') deltas.push(event.text);
+    }
+    expect(deltas[0].includes('значение цены')).toBe(isPriceQuestion);
+    expect(deltas[0]).not.toMatch(/управляемого источника|времени получения/iu);
+    expect(deltas[0].endsWith('\n\n')).toBe(true);
+  });
+
+  it('preserves a reusable policy prefix when locale, answer mode or current-data needs change', async () => {
+    const variants = [
+      {},
+      { locale: 'en', responseBudget: { profile: 'detailed' } },
+      { locale: 'zh', currentDataRequired: true },
+      { answerMode: 'verified_platform' },
+    ];
+    const prompts: string[] = [];
+    for (const variant of variants) {
+      const probe = installRuntime({ deltas: ['Ответ. '] });
+      for await (const _event of service.generateStream(request(variant))) { /* drain */ }
+      const messages = probe.requests[0].body.messages as { role: string; content: string }[];
+      prompts.push(messages[0].content);
+    }
+    let sharedLength = 0;
+    while (sharedLength < prompts[0].length && prompts.every((prompt) => prompt[sharedLength] === prompts[0][sharedLength])) {
+      sharedLength += 1;
+    }
+    // Alternating languages must not evict almost the entire reusable policy prefix.
+    expect(sharedLength / Math.max(...prompts.map((prompt) => prompt.length))).toBeGreaterThan(0.8);
+    expect(prompts[0]).toContain('Reply in Russian.');
+    expect(prompts[1]).toContain('Reply in English.');
+    expect(prompts[1]).toContain('150 words');
+    expect(prompts[2]).toContain('Reply in Chinese.');
+    expect(prompts[2]).toContain('Never present general economic reasoning as a report about today.');
+    expect(prompts[3]).toContain('use the supplied verified public grounding as the authority');
   });
 
   it('carries the derived conversation state into the prompt, not raw history alone', async () => {
