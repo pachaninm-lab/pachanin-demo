@@ -118,6 +118,64 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     global.fetch = ORIGINAL_FETCH;
   });
 
+  it.each(['stream', 'buffered'])('screens economic conclusions and checks user arithmetic in %s output', async (mode) => {
+    const question = 'Срок хранения два месяца. Насколько должна вырасти цена, чтобы покрыть только хранение?';
+    const raw = request({ question, originalQuestion: question, history: [
+      { role: 'user', text: 'Пшеница 500 тонн, предлагают 12000 рублей за тонну. Хранение 200 рублей за тонну в месяц. Продавать сейчас или хранить?' },
+      { role: 'assistant', text: 'Хранение стоит 999 рублей, срок три месяца.' },
+    ] });
+    const content = 'Если цена вырастет больше, хранение станет выгодным. Проверьте потери качества и условия доставки. ';
+    let answer = '';
+    let flags: readonly string[] = [];
+    if (mode === 'stream') {
+      installRuntime({ deltas: ['Если цена вырастет больше, хранение станет ', 'выгодным. ', 'Проверьте потери качества и условия доставки. '] });
+      for await (const event of service.generateStream(raw)) {
+        if (event.type === 'delta') answer += event.text;
+        if (event.type === 'done') flags = event.safetyFlags;
+      }
+    } else {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      const result = await service.generate(raw);
+      answer = result.answer;
+      flags = result.safetyFlags;
+    }
+    expect(answer).not.toContain('станет выгодным');
+    expect(answer).not.toContain('999');
+    expect(answer).toContain('400 руб/т');
+    expect(answer).toContain('только хранения');
+    expect(answer).toContain('потери качества');
+    expect(flags).toContain('UNVERIFIED_ECONOMIC_CLAIM_REMOVED');
+  });
+
+  it('provides a useful limitation when every model economic sentence is suppressed', async () => {
+    installRuntime({ deltas: ['Продавать сейчас выгоднее. '] });
+    const question = 'Хранение 200 рублей за тонну в месяц. Продавать сейчас или хранить?';
+    let answer = '';
+    for await (const event of service.generateStream(request({ question, originalQuestion: question }))) {
+      if (event.type === 'delta') answer += event.text;
+    }
+    expect(answer).toContain('Уточните');
+    expect(answer).not.toContain('сейчас выгоднее');
+  });
+
+  it.each(['stream', 'buffered'])('does not turn a grouped monetary suffix into checked arithmetic in %s output', async (mode) => {
+    const question = 'Хранение стоит 1 200 рублей за тонну в месяц. Срок хранения два месяца.';
+    const raw = request({ question, originalQuestion: question });
+    const content = 'Цена должна вырасти на 400 рублей. Проверьте потери качества и условия доставки. ';
+    let answer = '';
+    if (mode === 'stream') {
+      installRuntime({ deltas: [content] });
+      for await (const event of service.generateStream(raw)) if (event.type === 'delta') answer += event.text;
+    } else {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      answer = (await service.generate(raw)).answer;
+    }
+    expect(answer).not.toContain('400');
+    expect(answer).not.toContain('Расчёт по вашим данным');
+    expect(answer).toContain('Уточните');
+    expect(answer).toContain('потери качества');
+  });
+
   it('asks the runtime for a streamed completion with the hard concise general-agro ceiling', async () => {
     const probe = installRuntime({ deltas: ['Готовый ответ. '] });
 
