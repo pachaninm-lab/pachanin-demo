@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
 
   const target = bridgeFallbackTarget(request, flow, reason);
   const response = NextResponse.redirect(target);
+  // Редирект несёт state и nonce в адресе; кэшировать его нельзя (V14.3.2).
+  response.headers.set('cache-control', 'no-store');
   response.cookies.set(GOV_ID_STATE_COOKIE, '', bridgeCookieOptions(request, 0));
   response.cookies.set(GOV_ID_NONCE_COOKIE, '', bridgeCookieOptions(request, 0));
   response.cookies.set(GOV_ID_FLOW_COOKIE, '', bridgeCookieOptions(request, 0));

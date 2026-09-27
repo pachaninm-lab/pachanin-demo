@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { jsonNoStore } from '../../../../lib/http/no-store';
 
 /**
  * Deprecated stub. This route previously returned a fabricated "protocol
@@ -8,7 +8,7 @@ import { NextResponse } from 'next/server';
  * (PATCH /labs/samples/:id/finalize), which enforces role and object scope.
  */
 export async function POST() {
-  return NextResponse.json(
+  return jsonNoStore(
     {
       ok: false,
       code: 'NOT_IMPLEMENTED',

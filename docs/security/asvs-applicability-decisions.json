@@ -9598,38 +9598,49 @@
     {
       "requirementId": "V14.3.2",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "framework-scope:apps/web/next.config.js",
-        "uncovered-handler:apps/web/app/api/auth/platform-v7-cabinet-login/route.ts",
-        "uncovered-handler:apps/web/app/api/platform-v7/cabinet-session/route.ts",
-        "uncovered-handler:apps/web/app/api/commercial/finance/applications/route.ts"
+        "apps/web/lib/http/no-store.ts",
+        "scripts/security/verify-api-cache-control.mjs",
+        "scripts/security/verify-api-cache-control.test.mjs",
+        ".github/workflows/sbom-scan.yml"
       ],
       "conditions": [
         {
-          "condition": "the framework anti-caching header is still scoped to the entry paths rather than applied globally",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the shared helper still refuses to leave a response cacheable and still refuses to overwrite a header the handler set itself",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/web/next.config.js"
+            "apps/web/lib/http/no-store.ts"
           ],
           "patterns": [
-            "publicentryfreshheaders"
+            "has('cache-control')",
+            "set('cache-control', 'no-store')"
           ]
         },
         {
-          "condition": "the login, session and finance handlers still set no cache header of their own",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the gate that decides coverage by following the return path is still present and still exempts streams explicitly",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/web/app/api/auth/platform-v7-cabinet-login/route.ts",
-            "apps/web/app/api/platform-v7/cabinet-session/route.ts",
-            "apps/web/app/api/commercial/finance/applications/route.ts"
+            "scripts/security/verify-api-cache-control.mjs"
           ],
           "patterns": [
-            "cache-control"
+            "text/event-stream",
+            "resolveimport",
+            "no_cache_control"
+          ]
+        },
+        {
+          "condition": "the gate still runs in CI rather than only existing",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            ".github/workflows/sbom-scan.yml"
+          ],
+          "patterns": [
+            "verify-api-cache-control.mjs"
           ]
         }
       ],
-      "note": "Most handlers do this correctly and a minority do not, so both numbers are given. Of 118 route handlers under apps/web/app/api, 86 set Cache-Control no-store, 1 sets a different Cache-Control value for a streaming response, 4 set only a framework directive, and 27 set nothing at all. The 4 are called out separately because they look like coverage and are not: export const dynamic force-dynamic and revalidate 0 govern the Next.js cache, not the browser’s, and neither emits a response header. The framework configuration does not fill the gap either - its no-store block applies to exactly four entry paths, none of them under /api, while the global rule applies security headers that contain no Cache-Control. Among the 27 uncovered handlers are the cabinet login response, the cabinet session endpoint and the whole commercial surface: companies, insurance, finance applications, dispatch, provider assignments, queue, survey, market and expansion."
+      "note": "Measured on the tree: 118 route handlers under apps/web/app/api, 111 now covered, 7 exempt streams, none uncovered. Coverage is decided by following the return path through helper imports, not by reading the route file alone, and that distinction is the whole finding rather than a detail - three separate measurements of it were wrong before this one was right, in both directions. Counting file-locally reported gekta/auth/login as uncovered although every one of its returns goes through gektaAuthJson, which sets the header; following only relative imports missed every helper reached through the `@/` alias; and matching only the object-literal spelling of the header reported a freshly fixed tree as entirely uncovered, because the shared helper sets it through a Headers call. Forty-nine files were reverted when the first error surfaced: fixing what is not broken is worse than not fixing it. The seven streaming handlers are exempt deliberately and counted separately rather than passed over silently - they set 'no-cache, no-transform', and no-transform is what stops an intermediary from breaking the stream, so forcing no-store would take that away. Three handlers that answer with something other than JSON were closed by hand: the document-content stream, which is the most sensitive thing this surface returns, and the two gov-id redirects, whose URLs carry state and nonce. The gate prints what it cannot check - source presence is not proof the header survives a proxy at runtime. Proven by negative mutation: removing the header from the shared helper drops coverage from 111 to 60 and fails with the 51 affected handlers named."
     },
     {
       "requirementId": "V14.3.3",
