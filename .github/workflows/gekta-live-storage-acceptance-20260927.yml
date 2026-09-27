@@ -65,12 +65,19 @@ jobs:
             return sha;
           }
 
-          let cookie = '';
+          const cookies = new Map();
+          function cookieHeader() {
+            return [...cookies.entries()].map(([k, v]) => k + '=' + v).join('; ');
+          }
           function updateCookie(headers) {
-            const raw = headers.get('set-cookie') || '';
-            if (!raw) return;
-            const first = raw.split(';', 1)[0].trim();
-            if (/^[^=;\s]+=[^;]+$/.test(first)) cookie = first;
+            const rawValues = typeof headers.getSetCookie === 'function'
+              ? headers.getSetCookie()
+              : [headers.get('set-cookie')].filter(Boolean);
+            for (const raw of rawValues) {
+              const first = String(raw).split(';', 1)[0].trim();
+              const eq = first.indexOf('=');
+              if (eq > 0) cookies.set(first.slice(0, eq), first.slice(eq + 1));
+            }
           }
 
           async function reserve() {
@@ -80,7 +87,7 @@ jobs:
               headers: {
                 'content-type': 'application/json',
                 accept: 'application/json',
-                ...(cookie ? { cookie } : {}),
+                ...(cookieHeader() ? { cookie: cookieHeader() } : {}),
               },
               body: JSON.stringify({ action: 'reserve' }),
             });
@@ -107,7 +114,7 @@ jobs:
                   accept: 'text/event-stream',
                   'sec-fetch-site': 'same-origin',
                   'x-gekta-answer-ticket': reserved.ticket,
-                  ...(cookie ? { cookie } : {}),
+                  ...(cookieHeader() ? { cookie: cookieHeader() } : {}),
                 },
                 body: JSON.stringify({
                   message: question,
@@ -120,7 +127,10 @@ jobs:
               });
               updateCookie(r.headers);
               const headersMs = round(performance.now() - started);
-              if (!r.ok) throw new Error(label + '_STREAM_HTTP_' + r.status);
+              if (!r.ok) {
+                const refused = (await r.text()).slice(0, 240).replace(/\s+/gu, ' ');
+                throw new Error(label + '_STREAM_HTTP_' + r.status + ':' + refused);
+              }
               if (!String(r.headers.get('content-type') || '').toLowerCase().startsWith('text/event-stream')) {
                 throw new Error(label + '_NOT_SSE');
               }
