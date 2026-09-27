@@ -7,6 +7,7 @@ import { ArrowRightFromLine, Banknote, BriefcaseBusiness, Building2, ClipboardCh
 import { useTranslations } from 'next-intl';
 import { PLATFORM_V7_ACTIVE_ROLE_KEY, platformV7RoleHome } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
+import { PublicLocaleSwitch } from '@/components/platform-v7/PublicLocaleSwitch';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 import { applyCsrfHeader } from '@/lib/csrf';
 
@@ -54,7 +55,7 @@ export function LoginLegacyOverlay() {
   return (
     <main className='p7-login-old'>
       <style>{css}</style>
-      <PublicSiteHeader ariaLabel={t('brand')} actions={<Link href='/platform-v7' className='exit' aria-label={t('back')}><ArrowRightFromLine size={22}/></Link>} />
+      <PublicSiteHeader ariaLabel={t('brand')} localeControl={<PublicLocaleSwitch />} actions={<Link href='/platform-v7' className='exit' aria-label={t('back')}><ArrowRightFromLine size={22}/></Link>} />
       <section className='card'>
         <span className='kicker'>{t('kicker')}</span>
         <h1>{t('title')}</h1>

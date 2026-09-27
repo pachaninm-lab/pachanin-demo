@@ -93,6 +93,9 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7/open',
   '/platform-v7/login',
   '/platform-v7/register',
+  '/platform-v7/market',
+  '/platform-v7/gekta',
+  '/platform-v7/capabilities',
   '/platform-v7/forgot-password',
   '/platform-v7/invitation',
   '/platform-v7/mfa-recovery',
@@ -298,6 +301,9 @@ function withRoleHeaders(req: NextRequest, role: string, protectedResponse = fal
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-pc-role', role);
   requestHeaders.set('x-pc-pathname', req.nextUrl.pathname);
+  // Navigation-only query context lets zero-hydration locale links preserve
+  // registration/status tokens without turning query values into authority.
+  requestHeaders.set('x-pc-search', req.nextUrl.search);
   const queryLocale = resolveLocaleFromQuery(req);
   const pathLocale = resolveGektaPathLocale(req.nextUrl.pathname);
   const requestLocale = pathLocale || queryLocale;

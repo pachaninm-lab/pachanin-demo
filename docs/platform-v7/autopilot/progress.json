@@ -1,18 +1,27 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 0,
-  "currentStep": "IR-20 Canonical Durable Outbox",
-  "lastCompletedStep": "IR-10.5 Disputes PostgreSQL Authority exact-main revalidation 397e98955d9f98704c40befd0088a1390556e0fa",
+  "fullTzReadinessPercent": 5,
+  "currentStep": "R1.2 Controlled open-as-role server authority",
+  "lastCompletedStep": "R1.1 exact 13-cabinet inventory admitted by PR #5468",
   "openPr": null,
-  "blockedBy": [
-    "IR-20 Canonical Durable Outbox is not green/closed/mergeable. Dispatcher will not advance to IR-21 Durable Integration Inbox."
-  ],
-  "nextStep": "IR-20 Canonical Durable Outbox",
-  "updatedAt": "2026-09-12T23:49:51.776Z",
+  "blockedBy": [],
+  "nextStep": "R1.2 canonical 13 role-mode API/server authority; no visual implementation",
+  "updatedAt": "2026-09-20T23:20:00+03:00",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
     "noAutoMerge": true,
-    "controlledPilotOnly": true
-  }
+    "controlledPilotOnly": true,
+    "serverAuthority": true,
+    "noClientSelectedRole": true,
+    "noParallelUxFgisBankImplementation": true
+  },
+  "masterV21": {
+    "overallProductionProgress": "5/100=5%",
+    "r1TargetAfterProductionPass": "12/100=12%",
+    "exactMain": "5da8e80744908413102214f91dd68018911b892e",
+    "productionSha": "5da8e80744908413102214f91dd68018911b892e",
+    "productionControllerRun": 35520784872
+  },
+  "currentTaskExecution": "R1.1 inventory complete in this admission; main should start at R1.2 after merge; R1 points remain uncredited until full PRODUCTION_PASS"
 }

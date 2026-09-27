@@ -66,5 +66,9 @@ def test_gitleaks_exceptions_are_exact_and_release_attested() -> None:
         ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391",
         "ba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:"
         ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:395",
+        "db4f0a50b8df0a5e1045d3b9dc6a6fdc9d2806b0:"
+        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:1005",
+        "db4f0a50b8df0a5e1045d3b9dc6a6fdc9d2806b0:"
+        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:1018",
     ]
     assert all(_FINGERPRINT.fullmatch(entry) is not None for entry in entries)

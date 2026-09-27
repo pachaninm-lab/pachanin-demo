@@ -124,7 +124,7 @@ describe('P0 first-customer registration boundary', () => {
     expect(registerPage).not.toContain('ROLE_OPTIONS');
     expect(registerPage).not.toContain('getSelectedRole');
     expect(registerClient).toContain("<form className='p0-register-form'");
-    expect(registerClient).toContain("fetch('/api/auth/register'");
+    expect(registerClient).toContain("registrationContextEndpoint('register'");
     expect(registerClient).not.toContain('/platform-v7/onboarding');
   });
 
