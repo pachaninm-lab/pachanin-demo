@@ -521,11 +521,20 @@ def main() -> int:
         if mem_available_bytes() < 10 * 1024 * 1024 * 1024:
             raise ABError("serial_window_memory_not_reclaimed")
 
+        candidate_env = dict(baseline_env)
+        for name in (
+            "NOTIFY_SOCKET", "WATCHDOG_USEC", "WATCHDOG_PID", "INVOCATION_ID", "JOURNAL_STREAM",
+            "LISTEN_FDS", "LISTEN_PID", "LISTEN_FDNAMES",
+            "LLAMA_ARG_MODEL", "LLAMA_ARG_HOST", "LLAMA_ARG_PORT", "LLAMA_ARG_API_KEY",
+            "LLAMA_ARG_API_KEY_FILE", "LLAMA_ARG_ALIAS", "TAI_LLM_API_KEY",
+        ):
+            candidate_env.pop(name, None)
+
         log_handle = log_file.open("wb")
         candidate_proc = subprocess.Popen(
             argv,
             executable=str(exe),
-            env=baseline_env,
+            env=candidate_env,
             stdin=subprocess.DEVNULL,
             stdout=log_handle,
             stderr=subprocess.STDOUT,
