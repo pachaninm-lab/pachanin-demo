@@ -1,6 +1,7 @@
 import {
   isUngroundedCropProtectionPrescription,
   stripUngroundedCropProtectionPrescriptions,
+  platformGroundingVerdict,
 } from './restricted-public-qwen.safety';
 
 describe('restricted public crop-protection prescription boundary', () => {
@@ -17,6 +18,33 @@ describe('restricted public crop-protection prescription boundary', () => {
     expect(safe).not.toContain('металаксила');
     expect(safe).toContain('санитарную уборку');
     expect(flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+  });
+
+
+  it('removes brand-plus-dose prescriptions without governed registration evidence', () => {
+    const flags: string[] = [];
+    const answer = [
+      'Для фитофтороза используйте препарат «Кумулин-М» в дозе 2,5 л/га.',
+      'Для ржавчины — «Ридомил-Голд» в дозе 2,5–3 л/га.',
+      'Сначала уточните регион, фазу культуры и симптомы.',
+    ].join('\n');
+
+    const safe = stripUngroundedCropProtectionPrescriptions(answer, flags);
+
+    expect(safe).not.toContain('Кумулин-М');
+    expect(safe).not.toContain('Ридомил-Голд');
+    expect(safe).toContain('уточните регион');
+    expect(flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+  });
+
+  it('rejects a claim that the platform autonomously makes the participant decision', () => {
+    const verdict = platformGroundingVerdict(
+      'Платформа автоматически проведёт проверку и затем примет решение по спору.',
+      'При расхождении участник фиксирует отклонение и собирает доказательства.',
+    );
+
+    expect(verdict.keep).toBe(false);
+    expect(verdict.flags).toContain('AUTONOMOUS_PLATFORM_DECISION_REMOVED');
   });
 
   it('does not remove a non-prescriptive registration boundary', () => {
