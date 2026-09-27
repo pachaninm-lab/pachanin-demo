@@ -190,16 +190,16 @@ jobs:
             local dir="$1"
             mkdir -p "$dir"
             printf '%s\n' "$sha" > "$dir/target-sha.txt"
-            cat > "$dir/production-action.log" <<EOF
-EXACT_IMAGE_SOURCE=pinned-ssh
-MIGRATION_COMPLETE=1
-DEPLOYMENT_COMPLETE=1
-DEPLOYED_API_REVISION=$sha
-DEPLOYED_WEB_REVISION=$sha
-DEPLOYED_OUTBOX_WORKER_REVISION=$sha
-IR20_KAFKA_READY=1
-IR20_OUTBOX_WORKER_READY=1
-EOF
+            printf '%s\n' \
+              'EXACT_IMAGE_SOURCE=pinned-ssh' \
+              'MIGRATION_COMPLETE=1' \
+              'DEPLOYMENT_COMPLETE=1' \
+              "DEPLOYED_API_REVISION=$sha" \
+              "DEPLOYED_WEB_REVISION=$sha" \
+              "DEPLOYED_OUTBOX_WORKER_REVISION=$sha" \
+              'IR20_KAFKA_READY=1' \
+              'IR20_OUTBOX_WORKER_READY=1' \
+              > "$dir/production-action.log"
             printf 'LIVE_ACCEPTANCE=PASS\n' > "$dir/live.log"
             printf 'DURABLE_INTAKE_DB=PASS\nIR20_LIVE_OUTBOX_DELIVERY=PASS\n' > "$dir/durable-intake-db.log"
             printf 'IR20_RUNTIME_OBSERVATION=PASS\n' > "$dir/ir20-observation.log"
