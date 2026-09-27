@@ -18,6 +18,7 @@ const grounding: PublicGrounding = Object.freeze({
 function generalGate(overrides: Partial<ConstructorParameters<typeof StreamingAnswerGate>[0]> = {}) {
   return new StreamingAnswerGate({
     answerMode: 'general_agro',
+    locale: 'ru',
     currentDataRequired: false,
     grounding,
     ...overrides,
@@ -73,6 +74,7 @@ describe('StreamingAnswerGate', () => {
   it('keeps verified-platform text on complete-block release semantics', () => {
     const gate = new StreamingAnswerGate({
       answerMode: 'verified_platform',
+      locale: 'ru',
       currentDataRequired: false,
       grounding,
     });
@@ -195,6 +197,7 @@ describe('StreamingAnswerGate', () => {
   it('drops a block that contradicts verified platform grounding', () => {
     const gate = new StreamingAnswerGate({
       answerMode: 'verified_platform',
+      locale: 'ru',
       currentDataRequired: false,
       grounding,
     });
@@ -246,6 +249,104 @@ describe('StreamingAnswerGate', () => {
 
     expect(commit.text).not.toContain('https://');
     expect(commit.flags).toContain('RAW_LINK_REMOVED');
+  });
+
+  it('releases a complete Chinese sentence without requiring whitespace after 。', () => {
+    const gate = generalGate({ locale: 'zh' });
+    const first = gate.push('先检查田块排水和小麦根系。然后对照不同地块');
+
+    expect(first.text).toBe('先检查田块排水和小麦根系。');
+    expect(gate.withheld).toBe('然后对照不同地块');
+    expect(gate.violation).toBeNull();
+  });
+
+  it('progresses through Han text without spaces or sentence punctuation and reconstructs it', () => {
+    const gate = generalGate({ locale: 'zh' });
+    const answer = '先观察叶片颜色和根系状态并记录田间湿度变化'.repeat(6);
+    let firstAt = -1;
+    for (let index = 0; index < answer.length; index += 3) {
+      const commit = gate.push(answer.slice(index, index + 3));
+      if (commit.text && firstAt < 0) firstAt = index + 3;
+    }
+    expect(firstAt).toBeGreaterThanOrEqual(48);
+    expect(firstAt).toBeLessThan(answer.length);
+    gate.flush();
+    expect(gate.emitted).toBe(answer);
+  });
+
+  it.each([
+    [['\n然后检查根系'], '\n然后检查根系'],
+    [['\n', '然后检查根系'], '\n然后检查根系'],
+    [[' ABC农机'], ' ABC农机'],
+    [[' ', 'ABC农机'], ' ABC农机'],
+    [['\n', ' ', '然后检查根系'], '\n然后检查根系'],
+  ])('preserves a boundary arriving after a Han progressive fragment: %j', (deltas, suffix) => {
+    const gate = generalGate({ locale: 'zh' });
+    const prefix = '先观察叶片颜色和根系状态并记录田间湿度变化'.repeat(3);
+    expect(gate.push(prefix).text).toBe(prefix);
+    for (const delta of deltas) gate.push(delta);
+    gate.flush();
+    expect(gate.emitted).toBe(prefix + suffix);
+  });
+
+  it('keeps Chinese verified-platform output on complete-block semantics', () => {
+    const gate = new StreamingAnswerGate({
+      answerMode: 'verified_platform', locale: 'zh', currentDataRequired: false, grounding,
+    });
+    expect(gate.push('平台提供公开农业信息和查询说明').text).toBe('');
+    expect(gate.push('。接下来可以核对资料').text).toBe('平台提供公开农业信息和查询说明。');
+  });
+
+  it('refuses a Chinese write claim assembled after a progressive fragment', () => {
+    const gate = generalGate({ locale: 'zh' });
+    gate.push('先检查地块水分并记录小麦根系情况再核对不同位置的叶片颜色与长势变化'.repeat(2) + '我');
+
+    const refused = gate.push('签署了合同。');
+    expect(refused.violation).toBe('WRITE_CLAIM');
+    expect(gate.emitted).not.toContain('签署了');
+  });
+
+  it('withholds a split secret token after Chinese progressive output', () => {
+    const gate = generalGate({ locale: 'zh' });
+    gate.push('先检查地块水分并记录小麦根系情况再核对不同位置的叶片颜色与长势变化'.repeat(2));
+    expect(gate.push('Bearer ').text).toBe('');
+
+    const refused = gate.push('abcdefghijklmnop12345。');
+    expect(refused.violation).toBe('SECRET');
+    expect(gate.emitted).not.toContain('abcdefghijklmnop12345');
+  });
+
+  it('holds a Chinese pesticide prescription prefix until the unsafe block can be discarded', () => {
+    const gate = generalGate({ locale: 'zh' });
+    const premature = gate.push('使用药剂前先核对作物生育期并调查病害类型以及本地登记资料和标签要求记录现场温度与湿度后再推荐');
+    expect(premature.text).toBe('');
+
+    const rejected = gate.push('药剂含有某种有效成分。');
+    expect(rejected.flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    expect(gate.emitted).toBe('');
+    expect(gate.push('应检查田间排水和病叶分布。').text).toContain('应检查');
+  });
+
+  it('does not publish the first character of a split Chinese pesticide instruction', () => {
+    const gate = generalGate({ locale: 'zh' });
+    const prefix = '田间调查应记录作物生育期、病害分布与当地登记资料并核对土壤湿度及天气变化'.repeat(2);
+    expect(gate.push(prefix + '使').text).toBe('');
+    const rejected = gate.push('用药剂含有某种有效成分。');
+    expect(rejected.flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    expect(gate.emitted).toBe('');
+  });
+
+  it('does not split an unfinished raw URL with Han path characters', () => {
+    const gate = generalGate({ locale: 'zh' });
+    const prefix = '先检查地块水分并记录小麦根系情况再核对不同位置的叶片颜色与长势变化'.repeat(2);
+    const first = gate.push(prefix + 'https://example.com/私密路径');
+    expect(first.text).toBe(prefix);
+    expect(gate.withheld).toContain('https://example.com/私密路径');
+
+    const next = gate.push('继续。');
+    expect(next.text).not.toContain('https://');
+    expect(next.flags).toContain('RAW_LINK_REMOVED');
+    expect(gate.emitted).not.toContain('example.com');
   });
 });
 
