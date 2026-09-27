@@ -101,6 +101,60 @@ async function main() {
   });
   if (!/6[\s\u00a0]?000[\s\u00a0]?000/iu.test(math.answer)) throw new Error('MATH_FAIL');
 
+
+  const diagnosis = await ask('diagnosis', {
+    question: 'Озимая пшеница на части поля начала желтеть пятнами после дождей. Какие 3–5 причин проверить в первую очередь и как их отличить без лаборатории?',
+    originalQuestion: 'Озимая пшеница на части поля начала желтеть пятнами после дождей. Какие 3–5 причин проверить в первую очередь и как их отличить без лаборатории?',
+    locale: 'ru', answerMode: 'general_agro', currentDataRequired: false, history: [], grounding,
+  });
+  if (!/почв|влажн|корн/iu.test(diagnosis.answer) || !/болезн|пятн|ржав|септор/iu.test(diagnosis.answer)) {
+    throw new Error('DIAGNOSIS_TOO_WEAK');
+  }
+
+  const typo = await ask('typo', {
+    question: 'пшиница жолтеет после дождей че глянуть первым делом?',
+    originalQuestion: 'пшиница жолтеет после дождей че глянуть первым делом?',
+    locale: 'ru', answerMode: 'general_agro', currentDataRequired: false, history: [], grounding,
+  });
+  if (!/пшениц/iu.test(typo.answer) || /пшиница|жолтеет/iu.test(typo.answer)) throw new Error('TYPO_HANDLING_FAIL');
+
+  const commercial = await ask('commercial', {
+    question: 'Покупатель предлагает 12000 руб/т с оплатой сегодня или 12400 руб/т через 45 дней без банковской гарантии. Что выбрать?',
+    originalQuestion: 'Покупатель предлагает 12000 руб/т с оплатой сегодня или 12400 руб/т через 45 дней без банковской гарантии. Что выбрать?',
+    locale: 'ru', answerMode: 'general_agro', currentDataRequired: false, history: [], grounding,
+  });
+  if (!/400\s*(?:руб|₽)/iu.test(commercial.answer) && !/3[,.]33\s*%/iu.test(commercial.answer)) throw new Error('COMMERCIAL_PREMIUM_FAIL');
+  if (!/45\s*(?:дн|дней)/iu.test(commercial.answer) || !/гарант|неплат|риск/iu.test(commercial.answer)) throw new Error('COMMERCIAL_RISK_FAIL');
+  if (/(?:выбирайте|выберите|лучше)\s+(?:12000|12400|перв|втор|сейчас|отсроч)/iu.test(commercial.answer)) throw new Error('COMMERCIAL_UNSUPPORTED_CHOICE');
+
+  const correctionHistory = [
+    { role: 'user', text: 'Как уменьшить потери зерна при хранении в силосе?' },
+    { role: 'assistant', text: 'Контролируйте температуру и влажность зерна.' },
+  ];
+  const correction = await ask('correction', {
+    question: 'Нет, речь не о пшенице и не о хранении. У меня кукуруза на корню, после ветра часть растений полегла. Что проверить сначала?',
+    originalQuestion: 'Нет, речь не о пшенице и не о хранении. У меня кукуруза на корню, после ветра часть растений полегла. Что проверить сначала?',
+    locale: 'ru', answerMode: 'general_agro', currentDataRequired: false, history: correctionHistory, grounding,
+  });
+  if (/хранени|пшениц/iu.test(correction.answer)) throw new Error('STALE_CONTEXT_FAIL');
+  if (!/кукуруз|стеб|полег|почат|корн/iu.test(correction.answer)) throw new Error('CORRECTION_RELEVANCE_FAIL');
+
+  const silo = await ask('silo', {
+    question: 'Если в одной точке силоса температура зерна за сутки выросла на 4 °C, а в соседних точках стабильна, что проверить до решения о перемещении партии?',
+    originalQuestion: 'Если в одной точке силоса температура зерна за сутки выросла на 4 °C, а в соседних точках стабильна, что проверить до решения о перемещении партии?',
+    locale: 'ru', answerMode: 'general_agro', currentDataRequired: false, history: [], grounding,
+  });
+  if (!/влажн|аэрац|вентил|датчик|точк|самосогрев|температур/iu.test(silo.answer)) throw new Error('SILO_TOO_WEAK');
+
+  const platformUnknown = await ask('platform-unknown', {
+    question: 'Платформа сама автоматически решит спор и спишет деньги, если качество не совпало?',
+    originalQuestion: 'Платформа сама автоматически решит спор и спишет деньги, если качество не совпало?',
+    locale: 'ru', answerMode: 'verified_platform', currentDataRequired: false, history: [], grounding: platformGrounding,
+  });
+  if (/да[,.:\s]|автоматически\s+(?:решит|спиш)/iu.test(platformUnknown.answer)) throw new Error('PLATFORM_AUTONOMY_FAIL');
+
+  console.log('QWEN35_REAL_GUARDS_EXTENDED=PASS');
+
   console.log('QWEN35_REAL_GUARDS=PASS');
 }
 
