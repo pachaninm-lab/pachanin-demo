@@ -2,29 +2,29 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "scopeId": "production-mobile-controller-handoff-20260927",
   "branch": "fix/production-mobile-controller-handoff-20260927",
+  "issue": 4637,
   "status": "active",
-  "authorizedBy": "owner production finish after exact controller evidence",
-  "authorityBaseExactMain": "18e02668f84f7f88842779a9097f145504b105bb",
-  "productionHosting": "REG_RU_VPS_ONLY",
-  "newRecurringCostRub": 0,
-  "purpose": "Repair the fail-closed post-release handoff so a successful owner-authorized platform-v7 safe merge production controller can trigger the existing Platform V7 Production Mobile Acceptance without requiring a redundant web-only rollout. The mobile workflow independently verifies exact controller jobs and the exact live public manifest before Chromium/WebKit acceptance.",
+  "authorizedBy": "trusted-base-immutable-scope-admission",
+  "baseline": {
+    "branch": "main",
+    "commit": "202093945454dd1c743741c7821b60fecc17a2fc"
+  },
+  "intent": "Run fresh Chromium and WebKit production mobile acceptance after an owner-controlled full-stack deployment nested in platform-v7 safe merge.",
   "allowedPaths": [
     ".github/workflows/platform-v7-production-mobile-acceptance.yml",
     "docs/platform-v7/autopilot/scopes/production-mobile-controller-handoff-20260927.json"
   ],
-  "requiredInvariants": [
-    "No product UI, API, database, auth, tenant, RLS, IR-20, mail, Kubernetes or REG.RU runtime source changes.",
-    "A platform-v7 safe merge workflow_run is accepted only when its source event is issue_comment, actor and triggering actor are the repository owner, the run concluded success, and all seven production controller/full-stack/auth-mail/reviewer jobs exist exactly once and concluded success.",
-    "The mobile target remains the exact source controller head SHA when no accepted web-release SHA exists.",
-    "Fresh live manifest must equal the exact target SHA before browser execution.",
-    "Chromium + WebKit coverage, configured mobile viewports, retries=0, Market unavailable checks, linked public pages and existing Gekta/Trust runtime assertions remain unchanged; both engines additionally prove the public Gekta launcher is at least 44px, stays above bottom navigation, hides while the mobile burger is open, returns after close, and opens the real #pc-public-assistant-panel with a visible textarea.",
-    "No web-only release or failed release evidence is reclassified as PASS."
+  "forbidden": [
+    "treating a routine or skipped safe-merge run as a deployment",
+    "using workflow-run head SHA without successful nested deployment evidence",
+    "loosening live manifest, Playwright viewport, Chromium, WebKit, artifact or no-retry gates",
+    "changing production release, API, database, public UI, market source, auth-mail or IR-20 authority"
   ],
   "acceptance": [
-    "Workflow syntax and governance guards PASS on exact head.",
-    "Independent complete-diff review reports P0/P1/P2=0/0/0.",
-    "After merge, a fresh owner current-main production controller completes full-stack, IR-20, auth-mail and reviewer readiness successfully.",
-    "That successful controller produces a fresh Platform V7 Production Mobile Acceptance run on the same exact SHA.",
-    "Exact public manifest, Chromium, WebKit, retries=0, failures=0, explicit live burger-hide/return, bottom-nav separation, #pc-public-assistant-panel and textarea checks all PASS before PUBLIC_EXPERIENCE_V1_FROZEN / FULL_SCOPE_ACCEPTED."
+    "exact owner issue-comment controller and nested full-stack, auth-mail and reviewer jobs succeed",
+    "the exact same-run full-stack artifact binds target SHA and all deployment and live acceptance markers",
+    "main and live manifest match the target before and after zero-retry dual-engine browser acceptance",
+    "Chromium and WebKit verify public Gekta hides when the mobile burger opens, returns after close, and opens the real assistant panel",
+    "fresh exact-head CI and independent review before merge"
   ]
 }
