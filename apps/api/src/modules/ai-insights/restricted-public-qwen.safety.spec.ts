@@ -3,6 +3,7 @@ import {
   stripUngroundedCropProtectionPrescriptions,
   platformGroundingVerdict,
 } from './restricted-public-qwen.safety';
+import { StreamingAnswerGate } from './restricted-public-qwen.stream-gate';
 
 describe('restricted public crop-protection prescription boundary', () => {
   it('removes screenshot-shaped active-ingredient prescriptions but keeps stable prevention advice', () => {
@@ -35,6 +36,38 @@ describe('restricted public crop-protection prescription boundary', () => {
     expect(safe).not.toContain('Ридомил-Голд');
     expect(safe).toContain('уточните регион');
     expect(flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+  });
+
+  it('withholds a disease-product prelude so a brand cannot leak before the later dose is filtered', () => {
+    const gate = new StreamingAnswerGate({
+      answerMode: 'general_agro',
+      locale: 'ru',
+      currentDataRequired: false,
+      grounding: {
+        knowledgeVersion: 'test',
+        topic: 'general_agro',
+        title: 'Агрономия',
+        answer: 'Общая справка.',
+        facts: [],
+        maturity: 'read-only',
+        confidence: 'medium',
+        sources: [],
+      },
+    });
+
+    const first = gate.push('Для ржавчины на пшенице — «Ридомил-Голд» в рекомендуемой дозе ');
+    expect(first.text).toBe('');
+    expect(gate.emitted).not.toContain('Ридомил-Голд');
+
+    const second = gate.push('2,5–3 л/га. Сначала уточните регион и фазу культуры. ');
+    const tail = gate.flush();
+    const published = gate.emitted;
+
+    expect(second.violation).toBeNull();
+    expect(tail.violation).toBeNull();
+    expect(published).not.toContain('Ридомил-Голд');
+    expect(published).not.toMatch(/2,5(?:–3)?\s*л\/га/u);
+    expect(published).toContain('уточните регион');
   });
 
   it('does not treat seed-rate or fertilizer-rate agronomy as a crop-protection prescription', () => {
