@@ -1,5 +1,6 @@
 import { randomBytes, timingSafeEqual } from 'crypto';
 import { CSRF_COOKIE } from './auth-cookies';
+import { readRequestCookie } from './request-cookie';
 import {
   CONTROL_PLATFORM_HOST,
   PRIMARY_PLATFORM_HOST,
@@ -8,13 +9,6 @@ import {
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const HTTP_PROTOCOLS = new Set(['http:', 'https:']);
-
-function readCookie(request: Request, name: string) {
-  const raw = request.headers.get('cookie') || '';
-  const prefix = `${name}=`;
-  const part = raw.split(';').map((item) => item.trim()).find((item) => item.startsWith(prefix));
-  return part ? decodeURIComponent(part.slice(prefix.length)) : '';
-}
 
 function firstForwardedValue(value: string | null) {
   return String(value || '').split(',')[0]?.trim() || '';
@@ -111,7 +105,7 @@ export function assertCsrf(request: Request) {
   if (!isUnsafeMethod(request.method)) return { ok: true as const };
   const sameOrigin = assertSameOriginIfPresent(request);
   if (!sameOrigin.ok) return sameOrigin;
-  const cookieToken = readCookie(request, CSRF_COOKIE);
+  const cookieToken = readRequestCookie(request, CSRF_COOKIE);
   const headerToken = String(request.headers.get('x-csrf-token') || '');
   if (!cookieToken || !headerToken) {
     return { ok: false as const, reason: 'csrf_missing' };
