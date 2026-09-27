@@ -1705,6 +1705,10 @@
     "fix/readiness-queue-job-gate-20260927": [
       ".github/workflows/automerge.yml",
       "docs/platform-v7/autopilot/scopes/readiness-queue-job-gate-20260927.json"
+    ],
+    "governance/gekta-current-data-regression-route-20260927": [
+      "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+      "scripts/p7-autopilot-guard.sh"
     ]
   },
   "currentAcceptance": [
@@ -2251,6 +2255,35 @@
         "Force merge, fabricated checks or disabled safety"
       ],
       "reviewDependency": "Accepted bootstrap PR #5650; owner request and independent source review"
+    },
+    "gekta-quality-regression-bootstrap-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Owner-requested correction and comprehensive testing of slow ordinary Gekta answers and unreadable current-data notices; admit only the reviewed two-line test-scope extension.",
+      "authorityBaseExactMain": "9f8ae70cf13401702c20869e2c7c986dd22eade2",
+      "implementationBranch": "governance/gekta-current-data-regression-route-20260927",
+      "reviewedCandidateSha": "8c0e0ec2f41b6b2536d69b14fa4902618bba7c55",
+      "reviewedCandidateTree": "ded176a1d418b79b1f7e84f811146ccffb887373",
+      "allowedPaths": [
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+        "scripts/p7-autopilot-guard.sh"
+      ],
+      "reviewedBlobs": {
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "8ea167377e785ff115c645b87c1c3f92f9d1b64e",
+        "scripts/p7-autopilot-guard.sh": "85e6a100272115013c5bb84bfec2329574cefd09"
+      },
+      "requiredTruthBoundaries": [
+        "The owner explicitly requested correction of ordinary-answer latency, current-data answer quality and comprehensive testing in the active session. This state-only change admits no product code or production operation.",
+        "The reviewed two-line candidate adds only apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts to the existing API branch literal path set and its regression fixture. All other scopes and negative checks remain unchanged.",
+        "Independently verify the complete governance diff and both blob identities before merge. Changed content requires renewed review and source admission. This record has independent manual enforcement; generic routing does not automatically validate the recorded content hashes.",
+        "Accept the trusted guard before extending the duplicated implementation state scope or publishing the four-file API candidate. Candidate-owned state never widens the trusted literal scope.",
+        "Independent exact-head review, all substantive CI, fresh manual SHA-bound readiness and existing branch protections remain required. REG.RU exact image identity, health and live acceptance remain separate release requirements."
+      ],
+      "forbiddenAuthority": [
+        "Unrelated product, R1.2, database, tenant, role, auth-mail or production-topology changes",
+        "Implementation files in this state-only admission or governance candidate",
+        "Automatic or forced merge, check overrides, weakened safety, new recurring costs"
+      ],
+      "reviewDependency": "Independent reviewer /root/review_gekta; user screenshot IMG_3376 and explicit request to comprehensively test ordinary answers."
     }
   }
 }
