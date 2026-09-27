@@ -7,7 +7,7 @@
   "authorizedBy": "trusted-base-immutable-scope-admission",
   "baseline": {
     "branch": "main",
-    "commit": "bf8d2cf9f1ad668fec8c987a487debf90a983a60"
+    "commit": "202093945454dd1c743741c7821b60fecc17a2fc"
   },
   "intent": "Run fresh Chromium and WebKit production mobile acceptance after an owner-controlled full-stack deployment nested in platform-v7 safe merge.",
   "allowedPaths": [
