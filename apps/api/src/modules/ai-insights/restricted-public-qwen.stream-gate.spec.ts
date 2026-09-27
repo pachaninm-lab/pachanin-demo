@@ -118,7 +118,7 @@ describe('StreamingAnswerGate', () => {
     expect(storageCostFromUser('Хранение 200 рублей за тонну в месяц. Не срок хранения два месяца, а срок кредита.', [])).toBeNull();
   });
 
-  it.each(['Продавайте сейчас.', 'Выбирайте оплату за рейс.', 'For small loads, choose the per-trip option.', '小批量应选按趟付费。', 'Цена должна вырасти на четыреста рублей.'])('screens imperative and spelled-out economic claims: %s', (answer) => {
+  it.each(['Продавайте сейчас.', 'Если показатель отрицательный — продавать сейчас.', 'Сегодня хранить, а не продавать.', 'Выбирайте оплату за рейс.', 'For small loads, choose the per-trip option.', 'If the result is negative, sell now.', '小批量应选按趟付费。', '现在卖。', 'Цена должна вырасти на четыреста рублей.'])('screens imperative and spelled-out economic claims: %s', (answer) => {
     const gate = generalGate({ economicComparison: 'storage' });
     gate.push(answer);
     gate.flush();
@@ -330,6 +330,41 @@ describe('StreamingAnswerGate', () => {
     expect(unsupported.flags).toContain('UNSUPPORTED_PLATFORM_ENTITY_REMOVED');
     expect(gate.emitted).not.toContain('1С');
     expect(gate.emitted).toContain('сравнивать предложения');
+  });
+
+
+  it('drops current sell advice and unsupported directional price claims before publication', () => {
+    const gate = generalGate({ currentDataRequired: true });
+
+    gate.push('Не продавайте сегодня. ');
+    gate.push('Цена может быть ниже рыночной. ');
+    gate.push('Сравните текущую оферту с подтверждённой котировкой. ');
+    gate.flush();
+
+    expect(gate.emitted).not.toContain('Не продавайте');
+    expect(gate.emitted).not.toContain('ниже рыночной');
+    expect(gate.emitted).toContain('Сравните текущую оферту');
+  });
+
+  it('drops ungrounded automatic platform behavior but keeps the participant decision boundary', () => {
+    const verifiedGrounding: PublicGrounding = Object.freeze({
+      ...grounding,
+      answer: 'Расхождение фиксируется доказательствами. Важное решение принимает уполномоченный участник.',
+    });
+    const gate = new StreamingAnswerGate({
+      answerMode: 'verified_platform',
+      locale: 'ru',
+      currentDataRequired: false,
+      grounding: verifiedGrounding,
+    });
+
+    const automatic = gate.push('Система автоматически зафиксирует расхождение. ');
+    gate.push('Важное решение принимает уполномоченный участник. ');
+    gate.flush();
+
+    expect(automatic.flags).toContain('UNSUPPORTED_PLATFORM_AUTONOMY_REMOVED');
+    expect(gate.emitted).not.toContain('автоматически');
+    expect(gate.emitted).toContain('уполномоченный участник');
   });
 
   it('drops an exact current claim when the question needs governed evidence', () => {
