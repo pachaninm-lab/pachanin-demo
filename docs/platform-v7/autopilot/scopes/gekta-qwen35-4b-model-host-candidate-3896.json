@@ -11,7 +11,9 @@
     "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json",
     "scripts/gekta-qwen35-4b-model-host-candidate.py",
     ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
-    "apps/api/src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts"
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts"
   ],
   "requiredBehavior": [
     "candidate is exact Qwen/Qwen3.5-4B source lineage with pinned Q4_K_M artifact revision size and sha256",
@@ -24,7 +26,9 @@
     "every success and failure path restores and verifies the original Qwen3-8B service before the workflow can finish",
     "owner-only issue command is required for model-host mutation and the pinned model-host SSH host key is mandatory",
     "no application database REG.RU deal money registration or tenant state is mutated",
-    "new recurring cost remains zero"
+    "new recurring cost remains zero",
+    "crop-protection hard gate must remove concrete product or brand dose prescriptions when governed registration evidence is absent",
+    "verified-platform hard gate must remove autonomous critical-decision or money-action claims attributed to the platform"
   ],
   "forbiddenCapabilities": [
     "merge-time automatic model switch or permanent Qwen3.5 activation",
