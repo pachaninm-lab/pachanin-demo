@@ -153,7 +153,8 @@ describe('Platform V7 Integration Control Tower vertical', () => {
   it('keeps an ambiguous command outcome visible and blocks another command in the mounted screen', () => {
     const client = read('components/crop-platform/IntegrationControlTowerClient.tsx');
     expect(client).toContain("data-command-outcome='UNKNOWN'");
-    expect(client).toContain("role='alert'");
+    expect(client).toContain("<InlineNotice tone='critical' title={copy.unknownCommand}");
+    expect(client).not.toContain("className={styles.unknownCommand} role='alert'");
     expect(client).toContain('const unknownNotice = unknownCommand ? (');
     expect(client.match(/\{unknownNotice\}/g)).toHaveLength(2);
     expect(client).toMatch(/if \(state\.phase !== 'ready'\)[\s\S]*?\{unknownNotice\}[\s\S]*?<Surface/);
@@ -228,6 +229,8 @@ describe('Integration Control Tower command outcome in the mounted screen', () =
   it.each([
     { name: 'unverifiable 2xx', reply: async () => ({ ok: true, json: async () => ({ ok: true }) }) },
     { name: 'thrown POST', reply: async () => { throw new TypeError('connection lost'); } },
+    { name: 'untyped 409', reply: async () => ({ ok: false, status: 409, json: async () => ({}) }) },
+    { name: 'mismatched typed 409', reply: async () => ({ ok: false, status: 409, json: async () => ({ code: 'CSRF_REJECTED' }) }) },
   ])('keeps $name UNKNOWN after refresh and prevents a second command', async ({ reply }) => {
     const record = controlTowerRecord();
     const fetchMock = vi.fn(async (_url: string, options?: RequestInit) => options?.method === 'POST'
@@ -243,11 +246,38 @@ describe('Integration Control Tower command outcome in the mounted screen', () =
     const warning = document.querySelector('[data-command-outcome="UNKNOWN"]');
     expect(warning).toHaveTextContent('Command ID');
     expect(warning).toHaveTextContent('Correlation ID');
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Запустить сверку' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Обновить' }));
     await waitFor(() => expect(fetchMock.mock.calls.filter(([, options]) => options?.method !== 'POST')).toHaveLength(4));
     expect(screen.getByText(/Исход команды не подтверждён/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Запустить сверку' })).toBeDisabled();
+    expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
+  });
+
+  it.each([
+    { name: 'stale version', status: 409, code: 'INTEGRATION_STALE_VERSION', retry: true },
+    { name: 'forbidden JIT authority', status: 403, code: 'INTEGRATION_JIT_AUTHORITY_REQUIRED', retry: false },
+  ])('accepts typed precommit $name as a rejection, not an unknown command', async ({ status, code, retry }) => {
+    const record = controlTowerRecord();
+    const fetchMock = vi.fn(async (_url: string, options?: RequestInit) => options?.method === 'POST'
+      ? { ok: false, status, json: async () => ({ code, retryable: retry }) }
+      : { ok: true, status: 200, json: async () => _url.includes('?limit=')
+        ? { items: [record], nextCursor: null }
+        : record });
+    vi.stubGlobal('fetch', fetchMock);
+    render(React.createElement(IntegrationControlTowerClient, { locale: 'ru', csrfToken: 'test-csrf' }));
+    await submitReconcile();
+
+    expect(await screen.findByText(code)).toBeInTheDocument();
+    expect(document.querySelector('[data-command-outcome="UNKNOWN"]')).toBeNull();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    if (retry) {
+      fireEvent.click(screen.getByRole('button', { name: 'Обновить' }));
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Запустить сверку' })).toBeEnabled());
+    } else {
+      expect(screen.queryByRole('button', { name: 'Обновить' })).not.toBeInTheDocument();
+    }
     expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
   });
 

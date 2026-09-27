@@ -277,6 +277,31 @@ async function readJson(response: Response): Promise<unknown> {
   return response.json().catch(() => null);
 }
 
+// Only these existing BFF/API codes identify a rejection before command commit.
+// A status without a matching code cannot prove what happened after submission.
+const PRECOMMIT_REJECTIONS: Readonly<Record<number, readonly string[]>> = {
+  400: ['INTEGRATION_IF_MATCH_INVALID'],
+  401: ['STAFF_SESSION_REQUIRED'],
+  403: [
+    'CSRF_REJECTED',
+    'INTEGRATION_AUTH_CONTEXT_INCOMPLETE',
+    'INTEGRATION_ROLE_DENIED',
+    'INTEGRATION_STAFF_AUTHORITY_REQUIRED',
+    'INTEGRATION_MFA_REQUIRED',
+    'INTEGRATION_JIT_AUTHORITY_REQUIRED',
+    'INTEGRATION_HUMAN_REASON_REQUIRED',
+    'INTEGRATION_ACTION_NOT_AVAILABLE',
+  ],
+  409: ['INTEGRATION_STALE_VERSION'],
+  428: ['INTEGRATION_IF_MATCH_REQUIRED'],
+};
+
+function isDefinitivePrecommitRejection(status: number, payload: unknown): boolean {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+  const code = (payload as JsonRecord).code;
+  return typeof code === 'string' && PRECOMMIT_REJECTIONS[status]?.includes(code) === true;
+}
+
 function matchesControlTowerCommandReceipt(payload: unknown, command: PendingAction): boolean {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
   const receipt = payload as JsonRecord;
@@ -492,9 +517,8 @@ export function IntegrationControlTowerClient({
       });
       const payload = await readJson(response);
       if (!response.ok) {
-        // Only a definitive authorization/version rejection permits another command.
-        // A gateway timeout or server error may have followed a durable commit.
-        if (![400, 401, 403, 409, 412, 422, 428].includes(response.status)) {
+        // A gateway/status-only rejection may have followed a durable commit.
+        if (!isDefinitivePrecommitRejection(response.status, payload)) {
           markUnknown();
           return;
         }
@@ -521,7 +545,7 @@ export function IntegrationControlTowerClient({
   };
 
   const unknownNotice = unknownCommand ? (
-    <div className={styles.unknownCommand} role='alert' data-command-outcome='UNKNOWN'>
+    <div className={styles.unknownCommand} data-command-outcome='UNKNOWN'>
       <InlineNotice tone='critical' title={copy.unknownCommand} icon={<TriangleAlert size={18} />}>
         {copy.unknownCommandBoundary} {copy.commandId}: <code>{unknownCommand.commandId}</code>. {copy.correlationId}: <code>{unknownCommand.correlationId}</code>.
       </InlineNotice>
