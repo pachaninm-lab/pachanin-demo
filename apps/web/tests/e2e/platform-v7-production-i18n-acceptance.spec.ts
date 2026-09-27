@@ -268,29 +268,63 @@ async function captureEvidence(page: Page, testInfo: TestInfo, locale: string, v
   });
 }
 
+async function expectClientChunksSettledWithoutErrors(page: Page, pageErrors: string[], route: string) {
+  // The production WebKit failure was a rejected Next.js chunk promise after
+  // load. Keep the page alive until its requests and next render frames settle.
+  await page.waitForLoadState('networkidle', { timeout: 15_000 });
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+  expect(pageErrors, `${route} page errors after client chunks settled`).toEqual([]);
+}
+
 test.describe('Platform V7 exact production i18n acceptance', () => {
   test.describe.configure({ mode: 'serial' });
 
   for (const locale of locales) {
     for (const viewport of viewports) {
-      test(`${locale.label} ${viewport.name}: public localization, reflow and typography`, async ({ page }, testInfo) => {
-        const pageErrors: string[] = [];
-        page.on('pageerror', (error) => pageErrors.push(error.message));
-        await page.setViewportSize({ width: viewport.width, height: viewport.height });
-
+      test(`${locale.label} ${viewport.name}: public localization, reflow and typography`, async ({ context }, testInfo) => {
         for (const route of publicRoutes) {
-          const marker = `${testInfo.project.name}-${locale.code}-${viewport.name}-${route.name}`;
-          const response = await page.goto(localizedUrl(route.path, locale.code, marker), { waitUntil: 'load' });
-          expect(response?.ok(), `${route.path} did not return a successful final response`).toBe(true);
-          await expectLocalizedSurface(page, locale.htmlLang);
-          if (route.name === 'home') await expectProductionHomepageDesignGates(page, viewport, locale.code);
-          if (locale.code === 'zh' && route.name === 'home') await expectChineseTypography(page);
-          await captureEvidence(page, testInfo, locale.code, viewport.name, route.name);
+          const page = await context.newPage();
+          const pageErrors: string[] = [];
+          page.on('pageerror', (error) => pageErrors.push(error.message));
+          try {
+            await page.setViewportSize({ width: viewport.width, height: viewport.height });
+            const marker = `${testInfo.project.name}-${locale.code}-${viewport.name}-${route.name}`;
+            const response = await page.goto(localizedUrl(route.path, locale.code, marker), { waitUntil: 'load' });
+            expect(response?.ok(), `${route.path} did not return a successful final response`).toBe(true);
+            await expectLocalizedSurface(page, locale.htmlLang);
+            if (route.name === 'home') await expectProductionHomepageDesignGates(page, viewport, locale.code);
+            if (locale.code === 'zh' && route.name === 'home') await expectChineseTypography(page);
+            await captureEvidence(page, testInfo, locale.code, viewport.name, route.name);
+            await expectClientChunksSettledWithoutErrors(page, pageErrors, route.path);
+          } finally {
+            await page.close();
+          }
         }
-
-        expect(pageErrors).toEqual([]);
       });
     }
+  }
+
+  for (const locale of locales) {
+    test(`${locale.label} 320x700: login registration link preserves locale without page errors`, async ({ page }, testInfo) => {
+      const pageErrors: string[] = [];
+      page.on('pageerror', (error) => pageErrors.push(error.message));
+      await page.setViewportSize({ width: 320, height: 700 });
+
+      const response = await page.goto(
+        localizedUrl('/platform-v7/login', locale.code, `${testInfo.project.name}-${locale.code}-login-register-click`),
+        { waitUntil: 'load' },
+      );
+      expect(response?.ok()).toBe(true);
+      await expectLocalizedSurface(page, locale.htmlLang);
+      const registerLink = page.locator('.pc-auth-register a[href="/platform-v7/register"]');
+      await expect(registerLink).toBeVisible();
+      await registerLink.click();
+      await expect(page).toHaveURL(/\/platform-v7\/register(?:\?|$)/u);
+      await expectLocalizedSurface(page, locale.htmlLang);
+      await expectClientChunksSettledWithoutErrors(page, pageErrors, 'login → register');
+    });
   }
 
   test('RU 320x700: exact production homepage master design gates', async ({ page }, testInfo) => {
