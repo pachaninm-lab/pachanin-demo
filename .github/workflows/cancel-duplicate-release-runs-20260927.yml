@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 5
     env:
       EXPECTED_SHA: 06f686d52247ebe7805f1b75d937b2ca8daf8f6f
-      RUN_IDS: "36345284461 36345593886 36347424612 36347000571"
+      RUN_IDS: "36345284461 36345593886 36347424612 36347000571 36347529371"
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Cancel only pending exact-SHA duplicates
