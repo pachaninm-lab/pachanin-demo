@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "readiness-queue-job-gate-20260927",
+  "branch": "fix/readiness-queue-job-gate-20260927",
+  "status": "active",
+  "authorizedBy": "trusted-base-immutable-scope-admission-5646",
+  "baseline": {
+    "branch": "main",
+    "commit": "9f8ae70cf13401702c20869e2c7c986dd22eade2"
+  },
+  "intent": "Admit only event-gated engineering-readiness evaluations to the global publication queue.",
+  "allowedPaths": [
+    ".github/workflows/automerge.yml",
+    "docs/platform-v7/autopilot/scopes/readiness-queue-job-gate-20260927.json"
+  ],
+  "requiredInvariants": [
+    "Move the existing repo-engineering-readiness concurrency block from workflow to engineering-readiness job after the unchanged event gate.",
+    "Keep group, cancel-in-progress and queue values identical; a failed event gate must not occupy the queue.",
+    "Preserve event admission, owner-only command, permissions, exact-head verifier, status publication and manual-only merge semantics byte for byte.",
+    "Treat the manifest as documentation; only the exact two-path trusted-base state from merged #5646 grants scope."
+  ],
+  "forbidden": [
+    "changing any other workflow byte outside the exact lease relocation",
+    "changing global, candidate-owned scope or PR guard authority",
+    "relaxing substantive CI, security, independent-review or readiness gates",
+    "automatic merge, force merge, new recurring cost or unsupported production claim"
+  ],
+  "acceptance": [
+    "pin baseline.commit to the actual accepted #5646 merge SHA before publishing this PR",
+    "trusted-base guard accepts the exact workflow transform and rejects an unrelated permission byte",
+    "workflow syntax, exact-head CI and independent review pass before manual SHA-bound merge"
+  ]
+}
