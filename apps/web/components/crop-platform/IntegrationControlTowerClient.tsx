@@ -51,11 +51,7 @@ type UnknownCommand =
 
 type StoredCommand = Readonly<{
   version: 1;
-  sessionScope: string;
-  adapterCode: string;
-  action: PendingAction['action'];
-  commandId: string;
-  correlationId: string;
+  nonce: string;
 }>;
 
 const COMMAND_INTERLOCK_KEY = 'pc.integration-control-tower.pending-command.v1';
@@ -302,22 +298,13 @@ async function readJson(response: Response): Promise<unknown> {
   return response.json().catch(() => null);
 }
 
-async function fingerprintSession(csrfToken: string): Promise<string> {
-  if (!csrfToken || !crypto.subtle) throw new Error('Session scope unavailable');
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(csrfToken));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
 function parseStoredCommand(raw: string): StoredCommand | null {
   try {
     const value: unknown = JSON.parse(raw);
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
     const record = value as JsonRecord;
-    if (record.version !== 1 || typeof record.sessionScope !== 'string' || !/^[a-f0-9]{64}$/.test(record.sessionScope)) return null;
-    if (typeof record.adapterCode !== 'string' || !record.adapterCode.trim()) return null;
-    if (record.action !== 'REDRIVE' && record.action !== 'RECONCILE') return null;
-    if (typeof record.commandId !== 'string' || !record.commandId.trim()) return null;
-    if (typeof record.correlationId !== 'string' || !record.correlationId.trim()) return null;
+    if (record.version !== 1 || typeof record.nonce !== 'string' || !/^integration-interlock-[0-9a-f-]{36}$/.test(record.nonce)) return null;
+    if (Object.keys(record).length !== 2) return null;
     return record as StoredCommand;
   } catch {
     return null;
@@ -417,11 +404,11 @@ export function IntegrationControlTowerClient({
   const [receipt, setReceipt] = React.useState<{ sessionScope: string; message: string } | null>(null);
   const [unknownCommand, setUnknownCommand] = React.useState<UnknownCommand | null>(null);
   const [storageReady, setStorageReady] = React.useState(false);
-  const [sessionScope, setSessionScope] = React.useState<{ token: string; digest: string } | null>(null);
+  const [sessionScope, setSessionScope] = React.useState<{ token: string; scope: string } | null>(null);
   const inFlight = React.useRef(false);
   const currentToken = React.useRef(csrfToken);
   currentToken.current = csrfToken;
-  const verifiedScope = sessionScope?.token === csrfToken ? sessionScope.digest : null;
+  const verifiedScope = sessionScope?.token === csrfToken ? sessionScope.scope : null;
   const effectiveUnknownCommand = !storageReady ? null
     : !verifiedScope || (unknownCommand?.kind === 'command' && unknownCommand.sessionScope !== verifiedScope)
       ? STORAGE_INTERLOCK : unknownCommand;
@@ -438,16 +425,14 @@ export function IntegrationControlTowerClient({
     setReceipt(null);
     void (async () => {
       try {
-        const scope = await fingerprintSession(csrfToken);
+        if (!csrfToken) throw new Error('Session scope unavailable');
+        const scope = commandToken('integration-session');
         const raw = window.sessionStorage.getItem(COMMAND_INTERLOCK_KEY);
         if (!active) return;
-        setSessionScope({ token: csrfToken, digest: scope });
-        if (raw !== null) {
-          const stored = parseStoredCommand(raw);
-          setUnknownCommand(stored?.sessionScope === scope
-            ? { kind: 'command', sessionScope: scope, adapterCode: stored.adapterCode, commandId: stored.commandId, correlationId: stored.correlationId }
-            : STORAGE_INTERLOCK);
-        } else setUnknownCommand(null);
+        setSessionScope({ token: csrfToken, scope });
+        // A persisted marker carries no prior session or command identifiers.
+        // Any marker requires exact server-side recovery before a new command.
+        setUnknownCommand(raw === null ? null : STORAGE_INTERLOCK);
       } catch {
         if (active) setUnknownCommand(STORAGE_INTERLOCK);
       } finally {
@@ -603,8 +588,7 @@ export function IntegrationControlTowerClient({
     inFlight.current = true;
     const command = pending;
     const storedCommand: StoredCommand = {
-      version: 1, sessionScope: verifiedScope, adapterCode: command.adapterCode, action: command.action,
-      commandId: command.commandId, correlationId: command.correlationId,
+      version: 1, nonce: commandToken('integration-interlock'),
     };
     // The same-tab interlock is written before any request can reach the BFF.
     if (!persistCommand(storedCommand)) {
@@ -615,7 +599,7 @@ export function IntegrationControlTowerClient({
     }
     const markUnknown = () => {
       setUnknownCommand(currentToken.current === csrfToken
-        ? { kind: 'command', sessionScope: storedCommand.sessionScope, adapterCode: command.adapterCode, commandId: command.commandId, correlationId: command.correlationId }
+        ? { kind: 'command', sessionScope: command.sessionScope, adapterCode: command.adapterCode, commandId: command.commandId, correlationId: command.correlationId }
         : STORAGE_INTERLOCK);
       setPending(null);
       setReceipt(null);
@@ -673,7 +657,7 @@ export function IntegrationControlTowerClient({
         markUnknown();
         return;
       }
-      if (currentToken.current === csrfToken) setReceipt({ sessionScope: storedCommand.sessionScope, message: copy.receipt });
+      if (currentToken.current === csrfToken) setReceipt({ sessionScope: command.sessionScope, message: copy.receipt });
       setPending(null);
       const markerCleared = clearPersistedCommand(storedCommand);
       if (!markerCleared) setUnknownCommand(STORAGE_INTERLOCK);

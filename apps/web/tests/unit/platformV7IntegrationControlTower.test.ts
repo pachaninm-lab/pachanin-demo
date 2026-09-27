@@ -73,6 +73,8 @@ describe('Platform V7 Integration Control Tower vertical', () => {
     expect(client).toContain("const COMMAND_INTERLOCK_KEY = 'pc.integration-control-tower.pending-command.v1'");
     expect(client).toContain('window.sessionStorage.setItem(COMMAND_INTERLOCK_KEY, serialized)');
     expect(client).not.toContain('sessionStorage.setItem(COMMAND_INTERLOCK_KEY, csrfToken');
+    expect(client).not.toContain('crypto.subtle.digest');
+    expect(client).toContain("version: 1, nonce: commandToken('integration-interlock')");
     expect(client).not.toContain('fixture');
     expect(adapter).not.toContain('MOCK_OK');
     expect(adapter).not.toContain('LIVE_SIMULATED');
@@ -261,6 +263,8 @@ describe('Integration Control Tower command outcome in the mounted screen', () =
     expect(warning).toHaveTextContent('Correlation ID');
     expect(screen.getAllByRole('alert')).toHaveLength(1);
     expect(markerAtPost).not.toBeNull();
+    expect(Object.keys(JSON.parse(markerAtPost!))).toEqual(['version', 'nonce']);
+    expect(JSON.parse(markerAtPost!).nonce).toMatch(/^integration-interlock-/);
     expect(markerAtPost).not.toContain('test-csrf');
     expect(markerAtPost).not.toContain('Сверить серверную запись');
     expect(screen.getByRole('button', { name: 'Запустить сверку' })).toBeDisabled();
@@ -298,7 +302,7 @@ describe('Integration Control Tower command outcome in the mounted screen', () =
     expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
   });
 
-  it('restores the same-tab UNKNOWN interlock after remount and hides identifiers after session rotation', async () => {
+  it('restores a generic same-tab interlock after remount and hides identifiers after session rotation', async () => {
     const record = controlTowerRecord();
     const fetchMock = vi.fn(async (_url: string, options?: RequestInit) => options?.method === 'POST'
       ? { ok: false, status: 409, json: async () => ({}) }
@@ -311,11 +315,12 @@ describe('Integration Control Tower command outcome in the mounted screen', () =
     expect(await screen.findByText(/Исход команды не подтверждён/)).toBeInTheDocument();
     const priorCommandId = document.querySelector('[data-command-outcome="UNKNOWN"] code')?.textContent;
     expect(priorCommandId).toBeTruthy();
+    expect(window.sessionStorage.getItem('pc.integration-control-tower.pending-command.v1')).not.toContain(priorCommandId!);
     first.unmount();
 
     const sameSession = render(React.createElement(IntegrationControlTowerClient, { locale: 'ru', csrfToken: 'test-csrf' }));
-    expect(await screen.findByText(/Исход команды не подтверждён/)).toBeInTheDocument();
-    expect(document.querySelector('[data-command-outcome="UNKNOWN"]')).toHaveTextContent(priorCommandId!);
+    await waitFor(() => expect(document.querySelector('[data-command-outcome="UNKNOWN"]')).toHaveTextContent('Новые команды в этой вкладке заблокированы'));
+    expect(document.querySelector('[data-command-outcome="UNKNOWN"]')).not.toHaveTextContent(priorCommandId!);
     expect(screen.getByRole('button', { name: 'Запустить сверку' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Обновить' }));
     await waitFor(() => expect(fetchMock.mock.calls.filter(([, options]) => options?.method !== 'POST')).toHaveLength(6));
@@ -353,7 +358,7 @@ describe('Integration Control Tower command outcome in the mounted screen', () =
       });
       await submitReconcile();
     }
-    expect(await screen.findByText(/Новые команды в этой вкладке заблокированы/)).toBeInTheDocument();
+    await waitFor(() => expect(document.querySelector('[data-command-outcome="UNKNOWN"]')).toHaveTextContent('Новые команды в этой вкладке заблокированы'));
     expect(screen.getByRole('button', { name: 'Запустить сверку' })).toBeDisabled();
     expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(0);
   });
@@ -465,7 +470,10 @@ describe('Integration Control Tower command outcome in the mounted screen', () =
     await waitFor(() => expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1));
     const raw = window.sessionStorage.getItem('pc.integration-control-tower.pending-command.v1');
     expect(raw).not.toBeNull();
-    const oldCommand = JSON.parse(raw!) as { commandId: string; correlationId: string };
+    const oldCommand = JSON.parse(String(fetchMock.mock.calls.find(([, options]) => options?.method === 'POST')?.[1]?.body)) as { commandId: string; correlationId: string };
+    expect(Object.keys(JSON.parse(raw!))).toEqual(['version', 'nonce']);
+    expect(raw).not.toContain(oldCommand.commandId);
+    expect(raw).not.toContain(oldCommand.correlationId);
     mounted.rerender(React.createElement(IntegrationControlTowerClient, { locale: 'ru', csrfToken: 'rotated-csrf' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Запустить сверку' })).not.toBeInTheDocument();
