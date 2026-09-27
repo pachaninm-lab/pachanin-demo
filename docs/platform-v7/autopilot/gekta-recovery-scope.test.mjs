@@ -23,7 +23,11 @@ const scopes = {
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
-    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts"
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+    "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+    "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts"
   ]
 };
 const sourceGuard = fs.readFileSync('scripts/p7-autopilot-guard.sh', 'utf8');
