@@ -489,6 +489,7 @@ const gektaRecoveryScopes = {
   ],
   "fix/gekta-han-stream-20260927": [
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts"
   ]
