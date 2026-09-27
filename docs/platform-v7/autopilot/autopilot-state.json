@@ -1720,6 +1720,13 @@
     ],
     "fix/public-webkit-i18n-route-lifecycle-20260927": [
       "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
+    ],
+    "ops/gekta-qwen35-candidate-20260928": [
+      ".github/workflows/gekta-qwen35-model-candidate.yml",
+      "scripts/gekta-qwen35-model-candidate-runtime.py",
+      "scripts/gekta-qwen35-model-candidate-bootstrap.sh",
+      "scripts/check-gekta-qwen35-model-candidate.mjs",
+      "docs/platform-v7/autopilot/scopes/gekta-qwen35-model-candidate-20260928.json"
     ]
   },
   "currentAcceptance": [
@@ -2450,6 +2457,34 @@
         "Automatic or forced merge, disabled safety/readiness checks, fabricated evidence or new recurring cost"
       ],
       "reviewDependency": "Accepted guard PR #5674; issue #5673; independent exact-head review on 901a7986fc102f37c0959f4f245179f0ab012466"
+    },
+    "gekta-qwen35-model-candidate-20260928": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Owner-requested serial Qwen3.5-4B production-candidate evaluation for Gekta on the existing dedicated model host, preserving exact Qwen3-8B rollback and zero new recurring cost.",
+      "authorityBaseExactMain": "06f686d52247ebe7805f1b75d937b2ca8daf8f6f",
+      "implementationBranch": "ops/gekta-qwen35-candidate-20260928",
+      "allowedPaths": [
+        ".github/workflows/gekta-qwen35-model-candidate.yml",
+        "scripts/gekta-qwen35-model-candidate-runtime.py",
+        "scripts/gekta-qwen35-model-candidate-bootstrap.sh",
+        "scripts/check-gekta-qwen35-model-candidate.mjs",
+        "docs/platform-v7/autopilot/scopes/gekta-qwen35-model-candidate-20260928.json"
+      ],
+      "requiredTruthBoundaries": [
+        "This state-only admission changes no product code, model bytes, model-host runtime, REG.RU deployment, database, tenant, role or release state.",
+        "The implementation may stage only the pinned Qwen3.5-4B Q4_K_M candidate, SHA-256 13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983, on the existing dedicated model host and must preserve exact rollback to the current Qwen3-8B runtime.",
+        "GitHub receives no root SSH authority. Any privileged bootstrap uses only the existing protected model-host sudo credential and installs an exact-command helper allowlist with no shell, SETENV or broad sudo.",
+        "Candidate activation is a bounded reversible experiment, not final model identity migration. Existing application model identity remains unchanged until separate exact-head source admission and release acceptance.",
+        "Any failed model checksum, service readiness, memory/swap bound, live semantic/safety test or latency acceptance requires rollback; no production PASS is inferred from off-production A/B evidence.",
+        "No new recurring cost is authorized."
+      ],
+      "forbiddenAuthority": [
+        "Candidate-owned scope widening or edits to autopilot state/guard from the implementation branch",
+        "Database, tenant, role, auth-mail, bank, FGIS, outbox, REG.RU application deployment or persistent-data mutation",
+        "Root SSH credential, unrestricted sudo, shell-capable sudoers, SETENV, force merge, disabled CI/security/readiness or fabricated acceptance",
+        "Final replacement of the production model identity before a separately reviewed identity/release migration"
+      ],
+      "reviewDependency": "Issue #3896; off-production A/B run 36353437562; exact production baseline 06f686d52247ebe7805f1b75d937b2ca8daf8f6f"
     }
   }
 }
