@@ -1,7 +1,9 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
 import { MockRzdEtranAdapter } from '../../../../../packages/integration-sdk/src/adapters/rzd-etran.adapter';
+import { ObjectAccessService } from '../../common/security/object-access.service';
+import type { RequestUser } from '../../common/types/request-user';
 
 // Списки живут в railway.contract.ts по одному разу; имена типов сохранены,
 // чтобы существующие импорты из сервиса продолжали работать.
@@ -64,8 +66,35 @@ export class RailwayService {
     return integrationRegistry.get<MockRzdEtranAdapter>('RZD_ETRAN');
   }
 
-  constructor() {
+  constructor(private readonly access: ObjectAccessService = new ObjectAccessService()) {
     this.seedDemoWagons();
+  }
+
+  /**
+   * V8.2.2 — объектный доступ. @Roles проверял только роль вызывающего, а
+   * принадлежность вагона, заявки ГУ-12 и записи демереджа не проверялась
+   * нигде: логист одной организации менял статус чужого вагона, подавал чужую
+   * заявку, ставил чужие вагоны в свою ГУ-12 и читал заявки и демередж всех
+   * организаций, а `?orgId=` в списке вагонов показывал чужой парк.
+   *
+   * Проверка живёт в сервисе, а не в контроллере, чтобы её не обошёл другой
+   * вызывающий. Набор привилегированных ролей берётся из общего
+   * ObjectAccessService, а не перечисляется заново. Его assertSameOrg не
+   * используется намеренно: он пропускает объект с пустым ownerOrgId, а здесь
+   * пустая организация с любой стороны — отказ.
+   */
+  private assertOrg(ownerOrgId: string | undefined, actor: RequestUser): void {
+    if (this.access.isPrivileged(actor)) return;
+    if (!actor.orgId || !ownerOrgId || ownerOrgId !== actor.orgId) {
+      throw new ForbiddenException('RAILWAY_CROSS_ORG_ACCESS_DENIED');
+    }
+  }
+
+  private wagonFor(actor: RequestUser, wagonId: string): Wagon {
+    const wagon = this.wagons.get(wagonId);
+    if (!wagon) throw new NotFoundException(`Wagon ${wagonId} not found`);
+    this.assertOrg(wagon.ownerOrgId, actor);
+    return wagon;
   }
 
   private seedDemoWagons(): void {
@@ -79,9 +108,10 @@ export class RailwayService {
     }
   }
 
-  listWagons(ownerOrgId?: string): Wagon[] {
-    const all = [...this.wagons.values()];
-    return ownerOrgId ? all.filter(w => w.ownerOrgId === ownerOrgId) : all;
+  listWagons(actor: RequestUser, ownerOrgId?: string): Wagon[] {
+    const target = ownerOrgId ?? actor.orgId;
+    this.assertOrg(target, actor);
+    return [...this.wagons.values()].filter(w => w.ownerOrgId === target);
   }
 
   registerWagon(dto: {
@@ -90,6 +120,8 @@ export class RailwayService {
     capacityTons: number;
     ownerOrgId: string;
   }): Wagon {
+    // Вагон без владельца был бы ничьим, а значит — видимым отовсюду.
+    if (!dto.ownerOrgId) throw new BadRequestException('RAILWAY_OWNER_ORG_REQUIRED');
     const existing = [...this.wagons.values()].find(w => w.wagonNumber === dto.wagonNumber);
     if (existing) throw new BadRequestException(`Wagon ${dto.wagonNumber} already registered`);
 
@@ -110,15 +142,14 @@ export class RailwayService {
     return wagon;
   }
 
-  updateWagonStatus(wagonId: string, status: WagonStatus, dealId?: string): Wagon {
-    const wagon = this.wagons.get(wagonId);
-    if (!wagon) throw new NotFoundException(`Wagon ${wagonId} not found`);
+  updateWagonStatus(actor: RequestUser, wagonId: string, status: WagonStatus, dealId?: string): Wagon {
+    const wagon = this.wagonFor(actor, wagonId);
     wagon.status = status;
     wagon.currentDealId = dealId ?? wagon.currentDealId;
     return wagon;
   }
 
-  createGU12(dto: {
+  createGU12(actor: RequestUser, dto: {
     dealId: string;
     requestorOrgId: string;
     wagonIds: string[];
@@ -128,9 +159,9 @@ export class RailwayService {
     volumeTons: number;
     requestedDepartureAt: string;
   }): GU12Request {
+    this.assertOrg(dto.requestorOrgId, actor);
     for (const wid of dto.wagonIds) {
-      const w = this.wagons.get(wid);
-      if (!w) throw new NotFoundException(`Wagon ${wid} not found`);
+      const w = this.wagonFor(actor, wid);
       if (w.status !== 'FREE') throw new BadRequestException(`Wagon ${w.wagonNumber} is not FREE`);
     }
 
@@ -151,9 +182,10 @@ export class RailwayService {
     return req;
   }
 
-  async submitGU12(requestId: string): Promise<GU12Request> {
+  async submitGU12(actor: RequestUser, requestId: string): Promise<GU12Request> {
     const req = this.gu12Requests.get(requestId);
     if (!req) throw new NotFoundException(`GU-12 request ${requestId} not found`);
+    this.assertOrg(req.requestorOrgId, actor);
     if (req.status !== 'DRAFT') throw new BadRequestException('Only DRAFT requests can be submitted');
 
     req.status = 'SUBMITTED';
@@ -191,17 +223,21 @@ export class RailwayService {
     return req;
   }
 
-  listGU12(dealId?: string): GU12Request[] {
-    const all = [...this.gu12Requests.values()];
-    return dealId ? all.filter(r => r.dealId === dealId) : all;
+  listGU12(actor: RequestUser, dealId?: string): GU12Request[] {
+    const privileged = this.access.isPrivileged(actor);
+    return [...this.gu12Requests.values()].filter(r =>
+      (!dealId || r.dealId === dealId) && (privileged || (!!actor.orgId && r.requestorOrgId === actor.orgId)));
   }
 
-  calculateDemurrage(dto: {
+  calculateDemurrage(actor: RequestUser, dto: {
     wagonId: string;
     dealId?: string;
     arrivedAt: string;
     unloadingCompletedAt: string;
   }): DemurrageRecord {
+    // Прежде wagonId не проверялся вовсе: деньги считались и сохранялись для
+    // любого, в том числе несуществующего или чужого вагона.
+    this.wagonFor(actor, dto.wagonId);
     const arrivedMs = new Date(dto.arrivedAt).getTime();
     const completedMs = new Date(dto.unloadingCompletedAt).getTime();
     // Демередж — деньги. Неразбираемая дата давала NaN на всю запись, а в JSON
@@ -229,8 +265,10 @@ export class RailwayService {
     return record;
   }
 
-  listDemurrage(dealId?: string): DemurrageRecord[] {
-    const all = [...this.demurrageRecords.values()];
-    return dealId ? all.filter(r => r.dealId === dealId) : all;
+  listDemurrage(actor: RequestUser, dealId?: string): DemurrageRecord[] {
+    const privileged = this.access.isPrivileged(actor);
+    return [...this.demurrageRecords.values()].filter(r =>
+      (!dealId || r.dealId === dealId)
+      && (privileged || (!!actor.orgId && this.wagons.get(r.wagonId)?.ownerOrgId === actor.orgId)));
   }
 }

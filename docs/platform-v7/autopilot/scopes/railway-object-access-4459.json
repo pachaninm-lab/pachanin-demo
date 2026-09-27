@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/railway-object-access-4459",
+  "status": "active",
+  "purpose": "V8.2.2 object-level access for the railway module. RailwayController checked only the caller's role (@Roles); no handler or service method checked that the wagon, GU-12 request or demurrage record belongs to the caller's organisation. Measured on the pre-fix service: a LOGISTICIAN of org-attacker set an org-logistics-001 wagon to MAINTENANCE, put it into its own GU-12, submitted another organisation's GU-12, calculated and stored demurrage for a foreign and for a non-existent wagon, and GET /railway/gu12 and GET /railway/demurrage returned every organisation's records; GET /railway/wagons?orgId= returned any organisation's fleet. Found as a P2 note by the independent session review of #5044 and widened by measurement here.",
+  "authorityBaseExactMain": "06f686d522",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/railway-object-access-4459.json",
+    "apps/api/src/modules/railway/railway.service.ts",
+    "apps/api/src/modules/railway/railway.controller.ts",
+    "apps/api/src/modules/railway/railway.module.ts",
+    "apps/api/src/modules/railway/railway-body-validation.spec.ts",
+    "apps/api/src/modules/railway/railway-object-access.spec.ts"
+  ],
+  "requiredInvariants": [
+    "The check lives in RailwayService, not only in the controller, so no other caller can skip it. Every method that reads or mutates a wagon, GU-12 request or demurrage record takes the actor.",
+    "The privileged role set (ADMIN, SUPPORT_MANAGER, EXECUTIVE) comes from the existing ObjectAccessService.isPrivileged, not a second list. Its assertSameOrg is deliberately not used because it passes an object whose ownerOrgId is empty; here an empty organisation on either side is a refusal.",
+    "Not found stays 404 and is decided before access; access is 403 (RAILWAY_CROSS_ORG_ACCESS_DENIED). A refused mutation leaves the object unchanged and a refused create stores nothing.",
+    "No web caller of /railway exists (searched apps/web), so the tightened responses break no screen. No schema, migration, dependency or production change. V8.2.2 is not claimed: it is FAIL for the RLS reasons its note records, and railway is not cited there.",
+    "Existing tests in railway-body-validation.spec.ts keep every assertion; only their calls pass the owner actor, and the global wagon count is observed through a privileged view (3 for the owner plus 1 for the other organisation instead of 4 from an unscoped list)."
+  ],
+  "acceptance": [
+    "apps/api jest src/modules/railway: 2 suites, 41 tests pass (27 existing + 14 new).",
+    "pnpm --filter @pc/api typecheck: exit 0.",
+    "Mutations, each caught: making the organisation check a no-op fails 7 of the 14 new tests; dropping the GU-12 list filter fails 1."
+  ]
+}

@@ -27,6 +27,12 @@ import { RailwayService } from './railway.service';
 
 const pipe = new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true });
 
+// Сервис проверяет принадлежность объектов (см. railway-object-access.spec.ts),
+// поэтому вызовы здесь идут от имени владельца демонстрационного парка, а
+// общий склад вагонов виден через привилегированную роль.
+const OWNER = { id: 'u-owner', orgId: 'org-logistics-001', role: 'LOGISTICIAN', email: 'owner@example.test' } as const;
+const ADMIN = { id: 'u-admin', orgId: 'org-platform', role: 'ADMIN', email: 'admin@example.test' } as const;
+
 async function accept<T>(metatype: new () => T, payload: unknown): Promise<T> {
   return (await pipe.transform(payload, { type: 'body', metatype } as never)) as T;
 }
@@ -84,7 +90,7 @@ describe('присвоение чужого вагона через id в тел
 
   it('сервис больше не даёт присланному id победить сгенерированный', () => {
     const railway = new RailwayService();
-    const victim = railway.listWagons()[0];
+    const victim = railway.listWagons(OWNER)[0];
     expect(victim).toBeDefined();
     const created = railway.registerWagon({
       wagonNumber: '99999999', type: 'HOPPER', capacityTons: 10, ownerOrgId: 'org-attacker',
@@ -92,8 +98,10 @@ describe('присвоение чужого вагона через id в тел
     } as never);
 
     expect(created.id).not.toBe(victim?.id);
-    const after = railway.listWagons();
-    expect(after).toHaveLength(4);
+    // Всего четыре вагона: три прежних у владельца и один новый у вызывающего.
+    const after = railway.listWagons(OWNER);
+    expect(after).toHaveLength(3);
+    expect(railway.listWagons(ADMIN, 'org-attacker')).toHaveLength(1);
     const survivor = after.find((wagon) => wagon.id === victim?.id);
     expect(survivor?.wagonNumber).toBe(victim?.wagonNumber);
     expect(survivor?.ownerOrgId).toBe(victim?.ownerOrgId);
@@ -101,13 +109,13 @@ describe('присвоение чужого вагона через id в тел
 
   it('вагон остаётся в списке своего владельца, а не уезжает к вызывающему', () => {
     const railway = new RailwayService();
-    const victim = railway.listWagons()[0];
+    const victim = railway.listWagons(OWNER)[0];
     railway.registerWagon({
       wagonNumber: '99999999', type: 'HOPPER', capacityTons: 10, ownerOrgId: 'org-attacker',
       id: victim?.id,
     } as never);
-    expect(railway.listWagons(victim?.ownerOrgId).some((w) => w.id === victim?.id)).toBe(true);
-    expect(railway.listWagons('org-attacker').some((w) => w.id === victim?.id)).toBe(false);
+    expect(railway.listWagons(ADMIN, victim?.ownerOrgId).some((w) => w.id === victim?.id)).toBe(true);
+    expect(railway.listWagons(ADMIN, 'org-attacker').some((w) => w.id === victim?.id)).toBe(false);
   });
 });
 
@@ -200,7 +208,8 @@ describe('расчёт демереджа — это деньги', () => {
 
   it('нормальный расчёт проходит и даёт конечное число', async () => {
     await expect(accept(CalculateDemurrageDto, valid)).resolves.toBeDefined();
-    const record = new RailwayService().calculateDemurrage(valid);
+    const railway = new RailwayService();
+    const record = railway.calculateDemurrage(OWNER, { ...valid, wagonId: railway.listWagons(OWNER)[0]!.id });
     expect(Number.isFinite(record.totalKopecks)).toBe(true);
     expect(record.totalKopecks).toBeGreaterThan(0);
   });
@@ -221,13 +230,15 @@ describe('расчёт демереджа — это деньги', () => {
 
   it('сервис тоже отказывает, а не пишет NaN, если его позвали в обход границы', () => {
     const railway = new RailwayService();
-    expect(() => railway.calculateDemurrage({ ...valid, arrivedAt: 'мусор' }))
+    const wagonId = railway.listWagons(OWNER)[0]!.id;
+    expect(() => railway.calculateDemurrage(OWNER, { ...valid, wagonId, arrivedAt: 'мусор' }))
       .toThrow(BadRequestException);
   });
 
   it('перевёрнутые даты по-прежнему дают ноль — этот сторож был и остаётся', () => {
-    const record = new RailwayService().calculateDemurrage({
-      wagonId: 'w-1', arrivedAt: '2026-09-03T00:00:00.000Z', unloadingCompletedAt: '2026-09-01T00:00:00.000Z',
+    const railway = new RailwayService();
+    const record = railway.calculateDemurrage(OWNER, {
+      wagonId: railway.listWagons(OWNER)[0]!.id, arrivedAt: '2026-09-03T00:00:00.000Z', unloadingCompletedAt: '2026-09-01T00:00:00.000Z',
     });
     expect(record.totalKopecks).toBe(0);
   });
