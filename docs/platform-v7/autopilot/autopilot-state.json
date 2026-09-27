@@ -1701,6 +1701,10 @@
       "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
       "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
       "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts"
+    ],
+    "fix/readiness-queue-job-gate-20260927": [
+      ".github/workflows/automerge.yml",
+      "docs/platform-v7/autopilot/scopes/readiness-queue-job-gate-20260927.json"
     ]
   },
   "currentAcceptance": [
