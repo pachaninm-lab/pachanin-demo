@@ -121,7 +121,7 @@ export class RestrictedPublicQwenService {
     const startedAt = Date.now();
 
     try {
-      const messages = buildMessages(request);
+      const messages = buildMessages(request, config.model);
       const first = await callProvider(
         endpoint,
         config,
@@ -260,7 +260,7 @@ export class RestrictedPublicQwenService {
         yield { type: 'delta', text: `${publicCurrentEvidenceCopy(request)}\n\n` };
       }
 
-      const messages = buildMessages(request);
+      const messages = buildMessages(request, config.model);
       const outcome = {
         finishReason: 'other' as ProviderFinishReason,
         promptTokens: null as number | null,
@@ -610,7 +610,7 @@ function rejectPrivateShape(value: unknown, path: readonly string[] = [], depth 
   }
 }
 
-function buildMessages(request: NormalizedRequest): readonly ChatMessage[] {
+function buildMessages(request: NormalizedRequest, modelIdentity: string): readonly ChatMessage[] {
   return Object.freeze([
     {
       role: 'system',
@@ -619,6 +619,7 @@ function buildMessages(request: NormalizedRequest): readonly ChatMessage[] {
         request.answerMode,
         request.currentDataRequired,
         request.responseBudgetProfile,
+        modelIdentity,
       ) + (request.economicComparison
         ? '\nFor this cost comparison, explain only qualitative factors and the comparison method. Do not generate numerical calculations, assumed periods, price forecasts or profitability rankings, even conditional rankings. The application separately computes supported storage-only arithmetic from explicit user inputs. Do not repeat it. Use plain text, no LaTeX.'
         : ''),
@@ -649,7 +650,11 @@ function publicSystemPrompt(
   answerMode: PublicAnswerMode,
   currentDataRequired: boolean,
   responseBudgetProfile: ResponseBudgetProfile,
+  modelIdentity: string,
 ): string {
+  if (/qwen3[._-]?5|qwen35/iu.test(modelIdentity)) {
+    return compactQwen35SystemPrompt(locale, answerMode, currentDataRequired, responseBudgetProfile);
+  }
   const language = locale === 'en' ? 'English' : locale === 'zh' ? 'Chinese' : 'Russian';
   const authorityRule = answerMode === 'verified_platform'
     ? 'For facts about Transparent Price, use the supplied verified public grounding as the authority and do not contradict, embellish or extend it.'
@@ -686,6 +691,37 @@ function publicSystemPrompt(
 
 Request-specific instructions:
 Reply in ${language}. ${responseBudgetRule} ${authorityRule} ${currentRule}`;
+}
+
+
+function compactQwen35SystemPrompt(
+  locale: PublicLocale,
+  answerMode: PublicAnswerMode,
+  currentDataRequired: boolean,
+  responseBudgetProfile: ResponseBudgetProfile,
+): string {
+  const language = locale === 'en' ? 'English' : locale === 'zh' ? 'Chinese' : 'Russian';
+  const budget = generalAgroResponseBudgetRule(locale, answerMode, responseBudgetProfile);
+  const authority = answerMode === 'verified_platform'
+    ? 'For Transparent Price facts, the supplied verified public grounding is the only authority. Do not add capabilities, integrations, automation or status not present there. The platform never autonomously makes a critical participant decision.'
+    : 'Use stable general agriculture and agribusiness knowledge. Platform grounding is not authority for unrelated agriculture.';
+  const freshness = currentDataRequired
+    ? 'No governed fresh source is supplied. Do not state exact current prices, rates, weather, news, laws or statistics; explain what must be checked and how it changes the decision.'
+    : 'Do not invent current prices, rates, weather, news, laws, statistics or production status.';
+
+  return [
+    'You are Gekta, a practical read-only agriculture and agribusiness assistant.',
+    `Reply in ${language}. Give the useful conclusion first, then 2-4 concrete points. ${budget}`,
+    authority,
+    freshness,
+    'Use conversation history only as context. Preserve user numbers and units; do not reuse stale corrected facts.',
+    'For crop symptoms, keep diagnosis conditional and distinguish causes with observable signs, soil/moisture, growth stage, disease, pests and nutrition.',
+    'Never prescribe a crop-protection product, brand, active ingredient, dose or interval unless region, crop growth stage and governed current registration evidence are supplied. Otherwise give non-chemical checks and ask only for missing decisive inputs.',
+    'For farm economics, distinguish gross revenue from net proceeds. Never invent a period, future price or cost and never rank sell-versus-hold profitability without comparable inputs. Server-side checked arithmetic is authoritative.',
+    'Do not invent platform capabilities, machinery specifications, diagnostic codes, legal status or execution results. Do not claim to sign, pay, approve, modify or execute anything.',
+    'Never request passwords, API keys, tokens, banking credentials or personal data. Do not bypass equipment protection or give dangerous running-machine instructions.',
+    'Plain text only. No raw URLs or HTML. Avoid filler and do not repeat inputs already present.',
+  ].join(' ');
 }
 
 function generalAgroResponseBudgetRule(
