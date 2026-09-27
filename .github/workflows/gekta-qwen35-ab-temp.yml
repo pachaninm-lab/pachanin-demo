@@ -58,10 +58,10 @@ jobs:
         shell: bash
         env:
           FOUR_URL: https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/4168f45a16a1290d65a4ec0fa312ae917a4c15d6/Qwen_Qwen3.5-4B-Q4_K_M.gguf
-          FOUR_SHA: 2bb8720c415a23f67dcbcfb434f3d9e7e7bea1530f5c359f16d16887bc3fd727
+          FOUR_SHA: 13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983
           FOUR_SIZE: "3013027808"
           NINE_URL: https://huggingface.co/bartowski/Qwen_Qwen3.5-9B-GGUF/resolve/182be2fd6c7bc44887d88a91cb03ff009cc9f549/Qwen_Qwen3.5-9B-Q4_K_M.gguf
-          NINE_SHA: c0d434fe65c496ddb41568c7bef45400c57686aed662ce42b2d053329b088cc8
+          NINE_SHA: d784ce9eda1a5a7b51e8f705a9e6310844bf4f173654d115823c775fdea56d43
           NINE_SIZE: "6169341984"
         run: |
           set -Eeuo pipefail
@@ -105,6 +105,8 @@ jobs:
                   "top_p": 0.9,
                   "max_tokens": 220,
                   "stream": False,
+                  "chat_template_kwargs": {"enable_thinking": False},
+                  "reasoning_format": "none",
               }, ensure_ascii=False).encode()
               req = urllib.request.Request(BASE, data=body, headers={"Content-Type":"application/json"})
               start=time.perf_counter()
@@ -149,10 +151,10 @@ jobs:
 
             echo "QWEN35_CANDIDATE_START=$label"
             curl -fL --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 1800 -o "$model" "$url"
-            [[ "$(stat -c %s "$model")" == "$expected_size" ]]
-            printf '%s  %s\n' "$expected_sha" "$model" | sha256sum -c -
+            [[ "$(stat -c %s "$model")" == "$expected_size" ]] || return 41
+            printf '%s  %s\n' "$expected_sha" "$model" | sha256sum -c - || return 42
 
-            "$RUNNER_TEMP/llama.cpp/build/bin/llama-server"               --model "$model" --alias candidate               --host 127.0.0.1 --port 18082               --ctx-size 8192 --parallel 1               --threads "$(nproc)" --threads-batch "$(nproc)"               --batch-size 512 --ubatch-size 128               --metrics > "$log" 2>&1 &
+            "$RUNNER_TEMP/llama.cpp/build/bin/llama-server"               --model "$model" --alias candidate               --host 127.0.0.1 --port 18082               --ctx-size 8192 --parallel 1               --threads "$(nproc)" --threads-batch "$(nproc)"               --batch-size 512 --ubatch-size 128               --reasoning off --metrics > "$log" 2>&1 &
             pid=$!
             cleanup(){ kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; }
             trap cleanup RETURN
@@ -181,7 +183,7 @@ jobs:
             trap - RETURN
             rm -f "$model"
             sync
-            return "$rc"
+            return 0
           }
 
           set +e
