@@ -37,6 +37,16 @@ describe('restricted public crop-protection prescription boundary', () => {
     expect(flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
   });
 
+  it('does not treat seed-rate or fertilizer-rate agronomy as a crop-protection prescription', () => {
+    const seed = 'Для посева используйте семена «Лада» с нормой 180 кг/га.';
+    const fertilizer = 'При подтверждённом дефиците азота расчётная норма удобрения может быть выражена в кг/га.';
+
+    expect(isUngroundedCropProtectionPrescription(seed)).toBe(false);
+    expect(stripUngroundedCropProtectionPrescriptions(seed)).toBe(seed);
+    expect(isUngroundedCropProtectionPrescription(fertilizer)).toBe(false);
+    expect(stripUngroundedCropProtectionPrescriptions(fertilizer)).toBe(fertilizer);
+  });
+
   it('rejects a claim that the platform autonomously makes the participant decision', () => {
     const verdict = platformGroundingVerdict(
       'Платформа автоматически проведёт проверку и затем примет решение по спору.',
