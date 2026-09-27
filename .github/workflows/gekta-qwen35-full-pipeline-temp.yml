@@ -68,7 +68,7 @@ jobs:
           curl -fL --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 1800 -o "$model" "$MODEL_URL"
           [[ "$(stat -c %s "$model")" == "$MODEL_SIZE" ]]
           printf '%s  %s\n' "$MODEL_SHA" "$model" | sha256sum -c -
-          "$RUNNER_TEMP/llama.cpp/build/bin/llama-server" --model "$model" --alias candidate --host 127.0.0.1 --port 18083 --ctx-size 8192 --parallel 1 --threads "$(nproc)" --threads-batch "$(nproc)" --batch-size 512 --ubatch-size 128 --metrics > "$log" 2>&1 &
+          "$RUNNER_TEMP/llama.cpp/build/bin/llama-server" --model "$model" --alias tai-qwen35-4b-q4km --host 127.0.0.1 --port 18083 --ctx-size 8192 --parallel 1 --threads "$(nproc)" --threads-batch "$(nproc)" --batch-size 512 --ubatch-size 128 --metrics > "$log" 2>&1 &
           pid=$!
           trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
           ready=0
@@ -81,7 +81,7 @@ jobs:
           export TAI_RESTRICTED_QWEN_PUBLIC_ENABLED=true
           export AI_ASSISTANT_PROVIDER=openai-compatible
           export AI_ASSISTANT_BASE_URL=http://127.0.0.1:18083/v1/
-          export AI_ASSISTANT_MODEL=candidate
+          export AI_ASSISTANT_MODEL=tai-qwen35-4b-q4km
           export AI_ASSISTANT_API_KEY=kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
           export AI_ASSISTANT_ALLOWED_HOSTS=127.0.0.1
           export AI_ASSISTANT_TIMEOUT_MS=120000
