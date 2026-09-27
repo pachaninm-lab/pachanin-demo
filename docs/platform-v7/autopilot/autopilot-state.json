@@ -2355,6 +2355,30 @@
         "CI/security/readiness gate weakening or automatic merge"
       ],
       "teamHubDependency": "PR #5664 review P1; production i18n run 36316640279; Team Hub #5469"
+    },
+    "public-webkit-i18n-route-lifecycle-20260927": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Investigate and repair the repeated WebKit EN 320x700 production i18n ChunkLoadError observed alongside a canceled login-page chunk during rapid programmatic cross-document route sweep; test lifecycle only.",
+      "authorityBaseExactMain": "484f92f4c9e5dec6f7a38c13cbf7599af1065166",
+      "implementationBranch": "agent/platform-v7-strategic-rebuild-v3",
+      "issue": 5666,
+      "allowedPaths": [
+        "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "The exact test path already belongs to the trusted Final Public scope; this record admits only bounded production i18n route-lifecycle test work for the measured run 36316640279.",
+        "Every RU/EN/ZH public route still requires successful response, correct locale, zero pageerror, visible content, no Cyrillic leakage outside explicit allowlist, typography and no horizontal overflow at every existing viewport.",
+        "Keep the separate locale persistence and 320x700 homepage H1 <=5 rendered lines, visible brand, touch targets and primary CTA first-viewport checks unchanged.",
+        "A distinct realistic login-to-register navigation regression must expose user-visible chunk failures; do not filter, catch-and-ignore, skip, relax retries or turn a red production browser run green by assertion deletion.",
+        "If realistic navigation reproduces the failure, treat it as a product loading bug requiring a separately admitted source repair. A test-lifecycle change alone cannot claim live acceptance.",
+        "Independent exact-head review, all substantive CI/security and REG.RU live Chromium/WebKit production i18n rerun on the deployed OCI revision remain required."
+      ],
+      "forbiddenAuthority": [
+        "runtime app source, Next.js configuration, API/DB/session/tenant/role/money/provider/FGIS authority",
+        "CI/security/readiness threshold weakening or untrusted candidate scope expansion",
+        "claiming WebKit production PASS before a fresh complete live browser run"
+      ],
+      "teamHubDependency": "P1 #5666; source trace from production i18n run 36316640279; PUBLIC Hero #5664 first"
     }
   }
 }
