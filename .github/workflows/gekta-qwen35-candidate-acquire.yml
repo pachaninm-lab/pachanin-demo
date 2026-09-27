@@ -24,7 +24,7 @@ env:
   CANDIDATE_REPO: bartowski/Qwen_Qwen3.5-9B-GGUF
   CANDIDATE_REVISION: 182be2fd6c7bc44887d88a91cb03ff009cc9f549
   CANDIDATE_FILE: Qwen_Qwen3.5-9B-Q4_K_M.gguf
-  CANDIDATE_SHA256: c0d434fe65c496ddb41568c7bef45400c57686aed662ce42b2d053329b088cc8
+  CANDIDATE_SHA256: d784ce9eda1a5a7b51e8f705a9e6310844bf4f173654d115823c775fdea56d43
   CANDIDATE_BYTES: "6169341984"
   CANDIDATE_DIR: /srv/tai-models/candidates/qwen3.5-9b-c2022362
 
@@ -48,7 +48,7 @@ jobs:
           scope = json.loads(Path('docs/platform-v7/autopilot/scopes/gekta-qwen35-9b-candidate-3896.json').read_text())
           required = [
               'Qwen_Qwen3.5-9B-Q4_K_M.gguf',
-              'c0d434fe65c496ddb41568c7bef45400c57686aed662ce42b2d053329b088cc8',
+              'd784ce9eda1a5a7b51e8f705a9e6310844bf4f173654d115823c775fdea56d43',
               '6169341984',
               '/srv/tai-models/candidates/qwen3.5-9b-c2022362',
               'StrictHostKeyChecking=yes',
@@ -71,7 +71,7 @@ jobs:
               raise SystemExit(f'forbidden activation/mutation tokens: {bad}')
           if scope['authorityBaseExactMain'] != '06f686d52247ebe7805f1b75d937b2ca8daf8f6f':
               raise SystemExit('scope base mismatch')
-          if scope['candidate']['sha256'] != 'c0d434fe65c496ddb41568c7bef45400c57686aed662ce42b2d053329b088cc8':
+          if scope['candidate']['sha256'] != 'd784ce9eda1a5a7b51e8f705a9e6310844bf4f173654d115823c775fdea56d43':
               raise SystemExit('candidate digest mismatch')
           if scope['newRecurringCostRub'] != 0:
               raise SystemExit('cost boundary changed')
@@ -173,10 +173,26 @@ jobs:
           fi
           if (( good == 0 )); then
             rm -f "$target"
-            url="https://huggingface.co/$CANDIDATE_REPO/resolve/$CANDIDATE_REVISION/$CANDIDATE_FILE"
-            curl --fail --location --retry 8 --retry-all-errors --connect-timeout 20 --continue-at - -o "$partial" "$url"
+            reuse_partial=0
+            if [[ -f "$partial" ]]; then
+              partial_bytes="$(stat -c %s "$partial")"
+              if [[ "$partial_bytes" == "$CANDIDATE_BYTES" ]]; then
+                partial_sha="$(sha256sum "$partial" | awk '{print $1}')"
+                printf 'CANDIDATE_PARTIAL_SHA256=%s\n' "$partial_sha"
+                printf 'CANDIDATE_PARTIAL_BYTES=%s\n' "$partial_bytes"
+                if [[ "$partial_sha" == "$CANDIDATE_SHA256" ]]; then reuse_partial=1; fi
+              elif (( partial_bytes > CANDIDATE_BYTES )); then
+                rm -f "$partial"
+              fi
+            fi
+            if (( reuse_partial == 0 )); then
+              url="https://huggingface.co/$CANDIDATE_REPO/resolve/$CANDIDATE_REVISION/$CANDIDATE_FILE"
+              curl --fail --location --retry 8 --retry-all-errors --connect-timeout 20 --continue-at - -o "$partial" "$url"
+            fi
             actual_bytes="$(stat -c %s "$partial")"
             actual_sha="$(sha256sum "$partial" | awk '{print $1}')"
+            printf 'CANDIDATE_VERIFIED_SHA256=%s\n' "$actual_sha"
+            printf 'CANDIDATE_VERIFIED_BYTES=%s\n' "$actual_bytes"
             [[ "$actual_bytes" == "$CANDIDATE_BYTES" ]]
             [[ "$actual_sha" == "$CANDIDATE_SHA256" ]]
             chmod 0400 "$partial"
