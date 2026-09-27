@@ -1630,13 +1630,14 @@ test('product branches run the immutable guard from the accepted base in both wo
   assert.ok(trusted.includes('ref: ${{ github.event.pull_request.base.sha }}'));
 });
 
-test('mobile controller handoff has exactly the two accepted paths and a workflow trigger', () => {
+test('mobile controller handoff has exactly the accepted workflow, regression-test and manifest paths', () => {
   const branch = 'fix/production-mobile-controller-handoff-20260927';
   const workflowPath = '.github/workflows/platform-v7-production-mobile-acceptance.yml';
+  const regressionPath = 'apps/web/tests/unit/gektaProductionBrowserMatrix.test.ts';
   const manifestPath = productImplementationManifests.get(branch);
   const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
-  assert.deepEqual(state.approvedConcurrentScopes[branch], [workflowPath, manifestPath]);
+  assert.deepEqual(state.approvedConcurrentScopes[branch], [workflowPath, regressionPath, manifestPath]);
   const paths = workflow.split('\n  pull_request:\n')[1].split('\nconcurrency:')[0];
   assert.ok(paths.includes(`- '${workflowPath}'`));
   assert.ok(fs.readFileSync(sourceGuard, 'utf8').includes(`"$PRODUCTION_MOBILE_HANDOFF_BRANCH") PRODUCT_SCOPE_MANIFEST='${manifestPath}'`));
