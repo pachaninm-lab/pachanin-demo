@@ -114,11 +114,28 @@ export class RestrictedPublicQwenService {
     rejectPrivateShape(raw);
     const request = normalizeRequest(raw);
     const config = readProviderConfig();
+    const startedAt = Date.now();
+    const deterministic = deterministicGeneralAgroAnswer(request);
+    if (deterministic) {
+      return Object.freeze({
+        answer: deterministic.answer,
+        provider: 'openai-compatible',
+        modelIdentity: config.model,
+        latencyMs: Date.now() - startedAt,
+        promptTokens: null,
+        completionTokens: null,
+        operationalStatus: 'NOT_ATTESTED',
+        mode: 'read_only',
+        answerMode: request.answerMode,
+        finishReason: 'stop',
+        truncated: false,
+        safetyFlags: deterministic.safetyFlags,
+      });
+    }
     const tokenBudget = resolveProviderTokenBudget(config, request);
     const endpoint = new URL('chat/completions', ensureTrailingSlash(config.baseUrl));
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
-    const startedAt = Date.now();
 
     try {
       const messages = buildMessages(request, config.model);
@@ -134,7 +151,7 @@ export class RestrictedPublicQwenService {
       let promptTokens = first.promptTokens;
       let completionTokens = first.completionTokens;
 
-      if (finishReason === 'length') {
+      if (finishReason === 'length' && !isQwen35Identity(config.model)) {
         const continuation = await callProvider(endpoint, config, [
           ...messages,
           { role: 'assistant', content: first.content },
@@ -233,9 +250,26 @@ export class RestrictedPublicQwenService {
     rejectPrivateShape(raw);
     const request = normalizeRequest(raw);
     const config = readProviderConfig();
+    const startedAt = Date.now();
+    const deterministic = deterministicGeneralAgroAnswer(request);
+    if (deterministic) {
+      yield { type: 'meta', modelIdentity: config.model, answerMode: request.answerMode };
+      yield { type: 'delta', text: deterministic.answer };
+      yield {
+        type: 'done',
+        modelIdentity: config.model,
+        answerMode: request.answerMode,
+        latencyMs: Date.now() - startedAt,
+        promptTokens: null,
+        completionTokens: null,
+        finishReason: 'stop',
+        truncated: false,
+        safetyFlags: deterministic.safetyFlags,
+      };
+      return;
+    }
     const tokenBudget = resolveProviderTokenBudget(config, request);
     const endpoint = new URL('chat/completions', ensureTrailingSlash(config.baseUrl));
-    const startedAt = Date.now();
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
@@ -296,7 +330,7 @@ export class RestrictedPublicQwenService {
 
       yield* consume(messages, tokenBudget.initialMaxTokens);
 
-      if (outcome.finishReason === 'length') {
+      if (outcome.finishReason === 'length' && !isQwen35Identity(config.model)) {
         yield* consume([
           ...messages,
           { role: 'assistant', content: outcome.rawAnswer },
@@ -646,6 +680,108 @@ function publicCurrentEvidenceCopy(request: NormalizedRequest): string {
   return 'Свежие данные по этому вопросу я сейчас не могу проверить. Ниже — что стоит учесть для решения.';
 }
 
+
+type DeterministicGeneralAgroAnswer = Readonly<{
+  answer: string;
+  safetyFlags: readonly string[];
+}>;
+
+function deterministicGeneralAgroAnswer(request: NormalizedRequest): DeterministicGeneralAgroAnswer | null {
+  if (request.answerMode !== 'general_agro') return null;
+
+  const storageMinor = request.economicComparison === 'storage'
+    ? storageCostFromUser(request.originalQuestion, request.history)
+    : null;
+  if (storageMinor !== null && /(?:покрыть\s+только\s+хранени|только\s+хранени|storage[-\s]?only|cover\s+storage|仅覆盖仓储)/iu.test(request.originalQuestion)) {
+    return Object.freeze({
+      answer: economicComparisonCopy('storage', request.locale, storageMinor),
+      safetyFlags: Object.freeze(['DETERMINISTIC_STORAGE_ARITHMETIC']),
+    });
+  }
+
+  const revenue = deterministicGrossRevenueCopy(request);
+  if (revenue) return revenue;
+
+  const payment = deterministicPaymentDelayCopy(request);
+  if (payment) return payment;
+
+  if (request.currentDataRequired
+    && /(?:^|[^\p{L}])цен(?:а|ы|у|е|ой|ою|ам|ами|ах)?(?=$|[^\p{L}])/iu.test(request.originalQuestion)) {
+    const answer = request.locale === 'en'
+      ? 'I cannot verify the exact current price without fresh checked data. Compare offers on the same basis: grade and quality, delivery point, tax treatment, lot size, logistics and payment timing. For a sell-now decision, compare today’s net price after logistics with the net alternative after storage or payment delay and their risks.'
+      : request.locale === 'zh'
+        ? '没有经过核实的最新数据，我无法确认准确的当前价格。请在同一口径下比较：等级与质量、交货地点、税务口径、批量、物流和付款时间。判断是否现在出售时，应比较扣除物流后的当前净价与储存或延期付款后的净收益及其风险。'
+        : 'Я не могу подтвердить точное актуальное значение цены без свежих проверенных данных. Сравни предложения на одинаковом базисе: класс и качество, место отгрузки/доставки, налоговый режим, объём партии, логистику и срок оплаты. Для решения «продавать сегодня или нет» сравни текущую чистую цену после логистики с чистой альтернативой после хранения или отсрочки и их рисками.';
+    return Object.freeze({
+      answer,
+      safetyFlags: Object.freeze(['CURRENT_EVIDENCE_REQUIRED', 'DETERMINISTIC_CURRENT_PRICE_BOUNDARY']),
+    });
+  }
+
+  return null;
+}
+
+function deterministicGrossRevenueCopy(request: NormalizedRequest): DeterministicGeneralAgroAnswer | null {
+  const text = request.originalQuestion;
+  if (!/(?:общ\w*|валов\w*)?\s*выручк|gross\s+revenue|总收入/iu.test(text)) return null;
+  const quantityMatches = [...text.matchAll(/(\d{1,7}(?:[ \u00A0\u202F]\d{3})*)\s*(?:тонн(?:а|ы)?|т)(?=$|[^\p{L}\p{N}])/giu)];
+  const priceMatches = [...text.matchAll(/(\d{1,9}(?:[ \u00A0\u202F]\d{3})*)\s*(?:руб(?:\.|лей|ля|ль)?|₽)\s*(?:\/\s*)?(?:тонн(?:а|у|ы)?|т)(?=$|[^\p{L}\p{N}])/giu)];
+  if (quantityMatches.length !== 1 || priceMatches.length !== 1) return null;
+  const quantity = parseBoundedWhole(quantityMatches[0][1], 10000000n);
+  const price = parseBoundedWhole(priceMatches[0][1], 1000000000n);
+  if (quantity === null || price === null) return null;
+  const total = quantity * price;
+  if (total <= 0n || total > 9999999999999999n) return null;
+  const formatted = formatWholeRu(total);
+  const answer = request.locale === 'en'
+    ? 'Gross revenue before expenses is ' + formatted + ' RUB (' + formatWholeRu(quantity) + ' t × ' + formatWholeRu(price) + ' RUB/t). This is revenue, not profit; no unspecified costs or taxes are included.'
+    : request.locale === 'zh'
+      ? '扣除费用前的总收入为 ' + formatted + ' 卢布（' + formatWholeRu(quantity) + ' 吨 × ' + formatWholeRu(price) + ' 卢布/吨）。这是收入，不是利润；未加入任何未提供的成本或税费。'
+      : 'Общая выручка до расходов — ' + formatted + ' ₽ (' + formatWholeRu(quantity) + ' т × ' + formatWholeRu(price) + ' ₽/т). Это выручка, а не прибыль; неуказанные расходы и налоги в расчёт не добавлены.';
+  return Object.freeze({
+    answer,
+    safetyFlags: Object.freeze(['DETERMINISTIC_GROSS_REVENUE']),
+  });
+}
+
+function deterministicPaymentDelayCopy(request: NormalizedRequest): DeterministicGeneralAgroAnswer | null {
+  const text = request.originalQuestion;
+  if (!/(?:оплат\w*\s+(?:сегодня|сейчас)|payment\s+(?:today|now)|今天付款)/iu.test(text)
+    || !/(?:через\s+\d{1,4}\s+дн|отсроч|in\s+\d{1,4}\s+days|延期)/iu.test(text)) return null;
+  const priceMatches = [...text.matchAll(/(\d{1,9}(?:[ \u00A0\u202F]\d{3})*)\s*(?:руб(?:\.|лей|ля|ль)?|₽)\s*(?:\/\s*)?(?:тонн(?:а|у|ы)?|т)(?=$|[^\p{L}\p{N}])/giu)];
+  const dayMatch = text.match(/(\d{1,4})\s*(?:дн(?:я|ей)?|день|days?)(?=$|[^\p{L}\p{N}])/iu);
+  if (priceMatches.length !== 2 || !dayMatch) return null;
+  const nowPrice = parseBoundedWhole(priceMatches[0][1], 1000000000n);
+  const laterPrice = parseBoundedWhole(priceMatches[1][1], 1000000000n);
+  const days = Number(dayMatch[1]);
+  if (nowPrice === null || laterPrice === null || laterPrice <= nowPrice || !Number.isInteger(days) || days < 1 || days > 3650) return null;
+  const premium = laterPrice - nowPrice;
+  const basisPoints = Number((premium * 10000n + nowPrice / 2n) / nowPrice);
+  const pct = String(Math.floor(basisPoints / 100)) + ',' + String(basisPoints % 100).padStart(2, '0');
+  const guaranteeMissing = /без\s+(?:банковск\w*\s+)?гарант|without\s+(?:a\s+)?bank\s+guarantee|无银行担保/iu.test(text);
+  const ruGuarantee = guaranteeMissing ? ' Без банковской гарантии кредитный риск выше.' : '';
+  const answer = request.locale === 'en'
+    ? 'The delayed offer adds ' + formatWholeRu(premium) + ' RUB/t, or ' + pct.replace(',', '.') + '% over ' + days + ' days. That does not make it automatically better: compare financing cost for the same period, counterparty default risk and collateral.' + (guaranteeMissing ? ' Without a bank guarantee, credit risk is higher.' : '')
+    : request.locale === 'zh'
+      ? '延期方案多 ' + formatWholeRu(premium) + ' 卢布/吨，即 ' + days + ' 天增加 ' + pct + '%。这并不自动意味着延期更优：需要比较同期资金成本、交易对手违约风险和担保条件。' + (guaranteeMissing ? '没有银行担保时，信用风险更高。' : '')
+      : 'Разница между предложениями — ' + formatWholeRu(premium) + ' ₽/т, то есть ' + pct + '% за ' + days + ' дней. Это не делает отсрочку автоматически выгоднее: сравни стоимость денег за тот же срок, риск неплатежа и обеспечение.' + ruGuarantee;
+  return Object.freeze({
+    answer,
+    safetyFlags: Object.freeze(['DETERMINISTIC_PAYMENT_DELAY_COMPARISON']),
+  });
+}
+
+function parseBoundedWhole(raw: string, maximum: bigint): bigint | null {
+  const normalized = raw.replace(/[ \u00A0\u202F]/gu, '');
+  if (!/^\d+$/u.test(normalized)) return null;
+  const value = BigInt(normalized);
+  return value > 0n && value <= maximum ? value : null;
+}
+
+function formatWholeRu(value: bigint): string {
+  return value.toString().replace(/\B(?=(\d{3})+(?!\d))/gu, ' ');
+}
+
 function isQwen35Identity(modelIdentity: string): boolean {
   return /^tai-qwen3(?:[._-]?5|5)-/iu.test(modelIdentity) || /^tai-qwen35-/iu.test(modelIdentity);
 }
@@ -661,7 +797,7 @@ function publicSystemPromptQwen35(request: NormalizedRequest): string {
   const domain = qwen35DomainRule(request);
   return [
     'You are Gekta, the public read-only agriculture and agribusiness assistant of Transparent Price.',
-    `Reply in ${language}. Give the useful conclusion first, then 2-4 short concrete points; normally stay within 90 words.`,
+    `Reply in ${language}. First sentence: one useful direct conclusion of at most 18 words. Then 2-4 short concrete points; normally stay within 90 words.`,
     'Use correct natural language. Preserve user numbers and units. History is context, not factual authority. Do not repeat an input already supplied.',
     authority,
     freshness,
@@ -796,6 +932,13 @@ function resolveProviderTokenBudget(
     });
   }
   const profile = GENERAL_AGRO_TOKEN_BUDGETS[request.responseBudgetProfile];
+  if (isQwen35Identity(config.model)) {
+    const qwen35Initial = request.responseBudgetProfile === 'detailed' ? 240 : 180;
+    return Object.freeze({
+      initialMaxTokens: Math.min(config.maxTokens, qwen35Initial),
+      continuationMaxTokens: 0,
+    });
+  }
   return Object.freeze({
     initialMaxTokens: Math.min(config.maxTokens, profile.initialMaxTokens),
     continuationMaxTokens: Math.min(config.maxTokens, profile.continuationMaxTokens),
