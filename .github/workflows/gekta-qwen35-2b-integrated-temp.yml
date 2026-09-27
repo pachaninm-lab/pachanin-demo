@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: gekta-qwen35-integrated-temp
+  group: gekta-qwen35-2b-integrated-temp
   cancel-in-progress: true
 
 jobs:
