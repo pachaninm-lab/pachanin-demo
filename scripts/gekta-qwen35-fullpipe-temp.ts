@@ -56,3 +56,4 @@ async function ask(id:string,question:string,options:{history?:Turn[];current?:b
   console.log('FULLPIPE_SUMMARY='+JSON.stringify({cases:rows.length,failures,medianFirstDeltaMs:median(firsts),medianTotalMs:median(totals),maxTotalMs:Math.max(...totals)}));
   process.exit(failures.length?20:0);
 })().catch(error=>{console.error('FULLPIPE_FATAL='+(error?.stack||error?.message||String(error)));process.exit(30);});
+// trigger full-pipeline diagnostic on open PR
