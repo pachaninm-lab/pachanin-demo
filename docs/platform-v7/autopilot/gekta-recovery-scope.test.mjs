@@ -15,6 +15,7 @@ const scopes = {
     "scripts/check-production-web-hardening.mjs"
   ],
   "fix/gekta-answer-copy-20260927": [
+    "apps/web/app/api/agro-chat/route.ts",
     "apps/web/lib/platform-v7/public-assistant-knowledge.ts",
     "apps/web/tests/unit/publicFarmerStarterQuestions.test.ts"
   ],
