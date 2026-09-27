@@ -2362,9 +2362,9 @@
     "public-webkit-i18n-route-lifecycle-20260927": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Isolate public production i18n route navigation in a fresh page lifecycle and verify realistic login-to-register navigation after the measured WebKit EN 320 ChunkLoadError.",
-      "authorityBaseExactMain": "d45970d9cfe912571367203ad0639be919e8fdae",
+      "authorityBaseExactMain": "7ac6925e01bf311be08b5cac12d9dfc7e0188d35",
       "acceptedGuardPr": 5669,
-      "acceptedGuardMerge": "d45970d9cfe912571367203ad0639be919e8fdae",
+      "acceptedGuardMerge": "7ac6925e01bf311be08b5cac12d9dfc7e0188d35",
       "implementationBranch": "fix/public-webkit-i18n-route-lifecycle-20260927",
       "allowedPaths": [
         "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
