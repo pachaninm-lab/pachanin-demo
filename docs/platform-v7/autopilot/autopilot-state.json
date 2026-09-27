@@ -1679,6 +1679,29 @@
       "apps/web/tests/unit/taiPublicAssistantRetryRegenerate.test.tsx",
       "docs/platform-v7/qa/web-unit-coverage-registry.json"
     ],
+    "governance/gekta-recovery-trusted-routes-20260927": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+      "scripts/p7-autopilot-guard.sh"
+    ],
+    "fix/gekta-docker-diagnostic-route-20260927": [
+      ".github/workflows/production-docker-headroom-diagnostic.yml"
+    ],
+    "fix/gekta-web-release-recovery-20260927": [
+      "scripts/production-web-remote-entrypoint.sh",
+      "scripts/production-web-exact-sha.sh",
+      "scripts/check-production-web-hardening.mjs"
+    ],
+    "fix/gekta-answer-copy-20260927": [
+      "apps/web/app/api/agro-chat/route.ts",
+      "apps/web/lib/platform-v7/public-assistant-knowledge.ts",
+      "apps/web/tests/unit/publicFarmerStarterQuestions.test.ts"
+    ],
+    "fix/gekta-han-stream-20260927": [
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts"
+    ],
     "fix/readiness-queue-job-gate-20260927": [
       ".github/workflows/automerge.yml",
       "docs/platform-v7/autopilot/scopes/readiness-queue-job-gate-20260927.json"
@@ -2158,6 +2181,76 @@
         "CI/security/readiness gate weakening or unsupported production acceptance claims"
       ],
       "teamHubDependency": "#5469; #5631; exact-head inline P1 #4112623681"
+    },
+    "gekta-reviewed-bootstrap-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "One-time owner-authorized Gekta recovery governance bootstrap: exact reviewed three-file candidate only.",
+      "authorityBaseExactMain": "2b302725a14d518382f533f38495c568c9a4691b",
+      "implementationBranch": "governance/gekta-recovery-trusted-routes-20260927",
+      "reviewedCandidateSha": "1f746d7e457af6d1815ea050a0211939d84a8a89",
+      "reviewedCandidateTree": "6f5fe6c391737c818607144baf84a32138dc40d9",
+      "allowedPaths": [
+        ".github/workflows/platform-v7-autopilot-guard.yml",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+        "scripts/p7-autopilot-guard.sh"
+      ],
+      "reviewedBlobs": {
+        ".github/workflows/platform-v7-autopilot-guard.yml": "a0271cd4eff83a430882fe3e089b60b57b28e9e6",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "242d07fcab5a06bb2a9cce807f16590c0e874fa3",
+        "scripts/p7-autopilot-guard.sh": "80dce5c8fa2e8c53e391adb14decb95b27ac60d1"
+      },
+      "requiredTruthBoundaries": [
+        "Owner explicitly authorized the one-time bootstrap and autonomous completion in the active session. This state-only change admits no product, production operation or implementation branch.",
+        "Before merging the governance candidate, independently verify its complete diff and three blob identities against this record. Changed content requires renewed review and source admission.",
+        "This is documented exact-content admission with independent manual enforcement. Existing generic routing does not automatically enforce recorded SHA fields. Do not claim immutable enforcement before the reviewed bootstrap is accepted.",
+        "The four implementation branches obtain only literal trusted-base path sets after the bootstrap merges. Candidate state, global scope, guard, workflow, R1.2 and renames cannot widen those scopes.",
+        "All substantive CI, exact-head independent review, unresolved-thread resolution and fresh manual SHA-bound readiness remain required. Deployment is separately pending exact OCI identity, health and live acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Implementation paths in this state-only PR",
+        "State, scope or unrelated authority changes in the three-file bootstrap",
+        "Automatic merge, check override, force merge or new recurring costs"
+      ],
+      "reviewDependency": "PR #5650; native P1 4114326800; independent reviewer /root/review_gekta"
+    },
+    "gekta-recovery-implementation-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Owner-requested Gekta farmer questions, answer latency and copy quality, with bounded REG.RU release recovery.",
+      "authorityBaseExactMain": "55da1ad596cdaccf5be26c9d7f3f20dd5ba45712",
+      "trustedGuardBlob": "80dce5c8fa2e8c53e391adb14decb95b27ac60d1",
+      "scopesByBranch": {
+        "fix/gekta-docker-diagnostic-route-20260927": [
+          ".github/workflows/production-docker-headroom-diagnostic.yml"
+        ],
+        "fix/gekta-web-release-recovery-20260927": [
+          "scripts/production-web-remote-entrypoint.sh",
+          "scripts/production-web-exact-sha.sh",
+          "scripts/check-production-web-hardening.mjs"
+        ],
+        "fix/gekta-answer-copy-20260927": [
+          "apps/web/app/api/agro-chat/route.ts",
+          "apps/web/lib/platform-v7/public-assistant-knowledge.ts",
+          "apps/web/tests/unit/publicFarmerStarterQuestions.test.ts"
+        ],
+        "fix/gekta-han-stream-20260927": [
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts"
+        ]
+      },
+      "requiredTruthBoundaries": [
+        "Immutable literal scopes and trusted-base workflow routes were separately accepted in PR #5650 before this state-only admission.",
+        "This record duplicates the accepted guard exact path sets; candidate state cannot expand those sets. Current R1.2, global scopes and prior admissions remain unchanged.",
+        "Each implementation PR must contain only its admitted exact paths and pass independent exact-head review, all substantive CI and fresh manual SHA-bound readiness.",
+        "Fast reviewed starter answers preserve entitlement and safety; contextual or free-form follow-ups retain the model. Never present reviewed text as model generation or claim unmeasured live speed.",
+        "Release remains REG.RU-only with protected stateful data and no new recurring costs. Completion requires exact OCI revision, healthy service and public live acceptance."
+      ],
+      "forbiddenAuthority": [
+        "R1.2 or unrelated product scope changes",
+        "Volumes, persistent data or container removal for disk recovery",
+        "Force merge, fabricated checks or disabled safety"
+      ],
+      "reviewDependency": "Accepted bootstrap PR #5650; owner request and independent source review"
     }
   }
 }
