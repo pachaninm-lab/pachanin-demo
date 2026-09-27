@@ -3,6 +3,8 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/request-user';
 import { BankReconciliationService } from './bank-reconciliation.service';
+import { ImportMt940Dto } from './dto/import-mt940.dto';
+import { ManualMatchDto } from './dto/manual-match.dto';
 
 @Controller('api/bank/reconciliation')
 @UseGuards(JwtAuthGuard)
@@ -10,7 +12,7 @@ export class BankReconciliationController {
   constructor(private readonly bankReconciliation: BankReconciliationService) {}
 
   @Post('import')
-  importMT940(@Body() body: { content: string }, @CurrentUser() user: RequestUser) {
+  importMT940(@Body() body: ImportMt940Dto, @CurrentUser() user: RequestUser) {
     return this.bankReconciliation.importMT940(body.content, user);
   }
 
@@ -21,7 +23,7 @@ export class BankReconciliationController {
 
   @Post('match')
   manualMatch(
-    @Body() body: { paymentId?: string; entryId?: string; dealId: string },
+    @Body() body: ManualMatchDto,
     @CurrentUser() user: RequestUser,
   ) {
     // `paymentId` is the legacy field name for the statement entry id.
