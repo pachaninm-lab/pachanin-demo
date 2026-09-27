@@ -1713,6 +1713,9 @@
     "governance/gekta-current-data-regression-route-20260927": [
       "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
       "scripts/p7-autopilot-guard.sh"
+    ],
+    "fix/public-webkit-i18n-route-lifecycle-20260927": [
+      "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
     ]
   },
   "currentAcceptance": [
@@ -2355,6 +2358,30 @@
         "CI/security/readiness gate weakening or automatic merge"
       ],
       "teamHubDependency": "PR #5664 review P1; production i18n run 36316640279; Team Hub #5469"
+    },
+    "public-webkit-i18n-route-lifecycle-20260927": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Isolate public production i18n route navigation in a fresh page lifecycle and verify realistic login-to-register navigation after the measured WebKit EN 320 ChunkLoadError.",
+      "authorityBaseExactMain": "7ac6925e01bf311be08b5cac12d9dfc7e0188d35",
+      "acceptedGuardPr": 5669,
+      "acceptedGuardMerge": "7ac6925e01bf311be08b5cac12d9dfc7e0188d35",
+      "implementationBranch": "fix/public-webkit-i18n-route-lifecycle-20260927",
+      "allowedPaths": [
+        "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "The accepted trusted-base immutable guard and both PR entry points permit this implementation ref only the exact browser test path; candidate state cannot expand it.",
+        "Preserve all eight public routes, EN/ZH localization, RU homepage design gates, ten viewport-locale combinations, zero pageerror, response success, Chinese typography, mobile target geometry and horizontal reflow assertions.",
+        "Use an independent page lifecycle for each direct public route and a separate real user click from login to register at 320 px; do not dismiss an actual click-path product error as test harness noise.",
+        "The previous WebKit EN 320 ChunkLoadError is unresolved until Chromium and WebKit exact-deployed-OCI live production i18n acceptance passes; source CI alone does not establish production acceptance.",
+        "Do not broaden to BANKS, FGIS, provider credentials, backend/runtime/locale product code, other tests or release workflow in this one-file implementation."
+      ],
+      "forbiddenAuthority": [
+        "Candidate-owned state or scope extension in the implementation PR",
+        "Product code/API/DB/tenant/role/bank/provider/FGIS mutation",
+        "CI/security/readiness weakening, fabricated acceptance or automatic merge"
+      ],
+      "teamHubDependency": "#5666; accepted guard #5669; Team Hub #5469"
     }
   }
 }
