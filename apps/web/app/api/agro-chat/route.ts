@@ -109,6 +109,12 @@ const EXPLICIT_PLATFORM_PATTERNS = [
   /(?:你们的平台|本平台|平台中|注册|工作台)/u,
 ] as const;
 
+// A user can ask whether to sell now using storage cost inputs already supplied
+// by the user. That decision phrase alone is not fresh evidence, but it may be
+// ignored only when an explicit storage rate exists in this user conversation.
+const SUPPLIED_INPUT_DECISION_NOW_PATTERN = /(?:\b(?:продавать|продать)\s+(?:ли\s+)?сейчас\b|\b(?:sell|selling)\s+now\b|(?:现在卖|现在出售))/giu;
+const EXPLICIT_STORAGE_RATE_PATTERN = /(?:хранени\w*|стоимост\w*\s+хранени\w*)[^\n]{0,48}\d{1,7}(?:[.,]\d{1,2})?\s*(?:руб(?:лей|ля|ль)?\.?|₽|RUB)\s*(?:за\s*тонн[уы]|\/\s*т(?:онн[уы])?)\s*(?:в\s*месяц|\/\s*мес(?:яц)?)/iu;
+
 const CURRENT_EVIDENCE_PATTERNS = [
   /(?:сегодня|сейчас|на\s+данный\s+момент|последн\w*|свеж\w*|актуальн\w*|текущ\w*)/iu,
   /(?:новост\w*|погод\w*|курс\w*|пошлин\w*|ставк\w*|котировк\w*|индекс\w*|статистик\w*)/iu,
@@ -190,7 +196,7 @@ export async function POST(request: NextRequest) {
       source: 'verified_knowledge',
       answerMode: 'general_agro',
       knowledgeVersion: starter.knowledgeVersion,
-      currentDataRequired: requiresCurrentEvidence(envelope.question),
+      currentDataRequired: requiresCurrentEvidence(envelope.question, envelope.history),
       modelIdentity: null,
       truncated: false,
       safetyFlags: [],
@@ -427,7 +433,7 @@ function streamModelFirstAnswer(
 
       const run = async () => {
         const locale = resolveLocale(grounding, envelope.locale);
-        const currentDataRequired = answerMode === 'general_agro' && requiresCurrentEvidence(envelope.question);
+        const currentDataRequired = answerMode === 'general_agro' && requiresCurrentEvidence(envelope.question, envelope.history);
 
         // Rebuilt from this request's own history every time. A short follow-up
         // resolves against the subject this state carries instead of being sent
@@ -791,9 +797,23 @@ function historyAfterLatestCorrection(history: readonly HistoryTurn[]): readonly
   return correctionIndex >= 0 ? Object.freeze(history.slice(correctionIndex)) : history;
 }
 
-function requiresCurrentEvidence(question: string): boolean {
+function requiresCurrentEvidence(
+  question: string,
+  history: readonly HistoryTurn[] = [],
+): boolean {
   const normalized = normalizeIntent(question);
-  return CURRENT_EVIDENCE_PATTERNS.some((pattern) => pattern.test(normalized));
+  const userSuppliedContext = normalizeIntent([
+    ...history.filter((turn) => turn.role === 'user').map((turn) => turn.text),
+    question,
+  ].join(' '));
+  const suppliedInputStorageDecision = EXPLICIT_STORAGE_RATE_PATTERN.test(userSuppliedContext)
+    && SUPPLIED_INPUT_DECISION_NOW_PATTERN.test(normalized);
+  SUPPLIED_INPUT_DECISION_NOW_PATTERN.lastIndex = 0;
+  const evidenceQuestion = suppliedInputStorageDecision
+    ? normalized.replace(SUPPLIED_INPUT_DECISION_NOW_PATTERN, ' ').replace(/\s+/gu, ' ').trim()
+    : normalized;
+  SUPPLIED_INPUT_DECISION_NOW_PATTERN.lastIndex = 0;
+  return CURRENT_EVIDENCE_PATTERNS.some((pattern) => pattern.test(evidenceQuestion));
 }
 
 function containsSensitiveInput(question: string, history: readonly HistoryTurn[]): boolean {

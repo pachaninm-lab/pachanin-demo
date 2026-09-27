@@ -32,6 +32,10 @@ import {
 import {
   ProviderStreamParser,
   StreamingAnswerGate,
+  economicComparisonFor,
+  economicComparisonCopy,
+  storageCostFromUser,
+  type EconomicComparison,
   type ProviderFinishReason,
 } from './restricted-public-qwen.stream-gate';
 
@@ -66,6 +70,7 @@ type NormalizedRequest = Readonly<{
   history: readonly PublicHistoryTurn[];
   conversationState: string;
   grounding: PublicGrounding;
+  economicComparison: EconomicComparison | null;
 }>;
 type ProviderConfig = Readonly<{
   baseUrl: string;
@@ -169,6 +174,19 @@ export class RestrictedPublicQwenService {
         answer = enforceGeneralAgroCompleteness(answer, request, safetyFlags);
       }
 
+      if (request.economicComparison) {
+        const economicGate = new StreamingAnswerGate({
+          answerMode: request.answerMode, locale: request.locale,
+          currentDataRequired: false, grounding: request.grounding,
+          economicComparison: request.economicComparison,
+        });
+        const screened = economicGate.push(`${answer}\n`);
+        const tail = economicGate.flush();
+        if (screened.violation || tail.violation) throw new ServiceUnavailableException('Restricted public model emitted a prohibited answer.');
+        safetyFlags.push(...screened.flags, ...tail.flags);
+        answer = [economicGate.emitted, checkedEconomicCopy(request)].filter(Boolean).join('\n\n');
+      }
+
       const linkFree = stripRawLinks(answer);
       if (linkFree.removed) safetyFlags.push('RAW_LINK_REMOVED');
       answer = linkFree.text;
@@ -231,6 +249,7 @@ export class RestrictedPublicQwenService {
       locale: request.locale,
       currentDataRequired: request.currentDataRequired,
       grounding: request.grounding,
+      economicComparison: request.economicComparison,
     });
 
     try {
@@ -265,6 +284,8 @@ export class RestrictedPublicQwenService {
             throw new ServiceUnavailableException(
               commit.violation === 'SECRET'
                 ? 'Restricted public model emitted secret-like material.'
+                : commit.violation === 'OUTPUT_LIMIT'
+                  ? 'Restricted public model exceeded the bounded answer block.'
                 : 'Restricted public model emitted a prohibited action claim.',
             );
           }
@@ -288,6 +309,8 @@ export class RestrictedPublicQwenService {
         throw new ServiceUnavailableException(
           tail.violation === 'SECRET'
             ? 'Restricted public model emitted secret-like material.'
+            : tail.violation === 'OUTPUT_LIMIT'
+              ? 'Restricted public model exceeded the bounded answer block.'
             : 'Restricted public model emitted a prohibited action claim.',
         );
       }
@@ -295,6 +318,12 @@ export class RestrictedPublicQwenService {
       if (tail.text) yield { type: 'delta', text: tail.text };
 
       let emitted = gate.emitted;
+      if (request.economicComparison) {
+        const copy = checkedEconomicCopy(request);
+        const separator = emitted ? '\n\n' : '';
+        yield { type: 'delta', text: `${separator}${copy}` };
+        emitted += `${separator}${copy}`;
+      }
       if (!emitted) {
         if (request.answerMode === 'verified_platform') {
           const fallback = verifiedFallback(request.grounding);
@@ -521,6 +550,7 @@ function normalizeRequest(raw: unknown): NormalizedRequest {
     history,
     conversationState,
     grounding,
+    economicComparison: economicComparisonFor(originalQuestion, history),
   });
 }
 
@@ -589,11 +619,19 @@ function buildMessages(request: NormalizedRequest): readonly ChatMessage[] {
         request.answerMode,
         request.currentDataRequired,
         request.responseBudgetProfile,
-      ),
+      ) + (request.economicComparison
+        ? '\nFor this cost comparison, explain only qualitative factors and the comparison method. Do not generate numerical calculations, assumed periods, price forecasts or profitability rankings, even conditional rankings. The application separately computes supported storage-only arithmetic from explicit user inputs. Do not repeat it. Use plain text, no LaTeX.'
+        : ''),
     },
     ...request.history.map((turn) => ({ role: turn.role, content: turn.text }) as ChatMessage),
     { role: 'user', content: buildGroundedPrompt(request) },
   ]);
+}
+
+function checkedEconomicCopy(request: NormalizedRequest): string {
+  return economicComparisonCopy(request.economicComparison!, request.locale,
+    request.economicComparison === 'storage'
+      ? storageCostFromUser(request.originalQuestion, request.history) : null);
 }
 
 /** Keep evidence filtering centralized; format the public notice for the question. */

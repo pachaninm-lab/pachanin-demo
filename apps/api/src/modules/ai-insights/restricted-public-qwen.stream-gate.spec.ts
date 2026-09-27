@@ -1,6 +1,9 @@
 import {
   ProviderStreamParser,
   StreamingAnswerGate,
+  economicComparisonFor,
+  storageCostFromUser,
+  economicComparisonCopy,
 } from './restricted-public-qwen.stream-gate';
 import type { PublicGrounding } from './restricted-public-qwen.safety';
 
@@ -34,6 +37,124 @@ function sseChunk(content: string): string {
 }
 
 describe('StreamingAnswerGate', () => {
+  it.each([1, 2, 7, 48, 500])('screens live unsupported economic answers before publication at chunk size %i', (size) => {
+    for (const answer of [
+      'Продавать сейчас выгоднее. Основные факторы:\n1. Цена 12000 рублей.\n2. Хранение 200 рублей. Проверьте влажность и потери качества. ',
+      'Если цена вырастет больше, хранение станет выгодным. Если рост будет меньше — лучше продавать сейчас. Уточните условия доставки. ',
+      'Если перевозка маленькая, выгоднее по рейсу, если большая — по тонне. Сравните простой и погрузку. ',
+      'If the load is small, per trip is cheaper. Compare loading and waiting charges. ',
+      '如果数量少，按趟更划算。请核对装卸和等待费用。',
+    ]) {
+      const gate = generalGate({ economicComparison: 'storage' });
+      let wire = '';
+      for (let i = 0; i < answer.length; i += size) wire += gate.push(answer.slice(i, i + size)).text;
+      wire += gate.flush().text;
+      expect(wire).toBe(gate.emitted);
+      expect(wire).not.toMatch(/выгод|лучше продавать|12000|200|cheaper|更划算|^\s*\d+[.)]\s*$/mu);
+      expect(wire.length).toBeGreaterThan(10);
+    }
+  });
+
+  it('holds an economic sentence before its final ranking and rejects undecided overflow', () => {
+    const gate = generalGate({ economicComparison: 'transport', maxPendingChars: 150 });
+    expect(gate.push('Если перевозка маленькая, а стоимость погрузки одинакова, то перевозка по рейсу ').text).toBe('');
+    expect(gate.push('выгоднее. ').text).toBe('');
+    expect(gate.push('а '.repeat(100)).violation).toBe('OUTPUT_LIMIT');
+    expect(gate.emitted).toBe('');
+  });
+
+  it('still refuses secret and action claims before economic filtering', () => {
+    const gate = generalGate({ economicComparison: 'storage' });
+    expect(gate.push('Я перевёл деньги за хранение. ').violation).toBe('WRITE_CLAIM');
+  });
+
+  it('calculates only explicit user-owned storage units and period, not assistant inventions', () => {
+    const history = [{ role: 'user' as const, text: 'Пшеница, 500 тонн, предлагают 12000 рублей за тонну. Хранение 200 рублей за тонну в месяц. Продавать сейчас или хранить?' }];
+    expect(storageCostFromUser('Срок хранения два месяца. Насколько должна вырасти цена, чтобы покрыть только хранение?', history)).toBe(40000);
+    expect(storageCostFromUser(history[0].text, [{ role: 'assistant', text: 'Срок хранения два месяца.' }])).toBeNull();
+    expect(storageCostFromUser('Срок хранения два месяца.', [{ role: 'assistant', text: history[0].text }])).toBeNull();
+    expect(storageCostFromUser('Срок хранения два месяца.', [...history, { role: 'user', text: 'Хранение 300 рублей за тонну в месяц.' }])).toBe(60000);
+    expect(storageCostFromUser('Срок хранения два месяца.', [...history, { role: 'user', text: 'Хранение теперь 300, единицы неизвестны.' }])).toBeNull();
+    expect(storageCostFromUser('Срок хранения два месяца.', [...history, { role: 'user', text: 'Хранение 300 рублей за тонну в год.' }])).toBeNull();
+    expect(storageCostFromUser('Срок хранения два месяца.', [{ role: 'user', text: 'Хранение 200,25 руб/т/мес.' }])).toBe(40050);
+    expect(storageCostFromUser('Срок хранения два или три месяца.', history)).toBeNull();
+    expect(storageCostFromUser('Срок хранения 2.5 месяца.', history)).toBeNull();
+    expect(storageCostFromUser('Срок хранения -2 месяца.', history)).toBeNull();
+    expect(storageCostFromUser('Срок хранения 999 месяца.', history)).toBeNull();
+  });
+
+  it('does not inherit economics into plant or platform retention questions', () => {
+    const history = [{ role: 'user' as const, text: 'Хранение зерна 200 рублей за тонну в месяц, продавать или хранить?' }];
+    expect(economicComparisonFor('Срок хранения два месяца. Насколько должна вырасти цена?', history)).toBe('storage');
+    expect(economicComparisonFor('Почему желтеют листья картофеля?', history)).toBeNull();
+    expect(economicComparisonFor('Как долго платформа хранит персональные данные?', [])).toBeNull();
+    expect(economicComparisonFor('Какова стоимость хранения документов платформой?', history)).toBeNull();
+    expect(economicComparisonFor('Как хранить зерно после уборки?', history)).toBeNull();
+    expect(economicComparisonFor('How to compare grain freight per trip and per tonne?', [])).toBe('transport');
+    expect(economicComparisonCopy('storage', 'ru', 40000)).toContain('400 руб/т');
+    expect(economicComparisonCopy('storage', 'ru', 40000)).toContain('только хранения');
+    expect(economicComparisonCopy('storage', 'ru', 40000)).toContain('не доказывает общую выгодность');
+  });
+
+  it('invalidates older quantities after a unit, subject or ambiguous correction', () => {
+    const history = [{ role: 'user' as const, text: 'Пшеница, хранение 200 рублей за тонну в месяц, срок два месяца. Какая стоимость?' }];
+    expect(storageCostFromUser('Теперь тариф 300 рублей за тонну в месяц. Сколько стоит хранение за срок?', history)).toBeNull();
+    expect(storageCostFromUser('Теперь один год. Насколько должна вырасти цена, чтобы покрыть только хранение?', history)).toBeNull();
+    expect(storageCostFromUser('Какая стоимость хранения картофеля за два месяца?', history)).toBeNull();
+    expect(storageCostFromUser('Какова стоимость хранения документов платформой?', history)).toBeNull();
+    expect(storageCostFromUser('Какова стоимость хранения рапса за два месяца?', history)).toBeNull();
+    expect(economicComparisonFor('По этим данным: хранение 200 рублей за тонну в месяц. Продавать сейчас или хранить?', [])).toBe('storage');
+    expect(economicComparisonFor('По данным перевозчика, один тариф за рейс, другой за тонну. Как сравнить стоимость?', [])).toBe('transport');
+    expect(storageCostFromUser('Сколько стоит хранение?', [...history, { role: 'user', text: 'Теперь тариф другой, значение уточню.' }])).toBeNull();
+    for (const question of ['Теперь четыре месяца.', 'Срок хранения 2–3 месяца.', 'Срок хранения от 2 до 3 месяцев.']) {
+      expect(storageCostFromUser(`${question} Насколько должна вырасти цена, чтобы покрыть только хранение?`, history)).toBeNull();
+    }
+    for (const rate of ['1 200', '- 200', '200–300', '1e3', '1e+3']) {
+      expect(storageCostFromUser(`Хранение стоит ${rate} рублей за тонну в месяц. Срок хранения два месяца.`, [])).toBeNull();
+    }
+    expect(storageCostFromUser('Хранение бесплатно. Страхование стоит 200 рублей за тонну в месяц. Срок хранения два месяца.', [])).toBeNull();
+    expect(storageCostFromUser('Хранение 200 рублей за тонну в месяц. Срок кредита два месяца.', [])).toBeNull();
+    expect(storageCostFromUser('Не хранение 200 рублей за тонну в месяц, а страховка. Срок хранения два месяца.', [])).toBeNull();
+    expect(storageCostFromUser('Хранение 200 рублей за тонну в месяц. Не срок хранения два месяца, а срок кредита.', [])).toBeNull();
+  });
+
+  it.each(['Продавайте сейчас.', 'Выбирайте оплату за рейс.', 'For small loads, choose the per-trip option.', '小批量应选按趟付费。', 'Цена должна вырасти на четыреста рублей.'])('screens imperative and spelled-out economic claims: %s', (answer) => {
+    const gate = generalGate({ economicComparison: 'storage' });
+    gate.push(answer);
+    gate.flush();
+    expect(gate.emitted).toBe('');
+  });
+
+  it.each([1, 2, 7, 48, 500])('keeps numbered markers with their screened body at chunk size %i', (size) => {
+    const gate = generalGate({ currentDataRequired: true });
+    const answer = 'Основные факторы:\n1. Цена 12000 рублей за тонну.\n2. Хранение 200 рублей за тонну.\n3. Проверьте влажность и риск потери качества.\n';
+    for (let i = 0; i < answer.length; i += size) gate.push(answer.slice(i, i + size));
+    gate.flush();
+    expect(gate.emitted).not.toMatch(/^\s*\d+[.)]\s*$/mu);
+    expect(gate.emitted).not.toContain('12000');
+    expect(gate.emitted).not.toContain('200');
+    expect(gate.emitted).toContain('3. Проверьте влажность');
+  });
+
+  it('does not publish a numbered marker before receiving its body', () => {
+    const gate = generalGate({ currentDataRequired: true });
+    expect(gate.push('1. ').text).toBe('');
+    expect(gate.push('Цена 12000 рублей за тонну. ').text).toBe('');
+    expect(gate.push('2. ').text).toBe('');
+    expect(gate.push('Уточните срок хранения. ').text).toBe('2. Уточните срок хранения.');
+    gate.flush();
+  });
+
+  it('preserves a standalone numeric answer and drops trailing empty list markers', () => {
+    const numeric = generalGate();
+    expect(numeric.push('42. ').text).toBe('');
+    expect(numeric.flush().text).toBe('42.');
+    const list = generalGate();
+    list.push('1. Проверьте влажность.\n2. ');
+    list.flush();
+    expect(list.emitted).toBe('1. Проверьте влажность.');
+  });
+
   it('releases a sentence as soon as it is complete, without waiting for the rest', () => {
     const gate = generalGate();
 

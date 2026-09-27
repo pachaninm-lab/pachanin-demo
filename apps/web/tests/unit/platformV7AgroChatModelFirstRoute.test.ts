@@ -62,13 +62,26 @@ describe('P0 model-first agricultural chat', () => {
     expect(qwenService).toContain('The absence of a button, module, connector or knowledge article does not limit your ability to explain the subject');
   });
 
+  it('ignores sell-now wording only when explicit user storage inputs exist', () => {
+    for (const fragment of [
+      'SUPPLIED_INPUT_DECISION_NOW_PATTERN',
+      'EXPLICIT_STORAGE_RATE_PATTERN',
+      'EXPLICIT_STORAGE_RATE_PATTERN.test(userSuppliedContext)',
+      'SUPPLIED_INPUT_DECISION_NOW_PATTERN.test(normalized)',
+      "normalized.replace(SUPPLIED_INPUT_DECISION_NOW_PATTERN, ' ')",
+      'requiresCurrentEvidence(envelope.question, envelope.history)',
+      'pattern.test(evidenceQuestion)',
+    ]) expect(route).toContain(fragment);
+    expect(route).toContain('(?:цена|стоимост\\w*)\\s+(?:сегодня|сейчас|на\\s+сегодня|в\\s+регионе)');
+  });
+
   it('preserves fail-closed safety, current-evidence and signed runtime boundaries', () => {
     for (const fragment of [
       "outcome.decision === 'BLOCK_SAFETY'",
       'SAFETY_BOUNDARY_BLOCKED',
       'SENSITIVE_INPUT_BLOCKED',
       "grounding.resolution === 'refused'",
-      'requiresCurrentEvidence(envelope.question)',
+      'requiresCurrentEvidence(envelope.question, envelope.history)',
       'TAI_PUBLIC_GATEWAY_HMAC_SECRET',
       'TAI_INTERNAL_API_ALLOWED_HOSTS',
       "operationalStatus: 'NOT_ATTESTED'",
