@@ -26,7 +26,7 @@
     "automatic merge, force merge, new recurring cost or unsupported production claim"
   ],
   "acceptance": [
-    "pin baseline.commit to the actual accepted #5646 merge SHA before publishing this PR",
+    "baseline.commit is pinned to the current accepted main SHA 002bddf693b3645d8ba127bd5d33c50811965809",
     "trusted-base guard accepts the exact workflow transform and rejects an unrelated permission byte",
     "workflow syntax, exact-head CI and independent review pass before manual SHA-bound merge"
   ]
