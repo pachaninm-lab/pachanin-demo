@@ -105,6 +105,8 @@ jobs:
                   "top_p": 0.9,
                   "max_tokens": 220,
                   "stream": False,
+                  "reasoning_format": "auto",
+                  "chat_template_kwargs": {"enable_thinking": False},
                   "chat_template_kwargs": {"enable_thinking": False},
                   "reasoning_format": "none",
               }, ensure_ascii=False).encode()
@@ -186,19 +188,17 @@ jobs:
             return 0
           }
 
-          set +e
+          LAST_RC=99
           run_one qwen35-4b "$FOUR_URL" "$FOUR_SHA" "$FOUR_SIZE"
-          rc4=$?
-          set -e
+          rc4="$LAST_RC"
           echo "QWEN35_4B_RC=$rc4"
 
           mem_kb="$(awk '/MemTotal:/{print $2}' /proc/meminfo)"
           rc9=99
           if (( mem_kb >= 12500000 )); then
-            set +e
+            LAST_RC=99
             run_one qwen35-9b "$NINE_URL" "$NINE_SHA" "$NINE_SIZE"
-            rc9=$?
-            set -e
+            rc9="$LAST_RC"
           else
             echo "QWEN35_9B_SKIPPED=RUNNER_MEMORY_BELOW_12_5GB"
           fi
