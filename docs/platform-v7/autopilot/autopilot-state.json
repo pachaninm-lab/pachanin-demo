@@ -1667,6 +1667,7 @@
     ],
     "fix/production-mobile-controller-handoff-20260927": [
       ".github/workflows/platform-v7-production-mobile-acceptance.yml",
+      "apps/web/tests/unit/gektaProductionBrowserMatrix.test.ts",
       "docs/platform-v7/autopilot/scopes/production-mobile-controller-handoff-20260927.json"
     ]
   },
