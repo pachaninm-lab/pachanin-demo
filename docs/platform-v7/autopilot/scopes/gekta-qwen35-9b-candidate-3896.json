@@ -3,7 +3,7 @@
   "branch": "perf/gekta-qwen35-9b-candidate-20260928",
   "issue": 3896,
   "status": "active",
-  "purpose": "Acquire a pinned Qwen3.5-9B Q4_K_M candidate on the existing dedicated model host for read-only A/B evaluation against the current Qwen3-8B. This scope does not activate or route production traffic to the candidate.",
+  "purpose": "Acquire a pinned Qwen3.5-9B Q4_K_M evaluation candidate and run a bounded serial A/B against the current Qwen3-8B. The candidate never binds the production model port and cannot become production authority from this scope.",
   "authorityBaseExactMain": "06f686d52247ebe7805f1b75d937b2ca8daf8f6f",
   "newRecurringCostRub": 0,
   "candidate": {
@@ -24,12 +24,15 @@
     "docs/platform-v7/autopilot/scopes/gekta-qwen35-9b-candidate-3896.json"
   ],
   "boundaries": [
-    "current tai-qwen3-8b.service stays active and is not restarted or reconfigured",
-    "candidate bytes are stored outside Git under /srv/tai-models/candidates",
-    "no API/Web/database/tenant/Deal/money/outbox mutation",
-    "no production model identity change",
+    "pull-request validation jobs receive no model-host operational credentials and perform no model-host mutation",
+    "candidate acquisition is owner-command-only after trusted workflow code is on main",
+    "candidate bytes are stored outside Git under /srv/tai-models/candidates and are bound to exact size and SHA-256",
+    "the serial A/B may stop the current tai-qwen3-8b.service only inside a bounded evaluation window; candidate binds 127.0.0.1:18081, never the production model port",
+    "a systemd fail-safe plus process-parent death handling restores the current service; exact baseline model identity, executable and argv are re-verified after the window",
+    "candidate admission requires zero candidate process swap, at least 3 GiB MemAvailable both before and after inference, deterministic quality gates and bounded latency comparison",
+    "no API/Web/database/tenant/Deal/money/outbox mutation and no production model identity change",
     "candidate cannot satisfy production model provenance or admission by itself",
-    "all transport uses the existing pinned dedicated model-host SSH identity",
-    "candidate activation requires a later bounded serial A/B controller with automatic rollback"
+    "all transport uses the existing pinned dedicated model-host SSH identity and protected sudo credential only from the owner-command job",
+    "new recurring cost remains 0 RUB"
   ]
 }
