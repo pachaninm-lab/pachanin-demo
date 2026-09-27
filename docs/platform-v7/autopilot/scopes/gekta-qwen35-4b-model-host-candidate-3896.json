@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "perf/gekta-qwen35-4b-model-host-candidate-3896",
+  "status": "active",
+  "issue": 3896,
+  "purpose": "Evaluate pinned Qwen3.5-4B Q4_K_M on the dedicated 16-core model host through the real Gekta RestrictedPublicQwenService, using a serial candidate window and unconditional automatic rollback to the current Qwen3-8B production model.",
+  "approvedBy": "repository-owner continuation for Gekta model upgrade on 2026-09-28",
+  "authorityBaseExactMain": "06f686d52247ebe7805f1b75d937b2ca8daf8f6f",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json",
+    "scripts/gekta-qwen35-4b-model-host-candidate.py",
+    ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts"
+  ],
+  "requiredBehavior": [
+    "candidate is exact Qwen/Qwen3.5-4B source lineage with pinned Q4_K_M artifact revision size and sha256",
+    "candidate uses the exact current production llama.cpp executable and preserves threads16 threads-batch16 parallel1 ctx8192 batch512 ubatch128 except model alias model path host and candidate port",
+    "current Qwen3-8B service remains unchanged on disk and is the mandatory rollback authority",
+    "candidate bytes are downloaded and verified before the current service is stopped",
+    "candidate binds loopback only on a separate port and is never exposed directly to public traffic",
+    "real Gekta RestrictedPublicQwenService acceptance reaches the candidate only through a temporary SSH tunnel",
+    "candidate window has a bounded watchdog that kills the candidate and restarts Qwen3-8B even if the GitHub runner disconnects",
+    "every success and failure path restores and verifies the original Qwen3-8B service before the workflow can finish",
+    "owner-only issue command is required for model-host mutation and the pinned model-host SSH host key is mandatory",
+    "no application database REG.RU deal money registration or tenant state is mutated",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "merge-time automatic model switch or permanent Qwen3.5 activation",
+    "parallel loading of Qwen3-8B and Qwen3.5-4B",
+    "unbounded sudo arbitrary shell SETENV trust-on-first-use or unpinned model-host identity",
+    "floating model revision floating GGUF URL unchecked artifact or checksum bypass",
+    "changing production API Web outbox database application configuration or model identity during candidate evaluation",
+    "paid API SaaS additional server or recurring cost"
+  ]
+}
