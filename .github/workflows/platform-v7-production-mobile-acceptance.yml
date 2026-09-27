@@ -5,7 +5,6 @@ on:
     workflows:
       - 'Production Web Exact-SHA Release'
       - 'Production Web Owner Exact-SHA Command'
-      - 'Production Full-Stack Exact-SHA Release'
       - 'platform-v7 safe merge'
     types: [completed]
   workflow_dispatch:
@@ -43,78 +42,124 @@ jobs:
       release_run_id: ${{ github.event.workflow_run.id }}
       manual_sha: ''
 
-  controller-accepted:
-    name: Resolve accepted owner full-stack controller
+  accepted-full-stack:
+    name: Verify nested owner-controlled full-stack deployment
     if: >-
       github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.name == 'platform-v7 safe merge'
+      github.event.workflow_run.name == 'platform-v7 safe merge' &&
+      github.event.workflow_run.event == 'issue_comment' &&
+      github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    permissions:
-      actions: read
-      contents: read
     outputs:
-      controller_accepted: ${{ steps.verify.outputs.controller_accepted }}
+      deployment_accepted: ${{ steps.evidence.outputs.deployment_accepted }}
+      accepted_sha: ${{ steps.evidence.outputs.accepted_sha }}
     steps:
-      - name: Verify exact owner production controller evidence
-        id: verify
+      - name: Verify controller identity and nested deploy jobs
+        id: controller
         env:
           GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
-          SOURCE_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          CONTROLLER_RUN_ID: ${{ github.event.workflow_run.id }}
+          CONTROLLER_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          CONTROLLER_SHA: ${{ github.event.workflow_run.head_sha }}
+          CONTROLLER_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          CONTROLLER_ACTOR: ${{ github.event.workflow_run.actor.login }}
+          CONTROLLER_TRIGGERING_ACTOR: ${{ github.event.workflow_run.triggering_actor.login }}
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]
-          [[ "$SOURCE_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$CONTROLLER_RUN_ID" =~ ^[0-9]+$ && "$CONTROLLER_ATTEMPT" =~ ^[0-9]+$ ]]
+          [[ "$CONTROLLER_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$CONTROLLER_REPOSITORY" == "$GITHUB_REPOSITORY" ]]
 
-          run="$(gh api "repos/$REPO/actions/runs/$SOURCE_RUN_ID")"
-          [[ "$(jq -r '.name' <<< "$run")" == 'platform-v7 safe merge' ]]
-          [[ "$(jq -r '.event' <<< "$run")" == issue_comment ]]
-          [[ "$(jq -r '.conclusion' <<< "$run")" == success ]]
-          [[ "$(jq -r '.head_sha' <<< "$run")" == "$SOURCE_HEAD_SHA" ]]
-          [[ "$(jq -r '.actor.login // empty' <<< "$run")" == "$REPOSITORY_OWNER" ]]
-          [[ "$(jq -r '.triggering_actor.login // empty' <<< "$run")" == "$REPOSITORY_OWNER" ]]
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CONTROLLER_RUN_ID")
+          jq -e --argjson id "$CONTROLLER_RUN_ID" --argjson attempt "$CONTROLLER_ATTEMPT" \
+            --arg sha "$CONTROLLER_SHA" \
+            '.id == $id and .run_attempt == $attempt and .name == "platform-v7 safe merge" and
+             .path == ".github/workflows/platform-v7-safe-merge.yml" and .event == "issue_comment" and
+             .head_branch == "main" and .head_sha == $sha and .status == "completed" and
+             .conclusion == "success" and .head_repository.full_name == .repository.full_name' \
+            <<< "$run" >/dev/null
 
-          jobs="$(gh api "repos/$REPO/actions/runs/$SOURCE_RUN_ID/jobs?filter=latest&per_page=100")"
-          required=(
-            'production-release-control-3072'
-            'production-full-stack-execution-3072 / Validate full-stack release contract'
-            'production-full-stack-execution-3072 / Migrate, deploy API/web and canonical outbox, verify live delivery'
-            'production-auth-mail-cutover-3072 / Validate auth-mail cutover contract'
-            'production-auth-mail-cutover-3072 / Cut over exact production to durable auth-mail worker'
-            'production-reviewer-readiness-3072 / Validate production reviewer inspect contract'
-            'production-reviewer-readiness-3072 / Read-only REG.RU reviewer login readiness'
-          )
-          for job_name in "${required[@]}"; do
-            count="$(jq --arg name "$job_name" '[.jobs[] | select(.name == $name)] | length' <<< "$jobs")"
-            [[ "$count" == 1 ]] || {
-              echo "Controller evidence cardinality mismatch for: $job_name count=$count" >&2
-              exit 20
-            }
-            conclusion="$(jq -r --arg name "$job_name" '.jobs[] | select(.name == $name) | .conclusion' <<< "$jobs")"
-            [[ "$conclusion" == success ]] || {
-              echo "Controller evidence is not success for: $job_name conclusion=$conclusion" >&2
-              exit 21
-            }
+          jobs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CONTROLLER_RUN_ID/attempts/$CONTROLLER_ATTEMPT/jobs?per_page=100")
+          jq -e '.total_count == (.jobs | length) and .total_count <= 100' <<< "$jobs" >/dev/null
+          job_state() {
+            jq -r --arg name "$1" \
+              '[.jobs[] | select(.name == $name)] | if length == 1 then .[0].conclusion else "missing-or-ambiguous" end' \
+              <<< "$jobs"
+          }
+          control=$(job_state 'production-release-control-3072')
+          if [[ "$control" == skipped ]]; then
+            echo 'No owner release command in this safe-merge run.'
+            echo 'candidate=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          [[ "$control" == success ]]
+          [[ "$CONTROLLER_ACTOR" == "$GITHUB_REPOSITORY_OWNER" &&
+             "$CONTROLLER_TRIGGERING_ACTOR" == "$GITHUB_REPOSITORY_OWNER" ]]
+          [[ "$(job_state 'production-full-stack-execution-3072 / Validate full-stack release contract')" == success ]]
+          [[ "$(job_state 'production-full-stack-execution-3072 / Migrate, deploy API/web and canonical outbox, verify live delivery')" == success ]]
+          [[ "$(job_state 'production-auth-mail-cutover-3072 / Cut over exact production to durable auth-mail worker')" == success ]]
+          [[ "$(job_state 'production-reviewer-readiness-3072 / Read-only REG.RU reviewer login readiness')" == success ]]
+          echo 'candidate=true' >> "$GITHUB_OUTPUT"
+
+      - name: Download exact nested release evidence
+        if: steps.controller.outputs.candidate == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: production-full-stack-release-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          path: nested-release-evidence
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Bind full-stack evidence to exact main and live deployment
+        id: evidence
+        if: steps.controller.outputs.candidate == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTROLLER_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence=nested-release-evidence
+          for file in sha256.txt target-sha.txt production-action.log live.log durable-intake-db.log ir20-observation.log; do
+            [[ -f "$evidence/$file" ]]
           done
+          (cd "$evidence" && sed 's#  artifacts/production-full-stack-release/#  #' sha256.txt | sha256sum --check --status --strict)
+          [[ "$(tr -d '[:space:]' < "$evidence/target-sha.txt")" == "$CONTROLLER_SHA" ]]
+          field() { sed -n "s/^$1=//p" "$evidence/$2" | tail -1 | tr -d '\r'; }
+          [[ "$(field EXACT_IMAGE_SOURCE production-action.log)" == pinned-ssh ]]
+          [[ "$(field MIGRATION_COMPLETE production-action.log)" == 1 ]]
+          [[ "$(field DEPLOYMENT_COMPLETE production-action.log)" == 1 ]]
+          [[ "$(field DEPLOYED_API_REVISION production-action.log)" == "$CONTROLLER_SHA" ]]
+          [[ "$(field DEPLOYED_WEB_REVISION production-action.log)" == "$CONTROLLER_SHA" ]]
+          [[ "$(field DEPLOYED_OUTBOX_WORKER_REVISION production-action.log)" == "$CONTROLLER_SHA" ]]
+          [[ "$(field IR20_KAFKA_READY production-action.log)" == 1 ]]
+          [[ "$(field IR20_OUTBOX_WORKER_READY production-action.log)" == 1 ]]
+          [[ "$(field LIVE_ACCEPTANCE live.log)" == PASS ]]
+          [[ "$(field DURABLE_INTAKE_DB durable-intake-db.log)" == PASS ]]
+          [[ "$(field IR20_LIVE_OUTBOX_DELIVERY durable-intake-db.log)" == PASS ]]
+          [[ "$(field IR20_RUNTIME_OBSERVATION ir20-observation.log)" == PASS ]]
 
-          echo 'controller_accepted=true' >> "$GITHUB_OUTPUT"
+          current_main=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          [[ "$current_main" == "$CONTROLLER_SHA" ]] || {
+            echo "Main advanced after the nested deployment: deployed=$CONTROLLER_SHA main=$current_main" >&2
+            exit 19
+          }
+          echo "accepted_sha=$CONTROLLER_SHA" >> "$GITHUB_OUTPUT"
+          echo 'deployment_accepted=true' >> "$GITHUB_OUTPUT"
 
   mobile-acceptance:
     name: Chromium + WebKit 320x700, 375x812, 390x844 and 430x932 production acceptance
-    needs: [accepted, controller-accepted]
+    needs: [accepted, accepted-full-stack]
     if: >-
       always() &&
       (github.event_name == 'workflow_dispatch' ||
-       (github.event_name == 'workflow_run' &&
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.name == 'Production Full-Stack Exact-SHA Release') ||
        needs.accepted.outputs.deployment_accepted == 'true' ||
-       needs.controller-accepted.outputs.controller_accepted == 'true')
+       needs.accepted-full-stack.outputs.deployment_accepted == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
@@ -124,15 +169,17 @@ jobs:
         env:
           INPUT_TARGET_SHA: ${{ inputs.target_sha }}
           ACCEPTED_SHA: ${{ needs.accepted.outputs.accepted_sha }}
-          RELEASE_TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
-          RELEASE_WORKFLOW: ${{ github.event.workflow_run.name }}
+          FULL_STACK_SHA: ${{ needs.accepted-full-stack.outputs.accepted_sha }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == workflow_run && -n "${ACCEPTED_SHA:-}" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == workflow_run && -n "${FULL_STACK_SHA:-}" ]]; then
+            target_sha="$FULL_STACK_SHA"
+          elif [[ "$GITHUB_EVENT_NAME" == workflow_run && -n "${ACCEPTED_SHA:-}" ]]; then
             target_sha="$ACCEPTED_SHA"
           elif [[ "$GITHUB_EVENT_NAME" == workflow_run ]]; then
-            target_sha="$RELEASE_TARGET_SHA"
+            echo 'No accepted release evidence for this workflow run.' >&2
+            exit 2
           elif [[ -n "${INPUT_TARGET_SHA:-}" ]]; then
             target_sha="$INPUT_TARGET_SHA"
           else
@@ -149,10 +196,16 @@ jobs:
       - name: Verify exact public revision before browser acceptance
         id: revision
         env:
+          GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.target_sha }}
         shell: bash
         run: |
           set -euo pipefail
+          current_main=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          [[ "$current_main" == "$TARGET_SHA" ]] || {
+            echo "Main differs before mobile acceptance: target=$TARGET_SHA main=$current_main" >&2
+            exit 19
+          }
           evidence_dir='artifacts/platform-v7-production-mobile/live-revision'
           summary="$evidence_dir/attempts.tsv"
           mkdir -p "$evidence_dir"
@@ -306,6 +359,30 @@ jobs:
           trap - ERR
           printf 'PASS\n' > "$EVIDENCE_DIR/result.txt"
 
+      - name: Confirm exact main and live revision after browser acceptance
+        id: final_revision
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+          INITIAL_REVISION_OUTCOME: ${{ steps.revision.outcome }}
+          ACCEPTANCE_OUTCOME: ${{ steps.acceptance.outcome }}
+          BURGER_HANDOFF_OUTCOME: ${{ steps.burger-handoff.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$INITIAL_REVISION_OUTCOME" == success && "$ACCEPTANCE_OUTCOME" == success && "$BURGER_HANDOFF_OUTCOME" == success ]]
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          live_sha=$(curl --fail --silent --show-error --location --compressed \
+            --connect-timeout 10 --max-time 30 --retry 2 --retry-all-errors \
+            "$LIVE_BASE/manifest-pc-deploy.json?mobile-final=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" | jq -r '.commitSha // empty')
+          [[ "$live_sha" == "$TARGET_SHA" ]]
+          current_main=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          [[ "$current_main" == "$TARGET_SHA" ]] || {
+            echo "Main advanced during mobile acceptance: target=$TARGET_SHA main=$current_main" >&2
+            exit 19
+          }
+
       - name: Publish mobile acceptance record
         if: always()
         env:
@@ -315,19 +392,29 @@ jobs:
           MANIFEST_SHA: ${{ steps.revision.outputs.manifest_sha }}
           ACCEPTANCE_OUTCOME: ${{ steps.acceptance.outcome }}
           BURGER_HANDOFF_OUTCOME: ${{ steps.burger-handoff.outcome }}
+          FINAL_REVISION_OUTCOME: ${{ steps.final_revision.outcome }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts/platform-v7-production-mobile
           [[ "$REVISION_OUTCOME" == success ]] && revision_result=PASS || revision_result=FAIL
-          case "$ACCEPTANCE_OUTCOME" in success) result=PASS ;; failure) result=FAIL ;; *) result=NOT_RUN ;; esac
-          case "$BURGER_HANDOFF_OUTCOME" in success) burger_result=PASS ;; failure) burger_result=FAIL ;; *) burger_result=NOT_RUN ;; esac
+          [[ "$FINAL_REVISION_OUTCOME" == success ]] && final_revision_result=PASS || final_revision_result=FAIL
+          [[ "$BURGER_HANDOFF_OUTCOME" == success ]] && burger_result=PASS || burger_result=FAIL
+          if [[ "$ACCEPTANCE_OUTCOME" == success && "$FINAL_REVISION_OUTCOME" == success ]]; then
+            result=PASS
+          elif [[ "$ACCEPTANCE_OUTCOME" == failure || "$FINAL_REVISION_OUTCOME" == failure ]]; then
+            result=FAIL
+          else
+            result=NOT_RUN
+          fi
           record=artifacts/platform-v7-production-mobile/issue-comment.md
           {
             echo "## Platform V7 + Gekta production mobile acceptance \`$GITHUB_RUN_ID\` attempt \`$GITHUB_RUN_ATTEMPT\`"
             echo
             echo "- target SHA: \`$TARGET_SHA\`"
             echo "- exact public revision gate: \`$revision_result\`"
+            echo "- final exact main/live revision gate: \`$final_revision_result\`"
+            echo "- Gekta burger open/hide/close/restore and real assistant panel (Chromium + WebKit): \`$burger_result\`"
             echo "- manifest revision: \`${MANIFEST_SHA:-missing}\`"
             echo "- browser engines: \`Chromium + WebKit\`"
             echo "- retries: \`0\`"
@@ -343,9 +430,7 @@ jobs:
             echo "- Market RU/EN/ZH never accepts unavailable as PASS: \`$result\`"
             echo "- linked public pages RU/EN/ZH: \`$result\`"
             echo "- Gekta launcher above bottom navigation: \`$result\`"
-            echo "- public Gekta launcher hidden under open burger and restored after close (Chromium + WebKit): \`$burger_result\`"
-            echo "- real #pc-public-assistant-panel + textarea after restored launcher: \`$burger_result\`"
-            if [[ "$result" == PASS && "$burger_result" == PASS ]]; then
+            if [[ "$result" == PASS ]]; then
               echo "- failures: \`0\`"
             else
               echo "- failures: \`nonzero-or-not-run\`"
@@ -368,13 +453,14 @@ jobs:
           for candidate in apps/web/test-results/production-mobile apps/web/playwright-report-production-mobile; do
             [[ ! -e "$candidate" ]] || roots+=("$candidate")
           done
-          find "${roots[@]}" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$evidence_dir/sha256.txt"
           printf '%s\n' '${{ steps.target.outputs.target_sha }}' > "$evidence_dir/target-sha.txt"
           printf '%s\n' '${{ steps.revision.outcome }}' > "$evidence_dir/revision-outcome.txt"
           printf '%s\n' '${{ steps.acceptance.outcome }}' > "$evidence_dir/outcome.txt"
           printf '%s\n' '${{ steps.burger-handoff.outcome }}' > "$evidence_dir/burger-handoff-outcome.txt"
+          printf '%s\n' '${{ steps.final_revision.outcome }}' > "$evidence_dir/final-revision-outcome.txt"
           printf '%s\n' "$GITHUB_RUN_ATTEMPT" > "$evidence_dir/run-attempt.txt"
           printf '%s\n' 'chromium' 'webkit' > "$evidence_dir/browser-engines.txt"
+          find "${roots[@]}" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$evidence_dir/sha256.txt"
 
       - name: Upload production mobile evidence
         if: always()
@@ -396,4 +482,5 @@ jobs:
           set -euo pipefail
           [[ '${{ steps.revision.outcome }}' == success ]] || exit 41
           [[ '${{ steps.acceptance.outcome }}' == success ]] || exit 40
-          [[ '${{ steps.burger-handoff.outcome }}' == success ]] || exit 42
+          [[ '${{ steps.burger-handoff.outcome }}' == success ]] || exit 43
+          [[ '${{ steps.final_revision.outcome }}' == success ]] || exit 42
