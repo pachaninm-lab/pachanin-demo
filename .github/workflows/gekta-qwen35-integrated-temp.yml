@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   integrated:
-    name: Qwen3.5-4B through real Gekta guards
+    name: Qwen3.5-2B through real Gekta guards
     runs-on: ubuntu-24.04
     timeout-minutes: 75
     steps:
@@ -59,26 +59,26 @@ jobs:
           cmake --build build --target llama-server -j"$(nproc)"
           build/bin/llama-server --version 2>&1 | grep -qi aedb2a5
 
-      - name: Download pinned Qwen3.5-4B
+      - name: Download pinned Qwen3.5-2B
         shell: bash
         run: |
           set -Eeuo pipefail
-          curl -fL --retry 3 --connect-timeout 20 --max-time 1800             -o /tmp/qwen35-4b.gguf             'https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/4168f45a16a1290d65a4ec0fa312ae917a4c15d6/Qwen_Qwen3.5-4B-Q4_K_M.gguf'
-          [[ "$(stat -c %s /tmp/qwen35-4b.gguf)" == "3013027808" ]]
-          echo '13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983  /tmp/qwen35-4b.gguf' | sha256sum -c -
+          curl -fL --retry 3 --connect-timeout 20 --max-time 1800             -o /tmp/qwen35-2b.gguf             'https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/4168f45a16a1290d65a4ec0fa312ae917a4c15d6/Qwen_Qwen3.5-2B-Q4_K_M.gguf'
+          [[ "$(stat -c %s /tmp/qwen35-2b.gguf)" == "1396198496" ]]
+          echo '57a1085840f497d764a7fc5d346922dbde961efb54cc792ea81d694fd846a1d8  /tmp/qwen35-2b.gguf' | sha256sum -c -
 
       - name: Start isolated candidate
         shell: bash
         run: |
           set -Eeuo pipefail
-          /tmp/llama.cpp/build/bin/llama-server             --model /tmp/qwen35-4b.gguf             --alias tai-qwen35-4b-q4km             --host 127.0.0.1 --port 18082             --ctx-size 8192 --parallel 1             --threads "$(nproc)" --threads-batch "$(nproc)"             --batch-size 512 --ubatch-size 128             --api-key 'qwen35-integrated-readonly-key-1234567890abcdef'             --metrics > /tmp/qwen35-4b.log 2>&1 &
+          /tmp/llama.cpp/build/bin/llama-server             --model /tmp/qwen35-2b.gguf             --alias tai-qwen35-2b-q4km             --host 127.0.0.1 --port 18082             --ctx-size 8192 --parallel 1             --threads "$(nproc)" --threads-batch "$(nproc)"             --batch-size 512 --ubatch-size 128             --api-key 'qwen35-integrated-readonly-key-1234567890abcdef'             --metrics > /tmp/qwen35-2b.log 2>&1 &
           echo "$!" > /tmp/qwen35.pid
           for _ in $(seq 1 180); do
             if curl -fsS -H 'Authorization: Bearer qwen35-integrated-readonly-key-1234567890abcdef'               --max-time 2 http://127.0.0.1:18082/health | grep -q '"status":"ok"\|"status":"no slot available"'; then
               echo 'QWEN35_CANDIDATE_READY=1'
               exit 0
             fi
-            kill -0 "$(cat /tmp/qwen35.pid)" 2>/dev/null || { tail -100 /tmp/qwen35-4b.log; exit 30; }
+            kill -0 "$(cat /tmp/qwen35.pid)" 2>/dev/null || { tail -100 /tmp/qwen35-2b.log; exit 30; }
             sleep 1
           done
           exit 31
@@ -90,7 +90,7 @@ jobs:
           AI_ASSISTANT_PROVIDER: openai-compatible
           AI_ASSISTANT_BASE_URL: http://127.0.0.1:18082/v1/
           AI_ASSISTANT_ALLOWED_HOSTS: 127.0.0.1
-          AI_ASSISTANT_MODEL: tai-qwen35-4b-q4km
+          AI_ASSISTANT_MODEL: tai-qwen35-2b-q4km
           AI_ASSISTANT_API_KEY: qwen35-integrated-readonly-key-1234567890abcdef
           AI_ASSISTANT_TIMEOUT_MS: "120000"
           AI_ASSISTANT_MAX_TOKENS: "500"
