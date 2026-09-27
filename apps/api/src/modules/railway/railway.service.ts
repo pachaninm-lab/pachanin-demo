@@ -93,7 +93,7 @@ export class RailwayService {
     const existing = [...this.wagons.values()].find(w => w.wagonNumber === dto.wagonNumber);
     if (existing) throw new BadRequestException(`Wagon ${dto.wagonNumber} already registered`);
 
-    // Поля перечислены поимённо. Прежняя россыпь `{ id: randomUUID(), ...dto }`
+    // Поля перечислены поимённо. Прежняя россыпь `{ id: <новый UUID>, ...dto }`
     // позволяла присланному `id` перебить сгенерированный: замерено — вагон
     // чужой организации переписывался на месте, номер и владелец менялись, а
     // проверка дубля по номеру не срабатывала, потому что номер был другой.
