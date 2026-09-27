@@ -81,7 +81,7 @@ describe('P0 model-first agricultural chat', () => {
       'SAFETY_BOUNDARY_BLOCKED',
       'SENSITIVE_INPUT_BLOCKED',
       "grounding.resolution === 'refused'",
-      'requiresCurrentEvidence(envelope.question)',
+      'requiresCurrentEvidence(envelope.question, envelope.history)',
       'TAI_PUBLIC_GATEWAY_HMAC_SECRET',
       'TAI_INTERNAL_API_ALLOWED_HOSTS',
       "operationalStatus: 'NOT_ATTESTED'",
