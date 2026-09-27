@@ -470,7 +470,8 @@ def main() -> int:
     }
 
     run_root = pathlib.Path(tempfile.mkdtemp(prefix="gekta-qwen35-ab-", dir="/run"))
-    os.chmod(run_root, 0o700)
+    os.chown(run_root, 0, service_user.pw_gid)
+    os.chmod(run_root, 0o750)
     key_file = run_root / "api-key"
     key_file.write_text(api_key + "\n", encoding="utf-8")
     os.chown(key_file, service_user.pw_uid, service_user.pw_gid)
