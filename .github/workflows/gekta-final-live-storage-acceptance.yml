@@ -247,5 +247,38 @@ jobs:
           console.log(`MANIFEST_AFTER=${manifestAfter}`);
           console.log('LIVE_STORAGE_ACCEPTANCE=PASS');
 
+          const randomCases = [
+            ['soil-crust', 'После сильного дождя на суглинке появилась корка, всходы подсолнечника редкие. Какие причины проверить до пересева?'],
+            ['grain-hotspot', 'В зерноскладе температура в одном участке насыпи выросла на 4°C за сутки. Что проверить в первую очередь?'],
+            ['loader-belt', 'После замены ремня зернопогрузчик свистит только под нагрузкой. Какие безопасные проверки сделать до следующего запуска?'],
+          ];
+          const randomResults = [];
+          let randomIndex = 0;
+          for (const [id, question] of randomCases) {
+            randomIndex += 1;
+            const result = await stream(10 + randomIndex, question, [], `gektarandom${runId}${randomIndex}`);
+            if (result.answer.length < 40) fail(`random_answer_too_short_${id}_${result.answer.length}`);
+            randomResults.push({ id, ...result });
+            console.log(`RANDOM_${id.toUpperCase().replace(/-/gu, '_')}_FIRST_MEANINGFUL_MS=${result.firstMeaningfulMs.toFixed(1)}`);
+            console.log(`RANDOM_${id.toUpperCase().replace(/-/gu, '_')}_TOTAL_MS=${result.totalMs.toFixed(1)}`);
+            console.log(`RANDOM_${id.toUpperCase().replace(/-/gu, '_')}_TOKEN_EVENTS=${result.tokenEvents}`);
+            console.log(`RANDOM_${id.toUpperCase().replace(/-/gu, '_')}_ANSWER=${oneLine(result.answer)}`);
+          }
+          const firstTimes = randomResults.map((item) => item.firstMeaningfulMs).sort((a, b) => a - b);
+          const totals = randomResults.map((item) => item.totalMs).sort((a, b) => a - b);
+          console.log(`RANDOM_FIRST_MEANINGFUL_MIN_MS=${firstTimes[0].toFixed(1)}`);
+          console.log(`RANDOM_FIRST_MEANINGFUL_MEDIAN_MS=${firstTimes[1].toFixed(1)}`);
+          console.log(`RANDOM_FIRST_MEANINGFUL_MAX_MS=${firstTimes[2].toFixed(1)}`);
+          console.log(`RANDOM_TOTAL_MEDIAN_MS=${totals[1].toFixed(1)}`);
+          console.log('RANDOM_NONSTARTER_ACCEPTANCE=PASS');
+
+          const mainFinal = await currentMain();
+          const manifestFinal = await manifestSha();
+          if (mainFinal !== expected) fail(`main_drift_final_${mainFinal}`);
+          if (manifestFinal !== expected) fail(`manifest_drift_final_${manifestFinal}`);
+          console.log(`MAIN_FINAL=${mainFinal}`);
+          console.log(`MANIFEST_FINAL=${manifestFinal}`);
+          console.log('FINAL_LIVE_GEКTA_ACCEPTANCE=PASS');
+
           fs.rmSync(tmp, { recursive: true, force: true });
           NODE
