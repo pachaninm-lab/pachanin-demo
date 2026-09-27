@@ -407,8 +407,8 @@ jobs:
 
             const normalized2 = a2.answer.replace(/\s+/g, ' ');
             const has400PerTonne =
-              /400(?:[,.]0+)?\s*(?:руб(?:\.|лей|ля|ль)?|₽)\s*(?:\/\s*т\b|(?:за|на)\s+тонн[уы])/iu.test(normalized2)
-              || /400(?:[,.]0+)?\s*(?:руб(?:\.|лей|ля|ль)?|₽)\/т\b/iu.test(normalized2);
+              /400(?:[,.]0+)?\s*(?:руб(?:\.|лей|ля|ль)?|₽)\s*(?:\/\s*т(?![\\p{L}\\p{N}])|(?:за|на)\s+тонн[уы])/iu.test(normalized2)
+              || /400(?:[,.]0+)?\s*(?:руб(?:\.|лей|ля|ль)?|₽)\/т(?![\\p{L}\\p{N}])/iu.test(normalized2);
             if (!has400PerTonne) throw new Error('STORAGE_400_RUB_PER_TONNE_MISSING:' + normalized2.slice(0, 600));
 
             const affirmativeProfit = [
