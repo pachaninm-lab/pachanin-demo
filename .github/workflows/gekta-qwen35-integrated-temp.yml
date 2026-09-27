@@ -63,7 +63,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          curl -fL --retry 3 --connect-timeout 20 --max-time 1800             -o /tmp/qwen35-2b.gguf             'https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/4168f45a16a1290d65a4ec0fa312ae917a4c15d6/Qwen_Qwen3.5-2B-Q4_K_M.gguf'
+          curl -fL --retry 3 --connect-timeout 20 --max-time 1800             -o /tmp/qwen35-2b.gguf             'https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF/resolve/7d26695454df6de5fbcce2e58681e62dae06ce43/Qwen_Qwen3.5-2B-Q4_K_M.gguf'
           [[ "$(stat -c %s /tmp/qwen35-2b.gguf)" == "1396198496" ]]
           echo '57a1085840f497d764a7fc5d346922dbde961efb54cc792ea81d694fd846a1d8  /tmp/qwen35-2b.gguf' | sha256sum -c -
 
