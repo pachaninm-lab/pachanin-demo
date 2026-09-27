@@ -162,6 +162,15 @@ export class StreamingAnswerGate {
 
     this.pending = this.pending.slice(consumed);
 
+    // Sanitization trims a new fragment's leading whitespace. Preserve that
+    // boundary, including a delta containing only whitespace, until text is
+    // committed. Keep the safety lookbehind across the same boundary.
+    if (this.partialBlockOpen && /^\s/u.test(head)) {
+      this.progressiveJoiner = /^\s*\n/u.test(head) || this.progressiveJoiner === '\n'
+        ? '\n'
+        : ' ';
+    }
+
     const flags: string[] = [];
     const kept: string[] = [];
     for (const rawBlock of splitAnswerBlocks(stripInternalModelTrace(head))) {

@@ -1592,6 +1592,9 @@
       "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
       "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
       "apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx",
+      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+      "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
       "docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json"
     ],
     "agent/platform-v7-product-copy": [
@@ -1699,8 +1702,17 @@
     ],
     "fix/gekta-han-stream-20260927": [
       "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
       "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
       "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts"
+    ],
+    "fix/readiness-queue-job-gate-20260927": [
+      ".github/workflows/automerge.yml",
+      "docs/platform-v7/autopilot/scopes/readiness-queue-job-gate-20260927.json"
+    ],
+    "governance/gekta-current-data-regression-route-20260927": [
+      "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+      "scripts/p7-autopilot-guard.sh"
     ]
   },
   "currentAcceptance": [
@@ -2131,6 +2143,9 @@
         "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
         "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
         "apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx",
+        "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+        "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
         "docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json"
       ],
       "requiredTruthBoundaries": [
@@ -2145,6 +2160,28 @@
         "CI/security/readiness gate weakening"
       ],
       "teamHubDependency": "#5372 inventory comment 5833248230; #5604 guard prerequisite; PUBLIC #5559 main serialization; #5535 CORE next-action dependency"
+    },
+    "ux-buyer-first-customer-route-20260927-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Render the admitted server-scoped buyer home at the verified buyer root and prove the actual route across RU/EN/ZH and desktop/mobile browsers.",
+      "authorityBaseExactMain": "dcf10faa093d3d911c3ddaa06afde2be65897c0d",
+      "implementationBranch": "ux/buyer-first-customer-home-20260925",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+        "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "Only the server-verified buyer root renders its server page; other role roots and the controlled owner preview remain separate.",
+        "A real authenticated buyer route is checked in RU/EN/ZH on desktop and mobile; component source tests alone do not prove rendering.",
+        "Buyer queue order stays navigation, with UNKNOWN required action and no bank or regulatory finality."
+      ],
+      "forbiddenAuthority": [
+        "API/backend/domain/DB/RLS/tenant/role/session or priority authority",
+        "other role root or public route behavior",
+        "CI/security/readiness gate weakening"
+      ],
+      "teamHubDependency": "#5610 exact-head P1 route composition review; Team Hub #5469"
     },
     "public-mobile-trust-gekta-return-20260926-coordination": {
       "owner": "ACCOUNT_2_PRODUCT",
@@ -2230,6 +2267,7 @@
         ],
         "fix/gekta-han-stream-20260927": [
           "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
           "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
           "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts"
         ]
@@ -2247,6 +2285,52 @@
         "Force merge, fabricated checks or disabled safety"
       ],
       "reviewDependency": "Accepted bootstrap PR #5650; owner request and independent source review"
+    },
+    "gekta-quality-regression-bootstrap-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Owner-requested correction and comprehensive testing of slow ordinary Gekta answers and unreadable current-data notices; admit only the reviewed two-line test-scope extension.",
+      "authorityBaseExactMain": "9f8ae70cf13401702c20869e2c7c986dd22eade2",
+      "implementationBranch": "governance/gekta-current-data-regression-route-20260927",
+      "reviewedCandidateSha": "8c0e0ec2f41b6b2536d69b14fa4902618bba7c55",
+      "reviewedCandidateTree": "ded176a1d418b79b1f7e84f811146ccffb887373",
+      "allowedPaths": [
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+        "scripts/p7-autopilot-guard.sh"
+      ],
+      "reviewedBlobs": {
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "8ea167377e785ff115c645b87c1c3f92f9d1b64e",
+        "scripts/p7-autopilot-guard.sh": "85e6a100272115013c5bb84bfec2329574cefd09"
+      },
+      "requiredTruthBoundaries": [
+        "The owner explicitly requested correction of ordinary-answer latency, current-data answer quality and comprehensive testing in the active session. This state-only change admits no product code or production operation.",
+        "The reviewed two-line candidate adds only apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts to the existing API branch literal path set and its regression fixture. All other scopes and negative checks remain unchanged.",
+        "Independently verify the complete governance diff and both blob identities before merge. Changed content requires renewed review and source admission. This record has independent manual enforcement; generic routing does not automatically validate the recorded content hashes.",
+        "Accept the trusted guard before extending the duplicated implementation state scope or publishing the four-file API candidate. Candidate-owned state never widens the trusted literal scope.",
+        "Independent exact-head review, all substantive CI, fresh manual SHA-bound readiness and existing branch protections remain required. REG.RU exact image identity, health and live acceptance remain separate release requirements."
+      ],
+      "forbiddenAuthority": [
+        "Unrelated product, R1.2, database, tenant, role, auth-mail or production-topology changes",
+        "Implementation files in this state-only admission or governance candidate",
+        "Automatic or forced merge, check overrides, weakened safety, new recurring costs"
+      ],
+      "reviewDependency": "Independent reviewer /root/review_gekta; user screenshot IMG_3376 and explicit request to comprehensively test ordinary answers."
+    },
+    "gekta-quality-regression-implementation-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Duplicate the separately accepted trusted Gekta API regression-test scope extension; enable the owner's ordinary-answer speed and quality correction.",
+      "authorityBaseExactMain": "e7b347ece6166a5a7f4bf76f0506f1779febb378",
+      "acceptedGuardPr": 5660,
+      "acceptedGuardMerge": "84312889cb28175157c1a104c99f43022f152a89",
+      "trustedGuardBlob": "f4d29712f09adfac8d743488c66e81ad6a5bac04",
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "addedPath": "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
+      "requiredTruthBoundaries": [
+        "The trusted literal four-file scope and matching scope fixture were accepted in PR #5660 before this state-only admission.",
+        "Current main preserves that exact API path set alongside separately accepted readiness and buyer-governance changes. Preserve all unrelated scopes, admissions and current R1.2.",
+        "This record extends only the named branch by the one existing regression spec; prior recovery admission base and guard fields remain historical evidence of the original three-file admission.",
+        "API implementation remains a separate narrow PR requiring actual independent exact-head review, all substantive CI/security, fresh manual readiness and an expected-SHA merge.",
+        "Production completion requires REG.RU exact running OCI revision, healthy services and live tests. Source tests alone do not prove model quality or latency; no new recurring cost."
+      ]
     }
   }
 }

@@ -274,6 +274,21 @@ describe('StreamingAnswerGate', () => {
     expect(gate.emitted).toBe(answer);
   });
 
+  it.each([
+    [['\n然后检查根系'], '\n然后检查根系'],
+    [['\n', '然后检查根系'], '\n然后检查根系'],
+    [[' ABC农机'], ' ABC农机'],
+    [[' ', 'ABC农机'], ' ABC农机'],
+    [['\n', ' ', '然后检查根系'], '\n然后检查根系'],
+  ])('preserves a boundary arriving after a Han progressive fragment: %j', (deltas, suffix) => {
+    const gate = generalGate({ locale: 'zh' });
+    const prefix = '先观察叶片颜色和根系状态并记录田间湿度变化'.repeat(3);
+    expect(gate.push(prefix).text).toBe(prefix);
+    for (const delta of deltas) gate.push(delta);
+    gate.flush();
+    expect(gate.emitted).toBe(prefix + suffix);
+  });
+
   it('keeps Chinese verified-platform output on complete-block semantics', () => {
     const gate = new StreamingAnswerGate({
       answerMode: 'verified_platform', locale: 'zh', currentDataRequired: false, grounding,
