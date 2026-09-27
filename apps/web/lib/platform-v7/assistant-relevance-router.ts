@@ -188,8 +188,8 @@ const AGRO_BUSINESS_TERMS = [
  * platform/document/data-retention subjects keep platform routing authority.
  */
 const STORAGE_ECONOMICS_STORAGE = /(?:хранен\w*|хранить|storage|store|holding|仓储|储存)/iu;
-const STORAGE_ECONOMICS_VALUE = /(?:цен\w*|стоим\w*|руб\w*|₽|прода\w*|выгод\w*|окуп\w*|прибыл\w*|покры\w*|price|cost|rubl\w*|sell|profit|break[\\s-]?even|cover|价格|成本|出售|收益|回本|覆盖)/iu;
-const EXPLICIT_PLATFORM_RETENTION = /(?:документ\w*|данн\w*|персональн\w*|платформ\w*|систем\w*|сервис\w*|document\w*|personal[\\s-]+data|data[\\s-]+retention|platform\w*|system\w*|文件|个人数据|平台|系统)/iu;
+const STORAGE_ECONOMICS_VALUE = /(?:цен\w*|стоим\w*|руб\w*|₽|прода\w*|выгод\w*|окуп\w*|прибыл\w*|покры\w*|price|cost|rubl\w*|sell|profit|break[\s-]?even|cover|价格|成本|出售|收益|回本|覆盖)/iu;
+const EXPLICIT_PLATFORM_RETENTION = /(?:документ\w*|данн\w*|персональн\w*|платформ\w*|систем\w*|сервис\w*|document\w*|\bdata\b|personal[\s-]+data|data[\s-]+retention|platform\w*|system\w*|文件|个人数据|平台|系统)/iu;
 
 function isAgriculturalStorageEconomics(normalized: string): boolean {
   return STORAGE_ECONOMICS_STORAGE.test(normalized)
