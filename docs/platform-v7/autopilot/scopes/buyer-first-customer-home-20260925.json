@@ -9,6 +9,9 @@
     "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
     "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
     "apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx",
+    "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+    "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
     "docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json"
   ],
   "requiredInvariants": [
