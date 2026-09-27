@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "perf/gekta-qwen35-9b-candidate-20260928",
   "issue": 3896,
-  "status": "diagnostic-candidate",
+  "status": "active",
   "purpose": "Acquire a pinned Qwen3.5-9B Q4_K_M candidate on the existing dedicated model host for read-only A/B evaluation against the current Qwen3-8B. This scope does not activate or route production traffic to the candidate.",
   "authorityBaseExactMain": "06f686d52247ebe7805f1b75d937b2ca8daf8f6f",
   "newRecurringCostRub": 0,
@@ -19,6 +19,8 @@
   },
   "allowedPaths": [
     ".github/workflows/gekta-qwen35-candidate-acquire.yml",
+    ".github/workflows/gekta-qwen35-serial-ab.yml",
+    "scripts/gekta-qwen35-serial-ab.py",
     "docs/platform-v7/autopilot/scopes/gekta-qwen35-9b-candidate-3896.json"
   ],
   "boundaries": [
