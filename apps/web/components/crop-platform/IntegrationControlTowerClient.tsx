@@ -26,6 +26,7 @@ type LiveState = StablePhase | 'reconnecting' | 'degraded';
 type JsonRecord = Record<string, unknown>;
 
 type ClientState = Readonly<{
+  sessionToken: string;
   phase: StablePhase;
   records: IntegrationControlTowerRecord[];
   selectedAdapterCode: string;
@@ -33,6 +34,7 @@ type ClientState = Readonly<{
 }>;
 
 type PendingAction = Readonly<{
+  sessionScope: string;
   adapterCode: string;
   action: 'REDRIVE' | 'RECONCILE';
   entryId: string | null;
@@ -43,7 +45,21 @@ type PendingAction = Readonly<{
   correlationId: string;
 }>;
 
-type UnknownCommand = Readonly<Pick<PendingAction, 'commandId' | 'correlationId'>>;
+type UnknownCommand =
+  | Readonly<{ kind: 'command'; sessionScope: string; adapterCode: string; commandId: string; correlationId: string }>
+  | Readonly<{ kind: 'storage' }>;
+
+type StoredCommand = Readonly<{
+  version: 1;
+  sessionScope: string;
+  adapterCode: string;
+  action: PendingAction['action'];
+  commandId: string;
+  correlationId: string;
+}>;
+
+const COMMAND_INTERLOCK_KEY = 'pc.integration-control-tower.pending-command.v1';
+const STORAGE_INTERLOCK: UnknownCommand = { kind: 'storage' };
 
 type Copy = Readonly<{
   eyebrow: string;
@@ -103,8 +119,11 @@ type Copy = Readonly<{
   receipt: string;
   unknownCommand: string;
   unknownCommandBoundary: string;
+  storageInterlock: string;
+  storageInterlockBoundary: string;
   commandId: string;
   correlationId: string;
+  target: string;
   credentialBoundary: string;
 }>;
 
@@ -166,8 +185,10 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     executing: 'Фиксируем команду…',
     receipt: 'Сервер подтвердил запись команды в audit/outbox. Это не подтверждает обработку внешней системой или бизнес-принятие.',
     unknownCommand: 'Исход команды не подтверждён',
-    unknownCommandBoundary: 'Ответ на отправленную команду не удалось проверить. Не создавайте новую команду в этом экране; сверьте ту же операцию по серверному журналу и correlation ID. Обновление списка само по себе не подтверждает её исход.',
-    commandId: 'Command ID', correlationId: 'Correlation ID',
+    unknownCommandBoundary: 'Ответ на отправленную команду не удалось проверить. Не создавайте новую команду в этом экране; сверьте ту же операцию по серверному журналу и correlation ID. Обновление списка само по себе не подтверждает её исход. Блокировка действует только в этой вкладке и не заменяет серверную сверку.',
+    storageInterlock: 'Новые команды в этой вкладке заблокированы',
+    storageInterlockBoundary: 'Состояние прежней команды или хранилища вкладки нельзя безопасно проверить для текущей сессии. Сверьте серверный журнал до повторного действия. Эта локальная блокировка не подтверждает исход команды и не действует в других вкладках.',
+    commandId: 'Command ID', correlationId: 'Correlation ID', target: 'Система',
     credentialBoundary: 'Срок reference на credential не показывается: в принятом authority нет безопасной metadata-записи. Секреты и key references не выводятся.',
   },
   en: {
@@ -197,8 +218,10 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     cancel: 'Cancel', confirm: 'Confirm on server', executing: 'Submitting command…',
     receipt: 'The server confirmed the command record in audit/outbox. This does not establish external processing or business acceptance.',
     unknownCommand: 'Command outcome is unverified',
-    unknownCommandBoundary: 'The response to the submitted command could not be verified. Do not create a new command in this screen; reconcile the same operation in the server journal using the correlation ID. Refreshing the list alone does not establish its outcome.',
-    commandId: 'Command ID', correlationId: 'Correlation ID',
+    unknownCommandBoundary: 'The response to the submitted command could not be verified. Do not create a new command in this screen; reconcile the same operation in the server journal using the correlation ID. Refreshing the list alone does not establish its outcome. This safeguard applies only to this tab and does not replace server reconciliation.',
+    storageInterlock: 'New commands are blocked in this tab',
+    storageInterlockBoundary: 'The previous command or this tab’s storage cannot be safely verified for the current session. Reconcile in the server journal before another action. This local safeguard does not establish the command outcome and does not cover other tabs.',
+    commandId: 'Command ID', correlationId: 'Correlation ID', target: 'System',
     credentialBoundary: 'Credential reference expiry is not displayed because no safe metadata authority exists. Secrets and key references are never rendered.',
   },
   zh: {
@@ -225,8 +248,10 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     reason: '依据', reasonPlaceholder: '请输入可核验的运营或法规依据…', cancel: '取消', confirm: '在服务器确认', executing: '正在提交命令…',
     receipt: '服务器已确认 audit/outbox 中的命令记录；这不证明外部系统已处理或业务已接受。',
     unknownCommand: '命令结果尚未确认',
-    unknownCommandBoundary: '无法核实已提交命令的响应。请勿在此页面创建新命令；请使用 correlation ID 在服务器日志中核对同一操作。刷新列表本身不能证明结果。',
-    commandId: 'Command ID', correlationId: 'Correlation ID',
+    unknownCommandBoundary: '无法核实已提交命令的响应。请勿在此页面创建新命令；请使用 correlation ID 在服务器日志中核对同一操作。刷新列表本身不能证明结果。此限制仅适用于当前标签页，不能替代服务器核对。',
+    storageInterlock: '当前标签页禁止新命令',
+    storageInterlockBoundary: '无法安全核实当前会话中先前命令或标签页存储的状态。再次操作前请核对服务器日志。此本地限制不能证明命令结果，也不覆盖其他标签页。',
+    commandId: 'Command ID', correlationId: 'Correlation ID', target: '系统',
     credentialBoundary: '没有安全的 credential metadata authority，因此不显示 reference 到期时间；绝不显示密钥或 secret。',
   },
 };
@@ -275,6 +300,50 @@ function responsePhase(status: number): StablePhase {
 
 async function readJson(response: Response): Promise<unknown> {
   return response.json().catch(() => null);
+}
+
+async function fingerprintSession(csrfToken: string): Promise<string> {
+  if (!csrfToken || !crypto.subtle) throw new Error('Session scope unavailable');
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(csrfToken));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function parseStoredCommand(raw: string): StoredCommand | null {
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const record = value as JsonRecord;
+    if (record.version !== 1 || typeof record.sessionScope !== 'string' || !/^[a-f0-9]{64}$/.test(record.sessionScope)) return null;
+    if (typeof record.adapterCode !== 'string' || !record.adapterCode.trim()) return null;
+    if (record.action !== 'REDRIVE' && record.action !== 'RECONCILE') return null;
+    if (typeof record.commandId !== 'string' || !record.commandId.trim()) return null;
+    if (typeof record.correlationId !== 'string' || !record.correlationId.trim()) return null;
+    return record as StoredCommand;
+  } catch {
+    return null;
+  }
+}
+
+function persistCommand(record: StoredCommand): boolean {
+  try {
+    if (window.sessionStorage.getItem(COMMAND_INTERLOCK_KEY) !== null) return false;
+    const serialized = JSON.stringify(record);
+    window.sessionStorage.setItem(COMMAND_INTERLOCK_KEY, serialized);
+    return window.sessionStorage.getItem(COMMAND_INTERLOCK_KEY) === serialized;
+  } catch {
+    return false;
+  }
+}
+
+function clearPersistedCommand(record: StoredCommand): boolean {
+  try {
+    const stored = window.sessionStorage.getItem(COMMAND_INTERLOCK_KEY);
+    if (!stored || JSON.stringify(parseStoredCommand(stored)) !== JSON.stringify(record)) return false;
+    window.sessionStorage.removeItem(COMMAND_INTERLOCK_KEY);
+    return window.sessionStorage.getItem(COMMAND_INTERLOCK_KEY) === null;
+  } catch {
+    return false;
+  }
 }
 
 // Only these existing BFF/API codes identify a rejection before command commit.
@@ -339,14 +408,54 @@ export function IntegrationControlTowerClient({
   const requestSequence = React.useRef(0);
   const [liveState, setLiveState] = React.useState<LiveState>('loading');
   const [state, setState] = React.useState<ClientState>({
-    phase: 'loading', records: [], selectedAdapterCode: initialAdapterCode, message: '',
+    sessionToken: csrfToken, phase: 'loading', records: [], selectedAdapterCode: initialAdapterCode, message: '',
   });
   const [query, setQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<IntegrationHonestStatus | 'ALL'>('ALL');
   const [pending, setPending] = React.useState<PendingAction | null>(null);
   const [executing, setExecuting] = React.useState(false);
-  const [receipt, setReceipt] = React.useState('');
+  const [receipt, setReceipt] = React.useState<{ sessionScope: string; message: string } | null>(null);
   const [unknownCommand, setUnknownCommand] = React.useState<UnknownCommand | null>(null);
+  const [storageReady, setStorageReady] = React.useState(false);
+  const [sessionScope, setSessionScope] = React.useState<{ token: string; digest: string } | null>(null);
+  const inFlight = React.useRef(false);
+  const currentToken = React.useRef(csrfToken);
+  currentToken.current = csrfToken;
+  const verifiedScope = sessionScope?.token === csrfToken ? sessionScope.digest : null;
+  const effectiveUnknownCommand = !storageReady ? null
+    : !verifiedScope || (unknownCommand?.kind === 'command' && unknownCommand.sessionScope !== verifiedScope)
+      ? STORAGE_INTERLOCK : unknownCommand;
+  const activePending = pending?.sessionScope === verifiedScope ? pending : null;
+  const visibleState: ClientState = state.sessionToken === csrfToken ? state : {
+    sessionToken: csrfToken, phase: 'loading', records: [], selectedAdapterCode: initialAdapterCode, message: '',
+  };
+
+  React.useEffect(() => {
+    let active = true;
+    setQuery('');
+    setStatusFilter('ALL');
+    setPending(null);
+    setReceipt(null);
+    void (async () => {
+      try {
+        const scope = await fingerprintSession(csrfToken);
+        const raw = window.sessionStorage.getItem(COMMAND_INTERLOCK_KEY);
+        if (!active) return;
+        setSessionScope({ token: csrfToken, digest: scope });
+        if (raw !== null) {
+          const stored = parseStoredCommand(raw);
+          setUnknownCommand(stored?.sessionScope === scope
+            ? { kind: 'command', sessionScope: scope, adapterCode: stored.adapterCode, commandId: stored.commandId, correlationId: stored.correlationId }
+            : STORAGE_INTERLOCK);
+        } else setUnknownCommand(null);
+      } catch {
+        if (active) setUnknownCommand(STORAGE_INTERLOCK);
+      } finally {
+        if (active) setStorageReady(true);
+      }
+    })();
+    return () => { active = false; };
+  }, [csrfToken]);
 
   const loadDetail = React.useCallback(async (
     adapterCode: string,
@@ -366,13 +475,14 @@ export function IntegrationControlTowerClient({
   }, [copy.error, locale]);
 
   const load = React.useCallback(async (mode: 'initial' | 'retry' | 'reconnect' = 'initial') => {
+    if (currentToken.current !== csrfToken) return;
     const requestId = ++requestSequence.current;
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 12_000);
     if (mode === 'reconnect') setLiveState('reconnecting');
     else {
       setLiveState('loading');
-      setState((current) => ({ ...current, phase: 'loading', message: '' }));
+      setState({ sessionToken: csrfToken, phase: 'loading', records: [], selectedAdapterCode: initialAdapterCode, message: '' });
     }
     try {
       let records = await collectIntegrationControlTowerPages(async (cursor) => {
@@ -386,23 +496,24 @@ export function IntegrationControlTowerClient({
         }
         return payload;
       }, locale);
-      if (requestId !== requestSequence.current) return;
+      if (requestId !== requestSequence.current || currentToken.current !== csrfToken) return;
       if (!records) throw new Error(copy.error);
       if (records.length === 0) {
         setLiveState('empty');
-        setState({ phase: 'empty', records: [], selectedAdapterCode: '', message: '' });
+        setState({ sessionToken: csrfToken, phase: 'empty', records: [], selectedAdapterCode: '', message: '' });
         return;
       }
       const selectedAdapterCode = initialAdapterCode && records.some((item) => item.adapterCode === initialAdapterCode)
         ? initialAdapterCode
         : records[0]!.adapterCode;
       records = await loadDetail(selectedAdapterCode, records, controller.signal);
+      if (requestId !== requestSequence.current || currentToken.current !== csrfToken) return;
       if (!records) throw new Error(copy.error);
       const selected = records.find((item) => item.adapterCode === selectedAdapterCode)!;
       setLiveState(selected.honestStatus === 'DEGRADED' ? 'degraded' : 'ready');
-      setState({ phase: 'ready', records, selectedAdapterCode, message: '' });
+      setState({ sessionToken: csrfToken, phase: 'ready', records, selectedAdapterCode, message: '' });
     } catch (error) {
-      if (requestId !== requestSequence.current) return;
+      if (requestId !== requestSequence.current || currentToken.current !== csrfToken) return;
       const status = typeof error === 'object' && error && 'status' in error
         ? Number((error as { status?: unknown }).status) : 0;
       const phase = status ? responsePhase(status) : 'error';
@@ -419,13 +530,13 @@ export function IntegrationControlTowerClient({
                 : copy.reconnecting;
       setLiveState(phase);
       setState((current) => ({
-        phase, records: mode === 'reconnect' ? current.records : [],
+        sessionToken: csrfToken, phase, records: mode === 'reconnect' && current.sessionToken === csrfToken ? current.records : [],
         selectedAdapterCode: current.selectedAdapterCode, message,
       }));
     } finally {
       window.clearTimeout(timeoutId);
     }
-  }, [copy, initialAdapterCode, loadDetail, locale]);
+  }, [copy, csrfToken, initialAdapterCode, loadDetail, locale]);
 
   React.useEffect(() => { void load('initial'); }, [load]);
   React.useEffect(() => {
@@ -435,41 +546,45 @@ export function IntegrationControlTowerClient({
   }, [load]);
 
   const selectAdapter = React.useCallback(async (adapterCode: string) => {
+    if (currentToken.current !== csrfToken || state.sessionToken !== csrfToken) return;
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 12_000);
     setLiveState('reconnecting');
     setState((current) => ({ ...current, selectedAdapterCode: adapterCode, message: '' }));
     try {
       const records = await loadDetail(adapterCode, state.records, controller.signal);
+      if (currentToken.current !== csrfToken) return;
       if (!records) throw new Error(copy.error);
       const selected = records.find((item) => item.adapterCode === adapterCode)!;
-      setState({ phase: 'ready', records, selectedAdapterCode: adapterCode, message: '' });
+      setState({ sessionToken: csrfToken, phase: 'ready', records, selectedAdapterCode: adapterCode, message: '' });
       setLiveState(selected.honestStatus === 'DEGRADED' ? 'degraded' : 'ready');
     } catch (error) {
+      if (currentToken.current !== csrfToken) return;
       setState((current) => ({ ...current, phase: 'error', message: error instanceof Error ? error.message : copy.error }));
       setLiveState('error');
     } finally {
       window.clearTimeout(timeoutId);
     }
-  }, [copy.error, loadDetail, state.records]);
+  }, [copy.error, csrfToken, loadDetail, state.records, state.sessionToken]);
 
-  const selected = state.records.find((item) => item.adapterCode === state.selectedAdapterCode) ?? state.records[0];
+  const selected = visibleState.records.find((item) => item.adapterCode === visibleState.selectedAdapterCode) ?? visibleState.records[0];
   const filtered = React.useMemo(() => {
     const needle = query.trim().toLocaleLowerCase(locale);
-    return state.records.filter((item) => {
+    return visibleState.records.filter((item) => {
       if (statusFilter !== 'ALL' && item.honestStatus !== statusFilter) return false;
       if (!needle) return true;
       return `${item.adapterCode} ${item.provider}`.toLocaleLowerCase(locale).includes(needle);
     });
-  }, [locale, query, state.records, statusFilter]);
+  }, [locale, query, visibleState.records, statusFilter]);
 
   const prepareAction = () => {
-    if (!selected || unknownCommand) return;
+    if (!selected || effectiveUnknownCommand || !storageReady || !verifiedScope) return;
     const action = selected.primaryAction;
     const eventVersion = action.entryId
       ? selected.recentEvents.find((event) => event.id === action.entryId)?.version
       : null;
     setPending({
+      sessionScope: verifiedScope,
       adapterCode: selected.adapterCode,
       action: action.id,
       entryId: action.entryId,
@@ -479,16 +594,31 @@ export function IntegrationControlTowerClient({
       idempotencyKey: commandToken('integration-idempotency'),
       correlationId: commandToken('integration-correlation'),
     });
-    setReceipt('');
+    setReceipt(null);
   };
 
   const execute = async () => {
-    if (!pending || unknownCommand || pending.reason.trim().length < 12 || !pending.ifMatch) return;
+    if (!pending || pending.sessionScope !== verifiedScope || effectiveUnknownCommand || !storageReady || !verifiedScope || inFlight.current
+      || pending.reason.trim().length < 12 || !pending.ifMatch) return;
+    inFlight.current = true;
     const command = pending;
-    const markUnknown = () => {
-      setUnknownCommand({ commandId: command.commandId, correlationId: command.correlationId });
+    const storedCommand: StoredCommand = {
+      version: 1, sessionScope: verifiedScope, adapterCode: command.adapterCode, action: command.action,
+      commandId: command.commandId, correlationId: command.correlationId,
+    };
+    // The same-tab interlock is written before any request can reach the BFF.
+    if (!persistCommand(storedCommand)) {
+      setUnknownCommand(STORAGE_INTERLOCK);
       setPending(null);
-      setReceipt('');
+      inFlight.current = false;
+      return;
+    }
+    const markUnknown = () => {
+      setUnknownCommand(currentToken.current === csrfToken
+        ? { kind: 'command', sessionScope: storedCommand.sessionScope, adapterCode: command.adapterCode, commandId: command.commandId, correlationId: command.correlationId }
+        : STORAGE_INTERLOCK);
+      setPending(null);
+      setReceipt(null);
     };
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 12_000);
@@ -522,6 +652,17 @@ export function IntegrationControlTowerClient({
           markUnknown();
           return;
         }
+        if (!clearPersistedCommand(storedCommand)) {
+          setUnknownCommand(STORAGE_INTERLOCK);
+          setPending(null);
+          return;
+        }
+        if (currentToken.current !== csrfToken) {
+          // Exact marker removal proves this command ended before commit; the new session still needs its own read.
+          setUnknownCommand(null);
+          setPending(null);
+          return;
+        }
         const phase = responsePhase(response.status);
         setLiveState(phase);
         setState((current) => ({ ...current, phase, message: payloadMessage(payload) ?? copy.error }));
@@ -532,8 +673,14 @@ export function IntegrationControlTowerClient({
         markUnknown();
         return;
       }
-      setReceipt(copy.receipt);
+      if (currentToken.current === csrfToken) setReceipt({ sessionScope: storedCommand.sessionScope, message: copy.receipt });
       setPending(null);
+      const markerCleared = clearPersistedCommand(storedCommand);
+      if (!markerCleared) setUnknownCommand(STORAGE_INTERLOCK);
+      if (currentToken.current !== csrfToken) {
+        if (markerCleared) setUnknownCommand(null);
+        return;
+      }
       await load('retry');
     } catch {
       // A thrown fetch/read cannot prove whether the server committed the command.
@@ -541,30 +688,33 @@ export function IntegrationControlTowerClient({
     } finally {
       window.clearTimeout(timeoutId);
       setExecuting(false);
+      inFlight.current = false;
     }
   };
 
-  const unknownNotice = unknownCommand ? (
+  const unknownNotice = effectiveUnknownCommand ? (
     <div className={styles.unknownCommand} data-command-outcome='UNKNOWN'>
-      <InlineNotice tone='critical' title={copy.unknownCommand} icon={<TriangleAlert size={18} />}>
-        {copy.unknownCommandBoundary} {copy.commandId}: <code>{unknownCommand.commandId}</code>. {copy.correlationId}: <code>{unknownCommand.correlationId}</code>.
+      <InlineNotice tone='critical' title={effectiveUnknownCommand.kind === 'command' ? copy.unknownCommand : copy.storageInterlock} icon={<TriangleAlert size={18} />}>
+        {effectiveUnknownCommand.kind === 'command' ? <>
+          {copy.unknownCommandBoundary} {copy.target}: <code>{effectiveUnknownCommand.adapterCode}</code>. {copy.commandId}: <code>{effectiveUnknownCommand.commandId}</code>. {copy.correlationId}: <code>{effectiveUnknownCommand.correlationId}</code>.
+        </> : copy.storageInterlockBoundary}
       </InlineNotice>
     </div>
   ) : null;
-  const receiptNotice = receipt ? (
-    <InlineNotice tone='information' title={copy.primaryAction} icon={<CheckCircle2 size={18} />}>{receipt}</InlineNotice>
+  const receiptNotice = receipt?.sessionScope === verifiedScope ? (
+    <InlineNotice tone='information' title={copy.primaryAction} icon={<CheckCircle2 size={18} />}>{receipt.message}</InlineNotice>
   ) : null;
 
-  if (state.phase !== 'ready') {
-    const message = state.message || (state.phase === 'loading' ? copy.loading : state.phase === 'empty' ? copy.empty : copy.error);
+  if (visibleState.phase !== 'ready') {
+    const message = visibleState.message || (visibleState.phase === 'loading' ? copy.loading : visibleState.phase === 'empty' ? copy.empty : copy.error);
     return (
       <div className={styles.root}>
         {unknownNotice}
         {receiptNotice}
-        <Surface className={styles.stateSurface} role={state.phase === 'error' || state.phase === 'conflict' ? 'alert' : undefined}>
-          {state.phase === 'loading' ? <RefreshCw className={styles.spin} size={28} /> : <AlertTriangle size={30} />}
+        <Surface className={styles.stateSurface} role={visibleState.phase === 'error' || visibleState.phase === 'conflict' ? 'alert' : undefined}>
+          {visibleState.phase === 'loading' ? <RefreshCw className={styles.spin} size={28} /> : <AlertTriangle size={30} />}
           <h1>{message}</h1>
-          {state.phase !== 'loading' && state.phase !== 'forbidden' && state.phase !== 'empty' ? (
+          {visibleState.phase !== 'loading' && visibleState.phase !== 'forbidden' && visibleState.phase !== 'empty' ? (
             <Button variant='secondary' onClick={() => void load('retry')}><RefreshCw size={18} />{copy.retry}</Button>
           ) : null}
         </Surface>
@@ -584,9 +734,9 @@ export function IntegrationControlTowerClient({
           </InlineNotice>
         </div>
         <dl className={styles.heroFacts}>
-          <div><dt>{copy.adapters}</dt><dd>{state.records.length}</dd></div>
-          <div><dt>{copy.degraded}</dt><dd>{state.records.filter((item) => item.honestStatus === 'DEGRADED').length}</dd></div>
-          <div><dt>{copy.inbox}</dt><dd>{state.records.reduce((sum, item) => sum + item.inboxDepth, 0)}</dd></div>
+          <div><dt>{copy.adapters}</dt><dd>{visibleState.records.length}</dd></div>
+          <div><dt>{copy.degraded}</dt><dd>{visibleState.records.filter((item) => item.honestStatus === 'DEGRADED').length}</dd></div>
+          <div><dt>{copy.inbox}</dt><dd>{visibleState.records.reduce((sum, item) => sum + item.inboxDepth, 0)}</dd></div>
         </dl>
       </Surface>
 
@@ -656,7 +806,7 @@ export function IntegrationControlTowerClient({
 
             <Surface className={styles.actionCard}>
               <div><span>{copy.primaryAction}</span><h3>{selected.primaryAction.label}</h3><p>{selected.primaryAction.reason}</p><small>{copy.serverAuthority}</small></div>
-              <Button disabled={!selected.primaryAction.allowed || !!unknownCommand} onClick={prepareAction}>{selected.primaryAction.label}</Button>
+              <Button disabled={!selected.primaryAction.allowed || !!effectiveUnknownCommand || !storageReady || !verifiedScope} onClick={prepareAction}>{selected.primaryAction.label}</Button>
             </Surface>
 
             <Surface className={styles.events} padded={false}>
@@ -676,13 +826,13 @@ export function IntegrationControlTowerClient({
         ) : null}
       </div>
 
-      {pending ? (
+      {activePending ? (
         <div className={styles.dialogBackdrop} role='presentation'>
           <Surface className={styles.dialog} role='dialog' aria-modal='true' aria-labelledby='integration-action-title'>
             <header><AlertTriangle size={24} /><h2 id='integration-action-title'>{copy.actionTitle}</h2></header>
             <p>{selected?.primaryAction.reason}</p>
-            <label><span>{copy.reason}</span><textarea value={pending.reason} onChange={(event) => setPending({ ...pending, reason: event.currentTarget.value })} placeholder={copy.reasonPlaceholder} rows={5} /></label>
-            <div><Button variant='secondary' disabled={executing} onClick={() => setPending(null)}>{copy.cancel}</Button><Button disabled={executing || pending.reason.trim().length < 12 || !pending.ifMatch} onClick={() => void execute()}>{executing ? copy.executing : copy.confirm}</Button></div>
+            <label><span>{copy.reason}</span><textarea value={activePending.reason} onChange={(event) => setPending({ ...activePending, reason: event.currentTarget.value })} placeholder={copy.reasonPlaceholder} rows={5} /></label>
+            <div><Button variant='secondary' disabled={executing} onClick={() => setPending(null)}>{copy.cancel}</Button><Button disabled={executing || activePending.reason.trim().length < 12 || !activePending.ifMatch} onClick={() => void execute()}>{executing ? copy.executing : copy.confirm}</Button></div>
           </Surface>
         </div>
       ) : null}
