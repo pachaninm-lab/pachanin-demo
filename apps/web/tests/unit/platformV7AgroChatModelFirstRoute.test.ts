@@ -62,10 +62,16 @@ describe('P0 model-first agricultural chat', () => {
     expect(qwenService).toContain('The absence of a button, module, connector or knowledge article does not limit your ability to explain the subject');
   });
 
-  it('ignores only supplied-input sell-now wording before the current-evidence scan', () => {
-    expect(route).toContain('SUPPLIED_INPUT_DECISION_NOW_PATTERN');
-    expect(route).toContain(".replace(SUPPLIED_INPUT_DECISION_NOW_PATTERN, ' ')");
-    expect(route).toContain('pattern.test(evidenceQuestion)');
+  it('ignores sell-now wording only when explicit user storage inputs exist', () => {
+    for (const fragment of [
+      'SUPPLIED_INPUT_DECISION_NOW_PATTERN',
+      'EXPLICIT_STORAGE_RATE_PATTERN',
+      'EXPLICIT_STORAGE_RATE_PATTERN.test(userSuppliedContext)',
+      'SUPPLIED_INPUT_DECISION_NOW_PATTERN.test(normalized)',
+      "normalized.replace(SUPPLIED_INPUT_DECISION_NOW_PATTERN, ' ')",
+      'requiresCurrentEvidence(envelope.question, envelope.history)',
+      'pattern.test(evidenceQuestion)',
+    ]) expect(route).toContain(fragment);
     expect(route).toContain('(?:цена|стоимост\\w*)\\s+(?:сегодня|сейчас|на\\s+сегодня|в\\s+регионе)');
   });
 
