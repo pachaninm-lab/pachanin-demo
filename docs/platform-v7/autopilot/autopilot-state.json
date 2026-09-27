@@ -1702,6 +1702,10 @@
       "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
       "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts"
     ],
+    "fix/readiness-queue-job-gate-20260927": [
+      ".github/workflows/automerge.yml",
+      "docs/platform-v7/autopilot/scopes/readiness-queue-job-gate-20260927.json"
+    ],
     "governance/gekta-current-data-regression-route-20260927": [
       "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
       "scripts/p7-autopilot-guard.sh"
@@ -2255,17 +2259,17 @@
     "gekta-quality-regression-bootstrap-20260927": {
       "owner": "OWNER_AUTHORIZED_SESSION",
       "purpose": "Owner-requested correction and comprehensive testing of slow ordinary Gekta answers and unreadable current-data notices; admit only the reviewed two-line test-scope extension.",
-      "authorityBaseExactMain": "b47649b51198dc28bc1cb0e83ccd629b9d41af0f",
+      "authorityBaseExactMain": "9f8ae70cf13401702c20869e2c7c986dd22eade2",
       "implementationBranch": "governance/gekta-current-data-regression-route-20260927",
-      "reviewedCandidateSha": "993956f171a6c1302763ae2ffbafd9c79c125484",
-      "reviewedCandidateTree": "62b5abc4d4cf8cbc8ecbf8d13d18157d7b836b1d",
+      "reviewedCandidateSha": "8c0e0ec2f41b6b2536d69b14fa4902618bba7c55",
+      "reviewedCandidateTree": "ded176a1d418b79b1f7e84f811146ccffb887373",
       "allowedPaths": [
         "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
         "scripts/p7-autopilot-guard.sh"
       ],
       "reviewedBlobs": {
         "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "8ea167377e785ff115c645b87c1c3f92f9d1b64e",
-        "scripts/p7-autopilot-guard.sh": "f8a4fbd1b0761e6232c57f3cd03fb038f25b06a5"
+        "scripts/p7-autopilot-guard.sh": "85e6a100272115013c5bb84bfec2329574cefd09"
       },
       "requiredTruthBoundaries": [
         "The owner explicitly requested correction of ordinary-answer latency, current-data answer quality and comprehensive testing in the active session. This state-only change admits no product code or production operation.",

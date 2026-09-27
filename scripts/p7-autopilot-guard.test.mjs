@@ -31,6 +31,7 @@ const productImplementationManifests = new Map([
   ['ux/first-customer-next-action-unknown-20260924', 'docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json'],
   ['fix/public-registration-participation-choice-20260923', 'docs/platform-v7/autopilot/scopes/public-registration-participation-choice-20260923.json'],
   ['fix/production-mobile-controller-handoff-20260927', 'docs/platform-v7/autopilot/scopes/production-mobile-controller-handoff-20260927.json'],
+  ['fix/readiness-queue-job-gate-20260927', 'docs/platform-v7/autopilot/scopes/readiness-queue-job-gate-20260927.json'],
   ['ux/buyer-first-customer-home-20260925', 'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json'],
 ]);
 const productAdmissionBranch = 'governance/product-bank-fgis-ux-source-admission-20260924';
@@ -1628,6 +1629,74 @@ test('product branches run the immutable guard from the accepted base in both wo
   }
   assert.ok(prHead.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh"'));
   assert.ok(trusted.includes('ref: ${{ github.event.pull_request.base.sha }}'));
+});
+
+test('readiness queue job gate has exactly the two accepted paths and a workflow trigger', () => {
+  const branch = 'fix/readiness-queue-job-gate-20260927';
+  const workflowPath = '.github/workflows/automerge.yml';
+  const manifestPath = productImplementationManifests.get(branch);
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  assert.deepEqual(state.approvedConcurrentScopes[branch], [workflowPath, manifestPath]);
+  const paths = workflow.split('\n  pull_request:\n')[1].split('\nconcurrency:')[0];
+  assert.ok(paths.includes(`- '${workflowPath}'`));
+  assert.ok(fs.readFileSync(sourceGuard, 'utf8').includes(`"$READINESS_QUEUE_JOB_GATE_BRANCH") PRODUCT_SCOPE_MANIFEST='${manifestPath}'`));
+});
+
+test('readiness queue guard accepts the exact job lease move and rejects another workflow byte', (t) => {
+  const branch = 'fix/readiness-queue-job-gate-20260927';
+  const workflowPath = '.github/workflows/automerge.yml';
+  const manifestPath = productImplementationManifests.get(branch);
+  const context = fixture(t, branch);
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+  state.approvedConcurrentScopes[branch] = [workflowPath, manifestPath];
+  write(context.root, statePath, `${JSON.stringify(state)}\n`);
+
+  const workflowLease = `# Serial publication prevents an older evaluator overwriting a newer result.
+concurrency:
+  group: repo-engineering-readiness
+  cancel-in-progress: false
+  queue: max
+
+`;
+  const anchor = `         github.event.workflow_run.name != 'Independent Octopus Review'))\n`;
+  const gatedLease = `    # A job that fails the event gate must not occupy the global publication
+    # queue. Keep admitted evaluations serialized at the job boundary.
+    concurrency:
+      group: repo-engineering-readiness
+      cancel-in-progress: false
+      queue: max
+`;
+  const baseWorkflow = `name: Repo automations
+permissions:
+  contents: read
+${workflowLease}jobs:
+  engineering-readiness:
+    if: >-
+${anchor}    runs-on: ubuntu-latest
+`;
+  write(context.root, workflowPath, baseWorkflow);
+  commit(context.root, 'accepted readiness scope and trusted workflow shape');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+
+  const exactWorkflow = baseWorkflow.replace(workflowLease, '').replace(anchor, `${anchor}${gatedLease}`);
+  write(context.root, workflowPath, exactWorkflow);
+  write(context.root, manifestPath, JSON.stringify({
+    schemaVersion: 'platform-v7.concurrent-scope.v1',
+    status: 'active',
+    branch,
+    allowedPaths: [workflowPath, manifestPath],
+  }));
+  commit(context.root, 'move only the serial lease under the job event gate');
+  const accepted = runGuard(context);
+  assert.equal(accepted.status, 0, output(accepted));
+
+  write(context.root, workflowPath, exactWorkflow.replace('  contents: read\n', '  contents: write\n'));
+  commit(context.root, 'attempt unrelated workflow permission change');
+  const rejected = runGuard(context);
+  assert.notEqual(rejected.status, 0, output(rejected));
+  assert.match(output(rejected), /READINESS_QUEUE_CHANGE_EXCEEDS_EXACT_TRANSFORM/u);
 });
 
 test('mobile controller handoff has exactly the two accepted paths and a workflow trigger', () => {
