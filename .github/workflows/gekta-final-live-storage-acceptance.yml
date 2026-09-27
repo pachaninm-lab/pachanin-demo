@@ -29,12 +29,19 @@ jobs:
         run: |
           set -euo pipefail
           node <<'NODE'
+          import fs from 'node:fs';
+          import os from 'node:os';
+          import path from 'node:path';
+          import { spawn, spawnSync } from 'node:child_process';
+
           const base = process.env.LIVE_BASE;
           const expected = process.env.EXPECTED_SHA;
           const repo = process.env.GITHUB_REPOSITORY;
           const runId = process.env.GITHUB_RUN_ID;
           const firstQuestion = 'Пшеница, 500 тонн, предлагают 12000 рублей за тонну. Хранение 200 рублей за тонну в месяц. Продавать сейчас или хранить?';
           const secondQuestion = 'Срок хранения два месяца. Насколько должна вырасти цена, чтобы покрыть только хранение?';
+          const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gekta-final-'));
+          const cookieJar = path.join(tmp, 'cookies.txt');
 
           const fail = (message) => { throw new Error(message); };
           const oneLine = (value) => String(value ?? '').replace(/\s+/gu, ' ').trim().slice(0, 1800);
@@ -63,108 +70,132 @@ jobs:
             return sha;
           }
 
-          let cookie = '';
-          function retainCookie(response) {
-            const raw = response.headers.get('set-cookie') || '';
-            const first = raw.split(';', 1)[0]?.trim();
-            if (first && /^[^=;\s]+=[^;]*$/u.test(first)) cookie = first;
+          function reserve(turn) {
+            const bodyFile = path.join(tmp, `reserve-${turn}.json`);
+            const headerFile = path.join(tmp, `reserve-${turn}.headers`);
+            const result = spawnSync('curl', [
+              '-sS', '-D', headerFile, '-o', bodyFile,
+              '-c', cookieJar, '-b', cookieJar,
+              '-w', '%{http_code}\t%{content_type}\t%{time_total}\t%{size_download}',
+              '--compressed', '--max-time', '25',
+              '-H', 'Content-Type: application/json',
+              '-H', 'Accept: application/json',
+              '--data', '{"action":"reserve"}',
+              `${base}/api/gekta/entitlement`,
+            ], { encoding: 'utf8', timeout: 35_000 });
+
+            if (result.error) fail(`reserve_spawn_${turn}_${result.error.code || 'error'}`);
+            if (result.status !== 0) fail(`reserve_curl_${turn}_${result.status}_${oneLine(result.stderr)}`);
+            const [http, type, total] = String(result.stdout || '').trim().split('\t');
+            if (http !== '200') fail(`reserve_http_${turn}_${http || 'missing'}`);
+            let body;
+            try { body = JSON.parse(fs.readFileSync(bodyFile, 'utf8')); } catch { fail(`reserve_json_${turn}`); }
+            if (body?.allowed !== true) fail(`reserve_not_allowed_${turn}_${body?.code || body?.error || 'unknown'}`);
+            if (!/^[0-9a-z]{8,12}\.[A-Za-z0-9_-]{16}$/u.test(body?.ticket || '')) fail(`reserve_ticket_invalid_${turn}`);
+            return { ticket: body.ticket, reserveMs: Number(total) * 1000, contentType: type };
           }
 
-          async function reserve() {
-            const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
-            if (cookie) headers.Cookie = cookie;
-            const response = await fetch(`${base}/api/gekta/entitlement`, {
-              method: 'POST',
-              headers,
-              body: JSON.stringify({ action: 'reserve' }),
-              signal: AbortSignal.timeout(30_000),
-            });
-            retainCookie(response);
-            const body = await response.json().catch(() => ({}));
-            if (!response.ok) fail(`reserve_http_${response.status}`);
-            if (body?.allowed !== true) fail(`reserve_not_allowed_${body?.code || body?.error || 'unknown'}`);
-            if (!/^[0-9a-z]{8,12}\.[A-Za-z0-9_-]{16}$/u.test(body?.ticket || '')) fail('reserve_ticket_invalid');
-            return body.ticket;
-          }
+          function stream(turn, question, history, conversationId) {
+            return new Promise((resolve, reject) => {
+              let reserved;
+              try { reserved = reserve(turn); } catch (error) { reject(error); return; }
 
-          async function stream(question, history, conversationId) {
-            const ticket = await reserve();
-            const headers = {
-              'Content-Type': 'application/json',
-              'Accept': 'text/event-stream',
-              'x-gekta-answer-ticket': ticket,
-            };
-            if (cookie) headers.Cookie = cookie;
-
-            const started = performance.now();
-            const response = await fetch(`${base}/api/agro-chat?stream=1`, {
-              method: 'POST',
-              headers,
-              body: JSON.stringify({
+              const headerFile = path.join(tmp, `stream-${turn}.headers`);
+              const payload = JSON.stringify({
                 message: question,
                 locale: 'ru',
                 context: 'gekta-standalone',
                 conversationId,
                 history,
-              }),
-              signal: AbortSignal.timeout(180_000),
-            });
-            const headersMs = performance.now() - started;
-            if (!response.ok) fail(`stream_http_${response.status}`);
-            if (!(response.headers.get('content-type') || '').toLowerCase().startsWith('text/event-stream')) {
-              fail('stream_content_type_invalid');
-            }
-            if (!response.body) fail('stream_body_missing');
+              });
+              const args = [
+                '-sS', '-D', headerFile,
+                '-c', cookieJar, '-b', cookieJar,
+                '--no-buffer', '--max-time', '170',
+                '-H', 'Content-Type: application/json',
+                '-H', 'Accept: text/event-stream',
+                '-H', `x-gekta-answer-ticket: ${reserved.ticket}`,
+                '--data', payload,
+                `${base}/api/agro-chat?stream=1`,
+              ];
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-            let answer = '';
-            let firstMeaningfulMs = null;
-            let meta = false;
-            let done = false;
-            let complete = false;
-            let tokenEvents = 0;
+              const started = performance.now();
+              const child = spawn('curl', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+              const decoder = new TextDecoder();
+              let buffer = '';
+              let answer = '';
+              let firstMeaningfulMs = null;
+              let meta = false;
+              let doneFrame = false;
+              let complete = false;
+              let tokenEvents = 0;
+              let stderr = '';
 
-            const acceptFrame = (block) => {
-              for (const line of block.split('\n')) {
-                if (!line.startsWith('data:')) continue;
-                const raw = line.slice(5).trim();
-                if (!raw) continue;
-                let event;
-                try { event = JSON.parse(raw); } catch { continue; }
-                if (event?.event === 'meta') meta = true;
-                if (event?.event === 'token' && typeof event.text === 'string') {
-                  tokenEvents += 1;
-                  answer += event.text;
-                  if (firstMeaningfulMs === null && /[\p{L}\p{N}]/u.test(event.text)) {
-                    firstMeaningfulMs = performance.now() - started;
+              const acceptFrame = (block) => {
+                for (const line of block.split('\n')) {
+                  if (!line.startsWith('data:')) continue;
+                  const raw = line.slice(5).trim();
+                  if (!raw) continue;
+                  let event;
+                  try { event = JSON.parse(raw); } catch { continue; }
+                  if (event?.event === 'meta') meta = true;
+                  if (event?.event === 'token' && typeof event.text === 'string') {
+                    tokenEvents += 1;
+                    answer += event.text;
+                    if (firstMeaningfulMs === null && /[\p{L}\p{N}]/u.test(event.text)) {
+                      firstMeaningfulMs = performance.now() - started;
+                    }
+                  }
+                  if (event?.event === 'done') {
+                    doneFrame = true;
+                    complete = event.complete === true;
+                  }
+                  if (event?.event === 'error') {
+                    reject(new Error(`stream_error_${turn}_${event.refusal || event.code || 'unknown'}`));
+                    child.kill('SIGTERM');
                   }
                 }
-                if (event?.event === 'done') {
-                  done = true;
-                  complete = event.complete === true;
+              };
+
+              child.stdout.on('data', (chunk) => {
+                buffer += decoder.decode(chunk, { stream: true });
+                buffer = buffer.replace(/\r\n/gu, '\n');
+                let split;
+                while ((split = buffer.indexOf('\n\n')) >= 0) {
+                  acceptFrame(buffer.slice(0, split));
+                  buffer = buffer.slice(split + 2);
                 }
-                if (event?.event === 'error') fail(`stream_error_${event.code || 'unknown'}`);
-              }
-            };
+              });
+              child.stderr.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
 
-            while (true) {
-              const { value, done: readerDone } = await reader.read();
-              if (readerDone) break;
-              buffer += decoder.decode(value, { stream: true }).replace(/\r\n/gu, '\n');
-              let split;
-              while ((split = buffer.indexOf('\n\n')) >= 0) {
-                acceptFrame(buffer.slice(0, split));
-                buffer = buffer.slice(split + 2);
-              }
-            }
-            buffer += decoder.decode();
-            if (buffer.trim()) acceptFrame(buffer);
-
-            const totalMs = performance.now() - started;
-            if (!meta || !done || !complete || tokenEvents < 1 || firstMeaningfulMs === null) fail('stream_incomplete');
-            return { answer: answer.trim(), headersMs, firstMeaningfulMs, totalMs, tokenEvents };
+              child.on('error', (error) => reject(error));
+              child.on('close', (code) => {
+                try {
+                  buffer += decoder.decode();
+                  buffer = buffer.replace(/\r\n/gu, '\n');
+                  if (buffer.trim()) acceptFrame(buffer);
+                  const totalMs = performance.now() - started;
+                  if (code !== 0) fail(`stream_curl_${turn}_${code}_${oneLine(stderr)}`);
+                  const headers = fs.readFileSync(headerFile, 'utf8').replace(/\r\n/gu, '\n');
+                  const statuses = [...headers.matchAll(/^HTTP\/\S+\s+(\d{3})/gmu)].map((m) => m[1]);
+                  const http = statuses.at(-1) || 'missing';
+                  const types = [...headers.matchAll(/^content-type:\s*([^\n]+)/gmiu)].map((m) => m[1].trim());
+                  const contentType = types.at(-1) || 'missing';
+                  if (http !== '200') fail(`stream_http_${turn}_${http}`);
+                  if (!contentType.toLowerCase().startsWith('text/event-stream')) fail(`stream_type_${turn}_${contentType}`);
+                  if (!meta || !doneFrame || !complete || tokenEvents < 1 || firstMeaningfulMs === null) fail(`stream_incomplete_${turn}`);
+                  resolve({
+                    answer: answer.trim(),
+                    reserveMs: reserved.reserveMs,
+                    firstMeaningfulMs,
+                    totalMs,
+                    tokenEvents,
+                  });
+                } catch (error) {
+                  reject(error);
+                }
+              });
+            });
           }
 
           const mainBefore = await currentMain();
@@ -173,7 +204,7 @@ jobs:
           if (manifestBefore !== expected) fail(`manifest_drift_before_${manifestBefore}`);
 
           const conversationId = `gektafinal${runId}`;
-          const turn1 = await stream(firstQuestion, [], conversationId);
+          const turn1 = await stream(1, firstQuestion, [], conversationId);
           if (!turn1.answer) fail('turn1_answer_empty');
 
           const unsafeVerdict = /(?:продавать\s+сейчас\s+выгоднее|выгоднее\s+продавать|лучше\s+(?:сразу\s+)?продать|лучше\s+продавать|хранить\s+выгоднее|выгоднее\s+хранить|лучше\s+хранить)/iu;
@@ -183,7 +214,7 @@ jobs:
             { role: 'user', text: firstQuestion },
             { role: 'assistant', text: turn1.answer },
           ];
-          const turn2 = await stream(secondQuestion, history, conversationId);
+          const turn2 = await stream(2, secondQuestion, history, conversationId);
           if (!turn2.answer) fail('turn2_answer_empty');
           if (unsafeVerdict.test(turn2.answer)) fail('turn2_unsupported_profitability_verdict');
 
@@ -199,12 +230,12 @@ jobs:
           console.log(`EXPECTED_SHA=${expected}`);
           console.log(`MAIN_BEFORE=${mainBefore}`);
           console.log(`MANIFEST_BEFORE=${manifestBefore}`);
-          console.log(`TURN1_HEADERS_MS=${turn1.headersMs.toFixed(1)}`);
+          console.log(`TURN1_RESERVE_MS=${turn1.reserveMs.toFixed(1)}`);
           console.log(`TURN1_FIRST_MEANINGFUL_MS=${turn1.firstMeaningfulMs.toFixed(1)}`);
           console.log(`TURN1_TOTAL_MS=${turn1.totalMs.toFixed(1)}`);
           console.log(`TURN1_TOKEN_EVENTS=${turn1.tokenEvents}`);
           console.log(`TURN1_ANSWER=${oneLine(turn1.answer)}`);
-          console.log(`TURN2_HEADERS_MS=${turn2.headersMs.toFixed(1)}`);
+          console.log(`TURN2_RESERVE_MS=${turn2.reserveMs.toFixed(1)}`);
           console.log(`TURN2_FIRST_MEANINGFUL_MS=${turn2.firstMeaningfulMs.toFixed(1)}`);
           console.log(`TURN2_TOTAL_MS=${turn2.totalMs.toFixed(1)}`);
           console.log(`TURN2_TOKEN_EVENTS=${turn2.tokenEvents}`);
@@ -215,4 +246,6 @@ jobs:
           console.log(`MAIN_AFTER=${mainAfter}`);
           console.log(`MANIFEST_AFTER=${manifestAfter}`);
           console.log('LIVE_STORAGE_ACCEPTANCE=PASS');
+
+          fs.rmSync(tmp, { recursive: true, force: true });
           NODE
