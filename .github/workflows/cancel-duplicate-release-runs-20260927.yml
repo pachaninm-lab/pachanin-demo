@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 5
     env:
       EXPECTED_SHA: 06f686d52247ebe7805f1b75d937b2ca8daf8f6f
-      RUN_IDS: "36345284461 36345593886 36347424612"
+      RUN_IDS: "36345284461 36345593886 36347424612 36347000571"
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Cancel only pending exact-SHA duplicates
@@ -35,6 +35,14 @@ jobs:
               queued|pending|waiting|requested)
                 gh api --method POST "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/cancel" >/dev/null
                 echo "CANCEL_REQUESTED=$run_id"
+                ;;
+              in_progress)
+                if [[ "$name" == "Gekta Production Browser Speed Baseline" ]]; then
+                  gh api --method POST "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/cancel" >/dev/null
+                  echo "CANCEL_REQUESTED=$run_id"
+                else
+                  echo "NO_CANCEL_ACTIVE_MUTATION=$run_id:$name"
+                fi
                 ;;
               *)
                 echo "NO_CANCEL=$run_id:$status"
