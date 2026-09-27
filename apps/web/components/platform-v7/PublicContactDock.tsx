@@ -423,6 +423,12 @@ const css = `
   }
 }
 @media (max-width:767px) {
+  body:has(.pc-cp-bottom-nav) .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='full'] {
+    bottom: max(78px, calc(env(safe-area-inset-bottom, 0px) + 76px)) !important;
+  }
+}
+
+@media (max-width:767px) {
   .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
     right: max(10px, env(safe-area-inset-right, 0px)) !important;
     bottom: max(78px, calc(env(safe-area-inset-bottom, 0px) + 76px)) !important;
@@ -463,15 +469,19 @@ const css = `
 }
 
 
-/* Canonical mobile navigation owns the bottom edge; chat remains available in the header menu. */
-@media (max-width:760px) {
-  body:has(.pc-cp-bottom-nav) .pc-public-contact-dock[data-assistant-context='public'] {
+/* Canonical mobile navigation owns the bottom edge. The Gekta launcher remains
+   visible above it using the safe-area-aware mobile offset declared above. */
+
+/* The canonical mobile menu owns the foreground while expanded. Keep one
+   Gekta entry inside the menu and temporarily remove the floating duplicate. */
+@media (max-width:1100px) {
+  body:has(.pc-site-mobile-menu[open]) .pc-public-contact-dock[data-assistant-context='public'] {
     display: none !important;
   }
 }
 
-/* FINAL PUBLIC EXPERIENCE v1 — desktop chat lives in the canonical header */
-@media (min-width:981px) {
+/* FINAL PUBLIC EXPERIENCE v1 — once the canonical header chat is persistent, retire the floating launcher */
+@media (min-width:1101px) {
   .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
     display: none !important;
   }
