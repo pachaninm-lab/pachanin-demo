@@ -1678,6 +1678,11 @@
       "apps/web/tests/unit/publicFarmerStarterQuestions.test.ts",
       "apps/web/tests/unit/taiPublicAssistantRetryRegenerate.test.tsx",
       "docs/platform-v7/qa/web-unit-coverage-registry.json"
+    ],
+    "governance/gekta-recovery-trusted-routes-20260927": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+      "scripts/p7-autopilot-guard.sh"
     ]
   },
   "currentAcceptance": [
@@ -2154,6 +2159,37 @@
         "CI/security/readiness gate weakening or unsupported production acceptance claims"
       ],
       "teamHubDependency": "#5469; #5631; exact-head inline P1 #4112623681"
+    },
+    "gekta-reviewed-bootstrap-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "One-time owner-authorized Gekta recovery governance bootstrap: exact reviewed three-file candidate only.",
+      "authorityBaseExactMain": "2b302725a14d518382f533f38495c568c9a4691b",
+      "implementationBranch": "governance/gekta-recovery-trusted-routes-20260927",
+      "reviewedCandidateSha": "1f746d7e457af6d1815ea050a0211939d84a8a89",
+      "reviewedCandidateTree": "6f5fe6c391737c818607144baf84a32138dc40d9",
+      "allowedPaths": [
+        ".github/workflows/platform-v7-autopilot-guard.yml",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+        "scripts/p7-autopilot-guard.sh"
+      ],
+      "reviewedBlobs": {
+        ".github/workflows/platform-v7-autopilot-guard.yml": "a0271cd4eff83a430882fe3e089b60b57b28e9e6",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "242d07fcab5a06bb2a9cce807f16590c0e874fa3",
+        "scripts/p7-autopilot-guard.sh": "80dce5c8fa2e8c53e391adb14decb95b27ac60d1"
+      },
+      "requiredTruthBoundaries": [
+        "Owner explicitly authorized the one-time bootstrap and autonomous completion in the active session. This state-only change admits no product, production operation or implementation branch.",
+        "Before merging the governance candidate, independently verify its complete diff and three blob identities against this record. Changed content requires renewed review and source admission.",
+        "This is documented exact-content admission with independent manual enforcement. Existing generic routing does not automatically enforce recorded SHA fields. Do not claim immutable enforcement before the reviewed bootstrap is accepted.",
+        "The four implementation branches obtain only literal trusted-base path sets after the bootstrap merges. Candidate state, global scope, guard, workflow, R1.2 and renames cannot widen those scopes.",
+        "All substantive CI, exact-head independent review, unresolved-thread resolution and fresh manual SHA-bound readiness remain required. Deployment is separately pending exact OCI identity, health and live acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Implementation paths in this state-only PR",
+        "State, scope or unrelated authority changes in the three-file bootstrap",
+        "Automatic merge, check override, force merge or new recurring costs"
+      ],
+      "reviewDependency": "PR #5650; native P1 4114326800; independent reviewer /root/review_gekta"
     }
   }
 }
