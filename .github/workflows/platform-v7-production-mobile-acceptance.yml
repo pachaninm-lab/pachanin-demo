@@ -6,6 +6,7 @@ on:
       - 'Production Web Exact-SHA Release'
       - 'Production Web Owner Exact-SHA Command'
       - 'Production Full-Stack Exact-SHA Release'
+      - 'platform-v7 safe merge'
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -32,7 +33,8 @@ jobs:
     name: Resolve accepted protected Web release
     if: >-
       github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success'
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.name != 'platform-v7 safe merge'
     permissions:
       contents: read
       actions: read
@@ -41,16 +43,78 @@ jobs:
       release_run_id: ${{ github.event.workflow_run.id }}
       manual_sha: ''
 
+  controller-accepted:
+    name: Resolve accepted owner full-stack controller
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.name == 'platform-v7 safe merge'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      controller_accepted: ${{ steps.verify.outputs.controller_accepted }}
+    steps:
+      - name: Verify exact owner production controller evidence
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$SOURCE_HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+
+          run="$(gh api "repos/$REPO/actions/runs/$SOURCE_RUN_ID")"
+          [[ "$(jq -r '.name' <<< "$run")" == 'platform-v7 safe merge' ]]
+          [[ "$(jq -r '.event' <<< "$run")" == issue_comment ]]
+          [[ "$(jq -r '.conclusion' <<< "$run")" == success ]]
+          [[ "$(jq -r '.head_sha' <<< "$run")" == "$SOURCE_HEAD_SHA" ]]
+          [[ "$(jq -r '.actor.login // empty' <<< "$run")" == "$REPOSITORY_OWNER" ]]
+          [[ "$(jq -r '.triggering_actor.login // empty' <<< "$run")" == "$REPOSITORY_OWNER" ]]
+
+          jobs="$(gh api "repos/$REPO/actions/runs/$SOURCE_RUN_ID/jobs?filter=latest&per_page=100")"
+          required=(
+            'production-release-control-3072'
+            'production-full-stack-execution-3072 / Validate full-stack release contract'
+            'production-full-stack-execution-3072 / Migrate, deploy API/web and canonical outbox, verify live delivery'
+            'production-auth-mail-cutover-3072 / Validate auth-mail cutover contract'
+            'production-auth-mail-cutover-3072 / Cut over exact production to durable auth-mail worker'
+            'production-reviewer-readiness-3072 / Validate production reviewer inspect contract'
+            'production-reviewer-readiness-3072 / Read-only REG.RU reviewer login readiness'
+          )
+          for job_name in "${required[@]}"; do
+            count="$(jq --arg name "$job_name" '[.jobs[] | select(.name == $name)] | length' <<< "$jobs")"
+            [[ "$count" == 1 ]] || {
+              echo "Controller evidence cardinality mismatch for: $job_name count=$count" >&2
+              exit 20
+            }
+            conclusion="$(jq -r --arg name "$job_name" '.jobs[] | select(.name == $name) | .conclusion' <<< "$jobs")"
+            [[ "$conclusion" == success ]] || {
+              echo "Controller evidence is not success for: $job_name conclusion=$conclusion" >&2
+              exit 21
+            }
+          done
+
+          echo 'controller_accepted=true' >> "$GITHUB_OUTPUT"
+
   mobile-acceptance:
     name: Chromium + WebKit 320x700, 375x812, 390x844 and 430x932 production acceptance
-    needs: accepted
+    needs: [accepted, controller-accepted]
     if: >-
       always() &&
       (github.event_name == 'workflow_dispatch' ||
        (github.event_name == 'workflow_run' &&
         github.event.workflow_run.conclusion == 'success' &&
         github.event.workflow_run.name == 'Production Full-Stack Exact-SHA Release') ||
-       needs.accepted.outputs.deployment_accepted == 'true')
+       needs.accepted.outputs.deployment_accepted == 'true' ||
+       needs.controller-accepted.outputs.controller_accepted == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
@@ -168,6 +232,80 @@ jobs:
           PLAYWRIGHT_BASE_URL: ${{ env.LIVE_BASE }}
         run: pnpm --filter @pc/web exec playwright test --config=playwright.production-mobile.config.ts
 
+      - name: Verify public Gekta burger handoff in Chromium and WebKit
+        id: burger-handoff
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ env.LIVE_BASE }}
+          EVIDENCE_DIR: ${{ github.workspace }}/artifacts/platform-v7-production-mobile/burger-handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          trap 'printf "FAIL\n" > "$EVIDENCE_DIR/result.txt"' ERR
+          pnpm --filter @pc/web exec node --input-type=module <<'NODE'
+          import { chromium, webkit } from '@playwright/test';
+
+          const base = process.env.PLAYWRIGHT_BASE_URL;
+          const evidence = process.env.EVIDENCE_DIR;
+          if (!base || !evidence) throw new Error('burger handoff environment missing');
+
+          for (const [engine, browserType] of [['chromium', chromium], ['webkit', webkit]]) {
+            const browser = await browserType.launch({ headless: true });
+            try {
+              const page = await browser.newPage({
+                viewport: { width: 390, height: 844 },
+                locale: 'ru-RU',
+                timezoneId: 'Europe/Moscow',
+              });
+              const response = await page.goto(
+                `${base}/platform-v7?lang=ru&burger-handoff=${Date.now()}`,
+                { waitUntil: 'load', timeout: 30_000 },
+              );
+              if (!response?.ok()) throw new Error(`${engine}: public home HTTP ${response?.status() ?? 'missing'}`);
+
+              const dock = page.locator(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
+              const launcher = dock.locator('.pc-public-contact-dock-assistant');
+              const bottomNav = page.locator('.pc-cp-bottom-nav');
+              await dock.waitFor({ state: 'visible', timeout: 15_000 });
+              await launcher.waitFor({ state: 'visible', timeout: 15_000 });
+              await bottomNav.waitFor({ state: 'visible', timeout: 15_000 });
+
+              const [launcherBox, bottomBox] = await Promise.all([launcher.boundingBox(), bottomNav.boundingBox()]);
+              if (!launcherBox || !bottomBox) throw new Error(`${engine}: launcher/nav geometry missing`);
+              if (launcherBox.width < 44 || launcherBox.height < 44) {
+                throw new Error(`${engine}: launcher below 44px (${launcherBox.width}x${launcherBox.height})`);
+              }
+              if (launcherBox.y + launcherBox.height > bottomBox.y - 4) {
+                throw new Error(`${engine}: launcher overlaps bottom navigation`);
+              }
+
+              const menu = page.locator('details.pc-site-mobile-menu');
+              const toggle = menu.locator('summary');
+              await toggle.click();
+              await page.waitForFunction(() => document.querySelector('details.pc-site-mobile-menu')?.hasAttribute('open'));
+              await dock.waitFor({ state: 'hidden', timeout: 5_000 });
+              await page.screenshot({ path: `${evidence}/${engine}-burger-open.png`, animations: 'disabled' });
+
+              await toggle.click();
+              await page.waitForFunction(() => !document.querySelector('details.pc-site-mobile-menu')?.hasAttribute('open'));
+              await dock.waitFor({ state: 'visible', timeout: 5_000 });
+              await launcher.waitFor({ state: 'visible', timeout: 5_000 });
+              await page.screenshot({ path: `${evidence}/${engine}-burger-closed.png`, animations: 'disabled' });
+
+              await launcher.click();
+              const panel = page.locator('#pc-public-assistant-panel');
+              await panel.waitFor({ state: 'visible', timeout: 15_000 });
+              await panel.locator('textarea').waitFor({ state: 'visible', timeout: 15_000 });
+              await page.screenshot({ path: `${evidence}/${engine}-assistant-panel.png`, animations: 'disabled' });
+            } finally {
+              await browser.close();
+            }
+          }
+          NODE
+          trap - ERR
+          printf 'PASS\n' > "$EVIDENCE_DIR/result.txt"
+
       - name: Publish mobile acceptance record
         if: always()
         env:
@@ -176,12 +314,14 @@ jobs:
           REVISION_OUTCOME: ${{ steps.revision.outcome }}
           MANIFEST_SHA: ${{ steps.revision.outputs.manifest_sha }}
           ACCEPTANCE_OUTCOME: ${{ steps.acceptance.outcome }}
+          BURGER_HANDOFF_OUTCOME: ${{ steps.burger-handoff.outcome }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts/platform-v7-production-mobile
           [[ "$REVISION_OUTCOME" == success ]] && revision_result=PASS || revision_result=FAIL
           case "$ACCEPTANCE_OUTCOME" in success) result=PASS ;; failure) result=FAIL ;; *) result=NOT_RUN ;; esac
+          case "$BURGER_HANDOFF_OUTCOME" in success) burger_result=PASS ;; failure) burger_result=FAIL ;; *) burger_result=NOT_RUN ;; esac
           record=artifacts/platform-v7-production-mobile/issue-comment.md
           {
             echo "## Platform V7 + Gekta production mobile acceptance \`$GITHUB_RUN_ID\` attempt \`$GITHUB_RUN_ATTEMPT\`"
@@ -199,6 +339,17 @@ jobs:
             echo "- Gekta EN/ZH canonical mobile smoke: \`$result\`"
             echo "- horizontal overflow: \`$result\`"
             echo "- 44 px Gekta primary touch targets: \`$result\`"
+            echo "- mobile Trust cards one-column/readable contract: \`$result\`"
+            echo "- Market RU/EN/ZH never accepts unavailable as PASS: \`$result\`"
+            echo "- linked public pages RU/EN/ZH: \`$result\`"
+            echo "- Gekta launcher above bottom navigation: \`$result\`"
+            echo "- public Gekta launcher hidden under open burger and restored after close (Chromium + WebKit): \`$burger_result\`"
+            echo "- real #pc-public-assistant-panel + textarea after restored launcher: \`$burger_result\`"
+            if [[ "$result" == PASS && "$burger_result" == PASS ]]; then
+              echo "- failures: \`0\`"
+            else
+              echo "- failures: \`nonzero-or-not-run\`"
+            fi
             echo "- Platform V7 sticky header, anchors and Deal workspace: \`$result\`"
             echo "- screenshots and traces: workflow artifact"
             echo "- workflow run ID: \`$GITHUB_RUN_ID\`"
@@ -221,6 +372,7 @@ jobs:
           printf '%s\n' '${{ steps.target.outputs.target_sha }}' > "$evidence_dir/target-sha.txt"
           printf '%s\n' '${{ steps.revision.outcome }}' > "$evidence_dir/revision-outcome.txt"
           printf '%s\n' '${{ steps.acceptance.outcome }}' > "$evidence_dir/outcome.txt"
+          printf '%s\n' '${{ steps.burger-handoff.outcome }}' > "$evidence_dir/burger-handoff-outcome.txt"
           printf '%s\n' "$GITHUB_RUN_ATTEMPT" > "$evidence_dir/run-attempt.txt"
           printf '%s\n' 'chromium' 'webkit' > "$evidence_dir/browser-engines.txt"
 
@@ -244,3 +396,4 @@ jobs:
           set -euo pipefail
           [[ '${{ steps.revision.outcome }}' == success ]] || exit 41
           [[ '${{ steps.acceptance.outcome }}' == success ]] || exit 40
+          [[ '${{ steps.burger-handoff.outcome }}' == success ]] || exit 42
