@@ -1,0 +1,218 @@
+name: Gekta Final Live Storage Acceptance
+
+on:
+  push:
+    branches:
+      - ops/gekta-final-live-acceptance-20260927
+    paths:
+      - .github/workflows/gekta-final-live-storage-acceptance.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-final-live-storage-acceptance
+  cancel-in-progress: false
+
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  EXPECTED_SHA: 06f686d52247ebe7805f1b75d937b2ca8daf8f6f
+
+jobs:
+  live-storage:
+    name: Read-only exact-SHA storage semantics and latency
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Run two-turn production acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const base = process.env.LIVE_BASE;
+          const expected = process.env.EXPECTED_SHA;
+          const repo = process.env.GITHUB_REPOSITORY;
+          const runId = process.env.GITHUB_RUN_ID;
+          const firstQuestion = 'Пшеница, 500 тонн, предлагают 12000 рублей за тонну. Хранение 200 рублей за тонну в месяц. Продавать сейчас или хранить?';
+          const secondQuestion = 'Срок хранения два месяца. Насколько должна вырасти цена, чтобы покрыть только хранение?';
+
+          const fail = (message) => { throw new Error(message); };
+          const oneLine = (value) => String(value ?? '').replace(/\s+/gu, ' ').trim().slice(0, 1800);
+
+          async function currentMain() {
+            const response = await fetch(`https://api.github.com/repos/${repo}/commits/main`, {
+              headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'pc-crop-final-live-acceptance' },
+              signal: AbortSignal.timeout(20_000),
+            });
+            if (!response.ok) fail(`github_main_http_${response.status}`);
+            const body = await response.json();
+            if (!/^[0-9a-f]{40}$/u.test(body?.sha || '')) fail('github_main_sha_invalid');
+            return body.sha;
+          }
+
+          async function manifestSha() {
+            const response = await fetch(`${base}/manifest-pc-deploy.json?final-storage=${runId}-${Date.now()}`, {
+              cache: 'no-store',
+              headers: { 'Cache-Control': 'no-cache' },
+              signal: AbortSignal.timeout(30_000),
+            });
+            if (!response.ok) fail(`manifest_http_${response.status}`);
+            const body = await response.json();
+            const sha = body?.commitSha;
+            if (!/^[0-9a-f]{40}$/u.test(sha || '')) fail('manifest_commit_sha_missing');
+            return sha;
+          }
+
+          let cookie = '';
+          function retainCookie(response) {
+            const raw = response.headers.get('set-cookie') || '';
+            const first = raw.split(';', 1)[0]?.trim();
+            if (first && /^[^=;\s]+=[^;]*$/u.test(first)) cookie = first;
+          }
+
+          async function reserve() {
+            const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+            if (cookie) headers.Cookie = cookie;
+            const response = await fetch(`${base}/api/gekta/entitlement`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ action: 'reserve' }),
+              signal: AbortSignal.timeout(30_000),
+            });
+            retainCookie(response);
+            const body = await response.json().catch(() => ({}));
+            if (!response.ok) fail(`reserve_http_${response.status}`);
+            if (body?.allowed !== true) fail(`reserve_not_allowed_${body?.code || body?.error || 'unknown'}`);
+            if (!/^[0-9a-z]{8,12}\.[A-Za-z0-9_-]{16}$/u.test(body?.ticket || '')) fail('reserve_ticket_invalid');
+            return body.ticket;
+          }
+
+          async function stream(question, history, conversationId) {
+            const ticket = await reserve();
+            const headers = {
+              'Content-Type': 'application/json',
+              'Accept': 'text/event-stream',
+              'x-gekta-answer-ticket': ticket,
+            };
+            if (cookie) headers.Cookie = cookie;
+
+            const started = performance.now();
+            const response = await fetch(`${base}/api/agro-chat?stream=1`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                message: question,
+                locale: 'ru',
+                context: 'gekta-standalone',
+                conversationId,
+                history,
+              }),
+              signal: AbortSignal.timeout(180_000),
+            });
+            const headersMs = performance.now() - started;
+            if (!response.ok) fail(`stream_http_${response.status}`);
+            if (!(response.headers.get('content-type') || '').toLowerCase().startsWith('text/event-stream')) {
+              fail('stream_content_type_invalid');
+            }
+            if (!response.body) fail('stream_body_missing');
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let answer = '';
+            let firstMeaningfulMs = null;
+            let meta = false;
+            let done = false;
+            let complete = false;
+            let tokenEvents = 0;
+
+            const acceptFrame = (block) => {
+              for (const line of block.split('\n')) {
+                if (!line.startsWith('data:')) continue;
+                const raw = line.slice(5).trim();
+                if (!raw) continue;
+                let event;
+                try { event = JSON.parse(raw); } catch { continue; }
+                if (event?.event === 'meta') meta = true;
+                if (event?.event === 'token' && typeof event.text === 'string') {
+                  tokenEvents += 1;
+                  answer += event.text;
+                  if (firstMeaningfulMs === null && /[\p{L}\p{N}]/u.test(event.text)) {
+                    firstMeaningfulMs = performance.now() - started;
+                  }
+                }
+                if (event?.event === 'done') {
+                  done = true;
+                  complete = event.complete === true;
+                }
+                if (event?.event === 'error') fail(`stream_error_${event.code || 'unknown'}`);
+              }
+            };
+
+            while (true) {
+              const { value, done: readerDone } = await reader.read();
+              if (readerDone) break;
+              buffer += decoder.decode(value, { stream: true }).replace(/\r\n/gu, '\n');
+              let split;
+              while ((split = buffer.indexOf('\n\n')) >= 0) {
+                acceptFrame(buffer.slice(0, split));
+                buffer = buffer.slice(split + 2);
+              }
+            }
+            buffer += decoder.decode();
+            if (buffer.trim()) acceptFrame(buffer);
+
+            const totalMs = performance.now() - started;
+            if (!meta || !done || !complete || tokenEvents < 1 || firstMeaningfulMs === null) fail('stream_incomplete');
+            return { answer: answer.trim(), headersMs, firstMeaningfulMs, totalMs, tokenEvents };
+          }
+
+          const mainBefore = await currentMain();
+          const manifestBefore = await manifestSha();
+          if (mainBefore !== expected) fail(`main_drift_before_${mainBefore}`);
+          if (manifestBefore !== expected) fail(`manifest_drift_before_${manifestBefore}`);
+
+          const conversationId = `gektafinal${runId}`;
+          const turn1 = await stream(firstQuestion, [], conversationId);
+          if (!turn1.answer) fail('turn1_answer_empty');
+
+          const unsafeVerdict = /(?:продавать\s+сейчас\s+выгоднее|выгоднее\s+продавать|лучше\s+(?:сразу\s+)?продать|лучше\s+продавать|хранить\s+выгоднее|выгоднее\s+хранить|лучше\s+хранить)/iu;
+          if (unsafeVerdict.test(turn1.answer)) fail('turn1_unsupported_profitability_verdict');
+
+          const history = [
+            { role: 'user', text: firstQuestion },
+            { role: 'assistant', text: turn1.answer },
+          ];
+          const turn2 = await stream(secondQuestion, history, conversationId);
+          if (!turn2.answer) fail('turn2_answer_empty');
+          if (unsafeVerdict.test(turn2.answer)) fail('turn2_unsupported_profitability_verdict');
+
+          const storage400 = /(?:^|\D)400\s*(?:руб(?:\.|лей|ля)?|₽)(?:\s*\/\s*т|.{0,24}(?:за|на)\s+тонн)/iu;
+          if (!storage400.test(turn2.answer)) fail('turn2_storage_400_rub_per_tonne_missing');
+          if (/^\s*\d+[.)]\s*$/mu.test(turn1.answer) || /^\s*\d+[.)]\s*$/mu.test(turn2.answer)) fail('orphan_numbered_marker');
+
+          const mainAfter = await currentMain();
+          const manifestAfter = await manifestSha();
+          if (mainAfter !== expected) fail(`main_drift_after_${mainAfter}`);
+          if (manifestAfter !== expected) fail(`manifest_drift_after_${manifestAfter}`);
+
+          console.log(`EXPECTED_SHA=${expected}`);
+          console.log(`MAIN_BEFORE=${mainBefore}`);
+          console.log(`MANIFEST_BEFORE=${manifestBefore}`);
+          console.log(`TURN1_HEADERS_MS=${turn1.headersMs.toFixed(1)}`);
+          console.log(`TURN1_FIRST_MEANINGFUL_MS=${turn1.firstMeaningfulMs.toFixed(1)}`);
+          console.log(`TURN1_TOTAL_MS=${turn1.totalMs.toFixed(1)}`);
+          console.log(`TURN1_TOKEN_EVENTS=${turn1.tokenEvents}`);
+          console.log(`TURN1_ANSWER=${oneLine(turn1.answer)}`);
+          console.log(`TURN2_HEADERS_MS=${turn2.headersMs.toFixed(1)}`);
+          console.log(`TURN2_FIRST_MEANINGFUL_MS=${turn2.firstMeaningfulMs.toFixed(1)}`);
+          console.log(`TURN2_TOTAL_MS=${turn2.totalMs.toFixed(1)}`);
+          console.log(`TURN2_TOKEN_EVENTS=${turn2.tokenEvents}`);
+          console.log(`TURN2_ANSWER=${oneLine(turn2.answer)}`);
+          console.log('STORAGE_ARITHMETIC_400_RUB_PER_TONNE=PASS');
+          console.log('UNSUPPORTED_PROFITABILITY_FILTER=PASS');
+          console.log('ORPHAN_NUMBERED_MARKERS=PASS');
+          console.log(`MAIN_AFTER=${mainAfter}`);
+          console.log(`MANIFEST_AFTER=${manifestAfter}`);
+          console.log('LIVE_STORAGE_ACCEPTANCE=PASS');
+          NODE
