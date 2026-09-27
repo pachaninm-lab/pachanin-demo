@@ -143,7 +143,9 @@ const finalPublicGovernancePaths = [
   'scripts/p7-autopilot-guard.test.mjs',
   '.github/workflows/platform-v7-autopilot-guard.yml',
 ];
+const gektaWebReleaseBranch = 'fix/gekta-web-release-compose-20260927';
 const implementationBranches = [
+  gektaWebReleaseBranch,
   'fix/p0-registration-authority-rollover-4637',
   'fix/p0-owner-control-plane-audit-lock-4698',
   'feat/pc-crop-auction-inventory-authority-4997',
@@ -1827,4 +1829,111 @@ test('SBOM isolated pnpm commands preserve the setup-node cache store root', () 
   assert.equal((workflow.match(/install --frozen-lockfile --ignore-scripts/gu) ?? []).length, 2);
   assert.equal((workflow.match(/--validate/gu) ?? []).length, 3);
   assert.equal((workflow.match(/if-no-files-found: error/gu) ?? []).length, 2);
+});
+
+
+test('Gekta web release scope is exactly the two release files', () => {
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  assert.deepEqual(state.approvedConcurrentScopes[gektaWebReleaseBranch], [
+    'scripts/production-web-remote-entrypoint.sh',
+    'scripts/check-production-web-hardening.mjs',
+  ]);
+});
+
+test('Gekta web release uses the accepted base in both workflow entry points', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
+  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
+    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
+  const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
+    .split('  standard_validation:')[0];
+  assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${gektaWebReleaseBranch}'`));
+  assert.ok(trusted.includes(`|${gektaWebReleaseBranch}|`));
+  assert.ok(prHead.includes(`github.head_ref == '${gektaWebReleaseBranch}'`));
+  assert.ok(prHead.includes(`|${gektaWebReleaseBranch}|`));
+  assert.ok(standard.includes(`github.head_ref != '${gektaWebReleaseBranch}'`));
+  assert.ok(trusted.includes('ref: ${{ github.event.pull_request.base.sha }}'));
+  assert.ok(prHead.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh"'));
+  const guardJob = workflow.split('  guard:')[1].split('    needs:')[0];
+  assert.ok(guardJob.includes(`github.head_ref == '${gektaWebReleaseBranch}'`));
+});
+
+test('Gekta web release cannot inherit unrelated global task scope', (t) => {
+  const context = fixture(t, gektaWebReleaseBranch);
+  write(context.root, 'README.md', 'global task outside the two-file release scope\n');
+  commit(context.root, 'attempt unrelated global task file');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Files outside current autopilot scope/u);
+});
+
+
+function gektaWebBindingFixture(t) {
+  const branch = 'governance/gekta-web-release-binding-20260927';
+  const context = fixture(t, branch);
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+  state.approvedConcurrentScopes[branch] = [
+    'scripts/p7-autopilot-guard.sh',
+    'scripts/p7-autopilot-guard.test.mjs',
+    '.github/workflows/platform-v7-autopilot-guard.yml',
+    statePath,
+  ];
+  write(context.root, statePath, JSON.stringify(state));
+  commit(context.root, 'accepted Gekta binding scope');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  return context;
+}
+
+test('Gekta binding admits exactly the two implementation paths from accepted base', (t) => {
+  const context = gektaWebBindingFixture(t);
+  const file = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, file), 'utf8'));
+  state.approvedConcurrentScopes[gektaWebReleaseBranch] = [
+    'scripts/production-web-remote-entrypoint.sh',
+    'scripts/check-production-web-hardening.mjs',
+  ];
+  write(context.root, file, JSON.stringify(state));
+  commit(context.root, 'bounded Gekta binding');
+  const result = runGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+
+for (const mutation of ['own scope', 'global scope', 'extra implementation path', 'other branch']) {
+  test(`Gekta binding rejects ${mutation} from PR head`, (t) => {
+    const context = gektaWebBindingFixture(t);
+    const file = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, file), 'utf8'));
+    state.approvedConcurrentScopes[gektaWebReleaseBranch] = [
+      'scripts/production-web-remote-entrypoint.sh',
+      'scripts/check-production-web-hardening.mjs',
+    ];
+    if (mutation === 'own scope') state.approvedConcurrentScopes[context.implementationBranch].push('UNAPPROVED.txt');
+    if (mutation === 'global scope') state.allowedCurrentScope.push('UNAPPROVED.txt');
+    if (mutation === 'extra implementation path') state.approvedConcurrentScopes[gektaWebReleaseBranch].push('UNAPPROVED.txt');
+    if (mutation === 'other branch') state.approvedConcurrentScopes['unrelated/branch'] = ['UNAPPROVED.txt'];
+    write(context.root, file, JSON.stringify(state));
+    commit(context.root, `attempt Gekta binding ${mutation}`);
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /GEKTA_WEB_BINDING_STATE_MUTATION/u);
+  });
+}
+
+test('Gekta binding branch has exact trusted-base workflow routing', () => {
+  const branch = 'governance/gekta-web-release-binding-20260927';
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
+  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
+    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
+  const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
+    .split('  standard_validation:')[0];
+  assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${branch}'`));
+  assert.ok(trusted.includes(`|${branch}|`));
+  assert.ok(prHead.includes(`github.head_ref == '${branch}'`));
+  assert.ok(prHead.includes(`|${branch}|`));
+  assert.ok(standard.includes(`github.head_ref != '${branch}'`));
+  const guard = fs.readFileSync(sourceGuard, 'utf8');
+  assert.ok(guard.includes(`GEKTA_WEB_BINDING_BRANCH="${branch}"`));
+  assert.ok(guard.includes('GEKTA_WEB_BINDING_STATE_MUTATION'));
 });
