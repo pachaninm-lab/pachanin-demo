@@ -348,7 +348,9 @@ const PRECOMMIT_REJECTIONS: Readonly<Record<number, readonly string[]>> = {
     'INTEGRATION_HUMAN_REASON_REQUIRED',
     'INTEGRATION_ACTION_NOT_AVAILABLE',
   ],
-  409: ['INTEGRATION_STALE_VERSION'],
+  // A stale version can follow an earlier commit of the same key: the current
+  // reconciliation repository checks aggregate version before replay lookup.
+  // Without exact-command evidence, keep this outcome UNKNOWN.
   428: ['INTEGRATION_IF_MATCH_REQUIRED'],
 };
 

@@ -240,6 +240,7 @@ describe('Integration Control Tower command outcome in the mounted screen', () =
     { name: 'unverifiable 2xx', reply: async () => ({ ok: true, json: async () => ({ ok: true }) }) },
     { name: 'thrown POST', reply: async () => { throw new TypeError('connection lost'); } },
     { name: 'untyped 409', reply: async () => ({ ok: false, status: 409, json: async () => ({}) }) },
+    { name: 'typed stale 409', reply: async () => ({ ok: false, status: 409, json: async () => ({ code: 'INTEGRATION_STALE_VERSION' }) }) },
     { name: 'mismatched typed 409', reply: async () => ({ ok: false, status: 409, json: async () => ({ code: 'CSRF_REJECTED' }) }) },
   ])('keeps $name UNKNOWN after refresh and prevents a second command', async ({ reply }) => {
     const record = controlTowerRecord();
@@ -267,6 +268,7 @@ describe('Integration Control Tower command outcome in the mounted screen', () =
     expect(JSON.parse(markerAtPost!).nonce).toMatch(/^integration-interlock-/);
     expect(markerAtPost).not.toContain('test-csrf');
     expect(markerAtPost).not.toContain('Сверить серверную запись');
+    expect(window.sessionStorage.getItem('pc.integration-control-tower.pending-command.v1')).toBe(markerAtPost);
     expect(screen.getByRole('button', { name: 'Запустить сверку' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Обновить' }));
     await waitFor(() => expect(fetchMock.mock.calls.filter(([, options]) => options?.method !== 'POST')).toHaveLength(4));
@@ -276,7 +278,7 @@ describe('Integration Control Tower command outcome in the mounted screen', () =
   });
 
   it.each([
-    { name: 'stale version', status: 409, code: 'INTEGRATION_STALE_VERSION', retry: true },
+    { name: 'missing If-Match', status: 428, code: 'INTEGRATION_IF_MATCH_REQUIRED', retry: true },
     { name: 'forbidden JIT authority', status: 403, code: 'INTEGRATION_JIT_AUTHORITY_REQUIRED', retry: false },
   ])('accepts typed precommit $name as a rejection, not an unknown command', async ({ status, code, retry }) => {
     const record = controlTowerRecord();
@@ -305,7 +307,7 @@ describe('Integration Control Tower command outcome in the mounted screen', () =
   it('restores a generic same-tab interlock after remount and hides identifiers after session rotation', async () => {
     const record = controlTowerRecord();
     const fetchMock = vi.fn(async (_url: string, options?: RequestInit) => options?.method === 'POST'
-      ? { ok: false, status: 409, json: async () => ({}) }
+      ? { ok: false, status: 409, json: async () => ({ code: 'INTEGRATION_STALE_VERSION' }) }
       : { ok: true, status: 200, json: async () => _url.includes('?limit=')
         ? { items: [record], nextCursor: null }
         : record });
@@ -366,7 +368,7 @@ describe('Integration Control Tower command outcome in the mounted screen', () =
   it('keeps a typed precommit rejection blocked if the stored marker cannot be removed', async () => {
     const record = controlTowerRecord();
     const fetchMock = vi.fn(async (_url: string, options?: RequestInit) => options?.method === 'POST'
-      ? { ok: false, status: 409, json: async () => ({ code: 'INTEGRATION_STALE_VERSION' }) }
+      ? { ok: false, status: 428, json: async () => ({ code: 'INTEGRATION_IF_MATCH_REQUIRED' }) }
       : { ok: true, status: 200, json: async () => _url.includes('?limit=')
         ? { items: [record], nextCursor: null }
         : record });
@@ -449,8 +451,9 @@ describe('Integration Control Tower command outcome in the mounted screen', () =
 
   it.each([
     { name: 'UNKNOWN', failRemoval: false, reply: { ok: false, status: 409, json: async () => ({}) } },
-    { name: 'typed rejection', failRemoval: false, reply: { ok: false, status: 409, json: async () => ({ code: 'INTEGRATION_STALE_VERSION' }) } },
-    { name: 'typed rejection with denied marker removal', failRemoval: true, reply: { ok: false, status: 409, json: async () => ({ code: 'INTEGRATION_STALE_VERSION' }) } },
+    { name: 'typed stale version', failRemoval: false, reply: { ok: false, status: 409, json: async () => ({ code: 'INTEGRATION_STALE_VERSION' }) } },
+    { name: 'typed precommit rejection', failRemoval: false, reply: { ok: false, status: 428, json: async () => ({ code: 'INTEGRATION_IF_MATCH_REQUIRED' }) } },
+    { name: 'typed precommit rejection with denied marker removal', failRemoval: true, reply: { ok: false, status: 428, json: async () => ({ code: 'INTEGRATION_IF_MATCH_REQUIRED' }) } },
     { name: 'verified receipt', failRemoval: false, reply: { ok: true, status: 200, json: async () => ({
       kind: 'APPLIED', adapterCode: 'FGIS_GRAIN', correlationId: '',
       auditEventId: 'audit-1', outboxEntryId: 'outbox-1', aggregateVersion: '2',
@@ -490,13 +493,13 @@ describe('Integration Control Tower command outcome in the mounted screen', () =
       ? { ...reply, json: async () => ({ ...await reply.json(), correlationId: oldCommand.correlationId }) }
       : reply));
     const warning = document.querySelector('[data-command-outcome="UNKNOWN"]');
-    if (name === 'UNKNOWN' || failRemoval) expect(warning).toHaveTextContent('Новые команды в этой вкладке заблокированы');
+    if (name === 'UNKNOWN' || name === 'typed stale version' || failRemoval) expect(warning).toHaveTextContent('Новые команды в этой вкладке заблокированы');
     if (warning) expect(warning).toHaveTextContent('Новые команды в этой вкладке заблокированы');
     expect(document.body).not.toHaveTextContent(oldCommand.commandId);
     expect(document.body).not.toHaveTextContent(oldCommand.correlationId);
     expect(screen.queryByText('INTEGRATION_STALE_VERSION')).not.toBeInTheDocument();
     expect(screen.queryByText(/Сервер подтвердил запись команды в audit\/outbox/)).not.toBeInTheDocument();
-    if (name === 'UNKNOWN' || failRemoval) {
+    if (name === 'UNKNOWN' || name === 'typed stale version' || failRemoval) {
       await waitFor(() => expect(screen.getByRole('button', { name: 'Запустить сверку' })).toBeDisabled());
     } else {
       await waitFor(() => expect(screen.getByRole('button', { name: 'Запустить сверку' })).toBeEnabled());
