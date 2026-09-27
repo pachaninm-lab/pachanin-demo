@@ -48,9 +48,12 @@ export const EXACT_CURRENT_CLAIM_PATTERN = /(?:\d{1,3}(?:[ \u00A0\u202F]\d{3})*(
 // name an active ingredient/product as the user's treatment instruction.
 export const CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN = /(?:применя\w*|использ\w*|обработ\w*|подойдут|рекоменду\w*|выбира\w*|назнач\w*|apply|use|choose|recommend|treat|使用|施用|选择|推荐)[^.!?。！？\n]{0,200}(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|product|fungicide|herbicide|insecticide|药剂|杀菌剂)/iu;
 export const UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_PATTERN = /(?:применя\w*|использ\w*|обработ\w*|подойдут|рекоменду\w*|выбира\w*|назнач\w*|apply|use|choose|recommend|treat|使用|施用|选择|推荐)[^.!?。！？\n]{0,160}(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|product|fungicide|herbicide|insecticide|药剂|杀菌剂)[^.!?。！？\n]{0,120}(?:на\s+основе|с\s+содержани\w*|с\s+действующ\w*\s+веществ\w*|\bс\s+[\p{L}-]{4,}(?:\s+или\s+[\p{L}-]{4,})?|containing|active\s+ingredient|with\s+[A-Za-z][A-Za-z-]{3,}|有效成分|含有)/iu;
+export const UNGROUNDED_CROP_PROTECTION_DOSE_PATTERN = /(?:в\s+доз\w*|доз\w*\s*(?:препарат\w*)?|норм\w*\s+(?:расхода|применения)|dose|application\s+rate|剂量)[^.!?。！？\n]{0,80}\d{1,4}(?:[.,]\d{1,3})?(?:\s*[–—-]\s*\d{1,4}(?:[.,]\d{1,3})?)?\s*(?:л|мл|г|кг|l|ml|g|kg)\s*(?:\/|на\s*)?(?:га|ha)/iu;
+export const AUTONOMOUS_PLATFORM_DECISION_PATTERN = /(?:платформ\w*|систем\w*|transparent\s+price|platform|平台)[^.!?。！？\n]{0,180}(?:примет|принимает|вынесет|выносит|решит|определит|makes?|decides?|determine|决定|裁定)[^.!?。！？\n]{0,80}(?:решени\w*|исход\w*|спор\w*|результат\w*|decision|outcome|dispute|结果|争议)/iu;
 
 export function isUngroundedCropProtectionPrescription(block: string): boolean {
-  return UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_PATTERN.test(block);
+  return UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_PATTERN.test(block)
+    || UNGROUNDED_CROP_PROTECTION_DOSE_PATTERN.test(block);
 }
 
 export function stripUngroundedCropProtectionPrescriptions(
@@ -131,9 +134,11 @@ export function platformGroundingVerdict(
     (pattern) => pattern.test(normalized) && !pattern.test(authority),
   );
   const unsupportedLiveClaim = LIVE_CAPABILITY_PATTERN.test(normalized) && !LIVE_CAPABILITY_PATTERN.test(authority);
+  const autonomousDecision = AUTONOMOUS_PLATFORM_DECISION_PATTERN.test(normalized);
   if (unsupportedEntity) flags.push('UNSUPPORTED_PLATFORM_ENTITY_REMOVED');
   if (unsupportedLiveClaim) flags.push('UNSUPPORTED_LIVE_CAPABILITY_REMOVED');
-  return { keep: !unsupportedEntity && !unsupportedLiveClaim, flags };
+  if (autonomousDecision) flags.push('AUTONOMOUS_PLATFORM_DECISION_REMOVED');
+  return { keep: !unsupportedEntity && !unsupportedLiveClaim && !autonomousDecision, flags };
 }
 
 export function enforcePlatformGrounding(
