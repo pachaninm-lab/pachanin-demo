@@ -136,6 +136,35 @@ describe('short contextual follow-ups keep the previous subject', () => {
   });
 });
 
+describe('agricultural storage economics outranks ambiguous retention wording', () => {
+  const CASES = [
+    ['ru', 'Срок хранения два месяца. Насколько должна вырасти цена, чтобы покрыть только хранение?'],
+    ['en', 'Storage is two months. How much must the price rise to cover storage only?'],
+    ['zh', '储存两个月。价格需要上涨多少才能只覆盖仓储费？'],
+  ] as const;
+
+  it.each(CASES)('%s storage economics stays in the agricultural model route', (locale, question) => {
+    const outcome = routeAssistantQuestion(question, emptyRoutingContext(locale, { onPlatformSurface: true }));
+    expect(outcome.decision).toBe('ALLOW_DIRECT');
+    expect(outcome.domain).toBe('agro');
+    expect(outcome.section).toBeNull();
+    expect(outcome.signals).toContain('agro_term');
+    expect(outcome.signals).not.toContain('platform_term');
+  });
+
+  it.each([
+    ['Сколько хранится документ?', 'retention'],
+    ['Какой срок хранения документов?', 'retention'],
+    ['Где хранятся данные?', 'data_protection'],
+  ] as const)('keeps explicit platform retention question %s on platform authority', (question, section) => {
+    const outcome = routeAssistantQuestion(question, publicSurface());
+    expect(outcome.decision).toBe('ALLOW_DIRECT');
+    expect(outcome.domain).toBe('platform');
+    expect(outcome.section).toBe(section);
+    expect(outcome.signals).toContain('platform_term');
+  });
+});
+
 describe('adjacent business questions are admitted', () => {
   const ADJACENT: readonly string[] = [
     'Как оформить субсидию на технику?',

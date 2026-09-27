@@ -181,6 +181,22 @@ const AGRO_BUSINESS_TERMS = [
   '结算', '预付', '账期', '争议', '索赔', '仲裁', '罚金', '发票', '运单', '粮库', '水分', '质量',
 ] as const;
 
+/**
+ * Storage economics is agricultural even when wording overlaps the platform's
+ * document-retention vocabulary. The override is deliberately narrow: a
+ * storage term and an economic term must both be present, and explicit
+ * platform/document/data-retention subjects keep platform routing authority.
+ */
+const STORAGE_ECONOMICS_STORAGE = /(?:хранен\w*|хранить|storage|store|holding|仓储|储存)/iu;
+const STORAGE_ECONOMICS_VALUE = /(?:цен\w*|стоим\w*|руб\w*|₽|прода\w*|выгод\w*|окуп\w*|прибыл\w*|покры\w*|price|cost|rubl\w*|sell|profit|break[\s-]?even|cover|价格|成本|出售|收益|回本|覆盖)/iu;
+const EXPLICIT_PLATFORM_RETENTION = /(?:документ\w*|данн\w*|персональн\w*|платформ\w*|систем\w*|сервис\w*|document\w*|\bdata\b|personal[\s-]+data|data[\s-]+retention|platform\w*|system\w*|文件|个人数据|平台|系统)/iu;
+
+function isAgriculturalStorageEconomics(normalized: string): boolean {
+  return STORAGE_ECONOMICS_STORAGE.test(normalized)
+    && STORAGE_ECONOMICS_VALUE.test(normalized)
+    && !EXPLICIT_PLATFORM_RETENTION.test(normalized);
+}
+
 /** Adjacent topics: useful to an agribusiness reader without being the core domain. */
 const BUSINESS_ADJACENT_TERMS = [
   'налог*', 'ндс', 'бухгалтер*', 'учет*', 'отчетност*', 'финанс*', 'бюджет*', 'себестоимост*',
@@ -466,14 +482,15 @@ export function routeAssistantQuestion(
   const hasPlatformSubject = containsAny(normalized, PLATFORM_SUBJECTS);
   const hasAgroBusiness = containsAny(normalized, AGRO_BUSINESS_TERMS);
   const hasAdjacent = containsAny(normalized, BUSINESS_ADJACENT_TERMS);
-  const directSection = matchSection(normalized);
+  const storageEconomics = isAgriculturalStorageEconomics(normalized);
+  const directSection = storageEconomics ? null : matchSection(normalized);
 
   // An agrarian object beats an ambiguous security verb. "Как защитить пшеницу"
   // and "Как защищаются данные" share a verb and nothing else; only the second
   // one is a platform question.
   const agronomyWins = hasAgroObject && !hasPlatformSubject;
 
-  if (hasAgroObject || hasAgroBusiness) signals.push('agro_term');
+  if (hasAgroObject || hasAgroBusiness || storageEconomics) signals.push('agro_term');
   if (directSection && !agronomyWins) signals.push('platform_term');
   if (hasAdjacent) signals.push('business_term');
 
@@ -520,6 +537,13 @@ export function routeAssistantQuestion(
 
   // Direct agriculture: answered as agriculture, not routed into platform copy.
   if (agronomyWins) {
+    return outcome('ALLOW_DIRECT', { domain: hasAdjacent ? 'mixed' : 'agro', signals, section: null });
+  }
+
+  // Storage economics wins only over the ambiguous retention phrase. Explicit
+  // platform/document/data subjects were excluded by the helper above, while
+  // safety already ran before this routing decision.
+  if (storageEconomics) {
     return outcome('ALLOW_DIRECT', { domain: hasAdjacent ? 'mixed' : 'agro', signals, section: null });
   }
 
