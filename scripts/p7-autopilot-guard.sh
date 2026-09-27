@@ -43,6 +43,7 @@ PUBLIC_REGISTRATION_PARTICIPATION_BRANCH="fix/public-registration-participation-
 PRODUCTION_MOBILE_HANDOFF_BRANCH="fix/production-mobile-controller-handoff-20260927"
 READINESS_QUEUE_JOB_GATE_BRANCH="fix/readiness-queue-job-gate-20260927"
 PRODUCT_BUYER_HOME_BRANCH="ux/buyer-first-customer-home-20260925"
+PUBLIC_WEBKIT_I18N_BRANCH="fix/public-webkit-i18n-route-lifecycle-20260927"
 PRODUCT_BUYER_ADMISSION_BRANCH="governance/product-buyer-home-admission-20260925"
 PRODUCT_SCOPE_ADMISSION_BRANCH="governance/product-bank-fgis-ux-source-admission-20260924"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
@@ -50,7 +51,7 @@ CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 is_immutable_scope_branch() {
   case "$1" in
     "fix/gekta-docker-diagnostic-route-20260927"|"fix/gekta-web-release-recovery-20260927"|"fix/gekta-answer-copy-20260927"|"fix/gekta-han-stream-20260927" ) return 0 ;;
-    "$IR20_BINDING_PREREQUISITE_BRANCH"|"$IR20_BINDING_IMPLEMENTATION_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_BRANCH"|"$PRODUCT_BANK_COPY_BRANCH"|"$PRODUCT_ZSN_SOURCE_BRANCH"|"$PRODUCT_NEXT_ACTION_BRANCH"|"$PRODUCT_DEAL_COMMAND_BRANCH"|"$PUBLIC_REGISTRATION_PARTICIPATION_BRANCH"|"$PRODUCTION_MOBILE_HANDOFF_BRANCH"|"$READINESS_QUEUE_JOB_GATE_BRANCH"|"$PRODUCT_BUYER_HOME_BRANCH"|"$PRODUCT_BUYER_ADMISSION_BRANCH"|"$PRODUCT_SCOPE_ADMISSION_BRANCH") return 0 ;;
+    "$IR20_BINDING_PREREQUISITE_BRANCH"|"$IR20_BINDING_IMPLEMENTATION_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_BRANCH"|"$PRODUCT_BANK_COPY_BRANCH"|"$PRODUCT_ZSN_SOURCE_BRANCH"|"$PRODUCT_NEXT_ACTION_BRANCH"|"$PRODUCT_DEAL_COMMAND_BRANCH"|"$PUBLIC_REGISTRATION_PARTICIPATION_BRANCH"|"$PRODUCTION_MOBILE_HANDOFF_BRANCH"|"$READINESS_QUEUE_JOB_GATE_BRANCH"|"$PRODUCT_BUYER_HOME_BRANCH"|"$PUBLIC_WEBKIT_I18N_BRANCH"|"$PRODUCT_BUYER_ADMISSION_BRANCH"|"$PRODUCT_SCOPE_ADMISSION_BRANCH") return 0 ;;
     "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$W1_PRODUCTION_ACCEPTANCE_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH"|"$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH"|"$POISON_ISOLATION_IMPLEMENTATION_BRANCH"|"$OWNER_HANDOFF_IMPLEMENTATION_BRANCH"|"$QWEN_FAILED_EVIDENCE_BRANCH"|"$KIND_MINIO_IMAGE_SOURCE_BRANCH"|"$GITLEAKS_RELEASE_ATTESTATION_BRANCH"|"$FINAL_PUBLIC_HOME_BRANCH"|"$FINAL_PUBLIC_MARKET_BRANCH"|"$FINAL_PUBLIC_REGISTRATION_BRANCH"|"$FINAL_PUBLIC_HOW_BRANCH"|"$FINAL_PUBLIC_PRODUCT_COPY_BRANCH"|"$FINAL_PUBLIC_RELEASE_BRANCH"|"$FINAL_PUBLIC_GOVERNANCE_BRANCH") return 0 ;;
     *) return 1 ;;
   esac
@@ -491,7 +492,11 @@ const gektaRecoveryScopes = {
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
-    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts"
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+    "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+    "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts"
   ]
 };
 let scopes;
@@ -537,6 +542,76 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     throw new Error(`P7_IMMUTABLE_SCOPE: cannot load ${baseRef}:${stateFile}: ${message}`);
   }
   scopes = state.approvedConcurrentScopes?.[branch];
+
+  if (branch === 'governance/pc-crop-inventory-reservation-scope-4997') {
+    // The already-admitted writer lane may extend the buyer slice only by this
+    // reviewed route composition and rendered acceptance trio. Preserve every
+    // unrelated state byte and bind the new coordination record to trusted main.
+    const { isDeepStrictEqual } = require('node:util');
+    const headRef = String(process.env.HEAD_REF || 'HEAD');
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${statePath}`], { encoding: 'utf8' }));
+    const key = 'ux-buyer-first-customer-route-20260927-coordination';
+    const implementationBranch = 'ux/buyer-first-customer-home-20260925';
+    const originalKey = 'ux-buyer-first-customer-home-20260925-coordination';
+    const buyerScopeChanged = !isDeepStrictEqual(
+      candidate.approvedConcurrentScopes?.[implementationBranch],
+      state.approvedConcurrentScopes?.[implementationBranch],
+    ) || !isDeepStrictEqual(
+      candidate.coordinationAdmissions?.[originalKey]?.allowedPaths,
+      state.coordinationAdmissions?.[originalKey]?.allowedPaths,
+    );
+    const trustedAdmissions = state.coordinationAdmissions || {};
+    const candidateAdmissions = candidate.coordinationAdmissions || {};
+    const routeRecordAlreadyAdmitted = Object.hasOwn(trustedAdmissions, key);
+    if (routeRecordAlreadyAdmitted &&
+        (!Object.hasOwn(candidateAdmissions, key) ||
+         !isDeepStrictEqual(candidateAdmissions[key], trustedAdmissions[key]))) {
+      throw new Error('BUYER_ROUTE_ADMISSION_STATE_MUTATION');
+    }
+    const routeRecordAdded = !routeRecordAlreadyAdmitted && Object.hasOwn(candidateAdmissions, key);
+    if (buyerScopeChanged || routeRecordAdded) {
+      const originalPaths = [
+        'apps/web/components/platform-v7/FirstCustomerWorkspace.tsx',
+        'apps/web/components/platform-v7/FirstCustomerWorkspace.module.css',
+        'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts',
+        'apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx',
+        'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json',
+      ];
+      const additions = [
+        'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx',
+        'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts',
+        'apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts',
+      ];
+      if (!isDeepStrictEqual(state.approvedConcurrentScopes?.[implementationBranch], originalPaths) ||
+          !isDeepStrictEqual(state.coordinationAdmissions?.[originalKey]?.allowedPaths, originalPaths)) {
+        throw new Error('BUYER_ROUTE_TRUSTED_BASE_SCOPE_MISMATCH');
+      }
+      const paths = [...originalPaths.slice(0, -1), ...additions, originalPaths.at(-1)];
+      const expected = structuredClone(state);
+      expected.approvedConcurrentScopes[implementationBranch] = paths;
+      expected.coordinationAdmissions[originalKey].allowedPaths = paths;
+      expected.coordinationAdmissions[key] = {
+        owner: 'ACCOUNT_2_PRODUCT',
+        purpose: 'Render the admitted server-scoped buyer home at the verified buyer root and prove the actual route across RU/EN/ZH and desktop/mobile browsers.',
+        authorityBaseExactMain: execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim(),
+        implementationBranch,
+        allowedPaths: additions,
+        requiredTruthBoundaries: [
+          'Only the server-verified buyer root renders its server page; other role roots and the controlled owner preview remain separate.',
+          'A real authenticated buyer route is checked in RU/EN/ZH on desktop and mobile; component source tests alone do not prove rendering.',
+          'Buyer queue order stays navigation, with UNKNOWN required action and no bank or regulatory finality.',
+        ],
+        forbiddenAuthority: [
+          'API/backend/domain/DB/RLS/tenant/role/session or priority authority',
+          'other role root or public route behavior',
+          'CI/security/readiness gate weakening',
+        ],
+        teamHubDependency: '#5610 exact-head P1 route composition review; Team Hub #5469',
+      };
+      if (!isDeepStrictEqual(candidate, expected)) throw new Error('BUYER_ROUTE_ADMISSION_STATE_MUTATION');
+    }
+  }
 
   if (branch === 'governance/product-buyer-home-admission-20260925') {
     const { isDeepStrictEqual } = require('node:util');
@@ -662,7 +737,42 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     const baseline = structuredClone(state);
     if (!baseline.coordinationAdmissions) baseline.coordinationAdmissions = {};
     const baseSha = execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim();
-    for (const [implementationBranch, { key, paths, purpose, requiredTruthBoundaries, forbiddenAuthority, teamHubDependency }] of expected) {
+    const priorAdmissionsAccepted = [...expected].every(([implementationBranch, { key }]) =>
+      Object.hasOwn(state.approvedConcurrentScopes, implementationBranch) &&
+      Object.hasOwn(state.coordinationAdmissions || {}, key));
+    if (priorAdmissionsAccepted) {
+      const implementationBranch = 'fix/public-webkit-i18n-route-lifecycle-20260927';
+      const key = 'public-webkit-i18n-route-lifecycle-20260927';
+      const paths = ['apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts'];
+      if (Object.hasOwn(state.approvedConcurrentScopes, implementationBranch) ||
+          Object.hasOwn(state.coordinationAdmissions || {}, key)) {
+        throw new Error('PRODUCT_WEBKIT_ADMISSION_ALREADY_PRESENT');
+      }
+      baseline.approvedConcurrentScopes[implementationBranch] = paths;
+      baseline.coordinationAdmissions[key] = {
+        owner: 'ACCOUNT_2_PRODUCT',
+        purpose: 'Isolate public production i18n route navigation in a fresh page lifecycle and verify realistic login-to-register navigation after the measured WebKit EN 320 ChunkLoadError.',
+        authorityBaseExactMain: baseSha,
+        acceptedGuardPr: 5669,
+        acceptedGuardMerge: baseSha,
+        implementationBranch,
+        allowedPaths: paths,
+        requiredTruthBoundaries: [
+          'The accepted trusted-base immutable guard and both PR entry points permit this implementation ref only the exact browser test path; candidate state cannot expand it.',
+          'Preserve all eight public routes, EN/ZH localization, RU homepage design gates, ten viewport-locale combinations, zero pageerror, response success, Chinese typography, mobile target geometry and horizontal reflow assertions.',
+          'Use an independent page lifecycle for each direct public route and a separate real user click from login to register at 320 px; do not dismiss an actual click-path product error as test harness noise.',
+          'The previous WebKit EN 320 ChunkLoadError is unresolved until Chromium and WebKit exact-deployed-OCI live production i18n acceptance passes; source CI alone does not establish production acceptance.',
+          'Do not broaden to BANKS, FGIS, provider credentials, backend/runtime/locale product code, other tests or release workflow in this one-file implementation.',
+        ],
+        forbiddenAuthority: [
+          'Candidate-owned state or scope extension in the implementation PR',
+          'Product code/API/DB/tenant/role/bank/provider/FGIS mutation',
+          'CI/security/readiness weakening, fabricated acceptance or automatic merge',
+        ],
+        teamHubDependency: '#5666; accepted guard #5669; Team Hub #5469',
+      };
+      if (!isDeepStrictEqual(candidate, baseline)) throw new Error('PRODUCT_WEBKIT_ADMISSION_STATE_MUTATION');
+    } else for (const [implementationBranch, { key, paths, purpose, requiredTruthBoundaries, forbiddenAuthority, teamHubDependency }] of expected) {
       if (Object.hasOwn(state.approvedConcurrentScopes, implementationBranch) ||
           Object.hasOwn(state.coordinationAdmissions || {}, key)) {
         throw new Error('PRODUCT_SCOPE_ADMISSION_ALREADY_PRESENT');

@@ -30,6 +30,7 @@ import {
   SECRET_PATTERN,
   WRITE_CLAIM_PATTERN,
   type PublicAnswerMode,
+  type PublicLocale,
   type PublicGrounding,
 } from './restricted-public-qwen.safety';
 import { stripInternalModelTrace, undecidedTailStart } from './restricted-public-qwen.internal-trace';
@@ -47,6 +48,7 @@ export interface GateCommit {
 
 export interface StreamingAnswerGateOptions {
   readonly answerMode: PublicAnswerMode;
+  readonly locale: PublicLocale;
   readonly currentDataRequired: boolean;
   readonly grounding: PublicGrounding;
   /**
@@ -58,7 +60,7 @@ export interface StreamingAnswerGateOptions {
 }
 
 const DEFAULT_MAX_PENDING_CHARS = 3_000;
-const BLOCK_BOUNDARY = /(?:[.!?。！？][\s]|\n)\s*$/u;
+const BLOCK_BOUNDARY = /(?:[.!?]\s|[。！？]|\n)\s*$/u;
 /**
  * A progressive fragment shorter than this is rarely useful to a reader and
  * increases frame churn. 48 characters is deliberately independent of locale
@@ -66,12 +68,13 @@ const BLOCK_BOUNDARY = /(?:[.!?。！？][\s]|\n)\s*$/u;
  */
 const GENERAL_AGRO_PROGRESSIVE_MIN_CHARS = 48;
 /**
- * WRITE_CLAIM has at most 40 arbitrary characters between actor and action; all
- * secret signatures become decidable within far less than this. Keeping 96
- * published characters as lookbehind therefore preserves detection when one
- * sentence is released through several progressive fragments.
+ * WRITE_CLAIM has at most 40 arbitrary characters between actor and action.
+ * A 320-character lookbehind also covers the longest crop-prescription pattern
+ * across progressive fragments; secret signatures are shorter.
  */
-const PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS = 96;
+const PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS = 320;
+const HAN_CHARACTER = /\p{Script=Han}/u;
+const CHINESE_PRESCRIPTION_PREFIX = /(?:使用|施用|选择|推荐)[^.!?。！？\n]{0,200}$|[使施选推]$/u;
 
 const EMPTY_COMMIT: GateCommit = Object.freeze({ text: '', flags: Object.freeze([]), violation: null });
 
@@ -81,6 +84,7 @@ export class StreamingAnswerGate {
   private violationState: GateViolation | null = null;
   private partialBlockOpen = false;
   private progressiveSafetyContext = '';
+  private progressiveJoiner = ' ';
   private readonly authority: string;
   private readonly maxPendingChars: number;
 
@@ -133,7 +137,7 @@ export class StreamingAnswerGate {
         head = head.slice(0, lastBoundary);
         consumed = lastBoundary;
       } else if (progressiveAllowed) {
-        const wordBoundary = progressiveWordBoundary(head);
+        const wordBoundary = progressiveWordBoundary(head, this.options.locale);
         if (wordBoundary <= 0) return EMPTY_COMMIT;
         head = head.slice(0, wordBoundary);
         consumed = wordBoundary;
@@ -150,12 +154,22 @@ export class StreamingAnswerGate {
 
     if (progressiveFragment) {
       const candidate = this.partialBlockOpen && this.progressiveSafetyContext
-        ? `${this.progressiveSafetyContext} ${head}`
+        ? `${this.progressiveSafetyContext}${this.progressiveJoiner}${head}`
         : head;
-      if (CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN.test(candidate)) return EMPTY_COMMIT;
+      if (CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN.test(candidate)
+        || (this.options.locale === 'zh' && CHINESE_PRESCRIPTION_PREFIX.test(candidate))) return EMPTY_COMMIT;
     }
 
     this.pending = this.pending.slice(consumed);
+
+    // Sanitization trims a new fragment's leading whitespace. Preserve that
+    // boundary, including a delta containing only whitespace, until text is
+    // committed. Keep the safety lookbehind across the same boundary.
+    if (this.partialBlockOpen && /^\s/u.test(head)) {
+      this.progressiveJoiner = /^\s*\n/u.test(head) || this.progressiveJoiner === '\n'
+        ? '\n'
+        : ' ';
+    }
 
     const flags: string[] = [];
     const kept: string[] = [];
@@ -167,7 +181,7 @@ export class StreamingAnswerGate {
       // Re-check the bounded tail already published with the new fragment so a
       // prohibited claim cannot be assembled across the transport boundary.
       const safetyBlock = this.partialBlockOpen && this.progressiveSafetyContext
-        ? `${this.progressiveSafetyContext} ${block}`
+        ? `${this.progressiveSafetyContext}${this.progressiveJoiner}${block}`
         : block;
 
       // A block claiming an executed write, or carrying secret-shaped material,
@@ -198,16 +212,17 @@ export class StreamingAnswerGate {
     if (kept.length === 0) return { text: '', flags: Object.freeze([...new Set(flags)]), violation: null };
 
     const joined = kept.join('\n');
-    const separator = this.published ? (this.partialBlockOpen ? ' ' : '\n') : '';
+    const separator = this.published ? (this.partialBlockOpen ? this.progressiveJoiner : '\n') : '';
     const text = `${separator}${joined}`;
     this.published += text;
 
     if (progressiveFragment) {
       const sentenceContext = this.partialBlockOpen && this.progressiveSafetyContext
-        ? `${this.progressiveSafetyContext} ${joined}`
+        ? `${this.progressiveSafetyContext}${this.progressiveJoiner}${joined}`
         : joined;
       this.progressiveSafetyContext = sentenceContext.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
       this.partialBlockOpen = true;
+      this.progressiveJoiner = /\s$/u.test(head) ? ' ' : '';
     } else {
       this.progressiveSafetyContext = '';
       this.partialBlockOpen = false;
@@ -228,7 +243,7 @@ export class StreamingAnswerGate {
 /** End index of the last complete block in `value`, or 0 when there is none. */
 function lastBlockBoundary(value: string): number {
   let best = 0;
-  const boundary = /(?:[.!?。！？]\s|\n)/gu;
+  const boundary = /(?:[.!?]\s|[。！？]\s*|\n)/gu;
   for (let match = boundary.exec(value); match !== null; match = boundary.exec(value)) {
     best = match.index + match[0].length;
   }
@@ -236,14 +251,17 @@ function lastBlockBoundary(value: string): number {
 }
 
 /**
- * End index of a complete whitespace-delimited prefix suitable for progressive
- * general-agro release. The current unfinished token always remains pending, so
- * a secret-like token or raw URL can never be cut in half and leaked early.
+ * Release whitespace-bounded text, or a complete Han character in Chinese.
+ * ASCII secrets and URLs remain withheld until their whole token is decidable.
  */
-function progressiveWordBoundary(value: string): number {
+function progressiveWordBoundary(value: string, locale: PublicLocale): number {
   if (value.length < GENERAL_AGRO_PROGRESSIVE_MIN_CHARS) return 0;
-  for (let index = value.length - 1; index >= GENERAL_AGRO_PROGRESSIVE_MIN_CHARS - 1; index -= 1) {
-    if (/\s/u.test(value[index])) return index + 1;
+  const unfinishedUrl = /(?:https?:\/\/|www\.)\S*$/iu.exec(value);
+  const upperBound = unfinishedUrl?.index ?? value.length;
+  for (let index = upperBound - 1; index >= GENERAL_AGRO_PROGRESSIVE_MIN_CHARS - 1; index -= 1) {
+    if (/\s/u.test(value[index]) || (locale === 'zh' && HAN_CHARACTER.test(value[index]))) {
+      return index + 1;
+    }
   }
   return 0;
 }
