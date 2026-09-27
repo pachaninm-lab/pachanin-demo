@@ -62,6 +62,13 @@ describe('P0 model-first agricultural chat', () => {
     expect(qwenService).toContain('The absence of a button, module, connector or knowledge article does not limit your ability to explain the subject');
   });
 
+  it('ignores only supplied-input sell-now wording before the current-evidence scan', () => {
+    expect(route).toContain('SUPPLIED_INPUT_DECISION_NOW_PATTERN');
+    expect(route).toContain(".replace(SUPPLIED_INPUT_DECISION_NOW_PATTERN, ' ')");
+    expect(route).toContain('pattern.test(evidenceQuestion)');
+    expect(route).toContain('(?:цена|стоимост\\w*)\\s+(?:сегодня|сейчас|на\\s+сегодня|в\\s+регионе)');
+  });
+
   it('preserves fail-closed safety, current-evidence and signed runtime boundaries', () => {
     for (const fragment of [
       "outcome.decision === 'BLOCK_SAFETY'",

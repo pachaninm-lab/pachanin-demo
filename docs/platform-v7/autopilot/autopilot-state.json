@@ -1704,7 +1704,11 @@
       "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
       "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
       "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
-      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts"
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+      "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+      "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+      "apps/web/app/api/agro-chat/route.ts",
+      "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts"
     ],
     "fix/readiness-queue-job-gate-20260927": [
       ".github/workflows/automerge.yml",
@@ -2272,7 +2276,11 @@
           "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
           "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
           "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
-          "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts"
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+          "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+          "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+          "apps/web/app/api/agro-chat/route.ts",
+          "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts"
         ]
       },
       "requiredTruthBoundaries": [
@@ -2413,6 +2421,35 @@
         "New recurring cost, fabricated evidence, weakened safety or forced/automatic merge"
       ],
       "reviewDependency": "Issue #5673; candidate PR #5674; independent reviewer /root/review_5662 exact c7d46498d4723c0fe2e90956d799f64f25909e26;36/36 scope regressions PASS"
+    },
+    "gekta-live-answer-acceptance-implementation-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Duplicate the separately accepted trusted Gekta eight-path live-answer correction scope so the measured storage follow-up routing and streamed-answer defects can be fixed without widening unrelated authority.",
+      "authorityBaseExactMain": "307e3ebf413ab905674d86cb71a0c74dad90b080",
+      "acceptedGuardPr": 5674,
+      "acceptedGuardMerge": "307e3ebf413ab905674d86cb71a0c74dad90b080",
+      "trustedGuardBlob": "378c69b6b8a51b332e52a8b31d3d089cb281a3d7",
+      "trustedScopeFixtureBlob": "4716a6954542148943de39588837838075e205e8",
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "addedPaths": [
+        "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+        "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+        "apps/web/app/api/agro-chat/route.ts",
+        "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "The trusted literal eight-file scope and matching regression fixture were accepted in PR #5674 before this state-only admission.",
+        "This state change extends only the existing Gekta implementation branch by the four accepted Web routing/test paths; prior recovery and quality-regression admissions remain historical evidence and all unrelated state stays unchanged.",
+        "The implementation must retain the actual model for contextual and free-form questions, preserve current-data evidence and safety boundaries, and limit deterministic arithmetic to explicit user-supplied storage price and duration inputs.",
+        "Expanded runtime remains a separate exact-main implementation PR requiring fresh owner audit, independent exact-head review, all substantive CI/security, manual readiness and expected-SHA merge.",
+        "Production completion requires one serialized REG.RU exact-main release, exact running OCI revisions, healthy services, live semantic/latency acceptance and fresh Chromium plus WebKit public acceptance; no source-only PASS or unmeasured speed claim."
+      ],
+      "forbiddenAuthority": [
+        "Database, tenant, role, auth-mail, provider, bank/FGIS finality or production-topology changes",
+        "Unrelated product/R1.2 scope changes or candidate-owned scope widening",
+        "Automatic or forced merge, disabled safety/readiness checks, fabricated evidence or new recurring cost"
+      ],
+      "reviewDependency": "Accepted guard PR #5674; issue #5673; independent exact-head review on 901a7986fc102f37c0959f4f245179f0ab012466"
     }
   }
 }

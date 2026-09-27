@@ -109,6 +109,12 @@ const EXPLICIT_PLATFORM_PATTERNS = [
   /(?:你们的平台|本平台|平台中|注册|工作台)/u,
 ] as const;
 
+// A user can ask whether to sell now using prices/costs already supplied in the
+// conversation. That decision word alone is not fresh evidence. Remove only
+// this bounded phrase before the unchanged current-evidence scan; any real
+// current-price/weather/news/rate signal still requires evidence.
+const SUPPLIED_INPUT_DECISION_NOW_PATTERN = /(?:\b(?:продавать|продать)\s+(?:ли\s+)?сейчас\b|\b(?:sell|selling)\s+now\b|(?:现在卖|现在出售))/giu;
+
 const CURRENT_EVIDENCE_PATTERNS = [
   /(?:сегодня|сейчас|на\s+данный\s+момент|последн\w*|свеж\w*|актуальн\w*|текущ\w*)/iu,
   /(?:новост\w*|погод\w*|курс\w*|пошлин\w*|ставк\w*|котировк\w*|индекс\w*|статистик\w*)/iu,
@@ -793,7 +799,11 @@ function historyAfterLatestCorrection(history: readonly HistoryTurn[]): readonly
 
 function requiresCurrentEvidence(question: string): boolean {
   const normalized = normalizeIntent(question);
-  return CURRENT_EVIDENCE_PATTERNS.some((pattern) => pattern.test(normalized));
+  const evidenceQuestion = normalized
+    .replace(SUPPLIED_INPUT_DECISION_NOW_PATTERN, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim();
+  return CURRENT_EVIDENCE_PATTERNS.some((pattern) => pattern.test(evidenceQuestion));
 }
 
 function containsSensitiveInput(question: string, history: readonly HistoryTurn[]): boolean {
