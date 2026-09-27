@@ -12,7 +12,7 @@
     "evaluationGgufRepository": "bartowski/Qwen_Qwen3.5-9B-GGUF",
     "evaluationGgufRevision": "182be2fd6c7bc44887d88a91cb03ff009cc9f549",
     "file": "Qwen_Qwen3.5-9B-Q4_K_M.gguf",
-    "sha256": "c0d434fe65c496ddb41568c7bef45400c57686aed662ce42b2d053329b088cc8",
+    "sha256": "d784ce9eda1a5a7b51e8f705a9e6310844bf4f173654d115823c775fdea56d43",
     "bytes": 6169341984,
     "quantization": "Q4_K_M",
     "lifecycle": "EVALUATION_ONLY_NOT_PRODUCTION_AUTHORITY"
