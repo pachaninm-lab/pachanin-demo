@@ -6,6 +6,8 @@ on:
     paths:
       - ".github/workflows/gekta-qwen35-candidate-acquire.yml"
       - "docs/platform-v7/autopilot/scopes/gekta-qwen35-9b-candidate-3896.json"
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
@@ -15,12 +17,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
-  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
-  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
-  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
-  MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
-  EXPECTED_MAIN: 06f686d52247ebe7805f1b75d937b2ca8daf8f6f
   CANDIDATE_REPO: bartowski/Qwen_Qwen3.5-9B-GGUF
   CANDIDATE_REVISION: 182be2fd6c7bc44887d88a91cb03ff009cc9f549
   CANDIDATE_FILE: Qwen_Qwen3.5-9B-Q4_K_M.gguf
@@ -31,6 +27,7 @@ env:
 jobs:
   contract:
     name: Validate non-activating candidate acquisition contract
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -79,24 +76,44 @@ jobs:
 
   acquire:
     name: Acquire pinned inactive Qwen3.5-9B candidate
-    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3896 &&
+      github.event.comment.body == '/gekta qwen35-acquire current-main' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
       contents: read
+    env:
+      MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+      MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+      MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+      MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+      MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          ref: main
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Bind evaluation to unchanged production main
+      - name: Bind owner command to exact current main
         shell: bash
+        env:
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
         run: |
           set -Eeuo pipefail
+          [[ "$COMMENTER" == "$OWNER" ]]
+          [[ "$ACTOR" == "$OWNER" || "$ACTOR" == 'chatgpt-codex-connector[bot]' ]]
+          [[ "$TRIGGERING_ACTOR" == "$OWNER" || "$TRIGGERING_ACTOR" == 'chatgpt-codex-connector[bot]' ]]
           git fetch --no-tags origin main
           actual="$(git rev-parse origin/main)"
-          [[ "$actual" == "$EXPECTED_MAIN" ]]
+          [[ "$actual" == "$(git rev-parse HEAD)" ]]
           echo "CANDIDATE_MAIN_EXACT=$actual"
 
       - name: Resolve pinned model-host transport
