@@ -37,6 +37,7 @@ export const HIGH_RISK_ENTITY_PATTERNS = [
   /(?:банк\s+россии|центробанк|central\s+bank)/iu,
 ] as const;
 export const LIVE_CAPABILITY_PATTERN = /(?:уже\s+(?:работает|доступн\w*|подключен\w*)|интеграц\w*.{0,35}(?:работает|подключен\w*|доступн\w*)|в\s+реальном\s+времени|автоматически\s+(?:выгружает|переда[её]т|обменивает|подписывает|оплачивает)|is\s+live|already\s+available|real[-\s]?time|已上线|实时)/iu;
+export const AUTONOMOUS_PLATFORM_DECISION_PATTERN = /(?:платформ\w*|систем\w*)[^.!?。！？\n]{0,100}(?:сама\s+)?(?:примет|принимает|вынесет|выносит)\s+(?:окончательн\w*\s+)?решени\w*|(?:platform|system)[^.!?。！？\n]{0,100}(?:will\s+)?(?:make|take|render)\s+(?:the\s+)?(?:final\s+)?decision|(?:平台|系统)[^。！？\n]{0,80}(?:自动)?(?:作出|做出|决定)/iu;
 // JavaScript word boundaries do not treat Cyrillic letters as Unicode words reliably.
 // Deliberately avoid \b around units such as "руб." and match only in the
 // already-classified current-evidence contour.
@@ -48,9 +49,13 @@ export const EXACT_CURRENT_CLAIM_PATTERN = /(?:\d{1,3}(?:[ \u00A0\u202F]\d{3})*(
 // name an active ingredient/product as the user's treatment instruction.
 export const CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN = /(?:применя\w*|использ\w*|обработ\w*|подойдут|рекоменду\w*|выбира\w*|назнач\w*|apply|use|choose|recommend|treat|使用|施用|选择|推荐)[^.!?。！？\n]{0,200}(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|product|fungicide|herbicide|insecticide|药剂|杀菌剂)/iu;
 export const UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_PATTERN = /(?:применя\w*|использ\w*|обработ\w*|подойдут|рекоменду\w*|выбира\w*|назнач\w*|apply|use|choose|recommend|treat|使用|施用|选择|推荐)[^.!?。！？\n]{0,160}(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|product|fungicide|herbicide|insecticide|药剂|杀菌剂)[^.!?。！？\n]{0,120}(?:на\s+основе|с\s+содержани\w*|с\s+действующ\w*\s+веществ\w*|\bс\s+[\p{L}-]{4,}(?:\s+или\s+[\p{L}-]{4,})?|containing|active\s+ingredient|with\s+[A-Za-z][A-Za-z-]{3,}|有效成分|含有)/iu;
+export const CROP_PROTECTION_EXACT_DOSE_PATTERN = /(?:применя\w*|использ\w*|обработ\w*|рекоменду\w*|назнач\w*|apply|use|recommend|treat|使用|施用|推荐)[^.!?。！？\n]{0,220}\d{1,4}(?:[.,]\d{1,3})?(?:\s*[-–—]\s*\d{1,4}(?:[.,]\d{1,3})?)?\s*(?:л|мл|г|кг|l|ml|g|kg)\s*(?:\/\s*га|\/\s*ha|на\s+гектар|每公顷)/iu;
+export const CROP_PROTECTION_NAMED_PRODUCT_PATTERN = /(?:применя\w*|использ\w*|обработ\w*|рекоменду\w*|назнач\w*|apply|use|recommend|treat|使用|施用|推荐)[^.!?。！？\n]{0,160}(?:препарат\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|product|fungicide|herbicide|insecticide|药剂|杀菌剂)\s+(?:[«“"'][^»”"']{2,80}[»”"']|[A-ZА-ЯЁ][\p{L}\p{N}-]{2,}(?:\s+[A-ZА-ЯЁ0-9][\p{L}\p{N}-]{1,}){0,2})/u;
 
 export function isUngroundedCropProtectionPrescription(block: string): boolean {
-  return UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_PATTERN.test(block);
+  return UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_PATTERN.test(block)
+    || CROP_PROTECTION_EXACT_DOSE_PATTERN.test(block)
+    || CROP_PROTECTION_NAMED_PRODUCT_PATTERN.test(block);
 }
 
 export function stripUngroundedCropProtectionPrescriptions(
@@ -131,9 +136,12 @@ export function platformGroundingVerdict(
     (pattern) => pattern.test(normalized) && !pattern.test(authority),
   );
   const unsupportedLiveClaim = LIVE_CAPABILITY_PATTERN.test(normalized) && !LIVE_CAPABILITY_PATTERN.test(authority);
+  const unsupportedAutonomousDecision = AUTONOMOUS_PLATFORM_DECISION_PATTERN.test(normalized)
+    && !AUTONOMOUS_PLATFORM_DECISION_PATTERN.test(authority);
   if (unsupportedEntity) flags.push('UNSUPPORTED_PLATFORM_ENTITY_REMOVED');
   if (unsupportedLiveClaim) flags.push('UNSUPPORTED_LIVE_CAPABILITY_REMOVED');
-  return { keep: !unsupportedEntity && !unsupportedLiveClaim, flags };
+  if (unsupportedAutonomousDecision) flags.push('UNSUPPORTED_AUTONOMOUS_DECISION_REMOVED');
+  return { keep: !unsupportedEntity && !unsupportedLiveClaim && !unsupportedAutonomousDecision, flags };
 }
 
 export function enforcePlatformGrounding(
