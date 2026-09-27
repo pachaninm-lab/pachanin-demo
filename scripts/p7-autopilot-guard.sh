@@ -556,8 +556,15 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
       candidate.coordinationAdmissions?.[originalKey]?.allowedPaths,
       state.coordinationAdmissions?.[originalKey]?.allowedPaths,
     );
-    const routeRecordAdded = !Object.hasOwn(state.coordinationAdmissions || {}, key) &&
-      Object.hasOwn(candidate.coordinationAdmissions || {}, key);
+    const trustedAdmissions = state.coordinationAdmissions || {};
+    const candidateAdmissions = candidate.coordinationAdmissions || {};
+    const routeRecordAlreadyAdmitted = Object.hasOwn(trustedAdmissions, key);
+    if (routeRecordAlreadyAdmitted &&
+        (!Object.hasOwn(candidateAdmissions, key) ||
+         !isDeepStrictEqual(candidateAdmissions[key], trustedAdmissions[key]))) {
+      throw new Error('BUYER_ROUTE_ADMISSION_STATE_MUTATION');
+    }
+    const routeRecordAdded = !routeRecordAlreadyAdmitted && Object.hasOwn(candidateAdmissions, key);
     if (buyerScopeChanged || routeRecordAdded) {
       const originalPaths = [
         'apps/web/components/platform-v7/FirstCustomerWorkspace.tsx',

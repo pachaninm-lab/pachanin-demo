@@ -1937,6 +1937,38 @@ for (const mutation of ['accepted', 'wrong base', 'extra buyer path', 'missing b
   });
 }
 
+for (const mutation of ['edit existing route record', 'delete existing route record']) {
+  test(`buyer route governance preserves accepted route record: ${mutation}`, (t) => {
+    const branch = 'governance/pc-crop-inventory-reservation-scope-4997';
+    const context = fixture(t, branch);
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    state.approvedConcurrentScopes[branch] = [
+      statePath, 'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs',
+      '.github/workflows/platform-v7-autopilot-guard.yml',
+    ];
+    state.approvedConcurrentScopes[buyerBranch] = [...buyerRoutePaths];
+    state.coordinationAdmissions = {
+      [buyerCoordinationKey]: { allowedPaths: [...buyerRoutePaths] },
+      [buyerRouteCoordinationKey]: JSON.parse(fs.readFileSync(statePath, 'utf8')).coordinationAdmissions[buyerRouteCoordinationKey],
+    };
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, 'accepted buyer route admission');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+
+    if (mutation === 'edit existing route record') {
+      state.coordinationAdmissions[buyerRouteCoordinationKey].purpose += ' changed';
+    } else {
+      delete state.coordinationAdmissions[buyerRouteCoordinationKey];
+    }
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, mutation);
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /BUYER_ROUTE_ADMISSION_STATE_MUTATION/u);
+  });
+}
+
 test('buyer route implementation stays inside the accepted shell and browser scope', (t) => {
   const context = fixture(t, buyerBranch);
   const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
