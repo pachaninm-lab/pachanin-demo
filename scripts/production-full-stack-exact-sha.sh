@@ -10,6 +10,11 @@ API_IMAGE="${PC_API_IMAGE:-}"
 WEB_IMAGE="${PC_WEB_IMAGE:-}"
 MIGRATION_IMAGE="${PC_MIGRATION_IMAGE:-}"
 OUTBOX_WORKER_IMAGE="${PC_OUTBOX_WORKER_IMAGE:-}"
+EXACT_IMAGE_SOURCE="${PC_EXACT_IMAGE_SOURCE:-registry}"
+API_IMAGE_ID="${PC_API_IMAGE_ID:-}"
+WEB_IMAGE_ID="${PC_WEB_IMAGE_ID:-}"
+MIGRATION_IMAGE_ID="${PC_MIGRATION_IMAGE_ID:-}"
+OUTBOX_WORKER_IMAGE_ID="${PC_OUTBOX_WORKER_IMAGE_ID:-}"
 OUTBOX_POLICY_FILE="${PC_OUTBOX_POLICY_FILE:-}"
 KAFKA_IMAGE='confluentinc/cp-kafka@sha256:24cdd3a7fa89d2bed150560ebea81ff1943badfa61e51d66bb541a6b0d7fb047'
 KAFKA_SERVICE='ir20-kafka'
@@ -45,6 +50,7 @@ trim() { local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]
 [[ "$ACTION" =~ ^(audit|deploy|rollback|verify-intake|observe-ir20)$ ]] || fail INVALID_ACTION 2
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || fail INVALID_TARGET_SHA 3
 [[ "$RUN_ID" =~ ^[A-Za-z0-9._:-]{1,128}$ ]] || fail INVALID_RUN_ID 4
+[[ "$EXACT_IMAGE_SOURCE" =~ ^(registry|pinned-ssh)$ ]] || fail INVALID_EXACT_IMAGE_SOURCE 130
 
 prod_dir="$(decode "$PROD_DIR_B64")"
 prod_compose="$(decode "$PROD_COMPOSE_B64")"
@@ -603,16 +609,64 @@ YAML
 
 dc_target=("${dc[@]}" -f "$full_override")
 
+expected_pinned_image_id() {
+  case "$1" in
+    api) printf '%s\n' "$API_IMAGE_ID" ;;
+    web) printf '%s\n' "$WEB_IMAGE_ID" ;;
+    migration) printf '%s\n' "$MIGRATION_IMAGE_ID" ;;
+    outbox-worker) printf '%s\n' "$OUTBOX_WORKER_IMAGE_ID" ;;
+    *) return 1 ;;
+  esac
+}
+
 verify_image() {
-  local component="$1" image="$2"
-  [[ -f "$IMAGE_BINDING_VERIFIER" ]] || fail IMAGE_BINDING_VERIFIER_MISSING 81
-  python3 "$IMAGE_BINDING_VERIFIER" pull-verify "$component" "$TARGET_SHA" "$image" >/dev/null 2>&1 || fail IMAGE_BINDING_FAILED 20
+  local component="$1" image="$2" expected_id="${3:-}" actual_id revision expected_ref
+  if [[ "$EXACT_IMAGE_SOURCE" == registry ]]; then
+    [[ -f "$IMAGE_BINDING_VERIFIER" ]] || fail IMAGE_BINDING_VERIFIER_MISSING 81
+    python3 "$IMAGE_BINDING_VERIFIER" pull-verify "$component" "$TARGET_SHA" "$image" >/dev/null 2>&1 || fail IMAGE_BINDING_FAILED 20
+    return
+  fi
+  expected_ref="pc-crop-transfer/$component:$TARGET_SHA"
+  [[ "$image" == "$expected_ref" ]] || fail PRELOADED_IMAGE_REFERENCE_INVALID 131
+  [[ "$expected_id" =~ ^sha256:[0-9a-f]{64}$ ]] || fail PRELOADED_IMAGE_ID_REQUIRED 132
+  actual_id="$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null || true)"
+  revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image" 2>/dev/null || true)"
+  [[ "$actual_id" == "$expected_id" ]] || fail PRELOADED_IMAGE_ID_MISMATCH 133
+  [[ "$revision" == "$TARGET_SHA" ]] || fail IMAGE_REVISION_MISMATCH 20
 }
 
 verify_runtime_image() {
-  local component="$1" image="$2" container_id="$3"
-  [[ -f "$IMAGE_BINDING_VERIFIER" ]] || return 1
-  python3 "$IMAGE_BINDING_VERIFIER" runtime "$component" "$TARGET_SHA" "$image" "$container_id" 2>/dev/null
+  local component="$1" image="$2" container_id="$3" expected_id actual_id container_image_id configured_ref revision state
+  if [[ "$EXACT_IMAGE_SOURCE" == registry ]]; then
+    [[ -f "$IMAGE_BINDING_VERIFIER" ]] || return 1
+    python3 "$IMAGE_BINDING_VERIFIER" runtime "$component" "$TARGET_SHA" "$image" "$container_id" 2>/dev/null
+    return
+  fi
+  [[ "$image" == "pc-crop-transfer/$component:$TARGET_SHA" ]] || return 1
+  expected_id="$(expected_pinned_image_id "$component")" || return 1
+  [[ "$expected_id" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
+  actual_id="$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null || true)"
+  container_image_id="$(docker inspect --format '{{.Image}}' "$container_id" 2>/dev/null || true)"
+  configured_ref="$(docker inspect --format '{{.Config.Image}}' "$container_id" 2>/dev/null || true)"
+  revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$container_id" 2>/dev/null || true)"
+  state="$(docker inspect --format '{{.State.Running}}' "$container_id" 2>/dev/null || true)"
+  [[ "$actual_id" == "$expected_id" && "$container_image_id" == "$expected_id" ]] || return 1
+  [[ "$configured_ref" == "$image" && "$revision" == "$TARGET_SHA" && "$state" == true ]] || return 1
+  printf '%s\n' "$TARGET_SHA"
+}
+
+verify_local_runtime_revision() {
+  local image="$1" container_id="$2" expected_revision="$3" image_id container_image_id configured_ref image_revision container_revision_value state
+  is_revision "$expected_revision" || return 1
+  image_id="$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null || true)"
+  container_image_id="$(docker inspect --format '{{.Image}}' "$container_id" 2>/dev/null || true)"
+  configured_ref="$(docker inspect --format '{{.Config.Image}}' "$container_id" 2>/dev/null || true)"
+  image_revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image" 2>/dev/null || true)"
+  container_revision_value="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$container_id" 2>/dev/null || true)"
+  state="$(docker inspect --format '{{.State.Running}}' "$container_id" 2>/dev/null || true)"
+  [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ && "$container_image_id" == "$image_id" ]] || return 1
+  [[ "$configured_ref" == "$image" && "$image_revision" == "$expected_revision" && "$container_revision_value" == "$expected_revision" && "$state" == true ]] || return 1
+  printf '%s\n' "$expected_revision"
 }
 
 wait_api() {
@@ -1001,7 +1055,7 @@ rollback_images() {
     "${dc_target[@]}" up -d --no-deps --pull never "$OUTBOX_SERVICE"
     wait_worker || return 1
     restored_worker_id="$("${dc_target[@]}" ps -q "$OUTBOX_SERVICE" | head -1)"
-    [[ "$(verify_runtime_image outbox-worker "$BASELINE_WORKER_IMAGE" "$restored_worker_id" 2>/dev/null)" == "$BASELINE_WORKER_REVISION" ]] || return 3
+    [[ "$(verify_local_runtime_revision "$BASELINE_WORKER_IMAGE" "$restored_worker_id" "$BASELINE_WORKER_REVISION" 2>/dev/null)" == "$BASELINE_WORKER_REVISION" ]] || return 3
     ROLLBACK_IR20_COMPLETE=1
   else
     worker_id="$(optional_release_service_id "$OUTBOX_SERVICE")" || return 1
@@ -1259,7 +1313,8 @@ if [[ "$ACTION" == audit ]]; then
 fi
 
 [[ -n "$API_IMAGE" && -n "$WEB_IMAGE" && -n "$MIGRATION_IMAGE" && -n "$OUTBOX_WORKER_IMAGE" ]] || fail EXACT_IMAGES_REQUIRED 21
-verify_image api "$API_IMAGE"; verify_image web "$WEB_IMAGE"; verify_image migration "$MIGRATION_IMAGE"; verify_image outbox-worker "$OUTBOX_WORKER_IMAGE"; verify_broker_image
+verify_image api "$API_IMAGE" "$API_IMAGE_ID"; verify_image web "$WEB_IMAGE" "$WEB_IMAGE_ID"; verify_image migration "$MIGRATION_IMAGE" "$MIGRATION_IMAGE_ID"; verify_image outbox-worker "$OUTBOX_WORKER_IMAGE" "$OUTBOX_WORKER_IMAGE_ID"; verify_broker_image
+printf 'EXACT_IMAGE_SOURCE=%s\n' "$EXACT_IMAGE_SOURCE"
 
 # Shared release-authority root: traverse-only for the runner group. `chmod 0700`
 # here preserved the group and stripped its `--x`, which is exactly the state the

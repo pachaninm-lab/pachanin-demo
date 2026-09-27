@@ -38,12 +38,20 @@ IR20_BINDING_IMPLEMENTATION_BRANCH="ops/ir20-api-database-binding-20260919"
 PRODUCT_BANK_COPY_BRANCH="bank/deep-visible-copy-guard-20260924"
 PRODUCT_ZSN_SOURCE_BRANCH="fgis/zsn-public-document-source-lock-20260924"
 PRODUCT_NEXT_ACTION_BRANCH="ux/first-customer-next-action-unknown-20260924"
+PRODUCT_DEAL_COMMAND_BRANCH="ux/deal-command-unknown-20260925"
+PUBLIC_REGISTRATION_PARTICIPATION_BRANCH="fix/public-registration-participation-choice-20260923"
+PRODUCTION_MOBILE_HANDOFF_BRANCH="fix/production-mobile-controller-handoff-20260927"
+READINESS_QUEUE_JOB_GATE_BRANCH="fix/readiness-queue-job-gate-20260927"
+PRODUCT_BUYER_HOME_BRANCH="ux/buyer-first-customer-home-20260925"
+PUBLIC_WEBKIT_I18N_BRANCH="fix/public-webkit-i18n-route-lifecycle-20260927"
+PRODUCT_BUYER_ADMISSION_BRANCH="governance/product-buyer-home-admission-20260925"
 PRODUCT_SCOPE_ADMISSION_BRANCH="governance/product-bank-fgis-ux-source-admission-20260924"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
-    "$IR20_BINDING_PREREQUISITE_BRANCH"|"$IR20_BINDING_IMPLEMENTATION_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_BRANCH"|"$PRODUCT_BANK_COPY_BRANCH"|"$PRODUCT_ZSN_SOURCE_BRANCH"|"$PRODUCT_NEXT_ACTION_BRANCH"|"$PRODUCT_SCOPE_ADMISSION_BRANCH") return 0 ;;
+    "fix/gekta-docker-diagnostic-route-20260927"|"fix/gekta-web-release-recovery-20260927"|"fix/gekta-answer-copy-20260927"|"fix/gekta-han-stream-20260927" ) return 0 ;;
+    "$IR20_BINDING_PREREQUISITE_BRANCH"|"$IR20_BINDING_IMPLEMENTATION_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_BRANCH"|"$PRODUCT_BANK_COPY_BRANCH"|"$PRODUCT_ZSN_SOURCE_BRANCH"|"$PRODUCT_NEXT_ACTION_BRANCH"|"$PRODUCT_DEAL_COMMAND_BRANCH"|"$PUBLIC_REGISTRATION_PARTICIPATION_BRANCH"|"$PRODUCTION_MOBILE_HANDOFF_BRANCH"|"$READINESS_QUEUE_JOB_GATE_BRANCH"|"$PRODUCT_BUYER_HOME_BRANCH"|"$PUBLIC_WEBKIT_I18N_BRANCH"|"$PRODUCT_BUYER_ADMISSION_BRANCH"|"$PRODUCT_SCOPE_ADMISSION_BRANCH") return 0 ;;
     "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$W1_PRODUCTION_ACCEPTANCE_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH"|"$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH"|"$POISON_ISOLATION_IMPLEMENTATION_BRANCH"|"$OWNER_HANDOFF_IMPLEMENTATION_BRANCH"|"$QWEN_FAILED_EVIDENCE_BRANCH"|"$KIND_MINIO_IMAGE_SOURCE_BRANCH"|"$GITLEAKS_RELEASE_ATTESTATION_BRANCH"|"$FINAL_PUBLIC_HOME_BRANCH"|"$FINAL_PUBLIC_MARKET_BRANCH"|"$FINAL_PUBLIC_REGISTRATION_BRANCH"|"$FINAL_PUBLIC_HOW_BRANCH"|"$FINAL_PUBLIC_PRODUCT_COPY_BRANCH"|"$FINAL_PUBLIC_RELEASE_BRANCH"|"$FINAL_PUBLIC_GOVERNANCE_BRANCH") return 0 ;;
     *) return 1 ;;
   esac
@@ -464,8 +472,33 @@ if (!baseRef || !stateFile || !branch) {
   throw new Error('P7_IMMUTABLE_SCOPE: immutable scope inputs are required');
 }
 
+// These bounded recovery routes are owned by the accepted base guard.
+// Candidate state and manifests cannot widen their exact path sets.
+const gektaRecoveryScopes = {
+  "fix/gekta-docker-diagnostic-route-20260927": [
+    ".github/workflows/production-docker-headroom-diagnostic.yml"
+  ],
+  "fix/gekta-web-release-recovery-20260927": [
+    "scripts/production-web-remote-entrypoint.sh",
+    "scripts/production-web-exact-sha.sh",
+    "scripts/check-production-web-hardening.mjs"
+  ],
+  "fix/gekta-answer-copy-20260927": [
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/lib/platform-v7/public-assistant-knowledge.ts",
+    "apps/web/tests/unit/publicFarmerStarterQuestions.test.ts"
+  ],
+  "fix/gekta-han-stream-20260927": [
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts"
+  ]
+};
 let scopes;
-if (branch === publicHomeGovernanceBranch) {
+if (Object.hasOwn(gektaRecoveryScopes, branch)) {
+  scopes = gektaRecoveryScopes[branch];
+} else if (branch === publicHomeGovernanceBranch) {
   scopes = [publicHomeGovernanceManifest, publicHomeImplementationManifest];
 } else if (branch === publicHomeImplementationBranch) {
   let manifest;
@@ -505,6 +538,123 @@ if (branch === publicHomeGovernanceBranch) {
     throw new Error(`P7_IMMUTABLE_SCOPE: cannot load ${baseRef}:${stateFile}: ${message}`);
   }
   scopes = state.approvedConcurrentScopes?.[branch];
+
+  if (branch === 'governance/pc-crop-inventory-reservation-scope-4997') {
+    // The already-admitted writer lane may extend the buyer slice only by this
+    // reviewed route composition and rendered acceptance trio. Preserve every
+    // unrelated state byte and bind the new coordination record to trusted main.
+    const { isDeepStrictEqual } = require('node:util');
+    const headRef = String(process.env.HEAD_REF || 'HEAD');
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${statePath}`], { encoding: 'utf8' }));
+    const key = 'ux-buyer-first-customer-route-20260927-coordination';
+    const implementationBranch = 'ux/buyer-first-customer-home-20260925';
+    const originalKey = 'ux-buyer-first-customer-home-20260925-coordination';
+    const buyerScopeChanged = !isDeepStrictEqual(
+      candidate.approvedConcurrentScopes?.[implementationBranch],
+      state.approvedConcurrentScopes?.[implementationBranch],
+    ) || !isDeepStrictEqual(
+      candidate.coordinationAdmissions?.[originalKey]?.allowedPaths,
+      state.coordinationAdmissions?.[originalKey]?.allowedPaths,
+    );
+    const trustedAdmissions = state.coordinationAdmissions || {};
+    const candidateAdmissions = candidate.coordinationAdmissions || {};
+    const routeRecordAlreadyAdmitted = Object.hasOwn(trustedAdmissions, key);
+    if (routeRecordAlreadyAdmitted &&
+        (!Object.hasOwn(candidateAdmissions, key) ||
+         !isDeepStrictEqual(candidateAdmissions[key], trustedAdmissions[key]))) {
+      throw new Error('BUYER_ROUTE_ADMISSION_STATE_MUTATION');
+    }
+    const routeRecordAdded = !routeRecordAlreadyAdmitted && Object.hasOwn(candidateAdmissions, key);
+    if (buyerScopeChanged || routeRecordAdded) {
+      const originalPaths = [
+        'apps/web/components/platform-v7/FirstCustomerWorkspace.tsx',
+        'apps/web/components/platform-v7/FirstCustomerWorkspace.module.css',
+        'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts',
+        'apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx',
+        'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json',
+      ];
+      const additions = [
+        'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx',
+        'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts',
+        'apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts',
+      ];
+      if (!isDeepStrictEqual(state.approvedConcurrentScopes?.[implementationBranch], originalPaths) ||
+          !isDeepStrictEqual(state.coordinationAdmissions?.[originalKey]?.allowedPaths, originalPaths)) {
+        throw new Error('BUYER_ROUTE_TRUSTED_BASE_SCOPE_MISMATCH');
+      }
+      const paths = [...originalPaths.slice(0, -1), ...additions, originalPaths.at(-1)];
+      const expected = structuredClone(state);
+      expected.approvedConcurrentScopes[implementationBranch] = paths;
+      expected.coordinationAdmissions[originalKey].allowedPaths = paths;
+      expected.coordinationAdmissions[key] = {
+        owner: 'ACCOUNT_2_PRODUCT',
+        purpose: 'Render the admitted server-scoped buyer home at the verified buyer root and prove the actual route across RU/EN/ZH and desktop/mobile browsers.',
+        authorityBaseExactMain: execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim(),
+        implementationBranch,
+        allowedPaths: additions,
+        requiredTruthBoundaries: [
+          'Only the server-verified buyer root renders its server page; other role roots and the controlled owner preview remain separate.',
+          'A real authenticated buyer route is checked in RU/EN/ZH on desktop and mobile; component source tests alone do not prove rendering.',
+          'Buyer queue order stays navigation, with UNKNOWN required action and no bank or regulatory finality.',
+        ],
+        forbiddenAuthority: [
+          'API/backend/domain/DB/RLS/tenant/role/session or priority authority',
+          'other role root or public route behavior',
+          'CI/security/readiness gate weakening',
+        ],
+        teamHubDependency: '#5610 exact-head P1 route composition review; Team Hub #5469',
+      };
+      if (!isDeepStrictEqual(candidate, expected)) throw new Error('BUYER_ROUTE_ADMISSION_STATE_MUTATION');
+    }
+  }
+
+  if (branch === 'governance/product-buyer-home-admission-20260925') {
+    const { isDeepStrictEqual } = require('node:util');
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const headRef = String(process.env.HEAD_REF || 'HEAD');
+    const implementationBranch = 'ux/buyer-first-customer-home-20260925';
+    const coordinationKey = 'ux-buyer-first-customer-home-20260925-coordination';
+    const paths = [
+      'apps/web/components/platform-v7/FirstCustomerWorkspace.tsx',
+      'apps/web/components/platform-v7/FirstCustomerWorkspace.module.css',
+      'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts',
+      'apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx',
+      'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json',
+    ];
+    if (Object.hasOwn(state.approvedConcurrentScopes || {}, implementationBranch) ||
+        Object.hasOwn(state.coordinationAdmissions || {}, coordinationKey)) {
+      throw new Error('PRODUCT_BUYER_ADMISSION_ALREADY_PRESENT');
+    }
+    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${statePath}`], { encoding: 'utf8' }));
+    const expected = structuredClone(state);
+    if (!expected.coordinationAdmissions) expected.coordinationAdmissions = {};
+    const baseSha = execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim();
+    expected.approvedConcurrentScopes[implementationBranch] = paths;
+    expected.coordinationAdmissions[coordinationKey] = {
+      owner: 'ACCOUNT_2_PRODUCT',
+      purpose: 'Buyer first-customer production-home information architecture and visual hierarchy from existing scoped server facts; one vertical after seller, not full 13-role acceptance.',
+      authorityBaseExactMain: baseSha,
+      implementationBranch,
+      allowedPaths: paths,
+      requiredTruthBoundaries: [
+        'Buyer shows only server-scoped organization, identity and Deal queue facts; list recency never becomes required next action, amount or deadline.',
+        'UNKNOWN next action, empty, forbidden and degraded remain explicit; no demo/static deal or fake bank/provider/FGIS status.',
+        'RU/EN/ZH, mobile, focus and seller plus other six role regressions stay covered; owner-controlled showroom does not gain customer authority.',
+        'Buyer source changes start only after the accepted immutable guard prerequisite and this state-only admission are merged.',
+      ],
+      forbiddenAuthority: [
+        'homepage/public implementation or parallel App Shell/design system',
+        'API/backend/domain/DB/RLS/tenant/role/priority or money/provider/FGIS finality',
+        'CI/security/readiness gate weakening',
+      ],
+      teamHubDependency: '#5372 inventory comment 5833248230; #5604 guard prerequisite; PUBLIC #5559 main serialization; #5535 CORE next-action dependency',
+    };
+    if (!isDeepStrictEqual(candidate, expected)) throw new Error('PRODUCT_BUYER_ADMISSION_STATE_MUTATION');
+    const diff = execFileSync('git', ['diff', '--no-renames', '--name-status', `${baseRef}...${headRef}`], { encoding: 'utf8' }).trim();
+    if (diff !== `M\t${statePath}`) throw new Error('PRODUCT_BUYER_ADMISSION_DIFF_SCOPE');
+    scopes = [statePath];
+  }
 
   if (branch === 'governance/product-bank-fgis-ux-source-admission-20260924') {
     const { isDeepStrictEqual } = require('node:util');
@@ -799,7 +949,7 @@ if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
 fi
 
-if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$IR20_BINDING_PREREQUISITE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_SCOPE_ADMISSION_BRANCH" ]; then
+if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$IR20_BINDING_PREREQUISITE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_SCOPE_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BUYER_ADMISSION_BRANCH" ]; then
   MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-autopilot-guard\.test\.mjs$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$|\.github/workflows/automerge\.yml$)' || true)
   # These manifests document the exact accepted path sets. They are not scope
   # authority: only approvedConcurrentScopes from the trusted base is used.
@@ -807,6 +957,10 @@ if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE
     "$PRODUCT_BANK_COPY_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json' ;;
     "$PRODUCT_ZSN_SOURCE_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/fgis-zsn-public-document-source-lock-20260924.json' ;;
     "$PRODUCT_NEXT_ACTION_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json' ;;
+    "$PUBLIC_REGISTRATION_PARTICIPATION_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/public-registration-participation-choice-20260923.json' ;;
+    "$PRODUCTION_MOBILE_HANDOFF_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/production-mobile-controller-handoff-20260927.json' ;;
+    "$READINESS_QUEUE_JOB_GATE_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/readiness-queue-job-gate-20260927.json' ;;
+    "$PRODUCT_BUYER_HOME_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json' ;;
     *) PRODUCT_SCOPE_MANIFEST='' ;;
   esac
   if [ -n "$PRODUCT_SCOPE_MANIFEST" ]; then
@@ -833,6 +987,38 @@ JS
   if [ "$CURRENT_BRANCH" = "$QWEN_FAILED_EVIDENCE_BRANCH" ]; then
     # This diagnostic regression file is still subject to exact base-approved scope.
     MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv 'docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs' || true)
+  fi
+  if [ "$CURRENT_BRANCH" = "$READINESS_QUEUE_JOB_GATE_BRANCH" ] && printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxq '.github/workflows/automerge.yml'; then
+    # This one workflow authority may move the same concurrency lease beneath
+    # the existing event gate. Reject every other byte change against trusted base.
+    READINESS_BASE_REF="$BASE_REF" READINESS_HEAD_REF="$HEAD_REF" node - <<'JS'
+const { execFileSync } = require('node:child_process');
+const path = '.github/workflows/automerge.yml';
+const read = ref => execFileSync('git', ['show', `${ref}:${path}`], { encoding: 'utf8', maxBuffer: 128 * 1024 });
+const base = read(process.env.READINESS_BASE_REF);
+const head = read(process.env.READINESS_HEAD_REF);
+const workflowLease = `# Serial publication prevents an older evaluator overwriting a newer result.
+concurrency:
+  group: repo-engineering-readiness
+  cancel-in-progress: false
+  queue: max
+
+`;
+const anchor = `         github.event.workflow_run.name != 'Independent Octopus Review'))\n`;
+const gatedLease = `    # A job that fails the event gate must not occupy the global publication
+    # queue. Keep admitted evaluations serialized at the job boundary.
+    concurrency:
+      group: repo-engineering-readiness
+      cancel-in-progress: false
+      queue: max
+`;
+if (base.split(workflowLease).length !== 2 || base.split(anchor).length !== 2) {
+  throw new Error('READINESS_TRUSTED_BASE_SHAPE_INVALID');
+}
+const expected = base.replace(workflowLease, '').replace(anchor, `${anchor}${gatedLease}`);
+if (head !== expected) throw new Error('READINESS_QUEUE_CHANGE_EXCEEDS_EXACT_TRANSFORM');
+JS
+    MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv '.github/workflows/automerge.yml' || true)
   fi
   if [ -n "$MUTABLE_SCOPE_AUTHORITIES" ]; then
     echo "Mutable scope authority changed on a PC-CROP immutable-scope implementation branch:"

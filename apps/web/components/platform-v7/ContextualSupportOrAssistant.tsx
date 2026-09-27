@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { ChatSupportWidget } from './ChatSupportWidget';
 import { PublicAssistantAttachmentBridge } from './PublicAssistantAttachmentBridge';
+import { PublicAssistantMobileLayoutAuthority } from './PublicAssistantMobileLayoutAuthority';
 import { PublicContactDock } from './PublicContactDock';
 import { PublicPlatformAssistant } from './PublicPlatformAssistant';
 import { UnifiedModalSheetFullscreenController } from './UnifiedModalSheetFullscreenController';
@@ -131,6 +132,10 @@ export function ContextualSupportOrAssistant({
   return (
     <>
       <UnifiedModalSheetFullscreenController />
+      {/* The only viewport authority. It acts only on the public assistant
+          panel, so it travels with that panel's on-demand chunk instead of
+          every page's entry bundle, and still mounts before the assistant. */}
+      <PublicAssistantMobileLayoutAuthority />
       <PublicPlatformAssistant />
       <PublicAssistantAttachmentBridge />
       <ChatSupportWidget />

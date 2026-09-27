@@ -9,6 +9,7 @@ const seller = read('apps/web/app/platform-v7/seller/page.tsx');
 const buyer = read('apps/web/app/platform-v7/buyer/page.tsx');
 const bank = read('apps/web/app/platform-v7/bank/page.tsx');
 const firstCustomerWorkspace = read('apps/web/components/platform-v7/FirstCustomerWorkspace.tsx');
+const firstCustomerWorkspaceCss = read('apps/web/components/platform-v7/FirstCustomerWorkspace.module.css');
 const cockpit = read('apps/web/components/transaction-ux/MoneyObligationCockpit.tsx');
 const cockpitCss = read('apps/web/components/transaction-ux/MoneyObligationCockpit.module.css');
 const governance = JSON.parse(read('design-governance-v8.json'));
@@ -47,9 +48,9 @@ describe('Design System v8 money role reference slice', () => {
       expect(seller).not.toContain(retiredStaticTool);
     }
 
-    expect(firstCustomerWorkspace).toContain("surface === 'seller' && state === 'ready' && !workspace.ownerControlled");
+    expect(firstCustomerWorkspace).toContain("state === 'ready' && !workspace.ownerControlled");
     expect(firstCustomerWorkspace).toContain("href='#first-customer-work-queue'");
-    expect(firstCustomerWorkspace).toContain('sellerPriorityUnknownResult');
+    expect(firstCustomerWorkspace).toContain('priorityUnknownResult');
     expect(firstCustomerWorkspace).toContain('Следующий обязательный шаг не опубликован');
     expect(firstCustomerWorkspace).toContain('Required next step is not published');
     expect(firstCustomerWorkspace).toContain('服务器未提供必须执行的下一步');
@@ -59,6 +60,24 @@ describe('Design System v8 money role reference slice', () => {
   });
 
   it('keeps buyer reserve, hold, SDIZ and escrow boundaries', () => {
+    expect(firstCustomerWorkspace).toContain("surface === 'buyer' ? copy.buyerDescription");
+    expect(firstCustomerWorkspace).toContain("copy.buyerQueueNote");
+    expect(firstCustomerWorkspace).toContain("surface === 'buyer' && !workspace.ownerControlled && state === 'ready'");
+    expect(firstCustomerWorkspace).toContain("result: priorityUnknown ? copy.priorityUnknownResult");
+    expect(firstCustomerWorkspaceCss).toContain('line-height: 1.5');
+    expect(firstCustomerWorkspaceCss).toContain('var(--ds-color-text-secondary)');
+    expect(firstCustomerWorkspaceCss).not.toMatch(forbiddenPresentation);
+    for (const phrase of [
+      'Сервер проверяет доступ к сделкам для роли покупателя',
+      'The server checks Deal access for the buyer role',
+      '服务器会核查买方角色的交易访问权限',
+      'Данные организации показываются при подтверждении',
+      'Organization details appear when confirmed',
+      '组织信息仅在确认后显示',
+      'банковское подтверждение',
+      'bank confirmation',
+      '银行确认',
+    ]) expect(firstCustomerWorkspace).toContain(phrase);
     expect(buyer).toContain('P7ExecutionActionsPanel');
     expect(buyer).toContain('buyerSdizActionItems');
     expect(buyer).toContain('CreditBureauPanel');
@@ -93,5 +112,53 @@ describe('Design System v8 money role reference slice', () => {
       'apps/web/app/platform-v7/buyer/page.tsx',
       'apps/web/app/platform-v7/bank/page.tsx',
     ]));
+  });
+});
+
+const workspaceCopy = firstCustomerWorkspace.split('const COPY =')[1]?.split('const ROLE_LABEL:')[0] ?? '';
+const workspaceRoleLabels = firstCustomerWorkspace.split('const ROLE_LABEL:')[1]?.split('function localeOf')[0] ?? '';
+const workspaceDecision = firstCustomerWorkspace.split('const priorityUnknown = ')[1]?.split('\n  return (')[0] ?? '';
+const governedSurfaces = ['buyer', 'bank', 'logistics', 'driver', 'elevator', 'lab', 'surveyor'] as const;
+const governedLocales = [
+  {
+    code: 'ru', priority: 'Главная задача', title: 'Следующее обязательное действие не опубликовано', queue: 'Рабочая очередь',
+    labels: { buyer: 'Покупатель', bank: 'Банк', logistics: 'Логистика', driver: 'Водитель', elevator: 'Элеватор', lab: 'Лаборатория', surveyor: 'Сюрвейер' },
+  },
+  {
+    code: 'en', priority: 'Primary task', title: 'Required next action is not published', queue: 'Work queue',
+    labels: { buyer: 'Buyer', bank: 'Bank', logistics: 'Logistics', driver: 'Driver', elevator: 'Elevator', lab: 'Laboratory', surveyor: 'Surveyor' },
+  },
+  {
+    code: 'zh', priority: '主要任务', title: '服务器未提供优先执行的操作', queue: '工作队列',
+    labels: { buyer: '买方', bank: '银行', logistics: '物流', driver: '司机', elevator: '粮库', lab: '实验室', surveyor: '检验员' },
+  },
+] as const;
+
+describe('governed first-customer priority source contract', () => {
+  it.each(governedLocales.flatMap((locale) => governedSurfaces.map((surface) => ({ locale, surface }))))(
+    '$surface keeps $locale.code queue copy separate from priority',
+    ({ locale, surface }) => {
+      const copy = workspaceCopy.match(new RegExp(`\\b${locale.code}: \\{([\\s\\S]*?)\\n  \\},`))?.[1] ?? '';
+      const roles = workspaceRoleLabels.match(new RegExp(`\\b${locale.code}: \\{([^\\n]+)\\}`))?.[1] ?? '';
+      expect(copy).toContain(`priority: '${locale.priority}'`);
+      expect(copy).toContain(`priorityUnknownTitle: '${locale.title}'`);
+      expect(copy).toContain("priorityUnknownResult: 'UNKNOWN'");
+      expect(copy).toContain(`workQueue: '${locale.queue}'`);
+      expect(roles).toContain(`${surface}: '${locale.labels[surface]}'`);
+      expect(workspaceDecision).toContain("state === 'ready' && !workspace.ownerControlled");
+      expect(workspaceDecision).toContain("result: priorityUnknown ? copy.priorityUnknownResult");
+      expect(workspaceDecision).toContain("href='#first-customer-work-queue'");
+      expect(workspaceDecision).toContain("owner: priorityUnknown ? undefined");
+      expect(firstCustomerWorkspace).toContain('workspace.items.map((item) => item.href ?');
+      expect(firstCustomerWorkspace).toContain('href={item.href}');
+    },
+  );
+
+  it('preserves controlled owner showroom navigation apart from UNKNOWN priority', () => {
+    expect(workspaceDecision).toContain("state === 'ready' ? copy.ownerReadyTitle");
+    expect(workspaceDecision).toContain("state === 'ready' ? first?.status");
+    expect(workspaceDecision).toContain('first?.href');
+    expect(firstCustomerWorkspace).toContain("workspace.ownerControlled && state === 'ready' ? copy.ownerReady");
+    expect(firstCustomerWorkspace).toContain("href='/platform-v7/staff'");
   });
 });

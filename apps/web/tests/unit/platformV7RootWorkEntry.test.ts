@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { POST as registrationBffPOST } from '@/app/api/auth/register/route';
 import { GET as registrationStatusGET } from '@/app/api/auth/registration/status/route';
+import { POST as registrationResendPOST } from '@/app/api/auth/registration/resend/route';
+import { registrationContextEndpoint, verifiedRegistrationContinuationHref } from '@/lib/platform-v7/public-registration-continuation';
 import { sendTransactionalMail } from '../../lib/server/transactional-mail';
 
 vi.mock('../../lib/server-request-security', () => ({ assertCsrf: () => ({ ok: true }) }));
@@ -142,7 +144,12 @@ describe('platform-v7 canonical public experience',()=>{
   });
 
   it('opens Gekta through the existing public assistant authority without private context',()=>{
-    expect(gektaChatButton).toContain("new CustomEvent('pc:public-assistant-context'");
+    // One open operation that survives a cold first click (assistant chunk not
+    // yet mounted); no hidden-DOM lookup or synthetic click.
+    expect(gektaChatButton).toContain('usePublicGektaEntry()');
+    expect(gektaChatButton).toContain('open({');
+    expect(gektaChatButton).not.toContain('MutationObserver');
+    expect(gektaChatButton).not.toContain('.click()');
     expect(gektaChatButton).toContain("context: 'platform'");
     expect(gektaChatButton).not.toContain('tenantId');
     expect(gektaChatButton).not.toContain('dealId');
@@ -848,6 +855,53 @@ describe('public market identity, context and truthful states', () => {
     expect(miss.querySelector('[data-market-state="noMatch"]')).toBeTruthy();
     expect(miss.querySelector('a')?.getAttribute('href')).toBe('/platform-v7/market?lang=ru');
   });
+  it('binds a published card to its exact detail and application context in all public locales', async () => {
+    const a = lot(A);
+    const b = lot(B, { culture: 'barley' });
+    const filters = publicMarketContext({ q: 'wheat', region: 'Тамбов', grade: '3', sort: 'price-asc' });
+    for (const locale of ['ru', 'en', 'zh'] as const) {
+      publicMarketReadMock.mockResolvedValue(result([a, b]));
+      const results = markup(await CanonicalMarketResults({
+        locale, query: filters.q, filters: { crop: filters.crop, region: filters.region, grade: filters.grade }, sort: filters.sort,
+      }));
+      const cards = [...results.querySelectorAll<HTMLAnchorElement>('.pc-cp-lot-title')];
+      expect(cards).toHaveLength(1);
+      const offerUrl = new URL(cards[0]!.getAttribute('href')!, 'https://example.invalid');
+      expect(offerUrl.pathname).toBe('/platform-v7/market');
+      expect(offerUrl.searchParams.get('lot')).toBe(A);
+      expect(publicMarketContext(Object.fromEntries(offerUrl.searchParams))).toEqual(filters);
+
+      publicMarketReadMock.mockResolvedValue(result([b, a]));
+      const detail = markup(await CanonicalPublicLotView({
+        locale, lotRef: offerUrl.searchParams.get('lot'),
+        context: publicMarketContext(Object.fromEntries(offerUrl.searchParams)),
+      }));
+      expect(detail.querySelector('[data-market-state]')).toBeNull();
+      expect(detail.querySelector('.pc-cp-lot-summary h1')?.textContent).toContain(PUBLIC_CROP_LABELS[locale].wheat);
+      expect(detail.querySelector('.pc-cp-lot-summary h1')?.textContent).not.toContain(PUBLIC_CROP_LABELS[locale].barley);
+      const apply = detail.querySelector<HTMLAnchorElement>('.pc-cp-lot-summary a[href^="/platform-v7/register?"]');
+      expect(apply).toBeTruthy();
+      const application = new URL(apply!.getAttribute('href')!, 'https://example.invalid');
+      const next = publicMarketRegistrationContext(Object.fromEntries(application.searchParams));
+      expect(application.searchParams.get('intent')).toBe('buy');
+      expect(application.searchParams.get('lot')).toBe(A);
+      expect(next).toEqual({ filters, lotRef: A, selectedCrop: 'wheat' });
+      expect(application.searchParams.get('returnTo')).toBe(marketHref(locale, filters));
+
+      for (const items of [[b], [a, { ...a }]]) {
+        publicMarketReadMock.mockResolvedValue(result(items));
+        const absent = markup(await CanonicalPublicLotView({ locale, lotRef: A, context: filters }));
+        expect(absent.querySelector('[data-market-state="notPublished"]')).toBeTruthy();
+        expect(absent.querySelector('.pc-cp-lot-summary, .pc-cp-lot-meta--detail')).toBeNull();
+      }
+      publicMarketReadMock.mockClear();
+      for (const invalid of ['0', '1', [A, A], [A, B], A + '/extra']) {
+        const rejected = markup(await CanonicalPublicLotView({ locale, lotRef: invalid, context: filters }));
+        expect(rejected.querySelector('[data-market-state="invalidLink"]')).toBeTruthy();
+      }
+      expect(publicMarketReadMock).not.toHaveBeenCalled();
+    }
+  });
   it('renders only the requested published offer after reordering and shows missing after removal', async () => {
     const a=lot(A); const b=lot(B,{culture:'barley'});
     for (const items of [[a,b],[b,a],[b]]) {
@@ -1047,5 +1101,64 @@ describe('post-acceptance registration uncertainty at the actual BFF boundary', 
     expect(response.status).toBe(429);
     expect(result).toMatchObject({ ok: false, code: 'REGISTRATION_STATUS_RATE_LIMITED' });
     expect(classifyRegistrationStatusResponse(response, result)).toEqual({ kind: 'unavailable' });
+  });
+
+  it.each(['ru', 'en', 'zh'] as const)('%s: carries a real public selection through initial and resend email links', async (locale) => {
+    process.env.API_URL = 'http://api.example.test';
+    process.env.REGISTRATION_DELIVERY_KEY = 'x'.repeat(32);
+    process.env.RESEND_API_KEY = 'fixture-mail-key';
+    process.env.RESEND_FROM_EMAIL = 'sender@example.test';
+    const upstreamFetch = vi.fn(async () => Response.json({
+      accepted: true,
+      applicationId: 'APP-1',
+      statusToken: 'rst_reg_fixture',
+      emailDelivery: { email: 'fixture@example.test', token: 'verify-token' },
+    }, { status: 202 }));
+    vi.stubGlobal('fetch', upstreamFetch);
+    vi.mocked(sendTransactionalMail).mockResolvedValue({
+      delivered: true, provider: 'resend', reason: 'sent',
+    });
+    const lot = 'market-11111111-1111-4111-8111-111111111111';
+    const returnTo = marketHref(locale, { crop: 'wheat', sort: 'price-asc' });
+    const source = new URLSearchParams({
+      intent: 'buy', crop: 'wheat', lot, returnTo,
+      verify: 'spent-secret', role: 'owner', tenantId: 'foreign',
+    });
+    const query = `?${source.toString()}`;
+    for (const action of ['register', 'resend'] as const) {
+      const endpoint = registrationContextEndpoint(action, query, locale);
+      expect(endpoint).not.toMatch(/verify=|tenantId=|role=/);
+      const url = `http://localhost:3000${endpoint}&role=admin&redirect=https%3A%2F%2Fexternal.invalid`;
+      const response = action === 'register'
+        ? await registrationBffPOST(new Request(url, {
+          method: 'POST', headers: { 'idempotency-key': 'fixed-operation-key-0123456789', 'content-type': 'application/json' },
+          body: JSON.stringify({ workspace: 'buyer', email: 'fixture@example.test', locale }),
+        }))
+        : await registrationResendPOST(new Request(url, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email: 'fixture@example.test', locale }),
+        }));
+      expect(response.status).toBe(202);
+      const text = String(vi.mocked(sendTransactionalMail).mock.calls.at(-1)?.[0].text || '');
+      const link = text.match(/https?:\/\/[^\s]+/)?.[0];
+      expect(link).toBeTruthy();
+      const verify = new URL(link!);
+      expect(verify.pathname).toBe('/platform-v7/register');
+      expect(verify.searchParams.get('verify')).toBe('verify-token');
+      expect(verify.searchParams.get('lang')).toBe(locale);
+      expect(verify.searchParams.get('intent')).toBe('buy');
+      expect(verify.searchParams.get('crop')).toBe('wheat');
+      expect(verify.searchParams.get('lot')).toBe(lot);
+      expect(verify.searchParams.get('returnTo')).toBe(returnTo);
+      expect(verify.searchParams.has('role')).toBe(false);
+      expect(verify.searchParams.has('tenantId')).toBe(false);
+      expect(verify.searchParams.has('redirect')).toBe(false);
+      const continuation = new URL(verifiedRegistrationContinuationHref(verify.search, 'rst_reg_fixture', locale), 'https://example.test');
+      expect(continuation.searchParams.has('verify')).toBe(false);
+      expect(continuation.searchParams.get('returnTo')).toBe(returnTo);
+      expect(continuation.searchParams.get('lot')).toBe(lot);
+    }
+    expect(upstreamFetch).toHaveBeenCalledTimes(2);
+    expect(sendTransactionalMail).toHaveBeenCalledTimes(2);
   });
 });
