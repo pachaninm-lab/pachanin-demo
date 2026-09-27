@@ -41,6 +41,14 @@ async function ask(id:string,question:string,options:{history?:Turn[];current?:b
   ]}));
   rows.push(await ask('math','У меня 500 тонн. Цена 12000 руб/т. Сколько будет общая выручка до расходов?'));
   rows.push(await ask('platform-quality','Что произойдет на платформе, если при приемке качество зерна не совпадет с условиями сделки?',{platform:true}));
+  rows.push(await ask('typo','пшиница жолтеет после дождей че глянуть первым делом?'));
+  rows.push(await ask('correction','Нет, речь не о пшенице и не о хранении. У меня кукуруза на корню, после ветра часть растений полегла. Что проверить сначала?',{history:[
+    {role:'user',text:'Как уменьшить потери зерна при хранении в силосе?'},
+    {role:'assistant',text:'Контролируйте температуру и влажность зерна.'}
+  ]}));
+  rows.push(await ask('silo','Если в одной точке силоса температура зерна за сутки выросла на 4 °C, а в соседних точках стабильна, что проверить до решения о перемещении партии?'));
+  rows.push(await ask('platform-autonomy','Платформа сама автоматически решит спор и спишет деньги, если качество не совпало?',{platform:true}));
+
   const by=Object.fromEntries(rows.map(r=>[r.id,r])); const failures:string[]=[];
   if(!/400\s*(?:руб|₽)\s*\/?\s*т/iu.test(by['storage-followup'].answer))failures.push('storage_400_missing');
   if(/4000\s*(?:руб|₽)/iu.test(by['storage-followup'].answer))failures.push('storage_4000_survived');
@@ -51,6 +59,12 @@ async function ask(id:string,question:string,options:{history?:Turn[];current?:b
   if(!/(?:400\s*(?:руб|₽)|3[,.]33\s*%)/iu.test(by['commercial-decision'].answer))failures.push('commercial_premium_missing');
   if(/платформ\w*[\s\S]{0,100}(?:сама|автоматически)[\s\S]{0,100}(?:примет\s+решен|решит)|платформа\s+примет\s+решен/iu.test(by['platform-quality'].answer))failures.push('autonomous_platform_decision');
   if(by.diagnosis.answer.length<180)failures.push('diagnosis_too_shallow');
+  if(!/пшениц/iu.test(by.typo.answer)||/пшиница|жолтеет|песнян/iu.test(by.typo.answer))failures.push('typo_handling_fail');
+  if(/хранени|пшениц/iu.test(by.correction.answer)||!/кукуруз|стеб|полег|почат|корн/iu.test(by.correction.answer))failures.push('correction_context_fail');
+  if(!/влажн|аэрац|вентил|датчик|точк|самосогрев|температур/iu.test(by.silo.answer))failures.push('silo_too_weak');
+  if(/да[,.:\s]|автоматически\s+(?:решит|спиш)/iu.test(by['platform-autonomy'].answer))failures.push('platform_autonomy_fail');
+  if(/колорадск/iu.test(by.diagnosis.answer))failures.push('diagnosis_wrong_pest');
+
   const totals=rows.map(r=>r.totalMs).sort((a,b)=>a-b),firsts=rows.map(r=>r.firstDeltaMs).sort((a,b)=>a-b);
   const median=(v:number[])=>v.length%2?v[(v.length-1)/2]:Math.round((v[v.length/2-1]+v[v.length/2])/2);
   console.log('FULLPIPE_SUMMARY='+JSON.stringify({cases:rows.length,failures,medianFirstDeltaMs:median(firsts),medianTotalMs:median(totals),maxTotalMs:Math.max(...totals)}));
