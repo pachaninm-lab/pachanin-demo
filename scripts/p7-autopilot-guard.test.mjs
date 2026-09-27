@@ -46,6 +46,8 @@ const buyerPaths = [
   'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json',
 ];
 const dealCommandImplementationBranch = 'ux/deal-command-unknown-20260925';
+const webkitI18nBranch = 'fix/public-webkit-i18n-route-lifecycle-20260927';
+const webkitI18nTestPath = 'apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts';
 const productAdmissionPaths = new Map([
   ['bank/deep-visible-copy-guard-20260924', [
     'apps/web/app/platform-v7/bank/escrow/page.tsx',
@@ -1746,6 +1748,53 @@ test('Deal command source cannot expand its own trusted-base scope', (t) => {
   assert.match(output(result), /Mutable scope authority changed|Files outside current autopilot scope/u);
 });
 
+test('WebKit i18n test branch uses the trusted base guard at both PR entry points', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
+  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
+    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
+  const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
+    .split('  standard_validation:')[0];
+  assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${webkitI18nBranch}'`));
+  assert.ok(trusted.includes(`|${webkitI18nBranch}|`));
+  assert.ok(trusted.includes('if [ "$HEAD_REPOSITORY" != "$GITHUB_REPOSITORY" ]; then'));
+  assert.ok(prHead.includes(`github.head_ref == '${webkitI18nBranch}'`));
+  assert.ok(prHead.includes(`|${webkitI18nBranch}|`));
+  assert.ok(prHead.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh"'));
+  assert.ok(standard.includes(`github.head_ref != '${webkitI18nBranch}'`));
+});
+
+for (const mutation of ['admitted test', 'unadmitted test', 'foreign source', 'self-expanded state']) {
+  test(`WebKit i18n branch enforces base-owned one-file scope: ${mutation}`, (t) => {
+    const context = fixture(t, webkitI18nBranch);
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    if (mutation === 'unadmitted test') delete state.approvedConcurrentScopes[webkitI18nBranch];
+    else state.approvedConcurrentScopes[webkitI18nBranch] = [webkitI18nTestPath];
+    write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+    commit(context.root, 'accepted baseline scope');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+
+    write(context.root, webkitI18nTestPath, 'test-only browser lifecycle repair\n');
+    if (mutation === 'foreign source') {
+      write(context.root, 'apps/web/app/platform-v7/login/page.tsx', 'unauthorized runtime change\n');
+    }
+    if (mutation === 'self-expanded state') {
+      state.approvedConcurrentScopes[webkitI18nBranch].push('apps/web/app/platform-v7/login/page.tsx');
+      state.allowedCurrentScope.push('apps/web/**');
+      write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+      write(context.root, 'apps/web/app/platform-v7/login/page.tsx', 'candidate-supplied source authority\n');
+    }
+    commit(context.root, mutation);
+    const result = runGuard(context);
+    if (mutation === 'admitted test') assert.equal(result.status, 0, output(result));
+    else {
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /no immutable approved scope|Mutable scope authority changed|Files outside current autopilot scope/u);
+    }
+  });
+}
+
 for (const mutation of ['accepted', 'unrelated global scope', 'bank path expansion', 'wrong base identity', 'unapproved fourth branch', 'weakened truth boundary', 'extra coordination authority']) {
   test(`product source admission accepts only exact base-bound state: ${mutation}`, (t) => {
     const context = fixture(t, productAdmissionBranch);
@@ -1799,6 +1848,66 @@ test('product source admission cannot authorize its own missing base scope', (t)
   assert.notEqual(result.status, 0, output(result));
   assert.match(output(result), /PRODUCT_SCOPE_ADMISSION_STATE_MUTATION|no immutable approved scope/u);
 });
+
+function webkitCoordinationRecord(base) {
+  return {
+    owner: 'ACCOUNT_2_PRODUCT',
+    purpose: 'Isolate public production i18n route navigation in a fresh page lifecycle and verify realistic login-to-register navigation after the measured WebKit EN 320 ChunkLoadError.',
+    authorityBaseExactMain: base,
+    acceptedGuardPr: 5669,
+    acceptedGuardMerge: base,
+    implementationBranch: webkitI18nBranch,
+    allowedPaths: [webkitI18nTestPath],
+    requiredTruthBoundaries: [
+      'The accepted trusted-base immutable guard and both PR entry points permit this implementation ref only the exact browser test path; candidate state cannot expand it.',
+      'Preserve all eight public routes, EN/ZH localization, RU homepage design gates, ten viewport-locale combinations, zero pageerror, response success, Chinese typography, mobile target geometry and horizontal reflow assertions.',
+      'Use an independent page lifecycle for each direct public route and a separate real user click from login to register at 320 px; do not dismiss an actual click-path product error as test harness noise.',
+      'The previous WebKit EN 320 ChunkLoadError is unresolved until Chromium and WebKit exact-deployed-OCI live production i18n acceptance passes; source CI alone does not establish production acceptance.',
+      'Do not broaden to BANKS, FGIS, provider credentials, backend/runtime/locale product code, other tests or release workflow in this one-file implementation.',
+    ],
+    forbiddenAuthority: [
+      'Candidate-owned state or scope extension in the implementation PR',
+      'Product code/API/DB/tenant/role/bank/provider/FGIS mutation',
+      'CI/security/readiness weakening, fabricated acceptance or automatic merge',
+    ],
+    teamHubDependency: '#5666; accepted guard #5669; Team Hub #5469',
+  };
+}
+
+for (const mutation of ['accepted', 'wrong base', 'extra path', 'weakened boundary', 'prior record mutation', 'foreign source']) {
+  test(`WebKit state follow-up preserves the three accepted product admissions: ${mutation}`, (t) => {
+    const context = fixture(t, productAdmissionBranch);
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    state.approvedConcurrentScopes[productAdmissionBranch] = [statePath];
+    state.coordinationAdmissions = {};
+    for (const [branch, paths] of productAdmissionPaths) {
+      state.approvedConcurrentScopes[branch] = [...paths];
+      state.coordinationAdmissions[productAdmissionCoordinationKeys.get(branch)] =
+        productCoordinationRecord(branch, paths, '1'.repeat(40));
+    }
+    write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+    commit(context.root, 'accepted first three product admissions');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+
+    state.approvedConcurrentScopes[webkitI18nBranch] = [webkitI18nTestPath];
+    state.coordinationAdmissions['public-webkit-i18n-route-lifecycle-20260927'] =
+      webkitCoordinationRecord(context.baseline);
+    if (mutation === 'wrong base') state.coordinationAdmissions['public-webkit-i18n-route-lifecycle-20260927'].authorityBaseExactMain = '0'.repeat(40);
+    if (mutation === 'extra path') state.approvedConcurrentScopes[webkitI18nBranch].push('apps/web/app/platform-v7/login/page.tsx');
+    if (mutation === 'weakened boundary') state.coordinationAdmissions['public-webkit-i18n-route-lifecycle-20260927'].requiredTruthBoundaries.pop();
+    if (mutation === 'prior record mutation') state.coordinationAdmissions[productAdmissionCoordinationKeys.get('bank/deep-visible-copy-guard-20260924')].grantProviderFinality = true;
+    if (mutation === 'foreign source') write(context.root, 'apps/web/app/platform-v7/login/page.tsx', 'unadmitted runtime edit\n');
+    write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+    commit(context.root, `candidate ${mutation}`);
+    const result = runGuard(context);
+    if (mutation === 'accepted') assert.equal(result.status, 0, output(result));
+    else {
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /PRODUCT_WEBKIT_ADMISSION_STATE_MUTATION|Files outside current autopilot scope/u);
+    }
+  });
+}
 
 test('product source admission uses both trusted-base workflow routes', () => {
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
