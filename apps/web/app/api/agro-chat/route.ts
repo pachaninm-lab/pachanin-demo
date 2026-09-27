@@ -16,6 +16,7 @@ import {
   type AssistantRoutingContext,
 } from '@/lib/platform-v7/assistant-relevance-router';
 import { buildAssistantRoutingContext } from '@/lib/platform-v7/assistant-server-context';
+import { answerFarmerStarterQuestion } from '@/lib/platform-v7/public-assistant-knowledge';
 import { resolveInternalStreamEndpoint, streamInternalModel } from '@/lib/platform-v7/tai-internal-stream';
 import {
   renderStateForPrompt,
@@ -176,6 +177,23 @@ export async function POST(request: NextRequest) {
       modelIdentity: null,
       truncated: false,
       safetyFlags: ['SAFETY_BOUNDARY_BLOCKED'],
+    }));
+  }
+
+  // The visible starter cards have reviewed public guidance. Serve their exact
+  // first-turn answers without model queueing; contextual follow-ups keep inference.
+  const starter = envelope.history.length === 0
+    ? answerFarmerStarterQuestion(envelope.question, locale)
+    : null;
+  if (starter) {
+    return admitted(streamDirectAnswer(starter.answer, {
+      source: 'verified_knowledge',
+      answerMode: 'general_agro',
+      knowledgeVersion: starter.knowledgeVersion,
+      currentDataRequired: requiresCurrentEvidence(envelope.question),
+      modelIdentity: null,
+      truncated: false,
+      safetyFlags: [],
     }));
   }
 
