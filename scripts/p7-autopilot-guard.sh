@@ -733,7 +733,42 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     const baseline = structuredClone(state);
     if (!baseline.coordinationAdmissions) baseline.coordinationAdmissions = {};
     const baseSha = execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim();
-    for (const [implementationBranch, { key, paths, purpose, requiredTruthBoundaries, forbiddenAuthority, teamHubDependency }] of expected) {
+    const priorAdmissionsAccepted = [...expected].every(([implementationBranch, { key }]) =>
+      Object.hasOwn(state.approvedConcurrentScopes, implementationBranch) &&
+      Object.hasOwn(state.coordinationAdmissions || {}, key));
+    if (priorAdmissionsAccepted) {
+      const implementationBranch = 'fix/public-webkit-i18n-route-lifecycle-20260927';
+      const key = 'public-webkit-i18n-route-lifecycle-20260927';
+      const paths = ['apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts'];
+      if (Object.hasOwn(state.approvedConcurrentScopes, implementationBranch) ||
+          Object.hasOwn(state.coordinationAdmissions || {}, key)) {
+        throw new Error('PRODUCT_WEBKIT_ADMISSION_ALREADY_PRESENT');
+      }
+      baseline.approvedConcurrentScopes[implementationBranch] = paths;
+      baseline.coordinationAdmissions[key] = {
+        owner: 'ACCOUNT_2_PRODUCT',
+        purpose: 'Isolate public production i18n route navigation in a fresh page lifecycle and verify realistic login-to-register navigation after the measured WebKit EN 320 ChunkLoadError.',
+        authorityBaseExactMain: baseSha,
+        acceptedGuardPr: 5669,
+        acceptedGuardMerge: baseSha,
+        implementationBranch,
+        allowedPaths: paths,
+        requiredTruthBoundaries: [
+          'The accepted trusted-base immutable guard and both PR entry points permit this implementation ref only the exact browser test path; candidate state cannot expand it.',
+          'Preserve all eight public routes, EN/ZH localization, RU homepage design gates, ten viewport-locale combinations, zero pageerror, response success, Chinese typography, mobile target geometry and horizontal reflow assertions.',
+          'Use an independent page lifecycle for each direct public route and a separate real user click from login to register at 320 px; do not dismiss an actual click-path product error as test harness noise.',
+          'The previous WebKit EN 320 ChunkLoadError is unresolved until Chromium and WebKit exact-deployed-OCI live production i18n acceptance passes; source CI alone does not establish production acceptance.',
+          'Do not broaden to BANKS, FGIS, provider credentials, backend/runtime/locale product code, other tests or release workflow in this one-file implementation.',
+        ],
+        forbiddenAuthority: [
+          'Candidate-owned state or scope extension in the implementation PR',
+          'Product code/API/DB/tenant/role/bank/provider/FGIS mutation',
+          'CI/security/readiness weakening, fabricated acceptance or automatic merge',
+        ],
+        teamHubDependency: '#5666; accepted guard #5669; Team Hub #5469',
+      };
+      if (!isDeepStrictEqual(candidate, baseline)) throw new Error('PRODUCT_WEBKIT_ADMISSION_STATE_MUTATION');
+    } else for (const [implementationBranch, { key, paths, purpose, requiredTruthBoundaries, forbiddenAuthority, teamHubDependency }] of expected) {
       if (Object.hasOwn(state.approvedConcurrentScopes, implementationBranch) ||
           Object.hasOwn(state.coordinationAdmissions || {}, key)) {
         throw new Error('PRODUCT_SCOPE_ADMISSION_ALREADY_PRESENT');
