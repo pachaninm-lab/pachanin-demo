@@ -1668,6 +1668,16 @@
     "fix/production-mobile-controller-handoff-20260927": [
       ".github/workflows/platform-v7-production-mobile-acceptance.yml",
       "docs/platform-v7/autopilot/scopes/production-mobile-controller-handoff-20260927.json"
+    ],
+    "fix/gekta-farmer-questions-20260927": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/web-unit.yml",
+      "apps/web/app/api/public-platform-assistant/route.ts",
+      "apps/web/lib/platform-v7/public-assistant-knowledge.ts",
+      "apps/web/lib/platform-v7/assistant-question-understanding.ts",
+      "apps/web/tests/unit/publicFarmerStarterQuestions.test.ts",
+      "apps/web/tests/unit/taiPublicAssistantRetryRegenerate.test.tsx",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json"
     ]
   },
   "currentAcceptance": [
