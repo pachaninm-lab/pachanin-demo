@@ -1,0 +1,232 @@
+name: Gekta Live Storage Acceptance 20260927
+
+on:
+  push:
+    branches:
+      - ops/gekta-live-storage-acceptance-20260927
+    paths:
+      - .github/workflows/gekta-live-storage-acceptance-20260927.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-live-storage-acceptance-20260927
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    name: Exact-main live storage semantic and latency acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+      EXPECTED_SHA: 06f686d52247ebe7805f1b75d937b2ca8daf8f6f
+    steps:
+      - name: Run read-only two-turn production acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { performance } from 'node:perf_hooks';
+
+          const liveBase = process.env.LIVE_BASE;
+          const expectedSha = process.env.EXPECTED_SHA;
+          const repo = process.env.GITHUB_REPOSITORY;
+
+          const q1 = 'Пшеница, 500 тонн, предлагают 12000 рублей за тонну. Хранение 200 рублей за тонну в месяц. Продавать сейчас или хранить?';
+          const q2 = 'Срок хранения два месяца. Насколько должна вырасти цена, чтобы покрыть только хранение?';
+
+          const round = (n) => Math.round(n * 10) / 10;
+          const meaningful = (s) => [...String(s)].filter((c) => /[\p{L}\p{N}]/u.test(c)).length;
+
+          async function json(url, init = {}) {
+            const r = await fetch(url, init);
+            const text = await r.text();
+            let body = null;
+            try { body = JSON.parse(text); } catch {}
+            return { r, text, body };
+          }
+
+          async function currentMain() {
+            const { r, body } = await json(\`https://api.github.com/repos/\${repo}/commits/main\`, {
+              headers: { 'User-Agent': 'pc-crop-storage-acceptance' },
+            });
+            if (!r.ok || !body?.sha) throw new Error(\`MAIN_LOOKUP_FAILED:\${r.status}\`);
+            return body.sha;
+          }
+
+          async function liveRevision(tag) {
+            const { r, body } = await json(\`\${liveBase}/manifest-pc-deploy.json?\${tag}=\${Date.now()}\`, {
+              headers: { 'User-Agent': 'pc-crop-storage-acceptance' },
+            });
+            if (!r.ok) throw new Error(\`MANIFEST_HTTP_\${r.status}\`);
+            const sha = body?.commitSha || body?.revision || body?.sha || body?.gitSha || null;
+            if (!/^[0-9a-f]{40}$/.test(String(sha || ''))) throw new Error('MANIFEST_REVISION_UNPROVEN');
+            return sha;
+          }
+
+          let cookie = '';
+          function updateCookie(headers) {
+            const raw = headers.get('set-cookie') || '';
+            if (!raw) return;
+            const first = raw.split(';', 1)[0].trim();
+            if (/^[^=;\s]+=[^;]+$/.test(first)) cookie = first;
+          }
+
+          async function reserve() {
+            const t0 = performance.now();
+            const r = await fetch(\`\${liveBase}/api/gekta/entitlement\`, {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                accept: 'application/json',
+                ...(cookie ? { cookie } : {}),
+              },
+              body: JSON.stringify({ action: 'reserve' }),
+            });
+            updateCookie(r.headers);
+            const body = await r.json().catch(() => null);
+            const reserveMs = round(performance.now() - t0);
+            const ticket = body?.ticket;
+            if (!r.ok || body?.allowed !== true || !/^[0-9a-z]{8,12}\.[A-Za-z0-9_-]{16}$/.test(String(ticket || ''))) {
+              throw new Error(\`RESERVE_FAILED:\${r.status}:\${body?.code || body?.error || 'unknown'}\`);
+            }
+            return { ticket, reserveMs };
+          }
+
+          async function ask(question, history, label) {
+            const started = performance.now();
+            const { ticket, reserveMs } = await reserve();
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 170000);
+            try {
+              const r = await fetch(\`\${liveBase}/api/agro-chat?stream=1\`, {
+                method: 'POST',
+                headers: {
+                  'content-type': 'application/json; charset=utf-8',
+                  accept: 'text/event-stream',
+                  'sec-fetch-site': 'same-origin',
+                  'x-gekta-answer-ticket': ticket,
+                  ...(cookie ? { cookie } : {}),
+                },
+                body: JSON.stringify({
+                  message: question,
+                  locale: 'ru',
+                  context: 'gekta-standalone',
+                  conversationId: \`storageaccept\${process.env.GITHUB_RUN_ID}\`,
+                  history,
+                }),
+                signal: controller.signal,
+              });
+              updateCookie(r.headers);
+              const headersMs = round(performance.now() - started);
+              if (!r.ok) throw new Error(\`\${label}_STREAM_HTTP_\${r.status}\`);
+              if (!String(r.headers.get('content-type') || '').toLowerCase().startsWith('text/event-stream')) {
+                throw new Error(\`\${label}_NOT_SSE\`);
+              }
+
+              const reader = r.body?.getReader();
+              if (!reader) throw new Error(\`\${label}_NO_BODY\`);
+              const decoder = new TextDecoder();
+              let buffer = '';
+              let answer = '';
+              let firstTokenMs = null;
+              let firstMeaningfulMs = null;
+              let tokenFrames = 0;
+              let done = false;
+              let complete = false;
+              let streamCode = null;
+
+              const consume = (frame) => {
+                const line = frame.split(/\r?\n/u).find((x) => x.startsWith('data:'));
+                if (!line) return;
+                let event = null;
+                try { event = JSON.parse(line.slice(5).trim()); } catch { return; }
+                if (event?.event === 'token' && typeof event.text === 'string') {
+                  tokenFrames += 1;
+                  answer += event.text;
+                  if (firstTokenMs === null && event.text.length > 0) firstTokenMs = round(performance.now() - started);
+                  if (firstMeaningfulMs === null && meaningful(answer) >= 12) firstMeaningfulMs = round(performance.now() - started);
+                }
+                if (event?.event === 'error') streamCode = event.code || 'STREAM_ERROR';
+                if (event?.event === 'done') {
+                  done = true;
+                  complete = event.complete === true;
+                }
+              };
+
+              for (;;) {
+                const { value, done: ended } = await reader.read();
+                if (ended) break;
+                buffer += decoder.decode(value, { stream: true });
+                for (;;) {
+                  const m = buffer.match(/\r?\n\r?\n/u);
+                  if (!m || m.index === undefined) break;
+                  const frame = buffer.slice(0, m.index);
+                  buffer = buffer.slice(m.index + m[0].length);
+                  consume(frame);
+                }
+              }
+              if (buffer.trim()) consume(buffer);
+              const totalMs = round(performance.now() - started);
+              if (streamCode) throw new Error(\`\${label}_\${streamCode}\`);
+              if (!done || !complete || tokenFrames < 1 || !answer.trim()) throw new Error(\`\${label}_INCOMPLETE_SSE\`);
+              return { answer: answer.trim(), reserveMs, headersMs, firstTokenMs, firstMeaningfulMs, totalMs, tokenFrames };
+            } finally {
+              clearTimeout(timer);
+            }
+          }
+
+          const mainBefore = await currentMain();
+          const manifestBefore = await liveRevision('storage-accept-before');
+          if (mainBefore !== expectedSha) throw new Error(\`MAIN_DRIFT_BEFORE:\${mainBefore}\`);
+          if (manifestBefore !== expectedSha) throw new Error(\`LIVE_DRIFT_BEFORE:\${manifestBefore}\`);
+
+          const t1 = await ask(q1, [], 'TURN1');
+          const directBad = /(продавать\s+сейчас\s+выгоднее|продать\s+сейчас\s+выгоднее|хранить\s+выгоднее|выгоднее\s+хранить|выгоднее\s+продавать|рекомендую\s+(?:продать|хранить)|советую\s+(?:продать|хранить))/iu;
+          if (directBad.test(t1.answer)) throw new Error('TURN1_UNGROUNDED_ECONOMIC_CONCLUSION');
+
+          const history = [
+            { role: 'user', text: q1 },
+            { role: 'assistant', text: t1.answer },
+          ];
+          const t2 = await ask(q2, history, 'TURN2');
+          const arithmeticOk = /(?:^|\D)400(?:[.,]0+)?\s*(?:руб(?:лей|ля|ль)?\.?|₽)\s*(?:\/\s*т|за\s+тонн)/iu.test(t2.answer);
+          if (!arithmeticOk) throw new Error('TURN2_STORAGE_400_RUB_PER_TONNE_MISSING');
+          if (directBad.test(t2.answer)) throw new Error('TURN2_UNGROUNDED_ECONOMIC_CONCLUSION');
+          if (!/(не\s+(?:доказывает|означает|показывает).{0,40}(?:выгод|рентаб|прибыл)|не\s+позволяет.{0,60}(?:выгод|рентаб|прибыл)|только\s+хранени)/iu.test(t2.answer)) {
+            throw new Error('TURN2_TOTAL_PROFITABILITY_BOUNDARY_MISSING');
+          }
+
+          const mainAfter = await currentMain();
+          const manifestAfter = await liveRevision('storage-accept-after');
+          if (mainAfter !== expectedSha) throw new Error(\`MAIN_DRIFT_AFTER:\${mainAfter}\`);
+          if (manifestAfter !== expectedSha) throw new Error(\`LIVE_DRIFT_AFTER:\${manifestAfter}\`);
+
+          const oneLine = (s) => s.replace(/\s+/gu, ' ').trim();
+          console.log(\`EXPECTED_SHA=\${expectedSha}\`);
+          console.log(\`MAIN_BEFORE=\${mainBefore}\`);
+          console.log(\`MANIFEST_BEFORE=\${manifestBefore}\`);
+          console.log(\`TURN1_RESERVE_MS=\${t1.reserveMs}\`);
+          console.log(\`TURN1_HEADERS_MS=\${t1.headersMs}\`);
+          console.log(\`TURN1_FIRST_TOKEN_MS=\${t1.firstTokenMs}\`);
+          console.log(\`TURN1_FIRST_MEANINGFUL_MS=\${t1.firstMeaningfulMs}\`);
+          console.log(\`TURN1_TOTAL_MS=\${t1.totalMs}\`);
+          console.log(\`TURN1_TOKEN_FRAMES=\${t1.tokenFrames}\`);
+          console.log(\`TURN1_NO_UNGROUNDED_CONCLUSION=PASS\`);
+          console.log(\`TURN1_ANSWER=\${oneLine(t1.answer)}\`);
+          console.log(\`TURN2_RESERVE_MS=\${t2.reserveMs}\`);
+          console.log(\`TURN2_HEADERS_MS=\${t2.headersMs}\`);
+          console.log(\`TURN2_FIRST_TOKEN_MS=\${t2.firstTokenMs}\`);
+          console.log(\`TURN2_FIRST_MEANINGFUL_MS=\${t2.firstMeaningfulMs}\`);
+          console.log(\`TURN2_TOTAL_MS=\${t2.totalMs}\`);
+          console.log(\`TURN2_TOKEN_FRAMES=\${t2.tokenFrames}\`);
+          console.log(\`TURN2_STORAGE_ARITHMETIC_400_RUB_PER_TONNE=PASS\`);
+          console.log(\`TURN2_TOTAL_PROFITABILITY_BOUNDARY=PASS\`);
+          console.log(\`TURN2_ANSWER=\${oneLine(t2.answer)}\`);
+          console.log(\`MAIN_AFTER=\${mainAfter}\`);
+          console.log(\`MANIFEST_AFTER=\${manifestAfter}\`);
+          console.log('PRODUCTION_MUTATION=NONE');
+          console.log('LIVE_STORAGE_ACCEPTANCE=PASS');
+          NODE
