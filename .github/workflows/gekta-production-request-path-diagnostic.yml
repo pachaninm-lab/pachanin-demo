@@ -233,3 +233,213 @@ jobs:
       - name: Cleanup protected transport
         if: always()
         run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
+
+  live-storage-final:
+    name: Live Gekta storage semantics and TTFT
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify current main is the accepted production target
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          expected='06f686d52247ebe7805f1b75d937b2ca8daf8f6f'
+          actual="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          [[ "$actual" == "$expected" ]] || {
+            echo "LIVE_STORAGE_MAIN_DRIFT expected=$expected actual=${actual:-missing}" >&2
+            exit 31
+          }
+          echo "LIVE_STORAGE_MAIN_EXACT=$actual"
+
+      - name: Run exact live storage scenario and arbitrary-question latency probe
+        shell: bash
+        env:
+          LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+          EXPECTED_SHA: 06f686d52247ebe7805f1b75d937b2ca8daf8f6f
+        run: |
+          set -Eeuo pipefail
+          node <<'NODE'
+          const { performance } = require('node:perf_hooks');
+
+          const base = process.env.LIVE_BASE;
+          const expected = process.env.EXPECTED_SHA;
+          const jar = new Map();
+
+          function applyCookies(headers) {
+            const values = typeof headers.getSetCookie === 'function'
+              ? headers.getSetCookie()
+              : [headers.get('set-cookie')].filter(Boolean);
+            for (const line of values) {
+              const first = String(line).split(';', 1)[0];
+              const eq = first.indexOf('=');
+              if (eq > 0) jar.set(first.slice(0, eq), first.slice(eq + 1));
+            }
+          }
+          function cookieHeader() {
+            return [...jar.entries()].map(([k, v]) => k + '=' + v).join('; ');
+          }
+
+          async function reserve() {
+            const response = await fetch(base + '/api/gekta/entitlement', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json', accept: 'application/json', ...(jar.size ? { cookie: cookieHeader() } : {}) },
+              body: JSON.stringify({ action: 'reserve' }),
+              redirect: 'manual',
+              signal: AbortSignal.timeout(25000),
+            });
+            applyCookies(response.headers);
+            const body = await response.json().catch(() => null);
+            if (!response.ok || body?.allowed !== true || !/^[0-9a-z]{8,12}\.[A-Za-z0-9_-]{16}$/.test(String(body?.ticket || ''))) {
+              throw new Error('RESERVE_FAILED:' + response.status + ':' + String(body?.code || body?.error || 'unknown'));
+            }
+            return String(body.ticket);
+          }
+
+          function parseFrame(block) {
+            const data = block.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n');
+            if (!data) return null;
+            try { return JSON.parse(data); } catch { return null; }
+          }
+
+          async function ask(question, history, conversationId) {
+            const ticket = await reserve();
+            const started = performance.now();
+            const response = await fetch(base + '/api/agro-chat?stream=1', {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                accept: 'text/event-stream',
+                'x-gekta-answer-ticket': ticket,
+                cookie: cookieHeader(),
+              },
+              body: JSON.stringify({ message: question, locale: 'ru', context: 'gekta-standalone', conversationId, history }),
+              redirect: 'manual',
+              signal: AbortSignal.timeout(170000),
+            });
+            applyCookies(response.headers);
+            if (!response.ok || !String(response.headers.get('content-type') || '').toLowerCase().includes('text/event-stream') || !response.body) {
+              throw new Error('STREAM_HTTP_FAILED:' + response.status + ':' + (response.headers.get('content-type') || 'missing'));
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let answer = '';
+            let firstTokenMs = null;
+            let tokenCount = 0;
+            let meta = 0;
+            let assessment = 0;
+            let done = 0;
+            let complete = false;
+            let refusal = null;
+
+            const handle = (block) => {
+              const row = parseFrame(block);
+              if (!row) return;
+              if (row.event === 'meta') meta += 1;
+              if (row.event === 'token') {
+                const text = typeof row.text === 'string' ? row.text : '';
+                if (text.trim() && firstTokenMs === null) firstTokenMs = performance.now() - started;
+                answer += text;
+                tokenCount += 1;
+              }
+              if (row.event === 'assessment') assessment += 1;
+              if (row.event === 'done') {
+                done += 1;
+                complete = row.complete === true;
+              }
+              if (row.event === 'error' || row.event === 'refusal') refusal = String(row.code || row.refusal || row.message || row.event);
+            };
+
+            while (true) {
+              const chunk = await reader.read();
+              if (chunk.done) break;
+              buffer += decoder.decode(chunk.value, { stream: true });
+              buffer = buffer.replace(/\r\n/g, '\n');
+              let cut;
+              while ((cut = buffer.indexOf('\n\n')) >= 0) {
+                const block = buffer.slice(0, cut);
+                buffer = buffer.slice(cut + 2);
+                handle(block);
+              }
+            }
+            buffer += decoder.decode();
+            if (buffer.trim()) handle(buffer);
+
+            const totalMs = performance.now() - started;
+            if (meta < 1 || tokenCount < 1 || assessment < 1 || done !== 1 || !complete || refusal) {
+              throw new Error('STREAM_INCOMPLETE:meta=' + meta + ':tokens=' + tokenCount + ':assessment=' + assessment + ':done=' + done + ':complete=' + complete + ':refusal=' + (refusal || 'none'));
+            }
+            return { answer: answer.trim(), firstTokenMs, totalMs, tokenCount };
+          }
+
+          (async () => {
+            const manifestResponse = await fetch(base + '/manifest-pc-deploy.json?storage-final=' + Date.now(), {
+              headers: { accept: 'application/json' },
+              signal: AbortSignal.timeout(20000),
+            });
+            const manifest = await manifestResponse.json();
+            const deployed = [manifest?.commitSha, manifest?.revision, manifest?.sha, manifest?.commit, manifest?.gitSha]
+              .find(v => typeof v === 'string' && /^[0-9a-f]{40}$/.test(v));
+            if (!manifestResponse.ok || deployed !== expected) {
+              throw new Error('MANIFEST_NOT_EXACT:' + manifestResponse.status + ':' + (deployed || 'missing'));
+            }
+            console.log('LIVE_STORAGE_MANIFEST_EXACT=' + deployed);
+
+            const q1 = 'Пшеница, 500 тонн, предлагают 12000 рублей за тонну. Хранение 200 рублей за тонну в месяц. Продавать сейчас или хранить?';
+            const q2 = 'Срок хранения два месяца. Насколько должна вырасти цена, чтобы покрыть только хранение?';
+            const q3 = 'Если в одной точке силоса температура зерна за сутки выросла на 4 °C, а в соседних точках стабильна, что проверить до решения о перемещении партии?';
+            const conversationId = 'gekta-live-storage-' + Date.now();
+
+            const a1 = await ask(q1, [], conversationId);
+            const a2 = await ask(q2, [
+              { role: 'user', text: q1 },
+              { role: 'assistant', text: a1.answer },
+            ], conversationId);
+            const a3 = await ask(q3, [], conversationId + '-arbitrary');
+
+            const normalized2 = a2.answer.replace(/\s+/g, ' ');
+            const has400PerTonne =
+              /400(?:[,.]0+)?\s*(?:руб(?:\.|лей|ля|ль)?|₽)\s*(?:\/\s*т\b|(?:за|на)\s+тонн[уы])/iu.test(normalized2)
+              || /400(?:[,.]0+)?\s*(?:руб(?:\.|лей|ля|ль)?|₽)\/т\b/iu.test(normalized2);
+            if (!has400PerTonne) throw new Error('STORAGE_400_RUB_PER_TONNE_MISSING:' + normalized2.slice(0, 600));
+
+            const affirmativeProfit = [
+              /лучше\s+(?:продавать|продать|хранить)/iu,
+              /(?:рекомендую|советую)\s+(?:сейчас\s+)?(?:продавать|продать|хранить)/iu,
+              /(?:надо|нужно|следует)\s+(?:сейчас\s+)?(?:продавать|продать|хранить)/iu,
+            ];
+            if (affirmativeProfit.some(re => re.test(a1.answer) || re.test(a2.answer))) {
+              throw new Error('UNSUPPORTED_PROFITABILITY_RECOMMENDATION');
+            }
+            if (a3.answer.length < 80) throw new Error('ARBITRARY_ANSWER_TOO_SHORT:' + a3.answer.length);
+
+            const result = {
+              exactSha: deployed,
+              storageScenario: {
+                q1: { ttftMs: Math.round(a1.firstTokenMs ?? -1), totalMs: Math.round(a1.totalMs), tokenFrames: a1.tokenCount, answer: a1.answer },
+                q2: { ttftMs: Math.round(a2.firstTokenMs ?? -1), totalMs: Math.round(a2.totalMs), tokenFrames: a2.tokenCount, answer: a2.answer },
+                arithmetic: '400 RUB_PER_TONNE',
+                unsupportedProfitabilityRecommendation: false,
+              },
+              arbitraryQuestion: {
+                ttftMs: Math.round(a3.firstTokenMs ?? -1),
+                totalMs: Math.round(a3.totalMs),
+                tokenFrames: a3.tokenCount,
+                answer: a3.answer,
+              },
+            };
+            console.log('LIVE_GEKTA_FINAL_ACCEPTANCE=' + JSON.stringify(result));
+            console.log('LIVE_GEKTA_STORAGE_FINAL=PASS');
+          })().catch(error => {
+            console.error('LIVE_GEKTA_STORAGE_FINAL=FAIL ' + (error?.message || String(error)));
+            process.exit(1);
+          });
+          NODE
