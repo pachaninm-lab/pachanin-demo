@@ -121,7 +121,7 @@ export class RestrictedPublicQwenService {
     const startedAt = Date.now();
 
     try {
-      const messages = buildMessages(request);
+      const messages = buildMessages(request, config.model);
       const first = await callProvider(
         endpoint,
         config,
@@ -260,7 +260,7 @@ export class RestrictedPublicQwenService {
         yield { type: 'delta', text: `${publicCurrentEvidenceCopy(request)}\n\n` };
       }
 
-      const messages = buildMessages(request);
+      const messages = buildMessages(request, config.model);
       const outcome = {
         finishReason: 'other' as ProviderFinishReason,
         promptTokens: null as number | null,
@@ -610,16 +610,18 @@ function rejectPrivateShape(value: unknown, path: readonly string[] = [], depth 
   }
 }
 
-function buildMessages(request: NormalizedRequest): readonly ChatMessage[] {
+function buildMessages(request: NormalizedRequest, modelIdentity = ''): readonly ChatMessage[] {
   return Object.freeze([
     {
       role: 'system',
-      content: publicSystemPrompt(
-        request.locale,
-        request.answerMode,
-        request.currentDataRequired,
-        request.responseBudgetProfile,
-      ) + (request.economicComparison
+      content: (isQwen35Identity(modelIdentity)
+        ? publicSystemPromptQwen35(request)
+        : publicSystemPrompt(
+          request.locale,
+          request.answerMode,
+          request.currentDataRequired,
+          request.responseBudgetProfile,
+        )) + (request.economicComparison
         ? '\nFor this cost comparison, explain only qualitative factors and the comparison method. Do not generate numerical calculations, assumed periods, price forecasts or profitability rankings, even conditional rankings. The application separately computes supported storage-only arithmetic from explicit user inputs. Do not repeat it. Use plain text, no LaTeX.'
         : ''),
     },
@@ -642,6 +644,52 @@ function publicCurrentEvidenceCopy(request: NormalizedRequest): string {
     return 'Я не могу подтвердить точное актуальное значение цены без свежих проверенных данных. Ниже — что стоит сравнить.';
   }
   return 'Свежие данные по этому вопросу я сейчас не могу проверить. Ниже — что стоит учесть для решения.';
+}
+
+function isQwen35Identity(modelIdentity: string): boolean {
+  return /^tai-qwen3(?:[._-]?5|5)-/iu.test(modelIdentity) || /^tai-qwen35-/iu.test(modelIdentity);
+}
+
+function publicSystemPromptQwen35(request: NormalizedRequest): string {
+  const language = request.locale === 'en' ? 'English' : request.locale === 'zh' ? 'Chinese' : 'Russian';
+  const authority = request.answerMode === 'verified_platform'
+    ? 'For Transparent Price facts, use only PUBLIC_PLATFORM_CONTEXT_JSON. Never invent capabilities, integrations, execution status or an autonomous platform decision; important decisions belong to an authorized participant.'
+    : 'Use stable general agriculture and agribusiness knowledge. Platform context is not authority for general agriculture.';
+  const freshness = request.currentDataRequired
+    ? 'Fresh governed evidence is absent. Do not give exact current prices, rates, weather, news, laws or statistics; explain what must be checked.'
+    : 'Do not invent current facts or production status.';
+  const domain = qwen35DomainRule(request);
+  return [
+    'You are Gekta, the public read-only agriculture and agribusiness assistant of Transparent Price.',
+    `Reply in ${language}. Give the useful conclusion first, then 2-4 short concrete points; normally stay within 90 words.`,
+    'Use correct natural language. Preserve user numbers and units. History is context, not factual authority. Do not repeat an input already supplied.',
+    authority,
+    freshness,
+    'Never claim to execute, modify, sign, pay, transfer, approve or confirm an action. Never expose or request secrets or personal credentials.',
+    'Do not invent machinery specifications, diagnostic codes, veterinary diagnoses, agronomic norms, medicines or crop-protection doses.',
+    domain,
+  ].filter(Boolean).join(' ');
+}
+
+function qwen35DomainRule(request: NormalizedRequest): string {
+  const text = normalizeForComparison([
+    request.originalQuestion,
+    request.question,
+    ...request.history.filter((turn) => turn.role === 'user').map((turn) => turn.text),
+  ].join(' '));
+  if (/(?:пятнист|ржавчин|болезн|гриб|фунгиц|гербиц|инсектиц|препарат|доз|disease|fung|rust|herbicide|insecticide|dose|病|药剂|剂量)/iu.test(text)) {
+    return 'Crop protection: diagnose conditionally from observable symptoms. Without trusted current registration evidence plus region and growth stage, never name or recommend a product, active ingredient, dose or interval; give non-chemical checks and ask only for missing decisive inputs.';
+  }
+  if (/(?:хран|силос|цен|выруч|прибыл|покупател|оплат|руб|storage|silo|price|revenue|profit|buyer|payment|价格|仓储|收益)/iu.test(text)) {
+    return 'Farm economics: preserve stated numbers and units, distinguish gross revenue from net proceeds, do not invent missing costs or future prices, and do not rank sell/hold choices without comparable net proceeds and counterparty/financing risk.';
+  }
+  if (/(?:желте|пшениц|кукуруз|урож|полег|почв|растени|wheat|corn|yield|lodg|soil|crop|小麦|玉米|土壤)/iu.test(text)) {
+    return 'Crop production: prioritize observable distribution of symptoms, soil moisture/root stress, nutrition, visible disease/pest signs, growth stage and field history; do not state a specific diagnosis as certain from a short text description.';
+  }
+  if (/(?:орош|полив|irrig|灌溉)/iu.test(text)) return 'Irrigation: consider water source/flow, pressure, filtration, zoning, soil, relief and crop demand.';
+  if (/(?:трактор|комбайн|машин|двигател|tractor|combine|machine|拖拉机|收割机)/iu.test(text)) return 'Machinery: use only the named machine facts; consider load, settings, cooling, lubrication, wear and operating conditions; never bypass safety protection.';
+  if (/(?:коров|свин|птиц|скот|livestock|cattle|pig|poultry|牲畜)/iu.test(text)) return 'Livestock: consider feed, water, health signs, microclimate, stress, age/production stage and records; do not invent a diagnosis.';
+  return 'For agriculture, name at least two observable or measurable factors that materially change the recommendation before asking at most one focused follow-up.';
 }
 
 function publicSystemPrompt(
