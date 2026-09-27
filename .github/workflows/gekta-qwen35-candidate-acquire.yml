@@ -64,7 +64,9 @@ jobs:
               'kill -', 'pkill', 'docker restart', 'docker stop',
               'sudo ', 'NOPASSWD', 'SETENV:', 'PC_PROD_SSH_KEY', 'VPS_SSH_KEY',
           ]
-          bad = [x for x in forbidden if x in workflow]
+          operational_start = workflow.index('\n  acquire:\n')
+          operational = workflow[operational_start:]
+          bad = [x for x in forbidden if x in operational]
           if bad:
               raise SystemExit(f'forbidden activation/mutation tokens: {bad}')
           if scope['authorityBaseExactMain'] != '06f686d52247ebe7805f1b75d937b2ca8daf8f6f':
