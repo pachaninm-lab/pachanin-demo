@@ -268,6 +268,16 @@ async function captureEvidence(page: Page, testInfo: TestInfo, locale: string, v
   });
 }
 
+async function expectClientChunksSettledWithoutErrors(page: Page, pageErrors: string[], route: string) {
+  // The production WebKit failure was a rejected Next.js chunk promise after
+  // load. Keep the page alive until its requests and next render frames settle.
+  await page.waitForLoadState('networkidle', { timeout: 15_000 });
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+  expect(pageErrors, `${route} page errors after client chunks settled`).toEqual([]);
+}
+
 test.describe('Platform V7 exact production i18n acceptance', () => {
   test.describe.configure({ mode: 'serial' });
 
@@ -287,7 +297,7 @@ test.describe('Platform V7 exact production i18n acceptance', () => {
             if (route.name === 'home') await expectProductionHomepageDesignGates(page, viewport, locale.code);
             if (locale.code === 'zh' && route.name === 'home') await expectChineseTypography(page);
             await captureEvidence(page, testInfo, locale.code, viewport.name, route.name);
-            expect(pageErrors, `${route.path} page errors`).toEqual([]);
+            await expectClientChunksSettledWithoutErrors(page, pageErrors, route.path);
           } finally {
             await page.close();
           }
@@ -313,7 +323,7 @@ test.describe('Platform V7 exact production i18n acceptance', () => {
       await registerLink.click();
       await expect(page).toHaveURL(/\/platform-v7\/register(?:\?|$)/u);
       await expectLocalizedSurface(page, locale.htmlLang);
-      expect(pageErrors).toEqual([]);
+      await expectClientChunksSettledWithoutErrors(page, pageErrors, 'login → register');
     });
   }
 
