@@ -99,7 +99,7 @@ export function economicComparisonFor(question: string, history: readonly UserCo
 /** Bounded output screen, not a proof of arbitrary financial prose. */
 export function economicBlockAllowed(block: string): boolean {
   const body = block.replace(/^\d+[.)]\s*/u, '');
-  return !/[\d=\\]|руб|ruble|\bRUB\b|卢布|месяц|month|个月|выгод|лучше|дешевле|дороже|окуп|прибыль|рентабель|продавай|продайте|храните|выбира|выбери|рекоменд|советую|следует\s+(?:прода|хран)|profita|cheaper|more expensive|better|choose|select|recommend|should\s+(?:sell|stor)|\bsell now\b|pay[s]? off|更划算|更便宜|盈利|获利|更有利|更好|应选|选择|建议|应该|现在卖/iu.test(body)
+  return !/[\d=\\]|руб|ruble|\bRUB\b|卢布|месяц|month|个月|выгод|лучше|дешевле|дороже|окуп|прибыль|рентабель|продавай|продайте|храните|выбира|выбери|рекоменд|советую|следует\s+(?:прода|хран)|(?:продавать|продать|покупать|купить|хранить)\s+(?:сейчас|сегодня|немедленно)|(?:сейчас|сегодня|немедленно)[^.!?。！？\n]{0,30}(?:продавать|продать|покупать|купить|хранить)|profita|cheaper|more expensive|better|choose|select|recommend|should\s+(?:sell|stor)|\b(?:sell|buy|store)\s+(?:now|today)\b|pay[s]? off|更划算|更便宜|盈利|获利|更有利|更好|应选|选择|建议|应该|现在卖|今天卖|现在买|今天买/iu.test(body)
     && !/(?:два|двух|три|тр[её]х|несколько|two|three|several|[一二三四五六七八九十两])\s*(?:месяц|month|个月|月)/iu.test(body);
 }
 
