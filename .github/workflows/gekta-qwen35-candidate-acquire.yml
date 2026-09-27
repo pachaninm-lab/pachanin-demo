@@ -1,0 +1,215 @@
+name: Gekta Qwen3.5-9B Candidate Acquire
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/gekta-qwen35-candidate-acquire.yml"
+      - "docs/platform-v7/autopilot/scopes/gekta-qwen35-9b-candidate-3896.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-qwen35-9b-candidate-acquire
+  cancel-in-progress: false
+
+env:
+  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+  MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
+  EXPECTED_MAIN: 06f686d52247ebe7805f1b75d937b2ca8daf8f6f
+  CANDIDATE_REPO: bartowski/Qwen_Qwen3.5-9B-GGUF
+  CANDIDATE_REVISION: 182be2fd6c7bc44887d88a91cb03ff009cc9f549
+  CANDIDATE_FILE: Qwen_Qwen3.5-9B-Q4_K_M.gguf
+  CANDIDATE_SHA256: c0d434fe65c496ddb41568c7bef45400c57686aed662ce42b2d053329b088cc8
+  CANDIDATE_BYTES: "6169341984"
+  CANDIDATE_DIR: /srv/tai-models/candidates/qwen3.5-9b-c2022362
+
+jobs:
+  contract:
+    name: Validate non-activating candidate acquisition contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Enforce scope and mutation boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          workflow = Path('.github/workflows/gekta-qwen35-candidate-acquire.yml').read_text()
+          scope = json.loads(Path('docs/platform-v7/autopilot/scopes/gekta-qwen35-9b-candidate-3896.json').read_text())
+          required = [
+              'Qwen_Qwen3.5-9B-Q4_K_M.gguf',
+              'c0d434fe65c496ddb41568c7bef45400c57686aed662ce42b2d053329b088cc8',
+              '6169341984',
+              '/srv/tai-models/candidates/qwen3.5-9b-c2022362',
+              'StrictHostKeyChecking=yes',
+              'TAI_MODEL_SSH_HOST_KEY',
+              'systemctl show tai-qwen3-8b.service',
+              'CANDIDATE_RUNTIME_MUTATION=NONE',
+          ]
+          missing = [x for x in required if x not in workflow]
+          if missing:
+              raise SystemExit(f'missing contract tokens: {missing}')
+          forbidden = [
+              'systemctl restart', 'systemctl stop', 'systemctl start',
+              'kill -', 'pkill', 'docker restart', 'docker stop',
+              'sudo ', 'NOPASSWD', 'SETENV:', 'PC_PROD_SSH_KEY', 'VPS_SSH_KEY',
+          ]
+          bad = [x for x in forbidden if x in workflow]
+          if bad:
+              raise SystemExit(f'forbidden activation/mutation tokens: {bad}')
+          if scope['authorityBaseExactMain'] != '06f686d52247ebe7805f1b75d937b2ca8daf8f6f':
+              raise SystemExit('scope base mismatch')
+          if scope['candidate']['sha256'] != 'c0d434fe65c496ddb41568c7bef45400c57686aed662ce42b2d053329b088cc8':
+              raise SystemExit('candidate digest mismatch')
+          if scope['newRecurringCostRub'] != 0:
+              raise SystemExit('cost boundary changed')
+          PY
+
+  acquire:
+    name: Acquire pinned inactive Qwen3.5-9B candidate
+    needs: contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind evaluation to unchanged production main
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          actual="$(git rev-parse origin/main)"
+          [[ "$actual" == "$EXPECTED_MAIN" ]]
+          echo "CANDIDATE_MAIN_EXACT=$actual"
+
+      - name: Resolve pinned model-host transport
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){
+            local raw="$1" target="$2" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
+                install -m 0600 "$candidate" "$target"
+                rm -f "$a" "$b" "$c"
+                return 0
+              fi
+            done
+            rm -f "$a" "$b" "$c"
+            return 1
+          }
+          host="$(trim "${MODEL_HOST_SECRET:-}")"
+          user="$(trim "${MODEL_USER_SECRET:-}")"
+          port="$(trim "${MODEL_PORT_SECRET:-22}")"
+          [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$port" =~ ^[0-9]+$ ]]
+          (( port >= 1 && port <= 65535 ))
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          write_key "$(trim "${MODEL_KEY_SECRET:-}")" "$HOME/.ssh/id_tai_model"
+          pin="$(trim "${MODEL_HOST_KEY_SECRET:-}")"
+          [[ -n "$pin" ]]
+          pin_type="$(printf '%s' "$pin" | awk '{print $(NF-1)}')"
+          pin_material="$(printf '%s' "$pin" | awk '{print $NF}')"
+          scanned="$(ssh-keyscan -T 30 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"
+          printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned {ok=1} END{exit ok?0:1}'
+          printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"
+          chmod 600 "$HOME/.ssh/model_known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Download and verify inactive candidate without runtime mutation
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh_opts=(-i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
+          remote="$RUNNER_TEMP/acquire-candidate.sh"
+          cat > "$remote" <<'REMOTE'
+          set -Eeuo pipefail
+          umask 077
+          : "${CANDIDATE_DIR:?}" "${CANDIDATE_REPO:?}" "${CANDIDATE_REVISION:?}" "${CANDIDATE_FILE:?}" "${CANDIDATE_SHA256:?}" "${CANDIDATE_BYTES:?}"
+          service='tai-qwen3-8b.service'
+          before_pid="$(systemctl show "$service" --property MainPID --value)"
+          before_state="$(systemctl is-active "$service")"
+          [[ "$before_state" == active && "$before_pid" =~ ^[1-9][0-9]*$ ]]
+          available="$(df -P -B1 /srv/tai-models | awk 'NR==2{print $4}')"
+          (( available >= CANDIDATE_BYTES + 12*1024*1024*1024 ))
+          install -d -m 0700 "$CANDIDATE_DIR"
+          target="$CANDIDATE_DIR/$CANDIDATE_FILE"
+          partial="$target.partial"
+          good=0
+          if [[ -f "$target" ]]; then
+            actual_bytes="$(stat -c %s "$target")"
+            actual_sha="$(sha256sum "$target" | awk '{print $1}')"
+            if [[ "$actual_bytes" == "$CANDIDATE_BYTES" && "$actual_sha" == "$CANDIDATE_SHA256" ]]; then good=1; fi
+          fi
+          if (( good == 0 )); then
+            rm -f "$target"
+            url="https://huggingface.co/$CANDIDATE_REPO/resolve/$CANDIDATE_REVISION/$CANDIDATE_FILE"
+            curl --fail --location --retry 8 --retry-all-errors --connect-timeout 20 --continue-at - -o "$partial" "$url"
+            actual_bytes="$(stat -c %s "$partial")"
+            actual_sha="$(sha256sum "$partial" | awk '{print $1}')"
+            [[ "$actual_bytes" == "$CANDIDATE_BYTES" ]]
+            [[ "$actual_sha" == "$CANDIDATE_SHA256" ]]
+            chmod 0400 "$partial"
+            mv "$partial" "$target"
+          fi
+          actual_bytes="$(stat -c %s "$target")"
+          actual_sha="$(sha256sum "$target" | awk '{print $1}')"
+          [[ "$actual_bytes" == "$CANDIDATE_BYTES" && "$actual_sha" == "$CANDIDATE_SHA256" ]]
+          after_pid="$(systemctl show "$service" --property MainPID --value)"
+          after_state="$(systemctl is-active "$service")"
+          [[ "$after_state" == active && "$after_pid" == "$before_pid" ]]
+          printf 'CANDIDATE_ACQUIRED=1\n'
+          printf 'CANDIDATE_SHA256=%s\n' "$actual_sha"
+          printf 'CANDIDATE_BYTES=%s\n' "$actual_bytes"
+          printf 'CANDIDATE_CURRENT_SERVICE_PID_UNCHANGED=1\n'
+          printf 'CANDIDATE_RUNTIME_MUTATION=NONE\n'
+          REMOTE
+          envline="CANDIDATE_DIR='$CANDIDATE_DIR' CANDIDATE_REPO='$CANDIDATE_REPO' CANDIDATE_REVISION='$CANDIDATE_REVISION' CANDIDATE_FILE='$CANDIDATE_FILE' CANDIDATE_SHA256='$CANDIDATE_SHA256' CANDIDATE_BYTES='$CANDIDATE_BYTES'"
+          ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "$envline bash -s" < "$remote" | tee "$RUNNER_TEMP/candidate-evidence.txt"
+          grep -Fxq 'CANDIDATE_ACQUIRED=1' "$RUNNER_TEMP/candidate-evidence.txt"
+          grep -Fxq "CANDIDATE_SHA256=$CANDIDATE_SHA256" "$RUNNER_TEMP/candidate-evidence.txt"
+          grep -Fxq "CANDIDATE_BYTES=$CANDIDATE_BYTES" "$RUNNER_TEMP/candidate-evidence.txt"
+          grep -Fxq 'CANDIDATE_CURRENT_SERVICE_PID_UNCHANGED=1' "$RUNNER_TEMP/candidate-evidence.txt"
+          grep -Fxq 'CANDIDATE_RUNTIME_MUTATION=NONE' "$RUNNER_TEMP/candidate-evidence.txt"
+
+      - name: Upload bounded evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: gekta-qwen35-9b-candidate-acquire-${{ github.run_id }}
+          path: ${{ runner.temp }}/candidate-evidence.txt
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Cleanup transport
+        if: always()
+        shell: bash
+        run: rm -f "$HOME/.ssh/id_tai_model" "$HOME/.ssh/model_known_hosts"
