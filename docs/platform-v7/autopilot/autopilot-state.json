@@ -2382,6 +2382,37 @@
         "CI/security/readiness weakening, fabricated acceptance or automatic merge"
       ],
       "teamHubDependency": "#5666; accepted guard #5669; Team Hub #5469"
+    },
+    "gekta-live-answer-acceptance-bootstrap-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Admit only the independently reviewed exact two-file guard candidate needed to repair measured Gekta live-answer failures in issue #5673; no runtime implementation in this admission.",
+      "authorityBaseExactMain": "bdecafb969b2dd3f3862d385a7e11b8181177946",
+      "implementationBranch": "governance/gekta-current-data-regression-route-20260927",
+      "reviewedCandidateSha": "c7d46498d4723c0fe2e90956d799f64f25909e26",
+      "reviewedCandidateTree": "dc4134e0f09b2f6d2ec5588812dc831aa80c00b5",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs"
+      ],
+      "reviewedBlobs": {
+        "scripts/p7-autopilot-guard.sh": "378c69b6b8a51b332e52a8b31d3d089cb281a3d7",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "4716a6954542148943de39588837838075e205e8"
+      },
+      "requiredTruthBoundaries": [
+        "The owner explicitly requested completing and implementing Gekta speed and answer quality. Exact REG.RU release of #5656 does not establish semantic or speed acceptance: independent live review found two P1 defects and one P2 in #5673.",
+        "The reviewed candidate adds only assistant-relevance-router.ts, taiSemanticRelevanceRouter.test.ts, agro-chat/route.ts and platformV7AgroChatModelFirstRoute.test.ts at their exact recorded apps/web paths to the existing four-file fix/gekta-han-stream-20260927 literal guard and matching fixture. Existing protected workflow routes are unchanged.",
+        "Independently verify the complete two-file governance diff and both exact blob identities before merge. The recorded candidate commit/tree identify reviewed source history; current-main synchronization may change commit/tree identity only while preserving both exact blobs and the complete two-file relative diff. Every synchronized head still requires fresh independent review and CI/readiness.",
+        "This is exact-content admission with independent manual enforcement, not a claim that generic routing automatically verifies hashes. Any changed guard or fixture content requires renewed reviewed-content admission.",
+        "Accept the trusted guard before extending duplicated implementation-state scope or publishing the expanded eight-file runtime implementation. Candidate-owned state never widens trusted scope.",
+        "Preserve R1.2, all unrelated scopes and existing admissions. Fresh substantive CI/security, owner audit, independent exact-head review, manual readiness and ordinary expected-SHA merge remain required.",
+        "Retain the actual model for contextual and free-form questions. Preserve current-price evidence and safety boundaries; distinguish supplied-input arithmetic and storage-only break-even from total profitability. No measured speed improvement or live semantic PASS may be claimed before real acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Product source in this admission or guard candidate",
+        "Database, tenant, role, auth-mail, provider or production-topology changes",
+        "New recurring cost, fabricated evidence, weakened safety or forced/automatic merge"
+      ],
+      "reviewDependency": "Issue #5673; candidate PR #5674; independent reviewer /root/review_5662 exact c7d46498d4723c0fe2e90956d799f64f25909e26;36/36 scope regressions PASS"
     }
   }
 }
