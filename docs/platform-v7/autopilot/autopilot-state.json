@@ -2331,6 +2331,30 @@
         "API implementation remains a separate narrow PR requiring actual independent exact-head review, all substantive CI/security, fresh manual readiness and an expected-SHA merge.",
         "Production completion requires REG.RU exact running OCI revision, healthy services and live tests. Source tests alone do not prove model quality or latency; no new recurring cost."
       ]
+    },
+    "public-mobile-hero-320-production-i18n-repair-20260927": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Repair the production RU 320x700 homepage Hero six-line regression under the existing five-line and first-viewport CTA acceptance, with one exact stylesheet rule and a rendered browser assertion.",
+      "authorityBaseExactMain": "76c680695a306be04d9876e847428c28bfe4f875",
+      "implementationBranch": "fix/public-mobile-trust-gekta-return-20260926",
+      "reviewFinding": "PR #5664 exact-head independent Codex review P1: original Trust/Gekta coordination did not admit unrelated Hero typography.",
+      "allowedPaths": [
+        "apps/web/styles/platform-v7-canonical-home-v1.css",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "The two paths already appear in the trusted base branch path list; this record extends the purpose only for the measured 320x700 homepage failure and a stronger existing visual gate.",
+        "Keep the complete RU/EN/ZH Hero heading, primary CTA destination, first-viewport reachability, readable typography and no horizontal overflow. Never reduce the five-line acceptance limit or hide text.",
+        "The separate WebKit EN chunk-load pageerror remains a failed production i18n gate until independently resolved and rerun; CSS and visual CI cannot dismiss it.",
+        "Before merge, refresh the implementation branch onto the admitted main state, obtain independent review of the complete exact-head diff, pass hosted CI/security and rendered browser acceptance, and use expected-head SHA.",
+        "A merge is not deployment. Release only through the REG.RU exact-main contour and verify running OCI revision, healthy container, Caddy and fresh live browser acceptance."
+      ],
+      "forbiddenAuthority": [
+        "API/backend/DB/RLS/tenant/role/session or bank/provider/FGIS finality",
+        "other public or protected route behavior",
+        "CI/security/readiness gate weakening or automatic merge"
+      ],
+      "teamHubDependency": "PR #5664 review P1; production i18n run 36316640279; Team Hub #5469"
     }
   }
 }
