@@ -1,0 +1,273 @@
+name: Gekta Qwen3.5 Serial A/B
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/gekta-qwen35-serial-ab.yml"
+      - "scripts/gekta-qwen35-serial-ab.py"
+      - "docs/platform-v7/autopilot/scopes/gekta-qwen35-9b-candidate-3896.json"
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-qwen35-serial-ab
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate bounded serial A/B contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Validate syntax and fail-safe contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile scripts/gekta-qwen35-serial-ab.py
+          python3 scripts/gekta-qwen35-serial-ab.py self-test
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          script = Path('scripts/gekta-qwen35-serial-ab.py').read_text()
+          workflow = Path('.github/workflows/gekta-qwen35-serial-ab.yml').read_text()
+          scope = json.loads(Path('docs/platform-v7/autopilot/scopes/gekta-qwen35-9b-candidate-3896.json').read_text())
+          required_script = (
+              'EXPECTED_BASELINE_MODEL = "tai-qwen3-8b-q4km"',
+              'CANDIDATE_PORT = 18081',
+              'MIN_CANDIDATE_MEM_AVAILABLE = 3 * 1024 * 1024 * 1024',
+              'candidate_process_swap_nonzero',
+              'systemd-run',
+              'restore_baseline()',
+              'GEKTA_QWEN35_AB_BASELINE_RESTORED=1',
+              'ADMIT_FOR_APP_INTEGRATION',
+              'chat_template_kwargs',
+              '"enable_thinking": False',
+          )
+          missing = [x for x in required_script if x not in script]
+          if missing:
+              raise SystemExit(f'missing serial A/B invariant(s): {missing}')
+          if 'CANDIDATE_PORT = 18080' in script:
+              raise SystemExit('candidate may not bind the production model port')
+          required_workflow = (
+              "github.event.issue.number == 3896",
+              "github.event.comment.body == '/gekta qwen35-ab current-main'",
+              'github.event.comment.user.login == github.repository_owner',
+              'TAI_MODEL_SSH_PASSWORD',
+              'StrictHostKeyChecking=yes',
+          )
+          missing = [x for x in required_workflow if x not in workflow]
+          if missing:
+              raise SystemExit(f'missing owner/transport invariant(s): {missing}')
+          if scope['newRecurringCostRub'] != 0 or scope['status'] != 'active':
+              raise SystemExit('scope boundary mismatch')
+          PY
+
+  serial-ab:
+    name: Run protected Qwen3.5-9B serial A/B and restore baseline
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3896 &&
+      github.event.comment.body == '/gekta qwen35-ab current-main' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+      MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+      MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+      MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+      MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
+      MODEL_PASSWORD_SECRET: ${{ secrets.TAI_MODEL_SSH_PASSWORD }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify owner command and exact current main
+        id: authority
+        shell: bash
+        env:
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENTER" == "$OWNER" ]]
+          [[ "$ACTOR" == "$OWNER" || "$ACTOR" == 'chatgpt-codex-connector[bot]' ]]
+          [[ "$TRIGGERING_ACTOR" == "$OWNER" || "$TRIGGERING_ACTOR" == 'chatgpt-codex-connector[bot]' ]]
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+          python3 scripts/gekta-qwen35-serial-ab.py self-test
+
+      - name: Resolve pinned model-host SSH transport
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){
+            local raw="$1" target="$2" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
+                install -m 0600 "$candidate" "$target"
+                rm -f "$a" "$b" "$c"
+                return 0
+              fi
+            done
+            rm -f "$a" "$b" "$c"
+            return 1
+          }
+          host="$(trim "${MODEL_HOST_SECRET:-}")"
+          user="$(trim "${MODEL_USER_SECRET:-}")"
+          port="$(trim "${MODEL_PORT_SECRET:-22}")"
+          pin="$(trim "${MODEL_HOST_KEY_SECRET:-}")"
+          [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ -n "$pin" ]]
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          write_key "$(trim "${MODEL_KEY_SECRET:-}")" "$HOME/.ssh/id_tai_model"
+          pin_type="$(printf '%s' "$pin" | awk '{print $(NF-1)}')"
+          pin_material="$(printf '%s' "$pin" | awk '{print $NF}')"
+          scanned="$(ssh-keyscan -T 30 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"
+          printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned {ok=1} END{exit ok?0:1}'
+          printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"
+          chmod 600 "$HOME/.ssh/model_known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Execute serial A/B through protected sudo and capture rollback evidence
+        id: ab
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+          SUDO_PASSWORD: ${{ env.MODEL_PASSWORD_SECRET }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p artifacts/gekta-qwen35-serial-ab
+          log=artifacts/gekta-qwen35-serial-ab/result.log
+          ssh_common=(-i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
+          [[ -z "${SUDO_PASSWORD:-}" ]] || echo "::add-mask::$SUDO_PASSWORD"
+          remote_uid="$(ssh "${ssh_common[@]}" "$MODEL_USER@$MODEL_HOST" 'id -u')"
+          set +e
+          if [[ "$remote_uid" == 0 ]]; then
+            ssh "${ssh_common[@]}" "$MODEL_USER@$MODEL_HOST" 'exec /usr/bin/python3 -'               < scripts/gekta-qwen35-serial-ab.py 2>&1 | tee "$log"
+            rc=${PIPESTATUS[0]}
+          else
+            [[ -n "${SUDO_PASSWORD:-}" ]] || {
+              echo 'GEKTA_QWEN35_AB_FATAL=protected_sudo_password_unavailable' | tee "$log"
+              rc=90
+            }
+            if [[ "${rc:-0}" == 0 ]]; then
+              {
+                printf '%s\n' "$SUDO_PASSWORD"
+                cat scripts/gekta-qwen35-serial-ab.py
+              } | ssh "${ssh_common[@]}" "$MODEL_USER@$MODEL_HOST"                     "exec sudo -S -p '' -k /usr/bin/python3 -"                     2>&1 | tee "$log"
+              ps=( "${PIPESTATUS[@]}" )
+              rc="${ps[1]}"
+            fi
+          fi
+          set -e
+          unset SUDO_PASSWORD
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          grep -Eq '^GEKTA_QWEN35_AB_(RESULT|FATAL)=' "$log"
+          if grep -Fq 'GEKTA_QWEN35_AB_RESULT=' "$log"; then
+            grep -Fxq 'GEKTA_QWEN35_AB_BASELINE_RESTORED=1' "$log"
+          fi
+
+      - name: Build redacted A/B summary
+        if: always() && steps.ab.outcome != 'skipped'
+        shell: bash
+        env:
+          TARGET_SHA: ${{ steps.authority.outputs.sha }}
+          AB_RC: ${{ steps.ab.outputs.rc }}
+        run: |
+          set -Eeuo pipefail
+          log=artifacts/gekta-qwen35-serial-ab/result.log
+          summary=artifacts/gekta-qwen35-serial-ab/summary.md
+          node - "$log" "$summary" "$TARGET_SHA" "$AB_RC" <<'NODE'
+          const fs=require('fs');
+          const [logPath,outPath,target,rc]=process.argv.slice(2);
+          const text=fs.existsSync(logPath)?fs.readFileSync(logPath,'utf8'):'';
+          const line=text.split(/\r?\n/).find(x=>x.startsWith('GEKTA_QWEN35_AB_RESULT='));
+          let body='## Qwen3.5-9B serial A/B\n\n- exact repository main: `'+target+'`\n- process rc: `'+rc+'`\n';
+          if(line){
+            const r=JSON.parse(line.slice('GEKTA_QWEN35_AB_RESULT='.length));
+            body += '- baseline restored: `'+String(r.restored)+'`\n';
+            body += '- decision: `'+String(r.decision)+'`\n';
+            body += '- baseline score: `'+r.baseline.score+'/7`; critical: `'+r.baseline.criticalPass+'`; TTFT p50: `'+r.baseline.ttftP50Ms+' ms`; total p50: `'+r.baseline.totalP50Ms+' ms`\n';
+            if(r.candidate){
+              body += '- candidate score: `'+r.candidate.score+'/7`; critical: `'+r.candidate.criticalPass+'`; TTFT p50: `'+r.candidate.ttftP50Ms+' ms`; total p50: `'+r.candidate.totalP50Ms+' ms`\n';
+            }
+            if(r.candidateMemory){
+              body += '- candidate RSS: `'+r.candidateMemory.rssBytes+'`; swap: `'+r.candidateMemory.swapBytes+'`; MemAvailable: `'+r.candidateMemory.memAvailableBytes+'`\n';
+            }
+            body += '- candidate artifact SHA-256: `'+r.candidateArtifactSha256+'`\n';
+          } else {
+            const fatal=(text.match(/GEKTA_QWEN35_AB_FATAL=([^\r\n]+)/)||[])[1]||'missing-result';
+            body += '- result: `FAIL_CLOSED`\n- fatal marker: `'+fatal.replace(/[^A-Za-z0-9_.:-]/g,'_').slice(0,200)+'`\n';
+          }
+          body += '- production API/Web/database mutation: `NONE`\n- candidate production admission: `NONE` (A/B only)\n';
+          fs.writeFileSync(outPath,body);
+          NODE
+          cat "$summary"
+
+      - name: Publish A/B evidence to speed authority
+        if: always() && steps.ab.outcome != 'skipped'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh issue comment 3896 --repo "$GITHUB_REPOSITORY" --body-file artifacts/gekta-qwen35-serial-ab/summary.md
+
+      - name: Upload bounded A/B evidence
+        if: always() && steps.ab.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: gekta-qwen35-serial-ab-${{ github.run_id }}
+          path: artifacts/gekta-qwen35-serial-ab
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Enforce admitted candidate and proven rollback
+        if: always() && steps.ab.outcome != 'skipped'
+        shell: bash
+        env:
+          AB_RC: ${{ steps.ab.outputs.rc }}
+        run: |
+          set -Eeuo pipefail
+          log=artifacts/gekta-qwen35-serial-ab/result.log
+          grep -Fxq 'GEKTA_QWEN35_AB_BASELINE_RESTORED=1' "$log"
+          grep -Fxq 'GEKTA_QWEN35_AB_DECISION=ADMIT_FOR_APP_INTEGRATION' "$log"
+          [[ "${AB_RC:-999}" == 0 ]]
+
+      - name: Cleanup protected transport
+        if: always()
+        shell: bash
+        run: rm -f "$HOME/.ssh/id_tai_model" "$HOME/.ssh/model_known_hosts"
