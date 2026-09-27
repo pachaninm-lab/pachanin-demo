@@ -656,7 +656,7 @@ function publicSystemPromptQwen35(request: NormalizedRequest): string {
     ? 'For Transparent Price facts, use only PUBLIC_PLATFORM_CONTEXT_JSON. Never invent capabilities, integrations, execution status or an autonomous platform decision; important decisions belong to an authorized participant.'
     : 'Use stable general agriculture and agribusiness knowledge. Platform context is not authority for general agriculture.';
   const freshness = request.currentDataRequired
-    ? 'Fresh governed evidence is absent. Do not give exact current prices, rates, weather, news, laws or statistics; explain what must be checked.'
+    ? 'Fresh governed evidence is absent. Do not give exact current prices, rates, weather, news, laws or statistics. Do not claim that the data is public, private, unavailable in general, or automatically determinable. Say only that you cannot verify the current value here, then explain what must be checked.'
     : 'Do not invent current facts or production status.';
   const domain = qwen35DomainRule(request);
   return [
@@ -678,7 +678,7 @@ function qwen35DomainRule(request: NormalizedRequest): string {
     ...request.history.filter((turn) => turn.role === 'user').map((turn) => turn.text),
   ].join(' '));
   if (/(?:пятнист|ржавчин|болезн|гриб|фунгиц|гербиц|инсектиц|препарат|доз|disease|fung|rust|herbicide|insecticide|dose|病|药剂|剂量)/iu.test(text)) {
-    return 'Crop protection: diagnose conditionally from observable symptoms. Without trusted current registration evidence plus region and growth stage, never name or recommend a product, active ingredient, dose or interval; give non-chemical checks and ask only for missing decisive inputs.';
+    return 'Crop protection: diagnose conditionally from observable symptoms. Do not invent a pathogen, disease name or phenological-stage label. Name a specific disease only when you also state the visible sign that would distinguish it; otherwise use broad categories such as water/root stress, nutrition, disease signs, pests or mechanical damage. If growth stage is unknown, ask for BBCH or a visible stage description instead of inventing a stage. Without trusted current registration evidence plus region and growth stage, never name or recommend a product, active ingredient, dose or interval; give non-chemical checks and ask only for missing decisive inputs.';
   }
   if (/(?:хран|силос|цен|выруч|прибыл|покупател|оплат|руб|storage|silo|price|revenue|profit|buyer|payment|价格|仓储|收益)/iu.test(text)) {
     return 'Farm economics: preserve stated numbers and units, distinguish gross revenue from net proceeds, do not invent missing costs or future prices, and do not rank sell/hold choices without comparable net proceeds and counterparty/financing risk.';
