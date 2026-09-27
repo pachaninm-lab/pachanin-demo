@@ -1678,6 +1678,10 @@
       "apps/web/tests/unit/publicFarmerStarterQuestions.test.ts",
       "apps/web/tests/unit/taiPublicAssistantRetryRegenerate.test.tsx",
       "docs/platform-v7/qa/web-unit-coverage-registry.json"
+    ],
+    "fix/readiness-queue-job-gate-20260927": [
+      ".github/workflows/automerge.yml",
+      "docs/platform-v7/autopilot/scopes/readiness-queue-job-gate-20260927.json"
     ]
   },
   "currentAcceptance": [

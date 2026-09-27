@@ -31,6 +31,7 @@ const productImplementationManifests = new Map([
   ['ux/first-customer-next-action-unknown-20260924', 'docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json'],
   ['fix/public-registration-participation-choice-20260923', 'docs/platform-v7/autopilot/scopes/public-registration-participation-choice-20260923.json'],
   ['fix/production-mobile-controller-handoff-20260927', 'docs/platform-v7/autopilot/scopes/production-mobile-controller-handoff-20260927.json'],
+  ['fix/readiness-queue-job-gate-20260927', 'docs/platform-v7/autopilot/scopes/readiness-queue-job-gate-20260927.json'],
   ['ux/buyer-first-customer-home-20260925', 'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json'],
 ]);
 const productAdmissionBranch = 'governance/product-bank-fgis-ux-source-admission-20260924';
@@ -1628,6 +1629,18 @@ test('product branches run the immutable guard from the accepted base in both wo
   }
   assert.ok(prHead.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh"'));
   assert.ok(trusted.includes('ref: ${{ github.event.pull_request.base.sha }}'));
+});
+
+test('readiness queue job gate has exactly the two accepted paths and a workflow trigger', () => {
+  const branch = 'fix/readiness-queue-job-gate-20260927';
+  const workflowPath = '.github/workflows/automerge.yml';
+  const manifestPath = productImplementationManifests.get(branch);
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  assert.deepEqual(state.approvedConcurrentScopes[branch], [workflowPath, manifestPath]);
+  const paths = workflow.split('\n  pull_request:\n')[1].split('\nconcurrency:')[0];
+  assert.ok(paths.includes(`- '${workflowPath}'`));
+  assert.ok(fs.readFileSync(sourceGuard, 'utf8').includes(`"$READINESS_QUEUE_JOB_GATE_BRANCH") PRODUCT_SCOPE_MANIFEST='${manifestPath}'`));
 });
 
 test('mobile controller handoff has exactly the two accepted paths and a workflow trigger', () => {
