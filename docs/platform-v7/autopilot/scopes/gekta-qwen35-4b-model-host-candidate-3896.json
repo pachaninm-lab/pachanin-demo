@@ -28,14 +28,15 @@
     "no application database REG.RU deal money registration or tenant state is mutated",
     "new recurring cost remains zero",
     "crop-protection hard gate must remove concrete product or brand dose prescriptions when governed registration evidence is absent",
-    "verified-platform hard gate must remove autonomous critical-decision or money-action claims attributed to the platform"
+    "verified-platform hard gate must remove autonomous critical-decision or money-action claims attributed to the platform",
+    "candidate controller may reuse only the repository's existing protected root-key transport in the owner-authorized trusted-main workflow; it must require the pinned TAI_MODEL_SSH_HOST_KEY and may not install a reusable root bridge"
   ],
   "forbiddenCapabilities": [
     "merge-time automatic model switch or permanent Qwen3.5 activation",
     "parallel loading of Qwen3-8B and Qwen3.5-4B",
-    "unbounded sudo arbitrary shell SETENV trust-on-first-use or unpinned model-host identity",
     "floating model revision floating GGUF URL unchecked artifact or checksum bypass",
     "changing production API Web outbox database application configuration or model identity during candidate evaluation",
-    "paid API SaaS additional server or recurring cost"
+    "paid API SaaS additional server or recurring cost",
+    "new root credential persistent root bridge arbitrary remote command interface or trust-on-first-use; the existing protected root transport may execute only the fixed candidate helper in this workflow"
   ]
 }
