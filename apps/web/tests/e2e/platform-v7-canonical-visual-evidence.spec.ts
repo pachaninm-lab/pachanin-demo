@@ -168,7 +168,7 @@ test.describe('canonical visual authority evidence', () => {
   const responsiveWidths = [320, 375, 390, 768, 1280, 1440] as const;
   for (const width of responsiveWidths) {
     test(`responsive contract ${width}px`, async ({ page, baseURL }) => {
-      const height = width <= 390 ? 844 : width <= 768 ? 1024 : 900;
+      const height = width === 320 ? 700 : width <= 390 ? 844 : width <= 768 ? 1024 : 900;
       await page.setViewportSize({ width, height });
       for (const route of [
         '/platform-v7?lang=ru',
@@ -181,6 +181,35 @@ test.describe('canonical visual authority evidence', () => {
         const response = await page.goto(route, { waitUntil: 'domcontentloaded' });
         expect(response?.status(), `${route} should return 200 at ${width}px`).toBe(200);
         await expectPublicRoute(page, route, baseURL, targets.find((target) => target.path === route)?.ready);
+        if (width === 320 && route === '/platform-v7?lang=ru') {
+          await page.evaluate(() => document.fonts.ready);
+          const heading = page.locator('#pc-cp-home-title');
+          await expect(heading).toBeVisible();
+          const renderedLines = await heading.evaluate((node) => {
+            const tops: number[] = [];
+            const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+            let current = walker.nextNode();
+            while (current) {
+              if (current.textContent?.trim()) {
+                const range = document.createRange();
+                range.selectNodeContents(current);
+                for (const rect of Array.from(range.getClientRects())) {
+                  if (rect.width > 0 && rect.height > 0 && !tops.some((top) => Math.abs(top - rect.top) <= 1)) tops.push(rect.top);
+                }
+              }
+              current = walker.nextNode();
+            }
+            return tops.length;
+          });
+          expect(renderedLines, '320px homepage H1 rendered lines').toBeGreaterThanOrEqual(1);
+          expect(renderedLines, '320px homepage H1 rendered lines').toBeLessThanOrEqual(5);
+          const primary = page.locator('.pc-cp-hero .pc-cp-actions a[href*="intent=sell"]').first();
+          await expect(primary).toBeVisible();
+          const box = await primary.boundingBox();
+          expect(box, '320x700 primary CTA bounds').not.toBeNull();
+          expect(box!.y, '320x700 primary CTA top').toBeGreaterThanOrEqual(0);
+          expect(box!.y + box!.height, '320x700 primary CTA bottom').toBeLessThanOrEqual(701);
+        }
         const overflow = await page.evaluate(() => Math.max(
           document.documentElement.scrollWidth - document.documentElement.clientWidth,
           document.body.scrollWidth - document.body.clientWidth,
