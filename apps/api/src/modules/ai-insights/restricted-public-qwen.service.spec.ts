@@ -115,6 +115,37 @@ describe('RestrictedPublicQwenService', () => {
     }
   });
 
+
+  it('uses a compact fail-closed prompt only for Qwen3.5 candidates', async () => {
+    process.env.AI_ASSISTANT_MODEL = 'tai-qwen35-4b-q4km';
+    const fetchMock = jest.fn().mockResolvedValue(providerResponse('Проверьте распределение симптомов и влажность почвы.'));
+    global.fetch = fetchMock as typeof fetch;
+
+    await new RestrictedPublicQwenService().generate(GENERAL_AGRO_REQUEST);
+
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as [URL, RequestInit])[1].body));
+    const system = String(body.messages[0].content);
+    expect(system.length).toBeLessThan(3_500);
+    expect(system).toContain('Never prescribe a crop-protection product, brand, active ingredient, dose or interval');
+    expect(system).toContain('Server-side checked arithmetic is authoritative');
+    expect(system).toContain('Do not invent platform capabilities');
+    expect(system).toContain('do not reuse stale corrected facts');
+    expect(body.chat_template_kwargs).toEqual({ enable_thinking: false });
+  });
+
+  it('keeps the established Qwen3-8B prompt path unchanged', async () => {
+    process.env.AI_ASSISTANT_MODEL = 'tai-qwen3-8b-q4km';
+    const fetchMock = jest.fn().mockResolvedValue(providerResponse('Агрономический ответ.'));
+    global.fetch = fetchMock as typeof fetch;
+
+    await new RestrictedPublicQwenService().generate(GENERAL_AGRO_REQUEST);
+
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as [URL, RequestInit])[1].body));
+    const system = String(body.messages[0].content);
+    expect(system).toContain('actual reasoning assistant, not a scripted FAQ bot');
+    expect(system).toContain('For every agriculture or agribusiness answer');
+  });
+
   it('uses the bounded 120-second default when no provider timeout is configured', async () => {
     jest.useFakeTimers();
     delete process.env.AI_ASSISTANT_TIMEOUT_MS;
