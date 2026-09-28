@@ -62,8 +62,12 @@ jobs:
           grep -Fq 'CANDIDATE_ALIAS = "tai-qwen35-4b-q4km"' "$helper"
           grep -Fq 'systemctl_mutation_forbidden' "$helper"
           grep -Fq 'pidfd_send_signal' "$helper"
+          grep -Fq 'os.killpg(pid, sig)' "$helper"
           grep -Fq 'candidate_process_survived_sigkill' "$helper"
           grep -Fq 'save_state(state)' "$helper"
+          grep -Fq 'env["LLAMA_API_KEY"] = candidate_key' "$helper"
+          grep -Fq 'remove_flag(argv, "api_key")' "$helper"
+          grep -Fq 'candidate_key_present_in_cmdline' "$helper"
           grep -Fq -- '--candidate-key-stdin' "$helper"
           if grep -Eq 'subprocess\.(run|Popen)\([^\n]*(sudo|su[[:space:]]+-)' "$helper"; then
             echo 'privileged subprocess capability is forbidden' >&2
@@ -316,7 +320,16 @@ jobs:
           echo "QWEN35_TUNNEL_PID=$tunnel_pid" >> "$GITHUB_ENV"
           for attempt in $(seq 1 30); do
             if curl -fsS --max-time 3 -H "Authorization: Bearer $QWEN35_CANDIDATE_KEY" \
-              http://127.0.0.1:18082/v1/models | grep -Fq 'tai-qwen35-4b-q4km'; then exit 0; fi
+              http://127.0.0.1:18082/v1/models | grep -Fq 'tai-qwen35-4b-q4km'; then
+              unauth_code="$(curl -sS -o "$RUNNER_TEMP/qwen35-unauth" -w '%{http_code}' --max-time 3 \
+                http://127.0.0.1:18082/v1/models || true)"
+              [[ "$unauth_code" == 401 || "$unauth_code" == 403 ]] || {
+                echo "candidate auth enforcement failed: unauthenticated HTTP $unauth_code" >&2
+                exit 33
+              }
+              echo 'QWEN35_CANDIDATE_AUTH_ENFORCED=1'
+              exit 0
+            fi
             kill -0 "$tunnel_pid" 2>/dev/null || exit 31
             sleep 1
           done
