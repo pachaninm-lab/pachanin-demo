@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          expected='06f686d52247ebe7805f1b75d937b2ca8daf8f6f'
+          expected='2818bdc3867cdaeb4daa3a14d34fdb360cf6c2f2'
           actual="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
           [[ "$actual" == "$expected" ]]
           echo "QWEN35_LATEST_MAIN_EXACT=$actual"
