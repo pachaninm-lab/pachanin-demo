@@ -262,12 +262,22 @@ def launch_watchdog():
         "tr '\\000' '\\n' < \"/proc/$p/cmdline\" | grep -Fqx -- '%s'; then "
         "kill -TERM -- \"-$p\" 2>/dev/null || kill -TERM \"$p\" 2>/dev/null || true; "
         "i=0; while kill -0 \"$p\" 2>/dev/null && [ \"$i\" -lt 20 ]; do sleep 1; i=$((i+1)); done; "
-        "if kill -0 \"$p\" 2>/dev/null; then "
+        "if kill -0 \"$p\" 2>/dev/null && [ -r \"/proc/$p/cmdline\" ] && "
+        "tr '\\000' '\\n' < \"/proc/$p/cmdline\" | grep -Fqx -- '%s' && "
+        "tr '\\000' '\\n' < \"/proc/$p/cmdline\" | grep -Fqx -- '%s'; then "
         "kill -KILL -- \"-$p\" 2>/dev/null || kill -KILL \"$p\" 2>/dev/null || true; "
         "j=0; while kill -0 \"$p\" 2>/dev/null && [ \"$j\" -lt 5 ]; do sleep 1; j=$((j+1)); done; fi; "
-        "if kill -0 \"$p\" 2>/dev/null; then exit 70; fi; fi ;; esac; fi; "
+        "if kill -0 \"$p\" 2>/dev/null && [ -r \"/proc/$p/cmdline\" ] && "
+        "tr '\\000' '\\n' < \"/proc/$p/cmdline\" | grep -Fqx -- '%s' && "
+        "tr '\\000' '\\n' < \"/proc/$p/cmdline\" | grep -Fqx -- '%s'; then exit 70; fi; fi ;; esac; fi; "
         "/usr/bin/systemctl start '%s' >/dev/null 2>&1 || true"
-    ) % (LEASE_SECONDS, PID_PATH, PID_PATH, CANDIDATE_PATH, CANDIDATE_ALIAS, SERVICE)
+    ) % (
+        LEASE_SECONDS, PID_PATH, PID_PATH,
+        CANDIDATE_PATH, CANDIDATE_ALIAS,
+        CANDIDATE_PATH, CANDIDATE_ALIAS,
+        CANDIDATE_PATH, CANDIDATE_ALIAS,
+        SERVICE,
+    )
     proc = subprocess.Popen(
         ["/bin/sh", "-c", shell],
         stdin=subprocess.DEVNULL,
@@ -361,11 +371,14 @@ def stop_candidate():
         while time.monotonic() < deadline and process_alive(pid):
             time.sleep(0.25)
         if process_alive(pid):
+            if not candidate_process_matches(pid):
+                PID_PATH.unlink(missing_ok=True)
+                return
             signal_candidate(pid, signal.SIGKILL)
             deadline = time.monotonic() + 5
-            while time.monotonic() < deadline and process_alive(pid):
+            while time.monotonic() < deadline and candidate_process_matches(pid):
                 time.sleep(0.1)
-        if process_alive(pid):
+        if candidate_process_matches(pid):
             fail("candidate_process_survived_sigkill")
     PID_PATH.unlink(missing_ok=True)
 
