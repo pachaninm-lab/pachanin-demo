@@ -326,7 +326,6 @@ jobs:
                   raise AssertionError('standalone stop did not use pidfd-owned guard identity')
               if not pid_path.exists():
                   raise AssertionError('standalone stop removed PID before listener absence proof')
-              os.close(owned_fd)
 
           # Corrupt recovery identity is not equivalent to an absent candidate.
           with tempfile.TemporaryDirectory() as tmp:
