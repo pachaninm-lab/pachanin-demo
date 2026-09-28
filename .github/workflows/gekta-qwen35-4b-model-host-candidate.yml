@@ -318,22 +318,24 @@ jobs:
             "$MODEL_USER@$MODEL_HOST" &
           tunnel_pid=$!
           echo "QWEN35_TUNNEL_PID=$tunnel_pid" >> "$GITHUB_ENV"
+          ready=0
           for attempt in $(seq 1 30); do
-            if curl -fsS --max-time 3 -H "Authorization: Bearer $QWEN35_CANDIDATE_KEY" \
+            if curl -fsS --max-time 3 \
               http://127.0.0.1:18082/v1/models | grep -Fq 'tai-qwen35-4b-q4km'; then
-              unauth_code="$(curl -sS -o "$RUNNER_TEMP/qwen35-unauth" -w '%{http_code}' --max-time 3 \
-                http://127.0.0.1:18082/v1/models || true)"
-              [[ "$unauth_code" == 401 || "$unauth_code" == 403 ]] || {
-                echo "candidate auth enforcement failed: unauthenticated HTTP $unauth_code" >&2
-                exit 33
-              }
-              echo 'QWEN35_CANDIDATE_AUTH_ENFORCED=1'
-              exit 0
+              ready=1
+              break
             fi
             kill -0 "$tunnel_pid" 2>/dev/null || exit 31
             sleep 1
           done
-          exit 32
+          (( ready == 1 )) || exit 32
+          unauth_code="$(curl -sS --max-time 5 -o "$RUNNER_TEMP/qwen35-unauth.json" -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' \
+            --data '{"model":"tai-qwen35-4b-q4km","messages":[{"role":"user","content":"auth probe"}],"max_tokens":1}' \
+            http://127.0.0.1:18082/v1/chat/completions)"
+          [[ "$unauth_code" == "401" ]]
+          grep -Fq 'Invalid API Key' "$RUNNER_TEMP/qwen35-unauth.json"
+          echo 'QWEN35_CANDIDATE_PROTECTED_AUTH=PASS'
       - name: Exercise real Gekta pipeline against candidate
         id: acceptance
         env:
