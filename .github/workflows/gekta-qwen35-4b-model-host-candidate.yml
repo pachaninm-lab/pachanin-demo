@@ -83,8 +83,6 @@ jobs:
             'StrictHostKeyChecking=yes',
             'ExitOnForwardFailure=yes',
             'QWEN35_CANDIDATE_LIVE',
-            'raw//\\\\n',
-            "steps.start.outcome != 'skipped'",
             'rollback',
             'always()'
           ]) if (!workflow.includes(token)) throw new Error('missing authority token: ' + token);
@@ -163,176 +161,7 @@ jobs:
             [[ -n "$raw" ]] || return 1
             a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
             printf '%s\n' "$raw" > "$a"
-            printf '%s' "${raw//\\n/
-          pin_type="$(printf '%s' "$pin" | awk '{print $(NF-1)}')"
-          pin_material="$(printf '%s' "$pin" | awk '{print $NF}')"
-          [[ "$pin_material" =~ ^[A-Za-z0-9+/=]+$ ]]
-          mkdir -p "$HOME/.ssh"; chmod 0700 "$HOME/.ssh"
-          scanned="$(ssh-keyscan -T 20 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"
-          printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned {ok=1} END{exit ok?0:1}'
-          printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"
-          chmod 0600 "$HOME/.ssh/model_known_hosts"
-          write_key "$MODEL_KEY_SECRET" "$HOME/.ssh/key-model" || true
-          write_key "$PROD_KEY_PRIMARY" "$HOME/.ssh/key-prod1" || true
-          write_key "$PROD_KEY_SECONDARY" "$HOME/.ssh/key-prod2" || true
-          write_key "$PROD_KEY_FALLBACK" "$HOME/.ssh/key-prod3" || true
-          selected=''
-          for candidate in "$HOME"/.ssh/key-*; do
-            [[ -f "$candidate" ]] || continue
-            if ssh -i "$candidate" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes \
-              -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
-              -o ConnectTimeout=10 root@"$host" 'test "$(id -u)" -eq 0' >/dev/null 2>&1; then
-              selected="$candidate"; break
-            fi
-          done
-          [[ -n "$selected" ]]
-          install -m 0600 "$selected" "$HOME/.ssh/id_tai_root"
-          echo "host=$host" >> "$GITHUB_OUTPUT"
-          echo "port=$port" >> "$GITHUB_OUTPUT"
-          echo 'QWEN35_ROOT_TRANSPORT=PINNED_PROTECTED_KEY'
-      - name: Stage helper and prepare candidate bytes while baseline stays live
-        env:
-          MODEL_HOST: ${{ steps.ssh.outputs.host }}
-          MODEL_PORT: ${{ steps.ssh.outputs.port }}
-          REMOTE_HELPER: ${{ steps.target.outputs.remote_helper }}
-          HELPER_SHA: ${{ steps.target.outputs.helper_sha }}
-        run: |
-          set -Eeuo pipefail
-          scp -i "$HOME/.ssh/id_tai_root" -P "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
-            scripts/gekta-qwen35-4b-model-host-candidate.py "root@$MODEL_HOST:$REMOTE_HELPER"
-          remote_sha="$(ssh -i "$HOME/.ssh/id_tai_root" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
-            root@"$MODEL_HOST" "chmod 0400 '$REMOTE_HELPER'; sha256sum '$REMOTE_HELPER'" | awk '{print $1}')"
-          [[ "$remote_sha" == "$HELPER_SHA" ]]
-          ssh -i "$HOME/.ssh/id_tai_root" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
-            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
-            root@"$MODEL_HOST" "python3 '$REMOTE_HELPER' prepare" | tee "$RUNNER_TEMP/qwen35-prepare"
-          grep -Fxq 'QWEN35_CANDIDATE_PREPARE_STATUS=PASS' "$RUNNER_TEMP/qwen35-prepare"
-      - name: Create ephemeral candidate credential
-        run: |
-          set -Eeuo pipefail
-          key="$(openssl rand -hex 32)"
-          echo "::add-mask::$key"
-          echo "QWEN35_CANDIDATE_KEY=$key" >> "$GITHUB_ENV"
-      - name: Start bounded candidate window
-        id: start
-        env:
-          MODEL_HOST: ${{ steps.ssh.outputs.host }}
-          MODEL_PORT: ${{ steps.ssh.outputs.port }}
-          REMOTE_HELPER: ${{ steps.target.outputs.remote_helper }}
-        run: |
-          set -Eeuo pipefail
-          ssh -i "$HOME/.ssh/id_tai_root" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
-            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
-            root@"$MODEL_HOST" "python3 '$REMOTE_HELPER' start --candidate-key '$QWEN35_CANDIDATE_KEY'" \
-            | tee "$RUNNER_TEMP/qwen35-start"
-          grep -Fxq 'QWEN35_CANDIDATE_START=PASS' "$RUNNER_TEMP/qwen35-start"
-      - name: Open private tunnel
-        id: tunnel
-        env:
-          MODEL_HOST: ${{ steps.ssh.outputs.host }}
-          MODEL_PORT: ${{ steps.ssh.outputs.port }}
-        run: |
-          set -Eeuo pipefail
-          ssh -N -L 18082:127.0.0.1:18081 -i "$HOME/.ssh/id_tai_root" -p "$MODEL_PORT" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" \
-            -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
-            root@"$MODEL_HOST" &
-          tunnel_pid=$!
-          echo "QWEN35_TUNNEL_PID=$tunnel_pid" >> "$GITHUB_ENV"
-          for attempt in $(seq 1 30); do
-            if curl -fsS --max-time 3 -H "Authorization: Bearer $QWEN35_CANDIDATE_KEY" \
-              http://127.0.0.1:18082/v1/models | grep -Fq 'tai-qwen35-4b-q4km'; then exit 0; fi
-            kill -0 "$tunnel_pid" 2>/dev/null || exit 31
-            sleep 1
-          done
-          exit 32
-      - name: Exercise real Gekta pipeline against candidate
-        id: acceptance
-        env:
-          QWEN35_CANDIDATE_LIVE: '1'
-          TAI_RESTRICTED_QWEN_PUBLIC_ENABLED: 'true'
-          AI_ASSISTANT_PROVIDER: openai-compatible
-          AI_ASSISTANT_BASE_URL: http://127.0.0.1:18082/v1/
-          AI_ASSISTANT_ALLOWED_HOSTS: 127.0.0.1
-          AI_ASSISTANT_MODEL: tai-qwen35-4b-q4km
-          AI_ASSISTANT_API_KEY: ${{ env.QWEN35_CANDIDATE_KEY }}
-          AI_ASSISTANT_TIMEOUT_MS: '120000'
-          AI_ASSISTANT_MAX_TOKENS: '500'
-        run: |
-          set -Eeuo pipefail
-          pnpm --filter @pc/api jest --runInBand \
-            src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts \
-            | tee "$RUNNER_TEMP/qwen35-acceptance"
-      - name: Stop tunnel
-        if: always()
-        run: |
-          if [[ "$QWEN35_TUNNEL_PID" =~ ^[1-9][0-9]*$ ]]; then
-            kill "$QWEN35_TUNNEL_PID" 2>/dev/null || true
-            wait "$QWEN35_TUNNEL_PID" 2>/dev/null || true
-          fi
-      - name: Restore and verify Qwen3-8B baseline
-        id: rollback
-        if: always() && steps.start.outcome != 'skipped'
-        env:
-          MODEL_HOST: ${{ steps.ssh.outputs.host }}
-          MODEL_PORT: ${{ steps.ssh.outputs.port }}
-          REMOTE_HELPER: ${{ steps.target.outputs.remote_helper }}
-        run: |
-          set -Eeuo pipefail
-          [[ -f "$HOME/.ssh/id_tai_root" && -n "$MODEL_HOST" && -n "$MODEL_PORT" && -n "$REMOTE_HELPER" ]]
-          ssh -i "$HOME/.ssh/id_tai_root" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
-            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
-            root@"$MODEL_HOST" "python3 '$REMOTE_HELPER' rollback" | tee "$RUNNER_TEMP/qwen35-rollback"
-          grep -Fxq 'QWEN35_CANDIDATE_ROLLBACK_STATUS=PASS' "$RUNNER_TEMP/qwen35-rollback"
-          ssh -i "$HOME/.ssh/id_tai_root" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
-            root@"$MODEL_HOST" "python3 '$REMOTE_HELPER' status" | tee "$RUNNER_TEMP/qwen35-status"
-          grep -Fxq 'QWEN35_CANDIDATE_BASELINE_ACTIVE=1' "$RUNNER_TEMP/qwen35-status"
-          grep -Fxq 'QWEN35_CANDIDATE_CANDIDATE_ACTIVE=0' "$RUNNER_TEMP/qwen35-status"
-      - name: Publish bounded evidence
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
-          ACCEPTANCE: ${{ steps.acceptance.outcome }}
-          ROLLBACK: ${{ steps.rollback.outcome }}
-        run: |
-          set -Eeo pipefail
-          summary="$(grep -Eo 'QWEN35_CANDIDATE_ACCEPTANCE=\{.*\}' "$RUNNER_TEMP/qwen35-acceptance" 2>/dev/null | tail -1 || true)"
-          [[ -n "$summary" ]] || summary='QWEN35_CANDIDATE_ACCEPTANCE=NO_PASS_SUMMARY'
-          body="$RUNNER_TEMP/qwen35-comment.md"
-          {
-            echo '## Qwen3.5-4B dedicated model-host candidate'
-            echo "- exact main: $TARGET_SHA"
-            echo "- workflow run: $GITHUB_RUN_ID"
-            echo "- artifact sha256: 13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983"
-            echo "- real Gekta acceptance: $ACCEPTANCE"
-            echo "- mandatory Qwen3-8B rollback: $ROLLBACK"
-            echo "- production application/database mutation: NONE"
-            echo "- recurring cost: 0 RUB"
-            echo "$summary"
-          } > "$body"
-          gh issue comment "$SPEED_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
-      - name: Cleanup helper and SSH material
-        if: always()
-        env:
-          MODEL_HOST: ${{ steps.ssh.outputs.host }}
-          MODEL_PORT: ${{ steps.ssh.outputs.port }}
-          REMOTE_HELPER: ${{ steps.target.outputs.remote_helper }}
-        run: |
-          set +e
-          if [[ -f "$HOME/.ssh/id_tai_root" && -n "$MODEL_HOST" && -n "$MODEL_PORT" && -n "$REMOTE_HELPER" ]]; then
-            ssh -i "$HOME/.ssh/id_tai_root" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
-              -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
-              root@"$MODEL_HOST" "rm -f -- '$REMOTE_HELPER'" >/dev/null 2>&1
-          fi
-          rm -f "$HOME/.ssh/id_tai_root" "$HOME"/.ssh/key-* "$HOME/.ssh/model_known_hosts"
-\n'}" > "$b"
+            printf '%s' "$raw" | python3 -c 'import sys; sys.stdout.write(sys.stdin.read().replace("\\\\n", "\\n"))' > "$b"
             printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
             for candidate in "$a" "$b" "$c"; do
               if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
@@ -459,7 +288,7 @@ jobs:
           fi
       - name: Restore and verify Qwen3-8B baseline
         id: rollback
-        if: always()
+        if: always() && steps.start.outcome != 'skipped'
         env:
           MODEL_HOST: ${{ steps.ssh.outputs.host }}
           MODEL_PORT: ${{ steps.ssh.outputs.port }}
