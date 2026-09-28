@@ -1,38 +1,38 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/gekta-qwen35-protected-sudo-candidate-20260928",
+  "branch": "fix/gekta-qwen35-nonroot-candidate-20260928",
   "status": "active",
   "issue": 3896,
-  "purpose": "Repair the bounded Qwen3.5-4B candidate transport by reusing the existing dedicated model-host SSH principal, pinned host key and protected sudo credential while preserving the serial candidate window and mandatory Qwen3-8B rollback.",
-  "approvedBy": "repository-owner continuation for Gekta model upgrade on 2026-09-28",
-  "authorityBaseExactMain": "e75a77fa5a86a2f402c40fb864082b94e993cce4",
+  "purpose": "Implement the already admitted bounded non-root parallel Qwen3.5-4B candidate window while keeping the live Qwen3-8B service, PID, routing and production model identity unchanged.",
+  "approvedBy": "repository-owner continuation after merged admission PR #5704 on 2026-09-28",
+  "authorityBaseExactMain": "be4672729e9e8e4a79be7f59c479a4dc78f8ba3f",
   "newRecurringCostRub": 0,
   "allowedPaths": [
     ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+    "scripts/gekta-qwen35-4b-model-host-candidate.py",
     "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json"
   ],
   "requiredBehavior": [
-    "candidate remains exact Qwen/Qwen3.5-4B Q4_K_M with pinned revision size and sha256",
-    "candidate uses the exact current production llama.cpp executable and preserves threads16 threads-batch16 parallel1 ctx8192 batch512 ubatch128 except model alias model path host and candidate port",
-    "GitHub connects only as the existing dedicated non-root TAI_MODEL_SSH_USER with TAI_MODEL_SSH_KEY and pinned TAI_MODEL_SSH_HOST_KEY",
-    "existing TAI_MODEL_SSH_PASSWORD may be consumed only through encrypted SSH stdin for password-protected sudo and is never logged or persisted",
-    "sudo elevation is limited to installing the exact-SHA reviewed helper into a root-owned temporary path and executing only prepare start rollback status plus final helper removal",
-    "current Qwen3-8B service remains unchanged on disk and is the mandatory rollback authority",
-    "candidate bytes are downloaded and verified before the current service is stopped",
-    "candidate binds loopback only on a separate port and is never exposed directly to public traffic",
-    "real Gekta RestrictedPublicQwenService acceptance reaches the candidate only through a temporary pinned SSH tunnel",
-    "candidate window has a bounded watchdog that kills the candidate and restarts Qwen3-8B even if the GitHub runner disconnects",
-    "every path that reaches candidate start restores and verifies the original Qwen3-8B service before the workflow can finish",
-    "no application database REG.RU deal money registration tenant deployment or production model identity is mutated",
-    "new recurring cost remains zero"
+    "Use only the existing dedicated non-root TAI_MODEL_SSH_USER, TAI_MODEL_SSH_KEY and pinned TAI_MODEL_SSH_HOST_KEY; no password, sudo, root SSH or production SSH credential fallback.",
+    "The remote SSH principal must be the same non-root OS user configured on tai-qwen3-8b.service, while the service remains active and unchanged throughout the candidate window.",
+    "Candidate identity is tai-qwen35-4b-q4km using Qwen/Qwen3.5-4B Q4_K_M, exact 3013027808-byte artifact and SHA-256 13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983.",
+    "Candidate uses the exact active production llama.cpp executable and preserves threads16 threads-batch16 parallel1 ctx8192 batch512 ubatch128 except model path, alias, loopback port and ephemeral API key.",
+    "Candidate binds only 127.0.0.1:18081, is reached only through a pinned SSH tunnel, and is never placed in production routing.",
+    "Before candidate launch the helper snapshots baseline PID, command identity, restart counter, zero-swap state and capacity; baseline must retain at least 8 GiB MemAvailable before launch.",
+    "Candidate launch is held behind a same-process pre-exec pipe guard: candidate pidfd and PID record are established first; the watchdog must open its own pidfd to that still-inert guard and acknowledge ready supervision before the parent may release the guard to exec the priority wrappers and llama. The watchdog keeps that pidfd across guard→nice→ionice→llama exec transitions, enforces the hard 420-second lease and bounded RSS/headroom, and verifies the final candidate identity. Any pidfd/PID-record/watchdog/ready setup failure closes the guard without starting llama. Both start-failure recovery and standalone cleanup treat the acknowledged pre-exec guard and reviewed llama identity as the same owned task; cleanup is pidfd-only, recovery PID/watchdog metadata is retained until owned-process exit plus listener absence are actually proved, and only then may supervision/recovery metadata be released. No numeric PID/PGID signaling is allowed.",
+    "The ephemeral candidate credential is generated per run, masked on the runner, passed to the remote helper through bounded stdin rather than SSH argv, removed from the candidate command line, and supplied through the pinned llama.cpp LLAMA_API_KEY environment contract. Because pinned llama.cpp commit aedb2a5 intentionally exposes /v1/models as a public endpoint, that route is used only for loopback identity/readiness; an unauthenticated protected /v1/chat/completions request must return HTTP 401 before real acceptance proceeds with the ephemeral key.",
+    "Real RestrictedPublicQwenService acceptance exercises the current hardened guards; acceptance is valid only when real inference occurs and the semantic/safety corpus passes.",
+    "Every path that reaches candidate start performs fail-closed cleanup and verifies the original Qwen3-8B baseline identity is unchanged and healthy.",
+    "No systemd unit/drop-in mutation, baseline stop/restart/signal, application/database/tenant/Deal/money/registration/Web/API/outbox deployment or production model identity mutation is admitted.",
+    "New mandatory recurring cost remains 0 RUB."
   ],
   "forbiddenCapabilities": [
-    "direct root SSH key new root credential production SSH credential reuse or trust-on-first-use",
-    "persistent root or sudo bridge login-shell change sudoers change NOPASSWD grant SETENV or arbitrary remote command interface",
-    "merge-time automatic model switch or permanent Qwen3.5 activation",
-    "unbounded or public parallel model serving",
-    "floating model revision floating GGUF URL unchecked artifact or checksum bypass",
-    "application database Web API outbox tenant Deal money registration or production model identity mutation",
-    "paid API SaaS additional server or recurring cost"
+    "sudo, root SSH, password SSH, production SSH credentials, sudoers changes, persistent privileged bridges or arbitrary privileged remote command authority",
+    "stopping, restarting, killing, suspending or otherwise mutating the live Qwen3-8B baseline service/process",
+    "public candidate listener, production routing change, old-model alias reuse or permanent Qwen3.5 activation",
+    "candidate launch below capacity thresholds, unbounded lifetime/memory, cleanup without candidate identity validation or cleanup without listener absence proof",
+    "candidate credential in persistent files or remote process argv",
+    "floating model/runtime revision, unchecked GGUF artifact, paid API, SaaS, new server or recurring cost",
+    "CI/security/readiness/Kubernetes/outbox/browser acceptance weakening, force merge or production PASS claim from candidate evidence alone"
   ]
 }
