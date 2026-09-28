@@ -260,6 +260,139 @@ jobs:
           if result != 0 or token != b'R' or stop_calls:
               raise AssertionError('watchdog pidfd transition handoff failed')
 
+          # Every blocking baseline subprocess must be clamped to the remaining
+          # hard lease rather than its ordinary 10/30 second timeout.
+          class FakeClock:
+              def __init__(self, now=0.0):
+                  self.now = float(now)
+              def monotonic(self):
+                  return self.now
+              def sleep(self, seconds):
+                  self.now += float(seconds)
+
+          clamp_clock = FakeClock(419.0)
+          observed_timeouts = []
+          def timed_out_run(*args, timeout=None, **kwargs):
+              observed_timeouts.append(float(timeout))
+              clamp_clock.now += float(timeout)
+              raise module.subprocess.TimeoutExpired(args[0] if args else 'probe', timeout)
+
+          with mock.patch.object(module.time, 'monotonic', side_effect=clamp_clock.monotonic), \
+               mock.patch.object(module.subprocess, 'run', side_effect=timed_out_run):
+              try:
+                  module.command(['/bin/true'], timeout=30, deadline=420.0)
+              except module.subprocess.TimeoutExpired:
+                  pass
+              else:
+                  raise AssertionError('deadline-clamped command did not time out')
+          if len(observed_timeouts) != 1 or not (0.0 < observed_timeouts[0] <= 1.0):
+              raise AssertionError('blocking command was not clamped to remaining lease: ' + repr(observed_timeouts))
+          if clamp_clock.now > 420.000001:
+              raise AssertionError('blocking command timeout crossed the hard lease')
+
+          # snapshot_baseline must propagate the exact deadline through every
+          # synchronous systemctl and llama version/help probe.
+          deadline_marker = 9876.5
+          systemctl_deadlines = []
+          command_deadlines = []
+          class ProbeResult:
+              def __init__(self, returncode=0, stdout='', stderr=''):
+                  self.returncode = returncode
+                  self.stdout = stdout
+                  self.stderr = stderr
+
+          def deadline_systemctl(*args, check=True, timeout=30, deadline=None):
+              systemctl_deadlines.append(deadline)
+              if args[:2] == ('is-active', '--quiet'):
+                  return ProbeResult()
+              if '--property=User' in args:
+                  return ProbeResult(stdout='tai\n')
+              if '--property=MainPID' in args:
+                  return ProbeResult(stdout='999\n')
+              if '--property=NRestarts' in args:
+                  return ProbeResult(stdout='0\n')
+              raise AssertionError('unexpected systemctl probe: ' + repr(args))
+
+          def deadline_command(args, check=True, timeout=30, env=None, deadline=None):
+              command_deadlines.append(deadline)
+              if args[-1] == '--version':
+                  return ProbeResult(stdout='llama aedb2a5\n')
+              if args[-1] == '--help':
+                  return ProbeResult(stdout='LLAMA_API_KEY\n')
+              raise AssertionError('unexpected llama probe: ' + repr(args))
+
+          baseline_argv = [
+              b'/bin/true',
+              b'--threads', b'16',
+              b'--threads-batch', b'16',
+              b'--parallel', b'1',
+              b'--ctx-size', b'8192',
+              b'--batch-size', b'512',
+              b'--ubatch-size', b'128',
+              b'--alias', module.BASELINE_ALIAS.encode(),
+          ]
+          with contextlib.ExitStack() as stack:
+              stack.enter_context(mock.patch.object(module, 'require_nonroot', return_value='tai'))
+              stack.enter_context(mock.patch.object(module, 'systemctl_read', side_effect=deadline_systemctl))
+              stack.enter_context(mock.patch.object(module, 'command', side_effect=deadline_command))
+              stack.enter_context(mock.patch.object(
+                  module,
+                  'read_proc',
+                  return_value=(pathlib.Path('/bin/true'), baseline_argv, {'LLAMA_API_KEY': 'k' * 64}, b'baseline'),
+              ))
+              stack.enter_context(mock.patch.object(module, 'proc_kb', return_value=0))
+              state, _, _, _ = module.snapshot_baseline(deadline=deadline_marker)
+          if state['pid'] != 999:
+              raise AssertionError('deadline snapshot returned wrong baseline')
+          if systemctl_deadlines != [deadline_marker] * 4:
+              raise AssertionError('systemctl deadline propagation incomplete: ' + repr(systemctl_deadlines))
+          if command_deadlines != [deadline_marker] * 2:
+              raise AssertionError('llama deadline propagation incomplete: ' + repr(command_deadlines))
+
+          # Exact reviewer regression: enter an otherwise healthy probe at t=419s.
+          # A normal 30s synchronous probe may consume only the 1s remaining lease,
+          # and the first pidfd stop must happen no later than t=420s.
+          lease_clock = FakeClock(0.0)
+          baseline_calls = []
+          lease_stops = []
+          def slow_baseline(_state, deadline=None):
+              baseline_calls.append(deadline)
+              if len(baseline_calls) == 1:
+                  lease_clock.now = 419.0
+                  return True
+              duration = 30.0 if deadline is None else min(30.0, max(0.0, deadline - lease_clock.now))
+              lease_clock.now += duration
+              return True
+
+          ready_read, ready_write = os.pipe()
+          owned_fd = os.open(os.devnull, os.O_RDONLY)
+          with contextlib.ExitStack() as stack:
+              stack.enter_context(mock.patch.object(module, 'load_state', return_value={'pid': 999}))
+              stack.enter_context(mock.patch.object(module.os, 'pidfd_open', return_value=owned_fd))
+              stack.enter_context(mock.patch.object(module, 'candidate_guard_process_matches', return_value=True))
+              stack.enter_context(mock.patch.object(module, 'baseline_matches_state', side_effect=slow_baseline))
+              stack.enter_context(mock.patch.object(module, 'candidate_process_matches', return_value=True))
+              stack.enter_context(mock.patch.object(module, 'pidfd_exited', return_value=False))
+              stack.enter_context(mock.patch.object(module, 'proc_kb', return_value=1))
+              stack.enter_context(mock.patch.object(module, 'mem_available_kb', return_value=16 * 1024 * 1024))
+              stack.enter_context(mock.patch.object(module, 'verify_listener_absent', return_value=None))
+              stack.enter_context(mock.patch.object(
+                  module,
+                  'stop_pidfd_owned_process',
+                  side_effect=lambda fd: lease_stops.append(lease_clock.now),
+              ))
+              stack.enter_context(mock.patch.object(module.time, 'monotonic', side_effect=lease_clock.monotonic))
+              stack.enter_context(mock.patch.object(module.time, 'sleep', side_effect=lease_clock.sleep))
+              lease_result = module.watchdog(424242, 999, ready_write)
+          lease_token = os.read(ready_read, 2)
+          os.close(ready_read)
+          if lease_result != 0 or lease_token != b'R':
+              raise AssertionError('hard-lease watchdog regression did not complete normally')
+          if len(lease_stops) != 1 or lease_stops[0] > 420.000001:
+              raise AssertionError('hard lease was overrun: ' + repr(lease_stops))
+          if baseline_calls != [420.0, 420.0]:
+              raise AssertionError('watchdog did not bind baseline probes to exact hard deadline: ' + repr(baseline_calls))
+
           # If post-release child cleanup cannot prove exit, recovery identity
           # and lease supervision must remain available for the later workflow
           # cleanup rather than being erased.
