@@ -224,9 +224,24 @@ function write(root, file, content, mode) {
   if (mode) fs.chmodSync(target, mode);
 }
 
+// Every fixture repository opts out of git's automatic maintenance. Since git
+// 2.47 `maintenance.autoDetach` defaults to true, so `git commit` hands
+// `maintenance run --auto` to a detached background process that can still be
+// writing under .git after the test body returns. The cleanup hook then races
+// it and fails with ENOTEMPTY even after its retries (CI runs git 2.55). The
+// setting is repository-local, so it also covers every git call the guard
+// script itself makes inside the fixture. No assertion changes.
+const FIXTURE_GIT_CONFIG = [['maintenance.auto', 'false'], ['gc.auto', '0']];
+
 function git(root, args) {
   const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  if (args[0] === 'init') {
+    for (const [key, value] of FIXTURE_GIT_CONFIG) {
+      const config = spawnSync('git', ['config', key, value], { cwd: root, encoding: 'utf8' });
+      assert.equal(config.status, 0, `${config.stdout}\n${config.stderr}`);
+    }
+  }
   return result.stdout.trim();
 }
 
