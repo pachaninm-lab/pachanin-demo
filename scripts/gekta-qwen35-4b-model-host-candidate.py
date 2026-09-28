@@ -528,29 +528,6 @@ def stop_pidfd_owned_process(pidfd: int) -> None:
     if not wait_pidfd_exit(pidfd, 5):
         fail("pidfd_owned_process_survived_sigkill")
 
-def stop_unreaped_direct_child(proc: subprocess.Popen) -> None:
-    if proc.poll() is not None:
-        return
-    try:
-        proc.send_signal(signal.SIGTERM)
-    except ProcessLookupError:
-        proc.wait(timeout=3)
-        return
-    try:
-        proc.wait(timeout=3)
-        return
-    except subprocess.TimeoutExpired:
-        pass
-    try:
-        proc.send_signal(signal.SIGKILL)
-    except ProcessLookupError:
-        proc.wait(timeout=3)
-        return
-    try:
-        proc.wait(timeout=3)
-    except subprocess.TimeoutExpired:
-        fail("direct_child_survived_sigkill")
-
 def process_group_members(pgid: int) -> list[int]:
     members: list[int] = []
     for entry in pathlib.Path("/proc").iterdir():
@@ -736,7 +713,17 @@ def launch_watchdog(candidate_pid: int, baseline_pid: int) -> int:
                 if watchdog_pidfd is not None:
                     stop_owned_child(proc, watchdog_pidfd)
                 else:
-                    stop_unreaped_direct_child(proc)
+                    # No numeric-PID fallback is allowed. Close the readiness
+                    # pipe so the owned watchdog fails its R acknowledgement,
+                    # kills the still-inert candidate guard through its own
+                    # candidate pidfd, and exits by itself.
+                    if ready_read >= 0:
+                        os.close(ready_read)
+                        ready_read = -1
+                    try:
+                        proc.wait(timeout=8)
+                    except subprocess.TimeoutExpired:
+                        fail("watchdog_unowned_child_did_not_exit")
             stopped = True
         finally:
             if stopped and pid_recorded:
