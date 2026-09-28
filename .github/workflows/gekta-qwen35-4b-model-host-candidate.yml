@@ -78,7 +78,7 @@ jobs:
       - name: Prove safety regressions and candidate contract
         run: |
           set -Eeuo pipefail
-          pnpm --filter @pc/api jest --runInBand \
+          pnpm --filter @pc/api exec jest --runInBand \
             src/modules/ai-insights/restricted-public-qwen.safety.spec.ts \
             src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts
       - name: Prove bounded owner authority
@@ -449,7 +449,7 @@ jobs:
             });
           });
           TS
-          pnpm --filter @pc/api jest --runInBand             src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts             src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts             | tee "$RUNNER_TEMP/qwen35-acceptance"
+          pnpm --filter @pc/api exec jest --runInBand             src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts             src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts             | tee "$RUNNER_TEMP/qwen35-acceptance"
       - name: Stop tunnel
         if: always()
         run: |
