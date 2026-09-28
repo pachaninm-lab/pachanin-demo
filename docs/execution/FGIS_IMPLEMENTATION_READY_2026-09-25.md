@@ -1,6 +1,6 @@
 # FGIS implementation ready — applicability, Grain to Inventory and external truth
 
-Baseline: MASTER v2.1 R8/ACX, `main` `bfbcd7642e54678153073a6d864695739b550b9c` at 25 September 2026. This is an internal delivery contract, not a claim of government-system access, legal applicability or production acceptance. Official law/API versions and the running REG.RU revision must be rechecked before each mutation slice.
+Baseline: MASTER v2.1 R8/ACX, `main` `bfbcd7642e54678153073a6d864695739b550b9c` at 25 September 2026; Control Tower dependency checkpoint updated 28 September 2026 against PR #5622 exact HEAD. This is an internal delivery contract, not a claim of government-system access, legal applicability or production acceptance. Official law/API versions and the running REG.RU revision must be rechecked before each mutation slice.
 
 ## CURRENT STATE
 
@@ -9,6 +9,7 @@ Baseline: MASTER v2.1 R8/ACX, `main` `bfbcd7642e54678153073a6d864695739b550b9c` 
 - `RegulatoryRuleVersion` in `apps/api/prisma/schema.prisma` stores generic versioned rule source/payload/effective interval. There is no accepted tenant-scoped per-Deal applicability read projection with evaluated context, `APPLICABLE | NOT_APPLICABLE | UNKNOWN`, evidence and blocking stages (#5526).
 - Canonical Inventory lives in `apps/api/src/modules/inventory/`. FGIS Grain lot/СДИЗ evidence has separate existing tables/contracts; the accepted reconciliation that confirms/augments/conflicts with one canonical Inventory Batch is still #5370. The web Control Tower can show capability/freshness, not infer a Deal's compliance or tradeable quantity.
 - #5531 lists organization access/delegation, credentials, certificate/signature, operator and external E2E blockers. A publicly located ЗСН document or fixture is source provenance, not tenant access or an implemented adapter.
+- PRODUCT Control Tower PR #5622 (HEAD `94a537fbb9d667219f3906d5a1d3f04340ede821`) is unmerged. Its opaque one-tab UNKNOWN interlock still fails the accepted PC-CROP-07B verifier, which forbids client `sessionStorage`; #5658 needs a trusted governance decision or CORE #5655 needs to deliver server-backed recovery. Exact-head 07B is red, so no production acceptance transfers from earlier heads.
 
 ## KEEP
 
@@ -21,6 +22,7 @@ Keep one GovernmentSystemPort→provider adapter→canonical Regulatory projecti
 3. Real organization/provider access, credential/signing/delegation and official mutation/receipt finality #5531; no acceptance mutation to manufacture evidence.
 4. Field/geometry/right/season ЗСН, seed sale/status/buyer confirmation, metadata-driven Saturn, accredited operator EPD lifecycle, OTC applicability and conditional Argus-Fito/VetIS/Росаккредитация. These are separate rule and adapter capabilities, not blanket enabled flags.
 5. Product Deal/Control Tower reads need to render applicability, source/freshness, reconciliation/conflict, evidence and safe next step without guessing from crop name or adapter availability.
+6. After an ambiguous Control Tower POST, the client lacks a durable, authorized exact-command outcome read and same-key recovery across remount, tabs and devices (#5655). A one-tab marker is only a local safeguard; #5658 governs whether the existing 07B verifier may admit that bounded marker.
 
 ## ROOT CAUSES
 
@@ -35,7 +37,7 @@ For each authorized Deal and required system, the server returns a versioned app
 - Existing Regulatory Core owns rule selection and applicability. Inputs are commodity/OKPD2/TNVED as applicable, origin/destination, field, seed/pesticide facts, transport, deal stage, organization and current rule version. Missing context/rule/source produces UNKNOWN, not NOT_APPLICABLE.
 - GovernmentSystemPort adapters normalize official source facts into versioned evidence with raw encrypted reference, external ID/operation, provider/configuration, digest/signature/transport evidence, source time, received time and freshness. The adapter does not decide inventory title, settlement or legal finality by itself.
 - Grain lot/СДИЗ projection joins the existing Inventory Batch through a server-owned deterministic mapping and reconciliation record. It may confirm, augment provenance or conflict; it must never mint a second batch or increase sellable quantity beyond canonical reservation/title rules.
-- Asynchronous mutations reuse IR-20 durable delivery, correlation and inbox. Transport acceptance, provider processing and final official acceptance remain separate states; unknown post-send outcome requires status reconciliation of the same operation before retry.
+- Asynchronous mutations reuse IR-20 durable delivery, correlation and inbox. Transport acceptance, provider processing and final official acceptance remain separate states; unknown post-send outcome requires status reconciliation of the same operation before retry. CORE #5655 must bind the exact command, request fingerprint/If-Match, server-derived tenant/org/action/target and audit/outbox identities durably; latest adapter state or unrelated inbox events cannot substitute for its receipt.
 - PRODUCT consumes typed canonical read DTOs. Integration maturity, legal applicability, document state, Inventory reconciliation and Deal blocker status remain distinct UI dimensions.
 
 ## EXACT FILES / MODULES
@@ -52,11 +54,11 @@ Use versioned, scoped rule and applicability results keyed to Deal/batch/shipmen
 
 ## API / CONTRACTS
 
-CORE #5526 publishes a read-only, authorized per-Deal projection with each system/obligation's `APPLICABLE | NOT_APPLICABLE | UNKNOWN`, rule ID/version/effective interval, evaluated context identity, source/evidence refs, checkedAt/freshness, reason codes, required evidence and blocking stages. CORE #5370 publishes `MATCH | CONFLICT | UNKNOWN` Grain↔Inventory identity/quantity provenance and source freshness; #5531 records external activation separately. Exact endpoint, DTO, accepted SHA and negative tests must accompany `READY_FOR_CONSUMER=true`. PRODUCT may not derive these states from route text, crop labels, adapter presence or HTTP/ACK.
+CORE #5526 publishes a read-only, authorized per-Deal projection with each system/obligation's `APPLICABLE | NOT_APPLICABLE | UNKNOWN`, rule ID/version/effective interval, evaluated context identity, source/evidence refs, checkedAt/freshness, reason codes, required evidence and blocking stages. CORE #5370 publishes `MATCH | CONFLICT | UNKNOWN` Grain↔Inventory identity/quantity provenance and source freshness; #5531 records external activation separately. CORE #5655 must publish a private, no-store exact-command outcome read and same-key recovery contract with explicit APPLIED/REPLAY evidence versus UNKNOWN/PENDING_RECONCILIATION, server-side tenant/org/role/JIT authorization, and no false absence from a 404 while POST may still be in flight. Exact endpoint, DTO, accepted SHA and negative tests must accompany `READY_FOR_CONSUMER=true`. PRODUCT may not derive these states from route text, crop labels, adapter presence, HTTP/ACK or a refreshed adapter list.
 
 ## UX
 
-Control Tower and Deal 360 show whether a requirement applies, what evidence supports it, when the external source last changed, what the platform last fetched, and whether it blocks the current stage. UNKNOWN/degraded provides owner, missing fact and safe next step. Grain lot and internal Inventory Batch are shown as linked source versus canonical stock, with explicit conflict and no inflated available quantity. For EPD, distinguish draft, signed, operator accepted, GIS delivered, government accepted and finalized only where official contract evidence permits. RU/EN/ZH and mobile expose the same distinctions; no green badge from HTTP 2xx.
+Control Tower and Deal 360 show whether a requirement applies, what evidence supports it, when the external source last changed, what the platform last fetched, and whether it blocks the current stage. UNKNOWN/degraded provides owner, missing fact and safe next step. Grain lot and internal Inventory Batch are shown as linked source versus canonical stock, with explicit conflict and no inflated available quantity. For EPD, distinguish draft, signed, operator accepted, GIS delivered, government accepted and finalized only where official contract evidence permits. RU/EN/ZH and mobile expose the same distinctions; no green badge from HTTP 2xx. An ambiguous command remains visibly UNKNOWN and blocks a fresh command after remount; the current #5622 tab marker is not cross-tab/device authority, and recovery must consume #5655 only after its accepted handoff.
 
 ## SECURITY
 
@@ -64,11 +66,11 @@ Tenant/organization/Deal authorization and FORCE RLS gate source reads and proje
 
 ## CONCURRENCY
 
-Checkpoint delta pages and source versions transactionally; restart/replay cannot lose deletes or duplicate facts. Concurrent platform edits and external lot changes produce a conflict/reconciliation decision, never last-write-wins verified quantity. Use stable operation/correlation/idempotency keys for outbound work and unique inbox identity for callbacks; row/version locks prevent conflicting transitions. Source-rule version changes re-evaluate applicability and mark prior projections stale without retroactively forging acceptance.
+Checkpoint delta pages and source versions transactionally; restart/replay cannot lose deletes or duplicate facts. Concurrent platform edits and external lot changes produce a conflict/reconciliation decision, never last-write-wins verified quantity. Use stable operation/correlation/idempotency keys for outbound work and unique inbox identity for callbacks; row/version locks prevent conflicting transitions. Exact same-key replay after timeout must remain safe even when the aggregate version changed; a divergent request fingerprint conflicts and cannot silently create another audit/outbox entry. Source-rule version changes re-evaluate applicability and mark prior projections stale without retroactively forging acceptance.
 
 ## FAILURE / RECOVERY
 
-Source outage, stale/malformed response, schema drift, missing field geometry/right or contradictory evidence fail closed as UNKNOWN/CONFLICT and keep the blocking stage until authorized resolution. After possible government mutation timeout, mark UNKNOWN/PENDING_RECONCILIATION; do not blind replay. Durable receipt can be reprocessed exactly once, and ACK is not final. Rollback and restore preserve evidence lineage, cursor, source version and pending operations. Offline field input remains unaccepted evidence until server acknowledgement and conflict handling.
+Source outage, stale/malformed response, schema drift, missing field geometry/right or contradictory evidence fail closed as UNKNOWN/CONFLICT and keep the blocking stage until authorized resolution. After possible government mutation timeout, mark UNKNOWN/PENDING_RECONCILIATION; do not blind replay. For an ambiguous Control Tower POST, a missing/partial/corrupt exact audit/outbox receipt, read outage or 404 while the original POST may be in flight cannot prove non-commit; new-key retry stays blocked until server-authoritative recovery or governed operator resolution. Durable receipt can be reprocessed exactly once, and ACK is not final. Rollback and restore preserve evidence lineage, cursor, source version and pending operations. Offline field input remains unaccepted evidence until server acknowledgement and conflict handling.
 
 ## EXTERNAL BLOCKERS
 
@@ -81,6 +83,7 @@ Source outage, stale/malformed response, schema drift, missing field geometry/ri
 - Inventory: one canonical Batch, source quantity normalization, match/conflict, no double sell, concurrent reserve/source update and cross-organization denial under PostgreSQL RLS.
 - Mutations only in permitted test environment with exact contract: outbound durable write before ACK, duplicate/delayed callback, timeout UNKNOWN, same-operation reconciliation, signature failure and no false finality.
 - Product: legal applicability versus capability/availability, stale/degraded/forbidden/conflict/unknown, status/evidence accessibility, RU/EN/ZH/mobile, no client inference or fake source.
+- Control Tower recovery: timeout after commit and remount, lost response before commit, same-key replay after version change, changed payload, concurrent retry, cross-tenant/org/role/JIT denial, read outage, missing/corrupt audit/outbox, unrelated newer reconciliation and redrive target mismatch. No second audit/outbox entry for the same logical command. Preserve PC-CROP-07B acceptance; #5658 policy must be admitted on a separate trusted branch if the marker route is chosen.
 
 ## ACCEPTANCE
 
@@ -88,12 +91,13 @@ Internal R8 passes only with accepted exact-head rule/projection/Inventory contr
 
 ## DEPENDENCIES
 
-CORE #5526 owns per-Deal applicability; #5370 owns Grain→Inventory; #5531 owns external access; IR-20 owns durable delivery; canonical Inventory and Deal stage authority remain separate. PRODUCT consumes accepted DTOs only. The full UX matrix #5605/#5606 and bank/document/EPD handoffs share Deal evidence but cannot declare regulatory finality independently.
+CORE #5526 owns per-Deal applicability; #5370 owns Grain→Inventory; #5531 owns external access; #5655 owns exact-command recovery; #5658 owns the bounded 07B verifier-policy decision; IR-20 owns durable delivery; canonical Inventory and Deal stage authority remain separate. PRODUCT consumes accepted DTOs only. The full UX matrix #5605/#5606 and bank/document/EPD handoffs share Deal evidence but cannot declare regulatory finality independently.
 
 ## IMPLEMENTATION ORDER
 
 1. Resolve exact main, rule registry, Grain read/Inventory authority and official source versions; classify KEEP/EXTEND/EXTERNAL_BLOCKER per system.
 2. Implement CORE #5526 fail-closed per-Deal read projection and accept negative/rule-version/RLS tests; hand off the exact DTO.
 3. Implement #5370 authorized Grain read/delta and canonical Inventory reconciliation with crash/replay/quantity tests; keep mutations disabled.
-4. PRODUCT renders the two accepted projections and degraded/UNKNOWN/conflict states in a narrow admitted Deal/Control Tower slice, then accepts exact REG.RU read paths.
-5. Verify real contracts and organization access per #5531. Only then add permitted Grain mutations, ZSN/seed/Saturn, EPD operator and conditional systems one capability at a time with external E2E. Re-evaluate full R8 acceptance without converting an external blocker into PASS.
+4. Resolve #5658 in an admitted governance branch or obtain #5655 `READY_FOR_CONSUMER`; bring #5622 through exact-head green 07B, owner audit, independent review, readiness and a SHA-bound merge. Do not weaken or hide the scanner.
+5. PRODUCT renders the two accepted projections and degraded/UNKNOWN/conflict states in a narrow admitted Deal/Control Tower slice, then accepts exact REG.RU read paths.
+6. Verify real contracts and organization access per #5531. Only then add permitted Grain mutations, ZSN/seed/Saturn, EPD operator and conditional systems one capability at a time with external E2E. Re-evaluate full R8 acceptance without converting an external blocker into PASS.
