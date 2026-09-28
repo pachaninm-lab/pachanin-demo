@@ -306,6 +306,42 @@ jobs:
                   if module.candidate_exec_guard(read_fd) != 81:
                       raise AssertionError('guard EOF did not fail closed')
 
+          # The real standalone stop path must accept the acknowledged
+          # pre-exec guard as owned, signal only through pidfd, and retain the PID
+          # record until the later listener-absence proof.
+          with tempfile.TemporaryDirectory() as tmp:
+              root = pathlib.Path(tmp)
+              pid_path = root / 'candidate.pid'
+              pid_path.write_text('424242\n', encoding='ascii')
+              owned_fd = os.open(os.devnull, os.O_RDONLY)
+              stopped = []
+              with contextlib.ExitStack() as stack:
+                  stack.enter_context(mock.patch.object(module, 'PID_PATH', pid_path))
+                  stack.enter_context(mock.patch.object(module, 'open_owned_candidate_pidfd', return_value=owned_fd))
+                  stack.enter_context(mock.patch.object(module, 'stop_pidfd_owned_process', side_effect=lambda fd: stopped.append(fd)))
+                  module.stop_candidate()
+              if stopped != [owned_fd]:
+                  raise AssertionError('standalone stop did not use pidfd-owned guard identity')
+              if not pid_path.exists():
+                  raise AssertionError('standalone stop removed PID before listener absence proof')
+              os.close(owned_fd)
+
+          # Corrupt recovery identity is not equivalent to an absent candidate.
+          with tempfile.TemporaryDirectory() as tmp:
+              root = pathlib.Path(tmp)
+              pid_path = root / 'candidate.pid'
+              pid_path.write_text('not-a-pid\n', encoding='ascii')
+              with mock.patch.object(module, 'PID_PATH', pid_path):
+                  try:
+                      module.stop_candidate()
+                  except module.CandidateError as exc:
+                      if 'candidate_pid_record_invalid' not in str(exc):
+                          raise
+                  else:
+                      raise AssertionError('invalid candidate PID record did not fail closed')
+              if not pid_path.exists():
+                  raise AssertionError('invalid recovery PID record was discarded')
+
           # Standalone cleanup must also own the pre-exec guard. It may
           # remove recovery metadata and stop the watchdog only after process exit
           # and listener absence are proved.
