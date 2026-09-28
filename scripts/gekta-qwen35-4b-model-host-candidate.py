@@ -32,6 +32,7 @@ LEASE_SECONDS = 420
 LEASE_TERM_MARGIN_SECONDS = 2.0
 LEASE_KILL_MARGIN_SECONDS = 1.0
 LEASE_POLL_SECONDS = 0.25
+CANDIDATE_NICE_DELTA = 10
 MIN_FREE_BYTES = 7_000_000_000
 MIN_MEM_BEFORE_KB = 8 * 1024 * 1024
 MIN_MEM_READY_KB = 3 * 1024 * 1024
@@ -564,6 +565,15 @@ def candidate_exec_guard(guard_fd: int) -> int:
     status = candidate_exec_argv_status(argv)
     if status:
         return status
+    # Lower CPU scheduling priority in this same process, then exec llama
+    # directly. Avoid external nice/ionice wrappers so the pidfd/recovery
+    # identity remains the exact llama task after release.
+    try:
+        resulting_nice = os.nice(CANDIDATE_NICE_DELTA)
+    except OSError:
+        return 83
+    if resulting_nice < CANDIDATE_NICE_DELTA:
+        return 83
     os.execvpe(argv[0], argv, os.environ)
     return 82
 
@@ -647,6 +657,17 @@ def stop_pidfd_owned_process(pidfd: int) -> None:
         return
     if not wait_pidfd_exit(pidfd, 5):
         fail("pidfd_owned_process_survived_sigkill")
+
+def process_nice(pid: int) -> int:
+    try:
+        raw = pathlib.Path("/proc/%d/stat" % pid).read_text(encoding="ascii", errors="replace")
+        _, tail = raw.rsplit(")", 1)
+        fields = tail.strip().split()
+        if len(fields) <= 16:
+            fail("candidate_stat_invalid")
+        return int(fields[16])
+    except (FileNotFoundError, ProcessLookupError, PermissionError, ValueError):
+        fail("candidate_nice_unavailable")
 
 def process_group_members(pgid: int) -> list[int]:
     members: list[int] = []
@@ -1130,17 +1151,13 @@ def start(candidate_key: str) -> None:
     env["LLAMA_API_KEY"] = candidate_key
     for key in ("NOTIFY_SOCKET", "WATCHDOG_PID", "WATCHDOG_USEC", "INVOCATION_ID", "JOURNAL_STREAM"):
         env.pop(key, None)
-    nice = shutil.which("nice")
-    ionice = shutil.which("ionice")
-    if not nice or not ionice:
-        fail("priority_tool_missing")
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     os.chmod(STATE_DIR, 0o700)
     log = LOG_PATH.open("ab", buffering=0)
     if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
         fail("pidfd_signal_unavailable")
 
-    candidate_argv = [nice, "-n", "10", ionice, "-c", "3", *[os.fsdecode(item) for item in argv]]
+    candidate_argv = [os.fsdecode(item) for item in argv]
     if candidate_exec_argv_status(candidate_argv) != 0:
         fail("candidate_guard_argv_invalid")
     guard_read, guard_write = os.pipe()
@@ -1213,6 +1230,8 @@ def start(candidate_key: str) -> None:
         if not candidate_process_matches(proc.pid):
             fail("candidate_identity_not_established")
         require_isolated_candidate_group(proc.pid)
+        if process_nice(proc.pid) < CANDIDATE_NICE_DELTA:
+            fail("candidate_priority_not_lowered")
 
         live_argv = [item for item in pathlib.Path("/proc/%d/cmdline" % proc.pid).read_bytes().split(b"\0") if item]
         if flag_hits(live_argv, ALIASES["api_key"]):
