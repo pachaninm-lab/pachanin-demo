@@ -818,7 +818,7 @@ def start(candidate_key: str) -> None:
             fail("candidate_ready_headroom_low")
         if not baseline_matches_state(state) or not baseline_runtime_healthy():
             fail("baseline_not_healthy_with_candidate")
-    except Exception:
+    except Exception as start_error:
         if guard_write >= 0:
             try:
                 os.close(guard_write)
@@ -831,27 +831,25 @@ def start(candidate_key: str) -> None:
             except OSError:
                 pass
             guard_read = -1
-        if proc is not None:
-            if released and initial_pidfd is not None:
-                try:
+        try:
+            if proc is not None:
+                if released:
+                    if initial_pidfd is None:
+                        fail("candidate_start_cleanup_pidfd_missing")
                     stop_owned_child(proc, initial_pidfd)
-                except Exception:
-                    pass
-            else:
-                try:
-                    proc.wait(timeout=3)
-                except subprocess.TimeoutExpired:
-                    pass
-        try:
-            stop_watchdog()
-        except Exception:
-            pass
-        PID_PATH.unlink(missing_ok=True)
-        try:
+                else:
+                    try:
+                        proc.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        fail("candidate_guard_did_not_exit")
+                if proc.poll() is None:
+                    fail("candidate_start_cleanup_process_alive")
             verify_listener_absent()
-        except Exception:
-            pass
-        raise
+            stop_watchdog()
+            PID_PATH.unlink(missing_ok=True)
+        except Exception as cleanup_error:
+            raise CandidateError("candidate_start_cleanup_failed") from cleanup_error
+        raise start_error
     finally:
         if initial_pidfd is not None:
             os.close(initial_pidfd)
