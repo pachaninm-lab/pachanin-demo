@@ -793,9 +793,11 @@ def start(candidate_key: str) -> None:
 
         if os.write(guard_write, b"G") != 1:
             fail("candidate_guard_release_failed")
-        os.close(guard_write)
-        guard_write = -1
         released = True
+        try:
+            os.close(guard_write)
+        finally:
+            guard_write = -1
 
         identity_deadline = time.monotonic() + 5
         while time.monotonic() < identity_deadline and process_alive(proc.pid):
