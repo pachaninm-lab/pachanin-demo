@@ -653,15 +653,15 @@ def stop_candidate_pid(pid: int) -> None:
         os.close(fd)
 
 def stop_candidate() -> None:
-    pid = None
+    if not PID_PATH.exists():
+        return
     try:
         raw = PID_PATH.read_text(encoding="ascii").strip()
-        if re.fullmatch(r"[1-9][0-9]*", raw):
-            pid = int(raw)
     except OSError:
-        pass
-    if pid:
-        stop_candidate_pid(pid)
+        fail("candidate_pid_record_unreadable")
+    if not re.fullmatch(r"[1-9][0-9]*", raw):
+        fail("candidate_pid_record_invalid")
+    stop_candidate_pid(int(raw))
 
 def stop_watchdog() -> None:
     fd = None
