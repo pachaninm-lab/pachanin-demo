@@ -66,6 +66,11 @@ jobs:
           grep -Fq 'owned_candidate_process_matches' "$helper"
           grep -Fq 'open_owned_candidate_pidfd' "$helper"
           grep -Fq 'candidate_owned_identity_unrecognized' "$helper"
+          grep -Fq 'CANDIDATE_IDENTITY_PATH' "$helper"
+          grep -Fq 'write_candidate_identity(proc.pid)' "$helper"
+          grep -Fq 'candidate_recovery_identity_invalid' "$helper"
+          grep -Fq 'process_start_time(pid)' "$helper"
+          grep -Fq 'open_recovery_pidfd' "$helper"
           grep -Fq '_candidate_exec_guard' "$helper"
           grep -Fq 'QWEN35_GUARDED_ARGV_JSON' "$helper"
           grep -Fq 'candidate_pidfd_setup_failed' "$helper"
@@ -268,12 +273,21 @@ jobs:
                   stack.enter_context(mock.patch.object(module, 'STATE_DIR', root / 'state'))
                   stack.enter_context(mock.patch.object(module, 'LOG_PATH', root / 'candidate.log'))
                   stack.enter_context(mock.patch.object(module, 'PID_PATH', root / 'candidate.pid'))
+                  stack.enter_context(mock.patch.object(module, 'CANDIDATE_IDENTITY_PATH', root / 'candidate-identity.json'))
                   stack.enter_context(mock.patch.object(module, 'WATCHDOG_PID_PATH', root / 'watchdog.pid'))
                   stack.enter_context(mock.patch.object(module, 'require_nonroot', return_value='tai'))
                   stack.enter_context(mock.patch.object(module, 'sha_file', return_value='hash'))
                   stack.enter_context(mock.patch.object(module, 'snapshot_baseline', side_effect=baseline))
                   stack.enter_context(mock.patch.object(module, 'ensure_start_capacity', return_value=None))
                   stack.enter_context(mock.patch.object(module, 'save_state', return_value=None))
+                  stack.enter_context(mock.patch.object(
+                      module,
+                      'write_candidate_identity',
+                      side_effect=lambda pid: (root / 'candidate-identity.json').write_text(
+                          '{"bootId":"00000000-0000-0000-0000-000000000000","pid":424242,"startTime":1}\n',
+                          encoding='utf-8',
+                      ),
+                  ))
                   stack.enter_context(mock.patch.object(module.shutil, 'which', side_effect=lambda name: '/usr/bin/' + name))
                   stack.enter_context(mock.patch.object(module.subprocess, 'Popen', return_value=proc))
                   stack.enter_context(mock.patch.object(module.os, 'pidfd_open', return_value=initial_fd))
@@ -295,6 +309,8 @@ jobs:
                       raise AssertionError('cleanup-retention fixture did not fail')
               if not (root / 'candidate.pid').exists():
                   raise AssertionError('candidate recovery PID was discarded after failed cleanup')
+              if not (root / 'candidate-identity.json').exists():
+                  raise AssertionError('candidate recovery identity was discarded after failed cleanup')
               if stop_watchdog_mock.called:
                   raise AssertionError('watchdog was stopped before candidate exit was proved')
               if listener_mock.called:
@@ -316,40 +332,56 @@ jobs:
                   if module.candidate_exec_guard(read_fd) != 81:
                       raise AssertionError('guard EOF did not fail closed')
 
-          # The real standalone stop path must accept the acknowledged
-          # pre-exec guard as owned, signal only through pidfd, and retain the PID
-          # record until the later listener-absence proof.
+          # Standalone recovery must own the same process across the
+          # guard -> priority-wrapper -> llama exec transition without argv trust.
           with tempfile.TemporaryDirectory() as tmp:
               root = pathlib.Path(tmp)
               pid_path = root / 'candidate.pid'
+              identity_path = root / 'candidate-identity.json'
               pid_path.write_text('424242\n', encoding='ascii')
+              identity_path.write_text(
+                  '{"bootId":"00000000-0000-0000-0000-000000000000","pid":424242,"startTime":123}\n',
+                  encoding='utf-8',
+              )
               owned_fd = os.open(os.devnull, os.O_RDONLY)
               stopped = []
+              exit_states = iter((False, True))
               with contextlib.ExitStack() as stack:
                   stack.enter_context(mock.patch.object(module, 'PID_PATH', pid_path))
-                  stack.enter_context(mock.patch.object(module, 'open_owned_candidate_pidfd', return_value=owned_fd))
+                  stack.enter_context(mock.patch.object(module, 'CANDIDATE_IDENTITY_PATH', identity_path))
+                  stack.enter_context(mock.patch.object(module, 'read_candidate_identity', return_value={
+                      'bootId': '00000000-0000-0000-0000-000000000000',
+                      'pid': 424242,
+                      'startTime': 123,
+                  }))
+                  stack.enter_context(mock.patch.object(module, 'open_recovery_pidfd', return_value=owned_fd))
+                  stack.enter_context(mock.patch.object(module, 'pidfd_exited', side_effect=lambda fd: next(exit_states)))
                   stack.enter_context(mock.patch.object(module, 'stop_pidfd_owned_process', side_effect=lambda fd: stopped.append(fd)))
                   module.stop_candidate()
               if stopped != [owned_fd]:
-                  raise AssertionError('standalone stop did not use pidfd-owned guard identity')
-              if not pid_path.exists():
-                  raise AssertionError('standalone stop removed PID before listener absence proof')
+                  raise AssertionError('standalone recovery did not stop the pidfd-owned transitional task')
+              if not pid_path.exists() or not identity_path.exists():
+                  raise AssertionError('standalone stop removed recovery metadata before listener absence proof')
 
           # Corrupt recovery identity is not equivalent to an absent candidate.
           with tempfile.TemporaryDirectory() as tmp:
               root = pathlib.Path(tmp)
               pid_path = root / 'candidate.pid'
-              pid_path.write_text('not-a-pid\n', encoding='ascii')
-              with mock.patch.object(module, 'PID_PATH', pid_path):
+              identity_path = root / 'candidate-identity.json'
+              pid_path.write_text('424242\n', encoding='ascii')
+              identity_path.write_text('not-json\n', encoding='utf-8')
+              with contextlib.ExitStack() as stack:
+                  stack.enter_context(mock.patch.object(module, 'PID_PATH', pid_path))
+                  stack.enter_context(mock.patch.object(module, 'CANDIDATE_IDENTITY_PATH', identity_path))
                   try:
                       module.stop_candidate()
                   except module.CandidateError as exc:
-                      if 'candidate_pid_record_invalid' not in str(exc):
+                      if 'candidate_recovery_identity_invalid' not in str(exc):
                           raise
                   else:
-                      raise AssertionError('invalid candidate PID record did not fail closed')
-              if not pid_path.exists():
-                  raise AssertionError('invalid recovery PID record was discarded')
+                      raise AssertionError('invalid candidate recovery identity did not fail closed')
+              if not pid_path.exists() or not identity_path.exists():
+                  raise AssertionError('invalid recovery metadata was discarded')
 
           # Standalone cleanup must also own the pre-exec guard. It may
           # remove recovery metadata and stop the watchdog only after process exit
@@ -357,12 +389,15 @@ jobs:
           with tempfile.TemporaryDirectory() as tmp:
               root = pathlib.Path(tmp)
               pid_path = root / 'candidate.pid'
+              identity_path = root / 'candidate-identity.json'
               watchdog_path = root / 'watchdog.pid'
               pid_path.write_text('424242\n', encoding='ascii')
+              identity_path.write_text('{}\n', encoding='utf-8')
               watchdog_path.write_text('434343\n', encoding='ascii')
               order = []
               with contextlib.ExitStack() as stack:
                   stack.enter_context(mock.patch.object(module, 'PID_PATH', pid_path))
+                  stack.enter_context(mock.patch.object(module, 'CANDIDATE_IDENTITY_PATH', identity_path))
                   stack.enter_context(mock.patch.object(module, 'WATCHDOG_PID_PATH', watchdog_path))
                   stack.enter_context(mock.patch.object(module, 'require_nonroot', return_value='tai'))
                   stack.enter_context(mock.patch.object(module, 'load_state', return_value={'pid': 999}))
@@ -376,18 +411,21 @@ jobs:
                   module.cleanup()
               if order != ['candidate-exit', 'listener-absent', 'watchdog-stop']:
                   raise AssertionError('standalone cleanup released supervision out of order: ' + repr(order))
-              if pid_path.exists():
-                  raise AssertionError('candidate PID retained after proved exit/listener absence')
+              if pid_path.exists() or identity_path.exists():
+                  raise AssertionError('candidate recovery metadata retained after proved exit/listener absence')
 
           with tempfile.TemporaryDirectory() as tmp:
               root = pathlib.Path(tmp)
               pid_path = root / 'candidate.pid'
+              identity_path = root / 'candidate-identity.json'
               watchdog_path = root / 'watchdog.pid'
               pid_path.write_text('424242\n', encoding='ascii')
+              identity_path.write_text('{}\n', encoding='utf-8')
               watchdog_path.write_text('434343\n', encoding='ascii')
               stop_watchdog_mock = mock.Mock()
               with contextlib.ExitStack() as stack:
                   stack.enter_context(mock.patch.object(module, 'PID_PATH', pid_path))
+                  stack.enter_context(mock.patch.object(module, 'CANDIDATE_IDENTITY_PATH', identity_path))
                   stack.enter_context(mock.patch.object(module, 'WATCHDOG_PID_PATH', watchdog_path))
                   stack.enter_context(mock.patch.object(module, 'require_nonroot', return_value='tai'))
                   stack.enter_context(mock.patch.object(module, 'load_state', return_value={'pid': 999}))
@@ -401,8 +439,8 @@ jobs:
                           raise
                   else:
                       raise AssertionError('listener failure did not fail cleanup')
-              if not pid_path.exists():
-                  raise AssertionError('candidate PID discarded before listener absence proof')
+              if not pid_path.exists() or not identity_path.exists():
+                  raise AssertionError('candidate recovery metadata discarded before listener absence proof')
               if not watchdog_path.exists():
                   raise AssertionError('watchdog PID discarded before listener absence proof')
               if stop_watchdog_mock.called:
