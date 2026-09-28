@@ -40,6 +40,20 @@ describe('restricted public crop-protection prescription boundary', () => {
     expect(flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
   });
 
+  it('removes exact crop-protection repeat intervals and keeps non-chemical monitoring advice', () => {
+    const flags: string[] = [];
+    const answer = [
+      'Фунгицид X: повтор обработки через 10 дней.',
+      'Повторно осмотрите пятна и динамику поражения через несколько дней.',
+    ].join('\n');
+
+    const safe = stripUngroundedCropProtectionPrescriptions(answer, flags);
+
+    expect(safe).not.toContain('10 дней');
+    expect(safe).toContain('Повторно осмотрите');
+    expect(flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+  });
+
   it('rejects unsupported current sell/buy advice and directional market claims', () => {
     expect(currentEvidenceVerdict('Не продавайте сегодня.')).toBe(false);
     expect(currentEvidenceVerdict('Сейчас лучше покупать.')).toBe(false);
