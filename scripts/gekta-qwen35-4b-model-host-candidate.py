@@ -421,7 +421,18 @@ def signal_candidate(pid: int, sig) -> None:
     if fd is None:
         return
     try:
-        signal.pidfd_send_signal(fd, sig, None, 0)
+        # Anchor the identity to the original process before signaling its whole
+        # session/process-group. Signal 0 is non-mutating and fails closed if the
+        # pidfd no longer refers to a live candidate.
+        signal.pidfd_send_signal(fd, 0, None, 0)
+        if not candidate_process_matches(pid):
+            return
+        try:
+            if os.getpgid(pid) != pid:
+                fail("candidate_process_group_mismatch")
+        except ProcessLookupError:
+            return
+        os.killpg(pid, sig)
     except ProcessLookupError:
         return
     except PermissionError:
