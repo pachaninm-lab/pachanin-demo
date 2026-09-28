@@ -34,6 +34,7 @@ import {
   StreamingAnswerGate,
   economicComparisonFor,
   economicComparisonCopy,
+  paymentTimingFromUser,
   storageCostFromUser,
   type EconomicComparison,
   type ProviderFinishReason,
@@ -620,7 +621,7 @@ function buildMessages(request: NormalizedRequest): readonly ChatMessage[] {
         request.currentDataRequired,
         request.responseBudgetProfile,
       ) + (request.economicComparison
-        ? '\nFor this cost comparison, explain only qualitative factors and the comparison method. Do not generate numerical calculations, assumed periods, price forecasts or profitability rankings, even conditional rankings. The application separately computes supported storage-only arithmetic from explicit user inputs. Do not repeat it. Use plain text, no LaTeX.'
+        ? '\nFor this cost comparison, explain only qualitative factors and the comparison method. Do not generate numerical calculations, assumed periods, price forecasts or profitability rankings, even conditional rankings. The application separately computes supported deterministic arithmetic from explicit user inputs, including storage-only and payment-timing calculations. Do not repeat, replace or extend that arithmetic. Use plain text, no LaTeX.'
         : ''),
     },
     ...request.history.map((turn) => ({ role: turn.role, content: turn.text }) as ChatMessage),
@@ -629,9 +630,16 @@ function buildMessages(request: NormalizedRequest): readonly ChatMessage[] {
 }
 
 function checkedEconomicCopy(request: NormalizedRequest): string {
-  return economicComparisonCopy(request.economicComparison!, request.locale,
+  return economicComparisonCopy(
+    request.economicComparison!,
+    request.locale,
     request.economicComparison === 'storage'
-      ? storageCostFromUser(request.originalQuestion, request.history) : null);
+      ? storageCostFromUser(request.originalQuestion, request.history)
+      : null,
+    request.economicComparison === 'payment_timing'
+      ? paymentTimingFromUser(request.originalQuestion)
+      : null,
+  );
 }
 
 /** Keep evidence filtering centralized; format the public notice for the question. */
