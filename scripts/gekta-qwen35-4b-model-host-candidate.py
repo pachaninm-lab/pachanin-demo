@@ -435,10 +435,12 @@ def signal_candidate(pid: int, sig) -> None:
     if fd is None:
         return
     try:
-        # Signal only through the pidfd so a stale/reused numeric PID can never
-        # target an unrelated process. The candidate is a single exec-chain
-        # process; listener-absence verification remains the cleanup authority.
-        signal.pidfd_send_signal(fd, sig, None, 0)
+        # The pidfd pins the verified leader identity. Probe that exact task
+        # immediately before signaling its dedicated session/process group.
+        signal.pidfd_send_signal(fd, 0, None, 0)
+        if not candidate_process_matches(pid) or os.getpgid(pid) != pid:
+            return
+        os.killpg(pid, sig)
     except ProcessLookupError:
         return
     except PermissionError:
@@ -621,15 +623,24 @@ def start(candidate_key: str) -> None:
         start_new_session=True,
         close_fds=True,
     )
-    write_pid(PID_PATH, proc.pid)
-    try:
-        live_argv = [item for item in pathlib.Path("/proc/%d/cmdline" % proc.pid).read_bytes().split(b"\0") if item]
-    except FileNotFoundError:
-        stop_candidate_pid(proc.pid)
-        fail("candidate_process_exited_before_identity_check")
+    identity_deadline = time.monotonic() + 5
+    while time.monotonic() < identity_deadline and process_alive(proc.pid):
+        if candidate_process_matches(proc.pid):
+            break
+        time.sleep(0.05)
+    if not candidate_process_matches(proc.pid):
+        try:
+            proc.terminate()
+            proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=3)
+        fail("candidate_identity_not_established")
+    live_argv = [item for item in pathlib.Path("/proc/%d/cmdline" % proc.pid).read_bytes().split(b"\0") if item]
     if flag_hits(live_argv, ALIASES["api_key"]):
         stop_candidate_pid(proc.pid)
         fail("candidate_key_present_in_cmdline")
+    write_pid(PID_PATH, proc.pid)
     launch_watchdog(proc.pid, state["pid"])
     try:
         wait_candidate(proc.pid, candidate_key, state)
