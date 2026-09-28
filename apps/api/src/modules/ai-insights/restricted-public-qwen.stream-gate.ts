@@ -93,7 +93,7 @@ const STORAGE_TOPIC = /хран[еи]|storage|stor[ei]|仓储|储存/iu;
 const ECONOMIC_TOPIC = /цен|стоим|расход|руб|прода|выгод|покры|price|cost|sell|profit|break.even|价格|成本|出售|收益/iu;
 const TRANSPORT_COMPARISON = /перевоз|перевозчик|freight|haul|carrier|运输|承运/iu;
 const PAYMENT_TIMING_TOPIC = /оплат|плат[её]ж|отсроч|гарант|сегодня|сразу|payment|paid|defer|guarantee|today|付款|延期|担保|今天/iu;
-const PAYMENT_TONNE_PRICE = /(\d{1,7}(?:[.,]\d{1,2})?)\s*(?:руб(?:лей|ля|ль)?\.?|₽|RUB)\s*(?:\/\s*т(?:онн[уы])?|за\s+тонн[уы])/giu;
+const PAYMENT_TONNE_PRICE = /((?:\d{1,3}(?:[ \u00A0\u202F]\d{3})+|\d{1,7})(?:[.,]\d{1,2})?)\s*(?:руб(?:лей|ля|ль)?\.?|₽|RUB)\s*(?:\/\s*т(?:онн[уы])?|за\s+тонн[уы])/giu;
 const PAYMENT_DELAY_DAYS = /(?:через\s+|отсроч\w*(?:\s+на)?\s*|in\s+|after\s+|defer(?:red)?\s+(?:for\s+)?)(\d{1,3})\s*(?:дн(?:я|ей)?|days?|天)/iu;
 const PAYMENT_IMMEDIATE_MARKER = /(?:с\s+оплат\w*\s+сегодня|оплат\w*\s+сегодня|сегодня|сразу|paid\s+today|payment\s+today|today|今天付款|现付)/iu;
 const PAYMENT_COMPARISON_SEPARATOR = /(?:или|либо|\bvs\.?\b|\bversus\b|\bor\b|还是)/iu;
@@ -111,7 +111,7 @@ export function economicComparisonFor(question: string, history: readonly UserCo
 }
 
 function moneyMinor(raw: string): number | null {
-  const normalized = raw.replace(',', '.');
+  const normalized = raw.replace(/[ \u00A0\u202F]/gu, '').replace(',', '.');
   if (!/^\d{1,7}(?:\.\d{1,2})?$/u.test(normalized)) return null;
   const [rubles, kopecks = ''] = normalized.split('.');
   const minor = Number(rubles) * 100 + Number(kopecks.padEnd(2, '0'));
@@ -231,7 +231,6 @@ export function economicComparisonCopy(kind: EconomicComparison, locale: PublicL
     const premiumText = premium.toFixed(2).replace(/\.00$/u, '').replace('.', ',');
     const percent = Math.abs(payment.premiumBasisPoints) / 100;
     const percentText = percent.toFixed(2).replace(/\.00$/u, '').replace('.', ',');
-    const directionRu = payment.premiumMinor >= 0 ? 'добавляет' : 'уменьшает';
     const directionEn = payment.premiumMinor >= 0 ? 'adds' : 'reduces the price by';
     const directionZh = payment.premiumMinor >= 0 ? '增加' : '减少';
     const guaranteeRu = payment.guarantee === 'absent'
@@ -251,7 +250,8 @@ export function economicComparisonCopy(kind: EconomicComparison, locale: PublicL
         : '未说明银行担保状态，需要单独核对。';
     if (locale === 'en') return `Calculation from your inputs: a ${payment.delayDays}-day delay ${directionEn} ${premiumText.replace(',', '.')} RUB/t, or ${percentText.replace(',', '.')}% relative to the price paid today. ${guaranteeEn} This does not determine which option to choose: compare the cost of money over ${payment.delayDays} days, counterparty risk and recovery terms.`;
     if (locale === 'zh') return `根据你提供的数据：延期${payment.delayDays}天使每吨价格${directionZh}${premiumText}卢布，相当于相对今天付款价格的${percentText}%。${guaranteeZh}这并不能决定应选哪一种方案；还需比较这${payment.delayDays}天的资金成本、交易对手风险和追偿条件。`;
-    return `Расчёт по вашим данным: отсрочка на ${payment.delayDays} дней ${directionRu} ${premiumText} руб/т к цене, то есть ${percentText}% относительно цены с оплатой сегодня. ${guaranteeRu} Это не определяет, какой вариант выбрать: сравните стоимость денег за ${payment.delayDays} дней, риск контрагента и условия взыскания.`;
+    const premiumRu = payment.premiumMinor >= 0 ? `добавляет ${premiumText} руб/т к цене` : `уменьшает цену на ${premiumText} руб/т`;
+    return `Расчёт по вашим данным: отсрочка на ${payment.delayDays} дней ${premiumRu}, то есть ${percentText}% относительно цены с оплатой сегодня. ${guaranteeRu} Это не определяет, какой вариант выбрать: сравните стоимость денег за ${payment.delayDays} дней, риск контрагента и условия взыскания.`;
   }
   const amount = storageMinor === null ? null : (storageMinor / 100).toFixed(2).replace(/\.00$/u, '');
   if (locale === 'en') return `${amount === null ? 'Storage-only break-even is the monthly cost per tonne multiplied by the holding period; please specify both inputs with units.' : `Calculation from your inputs: covering storage alone requires a price increase of ${amount} RUB per tonne.`} This does not establish total profitability: compare future net proceeds, quality losses, financing and delivery costs.`;

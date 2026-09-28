@@ -118,12 +118,21 @@ describe('StreamingAnswerGate', () => {
       guarantee: 'absent',
     });
 
+    expect(paymentTimingFromUser('Покупатель предлагает 12 000 руб/т с оплатой сегодня или 12 400 руб/т через 45 дней без банковской гарантии. Что выбрать?')).toEqual(payment);
+    expect(paymentTimingFromUser('Покупатель предлагает 12\u202F000 руб/т с оплатой сегодня или 12\u202F400 руб/т через 45 дней без банковской гарантии. Что выбрать?')).toEqual(payment);
+
     const copy = economicComparisonCopy('payment_timing', 'ru', null, payment);
     expect(copy).toContain('400 руб/т');
     expect(copy).toContain('3,33%');
     expect(copy).toContain('45 дней');
     expect(copy).toContain('банковской гарантии нет');
     expect(copy).not.toMatch(/выбирайте|выберите|лучше\s+(?:перв|втор|сейчас|отсроч)/iu);
+
+    const lowerPayment = paymentTimingFromUser('Покупатель предлагает 12400 руб/т с оплатой сегодня или 12000 руб/т через 45 дней. Что выбрать?');
+    expect(lowerPayment).not.toBeNull();
+    const lowerCopy = economicComparisonCopy('payment_timing', 'ru', null, lowerPayment);
+    expect(lowerCopy).toContain('уменьшает цену на 400 руб/т');
+    expect(lowerCopy).not.toContain('уменьшает 400 руб/т к цене');
 
     expect(paymentTimingFromUser('Покупатель предлагает 12000 руб/т или 12400 руб/т через 45 дней. Что выбрать?')).toBeNull();
     expect(paymentTimingFromUser('Покупатель предлагает 12000 руб/т сегодня или 12400 руб/т через 45–60 дней. Что выбрать?')).toBeNull();
