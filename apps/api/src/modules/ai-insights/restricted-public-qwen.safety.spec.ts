@@ -39,6 +39,7 @@ describe('restricted public crop-protection prescription boundary', () => {
     expect(safe).toContain('уточните регион');
     expect(flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
     expect(isUngroundedCropProtectionPrescription('Используйте Альто Супер 0,4 л/га.')).toBe(true);
+    expect(isUngroundedCropProtectionPrescription('Используйте Альто Супер 0,4 кг/га.')).toBe(true);
   });
 
   it('removes exact crop-protection repeat intervals and keeps non-chemical monitoring advice', () => {
@@ -79,6 +80,17 @@ describe('restricted public crop-protection prescription boundary', () => {
     const boundary = platformGroundingVerdict('Система не будет автоматически решать спор.', authority);
     expect(boundary.keep).toBe(true);
     expect(boundary.flags).not.toContain('UNSUPPORTED_PLATFORM_AUTONOMY_REMOVED');
+
+    const negativeAuthority = normalizeForComparison(
+      'Система не будет автоматически фиксировать расхождение. Платформа не решит спор.',
+    );
+    const polarityAutomation = platformGroundingVerdict('Система автоматически фиксирует расхождение.', negativeAuthority);
+    expect(polarityAutomation.keep).toBe(false);
+    expect(polarityAutomation.flags).toContain('UNSUPPORTED_PLATFORM_AUTONOMY_REMOVED');
+
+    const polarityDecision = platformGroundingVerdict('Платформа решит спор.', negativeAuthority);
+    expect(polarityDecision.keep).toBe(false);
+    expect(polarityDecision.flags).toContain('UNSUPPORTED_PLATFORM_AUTONOMY_REMOVED');
   });
 
   it('does not remove a non-prescriptive registration boundary', () => {

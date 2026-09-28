@@ -50,7 +50,7 @@ export const CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN = /(?:(?:примен�
 export const CROP_PROTECTION_NAMED_PRODUCT_PRELUDE_PATTERN = /(?:[Пп]рименя[\p{L}-]*|[Ии]спольз[\p{L}-]*|[Оо]бработ[\p{L}-]*|[Рр]екоменд[\p{L}-]*|[Uu]se|[Aa]pply|[Rr]ecommend)[^.!?。！？\n]{0,160}\p{Lu}[\p{L}\d-]{2,}(?:\s+\p{Lu}[\p{L}\d-]{2,}){0,3}[^.!?。！？\n]{0,80}$/u;
 export const UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_PATTERN = /(?:применя\w*|использ\w*|обработ\w*|подойдут|рекоменду\w*|выбира\w*|назнач\w*|apply|use|choose|recommend|treat|使用|施用|选择|推荐)[^.!?。！？\n]{0,160}(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|product|fungicide|herbicide|insecticide|药剂|杀菌剂)[^.!?。！？\n]{0,120}(?:на\s+основе|с\s+содержани\w*|с\s+действующ\w*\s+веществ\w*|\bс\s+[\p{L}-]{4,}(?:\s+или\s+[\p{L}-]{4,})?|containing|active\s+ingredient|with\s+[A-Za-z][A-Za-z-]{3,}|有效成分|含有)/iu;
 export const UNGROUNDED_CROP_PROTECTION_DOSE_PATTERN = /(?:(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|пестицид\w*|обработ\w*|доз\w*|product|fungicide|herbicide|insecticide|pesticide|treat(?:ment)?|dose|rate|药剂|杀菌剂|除草剂|杀虫剂|剂量)[^.!?。！？\n]{0,220}\d{1,4}(?:[.,]\d{1,3})?(?:\s*[–—-]\s*\d{1,4}(?:[.,]\d{1,3})?)?\s*(?:мл|л|г|кг|ml|l|g|kg)\s*(?:\/\s*га|\/\s*ha|на\s+га|per\s+ha|每公顷)|\d{1,4}(?:[.,]\d{1,3})?(?:\s*[–—-]\s*\d{1,4}(?:[.,]\d{1,3})?)?\s*(?:мл|л|г|кг|ml|l|g|kg)\s*(?:\/\s*га|\/\s*ha|на\s+га|per\s+ha|每公顷)[^.!?。！？\n]{0,140}(?:препарат\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|пестицид\w*|доз\w*|product|fungicide|herbicide|insecticide|pesticide|dose|rate|药剂|剂量))/iu;
-export const UNGROUNDED_CROP_PROTECTION_NAMED_DOSE_PATTERN = /(?:[Пп]рименя[\p{L}-]*|[Ии]спольз[\p{L}-]*|[Оо]бработ[\p{L}-]*|[Рр]екоменд[\p{L}-]*|[Uu]se|[Aa]pply|[Rr]ecommend)[^.!?。！？\n]{0,160}\p{Lu}[\p{L}\d-]{2,}(?:\s+\p{Lu}[\p{L}\d-]{2,}){0,3}[^.!?。！？\n]{0,120}\d{1,4}(?:[.,]\d{1,3})?(?:\s*[–—-]\s*\d{1,4}(?:[.,]\d{1,3})?)?\s*(?:мл|л|г|ml|l|g)\s*(?:\/\s*га|\/\s*ha|на\s+га|per\s+ha)/u;
+export const UNGROUNDED_CROP_PROTECTION_NAMED_DOSE_PATTERN = /(?:[Пп]рименя[\p{L}-]*|[Ии]спольз[\p{L}-]*|[Оо]бработ[\p{L}-]*|[Рр]екоменд[\p{L}-]*|[Uu]se|[Aa]pply|[Rr]ecommend)[^.!?。！？\n]{0,160}\p{Lu}[\p{L}\d-]{2,}(?:\s+\p{Lu}[\p{L}\d-]{2,}){0,3}[^.!?。！？\n]{0,120}\d{1,4}(?:[.,]\d{1,3})?(?:\s*[–—-]\s*\d{1,4}(?:[.,]\d{1,3})?)?\s*(?:мл|л|г|кг|ml|l|g|kg)\s*(?:\/\s*га|\/\s*ha|на\s+га|per\s+ha)/u;
 export const UNGROUNDED_CROP_PROTECTION_INTERVAL_PATTERN = /(?:(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|пестицид\w*|обработ\w*|product|fungicide|herbicide|insecticide|pesticide|treat(?:ment)?|spray|药剂|杀菌剂|除草剂|杀虫剂)[^.!?。！？\n]{0,220}(?:интервал\w*(?:\s+между\s+обработ\w*)?|повтор\w*(?:\s+обработ\w*)?(?:\s+через)?|через|interval|repeat(?:\s+(?:treatment|spray))?\s+(?:after|in)?|间隔|后再次)[^.!?。！？\n]{0,40}\d{1,3}\s*(?:дн(?:я|ей)?|days?|天))/iu;
 
 export function isUngroundedCropProtectionPrescription(block: string): boolean {
@@ -138,13 +138,24 @@ export function platformGroundingVerdict(
     (pattern) => pattern.test(normalized) && !pattern.test(authority),
   );
   const unsupportedLiveClaim = LIVE_CAPABILITY_PATTERN.test(normalized) && !LIVE_CAPABILITY_PATTERN.test(authority);
-  const automationClaim = /(?:автоматически|automatically|自动)/iu.test(normalized)
-    && !/(?:не[^.!?。！？\n]{0,24}автоматически|not[^.!?。！？\n]{0,24}automatically|不会自动|不自动)/iu.test(normalized);
-  const unsupportedAutomation = automationClaim && !/(?:автоматически|automatically|自动)/iu.test(authority);
-  const autonomousDecision = /(?:платформ\w*|систем\w*|platform|system|平台|系统)[^.!?。！？\n]{0,80}(?:сама\s+)?(?:решит|примет\s+решение|спишет|выплатит|изменит|аннулирует|одобрит|подпишет|will\s+decide|decides|debits|pays|changes|cancels|approves|signs|决定|扣款|付款|修改|取消|批准|签署)/iu.test(normalized)
-    && !/(?:не|никогда\s+не|not|never|不会|不)[^.!?。！？\n]{0,36}(?:сама\s+)?(?:решит|примет\s+решение|спишет|выплатит|изменит|аннулирует|одобрит|подпишет|decide|debit|pay|change|cancel|approve|sign|决定|扣款|付款|修改|取消|批准|签署)/iu.test(normalized);
-  const unsupportedAutonomousDecision = autonomousDecision
-    && !/(?:решит|примет\s+решение|спишет|выплатит|изменит|аннулирует|одобрит|подпишет|decide|debit|pay|change|cancel|approve|sign|决定|扣款|付款|修改|取消|批准|签署)/iu.test(authority);
+  const stripNegatedAutomation = (value: string): string => value.replace(
+    /(?:не[^.!?。！？\n]{0,24}автоматически|not[^.!?。！？\n]{0,24}automatically|不会自动|不自动)/giu,
+    ' ',
+  );
+  const hasPositiveAutomation = (value: string): boolean =>
+    /(?:автоматически|automatically|自动)/iu.test(stripNegatedAutomation(value));
+  const stripNegatedAutonomousDecision = (value: string): string => value.replace(
+    /(?:не|никогда\s+не|not|never|不会|不)[^.!?。！？\n]{0,36}(?:сама\s+)?(?:решит|примет\s+решение|спишет|выплатит|изменит|аннулирует|одобрит|подпишет|decide|debit|pay|change|cancel|approve|sign|决定|扣款|付款|修改|取消|批准|签署)/giu,
+    ' ',
+  );
+  const hasPositiveAutonomousDecision = (value: string): boolean =>
+    /(?:платформ\w*|систем\w*|platform|system|平台|系统)[^.!?。！？\n]{0,80}(?:сама\s+)?(?:решит|примет\s+решение|спишет|выплатит|изменит|аннулирует|одобрит|подпишет|will\s+decide|decides|debits|pays|changes|cancels|approves|signs|决定|扣款|付款|修改|取消|批准|签署)/iu.test(
+      stripNegatedAutonomousDecision(value),
+    );
+  const automationClaim = hasPositiveAutomation(normalized);
+  const unsupportedAutomation = automationClaim && !hasPositiveAutomation(authority);
+  const autonomousDecision = hasPositiveAutonomousDecision(normalized);
+  const unsupportedAutonomousDecision = autonomousDecision && !hasPositiveAutonomousDecision(authority);
   if (unsupportedEntity) flags.push('UNSUPPORTED_PLATFORM_ENTITY_REMOVED');
   if (unsupportedLiveClaim) flags.push('UNSUPPORTED_LIVE_CAPABILITY_REMOVED');
   if (unsupportedAutomation || unsupportedAutonomousDecision) flags.push('UNSUPPORTED_PLATFORM_AUTONOMY_REMOVED');
