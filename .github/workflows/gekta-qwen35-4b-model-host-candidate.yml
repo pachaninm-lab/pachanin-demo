@@ -63,6 +63,9 @@ jobs:
           grep -Fq 'systemctl_mutation_forbidden' "$helper"
           grep -Fq 'pidfd_send_signal' "$helper"
           grep -Fq 'candidate_process_group_not_isolated' "$helper"
+          grep -Fq 'owned_candidate_process_matches' "$helper"
+          grep -Fq 'open_owned_candidate_pidfd' "$helper"
+          grep -Fq 'candidate_owned_identity_unrecognized' "$helper"
           grep -Fq '_candidate_exec_guard' "$helper"
           grep -Fq 'QWEN35_GUARDED_ARGV_JSON' "$helper"
           grep -Fq 'candidate_pidfd_setup_failed' "$helper"
@@ -302,6 +305,78 @@ jobs:
                    mock.patch.object(module.os, 'execvpe', side_effect=AssertionError('exec must not occur on guard EOF')):
                   if module.candidate_exec_guard(read_fd) != 81:
                       raise AssertionError('guard EOF did not fail closed')
+
+          # Standalone cleanup must also own the pre-exec guard. It may
+          # remove recovery metadata and stop the watchdog only after process exit
+          # and listener absence are proved.
+          with tempfile.TemporaryDirectory() as tmp:
+              root = pathlib.Path(tmp)
+              pid_path = root / 'candidate.pid'
+              watchdog_path = root / 'watchdog.pid'
+              pid_path.write_text('424242\n', encoding='ascii')
+              watchdog_path.write_text('434343\n', encoding='ascii')
+              order = []
+              with contextlib.ExitStack() as stack:
+                  stack.enter_context(mock.patch.object(module, 'PID_PATH', pid_path))
+                  stack.enter_context(mock.patch.object(module, 'WATCHDOG_PID_PATH', watchdog_path))
+                  stack.enter_context(mock.patch.object(module, 'require_nonroot', return_value='tai'))
+                  stack.enter_context(mock.patch.object(module, 'load_state', return_value={'pid': 999}))
+                  stack.enter_context(mock.patch.object(module, 'stop_candidate', side_effect=lambda: order.append('candidate-exit')))
+                  stack.enter_context(mock.patch.object(module, 'verify_listener_absent', side_effect=lambda: order.append('listener-absent')))
+                  stack.enter_context(mock.patch.object(module, 'stop_watchdog', side_effect=lambda: order.append('watchdog-stop')))
+                  stack.enter_context(mock.patch.object(module, 'baseline_matches_state', return_value=True))
+                  stack.enter_context(mock.patch.object(module, 'baseline_runtime_healthy', return_value=True))
+                  stack.enter_context(mock.patch.object(module, 'proc_kb', return_value=0))
+                  stack.enter_context(mock.patch.object(module, 'emit', return_value=None))
+                  module.cleanup()
+              if order != ['candidate-exit', 'listener-absent', 'watchdog-stop']:
+                  raise AssertionError('standalone cleanup released supervision out of order: ' + repr(order))
+              if pid_path.exists():
+                  raise AssertionError('candidate PID retained after proved exit/listener absence')
+
+          with tempfile.TemporaryDirectory() as tmp:
+              root = pathlib.Path(tmp)
+              pid_path = root / 'candidate.pid'
+              watchdog_path = root / 'watchdog.pid'
+              pid_path.write_text('424242\n', encoding='ascii')
+              watchdog_path.write_text('434343\n', encoding='ascii')
+              stop_watchdog_mock = mock.Mock()
+              with contextlib.ExitStack() as stack:
+                  stack.enter_context(mock.patch.object(module, 'PID_PATH', pid_path))
+                  stack.enter_context(mock.patch.object(module, 'WATCHDOG_PID_PATH', watchdog_path))
+                  stack.enter_context(mock.patch.object(module, 'require_nonroot', return_value='tai'))
+                  stack.enter_context(mock.patch.object(module, 'load_state', return_value={'pid': 999}))
+                  stack.enter_context(mock.patch.object(module, 'stop_candidate', return_value=None))
+                  stack.enter_context(mock.patch.object(module, 'verify_listener_absent', side_effect=module.CandidateError('candidate_listener_still_present')))
+                  stack.enter_context(mock.patch.object(module, 'stop_watchdog', stop_watchdog_mock))
+                  try:
+                      module.cleanup()
+                  except module.CandidateError as exc:
+                      if 'candidate_listener_still_present' not in str(exc):
+                          raise
+                  else:
+                      raise AssertionError('listener failure did not fail cleanup')
+              if not pid_path.exists():
+                  raise AssertionError('candidate PID discarded before listener absence proof')
+              if not watchdog_path.exists():
+                  raise AssertionError('watchdog PID discarded before listener absence proof')
+              if stop_watchdog_mock.called:
+                  raise AssertionError('watchdog stopped before listener absence proof')
+
+          # Transitional guard identity must be treated as the owned candidate
+          # task so controller-interruption cleanup cannot report a false inactive
+          # state merely because llama exec has not happened yet.
+          owned_fd = os.open(os.devnull, os.O_RDONLY)
+          with contextlib.ExitStack() as stack:
+              stack.enter_context(mock.patch.object(module.os, 'pidfd_open', return_value=owned_fd))
+              stack.enter_context(mock.patch.object(module, 'pidfd_exited', return_value=False))
+              stack.enter_context(mock.patch.object(module, 'candidate_guard_process_matches', return_value=True))
+              stack.enter_context(mock.patch.object(module, 'candidate_process_matches', return_value=False))
+              stack.enter_context(mock.patch.object(module.os, 'getpgid', return_value=424242))
+              fd = module.open_owned_candidate_pidfd(424242)
+              if fd != owned_fd:
+                  raise AssertionError('transitional guard was not accepted as owned')
+              os.close(fd)
 
           print('QWEN35_OWNERSHIP_REGRESSION=PASS')
           PY
