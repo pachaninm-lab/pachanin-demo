@@ -523,16 +523,26 @@ def stop_candidate() -> None:
     PID_PATH.unlink(missing_ok=True)
 
 def stop_watchdog() -> None:
+    fd = None
     try:
         raw = WATCHDOG_PID_PATH.read_text(encoding="ascii").strip()
         if not re.fullmatch(r"[1-9][0-9]*", raw):
             WATCHDOG_PID_PATH.unlink(missing_ok=True)
             return
         pid = int(raw)
+        if not watchdog_process_matches(pid):
+            WATCHDOG_PID_PATH.unlink(missing_ok=True)
+            return
+        if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
+            fail("pidfd_signal_unavailable")
+        fd = os.pidfd_open(pid, 0)
         if watchdog_process_matches(pid):
-            os.kill(pid, signal.SIGTERM)
+            signal.pidfd_send_signal(fd, signal.SIGTERM, None, 0)
     except (OSError, ProcessLookupError):
         pass
+    finally:
+        if fd is not None:
+            os.close(fd)
     WATCHDOG_PID_PATH.unlink(missing_ok=True)
 
 def launch_watchdog(candidate_pid: int, baseline_pid: int) -> None:
