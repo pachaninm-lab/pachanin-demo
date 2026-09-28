@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "claude/pr-5681-reconciliation-rd418d",
+  "status": "active",
+  "purpose": "Close the cross-organization wagon authorization gap found by the independent review of #5044: RailwayService.updateWagonStatus and createGU12 looked a wagon up by id only, so a LOGISTICIAN or ADMIN of any organization could move another organization's wagon to MAINTENANCE or put another organization's FREE wagon into its own GU-12 request (which, once approved, set that wagon ASSIGNED with a foreign currentDealId). Both paths now require the wagon to belong to the caller's session organization; a foreign wagon is reported exactly like a missing one.",
+  "authorityBaseExactMain": "d3bac0fef",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/api/src/modules/railway/railway.controller.ts",
+    "apps/api/src/modules/railway/railway.service.ts",
+    "apps/api/src/modules/railway/railway-org-ownership.spec.ts",
+    "docs/platform-v7/autopilot/scopes/railway-wagon-org-ownership.json"
+  ],
+  "requiredInvariants": [
+    "The caller organization comes only from the authenticated session (CurrentUser.orgId), never from the request body, query or path.",
+    "A wagon of another organization is indistinguishable from a missing wagon: same NotFoundException and message.",
+    "A GU-12 request containing any wagon not owned by the requestor is rejected as a whole and nothing is stored.",
+    "No role bypass: ADMIN is an organization membership role here, not platform staff.",
+    "No DTO, validation boundary, baseline, register, workflow, dependency or lockfile change."
+  ],
+  "acceptance": [
+    "cd apps/api && npx jest src/modules/railway: 2 suites, 36 tests pass.",
+    "Mutation: removing the ownerOrgId comparison fails 6 of the 9 new ownership tests."
+  ]
+}
