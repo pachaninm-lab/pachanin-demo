@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-qwen35-migration-20260928",
+  "status": "active",
+  "operationalStatus": "GEKTA_QWEN35_MIGRATION_CANDIDATE",
+  "allowedPaths": [
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-qwen35-migration-20260928.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": true,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": false
+  },
+  "acceptance": [
+    "current tai-qwen3-8b-q4km prompt and runtime behavior remain unchanged by model-specific prompt compaction",
+    "Qwen3.5 candidate uses a materially smaller prompt while preserving current-evidence privacy write safety and platform-grounding boundaries",
+    "product or brand plus per-hectare crop-protection dose is removed without governed registration evidence",
+    "verified-platform output cannot claim that the platform autonomously makes a critical participant decision",
+    "storage-only checked arithmetic and unverified profitability filtering remain server-authoritative",
+    "existing restricted-public Qwen unit and stream tests remain green before any production model switch"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
