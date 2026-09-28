@@ -64,6 +64,7 @@ jobs:
           grep -Fq 'pidfd_send_signal' "$helper"
           grep -Fq 'candidate_process_survived_sigkill' "$helper"
           grep -Fq 'save_state(state)' "$helper"
+          grep -Fq -- '--candidate-key-stdin' "$helper"
           if grep -Eq 'subprocess\.(run|Popen)\([^\n]*(sudo|su[[:space:]]+-)' "$helper"; then
             echo 'privileged subprocess capability is forbidden' >&2
             exit 1
@@ -92,6 +93,7 @@ jobs:
             'StrictHostKeyChecking=yes',
             'ExitOnForwardFailure=yes',
             'QWEN35_NONROOT_PARALLEL=1',
+            '--candidate-key-stdin',
             'QWEN35_CANDIDATE_LIVE',
             'cleanup',
             'always()'
@@ -106,7 +108,8 @@ jobs:
             'PC_PROD_' + 'SSH_KEY',
             'VPS_' + 'SSH_KEY',
             'systemctl ' + 'stop',
-            'systemctl ' + 'restart'
+            'systemctl ' + 'restart',
+            "--candidate-key '$QWEN35_CANDIDATE_KEY'"
           ]) {
             if (workflow.includes(forbidden)) throw new Error('forbidden capability: ' + forbidden);
           }
@@ -288,7 +291,13 @@ jobs:
           REMOTE_HELPER: ${{ steps.ssh.outputs.remote_helper }}
         run: |
           set -Eeuo pipefail
-          ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes             -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes             -o ServerAliveInterval=15 -o ServerAliveCountMax=4             "$MODEL_USER@$MODEL_HOST"             "python3 '$REMOTE_HELPER' start --candidate-key '$QWEN35_CANDIDATE_KEY'"             | tee "$RUNNER_TEMP/qwen35-start"
+          printf '%s\n' "$QWEN35_CANDIDATE_KEY" |
+            ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
+              -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
+              -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+              "$MODEL_USER@$MODEL_HOST" \
+              "python3 '$REMOTE_HELPER' start --candidate-key-stdin" \
+            | tee "$RUNNER_TEMP/qwen35-start"
           grep -Fxq 'QWEN35_CANDIDATE_NONROOT_PARALLEL=1' "$RUNNER_TEMP/qwen35-start"
           grep -Fxq 'QWEN35_CANDIDATE_START=PASS' "$RUNNER_TEMP/qwen35-start"
       - name: Open private tunnel
