@@ -378,7 +378,11 @@ jobs:
                       stack.enter_context(mock.patch.object(module, 'require_isolated_candidate_group', return_value=None))
                       stack.enter_context(mock.patch.object(module.pathlib.Path, 'read_bytes', return_value=candidate_cmd))
                       stack.enter_context(mock.patch.object(module, 'wait_candidate', return_value=None))
-                      stack.enter_context(mock.patch.object(module, 'proc_kb', return_value=1))
+                      stack.enter_context(mock.patch.object(
+                          module,
+                          'proc_kb',
+                          side_effect=lambda pid, key: 0 if key == 'VmSwap' else 1,
+                      ))
                       stack.enter_context(mock.patch.object(module, 'mem_available_kb', return_value=16 * 1024 * 1024))
                       stack.enter_context(mock.patch.object(module, 'baseline_runtime_healthy', return_value=True))
                       stack.enter_context(mock.patch.object(module, 'verify_listener_absent', return_value=None))
