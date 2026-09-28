@@ -436,6 +436,27 @@ def watchdog_process_matches(pid: int) -> bool:
         return False
     return b"_watchdog" in argv and os.fsencode(pathlib.Path(__file__).resolve()) in argv
 
+def process_group_members(pgid: int) -> list[int]:
+    members: list[int] = []
+    for entry in pathlib.Path("/proc").iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            raw = (entry / "stat").read_text(encoding="ascii", errors="replace")
+            _, tail = raw.rsplit(")", 1)
+            fields = tail.strip().split()
+            if len(fields) >= 3 and int(fields[2]) == pgid:
+                members.append(int(entry.name))
+        except (FileNotFoundError, ProcessLookupError, PermissionError, ValueError):
+            continue
+    return sorted(members)
+
+def require_isolated_candidate_group(pid: int) -> None:
+    if not candidate_process_matches(pid):
+        fail("candidate_identity_missing")
+    if process_group_members(pid) != [pid]:
+        fail("candidate_process_group_not_isolated")
+
 def open_candidate_pidfd(pid: int):
     if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
         fail("pidfd_signal_unavailable")
@@ -463,12 +484,10 @@ def signal_candidate(pid: int, sig) -> None:
     if fd is None:
         return
     try:
-        # The pidfd pins the verified leader identity. Probe that exact task
-        # immediately before signaling its dedicated session/process group.
-        signal.pidfd_send_signal(fd, 0, None, 0)
-        if not candidate_process_matches(pid) or os.getpgid(pid) != pid:
-            return
-        os.killpg(pid, sig)
+        # Signal the already-verified candidate through its pidfd only. Never
+        # signal by a reusable numeric PID/PGID.
+        require_isolated_candidate_group(pid)
+        signal.pidfd_send_signal(fd, sig, None, 0)
     except ProcessLookupError:
         return
     except PermissionError:
@@ -575,6 +594,7 @@ def wait_candidate(pid: int, key: str, baseline_state: dict) -> None:
     while time.monotonic() < deadline:
         if not candidate_process_matches(pid):
             fail("candidate_process_exited")
+        require_isolated_candidate_group(pid)
         if not baseline_matches_state(baseline_state):
             stop_candidate_pid(pid)
             fail("baseline_changed_during_candidate")
@@ -664,6 +684,7 @@ def start(candidate_key: str) -> None:
             proc.kill()
             proc.wait(timeout=3)
         fail("candidate_identity_not_established")
+    require_isolated_candidate_group(proc.pid)
     live_argv = [item for item in pathlib.Path("/proc/%d/cmdline" % proc.pid).read_bytes().split(b"\0") if item]
     if flag_hits(live_argv, ALIASES["api_key"]):
         stop_candidate_pid(proc.pid)
