@@ -382,9 +382,12 @@ def download_candidate() -> None:
                 chunk = response.read(8 * 1024 * 1024)
                 if not chunk:
                     break
+                next_size = size + len(chunk)
+                if next_size > CANDIDATE_SIZE:
+                    fail("candidate_download_size_mismatch")
                 out.write(chunk)
                 digest.update(chunk)
-                size += len(chunk)
+                size = next_size
             out.flush()
             os.fsync(out.fileno())
         if size != CANDIDATE_SIZE:
