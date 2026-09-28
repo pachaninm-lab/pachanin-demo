@@ -283,7 +283,7 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
   async function executePrimaryAction(payload: Record<string, unknown>) {
     const action = workspace?.roleProjection.primaryAction;
     const isSystemAction = action?.source === 'BANK_CALLBACK' || action?.waitingForRoles.includes('BANK_CALLBACK');
-    const outcomeUnknown = unverifiedCommand?.dealId === workspace?.deal.id && unverifiedCommand.actionId === action?.id;
+    const outcomeUnknown = unverifiedCommand?.dealId === workspace?.deal.id;
     if (!workspace || !action?.enabled || isSystemAction || submitting || workspace.blockers.length > 0 || outcomeUnknown) return;
 
     const commandId = globalThis.crypto?.randomUUID?.() ?? `command-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -359,7 +359,9 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
 
   const activeStep = workspace.spine.find((step) => step.state === 'active');
   const action = workspace.roleProjection.primaryAction;
-  const activeUnknown = unverifiedCommand?.dealId === workspace.deal.id && unverifiedCommand.actionId === action?.id
+  // A changed next action is not a receipt for the previous command. Keep its
+  // outcome unresolved for this Deal until the exact attempt can be reconciled.
+  const activeUnknown = unverifiedCommand?.dealId === workspace.deal.id
     ? unverifiedCommand
     : null;
   const systemAction = action?.source === 'BANK_CALLBACK' || action?.waitingForRoles.includes('BANK_CALLBACK');
