@@ -262,6 +262,9 @@ def snapshot_baseline():
     version = command([str(exe), "--version"], check=False, timeout=10)
     if version.returncode != 0 or "aedb2a5" not in (version.stdout + version.stderr).lower():
         fail("llama_build_mismatch")
+    help_text = command([str(exe), "--help"], check=False, timeout=10)
+    if help_text.returncode != 0 or "LLAMA_API_KEY" not in (help_text.stdout + help_text.stderr):
+        fail("llama_api_key_env_contract_missing")
     for key, expected in EXPECTED.items():
         actual = (flag_value(argv, key) or b"").decode("ascii", "ignore")
         if actual != expected:
