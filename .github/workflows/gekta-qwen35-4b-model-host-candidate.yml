@@ -68,6 +68,9 @@ jobs:
           grep -Fq 'candidate_pidfd_setup_failed' "$helper"
           grep -Fq 'launch_watchdog(proc.pid, state["pid"])' "$helper"
           grep -Fq 'os.write(guard_write, b"G")' "$helper"
+          grep -Fq -- '--watchdog-ready-fd' "$helper"
+          grep -Fq 'candidate_watchdog_ready_timeout' "$helper"
+          grep -Fq 'pidfd_exited(watchdog_pidfd)' "$helper"
           if grep -Fq 'os.killpg' "$helper"; then
             echo 'numeric process-group signaling is forbidden' >&2
             exit 1
@@ -91,13 +94,12 @@ jobs:
             echo 'privileged subprocess capability is forbidden' >&2
             exit 1
           fi
-      - name: Prove pre-exec candidate ownership failure regressions
+      - name: Prove candidate ownership, watchdog handoff and recovery regressions
         run: |
           set -Eeuo pipefail
           python3 <<'PY'
           import contextlib
           import importlib.util
-          import json
           import os
           import pathlib
           import tempfile
@@ -118,6 +120,8 @@ jobs:
                   return 0
               def poll(self):
                   return 0 if self.waits else None
+              def send_signal(self, sig):
+                  raise AssertionError('direct child signal was not expected in this fixture')
 
           def baseline():
               return (
@@ -127,13 +131,42 @@ jobs:
                   {},
               )
 
-          def run_failure(stage):
+          def run_setup_failure(stage):
               with tempfile.TemporaryDirectory() as tmp:
                   root = pathlib.Path(tmp)
                   candidate = root / 'candidate.gguf'
                   candidate.write_bytes(b'x')
                   proc = FakeProc()
-                  pidfd = os.open(os.devnull, os.O_RDONLY)
+                  release_calls = []
+                  calls = {'pidfd': 0, 'pid_record': 0, 'watchdog': 0}
+
+                  def track_release(fd, data):
+                      release_calls.append((fd, data))
+                      return len(data)
+
+                  def injected_pidfd(pid, flags=0):
+                      calls['pidfd'] += 1
+                      if stage == 'pidfd':
+                          raise OSError('INJECT_PIDFD')
+                      return os.open(os.devnull, os.O_RDONLY)
+
+                  def injected_pid_record(path, pid):
+                      calls['pid_record'] += 1
+                      if stage == 'pid_record':
+                          raise OSError('INJECT_PID_RECORD')
+
+                  def injected_watchdog(candidate_pid, baseline_pid):
+                      calls['watchdog'] += 1
+                      if stage == 'watchdog':
+                          raise OSError('INJECT_WATCHDOG')
+                      return os.open(os.devnull, os.O_RDONLY)
+
+                  expected = {
+                      'pidfd': ('candidate_pidfd_setup_failed', {'pidfd': 1, 'pid_record': 0, 'watchdog': 0}),
+                      'pid_record': ('INJECT_PID_RECORD', {'pidfd': 1, 'pid_record': 1, 'watchdog': 0}),
+                      'watchdog': ('INJECT_WATCHDOG', {'pidfd': 1, 'pid_record': 1, 'watchdog': 1}),
+                  }[stage]
+
                   with contextlib.ExitStack() as stack:
                       stack.enter_context(mock.patch.object(module, 'CANDIDATE_PATH', candidate))
                       stack.enter_context(mock.patch.object(module, 'CANDIDATE_SIZE', 1))
@@ -151,33 +184,110 @@ jobs:
                       stack.enter_context(mock.patch.object(module.subprocess, 'Popen', return_value=proc))
                       stack.enter_context(mock.patch.object(module, 'stop_watchdog', return_value=None))
                       stack.enter_context(mock.patch.object(module, 'verify_listener_absent', return_value=None))
-                      stack.enter_context(mock.patch.object(module.os, 'write', side_effect=AssertionError('guard released before ownership')))
-                      if stage == 'pidfd':
-                          stack.enter_context(mock.patch.object(module.os, 'pidfd_open', side_effect=OSError('injected pidfd failure')))
-                          stack.enter_context(mock.patch.object(module, 'write_pid', return_value=None))
-                          stack.enter_context(mock.patch.object(module, 'launch_watchdog', return_value=None))
-                      else:
-                          stack.enter_context(mock.patch.object(module.os, 'pidfd_open', return_value=pidfd))
-                          if stage == 'pid_record':
-                              stack.enter_context(mock.patch.object(module, 'write_pid', side_effect=OSError('injected pid record failure')))
-                              stack.enter_context(mock.patch.object(module, 'launch_watchdog', return_value=None))
-                          elif stage == 'watchdog':
-                              stack.enter_context(mock.patch.object(module, 'write_pid', return_value=None))
-                              stack.enter_context(mock.patch.object(module, 'launch_watchdog', side_effect=OSError('injected watchdog failure')))
-                          else:
-                              raise AssertionError(stage)
+                      stack.enter_context(mock.patch.object(module.os, 'write', side_effect=track_release))
+                      stack.enter_context(mock.patch.object(module.os, 'pidfd_open', side_effect=injected_pidfd))
+                      stack.enter_context(mock.patch.object(module, 'write_pid', side_effect=injected_pid_record))
+                      stack.enter_context(mock.patch.object(module, 'launch_watchdog', side_effect=injected_watchdog))
                       try:
                           module.start('a' * 64)
-                      except Exception:
-                          pass
+                      except Exception as exc:
+                          if expected[0] not in str(exc):
+                              raise AssertionError(stage + ' wrong failure: ' + repr(exc)) from exc
                       else:
                           raise AssertionError(stage + ' did not fail')
+
+                  if release_calls:
+                      raise AssertionError(stage + ' released candidate before ownership: ' + repr(release_calls))
+                  if calls != expected[1]:
+                      raise AssertionError(stage + ' wrong injected-stage calls: ' + repr(calls))
                   if proc.waits < 1:
                       raise AssertionError(stage + ' guard child was not reaped')
 
           for stage in ('pidfd', 'pid_record', 'watchdog'):
-              run_failure(stage)
+              run_setup_failure(stage)
 
+          # The watchdog must acknowledge pidfd ownership while the process is
+          # still the inert guard, then tolerate same-pid exec transitions until
+          # the reviewed candidate identity appears.
+          ready_read, ready_write = os.pipe()
+          owned_fd = os.open(os.devnull, os.O_RDONLY)
+          candidate_states = iter((False, True, True))
+          exit_states = iter((False, False, True))
+          stop_calls = []
+          with contextlib.ExitStack() as stack:
+              stack.enter_context(mock.patch.object(module, 'load_state', return_value={'pid': 999}))
+              stack.enter_context(mock.patch.object(module.os, 'pidfd_open', return_value=owned_fd))
+              stack.enter_context(mock.patch.object(module, 'candidate_guard_process_matches', return_value=True))
+              stack.enter_context(mock.patch.object(module, 'baseline_matches_state', return_value=True))
+              stack.enter_context(mock.patch.object(module, 'candidate_process_matches', side_effect=lambda pid: next(candidate_states)))
+              stack.enter_context(mock.patch.object(module, 'pidfd_exited', side_effect=lambda fd: next(exit_states)))
+              stack.enter_context(mock.patch.object(module, 'proc_kb', return_value=1))
+              stack.enter_context(mock.patch.object(module, 'mem_available_kb', return_value=16 * 1024 * 1024))
+              stack.enter_context(mock.patch.object(module, 'verify_listener_absent', return_value=None))
+              stack.enter_context(mock.patch.object(module, 'stop_pidfd_owned_process', side_effect=lambda fd: stop_calls.append(fd)))
+              stack.enter_context(mock.patch.object(module.time, 'sleep', return_value=None))
+              result = module.watchdog(424242, 999, ready_write)
+          token = os.read(ready_read, 2)
+          os.close(ready_read)
+          if result != 0 or token != b'R' or stop_calls:
+              raise AssertionError('watchdog pidfd transition handoff failed')
+
+          # If post-release child cleanup cannot prove exit, recovery identity
+          # and lease supervision must remain available for the later workflow
+          # cleanup rather than being erased.
+          with tempfile.TemporaryDirectory() as tmp:
+              root = pathlib.Path(tmp)
+              candidate = root / 'candidate.gguf'
+              candidate.write_bytes(b'x')
+              proc = FakeProc()
+              initial_fd = os.open(os.devnull, os.O_RDONLY)
+              watchdog_fd = os.open(os.devnull, os.O_RDONLY)
+              stop_watchdog_mock = mock.Mock()
+              listener_mock = mock.Mock()
+              candidate_cmd = (
+                  b'/bin/true\0--model\0' + os.fsencode(candidate) +
+                  b'\0--alias\0' + module.CANDIDATE_ALIAS.encode() + b'\0'
+              )
+              with contextlib.ExitStack() as stack:
+                  stack.enter_context(mock.patch.object(module, 'CANDIDATE_PATH', candidate))
+                  stack.enter_context(mock.patch.object(module, 'CANDIDATE_SIZE', 1))
+                  stack.enter_context(mock.patch.object(module, 'CANDIDATE_SHA256', 'hash'))
+                  stack.enter_context(mock.patch.object(module, 'STATE_DIR', root / 'state'))
+                  stack.enter_context(mock.patch.object(module, 'LOG_PATH', root / 'candidate.log'))
+                  stack.enter_context(mock.patch.object(module, 'PID_PATH', root / 'candidate.pid'))
+                  stack.enter_context(mock.patch.object(module, 'WATCHDOG_PID_PATH', root / 'watchdog.pid'))
+                  stack.enter_context(mock.patch.object(module, 'require_nonroot', return_value='tai'))
+                  stack.enter_context(mock.patch.object(module, 'sha_file', return_value='hash'))
+                  stack.enter_context(mock.patch.object(module, 'snapshot_baseline', side_effect=baseline))
+                  stack.enter_context(mock.patch.object(module, 'ensure_start_capacity', return_value=None))
+                  stack.enter_context(mock.patch.object(module, 'save_state', return_value=None))
+                  stack.enter_context(mock.patch.object(module.shutil, 'which', side_effect=lambda name: '/usr/bin/' + name))
+                  stack.enter_context(mock.patch.object(module.subprocess, 'Popen', return_value=proc))
+                  stack.enter_context(mock.patch.object(module.os, 'pidfd_open', return_value=initial_fd))
+                  stack.enter_context(mock.patch.object(module, 'launch_watchdog', return_value=watchdog_fd))
+                  stack.enter_context(mock.patch.object(module.os, 'write', return_value=1))
+                  stack.enter_context(mock.patch.object(module, 'candidate_process_matches', return_value=True))
+                  stack.enter_context(mock.patch.object(module, 'require_isolated_candidate_group', return_value=None))
+                  stack.enter_context(mock.patch.object(module.pathlib.Path, 'read_bytes', return_value=candidate_cmd))
+                  stack.enter_context(mock.patch.object(module, 'wait_candidate', side_effect=module.CandidateError('INJECT_READINESS')))
+                  stack.enter_context(mock.patch.object(module, 'stop_owned_child', side_effect=module.CandidateError('INJECT_STOP')))
+                  stack.enter_context(mock.patch.object(module, 'stop_watchdog', stop_watchdog_mock))
+                  stack.enter_context(mock.patch.object(module, 'verify_listener_absent', listener_mock))
+                  try:
+                      module.start('a' * 64)
+                  except module.CandidateError as exc:
+                      if 'candidate_start_cleanup_failed' not in str(exc):
+                          raise
+                  else:
+                      raise AssertionError('cleanup-retention fixture did not fail')
+              if not (root / 'candidate.pid').exists():
+                  raise AssertionError('candidate recovery PID was discarded after failed cleanup')
+              if stop_watchdog_mock.called:
+                  raise AssertionError('watchdog was stopped before candidate exit was proved')
+              if listener_mock.called:
+                  raise AssertionError('listener proof ran after failed child stop instead of preserving recovery state')
+
+          # EOF without a release token must never exec the candidate.
           with tempfile.TemporaryDirectory() as tmp:
               candidate = pathlib.Path(tmp) / 'candidate.gguf'
               candidate.write_bytes(b'x')
@@ -188,11 +298,12 @@ jobs:
                   '/bin/true', '--model', str(candidate), '--alias', module.CANDIDATE_ALIAS,
               ]
               with mock.patch.object(module, 'CANDIDATE_PATH', candidate), \
-                   mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': json.dumps(guarded)}, clear=False), \
+                   mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': __import__('json').dumps(guarded)}, clear=False), \
                    mock.patch.object(module.os, 'execvpe', side_effect=AssertionError('exec must not occur on guard EOF')):
                   if module.candidate_exec_guard(read_fd) != 81:
                       raise AssertionError('guard EOF did not fail closed')
-          print('QWEN35_PREEXEC_FAILURE_REGRESSION=PASS')
+
+          print('QWEN35_OWNERSHIP_REGRESSION=PASS')
           PY
       - name: Install bounded API test dependencies
         run: pnpm install --frozen-lockfile --filter @pc/api...
