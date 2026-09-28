@@ -37,7 +37,6 @@ export const HIGH_RISK_ENTITY_PATTERNS = [
   /(?:банк\s+россии|центробанк|central\s+bank)/iu,
 ] as const;
 export const LIVE_CAPABILITY_PATTERN = /(?:уже\s+(?:работает|доступн\w*|подключен\w*)|интеграц\w*.{0,35}(?:работает|подключен\w*|доступн\w*)|в\s+реальном\s+времени|автоматически\s+(?:выгружает|переда[её]т|обменивает|подписывает|оплачивает)|is\s+live|already\s+available|real[-\s]?time|已上线|实时)/iu;
-export const PLATFORM_AUTONOMOUS_CRITICAL_ACTION_PATTERN = /(?:платформ\w*|систем\w*|platform|system|平台|系统)\s+(?:сама\s+|сам\s+|автоматически\s+|automatically\s+|自动)?(?:автоматически\s+)?(?:решит|решает|примет\s+решение|принимает\s+решение|спишет|списывает|перевед[её]т|выплатит|верн[её]т|decides?|will\s+decide|charges?|debits?|transfers?|pays?|refunds?|自动决定|自动扣款)/iu;
 // JavaScript word boundaries do not treat Cyrillic letters as Unicode words reliably.
 // Deliberately avoid \b around units such as "руб." and match only in the
 // already-classified current-evidence contour.
@@ -47,13 +46,13 @@ export const EXACT_CURRENT_CLAIM_PATTERN = /(?:\d{1,3}(?:[ \u00A0\u202F]\d{3})*(
 // catalogue. Prescription-shaped chemical recommendations therefore fail closed: the
 // assistant may explain integrated protection and ask for region/stage, but must not
 // name an active ingredient/product as the user's treatment instruction.
-export const CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN = /(?:(?:применя\w*|использ\w*|обработ\w*|подойдут|рекоменду\w*|выбира\w*|назнач\w*|apply|use|choose|recommend|treat|使用|施用|选择|推荐)[^.!?。！？\n]{0,200}(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|пестицид\w*|product|fungicide|herbicide|insecticide|pesticide|药剂|杀菌剂)|(?:препарат\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|пестицид\w*|product|fungicide|herbicide|insecticide|pesticide|药剂|杀菌剂)[^.!?。！？\n]{0,160}$)/iu;
-export const UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_PATTERN = /(?:применя\w*|использ\w*|обработ\w*|подойдут|рекоменду\w*|выбира\w*|назнач\w*|apply|use|choose|recommend|treat|使用|施用|选择|推荐)[^.!?。！？\n]{0,160}(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|пестицид\w*|product|fungicide|herbicide|insecticide|pesticide|药剂|杀菌剂)[^.!?。！？\n]{0,120}(?:на\s+основе|с\s+содержани\w*|с\s+действующ\w*\s+веществ\w*|\bс\s+[\p{L}-]{4,}(?:\s+или\s+[\p{L}-]{4,})?|containing|active\s+ingredient|with\s+[A-Za-z][A-Za-z-]{3,}|有效成分|含有)/iu;
-export const UNGROUNDED_CROP_PROTECTION_DOSE_OR_INTERVAL_PATTERN = /(?:(?:препарат\w*|средств\w*(?:\s+защит\w*\s+растен\w*)?|фунгицид\w*|гербицид\w*|инсектицид\w*|пестицид\w*|product|fungicide|herbicide|insecticide|pesticide|药剂|杀菌剂)[^.!?。！？\n]{0,180}(?:\d+(?:[.,]\d+)?\s*(?:л|мл|г|кг)\s*(?:\/|на)\s*га|(?:интервал|повтор\w*|через)\s*\d{1,3}\s*(?:дн(?:я|ей)?|days?|天))|(?:применя\w*|использ\w*|обработ\w*|рекоменду\w*|выбира\w*|назнач\w*|повтор\w*\s+обработ\w*|apply|use|recommend|treat|repeat\s+treat|使用|施用|推荐)[^.!?。！？\n]{0,180}\d+(?:[.,]\d+)?\s*(?:л|мл|г|кг)\s*(?:\/|на)\s*га)/iu;
+export const CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN = /(?:применя\w*|использ\w*|обработ\w*|подойдут|рекоменду\w*|выбира\w*|назнач\w*|apply|use|choose|recommend|treat|使用|施用|选择|推荐)[^.!?。！？\n]{0,200}(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|product|fungicide|herbicide|insecticide|药剂|杀菌剂)/iu;
+export const UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_PATTERN = /(?:применя\w*|использ\w*|обработ\w*|подойдут|рекоменду\w*|выбира\w*|назнач\w*|apply|use|choose|recommend|treat|使用|施用|选择|推荐)[^.!?。！？\n]{0,160}(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|product|fungicide|herbicide|insecticide|药剂|杀菌剂)[^.!?。！？\n]{0,120}(?:на\s+основе|с\s+содержани\w*|с\s+действующ\w*\s+веществ\w*|\bс\s+[\p{L}-]{4,}(?:\s+или\s+[\p{L}-]{4,})?|containing|active\s+ingredient|with\s+[A-Za-z][A-Za-z-]{3,}|有效成分|含有)/iu;
+export const UNGROUNDED_CROP_PROTECTION_DOSE_PATTERN = /(?:(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|пестицид\w*|обработ\w*|доз\w*|product|fungicide|herbicide|insecticide|pesticide|treat(?:ment)?|dose|rate|药剂|杀菌剂|除草剂|杀虫剂|剂量)[^.!?。！？\n]{0,220}\d{1,4}(?:[.,]\d{1,3})?(?:\s*[–—-]\s*\d{1,4}(?:[.,]\d{1,3})?)?\s*(?:мл|л|г|кг|ml|l|g|kg)\s*(?:\/\s*га|\/\s*ha|на\s+га|per\s+ha|每公顷)|\d{1,4}(?:[.,]\d{1,3})?(?:\s*[–—-]\s*\d{1,4}(?:[.,]\d{1,3})?)?\s*(?:мл|л|г|кг|ml|l|g|kg)\s*(?:\/\s*га|\/\s*ha|на\s+га|per\s+ha|每公顷)[^.!?。！？\n]{0,140}(?:препарат\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|пестицид\w*|доз\w*|product|fungicide|herbicide|insecticide|pesticide|dose|rate|药剂|剂量))/iu;
 
 export function isUngroundedCropProtectionPrescription(block: string): boolean {
   return UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_PATTERN.test(block)
-    || UNGROUNDED_CROP_PROTECTION_DOSE_OR_INTERVAL_PATTERN.test(block);
+    || UNGROUNDED_CROP_PROTECTION_DOSE_PATTERN.test(block);
 }
 
 export function stripUngroundedCropProtectionPrescriptions(
@@ -134,11 +133,17 @@ export function platformGroundingVerdict(
     (pattern) => pattern.test(normalized) && !pattern.test(authority),
   );
   const unsupportedLiveClaim = LIVE_CAPABILITY_PATTERN.test(normalized) && !LIVE_CAPABILITY_PATTERN.test(authority);
-  const autonomousCriticalAction = PLATFORM_AUTONOMOUS_CRITICAL_ACTION_PATTERN.test(normalized);
+  const automationClaim = /(?:автоматически|automatically|自动)/iu.test(normalized)
+    && !/(?:не[^.!?。！？\n]{0,24}автоматически|not[^.!?。！？\n]{0,24}automatically|不会自动|不自动)/iu.test(normalized);
+  const unsupportedAutomation = automationClaim && !/(?:автоматически|automatically|自动)/iu.test(authority);
+  const autonomousDecision = /(?:платформ\w*|систем\w*|platform|system|平台|系统)[^.!?。！？\n]{0,80}(?:сама\s+)?(?:решит|примет\s+решение|спишет|выплатит|изменит|аннулирует|одобрит|подпишет|will\s+decide|decides|debits|pays|changes|cancels|approves|signs|决定|扣款|付款|修改|取消|批准|签署)/iu.test(normalized)
+    && !/(?:не|никогда\s+не|not|never|不会|不)[^.!?。！？\n]{0,36}(?:сама\s+)?(?:решит|примет\s+решение|спишет|выплатит|изменит|аннулирует|одобрит|подпишет|decide|debit|pay|change|cancel|approve|sign|决定|扣款|付款|修改|取消|批准|签署)/iu.test(normalized);
+  const unsupportedAutonomousDecision = autonomousDecision
+    && !/(?:решит|примет\s+решение|спишет|выплатит|изменит|аннулирует|одобрит|подпишет|decide|debit|pay|change|cancel|approve|sign|决定|扣款|付款|修改|取消|批准|签署)/iu.test(authority);
   if (unsupportedEntity) flags.push('UNSUPPORTED_PLATFORM_ENTITY_REMOVED');
   if (unsupportedLiveClaim) flags.push('UNSUPPORTED_LIVE_CAPABILITY_REMOVED');
-  if (autonomousCriticalAction) flags.push('UNSUPPORTED_PLATFORM_AUTONOMOUS_DECISION_REMOVED');
-  return { keep: !unsupportedEntity && !unsupportedLiveClaim && !autonomousCriticalAction, flags };
+  if (unsupportedAutomation || unsupportedAutonomousDecision) flags.push('UNSUPPORTED_PLATFORM_AUTONOMY_REMOVED');
+  return { keep: !unsupportedEntity && !unsupportedLiveClaim && !unsupportedAutomation && !unsupportedAutonomousDecision, flags };
 }
 
 export function enforcePlatformGrounding(
@@ -159,9 +164,15 @@ export function enforcePlatformGrounding(
   return kept.join('\n').trim();
 }
 
+export const CURRENT_UNGROUNDED_DECISION_PATTERN = /(?:(?:не\s+)?(?:продавай(?:те)?|продавать|продать|покупай(?:те)?|покупать|купить|храни(?:те|ть))\s+(?:сегодня|сейчас|немедленно)|(?:сегодня|сейчас|немедленно)[^.!?。！？\n]{0,40}(?:продавай(?:те)?|продавать|продать|покупай(?:те)?|покупать|купить|храни(?:те|ть))|(?:do\s+not\s+)?(?:sell|buy|store)\s+(?:today|now)|(?:today|now)[^.!?。！？\n]{0,40}(?:sell|buy|store)|(?:今天|现在)(?:卖|出售|买|购买|储存)|(?:卖|出售|买|购买|储存)(?:今天|现在))/iu;
+export const CURRENT_UNGROUNDED_DIRECTION_PATTERN = /(?:(?:цен\w*|спрос\w*|предложени\w*|рынок\w*)[^.!?。！？\n]{0,70}(?:может|будет|должн\w*)[^.!?。！？\n]{0,35}(?:выше|ниже|раст\w*|пад\w*|сниз\w*|подним\w*|укреп\w*|ослаб\w*)|(?:price|demand|supply|market)[^.!?。！？\n]{0,70}(?:may|will|should)[^.!?。！？\n]{0,35}(?:rise|fall|grow|drop|higher|lower|strengthen|weaken)|(?:价格|需求|供应|市场)[^。！？\n]{0,50}(?:可能|将会)[^。！？\n]{0,30}(?:上涨|下跌|走高|走低|更高|更低))/iu;
+
 /** Whether one block may stand when the question needs current, governed evidence. */
 export function currentEvidenceVerdict(block: string): boolean {
-  return !EXACT_CURRENT_CLAIM_PATTERN.test(block.replace(/^\s*\d+[.)]\s*/u, ''));
+  const body = block.replace(/^\s*\d+[.)]\s*/u, '');
+  return !EXACT_CURRENT_CLAIM_PATTERN.test(body)
+    && !CURRENT_UNGROUNDED_DECISION_PATTERN.test(body)
+    && !CURRENT_UNGROUNDED_DIRECTION_PATTERN.test(body);
 }
 
 export function enforceCurrentEvidenceBoundary(
