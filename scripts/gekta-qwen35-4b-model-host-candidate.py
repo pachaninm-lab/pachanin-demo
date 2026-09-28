@@ -671,6 +671,8 @@ def start(candidate_key: str) -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     os.chmod(STATE_DIR, 0o700)
     log = LOG_PATH.open("ab", buffering=0)
+    if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
+        fail("pidfd_signal_unavailable")
     proc = subprocess.Popen(
         [nice, "-n", "10", ionice, "-c", "3", *[os.fsdecode(item) for item in argv]],
         stdin=subprocess.DEVNULL,
@@ -681,6 +683,11 @@ def start(candidate_key: str) -> None:
         start_new_session=True,
         close_fds=True,
     )
+    try:
+        initial_pidfd = os.pidfd_open(proc.pid, 0)
+    except ProcessLookupError:
+        proc.wait(timeout=3)
+        fail("candidate_process_exited_before_identity_check")
     identity_deadline = time.monotonic() + 5
     while time.monotonic() < identity_deadline and process_alive(proc.pid):
         if candidate_process_matches(proc.pid):
@@ -688,12 +695,18 @@ def start(candidate_key: str) -> None:
         time.sleep(0.05)
     if not candidate_process_matches(proc.pid):
         try:
-            proc.terminate()
+            signal.pidfd_send_signal(initial_pidfd, signal.SIGTERM, None, 0)
+            try:
+                proc.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                signal.pidfd_send_signal(initial_pidfd, signal.SIGKILL, None, 0)
+                proc.wait(timeout=3)
+        except ProcessLookupError:
             proc.wait(timeout=3)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            proc.wait(timeout=3)
+        finally:
+            os.close(initial_pidfd)
         fail("candidate_identity_not_established")
+    os.close(initial_pidfd)
     require_isolated_candidate_group(proc.pid)
     live_argv = [item for item in pathlib.Path("/proc/%d/cmdline" % proc.pid).read_bytes().split(b"\0") if item]
     if flag_hits(live_argv, ALIASES["api_key"]):
