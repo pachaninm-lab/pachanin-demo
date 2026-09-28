@@ -1737,6 +1737,10 @@
       "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts",
       "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
       "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts"
+    ],
+    "fix/gekta-qwen35-protected-sudo-candidate-20260928": [
+      ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+      "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json"
     ]
   },
   "currentAcceptance": [
@@ -2522,6 +2526,33 @@
         "Client-selected authority or model-only critical arithmetic"
       ],
       "teamHubDependency": "#3896 Gekta quality/latency audit and Qwen3.5 candidate evidence"
+    },
+    "gekta-qwen35-protected-sudo-candidate-20260928-coordination": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Repair only the Qwen3.5-4B bounded candidate transport after exact-main run 36401066589 failed before model-host mutation because no protected key authenticated direct root SSH.",
+      "authorityBaseExactMain": "31515e0bf75dba71d2a7ddef08ba677c38140caf",
+      "implementationBranch": "fix/gekta-qwen35-protected-sudo-candidate-20260928",
+      "allowedPaths": [
+        ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+        "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json"
+      ],
+      "requiredTruthBoundaries": [
+        "Reuse the existing dedicated model-host principal, TAI_MODEL_SSH_KEY, pinned TAI_MODEL_SSH_HOST_KEY and protected TAI_MODEL_SSH_PASSWORD; do not introduce a root SSH private key.",
+        "The workflow may obtain one-shot sudo only to copy the already reviewed candidate helper into a root-owned temporary path, verify its exact SHA-256, execute only prepare/start/rollback/status, and remove it.",
+        "No persistent root bridge, login-shell change, sudoers change, NOPASSWD grant, arbitrary remote command interface or trust-on-first-use is permitted.",
+        "Qwen3-8B remains the mandatory baseline and must be restored and verified on every success/failure path; candidate startup remains serial and loopback-only.",
+        "The Qwen3.5 artifact revision, size, SHA-256, model identity, production llama executable and 16/16/1/8192/512/128 runtime contour remain unchanged.",
+        "No application, database, tenant, Deal, money, registration, Web/API/outbox deployment or production model identity mutation is admitted by this transport repair.",
+        "New mandatory recurring cost remains 0 RUB."
+      ],
+      "forbiddenAuthority": [
+        "Direct root SSH key or new root credential",
+        "Persistent root/sudo bridge, shell replacement or sudoers mutation",
+        "Broad sudo, SETENV, NOPASSWD ALL or arbitrary shell command execution",
+        "Candidate/model/runtime changes beyond the already accepted bounded Qwen3.5-4B window",
+        "CI/security/readiness weakening, force merge or unsupported production PASS claim"
+      ],
+      "teamHubDependency": "#3896 Qwen3.5-4B candidate; failed pre-mutation run 36401066589; merged candidate authority #5687"
     }
   }
 }
