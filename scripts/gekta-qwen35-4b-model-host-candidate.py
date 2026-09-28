@@ -9,6 +9,7 @@ import os
 import pathlib
 import pwd
 import re
+import select
 import shutil
 import signal
 import socket
@@ -498,6 +499,55 @@ def stop_owned_child(proc: subprocess.Popen, pidfd: int) -> None:
     except subprocess.TimeoutExpired:
         fail("candidate_owned_process_survived_sigkill")
 
+def pidfd_exited(pidfd: int) -> bool:
+    poller = select.poll()
+    poller.register(pidfd, select.POLLIN | select.POLLHUP | select.POLLERR)
+    return bool(poller.poll(0))
+
+def wait_pidfd_exit(pidfd: int, timeout_seconds: float) -> bool:
+    poller = select.poll()
+    poller.register(pidfd, select.POLLIN | select.POLLHUP | select.POLLERR)
+    return bool(poller.poll(max(0, int(timeout_seconds * 1000))))
+
+def stop_pidfd_owned_process(pidfd: int) -> None:
+    if pidfd_exited(pidfd):
+        return
+    try:
+        signal.pidfd_send_signal(pidfd, signal.SIGTERM, None, 0)
+    except ProcessLookupError:
+        return
+    if wait_pidfd_exit(pidfd, 15):
+        return
+    try:
+        signal.pidfd_send_signal(pidfd, signal.SIGKILL, None, 0)
+    except ProcessLookupError:
+        return
+    if not wait_pidfd_exit(pidfd, 5):
+        fail("pidfd_owned_process_survived_sigkill")
+
+def stop_unreaped_direct_child(proc: subprocess.Popen) -> None:
+    if proc.poll() is not None:
+        return
+    try:
+        proc.send_signal(signal.SIGTERM)
+    except ProcessLookupError:
+        proc.wait(timeout=3)
+        return
+    try:
+        proc.wait(timeout=3)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        proc.send_signal(signal.SIGKILL)
+    except ProcessLookupError:
+        proc.wait(timeout=3)
+        return
+    try:
+        proc.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        fail("direct_child_survived_sigkill")
+
 def process_group_members(pgid: int) -> list[int]:
     members: list[int] = []
     for entry in pathlib.Path("/proc").iterdir():
@@ -607,77 +657,156 @@ def stop_watchdog() -> None:
             os.close(fd)
     WATCHDOG_PID_PATH.unlink(missing_ok=True)
 
-def launch_watchdog(candidate_pid: int, baseline_pid: int) -> None:
+def launch_watchdog(candidate_pid: int, baseline_pid: int) -> int:
+    if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
+        fail("pidfd_signal_unavailable")
+    ready_read, ready_write = os.pipe()
+    os.set_inheritable(ready_write, True)
     log = WATCHDOG_LOG_PATH.open("ab", buffering=0)
-    proc = subprocess.Popen(
-        [
-            sys.executable,
-            str(pathlib.Path(__file__).resolve()),
-            "_watchdog",
-            "--candidate-pid",
-            str(candidate_pid),
-            "--baseline-pid",
-            str(baseline_pid),
-        ],
-        stdin=subprocess.DEVNULL,
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        cwd="/",
-        start_new_session=True,
-        close_fds=True,
-    )
-    write_pid(WATCHDOG_PID_PATH, proc.pid)
+    proc = None
+    watchdog_pidfd = None
+    pid_recorded = False
+    try:
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                str(pathlib.Path(__file__).resolve()),
+                "_watchdog",
+                "--candidate-pid",
+                str(candidate_pid),
+                "--baseline-pid",
+                str(baseline_pid),
+                "--watchdog-ready-fd",
+                str(ready_write),
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            cwd="/",
+            start_new_session=True,
+            close_fds=True,
+            pass_fds=(ready_write,),
+        )
+        os.close(ready_write)
+        ready_write = -1
+        watchdog_pidfd = os.pidfd_open(proc.pid, 0)
+        write_pid(WATCHDOG_PID_PATH, proc.pid)
+        pid_recorded = True
 
-def watchdog(candidate_pid: int, baseline_pid: int) -> int:
+        readable, _, _ = select.select([ready_read], [], [], 5)
+        if not readable:
+            fail("candidate_watchdog_ready_timeout")
+        token = os.read(ready_read, 2)
+        if token != b"R" or proc.poll() is not None or pidfd_exited(watchdog_pidfd):
+            fail("candidate_watchdog_not_ready")
+        return watchdog_pidfd
+    except Exception:
+        stopped = False
+        try:
+            if proc is not None:
+                if watchdog_pidfd is not None:
+                    stop_owned_child(proc, watchdog_pidfd)
+                else:
+                    stop_unreaped_direct_child(proc)
+            stopped = True
+        finally:
+            if stopped and pid_recorded:
+                WATCHDOG_PID_PATH.unlink(missing_ok=True)
+            if watchdog_pidfd is not None:
+                os.close(watchdog_pidfd)
+        raise
+    finally:
+        if ready_read >= 0:
+            os.close(ready_read)
+        if ready_write >= 0:
+            os.close(ready_write)
+
+def watchdog(candidate_pid: int, baseline_pid: int, ready_fd: int) -> int:
     deadline = time.monotonic() + LEASE_SECONDS
     identity_deadline = time.monotonic() + 20
     candidate_seen = False
+    candidate_pidfd = None
+    ready_sent = False
     try:
+        if ready_fd < 3 or not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
+            return 78
         state = load_state()
         if state.get("pid") != baseline_pid:
             return 71
+        candidate_pidfd = os.pidfd_open(candidate_pid, 0)
+        if not candidate_guard_process_matches(candidate_pid):
+            return 77
+        if not baseline_matches_state(state):
+            return 72
+        if os.write(ready_fd, b"R") != 1:
+            return 78
+        ready_sent = True
+        os.close(ready_fd)
+        ready_fd = -1
+
         while time.monotonic() < deadline:
-            if not candidate_seen:
-                if candidate_process_matches(candidate_pid):
-                    candidate_seen = True
-                elif process_alive(candidate_pid):
-                    if not candidate_guard_process_matches(candidate_pid) or time.monotonic() >= identity_deadline:
-                        return 77
-                    if not baseline_matches_state(state):
-                        return 72
-                    time.sleep(0.25)
-                    continue
-                else:
-                    try:
-                        verify_listener_absent()
-                    except CandidateError:
-                        return 76
-                    return 0
-            if not candidate_process_matches(candidate_pid):
+            if pidfd_exited(candidate_pidfd):
                 try:
                     verify_listener_absent()
                 except CandidateError:
                     return 76
                 return 0
+
+            if not candidate_seen:
+                if candidate_process_matches(candidate_pid):
+                    candidate_seen = True
+                elif time.monotonic() >= identity_deadline:
+                    stop_pidfd_owned_process(candidate_pidfd)
+                    try:
+                        verify_listener_absent()
+                    except CandidateError:
+                        return 76
+                    return 77
+                else:
+                    if not baseline_matches_state(state):
+                        stop_pidfd_owned_process(candidate_pidfd)
+                        return 72
+                    # The pidfd pins the same task while exec transitions through
+                    # nice/ionice into the reviewed llama argv.
+                    time.sleep(0.1)
+                    continue
+
+            if not candidate_process_matches(candidate_pid):
+                stop_pidfd_owned_process(candidate_pidfd)
+                try:
+                    verify_listener_absent()
+                except CandidateError:
+                    return 76
+                return 77
             if not baseline_matches_state(state):
-                stop_candidate_pid(candidate_pid)
+                stop_pidfd_owned_process(candidate_pidfd)
                 return 72
             if proc_kb(candidate_pid, "VmRSS") > MAX_CANDIDATE_RSS_KB:
-                stop_candidate_pid(candidate_pid)
+                stop_pidfd_owned_process(candidate_pidfd)
                 return 73
             if mem_available_kb() < MIN_MEM_RUNTIME_KB:
-                stop_candidate_pid(candidate_pid)
+                stop_pidfd_owned_process(candidate_pidfd)
                 return 74
             time.sleep(2)
-        stop_candidate_pid(candidate_pid)
+
+        stop_pidfd_owned_process(candidate_pidfd)
         verify_listener_absent()
         return 0
     except Exception:
         try:
-            stop_candidate_pid(candidate_pid)
+            if candidate_pidfd is not None:
+                stop_pidfd_owned_process(candidate_pidfd)
         except Exception:
             pass
         return 75
+    finally:
+        if ready_fd >= 0:
+            try:
+                os.close(ready_fd)
+            except OSError:
+                pass
+        if candidate_pidfd is not None:
+            os.close(candidate_pidfd)
 
 def wait_candidate(pid: int, key: str, baseline_state: dict) -> None:
     deadline = time.monotonic() + 120
@@ -761,6 +890,7 @@ def start(candidate_key: str) -> None:
     guard_env["QWEN35_GUARDED_ARGV_JSON"] = json.dumps(candidate_argv, separators=(",", ":"))
     proc = None
     initial_pidfd = None
+    watchdog_pidfd = None
     released = False
     try:
         proc = subprocess.Popen(
@@ -789,7 +919,7 @@ def start(candidate_key: str) -> None:
             fail("candidate_pidfd_setup_failed")
 
         write_pid(PID_PATH, proc.pid)
-        launch_watchdog(proc.pid, state["pid"])
+        watchdog_pidfd = launch_watchdog(proc.pid, state["pid"])
 
         if os.write(guard_write, b"G") != 1:
             fail("candidate_guard_release_failed")
@@ -820,6 +950,8 @@ def start(candidate_key: str) -> None:
             fail("candidate_ready_headroom_low")
         if not baseline_matches_state(state) or not baseline_runtime_healthy():
             fail("baseline_not_healthy_with_candidate")
+        if watchdog_pidfd is None or pidfd_exited(watchdog_pidfd):
+            fail("candidate_watchdog_not_alive")
     except Exception as start_error:
         if guard_write >= 0:
             try:
@@ -855,6 +987,8 @@ def start(candidate_key: str) -> None:
     finally:
         if initial_pidfd is not None:
             os.close(initial_pidfd)
+        if watchdog_pidfd is not None:
+            os.close(watchdog_pidfd)
         if guard_write >= 0:
             try:
                 os.close(guard_write)
@@ -922,6 +1056,7 @@ def main() -> int:
     parser.add_argument("--candidate-pid", type=int, default=0)
     parser.add_argument("--baseline-pid", type=int, default=0)
     parser.add_argument("--candidate-guard-fd", type=int, default=-1)
+    parser.add_argument("--watchdog-ready-fd", type=int, default=-1)
     args = parser.parse_args()
     require_nonroot()
     if args.action == "_candidate_exec_guard":
@@ -929,7 +1064,7 @@ def main() -> int:
     if args.action == "_watchdog":
         if args.candidate_pid <= 0 or args.baseline_pid <= 0:
             return 76
-        return watchdog(args.candidate_pid, args.baseline_pid)
+        return watchdog(args.candidate_pid, args.baseline_pid, args.watchdog_ready_fd)
     import fcntl
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     os.chmod(STATE_DIR, 0o700)
