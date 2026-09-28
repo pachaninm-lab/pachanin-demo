@@ -62,7 +62,11 @@ jobs:
           grep -Fq 'CANDIDATE_ALIAS = "tai-qwen35-4b-q4km"' "$helper"
           grep -Fq 'systemctl_mutation_forbidden' "$helper"
           grep -Fq 'pidfd_send_signal' "$helper"
-          grep -Fq 'os.killpg(pid, sig)' "$helper"
+          grep -Fq 'candidate_process_group_not_isolated' "$helper"
+          if grep -Fq 'os.killpg' "$helper"; then
+            echo 'numeric process-group signaling is forbidden' >&2
+            exit 1
+          fi
           grep -Fq 'candidate_process_survived_sigkill' "$helper"
           grep -Fq 'save_state(state)' "$helper"
           grep -Fq 'env["LLAMA_API_KEY"] = candidate_key' "$helper"
