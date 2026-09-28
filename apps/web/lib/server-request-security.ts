@@ -107,6 +107,58 @@ export function assertSameOriginIfPresent(request: Request) {
   return { ok: true as const };
 }
 
+/**
+ * Resolve a redirect destination that must stay on the current origin.
+ *
+ * A request-supplied "next"/"to" value is redirect-worthy input: whoever
+ * controls it can send an authenticated browser off the application entirely.
+ * Checking only `raw.startsWith('/')` is not enough. `//evil.com` and
+ * `/\evil.com` both start with exactly one slash and both resolve, under the
+ * WHATWG URL algorithm that `new URL()` and every browser implement, to
+ * `https://evil.com`: a leading `//` is a network-path (protocol-relative)
+ * reference, and a leading `\` is normalized to `/` for special schemes such
+ * as http(s). A prefix check on the raw string cannot see either of those.
+ *
+ * The only sound check is on the result. Resolve the candidate against the
+ * request's own URL and require the resolved origin to be unchanged. That
+ * holds by construction for every genuinely same-origin path, whatever the
+ * request's origin turns out to be, so the check needs no configured
+ * allowlist and makes no assumption about which host is "the" application.
+ */
+export function resolveSameOriginRedirectTarget(
+  raw: string | null | undefined,
+  fallback: string,
+  request: Request,
+): URL {
+  const requestOrigin = new URL(request.url).origin;
+  const toFallback = () => new URL(fallback, request.url);
+  if (!raw) return toFallback();
+
+  let candidate: URL;
+  try {
+    candidate = new URL(raw, request.url);
+  } catch {
+    return toFallback();
+  }
+  return candidate.origin === requestOrigin ? candidate : toFallback();
+}
+
+/**
+ * Serialize a same-origin redirect target as a path-absolute reference, for
+ * client-side navigation such as `location.replace()` in an inline script,
+ * where the browser resolves it against the page it is on.
+ *
+ * Re-serializing a resolved URL is not automatically safe. The URL parser
+ * removes dot segments, so `/.//evil.com` resolves same-origin with the
+ * pathname `//evil.com`; emitted as a relative reference, that pathname is a
+ * protocol-relative reference to evil.com. Anything that does not start with
+ * exactly one slash therefore falls back.
+ */
+export function toPathAbsoluteReference(target: URL, fallback: string): string {
+  const reference = `${target.pathname}${target.search}${target.hash}`;
+  return reference.startsWith('/') && !reference.startsWith('//') ? reference : fallback;
+}
+
 export function assertCsrf(request: Request) {
   if (!isUnsafeMethod(request.method)) return { ok: true as const };
   const sameOrigin = assertSameOriginIfPresent(request);
