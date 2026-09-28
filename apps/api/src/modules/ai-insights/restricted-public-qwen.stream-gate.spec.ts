@@ -228,6 +228,22 @@ describe('StreamingAnswerGate', () => {
     expect(gate.emitted).toContain('санитарную уборку');
   });
 
+  it('does not progressively leak a named crop-protection product with a per-hectare dose', () => {
+    const gate = generalGate();
+
+    const first = gate.push('Для ржавчины — «Ридомил-Голд» в дозе ');
+    expect(first.text).toBe('');
+    expect(gate.emitted).toBe('');
+
+    const second = gate.push('2,5–3 л/га. Сначала уточните регион и фазу развития культуры. ');
+    gate.flush();
+
+    expect(second.flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    expect(gate.emitted).not.toContain('Ридомил-Голд');
+    expect(gate.emitted).not.toContain('л/га');
+    expect(gate.emitted).toContain('уточните регион');
+  });
+
   it('keeps verified-platform text on complete-block release semantics', () => {
     const gate = new StreamingAnswerGate({
       answerMode: 'verified_platform',
