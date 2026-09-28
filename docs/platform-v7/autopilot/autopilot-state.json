@@ -1592,6 +1592,9 @@
       "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
       "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
       "apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx",
+      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+      "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
       "docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json"
     ],
     "agent/platform-v7-product-copy": [
@@ -1664,6 +1667,76 @@
       "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
       "apps/web/tests/unit/platformV7MobileTrustAndGektaReturn.test.ts",
       "docs/platform-v7/autopilot/scopes/public-mobile-trust-gekta-return-20260926.json"
+    ],
+    "fix/production-mobile-controller-handoff-20260927": [
+      ".github/workflows/platform-v7-production-mobile-acceptance.yml",
+      "docs/platform-v7/autopilot/scopes/production-mobile-controller-handoff-20260927.json"
+    ],
+    "fix/gekta-farmer-questions-20260927": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/web-unit.yml",
+      "apps/web/app/api/public-platform-assistant/route.ts",
+      "apps/web/lib/platform-v7/public-assistant-knowledge.ts",
+      "apps/web/lib/platform-v7/assistant-question-understanding.ts",
+      "apps/web/tests/unit/publicFarmerStarterQuestions.test.ts",
+      "apps/web/tests/unit/taiPublicAssistantRetryRegenerate.test.tsx",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json"
+    ],
+    "governance/gekta-recovery-trusted-routes-20260927": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+      "scripts/p7-autopilot-guard.sh"
+    ],
+    "fix/gekta-docker-diagnostic-route-20260927": [
+      ".github/workflows/production-docker-headroom-diagnostic.yml"
+    ],
+    "fix/gekta-web-release-recovery-20260927": [
+      "scripts/production-web-remote-entrypoint.sh",
+      "scripts/production-web-exact-sha.sh",
+      "scripts/check-production-web-hardening.mjs"
+    ],
+    "fix/gekta-answer-copy-20260927": [
+      "apps/web/app/api/agro-chat/route.ts",
+      "apps/web/lib/platform-v7/public-assistant-knowledge.ts",
+      "apps/web/tests/unit/publicFarmerStarterQuestions.test.ts"
+    ],
+    "fix/gekta-han-stream-20260927": [
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+      "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+      "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+      "apps/web/app/api/agro-chat/route.ts",
+      "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts"
+    ],
+    "fix/readiness-queue-job-gate-20260927": [
+      ".github/workflows/automerge.yml",
+      "docs/platform-v7/autopilot/scopes/readiness-queue-job-gate-20260927.json"
+    ],
+    "governance/gekta-current-data-regression-route-20260927": [
+      "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+      "scripts/p7-autopilot-guard.sh"
+    ],
+    "fix/public-webkit-i18n-route-lifecycle-20260927": [
+      "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
+    ],
+    "bank/first-customer-home-20260926": [
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
+      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+      "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+      "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+      "docs/platform-v7/autopilot/scopes/bank-first-customer-home-20260926.json"
+    ],
+    "fix/gekta-economic-safety-hardening-20260928": [
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts"
     ]
   },
   "currentAcceptance": [
@@ -2094,6 +2167,9 @@
         "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
         "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
         "apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx",
+        "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+        "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
         "docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json"
       ],
       "requiredTruthBoundaries": [
@@ -2108,6 +2184,28 @@
         "CI/security/readiness gate weakening"
       ],
       "teamHubDependency": "#5372 inventory comment 5833248230; #5604 guard prerequisite; PUBLIC #5559 main serialization; #5535 CORE next-action dependency"
+    },
+    "ux-buyer-first-customer-route-20260927-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Render the admitted server-scoped buyer home at the verified buyer root and prove the actual route across RU/EN/ZH and desktop/mobile browsers.",
+      "authorityBaseExactMain": "dcf10faa093d3d911c3ddaa06afde2be65897c0d",
+      "implementationBranch": "ux/buyer-first-customer-home-20260925",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+        "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "Only the server-verified buyer root renders its server page; other role roots and the controlled owner preview remain separate.",
+        "A real authenticated buyer route is checked in RU/EN/ZH on desktop and mobile; component source tests alone do not prove rendering.",
+        "Buyer queue order stays navigation, with UNKNOWN required action and no bank or regulatory finality."
+      ],
+      "forbiddenAuthority": [
+        "API/backend/domain/DB/RLS/tenant/role/session or priority authority",
+        "other role root or public route behavior",
+        "CI/security/readiness gate weakening"
+      ],
+      "teamHubDependency": "#5610 exact-head P1 route composition review; Team Hub #5469"
     },
     "public-mobile-trust-gekta-return-20260926-coordination": {
       "owner": "ACCOUNT_2_PRODUCT",
@@ -2140,6 +2238,290 @@
         "CI/security/readiness gate weakening or unsupported production acceptance claims"
       ],
       "teamHubDependency": "#5469; #5631; exact-head inline P1 #4112623681"
+    },
+    "gekta-reviewed-bootstrap-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "One-time owner-authorized Gekta recovery governance bootstrap: exact reviewed three-file candidate only.",
+      "authorityBaseExactMain": "2b302725a14d518382f533f38495c568c9a4691b",
+      "implementationBranch": "governance/gekta-recovery-trusted-routes-20260927",
+      "reviewedCandidateSha": "1f746d7e457af6d1815ea050a0211939d84a8a89",
+      "reviewedCandidateTree": "6f5fe6c391737c818607144baf84a32138dc40d9",
+      "allowedPaths": [
+        ".github/workflows/platform-v7-autopilot-guard.yml",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+        "scripts/p7-autopilot-guard.sh"
+      ],
+      "reviewedBlobs": {
+        ".github/workflows/platform-v7-autopilot-guard.yml": "a0271cd4eff83a430882fe3e089b60b57b28e9e6",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "242d07fcab5a06bb2a9cce807f16590c0e874fa3",
+        "scripts/p7-autopilot-guard.sh": "80dce5c8fa2e8c53e391adb14decb95b27ac60d1"
+      },
+      "requiredTruthBoundaries": [
+        "Owner explicitly authorized the one-time bootstrap and autonomous completion in the active session. This state-only change admits no product, production operation or implementation branch.",
+        "Before merging the governance candidate, independently verify its complete diff and three blob identities against this record. Changed content requires renewed review and source admission.",
+        "This is documented exact-content admission with independent manual enforcement. Existing generic routing does not automatically enforce recorded SHA fields. Do not claim immutable enforcement before the reviewed bootstrap is accepted.",
+        "The four implementation branches obtain only literal trusted-base path sets after the bootstrap merges. Candidate state, global scope, guard, workflow, R1.2 and renames cannot widen those scopes.",
+        "All substantive CI, exact-head independent review, unresolved-thread resolution and fresh manual SHA-bound readiness remain required. Deployment is separately pending exact OCI identity, health and live acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Implementation paths in this state-only PR",
+        "State, scope or unrelated authority changes in the three-file bootstrap",
+        "Automatic merge, check override, force merge or new recurring costs"
+      ],
+      "reviewDependency": "PR #5650; native P1 4114326800; independent reviewer /root/review_gekta"
+    },
+    "gekta-recovery-implementation-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Owner-requested Gekta farmer questions, answer latency and copy quality, with bounded REG.RU release recovery.",
+      "authorityBaseExactMain": "55da1ad596cdaccf5be26c9d7f3f20dd5ba45712",
+      "trustedGuardBlob": "80dce5c8fa2e8c53e391adb14decb95b27ac60d1",
+      "scopesByBranch": {
+        "fix/gekta-docker-diagnostic-route-20260927": [
+          ".github/workflows/production-docker-headroom-diagnostic.yml"
+        ],
+        "fix/gekta-web-release-recovery-20260927": [
+          "scripts/production-web-remote-entrypoint.sh",
+          "scripts/production-web-exact-sha.sh",
+          "scripts/check-production-web-hardening.mjs"
+        ],
+        "fix/gekta-answer-copy-20260927": [
+          "apps/web/app/api/agro-chat/route.ts",
+          "apps/web/lib/platform-v7/public-assistant-knowledge.ts",
+          "apps/web/tests/unit/publicFarmerStarterQuestions.test.ts"
+        ],
+        "fix/gekta-han-stream-20260927": [
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+          "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+          "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+          "apps/web/app/api/agro-chat/route.ts",
+          "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts"
+        ]
+      },
+      "requiredTruthBoundaries": [
+        "Immutable literal scopes and trusted-base workflow routes were separately accepted in PR #5650 before this state-only admission.",
+        "This record duplicates the accepted guard exact path sets; candidate state cannot expand those sets. Current R1.2, global scopes and prior admissions remain unchanged.",
+        "Each implementation PR must contain only its admitted exact paths and pass independent exact-head review, all substantive CI and fresh manual SHA-bound readiness.",
+        "Fast reviewed starter answers preserve entitlement and safety; contextual or free-form follow-ups retain the model. Never present reviewed text as model generation or claim unmeasured live speed.",
+        "Release remains REG.RU-only with protected stateful data and no new recurring costs. Completion requires exact OCI revision, healthy service and public live acceptance."
+      ],
+      "forbiddenAuthority": [
+        "R1.2 or unrelated product scope changes",
+        "Volumes, persistent data or container removal for disk recovery",
+        "Force merge, fabricated checks or disabled safety"
+      ],
+      "reviewDependency": "Accepted bootstrap PR #5650; owner request and independent source review"
+    },
+    "gekta-quality-regression-bootstrap-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Owner-requested correction and comprehensive testing of slow ordinary Gekta answers and unreadable current-data notices; admit only the reviewed two-line test-scope extension.",
+      "authorityBaseExactMain": "9f8ae70cf13401702c20869e2c7c986dd22eade2",
+      "implementationBranch": "governance/gekta-current-data-regression-route-20260927",
+      "reviewedCandidateSha": "8c0e0ec2f41b6b2536d69b14fa4902618bba7c55",
+      "reviewedCandidateTree": "ded176a1d418b79b1f7e84f811146ccffb887373",
+      "allowedPaths": [
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+        "scripts/p7-autopilot-guard.sh"
+      ],
+      "reviewedBlobs": {
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "8ea167377e785ff115c645b87c1c3f92f9d1b64e",
+        "scripts/p7-autopilot-guard.sh": "85e6a100272115013c5bb84bfec2329574cefd09"
+      },
+      "requiredTruthBoundaries": [
+        "The owner explicitly requested correction of ordinary-answer latency, current-data answer quality and comprehensive testing in the active session. This state-only change admits no product code or production operation.",
+        "The reviewed two-line candidate adds only apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts to the existing API branch literal path set and its regression fixture. All other scopes and negative checks remain unchanged.",
+        "Independently verify the complete governance diff and both blob identities before merge. Changed content requires renewed review and source admission. This record has independent manual enforcement; generic routing does not automatically validate the recorded content hashes.",
+        "Accept the trusted guard before extending the duplicated implementation state scope or publishing the four-file API candidate. Candidate-owned state never widens the trusted literal scope.",
+        "Independent exact-head review, all substantive CI, fresh manual SHA-bound readiness and existing branch protections remain required. REG.RU exact image identity, health and live acceptance remain separate release requirements."
+      ],
+      "forbiddenAuthority": [
+        "Unrelated product, R1.2, database, tenant, role, auth-mail or production-topology changes",
+        "Implementation files in this state-only admission or governance candidate",
+        "Automatic or forced merge, check overrides, weakened safety, new recurring costs"
+      ],
+      "reviewDependency": "Independent reviewer /root/review_gekta; user screenshot IMG_3376 and explicit request to comprehensively test ordinary answers."
+    },
+    "gekta-quality-regression-implementation-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Duplicate the separately accepted trusted Gekta API regression-test scope extension; enable the owner's ordinary-answer speed and quality correction.",
+      "authorityBaseExactMain": "e7b347ece6166a5a7f4bf76f0506f1779febb378",
+      "acceptedGuardPr": 5660,
+      "acceptedGuardMerge": "84312889cb28175157c1a104c99f43022f152a89",
+      "trustedGuardBlob": "f4d29712f09adfac8d743488c66e81ad6a5bac04",
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "addedPath": "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
+      "requiredTruthBoundaries": [
+        "The trusted literal four-file scope and matching scope fixture were accepted in PR #5660 before this state-only admission.",
+        "Current main preserves that exact API path set alongside separately accepted readiness and buyer-governance changes. Preserve all unrelated scopes, admissions and current R1.2.",
+        "This record extends only the named branch by the one existing regression spec; prior recovery admission base and guard fields remain historical evidence of the original three-file admission.",
+        "API implementation remains a separate narrow PR requiring actual independent exact-head review, all substantive CI/security, fresh manual readiness and an expected-SHA merge.",
+        "Production completion requires REG.RU exact running OCI revision, healthy services and live tests. Source tests alone do not prove model quality or latency; no new recurring cost."
+      ]
+    },
+    "public-mobile-hero-320-production-i18n-repair-20260927": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Repair the production RU 320x700 homepage Hero six-line regression under the existing five-line and first-viewport CTA acceptance, with one exact stylesheet rule and a rendered browser assertion.",
+      "authorityBaseExactMain": "76c680695a306be04d9876e847428c28bfe4f875",
+      "implementationBranch": "fix/public-mobile-trust-gekta-return-20260926",
+      "reviewFinding": "PR #5664 exact-head independent Codex review P1: original Trust/Gekta coordination did not admit unrelated Hero typography.",
+      "allowedPaths": [
+        "apps/web/styles/platform-v7-canonical-home-v1.css",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "The two paths already appear in the trusted base branch path list; this record extends the purpose only for the measured 320x700 homepage failure and a stronger existing visual gate.",
+        "Keep the complete RU/EN/ZH Hero heading, primary CTA destination, first-viewport reachability, readable typography and no horizontal overflow. Never reduce the five-line acceptance limit or hide text.",
+        "The separate WebKit EN chunk-load pageerror remains a failed production i18n gate until independently resolved and rerun; CSS and visual CI cannot dismiss it.",
+        "Before merge, refresh the implementation branch onto the admitted main state, obtain independent review of the complete exact-head diff, pass hosted CI/security and rendered browser acceptance, and use expected-head SHA.",
+        "A merge is not deployment. Release only through the REG.RU exact-main contour and verify running OCI revision, healthy container, Caddy and fresh live browser acceptance."
+      ],
+      "forbiddenAuthority": [
+        "API/backend/DB/RLS/tenant/role/session or bank/provider/FGIS finality",
+        "other public or protected route behavior",
+        "CI/security/readiness gate weakening or automatic merge"
+      ],
+      "teamHubDependency": "PR #5664 review P1; production i18n run 36316640279; Team Hub #5469"
+    },
+    "public-webkit-i18n-route-lifecycle-20260927": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Isolate public production i18n route navigation in a fresh page lifecycle and verify realistic login-to-register navigation after the measured WebKit EN 320 ChunkLoadError.",
+      "authorityBaseExactMain": "7ac6925e01bf311be08b5cac12d9dfc7e0188d35",
+      "acceptedGuardPr": 5669,
+      "acceptedGuardMerge": "7ac6925e01bf311be08b5cac12d9dfc7e0188d35",
+      "implementationBranch": "fix/public-webkit-i18n-route-lifecycle-20260927",
+      "allowedPaths": [
+        "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "The accepted trusted-base immutable guard and both PR entry points permit this implementation ref only the exact browser test path; candidate state cannot expand it.",
+        "Preserve all eight public routes, EN/ZH localization, RU homepage design gates, ten viewport-locale combinations, zero pageerror, response success, Chinese typography, mobile target geometry and horizontal reflow assertions.",
+        "Use an independent page lifecycle for each direct public route and a separate real user click from login to register at 320 px; do not dismiss an actual click-path product error as test harness noise.",
+        "The previous WebKit EN 320 ChunkLoadError is unresolved until Chromium and WebKit exact-deployed-OCI live production i18n acceptance passes; source CI alone does not establish production acceptance.",
+        "Do not broaden to BANKS, FGIS, provider credentials, backend/runtime/locale product code, other tests or release workflow in this one-file implementation."
+      ],
+      "forbiddenAuthority": [
+        "Candidate-owned state or scope extension in the implementation PR",
+        "Product code/API/DB/tenant/role/bank/provider/FGIS mutation",
+        "CI/security/readiness weakening, fabricated acceptance or automatic merge"
+      ],
+      "teamHubDependency": "#5666; accepted guard #5669; Team Hub #5469"
+    },
+    "gekta-live-answer-acceptance-bootstrap-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Admit only the independently reviewed exact two-file guard candidate needed to repair measured Gekta live-answer failures in issue #5673; no runtime implementation in this admission.",
+      "authorityBaseExactMain": "bdecafb969b2dd3f3862d385a7e11b8181177946",
+      "implementationBranch": "governance/gekta-current-data-regression-route-20260927",
+      "reviewedCandidateSha": "c7d46498d4723c0fe2e90956d799f64f25909e26",
+      "reviewedCandidateTree": "dc4134e0f09b2f6d2ec5588812dc831aa80c00b5",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs"
+      ],
+      "reviewedBlobs": {
+        "scripts/p7-autopilot-guard.sh": "378c69b6b8a51b332e52a8b31d3d089cb281a3d7",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "4716a6954542148943de39588837838075e205e8"
+      },
+      "requiredTruthBoundaries": [
+        "The owner explicitly requested completing and implementing Gekta speed and answer quality. Exact REG.RU release of #5656 does not establish semantic or speed acceptance: independent live review found two P1 defects and one P2 in #5673.",
+        "The reviewed candidate adds only assistant-relevance-router.ts, taiSemanticRelevanceRouter.test.ts, agro-chat/route.ts and platformV7AgroChatModelFirstRoute.test.ts at their exact recorded apps/web paths to the existing four-file fix/gekta-han-stream-20260927 literal guard and matching fixture. Existing protected workflow routes are unchanged.",
+        "Independently verify the complete two-file governance diff and both exact blob identities before merge. The recorded candidate commit/tree identify reviewed source history; current-main synchronization may change commit/tree identity only while preserving both exact blobs and the complete two-file relative diff. Every synchronized head still requires fresh independent review and CI/readiness.",
+        "This is exact-content admission with independent manual enforcement, not a claim that generic routing automatically verifies hashes. Any changed guard or fixture content requires renewed reviewed-content admission.",
+        "Accept the trusted guard before extending duplicated implementation-state scope or publishing the expanded eight-file runtime implementation. Candidate-owned state never widens trusted scope.",
+        "Preserve R1.2, all unrelated scopes and existing admissions. Fresh substantive CI/security, owner audit, independent exact-head review, manual readiness and ordinary expected-SHA merge remain required.",
+        "Retain the actual model for contextual and free-form questions. Preserve current-price evidence and safety boundaries; distinguish supplied-input arithmetic and storage-only break-even from total profitability. No measured speed improvement or live semantic PASS may be claimed before real acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Product source in this admission or guard candidate",
+        "Database, tenant, role, auth-mail, provider or production-topology changes",
+        "New recurring cost, fabricated evidence, weakened safety or forced/automatic merge"
+      ],
+      "reviewDependency": "Issue #5673; candidate PR #5674; independent reviewer /root/review_5662 exact c7d46498d4723c0fe2e90956d799f64f25909e26;36/36 scope regressions PASS"
+    },
+    "gekta-live-answer-acceptance-implementation-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Duplicate the separately accepted trusted Gekta eight-path live-answer correction scope so the measured storage follow-up routing and streamed-answer defects can be fixed without widening unrelated authority.",
+      "authorityBaseExactMain": "307e3ebf413ab905674d86cb71a0c74dad90b080",
+      "acceptedGuardPr": 5674,
+      "acceptedGuardMerge": "307e3ebf413ab905674d86cb71a0c74dad90b080",
+      "trustedGuardBlob": "378c69b6b8a51b332e52a8b31d3d089cb281a3d7",
+      "trustedScopeFixtureBlob": "4716a6954542148943de39588837838075e205e8",
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "addedPaths": [
+        "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+        "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+        "apps/web/app/api/agro-chat/route.ts",
+        "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "The trusted literal eight-file scope and matching regression fixture were accepted in PR #5674 before this state-only admission.",
+        "This state change extends only the existing Gekta implementation branch by the four accepted Web routing/test paths; prior recovery and quality-regression admissions remain historical evidence and all unrelated state stays unchanged.",
+        "The implementation must retain the actual model for contextual and free-form questions, preserve current-data evidence and safety boundaries, and limit deterministic arithmetic to explicit user-supplied storage price and duration inputs.",
+        "Expanded runtime remains a separate exact-main implementation PR requiring fresh owner audit, independent exact-head review, all substantive CI/security, manual readiness and expected-SHA merge.",
+        "Production completion requires one serialized REG.RU exact-main release, exact running OCI revisions, healthy services, live semantic/latency acceptance and fresh Chromium plus WebKit public acceptance; no source-only PASS or unmeasured speed claim."
+      ],
+      "forbiddenAuthority": [
+        "Database, tenant, role, auth-mail, provider, bank/FGIS finality or production-topology changes",
+        "Unrelated product/R1.2 scope changes or candidate-owned scope widening",
+        "Automatic or forced merge, disabled safety/readiness checks, fabricated evidence or new recurring cost"
+      ],
+      "reviewDependency": "Accepted guard PR #5674; issue #5673; independent exact-head review on 901a7986fc102f37c0959f4f245179f0ab012466"
+    },
+    "bank-first-customer-home-20260926-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Bank first-customer production-home hierarchy from existing server-scoped Deal navigation; no bank operation, provider or settlement authority.",
+      "authorityBaseExactMain": "597c17c730aa263f4ca954b858139d00252dcf67",
+      "implementationBranch": "bank/first-customer-home-20260926",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
+        "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+        "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+        "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+        "docs/platform-v7/autopilot/scopes/bank-first-customer-home-20260926.json"
+      ],
+      "requiredTruthBoundaries": [
+        "The bank Deal queue is navigation, not a BankOperation read, provider binding, release decision, payment instruction or external bank confirmation.",
+        "UNKNOWN next action, empty, forbidden and degraded remain explicit; no demo amounts, concrete provider or settlement finality.",
+        "RU/EN/ZH, mobile, focus, buyer/seller and other role regressions remain covered; owner-controlled showroom does not gain customer authority.",
+        "Ordinary verified bank root mounts the server-scoped bank workspace; owner-controlled preview keeps precedence and other roles do not inherit bank access.",
+        "Bank source changes start only after the trusted immutable guard prerequisite and this state-only admission are merged."
+      ],
+      "forbiddenAuthority": [
+        "API/backend/domain/DB/RLS/tenant/role/BankOperation/IntegrationBinding/provider/payment authority",
+        "homepage/public implementation or parallel App Shell/design system",
+        "CI/security/readiness gate weakening or production PASS claim"
+      ],
+      "teamHubDependency": "#5469 comment 5842845723; CORE #5525; external #5530; buyer #5610 review; P0 release serialization"
+    },
+    "gekta-economic-safety-hardening-20260928-coordination": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Harden Gekta economic comparisons and crop-protection output before any foundation-model migration.",
+      "authorityBaseExactMain": "b01010f5f1e7eedfd9091469adfda8a385725513",
+      "implementationBranch": "fix/gekta-economic-safety-hardening-20260928",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "User-supplied monetary arithmetic is computed deterministically server-side; model prose cannot select a commercial option or invent rates.",
+        "Ungrounded crop-protection product/active-ingredient dose or interval instructions are removed before public emission.",
+        "Current-data and verified-platform authority remain fail-closed and unchanged.",
+        "No model-host, production deployment, tenant, Deal, money or write authority is added."
+      ],
+      "forbiddenAuthority": [
+        "Model-host or REG.RU production mutation",
+        "CI/security/readiness weakening",
+        "New recurring cost",
+        "Client-selected authority or model-only critical arithmetic"
+      ],
+      "teamHubDependency": "#3896 Gekta quality/latency audit and Qwen3.5 candidate evidence"
     }
   }
 }

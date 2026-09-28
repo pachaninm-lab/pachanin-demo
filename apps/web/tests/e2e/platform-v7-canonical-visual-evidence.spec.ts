@@ -168,7 +168,7 @@ test.describe('canonical visual authority evidence', () => {
   const responsiveWidths = [320, 375, 390, 768, 1280, 1440] as const;
   for (const width of responsiveWidths) {
     test(`responsive contract ${width}px`, async ({ page, baseURL }) => {
-      const height = width <= 390 ? 844 : width <= 768 ? 1024 : 900;
+      const height = width === 320 ? 700 : width <= 390 ? 844 : width <= 768 ? 1024 : 900;
       await page.setViewportSize({ width, height });
       for (const route of [
         '/platform-v7?lang=ru',
@@ -181,6 +181,35 @@ test.describe('canonical visual authority evidence', () => {
         const response = await page.goto(route, { waitUntil: 'domcontentloaded' });
         expect(response?.status(), `${route} should return 200 at ${width}px`).toBe(200);
         await expectPublicRoute(page, route, baseURL, targets.find((target) => target.path === route)?.ready);
+        if (width === 320 && route === '/platform-v7?lang=ru') {
+          await page.evaluate(() => document.fonts.ready);
+          const heading = page.locator('#pc-cp-home-title');
+          await expect(heading).toBeVisible();
+          const renderedLines = await heading.evaluate((node) => {
+            const tops: number[] = [];
+            const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+            let current = walker.nextNode();
+            while (current) {
+              if (current.textContent?.trim()) {
+                const range = document.createRange();
+                range.selectNodeContents(current);
+                for (const rect of Array.from(range.getClientRects())) {
+                  if (rect.width > 0 && rect.height > 0 && !tops.some((top) => Math.abs(top - rect.top) <= 1)) tops.push(rect.top);
+                }
+              }
+              current = walker.nextNode();
+            }
+            return tops.length;
+          });
+          expect(renderedLines, '320px homepage H1 rendered lines').toBeGreaterThanOrEqual(1);
+          expect(renderedLines, '320px homepage H1 rendered lines').toBeLessThanOrEqual(5);
+          const primary = page.locator('.pc-cp-hero .pc-cp-actions a[href*="intent=sell"]').first();
+          await expect(primary).toBeVisible();
+          const box = await primary.boundingBox();
+          expect(box, '320x700 primary CTA bounds').not.toBeNull();
+          expect(box!.y, '320x700 primary CTA top').toBeGreaterThanOrEqual(0);
+          expect(box!.y + box!.height, '320x700 primary CTA bottom').toBeLessThanOrEqual(701);
+        }
         const overflow = await page.evaluate(() => Math.max(
           document.documentElement.scrollWidth - document.documentElement.clientWidth,
           document.body.scrollWidth - document.body.clientWidth,
@@ -389,6 +418,73 @@ test.describe('canonical protected cabinet boundary', () => {
     await rotateCabinetRole(page, 'seller', loginBase);
     await page.goto(operatorRoute, { waitUntil: 'load' });
     await expect(page).not.toHaveURL(new RegExp(`${operatorRoute}$`));
+  });
+
+  test('verified buyer sees the server-scoped home in each locale', async ({ page, baseURL }) => {
+    test.skip(!baseURL?.startsWith('https://'), 'Protected login authority runs in the TLS Design System acceptance workflow.');
+    test.setTimeout(180_000);
+    await loginAs(page, 'buyer', baseURL!);
+
+    const copy = {
+      ru: { description: 'Сервер проверяет доступ к сделкам для роли покупателя', ready: 'сервер подтверждён', empty: 'очередь пуста', unknown: 'Следующее обязательное действие не опубликовано', emptyTitle: 'Рабочих объектов пока нет' },
+      en: { description: 'The server checks Deal access for the buyer role', ready: 'server confirmed', empty: 'queue is empty', unknown: 'Required next action is not published', emptyTitle: 'No work objects yet' },
+      zh: { description: '服务器会核查买方角色的交易访问权限', ready: '服务器已确认', empty: '队列为空', unknown: '服务器未提供优先执行的操作', emptyTitle: '暂时没有工作对象' },
+    } as const;
+    for (const [locale, expected] of Object.entries(copy)) {
+      const response = await page.goto(`/platform-v7/buyer?lang=${locale}`, { waitUntil: 'domcontentloaded' });
+      expect(response?.status(), `${locale} buyer route`).toBe(200);
+      const workspace = page.getByTestId('p0-first-customer-workspace-buyer');
+      await expect(workspace).toBeVisible();
+      await expect(workspace).toContainText(expected.description);
+      const header = workspace.locator(':scope > header');
+      const confirmed = header.getByText(expected.ready, { exact: true });
+      const empty = header.getByText(expected.empty, { exact: true });
+      await expect(confirmed.or(empty)).toBeVisible();
+      if (await confirmed.isVisible()) {
+        await expect(workspace.getByRole('heading', { name: expected.unknown })).toBeVisible();
+        await expect(workspace.getByText('UNKNOWN', { exact: true })).toBeVisible();
+        await expect(workspace.locator('#first-customer-work-queue a[href^="/platform-v7/deals/"]')).not.toHaveCount(0);
+      } else {
+        await expect(workspace.getByRole('heading', { name: expected.emptyTitle })).toBeVisible();
+      }
+      await expect(page.locator('[data-transaction-role-cockpit]')).toHaveCount(0);
+      await canonicalNoOverflow(page);
+    }
+  });
+
+  test('seeded bank sees an honest empty home on mobile in each locale', async ({ page, baseURL }) => {
+    test.skip(!baseURL?.startsWith('https://'), 'Protected login authority runs in the TLS Design System acceptance workflow.');
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginAs(page, 'bank', baseURL!);
+
+    const copy = {
+      ru: { description: 'Сервер проверяет роль банковского кабинета и доступ к сделкам', empty: 'очередь пуста', unknown: 'Банковские факты — UNKNOWN', emptyTitle: 'Рабочих объектов пока нет' },
+      en: { description: 'The server checks the bank cabinet role and access to Deals', empty: 'queue is empty', unknown: 'Bank facts — UNKNOWN', emptyTitle: 'No work objects yet' },
+      zh: { description: '服务器会核查银行工作台角色和交易访问权限', empty: '队列为空', unknown: '银行事实 — UNKNOWN', emptyTitle: '暂时没有工作对象' },
+    } as const;
+    for (const [locale, expected] of Object.entries(copy)) {
+      const response = await page.goto(`/platform-v7/bank?lang=${locale}`, { waitUntil: 'domcontentloaded' });
+      expect(response?.status(), `${locale} bank route`).toBe(200);
+      const workspace = page.getByTestId('p0-first-customer-workspace-bank');
+      await expect(workspace).toBeVisible();
+      await expect(workspace).toContainText(expected.description);
+      await expect(workspace.getByText(expected.unknown, { exact: true })).toBeVisible();
+      const header = workspace.locator(':scope > header');
+      await expect(header.getByText(expected.empty, { exact: true })).toBeVisible();
+      await expect(workspace.getByRole('heading', { name: expected.emptyTitle })).toBeVisible();
+      await expect(workspace.locator('#first-customer-work-queue a[href^="/platform-v7/deals/"]')).toHaveCount(0);
+      const profileLink = workspace.getByRole('link', { name: locale === 'ru' ? 'Профиль доступа' : locale === 'en' ? 'Access profile' : '访问档案' });
+      await profileLink.focus();
+      await expect(profileLink).toBeFocused();
+      await expect(page.locator('[data-transaction-role-cockpit]')).toHaveCount(0);
+      await canonicalNoOverflow(page);
+    }
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/platform-v7/bank?lang=ru', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('p0-first-customer-workspace-bank')).toBeVisible();
+    await canonicalNoOverflow(page);
   });
 
   test('all twelve server-verified role shells retain fixed cabinet chrome', async ({ page, baseURL }) => {
