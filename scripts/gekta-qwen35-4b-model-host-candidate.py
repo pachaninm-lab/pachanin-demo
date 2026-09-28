@@ -179,6 +179,21 @@ def flag_value(argv, key, required=True):
         fail("flag_cardinality:%s" % key)
     return hits[0][3]
 
+def first_api_key(raw: str) -> str:
+    for item in raw.split(","):
+        value = item.strip()
+        if value:
+            return value
+    return ""
+
+def effective_api_key(argv, env) -> str:
+    cli = flag_value(argv, "api_key", required=False)
+    if cli is not None:
+        key = first_api_key(cli.decode("utf-8", "replace"))
+        if key:
+            return key
+    return first_api_key(str(env.get("LLAMA_API_KEY", "")))
+
 def replace_flag(argv, key, value):
     result = list(argv)
     hits = flag_hits(result, ALIASES[key])
@@ -272,21 +287,25 @@ def snapshot_baseline():
     alias = (flag_value(argv, "alias") or b"").decode("utf-8", "replace")
     if alias != BASELINE_ALIAS:
         fail("baseline_alias_mismatch")
+    api_key = effective_api_key(argv, env)
+    if len(api_key) < 32:
+        fail("baseline_api_key_missing")
     return {
         "pid": pid,
         "exe": str(exe),
         "cmdlineSha256": hashlib.sha256(cmdline).hexdigest(),
+        "apiKeySha256": hashlib.sha256(api_key.encode("utf-8")).hexdigest(),
         "restarts": service_restarts(),
         "vmSwapKb": proc_kb(pid, "VmSwap"),
     }, exe, argv, env
 
 def baseline_runtime_healthy() -> bool:
-    state, _, argv, _ = snapshot_baseline()
+    state, _, argv, env = snapshot_baseline()
     alias = (flag_value(argv, "alias") or b"").decode("utf-8", "replace")
     raw_host = (flag_value(argv, "host", required=False) or b"127.0.0.1").decode("ascii", "ignore")
     host = "127.0.0.1" if raw_host in {"0.0.0.0", "::", "localhost"} else raw_host
     raw_port = (flag_value(argv, "port", required=False) or b"8080").decode("ascii", "ignore")
-    key = (flag_value(argv, "api_key") or b"").decode("utf-8", "replace")
+    key = effective_api_key(argv, env)
     if alias != BASELINE_ALIAS or not raw_port.isdigit() or len(key) < 32:
         return False
     try:
@@ -305,6 +324,7 @@ def baseline_matches_state(expected: dict) -> bool:
         current["pid"] == expected.get("pid")
         and current["exe"] == expected.get("exe")
         and current["cmdlineSha256"] == expected.get("cmdlineSha256")
+        and current["apiKeySha256"] == expected.get("apiKeySha256")
         and current["restarts"] == expected.get("restarts")
     )
 
