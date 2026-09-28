@@ -14,25 +14,25 @@
 
 ### Проверенная карта 13 входов
 
-Маршруты и роли взяты из R1.1 inventory и сверены с текущими `page.tsx`. В восьми строках production branch `firstCustomerWorkspaceRequired()` рендерит `FirstCustomerWorkspace` из `first-customer-workspace-server.ts` вместо больших legacy page bodies. Его данные: server session/profile, organization и scoped Deal/shipment/lab queue. Наличие ссылки в очереди не доказывает priority, deadline или money impact.
+Маршруты и роли взяты из R1.1 inventory и сверены с текущими `page.tsx` **и** `PlatformV7ProtectedShell.tsx`. Восьми ролевым server pages доступен `FirstCustomerWorkspace` из `first-customer-workspace-server.ts`, но shell на обычном role root подставляет `RoleIntentDashboard` вместо `children` для всех ролей, кроме buyer и bank. Тестовый controlled owner preview показывает `children`, но не является обычным пользовательским кабинетом. `/driver/field`, `/operator` и `/profile` следует проверять отдельно от соответствующих role roots. Данные серверной workspace: session/profile, organization и scoped Deal/shipment/lab queue. Наличие ссылки в очереди не доказывает priority, deadline или money impact.
 
 | № | Кабинет | Production route | Текущий вход | Следующая предметная приёмка |
 | ---: | --- | --- | --- | --- |
 | 1 | Оператор | `/platform-v7/operator` | собственная page, canonical Deal/outbox reads | triage, ownership, conflict/recovery, server task authority |
 | 2 | Покупатель | `/platform-v7/buyer` | FirstCustomerWorkspace | #5610 merged: обычная сессия монтирует серверную очередь; предметный Deal journey и live приёмка защищённой роли остаются |
-| 3 | Продавец | `/platform-v7/seller` | FirstCustomerWorkspace | farmer-first end-to-end #5371, реальные партии/сделки и отрицательные состояния |
-| 4 | Логистика | `/platform-v7/logistics` | FirstCustomerWorkspace | shipment plan, назначение, outage/recovery, роль/права |
-| 5 | Водитель | `/platform-v7/driver/field` | FirstCustomerWorkspace | mobile/offline evidence, повторная отправка и конфликт синхронизации |
-| 6 | Сюрвейер | `/platform-v7/surveyor` | FirstCustomerWorkspace | осмотр/акт, evidence, разрешённое подтверждение |
-| 7 | Элеватор | `/platform-v7/elevator` | FirstCustomerWorkspace | приёмка/вес/расхождение, quantity и recovery |
-| 8 | Лаборатория | `/platform-v7/lab` | FirstCustomerWorkspace | образец/протокол, quality conflict и evidence |
+| 3 | Продавец | `/platform-v7/seller` | обычный root: RoleIntentDashboard; ролевые `children` только в тестовом owner preview | открыть farmer-first server page в разрешённом production пути, затем end-to-end #5371, реальные партии/сделки и отрицательные состояния |
+| 4 | Логистика | `/platform-v7/logistics` | обычный root: RoleIntentDashboard | допустить server page, затем shipment plan, назначение, outage/recovery, роль/права |
+| 5 | Водитель | `/platform-v7/driver/field` | field route не входит в root replacement; `/platform-v7/driver` показывает RoleIntentDashboard | проверить field mobile/offline evidence и отдельно root, повторную отправку и конфликт синхронизации |
+| 6 | Сюрвейер | `/platform-v7/surveyor` | обычный root: RoleIntentDashboard | допустить server page, затем осмотр/акт, evidence, разрешённое подтверждение |
+| 7 | Элеватор | `/platform-v7/elevator` | обычный root: RoleIntentDashboard | допустить server page, затем приёмка/вес/расхождение, quantity и recovery |
+| 8 | Лаборатория | `/platform-v7/lab` | обычный root: RoleIntentDashboard | допустить server page, затем образец/протокол, quality conflict и evidence |
 | 9 | Банк и бухгалтерия | `/platform-v7/bank` | FirstCustomerWorkspace | #5694 merged: обычная проверенная сессия монтирует серверную очередь; её Deal href ведёт в русскоязычный `CanonicalDealWorkspace`, поэтому #5699 отслеживает RU/EN/ZH предметную навигацию; операция/сверка/ограничение и provider linkage остаются |
 | 10 | Сотрудник организации | `/platform-v7/profile` | собственная page, auth profile | membership, team/settings, revoked/forbidden и role change |
-| 11 | Арбитр | `/platform-v7/arbitrator` | собственная page; #5632 фиксирует активные синтетические money decisions и ложный empty при API outage | сначала admitted fail-closed ремонт #5632, затем dispute/evidence/decision authority, error/recovery |
-| 12 | Комплаенс | `/platform-v7/compliance` | собственная page | review/restriction/reason, permission/step-up |
-| 13 | Руководитель | `/platform-v7/executive` | собственная page, Deal/dispute/outbox reads | sourced health/drill-down, freshness и no fake KPI |
+| 11 | Арбитр | `/platform-v7/arbitrator` | обычный root: RoleIntentDashboard; скрытая ролевая page содержит синтетические money controls #5632 | допуск и fail-closed ремонт #5632 до показа server page; затем dispute/evidence/decision authority, error/recovery |
+| 12 | Комплаенс | `/platform-v7/compliance` | обычный root: RoleIntentDashboard | допустить server page, затем review/restriction/reason, permission/step-up |
+| 13 | Руководитель | `/platform-v7/executive` | обычный root: RoleIntentDashboard | допустить server page, затем sourced health/drill-down, freshness и no fake KPI |
 
-Общий экран восьми ролей сейчас показывает UNKNOWN для неподтверждённого обязательного следующего шага (#5589); это truth guard, а не полный UX этих восьми кабинетов. #5621 и #5694 слиты: банк получил серверную главную без операции/провайдера. #5610 меняет только ограниченный экран покупателя. В каждой роли дополнительно нужны object journey, settings, action/error/outage/recovery и мобильная приёмка. Founder controlled mode не превращает тестовую организацию в customer authority.
+Общий серверный экран восьми ролей показывает UNKNOWN для неподтверждённого обязательного следующего шага (#5589), когда он действительно смонтирован. `RoleIntentDashboard` на остальных обычных roots переставляет доступные Deal по наличию `nextAction` в браузере и показывает их как требующие действия, хотя серверный per-role action/permission contract #5534/#5535 отсутствует; нельзя выдавать это за next-best-action. #5621 и #5694 слиты: банк получил серверную главную без операции/провайдера. #5610 меняет только ограниченный экран покупателя. В каждой роли дополнительно нужны object journey, settings, action/error/outage/recovery и мобильная приёмка. Founder controlled mode не превращает тестовую организацию в customer authority.
 
 ## Банк и деньги
 
@@ -57,6 +57,6 @@
 ## Порядок работы и критерий окончания
 
 1. Исправить i18n FAIL на exact `648499349...`: EN login→register и WebKit contact, затем повторить все непрошедшие и неисполненные проверки на новом exact-main после отдельного admitted PUBLIC ремонта. Full-stack controller, protected 13-role matrix и bank/FGIS live cases принять отдельно. #5610, #5621 и #5694 merged, но не дают полный role journey. Каждый дальнейший экран допускается узким scope.
-2. Сохранить единые shell/status/action primitives; завершить role-by-role buyer → logistics/driver → elevator/lab/surveyor → bank/employee/operator/arbitrator/compliance/executive, с общими settings/search/notification/support и RU/EN/ZH/mobile/a11y. Устранить активный арбитражный P1 #5632 до его приёмки. Публичные маршруты проходят по PUBLIC handoff. Роль-mode #5477 ждёт CORE #5580 и `READY_FOR_CONSUMER`.
+2. Сохранить единые shell/status/action primitives; убрать неподтверждённое клиентское повышение `nextAction` до обязательного действия, допускать и проверять фактически смонтированные role pages role-by-role: seller → logistics/driver → elevator/lab/surveyor → employee/operator/arbitrator/compliance/executive, с общими settings/search/notification/support и RU/EN/ZH/mobile/a11y. Устранить #5632 до показа арбитражной страницы обычной роли. Публичные маршруты проходят по PUBLIC handoff. Роль-mode #5477 ждёт CORE #5580 и `READY_FOR_CONSUMER`.
 3. После CORE read projections #5525/#5526 Product подключает только типизированные bank/FGIS server facts. Реальная активация #5530/#5531 требует внешних артефактов; R8/R9 внутренние контракты и внешняя приёмка фиксируются раздельно.
 4. Для каждого vertical: exact-head tests/CI/security, независимый просмотр полного diff, author audit, SHA-bound merge, exact-current-main REG.RU image/revision и live функциональная/mobile/negative приёмка. Только 13/13 и все соответствующие UX/R8/R9/BNX/ACX acceptance cases дают полное закрытие блока; зелёный CI или документ сами по себе этого не доказывают.
