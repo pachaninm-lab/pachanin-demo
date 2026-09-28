@@ -110,9 +110,23 @@ export class RailwayService {
     return wagon;
   }
 
-  updateWagonStatus(wagonId: string, status: WagonStatus, dealId?: string): Wagon {
+  /**
+   * Вагон, которым распоряжается организация вызывающего.
+   *
+   * Чужой вагон неотличим от несуществующего: тот же NotFoundException с тем
+   * же текстом, чтобы по ответу нельзя было перебрать идентификаторы других
+   * организаций. Без организации вызывающего отказ — сервис не угадывает её.
+   */
+  private ownedWagon(wagonId: string, actorOrgId: string): Wagon {
     const wagon = this.wagons.get(wagonId);
-    if (!wagon) throw new NotFoundException(`Wagon ${wagonId} not found`);
+    if (!actorOrgId || !wagon || wagon.ownerOrgId !== actorOrgId) {
+      throw new NotFoundException(`Wagon ${wagonId} not found`);
+    }
+    return wagon;
+  }
+
+  updateWagonStatus(wagonId: string, status: WagonStatus, actorOrgId: string, dealId?: string): Wagon {
+    const wagon = this.ownedWagon(wagonId, actorOrgId);
     wagon.status = status;
     wagon.currentDealId = dealId ?? wagon.currentDealId;
     return wagon;
@@ -128,9 +142,11 @@ export class RailwayService {
     volumeTons: number;
     requestedDepartureAt: string;
   }): GU12Request {
+    // В заявку попадают только вагоны организации-заявителя. Раньше чужой
+    // свободный вагон можно было вписать под свою сделку, а после одобрения
+    // он становился ASSIGNED с чужим currentDealId.
     for (const wid of dto.wagonIds) {
-      const w = this.wagons.get(wid);
-      if (!w) throw new NotFoundException(`Wagon ${wid} not found`);
+      const w = this.ownedWagon(wid, dto.requestorOrgId);
       if (w.status !== 'FREE') throw new BadRequestException(`Wagon ${w.wagonNumber} is not FREE`);
     }
 

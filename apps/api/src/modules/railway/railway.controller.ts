@@ -41,8 +41,9 @@ export class RailwayController {
   updateWagonStatus(
     @Param('id') id: string,
     @Body() body: UpdateWagonStatusDto,
+    @CurrentUser() user: any,
   ) {
-    return this.railway.updateWagonStatus(id, body.status, body.dealId);
+    return this.railway.updateWagonStatus(id, body.status, user.orgId, body.dealId);
   }
 
   @Get('gu12')
