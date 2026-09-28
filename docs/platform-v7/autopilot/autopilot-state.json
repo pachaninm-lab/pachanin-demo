@@ -1729,6 +1729,14 @@
       "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
       "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
       "docs/platform-v7/autopilot/scopes/bank-first-customer-home-20260926.json"
+    ],
+    "fix/gekta-economic-safety-hardening-20260928": [
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts"
     ]
   },
   "currentAcceptance": [
@@ -2487,6 +2495,33 @@
         "CI/security/readiness gate weakening or production PASS claim"
       ],
       "teamHubDependency": "#5469 comment 5842845723; CORE #5525; external #5530; buyer #5610 review; P0 release serialization"
+    },
+    "gekta-economic-safety-hardening-20260928-coordination": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Harden Gekta economic comparisons and crop-protection output before any foundation-model migration.",
+      "authorityBaseExactMain": "b01010f5f1e7eedfd9091469adfda8a385725513",
+      "implementationBranch": "fix/gekta-economic-safety-hardening-20260928",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "User-supplied monetary arithmetic is computed deterministically server-side; model prose cannot select a commercial option or invent rates.",
+        "Ungrounded crop-protection product/active-ingredient dose or interval instructions are removed before public emission.",
+        "Current-data and verified-platform authority remain fail-closed and unchanged.",
+        "No model-host, production deployment, tenant, Deal, money or write authority is added."
+      ],
+      "forbiddenAuthority": [
+        "Model-host or REG.RU production mutation",
+        "CI/security/readiness weakening",
+        "New recurring cost",
+        "Client-selected authority or model-only critical arithmetic"
+      ],
+      "teamHubDependency": "#3896 Gekta quality/latency audit and Qwen3.5 candidate evidence"
     }
   }
 }
