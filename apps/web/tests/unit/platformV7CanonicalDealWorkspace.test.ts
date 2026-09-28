@@ -287,6 +287,60 @@ describe('canonical Deal command outcome after an uncertain response', () => {
     expect(screen.queryByText(/Результат записан в сделку/)).not.toBeInTheDocument();
   });
 
+  it.each([
+    { name: 'failed network read', readFailure: async () => { throw new TypeError('read connection lost'); } },
+    { name: 'HTTP 503 read', readFailure: async () => ({ ok: false, status: 503, json: async () => ({ message: 'read unavailable' }) }) },
+  ])('retains the exact UNKNOWN attempt through $name, loading and recovery', async ({ readFailure }) => {
+    let readCount = 0;
+    let originalCommandId = '';
+    const recovered = {
+      ...dealSnapshot,
+      deal: { ...dealSnapshot.deal, version: '2' },
+      roleProjection: {
+        ...dealSnapshot.roleProjection,
+        primaryAction: { ...dealSnapshot.roleProjection.primaryAction, id: 'next_action', label: 'Следующее действие' },
+      },
+    };
+    let completeReload!: () => void;
+    const retryResponse = new Promise<{ ok: boolean; json: () => Promise<typeof recovered> }>((resolve) => {
+      completeReload = () => resolve({ ok: true, json: async () => recovered });
+    });
+    const fetchMock = vi.fn(async (_url: string, options?: { method?: string; body?: string }) => {
+      if (options?.method === 'POST') {
+        originalCommandId = JSON.parse(options.body || '{}').commandId;
+        return { ok: false, status: 503, json: async () => ({ message: 'command receipt unavailable' }) };
+      }
+      readCount += 1;
+      if (readCount === 1) return { ok: true, json: async () => dealSnapshot };
+      if (readCount === 2) return readFailure();
+      return retryResponse;
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(React.createElement(CanonicalDealWorkspace, { role: 'seller', dealId: dealSnapshot.deal.id }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Подтвердить действие' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Исход команды неизвестен');
+    expect(originalCommandId).not.toBe('');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Обновить сделку' }));
+    await screen.findByRole('heading', { name: 'Рабочая сделка недоступна' });
+    expect(screen.getByRole('alert')).toHaveTextContent('Исход команды неизвестен');
+    expect(screen.getByRole('alert')).toHaveTextContent(originalCommandId);
+    expect(screen.queryByText(/Результат записан в сделку/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить загрузку сделки' }));
+    await screen.findByRole('heading', { name: 'Открываем сделку' });
+    expect(screen.getByRole('alert')).toHaveTextContent('Исход команды неизвестен');
+    expect(screen.getByRole('alert')).toHaveTextContent(originalCommandId);
+    expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
+
+    await act(async () => { completeReload(); });
+    expect(await screen.findByRole('button', { name: 'Следующее действие' })).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent(originalCommandId);
+    expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
+    expect(screen.queryByText(/Результат записан в сделку/)).not.toBeInTheDocument();
+  });
+
   it('treats a verified pre-execution rate limit as a definite rejection', async () => {
     const fetchMock = vi.fn(async (_url: string, options?: { method?: string }) =>
       options?.method === 'POST'

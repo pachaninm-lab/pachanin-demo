@@ -238,6 +238,10 @@ function commandInitialValues(actionId: string, workspace: Workspace): Record<st
   return values;
 }
 
+function unknownCommandMessage(commandId: string): string {
+  return `Исход команды неизвестен. Код попытки: ${commandId}. Обнови подтверждённое состояние сделки после восстановления связи; если результат неясен, передай этот код поддержке. Не отправляй новую команду до сверки.`;
+}
+
 export function CanonicalDealWorkspace({ role: _role, dealId }: { role: PlatformRole; dealId: string }) {
   const [workspace, setWorkspace] = React.useState<Workspace | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -329,13 +333,16 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
     }
   }
 
+  const currentUnknown = unverifiedCommand?.dealId === dealId ? unverifiedCommand : null;
+
   if (loading && !workspace) {
     return (
       <section className={styles.loading} aria-live='polite'>
         <div className={styles.stateContent}>
           <Loader2 size={25} className={styles.spin} aria-hidden='true' />
           <h1>Открываем сделку</h1>
-          <p>Сейчас покажем только твой следующий шаг.</p>
+          <p>{currentUnknown ? 'Проверяем сохранённое состояние сделки. Новая команда не отправляется.' : 'Сейчас покажем только твой следующий шаг.'}</p>
+          {currentUnknown ? <p role='alert'>{unknownCommandMessage(currentUnknown.commandId)}</p> : null}
         </div>
       </section>
     );
@@ -348,9 +355,10 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
           <AlertTriangle size={27} aria-hidden='true' />
           <h1>Рабочая сделка недоступна</h1>
           <p>{error || 'Сервер не вернул подтверждённое состояние.'}</p>
+          {currentUnknown ? <p>{unknownCommandMessage(currentUnknown.commandId)}</p> : null}
           <button className={styles.retryButton} type='button' onClick={() => void load()}>
             <RefreshCw size={18} aria-hidden='true' />
-            Повторить
+            {currentUnknown ? 'Повторить загрузку сделки' : 'Повторить'}
           </button>
         </div>
       </section>
@@ -457,7 +465,7 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
         </div>
 
         {activeUnknown ? (
-          <p className={styles.taskExplanation} role='alert'>Исход команды неизвестен. Код попытки: {activeUnknown.commandId}. Обнови подтверждённое состояние сделки после восстановления связи; если результат неясен, передай этот код поддержке. Не отправляй новую команду до сверки.</p>
+          <p className={styles.taskExplanation} role='alert'>{unknownCommandMessage(activeUnknown.commandId)}</p>
         ) : null}
 
         {hasBlockers && workspace.blockers.length > 1 ? (
