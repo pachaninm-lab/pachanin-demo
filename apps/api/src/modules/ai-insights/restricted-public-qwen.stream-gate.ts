@@ -19,6 +19,7 @@
  * ended. Those run at flush, where they are appends rather than retractions.
  */
 import {
+  CROP_PROTECTION_NAMED_PRODUCT_PRELUDE_PATTERN,
   CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN,
   currentEvidenceVerdict,
   groundingAuthority,
@@ -79,15 +80,29 @@ const CHINESE_PRESCRIPTION_PREFIX = /(?:使用|施用|选择|推荐)[^.!?。！�
 
 const EMPTY_COMMIT: GateCommit = Object.freeze({ text: '', flags: Object.freeze([]), violation: null });
 
-export type EconomicComparison = 'storage' | 'transport';
+export type EconomicComparison = 'storage' | 'transport' | 'payment_timing';
+export type PaymentTimingInput = Readonly<{
+  immediatePriceMinor: number;
+  delayedPriceMinor: number;
+  delayDays: number;
+  premiumMinor: number;
+  premiumBasisPoints: number;
+  guarantee: 'present' | 'absent' | 'unspecified';
+}>;
 type UserContextTurn = Readonly<{ role: 'user' | 'assistant'; text: string }>;
 const STORAGE_TOPIC = /хран[еи]|storage|stor[ei]|仓储|储存/iu;
 const ECONOMIC_TOPIC = /цен|стоим|расход|руб|прода|выгод|покры|price|cost|sell|profit|break.even|价格|成本|出售|收益/iu;
 const TRANSPORT_COMPARISON = /перевоз|перевозчик|freight|haul|carrier|运输|承运/iu;
+const PAYMENT_TIMING_TOPIC = /оплат|плат[её]ж|отсроч|гарант|сегодня|сразу|payment|paid|defer|guarantee|today|付款|延期|担保|今天/iu;
+const PAYMENT_TONNE_PRICE = /((?:\d{1,3}(?:[ \u00A0\u202F]\d{3})+|\d{1,7})(?:[.,]\d{1,2})?)\s*(?:руб(?:лей|ля|ль)?\.?|₽|RUB)\s*(?:\/\s*т(?:онн[уы])?|за\s+тонн[уы])/giu;
+const PAYMENT_DELAY_DAYS = /(?:через\s+|отсроч\w*(?:\s+на)?\s*|in\s+|after\s+|defer(?:red)?\s+(?:for\s+)?)(\d{1,3})\s*(?:дн(?:я|ей)?|days?|天)/iu;
+const PAYMENT_IMMEDIATE_MARKER = /(?:с\s+оплат\w*\s+сегодня|оплат\w*\s+сегодня|сегодня|сразу|paid\s+today|payment\s+today|today|今天付款|现付)/iu;
+const PAYMENT_COMPARISON_SEPARATOR = /(?:или|либо|\bvs\.?\b|\bversus\b|\bor\b|还是)/iu;
 
 /** History establishes a topic only; assistant prose never establishes a quantity. */
 export function economicComparisonFor(question: string, history: readonly UserContextTurn[]): EconomicComparison | null {
   if (/документ|персональн|хранени[ея]\s+данных|платформ|document|personal data|data retention|platform|文件|个人数据|平台/iu.test(question)) return null;
+  if (paymentTimingFromUser(question) !== null) return 'payment_timing';
   if (TRANSPORT_COMPARISON.test(question) && /рейс|тонн|тариф|trip|tonne|rate|趟|吨|费率/iu.test(question)) return 'transport';
   if (STORAGE_TOPIC.test(question) && ECONOMIC_TOPIC.test(question)) return 'storage';
   const lastUser = [...history].reverse().find((turn) => turn.role === 'user')?.text ?? '';
@@ -96,10 +111,67 @@ export function economicComparisonFor(question: string, history: readonly UserCo
   return null;
 }
 
+function moneyMinor(raw: string): number | null {
+  const normalized = raw.replace(/[ \u00A0\u202F]/gu, '').replace(',', '.');
+  if (!/^\d{1,7}(?:\.\d{1,2})?$/u.test(normalized)) return null;
+  const [rubles, kopecks = ''] = normalized.split('.');
+  const minor = Number(rubles) * 100 + Number(kopecks.padEnd(2, '0'));
+  return Number.isSafeInteger(minor) && minor > 0 ? minor : null;
+}
+
+/**
+ * A deliberately narrow same-turn payment-timing calculation.
+ * We only accept exactly two explicit RUB/tonne prices, an explicit "today"
+ * marker for the first price and an explicit day delay for the second. This
+ * avoids inheriting stale numbers or guessing which commercial option is which.
+ */
+export function paymentTimingFromUser(question: string): PaymentTimingInput | null {
+  if (!PAYMENT_TIMING_TOPIC.test(question) || !PAYMENT_COMPARISON_SEPARATOR.test(question)) return null;
+  const prices = [...question.matchAll(PAYMENT_TONNE_PRICE)];
+  if (prices.length !== 2 || prices[0].index === undefined || prices[1].index === undefined) return null;
+
+  const firstRaw = prices[0][1];
+  const secondRaw = prices[1][1];
+  const immediatePriceMinor = moneyMinor(firstRaw);
+  const delayedPriceMinor = moneyMinor(secondRaw);
+  if (immediatePriceMinor === null || delayedPriceMinor === null) return null;
+
+  const firstEnd = prices[0].index + prices[0][0].length;
+  const secondStart = prices[1].index;
+  const secondEnd = secondStart + prices[1][0].length;
+  const between = question.slice(firstEnd, secondStart);
+  const after = question.slice(secondEnd);
+  if (!PAYMENT_IMMEDIATE_MARKER.test(between) || !PAYMENT_COMPARISON_SEPARATOR.test(between)) return null;
+
+  const delayMatch = PAYMENT_DELAY_DAYS.exec(after);
+  if (!delayMatch) return null;
+  const delayDays = Number(delayMatch[1]);
+  if (!Number.isSafeInteger(delayDays) || delayDays < 1 || delayDays > 365) return null;
+
+  const premiumMinor = delayedPriceMinor - immediatePriceMinor;
+  const premiumBasisPoints = Math.round((premiumMinor * 10_000) / immediatePriceMinor);
+  if (!Number.isSafeInteger(premiumBasisPoints)) return null;
+
+  const guarantee = /без\s+(?:банковск[\p{L}-]*\s+)?гарант/iu.test(question)
+    ? 'absent'
+    : /(?:с|есть)\s+(?:банковск[\p{L}-]*\s+)?гарант/iu.test(question)
+      ? 'present'
+      : 'unspecified';
+
+  return Object.freeze({
+    immediatePriceMinor,
+    delayedPriceMinor,
+    delayDays,
+    premiumMinor,
+    premiumBasisPoints,
+    guarantee,
+  });
+}
+
 /** Bounded output screen, not a proof of arbitrary financial prose. */
 export function economicBlockAllowed(block: string): boolean {
   const body = block.replace(/^\d+[.)]\s*/u, '');
-  return !/[\d=\\]|руб|ruble|\bRUB\b|卢布|месяц|month|个月|выгод|лучше|дешевле|дороже|окуп|прибыль|рентабель|продавай|продайте|храните|выбира|выбери|рекоменд|советую|следует\s+(?:прода|хран)|profita|cheaper|more expensive|better|choose|select|recommend|should\s+(?:sell|stor)|\bsell now\b|pay[s]? off|更划算|更便宜|盈利|获利|更有利|更好|应选|选择|建议|应该|现在卖/iu.test(body)
+  return !/[\d=\\]|руб|ruble|\bRUB\b|卢布|месяц|month|个月|%|процент|(?<![\p{L}])ставк[аи](?![\p{L}])|годов|interest|annual|利率|(?:продавать|продать|покупать|купить|хранить)\s+(?:сейчас|сегодня|немедленно)|(?:сейчас|сегодня|немедленно)\s+(?:продавать|продать|покупать|купить|хранить)|выгод|лучше|дешевле|дороже|окуп|прибыль|рентабель|предпочт|разумнее|безопаснее|надежнее|оптимальн|перв\w*\s+вариант|втор\w*\s+вариант|(?:продавать|продать|хранить|купить|покупать)\s+(?:сейчас|сегодня|немедленно)|(?:сейчас|сегодня|немедленно)\s+(?:продавать|продать|хранить|купить|покупать)|продавай|продайте|храните|выбира|выбери|рекоменд|советую|следует\s+(?:прода|хран)|profita|cheaper|more expensive|better|safer|prefer|optimal|first\s+option|second\s+option|choose|select|recommend|should\s+(?:sell|stor)|\bsell now\b|pay[s]? off|更划算|更便宜|盈利|获利|更有利|更好|第一个方案|第二个方案|应选|选择|建议|应该|现在卖/iu.test(body)
     && !/(?:два|двух|три|тр[её]х|несколько|two|three|several|[一二三四五六七八九十两])\s*(?:месяц|month|个月|月)/iu.test(body);
 }
 
@@ -144,11 +216,43 @@ export function storageCostFromUser(question: string, history: readonly UserCont
   return Number.isSafeInteger(minor) ? minor : null;
 }
 
-export function economicComparisonCopy(kind: EconomicComparison, locale: PublicLocale, storageMinor: number | null): string {
+export function economicComparisonCopy(kind: EconomicComparison, locale: PublicLocale, storageMinor: number | null, payment: PaymentTimingInput | null = null): string {
   if (kind === 'transport') {
     if (locale === 'en') return 'Compare the total quote per trip divided by the actual payable tonnes with the per-tonne quote. Include all trips, loading, waiting and return charges. What are both rates and the actual load?';
     if (locale === 'zh') return '将按趟报价的总费用除以实际计费吨数，再与按吨报价比较；计入全部趟数、装卸、等待和返程费用。两种费率和实际装载量是多少？';
     return 'Разделите полную стоимость всех рейсов на фактически оплачиваемый тоннаж и сравните с тарифом за тонну. Учтите погрузку, простой и обратный путь. Какие тарифы и фактическая загрузка?';
+  }
+  if (kind === 'payment_timing') {
+    if (payment === null) {
+      if (locale === 'en') return 'For a payment-timing comparison, specify two RUB-per-tonne prices, which one is paid today, and the exact delay in days. Without those explicit inputs, no option should be selected.';
+      if (locale === 'zh') return '比较付款时点时，请明确两种每吨卢布价格、哪一种今天付款，以及延期的确切天数。缺少这些明确输入时，不应替你选择方案。';
+      return 'Для сравнения условий оплаты укажите две цены в руб/т, какой вариант оплачивается сегодня и точный срок отсрочки в днях. Без этих явных данных выбирать вариант нельзя.';
+    }
+    const premium = Math.abs(payment.premiumMinor) / 100;
+    const premiumText = premium.toFixed(2).replace(/\.00$/u, '').replace('.', ',');
+    const percent = Math.abs(payment.premiumBasisPoints) / 100;
+    const percentText = percent.toFixed(2).replace(/\.00$/u, '').replace('.', ',');
+    const directionEn = payment.premiumMinor >= 0 ? 'adds' : 'reduces the price by';
+    const directionZh = payment.premiumMinor >= 0 ? '增加' : '减少';
+    const guaranteeRu = payment.guarantee === 'absent'
+      ? 'В запросе банковской гарантии нет, поэтому риск неплатежа нужно оценивать отдельно.'
+      : payment.guarantee === 'present'
+        ? 'В запросе указана банковская гарантия; отдельно проверьте её условия и исполнимость.'
+        : 'Статус банковской гарантии не указан; его нужно проверить отдельно.';
+    const guaranteeEn = payment.guarantee === 'absent'
+      ? 'No bank guarantee is stated, so counterparty non-payment risk must be assessed separately.'
+      : payment.guarantee === 'present'
+        ? 'A bank guarantee is stated; verify its terms and enforceability separately.'
+        : 'Bank-guarantee status is not stated and must be checked separately.';
+    const guaranteeZh = payment.guarantee === 'absent'
+      ? '请求中未说明银行担保，因此需要单独评估交易对手不付款风险。'
+      : payment.guarantee === 'present'
+        ? '请求中说明有银行担保；仍需单独核对其条款和可执行性。'
+        : '未说明银行担保状态，需要单独核对。';
+    if (locale === 'en') return `Calculation from your inputs: a ${payment.delayDays}-day delay ${directionEn} ${premiumText.replace(',', '.')} RUB/t, or ${percentText.replace(',', '.')}% relative to the price paid today. ${guaranteeEn} This does not determine which option to choose: compare the cost of money over ${payment.delayDays} days, counterparty risk and recovery terms.`;
+    if (locale === 'zh') return `根据你提供的数据：延期${payment.delayDays}天使每吨价格${directionZh}${premiumText}卢布，相当于相对今天付款价格的${percentText}%。${guaranteeZh}这并不能决定应选哪一种方案；还需比较这${payment.delayDays}天的资金成本、交易对手风险和追偿条件。`;
+    const premiumRu = payment.premiumMinor >= 0 ? `добавляет ${premiumText} руб/т к цене` : `уменьшает цену на ${premiumText} руб/т`;
+    return `Расчёт по вашим данным: отсрочка на ${payment.delayDays} дней ${premiumRu}, то есть ${percentText}% относительно цены с оплатой сегодня. ${guaranteeRu} Это не определяет, какой вариант выбрать: сравните стоимость денег за ${payment.delayDays} дней, риск контрагента и условия взыскания.`;
   }
   const amount = storageMinor === null ? null : (storageMinor / 100).toFixed(2).replace(/\.00$/u, '');
   if (locale === 'en') return `${amount === null ? 'Storage-only break-even is the monthly cost per tonne multiplied by the holding period; please specify both inputs with units.' : `Calculation from your inputs: covering storage alone requires a price increase of ${amount} RUB per tonne.`} This does not establish total profitability: compare future net proceeds, quality losses, financing and delivery costs.`;
@@ -248,6 +352,7 @@ export class StreamingAnswerGate {
         ? `${this.progressiveSafetyContext}${this.progressiveJoiner}${head}`
         : head;
       if (CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN.test(candidate)
+        || CROP_PROTECTION_NAMED_PRODUCT_PRELUDE_PATTERN.test(candidate)
         || (this.options.locale === 'zh' && CHINESE_PRESCRIPTION_PREFIX.test(candidate))) return EMPTY_COMMIT;
     }
 

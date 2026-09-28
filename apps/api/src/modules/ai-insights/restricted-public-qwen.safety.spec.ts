@@ -1,6 +1,8 @@
 import {
-  enforcePlatformGrounding,
+  currentEvidenceVerdict,
   isUngroundedCropProtectionPrescription,
+  normalizeForComparison,
+  platformGroundingVerdict,
   stripUngroundedCropProtectionPrescriptions,
 } from './restricted-public-qwen.safety';
 
@@ -20,70 +22,86 @@ describe('restricted public crop-protection prescription boundary', () => {
     expect(flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
   });
 
-  it('does not remove a non-prescriptive registration boundary', () => {
-    const text = 'Если химическая защита нужна, выбирайте только зарегистрированный для культуры и региона препарат и действуйте строго по этикетке.';
-    expect(isUngroundedCropProtectionPrescription(text)).toBe(false);
-    expect(stripUngroundedCropProtectionPrescriptions(text)).toBe(text);
-  });
 
-  it('removes a concrete brand plus per-hectare dose even without active-ingredient wording', () => {
+  it('removes named crop-protection products with exact per-hectare doses', () => {
     const flags: string[] = [];
     const answer = [
       'Для фитофтороза используйте препарат «Кумулин-М» в дозе 2,5 л/га.',
       'Для ржавчины — «Ридомил-Голд» в дозе 2,5–3 л/га.',
-      'Сначала уточните регион, фазу культуры и признаки на листьях.',
+      'Сначала уточните регион, фазу культуры и диагноз.',
     ].join('\n');
 
     const safe = stripUngroundedCropProtectionPrescriptions(answer, flags);
 
     expect(safe).not.toContain('Кумулин-М');
     expect(safe).not.toContain('Ридомил-Голд');
-    expect(safe).not.toContain('л/га');
+    expect(safe).not.toMatch(/л\/га/u);
     expect(safe).toContain('уточните регион');
     expect(flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    expect(isUngroundedCropProtectionPrescription('Используйте Альто Супер 0,4 л/га.')).toBe(true);
+    expect(isUngroundedCropProtectionPrescription('Используйте Альто Супер 0,4 кг/га.')).toBe(true);
+  });
+
+  it('removes exact crop-protection repeat intervals and keeps non-chemical monitoring advice', () => {
+    const flags: string[] = [];
+    const answer = [
+      'Фунгицид X: повтор обработки через 10 дней.',
+      'Повторно осмотрите пятна и динамику поражения через несколько дней.',
+    ].join('\n');
+
+    const safe = stripUngroundedCropProtectionPrescriptions(answer, flags);
+
+    expect(safe).not.toContain('10 дней');
+    expect(safe).toContain('Повторно осмотрите');
+    expect(flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+  });
+
+  it('rejects unsupported current sell/buy advice and directional market claims', () => {
+    expect(currentEvidenceVerdict('Не продавайте сегодня.')).toBe(false);
+    expect(currentEvidenceVerdict('Сейчас лучше покупать.')).toBe(false);
+    expect(currentEvidenceVerdict('Цена может быть ниже рыночной.')).toBe(false);
+    expect(currentEvidenceVerdict('Market price may be lower next week.')).toBe(false);
+    expect(currentEvidenceVerdict('Цена ниже рынка.')).toBe(false);
+    expect(currentEvidenceVerdict('Сейчас рынок стабилен.')).toBe(false);
+    expect(currentEvidenceVerdict('Demand is high today.')).toBe(false);
+    expect(currentEvidenceVerdict('Сравните текущую оферту с подтверждённой котировкой.')).toBe(true);
+    expect(currentEvidenceVerdict('Перечислите факторы, которые обычно влияют на цену.')).toBe(true);
+  });
+
+  it('rejects ungrounded platform automation while preserving an explicit non-automation boundary', () => {
+    const authority = normalizeForComparison(
+      'Расхождение фиксируется доказательствами. Важное решение принимает уполномоченный участник.',
+    );
+
+    const automated = platformGroundingVerdict('Система автоматически зафиксирует расхождение.', authority);
+    expect(automated.keep).toBe(false);
+    expect(automated.flags).toContain('UNSUPPORTED_PLATFORM_AUTONOMY_REMOVED');
+
+    const boundary = platformGroundingVerdict('Система не будет автоматически решать спор.', authority);
+    expect(boundary.keep).toBe(true);
+    expect(boundary.flags).not.toContain('UNSUPPORTED_PLATFORM_AUTONOMY_REMOVED');
+
+    const negativeAuthority = normalizeForComparison(
+      'Система не будет автоматически фиксировать расхождение. Платформа не решит спор.',
+    );
+    const polarityAutomation = platformGroundingVerdict('Система автоматически фиксирует расхождение.', negativeAuthority);
+    expect(polarityAutomation.keep).toBe(false);
+    expect(polarityAutomation.flags).toContain('UNSUPPORTED_PLATFORM_AUTONOMY_REMOVED');
+
+    const polarityDecision = platformGroundingVerdict('Платформа решит спор.', negativeAuthority);
+    expect(polarityDecision.keep).toBe(false);
+    expect(polarityDecision.flags).toContain('UNSUPPORTED_PLATFORM_AUTONOMY_REMOVED');
+
+    const mixedAuthority = normalizeForComparison(
+      'Платформа не решит спор, система автоматически фиксирует расхождение.',
+    );
+    expect(platformGroundingVerdict('Система автоматически фиксирует расхождение.', mixedAuthority).keep).toBe(true);
+    expect(platformGroundingVerdict('Платформа решит спор.', mixedAuthority).keep).toBe(false);
+  });
+
+  it('does not remove a non-prescriptive registration boundary', () => {
+    const text = 'Если химическая защита нужна, выбирайте только зарегистрированный для культуры и региона препарат и действуйте строго по этикетке.';
+    expect(isUngroundedCropProtectionPrescription(text)).toBe(false);
+    expect(stripUngroundedCropProtectionPrescriptions(text)).toBe(text);
   });
 });
-
-describe('verified platform decision authority boundary', () => {
-  const grounding = {
-    knowledgeVersion: 'test.v1',
-    topic: 'acceptance-quality',
-    title: 'Приёмка и качество',
-    answer: 'При расхождении фиксируются факты и доказательства. Важное решение принимает уполномоченный участник.',
-    facts: ['Спор является веткой исключения.'],
-    maturity: 'Проверенный публичный процесс.',
-    confidence: 'high' as const,
-    sources: [],
-  };
-
-  it('removes an autonomous platform decision claim and preserves grounded next-step text', () => {
-    const flags: string[] = [];
-    const safe = enforcePlatformGrounding(
-      [
-        'Платформа автоматически примет решение по спору после дополнительной проверки.',
-        'Расхождение фиксируется доказательствами.',
-        'Важное решение принимает уполномоченный участник.',
-      ].join('\n'),
-      grounding,
-      flags,
-    );
-
-    expect(safe).not.toContain('автоматически примет решение');
-    expect(safe).toContain('Расхождение фиксируется доказательствами');
-    expect(safe).toContain('Важное решение принимает уполномоченный участник');
-    expect(flags).toContain('AUTONOMOUS_PLATFORM_DECISION_REMOVED');
-  });
-
-  it('removes a platform money-autonomy claim even when the rest of the answer is grounded', () => {
-    const flags: string[] = [];
-    const safe = enforcePlatformGrounding(
-      'Система автоматически спишет деньги после фиксации расхождения. Расхождение фиксируется доказательствами.',
-      grounding,
-      flags,
-    );
-
-    expect(safe).not.toContain('спишет деньги');
-    expect(safe).toContain('Расхождение фиксируется доказательствами');
-    expect(flags).toContain('AUTONOMOUS_PLATFORM_DECISION_REMOVED');
-  });
-
