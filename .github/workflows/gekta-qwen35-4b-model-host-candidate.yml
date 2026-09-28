@@ -375,7 +375,7 @@ jobs:
             echo "- artifact sha256: 13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983"
             echo "- real Gekta acceptance: $ACCEPTANCE"
             echo "- unchanged Qwen3-8B cleanup: $CLEANUP"
-            echo "- production Qwen3-8B routing/model identity mutation: NONE
+            echo "- production Qwen3-8B routing/model identity mutation: NONE"
             echo "- production application/database mutation: NONE"
             echo "- recurring cost: 0 RUB"
             echo "$summary"
