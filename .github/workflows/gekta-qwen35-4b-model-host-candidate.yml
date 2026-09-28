@@ -84,7 +84,7 @@ jobs:
             'always()'
           ]) if (!workflow.includes(token)) throw new Error('missing authority token: ' + token);
           if (scope.branch !== 'perf/gekta-qwen35-4b-model-host-candidate-3896' || scope.issue !== 3896 || scope.newRecurringCostRub !== 0) throw new Error('scope mismatch');
-          for (const forbidden of ['pull_request_target', 'NOPASSWD: ALL', 'SETENV:']) {
+          for (const forbidden of ['pull_request' + '_target', 'NOPASSWD:' + ' ALL', 'SET' + 'ENV:']) {
             if (workflow.includes(forbidden)) throw new Error('forbidden capability: ' + forbidden);
           }
           NODE
