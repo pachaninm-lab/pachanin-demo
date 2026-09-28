@@ -46,6 +46,7 @@ PRODUCT_BUYER_HOME_BRANCH="ux/buyer-first-customer-home-20260925"
 PRODUCT_BANK_HOME_BRANCH="bank/first-customer-home-20260926"
 PRODUCT_BANK_HOME_ADMISSION_BRANCH="governance/product-bank-home-admission-20260926"
 PUBLIC_WEBKIT_I18N_BRANCH="fix/public-webkit-i18n-route-lifecycle-20260927"
+PUBLIC_LOGIN_LOCALE_BRANCH="fix/public-login-register-locale-20260928"
 PRODUCT_BUYER_ADMISSION_BRANCH="governance/product-buyer-home-admission-20260925"
 PRODUCT_SCOPE_ADMISSION_BRANCH="governance/product-bank-fgis-ux-source-admission-20260924"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
@@ -53,7 +54,7 @@ CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 is_immutable_scope_branch() {
   case "$1" in
     "fix/gekta-docker-diagnostic-route-20260927"|"fix/gekta-web-release-recovery-20260927"|"fix/gekta-answer-copy-20260927"|"fix/gekta-han-stream-20260927" ) return 0 ;;
-    "$IR20_BINDING_PREREQUISITE_BRANCH"|"$IR20_BINDING_IMPLEMENTATION_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_BRANCH"|"$PRODUCT_BANK_COPY_BRANCH"|"$PRODUCT_ZSN_SOURCE_BRANCH"|"$PRODUCT_NEXT_ACTION_BRANCH"|"$PRODUCT_DEAL_COMMAND_BRANCH"|"$PUBLIC_REGISTRATION_PARTICIPATION_BRANCH"|"$PRODUCTION_MOBILE_HANDOFF_BRANCH"|"$READINESS_QUEUE_JOB_GATE_BRANCH"|"$PRODUCT_BUYER_HOME_BRANCH"|"$PRODUCT_BANK_HOME_BRANCH"|"$PRODUCT_BANK_HOME_ADMISSION_BRANCH"|"$PUBLIC_WEBKIT_I18N_BRANCH"|"$PRODUCT_BUYER_ADMISSION_BRANCH"|"$PRODUCT_SCOPE_ADMISSION_BRANCH") return 0 ;;
+    "$IR20_BINDING_PREREQUISITE_BRANCH"|"$IR20_BINDING_IMPLEMENTATION_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_BRANCH"|"$PRODUCT_BANK_COPY_BRANCH"|"$PRODUCT_ZSN_SOURCE_BRANCH"|"$PRODUCT_NEXT_ACTION_BRANCH"|"$PRODUCT_DEAL_COMMAND_BRANCH"|"$PUBLIC_REGISTRATION_PARTICIPATION_BRANCH"|"$PRODUCTION_MOBILE_HANDOFF_BRANCH"|"$READINESS_QUEUE_JOB_GATE_BRANCH"|"$PRODUCT_BUYER_HOME_BRANCH"|"$PRODUCT_BANK_HOME_BRANCH"|"$PRODUCT_BANK_HOME_ADMISSION_BRANCH"|"$PUBLIC_WEBKIT_I18N_BRANCH"|"$PUBLIC_LOGIN_LOCALE_BRANCH"|"$PRODUCT_BUYER_ADMISSION_BRANCH"|"$PRODUCT_SCOPE_ADMISSION_BRANCH") return 0 ;;
     "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$W1_PRODUCTION_ACCEPTANCE_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH"|"$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH"|"$POISON_ISOLATION_IMPLEMENTATION_BRANCH"|"$OWNER_HANDOFF_IMPLEMENTATION_BRANCH"|"$QWEN_FAILED_EVIDENCE_BRANCH"|"$KIND_MINIO_IMAGE_SOURCE_BRANCH"|"$GITLEAKS_RELEASE_ATTESTATION_BRANCH"|"$FINAL_PUBLIC_HOME_BRANCH"|"$FINAL_PUBLIC_MARKET_BRANCH"|"$FINAL_PUBLIC_REGISTRATION_BRANCH"|"$FINAL_PUBLIC_HOW_BRANCH"|"$FINAL_PUBLIC_PRODUCT_COPY_BRANCH"|"$FINAL_PUBLIC_RELEASE_BRANCH"|"$FINAL_PUBLIC_GOVERNANCE_BRANCH") return 0 ;;
     *) return 1 ;;
   esac
@@ -792,7 +793,48 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     const priorAdmissionsAccepted = [...expected].every(([implementationBranch, { key }]) =>
       Object.hasOwn(state.approvedConcurrentScopes, implementationBranch) &&
       Object.hasOwn(state.coordinationAdmissions || {}, key));
-    if (priorAdmissionsAccepted) {
+    const previousWebkitAccepted =
+      Object.hasOwn(state.approvedConcurrentScopes, 'fix/public-webkit-i18n-route-lifecycle-20260927') &&
+      Object.hasOwn(state.coordinationAdmissions || {}, 'public-webkit-i18n-route-lifecycle-20260927');
+    if (priorAdmissionsAccepted && previousWebkitAccepted) {
+      const implementationBranch = 'fix/public-login-register-locale-20260928';
+      const key = 'public-login-register-locale-20260928';
+      const paths = [
+        'apps/web/app/platform-v7/login/LoginFormClient.tsx',
+        'apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts',
+      ];
+      if (Object.hasOwn(state.approvedConcurrentScopes, implementationBranch) ||
+          Object.hasOwn(state.coordinationAdmissions || {}, key)) {
+        throw new Error('PRODUCT_LOGIN_LOCALE_ADMISSION_ALREADY_PRESENT');
+      }
+      const changes = execFileSync('git', ['diff', '--no-renames', '--name-status', `${baseRef}...${headRef}`], { encoding: 'utf8' }).trim();
+      if (changes !== `M\t${stateFile}`) throw new Error('PRODUCT_LOGIN_LOCALE_ADMISSION_DIFF_SCOPE');
+      const modes = [baseRef, headRef].map((ref) =>
+        execFileSync('git', ['ls-tree', ref, '--', stateFile], { encoding: 'utf8' }).split(' ')[0]);
+      if (modes.some((mode) => mode !== '100644')) throw new Error('PRODUCT_LOGIN_LOCALE_ADMISSION_FILE_MODE');
+      baseline.approvedConcurrentScopes[implementationBranch] = paths;
+      baseline.coordinationAdmissions[key] = {
+        owner: 'ACCOUNT_2_PRODUCT',
+        purpose: 'Preserve RU/EN/ZH on the existing Login to Register link and verify the real mobile click path after the exact-live locale-loss failure.',
+        authorityBaseExactMain: baseSha,
+        implementationBranch,
+        allowedPaths: paths,
+        requiredTruthBoundaries: [
+          'Only the two exact paths from trusted base state are admitted; candidate state, manifests and guards cannot expand implementation authority.',
+          'Use the existing next-intl locale constrained to RU/EN/ZH in the Register href; authentication, MFA, session and redirect authority and register-page behavior are unchanged.',
+          'Preserve all eight public routes, EN/ZH localization, RU homepage design gates, ten viewport-locale combinations, zero pageerror, response success, Chinese typography, mobile target geometry and horizontal reflow assertions.',
+          'Assert the exact localized Register href, real user navigation, resulting HTML locale and zero page errors; do not replace the click with direct navigation or weaken locale assertions.',
+          'Source and local tests do not establish live acceptance; require exact-head independent review and complete CI, then exact-main release and live mobile/i18n on the deployed OCI revision.',
+        ],
+        forbiddenAuthority: [
+          'Candidate-owned state or scope extension in the implementation PR',
+          'Backend/API/DB/role/tenant/authentication/bank/provider/FGIS authority or homepage and register-page changes',
+          'CI/security/readiness weakening, fabricated acceptance or automatic merge',
+        ],
+        teamHubDependency: '#2198 locale-loss evidence 5866099139; Team Hub #5469',
+      };
+      if (!isDeepStrictEqual(candidate, baseline)) throw new Error('PRODUCT_LOGIN_LOCALE_ADMISSION_STATE_MUTATION');
+    } else if (priorAdmissionsAccepted) {
       const implementationBranch = 'fix/public-webkit-i18n-route-lifecycle-20260927';
       const key = 'public-webkit-i18n-route-lifecycle-20260927';
       const paths = ['apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts'];
