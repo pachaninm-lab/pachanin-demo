@@ -398,9 +398,11 @@ def candidate_process_matches(pid: int) -> bool:
         return False
     try:
         argv = [item for item in pathlib.Path("/proc/%d/cmdline" % pid).read_bytes().split(b"\0") if item]
-    except FileNotFoundError:
+        model = flag_value(argv, "model", required=False)
+        alias = flag_value(argv, "alias", required=False)
+    except (FileNotFoundError, CandidateError):
         return False
-    return os.fsencode(CANDIDATE_PATH) in argv and CANDIDATE_ALIAS.encode("utf-8") in argv
+    return model == os.fsencode(CANDIDATE_PATH) and alias == CANDIDATE_ALIAS.encode("utf-8")
 
 def watchdog_process_matches(pid: int) -> bool:
     if not process_alive(pid):
