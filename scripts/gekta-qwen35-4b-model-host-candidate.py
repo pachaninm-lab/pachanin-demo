@@ -394,15 +394,40 @@ def watchdog_process_matches(pid: int) -> bool:
         return False
     return b"_watchdog" in argv and os.fsencode(pathlib.Path(__file__).resolve()) in argv
 
+def open_candidate_pidfd(pid: int):
+    if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
+        fail("pidfd_signal_unavailable")
+    try:
+        fd = os.pidfd_open(pid, 0)
+    except ProcessLookupError:
+        return None
+    try:
+        if not candidate_process_matches(pid):
+            os.close(fd)
+            return None
+        try:
+            if os.getpgid(pid) != pid:
+                fail("candidate_process_group_mismatch")
+        except ProcessLookupError:
+            os.close(fd)
+            return None
+        return fd
+    except Exception:
+        os.close(fd)
+        raise
+
 def signal_candidate(pid: int, sig) -> None:
-    if not candidate_process_matches(pid):
+    fd = open_candidate_pidfd(pid)
+    if fd is None:
         return
     try:
-        os.killpg(pid, sig)
+        signal.pidfd_send_signal(fd, sig, None, 0)
     except ProcessLookupError:
         return
     except PermissionError:
         fail("candidate_signal_permission_denied")
+    finally:
+        os.close(fd)
 
 def stop_candidate_pid(pid: int) -> None:
     if not candidate_process_matches(pid):
@@ -473,6 +498,10 @@ def watchdog(candidate_pid: int, baseline_pid: int) -> int:
             return 71
         while time.monotonic() < deadline:
             if not candidate_process_matches(candidate_pid):
+                try:
+                    verify_listener_absent()
+                except CandidateError:
+                    return 76
                 return 0
             if not baseline_matches_state(state):
                 stop_candidate_pid(candidate_pid)
@@ -524,6 +553,7 @@ def prepare() -> None:
     state, _, _, _ = snapshot_baseline()
     ensure_start_capacity(state)
     verify_listener_absent()
+    save_state(state)
     download_candidate()
     emit("ARTIFACT_SHA256", CANDIDATE_SHA256)
     emit("ARTIFACT_BYTES", CANDIDATE_SIZE)
@@ -586,6 +616,7 @@ def start(candidate_key: str) -> None:
             fail("baseline_not_healthy_with_candidate")
     except Exception:
         stop_candidate_pid(proc.pid)
+        verify_listener_absent()
         raise
     emit("NONROOT_PARALLEL", 1)
     emit("START", "PASS")
