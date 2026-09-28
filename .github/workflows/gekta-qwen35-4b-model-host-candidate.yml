@@ -27,7 +27,6 @@ env:
   MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
   MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
   MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
-  MODEL_PASSWORD_SECRET: ${{ secrets.TAI_MODEL_SSH_PASSWORD }}
 
 jobs:
   contract:
@@ -151,7 +150,7 @@ jobs:
       - name: Resolve pinned protected model-user transport
         id: ssh
         env:
-          SUDO_PASSWORD: ${{ env.MODEL_PASSWORD_SECRET }}
+          SUDO_PASSWORD: ${{ secrets.TAI_MODEL_SSH_PASSWORD }}
         run: |
           set -Eeuo pipefail
           trim(){
@@ -222,7 +221,7 @@ jobs:
           MODEL_HOST: ${{ steps.ssh.outputs.host }}
           MODEL_USER: ${{ steps.ssh.outputs.user }}
           MODEL_PORT: ${{ steps.ssh.outputs.port }}
-          SUDO_PASSWORD: ${{ env.MODEL_PASSWORD_SECRET }}
+          SUDO_PASSWORD: ${{ secrets.TAI_MODEL_SSH_PASSWORD }}
           REMOTE_HELPER: ${{ steps.target.outputs.remote_helper }}
           REMOTE_UPLOAD: ${{ steps.target.outputs.remote_upload }}
           HELPER_SHA: ${{ steps.target.outputs.helper_sha }}
@@ -267,7 +266,7 @@ jobs:
           MODEL_HOST: ${{ steps.ssh.outputs.host }}
           MODEL_USER: ${{ steps.ssh.outputs.user }}
           MODEL_PORT: ${{ steps.ssh.outputs.port }}
-          SUDO_PASSWORD: ${{ env.MODEL_PASSWORD_SECRET }}
+          SUDO_PASSWORD: ${{ secrets.TAI_MODEL_SSH_PASSWORD }}
           REMOTE_HELPER: ${{ steps.target.outputs.remote_helper }}
         run: |
           set -Eeuo pipefail
@@ -331,7 +330,7 @@ jobs:
           MODEL_HOST: ${{ steps.ssh.outputs.host }}
           MODEL_USER: ${{ steps.ssh.outputs.user }}
           MODEL_PORT: ${{ steps.ssh.outputs.port }}
-          SUDO_PASSWORD: ${{ env.MODEL_PASSWORD_SECRET }}
+          SUDO_PASSWORD: ${{ secrets.TAI_MODEL_SSH_PASSWORD }}
           REMOTE_HELPER: ${{ steps.target.outputs.remote_helper }}
         run: |
           set -Eeuo pipefail
@@ -380,7 +379,7 @@ jobs:
           MODEL_HOST: ${{ steps.ssh.outputs.host }}
           MODEL_USER: ${{ steps.ssh.outputs.user }}
           MODEL_PORT: ${{ steps.ssh.outputs.port }}
-          SUDO_PASSWORD: ${{ env.MODEL_PASSWORD_SECRET }}
+          SUDO_PASSWORD: ${{ secrets.TAI_MODEL_SSH_PASSWORD }}
           REMOTE_HELPER: ${{ steps.target.outputs.remote_helper }}
           REMOTE_UPLOAD: ${{ steps.target.outputs.remote_upload }}
         run: |
