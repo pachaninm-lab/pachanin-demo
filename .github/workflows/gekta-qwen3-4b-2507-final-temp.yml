@@ -1,0 +1,134 @@
+name: Gekta Qwen3-4B-Instruct-2507 Final TEMP
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/gekta-qwen3-4b-2507-final-temp.yml"
+      - "apps/api/src/modules/ai-insights/qwen3-4b-2507-candidate-temp.ts"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-qwen3-4b-2507-final-temp
+  cancel-in-progress: true
+
+jobs:
+  candidate:
+    name: Qwen3-4B-Instruct-2507 final off-production acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Bind candidate to exact current main
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          expected='2818bdc3867cdaeb4daa3a14d34fdb360cf6c2f2'
+          actual="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          [[ "$actual" == "$expected" ]]
+          echo "QWEN3_4B_2507_MAIN_EXACT=$actual"
+
+      - name: Install API dependencies
+        shell: bash
+        run: pnpm install --frozen-lockfile --filter @pc/api...
+
+      - name: Build exact production llama.cpp runtime
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git clone --filter=blob:none https://github.com/ggml-org/llama.cpp.git /tmp/llama-qwen3-2507
+          cd /tmp/llama-qwen3-2507
+          git checkout --detach aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3
+          test "$(git rev-parse HEAD)" = 'aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3'
+          cmake -S . -B build             -DGGML_NATIVE=ON             -DLLAMA_CURL=OFF             -DBUILD_SHARED_LIBS=OFF             -DLLAMA_BUILD_TESTS=OFF             -DLLAMA_BUILD_EXAMPLES=OFF
+          cmake --build build --target llama-server -j"$(nproc)"
+          build/bin/llama-server --version 2>&1 | tee /tmp/llama-qwen3-2507-version.txt
+          grep -qi 'aedb2a5' /tmp/llama-qwen3-2507-version.txt
+
+      - name: Download immutable Qwen3-4B-Instruct-2507 candidate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          url='https://huggingface.co/bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF/resolve/ae44f08e1392f39c0e474af10c3ff8355c8b6688/Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf'
+          curl -fL --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 1800             -o /tmp/qwen3-4b-2507.gguf "$url"
+          test "$(stat -c %s /tmp/qwen3-4b-2507.gguf)" = '2497280736'
+          echo '2fde00ce69dd4899c70d020845e2638353015bba0fdf161b3eb965f2bca4464e  /tmp/qwen3-4b-2507.gguf' | sha256sum -c -
+          echo 'QWEN3_4B_2507_MODEL_BYTES_VERIFIED=1'
+
+      - name: Start isolated candidate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          /tmp/llama-qwen3-2507/build/bin/llama-server             --model /tmp/qwen3-4b-2507.gguf             --alias tai-qwen3-4b-instruct-2507-q4km             --host 127.0.0.1             --port 18085             --ctx-size 8192             --parallel 1             --threads "$(nproc)"             --threads-batch "$(nproc)"             --batch-size 512             --ubatch-size 128             --api-key 'qwen3-2507-readonly-key-1234567890abcdef'             --metrics             > /tmp/qwen3-4b-2507.log 2>&1 &
+          echo "$!" > /tmp/qwen3-4b-2507.pid
+
+          ready=0
+          for _ in $(seq 1 180); do
+            if curl -fsS               -H 'Authorization: Bearer qwen3-2507-readonly-key-1234567890abcdef'               --max-time 2               http://127.0.0.1:18085/health               | grep -q '"status":"ok"\|"status":"no slot available"'; then
+              ready=1
+              break
+            fi
+            kill -0 "$(cat /tmp/qwen3-4b-2507.pid)" 2>/dev/null || {
+              tail -100 /tmp/qwen3-4b-2507.log
+              exit 30
+            }
+            sleep 1
+          done
+          test "$ready" = 1
+          echo 'QWEN3_4B_2507_READY=1'
+
+      - name: Run full real Gekta guard quality screen
+        shell: bash
+        env:
+          TAI_RESTRICTED_QWEN_PUBLIC_ENABLED: "true"
+          AI_ASSISTANT_PROVIDER: openai-compatible
+          AI_ASSISTANT_BASE_URL: http://127.0.0.1:18085/v1/
+          AI_ASSISTANT_ALLOWED_HOSTS: 127.0.0.1
+          AI_ASSISTANT_MODEL: tai-qwen3-4b-instruct-2507-q4km
+          AI_ASSISTANT_API_KEY: qwen3-2507-readonly-key-1234567890abcdef
+          AI_ASSISTANT_TIMEOUT_MS: "120000"
+          AI_ASSISTANT_MAX_TOKENS: "500"
+        run: |
+          set -Eeuo pipefail
+          pnpm --filter @pc/api exec ts-node --transpile-only             src/modules/ai-insights/qwen3-4b-2507-candidate-temp.ts
+
+      - name: Capture candidate throughput
+        if: always()
+        shell: bash
+        run: |
+          curl -fsS             -H 'Authorization: Bearer qwen3-2507-readonly-key-1234567890abcdef'             http://127.0.0.1:18085/metrics             | grep -E 'llamacpp:(prompt_tokens_seconds|predicted_tokens_seconds)'             | tail -10 || true
+          echo 'QWEN3_4B_2507_PRODUCTION_MUTATION=NONE'
+
+      - name: Reconfirm main remained exact
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          expected='2818bdc3867cdaeb4daa3a14d34fdb360cf6c2f2'
+          actual="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          [[ "$actual" == "$expected" ]]
+          echo "QWEN3_4B_2507_MAIN_STILL_EXACT=$actual"
+
+      - name: Stop isolated candidate
+        if: always()
+        shell: bash
+        run: |
+          if [[ -s /tmp/qwen3-4b-2507.pid ]]; then
+            kill "$(cat /tmp/qwen3-4b-2507.pid)" 2>/dev/null || true
+            wait "$(cat /tmp/qwen3-4b-2507.pid)" 2>/dev/null || true
+          fi
