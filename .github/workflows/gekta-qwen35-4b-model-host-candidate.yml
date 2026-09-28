@@ -23,12 +23,11 @@ concurrency:
 env:
   SPEED_ISSUE_NUMBER: '3896'
   MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
   MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
   MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
   MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
-  PROD_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
-  PROD_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
-  PROD_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  MODEL_PASSWORD_SECRET: ${{ secrets.TAI_MODEL_SSH_PASSWORD }}
 
 jobs:
   contract:
@@ -80,18 +79,21 @@ jobs:
             "github.event.issue.number == 3896",
             "github.event.comment.author_association == 'OWNER'",
             'secrets.TAI_MODEL_SSH_HOST_KEY',
+            'secrets.TAI_MODEL_SSH_USER',
+            'secrets.TAI_MODEL_SSH_PASSWORD',
             'StrictHostKeyChecking=yes',
             'ExitOnForwardFailure=yes',
+            'QWEN35_PROTECTED_SUDO=PASSWORD',
             'QWEN35_CANDIDATE_LIVE',
             'rollback',
             'always()'
           ]) if (!workflow.includes(token)) throw new Error('missing authority token: ' + token);
-          if (scope.branch !== 'perf/gekta-qwen35-4b-model-host-candidate-3896' || scope.issue !== 3896 || scope.newRecurringCostRub !== 0) throw new Error('scope mismatch');
-          for (const forbidden of ['pull_request' + '_target', 'NOPASSWD:' + ' ALL', 'SET' + 'ENV:']) {
+          if (scope.branch !== 'fix/gekta-qwen35-protected-sudo-candidate-20260928' || scope.issue !== 3896 || scope.newRecurringCostRub !== 0) throw new Error('scope mismatch');
+          for (const forbidden of ['pull_request' + '_target', 'NOPASSWD:' + ' ALL', 'SET' + 'ENV:', 'root' + '@', 'PC_PROD_' + 'SSH_KEY', 'VPS_' + 'SSH_KEY']) {
             if (workflow.includes(forbidden)) throw new Error('forbidden capability: ' + forbidden);
           }
           NODE
-          GITHUB_HEAD_REF=perf/gekta-qwen35-4b-model-host-candidate-3896 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
+          GITHUB_HEAD_REF=fix/gekta-qwen35-protected-sudo-candidate-20260928 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
 
   candidate:
     name: Serial Qwen3.5-4B host acceptance with rollback
@@ -136,6 +138,7 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "helper_sha=$(sha256sum "$helper" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
           echo "remote_helper=/tmp/gekta-qwen35-4b-$sha-$GITHUB_RUN_ID.py" >> "$GITHUB_OUTPUT"
+          echo "remote_upload=/tmp/gekta-qwen35-4b-$sha-$GITHUB_RUN_ID.upload" >> "$GITHUB_OUTPUT"
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
         with:
           version: 10.2.1
@@ -145,68 +148,112 @@ jobs:
           cache: pnpm
       - name: Prepare API dependencies before model downtime
         run: pnpm install --frozen-lockfile --filter @pc/api...
-      - name: Resolve pinned protected root transport
+      - name: Resolve pinned protected model-user transport
         id: ssh
+        env:
+          SUDO_PASSWORD: ${{ env.MODEL_PASSWORD_SECRET }}
         run: |
-          set -Eeo pipefail
-          write_key(){
-            raw="$1"; target="$2"
-            [[ -n "$raw" ]] || return 1
-            printf '%s\n' "$raw" > "$target"
-            chmod 0600 "$target"
-            if ssh-keygen -y -P '' -f "$target" >/dev/null 2>&1; then return 0; fi
-            printf '%s' "$raw" | base64 --decode > "$target" 2>/dev/null || true
-            chmod 0600 "$target"
-            ssh-keygen -y -P '' -f "$target" >/dev/null 2>&1
+          set -Eeuo pipefail
+          trim(){
+            local v="$1"
+            v="${v#"${v%%[![:space:]]*}"}"
+            v="${v%"${v##*[![:space:]]}"}"
+            printf '%s' "$v"
           }
-          host="$MODEL_HOST_SECRET"; port="$MODEL_PORT_SECRET"; [[ -n "$port" ]] || port=22
-          [[ -n "$host" && "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
-          pin="$MODEL_HOST_KEY_SECRET"; [[ -n "$pin" ]]
+          write_key(){
+            local raw="$1" target="$2" a b c
+            raw="$(trim "$raw")"
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            printf '%s' "$raw" | python3 -c 'import sys; sys.stdout.write(sys.stdin.read().replace("\\n", "\n"))' > "$b"
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
+                install -m 0600 "$candidate" "$target"
+                rm -f "$a" "$b" "$c"
+                return 0
+              fi
+            done
+            rm -f "$a" "$b" "$c"
+            return 1
+          }
+          host="$(trim "${MODEL_HOST_SECRET:-}")"
+          user="$(trim "${MODEL_USER_SECRET:-}")"
+          port="$(trim "${MODEL_PORT_SECRET:-22}")"
+          [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$user" != root ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          pin="$(trim "${MODEL_HOST_KEY_SECRET:-}")"; [[ -n "$pin" ]]
           pin_type="$(printf '%s' "$pin" | awk '{print $(NF-1)}')"
           pin_material="$(printf '%s' "$pin" | awk '{print $NF}')"
           [[ "$pin_material" =~ ^[A-Za-z0-9+/=]+$ ]]
+          [[ -n "${SUDO_PASSWORD:-}" ]]
+          echo "::add-mask::$SUDO_PASSWORD"
           mkdir -p "$HOME/.ssh"; chmod 0700 "$HOME/.ssh"
           scanned="$(ssh-keyscan -T 20 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"
           printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned {ok=1} END{exit ok?0:1}'
           printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"
           chmod 0600 "$HOME/.ssh/model_known_hosts"
-          write_key "$MODEL_KEY_SECRET" "$HOME/.ssh/key-model" || true
-          write_key "$PROD_KEY_PRIMARY" "$HOME/.ssh/key-prod1" || true
-          write_key "$PROD_KEY_SECONDARY" "$HOME/.ssh/key-prod2" || true
-          write_key "$PROD_KEY_FALLBACK" "$HOME/.ssh/key-prod3" || true
-          selected=''
-          for candidate in "$HOME"/.ssh/key-*; do
-            [[ -f "$candidate" ]] || continue
-            if ssh -i "$candidate" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes \
-              -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
-              -o ConnectTimeout=10 root@"$host" 'test "$(id -u)" -eq 0' >/dev/null 2>&1; then
-              selected="$candidate"; break
-            fi
-          done
-          [[ -n "$selected" ]]
-          install -m 0600 "$selected" "$HOME/.ssh/id_tai_root"
-          echo "host=$host" >> "$GITHUB_OUTPUT"
-          echo "port=$port" >> "$GITHUB_OUTPUT"
-          echo 'QWEN35_ROOT_TRANSPORT=PINNED_PROTECTED_KEY'
+          write_key "$MODEL_KEY_SECRET" "$HOME/.ssh/id_tai_model"
+          ssh_common=(
+            -i "$HOME/.ssh/id_tai_model"
+            -p "$port"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts"
+            -o StrictHostKeyChecking=yes
+            -o ConnectTimeout=10
+          )
+          ssh "${ssh_common[@]}" "$user@$host" 'test "$(id -u)" -ne 0'
+          set +e
+          printf '%s\n' "$SUDO_PASSWORD" |
+            ssh "${ssh_common[@]}" "$user@$host" "sudo -S -p '' -k true" >/dev/null 2>&1
+          sudo_probe_rc=${PIPESTATUS[1]}
+          set -e
+          (( sudo_probe_rc == 0 ))
+          {
+            echo "host=$host"
+            echo "user=$user"
+            echo "port=$port"
+          } >> "$GITHUB_OUTPUT"
+          echo 'QWEN35_PROTECTED_SUDO=PASSWORD'
       - name: Stage helper and prepare candidate bytes while baseline stays live
         env:
           MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
           MODEL_PORT: ${{ steps.ssh.outputs.port }}
+          SUDO_PASSWORD: ${{ env.MODEL_PASSWORD_SECRET }}
           REMOTE_HELPER: ${{ steps.target.outputs.remote_helper }}
+          REMOTE_UPLOAD: ${{ steps.target.outputs.remote_upload }}
           HELPER_SHA: ${{ steps.target.outputs.helper_sha }}
         run: |
           set -Eeuo pipefail
-          scp -i "$HOME/.ssh/id_tai_root" -P "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
+          ssh_common=(
+            -i "$HOME/.ssh/id_tai_model"
+            -p "$MODEL_PORT"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts"
+            -o StrictHostKeyChecking=yes
+            -o ServerAliveInterval=15
+            -o ServerAliveCountMax=4
+          )
+          scp -i "$HOME/.ssh/id_tai_model" -P "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
             -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
-            scripts/gekta-qwen35-4b-model-host-candidate.py "root@$MODEL_HOST:$REMOTE_HELPER"
-          remote_sha="$(ssh -i "$HOME/.ssh/id_tai_root" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
-            root@"$MODEL_HOST" "chmod 0400 '$REMOTE_HELPER'; sha256sum '$REMOTE_HELPER'" | awk '{print $1}')"
-          [[ "$remote_sha" == "$HELPER_SHA" ]]
-          ssh -i "$HOME/.ssh/id_tai_root" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
-            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
-            root@"$MODEL_HOST" "python3 '$REMOTE_HELPER' prepare" | tee "$RUNNER_TEMP/qwen35-prepare"
+            scripts/gekta-qwen35-4b-model-host-candidate.py "$MODEL_USER@$MODEL_HOST:$REMOTE_UPLOAD"
+          upload_sha="$(ssh "${ssh_common[@]}" "$MODEL_USER@$MODEL_HOST" "sha256sum -- '$REMOTE_UPLOAD'" | awk '{print $1}')"
+          [[ "$upload_sha" == "$HELPER_SHA" ]]
+          printf '%s\n' "$SUDO_PASSWORD" |
+            ssh "${ssh_common[@]}" "$MODEL_USER@$MODEL_HOST" \
+              "sudo -S -p '' -k install -o root -g root -m 0400 -- '$REMOTE_UPLOAD' '$REMOTE_HELPER'"
+          root_sha="$(printf '%s\n' "$SUDO_PASSWORD" |
+            ssh "${ssh_common[@]}" "$MODEL_USER@$MODEL_HOST" \
+              "sudo -S -p '' -k sha256sum -- '$REMOTE_HELPER'" | awk '{print $1}')"
+          [[ "$root_sha" == "$HELPER_SHA" ]]
+          ssh "${ssh_common[@]}" "$MODEL_USER@$MODEL_HOST" "rm -f -- '$REMOTE_UPLOAD'"
+          printf '%s\n' "$SUDO_PASSWORD" |
+            ssh "${ssh_common[@]}" "$MODEL_USER@$MODEL_HOST" \
+              "sudo -S -p '' -k python3 '$REMOTE_HELPER' prepare" | tee "$RUNNER_TEMP/qwen35-prepare"
           grep -Fxq 'QWEN35_CANDIDATE_PREPARE_STATUS=PASS' "$RUNNER_TEMP/qwen35-prepare"
       - name: Create ephemeral candidate credential
         run: |
@@ -218,27 +265,32 @@ jobs:
         id: start
         env:
           MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
           MODEL_PORT: ${{ steps.ssh.outputs.port }}
+          SUDO_PASSWORD: ${{ env.MODEL_PASSWORD_SECRET }}
           REMOTE_HELPER: ${{ steps.target.outputs.remote_helper }}
         run: |
           set -Eeuo pipefail
-          ssh -i "$HOME/.ssh/id_tai_root" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
-            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
-            root@"$MODEL_HOST" "python3 '$REMOTE_HELPER' start --candidate-key '$QWEN35_CANDIDATE_KEY'" \
+          printf '%s\n' "$SUDO_PASSWORD" |
+            ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
+              -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
+              -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+              "$MODEL_USER@$MODEL_HOST" \
+              "sudo -S -p '' -k python3 '$REMOTE_HELPER' start --candidate-key '$QWEN35_CANDIDATE_KEY'" \
             | tee "$RUNNER_TEMP/qwen35-start"
           grep -Fxq 'QWEN35_CANDIDATE_START=PASS' "$RUNNER_TEMP/qwen35-start"
       - name: Open private tunnel
         id: tunnel
         env:
           MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
           MODEL_PORT: ${{ steps.ssh.outputs.port }}
         run: |
           set -Eeuo pipefail
-          ssh -N -L 18082:127.0.0.1:18081 -i "$HOME/.ssh/id_tai_root" -p "$MODEL_PORT" \
+          ssh -N -L 18082:127.0.0.1:18081 -i "$HOME/.ssh/id_tai_model" -p "$MODEL_PORT" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" \
             -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
-            root@"$MODEL_HOST" &
+            "$MODEL_USER@$MODEL_HOST" &
           tunnel_pid=$!
           echo "QWEN35_TUNNEL_PID=$tunnel_pid" >> "$GITHUB_ENV"
           for attempt in $(seq 1 30); do
@@ -274,22 +326,28 @@ jobs:
           fi
       - name: Restore and verify Qwen3-8B baseline
         id: rollback
-        if: always()
+        if: always() && steps.start.outcome != 'skipped'
         env:
           MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
           MODEL_PORT: ${{ steps.ssh.outputs.port }}
+          SUDO_PASSWORD: ${{ env.MODEL_PASSWORD_SECRET }}
           REMOTE_HELPER: ${{ steps.target.outputs.remote_helper }}
         run: |
           set -Eeuo pipefail
-          [[ -f "$HOME/.ssh/id_tai_root" && -n "$MODEL_HOST" && -n "$MODEL_PORT" && -n "$REMOTE_HELPER" ]]
-          ssh -i "$HOME/.ssh/id_tai_root" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
-            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
-            root@"$MODEL_HOST" "python3 '$REMOTE_HELPER' rollback" | tee "$RUNNER_TEMP/qwen35-rollback"
+          [[ -f "$HOME/.ssh/id_tai_model" && -n "$MODEL_HOST" && -n "$MODEL_USER" && -n "$MODEL_PORT" && -n "$REMOTE_HELPER" ]]
+          printf '%s\n' "$SUDO_PASSWORD" |
+            ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
+              -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
+              -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+              "$MODEL_USER@$MODEL_HOST" \
+              "sudo -S -p '' -k python3 '$REMOTE_HELPER' rollback" | tee "$RUNNER_TEMP/qwen35-rollback"
           grep -Fxq 'QWEN35_CANDIDATE_ROLLBACK_STATUS=PASS' "$RUNNER_TEMP/qwen35-rollback"
-          ssh -i "$HOME/.ssh/id_tai_root" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
-            root@"$MODEL_HOST" "python3 '$REMOTE_HELPER' status" | tee "$RUNNER_TEMP/qwen35-status"
+          printf '%s\n' "$SUDO_PASSWORD" |
+            ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
+              -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
+              "$MODEL_USER@$MODEL_HOST" \
+              "sudo -S -p '' -k python3 '$REMOTE_HELPER' status" | tee "$RUNNER_TEMP/qwen35-status"
           grep -Fxq 'QWEN35_CANDIDATE_BASELINE_ACTIVE=1' "$RUNNER_TEMP/qwen35-status"
           grep -Fxq 'QWEN35_CANDIDATE_CANDIDATE_ACTIVE=0' "$RUNNER_TEMP/qwen35-status"
       - name: Publish bounded evidence
@@ -320,13 +378,29 @@ jobs:
         if: always()
         env:
           MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
           MODEL_PORT: ${{ steps.ssh.outputs.port }}
+          SUDO_PASSWORD: ${{ env.MODEL_PASSWORD_SECRET }}
           REMOTE_HELPER: ${{ steps.target.outputs.remote_helper }}
+          REMOTE_UPLOAD: ${{ steps.target.outputs.remote_upload }}
         run: |
           set +e
-          if [[ -f "$HOME/.ssh/id_tai_root" && -n "$MODEL_HOST" && -n "$MODEL_PORT" && -n "$REMOTE_HELPER" ]]; then
-            ssh -i "$HOME/.ssh/id_tai_root" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
-              -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
-              root@"$MODEL_HOST" "rm -f -- '$REMOTE_HELPER'" >/dev/null 2>&1
+          if [[ -f "$HOME/.ssh/id_tai_model" && -n "$MODEL_HOST" && -n "$MODEL_USER" && -n "$MODEL_PORT" ]]; then
+            ssh_common=(
+              -i "$HOME/.ssh/id_tai_model"
+              -p "$MODEL_PORT"
+              -o BatchMode=yes
+              -o IdentitiesOnly=yes
+              -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts"
+              -o StrictHostKeyChecking=yes
+            )
+            if [[ -n "$REMOTE_UPLOAD" ]]; then
+              ssh "${ssh_common[@]}" "$MODEL_USER@$MODEL_HOST" "rm -f -- '$REMOTE_UPLOAD'" >/dev/null 2>&1 || true
+            fi
+            if [[ -n "$REMOTE_HELPER" && -n "$SUDO_PASSWORD" ]]; then
+              printf '%s\n' "$SUDO_PASSWORD" |
+                ssh "${ssh_common[@]}" "$MODEL_USER@$MODEL_HOST" \
+                  "sudo -S -p '' -k rm -f -- '$REMOTE_HELPER'" >/dev/null 2>&1 || true
+            fi
           fi
-          rm -f "$HOME/.ssh/id_tai_root" "$HOME"/.ssh/key-* "$HOME/.ssh/model_known_hosts"
+          rm -f "$HOME/.ssh/id_tai_model" "$HOME/.ssh/model_known_hosts"
