@@ -449,6 +449,9 @@ def candidate_guard_process_matches(pid: int) -> bool:
         and os.fsencode(pathlib.Path(__file__).resolve()) in argv
     )
 
+def owned_candidate_process_matches(pid: int) -> bool:
+    return candidate_guard_process_matches(pid) or candidate_process_matches(pid)
+
 def candidate_exec_guard(guard_fd: int) -> int:
     if guard_fd < 3:
         return 77
@@ -591,6 +594,37 @@ def open_candidate_pidfd(pid: int):
         os.close(fd)
         raise
 
+def open_owned_candidate_pidfd(pid: int):
+    if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
+        fail("pidfd_signal_unavailable")
+    try:
+        fd = os.pidfd_open(pid, 0)
+    except ProcessLookupError:
+        return None
+    try:
+        if pidfd_exited(fd):
+            os.close(fd)
+            return None
+        if not owned_candidate_process_matches(pid):
+            os.close(fd)
+            return None
+        if pidfd_exited(fd):
+            os.close(fd)
+            return None
+        try:
+            if os.getpgid(pid) != pid:
+                fail("candidate_process_group_mismatch")
+        except ProcessLookupError:
+            os.close(fd)
+            return None
+        if pidfd_exited(fd):
+            os.close(fd)
+            return None
+        return fd
+    except Exception:
+        os.close(fd)
+        raise
+
 def signal_candidate(pid: int, sig) -> None:
     fd = open_candidate_pidfd(pid)
     if fd is None:
@@ -608,19 +642,15 @@ def signal_candidate(pid: int, sig) -> None:
         os.close(fd)
 
 def stop_candidate_pid(pid: int) -> None:
-    if not candidate_process_matches(pid):
+    fd = open_owned_candidate_pidfd(pid)
+    if fd is None:
+        if process_alive(pid):
+            fail("candidate_owned_identity_unrecognized")
         return
-    signal_candidate(pid, signal.SIGTERM)
-    deadline = time.monotonic() + 15
-    while time.monotonic() < deadline and candidate_process_matches(pid):
-        time.sleep(0.25)
-    if candidate_process_matches(pid):
-        signal_candidate(pid, signal.SIGKILL)
-        deadline = time.monotonic() + 5
-        while time.monotonic() < deadline and candidate_process_matches(pid):
-            time.sleep(0.1)
-    if candidate_process_matches(pid):
-        fail("candidate_process_survived_sigkill")
+    try:
+        stop_pidfd_owned_process(fd)
+    finally:
+        os.close(fd)
 
 def stop_candidate() -> None:
     pid = None
@@ -632,7 +662,6 @@ def stop_candidate() -> None:
         pass
     if pid:
         stop_candidate_pid(pid)
-    PID_PATH.unlink(missing_ok=True)
 
 def stop_watchdog() -> None:
     fd = None
@@ -1014,8 +1043,9 @@ def cleanup() -> None:
     require_nonroot()
     state = load_state()
     stop_candidate()
-    stop_watchdog()
     verify_listener_absent()
+    PID_PATH.unlink(missing_ok=True)
+    stop_watchdog()
     if not baseline_matches_state(state):
         fail("baseline_changed_after_candidate")
     if not baseline_runtime_healthy():
@@ -1040,7 +1070,7 @@ def status() -> None:
     if PID_PATH.exists():
         try:
             pid = int(PID_PATH.read_text(encoding="ascii").strip())
-            candidate = int(candidate_process_matches(pid))
+            candidate = int(owned_candidate_process_matches(pid))
         except Exception:
             candidate = 0
     emit("BASELINE_ACTIVE", baseline)
