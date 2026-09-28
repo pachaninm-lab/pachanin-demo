@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "bank/first-customer-home-20260926",
+  "status": "active",
+  "purpose": "Bank first-customer home mounts the verified server-scoped Deal queue in RU/EN/ZH while provider, operation, reserve and payout facts remain UNKNOWN.",
+  "authorityBaseExactMain": "b01010f5f1e7eedfd9091469adfda8a385725513",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+    "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
+    "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+    "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+    "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+    "docs/platform-v7/autopilot/scopes/bank-first-customer-home-20260926.json"
+  ],
+  "requiredInvariants": [
+    "The Deal list is navigation only; it is not a BankOperation, provider binding, bank decision, release instruction or external confirmation.",
+    "The ordinary verified bank root mounts its server workspace; other roles remain bounded and controlled owner preview retains precedence.",
+    "UNKNOWN action and provider facts, empty, forbidden and degraded states remain explicit without demo amounts or settlement finality.",
+    "RU/EN/ZH mobile layouts, focus and buyer/seller regressions retain their existing authority boundaries."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

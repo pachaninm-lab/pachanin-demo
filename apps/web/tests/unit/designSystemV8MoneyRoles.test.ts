@@ -1,6 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+
+vi.mock('next-intl/server', () => ({ getLocale: vi.fn(async () => 'ru') }));
+vi.mock('@/lib/first-customer-workspace-server', () => ({ getFirstCustomerWorkspace: vi.fn() }));
+
+import { FirstCustomerWorkspace } from '@/components/platform-v7/FirstCustomerWorkspace';
+import { getFirstCustomerWorkspace, type FirstCustomerWorkspaceSnapshot } from '@/lib/first-customer-workspace-server';
 
 const repoRoot = path.resolve(process.cwd(), '../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
@@ -98,6 +105,28 @@ describe('Design System v8 money role reference slice', () => {
     expect(bank).toContain('Ручная кнопка не может заменить банковскую проверку и подтверждённый callback');
   });
 
+  it('shows the bank Deal queue as navigation with unknown provider and settlement facts', () => {
+    expect(firstCustomerWorkspace).toContain("surface === 'bank' ? copy.bankDescription");
+    expect(firstCustomerWorkspace).toContain("surface === 'bank' ? copy.bankQueueReady : copy.ready");
+    expect(firstCustomerWorkspace).toContain("surface === 'bank' && !workspace.ownerControlled && state === 'ready'");
+    expect(firstCustomerWorkspace).toContain("surface === 'bank' ? copy.bankQueueDetail : item.nextAction || copy.noNext");
+    expect(firstCustomerWorkspace).toContain("surface === 'bank' && !workspace.ownerControlled ? (");
+    expect(firstCustomerWorkspace).toContain('bankUnknownTitle');
+    expect(firstCustomerWorkspaceCss).toContain('.bankQueueNote');
+    expect(firstCustomerWorkspaceCss).not.toMatch(forbiddenPresentation);
+    for (const phrase of [
+      'Сервер проверяет роль банковского кабинета и доступ к сделкам',
+      'The server checks the bank cabinet role and access to Deals',
+      '服务器会核查银行工作台角色和交易访问权限',
+      'Банковские факты — UNKNOWN',
+      'Bank facts — UNKNOWN',
+      '银行事实 — UNKNOWN',
+      'Открыть сделку для проверки серверных фактов',
+      'Open the Deal to check server facts',
+      '打开交易并核查服务器事实',
+    ]) expect(firstCustomerWorkspace).toContain(phrase);
+  });
+
   it('enforces 48px controls and accessible display modes', () => {
     expect(cockpitCss).toContain('min-height: var(--ds-control-height)');
     expect(cockpitCss).toContain(':focus-visible');
@@ -112,6 +141,42 @@ describe('Design System v8 money role reference slice', () => {
       'apps/web/app/platform-v7/buyer/page.tsx',
       'apps/web/app/platform-v7/bank/page.tsx',
     ]));
+  });
+});
+
+const bankErrorSnapshot: FirstCustomerWorkspaceSnapshot = {
+  available: false,
+  forbidden: true,
+  ownerControlled: false,
+  correlationId: 'bank-error-correlation',
+  profile: {
+    available: true, id: 'bank-test-user', email: 'bank@example.test', role: 'ACCOUNTING', surfaceRole: 'bank',
+    orgId: 'bank-test-org', tenantId: 'bank-test-tenant', membershipId: 'bank-test-membership',
+    isOrgAdmin: false, fullName: 'Bank Test', mfaVerified: true, mfaVerifiedAt: '2026-09-27T00:00:00.000Z',
+  },
+  organization: {
+    available: true, organizationId: 'bank-test-org', tenantId: 'bank-test-tenant',
+    currentMembershipId: 'bank-test-membership', organizationName: 'Bank Test Organization',
+    currentRole: 'ACCOUNTING', isOrganizationAdmin: false, hasFreshMfa: true, members: [],
+  },
+  items: [],
+};
+
+describe('bank first-customer failure states', () => {
+  it.each([
+    { forbidden: true, status: 'доступ запрещён', title: 'Роль не соответствует кабинету' },
+    { forbidden: false, status: 'серверная очередь недоступна', title: 'Не подменять недоступный backend' },
+  ])('keeps $title explicit without making a bank decision', async ({ forbidden, status, title }) => {
+    vi.mocked(getFirstCustomerWorkspace).mockResolvedValue({ ...bankErrorSnapshot, forbidden });
+    render(await FirstCustomerWorkspace({ surface: 'bank' }));
+
+    expect(getFirstCustomerWorkspace).toHaveBeenCalledWith('bank');
+    expect(screen.getAllByText(status, { exact: true }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: title })).toBeInTheDocument();
+    expect(screen.getByText('Банковские факты — UNKNOWN')).toBeInTheDocument();
+    expect(screen.getByText(/Correlation ID: bank-error-correlation/)).toBeInTheDocument();
+    expect(screen.queryByText('очередь сделок доступна')).not.toBeInTheDocument();
+    expect(screen.queryByText('Сбер')).not.toBeInTheDocument();
   });
 });
 

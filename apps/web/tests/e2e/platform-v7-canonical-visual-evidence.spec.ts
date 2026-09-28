@@ -452,6 +452,49 @@ test.describe('canonical protected cabinet boundary', () => {
     }
   });
 
+  test('verified bank sees only the server-scoped Deal queue on mobile in each locale', async ({ page, baseURL }) => {
+    test.skip(!baseURL?.startsWith('https://'), 'Protected login authority runs in the TLS Design System acceptance workflow.');
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginAs(page, 'bank', baseURL!);
+
+    const copy = {
+      ru: { description: 'Сервер проверяет роль банковского кабинета и доступ к сделкам', ready: 'очередь сделок доступна', empty: 'очередь пуста', unknown: 'Банковские факты — UNKNOWN', queue: 'Статусы строк относятся к сделкам', detail: 'Открыть сделку для проверки серверных фактов' },
+      en: { description: 'The server checks the bank cabinet role and access to Deals', ready: 'Deal queue available', empty: 'queue is empty', unknown: 'Bank facts — UNKNOWN', queue: 'Row statuses describe Deals', detail: 'Open the Deal to check server facts' },
+      zh: { description: '服务器会核查银行工作台角色和交易访问权限', ready: '交易队列可用', empty: '队列为空', unknown: '银行事实 — UNKNOWN', queue: '行状态只描述交易', detail: '打开交易并核查服务器事实' },
+    } as const;
+    for (const [locale, expected] of Object.entries(copy)) {
+      const response = await page.goto(`/platform-v7/bank?lang=${locale}`, { waitUntil: 'domcontentloaded' });
+      expect(response?.status(), `${locale} bank route`).toBe(200);
+      const workspace = page.getByTestId('p0-first-customer-workspace-bank');
+      await expect(workspace).toBeVisible();
+      await expect(workspace).toContainText(expected.description);
+      await expect(workspace.getByText(expected.unknown, { exact: true })).toBeVisible();
+      const header = workspace.locator(':scope > header');
+      const confirmed = header.getByText(expected.ready, { exact: true });
+      const empty = header.getByText(expected.empty, { exact: true });
+      await expect(confirmed.or(empty)).toBeVisible();
+      if (await confirmed.isVisible()) {
+        await expect(workspace).toContainText(expected.queue);
+        await expect(workspace).toContainText(expected.detail);
+        await expect(workspace.getByText('UNKNOWN', { exact: true })).toBeVisible();
+        const queueLink = workspace.locator('#first-customer-work-queue a[href^="/platform-v7/deals/"]').first();
+        await expect(queueLink).toBeVisible();
+        await queueLink.focus();
+        await expect(queueLink).toBeFocused();
+      } else {
+        await expect(workspace.getByRole('heading', { name: locale === 'ru' ? 'Рабочих объектов пока нет' : locale === 'en' ? 'No work objects yet' : '暂时没有工作对象' })).toBeVisible();
+      }
+      await expect(page.locator('[data-transaction-role-cockpit]')).toHaveCount(0);
+      await canonicalNoOverflow(page);
+    }
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/platform-v7/bank?lang=ru', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('p0-first-customer-workspace-bank')).toBeVisible();
+    await canonicalNoOverflow(page);
+  });
+
   test('all twelve server-verified role shells retain fixed cabinet chrome', async ({ page, baseURL }) => {
     test.skip(!baseURL?.startsWith('https://'), 'Protected login authority runs in the TLS Design System acceptance workflow.');
     test.setTimeout(180_000);
