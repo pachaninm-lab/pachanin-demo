@@ -841,8 +841,6 @@ def launch_watchdog(candidate_pid: int, baseline_pid: int):
     except Exception:
         stopped = False
         try:
-            # Closing the arm channel is the fail-closed handoff. A watchdog
-            # that already owns the candidate pidfd treats EOF/no-A as a stop.
             if arm_write >= 0:
                 os.close(arm_write)
                 arm_write = -1
@@ -872,11 +870,42 @@ def launch_watchdog(candidate_pid: int, baseline_pid: int):
         if arm_read >= 0:
             os.close(arm_read)
 
+def enforce_hard_lease(candidate_pidfd: int, cancel: threading.Event, armed: threading.Event) -> None:
+    start = time.monotonic()
+    term_at = start + max(0.0, LEASE_SECONDS - LEASE_TERM_MARGIN_SECONDS)
+    kill_at = start + max(0.0, LEASE_SECONDS - LEASE_KILL_MARGIN_SECONDS)
+    if kill_at <= term_at:
+        fail("candidate_lease_margin_invalid")
+    armed.set()
+    term_sent = False
+    try:
+        while True:
+            if cancel.is_set() or pidfd_exited(candidate_pidfd):
+                return
+            now = time.monotonic()
+            if not term_sent and now >= term_at:
+                try:
+                    signal.pidfd_send_signal(candidate_pidfd, signal.SIGTERM, None, 0)
+                except ProcessLookupError:
+                    return
+                term_sent = True
+            if now >= kill_at:
+                try:
+                    signal.pidfd_send_signal(candidate_pidfd, signal.SIGKILL, None, 0)
+                except ProcessLookupError:
+                    pass
+                return
+            next_at = kill_at if term_sent else term_at
+            cancel.wait(min(LEASE_POLL_SECONDS, max(0.0, next_at - time.monotonic())))
+    finally:
+        os.close(candidate_pidfd)
+
 def watchdog(candidate_pid: int, baseline_pid: int, ready_fd: int, arm_fd: int) -> int:
-    deadline = time.monotonic() + LEASE_SECONDS
     candidate_seen = False
     candidate_pidfd = None
-    ready_sent = False
+    lease_thread = None
+    lease_cancel = threading.Event()
+    lease_armed = threading.Event()
     try:
         if (
             ready_fd < 3
@@ -891,21 +920,43 @@ def watchdog(candidate_pid: int, baseline_pid: int, ready_fd: int, arm_fd: int) 
         candidate_pidfd = os.pidfd_open(candidate_pid, 0)
         if not candidate_guard_process_matches(candidate_pid):
             return 77
-        if not baseline_matches_state(state, deadline=deadline):
+
+        # Full baseline verification is allowed only while the candidate remains
+        # inert behind the pre-exec guard.
+        if not baseline_matches_state(state):
             return 72
-        if os.write(ready_fd, b"R") != 1:
+
+        lease_pidfd = os.dup(candidate_pidfd)
+        lease_thread = threading.Thread(
+            target=enforce_hard_lease,
+            args=(lease_pidfd, lease_cancel, lease_armed),
+            name="qwen35-hard-lease",
+            daemon=False,
+        )
+        lease_thread.start()
+        if not lease_armed.wait(1.0) or not lease_thread.is_alive():
+            lease_cancel.set()
+            stop_pidfd_owned_process(candidate_pidfd)
             return 78
-        ready_sent = True
+
+        if os.write(ready_fd, b"R") != 1:
+            lease_cancel.set()
+            stop_pidfd_owned_process(candidate_pidfd)
+            return 78
         os.close(ready_fd)
         ready_fd = -1
 
-        # READY means only that this watchdog owns the inert guard by pidfd.
-        # It cannot act on the candidate until the parent confirms successful
-        # release with A. EOF/bad token/timeout is fail-closed.
-        arm_timeout = min(30.0, max(0.0, deadline - time.monotonic()))
+        # READY is only pidfd + hard-lease ownership of the inert guard.
+        # The watchdog cannot enter monitoring or signal the candidate until
+        # the parent proves that G was written successfully by sending A.
+        arm_timeout = min(
+            30.0,
+            max(0.0, LEASE_SECONDS - LEASE_KILL_MARGIN_SECONDS),
+        )
         readable, _, _ = select.select([arm_fd], [], [], arm_timeout)
         if not readable:
             stop_pidfd_owned_process(candidate_pidfd)
+            lease_cancel.set()
             verify_listener_absent()
             return 79
         arm_token = os.read(arm_fd, 2)
@@ -913,12 +964,26 @@ def watchdog(candidate_pid: int, baseline_pid: int, ready_fd: int, arm_fd: int) 
         arm_fd = -1
         if arm_token != b"A":
             stop_pidfd_owned_process(candidate_pidfd)
+            lease_cancel.set()
             verify_listener_absent()
             return 79
 
-        identity_deadline = min(deadline, time.monotonic() + 20)
-        while time.monotonic() < deadline:
+        identity_deadline = time.monotonic() + 20
+        monitor_stop_at = time.monotonic() + max(
+            0.0,
+            LEASE_SECONDS - LEASE_KILL_MARGIN_SECONDS,
+        )
+        while True:
             if pidfd_exited(candidate_pidfd):
+                lease_cancel.set()
+                try:
+                    verify_listener_absent()
+                except CandidateError:
+                    return 76
+                return 0
+            if time.monotonic() >= monitor_stop_at:
+                stop_pidfd_owned_process(candidate_pidfd)
+                lease_cancel.set()
                 try:
                     verify_listener_absent()
                 except CandidateError:
@@ -930,69 +995,53 @@ def watchdog(candidate_pid: int, baseline_pid: int, ready_fd: int, arm_fd: int) 
                     candidate_seen = True
                 elif time.monotonic() >= identity_deadline:
                     stop_pidfd_owned_process(candidate_pidfd)
+                    lease_cancel.set()
                     try:
                         verify_listener_absent()
                     except CandidateError:
                         return 76
                     return 77
                 else:
-                    if not baseline_matches_state(state, deadline=deadline):
+                    if not baseline_process_matches_state(state):
                         stop_pidfd_owned_process(candidate_pidfd)
-                        if time.monotonic() >= deadline:
-                            try:
-                                verify_listener_absent()
-                            except CandidateError:
-                                return 76
-                            return 0
+                        lease_cancel.set()
                         return 72
-                    if time.monotonic() >= deadline:
-                        stop_pidfd_owned_process(candidate_pidfd)
-                        try:
-                            verify_listener_absent()
-                        except CandidateError:
-                            return 76
-                        return 0
-                    time.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
+                    wait_pidfd_exit(
+                        candidate_pidfd,
+                        min(0.1, max(0.0, monitor_stop_at - time.monotonic())),
+                    )
                     continue
 
             if not candidate_process_matches(candidate_pid):
                 stop_pidfd_owned_process(candidate_pidfd)
+                lease_cancel.set()
                 try:
                     verify_listener_absent()
                 except CandidateError:
                     return 76
                 return 77
-            if not baseline_matches_state(state, deadline=deadline):
+            if not baseline_process_matches_state(state):
                 stop_pidfd_owned_process(candidate_pidfd)
-                if time.monotonic() >= deadline:
-                    try:
-                        verify_listener_absent()
-                    except CandidateError:
-                        return 76
-                    return 0
+                lease_cancel.set()
                 return 72
-            if time.monotonic() >= deadline:
-                stop_pidfd_owned_process(candidate_pidfd)
-                try:
-                    verify_listener_absent()
-                except CandidateError:
-                    return 76
-                return 0
             if proc_kb(candidate_pid, "VmRSS") > MAX_CANDIDATE_RSS_KB:
                 stop_pidfd_owned_process(candidate_pidfd)
+                lease_cancel.set()
                 return 73
             if mem_available_kb() < MIN_MEM_RUNTIME_KB:
                 stop_pidfd_owned_process(candidate_pidfd)
+                lease_cancel.set()
                 return 74
-            time.sleep(min(2.0, max(0.0, deadline - time.monotonic())))
-
-        stop_pidfd_owned_process(candidate_pidfd)
-        verify_listener_absent()
-        return 0
+            wait_pidfd_exit(
+                candidate_pidfd,
+                min(2.0, max(0.0, monitor_stop_at - time.monotonic())),
+            )
     except Exception:
         try:
             if candidate_pidfd is not None:
                 stop_pidfd_owned_process(candidate_pidfd)
+                if pidfd_exited(candidate_pidfd):
+                    lease_cancel.set()
         except Exception:
             pass
         return 75
@@ -1008,7 +1057,14 @@ def watchdog(candidate_pid: int, baseline_pid: int, ready_fd: int, arm_fd: int) 
             except OSError:
                 pass
         if candidate_pidfd is not None:
+            try:
+                if pidfd_exited(candidate_pidfd):
+                    lease_cancel.set()
+            except Exception:
+                pass
             os.close(candidate_pidfd)
+        if lease_thread is not None and lease_cancel.is_set():
+            lease_thread.join(timeout=1.0)
 
 def wait_candidate(pid: int, key: str, baseline_state: dict) -> None:
     deadline = time.monotonic() + 120
