@@ -373,6 +373,7 @@ jobs:
                       stack.enter_context(mock.patch.object(module, 'write_pid', return_value=None))
                       stack.enter_context(mock.patch.object(module, 'launch_watchdog', return_value=(watchdog_fd, watchdog_arm_fd)))
                       stack.enter_context(mock.patch.object(module, 'baseline_matches_state', return_value=True))
+                      stack.enter_context(mock.patch.object(module, 'pidfd_exited', return_value=False))
                       stack.enter_context(mock.patch.object(module.os, 'write', side_effect=ordered_write))
                       stack.enter_context(mock.patch.object(module, 'candidate_process_matches', return_value=True))
                       stack.enter_context(mock.patch.object(module, 'require_isolated_candidate_group', return_value=None))
