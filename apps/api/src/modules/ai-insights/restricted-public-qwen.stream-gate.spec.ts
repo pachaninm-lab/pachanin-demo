@@ -231,6 +231,25 @@ describe('StreamingAnswerGate', () => {
     expect(gate.emitted).toContain('санитарную уборку');
   });
 
+  it('withholds a bare crop-protection product prefix until dose or interval safety is decidable', () => {
+    const doseGate = generalGate();
+    expect(doseGate.push('Фунгицид Альто Супер ' ).text).toBe('');
+    const doseVerdict = doseGate.push('0,4 л/га. Сначала уточните регион и фазу культуры. ');
+    doseGate.flush();
+    expect(doseVerdict.flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    expect(doseGate.emitted).not.toContain('Альто Супер');
+    expect(doseGate.emitted).not.toContain('0,4 л/га');
+    expect(doseGate.emitted).toContain('уточните регион');
+
+    const intervalGate = generalGate();
+    expect(intervalGate.push('Фунгицид X: повтор обработки ' ).text).toBe('');
+    const intervalVerdict = intervalGate.push('через 10 дней. Осмотрите динамику пятен. ');
+    intervalGate.flush();
+    expect(intervalVerdict.flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    expect(intervalGate.emitted).not.toContain('10 дней');
+    expect(intervalGate.emitted).toContain('Осмотрите динамику пятен');
+  });
+
   it('keeps verified-platform text on complete-block release semantics', () => {
     const gate = new StreamingAnswerGate({
       answerMode: 'verified_platform',
