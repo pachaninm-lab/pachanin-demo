@@ -300,6 +300,110 @@ jobs:
           if heavy_baseline.call_count != 1:
               raise AssertionError('blocking baseline probe ran after candidate release')
 
+          # Parent release ordering must be G first and A second. This exercises
+          # the exact seam that failed in production with BrokenPipe before inference.
+          def success_baseline():
+              argv = [
+                  b'/bin/true',
+                  b'--model', b'/tmp/base.gguf',
+                  b'--alias', module.BASELINE_ALIAS.encode(),
+                  b'--host', b'127.0.0.1',
+                  b'--port', b'8080',
+                  b'--threads', b'16',
+                  b'--threads-batch', b'16',
+                  b'--parallel', b'1',
+                  b'--ctx-size', b'8192',
+                  b'--batch-size', b'512',
+                  b'--ubatch-size', b'128',
+              ]
+              return (
+                  {
+                      'pid': 999,
+                      'exe': '/bin/true',
+                      'cmdlineSha256': 'x',
+                      'apiKeySha256': 'y',
+                      'restarts': 0,
+                      'vmSwapKb': 0,
+                      'startTime': 1,
+                  },
+                  pathlib.Path('/bin/true'),
+                  argv,
+                  {'LLAMA_API_KEY': 'b' * 64},
+              )
+
+          def run_parent_release_order(break_guard=False):
+              with tempfile.TemporaryDirectory() as tmp:
+                  root = pathlib.Path(tmp)
+                  candidate = root / 'candidate.gguf'
+                  candidate.write_bytes(b'x')
+                  proc = FakeProc()
+                  initial_fd = os.open(os.devnull, os.O_RDONLY)
+                  watchdog_fd = os.open(os.devnull, os.O_RDONLY)
+                  watchdog_arm_fd = os.open(os.devnull, os.O_WRONLY)
+                  writes = []
+
+                  def ordered_write(fd, data):
+                      writes.append(data)
+                      if break_guard and data == b'G':
+                          raise BrokenPipeError('INJECT_GUARD_BROKEN_PIPE')
+                      return len(data)
+
+                  candidate_cmd = (
+                      b'/bin/true\0--model\0' + os.fsencode(candidate) +
+                      b'\0--alias\0' + module.CANDIDATE_ALIAS.encode() + b'\0'
+                  )
+                  with contextlib.ExitStack() as stack:
+                      stack.enter_context(mock.patch.object(module, 'CANDIDATE_PATH', candidate))
+                      stack.enter_context(mock.patch.object(module, 'CANDIDATE_SIZE', 1))
+                      stack.enter_context(mock.patch.object(module, 'CANDIDATE_SHA256', 'hash'))
+                      stack.enter_context(mock.patch.object(module, 'STATE_DIR', root / 'state'))
+                      stack.enter_context(mock.patch.object(module, 'LOG_PATH', root / 'candidate.log'))
+                      stack.enter_context(mock.patch.object(module, 'PID_PATH', root / 'candidate.pid'))
+                      stack.enter_context(mock.patch.object(module, 'CANDIDATE_IDENTITY_PATH', root / 'candidate-identity.json'))
+                      stack.enter_context(mock.patch.object(module, 'WATCHDOG_PID_PATH', root / 'watchdog.pid'))
+                      stack.enter_context(mock.patch.object(module, 'require_nonroot', return_value='tai'))
+                      stack.enter_context(mock.patch.object(module, 'sha_file', return_value='hash'))
+                      stack.enter_context(mock.patch.object(module, 'snapshot_baseline', side_effect=success_baseline))
+                      stack.enter_context(mock.patch.object(module, 'ensure_start_capacity', return_value=None))
+                      stack.enter_context(mock.patch.object(module, 'save_state', return_value=None))
+                      stack.enter_context(mock.patch.object(module.shutil, 'which', side_effect=lambda name: '/usr/bin/' + name))
+                      stack.enter_context(mock.patch.object(module.subprocess, 'Popen', return_value=proc))
+                      stack.enter_context(mock.patch.object(module.os, 'pidfd_open', return_value=initial_fd))
+                      stack.enter_context(mock.patch.object(module, 'write_candidate_identity', return_value=None))
+                      stack.enter_context(mock.patch.object(module, 'write_pid', return_value=None))
+                      stack.enter_context(mock.patch.object(module, 'launch_watchdog', return_value=(watchdog_fd, watchdog_arm_fd)))
+                      stack.enter_context(mock.patch.object(module, 'baseline_matches_state', return_value=True))
+                      stack.enter_context(mock.patch.object(module.os, 'write', side_effect=ordered_write))
+                      stack.enter_context(mock.patch.object(module, 'candidate_process_matches', return_value=True))
+                      stack.enter_context(mock.patch.object(module, 'require_isolated_candidate_group', return_value=None))
+                      stack.enter_context(mock.patch.object(module.pathlib.Path, 'read_bytes', return_value=candidate_cmd))
+                      stack.enter_context(mock.patch.object(module, 'wait_candidate', return_value=None))
+                      stack.enter_context(mock.patch.object(module, 'proc_kb', return_value=1))
+                      stack.enter_context(mock.patch.object(module, 'mem_available_kb', return_value=16 * 1024 * 1024))
+                      stack.enter_context(mock.patch.object(module, 'baseline_runtime_healthy', return_value=True))
+                      stack.enter_context(mock.patch.object(module, 'verify_listener_absent', return_value=None))
+                      stack.enter_context(mock.patch.object(module, 'stop_watchdog', return_value=None))
+                      stack.enter_context(mock.patch.object(module, 'emit', return_value=None))
+                      if break_guard:
+                          try:
+                              module.start('a' * 64)
+                          except module.CandidateError as exc:
+                              if 'candidate_guard_exited_before_release' not in str(exc):
+                                  raise
+                          else:
+                              raise AssertionError('BrokenPipe release regression did not fail closed')
+                      else:
+                          module.start('a' * 64)
+                  return writes
+
+          success_writes = run_parent_release_order(False)
+          if success_writes[:2] != [b'G', b'A']:
+              raise AssertionError('successful release handshake order is not G then A: ' + repr(success_writes))
+          broken_writes = run_parent_release_order(True)
+          if broken_writes != [b'G']:
+              raise AssertionError('watchdog ARM was sent after failed guard release: ' + repr(broken_writes))
+
+
           # Without ARM the watchdog must fail closed through the pidfd-owned
           # guard rather than entering normal candidate monitoring.
           ready_read, ready_write = os.pipe()
