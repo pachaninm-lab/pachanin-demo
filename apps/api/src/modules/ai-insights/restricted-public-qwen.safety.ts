@@ -46,13 +46,15 @@ export const EXACT_CURRENT_CLAIM_PATTERN = /(?:\d{1,3}(?:[ \u00A0\u202F]\d{3})*(
 // catalogue. Prescription-shaped chemical recommendations therefore fail closed: the
 // assistant may explain integrated protection and ask for region/stage, but must not
 // name an active ingredient/product as the user's treatment instruction.
-export const CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN = /(?:применя\w*|использ\w*|обработ\w*|подойдут|рекоменду\w*|выбира\w*|назнач\w*|apply|use|choose|recommend|treat|使用|施用|选择|推荐)[^.!?。！？\n]{0,200}(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|product|fungicide|herbicide|insecticide|药剂|杀菌剂)/iu;
+export const CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN = /(?:(?:применя\w*|использ\w*|обработ\w*|подойдут|рекоменду\w*|выбира\w*|назнач\w*|apply|use|choose|recommend|treat|使用|施用|选择|推荐)[^.!?。！？\n]{0,200}(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|пестицид\w*|product|fungicide|herbicide|insecticide|pesticide|药剂|杀菌剂)|(?:препарат\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|пестицид\w*|product|fungicide|herbicide|insecticide|pesticide|药剂|杀菌剂)[^.!?。！？\n]{0,220}$)/iu;
 export const UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_PATTERN = /(?:применя\w*|использ\w*|обработ\w*|подойдут|рекоменду\w*|выбира\w*|назнач\w*|apply|use|choose|recommend|treat|使用|施用|选择|推荐)[^.!?。！？\n]{0,160}(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|product|fungicide|herbicide|insecticide|药剂|杀菌剂)[^.!?。！？\n]{0,120}(?:на\s+основе|с\s+содержани\w*|с\s+действующ\w*\s+веществ\w*|\bс\s+[\p{L}-]{4,}(?:\s+или\s+[\p{L}-]{4,})?|containing|active\s+ingredient|with\s+[A-Za-z][A-Za-z-]{3,}|有效成分|含有)/iu;
 export const UNGROUNDED_CROP_PROTECTION_DOSE_PATTERN = /(?:(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|пестицид\w*|обработ\w*|доз\w*|product|fungicide|herbicide|insecticide|pesticide|treat(?:ment)?|dose|rate|药剂|杀菌剂|除草剂|杀虫剂|剂量)[^.!?。！？\n]{0,220}\d{1,4}(?:[.,]\d{1,3})?(?:\s*[–—-]\s*\d{1,4}(?:[.,]\d{1,3})?)?\s*(?:мл|л|г|кг|ml|l|g|kg)\s*(?:\/\s*га|\/\s*ha|на\s+га|per\s+ha|每公顷)|\d{1,4}(?:[.,]\d{1,3})?(?:\s*[–—-]\s*\d{1,4}(?:[.,]\d{1,3})?)?\s*(?:мл|л|г|кг|ml|l|g|kg)\s*(?:\/\s*га|\/\s*ha|на\s+га|per\s+ha|每公顷)[^.!?。！？\n]{0,140}(?:препарат\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|пестицид\w*|доз\w*|product|fungicide|herbicide|insecticide|pesticide|dose|rate|药剂|剂量))/iu;
+export const UNGROUNDED_CROP_PROTECTION_INTERVAL_PATTERN = /(?:(?:препарат\w*|средств\w*|фунгицид\w*|гербицид\w*|инсектицид\w*|пестицид\w*|обработ\w*|product|fungicide|herbicide|insecticide|pesticide|treat(?:ment)?|spray|药剂|杀菌剂|除草剂|杀虫剂)[^.!?。！？\n]{0,220}(?:интервал\w*(?:\s+между\s+обработ\w*)?|повтор\w*(?:\s+обработ\w*)?(?:\s+через)?|через|interval|repeat(?:\s+(?:treatment|spray))?\s+(?:after|in)?|间隔|后再次)[^.!?。！？\n]{0,40}\d{1,3}\s*(?:дн(?:я|ей)?|days?|天))/iu;
 
 export function isUngroundedCropProtectionPrescription(block: string): boolean {
   return UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_PATTERN.test(block)
-    || UNGROUNDED_CROP_PROTECTION_DOSE_PATTERN.test(block);
+    || UNGROUNDED_CROP_PROTECTION_DOSE_PATTERN.test(block)
+    || UNGROUNDED_CROP_PROTECTION_INTERVAL_PATTERN.test(block);
 }
 
 export function stripUngroundedCropProtectionPrescriptions(
