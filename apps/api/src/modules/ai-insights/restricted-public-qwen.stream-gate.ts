@@ -151,9 +151,9 @@ export function paymentTimingFromUser(question: string): PaymentTimingInput | nu
   const premiumBasisPoints = Math.round((premiumMinor * 10_000) / immediatePriceMinor);
   if (!Number.isSafeInteger(premiumBasisPoints)) return null;
 
-  const guarantee = /без\s+(?:банковск\w*\s+)?гарант/iu.test(question)
+  const guarantee = /без\s+(?:банковск[\p{L}-]*\s+)?гарант/iu.test(question)
     ? 'absent'
-    : /(?:с|есть)\s+(?:банковск\w*\s+)?гарант/iu.test(question)
+    : /(?:с|есть)\s+(?:банковск[\p{L}-]*\s+)?гарант/iu.test(question)
       ? 'present'
       : 'unspecified';
 
