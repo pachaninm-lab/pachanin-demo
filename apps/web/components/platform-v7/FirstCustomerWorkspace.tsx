@@ -26,6 +26,7 @@ const COPY = {
     bankUnknownTitle: 'Банковские факты — UNKNOWN', bankUnknownDescription: 'Этот экран не получает подтверждённую связь операции с провайдером, статус резерва, выплаты или банковский callback. Решение о движении денег здесь не принимается.',
     ownerDescription: 'Реальный вход владельца с MFA. Интерфейс кабинета открыт в фиксированной контролируемой тестовой организации; клиентская роль в API не подменяется.',
     ownerReady: 'владелец · контролируемый доступ', ownerReadyTitle: 'Открыть рабочий раздел кабинета', ownerReadyDescription: 'Это настоящий защищённый маршрут кабинета. Данные для просмотра контролируемые; боевые действия продолжают проверяться сервером по реальной личности владельца.',
+    allCabinets: 'Все кабинеты',
     ready: 'сервер подтверждён', empty: 'очередь пуста', degraded: 'серверная очередь недоступна', forbidden: 'доступ запрещён',
     blocker: 'Блокер', owner: 'Ответственный', impact: 'Влияние', result: 'Результат', next: 'Следующее действие', priority: 'Главная задача', facts: 'Подтверждённые данные',
     sellerPriorityUnknownTitle: 'Следующий обязательный шаг не опубликован', sellerPriorityUnknownDescription: 'Сервер подтвердил очередь сделок, но не выбрал, какая сделка должна быть первой. Порядок списка — это навигация, а не бизнес-приоритет.', priorityUnknownTitle: 'Следующее обязательное действие не опубликовано', priorityUnknownDescription: 'Сервер подтвердил рабочую очередь, но не назначил приоритетное действие. Порядок списка помогает найти объект и не определяет срочность.', priorityUnknownResult: 'UNKNOWN', workQueue: 'Рабочая очередь',
@@ -42,6 +43,7 @@ const COPY = {
     bankUnknownTitle: 'Bank facts — UNKNOWN', bankUnknownDescription: 'This screen has no confirmed operation-to-provider binding, reserve or payout status, or bank callback. It does not make a money movement decision.',
     ownerDescription: 'Real platform-owner sign-in with MFA. The cabinet interface is opened against a fixed controlled test organization; the API business role is not impersonated.',
     ownerReady: 'owner · controlled access', ownerReadyTitle: 'Open the cabinet work area', ownerReadyDescription: 'This is the real protected cabinet route. Review data is controlled; production actions still authorize the real owner identity on the server.',
+    allCabinets: 'All cabinets',
     ready: 'server confirmed', empty: 'queue is empty', degraded: 'server queue unavailable', forbidden: 'access denied',
     blocker: 'Blocker', owner: 'Owner', impact: 'Impact', result: 'Result', next: 'Next action', priority: 'Primary task', facts: 'Confirmed data',
     sellerPriorityUnknownTitle: 'Required next step is not published', sellerPriorityUnknownDescription: 'The server confirmed the Deal queue but did not choose which Deal comes first. List order is navigation, not business priority.', priorityUnknownTitle: 'Required next action is not published', priorityUnknownDescription: 'The server confirmed the work queue but did not assign a priority action. List order helps you find an object and does not indicate urgency.', priorityUnknownResult: 'UNKNOWN', workQueue: 'Work queue',
@@ -58,6 +60,7 @@ const COPY = {
     bankUnknownTitle: '银行事实 — UNKNOWN', bankUnknownDescription: '此页面没有已确认的操作与服务提供方关联、资金预留或付款状态，也没有银行回调。此处不会作出资金划转决定。',
     ownerDescription: '平台所有者使用真实账号与 MFA 登录。工作台绑定固定受控测试组织，API 中不会伪装客户业务角色。',
     ownerReady: '所有者 · 受控访问', ownerReadyTitle: '打开工作台功能区', ownerReadyDescription: '这是实际受保护的工作台路由。查看数据受控；生产操作仍按所有者真实身份由服务器授权。',
+    allCabinets: '全部工作台',
     ready: '服务器已确认', empty: '队列为空', degraded: '服务器队列不可用', forbidden: '禁止访问',
     blocker: '阻塞项', owner: '负责人', impact: '影响', result: '结果', next: '下一步', priority: '主要任务', facts: '已确认数据',
     sellerPriorityUnknownTitle: '服务器未提供必须执行的下一步', sellerPriorityUnknownDescription: '服务器已确认交易队列，但没有选择哪一笔交易应排在第一位。列表顺序仅用于导航，不代表业务优先级。', priorityUnknownTitle: '服务器未提供优先执行的操作', priorityUnknownDescription: '服务器已确认工作队列，但未指定优先操作。列表顺序仅帮助查找对象，不代表紧急程度。', priorityUnknownResult: 'UNKNOWN', workQueue: '工作队列',
@@ -99,7 +102,7 @@ export async function FirstCustomerWorkspace({ surface }: { surface: FirstCustom
         ? <Link className={operationalCockpitClasses.primaryLink} href={first.href}>{copy.open}</Link>
         : <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/profile'>{copy.profile}</Link>,
     secondaryAction: workspace.ownerControlled
-      ? <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/staff'>Все кабинеты</Link>
+      ? <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/staff'>{copy.allCabinets}</Link>
       : <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/profile/team'>{copy.team}</Link>,
   };
 
