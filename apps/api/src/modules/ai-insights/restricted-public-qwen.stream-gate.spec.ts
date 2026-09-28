@@ -56,6 +56,12 @@ describe('StreamingAnswerGate', () => {
     }
   });
 
+  it('does not confuse delivery wording with an interest-rate claim', () => {
+    expect(economicBlockAllowed('Уточните условия доставки.')).toBe(true);
+    expect(economicBlockAllowed('Сравните риск качества и условия доставки.')).toBe(true);
+    expect(economicBlockAllowed('Ставка финансирования составляет 18%.')).toBe(false);
+  });
+
   it('holds an economic sentence before its final ranking and rejects undecided overflow', () => {
     const gate = generalGate({ economicComparison: 'transport', maxPendingChars: 150 });
     expect(gate.push('Если перевозка маленькая, а стоимость погрузки одинакова, то перевозка по рейсу ').text).toBe('');
