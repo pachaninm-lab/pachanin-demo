@@ -86,7 +86,10 @@ jobs:
           grep -Fq 'launch_watchdog(proc.pid, state["pid"])' "$helper"
           grep -Fq 'os.write(guard_write, b"G")' "$helper"
           grep -Fq -- '--watchdog-ready-fd' "$helper"
+          grep -Fq -- '--watchdog-arm-fd' "$helper"
           grep -Fq 'candidate_watchdog_ready_timeout' "$helper"
+          grep -Fq 'candidate_watchdog_arm_failed' "$helper"
+          grep -Fq 'candidate_guard_exited_before_release' "$helper"
           grep -Fq 'pidfd_exited(watchdog_pidfd)' "$helper"
           if grep -Fq 'os.killpg' "$helper"; then
             echo 'numeric process-group signaling is forbidden' >&2
@@ -189,7 +192,10 @@ jobs:
                       calls['watchdog'] += 1
                       if stage == 'watchdog':
                           raise OSError('INJECT_WATCHDOG')
-                      return os.open(os.devnull, os.O_RDONLY)
+                      return (
+                          os.open(os.devnull, os.O_RDONLY),
+                          os.open(os.devnull, os.O_WRONLY),
+                      )
 
                   expected = {
                       'pidfd': ('candidate_pidfd_setup_failed', {'pidfd': 1, 'identity_record': 0, 'pid_record': 0, 'watchdog': 0}),
@@ -240,8 +246,9 @@ jobs:
               run_setup_failure(stage)
 
           # The watchdog must acknowledge pidfd ownership while the process is
-          # still the inert guard, arm an independent hard-lease enforcer, then
-          # tolerate same-pid exec transitions until the reviewed identity appears.
+          # still the inert guard, arm an independent hard-lease enforcer, and
+          # wait for the explicit parent ARM token before it may monitor/stop the
+          # candidate. This closes the READY->release race seen on Linux.
           class FakeLeaseThread:
               def __init__(self, *, target, args, name, daemon):
                   self.target = target
@@ -262,6 +269,9 @@ jobs:
                   self.alive = False
 
           ready_read, ready_write = os.pipe()
+          arm_read, arm_write = os.pipe()
+          os.write(arm_write, b'A')
+          os.close(arm_write)
           owned_fd = os.open(os.devnull, os.O_RDONLY)
           candidate_states = iter((False, True, True))
           exit_states = iter((False, False, True))
@@ -270,6 +280,7 @@ jobs:
           with contextlib.ExitStack() as stack:
               stack.enter_context(mock.patch.object(module, 'load_state', return_value={'pid': 999, 'startTime': 1}))
               stack.enter_context(mock.patch.object(module.os, 'pidfd_open', return_value=owned_fd))
+              stack.enter_context(mock.patch.object(module.os, 'dup', return_value=os.open(os.devnull, os.O_RDONLY)))
               stack.enter_context(mock.patch.object(module, 'candidate_guard_process_matches', return_value=True))
               stack.enter_context(mock.patch.object(module, 'baseline_matches_state', heavy_baseline))
               stack.enter_context(mock.patch.object(module, 'baseline_process_matches_state', return_value=True))
@@ -281,13 +292,37 @@ jobs:
               stack.enter_context(mock.patch.object(module, 'verify_listener_absent', return_value=None))
               stack.enter_context(mock.patch.object(module, 'stop_pidfd_owned_process', side_effect=lambda fd: stop_calls.append(fd)))
               stack.enter_context(mock.patch.object(module.threading, 'Thread', side_effect=FakeLeaseThread))
-              result = module.watchdog(424242, 999, ready_write)
+              result = module.watchdog(424242, 999, ready_write, arm_read)
           token = os.read(ready_read, 2)
           os.close(ready_read)
           if result != 0 or token != b'R' or stop_calls:
               raise AssertionError('watchdog pidfd transition handoff failed')
           if heavy_baseline.call_count != 1:
               raise AssertionError('blocking baseline probe ran after candidate release')
+
+          # Without ARM the watchdog must fail closed through the pidfd-owned
+          # guard rather than entering normal candidate monitoring.
+          ready_read, ready_write = os.pipe()
+          arm_read, arm_write = os.pipe()
+          os.close(arm_write)
+          owned_fd = os.open(os.devnull, os.O_RDONLY)
+          lease_fd = os.open(os.devnull, os.O_RDONLY)
+          unarmed_stops = []
+          with contextlib.ExitStack() as stack:
+              stack.enter_context(mock.patch.object(module, 'load_state', return_value={'pid': 999, 'startTime': 1}))
+              stack.enter_context(mock.patch.object(module.os, 'pidfd_open', return_value=owned_fd))
+              stack.enter_context(mock.patch.object(module.os, 'dup', return_value=lease_fd))
+              stack.enter_context(mock.patch.object(module, 'candidate_guard_process_matches', return_value=True))
+              stack.enter_context(mock.patch.object(module, 'baseline_matches_state', return_value=True))
+              stack.enter_context(mock.patch.object(module, 'pidfd_exited', return_value=False))
+              stack.enter_context(mock.patch.object(module, 'verify_listener_absent', return_value=None))
+              stack.enter_context(mock.patch.object(module, 'stop_pidfd_owned_process', side_effect=lambda fd: unarmed_stops.append(fd)))
+              stack.enter_context(mock.patch.object(module.threading, 'Thread', side_effect=FakeLeaseThread))
+              unarmed_result = module.watchdog(424242, 999, ready_write, arm_read)
+          unarmed_token = os.read(ready_read, 2)
+          os.close(ready_read)
+          if unarmed_token != b'R' or unarmed_result != 79 or unarmed_stops != [owned_fd]:
+              raise AssertionError('watchdog did not fail closed on missing ARM: ' + repr((unarmed_result, unarmed_stops)))
 
           # Hard lease is enforced by a separately armed pidfd thread, not by the
           # monitoring loop. Even if the monitor is blocked, TERM precedes the
@@ -388,7 +423,8 @@ jobs:
                   stack.enter_context(mock.patch.object(module.shutil, 'which', side_effect=lambda name: '/usr/bin/' + name))
                   stack.enter_context(mock.patch.object(module.subprocess, 'Popen', return_value=proc))
                   stack.enter_context(mock.patch.object(module.os, 'pidfd_open', return_value=initial_fd))
-                  stack.enter_context(mock.patch.object(module, 'launch_watchdog', return_value=watchdog_fd))
+                  watchdog_arm_fd = os.open(os.devnull, os.O_WRONLY)
+                  stack.enter_context(mock.patch.object(module, 'launch_watchdog', return_value=(watchdog_fd, watchdog_arm_fd)))
                   stack.enter_context(mock.patch.object(module.os, 'write', return_value=1))
                   stack.enter_context(mock.patch.object(module, 'candidate_process_matches', return_value=True))
                   stack.enter_context(mock.patch.object(module, 'require_isolated_candidate_group', return_value=None))
@@ -428,6 +464,31 @@ jobs:
                    mock.patch.object(module.os, 'execvpe', side_effect=AssertionError('exec must not occur on guard EOF')):
                   if module.candidate_exec_guard(read_fd) != 81:
                       raise AssertionError('guard EOF did not fail closed')
+
+          # Valid argv is prevalidated before spawn, but the child stays inert
+          # until G. Once G arrives the same guarded argv reaches exec.
+          with tempfile.TemporaryDirectory() as tmp:
+              candidate = pathlib.Path(tmp) / 'candidate.gguf'
+              candidate.write_bytes(b'x')
+              guarded = [
+                  '/usr/bin/nice', '-n', '10', '/usr/bin/ionice', '-c', '3',
+                  '/bin/true', '--model', str(candidate), '--alias', module.CANDIDATE_ALIAS,
+              ]
+              with mock.patch.object(module, 'CANDIDATE_PATH', candidate):
+                  if module.candidate_exec_argv_status(guarded) != 0:
+                      raise AssertionError('valid guarded argv failed prevalidation')
+                  read_fd, write_fd = os.pipe()
+                  os.write(write_fd, b'G')
+                  os.close(write_fd)
+                  with mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': __import__('json').dumps(guarded)}, clear=False), \
+                       mock.patch.object(module.os, 'execvpe', side_effect=RuntimeError('EXEC_REACHED')):
+                      try:
+                          module.candidate_exec_guard(read_fd)
+                      except RuntimeError as exc:
+                          if str(exc) != 'EXEC_REACHED':
+                              raise
+                      else:
+                          raise AssertionError('guard release did not reach exec')
 
           # Standalone recovery must own the same process across the
           # guard -> priority-wrapper -> llama exec transition without argv trust.
