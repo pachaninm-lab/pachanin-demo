@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          expected='2818bdc3867cdaeb4daa3a14d34fdb360cf6c2f2'
+          expected='597c17c730aa263f4ca954b858139d00252dcf67'
           actual="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
           [[ "$actual" == "$expected" ]]
           echo "QWEN35_LATEST_MAIN_EXACT=$actual"
@@ -88,7 +88,7 @@ jobs:
           AI_ASSISTANT_MAX_TOKENS: "500"
         run: |
           set -Eeuo pipefail
-          pnpm --filter @pc/api exec ts-node --transpile-only src/modules/ai-insights/qwen35-integrated-temp.ts
+          cd apps/api && pnpm exec ts-node --transpile-only --compiler-options '{"module":"CommonJS","moduleResolution":"Node"}' ../../scripts/gekta-qwen35-fullpipe-temp.ts
 
       - name: Publish candidate metrics
         if: always()
