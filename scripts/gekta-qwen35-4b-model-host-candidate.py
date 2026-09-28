@@ -257,12 +257,17 @@ def launch_watchdog():
         "sleep %d; "
         "if [ -r '%s' ]; then p=$(cat '%s' 2>/dev/null || true); "
         "case \"$p\" in ''|*[!0-9]*) ;; *) "
+        "if [ -r \"/proc/$p/cmdline\" ] && "
+        "tr '\\000' '\\n' < \"/proc/$p/cmdline\" | grep -Fqx -- '%s' && "
+        "tr '\\000' '\\n' < \"/proc/$p/cmdline\" | grep -Fqx -- '%s'; then "
         "kill -TERM -- \"-$p\" 2>/dev/null || kill -TERM \"$p\" 2>/dev/null || true; "
         "i=0; while kill -0 \"$p\" 2>/dev/null && [ \"$i\" -lt 20 ]; do sleep 1; i=$((i+1)); done; "
         "if kill -0 \"$p\" 2>/dev/null; then "
-        "kill -KILL -- \"-$p\" 2>/dev/null || kill -KILL \"$p\" 2>/dev/null || true; fi ;; esac; fi; "
+        "kill -KILL -- \"-$p\" 2>/dev/null || kill -KILL \"$p\" 2>/dev/null || true; "
+        "j=0; while kill -0 \"$p\" 2>/dev/null && [ \"$j\" -lt 5 ]; do sleep 1; j=$((j+1)); done; fi; "
+        "if kill -0 \"$p\" 2>/dev/null; then exit 70; fi; fi ;; esac; fi; "
         "/usr/bin/systemctl start '%s' >/dev/null 2>&1 || true"
-    ) % (LEASE_SECONDS, PID_PATH, PID_PATH, SERVICE)
+    ) % (LEASE_SECONDS, PID_PATH, PID_PATH, CANDIDATE_PATH, CANDIDATE_ALIAS, SERVICE)
     proc = subprocess.Popen(
         ["/bin/sh", "-c", shell],
         stdin=subprocess.DEVNULL,
@@ -313,6 +318,17 @@ def process_alive(pid):
     except PermissionError:
         fail("candidate_process_permission_denied")
 
+def candidate_process_matches(pid):
+    if not process_alive(pid):
+        return False
+    try:
+        argv = [item for item in pathlib.Path("/proc/%d/cmdline" % pid).read_bytes().split(b"\\0") if item]
+    except FileNotFoundError:
+        return False
+    expected_path = os.fsencode(CANDIDATE_PATH)
+    expected_alias = CANDIDATE_ALIAS.encode("utf-8")
+    return expected_path in argv and expected_alias in argv
+
 def signal_candidate(pid, sig):
     try:
         os.killpg(pid, sig)
@@ -337,6 +353,9 @@ def stop_candidate():
     except OSError:
         pass
     if pid:
+        if not candidate_process_matches(pid):
+            PID_PATH.unlink(missing_ok=True)
+            return
         signal_candidate(pid, signal.SIGTERM)
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline and process_alive(pid):
@@ -446,8 +465,7 @@ def status():
     if PID_PATH.exists():
         try:
             pid = int(PID_PATH.read_text(encoding="ascii").strip())
-            os.kill(pid, 0)
-            candidate = 1
+            candidate = int(candidate_process_matches(pid))
         except Exception:
             candidate = 0
     emit("BASELINE_ACTIVE", int(baseline))
