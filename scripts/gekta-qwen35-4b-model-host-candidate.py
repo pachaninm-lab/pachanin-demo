@@ -78,7 +78,22 @@ def emit(key: str, value) -> None:
         text = hashlib.sha256(text.encode("utf-8", "replace")).hexdigest()
     print("QWEN35_CANDIDATE_%s=%s" % (key, text), flush=True)
 
-def command(args, check=True, timeout=30, env=None):
+def lease_bounded_timeout(timeout, deadline=None) -> float:
+    value = float(timeout)
+    if value <= 0:
+        fail("command_timeout_invalid")
+    if deadline is None:
+        return value
+    remaining = float(deadline) - time.monotonic()
+    # Do not start a blocking probe when the hard candidate lease has no
+    # meaningful time left. This deliberately fails slightly early rather
+    # than allowing subprocess timeout granularity to overrun the lease.
+    if remaining <= 0.001:
+        fail("candidate_lease_elapsed")
+    return min(value, remaining)
+
+def command(args, check=True, timeout=30, env=None, deadline=None):
+    effective_timeout = lease_bounded_timeout(timeout, deadline)
     result = subprocess.run(
         args,
         stdin=subprocess.DEVNULL,
@@ -86,18 +101,18 @@ def command(args, check=True, timeout=30, env=None):
         stderr=subprocess.PIPE,
         text=True,
         env=env,
-        timeout=timeout,
+        timeout=effective_timeout,
         check=False,
     )
     if check and result.returncode != 0:
         fail("command_failed:%s:%s" % (pathlib.Path(args[0]).name, result.returncode))
     return result
 
-def systemctl_read(*args, check=True, timeout=30):
+def systemctl_read(*args, check=True, timeout=30, deadline=None):
     forbidden = {"stop", "restart", "start", "kill", "enable", "disable", "daemon-reload", "set-property"}
     if any(str(item) in forbidden for item in args):
         fail("systemctl_mutation_forbidden")
-    return command(["/usr/bin/systemctl", *args], check=check, timeout=timeout)
+    return command(["/usr/bin/systemctl", *args], check=check, timeout=timeout, deadline=deadline)
 
 def require_nonroot() -> str:
     if os.geteuid() == 0:
@@ -107,20 +122,20 @@ def require_nonroot() -> str:
         fail("runtime_user_invalid")
     return name
 
-def service_pid() -> int:
-    raw = systemctl_read("show", SERVICE, "--property=MainPID", "--value").stdout.strip()
+def service_pid(deadline=None) -> int:
+    raw = systemctl_read("show", SERVICE, "--property=MainPID", "--value", deadline=deadline).stdout.strip()
     if not re.fullmatch(r"[1-9][0-9]*", raw):
         fail("baseline_pid_invalid")
     return int(raw)
 
-def service_user() -> str:
-    raw = systemctl_read("show", SERVICE, "--property=User", "--value").stdout.strip()
+def service_user(deadline=None) -> str:
+    raw = systemctl_read("show", SERVICE, "--property=User", "--value", deadline=deadline).stdout.strip()
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]{0,31}", raw) or raw == "root":
         fail("service_user_invalid")
     return raw
 
-def service_restarts() -> int:
-    raw = systemctl_read("show", SERVICE, "--property=NRestarts", "--value").stdout.strip()
+def service_restarts(deadline=None) -> int:
+    raw = systemctl_read("show", SERVICE, "--property=NRestarts", "--value", deadline=deadline).stdout.strip()
     if not re.fullmatch(r"[0-9]+", raw):
         fail("baseline_restarts_invalid")
     return int(raw)
@@ -266,20 +281,20 @@ def verify_listener_absent() -> None:
         time.sleep(0.25)
     fail("candidate_listener_still_present")
 
-def snapshot_baseline():
+def snapshot_baseline(deadline=None):
     require_nonroot()
-    if systemctl_read("is-active", "--quiet", SERVICE, check=False).returncode != 0:
+    if systemctl_read("is-active", "--quiet", SERVICE, check=False, deadline=deadline).returncode != 0:
         fail("baseline_service_inactive")
     runtime_user = require_nonroot()
-    expected_user = service_user()
+    expected_user = service_user(deadline=deadline)
     if runtime_user != expected_user:
         fail("runtime_user_not_service_user")
-    pid = service_pid()
+    pid = service_pid(deadline=deadline)
     exe, argv, env, cmdline = read_proc(pid)
-    version = command([str(exe), "--version"], check=False, timeout=10)
+    version = command([str(exe), "--version"], check=False, timeout=10, deadline=deadline)
     if version.returncode != 0 or "aedb2a5" not in (version.stdout + version.stderr).lower():
         fail("llama_build_mismatch")
-    help_text = command([str(exe), "--help"], check=False, timeout=10)
+    help_text = command([str(exe), "--help"], check=False, timeout=10, deadline=deadline)
     if help_text.returncode != 0 or "LLAMA_API_KEY" not in (help_text.stdout + help_text.stderr):
         fail("llama_api_key_env_contract_missing")
     for key, expected in EXPECTED.items():
@@ -297,7 +312,7 @@ def snapshot_baseline():
         "exe": str(exe),
         "cmdlineSha256": hashlib.sha256(cmdline).hexdigest(),
         "apiKeySha256": hashlib.sha256(api_key.encode("utf-8")).hexdigest(),
-        "restarts": service_restarts(),
+        "restarts": service_restarts(deadline=deadline),
         "vmSwapKb": proc_kb(pid, "VmSwap"),
     }, exe, argv, env
 
@@ -317,9 +332,9 @@ def baseline_runtime_healthy() -> bool:
     ids = [row.get("id") for row in payload.get("data", []) if isinstance(row, dict)]
     return status_code == 200 and BASELINE_ALIAS in ids and state["vmSwapKb"] == 0
 
-def baseline_matches_state(expected: dict) -> bool:
+def baseline_matches_state(expected: dict, deadline=None) -> bool:
     try:
-        current, _, _, _ = snapshot_baseline()
+        current, _, _, _ = snapshot_baseline(deadline=deadline)
     except Exception:
         return False
     return (
@@ -842,7 +857,7 @@ def watchdog(candidate_pid: int, baseline_pid: int, ready_fd: int) -> int:
         candidate_pidfd = os.pidfd_open(candidate_pid, 0)
         if not candidate_guard_process_matches(candidate_pid):
             return 77
-        if not baseline_matches_state(state):
+        if not baseline_matches_state(state, deadline=deadline):
             return 72
         if os.write(ready_fd, b"R") != 1:
             return 78
@@ -869,12 +884,26 @@ def watchdog(candidate_pid: int, baseline_pid: int, ready_fd: int) -> int:
                         return 76
                     return 77
                 else:
-                    if not baseline_matches_state(state):
+                    if not baseline_matches_state(state, deadline=deadline):
                         stop_pidfd_owned_process(candidate_pidfd)
+                        if time.monotonic() >= deadline:
+                            try:
+                                verify_listener_absent()
+                            except CandidateError:
+                                return 76
+                            return 0
                         return 72
+                    if time.monotonic() >= deadline:
+                        stop_pidfd_owned_process(candidate_pidfd)
+                        try:
+                            verify_listener_absent()
+                        except CandidateError:
+                            return 76
+                        return 0
                     # The pidfd pins the same task while exec transitions through
-                    # nice/ionice into the reviewed llama argv.
-                    time.sleep(0.1)
+                    # nice/ionice into the reviewed llama argv. Sleep only within
+                    # the hard lease so this transition cannot postpone expiry.
+                    time.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
                     continue
 
             if not candidate_process_matches(candidate_pid):
@@ -884,16 +913,29 @@ def watchdog(candidate_pid: int, baseline_pid: int, ready_fd: int) -> int:
                 except CandidateError:
                     return 76
                 return 77
-            if not baseline_matches_state(state):
+            if not baseline_matches_state(state, deadline=deadline):
                 stop_pidfd_owned_process(candidate_pidfd)
+                if time.monotonic() >= deadline:
+                    try:
+                        verify_listener_absent()
+                    except CandidateError:
+                        return 76
+                    return 0
                 return 72
+            if time.monotonic() >= deadline:
+                stop_pidfd_owned_process(candidate_pidfd)
+                try:
+                    verify_listener_absent()
+                except CandidateError:
+                    return 76
+                return 0
             if proc_kb(candidate_pid, "VmRSS") > MAX_CANDIDATE_RSS_KB:
                 stop_pidfd_owned_process(candidate_pidfd)
                 return 73
             if mem_available_kb() < MIN_MEM_RUNTIME_KB:
                 stop_pidfd_owned_process(candidate_pidfd)
                 return 74
-            time.sleep(2)
+            time.sleep(min(2.0, max(0.0, deadline - time.monotonic())))
 
         stop_pidfd_owned_process(candidate_pidfd)
         verify_listener_absent()
