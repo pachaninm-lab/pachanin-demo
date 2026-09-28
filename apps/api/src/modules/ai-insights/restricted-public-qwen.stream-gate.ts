@@ -94,7 +94,7 @@ const ECONOMIC_TOPIC = /цен|стоим|расход|руб|прода|выг�
 const TRANSPORT_COMPARISON = /перевоз|перевозчик|freight|haul|carrier|运输|承运/iu;
 const PAYMENT_TIMING_TOPIC = /оплат|плат[её]ж|отсроч|гарант|сегодня|сразу|payment|paid|defer|guarantee|today|付款|延期|担保|今天/iu;
 const PAYMENT_TONNE_PRICE = /(\d{1,7}(?:[.,]\d{1,2})?)\s*(?:руб(?:лей|ля|ль)?\.?|₽|RUB)\s*(?:\/\s*т(?:онн[уы])?|за\s+тонн[уы])/giu;
-const PAYMENT_DELAY_DAYS = /(?:через|отсроч\w*(?:\s+на)?|in|after|defer(?:red)?\s+(?:for\s+)?)(\d{1,3})\s*(?:дн(?:я|ей)?|days?|天)/iu;
+const PAYMENT_DELAY_DAYS = /(?:через\s+|отсроч\w*(?:\s+на)?\s*|in\s+|after\s+|defer(?:red)?\s+(?:for\s+)?)(\d{1,3})\s*(?:дн(?:я|ей)?|days?|天)/iu;
 const PAYMENT_IMMEDIATE_MARKER = /(?:с\s+оплат\w*\s+сегодня|оплат\w*\s+сегодня|сегодня|сразу|paid\s+today|payment\s+today|today|今天付款|现付)/iu;
 const PAYMENT_COMPARISON_SEPARATOR = /(?:или|либо|\bvs\.?\b|\bversus\b|\bor\b|还是)/iu;
 
@@ -170,7 +170,7 @@ export function paymentTimingFromUser(question: string): PaymentTimingInput | nu
 /** Bounded output screen, not a proof of arbitrary financial prose. */
 export function economicBlockAllowed(block: string): boolean {
   const body = block.replace(/^\d+[.)]\s*/u, '');
-  return !/[\d=\\]|руб|ruble|\bRUB\b|卢布|месяц|month|个月|%|процент|ставк[аи]|годов|interest|annual|利率|выгод|лучше|дешевле|дороже|окуп|прибыль|рентабель|предпочт|разумнее|безопаснее|надежнее|оптимальн|перв\w*\s+вариант|втор\w*\s+вариант|продавай|продайте|храните|выбира|выбери|рекоменд|советую|следует\s+(?:прода|хран)|profita|cheaper|more expensive|better|safer|prefer|optimal|first\s+option|second\s+option|choose|select|recommend|should\s+(?:sell|stor)|\bsell now\b|pay[s]? off|更划算|更便宜|盈利|获利|更有利|更好|第一个方案|第二个方案|应选|选择|建议|应该|现在卖/iu.test(body)
+  return !/[\d=\\]|руб|ruble|\bRUB\b|卢布|месяц|month|个月|%|процент|(?<![\p{L}])ставк[аи](?![\p{L}])|годов|interest|annual|利率|(?:продавать|продать|покупать|купить|хранить)\s+(?:сейчас|сегодня|немедленно)|(?:сейчас|сегодня|немедленно)\s+(?:продавать|продать|покупать|купить|хранить)|выгод|лучше|дешевле|дороже|окуп|прибыль|рентабель|предпочт|разумнее|безопаснее|надежнее|оптимальн|перв\w*\s+вариант|втор\w*\s+вариант|продавай|продайте|храните|выбира|выбери|рекоменд|советую|следует\s+(?:прода|хран)|profita|cheaper|more expensive|better|safer|prefer|optimal|first\s+option|second\s+option|choose|select|recommend|should\s+(?:sell|stor)|\bsell now\b|pay[s]? off|更划算|更便宜|盈利|获利|更有利|更好|第一个方案|第二个方案|应选|选择|建议|应该|现在卖/iu.test(body)
     && !/(?:два|двух|три|тр[её]х|несколько|two|three|several|[一二三四五六七八九十两])\s*(?:месяц|month|个月|月)/iu.test(body);
 }
 
