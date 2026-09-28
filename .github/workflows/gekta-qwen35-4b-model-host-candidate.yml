@@ -57,6 +57,9 @@ jobs:
           grep -Fq 'LEASE_SECONDS = 420' scripts/gekta-qwen35-4b-model-host-candidate.py
           grep -Fq 'BASELINE_ALIAS = "tai-qwen3-8b-q4km"' scripts/gekta-qwen35-4b-model-host-candidate.py
           grep -Fq 'CANDIDATE_ALIAS = "tai-qwen35-4b-q4km"' scripts/gekta-qwen35-4b-model-host-candidate.py
+          grep -Fq 'signal.SIGKILL' scripts/gekta-qwen35-4b-model-host-candidate.py
+          grep -Fq 'candidate_process_survived_sigkill' scripts/gekta-qwen35-4b-model-host-candidate.py
+          grep -Fq 'kill -KILL' scripts/gekta-qwen35-4b-model-host-candidate.py
       - name: Install bounded API test dependencies
         run: pnpm install --frozen-lockfile --filter @pc/api...
       - name: Prove safety regressions and candidate contract
