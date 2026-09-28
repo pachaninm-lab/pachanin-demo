@@ -1,6 +1,7 @@
 import {
   ProviderStreamParser,
   StreamingAnswerGate,
+  economicBlockAllowed,
   economicComparisonFor,
   paymentTimingFromUser,
   storageCostFromUser,
