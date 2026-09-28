@@ -830,7 +830,7 @@ jobs:
             'cleanup',
             'always()'
           ]) if (!workflow.includes(token)) throw new Error('missing authority token: ' + token);
-          if (scope.branch !== 'fix/gekta-qwen35-nonroot-candidate-20260928' || scope.issue !== 3896 || scope.newRecurringCostRub !== 0) throw new Error('scope mismatch');
+          if (scope.branch !== process.env.GITHUB_HEAD_REF || scope.issue !== 3896 || scope.newRecurringCostRub !== 0) throw new Error('scope mismatch');
           for (const forbidden of [
             'pull_request' + '_target',
             'TAI_MODEL_' + 'SSH_PASSWORD',
@@ -846,7 +846,7 @@ jobs:
             if (workflow.includes(forbidden)) throw new Error('forbidden capability: ' + forbidden);
           }
           NODE
-          GITHUB_HEAD_REF=fix/gekta-qwen35-nonroot-candidate-20260928 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
+          BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
 
 
   candidate:
