@@ -2,6 +2,7 @@ import {
   ProviderStreamParser,
   StreamingAnswerGate,
   economicComparisonFor,
+  paymentTimingFromUser,
   storageCostFromUser,
   economicComparisonCopy,
 } from './restricted-public-qwen.stream-gate';
@@ -94,6 +95,36 @@ describe('StreamingAnswerGate', () => {
     expect(economicComparisonCopy('storage', 'ru', 40000)).toContain('400 руб/т');
     expect(economicComparisonCopy('storage', 'ru', 40000)).toContain('только хранения');
     expect(economicComparisonCopy('storage', 'ru', 40000)).toContain('не доказывает общую выгодность');
+  });
+
+  it('calculates payment-timing premium only from explicit same-turn inputs', () => {
+    const question = 'Покупатель предлагает 12000 руб/т с оплатой сегодня или 12400 руб/т через 45 дней без банковской гарантии. Что выбрать?';
+    expect(economicComparisonFor(question, [])).toBe('payment_timing');
+    const payment = paymentTimingFromUser(question);
+    expect(payment).toEqual({
+      immediatePriceMinor: 1_200_000,
+      delayedPriceMinor: 1_240_000,
+      delayDays: 45,
+      premiumMinor: 40_000,
+      premiumBasisPoints: 333,
+      guarantee: 'absent',
+    });
+    const copy = economicComparisonCopy('payment_timing', 'ru', null, payment);
+    expect(copy).toContain('400 руб/т');
+    expect(copy).toContain('3,33%');
+    expect(copy).toContain('45 дней');
+    expect(copy).toContain('банковской гарантии нет');
+    expect(copy).toContain('не определяет, какой вариант выбрать');
+    expect(copy).not.toMatch(/выбирайте|лучше\s+(?:перв|втор|сейчас|отсроч)/iu);
+
+    for (const ambiguous of [
+      'Покупатель предлагает 12000 руб/т или 12400 руб/т, что выбрать?',
+      'Покупатель предлагает 12000 руб/т сегодня или 12400 руб/т через полтора месяца.',
+      'Покупатель предлагает 12 000 руб/т сегодня или 12 400 руб/т через 45 дней.',
+      'Покупатель предлагает 12000 руб/т сегодня, а срок оплаты уточнит позже.',
+    ]) {
+      expect(paymentTimingFromUser(ambiguous)).toBeNull();
+    }
   });
 
   it('invalidates older quantities after a unit, subject or ambiguous correction', () => {
