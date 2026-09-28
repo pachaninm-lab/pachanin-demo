@@ -1720,6 +1720,23 @@
     ],
     "fix/public-webkit-i18n-route-lifecycle-20260927": [
       "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
+    ],
+    "bank/first-customer-home-20260926": [
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
+      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+      "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+      "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+      "docs/platform-v7/autopilot/scopes/bank-first-customer-home-20260926.json"
+    ],
+    "fix/gekta-economic-safety-hardening-20260928": [
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts"
     ]
   },
   "currentAcceptance": [
@@ -2450,6 +2467,61 @@
         "Automatic or forced merge, disabled safety/readiness checks, fabricated evidence or new recurring cost"
       ],
       "reviewDependency": "Accepted guard PR #5674; issue #5673; independent exact-head review on 901a7986fc102f37c0959f4f245179f0ab012466"
+    },
+    "bank-first-customer-home-20260926-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Bank first-customer production-home hierarchy from existing server-scoped Deal navigation; no bank operation, provider or settlement authority.",
+      "authorityBaseExactMain": "597c17c730aa263f4ca954b858139d00252dcf67",
+      "implementationBranch": "bank/first-customer-home-20260926",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
+        "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+        "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+        "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+        "docs/platform-v7/autopilot/scopes/bank-first-customer-home-20260926.json"
+      ],
+      "requiredTruthBoundaries": [
+        "The bank Deal queue is navigation, not a BankOperation read, provider binding, release decision, payment instruction or external bank confirmation.",
+        "UNKNOWN next action, empty, forbidden and degraded remain explicit; no demo amounts, concrete provider or settlement finality.",
+        "RU/EN/ZH, mobile, focus, buyer/seller and other role regressions remain covered; owner-controlled showroom does not gain customer authority.",
+        "Ordinary verified bank root mounts the server-scoped bank workspace; owner-controlled preview keeps precedence and other roles do not inherit bank access.",
+        "Bank source changes start only after the trusted immutable guard prerequisite and this state-only admission are merged."
+      ],
+      "forbiddenAuthority": [
+        "API/backend/domain/DB/RLS/tenant/role/BankOperation/IntegrationBinding/provider/payment authority",
+        "homepage/public implementation or parallel App Shell/design system",
+        "CI/security/readiness gate weakening or production PASS claim"
+      ],
+      "teamHubDependency": "#5469 comment 5842845723; CORE #5525; external #5530; buyer #5610 review; P0 release serialization"
+    },
+    "gekta-economic-safety-hardening-20260928-coordination": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Harden Gekta economic comparisons and crop-protection output before any foundation-model migration.",
+      "authorityBaseExactMain": "b01010f5f1e7eedfd9091469adfda8a385725513",
+      "implementationBranch": "fix/gekta-economic-safety-hardening-20260928",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "User-supplied monetary arithmetic is computed deterministically server-side; model prose cannot select a commercial option or invent rates.",
+        "Ungrounded crop-protection product/active-ingredient dose or interval instructions are removed before public emission.",
+        "Current-data and verified-platform authority remain fail-closed and unchanged.",
+        "No model-host, production deployment, tenant, Deal, money or write authority is added."
+      ],
+      "forbiddenAuthority": [
+        "Model-host or REG.RU production mutation",
+        "CI/security/readiness weakening",
+        "New recurring cost",
+        "Client-selected authority or model-only critical arithmetic"
+      ],
+      "teamHubDependency": "#3896 Gekta quality/latency audit and Qwen3.5 candidate evidence"
     }
   }
 }
