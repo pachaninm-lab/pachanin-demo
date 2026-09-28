@@ -436,6 +436,68 @@ def watchdog_process_matches(pid: int) -> bool:
         return False
     return b"_watchdog" in argv and os.fsencode(pathlib.Path(__file__).resolve()) in argv
 
+def candidate_guard_process_matches(pid: int) -> bool:
+    if not process_alive(pid):
+        return False
+    try:
+        argv = [item for item in pathlib.Path("/proc/%d/cmdline" % pid).read_bytes().split(b"\0") if item]
+    except FileNotFoundError:
+        return False
+    return (
+        b"_candidate_exec_guard" in argv
+        and os.fsencode(pathlib.Path(__file__).resolve()) in argv
+    )
+
+def candidate_exec_guard(guard_fd: int) -> int:
+    if guard_fd < 3:
+        return 77
+    raw = os.environ.pop("QWEN35_GUARDED_ARGV_JSON", "")
+    try:
+        argv = json.loads(raw)
+    except json.JSONDecodeError:
+        return 78
+    if (
+        not isinstance(argv, list)
+        or not argv
+        or len(argv) > 128
+        or any(not isinstance(item, str) or not item or len(item) > 4096 or "\0" in item for item in argv)
+    ):
+        return 79
+    encoded = [os.fsencode(item) for item in argv]
+    if os.fsencode(CANDIDATE_PATH) not in encoded or CANDIDATE_ALIAS.encode("utf-8") not in encoded:
+        return 80
+    try:
+        token = os.read(guard_fd, 2)
+    finally:
+        os.close(guard_fd)
+    if token != b"G":
+        return 81
+    os.execvpe(argv[0], argv, os.environ)
+    return 82
+
+def stop_owned_child(proc: subprocess.Popen, pidfd: int) -> None:
+    if proc.poll() is not None:
+        return
+    try:
+        signal.pidfd_send_signal(pidfd, signal.SIGTERM, None, 0)
+    except ProcessLookupError:
+        proc.wait(timeout=3)
+        return
+    try:
+        proc.wait(timeout=15)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        signal.pidfd_send_signal(pidfd, signal.SIGKILL, None, 0)
+    except ProcessLookupError:
+        proc.wait(timeout=3)
+        return
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        fail("candidate_owned_process_survived_sigkill")
+
 def process_group_members(pgid: int) -> list[int]:
     members: list[int] = []
     for entry in pathlib.Path("/proc").iterdir():
@@ -568,11 +630,29 @@ def launch_watchdog(candidate_pid: int, baseline_pid: int) -> None:
 
 def watchdog(candidate_pid: int, baseline_pid: int) -> int:
     deadline = time.monotonic() + LEASE_SECONDS
+    identity_deadline = time.monotonic() + 20
+    candidate_seen = False
     try:
         state = load_state()
         if state.get("pid") != baseline_pid:
             return 71
         while time.monotonic() < deadline:
+            if not candidate_seen:
+                if candidate_process_matches(candidate_pid):
+                    candidate_seen = True
+                elif process_alive(candidate_pid):
+                    if not candidate_guard_process_matches(candidate_pid) or time.monotonic() >= identity_deadline:
+                        return 77
+                    if not baseline_matches_state(state):
+                        return 72
+                    time.sleep(0.25)
+                    continue
+                else:
+                    try:
+                        verify_listener_absent()
+                    except CandidateError:
+                        return 76
+                    return 0
             if not candidate_process_matches(candidate_pid):
                 try:
                     verify_listener_absent()
@@ -673,48 +753,63 @@ def start(candidate_key: str) -> None:
     log = LOG_PATH.open("ab", buffering=0)
     if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
         fail("pidfd_signal_unavailable")
-    proc = subprocess.Popen(
-        [nice, "-n", "10", ionice, "-c", "3", *[os.fsdecode(item) for item in argv]],
-        stdin=subprocess.DEVNULL,
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        env=env,
-        cwd="/",
-        start_new_session=True,
-        close_fds=True,
-    )
+
+    candidate_argv = [nice, "-n", "10", ionice, "-c", "3", *[os.fsdecode(item) for item in argv]]
+    guard_read, guard_write = os.pipe()
+    os.set_inheritable(guard_read, True)
+    guard_env = dict(env)
+    guard_env["QWEN35_GUARDED_ARGV_JSON"] = json.dumps(candidate_argv, separators=(",", ":"))
+    proc = None
+    initial_pidfd = None
+    released = False
     try:
-        initial_pidfd = os.pidfd_open(proc.pid, 0)
-    except ProcessLookupError:
-        proc.wait(timeout=3)
-        fail("candidate_process_exited_before_identity_check")
-    identity_deadline = time.monotonic() + 5
-    while time.monotonic() < identity_deadline and process_alive(proc.pid):
-        if candidate_process_matches(proc.pid):
-            break
-        time.sleep(0.05)
-    if not candidate_process_matches(proc.pid):
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                str(pathlib.Path(__file__).resolve()),
+                "_candidate_exec_guard",
+                "--candidate-guard-fd",
+                str(guard_read),
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            env=guard_env,
+            cwd="/",
+            start_new_session=True,
+            close_fds=True,
+            pass_fds=(guard_read,),
+        )
+        os.close(guard_read)
+        guard_read = -1
+
         try:
-            signal.pidfd_send_signal(initial_pidfd, signal.SIGTERM, None, 0)
-            try:
-                proc.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                signal.pidfd_send_signal(initial_pidfd, signal.SIGKILL, None, 0)
-                proc.wait(timeout=3)
-        except ProcessLookupError:
-            proc.wait(timeout=3)
-        finally:
-            os.close(initial_pidfd)
-        fail("candidate_identity_not_established")
-    os.close(initial_pidfd)
-    require_isolated_candidate_group(proc.pid)
-    live_argv = [item for item in pathlib.Path("/proc/%d/cmdline" % proc.pid).read_bytes().split(b"\0") if item]
-    if flag_hits(live_argv, ALIASES["api_key"]):
-        stop_candidate_pid(proc.pid)
-        fail("candidate_key_present_in_cmdline")
-    write_pid(PID_PATH, proc.pid)
-    launch_watchdog(proc.pid, state["pid"])
-    try:
+            initial_pidfd = os.pidfd_open(proc.pid, 0)
+        except OSError:
+            fail("candidate_pidfd_setup_failed")
+
+        write_pid(PID_PATH, proc.pid)
+        launch_watchdog(proc.pid, state["pid"])
+
+        if os.write(guard_write, b"G") != 1:
+            fail("candidate_guard_release_failed")
+        os.close(guard_write)
+        guard_write = -1
+        released = True
+
+        identity_deadline = time.monotonic() + 5
+        while time.monotonic() < identity_deadline and process_alive(proc.pid):
+            if candidate_process_matches(proc.pid):
+                break
+            time.sleep(0.05)
+        if not candidate_process_matches(proc.pid):
+            fail("candidate_identity_not_established")
+        require_isolated_candidate_group(proc.pid)
+
+        live_argv = [item for item in pathlib.Path("/proc/%d/cmdline" % proc.pid).read_bytes().split(b"\0") if item]
+        if flag_hits(live_argv, ALIASES["api_key"]):
+            fail("candidate_key_present_in_cmdline")
+
         wait_candidate(proc.pid, candidate_key, state)
         if proc_kb(proc.pid, "VmSwap") != 0:
             fail("candidate_swap_nonzero")
@@ -724,9 +819,53 @@ def start(candidate_key: str) -> None:
         if not baseline_matches_state(state) or not baseline_runtime_healthy():
             fail("baseline_not_healthy_with_candidate")
     except Exception:
-        stop_candidate_pid(proc.pid)
-        verify_listener_absent()
+        if guard_write >= 0:
+            try:
+                os.close(guard_write)
+            except OSError:
+                pass
+            guard_write = -1
+        if guard_read >= 0:
+            try:
+                os.close(guard_read)
+            except OSError:
+                pass
+            guard_read = -1
+        if proc is not None:
+            if released and initial_pidfd is not None:
+                try:
+                    stop_owned_child(proc, initial_pidfd)
+                except Exception:
+                    pass
+            else:
+                try:
+                    proc.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    pass
+        try:
+            stop_watchdog()
+        except Exception:
+            pass
+        PID_PATH.unlink(missing_ok=True)
+        try:
+            verify_listener_absent()
+        except Exception:
+            pass
         raise
+    finally:
+        if initial_pidfd is not None:
+            os.close(initial_pidfd)
+        if guard_write >= 0:
+            try:
+                os.close(guard_write)
+            except OSError:
+                pass
+        if guard_read >= 0:
+            try:
+                os.close(guard_read)
+            except OSError:
+                pass
+
     emit("NONROOT_PARALLEL", 1)
     emit("START", "PASS")
     emit("ALIAS", CANDIDATE_ALIAS)
@@ -778,12 +917,15 @@ def status() -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["prepare", "start", "cleanup", "status", "_watchdog"])
+    parser.add_argument("action", choices=["prepare", "start", "cleanup", "status", "_watchdog", "_candidate_exec_guard"])
     parser.add_argument("--candidate-key-stdin", action="store_true")
     parser.add_argument("--candidate-pid", type=int, default=0)
     parser.add_argument("--baseline-pid", type=int, default=0)
+    parser.add_argument("--candidate-guard-fd", type=int, default=-1)
     args = parser.parse_args()
     require_nonroot()
+    if args.action == "_candidate_exec_guard":
+        return candidate_exec_guard(args.candidate_guard_fd)
     if args.action == "_watchdog":
         if args.candidate_pid <= 0 or args.baseline_pid <= 0:
             return 76
