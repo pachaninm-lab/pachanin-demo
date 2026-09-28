@@ -256,7 +256,11 @@ def launch_watchdog():
     shell = (
         "sleep %d; "
         "if [ -r '%s' ]; then p=$(cat '%s' 2>/dev/null || true); "
-        "case \"$p\" in ''|*[!0-9]*) ;; *) kill \"$p\" 2>/dev/null || true ;; esac; fi; "
+        "case \"$p\" in ''|*[!0-9]*) ;; *) "
+        "kill -TERM -- \"-$p\" 2>/dev/null || kill -TERM \"$p\" 2>/dev/null || true; "
+        "i=0; while kill -0 \"$p\" 2>/dev/null && [ \"$i\" -lt 20 ]; do sleep 1; i=$((i+1)); done; "
+        "if kill -0 \"$p\" 2>/dev/null; then "
+        "kill -KILL -- \"-$p\" 2>/dev/null || kill -KILL \"$p\" 2>/dev/null || true; fi ;; esac; fi; "
         "/usr/bin/systemctl start '%s' >/dev/null 2>&1 || true"
     ) % (LEASE_SECONDS, PID_PATH, PID_PATH, SERVICE)
     proc = subprocess.Popen(
@@ -300,6 +304,30 @@ def wait_candidate(pid, key):
         time.sleep(1)
     fail("candidate_readiness_timeout")
 
+def process_alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        fail("candidate_process_permission_denied")
+
+def signal_candidate(pid, sig):
+    try:
+        os.killpg(pid, sig)
+        return
+    except ProcessLookupError:
+        return
+    except PermissionError:
+        pass
+    try:
+        os.kill(pid, sig)
+    except ProcessLookupError:
+        return
+    except PermissionError:
+        fail("candidate_signal_permission_denied")
+
 def stop_candidate():
     pid = None
     try:
@@ -309,20 +337,17 @@ def stop_candidate():
     except OSError:
         pass
     if pid:
-        try:
-            os.killpg(pid, signal.SIGTERM)
-        except (ProcessLookupError, PermissionError):
-            try:
-                os.kill(pid, signal.SIGTERM)
-            except (ProcessLookupError, PermissionError):
-                pass
+        signal_candidate(pid, signal.SIGTERM)
         deadline = time.monotonic() + 15
-        while time.monotonic() < deadline:
-            try:
-                os.kill(pid, 0)
-            except OSError:
-                break
+        while time.monotonic() < deadline and process_alive(pid):
             time.sleep(0.25)
+        if process_alive(pid):
+            signal_candidate(pid, signal.SIGKILL)
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline and process_alive(pid):
+                time.sleep(0.1)
+        if process_alive(pid):
+            fail("candidate_process_survived_sigkill")
     PID_PATH.unlink(missing_ok=True)
 
 def baseline_runtime_healthy():
