@@ -170,7 +170,7 @@ export function paymentTimingFromUser(question: string): PaymentTimingInput | nu
 /** Bounded output screen, not a proof of arbitrary financial prose. */
 export function economicBlockAllowed(block: string): boolean {
   const body = block.replace(/^\d+[.)]\s*/u, '');
-  return !/[\d=\\]|руб|ruble|\bRUB\b|卢布|месяц|month|个月|%|процент|ставк[аи]|годов|interest|annual|利率|выгод|лучше|дешевле|дороже|окуп|прибыль|рентабель|продавай|продайте|храните|выбира|выбери|рекоменд|советую|следует\s+(?:прода|хран)|profita|cheaper|more expensive|better|choose|select|recommend|should\s+(?:sell|stor)|\bsell now\b|pay[s]? off|更划算|更便宜|盈利|获利|更有利|更好|应选|选择|建议|应该|现在卖/iu.test(body)
+  return !/[\d=\\]|руб|ruble|\bRUB\b|卢布|месяц|month|个月|%|процент|ставк[аи]|годов|interest|annual|利率|выгод|лучше|дешевле|дороже|окуп|прибыль|рентабель|предпочт|разумнее|безопаснее|надежнее|оптимальн|перв\w*\s+вариант|втор\w*\s+вариант|продавай|продайте|храните|выбира|выбери|рекоменд|советую|следует\s+(?:прода|хран)|profita|cheaper|more expensive|better|safer|prefer|optimal|first\s+option|second\s+option|choose|select|recommend|should\s+(?:sell|stor)|\bsell now\b|pay[s]? off|更划算|更便宜|盈利|获利|更有利|更好|第一个方案|第二个方案|应选|选择|建议|应该|现在卖/iu.test(body)
     && !/(?:два|двух|три|тр[её]х|несколько|two|three|several|[一二三四五六七八九十两])\s*(?:месяц|month|个月|月)/iu.test(body);
 }
 
