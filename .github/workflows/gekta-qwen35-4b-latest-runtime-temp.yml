@@ -82,7 +82,7 @@ jobs:
           curl -fL --retry 3 --connect-timeout 20 --max-time 1800             -o /tmp/qwen35-4b.gguf             'https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/4168f45a16a1290d65a4ec0fa312ae917a4c15d6/Qwen_Qwen3.5-4B-Q4_K_M.gguf'
           [[ "$(stat -c %s /tmp/qwen35-4b.gguf)" == "3013027808" ]]
           echo '13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983  /tmp/qwen35-4b.gguf' | sha256sum -c -
-          /tmp/llama-latest/build/bin/llama-server             --model /tmp/qwen35-4b.gguf             --alias tai-qwen35-4b-q4km             --host 127.0.0.1 --port 18084             --ctx-size 8192 --parallel 1             --threads "$(nproc)" --threads-batch "$(nproc)"             --batch-size 512 --ubatch-size 128             --api-key 'qwen35-latest-readonly-key-1234567890abcdef'             --metrics > /tmp/qwen35-4b-latest.log 2>&1 &
+          /tmp/llama-latest/build/bin/llama-server             --model /tmp/qwen35-4b.gguf             --alias tai-qwen35-4b-q4km             --host 127.0.0.1 --port 18084             --ctx-size 8192 --parallel 1             --threads "$(nproc)" --threads-batch "$(nproc)"             --batch-size 2048 --ubatch-size 2048             --api-key 'qwen35-latest-readonly-key-1234567890abcdef'             --metrics > /tmp/qwen35-4b-latest.log 2>&1 &
           echo "$!" > /tmp/qwen35-latest.pid
           for _ in $(seq 1 180); do
             if curl -fsS -H 'Authorization: Bearer qwen35-latest-readonly-key-1234567890abcdef'               --max-time 2 http://127.0.0.1:18084/health | grep -q '"status":"ok"\|"status":"no slot available"'; then
