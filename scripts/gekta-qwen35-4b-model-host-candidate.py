@@ -671,6 +671,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("action", choices=["prepare", "start", "cleanup", "status", "_watchdog"])
     parser.add_argument("--candidate-key", default="")
+    parser.add_argument("--candidate-key-stdin", action="store_true")
     parser.add_argument("--candidate-pid", type=int, default=0)
     parser.add_argument("--baseline-pid", type=int, default=0)
     args = parser.parse_args()
@@ -688,7 +689,14 @@ def main() -> int:
             if args.action == "prepare":
                 prepare()
             elif args.action == "start":
-                start(args.candidate_key)
+                candidate_key = args.candidate_key
+                if args.candidate_key_stdin:
+                    if candidate_key:
+                        fail("candidate_key_source_ambiguous")
+                    candidate_key = sys.stdin.read(129).strip()
+                    if not candidate_key or sys.stdin.read(1):
+                        fail("candidate_key_stdin_invalid")
+                start(candidate_key)
             elif args.action == "cleanup":
                 cleanup()
             else:
