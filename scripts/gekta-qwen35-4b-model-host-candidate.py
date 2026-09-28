@@ -572,43 +572,6 @@ def stop_candidate_pid(pid: int) -> None:
     if candidate_process_matches(pid):
         fail("candidate_process_survived_sigkill")
 
-def stop_direct_child(proc: subprocess.Popen, pidfd: int | None = None) -> None:
-    """Stop only the unreaped child represented by this Popen handle.
-
-    Before pidfd ownership exists, the child remains an unreaped direct child of
-    this helper, so its PID cannot be recycled to an unrelated process. Once a
-    pidfd exists, all mutating signals use that stable identity instead.
-    """
-    if proc.poll() is not None:
-        return
-
-    def send(sig) -> None:
-        if pidfd is not None:
-            signal.pidfd_send_signal(pidfd, sig, None, 0)
-        else:
-            # Direct-child fallback only for pidfd acquisition failure. Never
-            # use a persisted/stale numeric PID or process-group identifier.
-            proc.send_signal(sig)
-
-    try:
-        send(signal.SIGTERM)
-    except ProcessLookupError:
-        proc.wait(timeout=3)
-        return
-    try:
-        proc.wait(timeout=3)
-        return
-    except subprocess.TimeoutExpired:
-        pass
-    try:
-        send(signal.SIGKILL)
-    except ProcessLookupError:
-        proc.wait(timeout=3)
-        return
-    proc.wait(timeout=3)
-    if proc.poll() is None:
-        fail("direct_child_survived_sigkill")
-
 def stop_candidate() -> None:
     pid = None
     try:
@@ -663,19 +626,7 @@ def launch_watchdog(candidate_pid: int, baseline_pid: int) -> None:
         start_new_session=True,
         close_fds=True,
     )
-    pidfd = None
-    try:
-        if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
-            fail("pidfd_signal_unavailable")
-        pidfd = os.pidfd_open(proc.pid, 0)
-        write_pid(WATCHDOG_PID_PATH, proc.pid)
-    except Exception:
-        stop_direct_child(proc, pidfd)
-        WATCHDOG_PID_PATH.unlink(missing_ok=True)
-        raise
-    finally:
-        if pidfd is not None:
-            os.close(pidfd)
+    write_pid(WATCHDOG_PID_PATH, proc.pid)
 
 def watchdog(candidate_pid: int, baseline_pid: int) -> int:
     deadline = time.monotonic() + LEASE_SECONDS
@@ -803,23 +754,49 @@ def start(candidate_key: str) -> None:
     if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
         fail("pidfd_signal_unavailable")
 
-    proc = subprocess.Popen(
-        [nice, "-n", "10", ionice, "-c", "3", *[os.fsdecode(item) for item in argv]],
-        stdin=subprocess.DEVNULL,
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        env=env,
-        cwd="/",
-        start_new_session=True,
-        close_fds=True,
-    )
+    candidate_argv = [nice, "-n", "10", ionice, "-c", "3", *[os.fsdecode(item) for item in argv]]
+    guard_read, guard_write = os.pipe()
+    os.set_inheritable(guard_read, True)
+    guard_env = dict(env)
+    guard_env["QWEN35_GUARDED_ARGV_JSON"] = json.dumps(candidate_argv, separators=(",", ":"))
+    proc = None
     initial_pidfd = None
-    watchdog_started = False
+    released = False
     try:
-        # All post-Popen setup is inside this cleanup boundary. A failure in
-        # pidfd acquisition, PID persistence, watchdog startup or readiness can
-        # never return while this direct child remains alive.
-        initial_pidfd = os.pidfd_open(proc.pid, 0)
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                str(pathlib.Path(__file__).resolve()),
+                "_candidate_exec_guard",
+                "--candidate-guard-fd",
+                str(guard_read),
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            env=guard_env,
+            cwd="/",
+            start_new_session=True,
+            close_fds=True,
+            pass_fds=(guard_read,),
+        )
+        os.close(guard_read)
+        guard_read = -1
+
+        try:
+            initial_pidfd = os.pidfd_open(proc.pid, 0)
+        except OSError:
+            fail("candidate_pidfd_setup_failed")
+
+        write_pid(PID_PATH, proc.pid)
+        launch_watchdog(proc.pid, state["pid"])
+
+        if os.write(guard_write, b"G") != 1:
+            fail("candidate_guard_release_failed")
+        os.close(guard_write)
+        guard_write = -1
+        released = True
+
         identity_deadline = time.monotonic() + 5
         while time.monotonic() < identity_deadline and process_alive(proc.pid):
             if candidate_process_matches(proc.pid):
@@ -828,13 +805,10 @@ def start(candidate_key: str) -> None:
         if not candidate_process_matches(proc.pid):
             fail("candidate_identity_not_established")
         require_isolated_candidate_group(proc.pid)
+
         live_argv = [item for item in pathlib.Path("/proc/%d/cmdline" % proc.pid).read_bytes().split(b"\0") if item]
         if flag_hits(live_argv, ALIASES["api_key"]):
             fail("candidate_key_present_in_cmdline")
-
-        write_pid(PID_PATH, proc.pid)
-        launch_watchdog(proc.pid, state["pid"])
-        watchdog_started = True
 
         wait_candidate(proc.pid, candidate_key, state)
         if proc_kb(proc.pid, "VmSwap") != 0:
@@ -845,18 +819,52 @@ def start(candidate_key: str) -> None:
         if not baseline_matches_state(state) or not baseline_runtime_healthy():
             fail("baseline_not_healthy_with_candidate")
     except Exception:
-        # Keep the reliable direct child handle until cleanup is complete. If
-        # pidfd_open itself failed, the unreaped direct-child relationship
-        # prevents PID reuse; otherwise the stable pidfd is used.
-        stop_direct_child(proc, initial_pidfd)
-        if watchdog_started or WATCHDOG_PID_PATH.exists():
+        if guard_write >= 0:
+            try:
+                os.close(guard_write)
+            except OSError:
+                pass
+            guard_write = -1
+        if guard_read >= 0:
+            try:
+                os.close(guard_read)
+            except OSError:
+                pass
+            guard_read = -1
+        if proc is not None:
+            if released and initial_pidfd is not None:
+                try:
+                    stop_owned_child(proc, initial_pidfd)
+                except Exception:
+                    pass
+            else:
+                try:
+                    proc.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    pass
+        try:
             stop_watchdog()
+        except Exception:
+            pass
         PID_PATH.unlink(missing_ok=True)
-        verify_listener_absent()
+        try:
+            verify_listener_absent()
+        except Exception:
+            pass
         raise
     finally:
         if initial_pidfd is not None:
             os.close(initial_pidfd)
+        if guard_write >= 0:
+            try:
+                os.close(guard_write)
+            except OSError:
+                pass
+        if guard_read >= 0:
+            try:
+                os.close(guard_read)
+            except OSError:
+                pass
 
     emit("NONROOT_PARALLEL", 1)
     emit("START", "PASS")
