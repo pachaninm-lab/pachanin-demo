@@ -133,6 +133,7 @@ jobs:
           import pathlib
           import sys
           import tempfile
+          import time
           from unittest import mock
 
           path = pathlib.Path('scripts/gekta-qwen35-4b-model-host-candidate.py').resolve()
