@@ -38,10 +38,29 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          expected='597c17c730aa263f4ca954b858139d00252dcf67'
-          actual="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
-          [[ "$actual" == "$expected" ]]
+          baseline='06f686d52247ebe7805f1b75d937b2ca8daf8f6f'
+          git fetch --no-tags --depth=200 origin main
+          actual="$(git rev-parse origin/main)"
+          [[ "$actual" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "$baseline^{commit}"
+          git merge-base --is-ancestor "$baseline" "$actual"
+          if ! git diff --quiet "$baseline" "$actual" -- \
+            apps/api/src/modules/ai-insights \
+            apps/web/app/api/agro-chat \
+            apps/web/lib/platform-v7/tai-internal-stream.ts \
+            apps/tai/tai/production_model_supervisor.py \
+            scripts/gekta-production-request-path-diagnostic.sh; then
+            echo 'QWEN35_GEKTA_RELEVANT_MAIN_DRIFT=1' >&2
+            git diff --name-only "$baseline" "$actual" -- \
+              apps/api/src/modules/ai-insights \
+              apps/web/app/api/agro-chat \
+              apps/web/lib/platform-v7/tai-internal-stream.ts \
+              apps/tai/tai/production_model_supervisor.py \
+              scripts/gekta-production-request-path-diagnostic.sh >&2
+            exit 42
+          fi
           echo "QWEN35_LATEST_MAIN_EXACT=$actual"
+          echo 'QWEN35_GEKTA_RELEVANT_MAIN_DRIFT=0'
           pnpm install --frozen-lockfile --filter @pc/api...
 
       - name: Build pinned latest llama.cpp candidate runtime
