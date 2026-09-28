@@ -59,6 +59,7 @@ CANDIDATE_DIR = BASE_DIR / "models"
 STATE_DIR = BASE_DIR / "state"
 CANDIDATE_PATH = CANDIDATE_DIR / ("qwen35-4b-q4-k-m-" + CANDIDATE_SHA256[:12] + ".gguf")
 PID_PATH = STATE_DIR / "candidate.pid"
+CANDIDATE_IDENTITY_PATH = STATE_DIR / "candidate-identity.json"
 WATCHDOG_PID_PATH = STATE_DIR / "watchdog.pid"
 STATE_PATH = STATE_DIR / "baseline-state.json"
 LOG_PATH = STATE_DIR / "candidate.log"
@@ -408,6 +409,57 @@ def write_pid(path: pathlib.Path, pid: int) -> None:
     path.write_text("%d\n" % pid, encoding="ascii")
     os.chmod(path, 0o600)
 
+def boot_id() -> str:
+    try:
+        value = pathlib.Path("/proc/sys/kernel/random/boot_id").read_text(encoding="ascii").strip().lower()
+    except OSError:
+        fail("candidate_boot_id_missing")
+    if not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", value):
+        fail("candidate_boot_id_invalid")
+    return value
+
+def process_start_time(pid: int) -> int:
+    try:
+        raw = pathlib.Path("/proc/%d/stat" % pid).read_text(encoding="ascii", errors="replace")
+    except FileNotFoundError:
+        fail("candidate_process_stat_missing")
+    try:
+        _, tail = raw.rsplit(")", 1)
+        fields = tail.strip().split()
+        value = int(fields[19])
+    except (ValueError, IndexError):
+        fail("candidate_process_stat_invalid")
+    if value <= 0:
+        fail("candidate_process_starttime_invalid")
+    return value
+
+def write_candidate_identity(pid: int) -> None:
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    os.chmod(STATE_DIR, 0o700)
+    identity = {"bootId": boot_id(), "pid": pid, "startTime": process_start_time(pid)}
+    tmp = CANDIDATE_IDENTITY_PATH.with_suffix(".tmp")
+    tmp.write_text(json.dumps(identity, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, CANDIDATE_IDENTITY_PATH)
+
+def read_candidate_identity() -> dict:
+    try:
+        identity = json.loads(CANDIDATE_IDENTITY_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        fail("candidate_recovery_identity_invalid")
+    if (
+        not isinstance(identity, dict)
+        or set(identity) != {"bootId", "pid", "startTime"}
+        or not isinstance(identity["bootId"], str)
+        or not isinstance(identity["pid"], int)
+        or not isinstance(identity["startTime"], int)
+        or identity["pid"] <= 0
+        or identity["startTime"] <= 0
+        or identity["bootId"] != boot_id()
+    ):
+        fail("candidate_recovery_identity_invalid")
+    return identity
+
 def process_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
@@ -511,6 +563,38 @@ def wait_pidfd_exit(pidfd: int, timeout_seconds: float) -> bool:
     poller = select.poll()
     poller.register(pidfd, select.POLLIN | select.POLLHUP | select.POLLERR)
     return bool(poller.poll(max(0, int(timeout_seconds * 1000))))
+
+def open_recovery_pidfd(identity: dict):
+    if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
+        fail("pidfd_signal_unavailable")
+    pid = identity["pid"]
+    try:
+        fd = os.pidfd_open(pid, 0)
+    except ProcessLookupError:
+        return None
+    try:
+        if pidfd_exited(fd):
+            return fd
+        if process_start_time(pid) != identity["startTime"]:
+            fail("candidate_recovery_identity_mismatch")
+        return fd
+    except Exception:
+        os.close(fd)
+        raise
+
+def recovery_process_active() -> bool:
+    if not CANDIDATE_IDENTITY_PATH.exists():
+        if PID_PATH.exists():
+            fail("candidate_recovery_identity_missing")
+        return False
+    identity = read_candidate_identity()
+    fd = open_recovery_pidfd(identity)
+    if fd is None:
+        return False
+    try:
+        return not pidfd_exited(fd)
+    finally:
+        os.close(fd)
 
 def stop_pidfd_owned_process(pidfd: int) -> None:
     if pidfd_exited(pidfd):
@@ -630,15 +714,21 @@ def stop_candidate_pid(pid: int) -> None:
         os.close(fd)
 
 def stop_candidate() -> None:
-    if not PID_PATH.exists():
+    if not CANDIDATE_IDENTITY_PATH.exists():
+        if PID_PATH.exists():
+            fail("candidate_recovery_identity_missing")
+        return
+    identity = read_candidate_identity()
+    fd = open_recovery_pidfd(identity)
+    if fd is None:
         return
     try:
-        raw = PID_PATH.read_text(encoding="ascii").strip()
-    except OSError:
-        fail("candidate_pid_record_unreadable")
-    if not re.fullmatch(r"[1-9][0-9]*", raw):
-        fail("candidate_pid_record_invalid")
-    stop_candidate_pid(int(raw))
+        if not pidfd_exited(fd):
+            stop_pidfd_owned_process(fd)
+        if not pidfd_exited(fd):
+            fail("candidate_recovery_process_alive")
+    finally:
+        os.close(fd)
 
 def stop_watchdog() -> None:
     fd = None
@@ -869,14 +959,13 @@ def start(candidate_key: str) -> None:
         fail("candidate_artifact_missing")
     if CANDIDATE_PATH.stat().st_size != CANDIDATE_SIZE or sha_file(CANDIDATE_PATH) != CANDIDATE_SHA256:
         fail("candidate_artifact_mismatch")
-    if PID_PATH.exists():
-        try:
-            old_pid = int(PID_PATH.read_text(encoding="ascii").strip())
-        except Exception:
-            old_pid = 0
-        if old_pid and candidate_process_matches(old_pid):
+    if PID_PATH.exists() or CANDIDATE_IDENTITY_PATH.exists():
+        if recovery_process_active():
             fail("candidate_already_active")
+        verify_listener_absent()
+        stop_watchdog()
         PID_PATH.unlink(missing_ok=True)
+        CANDIDATE_IDENTITY_PATH.unlink(missing_ok=True)
     state, exe, argv, env = snapshot_baseline()
     ensure_start_capacity(state)
     save_state(state)
@@ -934,6 +1023,7 @@ def start(candidate_key: str) -> None:
         except OSError:
             fail("candidate_pidfd_setup_failed")
 
+        write_candidate_identity(proc.pid)
         write_pid(PID_PATH, proc.pid)
         watchdog_pidfd = launch_watchdog(proc.pid, state["pid"])
 
@@ -997,6 +1087,7 @@ def start(candidate_key: str) -> None:
             verify_listener_absent()
             stop_watchdog()
             PID_PATH.unlink(missing_ok=True)
+            CANDIDATE_IDENTITY_PATH.unlink(missing_ok=True)
         except Exception as cleanup_error:
             raise CandidateError("candidate_start_cleanup_failed") from cleanup_error
         raise start_error
@@ -1031,8 +1122,9 @@ def cleanup() -> None:
     state = load_state()
     stop_candidate()
     verify_listener_absent()
-    PID_PATH.unlink(missing_ok=True)
     stop_watchdog()
+    PID_PATH.unlink(missing_ok=True)
+    CANDIDATE_IDENTITY_PATH.unlink(missing_ok=True)
     if not baseline_matches_state(state):
         fail("baseline_changed_after_candidate")
     if not baseline_runtime_healthy():
@@ -1054,12 +1146,11 @@ def status() -> None:
     except Exception:
         baseline = 0
     candidate = 0
-    if PID_PATH.exists():
+    if PID_PATH.exists() or CANDIDATE_IDENTITY_PATH.exists():
         try:
-            pid = int(PID_PATH.read_text(encoding="ascii").strip())
-            candidate = int(owned_candidate_process_matches(pid))
+            candidate = int(recovery_process_active())
         except Exception:
-            candidate = 0
+            candidate = 1
     emit("BASELINE_ACTIVE", baseline)
     emit("BASELINE_UNCHANGED", unchanged)
     emit("CANDIDATE_ACTIVE", candidate)
