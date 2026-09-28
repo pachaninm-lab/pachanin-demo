@@ -1,6 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
+import { runInNewContext } from 'node:vm';
+import { createElement, type ReactElement, type ReactNode } from 'react';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import type { FirstCustomerWorkspaceSnapshot } from '@/lib/first-customer-workspace-server';
 
 const repoRoot = path.resolve(process.cwd(), '../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
@@ -98,6 +104,28 @@ describe('Design System v8 money role reference slice', () => {
     expect(bank).toContain('Ручная кнопка не может заменить банковскую проверку и подтверждённый callback');
   });
 
+  it('shows the bank Deal queue as navigation with unknown provider and settlement facts', () => {
+    expect(firstCustomerWorkspace).toContain("surface === 'bank' ? copy.bankDescription");
+    expect(firstCustomerWorkspace).toContain("surface === 'bank' ? copy.bankQueueReady : copy.ready");
+    expect(firstCustomerWorkspace).toContain("surface === 'bank' && !workspace.ownerControlled && state === 'ready'");
+    expect(firstCustomerWorkspace).toContain("surface === 'bank' && !workspace.ownerControlled ? copy.bankQueueDetail : item.nextAction || copy.noNext");
+    expect(firstCustomerWorkspace).toContain("surface === 'bank' && !workspace.ownerControlled ? (");
+    expect(firstCustomerWorkspace).toContain('bankUnknownTitle');
+    expect(firstCustomerWorkspaceCss).toContain('.bankQueueNote');
+    expect(firstCustomerWorkspaceCss).not.toMatch(forbiddenPresentation);
+    for (const phrase of [
+      'Сервер проверяет роль банковского кабинета и доступ к сделкам',
+      'The server checks the bank cabinet role and access to Deals',
+      '服务器会核查银行工作台角色和交易访问权限',
+      'Банковские факты — UNKNOWN',
+      'Bank facts — UNKNOWN',
+      '银行事实 — UNKNOWN',
+      'Открыть сделку для проверки серверных фактов',
+      'Open the Deal to check server facts',
+      '打开交易并核查服务器事实',
+    ]) expect(firstCustomerWorkspace).toContain(phrase);
+  });
+
   it('enforces 48px controls and accessible display modes', () => {
     expect(cockpitCss).toContain('min-height: var(--ds-control-height)');
     expect(cockpitCss).toContain(':focus-visible');
@@ -112,6 +140,140 @@ describe('Design System v8 money role reference slice', () => {
       'apps/web/app/platform-v7/buyer/page.tsx',
       'apps/web/app/platform-v7/bank/page.tsx',
     ]));
+  });
+});
+
+// This package is deliberately outside pnpm-workspace.yaml. Render the actual
+// workspace source with bounded presentation stubs so the governed CI job can
+// test bank state decisions without relying on a local node_modules symlink.
+async function renderBankWorkspace(snapshot: FirstCustomerWorkspaceSnapshot) {
+  const compiled = ts.transpileModule(firstCustomerWorkspace, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      jsx: ts.JsxEmit.ReactJSX,
+      target: ts.ScriptTarget.ES2022,
+      esModuleInterop: true,
+    },
+  }).outputText;
+  const withChildren = (tag: 'div' | 'section' | 'span', props: { children?: ReactNode }) =>
+    createElement(tag, null, props.children);
+  const cockpit = {
+    OperationalDecisionCockpit: ({ testId, statusLabel, priority, children }: {
+      testId: string; statusLabel: string;
+      priority: { title: string; result?: string; primaryAction?: ReactNode }; children: ReactNode;
+    }) => createElement('main', { 'data-testid': testId },
+      createElement('span', null, statusLabel), createElement('h2', null, priority.title),
+      createElement('span', null, priority.result), priority.primaryAction, children),
+    OperationalCockpitSection: ({ id, children }: { id?: string; children: ReactNode }) =>
+      createElement('section', { id }, children),
+    OperationalQueue: (props: { children: ReactNode }) => withChildren('div', props),
+    OperationalQueueLink: ({ href, title, detail, status }: { href: string; title: string; detail: string; status: ReactNode }) =>
+      createElement('a', { href }, createElement('strong', null, title), createElement('span', null, detail), status),
+    operationalCockpitClasses: { primaryLink: 'primaryLink', secondaryLink: 'secondaryLink' },
+  };
+  const dependencies: Record<string, unknown> = {
+    'next/link': ({ href, children }: { href: string; children: ReactNode }) => createElement('a', { href }, children),
+    'next-intl/server': { getLocale: async () => 'ru' },
+    './FirstCustomerWorkspace.module.css': { buyerQueueNote: 'buyerQueueNote', bankQueueNote: 'bankQueueNote' },
+    '@pc/design-system-v8': {
+      StatusChip: (props: { children: ReactNode }) => withChildren('span', props),
+      InlineNotice: ({ title, children }: { title: string; children: ReactNode }) =>
+        createElement('div', null, createElement('strong', null, title), children),
+    },
+    '@/components/transaction-ux/OperationalDecisionCockpit': cockpit,
+    '@/lib/first-customer-workspace-server': { getFirstCustomerWorkspace: async () => snapshot },
+  };
+  const nativeRequire = createRequire(import.meta.url);
+  const runtimeModule: { exports: Record<string, unknown> } = { exports: {} };
+  const requireWorkspaceDependency = (specifier: string) => {
+    if (specifier === 'react/jsx-runtime') return nativeRequire(specifier);
+    if (Object.hasOwn(dependencies, specifier)) return dependencies[specifier];
+    throw new Error(`Unexpected workspace import: ${specifier}`);
+  };
+  runInNewContext(compiled, {
+    exports: runtimeModule.exports,
+    module: runtimeModule,
+    require: requireWorkspaceDependency,
+  }, { filename: 'FirstCustomerWorkspace.tsx' });
+  const workspace = runtimeModule.exports.FirstCustomerWorkspace as
+    (props: { surface: 'bank' }) => Promise<ReactElement>;
+  render(await workspace({ surface: 'bank' }));
+}
+
+const bankErrorSnapshot: FirstCustomerWorkspaceSnapshot = {
+  available: false,
+  forbidden: true,
+  ownerControlled: false,
+  correlationId: 'bank-error-correlation',
+  profile: {
+    available: true, id: 'bank-test-user', email: 'bank@example.test', role: 'ACCOUNTING', surfaceRole: 'bank',
+    orgId: 'bank-test-org', tenantId: 'bank-test-tenant', membershipId: 'bank-test-membership',
+    isOrgAdmin: false, fullName: 'Bank Test', mfaVerified: true, mfaVerifiedAt: '2026-09-27T00:00:00.000Z',
+  },
+  organization: {
+    available: true, organizationId: 'bank-test-org', tenantId: 'bank-test-tenant',
+    currentMembershipId: 'bank-test-membership', organizationName: 'Bank Test Organization',
+    currentRole: 'ACCOUNTING', isOrganizationAdmin: false, hasFreshMfa: true, members: [],
+  },
+  items: [],
+};
+
+describe('bank first-customer failure states', () => {
+  it('uses a server-shaped Deal snapshot as navigation without turning its nextAction into a bank instruction', async () => {
+    await renderBankWorkspace({
+      ...bankErrorSnapshot,
+      available: true,
+      forbidden: false,
+      correlationId: null,
+      items: [{
+        id: 'deal-bank-42', dealId: 'deal-bank-42', status: 'DOCUMENTS_PENDING',
+        nextAction: 'Серверная подсказка строки, не решение банка',
+        href: '/platform-v7/deals/deal-bank-42/execution',
+      }],
+    });
+    expect(screen.getByText('очередь сделок доступна')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Следующее обязательное действие не опубликовано' })).toBeInTheDocument();
+    expect(screen.getByText('UNKNOWN', { exact: true })).toBeInTheDocument();
+    const deal = screen.getByRole('link', { name: /deal-bank-42/ });
+    expect(deal).toHaveAttribute('href', '/platform-v7/deals/deal-bank-42/execution');
+    expect(deal).toHaveTextContent('Открыть сделку для проверки серверных фактов');
+    expect(screen.queryByText('Серверная подсказка строки, не решение банка')).not.toBeInTheDocument();
+    expect(screen.getByText('Банковские факты — UNKNOWN')).toBeInTheDocument();
+  });
+
+  it('preserves the controlled owner self-link instead of describing it as a Deal', async () => {
+    const ownerNext = 'Открыть полный рабочий раздел кабинета. Боевые записи не изменяются.';
+    await renderBankWorkspace({
+      ...bankErrorSnapshot,
+      available: true,
+      forbidden: false,
+      ownerControlled: true,
+      correlationId: null,
+      profile: { ...bankErrorSnapshot.profile, role: 'PLATFORM_OWNER' },
+      items: [{
+        id: 'OWNER-BANK-CONTROLLED', dealId: null, status: 'CONTROLLED_TEST',
+        nextAction: ownerNext, href: '/platform-v7/bank',
+      }],
+    });
+    const ownerLink = screen.getByRole('link', { name: /OWNER-BANK-CONTROLLED/ });
+    expect(ownerLink).toHaveAttribute('href', '/platform-v7/bank');
+    expect(ownerLink).toHaveTextContent(ownerNext);
+    expect(ownerLink).not.toHaveTextContent('Открыть сделку для проверки серверных фактов');
+    expect(screen.queryByText('Банковские факты — UNKNOWN')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { forbidden: true, status: 'доступ запрещён', title: 'Роль не соответствует кабинету' },
+    { forbidden: false, status: 'серверная очередь недоступна', title: 'Не подменять недоступный backend' },
+  ])('keeps $title explicit without making a bank decision', async ({ forbidden, status, title }) => {
+    await renderBankWorkspace({ ...bankErrorSnapshot, forbidden });
+
+    expect(screen.getAllByText(status, { exact: true }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: title })).toBeInTheDocument();
+    expect(screen.getByText('Банковские факты — UNKNOWN')).toBeInTheDocument();
+    expect(screen.getByText(/Correlation ID: bank-error-correlation/)).toBeInTheDocument();
+    expect(screen.queryByText('очередь сделок доступна')).not.toBeInTheDocument();
+    expect(screen.queryByText('Сбер')).not.toBeInTheDocument();
   });
 });
 

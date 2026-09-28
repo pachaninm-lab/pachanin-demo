@@ -148,14 +148,18 @@ describe('platform-v7 role intent dashboard', () => {
     }
   });
 
-  it('mounts the verified buyer server page instead of replacing it at the buyer root', () => {
+  it('mounts verified buyer and bank server pages at their own roots', () => {
     const shell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
     const buyerPage = read('apps/web/app/platform-v7/buyer/page.tsx');
+    const bankPage = read('apps/web/app/platform-v7/bank/page.tsx');
 
     expect(shell).toContain("normalizedPath === '/platform-v7/buyer' && verifiedRole === 'buyer'");
-    expect(shell).toMatch(/:\s*buyerServerHome\s*\?\s*children\s*:\s*<RoleIntentDashboard role=\{verifiedRole\} \/>/);
+    expect(shell).toContain("normalizedPath === '/platform-v7/bank' && verifiedRole === 'bank'");
+    expect(shell).toMatch(/ownerPreview[\s\S]*:\s*serverScopedHome\s*\?\s*children\s*:\s*<RoleIntentDashboard role=\{verifiedRole\} \/>/);
     expect(buyerPage).toContain("return <FirstCustomerWorkspace surface='buyer' />");
     expect(buyerPage).toContain('firstCustomerWorkspaceRequired()');
+    expect(bankPage).toContain("return <FirstCustomerWorkspace surface='bank' />");
+    expect(bankPage).toContain('firstCustomerWorkspaceRequired()');
   });
 
   it('scales the Today queue without hiding or replacing the primary deal', () => {
