@@ -257,6 +257,15 @@ describe('StreamingAnswerGate', () => {
     expect(doseGate.emitted).not.toContain('0,4 л/га');
     expect(doseGate.emitted).toContain('уточните регион');
 
+    const namedDoseGate = generalGate();
+    expect(namedDoseGate.push('Для защиты яблони используйте Альто Супер в период повышенного риска ' ).text).toBe('');
+    const namedDoseVerdict = namedDoseGate.push('в дозе 0,4 л/га. Сначала уточните регион и диагноз. ');
+    namedDoseGate.flush();
+    expect(namedDoseVerdict.flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    expect(namedDoseGate.emitted).not.toContain('Альто Супер');
+    expect(namedDoseGate.emitted).not.toContain('0,4 л/га');
+    expect(namedDoseGate.emitted).toContain('уточните регион');
+
     const intervalGate = generalGate();
     expect(intervalGate.push('Фунгицид X: повтор обработки ' ).text).toBe('');
     const intervalVerdict = intervalGate.push('через 10 дней. Осмотрите динамику пятен. ');

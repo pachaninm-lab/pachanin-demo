@@ -38,6 +38,7 @@ describe('restricted public crop-protection prescription boundary', () => {
     expect(safe).not.toMatch(/л\/га/u);
     expect(safe).toContain('уточните регион');
     expect(flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    expect(isUngroundedCropProtectionPrescription('Используйте Альто Супер 0,4 л/га.')).toBe(true);
   });
 
   it('removes exact crop-protection repeat intervals and keeps non-chemical monitoring advice', () => {
@@ -59,7 +60,11 @@ describe('restricted public crop-protection prescription boundary', () => {
     expect(currentEvidenceVerdict('Сейчас лучше покупать.')).toBe(false);
     expect(currentEvidenceVerdict('Цена может быть ниже рыночной.')).toBe(false);
     expect(currentEvidenceVerdict('Market price may be lower next week.')).toBe(false);
+    expect(currentEvidenceVerdict('Цена ниже рынка.')).toBe(false);
+    expect(currentEvidenceVerdict('Сейчас рынок стабилен.')).toBe(false);
+    expect(currentEvidenceVerdict('Demand is high today.')).toBe(false);
     expect(currentEvidenceVerdict('Сравните текущую оферту с подтверждённой котировкой.')).toBe(true);
+    expect(currentEvidenceVerdict('Перечислите факторы, которые обычно влияют на цену.')).toBe(true);
   });
 
   it('rejects ungrounded platform automation while preserving an explicit non-automation boundary', () => {

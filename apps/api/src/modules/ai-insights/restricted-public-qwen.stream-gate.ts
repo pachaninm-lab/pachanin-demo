@@ -19,6 +19,7 @@
  * ended. Those run at flush, where they are appends rather than retractions.
  */
 import {
+  CROP_PROTECTION_NAMED_PRODUCT_PRELUDE_PATTERN,
   CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN,
   currentEvidenceVerdict,
   groundingAuthority,
@@ -351,6 +352,7 @@ export class StreamingAnswerGate {
         ? `${this.progressiveSafetyContext}${this.progressiveJoiner}${head}`
         : head;
       if (CROP_PROTECTION_PRESCRIPTION_PRELUDE_PATTERN.test(candidate)
+        || CROP_PROTECTION_NAMED_PRODUCT_PRELUDE_PATTERN.test(candidate)
         || (this.options.locale === 'zh' && CHINESE_PRESCRIPTION_PREFIX.test(candidate))) return EMPTY_COMMIT;
     }
 
