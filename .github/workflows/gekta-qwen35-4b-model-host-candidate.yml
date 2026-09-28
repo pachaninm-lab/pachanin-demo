@@ -67,6 +67,10 @@ jobs:
           grep -Fq 'open_owned_candidate_pidfd' "$helper"
           grep -Fq 'candidate_owned_identity_unrecognized' "$helper"
           grep -Fq 'CANDIDATE_IDENTITY_PATH' "$helper"
+          grep -Fq 'write_candidate_identity' "$helper"
+          grep -Fq 'candidate_recovery_identity_mismatch' "$helper"
+          grep -Fq 'candidate_recovery_identity_missing' "$helper"
+          grep -Fq 'CANDIDATE_IDENTITY_PATH' "$helper"
           grep -Fq 'write_candidate_identity(proc.pid)' "$helper"
           grep -Fq 'candidate_recovery_identity_invalid' "$helper"
           grep -Fq 'process_start_time(pid)' "$helper"
@@ -164,6 +168,12 @@ jobs:
                       calls['identity_record'] += 1
                       if stage == 'identity_record':
                           raise OSError('INJECT_IDENTITY_RECORD')
+
+                  def injected_identity_record(pid):
+                      calls['identity_record'] += 1
+                      if stage == 'identity_record':
+                          raise OSError('INJECT_IDENTITY_RECORD')
+                      identity_path.write_text('{"bootId":"review","pid":424242,"startTime":1}\n', encoding='utf-8')
 
                   def injected_pid_record(path, pid):
                       calls['pid_record'] += 1
