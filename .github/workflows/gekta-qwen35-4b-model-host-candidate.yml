@@ -72,7 +72,12 @@ jobs:
           grep -Fq 'env["LLAMA_API_KEY"] = candidate_key' "$helper"
           grep -Fq 'remove_flag(argv, "api_key")' "$helper"
           grep -Fq 'candidate_key_present_in_cmdline' "$helper"
+          grep -Fq 'candidate_key_stdin_required' "$helper"
           grep -Fq -- '--candidate-key-stdin' "$helper"
+          if grep -Fq 'parser.add_argument("--candidate-key"' "$helper"; then
+            echo 'candidate credential argv capability is forbidden' >&2
+            exit 1
+          fi
           if grep -Eq 'subprocess\.(run|Popen)\([^\n]*(sudo|su[[:space:]]+-)' "$helper"; then
             echo 'privileged subprocess capability is forbidden' >&2
             exit 1
