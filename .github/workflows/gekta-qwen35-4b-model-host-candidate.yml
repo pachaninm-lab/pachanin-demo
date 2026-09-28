@@ -143,7 +143,7 @@ jobs:
                   candidate.write_bytes(b'x')
                   proc = FakeProc()
                   release_calls = []
-                  calls = {'pidfd': 0, 'pid_record': 0, 'watchdog': 0}
+                  calls = {'pidfd': 0, 'identity_record': 0, 'pid_record': 0, 'watchdog': 0}
 
                   def track_release(fd, data):
                       release_calls.append((fd, data))
@@ -154,6 +154,11 @@ jobs:
                       if stage == 'pidfd':
                           raise OSError('INJECT_PIDFD')
                       return os.open(os.devnull, os.O_RDONLY)
+
+                  def injected_identity(pid):
+                      calls['identity_record'] += 1
+                      if stage == 'identity_record':
+                          raise OSError('INJECT_IDENTITY_RECORD')
 
                   def injected_pid_record(path, pid):
                       calls['pid_record'] += 1
@@ -167,9 +172,10 @@ jobs:
                       return os.open(os.devnull, os.O_RDONLY)
 
                   expected = {
-                      'pidfd': ('candidate_pidfd_setup_failed', {'pidfd': 1, 'pid_record': 0, 'watchdog': 0}),
-                      'pid_record': ('INJECT_PID_RECORD', {'pidfd': 1, 'pid_record': 1, 'watchdog': 0}),
-                      'watchdog': ('INJECT_WATCHDOG', {'pidfd': 1, 'pid_record': 1, 'watchdog': 1}),
+                      'pidfd': ('candidate_pidfd_setup_failed', {'pidfd': 1, 'identity_record': 0, 'pid_record': 0, 'watchdog': 0}),
+                      'identity_record': ('INJECT_IDENTITY_RECORD', {'pidfd': 1, 'identity_record': 1, 'pid_record': 0, 'watchdog': 0}),
+                      'pid_record': ('INJECT_PID_RECORD', {'pidfd': 1, 'identity_record': 1, 'pid_record': 1, 'watchdog': 0}),
+                      'watchdog': ('INJECT_WATCHDOG', {'pidfd': 1, 'identity_record': 1, 'pid_record': 1, 'watchdog': 1}),
                   }[stage]
 
                   with contextlib.ExitStack() as stack:
@@ -179,6 +185,7 @@ jobs:
                       stack.enter_context(mock.patch.object(module, 'STATE_DIR', root / 'state'))
                       stack.enter_context(mock.patch.object(module, 'LOG_PATH', root / 'candidate.log'))
                       stack.enter_context(mock.patch.object(module, 'PID_PATH', root / 'candidate.pid'))
+                      stack.enter_context(mock.patch.object(module, 'CANDIDATE_IDENTITY_PATH', root / 'candidate-identity.json'))
                       stack.enter_context(mock.patch.object(module, 'WATCHDOG_PID_PATH', root / 'watchdog.pid'))
                       stack.enter_context(mock.patch.object(module, 'require_nonroot', return_value='tai'))
                       stack.enter_context(mock.patch.object(module, 'sha_file', return_value='hash'))
@@ -191,6 +198,7 @@ jobs:
                       stack.enter_context(mock.patch.object(module, 'verify_listener_absent', return_value=None))
                       stack.enter_context(mock.patch.object(module.os, 'write', side_effect=track_release))
                       stack.enter_context(mock.patch.object(module.os, 'pidfd_open', side_effect=injected_pidfd))
+                      stack.enter_context(mock.patch.object(module, 'write_candidate_identity', side_effect=injected_identity))
                       stack.enter_context(mock.patch.object(module, 'write_pid', side_effect=injected_pid_record))
                       stack.enter_context(mock.patch.object(module, 'launch_watchdog', side_effect=injected_watchdog))
                       try:
@@ -208,7 +216,7 @@ jobs:
                   if proc.waits < 1:
                       raise AssertionError(stage + ' guard child was not reaped')
 
-          for stage in ('pidfd', 'pid_record', 'watchdog'):
+          for stage in ('pidfd', 'identity_record', 'pid_record', 'watchdog'):
               run_setup_failure(stage)
 
           # The watchdog must acknowledge pidfd ownership while the process is
