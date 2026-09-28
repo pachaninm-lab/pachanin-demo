@@ -194,6 +194,20 @@ def replace_flag(argv, key, value):
         result[value_index] = value
     return result
 
+def remove_flag(argv, key):
+    result = list(argv)
+    hits = flag_hits(result, ALIASES[key])
+    if len(hits) > 1:
+        fail("flag_cardinality:%s" % key)
+    if not hits:
+        return result
+    token_index, value_index, _, _ = hits[0]
+    if value_index is None:
+        del result[token_index]
+    else:
+        del result[token_index:value_index + 1]
+    return result
+
 def sha_file(path: pathlib.Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -594,7 +608,8 @@ def start(candidate_key: str) -> None:
     argv = replace_flag(argv, "alias", CANDIDATE_ALIAS.encode("utf-8"))
     argv = replace_flag(argv, "host", CANDIDATE_HOST.encode("ascii"))
     argv = replace_flag(argv, "port", str(CANDIDATE_PORT).encode("ascii"))
-    argv = replace_flag(argv, "api_key", candidate_key.encode("ascii"))
+    argv = remove_flag(argv, "api_key")
+    env["LLAMA_API_KEY"] = candidate_key
     for key in ("NOTIFY_SOCKET", "WATCHDOG_PID", "WATCHDOG_USEC", "INVOCATION_ID", "JOURNAL_STREAM"):
         env.pop(key, None)
     nice = shutil.which("nice")
@@ -615,6 +630,14 @@ def start(candidate_key: str) -> None:
         close_fds=True,
     )
     write_pid(PID_PATH, proc.pid)
+    try:
+        live_argv = [item for item in pathlib.Path("/proc/%d/cmdline" % proc.pid).read_bytes().split(b"\0") if item]
+    except FileNotFoundError:
+        stop_candidate_pid(proc.pid)
+        fail("candidate_process_exited_before_identity_check")
+    if flag_hits(live_argv, ALIASES["api_key"]):
+        stop_candidate_pid(proc.pid)
+        fail("candidate_key_present_in_cmdline")
     launch_watchdog(proc.pid, state["pid"])
     try:
         wait_candidate(proc.pid, candidate_key, state)
