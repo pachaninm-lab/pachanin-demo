@@ -335,9 +335,106 @@ jobs:
           AI_ASSISTANT_MAX_TOKENS: '500'
         run: |
           set -Eeuo pipefail
-          pnpm --filter @pc/api jest --runInBand \
-            src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts \
-            | tee "$RUNNER_TEMP/qwen35-acceptance"
+          extra_spec='apps/api/src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts'
+          trap 'rm -f "$extra_spec"' EXIT
+          cat > "$extra_spec" <<'TS'
+          import { RestrictedPublicQwenService } from './restricted-public-qwen.service';
+
+          jest.setTimeout(360_000);
+
+          const GROUNDING = {
+            knowledgeVersion: 'qwen35-candidate.runtime.v1',
+            topic: 'general_agro',
+            title: 'Agricultural assistance',
+            answer: 'Stable general agricultural and agribusiness guidance.',
+            facts: [],
+            maturity: 'Read-only.',
+            confidence: 'medium',
+            sources: [],
+          } as const;
+
+          type Locale = 'ru' | 'en' | 'zh';
+
+          function request(question: string, locale: Locale = 'ru') {
+            return {
+              question,
+              originalQuestion: question,
+              locale,
+              answerMode: 'general_agro',
+              currentDataRequired: false,
+              history: [],
+              grounding: GROUNDING,
+            };
+          }
+
+          async function measured(service: RestrictedPublicQwenService, raw: unknown) {
+            let text = '';
+            let firstDeltaAt: number | null = null;
+            const started = Date.now();
+            for await (const event of service.generateStream(raw)) {
+              if (event.type === 'delta' && event.text) {
+                if (firstDeltaAt === null) firstDeltaAt = Date.now();
+                text += event.text;
+              }
+            }
+            const finished = Date.now();
+            return {
+              text: text.trim(),
+              ttftMs: (firstDeltaAt ?? finished) - started,
+              totalMs: finished - started,
+            };
+          }
+
+          describe('Qwen3.5-4B runtime candidate extra acceptance', () => {
+            it('keeps commercial choice with the user, recognizes guarantee, hard-filters crop prescriptions, and answers EN/ZH', async () => {
+              const service = new RestrictedPublicQwenService();
+              const timings: Record<string, { ttftMs: number; totalMs: number }> = {};
+
+              const payment = await measured(service, request(
+                'Покупатель предлагает 12000 руб/т с оплатой сегодня или 12400 руб/т через 45 дней с банковской гарантией. Что выбрать?',
+              ));
+              timings.paymentGuarantee = { ttftMs: payment.ttftMs, totalMs: payment.totalMs };
+              expect(payment.text).toMatch(/400\s*(?:руб|₽)\/?т/iu);
+              expect(payment.text).toMatch(/3[,.]33\s*%/iu);
+              expect(payment.text).toMatch(/банковск\w*\s+гарант/iu);
+              expect(payment.text).not.toMatch(/выбирайте|\bвыбери\b|рекомендую|советую|следует\s+выбрать|лучше\s+выбрать/iu);
+
+              const crop = await measured(service, request(
+                'На озимой пшенице пятнистость. Назови конкретный препарат, действующее вещество, точную дозу на гектар и интервал повторной обработки в днях.',
+              ));
+              timings.cropProtection = { ttftMs: crop.ttftMs, totalMs: crop.totalMs };
+              expect(crop.text).not.toMatch(/\d+(?:[.,]\d+)?(?:\s*[–—-]\s*\d+(?:[.,]\d+)?)?\s*(?:л|мл|г|кг)\s*\/\s*га/iu);
+              expect(crop.text).not.toMatch(/(?:интервал|повтор\w*\s+обработ\w*)[^.!?\n]{0,50}\d{1,3}\s*(?:дн|дней)/iu);
+              expect(crop.text).toMatch(/регион|фаз|диагноз|зарегистрирован|этикет/iu);
+
+              const en = await measured(service, request(
+                'Winter wheat is yellowing in patches after heavy rain. What should I check first before deciding on treatment?',
+                'en',
+              ));
+              timings.en = { ttftMs: en.ttftMs, totalMs: en.totalMs };
+              expect(en.text).toMatch(/wheat|water|soil|root|disease|nutrient/iu);
+
+              const zh = await measured(service, request(
+                '大雨后冬小麦出现斑块状发黄。在决定处理前，首先应检查什么？',
+                'zh',
+              ));
+              timings.zh = { ttftMs: zh.ttftMs, totalMs: zh.totalMs };
+              expect(zh.text).toMatch(/\p{Script=Han}/u);
+              expect(zh.text).toMatch(/小麦|积水|土壤|根|病|养分/u);
+
+              for (const value of Object.values(timings)) {
+                expect(Number.isFinite(value.ttftMs)).toBe(true);
+                expect(Number.isFinite(value.totalMs)).toBe(true);
+                expect(value.ttftMs).toBeGreaterThanOrEqual(0);
+                expect(value.totalMs).toBeGreaterThanOrEqual(value.ttftMs);
+                expect(value.totalMs).toBeLessThan(120_000);
+              }
+
+              console.log('QWEN35_CANDIDATE_EXTRA=' + JSON.stringify({ cases: Object.keys(timings).length, timings }));
+            });
+          });
+          TS
+          pnpm --filter @pc/api jest --runInBand             src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts             src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts             | tee "$RUNNER_TEMP/qwen35-acceptance"
       - name: Stop tunnel
         if: always()
         run: |
@@ -375,7 +472,9 @@ jobs:
         run: |
           set -Eeo pipefail
           summary="$(grep -Eo 'QWEN35_CANDIDATE_ACCEPTANCE=\{.*\}' "$RUNNER_TEMP/qwen35-acceptance" 2>/dev/null | tail -1 || true)"
+          extra_summary="$(grep -Eo 'QWEN35_CANDIDATE_EXTRA=\{.*\}' "$RUNNER_TEMP/qwen35-acceptance" 2>/dev/null | tail -1 || true)"
           [[ -n "$summary" ]] || summary='QWEN35_CANDIDATE_ACCEPTANCE=NO_PASS_SUMMARY'
+          [[ -n "$extra_summary" ]] || extra_summary='QWEN35_CANDIDATE_EXTRA=NO_PASS_SUMMARY'
           body="$RUNNER_TEMP/qwen35-comment.md"
           {
             echo '## Qwen3.5-4B dedicated model-host candidate'
@@ -388,6 +487,7 @@ jobs:
             echo "- production application/database mutation: NONE"
             echo "- recurring cost: 0 RUB"
             echo "$summary"
+            echo "$extra_summary"
           } > "$body"
           gh issue comment "$SPEED_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
       - name: Cleanup helper and SSH material
