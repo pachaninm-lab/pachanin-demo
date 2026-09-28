@@ -97,6 +97,7 @@ jobs:
           grep -Fq 'candidate_watchdog_ready_timeout' "$helper"
           grep -Fq 'candidate_watchdog_arm_failed' "$helper"
           grep -Fq 'candidate_guard_exited_before_release' "$helper"
+          grep -Fq 'candidate_guard_or_exec_exited' "$helper"
           grep -Fq 'pidfd_exited(watchdog_pidfd)' "$helper"
           if grep -Fq 'os.killpg' "$helper"; then
             echo 'numeric process-group signaling is forbidden' >&2
@@ -581,30 +582,46 @@ jobs:
                   if module.candidate_exec_guard(read_fd) != 81:
                       raise AssertionError('guard EOF did not fail closed')
 
-          # Valid argv is prevalidated before spawn, but the child stays inert
-          # until G. Once G arrives the same guarded argv reaches exec.
+          # Valid argv is prevalidated semantically in both llama.cpp flag
+          # spellings. The child stays inert until G, then the same argv reaches
+          # exec without normalizing or rewriting the baseline token form.
           with tempfile.TemporaryDirectory() as tmp:
               candidate = pathlib.Path(tmp) / 'candidate.gguf'
               candidate.write_bytes(b'x')
-              guarded = [
+              split_guarded = [
                   '/bin/true', '--model', str(candidate), '--alias', module.CANDIDATE_ALIAS,
               ]
+              joined_guarded = [
+                  '/bin/true', '--model=' + str(candidate), '--alias=' + module.CANDIDATE_ALIAS,
+              ]
               with mock.patch.object(module, 'CANDIDATE_PATH', candidate):
-                  if module.candidate_exec_argv_status(guarded) != 0:
-                      raise AssertionError('valid guarded argv failed prevalidation')
-                  read_fd, write_fd = os.pipe()
-                  os.write(write_fd, b'G')
-                  os.close(write_fd)
-                  with mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': __import__('json').dumps(guarded)}, clear=False), \
-                       mock.patch.object(module.os, 'nice', return_value=module.CANDIDATE_NICE_DELTA), \
-                       mock.patch.object(module.os, 'execvpe', side_effect=RuntimeError('EXEC_REACHED')):
-                      try:
-                          module.candidate_exec_guard(read_fd)
-                      except RuntimeError as exc:
-                          if str(exc) != 'EXEC_REACHED':
-                              raise
-                      else:
-                          raise AssertionError('guard release did not reach exec')
+                  for guarded in (split_guarded, joined_guarded):
+                      if module.candidate_exec_argv_status(guarded) != 0:
+                          raise AssertionError('valid guarded argv failed semantic prevalidation: ' + repr(guarded))
+                      read_fd, write_fd = os.pipe()
+                      os.write(write_fd, b'G')
+                      os.close(write_fd)
+                      with mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': __import__('json').dumps(guarded)}, clear=False), \
+                           mock.patch.object(module.os, 'nice', return_value=module.CANDIDATE_NICE_DELTA), \
+                           mock.patch.object(module.os, 'execvpe', side_effect=RuntimeError('EXEC_REACHED')):
+                          try:
+                              module.candidate_exec_guard(read_fd)
+                          except RuntimeError as exc:
+                              if str(exc) != 'EXEC_REACHED':
+                                  raise
+                          else:
+                              raise AssertionError('guard release did not reach exec')
+                  wrong_model = [
+                      '/bin/true', '--model=/tmp/not-candidate.gguf', '--alias=' + module.CANDIDATE_ALIAS,
+                  ]
+                  duplicate_alias = [
+                      '/bin/true', '--model=' + str(candidate), '--alias=' + module.CANDIDATE_ALIAS,
+                      '--alias', module.CANDIDATE_ALIAS,
+                  ]
+                  if module.candidate_exec_argv_status(wrong_model) != 80:
+                      raise AssertionError('guard accepted wrong candidate model')
+                  if module.candidate_exec_argv_status(duplicate_alias) != 80:
+                      raise AssertionError('guard accepted duplicate candidate alias')
 
           # Real Linux proof: the guarded child remains the same process across
           # release, lowers its own scheduling priority, and execs directly into
@@ -618,8 +635,8 @@ jobs:
                       sys.executable,
                       '-c',
                       'import time; time.sleep(1.0)',
-                      '--model', str(candidate),
-                      '--alias', module.CANDIDATE_ALIAS,
+                      '--model=' + str(candidate),
+                      '--alias=' + module.CANDIDATE_ALIAS,
                   ]
                   with mock.patch.object(module, 'CANDIDATE_PATH', candidate), \
                        mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': __import__('json').dumps(guarded)}, clear=False):
