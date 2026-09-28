@@ -2225,6 +2225,7 @@ const loginRegisterLocaleBranch = 'fix/public-login-register-locale-20260928';
 const loginRegisterLocaleKey = 'public-login-register-locale-20260928';
 const loginRegisterLocalePaths = [
   'apps/web/app/platform-v7/login/LoginFormClient.tsx',
+  'apps/web/app/platform-v7/login/page.tsx',
   'apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts',
 ];
 
@@ -2236,15 +2237,15 @@ function loginRegisterLocaleRecord(base) {
     implementationBranch: loginRegisterLocaleBranch,
     allowedPaths: [...loginRegisterLocalePaths],
     requiredTruthBoundaries: [
-      'Only the two exact paths from trusted base state are admitted; candidate state, manifests and guards cannot expand implementation authority.',
-      'Use the existing next-intl locale constrained to RU/EN/ZH in the Register href; authentication, MFA, session and redirect authority and register-page behavior are unchanged.',
+      'Only the three exact paths from trusted base state are admitted; candidate state, manifests and guards cannot expand implementation authority.',
+      'Pass the existing getLocale/canonicalPublicLocale result from the Login server page to LoginFormClient as a bounded RU/EN/ZH presentation prop; do not add client locale hooks or providers to the lean Login entry, and keep authentication, MFA, session, redirect authority and register-page behavior unchanged.',
       'Preserve all eight public routes, EN/ZH localization, RU homepage design gates, ten viewport-locale combinations, zero pageerror, response success, Chinese typography, mobile target geometry and horizontal reflow assertions.',
       'Assert the exact localized Register href, real user navigation, resulting HTML locale and zero page errors; do not replace the click with direct navigation or weaken locale assertions.',
       'Source and local tests do not establish live acceptance; require exact-head independent review and complete CI, then exact-main release and live mobile/i18n on the deployed OCI revision.',
     ],
     forbiddenAuthority: [
       'Candidate-owned state or scope extension in the implementation PR',
-      'Backend/API/DB/role/tenant/authentication/bank/provider/FGIS authority or homepage and register-page changes',
+      'Backend/API/DB/role/tenant/authentication/bank/provider/FGIS authority or root-layout, middleware, locale-provider, homepage and register-page changes',
       'CI/security/readiness weakening, fabricated acceptance or automatic merge',
     ],
     teamHubDependency: '#2198 locale-loss evidence 5866099139; Team Hub #5469',
@@ -2267,7 +2268,7 @@ test('Login-register locale branch uses trusted base guards at both PR entry poi
   assert.ok(standard.includes(`github.head_ref != '${loginRegisterLocaleBranch}'`));
 });
 
-for (const mutation of ['admitted two paths', 'unadmitted', 'foreign source', 'self-expanded state', 'self-owned manifest']) {
+for (const mutation of ['admitted three paths', 'unadmitted', 'foreign source', 'root layout', 'self-expanded state', 'self-owned manifest']) {
   test(`Login-register locale implementation scope: ${mutation}`, (t) => {
     const context = fixture(t, loginRegisterLocaleBranch);
     const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
@@ -2279,6 +2280,7 @@ for (const mutation of ['admitted two paths', 'unadmitted', 'foreign source', 's
     context.baseline = git(context.root, ['rev-parse', 'HEAD']);
     for (const file of loginRegisterLocalePaths) write(context.root, file, 'bounded locale repair\n');
     if (mutation === 'foreign source') write(context.root, 'apps/web/app/platform-v7/register/page.tsx', 'foreign source\n');
+    if (mutation === 'root layout') write(context.root, 'apps/web/app/layout.tsx', 'unadmitted provider injection\n');
     if (mutation === 'self-expanded state') {
       state.approvedConcurrentScopes[loginRegisterLocaleBranch].push('apps/web/app/platform-v7/register/page.tsx');
       state.allowedCurrentScope.push('apps/web/**');
@@ -2293,7 +2295,7 @@ for (const mutation of ['admitted two paths', 'unadmitted', 'foreign source', 's
     }
     commit(context.root, mutation);
     const result = runGuard(context);
-    if (mutation === 'admitted two paths') assert.equal(result.status, 0, output(result));
+    if (mutation === 'admitted three paths') assert.equal(result.status, 0, output(result));
     else {
       assert.notEqual(result.status, 0, output(result));
       assert.match(output(result), /no immutable approved scope|Mutable scope authority changed|Files outside current autopilot scope/u);
@@ -2301,7 +2303,7 @@ for (const mutation of ['admitted two paths', 'unadmitted', 'foreign source', 's
   });
 }
 
-for (const mutation of ['accepted', 'wrong base', 'extra path', 'weakened boundary', 'prior WebKit mutation', 'prior bank mutation', 'global scope', 'foreign source', 'executable state', 'duplicate', 'partial prior admission']) {
+for (const mutation of ['accepted', 'wrong base', 'extra path', 'weakened boundary', 'prior WebKit mutation', 'prior bank mutation', 'global scope', 'foreign source', 'executable state', 'duplicate', 'partial prior admission', 'obsolete two paths', 'missing server handoff boundary', 'root layout path', 'locale config path']) {
   test(`Login-register locale state admission: ${mutation}`, (t) => {
     const context = fixture(t, productAdmissionBranch);
     const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
@@ -2326,6 +2328,20 @@ for (const mutation of ['accepted', 'wrong base', 'extra path', 'weakened bounda
     state.approvedConcurrentScopes[loginRegisterLocaleBranch] = [...loginRegisterLocalePaths];
     state.coordinationAdmissions[loginRegisterLocaleKey] = loginRegisterLocaleRecord(context.baseline);
     if (mutation === 'wrong base') state.coordinationAdmissions[loginRegisterLocaleKey].authorityBaseExactMain = '0'.repeat(40);
+    if (mutation === 'obsolete two paths') {
+      state.approvedConcurrentScopes[loginRegisterLocaleBranch] = loginRegisterLocalePaths.filter((file) => file !== 'apps/web/app/platform-v7/login/page.tsx');
+      state.coordinationAdmissions[loginRegisterLocaleKey].allowedPaths = [...state.approvedConcurrentScopes[loginRegisterLocaleBranch]];
+    }
+    if (mutation === 'missing server handoff boundary') state.coordinationAdmissions[loginRegisterLocaleKey].requiredTruthBoundaries[1] = 'Use the existing next-intl locale constrained to RU/EN/ZH in the Register href; authentication, MFA, session and redirect authority and register-page behavior are unchanged.';
+    for (const [caseName, forbiddenPath] of [
+      ['root layout path', 'apps/web/app/layout.tsx'],
+      ['locale config path', 'apps/web/i18n/request.ts'],
+    ]) {
+      if (mutation === caseName) {
+        state.approvedConcurrentScopes[loginRegisterLocaleBranch].push(forbiddenPath);
+        state.coordinationAdmissions[loginRegisterLocaleKey].allowedPaths.push(forbiddenPath);
+      }
+    }
     if (mutation === 'extra path') state.approvedConcurrentScopes[loginRegisterLocaleBranch].push('apps/web/app/platform-v7/register/page.tsx');
     if (mutation === 'weakened boundary') state.coordinationAdmissions[loginRegisterLocaleKey].requiredTruthBoundaries.pop();
     if (mutation === 'prior WebKit mutation') state.approvedConcurrentScopes[webkitI18nBranch].push(loginRegisterLocalePaths[0]);

@@ -801,6 +801,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
       const key = 'public-login-register-locale-20260928';
       const paths = [
         'apps/web/app/platform-v7/login/LoginFormClient.tsx',
+        'apps/web/app/platform-v7/login/page.tsx',
         'apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts',
       ];
       if (Object.hasOwn(state.approvedConcurrentScopes, implementationBranch) ||
@@ -820,15 +821,15 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
         implementationBranch,
         allowedPaths: paths,
         requiredTruthBoundaries: [
-          'Only the two exact paths from trusted base state are admitted; candidate state, manifests and guards cannot expand implementation authority.',
-          'Use the existing next-intl locale constrained to RU/EN/ZH in the Register href; authentication, MFA, session and redirect authority and register-page behavior are unchanged.',
+          'Only the three exact paths from trusted base state are admitted; candidate state, manifests and guards cannot expand implementation authority.',
+          'Pass the existing getLocale/canonicalPublicLocale result from the Login server page to LoginFormClient as a bounded RU/EN/ZH presentation prop; do not add client locale hooks or providers to the lean Login entry, and keep authentication, MFA, session, redirect authority and register-page behavior unchanged.',
           'Preserve all eight public routes, EN/ZH localization, RU homepage design gates, ten viewport-locale combinations, zero pageerror, response success, Chinese typography, mobile target geometry and horizontal reflow assertions.',
           'Assert the exact localized Register href, real user navigation, resulting HTML locale and zero page errors; do not replace the click with direct navigation or weaken locale assertions.',
           'Source and local tests do not establish live acceptance; require exact-head independent review and complete CI, then exact-main release and live mobile/i18n on the deployed OCI revision.',
         ],
         forbiddenAuthority: [
           'Candidate-owned state or scope extension in the implementation PR',
-          'Backend/API/DB/role/tenant/authentication/bank/provider/FGIS authority or homepage and register-page changes',
+          'Backend/API/DB/role/tenant/authentication/bank/provider/FGIS authority or root-layout, middleware, locale-provider, homepage and register-page changes',
           'CI/security/readiness weakening, fabricated acceptance or automatic merge',
         ],
         teamHubDependency: '#2198 locale-loss evidence 5866099139; Team Hub #5469',
