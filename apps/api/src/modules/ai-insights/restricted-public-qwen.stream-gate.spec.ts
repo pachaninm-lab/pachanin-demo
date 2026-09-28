@@ -2,6 +2,7 @@ import {
   ProviderStreamParser,
   StreamingAnswerGate,
   economicComparisonFor,
+  paymentTimingFromUser,
   storageCostFromUser,
   economicComparisonCopy,
 } from './restricted-public-qwen.stream-gate';
@@ -66,6 +67,41 @@ describe('StreamingAnswerGate', () => {
   it('still refuses secret and action claims before economic filtering', () => {
     const gate = generalGate({ economicComparison: 'storage' });
     expect(gate.push('Я перевёл деньги за хранение. ').violation).toBe('WRITE_CLAIM');
+  });
+
+  it('screens delayed-payment recommendations and computes only the explicit user-owned price delta', () => {
+    const question = 'Покупатель предлагает 12000 руб/т с оплатой сегодня или 12400 руб/т через 45 дней без банковской гарантии. Что выбрать?';
+
+    expect(economicComparisonFor(question, [])).toBe('payment_timing');
+    expect(paymentTimingFromUser(question)).toEqual({
+      immediateMinor: 1_200_000,
+      delayedMinor: 1_240_000,
+      delayDays: 45,
+    });
+
+    const checked = economicComparisonCopy('payment_timing', 'ru', null, paymentTimingFromUser(question));
+    expect(checked).toContain('400 руб/т');
+    expect(checked).toContain('3,33%');
+    expect(checked).toContain('45 дней');
+    expect(checked).toContain('не доказывает');
+
+    const gate = generalGate({ economicComparison: 'payment_timing' });
+    for (const text of [
+      'Выбирайте вариант с оплатой сегодня. ',
+      'Если ставка выше 4,5% годовых, текущая оплата выгоднее. ',
+      'Риск неплатежа без гарантии нужно оценить отдельно. ',
+    ]) gate.push(text);
+    gate.flush();
+
+    expect(gate.emitted).not.toMatch(/выбирайте|4,5|выгоднее/iu);
+    expect(gate.emitted).toContain('Риск неплатежа');
+  });
+
+  it('does not classify incomplete or non-per-tonne payment comparisons as checked economics', () => {
+    expect(paymentTimingFromUser('Покупатель предлагает 12000 рублей сегодня или 12400 рублей через 45 дней.')).toBeNull();
+    expect(paymentTimingFromUser('Покупатель предлагает 12000 руб/т сегодня. Что выбрать?')).toBeNull();
+    expect(paymentTimingFromUser('Покупатель предлагает 12000 руб/т сегодня или 12400 руб/т, срок уточним.')).toBeNull();
+    expect(economicComparisonFor('Какая цена пшеницы сегодня?', [])).toBeNull();
   });
 
   it('calculates only explicit user-owned storage units and period, not assistant inventions', () => {
@@ -190,6 +226,22 @@ describe('StreamingAnswerGate', () => {
     expect(gate.emitted).not.toContain('манкозеба');
     expect(gate.emitted).not.toContain('металаксила');
     expect(gate.emitted).toContain('санитарную уборку');
+  });
+
+  it('does not progressively leak a named crop-protection product with a per-hectare dose', () => {
+    const gate = generalGate();
+
+    const first = gate.push('Для ржавчины — «Ридомил-Голд» в дозе ');
+    expect(first.text).toBe('');
+    expect(gate.emitted).toBe('');
+
+    const second = gate.push('2,5–3 л/га. Сначала уточните регион и фазу развития культуры. ');
+    gate.flush();
+
+    expect(second.flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    expect(gate.emitted).not.toContain('Ридомил-Голд');
+    expect(gate.emitted).not.toContain('л/га');
+    expect(gate.emitted).toContain('уточните регион');
   });
 
   it('keeps verified-platform text on complete-block release semantics', () => {

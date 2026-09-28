@@ -147,6 +147,30 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     expect(flags).toContain('UNVERIFIED_ECONOMIC_CLAIM_REMOVED');
   });
 
+  it('screens a delayed-payment recommendation and appends checked user arithmetic', async () => {
+    installRuntime({
+      deltas: [
+        'Выбирайте вариант с оплатой сегодня. ',
+        'Если ставка выше 4,5% годовых, текущая оплата выгоднее. ',
+        'Риск неплатежа без банковской гарантии нужно оценить отдельно. ',
+      ],
+    });
+    const question = 'Покупатель предлагает 12000 руб/т с оплатой сегодня или 12400 руб/т через 45 дней без банковской гарантии. Что выбрать?';
+    let answer = '';
+    let flags: readonly string[] = [];
+    for await (const event of service.generateStream(request({ question, originalQuestion: question }))) {
+      if (event.type === 'delta') answer += event.text;
+      if (event.type === 'done') flags = event.safetyFlags;
+    }
+
+    expect(answer).not.toMatch(/Выбирайте вариант|4,5%|текущая оплата выгоднее/iu);
+    expect(answer).toContain('Риск неплатежа');
+    expect(answer).toContain('400 руб/т');
+    expect(answer).toContain('3,33%');
+    expect(answer).toContain('45 дней');
+    expect(flags).toContain('UNVERIFIED_ECONOMIC_CLAIM_REMOVED');
+  });
+
   it('provides a useful limitation when every model economic sentence is suppressed', async () => {
     installRuntime({ deltas: ['Продавать сейчас выгоднее. '] });
     const question = 'Хранение 200 рублей за тонну в месяц. Продавать сейчас или хранить?';
