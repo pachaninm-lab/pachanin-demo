@@ -58,6 +58,13 @@ jobs:
           grep -Fq 'LEASE_SECONDS = 420' "$helper"
           grep -Fq 'LEASE_TERM_MARGIN_SECONDS = 2.0' "$helper"
           grep -Fq 'LEASE_KILL_MARGIN_SECONDS = 1.0' "$helper"
+          grep -Fq 'CANDIDATE_NICE_DELTA = 10' "$helper"
+          grep -Fq 'os.nice(CANDIDATE_NICE_DELTA)' "$helper"
+          grep -Fq 'candidate_priority_not_lowered' "$helper"
+          if grep -Fq 'shutil.which("nice")' "$helper" || grep -Fq 'shutil.which("ionice")' "$helper"; then
+            echo 'external priority wrapper chain is forbidden' >&2
+            exit 1
+          fi
           grep -Fq 'def enforce_hard_lease(' "$helper"
           grep -Fq 'target=enforce_hard_lease' "$helper"
           grep -Fq 'baseline_process_matches_state' "$helper"
@@ -124,7 +131,9 @@ jobs:
           import importlib.util
           import os
           import pathlib
+          import sys
           import tempfile
+          import time
           from unittest import mock
 
           path = pathlib.Path('scripts/gekta-qwen35-4b-model-host-candidate.py').resolve()
@@ -218,7 +227,6 @@ jobs:
                       stack.enter_context(mock.patch.object(module, 'snapshot_baseline', side_effect=baseline))
                       stack.enter_context(mock.patch.object(module, 'ensure_start_capacity', return_value=None))
                       stack.enter_context(mock.patch.object(module, 'save_state', return_value=None))
-                      stack.enter_context(mock.patch.object(module.shutil, 'which', side_effect=lambda name: '/usr/bin/' + name))
                       stack.enter_context(mock.patch.object(module.subprocess, 'Popen', return_value=proc))
                       stack.enter_context(mock.patch.object(module, 'stop_watchdog', return_value=None))
                       stack.enter_context(mock.patch.object(module, 'verify_listener_absent', return_value=None))
@@ -366,7 +374,6 @@ jobs:
                       stack.enter_context(mock.patch.object(module, 'snapshot_baseline', side_effect=success_baseline))
                       stack.enter_context(mock.patch.object(module, 'ensure_start_capacity', return_value=None))
                       stack.enter_context(mock.patch.object(module, 'save_state', return_value=None))
-                      stack.enter_context(mock.patch.object(module.shutil, 'which', side_effect=lambda name: '/usr/bin/' + name))
                       stack.enter_context(mock.patch.object(module.subprocess, 'Popen', return_value=proc))
                       stack.enter_context(mock.patch.object(module.os, 'pidfd_open', return_value=initial_fd))
                       stack.enter_context(mock.patch.object(module, 'write_candidate_identity', return_value=None))
@@ -377,6 +384,7 @@ jobs:
                       stack.enter_context(mock.patch.object(module.os, 'write', side_effect=ordered_write))
                       stack.enter_context(mock.patch.object(module, 'candidate_process_matches', return_value=True))
                       stack.enter_context(mock.patch.object(module, 'require_isolated_candidate_group', return_value=None))
+                      stack.enter_context(mock.patch.object(module, 'process_nice', return_value=module.CANDIDATE_NICE_DELTA))
                       stack.enter_context(mock.patch.object(module.pathlib.Path, 'read_bytes', return_value=candidate_cmd))
                       stack.enter_context(mock.patch.object(module, 'wait_candidate', return_value=None))
                       stack.enter_context(mock.patch.object(
@@ -565,7 +573,6 @@ jobs:
               read_fd, write_fd = os.pipe()
               os.close(write_fd)
               guarded = [
-                  '/usr/bin/nice', '-n', '10', '/usr/bin/ionice', '-c', '3',
                   '/bin/true', '--model', str(candidate), '--alias', module.CANDIDATE_ALIAS,
               ]
               with mock.patch.object(module, 'CANDIDATE_PATH', candidate), \
@@ -580,7 +587,6 @@ jobs:
               candidate = pathlib.Path(tmp) / 'candidate.gguf'
               candidate.write_bytes(b'x')
               guarded = [
-                  '/usr/bin/nice', '-n', '10', '/usr/bin/ionice', '-c', '3',
                   '/bin/true', '--model', str(candidate), '--alias', module.CANDIDATE_ALIAS,
               ]
               with mock.patch.object(module, 'CANDIDATE_PATH', candidate):
@@ -590,6 +596,7 @@ jobs:
                   os.write(write_fd, b'G')
                   os.close(write_fd)
                   with mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': __import__('json').dumps(guarded)}, clear=False), \
+                       mock.patch.object(module.os, 'nice', return_value=module.CANDIDATE_NICE_DELTA), \
                        mock.patch.object(module.os, 'execvpe', side_effect=RuntimeError('EXEC_REACHED')):
                       try:
                           module.candidate_exec_guard(read_fd)
@@ -599,8 +606,55 @@ jobs:
                       else:
                           raise AssertionError('guard release did not reach exec')
 
+          # Real Linux proof: the guarded child remains the same process across
+          # release, lowers its own scheduling priority, and execs directly into
+          # the candidate argv. No external nice/ionice wrapper may own the pidfd.
+          if sys.platform.startswith('linux') and hasattr(os, 'fork'):
+              with tempfile.TemporaryDirectory() as tmp:
+                  candidate = pathlib.Path(tmp) / 'candidate.gguf'
+                  candidate.write_bytes(b'x')
+                  read_fd, write_fd = os.pipe()
+                  guarded = [
+                      sys.executable,
+                      '-c',
+                      'import time; time.sleep(1.0)',
+                      '--model', str(candidate),
+                      '--alias', module.CANDIDATE_ALIAS,
+                  ]
+                  with mock.patch.object(module, 'CANDIDATE_PATH', candidate), \
+                       mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': __import__('json').dumps(guarded)}, clear=False):
+                      child = os.fork()
+                      if child == 0:
+                          try:
+                              os.close(write_fd)
+                              code = module.candidate_exec_guard(read_fd)
+                          except BaseException:
+                              os._exit(97)
+                          os._exit(code)
+                      os.close(read_fd)
+                      before_start = module.process_start_time(child)
+                      os.write(write_fd, b'G')
+                      os.close(write_fd)
+                      established = False
+                      deadline = time.monotonic() + 0.8
+                      while time.monotonic() < deadline:
+                          if module.candidate_process_matches(child):
+                              established = True
+                              break
+                          time.sleep(0.02)
+                      if not established:
+                          _, status = os.waitpid(child, 0)
+                          raise AssertionError('real same-pid direct exec did not establish candidate identity: ' + repr(status))
+                      if module.process_start_time(child) != before_start:
+                          raise AssertionError('real direct exec changed process start identity')
+                      if module.process_nice(child) < module.CANDIDATE_NICE_DELTA:
+                          raise AssertionError('real direct exec did not lower scheduling priority')
+                      _, status = os.waitpid(child, 0)
+                      if status != 0:
+                          raise AssertionError('real direct-exec child exited nonzero: ' + repr(status))
+
           # Standalone recovery must own the same process across the
-          # guard -> priority-wrapper -> llama exec transition without argv trust.
+          # guard -> direct llama exec transition without argv trust.
           with tempfile.TemporaryDirectory() as tmp:
               root = pathlib.Path(tmp)
               pid_path = root / 'candidate.pid'
