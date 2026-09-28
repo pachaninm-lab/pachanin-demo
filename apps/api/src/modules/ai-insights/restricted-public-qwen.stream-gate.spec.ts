@@ -2,6 +2,7 @@ import {
   ProviderStreamParser,
   StreamingAnswerGate,
   economicComparisonFor,
+  paymentTimingFromUser,
   storageCostFromUser,
   economicComparisonCopy,
 } from './restricted-public-qwen.stream-gate';
@@ -94,6 +95,44 @@ describe('StreamingAnswerGate', () => {
     expect(economicComparisonCopy('storage', 'ru', 40000)).toContain('400 руб/т');
     expect(economicComparisonCopy('storage', 'ru', 40000)).toContain('только хранения');
     expect(economicComparisonCopy('storage', 'ru', 40000)).toContain('не доказывает общую выгодность');
+  });
+
+  it('computes deferred-payment premium only from explicit same-turn terms', () => {
+    const question = 'Покупатель предлагает 12000 руб/т с оплатой сегодня или 12400 руб/т через 45 дней без банковской гарантии. Что выбрать?';
+    const payment = paymentTimingFromUser(question);
+
+    expect(economicComparisonFor(question, [])).toBe('payment_timing');
+    expect(payment).toEqual({
+      immediatePriceMinor: 1_200_000,
+      delayedPriceMinor: 1_240_000,
+      delayDays: 45,
+      premiumMinor: 40_000,
+      premiumBasisPoints: 333,
+      guarantee: 'absent',
+    });
+
+    const copy = economicComparisonCopy('payment_timing', 'ru', null, payment);
+    expect(copy).toContain('400 руб/т');
+    expect(copy).toContain('3,33%');
+    expect(copy).toContain('45 дней');
+    expect(copy).toContain('банковской гарантии нет');
+    expect(copy).not.toMatch(/выбирайте|выберите|лучше\s+(?:перв|втор|сейчас|отсроч)/iu);
+
+    expect(paymentTimingFromUser('Покупатель предлагает 12000 руб/т или 12400 руб/т через 45 дней. Что выбрать?')).toBeNull();
+    expect(paymentTimingFromUser('Покупатель предлагает 12000 руб/т сегодня или 12400 руб/т через 45–60 дней. Что выбрать?')).toBeNull();
+    expect(paymentTimingFromUser('Покупатель предлагает 12000 рублей всего сегодня или 12400 рублей всего через 45 дней. Что выбрать?')).toBeNull();
+  });
+
+  it('screens model-authored payment selection and arithmetic before publication', () => {
+    const gate = generalGate({ economicComparison: 'payment_timing' });
+    const answer = 'Выбирайте оплату сегодня. Порог составляет 32,9% годовых. Отсутствие банковской гарантии повышает риск неплатежа. ';
+
+    for (let offset = 0; offset < answer.length; offset += 11) gate.push(answer.slice(offset, offset + 11));
+    gate.flush();
+
+    expect(gate.emitted).not.toContain('Выбирайте');
+    expect(gate.emitted).not.toContain('32,9');
+    expect(gate.emitted).toContain('риск неплатежа');
   });
 
   it('invalidates older quantities after a unit, subject or ambiguous correction', () => {
