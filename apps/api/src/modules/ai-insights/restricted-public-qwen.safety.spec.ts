@@ -91,6 +91,12 @@ describe('restricted public crop-protection prescription boundary', () => {
     const polarityDecision = platformGroundingVerdict('Платформа решит спор.', negativeAuthority);
     expect(polarityDecision.keep).toBe(false);
     expect(polarityDecision.flags).toContain('UNSUPPORTED_PLATFORM_AUTONOMY_REMOVED');
+
+    const mixedAuthority = normalizeForComparison(
+      'Платформа не решит спор, система автоматически фиксирует расхождение.',
+    );
+    expect(platformGroundingVerdict('Система автоматически фиксирует расхождение.', mixedAuthority).keep).toBe(true);
+    expect(platformGroundingVerdict('Платформа решит спор.', mixedAuthority).keep).toBe(false);
   });
 
   it('does not remove a non-prescriptive registration boundary', () => {

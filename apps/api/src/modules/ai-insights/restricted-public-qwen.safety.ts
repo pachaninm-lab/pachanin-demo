@@ -138,20 +138,16 @@ export function platformGroundingVerdict(
     (pattern) => pattern.test(normalized) && !pattern.test(authority),
   );
   const unsupportedLiveClaim = LIVE_CAPABILITY_PATTERN.test(normalized) && !LIVE_CAPABILITY_PATTERN.test(authority);
-  const stripNegatedAutomation = (value: string): string => value.replace(
-    /(?:не[^.!?。！？\n]{0,24}автоматически|not[^.!?。！？\n]{0,24}automatically|不会自动|不自动)/giu,
-    ' ',
+  const clauses = (value: string): string[] =>
+    value.split(/[,.!?;:。！？；，]+/u).map((part) => part.trim()).filter(Boolean);
+  const hasPositiveAutomation = (value: string): boolean => clauses(value).some(
+    (clause) => /(?:автоматически|automatically|自动)/iu.test(clause)
+      && !/(?:не[^\n]{0,24}автоматически|not[^\n]{0,24}automatically|不会自动|不自动)/iu.test(clause),
   );
-  const hasPositiveAutomation = (value: string): boolean =>
-    /(?:автоматически|automatically|自动)/iu.test(stripNegatedAutomation(value));
-  const stripNegatedAutonomousDecision = (value: string): string => value.replace(
-    /(?:не|никогда\s+не|not|never|不会|不)[^.!?。！？\n]{0,36}(?:сама\s+)?(?:решит|примет\s+решение|спишет|выплатит|изменит|аннулирует|одобрит|подпишет|decide|debit|pay|change|cancel|approve|sign|决定|扣款|付款|修改|取消|批准|签署)/giu,
-    ' ',
+  const hasPositiveAutonomousDecision = (value: string): boolean => clauses(value).some(
+    (clause) => /(?:платформ\w*|систем\w*|platform|system|平台|系统)[^\n]{0,80}(?:сама\s+)?(?:решит|примет\s+решение|спишет|выплатит|изменит|аннулирует|одобрит|подпишет|will\s+decide|decides|debits|pays|changes|cancels|approves|signs|决定|扣款|付款|修改|取消|批准|签署)/iu.test(clause)
+      && !/(?:не|никогда\s+не|not|never|不会|不)[^\n]{0,36}(?:сама\s+)?(?:решит|примет\s+решение|спишет|выплатит|изменит|аннулирует|одобрит|подпишет|decide|debit|pay|change|cancel|approve|sign|决定|扣款|付款|修改|取消|批准|签署)/iu.test(clause),
   );
-  const hasPositiveAutonomousDecision = (value: string): boolean =>
-    /(?:платформ\w*|систем\w*|platform|system|平台|系统)[^.!?。！？\n]{0,80}(?:сама\s+)?(?:решит|примет\s+решение|спишет|выплатит|изменит|аннулирует|одобрит|подпишет|will\s+decide|decides|debits|pays|changes|cancels|approves|signs|决定|扣款|付款|修改|取消|批准|签署)/iu.test(
-      stripNegatedAutonomousDecision(value),
-    );
   const automationClaim = hasPositiveAutomation(normalized);
   const unsupportedAutomation = automationClaim && !hasPositiveAutomation(authority);
   const autonomousDecision = hasPositiveAutonomousDecision(normalized);
