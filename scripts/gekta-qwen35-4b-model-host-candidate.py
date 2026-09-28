@@ -16,6 +16,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.request
 
@@ -28,6 +29,9 @@ CANDIDATE_SIZE = 3013027808
 CANDIDATE_HOST = "127.0.0.1"
 CANDIDATE_PORT = 18081
 LEASE_SECONDS = 420
+LEASE_TERM_MARGIN_SECONDS = 2.0
+LEASE_KILL_MARGIN_SECONDS = 1.0
+LEASE_POLL_SECONDS = 0.25
 MIN_FREE_BYTES = 7_000_000_000
 MIN_MEM_BEFORE_KB = 8 * 1024 * 1024
 MIN_MEM_READY_KB = 3 * 1024 * 1024
@@ -78,22 +82,7 @@ def emit(key: str, value) -> None:
         text = hashlib.sha256(text.encode("utf-8", "replace")).hexdigest()
     print("QWEN35_CANDIDATE_%s=%s" % (key, text), flush=True)
 
-def lease_bounded_timeout(timeout, deadline=None) -> float:
-    value = float(timeout)
-    if value <= 0:
-        fail("command_timeout_invalid")
-    if deadline is None:
-        return value
-    remaining = float(deadline) - time.monotonic()
-    # Do not start a blocking probe when the hard candidate lease has no
-    # meaningful time left. This deliberately fails slightly early rather
-    # than allowing subprocess timeout granularity to overrun the lease.
-    if remaining <= 0.001:
-        fail("candidate_lease_elapsed")
-    return min(value, remaining)
-
-def command(args, check=True, timeout=30, env=None, deadline=None):
-    effective_timeout = lease_bounded_timeout(timeout, deadline)
+def command(args, check=True, timeout=30, env=None):
     result = subprocess.run(
         args,
         stdin=subprocess.DEVNULL,
@@ -101,18 +90,18 @@ def command(args, check=True, timeout=30, env=None, deadline=None):
         stderr=subprocess.PIPE,
         text=True,
         env=env,
-        timeout=effective_timeout,
+        timeout=timeout,
         check=False,
     )
     if check and result.returncode != 0:
         fail("command_failed:%s:%s" % (pathlib.Path(args[0]).name, result.returncode))
     return result
 
-def systemctl_read(*args, check=True, timeout=30, deadline=None):
+def systemctl_read(*args, check=True, timeout=30):
     forbidden = {"stop", "restart", "start", "kill", "enable", "disable", "daemon-reload", "set-property"}
     if any(str(item) in forbidden for item in args):
         fail("systemctl_mutation_forbidden")
-    return command(["/usr/bin/systemctl", *args], check=check, timeout=timeout, deadline=deadline)
+    return command(["/usr/bin/systemctl", *args], check=check, timeout=timeout)
 
 def require_nonroot() -> str:
     if os.geteuid() == 0:
@@ -122,20 +111,20 @@ def require_nonroot() -> str:
         fail("runtime_user_invalid")
     return name
 
-def service_pid(deadline=None) -> int:
-    raw = systemctl_read("show", SERVICE, "--property=MainPID", "--value", deadline=deadline).stdout.strip()
+def service_pid() -> int:
+    raw = systemctl_read("show", SERVICE, "--property=MainPID", "--value").stdout.strip()
     if not re.fullmatch(r"[1-9][0-9]*", raw):
         fail("baseline_pid_invalid")
     return int(raw)
 
-def service_user(deadline=None) -> str:
-    raw = systemctl_read("show", SERVICE, "--property=User", "--value", deadline=deadline).stdout.strip()
+def service_user() -> str:
+    raw = systemctl_read("show", SERVICE, "--property=User", "--value").stdout.strip()
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]{0,31}", raw) or raw == "root":
         fail("service_user_invalid")
     return raw
 
-def service_restarts(deadline=None) -> int:
-    raw = systemctl_read("show", SERVICE, "--property=NRestarts", "--value", deadline=deadline).stdout.strip()
+def service_restarts() -> int:
+    raw = systemctl_read("show", SERVICE, "--property=NRestarts", "--value").stdout.strip()
     if not re.fullmatch(r"[0-9]+", raw):
         fail("baseline_restarts_invalid")
     return int(raw)
@@ -281,20 +270,20 @@ def verify_listener_absent() -> None:
         time.sleep(0.25)
     fail("candidate_listener_still_present")
 
-def snapshot_baseline(deadline=None):
+def snapshot_baseline():
     require_nonroot()
-    if systemctl_read("is-active", "--quiet", SERVICE, check=False, deadline=deadline).returncode != 0:
+    if systemctl_read("is-active", "--quiet", SERVICE, check=False).returncode != 0:
         fail("baseline_service_inactive")
     runtime_user = require_nonroot()
-    expected_user = service_user(deadline=deadline)
+    expected_user = service_user()
     if runtime_user != expected_user:
         fail("runtime_user_not_service_user")
-    pid = service_pid(deadline=deadline)
+    pid = service_pid()
     exe, argv, env, cmdline = read_proc(pid)
-    version = command([str(exe), "--version"], check=False, timeout=10, deadline=deadline)
+    version = command([str(exe), "--version"], check=False, timeout=10)
     if version.returncode != 0 or "aedb2a5" not in (version.stdout + version.stderr).lower():
         fail("llama_build_mismatch")
-    help_text = command([str(exe), "--help"], check=False, timeout=10, deadline=deadline)
+    help_text = command([str(exe), "--help"], check=False, timeout=10)
     if help_text.returncode != 0 or "LLAMA_API_KEY" not in (help_text.stdout + help_text.stderr):
         fail("llama_api_key_env_contract_missing")
     for key, expected in EXPECTED.items():
@@ -312,8 +301,9 @@ def snapshot_baseline(deadline=None):
         "exe": str(exe),
         "cmdlineSha256": hashlib.sha256(cmdline).hexdigest(),
         "apiKeySha256": hashlib.sha256(api_key.encode("utf-8")).hexdigest(),
-        "restarts": service_restarts(deadline=deadline),
+        "restarts": service_restarts(),
         "vmSwapKb": proc_kb(pid, "VmSwap"),
+        "startTime": process_start_time(pid),
     }, exe, argv, env
 
 def baseline_runtime_healthy() -> bool:
@@ -332,9 +322,9 @@ def baseline_runtime_healthy() -> bool:
     ids = [row.get("id") for row in payload.get("data", []) if isinstance(row, dict)]
     return status_code == 200 and BASELINE_ALIAS in ids and state["vmSwapKb"] == 0
 
-def baseline_matches_state(expected: dict, deadline=None) -> bool:
+def baseline_matches_state(expected: dict) -> bool:
     try:
-        current, _, _, _ = snapshot_baseline(deadline=deadline)
+        current, _, _, _ = snapshot_baseline()
     except Exception:
         return False
     return (
@@ -343,7 +333,29 @@ def baseline_matches_state(expected: dict, deadline=None) -> bool:
         and current["cmdlineSha256"] == expected.get("cmdlineSha256")
         and current["apiKeySha256"] == expected.get("apiKeySha256")
         and current["restarts"] == expected.get("restarts")
+        and current["startTime"] == expected.get("startTime")
     )
+
+def baseline_process_matches_state(expected: dict) -> bool:
+    # The lease watchdog must not run systemctl or llama subprocess probes after
+    # candidate release. Revalidate the exact already-snapshotted baseline task
+    # directly through /proc so a blocked command cannot postpone hard expiry.
+    pid = expected.get("pid")
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    try:
+        if process_start_time(pid) != expected.get("startTime"):
+            return False
+        exe, argv, env, cmdline = read_proc(pid)
+        api_key = effective_api_key(argv, env)
+        return (
+            str(exe) == expected.get("exe")
+            and hashlib.sha256(cmdline).hexdigest() == expected.get("cmdlineSha256")
+            and hashlib.sha256(api_key.encode("utf-8")).hexdigest() == expected.get("apiKeySha256")
+            and proc_kb(pid, "VmSwap") == expected.get("vmSwapKb") == 0
+        )
+    except Exception:
+        return False
 
 def save_state(state: dict) -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -519,14 +531,7 @@ def candidate_guard_process_matches(pid: int) -> bool:
 def owned_candidate_process_matches(pid: int) -> bool:
     return candidate_guard_process_matches(pid) or candidate_process_matches(pid)
 
-def candidate_exec_guard(guard_fd: int) -> int:
-    if guard_fd < 3:
-        return 77
-    raw = os.environ.pop("QWEN35_GUARDED_ARGV_JSON", "")
-    try:
-        argv = json.loads(raw)
-    except json.JSONDecodeError:
-        return 78
+def candidate_exec_argv_status(argv) -> int:
     if (
         not isinstance(argv, list)
         or not argv
@@ -537,12 +542,28 @@ def candidate_exec_guard(guard_fd: int) -> int:
     encoded = [os.fsencode(item) for item in argv]
     if os.fsencode(CANDIDATE_PATH) not in encoded or CANDIDATE_ALIAS.encode("utf-8") not in encoded:
         return 80
+    return 0
+
+def candidate_exec_guard(guard_fd: int) -> int:
+    if guard_fd < 3:
+        return 77
+    # Remain blocked until the owner process explicitly releases this guard.
+    # Validation after the token prevents any pre-release validation path from
+    # closing the pipe and racing the parent.
     try:
         token = os.read(guard_fd, 2)
     finally:
         os.close(guard_fd)
     if token != b"G":
         return 81
+    raw = os.environ.pop("QWEN35_GUARDED_ARGV_JSON", "")
+    try:
+        argv = json.loads(raw)
+    except json.JSONDecodeError:
+        return 78
+    status = candidate_exec_argv_status(argv)
+    if status:
+        return status
     os.execvpe(argv[0], argv, os.environ)
     return 82
 
@@ -768,11 +789,13 @@ def stop_watchdog() -> None:
             os.close(fd)
     WATCHDOG_PID_PATH.unlink(missing_ok=True)
 
-def launch_watchdog(candidate_pid: int, baseline_pid: int) -> int:
+def launch_watchdog(candidate_pid: int, baseline_pid: int):
     if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
         fail("pidfd_signal_unavailable")
     ready_read, ready_write = os.pipe()
+    arm_read, arm_write = os.pipe()
     os.set_inheritable(ready_write, True)
+    os.set_inheritable(arm_read, True)
     log = WATCHDOG_LOG_PATH.open("ab", buffering=0)
     proc = None
     watchdog_pidfd = None
@@ -789,6 +812,8 @@ def launch_watchdog(candidate_pid: int, baseline_pid: int) -> int:
                 str(baseline_pid),
                 "--watchdog-ready-fd",
                 str(ready_write),
+                "--watchdog-arm-fd",
+                str(arm_read),
             ],
             stdin=subprocess.DEVNULL,
             stdout=log,
@@ -796,10 +821,12 @@ def launch_watchdog(candidate_pid: int, baseline_pid: int) -> int:
             cwd="/",
             start_new_session=True,
             close_fds=True,
-            pass_fds=(ready_write,),
+            pass_fds=(ready_write, arm_read),
         )
         os.close(ready_write)
         ready_write = -1
+        os.close(arm_read)
+        arm_read = -1
         watchdog_pidfd = os.pidfd_open(proc.pid, 0)
         write_pid(WATCHDOG_PID_PATH, proc.pid)
         pid_recorded = True
@@ -810,24 +837,23 @@ def launch_watchdog(candidate_pid: int, baseline_pid: int) -> int:
         token = os.read(ready_read, 2)
         if token != b"R" or proc.poll() is not None or pidfd_exited(watchdog_pidfd):
             fail("candidate_watchdog_not_ready")
-        return watchdog_pidfd
+        return watchdog_pidfd, arm_write
     except Exception:
         stopped = False
         try:
+            if arm_write >= 0:
+                os.close(arm_write)
+                arm_write = -1
+            if ready_read >= 0:
+                os.close(ready_read)
+                ready_read = -1
             if proc is not None:
-                if watchdog_pidfd is not None:
-                    stop_owned_child(proc, watchdog_pidfd)
-                else:
-                    # No numeric-PID fallback is allowed. Close the readiness
-                    # pipe so the owned watchdog fails its R acknowledgement,
-                    # kills the still-inert candidate guard through its own
-                    # candidate pidfd, and exits by itself.
-                    if ready_read >= 0:
-                        os.close(ready_read)
-                        ready_read = -1
-                    try:
-                        proc.wait(timeout=8)
-                    except subprocess.TimeoutExpired:
+                try:
+                    proc.wait(timeout=8)
+                except subprocess.TimeoutExpired:
+                    if watchdog_pidfd is not None:
+                        stop_owned_child(proc, watchdog_pidfd)
+                    else:
                         fail("watchdog_unowned_child_did_not_exit")
             stopped = True
         finally:
@@ -841,15 +867,52 @@ def launch_watchdog(candidate_pid: int, baseline_pid: int) -> int:
             os.close(ready_read)
         if ready_write >= 0:
             os.close(ready_write)
+        if arm_read >= 0:
+            os.close(arm_read)
 
-def watchdog(candidate_pid: int, baseline_pid: int, ready_fd: int) -> int:
-    deadline = time.monotonic() + LEASE_SECONDS
-    identity_deadline = time.monotonic() + 20
+def enforce_hard_lease(candidate_pidfd: int, cancel: threading.Event, armed: threading.Event) -> None:
+    start = time.monotonic()
+    term_at = start + max(0.0, LEASE_SECONDS - LEASE_TERM_MARGIN_SECONDS)
+    kill_at = start + max(0.0, LEASE_SECONDS - LEASE_KILL_MARGIN_SECONDS)
+    if kill_at <= term_at:
+        fail("candidate_lease_margin_invalid")
+    armed.set()
+    term_sent = False
+    try:
+        while True:
+            if cancel.is_set() or pidfd_exited(candidate_pidfd):
+                return
+            now = time.monotonic()
+            if not term_sent and now >= term_at:
+                try:
+                    signal.pidfd_send_signal(candidate_pidfd, signal.SIGTERM, None, 0)
+                except ProcessLookupError:
+                    return
+                term_sent = True
+            if now >= kill_at:
+                try:
+                    signal.pidfd_send_signal(candidate_pidfd, signal.SIGKILL, None, 0)
+                except ProcessLookupError:
+                    pass
+                return
+            next_at = kill_at if term_sent else term_at
+            cancel.wait(min(LEASE_POLL_SECONDS, max(0.0, next_at - time.monotonic())))
+    finally:
+        os.close(candidate_pidfd)
+
+def watchdog(candidate_pid: int, baseline_pid: int, ready_fd: int, arm_fd: int) -> int:
     candidate_seen = False
     candidate_pidfd = None
-    ready_sent = False
+    lease_thread = None
+    lease_cancel = threading.Event()
+    lease_armed = threading.Event()
     try:
-        if ready_fd < 3 or not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
+        if (
+            ready_fd < 3
+            or arm_fd < 3
+            or not hasattr(os, "pidfd_open")
+            or not hasattr(signal, "pidfd_send_signal")
+        ):
             return 78
         state = load_state()
         if state.get("pid") != baseline_pid:
@@ -857,16 +920,70 @@ def watchdog(candidate_pid: int, baseline_pid: int, ready_fd: int) -> int:
         candidate_pidfd = os.pidfd_open(candidate_pid, 0)
         if not candidate_guard_process_matches(candidate_pid):
             return 77
-        if not baseline_matches_state(state, deadline=deadline):
+
+        # Full baseline verification is allowed only while the candidate remains
+        # inert behind the pre-exec guard.
+        if not baseline_matches_state(state):
             return 72
-        if os.write(ready_fd, b"R") != 1:
+
+        lease_pidfd = os.dup(candidate_pidfd)
+        lease_thread = threading.Thread(
+            target=enforce_hard_lease,
+            args=(lease_pidfd, lease_cancel, lease_armed),
+            name="qwen35-hard-lease",
+            daemon=False,
+        )
+        lease_thread.start()
+        if not lease_armed.wait(1.0) or not lease_thread.is_alive():
+            lease_cancel.set()
+            stop_pidfd_owned_process(candidate_pidfd)
             return 78
-        ready_sent = True
+
+        if os.write(ready_fd, b"R") != 1:
+            lease_cancel.set()
+            stop_pidfd_owned_process(candidate_pidfd)
+            return 78
         os.close(ready_fd)
         ready_fd = -1
 
-        while time.monotonic() < deadline:
+        # READY is only pidfd + hard-lease ownership of the inert guard.
+        # The watchdog cannot enter monitoring or signal the candidate until
+        # the parent proves that G was written successfully by sending A.
+        arm_timeout = min(
+            30.0,
+            max(0.0, LEASE_SECONDS - LEASE_KILL_MARGIN_SECONDS),
+        )
+        readable, _, _ = select.select([arm_fd], [], [], arm_timeout)
+        if not readable:
+            stop_pidfd_owned_process(candidate_pidfd)
+            lease_cancel.set()
+            verify_listener_absent()
+            return 79
+        arm_token = os.read(arm_fd, 2)
+        os.close(arm_fd)
+        arm_fd = -1
+        if arm_token != b"A":
+            stop_pidfd_owned_process(candidate_pidfd)
+            lease_cancel.set()
+            verify_listener_absent()
+            return 79
+
+        identity_deadline = time.monotonic() + 20
+        monitor_stop_at = time.monotonic() + max(
+            0.0,
+            LEASE_SECONDS - LEASE_KILL_MARGIN_SECONDS,
+        )
+        while True:
             if pidfd_exited(candidate_pidfd):
+                lease_cancel.set()
+                try:
+                    verify_listener_absent()
+                except CandidateError:
+                    return 76
+                return 0
+            if time.monotonic() >= monitor_stop_at:
+                stop_pidfd_owned_process(candidate_pidfd)
+                lease_cancel.set()
                 try:
                     verify_listener_absent()
                 except CandidateError:
@@ -878,72 +995,53 @@ def watchdog(candidate_pid: int, baseline_pid: int, ready_fd: int) -> int:
                     candidate_seen = True
                 elif time.monotonic() >= identity_deadline:
                     stop_pidfd_owned_process(candidate_pidfd)
+                    lease_cancel.set()
                     try:
                         verify_listener_absent()
                     except CandidateError:
                         return 76
                     return 77
                 else:
-                    if not baseline_matches_state(state, deadline=deadline):
+                    if not baseline_process_matches_state(state):
                         stop_pidfd_owned_process(candidate_pidfd)
-                        if time.monotonic() >= deadline:
-                            try:
-                                verify_listener_absent()
-                            except CandidateError:
-                                return 76
-                            return 0
+                        lease_cancel.set()
                         return 72
-                    if time.monotonic() >= deadline:
-                        stop_pidfd_owned_process(candidate_pidfd)
-                        try:
-                            verify_listener_absent()
-                        except CandidateError:
-                            return 76
-                        return 0
-                    # The pidfd pins the same task while exec transitions through
-                    # nice/ionice into the reviewed llama argv. Sleep only within
-                    # the hard lease so this transition cannot postpone expiry.
-                    time.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
+                    wait_pidfd_exit(
+                        candidate_pidfd,
+                        min(0.1, max(0.0, monitor_stop_at - time.monotonic())),
+                    )
                     continue
 
             if not candidate_process_matches(candidate_pid):
                 stop_pidfd_owned_process(candidate_pidfd)
+                lease_cancel.set()
                 try:
                     verify_listener_absent()
                 except CandidateError:
                     return 76
                 return 77
-            if not baseline_matches_state(state, deadline=deadline):
+            if not baseline_process_matches_state(state):
                 stop_pidfd_owned_process(candidate_pidfd)
-                if time.monotonic() >= deadline:
-                    try:
-                        verify_listener_absent()
-                    except CandidateError:
-                        return 76
-                    return 0
+                lease_cancel.set()
                 return 72
-            if time.monotonic() >= deadline:
-                stop_pidfd_owned_process(candidate_pidfd)
-                try:
-                    verify_listener_absent()
-                except CandidateError:
-                    return 76
-                return 0
             if proc_kb(candidate_pid, "VmRSS") > MAX_CANDIDATE_RSS_KB:
                 stop_pidfd_owned_process(candidate_pidfd)
+                lease_cancel.set()
                 return 73
             if mem_available_kb() < MIN_MEM_RUNTIME_KB:
                 stop_pidfd_owned_process(candidate_pidfd)
+                lease_cancel.set()
                 return 74
-            time.sleep(min(2.0, max(0.0, deadline - time.monotonic())))
-
-        stop_pidfd_owned_process(candidate_pidfd)
-        verify_listener_absent()
-        return 0
+            wait_pidfd_exit(
+                candidate_pidfd,
+                min(2.0, max(0.0, monitor_stop_at - time.monotonic())),
+            )
     except Exception:
         try:
             if candidate_pidfd is not None:
                 stop_pidfd_owned_process(candidate_pidfd)
+                if pidfd_exited(candidate_pidfd):
+                    lease_cancel.set()
         except Exception:
             pass
         return 75
@@ -953,8 +1051,20 @@ def watchdog(candidate_pid: int, baseline_pid: int, ready_fd: int) -> int:
                 os.close(ready_fd)
             except OSError:
                 pass
+        if arm_fd >= 0:
+            try:
+                os.close(arm_fd)
+            except OSError:
+                pass
         if candidate_pidfd is not None:
+            try:
+                if pidfd_exited(candidate_pidfd):
+                    lease_cancel.set()
+            except Exception:
+                pass
             os.close(candidate_pidfd)
+        if lease_thread is not None and lease_cancel.is_set():
+            lease_thread.join(timeout=1.0)
 
 def wait_candidate(pid: int, key: str, baseline_state: dict) -> None:
     deadline = time.monotonic() + 120
@@ -1031,6 +1141,8 @@ def start(candidate_key: str) -> None:
         fail("pidfd_signal_unavailable")
 
     candidate_argv = [nice, "-n", "10", ionice, "-c", "3", *[os.fsdecode(item) for item in argv]]
+    if candidate_exec_argv_status(candidate_argv) != 0:
+        fail("candidate_guard_argv_invalid")
     guard_read, guard_write = os.pipe()
     os.set_inheritable(guard_read, True)
     guard_env = dict(env)
@@ -1038,7 +1150,9 @@ def start(candidate_key: str) -> None:
     proc = None
     initial_pidfd = None
     watchdog_pidfd = None
+    watchdog_arm_write = -1
     released = False
+    armed = False
     try:
         proc = subprocess.Popen(
             [
@@ -1067,15 +1181,29 @@ def start(candidate_key: str) -> None:
 
         write_candidate_identity(proc.pid)
         write_pid(PID_PATH, proc.pid)
-        watchdog_pidfd = launch_watchdog(proc.pid, state["pid"])
+        watchdog_pidfd, watchdog_arm_write = launch_watchdog(proc.pid, state["pid"])
 
-        if os.write(guard_write, b"G") != 1:
+        if not baseline_matches_state(state):
+            fail("baseline_changed_before_candidate_release")
+        try:
+            written = os.write(guard_write, b"G")
+        except BrokenPipeError:
+            fail("candidate_guard_exited_before_release")
+        if written != 1:
             fail("candidate_guard_release_failed")
         released = True
         try:
             os.close(guard_write)
         finally:
             guard_write = -1
+
+        if os.write(watchdog_arm_write, b"A") != 1:
+            fail("candidate_watchdog_arm_failed")
+        armed = True
+        try:
+            os.close(watchdog_arm_write)
+        finally:
+            watchdog_arm_write = -1
 
         identity_deadline = time.monotonic() + 5
         while time.monotonic() < identity_deadline and process_alive(proc.pid):
@@ -1113,6 +1241,12 @@ def start(candidate_key: str) -> None:
             except OSError:
                 pass
             guard_read = -1
+        if watchdog_arm_write >= 0:
+            try:
+                os.close(watchdog_arm_write)
+            except OSError:
+                pass
+            watchdog_arm_write = -1
         try:
             if proc is not None:
                 if released:
@@ -1138,6 +1272,11 @@ def start(candidate_key: str) -> None:
             os.close(initial_pidfd)
         if watchdog_pidfd is not None:
             os.close(watchdog_pidfd)
+        if watchdog_arm_write >= 0:
+            try:
+                os.close(watchdog_arm_write)
+            except OSError:
+                pass
         if guard_write >= 0:
             try:
                 os.close(guard_write)
@@ -1207,6 +1346,7 @@ def main() -> int:
     parser.add_argument("--baseline-pid", type=int, default=0)
     parser.add_argument("--candidate-guard-fd", type=int, default=-1)
     parser.add_argument("--watchdog-ready-fd", type=int, default=-1)
+    parser.add_argument("--watchdog-arm-fd", type=int, default=-1)
     args = parser.parse_args()
     require_nonroot()
     if args.action == "_candidate_exec_guard":
@@ -1214,7 +1354,7 @@ def main() -> int:
     if args.action == "_watchdog":
         if args.candidate_pid <= 0 or args.baseline_pid <= 0:
             return 76
-        return watchdog(args.candidate_pid, args.baseline_pid, args.watchdog_ready_fd)
+        return watchdog(args.candidate_pid, args.baseline_pid, args.watchdog_ready_fd, args.watchdog_arm_fd)
     import fcntl
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     os.chmod(STATE_DIR, 0o700)
