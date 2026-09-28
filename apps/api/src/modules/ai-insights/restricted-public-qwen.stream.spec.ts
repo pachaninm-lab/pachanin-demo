@@ -147,6 +147,38 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     expect(flags).toContain('UNVERIFIED_ECONOMIC_CLAIM_REMOVED');
   });
 
+  it.each(['stream', 'buffered'])('replaces model payment selection and arithmetic with checked user-owned terms in %s output', async (mode) => {
+    const question = 'Покупатель предлагает 12000 руб/т с оплатой сегодня или 12400 руб/т через 45 дней без банковской гарантии. Что выбрать?';
+    const raw = request({ question, originalQuestion: question });
+    const content = 'Выбирайте оплату сегодня. Порог составляет 32,9% годовых. Отсутствие банковской гарантии повышает риск неплатежа. ';
+    let answer = '';
+    let flags: readonly string[] = [];
+
+    if (mode === 'stream') {
+      installRuntime({ deltas: ['Выбирайте оплату сегодня. ', 'Порог составляет 32,9% годовых. ', 'Отсутствие банковской гарантии повышает риск неплатежа. '] });
+      for await (const event of service.generateStream(raw)) {
+        if (event.type === 'delta') answer += event.text;
+        if (event.type === 'done') flags = event.safetyFlags;
+      }
+    } else {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({
+        choices: [{ message: { content }, finish_reason: 'stop' }],
+      })));
+      const result = await service.generate(raw);
+      answer = result.answer;
+      flags = result.safetyFlags;
+    }
+
+    expect(answer).not.toContain('Выбирайте');
+    expect(answer).not.toContain('32,9');
+    expect(answer).toContain('400 руб/т');
+    expect(answer).toContain('3,33%');
+    expect(answer).toContain('45 дней');
+    expect(answer).toContain('банковской гарантии нет');
+    expect(answer).toContain('риск');
+    expect(flags).toContain('UNVERIFIED_ECONOMIC_CLAIM_REMOVED');
+  });
+
   it('provides a useful limitation when every model economic sentence is suppressed', async () => {
     installRuntime({ deltas: ['Продавать сейчас выгоднее. '] });
     const question = 'Хранение 200 рублей за тонну в месяц. Продавать сейчас или хранить?';

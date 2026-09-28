@@ -1721,12 +1721,27 @@
     "fix/public-webkit-i18n-route-lifecycle-20260927": [
       "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
     ],
-    "ops/gekta-qwen35-candidate-20260928": [
-      ".github/workflows/gekta-qwen35-model-candidate.yml",
-      "scripts/gekta-qwen35-model-candidate-runtime.py",
-      "scripts/gekta-qwen35-model-candidate-bootstrap.sh",
-      "scripts/check-gekta-qwen35-model-candidate.mjs",
-      "docs/platform-v7/autopilot/scopes/gekta-qwen35-model-candidate-20260928.json"
+    "bank/first-customer-home-20260926": [
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
+      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+      "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+      "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+      "docs/platform-v7/autopilot/scopes/bank-first-customer-home-20260926.json"
+    ],
+    "fix/gekta-economic-safety-hardening-20260928": [
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts"
+    ],
+    "perf/gekta-qwen35-4b-model-host-candidate-3896": [
+      ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+      "scripts/gekta-qwen35-4b-model-host-candidate.py",
+      "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json"
     ]
   },
   "currentAcceptance": [
@@ -2458,33 +2473,90 @@
       ],
       "reviewDependency": "Accepted guard PR #5674; issue #5673; independent exact-head review on 901a7986fc102f37c0959f4f245179f0ab012466"
     },
+    "bank-first-customer-home-20260926-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Bank first-customer production-home hierarchy from existing server-scoped Deal navigation; no bank operation, provider or settlement authority.",
+      "authorityBaseExactMain": "597c17c730aa263f4ca954b858139d00252dcf67",
+      "implementationBranch": "bank/first-customer-home-20260926",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
+        "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+        "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+        "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+        "docs/platform-v7/autopilot/scopes/bank-first-customer-home-20260926.json"
+      ],
+      "requiredTruthBoundaries": [
+        "The bank Deal queue is navigation, not a BankOperation read, provider binding, release decision, payment instruction or external bank confirmation.",
+        "UNKNOWN next action, empty, forbidden and degraded remain explicit; no demo amounts, concrete provider or settlement finality.",
+        "RU/EN/ZH, mobile, focus, buyer/seller and other role regressions remain covered; owner-controlled showroom does not gain customer authority.",
+        "Ordinary verified bank root mounts the server-scoped bank workspace; owner-controlled preview keeps precedence and other roles do not inherit bank access.",
+        "Bank source changes start only after the trusted immutable guard prerequisite and this state-only admission are merged."
+      ],
+      "forbiddenAuthority": [
+        "API/backend/domain/DB/RLS/tenant/role/BankOperation/IntegrationBinding/provider/payment authority",
+        "homepage/public implementation or parallel App Shell/design system",
+        "CI/security/readiness gate weakening or production PASS claim"
+      ],
+      "teamHubDependency": "#5469 comment 5842845723; CORE #5525; external #5530; buyer #5610 review; P0 release serialization"
+    },
+    "gekta-economic-safety-hardening-20260928-coordination": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Harden Gekta economic comparisons and crop-protection output before any foundation-model migration.",
+      "authorityBaseExactMain": "b01010f5f1e7eedfd9091469adfda8a385725513",
+      "implementationBranch": "fix/gekta-economic-safety-hardening-20260928",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "User-supplied monetary arithmetic is computed deterministically server-side; model prose cannot select a commercial option or invent rates.",
+        "Ungrounded crop-protection product/active-ingredient dose or interval instructions are removed before public emission.",
+        "Current-data and verified-platform authority remain fail-closed and unchanged.",
+        "No model-host, production deployment, tenant, Deal, money or write authority is added."
+      ],
+      "forbiddenAuthority": [
+        "Model-host or REG.RU production mutation",
+        "CI/security/readiness weakening",
+        "New recurring cost",
+        "Client-selected authority or model-only critical arithmetic"
+      ],
+      "teamHubDependency": "#3896 Gekta quality/latency audit and Qwen3.5 candidate evidence"
+    },
     "gekta-qwen35-model-candidate-20260928": {
       "owner": "OWNER_AUTHORIZED_SESSION",
-      "purpose": "Owner-requested serial Qwen3.5-4B production-candidate evaluation for Gekta on the existing dedicated model host, preserving exact Qwen3-8B rollback and zero new recurring cost.",
-      "authorityBaseExactMain": "06f686d52247ebe7805f1b75d937b2ca8daf8f6f",
-      "implementationBranch": "ops/gekta-qwen35-candidate-20260928",
+      "purpose": "Repair the already-merged Qwen3.5-4B bounded candidate transport after three exact-main pre-mutation failures by reusing the existing dedicated least-privilege tai-model SSH identity and pinned host key; evaluate the pinned candidate without changing production routing or identity.",
+      "authorityBaseExactMain": "31515e0bf75dba71d2a7ddef08ba677c38140caf",
+      "implementationBranch": "perf/gekta-qwen35-4b-model-host-candidate-3896",
       "allowedPaths": [
-        ".github/workflows/gekta-qwen35-model-candidate.yml",
-        "scripts/gekta-qwen35-model-candidate-runtime.py",
-        "scripts/gekta-qwen35-model-candidate-bootstrap.sh",
-        "scripts/check-gekta-qwen35-model-candidate.mjs",
-        "docs/platform-v7/autopilot/scopes/gekta-qwen35-model-candidate-20260928.json"
+        ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+        "scripts/gekta-qwen35-4b-model-host-candidate.py",
+        "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json"
       ],
       "requiredTruthBoundaries": [
         "This state-only admission changes no product code, model bytes, model-host runtime, REG.RU deployment, database, tenant, role or release state.",
-        "The implementation may stage only the pinned Qwen3.5-4B Q4_K_M candidate, SHA-256 13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983, on the existing dedicated model host and must preserve exact rollback to the current Qwen3-8B runtime.",
-        "GitHub receives no root SSH authority. Any privileged bootstrap uses only the existing protected model-host sudo credential and installs an exact-command helper allowlist with no shell, SETENV or broad sudo.",
-        "Candidate activation is a bounded reversible experiment, not final model identity migration. Existing application model identity remains unchanged until separate exact-head source admission and release acceptance.",
-        "Any failed model checksum, service readiness, memory/swap bound, live semantic/safety test or latency acceptance requires rollback; no production PASS is inferred from off-production A/B evidence.",
-        "No new recurring cost is authorized."
+        "The candidate remains Qwen/Qwen3.5-4B Q4_K_M from the pinned revision with exact SHA-256 13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983 and exact size 3013027808 bytes.",
+        "GitHub transport uses only TAI_MODEL_SSH_USER, TAI_MODEL_SSH_KEY and TAI_MODEL_SSH_HOST_KEY with StrictHostKeyChecking=yes. Root SSH, production SSH keys, sudo password and new privilege bridges are forbidden.",
+        "The existing Qwen3-8B production service must remain active with the same PID, executable, identity and runtime flags throughout candidate evaluation; systemctl stop/start/restart and production routing or model-identity mutation are forbidden.",
+        "A Qwen3.5 candidate may overlap the baseline only as one temporary loopback-only process under the same least-privilege service user, a finite watchdog lease and fail-closed memory/swap gates. This bounded overlap is evaluation-only and is not production parallel serving.",
+        "Before candidate start require the production model process and system swap to be zero and sufficient MemAvailable headroom; after candidate readiness require both model processes to remain swap-free, baseline health and PID continuity, and a minimum remaining-memory bound. Any violation kills only the candidate and fails closed.",
+        "Real Gekta RestrictedPublicQwenService acceptance reaches the loopback candidate only through a temporary pinned SSH tunnel. Candidate termination and baseline continuity verification are mandatory on success, failure and runner-disconnect paths.",
+        "No application, database, Deal, money, registration, tenant, REG.RU application deployment or persistent production state is mutated. New recurring cost remains 0 RUB."
       ],
       "forbiddenAuthority": [
-        "Candidate-owned scope widening or edits to autopilot state/guard from the implementation branch",
-        "Database, tenant, role, auth-mail, bank, FGIS, outbox, REG.RU application deployment or persistent-data mutation",
-        "Root SSH credential, unrestricted sudo, shell-capable sudoers, SETENV, force merge, disabled CI/security/readiness or fabricated acceptance",
-        "Final replacement of the production model identity before a separately reviewed identity/release migration"
+        "Candidate-owned widening beyond the three admitted implementation paths or edits to autopilot-state/guard from the implementation branch",
+        "Root SSH credential, production SSH credential reuse, sudo, sudoers, shell-capable privilege bridge, SETENV, trust-on-first-use or host-key relaxation",
+        "Stopping or restarting tai-qwen3-8b.service, changing its argv/environment/drop-ins, changing production API/Web model routing, or final Qwen3.5 identity replacement",
+        "Unbounded or public parallel model serving; the only overlap authorized is the single finite loopback candidate under the stated swap/memory/PID-continuity gates",
+        "Database, tenant, role, auth-mail, bank, FGIS, outbox or persistent-data mutation",
+        "Force merge, CI/security/readiness weakening, fabricated acceptance or new recurring cost"
       ],
-      "reviewDependency": "Issue #3896; off-production A/B run 36353437562; exact production baseline 06f686d52247ebe7805f1b75d937b2ca8daf8f6f"
+      "reviewDependency": "Issue #3896; merged candidate authority #5687; exact-main failed runs 36399154197, 36399762805 and 36401066589 proving root-SSH transport failure before candidate mutation; read-only baseline diagnostic 36399447424 proving Qwen3-8B active."
     }
   }
 }

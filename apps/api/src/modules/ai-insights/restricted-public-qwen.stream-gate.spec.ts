@@ -1,7 +1,9 @@
 import {
   ProviderStreamParser,
   StreamingAnswerGate,
+  economicBlockAllowed,
   economicComparisonFor,
+  paymentTimingFromUser,
   storageCostFromUser,
   economicComparisonCopy,
 } from './restricted-public-qwen.stream-gate';
@@ -55,6 +57,12 @@ describe('StreamingAnswerGate', () => {
     }
   });
 
+  it('does not confuse delivery wording with an interest-rate claim', () => {
+    expect(economicBlockAllowed('Уточните условия доставки.')).toBe(true);
+    expect(economicBlockAllowed('Сравните риск качества и условия доставки.')).toBe(true);
+    expect(economicBlockAllowed('Ставка финансирования составляет 18%.')).toBe(false);
+  });
+
   it('holds an economic sentence before its final ranking and rejects undecided overflow', () => {
     const gate = generalGate({ economicComparison: 'transport', maxPendingChars: 150 });
     expect(gate.push('Если перевозка маленькая, а стоимость погрузки одинакова, то перевозка по рейсу ').text).toBe('');
@@ -96,6 +104,53 @@ describe('StreamingAnswerGate', () => {
     expect(economicComparisonCopy('storage', 'ru', 40000)).toContain('не доказывает общую выгодность');
   });
 
+  it('computes deferred-payment premium only from explicit same-turn terms', () => {
+    const question = 'Покупатель предлагает 12000 руб/т с оплатой сегодня или 12400 руб/т через 45 дней без банковской гарантии. Что выбрать?';
+    const payment = paymentTimingFromUser(question);
+
+    expect(economicComparisonFor(question, [])).toBe('payment_timing');
+    expect(payment).toEqual({
+      immediatePriceMinor: 1_200_000,
+      delayedPriceMinor: 1_240_000,
+      delayDays: 45,
+      premiumMinor: 40_000,
+      premiumBasisPoints: 333,
+      guarantee: 'absent',
+    });
+
+    expect(paymentTimingFromUser('Покупатель предлагает 12 000 руб/т с оплатой сегодня или 12 400 руб/т через 45 дней без банковской гарантии. Что выбрать?')).toEqual(payment);
+    expect(paymentTimingFromUser('Покупатель предлагает 12\u202F000 руб/т с оплатой сегодня или 12\u202F400 руб/т через 45 дней без банковской гарантии. Что выбрать?')).toEqual(payment);
+
+    const copy = economicComparisonCopy('payment_timing', 'ru', null, payment);
+    expect(copy).toContain('400 руб/т');
+    expect(copy).toContain('3,33%');
+    expect(copy).toContain('45 дней');
+    expect(copy).toContain('банковской гарантии нет');
+    expect(copy).not.toMatch(/выбирайте|выберите|лучше\s+(?:перв|втор|сейчас|отсроч)/iu);
+
+    const lowerPayment = paymentTimingFromUser('Покупатель предлагает 12400 руб/т с оплатой сегодня или 12000 руб/т через 45 дней. Что выбрать?');
+    expect(lowerPayment).not.toBeNull();
+    const lowerCopy = economicComparisonCopy('payment_timing', 'ru', null, lowerPayment);
+    expect(lowerCopy).toContain('уменьшает цену на 400 руб/т');
+    expect(lowerCopy).not.toContain('уменьшает 400 руб/т к цене');
+
+    expect(paymentTimingFromUser('Покупатель предлагает 12000 руб/т или 12400 руб/т через 45 дней. Что выбрать?')).toBeNull();
+    expect(paymentTimingFromUser('Покупатель предлагает 12000 руб/т сегодня или 12400 руб/т через 45–60 дней. Что выбрать?')).toBeNull();
+    expect(paymentTimingFromUser('Покупатель предлагает 12000 рублей всего сегодня или 12400 рублей всего через 45 дней. Что выбрать?')).toBeNull();
+  });
+
+  it('screens model-authored payment selection and arithmetic before publication', () => {
+    const gate = generalGate({ economicComparison: 'payment_timing' });
+    const answer = 'Выбирайте оплату сегодня. Порог составляет 32,9% годовых. Отсутствие банковской гарантии повышает риск неплатежа. ';
+
+    for (let offset = 0; offset < answer.length; offset += 11) gate.push(answer.slice(offset, offset + 11));
+    gate.flush();
+
+    expect(gate.emitted).not.toContain('Выбирайте');
+    expect(gate.emitted).not.toContain('32,9');
+    expect(gate.emitted).toContain('риск неплатежа');
+  });
+
   it('invalidates older quantities after a unit, subject or ambiguous correction', () => {
     const history = [{ role: 'user' as const, text: 'Пшеница, хранение 200 рублей за тонну в месяц, срок два месяца. Какая стоимость?' }];
     expect(storageCostFromUser('Теперь тариф 300 рублей за тонну в месяц. Сколько стоит хранение за срок?', history)).toBeNull();
@@ -118,7 +173,7 @@ describe('StreamingAnswerGate', () => {
     expect(storageCostFromUser('Хранение 200 рублей за тонну в месяц. Не срок хранения два месяца, а срок кредита.', [])).toBeNull();
   });
 
-  it.each(['Продавайте сейчас.', 'Выбирайте оплату за рейс.', 'For small loads, choose the per-trip option.', '小批量应选按趟付费。', 'Цена должна вырасти на четыреста рублей.'])('screens imperative and spelled-out economic claims: %s', (answer) => {
+  it.each(['Продавайте сейчас.', 'Если показатель отрицательный — продавать сейчас.', 'Сегодня хранить, а не продавать.', 'Выбирайте оплату за рейс.', 'For small loads, choose the per-trip option.', 'If the result is negative, sell now.', '小批量应选按趟付费。', '现在卖。', 'Цена должна вырасти на четыреста рублей.'])('screens imperative and spelled-out economic claims: %s', (answer) => {
     const gate = generalGate({ economicComparison: 'storage' });
     gate.push(answer);
     gate.flush();
@@ -190,6 +245,34 @@ describe('StreamingAnswerGate', () => {
     expect(gate.emitted).not.toContain('манкозеба');
     expect(gate.emitted).not.toContain('металаксила');
     expect(gate.emitted).toContain('санитарную уборку');
+  });
+
+  it('withholds a bare crop-protection product prefix until dose or interval safety is decidable', () => {
+    const doseGate = generalGate();
+    expect(doseGate.push('Фунгицид Альто Супер ' ).text).toBe('');
+    const doseVerdict = doseGate.push('0,4 л/га. Сначала уточните регион и фазу культуры. ');
+    doseGate.flush();
+    expect(doseVerdict.flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    expect(doseGate.emitted).not.toContain('Альто Супер');
+    expect(doseGate.emitted).not.toContain('0,4 л/га');
+    expect(doseGate.emitted).toContain('уточните регион');
+
+    const namedDoseGate = generalGate();
+    expect(namedDoseGate.push('Для защиты яблони используйте Альто Супер в период повышенного риска ' ).text).toBe('');
+    const namedDoseVerdict = namedDoseGate.push('в дозе 0,4 л/га. Сначала уточните регион и диагноз. ');
+    namedDoseGate.flush();
+    expect(namedDoseVerdict.flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    expect(namedDoseGate.emitted).not.toContain('Альто Супер');
+    expect(namedDoseGate.emitted).not.toContain('0,4 л/га');
+    expect(namedDoseGate.emitted).toContain('уточните регион');
+
+    const intervalGate = generalGate();
+    expect(intervalGate.push('Фунгицид X: повтор обработки ' ).text).toBe('');
+    const intervalVerdict = intervalGate.push('через 10 дней. Осмотрите динамику пятен. ');
+    intervalGate.flush();
+    expect(intervalVerdict.flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    expect(intervalGate.emitted).not.toContain('10 дней');
+    expect(intervalGate.emitted).toContain('Осмотрите динамику пятен');
   });
 
   it('keeps verified-platform text on complete-block release semantics', () => {
@@ -330,6 +413,41 @@ describe('StreamingAnswerGate', () => {
     expect(unsupported.flags).toContain('UNSUPPORTED_PLATFORM_ENTITY_REMOVED');
     expect(gate.emitted).not.toContain('1С');
     expect(gate.emitted).toContain('сравнивать предложения');
+  });
+
+
+  it('drops current sell advice and unsupported directional price claims before publication', () => {
+    const gate = generalGate({ currentDataRequired: true });
+
+    gate.push('Не продавайте сегодня. ');
+    gate.push('Цена может быть ниже рыночной. ');
+    gate.push('Сравните текущую оферту с подтверждённой котировкой. ');
+    gate.flush();
+
+    expect(gate.emitted).not.toContain('Не продавайте');
+    expect(gate.emitted).not.toContain('ниже рыночной');
+    expect(gate.emitted).toContain('Сравните текущую оферту');
+  });
+
+  it('drops ungrounded automatic platform behavior but keeps the participant decision boundary', () => {
+    const verifiedGrounding: PublicGrounding = Object.freeze({
+      ...grounding,
+      answer: 'Расхождение фиксируется доказательствами. Важное решение принимает уполномоченный участник.',
+    });
+    const gate = new StreamingAnswerGate({
+      answerMode: 'verified_platform',
+      locale: 'ru',
+      currentDataRequired: false,
+      grounding: verifiedGrounding,
+    });
+
+    const automatic = gate.push('Система автоматически зафиксирует расхождение. ');
+    gate.push('Важное решение принимает уполномоченный участник. ');
+    gate.flush();
+
+    expect(automatic.flags).toContain('UNSUPPORTED_PLATFORM_AUTONOMY_REMOVED');
+    expect(gate.emitted).not.toContain('автоматически');
+    expect(gate.emitted).toContain('уполномоченный участник');
   });
 
   it('drops an exact current claim when the question needs governed evidence', () => {
