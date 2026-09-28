@@ -43,14 +43,16 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          migration_sha='e8eeeffe6ce46497bbe13970cc81d6ae7489c6ae'
-          git fetch --no-tags origin diag/gekta-qwen35-ab-20260928
+          migration_sha='7c03f877d1e26673ec1ee2b4d8ef30b9f87920ac'
+          git fetch --no-tags origin fix/gekta-qwen35-migration-20260928
           git cat-file -e "$migration_sha^{commit}"
           git show "$migration_sha:apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts" > apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts
           git show "$migration_sha:apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts" > apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts
+          git show "$migration_sha:apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts" > apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts
+          git show "$migration_sha:apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts" > apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts
           changed="$(git diff --name-only | sort | tr '\n' ' ')"
-          [[ "$changed" == 'apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts ' ]]
-          echo 'Q35_EXISTING_MIGRATION_REUSED=1'
+          [[ "$changed" == 'apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts ' ]]
+          echo 'Q35_IMPLEMENTATION_HEAD=7c03f877d1e26673ec1ee2b4d8ef30b9f87920ac'
 
       - name: Run existing Gekta unit and stream regressions
         shell: bash
