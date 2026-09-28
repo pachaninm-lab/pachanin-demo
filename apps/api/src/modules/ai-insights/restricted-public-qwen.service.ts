@@ -34,6 +34,7 @@ import {
   StreamingAnswerGate,
   economicComparisonFor,
   economicComparisonCopy,
+  paymentTimingFromUser,
   storageCostFromUser,
   type EconomicComparison,
   type ProviderFinishReason,
@@ -629,9 +630,16 @@ function buildMessages(request: NormalizedRequest): readonly ChatMessage[] {
 }
 
 function checkedEconomicCopy(request: NormalizedRequest): string {
-  return economicComparisonCopy(request.economicComparison!, request.locale,
+  return economicComparisonCopy(
+    request.economicComparison!,
+    request.locale,
     request.economicComparison === 'storage'
-      ? storageCostFromUser(request.originalQuestion, request.history) : null);
+      ? storageCostFromUser(request.originalQuestion, request.history)
+      : null,
+    request.economicComparison === 'payment_timing'
+      ? paymentTimingFromUser(request.originalQuestion)
+      : null,
+  );
 }
 
 /** Keep evidence filtering centralized; format the public notice for the question. */
