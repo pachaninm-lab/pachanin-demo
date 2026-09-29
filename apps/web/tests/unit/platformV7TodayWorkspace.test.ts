@@ -1,10 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
-import { mergeDeals } from '@/components/platform-v7/RoleIntentDashboard';
-
-// The queue helper is imported normally from production; this suite does not render its child workspace.
-vi.mock('@/components/platform-v7/CanonicalDealWorkspace', () => ({ CanonicalDealWorkspace: () => null }));
+import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
+import { describe, expect, it } from 'vitest';
 
 function source(path: string): string {
   return readFileSync(join(process.cwd(), path), 'utf8');
@@ -22,6 +20,18 @@ describe('platform-v7 Today workspace scale and cognitive safety', () => {
   const styles = source('components/platform-v7/RoleIntentDashboard.module.css');
   const designSystemStyles = source('../../packages/design-system-v8/src/components.module.css');
 
+  // Execute the current production functions, not a second implementation in the test.
+  const ast = ts.createSourceFile('RoleIntentDashboard.tsx', dashboard, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const names = ['prioritizeDeals', 'mergeDeals'];
+  const functions = ast.statements.filter((statement): statement is ts.FunctionDeclaration =>
+    ts.isFunctionDeclaration(statement) && !!statement.name && names.includes(statement.name.text));
+  if (functions.length !== names.length) throw new Error('Today queue functions are missing');
+  const context = { exports: {} as { mergeDeals: (current: DealRef[], incoming: DealRef[]) => DealRef[] } };
+  runInNewContext(ts.transpileModule(
+    `${functions.map((statement) => statement.getText(ast)).join('\n')}\nexports.mergeDeals = mergeDeals;`,
+    { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } },
+  ).outputText, context, { timeout: 1000 });
+  const { mergeDeals } = context.exports;
   const deal = (id: string, nextAction: string | null = null): DealRef => ({
     id, dealNumber: id, status: 'DRAFT', nextAction,
   });
