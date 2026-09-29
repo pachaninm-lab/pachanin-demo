@@ -224,7 +224,7 @@ function prioritizeDeals(deals: AccessibleDealRef[]): AccessibleDealRef[] {
   return [...actionable, ...waiting];
 }
 
-function mergeDeals(current: AccessibleDealRef[], incoming: AccessibleDealRef[]): AccessibleDealRef[] {
+export function mergeDeals(current: AccessibleDealRef[], incoming: AccessibleDealRef[]): AccessibleDealRef[] {
   const byId = new Map<string, AccessibleDealRef>();
   for (const deal of current) byId.set(deal.id, deal);
   for (const deal of incoming) byId.set(deal.id, deal);
