@@ -3,25 +3,29 @@
   "issue": 4459,
   "branch": "claude/pr-5681-reconciliation-rd418d",
   "status": "active",
-  "purpose": "Close the cross-organization wagon authorization gap found by the independent review of #5044: RailwayService.updateWagonStatus and createGU12 looked a wagon up by id only, so a LOGISTICIAN or ADMIN of any organization could move another organization's wagon to MAINTENANCE or put another organization's FREE wagon into its own GU-12 request (which, once approved, set that wagon ASSIGNED with a foreign currentDealId). Both paths now require the wagon to belong to the caller's session organization; a foreign wagon is reported exactly like a missing one.",
-  "authorityBaseExactMain": "d3bac0fef",
+  "purpose": "Close the remaining railway organization-scoping gaps reported as P2 by the independent review of #5712: GET /railway/wagons accepted ?orgId= and returned any organization's fleet (and an empty organization meant the whole fleet), GET /railway/gu12 returned every organization's GU-12 requests, and POST /railway/gu12/:id/submit sent any organization's request to ETRAN for whoever knew its id. All three now use only the caller's session organization; a foreign request is reported exactly like a missing one. Follows #5712 (merged as 4c4102d8), which restricted wagon status updates and GU-12 creation the same way; this manifest is reused for the branch's next step.",
+  "authorityBaseExactMain": "7843266e3",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
     "apps/api/src/modules/railway/railway.controller.ts",
     "apps/api/src/modules/railway/railway.service.ts",
     "apps/api/src/modules/railway/railway-org-ownership.spec.ts",
+    "apps/api/src/modules/railway/railway-read-submit-org-scope.spec.ts",
     "docs/platform-v7/autopilot/scopes/railway-wagon-org-ownership.json"
   ],
   "requiredInvariants": [
     "The caller organization comes only from the authenticated session (CurrentUser.orgId), never from the request body, query or path.",
-    "A wagon of another organization is indistinguishable from a missing wagon: same NotFoundException and message.",
-    "A GU-12 request containing any wagon not owned by the requestor is rejected as a whole and nothing is stored.",
+    "A missing session organization yields an empty list or a refusal, never every organization's data.",
+    "A GU-12 request of another organization is indistinguishable from a missing request: same NotFoundException and message; it is neither submitted nor modified.",
     "No role bypass: ADMIN is an organization membership role here, not platform staff.",
     "No DTO, validation boundary, baseline, register, workflow, dependency or lockfile change."
   ],
   "acceptance": [
-    "cd apps/api && npx jest src/modules/railway: 2 suites, 36 tests pass.",
-    "Mutation: removing the ownerOrgId comparison fails 6 of the 9 new ownership tests."
+    "cd apps/api && npx jest src/modules/railway: 3 suites, 48 tests pass.",
+    "Mutations: dropping the requestor check in submit fails 3, dropping the list filter fails 2, restoring the old ?orgId= listWagons fails 2 of the 12 new tests."
+  ],
+  "knownLimitations": [
+    "Demurrage calculate/list and dealId ownership are not organization-scoped yet; they are the next narrow step."
   ]
 }

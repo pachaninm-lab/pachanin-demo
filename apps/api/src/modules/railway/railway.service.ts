@@ -167,9 +167,22 @@ export class RailwayService {
     return req;
   }
 
-  async submitGU12(requestId: string): Promise<GU12Request> {
+  /**
+   * Заявка ГУ-12 организации вызывающего. Чужая заявка неотличима от
+   * несуществующей — тот же NotFoundException с тем же текстом.
+   */
+  private ownedGU12(requestId: string, actorOrgId: string): GU12Request {
     const req = this.gu12Requests.get(requestId);
-    if (!req) throw new NotFoundException(`GU-12 request ${requestId} not found`);
+    if (!actorOrgId || !req || req.requestorOrgId !== actorOrgId) {
+      throw new NotFoundException(`GU-12 request ${requestId} not found`);
+    }
+    return req;
+  }
+
+  async submitGU12(requestId: string, actorOrgId: string): Promise<GU12Request> {
+    // Раньше заявку отправлял в ЭТРАН любой, кто знал её идентификатор, и
+    // после одобрения вагоны заявителя становились ASSIGNED по чужой команде.
+    const req = this.ownedGU12(requestId, actorOrgId);
     if (req.status !== 'DRAFT') throw new BadRequestException('Only DRAFT requests can be submitted');
 
     req.status = 'SUBMITTED';
@@ -207,9 +220,11 @@ export class RailwayService {
     return req;
   }
 
-  listGU12(dealId?: string): GU12Request[] {
-    const all = [...this.gu12Requests.values()];
-    return dealId ? all.filter(r => r.dealId === dealId) : all;
+  /** Только заявки организации-заявителя; без организации — пустой список. */
+  listGU12(requestorOrgId: string, dealId?: string): GU12Request[] {
+    if (!requestorOrgId) return [];
+    const own = [...this.gu12Requests.values()].filter(r => r.requestorOrgId === requestorOrgId);
+    return dealId ? own.filter(r => r.dealId === dealId) : own;
   }
 
   calculateDemurrage(dto: {
