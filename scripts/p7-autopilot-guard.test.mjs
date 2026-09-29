@@ -2359,3 +2359,447 @@ for (const mutation of ['accepted', 'wrong base', 'extra path', 'weakened bounda
     }
   });
 }
+
+
+const dealRuntimeImplementationBranch = 'ux/deal-runtime-unknown-20260929';
+const dealRuntimeAdmissionBranch = 'governance/product-deal-runtime-admission-20260929';
+const dealRuntimeCoordinationKey = 'deal-runtime-unknown-20260929';
+const dealRuntimeRenewalKey = 'deal-runtime-binding-guard-reuse-20260929';
+const dealRuntimeStatePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+const dealRuntimePaths = [
+  'apps/web/components/transaction-ux/TransactionDealWorkspace.tsx',
+  'apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx',
+  'apps/web/tests/unit/transactionUxV8Migration.test.ts',
+  '.github/workflows/ci.yml',
+  'docs/platform-v7/qa/web-unit-coverage-registry.json',
+];
+function dealRuntimeAdmissionRecord(authorityBaseExactMain) {
+  return {
+    owner: 'ACCOUNT_1_EXECUTION',
+    purpose: 'Repair UNKNOWN command recovery in the existing production-resolved TransactionDealWorkspace and prove the same runtime binding without changing its approved design.',
+    authorityBaseExactMain,
+    implementationBranch: dealRuntimeImplementationBranch,
+    allowedPaths: [...dealRuntimePaths],
+    requiredTruthBoundaries: [
+      'The trusted-base guard admits exactly the runtime component, its production-resolved behavior regression and the existing transaction-ux migration regression plus their exact CI invocation and coverage-registry wiring; candidate state cannot widen scope.',
+      'Preserve the transaction-ux design, facade and tsconfig aliases; exercise the module resolved by the protected Deal route rather than the detached platform-v7 component.',
+      'Lost or unverifiable command responses remain UNKNOWN with the original attempt identity, no fresh command replay and GET-only recovery; only an exact-attempt server receipt establishes a known outcome.',
+      'Cover actual RU/EN/zh-CN recovery states and preserve migration binding, shell, server-owned role/auth/tenant/action authority and accessibility assertions.',
+      'Require fresh exact-head author audit, independent review and all substantive CI/readiness before normal expected-SHA merge; source evidence is not REG.RU live acceptance.',
+      'The existing ci.yml invocation must execute both recovery and migration regressions without losing any prior test or changing workflow behavior; the coverage registry may only remove the migration test exclusion.',
+    ],
+    forbiddenAuthority: [
+      'Candidate state, scope, guard, unrelated workflow, alias, facade or design replacement',
+      'Backend/API/DB/role/tenant/idempotency/payment/provider/FGIS authority or production/model-host mutation',
+      'CI/security/readiness weakening, independent-review impersonation, forced merge or new recurring cost',
+    ],
+    teamHubDependency: '#5469 runtime binding dependency5887083491; migration regression5887595513; guard-purpose renewal #5721',
+  };
+}
+function writeDealRuntimeAdmission(context, mutate = () => {}) {
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  state.approvedConcurrentScopes[dealRuntimeImplementationBranch] = [...dealRuntimePaths];
+  state.coordinationAdmissions[dealRuntimeCoordinationKey] = dealRuntimeAdmissionRecord(context.baseline);
+  mutate(state);
+  write(context.root, dealRuntimeStatePath, `${JSON.stringify(state, null, 2)}\n`);
+}
+function dealRuntimeFixture(t, { admitted = false, renewal = true, admission = false } = {}) {
+  const context = fixture(t, admission ? dealRuntimeAdmissionBranch : dealRuntimeImplementationBranch);
+  const current = JSON.parse(fs.readFileSync(dealRuntimeStatePath, 'utf8'));
+  const renewalRecord = structuredClone(current.coordinationAdmissions[dealRuntimeRenewalKey]);
+  assert.equal(renewalRecord.owner, 'ACCOUNT_1_EXECUTION');
+  assert.deepEqual(renewalRecord.allowedPaths, [
+    'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs', '.github/workflows/platform-v7-autopilot-guard.yml',
+  ]);
+  write(context.root, dealRuntimeStatePath, `${JSON.stringify({
+    current: 'R1.2 unchanged fixture',
+    allowedCurrentScope: ['README.md'],
+    approvedConcurrentScopes: { [renewalRecord.implementationBranch]: [...renewalRecord.allowedPaths] },
+    coordinationAdmissions: renewal ? { [dealRuntimeRenewalKey]: renewalRecord } : {},
+  }, null, 2)}\n`);
+  write(context.root, dealRuntimePaths[0], 'existing approved transaction workspace\n');
+  write(context.root, dealRuntimePaths[2], 'existing binding and design assertions\n');
+  write(context.root, dealRuntimePaths[3], 'name: retained CI\njobs:\n  test:\n    steps:\n      - run: pnpm --filter @pc/web exec vitest run tests/unit/retained.test.ts\n');
+  write(context.root, dealRuntimePaths[4], `${JSON.stringify({ exclusions: [
+    { file: dealRuntimePaths[2], status: 'failed', reason: 'Historical inventory; re-enable with bounded repair.' },
+    { file: 'apps/web/tests/unit/unrelated.test.ts', reason: 'Unrelated retained coverage record.' },
+  ] }, null, 2)}\n`);
+  write(context.root, 'apps/web/components/transaction-ux/CanonicalDealWorkspace.tsx', 'existing production facade\n');
+  write(context.root, 'apps/web/tsconfig.json', '{"compilerOptions":{"paths":{}}}\n');
+  commit(context.root, 'trusted guard and bounded renewal only');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  context.admissionBase = context.baseline;
+  if (admitted) {
+    writeDealRuntimeAdmission(context);
+    commit(context.root, 'separate exact state-only source admission');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  }
+  return context;
+}
+function runTrustedDealRuntimeGuard(context) {
+  const fetched = spawnSync('git', ['show', `${context.baseline}:scripts/p7-autopilot-guard.sh`], { cwd: context.root, encoding: 'utf8' });
+  assert.equal(fetched.status, 0, output(fetched));
+  const trusted = path.join(context.root, '.git', 'deal-runtime-trusted-guard.sh');
+  fs.writeFileSync(trusted, fetched.stdout);
+  return spawnSync('bash', [trusted], {
+    cwd: context.root,
+    env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: context.implementationBranch },
+    encoding: 'utf8',
+  });
+}
+function wireDealRuntimeTests(context) {
+  const ci = fs.readFileSync(path.join(context.root, dealRuntimePaths[3]), 'utf8');
+  write(context.root, dealRuntimePaths[3], ci.replace('pnpm --filter @pc/web exec vitest run ',
+    'pnpm --filter @pc/web exec vitest run tests/unit/transactionDealWorkspaceRecovery.test.tsx tests/unit/transactionUxV8Migration.test.ts '));
+  const registry = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimePaths[4]), 'utf8'));
+  registry.exclusions = registry.exclusions.filter((entry) => entry.file !== dealRuntimePaths[2]);
+  write(context.root, dealRuntimePaths[4], `${JSON.stringify(registry, null, 2)}\n`);
+}
+function changeDealRuntime(context) {
+  write(context.root, dealRuntimePaths[0], 'bounded UNKNOWN recovery candidate\n');
+  commit(context.root, 'candidate runtime change');
+}
+function rejectDealRuntime(context, pattern = /DEAL_RUNTIME_/u) {
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), pattern);
+}
+
+test('Deal runtime: guard renewal alone never admits implementation source', (t) => {
+  const context = dealRuntimeFixture(t);
+  changeDealRuntime(context);
+  rejectDealRuntime(context, /DEAL_RUNTIME_ACCEPTED_ADMISSION_MISMATCH/u);
+});
+test('Deal runtime: exact state-only admission passes without touching runtime', (t) => {
+  const context = dealRuntimeFixture(t, { admission: true });
+  writeDealRuntimeAdmission(context);
+  commit(context.root, 'exact state-only admission candidate');
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+  assert.equal(git(context.root, ['diff', '--name-status', `${context.baseline}...HEAD`]), `M\t${dealRuntimeStatePath}`);
+});
+for (const [label, mutate] of [
+  ['global scope', (state) => state.allowedCurrentScope.push('apps/web/**')],
+  ['R1 state', (state) => { state.current = 'unauthorized next block'; }],
+  ['extra runtime path', (state) => state.approvedConcurrentScopes[dealRuntimeImplementationBranch].push('apps/web/tsconfig.json')],
+  ['duplicate path', (state) => state.approvedConcurrentScopes[dealRuntimeImplementationBranch].push(dealRuntimePaths[0])],
+  ['owner substitution', (state) => { state.coordinationAdmissions[dealRuntimeCoordinationKey].owner = 'ACCOUNT_2_PRODUCT'; }],
+  ['wrong implementation ref', (state) => { state.coordinationAdmissions[dealRuntimeCoordinationKey].implementationBranch = dealCommandImplementationBranch; }],
+  ['stale base binding', (state) => { state.coordinationAdmissions[dealRuntimeCoordinationKey].authorityBaseExactMain = '0'.repeat(40); }],
+  ['weakened boundaries', (state) => { state.coordinationAdmissions[dealRuntimeCoordinationKey].requiredTruthBoundaries = []; }],
+]) {
+  test(`Deal runtime: state admission rejects ${label}`, (t) => {
+    const context = dealRuntimeFixture(t, { admission: true });
+    writeDealRuntimeAdmission(context, mutate);
+    commit(context.root, `unauthorized ${label}`);
+    rejectDealRuntime(context, /DEAL_RUNTIME_ADMISSION_STATE_MUTATION/u);
+  });
+}
+for (const label of ['missing trusted renewal', 'candidate-only renewal', 'runtime alongside admission', 'executable state']) {
+  test(`Deal runtime: admission rejects ${label}`, (t) => {
+    const context = dealRuntimeFixture(t, { admission: true, renewal: !label.includes('renewal') });
+    writeDealRuntimeAdmission(context, (state) => {
+      if (label === 'candidate-only renewal') {
+        state.coordinationAdmissions[dealRuntimeRenewalKey] = JSON.parse(fs.readFileSync(dealRuntimeStatePath, 'utf8')).coordinationAdmissions[dealRuntimeRenewalKey];
+      }
+    });
+    if (label === 'runtime alongside admission') write(context.root, dealRuntimePaths[0], 'unauthorized runtime\n');
+    if (label === 'executable state') fs.chmodSync(path.join(context.root, dealRuntimeStatePath), 0o755);
+    commit(context.root, label);
+    rejectDealRuntime(context);
+  });
+}
+test('Deal runtime: existing admission cannot be renewed inside the one-time state route', (t) => {
+  const context = dealRuntimeFixture(t, { admission: true, admitted: true });
+  writeDealRuntimeAdmission(context);
+  commit(context.root, 'attempted second admission');
+  rejectDealRuntime(context, /DEAL_RUNTIME_ADMISSION_ALREADY_PRESENT/u);
+});
+test('Deal runtime: separately admitted runtime and both exact tests pass', (t) => {
+  const context = dealRuntimeFixture(t, { admitted: true });
+  write(context.root, dealRuntimePaths[0], 'bounded UNKNOWN recovery candidate\n');
+  write(context.root, dealRuntimePaths[1], 'production-resolved behavior regression\n');
+  write(context.root, dealRuntimePaths[2], 'retained design assertions with safe unknown-copy assertion\n');
+  wireDealRuntimeTests(context);
+  commit(context.root, 'three exact source paths and bounded CI wiring');
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+for (const [label, mutate] of [
+  ['missing coordination', (state) => { delete state.coordinationAdmissions[dealRuntimeCoordinationKey]; }],
+  ['wrong trusted owner', (state) => { state.coordinationAdmissions[dealRuntimeCoordinationKey].owner = 'other'; }],
+  ['wrong trusted ref', (state) => { state.coordinationAdmissions[dealRuntimeCoordinationKey].implementationBranch = dealCommandImplementationBranch; }],
+  ['broadened trusted paths', (state) => state.approvedConcurrentScopes[dealRuntimeImplementationBranch].push('apps/web/**')],
+  ['missing trusted path', (state) => state.approvedConcurrentScopes[dealRuntimeImplementationBranch].pop()],
+  ['unknown admission base', (state) => { state.coordinationAdmissions[dealRuntimeCoordinationKey].authorityBaseExactMain = '0'.repeat(40); }],
+  ['malformed admission base', (state) => { state.coordinationAdmissions[dealRuntimeCoordinationKey].authorityBaseExactMain += ' '; }],
+]) {
+  test(`Deal runtime: implementation rejects ${label}`, (t) => {
+    const context = dealRuntimeFixture(t, { admitted: true });
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+    mutate(state);
+    write(context.root, dealRuntimeStatePath, `${JSON.stringify(state, null, 2)}\n`);
+    commit(context.root, `invalid trusted fixture ${label}`);
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    changeDealRuntime(context);
+    rejectDealRuntime(context);
+  });
+}
+for (const file of [
+  'apps/web/tsconfig.json',
+  'apps/web/components/transaction-ux/CanonicalDealWorkspace.tsx',
+  'apps/web/components/platform-v7/CanonicalDealWorkspace.tsx',
+  'apps/api/src/app.module.ts',
+  'scripts/p7-autopilot-guard.sh',
+  '.github/workflows/platform-v7-autopilot-guard.yml',
+  'docs/platform-v7/autopilot/scopes/deal-runtime.json',
+]) {
+  test(`Deal runtime: trusted guard rejects candidate edit to ${file}`, (t) => {
+    const context = dealRuntimeFixture(t, { admitted: true });
+    write(context.root, file, file.endsWith('.sh') ? '#!/usr/bin/env bash\nexit 0\n' : 'unadmitted candidate change\n');
+    changeDealRuntime(context);
+    rejectDealRuntime(context, /DEAL_RUNTIME_IMPLEMENTATION_DIFF_SCOPE/u);
+  });
+}
+test('Deal runtime: candidate cannot rewrite its own admission or even reformat state', (t) => {
+  const context = dealRuntimeFixture(t, { admitted: true });
+  fs.appendFileSync(path.join(context.root, dealRuntimeStatePath), '\n');
+  changeDealRuntime(context);
+  rejectDealRuntime(context, /DEAL_RUNTIME_IMPLEMENTATION_STATE_MUTATION/u);
+});
+for (const kind of ['chmod', 'symlink', 'delete', 'rename']) {
+  test(`Deal runtime: implementation rejects ${kind} of the production component`, (t) => {
+    const context = dealRuntimeFixture(t, { admitted: true });
+    const file = path.join(context.root, dealRuntimePaths[0]);
+    if (kind === 'chmod') fs.chmodSync(file, 0o755);
+    if (kind === 'delete') fs.unlinkSync(file);
+    if (kind === 'symlink') { fs.unlinkSync(file); fs.symlinkSync('../../../../README.md', file); }
+    if (kind === 'rename') fs.renameSync(file, `${file}.other`);
+    commit(context.root, `candidate ${kind}`);
+    rejectDealRuntime(context);
+  });
+}
+test('Deal runtime: an unrelated current base cannot authorize a stale source branch', (t) => {
+  const context = dealRuntimeFixture(t, { admitted: true });
+  changeDealRuntime(context);
+  context.baseline = git(context.root, ['commit-tree', `${context.baseline}^{tree}`, '-p', context.admissionBase, '-m', 'different current-base history']);
+  rejectDealRuntime(context, /DEAL_RUNTIME_BASE_NOT_ANCESTOR/u);
+});
+test('Deal runtime: both workflow entry points use the trusted base for both exact new refs', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  for (const branch of [dealRuntimeImplementationBranch, dealRuntimeAdmissionBranch]) {
+    assert.ok(workflow.includes(`github.event.pull_request.head.ref == '${branch}'`));
+    assert.equal(workflow.split(`github.head_ref == '${branch}'`).length - 1, 2);
+    assert.equal(workflow.split(`github.head_ref != '${branch}'`).length - 1, 1);
+    assert.equal(workflow.split(`|${branch}|`).length - 1, 2);
+  }
+  const trusted = workflow.slice(workflow.indexOf('  trusted-immutable-scope:'), workflow.indexOf('\n  guard:'));
+  assert.match(trusted, /ref: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/u);
+  assert.match(trusted, /HEAD_REPOSITORY.*GITHUB_REPOSITORY/u);
+  assert.ok(workflow.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"'));
+});
+
+
+for (const mutation of [
+  'missing recovery test', 'lost old test', 'missing migration argument', 'ignored failure',
+  'unrelated workflow change', 'new recovery exclusion', 'retained migration exclusion', 'unrelated registry change',
+  'executable workflow', 'executable registry',
+]) {
+  test(`Deal runtime CI: rejects ${mutation}`, (t) => {
+    const context = dealRuntimeFixture(t, { admitted: true });
+    write(context.root, dealRuntimePaths[0], 'bounded UNKNOWN recovery candidate\n');
+    write(context.root, dealRuntimePaths[1], 'production-resolved behavior regression\n');
+    write(context.root, dealRuntimePaths[2], 'retained migration assertions and recovery contract\n');
+    wireDealRuntimeTests(context);
+    const ciPath = path.join(context.root, dealRuntimePaths[3]);
+    const registryPath = path.join(context.root, dealRuntimePaths[4]);
+    let ci = fs.readFileSync(ciPath, 'utf8');
+    const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+    if (mutation === 'missing recovery test') fs.unlinkSync(path.join(context.root, dealRuntimePaths[1]));
+    if (mutation === 'lost old test') ci = ci.replace(' tests/unit/retained.test.ts', '');
+    if (mutation === 'missing migration argument') ci = ci.replace('tests/unit/transactionUxV8Migration.test.ts ', '');
+    if (mutation === 'ignored failure') ci = ci.replace('tests/unit/retained.test.ts', 'tests/unit/retained.test.ts || true');
+    if (mutation === 'unrelated workflow change') ci = ci.replace('name: retained CI', 'name: unapproved change');
+    if (mutation === 'new recovery exclusion') registry.exclusions.push({ file: dealRuntimePaths[1], reason: 'Never exclude the new required recovery regression.' });
+    if (mutation === 'retained migration exclusion') registry.exclusions.push({ file: dealRuntimePaths[2], reason: 'The old required migration regression must run.' });
+    if (mutation === 'unrelated registry change') registry.exclusions[0].reason = 'Candidate changed an unrelated exclusion record.';
+    fs.writeFileSync(ciPath, ci);
+    fs.writeFileSync(registryPath, `${JSON.stringify(registry, null, 2)}\n`);
+    if (mutation === 'executable workflow') fs.chmodSync(ciPath, 0o755);
+    if (mutation === 'executable registry') fs.chmodSync(registryPath, 0o755);
+    commit(context.root, `rejected CI wiring ${mutation}`);
+    const expectedError = mutation.startsWith('executable ')
+      ? /DEAL_RUNTIME_IMPLEMENTATION_FILE_MODE/u
+      : mutation.includes('exclusion') || mutation === 'unrelated registry change'
+        ? /DEAL_RUNTIME_CI_REGISTRY_MUTATION/u
+        : /DEAL_RUNTIME_CI_WIRING_MISMATCH/u;
+    rejectDealRuntime(context, expectedError);
+  });
+}
+
+test('Deal runtime CI: old three-path state cannot self-authorize the five-path delivery', (t) => {
+  const context = dealRuntimeFixture(t, { admission: true });
+  writeDealRuntimeAdmission(context, (state) => {
+    state.approvedConcurrentScopes[dealRuntimeImplementationBranch] = dealRuntimePaths.slice(0, 3);
+    state.coordinationAdmissions[dealRuntimeCoordinationKey].allowedPaths = dealRuntimePaths.slice(0, 3);
+  });
+  commit(context.root, 'incomplete three-path admission');
+  rejectDealRuntime(context, /DEAL_RUNTIME_ADMISSION_STATE_MUTATION/u);
+});
+
+
+test('Deal runtime CI: later source correction preserves already accepted CI wiring', (t) => {
+  const context = dealRuntimeFixture(t, { admitted: true });
+  write(context.root, dealRuntimePaths[1], 'accepted behavior regression\n');
+  wireDealRuntimeTests(context);
+  commit(context.root, 'accepted runtime regression and exact CI wiring');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  changeDealRuntime(context);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+
+
+const dealRuntimeGeneratedPaths = ['docs/security/cryptographic-inventory.json', 'docs/security/CRYPTOGRAPHIC_INVENTORY.md'];
+const dealRuntimeGeneratorPath = 'scripts/security/discover-cryptography.mjs';
+function generateDealRuntimeInventory(context, sourceSha) {
+  const result = spawnSync(process.execPath, [dealRuntimeGeneratorPath], {
+    cwd: context.root, encoding: 'utf8', env: { ...process.env, SOURCE_SHA: sourceSha },
+  });
+  assert.equal(result.status, 0, output(result));
+}
+function generatedDealRuntimeFixture(t) {
+  const context = dealRuntimeFixture(t, { admitted: true });
+  write(context.root, dealRuntimeGeneratorPath, fs.readFileSync(dealRuntimeGeneratorPath, 'utf8'));
+  write(context.root, dealRuntimePaths[1], 'existing production-resolved test\n');
+  write(context.root, 'apps/web/middleware.ts', 'export const stable = true;\n');
+  fs.mkdirSync(path.join(context.root, 'apps/web/apps/web'), { recursive: true });
+  fs.symlinkSync('../../middleware.ts', path.join(context.root, 'apps/web/apps/web/middleware.ts'));
+  wireDealRuntimeTests(context);
+  commit(context.root, 'trusted generator and existing regression wiring');
+  generateDealRuntimeInventory(context, git(context.root, ['rev-parse', 'HEAD']));
+  commit(context.root, 'trusted generated inventory baseline');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  return context;
+}
+function changeAndGenerateDealRuntime(context) {
+  write(context.root, dealRuntimePaths[0],
+    'export const generate = () => globalThis.crypto.randomUUID();\n' +
+    "export const fingerprint = bytes => crypto.subtle.digest('SHA-256', bytes);\n");
+  commit(context.root, 'admitted runtime changes cryptographic usage');
+  context.inventorySource = git(context.root, ['rev-parse', 'HEAD']);
+  generateDealRuntimeInventory(context, context.inventorySource);
+  commit(context.root, 'exact generated inventory pair');
+}
+test('Deal inventory: exact trusted generation follows the changed admitted runtime', (t) => {
+  const context = generatedDealRuntimeFixture(t);
+  changeAndGenerateDealRuntime(context);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+test('Deal inventory: committed blobs, not dirty worktree source or generator, determine evidence', (t) => {
+  const context = generatedDealRuntimeFixture(t);
+  changeAndGenerateDealRuntime(context);
+  write(context.root, dealRuntimePaths[0], 'uncommitted decoy source\n');
+  const marker = path.join(context.root, 'untrusted-generator-executed');
+  write(context.root, dealRuntimeGeneratorPath, `import fs from 'node:fs'; fs.writeFileSync(${JSON.stringify(marker)}, 'unsafe');\n`);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+  assert.equal(fs.existsSync(marker), false);
+});
+for (const [label, mutate] of [
+  ['edited JSON', (context) => {
+    const file = path.join(context.root, dealRuntimeGeneratedPaths[0]);
+    const json = JSON.parse(fs.readFileSync(file, 'utf8')); json.scannedFiles += 1;
+    fs.writeFileSync(file, JSON.stringify(json, null, 2) + '\n');
+  }],
+  ['edited Markdown', (context) => fs.appendFileSync(path.join(context.root, dealRuntimeGeneratedPaths[1]), 'untrusted claim\n')],
+  ['stale source attribution', (context) => {
+    const file = path.join(context.root, dealRuntimeGeneratedPaths[1]);
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(context.inventorySource, context.baseline));
+  }],
+  ['unknown source attribution', (context) => {
+    const file = path.join(context.root, dealRuntimeGeneratedPaths[1]);
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(context.inventorySource, '0'.repeat(40)));
+  }],
+  ['malformed source attribution', (context) => {
+    const file = path.join(context.root, dealRuntimeGeneratedPaths[1]);
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(context.inventorySource, 'unverified'));
+  }],
+  ['stale JSON with fresh Markdown', (context) => {
+    write(context.root, dealRuntimeGeneratedPaths[0], git(context.root, ['show', `${context.baseline}:${dealRuntimeGeneratedPaths[0]}`]) + '\n');
+  }],
+]) {
+  test(`Deal inventory: rejects ${label}`, (t) => {
+    const context = generatedDealRuntimeFixture(t);
+    changeAndGenerateDealRuntime(context); mutate(context);
+    commit(context.root, `invalid ${label}`);
+    rejectDealRuntime(context, /DEAL_RUNTIME_GENERATED_/u);
+  });
+}
+for (const file of dealRuntimeGeneratedPaths) {
+  for (const kind of ['chmod', 'symlink', 'delete', 'rename']) {
+    test(`Deal inventory: rejects ${kind} of ${file}`, (t) => {
+      const context = generatedDealRuntimeFixture(t); changeAndGenerateDealRuntime(context);
+      const target = path.join(context.root, file);
+      if (kind === 'chmod') fs.chmodSync(target, 0o755);
+      if (kind === 'symlink') { fs.unlinkSync(target); fs.symlinkSync('../../README.md', target); }
+      if (kind === 'delete') fs.unlinkSync(target);
+      if (kind === 'rename') fs.renameSync(target, `${target}.other`);
+      commit(context.root, `invalid ${kind}`); rejectDealRuntime(context);
+    });
+  }
+}
+test('Deal inventory: artifacts alone do not grant an independent documentation write', (t) => {
+  const context = generatedDealRuntimeFixture(t);
+  generateDealRuntimeInventory(context, context.baseline);
+  fs.appendFileSync(path.join(context.root, dealRuntimeGeneratedPaths[0]), '\n');
+  commit(context.root, 'artifacts without runtime');
+  rejectDealRuntime(context, /DEAL_RUNTIME_GENERATED_PAIR_REQUIRES_RUNTIME/u);
+});
+test('Deal inventory: the pair cannot accompany a test-only change', (t) => {
+  const context = generatedDealRuntimeFixture(t);
+  fs.appendFileSync(path.join(context.root, dealRuntimePaths[1]), 'additional test\n');
+  commit(context.root, 'only tests changed');
+  generateDealRuntimeInventory(context, git(context.root, ['rev-parse', 'HEAD']));
+  fs.appendFileSync(path.join(context.root, dealRuntimeGeneratedPaths[0]), '\n');
+  commit(context.root, 'pair without runtime change');
+  rejectDealRuntime(context, /DEAL_RUNTIME_GENERATED_PAIR_REQUIRES_RUNTIME/u);
+});
+test('Deal inventory: candidate generator replacement is never executed or admitted', (t) => {
+  const context = generatedDealRuntimeFixture(t); changeAndGenerateDealRuntime(context);
+  const marker = path.join(context.root, 'candidate-generator-executed');
+  write(context.root, dealRuntimeGeneratorPath, `import fs from 'node:fs'; fs.writeFileSync(${JSON.stringify(marker)}, 'unsafe');\n`);
+  commit(context.root, 'attempted candidate generator replacement');
+  rejectDealRuntime(context, /DEAL_RUNTIME_IMPLEMENTATION_DIFF_SCOPE/u);
+  assert.equal(fs.existsSync(marker), false);
+});
+test('Deal inventory: unrelated documentation remains outside the exact generated pair', (t) => {
+  const context = generatedDealRuntimeFixture(t); changeAndGenerateDealRuntime(context);
+  write(context.root, 'docs/security/unrelated.md', 'unadmitted\n');
+  commit(context.root, 'unrelated documentation');
+  rejectDealRuntime(context, /DEAL_RUNTIME_IMPLEMENTATION_DIFF_SCOPE/u);
+});
+test('Deal inventory: a dirty correct JSON cannot rescue incorrect committed evidence', (t) => {
+  const context = generatedDealRuntimeFixture(t); changeAndGenerateDealRuntime(context);
+  const target = path.join(context.root, dealRuntimeGeneratedPaths[0]);
+  const correct = fs.readFileSync(target, 'utf8');
+  fs.writeFileSync(target, '{}\n'); commit(context.root, 'incorrect committed inventory');
+  fs.writeFileSync(target, correct);
+  rejectDealRuntime(context, /DEAL_RUNTIME_GENERATED_OUTPUT_MISMATCH/u);
+});
+
+test('Deal inventory: inherited compatibility alias is not resolved against the host filesystem', (t) => {
+  const context = generatedDealRuntimeFixture(t); changeAndGenerateDealRuntime(context);
+  fs.unlinkSync(path.join(context.root, 'apps/web/apps/web/middleware.ts'));
+  fs.symlinkSync('/etc/passwd', path.join(context.root, 'apps/web/apps/web/middleware.ts'));
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+test('Deal inventory: a committed retarget of the compatibility alias is rejected', (t) => {
+  const context = generatedDealRuntimeFixture(t); changeAndGenerateDealRuntime(context);
+  fs.unlinkSync(path.join(context.root, 'apps/web/apps/web/middleware.ts'));
+  fs.symlinkSync('/etc/passwd', path.join(context.root, 'apps/web/apps/web/middleware.ts'));
+  commit(context.root, 'forbidden alias retarget');
+  rejectDealRuntime(context, /DEAL_RUNTIME_IMPLEMENTATION_DIFF_SCOPE/u);
+});

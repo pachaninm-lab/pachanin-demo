@@ -1746,6 +1746,18 @@
       ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
       "scripts/gekta-qwen35-4b-model-host-candidate.py",
       "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json"
+    ],
+    "fix/public-login-register-locale-20260928": [
+      "apps/web/app/platform-v7/login/LoginFormClient.tsx",
+      "apps/web/app/platform-v7/login/page.tsx",
+      "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
+    ],
+    "ux/deal-runtime-unknown-20260929": [
+      "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+      "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+      "apps/web/tests/unit/transactionUxV8Migration.test.ts",
+      ".github/workflows/ci.yml",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json"
     ]
   },
   "currentAcceptance": [
@@ -2590,6 +2602,82 @@
         "CI/security/readiness weakening, force merge or production PASS claim from candidate evidence alone"
       ],
       "teamHubDependency": "#3896 Qwen3.5-4B candidate; root transport unavailable; TAI_MODEL_SSH_PASSWORD absent; production baseline remains Qwen3-8B"
+    },
+    "public-login-register-locale-20260928": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Preserve RU/EN/ZH on the existing Login to Register link and verify the real mobile click path after the exact-live locale-loss failure.",
+      "authorityBaseExactMain": "4c4102d80cd204fcfb1335f5768b32cc1da2c026",
+      "implementationBranch": "fix/public-login-register-locale-20260928",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/login/LoginFormClient.tsx",
+        "apps/web/app/platform-v7/login/page.tsx",
+        "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "Only the three exact paths from trusted base state are admitted; candidate state, manifests and guards cannot expand implementation authority.",
+        "Pass the existing getLocale/canonicalPublicLocale result from the Login server page to LoginFormClient as a bounded RU/EN/ZH presentation prop; do not add client locale hooks or providers to the lean Login entry, and keep authentication, MFA, session, redirect authority and register-page behavior unchanged.",
+        "Preserve all eight public routes, EN/ZH localization, RU homepage design gates, ten viewport-locale combinations, zero pageerror, response success, Chinese typography, mobile target geometry and horizontal reflow assertions.",
+        "Assert the exact localized Register href, real user navigation, resulting HTML locale and zero page errors; do not replace the click with direct navigation or weaken locale assertions.",
+        "Source and local tests do not establish live acceptance; require exact-head independent review and complete CI, then exact-main release and live mobile/i18n on the deployed OCI revision."
+      ],
+      "forbiddenAuthority": [
+        "Candidate-owned state or scope extension in the implementation PR",
+        "Backend/API/DB/role/tenant/authentication/bank/provider/FGIS authority or root-layout, middleware, locale-provider, homepage and register-page changes",
+        "CI/security/readiness weakening, fabricated acceptance or automatic merge"
+      ],
+      "teamHubDependency": "#2198 locale-loss evidence 5866099139; Team Hub #5469"
+    },
+    "deal-runtime-binding-guard-reuse-20260929": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Renew the existing accepted-base three-path PRODUCT guard ref only to admit the actual production-resolved Deal UNKNOWN recovery repair after the tsconfig/Vitest binding mismatch; no runtime source in this prerequisite.",
+      "authorityBaseExactMain": "e94482fecf13ecbf94569f92cfb01fab8b61521d",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "requiredTruthBoundaries": [
+        "The accepted main already restricts this guard ref to exactly these three regular files. This state-only record renews its bounded purpose; it does not alter global scope, approvedConcurrentScopes, R1.2 or any existing admission.",
+        "Preserve the existing trusted-base workflow routes and all old negative checks. Register a separate bounded Deal-runtime source branch and its later state-only admission with exact path, base, file-mode and self-expansion rejection; do not broaden #5720.",
+        "The intended runtime target is apps/web/components/transaction-ux/TransactionDealWorkspace.tsx; the regression must resolve the module actually used by the protected Deal route, not assume the generic Vitest @ alias matches Next.",
+        "No runtime or test path is admitted by this prerequisite or by the guard PR itself. Obtain separate exact-main state-only source admission after the guard is independently reviewed, all substantive CI passes and its expected-SHA merge completes.",
+        "Preserve the existing transaction-ux design, App Shell, tsconfig aliases, server-owned role/auth/tenant/Deal/command authority and mounted UNKNOWN with exact-attempt receipt verification and GET-only recovery. No independent review may be supplied by the implementation author.",
+        "#5720 remains parked and its detached-component test PASS is not delivery evidence. Preserve the single held release window; production and #5714/model-host mutation stay blocked until the actual runtime repair is accepted."
+      ],
+      "forbiddenAuthority": [
+        "Runtime source, tests, state or scope manifests in the three-path guard PR; direct runtime admission in this state-only prerequisite",
+        "Global scope, existing admissions, CI/security/readiness thresholds, branch protection or independent-review policy weakening",
+        "Backend/API/DB/role/tenant/idempotency/payment/provider/FGIS authority, design replacement, alias removal, new recurring cost or production mutation"
+      ],
+      "teamHubDependency": "#5469 dependency 5887083491; checkpoint 5887212388; source-operator CLAIM 5887350938; ACCOUNT_2_PRODUCT independent review"
+    },
+    "deal-runtime-unknown-20260929": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Repair UNKNOWN command recovery in the existing production-resolved TransactionDealWorkspace and prove the same runtime binding without changing its approved design.",
+      "authorityBaseExactMain": "dde1c60f49f3ac346fd1abb17374769fd1546a5a",
+      "implementationBranch": "ux/deal-runtime-unknown-20260929",
+      "allowedPaths": [
+        "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+        "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+        "apps/web/tests/unit/transactionUxV8Migration.test.ts",
+        ".github/workflows/ci.yml",
+        "docs/platform-v7/qa/web-unit-coverage-registry.json"
+      ],
+      "requiredTruthBoundaries": [
+        "The trusted-base guard admits exactly the runtime component, its production-resolved behavior regression and the existing transaction-ux migration regression plus their exact CI invocation and coverage-registry wiring; candidate state cannot widen scope.",
+        "Preserve the transaction-ux design, facade and tsconfig aliases; exercise the module resolved by the protected Deal route rather than the detached platform-v7 component.",
+        "Lost or unverifiable command responses remain UNKNOWN with the original attempt identity, no fresh command replay and GET-only recovery; only an exact-attempt server receipt establishes a known outcome.",
+        "Cover actual RU/EN/zh-CN recovery states and preserve migration binding, shell, server-owned role/auth/tenant/action authority and accessibility assertions.",
+        "Require fresh exact-head author audit, independent review and all substantive CI/readiness before normal expected-SHA merge; source evidence is not REG.RU live acceptance.",
+        "The existing ci.yml invocation must execute both recovery and migration regressions without losing any prior test or changing workflow behavior; the coverage registry may only remove the migration test exclusion."
+      ],
+      "forbiddenAuthority": [
+        "Candidate state, scope, guard, unrelated workflow, alias, facade or design replacement",
+        "Backend/API/DB/role/tenant/idempotency/payment/provider/FGIS authority or production/model-host mutation",
+        "CI/security/readiness weakening, independent-review impersonation, forced merge or new recurring cost"
+      ],
+      "teamHubDependency": "#5469 runtime binding dependency5887083491; migration regression5887595513; guard-purpose renewal #5721"
     }
   }
 }
