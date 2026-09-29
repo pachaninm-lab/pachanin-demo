@@ -334,6 +334,7 @@ test.describe('Platform V7 exact production i18n acceptance', () => {
       await expect(registerLink).toHaveAttribute('href', registerHref);
       await registerLink.click();
       await expect(page).toHaveURL(new URL(registerHref, LIVE_BASE).toString());
+      await page.waitForLoadState('load');
       if (locale.code === 'ru') {
         await expect(page.locator('html')).toHaveAttribute('lang', locale.htmlLang);
         await expectNoHorizontalOverflow(page);
