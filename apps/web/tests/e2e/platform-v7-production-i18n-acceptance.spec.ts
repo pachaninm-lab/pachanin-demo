@@ -328,7 +328,7 @@ test.describe('Platform V7 exact production i18n acceptance', () => {
       await expect(registerLink).toBeVisible();
       await expect(registerLink).toHaveAttribute('href', registerHref);
       await registerLink.click();
-      await expect(page).toHaveURL(new RegExp(`/platform-v7/register\\?lang=${locale.code}(?:&|$)`, 'u'));
+      await expect(page).toHaveURL(new RegExp(`/platform-v7/register\?lang=${locale.code}(?:&|$)`, 'u'));
       await expectLocalizedSurface(page, locale.htmlLang);
       await expectClientChunksSettledWithoutErrors(page, pageErrors, 'login → register');
     });
