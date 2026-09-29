@@ -11,6 +11,7 @@ import emptyStyles from '../../../../packages/design-system-v8/src/EmptyState.mo
 import * as Icons from 'lucide-react';
 import * as Csrf from '../../lib/csrf';
 import workspaceStyles from '../../components/transaction-ux/TransactionDealWorkspace.module.css';
+import { buildDealSpine, getDealActionDefinition } from '../../../api/src/modules/deals/deal-command.policy';
 
 type Submit = (payload: Record<string, unknown>) => Promise<void>;
 const form: { submit?: Submit } = {};
@@ -59,14 +60,15 @@ const { TransactionDealWorkspace } = runtimeModule;
 const { CanonicalDealWorkspace } = loadExactSource(resolvedFacade, { './TransactionDealWorkspace': runtimeModule });
 type Posted = { commandId: string; idempotencyKey: string; expectedUpdatedAt: string; expectedVersion: string; payload: unknown };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+const buyerTransition = getDealActionDefinition('buyer_sign_contract');
 function snapshot(id = 'deal-a') {
   return {
-    deal: { id, number: id, status: 'CONTRACT_SIGNING', version: '7', updatedAt: '2026-09-29T10:00:00.000Z',
+    deal: { id, number: id, status: buyerTransition.from, version: '7', updatedAt: '2026-09-29T10:00:00.000Z',
       culture: null, cropClass: null, volumeTons: '10', pricePerTon: null, totalKopecks: '100000', currency: 'RUB' },
     roleProjection: { role: 'BUYER', focus: 'Review the contract', canAct: true,
       primaryAction: { id: 'buyer_sign_contract', label: 'Confirm contract', enabled: true, source: 'USER', waitingForRoles: [] as string[] } },
     attention: 'Review before signing', blockers: [] as string[], money: null,
-    spine: [], shipments: [], documents: [], laboratory: [], acceptance: [], disputes: [], timeline: [],
+    spine: buildDealSpine(buyerTransition.from), shipments: [], documents: [], laboratory: [], acceptance: [], disputes: [], timeline: [],
   };
 }
 let posts: Array<{ body: Posted; url: string; headers: Headers }>;
@@ -106,11 +108,12 @@ function overrideStorageMethod(method: 'setItem' | 'removeItem', operation: () =
 function committedSnapshot(body: Posted, url: string) {
   const value = snapshot(decodeURIComponent(url.split('/')[4]));
   return { ...value, deal: { ...value.deal, version: '8', status: 'CONTRACT_SIGNED', updatedAt: '2026-09-29T10:00:01.000Z' },
+    spine: buildDealSpine(buyerTransition.to),
     timeline: [{ id: 'event-committed-command', dealId: value.deal.id, tenantId: 'tenant-fixture',
       actorId: 'actor-fixture', actorRole: 'BUYER', eventType: 'BUYER_SIGN_CONTRACT',
       createdAt: '2026-09-29T10:00:01.000Z', hash: 'a'.repeat(64), prevHash: null,
       payload: { commandId: body.commandId, actionId: 'buyer_sign_contract', idempotencyKey: fingerprint(body, url),
-        from: 'CONTRACT_SIGNING', to: 'CONTRACT_SIGNED', resultingUpdatedAt: '2026-09-29T10:00:01.000Z', payload: {} } }] };
+        from: buyerTransition.from, to: buyerTransition.to, resultingUpdatedAt: '2026-09-29T10:00:01.000Z', payload: {} } }] };
 }
 function receipt(body: Posted, url: string, duplicate = false) {
   const parts = url.split('/');
@@ -592,5 +595,53 @@ describe('exact committed-event reconciliation', () => {
     await expectUnknown(); expect(posts).toHaveLength(1); expect(gets).toBe(2);
     expect(window.localStorage.getItem(journalKey())).toBe(raw);
     expect(screen.getByRole('button', { name: 'Send action' })).toBeDisabled();
+  });
+});
+
+
+describe('producer-backed committed-state consistency', () => {
+  it.each(['contradictory to', 'invalid to', 'immediate snapshot', 'missing transition',
+    'duplicate transition', 'transition from', 'transition to', 'missing later transition'])
+  ('retains UNKNOWN for %s without another POST', async (mode) => {
+    await ready(); fireEvent.click(screen.getByRole('button', { name: 'Send action' })); await expectUnknown();
+    const raw = window.localStorage.getItem(journalKey());
+    read = async () => {
+      const value = committedSnapshot(posts[0].body, posts[0].url);
+      const transition = value.spine.find((step) => step.id === 'buyer_sign_contract')!;
+      if (mode === 'contradictory to') value.timeline[0].payload.to = 'CLOSED';
+      if (mode === 'invalid to') value.timeline[0].payload.to = 'NOT_A_CANONICAL_STATE';
+      if (mode === 'immediate snapshot') value.deal.status = 'CLOSED';
+      if (mode === 'missing transition') value.spine = value.spine.filter((step) => step.id !== 'buyer_sign_contract');
+      if (mode === 'duplicate transition') value.spine.push({ ...transition });
+      if (mode === 'transition from') transition.from = 'UNVERIFIED';
+      if (mode === 'transition to') transition.to = 'UNVERIFIED';
+      if (mode === 'missing later transition') {
+        value.deal.version = '9'; value.deal.status = 'RESERVE_REQUESTED';
+        value.deal.updatedAt = '2026-09-29T10:00:02.000Z'; value.spine = [];
+      }
+      return json(value);
+    };
+    await act(async () => { reload(); });
+    await expectUnknown();
+    expect(window.localStorage.getItem(journalKey())).toBe(raw);
+    expect(screen.getByRole('button', { name: 'Send action' })).toBeDisabled();
+    expect(posts).toHaveLength(1); expect(gets).toBe(2);
+  });
+
+  it('recovers an exact historical command after legitimate later progression', async () => {
+    const first = await ready();
+    fireEvent.click(screen.getByRole('button', { name: 'Send action' })); await expectUnknown();
+    read = async () => {
+      const value = committedSnapshot(posts[0].body, posts[0].url);
+      const later = getDealActionDefinition('request_reserve');
+      expect(value.timeline[0].payload.to).toBe(later.from);
+      value.deal.version = '9'; value.deal.status = later.to;
+      value.deal.updatedAt = '2026-09-29T10:00:02.000Z'; value.spine = buildDealSpine(later.to);
+      return json(value);
+    };
+    first.unmount(); render(<CanonicalDealWorkspace role='buyer' dealId='deal-a' />);
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Ответ сервера подтверждён'));
+    expect(window.localStorage.getItem(journalKey())).toBeNull();
+    expect(posts).toHaveLength(1); expect(gets).toBe(2);
   });
 });

@@ -155,10 +155,21 @@ function hasCommittedAttempt(workspace: Workspace, attempt: PendingAttempt): boo
       payload.actionId !== attempt.actionId || payload.idempotencyKey !== attempt.fingerprint ||
       payload.from !== attempt.fromStatus || typeof payload.to !== 'string' || !payload.to || payload.to === payload.from ||
       typeof payload.resultingUpdatedAt !== 'string' || !/^\d+$/.test(workspace.deal.version)) return false;
+  // The authorized GET already carries the producer's from/to transition in
+  // buildDealSpine. Consume it rather than inventing a frontend lifecycle map.
+  const transitions = workspace.spine.filter((step) => step.id === attempt.actionId);
+  const transition: unknown = transitions[0];
+  if (transitions.length !== 1 || !isRecord(transition) ||
+      transition.from !== payload.from || transition.to !== payload.to) return false;
   const committedAt = Date.parse(payload.resultingUpdatedAt);
+  const currentVersion = BigInt(workspace.deal.version);
+  const expectedVersion = BigInt(attempt.expectedVersion);
   return Number.isFinite(Date.parse(event.createdAt)) && Number.isFinite(committedAt) &&
     committedAt >= Date.parse(attempt.expectedUpdatedAt) && Date.parse(workspace.deal.updatedAt) >= committedAt &&
-    BigInt(workspace.deal.version) > BigInt(attempt.expectedVersion);
+    currentVersion > expectedVersion &&
+    // A single committed step must agree with its resulting snapshot; a later
+    // snapshot may have progressed beyond this historical command's target.
+    (currentVersion !== expectedVersion + 1n || workspace.deal.status === payload.to);
 }
 
 class HttpError extends Error {
