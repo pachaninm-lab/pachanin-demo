@@ -652,14 +652,124 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
         throw new Error('DEAL_RUNTIME_ADMISSION_BASE_NOT_ANCESTOR');
       }
       if (readState(headRef) !== readState(baseRef)) throw new Error('DEAL_RUNTIME_IMPLEMENTATION_STATE_MUTATION');
+      // This accepted-base rule grants no additional source path. Only the exact
+      // generated inventory pair may follow an admitted runtime change, and only
+      // after verification from committed blobs with the trusted-base generator.
+      const generatedPaths = ['docs/security/cryptographic-inventory.json', 'docs/security/CRYPTOGRAPHIC_INVENTORY.md'];
+      const generatedChanges = changes.filter(([, file]) => generatedPaths.includes(file));
+      const implementationPaths = [...paths, ...generatedPaths];
       for (const [status, file] of changes) {
-        if (!paths.includes(file) || !['A', 'M'].includes(status) || (status === 'A' && file !== paths[1])) {
+        if (!implementationPaths.includes(file) || !['A', 'M'].includes(status) || (status === 'A' && file !== paths[1])) {
           throw new Error('DEAL_RUNTIME_IMPLEMENTATION_DIFF_SCOPE');
         }
         const before = fileMode(baseRef, file);
         if (fileMode(headRef, file) !== '100644' || (status === 'M' ? before !== '100644' : before !== '')) {
           throw new Error('DEAL_RUNTIME_IMPLEMENTATION_FILE_MODE');
         }
+      }
+      if (generatedChanges.length) {
+        if (generatedChanges.length !== generatedPaths.length ||
+            !generatedPaths.every((file) => generatedChanges.some(([status, changed]) => status === 'M' && changed === file)) ||
+            !changes.some(([status, file]) => status === 'M' && file === paths[0])) {
+          throw new Error('DEAL_RUNTIME_GENERATED_PAIR_REQUIRES_RUNTIME');
+        }
+        const generatorPath = 'scripts/security/discover-cryptography.mjs';
+        if (!['100644', '100755'].includes(fileMode(baseRef, generatorPath)) ||
+            fileMode(headRef, generatorPath) !== fileMode(baseRef, generatorPath) ||
+            execFileSync('git', ['show', `${baseRef}:${generatorPath}`], { encoding: 'utf8' }) !==
+              execFileSync('git', ['show', `${headRef}:${generatorPath}`], { encoding: 'utf8' })) {
+          throw new Error('DEAL_RUNTIME_GENERATOR_NOT_TRUSTED');
+        }
+        // No checkout, import or execution of candidate code. The child imports
+        // only the accepted generator; candidate application blobs are text data.
+        execFileSync(process.execPath, ['--input-type=module', '-'], {
+          env: { ...process.env, DEAL_INVENTORY_BASE: baseRef, DEAL_INVENTORY_HEAD: headRef },
+          timeout: 120_000,
+          maxBuffer: 4 * 1024 * 1024,
+          input: String.raw`
+import { execFileSync } from 'node:child_process';
+import { isDeepStrictEqual } from 'node:util';
+const base = process.env.DEAL_INVENTORY_BASE;
+const head = process.env.DEAL_INVENTORY_HEAD;
+const generatorPath = 'scripts/security/discover-cryptography.mjs';
+const jsonPath = 'docs/security/cryptographic-inventory.json';
+const mdPath = 'docs/security/CRYPTOGRAPHIC_INVENTORY.md';
+const git = (args, options = {}) => execFileSync('git', args, {
+  encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...options,
+});
+const read = (ref, file) => git(['show', ref + ':' + file]);
+const markdown = read(head, mdPath);
+const attribution = /^Source SHA: \x60([0-9a-f]{40})\x60$/mu.exec(markdown);
+if (!attribution) throw new Error('DEAL_RUNTIME_GENERATED_SOURCE_IDENTITY');
+const source = attribution[1];
+try { git(['merge-base', '--is-ancestor', source, head]); }
+catch { throw new Error('DEAL_RUNTIME_GENERATED_SOURCE_NOT_ANCESTOR'); }
+const generator = read(base, generatorPath);
+if (read(head, generatorPath) !== generator || read(source, generatorPath) !== generator) {
+  throw new Error('DEAL_RUNTIME_GENERATOR_NOT_TRUSTED');
+}
+function sourceTree(ref) {
+  const entries = git(['ls-tree', '-r', '-z', ref, '--', 'apps', 'packages']).split('\0').filter(Boolean);
+  const selected = [];
+  for (const entry of entries) {
+    const parsed = /^(\d{6}) (blob|commit) ([0-9a-f]{40})\t([\s\S]+)$/u.exec(entry);
+    if (!parsed) throw new Error('DEAL_RUNTIME_GENERATED_TREE_METADATA');
+    const [, mode, kind, oid, file] = parsed;
+    if (!/\.(?:ts|tsx|js|jsx|mjs|cjs)$/u.test(file) || file.startsWith('apps/landing/') ||
+        /(?:\.(?:spec|test)\.[cm]?[jt]sx?$)|(?:(?:^|\/)(?:tests?|__tests__)\/)/u.test(file)) continue;
+    let contentOid = oid;
+    if (mode === '120000' && file === 'apps/web/apps/web/middleware.ts') {
+      // One pre-existing compatibility alias is followed by the canonical
+      // scanner. Resolve this exact immutable link through Git, never the host
+      // filesystem, and include its target blob in source-attribution equality.
+      const baselineLink = git(['ls-tree', base, '--', file]);
+      const target = 'apps/web/middleware.ts';
+      const targetEntry = /^(100644|100755) blob ([0-9a-f]{40})\t/u.exec(git(['ls-tree', ref, '--', target]));
+      if (baselineLink !== git(['ls-tree', ref, '--', file]) ||
+          read(ref, file) !== '../../middleware.ts' || !targetEntry) {
+        throw new Error('DEAL_RUNTIME_GENERATED_ALIAS_MISMATCH');
+      }
+      contentOid = targetEntry[2];
+    } else if (kind !== 'blob' || !['100644', '100755'].includes(mode)) {
+      throw new Error('DEAL_RUNTIME_GENERATED_NONREGULAR_SOURCE');
+    }
+    if (/[\r\n\t]/u.test(file)) throw new Error('DEAL_RUNTIME_GENERATED_TREE_METADATA');
+    selected.push([file, mode, oid, contentOid]);
+  }
+  return selected.sort((a, b) => Buffer.compare(Buffer.from(a[0]), Buffer.from(b[0])));
+}
+const entries = sourceTree(head);
+if (!entries.length || !isDeepStrictEqual(sourceTree(source), entries)) {
+  throw new Error('DEAL_RUNTIME_GENERATED_SOURCE_TREE_MISMATCH');
+}
+const blobs = git(['cat-file', '--batch'], {
+  input: entries.map((entry) => entry[3]).join('\n') + '\n', encoding: null,
+});
+let offset = 0;
+const contents = new Map();
+const decoder = new TextDecoder('utf-8', { fatal: true });
+for (const [file, , , oid] of entries) {
+  const end = blobs.indexOf(10, offset);
+  const header = end >= 0 ? /^([0-9a-f]{40}) blob (\d+)$/u.exec(blobs.subarray(offset, end).toString('ascii')) : null;
+  const size = header ? Number(header[2]) : -1;
+  if (!header || header[1] !== oid || !Number.isSafeInteger(size) || size < 0 || size > 16 * 1024 * 1024 ||
+      end + 1 + size >= blobs.length || blobs[end + 1 + size] !== 10) {
+    throw new Error('DEAL_RUNTIME_GENERATED_BLOB_METADATA');
+  }
+  offset = end + 1;
+  contents.set(file, decoder.decode(blobs.subarray(offset, offset + size)));
+  offset += size + 1;
+}
+if (offset !== blobs.length) throw new Error('DEAL_RUNTIME_GENERATED_BLOB_TRAILING_DATA');
+const trusted = await import('data:text/javascript;base64,' + Buffer.from(generator).toString('base64'));
+const inventory = trusted.buildInventory({ files: entries.map(([file]) => file), readFile: (file) => contents.get(file) });
+if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
+    markdown !== trusted.renderMarkdown(inventory, { sourceSha: source })) {
+  throw new Error('DEAL_RUNTIME_GENERATED_OUTPUT_MISMATCH');
+}
+`,
+        });
+        scopes = implementationPaths;
       }
       // These two paths are evidence wiring, not general workflow authority.
       // Derive the only permitted delta from the trusted base, never the candidate.
