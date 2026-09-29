@@ -9,6 +9,11 @@ import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 const commandFormHarness = vi.hoisted(() => ({
   submit: undefined as undefined | ((payload: Record<string, unknown>) => Promise<void>),
 }));
+const localeHarness = vi.hoisted(() => ({ current: 'ru' }));
+
+vi.mock('next-intl', () => ({
+  useLocale: () => localeHarness.current,
+}));
 
 vi.mock('@/components/platform-v7/PublicCanonicalPrimitives', () => ({
   CanonicalDealSpine: () => null,
@@ -215,6 +220,7 @@ const dealSnapshot = {
 describe('canonical Deal command outcome after an uncertain response', () => {
   afterEach(() => {
     commandFormHarness.submit = undefined;
+    localeHarness.current = 'ru';
     vi.unstubAllGlobals();
   });
 
@@ -339,6 +345,38 @@ describe('canonical Deal command outcome after an uncertain response', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(originalCommandId);
     expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
     expect(screen.queryByText(/Результат записан в сделку/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { locale: 'en', retry: 'Retry loading the deal', title: 'Check the previous command outcome', unknown: 'The command outcome is unknown' },
+    { locale: 'zh', retry: '重新加载交易', title: '核对上一条指令的结果', unknown: '指令结果未知' },
+  ])('keeps UNKNOWN recovery copy locale-native for $locale', async ({ locale, retry, title, unknown }) => {
+    localeHarness.current = locale;
+    let readCount = 0;
+    let originalCommandId = '';
+    const fetchMock = vi.fn(async (_url: string, options?: { method?: string; body?: string }) => {
+      if (options?.method === 'POST') {
+        originalCommandId = JSON.parse(options.body || '{}').commandId;
+        return { ok: false, status: 503, json: async () => ({ message: 'receipt unavailable' }) };
+      }
+      readCount += 1;
+      if (readCount === 1) return { ok: true, json: async () => dealSnapshot };
+      return { ok: false, status: 503, json: async () => ({ message: 'read unavailable' }) };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(React.createElement(CanonicalDealWorkspace, { role: 'seller', dealId: dealSnapshot.deal.id }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Подтвердить действие' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(unknown);
+    expect(screen.getByRole('alert')).toHaveTextContent(originalCommandId);
+    expect(screen.getByRole('heading', { name: title })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Обновить сделку' }));
+    await screen.findByRole('button', { name: retry });
+    expect(screen.getByRole('alert')).toHaveTextContent(unknown);
+    expect(screen.getByRole('alert')).toHaveTextContent(originalCommandId);
+    expect(screen.getByRole('alert').textContent).not.toMatch(/[А-Яа-яЁё]/u);
+    expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
   });
 
   it('treats a verified pre-execution rate limit as a definite rejection', async () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useLocale } from 'next-intl';
 import {
   AlertTriangle,
   ArrowRight,
@@ -238,11 +239,48 @@ function commandInitialValues(actionId: string, workspace: Workspace): Record<st
   return values;
 }
 
-function unknownCommandMessage(commandId: string): string {
-  return `Исход команды неизвестен. Код попытки: ${commandId}. Обнови подтверждённое состояние сделки после восстановления связи; если результат неясен, передай этот код поддержке. Не отправляй новую команду до сверки.`;
+type DealRecoveryLocale = 'ru' | 'en' | 'zh';
+
+const DEAL_RECOVERY_COPY: Record<DealRecoveryLocale, {
+  loading: string;
+  unknown: (commandId: string) => string;
+  retryLoad: string;
+  taskLabel: string;
+  taskTitle: string;
+  taskExplanation: string;
+}> = {
+  ru: {
+    loading: 'Проверяем сохранённое состояние сделки. Новая команда не отправляется.',
+    unknown: (commandId) => `Исход команды неизвестен. Код попытки: ${commandId}. Обнови подтверждённое состояние сделки после восстановления связи; если результат неясен, передай этот код поддержке. Не отправляй новую команду до сверки.`,
+    retryLoad: 'Повторить загрузку сделки',
+    taskLabel: 'Сначала проверь исход',
+    taskTitle: 'Проверь исход предыдущей команды',
+    taskExplanation: 'Связь прервалась или сервер не вернул проверяемое подтверждение. Команда могла быть выполнена. Повторная отправка с новым кодом заблокирована на этом экране до проверки исхода.',
+  },
+  en: {
+    loading: 'Checking the saved deal state. No new command is being sent.',
+    unknown: (commandId) => `The command outcome is unknown. Attempt ID: ${commandId}. Refresh the confirmed deal state after the connection recovers; if the outcome remains unclear, give this ID to support. Do not send a new command until it is reconciled.`,
+    retryLoad: 'Retry loading the deal',
+    taskLabel: 'Check the outcome first',
+    taskTitle: 'Check the previous command outcome',
+    taskExplanation: 'The connection was interrupted or the server did not return verifiable confirmation. The command may have completed. Sending a new command with a new ID is blocked on this screen until the outcome is checked.',
+  },
+  zh: {
+    loading: '正在检查已保存的交易状态。不会发送新指令。',
+    unknown: (commandId) => `指令结果未知。尝试编号：${commandId}。连接恢复后请刷新已确认的交易状态；如果结果仍不明确，请将此编号提供给支持人员。在核对完成前不要发送新指令。`,
+    retryLoad: '重新加载交易',
+    taskLabel: '先核对结果',
+    taskTitle: '核对上一条指令的结果',
+    taskExplanation: '连接中断，或服务器未返回可验证的确认。该指令可能已经执行。在核对结果前，此页面会阻止使用新编号再次发送指令。',
+  },
+};
+
+function dealRecoveryLocale(value: string): DealRecoveryLocale {
+  return value === 'en' || value === 'zh' ? value : 'ru';
 }
 
 export function CanonicalDealWorkspace({ role: _role, dealId }: { role: PlatformRole; dealId: string }) {
+  const recoveryCopy = DEAL_RECOVERY_COPY[dealRecoveryLocale(useLocale())];
   const [workspace, setWorkspace] = React.useState<Workspace | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
@@ -341,8 +379,8 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
         <div className={styles.stateContent}>
           <Loader2 size={25} className={styles.spin} aria-hidden='true' />
           <h1>Открываем сделку</h1>
-          <p>{currentUnknown ? 'Проверяем сохранённое состояние сделки. Новая команда не отправляется.' : 'Сейчас покажем только твой следующий шаг.'}</p>
-          {currentUnknown ? <p role='alert'>{unknownCommandMessage(currentUnknown.commandId)}</p> : null}
+          <p>{currentUnknown ? recoveryCopy.loading : 'Сейчас покажем только твой следующий шаг.'}</p>
+          {currentUnknown ? <p role='alert'>{recoveryCopy.unknown(currentUnknown.commandId)}</p> : null}
         </div>
       </section>
     );
@@ -355,10 +393,10 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
           <AlertTriangle size={27} aria-hidden='true' />
           <h1>Рабочая сделка недоступна</h1>
           <p>{error || 'Сервер не вернул подтверждённое состояние.'}</p>
-          {currentUnknown ? <p>{unknownCommandMessage(currentUnknown.commandId)}</p> : null}
+          {currentUnknown ? <p>{recoveryCopy.unknown(currentUnknown.commandId)}</p> : null}
           <button className={styles.retryButton} type='button' onClick={() => void load()}>
             <RefreshCw size={18} aria-hidden='true' />
-            {currentUnknown ? 'Повторить загрузку сделки' : 'Повторить'}
+            {currentUnknown ? recoveryCopy.retryLoad : 'Повторить'}
           </button>
         </div>
       </section>
@@ -379,7 +417,7 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
   const hasBlockers = workspace.blockers.length > 0;
 
   const taskTitle = activeUnknown
-    ? 'Проверь исход предыдущей команды'
+    ? recoveryCopy.taskTitle
     : hasBlockers
       ? workspace.blockers[0]
       : systemAction
@@ -391,7 +429,7 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
             : 'Сейчас ничего делать не нужно';
 
   const taskExplanation = activeUnknown
-    ? 'Связь прервалась или сервер не вернул проверяемое подтверждение. Команда могла быть выполнена. Повторная отправка с новым кодом заблокирована на этом экране до проверки исхода.'
+    ? recoveryCopy.taskExplanation
     : hasBlockers
       ? 'Сначала устрани указанный стоп-фактор. До этого следующий шаг сделки заблокирован.'
       : systemAction
@@ -458,14 +496,14 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
         <div className={styles.taskHeading}>
           <div className={styles.taskIcon}><TaskIcon size={24} aria-hidden='true' /></div>
           <div>
-            <span className={styles.taskLabel}>{activeUnknown ? 'Сначала проверь исход' : hasBlockers ? 'Сначала реши проблему' : systemAction ? 'Сейчас делать ничего не нужно' : 'Твоё следующее действие'}</span>
+            <span className={styles.taskLabel}>{activeUnknown ? recoveryCopy.taskLabel : hasBlockers ? 'Сначала реши проблему' : systemAction ? 'Сейчас делать ничего не нужно' : 'Твоё следующее действие'}</span>
             <h2 id='deal-next-task'>{taskTitle}</h2>
             <p className={styles.taskExplanation}>{taskExplanation}</p>
           </div>
         </div>
 
         {activeUnknown ? (
-          <p className={styles.taskExplanation} role='alert'>{unknownCommandMessage(activeUnknown.commandId)}</p>
+          <p className={styles.taskExplanation} role='alert'>{recoveryCopy.unknown(activeUnknown.commandId)}</p>
         ) : null}
 
         {hasBlockers && workspace.blockers.length > 1 ? (
