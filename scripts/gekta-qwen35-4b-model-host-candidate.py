@@ -541,7 +541,12 @@ def candidate_exec_argv_status(argv) -> int:
     ):
         return 79
     encoded = [os.fsencode(item) for item in argv]
-    if os.fsencode(CANDIDATE_PATH) not in encoded or CANDIDATE_ALIAS.encode("utf-8") not in encoded:
+    try:
+        model = flag_value(encoded, "model", required=False)
+        alias = flag_value(encoded, "alias", required=False)
+    except CandidateError:
+        return 80
+    if model != os.fsencode(CANDIDATE_PATH) or alias != CANDIDATE_ALIAS.encode("utf-8"):
         return 80
     return 0
 
@@ -1223,7 +1228,12 @@ def start(candidate_key: str) -> None:
             watchdog_arm_write = -1
 
         identity_deadline = time.monotonic() + 5
-        while time.monotonic() < identity_deadline and process_alive(proc.pid):
+        while time.monotonic() < identity_deadline:
+            returncode = proc.poll()
+            if returncode is not None:
+                fail("candidate_guard_or_exec_exited:%d" % returncode)
+            if initial_pidfd is None or pidfd_exited(initial_pidfd):
+                fail("candidate_guard_or_exec_exited")
             if candidate_process_matches(proc.pid):
                 break
             time.sleep(0.05)
