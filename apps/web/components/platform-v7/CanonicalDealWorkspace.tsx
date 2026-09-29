@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { useLocale } from 'next-intl';
 import {
   AlertTriangle,
   ArrowRight,
@@ -292,7 +291,7 @@ function dealRecoveryLocale(value: string): DealRecoveryLocale {
 }
 
 export function CanonicalDealWorkspace({ role: _role, dealId }: { role: PlatformRole; dealId: string }) {
-  const recoveryCopy = DEAL_RECOVERY_COPY[dealRecoveryLocale(useLocale())];
+  const recoveryCopy = DEAL_RECOVERY_COPY[dealRecoveryLocale(globalThis.document?.documentElement.lang || 'ru')];
   const [workspace, setWorkspace] = React.useState<Workspace | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);

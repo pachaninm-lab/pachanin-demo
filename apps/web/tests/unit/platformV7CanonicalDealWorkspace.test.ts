@@ -9,11 +9,6 @@ import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 const commandFormHarness = vi.hoisted(() => ({
   submit: undefined as undefined | ((payload: Record<string, unknown>) => Promise<void>),
 }));
-const localeHarness = vi.hoisted(() => ({ current: 'ru' }));
-
-vi.mock('next-intl', () => ({
-  useLocale: () => localeHarness.current,
-}));
 
 vi.mock('@/components/platform-v7/PublicCanonicalPrimitives', () => ({
   CanonicalDealSpine: () => null,
@@ -220,7 +215,7 @@ const dealSnapshot = {
 describe('canonical Deal command outcome after an uncertain response', () => {
   afterEach(() => {
     commandFormHarness.submit = undefined;
-    localeHarness.current = 'ru';
+    document.documentElement.lang = 'ru';
     vi.unstubAllGlobals();
   });
 
@@ -351,7 +346,7 @@ describe('canonical Deal command outcome after an uncertain response', () => {
     { locale: 'en', retry: 'Retry loading the deal', errorTitle: 'Deal workspace unavailable', title: 'Check the previous command outcome', unknown: 'The command outcome is unknown' },
     { locale: 'zh', retry: '重新加载交易', errorTitle: '交易工作区不可用', title: '核对上一条指令的结果', unknown: '指令结果未知' },
   ])('keeps UNKNOWN recovery copy locale-native for $locale', async ({ locale, retry, errorTitle, title, unknown }) => {
-    localeHarness.current = locale;
+    document.documentElement.lang = locale;
     let readCount = 0;
     let originalCommandId = '';
     const fetchMock = vi.fn(async (_url: string, options?: { method?: string; body?: string }) => {
