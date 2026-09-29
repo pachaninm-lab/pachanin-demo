@@ -3,7 +3,7 @@
   "branch": "fix/gekta-qwen35-guard-argv-form-20260928",
   "status": "active",
   "issue": 3896,
-  "purpose": "Repair the observed Qwen3.5 candidate pre-exec identity failure by making the existing bounded guard validate llama model/alias flags semantically across split and joined argv forms, while keeping Qwen3-8B live and unchanged.",
+  "purpose": "Continue the existing Qwen3.5 candidate startup repair with bounded diagnostics for the observed exit before inference, under Team Hub claims 5898158548 and 5898586358. Preserve the working Qwen3-8B, original launch guards and cleanup; do not infer a root cause from exit status alone.",
   "approvedBy": "repository-owner continuation after merged admission PR #5704 on 2026-09-28",
   "authorityBaseExactMain": "f73056d3860464bb59fcf98430a60578cd069bb7",
   "newRecurringCostRub": 0,
@@ -25,7 +25,8 @@
     "Every path that reaches candidate start performs fail-closed cleanup and verifies the original Qwen3-8B baseline identity is unchanged and healthy.",
     "No systemd unit/drop-in mutation, baseline stop/restart/signal, application/database/tenant/Deal/money/registration/Web/API/outbox deployment or production model identity mutation is admitted.",
     "New mandatory recurring cost remains 0 RUB.",
-    "The pre-exec guard must validate candidate model and alias through the same bounded flag parser used by the parent so both --flag value and --flag=value baseline token forms are accepted without argv normalization; any guard or pre-identity exec exit must fail fast with its bounded exit status instead of being masked by the generic identity timeout."
+    "The pre-exec guard must validate candidate model and alias through the same bounded flag parser used by the parent so both --flag value and --flag=value baseline token forms are accepted without argv normalization; any guard or pre-identity exec exit must fail fast with its bounded exit status instead of being masked by the generic identity timeout.",
+    "Startup diagnostics may read at most 64 KiB from only the current owned attempt's private log inode after owned-child exit and listener-absence proof. Reject unsafe files or stale/mutated cursors; emit only closed phase/class vocabulary and bounded byte/truncation counts, never stderr text, keys, environment, paths or argv. Cleanup failure suppresses diagnostics and retains recovery state; diagnostic failure must not mask the original failed start. Workflow reporting must accept only complete allowlisted lines and must not turn log classification into inference or acceptance PASS."
   ],
   "forbiddenCapabilities": [
     "sudo, root SSH, password SSH, production SSH credentials, sudoers changes, persistent privileged bridges or arbitrary privileged remote command authority",
