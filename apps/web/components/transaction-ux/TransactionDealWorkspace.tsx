@@ -18,6 +18,7 @@ import {
 import { Button, InlineNotice, NextActionCard, StatusChip, Surface } from '@pc/design-system-v8';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import { DealCommandForm } from '@/components/platform-v7/DealCommandForm';
+import { applyCsrfHeader } from '@/lib/csrf';
 import styles from './TransactionDealWorkspace.module.css';
 
 type SpineState = 'done' | 'active' | 'pending';
@@ -67,13 +68,16 @@ type Workspace = {
   shipments: Array<{ id: string; status: string; vehicleNumber?: string | null; nextAction?: string | null }>;
   documents: Array<{ id: string; type: string; status: string; name: string }>;
   laboratory: Array<{ id: string; status: string; protocol?: string | null }>;
-  acceptance: Array<{ id: string; status: string; weightActualTons?: string | null; qualityStatus: string; notes?: string | null }>;
+  acceptance: Array<{ id: string; status: string; weightActualTons?: string | number | null; qualityStatus: string; notes?: string | null }>;
   disputes: Array<{ id: string; status: string; description: string }>;
   timeline: Array<{ id: string; eventType: string; createdAt: string }>;
 };
 
 type CommandResult = {
   ok: boolean;
+  commandId?: string;
+  dealId?: string;
+  actionId?: string;
   duplicate?: boolean;
   status?: string;
   updatedAt?: string;
@@ -81,7 +85,7 @@ type CommandResult = {
 };
 
 class HttpError extends Error {
-  constructor(message: string, readonly status: number, readonly field?: string) {
+  constructor(message: string, readonly status: number, readonly field?: string, readonly code?: string, readonly structured = false) {
     super(message);
   }
 }
@@ -94,13 +98,63 @@ function readError(payload: any, status: number): HttpError {
     typeof message === 'string' ? message : JSON.stringify(message),
     status,
     typeof payload?.field === 'string' ? payload.field : undefined,
+    typeof payload?.code === 'string' ? payload.code : undefined,
+    Boolean(payload && typeof payload === 'object' && !Array.isArray(payload) &&
+      (typeof payload.message === 'string' || typeof payload.error === 'string' ||
+        (Array.isArray(payload.message) && payload.message.length > 0 && payload.message.every((item: unknown) => typeof item === 'string')))),
   );
 }
 
 async function readJson(response: Response): Promise<any> {
-  const payload = await response.json().catch(() => ({}));
+  const payload = await response.json().catch(() => { throw new HttpError('RESPONSE_UNVERIFIABLE', 502); });
   if (!response.ok) throw readError(payload, response.status);
   return payload;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasStrings(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  return keys.every((key) => typeof value[key] === 'string');
+}
+
+function hasOptionalStrings(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  return keys.every((key) => value[key] == null || typeof value[key] === 'string');
+}
+
+function isWorkspace(value: unknown, dealId: string): value is Workspace {
+  if (!isRecord(value) || !isRecord(value.deal) || !isRecord(value.roleProjection)) return false;
+  const deal = value.deal;
+  const projection = value.roleProjection;
+  const action = projection.primaryAction;
+  if (deal.id !== dealId || !hasStrings(deal, ['id', 'status', 'version', 'updatedAt', 'currency']) ||
+      !hasOptionalStrings(deal, ['number', 'culture', 'cropClass', 'volumeTons', 'pricePerTon', 'totalKopecks']) ||
+      !hasStrings(projection, ['role', 'focus']) || typeof projection.canAct !== 'boolean' ||
+      typeof value.attention !== 'string' || !Array.isArray(value.blockers) ||
+      !value.blockers.every((blocker) => typeof blocker === 'string')) return false;
+  if (action !== null && (!isRecord(action) || !hasStrings(action, ['id', 'label']) ||
+      typeof action.enabled !== 'boolean' || !Array.isArray(action.waitingForRoles) ||
+      !action.waitingForRoles.every((role) => typeof role === 'string') ||
+      (action.source !== undefined && action.source !== 'USER' && action.source !== 'BANK_CALLBACK'))) return false;
+  if (value.money !== null && (!isRecord(value.money) || !hasStrings(value.money, ['status', 'callbackState']) ||
+      !hasOptionalStrings(value.money, ['amountKopecks', 'bankRef']))) return false;
+  if (!Array.isArray(value.spine) || !value.spine.every((step) => isRecord(step) &&
+      hasStrings(step, ['id', 'stage', 'label', 'state']) && ['done', 'active', 'pending'].includes(step.state as string) &&
+      (step.source === undefined || step.source === 'USER' || step.source === 'BANK_CALLBACK'))) return false;
+  const lists: Array<[unknown, string[], string[]]> = [
+    [value.shipments, ['id', 'status'], ['vehicleNumber', 'nextAction']],
+    [value.documents, ['id', 'type', 'status', 'name'], []],
+    [value.laboratory, ['id', 'status'], ['protocol']],
+    [value.acceptance, ['id', 'status', 'qualityStatus'], ['notes']],
+    [value.disputes, ['id', 'status', 'description'], []],
+    [value.timeline, ['id', 'eventType', 'createdAt'], []],
+  ];
+  if (!Array.isArray(value.acceptance) || !value.acceptance.every((item) => isRecord(item) &&
+      (item.weightActualTons == null || typeof item.weightActualTons === 'string' ||
+        (typeof item.weightActualTons === 'number' && Number.isFinite(item.weightActualTons))))) return false;
+  return lists.every(([items, required, optional]) => Array.isArray(items) &&
+    items.every((item) => isRecord(item) && hasStrings(item, required) && hasOptionalStrings(item, optional)));
 }
 
 function formatMoney(kopecks: string | null | undefined, currency = 'RUB'): string {
@@ -114,9 +168,10 @@ function formatMoney(kopecks: string | null | undefined, currency = 'RUB'): stri
   return `${negative ? '−' : ''}${grouped},${cents} ${symbol}`;
 }
 
-function formatDecimal(value: string | null | undefined, suffix: string): string {
-  if (!value || !/^\d+(?:\.\d+)?$/.test(value)) return '—';
-  const [whole, fraction = ''] = value.split('.');
+function formatDecimal(value: string | number | null | undefined, suffix: string): string {
+  const decimal = typeof value === 'number' && Number.isFinite(value) ? String(value) : value;
+  if (typeof decimal !== 'string' || !/^\d+(?:\.\d+)?$/.test(decimal)) return '—';
+  const [whole, fraction = ''] = decimal.split('.');
   const significant = fraction.replace(/0+$/, '').slice(0, 6);
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   return `${grouped}${significant ? `,${significant}` : ''} ${suffix}`;
@@ -220,91 +275,154 @@ function taskOwner(
 }
 
 export function TransactionDealWorkspace({ role, dealId }: { role: PlatformRole; dealId: string }) {
-  const [workspace, setWorkspace] = React.useState<Workspace | null>(null);
+  const [workspaceState, setWorkspace] = React.useState<Workspace | null>(null);
+  const [workspaceContext, setWorkspaceContext] = React.useState({ dealId, role });
+  const workspace = workspaceContext.dealId === dealId && workspaceContext.role === role ? workspaceState : null;
+  const latestWorkspace = React.useRef(workspace);
+  latestWorkspace.current = workspace;
+  const reading = React.useRef(false);
   const [loading, setLoading] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
   const [notice, setNotice] = React.useState('');
+  const unresolved = React.useRef(new Map<string, { commandId: string; actionId: string; idempotencyKey: string }>());
+  const inFlight = React.useRef(false);
+  const readGeneration = React.useRef(0);
+  const context = React.useRef({ dealId, role });
+  context.current = { dealId, role };
+  const mounted = React.useRef(true);
+  const [, refreshAttempt] = React.useReducer((value: number) => value + 1, 0);
+  const unknownAttempt = unresolved.current.get(dealId);
+  const [locale, setLocale] = React.useState<'ru' | 'en' | 'zh'>('ru');
+  const copy = locale === 'en' ? RECOVERY_EN : locale === 'zh' ? RECOVERY_ZH : RECOVERY_RU;
+  const errorCopy = error === 'INPUT_PROBLEM' ? copy.inputError : error === 'REJECTED' ? copy.rejected : copy.readError;
+  const noticeCopy = notice === 'DUPLICATE' ? copy.duplicate : notice === 'CONFLICT' ? copy.conflict : copy.success;
+
+  React.useEffect(() => {
+    mounted.current = true;
+    const updateLocale = () => {
+      const language = document.documentElement.lang.trim().toLowerCase().split(/[-_]/)[0];
+      setLocale(language === 'en' || language === 'zh' ? language : 'ru');
+    };
+    updateLocale();
+    const observer = new MutationObserver(updateLocale);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+    return () => { mounted.current = false; readGeneration.current += 1; observer.disconnect(); };
+  }, []);
 
   const load = React.useCallback(async () => {
-    if (!dealId) {
-      setWorkspace(null);
-      setLoading(false);
-      setError('Рабочее место нельзя открыть без подтверждённого идентификатора сделки.');
-      return;
-    }
+    if (!mounted.current || context.current.dealId !== dealId || context.current.role !== role) return;
+    const generation = ++readGeneration.current;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12_000);
+    const current = () => mounted.current && readGeneration.current === generation &&
+      context.current.dealId === dealId && context.current.role === role;
+    reading.current = true;
     setLoading(true);
     setError('');
     try {
+      if (!dealId) throw new HttpError('DEAL_ID_REQUIRED', 400);
       const response = await fetch(`/api/proxy/deals/${encodeURIComponent(dealId)}/execution-workspace`, {
-        method: 'GET',
-        cache: 'no-store',
-        headers: { Accept: 'application/json' },
+        method: 'GET', cache: 'no-store', headers: { Accept: 'application/json' }, signal: controller.signal,
       });
-      const payload = await readJson(response) as Workspace;
-      if (!payload?.deal?.id || payload.deal.id !== dealId) throw new HttpError('Сервер вернул состояние другой сделки.', 502);
-      setWorkspace(payload);
-    } catch (reason) {
-      setWorkspace(null);
-      setError(reason instanceof Error ? reason.message : 'Не удалось загрузить сделку.');
+      const payload: unknown = await readJson(response);
+      if (!isWorkspace(payload, dealId)) {
+        throw new HttpError('DEAL_STATE_UNVERIFIABLE', 502);
+      }
+      // The read model does not expose a command receipt; aggregate changes cannot settle UNKNOWN.
+      if (current()) { setWorkspaceContext({ dealId, role }); setWorkspace(payload); }
+    } catch {
+      if (current()) { setWorkspace(null); setError('READ_UNAVAILABLE'); }
     } finally {
-      setLoading(false);
+      clearTimeout(timeout);
+      if (current()) { reading.current = false; setLoading(false); }
     }
-  }, [dealId]);
+  }, [dealId, role]);
 
   React.useEffect(() => {
+    setNotice('');
     void load();
+    return () => { readGeneration.current += 1; };
   }, [load]);
 
   async function executePrimaryAction(payload: Record<string, unknown>) {
     const action = workspace?.roleProjection.primaryAction;
     const isSystemAction = action?.source === 'BANK_CALLBACK' || action?.waitingForRoles.includes('BANK_CALLBACK');
-    if (!workspace || !action?.enabled || isSystemAction || submitting || workspace.blockers.length > 0) return;
+    if (!mounted.current || context.current.dealId !== dealId || context.current.role !== role ||
+        !workspace || workspace !== latestWorkspace.current || workspace.deal.id !== dealId || workspace.roleProjection.canAct !== true ||
+        action?.enabled !== true || isSystemAction || submitting || inFlight.current ||
+        unresolved.current.has(dealId) || loading || reading.current || workspace.blockers.length > 0) return;
 
     const commandId = globalThis.crypto?.randomUUID?.() ?? `command-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const idempotencyKey = `${workspace.deal.id}:${action.id}:${commandId}`;
+    let body: string;
+    let headers: Headers;
+    try {
+      body = JSON.stringify({ commandId, idempotencyKey,
+        expectedUpdatedAt: workspace.deal.updatedAt,
+        expectedVersion: workspace.deal.version,
+        payload,
+      });
+      headers = applyCsrfHeader({ 'Content-Type': 'application/json', Accept: 'application/json' });
+    } catch {
+      setError('INPUT_PROBLEM');
+      return;
+    }
+    const current = () => mounted.current && context.current.dealId === dealId && context.current.role === role;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20_000);
+    inFlight.current = true;
     setSubmitting(true);
     setError('');
     setNotice('');
-
     try {
       const response = await fetch(`/api/proxy/deals/${encodeURIComponent(workspace.deal.id)}/commands/${encodeURIComponent(action.id)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        cache: 'no-store',
-        body: JSON.stringify({
-          commandId,
-          idempotencyKey,
-          expectedUpdatedAt: workspace.deal.updatedAt,
-          expectedVersion: workspace.deal.version,
-          payload,
-        }),
+        method: 'POST', headers, cache: 'no-store', body, signal: controller.signal,
       });
       const result = await readJson(response) as CommandResult;
-      setNotice(result.duplicate ? 'Это действие уже было выполнено. Показан сохранённый результат.' : 'Готово. Результат записан в сделку.');
-      await load();
+      // The server fingerprints idempotencyKey. Verify canonical attempt/deal/action identity instead.
+      if (result?.ok !== true || result.commandId !== commandId || result.dealId !== dealId || result.actionId !== action.id) {
+        throw new HttpError('COMMAND_RECEIPT_UNVERIFIABLE', 502);
+      }
+      unresolved.current.delete(dealId);
+      if (current()) { setNotice(result.duplicate ? 'DUPLICATE' : 'CONFIRMED'); await load(); }
     } catch (reason) {
-      if (reason instanceof HttpError && reason.status === 409) {
-        setNotice('Данные изменились другим участником. Экран обновлён — проверь состояние и повтори действие.');
-        await load();
-      } else if (reason instanceof TypeError) {
-        setError('Нет связи. Действие не отправлено и не сохранено на устройстве. Проверь данные и повтори после восстановления сети.');
+      const conflict = reason instanceof HttpError && reason.status === 409 && reason.structured &&
+        ['DEAL_STATE_CONFLICT', 'STALE_DEAL_VERSION', 'CONCURRENT_DEAL_UPDATE'].includes(reason.code || '');
+      const rejected = reason instanceof HttpError && reason.structured && [400, 401, 403, 404, 422].includes(reason.status);
+      if (conflict || rejected) {
+        unresolved.current.delete(dealId);
+        if (current()) {
+          if (conflict) { setNotice('CONFLICT'); await load(); }
+          else setError('REJECTED');
+        }
       } else {
-        const field = reason instanceof HttpError && reason.field ? `Поле «${reason.field}»: ` : '';
-        setError(`${field}${reason instanceof Error ? reason.message : 'Команда не выполнена.'}`);
+        unresolved.current.set(dealId, { commandId, actionId: action.id, idempotencyKey });
+        if (current()) { setError(''); setNotice(''); }
       }
     } finally {
-      setSubmitting(false);
+      clearTimeout(timeout);
+      inFlight.current = false;
+      if (mounted.current) { setSubmitting(false); refreshAttempt(); }
     }
   }
+
+  const unknownNotice = unknownAttempt ? (
+    <InlineNotice tone='critical' title={copy.unknownTitle} role='alert' data-command-outcome='UNKNOWN'>
+      <span>{copy.unknownBody}</span>{' '}
+      <span>{copy.attempt}: <code translate='no'>{unknownAttempt.commandId}</code>.</span>{' '}
+      <span>{copy.readHint}</span>
+    </InlineNotice>
+  ) : null;
 
   if (loading && !workspace) {
     return (
       <Surface className={styles.stateSurface} aria-live='polite'>
         <div className={styles.stateContent}>
           <Loader2 size={26} className={styles.spin} aria-hidden='true' />
-          <h1>Открываем сделку</h1>
-          <p>Сейчас покажем только твой следующий шаг.</p>
+          <h1>{copy.openTitle}</h1>
+          <p>{copy.openBody}</p>
+          {unknownNotice}
         </div>
       </Surface>
     );
@@ -315,10 +433,11 @@ export function TransactionDealWorkspace({ role, dealId }: { role: PlatformRole;
       <Surface className={styles.stateSurface} role='alert'>
         <div className={styles.stateContent}>
           <AlertTriangle size={28} aria-hidden='true' />
-          <h1>Рабочая сделка недоступна</h1>
-          <p>{error || 'Сервер не вернул подтверждённое состояние.'}</p>
-          <Button variant='secondary' onClick={() => void load()}>
-            <RefreshCw size={18} aria-hidden='true' /> Повторить
+          <h1>{copy.unavailable}</h1>
+          <p>{errorCopy}</p>
+          {unknownNotice}
+          <Button variant='secondary' onClick={() => void load()} disabled={loading || submitting}>
+            <RefreshCw size={18} aria-hidden='true' /> {copy.reload}
           </Button>
         </div>
       </Surface>
@@ -369,7 +488,7 @@ export function TransactionDealWorkspace({ role, dealId }: { role: PlatformRole;
           actionId={action.id}
           label={action.label}
           submitting={submitting}
-          disabled={false}
+          disabled={loading || submitting || Boolean(unknownAttempt) || workspace.roleProjection.canAct !== true}
           initialValues={commandInitialValues(action.id, workspace)}
           onSubmit={executePrimaryAction}
         />
@@ -397,7 +516,7 @@ export function TransactionDealWorkspace({ role, dealId }: { role: PlatformRole;
         <div className={styles.roleLine}>
           <span className={styles.roleIdentity}><ShieldCheck size={18} aria-hidden='true' />{roleLabel(role)}</span>
           <strong className={styles.roleFocus}>{workspace.roleProjection.focus}</strong>
-          <Button className={styles.refreshButton} variant='secondary' onClick={() => void load()} aria-label='Обновить сделку' disabled={loading}>
+          <Button className={styles.refreshButton} variant='secondary' onClick={() => void load()} aria-label={copy.reload} disabled={loading || submitting}>
             <RefreshCw size={18} className={loading ? styles.spin : undefined} aria-hidden='true' />
           </Button>
         </div>
@@ -414,10 +533,11 @@ export function TransactionDealWorkspace({ role, dealId }: { role: PlatformRole;
         actions={actionExtras}
       />
 
-      {error || notice ? (
+      {error || notice || unknownAttempt ? (
         <div className={styles.messages}>
-          {error ? <InlineNotice tone='critical' icon={<AlertTriangle size={19} />} title='Действие не выполнено'>{error}</InlineNotice> : null}
-          {notice ? <InlineNotice tone='success' icon={<CheckCircle2 size={19} />} title='Состояние сделки обновлено'>{notice}</InlineNotice> : null}
+          {unknownNotice}
+          {error ? <InlineNotice tone='critical' icon={<AlertTriangle size={19} />} title={error === 'INPUT_PROBLEM' ? copy.inputTitle : error === 'REJECTED' ? copy.rejectedTitle : copy.readTitle} role='alert'>{errorCopy}</InlineNotice> : null}
+          {notice ? <InlineNotice tone={notice === 'CONFLICT' ? 'warning' : 'success'} icon={<CheckCircle2 size={19} />} title={notice === 'CONFLICT' ? copy.conflictTitle : copy.receiptTitle} role='status'>{noticeCopy}</InlineNotice> : null}
         </div>
       ) : null}
 
@@ -476,3 +596,69 @@ export function TransactionDealWorkspace({ role, dealId }: { role: PlatformRole;
     </section>
   );
 }
+
+const RECOVERY_RU = {
+  unknownTitle: 'Результат действия неизвестен',
+  unknownBody: 'Сервер мог принять действие, но подтверждение не получено. Повторная отправка заблокирована.',
+  attempt: 'Идентификатор попытки',
+  readHint: 'Обновление только читает состояние сделки. Оно не повторяет команду и не подтверждает эту попытку по изменению статуса.',
+  reload: 'Повторить загрузку сделки',
+  readTitle: 'Состояние сделки недоступно',
+  readError: 'Не удалось получить подтверждённое состояние сделки. Повтори чтение; новая команда не отправляется.',
+  inputTitle: 'Проверь данные действия',
+  inputError: 'Запрос не удалось подготовить. Исправь данные перед отправкой.',
+  rejectedTitle: 'Сервер отклонил действие',
+  rejected: 'Проверь доступ и данные действия. Выполнение не подтверждено.',
+  receiptTitle: 'Ответ сервера подтверждён',
+  success: 'Сервер подтвердил запись этой команды. Состояние сделки загружается отдельно.',
+  duplicate: 'Сервер вернул сохранённый результат этой же команды. Повторного выполнения не было.',
+  conflictTitle: 'Действие требует проверки',
+  conflict: 'Данные изменились другим участником. Перед новой попыткой проверь актуальное состояние сделки.',
+  openTitle: 'Открываем сделку',
+  openBody: 'Сейчас покажем только твой следующий шаг.',
+  unavailable: 'Рабочая сделка недоступна',
+} as const;
+
+const RECOVERY_EN = {
+  unknownTitle: 'The action outcome is unknown',
+  unknownBody: 'The server may have accepted the action, but no matching confirmation was received. Sending it again is blocked.',
+  attempt: 'Attempt ID',
+  readHint: 'Refresh only reads the deal. It does not resend the command, and a changed status does not confirm this attempt.',
+  reload: 'Reload deal state',
+  readTitle: 'Deal state is unavailable',
+  readError: 'Verified deal state could not be loaded. Retry the read; no new command is sent.',
+  inputTitle: 'Check the action details',
+  inputError: 'The request could not be prepared. Correct the details before sending it.',
+  rejectedTitle: 'The server rejected the action',
+  rejected: 'Check your access and action details. Execution has not been confirmed.',
+  receiptTitle: 'Server response verified',
+  success: 'The server confirmed this command record. Deal state is loaded separately.',
+  duplicate: 'The server returned the saved result of this same command. It was not executed again.',
+  conflictTitle: 'Check the action before retrying',
+  conflict: 'Another participant changed the data. Review current deal state before a new attempt.',
+  openTitle: 'Opening the deal',
+  openBody: 'Your next step will appear here.',
+  unavailable: 'This deal is currently unavailable',
+} as const;
+
+const RECOVERY_ZH = {
+  unknownTitle: '操作结果未知',
+  unknownBody: '服务器可能已接受该操作，但尚未收到与本次尝试匹配的确认。已禁止重复提交。',
+  attempt: '尝试标识',
+  readHint: '刷新仅查询交易状态，不会重新提交操作。交易状态发生变化并不代表本次尝试已得到确认。',
+  reload: '重新读取交易状态',
+  readTitle: '交易状态不可用',
+  readError: '无法读取已验证的交易状态。请重试查询；不会发送新的操作。',
+  inputTitle: '请检查操作信息',
+  inputError: '无法准备请求。请在提交前修正操作信息。',
+  rejectedTitle: '服务器拒绝了该操作',
+  rejected: '请检查权限和操作信息。尚未确认操作已执行。',
+  receiptTitle: '已验证服务器回复',
+  success: '服务器已确认本次操作记录。交易状态将单独读取。',
+  duplicate: '服务器返回了同一操作的已保存结果，没有再次执行。',
+  conflictTitle: '重试前请核对操作',
+  conflict: '其他参与者已更新数据。请在再次尝试前核对最新交易状态。',
+  openTitle: '正在打开交易',
+  openBody: '即将显示你的下一步操作。',
+  unavailable: '当前无法访问此交易',
+} as const;
