@@ -2658,3 +2658,148 @@ test('Deal runtime CI: later source correction preserves already accepted CI wir
   const result = runTrustedDealRuntimeGuard(context);
   assert.equal(result.status, 0, output(result));
 });
+
+
+const dealRuntimeGeneratedPaths = ['docs/security/cryptographic-inventory.json', 'docs/security/CRYPTOGRAPHIC_INVENTORY.md'];
+const dealRuntimeGeneratorPath = 'scripts/security/discover-cryptography.mjs';
+function generateDealRuntimeInventory(context, sourceSha) {
+  const result = spawnSync(process.execPath, [dealRuntimeGeneratorPath], {
+    cwd: context.root, encoding: 'utf8', env: { ...process.env, SOURCE_SHA: sourceSha },
+  });
+  assert.equal(result.status, 0, output(result));
+}
+function generatedDealRuntimeFixture(t) {
+  const context = dealRuntimeFixture(t, { admitted: true });
+  write(context.root, dealRuntimeGeneratorPath, fs.readFileSync(dealRuntimeGeneratorPath, 'utf8'));
+  write(context.root, dealRuntimePaths[1], 'existing production-resolved test\n');
+  write(context.root, 'apps/web/middleware.ts', 'export const stable = true;\n');
+  fs.mkdirSync(path.join(context.root, 'apps/web/apps/web'), { recursive: true });
+  fs.symlinkSync('../../middleware.ts', path.join(context.root, 'apps/web/apps/web/middleware.ts'));
+  wireDealRuntimeTests(context);
+  commit(context.root, 'trusted generator and existing regression wiring');
+  generateDealRuntimeInventory(context, git(context.root, ['rev-parse', 'HEAD']));
+  commit(context.root, 'trusted generated inventory baseline');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  return context;
+}
+function changeAndGenerateDealRuntime(context) {
+  write(context.root, dealRuntimePaths[0],
+    'export const generate = () => globalThis.crypto.randomUUID();\n' +
+    "export const fingerprint = bytes => crypto.subtle.digest('SHA-256', bytes);\n");
+  commit(context.root, 'admitted runtime changes cryptographic usage');
+  context.inventorySource = git(context.root, ['rev-parse', 'HEAD']);
+  generateDealRuntimeInventory(context, context.inventorySource);
+  commit(context.root, 'exact generated inventory pair');
+}
+test('Deal inventory: exact trusted generation follows the changed admitted runtime', (t) => {
+  const context = generatedDealRuntimeFixture(t);
+  changeAndGenerateDealRuntime(context);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+test('Deal inventory: committed blobs, not dirty worktree source or generator, determine evidence', (t) => {
+  const context = generatedDealRuntimeFixture(t);
+  changeAndGenerateDealRuntime(context);
+  write(context.root, dealRuntimePaths[0], 'uncommitted decoy source\n');
+  const marker = path.join(context.root, 'untrusted-generator-executed');
+  write(context.root, dealRuntimeGeneratorPath, `import fs from 'node:fs'; fs.writeFileSync(${JSON.stringify(marker)}, 'unsafe');\n`);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+  assert.equal(fs.existsSync(marker), false);
+});
+for (const [label, mutate] of [
+  ['edited JSON', (context) => {
+    const file = path.join(context.root, dealRuntimeGeneratedPaths[0]);
+    const json = JSON.parse(fs.readFileSync(file, 'utf8')); json.scannedFiles += 1;
+    fs.writeFileSync(file, JSON.stringify(json, null, 2) + '\n');
+  }],
+  ['edited Markdown', (context) => fs.appendFileSync(path.join(context.root, dealRuntimeGeneratedPaths[1]), 'untrusted claim\n')],
+  ['stale source attribution', (context) => {
+    const file = path.join(context.root, dealRuntimeGeneratedPaths[1]);
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(context.inventorySource, context.baseline));
+  }],
+  ['unknown source attribution', (context) => {
+    const file = path.join(context.root, dealRuntimeGeneratedPaths[1]);
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(context.inventorySource, '0'.repeat(40)));
+  }],
+  ['malformed source attribution', (context) => {
+    const file = path.join(context.root, dealRuntimeGeneratedPaths[1]);
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(context.inventorySource, 'unverified'));
+  }],
+  ['stale JSON with fresh Markdown', (context) => {
+    write(context.root, dealRuntimeGeneratedPaths[0], git(context.root, ['show', `${context.baseline}:${dealRuntimeGeneratedPaths[0]}`]) + '\n');
+  }],
+]) {
+  test(`Deal inventory: rejects ${label}`, (t) => {
+    const context = generatedDealRuntimeFixture(t);
+    changeAndGenerateDealRuntime(context); mutate(context);
+    commit(context.root, `invalid ${label}`);
+    rejectDealRuntime(context, /DEAL_RUNTIME_GENERATED_/u);
+  });
+}
+for (const file of dealRuntimeGeneratedPaths) {
+  for (const kind of ['chmod', 'symlink', 'delete', 'rename']) {
+    test(`Deal inventory: rejects ${kind} of ${file}`, (t) => {
+      const context = generatedDealRuntimeFixture(t); changeAndGenerateDealRuntime(context);
+      const target = path.join(context.root, file);
+      if (kind === 'chmod') fs.chmodSync(target, 0o755);
+      if (kind === 'symlink') { fs.unlinkSync(target); fs.symlinkSync('../../README.md', target); }
+      if (kind === 'delete') fs.unlinkSync(target);
+      if (kind === 'rename') fs.renameSync(target, `${target}.other`);
+      commit(context.root, `invalid ${kind}`); rejectDealRuntime(context);
+    });
+  }
+}
+test('Deal inventory: artifacts alone do not grant an independent documentation write', (t) => {
+  const context = generatedDealRuntimeFixture(t);
+  generateDealRuntimeInventory(context, context.baseline);
+  fs.appendFileSync(path.join(context.root, dealRuntimeGeneratedPaths[0]), '\n');
+  commit(context.root, 'artifacts without runtime');
+  rejectDealRuntime(context, /DEAL_RUNTIME_GENERATED_PAIR_REQUIRES_RUNTIME/u);
+});
+test('Deal inventory: the pair cannot accompany a test-only change', (t) => {
+  const context = generatedDealRuntimeFixture(t);
+  fs.appendFileSync(path.join(context.root, dealRuntimePaths[1]), 'additional test\n');
+  commit(context.root, 'only tests changed');
+  generateDealRuntimeInventory(context, git(context.root, ['rev-parse', 'HEAD']));
+  fs.appendFileSync(path.join(context.root, dealRuntimeGeneratedPaths[0]), '\n');
+  commit(context.root, 'pair without runtime change');
+  rejectDealRuntime(context, /DEAL_RUNTIME_GENERATED_PAIR_REQUIRES_RUNTIME/u);
+});
+test('Deal inventory: candidate generator replacement is never executed or admitted', (t) => {
+  const context = generatedDealRuntimeFixture(t); changeAndGenerateDealRuntime(context);
+  const marker = path.join(context.root, 'candidate-generator-executed');
+  write(context.root, dealRuntimeGeneratorPath, `import fs from 'node:fs'; fs.writeFileSync(${JSON.stringify(marker)}, 'unsafe');\n`);
+  commit(context.root, 'attempted candidate generator replacement');
+  rejectDealRuntime(context, /DEAL_RUNTIME_IMPLEMENTATION_DIFF_SCOPE/u);
+  assert.equal(fs.existsSync(marker), false);
+});
+test('Deal inventory: unrelated documentation remains outside the exact generated pair', (t) => {
+  const context = generatedDealRuntimeFixture(t); changeAndGenerateDealRuntime(context);
+  write(context.root, 'docs/security/unrelated.md', 'unadmitted\n');
+  commit(context.root, 'unrelated documentation');
+  rejectDealRuntime(context, /DEAL_RUNTIME_IMPLEMENTATION_DIFF_SCOPE/u);
+});
+test('Deal inventory: a dirty correct JSON cannot rescue incorrect committed evidence', (t) => {
+  const context = generatedDealRuntimeFixture(t); changeAndGenerateDealRuntime(context);
+  const target = path.join(context.root, dealRuntimeGeneratedPaths[0]);
+  const correct = fs.readFileSync(target, 'utf8');
+  fs.writeFileSync(target, '{}\n'); commit(context.root, 'incorrect committed inventory');
+  fs.writeFileSync(target, correct);
+  rejectDealRuntime(context, /DEAL_RUNTIME_GENERATED_OUTPUT_MISMATCH/u);
+});
+
+test('Deal inventory: inherited compatibility alias is not resolved against the host filesystem', (t) => {
+  const context = generatedDealRuntimeFixture(t); changeAndGenerateDealRuntime(context);
+  fs.unlinkSync(path.join(context.root, 'apps/web/apps/web/middleware.ts'));
+  fs.symlinkSync('/etc/passwd', path.join(context.root, 'apps/web/apps/web/middleware.ts'));
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+test('Deal inventory: a committed retarget of the compatibility alias is rejected', (t) => {
+  const context = generatedDealRuntimeFixture(t); changeAndGenerateDealRuntime(context);
+  fs.unlinkSync(path.join(context.root, 'apps/web/apps/web/middleware.ts'));
+  fs.symlinkSync('/etc/passwd', path.join(context.root, 'apps/web/apps/web/middleware.ts'));
+  commit(context.root, 'forbidden alias retarget');
+  rejectDealRuntime(context, /DEAL_RUNTIME_IMPLEMENTATION_DIFF_SCOPE/u);
+});
