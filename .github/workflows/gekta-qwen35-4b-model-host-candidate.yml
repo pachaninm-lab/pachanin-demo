@@ -124,6 +124,169 @@ jobs:
             echo 'privileged subprocess capability is forbidden' >&2
             exit 1
           fi
+      - name: Prove OS-bound identity and credential-free real pre-exec
+        run: |
+          set -Eeuo pipefail
+          python3 <<'PYGUARD'
+          import contextlib
+          import importlib.util
+          import io
+          import json
+          import os
+          import pathlib
+          from unittest import mock
+
+          path = pathlib.Path('scripts/gekta-qwen35-4b-model-host-candidate.py').resolve()
+          spec = importlib.util.spec_from_file_location('qwen35_key_guard', path)
+          module = importlib.util.module_from_spec(spec)
+          assert spec.loader is not None
+          spec.loader.exec_module(module)
+          marker = 'SYNTHETIC_NOT_A_CREDENTIAL_7f914ef09a8b4c11'
+          valid = ['/fixture/llama-server', '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS]
+          assert module.candidate_exec_argv_status(valid) == 0
+          assert module.candidate_exec_argv_status([valid[0], '--model=' + str(module.CANDIDATE_PATH), '--alias=' + module.CANDIDATE_ALIAS]) == 0
+          for flags in [
+              ['--api-key', marker], ['--api-key=' + marker],
+              ['--api_key', marker], ['--api_key=' + marker],
+              ['--api-key'], ['--api-key='],
+              ['--api-key', marker, '--api-key=' + marker],
+          ]:
+              argv = valid + flags
+              assert module.candidate_exec_argv_status(argv) == 84
+              read_fd, write_fd = os.pipe()
+              try:
+                  os.write(write_fd, b'G')
+                  os.close(write_fd)
+                  write_fd = -1
+                  with mock.patch.dict(os.environ, {'QWEN35_GUARDED_ARGV_JSON': json.dumps(argv)}), \
+                       mock.patch.object(module.os, 'execvpe') as exec_mock, \
+                       mock.patch.object(module.os, 'nice') as nice_mock:
+                      assert module.candidate_exec_guard(read_fd) == 84
+                      read_fd = -1
+                      exec_mock.assert_not_called()
+                      nice_mock.assert_not_called()
+              finally:
+                  for fd in (read_fd, write_fd):
+                      if fd >= 0:
+                          with contextlib.suppress(OSError):
+                              os.close(fd)
+          prepared = [os.fsencode(item) for item in valid]
+          observed = prepared + [b'--api-key=' + marker.encode('ascii')]
+          output = io.StringIO()
+          with contextlib.redirect_stdout(output):
+              try:
+                  module.require_candidate_keyless_argv(prepared, observed)
+              except module.CandidateError as exc:
+                  assert str(exc) == 'candidate_key_present_in_cmdline'
+              else:
+                  raise AssertionError('observed key must fail closed')
+          assert output.getvalue().splitlines() == [
+              'QWEN35_CANDIDATE_ARGV_DIAGNOSTIC_VERSION=v1',
+              'QWEN35_CANDIDATE_ARGV_PREPARED_API_KEY=absent',
+              'QWEN35_CANDIDATE_ARGV_OBSERVED_API_KEY=joined',
+              'QWEN35_CANDIDATE_ARGV_CHANGED_AFTER_EXEC=1',
+          ]
+          assert marker not in output.getvalue()
+          import subprocess
+          import sys
+          import tempfile
+
+          # Re-import the complete actual helper in independent interpreters. No HOME
+          # value, OS-account path or generated credential is emitted by the test.
+          status_probe = '''import importlib.util,json,sys
+          s=importlib.util.spec_from_file_location("probe",sys.argv[1])
+          m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+          print(m.candidate_exec_argv_status(json.loads(sys.argv[2])))
+          '''
+          for home in ('/synthetic/ssh-home', '/synthetic/service-home', None):
+              env = dict(os.environ)
+              if home is None:
+                  env.pop('HOME', None)
+              else:
+                  env['HOME'] = home
+              result = subprocess.run(
+                  [sys.executable, '-c', status_probe, str(path), json.dumps(valid)],
+                  env=env, capture_output=True, text=True, timeout=5, check=True,
+              )
+              assert result.stdout == '0\n' and result.stderr == ''
+
+          guard_probe = '''import importlib.util,sys
+          s=importlib.util.spec_from_file_location("guard",sys.argv[1])
+          m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+          sys.exit(m.candidate_exec_guard(int(sys.argv[2])))
+          '''
+          with tempfile.TemporaryDirectory() as temporary:
+              root = pathlib.Path(temporary)
+              evidence = root / 'exec.json'
+              executable = root / 'synthetic-exec'
+              executable.write_text('#!' + sys.executable + '\n' + '''import json,os,pathlib,sys
+          pathlib.Path(os.environ['QWEN35_TEST_MARKER_PATH']).write_text(json.dumps({
+              'pid': os.getpid(), 'nice': os.getpriority(os.PRIO_PROCESS, 0),
+              'home': os.environ.get('HOME'),
+              'key_preserved': os.environ.get('LLAMA_API_KEY') == 'SYNTHETIC_NOT_A_CREDENTIAL',
+              'guard_env_present': 'QWEN35_GUARDED_ARGV_JSON' in os.environ,
+              'argv': sys.argv[1:]
+          }))
+          ''')
+              executable.chmod(0o700)
+              fake_argv = [str(executable), '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS]
+
+              def real_guard(argv):
+                  read_fd, write_fd = os.pipe()
+                  try:
+                      os.write(write_fd, b'G')
+                      os.close(write_fd)
+                      write_fd = -1
+                      env = {
+                          **os.environ,
+                          'HOME': '/synthetic/service-home',
+                          'LLAMA_API_KEY': 'SYNTHETIC_NOT_A_CREDENTIAL',
+                          'QWEN35_TEST_MARKER_PATH': str(evidence),
+                          'QWEN35_GUARDED_ARGV_JSON': json.dumps(argv),
+                      }
+                      with subprocess.Popen(
+                          [sys.executable, '-c', guard_probe, str(path), str(read_fd)],
+                          env=env, pass_fds=(read_fd,), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                      ) as child:
+                          try:
+                              out, err = child.communicate(timeout=5)
+                          except subprocess.TimeoutExpired:
+                              child.kill()
+                              child.communicate()
+                              raise
+                          assert out == b'' and err == b''
+                          return child.returncode, child.pid
+                  finally:
+                      for fd in (read_fd, write_fd):
+                          if fd >= 0:
+                              os.close(fd)
+
+              for flags in (
+                  ['--api-key', marker], ['--api-key=' + marker],
+                  ['--api_key', marker], ['--api_key=' + marker],
+                  ['--api-key'], ['--api-key='], ['--api_key'], ['--api_key='],
+                  ['--api-key', marker, '--api_key=' + marker],
+                  ['--api-key', marker, '--api-key', marker],
+                  ['--api_key=' + marker, '--api_key=' + marker],
+              ):
+                  code, _ = real_guard(fake_argv + flags)
+                  assert code == 84
+                  assert not evidence.exists(), 'credential argv reached exec'
+
+              code, pid = real_guard(fake_argv)
+              assert code == 0
+              result = json.loads(evidence.read_text())
+              assert result['pid'] == pid, 'exec changed the supervised task'
+              assert result['nice'] >= module.CANDIDATE_NICE_DELTA
+              assert result['home'] == '/synthetic/service-home', 'runtime HOME was rewritten'
+              assert result['key_preserved'] and not result['guard_env_present']
+              assert result['argv'] == fake_argv[1:]
+
+          print('QWEN35_OS_HOME_IDENTITY_CONTRACT=PASS')
+          print('QWEN35_REAL_PREEXEC_KEY_REJECTION=PASS')
+          print('QWEN35_HOME_INDEPENDENT_SAME_PID_EXEC=PASS')
+          print('QWEN35_PREEXEC_KEY_GUARD_CONTRACT=PASS')
+          PYGUARD
       - name: Prove candidate ownership, watchdog handoff and recovery regressions
         run: |
           set -Eeuo pipefail

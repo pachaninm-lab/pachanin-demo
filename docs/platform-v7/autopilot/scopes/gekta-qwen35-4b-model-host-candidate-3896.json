@@ -3,7 +3,7 @@
   "branch": "fix/gekta-qwen35-guard-argv-form-20260928",
   "status": "active",
   "issue": 3896,
-  "purpose": "Continue the existing Qwen3.5 candidate startup repair with bounded diagnostics for the observed exit before inference, under Team Hub claims 5898158548 and 5898586358. Preserve the working Qwen3-8B, original launch guards and cleanup; do not infer a root cause from exit status alone.",
+  "purpose": "Continue the existing Qwen3.5 startup repair after accepted diagnostic run36639991649 observed guard exit80 before inference. Bind candidate identity to the non-root OS-account home across differing runtime HOME, reject credential argv before exec, and retain bounded diagnostics, working Qwen3-8B and all cleanup/readiness limits.",
   "approvedBy": "repository-owner continuation after merged admission PR #5704 on 2026-09-28",
   "authorityBaseExactMain": "f73056d3860464bb59fcf98430a60578cd069bb7",
   "newRecurringCostRub": 0,
@@ -26,7 +26,9 @@
     "No systemd unit/drop-in mutation, baseline stop/restart/signal, application/database/tenant/Deal/money/registration/Web/API/outbox deployment or production model identity mutation is admitted.",
     "New mandatory recurring cost remains 0 RUB.",
     "The pre-exec guard must validate candidate model and alias through the same bounded flag parser used by the parent so both --flag value and --flag=value baseline token forms are accepted without argv normalization; any guard or pre-identity exec exit must fail fast with its bounded exit status instead of being masked by the generic identity timeout.",
-    "Startup diagnostics may read at most 64 KiB from only the current owned attempt's private log inode after owned-child exit and listener-absence proof. Reject unsafe files or stale/mutated cursors; emit only closed phase/class vocabulary and bounded byte/truncation counts, never stderr text, keys, environment, paths or argv. Cleanup failure suppresses diagnostics and retains recovery state; diagnostic failure must not mask the original failed start. Workflow reporting must accept only complete allowlisted lines and must not turn log classification into inference or acceptance PASS."
+    "Startup diagnostics may read at most 64 KiB from only the current owned attempt's private log inode after owned-child exit and listener-absence proof. Reject unsafe files or stale/mutated cursors; emit only closed phase/class vocabulary and bounded byte/truncation counts, never stderr text, keys, environment, paths or argv. Cleanup failure suppresses diagnostics and retains recovery state; diagnostic failure must not mask the original failed start. Workflow reporting must accept only complete allowlisted lines and must not turn log classification into inference or acceptance PASS.",
+    "Candidate artifact/state identity is derived from the same effective non-root OS-account home in the parent, pre-exec guard, watchdog and cleanup; inherited service HOME cannot change expected candidate identity. Preserve the inherited runtime environment, executable and reviewed argv apart from already admitted model/alias/loopback/key differences.",
+    "Both --api-key and --api_key, split or joined forms including duplicates/empty values, are rejected by parent and pre-exec guard before any subprocess exec. Preserve the post-exec rejection for observed credential arguments. Emit only fixed prepared/observed shape labels and a changed boolean, never key values, argv, paths or hashes. This hardening is not a claim that a credential caused the observed guard exit80."
   ],
   "forbiddenCapabilities": [
     "sudo, root SSH, password SSH, production SSH credentials, sudoers changes, persistent privileged bridges or arbitrary privileged remote command authority",

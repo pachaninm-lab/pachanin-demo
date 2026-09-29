@@ -59,7 +59,9 @@ ALIASES = {
     "batch": ("--batch-size", "-b"),
     "ubatch": ("--ubatch-size", "-ub"),
 }
-BASE_DIR = pathlib.Path.home() / ".cache" / "gekta-qwen35-4b-candidate"
+# Bind every helper interpreter to the same non-root OS principal. Runtime HOME
+# may differ from the SSH session; it must not change pre-exec model identity.
+BASE_DIR = pathlib.Path(pwd.getpwuid(os.geteuid()).pw_dir) / ".cache" / "gekta-qwen35-4b-candidate"
 CANDIDATE_DIR = BASE_DIR / "models"
 STATE_DIR = BASE_DIR / "state"
 CANDIDATE_PATH = CANDIDATE_DIR / ("qwen35-4b-q4-k-m-" + CANDIDATE_SHA256[:12] + ".gguf")
@@ -532,6 +534,43 @@ def candidate_guard_process_matches(pid: int) -> bool:
 def owned_candidate_process_matches(pid: int) -> bool:
     return candidate_guard_process_matches(pid) or candidate_process_matches(pid)
 
+def candidate_api_key_arg_shape(argv) -> str:
+    # Only fixed labels leave this function: never arguments, values or hashes.
+    if (
+        not isinstance(argv, list)
+        or not argv
+        or len(argv) > 128
+        or any(not isinstance(item, bytes) or not item or len(item) > 4096 or b"\0" in item for item in argv)
+    ):
+        return "invalid"
+    # Reject both credential option spellings before any exec.
+    names = (b"--api-key", b"--api_key")
+    split = sum(token in names for token in argv)
+    joined = sum(any(token.startswith(name + b"=") for name in names) for token in argv)
+    if split and joined:
+        return "mixed"
+    if split > 1 or joined > 1:
+        return "duplicate"
+    if split:
+        return "split"
+    if joined:
+        return "joined"
+    return "absent"
+
+
+def require_candidate_keyless_argv(prepared, observed) -> None:
+    prepared_shape = candidate_api_key_arg_shape(prepared)
+    observed_shape = candidate_api_key_arg_shape(observed)
+    emit("ARGV_DIAGNOSTIC_VERSION", "v1")
+    emit("ARGV_PREPARED_API_KEY", prepared_shape)
+    emit("ARGV_OBSERVED_API_KEY", observed_shape)
+    emit("ARGV_CHANGED_AFTER_EXEC", int(prepared != observed))
+    if prepared_shape != "absent":
+        fail("candidate_guard_argv_invalid")
+    if observed_shape != "absent":
+        fail("candidate_key_present_in_cmdline")
+
+
 def candidate_exec_argv_status(argv) -> int:
     if (
         not isinstance(argv, list)
@@ -548,6 +587,8 @@ def candidate_exec_argv_status(argv) -> int:
         return 80
     if model != os.fsencode(CANDIDATE_PATH) or alias != CANDIDATE_ALIAS.encode("utf-8"):
         return 80
+    if candidate_api_key_arg_shape(encoded) != "absent":
+        return 84
     return 0
 
 def candidate_exec_guard(guard_fd: int) -> int:
@@ -1347,8 +1388,7 @@ def start(candidate_key: str) -> None:
             fail("candidate_priority_not_lowered")
 
         live_argv = [item for item in pathlib.Path("/proc/%d/cmdline" % proc.pid).read_bytes().split(b"\0") if item]
-        if flag_hits(live_argv, ALIASES["api_key"]):
-            fail("candidate_key_present_in_cmdline")
+        require_candidate_keyless_argv(argv, live_argv)
 
         start_phase = "readiness"
         wait_candidate(proc.pid, candidate_key, state)
