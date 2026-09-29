@@ -242,7 +242,10 @@ function commandInitialValues(actionId: string, workspace: Workspace): Record<st
 type DealRecoveryLocale = 'ru' | 'en' | 'zh';
 
 const DEAL_RECOVERY_COPY: Record<DealRecoveryLocale, {
+  loadingTitle: string;
   loading: string;
+  errorTitle: string;
+  errorFallback: string;
   unknown: (commandId: string) => string;
   retryLoad: string;
   taskLabel: string;
@@ -250,7 +253,10 @@ const DEAL_RECOVERY_COPY: Record<DealRecoveryLocale, {
   taskExplanation: string;
 }> = {
   ru: {
+    loadingTitle: 'Открываем сделку',
     loading: 'Проверяем сохранённое состояние сделки. Новая команда не отправляется.',
+    errorTitle: 'Рабочая сделка недоступна',
+    errorFallback: 'Сервер не вернул подтверждённое состояние.',
     unknown: (commandId) => `Исход команды неизвестен. Код попытки: ${commandId}. Обнови подтверждённое состояние сделки после восстановления связи; если результат неясен, передай этот код поддержке. Не отправляй новую команду до сверки.`,
     retryLoad: 'Повторить загрузку сделки',
     taskLabel: 'Сначала проверь исход',
@@ -258,7 +264,10 @@ const DEAL_RECOVERY_COPY: Record<DealRecoveryLocale, {
     taskExplanation: 'Связь прервалась или сервер не вернул проверяемое подтверждение. Команда могла быть выполнена. Повторная отправка с новым кодом заблокирована на этом экране до проверки исхода.',
   },
   en: {
+    loadingTitle: 'Opening the deal',
     loading: 'Checking the saved deal state. No new command is being sent.',
+    errorTitle: 'Deal workspace unavailable',
+    errorFallback: 'The server did not return a confirmed state.',
     unknown: (commandId) => `The command outcome is unknown. Attempt ID: ${commandId}. Refresh the confirmed deal state after the connection recovers; if the outcome remains unclear, give this ID to support. Do not send a new command until it is reconciled.`,
     retryLoad: 'Retry loading the deal',
     taskLabel: 'Check the outcome first',
@@ -266,7 +275,10 @@ const DEAL_RECOVERY_COPY: Record<DealRecoveryLocale, {
     taskExplanation: 'The connection was interrupted or the server did not return verifiable confirmation. The command may have completed. Sending a new command with a new ID is blocked on this screen until the outcome is checked.',
   },
   zh: {
+    loadingTitle: '正在打开交易',
     loading: '正在检查已保存的交易状态。不会发送新指令。',
+    errorTitle: '交易工作区不可用',
+    errorFallback: '服务器未返回已确认的状态。',
     unknown: (commandId) => `指令结果未知。尝试编号：${commandId}。连接恢复后请刷新已确认的交易状态；如果结果仍不明确，请将此编号提供给支持人员。在核对完成前不要发送新指令。`,
     retryLoad: '重新加载交易',
     taskLabel: '先核对结果',
@@ -378,7 +390,7 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
       <section className={styles.loading} aria-live='polite'>
         <div className={styles.stateContent}>
           <Loader2 size={25} className={styles.spin} aria-hidden='true' />
-          <h1>Открываем сделку</h1>
+          <h1>{currentUnknown ? recoveryCopy.loadingTitle : 'Открываем сделку'}</h1>
           <p>{currentUnknown ? recoveryCopy.loading : 'Сейчас покажем только твой следующий шаг.'}</p>
           {currentUnknown ? <p role='alert'>{recoveryCopy.unknown(currentUnknown.commandId)}</p> : null}
         </div>
@@ -391,8 +403,8 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
       <section className={styles.errorState} role='alert'>
         <div className={styles.stateContent}>
           <AlertTriangle size={27} aria-hidden='true' />
-          <h1>Рабочая сделка недоступна</h1>
-          <p>{error || 'Сервер не вернул подтверждённое состояние.'}</p>
+          <h1>{currentUnknown ? recoveryCopy.errorTitle : 'Рабочая сделка недоступна'}</h1>
+          <p>{error || (currentUnknown ? recoveryCopy.errorFallback : 'Сервер не вернул подтверждённое состояние.')}</p>
           {currentUnknown ? <p>{recoveryCopy.unknown(currentUnknown.commandId)}</p> : null}
           <button className={styles.retryButton} type='button' onClick={() => void load()}>
             <RefreshCw size={18} aria-hidden='true' />
