@@ -2370,6 +2370,8 @@ const dealRuntimePaths = [
   'apps/web/components/transaction-ux/TransactionDealWorkspace.tsx',
   'apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx',
   'apps/web/tests/unit/transactionUxV8Migration.test.ts',
+  '.github/workflows/ci.yml',
+  'docs/platform-v7/qa/web-unit-coverage-registry.json',
 ];
 function dealRuntimeAdmissionRecord(authorityBaseExactMain) {
   return {
@@ -2379,14 +2381,15 @@ function dealRuntimeAdmissionRecord(authorityBaseExactMain) {
     implementationBranch: dealRuntimeImplementationBranch,
     allowedPaths: [...dealRuntimePaths],
     requiredTruthBoundaries: [
-      'The trusted-base guard admits exactly the runtime component, its production-resolved behavior regression and the existing transaction-ux migration regression; candidate state cannot widen scope.',
+      'The trusted-base guard admits exactly the runtime component, its production-resolved behavior regression and the existing transaction-ux migration regression plus their exact CI invocation and coverage-registry wiring; candidate state cannot widen scope.',
       'Preserve the transaction-ux design, facade and tsconfig aliases; exercise the module resolved by the protected Deal route rather than the detached platform-v7 component.',
       'Lost or unverifiable command responses remain UNKNOWN with the original attempt identity, no fresh command replay and GET-only recovery; only an exact-attempt server receipt establishes a known outcome.',
       'Cover actual RU/EN/zh-CN recovery states and preserve migration binding, shell, server-owned role/auth/tenant/action authority and accessibility assertions.',
       'Require fresh exact-head author audit, independent review and all substantive CI/readiness before normal expected-SHA merge; source evidence is not REG.RU live acceptance.',
+      'The existing ci.yml invocation must execute both recovery and migration regressions without losing any prior test or changing workflow behavior; the coverage registry may only remove the migration test exclusion.',
     ],
     forbiddenAuthority: [
-      'Candidate state, scope, guard, workflow, alias, facade or design replacement',
+      'Candidate state, scope, guard, unrelated workflow, alias, facade or design replacement',
       'Backend/API/DB/role/tenant/idempotency/payment/provider/FGIS authority or production/model-host mutation',
       'CI/security/readiness weakening, independent-review impersonation, forced merge or new recurring cost',
     ],
@@ -2416,6 +2419,11 @@ function dealRuntimeFixture(t, { admitted = false, renewal = true, admission = f
   }, null, 2)}\n`);
   write(context.root, dealRuntimePaths[0], 'existing approved transaction workspace\n');
   write(context.root, dealRuntimePaths[2], 'existing binding and design assertions\n');
+  write(context.root, dealRuntimePaths[3], 'name: retained CI\njobs:\n  test:\n    steps:\n      - run: pnpm --filter @pc/web exec vitest run tests/unit/retained.test.ts\n');
+  write(context.root, dealRuntimePaths[4], `${JSON.stringify({ exclusions: [
+    { file: dealRuntimePaths[2], status: 'failed', reason: 'Historical inventory; re-enable with bounded repair.' },
+    { file: 'apps/web/tests/unit/unrelated.test.ts', reason: 'Unrelated retained coverage record.' },
+  ] }, null, 2)}\n`);
   write(context.root, 'apps/web/components/transaction-ux/CanonicalDealWorkspace.tsx', 'existing production facade\n');
   write(context.root, 'apps/web/tsconfig.json', '{"compilerOptions":{"paths":{}}}\n');
   commit(context.root, 'trusted guard and bounded renewal only');
@@ -2438,6 +2446,14 @@ function runTrustedDealRuntimeGuard(context) {
     env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: context.implementationBranch },
     encoding: 'utf8',
   });
+}
+function wireDealRuntimeTests(context) {
+  const ci = fs.readFileSync(path.join(context.root, dealRuntimePaths[3]), 'utf8');
+  write(context.root, dealRuntimePaths[3], ci.replace('pnpm --filter @pc/web exec vitest run ',
+    'pnpm --filter @pc/web exec vitest run tests/unit/transactionDealWorkspaceRecovery.test.tsx tests/unit/transactionUxV8Migration.test.ts '));
+  const registry = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimePaths[4]), 'utf8'));
+  registry.exclusions = registry.exclusions.filter((entry) => entry.file !== dealRuntimePaths[2]);
+  write(context.root, dealRuntimePaths[4], `${JSON.stringify(registry, null, 2)}\n`);
 }
 function changeDealRuntime(context) {
   write(context.root, dealRuntimePaths[0], 'bounded UNKNOWN recovery candidate\n');
@@ -2504,7 +2520,8 @@ test('Deal runtime: separately admitted runtime and both exact tests pass', (t) 
   write(context.root, dealRuntimePaths[0], 'bounded UNKNOWN recovery candidate\n');
   write(context.root, dealRuntimePaths[1], 'production-resolved behavior regression\n');
   write(context.root, dealRuntimePaths[2], 'retained design assertions with safe unknown-copy assertion\n');
-  commit(context.root, 'three exact admitted source paths');
+  wireDealRuntimeTests(context);
+  commit(context.root, 'three exact source paths and bounded CI wiring');
   const result = runTrustedDealRuntimeGuard(context);
   assert.equal(result.status, 0, output(result));
 });
@@ -2580,4 +2597,64 @@ test('Deal runtime: both workflow entry points use the trusted base for both exa
   assert.match(trusted, /ref: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/u);
   assert.match(trusted, /HEAD_REPOSITORY.*GITHUB_REPOSITORY/u);
   assert.ok(workflow.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"'));
+});
+
+
+for (const mutation of [
+  'missing recovery test', 'lost old test', 'missing migration argument', 'ignored failure',
+  'unrelated workflow change', 'new recovery exclusion', 'retained migration exclusion', 'unrelated registry change',
+  'executable workflow', 'executable registry',
+]) {
+  test(`Deal runtime CI: rejects ${mutation}`, (t) => {
+    const context = dealRuntimeFixture(t, { admitted: true });
+    write(context.root, dealRuntimePaths[0], 'bounded UNKNOWN recovery candidate\n');
+    write(context.root, dealRuntimePaths[1], 'production-resolved behavior regression\n');
+    write(context.root, dealRuntimePaths[2], 'retained migration assertions and recovery contract\n');
+    wireDealRuntimeTests(context);
+    const ciPath = path.join(context.root, dealRuntimePaths[3]);
+    const registryPath = path.join(context.root, dealRuntimePaths[4]);
+    let ci = fs.readFileSync(ciPath, 'utf8');
+    const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+    if (mutation === 'missing recovery test') fs.unlinkSync(path.join(context.root, dealRuntimePaths[1]));
+    if (mutation === 'lost old test') ci = ci.replace(' tests/unit/retained.test.ts', '');
+    if (mutation === 'missing migration argument') ci = ci.replace('tests/unit/transactionUxV8Migration.test.ts ', '');
+    if (mutation === 'ignored failure') ci = ci.replace('tests/unit/retained.test.ts', 'tests/unit/retained.test.ts || true');
+    if (mutation === 'unrelated workflow change') ci = ci.replace('name: retained CI', 'name: unapproved change');
+    if (mutation === 'new recovery exclusion') registry.exclusions.push({ file: dealRuntimePaths[1], reason: 'Never exclude the new required recovery regression.' });
+    if (mutation === 'retained migration exclusion') registry.exclusions.push({ file: dealRuntimePaths[2], reason: 'The old required migration regression must run.' });
+    if (mutation === 'unrelated registry change') registry.exclusions[0].reason = 'Candidate changed an unrelated exclusion record.';
+    fs.writeFileSync(ciPath, ci);
+    fs.writeFileSync(registryPath, `${JSON.stringify(registry, null, 2)}\n`);
+    if (mutation === 'executable workflow') fs.chmodSync(ciPath, 0o755);
+    if (mutation === 'executable registry') fs.chmodSync(registryPath, 0o755);
+    commit(context.root, `rejected CI wiring ${mutation}`);
+    const expectedError = mutation.startsWith('executable ')
+      ? /DEAL_RUNTIME_IMPLEMENTATION_FILE_MODE/u
+      : mutation.includes('exclusion') || mutation === 'unrelated registry change'
+        ? /DEAL_RUNTIME_CI_REGISTRY_MUTATION/u
+        : /DEAL_RUNTIME_CI_WIRING_MISMATCH/u;
+    rejectDealRuntime(context, expectedError);
+  });
+}
+
+test('Deal runtime CI: old three-path state cannot self-authorize the five-path delivery', (t) => {
+  const context = dealRuntimeFixture(t, { admission: true });
+  writeDealRuntimeAdmission(context, (state) => {
+    state.approvedConcurrentScopes[dealRuntimeImplementationBranch] = dealRuntimePaths.slice(0, 3);
+    state.coordinationAdmissions[dealRuntimeCoordinationKey].allowedPaths = dealRuntimePaths.slice(0, 3);
+  });
+  commit(context.root, 'incomplete three-path admission');
+  rejectDealRuntime(context, /DEAL_RUNTIME_ADMISSION_STATE_MUTATION/u);
+});
+
+
+test('Deal runtime CI: later source correction preserves already accepted CI wiring', (t) => {
+  const context = dealRuntimeFixture(t, { admitted: true });
+  write(context.root, dealRuntimePaths[1], 'accepted behavior regression\n');
+  wireDealRuntimeTests(context);
+  commit(context.root, 'accepted runtime regression and exact CI wiring');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  changeDealRuntime(context);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
 });

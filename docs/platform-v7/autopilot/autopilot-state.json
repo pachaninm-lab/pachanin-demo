@@ -1755,7 +1755,9 @@
     "ux/deal-runtime-unknown-20260929": [
       "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
       "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
-      "apps/web/tests/unit/transactionUxV8Migration.test.ts"
+      "apps/web/tests/unit/transactionUxV8Migration.test.ts",
+      ".github/workflows/ci.yml",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json"
     ]
   },
   "currentAcceptance": [
@@ -2653,22 +2655,25 @@
     "deal-runtime-unknown-20260929": {
       "owner": "ACCOUNT_1_EXECUTION",
       "purpose": "Repair UNKNOWN command recovery in the existing production-resolved TransactionDealWorkspace and prove the same runtime binding without changing its approved design.",
-      "authorityBaseExactMain": "8b0786f9b9b58a3f5f63055355787424d9efa052",
+      "authorityBaseExactMain": "dde1c60f49f3ac346fd1abb17374769fd1546a5a",
       "implementationBranch": "ux/deal-runtime-unknown-20260929",
       "allowedPaths": [
         "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
         "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
-        "apps/web/tests/unit/transactionUxV8Migration.test.ts"
+        "apps/web/tests/unit/transactionUxV8Migration.test.ts",
+        ".github/workflows/ci.yml",
+        "docs/platform-v7/qa/web-unit-coverage-registry.json"
       ],
       "requiredTruthBoundaries": [
-        "The trusted-base guard admits exactly the runtime component, its production-resolved behavior regression and the existing transaction-ux migration regression; candidate state cannot widen scope.",
+        "The trusted-base guard admits exactly the runtime component, its production-resolved behavior regression and the existing transaction-ux migration regression plus their exact CI invocation and coverage-registry wiring; candidate state cannot widen scope.",
         "Preserve the transaction-ux design, facade and tsconfig aliases; exercise the module resolved by the protected Deal route rather than the detached platform-v7 component.",
         "Lost or unverifiable command responses remain UNKNOWN with the original attempt identity, no fresh command replay and GET-only recovery; only an exact-attempt server receipt establishes a known outcome.",
         "Cover actual RU/EN/zh-CN recovery states and preserve migration binding, shell, server-owned role/auth/tenant/action authority and accessibility assertions.",
-        "Require fresh exact-head author audit, independent review and all substantive CI/readiness before normal expected-SHA merge; source evidence is not REG.RU live acceptance."
+        "Require fresh exact-head author audit, independent review and all substantive CI/readiness before normal expected-SHA merge; source evidence is not REG.RU live acceptance.",
+        "The existing ci.yml invocation must execute both recovery and migration regressions without losing any prior test or changing workflow behavior; the coverage registry may only remove the migration test exclusion."
       ],
       "forbiddenAuthority": [
-        "Candidate state, scope, guard, workflow, alias, facade or design replacement",
+        "Candidate state, scope, guard, unrelated workflow, alias, facade or design replacement",
         "Backend/API/DB/role/tenant/idempotency/payment/provider/FGIS authority or production/model-host mutation",
         "CI/security/readiness weakening, independent-review impersonation, forced merge or new recurring cost"
       ],

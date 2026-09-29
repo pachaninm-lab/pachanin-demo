@@ -559,6 +559,8 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
       'apps/web/components/transaction-ux/TransactionDealWorkspace.tsx',
       'apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx',
       'apps/web/tests/unit/transactionUxV8Migration.test.ts',
+      '.github/workflows/ci.yml',
+      'docs/platform-v7/qa/web-unit-coverage-registry.json',
     ];
     const requiredRenewal = {
       "owner": "ACCOUNT_1_EXECUTION",
@@ -606,14 +608,15 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
       implementationBranch,
       allowedPaths: paths,
       requiredTruthBoundaries: [
-        'The trusted-base guard admits exactly the runtime component, its production-resolved behavior regression and the existing transaction-ux migration regression; candidate state cannot widen scope.',
+        'The trusted-base guard admits exactly the runtime component, its production-resolved behavior regression and the existing transaction-ux migration regression plus their exact CI invocation and coverage-registry wiring; candidate state cannot widen scope.',
         'Preserve the transaction-ux design, facade and tsconfig aliases; exercise the module resolved by the protected Deal route rather than the detached platform-v7 component.',
         'Lost or unverifiable command responses remain UNKNOWN with the original attempt identity, no fresh command replay and GET-only recovery; only an exact-attempt server receipt establishes a known outcome.',
         'Cover actual RU/EN/zh-CN recovery states and preserve migration binding, shell, server-owned role/auth/tenant/action authority and accessibility assertions.',
         'Require fresh exact-head author audit, independent review and all substantive CI/readiness before normal expected-SHA merge; source evidence is not REG.RU live acceptance.',
+        'The existing ci.yml invocation must execute both recovery and migration regressions without losing any prior test or changing workflow behavior; the coverage registry may only remove the migration test exclusion.',
       ],
       forbiddenAuthority: [
-        'Candidate state, scope, guard, workflow, alias, facade or design replacement',
+        'Candidate state, scope, guard, unrelated workflow, alias, facade or design replacement',
         'Backend/API/DB/role/tenant/idempotency/payment/provider/FGIS authority or production/model-host mutation',
         'CI/security/readiness weakening, independent-review impersonation, forced merge or new recurring cost',
       ],
@@ -657,6 +660,35 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
         if (fileMode(headRef, file) !== '100644' || (status === 'M' ? before !== '100644' : before !== '')) {
           throw new Error('DEAL_RUNTIME_IMPLEMENTATION_FILE_MODE');
         }
+      }
+      // These two paths are evidence wiring, not general workflow authority.
+      // Derive the only permitted delta from the trusted base, never the candidate.
+      const readFileAt = (ref, file) => execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8' });
+      const ciFile = paths[3];
+      const registryFile = paths[4];
+      const command = 'pnpm --filter @pc/web exec vitest run ';
+      const testArguments = 'tests/unit/transactionDealWorkspaceRecovery.test.tsx tests/unit/transactionUxV8Migration.test.ts ';
+      const baseCi = readFileAt(baseRef, ciFile);
+      const alreadyWired = baseCi.includes(command + testArguments);
+      if (baseCi.split(command).length !== 2 ||
+          (!alreadyWired && (baseCi.includes('tests/unit/transactionDealWorkspaceRecovery.test.tsx') ||
+            baseCi.includes('tests/unit/transactionUxV8Migration.test.ts')))) {
+        throw new Error('DEAL_RUNTIME_CI_BASE_MISMATCH');
+      }
+      const expectedCi = alreadyWired ? baseCi : baseCi.replace(command, command + testArguments);
+      if (readFileAt(headRef, ciFile) !== expectedCi || fileMode(headRef, paths[1]) !== '100644') {
+        throw new Error('DEAL_RUNTIME_CI_WIRING_MISMATCH');
+      }
+      const baseRegistry = JSON.parse(readFileAt(baseRef, registryFile));
+      if (!Array.isArray(baseRegistry.exclusions)) throw new Error('DEAL_RUNTIME_CI_REGISTRY_BASE_MISMATCH');
+      const removed = baseRegistry.exclusions.filter((entry) => entry.file === paths[2]);
+      if (removed.length > 1 || (!alreadyWired && removed.length !== 1)) {
+        throw new Error('DEAL_RUNTIME_CI_REGISTRY_BASE_MISMATCH');
+      }
+      const expectedRegistry = structuredClone(baseRegistry);
+      expectedRegistry.exclusions = expectedRegistry.exclusions.filter((entry) => entry.file !== paths[2]);
+      if (readFileAt(headRef, registryFile) !== `${JSON.stringify(expectedRegistry, null, 2)}\n`) {
+        throw new Error('DEAL_RUNTIME_CI_REGISTRY_MUTATION');
       }
     }
   }
