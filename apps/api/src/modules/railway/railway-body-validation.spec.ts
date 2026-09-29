@@ -200,7 +200,7 @@ describe('расчёт демереджа — это деньги', () => {
 
   it('нормальный расчёт проходит и даёт конечное число', async () => {
     await expect(accept(CalculateDemurrageDto, valid)).resolves.toBeDefined();
-    const record = new RailwayService().calculateDemurrage(valid);
+    const record = new RailwayService().calculateDemurrage(valid, 'org-logistics-001');
     expect(Number.isFinite(record.totalKopecks)).toBe(true);
     expect(record.totalKopecks).toBeGreaterThan(0);
   });
@@ -221,14 +221,14 @@ describe('расчёт демереджа — это деньги', () => {
 
   it('сервис тоже отказывает, а не пишет NaN, если его позвали в обход границы', () => {
     const railway = new RailwayService();
-    expect(() => railway.calculateDemurrage({ ...valid, arrivedAt: 'мусор' }))
+    expect(() => railway.calculateDemurrage({ ...valid, arrivedAt: 'мусор' }, 'org-logistics-001'))
       .toThrow(BadRequestException);
   });
 
   it('перевёрнутые даты по-прежнему дают ноль — этот сторож был и остаётся', () => {
     const record = new RailwayService().calculateDemurrage({
       wagonId: 'w-1', arrivedAt: '2026-09-03T00:00:00.000Z', unloadingCompletedAt: '2026-09-01T00:00:00.000Z',
-    });
+    }, 'org-logistics-001');
     expect(record.totalKopecks).toBe(0);
   });
 });
