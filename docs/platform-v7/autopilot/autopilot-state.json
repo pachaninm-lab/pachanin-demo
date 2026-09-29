@@ -1714,6 +1714,10 @@
       ".github/workflows/automerge.yml",
       "docs/platform-v7/autopilot/scopes/readiness-queue-job-gate-20260927.json"
     ],
+    "fix/readiness-default-branch-push-gate-20260929": [
+      ".github/workflows/automerge.yml",
+      "docs/platform-v7/autopilot/scopes/readiness-default-branch-push-gate-20260929.json"
+    ],
     "governance/gekta-current-data-regression-route-20260927": [
       "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
       "scripts/p7-autopilot-guard.sh"
