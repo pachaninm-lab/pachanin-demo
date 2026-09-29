@@ -3,29 +3,32 @@
   "issue": 4459,
   "branch": "claude/pr-5681-reconciliation-rd418d",
   "status": "active",
-  "purpose": "Close the remaining railway organization-scoping gaps reported as P2 by the independent review of #5712: GET /railway/wagons accepted ?orgId= and returned any organization's fleet (and an empty organization meant the whole fleet), GET /railway/gu12 returned every organization's GU-12 requests, and POST /railway/gu12/:id/submit sent any organization's request to ETRAN for whoever knew its id. All three now use only the caller's session organization; a foreign request is reported exactly like a missing one. Follows #5712 (merged as 4c4102d8), which restricted wagon status updates and GU-12 creation the same way; this manifest is reused for the branch's next step.",
-  "authorityBaseExactMain": "7843266e3",
+  "purpose": "Close the last railway organization-scoping gap from the #4459 series: GET /railway/demurrage returned every organization's demurrage calculations (with their deals and amounts) and POST /railway/demurrage/calculate stored records bound to no organization. A demurrage record now belongs to the calculating session organization and is listed only to it; a calculation without an organization is refused. Wagon ownership is intentionally not required for calculation, because detention is usually computed by the consignee, not the wagon owner. Follows #5712 (merged as 4c4102d8: wagon status and GU-12 creation) and #5716 (merged as a5af1abc: fleet list, GU-12 list and submit); this manifest is reused for the branch's next step because p7-source-controlled-scope.mjs allows one manifest per branch.",
+  "authorityBaseExactMain": "a5af1abca",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
     "apps/api/src/modules/railway/railway.controller.ts",
     "apps/api/src/modules/railway/railway.service.ts",
-    "apps/api/src/modules/railway/railway-org-ownership.spec.ts",
-    "apps/api/src/modules/railway/railway-read-submit-org-scope.spec.ts",
+    "apps/api/src/modules/railway/railway-body-validation.spec.ts",
+    "apps/api/src/modules/railway/railway-demurrage-org-scope.spec.ts",
     "docs/platform-v7/autopilot/scopes/railway-wagon-org-ownership.json"
   ],
   "requiredInvariants": [
     "The caller organization comes only from the authenticated session (CurrentUser.orgId), never from the request body, query or path.",
     "A missing session organization yields an empty list or a refusal, never every organization's data.",
-    "A GU-12 request of another organization is indistinguishable from a missing request: same NotFoundException and message; it is neither submitted nor modified.",
+    "A demurrage record carries the calculating organization and is listed only to that organization, including when filtered by dealId.",
+    "Still enforced from #5712: a foreign wagon is indistinguishable from a missing one, and a GU-12 request containing any foreign wagon is rejected as a whole.",
+    "Still enforced from #5716: GU-12 requests of another organization are neither listed nor submitted and are reported exactly like missing ones.",
     "No role bypass: ADMIN is an organization membership role here, not platform staff.",
     "No DTO, validation boundary, baseline, register, workflow, dependency or lockfile change."
   ],
   "acceptance": [
-    "cd apps/api && npx jest src/modules/railway: 3 suites, 48 tests pass.",
-    "Mutations: dropping the requestor check in submit fails 3, dropping the list filter fails 2, restoring the old ?orgId= listWagons fails 2 of the 12 new tests."
+    "cd apps/api && npx jest src/modules/railway: 4 suites, 55 tests pass.",
+    "Mutations on the 7 new tests: dropping the list organization filter fails 4, dropping the calculation organization guard fails 1. The empty-organization list guard is defense in depth only (no record can carry an empty organization) and is not independently killable."
   ],
   "knownLimitations": [
-    "Demurrage calculate/list and dealId ownership are not organization-scoped yet; they are the next narrow step."
+    "dealId ownership (that a deal belongs to the caller) is not verified by the railway module; it needs the deals module and is a separate step.",
+    "RailwayService.listWagons() without an organization still returns the whole fleet at service level; the only HTTP caller passes the session organization or returns an empty list."
   ]
 }

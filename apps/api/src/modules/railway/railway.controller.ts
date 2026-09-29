@@ -78,12 +78,14 @@ export class RailwayController {
   @Post('demurrage/calculate')
   calculateDemurrage(
     @Body() body: CalculateDemurrageDto,
+    @CurrentUser() user: any,
   ) {
-    return this.railway.calculateDemurrage(body);
+    return this.railway.calculateDemurrage(body, user?.orgId);
   }
 
   @Get('demurrage')
-  listDemurrage(@Query('dealId') dealId?: string) {
-    return this.railway.listDemurrage(dealId);
+  listDemurrage(@CurrentUser() user: any, @Query('dealId') dealId?: string) {
+    // Раньше список отдавал расчёты всех организаций вместе с их сделками.
+    return this.railway.listDemurrage(user?.orgId, dealId);
   }
 }
