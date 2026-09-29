@@ -93,7 +93,7 @@ describe('заявка ГУ-12', () => {
     const railway = new RailwayService();
     const wagon = freeWagonOf(railway, OWNER);
     expect(() => railway.createGU12(gu12(OTHER, [wagon.id]))).toThrow(NotFoundException);
-    expect(railway.listGU12()).toHaveLength(0);
+    expect([...railway.listGU12(OWNER), ...railway.listGU12(OTHER)]).toHaveLength(0);
   });
 
   it('один чужой вагон среди своих отклоняет всю заявку', () => {
@@ -101,7 +101,7 @@ describe('заявка ГУ-12', () => {
     const own = railway.registerWagon({ wagonNumber: '52999999', type: 'HOPPER', capacityTons: 60, ownerOrgId: OTHER });
     const foreign = freeWagonOf(railway, OWNER);
     expect(() => railway.createGU12(gu12(OTHER, [own.id, foreign.id]))).toThrow(NotFoundException);
-    expect(railway.listGU12()).toHaveLength(0);
+    expect([...railway.listGU12(OWNER), ...railway.listGU12(OTHER)]).toHaveLength(0);
   });
 
   it('контроллер берёт заявителя из сессии', () => {
