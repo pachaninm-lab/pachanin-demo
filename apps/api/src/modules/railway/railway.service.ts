@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
 import { MockRzdEtranAdapter } from '../../../../../packages/integration-sdk/src/adapters/rzd-etran.adapter';
@@ -39,6 +39,8 @@ export interface GU12Request {
 
 export interface DemurrageRecord {
   id: string;
+  /** Организация, которая выполнила расчёт; только она видит запись. */
+  orgId: string;
   wagonId: string;
   dealId?: string;
   arrivedAt: string;
@@ -232,7 +234,11 @@ export class RailwayService {
     dealId?: string;
     arrivedAt: string;
     unloadingCompletedAt: string;
-  }): DemurrageRecord {
+  }, actorOrgId: string): DemurrageRecord {
+    // Запись демереджа принадлежит организации, которая её посчитала. Вагон
+    // может быть чужим — простой обычно считает грузополучатель, — поэтому
+    // владение вагоном здесь не проверяется; без организации расчёт не пишется.
+    if (!actorOrgId) throw new ForbiddenException('DEMURRAGE_ORG_REQUIRED');
     const arrivedMs = new Date(dto.arrivedAt).getTime();
     const completedMs = new Date(dto.unloadingCompletedAt).getTime();
     // Демередж — деньги. Неразбираемая дата давала NaN на всю запись, а в JSON
@@ -246,6 +252,7 @@ export class RailwayService {
 
     const record: DemurrageRecord = {
       id: randomUUID(),
+      orgId: actorOrgId,
       wagonId: dto.wagonId,
       dealId: dto.dealId,
       arrivedAt: dto.arrivedAt,
@@ -260,8 +267,10 @@ export class RailwayService {
     return record;
   }
 
-  listDemurrage(dealId?: string): DemurrageRecord[] {
-    const all = [...this.demurrageRecords.values()];
-    return dealId ? all.filter(r => r.dealId === dealId) : all;
+  /** Только записи своей организации; без организации — пустой список. */
+  listDemurrage(orgId: string, dealId?: string): DemurrageRecord[] {
+    if (!orgId) return [];
+    const own = [...this.demurrageRecords.values()].filter(r => r.orgId === orgId);
+    return dealId ? own.filter(r => r.dealId === dealId) : own;
   }
 }
