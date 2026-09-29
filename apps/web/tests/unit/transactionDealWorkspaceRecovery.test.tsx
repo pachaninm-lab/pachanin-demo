@@ -304,4 +304,51 @@ describe('production-resolved Deal recovery', () => {
     await expectUnknown(); expect(posts).toHaveLength(1); expect(gets).toBe(2);
     expect(screen.queryByRole('button', { name: 'Send action' })).toBeNull();
   });
+
+  it.each([
+    'missing waiting roles', 'null spine item', 'object attention', 'object status', 'numeric amount',
+    'null shipment', 'null document', 'null laboratory', 'null acceptance', 'null dispute', 'null event',
+    'object focus', 'object action label', 'non-string waiting role', 'object blocker', 'object money status',
+  ])('rejects nested malformed recovery without losing UNKNOWN: %s', async (mode) => {
+    await ready(); fireEvent.click(screen.getByRole('button', { name: 'Send action' })); await expectUnknown();
+    read = async () => {
+      const value: any = snapshot();
+      if (mode === 'missing waiting roles') delete value.roleProjection.primaryAction.waitingForRoles;
+      if (mode === 'null spine item') value.spine = [null];
+      if (mode === 'object attention') value.attention = {};
+      if (mode === 'object status') value.deal.status = {};
+      if (mode === 'numeric amount') value.deal.totalKopecks = 100000;
+      if (mode === 'null shipment') value.shipments = [null];
+      if (mode === 'null document') value.documents = [null];
+      if (mode === 'null laboratory') value.laboratory = [null];
+      if (mode === 'null acceptance') value.acceptance = [null];
+      if (mode === 'null dispute') value.disputes = [null];
+      if (mode === 'null event') value.timeline = [null];
+      if (mode === 'object focus') value.roleProjection.focus = {};
+      if (mode === 'object action label') value.roleProjection.primaryAction.label = {};
+      if (mode === 'non-string waiting role') value.roleProjection.primaryAction.waitingForRoles = [{}];
+      if (mode === 'object blocker') value.blockers = [{}];
+      if (mode === 'object money status') value.money = { status: {}, amountKopecks: null, callbackState: 'WAITING', bankRef: null };
+      return json(value);
+    };
+    reload(); await waitFor(() => expect(screen.queryByRole('button', { name: 'Send action' })).toBeNull());
+    await expectUnknown(); expect(posts).toHaveLength(1);
+    read = async () => json(snapshot()); reload();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Send action' })).toBeDisabled());
+    await expectUnknown(); expect(posts).toHaveLength(1); expect(gets).toBe(3);
+  });
+
+  it('accepts populated canonical collections, including the server numeric acceptance weight', async () => {
+    read = async () => json({ ...snapshot(),
+      money: { status: 'PENDING', callbackState: 'NONE', amountKopecks: '100000', bankRef: null },
+      spine: [{ id: 'contract', stage: 'CONTRACT', label: 'Contract', state: 'active', source: 'USER' }],
+      shipments: [{ id: 'shipment-a', status: 'PENDING', vehicleNumber: null, nextAction: null }],
+      documents: [{ id: 'doc-a', type: 'CONTRACT', status: 'SIGNED', name: 'Contract' }],
+      laboratory: [{ id: 'sample-a', status: 'PENDING', protocol: null }],
+      acceptance: [{ id: 'acceptance-a', status: 'PENDING', qualityStatus: 'PENDING', weightActualTons: 20.5, notes: null }],
+      disputes: [{ id: 'dispute-a', status: 'CLOSED', description: 'Resolved' }],
+      timeline: [{ id: 'event-a', eventType: 'CREATED', createdAt: '2026-09-29T10:00:00.000Z' }],
+    });
+    await ready(); expect(screen.getByText('20,5 т')).toBeTruthy(); expect(posts).toHaveLength(0);
+  });
 });

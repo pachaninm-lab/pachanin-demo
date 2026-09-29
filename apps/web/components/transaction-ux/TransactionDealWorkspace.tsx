@@ -68,7 +68,7 @@ type Workspace = {
   shipments: Array<{ id: string; status: string; vehicleNumber?: string | null; nextAction?: string | null }>;
   documents: Array<{ id: string; type: string; status: string; name: string }>;
   laboratory: Array<{ id: string; status: string; protocol?: string | null }>;
-  acceptance: Array<{ id: string; status: string; weightActualTons?: string | null; qualityStatus: string; notes?: string | null }>;
+  acceptance: Array<{ id: string; status: string; weightActualTons?: string | number | null; qualityStatus: string; notes?: string | null }>;
   disputes: Array<{ id: string; status: string; description: string }>;
   timeline: Array<{ id: string; eventType: string; createdAt: string }>;
 };
@@ -111,6 +111,52 @@ async function readJson(response: Response): Promise<any> {
   return payload;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasStrings(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  return keys.every((key) => typeof value[key] === 'string');
+}
+
+function hasOptionalStrings(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  return keys.every((key) => value[key] == null || typeof value[key] === 'string');
+}
+
+function isWorkspace(value: unknown, dealId: string): value is Workspace {
+  if (!isRecord(value) || !isRecord(value.deal) || !isRecord(value.roleProjection)) return false;
+  const deal = value.deal;
+  const projection = value.roleProjection;
+  const action = projection.primaryAction;
+  if (deal.id !== dealId || !hasStrings(deal, ['id', 'status', 'version', 'updatedAt', 'currency']) ||
+      !hasOptionalStrings(deal, ['number', 'culture', 'cropClass', 'volumeTons', 'pricePerTon', 'totalKopecks']) ||
+      !hasStrings(projection, ['role', 'focus']) || typeof projection.canAct !== 'boolean' ||
+      typeof value.attention !== 'string' || !Array.isArray(value.blockers) ||
+      !value.blockers.every((blocker) => typeof blocker === 'string')) return false;
+  if (action !== null && (!isRecord(action) || !hasStrings(action, ['id', 'label']) ||
+      typeof action.enabled !== 'boolean' || !Array.isArray(action.waitingForRoles) ||
+      !action.waitingForRoles.every((role) => typeof role === 'string') ||
+      (action.source !== undefined && action.source !== 'USER' && action.source !== 'BANK_CALLBACK'))) return false;
+  if (value.money !== null && (!isRecord(value.money) || !hasStrings(value.money, ['status', 'callbackState']) ||
+      !hasOptionalStrings(value.money, ['amountKopecks', 'bankRef']))) return false;
+  if (!Array.isArray(value.spine) || !value.spine.every((step) => isRecord(step) &&
+      hasStrings(step, ['id', 'stage', 'label', 'state']) && ['done', 'active', 'pending'].includes(step.state as string) &&
+      (step.source === undefined || step.source === 'USER' || step.source === 'BANK_CALLBACK'))) return false;
+  const lists: Array<[unknown, string[], string[]]> = [
+    [value.shipments, ['id', 'status'], ['vehicleNumber', 'nextAction']],
+    [value.documents, ['id', 'type', 'status', 'name'], []],
+    [value.laboratory, ['id', 'status'], ['protocol']],
+    [value.acceptance, ['id', 'status', 'qualityStatus'], ['notes']],
+    [value.disputes, ['id', 'status', 'description'], []],
+    [value.timeline, ['id', 'eventType', 'createdAt'], []],
+  ];
+  if (!Array.isArray(value.acceptance) || !value.acceptance.every((item) => isRecord(item) &&
+      (item.weightActualTons == null || typeof item.weightActualTons === 'string' ||
+        (typeof item.weightActualTons === 'number' && Number.isFinite(item.weightActualTons))))) return false;
+  return lists.every(([items, required, optional]) => Array.isArray(items) &&
+    items.every((item) => isRecord(item) && hasStrings(item, required) && hasOptionalStrings(item, optional)));
+}
+
 function formatMoney(kopecks: string | null | undefined, currency = 'RUB'): string {
   if (!kopecks || !/^-?\d+$/.test(kopecks)) return '—';
   const negative = kopecks.startsWith('-');
@@ -122,9 +168,10 @@ function formatMoney(kopecks: string | null | undefined, currency = 'RUB'): stri
   return `${negative ? '−' : ''}${grouped},${cents} ${symbol}`;
 }
 
-function formatDecimal(value: string | null | undefined, suffix: string): string {
-  if (!value || !/^\d+(?:\.\d+)?$/.test(value)) return '—';
-  const [whole, fraction = ''] = value.split('.');
+function formatDecimal(value: string | number | null | undefined, suffix: string): string {
+  const decimal = typeof value === 'number' && Number.isFinite(value) ? String(value) : value;
+  if (typeof decimal !== 'string' || !/^\d+(?:\.\d+)?$/.test(decimal)) return '—';
+  const [whole, fraction = ''] = decimal.split('.');
   const significant = fraction.replace(/0+$/, '').slice(0, 6);
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   return `${grouped}${significant ? `,${significant}` : ''} ${suffix}`;
@@ -278,11 +325,8 @@ export function TransactionDealWorkspace({ role, dealId }: { role: PlatformRole;
       const response = await fetch(`/api/proxy/deals/${encodeURIComponent(dealId)}/execution-workspace`, {
         method: 'GET', cache: 'no-store', headers: { Accept: 'application/json' }, signal: controller.signal,
       });
-      const payload = await readJson(response) as Workspace;
-      if (payload?.deal?.id !== dealId || !payload.roleProjection ||
-          typeof payload.roleProjection.canAct !== 'boolean' ||
-          ![payload.blockers, payload.spine, payload.shipments, payload.documents, payload.laboratory,
-            payload.acceptance, payload.disputes, payload.timeline].every(Array.isArray)) {
+      const payload: unknown = await readJson(response);
+      if (!isWorkspace(payload, dealId)) {
         throw new HttpError('DEAL_STATE_UNVERIFIABLE', 502);
       }
       // The read model does not expose a command receipt; aggregate changes cannot settle UNKNOWN.
