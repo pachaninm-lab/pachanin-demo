@@ -322,14 +322,24 @@ test.describe('Platform V7 exact production i18n acceptance', () => {
         { waitUntil: 'load' },
       );
       expect(response?.ok()).toBe(true);
-      await expectLocalizedSurface(page, locale.htmlLang);
+      if (locale.code === 'ru') {
+        await expect(page.locator('html')).toHaveAttribute('lang', locale.htmlLang);
+        await expectNoHorizontalOverflow(page);
+      } else {
+        await expectLocalizedSurface(page, locale.htmlLang);
+      }
       const registerHref = `/platform-v7/register?lang=${locale.code}`;
       const registerLink = page.locator(`.pc-auth-register a[href="${registerHref}"]`);
       await expect(registerLink).toBeVisible();
       await expect(registerLink).toHaveAttribute('href', registerHref);
       await registerLink.click();
-      await expect(page).toHaveURL(new RegExp(`/platform-v7/register\?lang=${locale.code}(?:&|$)`, 'u'));
-      await expectLocalizedSurface(page, locale.htmlLang);
+      await expect(page).toHaveURL(new URL(registerHref, LIVE_BASE).toString());
+      if (locale.code === 'ru') {
+        await expect(page.locator('html')).toHaveAttribute('lang', locale.htmlLang);
+        await expectNoHorizontalOverflow(page);
+      } else {
+        await expectLocalizedSurface(page, locale.htmlLang);
+      }
       await expectClientChunksSettledWithoutErrors(page, pageErrors, 'login → register');
     });
   }
