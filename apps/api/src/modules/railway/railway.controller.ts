@@ -17,8 +17,10 @@ export class RailwayController {
   constructor(private readonly railway: RailwayService) {}
 
   @Get('wagons')
-  listWagons(@CurrentUser() user: any, @Query('orgId') orgId?: string) {
-    return this.railway.listWagons(orgId ?? user.orgId);
+  listWagons(@CurrentUser() user: any) {
+    // Организация — только из сессии. Прежний `?orgId=` отдавал парк любой
+    // организации, а пустая организация в сервисе означала «все вагоны».
+    return user?.orgId ? this.railway.listWagons(user.orgId) : [];
   }
 
   @Post('wagons')
@@ -47,8 +49,8 @@ export class RailwayController {
   }
 
   @Get('gu12')
-  listGU12(@Query('dealId') dealId?: string) {
-    return this.railway.listGU12(dealId);
+  listGU12(@CurrentUser() user: any, @Query('dealId') dealId?: string) {
+    return this.railway.listGU12(user?.orgId, dealId);
   }
 
   @Post('gu12')
@@ -69,8 +71,8 @@ export class RailwayController {
   }
 
   @Post('gu12/:id/submit')
-  submitGU12(@Param('id') id: string) {
-    return this.railway.submitGU12(id);
+  submitGU12(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.railway.submitGU12(id, user?.orgId);
   }
 
   @Post('demurrage/calculate')
