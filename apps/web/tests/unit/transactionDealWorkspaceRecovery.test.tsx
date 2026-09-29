@@ -2,6 +2,7 @@ import React from 'react';
 import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
+import { createHash, webcrypto } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import * as JsxRuntime from 'react/jsx-runtime';
@@ -62,7 +63,7 @@ function snapshot(id = 'deal-a') {
   return {
     deal: { id, number: id, status: 'CONTRACT_SIGNING', version: '7', updatedAt: '2026-09-29T10:00:00.000Z',
       culture: null, cropClass: null, volumeTons: '10', pricePerTon: null, totalKopecks: '100000', currency: 'RUB' },
-    roleProjection: { role: 'buyer', focus: 'Review the contract', canAct: true,
+    roleProjection: { role: 'BUYER', focus: 'Review the contract', canAct: true,
       primaryAction: { id: 'buyer_sign_contract', label: 'Confirm contract', enabled: true, source: 'USER', waitingForRoles: [] as string[] } },
     attention: 'Review before signing', blockers: [] as string[], money: null,
     spine: [], shipments: [], documents: [], laboratory: [], acceptance: [], disputes: [], timeline: [],
@@ -78,13 +79,59 @@ function deferred<T>() {
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
   return { promise, resolve, reject };
 }
+function fingerprint(body: Posted, url: string): string {
+  const parts = url.split('/');
+  const material = { dealId: decodeURIComponent(parts[4]), actionId: decodeURIComponent(parts[6]),
+    commandId: body.commandId, clientIdempotencyKey: body.idempotencyKey,
+    expectedUpdatedAt: body.expectedUpdatedAt, payload: body.payload ?? {} };
+  const stable = (value: any): any => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object'
+    ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, stable(item)])) : value;
+  return `fp:${createHash('sha256').update(JSON.stringify(stable(material))).digest('hex')}`;
+}
+const journalKey = (dealId = 'deal-a') => `pc:deal-command:pending:v1:${encodeURIComponent(dealId)}`;
+function overrideStorageMethod(method: 'setItem' | 'removeItem', operation: () => void) {
+  // Happy DOM binds Storage methods in its proxy; spy on the browser getter so
+  // the fault reaches the exact runtime and cannot leak through a bound method.
+  const storage = window.localStorage;
+  const failingMethod = vi.fn(operation);
+  const replacement: Storage = {
+    get length() { return storage.length; }, key: storage.key.bind(storage),
+    getItem: storage.getItem.bind(storage), setItem: storage.setItem.bind(storage),
+    removeItem: storage.removeItem.bind(storage), clear: storage.clear.bind(storage),
+  };
+  replacement[method] = failingMethod;
+  vi.spyOn(window, 'localStorage', 'get').mockReturnValue(replacement);
+  return failingMethod;
+}
+function committedSnapshot(body: Posted, url: string) {
+  const value = snapshot(decodeURIComponent(url.split('/')[4]));
+  return { ...value, deal: { ...value.deal, version: '8', status: 'CONTRACT_SIGNED', updatedAt: '2026-09-29T10:00:01.000Z' },
+    timeline: [{ id: 'event-committed-command', dealId: value.deal.id, tenantId: 'tenant-fixture',
+      actorId: 'actor-fixture', actorRole: 'BUYER', eventType: 'BUYER_SIGN_CONTRACT',
+      createdAt: '2026-09-29T10:00:01.000Z', hash: 'a'.repeat(64), prevHash: null,
+      payload: { commandId: body.commandId, actionId: 'buyer_sign_contract', idempotencyKey: fingerprint(body, url),
+        from: 'CONTRACT_SIGNING', to: 'CONTRACT_SIGNED', resultingUpdatedAt: '2026-09-29T10:00:01.000Z', payload: {} } }] };
+}
 function receipt(body: Posted, url: string, duplicate = false) {
   const parts = url.split('/');
   return { ok: true, duplicate, commandId: body.commandId, dealId: decodeURIComponent(parts[4]),
-    actionId: decodeURIComponent(parts[6]), idempotencyKey: 'fp:server-fingerprinted-key', status: 'CONTRACT_SIGNED' };
+    actionId: decodeURIComponent(parts[6]), idempotencyKey: fingerprint(body, url), status: 'CONTRACT_SIGNED' };
 }
 beforeEach(() => {
   posts = []; gets = 0; form.submit = undefined; document.documentElement.lang = 'ru';
+  window.localStorage.clear();
+  vi.stubGlobal('crypto', webcrypto);
+  const held = new Set<string>();
+  const navigatorWithLocks = Object.create(navigator);
+  Object.defineProperty(navigatorWithLocks, 'locks', { configurable: true, value: {
+    request: vi.fn(async (name: string, options: { mode: string; ifAvailable: boolean }, callback: (lock: unknown) => unknown) => {
+      expect(options).toEqual({ mode: 'exclusive', ifAvailable: true });
+      if (held.has(name)) return callback(null);
+      held.add(name);
+      try { return await callback({ name, mode: 'exclusive' }); } finally { held.delete(name); }
+    }),
+  } });
+  vi.stubGlobal('navigator', navigatorWithLocks);
   read = async (url) => json(snapshot(decodeURIComponent(url.split('/')[4])));
   post = async () => { throw new TypeError('Lost acknowledgement'); };
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -97,7 +144,7 @@ beforeEach(() => {
     expect(init?.method).toBe('GET'); gets += 1; return read(url, gets, init?.signal);
   }));
 });
-afterEach(() => { vi.useRealTimers(); cleanup(); vi.unstubAllGlobals(); document.documentElement.lang = 'ru'; document.cookie = 'pc_csrf_token=; Max-Age=0; Path=/'; });
+afterEach(() => { vi.useRealTimers(); cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); window.localStorage.clear(); document.documentElement.lang = 'ru'; document.cookie = 'pc_csrf_token=; Max-Age=0; Path=/'; });
 async function ready(id = 'deal-a') {
   const view = render(<CanonicalDealWorkspace role='buyer' dealId={id} />);
   await waitFor(() => expect(screen.getByRole('button', { name: 'Send action' })).not.toBeDisabled());
@@ -128,7 +175,7 @@ describe('production-resolved Deal recovery', () => {
   });
   const uncertain = [
     'network', 'server failure', 'empty', 'invalid JSON', 'missing identity', 'wrong command',
-    'wrong deal', 'wrong action', 'not accepted', 'generic conflict', 'incomplete receipt', 'timeout', 'throttled',
+    'wrong deal', 'wrong action', 'wrong fingerprint', 'not accepted', 'generic conflict', 'incomplete receipt', 'timeout', 'throttled',
   ] as const;
   it.each(uncertain)('keeps UNKNOWN and blocks replay after %s', async (mode) => {
     post = async (body, url) => {
@@ -145,6 +192,7 @@ describe('production-resolved Deal recovery', () => {
       if (mode === 'wrong command') value.commandId = 'other-command';
       if (mode === 'wrong deal') value.dealId = 'other-deal';
       if (mode === 'wrong action') value.actionId = 'other-action';
+      if (mode === 'wrong fingerprint') value.idempotencyKey = 'fp:' + '0'.repeat(64);
       if (mode === 'not accepted') value.ok = false;
       return json(value);
     };
@@ -168,7 +216,7 @@ describe('production-resolved Deal recovery', () => {
   it('blocks same-tick direct handler duplication before React commits submitting state', async () => {
     const reply = deferred<Response>(); post = () => reply.promise; await ready();
     const submit = form.submit!; let first!: Promise<void>;
-    await act(async () => { first = submit({}); await submit({}); }); expect(posts).toHaveLength(1);
+    await act(async () => { first = submit({}); await submit({}); }); await waitFor(() => expect(posts).toHaveLength(1));
     await act(async () => { reply.reject(new TypeError('lost')); await first; }); await expectUnknown();
   });
   it('preserves the attempt when GET advances the action and version', async () => {
@@ -235,6 +283,7 @@ describe('production-resolved Deal recovery', () => {
   it('retains the first deal attempt across a mounted deal switch and late lost response', async () => {
     const reply = deferred<Response>(); post = () => reply.promise; const view = await ready();
     fireEvent.click(screen.getByRole('button', { name: 'Send action' }));
+    await waitFor(() => expect(posts).toHaveLength(1));
     view.rerender(<CanonicalDealWorkspace role='buyer' dealId='deal-b' />);
     await waitFor(() => expect(document.querySelector('[data-canonical-deal="deal-b"]')).not.toBeNull());
     expect(screen.getByRole('button', { name: 'Send action' })).toBeDisabled();
@@ -255,7 +304,8 @@ describe('production-resolved Deal recovery', () => {
   });
   it('does not start a receipt refresh after unmount', async () => {
     const reply = deferred<Response>(); post = () => reply.promise; const view = await ready();
-    fireEvent.click(screen.getByRole('button', { name: 'Send action' })); view.unmount();
+    fireEvent.click(screen.getByRole('button', { name: 'Send action' }));
+    await waitFor(() => expect(posts).toHaveLength(1)); view.unmount();
     await act(async () => { reply.resolve(json(receipt(posts[0].body, posts[0].url))); }); expect(gets).toBe(1);
   });
   it.each(['cannot act', 'disabled action', 'bank source', 'bank waiting', 'blocker'])('preserves server-controlled eligibility: %s', async (mode) => {
@@ -286,12 +336,13 @@ describe('production-resolved Deal recovery', () => {
   });
 
   it('turns an expired POST into UNKNOWN without resending it', async () => {
+    const sent = deferred<void>();
     post = (_body, _url, signal) => new Promise((_resolve, reject) => {
-      signal!.addEventListener('abort', () => reject(new Error('Aborted uncertain POST')), { once: true });
+      signal!.addEventListener('abort', () => reject(new Error('Aborted uncertain POST')), { once: true }); sent.resolve();
     });
     await ready(); vi.useFakeTimers();
     fireEvent.click(screen.getByRole('button', { name: 'Send action' }));
-    await act(async () => { await vi.advanceTimersByTimeAsync(20_000); }); vi.useRealTimers();
+    await act(async () => { await sent.promise; await vi.advanceTimersByTimeAsync(20_000); }); vi.useRealTimers();
     await expectUnknown(); expect(posts).toHaveLength(1); expect(gets).toBe(1);
   });
   it('retains UNKNOWN when a recovery read expires', async () => {
@@ -350,5 +401,196 @@ describe('production-resolved Deal recovery', () => {
       timeline: [{ id: 'event-a', eventType: 'CREATED', createdAt: '2026-09-29T10:00:00.000Z' }],
     });
     await ready(); expect(screen.getByText('20,5 т')).toBeTruthy(); expect(posts).toHaveLength(0);
+  });
+});
+
+
+describe('remaining durable recovery regression', () => {
+  it('retains the uncertain attempt through a complete component remount', async () => {
+    const first = await ready();
+    fireEvent.click(screen.getByRole('button', { name: 'Send action' }));
+    await expectUnknown();
+    const attemptId = posts[0].body.commandId;
+    first.unmount();
+    render(<CanonicalDealWorkspace role='buyer' dealId='deal-a' />);
+    await waitFor(() => expect(gets).toBe(2));
+    await waitFor(() => {
+      const notice = document.querySelector('[data-command-outcome="UNKNOWN"]');
+      expect(notice).not.toBeNull();
+      expect(notice?.textContent).toContain(attemptId);
+      expect(screen.getByRole('button', { name: 'Send action' })).toBeDisabled();
+    });
+    expect(posts).toHaveLength(1);
+  });
+
+  it('reconciles the exact canonical committed command event from the existing GET without another POST', async () => {
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: 'Send action' }));
+    await expectUnknown();
+    const attempted = posts[0].body;
+    read = async () => json(committedSnapshot(attempted, posts[0].url));
+    reload();
+    await waitFor(() => expect(document.querySelector('[data-command-outcome="UNKNOWN"]')).toBeNull());
+    expect(posts).toHaveLength(1);
+  });
+});
+
+
+describe('persistent pending-command boundary', () => {
+  it('verifies the minimal persistent brake before POST without persisting form payload or credentials', async () => {
+    post = async (body, url) => {
+      const serialized = window.localStorage.getItem(journalKey())!;
+      const pending = JSON.parse(serialized);
+      expect(pending.commandId).toBe(body.commandId);
+      expect(pending.fingerprint).toBe(fingerprint(body, url));
+      expect(Object.keys(pending).sort()).toEqual(['schema', 'dealId', 'commandId', 'actionId', 'idempotencyKey',
+        'fingerprint', 'expectedUpdatedAt', 'expectedVersion', 'fromStatus', 'actorRole'].sort());
+      expect(serialized).not.toContain('private-document');
+      expect(serialized).not.toContain('private-evidence');
+      expect(serialized).not.toContain('csrf-fixture');
+      throw new TypeError('reply lost');
+    };
+    document.cookie = 'pc_csrf_token=csrf-fixture; Path=/';
+    await ready();
+    await act(async () => { await form.submit!({ documentId: 'private-document', signatureEvidenceRef: 'private-evidence',
+      nested: { z: [3, { y: '中文', a: 'данные' }], a: true } }); });
+    await expectUnknown(); expect(posts).toHaveLength(1);
+  });
+
+  it('retains a pending request after unloading before the POST reply exists', async () => {
+    const reply = deferred<Response>(); post = () => reply.promise;
+    const first = await ready();
+    fireEvent.click(screen.getByRole('button', { name: 'Send action' }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    first.unmount(); render(<CanonicalDealWorkspace role='buyer' dealId='deal-a' />);
+    await expectUnknown();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Send action' })).toBeDisabled());
+    await act(async () => { await form.submit!({}); reply.reject(new TypeError('reply lost')); });
+    expect(posts).toHaveLength(1);
+  });
+
+  it('recovers a committed attempt on remount using GET only and deletes only that journal entry', async () => {
+    const first = await ready();
+    fireEvent.click(screen.getByRole('button', { name: 'Send action' })); await expectUnknown();
+    window.localStorage.setItem('unrelated-key', 'keep');
+    first.unmount(); read = async () => json(committedSnapshot(posts[0].body, posts[0].url));
+    render(<CanonicalDealWorkspace role='buyer' dealId='deal-a' />);
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Ответ сервера подтверждён'));
+    expect(window.localStorage.getItem(journalKey())).toBeNull();
+    expect(window.localStorage.getItem('unrelated-key')).toBe('keep');
+    expect(posts).toHaveLength(1); expect(gets).toBe(2);
+  });
+
+  it.each([{ name: 'invalid JSON', raw: '{bad' }, { name: 'empty schema', raw: '{}' },
+    { name: 'future schema', raw: '{"schema":2}' }, { name: 'oversized', raw: 'x'.repeat(5000) }])
+  ('fails closed on a malformed persistent record ($name)', async ({ raw }) => {
+    window.localStorage.setItem(journalKey(), raw);
+    render(<CanonicalDealWorkspace role='buyer' dealId='deal-a' />);
+    await waitFor(() => expect(document.querySelector('[data-canonical-deal="deal-a"]')).not.toBeNull());
+    expect(document.querySelector('[data-recovery-storage="UNAVAILABLE"]')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Send action' })).toBeDisabled();
+    await act(async () => { await form.submit!({}); }); expect(posts).toHaveLength(0);
+    expect(window.localStorage.getItem(journalKey())).toBe(raw);
+  });
+
+  it('blocks before POST when the browser cannot persist the attempt', async () => {
+    await ready();
+    const fault = overrideStorageMethod('setItem', () => { throw new DOMException('Quota', 'QuotaExceededError'); });
+    await act(async () => { await form.submit!({}); });
+    expect(fault).toHaveBeenCalledOnce(); expect(posts).toHaveLength(0);
+    expect(document.querySelector('[data-recovery-storage="UNAVAILABLE"]')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Send action' })).toBeDisabled();
+  });
+
+  it('blocks before POST when the write does not survive immediate read-back', async () => {
+    await ready(); const fault = overrideStorageMethod('setItem', () => undefined);
+    await act(async () => { await form.submit!({}); });
+    expect(fault).toHaveBeenCalledOnce(); expect(posts).toHaveLength(0); expect(screen.getByRole('button', { name: 'Send action' })).toBeDisabled();
+  });
+
+  it('keeps server reads available but business sends disabled without a browser lock manager', async () => {
+    const noLocks = Object.create(navigator); Object.defineProperty(noLocks, 'locks', { value: undefined });
+    vi.stubGlobal('navigator', noLocks);
+    render(<CanonicalDealWorkspace role='buyer' dealId='deal-a' />);
+    await waitFor(() => expect(document.querySelector('[data-canonical-deal="deal-a"]')).not.toBeNull());
+    expect(gets).toBe(1); expect(posts).toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Send action' })).toBeDisabled();
+    await act(async () => { await form.submit!({}); }); expect(posts).toHaveLength(0);
+  });
+
+  it('arbitrates simultaneous same-origin workspaces without creating two attempt IDs or POSTs', async () => {
+    await ready(); const firstSubmit = form.submit!;
+    render(<CanonicalDealWorkspace role='buyer' dealId='deal-a' />);
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Send action' })).toHaveLength(2));
+    await waitFor(() => screen.getAllByRole('button', { name: 'Send action' }).forEach((button) => expect(button).not.toBeDisabled()));
+    const secondSubmit = form.submit!;
+    await act(async () => { await Promise.all([firstSubmit({ different: 'first' }), secondSubmit({ different: 'second' })]); });
+    expect(posts).toHaveLength(1);
+    const pending = JSON.parse(window.localStorage.getItem(journalKey())!);
+    expect(pending.commandId).toBe(posts[0].body.commandId);
+    screen.getAllByRole('button', { name: 'Send action' }).forEach((button) => expect(button).toBeDisabled());
+    expect(document.querySelectorAll('[data-command-outcome="UNKNOWN"]')).toHaveLength(2);
+  });
+
+  it('does not let local deletion alone confirm an already-mounted uncertain command', async () => {
+    await ready(); fireEvent.click(screen.getByRole('button', { name: 'Send action' })); await expectUnknown();
+    window.localStorage.removeItem(journalKey());
+    await act(async () => { window.dispatchEvent(new StorageEvent('storage', { key: journalKey(), newValue: null })); });
+    await expectUnknown(); expect(posts).toHaveLength(1); expect(gets).toBe(2);
+    expect(screen.getByRole('button', { name: 'Send action' })).toBeDisabled();
+  });
+
+  it('retains the brake when confirmed-event journal cleanup fails', async () => {
+    await ready(); fireEvent.click(screen.getByRole('button', { name: 'Send action' })); await expectUnknown();
+    const raw = window.localStorage.getItem(journalKey());
+    read = async () => json(committedSnapshot(posts[0].body, posts[0].url));
+    const fault = overrideStorageMethod('removeItem', () => { throw new Error('Storage unavailable'); });
+    await act(async () => { reload(); });
+    await expectUnknown(); expect(fault).toHaveBeenCalledOnce(); expect(window.localStorage.getItem(journalKey())).toBe(raw);
+    expect(screen.getByRole('button', { name: 'Send action' })).toBeDisabled(); expect(posts).toHaveLength(1);
+  });
+
+  it.each([400, 401, 403, 404, 422, 409])('clears its own persistent brake after a definite direct rejection (%s)', async (status) => {
+    post = async () => json({ code: status === 409 ? 'STALE_DEAL_VERSION' : 'REJECTED', message: 'Rejected by server' }, status);
+    const first = await ready(); fireEvent.click(screen.getByRole('button', { name: 'Send action' }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    await waitFor(() => expect(window.localStorage.getItem(journalKey())).toBeNull());
+    first.unmount(); await ready();
+    expect(document.querySelector('[data-command-outcome="UNKNOWN"]')).toBeNull(); expect(posts).toHaveLength(1);
+  });
+});
+
+describe('exact committed-event reconciliation', () => {
+  it.each(['command', 'action', 'deal', 'event type', 'actor role', 'actor', 'tenant', 'fingerprint', 'from', 'to',
+    'hash', 'event time', 'result time', 'future result', 'unadvanced version', 'invalid version', 'duplicate'])
+  ('keeps UNKNOWN when canonical evidence has a mismatched or invalid %s', async (mode) => {
+    await ready(); fireEvent.click(screen.getByRole('button', { name: 'Send action' })); await expectUnknown();
+    const raw = window.localStorage.getItem(journalKey());
+    read = async () => {
+      const value = committedSnapshot(posts[0].body, posts[0].url);
+      const event = value.timeline[0];
+      if (mode === 'command') event.payload.commandId = 'other-command';
+      if (mode === 'action') event.payload.actionId = 'seller_sign_contract';
+      if (mode === 'deal') event.dealId = 'deal-b';
+      if (mode === 'event type') event.eventType = 'OTHER_EVENT';
+      if (mode === 'actor role') event.actorRole = 'FARMER';
+      if (mode === 'actor') event.actorId = '';
+      if (mode === 'tenant') event.tenantId = '';
+      if (mode === 'fingerprint') event.payload.idempotencyKey = 'fp:' + '0'.repeat(64);
+      if (mode === 'from') event.payload.from = 'OTHER_STATE';
+      if (mode === 'to') event.payload.to = event.payload.from;
+      if (mode === 'hash') event.hash = '';
+      if (mode === 'event time') event.createdAt = 'not-a-date';
+      if (mode === 'result time') event.payload.resultingUpdatedAt = 'not-a-date';
+      if (mode === 'future result') event.payload.resultingUpdatedAt = '2026-09-30T10:00:00.000Z';
+      if (mode === 'unadvanced version') value.deal.version = '7';
+      if (mode === 'invalid version') value.deal.version = 'unverified';
+      if (mode === 'duplicate') value.timeline.push({ ...event, id: 'second-conflicting-event' });
+      return json(value);
+    };
+    await act(async () => { reload(); });
+    await expectUnknown(); expect(posts).toHaveLength(1); expect(gets).toBe(2);
+    expect(window.localStorage.getItem(journalKey())).toBe(raw);
+    expect(screen.getByRole('button', { name: 'Send action' })).toBeDisabled();
   });
 });
