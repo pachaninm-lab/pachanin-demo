@@ -470,16 +470,17 @@ function safetyReasonFor(raw: string, normalized: string): AssistantSafetyReason
   if (HARMFUL_PATTERNS.some((pattern) => pattern.test(raw) || pattern.test(normalized))) return 'HARMFUL_REQUEST';
   // Defensive quoted examples still reach the model's refusal/compliance policy;
   // they do not bypass violence, credential, privilege or private-data screening.
-  const defensiveIntent = /(?:как|чтобы)\s+(?:это\s+)?(?:выявить|обнаружить|распознать|предотвратить)|(?:detect|identify|recognize|prevent)\s+(?:this|such|attempts?|fraud)|(?:识别|发现|防止|预防)(?:这种|此类|欺诈|行为)/iu.test(raw);
   // Every abuse-bearing sentence must itself describe a third-person attempt.
   // Appending a separate prevention sentence cannot exempt a direct request.
   const unsafeFinancialClause = raw.split(/[.!?;。！？；\n]/u).some((clause) => {
     if (!FINANCIAL_DOCUMENT_ABUSE_PATTERNS.some((pattern) => pattern.test(clause) || pattern.test(normalize(clause)))) return false;
+    const defensiveIntent = /(?:как|чтобы)\s+(?:это\s+)?(?:выявить|обнаружить|распознать|предотвратить)|(?:detect|identify|recognize|prevent)\s+(?:this|such|attempts?|fraud)|(?:识别|发现|防止|预防)(?:这种|此类|欺诈|行为)/iu.test(clause);
     return !defensiveIntent
       || !/пытаются|пытались|fraudsters?|dishonest\s+farms?|attempts?\s+by|不法|不诚实/iu.test(clause)
+      || /^\s*(?:как\s+(?:скрыть|утаить|подделать|сфальсифицировать)|how\s+to\s+(?:hide|conceal|forge|falsify)|如何\s*(?:隐藏|隐瞒|伪造))/iu.test(clause)
       || /(?:помоги(?:те)?\s+(?:мне|нам)|как\s+(?:мне|нам)|help\s+me|how\s+do\s+i|帮我)[^.!?。！？\n]{0,60}(?:скрыть|утаить|подделать|сфальсифицировать|hide|conceal|forge|falsify|隐藏|隐瞒|伪造)/iu.test(clause);
   });
-  if (unsafeFinancialClause || (!defensiveIntent && FINANCIAL_DOCUMENT_ABUSE_PATTERNS.some((pattern) => pattern.test(normalized)))) return 'HARMFUL_REQUEST';
+  if (unsafeFinancialClause) return 'HARMFUL_REQUEST';
   if (CREDENTIAL_PATTERNS.some((pattern) => pattern.test(raw) || pattern.test(normalized))) return 'CREDENTIAL_DISCLOSURE';
   if (PRIVILEGE_ESCALATION_PATTERNS.some((pattern) => pattern.test(raw) || pattern.test(normalized))) return 'PRIVILEGE_ESCALATION';
   if (FOREIGN_DATA_PATTERNS.some((pattern) => pattern.test(raw) || pattern.test(normalized))) return 'FOREIGN_DATA';
