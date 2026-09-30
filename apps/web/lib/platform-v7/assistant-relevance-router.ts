@@ -475,8 +475,16 @@ function safetyReasonFor(raw: string, normalized: string): AssistantSafetyReason
   const unsafeFinancialClause = raw.split(/[.!?;。！？；\n]/u).some((clause) => {
     if (!FINANCIAL_DOCUMENT_ABUSE_PATTERNS.some((pattern) => pattern.test(clause) || pattern.test(normalize(clause)))) return false;
     const defensiveIntent = /(?:как|чтобы)\s+(?:это\s+)?(?:выявить|обнаружить|распознать|предотвратить)|(?:detect|identify|recognize|prevent)\s+(?:this|such|attempts?|fraud)|(?:识别|发现|防止|预防)(?:这种|此类|欺诈|行为)/iu.test(clause);
+    const directMatches = FINANCIAL_DOCUMENT_ABUSE_PATTERNS.flatMap((pattern) => {
+      const match = pattern.exec(clause);
+      return match ? [match] : [];
+    });
+    // The attempt verb must govern the matched act itself, rather than a
+    // later parenthetical "others attempt this" attached to a direct request.
+    const linkedThirdPartyAttempt = directMatches.length > 0 && directMatches.every((match) =>
+      /^[\p{L}]*\s+(?:пытаются|пытались)\s+/iu.test(clause.slice(match.index + match[0].length)));
     return !defensiveIntent
-      || !/пытаются|пытались|fraudsters?|dishonest\s+farms?|attempts?\s+by|不法|不诚实/iu.test(clause)
+      || !linkedThirdPartyAttempt
       || /^\s*(?:как\s+(?:скрыть|утаить|подделать|сфальсифицировать)|how\s+to\s+(?:hide|conceal|forge|falsify)|如何\s*(?:隐藏|隐瞒|伪造))/iu.test(clause)
       || /(?:помоги(?:те)?\s+(?:мне|нам)|как\s+(?:мне|нам)|help\s+me|how\s+do\s+i|帮我)[^.!?。！？\n]{0,60}(?:скрыть|утаить|подделать|сфальсифицировать|hide|conceal|forge|falsify|隐藏|隐瞒|伪造)/iu.test(clause);
   });
@@ -544,7 +552,11 @@ export function routeAssistantQuestion(
   const hasUnrelatedSubject = containsAny(normalized, UNRELATED_TERMS);
   // An unknown subject of a resource request needs semantic interpretation.
   // Topic keywords alone cannot establish that professional content is unrelated.
-  const unknownResourceSubject = /(?:фильм[\p{L}]*|кино|видео|сериал[\p{L}]*|movie|film|video|documentary)\s+(?:о|об|про|about|on)\s+\p{L}|(?:电影|视频|纪录片)[^。！？\n]{0,20}(?:关于|有关)|(?:关于|有关)[^。！？\n]{1,60}(?:电影|视频|纪录片)/iu.test(raw);
+  const resourceSubject = /(?:фильм[\p{L}]*|кино|видео|сериал[\p{L}]*|movie|film|video|documentary)\s+(?:о|об|про|about|on)\s+([^.!?;。！？；\n]{1,160})/iu.exec(raw)?.[1]
+    ?? /(?:电影|视频|纪录片)[^。！？\n]{0,20}(?:关于|有关)([^。！？\n]{1,60})/u.exec(raw)?.[1]
+    ?? /(?:关于|有关)([^。！？\n]{1,60}?)(?:电影|视频|纪录片)/u.exec(raw)?.[1];
+  const unknownResourceSubject = resourceSubject !== undefined
+    && !containsAny(normalize(resourceSubject), UNRELATED_TERMS);
 
   // A named off-topic subject outranks generic section vocabulary and sentence
   // shape, but never an explicit platform, agriculture or business subject.
