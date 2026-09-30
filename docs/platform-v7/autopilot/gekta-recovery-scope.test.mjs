@@ -6,6 +6,10 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 const scopes = {
+  "fix/gekta-qwen35-guard-argv-form-20260928": [
+    ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+    "scripts/gekta-qwen35-4b-model-host-candidate.py"
+  ],
   "fix/gekta-docker-diagnostic-route-20260927": [
     ".github/workflows/production-docker-headroom-diagnostic.yml"
   ],
@@ -21,6 +25,7 @@ const scopes = {
   ],
   "fix/gekta-han-stream-20260927": [
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
@@ -69,7 +74,7 @@ for (const [branch, files] of Object.entries(scopes)) {
     for (const file of files) write(c.root, file, 'changed');
     const r = check(c); assert.equal(r.status, 0, r.stdout + r.stderr);
   });
-  for (const file of ['README.md', 'forged.txt', 'apps/api/src/modules/staff-access/injected.ts', '.github/workflows/ci.yml', statePath, 'scripts/p7-autopilot-guard.sh', '.github/workflows/platform-v7-autopilot-guard.yml']) {
+  for (const file of ['README.md', 'forged.txt', 'apps/api/src/modules/staff-access/injected.ts', 'apps/api/src/modules/ai-insights/restricted-public-qwen.quality.spec.ts', '.github/workflows/ci.yml', statePath, 'scripts/p7-autopilot-guard.sh', '.github/workflows/platform-v7-autopilot-guard.yml']) {
     test(`${branch}: rejects global, mutable or authority path ${file}`, t => {
       const c = fixture(t, branch);
       write(c.root, file, file === statePath ? JSON.stringify({ allowedCurrentScope: ['**'], approvedConcurrentScopes: { [branch]: ['**'] } }) : 'injected');
@@ -86,3 +91,14 @@ for (const [branch, files] of Object.entries(scopes)) {
     assert.ok(workflow.includes('ref: ${{ github.event.pull_request.base.sha }}'));
   });
 }
+
+test('candidate-owned manifest cannot self-admit an API authority file', t => {
+  const c = fixture(t, 'fix/gekta-qwen35-guard-argv-form-20260928');
+  write(c.root, 'docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json', JSON.stringify({
+    schemaVersion: 'platform-v7.concurrent-scope.v1', status: 'active', branch: c.branch,
+    allowedPaths: [...scopes[c.branch], 'apps/api/src/app.module.ts'],
+  }));
+  write(c.root, 'apps/api/src/app.module.ts', 'injected authority');
+  const r = check(c);
+  assert.notEqual(r.status, 0, r.stdout + r.stderr);
+});
