@@ -206,6 +206,8 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     ['buffered', 'en', 'Storage is not needed; compare payment costs.', 'Without storage costs, there is no way to calculate profit. Compare costs.', 'Storage-only break-even'],
     ['stream', 'en', 'Storage is not needed; compare payment costs.', 'I discussed storage with my manager and now need its cost for one month.', 'Storage-only break-even'],
     ['buffered', 'en', 'Storage is not needed; compare payment costs.', 'I discussed storage with my manager and now need its cost for one month.', 'Storage-only break-even'],
+    ['stream', 'en', 'Storage is not needed; compare payment costs.', 'Never exclude storage costs; compare costs.', 'Storage-only break-even'],
+    ['buffered', 'en', 'Storage is not needed; compare payment costs.', 'Never exclude storage costs; compare costs.', 'Storage-only break-even'],
     ['stream', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Я обсуждал хранение с руководителем и теперь мне нужна его стоимость за один месяц.', 'Для покрытия только хранения'],
     ['buffered', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Я обсуждал хранение с руководителем и теперь мне нужна его стоимость за один месяц.', 'Для покрытия только хранения'],
     ['stream', 'zh', '无需仓储；比较付款风险和成本。', '我之前说过储存，现在需要它的成本，期限一个月。', '仅覆盖仓储费'],
@@ -239,6 +241,8 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     ['ru', 'Без хранения нет возможности понести дополнительные расходы; сравни условия оплаты.', 'Выбирайте отсрочку оплаты: прибыль составит 400 руб/т.', 'Проверьте условия оплаты.'],
     ['en', 'I discussed storage with my manager and now need its cost excluded.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
     ['en', 'Compare payment costs assuming no storage.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
+    ['en', 'Compare payment costs assuming no storage is needed.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
+    ['en', 'Compare payment costs assuming no storage for this deal.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
     ['en', 'Compare payment costs excluding storage.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
   ])('keeps a rejected storage reference qualitative in both real service paths: %s', async (locale, question, unsupported, qualitative) => {
     for (const mode of ['stream', 'buffered']) {
@@ -283,6 +287,22 @@ describe('RestrictedPublicQwenService.generateStream', () => {
       expect(answer).not.toContain('Для покрытия только хранения');
       expect(answer).not.toContain('месячную стоимость');
     }
+  });
+
+  it.each(['stream', 'buffered'])('does not mistake warehouse evaluation and pipes for price and rubles in %s', async (mode) => {
+    const question = 'Оцените состояние труб вентиляции зернохранилища перед загрузкой.';
+    const content = 'Осмотрите трубы и соединения на повреждения. Проверьте вентиляцию и датчики температуры. Запишите результаты осмотра. ';
+    const raw = request({ question, originalQuestion: question });
+    let answer = '';
+    if (mode === 'stream') {
+      installRuntime({ deltas: [content] });
+      for await (const event of service.generateStream(raw)) if (event.type === 'delta') answer += event.text;
+    } else {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      answer = (await service.generate(raw)).answer;
+    }
+    expect(answer).toContain('Проверьте вентиляцию');
+    expect(answer).not.toContain('Для покрытия только хранения');
   });
 
   it.each(['stream', 'buffered'])('returns a useful screened answer when excluded-storage model content is wholly monetary: %s', async (mode) => {

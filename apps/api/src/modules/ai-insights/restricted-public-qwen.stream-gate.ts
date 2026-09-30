@@ -91,7 +91,7 @@ export type PaymentTimingInput = Readonly<{
 }>;
 type UserContextTurn = Readonly<{ role: 'user' | 'assistant'; text: string }>;
 const STORAGE_TOPIC = /хран[еи]|storage|stor[ei]|仓储|储存/iu;
-const ECONOMIC_TOPIC = /цен|стоим|расход|руб|прода|выгод|покры|price|cost|sell|profit|break.even|价格|成本|出售|收益/iu;
+const ECONOMIC_TOPIC = /(?<![\p{L}])(?:цен|стоим|расход|руб|прода|выгод|покры)|price|cost|sell|profit|break.even|价格|成本|出售|收益/iu;
 
 function hasEconomicTopic(text: string): boolean {
   // Application rates are not financial expenses. Other monetary words in the
@@ -146,7 +146,7 @@ const STORAGE_EXCLUDED = new RegExp([
   /\bno\s+need\s+(?:to\s+stor(?:e|ing)|for\s+storage)\b/.source,
   /^\s*(?:no|without)\s+storage(?:\s+(?:costs?|expenses?))?(?=\s*(?:$|[,，:]|\bcompare\b))/.source,
   /^\s*no\s+storage\s+(?:is\s+)?(?:needed|required)\b/.source,
-  /\b(?:assuming|assume)\s+no\s+storage(?:\s+(?:costs?|expenses?))?(?=\s*(?:$|[,，:]))/.source,
+  /\b(?:assuming|assume)\s+no\s+storage(?:\s+(?:costs?|expenses?))?(?:\s+is\s+(?:needed|required|necessary|planned|involved)|\s+for\s+(?:this|the|our)\s+(?:deal|shipment|transaction|sale|delivery|contract))?(?=\s*(?:$|[,，:]))/.source,
   /\b(?:excluding|exclude|omitting|omit|ignoring|ignore)\s+(?:the\s+)?storage(?:\s+(?:costs?|expenses?))?\b/.source,
   `\\b(?:storage|stor(?:e|ing))\\b${STORAGE_MENTION_GAP}{0,48}\\b(?:not\\s+(?:needed|required)|isn't\\s+(?:needed|required))\\b`,
   /\b(?:do\s+not|don't)\s+(?:include|need|require)\s+(?:the\s+)?storage\b/.source,
@@ -169,7 +169,7 @@ function storageExplicitlyExcluded(text: string): boolean {
   return clauses.length > 0 && clauses.every((clause) => {
     // Double negation and unexcluded mentions keep the conservative screen.
     if (STORAGE_REQUIRED_WITHOUT.test(clause)
-      || /не\s+(?:нужно|надо|требуется)\s+(?:исключ|игнор|убир)|\bnot\s+(?:needed|required)\s+to\s+(?:exclude|ignore)|\b(?:do\s+not|don't|must\s+not|cannot|can't|without)\s+(?:excluding|exclude|omitting|omit|ignoring|ignore)\s+(?:the\s+)?storage\b|无需\s*(?:忽略|排除)/iu.test(clause)) return false;
+      || /не\s+(?:нужно|надо|требуется)\s+(?:исключ|игнор|убир)|\bnot\s+(?:needed|required)\s+to\s+(?:exclude|ignore)|\b(?:do\s+not|don't|must\s+not|cannot|can't|without|never|not)\s+(?:excluding|exclude|omitting|omit|ignoring|ignore)\s+(?:the\s+)?storage\b|无需\s*(?:忽略|排除)/iu.test(clause)) return false;
     if (storageCostReferenceExcluded(clause) && [...clause.matchAll(new RegExp(STORAGE_TOPIC.source, 'giu'))].length === 1) return true;
     const exclusions = [...clause.matchAll(new RegExp(STORAGE_EXCLUDED.source, 'giu'))];
     return [...clause.matchAll(new RegExp(STORAGE_TOPIC.source, 'giu'))].every((topic) =>

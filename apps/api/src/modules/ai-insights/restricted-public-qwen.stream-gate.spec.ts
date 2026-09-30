@@ -64,6 +64,10 @@ describe('storage intent corrections', () => {
     'Без хранения нет возможности понести дополнительные расходы; сравни условия оплаты.',
     'We do not require storage; compare payment costs.',
     'Compare payment costs assuming no storage.',
+    'Compare payment costs assuming no storage is needed.',
+    'Compare payment costs assuming no storage for this deal.',
+    'Compare payment costs assuming no storage is required.',
+    'Compare payment costs assuming no storage for the shipment.',
     'Compare payment costs excluding storage.',
     'Compare payment costs omitting storage costs.',
     'Нам не нужно хранение; сравни расходы при отсрочке оплаты.',
@@ -119,6 +123,10 @@ describe('storage intent corrections', () => {
     'Compare costs without excluding storage.',
     "Don't exclude storage costs; compare payment costs.",
     'Compare payment costs assuming no storage option is cheap.',
+    'Never exclude storage costs; compare costs.',
+    'Never ignore storage costs; compare costs.',
+    'Compare payment costs assuming no storage for this deal is cheap.',
+    'Compare storage costs; no storage is needed to exclude delivery costs.',
   ])('keeps actual or hypothetical storage comparisons screened: %s', (question) => {
     expect(economicComparisonFor(question, [])).toBe('storage');
   });
@@ -233,12 +241,23 @@ describe('storage intent corrections', () => {
   it.each([
     'Составь короткий чек-лист подготовки зернохранилища к загрузке новой партии: что осмотреть, проверить и записать? Не нужны препараты и нормы расхода.',
     'Как подготовить зернохранилище? Не указывай нормы расхода препаратов.',
+    'Оцените состояние зернохранилища перед загрузкой.',
+    'Как проверить трубы вентиляции зернохранилища?',
+    'Как оценить влажность зерна при хранении?',
   ])('does not attach a financial comparison to application-rate exclusions: %s', (question) => {
     expect(economicComparisonFor(question, [])).toBeNull();
   });
 
   it('still screens financial costs alongside application-rate wording', () => {
     expect(economicComparisonFor('Какая стоимость хранения? Нормы расхода препаратов не нужны.', [])).toBe('storage');
+  });
+
+  it.each([
+    'Оцените стоимость хранения зерна.',
+    'Расходы на хранение 200 рублей за тонну в месяц. Сравни цену.',
+    'Сравни цены продажи зерна после хранения.',
+  ])('retains financial screening with word-bounded monetary terms: %s', (question) => {
+    expect(economicComparisonFor(question, [])).toBe('storage');
   });
 
   it.each([
