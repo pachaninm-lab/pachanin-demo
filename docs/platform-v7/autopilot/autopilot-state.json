@@ -1714,6 +1714,10 @@
       ".github/workflows/automerge.yml",
       "docs/platform-v7/autopilot/scopes/readiness-queue-job-gate-20260927.json"
     ],
+    "fix/readiness-default-branch-push-gate-20260929": [
+      ".github/workflows/automerge.yml",
+      "docs/platform-v7/autopilot/scopes/readiness-default-branch-push-gate-20260929.json"
+    ],
     "governance/gekta-current-data-regression-route-20260927": [
       "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
       "scripts/p7-autopilot-guard.sh"
@@ -1737,6 +1741,27 @@
       "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts",
       "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
       "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts"
+    ],
+    "fix/gekta-qwen35-protected-sudo-candidate-20260928": [
+      ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+      "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json"
+    ],
+    "fix/gekta-qwen35-nonroot-candidate-20260928": [
+      ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+      "scripts/gekta-qwen35-4b-model-host-candidate.py",
+      "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json"
+    ],
+    "fix/public-login-register-locale-20260928": [
+      "apps/web/app/platform-v7/login/LoginFormClient.tsx",
+      "apps/web/app/platform-v7/login/page.tsx",
+      "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
+    ],
+    "ux/deal-runtime-unknown-20260929": [
+      "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+      "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+      "apps/web/tests/unit/transactionUxV8Migration.test.ts",
+      ".github/workflows/ci.yml",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json"
     ]
   },
   "currentAcceptance": [
@@ -2522,6 +2547,141 @@
         "Client-selected authority or model-only critical arithmetic"
       ],
       "teamHubDependency": "#3896 Gekta quality/latency audit and Qwen3.5 candidate evidence"
+    },
+    "gekta-qwen35-protected-sudo-candidate-20260928-coordination": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Repair only the Qwen3.5-4B bounded candidate transport after exact-main run 36401066589 failed before model-host mutation because no protected key authenticated direct root SSH.",
+      "authorityBaseExactMain": "31515e0bf75dba71d2a7ddef08ba677c38140caf",
+      "implementationBranch": "fix/gekta-qwen35-protected-sudo-candidate-20260928",
+      "allowedPaths": [
+        ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+        "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json"
+      ],
+      "requiredTruthBoundaries": [
+        "Reuse the existing dedicated model-host principal, TAI_MODEL_SSH_KEY, pinned TAI_MODEL_SSH_HOST_KEY and protected TAI_MODEL_SSH_PASSWORD; do not introduce a root SSH private key.",
+        "The workflow may obtain one-shot sudo only to copy the already reviewed candidate helper into a root-owned temporary path, verify its exact SHA-256, execute only prepare/start/rollback/status, and remove it.",
+        "No persistent root bridge, login-shell change, sudoers change, NOPASSWD grant, arbitrary remote command interface or trust-on-first-use is permitted.",
+        "Qwen3-8B remains the mandatory baseline and must be restored and verified on every success/failure path; candidate startup remains serial and loopback-only.",
+        "The Qwen3.5 artifact revision, size, SHA-256, model identity, production llama executable and 16/16/1/8192/512/128 runtime contour remain unchanged.",
+        "No application, database, tenant, Deal, money, registration, Web/API/outbox deployment or production model identity mutation is admitted by this transport repair.",
+        "New mandatory recurring cost remains 0 RUB."
+      ],
+      "forbiddenAuthority": [
+        "Direct root SSH key or new root credential",
+        "Persistent root/sudo bridge, shell replacement or sudoers mutation",
+        "Broad sudo, SETENV, NOPASSWD ALL or arbitrary shell command execution",
+        "Candidate/model/runtime changes beyond the already accepted bounded Qwen3.5-4B window",
+        "CI/security/readiness weakening, force merge or unsupported production PASS claim"
+      ],
+      "teamHubDependency": "#3896 Qwen3.5-4B candidate; failed pre-mutation run 36401066589; merged candidate authority #5687"
+    },
+    "gekta-qwen35-nonroot-candidate-20260928-coordination": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Admit only a bounded non-root Qwen3.5-4B model-host candidate window after direct-root and protected-sudo transports failed before inference; preserve the live Qwen3-8B baseline and collect real guard/latency evidence without production routing mutation.",
+      "authorityBaseExactMain": "d433bd7cd8262cb75d5cdc0b3cd53a56f4082096",
+      "implementationBranch": "fix/gekta-qwen35-nonroot-candidate-20260928",
+      "allowedPaths": [
+        ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+        "scripts/gekta-qwen35-4b-model-host-candidate.py",
+        "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json"
+      ],
+      "requiredTruthBoundaries": [
+        "Use only the existing dedicated non-root TAI_MODEL_SSH_USER, TAI_MODEL_SSH_KEY and pinned TAI_MODEL_SSH_HOST_KEY; no password, sudo, root SSH or production SSH credential fallback.",
+        "The active Qwen3-8B service remains running and unchanged for the entire candidate window; its PID, served identity and canonical runtime argv are captured before the candidate and revalidated after candidate cleanup.",
+        "The Qwen3.5-4B candidate is a separate ephemeral tai-model-owned process bound only to 127.0.0.1:18081 and is never added to production routing or exposed publicly.",
+        "Candidate identity remains tai-qwen35-4b-q4km with immutable Q4_K_M revision, exact 3013027808-byte size and SHA-256 13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983.",
+        "Candidate uses the exact active production llama.cpp executable and preserves threads16 threads-batch16 parallel1 ctx8192 batch512 ubatch128 except model path, alias, loopback port and ephemeral API key.",
+        "Parallel loading is permitted only for this bounded unrouted candidate after a fail-closed capacity gate: baseline VmSwap must be zero and MemAvailable must be at least 8 GiB before launch; candidate has a bounded process-memory guard and must leave at least 3 GiB MemAvailable after readiness.",
+        "Candidate runs at lower scheduling priority than the production baseline, has a hard 420-second lease, process-group watchdog, identity-bound TERM/KILL cleanup and listener absence verification.",
+        "Real RestrictedPublicQwenService acceptance reaches the candidate only through a temporary pinned SSH tunnel; no public request is rerouted to the candidate.",
+        "No systemd unit/drop-in mutation, service stop/restart, signal to the baseline process, application/database/tenant/Deal/money/registration/Web/API/outbox deployment or production model identity mutation is admitted.",
+        "New mandatory recurring cost remains 0 RUB."
+      ],
+      "forbiddenAuthority": [
+        "sudo, root SSH, password SSH, production SSH credentials, sudoers change, persistent privileged bridge or arbitrary remote shell authority",
+        "stopping, restarting, killing, suspending or otherwise mutating the live Qwen3-8B baseline service/process",
+        "public candidate listener, production routing change, old-model alias reuse or permanent Qwen3.5 activation",
+        "candidate start below the memory headroom thresholds, unbounded memory use, missing watchdog or cleanup without listener absence proof",
+        "floating model/runtime revision, unchecked model artifact, new server, paid API, SaaS or recurring cost",
+        "CI/security/readiness weakening, force merge or production PASS claim from candidate evidence alone"
+      ],
+      "teamHubDependency": "#3896 Qwen3.5-4B candidate; root transport unavailable; TAI_MODEL_SSH_PASSWORD absent; production baseline remains Qwen3-8B"
+    },
+    "public-login-register-locale-20260928": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Preserve RU/EN/ZH on the existing Login to Register link and verify the real mobile click path after the exact-live locale-loss failure.",
+      "authorityBaseExactMain": "4c4102d80cd204fcfb1335f5768b32cc1da2c026",
+      "implementationBranch": "fix/public-login-register-locale-20260928",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/login/LoginFormClient.tsx",
+        "apps/web/app/platform-v7/login/page.tsx",
+        "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "Only the three exact paths from trusted base state are admitted; candidate state, manifests and guards cannot expand implementation authority.",
+        "Pass the existing getLocale/canonicalPublicLocale result from the Login server page to LoginFormClient as a bounded RU/EN/ZH presentation prop; do not add client locale hooks or providers to the lean Login entry, and keep authentication, MFA, session, redirect authority and register-page behavior unchanged.",
+        "Preserve all eight public routes, EN/ZH localization, RU homepage design gates, ten viewport-locale combinations, zero pageerror, response success, Chinese typography, mobile target geometry and horizontal reflow assertions.",
+        "Assert the exact localized Register href, real user navigation, resulting HTML locale and zero page errors; do not replace the click with direct navigation or weaken locale assertions.",
+        "Source and local tests do not establish live acceptance; require exact-head independent review and complete CI, then exact-main release and live mobile/i18n on the deployed OCI revision."
+      ],
+      "forbiddenAuthority": [
+        "Candidate-owned state or scope extension in the implementation PR",
+        "Backend/API/DB/role/tenant/authentication/bank/provider/FGIS authority or root-layout, middleware, locale-provider, homepage and register-page changes",
+        "CI/security/readiness weakening, fabricated acceptance or automatic merge"
+      ],
+      "teamHubDependency": "#2198 locale-loss evidence 5866099139; Team Hub #5469"
+    },
+    "deal-runtime-binding-guard-reuse-20260929": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Renew the existing accepted-base three-path PRODUCT guard ref only to admit the actual production-resolved Deal UNKNOWN recovery repair after the tsconfig/Vitest binding mismatch; no runtime source in this prerequisite.",
+      "authorityBaseExactMain": "e94482fecf13ecbf94569f92cfb01fab8b61521d",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "requiredTruthBoundaries": [
+        "The accepted main already restricts this guard ref to exactly these three regular files. This state-only record renews its bounded purpose; it does not alter global scope, approvedConcurrentScopes, R1.2 or any existing admission.",
+        "Preserve the existing trusted-base workflow routes and all old negative checks. Register a separate bounded Deal-runtime source branch and its later state-only admission with exact path, base, file-mode and self-expansion rejection; do not broaden #5720.",
+        "The intended runtime target is apps/web/components/transaction-ux/TransactionDealWorkspace.tsx; the regression must resolve the module actually used by the protected Deal route, not assume the generic Vitest @ alias matches Next.",
+        "No runtime or test path is admitted by this prerequisite or by the guard PR itself. Obtain separate exact-main state-only source admission after the guard is independently reviewed, all substantive CI passes and its expected-SHA merge completes.",
+        "Preserve the existing transaction-ux design, App Shell, tsconfig aliases, server-owned role/auth/tenant/Deal/command authority and mounted UNKNOWN with exact-attempt receipt verification and GET-only recovery. No independent review may be supplied by the implementation author.",
+        "#5720 remains parked and its detached-component test PASS is not delivery evidence. Preserve the single held release window; production and #5714/model-host mutation stay blocked until the actual runtime repair is accepted."
+      ],
+      "forbiddenAuthority": [
+        "Runtime source, tests, state or scope manifests in the three-path guard PR; direct runtime admission in this state-only prerequisite",
+        "Global scope, existing admissions, CI/security/readiness thresholds, branch protection or independent-review policy weakening",
+        "Backend/API/DB/role/tenant/idempotency/payment/provider/FGIS authority, design replacement, alias removal, new recurring cost or production mutation"
+      ],
+      "teamHubDependency": "#5469 dependency 5887083491; checkpoint 5887212388; source-operator CLAIM 5887350938; ACCOUNT_2_PRODUCT independent review"
+    },
+    "deal-runtime-unknown-20260929": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Repair UNKNOWN command recovery in the existing production-resolved TransactionDealWorkspace and prove the same runtime binding without changing its approved design.",
+      "authorityBaseExactMain": "dde1c60f49f3ac346fd1abb17374769fd1546a5a",
+      "implementationBranch": "ux/deal-runtime-unknown-20260929",
+      "allowedPaths": [
+        "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+        "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+        "apps/web/tests/unit/transactionUxV8Migration.test.ts",
+        ".github/workflows/ci.yml",
+        "docs/platform-v7/qa/web-unit-coverage-registry.json"
+      ],
+      "requiredTruthBoundaries": [
+        "The trusted-base guard admits exactly the runtime component, its production-resolved behavior regression and the existing transaction-ux migration regression plus their exact CI invocation and coverage-registry wiring; candidate state cannot widen scope.",
+        "Preserve the transaction-ux design, facade and tsconfig aliases; exercise the module resolved by the protected Deal route rather than the detached platform-v7 component.",
+        "Lost or unverifiable command responses remain UNKNOWN with the original attempt identity, no fresh command replay and GET-only recovery; only an exact-attempt server receipt establishes a known outcome.",
+        "Cover actual RU/EN/zh-CN recovery states and preserve migration binding, shell, server-owned role/auth/tenant/action authority and accessibility assertions.",
+        "Require fresh exact-head author audit, independent review and all substantive CI/readiness before normal expected-SHA merge; source evidence is not REG.RU live acceptance.",
+        "The existing ci.yml invocation must execute both recovery and migration regressions without losing any prior test or changing workflow behavior; the coverage registry may only remove the migration test exclusion."
+      ],
+      "forbiddenAuthority": [
+        "Candidate state, scope, guard, unrelated workflow, alias, facade or design replacement",
+        "Backend/API/DB/role/tenant/idempotency/payment/provider/FGIS authority or production/model-host mutation",
+        "CI/security/readiness weakening, independent-review impersonation, forced merge or new recurring cost"
+      ],
+      "teamHubDependency": "#5469 runtime binding dependency5887083491; migration regression5887595513; guard-purpose renewal #5721"
     }
   }
 }

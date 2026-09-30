@@ -7,6 +7,11 @@ const locales = [
   { code: 'zh', htmlLang: 'zh-CN', label: 'ZH' },
 ] as const;
 
+const loginRegisterLocales = [
+  { code: 'ru', htmlLang: 'ru', label: 'RU' },
+  ...locales,
+] as const;
+
 const viewports = [
   { width: 320, height: 700, name: '320x700' },
   { width: 375, height: 812, name: '375x812' },
@@ -306,7 +311,7 @@ test.describe('Platform V7 exact production i18n acceptance', () => {
     }
   }
 
-  for (const locale of locales) {
+  for (const locale of loginRegisterLocales) {
     test(`${locale.label} 320x700: login registration link preserves locale without page errors`, async ({ page }, testInfo) => {
       const pageErrors: string[] = [];
       page.on('pageerror', (error) => pageErrors.push(error.message));
@@ -317,12 +322,25 @@ test.describe('Platform V7 exact production i18n acceptance', () => {
         { waitUntil: 'load' },
       );
       expect(response?.ok()).toBe(true);
-      await expectLocalizedSurface(page, locale.htmlLang);
-      const registerLink = page.locator('.pc-auth-register a[href="/platform-v7/register"]');
+      if (locale.code === 'ru') {
+        await expect(page.locator('html')).toHaveAttribute('lang', locale.htmlLang);
+        await expectNoHorizontalOverflow(page);
+      } else {
+        await expectLocalizedSurface(page, locale.htmlLang);
+      }
+      const registerHref = `/platform-v7/register?lang=${locale.code}`;
+      const registerLink = page.locator(`.pc-auth-register a[href="${registerHref}"]`);
       await expect(registerLink).toBeVisible();
+      await expect(registerLink).toHaveAttribute('href', registerHref);
       await registerLink.click();
-      await expect(page).toHaveURL(/\/platform-v7\/register(?:\?|$)/u);
-      await expectLocalizedSurface(page, locale.htmlLang);
+      await expect(page).toHaveURL(new URL(registerHref, LIVE_BASE).toString());
+      await page.waitForLoadState('load');
+      if (locale.code === 'ru') {
+        await expect(page.locator('html')).toHaveAttribute('lang', locale.htmlLang);
+        await expectNoHorizontalOverflow(page);
+      } else {
+        await expectLocalizedSurface(page, locale.htmlLang);
+      }
       await expectClientChunksSettledWithoutErrors(page, pageErrors, 'login → register');
     });
   }

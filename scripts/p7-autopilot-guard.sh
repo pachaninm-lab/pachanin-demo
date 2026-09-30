@@ -42,18 +42,23 @@ PRODUCT_DEAL_COMMAND_BRANCH="ux/deal-command-unknown-20260925"
 PUBLIC_REGISTRATION_PARTICIPATION_BRANCH="fix/public-registration-participation-choice-20260923"
 PRODUCTION_MOBILE_HANDOFF_BRANCH="fix/production-mobile-controller-handoff-20260927"
 READINESS_QUEUE_JOB_GATE_BRANCH="fix/readiness-queue-job-gate-20260927"
+READINESS_DEFAULT_BRANCH_PUSH_GATE_BRANCH="fix/readiness-default-branch-push-gate-20260929"
 PRODUCT_BUYER_HOME_BRANCH="ux/buyer-first-customer-home-20260925"
 PRODUCT_BANK_HOME_BRANCH="bank/first-customer-home-20260926"
 PRODUCT_BANK_HOME_ADMISSION_BRANCH="governance/product-bank-home-admission-20260926"
 PUBLIC_WEBKIT_I18N_BRANCH="fix/public-webkit-i18n-route-lifecycle-20260927"
+PUBLIC_LOGIN_LOCALE_BRANCH="fix/public-login-register-locale-20260928"
 PRODUCT_BUYER_ADMISSION_BRANCH="governance/product-buyer-home-admission-20260925"
 PRODUCT_SCOPE_ADMISSION_BRANCH="governance/product-bank-fgis-ux-source-admission-20260924"
+PRODUCT_DEAL_RUNTIME_BRANCH="ux/deal-runtime-unknown-20260929"
+PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH="governance/product-deal-runtime-admission-20260929"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
+    "$PRODUCT_DEAL_RUNTIME_BRANCH"|"$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH") return 0 ;;
     "fix/gekta-docker-diagnostic-route-20260927"|"fix/gekta-web-release-recovery-20260927"|"fix/gekta-answer-copy-20260927"|"fix/gekta-han-stream-20260927" ) return 0 ;;
-    "$IR20_BINDING_PREREQUISITE_BRANCH"|"$IR20_BINDING_IMPLEMENTATION_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_BRANCH"|"$PRODUCT_BANK_COPY_BRANCH"|"$PRODUCT_ZSN_SOURCE_BRANCH"|"$PRODUCT_NEXT_ACTION_BRANCH"|"$PRODUCT_DEAL_COMMAND_BRANCH"|"$PUBLIC_REGISTRATION_PARTICIPATION_BRANCH"|"$PRODUCTION_MOBILE_HANDOFF_BRANCH"|"$READINESS_QUEUE_JOB_GATE_BRANCH"|"$PRODUCT_BUYER_HOME_BRANCH"|"$PRODUCT_BANK_HOME_BRANCH"|"$PRODUCT_BANK_HOME_ADMISSION_BRANCH"|"$PUBLIC_WEBKIT_I18N_BRANCH"|"$PRODUCT_BUYER_ADMISSION_BRANCH"|"$PRODUCT_SCOPE_ADMISSION_BRANCH") return 0 ;;
+    "$IR20_BINDING_PREREQUISITE_BRANCH"|"$IR20_BINDING_IMPLEMENTATION_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_BRANCH"|"$PRODUCT_BANK_COPY_BRANCH"|"$PRODUCT_ZSN_SOURCE_BRANCH"|"$PRODUCT_NEXT_ACTION_BRANCH"|"$PRODUCT_DEAL_COMMAND_BRANCH"|"$PUBLIC_REGISTRATION_PARTICIPATION_BRANCH"|"$PRODUCTION_MOBILE_HANDOFF_BRANCH"|"$READINESS_QUEUE_JOB_GATE_BRANCH"|"$READINESS_DEFAULT_BRANCH_PUSH_GATE_BRANCH"|"$PRODUCT_BUYER_HOME_BRANCH"|"$PRODUCT_BANK_HOME_BRANCH"|"$PRODUCT_BANK_HOME_ADMISSION_BRANCH"|"$PUBLIC_WEBKIT_I18N_BRANCH"|"$PUBLIC_LOGIN_LOCALE_BRANCH"|"$PRODUCT_BUYER_ADMISSION_BRANCH"|"$PRODUCT_SCOPE_ADMISSION_BRANCH") return 0 ;;
     "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$W1_PRODUCTION_ACCEPTANCE_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH"|"$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH"|"$POISON_ISOLATION_IMPLEMENTATION_BRANCH"|"$OWNER_HANDOFF_IMPLEMENTATION_BRANCH"|"$QWEN_FAILED_EVIDENCE_BRANCH"|"$KIND_MINIO_IMAGE_SOURCE_BRANCH"|"$GITLEAKS_RELEASE_ATTESTATION_BRANCH"|"$FINAL_PUBLIC_HOME_BRANCH"|"$FINAL_PUBLIC_MARKET_BRANCH"|"$FINAL_PUBLIC_REGISTRATION_BRANCH"|"$FINAL_PUBLIC_HOW_BRANCH"|"$FINAL_PUBLIC_PRODUCT_COPY_BRANCH"|"$FINAL_PUBLIC_RELEASE_BRANCH"|"$FINAL_PUBLIC_GOVERNANCE_BRANCH") return 0 ;;
     *) return 1 ;;
   esac
@@ -545,6 +550,260 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
   }
   scopes = state.approvedConcurrentScopes?.[branch];
 
+  if (branch === 'ux/deal-runtime-unknown-20260929' ||
+      branch === 'governance/product-deal-runtime-admission-20260929') {
+    const { isDeepStrictEqual } = require('node:util');
+    const implementationBranch = 'ux/deal-runtime-unknown-20260929';
+    const admissionBranch = 'governance/product-deal-runtime-admission-20260929';
+    const coordinationKey = 'deal-runtime-unknown-20260929';
+    const paths = [
+      'apps/web/components/transaction-ux/TransactionDealWorkspace.tsx',
+      'apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx',
+      'apps/web/tests/unit/transactionUxV8Migration.test.ts',
+      '.github/workflows/ci.yml',
+      'docs/platform-v7/qa/web-unit-coverage-registry.json',
+    ];
+    const requiredRenewal = {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Renew the existing accepted-base three-path PRODUCT guard ref only to admit the actual production-resolved Deal UNKNOWN recovery repair after the tsconfig/Vitest binding mismatch; no runtime source in this prerequisite.",
+      "authorityBaseExactMain": "e94482fecf13ecbf94569f92cfb01fab8b61521d",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "requiredTruthBoundaries": [
+        "The accepted main already restricts this guard ref to exactly these three regular files. This state-only record renews its bounded purpose; it does not alter global scope, approvedConcurrentScopes, R1.2 or any existing admission.",
+        "Preserve the existing trusted-base workflow routes and all old negative checks. Register a separate bounded Deal-runtime source branch and its later state-only admission with exact path, base, file-mode and self-expansion rejection; do not broaden #5720.",
+        "The intended runtime target is apps/web/components/transaction-ux/TransactionDealWorkspace.tsx; the regression must resolve the module actually used by the protected Deal route, not assume the generic Vitest @ alias matches Next.",
+        "No runtime or test path is admitted by this prerequisite or by the guard PR itself. Obtain separate exact-main state-only source admission after the guard is independently reviewed, all substantive CI passes and its expected-SHA merge completes.",
+        "Preserve the existing transaction-ux design, App Shell, tsconfig aliases, server-owned role/auth/tenant/Deal/command authority and mounted UNKNOWN with exact-attempt receipt verification and GET-only recovery. No independent review may be supplied by the implementation author.",
+        "#5720 remains parked and its detached-component test PASS is not delivery evidence. Preserve the single held release window; production and #5714/model-host mutation stay blocked until the actual runtime repair is accepted."
+      ],
+      "forbiddenAuthority": [
+        "Runtime source, tests, state or scope manifests in the three-path guard PR; direct runtime admission in this state-only prerequisite",
+        "Global scope, existing admissions, CI/security/readiness thresholds, branch protection or independent-review policy weakening",
+        "Backend/API/DB/role/tenant/idempotency/payment/provider/FGIS authority, design replacement, alias removal, new recurring cost or production mutation"
+      ],
+      "teamHubDependency": "#5469 dependency 5887083491; checkpoint 5887212388; source-operator CLAIM 5887350938; ACCOUNT_2_PRODUCT independent review"
+    };
+    if (!isDeepStrictEqual(state.coordinationAdmissions?.['deal-runtime-binding-guard-reuse-20260929'], requiredRenewal) ||
+        !isDeepStrictEqual(state.approvedConcurrentScopes?.[requiredRenewal.implementationBranch], requiredRenewal.allowedPaths)) {
+      throw new Error('DEAL_RUNTIME_GUARD_RENEWAL_MISMATCH');
+    }
+    const headRef = String(process.env.HEAD_REF || 'HEAD');
+    const baseSha = execFileSync('git', ['rev-parse', `${baseRef}^{commit}`], { encoding: 'utf8' }).trim();
+    const mergeBase = execFileSync('git', ['merge-base', baseRef, headRef], { encoding: 'utf8' }).trim();
+    if (mergeBase !== baseSha) throw new Error('DEAL_RUNTIME_BASE_NOT_ANCESTOR');
+    const readState = (ref) => execFileSync('git', ['show', `${ref}:${stateFile}`], { encoding: 'utf8' });
+    const fileMode = (ref, file) => execFileSync('git', ['ls-tree', ref, '--', file], { encoding: 'utf8' }).split(' ')[0];
+    const fields = execFileSync('git', ['diff', '--no-renames', '--name-status', '-z', `${baseRef}...${headRef}`], { encoding: 'utf8' }).split('\0');
+    if (fields.pop() !== '' || fields.length % 2 !== 0) throw new Error('DEAL_RUNTIME_DIFF_METADATA_INVALID');
+    const changes = [];
+    for (let index = 0; index < fields.length; index += 2) changes.push([fields[index], fields[index + 1]]);
+    const makeAdmission = (authorityBaseExactMain) => ({
+      owner: 'ACCOUNT_1_EXECUTION',
+      purpose: 'Repair UNKNOWN command recovery in the existing production-resolved TransactionDealWorkspace and prove the same runtime binding without changing its approved design.',
+      authorityBaseExactMain,
+      implementationBranch,
+      allowedPaths: paths,
+      requiredTruthBoundaries: [
+        'The trusted-base guard admits exactly the runtime component, its production-resolved behavior regression and the existing transaction-ux migration regression plus their exact CI invocation and coverage-registry wiring; candidate state cannot widen scope.',
+        'Preserve the transaction-ux design, facade and tsconfig aliases; exercise the module resolved by the protected Deal route rather than the detached platform-v7 component.',
+        'Lost or unverifiable command responses remain UNKNOWN with the original attempt identity, no fresh command replay and GET-only recovery; only an exact-attempt server receipt establishes a known outcome.',
+        'Cover actual RU/EN/zh-CN recovery states and preserve migration binding, shell, server-owned role/auth/tenant/action authority and accessibility assertions.',
+        'Require fresh exact-head author audit, independent review and all substantive CI/readiness before normal expected-SHA merge; source evidence is not REG.RU live acceptance.',
+        'The existing ci.yml invocation must execute both recovery and migration regressions without losing any prior test or changing workflow behavior; the coverage registry may only remove the migration test exclusion.',
+      ],
+      forbiddenAuthority: [
+        'Candidate state, scope, guard, unrelated workflow, alias, facade or design replacement',
+        'Backend/API/DB/role/tenant/idempotency/payment/provider/FGIS authority or production/model-host mutation',
+        'CI/security/readiness weakening, independent-review impersonation, forced merge or new recurring cost',
+      ],
+      teamHubDependency: '#5469 runtime binding dependency5887083491; migration regression5887595513; guard-purpose renewal #5721',
+    });
+    if (branch === admissionBranch) {
+      if (Object.hasOwn(state.approvedConcurrentScopes || {}, implementationBranch) ||
+          Object.hasOwn(state.coordinationAdmissions || {}, coordinationKey)) {
+        throw new Error('DEAL_RUNTIME_ADMISSION_ALREADY_PRESENT');
+      }
+      if (!isDeepStrictEqual(changes, [['M', stateFile]])) throw new Error('DEAL_RUNTIME_ADMISSION_DIFF_SCOPE');
+      if ([baseRef, headRef].some((ref) => fileMode(ref, stateFile) !== '100644')) {
+        throw new Error('DEAL_RUNTIME_ADMISSION_FILE_MODE');
+      }
+      const expected = structuredClone(state);
+      expected.approvedConcurrentScopes[implementationBranch] = paths;
+      expected.coordinationAdmissions[coordinationKey] = makeAdmission(baseSha);
+      if (!isDeepStrictEqual(JSON.parse(readState(headRef)), expected)) {
+        throw new Error('DEAL_RUNTIME_ADMISSION_STATE_MUTATION');
+      }
+      scopes = [stateFile];
+    } else {
+      const admission = state.coordinationAdmissions?.[coordinationKey];
+      const admissionBase = admission?.authorityBaseExactMain;
+      if (typeof admissionBase !== 'string' || !/^[0-9a-f]{40}$/u.test(admissionBase) ||
+          !isDeepStrictEqual(admission, makeAdmission(admissionBase)) ||
+          !isDeepStrictEqual(scopes, paths)) {
+        throw new Error('DEAL_RUNTIME_ACCEPTED_ADMISSION_MISMATCH');
+      }
+      try {
+        execFileSync('git', ['merge-base', '--is-ancestor', admissionBase, baseRef], { stdio: 'pipe' });
+      } catch {
+        throw new Error('DEAL_RUNTIME_ADMISSION_BASE_NOT_ANCESTOR');
+      }
+      if (readState(headRef) !== readState(baseRef)) throw new Error('DEAL_RUNTIME_IMPLEMENTATION_STATE_MUTATION');
+      // This accepted-base rule grants no additional source path. Only the exact
+      // generated inventory pair may follow an admitted runtime change, and only
+      // after verification from committed blobs with the trusted-base generator.
+      const generatedPaths = ['docs/security/cryptographic-inventory.json', 'docs/security/CRYPTOGRAPHIC_INVENTORY.md'];
+      const generatedChanges = changes.filter(([, file]) => generatedPaths.includes(file));
+      const implementationPaths = [...paths, ...generatedPaths];
+      for (const [status, file] of changes) {
+        if (!implementationPaths.includes(file) || !['A', 'M'].includes(status) || (status === 'A' && file !== paths[1])) {
+          throw new Error('DEAL_RUNTIME_IMPLEMENTATION_DIFF_SCOPE');
+        }
+        const before = fileMode(baseRef, file);
+        if (fileMode(headRef, file) !== '100644' || (status === 'M' ? before !== '100644' : before !== '')) {
+          throw new Error('DEAL_RUNTIME_IMPLEMENTATION_FILE_MODE');
+        }
+      }
+      if (generatedChanges.length) {
+        if (generatedChanges.length !== generatedPaths.length ||
+            !generatedPaths.every((file) => generatedChanges.some(([status, changed]) => status === 'M' && changed === file)) ||
+            !changes.some(([status, file]) => status === 'M' && file === paths[0])) {
+          throw new Error('DEAL_RUNTIME_GENERATED_PAIR_REQUIRES_RUNTIME');
+        }
+        const generatorPath = 'scripts/security/discover-cryptography.mjs';
+        if (!['100644', '100755'].includes(fileMode(baseRef, generatorPath)) ||
+            fileMode(headRef, generatorPath) !== fileMode(baseRef, generatorPath) ||
+            execFileSync('git', ['show', `${baseRef}:${generatorPath}`], { encoding: 'utf8' }) !==
+              execFileSync('git', ['show', `${headRef}:${generatorPath}`], { encoding: 'utf8' })) {
+          throw new Error('DEAL_RUNTIME_GENERATOR_NOT_TRUSTED');
+        }
+        // No checkout, import or execution of candidate code. The child imports
+        // only the accepted generator; candidate application blobs are text data.
+        execFileSync(process.execPath, ['--input-type=module', '-'], {
+          env: { ...process.env, DEAL_INVENTORY_BASE: baseRef, DEAL_INVENTORY_HEAD: headRef },
+          timeout: 120_000,
+          maxBuffer: 4 * 1024 * 1024,
+          input: String.raw`
+import { execFileSync } from 'node:child_process';
+import { isDeepStrictEqual } from 'node:util';
+const base = process.env.DEAL_INVENTORY_BASE;
+const head = process.env.DEAL_INVENTORY_HEAD;
+const generatorPath = 'scripts/security/discover-cryptography.mjs';
+const jsonPath = 'docs/security/cryptographic-inventory.json';
+const mdPath = 'docs/security/CRYPTOGRAPHIC_INVENTORY.md';
+const git = (args, options = {}) => execFileSync('git', args, {
+  encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...options,
+});
+const read = (ref, file) => git(['show', ref + ':' + file]);
+const markdown = read(head, mdPath);
+const attribution = /^Source SHA: \x60([0-9a-f]{40})\x60$/mu.exec(markdown);
+if (!attribution) throw new Error('DEAL_RUNTIME_GENERATED_SOURCE_IDENTITY');
+const source = attribution[1];
+try { git(['merge-base', '--is-ancestor', source, head]); }
+catch { throw new Error('DEAL_RUNTIME_GENERATED_SOURCE_NOT_ANCESTOR'); }
+const generator = read(base, generatorPath);
+if (read(head, generatorPath) !== generator || read(source, generatorPath) !== generator) {
+  throw new Error('DEAL_RUNTIME_GENERATOR_NOT_TRUSTED');
+}
+function sourceTree(ref) {
+  const entries = git(['ls-tree', '-r', '-z', ref, '--', 'apps', 'packages']).split('\0').filter(Boolean);
+  const selected = [];
+  for (const entry of entries) {
+    const parsed = /^(\d{6}) (blob|commit) ([0-9a-f]{40})\t([\s\S]+)$/u.exec(entry);
+    if (!parsed) throw new Error('DEAL_RUNTIME_GENERATED_TREE_METADATA');
+    const [, mode, kind, oid, file] = parsed;
+    if (!/\.(?:ts|tsx|js|jsx|mjs|cjs)$/u.test(file) || file.startsWith('apps/landing/') ||
+        /(?:\.(?:spec|test)\.[cm]?[jt]sx?$)|(?:(?:^|\/)(?:tests?|__tests__)\/)/u.test(file)) continue;
+    let contentOid = oid;
+    if (mode === '120000' && file === 'apps/web/apps/web/middleware.ts') {
+      // One pre-existing compatibility alias is followed by the canonical
+      // scanner. Resolve this exact immutable link through Git, never the host
+      // filesystem, and include its target blob in source-attribution equality.
+      const baselineLink = git(['ls-tree', base, '--', file]);
+      const target = 'apps/web/middleware.ts';
+      const targetEntry = /^(100644|100755) blob ([0-9a-f]{40})\t/u.exec(git(['ls-tree', ref, '--', target]));
+      if (baselineLink !== git(['ls-tree', ref, '--', file]) ||
+          read(ref, file) !== '../../middleware.ts' || !targetEntry) {
+        throw new Error('DEAL_RUNTIME_GENERATED_ALIAS_MISMATCH');
+      }
+      contentOid = targetEntry[2];
+    } else if (kind !== 'blob' || !['100644', '100755'].includes(mode)) {
+      throw new Error('DEAL_RUNTIME_GENERATED_NONREGULAR_SOURCE');
+    }
+    if (/[\r\n\t]/u.test(file)) throw new Error('DEAL_RUNTIME_GENERATED_TREE_METADATA');
+    selected.push([file, mode, oid, contentOid]);
+  }
+  return selected.sort((a, b) => Buffer.compare(Buffer.from(a[0]), Buffer.from(b[0])));
+}
+const entries = sourceTree(head);
+if (!entries.length || !isDeepStrictEqual(sourceTree(source), entries)) {
+  throw new Error('DEAL_RUNTIME_GENERATED_SOURCE_TREE_MISMATCH');
+}
+const blobs = git(['cat-file', '--batch'], {
+  input: entries.map((entry) => entry[3]).join('\n') + '\n', encoding: null,
+});
+let offset = 0;
+const contents = new Map();
+const decoder = new TextDecoder('utf-8', { fatal: true });
+for (const [file, , , oid] of entries) {
+  const end = blobs.indexOf(10, offset);
+  const header = end >= 0 ? /^([0-9a-f]{40}) blob (\d+)$/u.exec(blobs.subarray(offset, end).toString('ascii')) : null;
+  const size = header ? Number(header[2]) : -1;
+  if (!header || header[1] !== oid || !Number.isSafeInteger(size) || size < 0 || size > 16 * 1024 * 1024 ||
+      end + 1 + size >= blobs.length || blobs[end + 1 + size] !== 10) {
+    throw new Error('DEAL_RUNTIME_GENERATED_BLOB_METADATA');
+  }
+  offset = end + 1;
+  contents.set(file, decoder.decode(blobs.subarray(offset, offset + size)));
+  offset += size + 1;
+}
+if (offset !== blobs.length) throw new Error('DEAL_RUNTIME_GENERATED_BLOB_TRAILING_DATA');
+const trusted = await import('data:text/javascript;base64,' + Buffer.from(generator).toString('base64'));
+const inventory = trusted.buildInventory({ files: entries.map(([file]) => file), readFile: (file) => contents.get(file) });
+if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
+    markdown !== trusted.renderMarkdown(inventory, { sourceSha: source })) {
+  throw new Error('DEAL_RUNTIME_GENERATED_OUTPUT_MISMATCH');
+}
+`,
+        });
+        scopes = implementationPaths;
+      }
+      // These two paths are evidence wiring, not general workflow authority.
+      // Derive the only permitted delta from the trusted base, never the candidate.
+      const readFileAt = (ref, file) => execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8' });
+      const ciFile = paths[3];
+      const registryFile = paths[4];
+      const command = 'pnpm --filter @pc/web exec vitest run ';
+      const testArguments = 'tests/unit/transactionDealWorkspaceRecovery.test.tsx tests/unit/transactionUxV8Migration.test.ts ';
+      const baseCi = readFileAt(baseRef, ciFile);
+      const alreadyWired = baseCi.includes(command + testArguments);
+      if (baseCi.split(command).length !== 2 ||
+          (!alreadyWired && (baseCi.includes('tests/unit/transactionDealWorkspaceRecovery.test.tsx') ||
+            baseCi.includes('tests/unit/transactionUxV8Migration.test.ts')))) {
+        throw new Error('DEAL_RUNTIME_CI_BASE_MISMATCH');
+      }
+      const expectedCi = alreadyWired ? baseCi : baseCi.replace(command, command + testArguments);
+      if (readFileAt(headRef, ciFile) !== expectedCi || fileMode(headRef, paths[1]) !== '100644') {
+        throw new Error('DEAL_RUNTIME_CI_WIRING_MISMATCH');
+      }
+      const baseRegistry = JSON.parse(readFileAt(baseRef, registryFile));
+      if (!Array.isArray(baseRegistry.exclusions)) throw new Error('DEAL_RUNTIME_CI_REGISTRY_BASE_MISMATCH');
+      const removed = baseRegistry.exclusions.filter((entry) => entry.file === paths[2]);
+      if (removed.length > 1 || (!alreadyWired && removed.length !== 1)) {
+        throw new Error('DEAL_RUNTIME_CI_REGISTRY_BASE_MISMATCH');
+      }
+      const expectedRegistry = structuredClone(baseRegistry);
+      expectedRegistry.exclusions = expectedRegistry.exclusions.filter((entry) => entry.file !== paths[2]);
+      if (readFileAt(headRef, registryFile) !== `${JSON.stringify(expectedRegistry, null, 2)}\n`) {
+        throw new Error('DEAL_RUNTIME_CI_REGISTRY_MUTATION');
+      }
+    }
+  }
+
   if (branch === 'governance/pc-crop-inventory-reservation-scope-4997') {
     // The already-admitted writer lane may extend the buyer slice only by this
     // reviewed route composition and rendered acceptance trio. Preserve every
@@ -792,7 +1051,49 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     const priorAdmissionsAccepted = [...expected].every(([implementationBranch, { key }]) =>
       Object.hasOwn(state.approvedConcurrentScopes, implementationBranch) &&
       Object.hasOwn(state.coordinationAdmissions || {}, key));
-    if (priorAdmissionsAccepted) {
+    const previousWebkitAccepted =
+      Object.hasOwn(state.approvedConcurrentScopes, 'fix/public-webkit-i18n-route-lifecycle-20260927') &&
+      Object.hasOwn(state.coordinationAdmissions || {}, 'public-webkit-i18n-route-lifecycle-20260927');
+    if (priorAdmissionsAccepted && previousWebkitAccepted) {
+      const implementationBranch = 'fix/public-login-register-locale-20260928';
+      const key = 'public-login-register-locale-20260928';
+      const paths = [
+        'apps/web/app/platform-v7/login/LoginFormClient.tsx',
+        'apps/web/app/platform-v7/login/page.tsx',
+        'apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts',
+      ];
+      if (Object.hasOwn(state.approvedConcurrentScopes, implementationBranch) ||
+          Object.hasOwn(state.coordinationAdmissions || {}, key)) {
+        throw new Error('PRODUCT_LOGIN_LOCALE_ADMISSION_ALREADY_PRESENT');
+      }
+      const changes = execFileSync('git', ['diff', '--no-renames', '--name-status', `${baseRef}...${headRef}`], { encoding: 'utf8' }).trim();
+      if (changes !== `M\t${stateFile}`) throw new Error('PRODUCT_LOGIN_LOCALE_ADMISSION_DIFF_SCOPE');
+      const modes = [baseRef, headRef].map((ref) =>
+        execFileSync('git', ['ls-tree', ref, '--', stateFile], { encoding: 'utf8' }).split(' ')[0]);
+      if (modes.some((mode) => mode !== '100644')) throw new Error('PRODUCT_LOGIN_LOCALE_ADMISSION_FILE_MODE');
+      baseline.approvedConcurrentScopes[implementationBranch] = paths;
+      baseline.coordinationAdmissions[key] = {
+        owner: 'ACCOUNT_2_PRODUCT',
+        purpose: 'Preserve RU/EN/ZH on the existing Login to Register link and verify the real mobile click path after the exact-live locale-loss failure.',
+        authorityBaseExactMain: baseSha,
+        implementationBranch,
+        allowedPaths: paths,
+        requiredTruthBoundaries: [
+          'Only the three exact paths from trusted base state are admitted; candidate state, manifests and guards cannot expand implementation authority.',
+          'Pass the existing getLocale/canonicalPublicLocale result from the Login server page to LoginFormClient as a bounded RU/EN/ZH presentation prop; do not add client locale hooks or providers to the lean Login entry, and keep authentication, MFA, session, redirect authority and register-page behavior unchanged.',
+          'Preserve all eight public routes, EN/ZH localization, RU homepage design gates, ten viewport-locale combinations, zero pageerror, response success, Chinese typography, mobile target geometry and horizontal reflow assertions.',
+          'Assert the exact localized Register href, real user navigation, resulting HTML locale and zero page errors; do not replace the click with direct navigation or weaken locale assertions.',
+          'Source and local tests do not establish live acceptance; require exact-head independent review and complete CI, then exact-main release and live mobile/i18n on the deployed OCI revision.',
+        ],
+        forbiddenAuthority: [
+          'Candidate-owned state or scope extension in the implementation PR',
+          'Backend/API/DB/role/tenant/authentication/bank/provider/FGIS authority or root-layout, middleware, locale-provider, homepage and register-page changes',
+          'CI/security/readiness weakening, fabricated acceptance or automatic merge',
+        ],
+        teamHubDependency: '#2198 locale-loss evidence 5866099139; Team Hub #5469',
+      };
+      if (!isDeepStrictEqual(candidate, baseline)) throw new Error('PRODUCT_LOGIN_LOCALE_ADMISSION_STATE_MUTATION');
+    } else if (priorAdmissionsAccepted) {
       const implementationBranch = 'fix/public-webkit-i18n-route-lifecycle-20260927';
       const key = 'public-webkit-i18n-route-lifecycle-20260927';
       const paths = ['apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts'];
@@ -1040,7 +1341,7 @@ if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
 fi
 
-if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$IR20_BINDING_PREREQUISITE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_SCOPE_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BUYER_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BANK_HOME_ADMISSION_BRANCH" ]; then
+if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$IR20_BINDING_PREREQUISITE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_SCOPE_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BUYER_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BANK_HOME_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH" ]; then
   MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-autopilot-guard\.test\.mjs$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$|\.github/workflows/automerge\.yml$)' || true)
   # These manifests document the exact accepted path sets. They are not scope
   # authority: only approvedConcurrentScopes from the trusted base is used.
@@ -1051,6 +1352,7 @@ if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE
     "$PUBLIC_REGISTRATION_PARTICIPATION_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/public-registration-participation-choice-20260923.json' ;;
     "$PRODUCTION_MOBILE_HANDOFF_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/production-mobile-controller-handoff-20260927.json' ;;
     "$READINESS_QUEUE_JOB_GATE_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/readiness-queue-job-gate-20260927.json' ;;
+    "$READINESS_DEFAULT_BRANCH_PUSH_GATE_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/readiness-default-branch-push-gate-20260929.json' ;;
     "$PRODUCT_BUYER_HOME_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json' ;;
     "$PRODUCT_BANK_HOME_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/bank-first-customer-home-20260926.json' ;;
     *) PRODUCT_SCOPE_MANIFEST='' ;;
@@ -1109,6 +1411,26 @@ if (base.split(workflowLease).length !== 2 || base.split(anchor).length !== 2) {
 }
 const expected = base.replace(workflowLease, '').replace(anchor, `${anchor}${gatedLease}`);
 if (head !== expected) throw new Error('READINESS_QUEUE_CHANGE_EXCEEDS_EXACT_TRANSFORM');
+JS
+    MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv '.github/workflows/automerge.yml' || true)
+  fi
+  if [ "$CURRENT_BRANCH" = "$READINESS_DEFAULT_BRANCH_PUSH_GATE_BRANCH" ] && printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxq '.github/workflows/automerge.yml'; then
+    # A push to the default branch has no open pull request: the evaluator only
+    # re-scores already merged heads. This one workflow authority may exclude
+    # such workflow_run events from the unchanged job gate. Every other byte
+    # change against the trusted base is rejected.
+    READINESS_BASE_REF="$BASE_REF" READINESS_HEAD_REF="$HEAD_REF" node - <<'JS'
+const { execFileSync } = require('node:child_process');
+const path = '.github/workflows/automerge.yml';
+const read = ref => execFileSync('git', ['show', `${ref}:${path}`], { encoding: 'utf8', maxBuffer: 128 * 1024 });
+const base = read(process.env.READINESS_BASE_REF);
+const head = read(process.env.READINESS_HEAD_REF);
+const anchor = `         github.event.workflow_run.name != 'Independent Octopus Review'))\n`;
+const gated = `         github.event.workflow_run.name != 'Independent Octopus Review' &&
+         !(github.event.workflow_run.event == 'push' &&
+           github.event.workflow_run.head_branch == github.event.repository.default_branch)))\n`;
+if (base.split(anchor).length !== 2) throw new Error('READINESS_DEFAULT_BRANCH_TRUSTED_BASE_SHAPE_INVALID');
+if (head !== base.replace(anchor, gated)) throw new Error('READINESS_DEFAULT_BRANCH_PUSH_CHANGE_EXCEEDS_EXACT_TRANSFORM');
 JS
     MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv '.github/workflows/automerge.yml' || true)
   fi
