@@ -2837,6 +2837,30 @@
         "All primary R1/global/current/unrelated concurrent scopes, historical admissions/progress/maturity and runtime/model/production authority remain unchanged.",
         "The current source consumer requires fresh complete-head independent review, exact-current CI including the full existing API suite, author audit, resolved findings and manual expected-SHA protected merge. Source tests/admission do not prove real model inference, quality, latency, RF compliance or deployment."
       ]
+    },
+    "bank-release-attestation-guard-purpose-20260930": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew the accepted immutable three-path guard ref only to authorize the exact two-fingerprint release-attestation test synchronization blocking the BANK release; preserve the historical four-fingerprint transformation and every security/readiness gate.",
+      "authorityBaseExactMain": "1a768a7fde207bb2458fdf259dc16f9f291b5455",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "requiredTruthBoundaries": [
+        "This state-only prerequisite renews purpose on an already accepted three-path guard ref. It does not change global scope, approvedConcurrentScopes, R1.2, old admissions or the one-file Gitleaks implementation scope.",
+        "The later guard PR must preserve trusted-base execution, all substantive head validation and the legacy exact four-fingerprint transformation. Admit the current transformation only against the immutable accepted 19-entry test blob and unchanged accepted ignore/manifest blobs; require exactly the two existing fingerprints and every old test byte/assertion.",
+        "Add real Git-fixture regressions for exact accepted append and rejection of altered/extra/missing fingerprints, assertion removal, baseline/input drift, allowlist/manifest edits and candidate scope self-expansion. No arbitrary fingerprint inference or implementation-owned authority.",
+        "The later one-file #5744 repair must be independently reviewed again after synchronization with the accepted guard main, and pass actual CI/readiness before an ordinary full-expected-SHA merge. Existing native review at cd31ba7904b30de65c6839c17a11e2590d234108 is not transferable to a new head.",
+        "Retain BANK source/release window and sole operator continuation220. A merge/image is not a REG.RU deployment; exact current-main OCI/container/Caddy/live/downstream acceptance remains mandatory."
+      ],
+      "forbiddenAuthority": [
+        "Test source, .gitleaksignore, release-source-manifest.json, runtime or state edits in the later guard PR",
+        "Scope expansion, scanner/security/coverage/readiness/independent-review weakening, force/automatic merge or required-check override",
+        "CORE API/DB/provider/role/session authority, transferred Gekta branches/model controls, release before actual acceptance"
+      ],
+      "teamHubDependency": "BANK #5744 exact-head trusted guard rejects obsolete 20260912 transformation; native TAI Foundation36755343656 succeeds; BANK operator decision5916270228 and held release window5914591395"
     }
   }
 }
