@@ -240,6 +240,7 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     ['en', 'Without storage, there is no possibility of extra expense; compare payment costs.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
     ['ru', 'Без хранения нет возможности понести дополнительные расходы; сравни условия оплаты.', 'Выбирайте отсрочку оплаты: прибыль составит 400 руб/т.', 'Проверьте условия оплаты.'],
     ['en', 'I discussed storage with my manager and now need its cost excluded.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
+    ['en', 'I discussed storage with my manager and now need its cost to not be included.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
     ['en', 'Compare payment costs assuming no storage.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
     ['en', 'Compare payment costs assuming no storage is needed.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
     ['en', 'Compare payment costs assuming no storage for this deal.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
@@ -270,8 +271,12 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     }
   });
 
-  it.each(['stream', 'buffered'])('keeps the live warehouse checklist free of an unsolicited storage calculation in %s', async (mode) => {
-    const question = 'Составь короткий чек-лист подготовки зернохранилища к загрузке новой партии: что осмотреть, проверить и записать? Не нужны препараты и нормы расхода.';
+  it.each([
+    ['stream', 'Составь короткий чек-лист подготовки зернохранилища к загрузке новой партии: что осмотреть, проверить и записать? Не нужны препараты и нормы расхода.'],
+    ['buffered', 'Составь короткий чек-лист подготовки зернохранилища к загрузке новой партии: что осмотреть, проверить и записать? Не нужны препараты и нормы расхода.'],
+    ['stream', 'Как подготовить зернохранилище? Без норм расхода препаратов.'],
+    ['buffered', 'Как подготовить зернохранилище? Без норм расхода препаратов.'],
+  ])('keeps the warehouse checklist free of an unsolicited storage calculation in %s: %s', async (mode, question) => {
     const content = 'Осмотрите крышу, стены и состояние уплотнений. Проверьте вентиляцию и датчики температуры. Запишите влажность зерна и дату загрузки. ';
     for (const chunkSize of [1, 7, 500]) {
       const raw = request({ question, originalQuestion: question });

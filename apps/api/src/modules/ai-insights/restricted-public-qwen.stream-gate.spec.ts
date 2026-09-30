@@ -188,6 +188,8 @@ describe('storage intent corrections', () => {
     '我之前说过储存一个月。现在问题是付款期限一个月。',
     'I discussed storage with my manager and now need its cost excluded.',
     'I discussed storage with my manager and now need its cost to be omitted.',
+    'I discussed storage with my manager and now need its cost to not be included.',
+    'I discussed storage with my manager and now need its cost to not be counted.',
     'Я обсуждал хранение и теперь мне нужна его стоимость исключённой из сравнения.',
     '我之前说过储存，现在需要它的成本不计入比较。',
   ])('does not treat a negative or historical storage reference as renewed intent: %s', (question) => {
@@ -241,6 +243,10 @@ describe('storage intent corrections', () => {
   it.each([
     'Составь короткий чек-лист подготовки зернохранилища к загрузке новой партии: что осмотреть, проверить и записать? Не нужны препараты и нормы расхода.',
     'Как подготовить зернохранилище? Не указывай нормы расхода препаратов.',
+    'Как подготовить зернохранилище? Без норм расхода препаратов.',
+    'Как подготовить зернохранилище? Не говори о норме расхода препаратов.',
+    'Подготовь зернохранилище без таблицы с нормами расхода препаратов.',
+    'При подготовке зернохранилища не указывай норму расхода препаратов.',
     'Оцените состояние зернохранилища перед загрузкой.',
     'Как проверить трубы вентиляции зернохранилища?',
     'Как оценить влажность зерна при хранении?',
@@ -256,6 +262,7 @@ describe('storage intent corrections', () => {
     'Оцените стоимость хранения зерна.',
     'Расходы на хранение 200 рублей за тонну в месяц. Сравни цену.',
     'Сравни цены продажи зерна после хранения.',
+    'Какова стоимость хранения? Без норм расхода препаратов.',
   ])('retains financial screening with word-bounded monetary terms: %s', (question) => {
     expect(economicComparisonFor(question, [])).toBe('storage');
   });

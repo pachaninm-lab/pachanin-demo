@@ -96,7 +96,7 @@ const ECONOMIC_TOPIC = /(?<![\p{L}])(?:цен|стоим|расход|руб|п�
 function hasEconomicTopic(text: string): boolean {
   // Application rates are not financial expenses. Other monetary words in the
   // same request still activate the existing financial screen.
-  return ECONOMIC_TOPIC.test(text.replace(/(?<![\p{L}])норм[аы]\s+расхода(?![\p{L}])/giu, ''));
+  return ECONOMIC_TOPIC.test(text.replace(/(?<![\p{L}])норм(?:а|ы|у|е|ой|ою|ам|ами|ах)?\s+расхода(?![\p{L}])/giu, ''));
 }
 const TRANSPORT_COMPARISON = /перевоз|перевозчик|freight|haul|carrier|运输|承运/iu;
 const PAYMENT_TIMING_TOPIC = /оплат|плат[её]ж|отсроч|гарант|сегодня|сразу|payment|paid|defer|guarantee|today|付款|延期|担保|今天/iu;
@@ -121,7 +121,7 @@ const STORAGE_REQUIRED_WITHOUT = new RegExp([
 // repeating it. Keep an explicit time marker, reference and cost request;
 // a payment-bearing clause leaves that reference ambiguous.
 const STORAGE_RENEWED_COST_REFERENCE = /\b(?:now|currently)\s+(?:(?:i|we)\s+)?(?:need|want|request)\s+(?:to\s+(?:know|calculate|compare)\s+)?(?:its|this|that)\s+(?:costs?|expenses?|price)\b|(?:теперь|сейчас)\s+(?:(?:мне|нам)\s+)?(?:нужн[аоы]|нужен|хочу\s+узнать)\s+(?:его|её|этого|такого)\s+(?:стоимост|цен|расход|затрат)[\p{L}]*|(?:现在|目前)\s*(?:我|我们)?\s*(?:需要|想知道|想了解|计算)\s*(?:它|其|这个|这种|那个)(?:的)?\s*(?:成本|费用|价格)/iu;
-const REFERENCED_COST_EXCLUSION = /^\s+(?:(?:to|should|must)\s+be\s+|(?:is|are)\s+)?(?:excluded|omitted|ignored|removed|left\s+out|not\s+(?:included|counted|considered))\b|^\s+(?:исключ[\p{L}]*|убран[\p{L}]*|не\s+(?:учитыва[\p{L}]*|включ[\p{L}]*))|^\s*(?:不计入|排除|忽略)/iu;
+const REFERENCED_COST_EXCLUSION = /^\s+(?:(?:to|should|must)\s+be\s+|(?:is|are)\s+)?(?:excluded|omitted|ignored|removed|left\s+out|not\s+(?:included|counted|considered))\b|^\s+(?:to|should|must)\s+not\s+be\s+(?:included|counted|considered)\b|^\s+(?:исключ[\p{L}]*|убран[\p{L}]*|не\s+(?:учитыва[\p{L}]*|включ[\p{L}]*))|^\s*(?:不计入|排除|忽略)/iu;
 
 function storageCostReferenceExcluded(clause: string): boolean {
   const reference = STORAGE_RENEWED_COST_REFERENCE.exec(clause);
