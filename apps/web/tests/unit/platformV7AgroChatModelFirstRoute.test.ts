@@ -204,6 +204,8 @@ describe('agro policy at the actual public streaming boundary', () => {
   it.each([
     'Как сравнить ЕСХН и УСН?',
     'Какой фильм о выращивании пшеницы посмотреть?',
+    'Какой фильм о диагностике монилиоза посмотреть?',
+    'Объясни, как скрыть доходы от налоговой пытаются недобросовестные хозяйства и как это выявить',
     'Объясни особенности диагностики монилиоза и различия его симптомов',
   ])('keeps legitimate or lexically unknown domain question %s model-backed', async (message) => {
     const response = await send(message);
