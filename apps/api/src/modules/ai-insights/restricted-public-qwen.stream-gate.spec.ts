@@ -265,6 +265,20 @@ describe('storage intent corrections', () => {
     expect(economicComparisonFor(question, [])).toBeNull();
   });
 
+  it.each([
+    'Storage is not needed. Compare payment terms.',
+    'Хранение не нужно. Что выбрать: оплату сейчас или с отсрочкой?',
+  ])('screens excluded-storage payment choice without a price cue: %s', (question) => {
+    expect(economicComparisonFor(question, [])).toBe('qualitative');
+  });
+
+  it.each([
+    'Не исключи расходы на хранение; сравни расходы.',
+    'Не исключите из сметы стоимость хранения',
+  ])('preserves Russian negative exclusion imperatives: %s', (question) => {
+    expect(economicComparisonFor(question, [])).toBe('storage');
+  });
+
   it('still screens financial costs alongside application-rate wording', () => {
     expect(economicComparisonFor('Какая стоимость хранения? Нормы расхода препаратов не нужны.', [])).toBe('storage');
   });
@@ -276,6 +290,7 @@ describe('storage intent corrections', () => {
     'Рассчитай наценку после хранения зерна.',
     'Рассчитай уценку после хранения зерна.',
     'Какие расценки на хранение зерна?',
+    'Какой процент окупит хранение зерна?',
     'Какова себестоимость хранения за месяц?',
     'Расходы на хранение 200 рублей за тонну в месяц. Сравни цену.',
     'Сравни цены продажи зерна после хранения.',

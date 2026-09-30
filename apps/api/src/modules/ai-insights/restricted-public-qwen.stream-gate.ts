@@ -93,7 +93,7 @@ type UserContextTurn = Readonly<{ role: 'user' | 'assistant'; text: string }>;
 const STORAGE_TOPIC = /хран[еи]|storage|stor[ei]|仓储|储存/iu;
 // Bound the ambiguous price/ruble stems (оцените, трубы), while retaining
 // monetary compounds such as себестоимость and перерасход.
-const ECONOMIC_TOPIC = /(?<![\p{L}])(?:(?:на|у|рас)?цен|руб)|стоим|расход|прода|выгод|покры|price|cost|sell|profit|break.even|价格|成本|出售|收益/iu;
+const ECONOMIC_TOPIC = /(?<![\p{L}])(?:(?:на|у|рас)?цен|руб)|стоим|расход|прода|выгод|покры|окуп|прибыл|price|cost|sell|profit|break.even|价格|成本|出售|收益/iu;
 
 function hasEconomicTopic(text: string): boolean {
   // Application rates are not financial expenses. Other monetary words in the
@@ -178,6 +178,7 @@ function storageExplicitlyExcluded(text: string): boolean {
   return clauses.length > 0 && clauses.every((clause) => {
     // Double negation and unexcluded mentions keep the conservative screen.
     if (STORAGE_REQUIRED_WITHOUT.test(clause)
+      || /не\s+исключ(?:и|ите|ить)\s+(?:из\s+(?:расч[её]та|сметы)\s+)?(?:(?:расход|стоимост|затрат)[\p{L}]*\s+(?:на\s+)?)?хранени[ея]/iu.test(clause)
       || /не\s+(?:нужно|надо|требуется)\s+(?:исключ|игнор|убир)|\bnot\s+(?:needed|required)\s+to\s+(?:exclude|ignore)|\b(?:do\s+not|don't|must\s+not|cannot|can't|without|never)\s+(?:excluding|exclude|omitting|omit|ignoring|ignore)\s+(?:the\s+)?storage\b|无需\s*(?:忽略|排除)/iu.test(clause)) return false;
     if (storageCostReferenceExcluded(clause) && [...clause.matchAll(new RegExp(STORAGE_TOPIC.source, 'giu'))].length === 1) return true;
     const exclusions = [...clause.matchAll(new RegExp(STORAGE_EXCLUDED.source, 'giu'))];
@@ -213,13 +214,15 @@ export function economicComparisonFor(question: string, history: readonly UserCo
   const lastUser = [...history].reverse().find((turn) => turn.role === 'user')?.text ?? '';
   const economicFollowUp = STORAGE_TOPIC.test(lastUser) && hasEconomicTopic(lastUser)
     && /месяц|покры|срок|month|cover|duration|月|期限/iu.test(question);
+  const paymentChoice = PAYMENT_TIMING_TOPIC.test(question)
+    && /сравн|выбр|выбор|выбира|что\s+выбрать|что\s+лучше|какой\s+вариант|compar|choos|select|which|better|比较|选择|哪|更/iu.test(question);
   // Excluding storage arithmetic must not disable the existing monetary
   // output screen or qualitative-only provider instruction for a cost question.
-  if (storageExplicitlyExcluded(question)) return hasEconomicTopic(question) || economicFollowUp ? 'qualitative' : null;
+  if (storageExplicitlyExcluded(question)) return hasEconomicTopic(question) || economicFollowUp || paymentChoice ? 'qualitative' : null;
   if ((STORAGE_TOPIC.test(question) && hasEconomicTopic(question)) || economicFollowUp) {
     return storageExplicitlyExcluded(lastUser) && !storageAffirmativelyRequested(question) ? 'qualitative' : 'storage';
   }
-  return null;
+  return paymentChoice ? 'qualitative' : null;
 }
 
 function moneyMinor(raw: string): number | null {
