@@ -66,6 +66,9 @@ describe('storage intent corrections', () => {
     'Compare payment costs assuming no storage.',
     'Compare payment costs assuming no storage is needed.',
     'Compare payment costs assuming no storage for this deal.',
+    'Compare payment costs assuming no storage is needed for this deal.',
+    'Compare payment costs assuming no storage is required for the shipment.',
+    'Not excluding storage costs was a mistake; compare payment costs.',
     'Compare payment costs assuming no storage is required.',
     'Compare payment costs assuming no storage for the shipment.',
     'Compare payment costs excluding storage.',
@@ -189,6 +192,8 @@ describe('storage intent corrections', () => {
     'I discussed storage with my manager and now need its cost excluded.',
     'I discussed storage with my manager and now need its cost to be omitted.',
     'I discussed storage with my manager and now need its cost to not be included.',
+    'I discussed storage with my manager and now need its cost not to be included.',
+    'I discussed storage with my manager and now need its cost not to be counted.',
     'I discussed storage with my manager and now need its cost to not be counted.',
     'Я обсуждал хранение и теперь мне нужна его стоимость исключённой из сравнения.',
     '我之前说过储存，现在需要它的成本不计入比较。',
@@ -260,6 +265,8 @@ describe('storage intent corrections', () => {
 
   it.each([
     'Оцените стоимость хранения зерна.',
+    'Рассчитай себестоимость хранения зерна.',
+    'Какова себестоимость хранения за месяц?',
     'Расходы на хранение 200 рублей за тонну в месяц. Сравни цену.',
     'Сравни цены продажи зерна после хранения.',
     'Какова стоимость хранения? Без норм расхода препаратов.',
