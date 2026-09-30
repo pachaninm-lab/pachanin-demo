@@ -333,11 +333,11 @@ const HARMFUL_PATTERNS = [
 const FINANCIAL_DOCUMENT_ABUSE_PATTERNS = [
   // Explicit requests to commit fraud, not mentions of fraud or lawful tax
   // planning. Bounded gaps avoid an unbounded backtracking safety expression.
-  /(?:^|[\s,])(?:как(?:\s+(?:мне|нам|можно|лучше|незаметно|безнаказанно)){0,2}|помоги(?:те)?(?:\s+(?:мне|нам))?)\s+(?:скрыть|утаить)(?:\s+[\p{L}\p{N}-]+){0,4}\s+(?:выручк|доход)[\p{L}]*[^\n]{0,80}(?:налогов|фнс)/iu,
-  /(?:^|[\s,])(?:как(?:\s+(?:мне|нам|можно|лучше|незаметно|безнаказанно)){0,2}|помоги(?:те)?(?:\s+(?:мне|нам))?)\s+(?:подделать|сфальсифицировать)(?:\s+[\p{L}\p{N}-]+){0,4}\s+(?:документ|накладн|упд|протокол|сертификат)[\p{L}]*/iu,
-  /(?:how\s+(?:do\s+i\s+|to\s+)?|help\s+me\s+)(?:hide|conceal)\s+(?:my\s+|farm\s+)?(?:income|revenue)[^\n]{0,60}(?:tax|authorit)/iu,
-  /(?:how\s+(?:do\s+i\s+|to\s+)?|help\s+me\s+)(?:forge|falsify)\s+(?:an?\s+|the\s+)?(?:invoice|document|certificate|lab\s+report)/iu,
-  /(?:如何|怎么|帮我)(?:隐藏|隐瞒)(?:农场)?收入[^\n]{0,30}(?:税|税务)|(?:如何|怎么|帮我)伪造(?:发票|文件|证书|检验报告)/u,
+  /(?<![\p{L}])(?:скрыть|утаить)(?:\s+[\p{L}\p{N}-]+){0,4}\s+(?:выручк|доход)[\p{L}]*[^.!?;。！？；\n]{0,80}?(?:налогов|фнс)/iu,
+  /(?<![\p{L}])(?:подделать|сфальсифицировать)(?:\s+[\p{L}\p{N}-]+){0,4}\s+(?:документ|накладн|упд|протокол|сертификат)[\p{L}]*/iu,
+  /\b(?:hide|conceal)\s+(?:my\s+|farm\s+)?(?:income|revenue)\b[^.!?;。！？；\n]{0,60}?(?:tax(?:\s+authorit[\p{L}]*)?|authorit[\p{L}]*)/iu,
+  /\b(?:forge|falsify)\s+(?:an?\s+|the\s+)?(?:invoice|document|certificate|lab\s+report)/iu,
+  /(?:隐藏|隐瞒)(?:农场)?收入[^.!?;。！？；\n]{0,30}?(?:税务|税)|伪造(?:发票|文件|证书|检验报告)/u,
 ] as const;
 
 /* ----------------------------------------------------------- short questions */
@@ -477,18 +477,22 @@ function safetyReasonFor(raw: string, normalized: string): AssistantSafetyReason
     const defensiveIntent = /(?:как|чтобы)\s+(?:это\s+)?(?:выявить|обнаружить|распознать|предотвратить)|(?:detect|identify|recognize|prevent)\s+(?:this|such|attempts?|fraud)|(?:识别|发现|防止|预防)(?:这种|此类|欺诈|行为)/iu.test(clause);
     const directMatches = FINANCIAL_DOCUMENT_ABUSE_PATTERNS.flatMap((pattern) =>
       [...clause.matchAll(new RegExp(pattern.source, `${pattern.flags}g`))]);
+    const governedPrevention = (before: string) => /(?:выявить|обнаружить|распознать|предотвратить)\s+(?:попытк[\p{L}]*|намерени[\p{L}]*)\s+$/iu.test(before)
+      || /(?:detect|identify|recognize|prevent)\s+(?:attempts?|efforts?)\s+to\s+$/iu.test(before)
+      || /(?:预防|防止|识别|发现)(?:有人|不法农场|欺诈者)(?:试图|尝试)?$/u.test(before);
     // The attempt verb must govern the matched act itself, rather than a
     // later parenthetical "others attempt this" attached to a direct request.
     const linkedThirdPartyAttempt = directMatches.length > 0 && directMatches.every((match) => {
       const before = clause.slice(0, match.index);
       const after = clause.slice(match.index + match[0].length);
-      return /^[\p{L}]*\s+(?:пытаются|пытались)\s+/iu.test(after)
-        || (/['"‘“«]$/u.test(before)
+      return governedPrevention(before)
+        || /^[\p{L}]*\s+(?:пытаются|пытались)\s+/iu.test(after)
+        || (/['"‘“«](?:how\s+(?:to\s+|do\s+i\s+)?)?$/iu.test(before)
           && /^[\p{L}]*['"’”»]\s+attempts?\s+by\s+(?:dishonest\s+farms?|fraudsters?)\b/iu.test(after))
-        || (/(?:不法|不诚实)(?:农场|经营者|人员)的[“「『]$/u.test(before)
+        || (/(?:不法|不诚实)(?:农场|经营者|人员)的[“「『](?:如何|怎么)?$/u.test(before)
           && /^[\p{L}]*[”」』](?:的)?(?:尝试|行为)/u.test(after));
     });
-    return !defensiveIntent
+    return (!defensiveIntent && !directMatches.every((match) => governedPrevention(clause.slice(0, match.index))))
       || !linkedThirdPartyAttempt
       || /^\s*(?:как\s+(?:скрыть|утаить|подделать|сфальсифицировать)|how\s+to\s+(?:hide|conceal|forge|falsify)|如何\s*(?:隐藏|隐瞒|伪造))/iu.test(clause)
       || /(?:помоги(?:те)?\s+(?:мне|нам)|как\s+(?:мне|нам)|help\s+me|how\s+do\s+i|帮我)[^.!?。！？\n]{0,60}(?:скрыть|утаить|подделать|сфальсифицировать|hide|conceal|forge|falsify|隐藏|隐瞒|伪造)/iu.test(clause);
@@ -564,7 +568,7 @@ export function routeAssistantQuestion(
     ?? /(?:посоветуй|порекомендуй|найди|покажи)(?:те)?\s+([^.!?;。！？；\n]{1,120}?)\s+(?:фильм|видео|сериал|кино)[\p{L}]*/iu.exec(raw)?.[1]
     ?? /(?:推荐|介绍|找)(?:一[部个段])?([^。！？\n]{1,60}?)(?:电影|视频|纪录片)/u.exec(raw)?.[1];
   const unknownResourceSubject = resourceSubject !== undefined
-    && !/^(?:an?|the|一[部个段])$/iu.test(resourceSubject.trim())
+    && !/^(?:an?|the|一[部个段])$|^(?:(?:an?|the)\s+)?(?:good|great|best|interesting|nice|new|latest|popular|funny|short|educational|entertaining)(?:\s+(?:good|great|best|interesting|nice|new|latest|popular|funny|short|educational|entertaining)){0,6}$|^(?:интересн|хорош|нов|популярн|смешн|коротк|лучши|увлекательн|образовательн)[\p{L}]*(?:\s+(?:интересн|хорош|нов|популярн|смешн|коротк|лучши|увлекательн|образовательн)[\p{L}]*){0,6}$|^(?:一[部个段])?(?:(?:好看|有趣|热门|最新|精彩|普通|经典|新|好)(?:的)?){1,6}$/iu.test(resourceSubject.trim())
     && !containsAny(normalize(resourceSubject), UNRELATED_TERMS);
 
   // A named off-topic subject outranks generic section vocabulary and sentence
