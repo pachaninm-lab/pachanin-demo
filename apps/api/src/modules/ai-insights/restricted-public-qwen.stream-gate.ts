@@ -92,6 +92,12 @@ export type PaymentTimingInput = Readonly<{
 type UserContextTurn = Readonly<{ role: 'user' | 'assistant'; text: string }>;
 const STORAGE_TOPIC = /хран[еи]|storage|stor[ei]|仓储|储存/iu;
 const ECONOMIC_TOPIC = /цен|стоим|расход|руб|прода|выгод|покры|price|cost|sell|profit|break.even|价格|成本|出售|收益/iu;
+
+function hasEconomicTopic(text: string): boolean {
+  // Application rates are not financial expenses. Other monetary words in the
+  // same request still activate the existing financial screen.
+  return ECONOMIC_TOPIC.test(text.replace(/(?<![\p{L}])норм[аы]\s+расхода(?![\p{L}])/giu, ''));
+}
 const TRANSPORT_COMPARISON = /перевоз|перевозчик|freight|haul|carrier|运输|承运/iu;
 const PAYMENT_TIMING_TOPIC = /оплат|плат[её]ж|отсроч|гарант|сегодня|сразу|payment|paid|defer|guarantee|today|付款|延期|担保|今天/iu;
 const PAYMENT_TONNE_PRICE = /((?:\d{1,3}(?:[ \u00A0\u202F]\d{3})+|\d{1,7})(?:[.,]\d{1,2})?)\s*(?:руб(?:лей|ля|ль)?\.?|₽|RUB)\s*(?:\/\s*т(?:онн[уы])?|за\s+тонн[уы])/giu;
@@ -114,7 +120,14 @@ const STORAGE_REQUIRED_WITHOUT = new RegExp([
 // A current request can refer back to storage with a pronoun rather than
 // repeating it. Keep an explicit time marker, reference and cost request;
 // a payment-bearing clause leaves that reference ambiguous.
-const STORAGE_RENEWED_COST_REFERENCE = /\b(?:now|currently)\s+(?:(?:i|we)\s+)?(?:need|want|request)\s+(?:to\s+(?:know|calculate|compare)\s+)?(?:its|this|that)\s+(?:costs?|expenses?|price)\b|(?:теперь|сейчас)\s+(?:(?:мне|нам)\s+)?(?:нужн[аоы]|нужен|хочу\s+узнать)\s+(?:его|её|этого|такого)\s+(?:стоимост|цен|расход|затрат)|(?:现在|目前)\s*(?:我|我们)?\s*(?:需要|想知道|想了解|计算)\s*(?:它|其|这个|这种|那个)(?:的)?\s*(?:成本|费用|价格)/iu;
+const STORAGE_RENEWED_COST_REFERENCE = /\b(?:now|currently)\s+(?:(?:i|we)\s+)?(?:need|want|request)\s+(?:to\s+(?:know|calculate|compare)\s+)?(?:its|this|that)\s+(?:costs?|expenses?|price)\b|(?:теперь|сейчас)\s+(?:(?:мне|нам)\s+)?(?:нужн[аоы]|нужен|хочу\s+узнать)\s+(?:его|её|этого|такого)\s+(?:стоимост|цен|расход|затрат)[\p{L}]*|(?:现在|目前)\s*(?:我|我们)?\s*(?:需要|想知道|想了解|计算)\s*(?:它|其|这个|这种|那个)(?:的)?\s*(?:成本|费用|价格)/iu;
+const REFERENCED_COST_EXCLUSION = /^\s+(?:(?:to|should|must)\s+be\s+|(?:is|are)\s+)?(?:excluded|omitted|ignored|removed|left\s+out|not\s+(?:included|counted|considered))\b|^\s+(?:исключ[\p{L}]*|убран[\p{L}]*|не\s+(?:учитыва[\p{L}]*|включ[\p{L}]*))|^\s*(?:不计入|排除|忽略)/iu;
+
+function storageCostReferenceExcluded(clause: string): boolean {
+  const reference = STORAGE_RENEWED_COST_REFERENCE.exec(clause);
+  return reference !== null && STORAGE_PRIOR_ANSWER_REFERENCE.test(clause.slice(0, reference.index))
+    && REFERENCED_COST_EXCLUSION.test(clause.slice(reference.index + reference[0].length));
+}
 const STORAGE_PRIOR_ANSWER_REFERENCE = new RegExp([
   /(?:^|[^\p{L}])(?:я|мы|ты|вы)\s+(?:(?:ранее|раньше|уже|только\s+что)\s+)?(?:говорил[аи]?|сказал[аи]?|предложил[аи]?|упоминал[аи]?|обсуждал[аи]?)/u.source,
   /(?:^|[^\p{L}])(?:предыдущ|прошл|тво|ваш)[\p{L}]*\s+(?:ответ|сообщени)/u.source,
@@ -133,6 +146,8 @@ const STORAGE_EXCLUDED = new RegExp([
   /\bno\s+need\s+(?:to\s+stor(?:e|ing)|for\s+storage)\b/.source,
   /^\s*(?:no|without)\s+storage(?:\s+(?:costs?|expenses?))?(?=\s*(?:$|[,，:]|\bcompare\b))/.source,
   /^\s*no\s+storage\s+(?:is\s+)?(?:needed|required)\b/.source,
+  /\b(?:assuming|assume)\s+no\s+storage(?:\s+(?:costs?|expenses?))?(?=\s*(?:$|[,，:]))/.source,
+  /\b(?:excluding|exclude|omitting|omit|ignoring|ignore)\s+(?:the\s+)?storage(?:\s+(?:costs?|expenses?))?\b/.source,
   `\\b(?:storage|stor(?:e|ing))\\b${STORAGE_MENTION_GAP}{0,48}\\b(?:not\\s+(?:needed|required)|isn't\\s+(?:needed|required))\\b`,
   /\b(?:do\s+not|don't)\s+(?:include|need|require)\s+(?:the\s+)?storage\b/.source,
   /\b(?:do\s+not|don't)\s+need\s+to\s+store\b/.source,
@@ -154,7 +169,8 @@ function storageExplicitlyExcluded(text: string): boolean {
   return clauses.length > 0 && clauses.every((clause) => {
     // Double negation and unexcluded mentions keep the conservative screen.
     if (STORAGE_REQUIRED_WITHOUT.test(clause)
-      || /не\s+(?:нужно|надо|требуется)\s+(?:исключ|игнор|убир)|\bnot\s+(?:needed|required)\s+to\s+(?:exclude|ignore)|无需\s*(?:忽略|排除)/iu.test(clause)) return false;
+      || /не\s+(?:нужно|надо|требуется)\s+(?:исключ|игнор|убир)|\bnot\s+(?:needed|required)\s+to\s+(?:exclude|ignore)|\b(?:do\s+not|don't|must\s+not|cannot|can't|without)\s+(?:excluding|exclude|omitting|omit|ignoring|ignore)\s+(?:the\s+)?storage\b|无需\s*(?:忽略|排除)/iu.test(clause)) return false;
+    if (storageCostReferenceExcluded(clause) && [...clause.matchAll(new RegExp(STORAGE_TOPIC.source, 'giu'))].length === 1) return true;
     const exclusions = [...clause.matchAll(new RegExp(STORAGE_EXCLUDED.source, 'giu'))];
     return [...clause.matchAll(new RegExp(STORAGE_TOPIC.source, 'giu'))].every((topic) =>
       exclusions.some((exclusion) => topic.index >= exclusion.index
@@ -174,7 +190,7 @@ function storageAffirmativelyRequested(text: string): boolean {
     if (storageExplicitlyExcluded(clause)) return false;
     // Mentioning a previous answer is not renewed physical-storage intent.
     if (STORAGE_PRIOR_ANSWER_REFERENCE.test(clause)) return false;
-    return ECONOMIC_TOPIC.test(clause)
+    return hasEconomicTopic(clause)
       || /хранить|нуж|необходим|если|нельзя|невозмож|\bstor(?:e|es|ed|ing)\b|\b(?:if|need|needed|required)\b|cannot\s+(?:ship|avoid)|储存|需要|必须|如果/iu.test(clause)
       || (/месяц|срок|month|duration|月|期限/iu.test(clause) && !PAYMENT_TIMING_TOPIC.test(clause));
   });
@@ -186,12 +202,12 @@ export function economicComparisonFor(question: string, history: readonly UserCo
   if (paymentTimingFromUser(question) !== null) return 'payment_timing';
   if (TRANSPORT_COMPARISON.test(question) && /рейс|тонн|тариф|trip|tonne|rate|趟|吨|费率/iu.test(question)) return 'transport';
   const lastUser = [...history].reverse().find((turn) => turn.role === 'user')?.text ?? '';
-  const economicFollowUp = STORAGE_TOPIC.test(lastUser) && ECONOMIC_TOPIC.test(lastUser)
+  const economicFollowUp = STORAGE_TOPIC.test(lastUser) && hasEconomicTopic(lastUser)
     && /месяц|покры|срок|month|cover|duration|月|期限/iu.test(question);
   // Excluding storage arithmetic must not disable the existing monetary
   // output screen or qualitative-only provider instruction for a cost question.
-  if (storageExplicitlyExcluded(question)) return ECONOMIC_TOPIC.test(question) || economicFollowUp ? 'qualitative' : null;
-  if ((STORAGE_TOPIC.test(question) && ECONOMIC_TOPIC.test(question)) || economicFollowUp) {
+  if (storageExplicitlyExcluded(question)) return hasEconomicTopic(question) || economicFollowUp ? 'qualitative' : null;
+  if ((STORAGE_TOPIC.test(question) && hasEconomicTopic(question)) || economicFollowUp) {
     return storageExplicitlyExcluded(lastUser) && !storageAffirmativelyRequested(question) ? 'qualitative' : 'storage';
   }
   return null;

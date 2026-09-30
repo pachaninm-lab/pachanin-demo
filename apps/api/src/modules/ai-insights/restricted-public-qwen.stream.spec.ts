@@ -237,6 +237,9 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     ['zh', '我之前说过储存一个月。现在问题是付款期限一个月。', '选择延期付款，每吨可获利400卢布。', '核对交易对手和付款条件。'],
     ['en', 'Without storage, there is no possibility of extra expense; compare payment costs.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
     ['ru', 'Без хранения нет возможности понести дополнительные расходы; сравни условия оплаты.', 'Выбирайте отсрочку оплаты: прибыль составит 400 руб/т.', 'Проверьте условия оплаты.'],
+    ['en', 'I discussed storage with my manager and now need its cost excluded.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
+    ['en', 'Compare payment costs assuming no storage.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
+    ['en', 'Compare payment costs excluding storage.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
   ])('keeps a rejected storage reference qualitative in both real service paths: %s', async (locale, question, unsupported, qualitative) => {
     for (const mode of ['stream', 'buffered']) {
       for (const chunkSize of [1, 7, 500]) {
@@ -260,6 +263,25 @@ describe('RestrictedPublicQwenService.generateStream', () => {
         expect(answer).toContain(qualitative);
         expect(answer).not.toMatch(/только хранения|Storage-only break-even|仅覆盖仓储费/iu);
       }
+    }
+  });
+
+  it.each(['stream', 'buffered'])('keeps the live warehouse checklist free of an unsolicited storage calculation in %s', async (mode) => {
+    const question = 'Составь короткий чек-лист подготовки зернохранилища к загрузке новой партии: что осмотреть, проверить и записать? Не нужны препараты и нормы расхода.';
+    const content = 'Осмотрите крышу, стены и состояние уплотнений. Проверьте вентиляцию и датчики температуры. Запишите влажность зерна и дату загрузки. ';
+    for (const chunkSize of [1, 7, 500]) {
+      const raw = request({ question, originalQuestion: question });
+      let answer = '';
+      if (mode === 'stream') {
+        installRuntime({ deltas: Array.from({ length: Math.ceil(content.length / chunkSize) }, (_, index) => content.slice(index * chunkSize, (index + 1) * chunkSize)), gapMs: 0 });
+        for await (const event of service.generateStream(raw)) if (event.type === 'delta') answer += event.text;
+      } else {
+        global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+        answer = (await service.generate(raw)).answer;
+      }
+      expect(answer).toContain('Проверьте вентиляцию');
+      expect(answer).not.toContain('Для покрытия только хранения');
+      expect(answer).not.toContain('месячную стоимость');
     }
   });
 
