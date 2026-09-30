@@ -1,6 +1,127 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import type { ReactNode } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { BankReleaseProjection } from '../../lib/bank-release-server';
+
+const pageBoundary = vi.hoisted(() => ({
+  locale: vi.fn(),
+  workspace: vi.fn(),
+  projection: vi.fn(),
+}));
+vi.mock('next-intl/server', () => ({ getLocale: pageBoundary.locale }));
+vi.mock('@/lib/bank-release-server', () => ({
+  getCanonicalBankReleaseWorkspace: pageBoundary.workspace,
+  buildBankReleaseProjection: pageBoundary.projection,
+}));
+vi.mock('@/components/platform-v7/CanonicalDealsList', () => ({ CanonicalDealsList: () => null }));
+vi.mock('@pc/design-system-v8', async () => {
+  const { createElement } = await import('react');
+  return {
+    StatusChip: ({ children, tone }: { children: ReactNode; tone?: string }) => createElement('span', { 'data-tone': tone }, children),
+    InlineNotice: ({ children, title }: { children: ReactNode; title?: string }) => createElement('aside', null, title, children),
+  };
+});
+
+describe('selected bank payout page reason copy', () => {
+  const workspace = Object.freeze({ marker: 'trusted-read-unit-boundary' });
+  let projection: BankReleaseProjection;
+  beforeEach(() => {
+    vi.clearAllMocks();
+    projection = {
+      dealId: 'deal-copy', tenantId: 'tenant-copy', dealVersion: '7', dealStatus: 'RELEASE_REQUESTED',
+      shipmentId: 'shipment-copy', amountKopecks: '12000', currency: 'RUB', viewerRole: 'BANK',
+      viewerCanRequest: false, state: 'manual_review', documents: [], documentsReady: false,
+      acceptanceReady: false, reserveConfirmed: false, releaseRequested: false, releaseConfirmed: false,
+      activeDisputeCount: 1, activeHoldKopecks: '100', payment: null, reserveOperation: null,
+      releaseOperation: null, releaseOutbox: null, blockers: [], warnings: [],
+    };
+    pageBoundary.workspace.mockResolvedValue(workspace);
+    pageBoundary.projection.mockImplementation(() => projection);
+  });
+  async function render(locale: string) {
+    pageBoundary.locale.mockResolvedValue(locale);
+    const before = JSON.stringify(projection);
+    const { default: Page } = await import('../../app/platform-v7/bank/release-safety/page');
+    const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: projection.dealId }) }));
+    expect(pageBoundary.workspace).toHaveBeenCalledWith(projection.dealId);
+    expect(pageBoundary.projection).toHaveBeenCalledWith(workspace, undefined);
+    expect(JSON.stringify(projection)).toBe(before);
+    expect(html).toContain('/platform-v7/deals/deal-copy/clean');
+    expect(html).not.toMatch(/<form|<button|method="post"/i);
+    return html;
+  }
+  const locales = [
+    { locale: 'ru', dispute: 'По Сделке есть открытый спор.', hold: 'На средства действует удержание.',
+      currency: 'Валюта банковской операции расходится с валютой Сделки', reconciliation: 'Результат банковской сверки пока недоступен.',
+      document: 'Товарно-транспортная накладная: документ не представлен.', signing: 'Лабораторный протокол: подписание не подтверждено.',
+      unknownBlocker: 'Дополнительное условие выплаты требует проверки в Сделке.', unknownWarning: 'Дополнительные сведения нужно проверить в Сделке.',
+      known: 'выплата подтверждена банком' },
+    { locale: 'en', dispute: 'The Deal has an open dispute.', hold: 'A hold applies to the funds.',
+      currency: 'The bank operation currency differs from the Deal currency', reconciliation: 'The bank reconciliation result is not yet available.',
+      document: 'Consignment note: the document is not provided.', signing: 'Laboratory report: signing is not confirmed.',
+      unknownBlocker: 'An additional payout condition needs checking in the Deal.', unknownWarning: 'Additional information needs checking in the Deal.',
+      known: 'payout confirmed by bank' },
+    { locale: 'zh', dispute: '该交易存在未结争议。', hold: '资金存在冻结或扣留。',
+      currency: '银行操作币种与交易币种不一致', reconciliation: '银行对账结果暂不可用。',
+      document: '货物运输单: 尚未提供文件。', signing: '实验室报告: 签署尚未确认。',
+      unknownBlocker: '另有付款条件需要在交易中核查。', unknownWarning: '另有信息需要在交易中核查。',
+      known: '银行已确认付款' },
+  ];
+  it.each(locales)('renders readable blockers and unavailable reconciliation in $locale', async copy => {
+    projection.blockers.push('OPEN_DISPUTE', 'ACTIVE_MONEY_HOLD', 'BANK_OPERATION_CURRENCY_REQUIRES_MANUAL_REVIEW');
+    projection.warnings.push('RECONCILIATION_RESULT_NOT_EXPOSED_IN_DEAL_WORKSPACE');
+    const html = await render(copy.locale);
+    for (const expected of [copy.dispute, copy.hold, copy.currency, copy.reconciliation]) expect(html).toContain(expected);
+    for (const code of [...projection.blockers, ...projection.warnings]) expect(html).not.toContain(code);
+    expect(projection.releaseConfirmed).toBe(false);
+  });
+  it.each(locales)('explains document names and checks in $locale', async copy => {
+    projection.blockers.push('DOCUMENT:TTN:MISSING', 'DOCUMENT:LAB_PROTOCOL:STATUS_NOT_SIGNED');
+    const html = await render(copy.locale);
+    expect(html).toContain(copy.document); expect(html).toContain(copy.signing);
+    for (const code of projection.blockers) expect(html).not.toContain(code);
+  });
+  it.each(locales)('keeps unknown and prototype reason keys readable without exposing raw values in $locale', async copy => {
+    projection.blockers.push('NEW_PRIVATE_GATE', 'constructor', '__proto__', 'DOCUMENT:UNKNOWN_TYPE:UNKNOWN_CHECK',
+      'DOCUMENT:constructor:toString', 'DOCUMENT:__proto__:__proto__', 'DOCUMENT:TTN:MISSING:INVALID_SUFFIX');
+    projection.warnings.push('NEW_PRIVATE_WARNING');
+    const html = await render(copy.locale);
+    expect(html).toContain(copy.unknownBlocker); expect(html).toContain(copy.unknownWarning);
+    for (const code of ['NEW_PRIVATE_GATE', 'constructor', '__proto__', 'toString', 'UNKNOWN_TYPE', 'UNKNOWN_CHECK', 'INVALID_SUFFIX', 'NEW_PRIVATE_WARNING']) expect(html).not.toContain(code);
+    expect(html).not.toContain('[object Object]');
+  });
+  it.each(locales)('preserves server-confirmed display and an empty reason list in $locale', async copy => {
+    projection = { ...projection, state: 'released', releaseConfirmed: true, activeDisputeCount: 0, activeHoldKopecks: '0' };
+    const html = await render(copy.locale);
+    expect(html).toContain(copy.known);
+    expect(html).not.toContain(copy.unknownBlocker); expect(html).not.toContain(copy.unknownWarning);
+    expect(projection.releaseConfirmed).toBe(true);
+  });
+  it.each(locales)('keeps a pending request externally unconfirmed while translating its warnings in $locale', async copy => {
+    projection = { ...projection, state: 'awaiting_bank', releaseRequested: true,
+      warnings: ['RECONCILIATION_RESULT_NOT_EXPOSED_IN_DEAL_WORKSPACE'] };
+    const html = await render(copy.locale);
+    expect(html).toContain(copy.reconciliation);
+    expect(html).not.toContain('RECONCILIATION_RESULT_NOT_EXPOSED_IN_DEAL_WORKSPACE');
+    expect(projection.releaseConfirmed).toBe(false);
+    expect(projection.state).toBe('awaiting_bank');
+    const unknown = { ru: 'внешний исход неизвестен', en: 'external outcome unknown', zh: '外部结果未知' };
+    expect(html).toContain(unknown[copy.locale as keyof typeof unknown]);
+  });
+  it.each(locales)('keeps an unavailable authenticated workspace from rendering a trusted projection in $locale', async copy => {
+    pageBoundary.locale.mockResolvedValue(copy.locale);
+    pageBoundary.workspace.mockResolvedValue(null);
+    const { default: Page } = await import('../../app/platform-v7/bank/release-safety/page');
+    const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: projection.dealId }) }));
+    expect(pageBoundary.projection).not.toHaveBeenCalled();
+    expect(html).not.toContain('PRIVATE_UPSTREAM_DETAIL');
+    expect(html).not.toContain(copy.known);
+    expect(html).not.toMatch(/<form|<button|method="post"/i);
+    expect(html).toContain('/platform-v7/deals');
+  });
+});
 
 const cwd = process.cwd();
 const root = [cwd, path.resolve(cwd, '../..')]
@@ -9,6 +130,7 @@ const root = [cwd, path.resolve(cwd, '../..')]
 if (!root) throw new Error(`Cannot resolve repository root from ${cwd}`);
 
 function read(relativePath: string): string {
+  if (!root) throw new Error(`Cannot resolve repository root from ${cwd}`);
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
 }
 
