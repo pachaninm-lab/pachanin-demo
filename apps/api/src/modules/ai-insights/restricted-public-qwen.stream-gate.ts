@@ -93,7 +93,7 @@ type UserContextTurn = Readonly<{ role: 'user' | 'assistant'; text: string }>;
 const STORAGE_TOPIC = /хран[еи]|storage|stor[ei]|仓储|储存/iu;
 // Bound the ambiguous price/ruble stems (оцените, трубы), while retaining
 // monetary compounds such as себестоимость and перерасход.
-const ECONOMIC_TOPIC = /(?<![\p{L}])(?:(?:на|у|рас)?цен|руб)|стоим|расход|прода|выгод|покры|окуп|прибыл|price|cost|sell|profit|break.even|价格|成本|出售|收益/iu;
+const ECONOMIC_TOPIC = /(?<![\p{L}])(?:(?:на|у|рас)?цен|руб|процент)|стоим|расход|прода|выгод|покры|окуп|прибыл|price|cost|sell|profit|break.even|价格|成本|出售|收益/iu;
 
 function hasEconomicTopic(text: string): boolean {
   // Application rates are not financial expenses. Other monetary words in the
@@ -145,12 +145,14 @@ const STORAGE_EXCLUDED = new RegExp([
   /без\s+(?:расходов\s+на\s+)?хранени[ея]/.source,
   /не\s+(?:добавля|учитыва|включа)[\p{L}]*\s+(?:(?:расход|стоимост|затрат)[\p{L}]*\s+(?:на\s+)?)?хранени[ея]/u.source,
   /(?<![\p{L}])исключ(?:и|ите|ить)\s+(?:из\s+(?:расч[её]та|сметы)\s+)?(?:(?:расход|стоимост|затрат)[\p{L}]*\s+(?:на\s+)?)?хранени[ея]/u.source,
+  /хранени[ея]\s+(?:исключен[\p{L}]*|не\s+(?:должен|должна|должны|должно|будет|будут)\s+(?:учитыв|включ)[\p{L}]*)/u.source,
   `не\\s+(?:упомина|обсужда|говори)[\\p{L}]*${STORAGE_MENTION_GAP}{0,48}(?:хранить|хранени[еяи])`,
   /\bno\s+need\s+(?:to\s+stor(?:e|ing)|for\s+storage)\b/.source,
   /^\s*(?:no|without)\s+storage(?:\s+(?:costs?|expenses?))?(?=\s*(?:$|[,，:]|\bcompare\b))/.source,
   /^\s*no\s+storage\s+(?:is\s+)?(?:needed|required)\b/.source,
   /\b(?:assuming|assume)\s+no\s+storage(?:\s+(?:costs?|expenses?))?(?:\s+is\s+(?:needed|required|necessary|planned|involved))?(?:\s+for\s+(?:this|the|our)\s+(?:deal|shipment|transaction|sale|delivery|contract))?(?=\s*(?:$|[,，:]))/.source,
   /\b(?:excluding|exclude|omitting|omit|ignoring|ignore)\s+(?:the\s+)?storage(?:\s+(?:costs?|expenses?))?\b/.source,
+  /\bstorage(?:\s+(?:costs?|expenses?))?\s+(?:(?:is|are)\s+(?:excluded|omitted|ignored|not\s+(?:included|counted|considered))|(?:(?:should|must)\s+not|not\s+to)\s+be\s+(?:included|counted|considered)|(?:should|must|to)\s+be\s+(?:excluded|omitted|ignored))\b/.source,
   `\\b(?:storage|stor(?:e|ing))\\b${STORAGE_MENTION_GAP}{0,48}\\b(?:not\\s+(?:needed|required)|isn't\\s+(?:needed|required))\\b`,
   /\b(?:do\s+not|don't)\s+(?:include|need|require)\s+(?:the\s+)?storage\b/.source,
   /\b(?:do\s+not|don't)\s+need\s+to\s+store\b/.source,
@@ -214,7 +216,7 @@ export function economicComparisonFor(question: string, history: readonly UserCo
   const lastUser = [...history].reverse().find((turn) => turn.role === 'user')?.text ?? '';
   const economicFollowUp = STORAGE_TOPIC.test(lastUser) && hasEconomicTopic(lastUser)
     && /месяц|покры|срок|month|cover|duration|月|期限/iu.test(question);
-  const paymentChoice = PAYMENT_TIMING_TOPIC.test(question)
+  const paymentChoice = /оплат|плат[её]ж|отсроч|банк[\p{L}]*\s+гарант|payment|paid|defer|bank\s+guarantee|付款|延期|银行担保/iu.test(question)
     && /сравн|выбр|выбор|выбира|что\s+выбрать|что\s+лучше|какой\s+вариант|compar|choos|select|which|better|比较|选择|哪|更/iu.test(question);
   // Excluding storage arithmetic must not disable the existing monetary
   // output screen or qualitative-only provider instruction for a cost question.
