@@ -204,6 +204,12 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     ['buffered', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Без хранения нет возможности рассчитать прибыль. Сравни расходы.', 'Для покрытия только хранения'],
     ['stream', 'en', 'Storage is not needed; compare payment costs.', 'Without storage costs, there is no way to calculate profit. Compare costs.', 'Storage-only break-even'],
     ['buffered', 'en', 'Storage is not needed; compare payment costs.', 'Without storage costs, there is no way to calculate profit. Compare costs.', 'Storage-only break-even'],
+    ['stream', 'en', 'Storage is not needed; compare payment costs.', 'I discussed storage with my manager and now need its cost for one month.', 'Storage-only break-even'],
+    ['buffered', 'en', 'Storage is not needed; compare payment costs.', 'I discussed storage with my manager and now need its cost for one month.', 'Storage-only break-even'],
+    ['stream', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Я обсуждал хранение с руководителем и теперь мне нужна его стоимость за один месяц.', 'Для покрытия только хранения'],
+    ['buffered', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Я обсуждал хранение с руководителем и теперь мне нужна его стоимость за один месяц.', 'Для покрытия только хранения'],
+    ['stream', 'zh', '无需仓储；比较付款风险和成本。', '我之前说过储存，现在需要它的成本，期限一个月。', '仅覆盖仓储费'],
+    ['buffered', 'zh', '无需仓储；比较付款风险和成本。', '我之前说过储存，现在需要它的成本，期限一个月。', '仅覆盖仓储费'],
   ])('uses current reintroduced storage in the real %s service path (%s)', async (mode, locale, previous, question, storageCopy) => {
     const raw = request({ locale, question, originalQuestion: question, history: [{ role: 'user', text: previous }] });
     const content = '400 RUB';
@@ -229,6 +235,8 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     ['ru', 'Раньше мы обсуждали хранение один месяц. Сейчас вопрос про срок оплаты: один месяц.', 'Выбирайте отсрочку оплаты: прибыль составит 400 руб/т.', 'Проверьте условия оплаты.'],
     ['en', 'I previously said to store grain for one month. The payment duration is one month.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
     ['zh', '我之前说过储存一个月。现在问题是付款期限一个月。', '选择延期付款，每吨可获利400卢布。', '核对交易对手和付款条件。'],
+    ['en', 'Without storage, there is no possibility of extra expense; compare payment costs.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
+    ['ru', 'Без хранения нет возможности понести дополнительные расходы; сравни условия оплаты.', 'Выбирайте отсрочку оплаты: прибыль составит 400 руб/т.', 'Проверьте условия оплаты.'],
   ])('keeps a rejected storage reference qualitative in both real service paths: %s', async (locale, question, unsupported, qualitative) => {
     for (const mode of ['stream', 'buffered']) {
       for (const chunkSize of [1, 7, 500]) {

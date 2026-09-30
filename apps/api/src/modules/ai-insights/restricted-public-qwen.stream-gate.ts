@@ -105,10 +105,16 @@ const PAYMENT_COMPARISON_SEPARATOR = /(?:или|либо|\bvs\.?\b|\bversus\b|\b
 // would attach its negation to an earlier, applicable comparison.
 const STORAGE_MENTION_GAP = `(?:(?!${STORAGE_TOPIC.source})[^,，.!?;。！？；\\n])`;
 const STORAGE_NECESSITY_GAP = `(?:(?!${STORAGE_TOPIC.source})[^.!?;。！？；\\n])`;
+const STORAGE_NECESSITY_ACTION_RU = '(?:рассчит|посчит|подсчит|отгруз|достав|сохран|пережд)[\\p{L}]*';
+const STORAGE_NECESSITY_ACTION_EN = '(?:calculat(?:e|ed|ing)|comput(?:e|ed|ing)|ship(?:ped|ping)?|deliver(?:ed|ing)?|preserv(?:e|ed|ing)|wait(?:ing)?)';
 const STORAGE_REQUIRED_WITHOUT = new RegExp([
-  `без\\s+(?:(?:расход|стоимост|затрат)[\\p{L}]*\\s+(?:на\\s+)?)?хранени[ея]${STORAGE_NECESSITY_GAP}{0,80}(?:нельзя|невозмож|нет\\s+возможност[ьи]|не\\s+(?:мож|могу|получ|удаст))`,
-  `\\bwithout\\s+storage(?:\\s+(?:costs?|expenses?))?${STORAGE_NECESSITY_GAP}{0,80}\\b(?:cannot|can't|impossible|not\\s+possible|no\\s+(?:way|possibility))\\b`,
+  `без\\s+(?:(?:расход|стоимост|затрат)[\\p{L}]*\\s+(?:на\\s+)?)?хранени[ея]${STORAGE_NECESSITY_GAP}{0,80}(?:нельзя|невозмож|нет\\s+возможност[ьи]\\s+(?:(?:быстро|правильно|точно)\\s+)?${STORAGE_NECESSITY_ACTION_RU}|не\\s+(?:мож|могу|получ|удаст))`,
+  `\\bwithout\\s+storage(?:\\s+(?:costs?|expenses?))?${STORAGE_NECESSITY_GAP}{0,80}\\b(?:cannot|can't|impossible|not\\s+possible|no\\s+(?:way|possibility)\\s+(?:(?:to|of)\\s+)?(?:(?:accurately|properly|safely)\\s+)?${STORAGE_NECESSITY_ACTION_EN})\\b`,
 ].join('|'), 'iu');
+// A current request can refer back to storage with a pronoun rather than
+// repeating it. Keep an explicit time marker, reference and cost request;
+// a payment-bearing clause leaves that reference ambiguous.
+const STORAGE_RENEWED_COST_REFERENCE = /\b(?:now|currently)\s+(?:(?:i|we)\s+)?(?:need|want|request)\s+(?:to\s+(?:know|calculate|compare)\s+)?(?:its|this|that)\s+(?:costs?|expenses?|price)\b|(?:теперь|сейчас)\s+(?:(?:мне|нам)\s+)?(?:нужн[аоы]|нужен|хочу\s+узнать)\s+(?:его|её|этого|такого)\s+(?:стоимост|цен|расход|затрат)|(?:现在|目前)\s*(?:我|我们)?\s*(?:需要|想知道|想了解|计算)\s*(?:它|其|这个|这种|那个)(?:的)?\s*(?:成本|费用|价格)/iu;
 const STORAGE_PRIOR_ANSWER_REFERENCE = new RegExp([
   /(?:^|[^\p{L}])(?:я|мы|ты|вы)\s+(?:(?:ранее|раньше|уже|только\s+что)\s+)?(?:говорил[аи]?|сказал[аи]?|предложил[аи]?|упоминал[аи]?|обсуждал[аи]?)/u.source,
   /(?:^|[^\p{L}])(?:предыдущ|прошл|тво|ваш)[\p{L}]*\s+(?:ответ|сообщени)/u.source,
@@ -159,6 +165,10 @@ function storageExplicitlyExcluded(text: string): boolean {
 function storageAffirmativelyRequested(text: string): boolean {
   const clauses = storageClauses(text);
   if (clauses.some((clause) => STORAGE_REQUIRED_WITHOUT.test(clause))) return true;
+  if (clauses.some((clause) => STORAGE_PRIOR_ANSWER_REFERENCE.test(clause)
+    && !storageExplicitlyExcluded(clause)
+    && !PAYMENT_TIMING_TOPIC.test(clause)
+    && STORAGE_RENEWED_COST_REFERENCE.test(clause))) return true;
   return clauses.flatMap((clause) => clause.split(/[,，]|\s+and\s+|\s+и\s+|而/iu)).some((clause) => {
     if (!STORAGE_TOPIC.test(clause)) return false;
     if (storageExplicitlyExcluded(clause)) return false;
