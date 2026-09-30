@@ -2765,11 +2765,11 @@
       "candidateBranch": "fix/gekta-qwen35-guard-argv-form-20260928",
       "allowedCandidatePaths": [
         ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
-        "scripts/gekta-qwen35-4b-model-host-candidate.py",
-        "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json"
+        "scripts/gekta-qwen35-4b-model-host-candidate.py"
       ],
       "requiredTruthBoundaries": [
         "Preserve existing canonical #5736, #5738 and han-stream policy work; owner transfer does not replace unrelated CORE R1 or PRODUCT UX/FGIS/bank ownership.",
+        "The intended candidate source branch must use accepted-base literal workflow/helper scope and matching trusted-base/PR-head defense workflow selectors; its manifest/state/guard/authority files are immutable on that branch. The previously generic head-manifest route is not accepted continuation authority.",
         "Existing candidate workflow may retain the exact combined10+4command and add only fixed critical10/extra4 selections with independent unchanged420-second windows, failure-preserving stderr capture and honest COMPLETE/PARTIAL/FAILED reporting from actual same-SHA suite summaries and lifecycle outcomes.",
         "Preserve every real-model semantic assertion, model bytes/hash/alias, production executable/runtime parameters, capacity checks, dedicated non-root principal, pinned transport, credential boundaries, baseline PID/identity and cleanup/watchdog contracts.",
         "Critical-only or extra-only success is partial. Complete candidate acceptance requires both original suites on the same exact main and all associated startup/acceptance/cleanup proofs; neither source fixtures nor this state record are model or latency acceptance.",
@@ -2781,32 +2781,37 @@
         "Global/current R1 scope or unrelated admission changes",
         "Permanent candidate activation, baseline stop/restart/signal, public listener, model alias reuse, production routing or application/database mutation",
         "CI/security/readiness/acceptance/budget/420lease weakening, fake statuses, author self-review or force/automatic merge",
-        "New mandatory recurring cost"
-      ]
+        "New mandatory recurring cost",
+        "Candidate-owned manifest/state self-expansion or runnable continuation before accepted trusted-base enforcement"
+      ],
+      "activationPrecondition": "This continuation purpose is staged, not runnable authorization from candidate-owned state. Before it becomes effective, independently accept the exact-content trusted-base literal/manifest-immutable route in guard PR#5741 and recheck each consumer's exact current head against that accepted main."
     },
     "gekta-policy-service-regression-prerequisite-20260930": {
       "owner": "OWNER_AUTHORIZED_SESSION",
-      "purpose": "Admit one existing service policy regression to follow the owner's agricultural-only policy without fabricating old prompt phrases or suppressing tests.",
+      "purpose": "Admit exact current three-file protection of the candidate branch against head-manifest self-expansion and one existing service policy regression, preserving all prior constraints.",
       "authorityBaseExactMain": "be928a5938cff0022055fe7a9d3d2eb1c3c39875",
       "implementationBranch": "governance/gekta-recovery-trusted-routes-20260927",
       "candidatePr": 5741,
-      "proposedCandidateSha": "6c5372e21203ec610af189e74a2440aa3775d929",
+      "proposedCandidateSha": "4a43d825fc5d6c8c94cdd10336d424e57708d632",
       "proposedSourceBlobs": {
-        "scripts/p7-autopilot-guard.sh": "16d68aee126e5a7b4e85e8c2c886bb2743cab0f2",
-        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "e11837d047267109f81ad4c1039f4e4930f9d9c3"
+        "scripts/p7-autopilot-guard.sh": "a2627b8aa82d36e9aa152916f7a507a3bf03b6b3",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "5ac3286495bd26ffcdc608ead98c3e6fdae76dee",
+        ".github/workflows/platform-v7-autopilot-guard.yml": "90f6c2b52b25b7a4f09446b7dafb36270f9969dc"
       },
       "allowedPaths": [
         "scripts/p7-autopilot-guard.sh",
-        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs"
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
       ],
       "addedImplementationPath": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
       "consumerBranch": "fix/gekta-han-stream-20260927",
       "requiredTruthBoundaries": [
-        "Preserve historical one-time bootstrap records. This separate prerequisite renews only the named guard branch's purpose for the actual two-file +3/-1 candidate; recorded hashes identify proposed source, not fabricated independent-review approval.",
-        "Guard candidate adds exactly the existing service.spec.ts to the immutable han-stream literal list and its native scope fixture, while adding rejection coverage for neighboring quality.spec.ts. No workflow/state/runtime source or other literal path change is permitted.",
+        "Preserve historical bootstrap records. This separate prerequisite renews only the named guard branch's purpose for the actual three-file candidate; recorded hashes identify proposed source, not independent-review approval. Changed hashes require fresh admission review.",
+        "Guard candidate adds exactly the existing service.spec.ts to the immutable han-stream literal list/fixture, retains neighboring quality.spec.ts rejection, and adds the candidate branch to accepted-base literal workflow/helper scope plus matching trusted-base/PR-defense/exclusion selectors. Candidate manifest/state/guard/authority self-expansion remains forbidden. No runtime or unrelated authority changes.",
         "Independently inspect complete current guard diff and both source blob identities, all substantive CI, owner audit, findings and readiness before ordinary expected-SHA merge. Recorded content is independently manually enforced, not claimed automatically immutable hash enforcement.",
         "Accept trusted guard first, then duplicate its one-path extension in implementation state and update the existing service policy regression in the separate source PR. Candidate-owned state cannot widen the trusted literal route.",
-        "Maintain all previous negative authority/self-expansion tests and normal source/release gates. No runtime/production mutation, new recurring cost or source/model/live PASS comes from this state-only admission."
+        "Maintain all previous negative authority/self-expansion tests and normal source/release gates. No runtime/production mutation, new recurring cost or source/model/live PASS comes from this state-only admission.",
+        "The candidate branch's previously mutable head-manifest scope is not authorized for continuation. After this exact-content prerequisite and full independent review, accept guard#5741 first; only then may the staged fixed-corpus consumer purpose take effect."
       ],
       "forbiddenAuthority": [
         "Runtime implementation in this state or guard prerequisite",
