@@ -93,7 +93,7 @@ type UserContextTurn = Readonly<{ role: 'user' | 'assistant'; text: string }>;
 const STORAGE_TOPIC = /хран[еи]|storage|stor[ei]|仓储|储存/iu;
 // Bound the ambiguous price/ruble stems (оцените, трубы), while retaining
 // monetary compounds such as себестоимость and перерасход.
-const ECONOMIC_TOPIC = /(?<![\p{L}])(?:цен|руб)|стоим|расход|прода|выгод|покры|price|cost|sell|profit|break.even|价格|成本|出售|收益/iu;
+const ECONOMIC_TOPIC = /(?<![\p{L}])(?:(?:на|у)?цен|руб)|стоим|расход|прода|выгод|покры|price|cost|sell|profit|break.even|价格|成本|出售|收益/iu;
 
 function hasEconomicTopic(text: string): boolean {
   // Application rates are not financial expenses. Other monetary words in the
@@ -144,6 +144,7 @@ const STORAGE_EXCLUDED = new RegExp([
   `(?:хранить|хранени[ея])${STORAGE_MENTION_GAP}{0,48}\\s+не\\s+(?:нужно|надо|требуется|нужн[оаы]|предусмотрено|учитыва[\\p{L}]*|включа[\\p{L}]*)`,
   /без\s+(?:расходов\s+на\s+)?хранени[ея]/.source,
   /не\s+(?:добавля|учитыва|включа)[\p{L}]*\s+(?:(?:расход|стоимост|затрат)[\p{L}]*\s+(?:на\s+)?)?хранени[ея]/u.source,
+  /(?<![\p{L}])исключ(?:и|ите|ить)\s+(?:(?:расход|стоимост|затрат)[\p{L}]*\s+(?:на\s+)?)?хранени[ея]/u.source,
   `не\\s+(?:упомина|обсужда|говори)[\\p{L}]*${STORAGE_MENTION_GAP}{0,48}(?:хранить|хранени[еяи])`,
   /\bno\s+need\s+(?:to\s+stor(?:e|ing)|for\s+storage)\b/.source,
   /^\s*(?:no|without)\s+storage(?:\s+(?:costs?|expenses?))?(?=\s*(?:$|[,，:]|\bcompare\b))/.source,
@@ -167,7 +168,10 @@ function storageClauses(text: string): string[] {
 }
 
 function storageExplicitlyExcluded(text: string): boolean {
-  const clauses = storageClauses(text).filter((clause) =>
+  const clauses = storageClauses(text).flatMap((clause) =>
+    STORAGE_PRIOR_ANSWER_REFERENCE.test(clause) && !STORAGE_RENEWED_COST_REFERENCE.test(clause)
+      ? clause.split(/\s+and\s+|\s+и\s+|而/iu).filter((part) => STORAGE_TOPIC.test(part))
+      : [clause]).filter((clause) =>
     !STORAGE_PRIOR_ANSWER_REFERENCE.test(clause)
     || STORAGE_RENEWED_COST_REFERENCE.test(clause)
     || STORAGE_REQUIRED_WITHOUT.test(clause));
