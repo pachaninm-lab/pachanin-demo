@@ -1378,6 +1378,9 @@
       "docs/security/cryptographic-inventory.json"
     ],
     "security/pc-crop-next-15-5-24-4997": [
+      "infra/docker/Dockerfile.api",
+      "infra/docker/Dockerfile.web",
+      "infra/docker/Dockerfile.outbox-worker",
       ".github/workflows/platform-v7-autopilot-guard.yml",
       ".github/workflows/sbom-scan.yml",
       "apps/web/package.json",
