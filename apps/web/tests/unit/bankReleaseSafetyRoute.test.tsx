@@ -1,28 +1,52 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { ReactNode } from 'react';
+import { createRequire } from 'node:module';
+import { createElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import ts from 'typescript';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BankReleaseProjection } from '../../lib/bank-release-server';
 
-const pageBoundary = vi.hoisted(() => ({
+const pageBoundary = {
   locale: vi.fn(),
   workspace: vi.fn(),
   projection: vi.fn(),
-}));
-vi.mock('next-intl/server', () => ({ getLocale: pageBoundary.locale }));
-vi.mock('@/lib/bank-release-server', () => ({
-  getCanonicalBankReleaseWorkspace: pageBoundary.workspace,
-  buildBankReleaseProjection: pageBoundary.projection,
-}));
-vi.mock('@/components/platform-v7/CanonicalDealsList', () => ({ CanonicalDealsList: () => null }));
-vi.mock('@pc/design-system-v8', async () => {
-  const { createElement } = await import('react');
-  return {
+};
+
+// Execute the actual page and cockpit source with explicit boundary doubles.
+// Native Vitest does not resolve the design-system package's source alias;
+// this keeps the real render logic without depending on a generated dist file.
+function loadPage() {
+  if (!root) throw new Error(`Cannot resolve repository root from ${cwd}`);
+  const requireFromWeb = createRequire(path.join(root, 'apps/web/package.json'));
+  const designBoundary = {
     StatusChip: ({ children, tone }: { children: ReactNode; tone?: string }) => createElement('span', { 'data-tone': tone }, children),
     InlineNotice: ({ children, title }: { children: ReactNode; title?: string }) => createElement('aside', null, title, children),
   };
-});
+  function load(relativePath: string): Record<string, any> {
+    const source = read(relativePath);
+    const compiled = ts.transpileModule(source, { compilerOptions: {
+      target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS,
+      jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true,
+    } }).outputText;
+    const module = { exports: {} as Record<string, any> };
+    const boundRequire = (specifier: string): unknown => {
+      if (specifier === 'next-intl/server') return { getLocale: pageBoundary.locale };
+      if (specifier === '@/lib/bank-release-server') return {
+        getCanonicalBankReleaseWorkspace: pageBoundary.workspace,
+        buildBankReleaseProjection: pageBoundary.projection,
+      };
+      if (specifier === '@/components/platform-v7/CanonicalDealsList') return { CanonicalDealsList: () => null };
+      if (specifier === '@pc/design-system-v8') return designBoundary;
+      if (specifier === '@/components/transaction-ux/MoneyObligationCockpit') return load('apps/web/components/transaction-ux/MoneyObligationCockpit.tsx');
+      if (specifier.endsWith('.module.css')) return { __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }) };
+      return requireFromWeb(specifier);
+    };
+    new Function('require', 'module', 'exports', compiled)(boundRequire, module, module.exports);
+    return module.exports;
+  }
+  return load('apps/web/app/platform-v7/bank/release-safety/page.tsx');
+}
 
 describe('selected bank payout page reason copy', () => {
   const workspace = Object.freeze({ marker: 'trusted-read-unit-boundary' });
@@ -43,7 +67,7 @@ describe('selected bank payout page reason copy', () => {
   async function render(locale: string) {
     pageBoundary.locale.mockResolvedValue(locale);
     const before = JSON.stringify(projection);
-    const { default: Page } = await import('../../app/platform-v7/bank/release-safety/page');
+    const { default: Page } = loadPage();
     const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: projection.dealId }) }));
     expect(pageBoundary.workspace).toHaveBeenCalledWith(projection.dealId);
     expect(pageBoundary.projection).toHaveBeenCalledWith(workspace, undefined);
@@ -113,7 +137,7 @@ describe('selected bank payout page reason copy', () => {
   it.each(locales)('keeps an unavailable authenticated workspace from rendering a trusted projection in $locale', async copy => {
     pageBoundary.locale.mockResolvedValue(copy.locale);
     pageBoundary.workspace.mockResolvedValue(null);
-    const { default: Page } = await import('../../app/platform-v7/bank/release-safety/page');
+    const { default: Page } = loadPage();
     const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({ dealId: projection.dealId }) }));
     expect(pageBoundary.projection).not.toHaveBeenCalled();
     expect(html).not.toContain('PRIVATE_UPSTREAM_DETAIL');
