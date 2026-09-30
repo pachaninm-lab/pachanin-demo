@@ -2837,6 +2837,46 @@
         "All primary R1/global/current/unrelated concurrent scopes, historical admissions/progress/maturity and runtime/model/production authority remain unchanged.",
         "The current source consumer requires fresh complete-head independent review, exact-current CI including the full existing API suite, author audit, resolved findings and manual expected-SHA protected merge. Source tests/admission do not prove real model inference, quality, latency, RF compliance or deployment."
       ]
+    },
+    "gekta-readonly-control-diagnostic-prerequisite-20261001": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Staged prerequisite for the exact already-reviewed read-only Gekta pkcheck diagnostic repair; no service-control or model-promotion authority.",
+      "authorityBaseExactMain": "1a768a7fde207bb2458fdf259dc16f9f291b5455",
+      "ownerInstruction": "Закрывай всё до финиша!",
+      "ownerTransferDecision": "#5469 comment5911980257",
+      "teamHubClaim": "#5469 comment5921047748",
+      "sourceAdmissionState": "STAGED_NEEDS_ACCEPTED_LITERAL_GUARD",
+      "implementationBranch": "governance/gekta-recovery-trusted-routes-20260927",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "stagedDiagnosticBranch": "fix/gekta-model-control-probe-20261001",
+      "stagedDiagnosticPaths": [
+        ".github/workflows/gekta-p0-speed-model-host-control-probe.yml"
+      ],
+      "diagnosticSourceHandoff": "#3896 comment5917027213",
+      "diagnosticOriginalGitBlob": "42d09523cfe8f2891c56d95a36006a28322d100f",
+      "diagnosticPatchSha256": "0c0155104f05c93086578a1f73173949fe7c2eaa842225e8a959be78b966994f",
+      "diagnosticFinalFileSha256": "f23e87e7ee21ad1c02145e001c07c09bbf56f69170035d4aaf12ab0c306915cb",
+      "requiredTruthBoundaries": [
+        "This state-only record appends one staged purpose; allowedCurrentScope, agentWritableScope, approvedConcurrentScopes, progress and every existing admission are unchanged. It is not runnable diagnostic source admission.",
+        "Preserve the sole BANK operator and all-other-main/release hold. No Gekta state/guard/source merge, competing BANK guard publication or release precedes concrete BANK source/release acceptance and handoff.",
+        "Only after BANK completes its accepted guard work may the existing three-path Gekta guard lane be reused. Its separate full diff must register exactly the one workflow on the named diagnostic branch, matching trusted-base and PR-defense/exclusion workflow selectors, and adversarial regressions for candidate-owned state/manifest/guard expansion, unrelated paths, renames and file modes.",
+        "Independently review the entire separate guard diff, verify all exact source identities, obtain substantive CI/security, author audit, resolved findings and fresh readiness, then ordinary manual full-expected-SHA merge. This record does not approve unprepared guard bytes or claim automatic immutable hash enforcement.",
+        "After the literal trusted guard is accepted, duplicate only its one-path source admission in a separate reviewed state transition. Adopt the existing exact pkcheck repair in the diagnostic branch only after those accepted prerequisites; changed bytes require fresh review and source admission.",
+        "The diagnostic repairs only process-subject validation, omission of interactive authorization and bounded documented pkcheck result/error classification. Preserve pinned dedicated-principal transport, readonly boundary, timeout, output vocabulary and credential privacy.",
+        "Every diagnostic source head requires fresh complete independent nonauthor review, owner audit, applicable native CI/security/readiness and ordinary protected full-expected-SHA merge. The prior private 17/17 source/fixture checks are not native server permission evidence.",
+        "Only the accepted-main read-only probe may establish fresh authorization facts. No diagnostic result itself grants unit/config write, restart, promotion or rollback authority; a permanent model switch requires its own separately reviewed bounded operational admission and actual capability/live/rollback proof."
+      ],
+      "forbiddenAuthority": [
+        "Runtime implementation, approvedConcurrentScopes or global/current scope changes in this state-only prerequisite",
+        "Service start/stop/restart/reload/signal, root or credential fallback, unit/environment/polkit changes, model/routing/public listener or production/user-data mutation",
+        "Parallel CORE consent/audit/persistence authority or competing BANK source/release controller",
+        "CI/review/security/readiness/assertion/timeout/420-second lease weakening, stale-head evidence, fabricated statuses, force or automatic merge",
+        "New mandatory recurring costs or model/latency/deployment/RF-compliance acceptance from source records or fixtures"
+      ]
     }
   }
 }
