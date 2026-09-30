@@ -21,6 +21,7 @@ const scopes = {
   ],
   "fix/gekta-han-stream-20260927": [
     "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
     "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
@@ -69,7 +70,7 @@ for (const [branch, files] of Object.entries(scopes)) {
     for (const file of files) write(c.root, file, 'changed');
     const r = check(c); assert.equal(r.status, 0, r.stdout + r.stderr);
   });
-  for (const file of ['README.md', 'forged.txt', 'apps/api/src/modules/staff-access/injected.ts', '.github/workflows/ci.yml', statePath, 'scripts/p7-autopilot-guard.sh', '.github/workflows/platform-v7-autopilot-guard.yml']) {
+  for (const file of ['README.md', 'forged.txt', 'apps/api/src/modules/staff-access/injected.ts', 'apps/api/src/modules/ai-insights/restricted-public-qwen.quality.spec.ts', '.github/workflows/ci.yml', statePath, 'scripts/p7-autopilot-guard.sh', '.github/workflows/platform-v7-autopilot-guard.yml']) {
     test(`${branch}: rejects global, mutable or authority path ${file}`, t => {
       const c = fixture(t, branch);
       write(c.root, file, file === statePath ? JSON.stringify({ allowedCurrentScope: ['**'], approvedConcurrentScopes: { [branch]: ['**'] } }) : 'injected');
