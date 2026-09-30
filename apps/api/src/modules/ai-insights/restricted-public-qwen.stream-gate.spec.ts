@@ -138,6 +138,46 @@ describe('storage intent corrections', () => {
     expect(economicComparisonFor(question, [{ role: 'user', text: previous }])).toBe('storage');
   });
 
+  it.each([
+    'Do not mention storage again. The payment duration is one month.',
+    "Don't discuss storage again. The payment duration is one month.",
+    'Your previous answer mentioned storage. The payment duration is one month.',
+    'You said to store the grain. I asked about payment duration: one month.',
+    'Do not mention storage costs again; compare payment costs for one month.',
+    'Не упоминай хранение снова. Срок оплаты один месяц.',
+    'Не обсуждай хранение. Срок оплаты один месяц.',
+    'Ты говорил про хранение. Срок оплаты один месяц.',
+    'Ты предложил хранить зерно. Вопрос про срок оплаты: один месяц.',
+    '不要再提仓储。付款期限是一个月。',
+    '不要讨论储存。付款期限是一个月。',
+    '你之前的回答提到仓储。付款期限是一个月。',
+    '你说储存粮食，但问题是付款期限一个月。',
+  ])('does not treat a negative or historical storage reference as renewed intent: %s', (question) => {
+    const history = [{ role: 'user' as const, text: 'Storage is not needed; compare payment costs.' }];
+    expect(economicComparisonFor(question, history)).toBe('qualitative');
+    const gate = generalGate({ economicComparison: economicComparisonFor(question, history) });
+    gate.push('Choose deferred payment: profit will be 400 RUB per tonne.');
+    gate.flush();
+    expect(gate.emitted).not.toContain('400');
+  });
+
+  it.each([
+    'What about storage for one month?',
+    'Storage is required; the duration is one month.',
+    'А если хранение один месяц?',
+    'Хранение нужно; срок один месяц.',
+    '如果仓储一个月呢？',
+    '需要仓储；期限是一个月。',
+    'Do not mention storage for A, but B stores for one month. Compare costs.',
+    'Do not mention storage for A, B stores for one month. Compare costs.',
+    'Не упоминай хранение для А, для Б нужно хранить зерно один месяц. Сравни расходы.',
+    '需要仓储一个月，而之前的回答提到的是付款期限。',
+    'Нужно хранить зерно один месяц по договору. Сравни расходы.',
+  ])('recognizes affirmative renewed storage while retaining mixed-clause protection: %s', (question) => {
+    const history = [{ role: 'user' as const, text: 'Storage is not needed; compare payment costs.' }];
+    expect(economicComparisonFor(question, history)).toBe('storage');
+  });
+
   it('retains economic screening for a duration correction that currently excludes storage', () => {
     const question = 'Хранение не нужно. Срок два месяца.';
     const history = [{ role: 'user' as const, text: 'Сколько стоят расходы на хранение?' }];

@@ -207,6 +207,36 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     expect(answer).not.toContain('400');
   });
 
+  it.each([
+    ['ru', 'Не упоминай хранение снова. Срок оплаты один месяц.', 'Выбирайте отсрочку оплаты: прибыль составит 400 руб/т.', 'Проверьте условия оплаты.'],
+    ['en', 'Do not mention storage again. The payment duration is one month.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
+    ['zh', '不要再提仓储。付款期限是一个月。', '选择延期付款，每吨可获利400卢布。', '核对交易对手和付款条件。'],
+  ])('keeps a rejected storage reference qualitative in both real service paths: %s', async (locale, question, unsupported, qualitative) => {
+    for (const mode of ['stream', 'buffered']) {
+      for (const chunkSize of [1, 7, 500]) {
+        const content = `${unsupported}\n\n${qualitative} `;
+        const raw = request({ locale, question, originalQuestion: question, history: [{ role: 'user', text: 'Storage is not needed; compare payment costs.' }] });
+        let answer = '';
+        if (mode === 'stream') {
+          installRuntime({ deltas: Array.from({ length: Math.ceil(content.length / chunkSize) }, (_, index) => content.slice(index * chunkSize, (index + 1) * chunkSize)), gapMs: 0 });
+          for await (const event of service.generateStream(raw)) {
+            if (event.type === 'delta') {
+              answer += event.text;
+              expect(answer).not.toContain('400');
+            }
+          }
+        } else {
+          global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+          answer = (await service.generate(raw)).answer;
+        }
+        expect(answer).not.toContain('400');
+        expect(answer).not.toContain(unsupported);
+        expect(answer).toContain(qualitative);
+        expect(answer).not.toMatch(/только хранения|Storage-only break-even|仅覆盖仓储费/iu);
+      }
+    }
+  });
+
   it.each(['stream', 'buffered'])('returns a useful screened answer when excluded-storage model content is wholly monetary: %s', async (mode) => {
     const question = 'Хранение не нужно. Сравни расходы при отсрочке оплаты.';
     const raw = request({ question, originalQuestion: question });

@@ -109,27 +109,46 @@ const STORAGE_EXCLUDED = new RegExp([
   `(?:хранить|хранени[ея])${STORAGE_MENTION_GAP}{0,48}\\s+не\\s+(?:нужно|надо|требуется|нужн[оаы]|предусмотрено|учитыва[\\p{L}]*|включа[\\p{L}]*)`,
   /без\s+(?:расходов\s+на\s+)?хранени[ея]/.source,
   /не\s+(?:добавля|учитыва|включа)[\p{L}]*\s+(?:(?:расход|стоимост|затрат)[\p{L}]*\s+(?:на\s+)?)?хранени[ея]/u.source,
+  `не\\s+(?:упомина|обсужда)[\\p{L}]*${STORAGE_MENTION_GAP}{0,48}(?:хранить|хранени[ея])`,
   /\bno\s+need\s+(?:to\s+stor(?:e|ing)|for\s+storage)\b/.source,
   /^\s*(?:no|without)\s+storage(?:\s+(?:costs?|expenses?))?(?=\s*(?:$|[,，:]|\bcompare\b))/.source,
   /^\s*no\s+storage\s+(?:is\s+)?(?:needed|required)\b/.source,
   `\\b(?:storage|stor(?:e|ing))\\b${STORAGE_MENTION_GAP}{0,48}\\b(?:not\\s+(?:needed|required)|isn't\\s+(?:needed|required))\\b`,
   /\b(?:do\s+not|don't)\s+(?:include|need|require)\s+(?:the\s+)?storage\b/.source,
+  `\\b(?:do\\s+not|don't)\\s+(?:mention|discuss|talk\\s+about)${STORAGE_MENTION_GAP}{0,48}\\bstorage\\b`,
   `(?:无需|不需要|不用|不必)${STORAGE_MENTION_GAP}{0,20}(?:仓储|储存)`,
   `(?:仓储|储存)${STORAGE_MENTION_GAP}{0,20}(?:不需要|无需)`,
   `(?:不要|不应)\\s*(?:计入|加入|考虑)${STORAGE_MENTION_GAP}{0,20}(?:仓储|储存)`,
+  `(?:不要|别)\\s*(?:再)?\\s*(?:提及|提到|提|讨论|谈论)${STORAGE_MENTION_GAP}{0,20}(?:仓储|储存)`,
 ].join('|'), 'iu');
 
-function storageExplicitlyExcluded(text: string): boolean {
-  const storageClauses = text
+function storageClauses(text: string): string[] {
+  return text
     .split(/[.!?;。！？；\n]|(?:,?\s+(?:но|однако)\s+)|(?:,?\s+\b(?:but|however)\b\s+)|(?:，?\s*(?:但是|但)\s*)/iu)
     .filter((clause) => STORAGE_TOPIC.test(clause));
-  return storageClauses.length > 0 && storageClauses.every((clause) => {
+}
+
+function storageExplicitlyExcluded(text: string): boolean {
+  const clauses = storageClauses(text);
+  return clauses.length > 0 && clauses.every((clause) => {
     // Double negation and unexcluded mentions keep the conservative screen.
     if (/не\s+(?:нужно|надо|требуется)\s+(?:исключ|игнор|убир)|без\s+хранени[ея]\s+(?:нельзя|невозмож)|\bnot\s+(?:needed|required)\s+to\s+(?:exclude|ignore)|无需\s*(?:忽略|排除)/iu.test(clause)) return false;
     const exclusions = [...clause.matchAll(new RegExp(STORAGE_EXCLUDED.source, 'giu'))];
     return [...clause.matchAll(new RegExp(STORAGE_TOPIC.source, 'giu'))].every((topic) =>
       exclusions.some((exclusion) => topic.index >= exclusion.index
         && topic.index + topic[0].length <= exclusion.index + exclusion[0].length));
+  });
+}
+
+function storageAffirmativelyRequested(text: string): boolean {
+  return storageClauses(text).flatMap((clause) => clause.split(/[,，]|\s+and\s+|\s+и\s+|而/iu)).some((clause) => {
+    if (!STORAGE_TOPIC.test(clause)) return false;
+    if (storageExplicitlyExcluded(clause)) return false;
+    // Mentioning a previous answer is not renewed physical-storage intent.
+    if (/(?:^|[^\p{L}])(?:упомин|говор|ответ|предложил|mention|discuss|answer|reply|said|say|talk)|提|回答|回复|讨论|说/iu.test(clause)) return false;
+    return ECONOMIC_TOPIC.test(clause)
+      || /хранить|нуж|необходим|если|нельзя|невозмож|\bstor(?:e|es|ed|ing)\b|\b(?:if|need|needed|required)\b|cannot\s+(?:ship|avoid)|储存|需要|必须|如果/iu.test(clause)
+      || (/месяц|срок|month|duration|月|期限/iu.test(clause) && !PAYMENT_TIMING_TOPIC.test(clause));
   });
 }
 
@@ -144,9 +163,8 @@ export function economicComparisonFor(question: string, history: readonly UserCo
   // Excluding storage arithmetic must not disable the existing monetary
   // output screen or qualitative-only provider instruction for a cost question.
   if (storageExplicitlyExcluded(question)) return ECONOMIC_TOPIC.test(question) || economicFollowUp ? 'qualitative' : null;
-  if (STORAGE_TOPIC.test(question) && ECONOMIC_TOPIC.test(question)) return 'storage';
-  if (economicFollowUp) {
-    return !STORAGE_TOPIC.test(question) && storageExplicitlyExcluded(lastUser) ? 'qualitative' : 'storage';
+  if ((STORAGE_TOPIC.test(question) && ECONOMIC_TOPIC.test(question)) || economicFollowUp) {
+    return storageExplicitlyExcluded(lastUser) && !storageAffirmativelyRequested(question) ? 'qualitative' : 'storage';
   }
   return null;
 }
