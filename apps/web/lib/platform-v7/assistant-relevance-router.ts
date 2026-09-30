@@ -470,10 +470,16 @@ function safetyReasonFor(raw: string, normalized: string): AssistantSafetyReason
   if (HARMFUL_PATTERNS.some((pattern) => pattern.test(raw) || pattern.test(normalized))) return 'HARMFUL_REQUEST';
   // Defensive quoted examples still reach the model's refusal/compliance policy;
   // they do not bypass violence, credential, privilege or private-data screening.
-  const defensiveDiscussion = /(?:как|чтобы)\s+(?:это\s+)?(?:выявить|обнаружить|распознать|предотвратить)|(?:detect|identify|recognize|prevent)\s+(?:this|such|attempts?|fraud)|(?:识别|发现|防止|预防)(?:这种|此类|欺诈|行为)/iu.test(raw)
-    && /пытаются|пытались|fraudsters?|dishonest\s+farms?|attempts?\s+by|不法|不诚实/iu.test(raw)
-    && !/(?:помоги(?:те)?\s+(?:мне|нам)|как\s+(?:мне|нам)|help\s+me|how\s+do\s+i|帮我)[^.!?。！？\n]{0,60}(?:скрыть|утаить|подделать|сфальсифицировать|hide|conceal|forge|falsify|隐藏|隐瞒|伪造)/iu.test(raw);
-  if (!defensiveDiscussion && FINANCIAL_DOCUMENT_ABUSE_PATTERNS.some((pattern) => pattern.test(raw) || pattern.test(normalized))) return 'HARMFUL_REQUEST';
+  const defensiveIntent = /(?:как|чтобы)\s+(?:это\s+)?(?:выявить|обнаружить|распознать|предотвратить)|(?:detect|identify|recognize|prevent)\s+(?:this|such|attempts?|fraud)|(?:识别|发现|防止|预防)(?:这种|此类|欺诈|行为)/iu.test(raw);
+  // Every abuse-bearing sentence must itself describe a third-person attempt.
+  // Appending a separate prevention sentence cannot exempt a direct request.
+  const unsafeFinancialClause = raw.split(/[.!?;。！？；\n]/u).some((clause) => {
+    if (!FINANCIAL_DOCUMENT_ABUSE_PATTERNS.some((pattern) => pattern.test(clause) || pattern.test(normalize(clause)))) return false;
+    return !defensiveIntent
+      || !/пытаются|пытались|fraudsters?|dishonest\s+farms?|attempts?\s+by|不法|不诚实/iu.test(clause)
+      || /(?:помоги(?:те)?\s+(?:мне|нам)|как\s+(?:мне|нам)|help\s+me|how\s+do\s+i|帮我)[^.!?。！？\n]{0,60}(?:скрыть|утаить|подделать|сфальсифицировать|hide|conceal|forge|falsify|隐藏|隐瞒|伪造)/iu.test(clause);
+  });
+  if (unsafeFinancialClause || (!defensiveIntent && FINANCIAL_DOCUMENT_ABUSE_PATTERNS.some((pattern) => pattern.test(normalized)))) return 'HARMFUL_REQUEST';
   if (CREDENTIAL_PATTERNS.some((pattern) => pattern.test(raw) || pattern.test(normalized))) return 'CREDENTIAL_DISCLOSURE';
   if (PRIVILEGE_ESCALATION_PATTERNS.some((pattern) => pattern.test(raw) || pattern.test(normalized))) return 'PRIVILEGE_ESCALATION';
   if (FOREIGN_DATA_PATTERNS.some((pattern) => pattern.test(raw) || pattern.test(normalized))) return 'FOREIGN_DATA';
@@ -537,7 +543,7 @@ export function routeAssistantQuestion(
   const hasUnrelatedSubject = containsAny(normalized, UNRELATED_TERMS);
   // An unknown subject of a resource request needs semantic interpretation.
   // Topic keywords alone cannot establish that professional content is unrelated.
-  const unknownResourceSubject = /(?:фильм[\p{L}]*|кино|видео|сериал[\p{L}]*|movie|film|video|documentary)\s+(?:о|об|про|about|on)\s+\p{L}|(?:电影|视频|纪录片)[^。！？\n]{0,20}(?:关于|有关)/iu.test(raw);
+  const unknownResourceSubject = /(?:фильм[\p{L}]*|кино|видео|сериал[\p{L}]*|movie|film|video|documentary)\s+(?:о|об|про|about|on)\s+\p{L}|(?:电影|视频|纪录片)[^。！？\n]{0,20}(?:关于|有关)|(?:关于|有关)[^。！？\n]{1,60}(?:电影|视频|纪录片)/iu.test(raw);
 
   // A named off-topic subject outranks generic section vocabulary and sentence
   // shape, but never an explicit platform, agriculture or business subject.
