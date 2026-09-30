@@ -138,14 +138,15 @@ export function economicComparisonFor(question: string, history: readonly UserCo
   if (/документ|персональн|хранени[ея]\s+данных|платформ|document|personal data|data retention|platform|文件|个人数据|平台/iu.test(question)) return null;
   if (paymentTimingFromUser(question) !== null) return 'payment_timing';
   if (TRANSPORT_COMPARISON.test(question) && /рейс|тонн|тариф|trip|tonne|rate|趟|吨|费率/iu.test(question)) return 'transport';
+  const lastUser = [...history].reverse().find((turn) => turn.role === 'user')?.text ?? '';
+  const economicFollowUp = STORAGE_TOPIC.test(lastUser) && ECONOMIC_TOPIC.test(lastUser)
+    && /месяц|покры|срок|month|cover|duration|月|期限/iu.test(question);
   // Excluding storage arithmetic must not disable the existing monetary
   // output screen or qualitative-only provider instruction for a cost question.
-  if (storageExplicitlyExcluded(question)) return ECONOMIC_TOPIC.test(question) ? 'qualitative' : null;
+  if (storageExplicitlyExcluded(question)) return ECONOMIC_TOPIC.test(question) || economicFollowUp ? 'qualitative' : null;
   if (STORAGE_TOPIC.test(question) && ECONOMIC_TOPIC.test(question)) return 'storage';
-  const lastUser = [...history].reverse().find((turn) => turn.role === 'user')?.text ?? '';
-  if (STORAGE_TOPIC.test(lastUser) && ECONOMIC_TOPIC.test(lastUser)
-    && /месяц|покры|срок|month|cover|duration|月|期限/iu.test(question)) {
-    return storageExplicitlyExcluded(lastUser) ? 'qualitative' : 'storage';
+  if (economicFollowUp) {
+    return !STORAGE_TOPIC.test(question) && storageExplicitlyExcluded(lastUser) ? 'qualitative' : 'storage';
   }
   return null;
 }

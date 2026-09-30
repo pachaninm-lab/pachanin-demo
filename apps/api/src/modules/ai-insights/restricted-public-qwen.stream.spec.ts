@@ -185,6 +185,28 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     }
   });
 
+  it.each([
+    ['stream', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'А если хранить зерно один месяц?', 'Для покрытия только хранения'],
+    ['buffered', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'А если хранить зерно один месяц?', 'Для покрытия только хранения'],
+    ['stream', 'en', 'Storage is not needed; compare payment costs.', 'Actually, what if we store it for one month?', 'Storage-only break-even'],
+    ['buffered', 'en', 'Storage is not needed; compare payment costs.', 'Actually, what if we store it for one month?', 'Storage-only break-even'],
+    ['stream', 'zh', '无需仓储；比较付款风险和成本。', '如果储存一个月呢？', '仅覆盖仓储费'],
+    ['buffered', 'zh', '无需仓储；比较付款风险和成本。', '如果储存一个月呢？', '仅覆盖仓储费'],
+  ])('uses current reintroduced storage in the real %s service path (%s)', async (mode, locale, previous, question, storageCopy) => {
+    const raw = request({ locale, question, originalQuestion: question, history: [{ role: 'user', text: previous }] });
+    const content = '400 RUB';
+    let answer = '';
+    if (mode === 'stream') {
+      installRuntime({ deltas: [content] });
+      for await (const event of service.generateStream(raw)) if (event.type === 'delta') answer += event.text;
+    } else {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      answer = (await service.generate(raw)).answer;
+    }
+    expect(answer).toContain(storageCopy);
+    expect(answer).not.toContain('400');
+  });
+
   it.each(['stream', 'buffered'])('returns a useful screened answer when excluded-storage model content is wholly monetary: %s', async (mode) => {
     const question = 'Хранение не нужно. Сравни расходы при отсрочке оплаты.';
     const raw = request({ question, originalQuestion: question });

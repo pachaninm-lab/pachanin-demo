@@ -131,6 +131,24 @@ describe('storage intent corrections', () => {
   });
 
   it.each([
+    ['Storage is not needed; compare payment costs.', 'Actually, what if we store it for one month?'],
+    ['Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'А если хранить зерно один месяц?'],
+    ['无需仓储；比较付款风险和成本。', '如果储存一个月呢？'],
+  ])('lets newly reintroduced storage override its historical exclusion: %s', (previous, question) => {
+    expect(economicComparisonFor(question, [{ role: 'user', text: previous }])).toBe('storage');
+  });
+
+  it('retains economic screening for a duration correction that currently excludes storage', () => {
+    const question = 'Хранение не нужно. Срок два месяца.';
+    const history = [{ role: 'user' as const, text: 'Сколько стоят расходы на хранение?' }];
+    const gate = generalGate({ economicComparison: economicComparisonFor(question, history) });
+    gate.push('Выбирайте отсрочку оплаты: прибыль составит 400 руб/т.');
+    gate.flush();
+    expect(gate.emitted).not.toContain('400');
+    expect(economicComparisonFor(question, history)).toBe('qualitative');
+  });
+
+  it.each([
     ['ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Выбирайте отсрочку оплаты: прибыль составит 400 руб/т.', 'Проверьте условия оплаты.'],
     ['en', 'Storage is not needed; compare payment costs.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
     ['zh', '不需要储存粮食。比较延期付款的成本。', '选择延期付款，每吨可获利400卢布。', '核对交易对手和付款条件。'],
