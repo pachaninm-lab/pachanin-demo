@@ -330,14 +330,18 @@ const HARMFUL_PATTERNS = [
   /(?:毒害|杀害|伤害)(?:人|员工|竞争对手)|制作(?:炸弹|爆炸物|武器)|入侵(?:网站|系统|账户)/u,
 ] as const;
 
+const RUSSIAN_FINANCIAL_ABUSE_ACT = /(?<![\p{L}])(?:скры(?:ть|ва(?:ть|йте|й|ю|ем|ют|ешь|ете))|скро(?:й(?:те)?|ю|ем|ют|ешь|ете)|ута(?:ить|ива(?:ть|йте|й|ю|ем|ют|ешь|ете))|утай(?:те)?|зани(?:зить|з(?:ь(?:те)?|им|ят)|жа(?:ть|йте|й|ю|ем|ют|ешь|ете)))/iu;
+
 const FINANCIAL_DOCUMENT_ABUSE_PATTERNS = [
   // Explicit requests to commit fraud, not mentions of fraud or lawful tax
   // planning. Bounded gaps avoid an unbounded backtracking safety expression.
-  /(?<![\p{L}])(?:скрыть|утаить)(?:\s+[\p{L}\p{N}-]+){0,4}\s+(?:выручк|доход)[\p{L}]*[^.!?;。！？；\n]{0,80}?(?:налогов|фнс)/iu,
-  /(?<![\p{L}])(?:подделать|сфальсифицировать)(?:\s+[\p{L}\p{N}-]+){0,4}\s+(?:документ|накладн|упд|протокол|сертификат)[\p{L}]*/iu,
-  /\b(?:hide|conceal)\s+(?:my\s+|farm\s+)?(?:income|revenue)\b[^.!?;。！？；\n]{0,60}?(?:tax(?:\s+authorit[\p{L}]*)?|authorit[\p{L}]*)/iu,
+  new RegExp(String.raw`${RUSSIAN_FINANCIAL_ABUSE_ACT.source}(?:\s+[\p{L}\p{N}-]+){0,4}\s+(?:выручк|доход)[\p{L}]*[^.!?;。！？；\n]{0,80}?(?:налогов[\p{L}]*|фнс)`, 'iu'),
+  new RegExp(String.raw`${RUSSIAN_FINANCIAL_ABUSE_ACT.source}\s+(?:от|для|перед)\s+(?:налогов[\p{L}]*|фнс)\s+(?:выручк|доход)[\p{L}]*(?:\s+(?:хозяйств|ферм|кфх)[\p{L}]*)?`, 'iu'),
+  /(?<![\p{L}])(?:поддел(?:ать|ыва(?:ть|йте|й|ю|ем|ют|ешь|ете))|сфальсифицир(?:овать|уй(?:те)?|ую|уем|уют))(?:\s+[\p{L}\p{N}-]+){0,4}\s+(?:документ|накладн|упд|протокол|сертификат)[\p{L}]*(?:\s+(?:хозяйств|ферм|кфх)[\p{L}]*)?/iu,
+  /\b(?:hide|conceal)\s+(?:(?:my|our|the|an?)\s+)?(?:farm(?:'s)?\s+)?(?:income|revenue)\b[^.!?;。！？；\n]{0,60}?(?:tax(?:es)?(?:\s+authorit[\p{L}]*)?|authorit[\p{L}]*)\b/iu,
+  /\b(?:hide|conceal)\s+from\s+(?:the\s+)?(?:tax(?:\s+authorit[\p{L}]*)?|authorit[\p{L}]*)\s+(?:(?:my|our|the|an?)\s+)?(?:farm(?:'s)?\s+)?(?:income|revenue)\b(?:\s+of\s+(?:my|our|the)\s+farm)?/iu,
   /\b(?:forge|falsify)\s+(?:an?\s+|the\s+)?(?:invoice|document|certificate|lab\s+report)/iu,
-  /(?:隐藏|隐瞒)(?:农场)?收入[^.!?;。！？；\n]{0,30}?(?:税务|税)|伪造(?:发票|文件|证书|检验报告)/u,
+  /(?:隐藏|隐瞒)(?:自己的|农场的?)?(?:收入|营收)[^.!?;。！？；\n]{0,30}?(?:税务机关|税务部门|税务局|税务|税局|税)|(?:向|对)?(?:税务机关|税务部门|税务局|税务|税局)[^.!?;。！？；\n]{0,15}?(?:隐藏|隐瞒)(?:自己的|农场的?)?(?:收入|营收)|伪造(?:发票|文件|证书|检验报告)/u,
 ] as const;
 
 /* ----------------------------------------------------------- short questions */
@@ -466,17 +470,55 @@ function contextualSection(normalized: string): PlatformKnowledgeSectionId | nul
   return null;
 }
 
+function isFinancialComplianceContinuation(text: string): boolean {
+  const actions = text.split(/\s+(?:and|и)\s+|[,，]\s*(?:(?:and|и|以及|并)\s*)?/iu)
+    .map((action) => action.trim()).filter(Boolean);
+  return actions.length <= 3 && actions.every((action) =>
+    /^(?:как\s+(?:это\s+)?(?:выявить|обнаружить|распознать|предотвратить)|дай(?:те)?\s+(?:мне\s+)?(?:пошагов[\p{L}]*\s+)?(?:план|инструкци[\p{L}]*|шаги)\s+(?:проверки|аудита)\s+для\s+(?:выявления|предотвращения)\s+(?:таких\s+)?(?:нарушений|попыток|мошенничества)|(?:мне\s+)?нужн[\p{L}]*\s+(?:правов|юридическ)[\p{L}]*\s+оценк[\p{L}]*\s+риска(?:\s+для\s+фермерск[\p{L}]*\s+хозяйств[\p{L}]*)?)$/iu.test(action)
+    || /^(?:(?:how\s+to\s+)?(?:detect|identify|recognize|prevent)\s+(?:this|such|attempts?|fraud)|give\s+(?:me\s+)?(?:a\s+)?(?:step-by-step\s+)?(?:audit|inspection)\s+(?:plan|steps|procedure)\s+to\s+(?:detect|identify|recognize|prevent)(?:\/(?:detect|prevent))?\s+(?:this|fraud|attempts?)|i\s+need\s+(?:an?\s+)?(?:lawful|legal)\s+(?:compliance\s+checklist|risk\s+assessment))$/iu.test(action)
+    || /^(?:(?:如何)?(?:识别|发现|防止|预防)(?:这种|此类)(?:行为|欺诈)|给我(?:识别|发现|防止|预防)(?:和(?:识别|发现|防止|预防))?(?:这种|此类)(?:行为|欺诈)的(?:详细)?(?:检查|审计)步骤|我需要合法合规检查清单)$/u.test(action));
+}
+
 function safetyReasonFor(raw: string, normalized: string): AssistantSafetyReason | null {
   if (HARMFUL_PATTERNS.some((pattern) => pattern.test(raw) || pattern.test(normalized))) return 'HARMFUL_REQUEST';
   // Defensive quoted examples still reach the model's refusal/compliance policy;
   // they do not bypass violence, credential, privilege or private-data screening.
   // Every abuse-bearing sentence must itself describe a third-person attempt.
   // Appending a separate prevention sentence cannot exempt a direct request.
-  const unsafeFinancialClause = raw.split(/[.!?;。！？；\n]/u).some((clause) => {
+  const financialClauses = raw.split(/[.!?;。！？；\n]/u).filter((clause) => clause.trim());
+  const unsafeFinancialClause = financialClauses.some((clause) => {
     if (!FINANCIAL_DOCUMENT_ABUSE_PATTERNS.some((pattern) => pattern.test(clause) || pattern.test(normalize(clause)))) return false;
     const defensiveIntent = /(?:как|чтобы)\s+(?:это\s+)?(?:выявить|обнаружить|распознать|предотвратить)|(?:detect|identify|recognize|prevent)\s+(?:this|such|attempts?|fraud)|(?:识别|发现|防止|预防)(?:这种|此类|欺诈|行为)/iu.test(clause);
     const directMatches = FINANCIAL_DOCUMENT_ABUSE_PATTERNS.flatMap((pattern) =>
       [...clause.matchAll(new RegExp(pattern.source, `${pattern.flags}g`))]);
+    // Other abuse-bearing clauses get their own screening. A continuation
+    // without a repeated act must itself be a complete compliance request.
+    const noFacilitationContinuation = financialClauses.every((other) => other === clause
+      || FINANCIAL_DOCUMENT_ABUSE_PATTERNS.some((pattern) => pattern.test(other))
+      || isFinancialComplianceContinuation(other));
+    // A legal-consequence question governs each mentioned act. A separate
+    // direct request in the same sentence cannot borrow that neutral framing.
+    const lawfulConsequence = noFacilitationContinuation && directMatches.length > 0 && directMatches.every((match) => {
+      const before = clause.slice(0, match.index);
+      const after = clause.slice(match.index + match[0].length);
+      // The neutral question must end after this act (or a jurisdiction).
+      // A prefix alone cannot authorize appended instructions or methods.
+      const neutralSuffix = /^\s*(?:в\s+(?:рф|россии)|in\s+russia)?\s*$/iu.test(after);
+      // Broad abuse detection may include words between income and the tax
+      // authority; the legal exception requires a complete neutral relation.
+      const neutralRelation = !/(?:доход|выручк)|\b(?:income|revenue)\b|(?:收入|营收)/iu.test(match[0])
+        || /(?:доход|выручк)[\p{L}]*(?:\s+(?:хозяйств|ферм|кфх)[\p{L}]*)?\s+(?:от|для|перед)\s+(?:налогов[\p{L}]*|фнс)$/iu.test(match[0])
+        || /(?:от|для|перед)\s+(?:налогов[\p{L}]*|фнс)\s+(?:выручк|доход)[\p{L}]*(?:\s+(?:хозяйств|ферм|кфх)[\p{L}]*)?$/iu.test(match[0])
+        || /\b(?:income|revenue)\s+(?:from|to)\s+(?:the\s+)?(?:tax(?:es)?(?:\s+authorit[\p{L}]*)?|authorit[\p{L}]*)$/iu.test(match[0])
+        || /\bfrom\s+(?:the\s+)?(?:tax(?:\s+authorit[\p{L}]*)?|authorit[\p{L}]*)\s+(?:(?:my|our|the|an?)\s+)?(?:farm(?:'s)?\s+)?(?:income|revenue)(?:\s+of\s+(?:my|our|the)\s+farm)?$/iu.test(match[0])
+        || /^(?:隐藏|隐瞒)(?:自己的|农场的?)?(?:收入|营收)(?:以)?(?:逃避|规避)?(?:税务机关|税务部门|税务局|税务|税局|税)$|^(?:向|对)(?:税务机关|税务部门|税务局|税务|税局)(?:隐藏|隐瞒)(?:自己的|农场的?)?(?:收入|营收)$/u.test(match[0]);
+      return neutralRelation && ((neutralSuffix && (/^\s*(?:что\s+(?:мне\s+)?грозит|какая\s+ответственност[\p{L}]*|какие\s+(?:(?:правов|юридическ)[\p{L}]*\s+)?последстви[\p{L}]*)\s*(?:(?:наступа[\p{L}]*|предусмотр[\p{L}]*|будет)\s*)?(?:,\s*)?(?:если|за|при)\s+$/iu.test(before)
+        || /^\s*почему\s+(?:нельзя|незаконно|запрещено)\s+$/iu.test(before)
+        || /^\s*(?:what\s+(?:are|is)\s+(?:the\s+)?(?:legal\s+)?(?:consequences|penalties|liability)|what\s+happens)\s+(?:if|of|for)\s+(?:(?:i|we|someone|a\s+farm)\s+)?$/iu.test(before)
+        || /^\s*why\s+is\s+it\s+illegal\s+to\s+$/iu.test(before)))
+        || (/^\s*$/u.test(before) && /^\s*(?:会|将|有|会有)?(?:承担|面临)?(?:什么|哪些|何种)(?:法律|行政|刑事)?(?:责任|后果|处罚)\s*$/u.test(after)));
+    }) && !/(?:как\s+(?:это\s+)?(?:сделать|выполнить)|помоги(?:те)?\s+(?:мне|нам)|как\s+(?:мне|нам)|help\s+me|how\s+do\s+i|帮我)/iu.test(clause);
+    if (lawfulConsequence) return false;
     const governedPrevention = (before: string) => /(?:выявить|обнаружить|распознать|предотвратить)\s+(?:попытк[\p{L}]*|намерени[\p{L}]*)\s+$/iu.test(before)
       || /(?:detect|identify|recognize|prevent)\s+(?:attempts?|efforts?)\s+to\s+$/iu.test(before)
       || /(?:预防|防止|识别|发现)(?:有人|不法农场|欺诈者)(?:试图|尝试)?$/u.test(before);
@@ -485,15 +527,23 @@ function safetyReasonFor(raw: string, normalized: string): AssistantSafetyReason
     const linkedThirdPartyAttempt = directMatches.length > 0 && directMatches.every((match) => {
       const before = clause.slice(0, match.index);
       const after = clause.slice(match.index + match[0].length);
-      return governedPrevention(before)
-        || /^[\p{L}]*\s+(?:пытаются|пытались)\s+/iu.test(after)
-        || (/['"‘“«](?:how\s+(?:to\s+|do\s+i\s+)?)?$/iu.test(before)
-          && /^[\p{L}]*['"’”»]\s+attempts?\s+by\s+(?:dishonest\s+farms?|fraudsters?)\b/iu.test(after))
-        || (/(?:不法|不诚实)(?:农场|经营者|人员)的[“「『](?:如何|怎么)?$/u.test(before)
-          && /^[\p{L}]*[”」』](?:的)?(?:尝试|行为)/u.test(after));
+      if (governedPrevention(before)) return isFinancialComplianceContinuation(after);
+      const thirdPartyRu = /^\s+(?:пытаются|пытались)\s+(?:недобросовестн[\p{L}]*\s+)?(?:хозяйств|ферм|мошенник)[\p{L}]*/iu.exec(after);
+      if (thirdPartyRu) return isFinancialComplianceContinuation(after.slice(thirdPartyRu[0].length));
+      const thirdPartyEn = /^['"’”»]\s+attempts?\s+by\s+(?:dishonest\s+farms?|fraudsters?)\b/iu.exec(after);
+      if (/['"‘“«](?:how\s+(?:to\s+|do\s+i\s+)?)?$/iu.test(before) && thirdPartyEn) {
+        return isFinancialComplianceContinuation(after.slice(thirdPartyEn[0].length));
+      }
+      const thirdPartyZh = /^[”」』](?:的)?(?:尝试|行为)/u.exec(after);
+      return /(?:不法|不诚实)(?:农场|经营者|人员)的[“「『](?:如何|怎么)?$/u.test(before)
+        && thirdPartyZh !== null && isFinancialComplianceContinuation(after.slice(thirdPartyZh[0].length));
     });
+    // Asking for help detecting an attempt is still prevention. Validate the
+    // linked act and every continuation before applying first-person markers.
+    if (linkedThirdPartyAttempt && noFacilitationContinuation
+      && directMatches.every((match) => governedPrevention(clause.slice(0, match.index)))) return false;
     return (!defensiveIntent && !directMatches.every((match) => governedPrevention(clause.slice(0, match.index))))
-      || !linkedThirdPartyAttempt
+      || !linkedThirdPartyAttempt || !noFacilitationContinuation
       || /^\s*(?:как\s+(?:скрыть|утаить|подделать|сфальсифицировать)|how\s+to\s+(?:hide|conceal|forge|falsify)|如何\s*(?:隐藏|隐瞒|伪造))/iu.test(clause)
       || /(?:помоги(?:те)?\s+(?:мне|нам)|как\s+(?:мне|нам)|help\s+me|how\s+do\s+i|帮我)[^.!?。！？\n]{0,60}(?:скрыть|утаить|подделать|сфальсифицировать|hide|conceal|forge|falsify|隐藏|隐瞒|伪造)/iu.test(clause);
   });
@@ -526,6 +576,8 @@ export function routeAssistantQuestion(
   const hasPlatformSubject = containsAny(normalized, PLATFORM_SUBJECTS);
   const hasAgroBusiness = containsAny(normalized, AGRO_BUSINESS_TERMS);
   const hasAdjacent = containsAny(normalized, BUSINESS_ADJACENT_TERMS);
+  const fiscalProfessional = hasAdjacent && !hasPlatformSubject
+    && /налог|ндс|есхн|усн|осно|\btax(?:es)?\b|\bvat\b|税务|税收/iu.test(normalized);
   const storageEconomics = isAgriculturalStorageEconomics(normalized);
   const directSection = storageEconomics ? null : matchSection(normalized);
 
@@ -535,7 +587,7 @@ export function routeAssistantQuestion(
   const agronomyWins = hasAgroObject && !hasPlatformSubject;
 
   if (hasAgroObject || hasAgroBusiness || storageEconomics) signals.push('agro_term');
-  if (directSection && !agronomyWins) signals.push('platform_term');
+  if (directSection && !agronomyWins && !fiscalProfessional) signals.push('platform_term');
   if (hasAdjacent) signals.push('business_term');
 
   const surface = context.onPlatformSurface
@@ -601,6 +653,12 @@ export function routeAssistantQuestion(
   // safety already ran before this routing decision.
   if (storageEconomics) {
     return outcome('ALLOW_DIRECT', { domain: hasAdjacent ? 'mixed' : 'agro', signals, section: null });
+  }
+
+  // Tax/legal context belongs to professional assistance. Generic words such
+  // as responsibility must not replace it with a platform knowledge article.
+  if (fiscalProfessional) {
+    return outcome('ALLOW_ADJACENT', { domain: 'business', signals, section: null });
   }
 
   // Direct platform question: an explicit section term is present.

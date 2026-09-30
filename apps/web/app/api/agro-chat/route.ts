@@ -404,6 +404,10 @@ function resolveAnswerMode(
   // This protects questions such as "Как хранить зерно после уборки?" from
   // being answered with stale Transparent Price copy.
   if (outcome.signals.includes('agro_term')) return 'general_agro';
+  // Explicit professional questions keep their own subject after an older
+  // platform turn; compact wording alone does not make them a follow-up.
+  if (outcome.decision === 'ALLOW_ADJACENT' && outcome.domain === 'business'
+    && outcome.signals.includes('business_term')) return 'general_agro';
 
   const compactFollowUp = normalized.split(' ').filter(Boolean).length <= 7;
   if (compactFollowUp && context.previousTopic) return 'verified_platform';
