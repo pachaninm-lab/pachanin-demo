@@ -55,6 +55,10 @@ describe('storage intent corrections', () => {
     '无需仓储；比较付款风险和成本。',
     '不要计入仓储费用，只比较延期付款的风险和成本。',
     '仓储不需要，比较延期付款的成本。',
+    "We don't need storage; compare payment costs.",
+    'We do not require storage; compare payment costs.',
+    'Нам не нужно хранение; сравни расходы при отсрочке оплаты.',
+    'Нам не требуется хранение; сравни расходы при отсрочке оплаты.',
   ])('does not calculate an explicitly excluded storage topic: %s', (question) => {
     const history = [
       { role: 'user' as const, text: 'Хранение стоит 100 руб/т в месяц. Срок два месяца.' },
@@ -84,6 +88,12 @@ describe('storage intent corrections', () => {
     'Хранение не нужно исключать. Сравни расходы.',
     'Storage is not needed to exclude other costs. Compare storage costs.',
     '无需忽略仓储成本，需要涨价多少？',
+    'Storage for A costs 100 and storage for B is not needed. Compare costs.',
+    'Storage for A is needed and storage for B is not required. Compare costs.',
+    'Хранение А стоит 100 и хранение Б не нужно. Сравни расходы.',
+    'Хранение А нужно и хранение Б не требуется. Сравни расходы.',
+    '仓储A成本100而仓储B不需要。比较成本。',
+    '仓储A成本100而仓储B无需安排。比较成本。',
   ])('keeps actual or hypothetical storage comparisons screened: %s', (question) => {
     expect(economicComparisonFor(question, [])).toBe('storage');
   });

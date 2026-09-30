@@ -101,7 +101,21 @@ const PAYMENT_COMPARISON_SEPARATOR = /(?:или|либо|\bvs\.?\b|\bversus\b|\b
 
 // An excluded cost/topic is not an instruction to calculate it. Keep mixed
 // clauses (including hypothetical storage) eligible for the existing screen.
-const STORAGE_EXCLUDED = /(?:не\s+(?:нужно|надо|требуется|буду|будем)\s+хранить|(?:хранить|хранени[ея])[^,，.!?;。！？；\n]{0,48}\s+не\s+(?:нужно|надо|требуется|нужн[оаы]|предусмотрено|учитыва[\p{L}]*|включа[\p{L}]*)|без\s+(?:расходов\s+на\s+)?хранени[ея]|не\s+(?:добавля|учитыва|включа)[\p{L}]*\s+(?:(?:расход|стоимост|затрат)[\p{L}]*\s+(?:на\s+)?)?хранени[ея]|\b(?:no|without)\s+(?:need\s+(?:to|for)\s+)?(?:storage|stor(?:e|ing))\b|\b(?:storage|stor(?:e|ing))\b[^,，.!?;。！？；\n]{0,48}\b(?:not\s+(?:needed|required)|isn't\s+(?:needed|required))\b|\b(?:do\s+not|don't)\s+include\s+(?:the\s+)?storage\b|(?:无需|不需要|不用|不必)[^,，.!?;。！？；\n]{0,20}(?:仓储|储存)|(?:仓储|储存)[^,，.!?;。！？；\n]{0,20}(?:不需要|无需)|(?:不要|不应)\s*(?:计入|加入|考虑)[^,，.!?;。！？；\n]{0,20}(?:仓储|储存))/iu;
+// A span may refer to one storage mention only. Crossing another mention
+// would attach its negation to an earlier, applicable comparison.
+const STORAGE_MENTION_GAP = `(?:(?!${STORAGE_TOPIC.source})[^,，.!?;。！？；\\n])`;
+const STORAGE_EXCLUDED = new RegExp([
+  /не\s+(?:нужно|надо|требуется|буду|будем)\s+(?:хранить|хранени[ея])/.source,
+  `(?:хранить|хранени[ея])${STORAGE_MENTION_GAP}{0,48}\\s+не\\s+(?:нужно|надо|требуется|нужн[оаы]|предусмотрено|учитыва[\\p{L}]*|включа[\\p{L}]*)`,
+  /без\s+(?:расходов\s+на\s+)?хранени[ея]/.source,
+  /не\s+(?:добавля|учитыва|включа)[\p{L}]*\s+(?:(?:расход|стоимост|затрат)[\p{L}]*\s+(?:на\s+)?)?хранени[ея]/u.source,
+  /\b(?:no|without)\s+(?:need\s+(?:to|for)\s+)?(?:storage|stor(?:e|ing))\b/.source,
+  `\\b(?:storage|stor(?:e|ing))\\b${STORAGE_MENTION_GAP}{0,48}\\b(?:not\\s+(?:needed|required)|isn't\\s+(?:needed|required))\\b`,
+  /\b(?:do\s+not|don't)\s+(?:include|need|require)\s+(?:the\s+)?storage\b/.source,
+  `(?:无需|不需要|不用|不必)${STORAGE_MENTION_GAP}{0,20}(?:仓储|储存)`,
+  `(?:仓储|储存)${STORAGE_MENTION_GAP}{0,20}(?:不需要|无需)`,
+  `(?:不要|不应)\\s*(?:计入|加入|考虑)${STORAGE_MENTION_GAP}{0,20}(?:仓储|储存)`,
+].join('|'), 'iu');
 
 function storageExplicitlyExcluded(text: string): boolean {
   const storageClauses = text
