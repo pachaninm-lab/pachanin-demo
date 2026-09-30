@@ -69,6 +69,7 @@ describe('storage intent corrections', () => {
     'Compare payment costs assuming no storage is needed for this deal.',
     'Compare payment costs assuming no storage is required for the shipment.',
     'Not excluding storage costs was a mistake; compare payment costs.',
+    'We discussed storage yesterday. Exclude storage costs and compare payment costs.',
     'Compare payment costs assuming no storage is required.',
     'Compare payment costs assuming no storage for the shipment.',
     'Compare payment costs excluding storage.',
@@ -266,6 +267,7 @@ describe('storage intent corrections', () => {
   it.each([
     'Оцените стоимость хранения зерна.',
     'Рассчитай себестоимость хранения зерна.',
+    'Какой перерасход средств на хранение зерна?',
     'Какова себестоимость хранения за месяц?',
     'Расходы на хранение 200 рублей за тонну в месяц. Сравни цену.',
     'Сравни цены продажи зерна после хранения.',

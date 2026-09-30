@@ -91,7 +91,9 @@ export type PaymentTimingInput = Readonly<{
 }>;
 type UserContextTurn = Readonly<{ role: 'user' | 'assistant'; text: string }>;
 const STORAGE_TOPIC = /хран[еи]|storage|stor[ei]|仓储|储存/iu;
-const ECONOMIC_TOPIC = /(?<![\p{L}])(?:цен|стоим|себестоим|расход|руб|прода|выгод|покры)|price|cost|sell|profit|break.even|价格|成本|出售|收益/iu;
+// Bound the ambiguous price/ruble stems (оцените, трубы), while retaining
+// monetary compounds such as себестоимость and перерасход.
+const ECONOMIC_TOPIC = /(?<![\p{L}])(?:цен|руб)|стоим|расход|прода|выгод|покры|price|cost|sell|profit|break.even|价格|成本|出售|收益/iu;
 
 function hasEconomicTopic(text: string): boolean {
   // Application rates are not financial expenses. Other monetary words in the
@@ -165,7 +167,10 @@ function storageClauses(text: string): string[] {
 }
 
 function storageExplicitlyExcluded(text: string): boolean {
-  const clauses = storageClauses(text);
+  const clauses = storageClauses(text).filter((clause) =>
+    !STORAGE_PRIOR_ANSWER_REFERENCE.test(clause)
+    || STORAGE_RENEWED_COST_REFERENCE.test(clause)
+    || STORAGE_REQUIRED_WITHOUT.test(clause));
   return clauses.length > 0 && clauses.every((clause) => {
     // Double negation and unexcluded mentions keep the conservative screen.
     if (STORAGE_REQUIRED_WITHOUT.test(clause)
