@@ -261,6 +261,10 @@ describe('storage intent corrections', () => {
     'Оцените состояние зернохранилища перед загрузкой.',
     'Как проверить трубы вентиляции зернохранилища?',
     'Как оценить влажность зерна при хранении?',
+    'Какой процент всхожести останется после хранения зерна?',
+    'Какой процент влажности допустим при хранении зерна?',
+    'Какой сорт лучше выбрать для отсроченного посева?',
+    'Which herbicide is better for deferred application?',
   ])('does not attach a financial comparison to application-rate exclusions: %s', (question) => {
     expect(economicComparisonFor(question, [])).toBeNull();
   });
@@ -269,6 +273,10 @@ describe('storage intent corrections', () => {
     'Storage is not needed. Compare payment terms.',
     'Storage costs should not be included; compare payment terms.',
     'Storage costs are excluded; compare payment terms.',
+    'Storage costs were excluded; compare payment terms.',
+    'Storage costs have been excluded; compare payment terms.',
+    'Storage costs had been excluded; compare payment terms.',
+    'Расходы на хранение были исключены; сравни условия оплаты.',
     'Стоимость хранения исключена; сравни условия оплаты.',
     'Расходы на хранение не должны включаться; сравни условия оплаты.',
     'Хранение не нужно. Что выбрать: оплату сейчас или с отсрочкой?',
@@ -281,6 +289,9 @@ describe('storage intent corrections', () => {
     'Не исключите из сметы стоимость хранения',
     'Storage costs should not be excluded; compare costs.',
     'Storage costs are not excluded; compare costs.',
+    'Storage costs were not excluded; compare costs.',
+    'Storage costs have not been excluded; compare costs.',
+    'Расходы на хранение не были исключены; сравни расходы.',
     'Стоимость хранения не исключена; сравни расходы.',
     'Расходы на хранение не должны исключаться; сравни расходы.',
   ])('preserves Russian negative exclusion imperatives: %s', (question) => {
