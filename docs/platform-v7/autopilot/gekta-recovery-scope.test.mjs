@@ -6,6 +6,10 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 const scopes = {
+  "fix/gekta-qwen35-guard-argv-form-20260928": [
+    ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+    "scripts/gekta-qwen35-4b-model-host-candidate.py"
+  ],
   "fix/gekta-docker-diagnostic-route-20260927": [
     ".github/workflows/production-docker-headroom-diagnostic.yml"
   ],
@@ -87,3 +91,14 @@ for (const [branch, files] of Object.entries(scopes)) {
     assert.ok(workflow.includes('ref: ${{ github.event.pull_request.base.sha }}'));
   });
 }
+
+test('candidate-owned manifest cannot self-admit an API authority file', t => {
+  const c = fixture(t, 'fix/gekta-qwen35-guard-argv-form-20260928');
+  write(c.root, 'docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json', JSON.stringify({
+    schemaVersion: 'platform-v7.concurrent-scope.v1', status: 'active', branch: c.branch,
+    allowedPaths: [...scopes[c.branch], 'apps/api/src/app.module.ts'],
+  }));
+  write(c.root, 'apps/api/src/app.module.ts', 'injected authority');
+  const r = check(c);
+  assert.notEqual(r.status, 0, r.stdout + r.stderr);
+});
