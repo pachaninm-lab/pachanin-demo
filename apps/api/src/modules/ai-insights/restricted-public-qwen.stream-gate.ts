@@ -100,8 +100,10 @@ function hasEconomicTopic(text: string): boolean {
   // same request still activate the existing financial screen.
   const topic = text.replace(/(?<![\p{L}])норм(?:а|ы|у|е|ой|ою|ам|ами|ах)?\s+расхода(?![\p{L}])/giu, '');
   return ECONOMIC_TOPIC.test(topic) || topic.split(/[.!?;。！？；\n]/u).some((clause) =>
-    /(?<![\p{L}])процент[\p{L}]*/iu.test(clause)
-      && /начисл|начисля|плат[её]ж|оплат|кредит|за[её]м|банковск|денежн|депозит/iu.test(clause));
+    /\binterest\s+(?:(?:annual|monthly|daily)\s+)?rates?\b|(?:年|月|日)?利率|(?:借款|贷款|融资)?利息/iu.test(clause)
+    || /(?<![\p{L}])процент[\p{L}]*/iu.test(clause)
+      && (/начисл|начисля|плат[её]ж|оплат|кредит|за[её]м|банковск|денежн|депозит/iu.test(clause)
+        || /(?<![\p{L}])(?:процентн[\p{L}]*(?:\s+(?:годов|месячн|дневн)[\p{L}]*)?\s+ставк[\p{L}]*|ставк[\p{L}]*\s+(?:(?:в|по)\s+)?процент[\p{L}]*)/iu.test(clause)));
 }
 const TRANSPORT_COMPARISON = /перевоз|перевозчик|freight|haul|carrier|运输|承运/iu;
 const PAYMENT_TIMING_TOPIC = /оплат|плат[её]ж|отсроч|гарант|сегодня|сразу|payment|paid|defer|guarantee|today|付款|延期|担保|今天/iu;

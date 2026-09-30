@@ -148,6 +148,39 @@ describe('RestrictedPublicQwenService.generateStream', () => {
   });
 
   it.each([
+    ['en', 'What annual interest rate is charged for grain storage?', 'The annual interest rate is 15%, so storing grain is more profitable.', 'Storage-only break-even'],
+    ['zh', '粮食仓储的年利率是多少？', '仓储年利率是15%，因此继续储存更划算。', '仅覆盖仓储费'],
+  ])('does not publish an invented financial interest rate in either real service path (%s)', async (locale, question, content, storageCopy) => {
+    for (const mode of ['stream', 'buffered']) {
+      for (const chunkSize of mode === 'stream' ? [1, 7, 500] : [500]) {
+        const raw = request({ locale, question, originalQuestion: question });
+        let answer = '';
+        let flags: readonly string[] = [];
+        if (mode === 'stream') {
+          const deltas = Array.from({ length: Math.ceil(content.length / chunkSize) }, (_, index) => content.slice(index * chunkSize, (index + 1) * chunkSize));
+          installRuntime({ deltas, gapMs: 0 });
+          for await (const event of service.generateStream(raw)) {
+            if (event.type === 'delta') {
+              answer += event.text;
+              expect(answer).not.toContain('15');
+            }
+            if (event.type === 'done') flags = event.safetyFlags;
+          }
+        } else {
+          global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+          const result = await service.generate(raw);
+          answer = result.answer;
+          flags = result.safetyFlags;
+        }
+        expect(answer).not.toContain('15');
+        expect(answer).not.toMatch(/more profitable|更划算/u);
+        expect(answer).toContain(storageCopy);
+        expect(flags).toContain('UNVERIFIED_ECONOMIC_CLAIM_REMOVED');
+      }
+    }
+  });
+
+  it.each([
     ['ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Выбирайте отсрочку оплаты: прибыль составит 400 руб/т.', 'Проверьте условия оплаты.'],
     ['en', 'Storage is not needed; compare payment costs.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
     ['zh', '不需要储存粮食。比较延期付款的成本。', '选择延期付款，每吨可获利400卢布。', '核对交易对手和付款条件。'],
@@ -216,6 +249,10 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     ['buffered', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Какие расценки на хранение зерна?', 'Для покрытия только хранения'],
     ['stream', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Какой процент окупит хранение зерна?', 'Для покрытия только хранения'],
     ['buffered', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Какой процент начисляют за хранение зерна?', 'Для покрытия только хранения'],
+    ['stream', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Какая процентная ставка за хранение зерна?', 'Для покрытия только хранения'],
+    ['buffered', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Какая процентная ставка за хранение зерна?', 'Для покрытия только хранения'],
+    ['stream', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Укажи ставку в процентах за хранение зерна.', 'Для покрытия только хранения'],
+    ['buffered', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Какая ставка процента за хранение зерна?', 'Для покрытия только хранения'],
     ['buffered', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Не исключите из сметы стоимость хранения', 'Для покрытия только хранения'],
     ['buffered', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Какова себестоимость хранения за месяц?', 'Для покрытия только хранения'],
     ['buffered', 'en', 'Storage is not needed; compare payment costs.', 'Never exclude storage costs; compare costs.', 'Storage-only break-even'],
