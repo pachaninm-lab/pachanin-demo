@@ -106,16 +106,17 @@ const PAYMENT_COMPARISON_SEPARATOR = /(?:или|либо|\bvs\.?\b|\bversus\b|\b
 const STORAGE_MENTION_GAP = `(?:(?!${STORAGE_TOPIC.source})[^,，.!?;。！？；\\n])`;
 const STORAGE_NECESSITY_GAP = `(?:(?!${STORAGE_TOPIC.source})[^.!?;。！？；\\n])`;
 const STORAGE_REQUIRED_WITHOUT = new RegExp([
-  `без\\s+(?:(?:расход|стоимост|затрат)[\\p{L}]*\\s+(?:на\\s+)?)?хранени[ея]${STORAGE_NECESSITY_GAP}{0,80}(?:нельзя|невозмож|не\\s+(?:мож|могу|получ|удаст))`,
-  `\\bwithout\\s+storage(?:\\s+(?:costs?|expenses?))?${STORAGE_NECESSITY_GAP}{0,80}\\b(?:cannot|can't|impossible|not\\s+possible)\\b`,
+  `без\\s+(?:(?:расход|стоимост|затрат)[\\p{L}]*\\s+(?:на\\s+)?)?хранени[ея]${STORAGE_NECESSITY_GAP}{0,80}(?:нельзя|невозмож|нет\\s+возможност[ьи]|не\\s+(?:мож|могу|получ|удаст))`,
+  `\\bwithout\\s+storage(?:\\s+(?:costs?|expenses?))?${STORAGE_NECESSITY_GAP}{0,80}\\b(?:cannot|can't|impossible|not\\s+possible|no\\s+(?:way|possibility))\\b`,
 ].join('|'), 'iu');
 const STORAGE_PRIOR_ANSWER_REFERENCE = new RegExp([
-  /(?:^|[^\p{L}])(?:ты|вы)\s+(?:(?:ранее|раньше|уже|только\s+что)\s+)?(?:говорил|сказал|предложил|упоминал|обсуждал)/u.source,
+  /(?:^|[^\p{L}])(?:я|мы|ты|вы)\s+(?:(?:ранее|раньше|уже|только\s+что)\s+)?(?:говорил[аи]?|сказал[аи]?|предложил[аи]?|упоминал[аи]?|обсуждал[аи]?)/u.source,
   /(?:^|[^\p{L}])(?:предыдущ|прошл|тво|ваш)[\p{L}]*\s+(?:ответ|сообщени)/u.source,
   /\b(?:your|the|previous|earlier|last)\s+(?:(?:previous|earlier|last)\s+)?(?:answer|reply)\b/.source,
-  /\byou\s+(?:(?:earlier|previously|already|just)\s+)?(?:said|mentioned|suggested|proposed|talked|discussed)\b/.source,
+  /\b(?:you|i|we)\s+(?:(?:earlier|previously|already|just)\s+)?(?:said|mentioned|suggested|proposed|talked|discussed)\b/.source,
   /\b(?:earlier|previously|last\s+time)\s+(?:we|you|i)\s+(?:said|mentioned|suggested|talked|discussed)\b/.source,
   /(?:你|您)(?:之前|刚才|先前)?(?:的)?(?:回答|回复|说|提到|提及)|(?:之前|刚才|先前)(?:的)?(?:回答|回复)/.source,
+  /(?:我|我们)(?:之前|刚才|先前)(?:的)?(?:回答|回复|说过?|提到|提及|谈过|讨论过)/.source,
 ].join('|'), 'iu');
 const STORAGE_EXCLUDED = new RegExp([
   /не\s+(?:нужно|надо|требуется|буду|будем)\s+(?:хранить|хранени[ея])/.source,
@@ -128,6 +129,7 @@ const STORAGE_EXCLUDED = new RegExp([
   /^\s*no\s+storage\s+(?:is\s+)?(?:needed|required)\b/.source,
   `\\b(?:storage|stor(?:e|ing))\\b${STORAGE_MENTION_GAP}{0,48}\\b(?:not\\s+(?:needed|required)|isn't\\s+(?:needed|required))\\b`,
   /\b(?:do\s+not|don't)\s+(?:include|need|require)\s+(?:the\s+)?storage\b/.source,
+  /\b(?:do\s+not|don't)\s+need\s+to\s+store\b/.source,
   `\\b(?:do\\s+not|don't)\\s+(?:mention|discuss|talk\\s+about)${STORAGE_MENTION_GAP}{0,48}\\bstorage\\b`,
   `(?:无需|不需要|不用|不必)${STORAGE_MENTION_GAP}{0,20}(?:仓储|储存)`,
   `(?:仓储|储存)${STORAGE_MENTION_GAP}{0,20}(?:不需要|无需)`,
