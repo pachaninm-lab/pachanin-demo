@@ -80,7 +80,7 @@ const CHINESE_PRESCRIPTION_PREFIX = /(?:使用|施用|选择|推荐)[^.!?。！�
 
 const EMPTY_COMMIT: GateCommit = Object.freeze({ text: '', flags: Object.freeze([]), violation: null });
 
-export type EconomicComparison = 'storage' | 'transport' | 'payment_timing';
+export type EconomicComparison = 'storage' | 'transport' | 'payment_timing' | 'qualitative';
 export type PaymentTimingInput = Readonly<{
   immediatePriceMinor: number;
   delayedPriceMinor: number;
@@ -109,7 +109,9 @@ const STORAGE_EXCLUDED = new RegExp([
   `(?:хранить|хранени[ея])${STORAGE_MENTION_GAP}{0,48}\\s+не\\s+(?:нужно|надо|требуется|нужн[оаы]|предусмотрено|учитыва[\\p{L}]*|включа[\\p{L}]*)`,
   /без\s+(?:расходов\s+на\s+)?хранени[ея]/.source,
   /не\s+(?:добавля|учитыва|включа)[\p{L}]*\s+(?:(?:расход|стоимост|затрат)[\p{L}]*\s+(?:на\s+)?)?хранени[ея]/u.source,
-  /\b(?:no|without)\s+(?:need\s+(?:to|for)\s+)?(?:storage|stor(?:e|ing))\b/.source,
+  /\bno\s+need\s+(?:to\s+stor(?:e|ing)|for\s+storage)\b/.source,
+  /^\s*(?:no|without)\s+storage(?:\s+(?:costs?|expenses?))?(?=\s*(?:$|[,，:]|\bcompare\b))/.source,
+  /^\s*no\s+storage\s+(?:is\s+)?(?:needed|required)\b/.source,
   `\\b(?:storage|stor(?:e|ing))\\b${STORAGE_MENTION_GAP}{0,48}\\b(?:not\\s+(?:needed|required)|isn't\\s+(?:needed|required))\\b`,
   /\b(?:do\s+not|don't)\s+(?:include|need|require)\s+(?:the\s+)?storage\b/.source,
   `(?:无需|不需要|不用|不必)${STORAGE_MENTION_GAP}{0,20}(?:仓储|储存)`,
@@ -123,7 +125,7 @@ function storageExplicitlyExcluded(text: string): boolean {
     .filter((clause) => STORAGE_TOPIC.test(clause));
   return storageClauses.length > 0 && storageClauses.every((clause) => {
     // Double negation and unexcluded mentions keep the conservative screen.
-    if (/не\s+(?:нужно|надо|требуется)\s+(?:исключ|игнор|убир)|\bnot\s+(?:needed|required)\s+to\s+(?:exclude|ignore)|无需\s*(?:忽略|排除)/iu.test(clause)) return false;
+    if (/не\s+(?:нужно|надо|требуется)\s+(?:исключ|игнор|убир)|без\s+хранени[ея]\s+(?:нельзя|невозмож)|\bnot\s+(?:needed|required)\s+to\s+(?:exclude|ignore)|无需\s*(?:忽略|排除)/iu.test(clause)) return false;
     const exclusions = [...clause.matchAll(new RegExp(STORAGE_EXCLUDED.source, 'giu'))];
     return [...clause.matchAll(new RegExp(STORAGE_TOPIC.source, 'giu'))].every((topic) =>
       exclusions.some((exclusion) => topic.index >= exclusion.index
@@ -136,11 +138,15 @@ export function economicComparisonFor(question: string, history: readonly UserCo
   if (/документ|персональн|хранени[ея]\s+данных|платформ|document|personal data|data retention|platform|文件|个人数据|平台/iu.test(question)) return null;
   if (paymentTimingFromUser(question) !== null) return 'payment_timing';
   if (TRANSPORT_COMPARISON.test(question) && /рейс|тонн|тариф|trip|tonne|rate|趟|吨|费率/iu.test(question)) return 'transport';
-  if (storageExplicitlyExcluded(question)) return null;
+  // Excluding storage arithmetic must not disable the existing monetary
+  // output screen or qualitative-only provider instruction for a cost question.
+  if (storageExplicitlyExcluded(question)) return ECONOMIC_TOPIC.test(question) ? 'qualitative' : null;
   if (STORAGE_TOPIC.test(question) && ECONOMIC_TOPIC.test(question)) return 'storage';
   const lastUser = [...history].reverse().find((turn) => turn.role === 'user')?.text ?? '';
-  if (STORAGE_TOPIC.test(lastUser) && ECONOMIC_TOPIC.test(lastUser) && !storageExplicitlyExcluded(lastUser)
-    && /месяц|покры|срок|month|cover|duration|月|期限/iu.test(question)) return 'storage';
+  if (STORAGE_TOPIC.test(lastUser) && ECONOMIC_TOPIC.test(lastUser)
+    && /месяц|покры|срок|month|cover|duration|月|期限/iu.test(question)) {
+    return storageExplicitlyExcluded(lastUser) ? 'qualitative' : 'storage';
+  }
   return null;
 }
 
@@ -250,6 +256,11 @@ export function storageCostFromUser(question: string, history: readonly UserCont
 }
 
 export function economicComparisonCopy(kind: EconomicComparison, locale: PublicLocale, storageMinor: number | null, payment: PaymentTimingInput | null = null): string {
+  if (kind === 'qualitative') {
+    if (locale === 'en') return 'To assess profitability, compare confirmed costs and payment terms. A price comparison alone does not determine which option to choose.';
+    if (locale === 'zh') return '评估收益时，应比较已核实的费用和付款条件；仅比较价格不能决定应选哪一种方案。';
+    return 'Для оценки выгодности сравните подтверждённые расходы и условия оплаты. Сравнение цен само по себе не определяет, какой вариант выбрать.';
+  }
   if (kind === 'transport') {
     if (locale === 'en') return 'Compare the total quote per trip divided by the actual payable tonnes with the per-tonne quote. Include all trips, loading, waiting and return charges. What are both rates and the actual load?';
     if (locale === 'zh') return '将按趟报价的总费用除以实际计费吨数，再与按吨报价比较；计入全部趟数、装卸、等待和返程费用。两种费率和实际装载量是多少？';

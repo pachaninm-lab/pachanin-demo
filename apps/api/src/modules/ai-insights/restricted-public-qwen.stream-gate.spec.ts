@@ -64,7 +64,7 @@ describe('storage intent corrections', () => {
       { role: 'user' as const, text: 'Хранение стоит 100 руб/т в месяц. Срок два месяца.' },
       { role: 'assistant' as const, text: 'Нужно покрыть расходы на хранение.' },
     ];
-    expect(economicComparisonFor(question, history)).toBe(null);
+    expect(economicComparisonFor(question, history)).toBe('qualitative');
     const gate = generalGate({ economicComparison: economicComparisonFor(question, history) });
     gate.push('Проверьте платёжеспособность покупателя и условия отсрочки.');
     gate.flush();
@@ -94,6 +94,11 @@ describe('storage intent corrections', () => {
     'Хранение А нужно и хранение Б не требуется. Сравни расходы.',
     '仓储A成本100而仓储B不需要。比较成本。',
     '仓储A成本100而仓储B无需安排。比较成本。',
+    'We cannot ship without storage; compare costs.',
+    'No storage option is cheap; compare costs.',
+    'We cannot avoid storage; compare costs.',
+    'No storage costs are negligible; compare costs.',
+    'Без хранения нельзя отгрузить зерно. Сравни расходы.',
   ])('keeps actual or hypothetical storage comparisons screened: %s', (question) => {
     expect(economicComparisonFor(question, [])).toBe('storage');
   });
@@ -103,7 +108,7 @@ describe('storage intent corrections', () => {
     ['No storage costs; compare payment prices.', 'The payment duration is one month.'],
     ['无需仓储，比较延期付款的成本。', '期限是一个月。'],
   ])('does not resurrect an excluded topic from user history: %s', (previous, question) => {
-    expect(economicComparisonFor(question, [{ role: 'user', text: previous }])).toBe(null);
+    expect(economicComparisonFor(question, [{ role: 'user', text: previous }])).toBe('qualitative');
   });
 
   it('preserves supported same-turn payment arithmetic before storage exclusion', () => {
@@ -119,6 +124,28 @@ describe('storage intent corrections', () => {
 
   it('preserves history-based actual storage follow-up', () => {
     expect(economicComparisonFor('А срок три месяца?', [{ role: 'user', text: 'Сколько стоят расходы на хранение?' }])).toBe('storage');
+  });
+
+  it('keeps a non-economic excluded-storage question outside the monetary screen', () => {
+    expect(economicComparisonFor('Хранение не нужно. Как проверить всхожесть зерна?', [])).toBeNull();
+  });
+
+  it.each([
+    ['ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Выбирайте отсрочку оплаты: прибыль составит 400 руб/т.', 'Проверьте условия оплаты.'],
+    ['en', 'Storage is not needed; compare payment costs.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
+    ['zh', '不需要储存粮食。比较延期付款的成本。', '选择延期付款，每吨可获利400卢布。', '核对交易对手和付款条件。'],
+  ])('keeps economic screening and qualitative text without storage arithmetic: %s', (locale, question, unsupported, qualitative) => {
+    for (const chunkSize of [1, 2, 7, 48, 500]) {
+      const gate = generalGate({ locale: locale as 'ru' | 'en' | 'zh', economicComparison: economicComparisonFor(question, []) });
+      const content = `${unsupported}\n\n${qualitative} `;
+      for (let index = 0; index < content.length; index += chunkSize) {
+        gate.push(content.slice(index, index + chunkSize));
+        expect(gate.emitted).not.toContain('400');
+      }
+      gate.flush();
+      expect(gate.emitted).not.toContain(unsupported);
+      expect(gate.emitted).toContain(qualitative);
+    }
   });
 });
 

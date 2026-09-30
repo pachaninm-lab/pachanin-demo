@@ -147,6 +147,62 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     expect(flags).toContain('UNVERIFIED_ECONOMIC_CLAIM_REMOVED');
   });
 
+  it.each([
+    ['ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Выбирайте отсрочку оплаты: прибыль составит 400 руб/т.', 'Проверьте условия оплаты.'],
+    ['en', 'Storage is not needed; compare payment costs.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
+    ['zh', '不需要储存粮食。比较延期付款的成本。', '选择延期付款，每吨可获利400卢布。', '核对交易对手和付款条件。'],
+  ])('preserves excluded-storage economic protection in both real service paths: %s', async (locale, question, unsupported, qualitative) => {
+    for (const mode of ['stream', 'buffered']) {
+      for (const chunkSize of [1, 7, 500]) {
+        const content = `${unsupported}\n\n${qualitative} `;
+        const raw = request({ locale, question, originalQuestion: question });
+        let answer = '';
+        let flags: readonly string[] = [];
+        let providerBody: Record<string, unknown>;
+        if (mode === 'stream') {
+          const deltas = Array.from({ length: Math.ceil(content.length / chunkSize) }, (_, index) => content.slice(index * chunkSize, (index + 1) * chunkSize));
+          const probe = installRuntime({ deltas, gapMs: 0 });
+          for await (const event of service.generateStream(raw)) {
+            if (event.type === 'delta') answer += event.text;
+            if (event.type === 'done') flags = event.safetyFlags;
+          }
+          providerBody = probe.requests[0].body;
+        } else {
+          const provider = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+          global.fetch = provider;
+          const result = await service.generate(raw);
+          answer = result.answer;
+          flags = result.safetyFlags;
+          providerBody = JSON.parse(String(provider.mock.calls[0][1].body)) as Record<string, unknown>;
+        }
+        expect(answer).not.toContain(unsupported);
+        expect(answer).not.toContain('400');
+        expect(answer).toContain(qualitative);
+        expect(answer).not.toMatch(/только хранения|Storage-only break-even|仅覆盖仓储费/iu);
+        expect(flags).toContain('UNVERIFIED_ECONOMIC_CLAIM_REMOVED');
+        expect(JSON.stringify(providerBody.messages)).toContain('Do not generate numerical calculations');
+      }
+    }
+  });
+
+  it.each(['stream', 'buffered'])('returns a useful screened answer when excluded-storage model content is wholly monetary: %s', async (mode) => {
+    const question = 'Хранение не нужно. Сравни расходы при отсрочке оплаты.';
+    const raw = request({ question, originalQuestion: question });
+    const content = 'Выбирайте отсрочку оплаты: прибыль составит 400 руб/т.';
+    let answer = '';
+    if (mode === 'stream') {
+      installRuntime({ deltas: [content] });
+      for await (const event of service.generateStream(raw)) if (event.type === 'delta') answer += event.text;
+    } else {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      answer = (await service.generate(raw)).answer;
+    }
+    expect(answer).not.toContain('400');
+    expect(answer).not.toContain('Выбирайте');
+    expect(answer).not.toContain('только хранения');
+    expect(answer).toMatch(/условия|расходы/iu);
+  });
+
   it.each(['stream', 'buffered'])('replaces model payment selection and arithmetic with checked user-owned terms in %s output', async (mode) => {
     const question = 'Покупатель предлагает 12000 руб/т с оплатой сегодня или 12400 руб/т через 45 дней без банковской гарантии. Что выбрать?';
     const raw = request({ question, originalQuestion: question });
