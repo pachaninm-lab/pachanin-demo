@@ -38,6 +38,80 @@ function sseChunk(content: string): string {
   return `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
 }
 
+describe('storage intent corrections', () => {
+  it.each([
+    'Уточнение: отгрузка обоим покупателям сразу, хранить зерно 30 дней не нужно. Пересмотри риски отсрочки оплаты, не добавляя расходов на хранение.',
+    'Хранение не нужно. Сравни расходы при отсрочке оплаты.',
+    'Не включай стоимость хранения при сравнении отсрочки оплаты.',
+    'Не добавляй расходы на хранение. Отгрузка покупателю сразу.',
+    'Без хранения: сравни цену при оплате сразу и через 30 дней.',
+    'Расходы на хранение не учитывай; сравни условия оплаты.',
+    'Storage is not needed; compare payment costs.',
+    'No storage costs; compare the payment deferral risk.',
+    "Don't include storage costs; shipment is immediate. What are the payment risks?",
+    'No need to store grain; compare the price of deferred payment.',
+    'Storage is not required; compare the price of deferred payment.',
+    '不需要储存粮食。比较延期付款的成本。',
+    '无需仓储；比较付款风险和成本。',
+    '不要计入仓储费用，只比较延期付款的风险和成本。',
+    '仓储不需要，比较延期付款的成本。',
+  ])('does not calculate an explicitly excluded storage topic: %s', (question) => {
+    const history = [
+      { role: 'user' as const, text: 'Хранение стоит 100 руб/т в месяц. Срок два месяца.' },
+      { role: 'assistant' as const, text: 'Нужно покрыть расходы на хранение.' },
+    ];
+    expect(economicComparisonFor(question, history)).toBe(null);
+    const gate = generalGate({ economicComparison: economicComparisonFor(question, history) });
+    gate.push('Проверьте платёжеспособность покупателя и условия отсрочки.');
+    gate.flush();
+    expect(gate.emitted).not.toContain('Для покрытия только хранения');
+  });
+
+  it.each([
+    'Сколько должна вырасти цена, чтобы покрыть хранение два месяца по 100 руб/т в месяц?',
+    'Не нужно продавать сразу. Сколько стоит хранение три месяца?',
+    'Хранение не нужно для А. Но Б хранит три месяца. Сравни расходы.',
+    'Хранение не нужно, но если хранить два месяца по 100 руб/т в месяц, какой нужен рост цены?',
+    'Не исключайте расходы на хранение: сколько должна вырасти цена?',
+    'Storage is not needed for A, but B stores for three months. Compare prices.',
+    'Do not ignore storage costs. How much should the price rise?',
+    'No storage is needed today. However if storing for two months, what price rise covers the cost?',
+    '无需仓储，但如果储存两个月，每月每吨100卢布，需要涨价多少才能覆盖仓储成本？',
+    '不要忽略仓储成本，需要涨价多少？',
+    'Хранение не нужно для А, для Б хранить зерно три месяца. Сравни расходы.',
+    'No storage for A, B stores grain for three months. Compare costs.',
+    '无需仓储用于A，B储存粮食三个月。比较成本。',
+    'Хранение не нужно исключать. Сравни расходы.',
+    'Storage is not needed to exclude other costs. Compare storage costs.',
+    '无需忽略仓储成本，需要涨价多少？',
+  ])('keeps actual or hypothetical storage comparisons screened: %s', (question) => {
+    expect(economicComparisonFor(question, [])).toBe('storage');
+  });
+
+  it.each([
+    ['Хранение не требуется; сравни расходы по оплате.', 'Срок один месяц.'],
+    ['No storage costs; compare payment prices.', 'The payment duration is one month.'],
+    ['无需仓储，比较延期付款的成本。', '期限是一个月。'],
+  ])('does not resurrect an excluded topic from user history: %s', (previous, question) => {
+    expect(economicComparisonFor(question, [{ role: 'user', text: previous }])).toBe(null);
+  });
+
+  it('preserves supported same-turn payment arithmetic before storage exclusion', () => {
+    const question = '12000 руб/т с оплатой сегодня или 12400 руб/т через 30 дней. Хранение не нужно.';
+    expect(economicComparisonFor(question, [])).toBe('payment_timing');
+    expect(paymentTimingFromUser(question)?.premiumMinor).toBe(40000);
+    expect(paymentTimingFromUser(question)?.delayDays).toBe(30);
+  });
+
+  it('preserves freight comparison priority when storage is excluded', () => {
+    expect(economicComparisonFor('Без хранения. Сравни тариф перевозчика за рейс и за тонну.', [])).toBe('transport');
+  });
+
+  it('preserves history-based actual storage follow-up', () => {
+    expect(economicComparisonFor('А срок три месяца?', [{ role: 'user', text: 'Сколько стоят расходы на хранение?' }])).toBe('storage');
+  });
+});
+
 describe('StreamingAnswerGate', () => {
   it.each([1, 2, 7, 48, 500])('screens live unsupported economic answers before publication at chunk size %i', (size) => {
     for (const answer of [

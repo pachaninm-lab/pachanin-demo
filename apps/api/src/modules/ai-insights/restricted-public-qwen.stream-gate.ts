@@ -99,14 +99,33 @@ const PAYMENT_DELAY_DAYS = /(?:через\s+|отсроч\w*(?:\s+на)?\s*|in\s
 const PAYMENT_IMMEDIATE_MARKER = /(?:с\s+оплат\w*\s+сегодня|оплат\w*\s+сегодня|сегодня|сразу|paid\s+today|payment\s+today|today|今天付款|现付)/iu;
 const PAYMENT_COMPARISON_SEPARATOR = /(?:или|либо|\bvs\.?\b|\bversus\b|\bor\b|还是)/iu;
 
+// An excluded cost/topic is not an instruction to calculate it. Keep mixed
+// clauses (including hypothetical storage) eligible for the existing screen.
+const STORAGE_EXCLUDED = /(?:не\s+(?:нужно|надо|требуется|буду|будем)\s+хранить|(?:хранить|хранени[ея])[^,，.!?;。！？；\n]{0,48}\s+не\s+(?:нужно|надо|требуется|нужн[оаы]|предусмотрено|учитыва[\p{L}]*|включа[\p{L}]*)|без\s+(?:расходов\s+на\s+)?хранени[ея]|не\s+(?:добавля|учитыва|включа)[\p{L}]*\s+(?:(?:расход|стоимост|затрат)[\p{L}]*\s+(?:на\s+)?)?хранени[ея]|\b(?:no|without)\s+(?:need\s+(?:to|for)\s+)?(?:storage|stor(?:e|ing))\b|\b(?:storage|stor(?:e|ing))\b[^,，.!?;。！？；\n]{0,48}\b(?:not\s+(?:needed|required)|isn't\s+(?:needed|required))\b|\b(?:do\s+not|don't)\s+include\s+(?:the\s+)?storage\b|(?:无需|不需要|不用|不必)[^,，.!?;。！？；\n]{0,20}(?:仓储|储存)|(?:仓储|储存)[^,，.!?;。！？；\n]{0,20}(?:不需要|无需)|(?:不要|不应)\s*(?:计入|加入|考虑)[^,，.!?;。！？；\n]{0,20}(?:仓储|储存))/iu;
+
+function storageExplicitlyExcluded(text: string): boolean {
+  const storageClauses = text
+    .split(/[.!?;。！？；\n]|(?:,?\s+(?:но|однако)\s+)|(?:,?\s+\b(?:but|however)\b\s+)|(?:，?\s*(?:但是|但)\s*)/iu)
+    .filter((clause) => STORAGE_TOPIC.test(clause));
+  return storageClauses.length > 0 && storageClauses.every((clause) => {
+    // Double negation and unexcluded mentions keep the conservative screen.
+    if (/не\s+(?:нужно|надо|требуется)\s+(?:исключ|игнор|убир)|\bnot\s+(?:needed|required)\s+to\s+(?:exclude|ignore)|无需\s*(?:忽略|排除)/iu.test(clause)) return false;
+    const exclusions = [...clause.matchAll(new RegExp(STORAGE_EXCLUDED.source, 'giu'))];
+    return [...clause.matchAll(new RegExp(STORAGE_TOPIC.source, 'giu'))].every((topic) =>
+      exclusions.some((exclusion) => topic.index >= exclusion.index
+        && topic.index + topic[0].length <= exclusion.index + exclusion[0].length));
+  });
+}
+
 /** History establishes a topic only; assistant prose never establishes a quantity. */
 export function economicComparisonFor(question: string, history: readonly UserContextTurn[]): EconomicComparison | null {
   if (/документ|персональн|хранени[ея]\s+данных|платформ|document|personal data|data retention|platform|文件|个人数据|平台/iu.test(question)) return null;
   if (paymentTimingFromUser(question) !== null) return 'payment_timing';
   if (TRANSPORT_COMPARISON.test(question) && /рейс|тонн|тариф|trip|tonne|rate|趟|吨|费率/iu.test(question)) return 'transport';
+  if (storageExplicitlyExcluded(question)) return null;
   if (STORAGE_TOPIC.test(question) && ECONOMIC_TOPIC.test(question)) return 'storage';
   const lastUser = [...history].reverse().find((turn) => turn.role === 'user')?.text ?? '';
-  if (STORAGE_TOPIC.test(lastUser) && ECONOMIC_TOPIC.test(lastUser)
+  if (STORAGE_TOPIC.test(lastUser) && ECONOMIC_TOPIC.test(lastUser) && !storageExplicitlyExcluded(lastUser)
     && /месяц|покры|срок|month|cover|duration|月|期限/iu.test(question)) return 'storage';
   return null;
 }
