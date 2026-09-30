@@ -383,9 +383,9 @@ assert.equal(head, baseline + approvedAppend, 'W1 historical scan exceptions mus
 JS
 fi
 
-# This repair may only synchronize the release-authority assertion with four
-# already-reviewed entries in .gitleaksignore. Bind the trusted scope to the
-# exact textual transformation so the implementation cannot weaken the test.
+# This repair may only synchronize the release-authority assertion with reviewed
+# entries in .gitleaksignore. Each accepted transformation is bound by the trusted
+# base; the implementation cannot weaken the test or authorize new exceptions.
 if [ "$CURRENT_BRANCH" = "$GITLEAKS_RELEASE_ATTESTATION_BRANCH" ] && printf '%s\n' "$DIFF_FILES" | grep -Fxq 'apps/tai/tests/test_gitleaks_release_authority.py'; then
   P7_ATTESTATION_BASE="$BASE_REF" P7_ATTESTATION_HEAD="$HEAD_REF" node - <<'JS'
 const assert = require('node:assert/strict');
@@ -394,6 +394,34 @@ const path = 'apps/tai/tests/test_gitleaks_release_authority.py';
 const read = ref => execFileSync('git', ['show', `${ref}:${path}`], { encoding: 'utf8' });
 const baseline = read(process.env.P7_ATTESTATION_BASE);
 const head = read(process.env.P7_ATTESTATION_HEAD);
+const currentBaselineBlob = 'e589046fc52daf8a3632f70b6879543934be56ff';
+const treeEntry = (ref, file) => execFileSync('git', ['ls-tree', ref, '--', file], { encoding: 'utf8' }).trim();
+const baselineBlob = execFileSync('git', ['rev-parse', `${process.env.P7_ATTESTATION_BASE}:${path}`], { encoding: 'utf8' }).trim();
+if (baselineBlob === currentBaselineBlob) {
+  assert.equal(treeEntry(process.env.P7_ATTESTATION_BASE, path), `100644 blob ${currentBaselineBlob}\t${path}`, 'Gitleaks release attestation baseline must be the exact accepted regular file');
+  assert.equal(treeEntry(process.env.P7_ATTESTATION_HEAD, path), `100644 blob 404e172449f53c01369ef974a50079d6f6967d56\t${path}`, 'Gitleaks release attestation head must be the exact two-fingerprint regular-file repair');
+  const acceptedInputs = {
+    '.gitleaksignore': '5c151dc1a2b5329fb2d4feb1fd0c1713bbef96db',
+    'apps/tai/release-source-manifest.json': '35f96ccc7fe332ddd90454eeee19853ba0612b71',
+  };
+  for (const [file, blob] of Object.entries(acceptedInputs)) {
+    for (const ref of [process.env.P7_ATTESTATION_BASE, process.env.P7_ATTESTATION_HEAD]) {
+      assert.equal(treeEntry(ref, file), `100644 blob ${blob}\t${file}`, `Gitleaks release attestation input must remain the exact accepted regular file: ${file}`);
+    }
+  }
+  const currentAnchor =
+    '        "db4f0a50b8df0a5e1045d3b9dc6a6fdc9d2806b0:"\n' +
+    '        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:1018",\n';
+  const twoExistingFingerprints =
+    '        "2dbd66d9bf258113272825d7b082b20e3b15a2b6:"\n' +
+    '        "docs/platform-v7/autopilot/autopilot-state.json:generic-api-key:2713",\n' +
+    '        "3b76d0f3473b986b6354aaac528994f7ac343df2:"\n' +
+    '        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"\n' +
+    '        "generic-api-key:17",\n';
+  assert.equal(baseline.split(currentAnchor).length - 1, 1, 'Gitleaks release attestation current anchor must occur exactly once');
+  assert.equal(head, baseline.replace(currentAnchor, currentAnchor + twoExistingFingerprints), 'Gitleaks release attestation repair must add exactly two existing fingerprints and preserve every existing byte and assertion');
+} else {
+// Preserve the historical four-fingerprint transformation and its negative gates.
 const insertAfterCommodity =
   '        "generic-api-key:11",\n';
 const serviceMarketplace =
@@ -426,6 +454,7 @@ expected = replaceExactlyOnce(
   'SDIZ',
 );
 assert.equal(head, expected, 'Gitleaks release attestation repair must add exactly four reviewed fingerprints and preserve every existing assertion');
+}
 JS
 fi
 
