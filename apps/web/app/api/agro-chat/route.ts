@@ -14,6 +14,7 @@ import {
   resolvePreviousTopic,
   routeAssistantQuestion,
   type AssistantRoutingContext,
+  type AssistantSafetyReason,
 } from '@/lib/platform-v7/assistant-relevance-router';
 import { buildAssistantRoutingContext } from '@/lib/platform-v7/assistant-server-context';
 import { answerFarmerStarterQuestion } from '@/lib/platform-v7/public-assistant-knowledge';
@@ -176,13 +177,37 @@ export async function POST(request: NextRequest) {
   }
 
   if (outcome.decision === 'BLOCK_SAFETY') {
-    return admitted(streamDirectAnswer(safetyBoundaryCopy(locale), {
+    return admitted(streamDirectAnswer(safetyBoundaryCopy(locale, outcome.safetyReason), {
       source: 'policy',
       answerMode,
       currentDataRequired: false,
       modelIdentity: null,
       truncated: false,
       safetyFlags: ['SAFETY_BOUNDARY_BLOCKED'],
+    }));
+  }
+
+  // Only an explicit unrelated subject takes this fast path. A lexical miss
+  // remains model-admitted so specialist terminology is not a refusal reason.
+  if (outcome.decision === 'REDIRECT_UNRELATED' && outcome.signals.includes('unrelated_term')) {
+    return admitted(streamDirectAnswer(unrelatedTopicCopy(locale), {
+      source: 'policy',
+      answerMode: 'general_agro',
+      currentDataRequired: false,
+      modelIdentity: null,
+      truncated: false,
+      safetyFlags: ['TOPIC_REDIRECTED'],
+    }));
+  }
+
+  if (GREETING_PATTERNS.some((pattern) => pattern.test(envelope.question.trim()))) {
+    return admitted(streamDirectAnswer(greetingCopy(locale, envelope.question), {
+      source: 'policy',
+      answerMode: 'general_agro',
+      currentDataRequired: false,
+      modelIdentity: null,
+      truncated: false,
+      safetyFlags: [],
     }));
   }
 
@@ -389,7 +414,7 @@ function resolveAnswerMode(
 
   // Model-first boundary: everything not explicitly identified as a platform
   // fact is sent to the model. The model system prompt handles greetings,
-  // agriculture, agribusiness, adjacent operations and concise safe general help.
+  // agriculture, agribusiness and adjacent operations, and redirects other topics.
   // A lexical miss must never prevent a legitimate domain question from inference.
   return 'general_agro';
 }
@@ -685,24 +710,24 @@ function generalAgroGrounding(locale: PublicLocale): PublicKnowledgeAnswer {
   const copy = locale === 'en'
     ? {
         title: 'Agriculture, agribusiness and practical assistance',
-        answer: 'Prioritize agriculture and agribusiness, but answer safe general questions normally and concisely. Use stable knowledge, identify missing inputs and do not invent current facts.',
+        answer: 'Answer agriculture, agribusiness and reasonably adjacent professional questions directly. Briefly and respectfully redirect unrelated topics to these subjects. Use stable knowledge, identify missing inputs and do not invent current facts.',
         maturity: 'General read-only assistance. Critical agronomic, veterinary, machinery, legal and financial decisions require confirmed inputs and the appropriate qualified review.',
       }
     : locale === 'zh'
       ? {
           title: '农业、农业商业与实用协助',
-          answer: '优先处理农业和农业商业问题，同时正常、简洁地回答安全的一般问题。使用稳定知识，指出缺失信息，不得编造当前事实。',
+          answer: '直接回答农业、农业商业及合理相关的专业问题。对于无关话题，简短、礼貌地引导回这些领域。使用稳定知识，指出缺失信息，不得编造当前事实。',
           maturity: '通用只读协助。关键农艺、兽医、机械、法律和财务决策需要确认输入并由相应的合格专业人员复核。',
         }
       : {
           title: 'Сельское хозяйство, агробизнес и практическая помощь',
-          answer: 'Приоритет — сельское хозяйство и агробизнес, но на безопасные общие вопросы отвечай нормально и кратко. Используй устойчивые знания, обозначай недостающие исходные данные и не выдумывай актуальные факты.',
+          answer: 'Отвечай по существу на вопросы о сельском хозяйстве, агробизнесе и обоснованно связанных рабочих задачах. От посторонних тем кратко и уважительно возвращай к этим направлениям. Используй устойчивые знания, обозначай недостающие исходные данные и не выдумывай актуальные факты.',
           maturity: 'Общая помощь в режиме только чтения. Критические агрономические, ветеринарные, технические, юридические и финансовые решения требуют подтверждённых исходных данных и профильной проверки.',
         };
   return Object.freeze({
     requestId: `general-${randomUUID()}`,
     generatedAt: new Date().toISOString(),
-    knowledgeVersion: 'tai-agro-general-model-first.v2',
+    knowledgeVersion: 'gekta-agro-ru-policy.2026-09-30.v1',
     dataMode: 'public_knowledge',
     mode: 'read_only',
     resolution: 'answered',
@@ -838,7 +863,29 @@ function sensitiveInputCopy(locale: PublicLocale): string {
   return 'Не отправляй в публичный чат пароли, API-ключи, токены, банковские реквизиты и персональные данные. Удали секретное значение и задай вопрос повторно.';
 }
 
-function safetyBoundaryCopy(locale: PublicLocale): string {
+function unrelatedTopicCopy(locale: PublicLocale): string {
+  if (locale === 'en') return 'I specialize in agriculture and agribusiness. I can help with crops, machinery, farm accounting or grain sales. What would you like to work on?';
+  if (locale === 'zh') return '我专注于农业和农业经营，可以帮助处理作物、农机、农场会计或粮食销售问题。你想解决哪项工作？';
+  return 'Моя специализация — сельское хозяйство и агробизнес. Помогу с посевами, техникой, бухгалтерией хозяйства или продажей зерна. Какую задачу разберём?';
+}
+
+function greetingCopy(locale: PublicLocale, question: string): string {
+  if (/^(?:спасибо|благодарю|thanks?|thank\s+you|谢谢)[!.?！。？\s]*$/iu.test(question.trim())) {
+    if (locale === 'en') return 'You’re welcome! I can help with your next agricultural or farm-business question.';
+    if (locale === 'zh') return '不客气！还可以帮你解答农业和农业经营问题。';
+    return 'Пожалуйста! Помогу и со следующей задачей по хозяйству или агробизнесу.';
+  }
+  if (locale === 'en') return 'Hello! I’m Gekta, your agriculture and agribusiness assistant. What can I help you with?';
+  if (locale === 'zh') return '你好！我是 Gekta，农业和农业经营助手。你想解决什么问题？';
+  return 'Привет! Я Гекта — помощник по сельскому хозяйству и агробизнесу. С какой задачей помочь?';
+}
+
+function safetyBoundaryCopy(locale: PublicLocale, reason: AssistantSafetyReason | null): string {
+  if (reason === 'HARMFUL_REQUEST') {
+    if (locale === 'en') return 'I cannot help harm people, forge documents or conceal income from tax authorities. I can help with safe farm operations, accurate documents or lawful tax planning.';
+    if (locale === 'zh') return '我不能协助伤害他人、伪造文件或向税务机关隐瞒收入。可以帮助规划安全的农业操作、真实文件或合法税务安排。';
+    return 'Не могу помогать причинять вред людям, подделывать документы или скрывать доходы от налоговой. Помогу с безопасной работой хозяйства, достоверными документами или законным налоговым планированием.';
+  }
   if (locale === 'en') return 'I cannot help bypass protection, access another party’s data, escalate privileges or perform an unauthorized action. I can explain the authorized process, safe diagnostics or the requirements for approved access.';
   if (locale === 'zh') return '我不能协助绕过保护、访问他方数据、提升权限或执行未经授权的操作。我可以说明合规流程、安全诊断方法或获得授权访问所需的条件。';
   return 'Не могу помогать обходить защиту, получать чужие данные, повышать права или выполнять действие без полномочий. Могу объяснить штатный порядок, безопасную диагностику или требования к разрешённому доступу.';

@@ -39,7 +39,8 @@ export type AssistantRelevanceSignal =
   | 'business_term'
   | 'conversation'
   | 'surface'
-  | 'semantic_hint';
+  | 'semantic_hint'
+  | 'unrelated_term';
 
 export type AssistantSafetyReason =
   | 'FOREIGN_DATA'
@@ -128,6 +129,7 @@ export function emptyRoutingContext(
  * decision visible instead of hiding it in a length heuristic.
  */
 const AGRO_OBJECTS = [
+  'сельхоз*', 'сельскохозяйствен*', 'фермер*', 'ферм*', 'агрохолдинг*', 'агробизнес*', 'кфх',
   'пшениц*', 'ячмен*', 'кукуруз*', 'подсолнеч*', 'рапс*', 'соя', 'сои', 'сое', 'соей', 'овес', 'овса', 'рожь', 'ржи',
   'гречих*', 'горох*', 'лен', 'льна', 'зерн*', 'урожа*', 'посев*', 'всход*', 'семен*', 'семечк*', 'сорт', 'сорта',
   'сортов', 'гибрид*', 'почв*', 'грунт*', 'поле', 'поля', 'полях', 'полей', 'гектар*', 'угодь*', 'пашн*',
@@ -199,13 +201,13 @@ function isAgriculturalStorageEconomics(normalized: string): boolean {
 
 /** Adjacent topics: useful to an agribusiness reader without being the core domain. */
 const BUSINESS_ADJACENT_TERMS = [
-  'налог*', 'ндс', 'бухгалтер*', 'учет*', 'отчетност*', 'финанс*', 'бюджет*', 'себестоимост*',
+  'налог*', 'ндс', 'есхн', 'усн', 'осно', 'рсбу', 'мсфо', 'бухгалтер*', 'учет*', 'отчетност*', 'финанс*', 'бюджет*', 'себестоимост*',
   'кредит*', 'заем', 'займ*', 'лизинг*', 'факторинг*', 'субсиди*', 'грант*', 'инвестиц*',
   'окупаемост*', 'рентабельност*', 'маржа', 'маржи', 'страхован*', 'страховк*', 'риск*',
   'хеджир*', 'валют*', 'курс', 'курса', 'курсы', 'инфляц*', 'юрист*', 'юридическ*', 'комплаенс*',
   'контрагент*', 'санкц*', 'регулирован*', 'законодательств*', 'персонал*', 'кадр*', 'сотрудник*',
   'найм*', 'мотивац*', 'обучени*', 'зарплат*', 'управлени*', 'стратег*', 'kpi', 'процесс*',
-  'регламент*', 'автоматизац*', 'цифровизац*', 'внедрен*', 'миграц*', 'api', 'erp', 'crm', '1с',
+  'регламент*', 'автоматизац*', 'цифровизац*', 'внедрен*', 'миграц*', 'api', 'erp', 'crm', '1с', '1c', 'wms', 'tms', 'lims', 'edi',
   'интеграц*', 'аналитик*', 'отчет*', 'дашборд*', 'прогноз*', 'погод*', 'засух*', 'заморозк*',
   'осадк*', 'рынок', 'рынка', 'рынке', 'конкурент*', 'маркетинг*', 'тендер*', 'esg', 'sla',
   'tax', 'taxes', 'vat', 'accounting', 'reporting', 'finance', 'budget', 'cost price', 'credit',
@@ -223,6 +225,8 @@ const BUSINESS_ADJACENT_TERMS = [
 
 /** Questions with no reasonable link to the platform, agriculture or running a business. */
 const UNRELATED_TERMS = [
+  'астролог*', 'столица', 'столицы', 'планет*', 'галактик*', 'политическ*', 'президент*',
+  'astrology', 'capital city', 'planets', 'galax*', 'politic*', 'president*', '政治', '总统', '星座运势',
   'анекдот*', 'шутк*', 'мем', 'мемы', 'гороскоп*', 'зодиак*', 'гадани*', 'таро', 'сонник*',
   'футбол*', 'хоккей*', 'матч*', 'чемпионат*', 'олимпиад*', 'киберспорт*', 'дота',
   'сериал*', 'фильм*', 'кино', 'аниме', 'мультик*', 'актер*', 'актрис*', 'певиц*', 'певец',
@@ -324,6 +328,13 @@ const HARMFUL_PATTERNS = [
   /(?:make|build|assemble)\s+(?:a\s+)?(?:bomb|explosive|weapon)/iu,
   /(?:hack|break\s+into|crack\s+the\s+password\s+of)\s+(?:an?\s+|the\s+|my\s+|someone(?:'s)?\s+)?(?:site|system|account|email|someone)/iu,
   /(?:毒害|杀害|伤害)(?:人|员工|竞争对手)|制作(?:炸弹|爆炸物|武器)|入侵(?:网站|系统|账户)/u,
+  // Explicit requests to commit fraud, not mentions of fraud or lawful tax
+  // planning. Bounded gaps avoid an unbounded backtracking safety expression.
+  /(?:^|[\s,])(?:как(?:\s+(?:мне|нам|можно|лучше|незаметно|безнаказанно)){0,2}|помоги(?:те)?(?:\s+(?:мне|нам))?)\s+(?:скрыть|утаить)(?:\s+[\p{L}\p{N}-]+){0,4}\s+(?:выручк|доход)[\p{L}]*[^\n]{0,80}(?:налогов|фнс)/iu,
+  /(?:^|[\s,])(?:как(?:\s+(?:мне|нам|можно|лучше|незаметно|безнаказанно)){0,2}|помоги(?:те)?(?:\s+(?:мне|нам))?)\s+(?:подделать|сфальсифицировать)(?:\s+[\p{L}\p{N}-]+){0,4}\s+(?:документ|накладн|упд|протокол|сертификат)[\p{L}]*/iu,
+  /(?:how\s+(?:do\s+i\s+|to\s+)?|help\s+me\s+)(?:hide|conceal)\s+(?:my\s+|farm\s+)?(?:income|revenue)[^\n]{0,60}(?:tax|authorit)/iu,
+  /(?:how\s+(?:do\s+i\s+|to\s+)?|help\s+me\s+)(?:forge|falsify)\s+(?:an?\s+|the\s+)?(?:invoice|document|certificate|lab\s+report)/iu,
+  /(?:如何|怎么|帮我)(?:隐藏|隐瞒)(?:农场)?收入[^\n]{0,30}(?:税|税务)|(?:如何|怎么|帮我)伪造(?:发票|文件|证书|检验报告)/u,
 ] as const;
 
 /* ----------------------------------------------------------- short questions */
@@ -528,7 +539,7 @@ export function routeAssistantQuestion(
     && !hasAdjacent
     && context.semanticHint !== 'related'
   ) {
-    return outcome('REDIRECT_UNRELATED', { domain: 'none', signals });
+    return outcome('REDIRECT_UNRELATED', { domain: 'none', signals: [...signals, 'unrelated_term'] });
   }
 
   const shapeSection = contextualSection(normalized);

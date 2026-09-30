@@ -1,6 +1,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { NextRequest, NextResponse } from 'next/server';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { emptyRoutingContext } from '@/lib/platform-v7/assistant-relevance-router';
+
+const boundary = vi.hoisted(() => ({
+  model: vi.fn(),
+  knowledge: vi.fn(),
+  context: vi.fn(),
+}));
+vi.mock('@/lib/platform-v7/assistant-server-context', () => ({ buildAssistantRoutingContext: boundary.context }));
+vi.mock('@/app/api/public-platform-assistant/route', () => ({ GET: boundary.knowledge, POST: boundary.knowledge }));
+vi.mock('@/lib/platform-v7/public-assistant-knowledge', () => ({ answerFarmerStarterQuestion: () => null }));
+vi.mock('@/lib/platform-v7/tai-internal-stream', () => ({
+  resolveInternalStreamEndpoint: (base: URL) => new URL('internal/tai/public-generate-stream', base),
+  streamInternalModel: boundary.model,
+}));
 
 const root = path.resolve(process.cwd(), '../..');
 const route = fs.readFileSync(path.join(root, 'apps/web/app/api/agro-chat/route.ts'), 'utf8');
@@ -22,7 +37,7 @@ describe('P0 model-first agricultural chat', () => {
     expect(route).toContain('A lexical miss must never prevent a legitimate domain question');
     expect(route).toContain("return 'general_agro';");
     expect(route).toContain('grounding = generalAgroGrounding(locale);');
-    expect(route).not.toContain("outcome.decision === 'REDIRECT_UNRELATED'");
+    expect(route).toContain("outcome.decision === 'REDIRECT_UNRELATED' && outcome.signals.includes('unrelated_term')");
   });
 
   it('keeps a self-contained agro question out of stale platform follow-up mode', () => {
@@ -32,25 +47,29 @@ describe('P0 model-first agricultural chat', () => {
     expect(liveAcceptance).toContain('Как хранить зерно после уборки?');
   });
 
-  it('downgrades missing platform knowledge to general expertise instead of a thematic redirect', () => {
+  it('keeps already-admitted missing platform knowledge distinct from an unrelated subject', () => {
     expect(route).toContain('let answerMode = resolveAnswerMode');
     expect(route).toContain("if (grounding.resolution === 'redirected') {");
     expect(route).toContain("answerMode = 'general_agro';");
     expect(route).not.toContain("grounding.resolution === 'redirected' && answerMode === 'verified_platform'");
   });
 
-  it('uses one agro-first fail-open policy for agriculture, adjacent business and safe general questions', () => {
+  it('uses an agro-specialist policy without excluding legitimate adjacent professional help', () => {
     for (const fragment of [
-      'agro-first, fail-open content policy',
+      'agro-specialist content policy',
       'Any plausible connection to crop production, livestock, machinery and equipment',
-      'Safe general questions outside agriculture may be answered normally and concisely',
       'Medium confidence, a missing keyword, or a missing platform module, button or integration is never a reason to refuse',
-      'Do not reject a safe question merely because it is outside agriculture',
+      'do not solve the unrelated request in substance',
+      'Lawful export, regulation, labor-rights',
+      'fraud, forged documents, bribery, tax evasion',
+      'do not invent legal prohibitions',
       'inherit the active crop, animal, machine, farm, document, deal or corporate system',
       'Give a useful preliminary answer, the main factors, limitations and risks',
       'Separate knowledge from execution',
     ]) expect(qwenService).toContain(fragment);
-    expect(qwenService).not.toContain('do not solve the unrelated request in substance');
+    expect(qwenService).not.toContain('Safe general questions outside agriculture may be answered normally and concisely');
+    expect(route).not.toContain('answer safe general questions normally and concisely');
+    expect(route).not.toContain('на безопасные общие вопросы отвечай нормально');
   });
 
   it('keeps Transparent Price claims on verified public grounding while allowing domain explanation', () => {
@@ -105,7 +124,7 @@ describe('P0 model-first agricultural chat', () => {
     ]) expect(qwenService).toContain(fragment);
   });
 
-  it('pins RU, EN and ZH live examples for safe general admission and missing-function explanation', () => {
+  it('retains RU, EN and ZH Excel/business examples and missing-function explanation', () => {
     for (const fragment of [
       'safe_general_excel_ru',
       'safe_general_excel_en',
@@ -114,5 +133,105 @@ describe('P0 model-first agricultural chat', () => {
       'missing_platform_module_explanation',
       'assertNoThematicRefusal',
     ]) expect(liveAcceptance).toContain(fragment);
+  });
+});
+
+describe('agro policy at the actual public streaming boundary', () => {
+  beforeEach(() => {
+    boundary.model.mockReset();
+    boundary.knowledge.mockReset();
+    boundary.context.mockReset();
+    boundary.context.mockImplementation(async (_request, options) => emptyRoutingContext(options.locale, {
+      onPlatformSurface: true,
+      recentMessages: options.recentMessages,
+      previousTopic: options.previousTopic,
+    }));
+    boundary.model.mockImplementation(async function* () {
+      yield { kind: 'token', text: 'Проверьте исходные данные и условия работы.' };
+      yield { kind: 'terminal', complete: true, refusal: null };
+    });
+    vi.stubEnv('TAI_RESTRICTED_QWEN_PUBLIC_ENABLED', 'true');
+    vi.stubEnv('TAI_PUBLIC_GATEWAY_HMAC_SECRET', 't'.repeat(40));
+    vi.stubEnv('TAI_RESTRICTED_QWEN_MODEL_IDENTITY', 'tai-qwen35-4b-q4km');
+    vi.stubEnv('TAI_INTERNAL_API_BASE_URL', 'http://127.0.0.1:4000/');
+    vi.stubEnv('TAI_INTERNAL_API_ALLOWED_HOSTS', '127.0.0.1');
+  });
+
+  afterEach(() => vi.unstubAllEnvs());
+
+  async function send(message: string, locale = 'ru', extra: Record<string, unknown> = {}) {
+    const { POST } = await import('@/app/api/agro-chat/route');
+    return POST(new NextRequest('https://example.test/api/agro-chat?stream=1', {
+      method: 'POST',
+      body: JSON.stringify({ message, locale, context: 'platform', ...extra }),
+    }));
+  }
+
+  it.each([
+    ['ru', 'Какой фильм посмотреть вечером?', 'агробизнес'],
+    ['en', 'Tell me a joke', 'agriculture'],
+    ['zh', '推荐一部电影', '农业'],
+  ])('redirects explicit unrelated %s questions without model queueing', async (locale, message, scope) => {
+    const response = await send(message, locale, {
+      history: [{ role: 'user', text: 'Как хранить пшеницу?' }],
+    });
+    const stream = await response.text();
+    expect(response.status).toBe(200);
+    expect(stream).toContain(scope);
+    expect(stream).toContain('TOPIC_REDIRECTED');
+    expect(boundary.model).not.toHaveBeenCalled();
+    expect(boundary.knowledge).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['ru', 'Привет!'], ['en', 'Hello!'], ['zh', '你好'],
+  ])('welcomes %s greetings without model queueing', async (locale, message) => {
+    const response = await send(message, locale);
+    expect(await response.text()).toContain(locale === 'ru' ? 'Гекта' : 'Gekta');
+    expect(boundary.model).not.toHaveBeenCalled();
+    expect(boundary.knowledge).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['ru', 'Спасибо!', 'Пожалуйста'],
+    ['en', 'Thanks!', 'welcome'],
+    ['zh', '谢谢', '不客气'],
+  ])('acknowledges %s thanks naturally without a new greeting', async (locale, message, reply) => {
+    expect(await (await send(message, locale)).text()).toContain(reply);
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'Как сравнить ЕСХН и УСН?',
+    'Какой фильм о выращивании пшеницы посмотреть?',
+    'Объясни особенности диагностики монилиоза и различия его симптомов',
+  ])('keeps legitimate or lexically unknown domain question %s model-backed', async (message) => {
+    const response = await send(message);
+    expect(await response.text()).not.toContain('TOPIC_REDIRECTED');
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks document forgery and offers a lawful alternative before inference', async () => {
+    const response = await send('Как подделать УПД для зерна?');
+    const stream = await response.text();
+    expect(stream).toContain('SAFETY_BOUNDARY_BLOCKED');
+    expect(stream).toContain('достоверными документами');
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  it('does not bypass standalone answer reservation for a fast redirect', async () => {
+    const response = await send('Tell me a joke', 'en', { context: 'gekta-standalone' });
+    expect(response.status).toBe(401);
+    expect(await response.text()).toContain('GEKTA_ANSWER_RESERVATION_REQUIRED');
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  it('keeps an admitted domain explanation model-backed when a platform article is absent', async () => {
+    boundary.knowledge.mockResolvedValue(NextResponse.json({ resolution: 'redirected' }));
+    const response = await send('Как работает 1С на вашей платформе?');
+    expect(await response.text()).not.toContain('TOPIC_REDIRECTED');
+    expect(boundary.knowledge).toHaveBeenCalledTimes(1);
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+    expect(boundary.model.mock.calls[0][1].answerMode).toBe('general_agro');
   });
 });
