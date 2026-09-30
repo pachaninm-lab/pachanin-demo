@@ -689,8 +689,14 @@
       ".github/workflows/runtime-context-security-gate.yml"
     ],
     "agent/ir-sec-transitive-runtime-remediation": [
-      "apps/api/src/health.controller.ts",
-      "apps/api/src/health.controller.spec.ts"
+      "package.json",
+      "pnpm-lock.yaml",
+      "infra/docker/Dockerfile.api",
+      "infra/docker/Dockerfile.web",
+      "infra/docker/Dockerfile.outbox-worker",
+      "infra/docker/Dockerfile.migrations",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      ".gitleaksignore"
     ],
     "ops/production-backup-secret-fix": [
       "docs/platform-v7/autopilot/autopilot-state.json",
@@ -2682,6 +2688,72 @@
         "CI/security/readiness weakening, independent-review impersonation, forced merge or new recurring cost"
       ],
       "teamHubDependency": "#5469 runtime binding dependency5887083491; migration regression5887595513; guard-purpose renewal #5721"
+    },
+    "gekta-atomic-security-owner-admission-20260930": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "One owner-confirmed atomic dependency and stable OpenSSL repair for the mutual red security merge cycle; canonical dependency implementation reused without changes.",
+      "authorityBaseExactMain": "de38d8138d702e4d955816db2cdf61e0d0867791",
+      "implementationBranch": "agent/ir-sec-transitive-runtime-remediation",
+      "ownerConfirmedAt": "2026-09-30T09:51:58Z",
+      "ownerConfirmation": "Заканчивай! Все подтверждаю",
+      "authorizedSourcePayloadSha": "7470b1d08de84a3369fa7e92242e1475919c2957",
+      "authorizedSourcePayloadTree": "03b254d63cd5c15c012726a45e2e548e9ac55da3",
+      "canonicalDependencyParentSha": "de002408811f7f423d3925dabd421dea257c0047",
+      "allowedPaths": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "infra/docker/Dockerfile.api",
+        "infra/docker/Dockerfile.web",
+        "infra/docker/Dockerfile.outbox-worker",
+        "infra/docker/Dockerfile.migrations",
+        "docs/platform-v7/autopilot/autopilot-state.json",
+        ".gitleaksignore"
+      ],
+      "authorizedSourceBlobs": [
+        {
+          "path": "package.json",
+          "publicGitBlob": "34db275ec584b779027f739599e415eca7bce3e7"
+        },
+        {
+          "path": "pnpm-lock.yaml",
+          "publicGitBlob": "6786f4deaf1fa1604040f7bf2752e76c0dce210b"
+        },
+        {
+          "path": "infra/docker/Dockerfile.api",
+          "publicGitBlob": "66eaaa086c0bad5dd367e983419574fc45fa2343"
+        },
+        {
+          "path": "infra/docker/Dockerfile.web",
+          "publicGitBlob": "d2bf72826c6fd6a3653223b6c7ac1863a5e13ed0"
+        },
+        {
+          "path": "infra/docker/Dockerfile.outbox-worker",
+          "publicGitBlob": "c6206d93349399b0fa35eda17928a2a32b3bf3a0"
+        },
+        {
+          "path": "infra/docker/Dockerfile.migrations",
+          "publicGitBlob": "8fec04a10fe55b54df244fde8eada0ad86bbcc96"
+        }
+      ],
+      "requiredTruthBoundaries": [
+        "Owner explicitly confirmed the exact combined source repair and narrow adoption after seeing the six-file payload; this instruction is authority, not candidate state alone.",
+        "This is manual exact-content source admission. The existing generic legacy route does not immutably enforce recorded SHA fields; no trusted-base immutable enforcement is claimed. Independent nonauthor review must inspect the complete eight-file diff, all six source blobs and this surgical state transition.",
+        "Keep canonical package.json and pnpm-lock.yaml byte-identical to dependency parent de002408811f7f423d3925dabd421dea257c0047. Each of the four Dockerfiles changes only its existing OpenSSL ARG from 3.5.7-1~deb13u2 to 3.5.7-1~deb13u3.",
+        "Replace the retired branch health-file scope with these exact eight paths. No other concurrent scope, global scope, maturity, progress or application authority changes.",
+        "All substantive native CI, production dependency audit and actual API/Web/worker/migration image security remain blocking. Fresh full-head independent review, owner audit, unresolved-finding handling and ordinary protected expected-SHA merge are required.",
+        "Application release and Qwen3.5 model acceptance remain separate; code merge or a green image does not prove changed production.",
+        "Append only two inspected noncredential false-positive fingerprints to the existing .gitleaksignore: the public Dockerfile API Git blob in 2dbd66d9 line2713 and the static idempotency-001 fixture in historical 3b76d0f3 line17. Existing assertions, scans, security exceptions and thresholds remain unchanged; fresh independent review must inspect both original source lines."
+      ],
+      "forbiddenAuthority": [
+        "Health/application source edits, security exception registry, guard or workflow changes, thresholds or readiness weakening",
+        "Force merge, forged statuses, red-check waiver, stale-head review or CI transfer",
+        "Alternative dependency implementation, sid ABI substitution or package inventory fabrication",
+        "Production/model activation or new recurring cost in this security source PR"
+      ],
+      "reviewedFalsePositiveFingerprints": [
+        "2dbd66d9bf258113272825d7b082b20e3b15a2b6:docs/platform-v7/autopilot/autopilot-state.json:generic-api-key:2713",
+        "3b76d0f3473b986b6354aaac528994f7ac343df2:apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:generic-api-key:17"
+      ]
     }
   }
 }
