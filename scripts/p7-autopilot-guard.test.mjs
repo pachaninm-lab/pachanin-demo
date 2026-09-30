@@ -32,6 +32,7 @@ const productImplementationManifests = new Map([
   ['fix/public-registration-participation-choice-20260923', 'docs/platform-v7/autopilot/scopes/public-registration-participation-choice-20260923.json'],
   ['fix/production-mobile-controller-handoff-20260927', 'docs/platform-v7/autopilot/scopes/production-mobile-controller-handoff-20260927.json'],
   ['fix/readiness-queue-job-gate-20260927', 'docs/platform-v7/autopilot/scopes/readiness-queue-job-gate-20260927.json'],
+  ['fix/readiness-default-branch-push-gate-20260929', 'docs/platform-v7/autopilot/scopes/readiness-default-branch-push-gate-20260929.json'],
   ['ux/buyer-first-customer-home-20260925', 'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json'],
   ['bank/first-customer-home-20260926', 'docs/platform-v7/autopilot/scopes/bank-first-customer-home-20260926.json'],
 ]);
@@ -1727,6 +1728,69 @@ ${anchor}    runs-on: ubuntu-latest
   const rejected = runGuard(context);
   assert.notEqual(rejected.status, 0, output(rejected));
   assert.match(output(rejected), /READINESS_QUEUE_CHANGE_EXCEEDS_EXACT_TRANSFORM/u);
+});
+
+test('readiness default-branch push gate has exactly the two accepted paths and a workflow trigger', () => {
+  const branch = 'fix/readiness-default-branch-push-gate-20260929';
+  const workflowPath = '.github/workflows/automerge.yml';
+  const manifestPath = productImplementationManifests.get(branch);
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  assert.deepEqual(state.approvedConcurrentScopes[branch], [workflowPath, manifestPath]);
+  const paths = workflow.split('\n  pull_request:\n')[1].split('\nconcurrency:')[0];
+  assert.ok(paths.includes(`- '${workflowPath}'`));
+  assert.ok(fs.readFileSync(sourceGuard, 'utf8').includes(`"$READINESS_DEFAULT_BRANCH_PUSH_GATE_BRANCH") PRODUCT_SCOPE_MANIFEST='${manifestPath}'`));
+});
+
+test('readiness default-branch push guard accepts only the exact event-gate exclusion', (t) => {
+  const branch = 'fix/readiness-default-branch-push-gate-20260929';
+  const workflowPath = '.github/workflows/automerge.yml';
+  const manifestPath = productImplementationManifests.get(branch);
+  const context = fixture(t, branch);
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+  state.approvedConcurrentScopes[branch] = [workflowPath, manifestPath];
+  write(context.root, statePath, `${JSON.stringify(state)}\n`);
+
+  const anchor = `         github.event.workflow_run.name != 'Independent Octopus Review'))\n`;
+  const gated = `         github.event.workflow_run.name != 'Independent Octopus Review' &&
+         !(github.event.workflow_run.event == 'push' &&
+           github.event.workflow_run.head_branch == github.event.repository.default_branch)))\n`;
+  const baseWorkflow = `name: Repo automations
+permissions:
+  contents: read
+jobs:
+  engineering-readiness:
+    if: >-
+${anchor}    runs-on: ubuntu-latest
+`;
+  write(context.root, workflowPath, baseWorkflow);
+  commit(context.root, 'accepted default-branch scope and trusted workflow shape');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+
+  const exactWorkflow = baseWorkflow.replace(anchor, gated);
+  write(context.root, workflowPath, exactWorkflow);
+  write(context.root, manifestPath, JSON.stringify({
+    schemaVersion: 'platform-v7.concurrent-scope.v1',
+    status: 'active',
+    branch,
+    allowedPaths: [workflowPath, manifestPath],
+  }));
+  commit(context.root, 'exclude only default-branch push workflow_run events');
+  const accepted = runGuard(context);
+  assert.equal(accepted.status, 0, output(accepted));
+
+  write(context.root, workflowPath, exactWorkflow.replace('  contents: read\n', '  contents: write\n'));
+  commit(context.root, 'attempt unrelated workflow permission change');
+  const rejected = runGuard(context);
+  assert.notEqual(rejected.status, 0, output(rejected));
+  assert.match(output(rejected), /READINESS_DEFAULT_BRANCH_PUSH_CHANGE_EXCEEDS_EXACT_TRANSFORM/u);
+
+  write(context.root, workflowPath, baseWorkflow.replace(anchor, gated.replace("event == 'push'", "event != 'pull_request'")));
+  commit(context.root, 'attempt a broader event exclusion');
+  const broader = runGuard(context);
+  assert.notEqual(broader.status, 0, output(broader));
+  assert.match(output(broader), /READINESS_DEFAULT_BRANCH_PUSH_CHANGE_EXCEEDS_EXACT_TRANSFORM/u);
 });
 
 test('mobile controller handoff has exactly the two accepted paths and a workflow trigger', () => {
