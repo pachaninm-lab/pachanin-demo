@@ -2754,6 +2754,66 @@
         "2dbd66d9bf258113272825d7b082b20e3b15a2b6:docs/platform-v7/autopilot/autopilot-state.json:generic-api-key:2713",
         "3b76d0f3473b986b6354aaac528994f7ac343df2:apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:generic-api-key:17"
       ]
+    },
+    "gekta-owner-continuation-20260930": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Continue existing Gekta agricultural specialization, economics safety and fixed Qwen3.5 candidate corpus scheduling after explicit owner transfer; no permanent activation authority.",
+      "authorityBaseExactMain": "be928a5938cff0022055fe7a9d3d2eb1c3c39875",
+      "ownerConfirmedAt": "2026-09-30T13:06:28Z",
+      "ownerConfirmation": "Да передаю, заканчивай быстрее",
+      "teamHubDecision": "#5469 comment5911980257",
+      "candidateBranch": "fix/gekta-qwen35-guard-argv-form-20260928",
+      "allowedCandidatePaths": [
+        ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+        "scripts/gekta-qwen35-4b-model-host-candidate.py",
+        "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json"
+      ],
+      "requiredTruthBoundaries": [
+        "Preserve existing canonical #5736, #5738 and han-stream policy work; owner transfer does not replace unrelated CORE R1 or PRODUCT UX/FGIS/bank ownership.",
+        "Existing candidate workflow may retain the exact combined10+4command and add only fixed critical10/extra4 selections with independent unchanged420-second windows, failure-preserving stderr capture and honest COMPLETE/PARTIAL/FAILED reporting from actual same-SHA suite summaries and lifecycle outcomes.",
+        "Preserve every real-model semantic assertion, model bytes/hash/alias, production executable/runtime parameters, capacity checks, dedicated non-root principal, pinned transport, credential boundaries, baseline PID/identity and cleanup/watchdog contracts.",
+        "Critical-only or extra-only success is partial. Complete candidate acceptance requires both original suites on the same exact main and all associated startup/acceptance/cleanup proofs; neither source fixtures nor this state record are model or latency acceptance.",
+        "Existing economics scope and han-stream source paths remain as accepted. Owner agro policy supersedes permission to solve unrelated questions, preserving lawful accounting/tax/legal/IT/defensive work, privacy, safety and current-source grounding.",
+        "Fresh full-head independent nonauthor review, author audit, substantive CI/security, resolved findings and protected manual expected-SHA merge remain mandatory. No prior review transfers across head changes.",
+        "Any permanent model switch, systemd/routing mutation or REG.RU release requires separate reviewed bounded admission and actual operational/live/rollback evidence; this continuation permits none."
+      ],
+      "forbiddenAuthority": [
+        "Global/current R1 scope or unrelated admission changes",
+        "Permanent candidate activation, baseline stop/restart/signal, public listener, model alias reuse, production routing or application/database mutation",
+        "CI/security/readiness/acceptance/budget/420lease weakening, fake statuses, author self-review or force/automatic merge",
+        "New mandatory recurring cost"
+      ]
+    },
+    "gekta-policy-service-regression-prerequisite-20260930": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Admit one existing service policy regression to follow the owner's agricultural-only policy without fabricating old prompt phrases or suppressing tests.",
+      "authorityBaseExactMain": "be928a5938cff0022055fe7a9d3d2eb1c3c39875",
+      "implementationBranch": "governance/gekta-recovery-trusted-routes-20260927",
+      "candidatePr": 5741,
+      "proposedCandidateSha": "6c5372e21203ec610af189e74a2440aa3775d929",
+      "proposedSourceBlobs": {
+        "scripts/p7-autopilot-guard.sh": "16d68aee126e5a7b4e85e8c2c886bb2743cab0f2",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "e11837d047267109f81ad4c1039f4e4930f9d9c3"
+      },
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs"
+      ],
+      "addedImplementationPath": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+      "consumerBranch": "fix/gekta-han-stream-20260927",
+      "requiredTruthBoundaries": [
+        "Preserve historical one-time bootstrap records. This separate prerequisite renews only the named guard branch's purpose for the actual two-file +3/-1 candidate; recorded hashes identify proposed source, not fabricated independent-review approval.",
+        "Guard candidate adds exactly the existing service.spec.ts to the immutable han-stream literal list and its native scope fixture, while adding rejection coverage for neighboring quality.spec.ts. No workflow/state/runtime source or other literal path change is permitted.",
+        "Independently inspect complete current guard diff and both source blob identities, all substantive CI, owner audit, findings and readiness before ordinary expected-SHA merge. Recorded content is independently manually enforced, not claimed automatically immutable hash enforcement.",
+        "Accept trusted guard first, then duplicate its one-path extension in implementation state and update the existing service policy regression in the separate source PR. Candidate-owned state cannot widen the trusted literal route.",
+        "Maintain all previous negative authority/self-expansion tests and normal source/release gates. No runtime/production mutation, new recurring cost or source/model/live PASS comes from this state-only admission."
+      ],
+      "forbiddenAuthority": [
+        "Runtime implementation in this state or guard prerequisite",
+        "Global/current R1 or unrelated concurrent-scope changes",
+        "Security/review/CI/readiness weakening, test deletion, force merge or fake evidence"
+      ],
+      "teamHubDependency": "#5469 comments5912114263/5912171460; #5739 actual full CI stale policy regression; #5738 native scope finding"
     }
   }
 }
