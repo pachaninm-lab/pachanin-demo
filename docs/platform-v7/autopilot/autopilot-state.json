@@ -1714,7 +1714,8 @@
       "apps/web/lib/platform-v7/assistant-relevance-router.ts",
       "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
       "apps/web/app/api/agro-chat/route.ts",
-      "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts"
+      "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
     ],
     "fix/readiness-queue-job-gate-20260927": [
       ".github/workflows/automerge.yml",
@@ -2819,6 +2820,23 @@
         "Security/review/CI/readiness weakening, test deletion, force merge or fake evidence"
       ],
       "teamHubDependency": "#5469 comments5912114263/5912171460; #5739 actual full CI stale policy regression; #5738 native scope finding"
+    },
+    "gekta-service-policy-regression-20260930": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Duplicate the single existing service.spec regression path already independently admitted in accepted trusted guard, and update its superseded generic-content policy assertion in the existing agro policy source PR.",
+      "authorityBaseExactMain": "a55f29b77ed6b3b7e44403540c7c4c0ec284f096",
+      "acceptedGuardPr": 5741,
+      "acceptedGuardSourceSha": "b524e4ad8479d77063a9d57476b1c27f65d702c1",
+      "acceptedGuardBlob": "a2627b8aa82d36e9aa152916f7a507a3bf03b6b3",
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "consumerPr": 5739,
+      "addedPath": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+      "requiredTruthBoundaries": [
+        "The accepted base-owned han literal guard already allows exactly the previous eight paths plus this one existing service.spec path. This state duplicates that accepted one-path extension only; it grants no branch-owned self-expansion.",
+        "Update the existing superseded generic-content prompt regression to assert agro-specialist useful adjacent work, respectful unrelated-topic redirection and preserved separate safety/privacy/authorization/tenant/write/financial-action/tool boundaries. Retain all fifteen existing service cases and meaningful assertions; no test invocation, budget, safety or independent-review gate weakening.",
+        "All primary R1/global/current/unrelated concurrent scopes, historical admissions/progress/maturity and runtime/model/production authority remain unchanged.",
+        "The current source consumer requires fresh complete-head independent review, exact-current CI including the full existing API suite, author audit, resolved findings and manual expected-SHA protected merge. Source tests/admission do not prove real model inference, quality, latency, RF compliance or deployment."
+      ]
     }
   }
 }
