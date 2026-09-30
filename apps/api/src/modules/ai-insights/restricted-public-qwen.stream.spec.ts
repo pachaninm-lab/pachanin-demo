@@ -192,6 +192,14 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     ['buffered', 'en', 'Storage is not needed; compare payment costs.', 'Actually, what if we store it for one month?', 'Storage-only break-even'],
     ['stream', 'zh', '无需仓储；比较付款风险和成本。', '如果储存一个月呢？', '仅覆盖仓储费'],
     ['buffered', 'zh', '无需仓储；比较付款风险和成本。', '如果储存一个月呢？', '仅覆盖仓储费'],
+    ['stream', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Без расходов на хранение нельзя рассчитать прибыль. Сравни расходы.', 'Для покрытия только хранения'],
+    ['buffered', 'ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Без расходов на хранение нельзя рассчитать прибыль. Сравни расходы.', 'Для покрытия только хранения'],
+    ['stream', 'en', 'Storage is not needed; compare payment costs.', 'Say we store it for one month. What would it cost?', 'Storage-only break-even'],
+    ['buffered', 'en', 'Storage is not needed; compare payment costs.', 'Say we store it for one month. What would it cost?', 'Storage-only break-even'],
+    ['stream', 'en', 'Storage is not needed; compare payment costs.', "Let's talk about storage for one month. What would it cost?", 'Storage-only break-even'],
+    ['buffered', 'en', 'Storage is not needed; compare payment costs.', "Let's talk about storage for one month. What would it cost?", 'Storage-only break-even'],
+    ['stream', 'en', 'Storage is not needed; compare payment costs.', 'Without storage costs, profit cannot be calculated. Compare costs.', 'Storage-only break-even'],
+    ['buffered', 'en', 'Storage is not needed; compare payment costs.', 'Without storage costs, profit cannot be calculated. Compare costs.', 'Storage-only break-even'],
   ])('uses current reintroduced storage in the real %s service path (%s)', async (mode, locale, previous, question, storageCopy) => {
     const raw = request({ locale, question, originalQuestion: question, history: [{ role: 'user', text: previous }] });
     const content = '400 RUB';

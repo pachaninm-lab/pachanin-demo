@@ -104,12 +104,25 @@ const PAYMENT_COMPARISON_SEPARATOR = /(?:или|либо|\bvs\.?\b|\bversus\b|\b
 // A span may refer to one storage mention only. Crossing another mention
 // would attach its negation to an earlier, applicable comparison.
 const STORAGE_MENTION_GAP = `(?:(?!${STORAGE_TOPIC.source})[^,，.!?;。！？；\\n])`;
+const STORAGE_NECESSITY_GAP = `(?:(?!${STORAGE_TOPIC.source})[^.!?;。！？；\\n])`;
+const STORAGE_REQUIRED_WITHOUT = new RegExp([
+  `без\\s+(?:(?:расход|стоимост|затрат)[\\p{L}]*\\s+(?:на\\s+)?)?хранени[ея]${STORAGE_NECESSITY_GAP}{0,80}(?:нельзя|невозмож|не\\s+(?:мож|могу|получ|удаст))`,
+  `\\bwithout\\s+storage(?:\\s+(?:costs?|expenses?))?${STORAGE_NECESSITY_GAP}{0,80}\\b(?:cannot|can't|impossible|not\\s+possible)\\b`,
+].join('|'), 'iu');
+const STORAGE_PRIOR_ANSWER_REFERENCE = new RegExp([
+  /(?:^|[^\p{L}])(?:ты|вы)\s+(?:(?:ранее|раньше|уже|только\s+что)\s+)?(?:говорил|сказал|предложил|упоминал|обсуждал)/u.source,
+  /(?:^|[^\p{L}])(?:предыдущ|прошл|тво|ваш)[\p{L}]*\s+(?:ответ|сообщени)/u.source,
+  /\b(?:your|the|previous|earlier|last)\s+(?:(?:previous|earlier|last)\s+)?(?:answer|reply)\b/.source,
+  /\byou\s+(?:(?:earlier|previously|already|just)\s+)?(?:said|mentioned|suggested|proposed|talked|discussed)\b/.source,
+  /\b(?:earlier|previously|last\s+time)\s+(?:we|you|i)\s+(?:said|mentioned|suggested|talked|discussed)\b/.source,
+  /(?:你|您)(?:之前|刚才|先前)?(?:的)?(?:回答|回复|说|提到|提及)|(?:之前|刚才|先前)(?:的)?(?:回答|回复)/.source,
+].join('|'), 'iu');
 const STORAGE_EXCLUDED = new RegExp([
   /не\s+(?:нужно|надо|требуется|буду|будем)\s+(?:хранить|хранени[ея])/.source,
   `(?:хранить|хранени[ея])${STORAGE_MENTION_GAP}{0,48}\\s+не\\s+(?:нужно|надо|требуется|нужн[оаы]|предусмотрено|учитыва[\\p{L}]*|включа[\\p{L}]*)`,
   /без\s+(?:расходов\s+на\s+)?хранени[ея]/.source,
   /не\s+(?:добавля|учитыва|включа)[\p{L}]*\s+(?:(?:расход|стоимост|затрат)[\p{L}]*\s+(?:на\s+)?)?хранени[ея]/u.source,
-  `не\\s+(?:упомина|обсужда)[\\p{L}]*${STORAGE_MENTION_GAP}{0,48}(?:хранить|хранени[ея])`,
+  `не\\s+(?:упомина|обсужда|говори)[\\p{L}]*${STORAGE_MENTION_GAP}{0,48}(?:хранить|хранени[еяи])`,
   /\bno\s+need\s+(?:to\s+stor(?:e|ing)|for\s+storage)\b/.source,
   /^\s*(?:no|without)\s+storage(?:\s+(?:costs?|expenses?))?(?=\s*(?:$|[,，:]|\bcompare\b))/.source,
   /^\s*no\s+storage\s+(?:is\s+)?(?:needed|required)\b/.source,
@@ -132,7 +145,8 @@ function storageExplicitlyExcluded(text: string): boolean {
   const clauses = storageClauses(text);
   return clauses.length > 0 && clauses.every((clause) => {
     // Double negation and unexcluded mentions keep the conservative screen.
-    if (/не\s+(?:нужно|надо|требуется)\s+(?:исключ|игнор|убир)|без\s+хранени[ея]\s+(?:нельзя|невозмож)|\bnot\s+(?:needed|required)\s+to\s+(?:exclude|ignore)|无需\s*(?:忽略|排除)/iu.test(clause)) return false;
+    if (STORAGE_REQUIRED_WITHOUT.test(clause)
+      || /не\s+(?:нужно|надо|требуется)\s+(?:исключ|игнор|убир)|\bnot\s+(?:needed|required)\s+to\s+(?:exclude|ignore)|无需\s*(?:忽略|排除)/iu.test(clause)) return false;
     const exclusions = [...clause.matchAll(new RegExp(STORAGE_EXCLUDED.source, 'giu'))];
     return [...clause.matchAll(new RegExp(STORAGE_TOPIC.source, 'giu'))].every((topic) =>
       exclusions.some((exclusion) => topic.index >= exclusion.index
@@ -141,11 +155,13 @@ function storageExplicitlyExcluded(text: string): boolean {
 }
 
 function storageAffirmativelyRequested(text: string): boolean {
-  return storageClauses(text).flatMap((clause) => clause.split(/[,，]|\s+and\s+|\s+и\s+|而/iu)).some((clause) => {
+  const clauses = storageClauses(text);
+  if (clauses.some((clause) => STORAGE_REQUIRED_WITHOUT.test(clause))) return true;
+  return clauses.flatMap((clause) => clause.split(/[,，]|\s+and\s+|\s+и\s+|而/iu)).some((clause) => {
     if (!STORAGE_TOPIC.test(clause)) return false;
     if (storageExplicitlyExcluded(clause)) return false;
     // Mentioning a previous answer is not renewed physical-storage intent.
-    if (/(?:^|[^\p{L}])(?:упомин|говор|ответ|предложил|mention|discuss|answer|reply|said|say|talk)|提|回答|回复|讨论|说/iu.test(clause)) return false;
+    if (STORAGE_PRIOR_ANSWER_REFERENCE.test(clause)) return false;
     return ECONOMIC_TOPIC.test(clause)
       || /хранить|нуж|необходим|если|нельзя|невозмож|\bstor(?:e|es|ed|ing)\b|\b(?:if|need|needed|required)\b|cannot\s+(?:ship|avoid)|储存|需要|必须|如果/iu.test(clause)
       || (/месяц|срок|month|duration|月|期限/iu.test(clause) && !PAYMENT_TIMING_TOPIC.test(clause));

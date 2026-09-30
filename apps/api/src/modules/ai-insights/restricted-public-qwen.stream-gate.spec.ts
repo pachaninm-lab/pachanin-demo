@@ -99,6 +99,11 @@ describe('storage intent corrections', () => {
     'We cannot avoid storage; compare costs.',
     'No storage costs are negligible; compare costs.',
     'Без хранения нельзя отгрузить зерно. Сравни расходы.',
+    'Без расходов на хранение нельзя рассчитать прибыль. Сравни расходы.',
+    'Без расходов на хранение невозможно рассчитать прибыль. Сравни расходы.',
+    'Без расходов на хранение прибыль рассчитать не получится. Сравни расходы.',
+    'Without storage costs, profit cannot be calculated. Compare costs.',
+    'Without storage, shipping is impossible. Compare costs.',
   ])('keeps actual or hypothetical storage comparisons screened: %s', (question) => {
     expect(economicComparisonFor(question, [])).toBe('storage');
   });
@@ -146,6 +151,8 @@ describe('storage intent corrections', () => {
     'Do not mention storage costs again; compare payment costs for one month.',
     'Не упоминай хранение снова. Срок оплаты один месяц.',
     'Не обсуждай хранение. Срок оплаты один месяц.',
+    'Не говори о хранении снова. Срок оплаты один месяц.',
+    'Earlier we talked about storage for one month. The payment duration is one month.',
     'Ты говорил про хранение. Срок оплаты один месяц.',
     'Ты предложил хранить зерно. Вопрос про срок оплаты: один месяц.',
     '不要再提仓储。付款期限是一个月。',
@@ -173,6 +180,10 @@ describe('storage intent corrections', () => {
     'Не упоминай хранение для А, для Б нужно хранить зерно один месяц. Сравни расходы.',
     '需要仓储一个月，而之前的回答提到的是付款期限。',
     'Нужно хранить зерно один месяц по договору. Сравни расходы.',
+    'Say we store it for one month. What would it cost?',
+    "Let's talk about storage for one month. What would it cost?",
+    "Let's discuss storage for one month. What would it cost?",
+    'Скажем, хранить зерно один месяц. Сравни расходы.',
   ])('recognizes affirmative renewed storage while retaining mixed-clause protection: %s', (question) => {
     const history = [{ role: 'user' as const, text: 'Storage is not needed; compare payment costs.' }];
     expect(economicComparisonFor(question, history)).toBe('storage');
