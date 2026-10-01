@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { RequestUser, Role } from '../../src/common/types/request-user';
+import { isRetryableTransactionConflict } from '../../src/common/prisma/rls-transaction.service';
 import { AuthPrismaService } from '../../src/modules/auth/auth-prisma.service';
 import { issueStaffAccessCredential } from '../../src/modules/auth/opaque-token-authority';
 import { StaffAccessService } from '../../src/modules/staff-access/staff-access.service';
@@ -543,8 +544,40 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
     let release!: () => void;
     let failBarrier!: (error: Error) => void;
     const barrier = new Promise<void>((resolve, reject) => { release = resolve; failBarrier = reject; });
-    const timer = setTimeout(() => failBarrier(new Error('Two-connection predicate barrier timed out')), 5_000);
+    let commitWinner!: () => void;
+    let failWinner!: (error: Error) => void;
+    const winnerCommitted = new Promise<void>((resolve, reject) => { commitWinner = resolve; failWinner = reject; });
+    let serializationAborts = 0;
+    let retriesAfterWinnerCommit = 0;
+    // Attach rejection handlers before either barrier is awaited. A broken
+    // schedule must fail within the bound rather than leave a transaction open.
+    void barrier.catch(() => undefined);
+    void winnerCommitted.catch(() => undefined);
+    const timer = setTimeout(() => {
+      const error = new Error('Two-connection activation schedule timed out');
+      failBarrier(error);
+      failWinner(error);
+    }, 5_000);
     class BarrierRepository extends StaffRuntimeAccessRepository {
+      override async transaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+        try {
+          const result = await super.transaction(work);
+          // $transaction resolves only after the real PostgreSQL commit.
+          commitWinner();
+          return result;
+        } catch (error) {
+          if (isRetryableTransactionConflict(error)) {
+            serializationAborts += 1;
+            // Keep the first-attempt empty-read race real. Only its aborted
+            // loser waits here, before the unchanged bounded retry loop starts
+            // a fresh snapshot that can observe the committed winner.
+            await winnerCommitted;
+            retriesAfterWinnerCommit += 1;
+          }
+          throw error;
+        }
+      }
+
       override async hasActiveSession(client: StaffSqlClient, actorUserId: string): Promise<boolean> {
         const active = await super.hasActiveSession(client, actorUserId);
         if (actorUserId === owner.id && !active && arrivals < 2) {
@@ -573,9 +606,15 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
       if (fulfilled.length === 1) winnerSessionId = fulfilled[0].value.accessSessionId;
       expect(arrivals).toBe(2);
       expect(backendPids.size).toBe(2);
+      expect(serializationAborts).toBe(1);
+      expect(retriesAfterWinnerCommit).toBe(1);
       expect(fulfilled).toHaveLength(1);
       expect(rejected).toHaveLength(1);
       expect(rejected[0].reason).toMatchObject({ response: { code: 'STAFF_ACTIVE_SESSION_CONFLICT' }, status: 409 });
+      const loserIndex = results.findIndex((row) => row.status === 'rejected');
+      await expect([first, second][loserIndex].activateGrant(
+        owner, grants[loserIndex], undefined, undefined, 'corr-race-after-settle',
+      )).rejects.toMatchObject({ response: { code: 'STAFF_ACTIVE_SESSION_CONFLICT' }, status: 409 });
       const sessions = await repository.listActiveSessions(prisma, owner.id);
       expect(sessions).toHaveLength(1);
       expect(sessions[0].id).toBe(winnerSessionId);
@@ -585,8 +624,22 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
           AND correlation_id IN ('corr-race-a', 'corr-race-b')
       `);
       expect(events[0].count).toBe(1);
+      const durableSessions = await prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
+        SELECT COUNT(*)::int AS count FROM auth.staff_access_sessions
+        WHERE actor_user_id = ${owner.id} AND grant_id IN (${Prisma.join(grants)})
+      `);
+      expect(durableSessions[0].count).toBe(1);
+      const loserCorrelationId = loserIndex === 0 ? 'corr-race-a' : 'corr-race-b';
+      const loserEvents = await prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
+        SELECT COUNT(*)::int AS count FROM auth.staff_access_events
+        WHERE actor_user_id = ${owner.id} AND action = 'staff.session.activate'
+          AND correlation_id IN (${loserCorrelationId}, 'corr-race-after-settle')
+      `);
+      expect(loserEvents[0].count).toBe(0);
     } finally {
       clearTimeout(timer);
+      release();
+      commitWinner();
       for (const sessionId of createdSessionIds) {
         await access.endSession(owner, sessionId, 'Completed isolated two-connection race');
       }
