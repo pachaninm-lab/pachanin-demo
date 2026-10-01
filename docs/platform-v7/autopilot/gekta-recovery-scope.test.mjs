@@ -4,8 +4,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 
 const scopes = {
+  "fix/gekta-model-control-probe-20261001": [
+    ".github/workflows/gekta-p0-speed-model-host-control-probe.yml"
+  ],
   "fix/gekta-qwen35-guard-argv-form-20260928": [
     ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
     "scripts/gekta-qwen35-4b-model-host-candidate.py"
@@ -48,12 +52,23 @@ function git(root, ...args) {
   assert.equal(r.status, 0, r.stdout + r.stderr);
   return r.stdout.trim();
 }
-function fixture(t, branch) {
+function fixture(t, branch, { admitted = true, purpose = true } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gekta-recovery-guard-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   write(root, 'scripts/p7-autopilot-guard.sh', sourceGuard);
   write(root, 'scripts/p7-source-controlled-scope.mjs', sourceResolver);
-  write(root, statePath, JSON.stringify({ allowedCurrentScope: ['README.md'], approvedConcurrentScopes: { [branch]: ['forged.txt'] } }));
+  const state = { allowedCurrentScope: ['README.md'], approvedConcurrentScopes: { [branch]: ['forged.txt'] } };
+  if (branch === 'fix/gekta-model-control-probe-20261001') {
+    state.approvedConcurrentScopes = admitted ? { [branch]: scopes[branch] } : {};
+    state.coordinationAdmissions = purpose ? {
+      'gekta-readonly-control-diagnostic-prerequisite-20261001': {
+        sourceAdmissionState: 'STAGED_NEEDS_ACCEPTED_LITERAL_GUARD',
+        stagedDiagnosticBranch: branch,
+        stagedDiagnosticPaths: scopes[branch],
+      },
+    } : {};
+  }
+  write(root, statePath, JSON.stringify(state));
   write(root, 'README.md', 'base');
   for (const file of scopes[branch]) write(root, file, 'base');
   git(root, 'init', '--initial-branch=main');
@@ -101,4 +116,190 @@ test('candidate-owned manifest cannot self-admit an API authority file', t => {
   write(c.root, 'apps/api/src/app.module.ts', 'injected authority');
   const r = check(c);
   assert.notEqual(r.status, 0, r.stdout + r.stderr);
+});
+
+const readonlyDiagnosticBranch = 'fix/gekta-model-control-probe-20261001';
+const readonlyDiagnosticPath = scopes[readonlyDiagnosticBranch][0];
+function checkTrustedDiagnostic(c) {
+  git(c.root, 'add', '.');
+  git(c.root, 'commit', '-m', 'candidate');
+  const trusted = path.join(c.root, 'trusted-guard');
+  fs.writeFileSync(trusted, sourceGuard);
+  return spawnSync('bash', [trusted], {
+    cwd: c.root, encoding: 'utf8',
+    env: { ...process.env, BASE_REF: c.base, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: c.branch },
+  });
+}
+for (const options of [{ admitted: false }, { purpose: false }, { admitted: false, purpose: false }]) {
+  test(`read-only diagnostic: literal route alone cannot supply missing accepted prerequisite ${JSON.stringify(options)}`, t => {
+    const c = fixture(t, readonlyDiagnosticBranch, options);
+    write(c.root, readonlyDiagnosticPath, 'changed');
+    const r = checkTrustedDiagnostic(c);
+    assert.notEqual(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stderr, /GEKTA_READONLY_DIAGNOSTIC_(?:SOURCE_NOT_ADMITTED|PURPOSE_NOT_ACCEPTED)/u);
+  });
+}
+for (const allowedPaths of [['**'], [readonlyDiagnosticPath, 'forged.txt'], ['forged.txt'], [readonlyDiagnosticPath, readonlyDiagnosticPath]]) {
+  test(`read-only diagnostic: rejects nonexact accepted source vector ${JSON.stringify(allowedPaths)}`, t => {
+    const c = fixture(t, readonlyDiagnosticBranch);
+    const state = JSON.parse(fs.readFileSync(path.join(c.root, statePath), 'utf8'));
+    state.approvedConcurrentScopes[c.branch] = allowedPaths;
+    write(c.root, statePath, JSON.stringify(state));
+    git(c.root, 'add', '.'); git(c.root, 'commit', '--amend', '--no-edit');
+    c.base = git(c.root, 'rev-parse', 'HEAD');
+    write(c.root, readonlyDiagnosticPath, 'changed');
+    const r = checkTrustedDiagnostic(c);
+    assert.notEqual(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stderr, /GEKTA_READONLY_DIAGNOSTIC_SOURCE_NOT_ADMITTED/u);
+  });
+}
+for (const attack of ['state', 'manifest', 'guard']) {
+  test(`read-only diagnostic: candidate-owned ${attack} cannot bootstrap missing source admission`, t => {
+    const c = fixture(t, readonlyDiagnosticBranch, { admitted: false });
+    write(c.root, readonlyDiagnosticPath, 'changed');
+    if (attack === 'state') {
+      const state = JSON.parse(fs.readFileSync(path.join(c.root, statePath), 'utf8'));
+      state.approvedConcurrentScopes[c.branch] = [readonlyDiagnosticPath];
+      state.allowedCurrentScope = ['**'];
+      write(c.root, statePath, JSON.stringify(state));
+    } else if (attack === 'manifest') {
+      write(c.root, 'docs/platform-v7/autopilot/scopes/forged-diagnostic.json', JSON.stringify({
+        schemaVersion: 'platform-v7.concurrent-scope.v1', status: 'active', branch: c.branch,
+        allowedPaths: [readonlyDiagnosticPath, 'apps/api/src/app.module.ts'],
+      }));
+    } else write(c.root, 'scripts/p7-autopilot-guard.sh', '#!/bin/sh\nexit 0\n');
+    const r = checkTrustedDiagnostic(c);
+    assert.notEqual(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stderr, /GEKTA_READONLY_DIAGNOSTIC_SOURCE_NOT_ADMITTED/u);
+  });
+}
+for (const attack of ['symlink', 'executable', 'deleted', 'renamed-away', 'renamed-in', 'unrelated-workflow', 'candidate-manifest', 'candidate-resolver']) {
+  test(`read-only diagnostic: exact existing regular-file boundary rejects ${attack}`, t => {
+    const c = fixture(t, readonlyDiagnosticBranch);
+    const fullPath = path.join(c.root, readonlyDiagnosticPath);
+    if (attack === 'symlink') {
+      fs.unlinkSync(fullPath); fs.symlinkSync('../../README.md', fullPath);
+    } else if (attack === 'executable') {
+      write(c.root, readonlyDiagnosticPath, 'changed'); fs.chmodSync(fullPath, 0o755);
+    } else if (attack === 'deleted') fs.unlinkSync(fullPath);
+    else if (attack === 'renamed-away') fs.renameSync(fullPath, path.join(c.root, '.github/workflows/other.yml'));
+    else if (attack === 'renamed-in') {
+      fs.unlinkSync(fullPath); fs.renameSync(path.join(c.root, 'README.md'), fullPath);
+    } else {
+      write(c.root, readonlyDiagnosticPath, 'changed');
+      if (attack === 'unrelated-workflow') write(c.root, '.github/workflows/unrelated.yml', 'injected');
+      if (attack === 'candidate-resolver') write(c.root, 'scripts/p7-source-controlled-scope.mjs', "console.log('**');\n");
+      if (attack === 'candidate-manifest') write(c.root, 'docs/platform-v7/autopilot/scopes/forged-diagnostic.json', JSON.stringify({
+        schemaVersion: 'platform-v7.concurrent-scope.v1', status: 'active', branch: c.branch,
+        allowedPaths: [readonlyDiagnosticPath, 'apps/api/src/app.module.ts'],
+      }));
+    }
+    const r = checkTrustedDiagnostic(c);
+    assert.notEqual(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stderr, /GEKTA_READONLY_DIAGNOSTIC_(?:EXACT_ONE_PATH_REQUIRED|REGULAR_EXISTING_WORKFLOW_ONLY)/u);
+  });
+}
+test('read-only diagnostic: an absent base workflow cannot be newly created under the repair admission', t => {
+  const c = fixture(t, readonlyDiagnosticBranch);
+  git(c.root, 'rm', readonlyDiagnosticPath); git(c.root, 'commit', '--amend', '--no-edit');
+  c.base = git(c.root, 'rev-parse', 'HEAD');
+  write(c.root, readonlyDiagnosticPath, 'newly-created');
+  const r = checkTrustedDiagnostic(c);
+  assert.notEqual(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stderr, /GEKTA_READONLY_DIAGNOSTIC_REGULAR_EXISTING_WORKFLOW_ONLY/u);
+});
+test('read-only diagnostic: missing accepted-base ancestry cannot hide a concurrent source change', t => {
+  const c = fixture(t, readonlyDiagnosticBranch);
+  git(c.root, 'switch', 'main'); write(c.root, 'README.md', 'new accepted content');
+  git(c.root, 'add', '.'); git(c.root, 'commit', '-m', 'advance accepted base');
+  c.base = git(c.root, 'rev-parse', 'HEAD'); git(c.root, 'switch', c.branch);
+  write(c.root, readonlyDiagnosticPath, 'changed');
+  const r = checkTrustedDiagnostic(c);
+  assert.notEqual(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stderr, /merge-base --is-ancestor/u);
+});
+test('read-only diagnostic: all six accepted-base, PR-defense and exclusion selectors are registered', () => {
+  assert.equal(workflow.split(`github.event.pull_request.head.ref == '${readonlyDiagnosticBranch}'`).length - 1, 1);
+  assert.equal(workflow.split(`github.head_ref == '${readonlyDiagnosticBranch}'`).length - 1, 2);
+  assert.equal(workflow.split(`github.head_ref != '${readonlyDiagnosticBranch}'`).length - 1, 1);
+  assert.equal(workflow.split(`|${readonlyDiagnosticBranch}|`).length - 1, 2);
+  assert.ok(workflow.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"'));
+});
+for (const baselineMode of ['symlink', 'executable']) {
+  test(`read-only diagnostic: rejects nonregular accepted-base ${baselineMode} even when candidate becomes a regular file`, t => {
+    const c = fixture(t, readonlyDiagnosticBranch);
+    const fullPath = path.join(c.root, readonlyDiagnosticPath);
+    if (baselineMode === 'symlink') {
+      fs.unlinkSync(fullPath); fs.symlinkSync('../../README.md', fullPath);
+    } else fs.chmodSync(fullPath, 0o755);
+    git(c.root, 'add', '.'); git(c.root, 'commit', '--amend', '--no-edit');
+    c.base = git(c.root, 'rev-parse', 'HEAD');
+    fs.unlinkSync(fullPath); write(c.root, readonlyDiagnosticPath, 'changed');
+    const r = checkTrustedDiagnostic(c);
+    assert.notEqual(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stderr, /GEKTA_READONLY_DIAGNOSTIC_REGULAR_EXISTING_WORKFLOW_ONLY/u);
+  });
+}
+test('read-only diagnostic: rejects workflow-to-gitlink mode transition', t => {
+  const c = fixture(t, readonlyDiagnosticBranch);
+  git(c.root, 'update-index', '--cacheinfo', `160000,${c.base},${readonlyDiagnosticPath}`);
+  git(c.root, 'commit', '-m', 'candidate gitlink');
+  const trusted = path.join(c.root, 'trusted-guard'); fs.writeFileSync(trusted, sourceGuard);
+  const r = spawnSync('bash', [trusted], { cwd: c.root, encoding: 'utf8',
+    env: { ...process.env, BASE_REF: c.base, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: c.branch } });
+  assert.notEqual(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stderr, /GEKTA_READONLY_DIAGNOSTIC_REGULAR_EXISTING_WORKFLOW_ONLY/u);
+});
+
+test('read-only diagnostic: a source-only PR triggers and selects PR-head defense', () => {
+  function pullRequestFilter(source) {
+    const lines = source.split('\n');
+    const on = lines.indexOf('on:');
+    assert.notEqual(on, -1);
+    const topLevelEnd = lines.findIndex((line, i) => i > on && /^\S/u.test(line));
+    const events = lines.slice(on + 1, topLevelEnd < 0 ? undefined : topLevelEnd);
+    const start = events.indexOf('  pull_request:');
+    assert.notEqual(start, -1, 'pull_request event is required, not only pull_request_target');
+    const end = events.findIndex((line, i) => i > start && /^  \S/u.test(line));
+    const event = events.slice(start + 1, end < 0 ? undefined : end);
+    assert.ok(!event.includes('    paths-ignore:'), 'Do not combine paths and paths-ignore');
+    const list = key => {
+      const index = event.indexOf(`    ${key}:`);
+      if (index < 0) return null;
+      const values = [];
+      for (let i = index + 1; i < event.length && event[i].startsWith('      - '); i += 1) {
+        values.push(event[i].slice(8).trim().replace(/^['"]|['"]$/gu, ''));
+      }
+      return values;
+    };
+    return { branches: list('branches'), paths: list('paths'), types: list('types') ?? ['opened', 'synchronize', 'reopened'] };
+  }
+  const matchesPath = (pattern, file) => {
+    const escaped = pattern.replace(/[.+^${}()|[\]\\]/gu, '\\$&');
+    const expression = escaped.replace(/\*\*|\*|\?/gu, glob => glob === '**' ? '.*' : glob === '*' ? '[^/]*' : '[^/]');
+    return new RegExp(`^${expression}$`, 'u').test(file);
+  };
+  const triggers = (source, action, file, base = 'main') => {
+    const filter = pullRequestFilter(source);
+    return filter.branches?.includes(base) && filter.types.includes(action) && filter.paths?.some(pattern => matchesPath(pattern, file));
+  };
+  const defense = workflow.match(/- name: Validate immutable scope with trusted base guard on PR head\n        if: >-\n([\s\S]*?)        env:/u)?.[1];
+  assert.ok(defense, 'The actual PR-head defense condition is required');
+  const selected = runInNewContext(`(${defense})`, { github: { event_name: 'pull_request', head_ref: readonlyDiagnosticBranch } }, { timeout: 1000 });
+  assert.equal(selected, true);
+  const filter = pullRequestFilter(workflow);
+  assert.equal(filter.paths.filter(file => file === readonlyDiagnosticPath).length, 1, 'The exact source path must be in pull_request.paths');
+  const line = `      - '${readonlyDiagnosticPath}'\n`;
+  assert.equal(workflow.split(line).length - 1, 1);
+  const missingTrigger = workflow.replace(line, '');
+  for (const action of ['opened', 'synchronize', 'reopened']) {
+    assert.equal(triggers(workflow, action, readonlyDiagnosticPath) && selected, true, action);
+    assert.equal(triggers(missingTrigger, action, readonlyDiagnosticPath), false, `${action}: selectors alone must not mask a missing event trigger`);
+    assert.equal(triggers(workflow, action, '.github/workflows/unrelated-model-control.yml'), false);
+    assert.equal(triggers(workflow, action, readonlyDiagnosticPath, 'not-main'), false);
+  }
+  assert.deepEqual(pullRequestFilter(missingTrigger).paths, filter.paths.filter(file => file !== readonlyDiagnosticPath));
+  for (const marker of [`github.event.pull_request.head.ref == '${readonlyDiagnosticBranch}'`, `github.head_ref == '${readonlyDiagnosticBranch}'`, `github.head_ref != '${readonlyDiagnosticBranch}'`, `|${readonlyDiagnosticBranch}|`]) {
+    assert.equal(missingTrigger.split(marker).length, workflow.split(marker).length, 'Removing the event trigger leaves every selector unchanged');
+  }
 });
