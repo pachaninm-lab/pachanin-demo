@@ -4272,10 +4272,12 @@ for (const [name, file, mode] of [
 // Separately admitted BANK consumer phase; these are isolated unit fixtures,
 // never native PostgreSQL, provider or production acceptance evidence.
 const bankMoneyPurposeKey = 'bank-release-currency-amount-guard-purpose-20261001';
+const bankMoneyCorrectionKey = 'bank-release-reserve-evidence-guard-purpose-20261001';
 const bankMoneyAdmissionKey = 'bank-release-currency-amount-20261001';
 const bankMoneySourceBranch = 'bank/deep-visible-copy-guard-20260924';
 const bankMoneyAdmissionBranch = 'governance/product-bank-fgis-ux-source-admission-20260924';
 const bankMoneyPurpose = JSON.parse(fs.readFileSync(dealRuntimeStatePath, 'utf8')).coordinationAdmissions[bankMoneyPurposeKey];
+const bankMoneyCorrectionPurpose = JSON.parse(fs.readFileSync(dealRuntimeStatePath, 'utf8')).coordinationAdmissions[bankMoneyCorrectionKey];
 const bankMoneyPrior = {
   "owner": "ACCOUNT_2_PRODUCT",
   "purpose": "Presentation-only bank/deal copy guard and negative release safety wording; no provider or payment finality.",
@@ -4315,12 +4317,12 @@ const bankMoneyPins = [
   [
     "apps/web/lib/bank-release-server.ts",
     "870a839e7087ef1114d805d818220471027c89fb",
-    "6ae431216dce41f07d6c73a8b3fe4231bd4c540d"
+    "54e276cc387366a4068c4a9358aea1dcfa0ebc18"
   ],
   [
     "apps/web/tests/unit/bankReleaseServer.test.ts",
     "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
-    "fe1c8bc089be2b409ad65837a4ba3985edbfb619"
+    "2ab6b6c3ac056b3d08eb76450fd0c54e97bff304"
   ],
   [
     "apps/web/app/platform-v7/bank/release-safety/page.tsx",
@@ -4335,11 +4337,12 @@ const bankMoneyPins = [
 ];
 const bankMoneyManifest = 'docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json';
 const bankMoneyPaths = [...bankMoneyOldPaths, 'apps/web/lib/bank-release-server.ts', 'apps/web/tests/unit/bankReleaseServer.test.ts'];
-const bankMoneyPinnedPatch = inflateSync(Buffer.from('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', 'base64'));
-assert.equal(createHash('sha256').update(bankMoneyPinnedPatch).digest('hex'), '3d3bd96794171e61e1531c8ef3b13c1157ff389c7d979adf8d600944c819432b');
+const bankMoneyPinnedPatch = inflateSync(Buffer.from('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', 'base64'));
+assert.equal(createHash('sha256').update(bankMoneyPinnedPatch).digest('hex'), '8c05b77b82a722c6ca21118ed0b7c7dcc2dec549f93e4b77e6a2349a9b8ef06e');
 function bankMoneyRecord(authorityBaseExactMain) {
   const bankMoneySourceBranch = 'bank/deep-visible-copy-guard-20260924';
   const completedPaths = bankMoneyPaths, priorKey = 'bank-deep-visible-copy-guard-20260924-coordination';
+  const bankMoneyCorrectionKey = 'bank-release-reserve-evidence-guard-purpose-20261001';
   const pins = structuredClone(bankMoneyPins), manifestPath = bankMoneyManifest, manifestBlob = 'c7a015a9449578df7fbd325aae81f2d3795a4523';
   return {
       owner: 'ACCOUNT_2_PRODUCT', sourceOwnerRetained: 'ACCOUNT_2_PRODUCT', canonicalApiOwnerRetained: 'ACCOUNT_1_EXECUTION',
@@ -4347,11 +4350,13 @@ function bankMoneyRecord(authorityBaseExactMain) {
       authorityBaseExactMain, implementationBranch: bankMoneySourceBranch,
       allowedPaths: completedPaths, retainedAdmissionKey: priorKey, exactSourcePins: pins,
       exactManifestPath: manifestPath, baselineManifestBlob: manifestBlob,
-      reviewedPrivatePayloadSha256: '3d3bd96794171e61e1531c8ef3b13c1157ff389c7d979adf8d600944c819432b',
+      correctionPurposeKey: bankMoneyCorrectionKey,
+      reviewedPrivatePayloadSha256: '8c05b77b82a722c6ca21118ed0b7c7dcc2dec549f93e4b77e6a2349a9b8ef06e',
       requiredTruthBoundaries: [
         'Preserve the seven-path prefix and every old admission byte/value. Append only two read-only web source/test paths; no server, provider, money mutation or legal authority.',
         'The source phase requires all four immutable100644 source transitions and only the exact accepted-manifest path/base transformation, unchanged state and genuine accepted-base ancestry.',
         'Preserve canonical GET-only Deal/tenant/participant permissions, UNKNOWN external outcome and all callback/outbox prerequisites. Currency/selected RESERVE and RELEASE amount conflicts cannot establish readiness or RELEASED.',
+        'A released projection requires persisted payment reservation and the selected canonical RESERVE amount/currency, DONE status, confirmation timestamp and bank reference; missing/unconfirmed/newer-pending reserve evidence remains manual review.',
         'Fresh independent full current-head review, separate owner audit, every substantive native CI/security/readiness gate and ordinary expected-full-SHA merge remain mandatory. Private unit doubles are not PostgreSQL/browser/provider/Founder13/REG.RU acceptance.',
       ],
       forbiddenAuthority: ['API/DB/RLS/role/tenant/session/command/money/provider/FGIS/legal/model authority', 'Arbitrary source/scope/metadata changes', 'CI/security/readiness/review weakening or fake acceptance'],
@@ -4364,7 +4369,7 @@ function extendBankMoney(context, mutate = () => {}) {
   mutate(state);
   write(context.root, dealRuntimeStatePath, JSON.stringify(state, null, 2) + '\n');
 }
-function bankMoneyFixture(t, { implementation = false, admitted = false, purpose = true, mutateBase = () => {} } = {}) {
+function bankMoneyFixture(t, { implementation = false, admitted = false, purpose = true, correction = true, mutateBase = () => {} } = {}) {
   const context = fixture(t, implementation ? bankMoneySourceBranch : bankMoneyAdmissionBranch);
   const state = {
     current: 'BANK unchanged fixture', fullTzReadinessPercent: 5, allowedCurrentScope: ['README.md'],
@@ -4376,6 +4381,7 @@ function bankMoneyFixture(t, { implementation = false, admitted = false, purpose
     coordinationAdmissions: {
       'bank-deep-visible-copy-guard-20260924-coordination': { ...structuredClone(bankMoneyPrior), authorityBaseExactMain: context.baseline },
       ...(purpose ? { [bankMoneyPurposeKey]: structuredClone(bankMoneyPurpose) } : {}),
+      ...(correction ? { [bankMoneyCorrectionKey]: structuredClone(bankMoneyCorrectionPurpose) } : {}),
     },
   };
   mutateBase(state);
@@ -4532,3 +4538,45 @@ test('BANK money: wrong admitted base cannot pass ancestry', (t) => {
   fs.writeFileSync(p,JSON.stringify(s,null,2)+'\n');commit(context.root,'wrong accepted-base fixture precondition');context.baseline=git(context.root,['rev-parse','HEAD']);
   completeBankMoney(context);rejectBankMoney(context,/BANK_MONEY_ADMISSION_BASE_NOT_ANCESTOR/u);
 });
+// Independent correction-purpose and defective-source controls.
+test('BANK reserve correction: missing trusted correction cannot admit paths', (t) => {
+  const context = bankMoneyFixture(t, { correction: false });
+  extendBankMoney(context); commit(context.root, 'missing trusted correction');
+  rejectBankMoney(context, /BANK_MONEY_CORRECTION_PURPOSE_MISMATCH/u);
+  const trusted = git(context.root, ['show', `${context.baseline}:scripts/p7-autopilot-guard.sh`]);
+  const predicate = "    if (!isDeepStrictEqual(state.coordinationAdmissions[bankMoneyCorrectionKey], requiredCorrectionPurpose)) {\n      throw new Error('BANK_MONEY_CORRECTION_PURPOSE_MISMATCH');\n    }";
+  assert.equal(trusted.split(predicate).length, 2);
+  const bypass = path.join(context.root, '.git', 'BANK-correction-only-control.sh');
+  fs.writeFileSync(bypass, trusted.replace(predicate, ''));
+  const control = spawnSync('bash', [bypass], { cwd: context.root, env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: context.implementationBranch }, encoding: 'utf8' });
+  assert.equal(control.status, 0, 'remove only accepted-BASE correction comparison: ' + output(control));
+});
+test('BANK reserve correction: candidate-only correction cannot self-admit', (t) => {
+  const context = bankMoneyFixture(t, { correction: false });
+  extendBankMoney(context, (s) => { s.coordinationAdmissions[bankMoneyCorrectionKey] = structuredClone(bankMoneyCorrectionPurpose); });
+  commit(context.root, 'candidate self-admission');
+  rejectBankMoney(context, /BANK_MONEY_CORRECTION_PURPOSE_MISMATCH/u);
+});
+const bankCorrectionAttacks = [
+  ['execution owner', (p) => { p.owner = 'ACCOUNT_2_PRODUCT'; }],
+  ['source owner', (p) => { p.sourceOwnerRetained = 'ACCOUNT_1_EXECUTION'; }],
+  ['allowed paths', (p) => { p.allowedPaths.push('apps/api/**'); }],
+  ['original purpose', (p) => { p.priorPurposeKey = 'candidate-owned'; }],
+  ['defective server pin', (p) => { p.immutableSourcePins[0][2] = '6ae431216dce41f07d6c73a8b3fe4231bd4c540d'; }],
+  ['defective test pin', (p) => { p.immutableSourcePins[1][2] = 'fe1c8bc089be2b409ad65837a4ba3985edbfb619'; }],
+  ['source payload hash', (p) => { p.reviewedPrivatePayload.sha256 = '0'.repeat(64); }],
+  ['source authority', (p) => { p.grantSourceAuthority = true; }],
+];
+for (const [name, attack] of bankCorrectionAttacks) test('BANK reserve correction: changed BASE ' + name + ' is rejected', (t) => {
+  const context = bankMoneyFixture(t, { mutateBase: (s) => attack(s.coordinationAdmissions[bankMoneyCorrectionKey]) });
+  extendBankMoney(context); commit(context.root, 'mutated correction BASE fixture');
+  rejectBankMoney(context, /BANK_MONEY_CORRECTION_PURPOSE_MISMATCH/u);
+});
+for (const [index, oldBlob] of [[0, '6ae431216dce41f07d6c73a8b3fe4231bd4c540d'], [1, 'fe1c8bc089be2b409ad65837a4ba3985edbfb619']]) {
+  test('BANK reserve correction: old defective private source ' + index + ' cannot be admitted', (t) => {
+    const context = bankMoneyFixture(t, { implementation: true, admitted: true }); completeBankMoney(context);
+    write(context.root, bankMoneyPins[index][0], actualLocaleBaselineBlob(oldBlob));
+    commit(context.root, 'restore actual old defective private blob');
+    rejectBankMoney(context, /BANK_MONEY_SOURCE_PIN_OR_MODE/u);
+  });
+}

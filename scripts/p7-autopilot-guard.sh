@@ -1588,6 +1588,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
   }
 
   const bankMoneyPurposeKey = 'bank-release-currency-amount-guard-purpose-20261001';
+  const bankMoneyCorrectionKey = 'bank-release-reserve-evidence-guard-purpose-20261001';
   const bankMoneyAdmissionKey = 'bank-release-currency-amount-20261001';
   const bankMoneySourceBranch = 'bank/deep-visible-copy-guard-20260924';
   const bankMoneyAdmissionBranch = 'governance/product-bank-fgis-ux-source-admission-20260924';
@@ -1681,6 +1682,97 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
   ],
   "teamHubDependency": "#5469 owner-priority decision5925195179; canonical BANK #5525 complete immutable source5917883797; exact current consumer source/read-only evidence; original BANK scope/claim retained"
 };
+    const requiredCorrectionPurpose = {
+  "owner": "ACCOUNT_1_EXECUTION",
+  "presentationContributor": "ACCOUNT_2_PRODUCT",
+  "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+  "purpose": "Require complete canonical RESERVE evidence and replace only two defective private candidate pins before any BANK money co-admission or source acceptance.",
+  "authorityBaseExactMain": "2e08e8e5a51a154269f59de3adede9b1e93eabee",
+  "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+  "allowedPaths": [
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-autopilot-guard.test.mjs",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
+  ],
+  "priorPurposeKey": "bank-release-currency-amount-guard-purpose-20261001",
+  "futureAdmissionBranch": "governance/product-bank-fgis-ux-source-admission-20260924",
+  "futureImplementationBranch": "bank/deep-visible-copy-guard-20260924",
+  "replacesOnlyPrivateCandidatePins": [
+    [
+      "apps/web/lib/bank-release-server.ts",
+      "6ae431216dce41f07d6c73a8b3fe4231bd4c540d",
+      "54e276cc387366a4068c4a9358aea1dcfa0ebc18"
+    ],
+    [
+      "apps/web/tests/unit/bankReleaseServer.test.ts",
+      "fe1c8bc089be2b409ad65837a4ba3985edbfb619",
+      "2ab6b6c3ac056b3d08eb76450fd0c54e97bff304"
+    ]
+  ],
+  "immutableSourcePins": [
+    [
+      "apps/web/lib/bank-release-server.ts",
+      "870a839e7087ef1114d805d818220471027c89fb",
+      "54e276cc387366a4068c4a9358aea1dcfa0ebc18"
+    ],
+    [
+      "apps/web/tests/unit/bankReleaseServer.test.ts",
+      "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
+      "2ab6b6c3ac056b3d08eb76450fd0c54e97bff304"
+    ],
+    [
+      "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+      "55f1572c14283fb2b69153adba6cbe13622fd387",
+      "b67a3452e05ad97082ccfbcc0c4975302cb62df9"
+    ],
+    [
+      "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+      "68382969c3b8f1bb8912a1c514fd71882470cf95",
+      "630599ff7ff0ca4338445fc8bba50d61cf07f4f6"
+    ]
+  ],
+  "reviewedPrivatePayload": {
+    "comment": 5928120402,
+    "bytes": 24835,
+    "sha256": "8c05b77b82a722c6ca21118ed0b7c7dcc2dec549f93e4b77e6a2349a9b8ef06e",
+    "bankUnitTests": {
+      "pass": 123,
+      "fail": 0,
+      "skip": 0
+    },
+    "oldPrivatePinFailureControl": {
+      "pass": 81,
+      "fail": 42,
+      "skip": 0
+    },
+    "fullCurrentPrivateComposedUnits": {
+      "pass": 553,
+      "fail": 0,
+      "skip": 0
+    },
+    "fullWebTypesPass": true,
+    "nativeOrLivePass": false
+  },
+  "nativeFinding": {
+    "pr": 5763,
+    "head": "ee06780024fba69ae7b59f89846515ced7a61e35",
+    "comment": 4153516112
+  },
+  "requiredTruthBoundaries": [
+    "Append this one correction-purpose record only; retain every original purpose, old state byte/value, current scope, owner, progress, application source and workflow unchanged. No present source grant.",
+    "The separately accepted trusted guard must require both original and this exact correction purpose from BASE before the original state-only seven-plus-two co-admission or immutable source phase. Candidate HEAD cannot self-admit the correction or source.",
+    "Only the two defective PRIVATE candidate pins are superseded; preserve all four original baseline pins, the unchanged page and route-test candidate pins, original source author and ACCOUNT_2_PRODUCT source ownership/ref, original seven-path prefix and exact existing manifest transformation.",
+    "A released projection requires persisted payment reservation plus the selected canonical RESERVE amount/currency, DONE status, confirmation timestamp and bank reference. Missing/unconfirmed/newer-pending reserve evidence cannot be hidden by confirmed RELEASE, callback, outbox or RELEASED/CLOSED status.",
+    "Preserve all previous amount/currency mismatch defenses, GET-only canonical Deal/tenant/participant permissions, release/callback/outbox prerequisites, UNKNOWN external reconciliation and every legacy scope/review/security/readiness defense. No financial/API/provider/FGIS/CORE/JIT authority is granted.",
+    "Keep native P14153516112 open until fresh full corrected current-head independent review and actual substantive gates; separate author audit and ordinary expected-full-SHA merge remain required. Old-head reviews/gates and private response doubles do not establish corrected native/provider/Founder13/REG.RU acceptance."
+  ],
+  "forbiddenAuthority": [
+    "Primary/global/R1.2 permission, old admission, ownership or official5/100 mutation",
+    "Arbitrary source/pin/scope/metadata change or partial currency-only adoption",
+    "CI/review/security/readiness weakening, fake evidence or forced/automatic merge",
+    "API/DB/role/tenant/session/command/money/provider/FGIS/legal/model authority"
+  ]
+};
     const priorTemplate = {
   "owner": "ACCOUNT_2_PRODUCT",
   "purpose": "Presentation-only bank/deal copy guard and negative release safety wording; no provider or payment finality.",
@@ -1722,12 +1814,12 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
   [
     "apps/web/lib/bank-release-server.ts",
     "870a839e7087ef1114d805d818220471027c89fb",
-    "6ae431216dce41f07d6c73a8b3fe4231bd4c540d"
+    "54e276cc387366a4068c4a9358aea1dcfa0ebc18"
   ],
   [
     "apps/web/tests/unit/bankReleaseServer.test.ts",
     "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
-    "fe1c8bc089be2b409ad65837a4ba3985edbfb619"
+    "2ab6b6c3ac056b3d08eb76450fd0c54e97bff304"
   ],
   [
     "apps/web/app/platform-v7/bank/release-safety/page.tsx",
@@ -1752,6 +1844,9 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
         !isDeepStrictEqual(state.approvedConcurrentScopes?.[requiredPurpose.implementationBranch], requiredPurpose.allowedPaths)) {
       throw new Error('BANK_MONEY_PURPOSE_MISMATCH');
     }
+    if (!isDeepStrictEqual(state.coordinationAdmissions[bankMoneyCorrectionKey], requiredCorrectionPurpose)) {
+      throw new Error('BANK_MONEY_CORRECTION_PURPOSE_MISMATCH');
+    }
     if (execFileSync('git', ['merge-base', baseRef, headRef], { encoding: 'utf8' }).trim() !== baseSha) {
       throw new Error('BANK_MONEY_BASE_NOT_ANCESTOR');
     }
@@ -1773,11 +1868,13 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
       authorityBaseExactMain, implementationBranch: bankMoneySourceBranch,
       allowedPaths: completedPaths, retainedAdmissionKey: priorKey, exactSourcePins: pins,
       exactManifestPath: manifestPath, baselineManifestBlob: manifestBlob,
-      reviewedPrivatePayloadSha256: '3d3bd96794171e61e1531c8ef3b13c1157ff389c7d979adf8d600944c819432b',
+      correctionPurposeKey: bankMoneyCorrectionKey,
+      reviewedPrivatePayloadSha256: '8c05b77b82a722c6ca21118ed0b7c7dcc2dec549f93e4b77e6a2349a9b8ef06e',
       requiredTruthBoundaries: [
         'Preserve the seven-path prefix and every old admission byte/value. Append only two read-only web source/test paths; no server, provider, money mutation or legal authority.',
         'The source phase requires all four immutable100644 source transitions and only the exact accepted-manifest path/base transformation, unchanged state and genuine accepted-base ancestry.',
         'Preserve canonical GET-only Deal/tenant/participant permissions, UNKNOWN external outcome and all callback/outbox prerequisites. Currency/selected RESERVE and RELEASE amount conflicts cannot establish readiness or RELEASED.',
+        'A released projection requires persisted payment reservation and the selected canonical RESERVE amount/currency, DONE status, confirmation timestamp and bank reference; missing/unconfirmed/newer-pending reserve evidence remains manual review.',
         'Fresh independent full current-head review, separate owner audit, every substantive native CI/security/readiness gate and ordinary expected-full-SHA merge remain mandatory. Private unit doubles are not PostgreSQL/browser/provider/Founder13/REG.RU acceptance.',
       ],
       forbiddenAuthority: ['API/DB/RLS/role/tenant/session/command/money/provider/FGIS/legal/model authority', 'Arbitrary source/scope/metadata changes', 'CI/security/readiness/review weakening or fake acceptance'],
