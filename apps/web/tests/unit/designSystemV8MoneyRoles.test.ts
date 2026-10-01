@@ -146,7 +146,7 @@ describe('Design System v8 money role reference slice', () => {
 // This package is deliberately outside pnpm-workspace.yaml. Render the actual
 // workspace source with bounded presentation stubs so the governed CI job can
 // test bank state decisions without relying on a local node_modules symlink.
-async function renderBankWorkspace(snapshot: FirstCustomerWorkspaceSnapshot) {
+async function renderBankWorkspace(snapshot: FirstCustomerWorkspaceSnapshot, locale = 'ru') {
   const compiled = ts.transpileModule(firstCustomerWorkspace, {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
@@ -160,10 +160,10 @@ async function renderBankWorkspace(snapshot: FirstCustomerWorkspaceSnapshot) {
   const cockpit = {
     OperationalDecisionCockpit: ({ testId, statusLabel, priority, children }: {
       testId: string; statusLabel: string;
-      priority: { title: string; result?: string; primaryAction?: ReactNode }; children: ReactNode;
+      priority: { title: string; result?: string; primaryAction?: ReactNode; secondaryAction?: ReactNode }; children: ReactNode;
     }) => createElement('main', { 'data-testid': testId },
       createElement('span', null, statusLabel), createElement('h2', null, priority.title),
-      createElement('span', null, priority.result), priority.primaryAction, children),
+      createElement('span', null, priority.result), priority.primaryAction, priority.secondaryAction, children),
     OperationalCockpitSection: ({ id, children }: { id?: string; children: ReactNode }) =>
       createElement('section', { id }, children),
     OperationalQueue: (props: { children: ReactNode }) => withChildren('div', props),
@@ -173,7 +173,7 @@ async function renderBankWorkspace(snapshot: FirstCustomerWorkspaceSnapshot) {
   };
   const dependencies: Record<string, unknown> = {
     'next/link': ({ href, children }: { href: string; children: ReactNode }) => createElement('a', { href }, children),
-    'next-intl/server': { getLocale: async () => 'ru' },
+    'next-intl/server': { getLocale: async () => locale },
     './FirstCustomerWorkspace.module.css': { buyerQueueNote: 'buyerQueueNote', bankQueueNote: 'bankQueueNote' },
     '@pc/design-system-v8': {
       StatusChip: (props: { children: ReactNode }) => withChildren('span', props),
@@ -260,6 +260,30 @@ describe('bank first-customer failure states', () => {
     expect(ownerLink).toHaveTextContent(ownerNext);
     expect(ownerLink).not.toHaveTextContent('Открыть сделку для проверки серверных фактов');
     expect(screen.queryByText('Банковские факты — UNKNOWN')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { locale: 'ru', label: 'Все кабинеты' },
+    { locale: 'en', label: 'All cabinets' },
+    { locale: 'zh-CN', label: '全部工作台' },
+  ])('localizes the controlled owner return link in $locale without changing its destination', async ({ locale, label }) => {
+    await renderBankWorkspace({
+      ...bankErrorSnapshot,
+      available: true,
+      forbidden: false,
+      ownerControlled: true,
+      correlationId: null,
+      profile: { ...bankErrorSnapshot.profile, role: 'PLATFORM_OWNER' },
+      items: [{ id: 'OWNER-BANK-CONTROLLED', dealId: null, status: 'CONTROLLED_TEST', href: '/platform-v7/bank' }],
+    }, locale);
+    const returnLink = screen.getByRole('link', { name: label, exact: true });
+    expect(returnLink).toHaveAttribute('href', '/platform-v7/staff');
+    if (locale !== 'ru') expect(screen.queryByRole('link', { name: 'Все кабинеты', exact: true })).not.toBeInTheDocument();
+  });
+
+  it.each(['ru', 'en', 'zh-CN'])('does not expose controlled owner navigation to an ordinary bank participant in %s', async (locale) => {
+    await renderBankWorkspace({ ...bankErrorSnapshot, available: true, forbidden: false }, locale);
+    expect(screen.getAllByRole('link').some((link) => link.getAttribute('href') === '/platform-v7/staff')).toBe(false);
   });
 
   it.each([

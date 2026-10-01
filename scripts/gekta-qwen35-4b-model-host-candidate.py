@@ -59,7 +59,9 @@ ALIASES = {
     "batch": ("--batch-size", "-b"),
     "ubatch": ("--ubatch-size", "-ub"),
 }
-BASE_DIR = pathlib.Path.home() / ".cache" / "gekta-qwen35-4b-candidate"
+# Bind every helper interpreter to the same non-root OS principal. Runtime HOME
+# may differ from the SSH session; it must not change pre-exec model identity.
+BASE_DIR = pathlib.Path(pwd.getpwuid(os.geteuid()).pw_dir) / ".cache" / "gekta-qwen35-4b-candidate"
 CANDIDATE_DIR = BASE_DIR / "models"
 STATE_DIR = BASE_DIR / "state"
 CANDIDATE_PATH = CANDIDATE_DIR / ("qwen35-4b-q4-k-m-" + CANDIDATE_SHA256[:12] + ".gguf")
@@ -532,6 +534,43 @@ def candidate_guard_process_matches(pid: int) -> bool:
 def owned_candidate_process_matches(pid: int) -> bool:
     return candidate_guard_process_matches(pid) or candidate_process_matches(pid)
 
+def candidate_api_key_arg_shape(argv) -> str:
+    # Only fixed labels leave this function: never arguments, values or hashes.
+    if (
+        not isinstance(argv, list)
+        or not argv
+        or len(argv) > 128
+        or any(not isinstance(item, bytes) or not item or len(item) > 4096 or b"\0" in item for item in argv)
+    ):
+        return "invalid"
+    # Reject both credential option spellings before any exec.
+    names = (b"--api-key", b"--api_key")
+    split = sum(token in names for token in argv)
+    joined = sum(any(token.startswith(name + b"=") for name in names) for token in argv)
+    if split and joined:
+        return "mixed"
+    if split > 1 or joined > 1:
+        return "duplicate"
+    if split:
+        return "split"
+    if joined:
+        return "joined"
+    return "absent"
+
+
+def require_candidate_keyless_argv(prepared, observed) -> None:
+    prepared_shape = candidate_api_key_arg_shape(prepared)
+    observed_shape = candidate_api_key_arg_shape(observed)
+    emit("ARGV_DIAGNOSTIC_VERSION", "v1")
+    emit("ARGV_PREPARED_API_KEY", prepared_shape)
+    emit("ARGV_OBSERVED_API_KEY", observed_shape)
+    emit("ARGV_CHANGED_AFTER_EXEC", int(prepared != observed))
+    if prepared_shape != "absent":
+        fail("candidate_guard_argv_invalid")
+    if observed_shape != "absent":
+        fail("candidate_key_present_in_cmdline")
+
+
 def candidate_exec_argv_status(argv) -> int:
     if (
         not isinstance(argv, list)
@@ -541,8 +580,15 @@ def candidate_exec_argv_status(argv) -> int:
     ):
         return 79
     encoded = [os.fsencode(item) for item in argv]
-    if os.fsencode(CANDIDATE_PATH) not in encoded or CANDIDATE_ALIAS.encode("utf-8") not in encoded:
+    try:
+        model = flag_value(encoded, "model", required=False)
+        alias = flag_value(encoded, "alias", required=False)
+    except CandidateError:
         return 80
+    if model != os.fsencode(CANDIDATE_PATH) or alias != CANDIDATE_ALIAS.encode("utf-8"):
+        return 80
+    if candidate_api_key_arg_shape(encoded) != "absent":
+        return 84
     return 0
 
 def candidate_exec_guard(guard_fd: int) -> int:
@@ -1124,6 +1170,106 @@ def prepare() -> None:
     emit("ARTIFACT_BYTES", CANDIDATE_SIZE)
     emit("PREPARE_STATUS", "PASS")
 
+# Diagnostic values are a closed vocabulary; private stderr never leaves this
+# helper. They classify observed log text, not model readiness or acceptance.
+START_LOG_LIMIT = 64 * 1024
+START_PHASES = frozenset({"guard_spawn", "guard_setup", "identity", "readiness", "post_ready"})
+START_LOG_CLASSES = frozenset({
+    "no_log", "unclassified", "model_architecture_unsupported", "tokenizer_unsupported",
+    "model_format_error", "runtime_library_error", "allocation_failure", "bind_failure",
+    "argument_rejected", "model_load_error", "multiple_errors", "log_unavailable",
+})
+
+def open_candidate_log():
+    # Keep an owned read/write descriptor for this exact inode. O_NONBLOCK
+    # prevents a substituted FIFO from blocking before the regular-file check.
+    import stat
+    fd = os.open(LOG_PATH, os.O_RDWR | os.O_APPEND | os.O_CREAT | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_nlink != 1:
+            fail("candidate_log_unsafe")
+        os.fchmod(fd, 0o600)
+        log = os.fdopen(fd, "a+b", buffering=0)
+        return log, (info.st_dev, info.st_ino, info.st_size)
+    except BaseException:
+        os.close(fd)
+        raise
+
+def classify_start_log(raw: bytes) -> str:
+    # The caller caps the private segment; this pure classifier also rejects
+    # oversized or non-byte input so tests/callers cannot bypass that bound.
+    if not isinstance(raw, bytes) or len(raw) > START_LOG_LIMIT:
+        return "log_unavailable"
+    if not raw:
+        return "no_log"
+    value = raw.lower()
+    patterns = (
+        ("model_architecture_unsupported", (b"unknown model architecture:", b"unsupported model architecture:")),
+        ("tokenizer_unsupported", (b"unknown pre-tokenizer type:", b"unsupported tokenizer type:")),
+        ("model_format_error", (b"gguf_init_from_file: invalid magic", b"gguf_init_from_file: unsupported version")),
+        ("runtime_library_error", (b"error while loading shared libraries:", b"symbol lookup error:")),
+        ("allocation_failure", (b"failed to allocate", b"cannot allocate memory", b"std::bad_alloc")),
+        ("bind_failure", (b"address already in use",)),
+        ("argument_rejected", (b"error: invalid argument:", b"error: unknown argument:", b"unrecognized argument:")),
+    )
+    matches = {code for code, tokens in patterns if any(token in value for token in tokens)}
+    if len(matches) > 1:
+        return "multiple_errors"
+    if matches:
+        return matches.pop()
+    if b"error loading model" in value or b"failed to load model" in value:
+        return "model_load_error"
+    return "unclassified"
+
+def candidate_start_diagnostic(log, cursor: tuple) -> tuple[str, int, int]:
+    # Called only after owned-child exit and listener-absence proof. Read from
+    # the already-open inode, never reopen a path or inspect an older attempt.
+    import stat
+    try:
+        if not isinstance(cursor, tuple) or len(cursor) != 3 or any(type(item) is not int or item < 0 for item in cursor):
+            return "log_unavailable", 0, 0
+        fd = log.fileno()
+        info = os.fstat(fd)
+        if (
+            not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
+            or info.st_nlink != 1 or info.st_mode & 0o077
+            or (info.st_dev, info.st_ino) != cursor[:2] or info.st_size < cursor[2]
+        ):
+            return "log_unavailable", 0, 0
+        length = info.st_size - cursor[2]
+        truncated = int(length > START_LOG_LIMIT)
+        offset = max(cursor[2], info.st_size - START_LOG_LIMIT)
+        raw = os.pread(fd, min(length, START_LOG_LIMIT), offset)
+        after = os.fstat(fd)
+        if (after.st_size, after.st_mtime_ns, after.st_ctime_ns) != (info.st_size, info.st_mtime_ns, info.st_ctime_ns):
+            return "log_unavailable", 0, 0
+        if len(raw) != min(length, START_LOG_LIMIT):
+            return "log_unavailable", 0, 0
+        read_bytes = len(raw)
+        if truncated:
+            # A suffix cut through a line is not evidence of that line's text.
+            _, separator, raw = raw.partition(b"\n")
+            if not separator:
+                return "unclassified", read_bytes, 1
+        return classify_start_log(raw), read_bytes, truncated
+    except (OSError, ValueError, AttributeError, TypeError):
+        return "log_unavailable", 0, 0
+
+def emit_candidate_start_diagnostic(log, cursor: tuple, phase: str) -> None:
+    # Diagnostics must not mask the original start/cleanup exception or turn
+    # an unsuccessful start into a successful command.
+    try:
+        code, read_bytes, truncated = candidate_start_diagnostic(log, cursor)
+        if code not in START_LOG_CLASSES or phase not in START_PHASES:
+            code, phase, read_bytes, truncated = "log_unavailable", "guard_spawn", 0, 0
+        emit("START_PHASE", phase)
+        emit("START_LOG_CLASS", code)
+        emit("START_LOG_BYTES", read_bytes)
+        emit("START_LOG_TRUNCATED", truncated)
+    except Exception:
+        pass
+
 def start(candidate_key: str) -> None:
     require_nonroot()
     if len(candidate_key) < 32 or not re.fullmatch(r"[A-Za-z0-9._~-]{32,128}", candidate_key):
@@ -1153,7 +1299,7 @@ def start(candidate_key: str) -> None:
         env.pop(key, None)
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     os.chmod(STATE_DIR, 0o700)
-    log = LOG_PATH.open("ab", buffering=0)
+    log, log_cursor = open_candidate_log()
     if not hasattr(os, "pidfd_open") or not hasattr(signal, "pidfd_send_signal"):
         fail("pidfd_signal_unavailable")
 
@@ -1170,6 +1316,7 @@ def start(candidate_key: str) -> None:
     watchdog_arm_write = -1
     released = False
     armed = False
+    start_phase = "guard_spawn"
     try:
         proc = subprocess.Popen(
             [
@@ -1196,6 +1343,7 @@ def start(candidate_key: str) -> None:
         except OSError:
             fail("candidate_pidfd_setup_failed")
 
+        start_phase = "guard_setup"
         write_candidate_identity(proc.pid)
         write_pid(PID_PATH, proc.pid)
         watchdog_pidfd, watchdog_arm_write = launch_watchdog(proc.pid, state["pid"])
@@ -1222,8 +1370,14 @@ def start(candidate_key: str) -> None:
         finally:
             watchdog_arm_write = -1
 
+        start_phase = "identity"
         identity_deadline = time.monotonic() + 5
-        while time.monotonic() < identity_deadline and process_alive(proc.pid):
+        while time.monotonic() < identity_deadline:
+            returncode = proc.poll()
+            if returncode is not None:
+                fail("candidate_guard_or_exec_exited:%d" % returncode)
+            if initial_pidfd is None or pidfd_exited(initial_pidfd):
+                fail("candidate_guard_or_exec_exited")
             if candidate_process_matches(proc.pid):
                 break
             time.sleep(0.05)
@@ -1234,10 +1388,11 @@ def start(candidate_key: str) -> None:
             fail("candidate_priority_not_lowered")
 
         live_argv = [item for item in pathlib.Path("/proc/%d/cmdline" % proc.pid).read_bytes().split(b"\0") if item]
-        if flag_hits(live_argv, ALIASES["api_key"]):
-            fail("candidate_key_present_in_cmdline")
+        require_candidate_keyless_argv(argv, live_argv)
 
+        start_phase = "readiness"
         wait_candidate(proc.pid, candidate_key, state)
+        start_phase = "post_ready"
         if proc_kb(proc.pid, "VmSwap") != 0:
             fail("candidate_swap_nonzero")
         available = mem_available_kb()
@@ -1285,6 +1440,7 @@ def start(candidate_key: str) -> None:
             CANDIDATE_IDENTITY_PATH.unlink(missing_ok=True)
         except Exception as cleanup_error:
             raise CandidateError("candidate_start_cleanup_failed") from cleanup_error
+        emit_candidate_start_diagnostic(log, log_cursor, start_phase)
         raise start_error
     finally:
         if initial_pidfd is not None:
@@ -1306,6 +1462,10 @@ def start(candidate_key: str) -> None:
                 os.close(guard_read)
             except OSError:
                 pass
+        try:
+            log.close()
+        except OSError:
+            pass
 
     emit("NONROOT_PARALLEL", 1)
     emit("START", "PASS")

@@ -97,6 +97,7 @@ jobs:
           grep -Fq 'candidate_watchdog_ready_timeout' "$helper"
           grep -Fq 'candidate_watchdog_arm_failed' "$helper"
           grep -Fq 'candidate_guard_exited_before_release' "$helper"
+          grep -Fq 'candidate_guard_or_exec_exited' "$helper"
           grep -Fq 'pidfd_exited(watchdog_pidfd)' "$helper"
           if grep -Fq 'os.killpg' "$helper"; then
             echo 'numeric process-group signaling is forbidden' >&2
@@ -123,6 +124,169 @@ jobs:
             echo 'privileged subprocess capability is forbidden' >&2
             exit 1
           fi
+      - name: Prove OS-bound identity and credential-free real pre-exec
+        run: |
+          set -Eeuo pipefail
+          python3 <<'PYGUARD'
+          import contextlib
+          import importlib.util
+          import io
+          import json
+          import os
+          import pathlib
+          from unittest import mock
+
+          path = pathlib.Path('scripts/gekta-qwen35-4b-model-host-candidate.py').resolve()
+          spec = importlib.util.spec_from_file_location('qwen35_key_guard', path)
+          module = importlib.util.module_from_spec(spec)
+          assert spec.loader is not None
+          spec.loader.exec_module(module)
+          marker = 'SYNTHETIC_NOT_A_CREDENTIAL_7f914ef09a8b4c11'
+          valid = ['/fixture/llama-server', '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS]
+          assert module.candidate_exec_argv_status(valid) == 0
+          assert module.candidate_exec_argv_status([valid[0], '--model=' + str(module.CANDIDATE_PATH), '--alias=' + module.CANDIDATE_ALIAS]) == 0
+          for flags in [
+              ['--api-key', marker], ['--api-key=' + marker],
+              ['--api_key', marker], ['--api_key=' + marker],
+              ['--api-key'], ['--api-key='],
+              ['--api-key', marker, '--api-key=' + marker],
+          ]:
+              argv = valid + flags
+              assert module.candidate_exec_argv_status(argv) == 84
+              read_fd, write_fd = os.pipe()
+              try:
+                  os.write(write_fd, b'G')
+                  os.close(write_fd)
+                  write_fd = -1
+                  with mock.patch.dict(os.environ, {'QWEN35_GUARDED_ARGV_JSON': json.dumps(argv)}), \
+                       mock.patch.object(module.os, 'execvpe') as exec_mock, \
+                       mock.patch.object(module.os, 'nice') as nice_mock:
+                      assert module.candidate_exec_guard(read_fd) == 84
+                      read_fd = -1
+                      exec_mock.assert_not_called()
+                      nice_mock.assert_not_called()
+              finally:
+                  for fd in (read_fd, write_fd):
+                      if fd >= 0:
+                          with contextlib.suppress(OSError):
+                              os.close(fd)
+          prepared = [os.fsencode(item) for item in valid]
+          observed = prepared + [b'--api-key=' + marker.encode('ascii')]
+          output = io.StringIO()
+          with contextlib.redirect_stdout(output):
+              try:
+                  module.require_candidate_keyless_argv(prepared, observed)
+              except module.CandidateError as exc:
+                  assert str(exc) == 'candidate_key_present_in_cmdline'
+              else:
+                  raise AssertionError('observed key must fail closed')
+          assert output.getvalue().splitlines() == [
+              'QWEN35_CANDIDATE_ARGV_DIAGNOSTIC_VERSION=v1',
+              'QWEN35_CANDIDATE_ARGV_PREPARED_API_KEY=absent',
+              'QWEN35_CANDIDATE_ARGV_OBSERVED_API_KEY=joined',
+              'QWEN35_CANDIDATE_ARGV_CHANGED_AFTER_EXEC=1',
+          ]
+          assert marker not in output.getvalue()
+          import subprocess
+          import sys
+          import tempfile
+
+          # Re-import the complete actual helper in independent interpreters. No HOME
+          # value, OS-account path or generated credential is emitted by the test.
+          status_probe = '''import importlib.util,json,sys
+          s=importlib.util.spec_from_file_location("probe",sys.argv[1])
+          m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+          print(m.candidate_exec_argv_status(json.loads(sys.argv[2])))
+          '''
+          for home in ('/synthetic/ssh-home', '/synthetic/service-home', None):
+              env = dict(os.environ)
+              if home is None:
+                  env.pop('HOME', None)
+              else:
+                  env['HOME'] = home
+              result = subprocess.run(
+                  [sys.executable, '-c', status_probe, str(path), json.dumps(valid)],
+                  env=env, capture_output=True, text=True, timeout=5, check=True,
+              )
+              assert result.stdout == '0\n' and result.stderr == ''
+
+          guard_probe = '''import importlib.util,sys
+          s=importlib.util.spec_from_file_location("guard",sys.argv[1])
+          m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+          sys.exit(m.candidate_exec_guard(int(sys.argv[2])))
+          '''
+          with tempfile.TemporaryDirectory() as temporary:
+              root = pathlib.Path(temporary)
+              evidence = root / 'exec.json'
+              executable = root / 'synthetic-exec'
+              executable.write_text('#!' + sys.executable + '\n' + '''import json,os,pathlib,sys
+          pathlib.Path(os.environ['QWEN35_TEST_MARKER_PATH']).write_text(json.dumps({
+              'pid': os.getpid(), 'nice': os.getpriority(os.PRIO_PROCESS, 0),
+              'home': os.environ.get('HOME'),
+              'key_preserved': os.environ.get('LLAMA_API_KEY') == 'SYNTHETIC_NOT_A_CREDENTIAL',
+              'guard_env_present': 'QWEN35_GUARDED_ARGV_JSON' in os.environ,
+              'argv': sys.argv[1:]
+          }))
+          ''')
+              executable.chmod(0o700)
+              fake_argv = [str(executable), '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS]
+
+              def real_guard(argv):
+                  read_fd, write_fd = os.pipe()
+                  try:
+                      os.write(write_fd, b'G')
+                      os.close(write_fd)
+                      write_fd = -1
+                      env = {
+                          **os.environ,
+                          'HOME': '/synthetic/service-home',
+                          'LLAMA_API_KEY': 'SYNTHETIC_NOT_A_CREDENTIAL',
+                          'QWEN35_TEST_MARKER_PATH': str(evidence),
+                          'QWEN35_GUARDED_ARGV_JSON': json.dumps(argv),
+                      }
+                      with subprocess.Popen(
+                          [sys.executable, '-c', guard_probe, str(path), str(read_fd)],
+                          env=env, pass_fds=(read_fd,), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                      ) as child:
+                          try:
+                              out, err = child.communicate(timeout=5)
+                          except subprocess.TimeoutExpired:
+                              child.kill()
+                              child.communicate()
+                              raise
+                          assert out == b'' and err == b''
+                          return child.returncode, child.pid
+                  finally:
+                      for fd in (read_fd, write_fd):
+                          if fd >= 0:
+                              os.close(fd)
+
+              for flags in (
+                  ['--api-key', marker], ['--api-key=' + marker],
+                  ['--api_key', marker], ['--api_key=' + marker],
+                  ['--api-key'], ['--api-key='], ['--api_key'], ['--api_key='],
+                  ['--api-key', marker, '--api_key=' + marker],
+                  ['--api-key', marker, '--api-key', marker],
+                  ['--api_key=' + marker, '--api_key=' + marker],
+              ):
+                  code, _ = real_guard(fake_argv + flags)
+                  assert code == 84
+                  assert not evidence.exists(), 'credential argv reached exec'
+
+              code, pid = real_guard(fake_argv)
+              assert code == 0
+              result = json.loads(evidence.read_text())
+              assert result['pid'] == pid, 'exec changed the supervised task'
+              assert result['nice'] >= module.CANDIDATE_NICE_DELTA
+              assert result['home'] == '/synthetic/service-home', 'runtime HOME was rewritten'
+              assert result['key_preserved'] and not result['guard_env_present']
+              assert result['argv'] == fake_argv[1:]
+
+          print('QWEN35_OS_HOME_IDENTITY_CONTRACT=PASS')
+          print('QWEN35_REAL_PREEXEC_KEY_REJECTION=PASS')
+          print('QWEN35_HOME_INDEPENDENT_SAME_PID_EXEC=PASS')
+          print('QWEN35_PREEXEC_KEY_GUARD_CONTRACT=PASS')
+          PYGUARD
       - name: Prove candidate ownership, watchdog handoff and recovery regressions
         run: |
           set -Eeuo pipefail
@@ -581,30 +745,46 @@ jobs:
                   if module.candidate_exec_guard(read_fd) != 81:
                       raise AssertionError('guard EOF did not fail closed')
 
-          # Valid argv is prevalidated before spawn, but the child stays inert
-          # until G. Once G arrives the same guarded argv reaches exec.
+          # Valid argv is prevalidated semantically in both llama.cpp flag
+          # spellings. The child stays inert until G, then the same argv reaches
+          # exec without normalizing or rewriting the baseline token form.
           with tempfile.TemporaryDirectory() as tmp:
               candidate = pathlib.Path(tmp) / 'candidate.gguf'
               candidate.write_bytes(b'x')
-              guarded = [
+              split_guarded = [
                   '/bin/true', '--model', str(candidate), '--alias', module.CANDIDATE_ALIAS,
               ]
+              joined_guarded = [
+                  '/bin/true', '--model=' + str(candidate), '--alias=' + module.CANDIDATE_ALIAS,
+              ]
               with mock.patch.object(module, 'CANDIDATE_PATH', candidate):
-                  if module.candidate_exec_argv_status(guarded) != 0:
-                      raise AssertionError('valid guarded argv failed prevalidation')
-                  read_fd, write_fd = os.pipe()
-                  os.write(write_fd, b'G')
-                  os.close(write_fd)
-                  with mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': __import__('json').dumps(guarded)}, clear=False), \
-                       mock.patch.object(module.os, 'nice', return_value=module.CANDIDATE_NICE_DELTA), \
-                       mock.patch.object(module.os, 'execvpe', side_effect=RuntimeError('EXEC_REACHED')):
-                      try:
-                          module.candidate_exec_guard(read_fd)
-                      except RuntimeError as exc:
-                          if str(exc) != 'EXEC_REACHED':
-                              raise
-                      else:
-                          raise AssertionError('guard release did not reach exec')
+                  for guarded in (split_guarded, joined_guarded):
+                      if module.candidate_exec_argv_status(guarded) != 0:
+                          raise AssertionError('valid guarded argv failed semantic prevalidation: ' + repr(guarded))
+                      read_fd, write_fd = os.pipe()
+                      os.write(write_fd, b'G')
+                      os.close(write_fd)
+                      with mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': __import__('json').dumps(guarded)}, clear=False), \
+                           mock.patch.object(module.os, 'nice', return_value=module.CANDIDATE_NICE_DELTA), \
+                           mock.patch.object(module.os, 'execvpe', side_effect=RuntimeError('EXEC_REACHED')):
+                          try:
+                              module.candidate_exec_guard(read_fd)
+                          except RuntimeError as exc:
+                              if str(exc) != 'EXEC_REACHED':
+                                  raise
+                          else:
+                              raise AssertionError('guard release did not reach exec')
+                  wrong_model = [
+                      '/bin/true', '--model=/tmp/not-candidate.gguf', '--alias=' + module.CANDIDATE_ALIAS,
+                  ]
+                  duplicate_alias = [
+                      '/bin/true', '--model=' + str(candidate), '--alias=' + module.CANDIDATE_ALIAS,
+                      '--alias', module.CANDIDATE_ALIAS,
+                  ]
+                  if module.candidate_exec_argv_status(wrong_model) != 80:
+                      raise AssertionError('guard accepted wrong candidate model')
+                  if module.candidate_exec_argv_status(duplicate_alias) != 80:
+                      raise AssertionError('guard accepted duplicate candidate alias')
 
           # Real Linux proof: the guarded child remains the same process across
           # release, lowers its own scheduling priority, and execs directly into
@@ -618,8 +798,8 @@ jobs:
                       sys.executable,
                       '-c',
                       'import time; time.sleep(1.0)',
-                      '--model', str(candidate),
-                      '--alias', module.CANDIDATE_ALIAS,
+                      '--model=' + str(candidate),
+                      '--alias=' + module.CANDIDATE_ALIAS,
                   ]
                   with mock.patch.object(module, 'CANDIDATE_PATH', candidate), \
                        mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': __import__('json').dumps(guarded)}, clear=False):
@@ -784,6 +964,246 @@ jobs:
 
           print('QWEN35_OWNERSHIP_REGRESSION=PASS')
           PY
+      - name: Prove bounded startup diagnostic confidentiality
+        run: |
+          set -Eeuo pipefail
+          python3 <<'PY'
+          import ast
+          import contextlib
+          import importlib.util
+          import io
+          import os
+          import pathlib
+          import subprocess
+          import textwrap
+          import tempfile
+          import unittest
+          from unittest import mock
+
+          path = pathlib.Path('scripts/gekta-qwen35-4b-model-host-candidate.py').resolve()
+          spec = importlib.util.spec_from_file_location('qwen35_diagnostic_contract', path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+
+          class StartupDiagnosticContract(unittest.TestCase):
+              def setUp(self):
+                  self.tmp = tempfile.TemporaryDirectory()
+                  self.addCleanup(self.tmp.cleanup)
+                  self.root = pathlib.Path(self.tmp.name)
+                  self.log_path = self.root / 'candidate.log'
+                  patch = mock.patch.object(module, 'LOG_PATH', self.log_path)
+                  patch.start()
+                  self.addCleanup(patch.stop)
+
+              def opened(self):
+                  log, cursor = module.open_candidate_log()
+                  self.addCleanup(log.close)
+                  return log, cursor
+
+              def test_closed_classification_vocabulary(self):
+                  cases = (
+                      (b'', 'no_log'),
+                      (b'private-key-not-for-output', 'unclassified'),
+                      (b'error loading model: unknown model architecture: secret-value', 'model_architecture_unsupported'),
+                      (b'error loading model: unknown pre-tokenizer type: secret-value', 'tokenizer_unsupported'),
+                      (b'gguf_init_from_file: invalid magic secret-value', 'model_format_error'),
+                      (b'error while loading shared libraries: /private/secret-value', 'runtime_library_error'),
+                      (b'failed to allocate secret-value bytes', 'allocation_failure'),
+                      (b'address already in use secret-value', 'bind_failure'),
+                      (b'error: invalid argument: --secret-value', 'argument_rejected'),
+                      (b'error loading model /private/secret-value', 'model_load_error'),
+                      (b'address already in use\nfailed to allocate secret-value', 'multiple_errors'),
+                  )
+                  for raw, expected in cases:
+                      with self.subTest(expected=expected):
+                          self.assertEqual(module.classify_start_log(raw), expected)
+                          self.assertIn(expected, module.START_LOG_CLASSES)
+                  for bad in (None, '', [], bytearray(b'unknown model architecture:'), b'x' * (module.START_LOG_LIMIT + 1)):
+                      with self.subTest(kind=type(bad).__name__):
+                          self.assertEqual(module.classify_start_log(bad), 'log_unavailable')
+
+              def test_does_not_reuse_historical_attempt_or_emit_secret(self):
+                  self.log_path.write_bytes(b'error loading model: unknown model architecture: OLD_PRIVATE\n')
+                  log, cursor = self.opened()
+                  log.write(b'new attempt PRIVATE_SENTINEL\n')
+                  out = io.StringIO()
+                  with contextlib.redirect_stdout(out):
+                      module.emit_candidate_start_diagnostic(log, cursor, 'identity')
+                  self.assertIn('START_LOG_CLASS=unclassified\n', out.getvalue())
+                  self.assertNotIn('PRIVATE', out.getvalue())
+                  self.assertNotIn('architecture', out.getvalue())
+                  self.assertEqual(len(out.getvalue().splitlines()), 4)
+                  self.assertEqual(os.fstat(log.fileno()).st_mode & 0o777, 0o600)
+
+              def test_read_bound_and_partial_line(self):
+                  log, cursor = self.opened()
+                  log.write(b'x' * (module.START_LOG_LIMIT + 2))
+                  self.assertEqual(module.candidate_start_diagnostic(log, cursor), ('unclassified', module.START_LOG_LIMIT, 1))
+                  log.write(b'\nerror loading model: unknown model architecture: PRIVATE\n')
+                  self.assertEqual(module.candidate_start_diagnostic(log, cursor), ('model_architecture_unsupported', module.START_LOG_LIMIT, 1))
+
+              def test_path_replacement_cannot_redirect_read(self):
+                  log, cursor = self.opened()
+                  log.write(b'owned attempt\n')
+                  self.log_path.rename(self.root / 'held.log')
+                  self.log_path.write_bytes(b'unknown model architecture: FOREIGN_SECRET\n')
+                  self.assertEqual(module.candidate_start_diagnostic(log, cursor), ('unclassified', 14, 0))
+
+              def test_rejects_stale_cursor_and_truncation(self):
+                  self.log_path.write_bytes(b'previous\n')
+                  log, cursor = self.opened()
+                  self.assertEqual(module.candidate_start_diagnostic(log, (cursor[0], cursor[1] + 1, cursor[2]))[0], 'log_unavailable')
+                  os.ftruncate(log.fileno(), 0)
+                  self.assertEqual(module.candidate_start_diagnostic(log, cursor), ('log_unavailable', 0, 0))
+
+              def test_rejects_changed_ownership_or_permissions(self):
+                  log, cursor = self.opened()
+                  with mock.patch.object(module.os, 'geteuid', return_value=os.geteuid() + 1):
+                      self.assertEqual(module.candidate_start_diagnostic(log, cursor)[0], 'log_unavailable')
+                  os.fchmod(log.fileno(), 0o644)
+                  self.assertEqual(module.candidate_start_diagnostic(log, cursor)[0], 'log_unavailable')
+
+              def test_rejects_symlink_hardlink_and_fifo(self):
+                  other = self.root / 'other'
+                  other.write_bytes(b'PRIVATE')
+                  self.log_path.symlink_to(other)
+                  with self.assertRaises(OSError):
+                      module.open_candidate_log()
+                  self.log_path.unlink()
+                  os.link(other, self.log_path)
+                  with self.assertRaises(module.CandidateError):
+                      module.open_candidate_log()
+                  self.log_path.unlink()
+                  os.mkfifo(self.log_path)
+                  with self.assertRaises(module.CandidateError):
+                      module.open_candidate_log()
+                  self.assertEqual(other.read_bytes(), b'PRIVATE')
+
+              def test_detects_mutation_during_read(self):
+                  log, cursor = self.opened()
+                  log.write(b'owned\n')
+                  original = os.pread
+                  def changing(fd, count, offset):
+                      raw = original(fd, count, offset)
+                      os.ftruncate(fd, os.fstat(fd).st_size + 1)
+                      return raw
+                  with mock.patch.object(module.os, 'pread', side_effect=changing):
+                      self.assertEqual(module.candidate_start_diagnostic(log, cursor), ('log_unavailable', 0, 0))
+
+              def test_rejects_invalid_cursor_or_closed_fd(self):
+                  log, cursor = self.opened()
+                  for bad in (None, (), (1, 2), (True, 2, 3), (1, -1, 0), ('secret', 2, 3)):
+                      self.assertEqual(module.candidate_start_diagnostic(log, bad), ('log_unavailable', 0, 0))
+                  log.close()
+                  self.assertEqual(module.candidate_start_diagnostic(log, cursor), ('log_unavailable', 0, 0))
+
+              def test_output_failure_does_not_raise_or_leak_exception(self):
+                  log, cursor = self.opened()
+                  with mock.patch.object(module, 'emit', side_effect=OSError('PRIVATE')):
+                      module.emit_candidate_start_diagnostic(log, cursor, 'identity')
+
+              def test_untrusted_phase_is_not_emitted(self):
+                  log, cursor = self.opened()
+                  out = io.StringIO()
+                  with contextlib.redirect_stdout(out):
+                      module.emit_candidate_start_diagnostic(log, cursor, 'PRIVATE_PHASE')
+                  self.assertNotIn('PRIVATE', out.getvalue())
+                  self.assertIn('START_LOG_CLASS=log_unavailable', out.getvalue())
+
+              def report_diagnostic(self, text):
+                  workflow = pathlib.Path('.github/workflows/gekta-qwen35-4b-model-host-candidate.yml').read_text()
+                  publish = workflow.split('\n      - name: Publish bounded evidence\n', 1)[1]
+                  script = publish.split('        run: |\n', 1)[1]
+                  lines = script.splitlines()
+                  first = next(i for i, line in enumerate(lines) if line.strip().startswith('# Only fixed diagnostic vocabulary'))
+                  last = next(i for i, line in enumerate(lines[first:], first) if line.strip() == 'body="$RUNNER_TEMP/qwen35-comment.md"')
+                  filters = textwrap.dedent('\n'.join(lines[first:last]))
+                  if text is not None:
+                      (self.root / 'qwen35-start').write_text(text)
+                  result = subprocess.run(
+                      ['bash', '-c', 'set -Eeuo pipefail\n' + filters + '\nprintf "%s\\n%s\\n" "$start_phase" "$start_class"\n'],
+                      env={**os.environ, 'RUNNER_TEMP': str(self.root)},
+                      capture_output=True, text=True, timeout=5, check=True,
+                  )
+                  self.assertEqual(result.stderr, '')
+                  return result.stdout
+
+              def test_report_accepts_only_complete_allowlisted_lines(self):
+                  out = self.report_diagnostic(
+                      'QWEN35_CANDIDATE_START_PHASE=PRIVATE\n'
+                      'QWEN35_CANDIDATE_START_PHASE=readiness\n'
+                      'PRIVATE QWEN35_CANDIDATE_START_LOG_CLASS=allocation_failure\n'
+                      'QWEN35_CANDIDATE_START_LOG_CLASS=model_load_error\n'
+                      'QWEN35_CANDIDATE_START_LOG_CLASS=bind_failure PRIVATE\n'
+                  )
+                  self.assertEqual(out, 'QWEN35_CANDIDATE_START_PHASE=readiness\nQWEN35_CANDIDATE_START_LOG_CLASS=model_load_error\n')
+                  self.assertNotIn('PRIVATE', out)
+
+              def test_report_missing_evidence_is_not_success(self):
+                  self.assertEqual(self.report_diagnostic(None), 'QWEN35_CANDIDATE_START_PHASE=not_reported\nQWEN35_CANDIDATE_START_LOG_CLASS=not_reported\n')
+
+              def exercise_start_failure(self, cleanup_fails):
+                  candidate = self.root / 'model.gguf'
+                  candidate.write_bytes(b'x')
+                  order = []
+                  class Proc:
+                      pid = 424242
+                      exited = False
+                      def wait(self, timeout=None):
+                          order.append('child_exit')
+                          self.exited = True
+                          return 0
+                      def poll(self):
+                          return 0 if self.exited else None
+                  def listener_absent():
+                      order.append('listener_absent')
+                      if cleanup_fails:
+                          raise module.CandidateError('PRIVATE_CLEANUP_FAILURE')
+                  with contextlib.ExitStack() as stack:
+                      for name, value in {
+                          'CANDIDATE_PATH': candidate, 'CANDIDATE_SIZE': 1, 'CANDIDATE_SHA256': 'hash',
+                          'STATE_DIR': self.root, 'PID_PATH': self.root / 'candidate.pid',
+                          'CANDIDATE_IDENTITY_PATH': self.root / 'identity.json',
+                      }.items():
+                          stack.enter_context(mock.patch.object(module, name, value))
+                      for name, value in {
+                          'require_nonroot': 'tai', 'sha_file': 'hash', 'ensure_start_capacity': None,
+                          'save_state': None,
+                          'snapshot_baseline': ({'pid': 999}, pathlib.Path('/bin/true'), [b'/bin/true'], {}),
+                      }.items():
+                          stack.enter_context(mock.patch.object(module, name, return_value=value))
+                      stack.enter_context(mock.patch.object(module.subprocess, 'Popen', return_value=Proc()))
+                      stack.enter_context(mock.patch.object(module.os, 'pidfd_open', side_effect=OSError('PRIVATE_PIDFD_FAILURE')))
+                      stack.enter_context(mock.patch.object(module, 'verify_listener_absent', side_effect=listener_absent))
+                      stack.enter_context(mock.patch.object(module, 'stop_watchdog', side_effect=lambda: order.append('watchdog_stop')))
+                      stack.enter_context(mock.patch.object(module, 'emit_candidate_start_diagnostic', side_effect=lambda *args: order.append('diagnostic')))
+                      with self.assertRaises(module.CandidateError) as raised:
+                          module.start('a' * 64)
+                  self.assertEqual(str(raised.exception), 'candidate_start_cleanup_failed' if cleanup_fails else 'candidate_pidfd_setup_failed')
+                  return order
+
+              def test_actual_start_preserves_error_and_diagnoses_after_cleanup(self):
+                  self.assertEqual(self.exercise_start_failure(False), ['child_exit', 'listener_absent', 'watchdog_stop', 'diagnostic'])
+
+              def test_actual_cleanup_failure_suppresses_diagnostic(self):
+                  self.assertEqual(self.exercise_start_failure(True), ['child_exit', 'listener_absent'])
+
+              def test_diagnostics_cannot_precede_cleanup_or_replace_start_error(self):
+                  start = next(n for n in ast.parse(path.read_text()).body if isinstance(n, ast.FunctionDef) and n.name == 'start')
+                  handler = next(n for n in ast.walk(start) if isinstance(n, ast.ExceptHandler) and n.name == 'start_error')
+                  calls = [n for n in handler.body if isinstance(n, ast.Expr) and isinstance(n.value, ast.Call)]
+                  self.assertEqual(len(calls), 1)
+                  self.assertEqual(calls[0].value.func.id, 'emit_candidate_start_diagnostic')
+                  cleanup = next(n for n in handler.body if isinstance(n, ast.Try) and any(h.name == 'cleanup_error' for h in n.handlers))
+                  self.assertLess(handler.body.index(cleanup), handler.body.index(calls[0]))
+                  self.assertTrue(any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == 'stop_owned_child' for n in ast.walk(cleanup)))
+                  self.assertTrue(any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == 'verify_listener_absent' for n in ast.walk(cleanup)))
+                  self.assertIsInstance(cleanup.handlers[0].body[-1], ast.Raise)
+                  self.assertIsInstance(handler.body[-1], ast.Raise)
+                  self.assertEqual(handler.body[-1].exc.id, 'start_error')
+
+          unittest.main(argv=['startup-diagnostic-contract'], verbosity=2)
+          PY
       - name: Install bounded API test dependencies
         run: pnpm install --frozen-lockfile --filter @pc/api...
       - name: Prove safety regressions and candidate contract
@@ -792,6 +1212,67 @@ jobs:
           pnpm --filter @pc/api exec jest --runInBand \
             src/modules/ai-insights/restricted-public-qwen.safety.spec.ts \
             src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts
+      - name: Prove closed corpus selection and failure-preserving capture
+        run: |
+          set -Eeuo pipefail
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const { spawnSync } = require('node:child_process');
+          const workflow = fs.readFileSync('.github/workflows/gekta-qwen35-4b-model-host-candidate.yml', 'utf8');
+          const selection = workflow.match(/case "\$CANDIDATE_COMMAND" in[\s\S]*?echo "corpus=\$corpus" >> "\$GITHUB_OUTPUT"/);
+          const execution = workflow.match(/case "\$CANDIDATE_CORPUS" in[\s\S]*?pnpm --filter @pc\/api exec jest --runInBand "\$\{specs\[@\]\}" 2>&1 \| tee "\$RUNNER_TEMP\/qwen35-acceptance"/);
+          const classification = workflow.match(/function classifyCandidateEvidence\(e\) \{[\s\S]*?\n          \}/);
+          assert.ok(classification, 'actual report classification required');
+          const classify = new Function(classification[0] + '\nreturn classifyCandidateEvidence;')();
+          const evidence = { TARGET_SHA: 'a'.repeat(40), START_OUTCOME: 'success', ACCEPTANCE: 'success', CLEANUP: 'success', CANDIDATE_CORPUS: 'both', SUMMARY: 'QWEN35_CANDIDATE_ACCEPTANCE={"cases":10}', EXTRA_SUMMARY: 'QWEN35_CANDIDATE_EXTRA={"cases":4}' };
+          assert.equal(classify(evidence), 'COMPLETE');
+          for (const corpus of ['critical', 'extra']) assert.equal(classify({ ...evidence, CANDIDATE_CORPUS: corpus }), 'PARTIAL');
+          for (const key of ['START_OUTCOME', 'ACCEPTANCE', 'CLEANUP']) {
+            for (const outcome of ['failure', 'skipped', 'cancelled', '']) assert.equal(classify({ ...evidence, [key]: outcome }), 'FAILED');
+          }
+          for (const [key, value] of [['SUMMARY', 'QWEN35_CANDIDATE_ACCEPTANCE={"cases":9}'], ['EXTRA_SUMMARY', 'QWEN35_CANDIDATE_EXTRA={"cases":3}'], ['SUMMARY', 'QWEN35_CANDIDATE_ACCEPTANCE=NO_PASS_SUMMARY'], ['EXTRA_SUMMARY', 'QWEN35_CANDIDATE_EXTRA={broken}'], ['TARGET_SHA', 'main'], ['CANDIDATE_CORPUS', 'unknown']]) assert.equal(classify({ ...evidence, [key]: value }), 'FAILED');
+          assert.equal(classify({ ...evidence, CANDIDATE_CORPUS: 'critical', EXTRA_SUMMARY: '' }), 'PARTIAL');
+          assert.equal(classify({ ...evidence, CANDIDATE_CORPUS: 'extra', SUMMARY: '' }), 'PARTIAL');
+          assert.ok(selection && execution, 'actual executable selection/capture blocks required');
+          const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qwen35-corpus-contract-'));
+          try {
+            const output = path.join(dir, 'output');
+            const stub = path.join(dir, 'pnpm');
+            fs.writeFileSync(stub, '#!/bin/bash\nprintf "%s\\n" "$@"\necho SYNTHETIC_JEST_STDERR_MARKER >&2\nexit "${SYNTHETIC_EXIT:-0}"\n', { mode: 0o700 });
+            const env = { ...process.env, GITHUB_OUTPUT: output, RUNNER_TEMP: dir, PATH: dir + ':' + process.env.PATH };
+            const critical = 'src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts';
+            const extra = 'src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts';
+            for (const [command, corpus, expected] of [
+              ['/gekta qwen35-4b candidate current-main', 'both', [critical, extra]],
+              ['/gekta qwen35-4b critical current-main', 'critical', [critical]],
+              ['/gekta qwen35-4b extra current-main', 'extra', [extra]],
+            ]) {
+              fs.writeFileSync(output, '');
+              const selected = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command }, encoding: 'utf8' });
+              assert.equal(selected.status, 0);
+              assert.equal(fs.readFileSync(output, 'utf8'), 'corpus=' + corpus + '\n');
+              for (const status of [0, 7]) {
+                const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + execution[0]], { env: { ...env, CANDIDATE_CORPUS: corpus, SYNTHETIC_EXIT: String(status) }, encoding: 'utf8' });
+                assert.equal(result.status, status, 'capture must preserve real Jest failure');
+                const captured = fs.readFileSync(path.join(dir, 'qwen35-acceptance'), 'utf8').split('\n');
+                assert.deepEqual(captured.filter(line => line.endsWith('.spec.ts')), expected);
+                assert.ok(captured.includes('SYNTHETIC_JEST_STDERR_MARKER'));
+              }
+            }
+            for (const command of ['', '/gekta qwen35-4b extra current-main ', '/gekta qwen35-4b anything current-main', '/gekta qwen35-4b extra arbitrary-sha']) {
+              const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command } });
+              assert.equal(result.status, 1);
+            }
+            const invalid = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + execution[0]], { env: { ...env, CANDIDATE_CORPUS: 'unknown' } });
+            assert.equal(invalid.status, 1);
+            console.log('QWEN35_CORPUS_CONTRACT=PASS (synthetic selection/capture; not real inference)');
+          } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+          }
+          NODE
       - name: Prove bounded owner authority
         run: |
           set -Eeuo pipefail
@@ -813,7 +1294,7 @@ jobs:
             'cleanup',
             'always()'
           ]) if (!workflow.includes(token)) throw new Error('missing authority token: ' + token);
-          if (scope.branch !== 'fix/gekta-qwen35-nonroot-candidate-20260928' || scope.issue !== 3896 || scope.newRecurringCostRub !== 0) throw new Error('scope mismatch');
+          if (scope.branch !== process.env.GITHUB_HEAD_REF || scope.issue !== 3896 || scope.newRecurringCostRub !== 0) throw new Error('scope mismatch');
           for (const forbidden of [
             'pull_request' + '_target',
             'TAI_MODEL_' + 'SSH_PASSWORD',
@@ -829,7 +1310,7 @@ jobs:
             if (workflow.includes(forbidden)) throw new Error('forbidden capability: ' + forbidden);
           }
           NODE
-          GITHUB_HEAD_REF=fix/gekta-qwen35-nonroot-candidate-20260928 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
+          BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
 
 
   candidate:
@@ -839,7 +1320,11 @@ jobs:
       github.event.issue.number == 3896 &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
-      github.event.comment.body == '/gekta qwen35-4b candidate current-main' &&
+      (
+        github.event.comment.body == '/gekta qwen35-4b candidate current-main' ||
+        github.event.comment.body == '/gekta qwen35-4b critical current-main' ||
+        github.event.comment.body == '/gekta qwen35-4b extra current-main'
+      ) &&
       (
         (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
         (
@@ -863,8 +1348,17 @@ jobs:
         id: target
         env:
           GH_TOKEN: ${{ github.token }}
+          CANDIDATE_COMMAND: ${{ github.event.comment.body }}
         run: |
           set -Eeuo pipefail
+          # Closed corpus selection; each invocation keeps its own 420-second lease.
+          case "$CANDIDATE_COMMAND" in
+            '/gekta qwen35-4b candidate current-main') corpus=both ;;
+            '/gekta qwen35-4b critical current-main') corpus=critical ;;
+            '/gekta qwen35-4b extra current-main') corpus=extra ;;
+            *) echo 'unsupported candidate corpus command' >&2; exit 1 ;;
+          esac
+          echo "corpus=$corpus" >> "$GITHUB_OUTPUT"
           git fetch --no-tags origin main
           sha="$(git rev-parse origin/main)"
           [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
@@ -1050,6 +1544,7 @@ jobs:
       - name: Exercise real Gekta pipeline against candidate
         id: acceptance
         env:
+          CANDIDATE_CORPUS: ${{ steps.target.outputs.corpus }}
           QWEN35_CANDIDATE_LIVE: '1'
           TAI_RESTRICTED_QWEN_PUBLIC_ENABLED: 'true'
           AI_ASSISTANT_PROVIDER: openai-compatible
@@ -1167,7 +1662,15 @@ jobs:
             });
           });
           TS
-          pnpm --filter @pc/api exec jest --runInBand             src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts             src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts             | tee "$RUNNER_TEMP/qwen35-acceptance"
+          # Both existing suites and every assertion remain unchanged. A selected
+          # suite is partial evidence; full acceptance requires 10+4 on one SHA.
+          case "$CANDIDATE_CORPUS" in
+            both) specs=(src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts) ;;
+            critical) specs=(src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts) ;;
+            extra) specs=(src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts) ;;
+            *) echo 'unsupported candidate corpus' >&2; exit 1 ;;
+          esac
+          pnpm --filter @pc/api exec jest --runInBand "${specs[@]}" 2>&1 | tee "$RUNNER_TEMP/qwen35-acceptance"
       - name: Stop tunnel
         if: always()
         run: |
@@ -1200,27 +1703,58 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
+          START_OUTCOME: ${{ steps.start.outcome }}
           ACCEPTANCE: ${{ steps.acceptance.outcome }}
           CLEANUP: ${{ steps.cleanup.outcome }}
+          CANDIDATE_CORPUS: ${{ steps.target.outputs.corpus }}
         run: |
           set -Eeo pipefail
           summary="$(grep -Eo 'QWEN35_CANDIDATE_ACCEPTANCE=\{.*\}' "$RUNNER_TEMP/qwen35-acceptance" 2>/dev/null | tail -1 || true)"
           extra_summary="$(grep -Eo 'QWEN35_CANDIDATE_EXTRA=\{.*\}' "$RUNNER_TEMP/qwen35-acceptance" 2>/dev/null | tail -1 || true)"
           [[ -n "$summary" ]] || summary='QWEN35_CANDIDATE_ACCEPTANCE=NO_PASS_SUMMARY'
           [[ -n "$extra_summary" ]] || extra_summary='QWEN35_CANDIDATE_EXTRA=NO_PASS_SUMMARY'
+          evidence_class="$(SUMMARY="$summary" EXTRA_SUMMARY="$extra_summary" node <<'NODE'
+          function classifyCandidateEvidence(e) {
+            const hasCases = (raw, prefix, expected) => {
+              if (!raw?.startsWith(prefix)) return false;
+              try { return JSON.parse(raw.slice(prefix.length)).cases === expected; } catch { return false; }
+            };
+            if (!/^[a-f0-9]{40}$/.test(e.TARGET_SHA ?? '') || e.START_OUTCOME !== 'success' || e.ACCEPTANCE !== 'success' || e.CLEANUP !== 'success') return 'FAILED';
+            const critical = hasCases(e.SUMMARY, 'QWEN35_CANDIDATE_ACCEPTANCE=', 10);
+            const extra = hasCases(e.EXTRA_SUMMARY, 'QWEN35_CANDIDATE_EXTRA=', 4);
+            if (e.CANDIDATE_CORPUS === 'both') return critical && extra ? 'COMPLETE' : 'FAILED';
+            if (e.CANDIDATE_CORPUS === 'critical') return critical ? 'PARTIAL' : 'FAILED';
+            if (e.CANDIDATE_CORPUS === 'extra') return extra ? 'PARTIAL' : 'FAILED';
+            return 'FAILED';
+          }
+          console.log(classifyCandidateEvidence(process.env));
+          NODE
+          )"
+          # Only fixed diagnostic vocabulary may leave the private startup log boundary.
+          start_phase="$(grep -Ex 'QWEN35_CANDIDATE_START_PHASE=(guard_spawn|guard_setup|identity|readiness|post_ready)' "$RUNNER_TEMP/qwen35-start" 2>/dev/null | tail -1 || true)"
+          start_class="$(grep -Ex 'QWEN35_CANDIDATE_START_LOG_CLASS=(no_log|unclassified|model_architecture_unsupported|tokenizer_unsupported|model_format_error|runtime_library_error|allocation_failure|bind_failure|argument_rejected|model_load_error|multiple_errors|log_unavailable)' "$RUNNER_TEMP/qwen35-start" 2>/dev/null | tail -1 || true)"
+          [[ -n "$start_phase" ]] || start_phase='QWEN35_CANDIDATE_START_PHASE=not_reported'
+          [[ -n "$start_class" ]] || start_class='QWEN35_CANDIDATE_START_LOG_CLASS=not_reported'
           body="$RUNNER_TEMP/qwen35-comment.md"
           {
             echo '## Qwen3.5-4B dedicated model-host candidate'
             echo "- exact main: $TARGET_SHA"
             echo "- workflow run: $GITHUB_RUN_ID"
             echo "- artifact sha256: 13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983"
+            echo "- candidate start: $START_OUTCOME"
             echo "- real Gekta acceptance: $ACCEPTANCE"
+            echo "- selected corpus: $CANDIDATE_CORPUS"
+            echo "- candidate evidence classification: $evidence_class"
+            echo '- COMPLETE requires both 10 critical and 4 extra cases in this same-SHA run with successful start, acceptance and cleanup; PARTIAL covers only the selected successful suite and requires the complementary same-SHA suite and cleanup proof'
             echo "- unchanged Qwen3-8B cleanup: $CLEANUP"
             echo "- production Qwen3-8B routing/model identity mutation: NONE"
             echo "- production application/database mutation: NONE"
             echo "- recurring cost: 0 RUB"
             echo "$summary"
             echo "$extra_summary"
+            echo "$start_phase"
+            echo "$start_class"
+            echo '- startup log classification is diagnostic evidence, not inference or acceptance PASS'
           } > "$body"
           gh issue comment "$SPEED_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
       - name: Cleanup helper and SSH material
