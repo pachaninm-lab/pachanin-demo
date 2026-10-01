@@ -4593,11 +4593,12 @@ const routeActualBlobs = new Map([{"blob":"b9b96c88695c7960a309e98e691c348fec03a
 const routeGuardPurposeTemplate = {
   "owner": "ACCOUNT_2_PRODUCT",
   "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
-  "purpose": "Renew only the already admitted protected guard ref to bind the exact Deal execution route prerequisite after native review proved inherited PRIMARY scope and inert source pins.",
+  "purpose": "Renew only the already admitted protected guard ref to bind the exact Deal execution route prerequisite, including trusted-base workflow routing after native review proved PRIMARY inheritance, inert source pins and candidate-owned guard execution.",
   "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
   "allowedPaths": [
     "scripts/p7-autopilot-guard.sh",
-    "scripts/p7-autopilot-guard.test.mjs"
+    "scripts/p7-autopilot-guard.test.mjs",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
   ],
   "retainedAcceptedGuardScope": [
     "scripts/p7-autopilot-guard.sh",
@@ -4632,21 +4633,23 @@ const routeGuardPurposeTemplate = {
   "privateRoutePayloadSha256": "d4c4bf61d3813e2d0d4b9c364c81941ab88039b078413addc5eb1d3ca750e884",
   "blockingNativeFindings": [
     4155054017,
-    4155054022
+    4155054022,
+    4155554749
   ],
   "grantRouteSourceAuthority": false,
   "guardAdoptionRequiresCoreHandoff": true,
   "requiredTruthBoundaries": [
-    "Purpose only: append this record without a route SOURCE vector. Every old state byte/value, admission/vector, PRIMARY/current/global/R1.2 scope, official5/100 and workflow remains unchanged.",
-    "Renew only the existing protected three-path guard ref; the correction itself changes exactly the two recorded guard/test blobs with their original100755/100644 modes and unchanged accepted state. Do not touch its third workflow path or introduce another shared guard writer.",
+    "Purpose only: renew this one record without a route SOURCE vector. All other old state bytes/values, admissions/vectors, PRIMARY/current/global/R1.2 scope, official5/100 and runtime remain unchanged.",
+    "Renew only the existing protected three-path guard ref; the correction changes exactly the three recorded guard/test/workflow blobs with original100755/100644/100644 modes and unchanged accepted state. Do not introduce another shared guard writer.",
     "The accepted guard must discard PRIMARY/source-controlled expansion for the route SOURCE ref, bind exact trusted-base state/three paths/blobs/modes/ancestry and reject extra, partial, wrong-byte, wrong-mode, rename/delete and candidate-owned authority cases.",
+    "Both exact route branches must run the accepted BASE guard in the existing pull_request_target immutable job and PR-head defense, pass both shell allow-lists, and be excluded from candidate-owned standard/active guard paths. Preserve every old predicate, workflow trigger, permission, check binding and all other branches; do not let a candidate guard/test replace its validator.",
     "The next state-only admission and route SOURCE remain separate accepted-base-reviewed native-gated phases. Purpose and guard code grant no route SOURCE vector, ordinary role/session/money/provider authority or live acceptance.",
     "CORE retains current source and first-merge priority. Every guard/admission/SOURCE adoption waits for actual handoff, fresh MAIN/Hub/ownership checks, independent complete-head review, strict author audit, all substantive native/security gates and normal expected-full-SHA manual merge."
   ],
   "forbiddenAuthority": [
     "SOURCE route/self-admission or arbitrary scope/state changes",
     "CORE/API/DB/RLS/role/session/money/provider/FGIS/deployment authority",
-    "Workflow, CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
+    "CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
   ]
 };
 const routeSourceAdmissionTemplate = {
@@ -4719,9 +4722,16 @@ const routePins = routeGuardPurposeTemplate.futureExactSourcePins;
 const routeBlob = bytes => createHash('sha1').update(`blob ${Buffer.byteLength(bytes)}\0`).update(bytes).digest('hex');
 const routeGuardBytes = fs.readFileSync(sourceGuard);
 const routeTestBytes = fs.readFileSync(path.resolve('scripts/p7-autopilot-guard.test.mjs'));
+const routeWorkflowPath = '.github/workflows/platform-v7-autopilot-guard.yml';
+const routeWorkflowBytes = fs.readFileSync(path.resolve(routeWorkflowPath));
+const routeWorkflowBeforeResult = spawnSync('git', ['cat-file', 'blob', '90f6c2b52b25b7a4f09446b7dafb36270f9969dc'], { encoding: 'utf8' });
+assert.equal(routeWorkflowBeforeResult.status, 0, 'Actual accepted workflow blob is required; no invented baseline');
+const routeWorkflowBeforeBytes = routeWorkflowBeforeResult.stdout;
+assert.equal(routeBlob(routeWorkflowBeforeBytes), '90f6c2b52b25b7a4f09446b7dafb36270f9969dc');
 const routeGuardPins = [
   ['scripts/p7-autopilot-guard.sh', '38be109d11422546c07fd96db283d848599a709f', routeBlob(routeGuardBytes), '100755'],
   ['scripts/p7-autopilot-guard.test.mjs', 'db910d2e6c2521957fb8719f7e5af659a8cd0165', routeBlob(routeTestBytes), '100644'],
+  [routeWorkflowPath, '90f6c2b52b25b7a4f09446b7dafb36270f9969dc', routeBlob(routeWorkflowBytes), '100644'],
 ];
 function routeFixture(t, { branch = routeSourceBranch, admitted = true, guardAdoption = false, purpose = true } = {}) {
   const c = fixture(t, branch);
@@ -4736,6 +4746,7 @@ function routeFixture(t, { branch = routeSourceBranch, admitted = true, guardAdo
     ...structuredClone(routeGuardPurposeTemplate), authorityBaseExactMain: c.baseline, exactGuardSourcePins: structuredClone(routeGuardPins),
   };
   for (const [file, before] of routePins) write(c.root, file, routeActualBlobs.get(before));
+  write(c.root, routeWorkflowPath, guardAdoption ? routeWorkflowBeforeBytes : routeWorkflowBytes, 0o644);
   write(c.root, 'scripts/p7-autopilot-guard.test.mjs',
     guardAdoption ? actualLocaleBaselineBlob(routeGuardPins[1][1]) : routeTestBytes, 0o644);
   if (guardAdoption) write(c.root, 'scripts/p7-autopilot-guard.sh', actualLocaleBaselineBlob(routeGuardPins[0][1]), 0o755);
@@ -4816,19 +4827,102 @@ test('Deal route: accepted wrong ancestry rejects before SOURCE',t=>{
 });
 function applyRouteGuard(c) {
   write(c.root,'scripts/p7-autopilot-guard.sh',routeGuardBytes,0o755);
-  write(c.root,'scripts/p7-autopilot-guard.test.mjs',routeTestBytes,0o644);commit(c.root,'exact guard two fixture');
+  write(c.root,'scripts/p7-autopilot-guard.test.mjs',routeTestBytes,0o644);
+  write(c.root,routeWorkflowPath,routeWorkflowBytes,0o644);commit(c.root,'exact guard workflow three fixture');
 }
 function runRouteGuardCandidate(c) {
   const script=path.join(c.root,'.git','reviewed-guard-candidate.sh');fs.writeFileSync(script,routeGuardBytes);
   return spawnSync('bash',[script],{cwd:c.root,env:{...process.env,BASE_REF:c.baseline,HEAD_REF:'HEAD',GITHUB_HEAD_REF:c.implementationBranch},encoding:'utf8'});
 }
-test('Deal route: existing protected-ref guard correction is exactly two pinned files',t=>{
+test('Deal route: existing protected-ref guard correction is exactly three pinned files',t=>{
   const c=routeFixture(t,{branch:routeGuardBranch,admitted:false,guardAdoption:true});applyRouteGuard(c);const r=runRouteGuardCandidate(c);assert.equal(r.status,0,output(r));
 });
 for(const [name,mutate] of [
- ['retained third workflow',c=>write(c.root,'.github/workflows/platform-v7-autopilot-guard.yml','name: altered\n')],
+ ['altered pinned workflow',c=>write(c.root,'.github/workflows/platform-v7-autopilot-guard.yml','name: altered\n')],
  ['arbitrary guard bytes',c=>write(c.root,'scripts/p7-autopilot-guard.sh','#!/bin/bash\nexit 0\n',0o755)],
  ['wrong guard mode',c=>{git(c.root,['update-index','--cacheinfo','100644,'+routeGuardPins[0][2]+',scripts/p7-autopilot-guard.sh']);git(c.root,['commit','-m','wrong guard mode']);}],
 ]) test('Deal route: guard correction rejects '+name,t=>{
  const c=routeFixture(t,{branch:routeGuardBranch,admitted:false,guardAdoption:true});applyRouteGuard(c);mutate(c);if(name!=='wrong guard mode')commit(c.root,'guard attack');const r=runRouteGuardCandidate(c);assert.notEqual(r.status,0,output(r));assert.match(output(r),/DEAL_ROUTE_/u);
+});
+
+// Native workflow P1: actual accepted/proposed predicates, shell allow-lists and real Git/BASE attacks.
+function routeWorkflowJobText(workflow,key) {
+ const jobs=[...workflow.matchAll(/^  ([a-z][a-z0-9_-]*):\n/gm)].filter(m=>m.index>workflow.indexOf('\njobs:\n'));
+ const i=jobs.findIndex(m=>m[1]===key);assert.notEqual(i,-1,'Missing workflow job '+key);
+ return workflow.slice(jobs[i].index,jobs[i+1]?.index??workflow.length);
+}
+
+function routeWorkflowStepText(job,name) {
+ const token='      - name: '+name+'\n',at=job.indexOf(token);assert.notEqual(at,-1,'Missing workflow step '+name);
+ const end=job.indexOf('\n      - ',at+token.length);return job.slice(at,end<0?job.length:end);
+}
+
+function routeWorkflowIf(text) {
+ const lines=text.split('\n'),i=lines.findIndex(s=>/^\s+if: /u.test(s));assert.notEqual(i,-1,'Missing workflow condition');
+ const m=lines[i].match(/^(\s*)if: (.*)$/u);if(m[2]!=='>-')return m[2];
+ const next=[];for(let j=i+1;j<lines.length&&lines[j].startsWith(' '.repeat(m[1].length+1));j++)next.push(lines[j].trim());
+ assert.ok(next.length);return next.join(' ');
+}
+
+function routeWorkflowPredicate(expression,eventName,branch) {
+ const github={event_name:eventName,head_ref:branch,event:{pull_request:{head:{ref:branch},base:{sha:'f'.repeat(40)}}}};
+ const compiled=new Function('github','contains','fromJSON','always','return ('+expression.replace(/ == /gu,' === ').replace(/ != /gu,' !== ')+');');
+ return compiled(github,(rows,v)=>rows.includes(v),JSON.parse,()=>true);
+}
+
+function routeWorkflowSelection(workflow,branch) {
+ const trusted=routeWorkflowJobText(workflow,'trusted-immutable-scope'),head=routeWorkflowJobText(workflow,'guard'),standard=routeWorkflowJobText(workflow,'standard_validation');
+ const defense=routeWorkflowStepText(head,'Validate immutable scope with trusted base guard on PR head');
+ return {
+  trusted:routeWorkflowPredicate(routeWorkflowIf(trusted),'pull_request_target',branch),
+  defense:routeWorkflowPredicate(routeWorkflowIf(defense),'pull_request',branch),
+  standard:routeWorkflowPredicate(routeWorkflowIf(routeWorkflowStepText(head,'Validate standard branch scope on PR head')),'pull_request',branch),
+  active:routeWorkflowPredicate(routeWorkflowIf(routeWorkflowStepText(standard,'Validate active platform-v7 autopilot scope')),'pull_request',branch),
+ };
+}
+
+function routeWorkflowShellBranch(job,branch) {
+ const start=job.indexOf('case "$IMMUTABLE_SCOPE_BRANCH" in'),end=job.indexOf('esac',start);
+ assert.ok(start>=0&&end>start,'Missing workflow shell allow-list');
+ return spawnSync('bash',['-c',job.slice(start,end+4)],{env:{...process.env,IMMUTABLE_SCOPE_BRANCH:branch},encoding:'utf8'});
+}
+
+for (const branch of [routeAdmissionBranch, routeSourceBranch]) {
+  test('Deal route workflow: trusted BASE and PR-head defense replace both candidate-owned paths for '+branch, () => {
+    assert.deepEqual(routeWorkflowSelection(routeWorkflowBeforeBytes,branch), {trusted:false,defense:false,standard:true,active:true});
+    assert.deepEqual(routeWorkflowSelection(String(routeWorkflowBytes),branch), {trusted:true,defense:true,standard:false,active:false});
+    for(const job of ['trusted-immutable-scope','guard']) {
+      assert.notEqual(routeWorkflowShellBranch(routeWorkflowJobText(routeWorkflowBeforeBytes,job),branch).status,0);
+      assert.equal(routeWorkflowShellBranch(routeWorkflowJobText(String(routeWorkflowBytes),job),branch).status,0);
+    }
+    const trusted=routeWorkflowJobText(String(routeWorkflowBytes),'trusted-immutable-scope');
+    assert.ok(trusted.includes('ref: '+'$'+'{{ github.event.pull_request.base.sha }}'));
+    const defense=routeWorkflowStepText(routeWorkflowJobText(String(routeWorkflowBytes),'guard'),'Validate immutable scope with trusted base guard on PR head');
+    assert.ok(defense.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh"'));
+    assert.ok(defense.includes('BASE_REF="$BASE_SHA" HEAD_REF="$HEAD_SHA"'));
+  });
+  test('Deal route workflow: native reviewer candidate-guard/test replacement cannot accept extra CORE scope for '+branch,t=>{
+    const c=routeFixture(t,{branch,admitted:branch===routeSourceBranch});
+    if(branch===routeSourceBranch)applyRoute(c);else{addRouteAdmission(c);commit(c.root,'correct admission before pipeline attack');}
+    write(c.root,'scripts/p7-autopilot-guard.sh','#!/usr/bin/env bash\ntouch CANDIDATE_EXECUTED\necho "Scope guard passed."\nexit 0\n',0o755);
+    write(c.root,'scripts/p7-autopilot-guard.test.mjs','// replaced candidate tests\n');
+    write(c.root,'apps/api/src/modules/staff-access/workflow-route-probe.ts','export const unauthorized = true;\n');
+    commit(c.root,'native reviewer candidate-owned pipeline attack');
+    const old=routeWorkflowSelection(routeWorkflowBeforeBytes,branch);assert.equal(old.standard||old.active,true);
+    const candidate=spawnSync('bash',[path.join(c.root,'scripts/p7-autopilot-guard.sh')],{cwd:c.root,encoding:'utf8'});
+    assert.equal(candidate.status,0,output(candidate));const sentinel=path.join(c.root,'CANDIDATE_EXECUTED');assert.equal(fs.existsSync(sentinel),true);fs.unlinkSync(sentinel);
+    const fixed=routeWorkflowSelection(String(routeWorkflowBytes),branch);assert.equal(fixed.trusted&&fixed.defense&&!fixed.standard&&!fixed.active,true);
+    const trusted=runTrustedDealRuntimeGuard(c);assert.notEqual(trusted.status,0,output(trusted));assert.match(output(trusted),/DEAL_ROUTE_|immutable/u);
+    assert.equal(fs.existsSync(sentinel),false,'Accepted BASE validation must never execute the changed candidate guard');
+  });
+}
+test('Deal route workflow: every old unrelated branch predicate is preserved',()=>{
+  for(const branch of [routeGuardBranch,'bank/first-customer-home-20260926','ux/deal-runtime-unknown-20260929','r1-founder-role-mode-authority-20260920','unrelated/source']) {
+    assert.deepEqual(routeWorkflowSelection(String(routeWorkflowBytes),branch),routeWorkflowSelection(routeWorkflowBeforeBytes,branch));
+  }
+});
+test('Deal route: exact workflow blob in wrong mode rejects protected guard three-file renewal',t=>{
+ const c=routeFixture(t,{branch:routeGuardBranch,admitted:false,guardAdoption:true});applyRouteGuard(c);
+ git(c.root,['update-index','--cacheinfo','100755,'+routeGuardPins[2][2]+','+routeWorkflowPath]);git(c.root,['commit','-m','wrong workflow mode']);
+ const r=runRouteGuardCandidate(c);assert.notEqual(r.status,0,output(r));assert.match(output(r),/DEAL_ROUTE_PIN_OR_MODE/u);
 });

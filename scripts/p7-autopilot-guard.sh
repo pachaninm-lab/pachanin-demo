@@ -2250,11 +2250,12 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
     const purposeTemplate = {
   "owner": "ACCOUNT_2_PRODUCT",
   "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
-  "purpose": "Renew only the already admitted protected guard ref to bind the exact Deal execution route prerequisite after native review proved inherited PRIMARY scope and inert source pins.",
+  "purpose": "Renew only the already admitted protected guard ref to bind the exact Deal execution route prerequisite, including trusted-base workflow routing after native review proved PRIMARY inheritance, inert source pins and candidate-owned guard execution.",
   "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
   "allowedPaths": [
     "scripts/p7-autopilot-guard.sh",
-    "scripts/p7-autopilot-guard.test.mjs"
+    "scripts/p7-autopilot-guard.test.mjs",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
   ],
   "retainedAcceptedGuardScope": [
     "scripts/p7-autopilot-guard.sh",
@@ -2289,31 +2290,34 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
   "privateRoutePayloadSha256": "d4c4bf61d3813e2d0d4b9c364c81941ab88039b078413addc5eb1d3ca750e884",
   "blockingNativeFindings": [
     4155054017,
-    4155054022
+    4155054022,
+    4155554749
   ],
   "grantRouteSourceAuthority": false,
   "guardAdoptionRequiresCoreHandoff": true,
   "requiredTruthBoundaries": [
-    "Purpose only: append this record without a route SOURCE vector. Every old state byte/value, admission/vector, PRIMARY/current/global/R1.2 scope, official5/100 and workflow remains unchanged.",
-    "Renew only the existing protected three-path guard ref; the correction itself changes exactly the two recorded guard/test blobs with their original100755/100644 modes and unchanged accepted state. Do not touch its third workflow path or introduce another shared guard writer.",
+    "Purpose only: renew this one record without a route SOURCE vector. All other old state bytes/values, admissions/vectors, PRIMARY/current/global/R1.2 scope, official5/100 and runtime remain unchanged.",
+    "Renew only the existing protected three-path guard ref; the correction changes exactly the three recorded guard/test/workflow blobs with original100755/100644/100644 modes and unchanged accepted state. Do not introduce another shared guard writer.",
     "The accepted guard must discard PRIMARY/source-controlled expansion for the route SOURCE ref, bind exact trusted-base state/three paths/blobs/modes/ancestry and reject extra, partial, wrong-byte, wrong-mode, rename/delete and candidate-owned authority cases.",
+    "Both exact route branches must run the accepted BASE guard in the existing pull_request_target immutable job and PR-head defense, pass both shell allow-lists, and be excluded from candidate-owned standard/active guard paths. Preserve every old predicate, workflow trigger, permission, check binding and all other branches; do not let a candidate guard/test replace its validator.",
     "The next state-only admission and route SOURCE remain separate accepted-base-reviewed native-gated phases. Purpose and guard code grant no route SOURCE vector, ordinary role/session/money/provider authority or live acceptance.",
     "CORE retains current source and first-merge priority. Every guard/admission/SOURCE adoption waits for actual handoff, fresh MAIN/Hub/ownership checks, independent complete-head review, strict author audit, all substantive native/security gates and normal expected-full-SHA manual merge."
   ],
   "forbiddenAuthority": [
     "SOURCE route/self-admission or arbitrary scope/state changes",
     "CORE/API/DB/RLS/role/session/money/provider/FGIS/deployment authority",
-    "Workflow, CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
+    "CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
   ]
 };
     const guardFiles = [
       ['scripts/p7-autopilot-guard.sh', '38be109d11422546c07fd96db283d848599a709f', '100755'],
       ['scripts/p7-autopilot-guard.test.mjs', 'db910d2e6c2521957fb8719f7e5af659a8cd0165', '100644'],
+      ['.github/workflows/platform-v7-autopilot-guard.yml', '90f6c2b52b25b7a4f09446b7dafb36270f9969dc', '100644'],
     ];
     const acceptedPurpose = base.coordinationAdmissions?.[purposeKey];
     const authority = acceptedPurpose?.authorityBaseExactMain;
     const guardPins = acceptedPurpose?.exactGuardSourcePins;
-    if (!sha40(authority) || !Array.isArray(guardPins) || guardPins.length !== 2 ||
+    if (!sha40(authority) || !Array.isArray(guardPins) || guardPins.length !== 3 ||
         guardPins.some((pin, i) => !Array.isArray(pin) || pin.length !== 4 ||
           pin[0] !== guardFiles[i][0] || pin[1] !== guardFiles[i][1] ||
           !sha40(pin[2]) || pin[2] === pin[1] || pin[3] !== guardFiles[i][2]) ||
