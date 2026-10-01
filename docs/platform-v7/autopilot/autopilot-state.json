@@ -1779,11 +1779,6 @@
       "packages/design-system-v8/src/components.tsx",
       "docs/security/cryptographic-inventory.json",
       "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
-    ],
-    "fix/deal-execution-route-20261001": [
-      "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
-      "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
-      "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts"
     ]
   },
   "currentAcceptance": [
@@ -3453,18 +3448,28 @@
         "CI/security/readiness/review weakening or fake acceptance"
       ]
     },
-    "deal-execution-route-20261001": {
+    "deal-execution-route-guard-purpose-20261001": {
       "owner": "ACCOUNT_2_PRODUCT",
       "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
-      "purpose": "Register only the existing protected canonical Deal execution destination after the genuine native BANK queue journey returned layout404; preserve all server role, tenant, membership and command authority.",
-      "authorityBaseExactMain": "3372f85ee832cd0e7a199c71f44eb32462138fc2",
-      "implementationBranch": "fix/deal-execution-route-20261001",
+      "purpose": "Renew only the already admitted protected guard ref to bind the exact Deal execution route prerequisite after native review proved inherited PRIMARY scope and inert source pins.",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
       "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs"
+      ],
+      "retainedAcceptedGuardScope": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-deal-execution-route-20261001",
+      "futureImplementationBranch": "fix/deal-execution-route-20261001",
+      "futureAllowedPaths": [
         "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
         "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
         "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts"
       ],
-      "exactSourcePins": [
+      "futureExactSourcePins": [
         [
           "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
           "b9b96c88695c7960a309e98e691c348fec03a2b0",
@@ -3481,38 +3486,41 @@
           "043c10b308d52091cebb1b7a26dd31fc23a0bc45"
         ]
       ],
-      "requiredSourceMode": "100644",
-      "nativeFailureEvidence": {
-        "pr": 5735,
-        "head": "1fdd8981106145df244420138b86fc6ae4f23d48",
-        "workflowRun": 36849109373,
-        "job": 110326285988,
-        "failedProjects": 5,
-        "observedStatus": 404,
-        "diagnosisHubComment": 5930062482
-      },
-      "privatePayload": {
-        "bytes": 4262,
-        "sha256": "d4c4bf61d3813e2d0d4b9c364c81941ab88039b078413addc5eb1d3ca750e884",
-        "candidateTestsPassed": 15,
-        "unchangedBaselinePassed": 12,
-        "unchangedBaselineFailed": 3
-      },
+      "requiredFutureSourceMode": "100644",
+      "privateRoutePayloadSha256": "d4c4bf61d3813e2d0d4b9c364c81941ab88039b078413addc5eb1d3ca750e884",
+      "blockingNativeFindings": [
+        4155054017,
+        4155054022
+      ],
+      "grantRouteSourceAuthority": false,
+      "guardAdoptionRequiresCoreHandoff": true,
       "requiredTruthBoundaries": [
-        "Separate state-only proposal. Preserve all prior state bytes/values except the append of one exact concurrent three-path vector and this one record. Primary/current/global/R1.2 scopes, all historical admissions, every other branch, official5/100 progress, maturity and canonical CORE source ownership remain unchanged.",
-        "The future source phase changes exactly the three pinned regular files, retains unchanged accepted-base state/guard/workflows/security/registry/source modes and all other leaves, and requires an independently reviewed accepted MAIN admission before publication.",
-        "Add only anchored /platform-v7/deals/<one-id>/execution registration and remove only the broken trailing-slash Deal prefix. Keep anchored accounting, all other role and route classes, unknown-route rejection before auth, signed session and API membership checks. Do not repair the prefix by broadly admitting all Deal subroutes.",
-        "Preserve every existing test and replace the broken prefix text assertion with behavioral execution reachability plus published dynamic-policy coverage. Exercise all three locales, valid canonical IDs, missing/empty IDs, malformed double slash and extra/nested/sibling paths; retain accounting negative roles.",
-        "Keep the current original BANK source unchanged until this prerequisite is accepted. Then normally compose its original head with accepted current MAIN, preserving the original two source pins and bounded E2E case; obtain fresh whole-head review, owner audit and native five-browser/Kubernetes/readiness results.",
-        "Private15-test/typecheck results and the original404 diagnosis do not establish current-head native CI, browser acceptance, exact REG.RU deployment, real providers or actual13-cabinet closure. Never rerun the failed unchanged BANK head or lower assertions to get green.",
-        "While canonical CORE6 window5930002118 remains active, only an unmerged one-file metadata review proposal is prepared under bounded decision5930593870. This proposal changes no accepted state, grants no SOURCE authority and performs no SOURCE/MAIN/guard/release mutation. Any metadata adoption/merge and future SOURCE publication are serialized after actual CORE HANDOFF/DONE, fresh Hub/main/source/scope recheck, every applicable substantive CI/security, independent current-head review, separate author audit and normal expected-full-SHA manual merge."
+        "Purpose only: append this record without a route SOURCE vector. Every old state byte/value, admission/vector, PRIMARY/current/global/R1.2 scope, official5/100 and workflow remains unchanged.",
+        "Renew only the existing protected three-path guard ref; the correction itself changes exactly the two recorded guard/test blobs with their original100755/100644 modes and unchanged accepted state. Do not touch its third workflow path or introduce another shared guard writer.",
+        "The accepted guard must discard PRIMARY/source-controlled expansion for the route SOURCE ref, bind exact trusted-base state/three paths/blobs/modes/ancestry and reject extra, partial, wrong-byte, wrong-mode, rename/delete and candidate-owned authority cases.",
+        "The next state-only admission and route SOURCE remain separate accepted-base-reviewed native-gated phases. Purpose and guard code grant no route SOURCE vector, ordinary role/session/money/provider authority or live acceptance.",
+        "CORE retains current source and first-merge priority. Every guard/admission/SOURCE adoption waits for actual handoff, fresh MAIN/Hub/ownership checks, independent complete-head review, strict author audit, all substantive native/security gates and normal expected-full-SHA manual merge."
       ],
       "forbiddenAuthority": [
-        "API/DB/RLS/role/tenant/session/command/money/provider/FGIS or new CORE authority",
-        "Broad Deal-prefix admission, route/auth bypass, original BANK source replacement or competing owner branch",
-        "CI/security/readiness/review weakening, fake history/PASS, forced/automatic merge, release/model mutation or new recurring cost"
+        "SOURCE route/self-admission or arbitrary scope/state changes",
+        "CORE/API/DB/RLS/role/session/money/provider/FGIS/deployment authority",
+        "Workflow, CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
       ],
-      "metadataPreparationDecision": "Team Hub #5469 comment5930593870"
+      "authorityBaseExactMain": "2749279de3b070f3ff9b79224c26d03c590275bd",
+      "exactGuardSourcePins": [
+        [
+          "scripts/p7-autopilot-guard.sh",
+          "38be109d11422546c07fd96db283d848599a709f",
+          "444f19466c88efdde89c3b7d162ca6c009b63e42",
+          "100755"
+        ],
+        [
+          "scripts/p7-autopilot-guard.test.mjs",
+          "db910d2e6c2521957fb8719f7e5af659a8cd0165",
+          "d47e80c51cd77cf15acb44ad5316b351db51cdca",
+          "100644"
+        ]
+      ]
     }
   }
 }
