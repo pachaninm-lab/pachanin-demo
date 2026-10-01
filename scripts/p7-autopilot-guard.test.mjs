@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { inflateSync } from 'node:zlib';
 import test from 'node:test';
 
 const finalPublicBranches = [
@@ -212,6 +214,15 @@ const gitleaksFinalReviewedEntries =
   '        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391",\n' +
   '        "ba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:"\n' +
   '        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:395",\n';
+const gitleaksCurrentAnchor =
+  '        "db4f0a50b8df0a5e1045d3b9dc6a6fdc9d2806b0:"\n' +
+  '        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:1018",\n';
+const gitleaksCurrentReviewedEntries =
+  '        "2dbd66d9bf258113272825d7b082b20e3b15a2b6:"\n' +
+  '        "docs/platform-v7/autopilot/autopilot-state.json:generic-api-key:2713",\n' +
+  '        "3b76d0f3473b986b6354aaac528994f7ac343df2:"\n' +
+  '        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"\n' +
+  '        "generic-api-key:17",\n';
 
 function baselineGitleaksReleaseAttestation(source) {
   const serviceCount = source.split(gitleaksServiceMarketplace).length - 1;
@@ -436,7 +447,7 @@ function gitleaksReleaseAttestationFixture(t) {
 
 test('gitleaks release attestation scope accepts exactly four reviewed fingerprints', (t) => {
   const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
-  assert.deepEqual(state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch], [gitleaksReleaseAttestationPath]);
+  assert.deepEqual(state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch], expectedAttestationScope(state));
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
   assert.ok(workflow.includes(`- '${gitleaksReleaseAttestationPath}'`), 'missing Gitleaks attestation PR-head trigger');
   const source = fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8');
@@ -479,6 +490,150 @@ for (const mutation of ['remove existing assertion', 'add fifth fingerprint', 'a
     assert.match(output(result), /must add exactly four reviewed fingerprints/u);
   });
 }
+
+function currentGitleaksReleaseAttestationFixture(t) {
+  const context = fixture(t, gitleaksReleaseAttestationBranch);
+  const source = fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8');
+  const count = source.split(gitleaksCurrentReviewedEntries).length - 1;
+  assert.ok(count === 0 || count === 1, 'current reviewed entries occur together at most once');
+  write(context.root, gitleaksReleaseAttestationPath, source.replace(gitleaksCurrentReviewedEntries, ''));
+  for (const file of ['.gitleaksignore', 'apps/tai/release-source-manifest.json']) {
+    write(context.root, file, fs.readFileSync(file, 'utf8'));
+  }
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+  state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [gitleaksReleaseAttestationPath];
+  write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+  commit(context.root, 'accepted exact current Gitleaks attestation inputs');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  assert.equal(git(context.root, ['rev-parse', `${context.baseline}:${gitleaksReleaseAttestationPath}`]), 'e589046fc52daf8a3632f70b6879543934be56ff');
+  assert.equal(git(context.root, ['rev-parse', `${context.baseline}:.gitleaksignore`]), '5c151dc1a2b5329fb2d4feb1fd0c1713bbef96db');
+  assert.equal(git(context.root, ['rev-parse', `${context.baseline}:apps/tai/release-source-manifest.json`]), '35f96ccc7fe332ddd90454eeee19853ba0612b71');
+  return context;
+}
+
+function synchronizeCurrentGitleaksReleaseAttestation(baseline) {
+  assert.equal(baseline.split(gitleaksCurrentAnchor).length - 1, 1);
+  return baseline.replace(gitleaksCurrentAnchor, gitleaksCurrentAnchor + gitleaksCurrentReviewedEntries);
+}
+
+function runTrustedCurrentGitleaksGuard({ root, baseline, implementationBranch }) {
+  const trustedGuard = git(root, ['show', `${baseline}:scripts/p7-autopilot-guard.sh`]);
+  return spawnSync('bash', [], {
+    cwd: root,
+    input: trustedGuard,
+    env: { ...process.env, BASE_REF: baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: implementationBranch },
+    encoding: 'utf8',
+  });
+}
+
+test('current Gitleaks attestation accepts only the exact two-existing-fingerprint repair', (t) => {
+  const context = currentGitleaksReleaseAttestationFixture(t);
+  const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(baseline));
+  commit(context.root, 'synchronize current exact fingerprint attestation');
+  assert.equal(git(context.root, ['rev-parse', `HEAD:${gitleaksReleaseAttestationPath}`]), '404e172449f53c01369ef974a50079d6f6967d56');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+
+for (const mutation of [
+  'remove manifest assertion', 'weaken format assertion', 'remove old fingerprint',
+  'add extra fingerprint', 'alter first fingerprint', 'alter second fingerprint',
+  'omit first fingerprint', 'omit second fingerprint', 'reverse fingerprint order',
+]) {
+  test(`current Gitleaks attestation rejects candidate content: ${mutation}`, (t) => {
+    const context = currentGitleaksReleaseAttestationFixture(t);
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    let candidate = synchronizeCurrentGitleaksReleaseAttestation(baseline);
+    if (mutation === 'remove manifest assertion') candidate = candidate.replace('    assert ".gitleaksignore" in manifest["files"]\n', '');
+    if (mutation === 'weaken format assertion') candidate = candidate.replace('    assert all(_FINGERPRINT.fullmatch(entry) is not None for entry in entries)\n', '    assert True\n');
+    if (mutation === 'remove old fingerprint') candidate = candidate.replace(gitleaksCommodityAnchor, '');
+    if (mutation === 'add extra fingerprint') candidate = candidate.replace('    ]\n', '        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:extra.py:generic-api-key:1",\n    ]\n');
+    if (mutation === 'alter first fingerprint') candidate = candidate.replace('generic-api-key:2713', 'generic-api-key:2714');
+    if (mutation === 'alter second fingerprint') candidate = candidate.replace('generic-api-key:17', 'generic-api-key:18');
+    const lines = gitleaksCurrentReviewedEntries.split('\n').filter(Boolean);
+    if (mutation === 'omit first fingerprint') candidate = candidate.replace(gitleaksCurrentReviewedEntries, `${lines.slice(2).join('\n')}\n`);
+    if (mutation === 'omit second fingerprint') candidate = candidate.replace(gitleaksCurrentReviewedEntries, `${lines.slice(0, 2).join('\n')}\n`);
+    if (mutation === 'reverse fingerprint order') candidate = candidate.replace(gitleaksCurrentReviewedEntries, `${[...lines.slice(2), ...lines.slice(0, 2)].join('\n')}\n`);
+    write(context.root, gitleaksReleaseAttestationPath, candidate);
+    commit(context.root, `attempt ${mutation}`);
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Gitleaks release attestation head must be the exact two-fingerprint regular-file repair/u);
+  });
+}
+
+for (const file of ['.gitleaksignore', 'apps/tai/release-source-manifest.json']) {
+  for (const side of ['base', 'head']) {
+    test(`current Gitleaks attestation rejects ${side} input drift: ${file}`, (t) => {
+      const context = currentGitleaksReleaseAttestationFixture(t);
+      if (side === 'base') {
+        fs.appendFileSync(path.join(context.root, file), '\n');
+        commit(context.root, 'drift accepted input');
+        context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+      }
+      const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+      write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(baseline));
+      if (side === 'head') fs.appendFileSync(path.join(context.root, file), '\n');
+      commit(context.root, 'attempt repair with drifting input');
+      const result = runTrustedCurrentGitleaksGuard(context);
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /Gitleaks release attestation input must remain the exact accepted regular file/u);
+    });
+  }
+}
+
+test('current Gitleaks attestation rejects baseline assertion drift', (t) => {
+  const context = currentGitleaksReleaseAttestationFixture(t);
+  const file = path.join(context.root, gitleaksReleaseAttestationPath);
+  write(context.root, gitleaksReleaseAttestationPath, fs.readFileSync(file, 'utf8').replace('    assert ".gitleaksignore" in manifest["files"]\n', ''));
+  commit(context.root, 'drift accepted test assertion');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(fs.readFileSync(file, 'utf8')));
+  commit(context.root, 'attempt repair over drifting test');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Gitleaks release attestation commodity-profile anchor must occur exactly once/u);
+});
+
+for (const side of ['base', 'head']) {
+  test(`current Gitleaks attestation rejects ${side} executable mode`, (t) => {
+    const context = currentGitleaksReleaseAttestationFixture(t);
+    if (side === 'base') {
+      fs.chmodSync(path.join(context.root, gitleaksReleaseAttestationPath), 0o755);
+      commit(context.root, 'drift accepted test mode');
+      context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    }
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(baseline), 0o755);
+    commit(context.root, 'attempt executable test repair');
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Gitleaks release attestation (baseline|head) must be the exact/u);
+  });
+}
+
+test('current Gitleaks attestation rejects implementation-owned scope and guard expansion', (t) => {
+  for (const target of ['state', 'guard']) {
+    const context = currentGitleaksReleaseAttestationFixture(t);
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(baseline));
+    if (target === 'state') {
+      const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+      state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch].push('README.md');
+      write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+      write(context.root, 'README.md', 'unapproved self-admission\n');
+    } else {
+      write(context.root, 'scripts/p7-autopilot-guard.sh', '#!/usr/bin/env bash\nexit 0\n');
+    }
+    commit(context.root, `attempt candidate ${target} authority`);
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Mutable scope authority changed on a PC-CROP immutable-scope implementation branch/u);
+  }
+});
 
 test('kind MinIO image-source scope accepts exactly three paths and rejects ci.yml', (t) => {
   const allowed = kindMinioImageSourceFixture(t);
@@ -2867,3 +3022,931 @@ test('Deal inventory: a committed retarget of the compatibility alias is rejecte
   commit(context.root, 'forbidden alias retarget');
   rejectDealRuntime(context, /DEAL_RUNTIME_IMPLEMENTATION_DIFF_SCOPE/u);
 });
+
+
+// Real Git fixtures execute the immutable BASE guard, never candidate code.
+const landingMetadataAdmissionBranch = 'governance/pc-crop-post-registration-progress-scope-4997';
+const landingMetadataStatePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+const landingMetadataPurposeKey = 'landing-package-metadata-guard-purpose-20261001';
+const landingMetadataKey = 'landing-package-metadata-20261001';
+const landingMetadataPurpose = {
+  "owner": "ACCOUNT_2_PRODUCT",
+  "purpose": "Bounded critical-path renewal of the existing trusted three-path guard ref for a separately admitted exact metadata-only repair of the expired internal landing-package exception; close the existing no-publish metadata blocker without renewing its expiry or changing application/licensing/provenance truth.",
+  "authorityBaseExactMain": "7a90199a40a86cdc129f804780a8f2635cf0bccb",
+  "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+  "allowedPaths": [
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-autopilot-guard.test.mjs",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
+  ],
+  "futureMetadataAdmissionBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+  "futureMetadataImplementationBranch": "fix/gitleaks-release-authority-attestation-20260912",
+  "requiredTruthBoundaries": [
+    "The current full-head #5744 native SBOM/IP run36794727081/job110155435088 fails because the preexisting apps/landing/package.json metadata exception expired on2026-09-30. Original IP program#4459 and the existing exception require a separately authorized metadata-only addition of license=UNLICENSED; the package already remains private=true.",
+    "This purpose-only prerequisite admits no landing implementation or metadata file and changes no primary/global/R1.2/approvedConcurrentScopes/old admissions/progress. Publish a separate trusted guard repair within the already accepted three-path scope only after actual independent review, all current gates and ordinary expected-full-SHA acceptance of this purpose.",
+    "The later guard must define distinct state-only admission and exact two-file metadata implementation phases on the already registered trusted-guard and Gitleaks refs. Existing native trusted-base routing remains unchanged; no workflow/IP waiver. Preserve the original one-file Gitleaks attestation phase and add only the separately accepted exact metadata pair to that existing branch scope. Source scope and exact baseline/candidate blobs must come from accepted trusted base; candidate-owned state/guard cannot grant authority.",
+    "Permit only apps/landing/package.json100644 c80706ce0a424d57b2f7687bc0f4306f5c88a434→e693a061ea6d42a9c62cc1ab8350c3af904265a4 (one license field, all scripts/dependencies/private/name/other bytes preserved) and docs/ip/internal-package-metadata-exceptions.json100644872689ef5215d2b92429c465159fbf794259cc9f→c3eb22c2f4fc9ec3105e0203b7990de3b88dc345 (remove only that completed exception; schema/effective date preserved).",
+    "Preserve the general apps/landing prohibition and every old security/attestation gate. Permit the exact metadata pair only in its separately accepted phase on the existing trusted Gitleaks ref, with exact baseline/head blobs and regular modes; reject mixed metadata/test/runtime edits, other manifest fields, expiry extension, stale or altered exceptions, source self-expansion and baseline/mode drift using real Git fixtures.",
+    "Accept the guard before the separate state-only exact-content source admission; accept that admission before publishing either metadata file. Metadata/private-package checks do not prove proprietary authorship, third-party rights, human assignments, full IP/security completion or production acceptance.",
+    "Keep the sole BANK continuation220/workspace0b9 window held. Preserve the immutable #5744 test candidate while the distinct metadata prerequisite uses the same existing trusted source ref under separate source admission and fresh PR review. After accepted metadata normalization, restore the original one-file #5744 repair on actual current main and renew every review/CI/readiness result before bounded exact-current-main canonical REG.RU web release and actual OCI/live/downstream evidence."
+  ],
+  "forbiddenAuthority": [
+    "Landing page/runtime/component/script/dependency changes or general landing access",
+    "Exception expiry extension, CI/security/license/scanner weakening or required-check override",
+    "Direct metadata source admission in this purpose or later guard PR; source-owned mutable scope authority",
+    "CORE/API/DB/provider/money/role/session/model or human legal/provenance authority",
+    "Forced/automatic merge, stale review transfer, new recurring costs or false production/whole-block PASS"
+  ],
+  "teamHubDependency": "#5744 native IP metadata expiry blocker36794727081; original#4459 metadata baseline; held BANK critical path/window5916270228"
+};
+const landingMetadataTemplate = {
+  "owner": "ACCOUNT_2_PRODUCT",
+  "purpose": "Normalize only the already-private internal landing package license metadata and remove its completed exception; no application, dependency, publication or legal-rights change.",
+  "implementationBranch": "fix/gitleaks-release-authority-attestation-20260912",
+  "allowedPaths": [
+    "apps/landing/package.json",
+    "docs/ip/internal-package-metadata-exceptions.json"
+  ],
+  "preservedAttestationPaths": [
+    "apps/tai/tests/test_gitleaks_release_authority.py"
+  ],
+  "exactMetadataFiles": [
+    {
+      "path": "apps/landing/package.json",
+      "mode": "100644",
+      "baselineBlob": "c80706ce0a424d57b2f7687bc0f4306f5c88a434",
+      "candidateBlob": "e693a061ea6d42a9c62cc1ab8350c3af904265a4"
+    },
+    {
+      "path": "docs/ip/internal-package-metadata-exceptions.json",
+      "mode": "100644",
+      "baselineBlob": "872689ef5215d2b92429c465159fbf794259cc9f",
+      "candidateBlob": "c3eb22c2f4fc9ec3105e0203b7990de3b88dc345"
+    }
+  ],
+  "requiredTruthBoundaries": [
+    "Only add license=UNLICENSED to the existing private=true manifest and remove exactly its completed metadata exception; every other manifest byte and register schema/effective date remains unchanged.",
+    "Source authority comes only from separately accepted base purpose, guard and state-only admission. The implementation cannot modify state, guard, workflow, scope or publishable-package authority.",
+    "The existing attestation ref has distinct test-only and metadata-only phases. Preserve the original test path and its exact fingerprint guard; reject mixed metadata/test changes.",
+    "Preserve the general landing prohibition, all existing CI/security/attestation checks, provenance and third-party/human legal remainder. No expiry extension or proprietary ownership claim.",
+    "Fresh whole-head independent review, native private-package/IP/security/source checks and manual full-expected-SHA readiness/merge required; current-main REG.RU release remains a separate acceptance."
+  ],
+  "forbiddenAuthority": [
+    "Landing runtime/pages/components/scripts/dependencies or any other manifest field",
+    "Expired-exception renewal, new exception or publishable-package authorization",
+    "Source-owned scope, CI/security/readiness weakening, forced/automatic merge",
+    "CORE/API/DB/money/provider/role/session/model or human legal/provenance authority"
+  ],
+  "teamHubDependency": "#5744 IP expiry blocker36794727081; original IP#4459; BANK hold5916270228; purpose#5749"
+};
+const landingMetadataFiles = [
+  {
+    "path": "apps/landing/package.json",
+    "mode": "100644",
+    "baselineBlob": "c80706ce0a424d57b2f7687bc0f4306f5c88a434",
+    "candidateBlob": "e693a061ea6d42a9c62cc1ab8350c3af904265a4",
+    "baselineContent": "{\n  \"name\": \"@pc/landing\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev -p 3001\",\n    \"build\": \"next build\",\n    \"start\": \"next start -p 3001\"\n  },\n  \"dependencies\": {\n    \"next\": \"14.2.35\",\n    \"react\": \"18.3.1\",\n    \"react-dom\": \"18.3.1\",\n    \"lucide-react\": \"0.460.0\",\n    \"clsx\": \"2.1.1\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"22.8.1\",\n    \"@types/react\": \"18.3.3\",\n    \"@types/react-dom\": \"18.3.0\",\n    \"autoprefixer\": \"10.4.18\",\n    \"postcss\": \"8.4.35\",\n    \"tailwindcss\": \"3.4.1\",\n    \"typescript\": \"5.6.3\"\n  }\n}\n",
+    "content": "{\n  \"name\": \"@pc/landing\",\n  \"private\": true,\n  \"license\": \"UNLICENSED\",\n  \"scripts\": {\n    \"dev\": \"next dev -p 3001\",\n    \"build\": \"next build\",\n    \"start\": \"next start -p 3001\"\n  },\n  \"dependencies\": {\n    \"next\": \"14.2.35\",\n    \"react\": \"18.3.1\",\n    \"react-dom\": \"18.3.1\",\n    \"lucide-react\": \"0.460.0\",\n    \"clsx\": \"2.1.1\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"22.8.1\",\n    \"@types/react\": \"18.3.3\",\n    \"@types/react-dom\": \"18.3.0\",\n    \"autoprefixer\": \"10.4.18\",\n    \"postcss\": \"8.4.35\",\n    \"tailwindcss\": \"3.4.1\",\n    \"typescript\": \"5.6.3\"\n  }\n}\n"
+  },
+  {
+    "path": "docs/ip/internal-package-metadata-exceptions.json",
+    "mode": "100644",
+    "baselineBlob": "872689ef5215d2b92429c465159fbf794259cc9f",
+    "candidateBlob": "c3eb22c2f4fc9ec3105e0203b7990de3b88dc345",
+    "baselineContent": "{\n  \"schemaVersion\": 1,\n  \"effectiveDate\": \"2026-08-21\",\n  \"exceptions\": [\n    {\n      \"path\": \"apps/landing/package.json\",\n      \"name\": \"@pc/landing\",\n      \"status\": \"OPEN_BLOCKER\",\n      \"requirePrivate\": true,\n      \"missingField\": \"license=UNLICENSED\",\n      \"reason\": \"AGENTS.md forbids changes under apps/landing in this bounded slice. The manifest remains non-publishable through private=true, but final IP status is blocked until a separately authorized metadata-only change adds license=UNLICENSED.\",\n      \"authority\": \"https://github.com/pachaninm-lab/pachanin-demo/issues/4459\",\n      \"expiresOn\": \"2026-09-30\"\n    }\n  ]\n}\n",
+    "content": "{\n  \"schemaVersion\": 1,\n  \"effectiveDate\": \"2026-08-21\",\n  \"exceptions\": []\n}\n"
+  }
+];
+const landingMetadataPaths = landingMetadataTemplate.allowedPaths;
+
+function landingAdmission(origin) {
+  return { ...structuredClone(landingMetadataTemplate), authorityBaseExactMain: origin };
+}
+function expectedAttestationScope(state) {
+  const admission = state.coordinationAdmissions?.[landingMetadataKey];
+  if (!admission) return [gitleaksReleaseAttestationPath];
+  assert.match(admission.authorityBaseExactMain, /^[0-9a-f]{40}$/u);
+  assert.deepEqual(admission, landingAdmission(admission.authorityBaseExactMain));
+  assert.deepEqual(state.coordinationAdmissions[landingMetadataPurposeKey], landingMetadataPurpose);
+  return [gitleaksReleaseAttestationPath, ...landingMetadataPaths];
+}
+function landingMetadataFixture(t, implementation = false) {
+  const context = currentGitleaksReleaseAttestationFixture(t);
+  if (!implementation) {
+    git(context.root, ['switch', '-c', landingMetadataAdmissionBranch]);
+    context.implementationBranch = landingMetadataAdmissionBranch;
+  }
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, landingMetadataStatePath), 'utf8'));
+  state.approvedConcurrentScopes[landingMetadataAdmissionBranch] = [...landingMetadataPurpose.allowedPaths];
+  state.coordinationAdmissions = {
+    retainedOwnerRecord: { owner: 'ORIGINAL_OWNER', purpose: 'unchanged existing authority' },
+    [landingMetadataPurposeKey]: structuredClone(landingMetadataPurpose),
+  };
+  state.current = 'R1.2';
+  state.fullTzReadinessPercent = 5;
+  write(context.root, landingMetadataStatePath, `${JSON.stringify(state, null, 2)}\n`);
+  for (const file of landingMetadataFiles) write(context.root, file.path, file.baselineContent);
+  commit(context.root, 'accepted purpose and exact original package metadata');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  context.admissionOrigin = context.baseline;
+  for (const file of landingMetadataFiles) assert.equal(git(context.root, ['rev-parse', `${context.baseline}:${file.path}`]), file.baselineBlob);
+  if (implementation) {
+    writeLandingAdmission(context);
+    commit(context.root, 'separately accepted state-only exact metadata admission');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  }
+  return context;
+}
+function writeLandingAdmission(context, mutate = () => {}) {
+  const state = JSON.parse(git(context.root, ['show', `${context.baseline}:${landingMetadataStatePath}`]));
+  state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [gitleaksReleaseAttestationPath, ...landingMetadataPaths];
+  state.coordinationAdmissions[landingMetadataKey] = landingAdmission(context.admissionOrigin);
+  mutate(state);
+  write(context.root, landingMetadataStatePath, `${JSON.stringify(state, null, 2)}\n`);
+}
+function changeLandingPair(context) {
+  for (const file of landingMetadataFiles) write(context.root, file.path, file.content);
+}
+function rejectLandingMetadata(context, pattern = /LANDING_METADATA|Mutable scope authority|Forbidden path|Files outside current autopilot scope/u) {
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), pattern);
+}
+function amendLandingBaseline(context, mutate) {
+  mutate(); commit(context.root, 'changed immutable fixture baseline');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+}
+
+test('landing metadata: native trusted-base routing already covers both existing refs', () => {
+  const state = JSON.parse(fs.readFileSync(landingMetadataStatePath, 'utf8'));
+  assert.deepEqual(state.coordinationAdmissions[landingMetadataPurposeKey], landingMetadataPurpose);
+  assert.deepEqual(state.approvedConcurrentScopes[landingMetadataAdmissionBranch], landingMetadataPurpose.allowedPaths);
+  assert.deepEqual(state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch], expectedAttestationScope(state));
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  for (const branch of [landingMetadataAdmissionBranch, gitleaksReleaseAttestationBranch]) {
+    assert.ok(workflow.includes(`github.event.pull_request.head.ref == '${branch}'`));
+  }
+  assert.ok(workflow.includes('BASE_REF="$BASE_SHA" HEAD_REF="$HEAD_SHA" GITHUB_HEAD_REF="$IMMUTABLE_SCOPE_BRANCH"'));
+});
+test('landing metadata: state-only admission preserves the original attestation path and all old authority', (t) => {
+  const context = landingMetadataFixture(t);
+  writeLandingAdmission(context); commit(context.root, 'exact state-only admission');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+test('landing metadata: exact two-file metadata phase passes only from accepted state', (t) => {
+  const context = landingMetadataFixture(t, true);
+  changeLandingPair(context); commit(context.root, 'only exact package normalization');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+test('landing metadata: original attestation-only phase still passes after metadata acceptance', (t) => {
+  const context = landingMetadataFixture(t, true);
+  changeLandingPair(context); commit(context.root, 'accepted metadata pair');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  const source = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(source));
+  commit(context.root, 'original exact two-fingerprint repair only');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+for (const [name, mutate] of [
+  ['missing metadata record', state => { delete state.coordinationAdmissions[landingMetadataKey]; }],
+  ['wrong exact origin', state => { state.coordinationAdmissions[landingMetadataKey].authorityBaseExactMain = 'a'.repeat(40); }],
+  ['source owner changed', state => { state.coordinationAdmissions[landingMetadataKey].owner = 'OTHER'; }],
+  ['original attestation path removed', state => { state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch].shift(); }],
+  ['metadata scope widened', state => { state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch].push('apps/landing/**'); }],
+  ['candidate blob changed', state => { state.coordinationAdmissions[landingMetadataKey].exactMetadataFiles[0].candidateBlob = 'b'.repeat(40); }],
+  ['old owner record changed', state => { state.coordinationAdmissions.retainedOwnerRecord.owner = 'OTHER'; }],
+  ['global current scope expanded', state => { state.allowedCurrentScope.push('apps/landing/**'); }],
+  ['official progress changed', state => { state.fullTzReadinessPercent = 100; }],
+  ['guard self-scope expanded', state => { state.approvedConcurrentScopes[landingMetadataAdmissionBranch].push(landingMetadataStatePath); }],
+  ['purpose weakened in candidate', state => { state.coordinationAdmissions[landingMetadataPurposeKey].forbiddenAuthority = []; }],
+]) {
+  test(`landing metadata admission rejects ${name}`, (t) => {
+    const context = landingMetadataFixture(t);
+    writeLandingAdmission(context, mutate); commit(context.root, name);
+    rejectLandingMetadata(context, /LANDING_METADATA_ADMISSION_STATE_MUTATION/u);
+  });
+}
+for (const file of ['README.md', 'scripts/p7-autopilot-guard.sh', ...landingMetadataPaths]) {
+  test(`landing metadata admission rejects mixed source ${file}`, (t) => {
+    const context = landingMetadataFixture(t); writeLandingAdmission(context);
+    const old = fs.readFileSync(path.join(context.root, file), 'utf8');
+    write(context.root, file, old + '\n'); commit(context.root, 'mixed admission/source');
+    rejectLandingMetadata(context, /LANDING_METADATA_ADMISSION_DIFF_SCOPE/u);
+  });
+}
+for (const [name, mutate] of [
+  ['missing trusted purpose', state => { delete state.coordinationAdmissions[landingMetadataPurposeKey]; }],
+  ['altered trusted purpose', state => { state.coordinationAdmissions[landingMetadataPurposeKey].owner = 'OTHER'; }],
+  ['guard scope widened in base', state => { state.approvedConcurrentScopes[landingMetadataAdmissionBranch].push('README.md'); }],
+  ['original attestation scope widened', state => { state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch].push('README.md'); }],
+  ['admission already present', state => { state.coordinationAdmissions[landingMetadataKey] = landingAdmission('a'.repeat(40)); }],
+]) {
+  test(`landing metadata admission rejects ${name}`, (t) => {
+    const context = landingMetadataFixture(t);
+    amendLandingBaseline(context, () => {
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, landingMetadataStatePath), 'utf8'));
+      mutate(state); write(context.root, landingMetadataStatePath, `${JSON.stringify(state, null, 2)}\n`);
+    });
+    context.admissionOrigin = context.baseline;
+    writeLandingAdmission(context); commit(context.root, 'attempt admission');
+    rejectLandingMetadata(context);
+  });
+}
+test('landing metadata admission rejects executable state', (t) => {
+  const context = landingMetadataFixture(t); writeLandingAdmission(context);
+  fs.chmodSync(path.join(context.root, landingMetadataStatePath), 0o755);
+  commit(context.root, 'executable state'); rejectLandingMetadata(context, /LANDING_METADATA_STATE_FILE_MODE/u);
+});
+test('landing metadata admission rejects state reformatting', (t) => {
+  const context = landingMetadataFixture(t); writeLandingAdmission(context);
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, landingMetadataStatePath), 'utf8'));
+  write(context.root, landingMetadataStatePath, JSON.stringify(state));
+  commit(context.root, 'state reformatting'); rejectLandingMetadata(context, /LANDING_METADATA_ADMISSION_STATE_MUTATION/u);
+});
+for (const [name, mutate] of [
+  ['missing accepted admission', state => { delete state.coordinationAdmissions[landingMetadataKey]; }],
+  ['altered accepted metadata pins', state => { state.coordinationAdmissions[landingMetadataKey].exactMetadataFiles[0].candidateBlob = 'b'.repeat(40); }],
+  ['altered accepted origin', state => { state.coordinationAdmissions[landingMetadataKey].authorityBaseExactMain = 'b'.repeat(40); }],
+  ['missing accepted original test path', state => { state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch].shift(); }],
+  ['altered accepted purpose', state => { state.coordinationAdmissions[landingMetadataPurposeKey].owner = 'OTHER'; }],
+]) {
+  test(`landing metadata implementation rejects ${name}`, (t) => {
+    const context = landingMetadataFixture(t, true);
+    amendLandingBaseline(context, () => {
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, landingMetadataStatePath), 'utf8'));
+      mutate(state); write(context.root, landingMetadataStatePath, `${JSON.stringify(state, null, 2)}\n`);
+    });
+    changeLandingPair(context); commit(context.root, 'attempt source'); rejectLandingMetadata(context);
+  });
+}
+for (const [name, fileIndex, mutate] of [
+  ['license changed', 0, source => source.replace('"UNLICENSED"', '"MIT"')],
+  ['private flag removed', 0, source => source.replace('  "private": true,\n', '')],
+  ['private flag false', 0, source => source.replace('"private": true', '"private": false')],
+  ['package name changed', 0, source => source.replace('@pc/landing', '@pc/other')],
+  ['build script changed', 0, source => source.replace('next build', 'next build && echo altered')],
+  ['dependency changed', 0, source => source.replace('14.2.35', '14.2.34')],
+  ['metadata field added', 0, source => source.replace('  "private": true,', '  "private": true,\n  "description": "changed",')],
+  ['register effective date changed', 1, source => source.replace('2026-08-21', '2026-10-01')],
+  ['register schema changed', 1, source => source.replace('"schemaVersion": 1', '"schemaVersion": 2')],
+  ['exception expiry extended', 1, () => landingMetadataFiles[1].baselineContent.replace('2026-09-30', '2026-12-31')],
+  ['stale completed exception retained', 1, () => landingMetadataFiles[1].baselineContent],
+]) {
+  test(`landing metadata implementation rejects ${name}`, (t) => {
+    const context = landingMetadataFixture(t, true); changeLandingPair(context);
+    const file = landingMetadataFiles[fileIndex]; write(context.root, file.path, mutate(file.content));
+    commit(context.root, name); rejectLandingMetadata(context);
+  });
+}
+for (const file of [gitleaksReleaseAttestationPath, 'scripts/p7-autopilot-guard.sh', landingMetadataStatePath, 'apps/landing/app/page.tsx', 'docs/ip/publishable-packages.json']) {
+  test(`landing metadata implementation rejects mixed source ${file}`, (t) => {
+    const context = landingMetadataFixture(t, true); changeLandingPair(context);
+    if (file === gitleaksReleaseAttestationPath) {
+      write(context.root, file, synchronizeCurrentGitleaksReleaseAttestation(fs.readFileSync(path.join(context.root, file), 'utf8')));
+    } else write(context.root, file, `${fs.existsSync(path.join(context.root, file)) ? fs.readFileSync(path.join(context.root, file), 'utf8') : ''}\n`);
+    commit(context.root, 'mixed metadata authority'); rejectLandingMetadata(context, /LANDING_METADATA_IMPLEMENTATION_DIFF_SCOPE/u);
+  });
+}
+for (let missing = 0; missing < landingMetadataFiles.length; missing++) {
+  test(`landing metadata implementation rejects missing paired file ${missing}`, (t) => {
+    const context = landingMetadataFixture(t, true);
+    const file = landingMetadataFiles[1 - missing]; write(context.root, file.path, file.content);
+    commit(context.root, 'incomplete pair'); rejectLandingMetadata(context, /LANDING_METADATA_IMPLEMENTATION_DIFF_SCOPE/u);
+  });
+}
+for (const file of landingMetadataFiles) {
+  for (const kind of ['executable', 'symlink', 'rename', 'baseline drift']) {
+    test(`landing metadata implementation rejects ${kind} ${file.path}`, (t) => {
+      const context = landingMetadataFixture(t, true);
+      if (kind === 'baseline drift') amendLandingBaseline(context, () => write(context.root, file.path, file.baselineContent + '\n'));
+      changeLandingPair(context);
+      if (kind === 'executable') fs.chmodSync(path.join(context.root, file.path), 0o755);
+      if (kind === 'symlink') { fs.unlinkSync(path.join(context.root, file.path)); fs.symlinkSync('../../README.md', path.join(context.root, file.path)); }
+      if (kind === 'rename') fs.renameSync(path.join(context.root, file.path), path.join(context.root, file.path + '.renamed'));
+      commit(context.root, kind); rejectLandingMetadata(context);
+    });
+  }
+}
+test('landing metadata: dirty correct bytes cannot rescue wrong committed source', (t) => {
+  const context = landingMetadataFixture(t, true); changeLandingPair(context);
+  write(context.root, landingMetadataFiles[0].path, landingMetadataFiles[0].content.replace('UNLICENSED', 'MIT'));
+  commit(context.root, 'wrong committed license'); changeLandingPair(context);
+  rejectLandingMetadata(context, /LANDING_METADATA_EXACT_FILE/u);
+});
+test('landing metadata: candidate guard cannot authorize source without accepted admission', (t) => {
+  const context = landingMetadataFixture(t);
+  git(context.root, ['switch', gitleaksReleaseAttestationBranch]);
+  git(context.root, ['merge', '--ff-only', context.baseline]); context.implementationBranch = gitleaksReleaseAttestationBranch;
+  write(context.root, 'scripts/p7-autopilot-guard.sh', '#!/bin/bash\nexit 0\n', 0o755);
+  changeLandingPair(context); commit(context.root, 'candidate guard self-admission');
+  rejectLandingMetadata(context, /LANDING_METADATA_ACCEPTED_ADMISSION_MISMATCH/u);
+});
+test('landing metadata: ordinary guard phase cannot include landing source', (t) => {
+  const context = landingMetadataFixture(t);
+  write(context.root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8') + '\n');
+  changeLandingPair(context); commit(context.root, 'guard/source mixed phase');
+  rejectLandingMetadata(context, /Forbidden path/u);
+});
+
+const dealLocalePurposeKey = 'deal-destination-locale-guard-purpose-20261001';
+const dealLocaleAdmissionKey = 'deal-destination-locale-20261001';
+const dealLocalePurpose = {
+  "owner": "ACCOUNT_1_EXECUTION",
+  "presentationContributor": "ACCOUNT_2_PRODUCT",
+  "purpose": "Renew the existing accepted three-path PRODUCT guard ref for separately admitted RU/EN/ZH presentation on the actual protected Deal destination, resolving #5735 destination-language finding without changing command or server authority.",
+  "authorityBaseExactMain": "2d0db1af028b9d9d17d5a1e84a4dbe86ec990d68",
+  "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+  "allowedPaths": [
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-autopilot-guard.test.mjs",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
+  ],
+  "futureAdmissionBranch": "governance/product-deal-runtime-admission-20260929",
+  "futureImplementationBranch": "ux/deal-runtime-unknown-20260929",
+  "futureAdditionalSourcePaths": [
+    "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+    "apps/web/components/platform-v7/DealCommandForm.tsx",
+    "apps/web/i18n/transaction-deal-copy.ts",
+    "packages/design-system-v8/src/components.tsx"
+  ],
+  "reviewedPrivatePayload": {
+    "sha256": "6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e",
+    "sourceComments": [
+      5908067884,
+      5908071391
+    ],
+    "authorAuditComment": 5908085804,
+    "independentPrivateReviewComment": 5916309103
+  },
+  "requiredTruthBoundaries": [
+    "This one-file purpose record admits no runtime, test, workflow or new source path. Global/current/R1.2 scopes, approvedConcurrentScopes, every existing admission, progress and maturity remain unchanged.",
+    "After this purpose is independently reviewed and accepted, use the existing already admitted three-path guard ref for a separate trusted-base literal guard repair and adversarial tests. Preserve all existing admission phases, metadata/attestation routes and trusted-base plus PR-head defense.",
+    "The guard must define a separate exact state-only extension phase on the existing Deal-runtime admission ref. Preserve the full original five-path runtime scope and add only the four listed paths in a later independently reviewed accepted state. Candidate-owned state or a manifest cannot grant implementation authority.",
+    "Publish no Deal locale source before the separately accepted guard and state-only source extension. Use the existing production-resolved transaction-ux workspace and NextIntl request locale; keep the facade, tsconfig mapping, shell and approved design.",
+    "Preserve all original UNKNOWN attempt identity, immutable request fingerprint, draft/review/focus state, exact server role/tenant/Deal/action permissions, CSRF, GET-only recovery and duplicate command prevention. Locale changes affect presentation only.",
+    "The captured six-file private payload and its bounded review are support, not current-head CI, admission, native account approval, full browser acceptance or production evidence. Obtain fresh independent whole-source review, author audit and every applicable CI/security/readiness gate after actual adoption.",
+    "Preserve original source authors and canonical CORE ownership. Queue the shared guard writer and any main/release action after the current Gekta owner window; do not overwrite another owner's ref or issue a competing deployment command.",
+    "Require normal expected-full-SHA manual merges and exact-current-main REG.RU OCI/container/live acceptance followed by the ordinary authorized bank queue to the same Deal in RU/EN/ZH. Public or seeded fixture evidence does not close protected bank, 13-cabinet or provider acceptance."
+  ],
+  "forbiddenAuthority": [
+    "Direct runtime/test/source admission, permission-vector changes or another owner's branch mutation in this purpose PR",
+    "Backend/API/DB/RLS/tenant/role/session/command/payment/provider/FGIS or legal authority",
+    "Design or App Shell replacement, duplicate Deal core, alias removal, business-status or external-success inference",
+    "CI/security/readiness/independent-review weakening, fake PASS, forced/automatic merge, production/model mutation or new recurring cost"
+  ],
+  "teamHubDependency": "#5735 P2 thread4142098743; source5908067884/5908071391; private review5916309103; #5699; current Gekta next window5924684608"
+};
+const dealLocaleAdditionalPaths = [
+  "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+  "apps/web/components/platform-v7/DealCommandForm.tsx",
+  "apps/web/i18n/transaction-deal-copy.ts",
+  "packages/design-system-v8/src/components.tsx"
+];
+const dealLocaleSourcePaths = [
+  "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+  "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+  "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+  "apps/web/components/platform-v7/DealCommandForm.tsx",
+  "apps/web/i18n/transaction-deal-copy.ts",
+  "packages/design-system-v8/src/components.tsx"
+];
+const dealLocalePins = [
+  [
+    "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+    "6f980ea5c83dc9776d51fe01b6f33bf21704a037",
+    "be57e8931fc5a056ed59039d9bf0da6f98aeb6fe"
+  ],
+  [
+    "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+    "4cf04d22287002bf90888847153bfe9759d8e1fd",
+    "1c669249fcf4451bc0655f506d975edc069fe81c"
+  ],
+  [
+    "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+    "699ae74d30128e72ccad0a4559ad40944b3ecda8",
+    "2099bb5fcd731368ffccecd096ebb10320379257"
+  ],
+  [
+    "apps/web/components/platform-v7/DealCommandForm.tsx",
+    "7bde1116c8e84e2f253da69431d867ceaa90663d",
+    "aba1af6c10dbbee0cee25cb13bdbce40145024a2"
+  ],
+  [
+    "apps/web/i18n/transaction-deal-copy.ts",
+    null,
+    "4db89dfdec3f5f871760461a60dd2f89194329a1"
+  ],
+  [
+    "packages/design-system-v8/src/components.tsx",
+    "3f95e51e99858debcd3f784e5b77b05be9619ccd",
+    "3f29bfef940801667273f066a02d34f20c2be8b5"
+  ]
+];
+function dealLocaleAdmissionRecord(authorityBaseExactMain) {
+  return {
+    owner: 'ACCOUNT_1_EXECUTION',
+    presentationContributor: 'ACCOUNT_2_PRODUCT',
+    sourceOwnerRetained: 'ACCOUNT_1_EXECUTION',
+    purpose: 'Apply only the already reviewed RU/EN/ZH protected Deal presentation payload while preserving canonical UNKNOWN recovery and server authority.',
+    authorityBaseExactMain,
+    implementationBranch: dealRuntimeImplementationBranch,
+    allowedPaths: [...dealRuntimePaths, ...dealLocaleAdditionalPaths],
+    exactSourcePaths: [...dealLocaleSourcePaths],
+    exactSourcePins: structuredClone(dealLocalePins),
+    reviewedPrivatePayloadSha256: '6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e',
+    requiredTruthBoundaries: [
+      'Presentation only; actual route/locale/workspace/form and stable metadata labels. Original command controls, owner, identity, UNKNOWN/fingerprint, CSRF and permissions remain canonical.',
+      'The original five-path scope and all old records remain intact. This locale phase permits exactly the six pinned source/test files; it does not permit workflow, registry, generated inventory or scope changes.',
+      'No private source review transfers to an adopted SHA. Fresh whole-head nonauthor review, owner audit, native CI/security/readiness, expected-SHA merge and exact REG.RU protected acceptance remain required.',
+    ],
+    forbiddenAuthority: ['API/DB/role/tenant/money/provider/FGIS authority', 'Source-owned scope or guard changes', 'CI/security/readiness or review weakening', 'False live or external success'],
+  };
+}
+// Captured six-file payload from #5735 comments5908067884/5908071391.
+// Compressed only to avoid duplicating 103071 bytes of source in this guard test.
+// Its fixed SHA-256 and every actual old/new Git blob are verified below.
+const dealLocalePinnedPatch = inflateSync(Buffer.from([
+  "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",
+].join(''), 'base64'));
+assert.equal(createHash('sha256').update(dealLocalePinnedPatch).digest('hex'),
+  '6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e');
+function actualLocaleBaselineBlob(blob) {
+  const result = spawnSync('git', ['cat-file', 'blob', blob], { cwd: process.cwd() });
+  assert.equal(result.status, 0, `full-history guard checkout must contain accepted blob ${blob}: ${result.stderr}`);
+  const bytes = result.stdout;
+  assert.equal(createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex'), blob);
+  return bytes;
+}
+function assertActualLocalePins(context, ref, candidate, changedMode = null) {
+  for (const [file, oldBlob, newBlob] of dealLocalePins) {
+    const blob = candidate ? newBlob : oldBlob;
+    const mode = changedMode?.file === file ? changedMode.mode : '100644';
+    assert.equal(git(context.root, ['ls-tree', ref, '--', file]),
+      blob === null ? '' : `${mode} blob ${blob}\t${file}`, `actual source pin: ${file}`);
+  }
+}
+function applyActualPinnedLocaleSource(context) {
+  assertActualLocalePins(context, context.baseline, false);
+  const applied = spawnSync('git', ['apply', '--index', '--whitespace=nowarn', '-'], {
+    cwd: context.root, input: dealLocalePinnedPatch, encoding: 'utf8',
+  });
+  assert.equal(applied.status, 0, output(applied));
+  git(context.root, ['commit', '-m', 'actual six pinned locale source transitions']);
+  assertActualLocalePins(context, 'HEAD', true);
+}
+function runLocaleModeBypassControl(context) {
+  const source = git(context.root, ['show', `${context.baseline}:scripts/p7-autopilot-guard.sh`]);
+  const condition = "before !== `100644 blob ${oldBlob}\\t${file}`) ||\n              after !== `100644 blob ${newBlob}\\t${file}`";
+  const withoutMode = "before.slice(7) !== `blob ${oldBlob}\\t${file}`) ||\n              after.slice(7) !== `blob ${newBlob}\\t${file}`";
+  assert.equal(source.split(condition).length, 2, 'change only the locale regular-mode predicate');
+  const control = path.join(context.root, '.git', 'locale-mode-bypass-control.sh');
+  fs.writeFileSync(control, source.replace(condition, withoutMode));
+  return spawnSync('bash', [control], {
+    cwd: context.root,
+    env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: context.implementationBranch },
+    encoding: 'utf8',
+  });
+}
+function dealLocaleFixture(t, { implementation = false, accepted = false, pinnedSources = false, mutateBase = () => {} } = {}) {
+  const context = dealRuntimeFixture(t, { admitted: true, admission: !implementation });
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  state.coordinationAdmissions[dealLocalePurposeKey] = structuredClone(dealLocalePurpose);
+  mutateBase(state);
+  for (const [file, oldBlob] of dealLocalePins) {
+    if (oldBlob !== null) write(context.root, file, pinnedSources ? actualLocaleBaselineBlob(oldBlob) : 'isolated locale baseline: ' + file + '\n');
+  }
+  write(context.root, dealRuntimeStatePath, JSON.stringify(state, null, 2) + '\n');
+  commit(context.root, 'separately accepted locale purpose fixture');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  if (accepted) {
+    const after = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+    after.approvedConcurrentScopes[dealRuntimeImplementationBranch] = [...dealRuntimePaths, ...dealLocaleAdditionalPaths];
+    after.coordinationAdmissions[dealLocaleAdmissionKey] = dealLocaleAdmissionRecord(context.baseline);
+    write(context.root, dealRuntimeStatePath, JSON.stringify(after, null, 2) + '\n');
+    commit(context.root, 'separately accepted locale source admission fixture');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  }
+  return context;
+}
+function extendDealLocale(context, mutate = () => {}) {
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  state.approvedConcurrentScopes[dealRuntimeImplementationBranch] = [...dealRuntimePaths, ...dealLocaleAdditionalPaths];
+  state.coordinationAdmissions[dealLocaleAdmissionKey] = dealLocaleAdmissionRecord(context.baseline);
+  mutate(state);
+  write(context.root, dealRuntimeStatePath, JSON.stringify(state, null, 2) + '\n');
+}
+function rejectDealLocale(context) {
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /DEAL_LOCALE_|DEAL_RUNTIME_|Mutable scope|outside current/u);
+}
+test('Deal locale: exact state-only extension preserves the old five paths and old authority', (t) => {
+  const context = dealLocaleFixture(t);
+  extendDealLocale(context);
+  commit(context.root, 'exact four-path extension');
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+const localeStateAttacks = [
+  ['extra source permission', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].push('apps/api/src/app.module.ts')],
+  ['removed old permission', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].shift()],
+  ['reordered permission vector', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].reverse()],
+  ['duplicate permission', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].push(dealLocaleAdditionalPaths[0])],
+  ['primary scope expansion', (s) => s.allowedCurrentScope.push('**')],
+  ['changed current step', (s) => { s.current = 'bank source authority'; }],
+  ['changed old runtime owner', (s) => { s.coordinationAdmissions[dealRuntimeCoordinationKey].owner = 'ACCOUNT_2_PRODUCT'; }],
+  ['changed retained owner', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].sourceOwnerRetained = 'ACCOUNT_2_PRODUCT'; }],
+  ['changed locale authority owner', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].owner = 'ACCOUNT_2_PRODUCT'; }],
+  ['changed presentation contributor to authority owner', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].presentationContributor = 'ACCOUNT_1_EXECUTION'; }],
+  ['changed old renewal', (s) => { s.coordinationAdmissions[dealRuntimeRenewalKey].purpose = 'arbitrary source'; }],
+  ['changed accepted purpose', (s) => { s.coordinationAdmissions[dealLocalePurposeKey].futureAdditionalSourcePaths.push('apps/api/src/app.module.ts'); }],
+  ['changed source pin', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].exactSourcePins[0][2] = 'a'.repeat(40); }],
+  ['changed source catalogue', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].exactSourcePaths = ['apps/api/src/app.module.ts']; }],
+  ['changed payload identity', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].reviewedPrivatePayloadSha256 = 'a'.repeat(64); }],
+  ['changed acceptance base', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].authorityBaseExactMain = 'a'.repeat(40); }],
+  ['unrelated added record', (s) => { s.coordinationAdmissions.extra = {}; }],
+];
+for (const [name, attack] of localeStateAttacks) {
+  test('Deal locale: rejects state admission ' + name, (t) => {
+    const context = dealLocaleFixture(t);
+    extendDealLocale(context, attack);
+    commit(context.root, 'invalid state extension');
+    rejectDealLocale(context);
+  });
+}
+test('Deal locale: rejects mixed state admission and runtime source', (t) => {
+  const context = dealLocaleFixture(t);
+  extendDealLocale(context);
+  write(context.root, dealRuntimePaths[0], 'unadmitted runtime source\n');
+  commit(context.root, 'mixed admission and runtime');
+  rejectDealLocale(context);
+});
+test('Deal locale: rejects executable state admission', (t) => {
+  const context = dealLocaleFixture(t);
+  extendDealLocale(context);
+  fs.chmodSync(path.join(context.root, dealRuntimeStatePath), 0o755);
+  commit(context.root, 'executable state');
+  rejectDealLocale(context);
+});
+test('Deal locale: rejects a purpose fabricated only in the candidate', (t) => {
+  const context = dealLocaleFixture(t, { mutateBase: (s) => { delete s.coordinationAdmissions[dealLocalePurposeKey]; } });
+  extendDealLocale(context, (s) => { s.coordinationAdmissions[dealLocalePurposeKey] = structuredClone(dealLocalePurpose); });
+  commit(context.root, 'self-admitted purpose');
+  rejectDealLocale(context);
+});
+test('Deal locale: rejects an altered purpose in the accepted base', (t) => {
+  const context = dealLocaleFixture(t, { mutateBase: (s) => { s.coordinationAdmissions[dealLocalePurposeKey].owner = 'ACCOUNT_2_PRODUCT'; } });
+  extendDealLocale(context);
+  commit(context.root, 'extension under different purpose');
+  rejectDealLocale(context);
+});
+test('Deal locale: rejects a prior scope extended before exact admission', (t) => {
+  const context = dealLocaleFixture(t, { mutateBase: (s) => { s.approvedConcurrentScopes[dealRuntimeImplementationBranch].push('extra.ts'); } });
+  extendDealLocale(context);
+  commit(context.root, 'premature scope extension');
+  rejectDealLocale(context);
+});
+test('Deal locale: purpose alone never authorizes implementation', (t) => {
+  const context = dealLocaleFixture(t, { implementation: true });
+  changeDealRuntime(context);
+  rejectDealLocale(context);
+});
+test('Deal locale: accepts all six actual pinned source transitions', (t) => {
+  const context = dealLocaleFixture(t, { implementation: true, accepted: true, pinnedSources: true });
+  applyActualPinnedLocaleSource(context);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+for (const [name, mutate] of [
+  ['replacement of one actual pinned source blob', (c) => write(c.root, dealLocaleSourcePaths[0], 'incorrect candidate bytes\n')],
+  ['additional backend source', (c) => write(c.root, 'apps/api/src/app.module.ts', 'unapproved backend\n')],
+  ['implementation-owned state', (c) => { const s = JSON.parse(fs.readFileSync(path.join(c.root, dealRuntimeStatePath), 'utf8')); s.allowedCurrentScope.push('**'); write(c.root, dealRuntimeStatePath, JSON.stringify(s) + '\n'); }],
+  ['mixed workflow change', (c) => write(c.root, dealRuntimePaths[3], 'weakened CI\n')],
+  ['removed original recovery test', (c) => fs.rmSync(path.join(c.root, dealLocaleSourcePaths[1]))],
+]) {
+  test('Deal locale: rejects source phase ' + name, (t) => {
+    const context = dealLocaleFixture(t, { implementation: true, accepted: true, pinnedSources: true });
+    applyActualPinnedLocaleSource(context);
+    mutate(context);
+    commit(context.root, 'untrusted locale source');
+    rejectDealLocale(context);
+  });
+}
+for (const [name, file, mode] of [
+  ['executable presentation file', dealLocaleSourcePaths[0], '100755'],
+  ['symbolic-link catalogue', dealLocaleAdditionalPaths[2], '120000'],
+]) {
+  test('Deal locale: rejects source phase ' + name + ' with every content pin valid', (t) => {
+    const context = dealLocaleFixture(t, { implementation: true, accepted: true, pinnedSources: true });
+    applyActualPinnedLocaleSource(context);
+    const newBlob = dealLocalePins.find(([path]) => path === file)[2];
+    // Git tree mutation retains the identical pinned blob, including for a
+    // symlink: no different link-target bytes can mask the type/mode check.
+    git(context.root, ['update-index', '--cacheinfo', `${mode},${newBlob},${file}`]);
+    git(context.root, ['commit', '-m', 'one source mode mutation; immutable bytes retained']);
+    assertActualLocalePins(context, context.baseline, false);
+    assertActualLocalePins(context, 'HEAD', true, { file, mode });
+    const rejected = runTrustedDealRuntimeGuard(context);
+    assert.notEqual(rejected.status, 0, output(rejected));
+    assert.ok(output(rejected).includes('DEAL_LOCALE_SOURCE_PIN_OR_MODE_MISMATCH:' + file), output(rejected));
+    const bypassed = runLocaleModeBypassControl(context);
+    assert.equal(bypassed.status, 0, 'this attack must pass only if regular-mode enforcement is removed: ' + output(bypassed));
+  });
+}

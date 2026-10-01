@@ -383,9 +383,9 @@ assert.equal(head, baseline + approvedAppend, 'W1 historical scan exceptions mus
 JS
 fi
 
-# This repair may only synchronize the release-authority assertion with four
-# already-reviewed entries in .gitleaksignore. Bind the trusted scope to the
-# exact textual transformation so the implementation cannot weaken the test.
+# This repair may only synchronize the release-authority assertion with reviewed
+# entries in .gitleaksignore. Each accepted transformation is bound by the trusted
+# base; the implementation cannot weaken the test or authorize new exceptions.
 if [ "$CURRENT_BRANCH" = "$GITLEAKS_RELEASE_ATTESTATION_BRANCH" ] && printf '%s\n' "$DIFF_FILES" | grep -Fxq 'apps/tai/tests/test_gitleaks_release_authority.py'; then
   P7_ATTESTATION_BASE="$BASE_REF" P7_ATTESTATION_HEAD="$HEAD_REF" node - <<'JS'
 const assert = require('node:assert/strict');
@@ -394,6 +394,34 @@ const path = 'apps/tai/tests/test_gitleaks_release_authority.py';
 const read = ref => execFileSync('git', ['show', `${ref}:${path}`], { encoding: 'utf8' });
 const baseline = read(process.env.P7_ATTESTATION_BASE);
 const head = read(process.env.P7_ATTESTATION_HEAD);
+const currentBaselineBlob = 'e589046fc52daf8a3632f70b6879543934be56ff';
+const treeEntry = (ref, file) => execFileSync('git', ['ls-tree', ref, '--', file], { encoding: 'utf8' }).trim();
+const baselineBlob = execFileSync('git', ['rev-parse', `${process.env.P7_ATTESTATION_BASE}:${path}`], { encoding: 'utf8' }).trim();
+if (baselineBlob === currentBaselineBlob) {
+  assert.equal(treeEntry(process.env.P7_ATTESTATION_BASE, path), `100644 blob ${currentBaselineBlob}\t${path}`, 'Gitleaks release attestation baseline must be the exact accepted regular file');
+  assert.equal(treeEntry(process.env.P7_ATTESTATION_HEAD, path), `100644 blob 404e172449f53c01369ef974a50079d6f6967d56\t${path}`, 'Gitleaks release attestation head must be the exact two-fingerprint regular-file repair');
+  const acceptedInputs = {
+    '.gitleaksignore': '5c151dc1a2b5329fb2d4feb1fd0c1713bbef96db',
+    'apps/tai/release-source-manifest.json': '35f96ccc7fe332ddd90454eeee19853ba0612b71',
+  };
+  for (const [file, blob] of Object.entries(acceptedInputs)) {
+    for (const ref of [process.env.P7_ATTESTATION_BASE, process.env.P7_ATTESTATION_HEAD]) {
+      assert.equal(treeEntry(ref, file), `100644 blob ${blob}\t${file}`, `Gitleaks release attestation input must remain the exact accepted regular file: ${file}`);
+    }
+  }
+  const currentAnchor =
+    '        "db4f0a50b8df0a5e1045d3b9dc6a6fdc9d2806b0:"\n' +
+    '        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:1018",\n';
+  const twoExistingFingerprints =
+    '        "2dbd66d9bf258113272825d7b082b20e3b15a2b6:"\n' +
+    '        "docs/platform-v7/autopilot/autopilot-state.json:generic-api-key:2713",\n' +
+    '        "3b76d0f3473b986b6354aaac528994f7ac343df2:"\n' +
+    '        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"\n' +
+    '        "generic-api-key:17",\n';
+  assert.equal(baseline.split(currentAnchor).length - 1, 1, 'Gitleaks release attestation current anchor must occur exactly once');
+  assert.equal(head, baseline.replace(currentAnchor, currentAnchor + twoExistingFingerprints), 'Gitleaks release attestation repair must add exactly two existing fingerprints and preserve every existing byte and assertion');
+} else {
+// Preserve the historical four-fingerprint transformation and its negative gates.
 const insertAfterCommodity =
   '        "generic-api-key:11",\n';
 const serviceMarketplace =
@@ -426,6 +454,7 @@ expected = replaceExactlyOnce(
   'SDIZ',
 );
 assert.equal(head, expected, 'Gitleaks release attestation repair must add exactly four reviewed fingerprints and preserve every existing assertion');
+}
 JS
 fi
 
@@ -462,7 +491,7 @@ if [ "${GITHUB_HEAD_REF:-}" = "fix/exact-main-live-evidence-2659" ]; then
 fi
 
 if is_immutable_scope_branch "$CURRENT_BRANCH"; then
-  APPROVED_BRANCH_SCOPE=$(BASE_REF="$BASE_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" PUBLIC_HOME_IMPLEMENTATION_BRANCH="$PUBLIC_HOME_IMPLEMENTATION_BRANCH" PUBLIC_HOME_GOVERNANCE_MANIFEST="$PUBLIC_HOME_GOVERNANCE_MANIFEST" PUBLIC_HOME_IMPLEMENTATION_MANIFEST="$PUBLIC_HOME_IMPLEMENTATION_MANIFEST" POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH="$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" POISON_ISOLATION_IMPLEMENTATION_BRANCH="$POISON_ISOLATION_IMPLEMENTATION_BRANCH" POISON_ISOLATION_MANIFEST="$POISON_ISOLATION_MANIFEST" node - <<'JS'
+  APPROVED_BRANCH_SCOPE=$(BASE_REF="$BASE_REF" HEAD_REF="$HEAD_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" PUBLIC_HOME_IMPLEMENTATION_BRANCH="$PUBLIC_HOME_IMPLEMENTATION_BRANCH" PUBLIC_HOME_GOVERNANCE_MANIFEST="$PUBLIC_HOME_GOVERNANCE_MANIFEST" PUBLIC_HOME_IMPLEMENTATION_MANIFEST="$PUBLIC_HOME_IMPLEMENTATION_MANIFEST" POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH="$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" POISON_ISOLATION_IMPLEMENTATION_BRANCH="$POISON_ISOLATION_IMPLEMENTATION_BRANCH" POISON_ISOLATION_MANIFEST="$POISON_ISOLATION_MANIFEST" node - <<'JS'
 const { execFileSync } = require('node:child_process');
 
 const baseRef = String(process.env.BASE_REF || '').trim();
@@ -555,6 +584,152 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
   }
   scopes = state.approvedConcurrentScopes?.[branch];
 
+  // These are separate phases on existing trusted-base-routed refs. The guard
+  // repair itself keeps its three-path scope and cannot admit metadata source.
+  if (branch === "governance/pc-crop-post-registration-progress-scope-4997" || branch === "fix/gitleaks-release-authority-attestation-20260912") {
+    const assert = require('node:assert/strict');
+    const { isDeepStrictEqual } = require('node:util');
+    const requiredPurpose = {
+  "owner": "ACCOUNT_2_PRODUCT",
+  "purpose": "Bounded critical-path renewal of the existing trusted three-path guard ref for a separately admitted exact metadata-only repair of the expired internal landing-package exception; close the existing no-publish metadata blocker without renewing its expiry or changing application/licensing/provenance truth.",
+  "authorityBaseExactMain": "7a90199a40a86cdc129f804780a8f2635cf0bccb",
+  "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+  "allowedPaths": [
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-autopilot-guard.test.mjs",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
+  ],
+  "futureMetadataAdmissionBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+  "futureMetadataImplementationBranch": "fix/gitleaks-release-authority-attestation-20260912",
+  "requiredTruthBoundaries": [
+    "The current full-head #5744 native SBOM/IP run36794727081/job110155435088 fails because the preexisting apps/landing/package.json metadata exception expired on2026-09-30. Original IP program#4459 and the existing exception require a separately authorized metadata-only addition of license=UNLICENSED; the package already remains private=true.",
+    "This purpose-only prerequisite admits no landing implementation or metadata file and changes no primary/global/R1.2/approvedConcurrentScopes/old admissions/progress. Publish a separate trusted guard repair within the already accepted three-path scope only after actual independent review, all current gates and ordinary expected-full-SHA acceptance of this purpose.",
+    "The later guard must define distinct state-only admission and exact two-file metadata implementation phases on the already registered trusted-guard and Gitleaks refs. Existing native trusted-base routing remains unchanged; no workflow/IP waiver. Preserve the original one-file Gitleaks attestation phase and add only the separately accepted exact metadata pair to that existing branch scope. Source scope and exact baseline/candidate blobs must come from accepted trusted base; candidate-owned state/guard cannot grant authority.",
+    "Permit only apps/landing/package.json100644 c80706ce0a424d57b2f7687bc0f4306f5c88a434→e693a061ea6d42a9c62cc1ab8350c3af904265a4 (one license field, all scripts/dependencies/private/name/other bytes preserved) and docs/ip/internal-package-metadata-exceptions.json100644872689ef5215d2b92429c465159fbf794259cc9f→c3eb22c2f4fc9ec3105e0203b7990de3b88dc345 (remove only that completed exception; schema/effective date preserved).",
+    "Preserve the general apps/landing prohibition and every old security/attestation gate. Permit the exact metadata pair only in its separately accepted phase on the existing trusted Gitleaks ref, with exact baseline/head blobs and regular modes; reject mixed metadata/test/runtime edits, other manifest fields, expiry extension, stale or altered exceptions, source self-expansion and baseline/mode drift using real Git fixtures.",
+    "Accept the guard before the separate state-only exact-content source admission; accept that admission before publishing either metadata file. Metadata/private-package checks do not prove proprietary authorship, third-party rights, human assignments, full IP/security completion or production acceptance.",
+    "Keep the sole BANK continuation220/workspace0b9 window held. Preserve the immutable #5744 test candidate while the distinct metadata prerequisite uses the same existing trusted source ref under separate source admission and fresh PR review. After accepted metadata normalization, restore the original one-file #5744 repair on actual current main and renew every review/CI/readiness result before bounded exact-current-main canonical REG.RU web release and actual OCI/live/downstream evidence."
+  ],
+  "forbiddenAuthority": [
+    "Landing page/runtime/component/script/dependency changes or general landing access",
+    "Exception expiry extension, CI/security/license/scanner weakening or required-check override",
+    "Direct metadata source admission in this purpose or later guard PR; source-owned mutable scope authority",
+    "CORE/API/DB/provider/money/role/session/model or human legal/provenance authority",
+    "Forced/automatic merge, stale review transfer, new recurring costs or false production/whole-block PASS"
+  ],
+  "teamHubDependency": "#5744 native IP metadata expiry blocker36794727081; original#4459 metadata baseline; held BANK critical path/window5916270228"
+};
+    const metadataTemplate = {
+  "owner": "ACCOUNT_2_PRODUCT",
+  "purpose": "Normalize only the already-private internal landing package license metadata and remove its completed exception; no application, dependency, publication or legal-rights change.",
+  "implementationBranch": "fix/gitleaks-release-authority-attestation-20260912",
+  "allowedPaths": [
+    "apps/landing/package.json",
+    "docs/ip/internal-package-metadata-exceptions.json"
+  ],
+  "preservedAttestationPaths": [
+    "apps/tai/tests/test_gitleaks_release_authority.py"
+  ],
+  "exactMetadataFiles": [
+    {
+      "path": "apps/landing/package.json",
+      "mode": "100644",
+      "baselineBlob": "c80706ce0a424d57b2f7687bc0f4306f5c88a434",
+      "candidateBlob": "e693a061ea6d42a9c62cc1ab8350c3af904265a4"
+    },
+    {
+      "path": "docs/ip/internal-package-metadata-exceptions.json",
+      "mode": "100644",
+      "baselineBlob": "872689ef5215d2b92429c465159fbf794259cc9f",
+      "candidateBlob": "c3eb22c2f4fc9ec3105e0203b7990de3b88dc345"
+    }
+  ],
+  "requiredTruthBoundaries": [
+    "Only add license=UNLICENSED to the existing private=true manifest and remove exactly its completed metadata exception; every other manifest byte and register schema/effective date remains unchanged.",
+    "Source authority comes only from separately accepted base purpose, guard and state-only admission. The implementation cannot modify state, guard, workflow, scope or publishable-package authority.",
+    "The existing attestation ref has distinct test-only and metadata-only phases. Preserve the original test path and its exact fingerprint guard; reject mixed metadata/test changes.",
+    "Preserve the general landing prohibition, all existing CI/security/attestation checks, provenance and third-party/human legal remainder. No expiry extension or proprietary ownership claim.",
+    "Fresh whole-head independent review, native private-package/IP/security/source checks and manual full-expected-SHA readiness/merge required; current-main REG.RU release remains a separate acceptance."
+  ],
+  "forbiddenAuthority": [
+    "Landing runtime/pages/components/scripts/dependencies or any other manifest field",
+    "Expired-exception renewal, new exception or publishable-package authorization",
+    "Source-owned scope, CI/security/readiness weakening, forced/automatic merge",
+    "CORE/API/DB/money/provider/role/session/model or human legal/provenance authority"
+  ],
+  "teamHubDependency": "#5744 IP expiry blocker36794727081; original IP#4459; BANK hold5916270228; purpose#5749"
+};
+    const metadataKey = "landing-package-metadata-20261001";
+    const metadataPaths = metadataTemplate.allowedPaths;
+    const originalTestScope = metadataTemplate.preservedAttestationPaths;
+    const combinedScope = [...originalTestScope, ...metadataPaths];
+    const headRef = String(process.env.HEAD_REF || 'HEAD');
+    const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
+    const readState = ref => execFileSync('git', ['show', `${ref}:${stateFile}`], { encoding: 'utf8' });
+    const treeEntry = (ref, file) => git(['ls-tree', ref, '--', file]);
+    const regularBlob = (ref, file, blob) => assert.equal(treeEntry(ref, file), `100644 blob ${blob}\t${file}`, `LANDING_METADATA_EXACT_FILE:${ref}:${file}`);
+    const regularState = ref => assert.match(treeEntry(ref, stateFile), /^100644 blob [0-9a-f]{40}\t/u, 'LANDING_METADATA_STATE_FILE_MODE');
+    const makeAdmission = authorityBaseExactMain => ({ ...metadataTemplate, authorityBaseExactMain });
+    const changes = git(['diff', '--no-renames', '--name-status', `${baseRef}...${headRef}`])
+      .split('\n').filter(Boolean).map(line => line.split('\t')).sort((a, b) => a[1].localeCompare(b[1], 'en'));
+    // Historical explicit base-owned state scopes keep their original behavior.
+    // This new admission exists only after its separate purpose was accepted.
+    const admissionPhase = branch === "governance/pc-crop-post-registration-progress-scope-4997" && changes.some(change => change[1] === stateFile) &&
+      Object.hasOwn(state.coordinationAdmissions || {}, "landing-package-metadata-guard-purpose-20261001");
+    const metadataPhase = branch === "fix/gitleaks-release-authority-attestation-20260912" && changes.some(change => metadataPaths.includes(change[1]));
+    if (admissionPhase || metadataPhase) {
+      if (!isDeepStrictEqual(state.coordinationAdmissions?.["landing-package-metadata-guard-purpose-20261001"], requiredPurpose) ||
+          !isDeepStrictEqual(state.approvedConcurrentScopes?.["governance/pc-crop-post-registration-progress-scope-4997"], requiredPurpose.allowedPaths)) {
+        throw new Error('LANDING_METADATA_TRUSTED_PURPOSE_MISMATCH');
+      }
+      const baseSha = git(['rev-parse', `${baseRef}^{commit}`]);
+      if (git(['merge-base', baseRef, headRef]) !== baseSha) throw new Error('LANDING_METADATA_BASE_NOT_ANCESTOR');
+      regularState(baseRef);
+      regularState(headRef);
+      if (admissionPhase) {
+        if (Object.hasOwn(state.coordinationAdmissions || {}, metadataKey)) throw new Error('LANDING_METADATA_ADMISSION_ALREADY_PRESENT');
+        if (!isDeepStrictEqual(state.approvedConcurrentScopes?.["fix/gitleaks-release-authority-attestation-20260912"], originalTestScope)) throw new Error('LANDING_METADATA_ORIGINAL_ATTESTATION_SCOPE_MISMATCH');
+        if (!isDeepStrictEqual(changes, [['M', stateFile]])) throw new Error('LANDING_METADATA_ADMISSION_DIFF_SCOPE');
+        for (const file of metadataTemplate.exactMetadataFiles) {
+          regularBlob(baseRef, file.path, file.baselineBlob);
+          regularBlob(headRef, file.path, file.baselineBlob);
+        }
+        const expected = structuredClone(state);
+        expected.approvedConcurrentScopes["fix/gitleaks-release-authority-attestation-20260912"] = combinedScope;
+        expected.coordinationAdmissions[metadataKey] = makeAdmission(baseSha);
+        assert.equal(readState(baseRef), `${JSON.stringify(state, null, 2)}\n`, 'LANDING_METADATA_CANONICAL_BASE_STATE');
+        assert.equal(readState(headRef), `${JSON.stringify(expected, null, 2)}\n`, 'LANDING_METADATA_ADMISSION_STATE_MUTATION');
+        scopes = [stateFile];
+      } else {
+        const accepted = state.coordinationAdmissions?.[metadataKey];
+        const origin = accepted?.authorityBaseExactMain;
+        if (typeof origin !== 'string' || !/^[0-9a-f]{40}$/u.test(origin) ||
+            !isDeepStrictEqual(accepted, makeAdmission(origin)) ||
+            !isDeepStrictEqual(scopes, combinedScope)) throw new Error('LANDING_METADATA_ACCEPTED_ADMISSION_MISMATCH');
+        try {
+          if (git(['merge-base', origin, baseRef]) !== origin) throw new Error('not ancestor');
+        } catch {
+          throw new Error('LANDING_METADATA_ADMISSION_ORIGIN_NOT_ANCESTOR');
+        }
+        regularState(origin);
+        const authorityBase = JSON.parse(readState(origin));
+        if (!isDeepStrictEqual(authorityBase.coordinationAdmissions?.["landing-package-metadata-guard-purpose-20261001"], requiredPurpose) ||
+            !isDeepStrictEqual(authorityBase.approvedConcurrentScopes?.["governance/pc-crop-post-registration-progress-scope-4997"], requiredPurpose.allowedPaths) ||
+            !isDeepStrictEqual(authorityBase.approvedConcurrentScopes?.["fix/gitleaks-release-authority-attestation-20260912"], originalTestScope) ||
+            Object.hasOwn(authorityBase.coordinationAdmissions || {}, metadataKey)) throw new Error('LANDING_METADATA_ADMISSION_ORIGIN_INVALID');
+        const expectedChanges = metadataPaths.map(file => ['M', file]).sort((a, b) => a[1].localeCompare(b[1], 'en'));
+        if (!isDeepStrictEqual(changes, expectedChanges)) throw new Error('LANDING_METADATA_IMPLEMENTATION_DIFF_SCOPE');
+        for (const file of metadataTemplate.exactMetadataFiles) {
+          regularBlob(origin, file.path, file.baselineBlob);
+          regularBlob(baseRef, file.path, file.baselineBlob);
+          regularBlob(headRef, file.path, file.candidateBlob);
+        }
+        assert.equal(readState(headRef), readState(baseRef), 'LANDING_METADATA_IMPLEMENTATION_STATE_MUTATION');
+        scopes = [...metadataPaths];
+      }
+    }
+  }
+
   if (branch === 'ux/deal-runtime-unknown-20260929' ||
       branch === 'governance/product-deal-runtime-admission-20260929') {
     const { isDeepStrictEqual } = require('node:util');
@@ -628,7 +803,177 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
       ],
       teamHubDependency: '#5469 runtime binding dependency5887083491; migration regression5887595513; guard-purpose renewal #5721',
     });
-    if (branch === admissionBranch) {
+    const localePurposeKey = 'deal-destination-locale-guard-purpose-20261001';
+    const localeAdmissionKey = 'deal-destination-locale-20261001';
+    if (Object.hasOwn(state.coordinationAdmissions || {}, localePurposeKey)) {
+      const requiredLocalePurpose = {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew the existing accepted three-path PRODUCT guard ref for separately admitted RU/EN/ZH presentation on the actual protected Deal destination, resolving #5735 destination-language finding without changing command or server authority.",
+      "authorityBaseExactMain": "2d0db1af028b9d9d17d5a1e84a4dbe86ec990d68",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+            "scripts/p7-autopilot-guard.sh",
+            "scripts/p7-autopilot-guard.test.mjs",
+            ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-deal-runtime-admission-20260929",
+      "futureImplementationBranch": "ux/deal-runtime-unknown-20260929",
+      "futureAdditionalSourcePaths": [
+            "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+            "apps/web/components/platform-v7/DealCommandForm.tsx",
+            "apps/web/i18n/transaction-deal-copy.ts",
+            "packages/design-system-v8/src/components.tsx"
+      ],
+      "reviewedPrivatePayload": {
+            "sha256": "6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e",
+            "sourceComments": [
+                  5908067884,
+                  5908071391
+            ],
+            "authorAuditComment": 5908085804,
+            "independentPrivateReviewComment": 5916309103
+      },
+      "requiredTruthBoundaries": [
+            "This one-file purpose record admits no runtime, test, workflow or new source path. Global/current/R1.2 scopes, approvedConcurrentScopes, every existing admission, progress and maturity remain unchanged.",
+            "After this purpose is independently reviewed and accepted, use the existing already admitted three-path guard ref for a separate trusted-base literal guard repair and adversarial tests. Preserve all existing admission phases, metadata/attestation routes and trusted-base plus PR-head defense.",
+            "The guard must define a separate exact state-only extension phase on the existing Deal-runtime admission ref. Preserve the full original five-path runtime scope and add only the four listed paths in a later independently reviewed accepted state. Candidate-owned state or a manifest cannot grant implementation authority.",
+            "Publish no Deal locale source before the separately accepted guard and state-only source extension. Use the existing production-resolved transaction-ux workspace and NextIntl request locale; keep the facade, tsconfig mapping, shell and approved design.",
+            "Preserve all original UNKNOWN attempt identity, immutable request fingerprint, draft/review/focus state, exact server role/tenant/Deal/action permissions, CSRF, GET-only recovery and duplicate command prevention. Locale changes affect presentation only.",
+            "The captured six-file private payload and its bounded review are support, not current-head CI, admission, native account approval, full browser acceptance or production evidence. Obtain fresh independent whole-source review, author audit and every applicable CI/security/readiness gate after actual adoption.",
+            "Preserve original source authors and canonical CORE ownership. Queue the shared guard writer and any main/release action after the current Gekta owner window; do not overwrite another owner's ref or issue a competing deployment command.",
+            "Require normal expected-full-SHA manual merges and exact-current-main REG.RU OCI/container/live acceptance followed by the ordinary authorized bank queue to the same Deal in RU/EN/ZH. Public or seeded fixture evidence does not close protected bank, 13-cabinet or provider acceptance."
+      ],
+      "forbiddenAuthority": [
+            "Direct runtime/test/source admission, permission-vector changes or another owner's branch mutation in this purpose PR",
+            "Backend/API/DB/RLS/tenant/role/session/command/payment/provider/FGIS or legal authority",
+            "Design or App Shell replacement, duplicate Deal core, alias removal, business-status or external-success inference",
+            "CI/security/readiness/independent-review weakening, fake PASS, forced/automatic merge, production/model mutation or new recurring cost"
+      ],
+      "teamHubDependency": "#5735 P2 thread4142098743; source5908067884/5908071391; private review5916309103; #5699; current Gekta next window5924684608"
+};
+      if (!isDeepStrictEqual(state.coordinationAdmissions[localePurposeKey], requiredLocalePurpose)) {
+        throw new Error('DEAL_LOCALE_PURPOSE_MISMATCH');
+      }
+      const additionalPaths = [
+      "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+      "apps/web/components/platform-v7/DealCommandForm.tsx",
+      "apps/web/i18n/transaction-deal-copy.ts",
+      "packages/design-system-v8/src/components.tsx"
+];
+      const sourcePaths = [
+      "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+      "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+      "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+      "apps/web/components/platform-v7/DealCommandForm.tsx",
+      "apps/web/i18n/transaction-deal-copy.ts",
+      "packages/design-system-v8/src/components.tsx"
+];
+      const extendedPaths = [...paths, ...additionalPaths];
+      const pins = [
+      [
+            "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+            "6f980ea5c83dc9776d51fe01b6f33bf21704a037",
+            "be57e8931fc5a056ed59039d9bf0da6f98aeb6fe"
+      ],
+      [
+            "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+            "4cf04d22287002bf90888847153bfe9759d8e1fd",
+            "1c669249fcf4451bc0655f506d975edc069fe81c"
+      ],
+      [
+            "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+            "699ae74d30128e72ccad0a4559ad40944b3ecda8",
+            "2099bb5fcd731368ffccecd096ebb10320379257"
+      ],
+      [
+            "apps/web/components/platform-v7/DealCommandForm.tsx",
+            "7bde1116c8e84e2f253da69431d867ceaa90663d",
+            "aba1af6c10dbbee0cee25cb13bdbce40145024a2"
+      ],
+      [
+            "apps/web/i18n/transaction-deal-copy.ts",
+            null,
+            "4db89dfdec3f5f871760461a60dd2f89194329a1"
+      ],
+      [
+            "packages/design-system-v8/src/components.tsx",
+            "3f95e51e99858debcd3f784e5b77b05be9619ccd",
+            "3f29bfef940801667273f066a02d34f20c2be8b5"
+      ]
+];
+      const priorAdmission = state.coordinationAdmissions?.[coordinationKey];
+      const priorBase = priorAdmission?.authorityBaseExactMain;
+      if (typeof priorBase !== 'string' || !/^[0-9a-f]{40}$/u.test(priorBase) ||
+          !isDeepStrictEqual(priorAdmission, makeAdmission(priorBase))) {
+        throw new Error('DEAL_LOCALE_PRIOR_ADMISSION_MISMATCH');
+      }
+      const makeLocaleAdmission = (authorityBaseExactMain) => ({
+        owner: 'ACCOUNT_1_EXECUTION',
+        presentationContributor: 'ACCOUNT_2_PRODUCT',
+        sourceOwnerRetained: 'ACCOUNT_1_EXECUTION',
+        purpose: 'Apply only the already reviewed RU/EN/ZH protected Deal presentation payload while preserving canonical UNKNOWN recovery and server authority.',
+        authorityBaseExactMain,
+        implementationBranch,
+        allowedPaths: extendedPaths,
+        exactSourcePaths: sourcePaths,
+        exactSourcePins: pins,
+        reviewedPrivatePayloadSha256: '6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e',
+        requiredTruthBoundaries: [
+          'Presentation only; actual route/locale/workspace/form and stable metadata labels. Original command controls, owner, identity, UNKNOWN/fingerprint, CSRF and permissions remain canonical.',
+          'The original five-path scope and all old records remain intact. This locale phase permits exactly the six pinned source/test files; it does not permit workflow, registry, generated inventory or scope changes.',
+          'No private source review transfers to an adopted SHA. Fresh whole-head nonauthor review, owner audit, native CI/security/readiness, expected-SHA merge and exact REG.RU protected acceptance remain required.',
+        ],
+        forbiddenAuthority: ['API/DB/role/tenant/money/provider/FGIS authority', 'Source-owned scope or guard changes', 'CI/security/readiness or review weakening', 'False live or external success'],
+      });
+      if (branch === admissionBranch) {
+        if (Object.hasOwn(state.coordinationAdmissions || {}, localeAdmissionKey)) {
+          throw new Error('DEAL_LOCALE_ADMISSION_ALREADY_PRESENT');
+        }
+        if (!isDeepStrictEqual(state.approvedConcurrentScopes?.[implementationBranch], paths)) {
+          throw new Error('DEAL_LOCALE_PRIOR_SCOPE_MISMATCH');
+        }
+        if (!isDeepStrictEqual(changes, [['M', stateFile]])) throw new Error('DEAL_LOCALE_ADMISSION_DIFF_SCOPE');
+        if ([baseRef, headRef].some((ref) => fileMode(ref, stateFile) !== '100644')) {
+          throw new Error('DEAL_LOCALE_ADMISSION_FILE_MODE');
+        }
+        const expected = structuredClone(state);
+        expected.approvedConcurrentScopes[implementationBranch] = extendedPaths;
+        expected.coordinationAdmissions[localeAdmissionKey] = makeLocaleAdmission(baseSha);
+        if (!isDeepStrictEqual(JSON.parse(readState(headRef)), expected)) {
+          throw new Error('DEAL_LOCALE_ADMISSION_STATE_MUTATION');
+        }
+        scopes = [stateFile];
+      } else {
+        const accepted = state.coordinationAdmissions?.[localeAdmissionKey];
+        const acceptedBase = accepted?.authorityBaseExactMain;
+        if (typeof acceptedBase !== 'string' || !/^[0-9a-f]{40}$/u.test(acceptedBase) ||
+            !isDeepStrictEqual(accepted, makeLocaleAdmission(acceptedBase)) ||
+            !isDeepStrictEqual(state.approvedConcurrentScopes?.[implementationBranch], extendedPaths)) {
+          throw new Error('DEAL_LOCALE_ACCEPTED_ADMISSION_MISMATCH');
+        }
+        try {
+          execFileSync('git', ['merge-base', '--is-ancestor', acceptedBase, baseRef], { stdio: 'pipe' });
+          execFileSync('git', ['merge-base', '--is-ancestor', priorBase, baseRef], { stdio: 'pipe' });
+        } catch {
+          throw new Error('DEAL_LOCALE_ADMISSION_BASE_NOT_ANCESTOR');
+        }
+        if (readState(headRef) !== readState(baseRef)) throw new Error('DEAL_LOCALE_IMPLEMENTATION_STATE_MUTATION');
+        const expectedChanges = pins.map(([file, oldBlob]) => [oldBlob === null ? 'A' : 'M', file]);
+        const sorted = (items) => [...items].sort((left, right) => left[1].localeCompare(right[1], 'en'));
+        if (!isDeepStrictEqual(sorted(changes), sorted(expectedChanges))) throw new Error('DEAL_LOCALE_IMPLEMENTATION_DIFF_SCOPE');
+        for (const [file, oldBlob, newBlob] of pins) {
+          const treeEntry = (ref) => execFileSync('git', ['ls-tree', ref, '--', file], { encoding: 'utf8' }).trim();
+          const before = treeEntry(baseRef);
+          const after = treeEntry(headRef);
+          if ((oldBlob === null ? before !== '' : before !== `100644 blob ${oldBlob}\t${file}`) ||
+              after !== `100644 blob ${newBlob}\t${file}`) {
+            throw new Error('DEAL_LOCALE_SOURCE_PIN_OR_MODE_MISMATCH:' + file);
+          }
+        }
+        scopes = sourcePaths;
+      }
+    } else if (branch === admissionBranch) {
       if (Object.hasOwn(state.approvedConcurrentScopes || {}, implementationBranch) ||
           Object.hasOwn(state.coordinationAdmissions || {}, coordinationKey)) {
         throw new Error('DEAL_RUNTIME_ADMISSION_ALREADY_PRESENT');
@@ -1453,6 +1798,12 @@ else
 fi
 
 FORBIDDEN_FILES=$(printf '%s\n' "$DIFF_FILES" | grep -E "$FORBIDDEN_ALWAYS" || true)
+
+# The exact pair has already passed accepted-base purpose/admission, complete
+# diff and immutable blob/mode validation. Every other landing path stays banned.
+if [ "$CURRENT_BRANCH" = "$GITLEAKS_RELEASE_ATTESTATION_BRANCH" ] && printf '%s\n' "$DIFF_FILES" | grep -Fxq 'apps/landing/package.json'; then
+  FORBIDDEN_FILES=$(printf '%s\n' "$FORBIDDEN_FILES" | grep -Fxv 'apps/landing/package.json' || true)
+fi
 
 if [ "${GITHUB_HEAD_REF:-}" = "agent/tai-ap-14d7-live-remediation" ]; then
   TAI_PUBLIC_CA_PATHS='^(apps/tai/tai/trust/russian_trusted_root_ca\.pem|apps/tai/tai/trust/russian_trusted_sub_ca_2024\.pem)$'

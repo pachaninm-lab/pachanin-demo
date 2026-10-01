@@ -1419,7 +1419,9 @@
       "scripts/release/production-like-kubernetes-cluster.sh"
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
-      "apps/tai/tests/test_gitleaks_release_authority.py"
+      "apps/tai/tests/test_gitleaks_release_authority.py",
+      "apps/landing/package.json",
+      "docs/ip/internal-package-metadata-exceptions.json"
     ],
     "fix/first-customer-workspace-recovery-20260919": [
       "apps/web/lib/first-customer-workspace-server.ts",
@@ -1768,7 +1770,11 @@
       "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
       "apps/web/tests/unit/transactionUxV8Migration.test.ts",
       ".github/workflows/ci.yml",
-      "docs/platform-v7/qa/web-unit-coverage-registry.json"
+      "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+      "apps/web/components/platform-v7/DealCommandForm.tsx",
+      "apps/web/i18n/transaction-deal-copy.ts",
+      "packages/design-system-v8/src/components.tsx"
     ]
   },
   "currentAcceptance": [
@@ -2836,6 +2842,218 @@
         "Update the existing superseded generic-content prompt regression to assert agro-specialist useful adjacent work, respectful unrelated-topic redirection and preserved separate safety/privacy/authorization/tenant/write/financial-action/tool boundaries. Retain all fifteen existing service cases and meaningful assertions; no test invocation, budget, safety or independent-review gate weakening.",
         "All primary R1/global/current/unrelated concurrent scopes, historical admissions/progress/maturity and runtime/model/production authority remain unchanged.",
         "The current source consumer requires fresh complete-head independent review, exact-current CI including the full existing API suite, author audit, resolved findings and manual expected-SHA protected merge. Source tests/admission do not prove real model inference, quality, latency, RF compliance or deployment."
+      ]
+    },
+    "bank-release-attestation-guard-purpose-20260930": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew the accepted immutable three-path guard ref only to authorize the exact two-fingerprint release-attestation test synchronization blocking the BANK release; preserve the historical four-fingerprint transformation and every security/readiness gate.",
+      "authorityBaseExactMain": "1a768a7fde207bb2458fdf259dc16f9f291b5455",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "requiredTruthBoundaries": [
+        "This state-only prerequisite renews purpose on an already accepted three-path guard ref. It does not change global scope, approvedConcurrentScopes, R1.2, old admissions or the one-file Gitleaks implementation scope.",
+        "The later guard PR must preserve trusted-base execution, all substantive head validation and the legacy exact four-fingerprint transformation. Admit the current transformation only against the immutable accepted 19-entry test blob and unchanged accepted ignore/manifest blobs; require exactly the two existing fingerprints and every old test byte/assertion.",
+        "Add real Git-fixture regressions for exact accepted append and rejection of altered/extra/missing fingerprints, assertion removal, baseline/input drift, allowlist/manifest edits and candidate scope self-expansion. No arbitrary fingerprint inference or implementation-owned authority.",
+        "The later one-file #5744 repair must be independently reviewed again after synchronization with the accepted guard main, and pass actual CI/readiness before an ordinary full-expected-SHA merge. Existing native review at cd31ba7904b30de65c6839c17a11e2590d234108 is not transferable to a new head.",
+        "Retain BANK source/release window and sole operator continuation220. A merge/image is not a REG.RU deployment; exact current-main OCI/container/Caddy/live/downstream acceptance remains mandatory."
+      ],
+      "forbiddenAuthority": [
+        "Test source, .gitleaksignore, release-source-manifest.json, runtime or state edits in the later guard PR",
+        "Scope expansion, scanner/security/coverage/readiness/independent-review weakening, force/automatic merge or required-check override",
+        "CORE API/DB/provider/role/session authority, transferred Gekta branches/model controls, release before actual acceptance"
+      ],
+      "teamHubDependency": "BANK #5744 exact-head trusted guard rejects obsolete 20260912 transformation; native TAI Foundation36755343656 succeeds; BANK operator decision5916270228 and held release window5914591395"
+    },
+    "landing-package-metadata-guard-purpose-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Bounded critical-path renewal of the existing trusted three-path guard ref for a separately admitted exact metadata-only repair of the expired internal landing-package exception; close the existing no-publish metadata blocker without renewing its expiry or changing application/licensing/provenance truth.",
+      "authorityBaseExactMain": "7a90199a40a86cdc129f804780a8f2635cf0bccb",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureMetadataAdmissionBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "futureMetadataImplementationBranch": "fix/gitleaks-release-authority-attestation-20260912",
+      "requiredTruthBoundaries": [
+        "The current full-head #5744 native SBOM/IP run36794727081/job110155435088 fails because the preexisting apps/landing/package.json metadata exception expired on2026-09-30. Original IP program#4459 and the existing exception require a separately authorized metadata-only addition of license=UNLICENSED; the package already remains private=true.",
+        "This purpose-only prerequisite admits no landing implementation or metadata file and changes no primary/global/R1.2/approvedConcurrentScopes/old admissions/progress. Publish a separate trusted guard repair within the already accepted three-path scope only after actual independent review, all current gates and ordinary expected-full-SHA acceptance of this purpose.",
+        "The later guard must define distinct state-only admission and exact two-file metadata implementation phases on the already registered trusted-guard and Gitleaks refs. Existing native trusted-base routing remains unchanged; no workflow/IP waiver. Preserve the original one-file Gitleaks attestation phase and add only the separately accepted exact metadata pair to that existing branch scope. Source scope and exact baseline/candidate blobs must come from accepted trusted base; candidate-owned state/guard cannot grant authority.",
+        "Permit only apps/landing/package.json100644 c80706ce0a424d57b2f7687bc0f4306f5c88a434→e693a061ea6d42a9c62cc1ab8350c3af904265a4 (one license field, all scripts/dependencies/private/name/other bytes preserved) and docs/ip/internal-package-metadata-exceptions.json100644872689ef5215d2b92429c465159fbf794259cc9f→c3eb22c2f4fc9ec3105e0203b7990de3b88dc345 (remove only that completed exception; schema/effective date preserved).",
+        "Preserve the general apps/landing prohibition and every old security/attestation gate. Permit the exact metadata pair only in its separately accepted phase on the existing trusted Gitleaks ref, with exact baseline/head blobs and regular modes; reject mixed metadata/test/runtime edits, other manifest fields, expiry extension, stale or altered exceptions, source self-expansion and baseline/mode drift using real Git fixtures.",
+        "Accept the guard before the separate state-only exact-content source admission; accept that admission before publishing either metadata file. Metadata/private-package checks do not prove proprietary authorship, third-party rights, human assignments, full IP/security completion or production acceptance.",
+        "Keep the sole BANK continuation220/workspace0b9 window held. Preserve the immutable #5744 test candidate while the distinct metadata prerequisite uses the same existing trusted source ref under separate source admission and fresh PR review. After accepted metadata normalization, restore the original one-file #5744 repair on actual current main and renew every review/CI/readiness result before bounded exact-current-main canonical REG.RU web release and actual OCI/live/downstream evidence."
+      ],
+      "forbiddenAuthority": [
+        "Landing page/runtime/component/script/dependency changes or general landing access",
+        "Exception expiry extension, CI/security/license/scanner weakening or required-check override",
+        "Direct metadata source admission in this purpose or later guard PR; source-owned mutable scope authority",
+        "CORE/API/DB/provider/money/role/session/model or human legal/provenance authority",
+        "Forced/automatic merge, stale review transfer, new recurring costs or false production/whole-block PASS"
+      ],
+      "teamHubDependency": "#5744 native IP metadata expiry blocker36794727081; original#4459 metadata baseline; held BANK critical path/window5916270228"
+    },
+    "landing-package-metadata-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Normalize only the already-private internal landing package license metadata and remove its completed exception; no application, dependency, publication or legal-rights change.",
+      "implementationBranch": "fix/gitleaks-release-authority-attestation-20260912",
+      "allowedPaths": [
+        "apps/landing/package.json",
+        "docs/ip/internal-package-metadata-exceptions.json"
+      ],
+      "preservedAttestationPaths": [
+        "apps/tai/tests/test_gitleaks_release_authority.py"
+      ],
+      "exactMetadataFiles": [
+        {
+          "path": "apps/landing/package.json",
+          "mode": "100644",
+          "baselineBlob": "c80706ce0a424d57b2f7687bc0f4306f5c88a434",
+          "candidateBlob": "e693a061ea6d42a9c62cc1ab8350c3af904265a4"
+        },
+        {
+          "path": "docs/ip/internal-package-metadata-exceptions.json",
+          "mode": "100644",
+          "baselineBlob": "872689ef5215d2b92429c465159fbf794259cc9f",
+          "candidateBlob": "c3eb22c2f4fc9ec3105e0203b7990de3b88dc345"
+        }
+      ],
+      "requiredTruthBoundaries": [
+        "Only add license=UNLICENSED to the existing private=true manifest and remove exactly its completed metadata exception; every other manifest byte and register schema/effective date remains unchanged.",
+        "Source authority comes only from separately accepted base purpose, guard and state-only admission. The implementation cannot modify state, guard, workflow, scope or publishable-package authority.",
+        "The existing attestation ref has distinct test-only and metadata-only phases. Preserve the original test path and its exact fingerprint guard; reject mixed metadata/test changes.",
+        "Preserve the general landing prohibition, all existing CI/security/attestation checks, provenance and third-party/human legal remainder. No expiry extension or proprietary ownership claim.",
+        "Fresh whole-head independent review, native private-package/IP/security/source checks and manual full-expected-SHA readiness/merge required; current-main REG.RU release remains a separate acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Landing runtime/pages/components/scripts/dependencies or any other manifest field",
+        "Expired-exception renewal, new exception or publishable-package authorization",
+        "Source-owned scope, CI/security/readiness weakening, forced/automatic merge",
+        "CORE/API/DB/money/provider/role/session/model or human legal/provenance authority"
+      ],
+      "teamHubDependency": "#5744 IP expiry blocker36794727081; original IP#4459; BANK hold5916270228; purpose#5749",
+      "authorityBaseExactMain": "7aa734d2da13465d62085f00fbf89b4ef02f2dd5"
+    },
+    "deal-destination-locale-guard-purpose-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew the existing accepted three-path PRODUCT guard ref for separately admitted RU/EN/ZH presentation on the actual protected Deal destination, resolving #5735 destination-language finding without changing command or server authority.",
+      "authorityBaseExactMain": "2d0db1af028b9d9d17d5a1e84a4dbe86ec990d68",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-deal-runtime-admission-20260929",
+      "futureImplementationBranch": "ux/deal-runtime-unknown-20260929",
+      "futureAdditionalSourcePaths": [
+        "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+        "apps/web/components/platform-v7/DealCommandForm.tsx",
+        "apps/web/i18n/transaction-deal-copy.ts",
+        "packages/design-system-v8/src/components.tsx"
+      ],
+      "reviewedPrivatePayload": {
+        "sha256": "6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e",
+        "sourceComments": [
+          5908067884,
+          5908071391
+        ],
+        "authorAuditComment": 5908085804,
+        "independentPrivateReviewComment": 5916309103
+      },
+      "requiredTruthBoundaries": [
+        "This one-file purpose record admits no runtime, test, workflow or new source path. Global/current/R1.2 scopes, approvedConcurrentScopes, every existing admission, progress and maturity remain unchanged.",
+        "After this purpose is independently reviewed and accepted, use the existing already admitted three-path guard ref for a separate trusted-base literal guard repair and adversarial tests. Preserve all existing admission phases, metadata/attestation routes and trusted-base plus PR-head defense.",
+        "The guard must define a separate exact state-only extension phase on the existing Deal-runtime admission ref. Preserve the full original five-path runtime scope and add only the four listed paths in a later independently reviewed accepted state. Candidate-owned state or a manifest cannot grant implementation authority.",
+        "Publish no Deal locale source before the separately accepted guard and state-only source extension. Use the existing production-resolved transaction-ux workspace and NextIntl request locale; keep the facade, tsconfig mapping, shell and approved design.",
+        "Preserve all original UNKNOWN attempt identity, immutable request fingerprint, draft/review/focus state, exact server role/tenant/Deal/action permissions, CSRF, GET-only recovery and duplicate command prevention. Locale changes affect presentation only.",
+        "The captured six-file private payload and its bounded review are support, not current-head CI, admission, native account approval, full browser acceptance or production evidence. Obtain fresh independent whole-source review, author audit and every applicable CI/security/readiness gate after actual adoption.",
+        "Preserve original source authors and canonical CORE ownership. Queue the shared guard writer and any main/release action after the current Gekta owner window; do not overwrite another owner's ref or issue a competing deployment command.",
+        "Require normal expected-full-SHA manual merges and exact-current-main REG.RU OCI/container/live acceptance followed by the ordinary authorized bank queue to the same Deal in RU/EN/ZH. Public or seeded fixture evidence does not close protected bank, 13-cabinet or provider acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Direct runtime/test/source admission, permission-vector changes or another owner's branch mutation in this purpose PR",
+        "Backend/API/DB/RLS/tenant/role/session/command/payment/provider/FGIS or legal authority",
+        "Design or App Shell replacement, duplicate Deal core, alias removal, business-status or external-success inference",
+        "CI/security/readiness/independent-review weakening, fake PASS, forced/automatic merge, production/model mutation or new recurring cost"
+      ],
+      "teamHubDependency": "#5735 P2 thread4142098743; source5908067884/5908071391; private review5916309103; #5699; current Gekta next window5924684608"
+    },
+    "deal-destination-locale-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_1_EXECUTION",
+      "purpose": "Apply only the already reviewed RU/EN/ZH protected Deal presentation payload while preserving canonical UNKNOWN recovery and server authority.",
+      "authorityBaseExactMain": "7508f2ca3bd568613c3e9ba7144bddf7f1f0d28c",
+      "implementationBranch": "ux/deal-runtime-unknown-20260929",
+      "allowedPaths": [
+        "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+        "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+        "apps/web/tests/unit/transactionUxV8Migration.test.ts",
+        ".github/workflows/ci.yml",
+        "docs/platform-v7/qa/web-unit-coverage-registry.json",
+        "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+        "apps/web/components/platform-v7/DealCommandForm.tsx",
+        "apps/web/i18n/transaction-deal-copy.ts",
+        "packages/design-system-v8/src/components.tsx"
+      ],
+      "exactSourcePaths": [
+        "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+        "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+        "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+        "apps/web/components/platform-v7/DealCommandForm.tsx",
+        "apps/web/i18n/transaction-deal-copy.ts",
+        "packages/design-system-v8/src/components.tsx"
+      ],
+      "exactSourcePins": [
+        [
+          "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+          "6f980ea5c83dc9776d51fe01b6f33bf21704a037",
+          "be57e8931fc5a056ed59039d9bf0da6f98aeb6fe"
+        ],
+        [
+          "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+          "4cf04d22287002bf90888847153bfe9759d8e1fd",
+          "1c669249fcf4451bc0655f506d975edc069fe81c"
+        ],
+        [
+          "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+          "699ae74d30128e72ccad0a4559ad40944b3ecda8",
+          "2099bb5fcd731368ffccecd096ebb10320379257"
+        ],
+        [
+          "apps/web/components/platform-v7/DealCommandForm.tsx",
+          "7bde1116c8e84e2f253da69431d867ceaa90663d",
+          "aba1af6c10dbbee0cee25cb13bdbce40145024a2"
+        ],
+        [
+          "apps/web/i18n/transaction-deal-copy.ts",
+          null,
+          "4db89dfdec3f5f871760461a60dd2f89194329a1"
+        ],
+        [
+          "packages/design-system-v8/src/components.tsx",
+          "3f95e51e99858debcd3f784e5b77b05be9619ccd",
+          "3f29bfef940801667273f066a02d34f20c2be8b5"
+        ]
+      ],
+      "reviewedPrivatePayloadSha256": "6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e",
+      "requiredTruthBoundaries": [
+        "Presentation only; actual route/locale/workspace/form and stable metadata labels. Original command controls, owner, identity, UNKNOWN/fingerprint, CSRF and permissions remain canonical.",
+        "The original five-path scope and all old records remain intact. This locale phase permits exactly the six pinned source/test files; it does not permit workflow, registry, generated inventory or scope changes.",
+        "No private source review transfers to an adopted SHA. Fresh whole-head nonauthor review, owner audit, native CI/security/readiness, expected-SHA merge and exact REG.RU protected acceptance remain required."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/role/tenant/money/provider/FGIS authority",
+        "Source-owned scope or guard changes",
+        "CI/security/readiness or review weakening",
+        "False live or external success"
       ]
     },
     "gekta-readonly-control-diagnostic-prerequisite-20261001": {
