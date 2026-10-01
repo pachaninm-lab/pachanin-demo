@@ -212,6 +212,15 @@ const gitleaksFinalReviewedEntries =
   '        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391",\n' +
   '        "ba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:"\n' +
   '        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:395",\n';
+const gitleaksCurrentAnchor =
+  '        "db4f0a50b8df0a5e1045d3b9dc6a6fdc9d2806b0:"\n' +
+  '        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:1018",\n';
+const gitleaksCurrentReviewedEntries =
+  '        "2dbd66d9bf258113272825d7b082b20e3b15a2b6:"\n' +
+  '        "docs/platform-v7/autopilot/autopilot-state.json:generic-api-key:2713",\n' +
+  '        "3b76d0f3473b986b6354aaac528994f7ac343df2:"\n' +
+  '        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"\n' +
+  '        "generic-api-key:17",\n';
 
 function baselineGitleaksReleaseAttestation(source) {
   const serviceCount = source.split(gitleaksServiceMarketplace).length - 1;
@@ -479,6 +488,150 @@ for (const mutation of ['remove existing assertion', 'add fifth fingerprint', 'a
     assert.match(output(result), /must add exactly four reviewed fingerprints/u);
   });
 }
+
+function currentGitleaksReleaseAttestationFixture(t) {
+  const context = fixture(t, gitleaksReleaseAttestationBranch);
+  const source = fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8');
+  const count = source.split(gitleaksCurrentReviewedEntries).length - 1;
+  assert.ok(count === 0 || count === 1, 'current reviewed entries occur together at most once');
+  write(context.root, gitleaksReleaseAttestationPath, source.replace(gitleaksCurrentReviewedEntries, ''));
+  for (const file of ['.gitleaksignore', 'apps/tai/release-source-manifest.json']) {
+    write(context.root, file, fs.readFileSync(file, 'utf8'));
+  }
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+  state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [gitleaksReleaseAttestationPath];
+  write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+  commit(context.root, 'accepted exact current Gitleaks attestation inputs');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  assert.equal(git(context.root, ['rev-parse', `${context.baseline}:${gitleaksReleaseAttestationPath}`]), 'e589046fc52daf8a3632f70b6879543934be56ff');
+  assert.equal(git(context.root, ['rev-parse', `${context.baseline}:.gitleaksignore`]), '5c151dc1a2b5329fb2d4feb1fd0c1713bbef96db');
+  assert.equal(git(context.root, ['rev-parse', `${context.baseline}:apps/tai/release-source-manifest.json`]), '35f96ccc7fe332ddd90454eeee19853ba0612b71');
+  return context;
+}
+
+function synchronizeCurrentGitleaksReleaseAttestation(baseline) {
+  assert.equal(baseline.split(gitleaksCurrentAnchor).length - 1, 1);
+  return baseline.replace(gitleaksCurrentAnchor, gitleaksCurrentAnchor + gitleaksCurrentReviewedEntries);
+}
+
+function runTrustedCurrentGitleaksGuard({ root, baseline, implementationBranch }) {
+  const trustedGuard = git(root, ['show', `${baseline}:scripts/p7-autopilot-guard.sh`]);
+  return spawnSync('bash', [], {
+    cwd: root,
+    input: trustedGuard,
+    env: { ...process.env, BASE_REF: baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: implementationBranch },
+    encoding: 'utf8',
+  });
+}
+
+test('current Gitleaks attestation accepts only the exact two-existing-fingerprint repair', (t) => {
+  const context = currentGitleaksReleaseAttestationFixture(t);
+  const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(baseline));
+  commit(context.root, 'synchronize current exact fingerprint attestation');
+  assert.equal(git(context.root, ['rev-parse', `HEAD:${gitleaksReleaseAttestationPath}`]), '404e172449f53c01369ef974a50079d6f6967d56');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+
+for (const mutation of [
+  'remove manifest assertion', 'weaken format assertion', 'remove old fingerprint',
+  'add extra fingerprint', 'alter first fingerprint', 'alter second fingerprint',
+  'omit first fingerprint', 'omit second fingerprint', 'reverse fingerprint order',
+]) {
+  test(`current Gitleaks attestation rejects candidate content: ${mutation}`, (t) => {
+    const context = currentGitleaksReleaseAttestationFixture(t);
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    let candidate = synchronizeCurrentGitleaksReleaseAttestation(baseline);
+    if (mutation === 'remove manifest assertion') candidate = candidate.replace('    assert ".gitleaksignore" in manifest["files"]\n', '');
+    if (mutation === 'weaken format assertion') candidate = candidate.replace('    assert all(_FINGERPRINT.fullmatch(entry) is not None for entry in entries)\n', '    assert True\n');
+    if (mutation === 'remove old fingerprint') candidate = candidate.replace(gitleaksCommodityAnchor, '');
+    if (mutation === 'add extra fingerprint') candidate = candidate.replace('    ]\n', '        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:extra.py:generic-api-key:1",\n    ]\n');
+    if (mutation === 'alter first fingerprint') candidate = candidate.replace('generic-api-key:2713', 'generic-api-key:2714');
+    if (mutation === 'alter second fingerprint') candidate = candidate.replace('generic-api-key:17', 'generic-api-key:18');
+    const lines = gitleaksCurrentReviewedEntries.split('\n').filter(Boolean);
+    if (mutation === 'omit first fingerprint') candidate = candidate.replace(gitleaksCurrentReviewedEntries, `${lines.slice(2).join('\n')}\n`);
+    if (mutation === 'omit second fingerprint') candidate = candidate.replace(gitleaksCurrentReviewedEntries, `${lines.slice(0, 2).join('\n')}\n`);
+    if (mutation === 'reverse fingerprint order') candidate = candidate.replace(gitleaksCurrentReviewedEntries, `${[...lines.slice(2), ...lines.slice(0, 2)].join('\n')}\n`);
+    write(context.root, gitleaksReleaseAttestationPath, candidate);
+    commit(context.root, `attempt ${mutation}`);
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Gitleaks release attestation head must be the exact two-fingerprint regular-file repair/u);
+  });
+}
+
+for (const file of ['.gitleaksignore', 'apps/tai/release-source-manifest.json']) {
+  for (const side of ['base', 'head']) {
+    test(`current Gitleaks attestation rejects ${side} input drift: ${file}`, (t) => {
+      const context = currentGitleaksReleaseAttestationFixture(t);
+      if (side === 'base') {
+        fs.appendFileSync(path.join(context.root, file), '\n');
+        commit(context.root, 'drift accepted input');
+        context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+      }
+      const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+      write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(baseline));
+      if (side === 'head') fs.appendFileSync(path.join(context.root, file), '\n');
+      commit(context.root, 'attempt repair with drifting input');
+      const result = runTrustedCurrentGitleaksGuard(context);
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /Gitleaks release attestation input must remain the exact accepted regular file/u);
+    });
+  }
+}
+
+test('current Gitleaks attestation rejects baseline assertion drift', (t) => {
+  const context = currentGitleaksReleaseAttestationFixture(t);
+  const file = path.join(context.root, gitleaksReleaseAttestationPath);
+  write(context.root, gitleaksReleaseAttestationPath, fs.readFileSync(file, 'utf8').replace('    assert ".gitleaksignore" in manifest["files"]\n', ''));
+  commit(context.root, 'drift accepted test assertion');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(fs.readFileSync(file, 'utf8')));
+  commit(context.root, 'attempt repair over drifting test');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Gitleaks release attestation commodity-profile anchor must occur exactly once/u);
+});
+
+for (const side of ['base', 'head']) {
+  test(`current Gitleaks attestation rejects ${side} executable mode`, (t) => {
+    const context = currentGitleaksReleaseAttestationFixture(t);
+    if (side === 'base') {
+      fs.chmodSync(path.join(context.root, gitleaksReleaseAttestationPath), 0o755);
+      commit(context.root, 'drift accepted test mode');
+      context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    }
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(baseline), 0o755);
+    commit(context.root, 'attempt executable test repair');
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Gitleaks release attestation (baseline|head) must be the exact/u);
+  });
+}
+
+test('current Gitleaks attestation rejects implementation-owned scope and guard expansion', (t) => {
+  for (const target of ['state', 'guard']) {
+    const context = currentGitleaksReleaseAttestationFixture(t);
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(baseline));
+    if (target === 'state') {
+      const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+      state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch].push('README.md');
+      write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+      write(context.root, 'README.md', 'unapproved self-admission\n');
+    } else {
+      write(context.root, 'scripts/p7-autopilot-guard.sh', '#!/usr/bin/env bash\nexit 0\n');
+    }
+    commit(context.root, `attempt candidate ${target} authority`);
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Mutable scope authority changed on a PC-CROP immutable-scope implementation branch/u);
+  }
+});
 
 test('kind MinIO image-source scope accepts exactly three paths and rejects ci.yml', (t) => {
   const allowed = kindMinioImageSourceFixture(t);
