@@ -3775,6 +3775,74 @@
         "No weakened CI/security/review/readiness/assertion/cleanup gates, stale-head PASS transfer, forced or automatic merge.",
         "No deployment, fresh topology, registry, RF-processing, model quality/speed/stability, R1 completion or production progress claim from source or fixtures."
       ]
+    },
+    "gekta-crop-context-quality-20261001": {
+      "owner": "Existing Gekta owner retained; existing CORE coordinator serializes purpose admission only",
+      "purpose": "Admit a bounded crop/context quality follow-up using shared prompt policy and provider-wire regressions on the existing Han source branch; preserve raw input/history, live oracle and all runtime controls.",
+      "authorityBaseExactMain": "4cf9c9f7811055d2a4cd2c3583e685c0b2554933",
+      "ownerApprovalReceipt": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5942352727",
+      "status": "PURPOSE_ADMISSION_ONLY; EXACT_SOURCE_REVIEW_NATIVE_CI_AND_ACCEPTANCE_PENDING; LIVE_MODEL_PROOF_PENDING",
+      "governanceBranch": "fix/readiness-database-deadline-4829",
+      "governanceAllowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+      ],
+      "exactSourceTransitions": [
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "mode": "100644",
+          "beforeBlob": "f65ecadf9c8f2a5f8c0934225fdeb2b5e8be9508",
+          "afterBlob": "8019fdb637279d0b319d5e48f4219b0bc83259aa",
+          "sha256": "885ab7dc719959c79201e2316647eedb70979c54e85d2f4b164a6e97a94848eb",
+          "bytes": 45772
+        },
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "e0ca10c7a6c92a789d818b8b1064d491640aefa7",
+          "afterBlob": "d9073e4dd7b13e5446a021271715b1c5382d8996",
+          "sha256": "459e5e5b3fc0652d59fecb901169cf3c024fb222c2f98b44ae653ee4a7d8182c",
+          "bytes": 23805
+        }
+      ],
+      "sourcePatchSha256": "c64e203971d35f08a8df540389264d6d658e0f43cc5ff8efbe2467c8464d7ebd",
+      "sourcePatchBytes": 11762,
+      "liveOracle": {
+        "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts",
+        "unchangedBlob": "391a38f7149b9bbce817d312e03bbcc6377c29fa",
+        "mode": "100644"
+      },
+      "retainedOwnership": "Reuse existing CORE governance and Gekta Han branches with ordinary ancestry. Preserve all 185 existing ordered concurrent vectors and 50 previous coordination records, current/writable scopes, source owners, COR5, PRODUCT and official 5/100. No new vector, path, guard, workflow or source change is part of this one-file admission.",
+      "sourcePurposeBoundary": [
+        "Only shared rules for contextual interpretation of unambiguous misspellings; retaining explicit crop/subject and setting with latest-correction precedence and an ambiguity question; crop-relevant disease examples without diagnosis from leaf colour or wet weather alone; and evidence before replacement/replanting/chemical intervention.",
+        "No typo dictionary, crop lookup, keyword insertion, question/history rewriting, canned output, answer patch, provider/config/model change or extra model call. Keep original raw input, routed input, bounded history, locale, streaming/nonstreaming paths, continuation, economics, safety and chemistry/registration/location/stage boundaries unchanged.",
+        "Add only provider-wire/mock regression coverage in the pinned existing service spec. Preserve all old tests, the exact critical10 live oracle and thresholds; do not treat mocked neutral answers or policy-string assertions as model-quality evidence.",
+        "The existing literal Han path allowance is unchanged and wider than this two-file follow-up. Its guard does not enforce these exact two blobs or this purpose. Independent complete-tree review must reject any extra path, partial proposal, changed source byte or mode even if the generic guard passes."
+      ],
+      "privateEvidenceLimits": "Private source review found no introduced P0/P1/P2 and 433 mocked tests passed; these are artifact-bound local source/transport checks, not exact-published-head approval or live-model proof. Baseline and candidate full API typechecks both expose the same 1775 missing-generated-Prisma diagnostics; neither is PASS. Fresh native generation/typecheck and every applicable CI/security gate are required.",
+      "acceptanceSequence": [
+        "First accept this exact one-file append-only purpose admission through the existing CORE branch after fresh main/Hub/ownership checks, independent published-whole-head review, separate owner audit and all applicable native CI/security/readiness. Use an ordinary manual merge bound to the full expected head SHA; retain prior branch history.",
+        "Then continue the existing Han branch with exactly the two pinned source transitions on the fresh accepted base. Verify unchanged original blobs/modes and all unrelated tree leaves. A changed base, proposal or head requires fresh review and evidence; do not carry forward a prior PASS.",
+        "Require fresh actual source-head independent nonauthor whole-diff review, distinct owner audit, all substantive native CI/security and manual engineering-readiness immediately before an ordinary expected-full-SHA source merge. Initial draft publication is not acceptance.",
+        "Only after source acceptance and verification of the actual accepted source SHA, perform one newly approved critical10 run, verify cleanup and unchanged active baseline 8B, then perform one extra4 run and verify cleanup again. Both runs must use that same actual accepted source SHA and existing lifetime/watchdog limits of at most 420 seconds each. No further unchanged retries are authorized."
+      ],
+      "approvedAutomaticServerEffects": "The owner explicitly approved the existing automatic image-build/preflight effects associated with this Gekta source acceptance, including image downloads and protected checkout refresh on REG.RU. This is not a claim of end-to-end zero-write execution or deployment/live-model acceptance; it does not authorize unrelated server operations.",
+      "boundedRuntimeConditions": [
+        "Keep the current active 8B baseline and existing temporary candidate controls unchanged. Enforce existing cancellation, watchdog, cleanup and restoration gates; a failed or incomplete cleanup or changed active baseline blocks the next run and any acceptance claim.",
+        "Serialize the accepted-SHA diagnostic window; do not move main/source beneath the two-run evidence. Record actual source/image/run identities, completed, failed and skipped cases, cancellation/cleanup and baseline state. Prior critical failure and extra partial evidence remain historical and cannot be transferred to the new SHA.",
+        "A source review, merge, image publication or mock PASS does not prove accuracy, crop-context correctness, speed, stability, production deployment or permanent model activation."
+      ],
+      "observerHold": "PR #5779 remains DRAFT, unmerged and not executed on the server. This Gekta approval does not authorize observer source merge or observer server execution.",
+      "forbiddenAuthority": [
+        "No permanent model activation, new rights/credentials, mandatory expense, protected-data disclosure or unrelated host/controller work.",
+        "No new source/guard/path authority, broadening of existing vectors, workflow/controller/config/dependency/oracle changes or competing ownership.",
+        "No weakened CI/security/review/readiness/cleanup/assertion gates, stale-head PASS transfer, forced or automatic merge.",
+        "No R1 completion, production/model acceptance or progress increase from this admission or private fixtures."
+      ]
     }
   }
 }
