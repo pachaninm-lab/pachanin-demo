@@ -11,7 +11,9 @@ import emptyStyles from '../../../../packages/design-system-v8/src/EmptyState.mo
 import * as Icons from 'lucide-react';
 import * as Csrf from '../../lib/csrf';
 import workspaceStyles from '../../components/transaction-ux/TransactionDealWorkspace.module.css';
-import { buildDealSpine, getDealActionDefinition } from '../../../api/src/modules/deals/deal-command.policy';
+import { buildDealSpine, getDealActionDefinition, DEAL_ACTIONS } from '../../../api/src/modules/deals/deal-command.policy';
+import { DealCommandForm } from '../../components/platform-v7/DealCommandForm';
+import * as DealCopy from '../../i18n/transaction-deal-copy';
 
 type Submit = (payload: Record<string, unknown>) => Promise<void>;
 const form: { submit?: Submit } = {};
@@ -32,7 +34,7 @@ function loadExactSource(file: string, dependencies: Record<string, unknown>) {
   const compiled = ts.transpileModule(source, { compilerOptions: {
     target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true,
   } }).outputText;
-  const module = { exports: {} as Record<string, React.ComponentType<{ role: 'buyer' | 'seller'; dealId: string }>> };
+  const module = { exports: {} as Record<string, unknown> };
   const requireKnown = (name: string) => {
     if (name === 'react/jsx-runtime') return JsxRuntime;
     if (!Object.prototype.hasOwnProperty.call(dependencies, name)) throw new Error(`Unexpected production dependency: ${name}`);
@@ -54,10 +56,29 @@ const DesignSystem = loadExactSource(path.join(designRoot, 'index.ts'), {
 const runtimeModule = loadExactSource(resolvedRuntime, {
   react: React, 'lucide-react': Icons, '@pc/design-system-v8': DesignSystem,
   '@/components/platform-v7/DealCommandForm': { DealCommandForm: CommandForm }, '@/lib/csrf': Csrf,
+  '@/i18n/transaction-deal-copy': DealCopy,
   './TransactionDealWorkspace.module.css': { __esModule: true, default: workspaceStyles },
 });
-const { TransactionDealWorkspace } = runtimeModule;
-const { CanonicalDealWorkspace } = loadExactSource(resolvedFacade, { './TransactionDealWorkspace': runtimeModule });
+type WorkspaceProps = { role: 'buyer' | 'seller' | 'bank' | 'lab'; dealId: string; locale?: string };
+const TransactionDealWorkspace = runtimeModule.TransactionDealWorkspace as React.ComponentType<WorkspaceProps>;
+const CanonicalDealWorkspace = loadExactSource(resolvedFacade, { './TransactionDealWorkspace': runtimeModule }).CanonicalDealWorkspace as React.ComponentType<WorkspaceProps>;
+// Locale regressions use the exact production route, TS facade, runtime and real
+// form. Only Next's route/context hooks and HTTP transport are test boundaries.
+const realRuntime = loadExactSource(resolvedRuntime, {
+  react: React, 'lucide-react': Icons, '@pc/design-system-v8': DesignSystem,
+  '@/components/platform-v7/DealCommandForm': { DealCommandForm }, '@/lib/csrf': Csrf,
+  '@/i18n/transaction-deal-copy': DealCopy,
+  './TransactionDealWorkspace.module.css': { __esModule: true, default: workspaceStyles },
+});
+const realFacade = loadExactSource(resolvedFacade, { './TransactionDealWorkspace': realRuntime });
+let routeLocale: string, routeId: string, routeRole: WorkspaceProps['role'];
+const ProductionPage = loadExactSource(productionRoute, {
+  '@/styles/platform-v7-canonical-public-v1.css': {},
+  'next/navigation': { useParams: () => ({ id: routeId }) },
+  'next-intl': { useLocale: () => routeLocale },
+  '@/components/platform-v7/CanonicalDealWorkspace': realFacade,
+  '@/stores/usePlatformV7RStore': { usePlatformV7RStore: (select: (state: { role: WorkspaceProps['role'] }) => unknown) => select({ role: routeRole }) },
+}).default as React.ComponentType;
 type Posted = { commandId: string; idempotencyKey: string; expectedUpdatedAt: string; expectedVersion: string; payload: unknown };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 const buyerTransition = getDealActionDefinition('buyer_sign_contract');
@@ -121,6 +142,7 @@ function receipt(body: Posted, url: string, duplicate = false) {
     actionId: decodeURIComponent(parts[6]), idempotencyKey: fingerprint(body, url), status: 'CONTRACT_SIGNED' };
 }
 beforeEach(() => {
+  routeLocale = 'ru'; routeId = 'deal-a'; routeRole = 'buyer';
   posts = []; gets = 0; form.submit = undefined; document.documentElement.lang = 'ru';
   window.localStorage.clear();
   vi.stubGlobal('crypto', webcrypto);
@@ -643,5 +665,238 @@ describe('producer-backed committed-state consistency', () => {
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Ответ сервера подтверждён'));
     expect(window.localStorage.getItem(journalKey())).toBeNull();
     expect(posts).toHaveLength(1); expect(gets).toBe(2);
+  });
+});
+
+function signingSnapshot(id = routeId) {
+  const value = snapshot(id);
+  return { ...value,
+    deal: { ...value.deal, totalKopecks: '9007199254740993123', pricePerTon: '12345.67', currency: 'USD' },
+    roleProjection: { ...value.roleProjection, focus: 'Условия, резерв, приёмка и расчёт',
+      primaryAction: { ...value.roleProjection.primaryAction, label: buyerTransition.label } },
+    attention: `Требуется действие: ${buyerTransition.label}`,
+    documents: [{ id: 'contract-fact-签字', type: 'CONTRACT', status: 'SIGNED', name: 'Договор № 42' }],
+  };
+}
+
+describe('protected Deal route presentation language', () => {
+  it('retains Russian metadata defaults for other consumers and accepts translated labels without leaking props', () => {
+    const Card = DesignSystem.NextActionCard as React.ComponentType<{ action: string; impact: string; owner: string; deadline: string; impactLabel?: string; ownerLabel?: string; deadlineLabel?: string }>;
+    const view = render(<Card action='Existing consumer' impact='amount-fact' owner='actor-fact' deadline='deadline-fact' />);
+    expect(screen.getByText('Влияние').nextElementSibling).toHaveTextContent('amount-fact');
+    expect(screen.getByText('Ответственный').nextElementSibling).toHaveTextContent('actor-fact');
+    expect(screen.getByText('Срок').nextElementSibling).toHaveTextContent('deadline-fact');
+    view.rerender(<Card action='Existing consumer' impact='amount-fact' owner='actor-fact' deadline='deadline-fact' impactLabel='Impact' ownerLabel='Owner' deadlineLabel='Deadline' />);
+    expect(screen.getByText('Impact').nextElementSibling).toHaveTextContent('amount-fact');
+    expect(screen.getByText('Owner').nextElementSibling).toHaveTextContent('actor-fact');
+    expect(screen.getByText('Deadline').nextElementSibling).toHaveTextContent('deadline-fact');
+    expect(view.container.querySelector('[impactlabel], [ownerlabel], [deadlinelabel]')).toBeNull();
+  });
+  it.each([
+    ['ru', 'Подтверди подпись покупателя', 'Цена', '12 345,67 USD/т', '90 071 992 547 409 931,23 USD', 'Покупатель'],
+    ['en', 'Confirm the buyer signature', 'Price', '12,345.67 USD/t', '90,071,992,547,409,931.23 USD', 'Buyer'],
+    ['zh-CN', '确认买方签名', '价格', '12,345.67 USD/吨', '90,071,992,547,409,931.23 USD', '买方'],
+  ])('renders the actual route and form in %s while retaining the exact Deal and currency', async (locale, formTitle, priceLabel, price, amount, roleLabel) => {
+    routeLocale = locale; routeId = '银行/DEAL?#42';
+    read = async () => json(signingSnapshot());
+    render(<ProductionPage />);
+    await waitFor(() => expect(screen.getByText(formTitle)).toBeInTheDocument());
+    const workspace = document.querySelector('[data-transaction-workspace="v8"]')!;
+    expect(workspace).toHaveAttribute('data-canonical-deal', routeId);
+    expect(workspace).toHaveAttribute('lang', locale);
+    expect(screen.getByRole('heading', { level: 1, name: routeId })).toBeInTheDocument();
+    expect(screen.getByText(priceLabel).nextElementSibling!.textContent).toBe(price);
+    expect(workspace.textContent).toContain(amount);
+    expect(workspace.textContent).toContain(roleLabel);
+    expect(fetch).toHaveBeenCalledWith(`/api/proxy/deals/${encodeURIComponent(routeId)}/execution-workspace`, expect.objectContaining({ method: 'GET' }));
+    expect(posts).toHaveLength(0);
+    if (locale !== 'ru') expect(workspace.textContent).not.toMatch(/[А-Яа-яЁё]/);
+  });
+
+  it.each([
+    ['ru', 'Жди подтверждение банка', 'Ручное подтверждение невозможно.'],
+    ['en', 'Wait for bank confirmation', 'Manual confirmation is unavailable.'],
+    ['zh-CN', '等待银行确认', '无法手动确认。'],
+  ])('keeps bank callback authority read-only in %s', async (locale, waiting, manual) => {
+    routeLocale = locale; routeRole = 'bank';
+    const action = getDealActionDefinition('confirm_reserve');
+    read = async () => {
+      const value = snapshot();
+      return json({ ...value, deal: { ...value.deal, status: action.from }, spine: buildDealSpine(action.from),
+        roleProjection: { role: 'ACCOUNTING', focus: 'Запросы резерва и выплаты без права подтверждения банка', canAct: true,
+          primaryAction: { id: action.id, label: action.label, source: action.source, enabled: true, waitingForRoles: [...action.roles] } },
+        attention: 'Ожидается подписанное подтверждение банка.' });
+    };
+    render(<ProductionPage />);
+    await waitFor(() => expect(screen.getByText(waiting)).toBeInTheDocument());
+    expect(screen.getByText(manual)).toBeInTheDocument();
+    expect(document.querySelector('form')).toBeNull();
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(posts).toHaveLength(0);
+    if (locale !== 'ru') expect(document.querySelector('[data-transaction-workspace="v8"]')!.textContent).not.toMatch(/[А-Яа-яЁё]/);
+  });
+
+  it.each([
+    ['en', 'This deal is currently unavailable', 'Reload deal state'],
+    ['zh-CN', '当前无法访问此交易', '重新读取交易状态'],
+  ])('shows resolved-locale service failure and permits only a read in %s', async (locale, unavailable, reloadLabel) => {
+    routeLocale = locale; read = async () => json({ message: 'Upstream unavailable' }, 503);
+    render(<ProductionPage />);
+    await waitFor(() => expect(screen.getByRole('heading', { name: unavailable })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: reloadLabel }));
+    await waitFor(() => expect(gets).toBe(2));
+    expect(posts).toHaveLength(0);
+  });
+
+  it.each(['en', 'zh-CN'])('localizes every producer stage/action in %s without inventing permissions', async (locale) => {
+    routeLocale = locale;
+    const value = signingSnapshot();
+    value.roleProjection.canAct = false; value.roleProjection.primaryAction.enabled = false;
+    read = async () => json(value);
+    render(<ProductionPage />);
+    await waitFor(() => expect(document.querySelector('[data-transaction-workspace="v8"]')).not.toBeNull());
+    expect(document.querySelector('[data-transaction-workspace="v8"]')!.textContent).not.toMatch(/[А-Яа-яЁё]/);
+    expect(document.querySelector('form')).toBeNull();
+    expect(DEAL_ACTIONS).toHaveLength(19);
+    expect(posts).toHaveLength(0);
+  });
+
+  it('retains a focused draft and review step on locale changes, then preserves UNKNOWN and the exact command', async () => {
+    routeLocale = 'en'; read = async () => json(signingSnapshot());
+    const view = render(<ProductionPage />);
+    await waitFor(() => expect(screen.getByText('Confirm the buyer signature')).toBeInTheDocument());
+    const evidence = screen.getByLabelText(/Signature evidence/) as HTMLInputElement;
+    fireEvent.change(evidence, { target: { value: 'draft-file-签字' } }); evidence.focus();
+    const when = screen.getByLabelText(/When was the contract signed/);
+    fireEvent.change(when, { target: { value: '2026-09-29T10:30' } });
+    routeLocale = 'zh-CN'; view.rerender(<ProductionPage />);
+    await waitFor(() => expect(screen.getByText('确认买方签名')).toBeInTheDocument());
+    expect(screen.getByLabelText(/签名证据/)).toBe(evidence);
+    expect(evidence).toHaveValue('draft-file-签字'); expect(evidence).toHaveFocus();
+    expect(gets).toBe(1); expect(posts).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: '继续' }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: '确认前请核对' })).toBeInTheDocument());
+    routeLocale = 'en'; view.rerender(<ProductionPage />);
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Review before confirming' })).toBeInTheDocument());
+    expect(screen.getByText('draft-file-签字')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Sign the contract as buyer' }));
+    await expectUnknown();
+    expect(posts).toHaveLength(1);
+    expect(posts[0].body.payload).toEqual({ documentId: 'contract-fact-签字', signedAt: new Date('2026-09-29T10:30').toISOString(), signatureEvidenceRef: 'draft-file-签字' });
+    expect(posts[0].body).not.toHaveProperty('locale');
+    const pending = window.localStorage.getItem(journalKey())!;
+    const stored = JSON.parse(pending);
+    expect(stored.fingerprint).toBe(fingerprint(posts[0].body, posts[0].url));
+    routeLocale = 'zh-CN'; view.rerender(<ProductionPage />);
+    await waitFor(() => expect(document.querySelector('[data-command-outcome="UNKNOWN"]')).toHaveTextContent('操作结果未知'));
+    expect(window.localStorage.getItem(journalKey())).toBe(pending);
+    expect(screen.getByRole('button', { name: '买方签署合同' })).toBeDisabled();
+    expect(posts).toHaveLength(1); expect(gets).toBe(1);
+  });
+
+  it('keeps unknown server facts and dispute identifiers verbatim and uses no prototype translation', () => {
+    for (const locale of ['ru', 'en', 'zh'] as const) {
+      expect(DealCopy.dealServerText('Новая серверная причина — ref/<组织>?', locale)).toBe('Новая серверная причина — ref/<组织>?');
+      expect(DealCopy.dealServerText('Открыт спор dispute/<组织>?', locale)).toContain('dispute/<组织>?');
+      expect(DealCopy.dealRoleText('UNRECOGNIZED_AUTHORITY', locale)).toBe('UNRECOGNIZED_AUTHORITY');
+      expect(DealCopy.dealText('toString', locale)).toBe('toString');
+      expect(DealCopy.dealText('__proto__', locale)).toBe('__proto__');
+    }
+    expect(DealCopy.dealLocale('unsupported')).toBe('ru');
+    expect(DealCopy.dealLocale('EN_us')).toBe('en');
+    expect(DealCopy.dealLocale('zh-CN')).toBe('zh');
+  });
+});
+
+describe('real command form languages and payloads', () => {
+  it.each([
+    ['en', 'Continue', 'Confirm the result', 'Sample number', 'Report number', 'Laboratory ID', 'Accreditation number', 'Name', 'Value', 'Unit', 'Lower limit', 'Applicable standard', 'Signed report', 'When was analysis completed?'],
+    ['zh', '继续', '确认结果', '样品编号', '报告编号', '实验室标识', '认可编号', '名称', '数值', '单位', '标准下限', '适用标准', '签署的报告', '何时完成分析？'],
+  ] as const)('completes all four laboratory steps in %s without assigning the server outcome', async (locale, next, confirm, sample, protocol, lab, accreditation, parameter, value, unit, lower, standard, evidence, finalized) => {
+    const submit = vi.fn();
+    render(<DealCommandForm locale={locale} actionId='finalize_lab' label='Unused caller label' onSubmit={submit} />);
+    for (const [label, input] of [[sample, 'sample-fact'], [protocol, 'protocol-fact'], [lab, 'lab-fact'], [accreditation, 'accreditation-fact']]) {
+      fireEvent.change(screen.getByLabelText(label, { exact: false }), { target: { value: input } });
+    }
+    fireEvent.click(screen.getByRole('button', { name: next }));
+    for (const [label, input] of [[parameter, 'humidity'], [value, '14,5'], [unit, '%'], [lower, '12,0']]) {
+      fireEvent.change(screen.getByLabelText(label, { exact: false }), { target: { value: input } });
+    }
+    fireEvent.click(screen.getByRole('button', { name: next }));
+    fireEvent.change(screen.getByLabelText(standard, { exact: false }), { target: { value: 'contract-standard-fact' } });
+    fireEvent.change(screen.getByLabelText(evidence, { exact: false }), { target: { value: 'signed-report-fact' } });
+    fireEvent.change(screen.getByLabelText(finalized, { exact: false }), { target: { value: '2026-09-29T12:00' } });
+    fireEvent.click(screen.getByRole('button', { name: next }));
+    expect(screen.getByRole('heading')).toHaveFocus();
+    expect(document.body.textContent).not.toMatch(/[А-Яа-яЁё]/);
+    fireEvent.click(screen.getByRole('button', { name: confirm }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    expect(submit).toHaveBeenCalledWith({ sampleId: 'sample-fact', protocolNumber: 'protocol-fact', labId: 'lab-fact', accreditationRef: 'accreditation-fact',
+      applicableStandard: 'contract-standard-fact', signedEvidenceRef: 'signed-report-fact', finalizedAt: new Date('2026-09-29T12:00').toISOString(),
+      indicators: [{ parameter: 'humidity', value: '14.5', unit: '%', normMin: '12.0' }] });
+    expect(submit.mock.calls[0][0]).not.toHaveProperty('status');
+  });
+
+  it.each([
+    ['en', 'Continue', 'How was arrival confirmed?', 'Device location', 'Evidence', 'Latitude', 'Longitude', 'Get coordinates'],
+    ['zh', '继续', '如何确认到达？', '设备定位', '证据', '纬度', '经度', '获取坐标'],
+  ] as const)('localizes select options and location failure in %s while preserving the selected method', async (locale, next, methodLabel, methodText, evidence, latitude, longitude, coordinates) => {
+    const submit = vi.fn();
+    const location = vi.fn((_success, failure) => failure({ code: 1 }));
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: location } });
+    render(<DealCommandForm locale={locale} actionId='confirm_arrival' label='Confirm arrival' initialValues={{ shipmentId: 'shipment-fact' }} onSubmit={submit} />);
+    const method = screen.getByLabelText(methodLabel, { exact: false });
+    expect(screen.getByRole('option', { name: methodText })).toHaveValue('DEVICE_GPS');
+    fireEvent.change(method, { target: { value: 'DEVICE_GPS' } });
+    fireEvent.change(screen.getByLabelText(evidence, { exact: false }), { target: { value: 'arrival-evidence-fact' } });
+    fireEvent.click(screen.getByRole('button', { name: next }));
+    fireEvent.click(screen.getByRole('button', { name: coordinates }));
+    expect(location).toHaveBeenCalledOnce();
+    expect(screen.getByRole('status').textContent).not.toMatch(/[А-Яа-яЁё]/);
+    expect(screen.getByLabelText(latitude)).toHaveValue('');
+    expect(screen.getByLabelText(longitude)).toHaveValue('');
+    fireEvent.click(screen.getByRole('button', { name: next }));
+    expect(screen.getByText(methodText)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm arrival' }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    expect(submit.mock.calls[0][0]).toEqual(expect.objectContaining({ shipmentId: 'shipment-fact', confirmationMethod: 'DEVICE_GPS', evidenceRef: 'arrival-evidence-fact' }));
+    expect(submit.mock.calls[0][0]).not.toHaveProperty('lat');
+    expect(submit.mock.calls[0][0]).not.toHaveProperty('lng');
+  });
+
+  it.each([
+    ['ru', 'Что фактически погрузили?', 'Продолжить', 'Фактический вес, тонн', 'Чем подтверждается погрузка?', 'Основание', 'Фото или документ', 'Когда закончилась погрузка?'],
+    ['en', 'What was actually loaded?', 'Continue', 'Actual weight, tonnes', 'What confirms loading?', 'Basis', 'Photo or document', 'When did loading finish?'],
+    ['zh', '实际装载了什么？', '继续', '实际重量，吨', '用什么证明装载？', '依据', '照片或文件', '何时完成装载？'],
+  ] as const)('validates and submits the same loading facts in %s', async (locale, title, next, weight, basisTitle, basisLabel, evidenceLabel, dateLabel) => {
+    const submit = vi.fn();
+    render(<DealCommandForm locale={locale} actionId='confirm_loading' label='Confirm loading' initialValues={{ shipmentId: 'shipment-fact-42' }} onSubmit={submit} />);
+    expect(screen.getByText(title)).toBeInTheDocument();
+    const heading = screen.getByText(title); expect(heading).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: next }));
+    expect(submit).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(new RegExp(weight))).toHaveAttribute('aria-invalid', 'true');
+    const errorIds = screen.getByLabelText(new RegExp(weight)).getAttribute('aria-describedby')!.split(' ');
+    expect(errorIds.every((id) => document.getElementById(id))).toBe(true);
+    fireEvent.change(screen.getByLabelText(new RegExp(weight)), { target: { value: '20,5' } });
+    fireEvent.change(screen.getByLabelText(dateLabel, { exact: false }), { target: { value: '2026-09-29T11:00' } });
+    fireEvent.click(screen.getByRole('button', { name: next }));
+    await waitFor(() => expect(screen.getByText(basisTitle)).toHaveFocus());
+    fireEvent.change(screen.getByLabelText(basisLabel, { exact: false }), { target: { value: 'weigh-ticket-42' } });
+    fireEvent.change(screen.getByLabelText(evidenceLabel, { exact: false }), { target: { value: 'uploaded-file-42' } });
+    fireEvent.click(screen.getByRole('button', { name: next }));
+    expect(screen.getByRole('heading')).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm loading' }));
+    await waitFor(() => expect(submit).toHaveBeenCalledTimes(1));
+    expect(submit).toHaveBeenCalledWith({ shipmentId: 'shipment-fact-42', actualWeightTons: '20.5', occurredAt: new Date('2026-09-29T11:00').toISOString(), basis: 'weigh-ticket-42', evidenceRef: 'uploaded-file-42', unit: 'TON' });
+  });
+
+  it.each(['en', 'zh'] as const)('covers every action form first step in %s', (locale) => {
+    for (const action of DEAL_ACTIONS.filter((item) => item.source !== 'BANK_CALLBACK')) {
+      const view = render(<DealCommandForm locale={locale} actionId={action.id} label='Server action' disabled initialValues={{ documentId: 'document-42', shipmentId: 'shipment-42', acceptanceId: 'acceptance-42' }} onSubmit={vi.fn()} />);
+      expect(view.container.textContent).not.toMatch(/[А-Яа-яЁё]/);
+      expect(view.container.querySelector('button[type="submit"]') ?? view.container.querySelector('button')).toBeDisabled();
+      view.unmount();
+    }
   });
 });

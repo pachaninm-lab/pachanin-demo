@@ -38,6 +38,322 @@ function sseChunk(content: string): string {
   return `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`;
 }
 
+describe('storage intent corrections', () => {
+  it.each([
+    'Уточнение: отгрузка обоим покупателям сразу, хранить зерно 30 дней не нужно. Пересмотри риски отсрочки оплаты, не добавляя расходов на хранение.',
+    'Хранение не нужно. Сравни расходы при отсрочке оплаты.',
+    'Не включай стоимость хранения при сравнении отсрочки оплаты.',
+    'Не добавляй расходы на хранение. Отгрузка покупателю сразу.',
+    'Без хранения: сравни цену при оплате сразу и через 30 дней.',
+    'Расходы на хранение не учитывай; сравни условия оплаты.',
+    'Storage is not needed; compare payment costs.',
+    'No storage costs; compare the payment deferral risk.',
+    "Don't include storage costs; shipment is immediate. What are the payment risks?",
+    'No need to store grain; compare the price of deferred payment.',
+    'Storage is not required; compare the price of deferred payment.',
+    '不需要储存粮食。比较延期付款的成本。',
+    '无需仓储；比较付款风险和成本。',
+    '不要计入仓储费用，只比较延期付款的风险和成本。',
+    '仓储不需要，比较延期付款的成本。',
+    "We don't need storage; compare payment costs.",
+    "We don't need to store grain; compare payment costs.",
+    'We do not need to store grain; compare payment costs.',
+    'Без хранения есть возможность рассчитать прибыль. Сравни расходы.',
+    'Without storage costs, there is a way to calculate profit. Compare costs.',
+    'Without storage, there is no possibility of extra expense; compare payment costs.',
+    'Без хранения нет возможности понести дополнительные расходы; сравни условия оплаты.',
+    'We do not require storage; compare payment costs.',
+    'Compare payment costs assuming no storage.',
+    'Compare payment costs assuming no storage is needed.',
+    'Compare payment costs assuming no storage for this deal.',
+    'Compare payment costs assuming no storage is needed for this deal.',
+    'Compare payment costs assuming no storage is required for the shipment.',
+    'Not excluding storage costs was a mistake; compare payment costs.',
+    'We discussed storage yesterday. Exclude storage costs and compare payment costs.',
+    'We discussed storage yesterday and now exclude storage costs; compare payment costs.',
+    'Исключи расходы на хранение; сравни условия оплаты.',
+    'Исключи из расчёта расходы на хранение; сравни расходы по оплате.',
+    'Исключите из сметы стоимость хранения; сравните условия оплаты.',
+    'Исключите стоимость хранения; сравните условия оплаты.',
+    'Compare payment costs assuming no storage is required.',
+    'Compare payment costs assuming no storage for the shipment.',
+    'Compare payment costs excluding storage.',
+    'Compare payment costs omitting storage costs.',
+    'Нам не нужно хранение; сравни расходы при отсрочке оплаты.',
+    'Нам не требуется хранение; сравни расходы при отсрочке оплаты.',
+  ])('does not calculate an explicitly excluded storage topic: %s', (question) => {
+    const history = [
+      { role: 'user' as const, text: 'Хранение стоит 100 руб/т в месяц. Срок два месяца.' },
+      { role: 'assistant' as const, text: 'Нужно покрыть расходы на хранение.' },
+    ];
+    expect(economicComparisonFor(question, history)).toBe('qualitative');
+    const gate = generalGate({ economicComparison: economicComparisonFor(question, history) });
+    gate.push('Проверьте платёжеспособность покупателя и условия отсрочки.');
+    gate.flush();
+    expect(gate.emitted).not.toContain('Для покрытия только хранения');
+  });
+
+  it.each([
+    'Сколько должна вырасти цена, чтобы покрыть хранение два месяца по 100 руб/т в месяц?',
+    'Не нужно продавать сразу. Сколько стоит хранение три месяца?',
+    'Хранение не нужно для А. Но Б хранит три месяца. Сравни расходы.',
+    'Хранение не нужно, но если хранить два месяца по 100 руб/т в месяц, какой нужен рост цены?',
+    'Не исключайте расходы на хранение: сколько должна вырасти цена?',
+    'Storage is not needed for A, but B stores for three months. Compare prices.',
+    'Do not ignore storage costs. How much should the price rise?',
+    'No storage is needed today. However if storing for two months, what price rise covers the cost?',
+    '无需仓储，但如果储存两个月，每月每吨100卢布，需要涨价多少才能覆盖仓储成本？',
+    '不要忽略仓储成本，需要涨价多少？',
+    'Хранение не нужно для А, для Б хранить зерно три месяца. Сравни расходы.',
+    'No storage for A, B stores grain for three months. Compare costs.',
+    '无需仓储用于A，B储存粮食三个月。比较成本。',
+    'Хранение не нужно исключать. Сравни расходы.',
+    'Storage is not needed to exclude other costs. Compare storage costs.',
+    '无需忽略仓储成本，需要涨价多少？',
+    'Storage for A costs 100 and storage for B is not needed. Compare costs.',
+    'Storage for A is needed and storage for B is not required. Compare costs.',
+    'Хранение А стоит 100 и хранение Б не нужно. Сравни расходы.',
+    'Хранение А нужно и хранение Б не требуется. Сравни расходы.',
+    '仓储A成本100而仓储B不需要。比较成本。',
+    '仓储A成本100而仓储B无需安排。比较成本。',
+    'We cannot ship without storage; compare costs.',
+    'No storage option is cheap; compare costs.',
+    'We cannot avoid storage; compare costs.',
+    'No storage costs are negligible; compare costs.',
+    'Без хранения нельзя отгрузить зерно. Сравни расходы.',
+    'Без расходов на хранение нельзя рассчитать прибыль. Сравни расходы.',
+    'Без расходов на хранение невозможно рассчитать прибыль. Сравни расходы.',
+    'Без расходов на хранение прибыль рассчитать не получится. Сравни расходы.',
+    'Without storage costs, profit cannot be calculated. Compare costs.',
+    'Without storage, shipping is impossible. Compare costs.',
+    'Без хранения нет возможности рассчитать прибыль. Сравни расходы.',
+    'Without storage costs, there is no way to calculate profit. Compare costs.',
+    'Without storage, there is no possibility of shipping grain. Compare costs.',
+    'Compare costs without excluding storage.',
+    "Don't exclude storage costs; compare payment costs.",
+    'Compare payment costs assuming no storage option is cheap.',
+    'Never exclude storage costs; compare costs.',
+    'Never ignore storage costs; compare costs.',
+    'Compare payment costs assuming no storage for this deal is cheap.',
+    'Compare storage costs; no storage is needed to exclude delivery costs.',
+  ])('keeps actual or hypothetical storage comparisons screened: %s', (question) => {
+    expect(economicComparisonFor(question, [])).toBe('storage');
+  });
+
+  it.each([
+    ['Хранение не требуется; сравни расходы по оплате.', 'Срок один месяц.'],
+    ['No storage costs; compare payment prices.', 'The payment duration is one month.'],
+    ['无需仓储，比较延期付款的成本。', '期限是一个月。'],
+  ])('does not resurrect an excluded topic from user history: %s', (previous, question) => {
+    expect(economicComparisonFor(question, [{ role: 'user', text: previous }])).toBe('qualitative');
+  });
+
+  it('preserves supported same-turn payment arithmetic before storage exclusion', () => {
+    const question = '12000 руб/т с оплатой сегодня или 12400 руб/т через 30 дней. Хранение не нужно.';
+    expect(economicComparisonFor(question, [])).toBe('payment_timing');
+    expect(paymentTimingFromUser(question)?.premiumMinor).toBe(40000);
+    expect(paymentTimingFromUser(question)?.delayDays).toBe(30);
+  });
+
+  it('preserves freight comparison priority when storage is excluded', () => {
+    expect(economicComparisonFor('Без хранения. Сравни тариф перевозчика за рейс и за тонну.', [])).toBe('transport');
+  });
+
+  it('preserves history-based actual storage follow-up', () => {
+    expect(economicComparisonFor('А срок три месяца?', [{ role: 'user', text: 'Сколько стоят расходы на хранение?' }])).toBe('storage');
+  });
+
+  it('keeps a non-economic excluded-storage question outside the monetary screen', () => {
+    expect(economicComparisonFor('Хранение не нужно. Как проверить всхожесть зерна?', [])).toBeNull();
+  });
+
+  it.each([
+    ['Storage is not needed; compare payment costs.', 'Actually, what if we store it for one month?'],
+    ['Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'А если хранить зерно один месяц?'],
+    ['无需仓储；比较付款风险和成本。', '如果储存一个月呢？'],
+  ])('lets newly reintroduced storage override its historical exclusion: %s', (previous, question) => {
+    expect(economicComparisonFor(question, [{ role: 'user', text: previous }])).toBe('storage');
+  });
+
+  it.each([
+    'Do not mention storage again. The payment duration is one month.',
+    "Don't discuss storage again. The payment duration is one month.",
+    'Your previous answer mentioned storage. The payment duration is one month.',
+    'You said to store the grain. I asked about payment duration: one month.',
+    'Do not mention storage costs again; compare payment costs for one month.',
+    'Не упоминай хранение снова. Срок оплаты один месяц.',
+    'Не обсуждай хранение. Срок оплаты один месяц.',
+    'Не говори о хранении снова. Срок оплаты один месяц.',
+    'Earlier we talked about storage for one month. The payment duration is one month.',
+    'Ты говорил про хранение. Срок оплаты один месяц.',
+    'Ты предложил хранить зерно. Вопрос про срок оплаты: один месяц.',
+    'Ранее я говорил о хранении один месяц. Сейчас вопрос про срок оплаты: один месяц.',
+    'Раньше мы обсуждали хранение один месяц. Сейчас вопрос про срок оплаты: один месяц.',
+    'I previously said to store grain for one month. The payment duration is one month.',
+    '不要再提仓储。付款期限是一个月。',
+    '不要讨论储存。付款期限是一个月。',
+    '你之前的回答提到仓储。付款期限是一个月。',
+    '你说储存粮食，但问题是付款期限一个月。',
+    '我之前说过储存一个月。现在问题是付款期限一个月。',
+    'I discussed storage with my manager and now need its cost excluded.',
+    'I discussed storage with my manager and now need its cost to be omitted.',
+    'I discussed storage with my manager and now need its cost to not be included.',
+    'I discussed storage with my manager and now need its cost not to be included.',
+    'I discussed storage with my manager and now need its cost not to be counted.',
+    'I discussed storage with my manager and now need its cost to not be counted.',
+    'Я обсуждал хранение и теперь мне нужна его стоимость исключённой из сравнения.',
+    '我之前说过储存，现在需要它的成本不计入比较。',
+  ])('does not treat a negative or historical storage reference as renewed intent: %s', (question) => {
+    const history = [{ role: 'user' as const, text: 'Storage is not needed; compare payment costs.' }];
+    expect(economicComparisonFor(question, history)).toBe('qualitative');
+    const gate = generalGate({ economicComparison: economicComparisonFor(question, history) });
+    gate.push('Choose deferred payment: profit will be 400 RUB per tonne.');
+    gate.flush();
+    expect(gate.emitted).not.toContain('400');
+  });
+
+  it.each([
+    'What about storage for one month?',
+    'Storage is required; the duration is one month.',
+    'А если хранение один месяц?',
+    'Хранение нужно; срок один месяц.',
+    '如果仓储一个月呢？',
+    '需要仓储；期限是一个月。',
+    'Do not mention storage for A, but B stores for one month. Compare costs.',
+    'Do not mention storage for A, B stores for one month. Compare costs.',
+    'Не упоминай хранение для А, для Б нужно хранить зерно один месяц. Сравни расходы.',
+    '需要仓储一个月，而之前的回答提到的是付款期限。',
+    'Нужно хранить зерно один месяц по договору. Сравни расходы.',
+    'Say we store it for one month. What would it cost?',
+    "Let's talk about storage for one month. What would it cost?",
+    "Let's discuss storage for one month. What would it cost?",
+    'Скажем, хранить зерно один месяц. Сравни расходы.',
+    'Я планирую хранить зерно один месяц. Сравни расходы.',
+    'I would store grain for one month. What would it cost?',
+    '我考虑储存一个月。比较成本。',
+    'Ранее я говорил о хранении один месяц, но если хранить два месяца, какие расходы?',
+    'I discussed storage with my manager and now need its cost for one month.',
+    'Я обсуждал хранение с руководителем и теперь мне нужна его стоимость за один месяц.',
+    '我之前说过储存，现在需要它的成本，期限一个月。',
+    'I discussed storage with my manager and now need its cost; exclude delivery costs.',
+  ])('recognizes affirmative renewed storage while retaining mixed-clause protection: %s', (question) => {
+    const history = [{ role: 'user' as const, text: 'Storage is not needed; compare payment costs.' }];
+    expect(economicComparisonFor(question, history)).toBe('storage');
+  });
+
+  it('retains economic screening for a duration correction that currently excludes storage', () => {
+    const question = 'Хранение не нужно. Срок два месяца.';
+    const history = [{ role: 'user' as const, text: 'Сколько стоят расходы на хранение?' }];
+    const gate = generalGate({ economicComparison: economicComparisonFor(question, history) });
+    gate.push('Выбирайте отсрочку оплаты: прибыль составит 400 руб/т.');
+    gate.flush();
+    expect(gate.emitted).not.toContain('400');
+    expect(economicComparisonFor(question, history)).toBe('qualitative');
+  });
+
+  it.each([
+    'Составь короткий чек-лист подготовки зернохранилища к загрузке новой партии: что осмотреть, проверить и записать? Не нужны препараты и нормы расхода.',
+    'Как подготовить зернохранилище? Не указывай нормы расхода препаратов.',
+    'Как подготовить зернохранилище? Без норм расхода препаратов.',
+    'Как подготовить зернохранилище? Не говори о норме расхода препаратов.',
+    'Подготовь зернохранилище без таблицы с нормами расхода препаратов.',
+    'При подготовке зернохранилища не указывай норму расхода препаратов.',
+    'Оцените состояние зернохранилища перед загрузкой.',
+    'Как проверить трубы вентиляции зернохранилища?',
+    'Как оценить влажность зерна при хранении?',
+    'Какой процент всхожести останется после хранения зерна?',
+    'Какой процент влажности допустим при хранении зерна?',
+    'What percentage of seeds germinate after storage?',
+    'What application rate is used for grain storage pests?',
+    '粮食储存时的含水率是多少？',
+    '储存后种子的发芽率是多少？',
+    'Какой сорт лучше выбрать для отсроченного посева?',
+    'Which herbicide is better for deferred application?',
+  ])('does not attach a financial comparison to application-rate exclusions: %s', (question) => {
+    expect(economicComparisonFor(question, [])).toBeNull();
+  });
+
+  it.each([
+    'Storage is not needed. Compare payment terms.',
+    'Storage costs should not be included; compare payment terms.',
+    'Storage costs are excluded; compare payment terms.',
+    'Storage costs were excluded; compare payment terms.',
+    'Storage costs have been excluded; compare payment terms.',
+    'Storage costs had been excluded; compare payment terms.',
+    'Расходы на хранение были исключены; сравни условия оплаты.',
+    'Стоимость хранения исключена; сравни условия оплаты.',
+    'Расходы на хранение не должны включаться; сравни условия оплаты.',
+    'Хранение не нужно. Что выбрать: оплату сейчас или с отсрочкой?',
+  ])('screens excluded-storage payment choice without a price cue: %s', (question) => {
+    expect(economicComparisonFor(question, [])).toBe('qualitative');
+  });
+
+  it.each([
+    'Не исключи расходы на хранение; сравни расходы.',
+    'Не исключите из сметы стоимость хранения',
+    'Storage costs should not be excluded; compare costs.',
+    'Storage costs are not excluded; compare costs.',
+    'Storage costs were not excluded; compare costs.',
+    'Storage costs have not been excluded; compare costs.',
+    'Расходы на хранение не были исключены; сравни расходы.',
+    'Стоимость хранения не исключена; сравни расходы.',
+    'Расходы на хранение не должны исключаться; сравни расходы.',
+  ])('preserves Russian negative exclusion imperatives: %s', (question) => {
+    expect(economicComparisonFor(question, [])).toBe('storage');
+  });
+
+  it('still screens financial costs alongside application-rate wording', () => {
+    expect(economicComparisonFor('Какая стоимость хранения? Нормы расхода препаратов не нужны.', [])).toBe('storage');
+  });
+
+  it('does not mistake seed germination guarantees for payment selection', () => {
+    expect(economicComparisonFor('Какой сорт с гарантированной всхожестью лучше выбрать?', [])).toBeNull();
+  });
+
+  it.each([
+    'Оцените стоимость хранения зерна.',
+    'Рассчитай себестоимость хранения зерна.',
+    'Какой перерасход средств на хранение зерна?',
+    'Рассчитай наценку после хранения зерна.',
+    'Рассчитай уценку после хранения зерна.',
+    'Какие расценки на хранение зерна?',
+    'Какой процент окупит хранение зерна?',
+    'Какой процент начисляют за хранение зерна?',
+    'Какая процентная ставка за хранение зерна?',
+    'Какая годовая процентная ставка за хранение зерна?',
+    'Укажи ставку в процентах за хранение зерна.',
+    'Какая ставка процента за хранение зерна?',
+    'What annual interest rate is charged for grain storage?',
+    'What monthly interest rate applies to storing grain?',
+    '粮食仓储的年利率是多少？',
+    '粮食仓储的月利率是多少？',
+    'Какова себестоимость хранения за месяц?',
+    'Расходы на хранение 200 рублей за тонну в месяц. Сравни цену.',
+    'Сравни цены продажи зерна после хранения.',
+    'Какова стоимость хранения? Без норм расхода препаратов.',
+  ])('retains financial screening with word-bounded monetary terms: %s', (question) => {
+    expect(economicComparisonFor(question, [])).toBe('storage');
+  });
+
+  it.each([
+    ['ru', 'Хранение не нужно. Сравни расходы при отсрочке оплаты.', 'Выбирайте отсрочку оплаты: прибыль составит 400 руб/т.', 'Проверьте условия оплаты.'],
+    ['en', 'Storage is not needed; compare payment costs.', 'Choose deferred payment: profit will be 400 RUB per tonne.', 'Check the buyer and payment terms.'],
+    ['zh', '不需要储存粮食。比较延期付款的成本。', '选择延期付款，每吨可获利400卢布。', '核对交易对手和付款条件。'],
+  ])('keeps economic screening and qualitative text without storage arithmetic: %s', (locale, question, unsupported, qualitative) => {
+    for (const chunkSize of [1, 2, 7, 48, 500]) {
+      const gate = generalGate({ locale: locale as 'ru' | 'en' | 'zh', economicComparison: economicComparisonFor(question, []) });
+      const content = `${unsupported}\n\n${qualitative} `;
+      for (let index = 0; index < content.length; index += chunkSize) {
+        gate.push(content.slice(index, index + chunkSize));
+        expect(gate.emitted).not.toContain('400');
+      }
+      gate.flush();
+      expect(gate.emitted).not.toContain(unsupported);
+      expect(gate.emitted).toContain(qualitative);
+    }
+  });
+});
+
 describe('StreamingAnswerGate', () => {
   it.each([1, 2, 7, 48, 500])('screens live unsupported economic answers before publication at chunk size %i', (size) => {
     for (const answer of [

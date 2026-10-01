@@ -19,6 +19,7 @@ import { Button, InlineNotice, NextActionCard, StatusChip, Surface } from '@pc/d
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import { DealCommandForm } from '@/components/platform-v7/DealCommandForm';
 import { applyCsrfHeader } from '@/lib/csrf';
+import { dealLocale, dealRoleText, dealServerText, dealText, type DealLocale } from '@/i18n/transaction-deal-copy';
 import styles from './TransactionDealWorkspace.module.css';
 
 type SpineState = 'done' | 'active' | 'pending';
@@ -245,24 +246,24 @@ function isWorkspace(value: unknown, dealId: string): value is Workspace {
     items.every((item) => isRecord(item) && hasStrings(item, required) && hasOptionalStrings(item, optional)));
 }
 
-function formatMoney(kopecks: string | null | undefined, currency = 'RUB'): string {
+function formatMoney(kopecks: string | null | undefined, currency = 'RUB', locale: DealLocale = 'ru'): string {
   if (!kopecks || !/^-?\d+$/.test(kopecks)) return '—';
   const negative = kopecks.startsWith('-');
   const digits = negative ? kopecks.slice(1) : kopecks;
   const rubles = digits.length > 2 ? digits.slice(0, -2) : '0';
   const cents = digits.slice(-2).padStart(2, '0');
-  const grouped = rubles.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  const grouped = rubles.replace(/\B(?=(\d{3})+(?!\d))/g, locale === 'ru' ? ' ' : ',');
   const symbol = currency === 'RUB' ? '₽' : currency;
-  return `${negative ? '−' : ''}${grouped},${cents} ${symbol}`;
+  return `${negative ? '−' : ''}${grouped}${locale === 'ru' ? ',' : '.'}${cents} ${symbol}`;
 }
 
-function formatDecimal(value: string | number | null | undefined, suffix: string): string {
+function formatDecimal(value: string | number | null | undefined, suffix: string, locale: DealLocale = 'ru'): string {
   const decimal = typeof value === 'number' && Number.isFinite(value) ? String(value) : value;
   if (typeof decimal !== 'string' || !/^\d+(?:\.\d+)?$/.test(decimal)) return '—';
   const [whole, fraction = ''] = decimal.split('.');
   const significant = fraction.replace(/0+$/, '').slice(0, 6);
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  return `${grouped}${significant ? `,${significant}` : ''} ${suffix}`;
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, locale === 'ru' ? ' ' : ',');
+  return `${grouped}${significant ? `${locale === 'ru' ? ',' : '.'}${significant}` : ''} ${suffix}`;
 }
 
 function roleLabel(role: PlatformRole): string {
@@ -284,6 +285,12 @@ function roleLabel(role: PlatformRole): string {
 }
 
 const STATUS_LABELS: Record<string, string> = {
+  DRAFT: 'Черновик', ADMISSION_APPROVED: 'Допуск подтверждён', AUCTION_OPEN: 'Аукцион открыт',
+  AUCTION_WON: 'Ставка принята', SELLER_SIGNED: 'Подписано продавцом', CONTRACT_SIGNED: 'Договор подписан',
+  RESERVE_REQUESTED: 'Резерв запрошен', LOGISTICS_ASSIGNED: 'Перевозка назначена', LOADED: 'Погружено',
+  WEIGHED: 'Вес зафиксирован', INSPECTION_CONFIRMED: 'Осмотр подтверждён', QUALITY_ACCEPTED: 'Качество принято',
+  DELIVERY_ACCEPTED: 'Поставка принята', DOCUMENTS_COMPLETE: 'Комплект документов закрыт',
+  RELEASE_REQUESTED: 'Выплата запрошена', RELEASED: 'Выплачено',
   PENDING: 'Ожидается',
   WAITING: 'Ожидается',
   CREATED: 'Создано',
@@ -308,11 +315,11 @@ function humanStatus(value: string | null | undefined, emptyLabel = 'Нет да
   return STATUS_LABELS[value] || value.toLowerCase().replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase());
 }
 
-function waitingLabel(action: Workspace['roleProjection']['primaryAction']): string {
+function waitingLabel(action: Workspace['roleProjection']['primaryAction'], locale: DealLocale): string {
   if (!action) return '';
-  if (action.source === 'BANK_CALLBACK' || action.waitingForRoles.includes('BANK_CALLBACK')) return 'подтверждение банка';
-  if (action.waitingForRoles.length === 0) return 'другой участник сделки';
-  return action.waitingForRoles.map((role) => humanStatus(role)).join(', ');
+  if (action.source === 'BANK_CALLBACK' || action.waitingForRoles.includes('BANK_CALLBACK')) return dealText('подтверждение банка', locale);
+  if (action.waitingForRoles.length === 0) return dealText('другой участник сделки', locale);
+  return action.waitingForRoles.map((role) => dealRoleText(role, locale)).join(', ');
 }
 
 function stepStateLabel(state: SpineState): string {
@@ -356,13 +363,14 @@ function taskOwner(
   action: Workspace['roleProjection']['primaryAction'],
   systemAction: boolean,
   hasBlockers: boolean,
+  locale: DealLocale,
 ): string {
-  if (systemAction) return 'Банк';
-  if (hasBlockers || action?.enabled) return roleLabel(role);
-  return action ? waitingLabel(action) : 'Система сделки';
+  if (systemAction) return dealText('Банк', locale);
+  if (hasBlockers || action?.enabled) return dealText(roleLabel(role), locale);
+  return action ? waitingLabel(action, locale) : dealText('Система сделки', locale);
 }
 
-export function TransactionDealWorkspace({ role, dealId }: { role: PlatformRole; dealId: string }) {
+export function TransactionDealWorkspace({ role, dealId, locale: requestedLocale }: { role: PlatformRole; dealId: string; locale?: string }) {
   const [workspaceState, setWorkspace] = React.useState<Workspace | null>(null);
   const [workspaceContext, setWorkspaceContext] = React.useState({ dealId, role });
   const workspace = workspaceContext.dealId === dealId && workspaceContext.role === role ? workspaceState : null;
@@ -383,22 +391,24 @@ export function TransactionDealWorkspace({ role, dealId }: { role: PlatformRole;
   const mounted = React.useRef(true);
   const [, refreshAttempt] = React.useReducer((value: number) => value + 1, 0);
   const unknownAttempt = unresolved.current.get(dealId);
-  const [locale, setLocale] = React.useState<'ru' | 'en' | 'zh'>('ru');
+  const [locale, setLocale] = React.useState<DealLocale>(() => dealLocale(requestedLocale));
+  const t = (text: string, values?: Readonly<Record<string, string | number>>) => dealText(text, locale, values);
   const copy = locale === 'en' ? RECOVERY_EN : locale === 'zh' ? RECOVERY_ZH : RECOVERY_RU;
   const errorCopy = error === 'INPUT_PROBLEM' ? copy.inputError : error === 'REJECTED' ? copy.rejected : copy.readError;
   const noticeCopy = notice === 'DUPLICATE' ? copy.duplicate : notice === 'CONFLICT' ? copy.conflict : copy.success;
 
   React.useEffect(() => {
     mounted.current = true;
-    const updateLocale = () => {
-      const language = document.documentElement.lang.trim().toLowerCase().split(/[-_]/)[0];
-      setLocale(language === 'en' || language === 'zh' ? language : 'ru');
-    };
+    return () => { mounted.current = false; readGeneration.current += 1; };
+  }, []);
+
+  React.useEffect(() => {
+    const updateLocale = () => setLocale(dealLocale(requestedLocale ?? document.documentElement.lang));
     updateLocale();
     const observer = new MutationObserver(updateLocale);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
-    return () => { mounted.current = false; readGeneration.current += 1; observer.disconnect(); };
-  }, []);
+    return () => observer.disconnect();
+  }, [requestedLocale]);
 
   const load = React.useCallback(async () => {
     if (!mounted.current || context.current.dealId !== dealId || context.current.role !== role) return;
@@ -609,47 +619,48 @@ export function TransactionDealWorkspace({ role, dealId }: { role: PlatformRole;
 
   const activeStep = workspace.spine.find((step) => step.state === 'active');
   const action = workspace.roleProjection.primaryAction;
-  const systemAction = action?.source === 'BANK_CALLBACK' || action?.waitingForRoles.includes('BANK_CALLBACK');
+  const systemAction = Boolean(action?.source === 'BANK_CALLBACK' || action?.waitingForRoles.includes('BANK_CALLBACK'));
   const shipment = workspace.shipments[0];
   const acceptance = workspace.acceptance[0];
   const signedDocuments = workspace.documents.filter((item) => item.status === 'SIGNED').length;
   const hasBlockers = workspace.blockers.length > 0;
 
   const taskTitle = hasBlockers
-    ? workspace.blockers[0]
+    ? dealServerText(workspace.blockers[0], locale)
     : systemAction
-      ? 'Жди подтверждение банка'
+      ? t('Жди подтверждение банка')
       : action?.enabled
-        ? action.label
+        ? t(action.label)
         : action
-          ? `Жди: ${waitingLabel(action)}`
-          : 'Сейчас ничего делать не нужно';
+          ? t('Жди: {participant}', { participant: waitingLabel(action, locale) })
+          : t('Сейчас ничего делать не нужно');
 
   const taskExplanation = hasBlockers
-    ? 'Сначала устрани указанный стоп-фактор. До этого следующий шаг сделки заблокирован.'
+    ? t('Сначала устрани указанный стоп-фактор. До этого следующий шаг сделки заблокирован.')
     : systemAction
-      ? 'Банк проверяет операцию. Состояние изменится автоматически после подтверждённого callback.'
+      ? t('Банк проверяет операцию. Состояние изменится автоматически после подтверждённого callback.')
       : action?.enabled
-        ? workspace.attention || 'Заполни только обязательные поля и подтверди действие.'
+        ? dealServerText(workspace.attention, locale) || t('Заполни только обязательные поля и подтверди действие.')
         : action
-          ? `Следующий шаг выполняет ${waitingLabel(action)}. Экран обновится после подтверждения.`
-          : 'Сделка завершена или ожидает системного события.';
+          ? t('Следующий шаг выполняет {participant}. Экран обновится после подтверждения.', { participant: waitingLabel(action, locale) })
+          : t('Сделка завершена или ожидает системного события.');
 
   const TaskIcon = hasBlockers ? AlertTriangle : systemAction ? Banknote : ArrowRight;
   const actionExtras = (
     <div className={styles.actionExtras}>
       {hasBlockers && workspace.blockers.length > 1 ? (
         <ul className={styles.blockerList}>
-          {workspace.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
+          {workspace.blockers.map((blocker) => <li key={blocker}>{dealServerText(blocker, locale)}</li>)}
         </ul>
       ) : null}
 
-      {!hasBlockers && systemAction ? <p className={styles.systemNote}>Ручное подтверждение невозможно.</p> : null}
+      {!hasBlockers && systemAction ? <p className={styles.systemNote}>{t('Ручное подтверждение невозможно.')}</p> : null}
 
       {!hasBlockers && action?.enabled && !systemAction ? (
         <DealCommandForm
           actionId={action.id}
-          label={action.label}
+          label={t(action.label)}
+          locale={locale}
           submitting={submitting}
           disabled={loading || submitting || !journalReady || journalError || Boolean(unknownAttempt) || workspace.roleProjection.canAct !== true}
           initialValues={commandInitialValues(action.id, workspace)}
@@ -660,25 +671,25 @@ export function TransactionDealWorkspace({ role, dealId }: { role: PlatformRole;
   );
 
   return (
-    <section className={styles.workspace} data-canonical-deal={workspace.deal.id} data-role={role} data-transaction-workspace='v8'>
+    <section className={styles.workspace} data-canonical-deal={workspace.deal.id} data-role={role} data-transaction-workspace='v8' lang={locale === 'zh' ? 'zh-CN' : locale}>
       <Surface className={styles.summary} padded={false}>
         <div className={styles.summaryTop}>
           <div className={styles.summaryIdentity}>
-            <span className={styles.eyebrow}><Wheat size={18} aria-hidden='true' /> Сделка</span>
+            <span className={styles.eyebrow}><Wheat size={18} aria-hidden='true' /> {t('Сделка')}</span>
             <h1>{workspace.deal.number || workspace.deal.id}</h1>
             <p className={styles.summarySubtitle}>
-              {workspace.deal.culture || 'Зерно'}
-              {workspace.deal.cropClass ? ` · ${workspace.deal.cropClass} класс` : ''}
-              {' · '}{formatDecimal(workspace.deal.volumeTons, 'т')}
+              {workspace.deal.culture || t('Зерно')}
+              {workspace.deal.cropClass ? ` · ${t('{class} класс', { class: workspace.deal.cropClass })}` : ''}
+              {' · '}{formatDecimal(workspace.deal.volumeTons, t('т'), locale)}
             </p>
           </div>
           <div className={styles.stageBlock} title={workspace.deal.status}>
-            <StatusChip tone='information'>Сейчас: {activeStep?.stage || humanStatus(workspace.deal.status)}</StatusChip>
+            <StatusChip tone='information'>{t('Сейчас:')} {t(activeStep?.stage || humanStatus(workspace.deal.status))}</StatusChip>
           </div>
         </div>
         <div className={styles.roleLine}>
-          <span className={styles.roleIdentity}><ShieldCheck size={18} aria-hidden='true' />{roleLabel(role)}</span>
-          <strong className={styles.roleFocus}>{workspace.roleProjection.focus}</strong>
+          <span className={styles.roleIdentity}><ShieldCheck size={18} aria-hidden='true' />{t(roleLabel(role))}</span>
+          <strong className={styles.roleFocus}>{dealServerText(workspace.roleProjection.focus, locale)}</strong>
           <Button className={styles.refreshButton} variant='secondary' onClick={() => void load()} aria-label={copy.reload} disabled={loading || submitting}>
             <RefreshCw size={18} className={loading ? styles.spin : undefined} aria-hidden='true' />
           </Button>
@@ -688,11 +699,14 @@ export function TransactionDealWorkspace({ role, dealId }: { role: PlatformRole;
       <NextActionCard
         action={taskTitle}
         reason={taskExplanation}
-        label={hasBlockers ? 'Сначала реши проблему' : systemAction ? 'Сейчас делать ничего не нужно' : 'Твоё следующее действие'}
+        label={t(hasBlockers ? 'Сначала реши проблему' : systemAction ? 'Сейчас делать ничего не нужно' : 'Твоё следующее действие')}
         icon={<TaskIcon size={25} />}
         blocked={hasBlockers}
-        impact={`Сумма сделки: ${formatMoney(workspace.deal.totalKopecks, workspace.deal.currency)}`}
-        owner={taskOwner(role, action, systemAction, hasBlockers)}
+        impact={t('Сумма сделки: {amount}', { amount: formatMoney(workspace.deal.totalKopecks, workspace.deal.currency, locale) })}
+        owner={taskOwner(role, action, systemAction, hasBlockers, locale)}
+        impactLabel={t('Влияние')}
+        ownerLabel={t('Ответственный')}
+        deadlineLabel={t('Срок')}
         actions={actionExtras}
       />
 
@@ -705,27 +719,27 @@ export function TransactionDealWorkspace({ role, dealId }: { role: PlatformRole;
         </div>
       ) : null}
 
-      <section className={styles.metrics} aria-label='Главные факты сделки'>
+      <section className={styles.metrics} aria-label={t('Главные факты сделки')}>
         <article className={styles.metric}>
           <Banknote size={20} aria-hidden='true' />
-          <span className={styles.metricCopy}><small className={styles.metricLabel}>Сумма</small><strong className={styles.metricValue}>{formatMoney(workspace.deal.totalKopecks, workspace.deal.currency)}</strong></span>
+          <span className={styles.metricCopy}><small className={styles.metricLabel}>{t('Сумма')}</small><strong className={styles.metricValue}>{formatMoney(workspace.deal.totalKopecks, workspace.deal.currency, locale)}</strong></span>
         </article>
         <article className={styles.metric} title={workspace.money?.status || undefined}>
           <ShieldCheck size={20} aria-hidden='true' />
-          <span className={styles.metricCopy}><small className={styles.metricLabel}>Деньги</small><strong className={styles.metricValue}>{humanStatus(workspace.money?.status, 'Ожидаются')}</strong></span>
+          <span className={styles.metricCopy}><small className={styles.metricLabel}>{t('Деньги')}</small><strong className={styles.metricValue}>{t(humanStatus(workspace.money?.status, 'Ожидаются'))}</strong></span>
         </article>
         <article className={styles.metric} title={shipment?.status}>
           <Truck size={20} aria-hidden='true' />
-          <span className={styles.metricCopy}><small className={styles.metricLabel}>Рейс</small><strong className={styles.metricValue}>{humanStatus(shipment?.status, 'Не назначен')}</strong></span>
+          <span className={styles.metricCopy}><small className={styles.metricLabel}>{t('Рейс')}</small><strong className={styles.metricValue}>{t(humanStatus(shipment?.status, 'Не назначен'))}</strong></span>
         </article>
         <article className={styles.metric}>
           <FileCheck2 size={20} aria-hidden='true' />
-          <span className={styles.metricCopy}><small className={styles.metricLabel}>Документы</small><strong className={styles.metricValue}>{workspace.documents.length === 0 ? 'Пока нет' : `${signedDocuments} из ${workspace.documents.length} подписано`}</strong></span>
+          <span className={styles.metricCopy}><small className={styles.metricLabel}>{t('Документы')}</small><strong className={styles.metricValue}>{workspace.documents.length === 0 ? t('Пока нет') : t('{signed} из {total} подписано', { signed: signedDocuments, total: workspace.documents.length })}</strong></span>
         </article>
       </section>
 
       <details className={styles.details}>
-        <summary>Показать весь путь сделки</summary>
+        <summary>{t('Показать весь путь сделки')}</summary>
         <div className={styles.detailsBody}>
           <ol className={styles.spine}>
             {workspace.spine.map((step) => (
@@ -736,8 +750,8 @@ export function TransactionDealWorkspace({ role, dealId }: { role: PlatformRole;
                 <span className={styles.stepMarker}>
                   {step.state === 'done' ? <Check size={16} aria-hidden='true' /> : step.state === 'active' ? <Clock3 size={16} aria-hidden='true' /> : null}
                 </span>
-                <span className={styles.stepCopy}><small>{step.stage}</small><strong>{step.label}</strong></span>
-                <span className={styles.stepState}>{stepStateLabel(step.state)}</span>
+                <span className={styles.stepCopy}><small>{t(step.stage)}</small><strong>{t(step.label)}</strong></span>
+                <span className={styles.stepState}>{t(stepStateLabel(step.state))}</span>
               </li>
             ))}
           </ol>
@@ -745,15 +759,15 @@ export function TransactionDealWorkspace({ role, dealId }: { role: PlatformRole;
       </details>
 
       <details className={styles.details}>
-        <summary>Факты и доказательства</summary>
+        <summary>{t('Факты и доказательства')}</summary>
         <div className={styles.detailsBody}>
           <dl className={styles.factGrid}>
-            <div className={styles.factRow}><dt>Цена</dt><dd>{formatDecimal(workspace.deal.pricePerTon, '₽/т')}</dd></div>
-            <div className={styles.factRow}><dt>Вес приёмки</dt><dd>{formatDecimal(acceptance?.weightActualTons, 'т')}</dd></div>
-            <div className={styles.factRow}><dt>Качество</dt><dd>{humanStatus(acceptance?.qualityStatus, 'Не проверено')}</dd></div>
-            <div className={styles.factRow}><dt>Лаборатория</dt><dd>{workspace.laboratory.length ? humanStatus(workspace.laboratory[0].status) : 'Нет результата'}</dd></div>
-            <div className={styles.factRow}><dt>События</dt><dd>{workspace.timeline.length}</dd></div>
-            <div className={styles.factRow}><dt>Споры</dt><dd>{workspace.disputes.length || 'Нет'}</dd></div>
+            <div className={styles.factRow}><dt>{t('Цена')}</dt><dd>{formatDecimal(workspace.deal.pricePerTon, `${workspace.deal.currency === 'RUB' ? '₽' : workspace.deal.currency}/${t('т')}`, locale)}</dd></div>
+            <div className={styles.factRow}><dt>{t('Вес приёмки')}</dt><dd>{formatDecimal(acceptance?.weightActualTons, t('т'), locale)}</dd></div>
+            <div className={styles.factRow}><dt>{t('Качество')}</dt><dd>{t(humanStatus(acceptance?.qualityStatus, 'Не проверено'))}</dd></div>
+            <div className={styles.factRow}><dt>{t('Лаборатория')}</dt><dd>{workspace.laboratory.length ? t(humanStatus(workspace.laboratory[0].status)) : t('Нет результата')}</dd></div>
+            <div className={styles.factRow}><dt>{t('События')}</dt><dd>{workspace.timeline.length}</dd></div>
+            <div className={styles.factRow}><dt>{t('Споры')}</dt><dd>{workspace.disputes.length || t('Нет')}</dd></div>
           </dl>
         </div>
       </details>
