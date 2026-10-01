@@ -1212,6 +1212,67 @@ jobs:
           pnpm --filter @pc/api exec jest --runInBand \
             src/modules/ai-insights/restricted-public-qwen.safety.spec.ts \
             src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts
+      - name: Prove closed corpus selection and failure-preserving capture
+        run: |
+          set -Eeuo pipefail
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const { spawnSync } = require('node:child_process');
+          const workflow = fs.readFileSync('.github/workflows/gekta-qwen35-4b-model-host-candidate.yml', 'utf8');
+          const selection = workflow.match(/case "\$CANDIDATE_COMMAND" in[\s\S]*?echo "corpus=\$corpus" >> "\$GITHUB_OUTPUT"/);
+          const execution = workflow.match(/case "\$CANDIDATE_CORPUS" in[\s\S]*?pnpm --filter @pc\/api exec jest --runInBand "\$\{specs\[@\]\}" 2>&1 \| tee "\$RUNNER_TEMP\/qwen35-acceptance"/);
+          const classification = workflow.match(/function classifyCandidateEvidence\(e\) \{[\s\S]*?\n          \}/);
+          assert.ok(classification, 'actual report classification required');
+          const classify = new Function(classification[0] + '\nreturn classifyCandidateEvidence;')();
+          const evidence = { TARGET_SHA: 'a'.repeat(40), START_OUTCOME: 'success', ACCEPTANCE: 'success', CLEANUP: 'success', CANDIDATE_CORPUS: 'both', SUMMARY: 'QWEN35_CANDIDATE_ACCEPTANCE={"cases":10}', EXTRA_SUMMARY: 'QWEN35_CANDIDATE_EXTRA={"cases":4}' };
+          assert.equal(classify(evidence), 'COMPLETE');
+          for (const corpus of ['critical', 'extra']) assert.equal(classify({ ...evidence, CANDIDATE_CORPUS: corpus }), 'PARTIAL');
+          for (const key of ['START_OUTCOME', 'ACCEPTANCE', 'CLEANUP']) {
+            for (const outcome of ['failure', 'skipped', 'cancelled', '']) assert.equal(classify({ ...evidence, [key]: outcome }), 'FAILED');
+          }
+          for (const [key, value] of [['SUMMARY', 'QWEN35_CANDIDATE_ACCEPTANCE={"cases":9}'], ['EXTRA_SUMMARY', 'QWEN35_CANDIDATE_EXTRA={"cases":3}'], ['SUMMARY', 'QWEN35_CANDIDATE_ACCEPTANCE=NO_PASS_SUMMARY'], ['EXTRA_SUMMARY', 'QWEN35_CANDIDATE_EXTRA={broken}'], ['TARGET_SHA', 'main'], ['CANDIDATE_CORPUS', 'unknown']]) assert.equal(classify({ ...evidence, [key]: value }), 'FAILED');
+          assert.equal(classify({ ...evidence, CANDIDATE_CORPUS: 'critical', EXTRA_SUMMARY: '' }), 'PARTIAL');
+          assert.equal(classify({ ...evidence, CANDIDATE_CORPUS: 'extra', SUMMARY: '' }), 'PARTIAL');
+          assert.ok(selection && execution, 'actual executable selection/capture blocks required');
+          const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qwen35-corpus-contract-'));
+          try {
+            const output = path.join(dir, 'output');
+            const stub = path.join(dir, 'pnpm');
+            fs.writeFileSync(stub, '#!/bin/bash\nprintf "%s\\n" "$@"\necho SYNTHETIC_JEST_STDERR_MARKER >&2\nexit "${SYNTHETIC_EXIT:-0}"\n', { mode: 0o700 });
+            const env = { ...process.env, GITHUB_OUTPUT: output, RUNNER_TEMP: dir, PATH: dir + ':' + process.env.PATH };
+            const critical = 'src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts';
+            const extra = 'src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts';
+            for (const [command, corpus, expected] of [
+              ['/gekta qwen35-4b candidate current-main', 'both', [critical, extra]],
+              ['/gekta qwen35-4b critical current-main', 'critical', [critical]],
+              ['/gekta qwen35-4b extra current-main', 'extra', [extra]],
+            ]) {
+              fs.writeFileSync(output, '');
+              const selected = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command }, encoding: 'utf8' });
+              assert.equal(selected.status, 0);
+              assert.equal(fs.readFileSync(output, 'utf8'), 'corpus=' + corpus + '\n');
+              for (const status of [0, 7]) {
+                const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + execution[0]], { env: { ...env, CANDIDATE_CORPUS: corpus, SYNTHETIC_EXIT: String(status) }, encoding: 'utf8' });
+                assert.equal(result.status, status, 'capture must preserve real Jest failure');
+                const captured = fs.readFileSync(path.join(dir, 'qwen35-acceptance'), 'utf8').split('\n');
+                assert.deepEqual(captured.filter(line => line.endsWith('.spec.ts')), expected);
+                assert.ok(captured.includes('SYNTHETIC_JEST_STDERR_MARKER'));
+              }
+            }
+            for (const command of ['', '/gekta qwen35-4b extra current-main ', '/gekta qwen35-4b anything current-main', '/gekta qwen35-4b extra arbitrary-sha']) {
+              const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command } });
+              assert.equal(result.status, 1);
+            }
+            const invalid = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + execution[0]], { env: { ...env, CANDIDATE_CORPUS: 'unknown' } });
+            assert.equal(invalid.status, 1);
+            console.log('QWEN35_CORPUS_CONTRACT=PASS (synthetic selection/capture; not real inference)');
+          } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+          }
+          NODE
       - name: Prove bounded owner authority
         run: |
           set -Eeuo pipefail
@@ -1259,7 +1320,11 @@ jobs:
       github.event.issue.number == 3896 &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
-      github.event.comment.body == '/gekta qwen35-4b candidate current-main' &&
+      (
+        github.event.comment.body == '/gekta qwen35-4b candidate current-main' ||
+        github.event.comment.body == '/gekta qwen35-4b critical current-main' ||
+        github.event.comment.body == '/gekta qwen35-4b extra current-main'
+      ) &&
       (
         (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
         (
@@ -1283,8 +1348,17 @@ jobs:
         id: target
         env:
           GH_TOKEN: ${{ github.token }}
+          CANDIDATE_COMMAND: ${{ github.event.comment.body }}
         run: |
           set -Eeuo pipefail
+          # Closed corpus selection; each invocation keeps its own 420-second lease.
+          case "$CANDIDATE_COMMAND" in
+            '/gekta qwen35-4b candidate current-main') corpus=both ;;
+            '/gekta qwen35-4b critical current-main') corpus=critical ;;
+            '/gekta qwen35-4b extra current-main') corpus=extra ;;
+            *) echo 'unsupported candidate corpus command' >&2; exit 1 ;;
+          esac
+          echo "corpus=$corpus" >> "$GITHUB_OUTPUT"
           git fetch --no-tags origin main
           sha="$(git rev-parse origin/main)"
           [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
@@ -1470,6 +1544,7 @@ jobs:
       - name: Exercise real Gekta pipeline against candidate
         id: acceptance
         env:
+          CANDIDATE_CORPUS: ${{ steps.target.outputs.corpus }}
           QWEN35_CANDIDATE_LIVE: '1'
           TAI_RESTRICTED_QWEN_PUBLIC_ENABLED: 'true'
           AI_ASSISTANT_PROVIDER: openai-compatible
@@ -1587,7 +1662,15 @@ jobs:
             });
           });
           TS
-          pnpm --filter @pc/api exec jest --runInBand             src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts             src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts             | tee "$RUNNER_TEMP/qwen35-acceptance"
+          # Both existing suites and every assertion remain unchanged. A selected
+          # suite is partial evidence; full acceptance requires 10+4 on one SHA.
+          case "$CANDIDATE_CORPUS" in
+            both) specs=(src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts) ;;
+            critical) specs=(src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts) ;;
+            extra) specs=(src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts) ;;
+            *) echo 'unsupported candidate corpus' >&2; exit 1 ;;
+          esac
+          pnpm --filter @pc/api exec jest --runInBand "${specs[@]}" 2>&1 | tee "$RUNNER_TEMP/qwen35-acceptance"
       - name: Stop tunnel
         if: always()
         run: |
@@ -1623,12 +1706,30 @@ jobs:
           START_OUTCOME: ${{ steps.start.outcome }}
           ACCEPTANCE: ${{ steps.acceptance.outcome }}
           CLEANUP: ${{ steps.cleanup.outcome }}
+          CANDIDATE_CORPUS: ${{ steps.target.outputs.corpus }}
         run: |
           set -Eeo pipefail
           summary="$(grep -Eo 'QWEN35_CANDIDATE_ACCEPTANCE=\{.*\}' "$RUNNER_TEMP/qwen35-acceptance" 2>/dev/null | tail -1 || true)"
           extra_summary="$(grep -Eo 'QWEN35_CANDIDATE_EXTRA=\{.*\}' "$RUNNER_TEMP/qwen35-acceptance" 2>/dev/null | tail -1 || true)"
           [[ -n "$summary" ]] || summary='QWEN35_CANDIDATE_ACCEPTANCE=NO_PASS_SUMMARY'
           [[ -n "$extra_summary" ]] || extra_summary='QWEN35_CANDIDATE_EXTRA=NO_PASS_SUMMARY'
+          evidence_class="$(SUMMARY="$summary" EXTRA_SUMMARY="$extra_summary" node <<'NODE'
+          function classifyCandidateEvidence(e) {
+            const hasCases = (raw, prefix, expected) => {
+              if (!raw?.startsWith(prefix)) return false;
+              try { return JSON.parse(raw.slice(prefix.length)).cases === expected; } catch { return false; }
+            };
+            if (!/^[a-f0-9]{40}$/.test(e.TARGET_SHA ?? '') || e.START_OUTCOME !== 'success' || e.ACCEPTANCE !== 'success' || e.CLEANUP !== 'success') return 'FAILED';
+            const critical = hasCases(e.SUMMARY, 'QWEN35_CANDIDATE_ACCEPTANCE=', 10);
+            const extra = hasCases(e.EXTRA_SUMMARY, 'QWEN35_CANDIDATE_EXTRA=', 4);
+            if (e.CANDIDATE_CORPUS === 'both') return critical && extra ? 'COMPLETE' : 'FAILED';
+            if (e.CANDIDATE_CORPUS === 'critical') return critical ? 'PARTIAL' : 'FAILED';
+            if (e.CANDIDATE_CORPUS === 'extra') return extra ? 'PARTIAL' : 'FAILED';
+            return 'FAILED';
+          }
+          console.log(classifyCandidateEvidence(process.env));
+          NODE
+          )"
           # Only fixed diagnostic vocabulary may leave the private startup log boundary.
           start_phase="$(grep -Ex 'QWEN35_CANDIDATE_START_PHASE=(guard_spawn|guard_setup|identity|readiness|post_ready)' "$RUNNER_TEMP/qwen35-start" 2>/dev/null | tail -1 || true)"
           start_class="$(grep -Ex 'QWEN35_CANDIDATE_START_LOG_CLASS=(no_log|unclassified|model_architecture_unsupported|tokenizer_unsupported|model_format_error|runtime_library_error|allocation_failure|bind_failure|argument_rejected|model_load_error|multiple_errors|log_unavailable)' "$RUNNER_TEMP/qwen35-start" 2>/dev/null | tail -1 || true)"
@@ -1642,6 +1743,9 @@ jobs:
             echo "- artifact sha256: 13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983"
             echo "- candidate start: $START_OUTCOME"
             echo "- real Gekta acceptance: $ACCEPTANCE"
+            echo "- selected corpus: $CANDIDATE_CORPUS"
+            echo "- candidate evidence classification: $evidence_class"
+            echo '- COMPLETE requires both 10 critical and 4 extra cases in this same-SHA run with successful start, acceptance and cleanup; PARTIAL covers only the selected successful suite and requires the complementary same-SHA suite and cleanup proof'
             echo "- unchanged Qwen3-8B cleanup: $CLEANUP"
             echo "- production Qwen3-8B routing/model identity mutation: NONE"
             echo "- production application/database mutation: NONE"
