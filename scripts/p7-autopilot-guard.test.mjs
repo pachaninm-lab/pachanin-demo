@@ -3837,6 +3837,257 @@ function rejectDealLocale(context) {
   assert.notEqual(result.status, 0, output(result));
   assert.match(output(result), /DEAL_LOCALE_|DEAL_RUNTIME_|Mutable scope|outside current/u);
 }
+
+const localeInventoryPurposeKey = 'deal-locale-generated-inventory-guard-purpose-20261001';
+const localeInventoryAdmissionKey = 'deal-locale-generated-inventory-20261001';
+const localeInventoryPaths = [...dealRuntimePaths, ...dealLocaleAdditionalPaths, ...dealRuntimeGeneratedPaths];
+const localeInventoryPurpose = JSON.parse(fs.readFileSync(dealRuntimeStatePath, 'utf8'))
+  .coordinationAdmissions[localeInventoryPurposeKey];
+assert.equal(localeInventoryPurpose.authorityBaseExactMain, '4f5d03b833f0064b4538aae751d74f17e6d67c88');
+assert.deepEqual(localeInventoryPurpose.futureGeneratedPaths, dealRuntimeGeneratedPaths);
+assert.deepEqual(localeInventoryPurpose.immutableLocaleSourcePins, dealLocalePins);
+function localeInventoryRecord(authorityBaseExactMain) {
+  return {
+    owner: 'ACCOUNT_1_EXECUTION', presentationContributor: 'ACCOUNT_2_PRODUCT', sourceOwnerRetained: 'ACCOUNT_1_EXECUTION',
+    purpose: 'Complete the immutable six-file Deal locale transition with only its byte-exact trusted generated cryptographic inventory pair.',
+    authorityBaseExactMain, implementationBranch: dealRuntimeImplementationBranch,
+    allowedPaths: [...localeInventoryPaths], retainedLocaleAdmissionKey: dealLocaleAdmissionKey,
+    exactSourcePins: structuredClone(dealLocalePins), exactGeneratedPaths: [...dealRuntimeGeneratedPaths],
+    trustedGenerator: { path: dealRuntimeGeneratorPath, mode: '100644', blob: '6a5751eb031a514bcf7f26893c0003e6013107aa' },
+    requiredTruthBoundaries: [
+      'Separate completion phase only. Preserve every old record and the immutable six source blobs; append only the two generated paths after the existing nine paths.',
+      'Unchanged state and exactly six source transitions plus both regular generated files; no arbitrary source, workflow, registry, guard or scope mutation.',
+      'Use only the unchanged pinned accepted-base generator and committed application blobs as text. Verify full source enumeration, modes, attributable ancestor/source-tree equality, and byte-exact JSON/Markdown reproduction.',
+      'Fresh whole-head independent review, separate owner audit, all applicable native CI/security/readiness and ordinary full-expected-SHA merge remain mandatory. No protected/live/provider/Founder13 acceptance is inferred.',
+    ],
+    forbiddenAuthority: ['API/DB/role/tenant/money/provider/FGIS/model authority', 'General source or generated-output permissions', 'Candidate-code execution during regeneration', 'CI/security/review/readiness weakening or false live/external PASS'],
+  };
+}
+function extendLocaleInventory(context, mutate = () => {}) {
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  state.approvedConcurrentScopes[dealRuntimeImplementationBranch] = [...localeInventoryPaths];
+  state.coordinationAdmissions[localeInventoryAdmissionKey] = localeInventoryRecord(context.baseline);
+  mutate(state);
+  write(context.root, dealRuntimeStatePath, JSON.stringify(state, null, 2) + '\n');
+}
+function localeInventoryFixture(t, { implementation = false, admitted = false, mutateBase = () => {}, generatorMode = '100644' } = {}) {
+  const context = dealLocaleFixture(t, { implementation, accepted: true, pinnedSources: implementation });
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  state.coordinationAdmissions[localeInventoryPurposeKey] = structuredClone(localeInventoryPurpose);
+  mutateBase(state);
+  write(context.root, dealRuntimeStatePath, JSON.stringify(state, null, 2) + '\n');
+  const generator = fs.readFileSync(dealRuntimeGeneratorPath);
+  const generatorBlob = createHash('sha1').update(`blob ${generator.length}\0`).update(generator).digest('hex');
+  assert.equal(generatorBlob, localeInventoryPurpose.trustedGenerator.blob);
+  write(context.root, dealRuntimeGeneratorPath, generator);
+  write(context.root, 'apps/web/middleware.ts', 'export const stable = true;\n');
+  fs.mkdirSync(path.join(context.root, 'apps/web/apps/web'), { recursive: true });
+  fs.symlinkSync('../../middleware.ts', path.join(context.root, 'apps/web/apps/web/middleware.ts'));
+  commit(context.root, 'separate accepted inventory purpose and unchanged trusted generator');
+  if (generatorMode !== '100644') {
+    fs.chmodSync(path.join(context.root, dealRuntimeGeneratorPath), 0o755);
+    git(context.root, ['update-index', '--cacheinfo', `${generatorMode},${generatorBlob},${dealRuntimeGeneratorPath}`]);
+    git(context.root, ['commit', '-m', 'isolated baseline generator mode precondition']);
+  }
+  generateDealRuntimeInventory(context, git(context.root, ['rev-parse', 'HEAD']));
+  commit(context.root, 'trusted current generated pair');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  if (admitted) {
+    extendLocaleInventory(context);
+    commit(context.root, 'separate accepted two-path inventory co-admission');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  }
+  return context;
+}
+function completePinnedLocaleInventory(context) {
+  applyActualPinnedLocaleSource(context);
+  context.inventorySource = git(context.root, ['rev-parse', 'HEAD']);
+  generateDealRuntimeInventory(context, context.inventorySource);
+  commit(context.root, 'exact generated pair for the six actual pinned source changes');
+  assertActualLocalePins(context, context.baseline, false);
+  assertActualLocalePins(context, 'HEAD', true);
+}
+test('Locale inventory: exact state-only co-admission preserves old nine paths and immutable locale record', (t) => {
+  const context = localeInventoryFixture(t);
+  const before = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  extendLocaleInventory(context);
+  commit(context.root, 'exact generated-pair state co-admission');
+  const after = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  assert.deepEqual(after.coordinationAdmissions[dealLocaleAdmissionKey], before.coordinationAdmissions[dealLocaleAdmissionKey]);
+  assert.deepEqual(after.approvedConcurrentScopes[dealRuntimeImplementationBranch].slice(0, 9), before.approvedConcurrentScopes[dealRuntimeImplementationBranch]);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+  assert.equal(git(context.root, ['diff', '--name-status', `${context.baseline}...HEAD`]), `M\t${dealRuntimeStatePath}`);
+});
+const inventoryStateAttacks = [
+  ['third permission', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].push('apps/api/src/app.module.ts')],
+  ['removed original permission', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].shift()],
+  ['reordered old vector', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].reverse()],
+  ['duplicate generated path', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].push(dealRuntimeGeneratedPaths[0])],
+  ['changed prior locale pins', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].exactSourcePins[0][2] = '0'.repeat(40); }],
+  ['changed prior owner', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].owner = 'ACCOUNT_2_PRODUCT'; }],
+  ['changed source owner', (s) => { s.coordinationAdmissions[localeInventoryAdmissionKey].sourceOwnerRetained = 'ACCOUNT_2_PRODUCT'; }],
+  ['changed completion owner', (s) => { s.coordinationAdmissions[localeInventoryAdmissionKey].owner = 'ACCOUNT_2_PRODUCT'; }],
+  ['global scope widening', (s) => s.allowedCurrentScope.push('**')],
+  ['changed current step', (s) => { s.current = 'unauthorized next step'; }],
+  ['fabricated progress', (s) => { s.fullTzReadinessPercent = 100; }],
+  ['wrong admission base', (s) => { s.coordinationAdmissions[localeInventoryAdmissionKey].authorityBaseExactMain = '0'.repeat(40); }],
+  ['wrong generator pin', (s) => { s.coordinationAdmissions[localeInventoryAdmissionKey].trustedGenerator.blob = '0'.repeat(40); }],
+  ['weakened boundaries', (s) => { s.coordinationAdmissions[localeInventoryAdmissionKey].requiredTruthBoundaries = []; }],
+];
+for (const [name, mutate] of inventoryStateAttacks) {
+  test('Locale inventory: state co-admission rejects ' + name, (t) => {
+    const context = localeInventoryFixture(t);
+    extendLocaleInventory(context, mutate);
+    commit(context.root, 'isolated invalid state: ' + name);
+    const result = runTrustedDealRuntimeGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /DEAL_LOCALE_INVENTORY_ADMISSION_STATE_MUTATION/u);
+  });
+}
+test('Locale inventory: candidate-fabricated purpose cannot grant output authority', (t) => {
+  const context = localeInventoryFixture(t, { mutateBase: (s) => { delete s.coordinationAdmissions[localeInventoryPurposeKey]; } });
+  extendLocaleInventory(context, (s) => { s.coordinationAdmissions[localeInventoryPurposeKey] = structuredClone(localeInventoryPurpose); });
+  commit(context.root, 'candidate-only purpose');
+  rejectDealLocale(context);
+});
+test('Locale inventory: altered accepted purpose is rejected', (t) => {
+  const context = localeInventoryFixture(t, { mutateBase: (s) => { s.coordinationAdmissions[localeInventoryPurposeKey].owner = 'ACCOUNT_2_PRODUCT'; } });
+  extendLocaleInventory(context);
+  commit(context.root, 'co-admission from altered purpose');
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /DEAL_LOCALE_INVENTORY_PURPOSE_MISMATCH/u);
+});
+test('Locale inventory: state and runtime changes cannot mix', (t) => {
+  const context = localeInventoryFixture(t);
+  extendLocaleInventory(context);
+  write(context.root, dealLocaleSourcePaths[0], 'mixed application source\n');
+  commit(context.root, 'mixed co-admission/source');
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /DEAL_LOCALE_INVENTORY_ADMISSION_DIFF_SCOPE/u);
+});
+test('Locale inventory: executable state is rejected with the otherwise exact candidate blob', (t) => {
+  const context = localeInventoryFixture(t);
+  extendLocaleInventory(context);
+  commit(context.root, 'otherwise exact admission');
+  const blob = git(context.root, ['rev-parse', 'HEAD:' + dealRuntimeStatePath]);
+  git(context.root, ['update-index', '--cacheinfo', `100755,${blob},${dealRuntimeStatePath}`]);
+  git(context.root, ['commit', '-m', 'one state-mode-only attack']);
+  assert.equal(git(context.root, ['rev-parse', 'HEAD:' + dealRuntimeStatePath]), blob);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /DEAL_LOCALE_INVENTORY_ADMISSION_FILE_MODE/u);
+});
+test('Locale inventory: actual six pins and exact generated pair pass together', (t) => {
+  const context = localeInventoryFixture(t, { implementation: true, admitted: true });
+  completePinnedLocaleInventory(context);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+  assert.equal(git(context.root, ['diff', '--name-only', `${context.baseline}...HEAD`]).split('\n').length, 8);
+});
+test('Locale inventory: purpose alone does not admit the generated pair', (t) => {
+  const context = localeInventoryFixture(t, { implementation: true });
+  completePinnedLocaleInventory(context);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /DEAL_LOCALE_IMPLEMENTATION_DIFF_SCOPE/u);
+});
+test('Locale inventory: completion admission requires both generated files', (t) => {
+  const context = localeInventoryFixture(t, { implementation: true, admitted: true });
+  applyActualPinnedLocaleSource(context);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /DEAL_LOCALE_IMPLEMENTATION_DIFF_SCOPE/u);
+});
+test('Locale inventory: uncommitted source/generator never determine the verified output', (t) => {
+  const context = localeInventoryFixture(t, { implementation: true, admitted: true });
+  completePinnedLocaleInventory(context);
+  write(context.root, dealLocaleSourcePaths[0], 'uncommitted decoy\n');
+  const marker = path.join(context.root, 'candidate-generator-executed');
+  write(context.root, dealRuntimeGeneratorPath, `import fs from 'node:fs';fs.writeFileSync(${JSON.stringify(marker)},'unsafe');\n`);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+  assert.equal(fs.existsSync(marker), false);
+});
+const inventorySourceAttacks = [
+  ['wrong source blob', (c) => write(c.root, dealLocaleSourcePaths[0], 'invalid pinned source\n')],
+  ['changed JSON', (c) => { const p = path.join(c.root, dealRuntimeGeneratedPaths[0]); const j = JSON.parse(fs.readFileSync(p, 'utf8')); j.scannedFiles += 1; fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n'); }],
+  ['changed Markdown', (c) => fs.appendFileSync(path.join(c.root, dealRuntimeGeneratedPaths[1]), 'untrusted output claim\n')],
+  ['stale ancestor attribution', (c) => { const p = path.join(c.root, dealRuntimeGeneratedPaths[1]); fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(c.inventorySource, c.baseline)); }],
+  ['nonexistent attribution', (c) => { const p = path.join(c.root, dealRuntimeGeneratedPaths[1]); fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(c.inventorySource, '0'.repeat(40))); }],
+  ['missing JSON', (c) => fs.rmSync(path.join(c.root, dealRuntimeGeneratedPaths[0]))],
+  ['missing Markdown', (c) => fs.rmSync(path.join(c.root, dealRuntimeGeneratedPaths[1]))],
+  ['unrelated source', (c) => write(c.root, 'apps/web/extra-unadmitted.ts', 'export const extra = true;\n')],
+  ['changed generator', (c) => write(c.root, dealRuntimeGeneratorPath, 'throw new Error("untrusted candidate generator");\n')],
+  ['source-owned state grant', (c) => { const s = JSON.parse(fs.readFileSync(path.join(c.root, dealRuntimeStatePath), 'utf8')); s.allowedCurrentScope.push('**'); write(c.root, dealRuntimeStatePath, JSON.stringify(s, null, 2) + '\n'); }],
+];
+for (const [name, mutate] of inventorySourceAttacks) {
+  test('Locale inventory: completed actual eight-file transition rejects ' + name, (t) => {
+    const context = localeInventoryFixture(t, { implementation: true, admitted: true });
+    completePinnedLocaleInventory(context);
+    mutate(context);
+    commit(context.root, 'one source/output attack: ' + name);
+    const result = runTrustedDealRuntimeGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /DEAL_LOCALE_|DEAL_RUNTIME_|outside current/u);
+  });
+}
+for (const mode of ['100755', '120000']) {
+  test('Locale inventory: output mode ' + mode + ' fails while every content pin/output byte is valid', (t) => {
+    const context = localeInventoryFixture(t, { implementation: true, admitted: true });
+    completePinnedLocaleInventory(context);
+    const file = dealRuntimeGeneratedPaths[0], blob = git(context.root, ['rev-parse', 'HEAD:' + file]);
+    git(context.root, ['update-index', '--cacheinfo', `${mode},${blob},${file}`]);
+    git(context.root, ['commit', '-m', 'one generated-output mode attack']);
+    if (mode === '120000') {
+      // A head-only symlink also yields Git status T, independently refused by
+      // exact diff scope. For the predicate-removal control, keep the same bad
+      // kind in both isolated fixture snapshots so this remains an M change.
+      // Every old/new content blob and all genuine application pins stay valid.
+      const badHead = git(context.root, ['rev-parse', 'HEAD']);
+      const headTree = git(context.root, ['rev-parse', 'HEAD^{tree}']);
+      const oldBlob = git(context.root, ['rev-parse', context.baseline + ':' + file]);
+      git(context.root, ['read-tree', context.baseline]);
+      git(context.root, ['update-index', '--cacheinfo', `120000,${oldBlob},${file}`]);
+      const baseTree = git(context.root, ['write-tree']);
+      const isolatedBase = spawnSync('git', ['commit-tree', baseTree, '-p', context.baseline],
+        { cwd: context.root, encoding: 'utf8', input: 'Isolated test baseline: only generated-output mode changed\n' });
+      assert.equal(isolatedBase.status, 0, output(isolatedBase));
+      const newBase = isolatedBase.stdout.trim();
+      const isolatedHead = spawnSync('git', ['commit-tree', headTree, '-p', badHead, '-p', newBase],
+        { cwd: context.root, encoding: 'utf8', input: 'Isolated test head preserving all prior source/content ancestry\n' });
+      assert.equal(isolatedHead.status, 0, output(isolatedHead));
+      git(context.root, ['update-ref', 'HEAD', isolatedHead.stdout.trim(), badHead]);
+      git(context.root, ['read-tree', 'HEAD']);
+      context.baseline = newBase;
+    }
+    assertActualLocalePins(context, 'HEAD', true);
+    assert.equal(git(context.root, ['ls-tree', 'HEAD', '--', file]), `${mode} blob ${blob}\t${file}`);
+    const result = runTrustedDealRuntimeGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /DEAL_LOCALE_INVENTORY_OUTPUT_MODE/u);
+    const guard = git(context.root, ['show', context.baseline + ':scripts/p7-autopilot-guard.sh']);
+    const predicate = "if ([baseRef, headRef].some((ref) => fileMode(ref, file) !== '100644')) throw new Error('DEAL_LOCALE_INVENTORY_OUTPUT_MODE:' + file);";
+    assert.equal(guard.split(predicate).length, 2);
+    const control = path.join(context.root, '.git', 'inventory-output-mode-control.sh');
+    fs.writeFileSync(control, guard.replace(predicate, '/* isolated output-mode predicate removal control */'));
+    const bypass = spawnSync('bash', [control], { cwd: context.root, encoding: 'utf8',
+      env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: context.implementationBranch } });
+    assert.equal(bypass.status, 0, output(bypass));
+  });
+}
+test('Locale inventory: same pinned baseline generator blob with executable mode is rejected', (t) => {
+  const context = localeInventoryFixture(t, { implementation: true, admitted: true, generatorMode: '100755' });
+  completePinnedLocaleInventory(context);
+  assertActualLocalePins(context, 'HEAD', true);
+  assert.equal(git(context.root, ['rev-parse', context.baseline + ':' + dealRuntimeGeneratorPath]), '6a5751eb031a514bcf7f26893c0003e6013107aa');
+  assert.equal(git(context.root, ['rev-parse', 'HEAD:' + dealRuntimeGeneratorPath]), '6a5751eb031a514bcf7f26893c0003e6013107aa');
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /DEAL_LOCALE_INVENTORY_GENERATOR_PIN_OR_MODE/u);
+});
 test('Deal locale: exact state-only extension preserves the old five paths and old authority', (t) => {
   const context = dealLocaleFixture(t);
   extendDealLocale(context);
