@@ -14,8 +14,8 @@
   },
   "mode": "master-v2.1-r1-founder-ceo",
   "status": "active",
-  "currentStatus": "ready",
-  "current": "R1.2 Controlled open-as-role server authority",
+  "currentStatus": "in_progress",
+  "current": "R1 release prerequisite: atomic canonical readiness recovery #4829",
   "fullTzReadinessPercent": 5,
   "readinessScoring": "Binary GO completion only; 0 means the Industrial Integration-Ready gate is not yet accepted. It is not an implementation-progress estimate.",
   "openPr": null,
@@ -147,13 +147,15 @@
     }
   },
   "openBlockers": [
-    "R1.2: current production owner direct-cabinet shortcut is controlled-test-bound and not R1 evidence.",
-    "R1.2: canonical 13 role-mode registry and server-derived role intent must be added on top of the existing durable Staff Access VIEW_AS authority without creating a domain Founder role.",
-    "R1.5 visual banner/return remains a PRODUCT dependency in Team Hub #5469 and does not block this backend slice."
+    "R1.2 staff-session source #5766 is merged as 2749279de3b070f3ff9b79224c26d03c590275bd; exact-main REG.RU and full 13-cabinet acceptance remain unproved.",
+    "Atomic readiness prerequisite #4829 combines the unchanged COR5 source, exact staff-test fix and five governance documents under owner disposition 5935185862; fresh whole-head independent review and complete CI/security/Kubernetes acceptance remain pending.",
+    "REG.RU topology preflight is BLOCKED; current migration-service authority must be observed without bypass before release.",
+    "R1.5 visual banner/return and other PRODUCT surfaces retain their existing owners and separate admissions."
   ],
   "blockerNotes": "R0 and IR-20 are production-accepted on exact main 5da8e80744908413102214f91dd68018911b892e. R1 starts with a backend-only server-authority slice because apps/web remains a protected/parallel-account zone. A later owner handoff change requires its own trusted scope after conflict recheck.",
   "lockedUntilCurrentGreen": [
-    "R1.3 CEO overview and P0/P1 decision queue"
+    "Gekta existing-owner model activation and live quality/speed/stability acceptance: after this prerequisite, within separate existing scopes and remaining release/topology gates",
+    "R1.3 CEO overview and P0/P1 decision queue: resume after bounded readiness source acceptance and fresh scope transition"
   ],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -161,9 +163,12 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "docs/execution/**",
-    "apps/api/src/modules/staff-access/**",
-    "apps/api/test/staff-access/**"
+    "apps/api/test/staff-access/postgresql-staff-access.e2e-spec.ts",
+    "apps/api/src/main.ts",
+    "apps/api/src/health.controller.ts",
+    "apps/api/src/health.controller.spec.ts",
+    "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts",
+    "apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -171,9 +176,12 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "docs/execution/**",
-    "apps/api/src/modules/staff-access/**",
-    "apps/api/test/staff-access/**"
+    "apps/api/test/staff-access/postgresql-staff-access.e2e-spec.ts",
+    "apps/api/src/main.ts",
+    "apps/api/src/health.controller.ts",
+    "apps/api/src/health.controller.spec.ts",
+    "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts",
+    "apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts"
   ],
   "approvedConcurrentScopes": {
     "fix/public-registration-participation-choice-20260923": [
@@ -1782,13 +1790,18 @@
     ]
   },
   "currentAcceptance": [
-    "Founder identity remains the actual actor; no business/domain Founder role is added.",
-    "The 13 cabinet intents are server-owned; client input selects a bounded cabinet key, never tenant/effective role authority.",
-    "Target tenant is derived server-side from the authorized organization; VIEW_AS stays read-only and time-bound.",
-    "Reason, ticket, effective organization/role, expiry, activation and end/revoke are durable and audited through existing Staff Access tables.",
-    "High-risk writes remain outside VIEW_AS and keep ordinary authority/MFA/approval boundaries.",
-    "Cross-tenant, forged-role, stale/revoked/expired-session and controlled-test-as-production cases fail closed.",
-    "R1.2 implementation starts only after this governance admission has final exact-head green CI, independent review and a manual SHA-bound merge to current main."
+    "Owner disposition 5935185862 replaces metadata-first/source separation only for this single atomic prerequisite; candidate-owned scope lists are not independent authorization.",
+    "Use the existing fix/readiness-database-deadline-4829 branch and preserve original readiness, #5770 and #5771 history and CORE ownership through ordinary ancestry.",
+    "The entire accepted-base diff is exactly eleven existing regular 100644 files: five governance documents, the exact e358 staff test and the unchanged complete five-file COR5 proposal. No other path or mode changes.",
+    "Preserve all accepted PRODUCT/concurrent scope vectors and coordination admissions; use only the exact staff-test path, never broader staff source/test wildcards.",
+    "Remove only the raw bootstrap /ready shadow; preserve startup, migration completeness, liveness, existing canonical route/identity/tenant/RLS boundaries.",
+    "Keep 1500ms database deadline, 15000ms positive grace, one in-flight read, immediate/late known-pending invalidation and existing 50 dead-letter/900MB thresholds.",
+    "Runtime-role-visible outbox observations cannot attest service-wide health; keep UNKNOWN without new grants or worker credentials.",
+    "Only existing GET/HEAD root readiness case/single-trailing-slash aliases gain probe exemption; other routes keep durable rate enforcement.",
+    "Renew exact-published-head independent nonauthor whole-diff review, separate owner audit and all applicable full native CI/security/PostgreSQL evidence; unchanged Kubernetes requires zero failed PgBouncer logical probes, complete deep-outbox scenarios and successful cleanup.",
+    "Old #5770 Security Abuse and #5771 Kubernetes failures remain historical failures, not transferred PASS. Local composition results do not certify the final new head; preserve explicit skipped-test and aggregate teardown limitations.",
+    "Fresh head, unresolved-findings and engineering-readiness checks precede an ordinary manual expected-full-SHA merge. No automatic/forced merge or gate waiver.",
+    "R1 production acceptance, exact-main REG.RU release/live observation and full 13-cabinet matrix remain open; official progress stays 5/100. Gekta is the subsequent existing-owner priority, not new source or release authority."
   ],
   "nextAfterCurrentGreen": [
     "IR-21 Durable Integration Inbox",
@@ -3530,6 +3543,86 @@
           "100644"
         ]
       ]
+    },
+    "canonical-readiness-cor5-4829-20261001": {
+      "owner": "ACCOUNT_1_CORE",
+      "issue": 4829,
+      "implementationBranch": "fix/readiness-database-deadline-4829",
+      "purpose": "Owner-approved single atomic CORE availability prerequisite: immutable COR5, exact staff race-test prerequisite and five governance documents. No PRODUCT or TAI source takeover.",
+      "authorityBaseExactMain": "5c43cd64fd61ee2e134ef319fa6c6087f1a37f14",
+      "proposalComment": 5930247718,
+      "independentProposalReviewComment": 5932138051,
+      "proposalSha256": "fe1f1a60d5ad914b5056bf5f94ec2f56032d24a647652f13c9926e33becb556b",
+      "proposalBytes": 32089,
+      "allowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json",
+        "docs/platform-v7/autopilot/progress.json",
+        "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+        "docs/platform-v7/autopilot/prompts/current-review-task.md",
+        "docs/platform-v7/execution-queue.md",
+        "apps/api/test/staff-access/postgresql-staff-access.e2e-spec.ts",
+        "apps/api/src/main.ts",
+        "apps/api/src/health.controller.ts",
+        "apps/api/src/health.controller.spec.ts",
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts",
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts"
+      ],
+      "reviewRequiredSourceTransitions": {
+        "apps/api/src/main.ts": {
+          "before": "99856d16475bc904e7e8a35454d1cc7e17fc54ee",
+          "after": "7e7e7818b8a11f686ede92ae9ed2225c009dba94",
+          "mode": "100644"
+        },
+        "apps/api/src/health.controller.ts": {
+          "before": "783c038a7c73668e4794b14ead69b3b5748c8425",
+          "after": "5487cc4565a904a26d2c7d6d0934a4e6e02869db",
+          "mode": "100644"
+        },
+        "apps/api/src/health.controller.spec.ts": {
+          "before": "76b59ac63489ce82b29075145fdf8751b2af3238",
+          "after": "7dd044f73de9d6e45880889898dcca04ba6bf162",
+          "mode": "100644"
+        },
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts": {
+          "before": "d8f8458bb1079e3ed9352f3e07890e981460836c",
+          "after": "a429bd42c7ef66837b484d57c66dfa319be02495",
+          "mode": "100644"
+        },
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts": {
+          "before": "f483bd1076b9ce50092de687170a20132cf7f3e9",
+          "after": "141d9e9dfb7fd2334b446bc5bf00d6c28dc3ad85",
+          "mode": "100644"
+        }
+      },
+      "enforcementLimit": "Unchanged standard candidate-head routing and additive legacy manifest are not an immutable exact-eleven gate. Independent whole-head review must enforce the externally approved exact eleven paths and six source blobs/modes, and verify every other tree leaf and accepted coordination object unchanged. No guard/workflow/manifest/PgBouncer/threshold change.",
+      "serialization": "Preserve PRODUCT writer handoff5933030140 and apply later owner atomic disposition5935185862 for this bounded window only. Recheck fresh main/Hub and existing owners before publication or merge; preserve accepted PRODUCT purpose3 and guard/test/workflow bytes; return the completed window through an actual handoff.",
+      "productionAcceptance": false,
+      "newRecurringCostRub": 0,
+      "resumeAfterAcceptedSource": "Prioritize the existing Gekta owner's real model activation and live quality/speed/stability acceptance under its separate admitted scopes and remaining topology/release gates; R1.3 remains queued for its own scope transition.",
+      "acceptedWriterHandoffComment": 5933030140,
+      "staffTestPrerequisite": {
+        "pullRequest": 5771,
+        "sourceHead": "e358177634856c9e71a0961497e7802f49213485",
+        "path": "apps/api/test/staff-access/postgresql-staff-access.e2e-spec.ts",
+        "before": "2b7e9aa13245d33fde061c8bbea7b8816ecabefc",
+        "after": "1b0010715cbcd636d15b1c9c4e5587baca16137c",
+        "mode": "100644",
+        "sha256": "479a0a3ba18845c0f77b485f238778c26ee1901a7f3e2c0f4b167a1fce75ba7e"
+      },
+      "ownerApprovedAtomicDisposition": {
+        "comment": 5935185862,
+        "url": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5935185862",
+        "approvedAt": "2026-10-01",
+        "scope": "Exactly these eleven existing regular files; replaces metadata-first/source-separation sequencing for this prerequisite only",
+        "sourceOwner": "ACCOUNT_1_CORE",
+        "sourceAttribution": "Unchanged COR5 proposal #4829/comment5930247718; staff race-test source #5771/e358177634856c9e71a0961497e7802f49213485; governance proposal #5770/056b185503e2db46956d2e6b76b78e936e963b37"
+      },
+      "historyPreservation": {
+        "originalReadinessHead": "1c3cc7ca2132520b31c97f7a5bc4c78e51bf0c44",
+        "metadataProposalHead": "056b185503e2db46956d2e6b76b78e936e963b37",
+        "staffTestProposalHead": "e358177634856c9e71a0961497e7802f49213485",
+        "rule": "Preserve all three histories through ordinary ancestry. #5770 Security Abuse and #5771 Kubernetes failures remain preserved; supersession and writer handoff only after actual atomic acceptance."
+      }
     }
   }
 }
