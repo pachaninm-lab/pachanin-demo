@@ -3348,3 +3348,244 @@ test('landing metadata: ordinary guard phase cannot include landing source', (t)
   changeLandingPair(context); commit(context.root, 'guard/source mixed phase');
   rejectLandingMetadata(context, /Forbidden path/u);
 });
+
+const dealLocalePurposeKey = 'deal-destination-locale-guard-purpose-20261001';
+const dealLocaleAdmissionKey = 'deal-destination-locale-20261001';
+const dealLocalePurpose = {
+  "owner": "ACCOUNT_1_EXECUTION",
+  "presentationContributor": "ACCOUNT_2_PRODUCT",
+  "purpose": "Renew the existing accepted three-path PRODUCT guard ref for separately admitted RU/EN/ZH presentation on the actual protected Deal destination, resolving #5735 destination-language finding without changing command or server authority.",
+  "authorityBaseExactMain": "2d0db1af028b9d9d17d5a1e84a4dbe86ec990d68",
+  "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+  "allowedPaths": [
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-autopilot-guard.test.mjs",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
+  ],
+  "futureAdmissionBranch": "governance/product-deal-runtime-admission-20260929",
+  "futureImplementationBranch": "ux/deal-runtime-unknown-20260929",
+  "futureAdditionalSourcePaths": [
+    "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+    "apps/web/components/platform-v7/DealCommandForm.tsx",
+    "apps/web/i18n/transaction-deal-copy.ts",
+    "packages/design-system-v8/src/components.tsx"
+  ],
+  "reviewedPrivatePayload": {
+    "sha256": "6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e",
+    "sourceComments": [
+      5908067884,
+      5908071391
+    ],
+    "authorAuditComment": 5908085804,
+    "independentPrivateReviewComment": 5916309103
+  },
+  "requiredTruthBoundaries": [
+    "This one-file purpose record admits no runtime, test, workflow or new source path. Global/current/R1.2 scopes, approvedConcurrentScopes, every existing admission, progress and maturity remain unchanged.",
+    "After this purpose is independently reviewed and accepted, use the existing already admitted three-path guard ref for a separate trusted-base literal guard repair and adversarial tests. Preserve all existing admission phases, metadata/attestation routes and trusted-base plus PR-head defense.",
+    "The guard must define a separate exact state-only extension phase on the existing Deal-runtime admission ref. Preserve the full original five-path runtime scope and add only the four listed paths in a later independently reviewed accepted state. Candidate-owned state or a manifest cannot grant implementation authority.",
+    "Publish no Deal locale source before the separately accepted guard and state-only source extension. Use the existing production-resolved transaction-ux workspace and NextIntl request locale; keep the facade, tsconfig mapping, shell and approved design.",
+    "Preserve all original UNKNOWN attempt identity, immutable request fingerprint, draft/review/focus state, exact server role/tenant/Deal/action permissions, CSRF, GET-only recovery and duplicate command prevention. Locale changes affect presentation only.",
+    "The captured six-file private payload and its bounded review are support, not current-head CI, admission, native account approval, full browser acceptance or production evidence. Obtain fresh independent whole-source review, author audit and every applicable CI/security/readiness gate after actual adoption.",
+    "Preserve original source authors and canonical CORE ownership. Queue the shared guard writer and any main/release action after the current Gekta owner window; do not overwrite another owner's ref or issue a competing deployment command.",
+    "Require normal expected-full-SHA manual merges and exact-current-main REG.RU OCI/container/live acceptance followed by the ordinary authorized bank queue to the same Deal in RU/EN/ZH. Public or seeded fixture evidence does not close protected bank, 13-cabinet or provider acceptance."
+  ],
+  "forbiddenAuthority": [
+    "Direct runtime/test/source admission, permission-vector changes or another owner's branch mutation in this purpose PR",
+    "Backend/API/DB/RLS/tenant/role/session/command/payment/provider/FGIS or legal authority",
+    "Design or App Shell replacement, duplicate Deal core, alias removal, business-status or external-success inference",
+    "CI/security/readiness/independent-review weakening, fake PASS, forced/automatic merge, production/model mutation or new recurring cost"
+  ],
+  "teamHubDependency": "#5735 P2 thread4142098743; source5908067884/5908071391; private review5916309103; #5699; current Gekta next window5924684608"
+};
+const dealLocaleAdditionalPaths = [
+  "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+  "apps/web/components/platform-v7/DealCommandForm.tsx",
+  "apps/web/i18n/transaction-deal-copy.ts",
+  "packages/design-system-v8/src/components.tsx"
+];
+const dealLocaleSourcePaths = [
+  "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+  "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+  "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+  "apps/web/components/platform-v7/DealCommandForm.tsx",
+  "apps/web/i18n/transaction-deal-copy.ts",
+  "packages/design-system-v8/src/components.tsx"
+];
+const dealLocalePins = [
+  [
+    "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+    "6f980ea5c83dc9776d51fe01b6f33bf21704a037",
+    "be57e8931fc5a056ed59039d9bf0da6f98aeb6fe"
+  ],
+  [
+    "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+    "4cf04d22287002bf90888847153bfe9759d8e1fd",
+    "1c669249fcf4451bc0655f506d975edc069fe81c"
+  ],
+  [
+    "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+    "699ae74d30128e72ccad0a4559ad40944b3ecda8",
+    "2099bb5fcd731368ffccecd096ebb10320379257"
+  ],
+  [
+    "apps/web/components/platform-v7/DealCommandForm.tsx",
+    "7bde1116c8e84e2f253da69431d867ceaa90663d",
+    "aba1af6c10dbbee0cee25cb13bdbce40145024a2"
+  ],
+  [
+    "apps/web/i18n/transaction-deal-copy.ts",
+    null,
+    "4db89dfdec3f5f871760461a60dd2f89194329a1"
+  ],
+  [
+    "packages/design-system-v8/src/components.tsx",
+    "3f95e51e99858debcd3f784e5b77b05be9619ccd",
+    "3f29bfef940801667273f066a02d34f20c2be8b5"
+  ]
+];
+function dealLocaleAdmissionRecord(authorityBaseExactMain) {
+  return {
+    owner: 'ACCOUNT_1_EXECUTION',
+    presentationContributor: 'ACCOUNT_2_PRODUCT',
+    sourceOwnerRetained: 'ACCOUNT_1_EXECUTION',
+    purpose: 'Apply only the already reviewed RU/EN/ZH protected Deal presentation payload while preserving canonical UNKNOWN recovery and server authority.',
+    authorityBaseExactMain,
+    implementationBranch: dealRuntimeImplementationBranch,
+    allowedPaths: [...dealRuntimePaths, ...dealLocaleAdditionalPaths],
+    exactSourcePaths: [...dealLocaleSourcePaths],
+    exactSourcePins: structuredClone(dealLocalePins),
+    reviewedPrivatePayloadSha256: '6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e',
+    requiredTruthBoundaries: [
+      'Presentation only; actual route/locale/workspace/form and stable metadata labels. Original command controls, owner, identity, UNKNOWN/fingerprint, CSRF and permissions remain canonical.',
+      'The original five-path scope and all old records remain intact. This locale phase permits exactly the six pinned source/test files; it does not permit workflow, registry, generated inventory or scope changes.',
+      'No private source review transfers to an adopted SHA. Fresh whole-head nonauthor review, owner audit, native CI/security/readiness, expected-SHA merge and exact REG.RU protected acceptance remain required.',
+    ],
+    forbiddenAuthority: ['API/DB/role/tenant/money/provider/FGIS authority', 'Source-owned scope or guard changes', 'CI/security/readiness or review weakening', 'False live or external success'],
+  };
+}
+function dealLocaleFixture(t, { implementation = false, accepted = false, mutateBase = () => {} } = {}) {
+  const context = dealRuntimeFixture(t, { admitted: true, admission: !implementation });
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  state.coordinationAdmissions[dealLocalePurposeKey] = structuredClone(dealLocalePurpose);
+  mutateBase(state);
+  for (const [file, oldBlob] of dealLocalePins) {
+    if (oldBlob !== null) write(context.root, file, 'isolated locale baseline: ' + file + '\n');
+  }
+  write(context.root, dealRuntimeStatePath, JSON.stringify(state, null, 2) + '\n');
+  commit(context.root, 'separately accepted locale purpose fixture');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  if (accepted) {
+    const after = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+    after.approvedConcurrentScopes[dealRuntimeImplementationBranch] = [...dealRuntimePaths, ...dealLocaleAdditionalPaths];
+    after.coordinationAdmissions[dealLocaleAdmissionKey] = dealLocaleAdmissionRecord(context.baseline);
+    write(context.root, dealRuntimeStatePath, JSON.stringify(after, null, 2) + '\n');
+    commit(context.root, 'separately accepted locale source admission fixture');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  }
+  return context;
+}
+function extendDealLocale(context, mutate = () => {}) {
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  state.approvedConcurrentScopes[dealRuntimeImplementationBranch] = [...dealRuntimePaths, ...dealLocaleAdditionalPaths];
+  state.coordinationAdmissions[dealLocaleAdmissionKey] = dealLocaleAdmissionRecord(context.baseline);
+  mutate(state);
+  write(context.root, dealRuntimeStatePath, JSON.stringify(state, null, 2) + '\n');
+}
+function rejectDealLocale(context) {
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /DEAL_LOCALE_|DEAL_RUNTIME_|Mutable scope|outside current/u);
+}
+test('Deal locale: exact state-only extension preserves the old five paths and old authority', (t) => {
+  const context = dealLocaleFixture(t);
+  extendDealLocale(context);
+  commit(context.root, 'exact four-path extension');
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+const localeStateAttacks = [
+  ['extra source permission', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].push('apps/api/src/app.module.ts')],
+  ['removed old permission', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].shift()],
+  ['reordered permission vector', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].reverse()],
+  ['duplicate permission', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].push(dealLocaleAdditionalPaths[0])],
+  ['primary scope expansion', (s) => s.allowedCurrentScope.push('**')],
+  ['changed current step', (s) => { s.current = 'bank source authority'; }],
+  ['changed old runtime owner', (s) => { s.coordinationAdmissions[dealRuntimeCoordinationKey].owner = 'ACCOUNT_2_PRODUCT'; }],
+  ['changed retained owner', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].sourceOwnerRetained = 'ACCOUNT_2_PRODUCT'; }],
+  ['changed locale authority owner', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].owner = 'ACCOUNT_2_PRODUCT'; }],
+  ['changed presentation contributor to authority owner', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].presentationContributor = 'ACCOUNT_1_EXECUTION'; }],
+  ['changed old renewal', (s) => { s.coordinationAdmissions[dealRuntimeRenewalKey].purpose = 'arbitrary source'; }],
+  ['changed accepted purpose', (s) => { s.coordinationAdmissions[dealLocalePurposeKey].futureAdditionalSourcePaths.push('apps/api/src/app.module.ts'); }],
+  ['changed source pin', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].exactSourcePins[0][2] = 'a'.repeat(40); }],
+  ['changed source catalogue', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].exactSourcePaths = ['apps/api/src/app.module.ts']; }],
+  ['changed payload identity', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].reviewedPrivatePayloadSha256 = 'a'.repeat(64); }],
+  ['changed acceptance base', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].authorityBaseExactMain = 'a'.repeat(40); }],
+  ['unrelated added record', (s) => { s.coordinationAdmissions.extra = {}; }],
+];
+for (const [name, attack] of localeStateAttacks) {
+  test('Deal locale: rejects state admission ' + name, (t) => {
+    const context = dealLocaleFixture(t);
+    extendDealLocale(context, attack);
+    commit(context.root, 'invalid state extension');
+    rejectDealLocale(context);
+  });
+}
+test('Deal locale: rejects mixed state admission and runtime source', (t) => {
+  const context = dealLocaleFixture(t);
+  extendDealLocale(context);
+  write(context.root, dealRuntimePaths[0], 'unadmitted runtime source\n');
+  commit(context.root, 'mixed admission and runtime');
+  rejectDealLocale(context);
+});
+test('Deal locale: rejects executable state admission', (t) => {
+  const context = dealLocaleFixture(t);
+  extendDealLocale(context);
+  fs.chmodSync(path.join(context.root, dealRuntimeStatePath), 0o755);
+  commit(context.root, 'executable state');
+  rejectDealLocale(context);
+});
+test('Deal locale: rejects a purpose fabricated only in the candidate', (t) => {
+  const context = dealLocaleFixture(t, { mutateBase: (s) => { delete s.coordinationAdmissions[dealLocalePurposeKey]; } });
+  extendDealLocale(context, (s) => { s.coordinationAdmissions[dealLocalePurposeKey] = structuredClone(dealLocalePurpose); });
+  commit(context.root, 'self-admitted purpose');
+  rejectDealLocale(context);
+});
+test('Deal locale: rejects an altered purpose in the accepted base', (t) => {
+  const context = dealLocaleFixture(t, { mutateBase: (s) => { s.coordinationAdmissions[dealLocalePurposeKey].owner = 'ACCOUNT_2_PRODUCT'; } });
+  extendDealLocale(context);
+  commit(context.root, 'extension under different purpose');
+  rejectDealLocale(context);
+});
+test('Deal locale: rejects a prior scope extended before exact admission', (t) => {
+  const context = dealLocaleFixture(t, { mutateBase: (s) => { s.approvedConcurrentScopes[dealRuntimeImplementationBranch].push('extra.ts'); } });
+  extendDealLocale(context);
+  commit(context.root, 'premature scope extension');
+  rejectDealLocale(context);
+});
+test('Deal locale: purpose alone never authorizes implementation', (t) => {
+  const context = dealLocaleFixture(t, { implementation: true });
+  changeDealRuntime(context);
+  rejectDealLocale(context);
+});
+function changePinnedLocaleFixture(context) {
+  // Deliberately synthetic byte controls. They must fail the immutable real
+  // source pins; these fixtures never claim a positive runtime adoption.
+  for (const [file] of dealLocalePins) write(context.root, file, 'incorrect candidate bytes: ' + file + '\n');
+}
+for (const [name, mutate] of [
+  ['synthetic replacement of the six real pinned blobs', () => {}],
+  ['additional backend source', (c) => write(c.root, 'apps/api/src/app.module.ts', 'unapproved backend\n')],
+  ['implementation-owned state', (c) => { const s = JSON.parse(fs.readFileSync(path.join(c.root, dealRuntimeStatePath), 'utf8')); s.allowedCurrentScope.push('**'); write(c.root, dealRuntimeStatePath, JSON.stringify(s) + '\n'); }],
+  ['mixed workflow change', (c) => write(c.root, dealRuntimePaths[3], 'weakened CI\n')],
+  ['removed original recovery test', (c) => fs.rmSync(path.join(c.root, dealLocaleSourcePaths[1]))],
+  ['executable presentation file', (c) => fs.chmodSync(path.join(c.root, dealLocaleSourcePaths[0]), 0o755)],
+  ['symbolic-link catalogue', (c) => { const p = path.join(c.root, dealLocaleAdditionalPaths[2]); fs.rmSync(p); fs.symlinkSync('outside-catalogue', p); }],
+]) {
+  test('Deal locale: rejects source phase ' + name, (t) => {
+    const context = dealLocaleFixture(t, { implementation: true, accepted: true });
+    changePinnedLocaleFixture(context);
+    mutate(context);
+    commit(context.root, 'untrusted locale source');
+    rejectDealLocale(context);
+  });
+}

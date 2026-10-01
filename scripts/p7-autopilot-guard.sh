@@ -803,7 +803,177 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
       ],
       teamHubDependency: '#5469 runtime binding dependency5887083491; migration regression5887595513; guard-purpose renewal #5721',
     });
-    if (branch === admissionBranch) {
+    const localePurposeKey = 'deal-destination-locale-guard-purpose-20261001';
+    const localeAdmissionKey = 'deal-destination-locale-20261001';
+    if (Object.hasOwn(state.coordinationAdmissions || {}, localePurposeKey)) {
+      const requiredLocalePurpose = {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew the existing accepted three-path PRODUCT guard ref for separately admitted RU/EN/ZH presentation on the actual protected Deal destination, resolving #5735 destination-language finding without changing command or server authority.",
+      "authorityBaseExactMain": "2d0db1af028b9d9d17d5a1e84a4dbe86ec990d68",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+            "scripts/p7-autopilot-guard.sh",
+            "scripts/p7-autopilot-guard.test.mjs",
+            ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-deal-runtime-admission-20260929",
+      "futureImplementationBranch": "ux/deal-runtime-unknown-20260929",
+      "futureAdditionalSourcePaths": [
+            "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+            "apps/web/components/platform-v7/DealCommandForm.tsx",
+            "apps/web/i18n/transaction-deal-copy.ts",
+            "packages/design-system-v8/src/components.tsx"
+      ],
+      "reviewedPrivatePayload": {
+            "sha256": "6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e",
+            "sourceComments": [
+                  5908067884,
+                  5908071391
+            ],
+            "authorAuditComment": 5908085804,
+            "independentPrivateReviewComment": 5916309103
+      },
+      "requiredTruthBoundaries": [
+            "This one-file purpose record admits no runtime, test, workflow or new source path. Global/current/R1.2 scopes, approvedConcurrentScopes, every existing admission, progress and maturity remain unchanged.",
+            "After this purpose is independently reviewed and accepted, use the existing already admitted three-path guard ref for a separate trusted-base literal guard repair and adversarial tests. Preserve all existing admission phases, metadata/attestation routes and trusted-base plus PR-head defense.",
+            "The guard must define a separate exact state-only extension phase on the existing Deal-runtime admission ref. Preserve the full original five-path runtime scope and add only the four listed paths in a later independently reviewed accepted state. Candidate-owned state or a manifest cannot grant implementation authority.",
+            "Publish no Deal locale source before the separately accepted guard and state-only source extension. Use the existing production-resolved transaction-ux workspace and NextIntl request locale; keep the facade, tsconfig mapping, shell and approved design.",
+            "Preserve all original UNKNOWN attempt identity, immutable request fingerprint, draft/review/focus state, exact server role/tenant/Deal/action permissions, CSRF, GET-only recovery and duplicate command prevention. Locale changes affect presentation only.",
+            "The captured six-file private payload and its bounded review are support, not current-head CI, admission, native account approval, full browser acceptance or production evidence. Obtain fresh independent whole-source review, author audit and every applicable CI/security/readiness gate after actual adoption.",
+            "Preserve original source authors and canonical CORE ownership. Queue the shared guard writer and any main/release action after the current Gekta owner window; do not overwrite another owner's ref or issue a competing deployment command.",
+            "Require normal expected-full-SHA manual merges and exact-current-main REG.RU OCI/container/live acceptance followed by the ordinary authorized bank queue to the same Deal in RU/EN/ZH. Public or seeded fixture evidence does not close protected bank, 13-cabinet or provider acceptance."
+      ],
+      "forbiddenAuthority": [
+            "Direct runtime/test/source admission, permission-vector changes or another owner's branch mutation in this purpose PR",
+            "Backend/API/DB/RLS/tenant/role/session/command/payment/provider/FGIS or legal authority",
+            "Design or App Shell replacement, duplicate Deal core, alias removal, business-status or external-success inference",
+            "CI/security/readiness/independent-review weakening, fake PASS, forced/automatic merge, production/model mutation or new recurring cost"
+      ],
+      "teamHubDependency": "#5735 P2 thread4142098743; source5908067884/5908071391; private review5916309103; #5699; current Gekta next window5924684608"
+};
+      if (!isDeepStrictEqual(state.coordinationAdmissions[localePurposeKey], requiredLocalePurpose)) {
+        throw new Error('DEAL_LOCALE_PURPOSE_MISMATCH');
+      }
+      const additionalPaths = [
+      "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+      "apps/web/components/platform-v7/DealCommandForm.tsx",
+      "apps/web/i18n/transaction-deal-copy.ts",
+      "packages/design-system-v8/src/components.tsx"
+];
+      const sourcePaths = [
+      "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+      "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+      "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+      "apps/web/components/platform-v7/DealCommandForm.tsx",
+      "apps/web/i18n/transaction-deal-copy.ts",
+      "packages/design-system-v8/src/components.tsx"
+];
+      const extendedPaths = [...paths, ...additionalPaths];
+      const pins = [
+      [
+            "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+            "6f980ea5c83dc9776d51fe01b6f33bf21704a037",
+            "be57e8931fc5a056ed59039d9bf0da6f98aeb6fe"
+      ],
+      [
+            "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+            "4cf04d22287002bf90888847153bfe9759d8e1fd",
+            "1c669249fcf4451bc0655f506d975edc069fe81c"
+      ],
+      [
+            "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+            "699ae74d30128e72ccad0a4559ad40944b3ecda8",
+            "2099bb5fcd731368ffccecd096ebb10320379257"
+      ],
+      [
+            "apps/web/components/platform-v7/DealCommandForm.tsx",
+            "7bde1116c8e84e2f253da69431d867ceaa90663d",
+            "aba1af6c10dbbee0cee25cb13bdbce40145024a2"
+      ],
+      [
+            "apps/web/i18n/transaction-deal-copy.ts",
+            null,
+            "4db89dfdec3f5f871760461a60dd2f89194329a1"
+      ],
+      [
+            "packages/design-system-v8/src/components.tsx",
+            "3f95e51e99858debcd3f784e5b77b05be9619ccd",
+            "3f29bfef940801667273f066a02d34f20c2be8b5"
+      ]
+];
+      const priorAdmission = state.coordinationAdmissions?.[coordinationKey];
+      const priorBase = priorAdmission?.authorityBaseExactMain;
+      if (typeof priorBase !== 'string' || !/^[0-9a-f]{40}$/u.test(priorBase) ||
+          !isDeepStrictEqual(priorAdmission, makeAdmission(priorBase))) {
+        throw new Error('DEAL_LOCALE_PRIOR_ADMISSION_MISMATCH');
+      }
+      const makeLocaleAdmission = (authorityBaseExactMain) => ({
+        owner: 'ACCOUNT_1_EXECUTION',
+        presentationContributor: 'ACCOUNT_2_PRODUCT',
+        sourceOwnerRetained: 'ACCOUNT_1_EXECUTION',
+        purpose: 'Apply only the already reviewed RU/EN/ZH protected Deal presentation payload while preserving canonical UNKNOWN recovery and server authority.',
+        authorityBaseExactMain,
+        implementationBranch,
+        allowedPaths: extendedPaths,
+        exactSourcePaths: sourcePaths,
+        exactSourcePins: pins,
+        reviewedPrivatePayloadSha256: '6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e',
+        requiredTruthBoundaries: [
+          'Presentation only; actual route/locale/workspace/form and stable metadata labels. Original command controls, owner, identity, UNKNOWN/fingerprint, CSRF and permissions remain canonical.',
+          'The original five-path scope and all old records remain intact. This locale phase permits exactly the six pinned source/test files; it does not permit workflow, registry, generated inventory or scope changes.',
+          'No private source review transfers to an adopted SHA. Fresh whole-head nonauthor review, owner audit, native CI/security/readiness, expected-SHA merge and exact REG.RU protected acceptance remain required.',
+        ],
+        forbiddenAuthority: ['API/DB/role/tenant/money/provider/FGIS authority', 'Source-owned scope or guard changes', 'CI/security/readiness or review weakening', 'False live or external success'],
+      });
+      if (branch === admissionBranch) {
+        if (Object.hasOwn(state.coordinationAdmissions || {}, localeAdmissionKey)) {
+          throw new Error('DEAL_LOCALE_ADMISSION_ALREADY_PRESENT');
+        }
+        if (!isDeepStrictEqual(state.approvedConcurrentScopes?.[implementationBranch], paths)) {
+          throw new Error('DEAL_LOCALE_PRIOR_SCOPE_MISMATCH');
+        }
+        if (!isDeepStrictEqual(changes, [['M', stateFile]])) throw new Error('DEAL_LOCALE_ADMISSION_DIFF_SCOPE');
+        if ([baseRef, headRef].some((ref) => fileMode(ref, stateFile) !== '100644')) {
+          throw new Error('DEAL_LOCALE_ADMISSION_FILE_MODE');
+        }
+        const expected = structuredClone(state);
+        expected.approvedConcurrentScopes[implementationBranch] = extendedPaths;
+        expected.coordinationAdmissions[localeAdmissionKey] = makeLocaleAdmission(baseSha);
+        if (!isDeepStrictEqual(JSON.parse(readState(headRef)), expected)) {
+          throw new Error('DEAL_LOCALE_ADMISSION_STATE_MUTATION');
+        }
+        scopes = [stateFile];
+      } else {
+        const accepted = state.coordinationAdmissions?.[localeAdmissionKey];
+        const acceptedBase = accepted?.authorityBaseExactMain;
+        if (typeof acceptedBase !== 'string' || !/^[0-9a-f]{40}$/u.test(acceptedBase) ||
+            !isDeepStrictEqual(accepted, makeLocaleAdmission(acceptedBase)) ||
+            !isDeepStrictEqual(state.approvedConcurrentScopes?.[implementationBranch], extendedPaths)) {
+          throw new Error('DEAL_LOCALE_ACCEPTED_ADMISSION_MISMATCH');
+        }
+        try {
+          execFileSync('git', ['merge-base', '--is-ancestor', acceptedBase, baseRef], { stdio: 'pipe' });
+          execFileSync('git', ['merge-base', '--is-ancestor', priorBase, baseRef], { stdio: 'pipe' });
+        } catch {
+          throw new Error('DEAL_LOCALE_ADMISSION_BASE_NOT_ANCESTOR');
+        }
+        if (readState(headRef) !== readState(baseRef)) throw new Error('DEAL_LOCALE_IMPLEMENTATION_STATE_MUTATION');
+        const expectedChanges = pins.map(([file, oldBlob]) => [oldBlob === null ? 'A' : 'M', file]);
+        const sorted = (items) => [...items].sort((left, right) => left[1].localeCompare(right[1], 'en'));
+        if (!isDeepStrictEqual(sorted(changes), sorted(expectedChanges))) throw new Error('DEAL_LOCALE_IMPLEMENTATION_DIFF_SCOPE');
+        for (const [file, oldBlob, newBlob] of pins) {
+          const treeEntry = (ref) => execFileSync('git', ['ls-tree', ref, '--', file], { encoding: 'utf8' }).trim();
+          const before = treeEntry(baseRef);
+          const after = treeEntry(headRef);
+          if ((oldBlob === null ? before !== '' : before !== `100644 blob ${oldBlob}\t${file}`) ||
+              after !== `100644 blob ${newBlob}\t${file}`) {
+            throw new Error('DEAL_LOCALE_SOURCE_PIN_OR_MODE_MISMATCH:' + file);
+          }
+        }
+        scopes = sourcePaths;
+      }
+    } else if (branch === admissionBranch) {
       if (Object.hasOwn(state.approvedConcurrentScopes || {}, implementationBranch) ||
           Object.hasOwn(state.coordinationAdmissions || {}, coordinationKey)) {
         throw new Error('DEAL_RUNTIME_ADMISSION_ALREADY_PRESENT');
