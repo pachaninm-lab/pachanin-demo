@@ -1575,7 +1575,9 @@
       "apps/web/app/platform-v7/profile/page.tsx",
       "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
       "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
-      "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+      "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+      "apps/web/lib/bank-release-server.ts",
+      "apps/web/tests/unit/bankReleaseServer.test.ts"
     ],
     "fgis/zsn-public-document-source-lock-20260924": [
       ".github/workflows/pc-crop-zsn-source-lock.yml",
@@ -3386,6 +3388,64 @@
         "Arbitrary source/pin/scope/metadata change or partial currency-only adoption",
         "CI/review/security/readiness weakening, fake evidence or forced/automatic merge",
         "API/DB/role/tenant/session/command/money/provider/FGIS/legal/model authority"
+      ]
+    },
+    "bank-release-currency-amount-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+      "canonicalApiOwnerRetained": "ACCOUNT_1_EXECUTION",
+      "purpose": "Apply only the immutable four-file read-only BANK currency and selected-operation amount consistency payload plus its exact existing scope-manifest update.",
+      "authorityBaseExactMain": "278b5da11666433889c61792b0712c50aaf27107",
+      "implementationBranch": "bank/deep-visible-copy-guard-20260924",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/bank/escrow/page.tsx",
+        "apps/web/app/platform-v7/bank/factoring/page.tsx",
+        "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+        "apps/web/app/platform-v7/profile/page.tsx",
+        "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+        "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+        "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+        "apps/web/lib/bank-release-server.ts",
+        "apps/web/tests/unit/bankReleaseServer.test.ts"
+      ],
+      "retainedAdmissionKey": "bank-deep-visible-copy-guard-20260924-coordination",
+      "exactSourcePins": [
+        [
+          "apps/web/lib/bank-release-server.ts",
+          "870a839e7087ef1114d805d818220471027c89fb",
+          "54e276cc387366a4068c4a9358aea1dcfa0ebc18"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseServer.test.ts",
+          "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
+          "2ab6b6c3ac056b3d08eb76450fd0c54e97bff304"
+        ],
+        [
+          "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+          "55f1572c14283fb2b69153adba6cbe13622fd387",
+          "b67a3452e05ad97082ccfbcc0c4975302cb62df9"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+          "68382969c3b8f1bb8912a1c514fd71882470cf95",
+          "630599ff7ff0ca4338445fc8bba50d61cf07f4f6"
+        ]
+      ],
+      "exactManifestPath": "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+      "baselineManifestBlob": "c7a015a9449578df7fbd325aae81f2d3795a4523",
+      "correctionPurposeKey": "bank-release-reserve-evidence-guard-purpose-20261001",
+      "reviewedPrivatePayloadSha256": "8c05b77b82a722c6ca21118ed0b7c7dcc2dec549f93e4b77e6a2349a9b8ef06e",
+      "requiredTruthBoundaries": [
+        "Preserve the seven-path prefix and every old admission byte/value. Append only two read-only web source/test paths; no server, provider, money mutation or legal authority.",
+        "The source phase requires all four immutable100644 source transitions and only the exact accepted-manifest path/base transformation, unchanged state and genuine accepted-base ancestry.",
+        "Preserve canonical GET-only Deal/tenant/participant permissions, UNKNOWN external outcome and all callback/outbox prerequisites. Currency/selected RESERVE and RELEASE amount conflicts cannot establish readiness or RELEASED.",
+        "A released projection requires persisted payment reservation and the selected canonical RESERVE amount/currency, DONE status, confirmation timestamp and bank reference; missing/unconfirmed/newer-pending reserve evidence remains manual review.",
+        "Fresh independent full current-head review, separate owner audit, every substantive native CI/security/readiness gate and ordinary expected-full-SHA merge remain mandatory. Private unit doubles are not PostgreSQL/browser/provider/Founder13/REG.RU acceptance."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/RLS/role/tenant/session/command/money/provider/FGIS/legal/model authority",
+        "Arbitrary source/scope/metadata changes",
+        "CI/security/readiness/review weakening or fake acceptance"
       ]
     }
   }
