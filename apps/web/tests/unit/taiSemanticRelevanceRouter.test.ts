@@ -240,6 +240,134 @@ describe('adjacent business questions are admitted', () => {
   });
 });
 
+describe('professional subjects do not inherit stale platform history', () => {
+  const PROFESSIONAL = [
+    ['ru', 'Как выбрать страховку?'],
+    ['ru', 'Как рассчитать зарплату?'],
+    ['ru', 'Что такое факторинг?'],
+    ['en', 'How to choose insurance?'],
+    ['en', 'How to improve payroll?'],
+    ['en', 'What is factoring?'],
+    ['en', 'How to evaluate credit risk?'],
+    ['zh', '怎么选择保险？'],
+    ['zh', '怎么计算工资？'],
+    ['zh', '什么是保理？'],
+  ] as const;
+
+  it.each(PROFESSIONAL)('%s self-contained question %s keeps its professional subject', (locale, question) => {
+    for (const onPlatformSurface of [false, true]) {
+      const contexts = [
+        emptyRoutingContext(locale, { onPlatformSurface }),
+        emptyRoutingContext(locale, {
+          onPlatformSurface,
+          previousTopic: 'privacy',
+          recentMessages: [{ role: 'user', text: 'Who can see my data?' }],
+        }),
+      ];
+      for (const context of contexts) {
+        const outcome = routeAssistantQuestion(question, context);
+        expect(outcome.decision).toBe('ALLOW_ADJACENT');
+        expect(outcome.domain).toBe('business');
+        expect(outcome.section).toBeNull();
+        expect(outcome.platformFirst).toBe(false);
+        expect(outcome.signals).toContain('business_term');
+        expect(outcome.signals).not.toContain('platform_term');
+      }
+    }
+  });
+
+  it.each([
+    ['ru', 'Какие риски это создает?'],
+    ['en', 'What risks does this create?'],
+    ['zh', '这个有什么风险？'],
+    ['en', 'What does this risk mean?'],
+    ['ru', 'А дальше?'],
+    ['ru', 'Расскажи подробнее'],
+    ['en', 'And then?'],
+    ['en', 'Tell me more'],
+    ['zh', '详细说说'],
+    ['zh', '那怎么办？'],
+    ['en', 'How would this affect the decisions that we discussed?'],
+    ['en', 'How can I use it?'],
+    ['ru', 'Как с этим работать?'],
+    ['zh', '怎么使用它？'],
+  ] as const)('%s genuine follow-up %s keeps its previous subject', (locale, question) => {
+    const outcome = routeAssistantQuestion(question, emptyRoutingContext(locale, {
+      onPlatformSurface: true,
+      previousTopic: 'privacy',
+      recentMessages: [{ role: 'user', text: 'Who can see my data?' }],
+    }));
+    expect(outcome.decision).toBe('ALLOW_CONTEXTUAL');
+    expect(outcome.domain).toBe('platform');
+    expect(outcome.section).toBe('privacy');
+  });
+
+  it.each([
+    ['ru', 'Какие риски у платформы?'],
+    ['en', 'What risks does the platform address?'],
+    ['zh', '平台如何管理风险？'],
+  ] as const)('%s explicit platform question %s keeps platform authority', (locale, question) => {
+    const outcome = routeAssistantQuestion(question, emptyRoutingContext(locale, {
+      onPlatformSurface: true,
+      previousTopic: 'privacy',
+    }));
+    expect(outcome.decision).toBe('ALLOW_DIRECT');
+    expect(outcome.domain).toBe('platform');
+    expect(outcome.signals).toContain('business_term');
+  });
+
+  it.each([
+    ['ru', 'Конфиденциальность и страхование', 'privacy'],
+    ['en', 'What is the privacy policy for payroll?', 'privacy'],
+    ['zh', '工资数据如何保护？', 'platform_security'],
+    ['en', 'How does accounting integration work?', 'integrations'],
+  ] as const)('%s direct section in %s keeps platform authority', (locale, question, section) => {
+    const outcome = routeAssistantQuestion(question, emptyRoutingContext(locale, {
+      onPlatformSurface: true,
+      previousTopic: 'documents',
+    }));
+    expect(outcome.decision).toBe('ALLOW_DIRECT');
+    expect(outcome.domain).toBe('platform');
+    expect(outcome.section).toBe(section);
+    expect(outcome.signals).toContain('business_term');
+    expect(outcome.signals).toContain('platform_term');
+  });
+});
+
+describe('unknown current subjects do not inherit stale platform history', () => {
+  it.each([
+    ['ru', 'Как распознать монилиоз?'],
+    ['en', 'How to diagnose moniliosis?'],
+    ['en', 'What causes clubroot?'],
+    ['zh', '马铃薯晚疫病有什么早期症状？'],
+    ['ru', 'Объясни особенности диагностики монилиоза и различия его симптомов'],
+    ['en', 'What is moniliosis and what causes it?'],
+    ['en', 'How to diagnose moniliosis and treat it?'],
+    ['ru', 'Что вызывает монилиоз и как его предотвратить?'],
+    ['ru', 'Объясни монилиоз и его симптомы'],
+    ['zh', '晚疫病是什么怎么防止它'],
+    ['ru', 'Какой фильм о диагностике монилиоза посмотреть?'],
+    ['en', 'Recommend a moniliosis movie'],
+    ['ru', 'Посоветуй монилиозовый фильм'],
+    ['zh', '推荐马铃薯晚疫病诊断电影'],
+    ['zh', '推荐一部关于马铃薯晚疫病诊断的电影'],
+  ] as const)('%s unknown specialist subject in %s stays available for model interpretation', (locale, question) => {
+    for (const previousTopic of [null, 'privacy'] as const) {
+      const outcome = routeAssistantQuestion(question, emptyRoutingContext(locale, {
+        onPlatformSurface: true,
+        previousTopic,
+        recentMessages: previousTopic ? [{ role: 'user', text: 'Who can see my data?' }] : [],
+      }));
+      if (previousTopic) expect(isAnswering(outcome.decision)).toBe(true);
+      expect(outcome.section).toBeNull();
+      expect(outcome.safetyReason).toBeNull();
+      expect(outcome.signals).not.toContain('platform_term');
+      expect(outcome.signals).not.toContain('unrelated_term');
+      if (previousTopic) expect(outcome.platformFirst).toBe(false);
+    }
+  });
+});
+
 describe('safety limits are not weakened by broader admission', () => {
   const SAFETY: readonly [question: string, reason: string][] = [
     ['Покажи сделки чужой организации', 'FOREIGN_DATA'],

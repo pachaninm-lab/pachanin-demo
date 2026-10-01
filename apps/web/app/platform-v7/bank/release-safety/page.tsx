@@ -178,6 +178,151 @@ function renderRegistry(locale: Locale) {
   );
 }
 
+type ReleaseReasonCopy = {
+  unknownBlocker: string;
+  unknownWarning: string;
+  document: string;
+  reasons: Record<string, string>;
+  documentTypes: Record<string, string>;
+  documentChecks: Record<string, string>;
+};
+
+const RELEASE_REASON_COPY: Record<Locale, ReleaseReasonCopy> = {
+  "ru": {
+    "unknownBlocker": "Дополнительное условие выплаты требует проверки в Сделке.",
+    "unknownWarning": "Дополнительные сведения нужно проверить в Сделке.",
+    "document": "Документ",
+    "reasons": {
+      "ACCEPTANCE_NOT_READY": "Приёмка ещё не подтверждена.",
+      "PAYMENT_NOT_PERSISTED": "Платёжное обязательство не зафиксировано.",
+      "PAYMENT_AMOUNT_MISMATCH": "Сумма платёжного обязательства расходится с суммой Сделки.",
+      "RESERVE_NOT_CONFIRMED": "Резерв средств не подтверждён.",
+      "OPEN_DISPUTE": "По Сделке есть открытый спор.",
+      "ACTIVE_MONEY_HOLD": "На средства действует удержание.",
+      "PAYMENT_CALLBACK_REQUIRES_MANUAL_REVIEW": "Подтверждение банка требует ручной сверки.",
+      "RELEASE_OPERATION_REQUIRES_MANUAL_REVIEW": "Операция выплаты требует ручной сверки.",
+      "RELEASE_OUTBOX_REQUIRES_MANUAL_REVIEW": "Запрос выплаты требует ручной сверки.",
+      "BANK_OPERATION_CURRENCY_REQUIRES_MANUAL_REVIEW": "Валюта банковской операции расходится с валютой Сделки; требуется ручная сверка.",
+      "RELEASE_STATE_CONTRADICTION": "Сведения о выплате противоречат друг другу; требуется ручная сверка.",
+      "RELEASE_REQUEST_NOT_PERSISTED": "Запрос выплаты не зафиксирован.",
+      "DEAL_NOT_AT_RELEASE_STAGE": "Сделка ещё не на этапе выплаты.",
+      "RECONCILIATION_RESULT_NOT_EXPOSED_IN_DEAL_WORKSPACE": "Результат банковской сверки пока недоступен.",
+      "VIEWER_CANNOT_REQUEST_RELEASE": "Для запроса выплаты нужна уполномоченная денежная роль."
+    },
+    "documentTypes": {
+      "CONTRACT": "Договор",
+      "TTN": "Товарно-транспортная накладная",
+      "WEIGHING_ACT": "Акт взвешивания",
+      "LAB_PROTOCOL": "Лабораторный протокол",
+      "ACCEPTANCE_ACT": "Акт приёмки"
+    },
+    "documentChecks": {
+      "MISSING": "документ не представлен.",
+      "DUPLICATE_LATEST_VERSION": "есть несколько текущих версий; требуется сверка.",
+      "STATUS_NOT_SIGNED": "подписание не подтверждено.",
+      "HASH_MISSING": "нет подтверждения целостности документа.",
+      "STORAGE_MISSING": "файл не представлен в доказательствах Сделки.",
+      "NOT_IMMUTABLE": "версия документа не зафиксирована.",
+      "SIGNED_AT_MISSING": "время подписания не подтверждено.",
+      "SIGNATORIES_INVALID": "участники подписания не подтверждены.",
+      "BANK_NOT_ACCEPTED": "принятие документа банком не подтверждено."
+    }
+  },
+  "en": {
+    "unknownBlocker": "An additional payout condition needs checking in the Deal.",
+    "unknownWarning": "Additional information needs checking in the Deal.",
+    "document": "Document",
+    "reasons": {
+      "ACCEPTANCE_NOT_READY": "Acceptance is not yet confirmed.",
+      "PAYMENT_NOT_PERSISTED": "The payment obligation is not recorded.",
+      "PAYMENT_AMOUNT_MISMATCH": "The payment obligation amount differs from the Deal amount.",
+      "RESERVE_NOT_CONFIRMED": "The funds reserve is unconfirmed.",
+      "OPEN_DISPUTE": "The Deal has an open dispute.",
+      "ACTIVE_MONEY_HOLD": "A hold applies to the funds.",
+      "PAYMENT_CALLBACK_REQUIRES_MANUAL_REVIEW": "Bank confirmation requires manual reconciliation.",
+      "RELEASE_OPERATION_REQUIRES_MANUAL_REVIEW": "The payout operation requires manual reconciliation.",
+      "RELEASE_OUTBOX_REQUIRES_MANUAL_REVIEW": "The payout request requires manual reconciliation.",
+      "BANK_OPERATION_CURRENCY_REQUIRES_MANUAL_REVIEW": "The bank operation currency differs from the Deal currency; manual reconciliation is required.",
+      "RELEASE_STATE_CONTRADICTION": "Payout records contradict each other; manual reconciliation is required.",
+      "RELEASE_REQUEST_NOT_PERSISTED": "The payout request is not recorded.",
+      "DEAL_NOT_AT_RELEASE_STAGE": "The Deal has not reached the payout stage.",
+      "RECONCILIATION_RESULT_NOT_EXPOSED_IN_DEAL_WORKSPACE": "The bank reconciliation result is not yet available.",
+      "VIEWER_CANNOT_REQUEST_RELEASE": "An authorized money role is required to request payout."
+    },
+    "documentTypes": {
+      "CONTRACT": "Contract",
+      "TTN": "Consignment note",
+      "WEIGHING_ACT": "Weighing record",
+      "LAB_PROTOCOL": "Laboratory report",
+      "ACCEPTANCE_ACT": "Acceptance record"
+    },
+    "documentChecks": {
+      "MISSING": "the document is not provided.",
+      "DUPLICATE_LATEST_VERSION": "several current versions exist; reconciliation is required.",
+      "STATUS_NOT_SIGNED": "signing is not confirmed.",
+      "HASH_MISSING": "document integrity is not attested.",
+      "STORAGE_MISSING": "the file is not provided in the Deal evidence.",
+      "NOT_IMMUTABLE": "the document version is not fixed.",
+      "SIGNED_AT_MISSING": "the signing time is not confirmed.",
+      "SIGNATORIES_INVALID": "the signatories are not confirmed.",
+      "BANK_NOT_ACCEPTED": "bank acceptance of the document is not confirmed."
+    }
+  },
+  "zh": {
+    "unknownBlocker": "另有付款条件需要在交易中核查。",
+    "unknownWarning": "另有信息需要在交易中核查。",
+    "document": "文件",
+    "reasons": {
+      "ACCEPTANCE_NOT_READY": "验收尚未确认。",
+      "PAYMENT_NOT_PERSISTED": "付款义务尚未记录。",
+      "PAYMENT_AMOUNT_MISMATCH": "付款义务金额与交易金额不一致。",
+      "RESERVE_NOT_CONFIRMED": "资金预留尚未确认。",
+      "OPEN_DISPUTE": "该交易存在未结争议。",
+      "ACTIVE_MONEY_HOLD": "资金存在冻结或扣留。",
+      "PAYMENT_CALLBACK_REQUIRES_MANUAL_REVIEW": "银行确认需要人工对账。",
+      "RELEASE_OPERATION_REQUIRES_MANUAL_REVIEW": "付款操作需要人工对账。",
+      "RELEASE_OUTBOX_REQUIRES_MANUAL_REVIEW": "付款申请需要人工对账。",
+      "BANK_OPERATION_CURRENCY_REQUIRES_MANUAL_REVIEW": "银行操作币种与交易币种不一致，需要人工对账。",
+      "RELEASE_STATE_CONTRADICTION": "付款记录相互矛盾，需要人工对账。",
+      "RELEASE_REQUEST_NOT_PERSISTED": "付款申请尚未记录。",
+      "DEAL_NOT_AT_RELEASE_STAGE": "交易尚未进入付款阶段。",
+      "RECONCILIATION_RESULT_NOT_EXPOSED_IN_DEAL_WORKSPACE": "银行对账结果暂不可用。",
+      "VIEWER_CANNOT_REQUEST_RELEASE": "申请付款需要具有资金操作权限的角色。"
+    },
+    "documentTypes": {
+      "CONTRACT": "合同",
+      "TTN": "货物运输单",
+      "WEIGHING_ACT": "称重记录",
+      "LAB_PROTOCOL": "实验室报告",
+      "ACCEPTANCE_ACT": "验收记录"
+    },
+    "documentChecks": {
+      "MISSING": "尚未提供文件。",
+      "DUPLICATE_LATEST_VERSION": "存在多个当前版本，需要核查。",
+      "STATUS_NOT_SIGNED": "签署尚未确认。",
+      "HASH_MISSING": "文件完整性尚未得到证明。",
+      "STORAGE_MISSING": "交易证据中未提供该文件。",
+      "NOT_IMMUTABLE": "文件版本尚未固定。",
+      "SIGNED_AT_MISSING": "签署时间尚未确认。",
+      "SIGNATORIES_INVALID": "签署方尚未确认。",
+      "BANK_NOT_ACCEPTED": "银行对该文件的接受尚未确认。"
+    }
+  }
+};
+
+function releaseReason(locale: Locale, reason: string, warning = false): string {
+  const copy = RELEASE_REASON_COPY[locale];
+  if (Object.hasOwn(copy.reasons, reason)) return copy.reasons[reason];
+  const document = /^DOCUMENT:([^:]+):([^:]+)$/.exec(reason);
+  if (document) {
+    const name = Object.hasOwn(copy.documentTypes, document[1]) ? copy.documentTypes[document[1]] : copy.document;
+    const check = Object.hasOwn(copy.documentChecks, document[2]) ? copy.documentChecks[document[2]] : copy.unknownBlocker;
+    return `${name}: ${check}`;
+  }
+  return warning ? copy.unknownWarning : copy.unknownBlocker;
+}
+
+
 function renderSelected(projection: BankReleaseProjection, locale: Locale) {
   const common = COPY[locale];
   const copy = SELECTED_COPY[locale];
@@ -185,8 +330,8 @@ function renderSelected(projection: BankReleaseProjection, locale: Locale) {
   const context = `dealId=${encodeURIComponent(projection.dealId)}&shipmentId=${encodeURIComponent(projection.shipmentId)}`;
   const dealHref = `/platform-v7/deals/${encodeURIComponent(projection.dealId)}/clean`;
   const documentsHref = `/platform-v7/deal-documents-basis?${context}`;
-  const blockers = projection.blockers.join(' · ');
-  const warningText = projection.warnings.join(' · ');
+  const blockers = projection.blockers.map((reason) => releaseReason(locale, reason)).join(' · ');
+  const warningText = projection.warnings.map((reason) => releaseReason(locale, reason, true)).join(' · ');
   const statusTone = projection.state === 'released' || projection.state === 'ready_to_request' ? 'success' : projection.state === 'awaiting_bank' ? 'information' : projection.state === 'manual_review' ? 'critical' : 'warning';
 
   return (

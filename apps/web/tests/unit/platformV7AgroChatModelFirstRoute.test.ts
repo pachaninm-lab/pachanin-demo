@@ -45,8 +45,8 @@ describe('P0 model-first agricultural chat', () => {
 
   it('keeps a self-contained agro question out of stale platform follow-up mode', () => {
     expect(route).toContain("if (outcome.signals.includes('agro_term')) return 'general_agro';");
-    expect(route.indexOf("outcome.signals.includes('agro_term')"))
-      .toBeLessThan(route.indexOf('compactFollowUp && context.previousTopic'));
+    expect(route).not.toContain('const compactFollowUp');
+    expect(route).not.toContain('compactFollowUp && context.previousTopic');
     expect(liveAcceptance).toContain('Как хранить зерно после уборки?');
   });
 
@@ -278,6 +278,147 @@ describe('agro policy at the actual public streaming boundary', () => {
     expect(boundary.model).toHaveBeenCalledTimes(1);
     expect(boundary.model.mock.calls[0][1].answerMode).toBe('general_agro');
     expect(boundary.knowledge).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['ru', 'Как выбрать страховку?'],
+    ['ru', 'Как рассчитать зарплату?'],
+    ['ru', 'Что такое факторинг?'],
+    ['en', 'How to choose insurance?'],
+    ['en', 'How to improve payroll?'],
+    ['en', 'What is factoring?'],
+    ['en', 'How to evaluate credit risk?'],
+    ['zh', '怎么选择保险？'],
+    ['zh', '怎么计算工资？'],
+    ['zh', '什么是保理？'],
+  ])('keeps self-contained %s professional question %s out of stale privacy grounding', async (locale, message) => {
+    const knowledge = await vi.importActual<typeof import('@/app/api/public-platform-assistant/route')>(
+      '@/app/api/public-platform-assistant/route',
+    );
+    boundary.knowledge.mockImplementation(knowledge.POST);
+    for (const history of [[], [{ role: 'user', text: 'Who can see my data?' }]]) {
+      boundary.model.mockClear();
+      const response = await send(message, locale, { history });
+      const stream = await response.text();
+      expect(response.status).toBe(200);
+      expect(stream).not.toContain('TOPIC_REDIRECTED');
+      expect(boundary.model).toHaveBeenCalledTimes(1);
+      expect(boundary.model.mock.calls[0][1].answerMode).toBe('general_agro');
+      expect(boundary.model.mock.calls[0][1].grounding.topic).toBe('general_agro');
+      expect(boundary.knowledge).not.toHaveBeenCalled();
+    }
+  });
+
+  it.each([
+    ['ru', 'Какие риски это создает?'],
+    ['en', 'What risks does this create?'],
+    ['zh', '这个有什么风险？'],
+    ['ru', 'Кто это увидит?'],
+    ['en', 'Who will see this?'],
+    ['zh', '谁能看到这个？'],
+    ['en', 'What does this risk mean?'],
+    ['ru', 'А дальше?'],
+    ['ru', 'Расскажи подробнее'],
+    ['en', 'And then?'],
+    ['en', 'Tell me more'],
+    ['zh', '详细说说'],
+    ['zh', '那怎么办？'],
+    ['en', 'How would this affect the decisions that we discussed?'],
+    ['en', 'How can I use it?'],
+    ['ru', 'Как с этим работать?'],
+    ['zh', '怎么使用它？'],
+  ])('keeps genuine %s follow-up %s grounded in the previous platform subject', async (locale, message) => {
+    const knowledge = await vi.importActual<typeof import('@/app/api/public-platform-assistant/route')>(
+      '@/app/api/public-platform-assistant/route',
+    );
+    boundary.knowledge.mockImplementation(knowledge.POST);
+    const response = await send(message, locale, {
+      history: [{ role: 'user', text: 'Who can see my data?' }],
+    });
+    await response.text();
+    expect(response.status).toBe(200);
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+    expect(boundary.model.mock.calls[0][1].answerMode).toBe('verified_platform');
+    expect(boundary.model.mock.calls[0][1].grounding.topic).toBe('privacy');
+    expect(boundary.knowledge).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['ru', 'Как распознать монилиоз?'],
+    ['en', 'How to diagnose moniliosis?'],
+    ['en', 'What causes clubroot?'],
+    ['zh', '马铃薯晚疫病有什么早期症状？'],
+    ['ru', 'Объясни особенности диагностики монилиоза и различия его симптомов'],
+    ['en', 'What is moniliosis and what causes it?'],
+    ['en', 'How to diagnose moniliosis and treat it?'],
+    ['ru', 'Что вызывает монилиоз и как его предотвратить?'],
+    ['ru', 'Объясни монилиоз и его симптомы'],
+    ['zh', '晚疫病是什么怎么防止它'],
+    ['ru', 'Какой фильм о диагностике монилиоза посмотреть?'],
+    ['en', 'Recommend a moniliosis movie'],
+    ['ru', 'Посоветуй монилиозовый фильм'],
+    ['zh', '推荐马铃薯晚疫病诊断电影'],
+    ['zh', '推荐一部关于马铃薯晚疫病诊断的电影'],
+  ])('keeps unknown %s specialist subject %s model-backed without stale platform grounding', async (locale, message) => {
+    const knowledge = await vi.importActual<typeof import('@/app/api/public-platform-assistant/route')>(
+      '@/app/api/public-platform-assistant/route',
+    );
+    boundary.knowledge.mockImplementation(knowledge.POST);
+    for (const history of [[], [{ role: 'user', text: 'Who can see my data?' }]]) {
+      boundary.model.mockClear();
+      const response = await send(message, locale, { history });
+      expect(await response.text()).not.toContain('TOPIC_REDIRECTED');
+      expect(response.status).toBe(200);
+      expect(boundary.model).toHaveBeenCalledTimes(1);
+      expect(boundary.model.mock.calls[0][1].answerMode).toBe('general_agro');
+      expect(boundary.model.mock.calls[0][1].grounding.topic).toBe('general_agro');
+      expect(boundary.knowledge).not.toHaveBeenCalled();
+    }
+  });
+
+  it.each([
+    ['en', 'How is privacy handled on your platform?', 'privacy'],
+    ['en', 'Can I delete it?', 'deletion'],
+    ['ru', 'Кто видит мои документы?', 'documents'],
+  ])('keeps explicit %s platform question %s on current section authority', async (locale, message, topic) => {
+    const knowledge = await vi.importActual<typeof import('@/app/api/public-platform-assistant/route')>(
+      '@/app/api/public-platform-assistant/route',
+    );
+    boundary.knowledge.mockImplementation(knowledge.POST);
+    const response = await send(message, locale, {
+      history: [{ role: 'user', text: 'Who can see my data?' }],
+    });
+    await response.text();
+    expect(response.status).toBe(200);
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+    expect(boundary.model.mock.calls[0][1].answerMode).toBe('verified_platform');
+    expect(boundary.model.mock.calls[0][1].grounding.topic).toBe(topic);
+    expect(boundary.knowledge).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    'How to operate a milking system?',
+    'How to improve customer service?',
+    'How to choose a filing system?',
+    'How to negotiate a contract?',
+    'How does account reconciliation work?',
+    'What is auction theory?',
+    'How to choose document scanners?',
+  ])('does not promote the generic subject in %s to product facts', async (message) => {
+    const knowledge = await vi.importActual<typeof import('@/app/api/public-platform-assistant/route')>(
+      '@/app/api/public-platform-assistant/route',
+    );
+    boundary.knowledge.mockImplementation(knowledge.POST);
+    for (const history of [[], [{ role: 'user', text: 'Who can see my data?' }]]) {
+      boundary.model.mockClear();
+      const response = await send(message, 'en', { history });
+      await response.text();
+      expect(response.status).toBe(200);
+      expect(boundary.model).toHaveBeenCalledTimes(1);
+      expect(boundary.model.mock.calls[0][1].answerMode).toBe('general_agro');
+      expect(boundary.model.mock.calls[0][1].grounding.topic).toBe('general_agro');
+      expect(boundary.knowledge).not.toHaveBeenCalled();
+    }
   });
 
   it('keeps an actual short platform follow-up grounded in the platform', async () => {

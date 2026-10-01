@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
   });
   const routedQuestion = envelope.question;
   const outcome = routeAssistantQuestion(routedQuestion, routingContext);
-  let answerMode = resolveAnswerMode(routedQuestion, envelope.history, outcome, routingContext);
+  let answerMode = resolveAnswerMode(routedQuestion, outcome);
   const locale = envelope.locale;
 
   if (containsSensitiveInput(envelope.question, envelope.history)) {
@@ -390,9 +390,7 @@ function applyGektaAdmission(
 
 function resolveAnswerMode(
   question: string,
-  history: readonly HistoryTurn[],
   outcome: ReturnType<typeof routeAssistantQuestion>,
-  context: AssistantRoutingContext,
 ): PublicAnswerMode {
   const normalized = normalizeIntent(question);
   if (GREETING_PATTERNS.some((pattern) => pattern.test(normalized))) return 'general_agro';
@@ -404,17 +402,8 @@ function resolveAnswerMode(
   // This protects questions such as "Как хранить зерно после уборки?" from
   // being answered with stale Transparent Price copy.
   if (outcome.signals.includes('agro_term')) return 'general_agro';
-  // Explicit professional questions keep their own subject after an older
-  // platform turn; compact wording alone does not make them a follow-up.
-  if (outcome.decision === 'ALLOW_ADJACENT' && outcome.domain === 'business'
-    && outcome.signals.includes('business_term')) return 'general_agro';
-
-  const compactFollowUp = normalized.split(' ').filter(Boolean).length <= 7;
-  if (compactFollowUp && context.previousTopic) return 'verified_platform';
-  if (compactFollowUp) {
-    const prior = normalizeIntent(history.slice(-6).map((turn) => turn.text).join(' '));
-    if (EXPLICIT_PLATFORM_PATTERNS.some((pattern) => pattern.test(prior))) return 'verified_platform';
-  }
+  // The relevance router owns contextual inheritance. Length and old platform
+  // history alone cannot turn a current professional subject into platform facts.
 
   // Model-first boundary: everything not explicitly identified as a platform
   // fact is sent to the model. The model system prompt handles greetings,

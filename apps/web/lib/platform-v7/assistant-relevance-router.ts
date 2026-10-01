@@ -369,11 +369,11 @@ const CONTEXTUAL_SHAPES: readonly Readonly<{
   { pattern: /(?:сколько\s+хранит|как\s+долго\s+хранит|how\s+long\s+(?:is\s+it|do\s+you)\s+(?:stored|store|keep)|保存多久)/iu, section: 'retention' },
 ];
 
-/** Deixis: the sentence points at something said earlier or shown on screen. */
-const DEIXIS_PATTERN = /(?:^|\s)(?:это|этого|этому|этим|эта|этот|эти|их|его|ее|там|тут|здесь|туда|оно|он|она)(?:\s|$|\?|,)|(?:^|\s)(?:it|this|that|these|those|they|there|here)(?:\s|$|\?|,)|(?:这个|那个|它|他们|这里|那里)/iu;
+/** A reference before a new subject can begin a short or longer follow-up. */
+const REFERENTIAL_OPENING = /^(?:(?:а|и|но|как|что|почему|зачем|когда|где|кто|какие|риски?|можно|ли|нужно|будет|может|объясни|мне|пожалуйста|с|в|на|для|использовать|настроить|изменить|исправить)\s+)*(?:это|этого|этому|этим|эта|этот|эти|их|его|ее|там|тут|здесь|туда|оно|он|она)(?:\s|$)|^(?:(?:and|but|so|how|what|why|when|where|who|can|could|would|should|does|do|is|are|will|you|i|we|please|explain|tell|me|the|risks?|of|about|use|configure|change|fix)\s+)*(?:it|this|that|these|those|they|there|here)(?:\s|$)|^(?:那|那么|请|请解释|为什么|怎么|如何|使用|配置|修改|处理|操作)*(?:这个|那个|它|他们|这里|那里)/iu;
 
-/** Openers that mark a continuation rather than a new subject. */
-const FOLLOW_UP_OPENER = /^(?:а|и|но|тогда|значит|ок|окей|хорошо|ясно|понятно|еще|также|кстати|подробнее|почему|зачем|как|когда|где|кто|что|сколько|можно|нужно)\b|^(?:and|but|so|then|ok|okay|also|more|why|how|when|where|who|what|can|should|is|does)\b|^(?:那|还|再|为什么|怎么|谁|什么|多少|可以)/iu;
+/** Bare continuations, not openers of questions that name a new subject. */
+const FOLLOW_UP_REQUEST = /^(?:(?:(?:а|и|но|тогда|значит|ок|окей|хорошо|ясно|понятно)\s+)?(?:подробнее|почему|зачем|как|когда|где|кто|что|сколько|можно|нужно|дальше|что дальше|что еще)|(?:расскажи|объясни)(?:\s+мне)?\s+подробнее|(?:(?:and|but|so|then|ok|okay|also)\s+)?(?:more|why|how|when|where|who|what|then|what else|what next|how much|how long)|tell me more|explain(?: more| further)?|continue|(?:那|还|再)?(?:为什么|怎么|谁|什么|多少|可以|怎么办)|详细说说|详细一点|继续|然后呢|还有呢)$/iu;
 
 /* --------------------------------------------------------------- normalizing */
 
@@ -641,7 +641,11 @@ export function routeAssistantQuestion(
 
   const shapeSection = contextualSection(normalized);
   const short = isShortQuestion(normalized);
-  const deictic = DEIXIS_PATTERN.test(normalized) || FOLLOW_UP_OPENER.test(normalized);
+  // A named resource subject is current context. Otherwise, only an actual
+  // reference or a bare continuation can inherit a previous platform topic;
+  // generic question openers such as "how" and "what" are not references.
+  const deictic = !unknownResourceSubject
+    && (FOLLOW_UP_REQUEST.test(normalized) || REFERENTIAL_OPENING.test(normalized));
 
   // Direct agriculture: answered as agriculture, not routed into platform copy.
   if (agronomyWins) {
@@ -688,7 +692,7 @@ export function routeAssistantQuestion(
     });
   }
 
-  if (short && deictic && (conversationRelated || surface)) {
+  if (deictic && (conversationRelated || surface)) {
     return outcome('ALLOW_CONTEXTUAL', {
       domain: context.previousTopic ? 'platform' : 'mixed',
       signals,
@@ -708,16 +712,11 @@ export function routeAssistantQuestion(
     return outcome('ALLOW_ADJACENT', { domain: 'business', signals, section: null });
   }
 
-  // A question tied to the conversation or supported by the model is answered
-  // even without a lexical hit: this is the case the previous gate got wrong
-  // most often.
+  // Related history admits an unknown current subject for model interpretation.
+  // It does not prove that subject belongs to the previous knowledge section;
+  // actual contextual references already inherited their section above.
   if (conversationRelated || context.semanticHint === 'related') {
-    return outcome('ALLOW_CONTEXTUAL', {
-      domain: context.previousTopic ? 'platform' : 'mixed',
-      signals,
-      section: context.previousTopic,
-      platformFirst: surface,
-    });
+    return outcome('ALLOW_CONTEXTUAL', { domain: 'mixed', signals, section: null });
   }
 
   if (context.semanticHint === 'unrelated') {
