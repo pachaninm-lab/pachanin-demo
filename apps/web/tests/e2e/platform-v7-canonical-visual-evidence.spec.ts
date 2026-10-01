@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { loginAs, type CabinetRole } from './support/acceptance-login';
+import { randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
+import { ACCEPTANCE_PASSWORD, ACCEPTANCE_TOTP_SECRET, loginAs, totp, type CabinetRole } from './support/acceptance-login';
 
 
 const AUTHORITY_AHASH: Record<string,{hash:string;maxDistance:number}> = {
@@ -380,6 +383,104 @@ async function rotateCabinetRole(page: Page, role: CabinetRole, baseURL: string)
   await loginAs(page, role, baseURL);
 }
 
+// This fixture is confined to the existing disposable PostgreSQL matrix. Each
+// browser gets its own ordinary ACCOUNTING identity, preserving the empty-bank
+// fixture and avoiding shared MFA replay state across parallel browser projects.
+async function seedReadyBankJourney(baseURL: string) {
+  const origin = new URL(baseURL);
+  const database = new URL(process.env.DATABASE_URL || '');
+  if (origin.protocol !== 'https:' || !['localhost', '127.0.0.1'].includes(origin.hostname)
+    || origin.username || origin.password
+    || !['postgres:', 'postgresql:'].includes(database.protocol)
+    || !['localhost', '127.0.0.1', 'postgres'].includes(database.hostname)
+    || database.pathname !== '/dsv8_acceptance') {
+    throw new Error('READY bank fixtures require the localhost TLS/disposable dsv8_acceptance PostgreSQL matrix');
+  }
+  const apiRequire = createRequire(resolve(process.cwd(), '../api/package.json'));
+  const { PrismaClient } = apiRequire('@prisma/client');
+  const bcrypt = apiRequire('bcryptjs');
+  const { encryptMfaSecret } = apiRequire('./dist/apps/api/src/modules/auth/auth-crypto.js');
+  const prisma = new PrismaClient();
+  const email = `dsv8.ready-bank.${randomUUID()}@acceptance.invalid`;
+  const dealId = `dsv8-ready-bank-${randomUUID()}`;
+  const passwordHash = await bcrypt.hash(ACCEPTANCE_PASSWORD, 10);
+  const inn = () => {
+    const digits = String(100000000n + BigInt(`0x${randomUUID().replaceAll('-', '')}`) % 900000000n);
+    const checksum = [2, 4, 10, 3, 5, 9, 4, 6, 8]
+      .reduce((sum, weight, index) => sum + weight * Number(digits[index]), 0);
+    return `${digits}${(checksum % 11) % 10}`;
+  };
+  try {
+    return await prisma.$transaction(async (tx: typeof prisma) => {
+      const bank = await tx.organization.create({ data: {
+        inn: inn(), name: 'Acceptance READY bank', type: 'LEGAL',
+        status: 'VERIFIED', kycStatus: 'APPROVED', verifiedAt: new Date(),
+      } });
+      const seller = await tx.organization.create({ data: {
+        inn: inn(), name: 'Acceptance READY seller', type: 'LEGAL',
+        status: 'VERIFIED', kycStatus: 'APPROVED', verifiedAt: new Date(), tenantId: bank.tenantId,
+      } });
+      const buyer = await tx.organization.create({ data: {
+        inn: inn(), name: 'Acceptance READY buyer', type: 'LEGAL',
+        status: 'VERIFIED', kycStatus: 'APPROVED', verifiedAt: new Date(), tenantId: bank.tenantId,
+      } });
+      const user = await tx.user.create({ data: {
+        email, passwordHash, fullName: 'Acceptance READY bank user', status: 'ACTIVE',
+      } });
+      await tx.userOrg.create({ data: {
+        userId: user.id, organizationId: bank.id, role: 'ACCOUNTING',
+        status: 'ACTIVE', isDefault: true, isOrgAdmin: false, activatedAt: new Date(),
+      } });
+      const { ciphertext, keyVersion } = encryptMfaSecret(ACCEPTANCE_TOTP_SECRET);
+      await tx.$executeRawUnsafe(
+        'INSERT INTO auth.credential_states (user_id, mfa_enabled, mfa_secret_ciphertext, mfa_key_version) VALUES ($1, TRUE, $2, $3)',
+        user.id, ciphertext, keyVersion,
+      );
+      await tx.deal.create({ data: {
+        id: dealId, tenantId: bank.tenantId, sellerOrgId: seller.id, buyerOrgId: buyer.id,
+        status: 'DRAFT', currency: 'RUB',
+      } });
+      await tx.dealParticipant.create({ data: {
+        dealId, tenantId: bank.tenantId, organizationId: bank.id, userId: user.id,
+        role: 'ACCOUNTING', accessLevel: 'READ', status: 'ACTIVE',
+      } });
+      return { email, dealId, organizationId: bank.id, tenantId: bank.tenantId };
+    });
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+async function loginReadyBankJourney(page: Page, email: string, baseURL: string) {
+  const context = page.context();
+  let authenticated = false;
+  for (let attempt = 0; attempt < 3 && !authenticated; attempt += 1) {
+    if (attempt) await page.waitForTimeout(30_000 - (Date.now() % 30_000) + 1_000);
+    await context.clearCookies();
+    await page.goto('/platform-v7/login', { waitUntil: 'load' });
+    const csrf = async () => {
+      const value = (await context.cookies(baseURL)).find((cookie) => cookie.name === 'pc_csrf_token')?.value;
+      expect(value, 'ordinary login must receive the middleware CSRF cookie').toBeTruthy();
+      return value!;
+    };
+    const login = await context.request.post('/api/auth/login', {
+      headers: { 'content-type': 'application/json', 'x-csrf-token': await csrf() },
+      data: { email, password: ACCEPTANCE_PASSWORD },
+    });
+    expect(login.status()).toBeLessThan(400);
+    expect((await login.json()).mfaRequired, 'ACCOUNTING must complete ordinary MFA').toBe(true);
+    const verify = await context.request.post('/api/auth/mfa-login', {
+      headers: { 'content-type': 'application/json', 'x-csrf-token': await csrf() },
+      data: { code: totp(ACCEPTANCE_TOTP_SECRET) },
+    });
+    authenticated = verify.status() < 400 && (await verify.json()).ok === true;
+  }
+  expect(authenticated, 'server-issued MFA login for isolated READY bank user').toBe(true);
+  const names = (await context.cookies(baseURL)).map((cookie) => cookie.name);
+  expect(names).toContain('pc_v7_cabinet');
+  expect(names).toContain('pc_access_token');
+}
+
 test.describe('canonical protected cabinet boundary', () => {
   const operatorRoute = '/platform-v7/operator';
 
@@ -485,6 +586,67 @@ test.describe('canonical protected cabinet boundary', () => {
     await page.goto('/platform-v7/bank?lang=ru', { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('p0-first-customer-workspace-bank')).toBeVisible();
     await canonicalNoOverflow(page);
+  });
+
+  test('READY bank queue opens the same server-authorized Deal in RU EN ZH on mobile and desktop', async ({ page, baseURL }, testInfo) => {
+    test.skip(!baseURL?.startsWith('https://'), 'Native PostgreSQL and ordinary MFA run in the TLS Design System acceptance workflow.');
+    test.setTimeout(180_000);
+    const fixture = await seedReadyBankJourney(baseURL!);
+    await loginReadyBankJourney(page, fixture.email, baseURL!);
+    const authority = await page.context().request.get(`/api/proxy/deals/${fixture.dealId}/workspace`);
+    expect(authority.status()).toBe(200);
+    const projection = await authority.json();
+    expect(projection.deal.id).toBe(fixture.dealId);
+    expect(projection.deal.tenantId).toBe(fixture.tenantId);
+    expect(projection.viewer.organizationId).toBe(fixture.organizationId);
+    expect(projection.viewer.role).toBe('ACCOUNTING');
+    expect(projection.viewer.accessLevel).toBe('READ');
+    const execution = await page.context().request.get(`/api/proxy/deals/${fixture.dealId}/execution-workspace`);
+    expect(execution.status()).toBe(200);
+    const executionProjection = await execution.json();
+    expect(executionProjection.deal.id).toBe(fixture.dealId);
+    expect(executionProjection.roleProjection.role).toBe('ACCOUNTING');
+    expect(executionProjection.roleProjection.canAct).toBe(false);
+    const runtimeFailures: string[] = [];
+    const commandWrites: string[] = [];
+    page.on('pageerror', (error) => runtimeFailures.push(error.message));
+    page.on('console', (message) => {
+      if (message.type() === 'error' && /hydration|uncaught|error boundary/i.test(message.text())) runtimeFailures.push(message.text());
+    });
+    page.on('request', (request) => {
+      if (request.method() !== 'GET' && /\/api\/proxy\/deals\/[^/]+\/commands\//.test(new URL(request.url()).pathname)) {
+        commandWrites.push(request.method() + ' ' + new URL(request.url()).pathname);
+      }
+    });
+    const reloadLabels = { ru: 'Повторить загрузку сделки', en: 'Reload deal state', zh: '重新读取交易状态' } as const;
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      for (const locale of ['ru', 'en', 'zh'] as const) {
+        const bankRoute = `/platform-v7/bank?lang=${locale}`;
+        expect((await page.goto(bankRoute, { waitUntil: 'domcontentloaded' }))?.status()).toBe(200);
+        await expectPublicRoute(page, bankRoute, baseURL, '[data-testid="p0-first-customer-workspace-bank"]');
+        const route = `/platform-v7/deals/${fixture.dealId}/execution?lang=${locale}`;
+        const link = page.locator('#first-customer-work-queue').getByRole('link', { name: fixture.dealId, exact: false });
+        await expect(link).toHaveCount(1);
+        await expect(link).toHaveAttribute('href', route);
+        await canonicalNoOverflow(page);
+        await link.focus();
+        await expect(link).toBeFocused();
+        await link.press('Enter');
+        const workspace = page.locator(`[data-transaction-workspace="v8"][data-canonical-deal="${fixture.dealId}"]`);
+        await expectPublicRoute(page, route, baseURL, `[data-transaction-workspace="v8"][data-canonical-deal="${fixture.dealId}"]`);
+        const htmlLocale = locale === 'zh' ? 'zh-CN' : locale;
+        await expect(page.locator('html')).toHaveAttribute('lang', htmlLocale);
+        await expect(workspace).toHaveAttribute('lang', htmlLocale);
+        await expect(workspace).toHaveAttribute('data-role', 'bank');
+        await expect(workspace.getByRole('button', { name: reloadLabels[locale], exact: true })).toBeVisible();
+        await canonicalNoOverflow(page);
+        await canonicalA11y(page);
+        await page.screenshot({ path: testInfo.outputPath(`ready-bank-deal-${locale}-${width}.png`), animations: 'disabled' });
+      }
+    }
+    expect(runtimeFailures).toEqual([]);
+    expect(commandWrites, 'readonly queue navigation must never submit a Deal command').toEqual([]);
   });
 
   test('all twelve server-verified role shells retain fixed cabinet chrome', async ({ page, baseURL }) => {
