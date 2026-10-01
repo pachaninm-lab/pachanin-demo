@@ -926,7 +926,155 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
         ],
         forbiddenAuthority: ['API/DB/role/tenant/money/provider/FGIS authority', 'Source-owned scope or guard changes', 'CI/security/readiness or review weakening', 'False live or external success'],
       });
-      if (branch === admissionBranch) {
+      const inventoryPurposeKey = 'deal-locale-generated-inventory-guard-purpose-20261001';
+      const inventoryAdmissionKey = 'deal-locale-generated-inventory-20261001';
+      const generatedPaths = ['docs/security/cryptographic-inventory.json', 'docs/security/CRYPTOGRAPHIC_INVENTORY.md'];
+      const completionPaths = [...extendedPaths, ...generatedPaths];
+      const requiredInventoryPurpose = {
+        "owner": "ACCOUNT_1_EXECUTION",
+        "presentationContributor": "ACCOUNT_2_PRODUCT",
+        "sourceOwnerRetained": "ACCOUNT_1_EXECUTION",
+        "purpose": "Add a separate trusted generated-inventory completion phase for the already admitted immutable six-file Deal locale payload, after native SBOM discovery identified one newly scanned catalog file.",
+        "authorityBaseExactMain": "4f5d03b833f0064b4538aae751d74f17e6d67c88",
+        "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+        "allowedPaths": [
+          "scripts/p7-autopilot-guard.sh",
+          "scripts/p7-autopilot-guard.test.mjs",
+          ".github/workflows/platform-v7-autopilot-guard.yml"
+        ],
+        "futureAdmissionBranch": "governance/product-deal-runtime-admission-20260929",
+        "futureImplementationBranch": "ux/deal-runtime-unknown-20260929",
+        "futureGeneratedPaths": [
+          "docs/security/cryptographic-inventory.json",
+          "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+        ],
+        "trustedGenerator": {
+          "path": "scripts/security/discover-cryptography.mjs",
+          "blob": "6a5751eb031a514bcf7f26893c0003e6013107aa"
+        },
+        "immutableLocaleSourcePins": [
+          [
+            "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+            "6f980ea5c83dc9776d51fe01b6f33bf21704a037",
+            "be57e8931fc5a056ed59039d9bf0da6f98aeb6fe"
+          ],
+          [
+            "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+            "4cf04d22287002bf90888847153bfe9759d8e1fd",
+            "1c669249fcf4451bc0655f506d975edc069fe81c"
+          ],
+          [
+            "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+            "699ae74d30128e72ccad0a4559ad40944b3ecda8",
+            "2099bb5fcd731368ffccecd096ebb10320379257"
+          ],
+          [
+            "apps/web/components/platform-v7/DealCommandForm.tsx",
+            "7bde1116c8e84e2f253da69431d867ceaa90663d",
+            "aba1af6c10dbbee0cee25cb13bdbce40145024a2"
+          ],
+          [
+            "apps/web/i18n/transaction-deal-copy.ts",
+            null,
+            "4db89dfdec3f5f871760461a60dd2f89194329a1"
+          ],
+          [
+            "packages/design-system-v8/src/components.tsx",
+            "3f95e51e99858debcd3f784e5b77b05be9619ccd",
+            "3f29bfef940801667273f066a02d34f20c2be8b5"
+          ]
+        ],
+        "nativeFailureEvidence": {
+          "pr": 5757,
+          "head": "6d41a54b2d7d8581fc3d9a67cf72cefbbb2fa2cc",
+          "workflowRun": 36822141734,
+          "job": 110239819384,
+          "observedScannedFiles": 2294,
+          "baselineScannedFiles": 2293
+        },
+        "requiredTruthBoundaries": [
+          "Purpose only: append one record and preserve every prior state value/byte, primary/current/global/R1.2 permissions, every scope vector and admission, CORE ownership and official 5/100 progress. No new source or generated output is admitted here.",
+          "After separate purpose acceptance, use only the already admitted three-path trusted guard lane for a separately reviewed guard/test repair. Preserve all old phases, exact six locale source pins/modes, required audit/review/CI/security/readiness and metadata/attestation defenses.",
+          "Then separately accept exactly one metadata co-admission record and append only the two listed generated paths after all nine existing runtime paths. Preserve the immutable original locale admission record and all six source blobs. No runtime or generated output in this state phase.",
+          "The new completion phase must bind a genuine accepted guard base and verify its ancestry, unchanged state, exactly six admitted source changes plus both regular generated files, trusted accepted-base generator bytes/mode, full committed source blob/mode enumeration, attributable ancestor source-tree equality and byte-exact regenerated JSON/Markdown. Treat candidate application blobs as text; never execute candidate code.",
+          "The six-file presentation payload stays immutable. No arbitrary extra source, test, registry/workflow, source-owned guard/scope or crypto exclusion is granted. The existing protected route assertion receives a separate compatibility repair in its already admitted PRODUCT test lane, retaining actual canonical identity and command authority checks.",
+          "Every adopted current head requires fresh independent whole-diff review, author audit, all applicable native gates and ordinary expected-full-SHA merge. Unit/static/fixture/native acceptance is not actual REG.RU/provider/Founder13 production proof."
+        ],
+        "forbiddenAuthority": [
+          "API/DB/role/tenant/money/provider/FGIS/model authority",
+          "General generated documentation or source scope",
+          "Security/readiness/coverage/review weakening or forced/automatic merge",
+          "Fake source/history/producer metadata or live/external PASS"
+        ],
+        "teamHubDependency": "#5469 owner-priority decision5925195179; accepted locale purpose5754/guard5755/admission5756; native source5757"
+      };
+      const requireInventoryPurpose = () => {
+        if (!isDeepStrictEqual(state.coordinationAdmissions?.[inventoryPurposeKey], requiredInventoryPurpose)) {
+          throw new Error('DEAL_LOCALE_INVENTORY_PURPOSE_MISMATCH');
+        }
+      };
+      const makeInventoryAdmission = (authorityBaseExactMain) => ({
+        owner: 'ACCOUNT_1_EXECUTION',
+        presentationContributor: 'ACCOUNT_2_PRODUCT',
+        sourceOwnerRetained: 'ACCOUNT_1_EXECUTION',
+        purpose: 'Complete the immutable six-file Deal locale transition with only its byte-exact trusted generated cryptographic inventory pair.',
+        authorityBaseExactMain,
+        implementationBranch,
+        allowedPaths: completionPaths,
+        retainedLocaleAdmissionKey: localeAdmissionKey,
+        exactSourcePins: pins,
+        exactGeneratedPaths: generatedPaths,
+        trustedGenerator: { path: 'scripts/security/discover-cryptography.mjs', mode: '100644', blob: '6a5751eb031a514bcf7f26893c0003e6013107aa' },
+        requiredTruthBoundaries: [
+          'Separate completion phase only. Preserve every old record and the immutable six source blobs; append only the two generated paths after the existing nine paths.',
+          'Unchanged state and exactly six source transitions plus both regular generated files; no arbitrary source, workflow, registry, guard or scope mutation.',
+          'Use only the unchanged pinned accepted-base generator and committed application blobs as text. Verify full source enumeration, modes, attributable ancestor/source-tree equality, and byte-exact JSON/Markdown reproduction.',
+          'Fresh whole-head independent review, separate owner audit, all applicable native CI/security/readiness and ordinary full-expected-SHA merge remain mandatory. No protected/live/provider/Founder13 acceptance is inferred.',
+        ],
+        forbiddenAuthority: ['API/DB/role/tenant/money/provider/FGIS/model authority', 'General source or generated-output permissions', 'Candidate-code execution during regeneration', 'CI/security/review/readiness weakening or false live/external PASS'],
+      });
+      const completionAdmitted = Object.hasOwn(state.coordinationAdmissions || {}, inventoryAdmissionKey);
+      if (branch === admissionBranch && Object.hasOwn(state.coordinationAdmissions || {}, localeAdmissionKey) &&
+          Object.hasOwn(state.coordinationAdmissions || {}, inventoryPurposeKey)) {
+        requireInventoryPurpose();
+        if (completionAdmitted) throw new Error('DEAL_LOCALE_INVENTORY_ALREADY_ADMITTED');
+        const retained = state.coordinationAdmissions[localeAdmissionKey];
+        const retainedBase = retained?.authorityBaseExactMain;
+        if (typeof retainedBase !== 'string' || !/^[0-9a-f]{40}$/u.test(retainedBase) ||
+            !isDeepStrictEqual(retained, makeLocaleAdmission(retainedBase)) ||
+            !isDeepStrictEqual(state.approvedConcurrentScopes?.[implementationBranch], extendedPaths)) {
+          throw new Error('DEAL_LOCALE_INVENTORY_PRIOR_ADMISSION_MISMATCH');
+        }
+        try {
+          execFileSync('git', ['merge-base', '--is-ancestor', retainedBase, baseRef], { stdio: 'pipe' });
+          execFileSync('git', ['merge-base', '--is-ancestor', priorBase, baseRef], { stdio: 'pipe' });
+        } catch { throw new Error('DEAL_LOCALE_INVENTORY_PRIOR_BASE_NOT_ANCESTOR'); }
+        if (!isDeepStrictEqual(changes, [['M', stateFile]])) throw new Error('DEAL_LOCALE_INVENTORY_ADMISSION_DIFF_SCOPE');
+        if ([baseRef, headRef].some((ref) => fileMode(ref, stateFile) !== '100644')) throw new Error('DEAL_LOCALE_INVENTORY_ADMISSION_FILE_MODE');
+        const expected = structuredClone(state);
+        expected.approvedConcurrentScopes[implementationBranch] = completionPaths;
+        expected.coordinationAdmissions[inventoryAdmissionKey] = makeInventoryAdmission(baseSha);
+        if (!isDeepStrictEqual(JSON.parse(readState(headRef)), expected)) throw new Error('DEAL_LOCALE_INVENTORY_ADMISSION_STATE_MUTATION');
+        // Only these two insertions may change accepted state bytes. Comparing
+        // parsed values alone would admit old-record reordering, reserialization
+        // and duplicate keys whose final value happens to match the old state.
+        const renderEntry = (key, value) => JSON.stringify({ [key]: value }, null, 2)
+          .slice(2, -2).split('\n').map((line) => '  ' + line).join('\n');
+        const baseText = readState(baseRef);
+        const oldVector = renderEntry(implementationBranch, extendedPaths);
+        const stateEnd = '\n  }\n}\n';
+        if (Object.keys(state).at(-1) !== 'coordinationAdmissions' ||
+            Object.keys(state.coordinationAdmissions).length === 0 ||
+            !baseText.endsWith(stateEnd) || baseText.split(oldVector).length !== 2) {
+          throw new Error('DEAL_LOCALE_INVENTORY_ADMISSION_TEXT_BASE');
+        }
+        let expectedText = baseText.replace(oldVector, renderEntry(implementationBranch, completionPaths));
+        expectedText = expectedText.slice(0, -stateEnd.length) + ',\n' +
+          renderEntry(inventoryAdmissionKey, makeInventoryAdmission(baseSha)) + stateEnd;
+        if (!isDeepStrictEqual(JSON.parse(expectedText), expected)) throw new Error('DEAL_LOCALE_INVENTORY_ADMISSION_TEXT_BASE');
+        if (readState(headRef) !== expectedText) throw new Error('DEAL_LOCALE_INVENTORY_ADMISSION_TEXT_MUTATION');
+        scopes = [stateFile];
+      } else if (branch === admissionBranch) {
         if (Object.hasOwn(state.coordinationAdmissions || {}, localeAdmissionKey)) {
           throw new Error('DEAL_LOCALE_ADMISSION_ALREADY_PRESENT');
         }
@@ -949,7 +1097,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
         const acceptedBase = accepted?.authorityBaseExactMain;
         if (typeof acceptedBase !== 'string' || !/^[0-9a-f]{40}$/u.test(acceptedBase) ||
             !isDeepStrictEqual(accepted, makeLocaleAdmission(acceptedBase)) ||
-            !isDeepStrictEqual(state.approvedConcurrentScopes?.[implementationBranch], extendedPaths)) {
+            !isDeepStrictEqual(state.approvedConcurrentScopes?.[implementationBranch], completionAdmitted ? completionPaths : extendedPaths)) {
           throw new Error('DEAL_LOCALE_ACCEPTED_ADMISSION_MISMATCH');
         }
         try {
@@ -959,7 +1107,22 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
           throw new Error('DEAL_LOCALE_ADMISSION_BASE_NOT_ANCESTOR');
         }
         if (readState(headRef) !== readState(baseRef)) throw new Error('DEAL_LOCALE_IMPLEMENTATION_STATE_MUTATION');
+        if (completionAdmitted) {
+          requireInventoryPurpose();
+          const inventoryAdmission = state.coordinationAdmissions[inventoryAdmissionKey];
+          const inventoryBase = inventoryAdmission?.authorityBaseExactMain;
+          if (typeof inventoryBase !== 'string' || !/^[0-9a-f]{40}$/u.test(inventoryBase) ||
+              !isDeepStrictEqual(inventoryAdmission, makeInventoryAdmission(inventoryBase))) {
+            throw new Error('DEAL_LOCALE_INVENTORY_ACCEPTED_ADMISSION_MISMATCH');
+          }
+          try { execFileSync('git', ['merge-base', '--is-ancestor', inventoryBase, baseRef], { stdio: 'pipe' }); }
+          catch { throw new Error('DEAL_LOCALE_INVENTORY_BASE_NOT_ANCESTOR'); }
+          for (const file of generatedPaths) {
+            if ([baseRef, headRef].some((ref) => fileMode(ref, file) !== '100644')) throw new Error('DEAL_LOCALE_INVENTORY_OUTPUT_MODE:' + file);
+          }
+        }
         const expectedChanges = pins.map(([file, oldBlob]) => [oldBlob === null ? 'A' : 'M', file]);
+        if (completionAdmitted) expectedChanges.push(...generatedPaths.map((file) => ['M', file]));
         const sorted = (items) => [...items].sort((left, right) => left[1].localeCompare(right[1], 'en'));
         if (!isDeepStrictEqual(sorted(changes), sorted(expectedChanges))) throw new Error('DEAL_LOCALE_IMPLEMENTATION_DIFF_SCOPE');
         for (const [file, oldBlob, newBlob] of pins) {
@@ -971,7 +1134,110 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
             throw new Error('DEAL_LOCALE_SOURCE_PIN_OR_MODE_MISMATCH:' + file);
           }
         }
-        scopes = sourcePaths;
+        if (completionAdmitted) {
+          const pinnedGenerator = 'scripts/security/discover-cryptography.mjs';
+          if ([baseRef, headRef].some((ref) => fileMode(ref, pinnedGenerator) !== '100644' ||
+              execFileSync('git', ['rev-parse', ref + ':' + pinnedGenerator], { encoding: 'utf8' }).trim() !== '6a5751eb031a514bcf7f26893c0003e6013107aa')) {
+            throw new Error('DEAL_LOCALE_INVENTORY_GENERATOR_PIN_OR_MODE');
+          }
+        const generatorPath = 'scripts/security/discover-cryptography.mjs';
+        if (!['100644', '100755'].includes(fileMode(baseRef, generatorPath)) ||
+            fileMode(headRef, generatorPath) !== fileMode(baseRef, generatorPath) ||
+            execFileSync('git', ['show', `${baseRef}:${generatorPath}`], { encoding: 'utf8' }) !==
+              execFileSync('git', ['show', `${headRef}:${generatorPath}`], { encoding: 'utf8' })) {
+          throw new Error('DEAL_RUNTIME_GENERATOR_NOT_TRUSTED');
+        }
+        // No checkout, import or execution of candidate code. The child imports
+        // only the accepted generator; candidate application blobs are text data.
+        execFileSync(process.execPath, ['--input-type=module', '-'], {
+          env: { ...process.env, DEAL_INVENTORY_BASE: baseRef, DEAL_INVENTORY_HEAD: headRef },
+          timeout: 120_000,
+          maxBuffer: 4 * 1024 * 1024,
+          input: String.raw`
+import { execFileSync } from 'node:child_process';
+import { isDeepStrictEqual } from 'node:util';
+const base = process.env.DEAL_INVENTORY_BASE;
+const head = process.env.DEAL_INVENTORY_HEAD;
+const generatorPath = 'scripts/security/discover-cryptography.mjs';
+const jsonPath = 'docs/security/cryptographic-inventory.json';
+const mdPath = 'docs/security/CRYPTOGRAPHIC_INVENTORY.md';
+const git = (args, options = {}) => execFileSync('git', args, {
+  encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...options,
+});
+const read = (ref, file) => git(['show', ref + ':' + file]);
+const markdown = read(head, mdPath);
+const attribution = /^Source SHA: \x60([0-9a-f]{40})\x60$/mu.exec(markdown);
+if (!attribution) throw new Error('DEAL_RUNTIME_GENERATED_SOURCE_IDENTITY');
+const source = attribution[1];
+try { git(['merge-base', '--is-ancestor', source, head]); }
+catch { throw new Error('DEAL_RUNTIME_GENERATED_SOURCE_NOT_ANCESTOR'); }
+const generator = read(base, generatorPath);
+if (read(head, generatorPath) !== generator || read(source, generatorPath) !== generator) {
+  throw new Error('DEAL_RUNTIME_GENERATOR_NOT_TRUSTED');
+}
+function sourceTree(ref) {
+  const entries = git(['ls-tree', '-r', '-z', ref, '--', 'apps', 'packages']).split('\0').filter(Boolean);
+  const selected = [];
+  for (const entry of entries) {
+    const parsed = /^(\d{6}) (blob|commit) ([0-9a-f]{40})\t([\s\S]+)$/u.exec(entry);
+    if (!parsed) throw new Error('DEAL_RUNTIME_GENERATED_TREE_METADATA');
+    const [, mode, kind, oid, file] = parsed;
+    if (!/\.(?:ts|tsx|js|jsx|mjs|cjs)$/u.test(file) || file.startsWith('apps/landing/') ||
+        /(?:\.(?:spec|test)\.[cm]?[jt]sx?$)|(?:(?:^|\/)(?:tests?|__tests__)\/)/u.test(file)) continue;
+    let contentOid = oid;
+    if (mode === '120000' && file === 'apps/web/apps/web/middleware.ts') {
+      // One pre-existing compatibility alias is followed by the canonical
+      // scanner. Resolve this exact immutable link through Git, never the host
+      // filesystem, and include its target blob in source-attribution equality.
+      const baselineLink = git(['ls-tree', base, '--', file]);
+      const target = 'apps/web/middleware.ts';
+      const targetEntry = /^(100644|100755) blob ([0-9a-f]{40})\t/u.exec(git(['ls-tree', ref, '--', target]));
+      if (baselineLink !== git(['ls-tree', ref, '--', file]) ||
+          read(ref, file) !== '../../middleware.ts' || !targetEntry) {
+        throw new Error('DEAL_RUNTIME_GENERATED_ALIAS_MISMATCH');
+      }
+      contentOid = targetEntry[2];
+    } else if (kind !== 'blob' || !['100644', '100755'].includes(mode)) {
+      throw new Error('DEAL_RUNTIME_GENERATED_NONREGULAR_SOURCE');
+    }
+    if (/[\r\n\t]/u.test(file)) throw new Error('DEAL_RUNTIME_GENERATED_TREE_METADATA');
+    selected.push([file, mode, oid, contentOid]);
+  }
+  return selected.sort((a, b) => Buffer.compare(Buffer.from(a[0]), Buffer.from(b[0])));
+}
+const entries = sourceTree(head);
+if (!entries.length || !isDeepStrictEqual(sourceTree(source), entries)) {
+  throw new Error('DEAL_RUNTIME_GENERATED_SOURCE_TREE_MISMATCH');
+}
+const blobs = git(['cat-file', '--batch'], {
+  input: entries.map((entry) => entry[3]).join('\n') + '\n', encoding: null,
+});
+let offset = 0;
+const contents = new Map();
+const decoder = new TextDecoder('utf-8', { fatal: true });
+for (const [file, , , oid] of entries) {
+  const end = blobs.indexOf(10, offset);
+  const header = end >= 0 ? /^([0-9a-f]{40}) blob (\d+)$/u.exec(blobs.subarray(offset, end).toString('ascii')) : null;
+  const size = header ? Number(header[2]) : -1;
+  if (!header || header[1] !== oid || !Number.isSafeInteger(size) || size < 0 || size > 16 * 1024 * 1024 ||
+      end + 1 + size >= blobs.length || blobs[end + 1 + size] !== 10) {
+    throw new Error('DEAL_RUNTIME_GENERATED_BLOB_METADATA');
+  }
+  offset = end + 1;
+  contents.set(file, decoder.decode(blobs.subarray(offset, offset + size)));
+  offset += size + 1;
+}
+if (offset !== blobs.length) throw new Error('DEAL_RUNTIME_GENERATED_BLOB_TRAILING_DATA');
+const trusted = await import('data:text/javascript;base64,' + Buffer.from(generator).toString('base64'));
+const inventory = trusted.buildInventory({ files: entries.map(([file]) => file), readFile: (file) => contents.get(file) });
+if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
+    markdown !== trusted.renderMarkdown(inventory, { sourceSha: source })) {
+  throw new Error('DEAL_RUNTIME_GENERATED_OUTPUT_MISMATCH');
+}
+`,
+        });
+        }
+        scopes = completionAdmitted ? [...sourcePaths, ...generatedPaths] : sourcePaths;
       }
     } else if (branch === admissionBranch) {
       if (Object.hasOwn(state.approvedConcurrentScopes || {}, implementationBranch) ||
