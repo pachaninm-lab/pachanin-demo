@@ -57,6 +57,7 @@ CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 is_immutable_scope_branch() {
   case "$1" in
     "$PRODUCT_DEAL_RUNTIME_BRANCH"|"$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH") return 0 ;;
+    "governance/product-deal-execution-route-20261001"|"fix/deal-execution-route-20261001") return 0 ;;
     "fix/gekta-docker-diagnostic-route-20260927"|"fix/gekta-web-release-recovery-20260927"|"fix/gekta-answer-copy-20260927"|"fix/gekta-han-stream-20260927"|"fix/gekta-qwen35-guard-argv-form-20260928" ) return 0 ;;
     "$IR20_BINDING_PREREQUISITE_BRANCH"|"$IR20_BINDING_IMPLEMENTATION_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_BRANCH"|"$PRODUCT_BANK_COPY_BRANCH"|"$PRODUCT_ZSN_SOURCE_BRANCH"|"$PRODUCT_NEXT_ACTION_BRANCH"|"$PRODUCT_DEAL_COMMAND_BRANCH"|"$PUBLIC_REGISTRATION_PARTICIPATION_BRANCH"|"$PRODUCTION_MOBILE_HANDOFF_BRANCH"|"$READINESS_QUEUE_JOB_GATE_BRANCH"|"$READINESS_DEFAULT_BRANCH_PUSH_GATE_BRANCH"|"$PRODUCT_BUYER_HOME_BRANCH"|"$PRODUCT_BANK_HOME_BRANCH"|"$PRODUCT_BANK_HOME_ADMISSION_BRANCH"|"$PUBLIC_WEBKIT_I18N_BRANCH"|"$PUBLIC_LOGIN_LOCALE_BRANCH"|"$PRODUCT_BUYER_ADMISSION_BRANCH"|"$PRODUCT_SCOPE_ADMISSION_BRANCH") return 0 ;;
     "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$W1_PRODUCTION_ACCEPTANCE_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH"|"$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH"|"$POISON_ISOLATION_IMPLEMENTATION_BRANCH"|"$OWNER_HANDOFF_IMPLEMENTATION_BRANCH"|"$QWEN_FAILED_EVIDENCE_BRANCH"|"$KIND_MINIO_IMAGE_SOURCE_BRANCH"|"$GITLEAKS_RELEASE_ATTESTATION_BRANCH"|"$FINAL_PUBLIC_HOME_BRANCH"|"$FINAL_PUBLIC_MARKET_BRANCH"|"$FINAL_PUBLIC_REGISTRATION_BRANCH"|"$FINAL_PUBLIC_HOW_BRANCH"|"$FINAL_PUBLIC_PRODUCT_COPY_BRANCH"|"$FINAL_PUBLIC_RELEASE_BRANCH"|"$FINAL_PUBLIC_GOVERNANCE_BRANCH") return 0 ;;
@@ -2211,6 +2212,236 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
   }
 }
 
+
+// A separately accepted purpose renews the existing protected guard ref. The
+// eventual route admission and SOURCE cannot inherit PRIMARY or head-owned scope.
+{
+  const { isDeepStrictEqual } = require('node:util');
+  const guardBranch = "governance/pc-crop-post-registration-progress-scope-4997";
+  const admissionBranch = "governance/product-deal-execution-route-20261001";
+  const sourceBranch = "fix/deal-execution-route-20261001";
+  const purposeKey = 'deal-execution-route-guard-purpose-20261001';
+  const admissionKey = 'deal-execution-route-20261001';
+  const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
+  const read = (ref, file) => execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8' });
+  const headRef = String(process.env.HEAD_REF || 'HEAD');
+  const base = JSON.parse(read(baseRef, stateFile));
+  const relevant = branch === admissionBranch || branch === sourceBranch ||
+    (branch === guardBranch && Object.hasOwn(base.coordinationAdmissions || {}, purposeKey));
+  if (relevant) {
+    const fail = code => { throw new Error('DEAL_ROUTE_' + code); };
+    const sha40 = value => typeof value === 'string' && /^[0-9a-f]{40}$/u.test(value);
+    const entry = (ref, file) => git(['ls-tree', ref, '--', file]);
+    const stateMode = ref => {
+      if (!/^100644 blob [0-9a-f]{40}\t/u.test(entry(ref, stateFile))) fail('STATE_MODE');
+    };
+    const ancestor = ref => {
+      try { execFileSync('git', ['merge-base', '--is-ancestor', ref, baseRef], { stdio: 'pipe' }); }
+      catch { fail('AUTHORITY_NOT_ANCESTOR'); }
+    };
+    const baseSha = git(['rev-parse', baseRef + '^{commit}']);
+    if (git(['merge-base', baseRef, headRef]) !== baseSha) fail('BASE_NOT_ANCESTOR');
+    stateMode(baseRef); stateMode(headRef);
+    const fields = execFileSync('git', ['diff', '--no-renames', '--name-status', '-z', baseRef + '...' + headRef], { encoding: 'utf8' }).split('\0');
+    if (fields.pop() !== '' || fields.length % 2 !== 0) fail('DIFF_METADATA');
+    const changes = [];
+    for (let i = 0; i < fields.length; i += 2) changes.push([fields[i], fields[i + 1]]);
+    const sort = rows => [...rows].sort((a, b) => a[1].localeCompare(b[1], 'en'));
+    const purposeTemplate = {
+  "owner": "ACCOUNT_2_PRODUCT",
+  "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+  "purpose": "Renew only the already admitted protected guard ref to bind the exact Deal execution route prerequisite, including trusted-base workflow routing after native review proved PRIMARY inheritance, inert source pins and candidate-owned guard execution.",
+  "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+  "allowedPaths": [
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-autopilot-guard.test.mjs",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
+  ],
+  "retainedAcceptedGuardScope": [
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-autopilot-guard.test.mjs",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
+  ],
+  "futureAdmissionBranch": "governance/product-deal-execution-route-20261001",
+  "futureImplementationBranch": "fix/deal-execution-route-20261001",
+  "futureAllowedPaths": [
+    "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+    "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+    "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts"
+  ],
+  "futureExactSourcePins": [
+    [
+      "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+      "b9b96c88695c7960a309e98e691c348fec03a2b0",
+      "d94cc0d0af208fd6faea32e321a136629bef44f8"
+    ],
+    [
+      "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+      "87ebc91bcc9a927dd6ad2d6f9afdfff8737d47bd",
+      "a1290dc9b3ba122de480200ff5efa86445b5fe66"
+    ],
+    [
+      "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts",
+      "0e7d10b62a722802c76e73f2eb2e618953a383c5",
+      "043c10b308d52091cebb1b7a26dd31fc23a0bc45"
+    ]
+  ],
+  "requiredFutureSourceMode": "100644",
+  "privateRoutePayloadSha256": "d4c4bf61d3813e2d0d4b9c364c81941ab88039b078413addc5eb1d3ca750e884",
+  "blockingNativeFindings": [
+    4155054017,
+    4155054022,
+    4155554749
+  ],
+  "grantRouteSourceAuthority": false,
+  "guardAdoptionRequiresCoreHandoff": true,
+  "requiredTruthBoundaries": [
+    "Purpose only: renew this one record without a route SOURCE vector. All other old state bytes/values, admissions/vectors, PRIMARY/current/global/R1.2 scope, official5/100 and runtime remain unchanged.",
+    "Renew only the existing protected three-path guard ref; the correction changes exactly the three recorded guard/test/workflow blobs with original100755/100644/100644 modes and unchanged accepted state. Do not introduce another shared guard writer.",
+    "The accepted guard must discard PRIMARY/source-controlled expansion for the route SOURCE ref, bind exact trusted-base state/three paths/blobs/modes/ancestry and reject extra, partial, wrong-byte, wrong-mode, rename/delete and candidate-owned authority cases.",
+    "Both exact route branches must run the accepted BASE guard in the existing pull_request_target immutable job and PR-head defense, pass both shell allow-lists, and be excluded from candidate-owned standard/active guard paths. Preserve every old predicate, workflow trigger, permission, check binding and all other branches; do not let a candidate guard/test replace its validator.",
+    "The next state-only admission and route SOURCE remain separate accepted-base-reviewed native-gated phases. Purpose and guard code grant no route SOURCE vector, ordinary role/session/money/provider authority or live acceptance.",
+    "CORE retains current source and first-merge priority. Every guard/admission/SOURCE adoption waits for actual handoff, fresh MAIN/Hub/ownership checks, independent complete-head review, strict author audit, all substantive native/security gates and normal expected-full-SHA manual merge."
+  ],
+  "forbiddenAuthority": [
+    "SOURCE route/self-admission or arbitrary scope/state changes",
+    "CORE/API/DB/RLS/role/session/money/provider/FGIS/deployment authority",
+    "CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
+  ]
+};
+    const guardFiles = [
+      ['scripts/p7-autopilot-guard.sh', '38be109d11422546c07fd96db283d848599a709f', '100755'],
+      ['scripts/p7-autopilot-guard.test.mjs', 'db910d2e6c2521957fb8719f7e5af659a8cd0165', '100644'],
+      ['.github/workflows/platform-v7-autopilot-guard.yml', '90f6c2b52b25b7a4f09446b7dafb36270f9969dc', '100644'],
+    ];
+    const acceptedPurpose = base.coordinationAdmissions?.[purposeKey];
+    const authority = acceptedPurpose?.authorityBaseExactMain;
+    const guardPins = acceptedPurpose?.exactGuardSourcePins;
+    if (!sha40(authority) || !Array.isArray(guardPins) || guardPins.length !== 3 ||
+        guardPins.some((pin, i) => !Array.isArray(pin) || pin.length !== 4 ||
+          pin[0] !== guardFiles[i][0] || pin[1] !== guardFiles[i][1] ||
+          !sha40(pin[2]) || pin[2] === pin[1] || pin[3] !== guardFiles[i][2]) ||
+        !isDeepStrictEqual(acceptedPurpose, { ...purposeTemplate, authorityBaseExactMain: authority, exactGuardSourcePins: guardPins }) ||
+        !isDeepStrictEqual(base.approvedConcurrentScopes?.[guardBranch], purposeTemplate.retainedAcceptedGuardScope)) fail('PURPOSE_MISMATCH');
+    ancestor(authority);
+    const exact = (ref, file, blob, mode) => {
+      if (entry(ref, file) !== `${mode} blob ${blob}\t${file}`) fail('PIN_OR_MODE:' + file);
+    };
+    const routeTemplate = {
+  "owner": "ACCOUNT_2_PRODUCT",
+  "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+  "purpose": "Register only the existing protected canonical Deal execution destination after the genuine native BANK queue journey returned layout404; preserve all server role, tenant, membership and command authority.",
+  "authorityBaseExactMain": "3372f85ee832cd0e7a199c71f44eb32462138fc2",
+  "implementationBranch": "fix/deal-execution-route-20261001",
+  "allowedPaths": [
+    "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+    "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+    "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts"
+  ],
+  "exactSourcePins": [
+    [
+      "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+      "b9b96c88695c7960a309e98e691c348fec03a2b0",
+      "d94cc0d0af208fd6faea32e321a136629bef44f8"
+    ],
+    [
+      "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+      "87ebc91bcc9a927dd6ad2d6f9afdfff8737d47bd",
+      "a1290dc9b3ba122de480200ff5efa86445b5fe66"
+    ],
+    [
+      "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts",
+      "0e7d10b62a722802c76e73f2eb2e618953a383c5",
+      "043c10b308d52091cebb1b7a26dd31fc23a0bc45"
+    ]
+  ],
+  "requiredSourceMode": "100644",
+  "nativeFailureEvidence": {
+    "pr": 5735,
+    "head": "1fdd8981106145df244420138b86fc6ae4f23d48",
+    "workflowRun": 36849109373,
+    "job": 110326285988,
+    "failedProjects": 5,
+    "observedStatus": 404,
+    "diagnosisHubComment": 5930062482
+  },
+  "privatePayload": {
+    "bytes": 4262,
+    "sha256": "d4c4bf61d3813e2d0d4b9c364c81941ab88039b078413addc5eb1d3ca750e884",
+    "candidateTestsPassed": 15,
+    "unchangedBaselinePassed": 12,
+    "unchangedBaselineFailed": 3
+  },
+  "requiredTruthBoundaries": [
+    "Separate state-only proposal. Preserve all prior state bytes/values except the append of one exact concurrent three-path vector and this one record. Primary/current/global/R1.2 scopes, all historical admissions, every other branch, official5/100 progress, maturity and canonical CORE source ownership remain unchanged.",
+    "The future source phase changes exactly the three pinned regular files, retains unchanged accepted-base state/guard/workflows/security/registry/source modes and all other leaves, and requires an independently reviewed accepted MAIN admission before publication.",
+    "Add only anchored /platform-v7/deals/<one-id>/execution registration and remove only the broken trailing-slash Deal prefix. Keep anchored accounting, all other role and route classes, unknown-route rejection before auth, signed session and API membership checks. Do not repair the prefix by broadly admitting all Deal subroutes.",
+    "Preserve every existing test and replace the broken prefix text assertion with behavioral execution reachability plus published dynamic-policy coverage. Exercise all three locales, valid canonical IDs, missing/empty IDs, malformed double slash and extra/nested/sibling paths; retain accounting negative roles.",
+    "Keep the current original BANK source unchanged until this prerequisite is accepted. Then normally compose its original head with accepted current MAIN, preserving the original two source pins and bounded E2E case; obtain fresh whole-head review, owner audit and native five-browser/Kubernetes/readiness results.",
+    "Private15-test/typecheck results and the original404 diagnosis do not establish current-head native CI, browser acceptance, exact REG.RU deployment, real providers or actual13-cabinet closure. Never rerun the failed unchanged BANK head or lower assertions to get green.",
+    "While canonical CORE6 window5930002118 remains active, only an unmerged one-file metadata review proposal is prepared under bounded decision5930593870. This proposal changes no accepted state, grants no SOURCE authority and performs no SOURCE/MAIN/guard/release mutation. Any metadata adoption/merge and future SOURCE publication are serialized after actual CORE HANDOFF/DONE, fresh Hub/main/source/scope recheck, every applicable substantive CI/security, independent current-head review, separate author audit and normal expected-full-SHA manual merge."
+  ],
+  "forbiddenAuthority": [
+    "API/DB/RLS/role/tenant/session/command/money/provider/FGIS or new CORE authority",
+    "Broad Deal-prefix admission, route/auth bypass, original BANK source replacement or competing owner branch",
+    "CI/security/readiness/review weakening, fake history/PASS, forced/automatic merge, release/model mutation or new recurring cost"
+  ],
+  "metadataPreparationDecision": "Team Hub #5469 comment5930593870"
+};
+    const routePins = [["apps/web/lib/platform-v7/design-system-v8-route-policy.ts","b9b96c88695c7960a309e98e691c348fec03a2b0","d94cc0d0af208fd6faea32e321a136629bef44f8"],["apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts","87ebc91bcc9a927dd6ad2d6f9afdfff8737d47bd","a1290dc9b3ba122de480200ff5efa86445b5fe66"],["apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts","0e7d10b62a722802c76e73f2eb2e618953a383c5","043c10b308d52091cebb1b7a26dd31fc23a0bc45"]];
+    const routePaths = routePins.map(pin => pin[0]);
+    const makeAdmission = origin => ({ ...routeTemplate, authorityBaseExactMain: origin, guardPurposeKey: purposeKey });
+    if (branch === guardBranch) {
+      if (read(headRef, stateFile) !== read(baseRef, stateFile)) fail('GUARD_STATE_MUTATION');
+      if (!isDeepStrictEqual(sort(changes), sort(guardPins.map(pin => ['M', pin[0]])))) fail('GUARD_DIFF_SCOPE');
+      for (const [file, before, after, mode] of guardPins) {
+        exact(baseRef, file, before, mode); exact(headRef, file, after, mode);
+      }
+      scopes = purposeTemplate.allowedPaths;
+    } else {
+      for (const [file,, after, mode] of guardPins) {
+        exact(baseRef, file, after, mode); exact(headRef, file, after, mode);
+      }
+      if (branch === admissionBranch) {
+        if (Object.hasOwn(base.approvedConcurrentScopes || {}, sourceBranch) ||
+            Object.hasOwn(base.coordinationAdmissions || {}, admissionKey)) fail('ALREADY_ADMITTED');
+        if (!isDeepStrictEqual(changes, [['M', stateFile]])) fail('ADMISSION_DIFF_SCOPE');
+        for (const [file, before] of routePins) {
+          exact(baseRef, file, before, '100644'); exact(headRef, file, before, '100644');
+        }
+        const expected = structuredClone(base);
+        expected.approvedConcurrentScopes[sourceBranch] = routePaths;
+        expected.coordinationAdmissions[admissionKey] = makeAdmission(baseSha);
+        const render = (key, value) => JSON.stringify({ [key]: value }, null, 2).slice(2, -2).split('\n').map(line => '  ' + line).join('\n');
+        const lastKey = Object.keys(base.approvedConcurrentScopes).at(-1);
+        const oldVector = render(lastKey, base.approvedConcurrentScopes[lastKey]);
+        const end = '\n  }\n}\n';
+        const baseText = read(baseRef, stateFile);
+        if (Object.keys(base).at(-1) !== 'coordinationAdmissions' || !baseText.endsWith(end) ||
+            baseText.split(oldVector).length !== 2) fail('ADMISSION_BASE_TEXT');
+        let candidate = baseText.replace(oldVector, oldVector + ',\n' + render(sourceBranch, routePaths));
+        candidate = candidate.slice(0, -end.length) + ',\n' + render(admissionKey, makeAdmission(baseSha)) + end;
+        if (!isDeepStrictEqual(JSON.parse(candidate), expected) ||
+            read(headRef, stateFile) !== candidate) fail('ADMISSION_STATE_MUTATION');
+        scopes = [stateFile];
+      } else {
+        const admission = base.coordinationAdmissions?.[admissionKey];
+        const origin = admission?.authorityBaseExactMain;
+        if (!sha40(origin) || !isDeepStrictEqual(admission, makeAdmission(origin)) ||
+            !isDeepStrictEqual(base.approvedConcurrentScopes?.[sourceBranch], routePaths)) fail('ACCEPTED_ADMISSION_MISMATCH');
+        ancestor(origin);
+        if (read(headRef, stateFile) !== read(baseRef, stateFile)) fail('SOURCE_STATE_MUTATION');
+        for (const [file, before, after] of routePins) {
+          exact(baseRef, file, before, '100644'); exact(headRef, file, after, '100644');
+        }
+        if (!isDeepStrictEqual(sort(changes), sort(routePins.map(pin => ['M', pin[0]])))) fail('SOURCE_DIFF_SCOPE');
+        scopes = routePaths;
+      }
+    }
+  }
+}
+
+
 if (!Array.isArray(scopes) || scopes.length === 0) {
   throw new Error(`P7_IMMUTABLE_SCOPE: no immutable approved scope for ${branch}`);
 }
@@ -2298,7 +2529,7 @@ if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
 fi
 
-if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$IR20_BINDING_PREREQUISITE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_SCOPE_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BUYER_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BANK_HOME_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH" ]; then
+if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$IR20_BINDING_PREREQUISITE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_SCOPE_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BUYER_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BANK_HOME_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "governance/product-deal-execution-route-20261001" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH" ]; then
   MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-autopilot-guard\.test\.mjs$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$|\.github/workflows/automerge\.yml$)' || true)
   # These manifests document the exact accepted path sets. They are not scope
   # authority: only approvedConcurrentScopes from the trusted base is used.
