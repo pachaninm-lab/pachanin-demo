@@ -1770,7 +1770,11 @@
       "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
       "apps/web/tests/unit/transactionUxV8Migration.test.ts",
       ".github/workflows/ci.yml",
-      "docs/platform-v7/qa/web-unit-coverage-registry.json"
+      "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+      "apps/web/components/platform-v7/DealCommandForm.tsx",
+      "apps/web/i18n/transaction-deal-copy.ts",
+      "packages/design-system-v8/src/components.tsx"
     ]
   },
   "currentAcceptance": [
@@ -2980,6 +2984,77 @@
         "CI/security/readiness/independent-review weakening, fake PASS, forced/automatic merge, production/model mutation or new recurring cost"
       ],
       "teamHubDependency": "#5735 P2 thread4142098743; source5908067884/5908071391; private review5916309103; #5699; current Gekta next window5924684608"
+    },
+    "deal-destination-locale-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_1_EXECUTION",
+      "purpose": "Apply only the already reviewed RU/EN/ZH protected Deal presentation payload while preserving canonical UNKNOWN recovery and server authority.",
+      "authorityBaseExactMain": "7508f2ca3bd568613c3e9ba7144bddf7f1f0d28c",
+      "implementationBranch": "ux/deal-runtime-unknown-20260929",
+      "allowedPaths": [
+        "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+        "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+        "apps/web/tests/unit/transactionUxV8Migration.test.ts",
+        ".github/workflows/ci.yml",
+        "docs/platform-v7/qa/web-unit-coverage-registry.json",
+        "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+        "apps/web/components/platform-v7/DealCommandForm.tsx",
+        "apps/web/i18n/transaction-deal-copy.ts",
+        "packages/design-system-v8/src/components.tsx"
+      ],
+      "exactSourcePaths": [
+        "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+        "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+        "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+        "apps/web/components/platform-v7/DealCommandForm.tsx",
+        "apps/web/i18n/transaction-deal-copy.ts",
+        "packages/design-system-v8/src/components.tsx"
+      ],
+      "exactSourcePins": [
+        [
+          "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+          "6f980ea5c83dc9776d51fe01b6f33bf21704a037",
+          "be57e8931fc5a056ed59039d9bf0da6f98aeb6fe"
+        ],
+        [
+          "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+          "4cf04d22287002bf90888847153bfe9759d8e1fd",
+          "1c669249fcf4451bc0655f506d975edc069fe81c"
+        ],
+        [
+          "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+          "699ae74d30128e72ccad0a4559ad40944b3ecda8",
+          "2099bb5fcd731368ffccecd096ebb10320379257"
+        ],
+        [
+          "apps/web/components/platform-v7/DealCommandForm.tsx",
+          "7bde1116c8e84e2f253da69431d867ceaa90663d",
+          "aba1af6c10dbbee0cee25cb13bdbce40145024a2"
+        ],
+        [
+          "apps/web/i18n/transaction-deal-copy.ts",
+          null,
+          "4db89dfdec3f5f871760461a60dd2f89194329a1"
+        ],
+        [
+          "packages/design-system-v8/src/components.tsx",
+          "3f95e51e99858debcd3f784e5b77b05be9619ccd",
+          "3f29bfef940801667273f066a02d34f20c2be8b5"
+        ]
+      ],
+      "reviewedPrivatePayloadSha256": "6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e",
+      "requiredTruthBoundaries": [
+        "Presentation only; actual route/locale/workspace/form and stable metadata labels. Original command controls, owner, identity, UNKNOWN/fingerprint, CSRF and permissions remain canonical.",
+        "The original five-path scope and all old records remain intact. This locale phase permits exactly the six pinned source/test files; it does not permit workflow, registry, generated inventory or scope changes.",
+        "No private source review transfers to an adopted SHA. Fresh whole-head nonauthor review, owner audit, native CI/security/readiness, expected-SHA merge and exact REG.RU protected acceptance remain required."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/role/tenant/money/provider/FGIS authority",
+        "Source-owned scope or guard changes",
+        "CI/security/readiness or review weakening",
+        "False live or external success"
+      ]
     }
   }
 }
