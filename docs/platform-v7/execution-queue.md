@@ -1,11 +1,50 @@
+# Temporary CORE prerequisite — canonical readiness #4829
+
+CURRENT: R1 release prerequisite: canonical readiness recovery #4829
+OFFICIAL OVERALL: 5/100 = 5% (unchanged)
+
+CURRENT ALLOWED:
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
+- docs/execution/**
+- apps/api/src/main.ts
+- apps/api/src/health.controller.ts
+- apps/api/src/health.controller.spec.ts
+- apps/api/src/common/guards/pre-auth-rate-limit.guard.ts
+- apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts
+
+CURRENT CRITERIA:
+- separately reviewed metadata admission before any source adoption
+- exact five-file implementation, final-head review and native acceptance
+- preserve serialized PRODUCT ownership and official production progress
+
+
+Staff-session source #5766 merged as 2749279de3b070f3ff9b79224c26d03c590275bd. Its CORE writer handoff is Team Hub 5931917682. This does not prove R1 production acceptance.
+
+Order:
+1. Consume actual PRODUCT writer handoff5933030140 after merged #5768 on main5c43cd64fd61ee2e134ef319fa6c6087f1a37f14; recheck for newer conflicting claims
+2. Accept this separately reviewed metadata-only admission; pending state never authorizes source
+3. Adopt exactly the complete five-file COR5 proposal on the original readiness branch, with no state/manifest/guard/workflow/PgBouncer change
+4. Fresh final-head review, author audit, applicable native CI/security and zero-failure Kubernetes/deep-outbox acceptance
+5. Separately resolve production topology, exact-main release and live acceptance; return to R1.3 through its own admitted transition
+
+Exact allowed source files and blob transitions are in canonical-readiness-cor5-4829-20261001. Existing concurrent PRODUCT scopes remain untouched. Standard legacy routing is not an immutable five-file gate; review must reject every extra path. No new costs, credentials, operator requisites or provider activation.
+
+The following R1 plan is retained as the subsequent queue and its unresolved acceptance requirements, not the current source grant:
+
+---
+
 # PC-CROP MASTER v2.1 execution queue
 
-CURRENT: R1.2 Controlled open-as-role server authority
+PREVIOUS SLICE: R1.2 Controlled open-as-role server authority
 
 OFFICIAL OVERALL: 5/100 = 5%
 TARGET AFTER R1 PRODUCTION_PASS: 12/100 = 12%
 
-CURRENT ALLOWED:
+ARCHIVED R1.2 ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -15,7 +54,7 @@ CURRENT ALLOWED:
 - apps/api/src/modules/staff-access/**
 - apps/api/test/staff-access/**
 
-CURRENT CRITERIA:
+ARCHIVED R1.2 CRITERIA:
 - expose one server-owned canonical mapping for all 13 Founder role-mode cabinet intents;
 - preserve the authenticated Founder as actual actor and store effective organization/role only inside durable staff access context;
 - derive tenant server-side from the authorized organization; reject client-selected tenant/effective-role authority;

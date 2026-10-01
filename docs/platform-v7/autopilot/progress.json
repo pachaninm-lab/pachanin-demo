@@ -1,12 +1,16 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 5,
-  "currentStep": "R1.2 Controlled open-as-role server authority",
+  "currentStep": "R1 release prerequisite: canonical readiness recovery #4829",
   "lastCompletedStep": "R1.1 exact 13-cabinet inventory admitted by PR #5468",
   "openPr": null,
-  "blockedBy": [],
-  "nextStep": "R1.2 canonical 13 role-mode API/server authority; no visual implementation",
-  "updatedAt": "2026-09-20T23:20:00+03:00",
+  "blockedBy": [
+    "COR5 final-head implementation/CI/Kubernetes acceptance pending",
+    "REG.RU topology/exact-runtime evidence pending",
+    "R1 production 13-cabinet acceptance pending"
+  ],
+  "nextStep": "Separately admit and adopt immutable COR5 on existing readiness branch; then return to R1.3 scope transition",
+  "updatedAt": "2026-10-01T14:01:00+00:00",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
@@ -23,5 +27,5 @@
     "productionSha": "5da8e80744908413102214f91dd68018911b892e",
     "productionControllerRun": 35520784872
   },
-  "currentTaskExecution": "R1.1 inventory complete in this admission; main should start at R1.2 after merge; R1 points remain uncredited until full PRODUCTION_PASS"
+  "currentTaskExecution": "Staff-session source #5766 merged; temporary readiness prerequisite, without R1 or overall production credit"
 }

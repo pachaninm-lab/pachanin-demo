@@ -15,7 +15,7 @@
   "mode": "master-v2.1-r1-founder-ceo",
   "status": "active",
   "currentStatus": "ready",
-  "current": "R1.2 Controlled open-as-role server authority",
+  "current": "R1 release prerequisite: canonical readiness recovery #4829",
   "fullTzReadinessPercent": 5,
   "readinessScoring": "Binary GO completion only; 0 means the Industrial Integration-Ready gate is not yet accepted. It is not an implementation-progress estimate.",
   "openPr": null,
@@ -147,13 +147,14 @@
     }
   },
   "openBlockers": [
-    "R1.2: current production owner direct-cabinet shortcut is controlled-test-bound and not R1 evidence.",
-    "R1.2: canonical 13 role-mode registry and server-derived role intent must be added on top of the existing durable Staff Access VIEW_AS authority without creating a domain Founder role.",
-    "R1.5 visual banner/return remains a PRODUCT dependency in Team Hub #5469 and does not block this backend slice."
+    "R1.2 staff-session source #5766 is merged as 2749279de3b070f3ff9b79224c26d03c590275bd; exact-main REG.RU and full 13-cabinet acceptance remain unproved.",
+    "Canonical readiness #4829 COR5 implementation still requires final exact-head review, CI/security and Kubernetes acceptance; this separately accepted metadata admits only its bounded source step.",
+    "REG.RU topology preflight is BLOCKED; current migration-service authority must be observed without bypass before release.",
+    "R1.5 visual banner/return and other PRODUCT surfaces retain their existing owners and separate admissions."
   ],
   "blockerNotes": "R0 and IR-20 are production-accepted on exact main 5da8e80744908413102214f91dd68018911b892e. R1 starts with a backend-only server-authority slice because apps/web remains a protected/parallel-account zone. A later owner handoff change requires its own trusted scope after conflict recheck.",
   "lockedUntilCurrentGreen": [
-    "R1.3 CEO overview and P0/P1 decision queue"
+    "R1.3 CEO overview and P0/P1 decision queue: resume after bounded readiness source acceptance and fresh scope transition"
   ],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -162,8 +163,11 @@
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
     "docs/execution/**",
-    "apps/api/src/modules/staff-access/**",
-    "apps/api/test/staff-access/**"
+    "apps/api/src/main.ts",
+    "apps/api/src/health.controller.ts",
+    "apps/api/src/health.controller.spec.ts",
+    "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts",
+    "apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -172,8 +176,11 @@
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
     "docs/execution/**",
-    "apps/api/src/modules/staff-access/**",
-    "apps/api/test/staff-access/**"
+    "apps/api/src/main.ts",
+    "apps/api/src/health.controller.ts",
+    "apps/api/src/health.controller.spec.ts",
+    "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts",
+    "apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts"
   ],
   "approvedConcurrentScopes": {
     "fix/public-registration-participation-choice-20260923": [
@@ -1782,13 +1789,16 @@
     ]
   },
   "currentAcceptance": [
-    "Founder identity remains the actual actor; no business/domain Founder role is added.",
-    "The 13 cabinet intents are server-owned; client input selects a bounded cabinet key, never tenant/effective role authority.",
-    "Target tenant is derived server-side from the authorized organization; VIEW_AS stays read-only and time-bound.",
-    "Reason, ticket, effective organization/role, expiry, activation and end/revoke are durable and audited through existing Staff Access tables.",
-    "High-risk writes remain outside VIEW_AS and keep ordinary authority/MFA/approval boundaries.",
-    "Cross-tenant, forged-role, stale/revoked/expired-session and controlled-test-as-production cases fail closed.",
-    "R1.2 implementation starts only after this governance admission has final exact-head green CI, independent review and a manual SHA-bound merge to current main."
+    "Metadata admission is accepted separately before any COR5 source successor; this pending document is not source authority.",
+    "Use the existing fix/readiness-database-deadline-4829 branch and existing HealthController/Prisma/OutboxService, not another readiness implementation.",
+    "The subsequent implementation diff is exactly the five pinned regular files; state, manifests, guard/workflow, PgBouncer configuration and unrelated code remain unchanged.",
+    "Remove only the raw bootstrap /ready shadow; preserve startup, migration completeness, liveness, existing canonical route/identity/tenant/RLS boundaries.",
+    "Keep 1500ms database deadline, 15000ms positive grace, one in-flight read, known-pending invalidation and existing 50 dead-letter/900MB thresholds.",
+    "Runtime-role-visible outbox observations cannot attest service-wide health; keep UNKNOWN without new grants or worker credentials.",
+    "Only existing GET/HEAD root readiness case/single-trailing-slash aliases gain probe exemption; other routes keep durable rate enforcement.",
+    "Renew final exact-head independent review, separate owner audit and all applicable native CI/security gates; Kubernetes must retain zero failed PgBouncer probes and deep-outbox/cleanup requirements.",
+    "Local proposal tests are not committed-head CI or REG.RU acceptance. Preserve pre-existing aggregate teardown warning and 184 skipped tests explicitly.",
+    "R1 production acceptance, exact-main release/live observation and full 13-cabinet matrix remain open; no progress points or provider activation are granted."
   ],
   "nextAfterCurrentGreen": [
     "IR-21 Durable Integration Inbox",
@@ -3530,6 +3540,57 @@
           "100644"
         ]
       ]
+    },
+    "canonical-readiness-cor5-4829-20261001": {
+      "owner": "ACCOUNT_1_CORE",
+      "issue": 4829,
+      "implementationBranch": "fix/readiness-database-deadline-4829",
+      "purpose": "Temporary bounded CORE availability prerequisite after merged staff-session source; no PRODUCT or TAI source takeover.",
+      "authorityBaseExactMain": "5c43cd64fd61ee2e134ef319fa6c6087f1a37f14",
+      "proposalComment": 5930247718,
+      "independentProposalReviewComment": 5932138051,
+      "proposalSha256": "fe1f1a60d5ad914b5056bf5f94ec2f56032d24a647652f13c9926e33becb556b",
+      "proposalBytes": 32089,
+      "allowedPaths": [
+        "apps/api/src/main.ts",
+        "apps/api/src/health.controller.ts",
+        "apps/api/src/health.controller.spec.ts",
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts",
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts"
+      ],
+      "reviewRequiredSourceTransitions": {
+        "apps/api/src/main.ts": {
+          "before": "99856d16475bc904e7e8a35454d1cc7e17fc54ee",
+          "after": "7e7e7818b8a11f686ede92ae9ed2225c009dba94",
+          "mode": "100644"
+        },
+        "apps/api/src/health.controller.ts": {
+          "before": "783c038a7c73668e4794b14ead69b3b5748c8425",
+          "after": "5487cc4565a904a26d2c7d6d0934a4e6e02869db",
+          "mode": "100644"
+        },
+        "apps/api/src/health.controller.spec.ts": {
+          "before": "76b59ac63489ce82b29075145fdf8751b2af3238",
+          "after": "7dd044f73de9d6e45880889898dcca04ba6bf162",
+          "mode": "100644"
+        },
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts": {
+          "before": "d8f8458bb1079e3ed9352f3e07890e981460836c",
+          "after": "a429bd42c7ef66837b484d57c66dfa319be02495",
+          "mode": "100644"
+        },
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts": {
+          "before": "f483bd1076b9ce50092de687170a20132cf7f3e9",
+          "after": "141d9e9dfb7fd2334b446bc5bf00d6c28dc3ad85",
+          "mode": "100644"
+        }
+      },
+      "enforcementLimit": "Existing standard candidate-head routing and additive legacy manifest are not an immutable exact-five gate. Final independent review must reject any state/manifest/guard/workflow/PgBouncer/other change. No claim of resolving the separate #5768 trusted-base routing finding.",
+      "serialization": "Actual PRODUCT handoff5933030140 grants this bounded metadata-then-COR5 window. Recheck fresh main/Hub before each publication/merge, preserve accepted Product purpose3 and guard/test/workflow bytes, and return the completed window through an actual handoff.",
+      "productionAcceptance": false,
+      "newRecurringCostRub": 0,
+      "resumeAfterAcceptedSource": "R1.3 CEO overview and P0/P1 decision queue through its separately accepted scope transition",
+      "acceptedWriterHandoffComment": 5933030140
     }
   }
 }
