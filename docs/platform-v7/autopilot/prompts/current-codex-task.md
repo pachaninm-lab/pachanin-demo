@@ -1,20 +1,30 @@
-# Current task — MASTER v2.1 R1.2
+# Current task — atomic canonical readiness prerequisite #4829
 
-Active slice: **Controlled open-as-role server authority**.
-Official progress remains **5/100 = 5%** until full R1 PRODUCTION_PASS.
+Official progress remains **5/100**. Staff-session source #5766 is merged; R1 production acceptance remains open.
 
-Use the existing Staff Access Control Plane. Do not create a Founder business/domain role and do not replace user identity.
+The [owner-approved atomic disposition](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5935185862) replaces the separate metadata-first/source sequence for this one prerequisite. Use only the existing `fix/readiness-database-deadline-4829` branch with CORE as the existing writer. Preserve original readiness history and proposals #5770 (`056b185503e2db46956d2e6b76b78e936e963b37`) and #5771 (`e358177634856c9e71a0961497e7802f49213485`) through ordinary ancestry.
 
-Required backend result:
-- one canonical server-owned 13-cabinet role-mode registry;
-- client selects only a bounded cabinet intent + organization; effective API role and tenant are server-derived;
-- PLATFORM_OWNER active assignment + recent MFA required;
-- role-mode request is VIEW_AS and read-only;
-- existing durable request → grant → opaque session flow is reused;
-- reason/ticket/effective org/effective role/expiry/audit survive through activation and end/revoke;
-- high-risk actions stay outside VIEW_AS;
-- negative tests cover forged role/cabinet, target scope, expiry/revoke and writes.
+The complete accepted-base diff must contain exactly these eleven existing regular 100644 files:
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
+- apps/api/test/staff-access/postgresql-staff-access.e2e-spec.ts
+- apps/api/src/main.ts
+- apps/api/src/health.controller.ts
+- apps/api/src/health.controller.spec.ts
+- apps/api/src/common/guards/pre-auth-rate-limit.guard.ts
+- apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts
 
-Do not touch visual UX, FGIS or bank/finance product surfaces. Team Hub #5469 PRODUCT dependency is for R1.5 only.
+Adopt all five COR5 source blobs unchanged from original proposal #4829/comment5930247718 and the exact staff-test blob `1b0010715cbcd636d15b1c9c4e5587baca16137c` from #5771/e358. Preserve source attribution to the existing CORE producer and proposal histories. The full source transitions are recorded in `canonical-readiness-cor5-4829-20261001`. Only the five listed governance documents are revised for the atomic disposition; every prior accepted concurrent vector and admission stays unchanged.
 
-After exact-head review/CI and merge, advance to R1.3 Company Health + P0/P1 queue.
+No guard, workflow, manifest, PgBouncer configuration, dependency, migration, unrelated source or mode changes. No staff-source/test wildcard expansion. The legacy branch manifest is historical, and standard candidate-list routing is not mechanically immutable exact-eleven enforcement; external owner authority and independent whole-tree review enforce this boundary.
+
+Reuse the canonical HealthController, restricted Prisma principal and OutboxService. Preserve the 1500ms deadline, 15000ms grace, single flight, immediate/late pending-migration invalidation and existing thresholds. Service-wide queue state stays UNKNOWN where RLS hides rows. Probe aliases must not weaken unrelated rate/auth controls.
+
+Require fresh exact-published-head independent nonauthor review of all eleven files, separate implementation-owner audit, all applicable full native CI/security/PostgreSQL and unchanged Kubernetes with zero failed PgBouncer logical probes, complete deep-outbox scenarios and successful cleanup. Preserve old #5770 Security Abuse and #5771 Kubernetes failures; local proposal/composition results never transfer PASS to this head. Report skipped tests and pre-existing aggregate teardown limitations explicitly. Recheck current head, all findings and manual readiness immediately before an ordinary expected-full-SHA merge.
+
+Preserve actual PRODUCT handoff5933030140, accepted purpose3/guard/test/workflow and all other owners; recheck fresh main/Hub before publication or merge. Return an actual handoff and supersede old proposals only after real atomic acceptance. No production, provider activation, R1 completion or progress claim follows from this bundle.
+
+The next priority is the existing Gekta owner's actual model activation and live quality, speed and stability acceptance under its separate existing admissions and remaining topology/release prerequisites. This does not expand these eleven paths. R1.3 remains queued for a separately accepted scope transition; exact-main REG.RU and full 13-cabinet acceptance remain separate.

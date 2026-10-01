@@ -242,7 +242,7 @@ describe('RestrictedPublicQwenService', () => {
     expect(result.safetyFlags).toContain('CURRENT_EVIDENCE_REQUIRED');
   });
 
-  it('instructs the model to answer safe general requests without a thematic refusal', async () => {
+  it('answers adjacent professional work while gracefully redirecting unrelated requests', async () => {
     const fetchMock = jest.fn().mockResolvedValue(providerResponse(
       'Чтобы посчитать процент в Excel, разделите первое значение на второе и примените процентный формат.',
     ));
@@ -250,20 +250,21 @@ describe('RestrictedPublicQwenService', () => {
 
     const result = await new RestrictedPublicQwenService().generate({
       ...GENERAL_AGRO_REQUEST,
-      question: 'Как в Excel посчитать процент одного значения от другого?',
-      originalQuestion: 'Как в Excel посчитать процент одного значения от другого?',
+      question: 'Как в Excel посчитать долю расходов фермерского хозяйства?',
+      originalQuestion: 'Как в Excel посчитать долю расходов фермерского хозяйства?',
     });
 
     expect(result.answer).toContain('Excel');
     const body = JSON.parse(String((fetchMock.mock.calls[0] as [URL, RequestInit])[1].body));
     const prompt = String(body.messages[0].content);
-    expect(prompt).toContain('agro-first, fail-open content policy');
-    expect(prompt).toContain('Safe general questions outside agriculture may be answered normally and concisely');
+    expect(prompt).toContain('agro-specialist content policy');
+    expect(prompt).toContain('reasonably adjacent professional work directly');
+    expect(prompt).toContain('do not solve the unrelated request in substance');
     expect(prompt).toContain('Medium confidence, a missing keyword, or a missing platform module, button or integration is never a reason to refuse');
-    expect(prompt).toContain('Only a separate safety, privacy, authorization, tenant, write, financial-action or tool-execution policy may block content');
+    expect(prompt).toContain('Safety, privacy, authorization, tenant, write, financial-action and tool-execution boundaries always take precedence over domain admission');
     expect(prompt).toContain('tractor, combine, farm truck, commercial fleet or agricultural logistics vehicle');
     expect(prompt).toContain('Never shame the user and never sound like a refusal template');
-    expect(prompt).not.toContain('do not solve the unrelated request in substance');
+    expect(prompt).not.toContain('Safe general questions outside agriculture may be answered normally and concisely');
   });
 
   it('requires truthful conversion and verified roadmap wording', async () => {

@@ -3837,6 +3837,323 @@ function rejectDealLocale(context) {
   assert.notEqual(result.status, 0, output(result));
   assert.match(output(result), /DEAL_LOCALE_|DEAL_RUNTIME_|Mutable scope|outside current/u);
 }
+
+const localeInventoryPurposeKey = 'deal-locale-generated-inventory-guard-purpose-20261001';
+const localeInventoryAdmissionKey = 'deal-locale-generated-inventory-20261001';
+const localeInventoryPaths = [...dealRuntimePaths, ...dealLocaleAdditionalPaths, ...dealRuntimeGeneratedPaths];
+const localeInventoryPurpose = JSON.parse(fs.readFileSync(dealRuntimeStatePath, 'utf8'))
+  .coordinationAdmissions[localeInventoryPurposeKey];
+assert.equal(localeInventoryPurpose.authorityBaseExactMain, '4f5d03b833f0064b4538aae751d74f17e6d67c88');
+assert.deepEqual(localeInventoryPurpose.futureGeneratedPaths, dealRuntimeGeneratedPaths);
+assert.deepEqual(localeInventoryPurpose.immutableLocaleSourcePins, dealLocalePins);
+function localeInventoryRecord(authorityBaseExactMain) {
+  return {
+    owner: 'ACCOUNT_1_EXECUTION', presentationContributor: 'ACCOUNT_2_PRODUCT', sourceOwnerRetained: 'ACCOUNT_1_EXECUTION',
+    purpose: 'Complete the immutable six-file Deal locale transition with only its byte-exact trusted generated cryptographic inventory pair.',
+    authorityBaseExactMain, implementationBranch: dealRuntimeImplementationBranch,
+    allowedPaths: [...localeInventoryPaths], retainedLocaleAdmissionKey: dealLocaleAdmissionKey,
+    exactSourcePins: structuredClone(dealLocalePins), exactGeneratedPaths: [...dealRuntimeGeneratedPaths],
+    trustedGenerator: { path: dealRuntimeGeneratorPath, mode: '100644', blob: '6a5751eb031a514bcf7f26893c0003e6013107aa' },
+    requiredTruthBoundaries: [
+      'Separate completion phase only. Preserve every old record and the immutable six source blobs; append only the two generated paths after the existing nine paths.',
+      'Unchanged state and exactly six source transitions plus both regular generated files; no arbitrary source, workflow, registry, guard or scope mutation.',
+      'Use only the unchanged pinned accepted-base generator and committed application blobs as text. Verify full source enumeration, modes, attributable ancestor/source-tree equality, and byte-exact JSON/Markdown reproduction.',
+      'Fresh whole-head independent review, separate owner audit, all applicable native CI/security/readiness and ordinary full-expected-SHA merge remain mandatory. No protected/live/provider/Founder13 acceptance is inferred.',
+    ],
+    forbiddenAuthority: ['API/DB/role/tenant/money/provider/FGIS/model authority', 'General source or generated-output permissions', 'Candidate-code execution during regeneration', 'CI/security/review/readiness weakening or false live/external PASS'],
+  };
+}
+function extendLocaleInventory(context, mutate = () => {}) {
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  state.approvedConcurrentScopes[dealRuntimeImplementationBranch] = [...localeInventoryPaths];
+  state.coordinationAdmissions[localeInventoryAdmissionKey] = localeInventoryRecord(context.baseline);
+  mutate(state);
+  write(context.root, dealRuntimeStatePath, JSON.stringify(state, null, 2) + '\n');
+}
+function localeInventoryFixture(t, { implementation = false, admitted = false, mutateBase = () => {}, generatorMode = '100644' } = {}) {
+  const context = dealLocaleFixture(t, { implementation, accepted: true, pinnedSources: implementation });
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  state.coordinationAdmissions[localeInventoryPurposeKey] = structuredClone(localeInventoryPurpose);
+  mutateBase(state);
+  write(context.root, dealRuntimeStatePath, JSON.stringify(state, null, 2) + '\n');
+  const generator = fs.readFileSync(dealRuntimeGeneratorPath);
+  const generatorBlob = createHash('sha1').update(`blob ${generator.length}\0`).update(generator).digest('hex');
+  assert.equal(generatorBlob, localeInventoryPurpose.trustedGenerator.blob);
+  write(context.root, dealRuntimeGeneratorPath, generator);
+  write(context.root, 'apps/web/middleware.ts', 'export const stable = true;\n');
+  fs.mkdirSync(path.join(context.root, 'apps/web/apps/web'), { recursive: true });
+  fs.symlinkSync('../../middleware.ts', path.join(context.root, 'apps/web/apps/web/middleware.ts'));
+  commit(context.root, 'separate accepted inventory purpose and unchanged trusted generator');
+  if (generatorMode !== '100644') {
+    fs.chmodSync(path.join(context.root, dealRuntimeGeneratorPath), 0o755);
+    git(context.root, ['update-index', '--cacheinfo', `${generatorMode},${generatorBlob},${dealRuntimeGeneratorPath}`]);
+    git(context.root, ['commit', '-m', 'isolated baseline generator mode precondition']);
+  }
+  generateDealRuntimeInventory(context, git(context.root, ['rev-parse', 'HEAD']));
+  commit(context.root, 'trusted current generated pair');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  if (admitted) {
+    extendLocaleInventory(context);
+    commit(context.root, 'separate accepted two-path inventory co-admission');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  }
+  return context;
+}
+function completePinnedLocaleInventory(context) {
+  applyActualPinnedLocaleSource(context);
+  context.inventorySource = git(context.root, ['rev-parse', 'HEAD']);
+  generateDealRuntimeInventory(context, context.inventorySource);
+  commit(context.root, 'exact generated pair for the six actual pinned source changes');
+  assertActualLocalePins(context, context.baseline, false);
+  assertActualLocalePins(context, 'HEAD', true);
+}
+test('Locale inventory: exact state-only co-admission preserves old nine paths and immutable locale record', (t) => {
+  const context = localeInventoryFixture(t);
+  const before = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  extendLocaleInventory(context);
+  commit(context.root, 'exact generated-pair state co-admission');
+  const after = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  assert.deepEqual(after.coordinationAdmissions[dealLocaleAdmissionKey], before.coordinationAdmissions[dealLocaleAdmissionKey]);
+  assert.deepEqual(after.approvedConcurrentScopes[dealRuntimeImplementationBranch].slice(0, 9), before.approvedConcurrentScopes[dealRuntimeImplementationBranch]);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+  assert.equal(git(context.root, ['diff', '--name-status', `${context.baseline}...HEAD`]), `M\t${dealRuntimeStatePath}`);
+});
+const inventoryTextAttacks = [
+  ['compact old state', (raw) => JSON.stringify(JSON.parse(raw)) + '\n'],
+  ['four-space old state', (raw) => JSON.stringify(JSON.parse(raw), null, 4) + '\n'],
+  ['reordered old top-level keys', (raw) => JSON.stringify(Object.fromEntries(Object.entries(JSON.parse(raw)).reverse()), null, 2) + '\n'],
+  ['reordered old admission records', (raw) => {
+    const state = JSON.parse(raw);
+    state.coordinationAdmissions = Object.fromEntries(Object.entries(state.coordinationAdmissions).reverse());
+    return JSON.stringify(state, null, 2) + '\n';
+  }],
+  ['reordered retained locale fields', (raw) => {
+    const state = JSON.parse(raw);
+    state.coordinationAdmissions[dealLocaleAdmissionKey] = Object.fromEntries(Object.entries(state.coordinationAdmissions[dealLocaleAdmissionKey]).reverse());
+    return JSON.stringify(state, null, 2) + '\n';
+  }],
+  ['duplicate old current-step key with last-value wins', (raw) => raw.replace('  "current": "R1.2 unchanged fixture",', '  "current": "unauthorized next step",\n  "current": "R1.2 unchanged fixture",')],
+  ['duplicate old owner key with last-value wins', (raw) => {
+    const start = raw.indexOf('    "' + dealLocaleAdmissionKey + '": {');
+    assert.notEqual(start, -1);
+    return raw.slice(0, start) + raw.slice(start).replace('      "owner": "ACCOUNT_1_EXECUTION",',
+      '      "owner": "ACCOUNT_2_PRODUCT",\n      "owner": "ACCOUNT_1_EXECUTION",');
+  }],
+  ['escaped old key spelling', (raw) => raw.replace('  "current":', '  "\\u0063urrent":')],
+  ['CRLF reserialization', (raw) => raw.replaceAll('\n', '\r\n')],
+];
+for (const [name, attack] of inventoryTextAttacks) {
+  test('Locale inventory: byte preservation rejects ' + name + ' although parsed values match', (t) => {
+    const context = localeInventoryFixture(t);
+    extendLocaleInventory(context);
+    const target = path.join(context.root, dealRuntimeStatePath);
+    const valid = fs.readFileSync(target, 'utf8');
+    const changed = attack(valid);
+    assert.notEqual(changed, valid, 'isolated attack must change actual bytes');
+    assert.deepEqual(JSON.parse(changed), JSON.parse(valid), 'the preexisting object comparison cannot distinguish this attack');
+    fs.writeFileSync(target, changed);
+    commit(context.root, 'same parsed state with changed old bytes: ' + name);
+    const result = runTrustedDealRuntimeGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /DEAL_LOCALE_INVENTORY_ADMISSION_TEXT_MUTATION/u);
+    const trusted = git(context.root, ['show', `${context.baseline}:scripts/p7-autopilot-guard.sh`]);
+    const predicate = "if (readState(headRef) !== expectedText) throw new Error('DEAL_LOCALE_INVENTORY_ADMISSION_TEXT_MUTATION');";
+    assert.equal(trusted.split(predicate).length, 2, 'remove only the new exact-text comparison');
+    const bypass = path.join(context.root, '.git', 'inventory-text-bypass-control.sh');
+    fs.writeFileSync(bypass, trusted.replace(predicate, ''));
+    const control = spawnSync('bash', [bypass], {
+      cwd: context.root,
+      env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: context.implementationBranch },
+      encoding: 'utf8',
+    });
+    assert.equal(control.status, 0, 'without only the text predicate this same attack reaches PASS: ' + output(control));
+  });
+}
+test('Locale inventory: preserved noncanonical old whitespace is accepted without reserializing the base', (t) => {
+  const context = localeInventoryFixture(t);
+  const target = path.join(context.root, dealRuntimeStatePath);
+  const preserve = (raw) => raw.replace('  "current":', '  "current" :');
+  const before = fs.readFileSync(target, 'utf8');
+  assert.notEqual(preserve(before), before);
+  fs.writeFileSync(target, preserve(before));
+  commit(context.root, 'genuine fixture base with preexisting noncanonical whitespace');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  extendLocaleInventory(context);
+  fs.writeFileSync(target, preserve(fs.readFileSync(target, 'utf8')));
+  commit(context.root, 'exact two insertions retaining old whitespace');
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+const inventoryStateAttacks = [
+  ['third permission', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].push('apps/api/src/app.module.ts')],
+  ['removed original permission', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].shift()],
+  ['reordered old vector', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].reverse()],
+  ['duplicate generated path', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].push(dealRuntimeGeneratedPaths[0])],
+  ['changed prior locale pins', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].exactSourcePins[0][2] = '0'.repeat(40); }],
+  ['changed prior owner', (s) => { s.coordinationAdmissions[dealLocaleAdmissionKey].owner = 'ACCOUNT_2_PRODUCT'; }],
+  ['changed source owner', (s) => { s.coordinationAdmissions[localeInventoryAdmissionKey].sourceOwnerRetained = 'ACCOUNT_2_PRODUCT'; }],
+  ['changed completion owner', (s) => { s.coordinationAdmissions[localeInventoryAdmissionKey].owner = 'ACCOUNT_2_PRODUCT'; }],
+  ['global scope widening', (s) => s.allowedCurrentScope.push('**')],
+  ['changed current step', (s) => { s.current = 'unauthorized next step'; }],
+  ['fabricated progress', (s) => { s.fullTzReadinessPercent = 100; }],
+  ['wrong admission base', (s) => { s.coordinationAdmissions[localeInventoryAdmissionKey].authorityBaseExactMain = '0'.repeat(40); }],
+  ['wrong generator pin', (s) => { s.coordinationAdmissions[localeInventoryAdmissionKey].trustedGenerator.blob = '0'.repeat(40); }],
+  ['weakened boundaries', (s) => { s.coordinationAdmissions[localeInventoryAdmissionKey].requiredTruthBoundaries = []; }],
+];
+for (const [name, mutate] of inventoryStateAttacks) {
+  test('Locale inventory: state co-admission rejects ' + name, (t) => {
+    const context = localeInventoryFixture(t);
+    extendLocaleInventory(context, mutate);
+    commit(context.root, 'isolated invalid state: ' + name);
+    const result = runTrustedDealRuntimeGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /DEAL_LOCALE_INVENTORY_ADMISSION_STATE_MUTATION/u);
+  });
+}
+test('Locale inventory: candidate-fabricated purpose cannot grant output authority', (t) => {
+  const context = localeInventoryFixture(t, { mutateBase: (s) => { delete s.coordinationAdmissions[localeInventoryPurposeKey]; } });
+  extendLocaleInventory(context, (s) => { s.coordinationAdmissions[localeInventoryPurposeKey] = structuredClone(localeInventoryPurpose); });
+  commit(context.root, 'candidate-only purpose');
+  rejectDealLocale(context);
+});
+test('Locale inventory: altered accepted purpose is rejected', (t) => {
+  const context = localeInventoryFixture(t, { mutateBase: (s) => { s.coordinationAdmissions[localeInventoryPurposeKey].owner = 'ACCOUNT_2_PRODUCT'; } });
+  extendLocaleInventory(context);
+  commit(context.root, 'co-admission from altered purpose');
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /DEAL_LOCALE_INVENTORY_PURPOSE_MISMATCH/u);
+});
+test('Locale inventory: state and runtime changes cannot mix', (t) => {
+  const context = localeInventoryFixture(t);
+  extendLocaleInventory(context);
+  write(context.root, dealLocaleSourcePaths[0], 'mixed application source\n');
+  commit(context.root, 'mixed co-admission/source');
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /DEAL_LOCALE_INVENTORY_ADMISSION_DIFF_SCOPE/u);
+});
+test('Locale inventory: executable state is rejected with the otherwise exact candidate blob', (t) => {
+  const context = localeInventoryFixture(t);
+  extendLocaleInventory(context);
+  commit(context.root, 'otherwise exact admission');
+  const blob = git(context.root, ['rev-parse', 'HEAD:' + dealRuntimeStatePath]);
+  git(context.root, ['update-index', '--cacheinfo', `100755,${blob},${dealRuntimeStatePath}`]);
+  git(context.root, ['commit', '-m', 'one state-mode-only attack']);
+  assert.equal(git(context.root, ['rev-parse', 'HEAD:' + dealRuntimeStatePath]), blob);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /DEAL_LOCALE_INVENTORY_ADMISSION_FILE_MODE/u);
+});
+test('Locale inventory: actual six pins and exact generated pair pass together', (t) => {
+  const context = localeInventoryFixture(t, { implementation: true, admitted: true });
+  completePinnedLocaleInventory(context);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+  assert.equal(git(context.root, ['diff', '--name-only', `${context.baseline}...HEAD`]).split('\n').length, 8);
+});
+test('Locale inventory: purpose alone does not admit the generated pair', (t) => {
+  const context = localeInventoryFixture(t, { implementation: true });
+  completePinnedLocaleInventory(context);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /DEAL_LOCALE_IMPLEMENTATION_DIFF_SCOPE/u);
+});
+test('Locale inventory: completion admission requires both generated files', (t) => {
+  const context = localeInventoryFixture(t, { implementation: true, admitted: true });
+  applyActualPinnedLocaleSource(context);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /DEAL_LOCALE_IMPLEMENTATION_DIFF_SCOPE/u);
+});
+test('Locale inventory: uncommitted source/generator never determine the verified output', (t) => {
+  const context = localeInventoryFixture(t, { implementation: true, admitted: true });
+  completePinnedLocaleInventory(context);
+  write(context.root, dealLocaleSourcePaths[0], 'uncommitted decoy\n');
+  const marker = path.join(context.root, 'candidate-generator-executed');
+  write(context.root, dealRuntimeGeneratorPath, `import fs from 'node:fs';fs.writeFileSync(${JSON.stringify(marker)},'unsafe');\n`);
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+  assert.equal(fs.existsSync(marker), false);
+});
+const inventorySourceAttacks = [
+  ['wrong source blob', (c) => write(c.root, dealLocaleSourcePaths[0], 'invalid pinned source\n')],
+  ['changed JSON', (c) => { const p = path.join(c.root, dealRuntimeGeneratedPaths[0]); const j = JSON.parse(fs.readFileSync(p, 'utf8')); j.scannedFiles += 1; fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n'); }],
+  ['changed Markdown', (c) => fs.appendFileSync(path.join(c.root, dealRuntimeGeneratedPaths[1]), 'untrusted output claim\n')],
+  ['stale ancestor attribution', (c) => { const p = path.join(c.root, dealRuntimeGeneratedPaths[1]); fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(c.inventorySource, c.baseline)); }],
+  ['nonexistent attribution', (c) => { const p = path.join(c.root, dealRuntimeGeneratedPaths[1]); fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(c.inventorySource, '0'.repeat(40))); }],
+  ['missing JSON', (c) => fs.rmSync(path.join(c.root, dealRuntimeGeneratedPaths[0]))],
+  ['missing Markdown', (c) => fs.rmSync(path.join(c.root, dealRuntimeGeneratedPaths[1]))],
+  ['unrelated source', (c) => write(c.root, 'apps/web/extra-unadmitted.ts', 'export const extra = true;\n')],
+  ['changed generator', (c) => write(c.root, dealRuntimeGeneratorPath, 'throw new Error("untrusted candidate generator");\n')],
+  ['source-owned state grant', (c) => { const s = JSON.parse(fs.readFileSync(path.join(c.root, dealRuntimeStatePath), 'utf8')); s.allowedCurrentScope.push('**'); write(c.root, dealRuntimeStatePath, JSON.stringify(s, null, 2) + '\n'); }],
+];
+for (const [name, mutate] of inventorySourceAttacks) {
+  test('Locale inventory: completed actual eight-file transition rejects ' + name, (t) => {
+    const context = localeInventoryFixture(t, { implementation: true, admitted: true });
+    completePinnedLocaleInventory(context);
+    mutate(context);
+    commit(context.root, 'one source/output attack: ' + name);
+    const result = runTrustedDealRuntimeGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /DEAL_LOCALE_|DEAL_RUNTIME_|outside current/u);
+  });
+}
+for (const mode of ['100755', '120000']) {
+  test('Locale inventory: output mode ' + mode + ' fails while every content pin/output byte is valid', (t) => {
+    const context = localeInventoryFixture(t, { implementation: true, admitted: true });
+    completePinnedLocaleInventory(context);
+    const file = dealRuntimeGeneratedPaths[0], blob = git(context.root, ['rev-parse', 'HEAD:' + file]);
+    git(context.root, ['update-index', '--cacheinfo', `${mode},${blob},${file}`]);
+    git(context.root, ['commit', '-m', 'one generated-output mode attack']);
+    if (mode === '120000') {
+      // A head-only symlink also yields Git status T, independently refused by
+      // exact diff scope. For the predicate-removal control, keep the same bad
+      // kind in both isolated fixture snapshots so this remains an M change.
+      // Every old/new content blob and all genuine application pins stay valid.
+      const badHead = git(context.root, ['rev-parse', 'HEAD']);
+      const headTree = git(context.root, ['rev-parse', 'HEAD^{tree}']);
+      const oldBlob = git(context.root, ['rev-parse', context.baseline + ':' + file]);
+      git(context.root, ['read-tree', context.baseline]);
+      git(context.root, ['update-index', '--cacheinfo', `120000,${oldBlob},${file}`]);
+      const baseTree = git(context.root, ['write-tree']);
+      const isolatedBase = spawnSync('git', ['commit-tree', baseTree, '-p', context.baseline],
+        { cwd: context.root, encoding: 'utf8', input: 'Isolated test baseline: only generated-output mode changed\n' });
+      assert.equal(isolatedBase.status, 0, output(isolatedBase));
+      const newBase = isolatedBase.stdout.trim();
+      const isolatedHead = spawnSync('git', ['commit-tree', headTree, '-p', badHead, '-p', newBase],
+        { cwd: context.root, encoding: 'utf8', input: 'Isolated test head preserving all prior source/content ancestry\n' });
+      assert.equal(isolatedHead.status, 0, output(isolatedHead));
+      git(context.root, ['update-ref', 'HEAD', isolatedHead.stdout.trim(), badHead]);
+      git(context.root, ['read-tree', 'HEAD']);
+      context.baseline = newBase;
+    }
+    assertActualLocalePins(context, 'HEAD', true);
+    assert.equal(git(context.root, ['ls-tree', 'HEAD', '--', file]), `${mode} blob ${blob}\t${file}`);
+    const result = runTrustedDealRuntimeGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /DEAL_LOCALE_INVENTORY_OUTPUT_MODE/u);
+    const guard = git(context.root, ['show', context.baseline + ':scripts/p7-autopilot-guard.sh']);
+    const predicate = "if ([baseRef, headRef].some((ref) => fileMode(ref, file) !== '100644')) throw new Error('DEAL_LOCALE_INVENTORY_OUTPUT_MODE:' + file);";
+    assert.equal(guard.split(predicate).length, 2);
+    const control = path.join(context.root, '.git', 'inventory-output-mode-control.sh');
+    fs.writeFileSync(control, guard.replace(predicate, '/* isolated output-mode predicate removal control */'));
+    const bypass = spawnSync('bash', [control], { cwd: context.root, encoding: 'utf8',
+      env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: context.implementationBranch } });
+    assert.equal(bypass.status, 0, output(bypass));
+  });
+}
+test('Locale inventory: same pinned baseline generator blob with executable mode is rejected', (t) => {
+  const context = localeInventoryFixture(t, { implementation: true, admitted: true, generatorMode: '100755' });
+  completePinnedLocaleInventory(context);
+  assertActualLocalePins(context, 'HEAD', true);
+  assert.equal(git(context.root, ['rev-parse', context.baseline + ':' + dealRuntimeGeneratorPath]), '6a5751eb031a514bcf7f26893c0003e6013107aa');
+  assert.equal(git(context.root, ['rev-parse', 'HEAD:' + dealRuntimeGeneratorPath]), '6a5751eb031a514bcf7f26893c0003e6013107aa');
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /DEAL_LOCALE_INVENTORY_GENERATOR_PIN_OR_MODE/u);
+});
 test('Deal locale: exact state-only extension preserves the old five paths and old authority', (t) => {
   const context = dealLocaleFixture(t);
   extendDealLocale(context);
@@ -3950,3 +4267,662 @@ for (const [name, file, mode] of [
     assert.equal(bypassed.status, 0, 'this attack must pass only if regular-mode enforcement is removed: ' + output(bypassed));
   });
 }
+
+
+// Separately admitted BANK consumer phase; these are isolated unit fixtures,
+// never native PostgreSQL, provider or production acceptance evidence.
+const bankMoneyPurposeKey = 'bank-release-currency-amount-guard-purpose-20261001';
+const bankMoneyCorrectionKey = 'bank-release-reserve-evidence-guard-purpose-20261001';
+const bankMoneyAdmissionKey = 'bank-release-currency-amount-20261001';
+const bankMoneySourceBranch = 'bank/deep-visible-copy-guard-20260924';
+const bankMoneyAdmissionBranch = 'governance/product-bank-fgis-ux-source-admission-20260924';
+const bankMoneyPurpose = JSON.parse(fs.readFileSync(dealRuntimeStatePath, 'utf8')).coordinationAdmissions[bankMoneyPurposeKey];
+const bankMoneyCorrectionPurpose = JSON.parse(fs.readFileSync(dealRuntimeStatePath, 'utf8')).coordinationAdmissions[bankMoneyCorrectionKey];
+const bankMoneyPrior = {
+  "owner": "ACCOUNT_2_PRODUCT",
+  "purpose": "Presentation-only bank/deal copy guard and negative release safety wording; no provider or payment finality.",
+  "authorityBaseExactMain": "5d2fb28c0957b7c03928102b2a4ec353a49b3f79",
+  "implementationBranch": "bank/deep-visible-copy-guard-20260924",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/bank/escrow/page.tsx",
+    "apps/web/app/platform-v7/bank/factoring/page.tsx",
+    "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+    "apps/web/app/platform-v7/profile/page.tsx",
+    "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+    "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+    "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+  ],
+  "requiredTruthBoundaries": [
+    "Preserve the forbidden money-finality and demo vocabulary guard, including absence of the removed operator execution queue source.",
+    "A recorded release request is not external execution; unresolved outcome requires same-operation reconciliation before retry.",
+    "RU/EN/ZH bank copy does not attribute a concrete provider or claim factoring, release or debit finality."
+  ],
+  "forbiddenAuthority": [
+    "API/DB/settlement/ledger/provider/callback or money-finality authority",
+    "tenant/role/session authority",
+    "CI/security gate weakening"
+  ],
+  "teamHubDependency": "#5565; Team Hub #5469 scope correction 5818641448"
+};
+const bankMoneyOldPaths = [
+  "apps/web/app/platform-v7/bank/escrow/page.tsx",
+  "apps/web/app/platform-v7/bank/factoring/page.tsx",
+  "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+  "apps/web/app/platform-v7/profile/page.tsx",
+  "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+  "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+  "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+];
+const bankMoneyPins = [
+  [
+    "apps/web/lib/bank-release-server.ts",
+    "870a839e7087ef1114d805d818220471027c89fb",
+    "54e276cc387366a4068c4a9358aea1dcfa0ebc18"
+  ],
+  [
+    "apps/web/tests/unit/bankReleaseServer.test.ts",
+    "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
+    "2ab6b6c3ac056b3d08eb76450fd0c54e97bff304"
+  ],
+  [
+    "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+    "55f1572c14283fb2b69153adba6cbe13622fd387",
+    "b67a3452e05ad97082ccfbcc0c4975302cb62df9"
+  ],
+  [
+    "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+    "68382969c3b8f1bb8912a1c514fd71882470cf95",
+    "630599ff7ff0ca4338445fc8bba50d61cf07f4f6"
+  ]
+];
+const bankMoneyManifest = 'docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json';
+const bankMoneyPaths = [...bankMoneyOldPaths, 'apps/web/lib/bank-release-server.ts', 'apps/web/tests/unit/bankReleaseServer.test.ts'];
+const bankMoneyPinnedPatch = inflateSync(Buffer.from('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', 'base64'));
+assert.equal(createHash('sha256').update(bankMoneyPinnedPatch).digest('hex'), '8c05b77b82a722c6ca21118ed0b7c7dcc2dec549f93e4b77e6a2349a9b8ef06e');
+function bankMoneyRecord(authorityBaseExactMain) {
+  const bankMoneySourceBranch = 'bank/deep-visible-copy-guard-20260924';
+  const completedPaths = bankMoneyPaths, priorKey = 'bank-deep-visible-copy-guard-20260924-coordination';
+  const bankMoneyCorrectionKey = 'bank-release-reserve-evidence-guard-purpose-20261001';
+  const pins = structuredClone(bankMoneyPins), manifestPath = bankMoneyManifest, manifestBlob = 'c7a015a9449578df7fbd325aae81f2d3795a4523';
+  return {
+      owner: 'ACCOUNT_2_PRODUCT', sourceOwnerRetained: 'ACCOUNT_2_PRODUCT', canonicalApiOwnerRetained: 'ACCOUNT_1_EXECUTION',
+      purpose: 'Apply only the immutable four-file read-only BANK currency and selected-operation amount consistency payload plus its exact existing scope-manifest update.',
+      authorityBaseExactMain, implementationBranch: bankMoneySourceBranch,
+      allowedPaths: completedPaths, retainedAdmissionKey: priorKey, exactSourcePins: pins,
+      exactManifestPath: manifestPath, baselineManifestBlob: manifestBlob,
+      correctionPurposeKey: bankMoneyCorrectionKey,
+      reviewedPrivatePayloadSha256: '8c05b77b82a722c6ca21118ed0b7c7dcc2dec549f93e4b77e6a2349a9b8ef06e',
+      requiredTruthBoundaries: [
+        'Preserve the seven-path prefix and every old admission byte/value. Append only two read-only web source/test paths; no server, provider, money mutation or legal authority.',
+        'The source phase requires all four immutable100644 source transitions and only the exact accepted-manifest path/base transformation, unchanged state and genuine accepted-base ancestry.',
+        'Preserve canonical GET-only Deal/tenant/participant permissions, UNKNOWN external outcome and all callback/outbox prerequisites. Currency/selected RESERVE and RELEASE amount conflicts cannot establish readiness or RELEASED.',
+        'A released projection requires persisted payment reservation and the selected canonical RESERVE amount/currency, DONE status, confirmation timestamp and bank reference; missing/unconfirmed/newer-pending reserve evidence remains manual review.',
+        'Fresh independent full current-head review, separate owner audit, every substantive native CI/security/readiness gate and ordinary expected-full-SHA merge remain mandatory. Private unit doubles are not PostgreSQL/browser/provider/Founder13/REG.RU acceptance.',
+      ],
+      forbiddenAuthority: ['API/DB/RLS/role/tenant/session/command/money/provider/FGIS/legal/model authority', 'Arbitrary source/scope/metadata changes', 'CI/security/readiness/review weakening or fake acceptance'],
+    };
+}
+function extendBankMoney(context, mutate = () => {}) {
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  state.approvedConcurrentScopes[bankMoneySourceBranch] = [...bankMoneyPaths];
+  state.coordinationAdmissions[bankMoneyAdmissionKey] = bankMoneyRecord(context.baseline);
+  mutate(state);
+  write(context.root, dealRuntimeStatePath, JSON.stringify(state, null, 2) + '\n');
+}
+function bankMoneyFixture(t, { implementation = false, admitted = false, purpose = true, correction = true, mutateBase = () => {} } = {}) {
+  const context = fixture(t, implementation ? bankMoneySourceBranch : bankMoneyAdmissionBranch);
+  const state = {
+    current: 'BANK unchanged fixture', fullTzReadinessPercent: 5, allowedCurrentScope: ['README.md'],
+    approvedConcurrentScopes: {
+      [bankMoneySourceBranch]: [...bankMoneyOldPaths],
+      [bankMoneyAdmissionBranch]: [dealRuntimeStatePath],
+      [bankMoneyPurpose.implementationBranch]: [...bankMoneyPurpose.allowedPaths],
+    },
+    coordinationAdmissions: {
+      'bank-deep-visible-copy-guard-20260924-coordination': { ...structuredClone(bankMoneyPrior), authorityBaseExactMain: context.baseline },
+      ...(purpose ? { [bankMoneyPurposeKey]: structuredClone(bankMoneyPurpose) } : {}),
+      ...(correction ? { [bankMoneyCorrectionKey]: structuredClone(bankMoneyCorrectionPurpose) } : {}),
+    },
+  };
+  mutateBase(state);
+  for (const [file, before] of bankMoneyPins) write(context.root, file, actualLocaleBaselineBlob(before));
+  write(context.root, bankMoneyManifest, actualLocaleBaselineBlob('c7a015a9449578df7fbd325aae81f2d3795a4523'));
+  write(context.root, dealRuntimeStatePath, JSON.stringify(state, null, 2) + '\n');
+  commit(context.root, 'genuine isolated baseline source blobs and accepted-purpose fixture');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  if (admitted) {
+    extendBankMoney(context);
+    commit(context.root, 'separate exact two-path BANK co-admission fixture');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  }
+  return context;
+}
+function completeBankMoney(context) {
+  const applied = spawnSync('git', ['apply', '--index', '--whitespace=nowarn', '-'], {
+    cwd: context.root, input: bankMoneyPinnedPatch, encoding: 'utf8',
+  });
+  assert.equal(applied.status, 0, output(applied));
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  const manifest = JSON.parse(fs.readFileSync(path.join(context.root, bankMoneyManifest), 'utf8'));
+  manifest.allowedPaths = [...bankMoneyPaths];
+  manifest.authorityBaseExactMain = state.coordinationAdmissions[bankMoneyAdmissionKey]?.authorityBaseExactMain ?? context.baseline;
+  write(context.root, bankMoneyManifest, JSON.stringify(manifest, null, 2) + '\n');
+  commit(context.root, 'actual immutable four-file BANK payload and exact manifest transform');
+  for (const [file, before, after] of bankMoneyPins) {
+    assert.equal(git(context.root, ['ls-tree', context.baseline, '--', file]), `100644 blob ${before}\t${file}`);
+    assert.equal(git(context.root, ['ls-tree', 'HEAD', '--', file]), `100644 blob ${after}\t${file}`);
+  }
+}
+function rejectBankMoney(context, pattern = /BANK_MONEY_|PRODUCT_|Mutable scope|outside current/u) {
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), pattern);
+}
+test('BANK money: exact state-only co-admission preserves all seven paths and old admission', (t) => {
+  const context = bankMoneyFixture(t);
+  const before = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  extendBankMoney(context);
+  commit(context.root, 'exact BANK state-only co-admission');
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+  const after = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  assert.deepEqual(after.coordinationAdmissions['bank-deep-visible-copy-guard-20260924-coordination'], before.coordinationAdmissions['bank-deep-visible-copy-guard-20260924-coordination']);
+  assert.deepEqual(after.approvedConcurrentScopes[bankMoneySourceBranch].slice(0, 7), bankMoneyOldPaths);
+  assert.equal(git(context.root, ['diff', '--name-status', `${context.baseline}...HEAD`]), `M\t${dealRuntimeStatePath}`);
+});
+const bankStateAttacks = [
+  ['third permission', (s) => s.approvedConcurrentScopes[bankMoneySourceBranch].push('apps/api/src/app.module.ts')],
+  ['removed old path', (s) => s.approvedConcurrentScopes[bankMoneySourceBranch].shift()],
+  ['reordered old prefix', (s) => s.approvedConcurrentScopes[bankMoneySourceBranch].reverse()],
+  ['duplicate added path', (s) => s.approvedConcurrentScopes[bankMoneySourceBranch].push(bankMoneyPaths.at(-1))],
+  ['old source owner', (s) => { s.coordinationAdmissions['bank-deep-visible-copy-guard-20260924-coordination'].owner = 'ACCOUNT_1_EXECUTION'; }],
+  ['new source owner', (s) => { s.coordinationAdmissions[bankMoneyAdmissionKey].sourceOwnerRetained = 'ACCOUNT_1_EXECUTION'; }],
+  ['new semantic owner', (s) => { s.coordinationAdmissions[bankMoneyAdmissionKey].owner = 'ACCOUNT_1_EXECUTION'; }],
+  ['canonical API owner', (s) => { s.coordinationAdmissions[bankMoneyAdmissionKey].canonicalApiOwnerRetained = 'ACCOUNT_2_PRODUCT'; }],
+  ['wrong actual base', (s) => { s.coordinationAdmissions[bankMoneyAdmissionKey].authorityBaseExactMain = '0'.repeat(40); }],
+  ['changed immutable pin', (s) => { s.coordinationAdmissions[bankMoneyAdmissionKey].exactSourcePins[0][2] = '0'.repeat(40); }],
+  ['weakened boundary', (s) => { s.coordinationAdmissions[bankMoneyAdmissionKey].requiredTruthBoundaries = []; }],
+  ['changed manifest pin', (s) => { s.coordinationAdmissions[bankMoneyAdmissionKey].baselineManifestBlob = '0'.repeat(40); }],
+  ['global authority', (s) => s.allowedCurrentScope.push('**')],
+  ['false progress', (s) => { s.fullTzReadinessPercent = 100; }],
+  ['extra grant field', (s) => { s.coordinationAdmissions[bankMoneyAdmissionKey].grantApiAuthority = true; }],
+];
+for (const [name, mutate] of bankStateAttacks) test('BANK money: co-admission rejects ' + name, (t) => {
+  const context = bankMoneyFixture(t);
+  extendBankMoney(context, mutate);
+  commit(context.root, 'invalid BANK state: ' + name);
+  rejectBankMoney(context, /BANK_MONEY_ADMISSION_STATE_MUTATION/u);
+});
+const bankTextAttacks = [
+  ['compact old bytes', (raw) => JSON.stringify(JSON.parse(raw)) + '\n'],
+  ['reordered old keys', (raw) => JSON.stringify(Object.fromEntries(Object.entries(JSON.parse(raw)).reverse()), null, 2) + '\n'],
+  ['duplicate old progress key', (raw) => raw.replace('  "fullTzReadinessPercent": 5,', '  "fullTzReadinessPercent": 100,\n  "fullTzReadinessPercent": 5,')],
+  ['escaped old key', (raw) => raw.replace('  "current":', '  "\\u0063urrent":')],
+];
+for (const [name, attack] of bankTextAttacks) test('BANK money: byte preservation rejects ' + name, (t) => {
+  const context = bankMoneyFixture(t); extendBankMoney(context);
+  const target = path.join(context.root, dealRuntimeStatePath), valid = fs.readFileSync(target, 'utf8');
+  const changed = attack(valid); assert.notEqual(changed, valid); assert.deepEqual(JSON.parse(changed), JSON.parse(valid));
+  fs.writeFileSync(target, changed); commit(context.root, 'same values with altered old bytes');
+  rejectBankMoney(context, /BANK_MONEY_ADMISSION_TEXT_MUTATION/u);
+  const trusted = git(context.root, ['show', `${context.baseline}:scripts/p7-autopilot-guard.sh`]);
+  const predicate = "if (candidateText !== exact) throw new Error('BANK_MONEY_ADMISSION_TEXT_MUTATION');";
+  assert.equal(trusted.split(predicate).length, 2);
+  const bypass = path.join(context.root, '.git', 'BANK-byte-only-bypass.sh');
+  fs.writeFileSync(bypass, trusted.replace(predicate, ''));
+  const control = spawnSync('bash', [bypass], { cwd: context.root, env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: context.implementationBranch }, encoding: 'utf8' });
+  assert.equal(control.status, 0, output(control));
+});
+test('BANK money: purpose is required from trusted base, not candidate', (t) => {
+  const context = bankMoneyFixture(t, { purpose: false });
+  extendBankMoney(context, (s) => { s.coordinationAdmissions[bankMoneyPurposeKey] = structuredClone(bankMoneyPurpose); });
+  commit(context.root, 'candidate fabricated purpose'); rejectBankMoney(context);
+});
+test('BANK money: altered accepted purpose is rejected', (t) => {
+  const context = bankMoneyFixture(t, { mutateBase: (s) => { s.coordinationAdmissions[bankMoneyPurposeKey].owner = 'ACCOUNT_2_PRODUCT'; } });
+  extendBankMoney(context); commit(context.root, 'altered accepted purpose'); rejectBankMoney(context, /BANK_MONEY_PURPOSE_MISMATCH/u);
+});
+test('BANK money: mixed state/source co-admission is rejected', (t) => {
+  const context = bankMoneyFixture(t); extendBankMoney(context);
+  write(context.root, bankMoneyPins[0][0], 'mixed source\n'); commit(context.root, 'mixed phase');
+  rejectBankMoney(context, /BANK_MONEY_ADMISSION_DIFF_SCOPE/u);
+});
+for (const mode of ['100755', '120000']) test('BANK money: exact state bytes with mode ' + mode + ' reject before diff-type checks', (t) => {
+  const context = bankMoneyFixture(t); extendBankMoney(context); commit(context.root, 'exact state bytes');
+  const blob = git(context.root, ['rev-parse', 'HEAD:' + dealRuntimeStatePath]);
+  git(context.root, ['update-index', '--cacheinfo', `${mode},${blob},${dealRuntimeStatePath}`]);
+  git(context.root, ['commit', '-m', 'isolated bad state mode']);
+  rejectBankMoney(context, /BANK_MONEY_ADMISSION_MODE/u);
+});
+test('BANK money: all four actual source pins and exact existing manifest pass', (t) => {
+  const context = bankMoneyFixture(t, { implementation: true, admitted: true }); completeBankMoney(context);
+  const result = runTrustedDealRuntimeGuard(context); assert.equal(result.status, 0, output(result));
+  assert.equal(git(context.root, ['diff', '--name-only', `${context.baseline}...HEAD`]).split('\n').length, 5);
+});
+test('BANK money: accepted purpose alone cannot admit source', (t) => {
+  const context = bankMoneyFixture(t, { implementation: true }); completeBankMoney(context);
+  rejectBankMoney(context, /BANK_MONEY_ACCEPTED_ADMISSION_MISMATCH/u);
+});
+const bankSourceAttacks = [
+  ['different source bytes', (c) => write(c.root, bankMoneyPins[0][0], 'wrong candidate\n')],
+  ['missing amount server repair', (c) => write(c.root, bankMoneyPins[0][0], actualLocaleBaselineBlob(bankMoneyPins[0][1]))],
+  ['server-only two-file adoption', (c) => { for (const [file, before] of bankMoneyPins.slice(2)) write(c.root, file, actualLocaleBaselineBlob(before)); }],
+  ['extra old permitted source', (c) => write(c.root, bankMoneyOldPaths[0], 'extra immutable-phase source\n')],
+  ['candidate-owned state', (c) => { const p = path.join(c.root, dealRuntimeStatePath); const s = JSON.parse(fs.readFileSync(p,'utf8'));s.approvedConcurrentScopes[bankMoneySourceBranch].push('apps/api/**');fs.writeFileSync(p,JSON.stringify(s,null,2)+'\n'); }],
+  ['arbitrary manifest authority', (c) => { const p=path.join(c.root,bankMoneyManifest);const s=JSON.parse(fs.readFileSync(p,'utf8'));s.newRecurringCostRub=100;fs.writeFileSync(p,JSON.stringify(s,null,2)+'\n'); }],
+  ['reserialized manifest bytes', (c) => { const p=path.join(c.root,bankMoneyManifest);fs.writeFileSync(p,JSON.stringify(JSON.parse(fs.readFileSync(p,'utf8')))+'\n'); }],
+  ['duplicate manifest key', (c) => { const p=path.join(c.root,bankMoneyManifest);fs.writeFileSync(p,fs.readFileSync(p,'utf8').replace('  "status": "active",','  "status": "inactive",\n  "status": "active",')); }],
+  ['missing manifest transition', (c) => write(c.root,bankMoneyManifest,actualLocaleBaselineBlob('c7a015a9449578df7fbd325aae81f2d3795a4523'))],
+];
+for (const [name, mutate] of bankSourceAttacks) test('BANK money: completed immutable source rejects ' + name, (t) => {
+  const context=bankMoneyFixture(t,{implementation:true,admitted:true});completeBankMoney(context);mutate(context);commit(context.root,'source attack: '+name);rejectBankMoney(context);
+});
+for (const mode of ['100755','120000']) test('BANK money: actual source blob with mode ' + mode + ' fails its regular-mode predicate', (t) => {
+  const context=bankMoneyFixture(t,{implementation:true,admitted:true});completeBankMoney(context);
+  const [file,,sha]=bankMoneyPins[0];git(context.root,['update-index','--cacheinfo',`${mode},${sha},${file}`]);git(context.root,['commit','-m','exact blob with wrong mode']);
+  rejectBankMoney(context,/BANK_MONEY_SOURCE_PIN_OR_MODE/u);
+  if(mode==='100755') {
+    const trusted=git(context.root,['show',`${context.baseline}:scripts/p7-autopilot-guard.sh`]);
+    const strict='entry(headRef, file) !== `100644 blob ${after}\\t${file}`';
+    assert.equal(trusted.split(strict).length,2);
+    const bypass=path.join(context.root,'.git','BANK-source-mode-only-bypass.sh');
+    fs.writeFileSync(bypass,trusted.replace(strict,'entry(headRef, file).slice(7) !== `blob ${after}\\t${file}`'));
+    const control=spawnSync('bash',[bypass],{cwd:context.root,env:{...process.env,BASE_REF:context.baseline,HEAD_REF:'HEAD',GITHUB_HEAD_REF:context.implementationBranch},encoding:'utf8'});
+    assert.equal(control.status,0,'remove only candidate source mode comparison: '+output(control));
+  }
+});
+test('BANK money: wrong admitted base cannot pass ancestry', (t) => {
+  const context=bankMoneyFixture(t,{implementation:true,admitted:true});
+  const p=path.join(context.root,dealRuntimeStatePath),s=JSON.parse(fs.readFileSync(p,'utf8'));
+  s.coordinationAdmissions[bankMoneyAdmissionKey].authorityBaseExactMain='0'.repeat(40);
+  fs.writeFileSync(p,JSON.stringify(s,null,2)+'\n');commit(context.root,'wrong accepted-base fixture precondition');context.baseline=git(context.root,['rev-parse','HEAD']);
+  completeBankMoney(context);rejectBankMoney(context,/BANK_MONEY_ADMISSION_BASE_NOT_ANCESTOR/u);
+});
+// Independent correction-purpose and defective-source controls.
+test('BANK reserve correction: missing trusted correction cannot admit paths', (t) => {
+  const context = bankMoneyFixture(t, { correction: false });
+  extendBankMoney(context); commit(context.root, 'missing trusted correction');
+  rejectBankMoney(context, /BANK_MONEY_CORRECTION_PURPOSE_MISMATCH/u);
+  const trusted = git(context.root, ['show', `${context.baseline}:scripts/p7-autopilot-guard.sh`]);
+  const predicate = "    if (!isDeepStrictEqual(state.coordinationAdmissions[bankMoneyCorrectionKey], requiredCorrectionPurpose)) {\n      throw new Error('BANK_MONEY_CORRECTION_PURPOSE_MISMATCH');\n    }";
+  assert.equal(trusted.split(predicate).length, 2);
+  const bypass = path.join(context.root, '.git', 'BANK-correction-only-control.sh');
+  fs.writeFileSync(bypass, trusted.replace(predicate, ''));
+  const control = spawnSync('bash', [bypass], { cwd: context.root, env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: context.implementationBranch }, encoding: 'utf8' });
+  assert.equal(control.status, 0, 'remove only accepted-BASE correction comparison: ' + output(control));
+});
+test('BANK reserve correction: candidate-only correction cannot self-admit', (t) => {
+  const context = bankMoneyFixture(t, { correction: false });
+  extendBankMoney(context, (s) => { s.coordinationAdmissions[bankMoneyCorrectionKey] = structuredClone(bankMoneyCorrectionPurpose); });
+  commit(context.root, 'candidate self-admission');
+  rejectBankMoney(context, /BANK_MONEY_CORRECTION_PURPOSE_MISMATCH/u);
+});
+const bankCorrectionAttacks = [
+  ['execution owner', (p) => { p.owner = 'ACCOUNT_2_PRODUCT'; }],
+  ['source owner', (p) => { p.sourceOwnerRetained = 'ACCOUNT_1_EXECUTION'; }],
+  ['allowed paths', (p) => { p.allowedPaths.push('apps/api/**'); }],
+  ['original purpose', (p) => { p.priorPurposeKey = 'candidate-owned'; }],
+  ['defective server pin', (p) => { p.immutableSourcePins[0][2] = '6ae431216dce41f07d6c73a8b3fe4231bd4c540d'; }],
+  ['defective test pin', (p) => { p.immutableSourcePins[1][2] = 'fe1c8bc089be2b409ad65837a4ba3985edbfb619'; }],
+  ['source payload hash', (p) => { p.reviewedPrivatePayload.sha256 = '0'.repeat(64); }],
+  ['source authority', (p) => { p.grantSourceAuthority = true; }],
+];
+for (const [name, attack] of bankCorrectionAttacks) test('BANK reserve correction: changed BASE ' + name + ' is rejected', (t) => {
+  const context = bankMoneyFixture(t, { mutateBase: (s) => attack(s.coordinationAdmissions[bankMoneyCorrectionKey]) });
+  extendBankMoney(context); commit(context.root, 'mutated correction BASE fixture');
+  rejectBankMoney(context, /BANK_MONEY_CORRECTION_PURPOSE_MISMATCH/u);
+});
+const bankMoneyPriorPrivateSources = new Map(JSON.parse(inflateSync(Buffer.from('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', 'base64')).toString('utf8')).map((item) => {
+  const bytes = Buffer.from(item.content);
+  assert.equal(createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex'), item.blob);
+  return [item.blob, bytes];
+}));
+for (const [index, oldBlob] of [[0, '6ae431216dce41f07d6c73a8b3fe4231bd4c540d'], [1, 'fe1c8bc089be2b409ad65837a4ba3985edbfb619']]) {
+  test('BANK reserve correction: old defective private source ' + index + ' cannot be admitted', (t) => {
+    const context = bankMoneyFixture(t, { implementation: true, admitted: true }); completeBankMoney(context);
+    write(context.root, bankMoneyPins[index][0], bankMoneyPriorPrivateSources.get(oldBlob));
+    commit(context.root, 'restore actual old defective private blob');
+    assert.equal(git(context.root, ['rev-parse', 'HEAD:' + bankMoneyPins[index][0]]), oldBlob);
+    rejectBankMoney(context, /BANK_MONEY_SOURCE_PIN_OR_MODE/u);
+  });
+}
+
+// Actual accepted/candidate route bytes: portable private Git fixture data, not native acceptance.
+const routeActualBlobs = new Map([{"blob":"b9b96c88695c7960a309e98e691c348fec03a2b0","content":"const DESIGN_SYSTEM_V8_EXACT_ROUTES = new Set([\n  '/platform-v7/control-tower',\n  '/platform-v7/status',\n  '/platform-v7/health',\n  '/platform-v7/audit-log',\n  '/platform-v7/connectors',\n  '/platform-v7/integrations',\n  '/platform-v7/api-docs',\n  '/platform-v7/profile',\n  '/platform-v7/profile/team',\n  '/platform-v7/reports',\n  '/platform-v7/onboarding',\n  '/platform-v7/notifications',\n  '/platform-v7/operator',\n  '/platform-v7/operator-cockpit/queues',\n  '/platform-v7/buyer',\n  '/platform-v7/buyer/financing',\n  '/platform-v7/buyer/reputation',\n  '/platform-v7/seller',\n  '/platform-v7/seller/rfq',\n  '/platform-v7/seller/reputation',\n  '/platform-v7/logistics',\n  '/platform-v7/driver',\n  '/platform-v7/driver/field',\n  '/platform-v7/elevator',\n  '/platform-v7/lab',\n  '/platform-v7/surveyor',\n  '/platform-v7/bank',\n  '/platform-v7/compliance',\n  '/platform-v7/arbitrator',\n  '/platform-v7/executive',\n  '/platform-v7/deals',\n  '/platform-v7/commodity-profiles',\n  '/platform-v7/documents',\n  '/platform-v7/disputes',\n  '/platform-v7/money',\n  '/platform-v7/accounting',\n  '/platform-v7/bank/release-safety',\n  '/platform-v7/fgis-access',\n  '/platform-v7/deal-logistics',\n  '/platform-v7/deal-acceptance',\n  '/platform-v7/deal-documents-basis',\n]);\n\nconst DESIGN_SYSTEM_V8_PREFIX_ROUTES = [\n  '/platform-v7/deals/',\n  '/platform-v7/commodity-profiles',\n  '/platform-v7/integrations',\n  '/platform-v7/auction',\n  '/platform-v7/buyer/rfq',\n  '/platform-v7/bank',\n  '/platform-v7/logistics',\n] as const;\n\n// Routes with an identifier in the middle, which neither an exact entry nor a\n// prefix can express. A prefix of '/platform-v7/deals' would sweep every deal\n// sub-route into the v8 class, which is a decision about somebody else's\n// screens and not one this registration is entitled to make. Anchored at both\n// ends so a longer path is not admitted by accident.\nconst DESIGN_SYSTEM_V8_DYNAMIC_ROUTES = [\n  /^\\/platform-v7\\/deals\\/[^/]+\\/accounting$/,\n] as const;\n\nfunction normalizePath(value: string | null | undefined): string {\n  return (value || '').split('?')[0].replace(/\\/$/, '') || '/platform-v7';\n}\n\nexport function isDesignSystemV8Route(value: string | null | undefined): boolean {\n  const pathname = normalizePath(value);\n  return DESIGN_SYSTEM_V8_EXACT_ROUTES.has(pathname)\n    || DESIGN_SYSTEM_V8_PREFIX_ROUTES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))\n    || DESIGN_SYSTEM_V8_DYNAMIC_ROUTES.some((pattern) => pattern.test(pathname));\n}\n\n// The inventory carries the dynamic class too, as pattern sources rather than\n// RegExp objects so it stays serialisable. A matcher present at runtime and\n// absent from the published policy would make the policy a partial account of\n// itself, and everything that audits this file audits the wrong thing.\nexport const DESIGN_SYSTEM_V8_ROUTE_POLICY = Object.freeze({\n  exact: Object.freeze([...DESIGN_SYSTEM_V8_EXACT_ROUTES]),\n  prefixes: Object.freeze([...DESIGN_SYSTEM_V8_PREFIX_ROUTES]),\n  dynamic: Object.freeze(DESIGN_SYSTEM_V8_DYNAMIC_ROUTES.map((pattern) => pattern.source)),\n});\n"},{"blob":"d94cc0d0af208fd6faea32e321a136629bef44f8","content":"const DESIGN_SYSTEM_V8_EXACT_ROUTES = new Set([\n  '/platform-v7/control-tower',\n  '/platform-v7/status',\n  '/platform-v7/health',\n  '/platform-v7/audit-log',\n  '/platform-v7/connectors',\n  '/platform-v7/integrations',\n  '/platform-v7/api-docs',\n  '/platform-v7/profile',\n  '/platform-v7/profile/team',\n  '/platform-v7/reports',\n  '/platform-v7/onboarding',\n  '/platform-v7/notifications',\n  '/platform-v7/operator',\n  '/platform-v7/operator-cockpit/queues',\n  '/platform-v7/buyer',\n  '/platform-v7/buyer/financing',\n  '/platform-v7/buyer/reputation',\n  '/platform-v7/seller',\n  '/platform-v7/seller/rfq',\n  '/platform-v7/seller/reputation',\n  '/platform-v7/logistics',\n  '/platform-v7/driver',\n  '/platform-v7/driver/field',\n  '/platform-v7/elevator',\n  '/platform-v7/lab',\n  '/platform-v7/surveyor',\n  '/platform-v7/bank',\n  '/platform-v7/compliance',\n  '/platform-v7/arbitrator',\n  '/platform-v7/executive',\n  '/platform-v7/deals',\n  '/platform-v7/commodity-profiles',\n  '/platform-v7/documents',\n  '/platform-v7/disputes',\n  '/platform-v7/money',\n  '/platform-v7/accounting',\n  '/platform-v7/bank/release-safety',\n  '/platform-v7/fgis-access',\n  '/platform-v7/deal-logistics',\n  '/platform-v7/deal-acceptance',\n  '/platform-v7/deal-documents-basis',\n]);\n\nconst DESIGN_SYSTEM_V8_PREFIX_ROUTES = [\n  '/platform-v7/commodity-profiles',\n  '/platform-v7/integrations',\n  '/platform-v7/auction',\n  '/platform-v7/buyer/rfq',\n  '/platform-v7/bank',\n  '/platform-v7/logistics',\n] as const;\n\n// Routes with an identifier in the middle, which neither an exact entry nor a\n// prefix can express. A prefix of '/platform-v7/deals' would sweep every deal\n// sub-route into the v8 class, which is a decision about somebody else's\n// screens and not one this registration is entitled to make. Anchored at both\n// ends so a longer path is not admitted by accident.\nconst DESIGN_SYSTEM_V8_DYNAMIC_ROUTES = [\n  /^\\/platform-v7\\/deals\\/[^/]+\\/accounting$/,\n  /^\\/platform-v7\\/deals\\/[^/]+\\/execution$/,\n] as const;\n\nfunction normalizePath(value: string | null | undefined): string {\n  return (value || '').split('?')[0].replace(/\\/$/, '') || '/platform-v7';\n}\n\nexport function isDesignSystemV8Route(value: string | null | undefined): boolean {\n  const pathname = normalizePath(value);\n  return DESIGN_SYSTEM_V8_EXACT_ROUTES.has(pathname)\n    || DESIGN_SYSTEM_V8_PREFIX_ROUTES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))\n    || DESIGN_SYSTEM_V8_DYNAMIC_ROUTES.some((pattern) => pattern.test(pathname));\n}\n\n// The inventory carries the dynamic class too, as pattern sources rather than\n// RegExp objects so it stays serialisable. A matcher present at runtime and\n// absent from the published policy would make the policy a partial account of\n// itself, and everything that audits this file audits the wrong thing.\nexport const DESIGN_SYSTEM_V8_ROUTE_POLICY = Object.freeze({\n  exact: Object.freeze([...DESIGN_SYSTEM_V8_EXACT_ROUTES]),\n  prefixes: Object.freeze([...DESIGN_SYSTEM_V8_PREFIX_ROUTES]),\n  dynamic: Object.freeze(DESIGN_SYSTEM_V8_DYNAMIC_ROUTES.map((pattern) => pattern.source)),\n});\n"},{"blob":"87ebc91bcc9a927dd6ad2d6f9afdfff8737d47bd","content":"import { describe, expect, it } from 'vitest';\nimport { canRoleAccessCabinet } from '../../lib/platform-v7/cabinet-access-policy';\nimport { isDesignSystemV8Route } from '../../lib/platform-v7/design-system-v8-route-policy';\nimport { platformV7RoleCanOpenHref } from '../../lib/platform-v7/shellRoutes';\n\n/**\n * Who can open the accounting surface, and whether it is reachable at all.\n *\n * The second question is not rhetorical. `apps/web/app/platform-v7/layout.tsx`\n * calls `notFound()` for any path the route policy does not know, before it\n * ever looks at a role — so a page that exists on disk and is absent from the\n * policy is a 404 with a file behind it. That is exactly what the accounting\n * board was until the route was registered, and this test is what fails if the\n * registration is lost again.\n *\n * The role fence here is the coarse one. The server decides for real: the API\n * answers 403 for a membership without accounting capability, and no client\n * list can grant what the server refuses. This one exists so a role that will\n * be refused anyway is not walked into a dead screen first.\n */\n\nconst ACCOUNTING = '/platform-v7/accounting';\nconst DEAL_ACCOUNTING = '/platform-v7/deals/D-2026-1/accounting';\n\ndescribe('platform-v7 accounting route access', () => {\n  it('registers both accounting routes in the design system v8 route class', () => {\n    expect(isDesignSystemV8Route(ACCOUNTING)).toBe(true);\n    expect(isDesignSystemV8Route(DEAL_ACCOUNTING)).toBe(true);\n  });\n\n  it('lets the roles that carry accounting work open the surface', () => {\n    for (const role of ['seller', 'buyer'] as const) {\n      expect(platformV7RoleCanOpenHref(role, ACCOUNTING)).toBe(true);\n      expect(canRoleAccessCabinet(role, ACCOUNTING)).toBe(true);\n      expect(canRoleAccessCabinet(role, DEAL_ACCOUNTING)).toBe(true);\n    }\n  });\n\n  it('keeps oversight roles able to open it without a per-role entry', () => {\n    for (const role of ['operator', 'executive'] as const) {\n      expect(canRoleAccessCabinet(role, ACCOUNTING)).toBe(true);\n    }\n  });\n\n  it('does not hand the surface to field roles that have no accounting work', () => {\n    for (const role of ['driver', 'lab', 'surveyor'] as const) {\n      expect(canRoleAccessCabinet(role, ACCOUNTING)).toBe(false);\n    }\n  });\n});\n"},{"blob":"a1290dc9b3ba122de480200ff5efa86445b5fe66","content":"import { describe, expect, it } from 'vitest';\nimport { canRoleAccessCabinet } from '../../lib/platform-v7/cabinet-access-policy';\nimport { isDesignSystemV8Route } from '../../lib/platform-v7/design-system-v8-route-policy';\nimport { platformV7RoleCanOpenHref } from '../../lib/platform-v7/shellRoutes';\n\n/**\n * Who can open the accounting surface, and whether it is reachable at all.\n *\n * The second question is not rhetorical. `apps/web/app/platform-v7/layout.tsx`\n * calls `notFound()` for any path the route policy does not know, before it\n * ever looks at a role — so a page that exists on disk and is absent from the\n * policy is a 404 with a file behind it. That is exactly what the accounting\n * board was until the route was registered, and this test is what fails if the\n * registration is lost again.\n *\n * The role fence here is the coarse one. The server decides for real: the API\n * answers 403 for a membership without accounting capability, and no client\n * list can grant what the server refuses. This one exists so a role that will\n * be refused anyway is not walked into a dead screen first.\n */\n\nconst ACCOUNTING = '/platform-v7/accounting';\nconst DEAL_ACCOUNTING = '/platform-v7/deals/D-2026-1/accounting';\n\ndescribe('platform-v7 accounting route access', () => {\n  it('registers both accounting routes in the design system v8 route class', () => {\n    expect(isDesignSystemV8Route(ACCOUNTING)).toBe(true);\n    expect(isDesignSystemV8Route(DEAL_ACCOUNTING)).toBe(true);\n  });\n\n  it('lets the roles that carry accounting work open the surface', () => {\n    for (const role of ['seller', 'buyer'] as const) {\n      expect(platformV7RoleCanOpenHref(role, ACCOUNTING)).toBe(true);\n      expect(canRoleAccessCabinet(role, ACCOUNTING)).toBe(true);\n      expect(canRoleAccessCabinet(role, DEAL_ACCOUNTING)).toBe(true);\n    }\n  });\n\n  it('keeps oversight roles able to open it without a per-role entry', () => {\n    for (const role of ['operator', 'executive'] as const) {\n      expect(canRoleAccessCabinet(role, ACCOUNTING)).toBe(true);\n    }\n  });\n\n  it('does not hand the surface to field roles that have no accounting work', () => {\n    for (const role of ['driver', 'lab', 'surveyor'] as const) {\n      expect(canRoleAccessCabinet(role, ACCOUNTING)).toBe(false);\n    }\n  });\n});\n\ndescribe('canonical Deal execution route registration', () => {\n  const dealId = 'dsv8-ready-bank-046f2994-08e4-4f67-8958-533c4c03bf5d';\n  const route = `/platform-v7/deals/${dealId}/execution`;\n\n  it('admits the real protected execution destination before the layout role check', () => {\n    for (const locale of ['ru', 'en', 'zh']) {\n      expect(isDesignSystemV8Route(`${route}?lang=${locale}`)).toBe(true);\n    }\n    expect(isDesignSystemV8Route(route + '/')).toBe(true);\n    expect(isDesignSystemV8Route('/platform-v7/deals/D-2026-1/execution')).toBe(true);\n  });\n\n  it('preserves existing bank and participant cabinet permissions', () => {\n    for (const role of ['bank', 'seller', 'buyer'] as const) {\n      expect(platformV7RoleCanOpenHref(role, route)).toBe(true);\n      expect(canRoleAccessCabinet(role, route)).toBe(true);\n    }\n    for (const role of ['driver', 'lab', 'surveyor'] as const) {\n      expect(canRoleAccessCabinet(role, DEAL_ACCOUNTING)).toBe(false);\n    }\n  });\n\n  it('does not admit sibling, missing-id or longer execution paths', () => {\n    for (const unknown of [\n      '/platform-v7/deals/execution',\n      '/platform-v7/deals//execution',\n      route + '/unknown',\n      route + '-unknown',\n      '/platform-v7/deals/D-2026-1/unknown',\n      '/platform-v7/deals/D-2026-1/execution/commands',\n    ]) expect(isDesignSystemV8Route(unknown)).toBe(false);\n  });\n});\n"},{"blob":"0e7d10b62a722802c76e73f2eb2e618953a383c5","content":"import fs from 'node:fs';\nimport path from 'node:path';\nimport { describe, expect, it } from 'vitest';\nimport { isDesignSystemV8Route } from '../../lib/platform-v7/design-system-v8-route-policy';\n\nconst root = process.cwd();\nconst absolute = (relativePath: string) => path.join(root, relativePath);\nconst read = (relativePath: string) => fs.readFileSync(absolute(relativePath), 'utf8');\n\nconst layout = read('apps/web/app/platform-v7/layout.tsx');\nconst template = read('apps/web/app/platform-v7/template.tsx');\nconst controlTower = read('apps/web/app/platform-v7/control-tower/page.tsx');\nconst routePolicy = read('apps/web/lib/platform-v7/design-system-v8-route-policy.ts');\nconst v8Runtime = read('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');\nconst fixedHeaderContract = read('apps/web/app/platform-v7/_styles/fixed-header-contract.css');\n\nconst removedRuntimeFiles = [\n  'apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx',\n  'apps/web/components/platform-v7/PlatformV7ProtectedTemplateRuntime.tsx',\n  'apps/web/components/platform-v7/PlatformV7TemplateGuards.tsx',\n  'apps/web/components/platform-v7/PlatformV7TemplateSwitch.tsx',\n  'apps/web/components/platform-v7/PlatformV7ProductionCopyPatch.tsx',\n  'apps/web/components/platform-v7/PlatformV7ScrollRestorationGuard.tsx',\n];\n\nconst roleRoutes = [\n  'operator', 'buyer', 'seller', 'logistics', 'driver', 'elevator',\n  'lab', 'surveyor', 'bank', 'compliance', 'arbitrator', 'executive',\n];\n\nconst criticalRoutes = [\n  '/platform-v7/control-tower',\n  '/platform-v7/deals',\n  '/platform-v7/documents',\n  '/platform-v7/disputes',\n  '/platform-v7/money',\n  '/platform-v7/bank/release-safety',\n  '/platform-v7/fgis-access',\n  '/platform-v7/deal-logistics',\n  '/platform-v7/deal-acceptance',\n  '/platform-v7/deal-documents-basis',\n];\n\nfunction quotedRoutes(block: string): string[] {\n  return [...block.matchAll(/'([^']+)'/g)].map((match) => match[1]);\n}\n\nfunction extractPublicPolicy(): { exact: Set<string>; prefixes: string[] } {\n  const exactBlock = layout.match(/const PUBLIC_EXACT_PATHS = new Set\\(\\[([\\s\\S]*?)\\]\\);/)?.[1] ?? '';\n  const prefixBlock = layout.match(/const PUBLIC_PREFIX_PATHS = \\[([\\s\\S]*?)\\];/)?.[1] ?? '';\n  return {\n    exact: new Set([\n      '/platform-v7',\n      '/platform-v7/login',\n      '/platform-v7/forgot-password',\n      ...quotedRoutes(exactBlock),\n    ]),\n    prefixes: quotedRoutes(prefixBlock),\n  };\n}\n\nfunction extractStaffPrefix(): string {\n  return layout.match(/const STAFF_PREFIX = '([^']+)'/)?.[1] ?? '';\n}\n\nfunction extractExactAliases(): Set<string> {\n  const block = layout.match(/const ALIAS_EXACT_PATHS = new Set\\(\\[([\\s\\S]*?)\\]\\);/)?.[1] ?? '';\n  return new Set(quotedRoutes(block));\n}\n\nfunction extractDynamicAliases(): RegExp[] {\n  const block = layout.match(/const ALIAS_DYNAMIC_PATHS = \\[([\\s\\S]*?)\\] as const;/)?.[1] ?? '';\n  return block\n    .split('\\n')\n    .map((line) => line.trim().replace(/,$/, ''))\n    .filter((line) => line.startsWith('/^') && line.endsWith('/'))\n    .map((line) => new RegExp(line.slice(1, -1)));\n}\n\nfunction walkPages(directory: string, output: string[] = []): string[] {\n  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {\n    const child = path.join(directory, entry.name);\n    if (entry.isDirectory()) walkPages(child, output);\n    else if (entry.isFile() && entry.name === 'page.tsx') output.push(child);\n  }\n  return output;\n}\n\nfunction routeFromPage(pagePath: string): string {\n  const appRoot = absolute('apps/web/app/platform-v7');\n  const segments = path.relative(appRoot, pagePath).split(path.sep);\n  segments.pop();\n  const routeSegments = segments.filter((segment) => !/^\\(.+\\)$/.test(segment) && !segment.startsWith('@'));\n  return ['/platform-v7', ...routeSegments].join('/').replace(/\\/$/, '') || '/platform-v7';\n}\n\nfunction sampleRoute(route: string): string {\n  return route.replace(/\\[[^/]+\\]/g, 'sample-id');\n}\n\nfunction matchesPrefix(route: string, prefix: string): boolean {\n  return Boolean(prefix) && (route === prefix || route.startsWith(`${prefix}/`));\n}\n\ndescribe('platform-v7 Design System v8 runtime isolation', () => {\n  it('registers all twelve role roots and accepted transaction routes in one server-safe policy', () => {\n    for (const role of roleRoutes) expect(routePolicy).toContain(`'/platform-v7/${role}'`);\n    for (const route of criticalRoutes) expect(routePolicy).toContain(`'${route}'`);\n    expect(routePolicy).toContain(\"'/platform-v7/deals/'\");\n    expect(routePolicy).toContain(\"'/platform-v7/auction'\");\n    expect(routePolicy).toContain('isDesignSystemV8Route');\n    expect(routePolicy).not.toContain(\"'use client'\");\n    expect(routePolicy).not.toContain('window.');\n    expect(routePolicy).not.toContain('document.');\n  });\n\n  it('fails unknown paths before auth and selects the v8 boundary only after verified role enforcement', () => {\n    expect(layout).toContain(\"from '@/lib/platform-v7/design-system-v8-route-policy'\");\n    expect(layout).toContain('if (!isKnownProtectedPath(pathname)) notFound()');\n    expect(layout).toContain('if (!role) redirect');\n    expect(layout).toContain('if (!canRoleAccessCabinet(role, pathname))');\n    expect(layout).toContain(\"await import('@/components/platform-v7/PlatformV7ProtectedRuntime')\");\n    expect(layout).toContain(\"await import('@/components/platform-v7/PlatformV7DesignSystemV8Runtime')\");\n    expect(layout).toContain('<PlatformV7DesignSystemV8Runtime>{protectedContent}</PlatformV7DesignSystemV8Runtime>');\n    expect(layout).toContain('if (!isDesignSystemV8Route(pathname)) return protectedContent');\n    expect(layout.indexOf('if (!isKnownProtectedPath(pathname)) notFound()')).toBeLessThan(\n      layout.indexOf('if (!role) redirect'),\n    );\n    expect(layout.indexOf('if (!role) redirect')).toBeLessThan(\n      layout.indexOf('if (!isDesignSystemV8Route(pathname)) return protectedContent'),\n    );\n    expect(layout).not.toContain('PlatformV7FullStyleRuntime');\n  });\n\n  it('keeps every server redirect route reachable through an explicit route class', () => {\n    const publicPolicy = extractPublicPolicy();\n    const staffPrefix = extractStaffPrefix();\n    const exactAliases = extractExactAliases();\n    const dynamicAliases = extractDynamicAliases();\n    const redirectRoutes = walkPages(absolute('apps/web/app/platform-v7'))\n      .filter((pagePath) => /\\bredirect\\s*\\(/.test(fs.readFileSync(pagePath, 'utf8')))\n      .map(routeFromPage);\n\n    expect(staffPrefix).toBe('/platform-v7/staff');\n\n    for (const route of redirectRoutes) {\n      const sample = sampleRoute(route);\n      const publicRoute = publicPolicy.exact.has(route)\n        || publicPolicy.prefixes.some((prefix) => matchesPrefix(sample, prefix));\n      const covered = publicRoute\n        || matchesPrefix(sample, staffPrefix)\n        || isDesignSystemV8Route(sample)\n        || exactAliases.has(route)\n        || dynamicAliases.some((pattern) => pattern.test(sample));\n      expect(covered, `redirect route is absent from route policy: ${route}`).toBe(true);\n    }\n  });\n\n  it('keeps the route template free of client guards and mutation repair', () => {\n    expect(template).toContain('return children');\n    expect(template).not.toContain(\"'use client'\");\n    expect(template).not.toContain('headers()');\n    expect(template).not.toContain('PlatformV7ProtectedTemplateRuntime');\n    expect(template).not.toContain('PlatformV7TemplateGuards');\n  });\n\n  it('physically removes historical runtime, copy-repair and scroll-polling files', () => {\n    for (const file of removedRuntimeFiles) expect(fs.existsSync(absolute(file))).toBe(false);\n  });\n\n  it('keeps the governed runtime token-only, hydration-safe and free of DOM/style repair code', () => {\n    expect(v8Runtime).toContain('packages/design-tokens/tokens.css');\n    expect(v8Runtime).not.toContain('<HydrationSafeChatSupport />');\n    expect(v8Runtime).not.toContain('<ChatSupportWidget />');\n    expect(v8Runtime).not.toContain('PlatformV7FullStyleRuntime');\n    expect(v8Runtime).not.toContain('PlatformV7TemplateGuards');\n    expect(v8Runtime).not.toContain('MutationObserver');\n    expect(v8Runtime).not.toContain('ResizeObserver');\n    expect(v8Runtime).not.toContain('setInterval');\n    expect(v8Runtime).not.toContain('setTimeout');\n    expect(v8Runtime).not.toContain('<style');\n    expect(v8Runtime).not.toContain('@/styles/');\n  });\n\n  it('keeps one canonical role-safe operator or executive workspace', () => {\n    expect(controlTower).toContain('readVerifiedCabinetSessionRole');\n    expect(controlTower).toContain('readVerifiedCabinetRole');\n    expect(controlTower).toContain(\"role === 'executive'\");\n    expect(controlTower).toContain(\"redirect('/platform-v7/executive')\");\n    expect(controlTower).toContain(\"redirect('/platform-v7/operator')\");\n    expect(controlTower).not.toContain('selectRuntimeDeals');\n    expect(controlTower).not.toContain('canonicalDomainDeals');\n    expect(controlTower).not.toContain('ControlTowerCharts');\n    expect(controlTower).not.toContain('dangerouslySetInnerHTML');\n    expect(controlTower).not.toContain('style=');\n    expect(controlTower).not.toContain('useSearchParams');\n    expect(controlTower).not.toContain('localStorage');\n  });\n\n  it('prevents root compatibility CSS from overriding the governed AppShell module', () => {\n    expect(fixedHeaderContract).not.toContain('.pc-v4-header');\n    expect(fixedHeaderContract).not.toContain('.pc-shell-root-v4');\n    expect(fixedHeaderContract).toContain('.pc-site-header');\n    expect(fixedHeaderContract).toContain('[data-staff-platform-shell]');\n  });\n});\n"},{"blob":"043c10b308d52091cebb1b7a26dd31fc23a0bc45","content":"import fs from 'node:fs';\nimport path from 'node:path';\nimport { describe, expect, it } from 'vitest';\nimport { DESIGN_SYSTEM_V8_ROUTE_POLICY, isDesignSystemV8Route } from '../../lib/platform-v7/design-system-v8-route-policy';\n\nconst root = process.cwd();\nconst absolute = (relativePath: string) => path.join(root, relativePath);\nconst read = (relativePath: string) => fs.readFileSync(absolute(relativePath), 'utf8');\n\nconst layout = read('apps/web/app/platform-v7/layout.tsx');\nconst template = read('apps/web/app/platform-v7/template.tsx');\nconst controlTower = read('apps/web/app/platform-v7/control-tower/page.tsx');\nconst routePolicy = read('apps/web/lib/platform-v7/design-system-v8-route-policy.ts');\nconst v8Runtime = read('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');\nconst fixedHeaderContract = read('apps/web/app/platform-v7/_styles/fixed-header-contract.css');\n\nconst removedRuntimeFiles = [\n  'apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx',\n  'apps/web/components/platform-v7/PlatformV7ProtectedTemplateRuntime.tsx',\n  'apps/web/components/platform-v7/PlatformV7TemplateGuards.tsx',\n  'apps/web/components/platform-v7/PlatformV7TemplateSwitch.tsx',\n  'apps/web/components/platform-v7/PlatformV7ProductionCopyPatch.tsx',\n  'apps/web/components/platform-v7/PlatformV7ScrollRestorationGuard.tsx',\n];\n\nconst roleRoutes = [\n  'operator', 'buyer', 'seller', 'logistics', 'driver', 'elevator',\n  'lab', 'surveyor', 'bank', 'compliance', 'arbitrator', 'executive',\n];\n\nconst criticalRoutes = [\n  '/platform-v7/control-tower',\n  '/platform-v7/deals',\n  '/platform-v7/documents',\n  '/platform-v7/disputes',\n  '/platform-v7/money',\n  '/platform-v7/bank/release-safety',\n  '/platform-v7/fgis-access',\n  '/platform-v7/deal-logistics',\n  '/platform-v7/deal-acceptance',\n  '/platform-v7/deal-documents-basis',\n];\n\nfunction quotedRoutes(block: string): string[] {\n  return [...block.matchAll(/'([^']+)'/g)].map((match) => match[1]);\n}\n\nfunction extractPublicPolicy(): { exact: Set<string>; prefixes: string[] } {\n  const exactBlock = layout.match(/const PUBLIC_EXACT_PATHS = new Set\\(\\[([\\s\\S]*?)\\]\\);/)?.[1] ?? '';\n  const prefixBlock = layout.match(/const PUBLIC_PREFIX_PATHS = \\[([\\s\\S]*?)\\];/)?.[1] ?? '';\n  return {\n    exact: new Set([\n      '/platform-v7',\n      '/platform-v7/login',\n      '/platform-v7/forgot-password',\n      ...quotedRoutes(exactBlock),\n    ]),\n    prefixes: quotedRoutes(prefixBlock),\n  };\n}\n\nfunction extractStaffPrefix(): string {\n  return layout.match(/const STAFF_PREFIX = '([^']+)'/)?.[1] ?? '';\n}\n\nfunction extractExactAliases(): Set<string> {\n  const block = layout.match(/const ALIAS_EXACT_PATHS = new Set\\(\\[([\\s\\S]*?)\\]\\);/)?.[1] ?? '';\n  return new Set(quotedRoutes(block));\n}\n\nfunction extractDynamicAliases(): RegExp[] {\n  const block = layout.match(/const ALIAS_DYNAMIC_PATHS = \\[([\\s\\S]*?)\\] as const;/)?.[1] ?? '';\n  return block\n    .split('\\n')\n    .map((line) => line.trim().replace(/,$/, ''))\n    .filter((line) => line.startsWith('/^') && line.endsWith('/'))\n    .map((line) => new RegExp(line.slice(1, -1)));\n}\n\nfunction walkPages(directory: string, output: string[] = []): string[] {\n  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {\n    const child = path.join(directory, entry.name);\n    if (entry.isDirectory()) walkPages(child, output);\n    else if (entry.isFile() && entry.name === 'page.tsx') output.push(child);\n  }\n  return output;\n}\n\nfunction routeFromPage(pagePath: string): string {\n  const appRoot = absolute('apps/web/app/platform-v7');\n  const segments = path.relative(appRoot, pagePath).split(path.sep);\n  segments.pop();\n  const routeSegments = segments.filter((segment) => !/^\\(.+\\)$/.test(segment) && !segment.startsWith('@'));\n  return ['/platform-v7', ...routeSegments].join('/').replace(/\\/$/, '') || '/platform-v7';\n}\n\nfunction sampleRoute(route: string): string {\n  return route.replace(/\\[[^/]+\\]/g, 'sample-id');\n}\n\nfunction matchesPrefix(route: string, prefix: string): boolean {\n  return Boolean(prefix) && (route === prefix || route.startsWith(`${prefix}/`));\n}\n\ndescribe('platform-v7 Design System v8 runtime isolation', () => {\n  it('registers all twelve role roots and accepted transaction routes in one server-safe policy', () => {\n    for (const role of roleRoutes) expect(routePolicy).toContain(`'/platform-v7/${role}'`);\n    for (const route of criticalRoutes) expect(routePolicy).toContain(`'${route}'`);\n    expect(isDesignSystemV8Route('/platform-v7/deals/sample-id/execution')).toBe(true);\n    expect(DESIGN_SYSTEM_V8_ROUTE_POLICY.dynamic).toContain(/^\\/platform-v7\\/deals\\/[^/]+\\/execution$/.source);\n    expect(routePolicy).toContain(\"'/platform-v7/auction'\");\n    expect(routePolicy).toContain('isDesignSystemV8Route');\n    expect(routePolicy).not.toContain(\"'use client'\");\n    expect(routePolicy).not.toContain('window.');\n    expect(routePolicy).not.toContain('document.');\n  });\n\n  it('fails unknown paths before auth and selects the v8 boundary only after verified role enforcement', () => {\n    expect(layout).toContain(\"from '@/lib/platform-v7/design-system-v8-route-policy'\");\n    expect(layout).toContain('if (!isKnownProtectedPath(pathname)) notFound()');\n    expect(layout).toContain('if (!role) redirect');\n    expect(layout).toContain('if (!canRoleAccessCabinet(role, pathname))');\n    expect(layout).toContain(\"await import('@/components/platform-v7/PlatformV7ProtectedRuntime')\");\n    expect(layout).toContain(\"await import('@/components/platform-v7/PlatformV7DesignSystemV8Runtime')\");\n    expect(layout).toContain('<PlatformV7DesignSystemV8Runtime>{protectedContent}</PlatformV7DesignSystemV8Runtime>');\n    expect(layout).toContain('if (!isDesignSystemV8Route(pathname)) return protectedContent');\n    expect(layout.indexOf('if (!isKnownProtectedPath(pathname)) notFound()')).toBeLessThan(\n      layout.indexOf('if (!role) redirect'),\n    );\n    expect(layout.indexOf('if (!role) redirect')).toBeLessThan(\n      layout.indexOf('if (!isDesignSystemV8Route(pathname)) return protectedContent'),\n    );\n    expect(layout).not.toContain('PlatformV7FullStyleRuntime');\n  });\n\n  it('keeps every server redirect route reachable through an explicit route class', () => {\n    const publicPolicy = extractPublicPolicy();\n    const staffPrefix = extractStaffPrefix();\n    const exactAliases = extractExactAliases();\n    const dynamicAliases = extractDynamicAliases();\n    const redirectRoutes = walkPages(absolute('apps/web/app/platform-v7'))\n      .filter((pagePath) => /\\bredirect\\s*\\(/.test(fs.readFileSync(pagePath, 'utf8')))\n      .map(routeFromPage);\n\n    expect(staffPrefix).toBe('/platform-v7/staff');\n\n    for (const route of redirectRoutes) {\n      const sample = sampleRoute(route);\n      const publicRoute = publicPolicy.exact.has(route)\n        || publicPolicy.prefixes.some((prefix) => matchesPrefix(sample, prefix));\n      const covered = publicRoute\n        || matchesPrefix(sample, staffPrefix)\n        || isDesignSystemV8Route(sample)\n        || exactAliases.has(route)\n        || dynamicAliases.some((pattern) => pattern.test(sample));\n      expect(covered, `redirect route is absent from route policy: ${route}`).toBe(true);\n    }\n  });\n\n  it('keeps the route template free of client guards and mutation repair', () => {\n    expect(template).toContain('return children');\n    expect(template).not.toContain(\"'use client'\");\n    expect(template).not.toContain('headers()');\n    expect(template).not.toContain('PlatformV7ProtectedTemplateRuntime');\n    expect(template).not.toContain('PlatformV7TemplateGuards');\n  });\n\n  it('physically removes historical runtime, copy-repair and scroll-polling files', () => {\n    for (const file of removedRuntimeFiles) expect(fs.existsSync(absolute(file))).toBe(false);\n  });\n\n  it('keeps the governed runtime token-only, hydration-safe and free of DOM/style repair code', () => {\n    expect(v8Runtime).toContain('packages/design-tokens/tokens.css');\n    expect(v8Runtime).not.toContain('<HydrationSafeChatSupport />');\n    expect(v8Runtime).not.toContain('<ChatSupportWidget />');\n    expect(v8Runtime).not.toContain('PlatformV7FullStyleRuntime');\n    expect(v8Runtime).not.toContain('PlatformV7TemplateGuards');\n    expect(v8Runtime).not.toContain('MutationObserver');\n    expect(v8Runtime).not.toContain('ResizeObserver');\n    expect(v8Runtime).not.toContain('setInterval');\n    expect(v8Runtime).not.toContain('setTimeout');\n    expect(v8Runtime).not.toContain('<style');\n    expect(v8Runtime).not.toContain('@/styles/');\n  });\n\n  it('keeps one canonical role-safe operator or executive workspace', () => {\n    expect(controlTower).toContain('readVerifiedCabinetSessionRole');\n    expect(controlTower).toContain('readVerifiedCabinetRole');\n    expect(controlTower).toContain(\"role === 'executive'\");\n    expect(controlTower).toContain(\"redirect('/platform-v7/executive')\");\n    expect(controlTower).toContain(\"redirect('/platform-v7/operator')\");\n    expect(controlTower).not.toContain('selectRuntimeDeals');\n    expect(controlTower).not.toContain('canonicalDomainDeals');\n    expect(controlTower).not.toContain('ControlTowerCharts');\n    expect(controlTower).not.toContain('dangerouslySetInnerHTML');\n    expect(controlTower).not.toContain('style=');\n    expect(controlTower).not.toContain('useSearchParams');\n    expect(controlTower).not.toContain('localStorage');\n  });\n\n  it('prevents root compatibility CSS from overriding the governed AppShell module', () => {\n    expect(fixedHeaderContract).not.toContain('.pc-v4-header');\n    expect(fixedHeaderContract).not.toContain('.pc-shell-root-v4');\n    expect(fixedHeaderContract).toContain('.pc-site-header');\n    expect(fixedHeaderContract).toContain('[data-staff-platform-shell]');\n  });\n});\n"}].map(item=>{const bytes=Buffer.from(item.content);assert.equal(createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex'),item.blob);return[item.blob,bytes];}));
+
+const routeGuardPurposeTemplate = {
+  "owner": "ACCOUNT_2_PRODUCT",
+  "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+  "purpose": "Renew only the already admitted protected guard ref to bind the exact Deal execution route prerequisite, including trusted-base workflow routing after native review proved PRIMARY inheritance, inert source pins and candidate-owned guard execution.",
+  "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+  "allowedPaths": [
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-autopilot-guard.test.mjs",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
+  ],
+  "retainedAcceptedGuardScope": [
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-autopilot-guard.test.mjs",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
+  ],
+  "futureAdmissionBranch": "governance/product-deal-execution-route-20261001",
+  "futureImplementationBranch": "fix/deal-execution-route-20261001",
+  "futureAllowedPaths": [
+    "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+    "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+    "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts"
+  ],
+  "futureExactSourcePins": [
+    [
+      "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+      "b9b96c88695c7960a309e98e691c348fec03a2b0",
+      "d94cc0d0af208fd6faea32e321a136629bef44f8"
+    ],
+    [
+      "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+      "87ebc91bcc9a927dd6ad2d6f9afdfff8737d47bd",
+      "a1290dc9b3ba122de480200ff5efa86445b5fe66"
+    ],
+    [
+      "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts",
+      "0e7d10b62a722802c76e73f2eb2e618953a383c5",
+      "043c10b308d52091cebb1b7a26dd31fc23a0bc45"
+    ]
+  ],
+  "requiredFutureSourceMode": "100644",
+  "privateRoutePayloadSha256": "d4c4bf61d3813e2d0d4b9c364c81941ab88039b078413addc5eb1d3ca750e884",
+  "blockingNativeFindings": [
+    4155054017,
+    4155054022,
+    4155554749
+  ],
+  "grantRouteSourceAuthority": false,
+  "guardAdoptionRequiresCoreHandoff": true,
+  "requiredTruthBoundaries": [
+    "Purpose only: renew this one record without a route SOURCE vector. All other old state bytes/values, admissions/vectors, PRIMARY/current/global/R1.2 scope, official5/100 and runtime remain unchanged.",
+    "Renew only the existing protected three-path guard ref; the correction changes exactly the three recorded guard/test/workflow blobs with original100755/100644/100644 modes and unchanged accepted state. Do not introduce another shared guard writer.",
+    "The accepted guard must discard PRIMARY/source-controlled expansion for the route SOURCE ref, bind exact trusted-base state/three paths/blobs/modes/ancestry and reject extra, partial, wrong-byte, wrong-mode, rename/delete and candidate-owned authority cases.",
+    "Both exact route branches must run the accepted BASE guard in the existing pull_request_target immutable job and PR-head defense, pass both shell allow-lists, and be excluded from candidate-owned standard/active guard paths. Preserve every old predicate, workflow trigger, permission, check binding and all other branches; do not let a candidate guard/test replace its validator.",
+    "The next state-only admission and route SOURCE remain separate accepted-base-reviewed native-gated phases. Purpose and guard code grant no route SOURCE vector, ordinary role/session/money/provider authority or live acceptance.",
+    "CORE retains current source and first-merge priority. Every guard/admission/SOURCE adoption waits for actual handoff, fresh MAIN/Hub/ownership checks, independent complete-head review, strict author audit, all substantive native/security gates and normal expected-full-SHA manual merge."
+  ],
+  "forbiddenAuthority": [
+    "SOURCE route/self-admission or arbitrary scope/state changes",
+    "CORE/API/DB/RLS/role/session/money/provider/FGIS/deployment authority",
+    "CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
+  ]
+};
+const routeSourceAdmissionTemplate = {
+  "owner": "ACCOUNT_2_PRODUCT",
+  "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+  "purpose": "Register only the existing protected canonical Deal execution destination after the genuine native BANK queue journey returned layout404; preserve all server role, tenant, membership and command authority.",
+  "authorityBaseExactMain": "3372f85ee832cd0e7a199c71f44eb32462138fc2",
+  "implementationBranch": "fix/deal-execution-route-20261001",
+  "allowedPaths": [
+    "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+    "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+    "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts"
+  ],
+  "exactSourcePins": [
+    [
+      "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+      "b9b96c88695c7960a309e98e691c348fec03a2b0",
+      "d94cc0d0af208fd6faea32e321a136629bef44f8"
+    ],
+    [
+      "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+      "87ebc91bcc9a927dd6ad2d6f9afdfff8737d47bd",
+      "a1290dc9b3ba122de480200ff5efa86445b5fe66"
+    ],
+    [
+      "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts",
+      "0e7d10b62a722802c76e73f2eb2e618953a383c5",
+      "043c10b308d52091cebb1b7a26dd31fc23a0bc45"
+    ]
+  ],
+  "requiredSourceMode": "100644",
+  "nativeFailureEvidence": {
+    "pr": 5735,
+    "head": "1fdd8981106145df244420138b86fc6ae4f23d48",
+    "workflowRun": 36849109373,
+    "job": 110326285988,
+    "failedProjects": 5,
+    "observedStatus": 404,
+    "diagnosisHubComment": 5930062482
+  },
+  "privatePayload": {
+    "bytes": 4262,
+    "sha256": "d4c4bf61d3813e2d0d4b9c364c81941ab88039b078413addc5eb1d3ca750e884",
+    "candidateTestsPassed": 15,
+    "unchangedBaselinePassed": 12,
+    "unchangedBaselineFailed": 3
+  },
+  "requiredTruthBoundaries": [
+    "Separate state-only proposal. Preserve all prior state bytes/values except the append of one exact concurrent three-path vector and this one record. Primary/current/global/R1.2 scopes, all historical admissions, every other branch, official5/100 progress, maturity and canonical CORE source ownership remain unchanged.",
+    "The future source phase changes exactly the three pinned regular files, retains unchanged accepted-base state/guard/workflows/security/registry/source modes and all other leaves, and requires an independently reviewed accepted MAIN admission before publication.",
+    "Add only anchored /platform-v7/deals/<one-id>/execution registration and remove only the broken trailing-slash Deal prefix. Keep anchored accounting, all other role and route classes, unknown-route rejection before auth, signed session and API membership checks. Do not repair the prefix by broadly admitting all Deal subroutes.",
+    "Preserve every existing test and replace the broken prefix text assertion with behavioral execution reachability plus published dynamic-policy coverage. Exercise all three locales, valid canonical IDs, missing/empty IDs, malformed double slash and extra/nested/sibling paths; retain accounting negative roles.",
+    "Keep the current original BANK source unchanged until this prerequisite is accepted. Then normally compose its original head with accepted current MAIN, preserving the original two source pins and bounded E2E case; obtain fresh whole-head review, owner audit and native five-browser/Kubernetes/readiness results.",
+    "Private15-test/typecheck results and the original404 diagnosis do not establish current-head native CI, browser acceptance, exact REG.RU deployment, real providers or actual13-cabinet closure. Never rerun the failed unchanged BANK head or lower assertions to get green.",
+    "While canonical CORE6 window5930002118 remains active, only an unmerged one-file metadata review proposal is prepared under bounded decision5930593870. This proposal changes no accepted state, grants no SOURCE authority and performs no SOURCE/MAIN/guard/release mutation. Any metadata adoption/merge and future SOURCE publication are serialized after actual CORE HANDOFF/DONE, fresh Hub/main/source/scope recheck, every applicable substantive CI/security, independent current-head review, separate author audit and normal expected-full-SHA manual merge."
+  ],
+  "forbiddenAuthority": [
+    "API/DB/RLS/role/tenant/session/command/money/provider/FGIS or new CORE authority",
+    "Broad Deal-prefix admission, route/auth bypass, original BANK source replacement or competing owner branch",
+    "CI/security/readiness/review weakening, fake history/PASS, forced/automatic merge, release/model mutation or new recurring cost"
+  ],
+  "metadataPreparationDecision": "Team Hub #5469 comment5930593870"
+};
+const routeGuardPurposeKey = 'deal-execution-route-guard-purpose-20261001';
+const routeAdmissionKey = 'deal-execution-route-20261001';
+const routeSourceBranch = routeGuardPurposeTemplate.futureImplementationBranch;
+const routeAdmissionBranch = routeGuardPurposeTemplate.futureAdmissionBranch;
+const routeGuardBranch = routeGuardPurposeTemplate.implementationBranch;
+const routePins = routeGuardPurposeTemplate.futureExactSourcePins;
+const routeBlob = bytes => createHash('sha1').update(`blob ${Buffer.byteLength(bytes)}\0`).update(bytes).digest('hex');
+const routeGuardBytes = fs.readFileSync(sourceGuard);
+const routeTestBytes = fs.readFileSync(path.resolve('scripts/p7-autopilot-guard.test.mjs'));
+const routeWorkflowPath = '.github/workflows/platform-v7-autopilot-guard.yml';
+const routeWorkflowBytes = fs.readFileSync(path.resolve(routeWorkflowPath));
+const routeWorkflowBeforeResult = spawnSync('git', ['cat-file', 'blob', '90f6c2b52b25b7a4f09446b7dafb36270f9969dc'], { encoding: 'utf8' });
+assert.equal(routeWorkflowBeforeResult.status, 0, 'Actual accepted workflow blob is required; no invented baseline');
+const routeWorkflowBeforeBytes = routeWorkflowBeforeResult.stdout;
+assert.equal(routeBlob(routeWorkflowBeforeBytes), '90f6c2b52b25b7a4f09446b7dafb36270f9969dc');
+const routeGuardPins = [
+  ['scripts/p7-autopilot-guard.sh', '38be109d11422546c07fd96db283d848599a709f', routeBlob(routeGuardBytes), '100755'],
+  ['scripts/p7-autopilot-guard.test.mjs', 'db910d2e6c2521957fb8719f7e5af659a8cd0165', routeBlob(routeTestBytes), '100644'],
+  [routeWorkflowPath, '90f6c2b52b25b7a4f09446b7dafb36270f9969dc', routeBlob(routeWorkflowBytes), '100644'],
+];
+function routeFixture(t, { branch = routeSourceBranch, admitted = true, guardAdoption = false, purpose = true } = {}) {
+  const c = fixture(t, branch);
+  fs.mkdirSync(path.join(c.root, 'docs/platform-v7/autopilot/scopes'), { recursive: true });
+  const p = path.join(c.root, dealRuntimeStatePath);
+  const s = JSON.parse(fs.readFileSync(p, 'utf8'));
+  delete s.approvedConcurrentScopes[branch];
+  s.allowedCurrentScope.push('docs/execution/**', 'apps/api/src/modules/staff-access/**');
+  s.approvedConcurrentScopes[routeGuardBranch] = routeGuardPurposeTemplate.retainedAcceptedGuardScope;
+  s.coordinationAdmissions = {};
+  if (purpose) s.coordinationAdmissions[routeGuardPurposeKey] = {
+    ...structuredClone(routeGuardPurposeTemplate), authorityBaseExactMain: c.baseline, exactGuardSourcePins: structuredClone(routeGuardPins),
+  };
+  for (const [file, before] of routePins) write(c.root, file, routeActualBlobs.get(before));
+  write(c.root, routeWorkflowPath, guardAdoption ? routeWorkflowBeforeBytes : routeWorkflowBytes, 0o644);
+  write(c.root, 'scripts/p7-autopilot-guard.test.mjs',
+    guardAdoption ? actualLocaleBaselineBlob(routeGuardPins[1][1]) : routeTestBytes, 0o644);
+  if (guardAdoption) write(c.root, 'scripts/p7-autopilot-guard.sh', actualLocaleBaselineBlob(routeGuardPins[0][1]), 0o755);
+  write(c.root, dealRuntimeStatePath, JSON.stringify(s, null, 2) + '\n');
+  commit(c.root, 'accepted guard-purpose fixture');
+  c.baseline = git(c.root, ['rev-parse', 'HEAD']);
+  if (admitted) {
+    addRouteAdmission(c);
+    commit(c.root, 'separate route state-only fixture');
+    c.baseline = git(c.root, ['rev-parse', 'HEAD']);
+  }
+  return c;
+}
+function addRouteAdmission(c, mutate = () => {}) {
+  const p = path.join(c.root, dealRuntimeStatePath), s = JSON.parse(fs.readFileSync(p, 'utf8'));
+  s.approvedConcurrentScopes[routeSourceBranch] = routePins.map(pin => pin[0]);
+  s.coordinationAdmissions[routeAdmissionKey] = {
+    ...structuredClone(routeSourceAdmissionTemplate), authorityBaseExactMain: c.baseline, guardPurposeKey: routeGuardPurposeKey,
+  };
+  mutate(s); write(c.root, dealRuntimeStatePath, JSON.stringify(s, null, 2) + '\n');
+}
+function applyRoute(c) {
+  for (const [file,, after] of routePins) write(c.root, file, routeActualBlobs.get(after));
+  commit(c.root, 'actual pinned three-file route repair fixture');
+}
+function rejectRoute(c, pattern = /DEAL_ROUTE_|outside immutable/u) {
+  const r = runTrustedDealRuntimeGuard(c); assert.notEqual(r.status, 0, output(r)); assert.match(output(r), pattern);
+}
+function runOldRouteControl(c) {
+  const old = path.join(c.root, '.git', 'actual-old-route-guard-control.sh');
+  fs.writeFileSync(old, actualLocaleBaselineBlob('38be109d11422546c07fd96db283d848599a709f'));
+  return spawnSync('bash', [old], { cwd: c.root,
+    env: { ...process.env, BASE_REF: c.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: c.implementationBranch }, encoding: 'utf8' });
+}
+test('Deal route: actual three-file pins and regular modes pass trusted BASE', t => {
+  const c = routeFixture(t); applyRoute(c); const r = runTrustedDealRuntimeGuard(c); assert.equal(r.status, 0, output(r));
+  assert.deepEqual(git(c.root, ['diff','--name-only',c.baseline+'...HEAD']).split('\n').sort(), routePins.map(p=>p[0]).sort());
+});
+test('Deal route: reviewer PRIMARY-scope probe fails; unchanged old guard accepts it', t => {
+  const c = routeFixture(t); write(c.root, 'docs/execution/route-guard-out-of-vector-probe.md','probe\n'); commit(c.root,'same native P1 probe');
+  rejectRoute(c,/DEAL_ROUTE_(SOURCE_DIFF_SCOPE|PIN_OR_MODE)/u); const control=runOldRouteControl(c); assert.equal(control.status,0,output(control));
+});
+test('Deal route: reviewer arbitrary-byte probe fails; unchanged old guard accepts it', t => {
+  const c = routeFixture(t); applyRoute(c); write(c.root,routePins[0][0],'arbitrary content\n'); commit(c.root,'same native P1 bytes probe');
+  rejectRoute(c,/DEAL_ROUTE_PIN_OR_MODE/u); const control=runOldRouteControl(c); assert.equal(control.status,0,output(control));
+});
+for (const [name,mutate] of [
+  ['inherited staff file',c=>write(c.root,'apps/api/src/modules/staff-access/route-probe.ts','extra\n')],
+  ['partial two files',c=>write(c.root,routePins[2][0],routeActualBlobs.get(routePins[2][1]))],
+  ['extra governance file',c=>write(c.root,'docs/execution/extra.md','extra\n')],
+  ['candidate scope self-grant',c=>{const p=path.join(c.root,dealRuntimeStatePath),s=JSON.parse(fs.readFileSync(p,'utf8'));s.approvedConcurrentScopes[routeSourceBranch].push('apps/api/**');write(c.root,dealRuntimeStatePath,JSON.stringify(s,null,2)+'\n');}],
+  ['candidate pin self-grant',c=>{const p=path.join(c.root,dealRuntimeStatePath),s=JSON.parse(fs.readFileSync(p,'utf8'));s.coordinationAdmissions[routeAdmissionKey].exactSourcePins[0][2]='0'.repeat(40);write(c.root,dealRuntimeStatePath,JSON.stringify(s,null,2)+'\n');}],
+  ['deleted required test',c=>fs.unlinkSync(path.join(c.root,routePins[1][0]))],
+  ['renamed required source',c=>fs.renameSync(path.join(c.root,routePins[0][0]),path.join(c.root,'renamed-route-policy.ts'))],
+]) test('Deal route: rejects '+name,t=>{const c=routeFixture(t);applyRoute(c);mutate(c);commit(c.root,'route attack '+name);rejectRoute(c);});
+for (const mode of ['100755','120000']) test('Deal route: exact source blob in mode '+mode+' rejects',t=>{
+  const c=routeFixture(t);applyRoute(c);git(c.root,['update-index','--cacheinfo',mode+','+routePins[0][2]+','+routePins[0][0]]);git(c.root,['commit','-m','wrong source mode']);rejectRoute(c,/DEAL_ROUTE_PIN_OR_MODE/u);
+});
+test('Deal route: purpose alone cannot grant SOURCE',t=>{const c=routeFixture(t,{admitted:false});applyRoute(c);rejectRoute(c,/DEAL_ROUTE_ACCEPTED_ADMISSION_MISMATCH/u);});
+test('Deal route: absent trusted purpose rejects SOURCE',t=>{const c=routeFixture(t,{purpose:false});applyRoute(c);rejectRoute(c,/DEAL_ROUTE_PURPOSE_MISMATCH/u);});
+test('Deal route: separate exact state-only admission passes',t=>{
+  const c=routeFixture(t,{branch:routeAdmissionBranch,admitted:false});addRouteAdmission(c);commit(c.root,'route metadata only');const r=runTrustedDealRuntimeGuard(c);assert.equal(r.status,0,output(r));
+});
+for (const [name,mutate] of [
+  ['primary scope',s=>s.allowedCurrentScope.push('apps/web/**')],
+  ['wrong source pin',s=>s.coordinationAdmissions[routeAdmissionKey].exactSourcePins[0][2]='0'.repeat(40)],
+  ['wrong source mode',s=>s.coordinationAdmissions[routeAdmissionKey].requiredSourceMode='100755'],
+  ['wrong source owner',s=>s.coordinationAdmissions[routeAdmissionKey].owner='ACCOUNT_1_CORE'],
+  ['extra route path',s=>s.approvedConcurrentScopes[routeSourceBranch].push('README.md')],
+]) test('Deal route: metadata rejects '+name,t=>{
+  const c=routeFixture(t,{branch:routeAdmissionBranch,admitted:false});addRouteAdmission(c,mutate);commit(c.root,'bad route metadata');rejectRoute(c,/DEAL_ROUTE_ADMISSION_STATE_MUTATION/u);
+});
+test('Deal route: metadata cannot mix reviewed SOURCE',t=>{
+  const c=routeFixture(t,{branch:routeAdmissionBranch,admitted:false});addRouteAdmission(c);write(c.root,routePins[0][0],routeActualBlobs.get(routePins[0][2]));commit(c.root,'mixed route metadata');rejectRoute(c,/DEAL_ROUTE_ADMISSION_DIFF_SCOPE/u);
+});
+test('Deal route: accepted wrong ancestry rejects before SOURCE',t=>{
+  const c=routeFixture(t);const p=path.join(c.root,dealRuntimeStatePath),s=JSON.parse(fs.readFileSync(p,'utf8'));s.coordinationAdmissions[routeAdmissionKey].authorityBaseExactMain='0'.repeat(40);write(c.root,dealRuntimeStatePath,JSON.stringify(s,null,2)+'\n');commit(c.root,'bad ancestor fixture');c.baseline=git(c.root,['rev-parse','HEAD']);applyRoute(c);rejectRoute(c,/DEAL_ROUTE_AUTHORITY_NOT_ANCESTOR/u);
+});
+function applyRouteGuard(c) {
+  write(c.root,'scripts/p7-autopilot-guard.sh',routeGuardBytes,0o755);
+  write(c.root,'scripts/p7-autopilot-guard.test.mjs',routeTestBytes,0o644);
+  write(c.root,routeWorkflowPath,routeWorkflowBytes,0o644);commit(c.root,'exact guard workflow three fixture');
+}
+function runRouteGuardCandidate(c) {
+  const script=path.join(c.root,'.git','reviewed-guard-candidate.sh');fs.writeFileSync(script,routeGuardBytes);
+  return spawnSync('bash',[script],{cwd:c.root,env:{...process.env,BASE_REF:c.baseline,HEAD_REF:'HEAD',GITHUB_HEAD_REF:c.implementationBranch},encoding:'utf8'});
+}
+test('Deal route: existing protected-ref guard correction is exactly three pinned files',t=>{
+  const c=routeFixture(t,{branch:routeGuardBranch,admitted:false,guardAdoption:true});applyRouteGuard(c);const r=runRouteGuardCandidate(c);assert.equal(r.status,0,output(r));
+});
+for(const [name,mutate] of [
+ ['altered pinned workflow',c=>write(c.root,'.github/workflows/platform-v7-autopilot-guard.yml','name: altered\n')],
+ ['arbitrary guard bytes',c=>write(c.root,'scripts/p7-autopilot-guard.sh','#!/bin/bash\nexit 0\n',0o755)],
+ ['wrong guard mode',c=>{git(c.root,['update-index','--cacheinfo','100644,'+routeGuardPins[0][2]+',scripts/p7-autopilot-guard.sh']);git(c.root,['commit','-m','wrong guard mode']);}],
+]) test('Deal route: guard correction rejects '+name,t=>{
+ const c=routeFixture(t,{branch:routeGuardBranch,admitted:false,guardAdoption:true});applyRouteGuard(c);mutate(c);if(name!=='wrong guard mode')commit(c.root,'guard attack');const r=runRouteGuardCandidate(c);assert.notEqual(r.status,0,output(r));assert.match(output(r),/DEAL_ROUTE_/u);
+});
+
+// Native workflow P1: actual accepted/proposed predicates, shell allow-lists and real Git/BASE attacks.
+function routeWorkflowJobText(workflow,key) {
+ const jobs=[...workflow.matchAll(/^  ([a-z][a-z0-9_-]*):\n/gm)].filter(m=>m.index>workflow.indexOf('\njobs:\n'));
+ const i=jobs.findIndex(m=>m[1]===key);assert.notEqual(i,-1,'Missing workflow job '+key);
+ return workflow.slice(jobs[i].index,jobs[i+1]?.index??workflow.length);
+}
+
+function routeWorkflowStepText(job,name) {
+ const token='      - name: '+name+'\n',at=job.indexOf(token);assert.notEqual(at,-1,'Missing workflow step '+name);
+ const end=job.indexOf('\n      - ',at+token.length);return job.slice(at,end<0?job.length:end);
+}
+
+function routeWorkflowIf(text) {
+ const lines=text.split('\n'),i=lines.findIndex(s=>/^\s+if: /u.test(s));assert.notEqual(i,-1,'Missing workflow condition');
+ const m=lines[i].match(/^(\s*)if: (.*)$/u);if(m[2]!=='>-')return m[2];
+ const next=[];for(let j=i+1;j<lines.length&&lines[j].startsWith(' '.repeat(m[1].length+1));j++)next.push(lines[j].trim());
+ assert.ok(next.length);return next.join(' ');
+}
+
+function routeWorkflowPredicate(expression,eventName,branch) {
+ const github={event_name:eventName,head_ref:branch,event:{pull_request:{head:{ref:branch},base:{sha:'f'.repeat(40)}}}};
+ const compiled=new Function('github','contains','fromJSON','always','return ('+expression.replace(/ == /gu,' === ').replace(/ != /gu,' !== ')+');');
+ return compiled(github,(rows,v)=>rows.includes(v),JSON.parse,()=>true);
+}
+
+function routeWorkflowSelection(workflow,branch) {
+ const trusted=routeWorkflowJobText(workflow,'trusted-immutable-scope'),head=routeWorkflowJobText(workflow,'guard'),standard=routeWorkflowJobText(workflow,'standard_validation');
+ const defense=routeWorkflowStepText(head,'Validate immutable scope with trusted base guard on PR head');
+ return {
+  trusted:routeWorkflowPredicate(routeWorkflowIf(trusted),'pull_request_target',branch),
+  defense:routeWorkflowPredicate(routeWorkflowIf(defense),'pull_request',branch),
+  standard:routeWorkflowPredicate(routeWorkflowIf(routeWorkflowStepText(head,'Validate standard branch scope on PR head')),'pull_request',branch),
+  active:routeWorkflowPredicate(routeWorkflowIf(routeWorkflowStepText(standard,'Validate active platform-v7 autopilot scope')),'pull_request',branch),
+ };
+}
+
+function routeWorkflowShellBranch(job,branch) {
+ const start=job.indexOf('case "$IMMUTABLE_SCOPE_BRANCH" in'),end=job.indexOf('esac',start);
+ assert.ok(start>=0&&end>start,'Missing workflow shell allow-list');
+ return spawnSync('bash',['-c',job.slice(start,end+4)],{env:{...process.env,IMMUTABLE_SCOPE_BRANCH:branch},encoding:'utf8'});
+}
+
+for (const branch of [routeAdmissionBranch, routeSourceBranch]) {
+  test('Deal route workflow: trusted BASE and PR-head defense replace both candidate-owned paths for '+branch, () => {
+    assert.deepEqual(routeWorkflowSelection(routeWorkflowBeforeBytes,branch), {trusted:false,defense:false,standard:true,active:true});
+    assert.deepEqual(routeWorkflowSelection(String(routeWorkflowBytes),branch), {trusted:true,defense:true,standard:false,active:false});
+    for(const job of ['trusted-immutable-scope','guard']) {
+      assert.notEqual(routeWorkflowShellBranch(routeWorkflowJobText(routeWorkflowBeforeBytes,job),branch).status,0);
+      assert.equal(routeWorkflowShellBranch(routeWorkflowJobText(String(routeWorkflowBytes),job),branch).status,0);
+    }
+    const trusted=routeWorkflowJobText(String(routeWorkflowBytes),'trusted-immutable-scope');
+    assert.ok(trusted.includes('ref: '+'$'+'{{ github.event.pull_request.base.sha }}'));
+    const defense=routeWorkflowStepText(routeWorkflowJobText(String(routeWorkflowBytes),'guard'),'Validate immutable scope with trusted base guard on PR head');
+    assert.ok(defense.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh"'));
+    assert.ok(defense.includes('BASE_REF="$BASE_SHA" HEAD_REF="$HEAD_SHA"'));
+  });
+  test('Deal route workflow: native reviewer candidate-guard/test replacement cannot accept extra CORE scope for '+branch,t=>{
+    const c=routeFixture(t,{branch,admitted:branch===routeSourceBranch});
+    if(branch===routeSourceBranch)applyRoute(c);else{addRouteAdmission(c);commit(c.root,'correct admission before pipeline attack');}
+    write(c.root,'scripts/p7-autopilot-guard.sh','#!/usr/bin/env bash\ntouch CANDIDATE_EXECUTED\necho "Scope guard passed."\nexit 0\n',0o755);
+    write(c.root,'scripts/p7-autopilot-guard.test.mjs','// replaced candidate tests\n');
+    write(c.root,'apps/api/src/modules/staff-access/workflow-route-probe.ts','export const unauthorized = true;\n');
+    commit(c.root,'native reviewer candidate-owned pipeline attack');
+    const old=routeWorkflowSelection(routeWorkflowBeforeBytes,branch);assert.equal(old.standard||old.active,true);
+    const candidate=spawnSync('bash',[path.join(c.root,'scripts/p7-autopilot-guard.sh')],{cwd:c.root,encoding:'utf8'});
+    assert.equal(candidate.status,0,output(candidate));const sentinel=path.join(c.root,'CANDIDATE_EXECUTED');assert.equal(fs.existsSync(sentinel),true);fs.unlinkSync(sentinel);
+    const fixed=routeWorkflowSelection(String(routeWorkflowBytes),branch);assert.equal(fixed.trusted&&fixed.defense&&!fixed.standard&&!fixed.active,true);
+    const trusted=runTrustedDealRuntimeGuard(c);assert.notEqual(trusted.status,0,output(trusted));assert.match(output(trusted),/DEAL_ROUTE_|immutable/u);
+    assert.equal(fs.existsSync(sentinel),false,'Accepted BASE validation must never execute the changed candidate guard');
+  });
+}
+test('Deal route workflow: every old unrelated branch predicate is preserved',()=>{
+  for(const branch of [routeGuardBranch,'bank/first-customer-home-20260926','ux/deal-runtime-unknown-20260929','r1-founder-role-mode-authority-20260920','unrelated/source']) {
+    assert.deepEqual(routeWorkflowSelection(String(routeWorkflowBytes),branch),routeWorkflowSelection(routeWorkflowBeforeBytes,branch));
+  }
+});
+test('Deal route: exact workflow blob in wrong mode rejects protected guard three-file renewal',t=>{
+ const c=routeFixture(t,{branch:routeGuardBranch,admitted:false,guardAdoption:true});applyRouteGuard(c);
+ git(c.root,['update-index','--cacheinfo','100755,'+routeGuardPins[2][2]+','+routeWorkflowPath]);git(c.root,['commit','-m','wrong workflow mode']);
+ const r=runRouteGuardCandidate(c);assert.notEqual(r.status,0,output(r));assert.match(output(r),/DEAL_ROUTE_PIN_OR_MODE/u);
+});
