@@ -3451,11 +3451,12 @@
     "deal-execution-route-guard-purpose-20261001": {
       "owner": "ACCOUNT_2_PRODUCT",
       "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
-      "purpose": "Renew only the already admitted protected guard ref to bind the exact Deal execution route prerequisite after native review proved inherited PRIMARY scope and inert source pins.",
+      "purpose": "Renew only the already admitted protected guard ref to bind the exact Deal execution route prerequisite, including trusted-base workflow routing after native review proved PRIMARY inheritance, inert source pins and candidate-owned guard execution.",
       "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
       "allowedPaths": [
         "scripts/p7-autopilot-guard.sh",
-        "scripts/p7-autopilot-guard.test.mjs"
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
       ],
       "retainedAcceptedGuardScope": [
         "scripts/p7-autopilot-guard.sh",
@@ -3490,34 +3491,42 @@
       "privateRoutePayloadSha256": "d4c4bf61d3813e2d0d4b9c364c81941ab88039b078413addc5eb1d3ca750e884",
       "blockingNativeFindings": [
         4155054017,
-        4155054022
+        4155054022,
+        4155554749
       ],
       "grantRouteSourceAuthority": false,
       "guardAdoptionRequiresCoreHandoff": true,
       "requiredTruthBoundaries": [
-        "Purpose only: append this record without a route SOURCE vector. Every old state byte/value, admission/vector, PRIMARY/current/global/R1.2 scope, official5/100 and workflow remains unchanged.",
-        "Renew only the existing protected three-path guard ref; the correction itself changes exactly the two recorded guard/test blobs with their original100755/100644 modes and unchanged accepted state. Do not touch its third workflow path or introduce another shared guard writer.",
+        "Purpose only: renew this one record without a route SOURCE vector. All other old state bytes/values, admissions/vectors, PRIMARY/current/global/R1.2 scope, official5/100 and runtime remain unchanged.",
+        "Renew only the existing protected three-path guard ref; the correction changes exactly the three recorded guard/test/workflow blobs with original100755/100644/100644 modes and unchanged accepted state. Do not introduce another shared guard writer.",
         "The accepted guard must discard PRIMARY/source-controlled expansion for the route SOURCE ref, bind exact trusted-base state/three paths/blobs/modes/ancestry and reject extra, partial, wrong-byte, wrong-mode, rename/delete and candidate-owned authority cases.",
+        "Both exact route branches must run the accepted BASE guard in the existing pull_request_target immutable job and PR-head defense, pass both shell allow-lists, and be excluded from candidate-owned standard/active guard paths. Preserve every old predicate, workflow trigger, permission, check binding and all other branches; do not let a candidate guard/test replace its validator.",
         "The next state-only admission and route SOURCE remain separate accepted-base-reviewed native-gated phases. Purpose and guard code grant no route SOURCE vector, ordinary role/session/money/provider authority or live acceptance.",
         "CORE retains current source and first-merge priority. Every guard/admission/SOURCE adoption waits for actual handoff, fresh MAIN/Hub/ownership checks, independent complete-head review, strict author audit, all substantive native/security gates and normal expected-full-SHA manual merge."
       ],
       "forbiddenAuthority": [
         "SOURCE route/self-admission or arbitrary scope/state changes",
         "CORE/API/DB/RLS/role/session/money/provider/FGIS/deployment authority",
-        "Workflow, CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
+        "CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
       ],
-      "authorityBaseExactMain": "2749279de3b070f3ff9b79224c26d03c590275bd",
+      "authorityBaseExactMain": "fe04c9fd95c80fa5f1d936e2427154d264b6b62b",
       "exactGuardSourcePins": [
         [
           "scripts/p7-autopilot-guard.sh",
           "38be109d11422546c07fd96db283d848599a709f",
-          "444f19466c88efdde89c3b7d162ca6c009b63e42",
+          "28ec450dfdc88a32afa3a574f2509e3583cdcbc4",
           "100755"
         ],
         [
           "scripts/p7-autopilot-guard.test.mjs",
           "db910d2e6c2521957fb8719f7e5af659a8cd0165",
-          "d47e80c51cd77cf15acb44ad5316b351db51cdca",
+          "66a1b053e516f168addeb7fe0e1d7f15979b154e",
+          "100644"
+        ],
+        [
+          ".github/workflows/platform-v7-autopilot-guard.yml",
+          "90f6c2b52b25b7a4f09446b7dafb36270f9969dc",
+          "3d860d0d5ba72d27b790e129973466ca6d827635",
           "100644"
         ]
       ]
