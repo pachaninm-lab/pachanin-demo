@@ -1787,6 +1787,9 @@
       "packages/design-system-v8/src/components.tsx",
       "docs/security/cryptographic-inventory.json",
       "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+    ],
+    "fix/gekta-model-control-probe-20261001": [
+      ".github/workflows/gekta-p0-speed-model-host-control-probe.yml"
     ]
   },
   "currentAcceptance": [
@@ -3663,6 +3666,57 @@
         "CI/review/security/readiness/assertion/timeout/420-second lease weakening, stale-head evidence, fabricated statuses, force or automatic merge",
         "New mandatory recurring costs or model/latency/deployment/RF-compliance acceptance from source records or fixtures"
       ]
+    },
+    "gekta-readonly-control-diagnostic-source-20261001": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Admit only the exact revised existing read-only Gekta model-control diagnostic workflow after acceptance of its literal trusted guard; retain the historical purpose and supersede only its prior diagnostic-source adoption hashes.",
+      "authorityBaseExactMain": "826235a881b50bb59d5e3c2058d492d5d376982d",
+      "ownerTransferDecision": "#5469 comment5939541971",
+      "acceptedGuardPr": 5774,
+      "acceptedGuardSourceSha": "a8803ffbd269ce6141b5c48ce4a1de29af3f643a",
+      "acceptedGuardBlob": "efc0215233f994b909057726824f49d96db30bc7",
+      "acceptedGuardWorkflowBlob": "46eda60c4ce1bb313587f262e04872126203d043",
+      "retainedPurposeKey": "gekta-readonly-control-diagnostic-prerequisite-20261001",
+      "implementationBranch": "fix/gekta-model-control-probe-20261001",
+      "allowedPaths": [
+        ".github/workflows/gekta-p0-speed-model-host-control-probe.yml"
+      ],
+      "exactSourceTransition": {
+        "path": ".github/workflows/gekta-p0-speed-model-host-control-probe.yml",
+        "mode": "100644",
+        "beforeGitBlob": "42d09523cfe8f2891c56d95a36006a28322d100f",
+        "afterGitBlob": "66b8c2276c49e49da70d10216a12b71f8c8d8ebb",
+        "afterSha256": "ce0ee1744ec371034debdad24f98bbc36b7e1606ab6a5893b7f775ac986439c3",
+        "afterBytes": 17682,
+        "patchSha256": "a2797132c94c4468fa4d8ce5692693701a1749105867f81efcf424b1cfd3751e"
+      },
+      "historicalSourceHandoff": "#3896 comment5917027213",
+      "sourceExpectationSupersession": {
+        "scope": "Diagnostic-source adoption only; the original staged purpose record and its original hashes remain unchanged historical evidence",
+        "historicalPatchSha256": "0c0155104f05c93086578a1f73173949fe7c2eaa842225e8a959be78b966994f",
+        "historicalFinalFileSha256": "f23e87e7ee21ad1c02145e001c07c09bbf56f69170035d4aaf12ab0c306915cb",
+        "replacement": "Use only exactSourceTransition afterGitBlob and afterSha256 for adoption; the historical pkcheck-only repair is superseded because it preserves a root fallback",
+        "boundedRevision": "Preserve the reviewed pkcheck subject/result repair and add only strict nonroot SSH-principal validation plus early real/effective UID checks from trusted /usr/bin/id -ru and /usr/bin/id -u; inherited Bash UID/EUID variables are not identity evidence"
+      },
+      "nonrootAccountAvailability": "UNKNOWN; source validation does not establish that the existing configured nonroot account is available or authorized",
+      "requiredTruthBoundaries": [
+        "The separately accepted base-owned literal guard already fixes this diagnostic branch to one existing regular100644 workflow and requires accepted-base purpose plus an exact one-path source vector. This state duplicates only that path and records exact reviewed source expectations.",
+        "Preserve the original staged-purpose record byte-for-byte, all other coordination records, all current/global/agent scopes, unrelated concurrent vectors, current CORE/COR5/PRODUCT ownership and official5/100 progress.",
+        "This is an exact-content source admission, not automatic hash enforcement: the literal guard enforces path/state/mode/ancestry. Independent whole-head review must verify the final complete workflow against the recorded before/after Git blobs and SHA256; any changed bytes require fresh source review and admission.",
+        "The only admitted source repair validates PID/start-time/UID and bounded pkcheck results without interaction, requires a valid explicit nonroot SSH principal, removes root fallback, and fails closed unless trusted /usr/bin/id reports positive real and effective UIDs before probing. Inherited Bash UID/EUID variables cannot establish identity. Preserve dedicated-principal transport, readonly boundaries, timeouts, output vocabulary and credential privacy.",
+        "Missing or invalid nonroot identity is a blocker. Do not create an account, change authentication/settings/rights, fall back to root, or reuse credentials through a different principal. Current account availability and actual model-control capability remain unknown until separately authorized evidence establishes them.",
+        "The eventual source head requires fresh full nonauthor independent review, separate owner audit, all applicable native CI/security/readiness, resolved findings and ordinary protected full-expected-SHA manual acceptance. Historical17-case source fixtures and other-head results do not transfer.",
+        "Only after accepted source and all required separate prerequisites may an authorized accepted-main read-only probe establish actual facts. No probe result itself grants service writes/restarts, model promotion/rollback or release authority."
+      ],
+      "forbiddenAuthority": [
+        "Any workflow other than the one literal path; guard, manifest, dependency, runtime, global/current scope or progress changes",
+        "Root fallback, credential fallback/disclosure, account creation, authentication or permission/settings changes, new service/model-control rights",
+        "Unit/config/environment/polkit writes, service start/stop/restart/reload/signal, model launch/routing/promotion/rollback or user-data mutation",
+        "CI/security/review/readiness/assertion/timeout weakening, stale-head evidence transfer, forced or automatic merge, new mandatory cost",
+        "Deployment, model quality/speed/stability, permanent control capability, RF-processing or production acceptance inferred from source or fixtures"
+      ],
+      "teamHubClaim": "#5469 comment5940119517",
+      "runtimePrerequisites": "Existing configured nonroot account availability/capability, service /proc environment readability and trusted /usr/bin/id availability remain UNKNOWN; fail closed if required facts are unavailable"
     }
   }
 }
