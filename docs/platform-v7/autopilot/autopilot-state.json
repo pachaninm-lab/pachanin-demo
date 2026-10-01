@@ -1419,7 +1419,9 @@
       "scripts/release/production-like-kubernetes-cluster.sh"
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
-      "apps/tai/tests/test_gitleaks_release_authority.py"
+      "apps/tai/tests/test_gitleaks_release_authority.py",
+      "apps/landing/package.json",
+      "docs/ip/internal-package-metadata-exceptions.json"
     ],
     "fix/first-customer-workspace-recovery-20260919": [
       "apps/web/lib/first-customer-workspace-server.ts",
@@ -2891,6 +2893,47 @@
         "Forced/automatic merge, stale review transfer, new recurring costs or false production/whole-block PASS"
       ],
       "teamHubDependency": "#5744 native IP metadata expiry blocker36794727081; original#4459 metadata baseline; held BANK critical path/window5916270228"
+    },
+    "landing-package-metadata-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Normalize only the already-private internal landing package license metadata and remove its completed exception; no application, dependency, publication or legal-rights change.",
+      "implementationBranch": "fix/gitleaks-release-authority-attestation-20260912",
+      "allowedPaths": [
+        "apps/landing/package.json",
+        "docs/ip/internal-package-metadata-exceptions.json"
+      ],
+      "preservedAttestationPaths": [
+        "apps/tai/tests/test_gitleaks_release_authority.py"
+      ],
+      "exactMetadataFiles": [
+        {
+          "path": "apps/landing/package.json",
+          "mode": "100644",
+          "baselineBlob": "c80706ce0a424d57b2f7687bc0f4306f5c88a434",
+          "candidateBlob": "e693a061ea6d42a9c62cc1ab8350c3af904265a4"
+        },
+        {
+          "path": "docs/ip/internal-package-metadata-exceptions.json",
+          "mode": "100644",
+          "baselineBlob": "872689ef5215d2b92429c465159fbf794259cc9f",
+          "candidateBlob": "c3eb22c2f4fc9ec3105e0203b7990de3b88dc345"
+        }
+      ],
+      "requiredTruthBoundaries": [
+        "Only add license=UNLICENSED to the existing private=true manifest and remove exactly its completed metadata exception; every other manifest byte and register schema/effective date remains unchanged.",
+        "Source authority comes only from separately accepted base purpose, guard and state-only admission. The implementation cannot modify state, guard, workflow, scope or publishable-package authority.",
+        "The existing attestation ref has distinct test-only and metadata-only phases. Preserve the original test path and its exact fingerprint guard; reject mixed metadata/test changes.",
+        "Preserve the general landing prohibition, all existing CI/security/attestation checks, provenance and third-party/human legal remainder. No expiry extension or proprietary ownership claim.",
+        "Fresh whole-head independent review, native private-package/IP/security/source checks and manual full-expected-SHA readiness/merge required; current-main REG.RU release remains a separate acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Landing runtime/pages/components/scripts/dependencies or any other manifest field",
+        "Expired-exception renewal, new exception or publishable-package authorization",
+        "Source-owned scope, CI/security/readiness weakening, forced/automatic merge",
+        "CORE/API/DB/money/provider/role/session/model or human legal/provenance authority"
+      ],
+      "teamHubDependency": "#5744 IP expiry blocker36794727081; original IP#4459; BANK hold5916270228; purpose#5749",
+      "authorityBaseExactMain": "7aa734d2da13465d62085f00fbf89b4ef02f2dd5"
     }
   }
 }
