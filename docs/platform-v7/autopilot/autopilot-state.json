@@ -1419,7 +1419,9 @@
       "scripts/release/production-like-kubernetes-cluster.sh"
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
-      "apps/tai/tests/test_gitleaks_release_authority.py"
+      "apps/tai/tests/test_gitleaks_release_authority.py",
+      "apps/landing/package.json",
+      "docs/ip/internal-package-metadata-exceptions.json"
     ],
     "fix/first-customer-workspace-recovery-20260919": [
       "apps/web/lib/first-customer-workspace-server.ts",
@@ -1573,7 +1575,9 @@
       "apps/web/app/platform-v7/profile/page.tsx",
       "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
       "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
-      "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+      "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+      "apps/web/lib/bank-release-server.ts",
+      "apps/web/tests/unit/bankReleaseServer.test.ts"
     ],
     "fgis/zsn-public-document-source-lock-20260924": [
       ".github/workflows/pc-crop-zsn-source-lock.yml",
@@ -1768,7 +1772,13 @@
       "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
       "apps/web/tests/unit/transactionUxV8Migration.test.ts",
       ".github/workflows/ci.yml",
-      "docs/platform-v7/qa/web-unit-coverage-registry.json"
+      "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+      "apps/web/components/platform-v7/DealCommandForm.tsx",
+      "apps/web/i18n/transaction-deal-copy.ts",
+      "packages/design-system-v8/src/components.tsx",
+      "docs/security/cryptographic-inventory.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
     ]
   },
   "currentAcceptance": [
@@ -2836,6 +2846,689 @@
         "Update the existing superseded generic-content prompt regression to assert agro-specialist useful adjacent work, respectful unrelated-topic redirection and preserved separate safety/privacy/authorization/tenant/write/financial-action/tool boundaries. Retain all fifteen existing service cases and meaningful assertions; no test invocation, budget, safety or independent-review gate weakening.",
         "All primary R1/global/current/unrelated concurrent scopes, historical admissions/progress/maturity and runtime/model/production authority remain unchanged.",
         "The current source consumer requires fresh complete-head independent review, exact-current CI including the full existing API suite, author audit, resolved findings and manual expected-SHA protected merge. Source tests/admission do not prove real model inference, quality, latency, RF compliance or deployment."
+      ]
+    },
+    "bank-release-attestation-guard-purpose-20260930": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew the accepted immutable three-path guard ref only to authorize the exact two-fingerprint release-attestation test synchronization blocking the BANK release; preserve the historical four-fingerprint transformation and every security/readiness gate.",
+      "authorityBaseExactMain": "1a768a7fde207bb2458fdf259dc16f9f291b5455",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "requiredTruthBoundaries": [
+        "This state-only prerequisite renews purpose on an already accepted three-path guard ref. It does not change global scope, approvedConcurrentScopes, R1.2, old admissions or the one-file Gitleaks implementation scope.",
+        "The later guard PR must preserve trusted-base execution, all substantive head validation and the legacy exact four-fingerprint transformation. Admit the current transformation only against the immutable accepted 19-entry test blob and unchanged accepted ignore/manifest blobs; require exactly the two existing fingerprints and every old test byte/assertion.",
+        "Add real Git-fixture regressions for exact accepted append and rejection of altered/extra/missing fingerprints, assertion removal, baseline/input drift, allowlist/manifest edits and candidate scope self-expansion. No arbitrary fingerprint inference or implementation-owned authority.",
+        "The later one-file #5744 repair must be independently reviewed again after synchronization with the accepted guard main, and pass actual CI/readiness before an ordinary full-expected-SHA merge. Existing native review at cd31ba7904b30de65c6839c17a11e2590d234108 is not transferable to a new head.",
+        "Retain BANK source/release window and sole operator continuation220. A merge/image is not a REG.RU deployment; exact current-main OCI/container/Caddy/live/downstream acceptance remains mandatory."
+      ],
+      "forbiddenAuthority": [
+        "Test source, .gitleaksignore, release-source-manifest.json, runtime or state edits in the later guard PR",
+        "Scope expansion, scanner/security/coverage/readiness/independent-review weakening, force/automatic merge or required-check override",
+        "CORE API/DB/provider/role/session authority, transferred Gekta branches/model controls, release before actual acceptance"
+      ],
+      "teamHubDependency": "BANK #5744 exact-head trusted guard rejects obsolete 20260912 transformation; native TAI Foundation36755343656 succeeds; BANK operator decision5916270228 and held release window5914591395"
+    },
+    "landing-package-metadata-guard-purpose-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Bounded critical-path renewal of the existing trusted three-path guard ref for a separately admitted exact metadata-only repair of the expired internal landing-package exception; close the existing no-publish metadata blocker without renewing its expiry or changing application/licensing/provenance truth.",
+      "authorityBaseExactMain": "7a90199a40a86cdc129f804780a8f2635cf0bccb",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureMetadataAdmissionBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "futureMetadataImplementationBranch": "fix/gitleaks-release-authority-attestation-20260912",
+      "requiredTruthBoundaries": [
+        "The current full-head #5744 native SBOM/IP run36794727081/job110155435088 fails because the preexisting apps/landing/package.json metadata exception expired on2026-09-30. Original IP program#4459 and the existing exception require a separately authorized metadata-only addition of license=UNLICENSED; the package already remains private=true.",
+        "This purpose-only prerequisite admits no landing implementation or metadata file and changes no primary/global/R1.2/approvedConcurrentScopes/old admissions/progress. Publish a separate trusted guard repair within the already accepted three-path scope only after actual independent review, all current gates and ordinary expected-full-SHA acceptance of this purpose.",
+        "The later guard must define distinct state-only admission and exact two-file metadata implementation phases on the already registered trusted-guard and Gitleaks refs. Existing native trusted-base routing remains unchanged; no workflow/IP waiver. Preserve the original one-file Gitleaks attestation phase and add only the separately accepted exact metadata pair to that existing branch scope. Source scope and exact baseline/candidate blobs must come from accepted trusted base; candidate-owned state/guard cannot grant authority.",
+        "Permit only apps/landing/package.json100644 c80706ce0a424d57b2f7687bc0f4306f5c88a434→e693a061ea6d42a9c62cc1ab8350c3af904265a4 (one license field, all scripts/dependencies/private/name/other bytes preserved) and docs/ip/internal-package-metadata-exceptions.json100644872689ef5215d2b92429c465159fbf794259cc9f→c3eb22c2f4fc9ec3105e0203b7990de3b88dc345 (remove only that completed exception; schema/effective date preserved).",
+        "Preserve the general apps/landing prohibition and every old security/attestation gate. Permit the exact metadata pair only in its separately accepted phase on the existing trusted Gitleaks ref, with exact baseline/head blobs and regular modes; reject mixed metadata/test/runtime edits, other manifest fields, expiry extension, stale or altered exceptions, source self-expansion and baseline/mode drift using real Git fixtures.",
+        "Accept the guard before the separate state-only exact-content source admission; accept that admission before publishing either metadata file. Metadata/private-package checks do not prove proprietary authorship, third-party rights, human assignments, full IP/security completion or production acceptance.",
+        "Keep the sole BANK continuation220/workspace0b9 window held. Preserve the immutable #5744 test candidate while the distinct metadata prerequisite uses the same existing trusted source ref under separate source admission and fresh PR review. After accepted metadata normalization, restore the original one-file #5744 repair on actual current main and renew every review/CI/readiness result before bounded exact-current-main canonical REG.RU web release and actual OCI/live/downstream evidence."
+      ],
+      "forbiddenAuthority": [
+        "Landing page/runtime/component/script/dependency changes or general landing access",
+        "Exception expiry extension, CI/security/license/scanner weakening or required-check override",
+        "Direct metadata source admission in this purpose or later guard PR; source-owned mutable scope authority",
+        "CORE/API/DB/provider/money/role/session/model or human legal/provenance authority",
+        "Forced/automatic merge, stale review transfer, new recurring costs or false production/whole-block PASS"
+      ],
+      "teamHubDependency": "#5744 native IP metadata expiry blocker36794727081; original#4459 metadata baseline; held BANK critical path/window5916270228"
+    },
+    "landing-package-metadata-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Normalize only the already-private internal landing package license metadata and remove its completed exception; no application, dependency, publication or legal-rights change.",
+      "implementationBranch": "fix/gitleaks-release-authority-attestation-20260912",
+      "allowedPaths": [
+        "apps/landing/package.json",
+        "docs/ip/internal-package-metadata-exceptions.json"
+      ],
+      "preservedAttestationPaths": [
+        "apps/tai/tests/test_gitleaks_release_authority.py"
+      ],
+      "exactMetadataFiles": [
+        {
+          "path": "apps/landing/package.json",
+          "mode": "100644",
+          "baselineBlob": "c80706ce0a424d57b2f7687bc0f4306f5c88a434",
+          "candidateBlob": "e693a061ea6d42a9c62cc1ab8350c3af904265a4"
+        },
+        {
+          "path": "docs/ip/internal-package-metadata-exceptions.json",
+          "mode": "100644",
+          "baselineBlob": "872689ef5215d2b92429c465159fbf794259cc9f",
+          "candidateBlob": "c3eb22c2f4fc9ec3105e0203b7990de3b88dc345"
+        }
+      ],
+      "requiredTruthBoundaries": [
+        "Only add license=UNLICENSED to the existing private=true manifest and remove exactly its completed metadata exception; every other manifest byte and register schema/effective date remains unchanged.",
+        "Source authority comes only from separately accepted base purpose, guard and state-only admission. The implementation cannot modify state, guard, workflow, scope or publishable-package authority.",
+        "The existing attestation ref has distinct test-only and metadata-only phases. Preserve the original test path and its exact fingerprint guard; reject mixed metadata/test changes.",
+        "Preserve the general landing prohibition, all existing CI/security/attestation checks, provenance and third-party/human legal remainder. No expiry extension or proprietary ownership claim.",
+        "Fresh whole-head independent review, native private-package/IP/security/source checks and manual full-expected-SHA readiness/merge required; current-main REG.RU release remains a separate acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Landing runtime/pages/components/scripts/dependencies or any other manifest field",
+        "Expired-exception renewal, new exception or publishable-package authorization",
+        "Source-owned scope, CI/security/readiness weakening, forced/automatic merge",
+        "CORE/API/DB/money/provider/role/session/model or human legal/provenance authority"
+      ],
+      "teamHubDependency": "#5744 IP expiry blocker36794727081; original IP#4459; BANK hold5916270228; purpose#5749",
+      "authorityBaseExactMain": "7aa734d2da13465d62085f00fbf89b4ef02f2dd5"
+    },
+    "deal-destination-locale-guard-purpose-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew the existing accepted three-path PRODUCT guard ref for separately admitted RU/EN/ZH presentation on the actual protected Deal destination, resolving #5735 destination-language finding without changing command or server authority.",
+      "authorityBaseExactMain": "2d0db1af028b9d9d17d5a1e84a4dbe86ec990d68",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-deal-runtime-admission-20260929",
+      "futureImplementationBranch": "ux/deal-runtime-unknown-20260929",
+      "futureAdditionalSourcePaths": [
+        "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+        "apps/web/components/platform-v7/DealCommandForm.tsx",
+        "apps/web/i18n/transaction-deal-copy.ts",
+        "packages/design-system-v8/src/components.tsx"
+      ],
+      "reviewedPrivatePayload": {
+        "sha256": "6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e",
+        "sourceComments": [
+          5908067884,
+          5908071391
+        ],
+        "authorAuditComment": 5908085804,
+        "independentPrivateReviewComment": 5916309103
+      },
+      "requiredTruthBoundaries": [
+        "This one-file purpose record admits no runtime, test, workflow or new source path. Global/current/R1.2 scopes, approvedConcurrentScopes, every existing admission, progress and maturity remain unchanged.",
+        "After this purpose is independently reviewed and accepted, use the existing already admitted three-path guard ref for a separate trusted-base literal guard repair and adversarial tests. Preserve all existing admission phases, metadata/attestation routes and trusted-base plus PR-head defense.",
+        "The guard must define a separate exact state-only extension phase on the existing Deal-runtime admission ref. Preserve the full original five-path runtime scope and add only the four listed paths in a later independently reviewed accepted state. Candidate-owned state or a manifest cannot grant implementation authority.",
+        "Publish no Deal locale source before the separately accepted guard and state-only source extension. Use the existing production-resolved transaction-ux workspace and NextIntl request locale; keep the facade, tsconfig mapping, shell and approved design.",
+        "Preserve all original UNKNOWN attempt identity, immutable request fingerprint, draft/review/focus state, exact server role/tenant/Deal/action permissions, CSRF, GET-only recovery and duplicate command prevention. Locale changes affect presentation only.",
+        "The captured six-file private payload and its bounded review are support, not current-head CI, admission, native account approval, full browser acceptance or production evidence. Obtain fresh independent whole-source review, author audit and every applicable CI/security/readiness gate after actual adoption.",
+        "Preserve original source authors and canonical CORE ownership. Queue the shared guard writer and any main/release action after the current Gekta owner window; do not overwrite another owner's ref or issue a competing deployment command.",
+        "Require normal expected-full-SHA manual merges and exact-current-main REG.RU OCI/container/live acceptance followed by the ordinary authorized bank queue to the same Deal in RU/EN/ZH. Public or seeded fixture evidence does not close protected bank, 13-cabinet or provider acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Direct runtime/test/source admission, permission-vector changes or another owner's branch mutation in this purpose PR",
+        "Backend/API/DB/RLS/tenant/role/session/command/payment/provider/FGIS or legal authority",
+        "Design or App Shell replacement, duplicate Deal core, alias removal, business-status or external-success inference",
+        "CI/security/readiness/independent-review weakening, fake PASS, forced/automatic merge, production/model mutation or new recurring cost"
+      ],
+      "teamHubDependency": "#5735 P2 thread4142098743; source5908067884/5908071391; private review5916309103; #5699; current Gekta next window5924684608"
+    },
+    "deal-destination-locale-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_1_EXECUTION",
+      "purpose": "Apply only the already reviewed RU/EN/ZH protected Deal presentation payload while preserving canonical UNKNOWN recovery and server authority.",
+      "authorityBaseExactMain": "7508f2ca3bd568613c3e9ba7144bddf7f1f0d28c",
+      "implementationBranch": "ux/deal-runtime-unknown-20260929",
+      "allowedPaths": [
+        "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+        "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+        "apps/web/tests/unit/transactionUxV8Migration.test.ts",
+        ".github/workflows/ci.yml",
+        "docs/platform-v7/qa/web-unit-coverage-registry.json",
+        "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+        "apps/web/components/platform-v7/DealCommandForm.tsx",
+        "apps/web/i18n/transaction-deal-copy.ts",
+        "packages/design-system-v8/src/components.tsx"
+      ],
+      "exactSourcePaths": [
+        "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+        "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+        "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+        "apps/web/components/platform-v7/DealCommandForm.tsx",
+        "apps/web/i18n/transaction-deal-copy.ts",
+        "packages/design-system-v8/src/components.tsx"
+      ],
+      "exactSourcePins": [
+        [
+          "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+          "6f980ea5c83dc9776d51fe01b6f33bf21704a037",
+          "be57e8931fc5a056ed59039d9bf0da6f98aeb6fe"
+        ],
+        [
+          "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+          "4cf04d22287002bf90888847153bfe9759d8e1fd",
+          "1c669249fcf4451bc0655f506d975edc069fe81c"
+        ],
+        [
+          "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+          "699ae74d30128e72ccad0a4559ad40944b3ecda8",
+          "2099bb5fcd731368ffccecd096ebb10320379257"
+        ],
+        [
+          "apps/web/components/platform-v7/DealCommandForm.tsx",
+          "7bde1116c8e84e2f253da69431d867ceaa90663d",
+          "aba1af6c10dbbee0cee25cb13bdbce40145024a2"
+        ],
+        [
+          "apps/web/i18n/transaction-deal-copy.ts",
+          null,
+          "4db89dfdec3f5f871760461a60dd2f89194329a1"
+        ],
+        [
+          "packages/design-system-v8/src/components.tsx",
+          "3f95e51e99858debcd3f784e5b77b05be9619ccd",
+          "3f29bfef940801667273f066a02d34f20c2be8b5"
+        ]
+      ],
+      "reviewedPrivatePayloadSha256": "6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e",
+      "requiredTruthBoundaries": [
+        "Presentation only; actual route/locale/workspace/form and stable metadata labels. Original command controls, owner, identity, UNKNOWN/fingerprint, CSRF and permissions remain canonical.",
+        "The original five-path scope and all old records remain intact. This locale phase permits exactly the six pinned source/test files; it does not permit workflow, registry, generated inventory or scope changes.",
+        "No private source review transfers to an adopted SHA. Fresh whole-head nonauthor review, owner audit, native CI/security/readiness, expected-SHA merge and exact REG.RU protected acceptance remain required."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/role/tenant/money/provider/FGIS authority",
+        "Source-owned scope or guard changes",
+        "CI/security/readiness or review weakening",
+        "False live or external success"
+      ]
+    },
+    "deal-locale-generated-inventory-guard-purpose-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_1_EXECUTION",
+      "purpose": "Add a separate trusted generated-inventory completion phase for the already admitted immutable six-file Deal locale payload, after native SBOM discovery identified one newly scanned catalog file.",
+      "authorityBaseExactMain": "4f5d03b833f0064b4538aae751d74f17e6d67c88",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-deal-runtime-admission-20260929",
+      "futureImplementationBranch": "ux/deal-runtime-unknown-20260929",
+      "futureGeneratedPaths": [
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "trustedGenerator": {
+        "path": "scripts/security/discover-cryptography.mjs",
+        "blob": "6a5751eb031a514bcf7f26893c0003e6013107aa"
+      },
+      "immutableLocaleSourcePins": [
+        [
+          "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+          "6f980ea5c83dc9776d51fe01b6f33bf21704a037",
+          "be57e8931fc5a056ed59039d9bf0da6f98aeb6fe"
+        ],
+        [
+          "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+          "4cf04d22287002bf90888847153bfe9759d8e1fd",
+          "1c669249fcf4451bc0655f506d975edc069fe81c"
+        ],
+        [
+          "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+          "699ae74d30128e72ccad0a4559ad40944b3ecda8",
+          "2099bb5fcd731368ffccecd096ebb10320379257"
+        ],
+        [
+          "apps/web/components/platform-v7/DealCommandForm.tsx",
+          "7bde1116c8e84e2f253da69431d867ceaa90663d",
+          "aba1af6c10dbbee0cee25cb13bdbce40145024a2"
+        ],
+        [
+          "apps/web/i18n/transaction-deal-copy.ts",
+          null,
+          "4db89dfdec3f5f871760461a60dd2f89194329a1"
+        ],
+        [
+          "packages/design-system-v8/src/components.tsx",
+          "3f95e51e99858debcd3f784e5b77b05be9619ccd",
+          "3f29bfef940801667273f066a02d34f20c2be8b5"
+        ]
+      ],
+      "nativeFailureEvidence": {
+        "pr": 5757,
+        "head": "6d41a54b2d7d8581fc3d9a67cf72cefbbb2fa2cc",
+        "workflowRun": 36822141734,
+        "job": 110239819384,
+        "observedScannedFiles": 2294,
+        "baselineScannedFiles": 2293
+      },
+      "requiredTruthBoundaries": [
+        "Purpose only: append one record and preserve every prior state value/byte, primary/current/global/R1.2 permissions, every scope vector and admission, CORE ownership and official 5/100 progress. No new source or generated output is admitted here.",
+        "After separate purpose acceptance, use only the already admitted three-path trusted guard lane for a separately reviewed guard/test repair. Preserve all old phases, exact six locale source pins/modes, required audit/review/CI/security/readiness and metadata/attestation defenses.",
+        "Then separately accept exactly one metadata co-admission record and append only the two listed generated paths after all nine existing runtime paths. Preserve the immutable original locale admission record and all six source blobs. No runtime or generated output in this state phase.",
+        "The new completion phase must bind a genuine accepted guard base and verify its ancestry, unchanged state, exactly six admitted source changes plus both regular generated files, trusted accepted-base generator bytes/mode, full committed source blob/mode enumeration, attributable ancestor source-tree equality and byte-exact regenerated JSON/Markdown. Treat candidate application blobs as text; never execute candidate code.",
+        "The six-file presentation payload stays immutable. No arbitrary extra source, test, registry/workflow, source-owned guard/scope or crypto exclusion is granted. The existing protected route assertion receives a separate compatibility repair in its already admitted PRODUCT test lane, retaining actual canonical identity and command authority checks.",
+        "Every adopted current head requires fresh independent whole-diff review, author audit, all applicable native gates and ordinary expected-full-SHA merge. Unit/static/fixture/native acceptance is not actual REG.RU/provider/Founder13 production proof."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/role/tenant/money/provider/FGIS/model authority",
+        "General generated documentation or source scope",
+        "Security/readiness/coverage/review weakening or forced/automatic merge",
+        "Fake source/history/producer metadata or live/external PASS"
+      ],
+      "teamHubDependency": "#5469 owner-priority decision5925195179; accepted locale purpose5754/guard5755/admission5756; native source5757"
+    },
+    "deal-locale-generated-inventory-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_1_EXECUTION",
+      "purpose": "Complete the immutable six-file Deal locale transition with only its byte-exact trusted generated cryptographic inventory pair.",
+      "authorityBaseExactMain": "643e52a03c767e6f5d2957da0c0fed81c3d4b4fa",
+      "implementationBranch": "ux/deal-runtime-unknown-20260929",
+      "allowedPaths": [
+        "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+        "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+        "apps/web/tests/unit/transactionUxV8Migration.test.ts",
+        ".github/workflows/ci.yml",
+        "docs/platform-v7/qa/web-unit-coverage-registry.json",
+        "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+        "apps/web/components/platform-v7/DealCommandForm.tsx",
+        "apps/web/i18n/transaction-deal-copy.ts",
+        "packages/design-system-v8/src/components.tsx",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "retainedLocaleAdmissionKey": "deal-destination-locale-20261001",
+      "exactSourcePins": [
+        [
+          "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+          "6f980ea5c83dc9776d51fe01b6f33bf21704a037",
+          "be57e8931fc5a056ed59039d9bf0da6f98aeb6fe"
+        ],
+        [
+          "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+          "4cf04d22287002bf90888847153bfe9759d8e1fd",
+          "1c669249fcf4451bc0655f506d975edc069fe81c"
+        ],
+        [
+          "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+          "699ae74d30128e72ccad0a4559ad40944b3ecda8",
+          "2099bb5fcd731368ffccecd096ebb10320379257"
+        ],
+        [
+          "apps/web/components/platform-v7/DealCommandForm.tsx",
+          "7bde1116c8e84e2f253da69431d867ceaa90663d",
+          "aba1af6c10dbbee0cee25cb13bdbce40145024a2"
+        ],
+        [
+          "apps/web/i18n/transaction-deal-copy.ts",
+          null,
+          "4db89dfdec3f5f871760461a60dd2f89194329a1"
+        ],
+        [
+          "packages/design-system-v8/src/components.tsx",
+          "3f95e51e99858debcd3f784e5b77b05be9619ccd",
+          "3f29bfef940801667273f066a02d34f20c2be8b5"
+        ]
+      ],
+      "exactGeneratedPaths": [
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "trustedGenerator": {
+        "path": "scripts/security/discover-cryptography.mjs",
+        "mode": "100644",
+        "blob": "6a5751eb031a514bcf7f26893c0003e6013107aa"
+      },
+      "requiredTruthBoundaries": [
+        "Separate completion phase only. Preserve every old record and the immutable six source blobs; append only the two generated paths after the existing nine paths.",
+        "Unchanged state and exactly six source transitions plus both regular generated files; no arbitrary source, workflow, registry, guard or scope mutation.",
+        "Use only the unchanged pinned accepted-base generator and committed application blobs as text. Verify full source enumeration, modes, attributable ancestor/source-tree equality, and byte-exact JSON/Markdown reproduction.",
+        "Fresh whole-head independent review, separate owner audit, all applicable native CI/security/readiness and ordinary full-expected-SHA merge remain mandatory. No protected/live/provider/Founder13 acceptance is inferred."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/role/tenant/money/provider/FGIS/model authority",
+        "General source or generated-output permissions",
+        "Candidate-code execution during regeneration",
+        "CI/security/review/readiness weakening or false live/external PASS"
+      ]
+    },
+    "bank-release-currency-amount-guard-purpose-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew the accepted three-path trusted guard lane for a separately admitted immutable four-file BANK read-only currency and selected-operation amount consistency repair.",
+      "authorityBaseExactMain": "a569b4775c484530f670c07dc0c668ac2615a287",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-bank-fgis-ux-source-admission-20260924",
+      "futureImplementationBranch": "bank/deep-visible-copy-guard-20260924",
+      "retainedAdmissionKey": "bank-deep-visible-copy-guard-20260924-coordination",
+      "retainedSourceScope": [
+        "apps/web/app/platform-v7/bank/escrow/page.tsx",
+        "apps/web/app/platform-v7/bank/factoring/page.tsx",
+        "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+        "apps/web/app/platform-v7/profile/page.tsx",
+        "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+        "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+        "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+      ],
+      "futureAdditionalSourcePaths": [
+        "apps/web/lib/bank-release-server.ts",
+        "apps/web/tests/unit/bankReleaseServer.test.ts"
+      ],
+      "immutableSourcePins": [
+        [
+          "apps/web/lib/bank-release-server.ts",
+          "870a839e7087ef1114d805d818220471027c89fb",
+          "6ae431216dce41f07d6c73a8b3fe4231bd4c540d"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseServer.test.ts",
+          "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
+          "fe1c8bc089be2b409ad65837a4ba3985edbfb619"
+        ],
+        [
+          "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+          "55f1572c14283fb2b69153adba6cbe13622fd387",
+          "b67a3452e05ad97082ccfbcc0c4975302cb62df9"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+          "68382969c3b8f1bb8912a1c514fd71882470cf95",
+          "630599ff7ff0ca4338445fc8bba50d61cf07f4f6"
+        ]
+      ],
+      "requiredSourceMode": "100644",
+      "scopeManifest": {
+        "path": "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+        "baselineBlob": "c7a015a9449578df7fbd325aae81f2d3795a4523",
+        "mode": "100644",
+        "permittedTransformation": "Preserve all other bytes and metadata; append the two admitted paths after the original seven allowedPaths and bind authorityBaseExactMain to the genuine accepted co-admission guard base."
+      },
+      "reviewedPrivatePayload": {
+        "comment": 5917883797,
+        "bytes": 22121,
+        "sha256": "3d3bd96794171e61e1531c8ef3b13c1157ff389c7d979adf8d600944c819432b",
+        "privateCurrentTests": {
+          "candidatePass": 81,
+          "baselinePass": 61,
+          "baselineFail": 20,
+          "nativePostgresqlOrProviderPass": false
+        }
+      },
+      "requiredTruthBoundaries": [
+        "Purpose only: append this one record with exact old-state byte preservation. No primary/global/R1.2 scope, approvedConcurrentScopes, existing admission, source, workflow, progress or ownership change.",
+        "After separate acceptance, use only the already admitted three-path trusted guard lane for a distinct exact state-only co-admission and immutable source phase. Retain every prior guard phase, review/security/readiness defense and existing Deal locale admissions and generated-inventory phase.",
+        "The later state-only phase preserves all seven BANK paths and every original admission byte/value, appends only bank-release-server.ts and bankReleaseServer.test.ts after that prefix, adds one literal ACCOUNT_2_PRODUCT-owned co-record bound to actual accepted guard main, and rejects arbitrary permission/owner/progress/base changes, duplicate keys or reserialization.",
+        "Only after separately accepted state, the original BANK source ref may carry the four exact old/new source blobs plus its one already admitted exact transformed manifest, all regular100644. No scope state, guard, workflow, other source or arbitrary metadata can ride with this immutable phase.",
+        "Preserve canonical typed GET-only Deal workspace, exact Deal/tenant/participant identity, server-owned permissions, all existing payout prerequisites/callback/outbox evidence and UNKNOWN external reconciliation. Selected RESERVE and RELEASE must agree with canonical Deal amount and currency; discrepancies require manual review and cannot establish request readiness or RELEASED.",
+        "Render the canonical persisted currency in RU/EN/ZH without substituting RUB, hiding selected-operation amount conflicts or mutating financial facts. No release, reserve, callback, provider, integration-binding, settlement, ledger or regulatory authority is granted to this consumer projection.",
+        "The complete four-file payload is immutable; currency-only or page-only adoption leaves amount conflicts unprotected. Unit response/render doubles and private review are not native PostgreSQL, authenticated browser, provider, Founder13 or REG.RU acceptance.",
+        "Preserve original source authors and ACCOUNT_2_PRODUCT source ownership plus canonical CORE/API authority. Use a bounded Team Hub continuation decision on the original source ref, normal history-preserving updates, fresh full current-head independent nonauthor review, separate owner audit, all native CI/security/readiness and ordinary expected-full-SHA merge."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/RLS/role/tenant/auth/session/command/money/provider/FGIS/legal/model authority",
+        "Arbitrary source, scope or generated-document permissions",
+        "Changes to original admissions, source authors, ownership or official5/100 progress",
+        "CI/security/readiness/review weakening, fake evidence, forced/automatic merge or live/provider acceptance inference"
+      ],
+      "teamHubDependency": "#5469 owner-priority decision5925195179; canonical BANK #5525 complete immutable source5917883797; exact current consumer source/read-only evidence; original BANK scope/claim retained"
+    },
+    "bank-release-reserve-evidence-guard-purpose-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+      "purpose": "Require complete canonical RESERVE evidence and replace only two defective private candidate pins before any BANK money co-admission or source acceptance.",
+      "authorityBaseExactMain": "2e08e8e5a51a154269f59de3adede9b1e93eabee",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "priorPurposeKey": "bank-release-currency-amount-guard-purpose-20261001",
+      "futureAdmissionBranch": "governance/product-bank-fgis-ux-source-admission-20260924",
+      "futureImplementationBranch": "bank/deep-visible-copy-guard-20260924",
+      "replacesOnlyPrivateCandidatePins": [
+        [
+          "apps/web/lib/bank-release-server.ts",
+          "6ae431216dce41f07d6c73a8b3fe4231bd4c540d",
+          "54e276cc387366a4068c4a9358aea1dcfa0ebc18"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseServer.test.ts",
+          "fe1c8bc089be2b409ad65837a4ba3985edbfb619",
+          "2ab6b6c3ac056b3d08eb76450fd0c54e97bff304"
+        ]
+      ],
+      "immutableSourcePins": [
+        [
+          "apps/web/lib/bank-release-server.ts",
+          "870a839e7087ef1114d805d818220471027c89fb",
+          "54e276cc387366a4068c4a9358aea1dcfa0ebc18"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseServer.test.ts",
+          "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
+          "2ab6b6c3ac056b3d08eb76450fd0c54e97bff304"
+        ],
+        [
+          "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+          "55f1572c14283fb2b69153adba6cbe13622fd387",
+          "b67a3452e05ad97082ccfbcc0c4975302cb62df9"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+          "68382969c3b8f1bb8912a1c514fd71882470cf95",
+          "630599ff7ff0ca4338445fc8bba50d61cf07f4f6"
+        ]
+      ],
+      "reviewedPrivatePayload": {
+        "comment": 5928120402,
+        "bytes": 24835,
+        "sha256": "8c05b77b82a722c6ca21118ed0b7c7dcc2dec549f93e4b77e6a2349a9b8ef06e",
+        "bankUnitTests": {
+          "pass": 123,
+          "fail": 0,
+          "skip": 0
+        },
+        "oldPrivatePinFailureControl": {
+          "pass": 81,
+          "fail": 42,
+          "skip": 0
+        },
+        "fullCurrentPrivateComposedUnits": {
+          "pass": 553,
+          "fail": 0,
+          "skip": 0
+        },
+        "fullWebTypesPass": true,
+        "nativeOrLivePass": false
+      },
+      "nativeFinding": {
+        "pr": 5763,
+        "head": "ee06780024fba69ae7b59f89846515ced7a61e35",
+        "comment": 4153516112
+      },
+      "requiredTruthBoundaries": [
+        "Append this one correction-purpose record only; retain every original purpose, old state byte/value, current scope, owner, progress, application source and workflow unchanged. No present source grant.",
+        "The separately accepted trusted guard must require both original and this exact correction purpose from BASE before the original state-only seven-plus-two co-admission or immutable source phase. Candidate HEAD cannot self-admit the correction or source.",
+        "Only the two defective PRIVATE candidate pins are superseded; preserve all four original baseline pins, the unchanged page and route-test candidate pins, original source author and ACCOUNT_2_PRODUCT source ownership/ref, original seven-path prefix and exact existing manifest transformation.",
+        "A released projection requires persisted payment reservation plus the selected canonical RESERVE amount/currency, DONE status, confirmation timestamp and bank reference. Missing/unconfirmed/newer-pending reserve evidence cannot be hidden by confirmed RELEASE, callback, outbox or RELEASED/CLOSED status.",
+        "Preserve all previous amount/currency mismatch defenses, GET-only canonical Deal/tenant/participant permissions, release/callback/outbox prerequisites, UNKNOWN external reconciliation and every legacy scope/review/security/readiness defense. No financial/API/provider/FGIS/CORE/JIT authority is granted.",
+        "Keep native P14153516112 open until fresh full corrected current-head independent review and actual substantive gates; separate author audit and ordinary expected-full-SHA merge remain required. Old-head reviews/gates and private response doubles do not establish corrected native/provider/Founder13/REG.RU acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Primary/global/R1.2 permission, old admission, ownership or official5/100 mutation",
+        "Arbitrary source/pin/scope/metadata change or partial currency-only adoption",
+        "CI/review/security/readiness weakening, fake evidence or forced/automatic merge",
+        "API/DB/role/tenant/session/command/money/provider/FGIS/legal/model authority"
+      ]
+    },
+    "bank-release-currency-amount-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+      "canonicalApiOwnerRetained": "ACCOUNT_1_EXECUTION",
+      "purpose": "Apply only the immutable four-file read-only BANK currency and selected-operation amount consistency payload plus its exact existing scope-manifest update.",
+      "authorityBaseExactMain": "278b5da11666433889c61792b0712c50aaf27107",
+      "implementationBranch": "bank/deep-visible-copy-guard-20260924",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/bank/escrow/page.tsx",
+        "apps/web/app/platform-v7/bank/factoring/page.tsx",
+        "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+        "apps/web/app/platform-v7/profile/page.tsx",
+        "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+        "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+        "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+        "apps/web/lib/bank-release-server.ts",
+        "apps/web/tests/unit/bankReleaseServer.test.ts"
+      ],
+      "retainedAdmissionKey": "bank-deep-visible-copy-guard-20260924-coordination",
+      "exactSourcePins": [
+        [
+          "apps/web/lib/bank-release-server.ts",
+          "870a839e7087ef1114d805d818220471027c89fb",
+          "54e276cc387366a4068c4a9358aea1dcfa0ebc18"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseServer.test.ts",
+          "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
+          "2ab6b6c3ac056b3d08eb76450fd0c54e97bff304"
+        ],
+        [
+          "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+          "55f1572c14283fb2b69153adba6cbe13622fd387",
+          "b67a3452e05ad97082ccfbcc0c4975302cb62df9"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+          "68382969c3b8f1bb8912a1c514fd71882470cf95",
+          "630599ff7ff0ca4338445fc8bba50d61cf07f4f6"
+        ]
+      ],
+      "exactManifestPath": "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+      "baselineManifestBlob": "c7a015a9449578df7fbd325aae81f2d3795a4523",
+      "correctionPurposeKey": "bank-release-reserve-evidence-guard-purpose-20261001",
+      "reviewedPrivatePayloadSha256": "8c05b77b82a722c6ca21118ed0b7c7dcc2dec549f93e4b77e6a2349a9b8ef06e",
+      "requiredTruthBoundaries": [
+        "Preserve the seven-path prefix and every old admission byte/value. Append only two read-only web source/test paths; no server, provider, money mutation or legal authority.",
+        "The source phase requires all four immutable100644 source transitions and only the exact accepted-manifest path/base transformation, unchanged state and genuine accepted-base ancestry.",
+        "Preserve canonical GET-only Deal/tenant/participant permissions, UNKNOWN external outcome and all callback/outbox prerequisites. Currency/selected RESERVE and RELEASE amount conflicts cannot establish readiness or RELEASED.",
+        "A released projection requires persisted payment reservation and the selected canonical RESERVE amount/currency, DONE status, confirmation timestamp and bank reference; missing/unconfirmed/newer-pending reserve evidence remains manual review.",
+        "Fresh independent full current-head review, separate owner audit, every substantive native CI/security/readiness gate and ordinary expected-full-SHA merge remain mandatory. Private unit doubles are not PostgreSQL/browser/provider/Founder13/REG.RU acceptance."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/RLS/role/tenant/session/command/money/provider/FGIS/legal/model authority",
+        "Arbitrary source/scope/metadata changes",
+        "CI/security/readiness/review weakening or fake acceptance"
+      ]
+    },
+    "deal-execution-route-guard-purpose-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew only the already admitted protected guard ref to bind the exact Deal execution route prerequisite, including trusted-base workflow routing after native review proved PRIMARY inheritance, inert source pins and candidate-owned guard execution.",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "retainedAcceptedGuardScope": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-deal-execution-route-20261001",
+      "futureImplementationBranch": "fix/deal-execution-route-20261001",
+      "futureAllowedPaths": [
+        "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+        "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+        "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts"
+      ],
+      "futureExactSourcePins": [
+        [
+          "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+          "b9b96c88695c7960a309e98e691c348fec03a2b0",
+          "d94cc0d0af208fd6faea32e321a136629bef44f8"
+        ],
+        [
+          "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+          "87ebc91bcc9a927dd6ad2d6f9afdfff8737d47bd",
+          "a1290dc9b3ba122de480200ff5efa86445b5fe66"
+        ],
+        [
+          "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts",
+          "0e7d10b62a722802c76e73f2eb2e618953a383c5",
+          "043c10b308d52091cebb1b7a26dd31fc23a0bc45"
+        ]
+      ],
+      "requiredFutureSourceMode": "100644",
+      "privateRoutePayloadSha256": "d4c4bf61d3813e2d0d4b9c364c81941ab88039b078413addc5eb1d3ca750e884",
+      "blockingNativeFindings": [
+        4155054017,
+        4155054022,
+        4155554749
+      ],
+      "grantRouteSourceAuthority": false,
+      "guardAdoptionRequiresCoreHandoff": true,
+      "requiredTruthBoundaries": [
+        "Purpose only: renew this one record without a route SOURCE vector. All other old state bytes/values, admissions/vectors, PRIMARY/current/global/R1.2 scope, official5/100 and runtime remain unchanged.",
+        "Renew only the existing protected three-path guard ref; the correction changes exactly the three recorded guard/test/workflow blobs with original100755/100644/100644 modes and unchanged accepted state. Do not introduce another shared guard writer.",
+        "The accepted guard must discard PRIMARY/source-controlled expansion for the route SOURCE ref, bind exact trusted-base state/three paths/blobs/modes/ancestry and reject extra, partial, wrong-byte, wrong-mode, rename/delete and candidate-owned authority cases.",
+        "Both exact route branches must run the accepted BASE guard in the existing pull_request_target immutable job and PR-head defense, pass both shell allow-lists, and be excluded from candidate-owned standard/active guard paths. Preserve every old predicate, workflow trigger, permission, check binding and all other branches; do not let a candidate guard/test replace its validator.",
+        "The next state-only admission and route SOURCE remain separate accepted-base-reviewed native-gated phases. Purpose and guard code grant no route SOURCE vector, ordinary role/session/money/provider authority or live acceptance.",
+        "CORE retains current source and first-merge priority. Every guard/admission/SOURCE adoption waits for actual handoff, fresh MAIN/Hub/ownership checks, independent complete-head review, strict author audit, all substantive native/security gates and normal expected-full-SHA manual merge."
+      ],
+      "forbiddenAuthority": [
+        "SOURCE route/self-admission or arbitrary scope/state changes",
+        "CORE/API/DB/RLS/role/session/money/provider/FGIS/deployment authority",
+        "CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
+      ],
+      "authorityBaseExactMain": "fe04c9fd95c80fa5f1d936e2427154d264b6b62b",
+      "exactGuardSourcePins": [
+        [
+          "scripts/p7-autopilot-guard.sh",
+          "38be109d11422546c07fd96db283d848599a709f",
+          "28ec450dfdc88a32afa3a574f2509e3583cdcbc4",
+          "100755"
+        ],
+        [
+          "scripts/p7-autopilot-guard.test.mjs",
+          "db910d2e6c2521957fb8719f7e5af659a8cd0165",
+          "66a1b053e516f168addeb7fe0e1d7f15979b154e",
+          "100644"
+        ],
+        [
+          ".github/workflows/platform-v7-autopilot-guard.yml",
+          "90f6c2b52b25b7a4f09446b7dafb36270f9969dc",
+          "3d860d0d5ba72d27b790e129973466ca6d827635",
+          "100644"
+        ]
       ]
     }
   }
