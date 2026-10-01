@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomBytes, randomUUID } from 'crypto';
+import { isRetryableTransactionConflict } from '../../common/prisma/rls-transaction.service';
 import { Role, RequestUser } from '../../common/types/request-user';
 import { digestOpaqueAuthToken, issueStaffAccessCredential } from '../auth/opaque-token-authority';
 import {
@@ -22,6 +23,7 @@ import {
   StaffAccessRequestRow,
   StaffGrantRow,
   StaffSessionRow,
+  StaffSessionActivationRetryExhaustedError,
   StaffSqlClient,
 } from './staff-access.repository';
 import {
@@ -502,13 +504,15 @@ export class StaffAccessService {
   ) {
     this.assertRecentMfa(user);
     const token = this.makeAccessToken();
-    return this.repository.transaction(async (tx) => {
+    return this.repository.activateSessionTransaction(async (tx) => {
       const grant = await this.repository.getGrant(tx, grantId, user.id, true);
       if (!grant || !isStaffRole(grant.staff_role)) throw new NotFoundException('Staff grant not found');
       this.assertGrantActive(grant);
-      const existing = await this.repository.listActiveSessions(tx, user.id);
-      if (existing.some((session) => session.grant_id === grant.id)) {
-        throw new ConflictException('Grant already has an active session');
+      if (await this.repository.hasActiveSession(tx, user.id)) {
+        throw new ConflictException({
+          code: 'STAFF_ACTIVE_SESSION_CONFLICT',
+          message: 'End the active staff session before activating another grant.',
+        });
       }
       const sessionId = `sas_${randomUUID()}`;
       await this.repository.createAccessSession(tx, {
@@ -545,6 +549,15 @@ export class StaffAccessService {
         accessMode: grant.access_mode,
         permissions: this.permissions(grant.permissions),
       };
+    }).catch((error: unknown) => {
+      if (error instanceof StaffSessionActivationRetryExhaustedError) {
+        throw new ConflictException({
+          code: 'STAFF_SESSION_ACTIVATION_CONFLICT',
+          message: 'Refresh active staff sessions before retrying activation.',
+          retryable: true,
+        });
+      }
+      throw error;
     });
   }
 
@@ -556,8 +569,25 @@ export class StaffAccessService {
     if (!session || !isStaffRole(session.staff_role) || !isStaffAccessMode(session.access_mode)) {
       throw new UnauthorizedException('Invalid staff access session');
     }
-    if (session.status !== 'ACTIVE' || session.expires_at <= new Date()) {
+    if (session.actor_user_id !== user.id || session.status !== 'ACTIVE'
+      || !(session.expires_at instanceof Date) || !Number.isFinite(session.expires_at.getTime())
+      || session.expires_at <= new Date()) {
       throw new UnauthorizedException('Staff access session is not active');
+    }
+    // The repository revalidates this exact session's grant and assignment;
+    // an unrelated current assignment must not supply its role/permission ceiling.
+    if (!ROLE_ALLOWED_MODES[session.staff_role].includes(session.access_mode)) {
+      throw new UnauthorizedException('Staff access session mode exceeds its assignment');
+    }
+    try {
+      const permissions = this.normalizePermissions(session.permissions);
+      this.assertPermissionCeiling(session.staff_role, permissions);
+      this.assertModePermissions(session.access_mode, permissions);
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof ForbiddenException) {
+        throw new UnauthorizedException('Staff access session permissions are not valid');
+      }
+      throw error;
     }
     await this.repository.touchAccessSession(this.repository.prisma, session.id);
     return this.toContext(session);
@@ -570,23 +600,24 @@ export class StaffAccessService {
     correlationId: string = randomUUID(),
   ) {
     const roles = await this.requireAssignments(user);
-    const own = await this.repository.listActiveSessions(this.repository.prisma, user.id);
-    const target = own.find((session) => session.id === sessionId);
-    if (!target || !isStaffRole(target.staff_role)) throw new NotFoundException('Active staff session not found');
-    const ended = await this.repository.endAccessSession(this.repository.prisma, sessionId, user.id, reason);
-    if (!ended) throw new ConflictException('Staff session is no longer active');
-    await this.repository.transaction((tx) => this.audit(tx, {
-      actor: user,
-      staffRole: roles[0].role,
-      accessSessionId: sessionId,
-      grantId: target.grant_id,
-      action: 'staff.session.end',
-      outcome: 'SUCCESS',
-      reason,
-      ticketId: target.ticket_id,
-      correlationId,
-    }));
-    return { success: true, sessionId };
+    return this.sessionLifecycleTransaction(async (tx) => {
+      const target = await this.repository.getActiveAccessSession(tx, sessionId, user.id);
+      if (!target || !isStaffRole(target.staff_role)) throw new NotFoundException('Active staff session not found');
+      const ended = await this.repository.endAccessSession(tx, sessionId, user.id, reason);
+      if (!ended) throw new ConflictException('Staff session is no longer active');
+      await this.audit(tx, {
+        actor: user,
+        staffRole: roles[0].role,
+        accessSessionId: sessionId,
+        grantId: target.grant_id,
+        action: 'staff.session.end',
+        outcome: 'SUCCESS',
+        reason,
+        ticketId: target.ticket_id,
+        correlationId,
+      });
+      return { success: true, sessionId };
+    });
   }
 
   async revokeSession(
@@ -596,29 +627,25 @@ export class StaffAccessService {
     correlationId: string = randomUUID(),
   ) {
     const staffRole = await this.requirePermission(user, StaffPermission.STAFF_SESSION_REVOKE);
-    const active = await this.repository.listActiveSessions(this.repository.prisma);
-    const target = active.find((session) => session.id === sessionId);
-    if (!target || !isStaffRole(target.staff_role)) throw new NotFoundException('Active staff session not found');
-    const ended = await this.repository.endAccessSession(
-      this.repository.prisma,
-      sessionId,
-      target.actor_user_id,
-      reason,
-    );
-    if (!ended) throw new ConflictException('Staff session is no longer active');
-    await this.repository.transaction((tx) => this.audit(tx, {
-      actor: user,
-      staffRole,
-      accessSessionId: sessionId,
-      grantId: target.grant_id,
-      action: 'staff.session.revoke',
-      outcome: 'SUCCESS',
-      reason,
-      ticketId: target.ticket_id,
-      correlationId,
-      metadata: { targetActorUserId: target.actor_user_id },
-    }));
-    return { success: true, sessionId };
+    return this.sessionLifecycleTransaction(async (tx) => {
+      const target = await this.repository.getActiveAccessSession(tx, sessionId);
+      if (!target || !isStaffRole(target.staff_role)) throw new NotFoundException('Active staff session not found');
+      const ended = await this.repository.endAccessSession(tx, sessionId, target.actor_user_id, reason);
+      if (!ended) throw new ConflictException('Staff session is no longer active');
+      await this.audit(tx, {
+        actor: user,
+        staffRole,
+        accessSessionId: sessionId,
+        grantId: target.grant_id,
+        action: 'staff.session.revoke',
+        outcome: 'SUCCESS',
+        reason,
+        ticketId: target.ticket_id,
+        correlationId,
+        metadata: { targetActorUserId: target.actor_user_id },
+      });
+      return { success: true, sessionId };
+    });
   }
 
   async listActiveSessions(user: RequestUser) {
@@ -792,6 +819,21 @@ export class StaffAccessService {
       .map((row) => ({ ...row, role: row.role as StaffRole }));
     if (assignments.length === 0) throw new ForbiddenException('Active staff assignment is required');
     return assignments;
+  }
+
+  private async sessionLifecycleTransaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    try {
+      return await this.repository.transaction(work);
+    } catch (error) {
+      if (isRetryableTransactionConflict(error)) {
+        throw new ConflictException({
+          code: 'STAFF_SESSION_LIFECYCLE_CONFLICT',
+          message: 'Refresh the staff session before retrying completion.',
+          retryable: true,
+        });
+      }
+      throw error;
+    }
   }
 
   private assertRecentMfa(user: RequestUser) {
