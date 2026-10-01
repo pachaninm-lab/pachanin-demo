@@ -1587,7 +1587,348 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
     scopes = [statePath];
   }
 
-  if (branch === 'governance/product-bank-fgis-ux-source-admission-20260924') {
+  const bankMoneyPurposeKey = 'bank-release-currency-amount-guard-purpose-20261001';
+  const bankMoneyCorrectionKey = 'bank-release-reserve-evidence-guard-purpose-20261001';
+  const bankMoneyAdmissionKey = 'bank-release-currency-amount-20261001';
+  const bankMoneySourceBranch = 'bank/deep-visible-copy-guard-20260924';
+  const bankMoneyAdmissionBranch = 'governance/product-bank-fgis-ux-source-admission-20260924';
+  const bankMoneyPhase = [bankMoneySourceBranch, bankMoneyAdmissionBranch].includes(branch) &&
+    Object.hasOwn(state.coordinationAdmissions || {}, bankMoneyPurposeKey);
+  if (bankMoneyPhase) {
+    const { isDeepStrictEqual } = require('node:util');
+    const requiredPurpose = {
+  "owner": "ACCOUNT_1_EXECUTION",
+  "presentationContributor": "ACCOUNT_2_PRODUCT",
+  "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+  "purpose": "Renew the accepted three-path trusted guard lane for a separately admitted immutable four-file BANK read-only currency and selected-operation amount consistency repair.",
+  "authorityBaseExactMain": "a569b4775c484530f670c07dc0c668ac2615a287",
+  "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+  "allowedPaths": [
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-autopilot-guard.test.mjs",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
+  ],
+  "futureAdmissionBranch": "governance/product-bank-fgis-ux-source-admission-20260924",
+  "futureImplementationBranch": "bank/deep-visible-copy-guard-20260924",
+  "retainedAdmissionKey": "bank-deep-visible-copy-guard-20260924-coordination",
+  "retainedSourceScope": [
+    "apps/web/app/platform-v7/bank/escrow/page.tsx",
+    "apps/web/app/platform-v7/bank/factoring/page.tsx",
+    "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+    "apps/web/app/platform-v7/profile/page.tsx",
+    "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+    "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+    "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+  ],
+  "futureAdditionalSourcePaths": [
+    "apps/web/lib/bank-release-server.ts",
+    "apps/web/tests/unit/bankReleaseServer.test.ts"
+  ],
+  "immutableSourcePins": [
+    [
+      "apps/web/lib/bank-release-server.ts",
+      "870a839e7087ef1114d805d818220471027c89fb",
+      "6ae431216dce41f07d6c73a8b3fe4231bd4c540d"
+    ],
+    [
+      "apps/web/tests/unit/bankReleaseServer.test.ts",
+      "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
+      "fe1c8bc089be2b409ad65837a4ba3985edbfb619"
+    ],
+    [
+      "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+      "55f1572c14283fb2b69153adba6cbe13622fd387",
+      "b67a3452e05ad97082ccfbcc0c4975302cb62df9"
+    ],
+    [
+      "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+      "68382969c3b8f1bb8912a1c514fd71882470cf95",
+      "630599ff7ff0ca4338445fc8bba50d61cf07f4f6"
+    ]
+  ],
+  "requiredSourceMode": "100644",
+  "scopeManifest": {
+    "path": "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+    "baselineBlob": "c7a015a9449578df7fbd325aae81f2d3795a4523",
+    "mode": "100644",
+    "permittedTransformation": "Preserve all other bytes and metadata; append the two admitted paths after the original seven allowedPaths and bind authorityBaseExactMain to the genuine accepted co-admission guard base."
+  },
+  "reviewedPrivatePayload": {
+    "comment": 5917883797,
+    "bytes": 22121,
+    "sha256": "3d3bd96794171e61e1531c8ef3b13c1157ff389c7d979adf8d600944c819432b",
+    "privateCurrentTests": {
+      "candidatePass": 81,
+      "baselinePass": 61,
+      "baselineFail": 20,
+      "nativePostgresqlOrProviderPass": false
+    }
+  },
+  "requiredTruthBoundaries": [
+    "Purpose only: append this one record with exact old-state byte preservation. No primary/global/R1.2 scope, approvedConcurrentScopes, existing admission, source, workflow, progress or ownership change.",
+    "After separate acceptance, use only the already admitted three-path trusted guard lane for a distinct exact state-only co-admission and immutable source phase. Retain every prior guard phase, review/security/readiness defense and existing Deal locale admissions and generated-inventory phase.",
+    "The later state-only phase preserves all seven BANK paths and every original admission byte/value, appends only bank-release-server.ts and bankReleaseServer.test.ts after that prefix, adds one literal ACCOUNT_2_PRODUCT-owned co-record bound to actual accepted guard main, and rejects arbitrary permission/owner/progress/base changes, duplicate keys or reserialization.",
+    "Only after separately accepted state, the original BANK source ref may carry the four exact old/new source blobs plus its one already admitted exact transformed manifest, all regular100644. No scope state, guard, workflow, other source or arbitrary metadata can ride with this immutable phase.",
+    "Preserve canonical typed GET-only Deal workspace, exact Deal/tenant/participant identity, server-owned permissions, all existing payout prerequisites/callback/outbox evidence and UNKNOWN external reconciliation. Selected RESERVE and RELEASE must agree with canonical Deal amount and currency; discrepancies require manual review and cannot establish request readiness or RELEASED.",
+    "Render the canonical persisted currency in RU/EN/ZH without substituting RUB, hiding selected-operation amount conflicts or mutating financial facts. No release, reserve, callback, provider, integration-binding, settlement, ledger or regulatory authority is granted to this consumer projection.",
+    "The complete four-file payload is immutable; currency-only or page-only adoption leaves amount conflicts unprotected. Unit response/render doubles and private review are not native PostgreSQL, authenticated browser, provider, Founder13 or REG.RU acceptance.",
+    "Preserve original source authors and ACCOUNT_2_PRODUCT source ownership plus canonical CORE/API authority. Use a bounded Team Hub continuation decision on the original source ref, normal history-preserving updates, fresh full current-head independent nonauthor review, separate owner audit, all native CI/security/readiness and ordinary expected-full-SHA merge."
+  ],
+  "forbiddenAuthority": [
+    "API/DB/RLS/role/tenant/auth/session/command/money/provider/FGIS/legal/model authority",
+    "Arbitrary source, scope or generated-document permissions",
+    "Changes to original admissions, source authors, ownership or official5/100 progress",
+    "CI/security/readiness/review weakening, fake evidence, forced/automatic merge or live/provider acceptance inference"
+  ],
+  "teamHubDependency": "#5469 owner-priority decision5925195179; canonical BANK #5525 complete immutable source5917883797; exact current consumer source/read-only evidence; original BANK scope/claim retained"
+};
+    const requiredCorrectionPurpose = {
+  "owner": "ACCOUNT_1_EXECUTION",
+  "presentationContributor": "ACCOUNT_2_PRODUCT",
+  "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+  "purpose": "Require complete canonical RESERVE evidence and replace only two defective private candidate pins before any BANK money co-admission or source acceptance.",
+  "authorityBaseExactMain": "2e08e8e5a51a154269f59de3adede9b1e93eabee",
+  "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+  "allowedPaths": [
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-autopilot-guard.test.mjs",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
+  ],
+  "priorPurposeKey": "bank-release-currency-amount-guard-purpose-20261001",
+  "futureAdmissionBranch": "governance/product-bank-fgis-ux-source-admission-20260924",
+  "futureImplementationBranch": "bank/deep-visible-copy-guard-20260924",
+  "replacesOnlyPrivateCandidatePins": [
+    [
+      "apps/web/lib/bank-release-server.ts",
+      "6ae431216dce41f07d6c73a8b3fe4231bd4c540d",
+      "54e276cc387366a4068c4a9358aea1dcfa0ebc18"
+    ],
+    [
+      "apps/web/tests/unit/bankReleaseServer.test.ts",
+      "fe1c8bc089be2b409ad65837a4ba3985edbfb619",
+      "2ab6b6c3ac056b3d08eb76450fd0c54e97bff304"
+    ]
+  ],
+  "immutableSourcePins": [
+    [
+      "apps/web/lib/bank-release-server.ts",
+      "870a839e7087ef1114d805d818220471027c89fb",
+      "54e276cc387366a4068c4a9358aea1dcfa0ebc18"
+    ],
+    [
+      "apps/web/tests/unit/bankReleaseServer.test.ts",
+      "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
+      "2ab6b6c3ac056b3d08eb76450fd0c54e97bff304"
+    ],
+    [
+      "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+      "55f1572c14283fb2b69153adba6cbe13622fd387",
+      "b67a3452e05ad97082ccfbcc0c4975302cb62df9"
+    ],
+    [
+      "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+      "68382969c3b8f1bb8912a1c514fd71882470cf95",
+      "630599ff7ff0ca4338445fc8bba50d61cf07f4f6"
+    ]
+  ],
+  "reviewedPrivatePayload": {
+    "comment": 5928120402,
+    "bytes": 24835,
+    "sha256": "8c05b77b82a722c6ca21118ed0b7c7dcc2dec549f93e4b77e6a2349a9b8ef06e",
+    "bankUnitTests": {
+      "pass": 123,
+      "fail": 0,
+      "skip": 0
+    },
+    "oldPrivatePinFailureControl": {
+      "pass": 81,
+      "fail": 42,
+      "skip": 0
+    },
+    "fullCurrentPrivateComposedUnits": {
+      "pass": 553,
+      "fail": 0,
+      "skip": 0
+    },
+    "fullWebTypesPass": true,
+    "nativeOrLivePass": false
+  },
+  "nativeFinding": {
+    "pr": 5763,
+    "head": "ee06780024fba69ae7b59f89846515ced7a61e35",
+    "comment": 4153516112
+  },
+  "requiredTruthBoundaries": [
+    "Append this one correction-purpose record only; retain every original purpose, old state byte/value, current scope, owner, progress, application source and workflow unchanged. No present source grant.",
+    "The separately accepted trusted guard must require both original and this exact correction purpose from BASE before the original state-only seven-plus-two co-admission or immutable source phase. Candidate HEAD cannot self-admit the correction or source.",
+    "Only the two defective PRIVATE candidate pins are superseded; preserve all four original baseline pins, the unchanged page and route-test candidate pins, original source author and ACCOUNT_2_PRODUCT source ownership/ref, original seven-path prefix and exact existing manifest transformation.",
+    "A released projection requires persisted payment reservation plus the selected canonical RESERVE amount/currency, DONE status, confirmation timestamp and bank reference. Missing/unconfirmed/newer-pending reserve evidence cannot be hidden by confirmed RELEASE, callback, outbox or RELEASED/CLOSED status.",
+    "Preserve all previous amount/currency mismatch defenses, GET-only canonical Deal/tenant/participant permissions, release/callback/outbox prerequisites, UNKNOWN external reconciliation and every legacy scope/review/security/readiness defense. No financial/API/provider/FGIS/CORE/JIT authority is granted.",
+    "Keep native P14153516112 open until fresh full corrected current-head independent review and actual substantive gates; separate author audit and ordinary expected-full-SHA merge remain required. Old-head reviews/gates and private response doubles do not establish corrected native/provider/Founder13/REG.RU acceptance."
+  ],
+  "forbiddenAuthority": [
+    "Primary/global/R1.2 permission, old admission, ownership or official5/100 mutation",
+    "Arbitrary source/pin/scope/metadata change or partial currency-only adoption",
+    "CI/review/security/readiness weakening, fake evidence or forced/automatic merge",
+    "API/DB/role/tenant/session/command/money/provider/FGIS/legal/model authority"
+  ]
+};
+    const priorTemplate = {
+  "owner": "ACCOUNT_2_PRODUCT",
+  "purpose": "Presentation-only bank/deal copy guard and negative release safety wording; no provider or payment finality.",
+  "authorityBaseExactMain": "5d2fb28c0957b7c03928102b2a4ec353a49b3f79",
+  "implementationBranch": "bank/deep-visible-copy-guard-20260924",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/bank/escrow/page.tsx",
+    "apps/web/app/platform-v7/bank/factoring/page.tsx",
+    "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+    "apps/web/app/platform-v7/profile/page.tsx",
+    "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+    "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+    "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+  ],
+  "requiredTruthBoundaries": [
+    "Preserve the forbidden money-finality and demo vocabulary guard, including absence of the removed operator execution queue source.",
+    "A recorded release request is not external execution; unresolved outcome requires same-operation reconciliation before retry.",
+    "RU/EN/ZH bank copy does not attribute a concrete provider or claim factoring, release or debit finality."
+  ],
+  "forbiddenAuthority": [
+    "API/DB/settlement/ledger/provider/callback or money-finality authority",
+    "tenant/role/session authority",
+    "CI/security gate weakening"
+  ],
+  "teamHubDependency": "#5565; Team Hub #5469 scope correction 5818641448"
+};
+    const originalPaths = [
+  "apps/web/app/platform-v7/bank/escrow/page.tsx",
+  "apps/web/app/platform-v7/bank/factoring/page.tsx",
+  "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+  "apps/web/app/platform-v7/profile/page.tsx",
+  "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+  "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+  "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+];
+    const additionalPaths = ['apps/web/lib/bank-release-server.ts', 'apps/web/tests/unit/bankReleaseServer.test.ts'];
+    const completedPaths = [...originalPaths, ...additionalPaths];
+    const pins = [
+  [
+    "apps/web/lib/bank-release-server.ts",
+    "870a839e7087ef1114d805d818220471027c89fb",
+    "54e276cc387366a4068c4a9358aea1dcfa0ebc18"
+  ],
+  [
+    "apps/web/tests/unit/bankReleaseServer.test.ts",
+    "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
+    "2ab6b6c3ac056b3d08eb76450fd0c54e97bff304"
+  ],
+  [
+    "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+    "55f1572c14283fb2b69153adba6cbe13622fd387",
+    "b67a3452e05ad97082ccfbcc0c4975302cb62df9"
+  ],
+  [
+    "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+    "68382969c3b8f1bb8912a1c514fd71882470cf95",
+    "630599ff7ff0ca4338445fc8bba50d61cf07f4f6"
+  ]
+];
+    const manifestPath = 'docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json';
+    const manifestBlob = 'c7a015a9449578df7fbd325aae81f2d3795a4523';
+    const priorKey = 'bank-deep-visible-copy-guard-20260924-coordination';
+    const headRef = String(process.env.HEAD_REF || 'HEAD');
+    const baseSha = execFileSync('git', ['rev-parse', `${baseRef}^{commit}`], { encoding: 'utf8' }).trim();
+    const read = (ref, file) => execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+    const entry = (ref, file) => execFileSync('git', ['ls-tree', ref, '--', file], { encoding: 'utf8' }).trim();
+    const mode = (ref, file) => entry(ref, file).split(' ')[0];
+    if (!isDeepStrictEqual(state.coordinationAdmissions[bankMoneyPurposeKey], requiredPurpose) ||
+        !isDeepStrictEqual(state.approvedConcurrentScopes?.[requiredPurpose.implementationBranch], requiredPurpose.allowedPaths)) {
+      throw new Error('BANK_MONEY_PURPOSE_MISMATCH');
+    }
+    if (!isDeepStrictEqual(state.coordinationAdmissions[bankMoneyCorrectionKey], requiredCorrectionPurpose)) {
+      throw new Error('BANK_MONEY_CORRECTION_PURPOSE_MISMATCH');
+    }
+    if (execFileSync('git', ['merge-base', baseRef, headRef], { encoding: 'utf8' }).trim() !== baseSha) {
+      throw new Error('BANK_MONEY_BASE_NOT_ANCESTOR');
+    }
+    const prior = state.coordinationAdmissions?.[priorKey];
+    const priorBase = prior?.authorityBaseExactMain;
+    if (typeof priorBase !== 'string' || !/^[0-9a-f]{40}$/u.test(priorBase) ||
+        !isDeepStrictEqual(prior, { ...priorTemplate, authorityBaseExactMain: priorBase })) {
+      throw new Error('BANK_MONEY_PRIOR_ADMISSION_MISMATCH');
+    }
+    try { execFileSync('git', ['merge-base', '--is-ancestor', priorBase, baseRef], { stdio: 'pipe' }); }
+    catch { throw new Error('BANK_MONEY_PRIOR_BASE_NOT_ANCESTOR'); }
+    const fields = execFileSync('git', ['diff', '--no-renames', '--name-status', '-z', `${baseRef}...${headRef}`], { encoding: 'utf8' }).split('\0');
+    if (fields.pop() !== '' || fields.length % 2 !== 0) throw new Error('BANK_MONEY_DIFF_METADATA_INVALID');
+    const changes = [];
+    for (let i = 0; i < fields.length; i += 2) changes.push([fields[i], fields[i + 1]]);
+    const makeBankMoneyAdmission = (authorityBaseExactMain) => ({
+      owner: 'ACCOUNT_2_PRODUCT', sourceOwnerRetained: 'ACCOUNT_2_PRODUCT', canonicalApiOwnerRetained: 'ACCOUNT_1_EXECUTION',
+      purpose: 'Apply only the immutable four-file read-only BANK currency and selected-operation amount consistency payload plus its exact existing scope-manifest update.',
+      authorityBaseExactMain, implementationBranch: bankMoneySourceBranch,
+      allowedPaths: completedPaths, retainedAdmissionKey: priorKey, exactSourcePins: pins,
+      exactManifestPath: manifestPath, baselineManifestBlob: manifestBlob,
+      correctionPurposeKey: bankMoneyCorrectionKey,
+      reviewedPrivatePayloadSha256: '8c05b77b82a722c6ca21118ed0b7c7dcc2dec549f93e4b77e6a2349a9b8ef06e',
+      requiredTruthBoundaries: [
+        'Preserve the seven-path prefix and every old admission byte/value. Append only two read-only web source/test paths; no server, provider, money mutation or legal authority.',
+        'The source phase requires all four immutable100644 source transitions and only the exact accepted-manifest path/base transformation, unchanged state and genuine accepted-base ancestry.',
+        'Preserve canonical GET-only Deal/tenant/participant permissions, UNKNOWN external outcome and all callback/outbox prerequisites. Currency/selected RESERVE and RELEASE amount conflicts cannot establish readiness or RELEASED.',
+        'A released projection requires persisted payment reservation and the selected canonical RESERVE amount/currency, DONE status, confirmation timestamp and bank reference; missing/unconfirmed/newer-pending reserve evidence remains manual review.',
+        'Fresh independent full current-head review, separate owner audit, every substantive native CI/security/readiness gate and ordinary expected-full-SHA merge remain mandatory. Private unit doubles are not PostgreSQL/browser/provider/Founder13/REG.RU acceptance.',
+      ],
+      forbiddenAuthority: ['API/DB/RLS/role/tenant/session/command/money/provider/FGIS/legal/model authority', 'Arbitrary source/scope/metadata changes', 'CI/security/readiness/review weakening or fake acceptance'],
+    });
+    const admitted = Object.hasOwn(state.coordinationAdmissions || {}, bankMoneyAdmissionKey);
+    if (branch === bankMoneyAdmissionBranch) {
+      if (admitted) throw new Error('BANK_MONEY_ALREADY_ADMITTED');
+      if (!isDeepStrictEqual(state.approvedConcurrentScopes?.[bankMoneySourceBranch], originalPaths)) throw new Error('BANK_MONEY_PRIOR_SCOPE_MISMATCH');
+      if ([baseRef, headRef].some((ref) => mode(ref, stateFile) !== '100644')) throw new Error('BANK_MONEY_ADMISSION_MODE');
+      if (!isDeepStrictEqual(changes, [['M', stateFile]])) throw new Error('BANK_MONEY_ADMISSION_DIFF_SCOPE');
+      const expected = structuredClone(state);
+      expected.approvedConcurrentScopes[bankMoneySourceBranch] = completedPaths;
+      expected.coordinationAdmissions[bankMoneyAdmissionKey] = makeBankMoneyAdmission(baseSha);
+      const candidateText = read(headRef, stateFile);
+      if (!isDeepStrictEqual(JSON.parse(candidateText), expected)) throw new Error('BANK_MONEY_ADMISSION_STATE_MUTATION');
+      const render = (key, value) => JSON.stringify({ [key]: value }, null, 2).slice(2, -2).split('\n').map((line) => '  ' + line).join('\n');
+      const baseText = read(baseRef, stateFile), end = '\n  }\n}\n';
+      const oldVector = render(bankMoneySourceBranch, originalPaths);
+      if (Object.keys(state).at(-1) !== 'coordinationAdmissions' || !baseText.endsWith(end) || baseText.split(oldVector).length !== 2) throw new Error('BANK_MONEY_ADMISSION_TEXT_BASE');
+      let exact = baseText.replace(oldVector, render(bankMoneySourceBranch, completedPaths));
+      exact = exact.slice(0, -end.length) + ',\n' + render(bankMoneyAdmissionKey, makeBankMoneyAdmission(baseSha)) + end;
+      if (!isDeepStrictEqual(JSON.parse(exact), expected)) throw new Error('BANK_MONEY_ADMISSION_TEXT_BASE');
+      if (candidateText !== exact) throw new Error('BANK_MONEY_ADMISSION_TEXT_MUTATION');
+      scopes = [stateFile];
+    } else {
+      const admission = state.coordinationAdmissions?.[bankMoneyAdmissionKey];
+      const authority = admission?.authorityBaseExactMain;
+      if (!admitted || typeof authority !== 'string' || !/^[0-9a-f]{40}$/u.test(authority) ||
+          !isDeepStrictEqual(admission, makeBankMoneyAdmission(authority)) ||
+          !isDeepStrictEqual(state.approvedConcurrentScopes?.[bankMoneySourceBranch], completedPaths)) throw new Error('BANK_MONEY_ACCEPTED_ADMISSION_MISMATCH');
+      try { execFileSync('git', ['merge-base', '--is-ancestor', authority, baseRef], { stdio: 'pipe' }); }
+      catch { throw new Error('BANK_MONEY_ADMISSION_BASE_NOT_ANCESTOR'); }
+      if (read(headRef, stateFile) !== read(baseRef, stateFile)) throw new Error('BANK_MONEY_SOURCE_STATE_MUTATION');
+      for (const [file, before, after] of pins) {
+        if (entry(baseRef, file) !== `100644 blob ${before}\t${file}` || entry(headRef, file) !== `100644 blob ${after}\t${file}`) throw new Error('BANK_MONEY_SOURCE_PIN_OR_MODE:' + file);
+      }
+      if (entry(baseRef, manifestPath) !== `100644 blob ${manifestBlob}\t${manifestPath}` || mode(headRef, manifestPath) !== '100644') throw new Error('BANK_MONEY_MANIFEST_PIN_OR_MODE');
+      const manifestBase = read(baseRef, manifestPath);
+      const manifest = JSON.parse(manifestBase);
+      const renderManifestPaths = (paths) => JSON.stringify({ allowedPaths: paths }, null, 2).slice(2, -2);
+      const oldManifestVector = renderManifestPaths(originalPaths);
+      const authorityEntry = '  "authorityBaseExactMain": ' + JSON.stringify(manifest.authorityBaseExactMain);
+      if (manifestBase.split(oldManifestVector).length !== 2 || manifestBase.split(authorityEntry).length !== 2) throw new Error('BANK_MONEY_MANIFEST_TEXT_BASE');
+      const exactManifest = manifestBase.replace(oldManifestVector, renderManifestPaths(completedPaths))
+        .replace(authorityEntry, '  "authorityBaseExactMain": ' + JSON.stringify(authority));
+      if (read(headRef, manifestPath) !== exactManifest) throw new Error('BANK_MONEY_MANIFEST_TEXT_MUTATION');
+      const sort = (rows) => [...rows].sort((a, b) => a[1].localeCompare(b[1], 'en'));
+      const expectedChanges = [...pins.map(([file]) => ['M', file]), ['M', manifestPath]];
+      if (!isDeepStrictEqual(sort(changes), sort(expectedChanges))) throw new Error('BANK_MONEY_SOURCE_DIFF_SCOPE');
+      scopes = completedPaths;
+    }
+  }
+
+  if (branch === 'governance/product-bank-fgis-ux-source-admission-20260924' && !bankMoneyPhase) {
     const { isDeepStrictEqual } = require('node:util');
     const headRef = String(process.env.HEAD_REF || 'HEAD');
     const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${stateFile}`], { encoding: 'utf8' }));
