@@ -4267,3 +4267,268 @@ for (const [name, file, mode] of [
     assert.equal(bypassed.status, 0, 'this attack must pass only if regular-mode enforcement is removed: ' + output(bypassed));
   });
 }
+
+
+// Separately admitted BANK consumer phase; these are isolated unit fixtures,
+// never native PostgreSQL, provider or production acceptance evidence.
+const bankMoneyPurposeKey = 'bank-release-currency-amount-guard-purpose-20261001';
+const bankMoneyAdmissionKey = 'bank-release-currency-amount-20261001';
+const bankMoneySourceBranch = 'bank/deep-visible-copy-guard-20260924';
+const bankMoneyAdmissionBranch = 'governance/product-bank-fgis-ux-source-admission-20260924';
+const bankMoneyPurpose = JSON.parse(fs.readFileSync(dealRuntimeStatePath, 'utf8')).coordinationAdmissions[bankMoneyPurposeKey];
+const bankMoneyPrior = {
+  "owner": "ACCOUNT_2_PRODUCT",
+  "purpose": "Presentation-only bank/deal copy guard and negative release safety wording; no provider or payment finality.",
+  "authorityBaseExactMain": "5d2fb28c0957b7c03928102b2a4ec353a49b3f79",
+  "implementationBranch": "bank/deep-visible-copy-guard-20260924",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/bank/escrow/page.tsx",
+    "apps/web/app/platform-v7/bank/factoring/page.tsx",
+    "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+    "apps/web/app/platform-v7/profile/page.tsx",
+    "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+    "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+    "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+  ],
+  "requiredTruthBoundaries": [
+    "Preserve the forbidden money-finality and demo vocabulary guard, including absence of the removed operator execution queue source.",
+    "A recorded release request is not external execution; unresolved outcome requires same-operation reconciliation before retry.",
+    "RU/EN/ZH bank copy does not attribute a concrete provider or claim factoring, release or debit finality."
+  ],
+  "forbiddenAuthority": [
+    "API/DB/settlement/ledger/provider/callback or money-finality authority",
+    "tenant/role/session authority",
+    "CI/security gate weakening"
+  ],
+  "teamHubDependency": "#5565; Team Hub #5469 scope correction 5818641448"
+};
+const bankMoneyOldPaths = [
+  "apps/web/app/platform-v7/bank/escrow/page.tsx",
+  "apps/web/app/platform-v7/bank/factoring/page.tsx",
+  "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+  "apps/web/app/platform-v7/profile/page.tsx",
+  "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+  "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+  "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+];
+const bankMoneyPins = [
+  [
+    "apps/web/lib/bank-release-server.ts",
+    "870a839e7087ef1114d805d818220471027c89fb",
+    "6ae431216dce41f07d6c73a8b3fe4231bd4c540d"
+  ],
+  [
+    "apps/web/tests/unit/bankReleaseServer.test.ts",
+    "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
+    "fe1c8bc089be2b409ad65837a4ba3985edbfb619"
+  ],
+  [
+    "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+    "55f1572c14283fb2b69153adba6cbe13622fd387",
+    "b67a3452e05ad97082ccfbcc0c4975302cb62df9"
+  ],
+  [
+    "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+    "68382969c3b8f1bb8912a1c514fd71882470cf95",
+    "630599ff7ff0ca4338445fc8bba50d61cf07f4f6"
+  ]
+];
+const bankMoneyManifest = 'docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json';
+const bankMoneyPaths = [...bankMoneyOldPaths, 'apps/web/lib/bank-release-server.ts', 'apps/web/tests/unit/bankReleaseServer.test.ts'];
+const bankMoneyPinnedPatch = inflateSync(Buffer.from('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', 'base64'));
+assert.equal(createHash('sha256').update(bankMoneyPinnedPatch).digest('hex'), '3d3bd96794171e61e1531c8ef3b13c1157ff389c7d979adf8d600944c819432b');
+function bankMoneyRecord(authorityBaseExactMain) {
+  const bankMoneySourceBranch = 'bank/deep-visible-copy-guard-20260924';
+  const completedPaths = bankMoneyPaths, priorKey = 'bank-deep-visible-copy-guard-20260924-coordination';
+  const pins = structuredClone(bankMoneyPins), manifestPath = bankMoneyManifest, manifestBlob = 'c7a015a9449578df7fbd325aae81f2d3795a4523';
+  return {
+      owner: 'ACCOUNT_2_PRODUCT', sourceOwnerRetained: 'ACCOUNT_2_PRODUCT', canonicalApiOwnerRetained: 'ACCOUNT_1_EXECUTION',
+      purpose: 'Apply only the immutable four-file read-only BANK currency and selected-operation amount consistency payload plus its exact existing scope-manifest update.',
+      authorityBaseExactMain, implementationBranch: bankMoneySourceBranch,
+      allowedPaths: completedPaths, retainedAdmissionKey: priorKey, exactSourcePins: pins,
+      exactManifestPath: manifestPath, baselineManifestBlob: manifestBlob,
+      reviewedPrivatePayloadSha256: '3d3bd96794171e61e1531c8ef3b13c1157ff389c7d979adf8d600944c819432b',
+      requiredTruthBoundaries: [
+        'Preserve the seven-path prefix and every old admission byte/value. Append only two read-only web source/test paths; no server, provider, money mutation or legal authority.',
+        'The source phase requires all four immutable100644 source transitions and only the exact accepted-manifest path/base transformation, unchanged state and genuine accepted-base ancestry.',
+        'Preserve canonical GET-only Deal/tenant/participant permissions, UNKNOWN external outcome and all callback/outbox prerequisites. Currency/selected RESERVE and RELEASE amount conflicts cannot establish readiness or RELEASED.',
+        'Fresh independent full current-head review, separate owner audit, every substantive native CI/security/readiness gate and ordinary expected-full-SHA merge remain mandatory. Private unit doubles are not PostgreSQL/browser/provider/Founder13/REG.RU acceptance.',
+      ],
+      forbiddenAuthority: ['API/DB/RLS/role/tenant/session/command/money/provider/FGIS/legal/model authority', 'Arbitrary source/scope/metadata changes', 'CI/security/readiness/review weakening or fake acceptance'],
+    };
+}
+function extendBankMoney(context, mutate = () => {}) {
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  state.approvedConcurrentScopes[bankMoneySourceBranch] = [...bankMoneyPaths];
+  state.coordinationAdmissions[bankMoneyAdmissionKey] = bankMoneyRecord(context.baseline);
+  mutate(state);
+  write(context.root, dealRuntimeStatePath, JSON.stringify(state, null, 2) + '\n');
+}
+function bankMoneyFixture(t, { implementation = false, admitted = false, purpose = true, mutateBase = () => {} } = {}) {
+  const context = fixture(t, implementation ? bankMoneySourceBranch : bankMoneyAdmissionBranch);
+  const state = {
+    current: 'BANK unchanged fixture', fullTzReadinessPercent: 5, allowedCurrentScope: ['README.md'],
+    approvedConcurrentScopes: {
+      [bankMoneySourceBranch]: [...bankMoneyOldPaths],
+      [bankMoneyAdmissionBranch]: [dealRuntimeStatePath],
+      [bankMoneyPurpose.implementationBranch]: [...bankMoneyPurpose.allowedPaths],
+    },
+    coordinationAdmissions: {
+      'bank-deep-visible-copy-guard-20260924-coordination': { ...structuredClone(bankMoneyPrior), authorityBaseExactMain: context.baseline },
+      ...(purpose ? { [bankMoneyPurposeKey]: structuredClone(bankMoneyPurpose) } : {}),
+    },
+  };
+  mutateBase(state);
+  for (const [file, before] of bankMoneyPins) write(context.root, file, actualLocaleBaselineBlob(before));
+  write(context.root, bankMoneyManifest, actualLocaleBaselineBlob('c7a015a9449578df7fbd325aae81f2d3795a4523'));
+  write(context.root, dealRuntimeStatePath, JSON.stringify(state, null, 2) + '\n');
+  commit(context.root, 'genuine isolated baseline source blobs and accepted-purpose fixture');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  if (admitted) {
+    extendBankMoney(context);
+    commit(context.root, 'separate exact two-path BANK co-admission fixture');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  }
+  return context;
+}
+function completeBankMoney(context) {
+  const applied = spawnSync('git', ['apply', '--index', '--whitespace=nowarn', '-'], {
+    cwd: context.root, input: bankMoneyPinnedPatch, encoding: 'utf8',
+  });
+  assert.equal(applied.status, 0, output(applied));
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  const manifest = JSON.parse(fs.readFileSync(path.join(context.root, bankMoneyManifest), 'utf8'));
+  manifest.allowedPaths = [...bankMoneyPaths];
+  manifest.authorityBaseExactMain = state.coordinationAdmissions[bankMoneyAdmissionKey]?.authorityBaseExactMain ?? context.baseline;
+  write(context.root, bankMoneyManifest, JSON.stringify(manifest, null, 2) + '\n');
+  commit(context.root, 'actual immutable four-file BANK payload and exact manifest transform');
+  for (const [file, before, after] of bankMoneyPins) {
+    assert.equal(git(context.root, ['ls-tree', context.baseline, '--', file]), `100644 blob ${before}\t${file}`);
+    assert.equal(git(context.root, ['ls-tree', 'HEAD', '--', file]), `100644 blob ${after}\t${file}`);
+  }
+}
+function rejectBankMoney(context, pattern = /BANK_MONEY_|PRODUCT_|Mutable scope|outside current/u) {
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), pattern);
+}
+test('BANK money: exact state-only co-admission preserves all seven paths and old admission', (t) => {
+  const context = bankMoneyFixture(t);
+  const before = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  extendBankMoney(context);
+  commit(context.root, 'exact BANK state-only co-admission');
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+  const after = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
+  assert.deepEqual(after.coordinationAdmissions['bank-deep-visible-copy-guard-20260924-coordination'], before.coordinationAdmissions['bank-deep-visible-copy-guard-20260924-coordination']);
+  assert.deepEqual(after.approvedConcurrentScopes[bankMoneySourceBranch].slice(0, 7), bankMoneyOldPaths);
+  assert.equal(git(context.root, ['diff', '--name-status', `${context.baseline}...HEAD`]), `M\t${dealRuntimeStatePath}`);
+});
+const bankStateAttacks = [
+  ['third permission', (s) => s.approvedConcurrentScopes[bankMoneySourceBranch].push('apps/api/src/app.module.ts')],
+  ['removed old path', (s) => s.approvedConcurrentScopes[bankMoneySourceBranch].shift()],
+  ['reordered old prefix', (s) => s.approvedConcurrentScopes[bankMoneySourceBranch].reverse()],
+  ['duplicate added path', (s) => s.approvedConcurrentScopes[bankMoneySourceBranch].push(bankMoneyPaths.at(-1))],
+  ['old source owner', (s) => { s.coordinationAdmissions['bank-deep-visible-copy-guard-20260924-coordination'].owner = 'ACCOUNT_1_EXECUTION'; }],
+  ['new source owner', (s) => { s.coordinationAdmissions[bankMoneyAdmissionKey].sourceOwnerRetained = 'ACCOUNT_1_EXECUTION'; }],
+  ['new semantic owner', (s) => { s.coordinationAdmissions[bankMoneyAdmissionKey].owner = 'ACCOUNT_1_EXECUTION'; }],
+  ['canonical API owner', (s) => { s.coordinationAdmissions[bankMoneyAdmissionKey].canonicalApiOwnerRetained = 'ACCOUNT_2_PRODUCT'; }],
+  ['wrong actual base', (s) => { s.coordinationAdmissions[bankMoneyAdmissionKey].authorityBaseExactMain = '0'.repeat(40); }],
+  ['changed immutable pin', (s) => { s.coordinationAdmissions[bankMoneyAdmissionKey].exactSourcePins[0][2] = '0'.repeat(40); }],
+  ['weakened boundary', (s) => { s.coordinationAdmissions[bankMoneyAdmissionKey].requiredTruthBoundaries = []; }],
+  ['changed manifest pin', (s) => { s.coordinationAdmissions[bankMoneyAdmissionKey].baselineManifestBlob = '0'.repeat(40); }],
+  ['global authority', (s) => s.allowedCurrentScope.push('**')],
+  ['false progress', (s) => { s.fullTzReadinessPercent = 100; }],
+  ['extra grant field', (s) => { s.coordinationAdmissions[bankMoneyAdmissionKey].grantApiAuthority = true; }],
+];
+for (const [name, mutate] of bankStateAttacks) test('BANK money: co-admission rejects ' + name, (t) => {
+  const context = bankMoneyFixture(t);
+  extendBankMoney(context, mutate);
+  commit(context.root, 'invalid BANK state: ' + name);
+  rejectBankMoney(context, /BANK_MONEY_ADMISSION_STATE_MUTATION/u);
+});
+const bankTextAttacks = [
+  ['compact old bytes', (raw) => JSON.stringify(JSON.parse(raw)) + '\n'],
+  ['reordered old keys', (raw) => JSON.stringify(Object.fromEntries(Object.entries(JSON.parse(raw)).reverse()), null, 2) + '\n'],
+  ['duplicate old progress key', (raw) => raw.replace('  "fullTzReadinessPercent": 5,', '  "fullTzReadinessPercent": 100,\n  "fullTzReadinessPercent": 5,')],
+  ['escaped old key', (raw) => raw.replace('  "current":', '  "\\u0063urrent":')],
+];
+for (const [name, attack] of bankTextAttacks) test('BANK money: byte preservation rejects ' + name, (t) => {
+  const context = bankMoneyFixture(t); extendBankMoney(context);
+  const target = path.join(context.root, dealRuntimeStatePath), valid = fs.readFileSync(target, 'utf8');
+  const changed = attack(valid); assert.notEqual(changed, valid); assert.deepEqual(JSON.parse(changed), JSON.parse(valid));
+  fs.writeFileSync(target, changed); commit(context.root, 'same values with altered old bytes');
+  rejectBankMoney(context, /BANK_MONEY_ADMISSION_TEXT_MUTATION/u);
+  const trusted = git(context.root, ['show', `${context.baseline}:scripts/p7-autopilot-guard.sh`]);
+  const predicate = "if (candidateText !== exact) throw new Error('BANK_MONEY_ADMISSION_TEXT_MUTATION');";
+  assert.equal(trusted.split(predicate).length, 2);
+  const bypass = path.join(context.root, '.git', 'BANK-byte-only-bypass.sh');
+  fs.writeFileSync(bypass, trusted.replace(predicate, ''));
+  const control = spawnSync('bash', [bypass], { cwd: context.root, env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: context.implementationBranch }, encoding: 'utf8' });
+  assert.equal(control.status, 0, output(control));
+});
+test('BANK money: purpose is required from trusted base, not candidate', (t) => {
+  const context = bankMoneyFixture(t, { purpose: false });
+  extendBankMoney(context, (s) => { s.coordinationAdmissions[bankMoneyPurposeKey] = structuredClone(bankMoneyPurpose); });
+  commit(context.root, 'candidate fabricated purpose'); rejectBankMoney(context);
+});
+test('BANK money: altered accepted purpose is rejected', (t) => {
+  const context = bankMoneyFixture(t, { mutateBase: (s) => { s.coordinationAdmissions[bankMoneyPurposeKey].owner = 'ACCOUNT_2_PRODUCT'; } });
+  extendBankMoney(context); commit(context.root, 'altered accepted purpose'); rejectBankMoney(context, /BANK_MONEY_PURPOSE_MISMATCH/u);
+});
+test('BANK money: mixed state/source co-admission is rejected', (t) => {
+  const context = bankMoneyFixture(t); extendBankMoney(context);
+  write(context.root, bankMoneyPins[0][0], 'mixed source\n'); commit(context.root, 'mixed phase');
+  rejectBankMoney(context, /BANK_MONEY_ADMISSION_DIFF_SCOPE/u);
+});
+for (const mode of ['100755', '120000']) test('BANK money: exact state bytes with mode ' + mode + ' reject before diff-type checks', (t) => {
+  const context = bankMoneyFixture(t); extendBankMoney(context); commit(context.root, 'exact state bytes');
+  const blob = git(context.root, ['rev-parse', 'HEAD:' + dealRuntimeStatePath]);
+  git(context.root, ['update-index', '--cacheinfo', `${mode},${blob},${dealRuntimeStatePath}`]);
+  git(context.root, ['commit', '-m', 'isolated bad state mode']);
+  rejectBankMoney(context, /BANK_MONEY_ADMISSION_MODE/u);
+});
+test('BANK money: all four actual source pins and exact existing manifest pass', (t) => {
+  const context = bankMoneyFixture(t, { implementation: true, admitted: true }); completeBankMoney(context);
+  const result = runTrustedDealRuntimeGuard(context); assert.equal(result.status, 0, output(result));
+  assert.equal(git(context.root, ['diff', '--name-only', `${context.baseline}...HEAD`]).split('\n').length, 5);
+});
+test('BANK money: accepted purpose alone cannot admit source', (t) => {
+  const context = bankMoneyFixture(t, { implementation: true }); completeBankMoney(context);
+  rejectBankMoney(context, /BANK_MONEY_ACCEPTED_ADMISSION_MISMATCH/u);
+});
+const bankSourceAttacks = [
+  ['different source bytes', (c) => write(c.root, bankMoneyPins[0][0], 'wrong candidate\n')],
+  ['missing amount server repair', (c) => write(c.root, bankMoneyPins[0][0], actualLocaleBaselineBlob(bankMoneyPins[0][1]))],
+  ['server-only two-file adoption', (c) => { for (const [file, before] of bankMoneyPins.slice(2)) write(c.root, file, actualLocaleBaselineBlob(before)); }],
+  ['extra old permitted source', (c) => write(c.root, bankMoneyOldPaths[0], 'extra immutable-phase source\n')],
+  ['candidate-owned state', (c) => { const p = path.join(c.root, dealRuntimeStatePath); const s = JSON.parse(fs.readFileSync(p,'utf8'));s.approvedConcurrentScopes[bankMoneySourceBranch].push('apps/api/**');fs.writeFileSync(p,JSON.stringify(s,null,2)+'\n'); }],
+  ['arbitrary manifest authority', (c) => { const p=path.join(c.root,bankMoneyManifest);const s=JSON.parse(fs.readFileSync(p,'utf8'));s.newRecurringCostRub=100;fs.writeFileSync(p,JSON.stringify(s,null,2)+'\n'); }],
+  ['reserialized manifest bytes', (c) => { const p=path.join(c.root,bankMoneyManifest);fs.writeFileSync(p,JSON.stringify(JSON.parse(fs.readFileSync(p,'utf8')))+'\n'); }],
+  ['duplicate manifest key', (c) => { const p=path.join(c.root,bankMoneyManifest);fs.writeFileSync(p,fs.readFileSync(p,'utf8').replace('  "status": "active",','  "status": "inactive",\n  "status": "active",')); }],
+  ['missing manifest transition', (c) => write(c.root,bankMoneyManifest,actualLocaleBaselineBlob('c7a015a9449578df7fbd325aae81f2d3795a4523'))],
+];
+for (const [name, mutate] of bankSourceAttacks) test('BANK money: completed immutable source rejects ' + name, (t) => {
+  const context=bankMoneyFixture(t,{implementation:true,admitted:true});completeBankMoney(context);mutate(context);commit(context.root,'source attack: '+name);rejectBankMoney(context);
+});
+for (const mode of ['100755','120000']) test('BANK money: actual source blob with mode ' + mode + ' fails its regular-mode predicate', (t) => {
+  const context=bankMoneyFixture(t,{implementation:true,admitted:true});completeBankMoney(context);
+  const [file,,sha]=bankMoneyPins[0];git(context.root,['update-index','--cacheinfo',`${mode},${sha},${file}`]);git(context.root,['commit','-m','exact blob with wrong mode']);
+  rejectBankMoney(context,/BANK_MONEY_SOURCE_PIN_OR_MODE/u);
+  if(mode==='100755') {
+    const trusted=git(context.root,['show',`${context.baseline}:scripts/p7-autopilot-guard.sh`]);
+    const strict='entry(headRef, file) !== `100644 blob ${after}\\t${file}`';
+    assert.equal(trusted.split(strict).length,2);
+    const bypass=path.join(context.root,'.git','BANK-source-mode-only-bypass.sh');
+    fs.writeFileSync(bypass,trusted.replace(strict,'entry(headRef, file).slice(7) !== `blob ${after}\\t${file}`'));
+    const control=spawnSync('bash',[bypass],{cwd:context.root,env:{...process.env,BASE_REF:context.baseline,HEAD_REF:'HEAD',GITHUB_HEAD_REF:context.implementationBranch},encoding:'utf8'});
+    assert.equal(control.status,0,'remove only candidate source mode comparison: '+output(control));
+  }
+});
+test('BANK money: wrong admitted base cannot pass ancestry', (t) => {
+  const context=bankMoneyFixture(t,{implementation:true,admitted:true});
+  const p=path.join(context.root,dealRuntimeStatePath),s=JSON.parse(fs.readFileSync(p,'utf8'));
+  s.coordinationAdmissions[bankMoneyAdmissionKey].authorityBaseExactMain='0'.repeat(40);
+  fs.writeFileSync(p,JSON.stringify(s,null,2)+'\n');commit(context.root,'wrong accepted-base fixture precondition');context.baseline=git(context.root,['rev-parse','HEAD']);
+  completeBankMoney(context);rejectBankMoney(context,/BANK_MONEY_ADMISSION_BASE_NOT_ANCESTOR/u);
+});

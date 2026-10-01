@@ -1774,7 +1774,9 @@
       "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
       "apps/web/components/platform-v7/DealCommandForm.tsx",
       "apps/web/i18n/transaction-deal-copy.ts",
-      "packages/design-system-v8/src/components.tsx"
+      "packages/design-system-v8/src/components.tsx",
+      "docs/security/cryptographic-inventory.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
     ]
   },
   "currentAcceptance": [
@@ -3133,6 +3135,167 @@
         "Fake source/history/producer metadata or live/external PASS"
       ],
       "teamHubDependency": "#5469 owner-priority decision5925195179; accepted locale purpose5754/guard5755/admission5756; native source5757"
+    },
+    "deal-locale-generated-inventory-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_1_EXECUTION",
+      "purpose": "Complete the immutable six-file Deal locale transition with only its byte-exact trusted generated cryptographic inventory pair.",
+      "authorityBaseExactMain": "643e52a03c767e6f5d2957da0c0fed81c3d4b4fa",
+      "implementationBranch": "ux/deal-runtime-unknown-20260929",
+      "allowedPaths": [
+        "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+        "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+        "apps/web/tests/unit/transactionUxV8Migration.test.ts",
+        ".github/workflows/ci.yml",
+        "docs/platform-v7/qa/web-unit-coverage-registry.json",
+        "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+        "apps/web/components/platform-v7/DealCommandForm.tsx",
+        "apps/web/i18n/transaction-deal-copy.ts",
+        "packages/design-system-v8/src/components.tsx",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "retainedLocaleAdmissionKey": "deal-destination-locale-20261001",
+      "exactSourcePins": [
+        [
+          "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+          "6f980ea5c83dc9776d51fe01b6f33bf21704a037",
+          "be57e8931fc5a056ed59039d9bf0da6f98aeb6fe"
+        ],
+        [
+          "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+          "4cf04d22287002bf90888847153bfe9759d8e1fd",
+          "1c669249fcf4451bc0655f506d975edc069fe81c"
+        ],
+        [
+          "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+          "699ae74d30128e72ccad0a4559ad40944b3ecda8",
+          "2099bb5fcd731368ffccecd096ebb10320379257"
+        ],
+        [
+          "apps/web/components/platform-v7/DealCommandForm.tsx",
+          "7bde1116c8e84e2f253da69431d867ceaa90663d",
+          "aba1af6c10dbbee0cee25cb13bdbce40145024a2"
+        ],
+        [
+          "apps/web/i18n/transaction-deal-copy.ts",
+          null,
+          "4db89dfdec3f5f871760461a60dd2f89194329a1"
+        ],
+        [
+          "packages/design-system-v8/src/components.tsx",
+          "3f95e51e99858debcd3f784e5b77b05be9619ccd",
+          "3f29bfef940801667273f066a02d34f20c2be8b5"
+        ]
+      ],
+      "exactGeneratedPaths": [
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "trustedGenerator": {
+        "path": "scripts/security/discover-cryptography.mjs",
+        "mode": "100644",
+        "blob": "6a5751eb031a514bcf7f26893c0003e6013107aa"
+      },
+      "requiredTruthBoundaries": [
+        "Separate completion phase only. Preserve every old record and the immutable six source blobs; append only the two generated paths after the existing nine paths.",
+        "Unchanged state and exactly six source transitions plus both regular generated files; no arbitrary source, workflow, registry, guard or scope mutation.",
+        "Use only the unchanged pinned accepted-base generator and committed application blobs as text. Verify full source enumeration, modes, attributable ancestor/source-tree equality, and byte-exact JSON/Markdown reproduction.",
+        "Fresh whole-head independent review, separate owner audit, all applicable native CI/security/readiness and ordinary full-expected-SHA merge remain mandatory. No protected/live/provider/Founder13 acceptance is inferred."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/role/tenant/money/provider/FGIS/model authority",
+        "General source or generated-output permissions",
+        "Candidate-code execution during regeneration",
+        "CI/security/review/readiness weakening or false live/external PASS"
+      ]
+    },
+    "bank-release-currency-amount-guard-purpose-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew the accepted three-path trusted guard lane for a separately admitted immutable four-file BANK read-only currency and selected-operation amount consistency repair.",
+      "authorityBaseExactMain": "a569b4775c484530f670c07dc0c668ac2615a287",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-bank-fgis-ux-source-admission-20260924",
+      "futureImplementationBranch": "bank/deep-visible-copy-guard-20260924",
+      "retainedAdmissionKey": "bank-deep-visible-copy-guard-20260924-coordination",
+      "retainedSourceScope": [
+        "apps/web/app/platform-v7/bank/escrow/page.tsx",
+        "apps/web/app/platform-v7/bank/factoring/page.tsx",
+        "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+        "apps/web/app/platform-v7/profile/page.tsx",
+        "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+        "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+        "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+      ],
+      "futureAdditionalSourcePaths": [
+        "apps/web/lib/bank-release-server.ts",
+        "apps/web/tests/unit/bankReleaseServer.test.ts"
+      ],
+      "immutableSourcePins": [
+        [
+          "apps/web/lib/bank-release-server.ts",
+          "870a839e7087ef1114d805d818220471027c89fb",
+          "6ae431216dce41f07d6c73a8b3fe4231bd4c540d"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseServer.test.ts",
+          "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
+          "fe1c8bc089be2b409ad65837a4ba3985edbfb619"
+        ],
+        [
+          "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+          "55f1572c14283fb2b69153adba6cbe13622fd387",
+          "b67a3452e05ad97082ccfbcc0c4975302cb62df9"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+          "68382969c3b8f1bb8912a1c514fd71882470cf95",
+          "630599ff7ff0ca4338445fc8bba50d61cf07f4f6"
+        ]
+      ],
+      "requiredSourceMode": "100644",
+      "scopeManifest": {
+        "path": "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+        "baselineBlob": "c7a015a9449578df7fbd325aae81f2d3795a4523",
+        "mode": "100644",
+        "permittedTransformation": "Preserve all other bytes and metadata; append the two admitted paths after the original seven allowedPaths and bind authorityBaseExactMain to the genuine accepted co-admission guard base."
+      },
+      "reviewedPrivatePayload": {
+        "comment": 5917883797,
+        "bytes": 22121,
+        "sha256": "3d3bd96794171e61e1531c8ef3b13c1157ff389c7d979adf8d600944c819432b",
+        "privateCurrentTests": {
+          "candidatePass": 81,
+          "baselinePass": 61,
+          "baselineFail": 20,
+          "nativePostgresqlOrProviderPass": false
+        }
+      },
+      "requiredTruthBoundaries": [
+        "Purpose only: append this one record with exact old-state byte preservation. No primary/global/R1.2 scope, approvedConcurrentScopes, existing admission, source, workflow, progress or ownership change.",
+        "After separate acceptance, use only the already admitted three-path trusted guard lane for a distinct exact state-only co-admission and immutable source phase. Retain every prior guard phase, review/security/readiness defense and existing Deal locale admissions and generated-inventory phase.",
+        "The later state-only phase preserves all seven BANK paths and every original admission byte/value, appends only bank-release-server.ts and bankReleaseServer.test.ts after that prefix, adds one literal ACCOUNT_2_PRODUCT-owned co-record bound to actual accepted guard main, and rejects arbitrary permission/owner/progress/base changes, duplicate keys or reserialization.",
+        "Only after separately accepted state, the original BANK source ref may carry the four exact old/new source blobs plus its one already admitted exact transformed manifest, all regular100644. No scope state, guard, workflow, other source or arbitrary metadata can ride with this immutable phase.",
+        "Preserve canonical typed GET-only Deal workspace, exact Deal/tenant/participant identity, server-owned permissions, all existing payout prerequisites/callback/outbox evidence and UNKNOWN external reconciliation. Selected RESERVE and RELEASE must agree with canonical Deal amount and currency; discrepancies require manual review and cannot establish request readiness or RELEASED.",
+        "Render the canonical persisted currency in RU/EN/ZH without substituting RUB, hiding selected-operation amount conflicts or mutating financial facts. No release, reserve, callback, provider, integration-binding, settlement, ledger or regulatory authority is granted to this consumer projection.",
+        "The complete four-file payload is immutable; currency-only or page-only adoption leaves amount conflicts unprotected. Unit response/render doubles and private review are not native PostgreSQL, authenticated browser, provider, Founder13 or REG.RU acceptance.",
+        "Preserve original source authors and ACCOUNT_2_PRODUCT source ownership plus canonical CORE/API authority. Use a bounded Team Hub continuation decision on the original source ref, normal history-preserving updates, fresh full current-head independent nonauthor review, separate owner audit, all native CI/security/readiness and ordinary expected-full-SHA merge."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/RLS/role/tenant/auth/session/command/money/provider/FGIS/legal/model authority",
+        "Arbitrary source, scope or generated-document permissions",
+        "Changes to original admissions, source authors, ownership or official5/100 progress",
+        "CI/security/readiness/review weakening, fake evidence, forced/automatic merge or live/provider acceptance inference"
+      ],
+      "teamHubDependency": "#5469 owner-priority decision5925195179; canonical BANK #5525 complete immutable source5917883797; exact current consumer source/read-only evidence; original BANK scope/claim retained"
     }
   }
 }
