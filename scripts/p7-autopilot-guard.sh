@@ -1055,6 +1055,24 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
         expected.approvedConcurrentScopes[implementationBranch] = completionPaths;
         expected.coordinationAdmissions[inventoryAdmissionKey] = makeInventoryAdmission(baseSha);
         if (!isDeepStrictEqual(JSON.parse(readState(headRef)), expected)) throw new Error('DEAL_LOCALE_INVENTORY_ADMISSION_STATE_MUTATION');
+        // Only these two insertions may change accepted state bytes. Comparing
+        // parsed values alone would admit old-record reordering, reserialization
+        // and duplicate keys whose final value happens to match the old state.
+        const renderEntry = (key, value) => JSON.stringify({ [key]: value }, null, 2)
+          .slice(2, -2).split('\n').map((line) => '  ' + line).join('\n');
+        const baseText = readState(baseRef);
+        const oldVector = renderEntry(implementationBranch, extendedPaths);
+        const stateEnd = '\n  }\n}\n';
+        if (Object.keys(state).at(-1) !== 'coordinationAdmissions' ||
+            Object.keys(state.coordinationAdmissions).length === 0 ||
+            !baseText.endsWith(stateEnd) || baseText.split(oldVector).length !== 2) {
+          throw new Error('DEAL_LOCALE_INVENTORY_ADMISSION_TEXT_BASE');
+        }
+        let expectedText = baseText.replace(oldVector, renderEntry(implementationBranch, completionPaths));
+        expectedText = expectedText.slice(0, -stateEnd.length) + ',\n' +
+          renderEntry(inventoryAdmissionKey, makeInventoryAdmission(baseSha)) + stateEnd;
+        if (!isDeepStrictEqual(JSON.parse(expectedText), expected)) throw new Error('DEAL_LOCALE_INVENTORY_ADMISSION_TEXT_BASE');
+        if (readState(headRef) !== expectedText) throw new Error('DEAL_LOCALE_INVENTORY_ADMISSION_TEXT_MUTATION');
         scopes = [stateFile];
       } else if (branch === admissionBranch) {
         if (Object.hasOwn(state.coordinationAdmissions || {}, localeAdmissionKey)) {

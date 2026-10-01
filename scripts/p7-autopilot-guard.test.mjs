@@ -3919,6 +3919,72 @@ test('Locale inventory: exact state-only co-admission preserves old nine paths a
   assert.equal(result.status, 0, output(result));
   assert.equal(git(context.root, ['diff', '--name-status', `${context.baseline}...HEAD`]), `M\t${dealRuntimeStatePath}`);
 });
+const inventoryTextAttacks = [
+  ['compact old state', (raw) => JSON.stringify(JSON.parse(raw)) + '\n'],
+  ['four-space old state', (raw) => JSON.stringify(JSON.parse(raw), null, 4) + '\n'],
+  ['reordered old top-level keys', (raw) => JSON.stringify(Object.fromEntries(Object.entries(JSON.parse(raw)).reverse()), null, 2) + '\n'],
+  ['reordered old admission records', (raw) => {
+    const state = JSON.parse(raw);
+    state.coordinationAdmissions = Object.fromEntries(Object.entries(state.coordinationAdmissions).reverse());
+    return JSON.stringify(state, null, 2) + '\n';
+  }],
+  ['reordered retained locale fields', (raw) => {
+    const state = JSON.parse(raw);
+    state.coordinationAdmissions[dealLocaleAdmissionKey] = Object.fromEntries(Object.entries(state.coordinationAdmissions[dealLocaleAdmissionKey]).reverse());
+    return JSON.stringify(state, null, 2) + '\n';
+  }],
+  ['duplicate old current-step key with last-value wins', (raw) => raw.replace('  "current": "R1.2 unchanged fixture",', '  "current": "unauthorized next step",\n  "current": "R1.2 unchanged fixture",')],
+  ['duplicate old owner key with last-value wins', (raw) => {
+    const start = raw.indexOf('    "' + dealLocaleAdmissionKey + '": {');
+    assert.notEqual(start, -1);
+    return raw.slice(0, start) + raw.slice(start).replace('      "owner": "ACCOUNT_1_EXECUTION",',
+      '      "owner": "ACCOUNT_2_PRODUCT",\n      "owner": "ACCOUNT_1_EXECUTION",');
+  }],
+  ['escaped old key spelling', (raw) => raw.replace('  "current":', '  "\\u0063urrent":')],
+  ['CRLF reserialization', (raw) => raw.replaceAll('\n', '\r\n')],
+];
+for (const [name, attack] of inventoryTextAttacks) {
+  test('Locale inventory: byte preservation rejects ' + name + ' although parsed values match', (t) => {
+    const context = localeInventoryFixture(t);
+    extendLocaleInventory(context);
+    const target = path.join(context.root, dealRuntimeStatePath);
+    const valid = fs.readFileSync(target, 'utf8');
+    const changed = attack(valid);
+    assert.notEqual(changed, valid, 'isolated attack must change actual bytes');
+    assert.deepEqual(JSON.parse(changed), JSON.parse(valid), 'the preexisting object comparison cannot distinguish this attack');
+    fs.writeFileSync(target, changed);
+    commit(context.root, 'same parsed state with changed old bytes: ' + name);
+    const result = runTrustedDealRuntimeGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /DEAL_LOCALE_INVENTORY_ADMISSION_TEXT_MUTATION/u);
+    const trusted = git(context.root, ['show', `${context.baseline}:scripts/p7-autopilot-guard.sh`]);
+    const predicate = "if (readState(headRef) !== expectedText) throw new Error('DEAL_LOCALE_INVENTORY_ADMISSION_TEXT_MUTATION');";
+    assert.equal(trusted.split(predicate).length, 2, 'remove only the new exact-text comparison');
+    const bypass = path.join(context.root, '.git', 'inventory-text-bypass-control.sh');
+    fs.writeFileSync(bypass, trusted.replace(predicate, ''));
+    const control = spawnSync('bash', [bypass], {
+      cwd: context.root,
+      env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: context.implementationBranch },
+      encoding: 'utf8',
+    });
+    assert.equal(control.status, 0, 'without only the text predicate this same attack reaches PASS: ' + output(control));
+  });
+}
+test('Locale inventory: preserved noncanonical old whitespace is accepted without reserializing the base', (t) => {
+  const context = localeInventoryFixture(t);
+  const target = path.join(context.root, dealRuntimeStatePath);
+  const preserve = (raw) => raw.replace('  "current":', '  "current" :');
+  const before = fs.readFileSync(target, 'utf8');
+  assert.notEqual(preserve(before), before);
+  fs.writeFileSync(target, preserve(before));
+  commit(context.root, 'genuine fixture base with preexisting noncanonical whitespace');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  extendLocaleInventory(context);
+  fs.writeFileSync(target, preserve(fs.readFileSync(target, 'utf8')));
+  commit(context.root, 'exact two insertions retaining old whitespace');
+  const result = runTrustedDealRuntimeGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
 const inventoryStateAttacks = [
   ['third permission', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].push('apps/api/src/app.module.ts')],
   ['removed original permission', (s) => s.approvedConcurrentScopes[dealRuntimeImplementationBranch].shift()],
