@@ -1,8 +1,25 @@
 'use client';
 
-import { answerPublicPlatformQuestion, publicAssistantCatalog, type PublicAssistantLocale } from './public-assistant-knowledge';
-import { answerProspectQuestion } from './prospect-assistant-knowledge';
-import { understandAssistantQuestion } from './assistant-question-understanding';
+import type { PublicAssistantLocale } from './public-assistant-knowledge';
+
+/**
+ * The bundled knowledge base is only needed when the network or provider has
+ * already failed. It is fetched on that path instead of riding along with every
+ * public page load; if it cannot be fetched either, the original failure stands.
+ */
+async function loadLocalKnowledge() {
+  const [publicKnowledge, prospect, understanding] = await Promise.all([
+    import('./public-assistant-knowledge'),
+    import('./prospect-assistant-knowledge'),
+    import('./assistant-question-understanding'),
+  ]);
+  return {
+    answerPublicPlatformQuestion: publicKnowledge.answerPublicPlatformQuestion,
+    publicAssistantCatalog: publicKnowledge.publicAssistantCatalog,
+    answerProspectQuestion: prospect.answerProspectQuestion,
+    understandAssistantQuestion: understanding.understandAssistantQuestion,
+  };
+}
 
 const MARK = '__p7PublicAssistantFetchResilienceInstalled__';
 
@@ -37,6 +54,8 @@ async function localResponse(input: RequestInfo | URL, init?: RequestInit): Prom
   const url = requestUrl(input);
   if (!url) return json({ code: 'PUBLIC_ASSISTANT_INVALID_REQUEST' }, 400);
   const method = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
+
+  const { answerPublicPlatformQuestion, publicAssistantCatalog, answerProspectQuestion, understandAssistantQuestion } = await loadLocalKnowledge();
 
   if (method === 'GET') {
     const locale = localeOf(url.searchParams.get('locale'));
@@ -87,16 +106,30 @@ export function installPublicAssistantFetchResilience(): void {
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = requestUrl(input);
     const isPublicAssistant = url?.origin === window.location.origin && url.pathname === '/api/public-platform-assistant';
-    if (!isPublicAssistant) return nativeFetch(input, init);
+    // The streaming request reports its own transport outcome (offline, 429,
+    // 5xx) to the assistant. Rewriting it into a 200 JSON body made every such
+    // failure look like a broken stream and triggered a second request.
+    if (!isPublicAssistant || url?.searchParams.get('stream') === '1') return nativeFetch(input, init);
 
+    let failed: Response | null = null;
+    let failure: unknown = null;
     try {
       const response = await nativeFetch(input, init);
       if (response.ok) return response;
+      failed = response;
     } catch (reason) {
       if (isAbort(reason, init?.signal)) throw reason;
       // Network/provider failure only: use the bundled read-only knowledge base.
+      failure = reason;
     }
     if (init?.signal?.aborted) throw new DOMException('The operation was aborted.', 'AbortError');
-    return localResponse(input, init);
+    try {
+      return await localResponse(input, init);
+    } catch (reason) {
+      if (isAbort(reason, init?.signal)) throw reason;
+      // The local knowledge could not be fetched either: report the original outcome.
+      if (failed) return failed;
+      throw failure;
+    }
   };
 }

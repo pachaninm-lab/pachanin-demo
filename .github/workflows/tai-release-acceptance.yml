@@ -74,7 +74,11 @@ jobs:
           latest = {}
           for run in runs:
               name = run.get("name")
-              if name not in required or run.get("head_sha") != exact_head:
+              if (
+                  name not in required
+                  or run.get("head_sha") != exact_head
+                  or run.get("event") != "push"
+              ):
                   continue
               current = latest.get(name)
               key = (run.get("run_number", 0), run.get("id", 0))

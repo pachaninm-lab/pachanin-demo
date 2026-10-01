@@ -156,6 +156,7 @@ describe('Company OS staff endpoint authorization and audit policy gate', () => 
       'POST /staff/access/grants/:id/activate',
       'POST /staff/access/requests',
       'POST /staff/access/sessions/:id/end',
+      'POST /staff/founder/role-mode/requests',
     ]);
     expect(selfMutations.every((entry) => entry.auditClass === StaffAuditClass.MUTATION)).toBe(true);
     expect(selfMutations.every((entry) => entry.scopeContract === 'ACTOR_OWNED_RESOURCE' || entry.scopeContract === 'SERVER_VALIDATED_SCOPE')).toBe(true);

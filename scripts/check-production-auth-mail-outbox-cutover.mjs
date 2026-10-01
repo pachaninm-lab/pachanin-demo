@@ -127,8 +127,51 @@ lacks(provision, 'local version="$1" key_file="$KEYRING_DIR/v${version}.key"', '
 has(provision, "user_domain != platform_domain and not user_domain.endswith('.' + platform_domain)", 'provision SMTP login must remain platform-domain bounded');
 has(provision, "values['PC_MAIL_FROM'] != f'access@{platform_domain}'", 'provision MAIL FROM must remain canonical');
 lacks(provision, "values['PC_SMTP_USER'] != 'access@xn----8sbjf4befbjgs9b.xn--p1ai' or values['PC_MAIL_FROM'] != values['PC_SMTP_USER']", 'provision must not collapse SMTP AUTH login into MAIL FROM');
+has(provision, "label=com.docker.compose.service=api", 'provision must resolve the running API auth datasource authority');
+has(provision, "sed -n 's/^AUTH_DATABASE_URL=//p'", 'provision must read live API AUTH_DATABASE_URL without publishing it');
+has(provision, "database_reconcile_required=0", 'provision must make DB credential reconciliation explicit');
+has(provision, 'if [[ "$ACTION" == rotate-db || ! -e "$DATABASE_URL_FILE" ]]', 'missing or explicit rotate-db must enter reconciliation');
+has(provision, 'if [[ "$database_reconcile_required" == 1 ]]', 'migration admin authority must be conditional');
+has(provision, 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_API_DATASOURCE_MISMATCH', 'migration/API datasource parity fail-closed marker missing');
+has(provision, 'AUTH_MAIL_PROVISION=FAIL_API_AUTH_DATABASE_URL_MISSING', 'live API auth datasource missing marker absent');
+has(provision, 'AUTH_MAIL_PROVISION=FAIL_API_AUTH_DATABASE_URL_INVALID', 'live API auth datasource validation marker absent');
+has(provision, 'parse_qsl(url.query, keep_blank_values=True)', 'datasource query parity must be semantic and order-independent');
+assert((provision.match(/tuple\(sorted\(parse_qsl\(url\.query, keep_blank_values=True\)\)\)/g) || []).length >= 4,
+  'every datasource authority check, including final validation, must use semantic order-independent query parity');
+has(provision, 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_EXISTING', 'existing live API-bound DB authority evidence missing');
+has(provision, 'validate_runtime_database_projection_shape() {', 'runtime DB projection shape validator missing');
+has(provision, '"$(stat -c \'%a:%u:%g\' "$RUNTIME_PROJECTION_DIR")" == \'700:0:0\'', 'runtime DB projection parent authority check missing');
+has(provision, '"$(stat -c \'%a:%u:%g\' "$projected")" == \'444:0:0\'', 'runtime DB projection file authority check missing');
+has(provision, 'database_source_recovery_candidate=0', 'bootstrap source-recovery classifier missing');
+has(provision, 'if [[ "$ACTION" == bootstrap ]]; then', 'runtime DB authority recovery must remain bootstrap-only');
+has(provision, 'validate_source_database_shape "$DATABASE_URL_FILE"', 'stale source recovery must require a well-formed least-privilege worker authority');
+has(provision, '! source_database_matches_api_auth "$DATABASE_URL_FILE"', 'bootstrap must classify a safe but endpoint-stale source authority');
+has(provision, 'validate_rebased_database_credential() {', 'live credential proof helper missing');
+has(provision, 'rebase_database_authority_to_api() {', 'live API datasource rebind helper missing');
+has(provision, 'cat -- "$candidate" | docker exec -i "$api_id" /nodejs/bin/node -e', 'rebased credential must reach the API container only over stdin');
+has(provision, 'const rows=await p.$queryRaw`SELECT current_user`;', 'rebased credential proof must verify the fixed current_user query');
+has(provision, 'rows?.[0]?.current_user==="pc_auth_mail_runtime"', 'rebased credential proof must bind the exact worker principal');
+has(provision, 'rebase_database_authority_to_api "$DATABASE_URL_FILE" "$DATABASE_URL_FILE"', 'safe stale source credential must be rebound only after live proof');
+has(provision, 'validate_runtime_database_projection_shape', 'missing/stale source fallback must require protected runtime projection shape');
+has(provision, 'rebase_database_authority_to_api "$RUNTIME_PROJECTION_DIR/database-url" "$DATABASE_URL_FILE"', 'runtime projection credential must be rebound only after live proof');
+lacks(provision, 'if [[ "$ACTION" == rotate-db ]] && rebase_database_authority_to_api', 'explicit rotate-db must never use credential rebind recovery');
+has(provision, 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_SOURCE_CREDENTIAL_REBASED', 'source credential rebind evidence missing');
+has(provision, 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_RUNTIME_PROJECTION_CREDENTIAL_REBASED', 'runtime projection credential rebind evidence missing');
+has(provision, '[[ -s "$tmp" ]] || return 1', 'rebased authority must reject empty staging before atomic install');
+has(provision, 'api_auth_database_url_file="$(mktemp "$AUTHORITY_DIR/.auth-mail-api-datasource.XXXXXX")"', 'live auth datasource must be staged in a protected temporary file');
+has(provision, 'chmod 0600 "$api_auth_database_url_file"; chown 0:0 "$api_auth_database_url_file"', 'live auth datasource staging file must remain root-only');
+has(provision, 'unset api_database_url', 'live auth datasource shell value must be cleared after protected staging');
+lacks(provision, 'python3 - "$api_database_url"', 'live auth datasource secret must not be passed in process argv');
+lacks(provision, '"$DATABASE_URL_FILE" "$api_database_url"', 'worker/API parity must not pass live auth datasource secret in argv');
+lacks(provision, '"$migration_database_url" "$api_database_url"', 'migration/API parity must not pass live auth datasource secret in argv');
+lacks(provision, 'process.stdout.write(url)', 'rebased credential proof must not publish the database URL');
+lacks(provision, 'console.log(url)', 'rebased credential proof must not publish the database URL');
+assert((provision.match(/api=urlsplit\(open\(sys\.argv\[2\], encoding='utf-8'\)\.read\(\)\.strip\(\)\)/g) || []).length >= 4,
+  'all datasource parity checks must read live auth datasource from protected file rather than argv');
+lacks(provision, 'if [[ "$ACTION" == bootstrap || "$ACTION" == rotate-db ]]; then', 'bootstrap must not rotate DB credentials unconditionally');
+has(provision, 'DO $$ BEGIN', 'PostgreSQL credential reconciliation DO block quoting missing');
+has(provision, 'END $$;', 'PostgreSQL credential reconciliation DO block terminator missing');
 
-has(workflow, "workflows: ['Production Full-Stack Exact-SHA Release']", 'legacy exact-release workflow_run chain must remain supported');
 has(workflow, 'controller_target_sha:', 'direct controller target SHA input missing');
 has(workflow, 'controller_run_id:', 'direct controller run ID input missing');
 has(workflow, 'controller_issue_number:', 'direct controller issue input missing');
@@ -142,18 +185,23 @@ has(workflow, 'github.triggering_actor == github.repository_owner', 'direct cont
 has(workflow, 'inputs.controller_target_sha', 'workflow must consume direct target SHA');
 has(workflow, 'inputs.controller_run_id', 'workflow must consume direct controller run ID');
 has(workflow, 'inputs.controller_issue_number', 'workflow must consume direct controller issue number');
-has(workflow, "github.event.workflow_run.event == 'workflow_run'", 'image-triggered standalone release cutover missing');
-has(workflow, "github.event.workflow_run.event == 'workflow_dispatch'", 'owner-dispatched standalone release cutover missing');
-has(workflow, "github.event.workflow_run.event == 'issue_comment'", 'legacy owner-comment standalone release cutover missing');
-has(workflow, '"$UPSTREAM_EVENT" == workflow_dispatch', 'standalone dispatch provenance guard missing');
-has(workflow, "'Validate full-stack release contract'", 'standalone full-stack contract evidence check missing');
-has(workflow, "'Migrate, deploy API and web, verify live intake'", 'standalone production rollout evidence check missing');
-has(workflow, 'AUTH_MAIL_CUTOVER_SKIPPED=NO_SUCCESSFUL_STANDALONE_RELEASE', 'duplicate or skipped standalone release must not cut over auth-mail');
 has(workflow, "'production-full-stack-execution-3072 / Validate full-stack release contract'", 'controller full-stack contract evidence check missing');
-has(workflow, "'production-full-stack-execution-3072 / Migrate, deploy API and web, verify live intake'", 'controller production rollout evidence check missing');
+has(workflow, "'production-full-stack-execution-3072 / Migrate, deploy API/web and canonical outbox, verify live delivery'", 'controller production rollout evidence check missing');
 has(workflow, 'AUTH_MAIL_CUTOVER=FAIL_CONTROLLER_RELEASE_EVIDENCE', 'controller release evidence fail-closed marker missing');
-has(workflow, 'AUTH_MAIL_CUTOVER=FAIL_UPSTREAM_PROVENANCE', 'legacy upstream provenance fail-closed marker missing');
-has(workflow, 'git rev-parse origin/main', 'workflow must guard against current-main drift');
+has(workflow, 'mapfile -t conclusions', 'controller job proof must retain exact cardinality');
+has(workflow, '"${#conclusions[@]}" == 1', 'controller job proof must reject missing or duplicate jobs');
+has(workflow, 'group: pc-crop-production-release-candidate', 'mail cutover must share the release-candidate lock');
+has(workflow, 'queue: max', 'mail cutover must preserve every serialized intent');
+assert((workflow.match(/^\s+queue: max$/gmu) || []).length === 2,
+  'workflow and production job must both retain every serialized pending invocation');
+has(workflow, 'git merge-base --is-ancestor "$TARGET_SHA" "$current_main"', 'workflow must accept only an ancestor release candidate');
+has(workflow, '[[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]', 'workflow checkout must equal the immutable release candidate');
+has(workflow, 'AUTH_MAIL_CUTOVER=FAIL_RELEASE_CANDIDATE_NO_LONGER_ANCESTOR', 'candidate ancestry blocker missing');
+assert((workflow.match(/git merge-base --is-ancestor "\$TARGET_SHA" "\$current_main"/gu) || []).length >= 2,
+  'candidate ancestry must be rechecked immediately before auth-mail mutation');
+lacks(workflow, 'workflow_run:', 'automatic post-release mail trigger must be removed');
+lacks(workflow, 'github.event.workflow_run', 'workflow_run provenance fallback must be removed');
+lacks(workflow, 'AUTH_MAIL_CUTOVER_SKIPPED=NO_SUCCESSFUL_STANDALONE_RELEASE', 'standalone cutover fallback must be removed');
 has(workflow, 'scripts/check-production-auth-mail-outbox-cutover.mjs', 'workflow contract job missing');
 has(workflow, 'scripts/production-auth-mail-outbox-cutover.sh', 'workflow cutover wrapper asset missing');
 has(workflow, 'scripts/production-auth-mail-outbox-cutover-core.sh', 'workflow cutover core asset missing');
@@ -167,18 +215,19 @@ has(workflow, 'gh issue comment "$EVIDENCE_ISSUE_NUMBER"', 'continuation evidenc
 has(workflow, '[[ "$CONTROLLER_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" || "$CONTROLLER_ISSUE_NUMBER" == "$CONTINUATION_ISSUE_NUMBER" ]]', 'controller issue must remain bounded to the two exact authorities');
 
 has(releaseController, 'production-auth-mail-cutover-3072:', 'owner release controller must chain auth-mail cutover');
-has(releaseController, 'exact_main_sha: ${{ steps.release.outputs.main_sha }}', 'release-control exact SHA job output missing');
-has(releaseController, 'echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"', 'release-control exact SHA step output missing');
+has(releaseController, 'pc-crop-registration-lifecycle', 'owner release controller must serialize the complete registration lifecycle');
 has(releaseController, 'needs: [production-release-control-3072, production-full-stack-execution-3072]', 'auth-mail cutover must depend on release-control and full-stack release');
 has(releaseController, "needs.production-release-control-3072.result == 'success'", 'controller cutover must require release-control success');
 has(releaseController, "needs.production-full-stack-execution-3072.result == 'success'", 'controller cutover must require full-stack success');
 has(releaseController, "uses: ./.github/workflows/production-auth-mail-outbox-cutover.yml", 'controller must call reusable auth-mail cutover directly');
 has(releaseController, 'controller_authorized: true', 'controller authorization input missing');
-has(releaseController, 'controller_target_sha: ${{ needs.production-release-control-3072.outputs.exact_main_sha }}', 'controller exact target SHA propagation missing');
+has(releaseController, 'controller_target_sha: ${{ github.sha }}', 'controller must propagate immutable event SHA without a maskable cross-job output');
 has(releaseController, 'controller_run_id: ${{ github.run_id }}', 'controller run ID propagation missing');
 has(releaseController, 'controller_issue_number: ${{ github.event.issue.number }}', 'controller issue propagation missing');
 has(releaseController, 'github.actor == github.repository_owner', 'controller actor must be repository owner');
 has(releaseController, 'github.triggering_actor == github.repository_owner', 'controller triggering actor must be repository owner');
+has(releaseController, 'production-reviewer-readiness-3072:', 'reviewer readiness must follow mail cutover in the controller');
+has(releaseController, 'needs.production-auth-mail-cutover-3072.result == \'success\'', 'reviewer readiness must require mail cutover success');
 assert(!fs.existsSync('.github/workflows/production-auth-mail-cutover-after-controller.yml'), 'standalone auth-mail bridge must be retired after direct chaining');
 
 execFileSync('bash', ['scripts/production-auth-mail-outbox-cutover.sh'], {

@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, CSRF_COOKIE, SESSION_COOKIE, sessionMarkerCookie } from '@/lib/auth-cookies';
 import { CABINET_SESSION_COOKIE } from '@/lib/server/auth-session-response';
 import {
+  CANONICAL_COMPOSE_API_BASE_URL,
+  resolveServerApiBaseUrl,
+} from '@/lib/server/server-api-origin';
+import {
   controlledCabinetContext,
   type ControlledCabinetContext,
 } from '@/lib/platform-v7/controlled-test-organizations';
@@ -18,7 +22,7 @@ const MAX_CONTROLLED_TTL_SECONDS = 8 * 60 * 60;
 const MAX_API_OWNER_TTL_SECONDS = 60 * 60;
 
 const OWNER_CABINETS = {
-  operator: '/platform-v7/control-tower',
+  operator: '/platform-v7/operator',
   buyer: '/platform-v7/buyer',
   seller: '/platform-v7/seller',
   logistics: '/platform-v7/logistics',
@@ -68,18 +72,6 @@ function signingSecret(): string {
   return readEnv('JWT_SECRET') || readEnv('PC_CABINET_SESSION_SECRET');
 }
 
-function apiOrigin(): string {
-  const configured = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').trim();
-  if (!configured) return '';
-  try {
-    const url = new URL(configured);
-    if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') return '';
-    return url.toString().replace(/\/$/, '');
-  } catch {
-    return '';
-  }
-}
-
 function json(body: Record<string, unknown>, status = 200) {
   return NextResponse.json(body, {
     status,
@@ -100,6 +92,24 @@ function redirectBack(request: NextRequest, code: string) {
 
 function isOwnerCabinetRole(value: unknown): value is OwnerCabinetRole {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(OWNER_CABINETS, value);
+}
+
+function ownerCabinetTarget(role: OwnerCabinetRole): string {
+  switch (role) {
+    case 'operator': return OWNER_CABINETS.operator;
+    case 'buyer': return OWNER_CABINETS.buyer;
+    case 'seller': return OWNER_CABINETS.seller;
+    case 'logistics': return OWNER_CABINETS.logistics;
+    case 'driver': return OWNER_CABINETS.driver;
+    case 'surveyor': return OWNER_CABINETS.surveyor;
+    case 'elevator': return OWNER_CABINETS.elevator;
+    case 'lab': return OWNER_CABINETS.lab;
+    case 'bank': return OWNER_CABINETS.bank;
+    case 'organization': return OWNER_CABINETS.organization;
+    case 'arbitrator': return OWNER_CABINETS.arbitrator;
+    case 'compliance': return OWNER_CABINETS.compliance;
+    case 'executive': return OWNER_CABINETS.executive;
+  }
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
@@ -212,11 +222,16 @@ async function controlledOwnerAuthority(accessToken: string, secret: string): Pr
 }
 
 async function apiOwnerAuthority(accessToken: string, correlationId: string): Promise<AuthorityResult> {
-  const origin = apiOrigin();
-  if (!origin) return { status: 'unavailable' };
+  // Owner authority is stricter than generic server API traffic: production
+  // never consults configurable origins and always targets the exact internal
+  // Compose service. Non-production keeps the shared validated resolver.
+  const apiBaseUrl = process.env.NODE_ENV === 'production'
+    ? CANONICAL_COMPOSE_API_BASE_URL
+    : resolveServerApiBaseUrl();
+  if (!apiBaseUrl) return { status: 'unavailable' };
 
   try {
-    const response = await fetch(`${origin}/staff/capabilities/me`, {
+    const response = await fetch(`${apiBaseUrl}/staff/capabilities/me`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: 'application/json',
@@ -324,9 +339,12 @@ export async function POST(request: NextRequest) {
 
   if (!parsed.csrfOk) return fail('CSRF_REJECTED', 'Сессия формы устарела. Обнови страницу.', 403);
   if (!isOwnerCabinetRole(parsed.role)) return fail('INVALID_CABINET_ROLE', 'Неизвестный кабинет.', 400);
+  const role: OwnerCabinetRole = parsed.role;
+  const target = ownerCabinetTarget(role);
 
   const secret = signingSecret();
-  const accessToken = request.cookies.get(ACCESS_COOKIE)?.value || '';
+  const rawAccessToken = request.cookies.get(ACCESS_COOKIE)?.value || '';
+  const accessToken = rawAccessToken.length > 0 && rawAccessToken.length <= 8192 ? rawAccessToken : '';
   if (!secret || !accessToken) {
     return fail('OWNER_ACCESS_UNAVAILABLE', 'Требуется активный вход владельца платформы.', 401);
   }
@@ -340,13 +358,13 @@ export async function POST(request: NextRequest) {
   }
 
   const { authority } = authorityResult;
-  const organization = resolveControlledOrganization(parsed.role, parsed.organizationId, authority);
+  const organization = resolveControlledOrganization(role, parsed.organizationId, authority);
   if (organization === 'invalid') {
     return fail('INVALID_TEST_ORGANIZATION', 'Тестовая организация не соответствует выбранному кабинету.', 400);
   }
 
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const cabinetToken = await signCabinetSession(parsed.role, secret, {
+  const cabinetToken = await signCabinetSession(role, secret, {
     nowSeconds,
     ttlSeconds: authority.ttlSeconds,
     userId: authority.actorId,
@@ -358,11 +376,11 @@ export async function POST(request: NextRequest) {
 
   const expiresAt = nowSeconds + authority.ttlSeconds;
   const response = parsed.formSubmission
-    ? NextResponse.redirect(new URL(OWNER_CABINETS[parsed.role], request.url), 303)
+    ? NextResponse.redirect(new URL(target, request.url), 303)
     : json({
       ok: true,
-      role: parsed.role,
-      redirectTo: OWNER_CABINETS[parsed.role],
+      role,
+      redirectTo: target,
       organization: {
         id: organization.organizationId,
         name: organization.organizationName,
@@ -374,12 +392,12 @@ export async function POST(request: NextRequest) {
     });
 
   response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-  setCabinetCookies(response, cabinetToken, parsed.role, authority, expiresAt, organization);
+  setCabinetCookies(response, cabinetToken, role, authority, expiresAt, organization);
 
   console.info('owner_direct_cabinet_open', JSON.stringify({
     actor: authority.actorId,
     authoritySource: authority.source,
-    role: parsed.role,
+    role,
     organizationId: organization.organizationId,
     correlationId,
     transport: parsed.formSubmission ? 'native-form' : 'json-fetch',

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/request-validation-ratchet-2-2-1",
+  "status": "active",
+  "purpose": "V2.2.1 and V2.2.2 are both level 1 and both FAIL for one reason: the global ValidationPipe can only act on a parameter whose runtime metatype carries class-validator metadata, and about half the write surface types its body inline, which erases to Object. This pass proves that mechanism, puts a two-sided ratchet on the debt so it can shrink but never grow, and converts the three lowest-risk endpoints.",
+  "authorityBaseExactMain": "80054c826",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/request-validation-ratchet-2-2-1.json",
+    "docs/security/request-validation-baseline.json",
+    "scripts/security/verify-request-validation-coverage.mjs",
+    "scripts/security/verify-request-validation-coverage.test.mjs",
+    ".github/workflows/sbom-scan.yml",
+    "apps/api/src/common/validation/request-body-validation-mechanism.spec.ts",
+    "apps/api/src/modules/saga/saga.controller.ts",
+    "apps/api/src/modules/saga/dto/saga-reason.dto.ts",
+    "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
+    "apps/api/src/modules/settlement-engine/dto/revoke-bank-key.dto.ts",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "V2.2.1 and V2.2.2 are NOT claimed and stay FAIL. A gate that stops the debt growing is not a fix for the debt, and three converted endpoints out of ninety-five are not a closed requirement. Recording a ratchet as a PASS would be exactly the substitution this programme forbids.",
+    "The FGIS endpoints in saga.controller.ts are deliberately NOT converted. They are the PC-CROP contour, which must not be broken or delayed, and getting a tonnage or INN constraint wrong there would start refusing traffic that works today. They stay in the baseline as debt, named.",
+    "revokeBankKey keeps its own hand-written check (reason trimmed, at least five characters, its own Russian message). The DTO is added ALONGSIDE it, never in place of it, so no existing refusal or message is removed.",
+    "The saga reason field stays optional, because both handlers already default it. Making it required through a DTO would refuse callers that work today - the inline type said `reason: string`, which was simply untrue and unenforceable.",
+    "No production, REG.RU, DNS, database or credential mutation. No schema change, no migration, no dependency, no lockfile change. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "The mechanism is measured, not cited from Nest documentation. Running the real decorators: an inline object literal and Record<string, unknown> both leave design:paramtypes = Object, a DTO class leaves the class. Running the real pipe with the same config as main.ts on {name:'ok', smuggled:'x'}: metatype DTO returns {name:'ok'} and rejects a constraint violation; metatype Object returns the object untouched, extra field included, and accepts the same violation. Seven cases in apps/api/src/common/validation/request-body-validation-mechanism.spec.ts, so if Nest ever changes this, it fails there rather than silently in production.",
+    "Measured on the exact base: 191 @Body() parameters, 95 unvalidatable (88 inline object literals plus 7 typed any/unknown/Record, which erase identically) and 96 validated by a DTO class. All 88 literals are in *.controller.ts and none uses a @Body('field') selector. The ASVS note recorded 81/78 from an earlier, narrower sweep; the number here comes from one tool whose output IS the baseline.",
+    "The ratchet is two-sided ON PURPOSE, and each side catches what the other cannot. A per-file ceiling on unvalidated parameters catches a new inline body even when an unrelated one is deleted elsewhere - a single global ceiling would wave that through, and there is a test for exactly that case. A global floor on DTO-typed parameters catches a DTO downgraded back to an inline type while an unrelated unvalidated parameter is deleted to keep the ceiling level.",
+    "Thirteen cases in scripts/security/verify-request-validation-coverage.test.mjs, run against a real temporary git repository rather than a faked file list, because the scanner reads tracked files and a fake would test a path production never takes. They cover: at baseline passes; one more in a file fails; a brand new file fails at its implicit zero; moving a parameter between files fails though the total is unchanged; downgrading a DTO fails on the floor; Record and any count as unvalidated; shrinking passes and asks to tighten; converting passes and asks to raise the floor; a missing floor, a missing per-file map, a non-integer count and an unreadable baseline all FAIL_CLOSED; and an untracked file is not scanned.",
+    "Three endpoints converted, chosen for being the lowest risk rather than the largest number: saga pause, saga skip and settlement bank-key revoke, all free-text reason fields. Debt moves 95 -> 92 and DTO coverage 96 -> 99, and the ratchet's own tighten notes fired before the baseline was updated, which is the gate proving itself.",
+    "The V2.2.1 and V2.2.2 decisions survive this change, checked rather than assumed: both carry PRESENT_AT_PATH conditions on saga.controller.ts and partner-api.controller.ts requiring an inline body type to still be there, and three inline literals remain in each. verify-decision-evidence exit 0, matrix unchanged at PASS 126 / FAIL 93 / NOT_APPLICABLE 88 / NOT_ASSESSED 38. HAZARD for the next pass, recorded here because it already bit V3.5.1 once: converting the LAST inline literal out of either of those two files makes the condition false and revokes the decision, dropping the requirement to NOT_ASSESSED, which is worse than FAIL. Re-point the decision in the same pass that removes the last one.",
+    "api tsc --noEmit exit 0 with the repository toolchain (npx pulls a newer TypeScript that fails on the tsconfig's own deprecated baseUrl, which is unrelated to this change). Saga, settlement-engine and the new validation suite: 41 tests, all passing. guard 0. verify-decision-evidence 0.",
+    "The two new DTO files are tracked source, so the cryptographic inventory's scanned-file count moved and its own staleness test failed before this was pushed - 2202 vs 2204. Regenerated with scripts/security/discover-cryptography.mjs, never hand-edited. The same regeneration also picks up drift that main already carried and that #4944 and #4957 fix; whichever lands first, the others re-run the tool on merge."
+  ]
+}

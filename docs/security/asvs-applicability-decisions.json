@@ -44,7 +44,9 @@
         "apps/api/src/common/security/xml-escape.ts",
         "apps/api/src/common/security/csv-cell.ts",
         "apps/api/src/modules/exports/exports.service.ts",
-        "apps/api/src/modules/exports/exports-output-encoding.spec.ts"
+        "apps/api/src/modules/exports/exports-output-encoding.spec.ts",
+        "apps/api/src/modules/kyc/kyc.service.ts",
+        "apps/api/src/modules/kyc/rkn-incident-xml.spec.ts"
       ],
       "conditions": [
         {
@@ -107,9 +109,22 @@
             "<регион>${d.region",
             "<статус>${d.status}"
           ]
+        },
+        {
+          "condition": "the Roskomnadzor incident notification escapes every field it interpolates",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/kyc/kyc.service.ts"
+          ],
+          "patterns": [
+            "${xmltext(params.description)}",
+            "${xmltext(params.incidenttype)}",
+            "${xmltext(params.reporterfullname)}",
+            "${xmltext(params.reporterposition)}"
+          ]
         }
       ],
-      "note": "buildMshXml, buildRosfinXml and buildRosstatCsv in exports.service.ts interpolated deal fields into an outgoing regulatory document with plain template literals and no encoding of any kind. culture and region are free-text String? columns on the Deal model, not enums, so a deal whose culture read a closing tag followed by another element did not produce a report describing that culture - it produced a different document, addressed to a ministry. The same file's Rosstat CSV wrote a culture into a quoted field without doubling the quote, which ends the field early and shifts every column after it. Two facts shaped this. First, an encoder that deleted metacharacters would also defeat injection while filing a report that disagrees with the database, so every case asserts both that the structure is unchanged and that decoding the field returns the original value byte for byte; the deleting variant fails 5 of the 11. Null and undefined now render as an empty element rather than as the words null and undefined, which is what the template literal wrote. Characters XML 1.0 cannot carry are dropped rather than escaped, because no entity represents them and a parser rejects the document either way. Second, and recorded here because it is a real limitation rather than a tidy result: this repository already escaped XML correctly. The FGIS-Grain codec has escapeXmlText and escapeXmlAttribute, private to that file, which is precisely how the export builders came to be written without them - the control existed and was reachable from one place only. The right answer is one implementation, and it was written and then reverted. The pc-crop-08c gate enforces an immutable scope: any change touching apps/api/src/modules/regulatory-integration/fgis-grain must contain only that contour's files, and it correctly refused a pass that also carried the export builders and this decision file. So there are two escaping implementations in the tree right now. That is stated rather than glossed, the convergence is raised as #4806 to be done inside the PC-CROP-08C scope where it belongs, and this decision claims only what the export path does. The CSV cell additionally prefixes a leading =, +, - or @ with an apostrophe: the file is well-formed with or without it, but the injection happens in the spreadsheet that opens it, and the reader here is a regulator. That guard marks a negative number too, which is the named cost and is taken knowingly, since a reader cannot tell -1 from a payload by its first character either. Mutation results: returning culture to raw interpolation fails 3 of 11, deleting instead of encoding fails 5, dropping the CSV quote doubling fails 2, dropping the formula guard fails 2. Separately recorded and not claimed here: the codec's FORBIDDEN_CONTROL_CHARACTER refusal is protected by no test on its reachable inbound path, found by mutation while confirming the reverted refactor preserved behaviour, and raised as #4801."
+      "note": "buildMshXml, buildRosfinXml and buildRosstatCsv in exports.service.ts interpolated deal fields into an outgoing regulatory document with plain template literals and no encoding of any kind. culture and region are free-text String? columns on the Deal model, not enums, so a deal whose culture read a closing tag followed by another element did not produce a report describing that culture - it produced a different document, addressed to a ministry. The same file's Rosstat CSV wrote a culture into a quoted field without doubling the quote, which ends the field early and shifts every column after it. Two facts shaped this. First, an encoder that deleted metacharacters would also defeat injection while filing a report that disagrees with the database, so every case asserts both that the structure is unchanged and that decoding the field returns the original value byte for byte; the deleting variant fails 5 of the 11. Null and undefined now render as an empty element rather than as the words null and undefined, which is what the template literal wrote. Characters XML 1.0 cannot carry are dropped rather than escaped, because no entity represents them and a parser rejects the document either way. Second, and recorded here because it is a real limitation rather than a tidy result: this repository already escaped XML correctly. The FGIS-Grain codec has escapeXmlText and escapeXmlAttribute, private to that file, which is precisely how the export builders came to be written without them - the control existed and was reachable from one place only. The right answer is one implementation, and it was written and then reverted. The pc-crop-08c gate enforces an immutable scope: any change touching apps/api/src/modules/regulatory-integration/fgis-grain must contain only that contour's files, and it correctly refused a pass that also carried the export builders and this decision file. So there are two escaping implementations in the tree right now. That is stated rather than glossed, the convergence is raised as #4806 to be done inside the PC-CROP-08C scope where it belongs, and this decision claims only what the export path does. The CSV cell additionally prefixes a leading =, +, - or @ with an apostrophe: the file is well-formed with or without it, but the injection happens in the spreadsheet that opens it, and the reader here is a regulator. That guard marks a negative number too, which is the named cost and is taken knowingly, since a reader cannot tell -1 from a payload by its first character either. Mutation results: returning culture to raw interpolation fails 3 of 11, deleting instead of encoding fails 5, dropping the CSV quote doubling fails 2, dropping the formula guard fails 2. Separately recorded and not claimed here: the codec's FORBIDDEN_CONTROL_CHARACTER refusal is protected by no test on its reachable inbound path, found by mutation while confirming the reverted refactor preserved behaviour, and raised as #4801. Correction published with this pass, and it reverses part of what this decision asserted. The PASS was granted on a denominator of ONE builder. Every condition above names exports.service.ts or xml-escape.ts, while kyc.service.ts held a THIRD regulatory XML producer - the Roskomnadzor personal-data incident notification - assembled with a plain template literal and no encoding of any kind. That is precisely the defect this decision was opened for, in a file it never looked at: the same 'the control existed in the tree and was reachable from exactly one place' failure the escaper's own docstring describes. Measured before the fix rather than argued: a description field containing a closing tag did not merely break the markup, it inserted a SECOND <КоличествоСубъектов>0</КоличествоСубъектов> element BEFORE the real one, so a parser reading the first occurrence would report zero affected data subjects instead of fifty thousand - an understated breach size in a regulator notification. Two further defects in the same builder: an unparseable detectedAt raised RangeError: Invalid time value and reached the client as 500, and affectedSubjectsCount given as a string injected a foreign element and left an orphan closing tag. All three are closed in this pass and the condition below binds the PASS to that builder, so a mutation there revokes this decision instead of leaving it standing on the other two files."
     },
     {
       "requirementId": "V1.2.2",
@@ -342,34 +357,58 @@
     {
       "requirementId": "V1.2.9",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
         "apps/api/src/modules/documents/document-template.service.ts",
+        "apps/api/src/modules/documents/document-template.service.spec.ts",
         "attacker-controlled-input:apps/api/src/modules/documents/documents.controller.ts"
       ],
       "conditions": [
         {
-          "condition": "the document template substitution loop still builds a RegExp directly from an object key with no escaping",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the substitution builds no regular expression from input at all - the pattern is a module constant and the template is scanned once, with each field name looked up in a map",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/documents/document-template.service.ts"
           ],
           "patterns": [
-            "new regexp(`\\\\{\\\\{${key}\\\\}\\\\}`, 'g')"
+            "const template_field_pattern =",
+            "template.matchall(template_field_pattern)",
+            "values.get(name)"
           ]
         },
         {
-          "condition": "those object keys still originate from the raw HTTP request body rather than a fixed, code-controlled set",
-          "check": "PRESENT_AT_PATH",
+          "condition": "no RegExp is constructed anywhere in this file, so no key can become pattern syntax",
+          "check": "ABSENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/documents/documents.controller.ts"
+            "apps/api/src/modules/documents/document-template.service.ts"
           ],
           "patterns": [
-            "@body() variables: record<string, string | number>"
+            "new regexp("
+          ]
+        },
+        {
+          "condition": "the platform-set fields are written after the sender’s, so neither can be overridden",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/documents/document-template.service.ts"
+          ],
+          "patterns": [
+            "values.set('templateversion', version)",
+            "values.set('documenthash', document_hash_sentinel)"
+          ]
+        },
+        {
+          "condition": "the hash is placed at the remembered position of its own field rather than at the first occurrence of the sentinel string",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/documents/document-template.service.ts"
+          ],
+          "patterns": [
+            "hashfieldat"
           ]
         }
       ],
-      "note": "document-template.service.ts builds a RegExp from every key of the variables object with new RegExp(`\\{\\{${key}\\}\\}`, 'g') and no escaping of regex metacharacters in key. Traced the call chain rather than assumed it: documents.controller.ts's POST templates/:id/generate route takes variables straight from @Body() as Record<string, string | number>, so an attacker submitting a JSON body chooses the object's property names as well as their values - both reach the unescaped RegExp constructor. A key containing regex metacharacters can therefore corrupt the intended placeholder match or, combined with a crafted pattern, feed a pathological expression into .replace() over the full template content - the concrete precondition this chapter's V1.3.12 (ReDoS) also depends on, and is recorded there against the same evidence."
+      "note": "Closed by removing the class rather than escaping the input. The loop built new RegExp(`\\\\{\\\\{${key}\\\\}\\\\}`, 'g') once per key of the request body, with the braces escaped and the key not, and the reachability was traced rather than assumed: documents.controller.ts declares @Body() variables: Record<string, string | number>, an inline TypeScript type that erases at runtime, so ValidationPipe sees no class and the sender chooses both the property names and the values. The controller sits behind RolesGuard, so an authenticated user of any tenant is enough. Four separate defects were proven by running them, not argued: a key of `.*` rewrote every field of the document at once; a value of $` spliced the document text preceding the match into the field, because the second argument of .replace() interprets $&, $`, $' and $n; a key of (.*)*x against an ordinary 1901-character contract did not finish in 120 seconds, and Node being single-threaded that is the whole API process for that pod, not one slow request; and content.replace('PLACEHOLDER', hash) took the first occurrence of the string anywhere, so a sender whose field appeared earlier than the hash field took the hash and left the literal PLACEHOLDER in the document's own hash line. A fifth followed from the shape of the loop: substitution was iterative, so a value could introduce a placeholder that a later key then filled. The template is now scanned once against a module-constant pattern and each field name is looked up in a map, which removes all five: nothing is compiled from input, values are concatenated rather than used as a replacement string, and no substituted text is rescanned. The hash semantics are deliberately unchanged - it is still computed over the document carrying the literal sentinel in its hash field - because changing it would invalidate every previously issued document; a test pins that value. The service had no test of any kind before this. Mutations: restoring the original loop makes the suite hang rather than fail, which is the production symptom itself; placing the hash by first string occurrence fails the sentinel test; letting the sender's values win over the platform-set fields fails the override test."
     },
     {
       "requirementId": "V1.2.10",
@@ -755,21 +794,23 @@
       "status": "FAIL",
       "evidence": [
         "apps/api/src/modules/documents/document-template.service.ts",
-        "attacker-controlled-input:apps/api/src/modules/documents/documents.controller.ts"
+        "apps/api/src/modules/documents/document-template.service.spec.ts",
+        "no-repository-wide-backtracking-analysis"
       ],
       "conditions": [
         {
-          "condition": "the document template substitution loop still builds an unsanitized RegExp from attacker-controlled object keys and applies it with .replace() over the full template content",
-          "check": "PRESENT_AT_PATH",
-          "paths": [
-            "apps/api/src/modules/documents/document-template.service.ts"
-          ],
+          "condition": "no repository-wide backtracking or ReDoS analysis exists: no such tool is declared in any manifest, so the requirement’s general claim is unestablished whatever the traced instance does",
+          "check": "ABSENT_IN_MANIFESTS",
           "patterns": [
-            "new regexp(`\\\\{\\\\{${key}\\\\}\\\\}`, 'g')"
+            "safe-regex",
+            "recheck",
+            "redos",
+            "vuln-regex-detector",
+            "re2"
           ]
         }
       ],
-      "note": "Same defect as V1.2.9, assessed here against the ReDoS-specific text: a RegExp built from an unescaped, attacker-controlled key (traced to @Body() in documents.controller.ts) and then run with .replace() over the full template string is exactly the precondition for a runaway-regex denial of service, not only a matching-correctness bug. No dedicated ReDoS-detection tool was run across the rest of the codebase's regular expressions in this pass, so this FAIL is scoped to the one concrete, traced instance rather than claimed as a full sweep."
+      "note": "The traced instance is closed in #4835 and this requirement still fails, which is the point of recording it separately. That instance was real and was proven by running it: a key of (.*)*x fed into a per-key RegExp did not finish against an ordinary 1901-character contract in 120 seconds, and Node being single-threaded that stops every request on the pod. The substitution now compiles nothing from input, so that path is gone. What is not established is the requirement's other half - that the application's regular expressions are free from elements causing exponential backtracking. Sixteen further new RegExp call sites exist under apps/api/src and apps/web/lib, none of them examined in this pass, and no backtracking-analysis tool is declared in any manifest, so there is no sweep to point at. Claiming PASS here on the strength of one closed instance would be exactly the substitution this programme forbids: a requirement answered with the evidence of a different, narrower one. The condition therefore watches for the sweep rather than for the instance - adding such a tool revokes this decision and forces the verdict to be taken again."
     },
     {
       "requirementId": "V1.4.1",
@@ -989,8 +1030,9 @@
       "status": "FAIL",
       "evidence": [
         "entry-point:apps/api/src/main.ts",
-        "unvalidated-endpoints:apps/api/src/modules/partner-api/partner-api.controller.ts",
-        "unvalidated-endpoints:apps/api/src/modules/saga/saga.controller.ts"
+        "unvalidated-endpoints:apps/api/src/modules/saga/saga.controller.ts",
+        "unvalidated-endpoints:apps/api/src/modules/export-trade/export-trade.controller.ts",
+        "unvalidated-endpoints:apps/api/src/modules/route-planner/route-planner.controller.ts"
       ],
       "conditions": [
         {
@@ -1008,15 +1050,16 @@
           "condition": "endpoints still declare an inline body type the pipe cannot validate",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/partner-api/partner-api.controller.ts",
-            "apps/api/src/modules/saga/saga.controller.ts"
+            "apps/api/src/modules/saga/saga.controller.ts",
+            "apps/api/src/modules/export-trade/export-trade.controller.ts",
+            "apps/api/src/modules/route-planner/route-planner.controller.ts"
           ],
           "patterns": [
             "@body() body: {"
           ]
         }
       ],
-      "note": "Positive validation against declared constraints exists for the endpoints that declare a DTO, and does not exist at all for the ones that do not. Measured across endpoints rather than across DTO files: 81 endpoints declare @Body() body: { ... } as an inline TypeScript type and 78 declare a DTO class. An inline type erases to Object at runtime, ValidationPipe skips a parameter whose metatype it cannot transform, so for those 81 the global pipe validates nothing. 77 of them sit on POST, PUT, PATCH or DELETE, across roughly twenty modules including settlement-engine and saga - about half the write surface of the API. Correction: this decision was first recorded PASS. The note said every DTO file carries class-validator constraints and the global pipe applies them, which is literally true and still gave the wrong answer, because it measured the DTO files that exist rather than the endpoints that need one - the same wrong-denominator mistake the SBOM coverage work was built to prevent. The conditions passed because they checked main.ts for useGlobalPipes and whitelist: true; both are present, and neither tells you whether the pipe has anything to act on. Some of the 81 are inert legacy surfaces - legacy-admin-identity-boundary.ts replaces the admin role and organization mutators with functions that throw ServiceUnavailable - so they validate nothing and also do nothing; they are not cited as live examples."
+      "note": "Positive validation against declared constraints exists for the endpoints that declare a DTO, and does not exist at all for the ones that do not. Measured across endpoints rather than across DTO files: 81 endpoints declare @Body() body: { ... } as an inline TypeScript type and 78 declare a DTO class. An inline type erases to Object at runtime, ValidationPipe skips a parameter whose metatype it cannot transform, so for those 81 the global pipe validates nothing. 77 of them sit on POST, PUT, PATCH or DELETE, across roughly twenty modules including settlement-engine and saga - about half the write surface of the API. Correction: this decision was first recorded PASS. The note said every DTO file carries class-validator constraints and the global pipe applies them, which is literally true and still gave the wrong answer, because it measured the DTO files that exist rather than the endpoints that need one - the same wrong-denominator mistake the SBOM coverage work was built to prevent. The conditions passed because they checked main.ts for useGlobalPipes and whitelist: true; both are present, and neither tells you whether the pipe has anything to act on. Some of the 81 are inert legacy surfaces - legacy-admin-identity-boundary.ts replaces the admin role and organization mutators with functions that throw ServiceUnavailable - so they validate nothing and also do nothing; they are not cited as live examples. Update in this pass: the partner API surface named above has been closed. POST api/partner/api-keys, POST api/partner/webhooks and POST api/partner/webhooks/:id/test now declare GenerateApiKeyDto, SubscribeWebhookDto and TestWebhookDto, so the pipe finally has something to act on there. The ratchet moved 92 -> 89 unvalidated and 100 -> 103 DTO-typed, and the baseline was tightened in the same pass so the gain cannot be given back silently. The requirement stays FAIL and the conditions are re-pointed at surfaces that still carry the defect - gekta.controller.ts (13 inline bodies) and kyc.controller.ts (5) - because closing the file a decision cites revokes that decision, and a FAIL must keep naming something that is actually still broken rather than a file that has been fixed. What the closed endpoints did before, measured on the service rather than argued from the type: rateLimit 999999999 was accepted, so a caller lifted its own rate limit; expiresInDays -30 was accepted and issued an already-expired key; expiresInDays 1e12 raised RangeError: Invalid time value, and scopes given as a string raised TypeError: params.scopes.filter is not a function - both of which reached the client as 500 rather than 400; and events given as a string matched w.events.includes('*') by SUBSTRING, so any string containing an asterisk subscribed the webhook to every event on the platform. Update in this pass: kyc.controller.ts, named above as a still-defective surface, has been closed. Its five bodies now declare VerifyOrganizationDto, TransactionAmlCheckDto, InitiateKycDto, RknIncidentDto and VerifyInnDto, so INN, BIK, account number, kopeck amount and incident date are checked in form before they reach the FNS registry, the AML screening or the Roskomnadzor XML. The ratchet moved 89 -> 84 unvalidated and 103 -> 108 DTO-typed, and the baseline was tightened in the same pass. The requirement stays FAIL and the conditions are re-pointed at surfaces that still carry the defect - gekta.controller.ts (13 inline bodies) and support.controller.ts (5) - because closing the file a decision cites revokes that decision, and a FAIL must keep naming something actually broken. Update in this pass: support.controller.ts, named above as a still-defective surface, has been closed. Its five bodies now declare CreateTicketDto, AssignTicketDto, ResolveTicketDto, EscalateTicketDto and AddCommentDto. The finding worth recording there was not an authorisation gap - assignTicket, resolveTicket and escalateTicket are already behind assertSupport, addComment requires the support role or ticket authorship, and isInternal is multiplied by a role check in the service - but that the TicketPriority union did not exist at runtime. Measured: priority 'СРОЧНО!!!' was stored verbatim, and listQueue sorts on priorityOrder[p] ?? 3, so an unrecognised priority took the LOWEST rank - a ticket its reporter marked urgent in their own words was silently pushed to the bottom of the support queue rather than rejected. The ratchet moved 84 -> 79 unvalidated and 108 -> 113 DTO-typed, baseline tightened in the same pass. The requirement stays FAIL and is re-pointed at gekta.controller.ts (13 inline bodies) and export-trade.controller.ts (4), both of which still carry the defect. admin.controller.ts is deliberately not cited: part of that surface is the inert legacy boundary that throws ServiceUnavailable, so it validates nothing and also does nothing. Update in this pass: gekta.controller.ts, named above as a still-defective surface, has been closed. All thirteen bodies across GektaController and GektaOperatorController now declare DTO classes, and the conditions are re-pointed at railway.controller.ts and route-planner.controller.ts, which still carry the defect - closing the file a decision cites revokes that decision, so a FAIL has to keep naming something that is actually still broken. What the closed endpoints did before, measured rather than argued. The locale column is VarChar(8) and the boundary bounded nothing: POST gekta/projects with a nine-character locale reached PostgreSQL and came back 22001 value too long for type character varying(8) - PostgreSQL does not truncate on insert, it refuses - so user input became a 500. String({}) yields the literal \"[object Object]\", fifteen characters, which was enough on its own. The anonymous-history import went into the service through an as never cast: a conversation object with no messages raised TypeError: Cannot read properties of undefined (reading 'slice') and one with no title the same on 'replace', both 500 on user input. That same import wrote message.role verbatim into a VarChar(16) column while the live append route normalised anything that was not 'assistant' to 'user' - two write paths, one column, two different rules, and the role 'system' was measured persisting through the import path. An unparseable createdAt reached Prisma as Invalid Date. On the operator side the owner console already refuses to submit an action without a reason, but the server accepted String(body?.reason ?? '') - an empty reason, and an object written into the immutable audit trail as \"[object Object]\"; a check that only runs in the browser is not enforcement, and an audit entry reading 'lifetime access granted, reason empty' explains nothing. body?.suspended !== false was measured true for the string \"false\" and for 0, so an operator lifting a suspension re-applied it. new Date('garbage') is an object and therefore truthy, so the service's own guard - if kind is not LIFETIME and !expiresAt, throw - did not catch an unparseable until at all; it now checks Number.isNaN(getTime()) and raises BadRequest rather than a bare Error. An unknown grant kind used to become DAYS_7 silently; that fallback was a correct privilege boundary for LIFETIME, which needs its own permission and its own route, but the operator was never told, and a refusal at the boundary is honest without weakening the boundary. Separately, and not a validation defect: the import cap silently truncated. One hundred short conversations serialise to 13,391 bytes and fit in a single 64 KiB part, the server imports at most 60 per request and returned ok, and the client then marked the migration done - forty conversations of a user's history disappeared with no error anywhere. The client now splits parts by count as well as by bytes, bound by a test to the server's own constant. Fourteen mutations were applied to the new conditions. Thirteen were caught on the first run and the fourteenth found a hole in these very tests: removing @IsInt() from the trial extension changed nothing, because the fractional value the test used was 0.5 and @Min(1) already rejected it. Measured with 30.5, inside the permitted range, that mutation now fails - a condition a mutation can walk past is not a condition. The ratchet moved 79 -> 66 unvalidated and 116 -> 129 DTO-typed, measured against main at 5ec9a302e, so all thirteen are this pass; the stored floor rises 113 -> 129 and the baseline was tightened in the same pass so the gain cannot be given back silently. Update in this pass: railway.controller.ts is closed. Its four bodies now declare RegisterWagonDto, UpdateWagonStatusDto, CreateGU12Dto and CalculateDemurrageDto, and the conditions move to saga.controller.ts, export-trade.controller.ts and route-planner.controller.ts. The missing DTO was not the worst of it. The controller handed the body to the service as a spread - { ...body, ownerOrgId: user.orgId } - and registerWagon built the record as { id: randomUUID(), ...dto }, so a client-supplied id WON over the generated one. Measured on the live service: posting an existing wagon's id overwrote that wagon in place; the fleet count stayed at three, wagonNumber went 52000001 to 99999999 and ownerOrgId went org-logistics-001 to org-attacker. The duplicate-number guard never fired because the number differed, and since listWagons filters on ownerOrgId the wagon left its owner's list and appeared in the caller's. Scope stated honestly: this module keeps state in in-memory Maps rather than PostgreSQL, so the effect is per-process and lost on restart - it is not database corruption and is not described as such. Separately, demurrage is money and it was computable as NaN: an unparseable arrivedAt produced detainedHours NaN and totalKopecks NaN, which JSON serialises as null - a detention record with no amount. Both the boundary and the service refuse it now, the service too because a caller that bypasses the boundary must not be able to store NaN. One existing guard is left alone and not claimed as this pass's work: swapped dates already yielded zero through Math.max. Eight mutations were applied; six were caught at once and two were not, both weak tests rather than safe code. Dropping { strict: true } from the demurrage dates changed nothing because the test fed 'garbage', which the non-strict mode also rejects - re-measured with 2026-02-31, which parses but does not exist, it fails. Removing @IsNumber() from capacityTons also changed nothing, and that one is genuine redundancy rather than a test gap: with @Min and @Max present, @Min compares with >= and rejects NaN, Infinity and strings on its own. The decorator is kept as a statement of intent but is not load-bearing and is not presented as such; the test asserts the property instead."
     },
     {
       "requirementId": "V2.2.2",
@@ -1024,7 +1067,9 @@
       "status": "FAIL",
       "evidence": [
         "entry-point:apps/api/src/main.ts",
-        "unvalidated-endpoints:apps/api/src/modules/partner-api/partner-api.controller.ts"
+        "unvalidated-endpoints:apps/api/src/modules/export-trade/export-trade.controller.ts",
+        "unvalidated-endpoints:apps/api/src/modules/route-planner/route-planner.controller.ts",
+        "unvalidated-endpoints:apps/api/src/modules/saga/saga.controller.ts"
       ],
       "conditions": [
         {
@@ -1042,14 +1087,16 @@
           "condition": "a body-accepting endpoint still bypasses it with an inline type",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/partner-api/partner-api.controller.ts"
+            "apps/api/src/modules/export-trade/export-trade.controller.ts",
+            "apps/api/src/modules/route-planner/route-planner.controller.ts",
+            "apps/api/src/modules/saga/saga.controller.ts"
           ],
           "patterns": [
             "@body() body: {"
           ]
         }
       ],
-      "note": "Where validation happens it happens server-side, which is the right place. The requirement asks that the application be DESIGNED to enforce input validation at a trusted service layer, and half of it is not. Measured across endpoints rather than across DTO files: 81 endpoints declare @Body() body: { ... } as an inline TypeScript type and 78 declare a DTO class. An inline type erases to Object at runtime, ValidationPipe skips a parameter whose metatype it cannot transform, so for those 81 the global pipe validates nothing. 77 of them sit on POST, PUT, PATCH or DELETE, across roughly twenty modules including settlement-engine and saga - about half the write surface of the API. The clearest live instance is the partner webhook registration: POST api/partner/webhooks takes { url, events } as an inline type, nothing validates the url, and partner-api.service.ts stores it as given. Correction: this decision was first recorded PASS. The note said every DTO file carries class-validator constraints and the global pipe applies them, which is literally true and still gave the wrong answer, because it measured the DTO files that exist rather than the endpoints that need one - the same wrong-denominator mistake the SBOM coverage work was built to prevent. The conditions passed because they checked main.ts for useGlobalPipes and whitelist: true; both are present, and neither tells you whether the pipe has anything to act on. Some of the 81 are inert legacy surfaces - legacy-admin-identity-boundary.ts replaces the admin role and organization mutators with functions that throw ServiceUnavailable - so they validate nothing and also do nothing; they are not cited as live examples."
+      "note": "Where validation happens it happens server-side, which is the right place. The requirement asks that the application be DESIGNED to enforce input validation at a trusted service layer, and half of it is not. Measured across endpoints rather than across DTO files: 81 endpoints declare @Body() body: { ... } as an inline TypeScript type and 78 declare a DTO class. An inline type erases to Object at runtime, ValidationPipe skips a parameter whose metatype it cannot transform, so for those 81 the global pipe validates nothing. 77 of them sit on POST, PUT, PATCH or DELETE, across roughly twenty modules including settlement-engine and saga - about half the write surface of the API. The clearest live instance is the partner webhook registration: POST api/partner/webhooks takes { url, events } as an inline type, nothing validates the url, and partner-api.service.ts stores it as given. Correction: this decision was first recorded PASS. The note said every DTO file carries class-validator constraints and the global pipe applies them, which is literally true and still gave the wrong answer, because it measured the DTO files that exist rather than the endpoints that need one - the same wrong-denominator mistake the SBOM coverage work was built to prevent. The conditions passed because they checked main.ts for useGlobalPipes and whitelist: true; both are present, and neither tells you whether the pipe has anything to act on. Some of the 81 are inert legacy surfaces - legacy-admin-identity-boundary.ts replaces the admin role and organization mutators with functions that throw ServiceUnavailable - so they validate nothing and also do nothing; they are not cited as live examples. Update in this pass: the partner API surface named above has been closed. POST api/partner/api-keys, POST api/partner/webhooks and POST api/partner/webhooks/:id/test now declare GenerateApiKeyDto, SubscribeWebhookDto and TestWebhookDto, so the pipe finally has something to act on there. The ratchet moved 92 -> 89 unvalidated and 100 -> 103 DTO-typed, and the baseline was tightened in the same pass so the gain cannot be given back silently. The requirement stays FAIL and the conditions are re-pointed at surfaces that still carry the defect - gekta.controller.ts (13 inline bodies) and kyc.controller.ts (5) - because closing the file a decision cites revokes that decision, and a FAIL must keep naming something that is actually still broken rather than a file that has been fixed. What the closed endpoints did before, measured on the service rather than argued from the type: rateLimit 999999999 was accepted, so a caller lifted its own rate limit; expiresInDays -30 was accepted and issued an already-expired key; expiresInDays 1e12 raised RangeError: Invalid time value, and scopes given as a string raised TypeError: params.scopes.filter is not a function - both of which reached the client as 500 rather than 400; and events given as a string matched w.events.includes('*') by SUBSTRING, so any string containing an asterisk subscribed the webhook to every event on the platform. Update in this pass: kyc.controller.ts, named above as a still-defective surface, has been closed. Its five bodies now declare VerifyOrganizationDto, TransactionAmlCheckDto, InitiateKycDto, RknIncidentDto and VerifyInnDto, so INN, BIK, account number, kopeck amount and incident date are checked in form before they reach the FNS registry, the AML screening or the Roskomnadzor XML. The ratchet moved 89 -> 84 unvalidated and 103 -> 108 DTO-typed, and the baseline was tightened in the same pass. The requirement stays FAIL and the conditions are re-pointed at surfaces that still carry the defect - gekta.controller.ts (13 inline bodies) and support.controller.ts (5) - because closing the file a decision cites revokes that decision, and a FAIL must keep naming something actually broken. Update in this pass: support.controller.ts, named above as a still-defective surface, has been closed. Its five bodies now declare CreateTicketDto, AssignTicketDto, ResolveTicketDto, EscalateTicketDto and AddCommentDto. The finding worth recording there was not an authorisation gap - assignTicket, resolveTicket and escalateTicket are already behind assertSupport, addComment requires the support role or ticket authorship, and isInternal is multiplied by a role check in the service - but that the TicketPriority union did not exist at runtime. Measured: priority 'СРОЧНО!!!' was stored verbatim, and listQueue sorts on priorityOrder[p] ?? 3, so an unrecognised priority took the LOWEST rank - a ticket its reporter marked urgent in their own words was silently pushed to the bottom of the support queue rather than rejected. The ratchet moved 84 -> 79 unvalidated and 108 -> 113 DTO-typed, baseline tightened in the same pass. The requirement stays FAIL and is re-pointed at gekta.controller.ts (13 inline bodies) and export-trade.controller.ts (4), both of which still carry the defect. admin.controller.ts is deliberately not cited: part of that surface is the inert legacy boundary that throws ServiceUnavailable, so it validates nothing and also does nothing. Update in this pass: gekta.controller.ts, named above as a still-defective surface, has been closed. All thirteen bodies across GektaController and GektaOperatorController now declare DTO classes, and the conditions are re-pointed at railway.controller.ts and route-planner.controller.ts, which still carry the defect - closing the file a decision cites revokes that decision, so a FAIL has to keep naming something that is actually still broken. What the closed endpoints did before, measured rather than argued. The locale column is VarChar(8) and the boundary bounded nothing: POST gekta/projects with a nine-character locale reached PostgreSQL and came back 22001 value too long for type character varying(8) - PostgreSQL does not truncate on insert, it refuses - so user input became a 500. String({}) yields the literal \"[object Object]\", fifteen characters, which was enough on its own. The anonymous-history import went into the service through an as never cast: a conversation object with no messages raised TypeError: Cannot read properties of undefined (reading 'slice') and one with no title the same on 'replace', both 500 on user input. That same import wrote message.role verbatim into a VarChar(16) column while the live append route normalised anything that was not 'assistant' to 'user' - two write paths, one column, two different rules, and the role 'system' was measured persisting through the import path. An unparseable createdAt reached Prisma as Invalid Date. On the operator side the owner console already refuses to submit an action without a reason, but the server accepted String(body?.reason ?? '') - an empty reason, and an object written into the immutable audit trail as \"[object Object]\"; a check that only runs in the browser is not enforcement, and an audit entry reading 'lifetime access granted, reason empty' explains nothing. body?.suspended !== false was measured true for the string \"false\" and for 0, so an operator lifting a suspension re-applied it. new Date('garbage') is an object and therefore truthy, so the service's own guard - if kind is not LIFETIME and !expiresAt, throw - did not catch an unparseable until at all; it now checks Number.isNaN(getTime()) and raises BadRequest rather than a bare Error. An unknown grant kind used to become DAYS_7 silently; that fallback was a correct privilege boundary for LIFETIME, which needs its own permission and its own route, but the operator was never told, and a refusal at the boundary is honest without weakening the boundary. Separately, and not a validation defect: the import cap silently truncated. One hundred short conversations serialise to 13,391 bytes and fit in a single 64 KiB part, the server imports at most 60 per request and returned ok, and the client then marked the migration done - forty conversations of a user's history disappeared with no error anywhere. The client now splits parts by count as well as by bytes, bound by a test to the server's own constant. Fourteen mutations were applied to the new conditions. Thirteen were caught on the first run and the fourteenth found a hole in these very tests: removing @IsInt() from the trial extension changed nothing, because the fractional value the test used was 0.5 and @Min(1) already rejected it. Measured with 30.5, inside the permitted range, that mutation now fails - a condition a mutation can walk past is not a condition. The ratchet moved 79 -> 66 unvalidated and 116 -> 129 DTO-typed, measured against main at 5ec9a302e, so all thirteen are this pass; the stored floor rises 113 -> 129 and the baseline was tightened in the same pass so the gain cannot be given back silently. Update in this pass: railway.controller.ts is closed. Its four bodies now declare RegisterWagonDto, UpdateWagonStatusDto, CreateGU12Dto and CalculateDemurrageDto, and the conditions move to saga.controller.ts, export-trade.controller.ts and route-planner.controller.ts. The missing DTO was not the worst of it. The controller handed the body to the service as a spread - { ...body, ownerOrgId: user.orgId } - and registerWagon built the record as { id: randomUUID(), ...dto }, so a client-supplied id WON over the generated one. Measured on the live service: posting an existing wagon's id overwrote that wagon in place; the fleet count stayed at three, wagonNumber went 52000001 to 99999999 and ownerOrgId went org-logistics-001 to org-attacker. The duplicate-number guard never fired because the number differed, and since listWagons filters on ownerOrgId the wagon left its owner's list and appeared in the caller's. Scope stated honestly: this module keeps state in in-memory Maps rather than PostgreSQL, so the effect is per-process and lost on restart - it is not database corruption and is not described as such. Separately, demurrage is money and it was computable as NaN: an unparseable arrivedAt produced detainedHours NaN and totalKopecks NaN, which JSON serialises as null - a detention record with no amount. Both the boundary and the service refuse it now, the service too because a caller that bypasses the boundary must not be able to store NaN. One existing guard is left alone and not claimed as this pass's work: swapped dates already yielded zero through Math.max. Eight mutations were applied; six were caught at once and two were not, both weak tests rather than safe code. Dropping { strict: true } from the demurrage dates changed nothing because the test fed 'garbage', which the non-strict mode also rejects - re-measured with 2026-02-31, which parses but does not exist, it fails. Removing @IsNumber() from capacityTons also changed nothing, and that one is genuine redundancy rather than a test gap: with @Min and @Max present, @Min compares with >= and rejects NaN, Infinity and strings on its own. The decorator is kept as a statement of intent but is not load-bearing and is not presented as such; the test asserts the property instead."
     },
     {
       "requirementId": "V2.2.3",
@@ -1742,7 +1789,7 @@
           ]
         }
       ],
-      "note": "Corrected on review: the original version of this decision credited assertCsrf() (server-request-security.ts) as this application's CSRF defence and cited its use in a large number of route files as evidence of broad coverage. That mechanism is real and, where it is used, correctly implemented (same-origin check, double-submit cookie, constant-time comparison) - but coverage is the actual question this requirement asks, and it is not comprehensive. Counted directly: 59 route.ts files export a POST/PUT/PATCH/DELETE handler; 36 of them call assertCsrf() or import server-request-security, and 23 do not. The concrete counterexample a reviewer named checks out: apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts reads the pc_access_token cookie, forwards it as an Authorization: Bearer header to the upstream accounting API on POST for a WRITE_PATHS allowlist of mutating operations, and never calls assertCsrf(), assertSameOriginIfPresent(), or checks any Sec-Fetch-* header anywhere in the file. That route's cookie is set with SameSite=Lax rather than Strict for its non-control-plane path (auth-session-response.ts), which does block a classic cross-site form POST from carrying it - a real, if implicit and undocumented, partial mitigation - but SameSite=Lax alone is not the anti-forgery-token or extra-header defence this requirement asks for, and 22 other unsafe-method routes share the same gap without even that backstop confirmed."
+      "note": "Corrected on review, and the count has now been corrected twice - both times in the same direction, because the sweep was narrower than the defences it was looking for and the gap therefore looked larger than it is. The original version of this decision credited assertCsrf() (server-request-security.ts) as this application's CSRF defence and cited its use in a large number of route files as evidence of broad coverage. That mechanism is real and, where it is used, correctly implemented - same-origin check, double-submit cookie, constant-time comparison - but coverage is the actual question this requirement asks, and it is not comprehensive. First correction: an earlier count said 23 routes were undefended because it looked only for assertCsrf() and missed the routes that defend with Fetch Metadata instead. Second correction: the count after that said 16, because it grepped each route file in isolation and so missed routes whose defence lives in a shared helper they delegate to - apps/web/app/api/staff/integrations/_command-proxy.ts calls assertCsrf() before it reads a credential, and the two staff integration command routes that delegate to it are defended even though the word never appears in their own files. Counting by following local imports one level: 59 route.ts files export a POST/PUT/PATCH/DELETE handler, 38 call assertCsrf() directly, 2 more inherit it from an imported proxy, 5 reject a cross-site Sec-Fetch-Site without using assertCsrf (for example apps/web/app/api/gekta/entitlement/route.ts), and 14 have neither. The named counterexample is apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts, which authenticates by cookie and forwards it upstream as an Authorization Bearer on its WRITE_PATHS operations without calling assertCsrf. A fix for that route exists but cannot land here: those paths are owned by the PC-CROP-FEDERAL-ACCOUNTING project lock (activeIssue 4321), and binding an ASVS scope to that lock to get past the gate would be a governance bypass, so it waits on an owner-authorized exception or on that programme taking the fix. Not every one of the 14 should get a token, and that is a finding rather than an excuse: each handler was read. Three are unconditional stubs that accept no request and return 410 or 501; two are disabled in production before they reach a cookie (the legacy lots route and the controlled-test cabinet lock login); one acknowledges an offline queue without changing anything; three are public intake forms carrying no ambient credential; and two are server-to-server callbacks (a Telegram webhook, a bank callback) where an anti-forgery token is meaningless and would break the caller. The requirement is about routes that act on an ambient cookie credential, and after this pass the accounting proxy and the two settlement money proxies are the ones that remain. Retained: the access cookie is SameSite=Lax, which does block a classic cross-site form POST. That is a real if implicit mitigation, and it is not the anti-forgery-token or extra-header defence this requirement asks for."
     },
     {
       "requirementId": "V3.5.2",
@@ -2460,38 +2507,49 @@
     {
       "requirementId": "V5.2.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts",
-        "infra:infra/nginx/nginx.conf client_max_body_size 10m"
+        "apps/web/lib/uploads/bounded-body.ts",
+        "apps/web/tests/unit/uploadBodyBound.spec.ts",
+        "apps/web/app/api/public-platform-assistant/attachments/route.ts"
       ],
       "conditions": [
         {
-          "condition": "the size caps exist and are applied in the handler",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the body is read under a ceiling that counts bytes as they arrive, rather than trusting a declared size",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/uploads/bounded-body.ts"
+          ],
+          "patterns": [
+            "export async function readboundedbody",
+            "total += value.bytelength",
+            "if (total > limit)",
+            "reader.cancel()"
+          ]
+        },
+        {
+          "condition": "the route reaches that reader before parsing, and parses the bounded bytes rather than the request",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
           "patterns": [
-            "max_file_bytes",
-            "max_total_bytes",
-            "max_files"
+            "readboundedbody(request.body, max_body_bytes)",
+            "new response(bounded"
           ]
         },
         {
-          "condition": "no ceiling is applied before the body is buffered",
+          "condition": "the route no longer parses the unbounded request body",
           "check": "ABSENT_AT_PATH",
           "paths": [
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
           "patterns": [
-            "maxbodysize",
-            "bodysizelimit",
-            "bodyparser"
+            "await request.formdata()"
           ]
         }
       ],
-      "note": "The caps (4 files, 8 MiB per file, 24 MiB total) are enforced only after request.formData() has buffered the entire body. The single pre-buffer check trusts a client-supplied Content-Length and is skipped when that header is absent, so an oversized body is read into memory before it is rejected. nginx sets client_max_body_size 10m, but that is an infrastructure ceiling whose deployment cannot be verified from the repository."
+      "note": "Closed by bounding the read instead of trusting the declaration. The guard compared content-length against the ceiling, and two ordinary requests walked past it - both proven by running them rather than argued: a chunked request carries no content-length at all, so Number(null || '0') is zero and the comparison never fires; and a malformed value such as content-length: not-a-number yields NaN, so Number.isFinite(NaN) short-circuits the same comparison. The second was not in the recorded note and was found while measuring the first. Past the guard the route called request.formData(), which was measured buffering a 12 MiB body in 123 ms - the size becomes knowable only once the memory is already spent, on an endpoint that requires no authentication. The bound now counts bytes as they arrive and cancels the stream at the ceiling, so nothing the sender declares participates in the decision; the declared size survives only as a cheap refusal for an honest client. The stream is cancelled rather than abandoned, so a sender is not left writing into a socket nobody reads. Three mutations, each caught: removing the cancel, an off-by-one at the ceiling, and reverting the route to request.formData() - the last of which passes the type check and every reader-level test, which is why the route-level cases exist at all."
     },
     {
       "requirementId": "V5.2.2",
@@ -2562,34 +2620,76 @@
     {
       "requirementId": "V5.2.3",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
+        "apps/web/lib/uploads/decompression-budget.ts",
+        "apps/web/tests/unit/uploadDecompressionBudget.spec.ts",
         "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
       ],
       "conditions": [
         {
-          "condition": "the route decompresses archive and stream content",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the declared uncompressed size and the entry count are checked before any decompressor runs, which is the half of the requirement the word \"before\" names",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/uploads/decompression-budget.ts"
+          ],
+          "patterns": [
+            "export function assertdeclaredentry(",
+            "export function assertarchiveentrycount(",
+            "export function assertarchivedeclared(",
+            "max_inflated_entry_bytes",
+            "max_archive_entries",
+            "max_declared_compression_ratio"
+          ]
+        },
+        {
+          "condition": "a ceiling is enforced during decompression as well, because the declared size is written by the sender and lying about it costs two bytes",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/uploads/decompression-budget.ts"
+          ],
+          "patterns": [
+            "maxoutputlength: ceiling",
+            "err_buffer_too_large",
+            "max_request_inflated_bytes"
+          ]
+        },
+        {
+          "condition": "the format this module does not decompress itself is not left on the declaration alone: xlsx entries are inflated here under the same budget and discarded, because ExcelJS through JSZip compares the declared size only after producing the data",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/uploads/decompression-budget.ts"
+          ],
+          "patterns": [
+            "export function assertarchiveinflateswithinbudget("
+          ]
+        },
+        {
+          "condition": "the route reaches every decompression through the budget - it imports no decompressor of its own, and the format it hands to a library is proved inflatable under the budget first",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
           "patterns": [
-            "inflaterawsync",
-            "inflatesync"
+            "lib/uploads/decompression-budget",
+            "assertarchivedeclared(ext, bytes, inflatebudget)",
+            "readarchiveentry(bytes",
+            "inflatepdfstream(stream, budget)",
+            "assertarchiveinflateswithinbudget(ext, bytes, inflatebudget)"
           ]
         },
         {
-          "condition": "no ceiling is placed on decompressed output",
+          "condition": "the route holds no decompressor import of its own",
           "check": "ABSENT_AT_PATH",
           "paths": [
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
           "patterns": [
-            "maxoutputlength"
+            "from 'node:zlib'"
           ]
         }
       ],
-      "note": "inflateRawSync (docx member) and inflateSync (PDF FlateDecode streams) are called without maxOutputLength, and no cap on the number of archive entries exists. A compression bomb inside word/document.xml or a PDF stream inflates without a ceiling inside the request handler."
+      "note": "Closed against the requirement's own text, which asks for a check against maximum uncompressed size AND against maximum number of files BEFORE uncompressing. Both halves are present because neither is sufficient alone: the declared uncompressed size lives in the zip central directory at offset +24 and is written by the sender, so a check of it alone believes a liar; maxOutputLength alone spends memory up to the ceiling on a file that already declared itself unacceptable. The route is unauthenticated - /api/public-platform-assistant/attachments is listed in PUBLIC_API_EXACT - and DEFLATE reaches about 1032:1, so the 8 MiB the route accepts inflated to roughly 8 GiB inside the request handler. Three paths were unbounded: inflateRawSync for the docx member, inflateSync for every PDF FlateDecode stream in a loop, and the archive entry count, which was limited only by the uint16 the EOCD record can hold. The principle was already written down in this codebase for images - image-dimensions.ts, closed for V5.2.6, opens with the observation that the file-size limit bounds the input and not the decoder's output - and the route repeated it in a comment immediately above the two decoders that did not have it. The decompressors now live in the library rather than the route, so the route imports no zlib and has no way to inflate outside the budget; that is a structural guarantee and is recorded as one rather than as a behavioural claim. The PDF path distinguishes a corrupt stream, which is skipped because PDFs in the wild are partly damaged, from a budget refusal, which aborts extraction - without that distinction a sender packs a hundred bombs and each is caught and skipped in turn. The xlsx path is unzipped by ExcelJS, which cannot be stopped at a ceiling. Review on the PR found that leaving that format on the declared sizes alone was not a control at all: JSZip compares the declared size only after producing the decompressed data, so a two-byte lie in the central directory passed the pre-check and then inflated without a ceiling on a public endpoint. Corrected rather than argued with - xlsx entries are now inflated here under the same budget and the output discarded, which proves the directory did not lie and debits the budget by the bytes ExcelJS will then hold, without double-charging. Peak memory of the check itself is one entry. The same review found that the declared total was compared against the remaining budget but never deducted, so four archives each saw the full allowance; the inflate-verify pass is what debits it now. A route-level test proves both are reached rather than merely present. What is deliberately not claimed: V5.2.1 stays FAIL. With Transfer-Encoding: chunked there is no content-length, Number(null || '0') is 0, the pre-check passes, and request.formData() buffers the whole body; that is a different defect in the body-reading path and needs streaming byte accounting, not a decompression ceiling. Mutations, each caught: dropping maxOutputLength fails 2, letting the PDF path swallow a budget refusal fails 1, removing the xlsx pre-check wiring fails the route-level test, and returning a direct zlib import to the route fails the structural test."
     },
     {
       "requirementId": "V5.2.4",
@@ -2630,25 +2730,37 @@
       "applicability": "APPLICABLE",
       "status": "PASS",
       "evidence": [
-        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts",
+        "apps/web/lib/uploads/decompression-budget.ts"
       ],
       "conditions": [
         {
-          "condition": "archive members are read into memory by exact name, never written out",
+          "condition": "the archive reader selects a member by equality on the whole name and returns its bytes in memory",
           "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/uploads/decompression-budget.ts"
+          ],
+          "patterns": [
+            "export function readarchiveentry(",
+            "name === wanted"
+          ]
+        },
+        {
+          "condition": "the only caller names the member it wants literally",
+          "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
           "patterns": [
-            "function zipentry(",
-            "zipentry(bytes, 'word/document.xml')"
+            "readarchiveentry(bytes, 'word/document.xml'"
           ]
         },
         {
-          "condition": "no archive extraction to disk exists that a symlink member could target",
+          "condition": "no archive extraction to disk exists that a symlink member could target, in the route or in the reader",
           "check": "ABSENT_AT_PATH",
           "paths": [
-            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts",
+            "apps/web/lib/uploads/decompression-budget.ts"
           ],
           "patterns": [
             "extractall",
@@ -2658,7 +2770,7 @@
           ]
         }
       ],
-      "note": "No archive member is ever written to the filesystem. zipEntry locates one member by exact name and returns its bytes, so an archive cannot introduce a symlink."
+      "note": "No archive member is ever written to the filesystem. zipEntry locates one member by exact name and returns its bytes, so an archive cannot introduce a symlink. Re-pointed in #4831 without changing the verdict: the archive reader moved from the route into apps/web/lib/uploads/decompression-budget.ts so the route imports no decompressor at all. The property this decision rests on is unchanged and was re-verified at the new location - the reader still selects a single member by equality on the whole name and returns its bytes in memory, and nothing writes an archive member out. The conditions were re-bound to where the code now lives rather than relaxed; the self-revoking check caught the move, which is what it is for."
     },
     {
       "requirementId": "V5.2.6",
@@ -2814,7 +2926,8 @@
       "applicability": "APPLICABLE",
       "status": "PASS",
       "evidence": [
-        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
+        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts",
+        "apps/web/lib/uploads/decompression-budget.ts"
       ],
       "conditions": [
         {
@@ -2824,14 +2937,25 @@
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
           "patterns": [
-            "zipentry(bytes, 'word/document.xml')"
+            "readarchiveentry(bytes, 'word/document.xml'"
           ]
         },
         {
-          "condition": "no archive-supplied path is joined onto a filesystem path",
+          "condition": "the match is equality on the whole name, so no member-supplied path is interpreted",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/uploads/decompression-budget.ts"
+          ],
+          "patterns": [
+            "name === wanted"
+          ]
+        },
+        {
+          "condition": "no archive-supplied path is joined onto a filesystem path, in the route or in the reader",
           "check": "ABSENT_AT_PATH",
           "paths": [
-            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+            "apps/web/app/api/public-platform-assistant/attachments/route.ts",
+            "apps/web/lib/uploads/decompression-budget.ts"
           ],
           "patterns": [
             "join(workdir, name",
@@ -2840,73 +2964,127 @@
           ]
         }
       ],
-      "note": "Path information carried inside an archive is never used. The single member is matched by an exact literal name and its bytes are kept in memory, so zip slip has no route to the filesystem."
+      "note": "Path information carried inside an archive is never used. The single member is matched by an exact literal name and its bytes are kept in memory, so zip slip has no route to the filesystem. Re-pointed in #4831 without changing the verdict: the archive reader moved from the route into apps/web/lib/uploads/decompression-budget.ts so the route imports no decompressor at all. The property this decision rests on is unchanged and was re-verified at the new location - the reader still selects a single member by equality on the whole name and returns its bytes in memory, and nothing writes an archive member out. The conditions were re-bound to where the code now lives rather than relaxed; the self-revoking check caught the move, which is what it is for."
     },
     {
       "requirementId": "V5.4.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "export-controller:apps/api/src/modules/exports/exports.controller.ts",
-        "compliance-controller:apps/api/src/modules/compliance/compliance.controller.ts"
+        "apps/api/src/common/security/content-disposition.ts",
+        "apps/api/src/common/security/content-disposition.spec.ts",
+        "apps/api/src/modules/exports/exports.controller.ts",
+        "apps/api/src/modules/exports/exports-content-disposition.spec.ts",
+        "apps/api/src/modules/compliance/compliance.controller.ts"
       ],
       "conditions": [
         {
-          "condition": "a user-supplied route parameter is still interpolated into a download filename",
-          "check": "PRESENT_AT_PATH",
+          "condition": "every route that serves a file builds the header through the shared builder rather than by hand",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/exports/exports.controller.ts"
           ],
           "patterns": [
-            "filename=\"ledger-${dealid}-"
+            "attachmentdisposition(`deals-",
+            "attachmentdisposition(`ledger-${dealid}-",
+            "attachmentdisposition(result.filename)"
           ]
         },
         {
-          "condition": "the parameter is still unvalidated at the controller",
-          "check": "ABSENT_AT_PATH",
-          "paths": [
-            "apps/api/src/modules/exports/exports.controller.ts"
-          ],
-          "patterns": [
-            "parseuuidpipe",
-            "param('dealid', "
-          ]
-        }
-      ],
-      "note": "exportLedger interpolates the raw @Param('dealId') into the Content-Disposition filename. The parameter is a bare string, so neither ParseUUIDPipe nor the global ValidationPipe constrains it, and the application neither validates nor ignores the user-submitted component."
-    },
-    {
-      "requirementId": "V5.4.2",
-      "applicability": "APPLICABLE",
-      "status": "FAIL",
-      "evidence": [
-        "export-controller:apps/api/src/modules/exports/exports.controller.ts"
-      ],
-      "conditions": [
-        {
-          "condition": "download filenames are still emitted as a bare quoted string",
+          "condition": "the compliance export uses it too",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/exports/exports.controller.ts"
+            "apps/api/src/modules/compliance/compliance.controller.ts"
+          ],
+          "patterns": [
+            "attachmentdisposition(`audit-"
+          ]
+        },
+        {
+          "condition": "no route interpolates a filename into the header itself",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.controller.ts",
+            "apps/api/src/modules/compliance/compliance.controller.ts"
           ],
           "patterns": [
             "attachment; filename=\""
           ]
         },
         {
-          "condition": "no RFC 6266 encoding is applied",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the builder emits both parameter forms and neutralises quotes and control characters",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/content-disposition.ts"
+          ],
+          "patterns": [
+            "filename*=utf-8''",
+            "quoted_unsafe",
+            "rfc5987encode"
+          ]
+        }
+      ],
+      "note": "Closed by routing the four file-serving routes through the builder that already existed. attachmentDisposition in common/security was written for V3.2.1 and does exactly what this requirement asks - it strips path separators, removes control characters, escapes quotes in the ASCII form and emits the RFC 5987 filename* alongside - and the export and compliance routes interpolated their own header instead. The control existed, was correct, sat in common/security, and the places that needed it did not call it. Reachability was established rather than assumed: only exports.controller.ts's ledger route takes user input, @Param('dealId'), and exportLedgerCsv does not reject an unknown id - assertExportRole checks the role only, findMany({ where: { dealId } }).catch(() => []) turns any string into an empty result set, and the route answers 200. So any user holding an export role puts an arbitrary string into the header. Proven by running it: a dealId of x\"; filename=\"ledger.csv.exe produced a header carrying two filename parameters, which is a download-name spoof, and a Cyrillic dealId went into the header raw with no filename* - and Cyrillic names are the ordinary case on this platform. Deliberately not claimed: CRLF was not exploitable here, because Node rejects control characters in a header value with ERR_INVALID_CHAR; the builder strips them anyway so the route returns a file rather than a 500. The two routes with no user input were moved as well, because the requirement is about how a served name is encoded rather than where it came from. What is not addressed and is recorded separately: exportLedgerCsv and exportDealsCsv carry no tenant predicate at all, and whether the row-level policy named ledger_select_all closes that path is unestablished - that is a V8 authorization question needing a live-database pass, not something to settle in passing."
+    },
+    {
+      "requirementId": "V5.4.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/common/security/content-disposition.ts",
+        "apps/api/src/common/security/content-disposition.spec.ts",
+        "apps/api/src/modules/exports/exports.controller.ts",
+        "apps/api/src/modules/exports/exports-content-disposition.spec.ts",
+        "apps/api/src/modules/compliance/compliance.controller.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "every route that serves a file builds the header through the shared builder rather than by hand",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/exports/exports.controller.ts"
           ],
           "patterns": [
-            "filename*=",
-            "encodeuricomponent",
-            "content-disposition-parser"
+            "attachmentdisposition(`deals-",
+            "attachmentdisposition(`ledger-${dealid}-",
+            "attachmentdisposition(result.filename)"
+          ]
+        },
+        {
+          "condition": "the compliance export uses it too",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/compliance/compliance.controller.ts"
+          ],
+          "patterns": [
+            "attachmentdisposition(`audit-"
+          ]
+        },
+        {
+          "condition": "no route interpolates a filename into the header itself",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.controller.ts",
+            "apps/api/src/modules/compliance/compliance.controller.ts"
+          ],
+          "patterns": [
+            "attachment; filename=\""
+          ]
+        },
+        {
+          "condition": "the builder emits both parameter forms and neutralises quotes and control characters",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/content-disposition.ts"
+          ],
+          "patterns": [
+            "filename*=utf-8''",
+            "quoted_unsafe",
+            "rfc5987encode"
           ]
         }
       ],
-      "note": "Content-Disposition is built as a bare quoted string with no RFC 6266 encoding and no sanitisation of the interpolated value. A quote in dealId breaks the quoted-string. Node refuses CR and LF in header values, so header injection is blocked by the platform rather than by the application."
+      "note": "Same change as V5.4.1, assessed against this requirement's own text, which is specifically about encoding a served name per RFC 6266 rather than about validating a submitted one. Both parameter forms are emitted: the ASCII filename with quotes and non-printable characters replaced, for clients that read only that, and filename*=UTF-8'' carrying the exact name, which matters because filenames here are routinely Cyrillic and the ASCII fallback cannot represent them. Before this the header was a template literal, so a quote in the value opened a second filename parameter and a Cyrillic name travelled unencoded. The builder itself had no test of any kind despite being correct; it has six now, and the routes have three that prove the builder is actually reached - a test on the builder alone would pass just as well while nothing called it, which is the defect this pass is about."
     },
     {
       "requirementId": "V5.4.3",
@@ -5365,7 +5543,7 @@
       "evidence": [
         "global-guard:apps/api/src/app.module.ts",
         "transaction-context:apps/api/src/common/prisma/rls-transaction.service.ts",
-        "policies:infra/sql/production-rls-policies.sql"
+        "apps/api/prisma/migrations/20260830190000_migration_chain_rls_permissive_closure/migration.sql"
       ],
       "conditions": [
         {
@@ -5380,14 +5558,15 @@
           ]
         },
         {
-          "condition": "and again below the service layer, in the database",
+          "condition": "and again below the service layer, in the row policies the forward-only chain actually installs - not in an artifact that no deploy path applies",
           "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "infra/sql/production-rls-policies.sql"
+            "apps/api/prisma/migrations/20260830190000_migration_chain_rls_permissive_closure/migration.sql"
           ],
           "patterns": [
-            "row level security",
-            "create policy"
+            "enable row level security",
+            "create policy audit_events_select",
+            "create policy ledger_entries_select"
           ]
         },
         {
@@ -5401,7 +5580,7 @@
           ]
         }
       ],
-      "note": "Enforcement sits in two places a client cannot reach: a global server-side guard, and row policies inside PostgreSQL. Nothing an untrusted consumer controls participates in the decision, and that holds for this requirement, which asks that the rules be enforced at a trusted service layer rather than that the database cover everything. Wording corrected: the first version said the database layer \"holds even if the service layer forgets\". That is true for the 37 tenant-bearing tables with a policy and false for the 3 without, so the claim is now scoped rather than universal. The trusted-layer requirement is still met - the guard is global and the policies are real - while the coverage gap is recorded where it belongs, under V8.2.2 and V8.4.1."
+      "note": "Enforcement sits in two places a client cannot reach: a global server-side guard, and row policies inside PostgreSQL. Nothing an untrusted consumer controls participates in the decision, and that holds for this requirement, which asks that the rules be enforced at a trusted service layer rather than that the database cover everything. Evidence corrected a second time, and this correction is the point of the record: the condition below the service layer pointed at infra/sql/production-rls-policies.sql, which only CI, docker-compose and the rehearsal and acceptance scripts reference - no deploy path applies it. Measured rather than argued: stripping every CREATE POLICY out of the forward-only chain did NOT revoke this decision, while editing that inert artifact did. The check was revocable by what does not matter and not revocable by what does. It now reads the chain migration that installed the strict audit_events and ledger_entries policies precisely because the artifact was never applied, and the same measurement confirms it revokes on the chain and no longer on the artifact. The status does not move: this requirement asks where enforcement sits, and the global server-side guard satisfies that on its own. Note also that the artifact remains legitimate evidence for V8.1.1, which asks that authorization DOCUMENTATION define the rules - a document need not execute to be a document. Wording corrected earlier: the first version said the database layer \"holds even if the service layer forgets\". That is true for the 37 tenant-bearing tables with a policy and false for the 3 without, so the claim is now scoped rather than universal. The trusted-layer requirement is still met - the guard is global and the policies are real - while the coverage gap is recorded where it belongs, under V8.2.2 and V8.4.1."
     },
     {
       "requirementId": "V8.3.2",
@@ -9368,47 +9547,53 @@
     {
       "requirementId": "V14.3.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "logout-path:apps/web/app/api/auth/logout/route.ts",
-        "persisting-storage:apps/web/components/gekta/GektaChatWorkspace.tsx",
-        "persisting-storage:apps/web/components/v7r/DocumentsDropzone.tsx"
+        "server-clears:apps/web/app/api/auth/logout/route.ts",
+        "client-clears:apps/web/lib/client-session-cleanup.ts",
+        "invoked-at:apps/web/components/session-controls.tsx",
+        "invoked-at:apps/web/components/demo-banner.tsx",
+        "invoked-at:apps/web/components/platform-v7/HeaderUtilityMenu.tsx",
+        "invoked-at:apps/web/components/platform-v7/OrganizationAccessShell.tsx"
       ],
       "conditions": [
         {
-          "condition": "no response anywhere asks the browser to clear site data",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/web"
-          ],
-          "patterns": [
-            "clear-site-data"
-          ]
-        },
-        {
-          "condition": "logout still clears cookies without clearing client storage",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the logout response still asks the browser to clear stored site data",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/web/app/api/auth/logout/route.ts"
           ],
           "patterns": [
-            "localstorage",
             "clear-site-data",
-            "sessionstorage"
+            "\"storage\""
           ]
         },
         {
-          "condition": "authenticated data is still written to client storage that outlives the session",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the client-side path still actually clears both web storages",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/web/components/gekta/GektaChatWorkspace.tsx"
+            "apps/web/lib/client-session-cleanup.ts"
           ],
           "patterns": [
-            "history_storage"
+            "localstorage.clear",
+            "sessionstorage.clear"
+          ]
+        },
+        {
+          "condition": "every logout caller in the frontend still runs that cleanup",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/components/session-controls.tsx",
+            "apps/web/components/demo-banner.tsx",
+            "apps/web/components/platform-v7/HeaderUtilityMenu.tsx",
+            "apps/web/components/platform-v7/OrganizationAccessShell.tsx"
+          ],
+          "patterns": [
+            "clearclientsessionstate"
           ]
         }
       ],
-      "note": "Logging out ends the session but does not clear what the session left behind. The logout route is otherwise careful - it checks CSRF, revokes upstream, clears the authentication cookies and sets no-store - and that is exactly why the gap is worth stating precisely: cookies are handled, client storage is not. No response in 2576 web source files sends Clear-Site-Data, and the logout handler contains no reference to local or session storage. Meanwhile conversation history and project lists from the Gekta assistant, per-deal document lists and checklists from the documents dropzone, and the support profile all persist in localStorage across logout, on a shared or borrowed device as much as a personal one. The requirement also asks for a client-side path that cleans up when the server is unreachable at logout, and none exists."
+      "note": "Closed. Logout previously ended the session without clearing what it left behind: the route checked CSRF, revoked upstream, cleared the authentication cookies and set no-store, and no response anywhere in the web application sent Clear-Site-Data, so conversation history and project lists from the Gekta assistant, per-deal document lists and checklists from the documents dropzone, and the support profile all survived logout on a shared or borrowed device. Two independent mechanisms now close it, and the second exists because the first has a boundary. Server side: every logout response that goes through the shared response() helper carries Clear-Site-Data with \"cache\" and \"storage\". \"storage\" is the requirement itself. \"cache\" is deliberate rather than incidental, because 27 route handlers still set no Cache-Control at all (that is the open V14.3.2), so authenticated responses can sit in the browser's disk cache after logout. \"cookies\" is deliberately NOT requested: a browser would clear cookies across the whole registrable domain, and this platform runs a separate control host whose session this logout must not touch - cookies stay with clearAuthenticatedSession, which clears exactly its own. The CSRF-rejected path deliberately carries no such header: a request that failed the check is not a logout, and a test asserts that direction so the header cannot be sprayed onto every response. Client side: clearClientSessionState() clears localStorage and sessionStorage synchronously, and it is called from the finally block of all four logout callers, so it runs when the request never reached the server - the exact gap the previous version of this note named. It clears everything rather than a curated list of sensitive keys, because a list has to be maintained by hand and any new component that starts writing to storage would silently fall outside it; deny-by-default is cheaper and safer here. The cost is stated rather than hidden: the interface theme and density preferences reset to default at logout. Two boundaries remain, and neither is claimed as covered: Clear-Site-Data is honoured only in a secure context, which is why the client path is not optional, and this control covers explicit logout, not idle session expiry. What the data should not have been in browser storage at all is a different requirement and stays FAIL under V14.3.3. Four mutations, each caught by exactly the intended case: removing the header fails 3 of 7; adding \"cookies\" to it fails the case that forbids it; removing the cleanup from one caller fails the completeness test, which enumerates logout callers by search rather than by hand so a fifth added later cannot slip past; making the helper a no-op fails 2."
     },
     {
       "requirementId": "V14.3.2",
@@ -10266,35 +10451,55 @@
     {
       "requirementId": "V16.4.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "log-line:apps/api/src/common/middleware/log-masking.middleware.ts"
+        "encoder:apps/api/src/common/security/log-encode.ts",
+        "applied:apps/api/src/common/middleware/log-masking.middleware.ts",
+        "measurement:apps/api/src/common/security/log-encode.spec.ts",
+        "every-field:apps/api/src/common/middleware/log-masking.middleware.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "an attacker-controlled header is interpolated into a log line",
-          "check": "PRESENT_AT_PATH",
+          "condition": "an encoder for log fields exists and covers the control block the parser actually admits",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/common/middleware/log-masking.middleware.ts"
+            "apps/api/src/common/security/log-encode.ts"
           ],
           "patterns": [
-            "ua=\""
+            "export function encodelogfield",
+            "u007f-\\u009f",
+            "u2028",
+            "must_escape"
           ]
         },
         {
-          "condition": "and nothing encodes or strips control characters",
-          "check": "ABSENT_AT_PATH",
+          "condition": "every attacker-influenced substitution in the access line is encoded, not only the User-Agent",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/common/middleware/log-masking.middleware.ts"
           ],
           "patterns": [
-            "encodeuri",
-            "replace(/[\\u0000-\\u001f]",
-            "json.stringify(useragent"
+            "encodelogfield(method)",
+            "encodelogfield(reqpath)",
+            "encodelogfield(maskedip)",
+            "encodelogfield(userid)",
+            "encodelogfield(this.masktext(useragent))"
+          ]
+        },
+        {
+          "condition": "the measurement that corrects the record is executable, so it cannot drift back",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/log-encode.spec.ts"
+          ],
+          "patterns": [
+            "парсер отвергает",
+            "парсер пропускает",
+            "0x9b csi"
           ]
         }
       ],
-      "note": "Masking is not encoding, and this requirement asks for encoding. The middleware interpolates the User-Agent - a request header the caller controls - directly into a logged template string, and nothing anywhere strips or encodes newlines or control characters. A newline in that header produces a forged additional log line. Credited so this is not read as an absence of log hygiene: the PII masking assessed under V16.2.5 is real and thorough. These are two different controls and only one is present."
+      "note": "Closed, and the record it replaces was wrong about the mechanism twice over - both corrections are kept here rather than quietly replaced, because the second one reverses the first. The note on file said \"a newline in that header produces a forged additional log line\". Measured against Node's own HTTP parser on a live server: it does not. llhttp answers 400 Bad Request to a raw LF, a raw CR, a NUL, an ESC (0x1b), a DEL (0x7f) and an obs-fold continuation line, so none of them reaches a handler at all. The first replacement claimed U+2028 passes through intact. Also wrong: Node decodes header values as latin1, so the three UTF-8 bytes of U+2028 arrive as three separate code points (U+00E2, U+0080, U+00A8) rather than one line separator. What is true, measured byte by byte, each case answered 200 OK with the code point intact in req.headers: the parser refuses the C0 block and DEL and passes the WHOLE C1 block, U+0080 to U+009F - confirmed individually at 0x80, 0x85, 0x9b and 0x9f - plus TAB. That block is not decorative. U+009B is CSI, the 8-bit form of the ANSI escape introducer: ESC itself is refused, this equivalent is not, and written to a UTF-8 stream it is encoded as c2 9b, which a terminal tailing the log decodes back to CSI and obeys. U+0085 is NEL, a line terminator to a range of log processors. The verdict FAIL was therefore right and its stated exploit was not. Two fields carry this, not one: the record named only User-Agent, and with trust proxy on req.ip derives from X-Forwarded-For, measured passing the same bytes. encodeLogField escapes C0, DEL, the C1 block and the two Unicode line terminators (kept for non-header callers, where they are LineTerminators under ECMA-262 11.3), escapes backslash FIRST so the output is unambiguous, escapes the quote that delimits the ua field, and bounds length. It is applied to every substitution in the access line - method, path, ip, user id and User-Agent - not only the one the record named, because a control covering five fields of six is an absent control on the sixth. Masking is credited and not confused with this: the PII masking assessed under V16.2.5 is real, and it is a different control. Measured rather than assumed: maskIp incidentally truncates an IPv4 payload to two octets, but for ::1 it returns the value unchanged, so the boundary here is the encoder and not the mask. Ten mutations applied, all ten caught, each verified to have actually applied; one of them found a test of this pass that asserted nothing, and it was fixed rather than kept."
     },
     {
       "requirementId": "V16.4.2",
@@ -10418,15 +10623,41 @@
     {
       "requirementId": "V16.5.4",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
+        "handlers:apps/api/src/common/process/last-resort-handlers.ts",
+        "api-entry:apps/api/src/main.ts",
         "worker:apps/api/src/outbox-worker.ts",
-        "api-entry:apps/api/src/main.ts"
+        "measurement:apps/api/src/common/process/last-resort-handlers.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the worker process installs last-resort handlers",
+          "condition": "the API process installs the last-resort handlers it lacked",
           "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "installlastresorthandlers({ app })"
+          ]
+        },
+        {
+          "condition": "both events are covered, the cause is reported, and the process still exits non-zero",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/process/last-resort-handlers.ts"
+          ],
+          "patterns": [
+            "processref.once('uncaughtexception'",
+            "processref.once('unhandledrejection'",
+            "writestderr(`api ${event}",
+            "exitcode = 1",
+            "forceexit(fatal_exit_code)"
+          ]
+        },
+        {
+          "condition": "the worker still has its own, so this is not one process covered at the cost of another",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/outbox-worker.ts"
           ],
@@ -10436,19 +10667,17 @@
           ]
         },
         {
-          "condition": "the API process installs neither those nor a global exception filter",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the swallow direction is refused by an executable test, not by review",
+          "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/main.ts"
+            "apps/api/src/common/process/last-resort-handlers.spec.ts"
           ],
           "patterns": [
-            "uncaughtexception",
-            "unhandledrejection",
-            "useglobalfilters"
+            "процесс всё равно выходит ненулевым кодом"
           ]
         }
       ],
-      "note": "The two processes are not held to the same standard, and the requirement asks about the last resort. The outbox worker installs process-level uncaughtException and unhandledRejection handlers that log and shut down deliberately. The API installs neither, and registers no global exception filter, so it relies on the framework default - which does catch exceptions thrown inside a route handler, and that is credited under V16.5.3. It does not catch an exception thrown outside a request context, which is precisely what a last-resort handler is for. The worker being covered does not answer for the API."
+      "note": "Closed by holding the API to the standard the workers were already held to. outbox-worker.ts and marketing-outbox-worker.ts each installed uncaughtException and unhandledRejection handlers that log and shut down deliberately; main.ts installed neither and registered no global exception filter. The framework default credited under V16.5.3 is a different control and stays credited: it catches an exception thrown INSIDE a request. This is for the one thrown outside any request - a timer, an event listener, a background promise - where nothing is watching. Measured on the Node this repository runs (v22.22.2) rather than taken from documentation: with a live setInterval keeping the loop busy, an uncaught exception and an unhandled rejection each terminate the process immediately with exit code 1. So the prior behaviour was never 'Node carries on'; it was a hard stop that skipped every shutdown path - the Prisma pool never closed, the HTTP server never drained, OpenTelemetry never flushed, and in-flight requests were dropped without a response. What changed is therefore the SHAPE of the stop, not whether it stops, and that is stated rather than dressed up as more. The cause is written to stderr with its stack and the write is AWAITED, because console.error to a pipe is asynchronous and a process exiting in the same tick loses the very message explaining why - the failure this requirement exists to prevent. The application is then closed so shutdown hooks run, and the process still exits non-zero. The last part is the load-bearing one and is asserted by test in the reverse direction: a handler that logs and then keeps serving is worse than the crash it replaced, because it leaves an application whose invariants have already failed accepting traffic. Close is bounded by a timeout that forces the exit, since a supervisor restarting a dead process beats waiting on one that will never finish; the exit code is set BEFORE close() so a close() that throws or hangs cannot turn a fatal error into a successful-looking exit. Signals are deliberately not handled here: app.enableShutdownHooks() already owns SIGTERM and SIGINT for the API, and the workers install their own only because they run an application context with no HTTP server to own them. A second handler for the same signal would run two shutdowns, and a mutation adding one is caught. Eight mutations applied, all eight caught: swallowing the fatal, dropping the non-zero exit code, dropping the stderr report, removing the re-entrancy guard, unbounding the close timeout, covering only one of the two events, using on() instead of once(), and duplicating SIGTERM. One further mutation was applied and NOT caught by the matrix on the first attempt: removing the post-shutdown forceExit left V16.5.4 at PASS, because the condition matched the literal forceExit(1) that the timeout branch also contains. The condition was wrong, not the mutation, so the exit that follows a completed shutdown now uses a named FATAL_EXIT_CODE and the condition pins that. Re-run after the fix: the same mutation drives the requirement to NOT_ASSESSED. Recorded rather than quietly corrected - a condition a mutation can walk past is not a condition."
     },
     {
       "requirementId": "V17.1.1",

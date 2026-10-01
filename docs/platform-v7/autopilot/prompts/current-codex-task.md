@@ -1,109 +1,30 @@
-# Codex current task — IR-10.4 Settlement PostgreSQL Authority
+# Current task — atomic canonical readiness prerequisite #4829
 
-Maturity: pre-integration / isolated PostgreSQL evidence only.
-Do not imply live bank, nominal-account, credit, reserve or payout integration.
-Do not change `apps/landing`, `apps/web`, lockfiles, packages or production credentials except within an explicitly approved concurrent scope below.
-Do not auto-merge, create self-modifying workflows or push directly to `main`.
+Official progress remains **5/100**. Staff-session source #5766 is merged; R1 production acceptance remains open.
 
-## Source of truth
+The [owner-approved atomic disposition](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5935185862) replaces the separate metadata-first/source sequence for this one prerequisite. Use only the existing `fix/readiness-database-deadline-4829` branch with CORE as the existing writer. Preserve original readiness history and proposals #5770 (`056b185503e2db46956d2e6b76b78e936e963b37`) and #5771 (`e358177634856c9e71a0961497e7802f49213485`) through ordinary ancestry.
 
-- State: `docs/platform-v7/autopilot/autopilot-state.json`
-- Queue: `docs/platform-v7/execution-queue.md`
-- Progress: `docs/platform-v7/autopilot/progress.json`
-- Governing specification: `docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md`
+The complete accepted-base diff must contain exactly these eleven existing regular 100644 files:
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
+- apps/api/test/staff-access/postgresql-staff-access.e2e-spec.ts
+- apps/api/src/main.ts
+- apps/api/src/health.controller.ts
+- apps/api/src/health.controller.spec.ts
+- apps/api/src/common/guards/pre-auth-rate-limit.guard.ts
+- apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts
 
-## Current step
+Adopt all five COR5 source blobs unchanged from original proposal #4829/comment5930247718 and the exact staff-test blob `1b0010715cbcd636d15b1c9c4e5587baca16137c` from #5771/e358. Preserve source attribution to the existing CORE producer and proposal histories. The full source transitions are recorded in `canonical-readiness-cor5-4829-20261001`. Only the five listed governance documents are revised for the atomic disposition; every prior accepted concurrent vector and admission stays unchanged.
 
-IR-10.4 Settlement PostgreSQL Authority
+No guard, workflow, manifest, PgBouncer configuration, dependency, migration, unrelated source or mode changes. No staff-source/test wildcard expansion. The legacy branch manifest is historical, and standard candidate-list routing is not mechanically immutable exact-eleven enforcement; external owner authority and independent whole-tree review enforce this boundary.
 
-## Last completed
+Reuse the canonical HealthController, restricted Prisma principal and OutboxService. Preserve the 1500ms deadline, 15000ms grace, single flight, immediate/late pending-migration invalidation and existing thresholds. Service-wide queue state stays UNKNOWN where RLS hides rows. Probe aliases must not weaken unrelated rate/auth controls.
 
-IR-10.3 Labs PostgreSQL Authority — PR #2426, merge `576d813c2d305efb645c9d26fa81a38fb6e4abbe`, verified head `73149bb4fba09a33875311faea313bb2ad272503`.
+Require fresh exact-published-head independent nonauthor review of all eleven files, separate implementation-owner audit, all applicable full native CI/security/PostgreSQL and unchanged Kubernetes with zero failed PgBouncer logical probes, complete deep-outbox scenarios and successful cleanup. Preserve old #5770 Security Abuse and #5771 Kubernetes failures; local proposal/composition results never transfer PASS to this head. Report skipped tests and pre-existing aggregate teardown limitations explicitly. Recheck current head, all findings and manual readiness immediately before an ordinary expected-full-SHA merge.
 
-## Current objective
+Preserve actual PRODUCT handoff5933030140, accepted purpose3/guard/test/workflow and all other owners; recheck fresh main/Hub before publication or merge. Return an actual handoff and supersede old proposals only after real atomic acceptance. No production, provider activation, R1 completion or progress claim follows from this bundle.
 
-1. Bind production `SettlementEngineModule` directly to a complete PostgreSQL settlement repository.
-2. Remove RuntimeCore, optional Prisma, repository factory, ActionExecutor memory authority and process-memory OutboxService from the production settlement graph.
-3. Normalize versioned payment terms, beneficiaries, reserve/release/refund basis, holds, partial payouts, bank operations and reconciliation facts.
-4. Store and calculate money only in integer minor units.
-5. Enforce Deal participation, tenant and money-role authority through trusted RLS.
-6. Make reserve/release/refund requests atomic with payment state, bank operation, audit and `PENDING` outbox.
-7. Confirm money movement only through a verified bank callback; human/operator paths cannot self-confirm reserve or release.
-8. Prove idempotency, optimistic concurrency, restart, multi-instance, callback races, reconciliation and restricted-principal denial.
-9. Keep live SberAPI, nominal account, credit and money movement disabled until separately accepted.
-
-## Non-negotiable invariants
-
-- No `amountRub`, floating-point or decimal money authority. Canonical persisted amounts are integer kopecks.
-- No negative balances, over-release, double release, reserve inflation or beneficiary allocation above confirmed reserve.
-- A request is not confirmation. Reserve/release/refund stay pending until verified callback authority commits.
-- Callback identity, partner, key version, operation ID, event ID and payload fingerprint are server-verified and durably replay-safe.
-- Payment, bank operation, ledger, audit and outbox effects commit together or roll back together.
-- Ledger facts are append-only and balanced for every confirmed money event.
-- Holds and disputes block the affected release amount without corrupting the undisputed portion.
-- Reconciliation mismatch fails closed into manual review; it never silently repairs financial authority.
-- No test may disable RLS/triggers or mutate confirmed financial facts directly.
-
-## Allowed current scope
-
-Use the exact scope from `autopilot-state.json`, centred on:
-
-- `apps/api/src/modules/settlement-engine/**`
-- canonical Deal command/gateway files listed in state
-- `apps/api/prisma/schema.prisma`
-- `apps/api/prisma/migrations/20260713*_settlement_postgresql_authority/**`
-- settlement/reconciliation/outbox industrial tests listed in state
-- `infra/sql/postgresql-settlement-authority-policies.sql`
-- migration and one-deal scripts listed in state
-- Source of Truth documents
-
-## Approved concurrent premium homepage completion — PR #3191
-
-The user explicitly authorized branch `agent/platform-v7-home-10of10-v1` to complete the public `/platform-v7` homepage without changing Deal/domain architecture. The implementation is bound to `docs/platform-v7/autopilot/scopes/platform-v7-home-10of10-v1.json` and the exact allow-list recorded in `current-review-task.md`.
-
-Allowed outcomes are limited to public UX/UI hierarchy, responsive CSS, RU/EN/ZH copy, public role simulation, progressive organization-intake presentation, contact-dock behavior, SEO metadata and their bound unit/E2E tests. Preserve the existing durable intake endpoint and idempotency/replay/rate-limit/no-JavaScript boundaries. Do not change API code, database schema or migrations, RBAC, protected routes, bank or TAI authority, external adapters, packages, lockfiles, production workflows or REG.RU deployment topology. No fake-live or unverified external-connectivity claim is permitted.
-
-## Approved concurrent TAI model-capacity scope — issue #3317
-
-The user explicitly authorized a narrow current-hardware protection slice on branch
-`agent/tai-ap-19a-model-capacity-gate-3317`. The implementation is bound to the exact
-allow-list in `autopilot-state.json`.
-
-The slice may add a fail-closed local-model invocation capacity gate, parse and validate
-`TAI_MODEL_MAX_INFLIGHT`, preserve one capacity claim across primary/fallback attempts,
-surface immediate retryable overload as HTTP 429 with `Retry-After`, and add focused
-tests. The default must remain `1`; the accepted configuration range is `1..4`.
-Values above `1` do not constitute measured admission and may be used only after
-separate benchmark evidence.
-
-It must not activate a model, weaken admission or local-only transport, add an internal
-request queue, change retrieval authority, enable write tools, change production
-topology, or claim benchmark/deployment/operational acceptance.
-
-## Forbidden zones
-
-- apps/landing
-- apps/web outside the exact approved concurrent homepage allow-list
-- package and lock files
-- live integration activation
-- production migration execution
-- production secrets
-- temporary or self-modifying workflows
-- direct pushes from GitHub Actions
-
-## Acceptance
-
-- production startup rejects missing, memory and unknown payment repository modes;
-- production settlement graph contains no RuntimeCore, optional Prisma, repository factory or process-memory money/outbox authority;
-- reads and mutations are PostgreSQL-authoritative under trusted RLS;
-- same-tenant outsiders and cross-tenant users are denied;
-- payment terms and release basis are versioned and Deal-linked;
-- reserve/release/refund requests are atomic and callback-only for confirmation;
-- partial payout, holds, beneficiary allocation and refunds satisfy money invariants;
-- callback replay, conflicting replay, multi-instance races and reconciliation mismatch are proven;
-- migrations pass on empty and baseline databases with zero drift;
-- exact-head CI and manual review pass without fake-live claims.
-
-## Next candidate
-
-IR-10.5 Disputes PostgreSQL Authority remains locked until IR-10.4 is merged and Source of Truth is synchronized.
+The next priority is the existing Gekta owner's actual model activation and live quality, speed and stability acceptance under its separate existing admissions and remaining topology/release prerequisites. This does not expand these eleven paths. R1.3 remains queued for a separately accepted scope transition; exact-main REG.RU and full 13-cabinet acceptance remain separate.

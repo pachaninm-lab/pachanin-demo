@@ -10,6 +10,10 @@ const JEST_REPORT = resolve(
   process.env.AUCTION_JEST_REPORT
     ?? 'artifacts/auction-atomic/auction-jest.json',
 );
+const INVENTORY_JEST_REPORT = resolve(process.env.AUCTION_INVENTORY_JEST_REPORT
+  ?? 'artifacts/auction-atomic/inventory-jest.json');
+const RESTORE_JEST_REPORT = resolve(process.env.AUCTION_INVENTORY_RESTORE_JEST_REPORT
+  ?? 'artifacts/auction-atomic/inventory-restore-jest.json');
 const REPORT_PATH = resolve(
   process.env.AUCTION_ACCEPTANCE_REPORT
     ?? 'artifacts/auction-atomic/auction-atomic-acceptance.json',
@@ -27,6 +31,8 @@ const files = {
   controller: 'apps/api/src/modules/auctions/auctions.controller.ts',
   policyTest: 'apps/api/src/modules/auctions/auction-postgresql-authority.spec.ts',
   raceTest: 'apps/api/test/industrial/auction-atomic-execution.e2e-spec.ts',
+  inventoryMigration: 'apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql',
+  inventoryTest: 'apps/api/test/industrial/auction-inventory-authority.e2e-spec.ts',
   workflow: '.github/workflows/auction-atomic-acceptance.yml',
 };
 
@@ -102,7 +108,8 @@ requireFragments('service', [
   'randomUUID()',
   'Prisma.TransactionIsolationLevel.Serializable',
   'maxConflictRetries: 5',
-  'auction.register_verified_lot',
+  'auction.register_inventory_lot',
+  'SET CONSTRAINTS ALL IMMEDIATE',
   'auction.record_admission',
   'auction.place_bid',
   'auction.close_lot',
@@ -137,6 +144,9 @@ requireFragments('workflow', [
   'CREATE ROLE app_deal LOGIN',
   'prisma migrate deploy',
   'auction-atomic-execution.e2e-spec.ts',
+  'auction-inventory-authority.e2e-spec.ts',
+  'AUCTION_INVENTORY_RESTORE_PROOF',
+  'pg_restore --exit-on-error',
   'auction-atomic-acceptance.mjs',
   'if-no-files-found: error',
   'retention-days: 90',
@@ -144,6 +154,7 @@ requireFragments('workflow', [
 ]);
 
 forbid('service', [
+  [/auction\.register_verified_lot/, 'legacy unbound registration call'],
   [/amountKopecksPerTon:\s*number/, 'number-typed money input'],
   [/expectedVersion:\s*number/, 'number-typed version input'],
   [/Math\.random|Date\.now/, 'process-local command authority'],
@@ -154,27 +165,83 @@ forbid('workflow', [
   [/@master\b/, 'mutable GitHub Action reference'],
 ]);
 
-let jest = null;
-if (!existsSync(JEST_REPORT)) {
-  violations.push(`Jest evidence is missing: ${JEST_REPORT}`);
-} else {
-  try {
-    jest = JSON.parse(readFileSync(JEST_REPORT, 'utf8'));
-    if (jest.success !== true || Number(jest.numFailedTests ?? 0) !== 0) {
-      violations.push('Auction Jest acceptance did not succeed.');
-    }
-    if (Number(jest.numPassedTests ?? 0) < 1) {
-      violations.push('Auction Jest acceptance did not execute a passing test.');
-    }
-  } catch (error) {
-    violations.push(`Cannot parse Jest evidence: ${error instanceof Error ? error.message : String(error)}.`);
+function readJestEvidence(path, requiredTests, requiredSuites) {
+  if (!existsSync(path)) {
+    violations.push(`Jest evidence is missing: ${path}`);
+    return null;
   }
+  try {
+    const result = JSON.parse(readFileSync(path, 'utf8'));
+    if (result.success !== true || Number(result.numFailedTests ?? 0) !== 0
+      || Number(result.numFailedTestSuites ?? 0) !== 0
+      || Number(result.numPendingTests ?? 0) !== 0
+      || Number(result.numTodoTests ?? 0) !== 0) {
+      violations.push(`${path}: acceptance has failures, skips or unexecuted tests.`);
+    }
+    const suites = result.testResults ?? [];
+    const assertions = suites.flatMap((suite) => suite.assertionResults ?? []);
+    if (assertions.length === 0 || assertions.some((item) => item.status !== 'passed')) {
+      violations.push(`${path}: every actual assertion must pass.`);
+    }
+    for (const name of requiredTests) {
+      if (!assertions.some((item) => item.title === name && item.status === 'passed')) {
+        violations.push(`${path}: required PostgreSQL case did not pass: ${name}.`);
+      }
+    }
+    for (const name of requiredSuites) {
+      if (!suites.some((suite) => suite.name?.endsWith(name) && suite.status === 'passed')) {
+        violations.push(`${path}: required PostgreSQL suite did not pass: ${name}.`);
+      }
+    }
+    return result;
+  } catch (error) {
+    violations.push(`Cannot parse Jest evidence ${path}: ${error instanceof Error ? error.message : String(error)}.`);
+    return null;
+  }
+}
+const jest = readJestEvidence(JEST_REPORT, [
+  'accepts atomic bids, deterministic winner, one close and one canonical Deal',
+  'returns one accepted result and one durable replay instead of a unique violation',
+], ['auction-atomic-execution.e2e-spec.ts', 'auction-idempotency-race.e2e-spec.ts']);
+const inventoryJest = readJestEvidence(INVENTORY_JEST_REPORT, [
+  'confines the command owner and FORCE-RLS binding table',
+  'binds declared stock and complete immutable evidence without independent verification',
+  'preserves exact quantity atoms above the JavaScript safe integer limit',
+  'serializes competing raw READ COMMITTED lots against one physical position',
+  'rechecks the auction deadline after waiting for the inventory position lock',
+  'returns one effect for concurrent replay and rejects changed payloads',
+  'rejects stale versions and mismatched profile culture quantity and units atomically',
+  'denies foreign tenants outsiders and forged administrator claims',
+  'rechecks revoked membership before command and durable replay',
+  'rejects profile revocation without leaving a partial lot or reservation',
+  'denies legacy registration even after accidental execute regrant',
+  'denies direct binding mutation and release or reuse of active stock',
+  'rolls back lot inventory and receipts on audit insertion failure',
+  'rolls back lot inventory and receipts on outbox insertion failure',
+  'rolls back lot inventory and receipts on binding insertion failure',
+  'rejects deferred evidence failure before the service acknowledges registration',
+  'executes HTTP registration against PostgreSQL and rejects caller authority fields',
+], ['auction-inventory-authority.e2e-spec.ts']);
+const restoreJest = readJestEvidence(RESTORE_JEST_REPORT, [
+  'restores confined binding authority with durable replay and held stock',
+], ['auction-inventory-authority.e2e-spec.ts']);
+
+function summarizeJest(result) {
+  return result && {
+    success: result.success,
+    numPassedTests: result.numPassedTests,
+    numFailedTests: result.numFailedTests,
+    numPassedTestSuites: result.numPassedTestSuites,
+    assertions: result.testResults.flatMap((suite) => suite.assertionResults.map((item) => ({
+      name: item.fullName, status: item.status,
+    }))),
+  };
 }
 
 const report = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   repository: 'pachaninm-lab/pachanin-demo',
-  issue: '#2615',
+  issue: '#2615 / #4997',
   commitSha: actualHead,
   generatedAt: new Date().toISOString(),
   acceptance: {
@@ -191,13 +258,15 @@ const report = {
     restartReplay: true,
     oneCanonicalDeal: true,
     rollbackOnEvidenceFailure: true,
+    mandatoryCanonicalInventoryBinding: true,
+    declaredTradingWithoutFabricatedVerification: true,
+    currentMembershipBeforeReplay: true,
+    boundReservationReleaseDenied: true,
+    restoredOwnerAndRestrictedReplay: true,
   },
-  jest: jest && {
-    success: jest.success,
-    numPassedTests: jest.numPassedTests,
-    numFailedTests: jest.numFailedTests,
-    numPassedTestSuites: jest.numPassedTestSuites,
-  },
+  jest: summarizeJest(jest),
+  inventoryJest: summarizeJest(inventoryJest),
+  restoreJest: summarizeJest(restoreJest),
   files: Object.entries(files).map(([label, path]) => ({
     label,
     path,

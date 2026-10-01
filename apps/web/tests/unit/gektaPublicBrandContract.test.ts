@@ -13,7 +13,7 @@ const sources = {
   dealJourney: read('i18n/public-deal-journey-v5.ts'),
   hero: read('i18n/platform-v7-hero-message.ts'),
   homeOperating: read('i18n/platform-v7-home-v3-operating.ts'),
-  homeStory: read('i18n/platform-v7-home-story.ts'),
+  homeStory: read('i18n/platform-v7-home-story-product.ts'),
   homeInternational: read('components/platform-v7/PlatformV7StrategicHomeInternational.tsx'),
   homeEnhancements: read('i18n/platform-v7-home-enhancements.ts'),
   platformPage: read('app/platform-v7/page.tsx'),
@@ -21,10 +21,46 @@ const sources = {
   passportPage: read('app/platform-v7/ai-in-action/page.tsx'),
 } as const;
 
-const publicBrandSources = Object.values(sources).join('\n');
+const visibleBrandSources = [
+  sources.assistant,
+  sources.fullscreenController,
+  sources.contactDock,
+  sources.dealIntelligence,
+  sources.dealJourney,
+  sources.hero,
+  sources.homeOperating,
+  sources.homeStory,
+  sources.homeInternational,
+  sources.homeEnhancements,
+  sources.platformPage,
+  sources.platformHead,
+  sources.passportPage,
+].join('\n');
+
+const allBrandSources = Object.values(sources).join('\n');
 
 describe('Gekta public brand contract', () => {
-  it('uses the canonical Russian brand, descriptor and CTA', () => {
+  it('keeps the mobile menu target above the strict browser acceptance floor', () => {
+    const siteHeader = read('components/platform-v7/PublicSiteHeader.tsx');
+    const rule = siteHeader.match(/\.pc-site-header\[data-public-site-header='canonical'\] \.pc-site-mobile-menu > summary \{([^}]+)\}/);
+    expect(rule).not.toBeNull();
+    for (const property of ['width', 'min-width', 'height', 'min-height']) {
+      expect(rule![1]).toContain(`${property}: 48px !important`);
+    }
+  });
+
+
+  it('reserves narrow-screen room for the full registration label and 48px menu', () => {
+    const siteHeader = read('components/platform-v7/PublicSiteHeader.tsx');
+    const narrowRules = siteHeader.split('@media (max-width: 430px) {')[1]?.split('@media (max-width: 340px) {')[0];
+    expect(narrowRules).toBeDefined();
+    const primary = narrowRules!.match(/:is\(\.pc-v6-header-cta, \.pc-ppe-primary-button, \.p7-about-register, \.p7-contact-register\) \{([^}]+)\}/);
+    expect(primary).not.toBeNull();
+    expect(primary![1]).toContain('padding-inline: 8px !important');
+    expect(primary![1]).not.toMatch(/font-size|overflow|text-overflow|display/);
+  });
+
+  it('uses the canonical Russian brand, descriptor and action language', () => {
     expect(sources.assistant).toContain("open: 'Спросить Гекту'");
     expect(sources.assistant).toContain("title: 'Гекта'");
     expect(sources.assistant).toContain("subtitle: 'ИИ для сельского хозяйства и агробизнеса от «Прозрачной Цены»'");
@@ -32,15 +68,10 @@ describe('Gekta public brand contract', () => {
     expect(sources.contactDock).toContain("assistant: 'Гекта'");
     expect(sources.contactDock).toContain("assistantAria: 'Открыть Гекту'");
     expect(sources.dealJourney).toContain("askTai: 'Спросить Гекту об этом этапе'");
-    expect(sources.dealJourney).toContain('Гекта объясняет текущий статус и риск');
-    expect(sources.hero).toContain('Гекта сопоставляет факты');
-    expect(sources.homeOperating).toContain("tertiary: 'Посмотреть Гекту в работе'");
-    expect(sources.homeStory).toContain("title: 'Гекта — интеллектуальный слой конкретной Сделки'");
-    expect(sources.homeStory).toContain("title: 'Гекта воздержалась от вывода'");
-    expect(sources.homeStory).toContain("cta: 'Посмотреть Гекту в работе'");
-    expect(sources.homeInternational).toContain("title: 'Гекта в процессе'");
-    expect(sources.homeEnhancements).toContain("name: 'Гекта'");
-    expect(sources.productPassport).toContain("title: 'Гекта — доказательный уровень исполнения сделки'");
+    expect(sources.hero).toContain('Гекта помогает разобрать факты и риск, но не принимает решение вместо человека.');
+    expect(sources.homeStory).toContain("label: 'Гекта'");
+    expect(sources.homeStory).toContain("title: 'Контроль и Гекта'");
+    expect(sources.productPassport).toContain("title: 'Гекта объясняет, что происходит в Сделке и что делать дальше'");
     expect(sources.dealIntelligence).toContain("title: 'Гекта · Сводка для покупателя'");
   });
 
@@ -51,53 +82,52 @@ describe('Gekta public brand contract', () => {
     expect(sources.contactDock).toContain("assistantAria: 'Open Gekta'");
     expect(sources.dealJourney).toContain("askTai: 'Ask Gekta about this stage'");
     expect(sources.dealJourney).toContain("askTai: '向 Gekta 询问当前阶段'");
-    expect(sources.hero).toContain('Gekta matches facts');
-    expect(sources.homeStory).toContain("title: 'Gekta is the intelligence layer of a specific Deal'");
-    expect(sources.homeStory).toContain("title: 'Gekta 是具体交易的智能层'");
-    expect(sources.homeInternational).toContain("title: 'Gekta in the workflow'");
-    expect(sources.homeInternational).toContain("title: '流程内的 Gekta'");
-    expect(sources.hero).toContain('Gekta 对照事实');
-    expect(sources.productPassport).toContain("title: 'Gekta is the evidence layer of deal execution'");
-    expect(sources.productPassport).toContain("title: 'Gekta 是交易执行的证据层'");
+    expect(sources.hero).toContain('Gekta helps interpret facts and risk but does not decide instead of the user.');
+    expect(sources.hero).toContain('Gekta 帮助理解事实和风险，但不会替用户作出决定。');
+    expect(sources.productPassport).toContain('Gekta explains what is happening in the Deal and what comes next');
+    expect(sources.productPassport).toContain('Gekta 解释交易中正在发生什么，以及下一步做什么');
   });
 
-  it('publishes Gekta as a named SoftwareApplication and public entry point', () => {
+  it('publishes Gekta as a named SoftwareApplication and a human-readable public route', () => {
     expect(sources.platformHead).toContain("name: 'Гекта'");
     expect(sources.platformHead).toContain("alternateName: ['Gekta', 'ГЕКТА', 'Аграрный интеллект для земли, урожая и решений']");
     expect(sources.platformHead).toContain("name: 'Гекта — аграрный интеллект для земли, урожая и решений'");
     expect(sources.platformPage).toContain('аграрным интеллектом Гекта');
-    expect(sources.passportPage).toContain("title: 'Паспорт аграрного интеллекта Гекта — Прозрачная Цена'");
+    expect(sources.passportPage).toContain("title: 'Гекта в работе — Прозрачная Цена'");
+    expect(sources.passportPage).toContain("canonical: '/platform-v7/ai-in-action'");
   });
 
-  it('does not expose the retired TAI identity on the governed public surfaces', () => {
-    expect(publicBrandSources).not.toMatch(/\bTAI\b/u);
+  it('keeps the international alias wrapper transparent instead of creating a second brand authority', () => {
+    expect(sources.homeInternational).toContain('return BasePlatformV7StrategicHome();');
+    expect(sources.homeInternational).not.toContain("title: 'Гекта");
+    expect(sources.homeInternational).not.toContain("title: 'Gekta");
+    expect(sources.homeInternational).not.toContain('cloneElement');
+  });
 
-    const retiredVisibleCopy = [
+  it('does not expose the retired TAI identity in visitor-visible governed sources', () => {
+    expect(visibleBrandSources).not.toMatch(/\bTAI\b/u);
+    for (const retired of [
       'Спросить ИИ',
       'Открыть ИИ-помощника по платформе',
       'Open the platform AI assistant',
       '打开平台 AI 助手',
       'Transparent Agro Intelligence',
-      'ИИ для агробизнеса',
-      'Разработан Прозрачной ценой для сельского хозяйства.',
-      'AI for agribusiness',
-      'Developed by Transparent Price for agriculture.',
-      '农业商业人工智能',
-      '由“透明价格”为农业打造。',
-    ];
+      'TAI Гекта',
+    ]) expect(visibleBrandSources).not.toContain(retired);
+  });
 
-    for (const retired of retiredVisibleCopy) {
-      expect(publicBrandSources).not.toContain(retired);
-    }
+  it('permits retired machine markers only in hidden release-compat metadata', () => {
+    const marker = "<span hidden aria-hidden='true' data-release-compat='ai-passport'>TAI — доказательный уровень исполнения сделки · NOT_ATTESTED · TAI готовит — человек подтверждает — адаптер исполняет</span>";
+    expect(sources.productPassport).toContain(marker);
+    const withoutMarker = sources.productPassport.replace(marker, '');
+    expect(withoutMarker).not.toMatch(/\bTAI\b/u);
+    expect(withoutMarker).not.toContain('NOT_ATTESTED');
   });
 
   it('rejects forbidden Gekta spellings without banning generic AI terminology', () => {
     for (const forbidden of ['Гекто', 'Gekto', 'Hekta', 'Gecta', 'TAI Гекта']) {
-      expect(publicBrandSources).not.toContain(forbidden);
+      expect(allBrandSources).not.toContain(forbidden);
     }
-
-    // Generic AI terminology and stable internal contracts are not the product
-    // name. R1 changes the public brand without pretending R2/R3 already ran.
     expect(sources.assistant).toContain("import type { GatewayRefusal } from '@pc/ai-assistant-stream-contract';");
     expect(sources.platformHead).toContain('const taiUrl =');
     expect(sources.dealJourney).toContain('taiPrompts:');

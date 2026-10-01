@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-runner-segment-3-20260911",
+  "status": "active",
+  "purpose": "Stage and independently review the third inert segment of the future Local Mistral review runner: canonical untrusted-input JSON binding, trusted prompt framing and exact prompt evidence hashing without runtime activation.",
+  "authorityBaseExactMain": "1f92ca6f0753f69d5596195bbee140c92b6af09d",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-runner.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-runner-segment-3-20260911.json"
+  ],
+  "requiredInvariants": [
+    "The staged .inert file is not executed or referenced by any workflow.",
+    "Prompt construction consumes only review input that has already passed fail-closed credential and PII rejection.",
+    "Pull-request diff bytes remain explicitly untrusted, model control-token delimiters are neutralized, and changed paths plus diff are canonically serialized as a versioned JSON data object.",
+    "The user message explicitly keeps the JSON diff field subordinate to the unchanged trusted system policy.",
+    "The exact system, user and JSON response schema prompt bundle is canonically hashed before future inference.",
+    "Candidate validation is deliberately deferred to a separately admitted inert segment so this change remains bounded and independently reviewable.",
+    "Local Qwen workflow and exact-head verifier remain unchanged and are the independent authority for this PR.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data or production routing behavior changes.",
+    "Production hosting remains REG.RU only and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

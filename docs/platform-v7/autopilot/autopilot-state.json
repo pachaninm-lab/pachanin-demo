@@ -1,22 +1,22 @@
 {
   "project": "platform-v7",
   "governingSpecification": {
-    "id": "industrial-integration-readiness-v1.0",
-    "date": "2026-07-12",
-    "path": "docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md",
-    "targetStatus": "Industrial Integration-Ready"
+    "id": "PC-CROP_CODEX_MASTER_TZ_v2.1",
+    "date": "2026-09-12",
+    "source": "owner-supplied normative MASTER v2.1; requirement IDs are authoritative",
+    "targetStatus": "R1 PRODUCTION_PASS then OVERALL_PRODUCTION_PROGRESS 12/100"
   },
   "baseline": {
     "branch": "main",
-    "commit": "576d813c2d305efb645c9d26fa81a38fb6e4abbe",
-    "verifiedAt": "2026-07-13",
-    "gitObjectDatabase": "exact-merge-baseline"
+    "commit": "5da8e80744908413102214f91dd68018911b892e",
+    "verifiedAt": "2026-09-20",
+    "gitObjectDatabase": "exact-current-main-and-production"
   },
-  "mode": "ir-10-settlement-postgresql-authority",
+  "mode": "master-v2.1-r1-founder-ceo",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "IR-10.4 Settlement PostgreSQL Authority",
-  "fullTzReadinessPercent": 0,
+  "current": "R1 release prerequisite: atomic canonical readiness recovery #4829",
+  "fullTzReadinessPercent": 5,
   "readinessScoring": "Binary GO completion only; 0 means the Industrial Integration-Ready gate is not yet accepted. It is not an implementation-progress estimate.",
   "openPr": null,
   "lastClosed": [
@@ -37,7 +37,12 @@
     "#2407 PostgreSQL-authoritative Deal routes",
     "#2410 Documents PostgreSQL Authority",
     "#2412 Logistics PostgreSQL Authority",
-    "#2426 Labs PostgreSQL Authority"
+    "#2426 Labs PostgreSQL Authority",
+    "#5338 Settlement PostgreSQL Authority",
+    "IR-10.5 Disputes PostgreSQL Authority exact-main revalidation 397e98955d9f98704c40befd0088a1390556e0fa",
+    "IR-20 Canonical Durable Outbox PRODUCTION_PASS 5da8e80744908413102214f91dd68018911b892e",
+    "MASTER v2.1 R0 PRODUCTION_PASS 5da8e80744908413102214f91dd68018911b892e / controller 35520784872 / 5 of 100",
+    "R1.1 Server-side inventory of 13 cabinets and authority — docs/execution/R1_1_EXACT_INVENTORY_2026-09-20.md"
   ],
   "closedCapabilities": {
     "persistentIdentityAndMfa": {
@@ -97,6 +102,30 @@
         "IR-50 external adapter conformance"
       ]
     },
+    "settlementPostgresqlAuthority": {
+      "status": "merged-production-like-kubernetes-evidence",
+      "pr": "#5338",
+      "mergeCommit": "9dbff1a67225a006ec5f33ebe7fa8b483a368718",
+      "verifiedHead": "686c89f6cf2438baebb01f6bf4abcafb3eb85963",
+      "remainingBoundaries": [
+        "live bank and nominal-account integration",
+        "REG.RU deployment acceptance",
+        "IR-20 canonical durable outbox",
+        "IR-70 through IR-90 production, security and end-to-end acceptance"
+      ]
+    },
+    "disputesPostgresqlAuthority": {
+      "status": "merged-exact-head-postgresql-evidence",
+      "evidenceCommit": "397e98955d9f98704c40befd0088a1390556e0fa",
+      "workflowRun": "34726015616",
+      "artifactDigest": "sha256:01c713e0487c3ad040aca44e7d6631063a0788e60be4cc77a5de1097f12bdc60",
+      "remainingBoundaries": [
+        "production-like complete Deal dispute-cycle acceptance",
+        "target load and worker-failure operations",
+        "live external dispute providers",
+        "IR-70 through IR-90 production, security and end-to-end acceptance"
+      ]
+    },
     "durableOutboxWorkerImplementation": {
       "status": "merged-but-not-exclusive-production-owner",
       "pr": "#2378",
@@ -118,24 +147,15 @@
     }
   },
   "openBlockers": [
-    "Settlement reads and mutations can still bind RuntimeCore, process-memory OutboxService, optional Prisma and repository selection.",
-    "Disputes can still bind process-memory authority.",
-    "Legacy OutboxRelayService and process-memory OutboxService still coexist with DurableOutboxWorker.",
-    "Inbound webhook idempotency is process-memory outside the accepted bank callback slice and no general durable integration inbox exists.",
-    "Partner API credentials and webhook subscriptions are process-memory.",
-    "Canonical Auction/Deal Basis and versioned Payment Terms remain incomplete.",
-    "Evidence retention, malware quarantine and repeatable signature verification are not accepted platform-wide.",
-    "Adapter conformance, vendor mappings and fail-closed live configuration are incomplete.",
-    "Role cabinets and offline acknowledgement are not fully proven against authoritative server state.",
-    "Production configuration, dedicated worker topology, SLO operations, HA, provider PITR/restore, production-scale load and external security acceptance are unproven."
+    "R1.2 staff-session source #5766 is merged as 2749279de3b070f3ff9b79224c26d03c590275bd; exact-main REG.RU and full 13-cabinet acceptance remain unproved.",
+    "Atomic readiness prerequisite #4829 combines the unchanged COR5 source, exact staff-test fix and five governance documents under owner disposition 5935185862; fresh whole-head independent review and complete CI/security/Kubernetes acceptance remain pending.",
+    "REG.RU topology preflight is BLOCKED; current migration-service authority must be observed without bypass before release.",
+    "R1.5 visual banner/return and other PRODUCT surfaces retain their existing owners and separate admissions."
   ],
-  "blockerNotes": "Merged Deal, identity, Documents, Logistics, Labs, reconciliation and durable-worker slices are exact-commit evidence only. Industrial Integration-Ready remains NO-GO until every mandatory gate through IR-90 has accepted evidence.",
+  "blockerNotes": "R0 and IR-20 are production-accepted on exact main 5da8e80744908413102214f91dd68018911b892e. R1 starts with a backend-only server-authority slice because apps/web remains a protected/parallel-account zone. A later owner handoff change requires its own trusted scope after conflict recheck.",
   "lockedUntilCurrentGreen": [
-    "IR-10.5 Disputes PostgreSQL Authority",
-    "IR-20 Canonical Durable Outbox",
-    "IR-21 Durable Integration Inbox",
-    "IR-22 Persistent Partner API and Outbound Webhooks",
-    "IR-30 through IR-90 in dependency order"
+    "Gekta existing-owner model activation and live quality/speed/stability acceptance: after this prerequisite, within separate existing scopes and remaining release/topology gates",
+    "R1.3 CEO overview and P0/P1 decision queue: resume after bounded readiness source acceptance and fresh scope transition"
   ],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -143,30 +163,12 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "apps/api/src/common/config/industrial-mode.ts",
-    "apps/api/src/common/command-execution.context.ts",
-    "apps/api/src/common/prisma/rls-transaction.service.ts",
-    "apps/api/src/modules/deals/deal-command-payload.ts",
-    "apps/api/src/modules/deals/deal-command.service.ts",
-    "apps/api/src/modules/deals/deals.module.ts",
-    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
-    "apps/api/src/modules/deals/postgresql-deal-command.service.ts",
-    "apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts",
-    "apps/api/src/modules/settlement-engine/**",
-    "apps/api/prisma/schema.prisma",
-    "apps/api/prisma/migrations/20260713*_settlement_postgresql_authority/**",
-    "apps/api/test/industrial/harness.ts",
-    "apps/api/test/industrial/settlement-postgresql-authority.e2e-spec.ts",
-    "apps/api/test/industrial/industrial-core.e2e-spec.ts",
-    "apps/api/test/industrial/reconciliation.e2e-spec.ts",
-    "apps/api/test/industrial/durable-outbox.e2e-spec.ts",
-    "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts",
-    "apps/api/test/one-deal/restored-database-acceptance.ts",
-    "apps/api/test/one-deal/seed.ts",
-    "infra/sql/postgresql-settlement-authority-policies.sql",
-    "scripts/platform-v7-forward-only-migration-check.mjs",
-    "scripts/platform-v7-one-deal-e2e.sh",
-    ".github/workflows/ci.yml"
+    "apps/api/test/staff-access/postgresql-staff-access.e2e-spec.ts",
+    "apps/api/src/main.ts",
+    "apps/api/src/health.controller.ts",
+    "apps/api/src/health.controller.spec.ts",
+    "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts",
+    "apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -174,32 +176,103 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "apps/api/src/common/config/industrial-mode.ts",
-    "apps/api/src/common/command-execution.context.ts",
-    "apps/api/src/common/prisma/rls-transaction.service.ts",
-    "apps/api/src/modules/deals/deal-command-payload.ts",
-    "apps/api/src/modules/deals/deal-command.service.ts",
-    "apps/api/src/modules/deals/deals.module.ts",
-    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
-    "apps/api/src/modules/deals/postgresql-deal-command.service.ts",
-    "apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts",
-    "apps/api/src/modules/settlement-engine/**",
-    "apps/api/prisma/schema.prisma",
-    "apps/api/prisma/migrations/20260713*_settlement_postgresql_authority/**",
-    "apps/api/test/industrial/harness.ts",
-    "apps/api/test/industrial/settlement-postgresql-authority.e2e-spec.ts",
-    "apps/api/test/industrial/industrial-core.e2e-spec.ts",
-    "apps/api/test/industrial/reconciliation.e2e-spec.ts",
-    "apps/api/test/industrial/durable-outbox.e2e-spec.ts",
-    "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts",
-    "apps/api/test/one-deal/restored-database-acceptance.ts",
-    "apps/api/test/one-deal/seed.ts",
-    "infra/sql/postgresql-settlement-authority-policies.sql",
-    "scripts/platform-v7-forward-only-migration-check.mjs",
-    "scripts/platform-v7-one-deal-e2e.sh",
-    ".github/workflows/ci.yml"
+    "apps/api/test/staff-access/postgresql-staff-access.e2e-spec.ts",
+    "apps/api/src/main.ts",
+    "apps/api/src/health.controller.ts",
+    "apps/api/src/health.controller.spec.ts",
+    "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts",
+    "apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts"
   ],
   "approvedConcurrentScopes": {
+    "fix/public-registration-participation-choice-20260923": [
+      "apps/web/app/platform-v7/register/page.tsx",
+      "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+      "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
+      "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
+      "apps/web/tests/e2e/platform-v7-registration-official.spec.ts",
+      "docs/platform-v7/autopilot/scopes/public-registration-participation-choice-20260923.json"
+    ],
+    "governance/ir20-binding-immutable-scope-20260919": [
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
+    "fix/provider-review-scope-guard-20260918": [
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
+    "governance/kind-minio-image-source-20260912": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+      "docs/platform-v7/autopilot/prompts/current-review-task.md",
+      "docs/platform-v7/execution-queue.md",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs"
+    ],
+    "fix/local-qwen-failed-review-evidence-20260912": [
+      ".github/workflows/local-qwen-independent-review.yml",
+      "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+    ],
+    "feat/pc-crop-auction-inventory-authority-4997": [
+      "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql",
+      "apps/api/src/modules/auctions/auction-command.service.ts",
+      "apps/api/src/modules/auctions/auction-authority.service.ts",
+      "apps/api/src/modules/auctions/auctions.controller.ts",
+      "apps/api/src/modules/auctions/auction-command.service.spec.ts",
+      "apps/api/src/modules/auctions/auction-postgresql-authority.spec.ts",
+      "apps/api/src/modules/auctions/auction-fgis-self-verification.spec.ts",
+      "apps/api/src/modules/auctions/dto/auction-inventory.dto.ts",
+      "apps/api/src/modules/auctions/auction-inventory.contract.ts",
+      "apps/api/src/modules/auctions/auction-inventory.contract.spec.ts",
+      "apps/api/test/industrial/auction-inventory-authority.e2e-spec.ts",
+      "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts",
+      "apps/api/test/industrial/auction-atomic-execution.e2e-spec.ts",
+      "scripts/verify-pc-crop-auction-inventory-scope.test.mjs",
+      ".github/workflows/auction-atomic-acceptance.yml",
+      "scripts/auction-atomic-acceptance.mjs",
+      "scripts/platform-v7-one-deal-e2e.sh",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
+    ],
+    "ops/pc-crop-w1-production-acceptance-4997": [
+      ".github/workflows/pc-crop-w1-production-acceptance.yml",
+      "scripts/production-pc-crop-w1-migrations.sh",
+      "scripts/check-production-pc-crop-w1-acceptance.mjs",
+      "scripts/check-production-pc-crop-w1-acceptance.test.mjs",
+      "scripts/production-role-eligibility-api-release.sh",
+      "scripts/check-role-eligibility-api-release.mjs",
+      ".github/workflows/production-web-exact-sha.yml",
+      ".gitleaksignore",
+      "apps/api/prisma/migrations/20260909120000_reconcile_historical_auction_authority/migration.sql",
+      "scripts/fixtures/pc-crop-w1-lineage/20260716130000_market_open_lots_showcase.sql",
+      "scripts/fixtures/pc-crop-w1-lineage/20260716150000_auction_cross_tenant_participation.sql",
+      "scripts/fixtures/pc-crop-w1-lineage/20260716160000_auction_participant_workspace.sql",
+      "scripts/fixtures/pc-crop-w1-lineage/20260717170000_deal_cross_tenant_participation.sql"
+    ],
+    "governance/pc-crop-post-registration-progress-scope-4997": [
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml"
+    ],
+    "governance/extend-role-eligibility-fns-registry-hardening-5064-v2": [
+      "docs/platform-v7/autopilot/scopes/role-eligibility-fns-registry-coverage-authority-5064.json"
+    ],
+    "governance/role-eligibility-fns-egrul-file-import-5016": [
+      "docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json"
+    ],
+    "docs/pc-crop-post-registration-progress-4997": [
+      "docs/platform-v7/crop-platform/post-registration/README.md",
+      "docs/platform-v7/crop-platform/post-registration/dod-baseline.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/execution-state.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/verify-w0.mjs",
+      "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/verify-w0.test.mjs"
+    ],
     "fix/static-presentation-download-buildtime-20260830": [
       "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
       "apps/web/package.json",
@@ -334,6 +407,13 @@
       "scripts/pc-crop-10a/verify.mjs",
       "docs/platform-v7/autopilot/autopilot-state.json",
       "docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json"
+    ],
+    "fix/tai-owner-deployment-command-20260803": [
+      ".github/workflows/tai-owner-reg-ru-deployment-command.yml",
+      "scripts/select-tai-restricted-qwen-activation-status.mjs",
+      "scripts/check-tai-owner-deployment-status-selection.mjs",
+      "scripts/check-tai-owner-deployment-command.mjs",
+      "docs/platform-v7/autopilot/scopes/tai-owner-deployment-command-20260803.json"
     ],
     "fix/public-ai-generic-platform-routing-3438": [
       "docs/platform-v7/autopilot/scopes/fix-public-ai-generic-platform-routing-3438.json",
@@ -617,8 +697,14 @@
       ".github/workflows/runtime-context-security-gate.yml"
     ],
     "agent/ir-sec-transitive-runtime-remediation": [
-      "apps/api/src/health.controller.ts",
-      "apps/api/src/health.controller.spec.ts"
+      "package.json",
+      "pnpm-lock.yaml",
+      "infra/docker/Dockerfile.api",
+      "infra/docker/Dockerfile.web",
+      "infra/docker/Dockerfile.outbox-worker",
+      "infra/docker/Dockerfile.migrations",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      ".gitleaksignore"
     ],
     "ops/production-backup-secret-fix": [
       "docs/platform-v7/autopilot/autopilot-state.json",
@@ -1257,6 +1343,7 @@
       ".github/workflows/production-p0-reviewer-inspect.yml",
       ".github/workflows/production-p0-first-customer-acceptance.yml",
       ".github/workflows/production-p0-all-role-registration.yml",
+      ".github/workflows/production-p0-runtime-revision-parity-diagnostic.yml",
       "apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts",
       "apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx",
       "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts",
@@ -1283,24 +1370,440 @@
     "fgis/xml-escape-convergence-4806": [
       "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts",
       "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts"
+    ],
+    "feat/pc-crop-inventory-reservation-authority-4997": [
+      "packages/domain-core/src/inventory.ts",
+      "packages/domain-core/src/inventory.test.ts",
+      "packages/domain-core/src/index.ts",
+      "apps/api/prisma/schema.prisma",
+      "apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql",
+      "apps/api/src/modules/inventory/inventory.contract.ts",
+      "apps/api/src/modules/inventory/inventory.contract.spec.ts",
+      "apps/api/src/modules/inventory/inventory.repository.ts",
+      "apps/api/src/modules/inventory/inventory.controller.ts",
+      "apps/api/src/modules/inventory/inventory.module.ts",
+      "apps/api/src/modules/inventory/dto/inventory-api.dto.ts",
+      "apps/api/src/app.module.ts",
+      "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts",
+      "scripts/platform-v7-one-deal-e2e.sh",
+      "scripts/verify-pc-crop-inventory-scope.test.mjs",
+      ".github/workflows/pc-crop-inventory.yml",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
+    ],
+    "security/pc-crop-next-15-5-24-4997": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      ".github/workflows/sbom-scan.yml",
+      "apps/web/package.json",
+      "package.json",
+      "pnpm-lock.yaml",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs"
+    ],
+    "governance/pc-crop-inventory-reservation-scope-4997": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/scopes/pc-crop-inventory-reservation-authority-4997.json"
+    ],
+    "fix/owner-handoff-product-host-20260908": [
+      "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+      "apps/web/lib/platform-v7/control-host.ts",
+      "apps/web/middleware.ts",
+      "apps/web/tests/unit/companyOsControlHostBoundary.test.ts",
+      "apps/web/tests/unit/companyOsOwnerCabinetControlHost.test.ts",
+      "apps/web/tests/unit/platformV7OwnerRealCabinets.test.ts",
+      ".github/workflows/ci.yml",
+      ".github/workflows/web-unit.yml",
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx"
+    ],
+    "fix/kind-minio-image-source-20260912": [
+      "infra/kind/production-like/dependencies.yaml",
+      "infra/kind/production-like/minio-tls-check.yaml",
+      "scripts/release/production-like-kubernetes-cluster.sh"
+    ],
+    "fix/gitleaks-release-authority-attestation-20260912": [
+      "apps/tai/tests/test_gitleaks_release_authority.py",
+      "apps/landing/package.json",
+      "docs/ip/internal-package-metadata-exceptions.json"
+    ],
+    "fix/first-customer-workspace-recovery-20260919": [
+      "apps/web/lib/first-customer-workspace-server.ts",
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+      "apps/web/tests/unit/firstCustomerWorkspaceSnapshot.test.ts",
+      ".github/workflows/ci.yml"
+    ],
+    "governance/final-public-experience-v1-20260919": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json",
+      "docs/platform-v7/autopilot/scopes/public-registration-final-copy-4916.json",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml"
+    ],
+    "agent/platform-v7-strategic-rebuild-v3": [
+      "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+      "apps/web/components/platform-v7/PublicDealRoleScenario.tsx",
+      "apps/web/i18n/platform-v7-hero-message.ts",
+      "apps/web/i18n/platform-v7-organization-connect.ts",
+      "apps/web/styles/platform-v7-strategic-home-v3.css",
+      "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
+      "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",
+      "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+      "apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts",
+      "scripts/production-full-stack-live-acceptance.sh",
+      "apps/web/tests/e2e/platform-v7-home-brand-visibility.spec.ts",
+      "apps/web/tests/e2e/platform-v7-hero-card-min14.spec.ts",
+      "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+      "apps/web/i18n/platform-v7-organization-connect-operating.ts",
+      "apps/web/tests/unit/gektaProductSeparation.test.ts",
+      "apps/web/tests/unit/platformV7AccountingClosureValue.test.ts",
+      "apps/web/tests/unit/platformV7HomeTaiRoleEntry.test.ts",
+      "apps/web/tests/unit/platformV7HomepageProductCopy.test.ts",
+      "apps/web/tests/unit/platformV7HomepageVisibleOperatingCopy.test.ts",
+      "apps/web/tests/unit/platformV7PublicCopyQuality.test.ts",
+      "apps/web/tests/unit/platformV7PublicExperienceV4.test.ts",
+      "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+      "apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx",
+      "apps/web/app/platform-v7/ai-in-action/page.tsx",
+      "apps/web/tests/unit/gektaPublicBrandContract.test.ts",
+      "scripts/check-production-full-stack-release.mjs",
+      "apps/web/tests/unit/platformV7HomeFinalPolish.test.ts",
+      "apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts",
+      "apps/web/tests/e2e/platform-v7-role-human-acceptance.spec.ts",
+      "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
+    ],
+    "fix/public-registration-final-copy-4916": [
+      "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
+      "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+      "apps/web/app/platform-v7/register/page.tsx",
+      "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
+      "apps/web/tests/unit/platformV7RootWorkEntry.test.ts"
+    ],
+    "governance/industrial-load-diagnostics-20260919": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/execution-queue.md",
+      "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+      "docs/platform-v7/autopilot/prompts/current-review-task.md",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml"
+    ],
+    "test/industrial-load-diagnostics-20260919": [
+      "apps/api/test/industrial/load-proof.e2e-spec.ts"
+    ],
+    "ops/ir20-api-database-binding-20260919": [
+      "scripts/release/ir20-api-database-binding.py",
+      "scripts/release/test-ir20-api-database-binding.py",
+      "scripts/release/test-ir20-api-database-binding-integration.py",
+      ".github/workflows/ir20-api-database-binding.yml",
+      "docs/ops/ir20-api-database-binding.md"
+    ],
+    "ops/production-full-stack-release-v1": [
+      ".github/workflows/production-full-stack-exact-sha.yml",
+      "scripts/production-full-stack-exact-sha.sh",
+      "scripts/check-production-full-stack-release.mjs",
+      "scripts/test-production-release-target-isolation.py",
+      "scripts/release/verify-production-image-binding.py",
+      "scripts/release/test-production-image-binding.py",
+      "docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json",
+      ".github/workflows/production-auth-mail-outbox-cutover.yml",
+      "scripts/check-production-auth-mail-outbox-cutover.mjs"
+    ],
+    "r1-owner-role-server-authority-20260920": [
+      "apps/api/src/modules/staff-access/**",
+      "apps/api/prisma/migrations/*_r1_owner_role_session/**",
+      "apps/api/test/industrial/r1-owner-role-session.e2e-spec.ts",
+      "scripts/r1-owner-role-authority.mjs",
+      ".github/workflows/ci.yml"
+    ],
+    "r1-founder-ceo-server-authority-20260920": [
+      "docs/execution/**",
+      "apps/api/src/app.module.ts",
+      "apps/api/src/modules/founder-control/**",
+      "apps/api/src/modules/staff-access/staff-access.controller.ts",
+      "apps/api/src/modules/staff-access/staff-access.service.ts",
+      "apps/api/src/modules/staff-access/staff-access.repository.ts",
+      "apps/api/src/modules/staff-access/staff-access.types.ts",
+      "apps/api/src/modules/staff-access/staff-delegated-access.guard.ts",
+      "apps/api/src/modules/staff-access/staff-projection.service.ts",
+      "apps/api/prisma/migrations/*_founder_control_center/**",
+      "infra/kind/production-like/postgresql-runtime-grants.sql",
+      "scripts/r1-founder-production-acceptance.mjs",
+      ".github/workflows/r1-founder-production-acceptance.yml",
+      ".github/workflows/ci.yml"
+    ],
+    "bank/release-request-truth-20260920": [
+      "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+      "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx"
+    ],
+    "fgis/regulatory-truth-ux-20260921": [
+      "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
+      "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
+      "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts"
+    ],
+    "ux/seller-truthful-first-screen-20260922": [
+      "apps/web/app/platform-v7/seller/page.tsx",
+      "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
+      "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx",
+      "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts",
+      "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx"
+    ],
+    "r1-role-mode-session-bff-authority-20260921": [
+      "apps/web/app/api/staff/[...path]/route.ts",
+      "apps/web/tests/unit/platformV7FounderRoleModeSessionBff.test.ts"
+    ],
+    "ux/deal360-truthful-external-facts-20260923": [
+      "apps/web/components/platform-v7/P7DealWorkspaceTabs.tsx",
+      "apps/web/tests/unit/designSystemV8CriticalRoutes.test.ts"
+    ],
+    "product/r1-role-mode-consumer-20260921": [
+      "apps/web/app/platform-v7/staff/role-mode/route.ts",
+      "apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx",
+      "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx",
+      "apps/web/components/platform-v7/staff/OwnerAccessCenterV4.tsx",
+      "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.module.css",
+      "apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts",
+      "apps/web/tests/unit/platformV7ControlledTestOrganizations.test.ts",
+      "docs/security/cryptographic-inventory.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+    ],
+    "governance/product-bank-fgis-ux-source-admission-20260924": [
+      "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
+    "bank/deep-visible-copy-guard-20260924": [
+      "apps/web/app/platform-v7/bank/escrow/page.tsx",
+      "apps/web/app/platform-v7/bank/factoring/page.tsx",
+      "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+      "apps/web/app/platform-v7/profile/page.tsx",
+      "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+      "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+      "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+      "apps/web/lib/bank-release-server.ts",
+      "apps/web/tests/unit/bankReleaseServer.test.ts"
+    ],
+    "fgis/zsn-public-document-source-lock-20260924": [
+      ".github/workflows/pc-crop-zsn-source-lock.yml",
+      "docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.json",
+      "docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.schema.json",
+      "scripts/pc-crop-zsn/verify-source-lock.mjs",
+      "scripts/pc-crop-zsn/verify-source-lock.test.mjs",
+      "docs/platform-v7/autopilot/scopes/fgis-zsn-public-document-source-lock-20260924.json"
+    ],
+    "ux/first-customer-next-action-unknown-20260924": [
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+      "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+      "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
+      "docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json"
+    ],
+    "ux/deal-command-unknown-20260925": [
+      "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
+      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
+    ],
+    "ux/buyer-first-customer-home-20260925": [
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
+      "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+      "apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx",
+      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+      "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+      "docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json"
+    ],
+    "agent/platform-v7-product-copy": [
+      "apps/web/app/api/platform-v7/inquiries/route.ts",
+      "apps/web/app/platform-v7/contact/ContactClient.tsx",
+      "apps/web/app/platform-v7/contact/page.tsx",
+      "apps/web/app/platform-v7/docs/template.tsx",
+      "apps/web/app/platform-v7/forgot-password/page.tsx",
+      "apps/web/app/platform-v7/how-it-works/page.tsx",
+      "apps/web/app/platform-v7/market/page.tsx",
+      "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
+      "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
+      "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+      "apps/web/components/platform-v7/PublicCanonicalMarket.tsx",
+      "apps/web/components/platform-v7/PublicContactDock.tsx",
+      "apps/web/components/platform-v7/PublicDealExplorerV4.tsx",
+      "apps/web/components/platform-v7/PublicGektaChatButton.tsx",
+      "apps/web/components/platform-v7/PublicHeaderInteractions.tsx",
+      "apps/web/components/platform-v7/PublicMarketOffersAnchor.tsx",
+      "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+      "apps/web/components/platform-v7/PublicSiteHeader.tsx",
+      "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
+      "apps/web/lib/platform-v7/contact-result-receipt.ts",
+      "apps/web/lib/platform-v7/install-public-assistant-fetch-resilience.ts",
+      "apps/web/lib/platform-v7/public-gekta-open.ts",
+      "apps/web/playwright.acceptance.config.ts",
+      "apps/web/styles/platform-v7-canonical-public-v1.css",
+      "apps/web/styles/platform-v7-public-assistant.css",
+      "apps/web/styles/platform-v7-public-auth.css",
+      "apps/web/styles/platform-v7-public-header.css",
+      "apps/web/styles/platform-v7-public-market.css",
+      "apps/web/tests/e2e/platform-v7-contact-priority.spec.ts",
+      "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
+      "apps/web/tests/e2e/platform-v7-docs-chain.spec.ts",
+      "apps/web/tests/e2e/platform-v7-market-result-navigation.spec.ts",
+      "apps/web/tests/e2e/platform-v7-recovery-dirty-guard.spec.ts",
+      "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
+      "apps/web/tests/unit/platformV7HomeFinalPolish.test.ts",
+      "apps/web/tests/unit/platformV7ProductionI18nRuntimeBridge.test.tsx",
+      "apps/web/tests/unit/platformV7PublicAssistantMobileLayoutAuthority.test.ts",
+      "apps/web/tests/unit/platformV7PublicAssistantStreamBinding.test.tsx",
+      "apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts",
+      "apps/web/tests/unit/platformV7PublicDealExplorerMobileUx.test.ts",
+      "apps/web/tests/unit/platformV7PublicExperienceV4.test.ts",
+      "apps/web/tests/unit/platformV7PublicIntelligenceLayer.test.ts",
+      "apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts",
+      "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+      "apps/web/tests/unit/publicGektaWidgetRepair.test.tsx",
+      "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json",
+      "docs/security/cryptographic-key-usage.json"
+    ],
+    "fix/auth-mail-runtime-projection-recovery-20260926": [
+      "scripts/provision-production-auth-mail-runtime.sh",
+      "scripts/check-production-auth-mail-outbox-cutover.mjs",
+      "docs/platform-v7/autopilot/scopes/auth-mail-post-release-db-authority-20260926.json",
+      ".github/workflows/production-auth-mail-runtime-authority-diagnostic-20260926.yml"
+    ],
+    "fix/public-mobile-trust-gekta-return-20260926": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/web-unit.yml",
+      "apps/web/components/platform-v7/PublicContactDock.tsx",
+      "apps/web/styles/platform-v7-canonical-home-v1.css",
+      "apps/web/styles/platform-v7-canonical-public-v1.css",
+      "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+      "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
+      "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+      "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+      "apps/web/tests/unit/platformV7MobileTrustAndGektaReturn.test.ts",
+      "docs/platform-v7/autopilot/scopes/public-mobile-trust-gekta-return-20260926.json"
+    ],
+    "fix/production-mobile-controller-handoff-20260927": [
+      ".github/workflows/platform-v7-production-mobile-acceptance.yml",
+      "docs/platform-v7/autopilot/scopes/production-mobile-controller-handoff-20260927.json"
+    ],
+    "fix/gekta-farmer-questions-20260927": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/web-unit.yml",
+      "apps/web/app/api/public-platform-assistant/route.ts",
+      "apps/web/lib/platform-v7/public-assistant-knowledge.ts",
+      "apps/web/lib/platform-v7/assistant-question-understanding.ts",
+      "apps/web/tests/unit/publicFarmerStarterQuestions.test.ts",
+      "apps/web/tests/unit/taiPublicAssistantRetryRegenerate.test.tsx",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json"
+    ],
+    "governance/gekta-recovery-trusted-routes-20260927": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+      "scripts/p7-autopilot-guard.sh"
+    ],
+    "fix/gekta-docker-diagnostic-route-20260927": [
+      ".github/workflows/production-docker-headroom-diagnostic.yml"
+    ],
+    "fix/gekta-web-release-recovery-20260927": [
+      "scripts/production-web-remote-entrypoint.sh",
+      "scripts/production-web-exact-sha.sh",
+      "scripts/check-production-web-hardening.mjs"
+    ],
+    "fix/gekta-answer-copy-20260927": [
+      "apps/web/app/api/agro-chat/route.ts",
+      "apps/web/lib/platform-v7/public-assistant-knowledge.ts",
+      "apps/web/tests/unit/publicFarmerStarterQuestions.test.ts"
+    ],
+    "fix/gekta-han-stream-20260927": [
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+      "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+      "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+      "apps/web/app/api/agro-chat/route.ts",
+      "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+    ],
+    "fix/readiness-queue-job-gate-20260927": [
+      ".github/workflows/automerge.yml",
+      "docs/platform-v7/autopilot/scopes/readiness-queue-job-gate-20260927.json"
+    ],
+    "fix/readiness-default-branch-push-gate-20260929": [
+      ".github/workflows/automerge.yml",
+      "docs/platform-v7/autopilot/scopes/readiness-default-branch-push-gate-20260929.json"
+    ],
+    "governance/gekta-current-data-regression-route-20260927": [
+      "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+      "scripts/p7-autopilot-guard.sh"
+    ],
+    "fix/public-webkit-i18n-route-lifecycle-20260927": [
+      "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
+    ],
+    "bank/first-customer-home-20260926": [
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
+      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+      "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+      "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+      "docs/platform-v7/autopilot/scopes/bank-first-customer-home-20260926.json"
+    ],
+    "fix/gekta-economic-safety-hardening-20260928": [
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts"
+    ],
+    "fix/gekta-qwen35-protected-sudo-candidate-20260928": [
+      ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+      "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json"
+    ],
+    "fix/gekta-qwen35-nonroot-candidate-20260928": [
+      ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+      "scripts/gekta-qwen35-4b-model-host-candidate.py",
+      "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json"
+    ],
+    "fix/public-login-register-locale-20260928": [
+      "apps/web/app/platform-v7/login/LoginFormClient.tsx",
+      "apps/web/app/platform-v7/login/page.tsx",
+      "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
+    ],
+    "ux/deal-runtime-unknown-20260929": [
+      "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+      "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+      "apps/web/tests/unit/transactionUxV8Migration.test.ts",
+      ".github/workflows/ci.yml",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+      "apps/web/components/platform-v7/DealCommandForm.tsx",
+      "apps/web/i18n/transaction-deal-copy.ts",
+      "packages/design-system-v8/src/components.tsx",
+      "docs/security/cryptographic-inventory.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
     ]
   },
   "currentAcceptance": [
-    "Production SettlementEngineModule binds a complete PostgreSQL repository directly; RuntimeCore, optional Prisma, repository factory, ActionExecutor memory authority and process-memory OutboxService are absent from the production settlement graph.",
-    "Production startup fails closed when the payment repository mode is missing, memory or unknown.",
-    "All payment, beneficiary, bank-operation, hold, release, refund, reconciliation and ledger reads/mutations execute in trusted server-derived RLS transactions.",
-    "Money is stored and calculated only as integer minor units; no float or amountRub authority remains.",
-    "Payment terms and release basis are versioned PostgreSQL facts linked to the canonical Deal.",
-    "Reserve and release requests atomically commit payment state, bank operation, audit and PENDING outbox; only an authenticated verified bank callback can confirm money movement.",
-    "Partial payouts, holds, refunds and beneficiary allocations cannot over-release, become negative or exceed the confirmed reserve.",
-    "Callbacks, reconciliation and mutation commands are durably idempotent, optimistic-concurrency protected and safe across restart and multiple API instances.",
-    "Same-tenant outsiders and cross-tenant users are denied under restricted PostgreSQL principals.",
-    "No live bank, nominal-account or money-movement claim is introduced.",
-    "Forward migration succeeds on empty and baseline databases, drift is empty, restricted-principal RLS and exact-head CI are green."
+    "Owner disposition 5935185862 replaces metadata-first/source separation only for this single atomic prerequisite; candidate-owned scope lists are not independent authorization.",
+    "Use the existing fix/readiness-database-deadline-4829 branch and preserve original readiness, #5770 and #5771 history and CORE ownership through ordinary ancestry.",
+    "The entire accepted-base diff is exactly eleven existing regular 100644 files: five governance documents, the exact e358 staff test and the unchanged complete five-file COR5 proposal. No other path or mode changes.",
+    "Preserve all accepted PRODUCT/concurrent scope vectors and coordination admissions; use only the exact staff-test path, never broader staff source/test wildcards.",
+    "Remove only the raw bootstrap /ready shadow; preserve startup, migration completeness, liveness, existing canonical route/identity/tenant/RLS boundaries.",
+    "Keep 1500ms database deadline, 15000ms positive grace, one in-flight read, immediate/late known-pending invalidation and existing 50 dead-letter/900MB thresholds.",
+    "Runtime-role-visible outbox observations cannot attest service-wide health; keep UNKNOWN without new grants or worker credentials.",
+    "Only existing GET/HEAD root readiness case/single-trailing-slash aliases gain probe exemption; other routes keep durable rate enforcement.",
+    "Renew exact-published-head independent nonauthor whole-diff review, separate owner audit and all applicable full native CI/security/PostgreSQL evidence; unchanged Kubernetes requires zero failed PgBouncer logical probes, complete deep-outbox scenarios and successful cleanup.",
+    "Old #5770 Security Abuse and #5771 Kubernetes failures remain historical failures, not transferred PASS. Local composition results do not certify the final new head; preserve explicit skipped-test and aggregate teardown limitations.",
+    "Fresh head, unresolved-findings and engineering-readiness checks precede an ordinary manual expected-full-SHA merge. No automatic/forced merge or gate waiver.",
+    "R1 production acceptance, exact-main REG.RU release/live observation and full 13-cabinet matrix remain open; official progress stays 5/100. Gekta is the subsequent existing-owner priority, not new source or release authority."
   ],
   "nextAfterCurrentGreen": [
-    "IR-10.5 Disputes PostgreSQL Authority",
-    "IR-20 Canonical Durable Outbox",
     "IR-21 Durable Integration Inbox",
     "IR-22 Persistent Partner API and Outbound Webhooks",
     "IR-30 Canonical Deal and Payment Basis",
@@ -1341,5 +1844,1785 @@
     "production migration execution",
     "production credentials and secret material"
   ],
-  "readiness": "NO-GO. Documents, Logistics and Labs PostgreSQL authority are merged as isolated evidence. Settlement, Disputes, single outbox ownership, durable inbox/partner state, production operations, HA/DR/load and external security acceptance remain open."
+  "readiness": "NO-GO. Documents, Logistics and Labs PostgreSQL authority are merged as isolated evidence. Settlement, Disputes, single outbox ownership, durable inbox/partner state, production operations, HA/DR/load and external security acceptance remain open.",
+  "r1MasterV21": {
+    "officialProgressBefore": "5/100=5%",
+    "targetProgressAfterPass": "12/100=12%",
+    "exactBaselineMain": "5da8e80744908413102214f91dd68018911b892e",
+    "productionControllerRun": 35520784872,
+    "conflictRule": "re-check main and open UX/FGIS/bank PR changed files before every implementation slice; no competing visual implementation",
+    "requirements": [
+      "REQ-R1-001",
+      "REQ-R1-002",
+      "REQ-R1-003",
+      "REQ-R1-004",
+      "REQ-R1-005",
+      "REQ-ROL-001",
+      "REQ-ROL-002",
+      "REQ-ROL-003",
+      "REQ-ROL-004",
+      "REQ-ROL-005",
+      "REQ-ROL-006"
+    ],
+    "acceptance": "exact-SHA live 13/13 matrix PASS; Founder metrics real-data-only; security negative tests PASS; exact-current-main release to REG.RU and post-release observation/evidence",
+    "activeAtomicSlice": "R1.2 Controlled open-as-role server authority",
+    "nextAtomicSlice": "R1.3 CEO overview and P0/P1 decision queue",
+    "parallelBoundary": "UX/UI, FGIS and bank/finance visual work remains owned by the second account; this lane is backend/domain/server authority only.",
+    "backendFirstScope": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/autopilot/progress.json",
+      "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+      "docs/platform-v7/autopilot/prompts/current-review-task.md",
+      "docs/platform-v7/execution-queue.md",
+      "docs/execution/**",
+      "apps/api/src/app.module.ts",
+      "apps/api/src/modules/founder-control/**",
+      "apps/api/src/modules/staff-access/staff-access.controller.ts",
+      "apps/api/src/modules/staff-access/staff-access.service.ts",
+      "apps/api/src/modules/staff-access/staff-access.repository.ts",
+      "apps/api/src/modules/staff-access/staff-access.types.ts",
+      "apps/api/src/modules/staff-access/staff-delegated-access.guard.ts",
+      "apps/api/src/modules/staff-access/staff-projection.service.ts",
+      "apps/api/prisma/migrations/*_founder_control_center/**",
+      "infra/kind/production-like/postgresql-runtime-grants.sql",
+      "scripts/r1-founder-production-acceptance.mjs",
+      ".github/workflows/r1-founder-production-acceptance.yml",
+      ".github/workflows/ci.yml"
+    ],
+    "webHandoffStatus": "deferred to separately admitted non-conflicting server boundary; no visual implementation in this lane",
+    "r11InventoryEvidence": "docs/execution/R1_1_EXACT_INVENTORY_2026-09-20.md"
+  },
+  "coordinationAdmissions": {
+    "bank-release-request-truth-20260920": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Truthfulness-only bank release-request presentation correction; no money/finality/provider/API/tenant/RLS authority change.",
+      "authorityBaseExactMain": "5509b0e1c6597232eb72b282347b3a1de8a0fcd5",
+      "implementationBranch": "bank/release-request-truth-20260920",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+        "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx"
+      ],
+      "forbiddenAuthority": [
+        "payment or settlement finality",
+        "provider callback/outbox authority",
+        "API/projection authority",
+        "role/tenant/RLS authority",
+        "external-success claim"
+      ],
+      "teamHubDependency": "5752421291"
+    },
+    "fgis-regulatory-truth-ux-20260921": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Truthfulness-only Regulatory/FGIS Control Tower presentation correction using existing canonical read fields; no regulatory authority, applicability inference, external acceptance or provider activation.",
+      "authorityBaseExactMain": "bdb2bb25ca7095741ccfd7da67190a65f3648079",
+      "implementationBranch": "fgis/regulatory-truth-ux-20260921",
+      "allowedPaths": [
+        "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
+        "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
+        "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "freshnessAt is the timestamp of the latest server-held integration fact and must not be presented as proof that the authoritative external source is CURRENT",
+        "provider acknowledgement / HTTP success is not business acceptance",
+        "current Control Tower DTO does not expose per-Deal applicability, regulatory rule/version/source/evidence or blocking stage; PRODUCT must render that absence explicitly and never infer it",
+        "server-provided capabilities may be displayed but do not prove live provider connectivity"
+      ],
+      "forbiddenAuthority": [
+        "regulatory applicability or obligation authority",
+        "FGIS/SDIZ mutation or business acceptance",
+        "API/DTO/database/inbox/outbox/reconciliation authority",
+        "role/tenant/RLS authority",
+        "external-success/live-integration claim",
+        "regulatory override authority"
+      ],
+      "teamHubDependency": "PRODUCT-REGULATORY-APPLICABILITY-READ-CONTRACT-20260921"
+    },
+    "seller-truthful-first-screen-20260922": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Truthful production seller workspace slice: remove fabricated seller business facts, prevent the production FirstCustomerWorkspace from promoting recency/list order into seller next-action authority, preserve RU/EN/ZH user meaning, and update the stale Design System v8 seller test contract without changing backend/domain authority.",
+      "authorityBaseExactMain": "76d2dda7c2eb11a62a45261d40cd6d0d32a259ad",
+      "implementationBranch": "ux/seller-truthful-first-screen-20260922",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/seller/page.tsx",
+        "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
+        "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx",
+        "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts",
+        "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx"
+      ],
+      "requiredTruthBoundaries": [
+        "Seller business facts must come from existing canonical server reads; absence of a canonical Deal must render explicit empty/degraded/unknown state rather than static LOT/DL/money/document facts.",
+        "No hard-coded reserve, payout, bank-review amount, SDIZ/ETRN/document readiness, offer state, next actor or regulatory status may be presented as current business truth.",
+        "Unknown authority remains unknown; transport ACK/HTTP success is never promoted to money, regulatory or business completion.",
+        "The seller surface reuses the existing shared Platform V7 shell/design system and must not create a second frontend architecture.",
+        "The production FirstCustomerWorkspace must not promote /deals response order or the first returned Deal into next-action authority; Deal rows remain navigation until a server-published priority contract exists.",
+        "Seller production presentation preserves RU/EN/ZH meaning and may localize labels/copy only; raw server business values and UNKNOWN/degraded semantics must not be strengthened by translation."
+      ],
+      "forbiddenAuthority": [
+        "backend/domain/DB/RLS/tenant/role authority",
+        "Inventory/Deal/Settlement command or finality authority",
+        "FGIS applicability, SDIZ completion or legal/regulatory evaluation",
+        "bank/provider/payment finality or concrete provider inference",
+        "homepage/public landing implementation",
+        "Founder role-mode transport or authority"
+      ],
+      "teamHubDependency": "PRODUCT-SELLER-TRUTHFUL-FIRST-SCREEN-20260922"
+    },
+    "deal360-truthful-external-facts-20260923": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Presentation-only fail-closed Deal 360 truth repair: remove unsupported concrete bank/provider, FGIS/regulatory and document-completion claims from the existing Deal workspace without creating parallel server authority.",
+      "authorityBaseExactMain": "2365c9b38cbb366cda628904d4f11da4cb4afff9",
+      "implementationBranch": "ux/deal360-truthful-external-facts-20260923",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/P7DealWorkspaceTabs.tsx",
+        "apps/web/tests/unit/designSystemV8CriticalRoutes.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "Concrete Sber/Alfa/T-Bank attribution for a Deal or BankOperation remains UNKNOWN / NOT EXPOSED until canonical BankOperation -> IntegrationBinding -> Provider evidence is accepted from CORE #5525.",
+        "Per-Deal regulatory applicability remains UNKNOWN / NOT EXPOSED until CORE #5526 publishes an accepted server-derived applicability projection; system/capability presence is not applicability.",
+        "FGIS Grain -> Inventory/source reconciliation remains UNKNOWN / NOT EXPOSED until #5370 publishes an accepted MATCH / CONFLICT / UNKNOWN projection.",
+        "Absence of a local blocker does not prove a contract, SDIZ or ETRN is signed, linked, accepted, applicable or complete.",
+        "HTTP 2xx, ACK, QUEUED or PROCESSED is non-final; an unknown external mutation outcome remains UNKNOWN / PENDING_RECONCILIATION and requires same-operation reconciliation before retry.",
+        "The existing Deal 360 component remains presentation-only and must not create a second Deal, Settlement, regulatory, provider, document or logistics authority."
+      ],
+      "forbiddenAuthority": [
+        "homepage/public landing implementation",
+        "API/backend/domain/DB/RLS/tenant/role authority",
+        "Settlement/payment/finality authority",
+        "provider binding/credential/callback-trust authority",
+        "regulatory applicability/legal evaluation authority",
+        "FGIS/SDIZ mutation or legal completion authority",
+        "logistics source authority",
+        "CI/workflow/threshold/security policy changes"
+      ],
+      "teamHubDependency": "PRODUCT-DEAL360-TRUTHFUL-EXTERNAL-FACTS-20260923"
+    },
+    "r1-role-mode-consumer-ci-repair-20260923": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Reconcile the existing controlled-test selector assertion with the accepted server-owned Founder VIEW_AS registry and regenerate the cryptographic inventory for the new BFF correlation UUID. Keep the existing five PRODUCT files and admit only these three evidence repairs.",
+      "authorityBaseExactMain": "3807bded6508238c9c4096b4a7c02a0d8c76862e",
+      "implementationBranch": "product/r1-role-mode-consumer-20260921",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/staff/role-mode/route.ts",
+        "apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx",
+        "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx",
+        "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.module.css",
+        "apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts",
+        "apps/web/tests/unit/platformV7ControlledTestOrganizations.test.ts",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "requiredTruthBoundaries": [
+        "The controlled-test cabinet fixture remains server-bound, but its prior owner selector assertion is stale; Founder role-mode uses the canonical 13-cabinet registry and a real server-validated organization ID.",
+        "The generated cryptographic inventory must exactly reflect the new role-mode route UUID operation and tracked source count; no scanner or policy change is admitted.",
+        "Founder VIEW_AS transport uses the accepted /api/staff/founder/role-mode/session BFF under the existing cookie Path; canonicalPath remains metadata until separate transport acceptance.",
+        "An unavailable or contradictory protected session after activation blocks another grant until canonical reconciliation; stale overlapping reads cannot restore an older VIEW_AS session.",
+        "No browser-synthesized role, tenant, organization, permission, MFA, session or external business authority."
+      ],
+      "forbiddenAuthority": [
+        "homepage/public implementation",
+        "backend/domain/DB/RLS/tenant/role/payment authority",
+        "cryptographic or security gate weakening",
+        "controlled-test organization as production Founder target",
+        "bank/provider/regulatory/FGIS completion or finality claim"
+      ],
+      "teamHubDependency": "CORE #5479 READY_FOR_CONSUMER at Team Hub #5469 comment 5791259431"
+    },
+    "r1-role-mode-session-coordination-20260924": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Repair independent exact-head P1/P2 review findings in #5477: block the mounted CONTROL_PLANE bootstrap during another protected session, reconcile cookie-less durable state and clear stale cabinet projection after advanced management.",
+      "authorityBaseExactMain": "fe60735edcc36ed017adac99f8e383d370c12f79",
+      "implementationBranch": "product/r1-role-mode-consumer-20260921",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx",
+        "apps/web/components/platform-v7/staff/OwnerAccessCenterV4.tsx",
+        "apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "CONTROL_PLANE bootstrap must fail closed for any other durable protected session or uncertain session read, including VIEW_AS activation in the same mounted Control Center.",
+        "An inactive browser cookie is not evidence of no active durable Staff Access session; owner-scoped server session reads must reconcile before another grant can be requested.",
+        "V3 must revalidate when advanced V2 session management changes the session and before returning to cabinet projection; stale or contradictory reads do not restore access.",
+        "Client preflight does not enforce cross-tab activation atomicity; CORE owns the server concurrency policy in #5580, and this consumer must not claim global mutual exclusion without its accepted handoff.",
+        "The current eight-path #5560 consumer and its canonical server/BFF authority remain unchanged outside the three admitted repair paths."
+      ],
+      "forbiddenAuthority": [
+        "API/backend/domain/DB/RLS/tenant/role/session issuance authority",
+        "money, settlement, bank/provider, FGIS or legal finality",
+        "homepage/public landing implementation",
+        "CI/workflow/threshold/security gate weakening"
+      ],
+      "teamHubDependency": "#5477 current-head P1/P2 review findings; CORE server concurrency policy #5580; Team Hub #5469 comments 5816128897 and 5816539865"
+    },
+    "product-trusted-guard-reassignment-20260924": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Reassign the existing base-routed PC-CROP governance ref to one bounded PRODUCT immutable-scope guard repair; revoke its historical state and W1 workflow edit paths.",
+      "authorityBaseExactMain": "1f0411296b7727fc1a55c49addfd689e2a7f9090",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "requiredTruthBoundaries": [
+        "The reassigned guard PR must use the trusted base's existing immutable workflow and exact three-path state scope; candidate guard code is not privileged authority.",
+        "Admit the bank, FGIS and UX source scopes only in a later state-only PR after the guard is merged and base-controlled.",
+        "The historical post-registration and W1 workflow permissions are revoked for this ref before any PRODUCT guard change."
+      ],
+      "forbiddenAuthority": [
+        "PRODUCT source implementation or external bank/FGIS runtime authority in the guard PR",
+        "historical state/W1 workflow edit authority on the reassigned ref",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5590 current-head trusted-bootstrap P1; PRODUCT source PRs #5587, #5588 and #5589"
+    },
+    "product-source-admission-prerequisite-20260924": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Pre-admit one state-only PRODUCT source-scope admission branch after the base-controlled guard repair; implementation paths remain absent.",
+      "authorityBaseExactMain": "23fb74db351abda78a056467dbe3f4286adaafaf",
+      "implementationBranch": "governance/product-bank-fgis-ux-source-admission-20260924",
+      "allowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "requiredTruthBoundaries": [
+        "The accepted guard from the prior step classifies this admission branch immutable and validates its exact state delta from the trusted base.",
+        "Only a later separately reviewed admission may grant the three implementation branches their exact 7/6/4 source paths."
+      ],
+      "forbiddenAuthority": [
+        "bank, FGIS or UX implementation scope in this prerequisite",
+        "global mutable scope or candidate guard/workflow authority",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5590 trusted ref reassignment; #5593 immutable PRODUCT guard"
+    },
+    "bank-deep-visible-copy-guard-20260924-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Presentation-only bank/deal copy guard and negative release safety wording; no provider or payment finality.",
+      "authorityBaseExactMain": "5d2fb28c0957b7c03928102b2a4ec353a49b3f79",
+      "implementationBranch": "bank/deep-visible-copy-guard-20260924",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/bank/escrow/page.tsx",
+        "apps/web/app/platform-v7/bank/factoring/page.tsx",
+        "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+        "apps/web/app/platform-v7/profile/page.tsx",
+        "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+        "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+        "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+      ],
+      "requiredTruthBoundaries": [
+        "Preserve the forbidden money-finality and demo vocabulary guard, including absence of the removed operator execution queue source.",
+        "A recorded release request is not external execution; unresolved outcome requires same-operation reconciliation before retry.",
+        "RU/EN/ZH bank copy does not attribute a concrete provider or claim factoring, release or debit finality."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/settlement/ledger/provider/callback or money-finality authority",
+        "tenant/role/session authority",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5565; Team Hub #5469 scope correction 5818641448"
+    },
+    "fgis-zsn-public-document-source-lock-20260924-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Lock public operator-linked EFGIS ZSN document identity and PDF bytes as provenance only.",
+      "authorityBaseExactMain": "5d2fb28c0957b7c03928102b2a4ec353a49b3f79",
+      "implementationBranch": "fgis/zsn-public-document-source-lock-20260924",
+      "allowedPaths": [
+        ".github/workflows/pc-crop-zsn-source-lock.yml",
+        "docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.json",
+        "docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.schema.json",
+        "scripts/pc-crop-zsn/verify-source-lock.mjs",
+        "scripts/pc-crop-zsn/verify-source-lock.test.mjs",
+        "docs/platform-v7/autopilot/scopes/fgis-zsn-public-document-source-lock-20260924.json"
+      ],
+      "requiredTruthBoundaries": [
+        "Pin official public operator-linked PDF identity, 906732-byte payload and SHA-256; title/year are not an API contract version.",
+        "Keep historical government-system registry v1 byte-immutable and mutation capability disabled.",
+        "Do not claim organization access, credentials, signature, legal acceptance, delegated access, live mutation or E2E."
+      ],
+      "forbiddenAuthority": [
+        "FGIS credentials/API write/signature/legal finality",
+        "government registry v1 mutation",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5532; Team Hub #5469 scope correction 5818641448"
+    },
+    "ux-first-customer-next-action-unknown-20260924-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Keep recency-sorted first customer queues as navigation for seven roles while server priority is absent.",
+      "authorityBaseExactMain": "5d2fb28c0957b7c03928102b2a4ec353a49b3f79",
+      "implementationBranch": "ux/first-customer-next-action-unknown-20260924",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+        "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+        "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
+        "docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json"
+      ],
+      "requiredTruthBoundaries": [
+        "Buyer, bank, logistics, driver, elevator, lab and surveyor must display UNKNOWN primary next action until accepted server-derived priority.",
+        "RU/EN/ZH and keyboard-visible in-page queue navigation remain available; server-scoped item links are preserved.",
+        "Owner-controlled showroom navigation and seller fail-closed behavior stay intact."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/tenant/role/priority authority",
+        "bank/FGIS/provider/settlement finality",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5535; Team Hub #5469 scope correction 5818641448"
+    },
+    "deal-command-trusted-guard-reuse-20260925": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Reauthorize the existing accepted-base immutable guard ref for one bounded #5596 Deal command scope-route repair; source paths remain absent.",
+      "authorityBaseExactMain": "961bfc60059762a84c3a821087cf6e5fd13a54cd",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "requiredTruthBoundaries": [
+        "The existing accepted main grants this ref only the guard script, guard tests and guard workflow; candidate code cannot expand that trusted-base path set.",
+        "Register the Deal command implementation branch in the immutable guard and PR-head trusted-base route, including negative self-expansion tests.",
+        "Admit the two Deal UX/test paths only in a later separate state-only PR after the guard repair is merged."
+      ],
+      "forbiddenAuthority": [
+        "Deal UX source files or product/server authority in this prerequisite",
+        "state or unrelated workflow edits on the guard ref",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5596; #5597; Team Hub #5469"
+    },
+    "ux-deal-command-unknown-20260925-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Truthful active Deal command UX when the POST response is lost or unverifiable; preserve server-owned Deal authority.",
+      "authorityBaseExactMain": "c0845a9c0d1b8ee7c2717c295bd150a5e897d30d",
+      "implementationBranch": "ux/deal-command-unknown-20260925",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
+        "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "A network or ambiguous HTTP failure after POST does not prove that the server rejected or did not commit the command.",
+        "Show UNKNOWN with the command identifier and block a fresh identifier in the mounted Deal screen until server-state reconciliation; a page remount is not a durable command queue.",
+        "Show success only for a matching server command receipt; keep definite conflict or validation outcomes distinct.",
+        "Accepted guard #5598 routes this implementation branch through trusted-base immutable scope in both workflow entry points."
+      ],
+      "forbiddenAuthority": [
+        "Deal/API/DB/tenant/role/idempotency or command authority",
+        "payment/provider/FGIS mutation or finality",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5596; #5598; Team Hub #5469"
+    },
+    "ux-buyer-first-customer-home-20260925-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Buyer first-customer production-home information architecture and visual hierarchy from existing scoped server facts; one vertical after seller, not full 13-role acceptance.",
+      "authorityBaseExactMain": "5a50e27405d9af415e192f6d731adf80dffa9701",
+      "implementationBranch": "ux/buyer-first-customer-home-20260925",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
+        "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+        "apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx",
+        "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+        "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+        "docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json"
+      ],
+      "requiredTruthBoundaries": [
+        "Buyer shows only server-scoped organization, identity and Deal queue facts; list recency never becomes required next action, amount or deadline.",
+        "UNKNOWN next action, empty, forbidden and degraded remain explicit; no demo/static deal or fake bank/provider/FGIS status.",
+        "RU/EN/ZH, mobile, focus and seller plus other six role regressions stay covered; owner-controlled showroom does not gain customer authority.",
+        "Buyer source changes start only after the accepted immutable guard prerequisite and this state-only admission are merged."
+      ],
+      "forbiddenAuthority": [
+        "homepage/public implementation or parallel App Shell/design system",
+        "API/backend/domain/DB/RLS/tenant/role/priority or money/provider/FGIS finality",
+        "CI/security/readiness gate weakening"
+      ],
+      "teamHubDependency": "#5372 inventory comment 5833248230; #5604 guard prerequisite; PUBLIC #5559 main serialization; #5535 CORE next-action dependency"
+    },
+    "ux-buyer-first-customer-route-20260927-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Render the admitted server-scoped buyer home at the verified buyer root and prove the actual route across RU/EN/ZH and desktop/mobile browsers.",
+      "authorityBaseExactMain": "dcf10faa093d3d911c3ddaa06afde2be65897c0d",
+      "implementationBranch": "ux/buyer-first-customer-home-20260925",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+        "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "Only the server-verified buyer root renders its server page; other role roots and the controlled owner preview remain separate.",
+        "A real authenticated buyer route is checked in RU/EN/ZH on desktop and mobile; component source tests alone do not prove rendering.",
+        "Buyer queue order stays navigation, with UNKNOWN required action and no bank or regulatory finality."
+      ],
+      "forbiddenAuthority": [
+        "API/backend/domain/DB/RLS/tenant/role/session or priority authority",
+        "other role root or public route behavior",
+        "CI/security/readiness gate weakening"
+      ],
+      "teamHubDependency": "#5610 exact-head P1 route composition review; Team Hub #5469"
+    },
+    "public-mobile-trust-gekta-return-20260926-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Narrow P0 PUBLIC mobile repair: make canonical Trust cards readable and return the existing Gekta assistant launcher above bottom navigation.",
+      "authorityBaseExactMain": "35ce3841f15572bfcba7c8d7e03afb858da0888d",
+      "implementationBranch": "fix/public-mobile-trust-gekta-return-20260926",
+      "allowedPaths": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/web-unit.yml",
+        "apps/web/components/platform-v7/PublicContactDock.tsx",
+        "apps/web/styles/platform-v7-canonical-home-v1.css",
+        "apps/web/styles/platform-v7-canonical-public-v1.css",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+        "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
+        "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+        "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+        "apps/web/tests/unit/platformV7MobileTrustAndGektaReturn.test.ts",
+        "docs/platform-v7/autopilot/scopes/public-mobile-trust-gekta-return-20260926.json"
+      ],
+      "requiredTruthBoundaries": [
+        "The implementation PR changes only these 11 exact paths; its own scope manifest is documentation, not independent authorization.",
+        "Preserve the existing PublicPlatformAssistant and contact dock; no parallel chat, API, database, tenant, role, market, Deal, outbox, auth-mail, Kubernetes or production-topology authority.",
+        "RU/EN/ZH mobile Trust cards remain readable and the canonical Gekta action is visible, enabled, at least 44 by 44 CSS pixels, above bottom navigation, and opens the existing composer.",
+        "After this separate state-only admission merges, independently review the complete refreshed implementation diff against the accepted main state, rerun exact-head CI/security/readiness, then require exact-main REG.RU release and live browser acceptance.",
+        "The generic guard is not an immutable trusted-base route for this implementation branch; do not describe a candidate-owned manifest as trusted-base admission."
+      ],
+      "forbiddenAuthority": [
+        "Candidate manifest self-authorization or widening beyond the 11 accepted paths",
+        "API/DB/tenant/role/market/Deal/outbox/auth-mail/production operation changes",
+        "CI/security/readiness gate weakening or unsupported production acceptance claims"
+      ],
+      "teamHubDependency": "#5469; #5631; exact-head inline P1 #4112623681"
+    },
+    "gekta-reviewed-bootstrap-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "One-time owner-authorized Gekta recovery governance bootstrap: exact reviewed three-file candidate only.",
+      "authorityBaseExactMain": "2b302725a14d518382f533f38495c568c9a4691b",
+      "implementationBranch": "governance/gekta-recovery-trusted-routes-20260927",
+      "reviewedCandidateSha": "1f746d7e457af6d1815ea050a0211939d84a8a89",
+      "reviewedCandidateTree": "6f5fe6c391737c818607144baf84a32138dc40d9",
+      "allowedPaths": [
+        ".github/workflows/platform-v7-autopilot-guard.yml",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+        "scripts/p7-autopilot-guard.sh"
+      ],
+      "reviewedBlobs": {
+        ".github/workflows/platform-v7-autopilot-guard.yml": "a0271cd4eff83a430882fe3e089b60b57b28e9e6",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "242d07fcab5a06bb2a9cce807f16590c0e874fa3",
+        "scripts/p7-autopilot-guard.sh": "80dce5c8fa2e8c53e391adb14decb95b27ac60d1"
+      },
+      "requiredTruthBoundaries": [
+        "Owner explicitly authorized the one-time bootstrap and autonomous completion in the active session. This state-only change admits no product, production operation or implementation branch.",
+        "Before merging the governance candidate, independently verify its complete diff and three blob identities against this record. Changed content requires renewed review and source admission.",
+        "This is documented exact-content admission with independent manual enforcement. Existing generic routing does not automatically enforce recorded SHA fields. Do not claim immutable enforcement before the reviewed bootstrap is accepted.",
+        "The four implementation branches obtain only literal trusted-base path sets after the bootstrap merges. Candidate state, global scope, guard, workflow, R1.2 and renames cannot widen those scopes.",
+        "All substantive CI, exact-head independent review, unresolved-thread resolution and fresh manual SHA-bound readiness remain required. Deployment is separately pending exact OCI identity, health and live acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Implementation paths in this state-only PR",
+        "State, scope or unrelated authority changes in the three-file bootstrap",
+        "Automatic merge, check override, force merge or new recurring costs"
+      ],
+      "reviewDependency": "PR #5650; native P1 4114326800; independent reviewer /root/review_gekta"
+    },
+    "gekta-recovery-implementation-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Owner-requested Gekta farmer questions, answer latency and copy quality, with bounded REG.RU release recovery.",
+      "authorityBaseExactMain": "55da1ad596cdaccf5be26c9d7f3f20dd5ba45712",
+      "trustedGuardBlob": "80dce5c8fa2e8c53e391adb14decb95b27ac60d1",
+      "scopesByBranch": {
+        "fix/gekta-docker-diagnostic-route-20260927": [
+          ".github/workflows/production-docker-headroom-diagnostic.yml"
+        ],
+        "fix/gekta-web-release-recovery-20260927": [
+          "scripts/production-web-remote-entrypoint.sh",
+          "scripts/production-web-exact-sha.sh",
+          "scripts/check-production-web-hardening.mjs"
+        ],
+        "fix/gekta-answer-copy-20260927": [
+          "apps/web/app/api/agro-chat/route.ts",
+          "apps/web/lib/platform-v7/public-assistant-knowledge.ts",
+          "apps/web/tests/unit/publicFarmerStarterQuestions.test.ts"
+        ],
+        "fix/gekta-han-stream-20260927": [
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+          "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+          "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+          "apps/web/app/api/agro-chat/route.ts",
+          "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts"
+        ]
+      },
+      "requiredTruthBoundaries": [
+        "Immutable literal scopes and trusted-base workflow routes were separately accepted in PR #5650 before this state-only admission.",
+        "This record duplicates the accepted guard exact path sets; candidate state cannot expand those sets. Current R1.2, global scopes and prior admissions remain unchanged.",
+        "Each implementation PR must contain only its admitted exact paths and pass independent exact-head review, all substantive CI and fresh manual SHA-bound readiness.",
+        "Fast reviewed starter answers preserve entitlement and safety; contextual or free-form follow-ups retain the model. Never present reviewed text as model generation or claim unmeasured live speed.",
+        "Release remains REG.RU-only with protected stateful data and no new recurring costs. Completion requires exact OCI revision, healthy service and public live acceptance."
+      ],
+      "forbiddenAuthority": [
+        "R1.2 or unrelated product scope changes",
+        "Volumes, persistent data or container removal for disk recovery",
+        "Force merge, fabricated checks or disabled safety"
+      ],
+      "reviewDependency": "Accepted bootstrap PR #5650; owner request and independent source review"
+    },
+    "gekta-quality-regression-bootstrap-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Owner-requested correction and comprehensive testing of slow ordinary Gekta answers and unreadable current-data notices; admit only the reviewed two-line test-scope extension.",
+      "authorityBaseExactMain": "9f8ae70cf13401702c20869e2c7c986dd22eade2",
+      "implementationBranch": "governance/gekta-current-data-regression-route-20260927",
+      "reviewedCandidateSha": "8c0e0ec2f41b6b2536d69b14fa4902618bba7c55",
+      "reviewedCandidateTree": "ded176a1d418b79b1f7e84f811146ccffb887373",
+      "allowedPaths": [
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+        "scripts/p7-autopilot-guard.sh"
+      ],
+      "reviewedBlobs": {
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "8ea167377e785ff115c645b87c1c3f92f9d1b64e",
+        "scripts/p7-autopilot-guard.sh": "85e6a100272115013c5bb84bfec2329574cefd09"
+      },
+      "requiredTruthBoundaries": [
+        "The owner explicitly requested correction of ordinary-answer latency, current-data answer quality and comprehensive testing in the active session. This state-only change admits no product code or production operation.",
+        "The reviewed two-line candidate adds only apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts to the existing API branch literal path set and its regression fixture. All other scopes and negative checks remain unchanged.",
+        "Independently verify the complete governance diff and both blob identities before merge. Changed content requires renewed review and source admission. This record has independent manual enforcement; generic routing does not automatically validate the recorded content hashes.",
+        "Accept the trusted guard before extending the duplicated implementation state scope or publishing the four-file API candidate. Candidate-owned state never widens the trusted literal scope.",
+        "Independent exact-head review, all substantive CI, fresh manual SHA-bound readiness and existing branch protections remain required. REG.RU exact image identity, health and live acceptance remain separate release requirements."
+      ],
+      "forbiddenAuthority": [
+        "Unrelated product, R1.2, database, tenant, role, auth-mail or production-topology changes",
+        "Implementation files in this state-only admission or governance candidate",
+        "Automatic or forced merge, check overrides, weakened safety, new recurring costs"
+      ],
+      "reviewDependency": "Independent reviewer /root/review_gekta; user screenshot IMG_3376 and explicit request to comprehensively test ordinary answers."
+    },
+    "gekta-quality-regression-implementation-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Duplicate the separately accepted trusted Gekta API regression-test scope extension; enable the owner's ordinary-answer speed and quality correction.",
+      "authorityBaseExactMain": "e7b347ece6166a5a7f4bf76f0506f1779febb378",
+      "acceptedGuardPr": 5660,
+      "acceptedGuardMerge": "84312889cb28175157c1a104c99f43022f152a89",
+      "trustedGuardBlob": "f4d29712f09adfac8d743488c66e81ad6a5bac04",
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "addedPath": "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
+      "requiredTruthBoundaries": [
+        "The trusted literal four-file scope and matching scope fixture were accepted in PR #5660 before this state-only admission.",
+        "Current main preserves that exact API path set alongside separately accepted readiness and buyer-governance changes. Preserve all unrelated scopes, admissions and current R1.2.",
+        "This record extends only the named branch by the one existing regression spec; prior recovery admission base and guard fields remain historical evidence of the original three-file admission.",
+        "API implementation remains a separate narrow PR requiring actual independent exact-head review, all substantive CI/security, fresh manual readiness and an expected-SHA merge.",
+        "Production completion requires REG.RU exact running OCI revision, healthy services and live tests. Source tests alone do not prove model quality or latency; no new recurring cost."
+      ]
+    },
+    "public-mobile-hero-320-production-i18n-repair-20260927": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Repair the production RU 320x700 homepage Hero six-line regression under the existing five-line and first-viewport CTA acceptance, with one exact stylesheet rule and a rendered browser assertion.",
+      "authorityBaseExactMain": "76c680695a306be04d9876e847428c28bfe4f875",
+      "implementationBranch": "fix/public-mobile-trust-gekta-return-20260926",
+      "reviewFinding": "PR #5664 exact-head independent Codex review P1: original Trust/Gekta coordination did not admit unrelated Hero typography.",
+      "allowedPaths": [
+        "apps/web/styles/platform-v7-canonical-home-v1.css",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "The two paths already appear in the trusted base branch path list; this record extends the purpose only for the measured 320x700 homepage failure and a stronger existing visual gate.",
+        "Keep the complete RU/EN/ZH Hero heading, primary CTA destination, first-viewport reachability, readable typography and no horizontal overflow. Never reduce the five-line acceptance limit or hide text.",
+        "The separate WebKit EN chunk-load pageerror remains a failed production i18n gate until independently resolved and rerun; CSS and visual CI cannot dismiss it.",
+        "Before merge, refresh the implementation branch onto the admitted main state, obtain independent review of the complete exact-head diff, pass hosted CI/security and rendered browser acceptance, and use expected-head SHA.",
+        "A merge is not deployment. Release only through the REG.RU exact-main contour and verify running OCI revision, healthy container, Caddy and fresh live browser acceptance."
+      ],
+      "forbiddenAuthority": [
+        "API/backend/DB/RLS/tenant/role/session or bank/provider/FGIS finality",
+        "other public or protected route behavior",
+        "CI/security/readiness gate weakening or automatic merge"
+      ],
+      "teamHubDependency": "PR #5664 review P1; production i18n run 36316640279; Team Hub #5469"
+    },
+    "public-webkit-i18n-route-lifecycle-20260927": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Isolate public production i18n route navigation in a fresh page lifecycle and verify realistic login-to-register navigation after the measured WebKit EN 320 ChunkLoadError.",
+      "authorityBaseExactMain": "7ac6925e01bf311be08b5cac12d9dfc7e0188d35",
+      "acceptedGuardPr": 5669,
+      "acceptedGuardMerge": "7ac6925e01bf311be08b5cac12d9dfc7e0188d35",
+      "implementationBranch": "fix/public-webkit-i18n-route-lifecycle-20260927",
+      "allowedPaths": [
+        "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "The accepted trusted-base immutable guard and both PR entry points permit this implementation ref only the exact browser test path; candidate state cannot expand it.",
+        "Preserve all eight public routes, EN/ZH localization, RU homepage design gates, ten viewport-locale combinations, zero pageerror, response success, Chinese typography, mobile target geometry and horizontal reflow assertions.",
+        "Use an independent page lifecycle for each direct public route and a separate real user click from login to register at 320 px; do not dismiss an actual click-path product error as test harness noise.",
+        "The previous WebKit EN 320 ChunkLoadError is unresolved until Chromium and WebKit exact-deployed-OCI live production i18n acceptance passes; source CI alone does not establish production acceptance.",
+        "Do not broaden to BANKS, FGIS, provider credentials, backend/runtime/locale product code, other tests or release workflow in this one-file implementation."
+      ],
+      "forbiddenAuthority": [
+        "Candidate-owned state or scope extension in the implementation PR",
+        "Product code/API/DB/tenant/role/bank/provider/FGIS mutation",
+        "CI/security/readiness weakening, fabricated acceptance or automatic merge"
+      ],
+      "teamHubDependency": "#5666; accepted guard #5669; Team Hub #5469"
+    },
+    "gekta-live-answer-acceptance-bootstrap-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Admit only the independently reviewed exact two-file guard candidate needed to repair measured Gekta live-answer failures in issue #5673; no runtime implementation in this admission.",
+      "authorityBaseExactMain": "bdecafb969b2dd3f3862d385a7e11b8181177946",
+      "implementationBranch": "governance/gekta-current-data-regression-route-20260927",
+      "reviewedCandidateSha": "c7d46498d4723c0fe2e90956d799f64f25909e26",
+      "reviewedCandidateTree": "dc4134e0f09b2f6d2ec5588812dc831aa80c00b5",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs"
+      ],
+      "reviewedBlobs": {
+        "scripts/p7-autopilot-guard.sh": "378c69b6b8a51b332e52a8b31d3d089cb281a3d7",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "4716a6954542148943de39588837838075e205e8"
+      },
+      "requiredTruthBoundaries": [
+        "The owner explicitly requested completing and implementing Gekta speed and answer quality. Exact REG.RU release of #5656 does not establish semantic or speed acceptance: independent live review found two P1 defects and one P2 in #5673.",
+        "The reviewed candidate adds only assistant-relevance-router.ts, taiSemanticRelevanceRouter.test.ts, agro-chat/route.ts and platformV7AgroChatModelFirstRoute.test.ts at their exact recorded apps/web paths to the existing four-file fix/gekta-han-stream-20260927 literal guard and matching fixture. Existing protected workflow routes are unchanged.",
+        "Independently verify the complete two-file governance diff and both exact blob identities before merge. The recorded candidate commit/tree identify reviewed source history; current-main synchronization may change commit/tree identity only while preserving both exact blobs and the complete two-file relative diff. Every synchronized head still requires fresh independent review and CI/readiness.",
+        "This is exact-content admission with independent manual enforcement, not a claim that generic routing automatically verifies hashes. Any changed guard or fixture content requires renewed reviewed-content admission.",
+        "Accept the trusted guard before extending duplicated implementation-state scope or publishing the expanded eight-file runtime implementation. Candidate-owned state never widens trusted scope.",
+        "Preserve R1.2, all unrelated scopes and existing admissions. Fresh substantive CI/security, owner audit, independent exact-head review, manual readiness and ordinary expected-SHA merge remain required.",
+        "Retain the actual model for contextual and free-form questions. Preserve current-price evidence and safety boundaries; distinguish supplied-input arithmetic and storage-only break-even from total profitability. No measured speed improvement or live semantic PASS may be claimed before real acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Product source in this admission or guard candidate",
+        "Database, tenant, role, auth-mail, provider or production-topology changes",
+        "New recurring cost, fabricated evidence, weakened safety or forced/automatic merge"
+      ],
+      "reviewDependency": "Issue #5673; candidate PR #5674; independent reviewer /root/review_5662 exact c7d46498d4723c0fe2e90956d799f64f25909e26;36/36 scope regressions PASS"
+    },
+    "gekta-live-answer-acceptance-implementation-20260927": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Duplicate the separately accepted trusted Gekta eight-path live-answer correction scope so the measured storage follow-up routing and streamed-answer defects can be fixed without widening unrelated authority.",
+      "authorityBaseExactMain": "307e3ebf413ab905674d86cb71a0c74dad90b080",
+      "acceptedGuardPr": 5674,
+      "acceptedGuardMerge": "307e3ebf413ab905674d86cb71a0c74dad90b080",
+      "trustedGuardBlob": "378c69b6b8a51b332e52a8b31d3d089cb281a3d7",
+      "trustedScopeFixtureBlob": "4716a6954542148943de39588837838075e205e8",
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "addedPaths": [
+        "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+        "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+        "apps/web/app/api/agro-chat/route.ts",
+        "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "The trusted literal eight-file scope and matching regression fixture were accepted in PR #5674 before this state-only admission.",
+        "This state change extends only the existing Gekta implementation branch by the four accepted Web routing/test paths; prior recovery and quality-regression admissions remain historical evidence and all unrelated state stays unchanged.",
+        "The implementation must retain the actual model for contextual and free-form questions, preserve current-data evidence and safety boundaries, and limit deterministic arithmetic to explicit user-supplied storage price and duration inputs.",
+        "Expanded runtime remains a separate exact-main implementation PR requiring fresh owner audit, independent exact-head review, all substantive CI/security, manual readiness and expected-SHA merge.",
+        "Production completion requires one serialized REG.RU exact-main release, exact running OCI revisions, healthy services, live semantic/latency acceptance and fresh Chromium plus WebKit public acceptance; no source-only PASS or unmeasured speed claim."
+      ],
+      "forbiddenAuthority": [
+        "Database, tenant, role, auth-mail, provider, bank/FGIS finality or production-topology changes",
+        "Unrelated product/R1.2 scope changes or candidate-owned scope widening",
+        "Automatic or forced merge, disabled safety/readiness checks, fabricated evidence or new recurring cost"
+      ],
+      "reviewDependency": "Accepted guard PR #5674; issue #5673; independent exact-head review on 901a7986fc102f37c0959f4f245179f0ab012466"
+    },
+    "bank-first-customer-home-20260926-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Bank first-customer production-home hierarchy from existing server-scoped Deal navigation; no bank operation, provider or settlement authority.",
+      "authorityBaseExactMain": "597c17c730aa263f4ca954b858139d00252dcf67",
+      "implementationBranch": "bank/first-customer-home-20260926",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
+        "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+        "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+        "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+        "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+        "docs/platform-v7/autopilot/scopes/bank-first-customer-home-20260926.json"
+      ],
+      "requiredTruthBoundaries": [
+        "The bank Deal queue is navigation, not a BankOperation read, provider binding, release decision, payment instruction or external bank confirmation.",
+        "UNKNOWN next action, empty, forbidden and degraded remain explicit; no demo amounts, concrete provider or settlement finality.",
+        "RU/EN/ZH, mobile, focus, buyer/seller and other role regressions remain covered; owner-controlled showroom does not gain customer authority.",
+        "Ordinary verified bank root mounts the server-scoped bank workspace; owner-controlled preview keeps precedence and other roles do not inherit bank access.",
+        "Bank source changes start only after the trusted immutable guard prerequisite and this state-only admission are merged."
+      ],
+      "forbiddenAuthority": [
+        "API/backend/domain/DB/RLS/tenant/role/BankOperation/IntegrationBinding/provider/payment authority",
+        "homepage/public implementation or parallel App Shell/design system",
+        "CI/security/readiness gate weakening or production PASS claim"
+      ],
+      "teamHubDependency": "#5469 comment 5842845723; CORE #5525; external #5530; buyer #5610 review; P0 release serialization"
+    },
+    "gekta-economic-safety-hardening-20260928-coordination": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Harden Gekta economic comparisons and crop-protection output before any foundation-model migration.",
+      "authorityBaseExactMain": "b01010f5f1e7eedfd9091469adfda8a385725513",
+      "implementationBranch": "fix/gekta-economic-safety-hardening-20260928",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "User-supplied monetary arithmetic is computed deterministically server-side; model prose cannot select a commercial option or invent rates.",
+        "Ungrounded crop-protection product/active-ingredient dose or interval instructions are removed before public emission.",
+        "Current-data and verified-platform authority remain fail-closed and unchanged.",
+        "No model-host, production deployment, tenant, Deal, money or write authority is added."
+      ],
+      "forbiddenAuthority": [
+        "Model-host or REG.RU production mutation",
+        "CI/security/readiness weakening",
+        "New recurring cost",
+        "Client-selected authority or model-only critical arithmetic"
+      ],
+      "teamHubDependency": "#3896 Gekta quality/latency audit and Qwen3.5 candidate evidence"
+    },
+    "gekta-qwen35-protected-sudo-candidate-20260928-coordination": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Repair only the Qwen3.5-4B bounded candidate transport after exact-main run 36401066589 failed before model-host mutation because no protected key authenticated direct root SSH.",
+      "authorityBaseExactMain": "31515e0bf75dba71d2a7ddef08ba677c38140caf",
+      "implementationBranch": "fix/gekta-qwen35-protected-sudo-candidate-20260928",
+      "allowedPaths": [
+        ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+        "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json"
+      ],
+      "requiredTruthBoundaries": [
+        "Reuse the existing dedicated model-host principal, TAI_MODEL_SSH_KEY, pinned TAI_MODEL_SSH_HOST_KEY and protected TAI_MODEL_SSH_PASSWORD; do not introduce a root SSH private key.",
+        "The workflow may obtain one-shot sudo only to copy the already reviewed candidate helper into a root-owned temporary path, verify its exact SHA-256, execute only prepare/start/rollback/status, and remove it.",
+        "No persistent root bridge, login-shell change, sudoers change, NOPASSWD grant, arbitrary remote command interface or trust-on-first-use is permitted.",
+        "Qwen3-8B remains the mandatory baseline and must be restored and verified on every success/failure path; candidate startup remains serial and loopback-only.",
+        "The Qwen3.5 artifact revision, size, SHA-256, model identity, production llama executable and 16/16/1/8192/512/128 runtime contour remain unchanged.",
+        "No application, database, tenant, Deal, money, registration, Web/API/outbox deployment or production model identity mutation is admitted by this transport repair.",
+        "New mandatory recurring cost remains 0 RUB."
+      ],
+      "forbiddenAuthority": [
+        "Direct root SSH key or new root credential",
+        "Persistent root/sudo bridge, shell replacement or sudoers mutation",
+        "Broad sudo, SETENV, NOPASSWD ALL or arbitrary shell command execution",
+        "Candidate/model/runtime changes beyond the already accepted bounded Qwen3.5-4B window",
+        "CI/security/readiness weakening, force merge or unsupported production PASS claim"
+      ],
+      "teamHubDependency": "#3896 Qwen3.5-4B candidate; failed pre-mutation run 36401066589; merged candidate authority #5687"
+    },
+    "gekta-qwen35-nonroot-candidate-20260928-coordination": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Admit only a bounded non-root Qwen3.5-4B model-host candidate window after direct-root and protected-sudo transports failed before inference; preserve the live Qwen3-8B baseline and collect real guard/latency evidence without production routing mutation.",
+      "authorityBaseExactMain": "d433bd7cd8262cb75d5cdc0b3cd53a56f4082096",
+      "implementationBranch": "fix/gekta-qwen35-nonroot-candidate-20260928",
+      "allowedPaths": [
+        ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+        "scripts/gekta-qwen35-4b-model-host-candidate.py",
+        "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json"
+      ],
+      "requiredTruthBoundaries": [
+        "Use only the existing dedicated non-root TAI_MODEL_SSH_USER, TAI_MODEL_SSH_KEY and pinned TAI_MODEL_SSH_HOST_KEY; no password, sudo, root SSH or production SSH credential fallback.",
+        "The active Qwen3-8B service remains running and unchanged for the entire candidate window; its PID, served identity and canonical runtime argv are captured before the candidate and revalidated after candidate cleanup.",
+        "The Qwen3.5-4B candidate is a separate ephemeral tai-model-owned process bound only to 127.0.0.1:18081 and is never added to production routing or exposed publicly.",
+        "Candidate identity remains tai-qwen35-4b-q4km with immutable Q4_K_M revision, exact 3013027808-byte size and SHA-256 13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983.",
+        "Candidate uses the exact active production llama.cpp executable and preserves threads16 threads-batch16 parallel1 ctx8192 batch512 ubatch128 except model path, alias, loopback port and ephemeral API key.",
+        "Parallel loading is permitted only for this bounded unrouted candidate after a fail-closed capacity gate: baseline VmSwap must be zero and MemAvailable must be at least 8 GiB before launch; candidate has a bounded process-memory guard and must leave at least 3 GiB MemAvailable after readiness.",
+        "Candidate runs at lower scheduling priority than the production baseline, has a hard 420-second lease, process-group watchdog, identity-bound TERM/KILL cleanup and listener absence verification.",
+        "Real RestrictedPublicQwenService acceptance reaches the candidate only through a temporary pinned SSH tunnel; no public request is rerouted to the candidate.",
+        "No systemd unit/drop-in mutation, service stop/restart, signal to the baseline process, application/database/tenant/Deal/money/registration/Web/API/outbox deployment or production model identity mutation is admitted.",
+        "New mandatory recurring cost remains 0 RUB."
+      ],
+      "forbiddenAuthority": [
+        "sudo, root SSH, password SSH, production SSH credentials, sudoers change, persistent privileged bridge or arbitrary remote shell authority",
+        "stopping, restarting, killing, suspending or otherwise mutating the live Qwen3-8B baseline service/process",
+        "public candidate listener, production routing change, old-model alias reuse or permanent Qwen3.5 activation",
+        "candidate start below the memory headroom thresholds, unbounded memory use, missing watchdog or cleanup without listener absence proof",
+        "floating model/runtime revision, unchecked model artifact, new server, paid API, SaaS or recurring cost",
+        "CI/security/readiness weakening, force merge or production PASS claim from candidate evidence alone"
+      ],
+      "teamHubDependency": "#3896 Qwen3.5-4B candidate; root transport unavailable; TAI_MODEL_SSH_PASSWORD absent; production baseline remains Qwen3-8B"
+    },
+    "public-login-register-locale-20260928": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Preserve RU/EN/ZH on the existing Login to Register link and verify the real mobile click path after the exact-live locale-loss failure.",
+      "authorityBaseExactMain": "4c4102d80cd204fcfb1335f5768b32cc1da2c026",
+      "implementationBranch": "fix/public-login-register-locale-20260928",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/login/LoginFormClient.tsx",
+        "apps/web/app/platform-v7/login/page.tsx",
+        "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "Only the three exact paths from trusted base state are admitted; candidate state, manifests and guards cannot expand implementation authority.",
+        "Pass the existing getLocale/canonicalPublicLocale result from the Login server page to LoginFormClient as a bounded RU/EN/ZH presentation prop; do not add client locale hooks or providers to the lean Login entry, and keep authentication, MFA, session, redirect authority and register-page behavior unchanged.",
+        "Preserve all eight public routes, EN/ZH localization, RU homepage design gates, ten viewport-locale combinations, zero pageerror, response success, Chinese typography, mobile target geometry and horizontal reflow assertions.",
+        "Assert the exact localized Register href, real user navigation, resulting HTML locale and zero page errors; do not replace the click with direct navigation or weaken locale assertions.",
+        "Source and local tests do not establish live acceptance; require exact-head independent review and complete CI, then exact-main release and live mobile/i18n on the deployed OCI revision."
+      ],
+      "forbiddenAuthority": [
+        "Candidate-owned state or scope extension in the implementation PR",
+        "Backend/API/DB/role/tenant/authentication/bank/provider/FGIS authority or root-layout, middleware, locale-provider, homepage and register-page changes",
+        "CI/security/readiness weakening, fabricated acceptance or automatic merge"
+      ],
+      "teamHubDependency": "#2198 locale-loss evidence 5866099139; Team Hub #5469"
+    },
+    "deal-runtime-binding-guard-reuse-20260929": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Renew the existing accepted-base three-path PRODUCT guard ref only to admit the actual production-resolved Deal UNKNOWN recovery repair after the tsconfig/Vitest binding mismatch; no runtime source in this prerequisite.",
+      "authorityBaseExactMain": "e94482fecf13ecbf94569f92cfb01fab8b61521d",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "requiredTruthBoundaries": [
+        "The accepted main already restricts this guard ref to exactly these three regular files. This state-only record renews its bounded purpose; it does not alter global scope, approvedConcurrentScopes, R1.2 or any existing admission.",
+        "Preserve the existing trusted-base workflow routes and all old negative checks. Register a separate bounded Deal-runtime source branch and its later state-only admission with exact path, base, file-mode and self-expansion rejection; do not broaden #5720.",
+        "The intended runtime target is apps/web/components/transaction-ux/TransactionDealWorkspace.tsx; the regression must resolve the module actually used by the protected Deal route, not assume the generic Vitest @ alias matches Next.",
+        "No runtime or test path is admitted by this prerequisite or by the guard PR itself. Obtain separate exact-main state-only source admission after the guard is independently reviewed, all substantive CI passes and its expected-SHA merge completes.",
+        "Preserve the existing transaction-ux design, App Shell, tsconfig aliases, server-owned role/auth/tenant/Deal/command authority and mounted UNKNOWN with exact-attempt receipt verification and GET-only recovery. No independent review may be supplied by the implementation author.",
+        "#5720 remains parked and its detached-component test PASS is not delivery evidence. Preserve the single held release window; production and #5714/model-host mutation stay blocked until the actual runtime repair is accepted."
+      ],
+      "forbiddenAuthority": [
+        "Runtime source, tests, state or scope manifests in the three-path guard PR; direct runtime admission in this state-only prerequisite",
+        "Global scope, existing admissions, CI/security/readiness thresholds, branch protection or independent-review policy weakening",
+        "Backend/API/DB/role/tenant/idempotency/payment/provider/FGIS authority, design replacement, alias removal, new recurring cost or production mutation"
+      ],
+      "teamHubDependency": "#5469 dependency 5887083491; checkpoint 5887212388; source-operator CLAIM 5887350938; ACCOUNT_2_PRODUCT independent review"
+    },
+    "deal-runtime-unknown-20260929": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "purpose": "Repair UNKNOWN command recovery in the existing production-resolved TransactionDealWorkspace and prove the same runtime binding without changing its approved design.",
+      "authorityBaseExactMain": "dde1c60f49f3ac346fd1abb17374769fd1546a5a",
+      "implementationBranch": "ux/deal-runtime-unknown-20260929",
+      "allowedPaths": [
+        "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+        "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+        "apps/web/tests/unit/transactionUxV8Migration.test.ts",
+        ".github/workflows/ci.yml",
+        "docs/platform-v7/qa/web-unit-coverage-registry.json"
+      ],
+      "requiredTruthBoundaries": [
+        "The trusted-base guard admits exactly the runtime component, its production-resolved behavior regression and the existing transaction-ux migration regression plus their exact CI invocation and coverage-registry wiring; candidate state cannot widen scope.",
+        "Preserve the transaction-ux design, facade and tsconfig aliases; exercise the module resolved by the protected Deal route rather than the detached platform-v7 component.",
+        "Lost or unverifiable command responses remain UNKNOWN with the original attempt identity, no fresh command replay and GET-only recovery; only an exact-attempt server receipt establishes a known outcome.",
+        "Cover actual RU/EN/zh-CN recovery states and preserve migration binding, shell, server-owned role/auth/tenant/action authority and accessibility assertions.",
+        "Require fresh exact-head author audit, independent review and all substantive CI/readiness before normal expected-SHA merge; source evidence is not REG.RU live acceptance.",
+        "The existing ci.yml invocation must execute both recovery and migration regressions without losing any prior test or changing workflow behavior; the coverage registry may only remove the migration test exclusion."
+      ],
+      "forbiddenAuthority": [
+        "Candidate state, scope, guard, unrelated workflow, alias, facade or design replacement",
+        "Backend/API/DB/role/tenant/idempotency/payment/provider/FGIS authority or production/model-host mutation",
+        "CI/security/readiness weakening, independent-review impersonation, forced merge or new recurring cost"
+      ],
+      "teamHubDependency": "#5469 runtime binding dependency5887083491; migration regression5887595513; guard-purpose renewal #5721"
+    },
+    "gekta-atomic-security-owner-admission-20260930": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "One owner-confirmed atomic dependency and stable OpenSSL repair for the mutual red security merge cycle; canonical dependency implementation reused without changes.",
+      "authorityBaseExactMain": "de38d8138d702e4d955816db2cdf61e0d0867791",
+      "implementationBranch": "agent/ir-sec-transitive-runtime-remediation",
+      "ownerConfirmedAt": "2026-09-30T09:51:58Z",
+      "ownerConfirmation": "Заканчивай! Все подтверждаю",
+      "authorizedSourcePayloadSha": "7470b1d08de84a3369fa7e92242e1475919c2957",
+      "authorizedSourcePayloadTree": "03b254d63cd5c15c012726a45e2e548e9ac55da3",
+      "canonicalDependencyParentSha": "de002408811f7f423d3925dabd421dea257c0047",
+      "allowedPaths": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "infra/docker/Dockerfile.api",
+        "infra/docker/Dockerfile.web",
+        "infra/docker/Dockerfile.outbox-worker",
+        "infra/docker/Dockerfile.migrations",
+        "docs/platform-v7/autopilot/autopilot-state.json",
+        ".gitleaksignore"
+      ],
+      "authorizedSourceBlobs": [
+        {
+          "path": "package.json",
+          "publicGitBlob": "34db275ec584b779027f739599e415eca7bce3e7"
+        },
+        {
+          "path": "pnpm-lock.yaml",
+          "publicGitBlob": "6786f4deaf1fa1604040f7bf2752e76c0dce210b"
+        },
+        {
+          "path": "infra/docker/Dockerfile.api",
+          "publicGitBlob": "66eaaa086c0bad5dd367e983419574fc45fa2343"
+        },
+        {
+          "path": "infra/docker/Dockerfile.web",
+          "publicGitBlob": "d2bf72826c6fd6a3653223b6c7ac1863a5e13ed0"
+        },
+        {
+          "path": "infra/docker/Dockerfile.outbox-worker",
+          "publicGitBlob": "c6206d93349399b0fa35eda17928a2a32b3bf3a0"
+        },
+        {
+          "path": "infra/docker/Dockerfile.migrations",
+          "publicGitBlob": "8fec04a10fe55b54df244fde8eada0ad86bbcc96"
+        }
+      ],
+      "requiredTruthBoundaries": [
+        "Owner explicitly confirmed the exact combined source repair and narrow adoption after seeing the six-file payload; this instruction is authority, not candidate state alone.",
+        "This is manual exact-content source admission. The existing generic legacy route does not immutably enforce recorded SHA fields; no trusted-base immutable enforcement is claimed. Independent nonauthor review must inspect the complete eight-file diff, all six source blobs and this surgical state transition.",
+        "Keep canonical package.json and pnpm-lock.yaml byte-identical to dependency parent de002408811f7f423d3925dabd421dea257c0047. Each of the four Dockerfiles changes only its existing OpenSSL ARG from 3.5.7-1~deb13u2 to 3.5.7-1~deb13u3.",
+        "Replace the retired branch health-file scope with these exact eight paths. No other concurrent scope, global scope, maturity, progress or application authority changes.",
+        "All substantive native CI, production dependency audit and actual API/Web/worker/migration image security remain blocking. Fresh full-head independent review, owner audit, unresolved-finding handling and ordinary protected expected-SHA merge are required.",
+        "Application release and Qwen3.5 model acceptance remain separate; code merge or a green image does not prove changed production.",
+        "Append only two inspected noncredential false-positive fingerprints to the existing .gitleaksignore: the public Dockerfile API Git blob in 2dbd66d9 line2713 and the static idempotency-001 fixture in historical 3b76d0f3 line17. Existing assertions, scans, security exceptions and thresholds remain unchanged; fresh independent review must inspect both original source lines."
+      ],
+      "forbiddenAuthority": [
+        "Health/application source edits, security exception registry, guard or workflow changes, thresholds or readiness weakening",
+        "Force merge, forged statuses, red-check waiver, stale-head review or CI transfer",
+        "Alternative dependency implementation, sid ABI substitution or package inventory fabrication",
+        "Production/model activation or new recurring cost in this security source PR"
+      ],
+      "reviewedFalsePositiveFingerprints": [
+        "2dbd66d9bf258113272825d7b082b20e3b15a2b6:docs/platform-v7/autopilot/autopilot-state.json:generic-api-key:2713",
+        "3b76d0f3473b986b6354aaac528994f7ac343df2:apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:generic-api-key:17"
+      ]
+    },
+    "gekta-owner-continuation-20260930": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Continue existing Gekta agricultural specialization, economics safety and fixed Qwen3.5 candidate corpus scheduling after explicit owner transfer; no permanent activation authority.",
+      "authorityBaseExactMain": "be928a5938cff0022055fe7a9d3d2eb1c3c39875",
+      "ownerConfirmedAt": "2026-09-30T13:06:28Z",
+      "ownerConfirmation": "Да передаю, заканчивай быстрее",
+      "teamHubDecision": "#5469 comment5911980257",
+      "candidateBranch": "fix/gekta-qwen35-guard-argv-form-20260928",
+      "allowedCandidatePaths": [
+        ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+        "scripts/gekta-qwen35-4b-model-host-candidate.py"
+      ],
+      "requiredTruthBoundaries": [
+        "Preserve existing canonical #5736, #5738 and han-stream policy work; owner transfer does not replace unrelated CORE R1 or PRODUCT UX/FGIS/bank ownership.",
+        "The intended candidate source branch must use accepted-base literal workflow/helper scope and matching trusted-base/PR-head defense workflow selectors; its manifest/state/guard/authority files are immutable on that branch. The previously generic head-manifest route is not accepted continuation authority.",
+        "Existing candidate workflow may retain the exact combined10+4command and add only fixed critical10/extra4 selections with independent unchanged420-second windows, failure-preserving stderr capture and honest COMPLETE/PARTIAL/FAILED reporting from actual same-SHA suite summaries and lifecycle outcomes.",
+        "Preserve every real-model semantic assertion, model bytes/hash/alias, production executable/runtime parameters, capacity checks, dedicated non-root principal, pinned transport, credential boundaries, baseline PID/identity and cleanup/watchdog contracts.",
+        "Critical-only or extra-only success is partial. Complete candidate acceptance requires both original suites on the same exact main and all associated startup/acceptance/cleanup proofs; neither source fixtures nor this state record are model or latency acceptance.",
+        "Existing economics scope and han-stream source paths remain as accepted. Owner agro policy supersedes permission to solve unrelated questions, preserving lawful accounting/tax/legal/IT/defensive work, privacy, safety and current-source grounding.",
+        "Fresh full-head independent nonauthor review, author audit, substantive CI/security, resolved findings and protected manual expected-SHA merge remain mandatory. No prior review transfers across head changes.",
+        "Any permanent model switch, systemd/routing mutation or REG.RU release requires separate reviewed bounded admission and actual operational/live/rollback evidence; this continuation permits none."
+      ],
+      "forbiddenAuthority": [
+        "Global/current R1 scope or unrelated admission changes",
+        "Permanent candidate activation, baseline stop/restart/signal, public listener, model alias reuse, production routing or application/database mutation",
+        "CI/security/readiness/acceptance/budget/420lease weakening, fake statuses, author self-review or force/automatic merge",
+        "New mandatory recurring cost",
+        "Candidate-owned manifest/state self-expansion or runnable continuation before accepted trusted-base enforcement"
+      ],
+      "activationPrecondition": "This continuation purpose is staged, not runnable authorization from candidate-owned state. Before it becomes effective, independently accept the exact-content trusted-base literal/manifest-immutable route in guard PR#5741 and recheck each consumer's exact current head against that accepted main."
+    },
+    "gekta-policy-service-regression-prerequisite-20260930": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Admit exact current three-file protection of the candidate branch against head-manifest self-expansion and one existing service policy regression, preserving all prior constraints.",
+      "authorityBaseExactMain": "be928a5938cff0022055fe7a9d3d2eb1c3c39875",
+      "implementationBranch": "governance/gekta-recovery-trusted-routes-20260927",
+      "candidatePr": 5741,
+      "proposedCandidateSha": "4a43d825fc5d6c8c94cdd10336d424e57708d632",
+      "proposedSourceBlobs": {
+        "scripts/p7-autopilot-guard.sh": "a2627b8aa82d36e9aa152916f7a507a3bf03b6b3",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs": "5ac3286495bd26ffcdc608ead98c3e6fdae76dee",
+        ".github/workflows/platform-v7-autopilot-guard.yml": "90f6c2b52b25b7a4f09446b7dafb36270f9969dc"
+      },
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "addedImplementationPath": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+      "consumerBranch": "fix/gekta-han-stream-20260927",
+      "requiredTruthBoundaries": [
+        "Preserve historical bootstrap records. This separate prerequisite renews only the named guard branch's purpose for the actual three-file candidate; recorded hashes identify proposed source, not independent-review approval. Changed hashes require fresh admission review.",
+        "Guard candidate adds exactly the existing service.spec.ts to the immutable han-stream literal list/fixture, retains neighboring quality.spec.ts rejection, and adds the candidate branch to accepted-base literal workflow/helper scope plus matching trusted-base/PR-defense/exclusion selectors. Candidate manifest/state/guard/authority self-expansion remains forbidden. No runtime or unrelated authority changes.",
+        "Independently inspect complete current three-file guard diff and all three proposed source blob identities (guard, fixture and security-sensitive workflow), all substantive CI, owner audit, findings and readiness before ordinary expected-SHA merge. Recorded content is independently manually enforced, not claimed automatically immutable hash enforcement.",
+        "Accept trusted guard first, then duplicate its one-path extension in implementation state and update the existing service policy regression in the separate source PR. Candidate-owned state cannot widen the trusted literal route.",
+        "Maintain all previous negative authority/self-expansion tests and normal source/release gates. No runtime/production mutation, new recurring cost or source/model/live PASS comes from this state-only admission.",
+        "The candidate branch's previously mutable head-manifest scope is not authorized for continuation. After this exact-content prerequisite and full independent review, accept guard#5741 first; only then may the staged fixed-corpus consumer purpose take effect."
+      ],
+      "forbiddenAuthority": [
+        "Runtime implementation in this state or guard prerequisite",
+        "Global/current R1 or unrelated concurrent-scope changes",
+        "Security/review/CI/readiness weakening, test deletion, force merge or fake evidence"
+      ],
+      "teamHubDependency": "#5469 comments5912114263/5912171460; #5739 actual full CI stale policy regression; #5738 native scope finding"
+    },
+    "gekta-service-policy-regression-20260930": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Duplicate the single existing service.spec regression path already independently admitted in accepted trusted guard, and update its superseded generic-content policy assertion in the existing agro policy source PR.",
+      "authorityBaseExactMain": "a55f29b77ed6b3b7e44403540c7c4c0ec284f096",
+      "acceptedGuardPr": 5741,
+      "acceptedGuardSourceSha": "b524e4ad8479d77063a9d57476b1c27f65d702c1",
+      "acceptedGuardBlob": "a2627b8aa82d36e9aa152916f7a507a3bf03b6b3",
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "consumerPr": 5739,
+      "addedPath": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+      "requiredTruthBoundaries": [
+        "The accepted base-owned han literal guard already allows exactly the previous eight paths plus this one existing service.spec path. This state duplicates that accepted one-path extension only; it grants no branch-owned self-expansion.",
+        "Update the existing superseded generic-content prompt regression to assert agro-specialist useful adjacent work, respectful unrelated-topic redirection and preserved separate safety/privacy/authorization/tenant/write/financial-action/tool boundaries. Retain all fifteen existing service cases and meaningful assertions; no test invocation, budget, safety or independent-review gate weakening.",
+        "All primary R1/global/current/unrelated concurrent scopes, historical admissions/progress/maturity and runtime/model/production authority remain unchanged.",
+        "The current source consumer requires fresh complete-head independent review, exact-current CI including the full existing API suite, author audit, resolved findings and manual expected-SHA protected merge. Source tests/admission do not prove real model inference, quality, latency, RF compliance or deployment."
+      ]
+    },
+    "bank-release-attestation-guard-purpose-20260930": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew the accepted immutable three-path guard ref only to authorize the exact two-fingerprint release-attestation test synchronization blocking the BANK release; preserve the historical four-fingerprint transformation and every security/readiness gate.",
+      "authorityBaseExactMain": "1a768a7fde207bb2458fdf259dc16f9f291b5455",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "requiredTruthBoundaries": [
+        "This state-only prerequisite renews purpose on an already accepted three-path guard ref. It does not change global scope, approvedConcurrentScopes, R1.2, old admissions or the one-file Gitleaks implementation scope.",
+        "The later guard PR must preserve trusted-base execution, all substantive head validation and the legacy exact four-fingerprint transformation. Admit the current transformation only against the immutable accepted 19-entry test blob and unchanged accepted ignore/manifest blobs; require exactly the two existing fingerprints and every old test byte/assertion.",
+        "Add real Git-fixture regressions for exact accepted append and rejection of altered/extra/missing fingerprints, assertion removal, baseline/input drift, allowlist/manifest edits and candidate scope self-expansion. No arbitrary fingerprint inference or implementation-owned authority.",
+        "The later one-file #5744 repair must be independently reviewed again after synchronization with the accepted guard main, and pass actual CI/readiness before an ordinary full-expected-SHA merge. Existing native review at cd31ba7904b30de65c6839c17a11e2590d234108 is not transferable to a new head.",
+        "Retain BANK source/release window and sole operator continuation220. A merge/image is not a REG.RU deployment; exact current-main OCI/container/Caddy/live/downstream acceptance remains mandatory."
+      ],
+      "forbiddenAuthority": [
+        "Test source, .gitleaksignore, release-source-manifest.json, runtime or state edits in the later guard PR",
+        "Scope expansion, scanner/security/coverage/readiness/independent-review weakening, force/automatic merge or required-check override",
+        "CORE API/DB/provider/role/session authority, transferred Gekta branches/model controls, release before actual acceptance"
+      ],
+      "teamHubDependency": "BANK #5744 exact-head trusted guard rejects obsolete 20260912 transformation; native TAI Foundation36755343656 succeeds; BANK operator decision5916270228 and held release window5914591395"
+    },
+    "landing-package-metadata-guard-purpose-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Bounded critical-path renewal of the existing trusted three-path guard ref for a separately admitted exact metadata-only repair of the expired internal landing-package exception; close the existing no-publish metadata blocker without renewing its expiry or changing application/licensing/provenance truth.",
+      "authorityBaseExactMain": "7a90199a40a86cdc129f804780a8f2635cf0bccb",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureMetadataAdmissionBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "futureMetadataImplementationBranch": "fix/gitleaks-release-authority-attestation-20260912",
+      "requiredTruthBoundaries": [
+        "The current full-head #5744 native SBOM/IP run36794727081/job110155435088 fails because the preexisting apps/landing/package.json metadata exception expired on2026-09-30. Original IP program#4459 and the existing exception require a separately authorized metadata-only addition of license=UNLICENSED; the package already remains private=true.",
+        "This purpose-only prerequisite admits no landing implementation or metadata file and changes no primary/global/R1.2/approvedConcurrentScopes/old admissions/progress. Publish a separate trusted guard repair within the already accepted three-path scope only after actual independent review, all current gates and ordinary expected-full-SHA acceptance of this purpose.",
+        "The later guard must define distinct state-only admission and exact two-file metadata implementation phases on the already registered trusted-guard and Gitleaks refs. Existing native trusted-base routing remains unchanged; no workflow/IP waiver. Preserve the original one-file Gitleaks attestation phase and add only the separately accepted exact metadata pair to that existing branch scope. Source scope and exact baseline/candidate blobs must come from accepted trusted base; candidate-owned state/guard cannot grant authority.",
+        "Permit only apps/landing/package.json100644 c80706ce0a424d57b2f7687bc0f4306f5c88a434→e693a061ea6d42a9c62cc1ab8350c3af904265a4 (one license field, all scripts/dependencies/private/name/other bytes preserved) and docs/ip/internal-package-metadata-exceptions.json100644872689ef5215d2b92429c465159fbf794259cc9f→c3eb22c2f4fc9ec3105e0203b7990de3b88dc345 (remove only that completed exception; schema/effective date preserved).",
+        "Preserve the general apps/landing prohibition and every old security/attestation gate. Permit the exact metadata pair only in its separately accepted phase on the existing trusted Gitleaks ref, with exact baseline/head blobs and regular modes; reject mixed metadata/test/runtime edits, other manifest fields, expiry extension, stale or altered exceptions, source self-expansion and baseline/mode drift using real Git fixtures.",
+        "Accept the guard before the separate state-only exact-content source admission; accept that admission before publishing either metadata file. Metadata/private-package checks do not prove proprietary authorship, third-party rights, human assignments, full IP/security completion or production acceptance.",
+        "Keep the sole BANK continuation220/workspace0b9 window held. Preserve the immutable #5744 test candidate while the distinct metadata prerequisite uses the same existing trusted source ref under separate source admission and fresh PR review. After accepted metadata normalization, restore the original one-file #5744 repair on actual current main and renew every review/CI/readiness result before bounded exact-current-main canonical REG.RU web release and actual OCI/live/downstream evidence."
+      ],
+      "forbiddenAuthority": [
+        "Landing page/runtime/component/script/dependency changes or general landing access",
+        "Exception expiry extension, CI/security/license/scanner weakening or required-check override",
+        "Direct metadata source admission in this purpose or later guard PR; source-owned mutable scope authority",
+        "CORE/API/DB/provider/money/role/session/model or human legal/provenance authority",
+        "Forced/automatic merge, stale review transfer, new recurring costs or false production/whole-block PASS"
+      ],
+      "teamHubDependency": "#5744 native IP metadata expiry blocker36794727081; original#4459 metadata baseline; held BANK critical path/window5916270228"
+    },
+    "landing-package-metadata-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Normalize only the already-private internal landing package license metadata and remove its completed exception; no application, dependency, publication or legal-rights change.",
+      "implementationBranch": "fix/gitleaks-release-authority-attestation-20260912",
+      "allowedPaths": [
+        "apps/landing/package.json",
+        "docs/ip/internal-package-metadata-exceptions.json"
+      ],
+      "preservedAttestationPaths": [
+        "apps/tai/tests/test_gitleaks_release_authority.py"
+      ],
+      "exactMetadataFiles": [
+        {
+          "path": "apps/landing/package.json",
+          "mode": "100644",
+          "baselineBlob": "c80706ce0a424d57b2f7687bc0f4306f5c88a434",
+          "candidateBlob": "e693a061ea6d42a9c62cc1ab8350c3af904265a4"
+        },
+        {
+          "path": "docs/ip/internal-package-metadata-exceptions.json",
+          "mode": "100644",
+          "baselineBlob": "872689ef5215d2b92429c465159fbf794259cc9f",
+          "candidateBlob": "c3eb22c2f4fc9ec3105e0203b7990de3b88dc345"
+        }
+      ],
+      "requiredTruthBoundaries": [
+        "Only add license=UNLICENSED to the existing private=true manifest and remove exactly its completed metadata exception; every other manifest byte and register schema/effective date remains unchanged.",
+        "Source authority comes only from separately accepted base purpose, guard and state-only admission. The implementation cannot modify state, guard, workflow, scope or publishable-package authority.",
+        "The existing attestation ref has distinct test-only and metadata-only phases. Preserve the original test path and its exact fingerprint guard; reject mixed metadata/test changes.",
+        "Preserve the general landing prohibition, all existing CI/security/attestation checks, provenance and third-party/human legal remainder. No expiry extension or proprietary ownership claim.",
+        "Fresh whole-head independent review, native private-package/IP/security/source checks and manual full-expected-SHA readiness/merge required; current-main REG.RU release remains a separate acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Landing runtime/pages/components/scripts/dependencies or any other manifest field",
+        "Expired-exception renewal, new exception or publishable-package authorization",
+        "Source-owned scope, CI/security/readiness weakening, forced/automatic merge",
+        "CORE/API/DB/money/provider/role/session/model or human legal/provenance authority"
+      ],
+      "teamHubDependency": "#5744 IP expiry blocker36794727081; original IP#4459; BANK hold5916270228; purpose#5749",
+      "authorityBaseExactMain": "7aa734d2da13465d62085f00fbf89b4ef02f2dd5"
+    },
+    "deal-destination-locale-guard-purpose-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew the existing accepted three-path PRODUCT guard ref for separately admitted RU/EN/ZH presentation on the actual protected Deal destination, resolving #5735 destination-language finding without changing command or server authority.",
+      "authorityBaseExactMain": "2d0db1af028b9d9d17d5a1e84a4dbe86ec990d68",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-deal-runtime-admission-20260929",
+      "futureImplementationBranch": "ux/deal-runtime-unknown-20260929",
+      "futureAdditionalSourcePaths": [
+        "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+        "apps/web/components/platform-v7/DealCommandForm.tsx",
+        "apps/web/i18n/transaction-deal-copy.ts",
+        "packages/design-system-v8/src/components.tsx"
+      ],
+      "reviewedPrivatePayload": {
+        "sha256": "6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e",
+        "sourceComments": [
+          5908067884,
+          5908071391
+        ],
+        "authorAuditComment": 5908085804,
+        "independentPrivateReviewComment": 5916309103
+      },
+      "requiredTruthBoundaries": [
+        "This one-file purpose record admits no runtime, test, workflow or new source path. Global/current/R1.2 scopes, approvedConcurrentScopes, every existing admission, progress and maturity remain unchanged.",
+        "After this purpose is independently reviewed and accepted, use the existing already admitted three-path guard ref for a separate trusted-base literal guard repair and adversarial tests. Preserve all existing admission phases, metadata/attestation routes and trusted-base plus PR-head defense.",
+        "The guard must define a separate exact state-only extension phase on the existing Deal-runtime admission ref. Preserve the full original five-path runtime scope and add only the four listed paths in a later independently reviewed accepted state. Candidate-owned state or a manifest cannot grant implementation authority.",
+        "Publish no Deal locale source before the separately accepted guard and state-only source extension. Use the existing production-resolved transaction-ux workspace and NextIntl request locale; keep the facade, tsconfig mapping, shell and approved design.",
+        "Preserve all original UNKNOWN attempt identity, immutable request fingerprint, draft/review/focus state, exact server role/tenant/Deal/action permissions, CSRF, GET-only recovery and duplicate command prevention. Locale changes affect presentation only.",
+        "The captured six-file private payload and its bounded review are support, not current-head CI, admission, native account approval, full browser acceptance or production evidence. Obtain fresh independent whole-source review, author audit and every applicable CI/security/readiness gate after actual adoption.",
+        "Preserve original source authors and canonical CORE ownership. Queue the shared guard writer and any main/release action after the current Gekta owner window; do not overwrite another owner's ref or issue a competing deployment command.",
+        "Require normal expected-full-SHA manual merges and exact-current-main REG.RU OCI/container/live acceptance followed by the ordinary authorized bank queue to the same Deal in RU/EN/ZH. Public or seeded fixture evidence does not close protected bank, 13-cabinet or provider acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Direct runtime/test/source admission, permission-vector changes or another owner's branch mutation in this purpose PR",
+        "Backend/API/DB/RLS/tenant/role/session/command/payment/provider/FGIS or legal authority",
+        "Design or App Shell replacement, duplicate Deal core, alias removal, business-status or external-success inference",
+        "CI/security/readiness/independent-review weakening, fake PASS, forced/automatic merge, production/model mutation or new recurring cost"
+      ],
+      "teamHubDependency": "#5735 P2 thread4142098743; source5908067884/5908071391; private review5916309103; #5699; current Gekta next window5924684608"
+    },
+    "deal-destination-locale-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_1_EXECUTION",
+      "purpose": "Apply only the already reviewed RU/EN/ZH protected Deal presentation payload while preserving canonical UNKNOWN recovery and server authority.",
+      "authorityBaseExactMain": "7508f2ca3bd568613c3e9ba7144bddf7f1f0d28c",
+      "implementationBranch": "ux/deal-runtime-unknown-20260929",
+      "allowedPaths": [
+        "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+        "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+        "apps/web/tests/unit/transactionUxV8Migration.test.ts",
+        ".github/workflows/ci.yml",
+        "docs/platform-v7/qa/web-unit-coverage-registry.json",
+        "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+        "apps/web/components/platform-v7/DealCommandForm.tsx",
+        "apps/web/i18n/transaction-deal-copy.ts",
+        "packages/design-system-v8/src/components.tsx"
+      ],
+      "exactSourcePaths": [
+        "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+        "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+        "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+        "apps/web/components/platform-v7/DealCommandForm.tsx",
+        "apps/web/i18n/transaction-deal-copy.ts",
+        "packages/design-system-v8/src/components.tsx"
+      ],
+      "exactSourcePins": [
+        [
+          "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+          "6f980ea5c83dc9776d51fe01b6f33bf21704a037",
+          "be57e8931fc5a056ed59039d9bf0da6f98aeb6fe"
+        ],
+        [
+          "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+          "4cf04d22287002bf90888847153bfe9759d8e1fd",
+          "1c669249fcf4451bc0655f506d975edc069fe81c"
+        ],
+        [
+          "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+          "699ae74d30128e72ccad0a4559ad40944b3ecda8",
+          "2099bb5fcd731368ffccecd096ebb10320379257"
+        ],
+        [
+          "apps/web/components/platform-v7/DealCommandForm.tsx",
+          "7bde1116c8e84e2f253da69431d867ceaa90663d",
+          "aba1af6c10dbbee0cee25cb13bdbce40145024a2"
+        ],
+        [
+          "apps/web/i18n/transaction-deal-copy.ts",
+          null,
+          "4db89dfdec3f5f871760461a60dd2f89194329a1"
+        ],
+        [
+          "packages/design-system-v8/src/components.tsx",
+          "3f95e51e99858debcd3f784e5b77b05be9619ccd",
+          "3f29bfef940801667273f066a02d34f20c2be8b5"
+        ]
+      ],
+      "reviewedPrivatePayloadSha256": "6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e",
+      "requiredTruthBoundaries": [
+        "Presentation only; actual route/locale/workspace/form and stable metadata labels. Original command controls, owner, identity, UNKNOWN/fingerprint, CSRF and permissions remain canonical.",
+        "The original five-path scope and all old records remain intact. This locale phase permits exactly the six pinned source/test files; it does not permit workflow, registry, generated inventory or scope changes.",
+        "No private source review transfers to an adopted SHA. Fresh whole-head nonauthor review, owner audit, native CI/security/readiness, expected-SHA merge and exact REG.RU protected acceptance remain required."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/role/tenant/money/provider/FGIS authority",
+        "Source-owned scope or guard changes",
+        "CI/security/readiness or review weakening",
+        "False live or external success"
+      ]
+    },
+    "deal-locale-generated-inventory-guard-purpose-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_1_EXECUTION",
+      "purpose": "Add a separate trusted generated-inventory completion phase for the already admitted immutable six-file Deal locale payload, after native SBOM discovery identified one newly scanned catalog file.",
+      "authorityBaseExactMain": "4f5d03b833f0064b4538aae751d74f17e6d67c88",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-deal-runtime-admission-20260929",
+      "futureImplementationBranch": "ux/deal-runtime-unknown-20260929",
+      "futureGeneratedPaths": [
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "trustedGenerator": {
+        "path": "scripts/security/discover-cryptography.mjs",
+        "blob": "6a5751eb031a514bcf7f26893c0003e6013107aa"
+      },
+      "immutableLocaleSourcePins": [
+        [
+          "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+          "6f980ea5c83dc9776d51fe01b6f33bf21704a037",
+          "be57e8931fc5a056ed59039d9bf0da6f98aeb6fe"
+        ],
+        [
+          "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+          "4cf04d22287002bf90888847153bfe9759d8e1fd",
+          "1c669249fcf4451bc0655f506d975edc069fe81c"
+        ],
+        [
+          "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+          "699ae74d30128e72ccad0a4559ad40944b3ecda8",
+          "2099bb5fcd731368ffccecd096ebb10320379257"
+        ],
+        [
+          "apps/web/components/platform-v7/DealCommandForm.tsx",
+          "7bde1116c8e84e2f253da69431d867ceaa90663d",
+          "aba1af6c10dbbee0cee25cb13bdbce40145024a2"
+        ],
+        [
+          "apps/web/i18n/transaction-deal-copy.ts",
+          null,
+          "4db89dfdec3f5f871760461a60dd2f89194329a1"
+        ],
+        [
+          "packages/design-system-v8/src/components.tsx",
+          "3f95e51e99858debcd3f784e5b77b05be9619ccd",
+          "3f29bfef940801667273f066a02d34f20c2be8b5"
+        ]
+      ],
+      "nativeFailureEvidence": {
+        "pr": 5757,
+        "head": "6d41a54b2d7d8581fc3d9a67cf72cefbbb2fa2cc",
+        "workflowRun": 36822141734,
+        "job": 110239819384,
+        "observedScannedFiles": 2294,
+        "baselineScannedFiles": 2293
+      },
+      "requiredTruthBoundaries": [
+        "Purpose only: append one record and preserve every prior state value/byte, primary/current/global/R1.2 permissions, every scope vector and admission, CORE ownership and official 5/100 progress. No new source or generated output is admitted here.",
+        "After separate purpose acceptance, use only the already admitted three-path trusted guard lane for a separately reviewed guard/test repair. Preserve all old phases, exact six locale source pins/modes, required audit/review/CI/security/readiness and metadata/attestation defenses.",
+        "Then separately accept exactly one metadata co-admission record and append only the two listed generated paths after all nine existing runtime paths. Preserve the immutable original locale admission record and all six source blobs. No runtime or generated output in this state phase.",
+        "The new completion phase must bind a genuine accepted guard base and verify its ancestry, unchanged state, exactly six admitted source changes plus both regular generated files, trusted accepted-base generator bytes/mode, full committed source blob/mode enumeration, attributable ancestor source-tree equality and byte-exact regenerated JSON/Markdown. Treat candidate application blobs as text; never execute candidate code.",
+        "The six-file presentation payload stays immutable. No arbitrary extra source, test, registry/workflow, source-owned guard/scope or crypto exclusion is granted. The existing protected route assertion receives a separate compatibility repair in its already admitted PRODUCT test lane, retaining actual canonical identity and command authority checks.",
+        "Every adopted current head requires fresh independent whole-diff review, author audit, all applicable native gates and ordinary expected-full-SHA merge. Unit/static/fixture/native acceptance is not actual REG.RU/provider/Founder13 production proof."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/role/tenant/money/provider/FGIS/model authority",
+        "General generated documentation or source scope",
+        "Security/readiness/coverage/review weakening or forced/automatic merge",
+        "Fake source/history/producer metadata or live/external PASS"
+      ],
+      "teamHubDependency": "#5469 owner-priority decision5925195179; accepted locale purpose5754/guard5755/admission5756; native source5757"
+    },
+    "deal-locale-generated-inventory-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_1_EXECUTION",
+      "purpose": "Complete the immutable six-file Deal locale transition with only its byte-exact trusted generated cryptographic inventory pair.",
+      "authorityBaseExactMain": "643e52a03c767e6f5d2957da0c0fed81c3d4b4fa",
+      "implementationBranch": "ux/deal-runtime-unknown-20260929",
+      "allowedPaths": [
+        "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+        "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+        "apps/web/tests/unit/transactionUxV8Migration.test.ts",
+        ".github/workflows/ci.yml",
+        "docs/platform-v7/qa/web-unit-coverage-registry.json",
+        "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+        "apps/web/components/platform-v7/DealCommandForm.tsx",
+        "apps/web/i18n/transaction-deal-copy.ts",
+        "packages/design-system-v8/src/components.tsx",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "retainedLocaleAdmissionKey": "deal-destination-locale-20261001",
+      "exactSourcePins": [
+        [
+          "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
+          "6f980ea5c83dc9776d51fe01b6f33bf21704a037",
+          "be57e8931fc5a056ed59039d9bf0da6f98aeb6fe"
+        ],
+        [
+          "apps/web/tests/unit/transactionDealWorkspaceRecovery.test.tsx",
+          "4cf04d22287002bf90888847153bfe9759d8e1fd",
+          "1c669249fcf4451bc0655f506d975edc069fe81c"
+        ],
+        [
+          "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+          "699ae74d30128e72ccad0a4559ad40944b3ecda8",
+          "2099bb5fcd731368ffccecd096ebb10320379257"
+        ],
+        [
+          "apps/web/components/platform-v7/DealCommandForm.tsx",
+          "7bde1116c8e84e2f253da69431d867ceaa90663d",
+          "aba1af6c10dbbee0cee25cb13bdbce40145024a2"
+        ],
+        [
+          "apps/web/i18n/transaction-deal-copy.ts",
+          null,
+          "4db89dfdec3f5f871760461a60dd2f89194329a1"
+        ],
+        [
+          "packages/design-system-v8/src/components.tsx",
+          "3f95e51e99858debcd3f784e5b77b05be9619ccd",
+          "3f29bfef940801667273f066a02d34f20c2be8b5"
+        ]
+      ],
+      "exactGeneratedPaths": [
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "trustedGenerator": {
+        "path": "scripts/security/discover-cryptography.mjs",
+        "mode": "100644",
+        "blob": "6a5751eb031a514bcf7f26893c0003e6013107aa"
+      },
+      "requiredTruthBoundaries": [
+        "Separate completion phase only. Preserve every old record and the immutable six source blobs; append only the two generated paths after the existing nine paths.",
+        "Unchanged state and exactly six source transitions plus both regular generated files; no arbitrary source, workflow, registry, guard or scope mutation.",
+        "Use only the unchanged pinned accepted-base generator and committed application blobs as text. Verify full source enumeration, modes, attributable ancestor/source-tree equality, and byte-exact JSON/Markdown reproduction.",
+        "Fresh whole-head independent review, separate owner audit, all applicable native CI/security/readiness and ordinary full-expected-SHA merge remain mandatory. No protected/live/provider/Founder13 acceptance is inferred."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/role/tenant/money/provider/FGIS/model authority",
+        "General source or generated-output permissions",
+        "Candidate-code execution during regeneration",
+        "CI/security/review/readiness weakening or false live/external PASS"
+      ]
+    },
+    "bank-release-currency-amount-guard-purpose-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew the accepted three-path trusted guard lane for a separately admitted immutable four-file BANK read-only currency and selected-operation amount consistency repair.",
+      "authorityBaseExactMain": "a569b4775c484530f670c07dc0c668ac2615a287",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-bank-fgis-ux-source-admission-20260924",
+      "futureImplementationBranch": "bank/deep-visible-copy-guard-20260924",
+      "retainedAdmissionKey": "bank-deep-visible-copy-guard-20260924-coordination",
+      "retainedSourceScope": [
+        "apps/web/app/platform-v7/bank/escrow/page.tsx",
+        "apps/web/app/platform-v7/bank/factoring/page.tsx",
+        "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+        "apps/web/app/platform-v7/profile/page.tsx",
+        "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+        "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+        "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+      ],
+      "futureAdditionalSourcePaths": [
+        "apps/web/lib/bank-release-server.ts",
+        "apps/web/tests/unit/bankReleaseServer.test.ts"
+      ],
+      "immutableSourcePins": [
+        [
+          "apps/web/lib/bank-release-server.ts",
+          "870a839e7087ef1114d805d818220471027c89fb",
+          "6ae431216dce41f07d6c73a8b3fe4231bd4c540d"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseServer.test.ts",
+          "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
+          "fe1c8bc089be2b409ad65837a4ba3985edbfb619"
+        ],
+        [
+          "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+          "55f1572c14283fb2b69153adba6cbe13622fd387",
+          "b67a3452e05ad97082ccfbcc0c4975302cb62df9"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+          "68382969c3b8f1bb8912a1c514fd71882470cf95",
+          "630599ff7ff0ca4338445fc8bba50d61cf07f4f6"
+        ]
+      ],
+      "requiredSourceMode": "100644",
+      "scopeManifest": {
+        "path": "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+        "baselineBlob": "c7a015a9449578df7fbd325aae81f2d3795a4523",
+        "mode": "100644",
+        "permittedTransformation": "Preserve all other bytes and metadata; append the two admitted paths after the original seven allowedPaths and bind authorityBaseExactMain to the genuine accepted co-admission guard base."
+      },
+      "reviewedPrivatePayload": {
+        "comment": 5917883797,
+        "bytes": 22121,
+        "sha256": "3d3bd96794171e61e1531c8ef3b13c1157ff389c7d979adf8d600944c819432b",
+        "privateCurrentTests": {
+          "candidatePass": 81,
+          "baselinePass": 61,
+          "baselineFail": 20,
+          "nativePostgresqlOrProviderPass": false
+        }
+      },
+      "requiredTruthBoundaries": [
+        "Purpose only: append this one record with exact old-state byte preservation. No primary/global/R1.2 scope, approvedConcurrentScopes, existing admission, source, workflow, progress or ownership change.",
+        "After separate acceptance, use only the already admitted three-path trusted guard lane for a distinct exact state-only co-admission and immutable source phase. Retain every prior guard phase, review/security/readiness defense and existing Deal locale admissions and generated-inventory phase.",
+        "The later state-only phase preserves all seven BANK paths and every original admission byte/value, appends only bank-release-server.ts and bankReleaseServer.test.ts after that prefix, adds one literal ACCOUNT_2_PRODUCT-owned co-record bound to actual accepted guard main, and rejects arbitrary permission/owner/progress/base changes, duplicate keys or reserialization.",
+        "Only after separately accepted state, the original BANK source ref may carry the four exact old/new source blobs plus its one already admitted exact transformed manifest, all regular100644. No scope state, guard, workflow, other source or arbitrary metadata can ride with this immutable phase.",
+        "Preserve canonical typed GET-only Deal workspace, exact Deal/tenant/participant identity, server-owned permissions, all existing payout prerequisites/callback/outbox evidence and UNKNOWN external reconciliation. Selected RESERVE and RELEASE must agree with canonical Deal amount and currency; discrepancies require manual review and cannot establish request readiness or RELEASED.",
+        "Render the canonical persisted currency in RU/EN/ZH without substituting RUB, hiding selected-operation amount conflicts or mutating financial facts. No release, reserve, callback, provider, integration-binding, settlement, ledger or regulatory authority is granted to this consumer projection.",
+        "The complete four-file payload is immutable; currency-only or page-only adoption leaves amount conflicts unprotected. Unit response/render doubles and private review are not native PostgreSQL, authenticated browser, provider, Founder13 or REG.RU acceptance.",
+        "Preserve original source authors and ACCOUNT_2_PRODUCT source ownership plus canonical CORE/API authority. Use a bounded Team Hub continuation decision on the original source ref, normal history-preserving updates, fresh full current-head independent nonauthor review, separate owner audit, all native CI/security/readiness and ordinary expected-full-SHA merge."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/RLS/role/tenant/auth/session/command/money/provider/FGIS/legal/model authority",
+        "Arbitrary source, scope or generated-document permissions",
+        "Changes to original admissions, source authors, ownership or official5/100 progress",
+        "CI/security/readiness/review weakening, fake evidence, forced/automatic merge or live/provider acceptance inference"
+      ],
+      "teamHubDependency": "#5469 owner-priority decision5925195179; canonical BANK #5525 complete immutable source5917883797; exact current consumer source/read-only evidence; original BANK scope/claim retained"
+    },
+    "bank-release-reserve-evidence-guard-purpose-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+      "purpose": "Require complete canonical RESERVE evidence and replace only two defective private candidate pins before any BANK money co-admission or source acceptance.",
+      "authorityBaseExactMain": "2e08e8e5a51a154269f59de3adede9b1e93eabee",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "priorPurposeKey": "bank-release-currency-amount-guard-purpose-20261001",
+      "futureAdmissionBranch": "governance/product-bank-fgis-ux-source-admission-20260924",
+      "futureImplementationBranch": "bank/deep-visible-copy-guard-20260924",
+      "replacesOnlyPrivateCandidatePins": [
+        [
+          "apps/web/lib/bank-release-server.ts",
+          "6ae431216dce41f07d6c73a8b3fe4231bd4c540d",
+          "54e276cc387366a4068c4a9358aea1dcfa0ebc18"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseServer.test.ts",
+          "fe1c8bc089be2b409ad65837a4ba3985edbfb619",
+          "2ab6b6c3ac056b3d08eb76450fd0c54e97bff304"
+        ]
+      ],
+      "immutableSourcePins": [
+        [
+          "apps/web/lib/bank-release-server.ts",
+          "870a839e7087ef1114d805d818220471027c89fb",
+          "54e276cc387366a4068c4a9358aea1dcfa0ebc18"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseServer.test.ts",
+          "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
+          "2ab6b6c3ac056b3d08eb76450fd0c54e97bff304"
+        ],
+        [
+          "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+          "55f1572c14283fb2b69153adba6cbe13622fd387",
+          "b67a3452e05ad97082ccfbcc0c4975302cb62df9"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+          "68382969c3b8f1bb8912a1c514fd71882470cf95",
+          "630599ff7ff0ca4338445fc8bba50d61cf07f4f6"
+        ]
+      ],
+      "reviewedPrivatePayload": {
+        "comment": 5928120402,
+        "bytes": 24835,
+        "sha256": "8c05b77b82a722c6ca21118ed0b7c7dcc2dec549f93e4b77e6a2349a9b8ef06e",
+        "bankUnitTests": {
+          "pass": 123,
+          "fail": 0,
+          "skip": 0
+        },
+        "oldPrivatePinFailureControl": {
+          "pass": 81,
+          "fail": 42,
+          "skip": 0
+        },
+        "fullCurrentPrivateComposedUnits": {
+          "pass": 553,
+          "fail": 0,
+          "skip": 0
+        },
+        "fullWebTypesPass": true,
+        "nativeOrLivePass": false
+      },
+      "nativeFinding": {
+        "pr": 5763,
+        "head": "ee06780024fba69ae7b59f89846515ced7a61e35",
+        "comment": 4153516112
+      },
+      "requiredTruthBoundaries": [
+        "Append this one correction-purpose record only; retain every original purpose, old state byte/value, current scope, owner, progress, application source and workflow unchanged. No present source grant.",
+        "The separately accepted trusted guard must require both original and this exact correction purpose from BASE before the original state-only seven-plus-two co-admission or immutable source phase. Candidate HEAD cannot self-admit the correction or source.",
+        "Only the two defective PRIVATE candidate pins are superseded; preserve all four original baseline pins, the unchanged page and route-test candidate pins, original source author and ACCOUNT_2_PRODUCT source ownership/ref, original seven-path prefix and exact existing manifest transformation.",
+        "A released projection requires persisted payment reservation plus the selected canonical RESERVE amount/currency, DONE status, confirmation timestamp and bank reference. Missing/unconfirmed/newer-pending reserve evidence cannot be hidden by confirmed RELEASE, callback, outbox or RELEASED/CLOSED status.",
+        "Preserve all previous amount/currency mismatch defenses, GET-only canonical Deal/tenant/participant permissions, release/callback/outbox prerequisites, UNKNOWN external reconciliation and every legacy scope/review/security/readiness defense. No financial/API/provider/FGIS/CORE/JIT authority is granted.",
+        "Keep native P14153516112 open until fresh full corrected current-head independent review and actual substantive gates; separate author audit and ordinary expected-full-SHA merge remain required. Old-head reviews/gates and private response doubles do not establish corrected native/provider/Founder13/REG.RU acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Primary/global/R1.2 permission, old admission, ownership or official5/100 mutation",
+        "Arbitrary source/pin/scope/metadata change or partial currency-only adoption",
+        "CI/review/security/readiness weakening, fake evidence or forced/automatic merge",
+        "API/DB/role/tenant/session/command/money/provider/FGIS/legal/model authority"
+      ]
+    },
+    "bank-release-currency-amount-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+      "canonicalApiOwnerRetained": "ACCOUNT_1_EXECUTION",
+      "purpose": "Apply only the immutable four-file read-only BANK currency and selected-operation amount consistency payload plus its exact existing scope-manifest update.",
+      "authorityBaseExactMain": "278b5da11666433889c61792b0712c50aaf27107",
+      "implementationBranch": "bank/deep-visible-copy-guard-20260924",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/bank/escrow/page.tsx",
+        "apps/web/app/platform-v7/bank/factoring/page.tsx",
+        "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+        "apps/web/app/platform-v7/profile/page.tsx",
+        "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+        "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+        "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+        "apps/web/lib/bank-release-server.ts",
+        "apps/web/tests/unit/bankReleaseServer.test.ts"
+      ],
+      "retainedAdmissionKey": "bank-deep-visible-copy-guard-20260924-coordination",
+      "exactSourcePins": [
+        [
+          "apps/web/lib/bank-release-server.ts",
+          "870a839e7087ef1114d805d818220471027c89fb",
+          "54e276cc387366a4068c4a9358aea1dcfa0ebc18"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseServer.test.ts",
+          "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
+          "2ab6b6c3ac056b3d08eb76450fd0c54e97bff304"
+        ],
+        [
+          "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+          "55f1572c14283fb2b69153adba6cbe13622fd387",
+          "b67a3452e05ad97082ccfbcc0c4975302cb62df9"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+          "68382969c3b8f1bb8912a1c514fd71882470cf95",
+          "630599ff7ff0ca4338445fc8bba50d61cf07f4f6"
+        ]
+      ],
+      "exactManifestPath": "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+      "baselineManifestBlob": "c7a015a9449578df7fbd325aae81f2d3795a4523",
+      "correctionPurposeKey": "bank-release-reserve-evidence-guard-purpose-20261001",
+      "reviewedPrivatePayloadSha256": "8c05b77b82a722c6ca21118ed0b7c7dcc2dec549f93e4b77e6a2349a9b8ef06e",
+      "requiredTruthBoundaries": [
+        "Preserve the seven-path prefix and every old admission byte/value. Append only two read-only web source/test paths; no server, provider, money mutation or legal authority.",
+        "The source phase requires all four immutable100644 source transitions and only the exact accepted-manifest path/base transformation, unchanged state and genuine accepted-base ancestry.",
+        "Preserve canonical GET-only Deal/tenant/participant permissions, UNKNOWN external outcome and all callback/outbox prerequisites. Currency/selected RESERVE and RELEASE amount conflicts cannot establish readiness or RELEASED.",
+        "A released projection requires persisted payment reservation and the selected canonical RESERVE amount/currency, DONE status, confirmation timestamp and bank reference; missing/unconfirmed/newer-pending reserve evidence remains manual review.",
+        "Fresh independent full current-head review, separate owner audit, every substantive native CI/security/readiness gate and ordinary expected-full-SHA merge remain mandatory. Private unit doubles are not PostgreSQL/browser/provider/Founder13/REG.RU acceptance."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/RLS/role/tenant/session/command/money/provider/FGIS/legal/model authority",
+        "Arbitrary source/scope/metadata changes",
+        "CI/security/readiness/review weakening or fake acceptance"
+      ]
+    },
+    "deal-execution-route-guard-purpose-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew only the already admitted protected guard ref to bind the exact Deal execution route prerequisite, including trusted-base workflow routing after native review proved PRIMARY inheritance, inert source pins and candidate-owned guard execution.",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "retainedAcceptedGuardScope": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-deal-execution-route-20261001",
+      "futureImplementationBranch": "fix/deal-execution-route-20261001",
+      "futureAllowedPaths": [
+        "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+        "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+        "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts"
+      ],
+      "futureExactSourcePins": [
+        [
+          "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+          "b9b96c88695c7960a309e98e691c348fec03a2b0",
+          "d94cc0d0af208fd6faea32e321a136629bef44f8"
+        ],
+        [
+          "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+          "87ebc91bcc9a927dd6ad2d6f9afdfff8737d47bd",
+          "a1290dc9b3ba122de480200ff5efa86445b5fe66"
+        ],
+        [
+          "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts",
+          "0e7d10b62a722802c76e73f2eb2e618953a383c5",
+          "043c10b308d52091cebb1b7a26dd31fc23a0bc45"
+        ]
+      ],
+      "requiredFutureSourceMode": "100644",
+      "privateRoutePayloadSha256": "d4c4bf61d3813e2d0d4b9c364c81941ab88039b078413addc5eb1d3ca750e884",
+      "blockingNativeFindings": [
+        4155054017,
+        4155054022,
+        4155554749
+      ],
+      "grantRouteSourceAuthority": false,
+      "guardAdoptionRequiresCoreHandoff": true,
+      "requiredTruthBoundaries": [
+        "Purpose only: renew this one record without a route SOURCE vector. All other old state bytes/values, admissions/vectors, PRIMARY/current/global/R1.2 scope, official5/100 and runtime remain unchanged.",
+        "Renew only the existing protected three-path guard ref; the correction changes exactly the three recorded guard/test/workflow blobs with original100755/100644/100644 modes and unchanged accepted state. Do not introduce another shared guard writer.",
+        "The accepted guard must discard PRIMARY/source-controlled expansion for the route SOURCE ref, bind exact trusted-base state/three paths/blobs/modes/ancestry and reject extra, partial, wrong-byte, wrong-mode, rename/delete and candidate-owned authority cases.",
+        "Both exact route branches must run the accepted BASE guard in the existing pull_request_target immutable job and PR-head defense, pass both shell allow-lists, and be excluded from candidate-owned standard/active guard paths. Preserve every old predicate, workflow trigger, permission, check binding and all other branches; do not let a candidate guard/test replace its validator.",
+        "The next state-only admission and route SOURCE remain separate accepted-base-reviewed native-gated phases. Purpose and guard code grant no route SOURCE vector, ordinary role/session/money/provider authority or live acceptance.",
+        "CORE retains current source and first-merge priority. Every guard/admission/SOURCE adoption waits for actual handoff, fresh MAIN/Hub/ownership checks, independent complete-head review, strict author audit, all substantive native/security gates and normal expected-full-SHA manual merge."
+      ],
+      "forbiddenAuthority": [
+        "SOURCE route/self-admission or arbitrary scope/state changes",
+        "CORE/API/DB/RLS/role/session/money/provider/FGIS/deployment authority",
+        "CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
+      ],
+      "authorityBaseExactMain": "fe04c9fd95c80fa5f1d936e2427154d264b6b62b",
+      "exactGuardSourcePins": [
+        [
+          "scripts/p7-autopilot-guard.sh",
+          "38be109d11422546c07fd96db283d848599a709f",
+          "28ec450dfdc88a32afa3a574f2509e3583cdcbc4",
+          "100755"
+        ],
+        [
+          "scripts/p7-autopilot-guard.test.mjs",
+          "db910d2e6c2521957fb8719f7e5af659a8cd0165",
+          "66a1b053e516f168addeb7fe0e1d7f15979b154e",
+          "100644"
+        ],
+        [
+          ".github/workflows/platform-v7-autopilot-guard.yml",
+          "90f6c2b52b25b7a4f09446b7dafb36270f9969dc",
+          "3d860d0d5ba72d27b790e129973466ca6d827635",
+          "100644"
+        ]
+      ]
+    },
+    "canonical-readiness-cor5-4829-20261001": {
+      "owner": "ACCOUNT_1_CORE",
+      "issue": 4829,
+      "implementationBranch": "fix/readiness-database-deadline-4829",
+      "purpose": "Owner-approved single atomic CORE availability prerequisite: immutable COR5, exact staff race-test prerequisite and five governance documents. No PRODUCT or TAI source takeover.",
+      "authorityBaseExactMain": "5c43cd64fd61ee2e134ef319fa6c6087f1a37f14",
+      "proposalComment": 5930247718,
+      "independentProposalReviewComment": 5932138051,
+      "proposalSha256": "fe1f1a60d5ad914b5056bf5f94ec2f56032d24a647652f13c9926e33becb556b",
+      "proposalBytes": 32089,
+      "allowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json",
+        "docs/platform-v7/autopilot/progress.json",
+        "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+        "docs/platform-v7/autopilot/prompts/current-review-task.md",
+        "docs/platform-v7/execution-queue.md",
+        "apps/api/test/staff-access/postgresql-staff-access.e2e-spec.ts",
+        "apps/api/src/main.ts",
+        "apps/api/src/health.controller.ts",
+        "apps/api/src/health.controller.spec.ts",
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts",
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts"
+      ],
+      "reviewRequiredSourceTransitions": {
+        "apps/api/src/main.ts": {
+          "before": "99856d16475bc904e7e8a35454d1cc7e17fc54ee",
+          "after": "7e7e7818b8a11f686ede92ae9ed2225c009dba94",
+          "mode": "100644"
+        },
+        "apps/api/src/health.controller.ts": {
+          "before": "783c038a7c73668e4794b14ead69b3b5748c8425",
+          "after": "5487cc4565a904a26d2c7d6d0934a4e6e02869db",
+          "mode": "100644"
+        },
+        "apps/api/src/health.controller.spec.ts": {
+          "before": "76b59ac63489ce82b29075145fdf8751b2af3238",
+          "after": "7dd044f73de9d6e45880889898dcca04ba6bf162",
+          "mode": "100644"
+        },
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts": {
+          "before": "d8f8458bb1079e3ed9352f3e07890e981460836c",
+          "after": "a429bd42c7ef66837b484d57c66dfa319be02495",
+          "mode": "100644"
+        },
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts": {
+          "before": "f483bd1076b9ce50092de687170a20132cf7f3e9",
+          "after": "141d9e9dfb7fd2334b446bc5bf00d6c28dc3ad85",
+          "mode": "100644"
+        }
+      },
+      "enforcementLimit": "Unchanged standard candidate-head routing and additive legacy manifest are not an immutable exact-eleven gate. Independent whole-head review must enforce the externally approved exact eleven paths and six source blobs/modes, and verify every other tree leaf and accepted coordination object unchanged. No guard/workflow/manifest/PgBouncer/threshold change.",
+      "serialization": "Preserve PRODUCT writer handoff5933030140 and apply later owner atomic disposition5935185862 for this bounded window only. Recheck fresh main/Hub and existing owners before publication or merge; preserve accepted PRODUCT purpose3 and guard/test/workflow bytes; return the completed window through an actual handoff.",
+      "productionAcceptance": false,
+      "newRecurringCostRub": 0,
+      "resumeAfterAcceptedSource": "Prioritize the existing Gekta owner's real model activation and live quality/speed/stability acceptance under its separate admitted scopes and remaining topology/release gates; R1.3 remains queued for its own scope transition.",
+      "acceptedWriterHandoffComment": 5933030140,
+      "staffTestPrerequisite": {
+        "pullRequest": 5771,
+        "sourceHead": "e358177634856c9e71a0961497e7802f49213485",
+        "path": "apps/api/test/staff-access/postgresql-staff-access.e2e-spec.ts",
+        "before": "2b7e9aa13245d33fde061c8bbea7b8816ecabefc",
+        "after": "1b0010715cbcd636d15b1c9c4e5587baca16137c",
+        "mode": "100644",
+        "sha256": "479a0a3ba18845c0f77b485f238778c26ee1901a7f3e2c0f4b167a1fce75ba7e"
+      },
+      "ownerApprovedAtomicDisposition": {
+        "comment": 5935185862,
+        "url": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5935185862",
+        "approvedAt": "2026-10-01",
+        "scope": "Exactly these eleven existing regular files; replaces metadata-first/source-separation sequencing for this prerequisite only",
+        "sourceOwner": "ACCOUNT_1_CORE",
+        "sourceAttribution": "Unchanged COR5 proposal #4829/comment5930247718; staff race-test source #5771/e358177634856c9e71a0961497e7802f49213485; governance proposal #5770/056b185503e2db46956d2e6b76b78e936e963b37"
+      },
+      "historyPreservation": {
+        "originalReadinessHead": "1c3cc7ca2132520b31c97f7a5bc4c78e51bf0c44",
+        "metadataProposalHead": "056b185503e2db46956d2e6b76b78e936e963b37",
+        "staffTestProposalHead": "e358177634856c9e71a0961497e7802f49213485",
+        "rule": "Preserve all three histories through ordinary ancestry. #5770 Security Abuse and #5771 Kubernetes failures remain preserved; supersession and writer handoff only after actual atomic acceptance."
+      }
+    }
+  }
 }
