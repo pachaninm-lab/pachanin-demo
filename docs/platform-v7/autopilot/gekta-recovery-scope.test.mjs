@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 
 const scopes = {
   "fix/gekta-model-control-probe-20261001": [
@@ -248,4 +249,57 @@ test('read-only diagnostic: rejects workflow-to-gitlink mode transition', t => {
     env: { ...process.env, BASE_REF: c.base, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: c.branch } });
   assert.notEqual(r.status, 0, r.stdout + r.stderr);
   assert.match(r.stderr, /GEKTA_READONLY_DIAGNOSTIC_REGULAR_EXISTING_WORKFLOW_ONLY/u);
+});
+
+test('read-only diagnostic: a source-only PR triggers and selects PR-head defense', () => {
+  function pullRequestFilter(source) {
+    const lines = source.split('\n');
+    const on = lines.indexOf('on:');
+    assert.notEqual(on, -1);
+    const topLevelEnd = lines.findIndex((line, i) => i > on && /^\S/u.test(line));
+    const events = lines.slice(on + 1, topLevelEnd < 0 ? undefined : topLevelEnd);
+    const start = events.indexOf('  pull_request:');
+    assert.notEqual(start, -1, 'pull_request event is required, not only pull_request_target');
+    const end = events.findIndex((line, i) => i > start && /^  \S/u.test(line));
+    const event = events.slice(start + 1, end < 0 ? undefined : end);
+    assert.ok(!event.includes('    paths-ignore:'), 'Do not combine paths and paths-ignore');
+    const list = key => {
+      const index = event.indexOf(`    ${key}:`);
+      if (index < 0) return null;
+      const values = [];
+      for (let i = index + 1; i < event.length && event[i].startsWith('      - '); i += 1) {
+        values.push(event[i].slice(8).trim().replace(/^['"]|['"]$/gu, ''));
+      }
+      return values;
+    };
+    return { branches: list('branches'), paths: list('paths'), types: list('types') ?? ['opened', 'synchronize', 'reopened'] };
+  }
+  const matchesPath = (pattern, file) => {
+    const escaped = pattern.replace(/[.+^${}()|[\]\\]/gu, '\\$&');
+    const expression = escaped.replace(/\*\*|\*|\?/gu, glob => glob === '**' ? '.*' : glob === '*' ? '[^/]*' : '[^/]');
+    return new RegExp(`^${expression}$`, 'u').test(file);
+  };
+  const triggers = (source, action, file, base = 'main') => {
+    const filter = pullRequestFilter(source);
+    return filter.branches?.includes(base) && filter.types.includes(action) && filter.paths?.some(pattern => matchesPath(pattern, file));
+  };
+  const defense = workflow.match(/- name: Validate immutable scope with trusted base guard on PR head\n        if: >-\n([\s\S]*?)        env:/u)?.[1];
+  assert.ok(defense, 'The actual PR-head defense condition is required');
+  const selected = runInNewContext(`(${defense})`, { github: { event_name: 'pull_request', head_ref: readonlyDiagnosticBranch } }, { timeout: 1000 });
+  assert.equal(selected, true);
+  const filter = pullRequestFilter(workflow);
+  assert.equal(filter.paths.filter(file => file === readonlyDiagnosticPath).length, 1, 'The exact source path must be in pull_request.paths');
+  const line = `      - '${readonlyDiagnosticPath}'\n`;
+  assert.equal(workflow.split(line).length - 1, 1);
+  const missingTrigger = workflow.replace(line, '');
+  for (const action of ['opened', 'synchronize', 'reopened']) {
+    assert.equal(triggers(workflow, action, readonlyDiagnosticPath) && selected, true, action);
+    assert.equal(triggers(missingTrigger, action, readonlyDiagnosticPath), false, `${action}: selectors alone must not mask a missing event trigger`);
+    assert.equal(triggers(workflow, action, '.github/workflows/unrelated-model-control.yml'), false);
+    assert.equal(triggers(workflow, action, readonlyDiagnosticPath, 'not-main'), false);
+  }
+  assert.deepEqual(pullRequestFilter(missingTrigger).paths, filter.paths.filter(file => file !== readonlyDiagnosticPath));
+  for (const marker of [`github.event.pull_request.head.ref == '${readonlyDiagnosticBranch}'`, `github.head_ref == '${readonlyDiagnosticBranch}'`, `github.head_ref != '${readonlyDiagnosticBranch}'`, `|${readonlyDiagnosticBranch}|`]) {
+    assert.equal(missingTrigger.split(marker).length, workflow.split(marker).length, 'Removing the event trigger leaves every selector unchanged');
+  }
 });

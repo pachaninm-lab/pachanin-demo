@@ -19,6 +19,7 @@ on:
       - '.gitleaksignore'
       - 'apps/tai/tests/test_gitleaks_release_authority.py'
       - '.github/workflows/local-qwen-independent-review.yml'
+      - '.github/workflows/gekta-p0-speed-model-host-control-probe.yml'
       - '.github/workflows/pc-crop-w1-production-acceptance.yml'
       - 'scripts/production-pc-crop-w1-migrations.sh'
       - 'scripts/check-production-pc-crop-w1-acceptance.mjs'
