@@ -3210,6 +3210,92 @@
         "Candidate-code execution during regeneration",
         "CI/security/review/readiness weakening or false live/external PASS"
       ]
+    },
+    "bank-release-currency-amount-guard-purpose-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew the accepted three-path trusted guard lane for a separately admitted immutable four-file BANK read-only currency and selected-operation amount consistency repair.",
+      "authorityBaseExactMain": "a569b4775c484530f670c07dc0c668ac2615a287",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-bank-fgis-ux-source-admission-20260924",
+      "futureImplementationBranch": "bank/deep-visible-copy-guard-20260924",
+      "retainedAdmissionKey": "bank-deep-visible-copy-guard-20260924-coordination",
+      "retainedSourceScope": [
+        "apps/web/app/platform-v7/bank/escrow/page.tsx",
+        "apps/web/app/platform-v7/bank/factoring/page.tsx",
+        "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+        "apps/web/app/platform-v7/profile/page.tsx",
+        "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+        "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+        "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+      ],
+      "futureAdditionalSourcePaths": [
+        "apps/web/lib/bank-release-server.ts",
+        "apps/web/tests/unit/bankReleaseServer.test.ts"
+      ],
+      "immutableSourcePins": [
+        [
+          "apps/web/lib/bank-release-server.ts",
+          "870a839e7087ef1114d805d818220471027c89fb",
+          "6ae431216dce41f07d6c73a8b3fe4231bd4c540d"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseServer.test.ts",
+          "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
+          "fe1c8bc089be2b409ad65837a4ba3985edbfb619"
+        ],
+        [
+          "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+          "55f1572c14283fb2b69153adba6cbe13622fd387",
+          "b67a3452e05ad97082ccfbcc0c4975302cb62df9"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+          "68382969c3b8f1bb8912a1c514fd71882470cf95",
+          "630599ff7ff0ca4338445fc8bba50d61cf07f4f6"
+        ]
+      ],
+      "requiredSourceMode": "100644",
+      "scopeManifest": {
+        "path": "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+        "baselineBlob": "c7a015a9449578df7fbd325aae81f2d3795a4523",
+        "mode": "100644",
+        "permittedTransformation": "Preserve all other bytes and metadata; append the two admitted paths after the original seven allowedPaths and bind authorityBaseExactMain to the genuine accepted co-admission guard base."
+      },
+      "reviewedPrivatePayload": {
+        "comment": 5917883797,
+        "bytes": 22121,
+        "sha256": "3d3bd96794171e61e1531c8ef3b13c1157ff389c7d979adf8d600944c819432b",
+        "privateCurrentTests": {
+          "candidatePass": 81,
+          "baselinePass": 61,
+          "baselineFail": 20,
+          "nativePostgresqlOrProviderPass": false
+        }
+      },
+      "requiredTruthBoundaries": [
+        "Purpose only: append this one record with exact old-state byte preservation. No primary/global/R1.2 scope, approvedConcurrentScopes, existing admission, source, workflow, progress or ownership change.",
+        "After separate acceptance, use only the already admitted three-path trusted guard lane for a distinct exact state-only co-admission and immutable source phase. Retain every prior guard phase, review/security/readiness defense and existing Deal locale admissions and generated-inventory phase.",
+        "The later state-only phase preserves all seven BANK paths and every original admission byte/value, appends only bank-release-server.ts and bankReleaseServer.test.ts after that prefix, adds one literal ACCOUNT_2_PRODUCT-owned co-record bound to actual accepted guard main, and rejects arbitrary permission/owner/progress/base changes, duplicate keys or reserialization.",
+        "Only after separately accepted state, the original BANK source ref may carry the four exact old/new source blobs plus its one already admitted exact transformed manifest, all regular100644. No scope state, guard, workflow, other source or arbitrary metadata can ride with this immutable phase.",
+        "Preserve canonical typed GET-only Deal workspace, exact Deal/tenant/participant identity, server-owned permissions, all existing payout prerequisites/callback/outbox evidence and UNKNOWN external reconciliation. Selected RESERVE and RELEASE must agree with canonical Deal amount and currency; discrepancies require manual review and cannot establish request readiness or RELEASED.",
+        "Render the canonical persisted currency in RU/EN/ZH without substituting RUB, hiding selected-operation amount conflicts or mutating financial facts. No release, reserve, callback, provider, integration-binding, settlement, ledger or regulatory authority is granted to this consumer projection.",
+        "The complete four-file payload is immutable; currency-only or page-only adoption leaves amount conflicts unprotected. Unit response/render doubles and private review are not native PostgreSQL, authenticated browser, provider, Founder13 or REG.RU acceptance.",
+        "Preserve original source authors and ACCOUNT_2_PRODUCT source ownership plus canonical CORE/API authority. Use a bounded Team Hub continuation decision on the original source ref, normal history-preserving updates, fresh full current-head independent nonauthor review, separate owner audit, all native CI/security/readiness and ordinary expected-full-SHA merge."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/RLS/role/tenant/auth/session/command/money/provider/FGIS/legal/model authority",
+        "Arbitrary source, scope or generated-document permissions",
+        "Changes to original admissions, source authors, ownership or official5/100 progress",
+        "CI/security/readiness/review weakening, fake evidence, forced/automatic merge or live/provider acceptance inference"
+      ],
+      "teamHubDependency": "#5469 owner-priority decision5925195179; canonical BANK #5525 complete immutable source5917883797; exact current consumer source/read-only evidence; original BANK scope/claim retained"
     }
   }
 }
