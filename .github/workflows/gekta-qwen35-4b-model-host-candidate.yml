@@ -124,6 +124,169 @@ jobs:
             echo 'privileged subprocess capability is forbidden' >&2
             exit 1
           fi
+      - name: Prove OS-bound identity and credential-free real pre-exec
+        run: |
+          set -Eeuo pipefail
+          python3 <<'PYGUARD'
+          import contextlib
+          import importlib.util
+          import io
+          import json
+          import os
+          import pathlib
+          from unittest import mock
+
+          path = pathlib.Path('scripts/gekta-qwen35-4b-model-host-candidate.py').resolve()
+          spec = importlib.util.spec_from_file_location('qwen35_key_guard', path)
+          module = importlib.util.module_from_spec(spec)
+          assert spec.loader is not None
+          spec.loader.exec_module(module)
+          marker = 'SYNTHETIC_NOT_A_CREDENTIAL_7f914ef09a8b4c11'
+          valid = ['/fixture/llama-server', '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS]
+          assert module.candidate_exec_argv_status(valid) == 0
+          assert module.candidate_exec_argv_status([valid[0], '--model=' + str(module.CANDIDATE_PATH), '--alias=' + module.CANDIDATE_ALIAS]) == 0
+          for flags in [
+              ['--api-key', marker], ['--api-key=' + marker],
+              ['--api_key', marker], ['--api_key=' + marker],
+              ['--api-key'], ['--api-key='],
+              ['--api-key', marker, '--api-key=' + marker],
+          ]:
+              argv = valid + flags
+              assert module.candidate_exec_argv_status(argv) == 84
+              read_fd, write_fd = os.pipe()
+              try:
+                  os.write(write_fd, b'G')
+                  os.close(write_fd)
+                  write_fd = -1
+                  with mock.patch.dict(os.environ, {'QWEN35_GUARDED_ARGV_JSON': json.dumps(argv)}), \
+                       mock.patch.object(module.os, 'execvpe') as exec_mock, \
+                       mock.patch.object(module.os, 'nice') as nice_mock:
+                      assert module.candidate_exec_guard(read_fd) == 84
+                      read_fd = -1
+                      exec_mock.assert_not_called()
+                      nice_mock.assert_not_called()
+              finally:
+                  for fd in (read_fd, write_fd):
+                      if fd >= 0:
+                          with contextlib.suppress(OSError):
+                              os.close(fd)
+          prepared = [os.fsencode(item) for item in valid]
+          observed = prepared + [b'--api-key=' + marker.encode('ascii')]
+          output = io.StringIO()
+          with contextlib.redirect_stdout(output):
+              try:
+                  module.require_candidate_keyless_argv(prepared, observed)
+              except module.CandidateError as exc:
+                  assert str(exc) == 'candidate_key_present_in_cmdline'
+              else:
+                  raise AssertionError('observed key must fail closed')
+          assert output.getvalue().splitlines() == [
+              'QWEN35_CANDIDATE_ARGV_DIAGNOSTIC_VERSION=v1',
+              'QWEN35_CANDIDATE_ARGV_PREPARED_API_KEY=absent',
+              'QWEN35_CANDIDATE_ARGV_OBSERVED_API_KEY=joined',
+              'QWEN35_CANDIDATE_ARGV_CHANGED_AFTER_EXEC=1',
+          ]
+          assert marker not in output.getvalue()
+          import subprocess
+          import sys
+          import tempfile
+
+          # Re-import the complete actual helper in independent interpreters. No HOME
+          # value, OS-account path or generated credential is emitted by the test.
+          status_probe = '''import importlib.util,json,sys
+          s=importlib.util.spec_from_file_location("probe",sys.argv[1])
+          m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+          print(m.candidate_exec_argv_status(json.loads(sys.argv[2])))
+          '''
+          for home in ('/synthetic/ssh-home', '/synthetic/service-home', None):
+              env = dict(os.environ)
+              if home is None:
+                  env.pop('HOME', None)
+              else:
+                  env['HOME'] = home
+              result = subprocess.run(
+                  [sys.executable, '-c', status_probe, str(path), json.dumps(valid)],
+                  env=env, capture_output=True, text=True, timeout=5, check=True,
+              )
+              assert result.stdout == '0\n' and result.stderr == ''
+
+          guard_probe = '''import importlib.util,sys
+          s=importlib.util.spec_from_file_location("guard",sys.argv[1])
+          m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+          sys.exit(m.candidate_exec_guard(int(sys.argv[2])))
+          '''
+          with tempfile.TemporaryDirectory() as temporary:
+              root = pathlib.Path(temporary)
+              evidence = root / 'exec.json'
+              executable = root / 'synthetic-exec'
+              executable.write_text('#!' + sys.executable + '\n' + '''import json,os,pathlib,sys
+          pathlib.Path(os.environ['QWEN35_TEST_MARKER_PATH']).write_text(json.dumps({
+              'pid': os.getpid(), 'nice': os.getpriority(os.PRIO_PROCESS, 0),
+              'home': os.environ.get('HOME'),
+              'key_preserved': os.environ.get('LLAMA_API_KEY') == 'SYNTHETIC_NOT_A_CREDENTIAL',
+              'guard_env_present': 'QWEN35_GUARDED_ARGV_JSON' in os.environ,
+              'argv': sys.argv[1:]
+          }))
+          ''')
+              executable.chmod(0o700)
+              fake_argv = [str(executable), '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS]
+
+              def real_guard(argv):
+                  read_fd, write_fd = os.pipe()
+                  try:
+                      os.write(write_fd, b'G')
+                      os.close(write_fd)
+                      write_fd = -1
+                      env = {
+                          **os.environ,
+                          'HOME': '/synthetic/service-home',
+                          'LLAMA_API_KEY': 'SYNTHETIC_NOT_A_CREDENTIAL',
+                          'QWEN35_TEST_MARKER_PATH': str(evidence),
+                          'QWEN35_GUARDED_ARGV_JSON': json.dumps(argv),
+                      }
+                      with subprocess.Popen(
+                          [sys.executable, '-c', guard_probe, str(path), str(read_fd)],
+                          env=env, pass_fds=(read_fd,), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                      ) as child:
+                          try:
+                              out, err = child.communicate(timeout=5)
+                          except subprocess.TimeoutExpired:
+                              child.kill()
+                              child.communicate()
+                              raise
+                          assert out == b'' and err == b''
+                          return child.returncode, child.pid
+                  finally:
+                      for fd in (read_fd, write_fd):
+                          if fd >= 0:
+                              os.close(fd)
+
+              for flags in (
+                  ['--api-key', marker], ['--api-key=' + marker],
+                  ['--api_key', marker], ['--api_key=' + marker],
+                  ['--api-key'], ['--api-key='], ['--api_key'], ['--api_key='],
+                  ['--api-key', marker, '--api_key=' + marker],
+                  ['--api-key', marker, '--api-key', marker],
+                  ['--api_key=' + marker, '--api_key=' + marker],
+              ):
+                  code, _ = real_guard(fake_argv + flags)
+                  assert code == 84
+                  assert not evidence.exists(), 'credential argv reached exec'
+
+              code, pid = real_guard(fake_argv)
+              assert code == 0
+              result = json.loads(evidence.read_text())
+              assert result['pid'] == pid, 'exec changed the supervised task'
+              assert result['nice'] >= module.CANDIDATE_NICE_DELTA
+              assert result['home'] == '/synthetic/service-home', 'runtime HOME was rewritten'
+              assert result['key_preserved'] and not result['guard_env_present']
+              assert result['argv'] == fake_argv[1:]
+
+          print('QWEN35_OS_HOME_IDENTITY_CONTRACT=PASS')
+          print('QWEN35_REAL_PREEXEC_KEY_REJECTION=PASS')
+          print('QWEN35_HOME_INDEPENDENT_SAME_PID_EXEC=PASS')
+          print('QWEN35_PREEXEC_KEY_GUARD_CONTRACT=PASS')
+          PYGUARD
       - name: Prove candidate ownership, watchdog handoff and recovery regressions
         run: |
           set -Eeuo pipefail
@@ -1049,6 +1212,67 @@ jobs:
           pnpm --filter @pc/api exec jest --runInBand \
             src/modules/ai-insights/restricted-public-qwen.safety.spec.ts \
             src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts
+      - name: Prove closed corpus selection and failure-preserving capture
+        run: |
+          set -Eeuo pipefail
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const { spawnSync } = require('node:child_process');
+          const workflow = fs.readFileSync('.github/workflows/gekta-qwen35-4b-model-host-candidate.yml', 'utf8');
+          const selection = workflow.match(/case "\$CANDIDATE_COMMAND" in[\s\S]*?echo "corpus=\$corpus" >> "\$GITHUB_OUTPUT"/);
+          const execution = workflow.match(/case "\$CANDIDATE_CORPUS" in[\s\S]*?pnpm --filter @pc\/api exec jest --runInBand "\$\{specs\[@\]\}" 2>&1 \| tee "\$RUNNER_TEMP\/qwen35-acceptance"/);
+          const classification = workflow.match(/function classifyCandidateEvidence\(e\) \{[\s\S]*?\n          \}/);
+          assert.ok(classification, 'actual report classification required');
+          const classify = new Function(classification[0] + '\nreturn classifyCandidateEvidence;')();
+          const evidence = { TARGET_SHA: 'a'.repeat(40), START_OUTCOME: 'success', ACCEPTANCE: 'success', CLEANUP: 'success', CANDIDATE_CORPUS: 'both', SUMMARY: 'QWEN35_CANDIDATE_ACCEPTANCE={"cases":10}', EXTRA_SUMMARY: 'QWEN35_CANDIDATE_EXTRA={"cases":4}' };
+          assert.equal(classify(evidence), 'COMPLETE');
+          for (const corpus of ['critical', 'extra']) assert.equal(classify({ ...evidence, CANDIDATE_CORPUS: corpus }), 'PARTIAL');
+          for (const key of ['START_OUTCOME', 'ACCEPTANCE', 'CLEANUP']) {
+            for (const outcome of ['failure', 'skipped', 'cancelled', '']) assert.equal(classify({ ...evidence, [key]: outcome }), 'FAILED');
+          }
+          for (const [key, value] of [['SUMMARY', 'QWEN35_CANDIDATE_ACCEPTANCE={"cases":9}'], ['EXTRA_SUMMARY', 'QWEN35_CANDIDATE_EXTRA={"cases":3}'], ['SUMMARY', 'QWEN35_CANDIDATE_ACCEPTANCE=NO_PASS_SUMMARY'], ['EXTRA_SUMMARY', 'QWEN35_CANDIDATE_EXTRA={broken}'], ['TARGET_SHA', 'main'], ['CANDIDATE_CORPUS', 'unknown']]) assert.equal(classify({ ...evidence, [key]: value }), 'FAILED');
+          assert.equal(classify({ ...evidence, CANDIDATE_CORPUS: 'critical', EXTRA_SUMMARY: '' }), 'PARTIAL');
+          assert.equal(classify({ ...evidence, CANDIDATE_CORPUS: 'extra', SUMMARY: '' }), 'PARTIAL');
+          assert.ok(selection && execution, 'actual executable selection/capture blocks required');
+          const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'qwen35-corpus-contract-'));
+          try {
+            const output = path.join(dir, 'output');
+            const stub = path.join(dir, 'pnpm');
+            fs.writeFileSync(stub, '#!/bin/bash\nprintf "%s\\n" "$@"\necho SYNTHETIC_JEST_STDERR_MARKER >&2\nexit "${SYNTHETIC_EXIT:-0}"\n', { mode: 0o700 });
+            const env = { ...process.env, GITHUB_OUTPUT: output, RUNNER_TEMP: dir, PATH: dir + ':' + process.env.PATH };
+            const critical = 'src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts';
+            const extra = 'src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts';
+            for (const [command, corpus, expected] of [
+              ['/gekta qwen35-4b candidate current-main', 'both', [critical, extra]],
+              ['/gekta qwen35-4b critical current-main', 'critical', [critical]],
+              ['/gekta qwen35-4b extra current-main', 'extra', [extra]],
+            ]) {
+              fs.writeFileSync(output, '');
+              const selected = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command }, encoding: 'utf8' });
+              assert.equal(selected.status, 0);
+              assert.equal(fs.readFileSync(output, 'utf8'), 'corpus=' + corpus + '\n');
+              for (const status of [0, 7]) {
+                const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + execution[0]], { env: { ...env, CANDIDATE_CORPUS: corpus, SYNTHETIC_EXIT: String(status) }, encoding: 'utf8' });
+                assert.equal(result.status, status, 'capture must preserve real Jest failure');
+                const captured = fs.readFileSync(path.join(dir, 'qwen35-acceptance'), 'utf8').split('\n');
+                assert.deepEqual(captured.filter(line => line.endsWith('.spec.ts')), expected);
+                assert.ok(captured.includes('SYNTHETIC_JEST_STDERR_MARKER'));
+              }
+            }
+            for (const command of ['', '/gekta qwen35-4b extra current-main ', '/gekta qwen35-4b anything current-main', '/gekta qwen35-4b extra arbitrary-sha']) {
+              const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command } });
+              assert.equal(result.status, 1);
+            }
+            const invalid = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + execution[0]], { env: { ...env, CANDIDATE_CORPUS: 'unknown' } });
+            assert.equal(invalid.status, 1);
+            console.log('QWEN35_CORPUS_CONTRACT=PASS (synthetic selection/capture; not real inference)');
+          } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+          }
+          NODE
       - name: Prove bounded owner authority
         run: |
           set -Eeuo pipefail
@@ -1096,7 +1320,11 @@ jobs:
       github.event.issue.number == 3896 &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
-      github.event.comment.body == '/gekta qwen35-4b candidate current-main' &&
+      (
+        github.event.comment.body == '/gekta qwen35-4b candidate current-main' ||
+        github.event.comment.body == '/gekta qwen35-4b critical current-main' ||
+        github.event.comment.body == '/gekta qwen35-4b extra current-main'
+      ) &&
       (
         (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
         (
@@ -1120,8 +1348,17 @@ jobs:
         id: target
         env:
           GH_TOKEN: ${{ github.token }}
+          CANDIDATE_COMMAND: ${{ github.event.comment.body }}
         run: |
           set -Eeuo pipefail
+          # Closed corpus selection; each invocation keeps its own 420-second lease.
+          case "$CANDIDATE_COMMAND" in
+            '/gekta qwen35-4b candidate current-main') corpus=both ;;
+            '/gekta qwen35-4b critical current-main') corpus=critical ;;
+            '/gekta qwen35-4b extra current-main') corpus=extra ;;
+            *) echo 'unsupported candidate corpus command' >&2; exit 1 ;;
+          esac
+          echo "corpus=$corpus" >> "$GITHUB_OUTPUT"
           git fetch --no-tags origin main
           sha="$(git rev-parse origin/main)"
           [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
@@ -1307,6 +1544,7 @@ jobs:
       - name: Exercise real Gekta pipeline against candidate
         id: acceptance
         env:
+          CANDIDATE_CORPUS: ${{ steps.target.outputs.corpus }}
           QWEN35_CANDIDATE_LIVE: '1'
           TAI_RESTRICTED_QWEN_PUBLIC_ENABLED: 'true'
           AI_ASSISTANT_PROVIDER: openai-compatible
@@ -1424,7 +1662,15 @@ jobs:
             });
           });
           TS
-          pnpm --filter @pc/api exec jest --runInBand             src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts             src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts             | tee "$RUNNER_TEMP/qwen35-acceptance"
+          # Both existing suites and every assertion remain unchanged. A selected
+          # suite is partial evidence; full acceptance requires 10+4 on one SHA.
+          case "$CANDIDATE_CORPUS" in
+            both) specs=(src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts) ;;
+            critical) specs=(src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts) ;;
+            extra) specs=(src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts) ;;
+            *) echo 'unsupported candidate corpus' >&2; exit 1 ;;
+          esac
+          pnpm --filter @pc/api exec jest --runInBand "${specs[@]}" 2>&1 | tee "$RUNNER_TEMP/qwen35-acceptance"
       - name: Stop tunnel
         if: always()
         run: |
@@ -1460,12 +1706,30 @@ jobs:
           START_OUTCOME: ${{ steps.start.outcome }}
           ACCEPTANCE: ${{ steps.acceptance.outcome }}
           CLEANUP: ${{ steps.cleanup.outcome }}
+          CANDIDATE_CORPUS: ${{ steps.target.outputs.corpus }}
         run: |
           set -Eeo pipefail
           summary="$(grep -Eo 'QWEN35_CANDIDATE_ACCEPTANCE=\{.*\}' "$RUNNER_TEMP/qwen35-acceptance" 2>/dev/null | tail -1 || true)"
           extra_summary="$(grep -Eo 'QWEN35_CANDIDATE_EXTRA=\{.*\}' "$RUNNER_TEMP/qwen35-acceptance" 2>/dev/null | tail -1 || true)"
           [[ -n "$summary" ]] || summary='QWEN35_CANDIDATE_ACCEPTANCE=NO_PASS_SUMMARY'
           [[ -n "$extra_summary" ]] || extra_summary='QWEN35_CANDIDATE_EXTRA=NO_PASS_SUMMARY'
+          evidence_class="$(SUMMARY="$summary" EXTRA_SUMMARY="$extra_summary" node <<'NODE'
+          function classifyCandidateEvidence(e) {
+            const hasCases = (raw, prefix, expected) => {
+              if (!raw?.startsWith(prefix)) return false;
+              try { return JSON.parse(raw.slice(prefix.length)).cases === expected; } catch { return false; }
+            };
+            if (!/^[a-f0-9]{40}$/.test(e.TARGET_SHA ?? '') || e.START_OUTCOME !== 'success' || e.ACCEPTANCE !== 'success' || e.CLEANUP !== 'success') return 'FAILED';
+            const critical = hasCases(e.SUMMARY, 'QWEN35_CANDIDATE_ACCEPTANCE=', 10);
+            const extra = hasCases(e.EXTRA_SUMMARY, 'QWEN35_CANDIDATE_EXTRA=', 4);
+            if (e.CANDIDATE_CORPUS === 'both') return critical && extra ? 'COMPLETE' : 'FAILED';
+            if (e.CANDIDATE_CORPUS === 'critical') return critical ? 'PARTIAL' : 'FAILED';
+            if (e.CANDIDATE_CORPUS === 'extra') return extra ? 'PARTIAL' : 'FAILED';
+            return 'FAILED';
+          }
+          console.log(classifyCandidateEvidence(process.env));
+          NODE
+          )"
           # Only fixed diagnostic vocabulary may leave the private startup log boundary.
           start_phase="$(grep -Ex 'QWEN35_CANDIDATE_START_PHASE=(guard_spawn|guard_setup|identity|readiness|post_ready)' "$RUNNER_TEMP/qwen35-start" 2>/dev/null | tail -1 || true)"
           start_class="$(grep -Ex 'QWEN35_CANDIDATE_START_LOG_CLASS=(no_log|unclassified|model_architecture_unsupported|tokenizer_unsupported|model_format_error|runtime_library_error|allocation_failure|bind_failure|argument_rejected|model_load_error|multiple_errors|log_unavailable)' "$RUNNER_TEMP/qwen35-start" 2>/dev/null | tail -1 || true)"
@@ -1479,6 +1743,9 @@ jobs:
             echo "- artifact sha256: 13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983"
             echo "- candidate start: $START_OUTCOME"
             echo "- real Gekta acceptance: $ACCEPTANCE"
+            echo "- selected corpus: $CANDIDATE_CORPUS"
+            echo "- candidate evidence classification: $evidence_class"
+            echo '- COMPLETE requires both 10 critical and 4 extra cases in this same-SHA run with successful start, acceptance and cleanup; PARTIAL covers only the selected successful suite and requires the complementary same-SHA suite and cleanup proof'
             echo "- unchanged Qwen3-8B cleanup: $CLEANUP"
             echo "- production Qwen3-8B routing/model identity mutation: NONE"
             echo "- production application/database mutation: NONE"

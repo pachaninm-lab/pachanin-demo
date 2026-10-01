@@ -68,7 +68,9 @@ jobs:
         (github.event.workflow_run.repository.id == github.event.repository.id &&
          github.event.workflow_run.name != 'Repo automations' &&
          github.event.workflow_run.name != 'Local Qwen Independent Review' &&
-         github.event.workflow_run.name != 'Independent Octopus Review'))
+         github.event.workflow_run.name != 'Independent Octopus Review' &&
+         !(github.event.workflow_run.event == 'push' &&
+           github.event.workflow_run.head_branch == github.event.repository.default_branch)))
     # A job that fails the event gate must not occupy the global publication
     # queue. Keep admitted evaluations serialized at the job boundary.
     concurrency:
