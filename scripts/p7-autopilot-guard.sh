@@ -491,7 +491,7 @@ if [ "${GITHUB_HEAD_REF:-}" = "fix/exact-main-live-evidence-2659" ]; then
 fi
 
 if is_immutable_scope_branch "$CURRENT_BRANCH"; then
-  APPROVED_BRANCH_SCOPE=$(BASE_REF="$BASE_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" PUBLIC_HOME_IMPLEMENTATION_BRANCH="$PUBLIC_HOME_IMPLEMENTATION_BRANCH" PUBLIC_HOME_GOVERNANCE_MANIFEST="$PUBLIC_HOME_GOVERNANCE_MANIFEST" PUBLIC_HOME_IMPLEMENTATION_MANIFEST="$PUBLIC_HOME_IMPLEMENTATION_MANIFEST" POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH="$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" POISON_ISOLATION_IMPLEMENTATION_BRANCH="$POISON_ISOLATION_IMPLEMENTATION_BRANCH" POISON_ISOLATION_MANIFEST="$POISON_ISOLATION_MANIFEST" node - <<'JS'
+  APPROVED_BRANCH_SCOPE=$(BASE_REF="$BASE_REF" HEAD_REF="$HEAD_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" PUBLIC_HOME_IMPLEMENTATION_BRANCH="$PUBLIC_HOME_IMPLEMENTATION_BRANCH" PUBLIC_HOME_GOVERNANCE_MANIFEST="$PUBLIC_HOME_GOVERNANCE_MANIFEST" PUBLIC_HOME_IMPLEMENTATION_MANIFEST="$PUBLIC_HOME_IMPLEMENTATION_MANIFEST" POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH="$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" POISON_ISOLATION_IMPLEMENTATION_BRANCH="$POISON_ISOLATION_IMPLEMENTATION_BRANCH" POISON_ISOLATION_MANIFEST="$POISON_ISOLATION_MANIFEST" node - <<'JS'
 const { execFileSync } = require('node:child_process');
 
 const baseRef = String(process.env.BASE_REF || '').trim();
@@ -583,6 +583,152 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     throw new Error(`P7_IMMUTABLE_SCOPE: cannot load ${baseRef}:${stateFile}: ${message}`);
   }
   scopes = state.approvedConcurrentScopes?.[branch];
+
+  // These are separate phases on existing trusted-base-routed refs. The guard
+  // repair itself keeps its three-path scope and cannot admit metadata source.
+  if (branch === "governance/pc-crop-post-registration-progress-scope-4997" || branch === "fix/gitleaks-release-authority-attestation-20260912") {
+    const assert = require('node:assert/strict');
+    const { isDeepStrictEqual } = require('node:util');
+    const requiredPurpose = {
+  "owner": "ACCOUNT_2_PRODUCT",
+  "purpose": "Bounded critical-path renewal of the existing trusted three-path guard ref for a separately admitted exact metadata-only repair of the expired internal landing-package exception; close the existing no-publish metadata blocker without renewing its expiry or changing application/licensing/provenance truth.",
+  "authorityBaseExactMain": "7a90199a40a86cdc129f804780a8f2635cf0bccb",
+  "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+  "allowedPaths": [
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-autopilot-guard.test.mjs",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
+  ],
+  "futureMetadataAdmissionBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+  "futureMetadataImplementationBranch": "fix/gitleaks-release-authority-attestation-20260912",
+  "requiredTruthBoundaries": [
+    "The current full-head #5744 native SBOM/IP run36794727081/job110155435088 fails because the preexisting apps/landing/package.json metadata exception expired on2026-09-30. Original IP program#4459 and the existing exception require a separately authorized metadata-only addition of license=UNLICENSED; the package already remains private=true.",
+    "This purpose-only prerequisite admits no landing implementation or metadata file and changes no primary/global/R1.2/approvedConcurrentScopes/old admissions/progress. Publish a separate trusted guard repair within the already accepted three-path scope only after actual independent review, all current gates and ordinary expected-full-SHA acceptance of this purpose.",
+    "The later guard must define distinct state-only admission and exact two-file metadata implementation phases on the already registered trusted-guard and Gitleaks refs. Existing native trusted-base routing remains unchanged; no workflow/IP waiver. Preserve the original one-file Gitleaks attestation phase and add only the separately accepted exact metadata pair to that existing branch scope. Source scope and exact baseline/candidate blobs must come from accepted trusted base; candidate-owned state/guard cannot grant authority.",
+    "Permit only apps/landing/package.json100644 c80706ce0a424d57b2f7687bc0f4306f5c88a434→e693a061ea6d42a9c62cc1ab8350c3af904265a4 (one license field, all scripts/dependencies/private/name/other bytes preserved) and docs/ip/internal-package-metadata-exceptions.json100644872689ef5215d2b92429c465159fbf794259cc9f→c3eb22c2f4fc9ec3105e0203b7990de3b88dc345 (remove only that completed exception; schema/effective date preserved).",
+    "Preserve the general apps/landing prohibition and every old security/attestation gate. Permit the exact metadata pair only in its separately accepted phase on the existing trusted Gitleaks ref, with exact baseline/head blobs and regular modes; reject mixed metadata/test/runtime edits, other manifest fields, expiry extension, stale or altered exceptions, source self-expansion and baseline/mode drift using real Git fixtures.",
+    "Accept the guard before the separate state-only exact-content source admission; accept that admission before publishing either metadata file. Metadata/private-package checks do not prove proprietary authorship, third-party rights, human assignments, full IP/security completion or production acceptance.",
+    "Keep the sole BANK continuation220/workspace0b9 window held. Preserve the immutable #5744 test candidate while the distinct metadata prerequisite uses the same existing trusted source ref under separate source admission and fresh PR review. After accepted metadata normalization, restore the original one-file #5744 repair on actual current main and renew every review/CI/readiness result before bounded exact-current-main canonical REG.RU web release and actual OCI/live/downstream evidence."
+  ],
+  "forbiddenAuthority": [
+    "Landing page/runtime/component/script/dependency changes or general landing access",
+    "Exception expiry extension, CI/security/license/scanner weakening or required-check override",
+    "Direct metadata source admission in this purpose or later guard PR; source-owned mutable scope authority",
+    "CORE/API/DB/provider/money/role/session/model or human legal/provenance authority",
+    "Forced/automatic merge, stale review transfer, new recurring costs or false production/whole-block PASS"
+  ],
+  "teamHubDependency": "#5744 native IP metadata expiry blocker36794727081; original#4459 metadata baseline; held BANK critical path/window5916270228"
+};
+    const metadataTemplate = {
+  "owner": "ACCOUNT_2_PRODUCT",
+  "purpose": "Normalize only the already-private internal landing package license metadata and remove its completed exception; no application, dependency, publication or legal-rights change.",
+  "implementationBranch": "fix/gitleaks-release-authority-attestation-20260912",
+  "allowedPaths": [
+    "apps/landing/package.json",
+    "docs/ip/internal-package-metadata-exceptions.json"
+  ],
+  "preservedAttestationPaths": [
+    "apps/tai/tests/test_gitleaks_release_authority.py"
+  ],
+  "exactMetadataFiles": [
+    {
+      "path": "apps/landing/package.json",
+      "mode": "100644",
+      "baselineBlob": "c80706ce0a424d57b2f7687bc0f4306f5c88a434",
+      "candidateBlob": "e693a061ea6d42a9c62cc1ab8350c3af904265a4"
+    },
+    {
+      "path": "docs/ip/internal-package-metadata-exceptions.json",
+      "mode": "100644",
+      "baselineBlob": "872689ef5215d2b92429c465159fbf794259cc9f",
+      "candidateBlob": "c3eb22c2f4fc9ec3105e0203b7990de3b88dc345"
+    }
+  ],
+  "requiredTruthBoundaries": [
+    "Only add license=UNLICENSED to the existing private=true manifest and remove exactly its completed metadata exception; every other manifest byte and register schema/effective date remains unchanged.",
+    "Source authority comes only from separately accepted base purpose, guard and state-only admission. The implementation cannot modify state, guard, workflow, scope or publishable-package authority.",
+    "The existing attestation ref has distinct test-only and metadata-only phases. Preserve the original test path and its exact fingerprint guard; reject mixed metadata/test changes.",
+    "Preserve the general landing prohibition, all existing CI/security/attestation checks, provenance and third-party/human legal remainder. No expiry extension or proprietary ownership claim.",
+    "Fresh whole-head independent review, native private-package/IP/security/source checks and manual full-expected-SHA readiness/merge required; current-main REG.RU release remains a separate acceptance."
+  ],
+  "forbiddenAuthority": [
+    "Landing runtime/pages/components/scripts/dependencies or any other manifest field",
+    "Expired-exception renewal, new exception or publishable-package authorization",
+    "Source-owned scope, CI/security/readiness weakening, forced/automatic merge",
+    "CORE/API/DB/money/provider/role/session/model or human legal/provenance authority"
+  ],
+  "teamHubDependency": "#5744 IP expiry blocker36794727081; original IP#4459; BANK hold5916270228; purpose#5749"
+};
+    const metadataKey = "landing-package-metadata-20261001";
+    const metadataPaths = metadataTemplate.allowedPaths;
+    const originalTestScope = metadataTemplate.preservedAttestationPaths;
+    const combinedScope = [...originalTestScope, ...metadataPaths];
+    const headRef = String(process.env.HEAD_REF || 'HEAD');
+    const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
+    const readState = ref => execFileSync('git', ['show', `${ref}:${stateFile}`], { encoding: 'utf8' });
+    const treeEntry = (ref, file) => git(['ls-tree', ref, '--', file]);
+    const regularBlob = (ref, file, blob) => assert.equal(treeEntry(ref, file), `100644 blob ${blob}\t${file}`, `LANDING_METADATA_EXACT_FILE:${ref}:${file}`);
+    const regularState = ref => assert.match(treeEntry(ref, stateFile), /^100644 blob [0-9a-f]{40}\t/u, 'LANDING_METADATA_STATE_FILE_MODE');
+    const makeAdmission = authorityBaseExactMain => ({ ...metadataTemplate, authorityBaseExactMain });
+    const changes = git(['diff', '--no-renames', '--name-status', `${baseRef}...${headRef}`])
+      .split('\n').filter(Boolean).map(line => line.split('\t')).sort((a, b) => a[1].localeCompare(b[1], 'en'));
+    // Historical explicit base-owned state scopes keep their original behavior.
+    // This new admission exists only after its separate purpose was accepted.
+    const admissionPhase = branch === "governance/pc-crop-post-registration-progress-scope-4997" && changes.some(change => change[1] === stateFile) &&
+      Object.hasOwn(state.coordinationAdmissions || {}, "landing-package-metadata-guard-purpose-20261001");
+    const metadataPhase = branch === "fix/gitleaks-release-authority-attestation-20260912" && changes.some(change => metadataPaths.includes(change[1]));
+    if (admissionPhase || metadataPhase) {
+      if (!isDeepStrictEqual(state.coordinationAdmissions?.["landing-package-metadata-guard-purpose-20261001"], requiredPurpose) ||
+          !isDeepStrictEqual(state.approvedConcurrentScopes?.["governance/pc-crop-post-registration-progress-scope-4997"], requiredPurpose.allowedPaths)) {
+        throw new Error('LANDING_METADATA_TRUSTED_PURPOSE_MISMATCH');
+      }
+      const baseSha = git(['rev-parse', `${baseRef}^{commit}`]);
+      if (git(['merge-base', baseRef, headRef]) !== baseSha) throw new Error('LANDING_METADATA_BASE_NOT_ANCESTOR');
+      regularState(baseRef);
+      regularState(headRef);
+      if (admissionPhase) {
+        if (Object.hasOwn(state.coordinationAdmissions || {}, metadataKey)) throw new Error('LANDING_METADATA_ADMISSION_ALREADY_PRESENT');
+        if (!isDeepStrictEqual(state.approvedConcurrentScopes?.["fix/gitleaks-release-authority-attestation-20260912"], originalTestScope)) throw new Error('LANDING_METADATA_ORIGINAL_ATTESTATION_SCOPE_MISMATCH');
+        if (!isDeepStrictEqual(changes, [['M', stateFile]])) throw new Error('LANDING_METADATA_ADMISSION_DIFF_SCOPE');
+        for (const file of metadataTemplate.exactMetadataFiles) {
+          regularBlob(baseRef, file.path, file.baselineBlob);
+          regularBlob(headRef, file.path, file.baselineBlob);
+        }
+        const expected = structuredClone(state);
+        expected.approvedConcurrentScopes["fix/gitleaks-release-authority-attestation-20260912"] = combinedScope;
+        expected.coordinationAdmissions[metadataKey] = makeAdmission(baseSha);
+        assert.equal(readState(baseRef), `${JSON.stringify(state, null, 2)}\n`, 'LANDING_METADATA_CANONICAL_BASE_STATE');
+        assert.equal(readState(headRef), `${JSON.stringify(expected, null, 2)}\n`, 'LANDING_METADATA_ADMISSION_STATE_MUTATION');
+        scopes = [stateFile];
+      } else {
+        const accepted = state.coordinationAdmissions?.[metadataKey];
+        const origin = accepted?.authorityBaseExactMain;
+        if (typeof origin !== 'string' || !/^[0-9a-f]{40}$/u.test(origin) ||
+            !isDeepStrictEqual(accepted, makeAdmission(origin)) ||
+            !isDeepStrictEqual(scopes, combinedScope)) throw new Error('LANDING_METADATA_ACCEPTED_ADMISSION_MISMATCH');
+        try {
+          if (git(['merge-base', origin, baseRef]) !== origin) throw new Error('not ancestor');
+        } catch {
+          throw new Error('LANDING_METADATA_ADMISSION_ORIGIN_NOT_ANCESTOR');
+        }
+        regularState(origin);
+        const authorityBase = JSON.parse(readState(origin));
+        if (!isDeepStrictEqual(authorityBase.coordinationAdmissions?.["landing-package-metadata-guard-purpose-20261001"], requiredPurpose) ||
+            !isDeepStrictEqual(authorityBase.approvedConcurrentScopes?.["governance/pc-crop-post-registration-progress-scope-4997"], requiredPurpose.allowedPaths) ||
+            !isDeepStrictEqual(authorityBase.approvedConcurrentScopes?.["fix/gitleaks-release-authority-attestation-20260912"], originalTestScope) ||
+            Object.hasOwn(authorityBase.coordinationAdmissions || {}, metadataKey)) throw new Error('LANDING_METADATA_ADMISSION_ORIGIN_INVALID');
+        const expectedChanges = metadataPaths.map(file => ['M', file]).sort((a, b) => a[1].localeCompare(b[1], 'en'));
+        if (!isDeepStrictEqual(changes, expectedChanges)) throw new Error('LANDING_METADATA_IMPLEMENTATION_DIFF_SCOPE');
+        for (const file of metadataTemplate.exactMetadataFiles) {
+          regularBlob(origin, file.path, file.baselineBlob);
+          regularBlob(baseRef, file.path, file.baselineBlob);
+          regularBlob(headRef, file.path, file.candidateBlob);
+        }
+        assert.equal(readState(headRef), readState(baseRef), 'LANDING_METADATA_IMPLEMENTATION_STATE_MUTATION');
+        scopes = [...metadataPaths];
+      }
+    }
+  }
 
   if (branch === 'ux/deal-runtime-unknown-20260929' ||
       branch === 'governance/product-deal-runtime-admission-20260929') {
@@ -1482,6 +1628,12 @@ else
 fi
 
 FORBIDDEN_FILES=$(printf '%s\n' "$DIFF_FILES" | grep -E "$FORBIDDEN_ALWAYS" || true)
+
+# The exact pair has already passed accepted-base purpose/admission, complete
+# diff and immutable blob/mode validation. Every other landing path stays banned.
+if [ "$CURRENT_BRANCH" = "$GITLEAKS_RELEASE_ATTESTATION_BRANCH" ] && printf '%s\n' "$DIFF_FILES" | grep -Fxq 'apps/landing/package.json'; then
+  FORBIDDEN_FILES=$(printf '%s\n' "$FORBIDDEN_FILES" | grep -Fxv 'apps/landing/package.json' || true)
+fi
 
 if [ "${GITHUB_HEAD_REF:-}" = "agent/tai-ap-14d7-live-remediation" ]; then
   TAI_PUBLIC_CA_PATHS='^(apps/tai/tai/trust/russian_trusted_root_ca\.pem|apps/tai/tai/trust/russian_trusted_sub_ca_2024\.pem)$'
