@@ -212,6 +212,15 @@ const gitleaksFinalReviewedEntries =
   '        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391",\n' +
   '        "ba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:"\n' +
   '        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:395",\n';
+const gitleaksCurrentAnchor =
+  '        "db4f0a50b8df0a5e1045d3b9dc6a6fdc9d2806b0:"\n' +
+  '        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:1018",\n';
+const gitleaksCurrentReviewedEntries =
+  '        "2dbd66d9bf258113272825d7b082b20e3b15a2b6:"\n' +
+  '        "docs/platform-v7/autopilot/autopilot-state.json:generic-api-key:2713",\n' +
+  '        "3b76d0f3473b986b6354aaac528994f7ac343df2:"\n' +
+  '        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"\n' +
+  '        "generic-api-key:17",\n';
 
 function baselineGitleaksReleaseAttestation(source) {
   const serviceCount = source.split(gitleaksServiceMarketplace).length - 1;
@@ -436,7 +445,7 @@ function gitleaksReleaseAttestationFixture(t) {
 
 test('gitleaks release attestation scope accepts exactly four reviewed fingerprints', (t) => {
   const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
-  assert.deepEqual(state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch], [gitleaksReleaseAttestationPath]);
+  assert.deepEqual(state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch], expectedAttestationScope(state));
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
   assert.ok(workflow.includes(`- '${gitleaksReleaseAttestationPath}'`), 'missing Gitleaks attestation PR-head trigger');
   const source = fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8');
@@ -479,6 +488,150 @@ for (const mutation of ['remove existing assertion', 'add fifth fingerprint', 'a
     assert.match(output(result), /must add exactly four reviewed fingerprints/u);
   });
 }
+
+function currentGitleaksReleaseAttestationFixture(t) {
+  const context = fixture(t, gitleaksReleaseAttestationBranch);
+  const source = fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8');
+  const count = source.split(gitleaksCurrentReviewedEntries).length - 1;
+  assert.ok(count === 0 || count === 1, 'current reviewed entries occur together at most once');
+  write(context.root, gitleaksReleaseAttestationPath, source.replace(gitleaksCurrentReviewedEntries, ''));
+  for (const file of ['.gitleaksignore', 'apps/tai/release-source-manifest.json']) {
+    write(context.root, file, fs.readFileSync(file, 'utf8'));
+  }
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+  state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [gitleaksReleaseAttestationPath];
+  write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+  commit(context.root, 'accepted exact current Gitleaks attestation inputs');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  assert.equal(git(context.root, ['rev-parse', `${context.baseline}:${gitleaksReleaseAttestationPath}`]), 'e589046fc52daf8a3632f70b6879543934be56ff');
+  assert.equal(git(context.root, ['rev-parse', `${context.baseline}:.gitleaksignore`]), '5c151dc1a2b5329fb2d4feb1fd0c1713bbef96db');
+  assert.equal(git(context.root, ['rev-parse', `${context.baseline}:apps/tai/release-source-manifest.json`]), '35f96ccc7fe332ddd90454eeee19853ba0612b71');
+  return context;
+}
+
+function synchronizeCurrentGitleaksReleaseAttestation(baseline) {
+  assert.equal(baseline.split(gitleaksCurrentAnchor).length - 1, 1);
+  return baseline.replace(gitleaksCurrentAnchor, gitleaksCurrentAnchor + gitleaksCurrentReviewedEntries);
+}
+
+function runTrustedCurrentGitleaksGuard({ root, baseline, implementationBranch }) {
+  const trustedGuard = git(root, ['show', `${baseline}:scripts/p7-autopilot-guard.sh`]);
+  return spawnSync('bash', [], {
+    cwd: root,
+    input: trustedGuard,
+    env: { ...process.env, BASE_REF: baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: implementationBranch },
+    encoding: 'utf8',
+  });
+}
+
+test('current Gitleaks attestation accepts only the exact two-existing-fingerprint repair', (t) => {
+  const context = currentGitleaksReleaseAttestationFixture(t);
+  const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(baseline));
+  commit(context.root, 'synchronize current exact fingerprint attestation');
+  assert.equal(git(context.root, ['rev-parse', `HEAD:${gitleaksReleaseAttestationPath}`]), '404e172449f53c01369ef974a50079d6f6967d56');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+
+for (const mutation of [
+  'remove manifest assertion', 'weaken format assertion', 'remove old fingerprint',
+  'add extra fingerprint', 'alter first fingerprint', 'alter second fingerprint',
+  'omit first fingerprint', 'omit second fingerprint', 'reverse fingerprint order',
+]) {
+  test(`current Gitleaks attestation rejects candidate content: ${mutation}`, (t) => {
+    const context = currentGitleaksReleaseAttestationFixture(t);
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    let candidate = synchronizeCurrentGitleaksReleaseAttestation(baseline);
+    if (mutation === 'remove manifest assertion') candidate = candidate.replace('    assert ".gitleaksignore" in manifest["files"]\n', '');
+    if (mutation === 'weaken format assertion') candidate = candidate.replace('    assert all(_FINGERPRINT.fullmatch(entry) is not None for entry in entries)\n', '    assert True\n');
+    if (mutation === 'remove old fingerprint') candidate = candidate.replace(gitleaksCommodityAnchor, '');
+    if (mutation === 'add extra fingerprint') candidate = candidate.replace('    ]\n', '        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:extra.py:generic-api-key:1",\n    ]\n');
+    if (mutation === 'alter first fingerprint') candidate = candidate.replace('generic-api-key:2713', 'generic-api-key:2714');
+    if (mutation === 'alter second fingerprint') candidate = candidate.replace('generic-api-key:17', 'generic-api-key:18');
+    const lines = gitleaksCurrentReviewedEntries.split('\n').filter(Boolean);
+    if (mutation === 'omit first fingerprint') candidate = candidate.replace(gitleaksCurrentReviewedEntries, `${lines.slice(2).join('\n')}\n`);
+    if (mutation === 'omit second fingerprint') candidate = candidate.replace(gitleaksCurrentReviewedEntries, `${lines.slice(0, 2).join('\n')}\n`);
+    if (mutation === 'reverse fingerprint order') candidate = candidate.replace(gitleaksCurrentReviewedEntries, `${[...lines.slice(2), ...lines.slice(0, 2)].join('\n')}\n`);
+    write(context.root, gitleaksReleaseAttestationPath, candidate);
+    commit(context.root, `attempt ${mutation}`);
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Gitleaks release attestation head must be the exact two-fingerprint regular-file repair/u);
+  });
+}
+
+for (const file of ['.gitleaksignore', 'apps/tai/release-source-manifest.json']) {
+  for (const side of ['base', 'head']) {
+    test(`current Gitleaks attestation rejects ${side} input drift: ${file}`, (t) => {
+      const context = currentGitleaksReleaseAttestationFixture(t);
+      if (side === 'base') {
+        fs.appendFileSync(path.join(context.root, file), '\n');
+        commit(context.root, 'drift accepted input');
+        context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+      }
+      const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+      write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(baseline));
+      if (side === 'head') fs.appendFileSync(path.join(context.root, file), '\n');
+      commit(context.root, 'attempt repair with drifting input');
+      const result = runTrustedCurrentGitleaksGuard(context);
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /Gitleaks release attestation input must remain the exact accepted regular file/u);
+    });
+  }
+}
+
+test('current Gitleaks attestation rejects baseline assertion drift', (t) => {
+  const context = currentGitleaksReleaseAttestationFixture(t);
+  const file = path.join(context.root, gitleaksReleaseAttestationPath);
+  write(context.root, gitleaksReleaseAttestationPath, fs.readFileSync(file, 'utf8').replace('    assert ".gitleaksignore" in manifest["files"]\n', ''));
+  commit(context.root, 'drift accepted test assertion');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(fs.readFileSync(file, 'utf8')));
+  commit(context.root, 'attempt repair over drifting test');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Gitleaks release attestation commodity-profile anchor must occur exactly once/u);
+});
+
+for (const side of ['base', 'head']) {
+  test(`current Gitleaks attestation rejects ${side} executable mode`, (t) => {
+    const context = currentGitleaksReleaseAttestationFixture(t);
+    if (side === 'base') {
+      fs.chmodSync(path.join(context.root, gitleaksReleaseAttestationPath), 0o755);
+      commit(context.root, 'drift accepted test mode');
+      context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    }
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(baseline), 0o755);
+    commit(context.root, 'attempt executable test repair');
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Gitleaks release attestation (baseline|head) must be the exact/u);
+  });
+}
+
+test('current Gitleaks attestation rejects implementation-owned scope and guard expansion', (t) => {
+  for (const target of ['state', 'guard']) {
+    const context = currentGitleaksReleaseAttestationFixture(t);
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(baseline));
+    if (target === 'state') {
+      const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+      state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch].push('README.md');
+      write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+      write(context.root, 'README.md', 'unapproved self-admission\n');
+    } else {
+      write(context.root, 'scripts/p7-autopilot-guard.sh', '#!/usr/bin/env bash\nexit 0\n');
+    }
+    commit(context.root, `attempt candidate ${target} authority`);
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Mutable scope authority changed on a PC-CROP immutable-scope implementation branch/u);
+  }
+});
 
 test('kind MinIO image-source scope accepts exactly three paths and rejects ci.yml', (t) => {
   const allowed = kindMinioImageSourceFixture(t);
@@ -2866,4 +3019,332 @@ test('Deal inventory: a committed retarget of the compatibility alias is rejecte
   fs.symlinkSync('/etc/passwd', path.join(context.root, 'apps/web/apps/web/middleware.ts'));
   commit(context.root, 'forbidden alias retarget');
   rejectDealRuntime(context, /DEAL_RUNTIME_IMPLEMENTATION_DIFF_SCOPE/u);
+});
+
+
+// Real Git fixtures execute the immutable BASE guard, never candidate code.
+const landingMetadataAdmissionBranch = 'governance/pc-crop-post-registration-progress-scope-4997';
+const landingMetadataStatePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+const landingMetadataPurposeKey = 'landing-package-metadata-guard-purpose-20261001';
+const landingMetadataKey = 'landing-package-metadata-20261001';
+const landingMetadataPurpose = {
+  "owner": "ACCOUNT_2_PRODUCT",
+  "purpose": "Bounded critical-path renewal of the existing trusted three-path guard ref for a separately admitted exact metadata-only repair of the expired internal landing-package exception; close the existing no-publish metadata blocker without renewing its expiry or changing application/licensing/provenance truth.",
+  "authorityBaseExactMain": "7a90199a40a86cdc129f804780a8f2635cf0bccb",
+  "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+  "allowedPaths": [
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-autopilot-guard.test.mjs",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
+  ],
+  "futureMetadataAdmissionBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+  "futureMetadataImplementationBranch": "fix/gitleaks-release-authority-attestation-20260912",
+  "requiredTruthBoundaries": [
+    "The current full-head #5744 native SBOM/IP run36794727081/job110155435088 fails because the preexisting apps/landing/package.json metadata exception expired on2026-09-30. Original IP program#4459 and the existing exception require a separately authorized metadata-only addition of license=UNLICENSED; the package already remains private=true.",
+    "This purpose-only prerequisite admits no landing implementation or metadata file and changes no primary/global/R1.2/approvedConcurrentScopes/old admissions/progress. Publish a separate trusted guard repair within the already accepted three-path scope only after actual independent review, all current gates and ordinary expected-full-SHA acceptance of this purpose.",
+    "The later guard must define distinct state-only admission and exact two-file metadata implementation phases on the already registered trusted-guard and Gitleaks refs. Existing native trusted-base routing remains unchanged; no workflow/IP waiver. Preserve the original one-file Gitleaks attestation phase and add only the separately accepted exact metadata pair to that existing branch scope. Source scope and exact baseline/candidate blobs must come from accepted trusted base; candidate-owned state/guard cannot grant authority.",
+    "Permit only apps/landing/package.json100644 c80706ce0a424d57b2f7687bc0f4306f5c88a434→e693a061ea6d42a9c62cc1ab8350c3af904265a4 (one license field, all scripts/dependencies/private/name/other bytes preserved) and docs/ip/internal-package-metadata-exceptions.json100644872689ef5215d2b92429c465159fbf794259cc9f→c3eb22c2f4fc9ec3105e0203b7990de3b88dc345 (remove only that completed exception; schema/effective date preserved).",
+    "Preserve the general apps/landing prohibition and every old security/attestation gate. Permit the exact metadata pair only in its separately accepted phase on the existing trusted Gitleaks ref, with exact baseline/head blobs and regular modes; reject mixed metadata/test/runtime edits, other manifest fields, expiry extension, stale or altered exceptions, source self-expansion and baseline/mode drift using real Git fixtures.",
+    "Accept the guard before the separate state-only exact-content source admission; accept that admission before publishing either metadata file. Metadata/private-package checks do not prove proprietary authorship, third-party rights, human assignments, full IP/security completion or production acceptance.",
+    "Keep the sole BANK continuation220/workspace0b9 window held. Preserve the immutable #5744 test candidate while the distinct metadata prerequisite uses the same existing trusted source ref under separate source admission and fresh PR review. After accepted metadata normalization, restore the original one-file #5744 repair on actual current main and renew every review/CI/readiness result before bounded exact-current-main canonical REG.RU web release and actual OCI/live/downstream evidence."
+  ],
+  "forbiddenAuthority": [
+    "Landing page/runtime/component/script/dependency changes or general landing access",
+    "Exception expiry extension, CI/security/license/scanner weakening or required-check override",
+    "Direct metadata source admission in this purpose or later guard PR; source-owned mutable scope authority",
+    "CORE/API/DB/provider/money/role/session/model or human legal/provenance authority",
+    "Forced/automatic merge, stale review transfer, new recurring costs or false production/whole-block PASS"
+  ],
+  "teamHubDependency": "#5744 native IP metadata expiry blocker36794727081; original#4459 metadata baseline; held BANK critical path/window5916270228"
+};
+const landingMetadataTemplate = {
+  "owner": "ACCOUNT_2_PRODUCT",
+  "purpose": "Normalize only the already-private internal landing package license metadata and remove its completed exception; no application, dependency, publication or legal-rights change.",
+  "implementationBranch": "fix/gitleaks-release-authority-attestation-20260912",
+  "allowedPaths": [
+    "apps/landing/package.json",
+    "docs/ip/internal-package-metadata-exceptions.json"
+  ],
+  "preservedAttestationPaths": [
+    "apps/tai/tests/test_gitleaks_release_authority.py"
+  ],
+  "exactMetadataFiles": [
+    {
+      "path": "apps/landing/package.json",
+      "mode": "100644",
+      "baselineBlob": "c80706ce0a424d57b2f7687bc0f4306f5c88a434",
+      "candidateBlob": "e693a061ea6d42a9c62cc1ab8350c3af904265a4"
+    },
+    {
+      "path": "docs/ip/internal-package-metadata-exceptions.json",
+      "mode": "100644",
+      "baselineBlob": "872689ef5215d2b92429c465159fbf794259cc9f",
+      "candidateBlob": "c3eb22c2f4fc9ec3105e0203b7990de3b88dc345"
+    }
+  ],
+  "requiredTruthBoundaries": [
+    "Only add license=UNLICENSED to the existing private=true manifest and remove exactly its completed metadata exception; every other manifest byte and register schema/effective date remains unchanged.",
+    "Source authority comes only from separately accepted base purpose, guard and state-only admission. The implementation cannot modify state, guard, workflow, scope or publishable-package authority.",
+    "The existing attestation ref has distinct test-only and metadata-only phases. Preserve the original test path and its exact fingerprint guard; reject mixed metadata/test changes.",
+    "Preserve the general landing prohibition, all existing CI/security/attestation checks, provenance and third-party/human legal remainder. No expiry extension or proprietary ownership claim.",
+    "Fresh whole-head independent review, native private-package/IP/security/source checks and manual full-expected-SHA readiness/merge required; current-main REG.RU release remains a separate acceptance."
+  ],
+  "forbiddenAuthority": [
+    "Landing runtime/pages/components/scripts/dependencies or any other manifest field",
+    "Expired-exception renewal, new exception or publishable-package authorization",
+    "Source-owned scope, CI/security/readiness weakening, forced/automatic merge",
+    "CORE/API/DB/money/provider/role/session/model or human legal/provenance authority"
+  ],
+  "teamHubDependency": "#5744 IP expiry blocker36794727081; original IP#4459; BANK hold5916270228; purpose#5749"
+};
+const landingMetadataFiles = [
+  {
+    "path": "apps/landing/package.json",
+    "mode": "100644",
+    "baselineBlob": "c80706ce0a424d57b2f7687bc0f4306f5c88a434",
+    "candidateBlob": "e693a061ea6d42a9c62cc1ab8350c3af904265a4",
+    "baselineContent": "{\n  \"name\": \"@pc/landing\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev -p 3001\",\n    \"build\": \"next build\",\n    \"start\": \"next start -p 3001\"\n  },\n  \"dependencies\": {\n    \"next\": \"14.2.35\",\n    \"react\": \"18.3.1\",\n    \"react-dom\": \"18.3.1\",\n    \"lucide-react\": \"0.460.0\",\n    \"clsx\": \"2.1.1\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"22.8.1\",\n    \"@types/react\": \"18.3.3\",\n    \"@types/react-dom\": \"18.3.0\",\n    \"autoprefixer\": \"10.4.18\",\n    \"postcss\": \"8.4.35\",\n    \"tailwindcss\": \"3.4.1\",\n    \"typescript\": \"5.6.3\"\n  }\n}\n",
+    "content": "{\n  \"name\": \"@pc/landing\",\n  \"private\": true,\n  \"license\": \"UNLICENSED\",\n  \"scripts\": {\n    \"dev\": \"next dev -p 3001\",\n    \"build\": \"next build\",\n    \"start\": \"next start -p 3001\"\n  },\n  \"dependencies\": {\n    \"next\": \"14.2.35\",\n    \"react\": \"18.3.1\",\n    \"react-dom\": \"18.3.1\",\n    \"lucide-react\": \"0.460.0\",\n    \"clsx\": \"2.1.1\"\n  },\n  \"devDependencies\": {\n    \"@types/node\": \"22.8.1\",\n    \"@types/react\": \"18.3.3\",\n    \"@types/react-dom\": \"18.3.0\",\n    \"autoprefixer\": \"10.4.18\",\n    \"postcss\": \"8.4.35\",\n    \"tailwindcss\": \"3.4.1\",\n    \"typescript\": \"5.6.3\"\n  }\n}\n"
+  },
+  {
+    "path": "docs/ip/internal-package-metadata-exceptions.json",
+    "mode": "100644",
+    "baselineBlob": "872689ef5215d2b92429c465159fbf794259cc9f",
+    "candidateBlob": "c3eb22c2f4fc9ec3105e0203b7990de3b88dc345",
+    "baselineContent": "{\n  \"schemaVersion\": 1,\n  \"effectiveDate\": \"2026-08-21\",\n  \"exceptions\": [\n    {\n      \"path\": \"apps/landing/package.json\",\n      \"name\": \"@pc/landing\",\n      \"status\": \"OPEN_BLOCKER\",\n      \"requirePrivate\": true,\n      \"missingField\": \"license=UNLICENSED\",\n      \"reason\": \"AGENTS.md forbids changes under apps/landing in this bounded slice. The manifest remains non-publishable through private=true, but final IP status is blocked until a separately authorized metadata-only change adds license=UNLICENSED.\",\n      \"authority\": \"https://github.com/pachaninm-lab/pachanin-demo/issues/4459\",\n      \"expiresOn\": \"2026-09-30\"\n    }\n  ]\n}\n",
+    "content": "{\n  \"schemaVersion\": 1,\n  \"effectiveDate\": \"2026-08-21\",\n  \"exceptions\": []\n}\n"
+  }
+];
+const landingMetadataPaths = landingMetadataTemplate.allowedPaths;
+
+function landingAdmission(origin) {
+  return { ...structuredClone(landingMetadataTemplate), authorityBaseExactMain: origin };
+}
+function expectedAttestationScope(state) {
+  const admission = state.coordinationAdmissions?.[landingMetadataKey];
+  if (!admission) return [gitleaksReleaseAttestationPath];
+  assert.match(admission.authorityBaseExactMain, /^[0-9a-f]{40}$/u);
+  assert.deepEqual(admission, landingAdmission(admission.authorityBaseExactMain));
+  assert.deepEqual(state.coordinationAdmissions[landingMetadataPurposeKey], landingMetadataPurpose);
+  return [gitleaksReleaseAttestationPath, ...landingMetadataPaths];
+}
+function landingMetadataFixture(t, implementation = false) {
+  const context = currentGitleaksReleaseAttestationFixture(t);
+  if (!implementation) {
+    git(context.root, ['switch', '-c', landingMetadataAdmissionBranch]);
+    context.implementationBranch = landingMetadataAdmissionBranch;
+  }
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, landingMetadataStatePath), 'utf8'));
+  state.approvedConcurrentScopes[landingMetadataAdmissionBranch] = [...landingMetadataPurpose.allowedPaths];
+  state.coordinationAdmissions = {
+    retainedOwnerRecord: { owner: 'ORIGINAL_OWNER', purpose: 'unchanged existing authority' },
+    [landingMetadataPurposeKey]: structuredClone(landingMetadataPurpose),
+  };
+  state.current = 'R1.2';
+  state.fullTzReadinessPercent = 5;
+  write(context.root, landingMetadataStatePath, `${JSON.stringify(state, null, 2)}\n`);
+  for (const file of landingMetadataFiles) write(context.root, file.path, file.baselineContent);
+  commit(context.root, 'accepted purpose and exact original package metadata');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  context.admissionOrigin = context.baseline;
+  for (const file of landingMetadataFiles) assert.equal(git(context.root, ['rev-parse', `${context.baseline}:${file.path}`]), file.baselineBlob);
+  if (implementation) {
+    writeLandingAdmission(context);
+    commit(context.root, 'separately accepted state-only exact metadata admission');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  }
+  return context;
+}
+function writeLandingAdmission(context, mutate = () => {}) {
+  const state = JSON.parse(git(context.root, ['show', `${context.baseline}:${landingMetadataStatePath}`]));
+  state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [gitleaksReleaseAttestationPath, ...landingMetadataPaths];
+  state.coordinationAdmissions[landingMetadataKey] = landingAdmission(context.admissionOrigin);
+  mutate(state);
+  write(context.root, landingMetadataStatePath, `${JSON.stringify(state, null, 2)}\n`);
+}
+function changeLandingPair(context) {
+  for (const file of landingMetadataFiles) write(context.root, file.path, file.content);
+}
+function rejectLandingMetadata(context, pattern = /LANDING_METADATA|Mutable scope authority|Forbidden path|Files outside current autopilot scope/u) {
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), pattern);
+}
+function amendLandingBaseline(context, mutate) {
+  mutate(); commit(context.root, 'changed immutable fixture baseline');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+}
+
+test('landing metadata: native trusted-base routing already covers both existing refs', () => {
+  const state = JSON.parse(fs.readFileSync(landingMetadataStatePath, 'utf8'));
+  assert.deepEqual(state.coordinationAdmissions[landingMetadataPurposeKey], landingMetadataPurpose);
+  assert.deepEqual(state.approvedConcurrentScopes[landingMetadataAdmissionBranch], landingMetadataPurpose.allowedPaths);
+  assert.deepEqual(state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch], expectedAttestationScope(state));
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  for (const branch of [landingMetadataAdmissionBranch, gitleaksReleaseAttestationBranch]) {
+    assert.ok(workflow.includes(`github.event.pull_request.head.ref == '${branch}'`));
+  }
+  assert.ok(workflow.includes('BASE_REF="$BASE_SHA" HEAD_REF="$HEAD_SHA" GITHUB_HEAD_REF="$IMMUTABLE_SCOPE_BRANCH"'));
+});
+test('landing metadata: state-only admission preserves the original attestation path and all old authority', (t) => {
+  const context = landingMetadataFixture(t);
+  writeLandingAdmission(context); commit(context.root, 'exact state-only admission');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+test('landing metadata: exact two-file metadata phase passes only from accepted state', (t) => {
+  const context = landingMetadataFixture(t, true);
+  changeLandingPair(context); commit(context.root, 'only exact package normalization');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+test('landing metadata: original attestation-only phase still passes after metadata acceptance', (t) => {
+  const context = landingMetadataFixture(t, true);
+  changeLandingPair(context); commit(context.root, 'accepted metadata pair');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  const source = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(source));
+  commit(context.root, 'original exact two-fingerprint repair only');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+for (const [name, mutate] of [
+  ['missing metadata record', state => { delete state.coordinationAdmissions[landingMetadataKey]; }],
+  ['wrong exact origin', state => { state.coordinationAdmissions[landingMetadataKey].authorityBaseExactMain = 'a'.repeat(40); }],
+  ['source owner changed', state => { state.coordinationAdmissions[landingMetadataKey].owner = 'OTHER'; }],
+  ['original attestation path removed', state => { state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch].shift(); }],
+  ['metadata scope widened', state => { state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch].push('apps/landing/**'); }],
+  ['candidate blob changed', state => { state.coordinationAdmissions[landingMetadataKey].exactMetadataFiles[0].candidateBlob = 'b'.repeat(40); }],
+  ['old owner record changed', state => { state.coordinationAdmissions.retainedOwnerRecord.owner = 'OTHER'; }],
+  ['global current scope expanded', state => { state.allowedCurrentScope.push('apps/landing/**'); }],
+  ['official progress changed', state => { state.fullTzReadinessPercent = 100; }],
+  ['guard self-scope expanded', state => { state.approvedConcurrentScopes[landingMetadataAdmissionBranch].push(landingMetadataStatePath); }],
+  ['purpose weakened in candidate', state => { state.coordinationAdmissions[landingMetadataPurposeKey].forbiddenAuthority = []; }],
+]) {
+  test(`landing metadata admission rejects ${name}`, (t) => {
+    const context = landingMetadataFixture(t);
+    writeLandingAdmission(context, mutate); commit(context.root, name);
+    rejectLandingMetadata(context, /LANDING_METADATA_ADMISSION_STATE_MUTATION/u);
+  });
+}
+for (const file of ['README.md', 'scripts/p7-autopilot-guard.sh', ...landingMetadataPaths]) {
+  test(`landing metadata admission rejects mixed source ${file}`, (t) => {
+    const context = landingMetadataFixture(t); writeLandingAdmission(context);
+    const old = fs.readFileSync(path.join(context.root, file), 'utf8');
+    write(context.root, file, old + '\n'); commit(context.root, 'mixed admission/source');
+    rejectLandingMetadata(context, /LANDING_METADATA_ADMISSION_DIFF_SCOPE/u);
+  });
+}
+for (const [name, mutate] of [
+  ['missing trusted purpose', state => { delete state.coordinationAdmissions[landingMetadataPurposeKey]; }],
+  ['altered trusted purpose', state => { state.coordinationAdmissions[landingMetadataPurposeKey].owner = 'OTHER'; }],
+  ['guard scope widened in base', state => { state.approvedConcurrentScopes[landingMetadataAdmissionBranch].push('README.md'); }],
+  ['original attestation scope widened', state => { state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch].push('README.md'); }],
+  ['admission already present', state => { state.coordinationAdmissions[landingMetadataKey] = landingAdmission('a'.repeat(40)); }],
+]) {
+  test(`landing metadata admission rejects ${name}`, (t) => {
+    const context = landingMetadataFixture(t);
+    amendLandingBaseline(context, () => {
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, landingMetadataStatePath), 'utf8'));
+      mutate(state); write(context.root, landingMetadataStatePath, `${JSON.stringify(state, null, 2)}\n`);
+    });
+    context.admissionOrigin = context.baseline;
+    writeLandingAdmission(context); commit(context.root, 'attempt admission');
+    rejectLandingMetadata(context);
+  });
+}
+test('landing metadata admission rejects executable state', (t) => {
+  const context = landingMetadataFixture(t); writeLandingAdmission(context);
+  fs.chmodSync(path.join(context.root, landingMetadataStatePath), 0o755);
+  commit(context.root, 'executable state'); rejectLandingMetadata(context, /LANDING_METADATA_STATE_FILE_MODE/u);
+});
+test('landing metadata admission rejects state reformatting', (t) => {
+  const context = landingMetadataFixture(t); writeLandingAdmission(context);
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, landingMetadataStatePath), 'utf8'));
+  write(context.root, landingMetadataStatePath, JSON.stringify(state));
+  commit(context.root, 'state reformatting'); rejectLandingMetadata(context, /LANDING_METADATA_ADMISSION_STATE_MUTATION/u);
+});
+for (const [name, mutate] of [
+  ['missing accepted admission', state => { delete state.coordinationAdmissions[landingMetadataKey]; }],
+  ['altered accepted metadata pins', state => { state.coordinationAdmissions[landingMetadataKey].exactMetadataFiles[0].candidateBlob = 'b'.repeat(40); }],
+  ['altered accepted origin', state => { state.coordinationAdmissions[landingMetadataKey].authorityBaseExactMain = 'b'.repeat(40); }],
+  ['missing accepted original test path', state => { state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch].shift(); }],
+  ['altered accepted purpose', state => { state.coordinationAdmissions[landingMetadataPurposeKey].owner = 'OTHER'; }],
+]) {
+  test(`landing metadata implementation rejects ${name}`, (t) => {
+    const context = landingMetadataFixture(t, true);
+    amendLandingBaseline(context, () => {
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, landingMetadataStatePath), 'utf8'));
+      mutate(state); write(context.root, landingMetadataStatePath, `${JSON.stringify(state, null, 2)}\n`);
+    });
+    changeLandingPair(context); commit(context.root, 'attempt source'); rejectLandingMetadata(context);
+  });
+}
+for (const [name, fileIndex, mutate] of [
+  ['license changed', 0, source => source.replace('"UNLICENSED"', '"MIT"')],
+  ['private flag removed', 0, source => source.replace('  "private": true,\n', '')],
+  ['private flag false', 0, source => source.replace('"private": true', '"private": false')],
+  ['package name changed', 0, source => source.replace('@pc/landing', '@pc/other')],
+  ['build script changed', 0, source => source.replace('next build', 'next build && echo altered')],
+  ['dependency changed', 0, source => source.replace('14.2.35', '14.2.34')],
+  ['metadata field added', 0, source => source.replace('  "private": true,', '  "private": true,\n  "description": "changed",')],
+  ['register effective date changed', 1, source => source.replace('2026-08-21', '2026-10-01')],
+  ['register schema changed', 1, source => source.replace('"schemaVersion": 1', '"schemaVersion": 2')],
+  ['exception expiry extended', 1, () => landingMetadataFiles[1].baselineContent.replace('2026-09-30', '2026-12-31')],
+  ['stale completed exception retained', 1, () => landingMetadataFiles[1].baselineContent],
+]) {
+  test(`landing metadata implementation rejects ${name}`, (t) => {
+    const context = landingMetadataFixture(t, true); changeLandingPair(context);
+    const file = landingMetadataFiles[fileIndex]; write(context.root, file.path, mutate(file.content));
+    commit(context.root, name); rejectLandingMetadata(context);
+  });
+}
+for (const file of [gitleaksReleaseAttestationPath, 'scripts/p7-autopilot-guard.sh', landingMetadataStatePath, 'apps/landing/app/page.tsx', 'docs/ip/publishable-packages.json']) {
+  test(`landing metadata implementation rejects mixed source ${file}`, (t) => {
+    const context = landingMetadataFixture(t, true); changeLandingPair(context);
+    if (file === gitleaksReleaseAttestationPath) {
+      write(context.root, file, synchronizeCurrentGitleaksReleaseAttestation(fs.readFileSync(path.join(context.root, file), 'utf8')));
+    } else write(context.root, file, `${fs.existsSync(path.join(context.root, file)) ? fs.readFileSync(path.join(context.root, file), 'utf8') : ''}\n`);
+    commit(context.root, 'mixed metadata authority'); rejectLandingMetadata(context, /LANDING_METADATA_IMPLEMENTATION_DIFF_SCOPE/u);
+  });
+}
+for (let missing = 0; missing < landingMetadataFiles.length; missing++) {
+  test(`landing metadata implementation rejects missing paired file ${missing}`, (t) => {
+    const context = landingMetadataFixture(t, true);
+    const file = landingMetadataFiles[1 - missing]; write(context.root, file.path, file.content);
+    commit(context.root, 'incomplete pair'); rejectLandingMetadata(context, /LANDING_METADATA_IMPLEMENTATION_DIFF_SCOPE/u);
+  });
+}
+for (const file of landingMetadataFiles) {
+  for (const kind of ['executable', 'symlink', 'rename', 'baseline drift']) {
+    test(`landing metadata implementation rejects ${kind} ${file.path}`, (t) => {
+      const context = landingMetadataFixture(t, true);
+      if (kind === 'baseline drift') amendLandingBaseline(context, () => write(context.root, file.path, file.baselineContent + '\n'));
+      changeLandingPair(context);
+      if (kind === 'executable') fs.chmodSync(path.join(context.root, file.path), 0o755);
+      if (kind === 'symlink') { fs.unlinkSync(path.join(context.root, file.path)); fs.symlinkSync('../../README.md', path.join(context.root, file.path)); }
+      if (kind === 'rename') fs.renameSync(path.join(context.root, file.path), path.join(context.root, file.path + '.renamed'));
+      commit(context.root, kind); rejectLandingMetadata(context);
+    });
+  }
+}
+test('landing metadata: dirty correct bytes cannot rescue wrong committed source', (t) => {
+  const context = landingMetadataFixture(t, true); changeLandingPair(context);
+  write(context.root, landingMetadataFiles[0].path, landingMetadataFiles[0].content.replace('UNLICENSED', 'MIT'));
+  commit(context.root, 'wrong committed license'); changeLandingPair(context);
+  rejectLandingMetadata(context, /LANDING_METADATA_EXACT_FILE/u);
+});
+test('landing metadata: candidate guard cannot authorize source without accepted admission', (t) => {
+  const context = landingMetadataFixture(t);
+  git(context.root, ['switch', gitleaksReleaseAttestationBranch]);
+  git(context.root, ['merge', '--ff-only', context.baseline]); context.implementationBranch = gitleaksReleaseAttestationBranch;
+  write(context.root, 'scripts/p7-autopilot-guard.sh', '#!/bin/bash\nexit 0\n', 0o755);
+  changeLandingPair(context); commit(context.root, 'candidate guard self-admission');
+  rejectLandingMetadata(context, /LANDING_METADATA_ACCEPTED_ADMISSION_MISMATCH/u);
+});
+test('landing metadata: ordinary guard phase cannot include landing source', (t) => {
+  const context = landingMetadataFixture(t);
+  write(context.root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8') + '\n');
+  changeLandingPair(context); commit(context.root, 'guard/source mixed phase');
+  rejectLandingMetadata(context, /Forbidden path/u);
 });
