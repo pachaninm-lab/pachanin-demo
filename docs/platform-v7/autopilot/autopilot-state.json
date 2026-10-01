@@ -2934,6 +2934,52 @@
       ],
       "teamHubDependency": "#5744 IP expiry blocker36794727081; original IP#4459; BANK hold5916270228; purpose#5749",
       "authorityBaseExactMain": "7aa734d2da13465d62085f00fbf89b4ef02f2dd5"
+    },
+    "deal-destination-locale-guard-purpose-20261001": {
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew the existing accepted three-path PRODUCT guard ref for separately admitted RU/EN/ZH presentation on the actual protected Deal destination, resolving #5735 destination-language finding without changing command or server authority.",
+      "authorityBaseExactMain": "2d0db1af028b9d9d17d5a1e84a4dbe86ec990d68",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-deal-runtime-admission-20260929",
+      "futureImplementationBranch": "ux/deal-runtime-unknown-20260929",
+      "futureAdditionalSourcePaths": [
+        "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+        "apps/web/components/platform-v7/DealCommandForm.tsx",
+        "apps/web/i18n/transaction-deal-copy.ts",
+        "packages/design-system-v8/src/components.tsx"
+      ],
+      "reviewedPrivatePayload": {
+        "sha256": "6666012b47c9179f132149d010d13284309d7fe5ec2689373dba18ccdcc4024e",
+        "sourceComments": [
+          5908067884,
+          5908071391
+        ],
+        "authorAuditComment": 5908085804,
+        "independentPrivateReviewComment": 5916309103
+      },
+      "requiredTruthBoundaries": [
+        "This one-file purpose record admits no runtime, test, workflow or new source path. Global/current/R1.2 scopes, approvedConcurrentScopes, every existing admission, progress and maturity remain unchanged.",
+        "After this purpose is independently reviewed and accepted, use the existing already admitted three-path guard ref for a separate trusted-base literal guard repair and adversarial tests. Preserve all existing admission phases, metadata/attestation routes and trusted-base plus PR-head defense.",
+        "The guard must define a separate exact state-only extension phase on the existing Deal-runtime admission ref. Preserve the full original five-path runtime scope and add only the four listed paths in a later independently reviewed accepted state. Candidate-owned state or a manifest cannot grant implementation authority.",
+        "Publish no Deal locale source before the separately accepted guard and state-only source extension. Use the existing production-resolved transaction-ux workspace and NextIntl request locale; keep the facade, tsconfig mapping, shell and approved design.",
+        "Preserve all original UNKNOWN attempt identity, immutable request fingerprint, draft/review/focus state, exact server role/tenant/Deal/action permissions, CSRF, GET-only recovery and duplicate command prevention. Locale changes affect presentation only.",
+        "The captured six-file private payload and its bounded review are support, not current-head CI, admission, native account approval, full browser acceptance or production evidence. Obtain fresh independent whole-source review, author audit and every applicable CI/security/readiness gate after actual adoption.",
+        "Preserve original source authors and canonical CORE ownership. Queue the shared guard writer and any main/release action after the current Gekta owner window; do not overwrite another owner's ref or issue a competing deployment command.",
+        "Require normal expected-full-SHA manual merges and exact-current-main REG.RU OCI/container/live acceptance followed by the ordinary authorized bank queue to the same Deal in RU/EN/ZH. Public or seeded fixture evidence does not close protected bank, 13-cabinet or provider acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Direct runtime/test/source admission, permission-vector changes or another owner's branch mutation in this purpose PR",
+        "Backend/API/DB/RLS/tenant/role/session/command/payment/provider/FGIS or legal authority",
+        "Design or App Shell replacement, duplicate Deal core, alias removal, business-status or external-success inference",
+        "CI/security/readiness/independent-review weakening, fake PASS, forced/automatic merge, production/model mutation or new recurring cost"
+      ],
+      "teamHubDependency": "#5735 P2 thread4142098743; source5908067884/5908071391; private review5916309103; #5699; current Gekta next window5924684608"
     }
   }
 }
