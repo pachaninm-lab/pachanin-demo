@@ -2936,7 +2936,8 @@
       "authorityBaseExactMain": "7aa734d2da13465d62085f00fbf89b4ef02f2dd5"
     },
     "deal-destination-locale-guard-purpose-20261001": {
-      "owner": "ACCOUNT_2_PRODUCT",
+      "owner": "ACCOUNT_1_EXECUTION",
+      "presentationContributor": "ACCOUNT_2_PRODUCT",
       "purpose": "Renew the existing accepted three-path PRODUCT guard ref for separately admitted RU/EN/ZH presentation on the actual protected Deal destination, resolving #5735 destination-language finding without changing command or server authority.",
       "authorityBaseExactMain": "2d0db1af028b9d9d17d5a1e84a4dbe86ec990d68",
       "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
