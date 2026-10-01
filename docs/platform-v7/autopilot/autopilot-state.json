@@ -1575,7 +1575,9 @@
       "apps/web/app/platform-v7/profile/page.tsx",
       "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
       "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
-      "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+      "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+      "apps/web/lib/bank-release-server.ts",
+      "apps/web/tests/unit/bankReleaseServer.test.ts"
     ],
     "fgis/zsn-public-document-source-lock-20260924": [
       ".github/workflows/pc-crop-zsn-source-lock.yml",
@@ -3386,6 +3388,138 @@
         "Arbitrary source/pin/scope/metadata change or partial currency-only adoption",
         "CI/review/security/readiness weakening, fake evidence or forced/automatic merge",
         "API/DB/role/tenant/session/command/money/provider/FGIS/legal/model authority"
+      ]
+    },
+    "bank-release-currency-amount-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+      "canonicalApiOwnerRetained": "ACCOUNT_1_EXECUTION",
+      "purpose": "Apply only the immutable four-file read-only BANK currency and selected-operation amount consistency payload plus its exact existing scope-manifest update.",
+      "authorityBaseExactMain": "278b5da11666433889c61792b0712c50aaf27107",
+      "implementationBranch": "bank/deep-visible-copy-guard-20260924",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/bank/escrow/page.tsx",
+        "apps/web/app/platform-v7/bank/factoring/page.tsx",
+        "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+        "apps/web/app/platform-v7/profile/page.tsx",
+        "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+        "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+        "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+        "apps/web/lib/bank-release-server.ts",
+        "apps/web/tests/unit/bankReleaseServer.test.ts"
+      ],
+      "retainedAdmissionKey": "bank-deep-visible-copy-guard-20260924-coordination",
+      "exactSourcePins": [
+        [
+          "apps/web/lib/bank-release-server.ts",
+          "870a839e7087ef1114d805d818220471027c89fb",
+          "54e276cc387366a4068c4a9358aea1dcfa0ebc18"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseServer.test.ts",
+          "698b609d3d3ee2a60bcbe491e7b8137807b261e6",
+          "2ab6b6c3ac056b3d08eb76450fd0c54e97bff304"
+        ],
+        [
+          "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+          "55f1572c14283fb2b69153adba6cbe13622fd387",
+          "b67a3452e05ad97082ccfbcc0c4975302cb62df9"
+        ],
+        [
+          "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+          "68382969c3b8f1bb8912a1c514fd71882470cf95",
+          "630599ff7ff0ca4338445fc8bba50d61cf07f4f6"
+        ]
+      ],
+      "exactManifestPath": "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+      "baselineManifestBlob": "c7a015a9449578df7fbd325aae81f2d3795a4523",
+      "correctionPurposeKey": "bank-release-reserve-evidence-guard-purpose-20261001",
+      "reviewedPrivatePayloadSha256": "8c05b77b82a722c6ca21118ed0b7c7dcc2dec549f93e4b77e6a2349a9b8ef06e",
+      "requiredTruthBoundaries": [
+        "Preserve the seven-path prefix and every old admission byte/value. Append only two read-only web source/test paths; no server, provider, money mutation or legal authority.",
+        "The source phase requires all four immutable100644 source transitions and only the exact accepted-manifest path/base transformation, unchanged state and genuine accepted-base ancestry.",
+        "Preserve canonical GET-only Deal/tenant/participant permissions, UNKNOWN external outcome and all callback/outbox prerequisites. Currency/selected RESERVE and RELEASE amount conflicts cannot establish readiness or RELEASED.",
+        "A released projection requires persisted payment reservation and the selected canonical RESERVE amount/currency, DONE status, confirmation timestamp and bank reference; missing/unconfirmed/newer-pending reserve evidence remains manual review.",
+        "Fresh independent full current-head review, separate owner audit, every substantive native CI/security/readiness gate and ordinary expected-full-SHA merge remain mandatory. Private unit doubles are not PostgreSQL/browser/provider/Founder13/REG.RU acceptance."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/RLS/role/tenant/session/command/money/provider/FGIS/legal/model authority",
+        "Arbitrary source/scope/metadata changes",
+        "CI/security/readiness/review weakening or fake acceptance"
+      ]
+    },
+    "deal-execution-route-guard-purpose-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew only the already admitted protected guard ref to bind the exact Deal execution route prerequisite after native review proved inherited PRIMARY scope and inert source pins.",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs"
+      ],
+      "retainedAcceptedGuardScope": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-deal-execution-route-20261001",
+      "futureImplementationBranch": "fix/deal-execution-route-20261001",
+      "futureAllowedPaths": [
+        "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+        "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+        "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts"
+      ],
+      "futureExactSourcePins": [
+        [
+          "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+          "b9b96c88695c7960a309e98e691c348fec03a2b0",
+          "d94cc0d0af208fd6faea32e321a136629bef44f8"
+        ],
+        [
+          "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+          "87ebc91bcc9a927dd6ad2d6f9afdfff8737d47bd",
+          "a1290dc9b3ba122de480200ff5efa86445b5fe66"
+        ],
+        [
+          "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts",
+          "0e7d10b62a722802c76e73f2eb2e618953a383c5",
+          "043c10b308d52091cebb1b7a26dd31fc23a0bc45"
+        ]
+      ],
+      "requiredFutureSourceMode": "100644",
+      "privateRoutePayloadSha256": "d4c4bf61d3813e2d0d4b9c364c81941ab88039b078413addc5eb1d3ca750e884",
+      "blockingNativeFindings": [
+        4155054017,
+        4155054022
+      ],
+      "grantRouteSourceAuthority": false,
+      "guardAdoptionRequiresCoreHandoff": true,
+      "requiredTruthBoundaries": [
+        "Purpose only: append this record without a route SOURCE vector. Every old state byte/value, admission/vector, PRIMARY/current/global/R1.2 scope, official5/100 and workflow remains unchanged.",
+        "Renew only the existing protected three-path guard ref; the correction itself changes exactly the two recorded guard/test blobs with their original100755/100644 modes and unchanged accepted state. Do not touch its third workflow path or introduce another shared guard writer.",
+        "The accepted guard must discard PRIMARY/source-controlled expansion for the route SOURCE ref, bind exact trusted-base state/three paths/blobs/modes/ancestry and reject extra, partial, wrong-byte, wrong-mode, rename/delete and candidate-owned authority cases.",
+        "The next state-only admission and route SOURCE remain separate accepted-base-reviewed native-gated phases. Purpose and guard code grant no route SOURCE vector, ordinary role/session/money/provider authority or live acceptance.",
+        "CORE retains current source and first-merge priority. Every guard/admission/SOURCE adoption waits for actual handoff, fresh MAIN/Hub/ownership checks, independent complete-head review, strict author audit, all substantive native/security gates and normal expected-full-SHA manual merge."
+      ],
+      "forbiddenAuthority": [
+        "SOURCE route/self-admission or arbitrary scope/state changes",
+        "CORE/API/DB/RLS/role/session/money/provider/FGIS/deployment authority",
+        "Workflow, CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
+      ],
+      "authorityBaseExactMain": "2749279de3b070f3ff9b79224c26d03c590275bd",
+      "exactGuardSourcePins": [
+        [
+          "scripts/p7-autopilot-guard.sh",
+          "38be109d11422546c07fd96db283d848599a709f",
+          "444f19466c88efdde89c3b7d162ca6c009b63e42",
+          "100755"
+        ],
+        [
+          "scripts/p7-autopilot-guard.test.mjs",
+          "db910d2e6c2521957fb8719f7e5af659a8cd0165",
+          "d47e80c51cd77cf15acb44ad5316b351db51cdca",
+          "100644"
+        ]
       ]
     }
   }
