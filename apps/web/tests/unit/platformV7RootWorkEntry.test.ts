@@ -433,7 +433,13 @@ describe('platform-v7 canonical public experience',()=>{
   });
 
   it('keeps the protected Deal on the authoritative execution workspace and governed command boundary',()=>{
-    expect(protectedDealRoute).toContain('<CanonicalDealWorkspace role={role} dealId={id} />');
+    // Locale is presentation context. Both accepted signatures bind the same
+    // canonical role and Deal; no other prop or authority override is admitted.
+    expect(protectedDealRoute).toMatch(/<CanonicalDealWorkspace role=\{role\} dealId=\{id\}(?: locale=\{locale\})? \/>/);
+    if (protectedDealRoute.includes('locale={locale}')) {
+      expect(protectedDealRoute).toContain("import { useLocale } from 'next-intl'");
+      expect(protectedDealRoute).toContain('const locale = useLocale();');
+    }
     expect(cleanDealAlias).toContain('/execution');
     expect(protectedDeal).toContain('/execution-workspace');
     expect(protectedDeal).toContain('/commands/${encodeURIComponent(action.id)}');
