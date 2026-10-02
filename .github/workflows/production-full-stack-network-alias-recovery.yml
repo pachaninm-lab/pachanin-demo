@@ -1,0 +1,149 @@
+name: Production Full-Stack Network Alias Recovery
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-full-stack-network-alias-recovery.yml'
+      - 'scripts/production-full-stack-network-alias-recovery.sh'
+      - 'apps/web/tests/unit/platformV7ReleaseNetworkAliasRecovery.test.ts'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-full-stack-network-alias-recovery
+  cancel-in-progress: false
+
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate fail-closed API alias recovery contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 3072 &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.body == '/production repair-full-stack-api-alias current-main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Enforce bounded recovery surface
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/production-full-stack-network-alias-recovery.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          workflow=Path('.github/workflows/production-full-stack-network-alias-recovery.yml').read_text(encoding='utf-8')
+          script=Path('scripts/production-full-stack-network-alias-recovery.sh').read_text(encoding='utf-8')
+          required=[
+            'docker network disconnect -f', 'FOREIGN_ALIAS_NOT_API_SERVICE',
+            'FOREIGN_ALIAS_PROJECT_NOT_PROVABLY_STALE', 'FOREIGN_ALIAS_NAME_NOT_COMPOSE_STALE',
+            'API_ALIAS_UNIQUENESS PASS', 'AUTHORITATIVE_API_REVISION_UNCHANGED PASS',
+            'PRODUCTION_MUTATION STALE_API_NETWORK_ALIAS_DISCONNECTED'
+          ]
+          missing=[x for x in required if x not in script]
+          if missing: raise SystemExit('missing recovery invariant: '+' | '.join(missing))
+          required_w=["github.event.issue.number == 3072", "github.event.comment.body == '/production repair-full-stack-api-alias current-main'", 'github.event.comment.performed_via_github_app.id == 1144995', 'StrictHostKeyChecking=yes']
+          missing=[x for x in required_w if x not in workflow]
+          if missing: raise SystemExit('missing workflow invariant: '+' | '.join(missing))
+          forbidden=['docker rm','docker stop','docker kill','docker restart','docker network rm','docker compose up','docker system prune','docker container prune','docker volume rm','ALTER ROLE','UPDATE auth.','INSERT INTO','DELETE FROM']
+          bad=[x for x in forbidden if x in script]
+          if bad: raise SystemExit('forbidden mutation surface: '+' | '.join(bad))
+          print('PASS: bounded foreign API alias recovery contract')
+          PY
+
+  remediate:
+    name: Detach only stale foreign API alias endpoint
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.body == '/production repair-full-stack-api-alias current-main' &&
+      ((github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+       github.event.comment.performed_via_github_app.id == 1144995)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind exact current main
+        env: { GH_TOKEN: '${{ github.token }}' }
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ && "$target" == "$(git rev-parse origin/main)" && "$target" == "$(git rev-parse HEAD)" ]]
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"; user="$(trim "${SSH_USER_SECRET:-}")"; port="$(trim "${SSH_PORT_SECRET:-22}")"; expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$port" =~ ^[0-9]+$ && "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$host"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          valid(){ local f="$1"; tr -d '\r' < "$f" > "$HOME/.ssh/id_pc_prod"; chmod 600 "$HOME/.ssh/id_pc_prod"; ! grep -Eq '^(ssh-|ecdsa-|sk-)' "$HOME/.ssh/id_pc_prod" && ssh-keygen -y -P '' -f "$HOME/.ssh/id_pc_prod" >/dev/null 2>&1; }
+          slot(){ local r="$1" a b c; [[ -n "$r" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$r" > "$a"; valid "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${r//\\n/$'\n'}" > "$b"; valid "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$r" | base64 -d > "$c" 2>/dev/null && valid "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
+          slot "${SSH_KEY_PRIMARY:-}" || slot "${SSH_KEY_SECONDARY:-}" || slot "${SSH_KEY_FALLBACK:-}" || exit 14
+          scan="$(mktemp)"; match="$(mktemp)"; ok=0
+          for n in 1 2 3; do : > "$scan"; : > "$match"; ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true; while IFS= read -r line; do fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"; sort -u -o "$match" "$match"; [[ "$(grep -c . "$match" || true)" == 1 ]] && { ok=1; break; }; done
+          [[ "$ok" == 1 ]]; mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15 "$user@$host" '[[ "$(id -u)" -eq 0 ]] && docker version >/dev/null && echo SSH_AUTH_OK' | grep -Fxq SSH_AUTH_OK
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+      - name: Execute bounded API alias recovery
+        id: repair
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" scripts/production-full-stack-network-alias-recovery.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-api-alias-${GITHUB_RUN_ID}.sh"
+          raw="$(mktemp)"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" "$SSH_USER_SECRET@$HOST" "chmod 0700 /tmp/pc-api-alias-${GITHUB_RUN_ID}.sh; /tmp/pc-api-alias-${GITHUB_RUN_ID}.sh; rm -f /tmp/pc-api-alias-${GITHUB_RUN_ID}.sh" > "$raw"
+          grep -Fxq 'API_ALIAS_RECOVERY=PASS' "$raw"
+          grep -Fxq 'API_ALIAS_UNIQUENESS=PASS' "$raw"
+          grep -Fxq 'AUTHORITATIVE_API_REVISION_UNCHANGED=PASS' "$raw"
+          api_revision="$(sed -n 's/^API_REVISION=//p' "$raw" | tail -1)"; [[ "$api_revision" =~ ^[0-9a-f]{40}$ ]]
+          echo "api_revision=$api_revision" >> "$GITHUB_OUTPUT"
+          sed -nE '/^(API_ALIAS_RECOVERY|STALE_API_ALIAS_DISCONNECTED|API_ALIAS_UNIQUENESS|AUTHORITATIVE_API_REVISION_UNCHANGED|PRODUCTION_MUTATION)=/p' "$raw"
+          rm -f "$raw"
+      - name: Verify public API route still resolves to authoritative revision
+        env: { EXPECTED_API_REVISION: '${{ steps.repair.outputs.api_revision }}' }
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          headers="$(mktemp)"; body="$(mktemp)"
+          http="$(curl --fail-with-body --silent --show-error --max-time 15 -D "$headers" -o "$body" -w '%{http_code}' "$LIVE_BASE/api/health")"
+          sha="$(awk 'BEGIN{IGNORECASE=1} /^x-build-sha:/{gsub(/\r/,"",$2); print $2}' "$headers" | tail -1)"
+          rm -f "$headers" "$body"
+          [[ "$http" == 200 && "$sha" == "$EXPECTED_API_REVISION" ]]
+          echo PUBLIC_API_ALIAS_AUTHORITY=PASS
