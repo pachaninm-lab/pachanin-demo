@@ -19,10 +19,10 @@ function forbidAll(label, text, needles) {
 
 const command = '/production p0-reviewer-reset-request deployed-7b66f65';
 const deployed = '7b66f65f8fc7fc4bbedb56c94088ad1473462c92';
-const mailProofRun = '31820889888';
-const mailProofHead = 'f9ebf5dd6b7424911285378a938a78a06e9cb2fe';
+const mailProofRun = '31823705807';
+const mailProofHead = '4330e435f5f7bf0336a68314c920986193b40f53';
 const sourceBlob = 'cbfa6695df00b7b536d153a88e55626d66281063';
-const branch = 'fix/p0-reviewer-reset-proof-31820889888-3785';
+const branch = 'fix/p0-reviewer-reset-proof-31823705807-3785';
 const allowedPaths = [workflowPath, runnerPath, scopePath, 'scripts/check-production-p0-reviewer-password-reset-request-deployed.mjs'];
 
 requireAll('workflow', workflow, [
