@@ -1,5 +1,6 @@
 import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
-import { RestrictedPublicQwenService } from './restricted-public-qwen.service';
+import { RestrictedPublicQwenService, type PublicStreamEvent } from './restricted-public-qwen.service';
+import { StreamingAnswerGate } from './restricted-public-qwen.stream-gate';
 
 const VALID_REQUEST = {
   question: 'Как работает аукцион?',
@@ -463,5 +464,693 @@ describe('RestrictedPublicQwenService', () => {
         });
       },
     );
+  });
+});
+
+
+// Private diagnostic regressions: every provider call below is mocked locally.
+// These records describe calls made by this service, not provider execution proof.
+describe('RestrictedPublicQwenService candidate provider trace', () => {
+  const originalEnv = process.env;
+  const originalFetch = global.fetch;
+  const prefix = 'QWEN35_PROVIDER_TRACE=';
+  const policyVocabulary = [
+    'CURRENT_EVIDENCE_REQUIRED',
+    'GENERAL_AGRO_DISEASE_COMPLETENESS_FLOOR',
+    'MODEL_OUTPUT_TRUNCATED',
+    'RAW_LINK_REMOVED',
+    'UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED',
+    'UNVERIFIED_ECONOMIC_CLAIM_REMOVED',
+    'UNSUPPORTED_PLATFORM_ENTITY_REMOVED',
+    'UNSUPPORTED_PLATFORM_AUTONOMY_REMOVED',
+    'UNSUPPORTED_LIVE_CAPABILITY_REMOVED',
+  ];
+  type TraceAttempt = {
+    attempt: number;
+    requestedMaxTokens: number | null;
+    finishReason: 'stop' | 'length' | 'other' | null;
+    promptTokens: number | null;
+    completionTokens: number | null;
+  };
+  type Trace = {
+    schemaVersion: number;
+    method: string;
+    attemptCount: number;
+    attemptOverflow: boolean;
+    attempts: TraceAttempt[];
+    outcome: 'returned' | 'threw' | 'consumer_returned';
+    finalFinishReason: 'stop' | 'length' | 'other' | null;
+    truncated: boolean | null;
+    policyFlags: string[];
+    unknownPolicyFlagCount: number;
+    elapsedMs: number | null;
+  };
+  let info: jest.SpyInstance;
+
+  function sse(frame: unknown): string {
+    return `data: ${JSON.stringify(frame)}\n\n`;
+  }
+
+  function reply(content: string, reason: unknown = 'stop', usage?: unknown): string {
+    return sse({ choices: [{ delta: { content }, finish_reason: reason }], usage });
+  }
+
+  function trackedStream(chunks: readonly string[]) {
+    const read = jest.fn();
+    for (const chunk of chunks) {
+      read.mockResolvedValueOnce({ done: false, value: new TextEncoder().encode(chunk) });
+    }
+    read.mockResolvedValue({ done: true, value: undefined });
+    const cancel = jest.fn().mockResolvedValue(undefined);
+    const releaseLock = jest.fn();
+    const reader = { read, cancel, releaseLock };
+    const response = { ok: true, status: 200, body: { getReader: () => reader } } as unknown as Response;
+    return { response, reader };
+  }
+
+  function normalizedEvents(events: PublicStreamEvent[]) {
+    return events.map((event) => {
+      if (event.type !== 'done') return event;
+      const { latencyMs: _latencyMs, ...stable } = event;
+      return stable;
+    });
+  }
+
+  async function collect(
+    request: unknown = GENERAL_AGRO_REQUEST,
+    signal?: AbortSignal,
+    service = new RestrictedPublicQwenService(),
+  ) {
+    const events: PublicStreamEvent[] = [];
+    for await (const event of service.generateStream(request, signal)) events.push(event);
+    return events;
+  }
+
+  function nullableInteger(value: unknown) {
+    expect(value === null || (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0)).toBe(true);
+  }
+
+  function trace(index = 0): Trace {
+    const args = info.mock.calls[index];
+    expect(args).toHaveLength(1);
+    expect(typeof args[0]).toBe('string');
+    const wire = args[0] as string;
+    expect(wire.startsWith(prefix)).toBe(true);
+    expect(wire).toMatch(/^[\x00-\x7f]*$/u);
+    expect(Buffer.byteLength(wire, 'utf8')).toBeLessThanOrEqual(2_048);
+    const record = JSON.parse(wire.slice(prefix.length)) as Trace;
+    expect(Object.keys(record).sort()).toEqual([
+      'schemaVersion', 'method', 'attemptCount', 'attemptOverflow', 'attempts',
+      'outcome', 'finalFinishReason', 'truncated', 'policyFlags',
+      'unknownPolicyFlagCount', 'elapsedMs',
+    ].sort());
+    expect(record.schemaVersion).toBe(1);
+    expect(record.method).toBe('generateStream');
+    expect([0, 1, 2]).toContain(record.attemptCount);
+    expect(typeof record.attemptOverflow).toBe('boolean');
+    expect(record.attempts).toHaveLength(record.attemptCount);
+    for (const [position, attempt] of record.attempts.entries()) {
+      expect(Object.keys(attempt).sort()).toEqual([
+        'attempt', 'requestedMaxTokens', 'finishReason', 'promptTokens', 'completionTokens',
+      ].sort());
+      expect(attempt.attempt).toBe(position + 1);
+      expect([null, 'stop', 'length', 'other']).toContain(attempt.finishReason);
+      nullableInteger(attempt.requestedMaxTokens);
+      nullableInteger(attempt.promptTokens);
+      nullableInteger(attempt.completionTokens);
+    }
+    expect(['returned', 'threw', 'consumer_returned']).toContain(record.outcome);
+    expect([null, 'stop', 'length', 'other']).toContain(record.finalFinishReason);
+    expect([null, true, false]).toContain(record.truncated);
+    expect(Array.isArray(record.policyFlags)).toBe(true);
+    expect(new Set(record.policyFlags).size).toBe(record.policyFlags.length);
+    expect(record.policyFlags.every((flag) => policyVocabulary.includes(flag))).toBe(true);
+    expect(record.policyFlags.length).toBeLessThanOrEqual(9);
+    nullableInteger(record.unknownPolicyFlagCount);
+    expect(record.unknownPolicyFlagCount).toBeLessThanOrEqual(99);
+    nullableInteger(record.elapsedMs);
+    return record;
+  }
+
+  function requestWires(fetchMock: jest.Mock) {
+    return fetchMock.mock.calls.map((call) => {
+      const [url, init] = call as [URL, RequestInit];
+      return {
+        url: url.toString(), method: init.method, headers: init.headers,
+        body: JSON.parse(String(init.body)),
+        abortedAfterCleanup: (init.signal as AbortSignal).aborted,
+      };
+    });
+  }
+
+  beforeEach(() => {
+    process.env = {
+      ...originalEnv,
+      NODE_ENV: 'test',
+      QWEN35_CANDIDATE_LIVE: '1',
+      TAI_RESTRICTED_QWEN_PUBLIC_ENABLED: 'true',
+      AI_ASSISTANT_PROVIDER: 'openai-compatible',
+      AI_ASSISTANT_BASE_URL: 'http://192.168.0.206:18080/v1/',
+      AI_ASSISTANT_MODEL: 'tai-qwen3-8b-q4km',
+      AI_ASSISTANT_API_KEY: 'k'.repeat(48),
+      AI_ASSISTANT_ALLOWED_HOSTS: '192.168.0.206',
+      AI_ASSISTANT_TIMEOUT_MS: '45000',
+      AI_ASSISTANT_MAX_TOKENS: '500',
+    };
+    // A missing fixture must fail locally instead of ever reaching a provider.
+    global.fetch = jest.fn().mockRejectedValue(new Error('UNEXPECTED_MOCK_PROVIDER_CALL')) as typeof fetch;
+    info = jest.spyOn(console, 'info').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    process.env = originalEnv;
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
+
+  const gateCases = [undefined, 'test', 'production', 'development', 'TEST', ' test ']
+    .flatMap((nodeEnv) => [undefined, '1', '0', 'true', ' 1 '].map((live) => ({ nodeEnv, live })));
+
+  it.each(gateCases)('uses the exact trace gate NODE_ENV=$nodeEnv LIVE=$live', async ({ nodeEnv, live }) => {
+    if (nodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = nodeEnv;
+    if (live === undefined) delete process.env.QWEN35_CANDIDATE_LIVE;
+    else process.env.QWEN35_CANDIDATE_LIVE = live;
+    global.fetch = jest.fn().mockResolvedValue(providerStreamResponse('Проверьте состояние участка.')) as typeof fetch;
+
+    await collect();
+
+    expect(info).toHaveBeenCalledTimes(nodeEnv === 'test' && live === '1' ? 1 : 0);
+    if (nodeEnv === 'test' && live === '1') expect(trace().outcome).toBe('returned');
+  });
+
+  it('keeps nonstream generate silent even under both enabled gates', async () => {
+    global.fetch = jest.fn().mockResolvedValue(providerResponse('Проверьте состояние участка.')) as typeof fetch;
+    await new RestrictedPublicQwenService().generate(GENERAL_AGRO_REQUEST);
+    expect(info).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { reasons: ['stop'], truncated: false },
+    { reasons: ['length', 'stop'], truncated: false },
+    { reasons: ['length', 'length'], truncated: true },
+  ])('preserves requests, events, accounting and cleanup for $reasons with trace off/on', async ({ reasons, truncated }) => {
+    const snapshots: unknown[] = [];
+    for (const enabled of [false, true]) {
+      process.env.QWEN35_CANDIDATE_LIVE = enabled ? '1' : '0';
+      info.mockClear();
+      const streams = reasons.map((reason, index) => trackedStream([
+        reply(index === 0 ? 'Проверьте влажность почвы.\n' : 'Сопоставьте состояние корней.\n', reason,
+          { prompt_tokens: index === 0 ? 100 : 620, completion_tokens: index === 0 ? 256 : 40 }),
+      ]));
+      const fetchMock = jest.fn();
+      for (const stream of streams) fetchMock.mockResolvedValueOnce(stream.response);
+      global.fetch = fetchMock as typeof fetch;
+
+      const events = await collect();
+      snapshots.push({ events: normalizedEvents(events), requests: requestWires(fetchMock) });
+      expect(fetchMock).toHaveBeenCalledTimes(reasons.length);
+      for (const stream of streams) {
+        expect(stream.reader.cancel).toHaveBeenCalledTimes(1);
+        expect(stream.reader.releaseLock).not.toHaveBeenCalled();
+      }
+      expect(events.at(-1)).toMatchObject({
+        type: 'done', finishReason: reasons.at(-1), truncated,
+        promptTokens: reasons.length === 1 ? 100 : 720,
+        completionTokens: reasons.length === 1 ? 256 : 40,
+      });
+      expect(info).toHaveBeenCalledTimes(enabled ? 1 : 0);
+      if (enabled) {
+        expect(trace()).toMatchObject({
+          attemptCount: reasons.length, attemptOverflow: false, outcome: 'returned',
+          finalFinishReason: reasons.at(-1), truncated,
+          attempts: reasons.map((reason, index) => ({
+            attempt: index + 1, requestedMaxTokens: index === 0 ? 256 : 64,
+            finishReason: reason, promptTokens: index === 0 ? 100 : 620,
+            completionTokens: index === 0 ? 256 : 40,
+          })),
+          policyFlags: truncated ? ['MODEL_OUTPUT_TRUNCATED'] : [],
+          unknownPolicyFlagCount: 0,
+        });
+      }
+    }
+    expect(snapshots[1]).toEqual(snapshots[0]);
+  });
+
+  it.each([
+    { request: { ...GENERAL_AGRO_REQUEST, responseBudget: { profile: 'detailed' } }, budgets: [320, 96] },
+    { request: VALID_REQUEST, budgets: [500, 500] },
+  ])('records the actual existing profile budgets $budgets', async ({ request, budgets }) => {
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce(trackedStream([reply('Проверьте опубликованные условия.\n', 'length')]).response)
+      .mockResolvedValueOnce(trackedStream([reply('Сопоставьте условия участия.\n', 'stop')]).response);
+    global.fetch = fetchMock as typeof fetch;
+    await collect(request);
+    expect(trace().attempts.map((attempt) => attempt.requestedMaxTokens)).toEqual(budgets);
+    expect(requestWires(fetchMock).map((wire) => wire.body.max_tokens)).toEqual(budgets);
+  });
+
+  it('keeps last valid usage per attempt without changing repeated-frame public accounting', async () => {
+    const streams = [
+      trackedStream([
+        reply('Проверьте влажность.\n', null, { prompt_tokens: 10, completion_tokens: 2 }),
+        reply('', null, { prompt_tokens: 10, completion_tokens: 2 }),
+        reply('', null, { prompt_tokens: 12, completion_tokens: 5 }),
+        reply('', null, { prompt_tokens: -1, completion_tokens: 'CANARY_USAGE' }),
+        reply('', 'length'),
+      ]),
+      trackedStream([
+        reply('Сопоставьте состояние корней.\n', null, { prompt_tokens: 40, completion_tokens: 3 }),
+        reply('', 'stop', { prompt_tokens: 40, completion_tokens: 7 }),
+      ]),
+    ];
+    const fetchMock = jest.fn();
+    streams.forEach((stream) => fetchMock.mockResolvedValueOnce(stream.response));
+    global.fetch = fetchMock as typeof fetch;
+    const events = await collect();
+    expect(events.at(-1)).toMatchObject({ promptTokens: 112, completionTokens: 7 });
+    expect(trace().attempts).toEqual([
+      { attempt: 1, requestedMaxTokens: 256, finishReason: 'length', promptTokens: 12, completionTokens: 5 },
+      { attempt: 2, requestedMaxTokens: 64, finishReason: 'stop', promptTokens: 40, completionTokens: 7 },
+    ]);
+  });
+
+  it.each([
+    { label: 'missing', usage: undefined },
+    { label: 'null', usage: null },
+    { label: 'strings', usage: { prompt_tokens: '12', completion_tokens: 'CANARY_INVALID_TOKEN' } },
+    { label: 'negative and fractional', usage: { prompt_tokens: -1, completion_tokens: 1.5 } },
+    { label: 'objects and booleans', usage: { prompt_tokens: { secret: 'CANARY_USAGE_OBJECT' }, completion_tokens: true } },
+    { label: 'unsafe integers', usage: { prompt_tokens: Number.MAX_SAFE_INTEGER + 1, completion_tokens: 1e300 } },
+  ])('uses null for $label diagnostic token usage', async ({ usage }) => {
+    global.fetch = jest.fn().mockResolvedValue(trackedStream([
+      reply('Проверьте состояние участка.', 'stop', usage),
+    ]).response) as typeof fetch;
+    await collect();
+    expect(trace().attempts[0]).toMatchObject({ promptTokens: null, completionTokens: null });
+  });
+
+  it('keeps zero usage valid and missing per-attempt finish reason distinct from final other', async () => {
+    global.fetch = jest.fn().mockResolvedValue(trackedStream([
+      reply('Проверьте состояние участка.', null, { prompt_tokens: 0, completion_tokens: 0 }),
+    ]).response) as typeof fetch;
+    await collect();
+    expect(trace()).toMatchObject({
+      attemptCount: 1, finalFinishReason: 'other', truncated: false,
+      attempts: [{ finishReason: null, promptTokens: 0, completionTokens: 0 }],
+    });
+  });
+
+  it('normalizes an arbitrary provider finish reason without copying it', async () => {
+    global.fetch = jest.fn().mockResolvedValue(trackedStream([
+      reply('Проверьте состояние участка.', 'CANARY_PROVIDER_FINISH_REASON'),
+    ]).response) as typeof fetch;
+    await collect();
+    expect(trace()).toMatchObject({ finalFinishReason: 'other', attempts: [{ finishReason: 'other' }] });
+    expect(info.mock.calls[0][0]).not.toContain('CANARY_PROVIDER_FINISH_REASON');
+  });
+
+  const failureCases = [
+    { name: 'HTTP', message: 'Restricted public model returned HTTP 503.', make: () => ({ response: new Response('CANARY_HTTP_BODY', { status: 503 }) }) },
+    { name: 'missing body', message: 'Restricted public model returned no stream body.', make: () => ({ response: new Response(null) }) },
+    { name: 'fetch rejection', message: 'Restricted public model request failed.', make: () => ({ error: new Error('CANARY_FETCH_ERROR') }) },
+    { name: 'read rejection', message: 'Restricted public model request failed.', make: () => {
+      const stream = trackedStream([]);
+      stream.reader.read.mockRejectedValueOnce(new Error('CANARY_READ_ERROR'));
+      return stream;
+    } },
+    { name: 'malformed-only parser input', message: 'Restricted public model returned an empty answer.', make: () => trackedStream(['data: {CANARY_INVALID_JSON\n\n']) },
+    { name: 'empty stream', message: 'Restricted public model returned an empty answer.', make: () => trackedStream(['data: [DONE]\n\n']) },
+    { name: 'secret safety violation', message: 'Restricted public model emitted secret-like material.', make: () => trackedStream([reply('Ключ: sk-proj-CANARY12345678901234567890\n')]) },
+    { name: 'action safety violation', message: 'Restricted public model emitted a prohibited action claim.', make: () => trackedStream([reply('Я изменил сделку и выпустил деньги.\n')]) },
+    { name: 'byte bound', message: 'Restricted public model response exceeded the byte limit.', make: () => trackedStream(['x'.repeat(1_048_577)]) },
+  ];
+
+  it.each(failureCases)('preserves $name failure, cleanup and emitted events with trace off/on', async ({ make, message }) => {
+    const snapshots: unknown[] = [];
+    for (const enabled of [false, true]) {
+      process.env.QWEN35_CANDIDATE_LIVE = enabled ? '1' : '0';
+      info.mockClear();
+      const fixture = make() as { response?: Response; error?: Error; reader?: ReturnType<typeof trackedStream>['reader'] };
+      const fetchMock = fixture.error
+        ? jest.fn().mockRejectedValue(fixture.error)
+        : jest.fn().mockResolvedValue(fixture.response);
+      global.fetch = fetchMock as typeof fetch;
+      const events: PublicStreamEvent[] = [];
+      let failure: unknown;
+      try {
+        for await (const event of new RestrictedPublicQwenService().generateStream(GENERAL_AGRO_REQUEST)) events.push(event);
+      } catch (error) { failure = error; }
+      expect(failure).toBeInstanceOf(ServiceUnavailableException);
+      expect((failure as Error).message).toBe(message);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      if (fixture.reader) {
+        expect(fixture.reader.cancel).toHaveBeenCalledTimes(1);
+        expect(fixture.reader.releaseLock).not.toHaveBeenCalled();
+      }
+      snapshots.push({ events: normalizedEvents(events), requests: requestWires(fetchMock), message: (failure as Error).message });
+      expect(info).toHaveBeenCalledTimes(enabled ? 1 : 0);
+      if (enabled) expect(trace()).toMatchObject({
+        attemptCount: 1, attemptOverflow: false, outcome: 'threw',
+        finalFinishReason: null, truncated: null,
+      });
+    }
+    expect(snapshots[1]).toEqual(snapshots[0]);
+  });
+
+  it('preserves parser recovery when malformed data surrounds valid frames', async () => {
+    global.fetch = jest.fn().mockResolvedValue(trackedStream([
+      'data: {CANARY_MALFORMED_BEFORE\n\n',
+      reply('Проверьте состояние участка.', 'stop', { prompt_tokens: 7, completion_tokens: 3 }),
+      'data: {CANARY_MALFORMED_AFTER\n\n',
+    ]).response) as typeof fetch;
+    const events = await collect();
+    expect(events.at(-1)).toMatchObject({ type: 'done', finishReason: 'stop', promptTokens: 7, completionTokens: 3 });
+    expect(trace().outcome).toBe('returned');
+  });
+
+  it('records both attempted calls when continuation HTTP fails', async () => {
+    const first = trackedStream([reply('Проверьте влажность.\n', 'length', { prompt_tokens: 15, completion_tokens: 9 })]);
+    const fetchMock = jest.fn().mockResolvedValueOnce(first.response).mockResolvedValueOnce(new Response('CANARY_SECOND_HTTP', { status: 502 }));
+    global.fetch = fetchMock as typeof fetch;
+    await expect(collect()).rejects.toThrow('Restricted public model returned HTTP 502.');
+    expect(trace()).toMatchObject({
+      attemptCount: 2, outcome: 'threw', finalFinishReason: null, truncated: null,
+      attempts: [
+        { attempt: 1, requestedMaxTokens: 256, finishReason: 'length', promptTokens: 15, completionTokens: 9 },
+        { attempt: 2, requestedMaxTokens: 64, finishReason: null, promptTokens: null, completionTokens: null },
+      ],
+    });
+  });
+
+  it.each(['disabled', 'private shape', 'configuration'] as const)('does not log %s failure before a valid stream is established', async (kind) => {
+    if (kind === 'disabled') process.env.TAI_RESTRICTED_QWEN_PUBLIC_ENABLED = 'false';
+    if (kind === 'configuration') process.env.AI_ASSISTANT_MODEL = '';
+    const request = kind === 'private shape' ? { ...GENERAL_AGRO_REQUEST, dealId: 'CANARY_PRIVATE_ID' } : GENERAL_AGRO_REQUEST;
+    await expect(collect(request)).rejects.toBeInstanceOf(kind === 'private shape' ? BadRequestException : ServiceUnavailableException);
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(info).not.toHaveBeenCalled();
+  });
+
+  it('finalizes only after provider and controller cleanup, before the collecting caller resumes', async () => {
+    jest.useFakeTimers();
+    const stream = trackedStream([reply('Проверьте состояние участка.', 'stop')]);
+    const fetchMock = jest.fn().mockResolvedValue(stream.response);
+    const readerController = new AbortController();
+    const remove = jest.spyOn(readerController.signal, 'removeEventListener');
+    global.fetch = fetchMock as typeof fetch;
+    let stateAtLog: unknown;
+    info.mockImplementation(() => {
+      stateAtLog = {
+        cancelCount: stream.reader.cancel.mock.calls.length,
+        releaseCount: stream.reader.releaseLock.mock.calls.length,
+        aborted: (fetchMock.mock.calls[0][1] as RequestInit).signal?.aborted,
+        removedAbortListener: remove.mock.calls.some(([event]) => event === 'abort'),
+        pendingTimers: jest.getTimerCount(),
+      };
+    });
+    const iterator = new RestrictedPublicQwenService().generateStream(GENERAL_AGRO_REQUEST, readerController.signal);
+    let event = await iterator.next();
+    while (event.done === false && event.value.type !== 'done') event = await iterator.next();
+    expect(event.done).toBe(false);
+    expect(info).not.toHaveBeenCalled();
+    expect(await iterator.next()).toEqual({ done: true, value: undefined });
+    expect(stateAtLog).toEqual({ cancelCount: 1, releaseCount: 0, aborted: true, removedAbortListener: true, pendingTimers: 0 });
+    expect(info).toHaveBeenCalledTimes(1);
+    expect(trace().outcome).toBe('returned');
+  });
+
+  it('does not emit a trace for a generator that is never started', async () => {
+    const iterator = new RestrictedPublicQwenService().generateStream(GENERAL_AGRO_REQUEST);
+    await iterator.return();
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(info).not.toHaveBeenCalled();
+  });
+
+  it('preserves early return after meta with trace off/on and no provider calls', async () => {
+    jest.useFakeTimers();
+    const snapshots: unknown[] = [];
+    for (const enabled of [false, true]) {
+      process.env.QWEN35_CANDIDATE_LIVE = enabled ? '1' : '0';
+      info.mockClear();
+      const fetchMock = jest.fn().mockRejectedValue(new Error('UNEXPECTED_MOCK_PROVIDER_CALL'));
+      global.fetch = fetchMock as typeof fetch;
+      const readerController = new AbortController();
+      const remove = jest.spyOn(readerController.signal, 'removeEventListener');
+      const iterator = new RestrictedPublicQwenService().generateStream(GENERAL_AGRO_REQUEST, readerController.signal);
+      const meta = await iterator.next();
+      expect(meta.value).toMatchObject({ type: 'meta' });
+      const returned = await iterator.return();
+      await iterator.return();
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(remove).toHaveBeenCalledTimes(1);
+      expect(jest.getTimerCount()).toBe(0);
+      snapshots.push({ meta, returned, requests: requestWires(fetchMock), removed: remove.mock.calls.length, timers: jest.getTimerCount() });
+      expect(info).toHaveBeenCalledTimes(enabled ? 1 : 0);
+      if (enabled) expect(trace()).toMatchObject({ attemptCount: 0, attempts: [], outcome: 'consumer_returned', finalFinishReason: null, truncated: null });
+    }
+    expect(snapshots[1]).toEqual(snapshots[0]);
+  });
+
+  it('preserves early return after a delta with trace off/on and does not read later metadata', async () => {
+    jest.useFakeTimers();
+    const snapshots: unknown[] = [];
+    for (const enabled of [false, true]) {
+      process.env.QWEN35_CANDIDATE_LIVE = enabled ? '1' : '0';
+      info.mockClear();
+      const stream = trackedStream([
+        reply('Проверьте состояние участка.\n', null, { prompt_tokens: 6, completion_tokens: 2 }),
+        reply('', 'stop', { prompt_tokens: 60, completion_tokens: 20 }),
+      ]);
+      const fetchMock = jest.fn().mockResolvedValue(stream.response);
+      global.fetch = fetchMock as typeof fetch;
+      const readerController = new AbortController();
+      const remove = jest.spyOn(readerController.signal, 'removeEventListener');
+      const iterator = new RestrictedPublicQwenService().generateStream(GENERAL_AGRO_REQUEST, readerController.signal);
+      const meta = await iterator.next();
+      const delta = await iterator.next();
+      expect(delta.value).toMatchObject({ type: 'delta' });
+      const returned = await iterator.return();
+      expect(stream.reader.read).toHaveBeenCalledTimes(1);
+      expect(stream.reader.cancel).toHaveBeenCalledTimes(1);
+      expect(stream.reader.releaseLock).not.toHaveBeenCalled();
+      expect((fetchMock.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(true);
+      expect(remove).toHaveBeenCalledTimes(1);
+      expect(jest.getTimerCount()).toBe(0);
+      snapshots.push({
+        events: [meta, delta], returned, requests: requestWires(fetchMock),
+        reads: stream.reader.read.mock.calls.length, cancelled: stream.reader.cancel.mock.calls.length,
+        released: stream.reader.releaseLock.mock.calls.length, removed: remove.mock.calls.length, timers: jest.getTimerCount(),
+      });
+      expect(info).toHaveBeenCalledTimes(enabled ? 1 : 0);
+      if (enabled) expect(trace()).toMatchObject({
+        outcome: 'consumer_returned', finalFinishReason: null, truncated: null,
+        attempts: [{ finishReason: null, promptTokens: 6, completionTokens: 2 }],
+      });
+    }
+    expect(snapshots[1]).toEqual(snapshots[0]);
+  });
+
+  it('preserves iterator.throw after meta with trace off/on without copying caller errors', async () => {
+    jest.useFakeTimers();
+    const snapshots: unknown[] = [];
+    for (const enabled of [false, true]) {
+      process.env.QWEN35_CANDIDATE_LIVE = enabled ? '1' : '0';
+      info.mockClear();
+      const fetchMock = jest.fn().mockRejectedValue(new Error('UNEXPECTED_MOCK_PROVIDER_CALL'));
+      global.fetch = fetchMock as typeof fetch;
+      const readerController = new AbortController();
+      const remove = jest.spyOn(readerController.signal, 'removeEventListener');
+      const iterator = new RestrictedPublicQwenService().generateStream(GENERAL_AGRO_REQUEST, readerController.signal);
+      const meta = await iterator.next();
+      let failure: unknown;
+      try { await iterator.throw(new Error('CANARY_CALLER_THROW')); } catch (error) { failure = error; }
+      expect(failure).toBeInstanceOf(ServiceUnavailableException);
+      expect((failure as Error).message).toBe('Restricted public model request failed.');
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(remove).toHaveBeenCalledTimes(1);
+      expect(jest.getTimerCount()).toBe(0);
+      snapshots.push({ meta, error: { name: (failure as Error).name, message: (failure as Error).message }, requests: requestWires(fetchMock), removed: remove.mock.calls.length, timers: jest.getTimerCount() });
+      expect(info).toHaveBeenCalledTimes(enabled ? 1 : 0);
+      if (enabled) {
+        expect(trace()).toMatchObject({ attemptCount: 0, outcome: 'threw', finalFinishReason: null, truncated: null });
+        expect(info.mock.calls[0][0]).not.toContain('CANARY_CALLER_THROW');
+      }
+    }
+    expect(snapshots[1]).toEqual(snapshots[0]);
+  });
+
+  it.each(['timeout', 'reader abort', 'already aborted'] as const)('preserves %s events, error and cleanup with trace off/on', async (kind) => {
+    jest.useFakeTimers();
+    process.env.AI_ASSISTANT_TIMEOUT_MS = '5000';
+    const snapshots: unknown[] = [];
+    for (const enabled of [false, true]) {
+      process.env.QWEN35_CANDIDATE_LIVE = enabled ? '1' : '0';
+      info.mockClear();
+      const readerController = new AbortController();
+      const remove = jest.spyOn(readerController.signal, 'removeEventListener');
+      if (kind === 'already aborted') readerController.abort();
+      let providerSignal: AbortSignal | undefined;
+      const fetchMock = jest.fn((_url: URL, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
+        providerSignal = init.signal as AbortSignal;
+        const fail = () => { const error = new Error('CANARY_ABORT_DETAILS'); error.name = 'AbortError'; reject(error); };
+        if (providerSignal.aborted) fail();
+        else providerSignal.addEventListener('abort', fail, { once: true });
+      }));
+      global.fetch = fetchMock as typeof fetch;
+      const events: PublicStreamEvent[] = [];
+      let failure: unknown;
+      const pending = (async () => {
+        try {
+          for await (const event of new RestrictedPublicQwenService().generateStream(GENERAL_AGRO_REQUEST, readerController.signal)) events.push(event);
+        } catch (error) { failure = error; throw error; }
+      })();
+      const rejection = expect(pending).rejects.toThrow(kind === 'timeout'
+        ? 'Restricted public model request timed out.' : 'The reader cancelled the answer.');
+      await jest.advanceTimersByTimeAsync(0);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      if (kind === 'timeout') {
+        await jest.advanceTimersByTimeAsync(4999);
+        expect(providerSignal?.aborted).toBe(false);
+        await jest.advanceTimersByTimeAsync(1);
+      } else if (kind === 'reader abort') readerController.abort();
+      await rejection;
+      expect(failure).toBeInstanceOf(ServiceUnavailableException);
+      expect(providerSignal?.aborted).toBe(true);
+      expect(remove).toHaveBeenCalledTimes(1);
+      expect(jest.getTimerCount()).toBe(0);
+      snapshots.push({
+        events: normalizedEvents(events), error: { name: (failure as Error).name, message: (failure as Error).message },
+        requests: requestWires(fetchMock), removed: remove.mock.calls.length, timers: jest.getTimerCount(),
+      });
+      expect(info).toHaveBeenCalledTimes(enabled ? 1 : 0);
+      if (enabled) expect(trace()).toMatchObject({ attemptCount: 1, outcome: 'threw', finalFinishReason: null, truncated: null });
+    }
+    expect(snapshots[1]).toEqual(snapshots[0]);
+  });
+
+  it('preserves active-reader abort events, error and cancellation cleanup with trace off/on', async () => {
+    jest.useFakeTimers();
+    const snapshots: unknown[] = [];
+    for (const enabled of [false, true]) {
+      process.env.QWEN35_CANDIDATE_LIVE = enabled ? '1' : '0';
+      info.mockClear();
+      const readerController = new AbortController();
+      const remove = jest.spyOn(readerController.signal, 'removeEventListener');
+      const stream = trackedStream([]);
+      let announceRead!: () => void;
+      const readStarted = new Promise<void>((resolve) => { announceRead = resolve; });
+      const fetchMock = jest.fn((_url: URL, init: RequestInit) => {
+        stream.reader.read.mockImplementationOnce(() => new Promise((_resolve, reject) => {
+          announceRead();
+          init.signal?.addEventListener('abort', () => { const error = new Error('CANARY_READ_ABORT'); error.name = 'AbortError'; reject(error); }, { once: true });
+        }));
+        return Promise.resolve(stream.response);
+      });
+      global.fetch = fetchMock as typeof fetch;
+      const iterator = new RestrictedPublicQwenService().generateStream(GENERAL_AGRO_REQUEST, readerController.signal);
+      const meta = await iterator.next();
+      let failure: unknown;
+      const pending = iterator.next().catch((error: unknown) => { failure = error; throw error; });
+      const rejection = expect(pending).rejects.toThrow('The reader cancelled the answer.');
+      await readStarted;
+      readerController.abort();
+      await rejection;
+      expect(failure).toBeInstanceOf(ServiceUnavailableException);
+      expect(stream.reader.cancel).toHaveBeenCalledTimes(1);
+      expect(stream.reader.releaseLock).not.toHaveBeenCalled();
+      expect(remove).toHaveBeenCalledTimes(1);
+      expect(jest.getTimerCount()).toBe(0);
+      snapshots.push({
+        meta, error: { name: (failure as Error).name, message: (failure as Error).message },
+        requests: requestWires(fetchMock), cancelled: stream.reader.cancel.mock.calls.length,
+        released: stream.reader.releaseLock.mock.calls.length, removed: remove.mock.calls.length, timers: jest.getTimerCount(),
+      });
+      expect(info).toHaveBeenCalledTimes(enabled ? 1 : 0);
+      if (enabled) expect(trace().outcome).toBe('threw');
+    }
+    expect(snapshots[1]).toEqual(snapshots[0]);
+  });
+
+  it.each([false, true])('does not let a throwing logger change provider failure=%s', async (failing) => {
+    info.mockImplementation(() => { throw new Error('CANARY_LOGGER_FAILURE'); });
+    global.fetch = jest.fn().mockResolvedValue(failing
+      ? new Response('CANARY_HTTP', { status: 503 })
+      : trackedStream([reply('Проверьте состояние участка.', 'stop')]).response) as typeof fetch;
+    if (failing) await expect(collect()).rejects.toThrow('Restricted public model returned HTTP 503.');
+    else expect((await collect()).at(-1)).toMatchObject({ type: 'done', finishReason: 'stop' });
+    expect(info).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps concurrent invocations isolated on the same service instance', async () => {
+    let releaseFirst!: (value: { done: false; value: Uint8Array }) => void;
+    const first = trackedStream([]);
+    let announceFirst!: () => void;
+    const firstReadStarted = new Promise<void>((resolve) => { announceFirst = resolve; });
+    first.reader.read.mockImplementationOnce(() => new Promise((resolve) => { releaseFirst = resolve; announceFirst(); }));
+    const second = trackedStream([reply('Сопоставьте состояние корней.\n', 'stop', { prompt_tokens: 77, completion_tokens: 8 })]);
+    const continuation = trackedStream([reply('Проверьте температуру.\n', 'stop', { prompt_tokens: 22, completion_tokens: 3 })]);
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce(first.response).mockResolvedValueOnce(second.response).mockResolvedValueOnce(continuation.response);
+    global.fetch = fetchMock as typeof fetch;
+    const service = new RestrictedPublicQwenService();
+    const pendingFirst = collect({ ...GENERAL_AGRO_REQUEST, question: 'Как проверить участок CANARY_REQUEST_A?' }, undefined, service);
+    await firstReadStarted;
+    const secondEvents = await collect({ ...GENERAL_AGRO_REQUEST, question: 'Как проверить участок CANARY_REQUEST_B?' }, undefined, service);
+    expect(secondEvents.at(-1)).toMatchObject({ promptTokens: 77, completionTokens: 8 });
+    expect(info).toHaveBeenCalledTimes(1);
+    expect(trace(0)).toMatchObject({ attemptCount: 1, attempts: [{ attempt: 1, promptTokens: 77, completionTokens: 8 }] });
+    releaseFirst({ done: false, value: new TextEncoder().encode(reply('Проверьте влажность.\n', 'length', { prompt_tokens: 11, completion_tokens: 4 })) });
+    const firstEvents = await pendingFirst;
+    expect(firstEvents.at(-1)).toMatchObject({ promptTokens: 33, completionTokens: 3 });
+    expect(info).toHaveBeenCalledTimes(2);
+    expect(trace(1)).toMatchObject({
+      attemptCount: 2, attempts: [{ attempt: 1, promptTokens: 11, completionTokens: 4 }, { attempt: 2, promptTokens: 22, completionTokens: 3 }],
+    });
+    for (const stream of [first, second, continuation]) {
+      expect(stream.reader.cancel).toHaveBeenCalledTimes(1);
+      expect(stream.reader.releaseLock).not.toHaveBeenCalled();
+    }
+  });
+
+  it('keeps request, provider, identity and URL canaries outside the bounded closed record', async () => {
+    process.env.AI_ASSISTANT_MODEL = 'CANARY_MODEL_ID';
+    process.env.AI_ASSISTANT_API_KEY = 'CANARY_PRIVATE_KEY_'.repeat(3);
+    process.env.AI_ASSISTANT_BASE_URL = 'http://127.0.0.1:18080/CANARY_ENDPOINT/';
+    process.env.AI_ASSISTANT_ALLOWED_HOSTS = '127.0.0.1';
+    const request = {
+      ...GENERAL_AGRO_REQUEST,
+      question: 'Как проверить участок CANARY_QUESTION?', originalQuestion: 'Как проверить участок CANARY_ORIGINAL?',
+      conversationState: 'CANARY_STATE',
+      history: [{ role: 'user', text: 'CANARY_HISTORY' }],
+      grounding: { ...GENERAL_AGRO_REQUEST.grounding, answer: 'CANARY_GROUNDING' },
+    };
+    global.fetch = jest.fn().mockResolvedValue(trackedStream([
+      reply('CANARY_PROVIDER_ANSWER. Сначала проверьте влажность почвы. https://example.test/CANARY_URL\n', 'stop'),
+    ]).response) as typeof fetch;
+    await collect(request);
+    const record = trace();
+    expect(record.policyFlags).toContain('RAW_LINK_REMOVED');
+    expect(info.mock.calls[0][0]).not.toMatch(/CANARY|127\.0\.0\.1|https?:\/\//u);
+  });
+
+  it('allowlists all nine policy codes and caps unknown flags without altering public flags', async () => {
+    const realPush = StreamingAnswerGate.prototype.push;
+    const unknownFlags = Array.from({ length: 120 }, (_, index) => `CANARY_UNKNOWN_FLAG_${index}`);
+    jest.spyOn(StreamingAnswerGate.prototype, 'push').mockImplementation(function (this: StreamingAnswerGate, content: string) {
+      const result = realPush.call(this, content);
+      return { ...result, flags: [...result.flags, ...policyVocabulary, ...policyVocabulary, ...unknownFlags] };
+    });
+    global.fetch = jest.fn().mockResolvedValue(trackedStream([
+      reply('Проверьте состояние участка.', 'stop'),
+    ]).response) as typeof fetch;
+    const events = await collect();
+    const done = events.at(-1);
+    expect(done).toMatchObject({ type: 'done', safetyFlags: expect.arrayContaining(unknownFlags) });
+    const record = trace();
+    expect(record.policyFlags.sort()).toEqual([...policyVocabulary].sort());
+    expect(record.unknownPolicyFlagCount).toBe(99);
+    expect(info.mock.calls[0][0]).not.toContain('CANARY_UNKNOWN_FLAG');
   });
 });

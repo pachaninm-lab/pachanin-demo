@@ -87,6 +87,110 @@ type ProviderResult = Readonly<{
   completionTokens: number | null;
 }>;
 
+type CandidateTraceOutcome = 'returned' | 'threw' | 'consumer_returned';
+type CandidateTraceAttempt = {
+  attempt: number;
+  requestedMaxTokens: number | null;
+  finishReason: ProviderFinishReason | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
+};
+
+const CANDIDATE_TRACE_POLICY_FLAGS: readonly string[] = Object.freeze([
+  'CURRENT_EVIDENCE_REQUIRED',
+  'GENERAL_AGRO_DISEASE_COMPLETENESS_FLOOR',
+  'MODEL_OUTPUT_TRUNCATED',
+  'RAW_LINK_REMOVED',
+  'UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED',
+  'UNVERIFIED_ECONOMIC_CLAIM_REMOVED',
+  'UNSUPPORTED_PLATFORM_ENTITY_REMOVED',
+  'UNSUPPORTED_PLATFORM_AUTONOMY_REMOVED',
+  'UNSUPPORTED_LIVE_CAPABILITY_REMOVED',
+]);
+
+function candidateTraceInteger(value: unknown): number | null {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function candidateTraceReason(value: unknown): ProviderFinishReason | null {
+  return value === 'stop' || value === 'length' || value === 'other' ? value : null;
+}
+
+/** Request-local observations for the explicitly enabled candidate test only. */
+function createCandidateProviderTrace(startedAt: number) {
+  if (process.env.NODE_ENV !== 'test' || process.env.QWEN35_CANDIDATE_LIVE !== '1') return null;
+
+  const attempts: CandidateTraceAttempt[] = [];
+  let attemptOverflow = false;
+  return {
+    beginAttempt(requestedMaxTokens: number): CandidateTraceAttempt | null {
+      // The service permits at most one continuation. Do not turn a later
+      // implementation error into an unbounded diagnostic allocation.
+      if (attempts.length === 2) {
+        attemptOverflow = true;
+        return null;
+      }
+      const attempt: CandidateTraceAttempt = {
+        attempt: attempts.length + 1,
+        requestedMaxTokens: candidateTraceInteger(requestedMaxTokens),
+        finishReason: null,
+        promptTokens: null,
+        completionTokens: null,
+      };
+      attempts.push(attempt);
+      return attempt;
+    },
+    observe(
+      attempt: CandidateTraceAttempt | null,
+      finishReason: unknown,
+      promptTokens: unknown,
+      completionTokens: unknown,
+    ): void {
+      if (!attempt) return;
+      const reason = candidateTraceReason(finishReason);
+      const prompt = candidateTraceInteger(promptTokens);
+      const completion = candidateTraceInteger(completionTokens);
+      if (reason !== null) attempt.finishReason = reason;
+      if (prompt !== null) attempt.promptTokens = prompt;
+      if (completion !== null) attempt.completionTokens = completion;
+    },
+    emit(
+      outcome: CandidateTraceOutcome,
+      finalFinishReason: ProviderFinishReason | null,
+      truncated: boolean | null,
+      safetyFlags: readonly string[],
+    ): void {
+      // No raw request, provider content, identity, error or unknown flag is
+      // copied into this closed record. Logging must never change the outcome.
+      try {
+        const policyFlags = CANDIDATE_TRACE_POLICY_FLAGS.filter((flag) => safetyFlags.includes(flag));
+        let unknownPolicyFlagCount = 0;
+        for (const flag of safetyFlags) {
+          if (!CANDIDATE_TRACE_POLICY_FLAGS.includes(flag)) unknownPolicyFlagCount += 1;
+          if (unknownPolicyFlagCount === 99) break;
+        }
+        const record = JSON.stringify({
+          schemaVersion: 1,
+          method: 'generateStream',
+          attemptCount: attempts.length,
+          attemptOverflow,
+          attempts,
+          outcome,
+          finalFinishReason: candidateTraceReason(finalFinishReason),
+          truncated,
+          policyFlags,
+          unknownPolicyFlagCount,
+          elapsedMs: candidateTraceInteger(Date.now() - startedAt),
+        });
+        const line = `QWEN35_PROVIDER_TRACE=${record}`;
+        if (line.length <= 2_048) console.info(line);
+      } catch {
+        // Diagnostics are optional; original returns, errors and cleanup win.
+      }
+    },
+  };
+}
+
 export type RestrictedPublicQwenResponse = Readonly<{
   answer: string;
   provider: 'openai-compatible';
@@ -245,6 +349,10 @@ export class RestrictedPublicQwenService {
     readerSignal?.addEventListener('abort', onReaderAbort, { once: true });
 
     const safetyFlags: string[] = [];
+    const candidateTrace = createCandidateProviderTrace(startedAt);
+    let candidateTraceOutcome: CandidateTraceOutcome = 'consumer_returned';
+    let candidateTraceFinishReason: ProviderFinishReason | null = null;
+    let candidateTraceTruncated: boolean | null = null;
     const gate = new StreamingAnswerGate({
       answerMode: request.answerMode,
       locale: request.locale,
@@ -273,7 +381,9 @@ export class RestrictedPublicQwenService {
         turn: readonly ChatMessage[],
         maxTokens: number,
       ): AsyncGenerator<PublicStreamEvent, void, undefined> {
+        const attempt = candidateTrace?.beginAttempt(maxTokens) ?? null;
         for await (const delta of callProviderStream(endpoint, config, turn, maxTokens, controller.signal)) {
+          candidateTrace?.observe(attempt, delta.finishReason, delta.promptTokens, delta.completionTokens);
           if (delta.finishReason !== null) outcome.finishReason = delta.finishReason;
           if (delta.promptTokens !== null) outcome.promptTokens = sumNullable(outcome.promptTokens, delta.promptTokens);
           if (delta.completionTokens !== null) outcome.completionTokens = delta.completionTokens;
@@ -350,6 +460,9 @@ export class RestrictedPublicQwenService {
         yield { type: 'delta', text: `\n\n${truncationCopy(request.locale)}` };
       }
 
+      candidateTraceOutcome = 'returned';
+      candidateTraceFinishReason = outcome.finishReason;
+      candidateTraceTruncated = truncated;
       yield {
         type: 'done',
         modelIdentity: config.model,
@@ -362,6 +475,7 @@ export class RestrictedPublicQwenService {
         safetyFlags: Object.freeze([...new Set(safetyFlags)]),
       };
     } catch (error) {
+      candidateTraceOutcome = 'threw';
       if (error instanceof ServiceUnavailableException || error instanceof BadRequestException) throw error;
       if (readerSignal?.aborted) throw new ServiceUnavailableException('The reader cancelled the answer.');
       if (error instanceof Error && error.name === 'AbortError') {
@@ -372,6 +486,7 @@ export class RestrictedPublicQwenService {
       clearTimeout(timeout);
       readerSignal?.removeEventListener('abort', onReaderAbort);
       controller.abort();
+      candidateTrace?.emit(candidateTraceOutcome, candidateTraceFinishReason, candidateTraceTruncated, safetyFlags);
     }
   }
 }
