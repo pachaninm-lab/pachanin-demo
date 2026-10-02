@@ -3843,6 +3843,72 @@
         "No weakened CI/security/review/readiness/cleanup/assertion gates, stale-head PASS transfer, forced or automatic merge.",
         "No R1 completion, production/model acceptance or progress increase from this admission or private fixtures."
       ]
+    },
+    "gekta-candidate-provider-trace-20261002": {
+      "owner": "Existing Gekta owner retained; existing CORE coordinator serializes purpose admission only",
+      "purpose": "Admit request-local test-only provider diagnostics to collect evidence about incompleteness of the existing critical candidate answer without changing inference behavior or acceptance assertions.",
+      "authorityBaseExactMain": "c8c8e3055c515d6d3af8b60e5742c23c7ea37662",
+      "ownerApprovalReceipt": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5946105298",
+      "status": "PURPOSE_ADMISSION_ONLY; EXACT_SOURCE_REVIEW_NATIVE_CI_AND_ACCEPTANCE_PENDING; ONE_DIAGNOSTIC_CRITICAL_RUN_PENDING",
+      "governanceBranch": "fix/readiness-database-deadline-4829",
+      "governanceAllowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+      ],
+      "exactSourceTransitions": [
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "mode": "100644",
+          "beforeBlob": "8019fdb637279d0b319d5e48f4219b0bc83259aa",
+          "afterBlob": "033c304962ca89fb15c2689dc57ad90be4be1ff3",
+          "sha256": "427ac39a30f3a258a2016782af9c26902445c0e16ee30115c430894393ae414d",
+          "bytes": 50431
+        },
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "d9073e4dd7b13e5446a021271715b1c5382d8996",
+          "afterBlob": "2323701b4d84e49823d3720daf9e326d6b09e2b5",
+          "sha256": "d7c9226ad6e9300f68fd134e4334224be6e247cb5d11b0da5914a694da90e3bf",
+          "bytes": 60930
+        }
+      ],
+      "liveOracle": {
+        "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts",
+        "unchangedBlob": "391a38f7149b9bbce817d312e03bbcc6377c29fa",
+        "mode": "100644"
+      },
+      "retainedOwnership": "Reuse existing CORE and Han branches with ordinary ancestry. Preserve all 185 ordered concurrent vectors and 51 prior coordination records, all other state fields, source owners, COR5, PRODUCT and official 5/100. This admission changes only this appended purpose record, not scopes, guards, workflows or source.",
+      "sourcePurposeBoundary": [
+        "Enable diagnostics only when NODE_ENV is exactly test AND QWEN35_CANDIDATE_LIVE is exactly 1. Production and all other combinations remain silent. Missing diagnostic output is unknown, not authority to retry or alter runtime environment.",
+        "Request-local bounded metadata only: at most two provider-attempt records and one summary, finite numeric metadata, closed finish/outcome/filter vocabulary and honest unknowns. Fetch-attempt count does not prove provider execution. Do not add case identifiers, shared counters, prompt/question/answer text or hashes, identities, keys, URLs, arbitrary errors or spread provider payloads.",
+        "The trace is observational. Preserve exact provider requests, attempts and continuation choices, limits, filters, public token accounting, prompts/raw input/history, output/event ordering, exceptions, abort/cancellation, iterator return and cleanup. Logger failure must neither change a successful result nor mask the original error.",
+        "Use only the existing service spec for focused mocked regressions, including strict gate matrix, off/on equivalence, stop and continuation cases, error/cancellation/cleanup and logger failure, concurrent isolation, malformed/missing/repeated metadata and sensitive canary exclusion. Preserve all prior tests and exact live oracle/thresholds. Mocked tests establish source behavior, not model quality.",
+        "Existing literal Han allowance remains wider than this exact pair and does not enforce these pins or purpose. Independent complete-tree review must reject extra/missing paths, changed pins or modes even if generic guards pass."
+      ],
+      "privateEvidenceLimits": "Frozen two-file mocked validation passed 518/518 tests in nine suites, zero skipped; service suite contains 27 retained tests and 73 new diagnostic regressions. This is private source evidence, not independent exact-published-head acceptance or live-model proof. Baseline and candidate direct API typechecks both report the identical 1775 missing-generated-Prisma diagnostics with no introduced or removed diagnostic; neither is a full API PASS. Fresh native generation/typecheck, complete applicable CI/security/Kubernetes and independent whole-head review remain mandatory. Attempt-overflow=true is defensive and unreachable under unchanged two-call limit. Invalid pre-stream requests and never-started generators intentionally have no trace.",
+      "acceptanceSequence": [
+        "Accept the one-file append-only purpose on the existing CORE branch after fresh main/Hub/ownership checks, independent exact-published-whole-head review, separate canonical owner audit, every applicable native CI/security check and fresh readiness. Ordinary manual expected-full-SHA merge only.",
+        "Then synchronize the existing Han history with accepted purpose-main and publish exactly the pinned two-file source change. All unrelated tree leaves/modes remain identical. Renew independent exact-head whole-diff review, separate owner audit and every applicable native CI/security/Kubernetes gate, including zero failed PgBouncer probes, deep outbox and cleanup. A changed head invalidates earlier evidence.",
+        "Only after source acceptance and fresh serialization, perform ONE critical10 diagnostic candidate run on the actual accepted source SHA, at most 420 seconds with existing watchdog/resource controls. Verify final cleanup, candidate/listener absence and unchanged active baseline 8B. No extra4 or unchanged retries are authorized by this record."
+      ],
+      "approvedAutomaticServerEffects": "Owner-approved existing image-build/preflight effects can download images and refresh the service checkout on REG.RU. This is not end-to-end zero-write operation, application deployment acceptance or unrelated server authority.",
+      "boundedRuntimeConditions": [
+        "Keep active 8B, existing candidate artifact/runtime, resource gates, watchdog, cancellation and cleanup unchanged. Failed cleanup or changed baseline blocks acceptance and further operations.",
+        "Announce a fresh no-main-merge runtime window, check conflicting activity, and verify actual resolved source SHA. Record completed/failed/skipped cases and truthful diagnostics. Both previous critical/extra pairs are historical consumed evidence, not approval for new extra runs.",
+        "Diagnostics can reveal initial cutoff and continuation attempts but do not reveal filtered text or prove prompt-clause causality. A source merge or trace does not establish model quality, speed, stability or permanent activation."
+      ],
+      "observerHold": "PR #5779 remains DRAFT, unmerged and unexecuted on the server; this package grants no observer acceptance or execution.",
+      "forbiddenAuthority": [
+        "No permanent model activation, new rights/credentials, mandatory expense, protected-data disclosure or unrelated host/controller work.",
+        "No extra source paths, scope-vector expansion, workflow/config/dependency/oracle changes or competing owners.",
+        "No weakened CI/security/review/readiness/runtime/assertion gates, stale-head PASS, forced or automatic merge.",
+        "No R1, production or model acceptance and no official progress increase from this admission or mock fixtures."
+      ]
     }
   }
 }
