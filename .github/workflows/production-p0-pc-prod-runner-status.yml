@@ -1,0 +1,50 @@
+name: PC-CROP P0 v4 Attestation Run Status
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/production-p0-pc-prod-runner-status.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  run_status:
+    name: Read v4 attestation run state without production access
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Query latest v4 issue-comment run and jobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          runs="$(mktemp)"; jobs="$(mktemp)"
+          trap 'rm -f "$runs" "$jobs"' EXIT
+          gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/actions/workflows/production-p0-ssh-host-key-attestation-v4.yml/runs?event=issue_comment&per_page=10" > "$runs"
+          run_id="$(python3 - "$runs" <<'PY'
+          import json,sys
+          p=json.load(open(sys.argv[1],encoding='utf-8'))
+          rows=sorted(p.get('workflow_runs') or [],key=lambda r:r.get('created_at') or '',reverse=True)
+          if not rows: raise SystemExit('V4_RUN_NOT_FOUND')
+          r=rows[0]
+          print(r.get('id'))
+          print(f"V4_RUN_ID={r.get('id')}",file=sys.stderr)
+          print(f"V4_RUN_STATUS={str(r.get('status')).upper()}",file=sys.stderr)
+          print(f"V4_RUN_CONCLUSION={str(r.get('conclusion')).upper()}",file=sys.stderr)
+          print(f"V4_RUN_HEAD_SHA={r.get('head_sha')}",file=sys.stderr)
+          PY
+          )"
+          [[ "$run_id" =~ ^[0-9]+$ ]]
+          gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/jobs?per_page=100" > "$jobs"
+          python3 - "$jobs" <<'PY'
+          import json,sys
+          p=json.load(open(sys.argv[1],encoding='utf-8'))
+          for j in p.get('jobs') or []:
+              print(f"V4_JOB={j.get('name')}|STATUS={str(j.get('status')).upper()}|CONCLUSION={str(j.get('conclusion')).upper()}|ID={j.get('id')}")
+          print('PRODUCTION_MUTATION=NONE')
+          PY
