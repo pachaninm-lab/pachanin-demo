@@ -18,6 +18,13 @@ RUN test -f /workspace/apps/api/dist/apps/api/src/main.js
 RUN test -f /workspace/apps/api/dist/apps/api/src/role-eligibility-worker.js
 RUN pnpm --filter @pc/api --prod deploy --legacy /prod/api
 
+# Отказ по умолчанию на копилефт в поставляемом дереве. Гейт читает то, что
+# физически уезжает в образ, а не то, что объявляет рабочее пространство:
+# SBOM включает dev, optional и чужие архитектуры, юридическое значение
+# имеют только эти файлы. Решения по обязательствам записаны с основанием
+# в docs/ip/third-party-license-overrides.json и ссылаются на этот гейт.
+RUN node scripts/ip/verify-shipped-licenses.mjs /prod/api
+
 # TypeScript emits the API below the workspace-relative path because the API
 # imports shared workspace packages. pnpm deploy carries dependencies only, so
 # copy that exact output and materialize Prisma's generated side effects.
