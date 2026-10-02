@@ -10,6 +10,7 @@ import {
 } from './connection-center.policy';
 import { describeAttestation } from './connection-attestation.policy';
 import { ConnectionAttestationRepository } from './connection-attestation.repository';
+import { WorkTaskRepository } from './work-task.repository';
 
 /**
  * What this organization's connections to other people's systems actually are.
@@ -29,12 +30,20 @@ export class ConnectionCenterRepository {
   constructor(
     private readonly transactions: RlsTransactionService,
     private readonly attestations: ConnectionAttestationRepository,
+    private readonly tasks: WorkTaskRepository,
   ) {}
 
   async describe(
     user: RequestUser | undefined,
   ): Promise<readonly ConnectionState[]> {
-    return this.transactions.withTrustedContext(user, async (tx, context) => {
+    return this.transactions.withOrganizationMemberContext(user, async (tx, context) => {
+      // GUEST is only a compatibility market-role label for an organization
+      // bookkeeper. It grants nothing. The durable job_profile/delegation set is
+      // resolved from PostgreSQL inside this transaction and must explicitly
+      // carry integrations.read before connection metadata is returned.
+      const capabilities = await this.tasks.capabilitiesWithin(tx);
+      if (!capabilities.includes('integrations.read')) return [];
+
       // The far side answered, and said so with its own identifier. Anything
       // weaker than an identifier is a request that did not error, which is not
       // the same fact.

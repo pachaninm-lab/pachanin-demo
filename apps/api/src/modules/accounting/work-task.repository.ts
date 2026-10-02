@@ -298,7 +298,7 @@ export class WorkTaskRepository {
       };
     }
 
-    return this.transactions.withTrustedContext(user, async (tx, context) => {
+    return this.transactions.withOrganizationMemberContext(user, async (tx, context) => {
       const capabilities = await this.resolveCapabilities(tx, new Date());
       if (!capabilities.includes('accounting.task.manage')) {
         return { outcome: RaiseOutcome.REFUSED, taskId: null, refusals: [] };
@@ -340,7 +340,10 @@ export class WorkTaskRepository {
     limit = 200,
   ): Promise<readonly (WorkTaskView & { version: bigint; title: string; humanDescription: string })[]> {
     const bounded = Math.min(Math.max(Math.trunc(limit), 1), 500);
-    return this.transactions.withTrustedContext(user, async (tx, context) => {
+    return this.transactions.withOrganizationMemberContext(user, async (tx, context) => {
+      const capabilities = await this.resolveCapabilities(tx, new Date());
+      if (!capabilities.includes('accounting.dashboard.read')) return [];
+
       const rows = await tx.$queryRaw<(TaskRow & { title: string; humanDescription: string })[]>`
         SELECT "id","taskType","origin","resolutionMode","status",
                "responsibleCapability","assignedMembershipId","deadlineAt",
@@ -367,7 +370,7 @@ export class WorkTaskRepository {
   async describeViewer(
     user: RequestUser | undefined,
   ): Promise<{ membershipId: string; capabilities: readonly string[]; now: Date }> {
-    return this.transactions.withTrustedContext(user, async (tx) => {
+    return this.transactions.withOrganizationMemberContext(user, async (tx) => {
       const now = new Date();
       const rows = await tx.$queryRaw<{ membership: string | null }[]>`
         SELECT public.app_pc_crop_membership_id() AS membership
@@ -397,7 +400,7 @@ export class WorkTaskRepository {
       assignedMembershipId?: string | null;
     },
   ): Promise<TransitionResult> {
-    return this.transactions.withTrustedContext(user, async (tx, context) => {
+    return this.transactions.withOrganizationMemberContext(user, async (tx, context) => {
       const rows = await tx.$queryRaw<TaskRow[]>`
         SELECT "id","taskType","origin","resolutionMode","status",
                "responsibleCapability","assignedMembershipId","deadlineAt",

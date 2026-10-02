@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/pc-crop-accountant-member-context-20260818",
+  "status": "active",
+  "title": "PC-CROP Federal Accounting — accountant organization-member context repair",
+  "priority": "P0",
+  "issue": 4321,
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "authorityBaseExactMain": "18384323f7b77746f39797a50518f70f407fc763",
+  "purpose": "Repair the proven authorization mismatch between the intended bookkeeper model (role=GUEST + job_profile=ACCOUNTANT/EXTERNAL_ACCOUNTANT) and the generic RLS/controller fences without globally widening GUEST. The slice adds a PostgreSQL-proven organization-member transaction primitive, migrates task-first accounting and Connection Center/attestation repositories to it, and admits GUEST only on the exact handlers whose durable capability checks are now proven.",
+  "allowedPaths": [
+    "apps/api/src/common/prisma/rls-transaction.service.ts",
+    "apps/api/src/common/prisma/rls-organization-member-context.spec.ts",
+    "apps/api/src/modules/accounting/work-task.repository.ts",
+    "apps/api/src/modules/accounting/connection-center.repository.ts",
+    "apps/api/src/modules/accounting/connection-attestation.repository.ts",
+    "apps/api/src/modules/accounting/accounting.controller.ts",
+    "apps/api/src/modules/accounting/accountant-member-access.contract.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/accountant-member-context-repair-20260818.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-accountant-member-context-20260818.json"
+  ],
+  "boundaries": [
+    "deriveTrustedRlsContext keeps rejecting GUEST; no global guest-role widening.",
+    "The organization-member transaction path requires authenticated user, session, tenant and organization and then proves ACTIVE membership with public.app_pc_crop_membership_id() inside PostgreSQL.",
+    "GUEST is admitted only on task-first accounting and Connection Center/attestation handlers; document generation, money, period close, reconciliation and other non-migrated handlers keep the class role fence.",
+    "Task reads require accounting.dashboard.read; manual task creation and transition remain controlled by accounting.task.manage / task policy, all resolved from durable job_profile/delegation.",
+    "Connection Center reads require integrations.read resolved from durable membership job_profile/delegation.",
+    "Attestation reads/writes retain integrations.read/integrations.configure and MFA checks already enforced by the repository.",
+    "No provider, 1C runtime, EDO runtime, Prisma schema, migration, hosting or production mutation.",
+    "No browser-selected capability/job profile becomes authority.",
+    "Merge and green CI are not production acceptance.",
+    "New mandatory recurring cost: 0 RUB."
+  ],
+  "requiredInvariants": [
+    "Generic GUEST callers remain denied by withTrustedContext.",
+    "Organization-member context fails closed unless public.app_pc_crop_membership_id() returns an ACTIVE membership for current authenticated user/org.",
+    "GUEST + ACCOUNTANT gets daily accounting/task and connection reads but not one_c.configure, edo.configure, integrations.configure, period close or legal signing by role alone.",
+    "GUEST + EXTERNAL_ACCOUNTANT gets daily bookkeeping but not provider configuration, period close, reconciliation or signing authority by role alone.",
+    "Unprofiled GUEST gets baseline identity capabilities only and no task/connection data.",
+    "Cross-organization selection remains impossible because membership is resolved in PostgreSQL from current authenticated identity and organization."
+  ],
+  "requiredChecks": [
+    "GITHUB_HEAD_REF=claude/pc-crop-accountant-member-context-20260818 bash scripts/p7-autopilot-guard.sh",
+    "pnpm --filter @pc/api test -- rls-transaction.service.spec.ts rls-organization-member-context.spec.ts accountant-member-access.contract.spec.ts",
+    "pnpm --filter @pc/api typecheck",
+    "existing PC-CROP accounting/RLS/security gates"
+  ]
+}
