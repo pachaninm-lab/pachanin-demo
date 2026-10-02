@@ -17,6 +17,23 @@ function hasText(value: string | undefined): boolean {
   return Boolean(value?.trim());
 }
 
+function hasValidErid(value: string | undefined): boolean {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{8,128}$/u.test(value.trim());
+}
+
+function hasValidInn(value: string | undefined): boolean {
+  if (!value || !/^\d{10}(?:\d{2})?$/u.test(value)) return false;
+  const digits = [...value].map(Number);
+  const checksum = (weights: readonly number[]) => (
+    weights.reduce((sum, weight, index) => sum + weight * digits[index], 0) % 11
+  ) % 10;
+  if (digits.length === 10) {
+    return checksum([2, 4, 10, 3, 5, 9, 4, 6, 8]) === digits[9];
+  }
+  return checksum([7, 2, 4, 10, 3, 5, 9, 4, 6, 8]) === digits[10]
+    && checksum([3, 7, 2, 4, 10, 3, 5, 9, 4, 6, 8]) === digits[11];
+}
+
 function evidenceIsFresh(input: MarketingPolicyInput, nowMs: number): boolean {
   if (!input.requiresFreshness) return true;
   if (!input.freshnessCheckedAt) return false;
@@ -33,7 +50,7 @@ function evidenceIsFresh(input: MarketingPolicyInput, nowMs: number): boolean {
 /**
  * Deterministic, fail-closed outbound gate for the autonomous marketing contour.
  *
- * It intentionally does not try to "interpret" Russian law with an LLM at
+ * It intentionally does not try to interpret Russian law with an LLM at
  * publish time. Upstream classifies the material; uncertainty is quarantined.
  * Only the fixed allowlist can ever pass this gate. An environment variable
  * cannot expand it to a new platform.
@@ -45,7 +62,6 @@ export function evaluateMarketingPolicy(
 ): MarketingPolicyDecision {
   const reasons: MarketingPolicyCode[] = [];
 
-  // Global kill switch. Missing configuration means no outbound activity.
   if (!enabled(environment.MARKETING_OUTBOUND_ENABLED)) {
     reasons.push('OUTBOUND_DISABLED');
   }
@@ -89,7 +105,10 @@ export function evaluateMarketingPolicy(
     if (!hasText(input.advertising?.advertiserName)) {
       reasons.push('ADVERTISER_IDENTITY_MISSING');
     }
-    if (!hasText(input.advertising?.erid)) {
+    if (!hasValidInn(input.advertising?.advertiserInn)) {
+      reasons.push('ADVERTISER_INN_INVALID');
+    }
+    if (!hasValidErid(input.advertising?.erid)) {
       reasons.push('ERID_MISSING');
     }
     if (input.advertising?.isPaidPlacement && !enabled(environment.MARKETING_PAID_MODE_ENABLED)) {
@@ -97,8 +116,6 @@ export function evaluateMarketingPolicy(
     }
   }
 
-  // No cold promotional messaging. Either the person initiated the dialogue or
-  // the system must hold an auditable consent reference for marketing messages.
   if (
     input.isDirectMessage
     && !input.recipientInitiated

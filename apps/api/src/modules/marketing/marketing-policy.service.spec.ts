@@ -31,8 +31,11 @@ describe('marketing policy — autonomous outbound', () => {
   });
 
   it('allows sourced low-risk informational content on an allowlisted channel', () => {
-    const decision = evaluateMarketingPolicy(safe(), OUTBOUND_ON, NOW);
-    expect(decision).toEqual({ allowed: true, code: 'ALLOW', reasons: [] });
+    expect(evaluateMarketingPolicy(safe(), OUTBOUND_ON, NOW)).toEqual({
+      allowed: true,
+      code: 'ALLOW',
+      reasons: [],
+    });
   });
 
   it('cannot expand the Russian channel allowlist through arbitrary input', () => {
@@ -47,7 +50,7 @@ describe('marketing policy — autonomous outbound', () => {
     expect(decision.reasons).toContain('LEGAL_CLASSIFICATION_UNCERTAIN');
   });
 
-  it('requires internet-ad marker, advertiser identity and ERID for advertising', () => {
+  it('requires marker, advertiser identity, valid INN and ERID for advertising', () => {
     const decision = evaluateMarketingPolicy(
       safe({ classification: 'ADVERTISING', advertising: {} }),
       OUTBOUND_ON,
@@ -57,6 +60,28 @@ describe('marketing policy — autonomous outbound', () => {
     expect(decision.reasons).toEqual(expect.arrayContaining([
       'ADVERTISING_MARKER_MISSING',
       'ADVERTISER_IDENTITY_MISSING',
+      'ADVERTISER_INN_INVALID',
+      'ERID_MISSING',
+    ]));
+  });
+
+  it('rejects malformed INN and ERID before outbound admission', () => {
+    const decision = evaluateMarketingPolicy(
+      safe({
+        classification: 'ADVERTISING',
+        advertising: {
+          hasAdvertisingLabel: true,
+          advertiserName: 'ООО «Прозрачная цена»',
+          advertiserInn: '1234567890',
+          erid: 'bad erid',
+          isPaidPlacement: false,
+        },
+      }),
+      OUTBOUND_ON,
+      NOW,
+    );
+    expect(decision.reasons).toEqual(expect.arrayContaining([
+      'ADVERTISER_INN_INVALID',
       'ERID_MISSING',
     ]));
   });
@@ -68,6 +93,7 @@ describe('marketing policy — autonomous outbound', () => {
         advertising: {
           hasAdvertisingLabel: true,
           advertiserName: 'ООО «Прозрачная цена»',
+          advertiserInn: '7707083893',
           erid: 'example-erid-from-ord',
           isPaidPlacement: false,
         },
@@ -82,6 +108,7 @@ describe('marketing policy — autonomous outbound', () => {
     const advertising = {
       hasAdvertisingLabel: true,
       advertiserName: 'ООО «Прозрачная цена»',
+      advertiserInn: '7707083893',
       erid: 'example-erid-from-ord',
       isPaidPlacement: true,
     } as const;
@@ -99,14 +126,12 @@ describe('marketing policy — autonomous outbound', () => {
     ).toBe(true);
   });
 
-  it('blocks unsolicited direct messages but allows user-initiated or consented replies', () => {
-    const cold = evaluateMarketingPolicy(safe({ isDirectMessage: true }), OUTBOUND_ON, NOW);
-    expect(cold.reasons).toContain('UNSOLICITED_DIRECT_MESSAGE');
-
+  it('blocks unsolicited direct messages but allows initiated or consented replies', () => {
+    expect(evaluateMarketingPolicy(safe({ isDirectMessage: true }), OUTBOUND_ON, NOW).reasons)
+      .toContain('UNSOLICITED_DIRECT_MESSAGE');
     expect(
       evaluateMarketingPolicy(safe({ isDirectMessage: true, recipientInitiated: true }), OUTBOUND_ON, NOW).allowed,
     ).toBe(true);
-
     expect(
       evaluateMarketingPolicy(safe({ isDirectMessage: true, marketingConsentId: 'consent-42' }), OUTBOUND_ON, NOW).allowed,
     ).toBe(true);
