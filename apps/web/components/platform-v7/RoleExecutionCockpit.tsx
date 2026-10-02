@@ -1,3 +1,4 @@
+import { TextStack } from '@pc/design-system-v8';
 import {
   ExecutionCanvas,
   ExecutionCardGrid,
@@ -6,39 +7,8 @@ import {
   ExecutionStatusBadge,
 } from '@/components/platform-v7/ExecutionDesignSystem';
 import type { RoleExecutionCockpitModel } from '@/lib/platform-v7/role-execution-cockpit';
-import type { CSSProperties, ReactNode } from 'react';
-
-const contractGridStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-  gap: 8,
-  margin: '0 0 12px',
-} satisfies CSSProperties;
-
-const contractCardStyle = {
-  display: 'grid',
-  gap: 4,
-  padding: '10px 12px',
-  borderRadius: 16,
-  border: '1px solid var(--pc-border)',
-  background: 'var(--pc-bg-card)',
-  boxShadow: 'var(--pc-shadow-sm)',
-} satisfies CSSProperties;
-
-const contractLabelStyle = {
-  fontSize: 10,
-  fontWeight: 950,
-  textTransform: 'uppercase',
-  letterSpacing: '0.06em',
-  color: 'var(--pc-text-muted)',
-} satisfies CSSProperties;
-
-const contractValueStyle = {
-  fontSize: 12,
-  fontWeight: 900,
-  lineHeight: 1.35,
-  color: 'var(--pc-text-primary)',
-} satisfies CSSProperties;
+import type { ReactNode } from 'react';
+import styles from './RoleExecutionCockpit.module.css';
 
 function firstMoneyKpi(cockpit: RoleExecutionCockpitModel) {
   return cockpit.kpis.find((kpi) => kpi.tone === 'money' || /деньг|резерв|удерж|банк|₽/i.test(`${kpi.label} ${kpi.value} ${kpi.note}`));
@@ -64,11 +34,13 @@ function contractItems(cockpit: RoleExecutionCockpitModel) {
 
 export function RoleExecutionScreenContract({ cockpit }: { readonly cockpit: RoleExecutionCockpitModel }) {
   return (
-    <section data-testid={`platform-v7-${cockpit.role}-screen-contract`} aria-label='Контракт экрана роли' style={contractGridStyle}>
+    <section data-testid={`platform-v7-${cockpit.role}-screen-contract`} aria-label='Контракт экрана роли' className={styles.contractGrid}>
       {contractItems(cockpit).map((item) => (
-        <article key={item.label} style={contractCardStyle}>
-          <span style={contractLabelStyle}>{item.label}</span>
-          <strong style={contractValueStyle}>{item.value}</strong>
+        <article key={item.label} className={styles.contractCard}>
+          <TextStack className={styles.contractCopy} spacing='label'>
+            <span className={styles.contractLabel}>{item.label}</span>
+            <strong className={styles.contractValue}>{item.value}</strong>
+          </TextStack>
         </article>
       ))}
     </section>

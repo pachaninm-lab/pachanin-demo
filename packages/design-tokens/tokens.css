@@ -30,6 +30,14 @@
   --ds-space-8: 32px;
   --ds-space-10: 40px;
 
+  --ds-text-gap-label: var(--ds-space-1);
+  --ds-text-gap-title: var(--ds-space-2);
+  --ds-text-gap-paragraph: var(--ds-space-3);
+  --ds-text-gap-action: var(--ds-space-4);
+  --ds-layout-gap-group: var(--ds-space-5);
+  --ds-layout-gap-section: var(--ds-space-6);
+  --ds-layout-gap-section-wide: var(--ds-space-8);
+
   --ds-radius-sm: 6px;
   --ds-radius-md: 10px;
   --ds-radius-lg: 16px;
