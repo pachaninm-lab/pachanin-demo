@@ -3,7 +3,7 @@ set -Eeuo pipefail
 umask 077
 
 export PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
-unset BASH_ENV ENV CDPATH GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 SSH_AUTH_SOCK
+unset BASH_ENV ENV CDPATH GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 SSH_AUTH_SOCK GIT_ASKPASS GIT_TERMINAL_PROMPT PC_GITHUB_TOKEN_FILE
 
 TARGET_SHA="${1:-}"
 RUN_ID="${2:-}"
@@ -11,6 +11,7 @@ SOURCE_FILE="${3:-}"
 OUTPUT_FILE="${4:-}"
 
 readonly REPOSITORY_URL='https://github.com/pachaninm-lab/pachanin-demo.git'
+readonly STATE_ROOT='/var/lib/pc-release-authority'
 readonly REPOSITORY_ROOT='/var/lib/pc-release-authority/repository'
 readonly CONTROLLER_RELATIVE='scripts/pc-tai-release-controller.sh'
 readonly CONTROLLER_TARGET='/usr/local/sbin/pc-tai-release-controller'
@@ -23,6 +24,47 @@ fail() {
   printf 'TAI_CONTROLLER_SYNC_ERROR=%s\n' "$1" >&2
   exit "${2:-1}"
 }
+
+repo_auth_dir=''
+
+clear_repo_auth() {
+  unset GIT_ASKPASS GIT_TERMINAL_PROMPT PC_GITHUB_TOKEN_FILE
+  if [[ -n "${repo_auth_dir:-}" ]]; then
+    [[ "$repo_auth_dir" == "$STATE_ROOT/controller-jobs/git-auth-sync-$RUN_ID" ]] || return 90
+    rm -f -- "$repo_auth_dir/token" "$repo_auth_dir/askpass.sh" || return 91
+    rmdir -- "$repo_auth_dir" || return 92
+    repo_auth_dir=''
+  fi
+}
+
+prepare_repo_auth() {
+  local token='' token_file askpass
+  IFS= read -r token || [[ -n "$token" ]] || fail REPOSITORY_READ_TOKEN_MISSING 48
+  [[ "$token" =~ ^[A-Za-z0-9_-]{20,512}$ ]] || fail REPOSITORY_READ_TOKEN_INVALID 49
+  install -d -m 0700 -o root -g root "$STATE_ROOT/controller-jobs"
+  repo_auth_dir="$STATE_ROOT/controller-jobs/git-auth-sync-$RUN_ID"
+  [[ ! -e "$repo_auth_dir" && ! -L "$repo_auth_dir" ]] || fail REPOSITORY_AUTH_STATE_EXISTS 50
+  install -d -m 0700 -o root -g root "$repo_auth_dir"
+  token_file="$repo_auth_dir/token"
+  askpass="$repo_auth_dir/askpass.sh"
+  ( umask 077; printf '%s' "$token" > "$token_file" )
+  unset token
+  cat > "$askpass" <<'GIT_ASKPASS_SH'
+#!/bin/sh
+case "${1:-}" in
+  *Username*) printf '%s\n' 'x-access-token' ;;
+  *Password*) cat "${PC_GITHUB_TOKEN_FILE:?}" ;;
+  *) exit 1 ;;
+esac
+GIT_ASKPASS_SH
+  chmod 0700 "$askpass"
+  export GIT_ASKPASS="$askpass"
+  export GIT_TERMINAL_PROMPT=0
+  export PC_GITHUB_TOKEN_FILE="$token_file"
+}
+
+auth_exit() { clear_repo_auth || true; }
+trap auth_exit EXIT
 
 fsync_paths() {
   python3 - "$@" <<'PY'
@@ -113,6 +155,7 @@ if find -P "$SOURCE_FILE" -perm /022 -print -quit | grep -q .; then fail SOURCE_
 [[ -d "$REPOSITORY_ROOT/.git" && ! -L "$REPOSITORY_ROOT" ]] || fail PROTECTED_REPOSITORY_INVALID 13
 [[ "$(stat -c '%U:%G:%a' "$REPOSITORY_ROOT")" == root:root:700 ]] || fail PROTECTED_REPOSITORY_PERMISSIONS_INVALID 14
 [[ "$(git -C "$REPOSITORY_ROOT" remote get-url origin)" == "$REPOSITORY_URL" ]] || fail PROTECTED_REPOSITORY_REMOTE_INVALID 15
+prepare_repo_auth
 
 exec 9>"$CONTROLLER_LOCK"
 flock -n 9 || fail RELEASE_CONTROLLER_BUSY 16
@@ -123,6 +166,7 @@ git -C "$REPOSITORY_ROOT" checkout --force --detach "$TARGET_SHA" >/dev/null
 git -C "$REPOSITORY_ROOT" clean -ffdx >/dev/null
 [[ "$(git -C "$REPOSITORY_ROOT" rev-parse HEAD)" == "$TARGET_SHA" ]] || fail PROTECTED_CHECKOUT_MISMATCH 18
 [[ -z "$(git -C "$REPOSITORY_ROOT" status --porcelain=v1)" ]] || fail PROTECTED_CHECKOUT_DIRTY 19
+clear_repo_auth || fail REPOSITORY_AUTH_CLEANUP_FAILED 51
 
 expected_source="$REPOSITORY_ROOT/$CONTROLLER_RELATIVE"
 [[ -f "$expected_source" && ! -L "$expected_source" ]] || fail EXPECTED_CONTROLLER_INVALID 20
@@ -221,6 +265,7 @@ succeeded=0
 cleanup() {
   local rc="$?"
   trap - EXIT
+  clear_repo_auth || true
   if (( succeeded == 0 && mutated == 1 )); then
     install -m 0750 -o root -g "$RUNNER_USER" "$controller_backup" "$CONTROLLER_TARGET" || true
     install -m 0644 -o root -g root "$marker_backup" "$MARKER" || true
