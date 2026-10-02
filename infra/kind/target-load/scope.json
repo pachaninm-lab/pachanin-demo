@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "taskId": "IR-LOAD-2694",
+  "branch": "ir/target-load-2694-v2",
+  "issue": 2694,
+  "status": "active",
+  "maturityBoundary": "Production-like target sustained and burst capacity evidence only. No real-provider, live-user or production-history claim.",
+  "allowedPaths": [
+    ".github/workflows/target-load-acceptance.yml",
+    "infra/kind/target-load/**",
+    "scripts/release/target-load-acceptance-wrapper.sh",
+    "scripts/release/target-load-acceptance.sh",
+    "scripts/release/target-load-generate-tokens.mjs",
+    "scripts/release/target-load.k6.js",
+    "scripts/release/target-load-build-evidence.mjs",
+    "scripts/release/target-load-fallback-evidence.mjs",
+    "scripts/release/enforce-target-load-evidence.mjs"
+  ],
+  "forbiddenPaths": [
+    "apps/**",
+    "packages/**",
+    "prisma/**",
+    "package.json",
+    "pnpm-lock.yaml"
+  ],
+  "requiredEvidence": "artifacts/industrial-readiness/load/target-load-acceptance.json"
+}
