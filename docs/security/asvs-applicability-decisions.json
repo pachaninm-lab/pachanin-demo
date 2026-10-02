@@ -2074,34 +2074,34 @@
     {
       "requirementId": "V4.1.4",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "cors:apps/api/src/main.ts"
+        "apps/api/src/main.ts",
+        "apps/api/src/modules/ai-insights/outbound-redirect-and-surface.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "CORS is configured",
+          "condition": "enableCors still declares the method allowlist explicitly rather than leaving the framework default",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/main.ts"
           ],
           "patterns": [
-            "enablecors"
+            "methods: ['get', 'post', 'put', 'patch', 'delete', 'options']"
           ]
         },
         {
-          "condition": "no method allowlist constrains it",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the check that the allowlist still covers every method the controllers declare is still in place",
+          "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/main.ts"
+            "apps/api/src/modules/ai-insights/outbound-redirect-and-surface.spec.ts"
           ],
           "patterns": [
-            "methods:",
-            "allowedmethods"
+            "@(get|post|put|patch|delete|head|all)\\("
           ]
         }
       ],
-      "note": "No explicit HTTP method allowlist exists. enableCors is configured with an origin and credentials but no methods option, so preflight advertises the framework default rather than the methods this API supports. Credited: route binding means an undeclared method on a declared path does not execute a handler. That limits what runs; it is not the explicit allowlist the requirement asks for, and it says nothing about what preflight advertises."
+      "note": "enableCors now declares methods explicitly, so preflight advertises what this API supports rather than the framework default. The list was measured from the controllers rather than written from memory: @Get 221, @Post 206, @Patch 31, @Delete 7, @Put 1, with no @Head, @Options or @All declared anywhere; OPTIONS is included because preflight itself uses it. Route binding already limited what executes, which was credited before and is unchanged - the gap this closes is what preflight advertises, which route binding says nothing about. A test recomputes the declared set from the controllers and fails if a method appears that the allowlist does not cover, so adding a @Head handler later cannot silently outrun this. Proven by negative mutation: removing the methods option fails the test."
     },
     {
       "requirementId": "V4.1.5",
@@ -9056,23 +9056,47 @@
     {
       "requirementId": "V13.4.6",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "apps/api/src/health.controller.ts"
+        "apps/api/src/health.controller.ts",
+        "apps/web/public/platform-v7/openapi.yaml",
+        "apps/api/src/modules/ai-insights/outbound-redirect-and-surface.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the unauthenticated version endpoint still returns build date, commit and Node version alongside the version string",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the version route is no longer marked public - the decorator is not directly above it",
+          "check": "ABSENT_AT_PATH",
           "paths": [
             "apps/api/src/health.controller.ts"
           ],
           "patterns": [
-            "nodeversion: process.version"
+            "@public()\n  @get('version')"
+          ]
+        },
+        {
+          "condition": "the liveness probes this replaces it for are still public, so restricting version did not take the probe surface with it",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/health.controller.ts"
+          ],
+          "patterns": [
+            "@public()\n  @get('health')",
+            "@public()\n  @get('ready')"
+          ]
+        },
+        {
+          "condition": "the published specification still declares the route as requiring a bearer token",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/public/platform-v7/openapi.yaml"
+          ],
+          "patterns": [
+            "operationid: getversion",
+            "security: [{ bearerauth: [] }]"
           ]
         }
       ],
-      "note": "A dedicated, explicitly public endpoint returns detailed backend version information with no authentication: GET /version responds with the application version, build date, commit hash and Node.js runtime version. This is precisely what the requirement names - detailed version information of backend components, exposed rather than withheld. Unlike V13.4.5, this requirement carries no \"unless explicitly intended\" allowance; being deliberate does not satisfy it."
+      "note": "GET /version no longer carries the public-route decorator, so the global guard requires authentication for it. The endpoint returned application version, build date, commit hash and Node runtime version to any anonymous caller - a precise fingerprint for matching known runtime and dependency vulnerabilities - and unlike V13.4.5 this requirement carries no 'unless explicitly intended' allowance. The operational risk of restricting it was measured, not assumed: no Kubernetes probe uses this path. Probe paths across infra/k8s and infra/helm are /health, /ready, /live and /-/ready, and a test recomputes that set from the manifests and fails if any probe path ever mentions version. /health and /ready remain public for liveness, and a condition asserts that so this change cannot quietly take the probe surface with it. The published OpenAPI description was updated in the same change from security: [] to bearerAuth with a 401 response, because a specification that still advertises the route as open would be a false statement about the API. The first condition is an exact adjacency check rather than a search for the decorator anywhere in the file: three other routes in this controller are legitimately public, so a file-wide search would say nothing. Proven by negative mutation: restoring the decorator above the route fails the test."
     },
     {
       "requirementId": "V13.4.7",
@@ -9882,35 +9906,50 @@
     {
       "requirementId": "V15.3.2",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
         "apps/api/src/modules/ml-client/ml-client.service.ts",
-        "redirect-guarded-counterexample:apps/api/src/modules/storage/object-storage.adapter.ts"
+        "apps/api/src/modules/role-eligibility/role-eligibility-security.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+        "apps/api/src/modules/storage/object-storage.adapter.ts",
+        "apps/api/src/modules/marketing/connectors/telegram.publisher.ts",
+        "apps/api/src/modules/marketing/connectors/vk.publisher.ts",
+        "apps/api/src/common/vault/vault-transit.service.ts",
+        "apps/api/src/modules/ai-insights/outbound-redirect-and-surface.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the ML client fetch call still sets no redirect option, leaving it on fetch's default follow behaviour",
-          "check": "ABSENT_AT_PATH",
-          "paths": [
-            "apps/api/src/modules/ml-client/ml-client.service.ts"
-          ],
-          "patterns": [
-            "redirect: 'error'",
-            "redirect: 'manual'"
-          ]
-        },
-        {
-          "condition": "the object-storage adapter still shows what the guarded version of this call looks like, for comparison",
+          "condition": "every file that issues an outbound fetch still sets redirect: 'error' on it",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/storage/object-storage.adapter.ts"
+            "apps/api/src/modules/ml-client/ml-client.service.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility-security.ts",
+            "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+            "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+            "apps/api/src/modules/storage/object-storage.adapter.ts",
+            "apps/api/src/modules/marketing/connectors/telegram.publisher.ts",
+            "apps/api/src/modules/marketing/connectors/vk.publisher.ts",
+            "apps/api/src/common/vault/vault-transit.service.ts"
           ],
           "patterns": [
             "redirect: 'error'"
           ]
+        },
+        {
+          "condition": "the sweep that finds every call site and the credential-carrying subset is still in place, so a new unguarded call fails rather than passing unnoticed",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/ai-insights/outbound-redirect-and-surface.spec.ts"
+          ],
+          "patterns": [
+            "await fetch\\(",
+            "redirect:\\s*'error'",
+            "authorization|x-vault-token"
+          ]
         }
       ],
-      "note": "Of the 11 outbound fetch() call sites in the API, only object-storage.adapter.ts (2 sites) explicitly sets redirect: 'error', which fails the request rather than silently following a redirect - the correct, safe configuration this requirement asks for. The other 9 - ml-client.service.ts, partner-api.controller.ts, webhook-dispatcher.service.ts, restricted-public-qwen.service.ts (x2), ai-assistant.service.ts (x2), and vault-transit.service.ts (x2) - set no redirect option at all, which means fetch's default (follow) applies: a 3xx response from any of those endpoints is followed automatically. This compounds the already-recorded SSRF-shaped gap in the partner webhook path (ASVS V13.2.4/V13.2.5, V1.2.2, V1.3.6): a partner-controlled webhook URL that responds with a redirect to an internal address would be followed, not rejected."
+      "note": "All twelve outbound fetch call sites in the API now set redirect: 'error', so a 3xx from any of them fails the request instead of being followed. The harm is concrete rather than theoretical and was measured before the change: the Vault transit calls carry X-Vault-Token and the Qwen calls carry Authorization: Bearer, so a followed redirect would resend those credentials to a destination chosen by whoever answered. Every endpoint involved is configured, not user-supplied - ML_BASE, VAULT_ADDR and the AI baseUrl all come from configuration - so a redirect from any of them is never legitimate. Two call sites were already correct before this change (object-storage.adapter.ts) and three more had been fixed since the original assessment (role-eligibility-security.ts and the two marketing connectors); the partner webhook path is stronger still, going through safeOutboundRequest with a host allowlist and per-hop checks rather than a bare fetch. The condition names every file individually: PRESENT_AT_PATH holds only when all of them carry the option, so dropping it anywhere revokes this decision. Proven by negative mutation: removing it from the Vault client fails two tests, including the one that specifically covers credential-carrying requests."
     },
     {
       "requirementId": "V15.3.3",
