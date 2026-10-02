@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "status": "proposed",
+  "issue": 5074,
+  "branch": "fix/role-eligibility-fns-egrul-generation-binding-5074",
+  "allowedPaths": [
+    "apps/api/src/modules/role-eligibility/role-eligibility-enforcement.repository.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-enforcement.types.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-admission.service.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-admission.service.spec.ts"
+  ],
+  "forbiddenPaths": [
+    "apps/api/prisma/**",
+    "apps/web/**",
+    "infra/**"
+  ],
+  "notes": "STAGED PROPOSAL ONLY. ZERO IMPLEMENTATION AUTHORITY until this finite scope is independently reviewed, merged, and separately promoted into immutable trusted base-state authority. Phase A of #5074 only, and it MUST be implemented after #5064 establishes domain-scoped FNS authority. For legal-entity FNS evidence, read the current ACTIVE authority specifically for (source=FNS, registry_domain=EGRUL) and expose that read-only current EGRUL generation in the admission snapshot. Admission must fail closed when the FNS EGRUL verdict-source generation differs from that exact domain-scoped active generation or when the current EGRUL generation is absent, using stable REVIEW_REQUIRED reason ROLE_ELIGIBILITY_FNS_EGRUL_GENERATION_NOT_CURRENT. Do not use or reintroduce generic source_health.active_generation semantics for FNS after #5064, and do not let an EGRIP active generation satisfy an EGRUL verdict. Existing manifest-hash, evidence-freshness, source-health and source-freshness checks remain additive and unchanged. Required regressions: matching EGRUL generation allows when all other gates pass; superseded EGRUL A vs current EGRUL B reviews; absent current EGRUL generation reviews; simultaneous EGRUL/EGRIP authority never cross-satisfies; non-FNS source behavior remains unchanged; manifest-hash behavior remains unchanged. Do not include scheduled recheck, EGRUL parser/status fields, delta permissions/lineage, registration, Role Eligibility enforcement activation, production mutation, migrations, UI, infrastructure, provider credentials, or recurring cost. Proposal based on exact main 7f8326322dd15a46df8b63a3f4f14d72a177558d and is sequencing-dependent on accepted #5064 domain authority."
+}
