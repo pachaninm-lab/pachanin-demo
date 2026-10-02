@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/owner-cabinets-hotfix-web-release-5294",
+  "status": "active",
+  "purpose": "Operational follow-up for merged hotfix PR #5294: trigger the repository's canonical push-driven REG.RU exact-SHA web release for the admitted repair that restores all 13 owner cabinet opens. The readiness route change is comment-only and intentionally carries no runtime behavior change.",
+  "authorityBaseExactMain": "2f45e16446e46a93fad211b866475d7b33610af7",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/app/api/health/ready/route.ts",
+    "docs/platform-v7/autopilot/scopes/owner-cabinets-hotfix-web-release-5294.json"
+  ],
+  "requiredInvariants": [
+    "The readiness endpoint response, headers and runtime behavior remain byte-for-byte semantically unchanged; only its source comment may change.",
+    "The change exists solely because production-web-exact-sha.yml explicitly treats the readiness file as a canonical push release trigger.",
+    "No auth, RBAC, database, migration, secret, business API or cabinet implementation changes are allowed in this trigger branch.",
+    "The resulting production release must use the canonical exact-SHA web release workflow with rollback and live-acceptance controls.",
+    "The merged #5294 hotfix remains the production behavior: real active PLATFORM_OWNER plus MFA, CSRF, fixed controlled tenant/org binding and signed cabinet session; no authorization weakening.",
+    "New recurring cost remains 0 RUB."
+  ],
+  "acceptance": [
+    "PR diff contains only the readiness comment and this scope manifest.",
+    "Required governance and web checks pass before merge.",
+    "Push to main starts canonical Docker web image build and Production Web Exact-SHA Release for the resulting exact merge SHA.",
+    "Production evidence records DEPLOYMENT_COMPLETE=1, exact running web revision and LIVE_ACCEPTANCE=PASS.",
+    "Owner control center can open all 13 protected cabinet routes from one real owner MFA session."
+  ]
+}
