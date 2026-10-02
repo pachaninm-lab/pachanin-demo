@@ -58,6 +58,7 @@ is_immutable_scope_branch() {
   case "$1" in
     "$PRODUCT_DEAL_RUNTIME_BRANCH"|"$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH") return 0 ;;
     "governance/product-deal-execution-route-20261001"|"fix/deal-execution-route-20261001") return 0 ;;
+    "fix/gekta-model-control-probe-20261001") return 0 ;;
     "fix/gekta-docker-diagnostic-route-20260927"|"fix/gekta-web-release-recovery-20260927"|"fix/gekta-answer-copy-20260927"|"fix/gekta-han-stream-20260927"|"fix/gekta-qwen35-guard-argv-form-20260928" ) return 0 ;;
     "$IR20_BINDING_PREREQUISITE_BRANCH"|"$IR20_BINDING_IMPLEMENTATION_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_BRANCH"|"$PRODUCT_BANK_COPY_BRANCH"|"$PRODUCT_ZSN_SOURCE_BRANCH"|"$PRODUCT_NEXT_ACTION_BRANCH"|"$PRODUCT_DEAL_COMMAND_BRANCH"|"$PUBLIC_REGISTRATION_PARTICIPATION_BRANCH"|"$PRODUCTION_MOBILE_HANDOFF_BRANCH"|"$READINESS_QUEUE_JOB_GATE_BRANCH"|"$READINESS_DEFAULT_BRANCH_PUSH_GATE_BRANCH"|"$PRODUCT_BUYER_HOME_BRANCH"|"$PRODUCT_BANK_HOME_BRANCH"|"$PRODUCT_BANK_HOME_ADMISSION_BRANCH"|"$PUBLIC_WEBKIT_I18N_BRANCH"|"$PUBLIC_LOGIN_LOCALE_BRANCH"|"$PRODUCT_BUYER_ADMISSION_BRANCH"|"$PRODUCT_SCOPE_ADMISSION_BRANCH") return 0 ;;
     "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$W1_PRODUCTION_ACCEPTANCE_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH"|"$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH"|"$POISON_ISOLATION_IMPLEMENTATION_BRANCH"|"$OWNER_HANDOFF_IMPLEMENTATION_BRANCH"|"$QWEN_FAILED_EVIDENCE_BRANCH"|"$KIND_MINIO_IMAGE_SOURCE_BRANCH"|"$GITLEAKS_RELEASE_ATTESTATION_BRANCH"|"$FINAL_PUBLIC_HOME_BRANCH"|"$FINAL_PUBLIC_MARKET_BRANCH"|"$FINAL_PUBLIC_REGISTRATION_BRANCH"|"$FINAL_PUBLIC_HOW_BRANCH"|"$FINAL_PUBLIC_PRODUCT_COPY_BRANCH"|"$FINAL_PUBLIC_RELEASE_BRANCH"|"$FINAL_PUBLIC_GOVERNANCE_BRANCH") return 0 ;;
@@ -512,6 +513,9 @@ if (!baseRef || !stateFile || !branch) {
 // These bounded recovery routes are owned by the accepted base guard.
 // Candidate state and manifests cannot widen their exact path sets.
 const gektaRecoveryScopes = {
+  "fix/gekta-model-control-probe-20261001": [
+    ".github/workflows/gekta-p0-speed-model-host-control-probe.yml"
+  ],
   "fix/gekta-qwen35-guard-argv-form-20260928": [
     ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
     "scripts/gekta-qwen35-4b-model-host-candidate.py"
@@ -544,6 +548,29 @@ const gektaRecoveryScopes = {
 let scopes;
 if (Object.hasOwn(gektaRecoveryScopes, branch)) {
   scopes = gektaRecoveryScopes[branch];
+  if (branch === 'fix/gekta-model-control-probe-20261001') {
+    // A literal route is necessary but does not itself admit source. The
+    // separately accepted one-path state transition must already be in base.
+    const { isDeepStrictEqual } = require('node:util');
+    const headRef = String(process.env.HEAD_REF || '').trim();
+    const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+    const fail = reason => { throw new Error(`GEKTA_READONLY_DIAGNOSTIC_${reason}`); };
+    const accepted = JSON.parse(git(['show', `${baseRef}:${stateFile}`]));
+    const purpose = accepted.coordinationAdmissions?.['gekta-readonly-control-diagnostic-prerequisite-20261001'];
+    if (!purpose || purpose.stagedDiagnosticBranch !== branch ||
+        !isDeepStrictEqual(purpose.stagedDiagnosticPaths, scopes)) fail('PURPOSE_NOT_ACCEPTED');
+    if (!isDeepStrictEqual(accepted.approvedConcurrentScopes?.[branch], scopes)) fail('SOURCE_NOT_ADMITTED');
+    if (!headRef) fail('HEAD_REQUIRED');
+    git(['merge-base', '--is-ancestor', baseRef, headRef]);
+    // NUL-delimited raw records bind both sides and reject additions, deletion,
+    // renames, symlinks, executable/submodule modes and every unrelated path.
+    const entries = git(['diff', '--raw', '--no-abbrev', '--no-renames', '-z', baseRef, headRef]).split('\0');
+    if (entries.pop() !== '' || entries.length !== 2) fail('EXACT_ONE_PATH_REQUIRED');
+    const [metadata, file] = entries;
+    if (file !== scopes[0] || !/^:100644 100644 [0-9a-f]{40} [0-9a-f]{40} M$/.test(metadata)) {
+      fail('REGULAR_EXISTING_WORKFLOW_ONLY');
+    }
+  }
 } else if (branch === publicHomeGovernanceBranch) {
   scopes = [publicHomeGovernanceManifest, publicHomeImplementationManifest];
 } else if (branch === publicHomeImplementationBranch) {
