@@ -1,0 +1,299 @@
+name: Production P0 Auth-Mail Worker Stable Realign Current Runtime
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-auth-mail-worker-stable-realign-current-runtime.yml'
+      - 'scripts/production-p0-auth-mail-worker-stable-realign-current-runtime.sh'
+      - 'docs/platform-v7/autopilot/scopes/p0-auth-mail-worker-stable-realign-3785.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-p0-auth-mail-worker-stable-realign-current-runtime
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  RELEASE_ISSUE_NUMBER: '3072'
+  COMMAND: /production p0-auth-mail-worker-stable-realign-current-main
+  SCRIPT: scripts/production-p0-auth-mail-worker-stable-realign-current-runtime.sh
+  SCOPE: docs/platform-v7/autopilot/scopes/p0-auth-mail-worker-stable-realign-3785.json
+  TRUSTED_CONNECTOR_APP_ID: '1144995'
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate stable worker-only recovery contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n "$SCRIPT"
+          python3 -m json.tool "$SCOPE" >/dev/null
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('scripts/production-p0-auth-mail-worker-stable-realign-current-runtime.sh').read_text(encoding='utf-8')
+          workflow=Path('.github/workflows/production-p0-auth-mail-worker-stable-realign-current-runtime.yml').read_text(encoding='utf-8')
+          required=[
+            'BASELINE_SERVICE_MISSING','PRE_WORKER_BOUNDARY','RUNTIME_UNCHANGED',
+            'AUTH_MAIL_WORKER_STABLE_REALIGNED','--force-recreate auth-mail-worker',
+            'DB_CREDENTIAL_MUTATED 0','API_WEB_MUTATED 0','ROLLBACK_COMPLETE',
+            'dist/apps/api/src/auth-mail-worker.js', "'command'",
+            "'pull_policy':'never'", "'restart':'unless-stopped'",
+            '/run/pc-auth-mail/keyring','/run/pc-auth-mail/database-url',
+            "'networks':['runtime']"
+          ]
+          missing=[x for x in required if x not in text]
+          if missing: raise SystemExit('missing stable invariant: '+' | '.join(missing))
+          wf_required=[
+            'github.event.issue.number == 3072',
+            "github.event.comment.user.login == github.repository_owner",
+            "github.event.comment.author_association == 'OWNER'",
+            'github.event.comment.performed_via_github_app.id == 1144995',
+            "github.event.comment.body == '/production p0-auth-mail-worker-stable-realign-current-main'"
+          ]
+          missing=[x for x in wf_required if x not in workflow]
+          if missing: raise SystemExit('missing authority invariant: '+' | '.join(missing))
+          forbidden=[
+            'ALTER ROLE','CREATE ROLE','DROP ROLE','UPDATE auth.','INSERT INTO','DELETE FROM','TRUNCATE ',
+            'sendAuthMailSmtp','PASSWORD_RESET_REPLAYED','staff_reviewer_password_reset_subject',
+            'docker system prune','docker volume rm','docker network rm','docker image rm',
+            'StrictHostKeyChecking=no','UserKnownHostsFile=/dev/null','--pull always'
+          ]
+          bad=[x for x in forbidden if x in text or x in workflow]
+          if bad: raise SystemExit('unsafe surface: '+' | '.join(bad))
+          PY
+
+  realign:
+    name: Stable-realign only auth-mail-worker to exact current main
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      (
+        (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+        github.event.comment.performed_via_github_app.id == 1144995
+      ) &&
+      github.event.comment.body == '/production p0-auth-mail-worker-stable-realign-current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact owner-issued provenance and freeze current main
+        id: target
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          app="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$assoc" == OWNER && "$body" == "$COMMAND" ]]
+          if [[ "$GITHUB_ACTOR" == "$owner" && "${{ github.triggering_actor }}" == "$owner" ]]; then
+            echo OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$app" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+            echo OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$(git rev-parse HEAD)" == "$main_sha" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$main_sha" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          bash -n "$SCRIPT"
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || exit 10
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || exit 11
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || exit 13
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"; chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 14
+          scan="$(mktemp)"; match="$(mktemp)"; ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do
+              [[ -n "$line" ]] || continue
+              fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+              [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+            done < "$scan"
+            sort -u -o "$match" "$match"
+            [[ "$(grep -c . "$match" || true)" == 1 ]] && { ready=1; break; }
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$ready" == 1 ]] || exit 15
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; python3 --version >/dev/null; echo SSH_AUTH_OK' \
+            | grep -Fxq SSH_AUTH_OK
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Execute bounded stable worker-only realignment
+        id: repair
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          raw="$(mktemp)"; clean="$(mktemp)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            'bash -s' < "$SCRIPT" > "$raw" 2>&1
+          rc=$?
+          set -e
+          sed -nE '/^(AUTH_MAIL_WORKER_STABLE_REALIGN|ERROR_CODE|PRE_API_REVISION|PRE_WEB_REVISION|PRE_WORKER_REVISION|TARGET_REVISION|PRE_WORKER_BOUNDARY|BASELINE_SERVICE_MISSING|WORKER_RECREATED|WORKER_REVISION|WORKER_READY|API_WEB_UNCHANGED|RUNTIME_UNCHANGED|API_WEB_MUTATED|DB_CREDENTIAL_MUTATED|ROLLBACK_ATTEMPTED|ROLLBACK_COMPLETE|PRODUCTION_MUTATION)=[A-Za-z0-9_.:-]{1,220}$/p' "$raw" > "$clean"
+          rm -f "$raw"
+          cat "$clean"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          while IFS='=' read -r k v; do
+            case "$k" in
+              AUTH_MAIL_WORKER_STABLE_REALIGN|ERROR_CODE|PRE_API_REVISION|PRE_WEB_REVISION|PRE_WORKER_REVISION|TARGET_REVISION|PRE_WORKER_BOUNDARY|BASELINE_SERVICE_MISSING|WORKER_RECREATED|WORKER_REVISION|WORKER_READY|API_WEB_UNCHANGED|RUNTIME_UNCHANGED|API_WEB_MUTATED|DB_CREDENTIAL_MUTATED|ROLLBACK_ATTEMPTED|ROLLBACK_COMPLETE|PRODUCTION_MUTATION)
+                echo "${k,,}=$v" >> "$GITHUB_OUTPUT";;
+            esac
+          done < "$clean"
+          rm -f "$clean"
+
+      - name: Enforce exact-main target before accepting mutation
+        if: always()
+        shell: bash
+        env:
+          MAIN_SHA: ${{ steps.target.outputs.main_sha }}
+          API_REV: ${{ steps.repair.outputs.pre_api_revision }}
+          WEB_REV: ${{ steps.repair.outputs.pre_web_revision }}
+          TARGET_REV: ${{ steps.repair.outputs.target_revision }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$MAIN_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$API_REV" == "$MAIN_SHA" ]]
+          [[ "$WEB_REV" == "$MAIN_SHA" ]]
+          [[ "$TARGET_REV" == "$MAIN_SHA" ]]
+
+      - name: Publish sanitized stable realignment evidence
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAIN_SHA: ${{ steps.target.outputs.main_sha }}
+          RESULT: ${{ steps.repair.outputs.auth_mail_worker_stable_realign }}
+          ERROR_CODE: ${{ steps.repair.outputs.error_code }}
+          API_REV: ${{ steps.repair.outputs.pre_api_revision }}
+          WEB_REV: ${{ steps.repair.outputs.pre_web_revision }}
+          WORKER_REV: ${{ steps.repair.outputs.pre_worker_revision }}
+          TARGET_REV: ${{ steps.repair.outputs.target_revision }}
+          PRE_BOUNDARY: ${{ steps.repair.outputs.pre_worker_boundary }}
+          BASELINE_MISSING: ${{ steps.repair.outputs.baseline_service_missing }}
+          RECREATED: ${{ steps.repair.outputs.worker_recreated }}
+          READY: ${{ steps.repair.outputs.worker_ready }}
+          API_WEB_UNCHANGED: ${{ steps.repair.outputs.api_web_unchanged }}
+          RUNTIME_UNCHANGED: ${{ steps.repair.outputs.runtime_unchanged }}
+          DB_MUTATED: ${{ steps.repair.outputs.db_credential_mutated }}
+          API_WEB_MUTATED: ${{ steps.repair.outputs.api_web_mutated }}
+          ROLLBACK: ${{ steps.repair.outputs.rollback_complete }}
+          MUTATION: ${{ steps.repair.outputs.production_mutation }}
+        run: |
+          set -Eeuo pipefail
+          record="$(mktemp)"
+          {
+            echo '## Production P0 auth-mail worker stable realignment'; echo
+            echo "- exact main: \`${MAIN_SHA:-unknown}\`"
+            echo "- result / safe error: \`${RESULT:-unknown} / ${ERROR_CODE:-unknown}\`"
+            echo "- pre API / Web / worker: \`${API_REV:-unknown} / ${WEB_REV:-unknown} / ${WORKER_REV:-unknown}\`"
+            echo "- target worker revision: \`${TARGET_REV:-unknown}\`"
+            echo "- pre-worker boundary / baseline service missing: \`${PRE_BOUNDARY:-unknown} / ${BASELINE_MISSING:-unknown}\`"
+            echo "- worker recreated / ready: \`${RECREATED:-unknown} / ${READY:-unknown}\`"
+            echo "- API-Web unchanged / runtime projection unchanged: \`${API_WEB_UNCHANGED:-unknown} / ${RUNTIME_UNCHANGED:-unknown}\`"
+            echo "- DB mutated / API-Web mutated: \`${DB_MUTATED:-unknown} / ${API_WEB_MUTATED:-unknown}\`"
+            echo "- rollback: \`${ROLLBACK:-unknown}\`"
+            echo "- production mutation: \`${MUTATION:-unknown}\`"
+            echo '- no credentials, recipients, tokens, database values, raw logs, container IDs, image IDs or network names are published.'
+          } > "$record"
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f "$record"
+
+      - name: Enforce bounded stable realignment result
+        shell: bash
+        env:
+          REMOTE_RC: ${{ steps.repair.outputs.rc }}
+          RESULT: ${{ steps.repair.outputs.auth_mail_worker_stable_realign }}
+          PRE_BOUNDARY: ${{ steps.repair.outputs.pre_worker_boundary }}
+          BASELINE_MISSING: ${{ steps.repair.outputs.baseline_service_missing }}
+          READY: ${{ steps.repair.outputs.worker_ready }}
+          API_WEB_UNCHANGED: ${{ steps.repair.outputs.api_web_unchanged }}
+          RUNTIME_UNCHANGED: ${{ steps.repair.outputs.runtime_unchanged }}
+          DB_MUTATED: ${{ steps.repair.outputs.db_credential_mutated }}
+          API_WEB_MUTATED: ${{ steps.repair.outputs.api_web_mutated }}
+          MUTATION: ${{ steps.repair.outputs.production_mutation }}
+        run: |
+          set -Eeuo pipefail
+          [[ "${REMOTE_RC:-1}" == 0 ]]
+          [[ "$RESULT" == PASS ]]
+          [[ "$PRE_BOUNDARY" == PASS ]]
+          [[ "$BASELINE_MISSING" == PASS || "$BASELINE_MISSING" == NA ]]
+          [[ "$READY" == PASS ]]
+          [[ "$API_WEB_UNCHANGED" == PASS ]]
+          [[ "$RUNTIME_UNCHANGED" == PASS ]]
+          [[ "$DB_MUTATED" == 0 ]]
+          [[ "$API_WEB_MUTATED" == 0 ]]
+          [[ "$MUTATION" == AUTH_MAIL_WORKER_STABLE_REALIGNED || "$MUTATION" == NONE ]]
