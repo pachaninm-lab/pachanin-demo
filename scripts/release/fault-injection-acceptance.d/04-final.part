@@ -1,0 +1,20 @@
+FAILURE_REASON="final invariant reconciliation failed"
+export FAILURE_REASON
+admin_sql "
+SELECT jsonb_pretty(jsonb_build_object(
+  'dealId','${DEAL_ID}',
+  'dealVersion',(SELECT version FROM public.deals WHERE id='${DEAL_ID}'),
+  'faultCommandEvents',(SELECT count(*) FROM public.deal_events WHERE \"dealId\"='${DEAL_ID}' AND payload->>'commandId'='${command_id}'),
+  'verifiedObject',(SELECT count(*) FROM public.deal_documents WHERE id='${file_id}' AND status='VERIFIED' AND \"isImmutable\"=true),
+  'kafkaSent',(SELECT count(*) FROM public.outbox_entries WHERE \"correlationId\"='${RUN_ID}.kafka' AND status='SENT'),
+  'kafkaDead',(SELECT count(*) FROM public.outbox_entries WHERE \"correlationId\"='${RUN_ID}.kafka' AND status='DEAD_LETTER'),
+  'duplicateLeaseTokens',(SELECT count(*) FROM (SELECT \"leaseToken\" FROM public.outbox_entries WHERE \"leaseToken\" IS NOT NULL GROUP BY \"leaseToken\" HAVING count(*)>1) q)
+));
+" > "$RAW_DIR/final-invariants.json"
+jq -e '.faultCommandEvents==1 and .verifiedObject==1 and .kafkaSent==25 and .kafkaDead==0 and .duplicateLeaseTokens==0' "$RAW_DIR/final-invariants.json" >/dev/null
+
+touch "$FAULT_DIR/acceptance-complete"
+printf '1\n' > "$FAULT_DIR/success.txt"
+FAILURE_REASON=""
+export FAILURE_REASON
+printf 'Residual fault injection acceptance PASS for %s\n' "$EXACT_HEAD"

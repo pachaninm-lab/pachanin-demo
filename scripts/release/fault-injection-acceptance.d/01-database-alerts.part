@@ -1,0 +1,55 @@
+command_id="${RUN_ID}-approve"
+command_body="$(jq -nc --arg c "$command_id" --arg u "$expected_updated_at" --arg v "$expected_version" '{commandId:$c,idempotencyKey:($c+"-idem"),expectedUpdatedAt:$u,expectedVersion:$v,payload:{source:"fault-injection"}}')"
+export command_id
+
+FAILURE_REASON="PgBouncer total outage did not fail closed or recover exactly once"
+export FAILURE_REASON
+kubectl scale deployment/pgbouncer -n "$NAMESPACE" --replicas=0
+kubectl wait --for=delete pod -n "$NAMESPACE" -l app.kubernetes.io/name=pgbouncer --timeout=180s
+set +e
+db_outage_response="$(curl_api POST "/api/deals/${DEAL_ID}/commands/approve_admission" "$ACCESS_TOKEN" "$command_body" 2>"$RAW_DIR/db-outage-command.stderr")"
+db_outage_rc=$?
+set -e
+printf '%s\n' "$db_outage_response" > "$RAW_DIR/db-outage-command.json"
+false_db_effects="$(admin_sql "SELECT count(*) FROM public.deal_events WHERE \"dealId\"='${DEAL_ID}' AND payload->>'commandId'='${command_id}';")"
+printf '%s\n' "$false_db_effects" > "$RAW_DIR/db-outage-false-effects.txt"
+[[ "$db_outage_rc" != 0 || "$(jq -r '.statusCode // 500' <<<"${db_outage_response:-{}}" 2>/dev/null || echo 500)" -ge 400 ]]
+[[ "$false_db_effects" = 0 ]]
+
+kubectl scale deployment/pgbouncer -n "$NAMESPACE" --replicas=2
+wait_deployment pgbouncer
+wait_deployment grainflow-api
+recovered="$(curl_api POST "/api/deals/${DEAL_ID}/commands/approve_admission" "$ACCESS_TOKEN" "$command_body")"
+replayed="$(curl_api POST "/api/deals/${DEAL_ID}/commands/approve_admission" "$ACCESS_TOKEN" "$command_body")"
+printf '%s\n' "$recovered" > "$RAW_DIR/db-recovery-command.json"
+printf '%s\n' "$replayed" > "$RAW_DIR/db-replay-command.json"
+event_count="$(admin_sql "SELECT count(*) FROM public.deal_events WHERE \"dealId\"='${DEAL_ID}' AND payload->>'commandId'='${command_id}';")"
+printf '%s\n' "$event_count" > "$RAW_DIR/db-recovery-event-count.txt"
+[[ "$event_count" = 1 ]]
+
+FAILURE_REASON="API outage alert did not fire and clear"
+export FAILURE_REASON
+kubectl port-forward -n "$NAMESPACE" service/prometheus 39090:9090 > "$RAW_DIR/prometheus-port-forward.log" 2>&1 &
+prom_pid=$!
+for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:39090/-/ready >/dev/null 2>&1 && break; sleep 1; done
+curl -fsS http://127.0.0.1:39090/-/ready >/dev/null
+kubectl scale deployment/grainflow-api -n "$NAMESPACE" --replicas=0
+kubectl wait --for=delete pod -n "$NAMESPACE" -l app.kubernetes.io/name=grainflow-api --timeout=180s
+alert_fired=0
+for _ in $(seq 1 18); do
+  if curl -fsS http://127.0.0.1:39090/api/v1/alerts | jq -e '.data.alerts[]? | select(.labels.alertname=="GrainflowApiUnavailable" and .state=="firing")' >/dev/null; then alert_fired=1; break; fi
+  sleep 5
+done
+printf '%s\n' "$alert_fired" > "$RAW_DIR/api-alert-fired.txt"
+[[ "$alert_fired" = 1 ]]
+kubectl scale deployment/grainflow-api -n "$NAMESPACE" --replicas=2
+wait_deployment grainflow-api 900s
+alert_cleared=0
+for _ in $(seq 1 18); do
+  if ! curl -fsS http://127.0.0.1:39090/api/v1/alerts | jq -e '.data.alerts[]? | select(.labels.alertname=="GrainflowApiUnavailable" and .state=="firing")' >/dev/null; then alert_cleared=1; break; fi
+  sleep 5
+done
+printf '%s\n' "$alert_cleared" > "$RAW_DIR/api-alert-cleared.txt"
+[[ "$alert_cleared" = 1 ]]
+kill "$prom_pid" >/dev/null 2>&1 || true
+wait "$prom_pid" 2>/dev/null || true

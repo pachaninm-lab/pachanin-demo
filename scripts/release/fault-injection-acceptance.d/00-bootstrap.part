@@ -1,0 +1,60 @@
+for command in base64 curl jq kubectl node sha256sum; do command -v "$command" >/dev/null; done
+
+POSTGRES_PASSWORD="$(kubectl get secret grainflow-postgresql-secrets -n "$NAMESPACE" -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 -d)"
+export POSTGRES_PASSWORD
+printf '::add-mask::%s\n' "$POSTGRES_PASSWORD"
+
+admin_sql() {
+  kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
+    env PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -U postgres -d grainflow -Atc "$1"
+}
+
+curl_api() {
+  local method="$1" path="$2" token="${3:-}" body="${4:-}"
+  local args=(--silent --show-error --max-time 15 --resolve api.acceptance.grainflow.invalid:8080:127.0.0.1
+    -X "$method" -H 'Host: api.acceptance.grainflow.invalid' -H 'Accept: application/json')
+  [[ -n "$token" ]] && args+=(-H "Authorization: Bearer $token")
+  [[ -n "$body" ]] && args+=(-H 'Content-Type: application/json' --data "$body")
+  curl "${args[@]}" "http://api.acceptance.grainflow.invalid:8080${path}"
+}
+
+wait_deployment() {
+  kubectl rollout status -n "$NAMESPACE" "deployment/$1" --timeout="${2:-600s}"
+}
+
+wait_sql_count() {
+  local expected="$1" timeout="$2" sql="$3" deadline=$((SECONDS + timeout)) value=""
+  while (( SECONDS < deadline )); do
+    value="$(admin_sql "$sql" 2>/dev/null || true)"
+    [[ "$value" = "$expected" ]] && return 0
+    sleep 1
+  done
+  printf 'expected=%s actual=%s sql=%s\n' "$expected" "$value" "$sql" >&2
+  return 1
+}
+
+FAILURE_REASON="canonical persistent identity fixture could not be enabled"
+export FAILURE_REASON
+kubectl scale deployment/grainflow-api -n "$NAMESPACE" --replicas=1
+wait_deployment grainflow-api
+kubectl set env deployment/grainflow-api -n "$NAMESPACE" \
+  SEED_CANONICAL_TEST_DEAL=true ALLOW_CANONICAL_TEST_DEAL_IN_PRODUCTION=true
+wait_deployment grainflow-api 900s
+wait_sql_count 1 180 "SELECT count(*) FROM public.deals WHERE id='${DEAL_ID}';"
+kubectl scale deployment/grainflow-api -n "$NAMESPACE" --replicas=2
+wait_deployment grainflow-api 900s
+
+login_body='{"email":"compliance@demo.ru","password":"demo1234"}'
+login_response="$(curl_api POST /api/auth/login '' "$login_body")"
+printf '%s\n' "$login_response" > "$RAW_DIR/login.json"
+ACCESS_TOKEN="$(jq -r '.accessToken' <<<"$login_response")"
+[[ -n "$ACCESS_TOKEN" && "$ACCESS_TOKEN" != null ]]
+export ACCESS_TOKEN
+printf '::add-mask::%s\n' "$ACCESS_TOKEN"
+
+workspace="$(curl_api GET "/api/deals/${DEAL_ID}/workspace" "$ACCESS_TOKEN")"
+printf '%s\n' "$workspace" > "$RAW_DIR/workspace-before.json"
+expected_updated_at="$(jq -r '.deal.updatedAt' <<<"$workspace")"
+expected_version="$(jq -r '.deal.version' <<<"$workspace")"
+[[ -n "$expected_updated_at" && "$expected_updated_at" != null ]]
+export expected_updated_at expected_version
