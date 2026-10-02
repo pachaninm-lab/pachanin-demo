@@ -1,0 +1,320 @@
+name: TAI Live Document OCR Acceptance
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tai-live-document-ocr-acceptance.yml"
+      - ".github/workflows/docker-publish.yml"
+      - "scripts/create-live-public-assistant-attachment-fixtures.py"
+      - "scripts/check-live-public-assistant-attachments.mjs"
+      - "docs/platform-v7/autopilot/scopes/tai-live-document-ocr-acceptance-20260802.json"
+  workflow_run:
+    workflows: ["TAI REG.RU Deployment"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+      deployment_run_id:
+        description: Exact completed TAI REG.RU Deployment run ID
+        required: true
+        type: string
+      confirmation:
+        description: Enter ACCEPT-LIVE-DOCUMENT-OCR
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-live-document-ocr-${{ github.event.workflow_run.head_sha || inputs.target_sha || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+
+jobs:
+  contract:
+    name: Live document and OCR acceptance contract
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate bounded acceptance sources
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m py_compile scripts/create-live-public-assistant-attachment-fixtures.py
+          node --check scripts/check-live-public-assistant-attachments.mjs
+          python3 - <<'PY'
+          import json
+          p='docs/platform-v7/autopilot/scopes/tai-live-document-ocr-acceptance-20260802.json'
+          value=json.load(open(p,encoding='utf-8'))
+          assert value['schemaVersion']=='platform-v7.concurrent-scope.v1'
+          assert value['productionHosting']=='REG_RU_VPS_ONLY'
+          assert value['newRecurringCostRub']==0
+          assert value['productionMutationAllowedBeforeMerge'] is False
+          PY
+          ! grep -Eq 'continue-on-error:[[:space:]]*true|192[.]168[.]0[.]206|AI_ASSISTANT_API_KEY|TAI_PUBLIC_GATEWAY_HMAC_SECRET' \
+            .github/workflows/tai-live-document-ocr-acceptance.yml \
+            scripts/create-live-public-assistant-attachment-fixtures.py \
+            scripts/check-live-public-assistant-attachments.mjs
+
+  upstream:
+    name: Resolve exact-main deployment authority
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      target_sha: ${{ steps.resolve.outputs.target_sha }}
+      target_short: ${{ steps.resolve.outputs.target_short }}
+      deployment_run_id: ${{ steps.resolve.outputs.deployment_run_id }}
+      conclusion: ${{ steps.resolve.outputs.conclusion }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve and validate exact deployment run
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          CURRENT_REF: ${{ github.ref }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          INPUT_SHA: ${{ inputs.target_sha }}
+          INPUT_RUN_ID: ${{ inputs.deployment_run_id }}
+          EVENT_SHA: ${{ github.event.workflow_run.head_sha }}
+          EVENT_RUN_ID: ${{ github.event.workflow_run.id }}
+          EVENT_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          if [[ "$EVENT_NAME" == workflow_run ]]; then
+            [[ "$EVENT_REPOSITORY" == "$GITHUB_REPOSITORY" ]]
+            target_sha="$EVENT_SHA"
+            deployment_run_id="$EVENT_RUN_ID"
+          else
+            [[ "$EVENT_NAME" == workflow_dispatch ]]
+            [[ "$CURRENT_REF" == refs/heads/main ]]
+            [[ "$ACTOR" == "$OWNER" && "$TRIGGERING_ACTOR" == "$OWNER" ]]
+            [[ "$CONFIRMATION" == ACCEPT-LIVE-DOCUMENT-OCR ]]
+            target_sha="$INPUT_SHA"
+            deployment_run_id="$INPUT_RUN_ID"
+          fi
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$deployment_run_id" =~ ^[0-9]+$ ]]
+          [[ "$target_sha" == "$(git rev-parse origin/main)" ]]
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${deployment_run_id}" > "$RUNNER_TEMP/deployment-run.json"
+          python3 - "$RUNNER_TEMP/deployment-run.json" "$target_sha" <<'PY'
+          import json,sys
+          value=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert value.get('name')=='TAI REG.RU Deployment'
+          assert value.get('head_sha')==sys.argv[2]
+          assert value.get('head_branch')=='main'
+          assert value.get('status')=='completed'
+          assert value.get('head_repository',{}).get('full_name')==value.get('repository',{}).get('full_name')
+          assert value.get('conclusion') in {'success','failure','cancelled','timed_out','action_required','stale'}
+          PY
+          conclusion="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["conclusion"])' "$RUNNER_TEMP/deployment-run.json")"
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+          echo "target_short=${target_sha:0:7}" >> "$GITHUB_OUTPUT"
+          echo "deployment_run_id=$deployment_run_id" >> "$GITHUB_OUTPUT"
+          echo "conclusion=$conclusion" >> "$GITHUB_OUTPUT"
+
+  deployment_failure:
+    name: Publish blocked live acceptance status
+    needs: [contract, upstream]
+    if: always() && github.event_name != 'pull_request' && needs.upstream.result == 'success' && needs.upstream.outputs.conclusion != 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      statuses: write
+    steps:
+      - name: Recover redacted upstream deployment code
+        id: code
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.upstream.outputs.target_sha }}
+          DEPLOYMENT_RUN_ID: ${{ needs.upstream.outputs.deployment_run_id }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          code='TAI_REG_RU_DEPLOYMENT_FAILED'
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${DEPLOYMENT_RUN_ID}/artifacts?per_page=100" > "$RUNNER_TEMP/artifacts.json"
+          artifact_id="$(python3 - "$RUNNER_TEMP/artifacts.json" <<'PY'
+          import json,sys
+          values=json.load(open(sys.argv[1],encoding='utf-8')).get('artifacts') or []
+          matches=[v for v in values if str(v.get('name','')).startswith('tai-reg-ru-deployment-') and not v.get('expired')]
+          print(matches[-1].get('id','') if matches else '')
+          PY
+          )"
+          if [[ "$artifact_id" =~ ^[0-9]+$ ]]; then
+            gh api -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" > "$RUNNER_TEMP/deployment.zip"
+            mkdir -p "$RUNNER_TEMP/deployment"
+            unzip -q "$RUNNER_TEMP/deployment.zip" -d "$RUNNER_TEMP/deployment"
+            candidate="$(python3 - "$RUNNER_TEMP/deployment" <<'PY'
+          import json,pathlib,re,sys
+          root=pathlib.Path(sys.argv[1]); candidates=list(root.rglob('deployment.json'))
+          code=''
+          for path in candidates:
+              try: value=json.load(open(path,encoding='utf-8'))
+              except Exception: continue
+              item=value.get('errorCode','')
+              if re.fullmatch(r'[A-Z][A-Z0-9]*_[A-Z0-9_]+',item): code=item
+          print(code)
+          PY
+            )"
+            [[ -z "$candidate" ]] || code="$candidate"
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+      - name: Publish exact-SHA blocked status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.upstream.outputs.target_sha }}
+          DEPLOYMENT_RUN_ID: ${{ needs.upstream.outputs.deployment_run_id }}
+          CODE: ${{ steps.code.outputs.code }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh api --method POST -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+            -f state='failure' \
+            -f context='TAI Live Document OCR Acceptance' \
+            -f description="BLOCKED: ${CODE:0:125}" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${DEPLOYMENT_RUN_ID}"
+          echo "$CODE" >&2
+          exit 1
+
+  acceptance:
+    name: Verify live document upload and local OCR
+    needs: [contract, upstream]
+    if: github.event_name != 'pull_request' && needs.contract.result == 'success' && needs.upstream.result == 'success' && needs.upstream.outputs.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.upstream.outputs.target_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Confirm exact current main
+        env:
+          TARGET_SHA: ${{ needs.upstream.outputs.target_sha }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$TARGET_SHA" == "$(git rev-parse HEAD)" ]]
+          [[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]
+      - name: Install fixture and browser prerequisites
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pil fonts-dejavu-core >/dev/null
+          work="$RUNNER_TEMP/tai-live-attachments-runtime"
+          mkdir -p "$work"
+          cp scripts/check-live-public-assistant-attachments.mjs "$work/check.mjs"
+          cd "$work"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright@1.54.1 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+      - name: Create synthetic attachment fixtures
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$RUNNER_TEMP/tai-live-attachments-fixtures" "$RUNNER_TEMP/tai-live-attachments-evidence"
+          python3 scripts/create-live-public-assistant-attachment-fixtures.py "$RUNNER_TEMP/tai-live-attachments-fixtures"
+      - name: Execute live public attachment acceptance
+        id: live
+        env:
+          TARGET_SHA: ${{ needs.upstream.outputs.target_sha }}
+        shell: bash
+        run: |
+          set +e
+          node "$RUNNER_TEMP/tai-live-attachments-runtime/check.mjs" \
+            --base "$LIVE_BASE" \
+            --fixtures "$RUNNER_TEMP/tai-live-attachments-fixtures" \
+            --evidence "$RUNNER_TEMP/tai-live-attachments-evidence/acceptance.json" \
+            --target-sha "$TARGET_SHA" \
+            --ui true
+          rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload redacted live acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-live-document-ocr-${{ needs.upstream.outputs.target_short }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/tai-live-attachments-evidence/acceptance.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish exact-SHA live acceptance result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.upstream.outputs.target_sha }}
+          RC: ${{ steps.live.outputs.rc }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          evidence="$RUNNER_TEMP/tai-live-attachments-evidence/acceptance.json"
+          state=failure
+          description='Live document and OCR acceptance failed'
+          if [[ "$RC" == 0 ]]; then
+            python3 - "$evidence" "$TARGET_SHA" <<'PY'
+          import json,sys
+          value=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert value.get('targetSha')==sys.argv[2]
+          assert value.get('passed') is True
+          assert value.get('productionMutationAllowed') is False
+          assert value.get('customerDataUsed') is False
+          assert value.get('externalOcrServiceUsed') is False
+          assert value.get('ui',{}).get('passed') is True
+          assert len(value.get('cases') or []) >= 7
+          PY
+            state=success
+            description='Live TXT DOCX XLSX PDF image and scanned-PDF OCR PASS'
+          else
+            code="$(python3 - "$evidence" <<'PY'
+          import json,re,sys
+          try: value=json.load(open(sys.argv[1],encoding='utf-8'))
+          except Exception: value={}
+          code=value.get('errorCode','TAI_LIVE_ATTACHMENT_ACCEPTANCE_FAILED')
+          print(code if re.fullmatch(r'[A-Z][A-Z0-9]*_[A-Z0-9_]+',code) else 'TAI_LIVE_ATTACHMENT_ACCEPTANCE_FAILED')
+          PY
+            )"
+            description="BLOCKED: ${code:0:125}"
+          fi
+          gh api --method POST -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+            -f state="$state" \
+            -f context='TAI Live Document OCR Acceptance' \
+            -f description="$description" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          [[ "$state" == success ]]

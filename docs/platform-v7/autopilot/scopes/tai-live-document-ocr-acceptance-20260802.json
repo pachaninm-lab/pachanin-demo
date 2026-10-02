@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/tai-live-document-ocr-acceptance-20260802",
+  "status": "active",
+  "purpose": "Add permanent exact-main live acceptance for public document upload, structured document extraction and local OCR after the REG.RU TAI deployment succeeds.",
+  "approvedBy": "owner-put-all-tai-document-and-ocr-work-in-production-2026-08-02",
+  "authorityBaseExactMain": "45d805dbb0e72376bae26a69f4e7a683e54ee95a",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
+  "allowedPaths": [
+    ".github/workflows/tai-live-document-ocr-acceptance.yml",
+    ".github/workflows/docker-publish.yml",
+    "scripts/create-live-public-assistant-attachment-fixtures.py",
+    "scripts/check-live-public-assistant-attachments.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-live-document-ocr-acceptance-20260802.json"
+  ],
+  "requiredBehavior": [
+    "run only for an exact-main completed TAI REG.RU deployment from this repository",
+    "fail closed and publish the redacted deployment error code when upstream deployment did not pass",
+    "exercise TXT DOCX XLSX text PDF PNG OCR and scanned PDF OCR against the live public endpoint",
+    "verify the public mobile assistant exposes a multiple-file attachment control",
+    "send the canonical production Origin Referer and same-origin fetch headers",
+    "verify bounded extracted content with deterministic non-secret fixture tokens",
+    "publish only redacted hashes statuses timings and exact target SHA",
+    "perform no durable production write and retain no uploaded fixture",
+    "post an exact-SHA commit status for the acceptance result",
+    "keep REG.RU-only hosting and zero recurring cost"
+  ],
+  "forbiddenCapabilities": [
+    "production data mutation",
+    "real customer document upload",
+    "raw extracted document publication",
+    "credential token cookie environment model path or internal address disclosure",
+    "acceptance against a non-main SHA",
+    "external OCR API SaaS storage or new recurring expense",
+    "acceptance weakening continue-on-error or fabricated production PASS"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "successfulTaiDeploymentRequired": true,
+    "txtRequired": true,
+    "docxRequired": true,
+    "xlsxRequired": true,
+    "textPdfRequired": true,
+    "pngOcrRequired": true,
+    "scannedPdfOcrRequired": true,
+    "mobileAttachmentControlRequired": true,
+    "evidenceArtifactRequired": true,
+    "commitStatusRequired": true
+  }
+}
