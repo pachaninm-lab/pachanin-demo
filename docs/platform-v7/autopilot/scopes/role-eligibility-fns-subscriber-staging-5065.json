@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "status": "proposed",
+  "issue": 5065,
+  "branch": "feat/role-eligibility-fns-subscriber-staging-5065",
+  "allowedPaths": [
+    "apps/api/src/modules/role-eligibility/fns-subscriber-acquisition.types.ts",
+    "apps/api/src/modules/role-eligibility/fns-subscriber-acquisition.port.ts",
+    "apps/api/src/modules/role-eligibility/fns-subscriber-archive.port.ts",
+    "apps/api/src/modules/role-eligibility/fns-subscriber-catalog.ts",
+    "apps/api/src/modules/role-eligibility/fns-subscriber-catalog.spec.ts",
+    "apps/api/src/modules/role-eligibility/fns-subscriber-ready-receipt.ts",
+    "apps/api/src/modules/role-eligibility/fns-subscriber-ready-receipt.spec.ts",
+    "apps/api/src/modules/role-eligibility/fns-subscriber-staging.service.ts",
+    "apps/api/src/modules/role-eligibility/fns-subscriber-staging.service.spec.ts"
+  ],
+  "forbiddenPaths": [
+    "apps/api/prisma/**",
+    "apps/api/package.json",
+    "pnpm-lock.yaml",
+    "apps/web/**",
+    "infra/**",
+    "apps/api/src/modules/registration/**"
+  ],
+  "notes": "STAGED PROPOSAL ONLY. ZERO IMPLEMENTATION AUTHORITY until this exact finite scope is independently reviewed, merged, and separately promoted into immutable trusted base-state authority. #5065 Phase A only: define transport-neutral FNS subscriber acquisition contracts, strict server-controlled EGRUL/EGRIP catalog parsing, immutable READY receipt semantics, and private atomic staging orchestration against deterministic fake/local ports. The acquisition port must expose only protocol facts actually supplied by a concrete reviewed adapter; no hostname, FTP/FTPS mode, ports, client-certificate settings, username/password behavior, passive/active data-channel behavior, retry/resume semantics or live credential handling may be invented in this phase. The archive port is an interface only: no concrete ZIP backend/dependency, package/lock change, Docker/infra change or custom decompressor is authorized until a separate reviewed choice proves the hardened extractor available for REG.RU. Required regressions: strict EGRUL/EGRIP domain/version/date/archive-name parsing; duplicate/unexpected archive rejection; listing-before/listing-after drift rejection; interrupted download never READY; local archive/XML hash binding; receipt replay against another staging identity rejected; locally injected/modified XML rejected; incomplete receipt rejected; immutable READY cannot be overwritten; acquisition and importer principals remain logically separate; no secret/certificate material in receipt/log-safe facts. Receipt proves only complete acquisition of the exact authenticated remote publication unit observed by the future concrete adapter; it never claims national Jan-1+daily coverage, FNS-signed hashes, negative INN_NOT_FOUND authority or parser/policy validity. Explicitly excluded: live FNS network access, credentials/certificates, concrete FTP/FTPS client, concrete ZIP extraction backend, source coverage/currentness authority, registry activation/source-health mutation, schema/migrations, registration behavior, enforcement activation, production mutation, UI and infrastructure. REG.RU remains the only future production acquisition contour. ROLE_ELIGIBILITY_ENFORCEMENT=false. Phase A code introduces 0 RUB mandatory recurring platform/SaaS cost. This does NOT mean the future live FNS subscriber feed is free: the current official FNS tariff is 150,000 RUB per year for one workstation/one registry (EGRUL or EGRIP), unless the owner already has a valid provisioned access; paying or provisioning that external access is outside this Phase A scope and remains a production prerequisite. Proposal based on exact main 7f8326322dd15a46df8b63a3f4f14d72a177558d."
+}
