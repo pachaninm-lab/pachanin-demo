@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "gate": "scripts/security/verify-prototype-key-writes.mjs",
+  "rule": "Accumulation into a computed key of a plain object is a defect wherever the key domain is open, because `__proto__` is silently dropped and `constructor` concatenates onto the Object function. A site may stay on a plain object only with a recorded measurement showing its key domain is closed. Every entry below names the guard that closes it, so the claim can be re-checked when that guard moves.",
+  "measuredDefectsInThisClass": [
+    "apps/api/src/modules/exports/exports.service.ts - Rosstat Form 29-SKh culture tally lost 8000 t of 10400 t (77 percent); `culture` is free text with no dictionary. Fixed by tallyVolumeByCulture().",
+    "scripts/ip/build-ip-due-diligence.mjs - contributor breakdown undercounted its own evidence. Fixed by a Map with a fail-closed total."
+  ],
+  "sites": [
+    {
+      "file": "apps/web/components/gekta/GektaChatWorkspace.tsx",
+      "key": "conversation.projectId",
+      "verdict": "REACHABLE_BUT_OUT_OF_SCOPE",
+      "measurement": "projectId is parsed from persisted client state (GektaChatWorkspace.tsx:129 accepts any string), so a viewer who edits their own browser storage to projectId=\"__proto__\" makes that project's chat counter read 0. The blast radius is the editing viewer's own sidebar count in their own browser: no server state, no other viewer, no authorization decision. Presentation code is excluded from this programme's change scope by the repository owner, so the site is recorded rather than rewritten.",
+      "closedBy": "none - key domain is open; exemption is scope-based, not safety-based"
+    },
+    {
+      "file": "apps/web/components/v7r/AppShellV3.tsx",
+      "key": "item.group",
+      "verdict": "CLOSED_DOMAIN",
+      "measurement": "Grouping iterates the module-level constant NOTIFICATIONS imported from @/lib/v7r/data, and item.group is typed NotificationGroup, a union of string literals. No value reaches this reduce from data, storage or the network.",
+      "closedBy": "NotificationGroup literal union over a module-level constant array"
+    },
+    {
+      "file": "apps/web/components/v7r/CommandPalette.tsx",
+      "key": "item.group",
+      "verdict": "CLOSED_DOMAIN",
+      "measurement": "CommandItem.group is declared at CommandPalette.tsx:13 as the literal union 'Sdelki' | 'Loty' | 'Spory' | 'Razdely' (Cyrillic in source), and every command item is a module-level literal (lines 36, 45, 54, 63) carrying `as const`. The filter upstream only narrows that array; it never introduces a group.",
+      "closedBy": "CommandItem.group literal union over module-level literals"
+    },
+    {
+      "file": "apps/web/components/v9/layout/CommandPalette.tsx",
+      "key": "item.category",
+      "verdict": "CLOSED_DOMAIN",
+      "measurement": "Grouping runs over `filtered`, derived only by filtering `staticItems` (CommandPalette.tsx:18), a module-level array whose every entry sets `category` to one of three string literals. The search filter narrows the array and never constructs an item.",
+      "closedBy": "staticItems module-level literal array"
+    },
+    {
+      "file": "apps/web/lib/platform-v7/runtime/persistence-driver.ts",
+      "key": "collection",
+      "verdict": "CLOSED_DOMAIN",
+      "measurement": "All nine callers of putRecord pass COLLECTIONS.<name> from a constant map (db-persistence-adapter.ts lines 96, 115, 127, 155, 167, 182, 190, 205, 220); no caller passes a computed collection name. Residual noted deliberately: the second key on the same line (the record id) is data-derived, so a record id of `__proto__` would set the prototype of that one in-memory collection object. That store is per-session client state in the viewer's own browser with no privilege boundary and no server effect, and this is presentation-runtime code excluded from the programme's change scope.",
+      "closedBy": "COLLECTIONS constant map at every call site"
+    },
+    {
+      "file": "packages/domain-core/src/problem-closure-matrix.ts",
+      "key": "dependency",
+      "verdict": "CLOSED_DOMAIN",
+      "measurement": "The loop iterates HARDENING_PROBLEMS, a module-level constant array declared at line 29, and item.dependencies is typed ProblemClosureDependency[] - a union of string literals. Nothing external is summarised here.",
+      "closedBy": "ProblemClosureDependency literal union over a module-level constant"
+    },
+    {
+      "file": "scripts/p7-autopilot-check-analyzer.mjs",
+      "key": "failure.suspectedCategory",
+      "verdict": "CLOSED_DOMAIN",
+      "measurement": "suspectedCategory is only ever assigned the literal 'unknown_failure' (lines 131, 147) or the return of classifyFailure(), whose every return statement is a string literal ('forbidden_path_failure', 'scope_failure', 'maturity_copy_failure', 'typecheck_failure', ...). No CI text reaches the key position.",
+      "closedBy": "classifyFailure() returning only string literals"
+    },
+    {
+      "file": "scripts/security/asvs-decisions.mjs",
+      "key": "record.applicability",
+      "verdict": "CLOSED_DOMAIN",
+      "measurement": "A decision reaches summariseDecisions only through byId, and byId.set runs only after validateDecision passed, which requires VALID_APPLICABILITY.has(decision.applicability) - a Set, so it has no inherited members. A decision failing that check is pushed to `rejected` and skipped with `continue`, and buildSummary makes rejected.length > 0 a blocker that clears finalPass. Requirements with no decision take the literal APPLICABILITY.PENDING.",
+      "closedBy": "VALID_APPLICABILITY Set membership check in validateDecision"
+    },
+    {
+      "file": "scripts/security/asvs-decisions.mjs",
+      "key": "record.status",
+      "verdict": "CLOSED_DOMAIN",
+      "measurement": "Same path as record.applicability: VALID_STATUS.has(decision.status) must pass before byId.set, invalid decisions are rejected and never counted, and the no-decision branch uses the literal STATUS.NOT_ASSESSED.",
+      "closedBy": "VALID_STATUS Set membership check in validateDecision"
+    },
+    {
+      "file": "scripts/tai-ap-14f1b/verify.mjs",
+      "key": "source.rights.disposition",
+      "verdict": "CLOSED_DOMAIN",
+      "measurement": "The tally at line 315 is unreachable unless every source already passed the allowlist check at line 164, ['METADATA_ONLY', 'RIGHTS_UNRESOLVED'].includes(source.rights.disposition). That check records into `errors`, and line 284 asserts errors.length === 0 before execution can reach the tally, so a registry carrying any other disposition aborts the script.",
+      "closedBy": "line 164 disposition allowlist plus the fatal assert at line 284"
+    }
+  ]
+}
