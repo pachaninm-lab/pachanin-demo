@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/pc-crop-self-service-support-contract-20260818",
+  "status": "active",
+  "title": "PC-CROP Federal Accounting — safe diagnostics and action contract",
+  "priority": "P0",
+  "issue": 4321,
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "authorityBaseExactMain": "aa237f085ddb9d1447a6625b586c15cc8d989ce5",
+  "purpose": "Implement the provider-independent self-service support and action-state contracts from sections 53 and 61 before UI buttons are added. Diagnostics must expose only safe metadata that the user can review, and every action must have an explicit state/reason rather than silent disabled or silent failure behavior.",
+  "allowedPaths": [
+    "apps/api/src/modules/accounting/integration-safe-diagnostics.policy.ts",
+    "apps/api/src/modules/accounting/integration-safe-diagnostics.policy.spec.ts",
+    "apps/api/src/modules/accounting/action-contract.policy.ts",
+    "apps/api/src/modules/accounting/action-contract.policy.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/self-service-support-contract-20260818.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-self-service-support-contract-20260818.json"
+  ],
+  "boundaries": [
+    "Diagnostics contain connector version, configuration version, heartbeat, pending count and safe error codes only.",
+    "Diagnostics never contain database dump, password, private key, OAuth token, client secret, endpoint or arbitrary payload.",
+    "The user-visible diagnostic preview is exactly the payload that a future support-send action may transmit.",
+    "Action states are exactly AVAILABLE, DISABLED_WITH_REASON, RUNNING, UNKNOWN_RESULT, FAILED, SUCCEEDED.",
+    "DISABLED_WITH_REASON requires a non-empty human reason; FAILED requires a reason; UNKNOWN_RESULT cannot be projected as success.",
+    "Sensitive actions declare that a full confirmation dialog is required; this pure slice performs no sensitive mutation.",
+    "No apps/web, packages, lockfile, Prisma, auth, provider credential, banking, FGIS, hosting or production mutation.",
+    "Merge and green CI are not production acceptance.",
+    "New mandatory recurring cost: 0 RUB."
+  ],
+  "requiredChecks": [
+    "GITHUB_HEAD_REF=claude/pc-crop-self-service-support-contract-20260818 bash scripts/p7-autopilot-guard.sh",
+    "pnpm --filter @pc/api test -- integration-safe-diagnostics.policy.spec.ts action-contract.policy.spec.ts",
+    "pnpm --filter @pc/api typecheck",
+    "existing PC-CROP accounting and security gates"
+  ]
+}
