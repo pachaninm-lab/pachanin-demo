@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "status": "proposed",
+  "issue": 5068,
+  "branch": "feat/role-eligibility-canonical-identity-5068",
+  "allowedPaths": [
+    "apps/api/src/modules/role-eligibility/role-eligibility.repository.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-evidence.service.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility.types.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-canonical-identity.spec.ts",
+    "scripts/role-eligibility-postgres-smoke.sh"
+  ],
+  "forbiddenPaths": [
+    "apps/api/prisma/**",
+    "apps/web/**",
+    "infra/**",
+    "apps/api/src/modules/registration/**",
+    "apps/api/src/modules/role-eligibility/role-eligibility-policy.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-enforcement-policy.ts"
+  ],
+  "notes": "STAGED DESIGN INTENT ONLY. ZERO IMPLEMENTATION AUTHORITY until this exact finite scope is independently revalidated after #5064 domain authority and #5067 immutable-version/current-read-model storage are accepted, then reviewed, merged, and separately promoted into immutable trusted base-state authority. #5068 Phase A semantics are fixed: canonical legal-entity identity is INN-first from the exact current accepted (FNS,EGRUL) authority; client OGRN/KPP/name are comparison claims only and may never select another subject. Eliminate candidate INN OR candidate OGRN cross-subject lookup. Resolve one unique canonical EGRUL subject from the final indexed current read model, bind it to the exact accepted EGRUL authority/read-model token, then use only server-derived canonical INN/OGRN for CBR/FGIS/ROSACCREDITATION lookups. IMPORTANT official 4.08 nullability: an accepted EGRUL subject may legally have subjectInn=null while OGRN remains mandatory. Such a row is valid source evidence but cannot prove that the candidate's submitted INN belongs to that subject. Therefore an INN-based verification request must never fall back to client OGRN or name to select that null-INN subject. If the authoritative EGRUL row has no INN, return a stable fail-closed REVIEW_REQUIRED/identity-unverifiable state equivalent to FNS_EGRUL_OFFICIAL_INN_ABSENT; do not emit INN_MATCH, do not infer NOT_FOUND from this condition, and do not launch specialized downstream lookups using the client's OGRN. A separately reviewed point-document or other official binding may resolve such a subject later. If canonical FNS identity is unavailable, ambiguous, generation/read-model incoherent, duplicated across subjects, official INN absent, or changes during resolution, do not fall back to client OGRN; fail closed/retry under the accepted policy. Required regressions: candidate INN A + OGRN B yields only A identity and zero B evidence; no OR cross-subject SQL; specialized B cannot contaminate A; FNS unavailable never uses client OGRN downstream; official null-INN EGRUL subject never becomes an INN match and never triggers client-OGRN downstream lookup; exact canonical keys propagate only after official INN binding succeeds; generation/read-model switch cannot silently mix identities; PostgreSQL A/B isolation. IMPORTANT: the listed five paths describe the current-main likely surface only. Because #5067 may replace/remove the physical registry lookup entrypoint or introduce a dedicated current-read-model repository, this path list MUST be re-audited against post-#5067 exact main before this proposal can become reviewable/mergeable. Do not add guessed future paths now. No schema/migration, registration, policy verdict rewrite, UI, enforcement activation, production mutation, source acquisition/coverage change, or new recurring cost. Proposal based on exact main 7f8326322dd15a46df8b63a3f4f14d72a177558d and intentionally held Draft until #5067 stabilizes the lookup surface."
+}
