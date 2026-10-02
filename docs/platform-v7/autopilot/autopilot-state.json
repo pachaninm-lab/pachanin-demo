@@ -3909,6 +3909,81 @@
         "No weakened CI/security/review/readiness/runtime/assertion gates, stale-head PASS, forced or automatic merge.",
         "No R1, production or model acceptance and no official progress increase from this admission or mock fixtures."
       ]
+    },
+    "gekta-diagnostic-breadth-priority-20261002": {
+      "owner": "Existing Gekta owner retained; existing CORE coordinator serializes purpose admission only",
+      "purpose": "Admit a bounded shared prompt-priority experiment for requested, supportable diagnostic breadth and distinct hypotheses paired with discriminating observations; preserve inference budgets, safety and acceptance criteria.",
+      "authorityBaseExactMain": "569f10df4a2902f18395a1f050351a64e6265bda",
+      "ownerApprovalReceipt": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5947997247",
+      "status": "PURPOSE_ADMISSION_ONLY; EXACT_SOURCE_REVIEW_NATIVE_CI_AND_ACCEPTANCE_PENDING; NEW_CONDITIONAL_CRITICAL_EXTRA_PAIR_PENDING",
+      "governanceBranch": "fix/readiness-database-deadline-4829",
+      "governanceAllowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+      ],
+      "exactSourceTransitions": [
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "mode": "100644",
+          "beforeBlob": "033c304962ca89fb15c2689dc57ad90be4be1ff3",
+          "afterBlob": "cf8a6c3a941661345aa602b93764207780d75bc3",
+          "sha256": "b007ec2f7f1b56dbd76ef79b0612867b2a4a00840f25a34e3985ab91a5769b92",
+          "bytes": 51087
+        },
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "2323701b4d84e49823d3720daf9e326d6b09e2b5",
+          "afterBlob": "748eab4e05059c32d3f17051c7f89de8e2375a55",
+          "sha256": "aa78150126757ca7114a2697f4ca86824cdfc0d9634dd250e833b2c6d55cd227",
+          "bytes": 76372
+        }
+      ],
+      "liveOracle": {
+        "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts",
+        "unchangedBlob": "391a38f7149b9bbce817d312e03bbcc6377c29fa",
+        "mode": "100644"
+      },
+      "retainedOwnership": "Use existing CORE and Han branches with ordinary ancestry. Preserve all 185 ordered concurrent vectors, 52 previous coordination records, every other state value/byte, source owners, COR5, PRODUCT and official 5/100. This one-file admission adds one purpose record only, not source, vectors, guards or workflows.",
+      "observedFailure": {
+        "run": "36974732564",
+        "job": "110735985257",
+        "actualSourceSha": "569f10df4a2902f18395a1f050351a64e6265bda",
+        "result": "FAILED at diagnosis; cases 7 through 10 UNRUN; cleanup PASS with baseline 8B active and unchanged",
+        "metadata": "One attempt, requested max_tokens 256, reported completion 217, finish stop, no continuation or reported truncation, no recorded policy flags. Independent private semantic review confirms missing nutritional differential, not a synonym-only oracle mismatch.",
+        "causalLimit": "Existing prompt already includes nutrient differentiation. General two-factor and brevity framing are possible competing pressures, not established causes. Empty diagnostic flags do not prove raw-output identity because internal-trace removal is silent. No token-budget increase follows from this evidence."
+      },
+      "sourcePurposeBoundary": [
+        "Consolidate only the existing generic completeness guidance in publicSystemPrompt and its buildGroundedPrompt reminder. Give user-requested, supportable diagnostic breadth priority over generic minimum-two guidance; require distinct conditional hypotheses and observations that distinguish alternatives. Keep minimum-two as fallback and evidence, uncertainty and safety above numeric coverage.",
+        "Do not pad unsupported causes, insert crop or nutrition keywords to satisfy an assertion, introduce a taxonomy detector, patch an answer, return a canned response or add a provider call. Preserve prompts outside the admitted guidance, raw input/history, latest-correction semantics, routing, model/configuration, limits, filters, public accounting, transport, stream, exceptions, cancellation and cleanup.",
+        "Retain the accepted test-only closed metadata diagnostic and its exact double gate unchanged. Existing response/generation budgets, live inputs and assertions, original fourteen critical/extra cases and all their criteria and conditional safety requirements remain unchanged.",
+        "Use the existing service spec only for mocked provider-wire and preservation regressions, covering both generation paths, requested breadth, raw input/history, correction, ambiguity, non-diagnostic requests and verified-platform authority. Deliberately incomplete mocked output must remain unpatched. Preserve all prior safety, prevention, economics, stream, cancellation and diagnostic tests.",
+        "The literal Han scope remains wider than this exact two-file purpose and does not enforce hashes or semantic limits. Independent whole-tree review must reject extra or missing paths, changed pins/modes, expanded runtime or scope even when generic guards pass."
+      ],
+      "privateEvidenceLimits": "Frozen source passed 546/546 mocked tests across nine real Jest suites, zero skipped; service suite 128/128 includes all 100 retained tests and 28 new provider-wire/preservation regressions. These results establish source behavior and prompt delivery, not independent actual-published-head acceptance, model quality or semantic generalization. Baseline and candidate direct API typechecks retain the identical 1775 missing-generated-Prisma diagnostics with zero added or removed; full local API typecheck is not PASS. Local Node 24 differs from declared Node 20; native generation/typecheck and all required gates remain mandatory. The two instruction replacements add 91 whitespace-delimited words and 656 UTF-8 source bytes: fixed completion limits/call counts do not establish unchanged prompt-token cost or latency. The new bounded live trial must observe that effect. The prespecified eight-case semantic proposal remains unchanged and UNRUN; real held-out execution is outside this grant.",
+      "acceptanceSequence": [
+        "First publish this exact append-only purpose in the full existing state file on the existing CORE branch, preserving original history and all prior public records. Require fresh main/Hub/ownership checks, independent actual-whole-head review, separate canonical owner audit, all applicable native CI/security and fresh manual readiness before ordinary expected-full-SHA merge.",
+        "Then continue the existing Han branch with exactly the pinned two-file source transitions on fresh accepted purpose-main. Verify all unrelated leaves/modes unchanged. Require fresh independent actual-source-head full-diff review, separate audit, all native CI/security/typechecks/Kubernetes, zero failed PgBouncer logical probes, complete deep-outbox evidence and cleanup. No stale-head PASS or automatic/forced merge.",
+        "Only after source acceptance and fresh serialized exact-main checks, run ONE new critical10 with the existing startup-inclusive maximum 420-second lease. Extra4 is permitted ONLY if this critical10 is PASS and its cleanup and unchanged active 8B are confirmed.",
+        "If those conditions pass, run ONE extra4 with the same actual accepted SHA and existing maximum 420-second lease. Verify cleanup and unchanged active 8B again. Stop on failure, incomplete evidence, changed SHA or cleanup discrepancy; no retry is included. Separate native successful suite results remain PARTIAL, not a fabricated COMPLETE summary."
+      ],
+      "approvedAutomaticServerEffects": "Owner explicitly approved ordinary source acceptance and existing automatic image building/downloads and service checkout refresh on REG.RU. This does not prove application deployment, topology readiness, live-model quality or permanent activation, and grants no unrelated server operation.",
+      "boundedRuntimeConditions": [
+        "At most two conditional leases totaling 840 startup-inclusive candidate-seconds, fourteen existing cases and at most twenty-eight provider attempts. The second lease is conditional on actual critical PASS and first cleanup PASS; the previously failed diagnostic run and previous pairs remain historical consumed evidence.",
+        "Announce a fresh serialized no-main-merge/model-host window and verify actual resolved full SHA. Retain current active 8B, candidate artifact, resource limits, watchdog, pidfd/cancellation, cleanup and baseline checks. Missing evidence is not PASS and does not authorize repeated execution.",
+        "Prespecified semantic generalization corpus remains UNRUN. Mocked paraphrase tests do not establish model generalization. New real selectors, held-out calls or answer-evidence collection need their own explicit purpose, reviewed scope and runtime approval."
+      ],
+      "observerHold": "PR #5779 remains DRAFT, unmerged and unexecuted on the server. No observer acceptance or execution follows from this Gekta package.",
+      "forbiddenAuthority": [
+        "No new real held-out run, permanent model activation, new rights/credentials, mandatory expense, protected-data disclosure or unrelated host/controller action.",
+        "No new paths, scope vectors, workflow/configuration/dependency/live-oracle changes, ownership takeover or parallel implementation.",
+        "No weakened review/CI/security/readiness/assertions, hidden output patch, stale-head PASS transfer, forced or automatic merge.",
+        "No R1, release, production or model acceptance, and no progress credit from this purpose or private source tests."
+      ]
     }
   }
 }
