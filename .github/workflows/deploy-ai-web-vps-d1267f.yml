@@ -1,0 +1,132 @@
+name: Deploy AI web release d1267f to VPS
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/release-triggers/ai-web-d1267f.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  TARGET_SHA: d1267f135575c10159db2dd21ef6e17a20bd37fd
+  IMAGE: ghcr.io/pachaninm-lab/grainflow-web:latest
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_PASSWORD_PRIMARY: ${{ secrets.PC_PROD_SSH_PASSWORD }}
+  SSH_PASSWORD_FALLBACK: ${{ secrets.VPS_SSH_PASSWORD }}
+
+jobs:
+  deploy-web:
+    name: Targeted VPS web deployment and live verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Wait for exact canonical web image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          for attempt in $(seq 1 120); do
+            docker pull "$IMAGE" >/dev/null 2>&1 || true
+            actual="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE" 2>/dev/null || true)"
+            echo "Registry attempt $attempt/120: expected=$TARGET_SHA actual=${actual:-missing}"
+            [[ "$actual" == "$TARGET_SHA" ]] && exit 0
+            sleep 10
+          done
+          echo 'Exact canonical web image was not published in time.' >&2
+          exit 1
+
+      - name: Resolve protected SSH transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          host="${SSH_HOST_SECRET:-$DEFAULT_HOST}"
+          user="${SSH_USER_SECRET:-root}"
+          port="${SSH_PORT_SECRET:-22}"
+          key="${SSH_KEY_PRIMARY:-${SSH_KEY_SECONDARY:-${SSH_KEY_FALLBACK:-}}}"
+          password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
+          if [[ -z "$key" && -z "$password" ]]; then
+            echo 'No supported protected SSH credential is configured; server was not changed.' >&2
+            exit 2
+          fi
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          ssh-keyscan -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          if [[ -n "$key" ]]; then
+            printf '%s\n' "$key" > "$HOME/.ssh/id_deploy"
+            chmod 600 "$HOME/.ssh/id_deploy"
+            echo 'mode=key' >> "$GITHUB_OUTPUT"
+          else
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq sshpass
+            echo 'mode=password' >> "$GITHUB_OUTPUT"
+          fi
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Update only production web service
+        env:
+          SSH_MODE: ${{ steps.ssh.outputs.mode }}
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+          SSH_PASSWORD: ${{ env.SSH_PASSWORD_PRIMARY || env.SSH_PASSWORD_FALLBACK }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote_script="$(cat <<'REMOTE'
+          set -Eeuo pipefail
+          TARGET='d1267f135575c10159db2dd21ef6e17a20bd37fd'
+          SCRIPT='/root/update-web-ai.sh'
+          [[ -f "$SCRIPT" ]] || { echo "Missing $SCRIPT" >&2; exit 10; }
+          cp -a "$SCRIPT" "${SCRIPT}.bak.$(date +%Y%m%d-%H%M%S)"
+          sed -i -e "s/^TARGET_SHA='[^']*'/TARGET_SHA='$TARGET'/" -e 's/После запуска полноценного ИИ/ИИ работает в платформе/g' "$SCRIPT"
+          grep -q "^TARGET_SHA='$TARGET'$" "$SCRIPT"
+          printf '%s\n' 'ОБНОВИТЬ' | "$SCRIPT"
+          mapfile -t IDS < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#IDS[@]} == 1 )) || { echo "Expected one web container, found ${#IDS[@]}" >&2; exit 11; }
+          ACTUAL="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "${IDS[0]}")"
+          [[ "$ACTUAL" == "$TARGET" ]] || { echo "Running revision mismatch: $ACTUAL" >&2; exit 12; }
+          echo "DEPLOYED_REVISION=$ACTUAL"
+          REMOTE
+          )"
+          if [[ "$SSH_MODE" == key ]]; then
+            ssh -i "$HOME/.ssh/id_deploy" -p "$SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" "bash -s" <<< "$remote_script"
+          else
+            SSHPASS="$SSH_PASSWORD" sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" "bash -s" <<< "$remote_script"
+          fi
+
+      - name: Verify live AI page and homepage link
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            bust="${TARGET_SHA:0:12}-${attempt}-$(date +%s)"
+            manifest="$(curl -fsSL --compressed --max-time 30 "${LIVE_BASE}/manifest-pc-deploy.json?release=${bust}" || true)"
+            live_sha="$(jq -r '.commitSha // empty' <<<"$manifest" 2>/dev/null || true)"
+            ai_html="$(curl -fsSL --compressed --max-time 30 -H 'Accept-Language: ru-RU,ru;q=0.9' "${LIVE_BASE}/platform-v7/demo/ai?lang=ru&release=${bust}" || true)"
+            home_html="$(curl -fsSL --compressed --max-time 30 -H 'Accept-Language: ru-RU,ru;q=0.9' "${LIVE_BASE}/platform-v7?lang=ru&release=${bust}" || true)"
+            if [[ "$live_sha" == "$TARGET_SHA" ]] && grep -Fq 'От события сделки' <<<"$ai_html" && grep -Fq '/platform-v7/demo/ai' <<<"$home_html" && grep -Fq 'ИИ работает в платформе' <<<"$home_html"; then
+              echo 'Exact VPS deployment and live AI page verified.'
+              exit 0
+            fi
+            echo "Live attempt $attempt/30: expected=$TARGET_SHA actual=${live_sha:-missing}"
+            sleep 10
+          done
+          echo 'Exact live acceptance did not pass.' >&2
+          exit 20
