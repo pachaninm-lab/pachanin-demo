@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/pc-crop-onec-protocol-20260818",
+  "status": "active",
+  "title": "PC-CROP Federal Accounting — 1C connector protocol contract",
+  "priority": "P0",
+  "issue": 4321,
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "authorityBaseExactMain": "aa237f085ddb9d1447a6625b586c15cc8d989ce5",
+  "purpose": "Continue the owner-authorized PC-CROP Federal Accounting programme with the smallest independent Wave 6 slice that is fully buildable without vendor credentials: the provider-neutral local 1C connector protocol contract. This slice defines the exact seven typed commands, self-discovery shape, compatibility profiles, one-time pairing primitive, organization binding checks, sync-state transitions and the /connector/v1 route vocabulary. It creates no live 1C adapter, no external-success claim and no production mutation.",
+  "objective": "Make the 1C side impossible to widen into arbitrary SQL/code or fake success before persistence and machine-identity routing are added in the next slice.",
+  "allowedPaths": [
+    "apps/api/src/modules/accounting/one-c-connector.protocol.ts",
+    "apps/api/src/modules/accounting/one-c-connector.protocol.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/one-c-protocol-slice-20260818.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-onec-protocol-20260818.json"
+  ],
+  "boundaries": [
+    "No apps/web, packages, lockfile, Prisma schema, migration, auth, registration, banking, FGIS, production or hosting change.",
+    "No 1C vendor protocol is guessed and no adapter is called ADAPTER_READY from this slice.",
+    "No universal-1C compatibility claim; UNKNOWN and unsupported/manual fallbacks remain explicit.",
+    "No arbitrary SQL, arbitrary code execution, database dump or unrestricted record-read command is representable by the protocol.",
+    "Pairing is one-time, expiring and hash-verified; persistence and atomic consumption belong to the next server-side slice.",
+    "AUTO_POST stays fail-closed and cannot be enabled by the connector protocol alone.",
+    "UNKNOWN is not success and cannot be blindly retried; reconciliation is required first.",
+    "Merge and green CI are not production acceptance.",
+    "New mandatory recurring cost: 0 RUB."
+  ],
+  "requiredInvariants": [
+    "The command allowlist is exactly UPSERT_COUNTERPARTY, CREATE_SALES_DRAFT, CREATE_PURCHASE_DRAFT, CREATE_CORRECTION_DRAFT, GET_DOCUMENT_STATUS, PUSH_PAYMENT_STATUS and GET_REFERENCE_CANDIDATES.",
+    "A binding names one platform organization and one 1C organization GUID; a GUID not present in discovery is denied.",
+    "One database may expose many legal entities, but a machine identity never gains another organization's binding implicitly.",
+    "Pairing secrets have bounded TTL, are stored only as salted SHA-256 hashes, and a consumed or expired challenge is refused.",
+    "The default posting mode is CREATE_DRAFT; AUTO_POST requires separate explicit accepted evidence outside this protocol.",
+    "An unsupported configuration remains UNKNOWN or an explicit manual/export fallback; the protocol never claims any 1C works.",
+    "Timeout/unavailability maps to UNKNOWN, never POSTED or success.",
+    "A transition out of UNKNOWN requires reconciliation before a retry can be queued."
+  ],
+  "requiredChecks": [
+    "GITHUB_HEAD_REF=claude/pc-crop-onec-protocol-20260818 bash scripts/p7-autopilot-guard.sh",
+    "pnpm --filter @pc/api test -- one-c-connector.protocol.spec.ts",
+    "pnpm --filter @pc/api typecheck",
+    "existing PC-CROP accounting and security gates"
+  ]
+}
