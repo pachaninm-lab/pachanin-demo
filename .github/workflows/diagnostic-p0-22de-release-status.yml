@@ -1,0 +1,54 @@
+name: Diagnostic P0 22de release status
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnostic-p0-22de-release-status.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inspect:
+    name: Inspect exact-current-main image and release runs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Read Actions metadata only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: 22de01787f23af44f59f144c0cf64a86e066db3f
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          printf 'CURRENT_MAIN=%s\nTARGET_SHA=%s\n' "$current" "$TARGET_SHA"
+          for spec in \
+            'IMAGE:.github/workflows/production-p0-registration-current-main-images-connector.yml' \
+            'RELEASE:.github/workflows/production-full-stack-exact-sha.yml' \
+            'CUTOVER:.github/workflows/production-auth-mail-outbox-cutover.yml'; do
+            label="${spec%%:*}"
+            workflow="${spec#*:}"
+            meta="$RUNNER_TEMP/${label,,}-meta.json"
+            runs="$RUNNER_TEMP/${label,,}-runs.json"
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/${workflow##*/}" > "$meta"
+            workflow_id="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).id" "$meta")"
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow_id/runs?branch=main&per_page=50" > "$runs"
+            printf '%s_WORKFLOW_ID=%s\n' "$label" "$workflow_id"
+            node - "$runs" "$label" "$TARGET_SHA" <<'NODE'
+          const fs = require('node:fs');
+          const [path, label, target] = process.argv.slice(2);
+          const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const rows = (data.workflow_runs || []).filter((run) => run.head_sha === target).slice(0, 10);
+          console.log(`${label}_MATCH_COUNT=${rows.length}`);
+          for (const run of rows) {
+            console.log(`${label}_RUN_ID=${run.id} EVENT=${run.event} STATUS=${run.status} CONCLUSION=${run.conclusion || 'PENDING'} CREATED=${run.created_at} UPDATED=${run.updated_at}`);
+          }
+          NODE
+          done
+          printf 'PRODUCTION_MUTATION=NONE\n'
