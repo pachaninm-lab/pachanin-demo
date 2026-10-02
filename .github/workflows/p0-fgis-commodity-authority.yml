@@ -1,0 +1,153 @@
+name: P0.2 FGIS Commodity Authority
+
+on:
+  push:
+    branches:
+      - p0/fgis-commodity-authority-3628
+    paths:
+      - '.github/workflows/p0-fgis-commodity-authority.yml'
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql'
+      - 'apps/api/prisma/migrations/20260802213000_fgis_commodity_authority_hardening/migration.sql'
+      - 'apps/api/src/common/types/request-user.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-commodity-authority.*'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts'
+      - 'docs/platform-v7/autopilot/scopes/p0-fgis-first-confirmed-lot-audit-3585.json'
+      - 'docs/platform-v7/autopilot/scopes/p0-fgis-commodity-authority-3628.json'
+      - 'docs/platform-v7/crop-platform/p0.2-2a-fgis-commodity-authority.md'
+      - 'docs/platform-v7/crop-platform/p0.2-fgis-first-confirmed-lot-inventory.v1.json'
+      - 'scripts/p0-fgis-commodity-authority/verify.mjs'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/p0-fgis-commodity-authority.yml'
+      - 'apps/api/prisma/schema.prisma'
+      - 'apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql'
+      - 'apps/api/prisma/migrations/20260802213000_fgis_commodity_authority_hardening/migration.sql'
+      - 'apps/api/src/common/types/request-user.ts'
+      - 'apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-commodity-authority.*'
+      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts'
+      - 'apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts'
+      - 'docs/platform-v7/autopilot/scopes/p0-fgis-first-confirmed-lot-audit-3585.json'
+      - 'docs/platform-v7/autopilot/scopes/p0-fgis-commodity-authority-3628.json'
+      - 'scripts/p0-fgis-commodity-authority/verify.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p0-fgis-commodity-authority-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgresql-authority:
+    name: PostgreSQL 16 · RLS · concurrency · audit/outbox
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://commodity_admin:commodity_admin@127.0.0.1:5432/commodity_e2e?schema=public
+      EVIDENCE_DIR: ${{ runner.temp }}/p0-fgis-commodity-authority
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_DB: commodity_e2e
+          POSTGRES_USER: commodity_admin
+          POSTGRES_PASSWORD: commodity_admin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U commodity_admin -d commodity_e2e"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    steps:
+      - name: Checkout exact source head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify committed authority source
+        run: |
+          mkdir -p "$EVIDENCE_DIR"
+          node scripts/p0-fgis-commodity-authority/verify.mjs \
+            2>&1 | tee "$EVIDENCE_DIR/verifier.log"
+          git diff --check
+          git diff --exit-code -- \
+            apps/api/prisma/schema.prisma \
+            apps/api/prisma/migrations/20260802210000_fgis_commodity_authority/migration.sql \
+            apps/api/prisma/migrations/20260802213000_fgis_commodity_authority_hardening/migration.sql \
+            apps/api/test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts
+
+      - name: Enforce forward-only migration policy
+        run: node scripts/platform-v7-forward-only-migration-check.mjs \
+          2>&1 | tee "$EVIDENCE_DIR/forward-only.log"
+
+      - name: Apply complete migration chain
+        run: |
+          pnpm --filter @pc/api exec prisma migrate deploy \
+            2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status \
+            2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
+          pnpm --filter @pc/api exec prisma generate \
+            2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
+
+      - name: Prove Prisma schema is drift-free
+        run: |
+          pnpm --filter @pc/api exec prisma migrate diff \
+            --from-url "$DATABASE_URL" \
+            --to-schema-datamodel prisma/schema.prisma \
+            --exit-code \
+            2>&1 | tee "$EVIDENCE_DIR/prisma-drift.log"
+
+      - name: Typecheck API authority
+        run: pnpm --filter @pc/api typecheck \
+          2>&1 | tee "$EVIDENCE_DIR/typecheck.log"
+
+      - name: Run commodity authority unit tests
+        run: |
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-commodity-authority.service.spec.ts \
+            src/modules/regulatory-integration/fgis-grain/fgis-grain-commodity-authority.repository.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/unit-tests.log"
+
+      - name: Run PostgreSQL commodity authority acceptance
+        env:
+          P0_FGIS_COMMODITY_POSTGRESQL: '1'
+        run: |
+          pnpm --filter @pc/api exec jest \
+            --config test/industrial/jest.config.json \
+            --runInBand \
+            --runTestsByPath test/regulatory/fgis-grain-commodity-authority.e2e-spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/postgresql-e2e.log"
+
+      - name: Upload exact-head evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-fgis-commodity-authority-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/p0-fgis-commodity-authority
+          if-no-files-found: error
+          retention-days: 30

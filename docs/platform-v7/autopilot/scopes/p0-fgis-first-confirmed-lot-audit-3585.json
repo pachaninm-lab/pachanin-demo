@@ -2,12 +2,19 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "id": "P0-FGIS-FIRST-CONFIRMED-LOT-AUDIT-3585",
   "branch": "p0/fgis-first-confirmed-lot-audit-3585",
-  "status": "active",
+  "status": "completed",
   "issue": 3585,
   "activeSlice": "P0.2-STAGE-1-AUDIT",
   "baseCommit": "aad390e160a5ed5335d2a99d16519ca0e025279c",
   "operationalStatus": "NOT_ATTESTED",
   "maturityBoundary": "exact-main-audit-and-governed-implementation-plan-only",
+  "completion": {
+    "pr": 3587,
+    "mergeSha": "5be1cdac6760bfdfc5546d9c76c64467840d9d0e",
+    "completedAt": "2026-08-02T15:36:14Z",
+    "successorIssue": 3628,
+    "successorScope": "docs/platform-v7/autopilot/scopes/p0-fgis-commodity-authority-3628.json"
+  },
   "allowedPaths": [
     ".github/workflows/p0-fgis-first-confirmed-lot-audit.yml",
     "docs/platform-v7/autopilot/scopes/p0-fgis-first-confirmed-lot-audit-3585.json",
@@ -26,15 +33,15 @@
     "firstCustomerAccessChange": false
   },
   "requiredBehavior": [
-    "audit exact origin/main and record the exact commit",
+    "preserve the completed exact-main audit as immutable historical evidence",
     "classify every discovered FGIS path with the specification status taxonomy",
     "identify the canonical module and prohibit a parallel FGIS contour",
-    "identify unsafe production-reachable emulator or conditional REST paths",
     "separate technically ready code from real provider and production evidence",
-    "record exact external blockers without generic unsupported escalation language",
-    "define narrow implementation slices after the audit"
+    "record exact external blockers without unsupported generic escalation language",
+    "delegate active implementation authority to the successor P0.2 scope"
   ],
   "forbiddenCapabilities": [
+    "reactivating this completed audit scope as an implementation authority",
     "live connected or production-attested claim",
     "provider credentials certificates tokens endpoints or private payloads",
     "application runtime database migration UI or deployment mutation",
