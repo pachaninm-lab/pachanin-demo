@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP specification without stopping; existing push, PR and merge authorization. This governance slice changes no product behavior and grants no implementation authority until independently accepted and promoted into immutable base-state scope.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "branch": "governance/pc-crop-progressive-trust-scope-4997",
+  "purpose": "W2-D governance only: record the finite source/fixture boundary for fact-level Progressive Trust, separate trade permission and immutable TradeRiskAcknowledgement. This PR contains exactly two scope manifests.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-progressive-trust-scope-governance-4997.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-progressive-trust-authority-4997.json"
+  ],
+  "dependencies": {
+    "w2bAuctionInventoryMerged": true,
+    "w2cDealInventoryAllocationRequiredForDealConsumerWiringOnly": true,
+    "foundationImplementationCanProceedInParallelAfterImmutableScopeApproval": true
+  },
+  "boundaries": {
+    "productBehaviorChange": false,
+    "registrationChange": false,
+    "databaseChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false,
+    "externalSuccessClaim": false
+  }
+}
