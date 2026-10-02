@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/pc-crop-integration-command-contract-20260818",
+  "status": "active",
+  "title": "PC-CROP Federal Accounting — integration command and retry contract",
+  "priority": "P0",
+  "issue": 4321,
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "authorityBaseExactMain": "aa237f085ddb9d1447a6625b586c15cc8d989ce5",
+  "purpose": "Implement the provider-neutral external-command semantics from sections 55-57 without creating a competing persistence store: exact idempotency/correlation/revision/attempt envelope, payload-hash verification, optimistic stale detection, retry classification, bounded exponential backoff with jitter and explicit provider/tenant partition keys for future fair queues.",
+  "allowedPaths": [
+    "apps/api/src/modules/accounting/integration-command.policy.ts",
+    "apps/api/src/modules/accounting/integration-command.policy.spec.ts",
+    "docs/ops/pc-crop-federal-accounting/integration-command-contract-20260818.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-integration-command-contract-20260818.json"
+  ],
+  "boundaries": [
+    "No new IntegrationJob/Outbox/Inbox persistence is created; existing durable stores must be extended later rather than duplicated.",
+    "The command envelope carries idempotency_key, correlation_id, organization_id, connection_id, external_id, payload_hash, revision and attempt.",
+    "Business rejection is never automatically retried.",
+    "Ambiguous/unknown external result requires reconciliation before retry.",
+    "Only classified transient transport/provider failures may be automatically retried.",
+    "Optimistic revision mismatch is STALE and maps to 409 semantics, not a retryable provider outage.",
+    "Payload hash mismatch is a security/integrity failure and not retryable.",
+    "No apps/web, packages, lockfile, Prisma, auth, provider credential, banking, FGIS, hosting or production mutation.",
+    "Merge and green CI are not production acceptance.",
+    "New mandatory recurring cost: 0 RUB."
+  ],
+  "requiredChecks": [
+    "GITHUB_HEAD_REF=claude/pc-crop-integration-command-contract-20260818 bash scripts/p7-autopilot-guard.sh",
+    "pnpm --filter @pc/api test -- integration-command.policy.spec.ts",
+    "pnpm --filter @pc/api typecheck",
+    "existing PC-CROP accounting/outbox/security gates"
+  ]
+}
