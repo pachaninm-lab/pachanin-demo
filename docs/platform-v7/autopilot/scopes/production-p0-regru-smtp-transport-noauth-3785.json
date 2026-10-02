@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-regru-smtp-transport-noauth-3785",
+  "status": "active",
+  "operationalStatus": "P0_REG_RU_SMTP_TRANSPORT_NOAUTH_DIAGNOSTIC",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Classify REG.RU SMTP transport on 465 and 587 without authentication or sending mail",
+  "allowedPaths": [
+    ".github/workflows/production-p0-regru-smtp-transport-noauth.yml",
+    "scripts/production-p0-regru-smtp-transport-noauth.py",
+    "scripts/check-production-p0-regru-smtp-transport-noauth.mjs",
+    "docs/platform-v7/autopilot/scopes/production-p0-regru-smtp-transport-noauth-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "identityMutation": false,
+    "passwordMutation": false,
+    "credentialMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "mailSend": false,
+    "authAttempt": false,
+    "networkReadOnly": true,
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "diagnostic is owner-only and bound to release issue 3072",
+    "diagnostic is exact-main guarded before and after the network read",
+    "diagnostic resolves only the public REG.RU mail endpoint mail.hosting.reg.ru",
+    "SMTPS 465 is classified through DNS/TCP/TLS/EHLO and advertised AUTH capability read only",
+    "SMTP 587 is classified through DNS/TCP/EHLO/STARTTLS/TLS/post-TLS-EHLO and advertised AUTH capability read only",
+    "diagnostic performs no AUTH command and uses no mailbox credential",
+    "diagnostic sends no email and performs no password reset",
+    "diagnostic does not access the REG.RU production application host, Docker, database or runtime files",
+    "only bounded stage classes and boolean capability markers are published",
+    "new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
