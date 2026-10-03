@@ -87,6 +87,110 @@ type ProviderResult = Readonly<{
   completionTokens: number | null;
 }>;
 
+type CandidateTraceOutcome = 'returned' | 'threw' | 'consumer_returned';
+type CandidateTraceAttempt = {
+  attempt: number;
+  requestedMaxTokens: number | null;
+  finishReason: ProviderFinishReason | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
+};
+
+const CANDIDATE_TRACE_POLICY_FLAGS: readonly string[] = Object.freeze([
+  'CURRENT_EVIDENCE_REQUIRED',
+  'GENERAL_AGRO_DISEASE_COMPLETENESS_FLOOR',
+  'MODEL_OUTPUT_TRUNCATED',
+  'RAW_LINK_REMOVED',
+  'UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED',
+  'UNVERIFIED_ECONOMIC_CLAIM_REMOVED',
+  'UNSUPPORTED_PLATFORM_ENTITY_REMOVED',
+  'UNSUPPORTED_PLATFORM_AUTONOMY_REMOVED',
+  'UNSUPPORTED_LIVE_CAPABILITY_REMOVED',
+]);
+
+function candidateTraceInteger(value: unknown): number | null {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function candidateTraceReason(value: unknown): ProviderFinishReason | null {
+  return value === 'stop' || value === 'length' || value === 'other' ? value : null;
+}
+
+/** Request-local observations for the explicitly enabled candidate test only. */
+function createCandidateProviderTrace(startedAt: number) {
+  if (process.env.NODE_ENV !== 'test' || process.env.QWEN35_CANDIDATE_LIVE !== '1') return null;
+
+  const attempts: CandidateTraceAttempt[] = [];
+  let attemptOverflow = false;
+  return {
+    beginAttempt(requestedMaxTokens: number): CandidateTraceAttempt | null {
+      // The service permits at most one continuation. Do not turn a later
+      // implementation error into an unbounded diagnostic allocation.
+      if (attempts.length === 2) {
+        attemptOverflow = true;
+        return null;
+      }
+      const attempt: CandidateTraceAttempt = {
+        attempt: attempts.length + 1,
+        requestedMaxTokens: candidateTraceInteger(requestedMaxTokens),
+        finishReason: null,
+        promptTokens: null,
+        completionTokens: null,
+      };
+      attempts.push(attempt);
+      return attempt;
+    },
+    observe(
+      attempt: CandidateTraceAttempt | null,
+      finishReason: unknown,
+      promptTokens: unknown,
+      completionTokens: unknown,
+    ): void {
+      if (!attempt) return;
+      const reason = candidateTraceReason(finishReason);
+      const prompt = candidateTraceInteger(promptTokens);
+      const completion = candidateTraceInteger(completionTokens);
+      if (reason !== null) attempt.finishReason = reason;
+      if (prompt !== null) attempt.promptTokens = prompt;
+      if (completion !== null) attempt.completionTokens = completion;
+    },
+    emit(
+      outcome: CandidateTraceOutcome,
+      finalFinishReason: ProviderFinishReason | null,
+      truncated: boolean | null,
+      safetyFlags: readonly string[],
+    ): void {
+      // No raw request, provider content, identity, error or unknown flag is
+      // copied into this closed record. Logging must never change the outcome.
+      try {
+        const policyFlags = CANDIDATE_TRACE_POLICY_FLAGS.filter((flag) => safetyFlags.includes(flag));
+        let unknownPolicyFlagCount = 0;
+        for (const flag of safetyFlags) {
+          if (!CANDIDATE_TRACE_POLICY_FLAGS.includes(flag)) unknownPolicyFlagCount += 1;
+          if (unknownPolicyFlagCount === 99) break;
+        }
+        const record = JSON.stringify({
+          schemaVersion: 1,
+          method: 'generateStream',
+          attemptCount: attempts.length,
+          attemptOverflow,
+          attempts,
+          outcome,
+          finalFinishReason: candidateTraceReason(finalFinishReason),
+          truncated,
+          policyFlags,
+          unknownPolicyFlagCount,
+          elapsedMs: candidateTraceInteger(Date.now() - startedAt),
+        });
+        const line = `QWEN35_PROVIDER_TRACE=${record}`;
+        if (line.length <= 2_048) console.info(line);
+      } catch {
+        // Diagnostics are optional; original returns, errors and cleanup win.
+      }
+    },
+  };
+}
+
 export type RestrictedPublicQwenResponse = Readonly<{
   answer: string;
   provider: 'openai-compatible';
@@ -245,6 +349,10 @@ export class RestrictedPublicQwenService {
     readerSignal?.addEventListener('abort', onReaderAbort, { once: true });
 
     const safetyFlags: string[] = [];
+    const candidateTrace = createCandidateProviderTrace(startedAt);
+    let candidateTraceOutcome: CandidateTraceOutcome = 'consumer_returned';
+    let candidateTraceFinishReason: ProviderFinishReason | null = null;
+    let candidateTraceTruncated: boolean | null = null;
     const gate = new StreamingAnswerGate({
       answerMode: request.answerMode,
       locale: request.locale,
@@ -273,7 +381,9 @@ export class RestrictedPublicQwenService {
         turn: readonly ChatMessage[],
         maxTokens: number,
       ): AsyncGenerator<PublicStreamEvent, void, undefined> {
+        const attempt = candidateTrace?.beginAttempt(maxTokens) ?? null;
         for await (const delta of callProviderStream(endpoint, config, turn, maxTokens, controller.signal)) {
+          candidateTrace?.observe(attempt, delta.finishReason, delta.promptTokens, delta.completionTokens);
           if (delta.finishReason !== null) outcome.finishReason = delta.finishReason;
           if (delta.promptTokens !== null) outcome.promptTokens = sumNullable(outcome.promptTokens, delta.promptTokens);
           if (delta.completionTokens !== null) outcome.completionTokens = delta.completionTokens;
@@ -350,6 +460,9 @@ export class RestrictedPublicQwenService {
         yield { type: 'delta', text: `\n\n${truncationCopy(request.locale)}` };
       }
 
+      candidateTraceOutcome = 'returned';
+      candidateTraceFinishReason = outcome.finishReason;
+      candidateTraceTruncated = truncated;
       yield {
         type: 'done',
         modelIdentity: config.model,
@@ -362,6 +475,7 @@ export class RestrictedPublicQwenService {
         safetyFlags: Object.freeze([...new Set(safetyFlags)]),
       };
     } catch (error) {
+      candidateTraceOutcome = 'threw';
       if (error instanceof ServiceUnavailableException || error instanceof BadRequestException) throw error;
       if (readerSignal?.aborted) throw new ServiceUnavailableException('The reader cancelled the answer.');
       if (error instanceof Error && error.name === 'AbortError') {
@@ -372,6 +486,7 @@ export class RestrictedPublicQwenService {
       clearTimeout(timeout);
       readerSignal?.removeEventListener('abort', onReaderAbort);
       controller.abort();
+      candidateTrace?.emit(candidateTraceOutcome, candidateTraceFinishReason, candidateTraceTruncated, safetyFlags);
     }
   }
 }
@@ -661,28 +776,33 @@ function publicSystemPrompt(
   const language = locale === 'en' ? 'English' : locale === 'zh' ? 'Chinese' : 'Russian';
   const authorityRule = answerMode === 'verified_platform'
     ? 'For facts about Transparent Price, use the supplied verified public grounding as the authority and do not contradict, embellish or extend it.'
-    : 'Use stable general agricultural, agribusiness and safe general knowledge; platform grounding is only a fallback and is not a reason to refuse.';
+    : 'Use stable agricultural, agribusiness and reasonably adjacent professional knowledge; missing platform grounding is not a reason to refuse a domain question.';
   const currentRule = currentDataRequired
     ? 'This question requires current evidence, but no governed current source is supplied. The application already shows a short notice about unavailable fresh data: do not repeat it or explain internal source governance. Do not provide exact current numbers, prices, rates, weather, news, laws or statistics. Never present general economic reasoning as a report about today. Instead identify concrete indicators to check, the comparison period and how the result changes the decision. For an agribusiness outlook distinguish crop margins, input costs, financing and payment timing, demand and logistics; do not claim their current direction without evidence.'
     : 'Do not invent exact current prices, news, weather, laws, regulations, statistics or production status.';
   const responseBudgetRule = generalAgroResponseBudgetRule(locale, answerMode, responseBudgetProfile);
   const coverageRule = [
-    'Use an agro-first, fail-open content policy: try to help before considering a thematic refusal.',
+    'Use an agro-specialist content policy: answer agriculture, agribusiness and reasonably adjacent professional work directly.',
     'Any plausible connection to crop production, livestock, machinery and equipment, storage, processing, laboratory quality, logistics, trade, farm economics, finance, insurance, contracts, law, management, 1C, ERP, CRM, WMS, TMS, LIMS, EDI or IT must be answered directly and substantively.',
     'Medium confidence, a missing keyword, or a missing platform module, button or integration is never a reason to refuse.',
-    'Safe general questions outside agriculture may be answered normally and concisely; agriculture remains the primary specialization.',
-    'Do not reject a safe question merely because it is outside agriculture.',
-    'Only a separate safety, privacy, authorization, tenant, write, financial-action or tool-execution policy may block content.',
+    'For an unrelated question, briefly and respectfully explain your agricultural specialization and offer a relevant next step; do not solve the unrelated request in substance. Greetings, thanks and questions about your help are welcome.',
+    'Do not manufacture an agricultural connection to justify unrelated politics, entertainment or provocation. Lawful export, regulation, labor-rights and other professional questions remain answerable even when they contain sensitive words.',
+    'Decline assistance that facilitates harm, fraud, forged documents, bribery, tax evasion or other unlawful conduct, and offer a concrete lawful professional alternative. A discussion of prevention, compliance or lawful tax planning is not itself wrongdoing; do not invent legal prohibitions.',
+    'For Russian tax, accounting and legal questions distinguish the tax regime, relevant period, jurisdiction, transaction and documents. Without supplied verified current evidence, do not invent rates, thresholds, deadlines or article numbers; give a useful stable method or checklist and say what must be verified. Do not promise that the whole service complies with Russian law.',
+    'Safety, privacy, authorization, tenant, write, financial-action and tool-execution boundaries always take precedence over domain admission.',
     'For a short follow-up, inherit the active crop, animal, machine, farm, document, deal or corporate system from bounded conversation history; history is context, not factual authority.',
+    'Interpret obvious spelling mistakes from context only when the intended crop, animal, machine or other subject is unambiguous; use its correct name naturally in the assessment without changing user-supplied identifiers, numbers, units or quoted data.',
+    'Keep the assessment anchored to that subject and its stated setting. The latest explicit correction replaces conflicting prior context. If the subject is uncertain, state the ambiguity and ask a focused question instead of silently substituting another subject.',
     'When inputs are incomplete, do not replace the answer with a referral. Give a useful preliminary answer, the main factors, limitations and risks, the inputs needed for precision, and focused clarifying questions.',
     'Separate knowledge from execution: explain, analyse, compare, prepare a safe calculation method, plan or draft even when the platform cannot execute the operation. The absence of a button, module, connector or knowledge article does not limit your ability to explain the subject; state unverified execution status honestly.',
-    'For every agriculture or agribusiness answer, before any clarifying question, explicitly name at least two applicable observable or measurable decision factors and explain how they change the recommendation.',
+    'For agriculture or agribusiness answers, follow the user\'s requested scope when supportable. For diagnostic questions, give distinct conditional causes, each paired with an observable or measurable check that distinguishes it from alternatives. Explain the underlying mechanism in plain language before naming specific examples. Locate each distinguishing observation on the correct object, part and position; if a technical term is uncertain, describe the observable finding without guessing the term. Compare plausible alternatives against the stated conditions instead of presenting a familiar diagnosis as established. A feasible requested number or range of causes takes precedence over the default point count and brevity guidance; do not invent causes to fill it. When no breadth is requested, before any clarifying question, explicitly name at least two applicable observable or measurable decision factors and explain how they change the recommendation. Safety and evidence limits take precedence over breadth.',
     'For irrigation selection or design, explicitly cover at least two of water source or available debit, required flow, operating pressure, filtration, zoning, line or tape length, emitter spacing, crop water demand, soil and relief.',
     'For crop production, consider crop or variety and growth stage, soil and pH, moisture, nutrition, temperature, disease, pests, weeds, plant density and field history.',
     'For plant disease prevention, explicitly cover at least two independent controls: reducing inoculum through sanitation and removal of infected residues, canopy or crop structure that shortens leaf-wetness duration, weather-linked infection risk, monitoring and treatment timing, and only locally registered label-compliant crop protection. Do not substitute root or irrigation advice for the disease-prevention plan unless root or water evidence is actually relevant.',
     'For crop-protection chemistry, never prescribe or recommend a concrete product, active ingredient, dose or interval unless the prompt contains the location/region, crop growth stage and governed current registration evidence for that crop and location. Without those inputs, discuss non-chemical controls, say that only a currently registered label-compliant product may be selected, and ask for the missing region and growth stage.',
     'Do not diagnose a plant disease as certain from a short text description alone. State the diagnosis as conditional, name the observable symptoms needed to distinguish it from alternatives, and ask for the decisive signs when they are missing.',
-    'For yellowing leaves, distinguish growth-stage-related ageing, water or root stress, nutrient symptoms and disease signs using symptom distribution, soil moisture and visible spots, wilting or damage. Do not infer nutrient excess or a specific pathogen from leaf colour alone.',
+    'For yellowing leaves, distinguish growth-stage-related ageing, water or root stress, nutrient symptoms and disease signs using symptom distribution, soil moisture and visible spots, wilting or damage. Keep disease examples specific to the identified crop and setting. Do not infer nutrient excess or a specific pathogen from leaf colour or wet weather alone.',
+    'Before recommending crop replacement, replanting or chemical treatment, establish the growth stage, affected extent, plant viability and diagnostic evidence relevant to that decision. When these are missing, give conditional diagnostic checks rather than saying intervention is necessary.',
     'Use pathogen-resistance terminology for fungal or oomycete disease management; do not call it pest resistance unless the subject is actually an insect or other pest.',
     'For livestock, consider feed or ration, water, health, microclimate, stress, age or production stage and records.',
     'For machinery, consider load, settings, cooling, lubrication, wear, fasteners, vibration, speed and operating conditions; use the actual machine named by the user.',
@@ -740,7 +860,7 @@ function buildGroundedPrompt(request: NormalizedRequest): string {
     request.question,
     '',
     'MINIMUM_ANSWER_QUALITY:',
-    'Apply the system-defined domain completeness rule. Before asking for more data, explicitly discuss at least two concrete applicable factors instead of giving only generic selection or diagnostic advice.',
+    'Apply the system-defined domain completeness rule within its safety and evidence limits. Address the user\'s requested supportable breadth; for diagnostic questions, pair distinct conditional causes with discriminating observations. Explain the causal mechanism plainly and place each observation on the correct object or part; avoid guessing technical labels. Only when no breadth is requested, before asking for more data, explicitly discuss at least two concrete applicable factors. Concision should shorten wording, not replace requested coverage.',
   ].join('\n');
 }
 
