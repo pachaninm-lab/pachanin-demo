@@ -396,8 +396,8 @@ describe('RestrictedPublicQwenService', () => {
       .rejects.toBeInstanceOf(ServiceUnavailableException);
   });
   describe('requested diagnostic breadth provider wire', () => {
-    const diagnosticPolicy = 'For agriculture or agribusiness answers, follow the user\'s requested scope when supportable. For diagnostic questions, give distinct conditional causes, each paired with an observable or measurable check that distinguishes it from alternatives. Explain the underlying mechanism in plain language before naming specific examples. Locate each distinguishing observation on the correct object, part and position; if a technical term is uncertain, describe the observable finding without guessing the term. Compare plausible alternatives against the stated conditions instead of presenting a familiar diagnosis as established. A feasible requested number or range of causes takes precedence over the default point count and brevity guidance; do not invent causes to fill it. When no breadth is requested, before any clarifying question, explicitly name at least two applicable observable or measurable decision factors and explain how they change the recommendation. Safety and evidence limits take precedence over breadth.';
-    const minimumQuality = 'Apply the system-defined domain completeness rule within its safety and evidence limits. Address the user\'s requested supportable breadth; for diagnostic questions, pair distinct conditional causes with discriminating observations. Explain the causal mechanism plainly and place each observation on the correct object or part; avoid guessing technical labels. Only when no breadth is requested, before asking for more data, explicitly discuss at least two concrete applicable factors. Concision should shorten wording, not replace requested coverage.';
+    const diagnosticPolicy = 'For agriculture or agribusiness answers, follow the user\'s requested scope when supportable. For diagnostic questions, give distinct conditional causes, each paired with an observable or measurable check that distinguishes it from alternatives. Explain the underlying mechanism in plain language before naming specific examples. Locate each distinguishing observation on the correct object, part and position; if a technical term is uncertain, describe the observable finding without guessing the term. Compare plausible alternatives against the stated conditions instead of presenting a familiar diagnosis as established. Use one compact sentence per conditional cause, combining its mechanism and distinguishing check; finish that sentence before starting another point. For a requested range use its lowest supportable count. Omit optional examples and closing offers before required observations or safety caveats. A feasible requested number or range of causes takes precedence over the default point count and brevity guidance; do not invent causes to fill it. When no breadth is requested, before any clarifying question, explicitly name at least two applicable observable or measurable decision factors and explain how they change the recommendation. Safety and evidence limits take precedence over breadth.';
+    const minimumQuality = 'Apply the system-defined domain completeness rule within its safety and evidence limits. Begin domain advice with a direct conclusion naming the unambiguous subject correctly; never guess an uncertain subject. Cover the requested supportable breadth. For diagnosis, use one compact sentence per conditional cause, combining its mechanism and distinguishing observation on the correct part; avoid uncertain technical labels. For a requested range use its lowest supportable count. Only when no breadth is requested, explicitly discuss at least two concrete applicable factors before asking for more data. Finish every point; omit optional examples and closing offers before required observations or safety caveats.';
     const incompleteReply = 'Возможен ослабленный крепёж; сопоставьте следы смещения с журналом осмотра.';
 
     async function captureWire(
@@ -526,11 +526,37 @@ describe('RestrictedPublicQwenService', () => {
         expect(body.messages).toHaveLength(2);
       });
 
+      it.each([
+        { locale: 'ru', question: 'Рис на влажном участке изменил цвет. Назови 3–5 условных причин и отличающие признаки.', history: [] },
+        { locale: 'en', question: 'The strawberry leaves have changed colour. Give 3–5 possible causes and distinguishing checks.', history: [] },
+        { locale: 'zh', question: '玉米叶片出现斑块，请列出3至5种可能原因及区别方法。', history: [] },
+        { locale: 'ru', question: 'Нет, теперь речь о конвейере К-24, а не о насосе. Назови 2–4 возможные причины вибрации.', history: [{ role: 'user', text: 'Почему насос Н-17 шумит?' }] },
+        { locale: 'en', question: 'An unidentified crop has narrow leaves and patchy discolouration. What should I inspect?', history: [] },
+        { locale: 'zh', question: '记录中的设备编号为“AB-1200-X”，读数为95 °C。应先核对什么？', history: [] },
+      ] as const)('sends subject-first and complete compact-point instructions in $locale while retaining raw context', async ({ locale, question, history }) => {
+        const { body, system, prompt } = await captureWire(method, {
+          ...GENERAL_AGRO_REQUEST, locale, originalQuestion: question, question, history,
+        }, 256);
+        expect(system).toContain('Begin domain advice with a short direct conclusion naming the unambiguous subject correctly; never guess an uncertain subject');
+        expect(system).toContain('Use one compact sentence per conditional cause, combining its mechanism and distinguishing check; finish that sentence before starting another point');
+        expect(system).toContain('For a requested range use its lowest supportable count');
+        expect(system).toContain('Omit optional examples and closing offers before required observations or safety caveats');
+        expect(prompt).toBe(expectedGeneralPrompt(question, question));
+        expect(body.messages.slice(1, -1)).toEqual(history.map(({ role, text }) => ({ role, content: text })));
+        expect(system).not.toContain(question);
+        expect(system).not.toMatch(/рис|пшениц|strawberr|玉米|AB-1200-X/iu);
+      });
+
       describe.each([
         { profile: 'concise', maxTokens: 256 },
         { profile: 'detailed', maxTokens: 320 },
       ] as const)('$profile budget', ({ profile, maxTokens }) => {
         it.each([
+          {
+            name: 'one requested cause without the minimum-two fallback',
+            originalQuestion: 'Назови одну наиболее вероятную условную причину вибрации конвейера К-24 и проверку для неё.',
+            question: 'Диагностика вибрации складского конвейера К-24.',
+          },
           {
             name: 'explicit number above the default point count',
             originalQuestion: 'У складского конвейера К-24 появилась вибрация. Назови 6 возможных причин и проверку, различающую каждую.',
@@ -555,6 +581,8 @@ describe('RestrictedPublicQwenService', () => {
           }, maxTokens);
           expect(body.messages).toHaveLength(2);
           expect(prompt).toBe(expectedGeneralPrompt(originalQuestion, question));
+          expect(prompt).toContain('Only when no breadth is requested, explicitly discuss at least two concrete applicable factors before asking for more data');
+          expect(prompt).not.toContain('Otherwise state at least two');
           expect(system).toContain('Give the useful conclusion first, then two to four short practical points');
           expect(system).toContain(profile === 'concise' ? 'примерно в 90 слов' : 'примерно в 150 слов');
           expect(system).not.toContain(originalQuestion);
