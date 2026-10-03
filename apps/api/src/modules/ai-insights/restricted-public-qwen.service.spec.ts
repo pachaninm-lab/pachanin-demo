@@ -396,8 +396,8 @@ describe('RestrictedPublicQwenService', () => {
       .rejects.toBeInstanceOf(ServiceUnavailableException);
   });
   describe('requested diagnostic breadth provider wire', () => {
-    const diagnosticPolicy = 'For agriculture or agribusiness answers, follow the user\'s requested scope when supportable. For diagnostic questions, give distinct conditional causes, each paired with an observable or measurable check that distinguishes it from alternatives. A feasible requested number or range of causes takes precedence over the default point count and brevity guidance; do not invent causes to fill it. When no breadth is requested, before any clarifying question, explicitly name at least two applicable observable or measurable decision factors and explain how they change the recommendation. Safety and evidence limits take precedence over breadth.';
-    const minimumQuality = 'Apply the system-defined domain completeness rule within its safety and evidence limits. Address the user\'s requested supportable breadth; for diagnostic questions, pair distinct conditional causes with discriminating observations. Only when no breadth is requested, before asking for more data, explicitly discuss at least two concrete applicable factors. Concision should shorten wording, not replace requested coverage.';
+    const diagnosticPolicy = 'For agriculture or agribusiness answers, follow the user\'s requested scope when supportable. For diagnostic questions, give distinct conditional causes, each paired with an observable or measurable check that distinguishes it from alternatives. Explain the underlying mechanism in plain language before naming specific examples. Locate each distinguishing observation on the correct object, part and position; if a technical term is uncertain, describe the observable finding without guessing the term. Compare plausible alternatives against the stated conditions instead of presenting a familiar diagnosis as established. A feasible requested number or range of causes takes precedence over the default point count and brevity guidance; do not invent causes to fill it. When no breadth is requested, before any clarifying question, explicitly name at least two applicable observable or measurable decision factors and explain how they change the recommendation. Safety and evidence limits take precedence over breadth.';
+    const minimumQuality = 'Apply the system-defined domain completeness rule within its safety and evidence limits. Address the user\'s requested supportable breadth; for diagnostic questions, pair distinct conditional causes with discriminating observations. Explain the causal mechanism plainly and place each observation on the correct object or part; avoid guessing technical labels. Only when no breadth is requested, before asking for more data, explicitly discuss at least two concrete applicable factors. Concision should shorten wording, not replace requested coverage.';
     const incompleteReply = 'Возможен ослабленный крепёж; сопоставьте следы смещения с журналом осмотра.';
 
     async function captureWire(
@@ -498,6 +498,34 @@ describe('RestrictedPublicQwenService', () => {
     }
 
     describe.each(['generate', 'generateStream'] as const)('%s', (method) => {
+      it.each([
+        {
+          locale: 'ru',
+          question: 'У растений на влажном участке изменился цвет листьев. Какие причины проверить и где искать признаки?',
+          reply: 'Причина пока не установлена; сравните изменённые листья с соседними растениями.',
+        },
+        {
+          locale: 'en',
+          question: 'The feed conveyor vibrates intermittently. Which mechanisms and locations should we inspect safely?',
+          reply: 'The cause is uncertain; compare the observations with the inspection record.',
+        },
+        {
+          locale: 'zh',
+          question: '粮仓里的谷物局部温度升高。需要检查哪些原因以及哪些位置？',
+          reply: '原因尚不确定，应先比较不同位置的观测记录。',
+        },
+      ] as const)('delivers mechanism and observation guidance in $locale without repairing the mocked answer', async ({ locale, question, reply }) => {
+        const { body, system, prompt } = await captureWire(method, {
+          ...GENERAL_AGRO_REQUEST, locale, originalQuestion: question, question,
+        }, 256, 'general_agro', reply);
+        expect(prompt).toBe(expectedGeneralPrompt(question, question));
+        expect(system).toContain('Locate each distinguishing observation on the correct object, part and position');
+        expect(system).toContain('describe the observable finding without guessing the term');
+        expect(system).toContain('Compare plausible alternatives against the stated conditions');
+        expect(system).not.toContain(question);
+        expect(body.messages).toHaveLength(2);
+      });
+
       describe.each([
         { profile: 'concise', maxTokens: 256 },
         { profile: 'detailed', maxTokens: 320 },
