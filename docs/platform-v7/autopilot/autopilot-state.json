@@ -4058,6 +4058,79 @@
         "No weakened review/CI/security/readiness/assertions, hidden output patch, stale-head PASS transfer, forced or automatic merge.",
         "No R1, release, production or model acceptance, and no progress credit from this purpose or private source tests."
       ]
+    },
+    "gekta-subject-compact-completeness-20261004": {
+      "owner": "Existing Gekta owner retained; existing CORE coordinator serializes purpose admission only",
+      "purpose": "Admit the exact generic subject-first and compact complete diagnostic-point corrective experiment after the closed failed critical trial; preserve inference, safety and acceptance criteria.",
+      "authorityBaseExactMain": "12f4b340b5841a5de092e842a72b0d48f2f18cb2",
+      "ownerApprovalReceipt": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5973675158",
+      "status": "PURPOSE_ADMISSION_ONLY; EXACT_SOURCE_REVIEW_NATIVE_CI_AND_ACCEPTANCE_PENDING; NEW_CONDITIONAL_CRITICAL_EXTRA_PAIR_PENDING",
+      "governanceBranch": "fix/readiness-database-deadline-4829",
+      "governanceAllowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+      ],
+      "exactSourceTransitions": [
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "mode": "100644",
+          "beforeBlob": "91d2f3a91e11c706fcdd28bf6a86ad2a3645d4cb",
+          "afterBlob": "0776c2312c24f9e46c1ea37436163d8bd082c4d1",
+          "sha256": "1e2402e6a74cb2cab55147293b1f6c107c9a00d375bc1c33fdecaef1451da5e6",
+          "bytes": 52178
+        },
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "eab1d124a4ec753f2f8d7ef3e728fa8073bbc6dd",
+          "afterBlob": "db9e4363f257a47e3195f41282aa91574b4e9434",
+          "sha256": "e389bc6fdcc3cb91bbc46c23231c4c25a6432266dc2394051a5c93c78e4bfea3",
+          "bytes": 82042
+        }
+      ],
+      "liveOracle": {
+        "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts",
+        "unchangedBlob": "391a38f7149b9bbce817d312e03bbcc6377c29fa",
+        "mode": "100644"
+      },
+      "retainedOwnership": "Continue existing CORE/Han branches with ordinary ancestry and existing owners. Preserve all185 ordered vectors,54 prior admissions, every other state byte/value/current/writable scope, COR5/PRODUCT and official5/100. Append this purpose only; no guard, workflow, vector or source changes in admission.",
+      "observedFailure": {
+        "run": "37153877410",
+        "job": "111293138938",
+        "actualSourceSha": "12f4b340b5841a5de092e842a72b0d48f2f18cb2",
+        "result": "FAILED scenario7 at expected explicit wheat name; assertions1–6 passed; remaining scenario7 assertion and scenarios8–10 UNRUN; cleanup PASS, active baseline8B unchanged",
+        "metadata": "Scenario7 one attempt,max256,completion166,stop,truncated=false,flags[],19398ms. Scenario6 passed diagnostic assertions but two attempts256+64,final length,truncated=true,MODEL_OUTPUT_TRUNCATED,43812ms. Recorded provider times19398–51412ms are not full-suite latency acceptance.",
+        "causalLimit": "Absent crop keyword does not itself prove subject misunderstanding. Generic subject-first and compact-point guidance is an experiment, not established causal remediation, speed improvement or full diagnostic quality."
+      },
+      "sourcePurposeBoundary": [
+        "Change only generic publicSystemPrompt subject anchoring/diagnostic guidance and buildGroundedPrompt quality reminder. Name the unambiguous subject correctly in the direct opening, never guess ambiguity. Combine each conditional cause, plain mechanism and distinguishing check into one compact complete sentence on the correct object/part. For a requested range use its lowest supportable count; exact counts and safety/evidence priority remain. Remove optional examples/closing offers before required observations/caveats; fallback minimum-two applies only absent requested breadth.",
+        "No crop/oracle keyword injection, taxonomy detector, canned output/output patch or provider call. Preserve original input/history/latest corrections, model/configuration, all existing generation/word/continuation budgets, filters, diagnostics, accounting, transport, stream, exceptions, cancellation and cleanup. Do not claim fixed budgets prove unchanged prompt tokens or latency.",
+        "Update existing service-spec expectations and add16 mocked RU/EN/ZH generate/stream preservation regressions, including subject ambiguity/correction/identifiers and one-cause/count/range behavior. Deliberately incomplete mock output remains unpatched. Every old safety/quality/disease/stream/trace test and original fourteen critical/extra live inputs/assertions remains unchanged.",
+        "The literal Han path scope is wider than these exact two blobs and does not enforce pins or semantic purpose. Independent whole-tree review must reject extra/missing paths, altered content/modes, scope/runtime expansion or weakened criteria even if generic guards pass."
+      ],
+      "privateEvidenceLimits": "Final9 mocked suites568/568 PASS,0skipped on declaredNode20.20.2; APItypecheckPASS; reviewgate49/49PASS; diffcheckPASS. Separate nonauthor final private review noP1/P2 and service150/150PASS0skipped onNode24. Prior private fallback P2 and retained concrete-factor contract failure corrected in the same exact two files; no live/quality oracle edited. Service grows585UTF8bytes. Private checks establish source delivery/preservation, not actual-published-head/nativeCI/model quality/latency/semantic generalization/deployment. Local Docker absent. Held-out corpus UNRUN.",
+      "acceptanceSequence": [
+        "First publish only this append-only state purpose on existing CORE history after freshmain/Hub/no-conflict checks. Require independent actual-published-whole-head review, separate owner audit, full applicable nativeCI/security and fresh manual readiness before ordinary expected-full-SHA acceptance.",
+        "Then continue existing Han history with exactly the pinned two source files on fresh accepted purpose-main. Preserve all unrelated leaves/modes. Require fresh actual-source-whole-head nonauthor review, separate audit, full nativeCI/security/types/Kubernetes, zero failed PgBouncer logical probes, complete deep-outbox and cleanup evidence, and fresh readiness. No stale-head transfer or automatic/forced merge.",
+        "Only after accepted new source and fresh serialization run ONE new critical10 on actual accepted fullSHA, startup-inclusive420s. ONE extra4 ONLY after actual criticalPASS plus cleanupPASS and unchanged active8B, same acceptedSHA, startup-inclusive420s. Stop on failure/drift/conflict/missing evidence/cleanup discrepancy; no retry. Individual successful native suites remain PARTIAL, not fabricated COMPLETE."
+      ],
+      "approvedAutomaticServerEffects": "Existing owner-approved image/preflight build/download/service-checkout refresh effects retained as documented; not application deployment, topology acceptance, permanent model activation or unrelated server authority.",
+      "boundedRuntimeConditions": [
+        "At most two conditional420s leases totaling840 startup-inclusive candidate-seconds, original fourteen cases and unchanged maximumtwenty-eight provider attempts. The old37153877410 trial/window is closed and consumed; no reuse of its allowance. Latest owner continuation is recorded in the new receipt.",
+        "Announce serialized no-main-merge/model-host window, verify actual full resolvedSHA and conflicting activity. Preserve active8B/routing, candidate artifact/resource limits/non-root principal/auth/watchdog/pidfd/cancellation/cleanup and baseline checks. Missing evidence is unknown, never PASS or repeated execution authority.",
+        "No new real held-out corpus/selectors/evidence collection or permanent activation. Real quality/speed/deployment remain unproven until their separately applicable accepted evidence; source/mock PASS does not promote the model."
+      ],
+      "observerHold": "PR5779 remains DRAFT, unmerged and unexecuted; no observer/topology acceptance or execution follows.",
+      "forbiddenAuthority": [
+        "No permanent activation, new rights/credentials, mandatory expense, protected-data disclosure or unrelated host/controller action.",
+        "No source beyond exact two files, vectors/guard/workflow/configuration/dependency/live-oracle changes, parallel implementation or ownership takeover.",
+        "No weakened review/CI/security/readiness/assertions, hidden output patch, stale-head PASS transfer, forced or automatic merge.",
+        "No R1/release/production/model acceptance or official progress credit from this purpose or private source evidence."
+      ]
     }
   }
 }
