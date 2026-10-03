@@ -3984,6 +3984,80 @@
         "No weakened review/CI/security/readiness/assertions, hidden output patch, stale-head PASS transfer, forced or automatic merge.",
         "No R1, release, production or model acceptance, and no progress credit from this purpose or private source tests."
       ]
+    },
+    "gekta-diagnostic-mechanism-location-20261003": {
+      "owner": "Existing Gekta owner retained; existing CORE coordinator serializes purpose admission only",
+      "purpose": "Admit only the exact generic diagnostic mechanism/location correction and provider-wire regressions after failed critical10; preserve inference, safety and acceptance criteria.",
+      "authorityBaseExactMain": "7c6efbae8b2c429833cf5b9a258bf2b2eedc5c89",
+      "ownerApprovalReceipt": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5973021831",
+      "status": "PURPOSE_ADMISSION_ONLY; EXACT_SOURCE_REVIEW_NATIVE_CI_AND_ACCEPTANCE_PENDING; NEW_CONDITIONAL_CRITICAL_EXTRA_PAIR_PENDING",
+      "governanceBranch": "fix/readiness-database-deadline-4829",
+      "governanceAllowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+      ],
+      "exactSourceTransitions": [
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "mode": "100644",
+          "beforeBlob": "cf8a6c3a941661345aa602b93764207780d75bc3",
+          "afterBlob": "91d2f3a91e11c706fcdd28bf6a86ad2a3645d4cb",
+          "sha256": "97a42353208f065a8c9d4284c5cb023e12c8ed8d5a834e4b96a2a4ddb4c1e252",
+          "bytes": 51593
+        },
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "748eab4e05059c32d3f17051c7f89de8e2375a55",
+          "afterBlob": "eab1d124a4ec753f2f8d7ef3e728fa8073bbc6dd",
+          "sha256": "837e3629fc362300f190af3964149e7c9a8a54ea58a1773001bc8e8de008f2d6",
+          "bytes": 78648
+        }
+      ],
+      "liveOracle": {
+        "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts",
+        "unchangedBlob": "391a38f7149b9bbce817d312e03bbcc6377c29fa",
+        "mode": "100644"
+      },
+      "retainedOwnership": "Existing CORE coordinator and Gekta/Han owner retained. This cloud continuation prepares this exact owner-authorized supplemental package in existing lanes only; no unrelated ownership takeover. Preserve ordinary branch ancestry, all185 ordered concurrent vectors, all53 prior admissions, every other state byte/value, current/writable scopes, COR5/PRODUCT and official5/100. Append one purpose only; no vectors/guards/workflows/source changed.",
+      "observedFailure": {
+        "run": "37146266381",
+        "job": "111270750344",
+        "actualSourceSha": "7c6efbae8b2c429833cf5b9a258bf2b2eedc5c89",
+        "result": "FAILED scenario6;7–10 UNRUN; cleanup PASS; baseline8B active and unchanged",
+        "metadata": "One attempt;256 requested tokens;181 completion;stop;truncated=false;flags[];21600ms. Answer mentioned iron deficiency but missed unchanged nutrition regex; also confused interveinal leaf tissue with internodes.",
+        "causalLimit": "Generic causal explanation and precise location guidance are a corrective experiment, not proven model remediation. No assertion-keyword insertion or token-limit failure is established."
+      },
+      "sourcePurposeBoundary": [
+        "Only extend existing generic diagnostic publicSystemPrompt guidance and buildGroundedPrompt reminder: plain causal mechanisms, conditional alternatives with discriminating observations, correct object/part/position and avoid uncertain technical labels. Compare alternatives against stated conditions; preserve requested supportable breadth, fallback, evidence and safety priority.",
+        "No crop/nutrition/oracle keyword insertion, taxonomy detector, output patch/canned response or additional provider call. Raw question/history, correction semantics, other prompts, model/configuration, all budgets, filters, transport, stream, exceptions, accounting, cancellation and cleanup unchanged.",
+        "Update existing service-spec expectations and add only six RU/EN/ZH generate/stream mocked wire regressions. Deliberately incomplete mock output remains unpatched. Retain all prior tests, diagnostic gate and exact original fourteen critical/extra inputs/assertions.",
+        "Literal Han path scope is wider and does not enforce these exact two blobs or purpose. Independent whole-tree review must reject extra/missing paths, altered bytes/hashes/modes or expanded semantics even when generic guards pass."
+      ],
+      "privateEvidenceLimits": "9 mocked Jest suites552/552 PASS,0skipped. Independent nonauthor reviewer reproduced service134/134; no P1/P2. API typecheck after Prisma generation PASS; diffcheck and real two-file scope guard PASS; review-gate49/49 PASS. Node24.19 differs from declared Node20; native published-head CI remains mandatory. Hosting-authority local check blocked by absent Docker. No model-quality/generalization/production PASS. Service source grows506 UTF-8 bytes; fixed completion budget does not establish unchanged prompt processing cost or latency. Prior semantic held-out corpus remains UNRUN.",
+      "acceptanceSequence": [
+        "First publish this exact append-only purpose in the full existing state file on the existing CORE branch, preserving original history and all prior public records. Require fresh main/Hub/ownership checks, independent actual-whole-head review, separate canonical owner audit, all applicable native CI/security and fresh manual readiness before ordinary expected-full-SHA merge.",
+        "Then continue the existing Han branch with exactly the pinned two-file source transitions on fresh accepted purpose-main. Verify all unrelated leaves/modes unchanged. Require fresh independent actual-source-head full-diff review, separate audit, all native CI/security/typechecks/Kubernetes, zero failed PgBouncer logical probes, complete deep-outbox evidence and cleanup. No stale-head PASS or automatic/forced merge.",
+        "Only after source acceptance and fresh serialized exact-main checks, run ONE new critical10 with the existing startup-inclusive maximum 420-second lease. Extra4 is permitted ONLY if this critical10 is PASS and its cleanup and unchanged active 8B are confirmed.",
+        "If those conditions pass, run ONE extra4 with the same actual accepted SHA and existing maximum 420-second lease. Verify cleanup and unchanged active 8B again. Stop on failure, incomplete evidence, changed SHA or cleanup discrepancy; no retry is included. Separate native successful suite results remain PARTIAL, not a fabricated COMPLETE summary."
+      ],
+      "approvedAutomaticServerEffects": "Owner explicitly approved ordinary source acceptance and existing automatic image building/downloads and service checkout refresh on REG.RU. This does not prove application deployment, topology readiness, live-model quality or permanent activation, and grants no unrelated server operation.",
+      "boundedRuntimeConditions": [
+        "At most two conditional leases totaling840 startup-inclusive candidate-seconds, fourteen existing cases and at mosttwenty-eight provider attempts. Extra4 requires critical10 PASS, cleanup PASS and unchanged active8B, on the same accepted SHA. Run37146266381 and all previous failed runs remain historical consumed evidence; no retry.",
+        "Announce a fresh serialized no-main-merge/model-host window and verify actual resolved full SHA. Retain current active 8B, candidate artifact, resource limits, watchdog, pidfd/cancellation, cleanup and baseline checks. Missing evidence is not PASS and does not authorize repeated execution.",
+        "Prespecified semantic generalization corpus remains UNRUN. Mocked paraphrase tests do not establish model generalization. New real selectors, held-out calls or answer-evidence collection need their own explicit purpose, reviewed scope and runtime approval."
+      ],
+      "observerHold": "PR #5779 remains DRAFT, unmerged and unexecuted on the server. No observer acceptance or execution follows from this Gekta package.",
+      "forbiddenAuthority": [
+        "No new real held-out run, permanent model activation, new rights/credentials, mandatory expense, protected-data disclosure or unrelated host/controller action.",
+        "No new paths, scope vectors, workflow/configuration/dependency/live-oracle changes, ownership takeover or parallel implementation.",
+        "No weakened review/CI/security/readiness/assertions, hidden output patch, stale-head PASS transfer, forced or automatic merge.",
+        "No R1, release, production or model acceptance, and no progress credit from this purpose or private source tests."
+      ]
     }
   }
 }
