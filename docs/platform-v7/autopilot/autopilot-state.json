@@ -4131,6 +4131,85 @@
         "No weakened review/CI/security/readiness/assertions, hidden output patch, stale-head PASS transfer, forced or automatic merge.",
         "No R1/release/production/model acceptance or official progress credit from this purpose or private source evidence."
       ]
+    },
+    "gekta-candidate-one-use-delivery-fence-20261004": {
+      "owner": "Existing Gekta owner retained; existing CORE coordinator serializes purpose admission only",
+      "purpose": "Accept an atomic one-use execution fence for the existing unresolved candidate delivery, without adding inference authority or refunding any consumed run.",
+      "authorityBaseExactMain": "d4babce27bd2b33d6551b18d845331c6d0b9f4be",
+      "ownerContinuationReceipt": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5975702218",
+      "status": "SOURCE_ONLY_TRANSITION; EXACT_PUBLISHED_HEAD_REVIEW_NATIVE_CI_AND_ACCEPTANCE_PENDING; OLD_RUN_RECONCILIATION_AND_LIVE_MODEL_PROOF_PENDING",
+      "governanceBranch": "fix/readiness-database-deadline-4829",
+      "governanceAllowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "implementationBranch": "fix/gekta-qwen35-guard-argv-form-20260928",
+      "allowedPaths": [
+        ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+        "scripts/gekta-qwen35-4b-model-host-candidate.py"
+      ],
+      "exactSourceTransitions": [
+        {
+          "path": ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+          "mode": "100644",
+          "beforeBlob": "d6e839db687db42174e48a51030cc73126e06239",
+          "afterBlob": "30117b1b1c9adc258303d852b7e2e7d3a051e7af",
+          "sha256": "48b070d3571788ed22bf35f6d6076f293bc56f19984fb4364582c4b5827fe586",
+          "bytes": 123555
+        },
+        {
+          "path": "scripts/gekta-qwen35-4b-model-host-candidate.py",
+          "mode": "100644",
+          "beforeBlob": "2b968e1d2f9159734b7603fdd5cbe2ccff8e2c0a",
+          "afterBlob": "ccf9e2650f0970d2677dc1d0902c82e2b223701f",
+          "sha256": "52030aa2ab4587b026dc0bf80f7923c20e99460039f6802e2cd84f45c89bc6f3",
+          "bytes": 65174
+        }
+      ],
+      "retainedOwnership": "Preserve all55 previous admissions and185 ordered concurrent vectors, primary/current/writable scopes, all owners and ordinary existing CORE/candidate ancestry. No new branch vector, scope path, manifest, guard or separate implementation is admitted.",
+      "existingDiagnosticGrant": {
+        "originalCommand": "https://github.com/pachaninm-lab/pachanin-demo/issues/3896#issuecomment-5974230017",
+        "createdAt": "2026-10-03T22:38:26Z",
+        "fixedIdentity": "gekta-critical-5974230017",
+        "boundary": "The original command is saved and remains potentially deliverable. It is not cancelled or proven never delivered. This fence grants no second critical attempt and no retry of a consumed attempt.",
+        "criticalLimit": 1,
+        "conditionalExtraLimit": 1,
+        "leaseSecondsEach": 420,
+        "extraPrecondition": "Actual critical10 PASS, actual cleanup PASS and unchanged active8B on the same full accepted SHA; a spent critical marker proves consumption only and is not quality evidence.",
+        "acceptedDiagnosticBlobs": {
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts": "0776c2312c24f9e46c1ea37436163d8bd082c4d1",
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts": "db9e4363f257a47e3195f41282aa91574b4e9434"
+        }
+      },
+      "sourcePurposeBoundary": [
+        "Only the two pinned existing workflow/helper transitions: fixed admitted grant, original critical10 and conditional extra4 as separate one-use slots, exact-full-SHA owner commands and durable atomic consumption before any candidate start or internal exec.",
+        "Use verified owner-only state directory descriptors, O_EXCL/O_NOFOLLOW mode600 regular single-link markers and file plus descriptor-resolved directory ancestry fsync before spawn/exec. Unknown, malformed, unsafe or spent entries fail closed. All failures/crashes remain spent; cleanup never deletes or refunds these markers.",
+        "Bind the owner-admitted command SHA to actual HEAD, origin/main and fresh GitHub main, recheck immediately before start, and preserve verified local/remote helper identity. The helper validates fixed grant/corpus/argument consistency; it is not an independent repository attestor.",
+        "New workflow rejects legacy current-main and combined commands before SSH. A late old workflow fetching the accepted new helper fails on missing mandatory execution arguments. A runner already holding a pre-guard helper remains a distinct bypass risk requiring complete reconciliation.",
+        "Retain original model bytes/hash/alias, production executable/runtime contour, dedicated non-root principal, pinned SSH transport, ephemeral key boundaries, memory/priority/loopback isolation,420-second startup-inclusive lease, pidfd ownership/watchdog and baseline/cleanup contracts. No oracle, assertion, budget, runtime retry or quality-threshold change.",
+        "Keep every existing contract/fault/security test. Add only inline workflow tests for concurrent reservation, sequential/changed-SHA replay, legacy/internal bypass, crash/fsync/ancestor failure, unsafe entries, same-SHA extra binding, cleanup retention and actual executable command/SHA resolution. These are no-model-call source checks."
+      ],
+      "serializationTransition": [
+        "This admission explicitly releases only the no-main-movement hold recorded in Hub5974288267 that is necessary to accept this exact protective two-file fence through ordinary independently reviewed purpose/source merges. It does not reopen inference, cancel the old event or declare old snapshots safe.",
+        "Before either merge, freshly recheck actual main, Hub/owners, all eligible workflow runs across statuses/attempts and complete pagination. Any active old eligible candidate, unknown execution identity or cleanup discrepancy blocks acceptance/delivery until reconciled; preserve all actual findings.",
+        "After guard acceptance, enumerate and reconcile every eligible pre-guard run, including already-resolved old checkout/staged-helper snapshots and all attempts. Require terminal jobs and actual cleanup/unchanged active8B proof whenever a candidate start step was attempted. Unknown version/start/cleanup blocks replacement.",
+        "Any old candidate attempt associated with the original command consumes its original critical allowance, even before inference. A replacement critical delivery is NEVER permitted after that attempt, including after PASS. Only the original conditional extra may follow actual critical PASS, actual cleanup PASS and unchanged active8B on that same full accepted SHA. Undispatched old events subsequently fetching the new helper reject legacy arguments.",
+        "Only after complete post-merge drain, exact source acceptance and fresh repository/run identity checks may one replacement owner command explicitly name the actual accepted full SHA and reuse the original unconsumed fixed grant. Freeze main/source throughout that diagnostic window. Extra remains separately conditional on actual critical success and cleanup at this same SHA.",
+        "No blind repost, rerun, automatic merge, workflow disabling, CI waiver, runtime escalation, model-host/controller mutation or new recurring expense is admitted by this transition."
+      ],
+      "acceptanceSequence": [
+        "First accept only this append-only one-file purpose record on the existing CORE branch after fresh published-whole-head independent nonauthor review, separate owner audit and full applicable native CI/security/readiness; ordinary expected-full-SHA manual merge.",
+        "Then continue the existing candidate branch from that actual accepted base with only these exact two regular100644 source blobs. Verify all untouched leaves and the preserved accepted diagnostic blobs. Require fresh actual-published-whole-head independent review, owner audit, full native contract/CI/security/readiness and ordinary manual expected-full-SHA source merge.",
+        "Repeat complete old-run snapshot/attempt/cleanup reconciliation after acceptance and immediately before any permitted delivery; no private/local/stale-head PASS transfer or unsupported new runtime allowance.",
+        "Real original critical10 and conditional extra4 inference, startup/acceptance/cleanup/unchanged8B and420-second lifetime evidence are required for candidate acceptance. Source merge or synthetic PASS is not model-quality, latency, deployment or permanent activation proof."
+      ],
+      "privateEvidenceLimits": "Private source head213d08df7edee695fcad3171446feffda7212c4e received separate nonauthor full-diff PASS with no remainingP0/P1/P2;19/19 one-use and16/16 diagnostic tests plus actual shell corpus/SHA and synthetic same-PID/key/home pre-exec checks passed. Full local ownership /proc proof fails with the same PID-namespace limitation on unchanged baseline. Native full ownership/CI proof remains mandatory; no private result is published-head or model approval.",
+      "approvedAutomaticServerEffects": "Retain only the already approved existing source-acceptance image-build/preflight effects, including image downloads/protected checkout refresh when inherited controllers apply. This is not zero-write or REG.RU application/model release acceptance and adds no host-operation authority.",
+      "forbiddenAuthority": [
+        "No additional critical or extra inference, runtime retry, new corpus, oracle/assertion/budget/lease relaxation or permanent model activation.",
+        "No baseline stop/restart/signal, public listener, model alias reuse, production routing/application/database mutation, new credential/right/expense or unrelated server/controller work.",
+        "No manifest/state self-expansion on candidate branch, unrelated admission/vector/current-scope change, competing owner, gate weakening, fake or stale-head PASS, forced/automatic merge or workflow disabling.",
+        "No REG.RU release/live acceptance, R1 completion or progress increase. Official5/100 and queued topology observer holds remain unchanged."
+      ]
     }
   }
 }
