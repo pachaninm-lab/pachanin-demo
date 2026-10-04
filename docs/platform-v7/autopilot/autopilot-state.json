@@ -1804,6 +1804,10 @@
       "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
       "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
       "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts"
+    ],
+    "fix/shared-ci-deal-route-classifier-5799": [
+      ".github/workflows/pc-crop-01b4.yml",
+      ".github/workflows/pc-crop-07b.yml"
     ]
   },
   "currentAcceptance": [
@@ -4412,6 +4416,63 @@
       ],
       "metadataPreparationDecision": "Team Hub #5469 comment5930593870",
       "guardPurposeKey": "deal-execution-route-guard-purpose-20261001"
+    },
+    "shared-ci-deal-route-classifier-5799-20261004": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "CORE/shared CI",
+      "implementationDelegation": "Bounded user-owner authorization for prerequisite #5799 only; no general CORE ownership transfer.",
+      "purpose": "Distinguish shared Deal route compatibility from owned commodity/regulatory slice changes without weakening complete native acceptance or the existing owned-slice allowlists.",
+      "authorityBaseExactMain": "474d03e7760696a4587cd622820581a550ff848f",
+      "ownerAuthorization": "User explicitly replied «Разрешаю» to exact private v2 proposal #5799/comment5984913374; recorded in Team Hub #5469/comment5985117887.",
+      "implementationBranch": "fix/shared-ci-deal-route-classifier-5799",
+      "allowedPaths": [
+        ".github/workflows/pc-crop-01b4.yml",
+        ".github/workflows/pc-crop-07b.yml"
+      ],
+      "exactSourcePins": [
+        [
+          ".github/workflows/pc-crop-01b4.yml",
+          "433c99668ead853e792653590b4466470d633e96",
+          "0d933df385bb22f60b4c2deea16dc225c82ca052"
+        ],
+        [
+          ".github/workflows/pc-crop-07b.yml",
+          "9cc147deaa7bf884e6f77bc35b8d66a03b25e151",
+          "754e6a0bdf86d62be87f6f89df90a9cc8420a694"
+        ]
+      ],
+      "requiredSourceMode": "100644",
+      "privatePatchSha256": "8158e4a87a1b33ac61c88d2f035b7bfef21da05352ae9bd4480688b5a3af9b57",
+      "privateReviewEvidence": {
+        "proposalComment": 5984913374,
+        "implementationExpectations": 48,
+        "independentExpectations": 84,
+        "independentMismatches": 0,
+        "independentFindings": {
+          "P0": 0,
+          "P1": 0,
+          "P2": 0
+        },
+        "priorPrivateV1Finding": "P1 rename/quoted UTF-8 ownership bypass; fixed in v2, original BLOCK retained, no v1 SOURCE published.",
+        "truthBoundary": "Private actual-shell fixture review only; not current-published-head review or native PostgreSQL/BFF/browser/production acceptance."
+      },
+      "nativeFailureEvidence": {
+        "pr": 5798,
+        "head": "db0c06a9f225ecf090a285d3f43a9371250c979d",
+        "pcCrop01B4Run": 37237199018,
+        "pcCrop07BRun": 37237198986,
+        "classification": "Actual shared route change misclassified as owned slice; both native scope checks reject the two admitted route tests before full acceptance."
+      },
+      "requiredTruthBoundaries": [
+        "Separate state-only admission: append exactly one two-path concurrent vector and this record. Removing these two additions restores every accepted-base byte/value. All old vectors/admissions, PRIMARY/current/global/writable scopes, official5/100, progress/prompts/queue, owners and every other tree leaf remain unchanged.",
+        "Publish a separate SOURCE PR only after actual admission acceptance. Its complete fresh accepted-main diff is exactly the two pinned existing100644 workflow files; accepted state/guard/manifests/security/registry/application/API/auth/money/provider files and every other leaf remain unchanged. Generic branch guards are not immutable exact-two enforcement; independent complete-tree review enforces this owner boundary.",
+        "Keep all existing workflow triggers, permissions, jobs, full PostgreSQL/BFF/JIT/governed-command acceptance commands, gates, thresholds and actual owned-slice allowlists unchanged. Shared compatibility changes must continue full acceptance; actual owned changes still reject unrelated paths.",
+        "Collect changed paths with --no-renames and raw NUL delimiting, retaining both rename endpoints/deletions and raw UTF-8. Reject LF/CR/TAB control delimiters before line-oriented ownership classification. Preserve valid push-range and genuine manual-dispatch behavior.",
+        "Because PC07B does not trigger on its own workflow path, SOURCE requires genuine native workflow_dispatch at the exact published SOURCE head and complete real PostgreSQL/BFF/JIT/governed-command acceptance. Private fixtures, skipped suites or an unrelated head cannot substitute for it.",
+        "Each phase requires fresh separate nonauthor whole-current-head review, distinct implementation-owner audit, all applicable substantive native CI/security and actual native readiness before a normal full-expected-SHA manual merge. No forced/automatic merge, fake status, gate waiver or unchanged-failed-source rerun credit.",
+        "Original route#5798 and BANK#5735 histories/failures/findings remain retained. Only after actual prerequisite acceptance compose their original source normally with fresh accepted main, preserving their exact source blobs and obtaining fresh whole-head review, author audit and complete applicable native/browser/Kubernetes/readiness evidence.",
+        "This delegation does not authorize unrelated CORE/API/DB/RLS/session/domain/payment/provider/FGIS changes, other owners or refs, deployment/topology/model operations, new costs or completion/progress claims. Exact REG.RU full-stack live acceptance and remaining contracts/access stay separate."
+      ]
     }
   }
 }
