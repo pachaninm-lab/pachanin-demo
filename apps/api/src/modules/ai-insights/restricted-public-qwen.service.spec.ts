@@ -398,6 +398,11 @@ describe('RestrictedPublicQwenService', () => {
   describe('requested diagnostic breadth provider wire', () => {
     const diagnosticPolicy = 'For agriculture or agribusiness answers, follow the user\'s requested scope when supportable. For diagnostic questions, give distinct conditional causes, each paired with an observable or measurable check that distinguishes it from alternatives. Explain the underlying mechanism in plain language before naming specific examples. Locate each distinguishing observation on the correct object, part and position; if a technical term is uncertain, describe the observable finding without guessing the term. Compare plausible alternatives against the stated conditions instead of presenting a familiar diagnosis as established. Use one compact sentence per conditional cause, combining its mechanism and distinguishing check; finish that sentence before starting another point. For a requested range use its lowest supportable count. Omit optional examples and closing offers before required observations or safety caveats. A feasible requested number or range of causes takes precedence over the default point count and brevity guidance; do not invent causes to fill it. When no breadth is requested, before any clarifying question, explicitly name at least two applicable observable or measurable decision factors and explain how they change the recommendation. Safety and evidence limits take precedence over breadth.';
     const minimumQuality = 'Apply the system-defined domain completeness rule within its safety and evidence limits. Begin domain advice with a direct conclusion naming the unambiguous subject correctly; never guess an uncertain subject. Cover the requested supportable breadth. For diagnosis, use one compact sentence per conditional cause, combining its mechanism and distinguishing observation on the correct part; avoid uncertain technical labels. For a requested range use its lowest supportable count. Only when no breadth is requested, explicitly discuss at least two concrete applicable factors before asking for more data. Finish every point; omit optional examples and closing offers before required observations or safety caveats.';
+    const subjectEvidenceReminders = {
+      ru: 'В предметном ответе очевидная опечатка не делает однозначный предмет неизвестным: назови его правильно в первом выводе и не переспрашивай уже сообщённые сведения. Сохраняй числа, единицы, идентификаторы и цитаты; при реальной неоднозначности уточни предмет. Для диагностики растений без стадии развития, масштаба поражения, жизнеспособности растений и диагностических данных не объявляй диагноз установленным, а химическую обработку, пересев или замену необходимыми; сначала предложи условные диагностические проверки.',
+      en: 'For domain advice, an obvious spelling mistake does not make an otherwise unambiguous subject unknown: name it correctly in the opening and do not ask for facts already supplied. Preserve numbers, units, identifiers and quoted data; ask when the subject is genuinely ambiguous. For plant diagnosis, without the growth stage, affected extent, plant viability and diagnostic evidence, do not state that a diagnosis is established or that chemical treatment, replanting or replacement is necessary; give conditional diagnostic checks first.',
+      zh: '提供专业建议时，明显的拼写错误不意味着本已明确的对象未知：在开头正确写出对象名称，不要重复询问已提供的信息。保留数字、单位、标识符和引用原文；对象确实不明确时再提问。诊断植物问题时，若缺少生长阶段、受影响范围、植株存活状况和诊断证据，不要断言已确诊或必须进行化学处理、重新播种或更换；先给出有条件的诊断检查。',
+    } as const;
     const incompleteReply = 'Возможен ослабленный крепёж; сопоставьте следы смещения с журналом осмотра.';
 
     async function captureWire(
@@ -487,13 +492,14 @@ describe('RestrictedPublicQwenService', () => {
       return { body, system, prompt: String(body.messages.at(-1).content) };
     }
 
-    function expectedGeneralPrompt(originalQuestion: string, question: string) {
+    function expectedGeneralPrompt(originalQuestion: string, question: string, locale: 'ru' | 'en' | 'zh' = 'ru') {
       return [
         'ANSWER_MODE: general_agro',
         'CURRENT_DATA_REQUIRED: no',
         'ORIGINAL_PUBLIC_USER_QUESTION:', originalQuestion, '',
         'PUBLIC_USER_QUESTION:', question, '',
         'MINIMUM_ANSWER_QUALITY:', minimumQuality,
+        'SUBJECT_AND_EVIDENCE_REMINDER:', subjectEvidenceReminders[locale],
       ].join('\n');
     }
 
@@ -518,7 +524,7 @@ describe('RestrictedPublicQwenService', () => {
         const { body, system, prompt } = await captureWire(method, {
           ...GENERAL_AGRO_REQUEST, locale, originalQuestion: question, question,
         }, 256, 'general_agro', reply);
-        expect(prompt).toBe(expectedGeneralPrompt(question, question));
+        expect(prompt).toBe(expectedGeneralPrompt(question, question, locale));
         expect(system).toContain('Locate each distinguishing observation on the correct object, part and position');
         expect(system).toContain('describe the observable finding without guessing the term');
         expect(system).toContain('Compare plausible alternatives against the stated conditions');
@@ -541,10 +547,40 @@ describe('RestrictedPublicQwenService', () => {
         expect(system).toContain('Use one compact sentence per conditional cause, combining its mechanism and distinguishing check; finish that sentence before starting another point');
         expect(system).toContain('For a requested range use its lowest supportable count');
         expect(system).toContain('Omit optional examples and closing offers before required observations or safety caveats');
-        expect(prompt).toBe(expectedGeneralPrompt(question, question));
+        expect(prompt).toBe(expectedGeneralPrompt(question, question, locale));
         expect(body.messages.slice(1, -1)).toEqual(history.map(({ role, text }) => ({ role, content: text })));
         expect(system).not.toContain(question);
         expect(system).not.toMatch(/рис|пшениц|strawberr|玉米|AB-1200-X/iu);
+      });
+
+      it.each([
+        { locale: 'ru', name: 'spelling with a supplied subject', originalQuestion: 'На подсолнечнеке после дождя пожелтели листья. Партия «ZX-14», площадь 12,5 га. Что проверить?', question: 'Что проверить при пожелтении листьев после дождя?' },
+        { locale: 'en', name: 'spelling with a supplied subject', originalQuestion: 'Strawbery leaves are yellowing after rain. Record "ZX-14", area 12.5 ha. What should I inspect?', question: 'What should I inspect when leaves yellow after rain?' },
+        { locale: 'zh', name: 'a supplied subject with record data', originalQuestion: '油菜叶片在雨后变黄。记录编号“ZX-14”，面积12.5公顷。先检查什么？', question: '雨后叶片变黄应先检查什么？' },
+        { locale: 'ru', name: 'genuine subject ambiguity', originalQuestion: 'Неизвестное растение пожелтело после дождя. Запись «ZX-14». Что проверить?', question: 'Что проверить у неизвестного растения?' },
+        { locale: 'en', name: 'genuine subject ambiguity', originalQuestion: 'An unidentified plant yellowed after rain. Record "ZX-14". What should I inspect?', question: 'What should I inspect on an unidentified plant?' },
+        { locale: 'zh', name: 'genuine subject ambiguity', originalQuestion: '一种尚未识别的植物在雨后变黄。记录编号“ZX-14”。先检查什么？', question: '尚未识别的植物应先检查什么？' },
+      ] as const)('delivers the $locale reminder for $name with no inference or output substitution', async ({ locale, originalQuestion, question }) => {
+        const history = [{ role: 'user', text: 'Prior inspection record "KEEP-09": 95 °C.' }];
+        const conversationState = 'Previous context is unverified; record "KEEP-09".';
+        const { body, system, prompt } = await captureWire(method, {
+          ...GENERAL_AGRO_REQUEST, locale, originalQuestion, question, history, conversationState,
+        }, 256);
+        expect(prompt).toBe([
+          'ANSWER_MODE: general_agro', conversationState, '',
+          'CURRENT_DATA_REQUIRED: no',
+          'ORIGINAL_PUBLIC_USER_QUESTION:', originalQuestion, '',
+          'PUBLIC_USER_QUESTION:', question, '',
+          'MINIMUM_ANSWER_QUALITY:', minimumQuality,
+          'SUBJECT_AND_EVIDENCE_REMINDER:', subjectEvidenceReminders[locale],
+        ].join('\n'));
+        expect(body.messages.slice(1, -1)).toEqual([{ role: 'user', content: history[0].text }]);
+        expect(system).not.toContain(originalQuestion);
+        expect(system).not.toContain(conversationState);
+        expect(system).toContain('The latest explicit correction replaces conflicting prior context');
+        expect(system).toContain('establish the growth stage, affected extent, plant viability and diagnostic evidence');
+        // The deliberately incomplete response stays unchanged. A model must
+        // demonstrate actual subject/evidence adherence in a separately admitted run.
       });
 
       describe.each([
