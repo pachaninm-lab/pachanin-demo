@@ -13,6 +13,7 @@ import select
 import shutil
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -29,6 +30,9 @@ CANDIDATE_SIZE = 3013027808
 CANDIDATE_HOST = "127.0.0.1"
 CANDIDATE_PORT = 18081
 LEASE_SECONDS = 420
+# This is the existing unresolved delivery, not a fresh runtime allowance.
+# Changing the source SHA, run ID or helper filename cannot replenish its slots.
+EXECUTION_GRANT = "gekta-critical-5974230017"
 LEASE_TERM_MARGIN_SECONDS = 2.0
 LEASE_KILL_MARGIN_SECONDS = 1.0
 LEASE_POLL_SECONDS = 0.25
@@ -591,7 +595,7 @@ def candidate_exec_argv_status(argv) -> int:
         return 84
     return 0
 
-def candidate_exec_guard(guard_fd: int) -> int:
+def candidate_exec_guard(guard_fd: int, *, execution_grant: str = "", corpus: str = "", admitted_sha: str = "", checkout_sha: str = "") -> int:
     if guard_fd < 3:
         return 77
     # Remain blocked until the owner process explicitly releases this guard.
@@ -611,6 +615,10 @@ def candidate_exec_guard(guard_fd: int) -> int:
     status = candidate_exec_argv_status(argv)
     if status:
         return status
+    try:
+        reserve_execution(execution_grant, corpus, admitted_sha, checkout_sha, exec_release=True)
+    except Exception:
+        return 85
     # Lower CPU scheduling priority in this same process, then exec llama
     # directly. Avoid external nice/ionice wrappers so the pidfd/recovery
     # identity remains the exact llama task after release.
@@ -1270,10 +1278,134 @@ def emit_candidate_start_diagnostic(log, cursor: tuple, phase: str) -> None:
     except Exception:
         pass
 
-def start(candidate_key: str) -> None:
+def validate_execution_arguments(execution_grant: str, corpus: str, admitted_sha: str, checkout_sha: str) -> None:
+    if execution_grant != EXECUTION_GRANT or corpus not in ("critical", "extra"):
+        fail("candidate_execution_grant_invalid")
+    if (
+        not isinstance(admitted_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", admitted_sha)
+        or checkout_sha != admitted_sha
+    ):
+        fail("candidate_execution_source_mismatch")
+
+def execution_state_directory() -> int:
+    STATE_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+    fd = os.open(STATE_DIR, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) != 0o700:
+            fail("candidate_execution_directory_unsafe")
+        return fd
+    except BaseException:
+        os.close(fd)
+        raise
+
+def execution_marker_name(corpus: str, exec_release: bool = False) -> str:
+    return "execution-" + EXECUTION_GRANT + "-" + corpus + ("-exec" if exec_release else "") + ".json"
+
+def persist_execution_directory_chain(directory_fd: int) -> None:
+    # mkdir(parents=True) may have created state and its parents. Persist every
+    # parent entry as well as the marker's directory before any process/exec.
+    # Traverse from the verified descriptor, without reopening lexical paths.
+    current = os.dup(directory_fd)
+    try:
+        while True:
+            os.fsync(current)
+            parent = os.open("..", os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW, dir_fd=current)
+            try:
+                here, above = os.fstat(current), os.fstat(parent)
+                at_root = (here.st_dev, here.st_ino) == (above.st_dev, above.st_ino)
+            except BaseException:
+                os.close(parent)
+                raise
+            os.close(current)
+            current = parent
+            if at_root:
+                break
+    finally:
+        os.close(current)
+
+def read_execution_marker(directory_fd: int, corpus: str, exec_release: bool = False, *, require_record: bool = True) -> dict:
+    fd = os.open(
+        execution_marker_name(corpus, exec_release),
+        os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK,
+        dir_fd=directory_fd,
+    )
+    try:
+        info = os.fstat(fd)
+        if (
+            not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
+            or info.st_nlink != 1 or stat.S_IMODE(info.st_mode) != 0o600
+            or info.st_size > 1024
+        ):
+            fail("candidate_execution_marker_unsafe")
+        if not require_record:
+            # Existence spends the slot, including a concurrent/crashed writer
+            # whose record is not complete. Never wait for or repair that writer.
+            return {}
+        raw = os.read(fd, 1025)
+        record = json.loads(raw)
+        if (
+            not isinstance(record, dict) or set(record) != {"grant", "corpus", "sourceSha"}
+            or record["grant"] != EXECUTION_GRANT or record["corpus"] != corpus
+            or not isinstance(record["sourceSha"], str)
+            or not re.fullmatch(r"[0-9a-f]{40}", record["sourceSha"])
+        ):
+            fail("candidate_execution_marker_invalid")
+        return record
+    finally:
+        os.close(fd)
+
+def reserve_execution(execution_grant: str, corpus: str, admitted_sha: str, checkout_sha: str, *, exec_release: bool = False) -> None:
+    validate_execution_arguments(execution_grant, corpus, admitted_sha, checkout_sha)
+    directory_fd = execution_state_directory()
+    try:
+        # A critical reservation proves consumption only. The owner must verify
+        # actual critical PASS, cleanup PASS and unchanged active 8B before the
+        # separate extra command. This helper is not a repository attestor.
+        if corpus == "extra":
+            critical = read_execution_marker(directory_fd, "critical")
+            if critical["sourceSha"] != admitted_sha:
+                fail("candidate_execution_source_mismatch")
+        if exec_release:
+            reservation = read_execution_marker(directory_fd, corpus)
+            if reservation["sourceSha"] != admitted_sha:
+                fail("candidate_execution_source_mismatch")
+        try:
+            fd = os.open(
+                execution_marker_name(corpus, exec_release),
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
+                0o600, dir_fd=directory_fd,
+            )
+        except FileExistsError:
+            # Invalid entries also block; never repair, overwrite or remove one.
+            read_execution_marker(directory_fd, corpus, exec_release, require_record=False)
+            fail("candidate_execution_already_spent")
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_nlink != 1:
+                fail("candidate_execution_marker_unsafe")
+            os.fchmod(fd, 0o600)
+            raw = (json.dumps({"grant": execution_grant, "corpus": corpus, "sourceSha": admitted_sha}, sort_keys=True) + "\n").encode("ascii")
+            with os.fdopen(fd, "wb", closefd=False) as marker:
+                marker.write(raw)
+                marker.flush()
+                os.fsync(fd)
+        finally:
+            # No failure path refunds a reservation. Persist the directory entry
+            # even when record writing fails, and fail before spawning on fsync errors.
+            try:
+                persist_execution_directory_chain(directory_fd)
+            finally:
+                os.close(fd)
+    finally:
+        os.close(directory_fd)
+
+def start(candidate_key: str, *, execution_grant: str = "", corpus: str = "", admitted_sha: str = "", checkout_sha: str = "") -> None:
     require_nonroot()
+    validate_execution_arguments(execution_grant, corpus, admitted_sha, checkout_sha)
     if len(candidate_key) < 32 or not re.fullmatch(r"[A-Za-z0-9._~-]{32,128}", candidate_key):
         fail("candidate_key_invalid")
+    reserve_execution(execution_grant, corpus, admitted_sha, checkout_sha)
     if not CANDIDATE_PATH.is_file() or CANDIDATE_PATH.stat().st_uid != os.geteuid():
         fail("candidate_artifact_missing")
     if CANDIDATE_PATH.stat().st_size != CANDIDATE_SIZE or sha_file(CANDIDATE_PATH) != CANDIDATE_SHA256:
@@ -1325,6 +1457,10 @@ def start(candidate_key: str) -> None:
                 "_candidate_exec_guard",
                 "--candidate-guard-fd",
                 str(guard_read),
+                "--execution-grant", execution_grant,
+                "--corpus", corpus,
+                "--admitted-sha", admitted_sha,
+                "--checkout-sha", checkout_sha,
             ],
             stdin=subprocess.DEVNULL,
             stdout=log,
@@ -1521,6 +1657,10 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("action", choices=["prepare", "start", "cleanup", "status", "_watchdog", "_candidate_exec_guard"])
     parser.add_argument("--candidate-key-stdin", action="store_true")
+    parser.add_argument("--execution-grant", default="")
+    parser.add_argument("--corpus", default="")
+    parser.add_argument("--admitted-sha", default="")
+    parser.add_argument("--checkout-sha", default="")
     parser.add_argument("--candidate-pid", type=int, default=0)
     parser.add_argument("--baseline-pid", type=int, default=0)
     parser.add_argument("--candidate-guard-fd", type=int, default=-1)
@@ -1529,15 +1669,19 @@ def main() -> int:
     args = parser.parse_args()
     require_nonroot()
     if args.action == "_candidate_exec_guard":
-        return candidate_exec_guard(args.candidate_guard_fd)
+        return candidate_exec_guard(args.candidate_guard_fd, execution_grant=args.execution_grant, corpus=args.corpus, admitted_sha=args.admitted_sha, checkout_sha=args.checkout_sha)
     if args.action == "_watchdog":
         if args.candidate_pid <= 0 or args.baseline_pid <= 0:
             return 76
         return watchdog(args.candidate_pid, args.baseline_pid, args.watchdog_ready_fd, args.watchdog_arm_fd)
     import fcntl
-    STATE_DIR.mkdir(parents=True, exist_ok=True)
-    os.chmod(STATE_DIR, 0o700)
     try:
+        if args.action == "start":
+            validate_execution_arguments(args.execution_grant, args.corpus, args.admitted_sha, args.checkout_sha)
+            os.close(execution_state_directory())
+        else:
+            STATE_DIR.mkdir(parents=True, exist_ok=True)
+            os.chmod(STATE_DIR, 0o700)
         with LOCK_PATH.open("w") as lock:
             fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
             if args.action == "prepare":
@@ -1548,7 +1692,7 @@ def main() -> int:
                 candidate_key = sys.stdin.read(129).strip()
                 if not candidate_key or sys.stdin.read(1):
                     fail("candidate_key_stdin_invalid")
-                start(candidate_key)
+                start(candidate_key, execution_grant=args.execution_grant, corpus=args.corpus, admitted_sha=args.admitted_sha, checkout_sha=args.checkout_sha)
             elif args.action == "cleanup":
                 cleanup()
             else:
