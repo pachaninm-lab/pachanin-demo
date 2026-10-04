@@ -31,6 +31,143 @@ accepted end-to-end behavior.
 The current percentage and status counts live in `execution-state.v1.json`.
 The one-row-per-criterion evidence is in `dod-baseline.v1.json`.
 
+## W1 operational checkpoint — 2026-09-12
+
+This bounded checkpoint updates operational evidence only. The audited
+`observedMainSha`, original findings, DoD assessments and historical W1
+observations remain unchanged. Its machine-readable fields are in
+`w1Completion.currentOperationalCheckpoint`.
+
+The earlier operational baseline observed main
+`c39b600d111f0bc5440423f565e142386ceb276c`.
+[PR #5332](https://github.com/pachaninm-lab/pachanin-demo/pull/5332), exact head
+`2b62e9b3c8e0d875b64dc36dd87be6f15a29f466`, had provider reviews blocked;
+that head is historical and the PR has not been
+merged or released. Its published tree is
+`6f670f7f6ce2624e35cf433c6f4872e06ac1d966`. Local validation: 155 tests passed,
+one exact-image Docker/PostgreSQL rehearsal skipped because Docker is unavailable
+locally. Remote rehearsal remains required.
+
+The latest read-only REG.RU [run 34697032312](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34697032312)
+observed API `79c9817f0d86f91346f13054325a078abaa0c16a` and stopped with
+`API_OR_NON_API_RUNTIME_CHANGED`: `MOUNTS_CHANGED` on one container, no one-off
+containers added or removed, `DATABASE_MUTATION=NONE`; public-route verification
+was skipped. The proposed fix has no production acceptance yet.
+
+The following review failures belong to the previous head
+`49615e882eec35e35eeef0e7d6bc0b0820983f31`; they are not results for the current
+implementation head:
+
+- [Local Qwen run 34698535355, job 103566096477](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34698535355/job/103566096477)
+  failed with `POLICY_REPAIR_INVALID_SPECULATIVE_REASON`.
+- [Octopus run 34698535314, job 103566096625](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34698535314/job/103566096625)
+  failed because the community daily review limit was reached.
+
+Neither result supplies accepted independent review. Native Codex raised
+[P2 finding 3996447418](https://github.com/pachaninm-lab/pachanin-demo/pull/5332#discussion_r3996447418)
+on that previous head: Python 3.14 automatically dedents `-c` input, so the
+regression must validate decoded top-level indentation directly. That finding
+and [Octopus finding 3996417166](https://github.com/pachaninm-lab/pachanin-demo/pull/5332#discussion_r3996417166)
+are fixed and their threads resolved. Native Codex then published a
+[clean review for the historical `2b62e9b` head](https://github.com/pachaninm-lab/pachanin-demo/pull/5332#issuecomment-5646467131).
+This is not a full provider or production acceptance.
+
+Historical `2b62e9b`-head [Qwen run 34698950403, job 103567194838](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34698950403/job/103567194838)
+also failed with `POLICY_REPAIR_INVALID_SPECULATIVE_REASON`;
+[Octopus run 34698950330, job 103567194804](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34698950330/job/103567194804)
+failed at the community daily review limit. That head had blocked provider
+reviews and a native clean comment; neither failure is a result for the new head.
+Obtain accepted exact-head review and terminal substantive CI before merge, then
+run fresh current-main preflight and the existing bounded deploy with isolated
+rehearsal. Authenticated W1, full W1 and R6 acceptance remain `NOT_EVIDENCED`.
+
+The [owner audit](https://github.com/pachaninm-lab/pachanin-demo/pull/5332#issuecomment-5646525734)
+records the historical `2b62e9b` implementation head. Investigation found that Qwen loses the
+rejected candidate before `out.write`/SCP. The initial local-only diagnostic
+candidate had two paths, +236/-3, 34/34 local tests and zero independent QA
+findings; its publication was blocked pending immutable prior authority.
+
+The state-only prior-authority [PR #5334](https://github.com/pachaninm-lab/pachanin-demo/pull/5334),
+head `8ecffb65e90a64002604898f6073abddb90c9d4e`, was closed as superseded after
+[Native P1 finding 3996550441](https://github.com/pachaninm-lab/pachanin-demo/pull/5334#discussion_r3996550441)
+showed that scope was not immutable. The full correction began as
+[PR #5335](https://github.com/pachaninm-lab/pachanin-demo/pull/5335), head
+`079466224b140c919639d60687d493d1a649b0aa`: four paths on the existing trusted
+governance branch, 127 guard tests and 28 review tests passed locally, three
+scope escapes reproduced before and blocked after, zero independent QA findings.
+That historical head subsequently required fixes to two native P1 findings.
+Conditional prompt agreement was merged through
+[PR #5336](https://github.com/pachaninm-lab/pachanin-demo/pull/5336), merge
+`f93a30cba9c9ebf42a799f4da79e955f4035f10d`, with native clean review for exact
+head prefix `002240f` and all required gates passed. Its durable source is the
+existing execution queue; that prompt change alone grants no implementation
+permission. #5335 then completed base synchronization and the test-execution and
+real-dispatcher follow-ups. The earlier local test/QA results above remain
+historical evidence for the original candidate.
+
+#5335 is now merged at `d1040e3f953e37fb6b16942b580122b88b691f40`, also the
+then-observed main, with [native clean review](https://github.com/pachaninm-lab/pachanin-demo/pull/5335#issuecomment-5646850473)
+for exact head prefix `493e145`, [owner audit](https://github.com/pachaninm-lab/pachanin-demo/pull/5335#issuecomment-5646868814)
+and review-gate `SUCCESS`. The bounded diagnostics are published as
+[PR #5337](https://github.com/pachaninm-lab/pachanin-demo/pull/5337), exact head
+`9a1f538c0a897984fb0229ec56b2795de868bfb9`, base
+`d1040e3f953e37fb6b16942b580122b88b691f40`, tree
+`7e4bcbe532dc60afa5757059d10ab17f86799bb7`. Local validation passed 163 tests
+(129 guard + 34 review); the exact-base guard passed and
+[owner self-audit](https://github.com/pachaninm-lab/pachanin-demo/pull/5337#issuecomment-5646904070)
+is recorded. #5337 is now merged at
+`fd895e061f0e27661a6e67f436f03108e35e5dd9`, with
+[native clean review](https://github.com/pachaninm-lab/pachanin-demo/pull/5337#issuecomment-5646922548)
+for `9a1f538c` and all substantive CI green.
+
+Current main is `fd895e061f0e27661a6e67f436f03108e35e5dd9`. W1 #5332 now has
+head `ff03424d073e97d52f1a8cf38dad3de74345ed08`, tree
+`56713a7082855d49acd96452a2c4a7e1d2a7e1d8`, based on that main. Local validation
+passed 161 tests (127 W1 + 34 review), with one Docker rehearsal skip; the
+exact-base guard passed and [self-audit](https://github.com/pachaninm-lab/pachanin-demo/pull/5332#issuecomment-5646961188)
+is recorded. [Native review is clean](https://github.com/pachaninm-lab/pachanin-demo/pull/5332#issuecomment-5646983209)
+for this exact head; its review gate reported `SUCCESS` at 15:57:40 UTC.
+[Qwen run 34703519981, job 103579332561](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34703519981/job/103579332561)
+failed with `POLICY_REPAIR_INVALID_SPECULATIVE_REASON`;
+[Octopus run 34703519988, job 103579332693](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34703519988/job/103579332693)
+failed at the daily community quota (exit 20). These provider failures still
+block admission despite native clean review. Substantive CI is terminal:
+41 `SUCCESS`, 16 `SKIPPED`, 2 `NEUTRAL`; no application/security CI is pending.
+The two current-head provider failures are the remaining merge blockers.
+The `2b62e9b` review evidence above remains historical.
+
+[Diagnostic artifact 10301670788](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34703519981/artifacts/10301670788),
+`qwen-rejected-ff03424d073e97d52f1a8cf38dad3de74345ed08-34703519981-1`, was
+retrieved through authorized file materialization. The 953-byte ZIP has SHA-256
+`3f1549f7d094f924efc794b9e476055485877383125e94b04d2179105c27bc72`;
+head/run/attempt identity and candidate hashes were validated. The bounded
+assessment of the chunk-2 allegation at `acceptance.mjs:554` found that
+canonicalization and full-record sorting preserve fields, duplicate records and
+nested-array order; no product defect was proven. Raw candidate content is not
+included. Valid diagnostic evidence does not convert provider failure to acceptance.
+
+The next operation is to determine justified, authorized Qwen remediation using
+the validated diagnostics and resolve the separate Octopus provider blocker. An unproven allegation
+alone does not justify changing product behavior. Octopus quota remains an external
+blocker; use only an available authorized review route, without assuming a reset
+time or blindly retrying unchanged failures. Required provider reviews and
+substantive CI must be accepted for the exact head before #5332 merge. Then
+re-observe main and run fresh REG.RU preflight, required isolated rehearsal and
+the existing bounded release. No production mutation has occurred. Authenticated
+W1, full W1 and R6 acceptance remain separate requirements before Revenue Slice v1.
+
+The three progress scales remain separate; this checkpoint adds no credit:
+
+| Scale | Confirmed acceptance | Basis |
+|---|---|---|
+| Original 2026-09-04 specification | 4/126 PASS = 3.1% | Existing terminal DoD criteria and rounding rule, unchanged |
+| Revenue Slice v1 | 0/15 = 0% | Production-accepted components with deployment and live task evidence |
+| Codex master v2.1, 2026-09-12 | 0/100 points = 0% | Fully accepted R0-R12 blocks; no automatic transfer of older percentages |
+
+The master metric above records the unaccepted new baseline, not a new machine
+verifier or a reassessment of existing code. A successful future W1 deployment
+alone cannot close authenticated W1, R6, or a revenue component.
+
 ## Current reconciliation
 
 The inherited chat report of 4.0% did not identify a fifth terminally accepted
