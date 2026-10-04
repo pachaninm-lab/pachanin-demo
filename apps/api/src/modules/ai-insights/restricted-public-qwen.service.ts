@@ -861,7 +861,22 @@ function buildGroundedPrompt(request: NormalizedRequest): string {
     '',
     'MINIMUM_ANSWER_QUALITY:',
     'Apply the system-defined domain completeness rule within its safety and evidence limits. Begin domain advice with a direct conclusion naming the unambiguous subject correctly; never guess an uncertain subject. Cover the requested supportable breadth. For diagnosis, use one compact sentence per conditional cause, combining its mechanism and distinguishing observation on the correct part; avoid uncertain technical labels. For a requested range use its lowest supportable count. Only when no breadth is requested, explicitly discuss at least two concrete applicable factors before asking for more data. Finish every point; omit optional examples and closing offers before required observations or safety caveats.',
+    ...(request.answerMode === 'general_agro'
+      ? ['SUBJECT_AND_EVIDENCE_REMINDER:', subjectAndEvidenceReminder(request.locale)]
+      : []),
   ].join('\n');
+}
+
+function subjectAndEvidenceReminder(locale: PublicLocale): string {
+  // Keep the model-facing reminder beside the unchanged question in its language.
+  // This is instruction delivery, not subject detection or answer validation.
+  if (locale === 'en') {
+    return 'For domain advice, an obvious spelling mistake does not make an otherwise unambiguous subject unknown: name it correctly in the opening and do not ask for facts already supplied. Preserve numbers, units, identifiers and quoted data; ask when the subject is genuinely ambiguous. For plant diagnosis, without the growth stage, affected extent, plant viability and diagnostic evidence, do not state that a diagnosis is established or that chemical treatment, replanting or replacement is necessary; give conditional diagnostic checks first.';
+  }
+  if (locale === 'zh') {
+    return '提供专业建议时，明显的拼写错误不意味着本已明确的对象未知：在开头正确写出对象名称，不要重复询问已提供的信息。保留数字、单位、标识符和引用原文；对象确实不明确时再提问。诊断植物问题时，若缺少生长阶段、受影响范围、植株存活状况和诊断证据，不要断言已确诊或必须进行化学处理、重新播种或更换；先给出有条件的诊断检查。';
+  }
+  return 'В предметном ответе очевидная опечатка не делает однозначный предмет неизвестным: назови его правильно в первом выводе и не переспрашивай уже сообщённые сведения. Сохраняй числа, единицы, идентификаторы и цитаты; при реальной неоднозначности уточни предмет. Для диагностики растений без стадии развития, масштаба поражения, жизнеспособности растений и диагностических данных не объявляй диагноз установленным, а химическую обработку, пересев или замену необходимыми; сначала предложи условные диагностические проверки.';
 }
 
 function enforceGeneralAgroCompleteness(
