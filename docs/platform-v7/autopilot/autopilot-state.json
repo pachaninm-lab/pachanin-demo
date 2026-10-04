@@ -4210,6 +4210,82 @@
         "No manifest/state self-expansion on candidate branch, unrelated admission/vector/current-scope change, competing owner, gate weakening, fake or stale-head PASS, forced/automatic merge or workflow disabling.",
         "No REG.RU release/live acceptance, R1 completion or progress increase. Official5/100 and queued topology observer holds remain unchanged."
       ]
+    },
+    "gekta-localized-subject-evidence-20261004": {
+      "owner": "Existing Gekta/Han owner retained; existing CORE coordinator handles source purpose only",
+      "purpose": "Deliver a bounded same-language subject and diagnostic-evidence reminder beside the unchanged question; source-only adherence experiment after the consumed failed candidate.",
+      "authorityBaseExactMain": "8c96a36cf217a9ac2ab50d906a96320c00ecf3a8",
+      "ownerContinuationReceipt": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5976164710",
+      "status": "SOURCE_ONLY_PURPOSE; EXACT_PUBLISHED_HEAD_REVIEW_NATIVE_CI_AND_ACCEPTANCE_PENDING; ORIGINAL_MODEL_GRANT_SPENT; NO_NEW_INFERENCE",
+      "governanceBranch": "fix/readiness-database-deadline-4829",
+      "governanceAllowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+      ],
+      "exactSourceTransitions": [
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "mode": "100644",
+          "beforeBlob": "0776c2312c24f9e46c1ea37436163d8bd082c4d1",
+          "afterBlob": "9dec43891152f993be29be5d4e735ad1e4545688",
+          "sha256": "003fbfeca35ebd6ef6d258a97ea6fba276df1382e5633973ecb3c0daa8305e49",
+          "bytes": 54620
+        },
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "db9e4363f257a47e3195f41282aa91574b4e9434",
+          "afterBlob": "0f4591006e01d8cc8ee9311ccd79ddee6f89bded",
+          "sha256": "39f3739687c0dada9a3afcf513dfbfe4bf433cf3c945bb7cf7937fb20b53f455",
+          "bytes": 87379
+        }
+      ],
+      "observedFailure": {
+        "run": "37172251281",
+        "attempt": 1,
+        "job": "111347427570",
+        "actualSourceSha": "8c96a36cf217a9ac2ab50d906a96320c00ecf3a8",
+        "nativeReport": "https://github.com/pachaninm-lab/pachanin-demo/issues/3896#issuecomment-5975957594",
+        "independentFindings": "https://github.com/pachaninm-lab/pachanin-demo/issues/3896#issuecomment-5975995193",
+        "result": "FAILED critical7 missing unambiguous wheat subject; prior1-6 original sequential assertions passed, remaining7 assertion and8-10 UNRUN; extra NOT_DISPATCHED. This is not complete semantic or speed acceptance.",
+        "materialSemanticFinding": "The actual response discards supplied subject and asks crop type; it also asserts necessary fungicides from conditional root/collar symptoms without stage, extent, viability or adequate diagnostic evidence. This is broader adherence failure, not a specific product/dose assertion breach.",
+        "metadata": "All7 provider traces one attempt, stop, truncated=false, nooverflow; critical7 completion235tokens/26199ms. Actual cleanup PASS, unchanged active8B, candidate0/listener0, conservative start-through-status291.137seconds<420.",
+        "causalLimit": "Existing system rules already address both failures. Localized reinforcement near the question is a delivery hypothesis, not a proven missing-rule cause, quality fix, generalization or latency improvement."
+      },
+      "sourcePurposeBoundary": [
+        "Only append SUBJECT_AND_EVIDENCE_REMINDER and a bounded static RU/EN/ZH selection in buildGroundedPrompt for general_agro. Keep full original system and MINIMUM_ANSWER_QUALITY text unchanged; verified_platform wire remains unchanged.",
+        "Reinforce that an obvious typo does not erase an otherwise unambiguous subject, correctly name it in the opening, avoid asking already supplied facts, preserve numbers/units/identifiers/quotes and ask about genuine ambiguity. Retain latest explicit correction and all original questions/history/conversation state.",
+        "Reinforce plant diagnosis and treatment evidence: missing growth stage, affected extent, viability and diagnostic evidence cannot establish diagnosis or necessary chemical treatment, replanting or replacement; offer conditional checks first. This instruction is not a deterministic semantic validator.",
+        "No crop/oracle keyword injection, detector, canned response, input/output rewrite, extra provider/model call, schema/model/configuration/transport/stream/exception/cancellation/accounting/filter/diagnostic/generation-budget change. Added prompt content may change actual prompt tokens and latency; never claim otherwise.",
+        "Adapt existing full-wire expectations and add12 RU/EN/ZH mocked preservation checks across generate/stream. Deliberately incomplete mock replies remain unpatched. Preserve every old test and all original live14 inputs/assertions; new fixtures are source-only mocks, not a real held-out runtime corpus."
+      ],
+      "retainedOwnership": "Append one record only. Preserve all56 prior admissions and185 ordered concurrent vectors, every other state byte/value, current/writable scopes, owners, existing CORE/Han ordinary histories, R1/topology/observer holds and official5/100. No guard/vector/manifest expansion.",
+      "acceptanceSequence": [
+        "First accept this one-file append-only purpose on the existing CORE branch after fresh main/Hub/owners/conflict checks, actual-published-whole-head independent nonauthor review, separate owner audit and complete applicable native CI/security/readiness; ordinary manual expected-full-SHA merge.",
+        "Then continue only the existing Han branch from actual accepted purpose-main with exactly these two pinned regular100644 source blobs. Verify all untouched tree leaves and fresh published-whole-head independent review, separate audit, full native CI/security/types/Kubernetes with zero failed PgBouncer logical probes, deep-outbox and cleanup, plus fresh readiness before ordinary expected-full-SHA merge.",
+        "Source acceptance does not reopen inference. Preserve the accepted one-use workflow/helper and durable spent reservation/release markers. No new SHA/ref/helper name or cleanup may refund or reset the original grant. No model command, rerun, extra, new real corpus, release or permanent activation follows this record."
+      ],
+      "retainedExecutionFence": {
+        "fixedIdentity": "gekta-critical-5974230017",
+        "state": "SPENT",
+        "consumedCommand": "https://github.com/pachaninm-lab/pachanin-demo/issues/3896#issuecomment-5975922054",
+        "closedWindow": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5975981434",
+        "workflowBlob": "30117b1b1c9adc258303d852b7e2e7d3a051e7af",
+        "helperBlob": "ccf9e2650f0970d2677dc1d0902c82e2b223701f",
+        "criticalOracleBlob": "391a38f7149b9bbce817d312e03bbcc6377c29fa",
+        "boundary": "Original saved legacy event remains not-cancelled; admitted guard rejects it. Existing consumed allowance stays consumed. Any future bounded inference requires separate actual owner authority and independently reviewed admitted execution identity; this record provides neither."
+      },
+      "privateEvidenceLimits": "Exact privatehead90d628c8080fcf10391d8d66322b13cac5d2f036/treef6ab92b3ec8d2c8ad624ecfc41dc0180bfd3fcb0 received separate nonauthor full-diff PASS with noP0/P1/P2 and independent162service tests onNode24. Root580/580 in9mock suites,0skips onNode20.20.2; APItypecheckPASS; private literal Han scope and reviewgate49/49PASS. Local hosting authority check failed because Docker is absent; native check remains mandatory. Dispatcher remains blocked on existing R1 prerequisite. No private result transfers published/native/model approval.",
+      "approvedAutomaticServerEffects": "Retain only already authorized inherited source image-build/preflight/download/protected-checkout-refresh effects. This is not a zero-write claim or REG.RU application/model release and adds no host-operation authority.",
+      "forbiddenAuthority": [
+        "No new critical/extra/held-out inference, runtime retry, grant/marker reset, permanent model activation, baseline mutation, public listener, new right/credential/mandatory expense or unrelated host/controller operation.",
+        "No extra source/path/mode, guard/workflow/configuration/dependency/live-oracle/filter/budget change, competing implementation/owner, weakened CI/security/readiness/review/assertions, fake/stale-head PASS or automatic/forced merge.",
+        "No application release/live acceptance, R1 completion or progress increase. Actual quality/safety/speed findings stay open until separately governed real evidence."
+      ]
     }
   }
 }
