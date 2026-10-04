@@ -1799,6 +1799,11 @@
       "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
       "apps/api/test/industrial/harness.ts",
       "apps/api/test/industrial/settlement-postgresql-authority.e2e-spec.ts"
+    ],
+    "fix/deal-execution-route-20261001": [
+      "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+      "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+      "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts"
     ]
   },
   "currentAcceptance": [
@@ -4345,6 +4350,68 @@
         "Provider/binding/credential/signing/legal/model/session/role authority or real money movement",
         "CI/security/readiness/review weakening, source-owned self-admission, forced/automatic merge, stale PASS or false production/provider acceptance"
       ]
+    },
+    "deal-execution-route-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+      "purpose": "Register only the existing protected canonical Deal execution destination after the genuine native BANK queue journey returned layout404; preserve all server role, tenant, membership and command authority.",
+      "authorityBaseExactMain": "9bcb011da917a7889a8ba5a5bcd60b883acb544f",
+      "implementationBranch": "fix/deal-execution-route-20261001",
+      "allowedPaths": [
+        "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+        "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+        "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts"
+      ],
+      "exactSourcePins": [
+        [
+          "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+          "b9b96c88695c7960a309e98e691c348fec03a2b0",
+          "d94cc0d0af208fd6faea32e321a136629bef44f8"
+        ],
+        [
+          "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+          "87ebc91bcc9a927dd6ad2d6f9afdfff8737d47bd",
+          "a1290dc9b3ba122de480200ff5efa86445b5fe66"
+        ],
+        [
+          "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts",
+          "0e7d10b62a722802c76e73f2eb2e618953a383c5",
+          "043c10b308d52091cebb1b7a26dd31fc23a0bc45"
+        ]
+      ],
+      "requiredSourceMode": "100644",
+      "nativeFailureEvidence": {
+        "pr": 5735,
+        "head": "1fdd8981106145df244420138b86fc6ae4f23d48",
+        "workflowRun": 36849109373,
+        "job": 110326285988,
+        "failedProjects": 5,
+        "observedStatus": 404,
+        "diagnosisHubComment": 5930062482
+      },
+      "privatePayload": {
+        "bytes": 4262,
+        "sha256": "d4c4bf61d3813e2d0d4b9c364c81941ab88039b078413addc5eb1d3ca750e884",
+        "candidateTestsPassed": 15,
+        "unchangedBaselinePassed": 12,
+        "unchangedBaselineFailed": 3
+      },
+      "requiredTruthBoundaries": [
+        "Separate state-only proposal. Preserve all prior state bytes/values except the append of one exact concurrent three-path vector and this one record. Primary/current/global/R1.2 scopes, all historical admissions, every other branch, official5/100 progress, maturity and canonical CORE source ownership remain unchanged.",
+        "The future source phase changes exactly the three pinned regular files, retains unchanged accepted-base state/guard/workflows/security/registry/source modes and all other leaves, and requires an independently reviewed accepted MAIN admission before publication.",
+        "Add only anchored /platform-v7/deals/<one-id>/execution registration and remove only the broken trailing-slash Deal prefix. Keep anchored accounting, all other role and route classes, unknown-route rejection before auth, signed session and API membership checks. Do not repair the prefix by broadly admitting all Deal subroutes.",
+        "Preserve every existing test and replace the broken prefix text assertion with behavioral execution reachability plus published dynamic-policy coverage. Exercise all three locales, valid canonical IDs, missing/empty IDs, malformed double slash and extra/nested/sibling paths; retain accounting negative roles.",
+        "Keep the current original BANK source unchanged until this prerequisite is accepted. Then normally compose its original head with accepted current MAIN, preserving the original two source pins and bounded E2E case; obtain fresh whole-head review, owner audit and native five-browser/Kubernetes/readiness results.",
+        "Private15-test/typecheck results and the original404 diagnosis do not establish current-head native CI, browser acceptance, exact REG.RU deployment, real providers or actual13-cabinet closure. Never rerun the failed unchanged BANK head or lower assertions to get green.",
+        "While canonical CORE6 window5930002118 remains active, only an unmerged one-file metadata review proposal is prepared under bounded decision5930593870. This proposal changes no accepted state, grants no SOURCE authority and performs no SOURCE/MAIN/guard/release mutation. Any metadata adoption/merge and future SOURCE publication are serialized after actual CORE HANDOFF/DONE, fresh Hub/main/source/scope recheck, every applicable substantive CI/security, independent current-head review, separate author audit and normal expected-full-SHA manual merge."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/RLS/role/tenant/session/command/money/provider/FGIS or new CORE authority",
+        "Broad Deal-prefix admission, route/auth bypass, original BANK source replacement or competing owner branch",
+        "CI/security/readiness/review weakening, fake history/PASS, forced/automatic merge, release/model mutation or new recurring cost"
+      ],
+      "metadataPreparationDecision": "Team Hub #5469 comment5930593870",
+      "guardPurposeKey": "deal-execution-route-guard-purpose-20261001"
     }
   }
 }
