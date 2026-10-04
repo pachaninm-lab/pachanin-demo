@@ -3539,7 +3539,7 @@
         [
           "scripts/p7-autopilot-guard.sh",
           "38be109d11422546c07fd96db283d848599a709f",
-          "28ec450dfdc88a32afa3a574f2509e3583cdcbc4",
+          "efc0215233f994b909057726824f49d96db30bc7",
           "100755"
         ],
         [
@@ -3551,7 +3551,7 @@
         [
           ".github/workflows/platform-v7-autopilot-guard.yml",
           "90f6c2b52b25b7a4f09446b7dafb36270f9969dc",
-          "3d860d0d5ba72d27b790e129973466ca6d827635",
+          "5c3ebae3b42150718253909b719cbce6fe3ffe95",
           "100644"
         ]
       ]
