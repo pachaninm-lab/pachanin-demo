@@ -1794,6 +1794,11 @@
     "fix/tai-bounded-topology-observer-20261001": [
       "scripts/tai-reg-ru-preflight.sh",
       "scripts/check-tai-reg-ru-preflight.mjs"
+    ],
+    "fix/settlement-currency-projection-5525": [
+      "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
+      "apps/api/test/industrial/harness.ts",
+      "apps/api/test/industrial/settlement-postgresql-authority.e2e-spec.ts"
     ]
   },
   "currentAcceptance": [
@@ -4285,6 +4290,60 @@
         "No new critical/extra/held-out inference, runtime retry, grant/marker reset, permanent model activation, baseline mutation, public listener, new right/credential/mandatory expense or unrelated host/controller operation.",
         "No extra source/path/mode, guard/workflow/configuration/dependency/live-oracle/filter/budget change, competing implementation/owner, weakened CI/security/readiness/review/assertions, fake/stale-head PASS or automatic/forced merge.",
         "No application release/live acceptance, R1 completion or progress increase. Actual quality/safety/speed findings stay open until separately governed real evidence."
+      ]
+    },
+    "settlement-currency-projection-5525-20261004": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "canonicalApiOwnerRetained": "ACCOUNT_1_EXECUTION",
+      "delegatedCanonicalCorrectionOnly": true,
+      "purpose": "Owner-authorized narrow correction of persisted Deal/default-or-configured terms/authoritative operation/public BankOperation currency consistency in the existing canonical Settlement producer.",
+      "authorityBaseExactMain": "f56f6bf0b881c6f2da8a5c759c69a1dc8fb6947f",
+      "implementationBranch": "fix/settlement-currency-projection-5525",
+      "allowedPaths": [
+        "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
+        "apps/api/test/industrial/harness.ts",
+        "apps/api/test/industrial/settlement-postgresql-authority.e2e-spec.ts"
+      ],
+      "requiredSourceMode": "100644",
+      "baselineSourcePins": [
+        [
+          "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
+          "4325feffd8aa2b270381f7a71e0f05e71d5c03f1",
+          "100644"
+        ],
+        [
+          "apps/api/test/industrial/harness.ts",
+          "aad2873616edc2d397cf6b83ce9e1693aa86932f",
+          "100644"
+        ],
+        [
+          "apps/api/test/industrial/settlement-postgresql-authority.e2e-spec.ts",
+          "1382e00ab1e9f5ab309709f3387ca6e9a0223c84",
+          "100644"
+        ]
+      ],
+      "ownerAuthorization": {
+        "kind": "explicit session owner instruction",
+        "receivedAt": "2026-10-04T20:23:03+03:00",
+        "instruction": "Да разрешаю",
+        "reviewablePackage": "#5525 comment5982114584",
+        "coordinationReceipt": "#5469 comment5982543780"
+      },
+      "requiredTruthBoundaries": [
+        "Only this one concurrent three-path vector and coordination record are appended in the prior state-only admission. Every previous state byte/value, primary/current/global/R1.2 scope, owner, admission, vector and official5/100 progress stays unchanged; no application source accompanies admission.",
+        "Only after this separate accepted-base admission may the original narrow source ref change the three named existing regular100644 files. Source HEAD cannot modify state, guard, workflows, manifests, permissions, dependencies, schema or any fourth file to authorize itself.",
+        "Persisted canonical Deal currency governs omitted/default terms and must agree with explicit configured terms, authoritative payments/operations and the public BankOperation mirror. Contradiction or missing/malformed currency fails closed; preserve integer amounts and forbid any currency conversion or hardcoded fallback.",
+        "Preserve verified callback trust, tenant/participant/RLS, idempotency, expected-version, concurrency, audit, durable outbox and money finality controls. Existing confirmed historical currency/ledger/callback facts are not silently relabelled or rewritten; inconsistent history needs explicit reconciliation.",
+        "Require real PostgreSQL RUB/USD/CNY default/configured producer-to-mirror/workspace regressions plus contradiction, malformed currency, replay/callback and preserved tenant/race negative coverage. Session fixtures or request receipts are not authenticated HTTP/provider/live acceptance.",
+        "The existing generic guard does not mechanically enforce exact-three cardinality or candidate hashes on this new ref. Independent actual whole-tree review must verify exactly these three changed paths/modes and every other accepted-base leaf unchanged, reject inherited primary/global additions and source-controlled scope claims, and report that enforcement limit honestly.",
+        "Every published source head needs separate nonauthor whole-head review, separate owner audit, complete applicable native CI/security/PostgreSQL/Kubernetes/readiness and an ordinary expected-full-SHA manual merge. No PASS transfers from private or earlier heads.",
+        "BANK5772 retains its source pins/ref/history and unresolved finding until the producer is actually accepted and the original consumer is freshly composed, reviewed and gated. Provider lineage5525, FGIS and protected-role/external/REG.RU acceptance remain separate; this grants no provider activation or production/full-block credit."
+      ],
+      "forbiddenAuthority": [
+        "A second Settlement/Deal/payment/provider core or competing canonical writer",
+        "Any fourth source file, schema/migration/RLS grant or primary/global scope expansion",
+        "Provider/binding/credential/signing/legal/model/session/role authority or real money movement",
+        "CI/security/readiness/review weakening, source-owned self-admission, forced/automatic merge, stale PASS or false production/provider acceptance"
       ]
     }
   }
