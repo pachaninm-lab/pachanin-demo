@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
-import { ACCEPTANCE_PASSWORD, ACCEPTANCE_TOTP_SECRET, loginAs, totp, type CabinetRole } from './support/acceptance-login';
+import { ACCEPTANCE_PASSWORD, ACCEPTANCE_TOTP_SECRET, acceptanceEmail, loginAs, totp, type CabinetRole } from './support/acceptance-login';
 
 
 const AUTHORITY_AHASH: Record<string,{hash:string;maxDistance:number}> = {
@@ -468,14 +468,27 @@ async function loginReadyBankJourney(page: Page, email: string, baseURL: string)
       data: { email, password: ACCEPTANCE_PASSWORD },
     });
     expect(login.status()).toBeLessThan(400);
-    expect((await login.json()).mfaRequired, 'ACCOUNTING must complete ordinary MFA').toBe(true);
-    const verify = await context.request.post('/api/auth/mfa-login', {
+    const passwordSession = await login.json();
+    expect(passwordSession.ok).toBe(true);
+    expect(passwordSession.mfaRequired, 'ordinary ACCOUNTING login needs only the password').not.toBe(true);
+    const passwordIdentity = await context.request.get('/api/auth/me');
+    expect(passwordIdentity.status()).toBe(200);
+    expect((await passwordIdentity.json()).mfaVerified).toBe(false);
+    const start = await context.request.post('/api/auth/mfa-step-up/start', {
+      headers: { 'content-type': 'application/json', 'x-csrf-token': await csrf() }, data: {},
+    });
+    expect(start.status(), 'authenticated protected-action MFA start').toBeLessThan(400);
+    expect((await start.json()).ok).toBe(true);
+    const verify = await context.request.post('/api/auth/mfa-step-up/verify', {
       headers: { 'content-type': 'application/json', 'x-csrf-token': await csrf() },
       data: { code: totp(ACCEPTANCE_TOTP_SECRET) },
     });
-    authenticated = verify.status() < 400 && (await verify.json()).ok === true;
+    authenticated = verify.status() < 400 && (await verify.json()).mfaVerified === true;
   }
-  expect(authenticated, 'server-issued MFA login for isolated READY bank user').toBe(true);
+  expect(authenticated, 'server-proved action MFA for isolated READY bank user').toBe(true);
+  const protectedIdentity = await context.request.get('/api/auth/me');
+  expect(protectedIdentity.status()).toBe(200);
+  expect((await protectedIdentity.json()).mfaVerified).toBe(true);
   const names = (await context.cookies(baseURL)).map((cookie) => cookie.name);
   expect(names).toContain('pc_v7_cabinet');
   expect(names).toContain('pc_access_token');
@@ -1040,4 +1053,183 @@ test.describe('owner UX v2 About and Trust geometry', () => {
       });
     }
   }
+});
+
+
+async function seedOwnEnrollmentSubject(baseURL: string) {
+  const origin = new URL(baseURL);
+  const database = new URL(process.env.DATABASE_URL || '');
+  if (origin.protocol !== 'https:' || !['localhost', '127.0.0.1'].includes(origin.hostname)
+    || origin.username || origin.password
+    || !['postgres:', 'postgresql:'].includes(database.protocol)
+    || !['localhost', '127.0.0.1', 'postgres'].includes(database.hostname)
+    || database.pathname !== '/dsv8_acceptance') {
+    throw new Error('Own enrollment requires the localhost TLS/disposable dsv8_acceptance PostgreSQL matrix');
+  }
+  const apiRequire = createRequire(resolve(process.cwd(), '../api/package.json'));
+  const { PrismaClient } = apiRequire('@prisma/client');
+  const bcrypt = apiRequire('bcryptjs');
+  const prisma = new PrismaClient();
+  const email = `dsv8.own-enrollment.${randomUUID()}@acceptance.invalid`;
+  const passwordHash = await bcrypt.hash(ACCEPTANCE_PASSWORD, 10);
+  try {
+    await prisma.$transaction(async (tx: typeof prisma) => {
+      const digits = String(100000000n + BigInt(`0x${randomUUID().replaceAll('-', '')}`) % 900000000n);
+      const checksum = [2, 4, 10, 3, 5, 9, 4, 6, 8]
+        .reduce((sum, weight, index) => sum + weight * Number(digits[index]), 0);
+      const organization = await tx.organization.create({ data: {
+        inn: `${digits}${(checksum % 11) % 10}`, name: 'Acceptance own enrollment', type: 'LEGAL',
+        status: 'VERIFIED', kycStatus: 'APPROVED', verifiedAt: new Date(),
+      } });
+      const user = await tx.user.create({ data: { email, passwordHash, fullName: 'Acceptance ordinary subject', status: 'ACTIVE' } });
+      await tx.userOrg.create({ data: {
+        userId: user.id, organizationId: organization.id, role: 'GUEST', status: 'ACTIVE',
+        isDefault: true, isOrgAdmin: false, activatedAt: new Date(),
+      } });
+    });
+    return email;
+  } finally { await prisma.$disconnect(); }
+}
+
+test('canonical protected cabinet boundary: password-only login opens the ordinary buyer cabinet without an MFA challenge', async ({ page, baseURL }) => {
+  test.skip(!baseURL?.startsWith('https://'), 'Password-session authority requires the TLS PostgreSQL acceptance contour.');
+  type LoginEvidence = { status: number; body: unknown };
+  const observedLogins: LoginEvidence[] = [];
+  let deliverNextLogin: ((evidence: LoginEvidence) => void) | undefined;
+  await page.exposeBinding('__pcAcceptanceActualPasswordResponse', (source, evidence: LoginEvidence) => {
+    expect(source.page).toBe(page);
+    expect(source.frame).toBe(page.mainFrame());
+    observedLogins.push(evidence);
+    expect(deliverNextLogin, 'this actual response belongs to an armed form submission').toBeDefined();
+    const deliver = deliverNextLogin!;
+    deliverNextLogin = undefined;
+    deliver(evidence);
+  });
+  // Chromium retires response bodies when the form performs full navigation.
+  // Retain a clone of the genuine response before returning the original to
+  // application code; the real request, response and cookies are unchanged.
+  await page.addInitScript(() => {
+    const originalFetch = window.fetch;
+    window.fetch = async (input, init) => {
+      const response = await originalFetch.call(window, input, init);
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
+      const url = new URL(response.url, window.location.href);
+      if (url.origin === window.location.origin && url.pathname === '/api/auth/login'
+        && method.toUpperCase() === 'POST') {
+        const observer = (window as unknown as {
+          __pcAcceptanceActualPasswordResponse: (evidence: { status: number; body: unknown }) => Promise<void>;
+        }).__pcAcceptanceActualPasswordResponse;
+        await observer({ status: response.status, body: await response.clone().json() });
+      }
+      return response;
+    };
+  });
+  const submitPasswordLogin = async (): Promise<LoginEvidence> => {
+    const previousCount = observedLogins.length;
+    expect(deliverNextLogin, 'the preceding form response was consumed').toBeUndefined();
+    const delivered = new Promise<LoginEvidence>(resolve => { deliverNextLogin = resolve; });
+    const pending = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/login'
+      && response.request().method() === 'POST');
+    await page.locator('form').filter({ has: page.locator('input[name="password"]') }).locator('button[type="submit"]').click();
+    const [response, evidence] = await Promise.all([pending, delivered]);
+    expect(response.status()).toBe(200);
+    expect(observedLogins, 'one actual response retained for this form submission').toHaveLength(previousCount + 1);
+    expect(evidence).toBe(observedLogins[previousCount]);
+    expect(evidence.status).toBe(response.status());
+    return evidence;
+  };
+  await page.context().clearCookies();
+  await page.goto('/platform-v7/login?lang=ru', { waitUntil: 'domcontentloaded' });
+  await page.locator('input[name="email"]').fill(acceptanceEmail('buyer'));
+  await page.locator('input[name="password"]').fill(ACCEPTANCE_PASSWORD);
+  const response = await submitPasswordLogin();
+  expect(response.status).toBe(200);
+  expect(response.body).toMatchObject({ ok: true, mfaRequired: false });
+  await expect(page).toHaveURL(/\/platform-v7\/buyer(?:[?]|$)/);
+  await expect(page.getByTestId('p0-first-customer-workspace-buyer')).toBeVisible();
+  await expect(page.locator('input[name="verification-code"]')).toHaveCount(0);
+  const profile = await page.context().request.get('/api/auth/me');
+  expect(profile.status()).toBe(200);
+  const payload = await profile.json();
+  expect(payload.user?.mfaVerified ?? payload.mfaVerified).toBe(false);
+  await canonicalNoOverflow(page);
+
+  // A fresh non-admin membership also has a genuine own-subject enrollment
+  // path. No staff assignment, preinstalled secret or assurance flag is seeded.
+  const email = await seedOwnEnrollmentSubject(baseURL!);
+  const passwordLogin = async () => {
+    await page.context().clearCookies();
+    await page.goto('/platform-v7/login?lang=ru', { waitUntil: 'domcontentloaded' });
+    await page.locator('input[name="email"]').fill(email);
+    await page.locator('input[name="password"]').fill(ACCEPTANCE_PASSWORD);
+    const loginResponse = await submitPasswordLogin();
+    expect(loginResponse.status).toBe(200);
+    expect(loginResponse.body).toMatchObject({ ok: true, mfaRequired: false });
+    await expect(page).toHaveURL(/\/platform-v7\/profile(?:[?]|$)/);
+    await page.goto('/platform-v7/profile?lang=ru', { waitUntil: 'networkidle' });
+    const identity = await page.context().request.get('/api/auth/me');
+    expect(identity.status()).toBe(200);
+    const body = await identity.json();
+    expect(body.user?.mfaVerified ?? body.mfaVerified).toBe(false);
+    return page.locator('[data-own-mfa-verification]');
+  };
+  const startOwn = async (target: Page) => {
+    const pending = target.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/mfa-step-up/start');
+    await target.locator('[data-own-mfa-verification]').getByRole('button', { name: 'Подготовить защищённое действие' }).click();
+    const response = await pending;
+    expect(response.status()).toBe(200);
+    return response.json();
+  };
+  let panel = await passwordLogin();
+  await expect(panel).toBeVisible();
+  const secondTab = await page.context().newPage();
+  try {
+    await secondTab.goto('/platform-v7/profile?lang=ru', { waitUntil: 'networkidle' });
+    const setup = await startOwn(page);
+    expect(setup).toMatchObject({ ok: true, enrollmentRequired: true, setupSecret: expect.any(String) });
+    expect(setup).not.toHaveProperty('challengeToken');
+    const secondSetup = await startOwn(secondTab);
+    expect(secondSetup.setupSecret).toBe(setup.setupSecret);
+    const remaining = 30_000 - (Date.now() % 30_000);
+    if (remaining < 5_000) await page.waitForTimeout(remaining + 100);
+    await panel.getByLabel('Код подтверждения').fill(totp(setup.setupSecret));
+    const proofPending = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/mfa-step-up/verify');
+    await panel.getByRole('button', { name: 'Подтвердить', exact: true }).click();
+    const proofResponse = await proofPending;
+    expect(proofResponse.status()).toBe(200);
+    const proof = await proofResponse.json();
+    expect(proof).toMatchObject({ ok: true, mfaVerified: true });
+    expect(proof.backupCodes).toHaveLength(8);
+    for (const code of proof.backupCodes) {
+      expect(code).toMatch(/^[A-Z2-7]{6}(?:-[A-Z2-7]{6}){3}$/);
+      await expect(panel.getByText(code, { exact: true })).toBeVisible();
+    }
+    await canonicalNoOverflow(page);
+    await secondTab.reload({ waitUntil: 'networkidle' });
+    await expect(secondTab.locator('[data-own-mfa-verification]')).toHaveCount(0);
+    const assured = await secondTab.context().request.get('/api/auth/me');
+    expect(assured.status()).toBe(200);
+    const assuredBody = await assured.json();
+    expect(assuredBody.user?.mfaVerified ?? assuredBody.mfaVerified).toBe(true);
+
+    // Spend a disclosed credential through the actual form, then prove its
+    // server-side one-use denial from another fresh password session.
+    for (const expectedStatus of [200, 401]) {
+      panel = await passwordLogin();
+      const challenge = await startOwn(page);
+      expect(challenge.enrollmentRequired).not.toBe(true);
+      await panel.getByLabel('Код подтверждения').fill(proof.backupCodes[0]);
+      const pending = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/mfa-step-up/verify');
+      await panel.getByRole('button', { name: 'Подтвердить', exact: true }).click();
+      const result = await pending;
+      expect(result.status()).toBe(expectedStatus);
+      expect(await result.json()).not.toHaveProperty('backupCodes');
+      const identity = await page.context().request.get('/api/auth/me');
+      expect(identity.status()).toBe(200);
+      const identityBody = await identity.json();
+      expect(identityBody.user?.mfaVerified ?? identityBody.mfaVerified).toBe(expectedStatus === 200);
+    }
+    await expect(panel.getByRole('alert')).toBeVisible();
+    await canonicalNoOverflow(page);
+  } finally { await secondTab.close(); }
 });

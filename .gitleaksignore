@@ -62,3 +62,9 @@ db4f0a50b8df0a5e1045d3b9dc6a6fdc9d2806b0:apps/web/tests/unit/platformV7RootWorkE
 # False positive: deterministic idempotency-001 contract-test input, not a credential.
 # Exact historical commit/path/rule/line only; all existing assertions are preserved.
 3b76d0f3473b986b6354aaac528994f7ac343df2:apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:generic-api-key:17
+
+# Historical false positives: public disposable MFA fixture material in an old mocked BFF
+# enrollment response. Current unit tests generate setup material at runtime.
+# Exact historical commit/path/rule/line only; no current-source or broad suppression.
+8e1febfffeb4da36f1dba9badb7522ddb6513c1d:apps/web/tests/unit/sessionMintingSurface.spec.ts:generic-api-key:137
+8e1febfffeb4da36f1dba9badb7522ddb6513c1d:apps/web/tests/unit/sessionMintingSurface.spec.ts:generic-api-key:138
