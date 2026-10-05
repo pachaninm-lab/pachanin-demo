@@ -620,10 +620,15 @@ test.describe('canonical protected cabinet boundary', () => {
     });
     const reloadLabels = { ru: 'Повторить загрузку сделки', en: 'Reload deal state', zh: '重新读取交易状态' } as const;
     for (const width of [390, 1440]) {
-      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
       for (const locale of ['ru', 'en', 'zh'] as const) {
+        // Finish the previous document's catalog/RSC requests before replacing
+        // it. Resize the neutral document so newly visible shell links cannot
+        // start prefetch immediately before the next full navigation.
+        await page.waitForLoadState('networkidle');
+        await page.goto('about:blank', { waitUntil: 'load' });
+        await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
         const bankRoute = `/platform-v7/bank?lang=${locale}`;
-        expect((await page.goto(bankRoute, { waitUntil: 'domcontentloaded' }))?.status()).toBe(200);
+        expect((await page.goto(bankRoute, { waitUntil: 'networkidle' }))?.status()).toBe(200);
         await expectPublicRoute(page, bankRoute, baseURL, '[data-testid="p0-first-customer-workspace-bank"]');
         const route = `/platform-v7/deals/${fixture.dealId}/execution?lang=${locale}`;
         const link = page.locator('#first-customer-work-queue').getByRole('link', { name: fixture.dealId, exact: false });
@@ -645,6 +650,7 @@ test.describe('canonical protected cabinet boundary', () => {
         await page.screenshot({ path: testInfo.outputPath(`ready-bank-deal-${locale}-${width}.png`), animations: 'disabled' });
       }
     }
+    await page.waitForLoadState('networkidle');
     expect(runtimeFailures).toEqual([]);
     expect(commandWrites, 'readonly queue navigation must never submit a Deal command').toEqual([]);
   });
