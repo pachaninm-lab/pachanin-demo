@@ -400,7 +400,7 @@ export function LoginFormClient({ copy }: { copy: LoginFormPresentationCopy }) {
             <p className='pc-auth-inline-hint' role='status'>{copy.capsLock}</p>
           ) : null}
 
-          <a className='pc-auth-recovery-link' href='/platform-v7/forgot-password'>
+          <a className='pc-auth-recovery-link' href={`/platform-v7/forgot-password?lang=${copy.locale}`}>
             {copy.forgot}
           </a>
 
