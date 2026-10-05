@@ -628,7 +628,7 @@ test.describe('canonical protected cabinet boundary', () => {
         await page.goto('about:blank', { waitUntil: 'load' });
         await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
         const bankRoute = `/platform-v7/bank?lang=${locale}`;
-        expect((await page.goto(bankRoute, { waitUntil: 'networkidle' }))?.status()).toBe(200);
+        expect((await page.goto(bankRoute, { waitUntil: 'domcontentloaded' }))?.status()).toBe(200);
         await expectPublicRoute(page, bankRoute, baseURL, '[data-testid="p0-first-customer-workspace-bank"]');
         const route = `/platform-v7/deals/${fixture.dealId}/execution?lang=${locale}`;
         const link = page.locator('#first-customer-work-queue').getByRole('link', { name: fixture.dealId, exact: false });
