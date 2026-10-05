@@ -1,9 +1,12 @@
-import { createHmac } from 'crypto';
+import { createHmac, randomUUID } from 'crypto';
+import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { RequestUser, Role } from '../../src/common/types/request-user';
 import { AuthPrismaService } from '../../src/modules/auth/auth-prisma.service';
 import { AuthService } from '../../src/modules/auth/auth.service';
 import { PersistentAuthRepository } from '../../src/modules/auth/persistent-auth.repository';
+import { OrganizationInvitationService } from '../../src/modules/auth/organization-invitation.service';
 import { PERSISTENT_ACTOR_USER_IDS } from './persistent-actor-identities';
 
 const TEST_PASSWORD = 'demo1234';
@@ -52,7 +55,7 @@ function base32Decode(input: string): Buffer {
   return Buffer.from(bytes);
 }
 
-function totp(secret: string, unixMs = Date.now()): string {
+export function totp(secret: string, unixMs = Date.now()): string {
   const counter = BigInt(Math.floor(unixMs / 30_000));
   const counterBuffer = Buffer.alloc(8);
   counterBuffer.writeBigUInt64BE(counter);
@@ -84,6 +87,154 @@ function seededEmail(userId: string): string {
   return `${userId.slice(0, -'-e2e'.length)}@demo.ru`;
 }
 
+async function proveRestrictedMfaRecovery(
+  primaryAuth: AuthService,
+  verifierAuth: AuthService,
+  primaryPrisma: AuthPrismaService,
+) {
+  const adminUrl = new URL(String(process.env.ONE_DEAL_ADMIN_URL ?? ''));
+  const authUrl = new URL(String(process.env.AUTH_DATABASE_URL ?? ''));
+  if (process.env.NODE_ENV !== 'test'
+    || !['localhost', '127.0.0.1', 'postgres'].includes(adminUrl.hostname)
+    || adminUrl.host !== authUrl.host || adminUrl.pathname !== authUrl.pathname
+    || !/^\/one_deal_(e2e|restore)$/.test(adminUrl.pathname)
+    || adminUrl.username === authUrl.username) {
+    throw new Error('Restricted MFA proof requires separate principals in the same disposable one-deal database');
+  }
+  const check = (condition: unknown, reason: string) => { if (!condition) throw new Error(reason); };
+  const denied = async (operation: Promise<unknown>, status: number) => {
+    const result = await Promise.allSettled([operation]);
+    check(result[0].status === 'rejected', 'Expected a genuine rejected auth proof');
+    if (result[0].status === 'rejected') {
+      check(result[0].reason?.getStatus?.() === status, 'Auth denial must not be a database/fixture error');
+    }
+  };
+  const admin = new PrismaClient({ datasources: { db: { url: adminUrl.toString() } } });
+  const previousDeliveryKey = process.env.ORGANIZATION_INVITATION_DELIVERY_KEY;
+  const configuredDeliveryKey = previousDeliveryKey?.trim() ?? '';
+  const deliveryKey = configuredDeliveryKey.length >= 32
+    ? configuredDeliveryKey : randomUUID().replaceAll('-', '') + randomUUID().replaceAll('-', '');
+  process.env.ORGANIZATION_INVITATION_DELIVERY_KEY = deliveryKey;
+  try {
+    // Only seed fresh disposable identities as admin. All authentication,
+    // enrollment and recovery operations below use the restricted API clients.
+    const key = randomUUID();
+    const organization = await admin.organization.create({ data: {
+      inn: '79' + BigInt('0x' + key.replaceAll('-', '').slice(0, 12)).toString().padStart(10, '0').slice(-10),
+      name: 'Restricted MFA proof', status: 'VERIFIED', kycStatus: 'APPROVED', amlStatus: 'CLEAR', verifiedAt: new Date(),
+    } });
+    const passwordHash = await bcrypt.hash(TEST_PASSWORD, 10);
+    const createSubject = async (suffix: string, role: Role, isOrgAdmin: boolean) => {
+      const user = await admin.user.create({ data: {
+        email: `restricted-${suffix}-${key}@auth.test`, passwordHash, fullName: 'Restricted MFA proof', status: 'ACTIVE',
+      } });
+      const membership = await admin.userOrg.create({ data: {
+        userId: user.id, organizationId: organization.id, role, status: 'ACTIVE', isDefault: true, isOrgAdmin,
+      } });
+      return { user, membership };
+    };
+    const manager = await createSubject('manager', Role.BUYER, true);
+    const subject = await createSubject('subject', Role.COMPLIANCE_OFFICER, false);
+    const login = async (email: string) => {
+      const result = await primaryAuth.login({ email, password: TEST_PASSWORD }) as any;
+      check(result.mfaRequired === false && result.user?.mfaVerified === false && result.accessToken,
+        'Restricted password login must issue an honest ACTIVE session');
+      const actor = await verifierAuth.verifyAccessToken(result.accessToken);
+      check(actor.mfaVerified === false, 'Fresh API must observe password assurance');
+      return { token: String(result.accessToken), actor };
+    };
+    const enroll = async (session: Awaited<ReturnType<typeof login>>) => {
+      const challenge = await primaryAuth.startMfaStepUp(session.actor);
+      check(challenge.enrollmentRequired === true && challenge.setupSecret, 'Explicit enrollment must provide its own secret');
+      const [state] = await primaryPrisma.$queryRaw<Array<{ mfa_last_totp_counter: bigint | null }>>`
+        SELECT mfa_last_totp_counter FROM auth.credential_states WHERE user_id = ${session.actor.id}
+      `;
+      check(state.mfa_last_totp_counter === null, 'New authenticator must not inherit the retired secret counter');
+      const proof = await verifierAuth.verifyMfaStepUp(session.actor, {
+        challengeToken: challenge.challengeToken, code: totp(challenge.setupSecret!),
+      });
+      check(proof.mfaVerified === true && proof.backupCodes?.length === 8, 'Actual TOTP enrollment must produce eight backup codes');
+      check((await primaryAuth.verifyAccessToken(session.token)).mfaVerified === true, 'Restricted API must recover actual TOTP assurance');
+      return { challenge, secret: challenge.setupSecret!, codes: proof.backupCodes! };
+    };
+    const managerSession = await login(manager.user.email);
+    await enroll(managerSession);
+    const subjectSession = await login(subject.user.email);
+    const enrollment = await enroll(subjectSession);
+    const hashes = async () => (await primaryPrisma.$queryRaw<Array<{ mfa_backup_hashes: unknown }>>`
+      SELECT mfa_backup_hashes FROM auth.credential_states WHERE user_id = ${subject.user.id}
+    `)[0].mfa_backup_hashes;
+    const originalHashes = await hashes();
+    const followup = await primaryAuth.startMfaStepUp(subjectSession.actor);
+    const usedTotpCode = totp(enrollment.secret, Date.now() + 30_000);
+    await verifierAuth.verifyMfaStepUp(subjectSession.actor, {
+      challengeToken: followup.challengeToken, code: usedTotpCode,
+    });
+    check(JSON.stringify(await hashes()) === JSON.stringify(originalHashes), 'TOTP must preserve all backup hashes');
+    const replayTotp = await primaryAuth.startMfaStepUp(subjectSession.actor);
+    await denied(verifierAuth.verifyMfaStepUp(subjectSession.actor, {
+      challengeToken: replayTotp.challengeToken, code: usedTotpCode,
+    }), 401);
+    const finalizer = async (userId: string) => (await primaryPrisma.$queryRaw<Array<{ updated: boolean }>>`
+      SELECT updated FROM auth.finalize_authenticated_user_mfa(
+        ${userId}, ${subjectSession.actor.sessionId!}, ${enrollment.challenge.challengeToken.split('.')[0]}
+      )
+    `)[0].updated;
+    check(await finalizer(manager.user.id) === false, 'Finalizer must reject another existing identity');
+    check(await finalizer(subject.user.id) === false, 'Finalizer must reject a historical proof in a later transaction');
+
+    const spend = await primaryAuth.startMfaStepUp(subjectSession.actor);
+    await verifierAuth.verifyMfaStepUp(subjectSession.actor, { challengeToken: spend.challengeToken, code: enrollment.codes[0] });
+    const replay = await primaryAuth.startMfaStepUp(subjectSession.actor);
+    await denied(verifierAuth.verifyMfaStepUp(subjectSession.actor, { challengeToken: replay.challengeToken, code: enrollment.codes[0] }), 401);
+    const sessions = await Promise.all([login(subject.user.email), login(subject.user.email)]);
+    const challenges = await Promise.all(sessions.map(session => primaryAuth.startMfaStepUp(session.actor)));
+    const results = await Promise.allSettled(sessions.map((session, index) =>
+      (index ? verifierAuth : primaryAuth).verifyMfaStepUp(session.actor, {
+        challengeToken: challenges[index].challengeToken, code: enrollment.codes[1],
+      })));
+    check(results.filter(result => result.status === 'fulfilled').length === 1, 'Concurrent backup proof must have exactly one winner');
+    for (let index = 0; index < results.length; index++) {
+      const result = results[index];
+      if (result.status === 'rejected') check(result.reason?.getStatus?.() === 401, 'Concurrent loser must be an auth denial');
+      else check(result.value.mfaVerified === true, 'Concurrent winner must prove actual MFA');
+      const actor = await verifierAuth.verifyAccessToken(sessions[index].token);
+      check(actor.mfaVerified === (result.status === 'fulfilled'), 'Concurrent loser must retain honest password assurance');
+    }
+    const remainingHashes = await hashes();
+    check(Array.isArray(remainingHashes) && remainingHashes.length === 6, 'Two consumed backup codes must leave exactly six');
+
+    const recovery = new OrganizationInvitationService(primaryPrisma, new PersistentAuthRepository(primaryPrisma));
+    const initiated = await recovery.resetMembershipMfa(
+      await verifierAuth.verifyAccessToken(managerSession.token), subject.membership.id, subject.membership.version,
+      'Restricted MFA recovery after support identity review', `restricted-reset-${key}`, `restricted-recovery-${key}`, deliveryKey,
+    );
+    check(initiated.recoveryDelivery?.token, 'Authorized recovery must produce its bound delivery token');
+    const recoveryToken = initiated.recoveryDelivery!.token;
+    const beforeWrongPassword = await hashes();
+    await denied(recovery.confirmMfaRecovery({ token: recoveryToken, password: 'wrong-password' }, `restricted-wrong-${key}`, deliveryKey), 400);
+    check(JSON.stringify(await hashes()) === JSON.stringify(beforeWrongPassword), 'Wrong recovery password must leave credentials unchanged');
+    check((await verifierAuth.verifyAccessToken(subjectSession.token)).mfaVerified === true, 'Wrong recovery proof must not revoke the current session');
+    const recovered = await recovery.confirmMfaRecovery({ token: recoveryToken, password: TEST_PASSWORD }, `restricted-confirm-${key}`, deliveryKey);
+    check(recovered.sessionsRevoked === true && recovered.mfaReenrollmentRequired === true, 'Recovery must revoke sessions and require fresh enrollment');
+    for (const oldSession of [subjectSession, ...sessions]) await denied(verifierAuth.verifyAccessToken(oldSession.token), 401);
+    await denied(recovery.confirmMfaRecovery({ token: recoveryToken, password: TEST_PASSWORD }, `restricted-replay-${key}`, deliveryKey), 400);
+    const recoveredSession = await login(subject.user.email);
+    const restored = await enroll(recoveredSession);
+    check(restored.secret !== enrollment.secret, 'Recovery must replace the old TOTP secret');
+    const freshPrisma = new AuthPrismaService();
+    try {
+      await freshPrisma.onModuleInit();
+      const freshAuth = new AuthService(new PersistentAuthRepository(freshPrisma));
+      check((await freshAuth.verifyAccessToken(recoveredSession.token)).mfaVerified === true, 'New API instance must recover completed re-enrollment');
+    } finally { await freshPrisma.onModuleDestroy(); }
+  } finally {
+    if (previousDeliveryKey === undefined) delete process.env.ORGANIZATION_INVITATION_DELIVERY_KEY;
+    else process.env.ORGANIZATION_INVITATION_DELIVERY_KEY = previousDeliveryKey;
+    await admin.$disconnect();
+  }
+}
+
 export async function createPersistentActorHarness(
   organizationIds: readonly string[],
 ): Promise<PersistentActorHarness> {
@@ -106,6 +257,8 @@ export async function createPersistentActorHarness(
       throw new Error(`Persistent auth harness connected as unexpected principal ${currentUser}`);
     }
 
+    await proveRestrictedMfaRecovery(primaryAuth, verifierAuth, primaryPrisma);
+
     // Do not rediscover identities with the retired resolve_login_identity* or
     // resolve_login_memberships* functions. The harness knows the twelve fixture
     // email addresses it seeded and enters through AuthService.login exactly as
@@ -124,28 +277,21 @@ export async function createPersistentActorHarness(
       const role = login?.user?.role as Role | undefined;
       if (!role) throw new Error(`Persistent login did not resolve a role for ${expectedUserId}`);
       const expectedMfa = MFA_REQUIRED_FIXTURE_ROLES.has(role);
-      if (Boolean(login.mfaRequired) !== expectedMfa) {
-        throw new Error(`Unexpected MFA requirement for ${role}: ${String(login.mfaRequired)}`);
+      if (login.mfaRequired !== false || !login.accessToken || !login.refreshToken || login.user.mfaVerified !== false) {
+        throw new Error(`Password login did not issue an honest active session for ${role}`);
       }
-
-      let accessToken: string;
+      const accessToken: string = login.accessToken;
+      const passwordActor = await verifierAuth.verifyAccessToken(accessToken);
+      if (passwordActor.mfaVerified) throw new Error(`Password login falsely attested MFA for ${role}`);
+      // Deal fixtures explicitly prove possession for the protected commands
+      // exercised below; opening a cabinet itself requires only the password.
       if (expectedMfa) {
-        if (login.accessToken || !login.challengeToken || !login.setupSecret) {
-          throw new Error(`Role ${role} bypassed mandatory MFA enrollment`);
-        }
-        const verified = await verifierAuth.verifyMfa({
-          challengeToken: login.challengeToken,
-          code: totp(login.setupSecret),
-        }) as any;
-        accessToken = verified.accessToken;
-        if (!accessToken || !verified.refreshToken) {
-          throw new Error(`MFA verification did not issue tokens for ${role}`);
-        }
-      } else {
-        accessToken = login.accessToken;
-        if (!accessToken || !login.refreshToken) {
-          throw new Error(`Persistent login did not issue tokens for ${role}`);
-        }
+        const enrollment = await primaryAuth.startMfaStepUp(passwordActor);
+        if (!enrollment.setupSecret) throw new Error(`Fixture ${role} requires explicit MFA enrollment`);
+        const verified = await verifierAuth.verifyMfaStepUp(passwordActor, {
+          challengeToken: enrollment.challengeToken, code: totp(enrollment.setupSecret),
+        });
+        if (!verified.mfaVerified) throw new Error(`MFA possession was not verified for ${role}`);
       }
 
       const claims = assertOpaqueAccessToken(accessToken, expectedUserId);

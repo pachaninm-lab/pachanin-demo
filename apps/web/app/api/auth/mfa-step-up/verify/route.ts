@@ -73,6 +73,9 @@ export async function POST(request: Request) {
       ok: true,
       mfaVerified: true,
       mfaVerifiedAt: typeof payload.mfaVerifiedAt === 'string' ? payload.mfaVerifiedAt : null,
+      ...(Array.isArray(payload.backupCodes) && payload.backupCodes.length === 8
+        && payload.backupCodes.every((code) => typeof code === 'string' && /^[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}$/.test(code))
+        ? { backupCodes: payload.backupCodes } : {}),
       correlationId,
     });
     clear(response);

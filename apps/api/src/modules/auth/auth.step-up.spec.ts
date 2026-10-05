@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { UnauthorizedException } from '@nestjs/common';
 import { Role, type RequestUser } from '../../common/types/request-user';
 import {
@@ -51,6 +52,8 @@ function repository() {
     ensureCredentialState: jest.fn(),
     getCredentialState: jest.fn().mockResolvedValue(credential()),
     expirePendingMfaChallenges: jest.fn(),
+    setMfaSecret: jest.fn(),
+    consumeTotpCounter: jest.fn().mockResolvedValue(true),
     createMfaChallenge: jest.fn(),
     getMfaChallengeForUpdate: jest.fn(),
     recordMfaFailure: jest.fn(),
@@ -156,5 +159,69 @@ describe('active-session MFA step-up', () => {
     })).rejects.toBeInstanceOf(UnauthorizedException);
 
     expect(repo.recordMfaFailure).not.toHaveBeenCalled();
+  });
+});
+
+function totpCode(secret: string): string {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  let bits = 0, value = 0;
+  const bytes: number[] = [];
+  for (const char of secret) {
+    value = (value << 5) | alphabet.indexOf(char); bits += 5;
+    if (bits >= 8) { bits -= 8; bytes.push((value >>> bits) & 255); }
+  }
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30_000)));
+  const digest = createHmac('sha1', Buffer.from(bytes)).update(counter).digest();
+  const offset = digest[digest.length - 1] & 15;
+  return String((digest.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, '0');
+}
+
+describe('explicit enrollment after password login', () => {
+  it('starts enrollment on an active password session without claiming verification', async () => {
+    const repo = repository();
+    repo.getSessionContext.mockResolvedValue({ ...session(), mfa_level: 'NONE', mfa_verified_at: null });
+    repo.getCredentialState.mockResolvedValue({ ...credential(), mfa_enabled: false, mfa_secret_ciphertext: null });
+    const result = await new AuthService(repo as never).startMfaStepUp(actor);
+    expect(result).toMatchObject({ enrollmentRequired: true, methods: ['totp'], setupSecret: expect.any(String) });
+    expect(repo.createMfaChallenge).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: 'TOTP_ENROLL' }));
+    expect(repo.activateMfaStepUp).not.toHaveBeenCalled();
+    expect(repo.consumeTotpCounter).not.toHaveBeenCalled();
+  });
+
+  it('keeps the same pending secret across tabs and requires actual one-time TOTP possession', async () => {
+    const repo = repository();
+    const secret = generateTotpSecret();
+    repo.getCredentialState.mockResolvedValue({ ...credential(), mfa_enabled: false, mfa_secret_ciphertext: encryptMfaSecret(secret).ciphertext });
+    const service = new AuthService(repo as never);
+    expect((await service.startMfaStepUp(actor)).setupSecret).toBe(secret);
+    expect(repo.setMfaSecret).not.toHaveBeenCalled();
+    const token = makeOpaqueToken('mc');
+    repo.getMfaChallengeForUpdate.mockResolvedValue({ ...session(), mfa_level: 'NONE', mfa_verified_at: null,
+      challenge_id: token.id, challenge_token_hash: token.digest, challenge_type: 'TOTP_ENROLL',
+      challenge_status: 'PENDING', challenge_attempts: 0, challenge_max_attempts: 5,
+      challenge_expires_at: new Date(Date.now() + 60_000) });
+    const result = await service.verifyMfaStepUp(actor, { challengeToken: token.token, code: totpCode(secret) });
+    expect(result).toMatchObject({ mfaVerified: true, backupCodes: expect.any(Array) });
+    expect(result.backupCodes).toHaveLength(8);
+    expect(repo.consumeTotpCounter).toHaveBeenCalledWith(expect.anything(), actor.id, expect.any(Number));
+    expect(repo.activateMfaStepUp).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ challengeType: 'TOTP_ENROLL', method: 'TOTP' }));
+    repo.consumeTotpCounter.mockResolvedValue(false);
+    await expect(service.verifyMfaStepUp(actor, { challengeToken: token.token, code: totpCode(secret) })).rejects.toThrow(/Invalid or expired/);
+    expect(repo.activateMfaStepUp).toHaveBeenCalledTimes(1);
+  });
+
+  it('cannot enroll with an old backup code or enroll again after another tab succeeded', async () => {
+    const repo = repository();
+    const token = makeOpaqueToken('mc');
+    repo.getMfaChallengeForUpdate.mockResolvedValue({ ...session(), challenge_id: token.id,
+      challenge_token_hash: token.digest, challenge_type: 'TOTP_ENROLL', challenge_status: 'PENDING',
+      challenge_attempts: 0, challenge_max_attempts: 5, challenge_expires_at: new Date(Date.now() + 60_000) });
+    repo.getCredentialState.mockResolvedValue({ ...credential(), mfa_enabled: false });
+    const service = new AuthService(repo as never);
+    await expect(service.verifyMfaStepUp(actor, { challengeToken: token.token, code: 'ABCD-1234-EF56' })).rejects.toThrow(/Invalid or expired/);
+    repo.getCredentialState.mockResolvedValue(credential());
+    await expect(service.verifyMfaStepUp(actor, { challengeToken: token.token, code: 'ABCD-1234-EF56' })).rejects.toThrow(/Invalid or expired/);
+    expect(repo.activateMfaStepUp).not.toHaveBeenCalled();
   });
 });

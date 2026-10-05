@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
-import { ACCEPTANCE_PASSWORD, ACCEPTANCE_TOTP_SECRET, loginAs, totp, type CabinetRole } from './support/acceptance-login';
+import { ACCEPTANCE_PASSWORD, ACCEPTANCE_TOTP_SECRET, acceptanceEmail, loginAs, totp, type CabinetRole } from './support/acceptance-login';
 
 
 const AUTHORITY_AHASH: Record<string,{hash:string;maxDistance:number}> = {
@@ -468,14 +468,27 @@ async function loginReadyBankJourney(page: Page, email: string, baseURL: string)
       data: { email, password: ACCEPTANCE_PASSWORD },
     });
     expect(login.status()).toBeLessThan(400);
-    expect((await login.json()).mfaRequired, 'ACCOUNTING must complete ordinary MFA').toBe(true);
-    const verify = await context.request.post('/api/auth/mfa-login', {
+    const passwordSession = await login.json();
+    expect(passwordSession.ok).toBe(true);
+    expect(passwordSession.mfaRequired, 'ordinary ACCOUNTING login needs only the password').not.toBe(true);
+    const passwordIdentity = await context.request.get('/api/auth/me');
+    expect(passwordIdentity.status()).toBe(200);
+    expect((await passwordIdentity.json()).user.mfaVerified).toBe(false);
+    const start = await context.request.post('/api/auth/mfa-step-up/start', {
+      headers: { 'content-type': 'application/json', 'x-csrf-token': await csrf() }, data: {},
+    });
+    expect(start.status(), 'authenticated protected-action MFA start').toBeLessThan(400);
+    expect((await start.json()).ok).toBe(true);
+    const verify = await context.request.post('/api/auth/mfa-step-up/verify', {
       headers: { 'content-type': 'application/json', 'x-csrf-token': await csrf() },
       data: { code: totp(ACCEPTANCE_TOTP_SECRET) },
     });
-    authenticated = verify.status() < 400 && (await verify.json()).ok === true;
+    authenticated = verify.status() < 400 && (await verify.json()).mfaVerified === true;
   }
-  expect(authenticated, 'server-issued MFA login for isolated READY bank user').toBe(true);
+  expect(authenticated, 'server-proved action MFA for isolated READY bank user').toBe(true);
+  const protectedIdentity = await context.request.get('/api/auth/me');
+  expect(protectedIdentity.status()).toBe(200);
+  expect((await protectedIdentity.json()).user.mfaVerified).toBe(true);
   const names = (await context.cookies(baseURL)).map((cookie) => cookie.name);
   expect(names).toContain('pc_v7_cabinet');
   expect(names).toContain('pc_access_token');
@@ -1040,4 +1053,27 @@ test.describe('owner UX v2 About and Trust geometry', () => {
       });
     }
   }
+});
+
+
+test('canonical protected cabinet boundary: password-only login opens the ordinary buyer cabinet without an MFA challenge', async ({ page, baseURL }) => {
+  test.skip(!baseURL?.startsWith('https://'), 'Password-session authority requires the TLS PostgreSQL acceptance contour.');
+  await page.context().clearCookies();
+  await page.goto('/platform-v7/login?lang=ru', { waitUntil: 'domcontentloaded' });
+  await page.locator('input[name="email"]').fill(acceptanceEmail('buyer'));
+  await page.locator('input[name="password"]').fill(ACCEPTANCE_PASSWORD);
+  const responsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/auth/login'
+    && response.request().method() === 'POST');
+  await page.locator('form').filter({ has: page.locator('input[name="password"]') }).locator('button[type="submit"]').click();
+  const response = await responsePromise;
+  expect(response.status()).toBe(200);
+  expect(await response.json()).toMatchObject({ ok: true, mfaRequired: false });
+  await expect(page).toHaveURL(/\/platform-v7\/buyer(?:[?]|$)/);
+  await expect(page.getByTestId('p0-first-customer-workspace-buyer')).toBeVisible();
+  await expect(page.locator('input[name="verification-code"]')).toHaveCount(0);
+  const profile = await page.context().request.get('/api/auth/me');
+  expect(profile.status()).toBe(200);
+  const payload = await profile.json();
+  expect(payload.user?.mfaVerified ?? payload.mfaVerified).toBe(false);
+  await canonicalNoOverflow(page);
 });

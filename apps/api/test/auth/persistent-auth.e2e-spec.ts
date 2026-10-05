@@ -412,25 +412,46 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     }
   });
 
-  it('requires TOTP before activating a privileged compliance session', async () => {
+  it('opens a password-only privileged session and requires explicit TOTP for protected commands', async () => {
     const identity = await seedIdentity('compliance', Role.COMPLIANCE_OFFICER);
-    const pending = await first.auth.login({ email: identity.email, password: PASSWORD }) as any;
-
-    expect(pending.mfaRequired).toBe(true);
-    expect(pending).not.toHaveProperty('accessToken');
-    expect(pending.challengeToken).toMatch(/^mc_/);
-    expect(pending.setupSecret).toEqual(expect.any(String));
-    expect(pending.otpAuthUri).toMatch(/^otpauth:\/\/totp\//);
-
-    const verified = await second.auth.verifyMfa({
-      challengeToken: pending.challengeToken,
-      code: totp(pending.setupSecret),
+    const login = await first.auth.login({ email: identity.email, password: PASSWORD }) as any;
+    expect(login).toMatchObject({ mfaRequired: false, user: { mfaVerified: false } });
+    expect(login).not.toHaveProperty('challengeToken');
+    expect(login).not.toHaveProperty('setupSecret');
+    const passwordUser = await second.auth.verifyAccessToken(login.accessToken);
+    expect(passwordUser.mfaVerified).toBe(false);
+    expect(() => first.auth.assertRecentFinancialMfa(passwordUser, FINANCIAL_MFA_THRESHOLD_KOPECKS)).toThrow(/Recent MFA/i);
+    const enrollment = await first.auth.startMfaStepUp(passwordUser);
+    expect(enrollment).toMatchObject({ enrollmentRequired: true, setupSecret: expect.any(String) });
+    expect(enrollment.otpAuthUri).toMatch(/^otpauth:\/\/totp\//);
+    // Starting enrollment grants no authority; possession is proved separately.
+    expect((await second.auth.verifyAccessToken(login.accessToken)).mfaVerified).toBe(false);
+    // A pending real encrypted secret can outlive missing legacy key metadata.
+    // Only actual TOTP possession may finalize that bounded compatibility state.
+    await first.prisma.$executeRaw`
+      UPDATE auth.credential_states SET mfa_key_version = NULL WHERE user_id = ${identity.userId}
+    `;
+    const verified = await second.auth.verifyMfaStepUp(passwordUser, {
+      challengeToken: enrollment.challengeToken,
+      code: totp(enrollment.setupSecret!),
     }, 'auth-e2e-mfa', '127.0.0.4') as any;
-    expect(verified.accessToken).toEqual(expect.any(String));
-    expect(verified.refreshToken).toMatch(/^rt_/);
     expect(verified.backupCodes).toHaveLength(8);
+    const beforeTotp = await first.prisma.$queryRaw<Array<{ mfa_backup_hashes: unknown }>>`
+      SELECT mfa_backup_hashes FROM auth.credential_states WHERE user_id = ${identity.userId}
+    `;
+    const followup = await first.auth.startMfaStepUp(passwordUser);
+    expect(followup).not.toHaveProperty('setupSecret');
+    await second.auth.verifyMfaStepUp(passwordUser, {
+      challengeToken: followup.challengeToken,
+      code: totp(enrollment.setupSecret!, Date.now() + 30_000),
+    });
+    const afterTotp = await second.prisma.$queryRaw<Array<{ mfa_backup_hashes: unknown }>>`
+      SELECT mfa_backup_hashes FROM auth.credential_states WHERE user_id = ${identity.userId}
+    `;
+    expect(afterTotp).toEqual(beforeTotp);
+    expect(afterTotp[0].mfa_backup_hashes).toHaveLength(8);
 
-    const user = await first.auth.verifyAccessToken(verified.accessToken);
+    const user = await first.auth.verifyAccessToken(login.accessToken);
     expect(user).toMatchObject({
       id: identity.userId,
       role: Role.COMPLIANCE_OFFICER,
@@ -456,7 +477,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     )).not.toThrow();
 
     await first.auth.logout({}, user.sessionId);
-    await expect(second.auth.verifyAccessToken(verified.accessToken)).rejects.toThrow(/revoked|not active/i);
+    await expect(second.auth.verifyAccessToken(login.accessToken)).rejects.toThrow(/revoked|not active/i);
   });
 
   it('applies administrator revocation and organization suspension across API instances', async () => {
@@ -837,7 +858,7 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
         outcome: 'DENIED',
         reason: 'REFRESH_TOKEN_REUSE_DETECTED',
       }),
-      expect.objectContaining({ action: 'auth.mfa.verify', outcome: 'SUCCESS' }),
+      expect.objectContaining({ action: 'auth.mfa.step_up.verify', outcome: 'SUCCESS' }),
       expect.objectContaining({ action: 'auth.logout', outcome: 'SUCCESS' }),
       expect.objectContaining({ action: 'auth.sessions.revoke_all', outcome: 'SUCCESS' }),
       expect.objectContaining({ action: 'auth.access', outcome: 'DENIED' }),

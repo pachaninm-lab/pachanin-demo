@@ -8,7 +8,7 @@ import { expect, type BrowserContext, type Page } from '@playwright/test';
  * organization and tenant match a live /auth/me profile, so a hand-minted
  * cookie cannot open a cabinet and should not be able to. This helper drives
  * the ordinary login route instead: the server verifies the password against
- * PostgreSQL, enforces the second factor, and mints both the session and the
+ * PostgreSQL and mints both the session and the
  * cabinet cookie through the same code production runs.
  *
  * Nothing here weakens the boundary. The only test-supplied inputs are a
@@ -76,52 +76,45 @@ async function csrfToken(context: BrowserContext, baseURL: string): Promise<stri
 }
 
 /**
- * Logs the given seeded role in through the real login route, completing the
- * second factor when the server demands it. Leaves the browser context holding
+ * Logs the seeded role in with a password, then explicitly completes action
+ * MFA when the acceptance scenario requests it. Leaves the browser context holding
  * exactly the cookies a real login produces.
  */
-export async function loginAs(page: Page, role: CabinetRole, baseURL: string): Promise<void> {
+export async function loginAs(page: Page, role: CabinetRole, baseURL: string, requireMfa = true): Promise<void> {
   const context = page.context();
-  let authenticated = false;
-  let lastMfaStatus = 0;
+  await context.clearCookies();
+  await page.goto('/platform-v7/login', { waitUntil: 'load' });
+  const token = await csrfToken(context, baseURL);
+  const login = await context.request.post('/api/auth/login', {
+    headers: { 'content-type': 'application/json', 'x-csrf-token': token },
+    data: { email: acceptanceEmail(role), password: ACCEPTANCE_PASSWORD },
+  });
+  expect(login.status(), `password login status for ${role}`).toBeLessThan(400);
+  const body = await login.json();
+  expect(body.ok, `password login for ${role}`).toBe(true);
+  expect(body.mfaRequired, `opening ${role} must not require a code`).not.toBe(true);
 
-  // A rejected/replayed TOTP consumes the pending login context. Retrying the
-  // same MFA ticket/CSRF pair can only keep returning 401. Each retry therefore
-  // starts a fresh ordinary login and obtains a new server-issued MFA context.
-  for (let attempt = 0; attempt < 3 && !authenticated; attempt += 1) {
-    if (attempt > 0) {
-      await page.waitForTimeout(30_000 - (Date.now() % 30_000) + 1_000);
+  // Protected-role acceptance explicitly proves possession after password
+  // login. These are ordinary authenticated step-up endpoints, never fixture
+  // authority flags or hand-minted cookies.
+  if (requireMfa) {
+    let verified = false;
+    for (let attempt = 0; attempt < 3 && !verified; attempt += 1) {
+      if (attempt > 0) await page.waitForTimeout(30_000 - (Date.now() % 30_000) + 1_000);
+      const start = await context.request.post('/api/auth/mfa-step-up/start', {
+        headers: { 'content-type': 'application/json', 'x-csrf-token': await csrfToken(context, baseURL) }, data: {},
+      });
+      expect(start.status(), `authenticated MFA start for ${role}`).toBeLessThan(400);
+      const setup = await start.json();
+      const verify = await context.request.post('/api/auth/mfa-step-up/verify', {
+        headers: { 'content-type': 'application/json', 'x-csrf-token': await csrfToken(context, baseURL) },
+        data: { code: totp(String(setup.setupSecret || ACCEPTANCE_TOTP_SECRET)) },
+      });
+      const result = await verify.json().catch(() => ({}));
+      verified = verify.ok() && result.mfaVerified === true;
     }
-
-    await context.clearCookies();
-    await page.goto('/platform-v7/login', { waitUntil: 'load' });
-    const token = await csrfToken(context, baseURL);
-
-    const login = await context.request.post('/api/auth/login', {
-      headers: { 'content-type': 'application/json', 'x-csrf-token': token },
-      data: { email: acceptanceEmail(role), password: ACCEPTANCE_PASSWORD },
-    });
-    expect(login.status(), `login status for ${role}`).toBeLessThan(400);
-    const body = await login.json();
-
-    if (!body.mfaRequired) {
-      expect(body.ok, `login for ${role}`).toBe(true);
-      authenticated = true;
-      break;
-    }
-
-    const secret = String(body.setupSecret || ACCEPTANCE_TOTP_SECRET);
-    const mfaToken = await csrfToken(context, baseURL);
-    const verify = await context.request.post('/api/auth/mfa-login', {
-      headers: { 'content-type': 'application/json', 'x-csrf-token': mfaToken },
-      data: { code: totp(secret) },
-    });
-    lastMfaStatus = verify.status();
-    const verifyBody = await verify.json().catch(() => ({}));
-    authenticated = lastMfaStatus < 400 && verifyBody.ok === true;
+    expect(verified, `actual action MFA for ${role}`).toBe(true);
   }
-
-  expect(authenticated, `MFA/login verification for ${role} (last MFA status ${lastMfaStatus})`).toBe(true);
 
   const cookies = await context.cookies(baseURL);
   const names = cookies.map((cookie) => cookie.name);
