@@ -154,7 +154,7 @@ export function OrganizationTeamAdminClient({
   async function verifyStepUp(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const code = stepUpCode.trim();
-    if (busy || !/^(?:\d{6}|[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4})$/.test(code)) {
+    if (busy || !/^(?:\d{6}|[A-Za-z2-7]{6}(?:-[A-Za-z2-7]{6}){3}|[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4})$/.test(code)) {
       setError(copy.stepUpInvalid);
       return;
     }

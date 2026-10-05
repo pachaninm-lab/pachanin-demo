@@ -1,11 +1,14 @@
 import { createHmac } from 'node:crypto';
 import { UnauthorizedException } from '@nestjs/common';
+import { validateSync } from 'class-validator';
 import { Role, type RequestUser } from '../../common/types/request-user';
 import {
   encryptMfaSecret,
   generateTotpSecret,
   hashAuthMaterial,
+  generateBackupCodes,
 } from './auth-crypto';
+import { MfaVerifyDto } from './dto/mfa-verify.dto';
 import { AuthService } from './auth.service';
 import type { CredentialStateRow, MfaChallengeRow, SessionContextRow } from './persistent-auth.repository';
 import { digestMfaBackupCode, makeOpaqueToken } from './opaque-token-authority';
@@ -65,6 +68,21 @@ function repository() {
 }
 
 describe('active-session MFA step-up', () => {
+  it('accepts every genuinely minted backup credential at the HTTP DTO boundary', () => {
+    const token = makeOpaqueToken('mc');
+    for (const code of generateBackupCodes().codes) {
+      expect(validateSync(Object.assign(new MfaVerifyDto(), { challengeToken: token.token, code }))).toEqual([]);
+      expect(validateSync(Object.assign(new MfaVerifyDto(), { challengeToken: token.token, code: code.toLowerCase() }))).toEqual([]);
+    }
+    for (const code of ['123456', 'ABCD-1234-EF56']) {
+      expect(validateSync(Object.assign(new MfaVerifyDto(), { challengeToken: token.token, code }))).toEqual([]);
+    }
+    for (const code of ['AAAAAA-AAAAAA-AAAAAA-AAAAA0', 'AAAAAA-AAAAAA-AAAAAA', '12345']) {
+      expect(validateSync(Object.assign(new MfaVerifyDto(), { challengeToken: token.token, code })))
+        .toEqual(expect.arrayContaining([expect.objectContaining({ property: 'code' })]));
+    }
+  });
+
   it('locks the live session and replaces any pending step-up challenge', async () => {
     const repo = repository();
     const result = await new AuthService(repo as never).startMfaStepUp(actor);

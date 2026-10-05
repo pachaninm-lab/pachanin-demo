@@ -441,9 +441,16 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     `;
     const followup = await first.auth.startMfaStepUp(passwordUser);
     expect(followup).not.toHaveProperty('setupSecret');
+    const [consumed] = await first.prisma.$queryRaw<Array<{ mfa_last_totp_counter: bigint | null }>>`
+      SELECT mfa_last_totp_counter FROM auth.credential_states WHERE user_id = ${identity.userId}
+    `;
+    expect(consumed.mfa_last_totp_counter).not.toBeNull();
+    const delay = Math.max(0, (Number(consumed.mfa_last_totp_counter) + 1) * 30_000 + 100 - Date.now());
+    expect(delay).toBeLessThanOrEqual(30_100);
+    await new Promise<void>(resolve => setTimeout(resolve, delay));
     await second.auth.verifyMfaStepUp(passwordUser, {
       challengeToken: followup.challengeToken,
-      code: totp(enrollment.setupSecret!, Date.now() + 30_000),
+      code: totp(enrollment.setupSecret!),
     });
     const afterTotp = await second.prisma.$queryRaw<Array<{ mfa_backup_hashes: unknown }>>`
       SELECT mfa_backup_hashes FROM auth.credential_states WHERE user_id = ${identity.userId}

@@ -166,7 +166,16 @@ async function proveRestrictedMfaRecovery(
     `)[0].mfa_backup_hashes;
     const originalHashes = await hashes();
     const followup = await primaryAuth.startMfaStepUp(subjectSession.actor);
-    const usedTotpCode = totp(enrollment.secret, Date.now() + 30_000);
+    const [consumed] = await primaryPrisma.$queryRaw<Array<{ mfa_last_totp_counter: bigint | null }>>`
+      SELECT mfa_last_totp_counter FROM auth.credential_states WHERE user_id = ${subject.user.id}
+    `;
+    check(consumed.mfa_last_totp_counter !== null, 'Enrollment must consume a real TOTP counter');
+    // The runtime accepts only the current step. Wait for the actual consumed
+    // step to end rather than submitting a future code or changing its policy.
+    const delay = Math.max(0, (Number(consumed.mfa_last_totp_counter) + 1) * 30_000 + 100 - Date.now());
+    check(delay <= 30_100, 'Consumed counter must belong to the current or a past step');
+    await new Promise<void>(resolve => setTimeout(resolve, delay));
+    const usedTotpCode = totp(enrollment.secret);
     await verifierAuth.verifyMfaStepUp(subjectSession.actor, {
       challengeToken: followup.challengeToken, code: usedTotpCode,
     });

@@ -7,13 +7,14 @@ import type { StaffHomeContract } from '@/lib/platform-v7/staff-capabilities';
 import styles from '@/app/platform-v7/profile/team/OrganizationTeamAdminClient.module.css';
 
 const COPY = {
-  ru: { title: 'Кабинет сотрудника', signedIn: 'Вход выполнен по логину и паролю.', action: 'Подготовить защищённое действие', lead: 'Дополнительное подтверждение потребуется для защищённых операций.', setup: 'Добавь ключ в приложение-аутентификатор.', code: 'Код подтверждения', confirm: 'Подтвердить', error: 'Проверка не завершена. Начни заново.', backups: 'Сохрани резервные коды. Каждый действует один раз.', open: 'Открыть управление' },
-  en: { title: 'Staff cabinet', signedIn: 'Signed in with your login and password.', action: 'Prepare a protected action', lead: 'Protected operations require additional verification.', setup: 'Add this key to your authenticator.', code: 'Verification code', confirm: 'Confirm', error: 'Verification did not complete. Start again.', backups: 'Save these backup codes. Each works once.', open: 'Open management' },
-  zh: { title: '员工账户', signedIn: '已通过登录名和密码登录。', action: '准备受保护操作', lead: '受保护操作需要额外验证。', setup: '将此密钥添加到身份验证应用。', code: '验证码', confirm: '确认', error: '验证未完成。请重新开始。', backups: '请保存备用代码。每个代码只能使用一次。', open: '打开管理界面' },
+  ru: { title: 'Кабинет сотрудника', signedIn: 'Вход выполнен по логину и паролю.', action: 'Подготовить защищённое действие', lead: 'Дополнительное подтверждение потребуется для защищённых операций.', setup: 'Добавь ключ в приложение-аутентификатор.', code: 'Код подтверждения', confirm: 'Подтвердить', error: 'Проверка не завершена. Начни заново.', backups: 'Сохрани резервные коды. Каждый действует один раз.', open: 'Продолжить' },
+  en: { title: 'Staff cabinet', signedIn: 'Signed in with your login and password.', action: 'Prepare a protected action', lead: 'Protected operations require additional verification.', setup: 'Add this key to your authenticator.', code: 'Verification code', confirm: 'Confirm', error: 'Verification did not complete. Start again.', backups: 'Save these backup codes. Each works once.', open: 'Continue' },
+  zh: { title: '员工账户', signedIn: '已通过登录名和密码登录。', action: '准备受保护操作', lead: '受保护操作需要额外验证。', setup: '将此密钥添加到身份验证应用。', code: '验证码', confirm: '确认', error: '验证未完成。请重新开始。', backups: '请保存备用代码。每个代码只能使用一次。', open: '继续' },
 } as const;
 
-export function PasswordStaffHome({ locale, home }: { locale: AppLocale; home: StaffHomeContract }) {
+export function OwnMfaVerificationPanel({ locale }: { locale: AppLocale }) {
   const copy = COPY[locale];
+  const titleId = React.useId();
   const [started, setStarted] = React.useState(false);
   const [secret, setSecret] = React.useState('');
   const [code, setCode] = React.useState('');
@@ -51,11 +52,8 @@ export function PasswordStaffHome({ locale, home }: { locale: AppLocale; home: S
     } catch { setError(true); setStarted(false); } finally { setBusy(false); setSecret(''); setCode(''); }
   }
 
-  return <section className={styles.panel} aria-labelledby='password-staff-home-title' data-password-staff-home>
-    <h1 id='password-staff-home-title'>{copy.title}</h1>
-    <p>{home.identity.fullName || home.identity.email}</p>
-    <p role='status'>{copy.signedIn}</p>
-    <ul>{home.assignments.map((assignment) => <li key={assignment.id}>{assignment.role}</li>)}</ul>
+  return <section className={styles.panel} aria-labelledby={titleId} data-own-mfa-verification>
+    <h2 id={titleId}>{copy.action}</h2>
     <p>{copy.lead}</p>
     {error ? <p role='alert'>{copy.error}</p> : null}
     {verified ? <>
@@ -66,5 +64,16 @@ export function PasswordStaffHome({ locale, home }: { locale: AppLocale; home: S
       <label>{copy.code}<input autoComplete='one-time-code' value={code} onChange={(event) => setCode(event.target.value)} maxLength={32} required /></label>
       <button type='submit' disabled={busy}>{copy.confirm}</button>
     </form> : <button type='button' onClick={() => void start()} disabled={busy}>{copy.action}</button>}
+  </section>;
+}
+
+export function PasswordStaffHome({ locale, home }: { locale: AppLocale; home: StaffHomeContract }) {
+  const copy = COPY[locale];
+  return <section className={styles.panel} aria-labelledby='password-staff-home-title' data-password-staff-home>
+    <h1 id='password-staff-home-title'>{copy.title}</h1>
+    <p>{home.identity.fullName || home.identity.email}</p>
+    <p role='status'>{copy.signedIn}</p>
+    <ul>{home.assignments.map((assignment) => <li key={assignment.id}>{assignment.role}</li>)}</ul>
+    <OwnMfaVerificationPanel locale={locale} />
   </section>;
 }

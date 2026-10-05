@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   const jar = await cookies();
   const accessToken = jar.get(ACCESS_COOKIE)?.value || '';
   const challengeToken = jar.get(MFA_STEP_UP_COOKIE)?.value || '';
-  if (!accessToken || !challengeToken || !/^(?:\d{6}|[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4})$/.test(code)) {
+  if (!accessToken || !challengeToken || !/^(?:\d{6}|[A-Za-z2-7]{6}(?:-[A-Za-z2-7]{6}){3}|[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4})$/.test(code)) {
     const response = json({ ok: false, code: 'MFA_STEP_UP_INVALID', message: UNIVERSAL_ERROR, correlationId }, accessToken ? 400 : 401);
     clear(response);
     return response;
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       mfaVerified: true,
       mfaVerifiedAt: typeof payload.mfaVerifiedAt === 'string' ? payload.mfaVerifiedAt : null,
       ...(Array.isArray(payload.backupCodes) && payload.backupCodes.length === 8
-        && payload.backupCodes.every((code) => typeof code === 'string' && /^[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}$/.test(code))
+        && payload.backupCodes.every((code) => typeof code === 'string' && /^[A-Z2-7]{6}(?:-[A-Z2-7]{6}){3}$/.test(code))
         ? { backupCodes: payload.backupCodes } : {}),
       correlationId,
     });
