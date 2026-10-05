@@ -1841,7 +1841,8 @@
       "scripts/platform-v7-one-deal-e2e.sh",
       "apps/api/src/modules/auth/dto/mfa-verify.dto.ts",
       "docs/security/cryptographic-inventory.json",
-      "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "apps/web/app/platform-v7/profile/page.tsx"
     ]
   },
   "currentAcceptance": [
@@ -4621,24 +4622,25 @@
         "scripts/platform-v7-one-deal-e2e.sh",
         "apps/api/src/modules/auth/dto/mfa-verify.dto.ts",
         "docs/security/cryptographic-inventory.json",
-        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "apps/web/app/platform-v7/profile/page.tsx"
       ],
       "requiredTruthBoundaries": [
-        "This additive state-only admission grants the exact31 source/test paths for the newly requested password-login policy. Preserve every prior scope/admission/history/CORE owner/PRIMARY/current/progress and official5/100.",
+        "This additive state-only admission grants the exact32 source/test paths for the newly requested password-login policy. Preserve every prior scope/admission/history/CORE owner/PRIMARY/current/progress and official5/100.",
         "Ordinary login and membership selection issue an ACTIVE password session with honest mfaVerified=false, no new login MFA challenge or secret. Preserve bcrypt proof, transactional password re-read, active tenant membership, credential version, refresh reuse/revocation/idle controls, audit and cookie/CSRF authority.",
         "Privileged role and organization-admin mutation commands still require actual MFA at the server action boundary, including server-owned-amount legacy arbitral/compliance commands. Only authenticated own MFA start/verify and logout may use the narrow server-owned password-session action marker. Keep recent financial and all staff capability/access/action checks.",
         "Explicit enrollment occurs only inside a bound live password session, proves actual consumed TOTP before enabling MFA, uses the existing bounded PostgreSQL finalizer and preserves one-use backup codes/recovery/session revocation. No fake verification, authorization shortcut, production DB migration/RLS grant or client-minted session. The one admitted disposable test-provisioning script may mirror existing production auth-role DML for the three recovery/command tables and must assert append-only event privileges; all existing role, RLS, function and isolation checks remain intact.",
-        "The three additional prerequisite paths are limited to accepting existing genuine base32 backup credentials (while retaining valid legacy stored codes) in the MFA verification DTO, and mechanical JSON/Markdown inventory output from the unchanged cryptography discovery generator. Preserve backup entropy, one-use consumption, TOTP accepted offsets [0], CSRF and assurance boundaries. Correct test fixtures with a bounded wait for the next actual current step, never a future code accepted by weakening runtime policy. Remove deterministic mock enrollment secrets without secret-scan ignores. Full fresh-head review and native checks must replace failed 8e1f evidence; no failed gate waiver.",
+        "The four additional prerequisite paths are limited to accepting existing genuine base32 backup credentials (while retaining valid legacy stored codes) in the MFA verification DTO, an own-subject MFA panel mounted on the authenticated profile for every membership without staff/admin capabilities, and mechanical JSON/Markdown inventory output from the unchanged cryptography discovery generator. Preserve backup entropy, one-use consumption, TOTP accepted offsets [0], CSRF and assurance boundaries. Correct test fixtures with a bounded wait for the next actual current step, never a future code accepted by weakening runtime policy. Remove deterministic mock enrollment secrets without secret-scan ignores. Full fresh-head review and native checks must replace failed 8e1f evidence; no failed gate waiver.",
         "Thin staff landing exposes only own current ACTIVE assignment labels/identity and honest assurance. It confers no capabilities, tenant/customer scopes, staff sessions, approvals, operational data or VIEW_AS; full staff UI remains behind unchanged MFA authority.",
         "Keep Gekta ProductSessionService/auth/model/runtime and provider/BankOperation/FGIS authorities unchanged. Genuine protected acceptance fixtures must prove MFA explicitly; also run an ordinary password-only browser journey.",
         "Preserve the sole original BANK#5735 writer/history and running native window. Do not move main while its current exact-head acceptance is serialized; after that window, admit this policy and publish one original auth SOURCE on fresh accepted main through ordinary ancestry. PUBLIC6 remains a separate unaccepted consent proposal.",
-        "The source stays exactly31 reviewed regular files. Standard branch-scope routing also retains current global paths; it is not mechanically immutable exact31 enforcement. Independent full-head/recursive-tree review and owner audit must establish no additional source, state, workflow or mode changes.",
+        "The source stays exactly32 reviewed regular files. Standard branch-scope routing also retains current global paths; it is not mechanically immutable exact32 enforcement. Independent full-head/recursive-tree review and owner audit must establish no additional source, state, workflow or mode changes.",
         "Require fresh exact-published-head independent nonauthor review, separate owner audit, complete substantive CI/security, actual restricted PostgreSQL login/enrollment/backup/recovery/finalizer/concurrency and real TLS browser checks, genuine manual readiness and ordinary expected-full-SHA merge. Private/local and earlier-head results are never current native acceptance.",
         "Production removal of the code is established only by a reviewed exact-main REG.RU API/web release with immutable running revisions, real password-only sign-in and touched-flow live acceptance. At least30 minutes observation remains required; no source-only deployment/13-cabinet/whole-block or provider-contract completion claim."
       ],
       "nativeFailureSourceHead": "8e1febfffeb4da36f1dba9badb7522ddb6513c1d",
       "scopeAmendmentBaseExactMain": "53ea4230ee991b1976f872a4c0f99a0d2a114456",
-      "scopeAmendmentReason": "Actual published-head native PostgreSQL rejects future-step TOTP fixtures; independent review found browser/API validators rejecting the real minted 120-bit base32 backup credentials; security CI requires deterministic inventory freshness for the new production staff component."
+      "scopeAmendmentReason": "Actual published-head native PostgreSQL rejects future-step TOTP fixtures; independent review found browser/API validators rejecting the real minted 120-bit base32 backup credentials; security CI requires deterministic inventory freshness for the new production staff component. The ordinary non-admin authenticated profile also needs a genuine own-subject explicit enrollment/recovery path after login ceases to require MFA; mounting it must not confer staff or organization-admin authority."
     }
   }
 }
