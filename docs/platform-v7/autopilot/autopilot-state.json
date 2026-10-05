@@ -14,8 +14,8 @@
   },
   "mode": "master-v2.1-r1-founder-ceo",
   "status": "active",
-  "currentStatus": "ready",
-  "current": "R1.2 Controlled open-as-role server authority",
+  "currentStatus": "in_progress",
+  "current": "R1 release prerequisite: atomic canonical readiness recovery #4829",
   "fullTzReadinessPercent": 5,
   "readinessScoring": "Binary GO completion only; 0 means the Industrial Integration-Ready gate is not yet accepted. It is not an implementation-progress estimate.",
   "openPr": null,
@@ -147,13 +147,15 @@
     }
   },
   "openBlockers": [
-    "R1.2: current production owner direct-cabinet shortcut is controlled-test-bound and not R1 evidence.",
-    "R1.2: canonical 13 role-mode registry and server-derived role intent must be added on top of the existing durable Staff Access VIEW_AS authority without creating a domain Founder role.",
-    "R1.5 visual banner/return remains a PRODUCT dependency in Team Hub #5469 and does not block this backend slice."
+    "R1.2 staff-session source #5766 is merged as 2749279de3b070f3ff9b79224c26d03c590275bd; exact-main REG.RU and full 13-cabinet acceptance remain unproved.",
+    "Atomic readiness prerequisite #4829 combines the unchanged COR5 source, exact staff-test fix and five governance documents under owner disposition 5935185862; fresh whole-head independent review and complete CI/security/Kubernetes acceptance remain pending.",
+    "REG.RU topology preflight is BLOCKED; current migration-service authority must be observed without bypass before release.",
+    "R1.5 visual banner/return and other PRODUCT surfaces retain their existing owners and separate admissions."
   ],
   "blockerNotes": "R0 and IR-20 are production-accepted on exact main 5da8e80744908413102214f91dd68018911b892e. R1 starts with a backend-only server-authority slice because apps/web remains a protected/parallel-account zone. A later owner handoff change requires its own trusted scope after conflict recheck.",
   "lockedUntilCurrentGreen": [
-    "R1.3 CEO overview and P0/P1 decision queue"
+    "Gekta existing-owner model activation and live quality/speed/stability acceptance: after this prerequisite, within separate existing scopes and remaining release/topology gates",
+    "R1.3 CEO overview and P0/P1 decision queue: resume after bounded readiness source acceptance and fresh scope transition"
   ],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -161,9 +163,12 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "docs/execution/**",
-    "apps/api/src/modules/staff-access/**",
-    "apps/api/test/staff-access/**"
+    "apps/api/test/staff-access/postgresql-staff-access.e2e-spec.ts",
+    "apps/api/src/main.ts",
+    "apps/api/src/health.controller.ts",
+    "apps/api/src/health.controller.spec.ts",
+    "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts",
+    "apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -171,9 +176,12 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "docs/execution/**",
-    "apps/api/src/modules/staff-access/**",
-    "apps/api/test/staff-access/**"
+    "apps/api/test/staff-access/postgresql-staff-access.e2e-spec.ts",
+    "apps/api/src/main.ts",
+    "apps/api/src/health.controller.ts",
+    "apps/api/src/health.controller.spec.ts",
+    "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts",
+    "apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts"
   ],
   "approvedConcurrentScopes": {
     "fix/public-registration-participation-choice-20260923": [
@@ -1779,16 +1787,43 @@
       "packages/design-system-v8/src/components.tsx",
       "docs/security/cryptographic-inventory.json",
       "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+    ],
+    "fix/gekta-model-control-probe-20261001": [
+      ".github/workflows/gekta-p0-speed-model-host-control-probe.yml"
+    ],
+    "fix/tai-bounded-topology-observer-20261001": [
+      "scripts/tai-reg-ru-preflight.sh",
+      "scripts/check-tai-reg-ru-preflight.mjs"
+    ],
+    "fix/settlement-currency-projection-5525": [
+      "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
+      "apps/api/test/industrial/harness.ts",
+      "apps/api/test/industrial/settlement-postgresql-authority.e2e-spec.ts"
+    ],
+    "fix/deal-execution-route-20261001": [
+      "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+      "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+      "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts"
+    ],
+    "fix/shared-ci-deal-route-classifier-5799": [
+      ".github/workflows/pc-crop-01b4.yml",
+      ".github/workflows/pc-crop-07b.yml",
+      "docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json"
     ]
   },
   "currentAcceptance": [
-    "Founder identity remains the actual actor; no business/domain Founder role is added.",
-    "The 13 cabinet intents are server-owned; client input selects a bounded cabinet key, never tenant/effective role authority.",
-    "Target tenant is derived server-side from the authorized organization; VIEW_AS stays read-only and time-bound.",
-    "Reason, ticket, effective organization/role, expiry, activation and end/revoke are durable and audited through existing Staff Access tables.",
-    "High-risk writes remain outside VIEW_AS and keep ordinary authority/MFA/approval boundaries.",
-    "Cross-tenant, forged-role, stale/revoked/expired-session and controlled-test-as-production cases fail closed.",
-    "R1.2 implementation starts only after this governance admission has final exact-head green CI, independent review and a manual SHA-bound merge to current main."
+    "Owner disposition 5935185862 replaces metadata-first/source separation only for this single atomic prerequisite; candidate-owned scope lists are not independent authorization.",
+    "Use the existing fix/readiness-database-deadline-4829 branch and preserve original readiness, #5770 and #5771 history and CORE ownership through ordinary ancestry.",
+    "The entire accepted-base diff is exactly eleven existing regular 100644 files: five governance documents, the exact e358 staff test and the unchanged complete five-file COR5 proposal. No other path or mode changes.",
+    "Preserve all accepted PRODUCT/concurrent scope vectors and coordination admissions; use only the exact staff-test path, never broader staff source/test wildcards.",
+    "Remove only the raw bootstrap /ready shadow; preserve startup, migration completeness, liveness, existing canonical route/identity/tenant/RLS boundaries.",
+    "Keep 1500ms database deadline, 15000ms positive grace, one in-flight read, immediate/late known-pending invalidation and existing 50 dead-letter/900MB thresholds.",
+    "Runtime-role-visible outbox observations cannot attest service-wide health; keep UNKNOWN without new grants or worker credentials.",
+    "Only existing GET/HEAD root readiness case/single-trailing-slash aliases gain probe exemption; other routes keep durable rate enforcement.",
+    "Renew exact-published-head independent nonauthor whole-diff review, separate owner audit and all applicable full native CI/security/PostgreSQL evidence; unchanged Kubernetes requires zero failed PgBouncer logical probes, complete deep-outbox scenarios and successful cleanup.",
+    "Old #5770 Security Abuse and #5771 Kubernetes failures remain historical failures, not transferred PASS. Local composition results do not certify the final new head; preserve explicit skipped-test and aggregate teardown limitations.",
+    "Fresh head, unresolved-findings and engineering-readiness checks precede an ordinary manual expected-full-SHA merge. No automatic/forced merge or gate waiver.",
+    "R1 production acceptance, exact-main REG.RU release/live observation and full 13-cabinet matrix remain open; official progress stays 5/100. Gekta is the subsequent existing-owner priority, not new source or release authority."
   ],
   "nextAfterCurrentGreen": [
     "IR-21 Durable Integration Inbox",
@@ -3446,6 +3481,1072 @@
         "API/DB/RLS/role/tenant/session/command/money/provider/FGIS/legal/model authority",
         "Arbitrary source/scope/metadata changes",
         "CI/security/readiness/review weakening or fake acceptance"
+      ]
+    },
+    "deal-execution-route-guard-purpose-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+      "purpose": "Renew only the already admitted protected guard ref to bind the exact Deal execution route prerequisite, including trusted-base workflow routing after native review proved PRIMARY inheritance, inert source pins and candidate-owned guard execution.",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "retainedAcceptedGuardScope": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "futureAdmissionBranch": "governance/product-deal-execution-route-20261001",
+      "futureImplementationBranch": "fix/deal-execution-route-20261001",
+      "futureAllowedPaths": [
+        "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+        "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+        "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts"
+      ],
+      "futureExactSourcePins": [
+        [
+          "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+          "b9b96c88695c7960a309e98e691c348fec03a2b0",
+          "d94cc0d0af208fd6faea32e321a136629bef44f8"
+        ],
+        [
+          "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+          "87ebc91bcc9a927dd6ad2d6f9afdfff8737d47bd",
+          "a1290dc9b3ba122de480200ff5efa86445b5fe66"
+        ],
+        [
+          "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts",
+          "0e7d10b62a722802c76e73f2eb2e618953a383c5",
+          "043c10b308d52091cebb1b7a26dd31fc23a0bc45"
+        ]
+      ],
+      "requiredFutureSourceMode": "100644",
+      "privateRoutePayloadSha256": "d4c4bf61d3813e2d0d4b9c364c81941ab88039b078413addc5eb1d3ca750e884",
+      "blockingNativeFindings": [
+        4155054017,
+        4155054022,
+        4155554749
+      ],
+      "grantRouteSourceAuthority": false,
+      "guardAdoptionRequiresCoreHandoff": true,
+      "requiredTruthBoundaries": [
+        "Purpose only: renew this one record without a route SOURCE vector. All other old state bytes/values, admissions/vectors, PRIMARY/current/global/R1.2 scope, official5/100 and runtime remain unchanged.",
+        "Renew only the existing protected three-path guard ref; the correction changes exactly the three recorded guard/test/workflow blobs with original100755/100644/100644 modes and unchanged accepted state. Do not introduce another shared guard writer.",
+        "The accepted guard must discard PRIMARY/source-controlled expansion for the route SOURCE ref, bind exact trusted-base state/three paths/blobs/modes/ancestry and reject extra, partial, wrong-byte, wrong-mode, rename/delete and candidate-owned authority cases.",
+        "Both exact route branches must run the accepted BASE guard in the existing pull_request_target immutable job and PR-head defense, pass both shell allow-lists, and be excluded from candidate-owned standard/active guard paths. Preserve every old predicate, workflow trigger, permission, check binding and all other branches; do not let a candidate guard/test replace its validator.",
+        "The next state-only admission and route SOURCE remain separate accepted-base-reviewed native-gated phases. Purpose and guard code grant no route SOURCE vector, ordinary role/session/money/provider authority or live acceptance.",
+        "CORE retains current source and first-merge priority. Every guard/admission/SOURCE adoption waits for actual handoff, fresh MAIN/Hub/ownership checks, independent complete-head review, strict author audit, all substantive native/security gates and normal expected-full-SHA manual merge."
+      ],
+      "forbiddenAuthority": [
+        "SOURCE route/self-admission or arbitrary scope/state changes",
+        "CORE/API/DB/RLS/role/session/money/provider/FGIS/deployment authority",
+        "CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
+      ],
+      "authorityBaseExactMain": "fe04c9fd95c80fa5f1d936e2427154d264b6b62b",
+      "exactGuardSourcePins": [
+        [
+          "scripts/p7-autopilot-guard.sh",
+          "38be109d11422546c07fd96db283d848599a709f",
+          "efc0215233f994b909057726824f49d96db30bc7",
+          "100755"
+        ],
+        [
+          "scripts/p7-autopilot-guard.test.mjs",
+          "db910d2e6c2521957fb8719f7e5af659a8cd0165",
+          "66a1b053e516f168addeb7fe0e1d7f15979b154e",
+          "100644"
+        ],
+        [
+          ".github/workflows/platform-v7-autopilot-guard.yml",
+          "90f6c2b52b25b7a4f09446b7dafb36270f9969dc",
+          "5c3ebae3b42150718253909b719cbce6fe3ffe95",
+          "100644"
+        ]
+      ]
+    },
+    "canonical-readiness-cor5-4829-20261001": {
+      "owner": "ACCOUNT_1_CORE",
+      "issue": 4829,
+      "implementationBranch": "fix/readiness-database-deadline-4829",
+      "purpose": "Owner-approved single atomic CORE availability prerequisite: immutable COR5, exact staff race-test prerequisite and five governance documents. No PRODUCT or TAI source takeover.",
+      "authorityBaseExactMain": "5c43cd64fd61ee2e134ef319fa6c6087f1a37f14",
+      "proposalComment": 5930247718,
+      "independentProposalReviewComment": 5932138051,
+      "proposalSha256": "fe1f1a60d5ad914b5056bf5f94ec2f56032d24a647652f13c9926e33becb556b",
+      "proposalBytes": 32089,
+      "allowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json",
+        "docs/platform-v7/autopilot/progress.json",
+        "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+        "docs/platform-v7/autopilot/prompts/current-review-task.md",
+        "docs/platform-v7/execution-queue.md",
+        "apps/api/test/staff-access/postgresql-staff-access.e2e-spec.ts",
+        "apps/api/src/main.ts",
+        "apps/api/src/health.controller.ts",
+        "apps/api/src/health.controller.spec.ts",
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts",
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts"
+      ],
+      "reviewRequiredSourceTransitions": {
+        "apps/api/src/main.ts": {
+          "before": "99856d16475bc904e7e8a35454d1cc7e17fc54ee",
+          "after": "7e7e7818b8a11f686ede92ae9ed2225c009dba94",
+          "mode": "100644"
+        },
+        "apps/api/src/health.controller.ts": {
+          "before": "783c038a7c73668e4794b14ead69b3b5748c8425",
+          "after": "5487cc4565a904a26d2c7d6d0934a4e6e02869db",
+          "mode": "100644"
+        },
+        "apps/api/src/health.controller.spec.ts": {
+          "before": "76b59ac63489ce82b29075145fdf8751b2af3238",
+          "after": "7dd044f73de9d6e45880889898dcca04ba6bf162",
+          "mode": "100644"
+        },
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts": {
+          "before": "d8f8458bb1079e3ed9352f3e07890e981460836c",
+          "after": "a429bd42c7ef66837b484d57c66dfa319be02495",
+          "mode": "100644"
+        },
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts": {
+          "before": "f483bd1076b9ce50092de687170a20132cf7f3e9",
+          "after": "141d9e9dfb7fd2334b446bc5bf00d6c28dc3ad85",
+          "mode": "100644"
+        }
+      },
+      "enforcementLimit": "Unchanged standard candidate-head routing and additive legacy manifest are not an immutable exact-eleven gate. Independent whole-head review must enforce the externally approved exact eleven paths and six source blobs/modes, and verify every other tree leaf and accepted coordination object unchanged. No guard/workflow/manifest/PgBouncer/threshold change.",
+      "serialization": "Preserve PRODUCT writer handoff5933030140 and apply later owner atomic disposition5935185862 for this bounded window only. Recheck fresh main/Hub and existing owners before publication or merge; preserve accepted PRODUCT purpose3 and guard/test/workflow bytes; return the completed window through an actual handoff.",
+      "productionAcceptance": false,
+      "newRecurringCostRub": 0,
+      "resumeAfterAcceptedSource": "Prioritize the existing Gekta owner's real model activation and live quality/speed/stability acceptance under its separate admitted scopes and remaining topology/release gates; R1.3 remains queued for its own scope transition.",
+      "acceptedWriterHandoffComment": 5933030140,
+      "staffTestPrerequisite": {
+        "pullRequest": 5771,
+        "sourceHead": "e358177634856c9e71a0961497e7802f49213485",
+        "path": "apps/api/test/staff-access/postgresql-staff-access.e2e-spec.ts",
+        "before": "2b7e9aa13245d33fde061c8bbea7b8816ecabefc",
+        "after": "1b0010715cbcd636d15b1c9c4e5587baca16137c",
+        "mode": "100644",
+        "sha256": "479a0a3ba18845c0f77b485f238778c26ee1901a7f3e2c0f4b167a1fce75ba7e"
+      },
+      "ownerApprovedAtomicDisposition": {
+        "comment": 5935185862,
+        "url": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5935185862",
+        "approvedAt": "2026-10-01",
+        "scope": "Exactly these eleven existing regular files; replaces metadata-first/source-separation sequencing for this prerequisite only",
+        "sourceOwner": "ACCOUNT_1_CORE",
+        "sourceAttribution": "Unchanged COR5 proposal #4829/comment5930247718; staff race-test source #5771/e358177634856c9e71a0961497e7802f49213485; governance proposal #5770/056b185503e2db46956d2e6b76b78e936e963b37"
+      },
+      "historyPreservation": {
+        "originalReadinessHead": "1c3cc7ca2132520b31c97f7a5bc4c78e51bf0c44",
+        "metadataProposalHead": "056b185503e2db46956d2e6b76b78e936e963b37",
+        "staffTestProposalHead": "e358177634856c9e71a0961497e7802f49213485",
+        "rule": "Preserve all three histories through ordinary ancestry. #5770 Security Abuse and #5771 Kubernetes failures remain preserved; supersession and writer handoff only after actual atomic acceptance."
+      }
+    },
+    "gekta-readonly-control-diagnostic-prerequisite-20261001": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Staged prerequisite for the exact already-reviewed read-only Gekta pkcheck diagnostic repair; no service-control or model-promotion authority.",
+      "authorityBaseExactMain": "1a768a7fde207bb2458fdf259dc16f9f291b5455",
+      "ownerInstruction": "Закрывай всё до финиша!",
+      "ownerTransferDecision": "#5469 comment5911980257",
+      "teamHubClaim": "#5469 comment5921047748",
+      "sourceAdmissionState": "STAGED_NEEDS_ACCEPTED_LITERAL_GUARD",
+      "implementationBranch": "governance/gekta-recovery-trusted-routes-20260927",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "stagedDiagnosticBranch": "fix/gekta-model-control-probe-20261001",
+      "stagedDiagnosticPaths": [
+        ".github/workflows/gekta-p0-speed-model-host-control-probe.yml"
+      ],
+      "diagnosticSourceHandoff": "#3896 comment5917027213",
+      "diagnosticOriginalGitBlob": "42d09523cfe8f2891c56d95a36006a28322d100f",
+      "diagnosticPatchSha256": "0c0155104f05c93086578a1f73173949fe7c2eaa842225e8a959be78b966994f",
+      "diagnosticFinalFileSha256": "f23e87e7ee21ad1c02145e001c07c09bbf56f69170035d4aaf12ab0c306915cb",
+      "requiredTruthBoundaries": [
+        "This state-only record appends one staged purpose; allowedCurrentScope, agentWritableScope, approvedConcurrentScopes, progress and every existing admission are unchanged. It is not runnable diagnostic source admission.",
+        "Preserve the sole BANK operator and all-other-main/release hold. No Gekta state/guard/source merge, competing BANK guard publication or release precedes concrete BANK source/release acceptance and handoff.",
+        "Only after BANK completes its accepted guard work may the existing three-path Gekta guard lane be reused. Its separate full diff must register exactly the one workflow on the named diagnostic branch, matching trusted-base and PR-defense/exclusion workflow selectors, and adversarial regressions for candidate-owned state/manifest/guard expansion, unrelated paths, renames and file modes.",
+        "Independently review the entire separate guard diff, verify all exact source identities, obtain substantive CI/security, author audit, resolved findings and fresh readiness, then ordinary manual full-expected-SHA merge. This record does not approve unprepared guard bytes or claim automatic immutable hash enforcement.",
+        "After the literal trusted guard is accepted, duplicate only its one-path source admission in a separate reviewed state transition. Adopt the existing exact pkcheck repair in the diagnostic branch only after those accepted prerequisites; changed bytes require fresh review and source admission.",
+        "The diagnostic repairs only process-subject validation, omission of interactive authorization and bounded documented pkcheck result/error classification. Preserve pinned dedicated-principal transport, readonly boundary, timeout, output vocabulary and credential privacy.",
+        "Every diagnostic source head requires fresh complete independent nonauthor review, owner audit, applicable native CI/security/readiness and ordinary protected full-expected-SHA merge. The prior private 17/17 source/fixture checks are not native server permission evidence.",
+        "Only the accepted-main read-only probe may establish fresh authorization facts. No diagnostic result itself grants unit/config write, restart, promotion or rollback authority; a permanent model switch requires its own separately reviewed bounded operational admission and actual capability/live/rollback proof."
+      ],
+      "forbiddenAuthority": [
+        "Runtime implementation, approvedConcurrentScopes or global/current scope changes in this state-only prerequisite",
+        "Service start/stop/restart/reload/signal, root or credential fallback, unit/environment/polkit changes, model/routing/public listener or production/user-data mutation",
+        "Parallel CORE consent/audit/persistence authority or competing BANK source/release controller",
+        "CI/review/security/readiness/assertion/timeout/420-second lease weakening, stale-head evidence, fabricated statuses, force or automatic merge",
+        "New mandatory recurring costs or model/latency/deployment/RF-compliance acceptance from source records or fixtures"
+      ]
+    },
+    "gekta-readonly-control-diagnostic-source-20261001": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Admit only the exact revised existing read-only Gekta model-control diagnostic workflow after acceptance of its literal trusted guard; retain the historical purpose and supersede only its prior diagnostic-source adoption hashes.",
+      "authorityBaseExactMain": "826235a881b50bb59d5e3c2058d492d5d376982d",
+      "ownerTransferDecision": "#5469 comment5939541971",
+      "acceptedGuardPr": 5774,
+      "acceptedGuardSourceSha": "a8803ffbd269ce6141b5c48ce4a1de29af3f643a",
+      "acceptedGuardBlob": "efc0215233f994b909057726824f49d96db30bc7",
+      "acceptedGuardWorkflowBlob": "46eda60c4ce1bb313587f262e04872126203d043",
+      "retainedPurposeKey": "gekta-readonly-control-diagnostic-prerequisite-20261001",
+      "implementationBranch": "fix/gekta-model-control-probe-20261001",
+      "allowedPaths": [
+        ".github/workflows/gekta-p0-speed-model-host-control-probe.yml"
+      ],
+      "exactSourceTransition": {
+        "path": ".github/workflows/gekta-p0-speed-model-host-control-probe.yml",
+        "mode": "100644",
+        "beforeGitBlob": "42d09523cfe8f2891c56d95a36006a28322d100f",
+        "afterGitBlob": "66b8c2276c49e49da70d10216a12b71f8c8d8ebb",
+        "afterSha256": "ce0ee1744ec371034debdad24f98bbc36b7e1606ab6a5893b7f775ac986439c3",
+        "afterBytes": 17682,
+        "patchSha256": "a2797132c94c4468fa4d8ce5692693701a1749105867f81efcf424b1cfd3751e"
+      },
+      "historicalSourceHandoff": "#3896 comment5917027213",
+      "sourceExpectationSupersession": {
+        "scope": "Diagnostic-source adoption only; the original staged purpose record and its original hashes remain unchanged historical evidence",
+        "historicalPatchSha256": "0c0155104f05c93086578a1f73173949fe7c2eaa842225e8a959be78b966994f",
+        "historicalFinalFileSha256": "f23e87e7ee21ad1c02145e001c07c09bbf56f69170035d4aaf12ab0c306915cb",
+        "replacement": "Use only exactSourceTransition afterGitBlob and afterSha256 for adoption; the historical pkcheck-only repair is superseded because it preserves a root fallback",
+        "boundedRevision": "Preserve the reviewed pkcheck subject/result repair and add only strict nonroot SSH-principal validation plus early real/effective UID checks from trusted /usr/bin/id -ru and /usr/bin/id -u; inherited Bash UID/EUID variables are not identity evidence"
+      },
+      "nonrootAccountAvailability": "UNKNOWN; source validation does not establish that the existing configured nonroot account is available or authorized",
+      "requiredTruthBoundaries": [
+        "The separately accepted base-owned literal guard already fixes this diagnostic branch to one existing regular100644 workflow and requires accepted-base purpose plus an exact one-path source vector. This state duplicates only that path and records exact reviewed source expectations.",
+        "Preserve the original staged-purpose record byte-for-byte, all other coordination records, all current/global/agent scopes, unrelated concurrent vectors, current CORE/COR5/PRODUCT ownership and official5/100 progress.",
+        "This is an exact-content source admission, not automatic hash enforcement: the literal guard enforces path/state/mode/ancestry. Independent whole-head review must verify the final complete workflow against the recorded before/after Git blobs and SHA256; any changed bytes require fresh source review and admission.",
+        "The only admitted source repair validates PID/start-time/UID and bounded pkcheck results without interaction, requires a valid explicit nonroot SSH principal, removes root fallback, and fails closed unless trusted /usr/bin/id reports positive real and effective UIDs before probing. Inherited Bash UID/EUID variables cannot establish identity. Preserve dedicated-principal transport, readonly boundaries, timeouts, output vocabulary and credential privacy.",
+        "Missing or invalid nonroot identity is a blocker. Do not create an account, change authentication/settings/rights, fall back to root, or reuse credentials through a different principal. Current account availability and actual model-control capability remain unknown until separately authorized evidence establishes them.",
+        "The eventual source head requires fresh full nonauthor independent review, separate owner audit, all applicable native CI/security/readiness, resolved findings and ordinary protected full-expected-SHA manual acceptance. Historical17-case source fixtures and other-head results do not transfer.",
+        "Only after accepted source and all required separate prerequisites may an authorized accepted-main read-only probe establish actual facts. No probe result itself grants service writes/restarts, model promotion/rollback or release authority."
+      ],
+      "forbiddenAuthority": [
+        "Any workflow other than the one literal path; guard, manifest, dependency, runtime, global/current scope or progress changes",
+        "Root fallback, credential fallback/disclosure, account creation, authentication or permission/settings changes, new service/model-control rights",
+        "Unit/config/environment/polkit writes, service start/stop/restart/reload/signal, model launch/routing/promotion/rollback or user-data mutation",
+        "CI/security/review/readiness/assertion/timeout weakening, stale-head evidence transfer, forced or automatic merge, new mandatory cost",
+        "Deployment, model quality/speed/stability, permanent control capability, RF-processing or production acceptance inferred from source or fixtures"
+      ],
+      "teamHubClaim": "#5469 comment5940119517",
+      "runtimePrerequisites": "Existing configured nonroot account availability/capability, service /proc environment readability and trusted /usr/bin/id availability remain UNKNOWN; fail closed if required facts are unavailable"
+    },
+    "tai-bounded-topology-observer-20261001": {
+      "owner": "Existing TAI owner retained; authorized coordinator serializes admission and draft publication only",
+      "purpose": "Admit only a reduced snapshot-only diagnostic extension of the two existing TAI preflight files; preserve historical #3582 lineage and all current owners, classifiers, gates and runtime authority.",
+      "authorityBaseExactMain": "eddb2b00a51ce66d3d7f71b104405509c6d45a75",
+      "ownerApprovalReceipt": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5941557816",
+      "originalProposal": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5934069236",
+      "status": "QUEUED_SNAPSHOT_ONLY_DRAFT_SOURCE; SOURCE_MERGE_AND_SERVER_EXECUTION_HELD",
+      "implementationBranch": "fix/tai-bounded-topology-observer-20261001",
+      "allowedPaths": [
+        "scripts/tai-reg-ru-preflight.sh",
+        "scripts/check-tai-reg-ru-preflight.mjs"
+      ],
+      "exactSourceTransitions": [
+        {
+          "path": "scripts/tai-reg-ru-preflight.sh",
+          "mode": "100755",
+          "beforeBlob": "8f0f285bc436f3b4754204d198db5c68a4c916d2",
+          "afterBlob": "ac60f97dacdaf85ef1ccef63a1ea40709023d509",
+          "sha256": "22b1453969d44bee7bf94e41a746fc422369b49f1a57c9be6da20f83b359f66a",
+          "bytes": 32420
+        },
+        {
+          "path": "scripts/check-tai-reg-ru-preflight.mjs",
+          "mode": "100644",
+          "beforeBlob": "15fb496d2aba5b2fda7adc0d55b8caaf8d6d1c79",
+          "afterBlob": "70071581041d73e8d73f5d61d8699420844cdf86",
+          "sha256": "8a3ecbd68521d7aa86b50ca42d3e575f7bf59a5c24e6fed8c405b455c411c058",
+          "bytes": 24345
+        }
+      ],
+      "sourcePatchSha256": "01a069ba3088e8a2b91b2dee44e91281a9b4da99248db800074b16d9575ac7f2",
+      "sourcePatchBytes": 32277,
+      "retainedOwnership": "Existing TAI/preflight producer and #3582 lineage; no competing observer or parity-workflow implementation. PRIMARY/current/writable scopes and all unrelated branch owners remain unchanged.",
+      "reducedCapability": "Reuse only the already-rendered private preflight compose.json and unchanged ordered compose_files inputs. Report existing HAS_API, HAS_WEB, MIGRATION_COUNT, service-ordinal name/image/explicit-command match booleans and complete lexical input/service counts; preserve order and duplicates.",
+      "addedLocalWork": "One additional Python collector reads the existing private work JSON and bounded NUL-delimited stdin; the report assembler reads its optional private JSON. The collector launches no child process. Input/data bounds are not a new wall-clock deadline.",
+      "unprovenEvidence": "Fresh persisted and normal-release-discovery models/comparison, immutable image/default-command/entrypoint evidence, registry provenance and snapshot freshness remain NOT_PROVEN. No full topology-observer completion or CORE_TOPOLOGY_READY is established.",
+      "requiredTruthBoundaries": [
+        "Preserve the legacy classifier and every existing check, blocker, maturity and passed result. Retain the original five-blocker fixture and all original source bytes after removing only optional observer/wiring additions.",
+        "Use typed, redacted snapshot facts only. Never emit raw paths, names, images, commands, config/environment, DB URLs, errors or secrets. Unknown, malformed or unavailable optional data must not alter the existing outcome.",
+        "Account for final UTF-8 bytes plus newline within the existing 65536-byte transport budget. Demote oversized optional data to bounded unknown, then omit it if necessary; never truncate or rewrite an already oversized legacy report.",
+        "Add no Docker/Compose evaluation, daemon/image inspection, network loading, source/env-file/protected-file read, child process within the collector, detector decision, workflow or controller change. Existing private-work JSON reads and the one Python collector are explicitly acknowledged.",
+        "The ordinary concurrent-vector route is not immutable exact-byte or exact-two-file enforcement. Recorded source pins are mandatory independent review assertions; reject changed bytes, extra paths or modes rather than treating a generic guard PASS as authority.",
+        "After admission acceptance and fresh ownership checks, publish only the exact two-file implementation as a draft. Require actual published-head independent whole-diff review, separate owner audit and applicable native substantive CI/security. Report readiness blocked by draft status as expected; never mark the source PR ready solely to obtain PASS. Full readiness is required only before later separately authorized source acceptance. Private fixture results are not accepted-head or production evidence.",
+        "Preserve all existing ordered concurrent vectors and coordination records, including Gekta diagnostic history, PRODUCT/CORE/COR5 ownership, current tasks and official 5/100. Do not refresh unrelated stale status or transfer runtime/model-control authority into this topology lane."
+      ],
+      "governanceMergeHold": "Do not merge this five-file admission while the serialized runtime no-main-merge window in #5469 comment5941557816 is open. Require explicit coordinator closure, fresh unchanged-main/ownership checks, exact-head independent review, separate owner audit and all applicable native CI/security/readiness before ordinary expected-full-SHA governance acceptance.",
+      "sourceMergeAndServerHold": "Source merge and server execution are NOT authorized. These source paths automatically trigger existing canonical image builds/preflights whose controller pulls images and refreshes the protected checkout. Keep the source PR draft; separate explicit approval of those server effects is required before merge or execution.",
+      "forbiddenAuthority": [
+        "No PRIMARY/current/agent scope takeover, wildcards, aliases, workflows, controllers, manifests, guards, dependencies or service configuration changes.",
+        "No host/controller invocation, new access/rights/credentials, protected production read, Docker/Compose operation, model switch or new mandatory expense from this admission.",
+        "No weakened CI/security/review/readiness/assertion/cleanup gates, stale-head PASS transfer, forced or automatic merge.",
+        "No deployment, fresh topology, registry, RF-processing, model quality/speed/stability, R1 completion or production progress claim from source or fixtures."
+      ]
+    },
+    "gekta-crop-context-quality-20261001": {
+      "owner": "Existing Gekta owner retained; existing CORE coordinator serializes purpose admission only",
+      "purpose": "Admit a bounded crop/context quality follow-up using shared prompt policy and provider-wire regressions on the existing Han source branch; preserve raw input/history, live oracle and all runtime controls.",
+      "authorityBaseExactMain": "4cf9c9f7811055d2a4cd2c3583e685c0b2554933",
+      "ownerApprovalReceipt": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5942352727",
+      "status": "PURPOSE_ADMISSION_ONLY; EXACT_SOURCE_REVIEW_NATIVE_CI_AND_ACCEPTANCE_PENDING; LIVE_MODEL_PROOF_PENDING",
+      "governanceBranch": "fix/readiness-database-deadline-4829",
+      "governanceAllowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+      ],
+      "exactSourceTransitions": [
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "mode": "100644",
+          "beforeBlob": "f65ecadf9c8f2a5f8c0934225fdeb2b5e8be9508",
+          "afterBlob": "8019fdb637279d0b319d5e48f4219b0bc83259aa",
+          "sha256": "885ab7dc719959c79201e2316647eedb70979c54e85d2f4b164a6e97a94848eb",
+          "bytes": 45772
+        },
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "e0ca10c7a6c92a789d818b8b1064d491640aefa7",
+          "afterBlob": "d9073e4dd7b13e5446a021271715b1c5382d8996",
+          "sha256": "459e5e5b3fc0652d59fecb901169cf3c024fb222c2f98b44ae653ee4a7d8182c",
+          "bytes": 23805
+        }
+      ],
+      "sourcePatchSha256": "c64e203971d35f08a8df540389264d6d658e0f43cc5ff8efbe2467c8464d7ebd",
+      "sourcePatchBytes": 11762,
+      "liveOracle": {
+        "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts",
+        "unchangedBlob": "391a38f7149b9bbce817d312e03bbcc6377c29fa",
+        "mode": "100644"
+      },
+      "retainedOwnership": "Reuse existing CORE governance and Gekta Han branches with ordinary ancestry. Preserve all 185 existing ordered concurrent vectors and 50 previous coordination records, current/writable scopes, source owners, COR5, PRODUCT and official 5/100. No new vector, path, guard, workflow or source change is part of this one-file admission.",
+      "sourcePurposeBoundary": [
+        "Only shared rules for contextual interpretation of unambiguous misspellings; retaining explicit crop/subject and setting with latest-correction precedence and an ambiguity question; crop-relevant disease examples without diagnosis from leaf colour or wet weather alone; and evidence before replacement/replanting/chemical intervention.",
+        "No typo dictionary, crop lookup, keyword insertion, question/history rewriting, canned output, answer patch, provider/config/model change or extra model call. Keep original raw input, routed input, bounded history, locale, streaming/nonstreaming paths, continuation, economics, safety and chemistry/registration/location/stage boundaries unchanged.",
+        "Add only provider-wire/mock regression coverage in the pinned existing service spec. Preserve all old tests, the exact critical10 live oracle and thresholds; do not treat mocked neutral answers or policy-string assertions as model-quality evidence.",
+        "The existing literal Han path allowance is unchanged and wider than this two-file follow-up. Its guard does not enforce these exact two blobs or this purpose. Independent complete-tree review must reject any extra path, partial proposal, changed source byte or mode even if the generic guard passes."
+      ],
+      "privateEvidenceLimits": "Private source review found no introduced P0/P1/P2 and 433 mocked tests passed; these are artifact-bound local source/transport checks, not exact-published-head approval or live-model proof. Baseline and candidate full API typechecks both expose the same 1775 missing-generated-Prisma diagnostics; neither is PASS. Fresh native generation/typecheck and every applicable CI/security gate are required.",
+      "acceptanceSequence": [
+        "First accept this exact one-file append-only purpose admission through the existing CORE branch after fresh main/Hub/ownership checks, independent published-whole-head review, separate owner audit and all applicable native CI/security/readiness. Use an ordinary manual merge bound to the full expected head SHA; retain prior branch history.",
+        "Then continue the existing Han branch with exactly the two pinned source transitions on the fresh accepted base. Verify unchanged original blobs/modes and all unrelated tree leaves. A changed base, proposal or head requires fresh review and evidence; do not carry forward a prior PASS.",
+        "Require fresh actual source-head independent nonauthor whole-diff review, distinct owner audit, all substantive native CI/security and manual engineering-readiness immediately before an ordinary expected-full-SHA source merge. Initial draft publication is not acceptance.",
+        "Only after source acceptance and verification of the actual accepted source SHA, perform one newly approved critical10 run, verify cleanup and unchanged active baseline 8B, then perform one extra4 run and verify cleanup again. Both runs must use that same actual accepted source SHA and existing lifetime/watchdog limits of at most 420 seconds each. No further unchanged retries are authorized."
+      ],
+      "approvedAutomaticServerEffects": "The owner explicitly approved the existing automatic image-build/preflight effects associated with this Gekta source acceptance, including image downloads and protected checkout refresh on REG.RU. This is not a claim of end-to-end zero-write execution or deployment/live-model acceptance; it does not authorize unrelated server operations.",
+      "boundedRuntimeConditions": [
+        "Keep the current active 8B baseline and existing temporary candidate controls unchanged. Enforce existing cancellation, watchdog, cleanup and restoration gates; a failed or incomplete cleanup or changed active baseline blocks the next run and any acceptance claim.",
+        "Serialize the accepted-SHA diagnostic window; do not move main/source beneath the two-run evidence. Record actual source/image/run identities, completed, failed and skipped cases, cancellation/cleanup and baseline state. Prior critical failure and extra partial evidence remain historical and cannot be transferred to the new SHA.",
+        "A source review, merge, image publication or mock PASS does not prove accuracy, crop-context correctness, speed, stability, production deployment or permanent model activation."
+      ],
+      "observerHold": "PR #5779 remains DRAFT, unmerged and not executed on the server. This Gekta approval does not authorize observer source merge or observer server execution.",
+      "forbiddenAuthority": [
+        "No permanent model activation, new rights/credentials, mandatory expense, protected-data disclosure or unrelated host/controller work.",
+        "No new source/guard/path authority, broadening of existing vectors, workflow/controller/config/dependency/oracle changes or competing ownership.",
+        "No weakened CI/security/review/readiness/cleanup/assertion gates, stale-head PASS transfer, forced or automatic merge.",
+        "No R1 completion, production/model acceptance or progress increase from this admission or private fixtures."
+      ]
+    },
+    "gekta-candidate-provider-trace-20261002": {
+      "owner": "Existing Gekta owner retained; existing CORE coordinator serializes purpose admission only",
+      "purpose": "Admit request-local test-only provider diagnostics to collect evidence about incompleteness of the existing critical candidate answer without changing inference behavior or acceptance assertions.",
+      "authorityBaseExactMain": "c8c8e3055c515d6d3af8b60e5742c23c7ea37662",
+      "ownerApprovalReceipt": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5946105298",
+      "status": "PURPOSE_ADMISSION_ONLY; EXACT_SOURCE_REVIEW_NATIVE_CI_AND_ACCEPTANCE_PENDING; ONE_DIAGNOSTIC_CRITICAL_RUN_PENDING",
+      "governanceBranch": "fix/readiness-database-deadline-4829",
+      "governanceAllowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+      ],
+      "exactSourceTransitions": [
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "mode": "100644",
+          "beforeBlob": "8019fdb637279d0b319d5e48f4219b0bc83259aa",
+          "afterBlob": "033c304962ca89fb15c2689dc57ad90be4be1ff3",
+          "sha256": "427ac39a30f3a258a2016782af9c26902445c0e16ee30115c430894393ae414d",
+          "bytes": 50431
+        },
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "d9073e4dd7b13e5446a021271715b1c5382d8996",
+          "afterBlob": "2323701b4d84e49823d3720daf9e326d6b09e2b5",
+          "sha256": "d7c9226ad6e9300f68fd134e4334224be6e247cb5d11b0da5914a694da90e3bf",
+          "bytes": 60930
+        }
+      ],
+      "liveOracle": {
+        "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts",
+        "unchangedBlob": "391a38f7149b9bbce817d312e03bbcc6377c29fa",
+        "mode": "100644"
+      },
+      "retainedOwnership": "Reuse existing CORE and Han branches with ordinary ancestry. Preserve all 185 ordered concurrent vectors and 51 prior coordination records, all other state fields, source owners, COR5, PRODUCT and official 5/100. This admission changes only this appended purpose record, not scopes, guards, workflows or source.",
+      "sourcePurposeBoundary": [
+        "Enable diagnostics only when NODE_ENV is exactly test AND QWEN35_CANDIDATE_LIVE is exactly 1. Production and all other combinations remain silent. Missing diagnostic output is unknown, not authority to retry or alter runtime environment.",
+        "Request-local bounded metadata only: at most two provider-attempt records and one summary, finite numeric metadata, closed finish/outcome/filter vocabulary and honest unknowns. Fetch-attempt count does not prove provider execution. Do not add case identifiers, shared counters, prompt/question/answer text or hashes, identities, keys, URLs, arbitrary errors or spread provider payloads.",
+        "The trace is observational. Preserve exact provider requests, attempts and continuation choices, limits, filters, public token accounting, prompts/raw input/history, output/event ordering, exceptions, abort/cancellation, iterator return and cleanup. Logger failure must neither change a successful result nor mask the original error.",
+        "Use only the existing service spec for focused mocked regressions, including strict gate matrix, off/on equivalence, stop and continuation cases, error/cancellation/cleanup and logger failure, concurrent isolation, malformed/missing/repeated metadata and sensitive canary exclusion. Preserve all prior tests and exact live oracle/thresholds. Mocked tests establish source behavior, not model quality.",
+        "Existing literal Han allowance remains wider than this exact pair and does not enforce these pins or purpose. Independent complete-tree review must reject extra/missing paths, changed pins or modes even if generic guards pass."
+      ],
+      "privateEvidenceLimits": "Frozen two-file mocked validation passed 518/518 tests in nine suites, zero skipped; service suite contains 27 retained tests and 73 new diagnostic regressions. This is private source evidence, not independent exact-published-head acceptance or live-model proof. Baseline and candidate direct API typechecks both report the identical 1775 missing-generated-Prisma diagnostics with no introduced or removed diagnostic; neither is a full API PASS. Fresh native generation/typecheck, complete applicable CI/security/Kubernetes and independent whole-head review remain mandatory. Attempt-overflow=true is defensive and unreachable under unchanged two-call limit. Invalid pre-stream requests and never-started generators intentionally have no trace.",
+      "acceptanceSequence": [
+        "Accept the one-file append-only purpose on the existing CORE branch after fresh main/Hub/ownership checks, independent exact-published-whole-head review, separate canonical owner audit, every applicable native CI/security check and fresh readiness. Ordinary manual expected-full-SHA merge only.",
+        "Then synchronize the existing Han history with accepted purpose-main and publish exactly the pinned two-file source change. All unrelated tree leaves/modes remain identical. Renew independent exact-head whole-diff review, separate owner audit and every applicable native CI/security/Kubernetes gate, including zero failed PgBouncer probes, deep outbox and cleanup. A changed head invalidates earlier evidence.",
+        "Only after source acceptance and fresh serialization, perform ONE critical10 diagnostic candidate run on the actual accepted source SHA, at most 420 seconds with existing watchdog/resource controls. Verify final cleanup, candidate/listener absence and unchanged active baseline 8B. No extra4 or unchanged retries are authorized by this record."
+      ],
+      "approvedAutomaticServerEffects": "Owner-approved existing image-build/preflight effects can download images and refresh the service checkout on REG.RU. This is not end-to-end zero-write operation, application deployment acceptance or unrelated server authority.",
+      "boundedRuntimeConditions": [
+        "Keep active 8B, existing candidate artifact/runtime, resource gates, watchdog, cancellation and cleanup unchanged. Failed cleanup or changed baseline blocks acceptance and further operations.",
+        "Announce a fresh no-main-merge runtime window, check conflicting activity, and verify actual resolved source SHA. Record completed/failed/skipped cases and truthful diagnostics. Both previous critical/extra pairs are historical consumed evidence, not approval for new extra runs.",
+        "Diagnostics can reveal initial cutoff and continuation attempts but do not reveal filtered text or prove prompt-clause causality. A source merge or trace does not establish model quality, speed, stability or permanent activation."
+      ],
+      "observerHold": "PR #5779 remains DRAFT, unmerged and unexecuted on the server; this package grants no observer acceptance or execution.",
+      "forbiddenAuthority": [
+        "No permanent model activation, new rights/credentials, mandatory expense, protected-data disclosure or unrelated host/controller work.",
+        "No extra source paths, scope-vector expansion, workflow/config/dependency/oracle changes or competing owners.",
+        "No weakened CI/security/review/readiness/runtime/assertion gates, stale-head PASS, forced or automatic merge.",
+        "No R1, production or model acceptance and no official progress increase from this admission or mock fixtures."
+      ]
+    },
+    "gekta-diagnostic-breadth-priority-20261002": {
+      "owner": "Existing Gekta owner retained; existing CORE coordinator serializes purpose admission only",
+      "purpose": "Admit a bounded shared prompt-priority experiment for requested, supportable diagnostic breadth and distinct hypotheses paired with discriminating observations; preserve inference budgets, safety and acceptance criteria.",
+      "authorityBaseExactMain": "569f10df4a2902f18395a1f050351a64e6265bda",
+      "ownerApprovalReceipt": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5947997247",
+      "status": "PURPOSE_ADMISSION_ONLY; EXACT_SOURCE_REVIEW_NATIVE_CI_AND_ACCEPTANCE_PENDING; NEW_CONDITIONAL_CRITICAL_EXTRA_PAIR_PENDING",
+      "governanceBranch": "fix/readiness-database-deadline-4829",
+      "governanceAllowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+      ],
+      "exactSourceTransitions": [
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "mode": "100644",
+          "beforeBlob": "033c304962ca89fb15c2689dc57ad90be4be1ff3",
+          "afterBlob": "cf8a6c3a941661345aa602b93764207780d75bc3",
+          "sha256": "b007ec2f7f1b56dbd76ef79b0612867b2a4a00840f25a34e3985ab91a5769b92",
+          "bytes": 51087
+        },
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "2323701b4d84e49823d3720daf9e326d6b09e2b5",
+          "afterBlob": "748eab4e05059c32d3f17051c7f89de8e2375a55",
+          "sha256": "aa78150126757ca7114a2697f4ca86824cdfc0d9634dd250e833b2c6d55cd227",
+          "bytes": 76372
+        }
+      ],
+      "liveOracle": {
+        "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts",
+        "unchangedBlob": "391a38f7149b9bbce817d312e03bbcc6377c29fa",
+        "mode": "100644"
+      },
+      "retainedOwnership": "Use existing CORE and Han branches with ordinary ancestry. Preserve all 185 ordered concurrent vectors, 52 previous coordination records, every other state value/byte, source owners, COR5, PRODUCT and official 5/100. This one-file admission adds one purpose record only, not source, vectors, guards or workflows.",
+      "observedFailure": {
+        "run": "36974732564",
+        "job": "110735985257",
+        "actualSourceSha": "569f10df4a2902f18395a1f050351a64e6265bda",
+        "result": "FAILED at diagnosis; cases 7 through 10 UNRUN; cleanup PASS with baseline 8B active and unchanged",
+        "metadata": "One attempt, requested max_tokens 256, reported completion 217, finish stop, no continuation or reported truncation, no recorded policy flags. Independent private semantic review confirms missing nutritional differential, not a synonym-only oracle mismatch.",
+        "causalLimit": "Existing prompt already includes nutrient differentiation. General two-factor and brevity framing are possible competing pressures, not established causes. Empty diagnostic flags do not prove raw-output identity because internal-trace removal is silent. No token-budget increase follows from this evidence."
+      },
+      "sourcePurposeBoundary": [
+        "Consolidate only the existing generic completeness guidance in publicSystemPrompt and its buildGroundedPrompt reminder. Give user-requested, supportable diagnostic breadth priority over generic minimum-two guidance; require distinct conditional hypotheses and observations that distinguish alternatives. Keep minimum-two as fallback and evidence, uncertainty and safety above numeric coverage.",
+        "Do not pad unsupported causes, insert crop or nutrition keywords to satisfy an assertion, introduce a taxonomy detector, patch an answer, return a canned response or add a provider call. Preserve prompts outside the admitted guidance, raw input/history, latest-correction semantics, routing, model/configuration, limits, filters, public accounting, transport, stream, exceptions, cancellation and cleanup.",
+        "Retain the accepted test-only closed metadata diagnostic and its exact double gate unchanged. Existing response/generation budgets, live inputs and assertions, original fourteen critical/extra cases and all their criteria and conditional safety requirements remain unchanged.",
+        "Use the existing service spec only for mocked provider-wire and preservation regressions, covering both generation paths, requested breadth, raw input/history, correction, ambiguity, non-diagnostic requests and verified-platform authority. Deliberately incomplete mocked output must remain unpatched. Preserve all prior safety, prevention, economics, stream, cancellation and diagnostic tests.",
+        "The literal Han scope remains wider than this exact two-file purpose and does not enforce hashes or semantic limits. Independent whole-tree review must reject extra or missing paths, changed pins/modes, expanded runtime or scope even when generic guards pass."
+      ],
+      "privateEvidenceLimits": "Frozen source passed 546/546 mocked tests across nine real Jest suites, zero skipped; service suite 128/128 includes all 100 retained tests and 28 new provider-wire/preservation regressions. These results establish source behavior and prompt delivery, not independent actual-published-head acceptance, model quality or semantic generalization. Baseline and candidate direct API typechecks retain the identical 1775 missing-generated-Prisma diagnostics with zero added or removed; full local API typecheck is not PASS. Local Node 24 differs from declared Node 20; native generation/typecheck and all required gates remain mandatory. The two instruction replacements add 91 whitespace-delimited words and 656 UTF-8 source bytes: fixed completion limits/call counts do not establish unchanged prompt-token cost or latency. The new bounded live trial must observe that effect. The prespecified eight-case semantic proposal remains unchanged and UNRUN; real held-out execution is outside this grant.",
+      "acceptanceSequence": [
+        "First publish this exact append-only purpose in the full existing state file on the existing CORE branch, preserving original history and all prior public records. Require fresh main/Hub/ownership checks, independent actual-whole-head review, separate canonical owner audit, all applicable native CI/security and fresh manual readiness before ordinary expected-full-SHA merge.",
+        "Then continue the existing Han branch with exactly the pinned two-file source transitions on fresh accepted purpose-main. Verify all unrelated leaves/modes unchanged. Require fresh independent actual-source-head full-diff review, separate audit, all native CI/security/typechecks/Kubernetes, zero failed PgBouncer logical probes, complete deep-outbox evidence and cleanup. No stale-head PASS or automatic/forced merge.",
+        "Only after source acceptance and fresh serialized exact-main checks, run ONE new critical10 with the existing startup-inclusive maximum 420-second lease. Extra4 is permitted ONLY if this critical10 is PASS and its cleanup and unchanged active 8B are confirmed.",
+        "If those conditions pass, run ONE extra4 with the same actual accepted SHA and existing maximum 420-second lease. Verify cleanup and unchanged active 8B again. Stop on failure, incomplete evidence, changed SHA or cleanup discrepancy; no retry is included. Separate native successful suite results remain PARTIAL, not a fabricated COMPLETE summary."
+      ],
+      "approvedAutomaticServerEffects": "Owner explicitly approved ordinary source acceptance and existing automatic image building/downloads and service checkout refresh on REG.RU. This does not prove application deployment, topology readiness, live-model quality or permanent activation, and grants no unrelated server operation.",
+      "boundedRuntimeConditions": [
+        "At most two conditional leases totaling 840 startup-inclusive candidate-seconds, fourteen existing cases and at most twenty-eight provider attempts. The second lease is conditional on actual critical PASS and first cleanup PASS; the previously failed diagnostic run and previous pairs remain historical consumed evidence.",
+        "Announce a fresh serialized no-main-merge/model-host window and verify actual resolved full SHA. Retain current active 8B, candidate artifact, resource limits, watchdog, pidfd/cancellation, cleanup and baseline checks. Missing evidence is not PASS and does not authorize repeated execution.",
+        "Prespecified semantic generalization corpus remains UNRUN. Mocked paraphrase tests do not establish model generalization. New real selectors, held-out calls or answer-evidence collection need their own explicit purpose, reviewed scope and runtime approval."
+      ],
+      "observerHold": "PR #5779 remains DRAFT, unmerged and unexecuted on the server. No observer acceptance or execution follows from this Gekta package.",
+      "forbiddenAuthority": [
+        "No new real held-out run, permanent model activation, new rights/credentials, mandatory expense, protected-data disclosure or unrelated host/controller action.",
+        "No new paths, scope vectors, workflow/configuration/dependency/live-oracle changes, ownership takeover or parallel implementation.",
+        "No weakened review/CI/security/readiness/assertions, hidden output patch, stale-head PASS transfer, forced or automatic merge.",
+        "No R1, release, production or model acceptance, and no progress credit from this purpose or private source tests."
+      ]
+    },
+    "gekta-diagnostic-mechanism-location-20261003": {
+      "owner": "Existing Gekta owner retained; existing CORE coordinator serializes purpose admission only",
+      "purpose": "Admit only the exact generic diagnostic mechanism/location correction and provider-wire regressions after failed critical10; preserve inference, safety and acceptance criteria.",
+      "authorityBaseExactMain": "7c6efbae8b2c429833cf5b9a258bf2b2eedc5c89",
+      "ownerApprovalReceipt": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5973021831",
+      "status": "PURPOSE_ADMISSION_ONLY; EXACT_SOURCE_REVIEW_NATIVE_CI_AND_ACCEPTANCE_PENDING; NEW_CONDITIONAL_CRITICAL_EXTRA_PAIR_PENDING",
+      "governanceBranch": "fix/readiness-database-deadline-4829",
+      "governanceAllowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+      ],
+      "exactSourceTransitions": [
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "mode": "100644",
+          "beforeBlob": "cf8a6c3a941661345aa602b93764207780d75bc3",
+          "afterBlob": "91d2f3a91e11c706fcdd28bf6a86ad2a3645d4cb",
+          "sha256": "97a42353208f065a8c9d4284c5cb023e12c8ed8d5a834e4b96a2a4ddb4c1e252",
+          "bytes": 51593
+        },
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "748eab4e05059c32d3f17051c7f89de8e2375a55",
+          "afterBlob": "eab1d124a4ec753f2f8d7ef3e728fa8073bbc6dd",
+          "sha256": "837e3629fc362300f190af3964149e7c9a8a54ea58a1773001bc8e8de008f2d6",
+          "bytes": 78648
+        }
+      ],
+      "liveOracle": {
+        "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts",
+        "unchangedBlob": "391a38f7149b9bbce817d312e03bbcc6377c29fa",
+        "mode": "100644"
+      },
+      "retainedOwnership": "Existing CORE coordinator and Gekta/Han owner retained. This cloud continuation prepares this exact owner-authorized supplemental package in existing lanes only; no unrelated ownership takeover. Preserve ordinary branch ancestry, all185 ordered concurrent vectors, all53 prior admissions, every other state byte/value, current/writable scopes, COR5/PRODUCT and official5/100. Append one purpose only; no vectors/guards/workflows/source changed.",
+      "observedFailure": {
+        "run": "37146266381",
+        "job": "111270750344",
+        "actualSourceSha": "7c6efbae8b2c429833cf5b9a258bf2b2eedc5c89",
+        "result": "FAILED scenario6;7–10 UNRUN; cleanup PASS; baseline8B active and unchanged",
+        "metadata": "One attempt;256 requested tokens;181 completion;stop;truncated=false;flags[];21600ms. Answer mentioned iron deficiency but missed unchanged nutrition regex; also confused interveinal leaf tissue with internodes.",
+        "causalLimit": "Generic causal explanation and precise location guidance are a corrective experiment, not proven model remediation. No assertion-keyword insertion or token-limit failure is established."
+      },
+      "sourcePurposeBoundary": [
+        "Only extend existing generic diagnostic publicSystemPrompt guidance and buildGroundedPrompt reminder: plain causal mechanisms, conditional alternatives with discriminating observations, correct object/part/position and avoid uncertain technical labels. Compare alternatives against stated conditions; preserve requested supportable breadth, fallback, evidence and safety priority.",
+        "No crop/nutrition/oracle keyword insertion, taxonomy detector, output patch/canned response or additional provider call. Raw question/history, correction semantics, other prompts, model/configuration, all budgets, filters, transport, stream, exceptions, accounting, cancellation and cleanup unchanged.",
+        "Update existing service-spec expectations and add only six RU/EN/ZH generate/stream mocked wire regressions. Deliberately incomplete mock output remains unpatched. Retain all prior tests, diagnostic gate and exact original fourteen critical/extra inputs/assertions.",
+        "Literal Han path scope is wider and does not enforce these exact two blobs or purpose. Independent whole-tree review must reject extra/missing paths, altered bytes/hashes/modes or expanded semantics even when generic guards pass."
+      ],
+      "privateEvidenceLimits": "9 mocked Jest suites552/552 PASS,0skipped. Independent nonauthor reviewer reproduced service134/134; no P1/P2. API typecheck after Prisma generation PASS; diffcheck and real two-file scope guard PASS; review-gate49/49 PASS. Node24.19 differs from declared Node20; native published-head CI remains mandatory. Hosting-authority local check blocked by absent Docker. No model-quality/generalization/production PASS. Service source grows506 UTF-8 bytes; fixed completion budget does not establish unchanged prompt processing cost or latency. Prior semantic held-out corpus remains UNRUN.",
+      "acceptanceSequence": [
+        "First publish this exact append-only purpose in the full existing state file on the existing CORE branch, preserving original history and all prior public records. Require fresh main/Hub/ownership checks, independent actual-whole-head review, separate canonical owner audit, all applicable native CI/security and fresh manual readiness before ordinary expected-full-SHA merge.",
+        "Then continue the existing Han branch with exactly the pinned two-file source transitions on fresh accepted purpose-main. Verify all unrelated leaves/modes unchanged. Require fresh independent actual-source-head full-diff review, separate audit, all native CI/security/typechecks/Kubernetes, zero failed PgBouncer logical probes, complete deep-outbox evidence and cleanup. No stale-head PASS or automatic/forced merge.",
+        "Only after source acceptance and fresh serialized exact-main checks, run ONE new critical10 with the existing startup-inclusive maximum 420-second lease. Extra4 is permitted ONLY if this critical10 is PASS and its cleanup and unchanged active 8B are confirmed.",
+        "If those conditions pass, run ONE extra4 with the same actual accepted SHA and existing maximum 420-second lease. Verify cleanup and unchanged active 8B again. Stop on failure, incomplete evidence, changed SHA or cleanup discrepancy; no retry is included. Separate native successful suite results remain PARTIAL, not a fabricated COMPLETE summary."
+      ],
+      "approvedAutomaticServerEffects": "Owner explicitly approved ordinary source acceptance and existing automatic image building/downloads and service checkout refresh on REG.RU. This does not prove application deployment, topology readiness, live-model quality or permanent activation, and grants no unrelated server operation.",
+      "boundedRuntimeConditions": [
+        "At most two conditional leases totaling840 startup-inclusive candidate-seconds, fourteen existing cases and at mosttwenty-eight provider attempts. Extra4 requires critical10 PASS, cleanup PASS and unchanged active8B, on the same accepted SHA. Run37146266381 and all previous failed runs remain historical consumed evidence; no retry.",
+        "Announce a fresh serialized no-main-merge/model-host window and verify actual resolved full SHA. Retain current active 8B, candidate artifact, resource limits, watchdog, pidfd/cancellation, cleanup and baseline checks. Missing evidence is not PASS and does not authorize repeated execution.",
+        "Prespecified semantic generalization corpus remains UNRUN. Mocked paraphrase tests do not establish model generalization. New real selectors, held-out calls or answer-evidence collection need their own explicit purpose, reviewed scope and runtime approval."
+      ],
+      "observerHold": "PR #5779 remains DRAFT, unmerged and unexecuted on the server. No observer acceptance or execution follows from this Gekta package.",
+      "forbiddenAuthority": [
+        "No new real held-out run, permanent model activation, new rights/credentials, mandatory expense, protected-data disclosure or unrelated host/controller action.",
+        "No new paths, scope vectors, workflow/configuration/dependency/live-oracle changes, ownership takeover or parallel implementation.",
+        "No weakened review/CI/security/readiness/assertions, hidden output patch, stale-head PASS transfer, forced or automatic merge.",
+        "No R1, release, production or model acceptance, and no progress credit from this purpose or private source tests."
+      ]
+    },
+    "gekta-subject-compact-completeness-20261004": {
+      "owner": "Existing Gekta owner retained; existing CORE coordinator serializes purpose admission only",
+      "purpose": "Admit the exact generic subject-first and compact complete diagnostic-point corrective experiment after the closed failed critical trial; preserve inference, safety and acceptance criteria.",
+      "authorityBaseExactMain": "12f4b340b5841a5de092e842a72b0d48f2f18cb2",
+      "ownerApprovalReceipt": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5973675158",
+      "status": "PURPOSE_ADMISSION_ONLY; EXACT_SOURCE_REVIEW_NATIVE_CI_AND_ACCEPTANCE_PENDING; NEW_CONDITIONAL_CRITICAL_EXTRA_PAIR_PENDING",
+      "governanceBranch": "fix/readiness-database-deadline-4829",
+      "governanceAllowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+      ],
+      "exactSourceTransitions": [
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "mode": "100644",
+          "beforeBlob": "91d2f3a91e11c706fcdd28bf6a86ad2a3645d4cb",
+          "afterBlob": "0776c2312c24f9e46c1ea37436163d8bd082c4d1",
+          "sha256": "1e2402e6a74cb2cab55147293b1f6c107c9a00d375bc1c33fdecaef1451da5e6",
+          "bytes": 52178
+        },
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "eab1d124a4ec753f2f8d7ef3e728fa8073bbc6dd",
+          "afterBlob": "db9e4363f257a47e3195f41282aa91574b4e9434",
+          "sha256": "e389bc6fdcc3cb91bbc46c23231c4c25a6432266dc2394051a5c93c78e4bfea3",
+          "bytes": 82042
+        }
+      ],
+      "liveOracle": {
+        "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts",
+        "unchangedBlob": "391a38f7149b9bbce817d312e03bbcc6377c29fa",
+        "mode": "100644"
+      },
+      "retainedOwnership": "Continue existing CORE/Han branches with ordinary ancestry and existing owners. Preserve all185 ordered vectors,54 prior admissions, every other state byte/value/current/writable scope, COR5/PRODUCT and official5/100. Append this purpose only; no guard, workflow, vector or source changes in admission.",
+      "observedFailure": {
+        "run": "37153877410",
+        "job": "111293138938",
+        "actualSourceSha": "12f4b340b5841a5de092e842a72b0d48f2f18cb2",
+        "result": "FAILED scenario7 at expected explicit wheat name; assertions1–6 passed; remaining scenario7 assertion and scenarios8–10 UNRUN; cleanup PASS, active baseline8B unchanged",
+        "metadata": "Scenario7 one attempt,max256,completion166,stop,truncated=false,flags[],19398ms. Scenario6 passed diagnostic assertions but two attempts256+64,final length,truncated=true,MODEL_OUTPUT_TRUNCATED,43812ms. Recorded provider times19398–51412ms are not full-suite latency acceptance.",
+        "causalLimit": "Absent crop keyword does not itself prove subject misunderstanding. Generic subject-first and compact-point guidance is an experiment, not established causal remediation, speed improvement or full diagnostic quality."
+      },
+      "sourcePurposeBoundary": [
+        "Change only generic publicSystemPrompt subject anchoring/diagnostic guidance and buildGroundedPrompt quality reminder. Name the unambiguous subject correctly in the direct opening, never guess ambiguity. Combine each conditional cause, plain mechanism and distinguishing check into one compact complete sentence on the correct object/part. For a requested range use its lowest supportable count; exact counts and safety/evidence priority remain. Remove optional examples/closing offers before required observations/caveats; fallback minimum-two applies only absent requested breadth.",
+        "No crop/oracle keyword injection, taxonomy detector, canned output/output patch or provider call. Preserve original input/history/latest corrections, model/configuration, all existing generation/word/continuation budgets, filters, diagnostics, accounting, transport, stream, exceptions, cancellation and cleanup. Do not claim fixed budgets prove unchanged prompt tokens or latency.",
+        "Update existing service-spec expectations and add16 mocked RU/EN/ZH generate/stream preservation regressions, including subject ambiguity/correction/identifiers and one-cause/count/range behavior. Deliberately incomplete mock output remains unpatched. Every old safety/quality/disease/stream/trace test and original fourteen critical/extra live inputs/assertions remains unchanged.",
+        "The literal Han path scope is wider than these exact two blobs and does not enforce pins or semantic purpose. Independent whole-tree review must reject extra/missing paths, altered content/modes, scope/runtime expansion or weakened criteria even if generic guards pass."
+      ],
+      "privateEvidenceLimits": "Final9 mocked suites568/568 PASS,0skipped on declaredNode20.20.2; APItypecheckPASS; reviewgate49/49PASS; diffcheckPASS. Separate nonauthor final private review noP1/P2 and service150/150PASS0skipped onNode24. Prior private fallback P2 and retained concrete-factor contract failure corrected in the same exact two files; no live/quality oracle edited. Service grows585UTF8bytes. Private checks establish source delivery/preservation, not actual-published-head/nativeCI/model quality/latency/semantic generalization/deployment. Local Docker absent. Held-out corpus UNRUN.",
+      "acceptanceSequence": [
+        "First publish only this append-only state purpose on existing CORE history after freshmain/Hub/no-conflict checks. Require independent actual-published-whole-head review, separate owner audit, full applicable nativeCI/security and fresh manual readiness before ordinary expected-full-SHA acceptance.",
+        "Then continue existing Han history with exactly the pinned two source files on fresh accepted purpose-main. Preserve all unrelated leaves/modes. Require fresh actual-source-whole-head nonauthor review, separate audit, full nativeCI/security/types/Kubernetes, zero failed PgBouncer logical probes, complete deep-outbox and cleanup evidence, and fresh readiness. No stale-head transfer or automatic/forced merge.",
+        "Only after accepted new source and fresh serialization run ONE new critical10 on actual accepted fullSHA, startup-inclusive420s. ONE extra4 ONLY after actual criticalPASS plus cleanupPASS and unchanged active8B, same acceptedSHA, startup-inclusive420s. Stop on failure/drift/conflict/missing evidence/cleanup discrepancy; no retry. Individual successful native suites remain PARTIAL, not fabricated COMPLETE."
+      ],
+      "approvedAutomaticServerEffects": "Existing owner-approved image/preflight build/download/service-checkout refresh effects retained as documented; not application deployment, topology acceptance, permanent model activation or unrelated server authority.",
+      "boundedRuntimeConditions": [
+        "At most two conditional420s leases totaling840 startup-inclusive candidate-seconds, original fourteen cases and unchanged maximumtwenty-eight provider attempts. The old37153877410 trial/window is closed and consumed; no reuse of its allowance. Latest owner continuation is recorded in the new receipt.",
+        "Announce serialized no-main-merge/model-host window, verify actual full resolvedSHA and conflicting activity. Preserve active8B/routing, candidate artifact/resource limits/non-root principal/auth/watchdog/pidfd/cancellation/cleanup and baseline checks. Missing evidence is unknown, never PASS or repeated execution authority.",
+        "No new real held-out corpus/selectors/evidence collection or permanent activation. Real quality/speed/deployment remain unproven until their separately applicable accepted evidence; source/mock PASS does not promote the model."
+      ],
+      "observerHold": "PR5779 remains DRAFT, unmerged and unexecuted; no observer/topology acceptance or execution follows.",
+      "forbiddenAuthority": [
+        "No permanent activation, new rights/credentials, mandatory expense, protected-data disclosure or unrelated host/controller action.",
+        "No source beyond exact two files, vectors/guard/workflow/configuration/dependency/live-oracle changes, parallel implementation or ownership takeover.",
+        "No weakened review/CI/security/readiness/assertions, hidden output patch, stale-head PASS transfer, forced or automatic merge.",
+        "No R1/release/production/model acceptance or official progress credit from this purpose or private source evidence."
+      ]
+    },
+    "gekta-candidate-one-use-delivery-fence-20261004": {
+      "owner": "Existing Gekta owner retained; existing CORE coordinator serializes purpose admission only",
+      "purpose": "Accept an atomic one-use execution fence for the existing unresolved candidate delivery, without adding inference authority or refunding any consumed run.",
+      "authorityBaseExactMain": "d4babce27bd2b33d6551b18d845331c6d0b9f4be",
+      "ownerContinuationReceipt": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5975702218",
+      "status": "SOURCE_ONLY_TRANSITION; EXACT_PUBLISHED_HEAD_REVIEW_NATIVE_CI_AND_ACCEPTANCE_PENDING; OLD_RUN_RECONCILIATION_AND_LIVE_MODEL_PROOF_PENDING",
+      "governanceBranch": "fix/readiness-database-deadline-4829",
+      "governanceAllowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "implementationBranch": "fix/gekta-qwen35-guard-argv-form-20260928",
+      "allowedPaths": [
+        ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+        "scripts/gekta-qwen35-4b-model-host-candidate.py"
+      ],
+      "exactSourceTransitions": [
+        {
+          "path": ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+          "mode": "100644",
+          "beforeBlob": "d6e839db687db42174e48a51030cc73126e06239",
+          "afterBlob": "30117b1b1c9adc258303d852b7e2e7d3a051e7af",
+          "sha256": "48b070d3571788ed22bf35f6d6076f293bc56f19984fb4364582c4b5827fe586",
+          "bytes": 123555
+        },
+        {
+          "path": "scripts/gekta-qwen35-4b-model-host-candidate.py",
+          "mode": "100644",
+          "beforeBlob": "2b968e1d2f9159734b7603fdd5cbe2ccff8e2c0a",
+          "afterBlob": "ccf9e2650f0970d2677dc1d0902c82e2b223701f",
+          "sha256": "52030aa2ab4587b026dc0bf80f7923c20e99460039f6802e2cd84f45c89bc6f3",
+          "bytes": 65174
+        }
+      ],
+      "retainedOwnership": "Preserve all55 previous admissions and185 ordered concurrent vectors, primary/current/writable scopes, all owners and ordinary existing CORE/candidate ancestry. No new branch vector, scope path, manifest, guard or separate implementation is admitted.",
+      "existingDiagnosticGrant": {
+        "originalCommand": "https://github.com/pachaninm-lab/pachanin-demo/issues/3896#issuecomment-5974230017",
+        "createdAt": "2026-10-03T22:38:26Z",
+        "fixedIdentity": "gekta-critical-5974230017",
+        "boundary": "The original command is saved and remains potentially deliverable. It is not cancelled or proven never delivered. This fence grants no second critical attempt and no retry of a consumed attempt.",
+        "criticalLimit": 1,
+        "conditionalExtraLimit": 1,
+        "leaseSecondsEach": 420,
+        "extraPrecondition": "Actual critical10 PASS, actual cleanup PASS and unchanged active8B on the same full accepted SHA; a spent critical marker proves consumption only and is not quality evidence.",
+        "acceptedDiagnosticBlobs": {
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts": "0776c2312c24f9e46c1ea37436163d8bd082c4d1",
+          "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts": "db9e4363f257a47e3195f41282aa91574b4e9434"
+        }
+      },
+      "sourcePurposeBoundary": [
+        "Only the two pinned existing workflow/helper transitions: fixed admitted grant, original critical10 and conditional extra4 as separate one-use slots, exact-full-SHA owner commands and durable atomic consumption before any candidate start or internal exec.",
+        "Use verified owner-only state directory descriptors, O_EXCL/O_NOFOLLOW mode600 regular single-link markers and file plus descriptor-resolved directory ancestry fsync before spawn/exec. Unknown, malformed, unsafe or spent entries fail closed. All failures/crashes remain spent; cleanup never deletes or refunds these markers.",
+        "Bind the owner-admitted command SHA to actual HEAD, origin/main and fresh GitHub main, recheck immediately before start, and preserve verified local/remote helper identity. The helper validates fixed grant/corpus/argument consistency; it is not an independent repository attestor.",
+        "New workflow rejects legacy current-main and combined commands before SSH. A late old workflow fetching the accepted new helper fails on missing mandatory execution arguments. A runner already holding a pre-guard helper remains a distinct bypass risk requiring complete reconciliation.",
+        "Retain original model bytes/hash/alias, production executable/runtime contour, dedicated non-root principal, pinned SSH transport, ephemeral key boundaries, memory/priority/loopback isolation,420-second startup-inclusive lease, pidfd ownership/watchdog and baseline/cleanup contracts. No oracle, assertion, budget, runtime retry or quality-threshold change.",
+        "Keep every existing contract/fault/security test. Add only inline workflow tests for concurrent reservation, sequential/changed-SHA replay, legacy/internal bypass, crash/fsync/ancestor failure, unsafe entries, same-SHA extra binding, cleanup retention and actual executable command/SHA resolution. These are no-model-call source checks."
+      ],
+      "serializationTransition": [
+        "This admission explicitly releases only the no-main-movement hold recorded in Hub5974288267 that is necessary to accept this exact protective two-file fence through ordinary independently reviewed purpose/source merges. It does not reopen inference, cancel the old event or declare old snapshots safe.",
+        "Before either merge, freshly recheck actual main, Hub/owners, all eligible workflow runs across statuses/attempts and complete pagination. Any active old eligible candidate, unknown execution identity or cleanup discrepancy blocks acceptance/delivery until reconciled; preserve all actual findings.",
+        "After guard acceptance, enumerate and reconcile every eligible pre-guard run, including already-resolved old checkout/staged-helper snapshots and all attempts. Require terminal jobs and actual cleanup/unchanged active8B proof whenever a candidate start step was attempted. Unknown version/start/cleanup blocks replacement.",
+        "Any old candidate attempt associated with the original command consumes its original critical allowance, even before inference. A replacement critical delivery is NEVER permitted after that attempt, including after PASS. Only the original conditional extra may follow actual critical PASS, actual cleanup PASS and unchanged active8B on that same full accepted SHA. Undispatched old events subsequently fetching the new helper reject legacy arguments.",
+        "Only after complete post-merge drain, exact source acceptance and fresh repository/run identity checks may one replacement owner command explicitly name the actual accepted full SHA and reuse the original unconsumed fixed grant. Freeze main/source throughout that diagnostic window. Extra remains separately conditional on actual critical success and cleanup at this same SHA.",
+        "No blind repost, rerun, automatic merge, workflow disabling, CI waiver, runtime escalation, model-host/controller mutation or new recurring expense is admitted by this transition."
+      ],
+      "acceptanceSequence": [
+        "First accept only this append-only one-file purpose record on the existing CORE branch after fresh published-whole-head independent nonauthor review, separate owner audit and full applicable native CI/security/readiness; ordinary expected-full-SHA manual merge.",
+        "Then continue the existing candidate branch from that actual accepted base with only these exact two regular100644 source blobs. Verify all untouched leaves and the preserved accepted diagnostic blobs. Require fresh actual-published-whole-head independent review, owner audit, full native contract/CI/security/readiness and ordinary manual expected-full-SHA source merge.",
+        "Repeat complete old-run snapshot/attempt/cleanup reconciliation after acceptance and immediately before any permitted delivery; no private/local/stale-head PASS transfer or unsupported new runtime allowance.",
+        "Real original critical10 and conditional extra4 inference, startup/acceptance/cleanup/unchanged8B and420-second lifetime evidence are required for candidate acceptance. Source merge or synthetic PASS is not model-quality, latency, deployment or permanent activation proof."
+      ],
+      "privateEvidenceLimits": "Private source head213d08df7edee695fcad3171446feffda7212c4e received separate nonauthor full-diff PASS with no remainingP0/P1/P2;19/19 one-use and16/16 diagnostic tests plus actual shell corpus/SHA and synthetic same-PID/key/home pre-exec checks passed. Full local ownership /proc proof fails with the same PID-namespace limitation on unchanged baseline. Native full ownership/CI proof remains mandatory; no private result is published-head or model approval.",
+      "approvedAutomaticServerEffects": "Retain only the already approved existing source-acceptance image-build/preflight effects, including image downloads/protected checkout refresh when inherited controllers apply. This is not zero-write or REG.RU application/model release acceptance and adds no host-operation authority.",
+      "forbiddenAuthority": [
+        "No additional critical or extra inference, runtime retry, new corpus, oracle/assertion/budget/lease relaxation or permanent model activation.",
+        "No baseline stop/restart/signal, public listener, model alias reuse, production routing/application/database mutation, new credential/right/expense or unrelated server/controller work.",
+        "No manifest/state self-expansion on candidate branch, unrelated admission/vector/current-scope change, competing owner, gate weakening, fake or stale-head PASS, forced/automatic merge or workflow disabling.",
+        "No REG.RU release/live acceptance, R1 completion or progress increase. Official5/100 and queued topology observer holds remain unchanged."
+      ]
+    },
+    "gekta-localized-subject-evidence-20261004": {
+      "owner": "Existing Gekta/Han owner retained; existing CORE coordinator handles source purpose only",
+      "purpose": "Deliver a bounded same-language subject and diagnostic-evidence reminder beside the unchanged question; source-only adherence experiment after the consumed failed candidate.",
+      "authorityBaseExactMain": "8c96a36cf217a9ac2ab50d906a96320c00ecf3a8",
+      "ownerContinuationReceipt": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5976164710",
+      "status": "SOURCE_ONLY_PURPOSE; EXACT_PUBLISHED_HEAD_REVIEW_NATIVE_CI_AND_ACCEPTANCE_PENDING; ORIGINAL_MODEL_GRANT_SPENT; NO_NEW_INFERENCE",
+      "governanceBranch": "fix/readiness-database-deadline-4829",
+      "governanceAllowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "implementationBranch": "fix/gekta-han-stream-20260927",
+      "allowedPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+      ],
+      "exactSourceTransitions": [
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "mode": "100644",
+          "beforeBlob": "0776c2312c24f9e46c1ea37436163d8bd082c4d1",
+          "afterBlob": "9dec43891152f993be29be5d4e735ad1e4545688",
+          "sha256": "003fbfeca35ebd6ef6d258a97ea6fba276df1382e5633973ecb3c0daa8305e49",
+          "bytes": 54620
+        },
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "db9e4363f257a47e3195f41282aa91574b4e9434",
+          "afterBlob": "0f4591006e01d8cc8ee9311ccd79ddee6f89bded",
+          "sha256": "39f3739687c0dada9a3afcf513dfbfe4bf433cf3c945bb7cf7937fb20b53f455",
+          "bytes": 87379
+        }
+      ],
+      "observedFailure": {
+        "run": "37172251281",
+        "attempt": 1,
+        "job": "111347427570",
+        "actualSourceSha": "8c96a36cf217a9ac2ab50d906a96320c00ecf3a8",
+        "nativeReport": "https://github.com/pachaninm-lab/pachanin-demo/issues/3896#issuecomment-5975957594",
+        "independentFindings": "https://github.com/pachaninm-lab/pachanin-demo/issues/3896#issuecomment-5975995193",
+        "result": "FAILED critical7 missing unambiguous wheat subject; prior1-6 original sequential assertions passed, remaining7 assertion and8-10 UNRUN; extra NOT_DISPATCHED. This is not complete semantic or speed acceptance.",
+        "materialSemanticFinding": "The actual response discards supplied subject and asks crop type; it also asserts necessary fungicides from conditional root/collar symptoms without stage, extent, viability or adequate diagnostic evidence. This is broader adherence failure, not a specific product/dose assertion breach.",
+        "metadata": "All7 provider traces one attempt, stop, truncated=false, nooverflow; critical7 completion235tokens/26199ms. Actual cleanup PASS, unchanged active8B, candidate0/listener0, conservative start-through-status291.137seconds<420.",
+        "causalLimit": "Existing system rules already address both failures. Localized reinforcement near the question is a delivery hypothesis, not a proven missing-rule cause, quality fix, generalization or latency improvement."
+      },
+      "sourcePurposeBoundary": [
+        "Only append SUBJECT_AND_EVIDENCE_REMINDER and a bounded static RU/EN/ZH selection in buildGroundedPrompt for general_agro. Keep full original system and MINIMUM_ANSWER_QUALITY text unchanged; verified_platform wire remains unchanged.",
+        "Reinforce that an obvious typo does not erase an otherwise unambiguous subject, correctly name it in the opening, avoid asking already supplied facts, preserve numbers/units/identifiers/quotes and ask about genuine ambiguity. Retain latest explicit correction and all original questions/history/conversation state.",
+        "Reinforce plant diagnosis and treatment evidence: missing growth stage, affected extent, viability and diagnostic evidence cannot establish diagnosis or necessary chemical treatment, replanting or replacement; offer conditional checks first. This instruction is not a deterministic semantic validator.",
+        "No crop/oracle keyword injection, detector, canned response, input/output rewrite, extra provider/model call, schema/model/configuration/transport/stream/exception/cancellation/accounting/filter/diagnostic/generation-budget change. Added prompt content may change actual prompt tokens and latency; never claim otherwise.",
+        "Adapt existing full-wire expectations and add12 RU/EN/ZH mocked preservation checks across generate/stream. Deliberately incomplete mock replies remain unpatched. Preserve every old test and all original live14 inputs/assertions; new fixtures are source-only mocks, not a real held-out runtime corpus."
+      ],
+      "retainedOwnership": "Append one record only. Preserve all56 prior admissions and185 ordered concurrent vectors, every other state byte/value, current/writable scopes, owners, existing CORE/Han ordinary histories, R1/topology/observer holds and official5/100. No guard/vector/manifest expansion.",
+      "acceptanceSequence": [
+        "First accept this one-file append-only purpose on the existing CORE branch after fresh main/Hub/owners/conflict checks, actual-published-whole-head independent nonauthor review, separate owner audit and complete applicable native CI/security/readiness; ordinary manual expected-full-SHA merge.",
+        "Then continue only the existing Han branch from actual accepted purpose-main with exactly these two pinned regular100644 source blobs. Verify all untouched tree leaves and fresh published-whole-head independent review, separate audit, full native CI/security/types/Kubernetes with zero failed PgBouncer logical probes, deep-outbox and cleanup, plus fresh readiness before ordinary expected-full-SHA merge.",
+        "Source acceptance does not reopen inference. Preserve the accepted one-use workflow/helper and durable spent reservation/release markers. No new SHA/ref/helper name or cleanup may refund or reset the original grant. No model command, rerun, extra, new real corpus, release or permanent activation follows this record."
+      ],
+      "retainedExecutionFence": {
+        "fixedIdentity": "gekta-critical-5974230017",
+        "state": "SPENT",
+        "consumedCommand": "https://github.com/pachaninm-lab/pachanin-demo/issues/3896#issuecomment-5975922054",
+        "closedWindow": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5975981434",
+        "workflowBlob": "30117b1b1c9adc258303d852b7e2e7d3a051e7af",
+        "helperBlob": "ccf9e2650f0970d2677dc1d0902c82e2b223701f",
+        "criticalOracleBlob": "391a38f7149b9bbce817d312e03bbcc6377c29fa",
+        "boundary": "Original saved legacy event remains not-cancelled; admitted guard rejects it. Existing consumed allowance stays consumed. Any future bounded inference requires separate actual owner authority and independently reviewed admitted execution identity; this record provides neither."
+      },
+      "privateEvidenceLimits": "Exact privatehead90d628c8080fcf10391d8d66322b13cac5d2f036/treef6ab92b3ec8d2c8ad624ecfc41dc0180bfd3fcb0 received separate nonauthor full-diff PASS with noP0/P1/P2 and independent162service tests onNode24. Root580/580 in9mock suites,0skips onNode20.20.2; APItypecheckPASS; private literal Han scope and reviewgate49/49PASS. Local hosting authority check failed because Docker is absent; native check remains mandatory. Dispatcher remains blocked on existing R1 prerequisite. No private result transfers published/native/model approval.",
+      "approvedAutomaticServerEffects": "Retain only already authorized inherited source image-build/preflight/download/protected-checkout-refresh effects. This is not a zero-write claim or REG.RU application/model release and adds no host-operation authority.",
+      "forbiddenAuthority": [
+        "No new critical/extra/held-out inference, runtime retry, grant/marker reset, permanent model activation, baseline mutation, public listener, new right/credential/mandatory expense or unrelated host/controller operation.",
+        "No extra source/path/mode, guard/workflow/configuration/dependency/live-oracle/filter/budget change, competing implementation/owner, weakened CI/security/readiness/review/assertions, fake/stale-head PASS or automatic/forced merge.",
+        "No application release/live acceptance, R1 completion or progress increase. Actual quality/safety/speed findings stay open until separately governed real evidence."
+      ]
+    },
+    "settlement-currency-projection-5525-20261004": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "canonicalApiOwnerRetained": "ACCOUNT_1_EXECUTION",
+      "delegatedCanonicalCorrectionOnly": true,
+      "purpose": "Owner-authorized narrow correction of persisted Deal/default-or-configured terms/authoritative operation/public BankOperation currency consistency in the existing canonical Settlement producer.",
+      "authorityBaseExactMain": "f56f6bf0b881c6f2da8a5c759c69a1dc8fb6947f",
+      "implementationBranch": "fix/settlement-currency-projection-5525",
+      "allowedPaths": [
+        "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
+        "apps/api/test/industrial/harness.ts",
+        "apps/api/test/industrial/settlement-postgresql-authority.e2e-spec.ts"
+      ],
+      "requiredSourceMode": "100644",
+      "baselineSourcePins": [
+        [
+          "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
+          "4325feffd8aa2b270381f7a71e0f05e71d5c03f1",
+          "100644"
+        ],
+        [
+          "apps/api/test/industrial/harness.ts",
+          "aad2873616edc2d397cf6b83ce9e1693aa86932f",
+          "100644"
+        ],
+        [
+          "apps/api/test/industrial/settlement-postgresql-authority.e2e-spec.ts",
+          "1382e00ab1e9f5ab309709f3387ca6e9a0223c84",
+          "100644"
+        ]
+      ],
+      "ownerAuthorization": {
+        "kind": "explicit session owner instruction",
+        "receivedAt": "2026-10-04T20:23:03+03:00",
+        "instruction": "Да разрешаю",
+        "reviewablePackage": "#5525 comment5982114584",
+        "coordinationReceipt": "#5469 comment5982543780"
+      },
+      "requiredTruthBoundaries": [
+        "Only this one concurrent three-path vector and coordination record are appended in the prior state-only admission. Every previous state byte/value, primary/current/global/R1.2 scope, owner, admission, vector and official5/100 progress stays unchanged; no application source accompanies admission.",
+        "Only after this separate accepted-base admission may the original narrow source ref change the three named existing regular100644 files. Source HEAD cannot modify state, guard, workflows, manifests, permissions, dependencies, schema or any fourth file to authorize itself.",
+        "Persisted canonical Deal currency governs omitted/default terms and must agree with explicit configured terms, authoritative payments/operations and the public BankOperation mirror. Contradiction or missing/malformed currency fails closed; preserve integer amounts and forbid any currency conversion or hardcoded fallback.",
+        "Preserve verified callback trust, tenant/participant/RLS, idempotency, expected-version, concurrency, audit, durable outbox and money finality controls. Existing confirmed historical currency/ledger/callback facts are not silently relabelled or rewritten; inconsistent history needs explicit reconciliation.",
+        "Require real PostgreSQL RUB/USD/CNY default/configured producer-to-mirror/workspace regressions plus contradiction, malformed currency, replay/callback and preserved tenant/race negative coverage. Session fixtures or request receipts are not authenticated HTTP/provider/live acceptance.",
+        "The existing generic guard does not mechanically enforce exact-three cardinality or candidate hashes on this new ref. Independent actual whole-tree review must verify exactly these three changed paths/modes and every other accepted-base leaf unchanged, reject inherited primary/global additions and source-controlled scope claims, and report that enforcement limit honestly.",
+        "Every published source head needs separate nonauthor whole-head review, separate owner audit, complete applicable native CI/security/PostgreSQL/Kubernetes/readiness and an ordinary expected-full-SHA manual merge. No PASS transfers from private or earlier heads.",
+        "BANK5772 retains its source pins/ref/history and unresolved finding until the producer is actually accepted and the original consumer is freshly composed, reviewed and gated. Provider lineage5525, FGIS and protected-role/external/REG.RU acceptance remain separate; this grants no provider activation or production/full-block credit."
+      ],
+      "forbiddenAuthority": [
+        "A second Settlement/Deal/payment/provider core or competing canonical writer",
+        "Any fourth source file, schema/migration/RLS grant or primary/global scope expansion",
+        "Provider/binding/credential/signing/legal/model/session/role authority or real money movement",
+        "CI/security/readiness/review weakening, source-owned self-admission, forced/automatic merge, stale PASS or false production/provider acceptance"
+      ]
+    },
+    "deal-execution-route-20261001": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "ACCOUNT_2_PRODUCT",
+      "purpose": "Register only the existing protected canonical Deal execution destination after the genuine native BANK queue journey returned layout404; preserve all server role, tenant, membership and command authority.",
+      "authorityBaseExactMain": "9bcb011da917a7889a8ba5a5bcd60b883acb544f",
+      "implementationBranch": "fix/deal-execution-route-20261001",
+      "allowedPaths": [
+        "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+        "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+        "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts"
+      ],
+      "exactSourcePins": [
+        [
+          "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+          "b9b96c88695c7960a309e98e691c348fec03a2b0",
+          "d94cc0d0af208fd6faea32e321a136629bef44f8"
+        ],
+        [
+          "apps/web/tests/unit/platformV7AccountingRouteAccess.test.ts",
+          "87ebc91bcc9a927dd6ad2d6f9afdfff8737d47bd",
+          "a1290dc9b3ba122de480200ff5efa86445b5fe66"
+        ],
+        [
+          "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts",
+          "0e7d10b62a722802c76e73f2eb2e618953a383c5",
+          "043c10b308d52091cebb1b7a26dd31fc23a0bc45"
+        ]
+      ],
+      "requiredSourceMode": "100644",
+      "nativeFailureEvidence": {
+        "pr": 5735,
+        "head": "1fdd8981106145df244420138b86fc6ae4f23d48",
+        "workflowRun": 36849109373,
+        "job": 110326285988,
+        "failedProjects": 5,
+        "observedStatus": 404,
+        "diagnosisHubComment": 5930062482
+      },
+      "privatePayload": {
+        "bytes": 4262,
+        "sha256": "d4c4bf61d3813e2d0d4b9c364c81941ab88039b078413addc5eb1d3ca750e884",
+        "candidateTestsPassed": 15,
+        "unchangedBaselinePassed": 12,
+        "unchangedBaselineFailed": 3
+      },
+      "requiredTruthBoundaries": [
+        "Separate state-only proposal. Preserve all prior state bytes/values except the append of one exact concurrent three-path vector and this one record. Primary/current/global/R1.2 scopes, all historical admissions, every other branch, official5/100 progress, maturity and canonical CORE source ownership remain unchanged.",
+        "The future source phase changes exactly the three pinned regular files, retains unchanged accepted-base state/guard/workflows/security/registry/source modes and all other leaves, and requires an independently reviewed accepted MAIN admission before publication.",
+        "Add only anchored /platform-v7/deals/<one-id>/execution registration and remove only the broken trailing-slash Deal prefix. Keep anchored accounting, all other role and route classes, unknown-route rejection before auth, signed session and API membership checks. Do not repair the prefix by broadly admitting all Deal subroutes.",
+        "Preserve every existing test and replace the broken prefix text assertion with behavioral execution reachability plus published dynamic-policy coverage. Exercise all three locales, valid canonical IDs, missing/empty IDs, malformed double slash and extra/nested/sibling paths; retain accounting negative roles.",
+        "Keep the current original BANK source unchanged until this prerequisite is accepted. Then normally compose its original head with accepted current MAIN, preserving the original two source pins and bounded E2E case; obtain fresh whole-head review, owner audit and native five-browser/Kubernetes/readiness results.",
+        "Private15-test/typecheck results and the original404 diagnosis do not establish current-head native CI, browser acceptance, exact REG.RU deployment, real providers or actual13-cabinet closure. Never rerun the failed unchanged BANK head or lower assertions to get green.",
+        "While canonical CORE6 window5930002118 remains active, only an unmerged one-file metadata review proposal is prepared under bounded decision5930593870. This proposal changes no accepted state, grants no SOURCE authority and performs no SOURCE/MAIN/guard/release mutation. Any metadata adoption/merge and future SOURCE publication are serialized after actual CORE HANDOFF/DONE, fresh Hub/main/source/scope recheck, every applicable substantive CI/security, independent current-head review, separate author audit and normal expected-full-SHA manual merge."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/RLS/role/tenant/session/command/money/provider/FGIS or new CORE authority",
+        "Broad Deal-prefix admission, route/auth bypass, original BANK source replacement or competing owner branch",
+        "CI/security/readiness/review weakening, fake history/PASS, forced/automatic merge, release/model mutation or new recurring cost"
+      ],
+      "metadataPreparationDecision": "Team Hub #5469 comment5930593870",
+      "guardPurposeKey": "deal-execution-route-guard-purpose-20261001"
+    },
+    "shared-ci-deal-route-classifier-5799-20261004": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "CORE/shared CI",
+      "implementationDelegation": "Bounded user-owner authorization for prerequisite #5799 only; no general CORE ownership transfer.",
+      "purpose": "Distinguish shared Deal route compatibility from owned commodity/regulatory slice changes without weakening complete native acceptance or the existing owned-slice allowlists.",
+      "authorityBaseExactMain": "474d03e7760696a4587cd622820581a550ff848f",
+      "ownerAuthorization": "User explicitly replied «Разрешаю» to exact private v2 proposal #5799/comment5984913374; recorded in Team Hub #5469/comment5985117887.",
+      "implementationBranch": "fix/shared-ci-deal-route-classifier-5799",
+      "allowedPaths": [
+        ".github/workflows/pc-crop-01b4.yml",
+        ".github/workflows/pc-crop-07b.yml"
+      ],
+      "exactSourcePins": [
+        [
+          ".github/workflows/pc-crop-01b4.yml",
+          "433c99668ead853e792653590b4466470d633e96",
+          "0d933df385bb22f60b4c2deea16dc225c82ca052"
+        ],
+        [
+          ".github/workflows/pc-crop-07b.yml",
+          "9cc147deaa7bf884e6f77bc35b8d66a03b25e151",
+          "754e6a0bdf86d62be87f6f89df90a9cc8420a694"
+        ]
+      ],
+      "requiredSourceMode": "100644",
+      "privatePatchSha256": "8158e4a87a1b33ac61c88d2f035b7bfef21da05352ae9bd4480688b5a3af9b57",
+      "privateReviewEvidence": {
+        "proposalComment": 5984913374,
+        "implementationExpectations": 48,
+        "independentExpectations": 84,
+        "independentMismatches": 0,
+        "independentFindings": {
+          "P0": 0,
+          "P1": 0,
+          "P2": 0
+        },
+        "priorPrivateV1Finding": "P1 rename/quoted UTF-8 ownership bypass; fixed in v2, original BLOCK retained, no v1 SOURCE published.",
+        "truthBoundary": "Private actual-shell fixture review only; not current-published-head review or native PostgreSQL/BFF/browser/production acceptance."
+      },
+      "nativeFailureEvidence": {
+        "pr": 5798,
+        "head": "db0c06a9f225ecf090a285d3f43a9371250c979d",
+        "pcCrop01B4Run": 37237199018,
+        "pcCrop07BRun": 37237198986,
+        "classification": "Actual shared route change misclassified as owned slice; both native scope checks reject the two admitted route tests before full acceptance."
+      },
+      "requiredTruthBoundaries": [
+        "Separate state-only admission: append exactly one two-path concurrent vector and this record. Removing these two additions restores every accepted-base byte/value. All old vectors/admissions, PRIMARY/current/global/writable scopes, official5/100, progress/prompts/queue, owners and every other tree leaf remain unchanged.",
+        "Publish a separate SOURCE PR only after actual admission acceptance. Its complete fresh accepted-main diff is exactly the two pinned existing100644 workflow files; accepted state/guard/manifests/security/registry/application/API/auth/money/provider files and every other leaf remain unchanged. Generic branch guards are not immutable exact-two enforcement; independent complete-tree review enforces this owner boundary.",
+        "Keep all existing workflow triggers, permissions, jobs, full PostgreSQL/BFF/JIT/governed-command acceptance commands, gates, thresholds and actual owned-slice allowlists unchanged. Shared compatibility changes must continue full acceptance; actual owned changes still reject unrelated paths.",
+        "Collect changed paths with --no-renames and raw NUL delimiting, retaining both rename endpoints/deletions and raw UTF-8. Reject LF/CR/TAB control delimiters before line-oriented ownership classification. Preserve valid push-range and genuine manual-dispatch behavior.",
+        "Because PC07B does not trigger on its own workflow path, SOURCE requires genuine native workflow_dispatch at the exact published SOURCE head and complete real PostgreSQL/BFF/JIT/governed-command acceptance. Private fixtures, skipped suites or an unrelated head cannot substitute for it.",
+        "Each phase requires fresh separate nonauthor whole-current-head review, distinct implementation-owner audit, all applicable substantive native CI/security and actual native readiness before a normal full-expected-SHA manual merge. No forced/automatic merge, fake status, gate waiver or unchanged-failed-source rerun credit.",
+        "Original route#5798 and BANK#5735 histories/failures/findings remain retained. Only after actual prerequisite acceptance compose their original source normally with fresh accepted main, preserving their exact source blobs and obtaining fresh whole-head review, author audit and complete applicable native/browser/Kubernetes/readiness evidence.",
+        "This delegation does not authorize unrelated CORE/API/DB/RLS/session/domain/payment/provider/FGIS changes, other owners or refs, deployment/topology/model operations, new costs or completion/progress claims. Exact REG.RU full-stack live acceptance and remaining contracts/access stay separate."
+      ]
+    },
+    "shared-ci-07b-job-lock-renewal-5799-20261005": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "CORE/shared CI",
+      "implementationDelegation": "Bounded owner-confirmed continuation of prerequisite #5799 only; no general CORE ownership transfer.",
+      "purpose": "Renew the canonical PC07B permissions/jobs digest for the approved shared Deal route classifier; publish the two workflows and one-scalar lock change atomically in original SOURCE PR #5801.",
+      "authorityBaseExactMain": "e26d2a08f078c1005e13e8e1ba1c28cf1e2a2197",
+      "ownerAuthorization": "Team Hub #5469/comment5985579707 explicitly confirms narrow request comment5985311050; latest user «Да» confirms the same exact lock/state amendment and browser fallback solely for genuine PC07B workflow_dispatch.",
+      "authorizationClaimComment": 5988323581,
+      "supersedesOnly": "Original admission shared-ci-deal-route-classifier-5799-20261004 exact-two-source-path and unchanged-lock restrictions are superseded only for this approved atomic three-path SOURCE phase. The entire original record and all its remaining requirements are retained.",
+      "implementationBranch": "fix/shared-ci-deal-route-classifier-5799",
+      "originalSourcePr": 5801,
+      "originalSourceHeadPreservedThroughOrdinaryAncestry": "3b9f8d36c65a89f06491c48c7a6d48418c7b21db",
+      "allowedPaths": [
+        ".github/workflows/pc-crop-01b4.yml",
+        ".github/workflows/pc-crop-07b.yml",
+        "docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json"
+      ],
+      "exactSourcePins": [
+        [
+          ".github/workflows/pc-crop-01b4.yml",
+          "433c99668ead853e792653590b4466470d633e96",
+          "0d933df385bb22f60b4c2deea16dc225c82ca052"
+        ],
+        [
+          ".github/workflows/pc-crop-07b.yml",
+          "9cc147deaa7bf884e6f77bc35b8d66a03b25e151",
+          "754e6a0bdf86d62be87f6f89df90a9cc8420a694"
+        ],
+        [
+          "docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json",
+          "d9d70acac87d01c477ee514b0a863fcb3355b060",
+          "87b91ba25714047da962e84308953d2a310c3aed"
+        ]
+      ],
+      "requiredSourceMode": "100644",
+      "lockScalar": {
+        "jsonPath": "workflows[.github/workflows/pc-crop-07b.yml].permissionsAndJobsSha256",
+        "before": "b3037d4cd4337a2dd3ab9d400094bee21c2b89b7044b1b17e0f7a49dbaeedea0",
+        "after": "87d8a19924249d706f24aca26899a75a382bd04ece11ca87c353c90cabcee764",
+        "derivedFromExactApprovedWorkflowBlob": "754e6a0bdf86d62be87f6f89df90a9cc8420a694",
+        "lockSha256After": "a873e5e72f677e02bab3cb18a9b7d1e33c4743147580daae2f27e6bfc98a602c",
+        "otherFourWorkflowPinsAndSchemaBaselineRemainByteIdentical": true
+      },
+      "privatePatchSha256": "b64e81d765ae4a7567ed15f8be35ffe924e825e6734ab9ed015f352537b987bd",
+      "privateReviewEvidence": {
+        "proposalComment": 5985294675,
+        "actualPositiveNegativeGuardCases": 16,
+        "independentMismatches": 0,
+        "independentFindings": {
+          "P0": 0,
+          "P1": 0,
+          "P2": 0
+        },
+        "unchangedPredecessorApplyIdempotenceAndSuccessorPrograms": "PASS in private disposable worktrees only",
+        "truthBoundary": "Private proposal review does not resolve public #5801 P1 or transfer native acceptance to any new published head."
+      },
+      "preservedNativeFailureEvidence": {
+        "sourceHead": "3b9f8d36c65a89f06491c48c7a6d48418c7b21db",
+        "independentBlockComment": 5985280146,
+        "predecessorGovernanceRun": 37240923880,
+        "predecessorGovernanceJob": 111549317209,
+        "artifact": 11316988308,
+        "finding": "PC07B approved scope-step change alters the full permissions/jobs tail; old canonical lock rejects it. P1 remains unresolved until real acceptance of the new exact atomic SOURCE head."
+      },
+      "requiredTruthBoundaries": [
+        "Separate metadata-only admission changes exactly one existing100644 state file: append one lock path to the existing source vector and append this renewal record. Reversing only these additions restores every accepted-base byte. All other187 vectors, all60 prior admissions including the original two-path record, PRIMARY/current/global/writable scopes, official5/100, progress/prompts/queue and every other tree leaf remain unchanged.",
+        "Only after actual admission acceptance, ordinarily compose original SOURCE #5801 head with fresh accepted main on its existing branch. Complete fresh-base diff must be exactly the two unchanged approved workflow blobs plus the pinned one-scalar canonical lock blob, all existing100644. Accepted state, guard, governance scripts, dependency/security/provider/application/API/auth/payment files and every other leaf remain unchanged. No standalone lock SOURCE is authorized; new lock with old workflow must continue to fail.",
+        "The original workflow source pins, classification behavior, raw-NUL rename/control-byte protections, triggers, permissions, full PostgreSQL/BFF/JIT/governed-command acceptance, gates, thresholds and existing owned-slice allowlists remain as reviewed. No guard weakening, broader allowlist or regenerated unrelated lock is permitted.",
+        "User-approved browser fallback is confined to genuine native PC07B workflow_dispatch on the exact new published SOURCE branch/head, because the connector has no dispatch operation. Verify the resulting actual head SHA and full non-skipped PostgreSQL/BFF/JIT/governed-command jobs via native GitHub evidence. No credential/provider/production operation or unrelated site interaction is authorized.",
+        "Each metadata and SOURCE phase requires fresh separate nonauthor whole-current-head review, distinct exact-head implementation-owner audit, all applicable substantive native CI/security and actual native readiness before a normal full-expected-SHA manual merge. Old FAIL/BLOCK and source history remain retained; private PASS, other-head PASS, skip-only runs, fake status, forced/automatic merge or waivers cannot substitute.",
+        "After prerequisite acceptance, original route#5798 and BANK#5735 continue only through ordinary ancestry with exact original source blobs, fresh accepted main and complete fresh independent review, audits, native PostgreSQL/browser/Kubernetes/readiness evidence. Resolve the BANK MFA journey finding only against actual fresh proof.",
+        "All other existing owner limits remain. No unrelated CORE/API/DB/RLS/session/domain/payment/provider/FGIS/deployment/topology/model change, new cost, ownership transfer or completion/progress claim. Exact REG.RU full-stack acceptance, remaining CORE contracts and external accesses remain separate blockers."
       ]
     }
   }
