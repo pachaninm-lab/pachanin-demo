@@ -4717,19 +4717,19 @@
         {
           "path": "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
           "beforeBlob": "04e7841e204336cb5df2d4d528bba9fdb45865ad",
-          "afterBlob": "bcd5679dffd4f4fc087ff06d86cc80fb2bd8df04",
+          "afterBlob": "53e1c0f8d0480ea9a94d036578a46312e95bea42",
           "mode": "100644"
         },
         {
           "path": "apps/web/app/platform-v7/terms/page.tsx",
           "beforeBlob": "bea5e20d8769cd6866ac22dca50e7a372ba698ff",
-          "afterBlob": "4268881f60d14fbe33d9ea9989e512aa14633492",
+          "afterBlob": "bea5e20d8769cd6866ac22dca50e7a372ba698ff",
           "mode": "100644"
         },
         {
           "path": "apps/web/tests/unit/publicQaPresentationRecovery.test.tsx",
           "beforeBlob": null,
-          "afterBlob": "f5a719cc704cb365d73ff287763de2f380b9fa45",
+          "afterBlob": "452f7fb9ae66f590ee85a0413edfd5b0e2d355ae",
           "mode": "100644"
         },
         {
@@ -4742,6 +4742,41 @@
       "ownershipHandoff": "Team Hub #5469 comment5931812780; original public Product five files only.",
       "correctedCompletePrivateProposal": "Private six-file commite9230163957acc4e479b61ded6a4612e4ad266ef, tree368de8ff96dbe3e1d2c68e92c06d317167402261; original five bytes unchanged from complete5933091063 plus the existing CI invocation's one new filename.",
       "independentPrivateEvidence": "Separate Product5 native evidence5933281694 binds the five unchanged source blobs:37/299/types. It is not whole-six-file approval. Additional exact six-file/session/CI-registration review remains required.",
+      "reviewCorrection": {
+        "reviewedSourceHead": "3945d1367a96bde40abb77c427bf44ff96927ac3",
+        "blockedSourcePr": 5809,
+        "independentSessionFinding": "Separate nonauthor /root/public6_review P0/P1/P2=0/0/1, recorded #5809 comment5998615023: new KPP hints must describe this form's accepted numeric input rather than the general legal identifier format.",
+        "nativeConsentFinding": "Actual Node CI37340616018/job111866458932 fails the unchanged consent-policy.spec.ts whole-terms-source hash assertion; recorded #5809 comment5998686239. This substantive failure remains retained, not waived.",
+        "authorityBaseExactMain": "2607995f802cce6ef4f8e62baa62e7c661d33fd4",
+        "primaryOrder": "https://www.nalog.gov.ru/rn77/about_fts/docs/16581721/",
+        "correction": "Qualify only the RU/EN/ZH KPP hints as This form accepts 9 digits and strengthen the existing hint regression. Restore the exact accepted Terms source and remove only the new deferred-terms-feature assertion/import. Preserve the existing numeric-only input pattern, required/optional state, submission, consent, server validation and every baseline consent test/hash/migration. No new identifier or consent authority.",
+        "supersededAfterPins": [
+          {
+            "path": "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
+            "beforeCorrectionBlob": "bcd5679dffd4f4fc087ff06d86cc80fb2bd8df04",
+            "afterCorrectionBlob": "53e1c0f8d0480ea9a94d036578a46312e95bea42",
+            "mode": "100644"
+          },
+          {
+            "path": "apps/web/app/platform-v7/terms/page.tsx",
+            "beforeCorrectionBlob": "4268881f60d14fbe33d9ea9989e512aa14633492",
+            "afterCorrectionBlob": "bea5e20d8769cd6866ac22dca50e7a372ba698ff",
+            "mode": "100644"
+          },
+          {
+            "path": "apps/web/tests/unit/publicQaPresentationRecovery.test.tsx",
+            "beforeCorrectionBlob": "f5a719cc704cb365d73ff287763de2f380b9fa45",
+            "afterCorrectionBlob": "452f7fb9ae66f590ee85a0413edfd5b0e2d355ae",
+            "mode": "100644"
+          }
+        ],
+        "deferredTermsCorrection": "The accurate Terms documentation-link wording remains OPEN and requires genuine shared-consent CORE ownership, admission and READY_FOR_CONSUMER handoff covering new version/source digest/forward-only evidence whitelist as applicable. This prerequisite preserves the original Terms artifact and grants no consent/API/DB/guard exception.",
+        "truthBoundaries": [
+          "The original six allowed paths and before pins are unchanged; the other three original after blobs and exact CI49-byte token are unchanged. Revised SOURCE has only five actual changed paths because Terms is preserved. All previous source/private/native/review evidence remains historical and does not approve the revised head.",
+          "Accept this state-only correction before publishing revised SOURCE. Then update the same original #5809 source PR and obtain fresh full current diff independent review, owner audit, applicable native CI/security/browser/readiness and ordinary full-SHA manual merge.",
+          "No guard/workflow/scope path expansion, API/auth/consent/agreement/runtime/provider/FGIS/owner/current/progress change. Exact REG.RU release/live acceptance and whole-block proof remain separate; deferred Terms wording is not claimed complete."
+        ]
+      },
       "requiredTruthBoundaries": [
         "Exactly these six regular100644 paths, including the new regression and one existing CI invocation; every other accepted MAIN leaf/state/guard/workflow remains unchanged in the source phase. All six before/after pins require fresh verification against actual accepted source base.",
         "Preserve canonical RU/EN/ZH locale/crop/filter navigation. Empty market allows existing Sell and Buy recovery without synthetic offers; recovery buttons must remain visible on the actual home page at390/760/761/1280 widths.",
