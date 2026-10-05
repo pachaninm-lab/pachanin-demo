@@ -1807,7 +1807,8 @@
     ],
     "fix/shared-ci-deal-route-classifier-5799": [
       ".github/workflows/pc-crop-01b4.yml",
-      ".github/workflows/pc-crop-07b.yml"
+      ".github/workflows/pc-crop-07b.yml",
+      "docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json"
     ]
   },
   "currentAcceptance": [
@@ -4472,6 +4473,80 @@
         "Each phase requires fresh separate nonauthor whole-current-head review, distinct implementation-owner audit, all applicable substantive native CI/security and actual native readiness before a normal full-expected-SHA manual merge. No forced/automatic merge, fake status, gate waiver or unchanged-failed-source rerun credit.",
         "Original route#5798 and BANK#5735 histories/failures/findings remain retained. Only after actual prerequisite acceptance compose their original source normally with fresh accepted main, preserving their exact source blobs and obtaining fresh whole-head review, author audit and complete applicable native/browser/Kubernetes/readiness evidence.",
         "This delegation does not authorize unrelated CORE/API/DB/RLS/session/domain/payment/provider/FGIS changes, other owners or refs, deployment/topology/model operations, new costs or completion/progress claims. Exact REG.RU full-stack live acceptance and remaining contracts/access stay separate."
+      ]
+    },
+    "shared-ci-07b-job-lock-renewal-5799-20261005": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "sourceOwnerRetained": "CORE/shared CI",
+      "implementationDelegation": "Bounded owner-confirmed continuation of prerequisite #5799 only; no general CORE ownership transfer.",
+      "purpose": "Renew the canonical PC07B permissions/jobs digest for the approved shared Deal route classifier; publish the two workflows and one-scalar lock change atomically in original SOURCE PR #5801.",
+      "authorityBaseExactMain": "e26d2a08f078c1005e13e8e1ba1c28cf1e2a2197",
+      "ownerAuthorization": "Team Hub #5469/comment5985579707 explicitly confirms narrow request comment5985311050; latest user «Да» confirms the same exact lock/state amendment and browser fallback solely for genuine PC07B workflow_dispatch.",
+      "authorizationClaimComment": 5988323581,
+      "supersedesOnly": "Original admission shared-ci-deal-route-classifier-5799-20261004 exact-two-source-path and unchanged-lock restrictions are superseded only for this approved atomic three-path SOURCE phase. The entire original record and all its remaining requirements are retained.",
+      "implementationBranch": "fix/shared-ci-deal-route-classifier-5799",
+      "originalSourcePr": 5801,
+      "originalSourceHeadPreservedThroughOrdinaryAncestry": "3b9f8d36c65a89f06491c48c7a6d48418c7b21db",
+      "allowedPaths": [
+        ".github/workflows/pc-crop-01b4.yml",
+        ".github/workflows/pc-crop-07b.yml",
+        "docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json"
+      ],
+      "exactSourcePins": [
+        [
+          ".github/workflows/pc-crop-01b4.yml",
+          "433c99668ead853e792653590b4466470d633e96",
+          "0d933df385bb22f60b4c2deea16dc225c82ca052"
+        ],
+        [
+          ".github/workflows/pc-crop-07b.yml",
+          "9cc147deaa7bf884e6f77bc35b8d66a03b25e151",
+          "754e6a0bdf86d62be87f6f89df90a9cc8420a694"
+        ],
+        [
+          "docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json",
+          "d9d70acac87d01c477ee514b0a863fcb3355b060",
+          "87b91ba25714047da962e84308953d2a310c3aed"
+        ]
+      ],
+      "requiredSourceMode": "100644",
+      "lockScalar": {
+        "jsonPath": "workflows[.github/workflows/pc-crop-07b.yml].permissionsAndJobsSha256",
+        "before": "b3037d4cd4337a2dd3ab9d400094bee21c2b89b7044b1b17e0f7a49dbaeedea0",
+        "after": "87d8a19924249d706f24aca26899a75a382bd04ece11ca87c353c90cabcee764",
+        "derivedFromExactApprovedWorkflowBlob": "754e6a0bdf86d62be87f6f89df90a9cc8420a694",
+        "lockSha256After": "a873e5e72f677e02bab3cb18a9b7d1e33c4743147580daae2f27e6bfc98a602c",
+        "otherFourWorkflowPinsAndSchemaBaselineRemainByteIdentical": true
+      },
+      "privatePatchSha256": "b64e81d765ae4a7567ed15f8be35ffe924e825e6734ab9ed015f352537b987bd",
+      "privateReviewEvidence": {
+        "proposalComment": 5985294675,
+        "actualPositiveNegativeGuardCases": 16,
+        "independentMismatches": 0,
+        "independentFindings": {
+          "P0": 0,
+          "P1": 0,
+          "P2": 0
+        },
+        "unchangedPredecessorApplyIdempotenceAndSuccessorPrograms": "PASS in private disposable worktrees only",
+        "truthBoundary": "Private proposal review does not resolve public #5801 P1 or transfer native acceptance to any new published head."
+      },
+      "preservedNativeFailureEvidence": {
+        "sourceHead": "3b9f8d36c65a89f06491c48c7a6d48418c7b21db",
+        "independentBlockComment": 5985280146,
+        "predecessorGovernanceRun": 37240923880,
+        "predecessorGovernanceJob": 111549317209,
+        "artifact": 11316988308,
+        "finding": "PC07B approved scope-step change alters the full permissions/jobs tail; old canonical lock rejects it. P1 remains unresolved until real acceptance of the new exact atomic SOURCE head."
+      },
+      "requiredTruthBoundaries": [
+        "Separate metadata-only admission changes exactly one existing100644 state file: append one lock path to the existing source vector and append this renewal record. Reversing only these additions restores every accepted-base byte. All other187 vectors, all60 prior admissions including the original two-path record, PRIMARY/current/global/writable scopes, official5/100, progress/prompts/queue and every other tree leaf remain unchanged.",
+        "Only after actual admission acceptance, ordinarily compose original SOURCE #5801 head with fresh accepted main on its existing branch. Complete fresh-base diff must be exactly the two unchanged approved workflow blobs plus the pinned one-scalar canonical lock blob, all existing100644. Accepted state, guard, governance scripts, dependency/security/provider/application/API/auth/payment files and every other leaf remain unchanged. No standalone lock SOURCE is authorized; new lock with old workflow must continue to fail.",
+        "The original workflow source pins, classification behavior, raw-NUL rename/control-byte protections, triggers, permissions, full PostgreSQL/BFF/JIT/governed-command acceptance, gates, thresholds and existing owned-slice allowlists remain as reviewed. No guard weakening, broader allowlist or regenerated unrelated lock is permitted.",
+        "User-approved browser fallback is confined to genuine native PC07B workflow_dispatch on the exact new published SOURCE branch/head, because the connector has no dispatch operation. Verify the resulting actual head SHA and full non-skipped PostgreSQL/BFF/JIT/governed-command jobs via native GitHub evidence. No credential/provider/production operation or unrelated site interaction is authorized.",
+        "Each metadata and SOURCE phase requires fresh separate nonauthor whole-current-head review, distinct exact-head implementation-owner audit, all applicable substantive native CI/security and actual native readiness before a normal full-expected-SHA manual merge. Old FAIL/BLOCK and source history remain retained; private PASS, other-head PASS, skip-only runs, fake status, forced/automatic merge or waivers cannot substitute.",
+        "After prerequisite acceptance, original route#5798 and BANK#5735 continue only through ordinary ancestry with exact original source blobs, fresh accepted main and complete fresh independent review, audits, native PostgreSQL/browser/Kubernetes/readiness evidence. Resolve the BANK MFA journey finding only against actual fresh proof.",
+        "All other existing owner limits remain. No unrelated CORE/API/DB/RLS/session/domain/payment/provider/FGIS/deployment/topology/model change, new cost, ownership transfer or completion/progress claim. Exact REG.RU full-stack acceptance, remaining CORE contracts and external accesses remain separate blockers."
       ]
     }
   }
