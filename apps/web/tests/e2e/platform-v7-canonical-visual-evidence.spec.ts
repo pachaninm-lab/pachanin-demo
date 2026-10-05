@@ -473,7 +473,7 @@ async function loginReadyBankJourney(page: Page, email: string, baseURL: string)
     expect(passwordSession.mfaRequired, 'ordinary ACCOUNTING login needs only the password').not.toBe(true);
     const passwordIdentity = await context.request.get('/api/auth/me');
     expect(passwordIdentity.status()).toBe(200);
-    expect((await passwordIdentity.json()).user.mfaVerified).toBe(false);
+    expect((await passwordIdentity.json()).mfaVerified).toBe(false);
     const start = await context.request.post('/api/auth/mfa-step-up/start', {
       headers: { 'content-type': 'application/json', 'x-csrf-token': await csrf() }, data: {},
     });
@@ -488,7 +488,7 @@ async function loginReadyBankJourney(page: Page, email: string, baseURL: string)
   expect(authenticated, 'server-proved action MFA for isolated READY bank user').toBe(true);
   const protectedIdentity = await context.request.get('/api/auth/me');
   expect(protectedIdentity.status()).toBe(200);
-  expect((await protectedIdentity.json()).user.mfaVerified).toBe(true);
+  expect((await protectedIdentity.json()).mfaVerified).toBe(true);
   const names = (await context.cookies(baseURL)).map((cookie) => cookie.name);
   expect(names).toContain('pc_v7_cabinet');
   expect(names).toContain('pc_access_token');
@@ -1098,11 +1098,13 @@ test('canonical protected cabinet boundary: password-only login opens the ordina
   await page.locator('input[name="email"]').fill(acceptanceEmail('buyer'));
   await page.locator('input[name="password"]').fill(ACCEPTANCE_PASSWORD);
   const responsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/auth/login'
-    && response.request().method() === 'POST');
+    && response.request().method() === 'POST').then(async response => ({
+      status: response.status(), body: await response.json(),
+    }));
   await page.locator('form').filter({ has: page.locator('input[name="password"]') }).locator('button[type="submit"]').click();
   const response = await responsePromise;
-  expect(response.status()).toBe(200);
-  expect(await response.json()).toMatchObject({ ok: true, mfaRequired: false });
+  expect(response.status).toBe(200);
+  expect(response.body).toMatchObject({ ok: true, mfaRequired: false });
   await expect(page).toHaveURL(/\/platform-v7\/buyer(?:[?]|$)/);
   await expect(page.getByTestId('p0-first-customer-workspace-buyer')).toBeVisible();
   await expect(page.locator('input[name="verification-code"]')).toHaveCount(0);
@@ -1121,9 +1123,13 @@ test('canonical protected cabinet boundary: password-only login opens the ordina
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill(ACCEPTANCE_PASSWORD);
     const pending = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/login'
-      && response.request().method() === 'POST');
+      && response.request().method() === 'POST').then(async response => ({
+        status: response.status(), body: await response.json(),
+      }));
     await page.locator('form').filter({ has: page.locator('input[name="password"]') }).locator('button[type="submit"]').click();
-    expect(await (await pending).json()).toMatchObject({ ok: true, mfaRequired: false });
+    const loginResponse = await pending;
+    expect(loginResponse.status).toBe(200);
+    expect(loginResponse.body).toMatchObject({ ok: true, mfaRequired: false });
     await page.goto('/platform-v7/profile?lang=ru', { waitUntil: 'networkidle' });
     const identity = await page.context().request.get('/api/auth/me');
     expect(identity.status()).toBe(200);
