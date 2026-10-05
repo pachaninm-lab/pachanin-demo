@@ -1853,6 +1853,10 @@
       "apps/web/app/platform-v7/terms/page.tsx",
       "apps/web/tests/unit/publicQaPresentationRecovery.test.tsx",
       ".github/workflows/ci.yml"
+    ],
+    "product/public-qa-routed-ru-hint-20261005": [
+      "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+      "apps/web/tests/unit/publicQaPresentationRecovery.test.tsx"
     ]
   },
   "currentAcceptance": [
@@ -4786,6 +4790,43 @@
         "The CI edit adds only tests/unit/publicQaPresentationRecovery.test.tsx to the existing vitest run. Removing this one token restores every original workflow byte; preserve all30 baseline test invocations, triggers/permissions/secrets/actions/security/readiness flags and pipefail/logging. Current six-file composition requires canonical CORE compatibility disposition for this shared CI path, and later queue/FGIS commands must be composed without dropping any accepted invocation.",
         "Before any source adoption: actual completed canonical CORE window handoff, fresh genuine MAIN ancestry and complete five-file pins/readback, independent full current-head nonauthor review, separate author audit, every applicable native CI/security/browser/readiness gate and ordinary expected-full-SHA manual merge.",
         "Private tests and proposal review are not full legacy/browser/Founder13/provider/REG.RU acceptance or official progress credit. Exact live release and whole-block acceptance remain separate."
+      ]
+    },
+    "public-qa-routed-ru-hint-20261005": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Qualify the existing nine-digit-only form restriction on the actual routed RU public registration clone, and bind identifier-hint regressions to the actual registration page for RU/EN/ZH. Presentation only; no registration/auth/validation/consent authority.",
+      "authorityBaseExactMain": "7ff1ccbb71d8ef4fa271a75be9674ae819bd8644",
+      "implementationBranch": "product/public-qa-routed-ru-hint-20261005",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+        "apps/web/tests/unit/publicQaPresentationRecovery.test.tsx"
+      ],
+      "sourcePayload": [
+        {
+          "path": "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+          "beforeBlob": "4aabbcad2b6def874e85c7afa66b92bde6cc0df1",
+          "afterBlob": "2b28a3ff2f308c73f5e97f5ced69b1a904544ab4",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/tests/unit/publicQaPresentationRecovery.test.tsx",
+          "beforeBlob": "452f7fb9ae66f590ee85a0413edfd5b0e2d355ae",
+          "afterBlob": "d38bddbfcdbbda1def7e3bfc16dd9907d211079b",
+          "mode": "100644"
+        }
+      ],
+      "originalScopeHistory": "Original PUBLIC6 admission#5808 and corrective#5810 remain unchanged. SOURCE#5809 fullf594 normally accepted as MAIN7ff/tree d77. This is a separate two-path correction; it does not expand or rewrite the original six-path admission.",
+      "liveFinding": "Actual public RU DOM at deployed7ff retains unqualified9digits in RegisterFormClientPublic/RussianRegistration, outside the original six paths. #5809 finding5999935457; root cause5999970326; separate nonauthor /root/public6_review confirms actualroute wiring and unchanged publicclone4aabb. EN/ZH delegate to accepted qualified Generic53e1; Login uses its reviewed canonical client.",
+      "privateRegressionEvidence": "A private test change rendering the actual RegisterPage at BASE7ff reproduces1RUFAIL/35PASS. Applying only the proposed RU hint literal gives36/36; correct closest registration/login suites give52/52PASS, zeroFAIL/SKIP. Private preparation is not current-head native/source/release approval.",
+      "ownershipHandoff": "Team Hub#5469 serialized retained ACCOUNT_2_PRODUCT correction claim5999970557; current7ffweb operational observation remains separate from SOURCE admission and full PUBLIC6 acceptance.",
+      "requiredTruthBoundaries": [
+        "Accept this state-only admission before publishing or adopting its SOURCE branch. During admission all source bytes, original190scopevectors/63admissions, owners/current/official5 remain unchanged except this one added two-path vector and coordination record.",
+        "Exactly two existing regular100644 SOURCE files, all7007otherexisting leaves unchanged. Public clone changes only the one RU KPP hint literal; reverse that literal to recover every original byte. Preserve generic53e1, original six pins/CI49-byte token, all baseline selections and every workflow byte.",
+        "The existing regression replaces only its direct generic-form import/render with the actual registration page for allthree locales. All36cases/assertions, numeric patterns, required/optional fields and unchecked consents are retained; no fake route or client response.",
+        "Preserve all RU clone AUTH, MFA, session, tenant, workspace, registration validation/submission/outcome/version-lock/replay/status/token/unknown-operation and server evidence behavior. No acceptance checkbox selection, credentials or real account registration is authorized by this correction.",
+        "Fresh exact acceptedbase/after pins and complete tree proof, separate whole-head nonauthor review, separate implementation-owner audit, applicable substantive native checks, actually executed canonical READY and immediate operator refs/checks/reviews/threads recheck precede ordinary expectedfullSHA manual merge.",
+        "Canonical REG.RU bounded web-only release, exact OCI/persistent image authority, genuine production mobile plus actual RU/EN/ZH changed-hint/navigation QA and30-minute live observation remain separate. Runtime PASS does not waive a public-copy defect; realAUTH and fullblock acceptance are not credited.",
+        "Terms shared-consent CORE dependency5998704042, BANK5525/5655/5530 and FGIS5531 remain OPEN. No provider/API/DB/consent/agreement/Gekta/CORE/guard/workflow/lockfile/inventory/outbox/ownership/current/progress changes."
       ]
     }
   }
