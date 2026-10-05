@@ -4723,13 +4723,13 @@
         {
           "path": "apps/web/app/platform-v7/terms/page.tsx",
           "beforeBlob": "bea5e20d8769cd6866ac22dca50e7a372ba698ff",
-          "afterBlob": "4268881f60d14fbe33d9ea9989e512aa14633492",
+          "afterBlob": "bea5e20d8769cd6866ac22dca50e7a372ba698ff",
           "mode": "100644"
         },
         {
           "path": "apps/web/tests/unit/publicQaPresentationRecovery.test.tsx",
           "beforeBlob": null,
-          "afterBlob": "24f89016b2fd4c1a7f5555b294f588201b54b4f5",
+          "afterBlob": "452f7fb9ae66f590ee85a0413edfd5b0e2d355ae",
           "mode": "100644"
         },
         {
@@ -4746,9 +4746,10 @@
         "reviewedSourceHead": "3945d1367a96bde40abb77c427bf44ff96927ac3",
         "blockedSourcePr": 5809,
         "independentSessionFinding": "Separate nonauthor /root/public6_review P0/P1/P2=0/0/1, recorded #5809 comment5998615023: new KPP hints must describe this form's accepted numeric input rather than the general legal identifier format.",
+        "nativeConsentFinding": "Actual Node CI37340616018/job111866458932 fails the unchanged consent-policy.spec.ts whole-terms-source hash assertion; recorded #5809 comment5998686239. This substantive failure remains retained, not waived.",
         "authorityBaseExactMain": "2607995f802cce6ef4f8e62baa62e7c661d33fd4",
         "primaryOrder": "https://www.nalog.gov.ru/rn77/about_fts/docs/16581721/",
-        "correction": "Qualify only the RU/EN/ZH KPP hints as This form accepts 9 digits and strengthen the existing hint regression. Preserve the existing numeric-only input pattern, required/optional state, submission, consent and server validation. No new identifier or provider authority.",
+        "correction": "Qualify only the RU/EN/ZH KPP hints as This form accepts 9 digits and strengthen the existing hint regression. Restore the exact accepted Terms source and remove only the new deferred-terms-feature assertion/import. Preserve the existing numeric-only input pattern, required/optional state, submission, consent, server validation and every baseline consent test/hash/migration. No new identifier or consent authority.",
         "supersededAfterPins": [
           {
             "path": "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
@@ -4757,16 +4758,23 @@
             "mode": "100644"
           },
           {
+            "path": "apps/web/app/platform-v7/terms/page.tsx",
+            "beforeCorrectionBlob": "4268881f60d14fbe33d9ea9989e512aa14633492",
+            "afterCorrectionBlob": "bea5e20d8769cd6866ac22dca50e7a372ba698ff",
+            "mode": "100644"
+          },
+          {
             "path": "apps/web/tests/unit/publicQaPresentationRecovery.test.tsx",
             "beforeCorrectionBlob": "f5a719cc704cb365d73ff287763de2f380b9fa45",
-            "afterCorrectionBlob": "24f89016b2fd4c1a7f5555b294f588201b54b4f5",
+            "afterCorrectionBlob": "452f7fb9ae66f590ee85a0413edfd5b0e2d355ae",
             "mode": "100644"
           }
         ],
+        "deferredTermsCorrection": "The accurate Terms documentation-link wording remains OPEN and requires genuine shared-consent CORE ownership, admission and READY_FOR_CONSUMER handoff covering new version/source digest/forward-only evidence whitelist as applicable. This prerequisite preserves the original Terms artifact and grants no consent/API/DB/guard exception.",
         "truthBoundaries": [
-          "The original six allowed paths and before pins are unchanged; the other four original after blobs and exact CI49-byte token are unchanged. All previous source/private/native/review evidence remains historical and does not approve the revised head.",
-          "Accept this state-only correction before publishing the two revised SOURCE blobs. Then update the same original #5809 source PR and obtain fresh whole-six independent review, owner audit, applicable native CI/security/browser/readiness and ordinary full-SHA manual merge.",
-          "No guard/workflow/scope path expansion, API/auth/consent/agreement/runtime/provider/FGIS/owner/current/progress change. Exact REG.RU release/live acceptance and whole-block proof remain separate."
+          "The original six allowed paths and before pins are unchanged; the other three original after blobs and exact CI49-byte token are unchanged. Revised SOURCE has only five actual changed paths because Terms is preserved. All previous source/private/native/review evidence remains historical and does not approve the revised head.",
+          "Accept this state-only correction before publishing revised SOURCE. Then update the same original #5809 source PR and obtain fresh full current diff independent review, owner audit, applicable native CI/security/browser/readiness and ordinary full-SHA manual merge.",
+          "No guard/workflow/scope path expansion, API/auth/consent/agreement/runtime/provider/FGIS/owner/current/progress change. Exact REG.RU release/live acceptance and whole-block proof remain separate; deferred Terms wording is not claimed complete."
         ]
       },
       "requiredTruthBoundaries": [
