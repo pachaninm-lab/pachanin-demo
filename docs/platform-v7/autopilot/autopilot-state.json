@@ -4585,7 +4585,7 @@
       "authorityBaseExactMain": "b510c49038fbfac6de7439ebb0c28155c7cfe55b",
       "ownerAuthorization": "Direct owner instruction2026-10-05: «Убери вообще этот код! Достаточно логина и пароля! Потом продолжай», after observed production login-MFA refusal; recorded in #5580/comment5992029954.",
       "implementationBranch": "fix/password-only-cabinet-login-20261005",
-      "sourceProposalPrivateHead": "833f00a637725dd3f1f3862b87579ce92942d4ab",
+      "sourceProposalPrivateHead": "f38504d2edb75a3dabb6bfcc489adb9e61916285",
       "allowedPaths": [
         "apps/api/src/common/decorators/public.decorator.ts",
         "apps/api/src/common/guards/auth-product-session-boundary.spec.ts",
