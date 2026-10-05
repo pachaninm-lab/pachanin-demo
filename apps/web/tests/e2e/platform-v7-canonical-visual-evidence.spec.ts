@@ -1093,16 +1093,56 @@ async function seedOwnEnrollmentSubject(baseURL: string) {
 
 test('canonical protected cabinet boundary: password-only login opens the ordinary buyer cabinet without an MFA challenge', async ({ page, baseURL }) => {
   test.skip(!baseURL?.startsWith('https://'), 'Password-session authority requires the TLS PostgreSQL acceptance contour.');
+  type LoginEvidence = { status: number; body: unknown };
+  const observedLogins: LoginEvidence[] = [];
+  let deliverNextLogin: ((evidence: LoginEvidence) => void) | undefined;
+  await page.exposeBinding('__pcAcceptanceActualPasswordResponse', (source, evidence: LoginEvidence) => {
+    expect(source.page).toBe(page);
+    expect(source.frame).toBe(page.mainFrame());
+    observedLogins.push(evidence);
+    expect(deliverNextLogin, 'this actual response belongs to an armed form submission').toBeDefined();
+    const deliver = deliverNextLogin!;
+    deliverNextLogin = undefined;
+    deliver(evidence);
+  });
+  // Chromium retires response bodies when the form performs full navigation.
+  // Retain a clone of the genuine response before returning the original to
+  // application code; the real request, response and cookies are unchanged.
+  await page.addInitScript(() => {
+    const originalFetch = window.fetch;
+    window.fetch = async (input, init) => {
+      const response = await originalFetch.call(window, input, init);
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
+      const url = new URL(response.url, window.location.href);
+      if (url.origin === window.location.origin && url.pathname === '/api/auth/login'
+        && method.toUpperCase() === 'POST') {
+        const observer = (window as unknown as {
+          __pcAcceptanceActualPasswordResponse: (evidence: { status: number; body: unknown }) => Promise<void>;
+        }).__pcAcceptanceActualPasswordResponse;
+        await observer({ status: response.status, body: await response.clone().json() });
+      }
+      return response;
+    };
+  });
+  const submitPasswordLogin = async (): Promise<LoginEvidence> => {
+    const previousCount = observedLogins.length;
+    expect(deliverNextLogin, 'the preceding form response was consumed').toBeUndefined();
+    const delivered = new Promise<LoginEvidence>(resolve => { deliverNextLogin = resolve; });
+    const pending = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/login'
+      && response.request().method() === 'POST');
+    await page.locator('form').filter({ has: page.locator('input[name="password"]') }).locator('button[type="submit"]').click();
+    const [response, evidence] = await Promise.all([pending, delivered]);
+    expect(response.status()).toBe(200);
+    expect(observedLogins, 'one actual response retained for this form submission').toHaveLength(previousCount + 1);
+    expect(evidence).toBe(observedLogins[previousCount]);
+    expect(evidence.status).toBe(response.status());
+    return evidence;
+  };
   await page.context().clearCookies();
   await page.goto('/platform-v7/login?lang=ru', { waitUntil: 'domcontentloaded' });
   await page.locator('input[name="email"]').fill(acceptanceEmail('buyer'));
   await page.locator('input[name="password"]').fill(ACCEPTANCE_PASSWORD);
-  const responsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/auth/login'
-    && response.request().method() === 'POST').then(async response => ({
-      status: response.status(), body: await response.json(),
-    }));
-  await page.locator('form').filter({ has: page.locator('input[name="password"]') }).locator('button[type="submit"]').click();
-  const response = await responsePromise;
+  const response = await submitPasswordLogin();
   expect(response.status).toBe(200);
   expect(response.body).toMatchObject({ ok: true, mfaRequired: false });
   await expect(page).toHaveURL(/\/platform-v7\/buyer(?:[?]|$)/);
@@ -1122,14 +1162,10 @@ test('canonical protected cabinet boundary: password-only login opens the ordina
     await page.goto('/platform-v7/login?lang=ru', { waitUntil: 'domcontentloaded' });
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill(ACCEPTANCE_PASSWORD);
-    const pending = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/login'
-      && response.request().method() === 'POST').then(async response => ({
-        status: response.status(), body: await response.json(),
-      }));
-    await page.locator('form').filter({ has: page.locator('input[name="password"]') }).locator('button[type="submit"]').click();
-    const loginResponse = await pending;
+    const loginResponse = await submitPasswordLogin();
     expect(loginResponse.status).toBe(200);
     expect(loginResponse.body).toMatchObject({ ok: true, mfaRequired: false });
+    await expect(page).toHaveURL(/\/platform-v7\/profile(?:[?]|$)/);
     await page.goto('/platform-v7/profile?lang=ru', { waitUntil: 'networkidle' });
     const identity = await page.context().request.get('/api/auth/me');
     expect(identity.status()).toBe(200);
