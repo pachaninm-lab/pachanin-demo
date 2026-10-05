@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Request } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
@@ -609,48 +609,88 @@ test.describe('canonical protected cabinet boundary', () => {
     expect(executionProjection.roleProjection.canAct).toBe(false);
     const runtimeFailures: string[] = [];
     const commandWrites: string[] = [];
-    page.on('pageerror', (error) => runtimeFailures.push(error.message));
-    page.on('console', (message) => {
-      if (message.type() === 'error' && /hydration|uncaught|error boundary/i.test(message.text())) runtimeFailures.push(message.text());
-    });
-    page.on('request', (request) => {
-      if (request.method() !== 'GET' && /\/api\/proxy\/deals\/[^/]+\/commands\//.test(new URL(request.url()).pathname)) {
-        commandWrites.push(request.method() + ' ' + new URL(request.url()).pathname);
-      }
-    });
+    const observeJourney = (journeyPage: Page) => {
+      journeyPage.on('pageerror', (error) => runtimeFailures.push(error.message));
+      journeyPage.on('console', (message) => {
+        if (message.type() === 'error' && /hydration|uncaught|error boundary/i.test(message.text())) runtimeFailures.push(message.text());
+      });
+      journeyPage.on('request', (request) => {
+        if (request.method() !== 'GET' && /\/api\/proxy\/deals\/[^/]+\/commands\//.test(new URL(request.url()).pathname)) {
+          commandWrites.push(request.method() + ' ' + new URL(request.url()).pathname);
+        }
+      });
+    };
+    observeJourney(page);
     const reloadLabels = { ru: 'Повторить загрузку сделки', en: 'Reload deal state', zh: '重新读取交易状态' } as const;
     for (const width of [390, 1440]) {
       for (const locale of ['ru', 'en', 'zh'] as const) {
-        // Finish the previous document's catalog/RSC requests before replacing
-        // it. Resize the neutral document so newly visible shell links cannot
-        // start prefetch immediately before the next full navigation.
-        await page.waitForLoadState('networkidle');
-        await page.goto('about:blank', { waitUntil: 'load' });
-        await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+        // Each journey starts on a new page in the same server-authenticated
+        // context. Keep prior pages open and observed through the final checks;
+        // replacing or resizing them can abort unrelated catalog/prefetch work.
+        const journeyPage = await page.context().newPage();
+        observeJourney(journeyPage);
+        await journeyPage.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+        // Observe the real catalog response and its complete body. The queue
+        // link is a full-document navigation; do not interrupt this shell fetch
+        // while measuring runtime errors. This does not require global idle.
+        const catalogFinished = () => new Promise<void>((resolve, reject) => {
+          let catalogRequest: Request | undefined;
+          const onRequest = (request: Request) => {
+            if (!catalogRequest && request.method() === 'GET'
+              && new URL(request.url()).pathname === '/api/proxy/ai-assistant/catalog') catalogRequest = request;
+          };
+          const cleanup = () => {
+            clearTimeout(timeout);
+            journeyPage.off('request', onRequest);
+            journeyPage.off('requestfinished', onFinished);
+            journeyPage.off('requestfailed', onFailed);
+          };
+          const onFinished = (request: Request) => {
+            if (request !== catalogRequest) return;
+            cleanup();
+            resolve();
+          };
+          const onFailed = (request: Request) => {
+            if (request !== catalogRequest) return;
+            cleanup();
+            reject(new Error(`Bank journey catalog failed: ${request.failure()?.errorText || 'request failed'}`));
+          };
+          const timeout = setTimeout(() => {
+            cleanup();
+            reject(new Error('Bank journey catalog request/body did not finish within 30000ms'));
+          }, 30_000);
+          journeyPage.on('request', onRequest);
+          journeyPage.on('requestfinished', onFinished);
+          journeyPage.on('requestfailed', onFailed);
+        });
         const bankRoute = `/platform-v7/bank?lang=${locale}`;
-        expect((await page.goto(bankRoute, { waitUntil: 'domcontentloaded' }))?.status()).toBe(200);
-        await expectPublicRoute(page, bankRoute, baseURL, '[data-testid="p0-first-customer-workspace-bank"]');
+        const bankCatalog = catalogFinished();
+        await Promise.all([
+          journeyPage.goto(bankRoute, { waitUntil: 'domcontentloaded' }).then((response) => expect(response?.status()).toBe(200)),
+          bankCatalog,
+        ]);
+        await expectPublicRoute(journeyPage, bankRoute, baseURL, '[data-testid="p0-first-customer-workspace-bank"]');
         const route = `/platform-v7/deals/${fixture.dealId}/execution?lang=${locale}`;
-        const link = page.locator('#first-customer-work-queue').getByRole('link', { name: fixture.dealId, exact: false });
+        const link = journeyPage.locator('#first-customer-work-queue').getByRole('link', { name: fixture.dealId, exact: false });
         await expect(link).toHaveCount(1);
         await expect(link).toHaveAttribute('href', route);
-        await canonicalNoOverflow(page);
+        await canonicalNoOverflow(journeyPage);
         await link.focus();
         await expect(link).toBeFocused();
-        await link.press('Enter');
-        const workspace = page.locator(`[data-transaction-workspace="v8"][data-canonical-deal="${fixture.dealId}"]`);
-        await expectPublicRoute(page, route, baseURL, `[data-transaction-workspace="v8"][data-canonical-deal="${fixture.dealId}"]`);
+        const dealCatalog = catalogFinished();
+        await Promise.all([link.press('Enter'), dealCatalog]);
+        const workspace = journeyPage.locator(`[data-transaction-workspace="v8"][data-canonical-deal="${fixture.dealId}"]`);
+        await expectPublicRoute(journeyPage, route, baseURL, `[data-transaction-workspace="v8"][data-canonical-deal="${fixture.dealId}"]`);
         const htmlLocale = locale === 'zh' ? 'zh-CN' : locale;
-        await expect(page.locator('html')).toHaveAttribute('lang', htmlLocale);
+        await expect(journeyPage.locator('html')).toHaveAttribute('lang', htmlLocale);
         await expect(workspace).toHaveAttribute('lang', htmlLocale);
         await expect(workspace).toHaveAttribute('data-role', 'bank');
         await expect(workspace.getByRole('button', { name: reloadLabels[locale], exact: true })).toBeVisible();
-        await canonicalNoOverflow(page);
-        await canonicalA11y(page);
-        await page.screenshot({ path: testInfo.outputPath(`ready-bank-deal-${locale}-${width}.png`), animations: 'disabled' });
+        await canonicalNoOverflow(journeyPage);
+        await canonicalA11y(journeyPage);
+        await journeyPage.screenshot({ path: testInfo.outputPath(`ready-bank-deal-${locale}-${width}.png`), animations: 'disabled' });
       }
     }
-    await page.waitForLoadState('networkidle');
     expect(runtimeFailures).toEqual([]);
     expect(commandWrites, 'readonly queue navigation must never submit a Deal command').toEqual([]);
   });
