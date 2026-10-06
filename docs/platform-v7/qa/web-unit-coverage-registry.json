@@ -1025,11 +1025,6 @@
       "reason": "Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps."
     },
     {
-      "file": "apps/web/tests/unit/platformV7AssistantQuestionUnderstanding.test.ts",
-      "status": "failed",
-      "reason": "Red when measured on the inventory run for #4786. Must be classified first - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour - before it can run."
-    },
-    {
       "file": "apps/web/tests/unit/platformV7AssistantRouteLanguage.test.ts",
       "status": "failed",
       "reason": "Red when measured on the inventory run for #4786. Must be classified first - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour - before it can run."
@@ -4395,11 +4390,6 @@
       "reason": "Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps."
     },
     {
-      "file": "apps/web/tests/unit/taiInternalStreamRelay.test.ts",
-      "status": "passed",
-      "reason": "Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps."
-    },
-    {
       "file": "apps/web/tests/unit/taiLiveBrowserMatrixContract.test.ts",
       "status": "passed",
       "reason": "Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps."
@@ -4430,11 +4420,6 @@
       "reason": "Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps."
     },
     {
-      "file": "apps/web/tests/unit/taiPublicAssistantRetryRegenerate.test.tsx",
-      "status": "passed",
-      "reason": "Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps."
-    },
-    {
       "file": "apps/web/tests/unit/taiRollbackVerificationContract.test.ts",
       "status": "passed",
       "reason": "Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps."
@@ -4458,11 +4443,6 @@
       "file": "apps/web/tests/unit/transactionRoleCockpitsV8.test.ts",
       "status": "passed",
       "reason": "Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps."
-    },
-    {
-      "file": "apps/web/tests/unit/transactionUxV8Migration.test.ts",
-      "status": "failed",
-      "reason": "Red when measured on the inventory run for #4786. Must be classified first - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour - before it can run."
     },
     {
       "file": "apps/web/tests/unit/unknownRouteRoleFallback.test.ts",

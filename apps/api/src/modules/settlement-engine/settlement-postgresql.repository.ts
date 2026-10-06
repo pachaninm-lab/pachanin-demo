@@ -98,6 +98,7 @@ type DealRow = {
   buyerOrgId: string;
   status: string;
   totalKopecks: bigint | null;
+  currency: string;
   version: bigint;
   updatedAt: Date;
 };
@@ -232,7 +233,7 @@ function text(value: unknown, field: string, min = 1, max = 500): string {
 }
 
 function currency(value: unknown): string {
-  const normalized = String(value ?? 'RUB').trim().toUpperCase();
+  const normalized = String(value ?? '').trim().toUpperCase();
   if (!/^[A-Z]{3}$/.test(normalized)) {
     throw new BadRequestException({ code: 'INVALID_CURRENCY' });
   }
@@ -290,19 +291,24 @@ export class SettlementPostgresqlRepository {
   async configureTerms(input: ConfigureSettlementTermsInput, user: RequestUser) {
     this.assertWriteRole(user);
     const normalized = this.normalizeTerms(input);
-    const fingerprint = digest({ action: 'settlement.terms.configure', ...normalized });
 
     return this.rls.withTrustedContext(
       user,
       async (tx, context) => {
         await this.lockDeal(tx, normalized.dealId);
+        const deal = await this.requireDeal(tx, normalized.dealId, context);
+        const termsCurrency = normalized.currency ?? deal.currency;
+        this.assertSettlementCurrency(deal, termsCurrency);
+        const fingerprint = digest({
+          action: 'settlement.terms.configure', ...normalized, currency: termsCurrency,
+        });
         const replay = await this.findTermsByIdempotency(tx, normalized.idempotencyKey);
         if (replay) {
           this.assertFingerprint(replay.requestFingerprint, fingerprint, 'SETTLEMENT_TERMS_REPLAY_MISMATCH');
+          this.assertSettlementCurrency(deal, replay.currency);
           return { ...jsonSafe(replay), duplicate: true };
         }
 
-        const deal = await this.requireDeal(tx, normalized.dealId, context);
         const payment = await this.findPayment(tx, deal.id, true);
         if (payment) {
           throw new ConflictException({
@@ -321,7 +327,7 @@ export class SettlementPostgresqlRepository {
             release_basis, status, supersedes_id, command_id, idempotency_key,
             request_fingerprint, created_by_user_id, created_by_org_id
           ) VALUES (
-            ${termsId}, ${context.tenantId}, ${deal.id}, ${version}, ${normalized.currency},
+            ${termsId}, ${context.tenantId}, ${deal.id}, ${version}, ${termsCurrency},
             ${normalized.reserveAmountMinor}, ${JSON.stringify(normalized.releaseBasis)}::jsonb,
             'ISSUED', ${latest?.id ?? null}, ${normalized.commandId}, ${normalized.idempotencyKey},
             ${fingerprint}, ${context.userId}, ${context.orgId}
@@ -395,19 +401,21 @@ export class SettlementPostgresqlRepository {
         user,
         async (tx, context) => {
           await this.lockDeal(tx, normalized.dealId);
+          const deal = await this.requireDeal(tx, normalized.dealId, context);
           const replay = await this.findOperationByIdempotency(tx, normalized.idempotencyKey);
           if (replay) {
             this.assertFingerprint(replay.requestFingerprint, fingerprint, 'SETTLEMENT_COMMAND_REPLAY_MISMATCH');
+            await this.assertOperationCurrency(tx, deal, replay);
             return { ...this.operationResult(replay), duplicate: true };
           }
 
-          const deal = await this.requireDeal(tx, normalized.dealId, context);
           this.assertExpectedVersion(deal.version, normalized.expectedDealVersion, 'STALE_DEAL_VERSION');
           const terms = await this.ensureTerms(tx, deal, context, normalized, fingerprint);
           let payment = await this.findPayment(tx, deal.id, true);
           if (!payment) {
             payment = await this.createPayment(tx, deal, terms, context);
           }
+          this.assertSettlementCurrency(deal, payment.currency);
           this.assertExpectedVersion(payment.version, normalized.expectedPaymentVersion, 'STALE_PAYMENT_VERSION');
 
           const beneficiary = normalized.beneficiaryId
@@ -540,6 +548,7 @@ export class SettlementPostgresqlRepository {
             commandId: normalized.commandId,
             paymentStatus: this.publicPaymentStatus(paymentAfter.status),
             termsReserve: terms.reserveAmountMinor,
+            currency: terms.currency,
           });
 
           return {
@@ -564,10 +573,12 @@ export class SettlementPostgresqlRepository {
       );
     } catch (error) {
       if (isUniqueConstraintError(error)) {
-        return this.rls.withTrustedContext(user, async (tx) => {
+        return this.rls.withTrustedContext(user, async (tx, context) => {
           const replay = await this.findOperationByIdempotency(tx, normalized.idempotencyKey);
           if (!replay) throw error;
           this.assertFingerprint(replay.requestFingerprint, fingerprint, 'SETTLEMENT_COMMAND_REPLAY_MISMATCH');
+          const deal = await this.requireDeal(tx, normalized.dealId, context);
+          await this.assertOperationCurrency(tx, deal, replay);
           return { ...this.operationResult(replay), duplicate: true };
         });
       }
@@ -776,6 +787,9 @@ export class SettlementPostgresqlRepository {
           const replay = await this.findCallback(tx, normalized.partnerId, normalized.eventId);
           if (replay) {
             this.assertCallbackReplay(replay, normalized);
+            const deal = await this.requireDeal(tx, normalized.dealId, context);
+            const operation = await this.requireOperation(tx, normalized.operationId, false);
+            await this.assertOperationCurrency(tx, deal, operation);
             return {
               ok: replay.callbackStatus === 'SUCCESS',
               dealId: replay.dealId,
@@ -800,6 +814,8 @@ export class SettlementPostgresqlRepository {
           if (payment.id !== operation.paymentId) {
             throw new ConflictException({ code: 'BANK_CALLBACK_PAYMENT_MISMATCH' });
           }
+          const deal = await this.requireDeal(tx, normalized.dealId, context);
+          await this.assertOperationCurrency(tx, deal, operation, payment);
 
           await tx.$executeRaw(Prisma.sql`
             INSERT INTO settlement.bank_callbacks (
@@ -850,7 +866,6 @@ export class SettlementPostgresqlRepository {
             ledgerId = await this.appendSettlementLedger(tx, context, operation);
           }
 
-          const deal = await this.requireDeal(tx, normalized.dealId, context);
           let updatedDeal = deal;
           const confirmedTransition = this.confirmedDealTransition(
             operation.operationType,
@@ -950,10 +965,13 @@ export class SettlementPostgresqlRepository {
       );
     } catch (error) {
       if (!isUniqueConstraintError(error)) throw error;
-      return this.rls.withTrustedContext(callbackUser, async (tx) => {
+      return this.rls.withTrustedContext(callbackUser, async (tx, context) => {
         const replay = await this.findCallback(tx, normalized.partnerId, normalized.eventId);
         if (!replay) throw error;
         this.assertCallbackReplay(replay, normalized);
+        const deal = await this.requireDeal(tx, normalized.dealId, context);
+        const operation = await this.requireOperation(tx, normalized.operationId, false);
+        await this.assertOperationCurrency(tx, deal, operation);
         return {
           ok: replay.callbackStatus === 'SUCCESS',
           dealId: replay.dealId,
@@ -1265,7 +1283,7 @@ export class SettlementPostgresqlRepository {
       idempotencyKey: identifier(input.idempotencyKey, 'idempotencyKey'),
       dealId: identifier(input.dealId, 'dealId'),
       reserveAmountMinor,
-      currency: currency(input.currency),
+      currency: input.currency === undefined ? undefined : currency(input.currency),
       releaseBasis: input.releaseBasis ?? {},
       beneficiaries,
     };
@@ -1364,7 +1382,39 @@ export class SettlementPostgresqlRepository {
     if (!deal.totalKopecks || BigInt(deal.totalKopecks) <= 0n) {
       throw new ConflictException({ code: 'DEAL_INTEGER_TOTAL_REQUIRED' });
     }
+    if (typeof deal.currency !== 'string' || !/^[A-Z]{3}$/.test(deal.currency)) {
+      throw new ConflictException({ code: 'DEAL_CURRENCY_REQUIRED' });
+    }
     return deal as DealRow;
+  }
+
+  private assertSettlementCurrency(deal: DealRow, ...currencies: string[]) {
+    if (currencies.some((value) => value !== deal.currency)) {
+      throw new ConflictException({ code: 'SETTLEMENT_CURRENCY_MISMATCH' });
+    }
+  }
+
+  private async assertOperationCurrency(
+    tx: Prisma.TransactionClient,
+    deal: DealRow,
+    operation: OperationRow,
+    payment?: PaymentRow,
+  ) {
+    const aggregate = payment ?? await this.requirePayment(tx, deal.id, false);
+    const terms = await tx.$queryRaw<Array<{ currency: string }>>(Prisma.sql`
+      SELECT currency FROM settlement.payment_terms WHERE id = ${operation.paymentTermsId}
+    `);
+    if (operation.dealId !== deal.id || aggregate.id !== operation.paymentId
+        || aggregate.paymentTermsId !== operation.paymentTermsId || !terms[0]) {
+      throw new ConflictException({ code: 'BANK_CALLBACK_PAYMENT_MISMATCH' });
+    }
+    this.assertSettlementCurrency(deal, operation.currency, aggregate.currency, terms[0].currency);
+    const mirror = await tx.bankOperation.findUnique({
+      where: { id: operation.id }, select: { currency: true },
+    });
+    if (!mirror || mirror.currency !== operation.currency) {
+      throw new ConflictException({ code: 'BANK_OPERATION_CURRENCY_MISMATCH' });
+    }
   }
 
   private async findTermsByIdempotency(tx: Prisma.TransactionClient, key: string) {
@@ -1398,7 +1448,10 @@ export class SettlementPostgresqlRepository {
     requestFingerprint: string,
   ): Promise<TermsRow> {
     const existing = await this.latestTerms(tx, deal.id);
-    if (existing) return existing;
+    if (existing) {
+      this.assertSettlementCurrency(deal, existing.currency);
+      return existing;
+    }
     if (operation.operation !== 'RESERVE') {
       throw new ConflictException({ code: 'PAYMENT_TERMS_REQUIRED' });
     }
@@ -1408,6 +1461,7 @@ export class SettlementPostgresqlRepository {
       action: 'settlement.terms.default',
       dealId: deal.id,
       reserveAmountKopecks: reserve.toString(),
+      currency: deal.currency,
       sellerOrgId: deal.sellerOrgId,
       requestFingerprint,
     });
@@ -1417,7 +1471,7 @@ export class SettlementPostgresqlRepository {
         release_basis, status, command_id, idempotency_key, request_fingerprint,
         created_by_user_id, created_by_org_id
       ) VALUES (
-        ${termsId}, ${context.tenantId}, ${deal.id}, 1, 'RUB', ${reserve},
+        ${termsId}, ${context.tenantId}, ${deal.id}, 1, ${deal.currency}, ${reserve},
         ${JSON.stringify({ source: 'canonical-deal-total', dealStatus: deal.status })}::jsonb,
         'ISSUED', ${operation.commandId}, ${`default-terms:${deal.id}`}, ${termsFingerprint},
         ${context.userId}, ${context.orgId}
@@ -1440,7 +1494,7 @@ export class SettlementPostgresqlRepository {
       tenantId: context.tenantId,
       dealId: deal.id,
       version: 1n,
-      currency: 'RUB',
+      currency: deal.currency,
       reserveAmountMinor: reserve,
       requestFingerprint: termsFingerprint,
     };
@@ -1903,6 +1957,7 @@ export class SettlementPostgresqlRepository {
       commandId: string;
       paymentStatus: string;
       termsReserve: bigint;
+      currency: string;
     },
   ) {
     await this.enableProjectionWrite(tx);
@@ -1935,6 +1990,7 @@ export class SettlementPostgresqlRepository {
         type: input.operation,
         status: 'PENDING',
         amountKopecks: input.amount,
+        currency: input.currency,
         debitAccount: accounts.debit,
         creditAccount: accounts.credit,
         idempotencyKey: `projection:${input.operationId}`,

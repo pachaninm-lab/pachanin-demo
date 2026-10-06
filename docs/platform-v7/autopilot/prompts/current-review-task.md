@@ -1,16 +1,21 @@
-# Independent review brief — MASTER v2.1 R1.2
+# Independent review — atomic canonical readiness prerequisite #4829
 
-Review the exact R1.2 backend diff.
+Inspect the complete exact-published-head diff against accepted main and the [owner-approved eleven-path disposition](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5935185862). Verify the existing readiness branch, CORE source ownership and ordinary ancestry preserving original readiness plus #5770/#5771. This bounded atomic exception supersedes only the previous metadata-first/source sequence, not any acceptance gate.
 
-BLOCK for:
-- a new Founder/customer business role;
-- client-selected tenant, target API role or privilege;
-- owner identity replacement/impersonation;
-- controlled-test organization used as production authority;
-- VIEW_AS write permission or high-risk action path;
-- missing recent MFA, reason, ticket, expiry, durable session or append-only audit;
-- target-scope bypass, stale/revoked session acceptance or cross-tenant leakage;
-- overlap with ACCOUNT_2_PRODUCT UX/FGIS/bank implementation;
-- weakening existing Staff Access or business-role guards.
+Require exactly the five named governance documents, exact #5771/e358 staff-test blob `1b0010715cbcd636d15b1c9c4e5587baca16137c`, and all five unchanged COR5 blobs/modes from #4829/comment5930247718. Check every before/after transition and regular 100644 mode in `canonical-readiness-cor5-4829-20261001`; BLOCK an omitted/extra path, altered source blob or mode. Verify every other accepted-base tree leaf, all old PRODUCT/concurrent vectors and coordination admissions unchanged. Primary/writable scopes must list precisely eleven paths, including only the exact staff test, with no broader wildcard. Candidate state and additive legacy manifest do not independently authorize this diff or enforce an immutable exact-eleven gate.
 
-PASS requires reuse of the existing durable Staff Access plane, exact 13 registry, server-derived effective role/tenant, negative tests and no visual implementation.
+BLOCK readiness deadline/grace/threshold changes, queue RLS bypass, privileged credentials, hidden service-wide-health claims, unknown migration success, cache renewal from stale facts, unbounded concurrent queries or expanded auth/rate exemptions. Guard, workflow, manifest, PgBouncer, dependency and migration bytes must remain unchanged.
+
+Require fresh separate nonauthor full-head review, distinct implementation-owner audit, applicable complete substantive native CI/security/PostgreSQL evidence and actual Kubernetes zero-failure PgBouncer, deep-outbox and cleanup gates. Preserve #5770 Security Abuse and #5771 Kubernetes failures. Prior proposal review5932138051 and local composition tests are not final-head approval or hosted CI. Distinguish passed assertions, skipped phases/tests and pre-existing open-handle/worker-teardown warnings. Any head change invalidates prior review/audit/CI; all current findings and readiness must be freshly checked before an ordinary manual expected-full-SHA merge.
+
+Official progress remains 5/100. No production, 13-role, R1 or full-spec completion follows from this slice. Gekta's subsequent existing-owner activation/live acceptance priority grants no extra source or release scope; exact-main REG.RU and remaining topology/release requirements remain separate.
+
+## Queued snapshot-only topology admission and draft review — 2026-10-01
+
+Review this preparation as exactly five existing regular 100644 governance files: state, progress, current task/review prompts and execution queue. Verify the append-only state vector/record, one appended progress blocker and three appended document sections. Removing these additions must restore every accepted-base byte/value; all 184 prior vectors, 49 admissions, PRIMARY/current/writable scopes, owners, diagnostic history, COR5 and official 5/100 remain unchanged. Every source/tree leaf and mode outside those five paths must be identical.
+
+The later draft on `fix/tai-bounded-topology-observer-20261001` must contain exactly the two source transitions pinned in `tai-bounded-topology-observer-20261001`: shell `8f0f285b` -> `ac60f97d`, mode 100755; checker `15fb496d` -> `70071581`, mode 100644. Verify complete Git/SHA256 identities, not these abbreviations. Ordinary concurrent scopes do not mechanically enforce source hashes or exact-two-file exclusivity; reject any unapproved content/path/mode even if generic guards pass.
+
+Preserve the legacy classifier fingerprint, all checks/blockers/maturity/passed and the five-blocker fixture. Require typed redacted existing-snapshot facts, complete ordered lexical input/service counts and unchanged duplicates. Never label fresh persisted/discovery models, immutable/default-command/entrypoint evidence, registry authority or freshness proven. Verify no added Docker/Compose/network/protected-source reads; explicitly allow the single bounded-data Python collector and existing private work JSON/stdin/optional JSON reads, with no collector child process or new wall-clock guarantee. Test malformed/unavailable/oversize optional data, final UTF-8 plus newline size, bounded-unknown fallback and omission when even unknown cannot fit; preserve oversized legacy reports rather than truncating them.
+
+Require separate actual-head independent review, owner audit and applicable native CI/security; do not transfer private fixture PASS. Governance admission still requires full fresh readiness before its ordinary merge, plus explicit runtime-window closure and fresh main/Hub checks. For the source draft, report expected draft-status readiness blocking and never mark it ready solely to obtain PASS; full source readiness applies only before later separately authorized source acceptance. Source publication is draft-only; source merge and server execution stay held because inherited controllers pull images and refresh protected checkout. No end-to-end zero-write, production/topology acceptance, new permission/cost or model activation claim is authorized.
