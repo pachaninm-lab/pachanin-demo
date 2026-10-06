@@ -1857,6 +1857,36 @@
     "product/public-qa-routed-ru-hint-20261005": [
       "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
       "apps/web/tests/unit/publicQaPresentationRecovery.test.tsx"
+    ],
+    "fix/login-failure-classification-20261006": [
+      ".github/workflows/ci.yml",
+      "apps/web/app/api/auth/login/route.ts",
+      "apps/web/app/platform-v7/login/LoginFormClient.tsx",
+      "apps/web/i18n/public-login-copy.ts",
+      "apps/web/lib/server/auth-login-failure.ts",
+      "apps/web/tests/unit/platformV7LoginFailureClassification.test.ts",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
+    ],
+    "security/free-body-validation-4459": [
+      "apps/api/src/modules/arbitrator/arbitrator-resolution.spec.ts",
+      "apps/api/src/modules/arbitrator/arbitrator.controller.ts",
+      "apps/api/src/modules/arbitrator/arbitrator.service.ts",
+      "apps/api/src/modules/arbitrator/dto/arbitrator-note.dto.ts",
+      "apps/api/src/modules/arbitrator/dto/resolve-dispute.dto.ts",
+      "apps/api/src/modules/bank-reconciliation/bank-reconciliation.controller.ts",
+      "apps/api/src/modules/bank-reconciliation/bank-reconciliation.service.ts",
+      "apps/api/src/modules/bank-reconciliation/dto/bank-reconciliation.dto.ts",
+      "apps/api/src/modules/bank-reconciliation/mt940-calendar-date.spec.ts",
+      "apps/api/src/modules/factoring/dto/create-factoring-application.dto.ts",
+      "apps/api/src/modules/factoring/factoring-application-amount.spec.ts",
+      "apps/api/src/modules/factoring/factoring.controller.ts",
+      "apps/api/src/modules/factoring/factoring.service.ts",
+      "docs/platform-v7/autopilot/scopes/arbitrator-dispute-split-4459.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json",
+      "docs/security/request-validation-baseline.json",
+      "docs/security/request-validation-measured-exemptions.md"
     ]
   },
   "currentAcceptance": [
@@ -4827,6 +4857,206 @@
         "Fresh exact acceptedbase/after pins and complete tree proof, separate whole-head nonauthor review, separate implementation-owner audit, applicable substantive native checks, actually executed canonical READY and immediate operator refs/checks/reviews/threads recheck precede ordinary expectedfullSHA manual merge.",
         "Canonical REG.RU bounded web-only release, exact OCI/persistent image authority, genuine production mobile plus actual RU/EN/ZH changed-hint/navigation QA and30-minute live observation remain separate. Runtime PASS does not waive a public-copy defect; realAUTH and fullblock acceptance are not credited.",
         "Terms shared-consent CORE dependency5998704042, BANK5525/5655/5530 and FGIS5531 remain OPEN. No provider/API/DB/consent/agreement/Gekta/CORE/guard/workflow/lockfile/inventory/outbox/ownership/current/progress changes."
+      ]
+    },
+    "login-failure-classification-20261006": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-01 diagnosability: keep the auth service's own login refusal classes apart in the password-login BFF (unproven credentials, throttle, proven password with inactive organization/membership, CSRF refusal, unusable auth-service answer), log one redacted line per refusal for every realm, and show distinct RU/EN/ZH messages with a short correlation reference. No change to authentication, MFA, step-up, session, cookie, CSRF, rate-limit, membership or tenant authority.",
+      "authorityBaseExactMain": "2e10588eb2519945867844525a03358b705dbd5c",
+      "implementationBranch": "fix/login-failure-classification-20261006",
+      "allowedPaths": [
+        ".github/workflows/ci.yml",
+        "apps/web/app/api/auth/login/route.ts",
+        "apps/web/app/platform-v7/login/LoginFormClient.tsx",
+        "apps/web/i18n/public-login-copy.ts",
+        "apps/web/lib/server/auth-login-failure.ts",
+        "apps/web/tests/unit/platformV7LoginFailureClassification.test.ts",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json"
+      ],
+      "sourcePayload": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "beforeBlob": "c290a362d4eeb6bf71c89cd5e64a00e1ec8c369b",
+          "afterBlob": "594dca9fa8aaefd658c4ea721bd312a3a01a5069",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/app/api/auth/login/route.ts",
+          "beforeBlob": "aec41738c8345b1953efd6d56b91d9ca02f388e9",
+          "afterBlob": "1447459c843c90f350408e12ec5242460c218f72",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/app/platform-v7/login/LoginFormClient.tsx",
+          "beforeBlob": "6e80d8002b2ff9819f762a8deaa32862a3a55e73",
+          "afterBlob": "0dbd2934545fcb44f7bb973c3155be7a8b02eea4",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/i18n/public-login-copy.ts",
+          "beforeBlob": "5fb93af9f04aeb3fccb6bbb5198430cd264c3b19",
+          "afterBlob": "a08859bd231ea2d20b19c9beb1d263e4a1675dad",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/lib/server/auth-login-failure.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "d01c66e43c7a7b370638bb1784a5370a1b3fe0c9",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/tests/unit/platformV7LoginFailureClassification.test.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "709470642b2f5958c3f101c64df320ec82893563",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json"
+      ],
+      "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline). Whichever of the two sources merges second regenerates them after forward-syncing main; hand edits are rejected.",
+      "liveFinding": "Handoff 5998408621: one real production password login after #5804 returned the generic message; cause UNKNOWN. Code reading at accepted main: apps/web/app/api/auth/login/route.ts maps every non-OK auth-service status (including the API's deliberate post-proof 403 ORGANIZATION_NOT_VERIFIED/MEMBERSHIP_NOT_ACTIVE/NO_ACTIVE_MEMBERSHIP/MEMBERSHIP_ROLE_INVALID, 404 and 5xx) to 401 INVALID_CREDENTIALS and logs refusals only for the control realm; LoginFormClient shows one generic text for every failure and never shows the correlation id. The production cause therefore cannot be determined from logs. This correction makes it determinable; it does not claim to fix the unknown cause.",
+      "regressionEvidence": "New behavioural test drives the real POST handler with a stubbed auth service: on accepted main 6 of 10 cases FAIL (no ordinary-realm log, misclassification); with the change 10/10 PASS. Neighbouring CI-listed login suites pass; web tsc error set identical to main (81 pre-existing). Local preparation only, not native acceptance.",
+      "requiredTruthBoundaries": [
+        "Generic \"check your details\" text remains the only answer before password proof: unknown and inactive users stay 401 INVALID_CREDENTIALS (the API already maps USER_NOT_ACTIVE to 401); a 403 is ACCESS_NOT_ACTIVE only for the four exact post-proof reasons, any other 403 is AUTH_SERVICE_UNAVAILABLE.",
+        "The refusal log line carries only correlationId, controlPlane, code and upstream status or CSRF reason; never e-mail, password, token, cookie, IP or user agent.",
+        "Exactly the six hand-written paths at the pinned after-blobs plus the two generated inventory files; the ci.yml change is the single added test path token in the existing web unit list.",
+        "Fresh separate whole-head independent review, applicable native CI/security, canonical readiness and expected-full-SHA manual merge precede release; release and live sign-in acceptance remain separate and pending. Real AUTH sign-in remains UNVERIFIED until an authorised live attempt is classified by these codes."
+      ]
+    },
+    "free-body-validation-4459-forward-sync-20261006": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 money-integrity: forward-sync and accept the existing PR #5119 unchanged in substance. Arbitrator dispute resolution validated an inline body erased to Object, so splitPct 200 refunded twice the hold, -50 released 1.5x, NaN/Infinity produced 500, SPLIT without a share marked the dispute RESOLVED with the hold locked; factoring auto-approval returned APPROVED with a NaN/negative/1e300 amount; MT940 accepted impossible calendar dates. DTOs at the boundary plus service-side guards reject these before any money movement.",
+      "authorityBaseExactMain": "2e10588eb2519945867844525a03358b705dbd5c",
+      "implementationBranch": "security/free-body-validation-4459",
+      "originalPullRequest": 5119,
+      "allowedPaths": [
+        "apps/api/src/modules/arbitrator/arbitrator-resolution.spec.ts",
+        "apps/api/src/modules/arbitrator/arbitrator.controller.ts",
+        "apps/api/src/modules/arbitrator/arbitrator.service.ts",
+        "apps/api/src/modules/arbitrator/dto/arbitrator-note.dto.ts",
+        "apps/api/src/modules/arbitrator/dto/resolve-dispute.dto.ts",
+        "apps/api/src/modules/bank-reconciliation/bank-reconciliation.controller.ts",
+        "apps/api/src/modules/bank-reconciliation/bank-reconciliation.service.ts",
+        "apps/api/src/modules/bank-reconciliation/dto/bank-reconciliation.dto.ts",
+        "apps/api/src/modules/bank-reconciliation/mt940-calendar-date.spec.ts",
+        "apps/api/src/modules/factoring/dto/create-factoring-application.dto.ts",
+        "apps/api/src/modules/factoring/factoring-application-amount.spec.ts",
+        "apps/api/src/modules/factoring/factoring.controller.ts",
+        "apps/api/src/modules/factoring/factoring.service.ts",
+        "docs/platform-v7/autopilot/scopes/arbitrator-dispute-split-4459.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/request-validation-baseline.json",
+        "docs/security/request-validation-measured-exemptions.md"
+      ],
+      "sourcePayload": [
+        {
+          "path": "apps/api/src/modules/arbitrator/arbitrator-resolution.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "1ce2dc74f394ed909564557394e343ee013a43aa",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/arbitrator/arbitrator.controller.ts",
+          "beforeBlob": "f41f48b136da89e6ce0afbd46ca732c16b5ccec8",
+          "afterBlob": "d6cc7d5cdd670a736f326edd25fe8679909e4730",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/arbitrator/arbitrator.service.ts",
+          "beforeBlob": "42a60b9dd176f809cfa79d976fc2a6edf7a135b8",
+          "afterBlob": "abe6edd36738bbfaecfd053d5859df6e354bf945",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/arbitrator/dto/arbitrator-note.dto.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "f104974e4806421f05ce080ed0ea5b1eaeed1882",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/arbitrator/dto/resolve-dispute.dto.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "5b857d782528ade2cd11ec46037a852a3549100a",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/bank-reconciliation/bank-reconciliation.controller.ts",
+          "beforeBlob": "9fa79e318320b83b676da701014d2bfb1df49821",
+          "afterBlob": "92717e2d6751153f4dc09185dbf67a6bfa4a0541",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/bank-reconciliation/bank-reconciliation.service.ts",
+          "beforeBlob": "386c4eae50f372c69942e82e56f4426659f6923e",
+          "afterBlob": "e623ccd7f542b272021fdf6857737f806b6d121c",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/bank-reconciliation/dto/bank-reconciliation.dto.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "0edb0a75eb6e4d54a37763d27c16d21e01e4a81b",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/bank-reconciliation/mt940-calendar-date.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "4c6369ddba0f1d79cb11e45c1eef0f8fbcde18ca",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/factoring/dto/create-factoring-application.dto.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "faae02d362740ee0a5aa580f5f0cd8613d3ed23e",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/factoring/factoring-application-amount.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "425f729c09ab890ba45a50ffc3ae7c12e7fc3e4c",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/factoring/factoring.controller.ts",
+          "beforeBlob": "06cdb83ecb3c8ad8d045d5656f8455ccfda3c375",
+          "afterBlob": "1404809cd07ddd5f3e69925eb28018e698eac9b4",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/factoring/factoring.service.ts",
+          "beforeBlob": "e0b2dc8d494d4187f42214976d71695df0fb79dc",
+          "afterBlob": "44596e090113233bc8326c75c23567ff28ea84ff",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/arbitrator-dispute-split-4459.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "47cfa8600c1c829ca422c5cda319f864c586294b",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/security/request-validation-measured-exemptions.md",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "04c5456ba143dd87aa70acf22a676242a3f4454f",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/request-validation-baseline.json"
+      ],
+      "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline). Whichever of the two sources merges second regenerates them after forward-syncing main; hand edits are rejected.",
+      "liveFinding": "At accepted main the defect is present and reachable: ArbitratorModule, FactoringModule and BankReconciliationModule are mounted in apps/api/src/app.module.ts; POST api/arbitrator/disputes/:id/resolve computes BigInt(Math.trunc(splitPct)) on an unvalidated body. None of the 13 source files changed on main since the original base 41d9d55; the original PR was blocked only by the retired Codex review quota, with no substantive findings.",
+      "regressionEvidence": "Forward-synced ordinary merge 40cd6ff0 (parents original head 0fb84dad and main 7ff): arbitrator/factoring/bank-reconciliation suites 54/54 PASS; the new arbitrator and factoring specs against main's services give 23 FAIL / 8 PASS. Local preparation only, not native acceptance.",
+      "requiredTruthBoundaries": [
+        "Preserve original #5119 history and attribution through ordinary merges; no rebase or force-push of the published branch.",
+        "The known residual property stays open and is not claimed fixed: dispute money moves before the status write without one transaction around both; this is recorded for the canonical CORE money/finality owner, not widened here.",
+        "No schema, migration, dependency, UI, provider binding, ledger semantics or settlement finality change.",
+        "Fresh separate whole-head independent review, applicable native CI/security/PostgreSQL, canonical readiness and expected-full-SHA manual merge precede API release; release remains separate and pending."
       ]
     }
   }
