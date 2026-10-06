@@ -1535,7 +1535,13 @@
       "infra/kind/production-like/postgresql-runtime-grants.sql",
       "scripts/r1-founder-production-acceptance.mjs",
       ".github/workflows/r1-founder-production-acceptance.yml",
-      ".github/workflows/ci.yml"
+      ".github/workflows/ci.yml",
+      "apps/api/test/staff-access/founder-control-postgresql.e2e-spec.ts",
+      "apps/api/src/modules/staff-access/staff-endpoint-policy.ts",
+      "apps/api/src/modules/staff-access/staff-endpoint-policy.spec.ts",
+      "scripts/platform-v7-one-deal-e2e.sh",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
     ],
     "bank/release-request-truth-20260920": [
       "apps/web/app/platform-v7/bank/release-safety/page.tsx",
@@ -1887,6 +1893,21 @@
       "docs/security/cryptographic-inventory.json",
       "docs/security/request-validation-baseline.json",
       "docs/security/request-validation-measured-exemptions.md"
+    ],
+    "security/ledger-vacuous-invariant-4459": [
+      "apps/api/src/modules/ledger/ledger-v2-invariant.spec.ts",
+      "apps/api/src/modules/ledger/ledger-v2.service.ts",
+      "docs/platform-v7/autopilot/scopes/ledger-vacuous-invariant-4459.json",
+      "packages/domain-core/src/double-entry-ledger-invariant.test.ts",
+      "packages/domain-core/src/double-entry-ledger.ts"
+    ],
+    "security/prototype-safe-aggregation": [
+      "apps/api/src/modules/compliance/compliance-csv-output-encoding.spec.ts",
+      "apps/api/src/modules/compliance/compliance.service.ts",
+      "apps/api/src/modules/compliance/prototype-safe-aggregation.spec.ts",
+      "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+      "apps/api/src/modules/integration-events/integration-events.service.ts",
+      "docs/platform-v7/autopilot/scopes/prototype-safe-aggregation.json"
     ]
   },
   "currentAcceptance": [
@@ -5057,6 +5078,241 @@
         "The known residual property stays open and is not claimed fixed: dispute money moves before the status write without one transaction around both; this is recorded for the canonical CORE money/finality owner, not widened here.",
         "No schema, migration, dependency, UI, provider binding, ledger semantics or settlement finality change.",
         "Fresh separate whole-head independent review, applicable native CI/security/PostgreSQL, canonical readiness and expected-full-SHA manual merge precede API release; release remains separate and pending."
+      ]
+    },
+    "founder-control-r1-3-repair-20261006": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "R1.3 Founder Company Health + P0/P1 decision queue (PR #5478): forward-sync the original server/data authority and repair the blocking findings of reviews 5852364375 and 5929992307. Backend read authority only; no UI, FGIS, bank, money/finality, tenant or provider authority. R1.4 (cash/runway, P&L, AR/DSO, forecast) remains out of scope.",
+      "authorityBaseExactMain": "0a7383cfe398c1eb8cd90f6991417a3ed1c95325",
+      "implementationBranch": "r1-founder-ceo-server-authority-20260920",
+      "originalPullRequest": 5478,
+      "vectorExtension": [
+        "apps/api/test/staff-access/founder-control-postgresql.e2e-spec.ts",
+        "apps/api/src/modules/staff-access/staff-endpoint-policy.ts",
+        "apps/api/src/modules/staff-access/staff-endpoint-policy.spec.ts",
+        "scripts/platform-v7-one-deal-e2e.sh",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json"
+      ],
+      "sourcePayload": [
+        {
+          "path": "apps/api/prisma/migrations/20260921071500_founder_control_center/migration.sql",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "55eef175205e464c7ff16f13d8577cc3fcc1fee0",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/app.module.ts",
+          "beforeBlob": "b4bff96cdf947182ddb0d72ef81e7e68d61f8bab",
+          "afterBlob": "b0d9213511ffe048304e7564aedd12651a55d082",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/founder-control/founder-control.controller.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "9e205d8e359b6250e2b8d87e2d81d49055587e2a",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/founder-control/founder-control.migration.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "dc259368fac8127afebce28b0661537fac90a838",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/founder-control/founder-control.module.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "7da88606ac985a57078c9bf5467c38661622dd4a",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/founder-control/founder-control.repository.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "17fc2b75e2851a45d04a7bf960bbaad45f0974e5",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/founder-control/founder-control.service.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "8f10ac3b527aead6cfa5a5c5575e52567610835d",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/founder-control/founder-control.service.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "221fcaf5ae134637c22efde7663a30e49d757017",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/founder-control/founder-control.types.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "618db7ea8b8a7ff47b387222450d429421f5c04f",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/staff-access/staff-access.types.ts",
+          "beforeBlob": "dc7b6c11d611ffb5f56c22387db6faefc449b66a",
+          "afterBlob": "561698e0b9ff36ae5b8f63e976f24f1faf180662",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/staff-access/staff-endpoint-policy.spec.ts",
+          "beforeBlob": "330d665090b5086cfd4310d2fd961b6480f9a48e",
+          "afterBlob": "00f30ac56a490035691a5a7abb12732a436967fd",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/staff-access/staff-endpoint-policy.ts",
+          "beforeBlob": "9014c72770f81ea2e78d70ce621644ee1d72ba56",
+          "afterBlob": "253b0ce98a3638503f67acbde85157fb616644cd",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/test/staff-access/founder-control-postgresql.e2e-spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "5ccb65d2c64752375c93a12cbbc51b0db9b437a1",
+          "mode": "100644"
+        },
+        {
+          "path": "infra/kind/production-like/postgresql-runtime-grants.sql",
+          "beforeBlob": "c2160974e4799d98e160dbcca616b9d0d302d6bc",
+          "afterBlob": "e5cb2617cad2c7122702e7817adb426f432cee8c",
+          "mode": "100644"
+        },
+        {
+          "path": "scripts/platform-v7-one-deal-e2e.sh",
+          "beforeBlob": "e09a6391de644fdd10dc6b92e103b7ce6c39f8aa",
+          "afterBlob": "3bf32ef66e5921c2735e7c7dcb61213391f451be",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json"
+      ],
+      "generatedRule": "Generated inventory equals node scripts/security/discover-cryptography.mjs output on the final reviewed head after forward-syncing main; hand edits are rejected.",
+      "repairs": [
+        "Drill-down: deal/shipment/statement/outbox branches return Prisma timestamp(3) WITHOUT time zone into a timestamptz column, failing RETURN QUERY with 42804 even when empty; converted explicitly with AT TIME ZONE UTC.",
+        "One-deal harness recreates one_deal_staff after migrations; it now grants EXECUTE on the three exported Founder functions and keeps the internal authorizer uncallable (the reproduced exported_health=false failure).",
+        "Negative PostgreSQL tests assert exact SQLSTATE plus the function message and reject \"permission denied for function\"; suspended, expired, wrong-actor and all-branch typed-UTC cases added.",
+        "Founder routes registered as SENSITIVE_READ privileged staff endpoint policies with per-route metadata; successful reads are written to the hash-chained staff audit via the shared workspace audit interceptor. Owner-read authority is the durable ACTIVE PLATFORM_OWNER assignment (revoked/suspended/validity-window revalidated in SQL) plus a current MFA-verified auth session; VIEW_AS grants confer no Founder read."
+      ],
+      "regressionEvidence": "Local isolated PostgreSQL 16: forward-synced head reproduces Founder e2e 4 failed/36 passed; repaired head passes the complete one-deal harness (140 tests, 0 failed; staff-access 42/42). Founder + staff-access unit suites 102/102; API tsc 5.9.3 clean; forward-only migration gate passed. Local preparation only, not native acceptance.",
+      "requiredTruthBoundaries": [
+        "Preserve original #5478 history and attribution through ordinary merges; the stale September governance-file edits are resolved to current main and grant nothing.",
+        "No fake/zero metric fallback: PostgreSQL failure stays UNAVAILABLE; plan/forecast never presented as actual.",
+        "Fresh separate whole-head independent review, owner audit, complete native CI/security/PostgreSQL/Kubernetes and canonical readiness precede an expected-full-SHA manual merge. API/migration release requires the canonical full-stack owner command; R1 whole-block and 13/13 live acceptance remain open."
+      ]
+    },
+    "ledger-vacuous-invariant-4459-forward-sync-20261006": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 money-integrity: continue PR #5136 unchanged in substance. verifyDealBalance and verifyDoubleEntryInvariant compared an expression with itself and could never fail; validateEntry accepted accounts outside the ledger set (a BUYER_ESCROW -> TYPO_ACCOUNT entry made 50 000 kopecks vanish from getBalances); record() accepted self-transfers that inflate both debit and credit totals used by assertSufficientBalance.",
+      "authorityBaseExactMain": "0a7383cfe398c1eb8cd90f6991417a3ed1c95325",
+      "implementationBranch": "security/ledger-vacuous-invariant-4459",
+      "originalPullRequest": 5136,
+      "allowedPaths": [
+        "apps/api/src/modules/ledger/ledger-v2-invariant.spec.ts",
+        "apps/api/src/modules/ledger/ledger-v2.service.ts",
+        "docs/platform-v7/autopilot/scopes/ledger-vacuous-invariant-4459.json",
+        "packages/domain-core/src/double-entry-ledger-invariant.test.ts",
+        "packages/domain-core/src/double-entry-ledger.ts"
+      ],
+      "sourcePayload": [
+        {
+          "path": "apps/api/src/modules/ledger/ledger-v2-invariant.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "5696a2440d4248d4911971e28cb2182cb2a7513a",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/ledger/ledger-v2.service.ts",
+          "beforeBlob": "6f753237b9ae93262debe65a8ce5713529b83741",
+          "afterBlob": "696ab5557ee5a87d80e1552784cb602d9a01039a",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/ledger-vacuous-invariant-4459.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "6cdbb8f50d381325c552d4e8bb5f0af908ef9bff",
+          "mode": "100644"
+        },
+        {
+          "path": "packages/domain-core/src/double-entry-ledger-invariant.test.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "8bedb15647c9c4b0055d99c9773700b48331b2b9",
+          "mode": "100644"
+        },
+        {
+          "path": "packages/domain-core/src/double-entry-ledger.ts",
+          "beforeBlob": "1bf1b33326ad961867ac9886f5b87104dbd480ba",
+          "afterBlob": "4628b7328b72160c6b322a728529af7792b74f19",
+          "mode": "100644"
+        }
+      ],
+      "liveFinding": "At accepted main the five paths are unchanged since the original base 35ce384; ledger-v2.service.ts record() has five existing callers, each pairing a system account with an organisation or two different system accounts, so the self-transfer guard rejects none of them. The original PR was blocked only by the retired review provider.",
+      "regressionEvidence": "Forward-synced ordinary merge 59ff6c3b (parents original head 68bb768 and main 2e10588): after-blobs byte-identical to the original head; API ledger spec 8/8; domain-core ledger tests 14/14 (vitest globals). Cryptographic inventory unchanged. Local preparation only, not native acceptance.",
+      "requiredTruthBoundaries": [
+        "No schema, migration, CHECK constraint, dependency or production data change; the fix is application-side validation only.",
+        "Preserve original history/attribution through ordinary merges; fresh separate whole-head review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge; API release remains separate and pending."
+      ]
+    },
+    "prototype-safe-aggregation-forward-sync-20261006": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 security: continue PR #5102 unchanged in substance. Adapter/integration statistics aggregated into plain objects keyed by external values, so keys such as __proto__ or constructor were lost or polluted the prototype; the compliance audit CSV export wrote cell values starting with = + - @ unescaped (spreadsheet formula injection). Prototype-free maps and OWASP CSV output encoding close both.",
+      "authorityBaseExactMain": "0a7383cfe398c1eb8cd90f6991417a3ed1c95325",
+      "implementationBranch": "security/prototype-safe-aggregation",
+      "originalPullRequest": 5102,
+      "allowedPaths": [
+        "apps/api/src/modules/compliance/compliance-csv-output-encoding.spec.ts",
+        "apps/api/src/modules/compliance/compliance.service.ts",
+        "apps/api/src/modules/compliance/prototype-safe-aggregation.spec.ts",
+        "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+        "apps/api/src/modules/integration-events/integration-events.service.ts",
+        "docs/platform-v7/autopilot/scopes/prototype-safe-aggregation.json"
+      ],
+      "sourcePayload": [
+        {
+          "path": "apps/api/src/modules/compliance/compliance-csv-output-encoding.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "a68add084eeb2be3a9700ad4ce99224890464678",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/compliance/compliance.service.ts",
+          "beforeBlob": "0dd6fd3a22bdab232be6eaf16d888602e4b2e99d",
+          "afterBlob": "2b5ca89c8ffaac1c7188d096cfd7d03890d4a19f",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/compliance/prototype-safe-aggregation.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "b39ad611df5ab470110ab8947e04bdd0f24496da",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+          "beforeBlob": "b0f913bd7f3cc184c11829e0055e87d9dfab7639",
+          "afterBlob": "f828a88e0b997325947d6e8a1fa521cb577e720b",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/integration-events/integration-events.service.ts",
+          "beforeBlob": "bdf2c61e1623ff078580d0751e963a06e69d5a3b",
+          "afterBlob": "8b5a246ef875762710ce08f39d98ebfab8e010d9",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/prototype-safe-aggregation.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "2d4962ebe4f16e9f87076af244cdaf9c3189dedd",
+          "mode": "100644"
+        }
+      ],
+      "liveFinding": "At accepted main the five source paths are unchanged since the original base 9504fa8; ComplianceModule, IntegrationEventsModule and the industrial deal command gateway are mounted. The original PR was blocked only by the retired review provider.",
+      "regressionEvidence": "Forward-synced ordinary merge 7259893b (parents original head 6ee430f and main 2e10588): after-blobs byte-identical to the original head; compliance, deal-command gateway and integration-events suites 60/60. Cryptographic inventory unchanged. Local preparation only, not native acceptance.",
+      "requiredTruthBoundaries": [
+        "No schema, migration, dependency, API contract or production data change; output encoding and in-memory aggregation only.",
+        "Preserve original history/attribution through ordinary merges; fresh separate whole-head review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge; API release remains separate and pending."
       ]
     }
   }
