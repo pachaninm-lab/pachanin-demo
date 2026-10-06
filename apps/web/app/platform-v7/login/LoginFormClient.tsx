@@ -84,7 +84,9 @@ async function requestJson(url: string, init: RequestInit) {
   }
 }
 
-export function LoginFormClient({ copy }: { copy: LoginCopy }) {
+type LoginFormPresentationCopy = LoginCopy & { locale: 'ru' | 'en' | 'zh' };
+
+export function LoginFormClient({ copy }: { copy: LoginFormPresentationCopy }) {
   const [step, setStep] = React.useState<LoginStep>('password');
   const [method, setMethod] = React.useState<MfaMethod>('totp');
   const [email, setEmail] = React.useState('');
@@ -398,7 +400,7 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
             <p className='pc-auth-inline-hint' role='status'>{copy.capsLock}</p>
           ) : null}
 
-          <a className='pc-auth-recovery-link' href='/platform-v7/forgot-password'>
+          <a className='pc-auth-recovery-link' href={`/platform-v7/forgot-password?lang=${copy.locale}`}>
             {copy.forgot}
           </a>
 
@@ -420,7 +422,7 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
 
           <div className='pc-auth-register'>
             <span>{copy.registerPrompt}</span>
-            <a href='/platform-v7/register'>{copy.register}</a>
+            <a href={`/platform-v7/register?lang=${copy.locale}`}>{copy.register}</a>
           </div>
         </form>
       ) : null}

@@ -81,8 +81,10 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
     await expect(page.locator('#gekta .pc-cp-gekta-strip')).toBeVisible();
     await expect(page.locator('#capabilities .pc-cp-capability')).toHaveCount(12);
 
-    // The canonical landing intentionally does not hydrate the retired support dock.
-    await expect(page.locator('.pc-public-contact-dock')).toHaveCount(0);
+    // The canonical landing mounts exactly one Gekta-only contact dock; on
+    // desktop the canonical header remains the visible entry surface.
+    await expect(page.locator(".pc-public-contact-dock[data-public-mode='gekta']")).toHaveCount(1);
+    await expect(page.locator(".pc-public-contact-dock[data-public-mode='full']")).toHaveCount(0);
     await expectMinimumTargets(page, '.pc-site-brand, .pc-site-mobile-menu > summary, .pc-site-locale-option:visible, .pc-v6-header-cta:visible, .pc-cp-hero-copy .pc-cp-button');
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAxeViolations(page);
@@ -105,7 +107,10 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
     expect((primaryBox?.y ?? 9999) + (primaryBox?.height ?? 9999)).toBeLessThanOrEqual(844);
 
     await expect(page.locator('.pc-cp-deal-lens')).toBeVisible();
-    await expect(page.locator('.pc-public-contact-dock')).toHaveCount(0);
+    const mobileGekta = page.locator(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
+    await expect(mobileGekta).toBeVisible();
+    await expect(mobileGekta.locator('.pc-public-contact-dock-assistant')).toBeEnabled();
+    await expectMinimumTargets(page, ".pc-public-contact-dock[data-public-mode='gekta'] .pc-public-contact-dock-assistant");
     await expect(page.locator('.pc-cp-bottom-nav a')).toHaveCount(5);
     await expectMinimumTargets(page, '.pc-cp-bottom-nav a');
     await expectNoHorizontalOverflow(page);
@@ -121,7 +126,7 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
     await expect(root).toContainText('Проверяемые факты');
     await expect(root).toContainText('Полномочия');
     await expect(root).not.toContainText('сертифицирован');
-    await expect(page.locator('.pc-public-contact-dock')).toHaveCount(0);
+    await expect(page.locator(".pc-public-contact-dock[data-public-mode='gekta']")).toHaveCount(1);
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAxeViolations(page);
     expect(runtimeFailures).toEqual([]);
@@ -139,7 +144,7 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
     await expect(root).toContainText('Гекта не создаёт полномочия');
     await expect(root).toContainText('не подменяет источник');
     await expect(root).not.toContainText('NOT_ATTESTED');
-    await expect(page.locator('.pc-public-contact-dock')).toHaveCount(0);
+    await expect(page.locator(".pc-public-contact-dock[data-public-mode='gekta']")).toHaveCount(1);
     expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAxeViolations(page);
@@ -157,7 +162,14 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
       const home = await page.goto('/platform-v7?lang=' + item.locale, { waitUntil: 'load' });
       expect(home?.ok(), 'home ' + item.width + 'px ' + item.locale).toBe(true);
       for (const selector of ['#market', '#deal-path', '#participants', '#live', '#trust', '#gekta', '#capabilities']) await expect(page.locator(selector)).toBeVisible();
-      await expect(page.locator('.pc-public-contact-dock')).toHaveCount(0);
+      const publicDock = page.locator(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
+      if (item.width <= 1100) {
+        await expect(publicDock).toBeVisible();
+        await expect(publicDock.locator('.pc-public-contact-dock-assistant')).toBeEnabled();
+      } else {
+        await expect(publicDock).toBeHidden();
+        await expect(page.locator('.pc-gekta-chat-button--header')).toBeVisible();
+      }
       await expectNoHorizontalOverflow(page);
 
       const trust = await page.goto('/platform-v7/trust?lang=' + item.locale, { waitUntil: 'load' });

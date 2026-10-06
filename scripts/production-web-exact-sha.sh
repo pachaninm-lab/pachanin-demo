@@ -157,19 +157,25 @@ if (( posthog_runtime_override_present == 1 )); then
   BASE_DC+=(-f "$POSTHOG_RUNTIME_OVERRIDE")
 fi
 
+has_web_service() {
+  local services
+  services="$("${BASE_DC[@]}" config --services)" || return 1
+  grep -Fxq web <<< "$services"
+}
+
 cd "$PC_PROD_DIR"
 "${BASE_DC[@]}" config --quiet
-"${BASE_DC[@]}" config --services | grep -qx web || fail 'web service is absent from the merged production Compose model'
+has_web_service || fail 'web service is absent from the merged production Compose model'
 
 merged_web_container_name="$(
   "${BASE_DC[@]}" config |
     awk '
       /^  web:$/ { in_web=1; next }
-      in_web && /^  [^ ]/ { exit }
+      in_web && /^  [^ ]/ { in_web=0; next }
       in_web && /^    container_name:/ {
         sub(/^    container_name:[[:space:]]*/, "")
         print
-        exit
+        in_web=0
       }
     '
 )"
