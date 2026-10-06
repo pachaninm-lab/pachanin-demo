@@ -229,6 +229,10 @@ BEGIN
 END;
 $function$;
 
+-- Prisma DateTime columns are timestamp(3) WITHOUT time zone holding UTC wall time.
+-- observed_at is timestamptz, and RETURN QUERY requires the exact type, so each
+-- branch converts explicitly with AT TIME ZONE 'UTC' instead of depending on the
+-- session TimeZone setting (dispute.cases columns are already timestamptz).
 CREATE OR REPLACE FUNCTION auth.founder_metric_drilldown(
   p_actor_user_id text,
   p_session_id text,
@@ -263,7 +267,7 @@ BEGIN
   IF p_metric_id = 'business.open_deals' THEN
     RETURN QUERY
     SELECT p_metric_id, 'DEAL'::text, deal."id", deal."status",
-           deal."tenantId", deal."updatedAt", '{}'::jsonb
+           deal."tenantId", deal."updatedAt" AT TIME ZONE 'UTC', '{}'::jsonb
     FROM public."deals" deal
     WHERE deal."status" NOT IN ('SETTLED', 'CLOSED', 'CANCELLATION', 'CANCELLED')
     ORDER BY deal."updatedAt" DESC, deal."id"
@@ -272,7 +276,7 @@ BEGIN
   ELSIF p_metric_id = 'operations.active_shipments' THEN
     RETURN QUERY
     SELECT p_metric_id, 'SHIPMENT'::text, shipment."id", shipment."status",
-           shipment."tenantId", shipment."updatedAt",
+           shipment."tenantId", shipment."updatedAt" AT TIME ZONE 'UTC',
            jsonb_build_object('dealId', shipment."dealId")
     FROM public."shipments" shipment
     WHERE shipment."status" NOT IN ('DELIVERED', 'COMPLETED', 'CANCELLED', 'CLOSED', 'FAILED')
@@ -282,7 +286,7 @@ BEGIN
   ELSIF p_metric_id = 'finance.unmatched_statement_entries' THEN
     RETURN QUERY
     SELECT p_metric_id, 'BANK_STATEMENT_ENTRY'::text, statement."id", statement."matchStatus",
-           NULL::text, statement."createdAt", '{}'::jsonb
+           NULL::text, statement."createdAt" AT TIME ZONE 'UTC', '{}'::jsonb
     FROM public."bank_statement_entries" statement
     WHERE statement."matchStatus" IN ('UNMATCHED', 'MISMATCH')
     ORDER BY statement."createdAt" ASC, statement."id"
@@ -311,7 +315,7 @@ BEGIN
     RETURN QUERY
     SELECT p_metric_id, 'OUTBOX_ENTRY'::text, outbox."id", outbox."status",
            NULL::text,
-           COALESCE(outbox."deadLetterAt", outbox."manualReviewAt", outbox."failedAt", outbox."createdAt"),
+           COALESCE(outbox."deadLetterAt", outbox."manualReviewAt", outbox."failedAt", outbox."createdAt") AT TIME ZONE 'UTC',
            jsonb_build_object(
              'dealId', outbox."dealId",
              'eventType', outbox."type",

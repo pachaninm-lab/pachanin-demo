@@ -126,6 +126,11 @@ export const STAFF_ENDPOINT_POLICIES: readonly StaffEndpointPolicy[] = [
   privileged('GET', '/staff/workspaces/break-glass', StaffAuthorizationClass.STAFF_PRIVILEGED_READ, StaffAuditClass.SENSITIVE_READ, [StaffAccessMode.CONTROL_PLANE], [StaffPermission.STAFF_SESSION_READ]),
   privileged('POST', '/staff/workspaces/break-glass/:id/end', StaffAuthorizationClass.STAFF_EMERGENCY_MUTATION, StaffAuditClass.CRITICAL_MUTATION, [StaffAccessMode.CONTROL_PLANE, StaffAccessMode.BREAK_GLASS], [StaffPermission.STAFF_SESSION_READ], 'EMERGENCY_SCOPE'),
   privileged('GET', '/staff/workspaces/audit/actors/:actorUserId/verify', StaffAuthorizationClass.STAFF_PRIVILEGED_READ, StaffAuditClass.SENSITIVE_READ, [StaffAccessMode.CONTROL_PLANE], [StaffPermission.AUDIT_READ]),
+
+  privileged('GET', '/staff/founder-control/overview', StaffAuthorizationClass.STAFF_PRIVILEGED_READ, StaffAuditClass.SENSITIVE_READ, [StaffAccessMode.CONTROL_PLANE], [StaffPermission.FOUNDER_CONTROL_READ]),
+  privileged('GET', '/staff/founder-control/company-health', StaffAuthorizationClass.STAFF_PRIVILEGED_READ, StaffAuditClass.SENSITIVE_READ, [StaffAccessMode.CONTROL_PLANE], [StaffPermission.FOUNDER_CONTROL_READ]),
+  privileged('GET', '/staff/founder-control/decision-queue', StaffAuthorizationClass.STAFF_PRIVILEGED_READ, StaffAuditClass.SENSITIVE_READ, [StaffAccessMode.CONTROL_PLANE], [StaffPermission.FOUNDER_CONTROL_READ]),
+  privileged('GET', '/staff/founder-control/metrics/:metricId/drill-down', StaffAuthorizationClass.STAFF_PRIVILEGED_READ, StaffAuditClass.SENSITIVE_READ, [StaffAccessMode.CONTROL_PLANE], [StaffPermission.FOUNDER_CONTROL_READ]),
 ] as const;
 
 export function staffEndpointPolicyKey(method: string, path: string): string {

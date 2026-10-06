@@ -1,4 +1,7 @@
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { INTERCEPTORS_METADATA } from '@nestjs/common/constants';
+import { StaffWorkspaceAuditInterceptor } from '../staff-access/staff-workspace-audit.interceptor';
+import { FounderControlController } from './founder-control.controller';
 import { FounderControlRepository } from './founder-control.repository';
 import { FounderControlService } from './founder-control.service';
 
@@ -179,5 +182,12 @@ describe('FounderControlService', () => {
 
     await expect(service.companyHealth(user as never))
       .rejects.toBeInstanceOf(ForbiddenException);
+  });
+});
+
+describe('Founder Control HTTP audit contract', () => {
+  it('records every successful Founder read in the hash-chained staff audit', () => {
+    const interceptors = Reflect.getMetadata(INTERCEPTORS_METADATA, FounderControlController) ?? [];
+    expect(interceptors).toContain(StaffWorkspaceAuditInterceptor);
   });
 });

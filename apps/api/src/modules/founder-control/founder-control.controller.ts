@@ -6,12 +6,14 @@ import {
   Query,
   Req,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { RequestUser } from '../../common/types/request-user';
 import { StaffAccessGuard } from '../staff-access/staff-access.guard';
 import { StaffAccessModes } from '../staff-access/staff-access-modes.decorator';
 import { StaffPermissions } from '../staff-access/staff-permissions.decorator';
+import { StaffWorkspaceAuditInterceptor } from '../staff-access/staff-workspace-audit.interceptor';
 import {
   StaffAccessContext,
   StaffAccessMode,
@@ -34,14 +36,19 @@ function parseLimit(value: string | undefined): number {
   return parsed;
 }
 
+// Founder reads are SENSITIVE_READ staff endpoints: every route is registered in
+// STAFF_ENDPOINT_POLICIES with its own mode/permission metadata, and every
+// successful read is written to the hash-chained staff audit by the shared
+// workspace audit interceptor (actor, staff role, access session, grant, route).
 @Controller('staff/founder-control')
 @UseGuards(StaffAccessGuard)
-@StaffAccessModes(StaffAccessMode.CONTROL_PLANE)
-@StaffPermissions(StaffPermission.FOUNDER_CONTROL_READ)
+@UseInterceptors(StaffWorkspaceAuditInterceptor)
 export class FounderControlController {
   constructor(private readonly founderControl: FounderControlService) {}
 
   @Get('overview')
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE)
+  @StaffPermissions(StaffPermission.FOUNDER_CONTROL_READ)
   @RateLimit({ name: 'founder_control_overview', scope: 'user', limit: 60, windowSeconds: 60 })
   overview(
     @Req() request: FounderRequest,
@@ -51,12 +58,16 @@ export class FounderControlController {
   }
 
   @Get('company-health')
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE)
+  @StaffPermissions(StaffPermission.FOUNDER_CONTROL_READ)
   @RateLimit({ name: 'founder_control_health', scope: 'user', limit: 60, windowSeconds: 60 })
   companyHealth(@Req() request: FounderRequest) {
     return this.founderControl.companyHealth(request.user);
   }
 
   @Get('decision-queue')
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE)
+  @StaffPermissions(StaffPermission.FOUNDER_CONTROL_READ)
   @RateLimit({ name: 'founder_control_decision_queue', scope: 'user', limit: 60, windowSeconds: 60 })
   decisionQueue(
     @Req() request: FounderRequest,
@@ -66,6 +77,8 @@ export class FounderControlController {
   }
 
   @Get('metrics/:metricId/drill-down')
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE)
+  @StaffPermissions(StaffPermission.FOUNDER_CONTROL_READ)
   @RateLimit({ name: 'founder_control_metric_drilldown', scope: 'user', limit: 60, windowSeconds: 60 })
   metricDrillDown(
     @Req() request: FounderRequest,

@@ -8,6 +8,26 @@ import {
 
 const ADMIN_DATABASE_URL = process.env.STAFF_ACCESS_TEST_ADMIN_URL ?? '';
 
+const POLICY_DENIAL = 'Active PLATFORM_OWNER assignment and recent MFA are required';
+
+/**
+ * A generic Prisma P2010 is not proof of the intended refusal: a missing
+ * EXECUTE privilege also raises 42501 ("permission denied for function"). Each
+ * negative case therefore asserts the exact SQLSTATE and the function's own
+ * message, and rejects the privilege error explicitly.
+ */
+async function expectDatabaseRefusal(query: Promise<unknown>, sqlState: string, message: string) {
+  const error = await query.then(
+    () => { throw new Error(`Expected PostgreSQL refusal ${sqlState}, but the query succeeded`); },
+    (caught: unknown) => caught,
+  ) as { code?: string; message?: string; meta?: { code?: string; message?: string } };
+  expect(error).toMatchObject({ code: 'P2010' });
+  const detail = `${error.meta?.code ?? ''} ${error.meta?.message ?? ''} ${error.message ?? ''}`;
+  expect(detail).toContain(sqlState);
+  expect(detail).toContain(message);
+  expect(detail).not.toContain('permission denied for function');
+}
+
 const ids = {
   platformOrg: 'org-founder-r1-3-e2e',
   otherOrg: 'org-founder-r1-3-other-e2e',
@@ -262,6 +282,35 @@ describe('R1.3 Founder Control PostgreSQL exploitation gate', () => {
     expect(operations.every((row) => row.metric_id === 'operations.active_shipments')).toBe(true);
   });
 
+  it('returns a typed UTC observed_at from every drill-down branch, including empty ones', async () => {
+    // Prisma DateTime columns are timestamp(3) without time zone; a branch that
+    // returned them unconverted failed with 42804 even when it had no rows.
+    for (const metricId of [
+      'business.open_deals',
+      'operations.active_shipments',
+      'finance.unmatched_statement_entries',
+      'risk.high_critical_open_disputes',
+      'system.outbox_attention_entries',
+    ]) {
+      const rows = await staffPrisma.$queryRaw<FounderMetricDrillDownRow[]>(Prisma.sql`
+        SELECT * FROM auth.founder_metric_drilldown(${ids.ownerUser}, ${ids.session}, ${metricId}, 5)
+      `);
+      expect(rows.length).toBeLessThanOrEqual(5);
+      for (const row of rows) {
+        expect(row.metric_id).toBe(metricId);
+        expect(row.observed_at).toBeInstanceOf(Date);
+      }
+    }
+
+    const deal = await adminPrisma.$queryRaw<Array<{ matches: boolean }>>(Prisma.sql`
+      SELECT (drill.observed_at = (deal."updatedAt" AT TIME ZONE 'UTC')) AS matches
+      FROM auth.founder_metric_drilldown(${ids.ownerUser}, ${ids.session}, 'business.open_deals', 100) drill
+      JOIN public."deals" deal ON deal."id" = drill.object_id
+      WHERE drill.object_id = ${ids.deal}
+    `);
+    expect(deal).toEqual([{ matches: true }]);
+  });
+
   it('returns a stable P0 queue item with real SLA, impact, next action, escalation and source', async () => {
     const rows = await staffPrisma.$queryRaw<FounderDecisionQueueRow[]>(Prisma.sql`
       SELECT *
@@ -300,9 +349,9 @@ describe('R1.3 Founder Control PostgreSQL exploitation gate', () => {
       WHERE id = ${ids.assignment}
     `);
 
-    await expect(staffPrisma.$queryRaw(Prisma.sql`
+    await expectDatabaseRefusal(staffPrisma.$queryRaw(Prisma.sql`
       SELECT * FROM auth.founder_company_health(${ids.ownerUser}, ${ids.session})
-    `)).rejects.toMatchObject({ code: 'P2010' });
+    `), '42501', POLICY_DENIAL);
 
     await adminPrisma.$executeRaw(Prisma.sql`
       UPDATE auth.staff_assignments
@@ -312,6 +361,43 @@ describe('R1.3 Founder Control PostgreSQL exploitation gate', () => {
     `);
   });
 
+  it('fails closed for a suspended or expired PLATFORM_OWNER assignment and for another actor', async () => {
+    await adminPrisma.$executeRaw(Prisma.sql`
+      UPDATE auth.staff_assignments
+      SET suspended_at = NOW(), updated_at = NOW()
+      WHERE id = ${ids.assignment}
+    `);
+    await expectDatabaseRefusal(staffPrisma.$queryRaw(Prisma.sql`
+      SELECT * FROM auth.founder_decision_queue(${ids.ownerUser}, ${ids.session}, 10)
+    `), '42501', POLICY_DENIAL);
+
+    await adminPrisma.$executeRaw(Prisma.sql`
+      UPDATE auth.staff_assignments
+      SET suspended_at = NULL, valid_until = NOW() - INTERVAL '1 second', updated_at = NOW()
+      WHERE id = ${ids.assignment}
+    `);
+    await expectDatabaseRefusal(staffPrisma.$queryRaw(Prisma.sql`
+      SELECT * FROM auth.founder_metric_drilldown(
+        ${ids.ownerUser}, ${ids.session}, 'risk.high_critical_open_disputes', 10
+      )
+    `), '42501', POLICY_DENIAL);
+
+    await adminPrisma.$executeRaw(Prisma.sql`
+      UPDATE auth.staff_assignments
+      SET valid_until = NULL, updated_at = NOW()
+      WHERE id = ${ids.assignment}
+    `);
+    // A real session id presented for a different actor is not an authority.
+    await expectDatabaseRefusal(staffPrisma.$queryRaw(Prisma.sql`
+      SELECT * FROM auth.founder_company_health(${'user-not-the-session-owner'}, ${ids.session})
+    `), '42501', POLICY_DENIAL);
+
+    const restored = await staffPrisma.$queryRaw<FounderMetricRow[]>(Prisma.sql`
+      SELECT * FROM auth.founder_company_health(${ids.ownerUser}, ${ids.session})
+    `);
+    expect(restored).toHaveLength(5);
+  });
+
   it('fails closed when MFA freshness expires and recovers only after a new verified session timestamp', async () => {
     await adminPrisma.$executeRaw(Prisma.sql`
       UPDATE auth.sessions
@@ -319,9 +405,9 @@ describe('R1.3 Founder Control PostgreSQL exploitation gate', () => {
       WHERE id = ${ids.session}
     `);
 
-    await expect(staffPrisma.$queryRaw(Prisma.sql`
+    await expectDatabaseRefusal(staffPrisma.$queryRaw(Prisma.sql`
       SELECT * FROM auth.founder_decision_queue(${ids.ownerUser}, ${ids.session}, 10)
-    `)).rejects.toMatchObject({ code: 'P2010' });
+    `), '42501', POLICY_DENIAL);
 
     await adminPrisma.$executeRaw(Prisma.sql`
       UPDATE auth.sessions
@@ -336,16 +422,16 @@ describe('R1.3 Founder Control PostgreSQL exploitation gate', () => {
   });
 
   it('rejects unknown metric ids and unbounded drill-down limits at the PostgreSQL boundary', async () => {
-    await expect(staffPrisma.$queryRaw(Prisma.sql`
+    await expectDatabaseRefusal(staffPrisma.$queryRaw(Prisma.sql`
       SELECT * FROM auth.founder_metric_drilldown(
         ${ids.ownerUser}, ${ids.session}, 'unknown.metric', 10
       )
-    `)).rejects.toMatchObject({ code: 'P2010' });
+    `), '22023', 'Unknown Founder Company Health metric');
 
-    await expect(staffPrisma.$queryRaw(Prisma.sql`
+    await expectDatabaseRefusal(staffPrisma.$queryRaw(Prisma.sql`
       SELECT * FROM auth.founder_metric_drilldown(
         ${ids.ownerUser}, ${ids.session}, 'business.open_deals', 101
       )
-    `)).rejects.toMatchObject({ code: 'P2010' });
+    `), '22023', 'Founder metric drill-down limit must be between 1 and 100');
   });
 });
