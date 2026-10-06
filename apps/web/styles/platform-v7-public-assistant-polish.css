@@ -164,7 +164,7 @@
     [data-pc-public-assistant-subtitle='true'] {
     display: -webkit-box !important;
     color: #2f7d5a !important;
-    font-size: 9.5px !important;
+    font-size: 12px !important;
     font-weight: 580 !important;
     line-height: 1.2 !important;
     -webkit-box-orient: vertical !important;
@@ -289,7 +289,7 @@
     max-width: 62ch !important;
     margin-inline: auto !important;
     color: #74827b !important;
-    font-size: 10.5px !important;
+    font-size: 12px !important;
     line-height: 1.35 !important;
   }
 
@@ -386,4 +386,230 @@
     border: 1px solid ButtonText !important;
     box-shadow: none !important;
   }
+}
+
+/* FINAL PUBLIC EXPERIENCE v1 — Gekta platform-native chat */
+.pc-public-assistant{
+  --pc-ai-green:#0b6046;
+  --pc-ai-green-dark:#084b37;
+  --pc-ai-ink:#17261f;
+  --pc-ai-muted:#5d7066;
+  --pc-ai-line:#d5e5dc;
+  --pc-ai-soft:#eef7f2;
+  --pc-ai-surface:#ffffff;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+.pc-public-assistant .pc-public-assistant-backdrop{
+  background:rgba(12,31,23,.42)!important;
+  backdrop-filter:blur(8px)!important;
+  -webkit-backdrop-filter:blur(8px)!important;
+}
+.pc-public-assistant .pc-public-assistant-panel{
+  overflow:hidden!important;
+  border:1px solid #c9ddd1!important;
+  border-radius:24px!important;
+  background:#f7fbf8!important;
+  box-shadow:0 26px 76px rgba(17,49,34,.22)!important;
+  color:var(--pc-ai-ink)!important;
+}
+.pc-public-assistant .pc-public-assistant-header{
+  min-height:68px!important;
+  padding:10px 12px 10px 14px!important;
+  border-bottom:1px solid #dbe9e1!important;
+  background:linear-gradient(135deg,#e6f4eb 0%,#f7fbf8 68%,#ffffff 100%)!important;
+}
+.pc-public-assistant .pc-public-assistant-mark{
+  background:#0b6046!important;
+  color:#fff!important;
+  box-shadow:0 8px 18px rgba(11,96,70,.18)!important;
+}
+.pc-public-assistant .pc-public-assistant-identity-copy strong{
+  color:#16382b!important;
+  font-size:17px!important;
+  font-weight:780!important;
+  letter-spacing:-.02em!important;
+}
+.pc-public-assistant .pc-public-assistant-identity-copy span{
+  color:#5a7065!important;
+  font-size:12px!important;
+  line-height:1.3!important;
+}
+.pc-public-assistant .pc-public-assistant-icon-button,
+.pc-public-assistant .pc-public-assistant-header-action{
+  min-width:44px!important;
+  min-height:44px!important;
+  border-color:#cbded3!important;
+  background:rgba(255,255,255,.82)!important;
+  color:#315448!important;
+}
+.pc-public-assistant .pc-public-assistant-messages{
+  background:linear-gradient(180deg,#f7fbf8 0%,#f3f8f5 100%)!important;
+}
+.pc-public-assistant .pc-public-assistant-empty h2{
+  color:#18382c!important;
+  font-weight:720!important;
+  letter-spacing:-.025em!important;
+}
+.pc-public-assistant .pc-public-assistant-empty p{
+  color:#617269!important;
+  line-height:1.5!important;
+}
+.pc-public-assistant .pc-public-assistant-quick-actions button{
+  min-height:46px!important;
+  border:1px solid #cfe1d7!important;
+  border-radius:12px!important;
+  background:#fff!important;
+  color:#204839!important;
+  font-size:13px!important;
+  line-height:1.3!important;
+  box-shadow:0 5px 16px rgba(24,57,42,.035)!important;
+}
+.pc-public-assistant .pc-public-assistant-quick-actions button:hover{
+  background:#eaf5ee!important;
+  border-color:#add0bd!important;
+}
+.pc-public-assistant .pc-public-assistant-message[data-role='assistant'] .pc-public-assistant-bubble{
+  border:1px solid #d5e5dc!important;
+  border-radius:16px 16px 16px 6px!important;
+  background:#fff!important;
+  color:#1b3027!important;
+  box-shadow:0 7px 22px rgba(24,57,42,.04)!important;
+}
+.pc-public-assistant .pc-public-assistant-message[data-role='user'] .pc-public-assistant-bubble{
+  border:1px solid #bcdaca!important;
+  border-radius:16px 16px 6px 16px!important;
+  background:#e4f3e9!important;
+  color:#174332!important;
+}
+.pc-public-assistant .pc-public-assistant-bubble,
+.pc-public-assistant .pc-public-assistant-answer{
+  font-size:14px!important;
+  line-height:1.5!important;
+}
+.pc-public-assistant .pc-public-assistant-answer-title{font-size:15px!important;color:#174532!important}
+.pc-public-assistant .pc-public-assistant-source-list a,
+.pc-public-assistant .pc-public-assistant-details,
+.pc-public-assistant .pc-public-assistant-answer-meta{
+  font-size:12px!important;
+  line-height:1.4!important;
+}
+.pc-public-assistant .pc-public-assistant-composer{
+  border-top:1px solid #d8e6de!important;
+  background:#fbfdfc!important;
+}
+.pc-public-assistant .pc-public-assistant-composer-shell{
+  min-height:54px!important;
+  border:1px solid #c7dbcf!important;
+  border-radius:15px!important;
+  background:#fff!important;
+  box-shadow:0 5px 18px rgba(24,57,42,.04)!important;
+}
+.pc-public-assistant .pc-public-assistant-composer-shell:focus-within{
+  border-color:#70a98e!important;
+  box-shadow:0 0 0 3px rgba(11,96,70,.10)!important;
+}
+.pc-public-assistant .pc-public-assistant-composer textarea{
+  font-size:16px!important;
+  color:#17261f!important;
+}
+.pc-public-assistant .pc-public-assistant-composer-button{
+  min-width:44px!important;
+  min-height:44px!important;
+  border-radius:11px!important;
+}
+.pc-public-assistant .pc-public-assistant-composer-button:not(:disabled){
+  background:#0b6046!important;
+  color:#fff!important;
+}
+.pc-public-assistant .pc-public-assistant-privacy{
+  color:#667970!important;
+  font-size:12px!important;
+  line-height:1.4!important;
+}
+@media(max-width:720px){
+  .pc-public-assistant .pc-public-assistant-panel{
+    border-radius:22px 22px 0 0!important;
+    background:#f7fbf8!important;
+  }
+  .pc-public-assistant .pc-public-assistant-header{
+    min-height:62px!important;
+    border-radius:22px 22px 0 0!important;
+  }
+  .pc-public-assistant .pc-public-assistant-messages{padding:14px 12px 10px!important}
+  .pc-public-assistant .pc-public-assistant-empty p{font-size:14px!important}
+  .pc-public-assistant .pc-public-assistant-quick-actions{gap:8px!important}
+  .pc-public-assistant .pc-public-assistant-quick-actions button{font-size:13px!important}
+  .pc-public-assistant .pc-public-assistant-privacy{font-size:12px!important}
+}
+
+/* FINAL PUBLIC EXPERIENCE v1 — mobile assistant microtype specificity lock */
+@media(max-width:720px){
+  .pc-public-assistant .pc-public-assistant-panel [data-pc-public-assistant-subtitle='true']{
+    font-size:12px!important;
+    line-height:1.35!important;
+  }
+}
+
+/* FINAL PUBLIC TYPOGRAPHY AUTHORITY — assistant 2026-09-21 */
+.pc-public-assistant{
+  font-size:15px!important;
+  line-height:1.5!important;
+  font-kerning:normal;
+  text-rendering:optimizeLegibility;
+  -webkit-font-smoothing:antialiased;
+}
+.pc-public-assistant .pc-public-assistant-identity-copy strong{
+  font-size:18px!important;
+  line-height:1.2!important;
+  letter-spacing:-.02em!important;
+}
+.pc-public-assistant .pc-public-assistant-identity-copy span,
+.pc-public-assistant .pc-public-assistant-panel [data-pc-public-assistant-subtitle='true']{
+  font-size:13px!important;
+  line-height:1.4!important;
+}
+.pc-public-assistant .pc-public-assistant-empty h2{
+  font-size:clamp(22px,4vw,28px)!important;
+  line-height:1.15!important;
+  letter-spacing:-.025em!important;
+  text-wrap:balance;
+}
+.pc-public-assistant .pc-public-assistant-empty p{
+  font-size:14px!important;
+  line-height:1.55!important;
+  text-wrap:pretty;
+}
+.pc-public-assistant .pc-public-assistant-quick-actions button{
+  min-height:46px!important;
+  font-size:14px!important;
+  line-height:1.35!important;
+}
+.pc-public-assistant .pc-public-assistant-bubble,
+.pc-public-assistant .pc-public-assistant-answer{
+  font-size:15px!important;
+  line-height:1.55!important;
+}
+.pc-public-assistant .pc-public-assistant-answer-title{font-size:16px!important;line-height:1.3!important}
+.pc-public-assistant .pc-public-assistant-source-list a,
+.pc-public-assistant .pc-public-assistant-details,
+.pc-public-assistant .pc-public-assistant-answer-meta,
+.pc-public-assistant .pc-public-assistant-privacy{
+  font-size:13px!important;
+  line-height:1.45!important;
+}
+.pc-public-assistant .pc-public-assistant-composer textarea{
+  font-size:16px!important;
+  line-height:1.45!important;
+}
+@media(max-width:720px){
+  .pc-public-assistant .pc-public-assistant-identity-copy strong{font-size:17px!important}
+  .pc-public-assistant .pc-public-assistant-identity-copy span,
+  .pc-public-assistant .pc-public-assistant-panel [data-pc-public-assistant-subtitle='true']{font-size:13px!important}
+  .pc-public-assistant .pc-public-assistant-quick-actions button{font-size:14px!important}
+  .pc-public-assistant .pc-public-assistant-bubble,
+  .pc-public-assistant .pc-public-assistant-answer{font-size:15px!important}
+  .pc-public-assistant .pc-public-assistant-source-list a,
+  .pc-public-assistant .pc-public-assistant-details,
+  .pc-public-assistant .pc-public-assistant-answer-meta,
+  .pc-public-assistant .pc-public-assistant-privacy{font-size:13px!important}
 }

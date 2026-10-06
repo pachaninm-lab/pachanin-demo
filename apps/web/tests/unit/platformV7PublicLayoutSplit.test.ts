@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 const absolute = (file: string) => path.join(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..'), file);
 const read = (file: string) => fs.readFileSync(absolute(file), 'utf8');
 const rootLayout = read('apps/web/app/layout.tsx');
+const globalsCss = read('apps/web/app/globals.css');
+const tailwindRuntimeCss = read('apps/web/styles/platform-v7-tailwind-runtime.css');
 const layout = read('apps/web/app/platform-v7/layout.tsx');
 const template = read('apps/web/app/platform-v7/template.tsx');
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
@@ -72,18 +74,21 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(isolatedLanding).toContain("data-contact-dock-visual='approved'");
     expect(isolatedLogin).toContain("from '@/app/platform-v7/login/page'");
     expect(isolatedRecovery).toContain("from '@/app/platform-v7/forgot-password/page'");
-    expect(isolatedLayout).toContain('<HydrationSafeChatSupport renderDock={false} />');
-    expect(isolatedLayout.indexOf('{children}')).toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport renderDock={false} />'));
+    expect(isolatedLayout).toContain('<HydrationSafeChatSupport renderDock={false} legacyPublicPolish={!canonicalLanding} />');
+    expect(isolatedLayout.indexOf('{children}')).toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport renderDock={false} legacyPublicPolish={!canonicalLanding} />'));
   });
 
-  it('renders one contact dock in initial entry HTML and forbids a deferred duplicate', () => {
+  it('keeps legacy dock support lazy off the canonical landing and forbids deferred duplicates', () => {
     expect(isolatedLayout).toContain("import './public-entry-contact-dock-mount.css'");
-    expect(isolatedLayout).toContain("import { PublicContactDock } from '@/components/platform-v7/PublicContactDock'");
+    expect(isolatedLayout).toContain("import('@/components/platform-v7/PublicContactDock')");
+    expect(isolatedLayout).toContain("import('@/components/platform-v7/HydrationSafeChatSupport')");
+    expect(isolatedLayout).toContain('const canonicalLanding = isCanonicalLanding(pathname);');
+    expect(isolatedLayout).not.toContain("if (isCanonicalLanding(pathname)) return children;");
     expect(isolatedLayout).toContain("data-public-entry-contact-dock-mounted='true'");
     expect(isolatedLayout).toContain("data-public-entry-contact-dock-end='true'");
-    expect(isolatedLayout).toContain('<PublicContactDock />');
-    expect(isolatedLayout.indexOf('<PublicContactDock />'))
-      .toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport renderDock={false} />'));
+    expect(isolatedLayout).toContain("<PublicContactDock assistantContext='public' publicMode={canonicalLanding ? 'gekta' : 'full'} />");
+    expect(isolatedLayout.indexOf("<PublicContactDock assistantContext='public' publicMode={canonicalLanding ? 'gekta' : 'full'} />"))
+      .toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport renderDock={false} legacyPublicPolish={!canonicalLanding} />'));
     expect(entryDockMountCss).toContain("[data-public-entry-contact-dock-end='true'] ~ .pc-public-contact-dock");
     expect(entryDockMountCss).toContain('display: none !important');
   });
@@ -122,6 +127,11 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(dock).toContain('min-height:44px!important');
     expect(dock).toContain('env(safe-area-inset-bottom');
     expect(dock).toContain(".pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)");
+    expect(dock).toContain("data-public-mode={publicMode}");
+    expect(dock).toContain("[data-public-mode='gekta']");
+    expect(dock).toContain("display:grid!important");
+    expect(dock).toContain("@media(min-width:981px)");
+    expect(dock).toContain("display:none!important");
   });
 
   it('keeps the route template server-only and free of historical patching', () => {
@@ -129,6 +139,16 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(template).not.toContain("'use client'");
     expect(template).not.toContain('PlatformV7ProtectedTemplateRuntime');
     expect(template).not.toContain('PlatformV7TemplateGuards');
+  });
+
+  it('keeps Tailwind out of the canonical home render path and available elsewhere', () => {
+    expect(globalsCss).not.toContain('@tailwind components');
+    expect(globalsCss).not.toContain('@tailwind utilities');
+    expect(tailwindRuntimeCss).toContain('@tailwind components');
+    expect(tailwindRuntimeCss).toContain('@tailwind utilities');
+    expect(rootLayout).toContain("pathname === '/platform-v7' || pathname === '/pc-public-entry/platform-v7'");
+    expect(rootLayout).toContain("await import('@/components/platform-v7/PlatformV7TailwindRuntime')");
+    expect(rootLayout).toContain('{TailwindRuntime ? <TailwindRuntime /> : null}');
   });
 
   it('does not preload or activate protected font variables on lean public entry routes', () => {

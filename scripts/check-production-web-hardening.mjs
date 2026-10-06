@@ -312,6 +312,66 @@ for (const path of [files.release, files.remote, files.live]) {
   if (result.status !== 0) failures.push(`${path}: bash -n failed: ${result.stderr.trim()}`);
 }
 
+// Exercise the actual Compose service check with web first in a long service
+// list: grep -q in a pipe may close stdout early and fail under pipefail.
+const releaseCode = contents.get('release') ?? '';
+const serviceFunction = releaseCode.match(/^has_web_service\(\) \{\n[\s\S]*?^\}/m)?.[0];
+if (!serviceFunction) {
+  failures.push('Web release: missing executable Compose service check');
+} else {
+  const fakeCompose = [
+    'BASE_DC=(docker compose)',
+    'docker() {',
+    '  [[ "$*" == "compose config --services" ]] || return 98',
+    '  case "$TEST_CASE" in',
+    '    first) printf "web\\n"; for ((i=0;i<5000;i++)); do printf "service-%s\\n" "$i"; done ;;',
+    '    late) for ((i=0;i<5000;i++)); do printf "service-%s\\n" "$i"; done; printf "web\\n" ;;',
+    '    missing) printf "web-old\\nother\\n" ;;',
+    '    error) return 3 ;;',
+    '  esac',
+    '}',
+    'has_web_service',
+  ].join('\n');
+  for (const testCase of ['first', 'late', 'missing', 'error']) {
+    const result = spawnSync('bash', ['-c', 'set -euo pipefail\n' + serviceFunction + '\n' + fakeCompose], {
+      encoding: 'utf8', env: { ...process.env, TEST_CASE: testCase },
+    });
+    const shouldPass = testCase === 'first' || testCase === 'late';
+    if ((result.status === 0) !== shouldPass) {
+      failures.push('Compose service check rejected/accepted ' + testCase + ': ' + result.stderr.trim());
+    }
+  }
+}
+
+const configStart = releaseCode.indexOf('merged_web_container_name="$(\n');
+const configEnd = releaseCode.indexOf('\n)"', configStart);
+if (configStart < 0 || configEnd < 0) {
+  failures.push('Web release: missing merged Compose container-name probe');
+} else {
+  const configProbe = releaseCode.slice(configStart, configEnd + 3);
+  const fakeConfig = [
+    'BASE_DC=(docker compose)',
+    'docker() {',
+    '  [[ "$*" == "compose config" ]] || return 98',
+    '  printf "services:\\n  web:\\n"',
+    '  if [[ "$TEST_CASE" == named ]]; then printf "    container_name: forbidden\\n"; fi',
+    '  printf "  api:\\n"',
+    '  for ((i=0;i<5000;i++)); do printf "  service_%s:\\n    image: test\\n" "$i"; done',
+    '}',
+    configProbe,
+    'printf "NAME=%s\\n" "$merged_web_container_name"',
+  ].join('\n');
+  for (const testCase of ['unnamed', 'named']) {
+    const result = spawnSync('bash', ['-c', 'set -euo pipefail\n' + fakeConfig], {
+      encoding: 'utf8', env: { ...process.env, TEST_CASE: testCase },
+    });
+    const expected = testCase === 'named' ? 'NAME=forbidden\n' : 'NAME=\n';
+    if (result.status !== 0 || result.stdout !== expected) {
+      failures.push('Compose name check failed for ' + testCase + ': ' + result.stderr.trim());
+    }
+  }
+}
+
 const live = contents.get('live') ?? '';
 const extractor = live.match(/extract_entitlement_ticket\(\) \{\n[\s\S]*?\n\}/)?.[0];
 if (!extractor) {
@@ -338,6 +398,93 @@ parsed="$(extract_entitlement_ticket <(printf '%s\\n' '{"entitlement":{"state":"
       `${files.live}: node-free entitlement ticket extraction probe failed: ${extractorProbe.stderr.trim()}`,
     );
   }
+}
+
+// Execute the actual resolver/reclaim functions with a bounded fake Docker CLI.
+const remote = contents.get('remote') ?? '';
+const shellFunction = (name) => remote.match(new RegExp('^' + name + '\\(\\) \\{\\n[\\s\\S]*?^\\}', 'm'))?.[0];
+const reclaimFunctions = ['trim', 'fail', 'resolve_reclaim_web_id', 'reclaim_web_pull_space'].map(shellFunction);
+if (reclaimFunctions.some((value) => !value)) {
+  failures.push('Remote release: a reclaim function is missing');
+} else {
+  const fakeDocker = [
+  "prod_dir=/protected-test",
+  "prod_project=expected",
+  "resolved_files=(compose.yml)",
+  "TARGET_SHA=2222222222222222222222222222222222222222",
+  "docker() {",
+  "  case \"$1\" in",
+  "    compose)",
+  "      [[ \"$*\" == 'compose --project-directory /protected-test -p expected -f /protected-test/compose.yml ps -q web' ]] || return 91",
+  "      case \"$TEST_CASE\" in",
+  "        compose_error) return 3 ;;",
+  "        zero) return 0 ;;",
+  "        two) printf 'aaaaaaaaaaaa\\nbbbbbbbbbbbb\\n' ;;",
+  "        *) printf 'aaaaaaaaaaaa\\n' ;;",
+  "      esac ;;",
+  "    inspect)",
+  "      [[ \"$TEST_CASE\" != inspect_error ]] || return 4",
+  "      case \"$3\" in",
+  "        *com.docker.compose.service*)",
+  "          case \"$TEST_CASE\" in wrong_service) echo api ;; missing_labels) echo '<no value>' ;; *) echo web ;; esac ;;",
+  "        *com.docker.compose.project.working_dir*)",
+  "          if [[ \"$TEST_CASE\" == wrong_directory ]]; then echo /other; else echo /protected-test; fi ;;",
+  "        *com.docker.compose.project*)",
+  "          if [[ \"$TEST_CASE\" == wrong_project ]]; then echo foreign; else echo expected; fi ;;",
+  "        '{{.State.Running}}')",
+  "          if [[ \"$TEST_CASE\" == stopped ]]; then echo false; else echo true; fi ;;",
+  "        '{{.Config.Image}}') echo \"$TEST_IMAGE\" ;;",
+  "        '{{.Image}}') echo sha256:current ;;",
+  "        *) return 92 ;;",
+  "      esac ;;",
+  "    info) echo /tmp ;;",
+  "    image)",
+  "      case \"$2\" in",
+  "        prune) echo MUTATION:prune >&3 ;;",
+  "        ls)",
+  "          printf '%s\\n' \\",
+  "            'ghcr.io/pachaninm-lab/grainflow-web:sha-1111111 sha256:current' \\",
+  "            'ghcr.io/pachaninm-lab/grainflow-web:sha-2222222 sha256:target' \\",
+  "            'ghcr.io/pachaninm-lab/grainflow-web:sha-3333333 sha256:old' \\",
+  "            'ghcr.io/pachaninm-lab/grainflow-api:sha-4444444 sha256:api' ;;",
+  "        rm) echo \"MUTATION:remove:$3\" >&3 ;;",
+  "        *) return 93 ;;",
+  "      esac ;;",
+  "    builder) echo MUTATION:builder >&3 ;;",
+  "    *) return 94 ;;",
+  "  esac",
+  "}",
+  "df() { :; }",
+  "reclaim_web_pull_space",
+  ""
+].join('\n');
+  const images = [
+    'pc-crop-transfer/web:337e123ac52bfe5be3e0db8bb4cf0601f275edc8',
+    'ghcr.io/pachaninm-lab/grainflow-web:sha-337e123',
+    'sha256:5faab3e4282f3b803ac5c24fa4a0008030349a14292d30f135ec1064afac557e7',
+  ];
+  for (const testCase of ['valid', 'zero', 'two', 'wrong_service', 'missing_labels', 'wrong_project', 'wrong_directory', 'stopped', 'compose_error', 'inspect_error']) {
+    for (const testImage of testCase === 'valid' ? images : images.slice(0, 1)) {
+      const result = spawnSync('bash', ['-c', 'set -euo pipefail\nexec 3>&1\n' + reclaimFunctions.join('\n') + '\n' + fakeDocker], {
+        encoding: 'utf8',
+        env: { ...process.env, TEST_CASE: testCase, TEST_IMAGE: testImage },
+      });
+      const mutations = result.stdout.split('\n').filter((line) => line.startsWith('MUTATION:'));
+      if (testCase === 'valid') {
+        if (result.status !== 0 || !result.stdout.includes('DOCKER_RECLAIM_PRESERVED_IMAGE=ghcr.io/pachaninm-lab/grainflow-web:sha-1111111') ||
+            !result.stdout.includes('DOCKER_RECLAIM_PRESERVED_IMAGE=ghcr.io/pachaninm-lab/grainflow-web:sha-2222222') ||
+            !result.stdout.includes('DOCKER_RECLAIM_REMOVED_UNUSED_IMAGE=ghcr.io/pachaninm-lab/grainflow-web:sha-3333333') ||
+            mutations.filter((line) => line.startsWith('MUTATION:remove:')).join('\n') !== 'MUTATION:remove:ghcr.io/pachaninm-lab/grainflow-web:sha-3333333') {
+          failures.push('Compose reclaim valid image failed: ' + testImage + '; ' + result.stderr.trim());
+        }
+      } else if (result.status === 0 || mutations.length > 0) {
+        failures.push('Compose reclaim must reject ' + testCase + ' before mutation');
+      }
+    }
+  }
+}
+if (!/reclaim_web_pull_space\n\s+install -m 0644 "\$remote_override" "\$active_hardening_override"/u.test(remote)) {
+  failures.push('Compose reclaim identity must be verified before persistent override installation');
 }
 
 if (failures.length > 0) {
