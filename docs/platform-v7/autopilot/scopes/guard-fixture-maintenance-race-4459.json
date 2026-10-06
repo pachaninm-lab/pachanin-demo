@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "fix/guard-fixture-maintenance-race-4459",
+  "status": "active",
+  "purpose": "Guard test cleanup fails intermittently with ENOTEMPTY (rmdir of the fixture root) even after its 10 retries. Seen on four unrelated PRs (#5614, #5047, #5136, #5140) at different tests of scripts/p7-autopilot-guard.test.mjs; later heads pass. Cause: the CI runner uses git 2.55, where maintenance.autoDetach defaults to true, so every `git commit` in a fixture hands `git maintenance run --auto` to a detached background process that can still be writing under .git when the test body returns and t.after removes the directory. Measured locally with GIT_TRACE: a default repository's `git commit` spawns `maintenance run --auto` (2 trace hits); with maintenance.auto=false and gc.auto=0 it spawns none.",
+  "authorityBaseExactMain": "06f686d522",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/guard-fixture-maintenance-race-4459.json",
+    "scripts/p7-autopilot-guard.test.mjs"
+  ],
+  "requiredInvariants": [
+    "No assertion, test case, expected output, retry count or guard behaviour changes. The only change is repository-local git configuration applied right after each fixture `git init`.",
+    "The configuration is set in the shared git() helper, which is the only place fixtures initialise repositories (five `git init` sites, all through it), and it is repository-local, so it also applies to the git commands the guard script runs inside the fixture.",
+    "scripts/p7-autopilot-guard.sh and every workflow stay byte-identical to main. No test is skipped, disabled, quarantined or retried more."
+  ],
+  "acceptance": [
+    "node --test scripts/p7-autopilot-guard.test.mjs: 336 tests, 336 pass, 0 fail.",
+    "GIT_TRACE check: `git commit` in a default repository spawns `git maintenance run --auto`; after maintenance.auto=false and gc.auto=0 it spawns nothing."
+  ]
+}
