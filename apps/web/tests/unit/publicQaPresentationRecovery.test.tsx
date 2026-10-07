@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { CanonicalMarketPreview, CanonicalMarketResults } from '@/components/platform-v7/PublicCanonicalMarket';
 import { LoginFormClient, type LoginCopy } from '@/app/platform-v7/login/LoginFormClient';
-import { RegisterFormClient } from '@/app/platform-v7/register/RegisterFormClient';
+import RegisterPage from '@/app/platform-v7/register/page';
 
 const provider = vi.hoisted(() => ({ available: true }));
 vi.mock('@/lib/public-market-server', () => ({ getPublicMarketLots: async () => ({ available: provider.available, items: [] }) }));
@@ -48,8 +48,8 @@ describe('public QA presentation regressions', () => {
       expect(doc.querySelector('.pc-auth-register a')?.getAttribute('href')).toBe(`/platform-v7/register?lang=${locale}`);
     });
 
-    it(`connects identifier format hints without changing required fields (${locale})`, () => {
-      const doc = documentFor(<RegisterFormClient locale={locale} />);
+    it(`connects routed identifier format hints without changing required fields (${locale})`, async () => {
+      const doc = documentFor(await RegisterPage({ searchParams: Promise.resolve({ lang: locale }) }));
       for (const [name, numbers] of [['orgInn', ['10', '12']], ['orgKpp', ['9']], ['orgOgrn', ['13', '15']]] as const) {
         const input = doc.querySelector<HTMLInputElement>(`input[name="${name}"]`)!;
         const hint = doc.getElementById(input.getAttribute('aria-describedby')!);
