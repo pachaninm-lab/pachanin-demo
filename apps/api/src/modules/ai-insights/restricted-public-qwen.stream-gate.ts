@@ -322,9 +322,9 @@ function saleTextWithoutTagBoundaries(text: string, state: SaleTagScanState, sep
 }
 
 
-type SaleMarkdownScanState = { labelDepth: number; afterLabel: boolean; destinationDepth: number; escaped: boolean; quote: string };
+type SaleMarkdownScanState = { labelDepth: number; afterLabel: boolean; destinationDepth: number; escaped: boolean; quote: string; titleSeparator: boolean; destinationStarted: boolean; angle: boolean };
 function newSaleMarkdownScanState(): SaleMarkdownScanState {
-  return { labelDepth: 0, afterLabel: false, destinationDepth: 0, escaped: false, quote: '' };
+  return { labelDepth: 0, afterLabel: false, destinationDepth: 0, escaped: false, quote: '', titleSeparator: false, destinationStarted: false, angle: false };
 }
 
 /** Conservative link-text view: keep labels while omitting destinations
@@ -334,17 +334,21 @@ function saleMarkdownLinkText(text: string, state: SaleMarkdownScanState): strin
   let result = '';
   for (const character of text) {
     if (state.destinationDepth) {
-      if (state.escaped) { state.escaped = false; continue; }
-      if (character === '\\\\') { state.escaped = true; continue; }
+      if (state.escaped) { state.escaped = false; state.destinationStarted = true; continue; }
+      if (character === '\\') { state.escaped = true; continue; }
+      if (state.angle) { if (character === '>') state.angle = false; continue; }
       if (state.quote) { if (character === state.quote) state.quote = ''; continue; }
-      if (character === '"' || character === "'") { state.quote = character; continue; }
+      if (!state.destinationStarted && character === '<') { state.angle = true; state.destinationStarted = true; continue; }
+      if (state.titleSeparator && state.destinationDepth === 1 && (character === '"' || character === "'")) { state.quote = character; continue; }
       if (character === '(') state.destinationDepth += 1;
       if (character === ')') state.destinationDepth -= 1;
+      state.titleSeparator = state.destinationDepth === 1 && /\s/u.test(character);
+      state.destinationStarted ||= !/\s/u.test(character);
       continue;
     }
     if (state.afterLabel) {
       state.afterLabel = false;
-      if (character === '(') { state.destinationDepth = 1; continue; }
+      if (character === '(') { state.destinationDepth = 1; state.titleSeparator = false; state.destinationStarted = false; state.angle = false; continue; }
     }
     if (character === '[') { state.labelDepth += 1; continue; }
     if (character === ']' && state.labelDepth) {
@@ -355,6 +359,12 @@ function saleMarkdownLinkText(text: string, state: SaleMarkdownScanState): strin
     result += character;
   }
   return result;
+}
+
+
+type SaleTagContentFrame = { state: SaleTagScanState; raw: string; formatted: string };
+function newSaleTagContentFrame(): SaleTagContentFrame {
+  return { state: newSaleTagScanState(), raw: '', formatted: '' };
 }
 
 
@@ -822,6 +832,10 @@ export class StreamingAnswerGate {
   private discardedSaleMarkdownContext = '';
   private discardedSaleMarkdownFormattingContext = '';
   private discardedSaleMarkdownState = newSaleMarkdownScanState();
+  private discardedSaleOriginalMarkdownContext = '';
+  private discardedSaleOriginalMarkdownFormattingContext = '';
+  private discardedSaleOriginalMarkdownState = newSaleMarkdownScanState();
+  private discardedSaleTagContentFrames = [newSaleTagContentFrame()];
   private discardedSaleReferenceTail = '';
   private discardedSaleTagState = newSaleTagScanState();
   private discardedSaleDecodedTagState = newSaleTagScanState();
@@ -894,6 +908,29 @@ export class StreamingAnswerGate {
     return { original, joined: saleTextWithoutTagBoundaries(original, this.discardedSaleDecodedTagState, false) };
   }
 
+  private scanOriginalTagContents(text: string): { violation: GateViolation | null; prescription: boolean } {
+    let prescription = false;
+    for (const character of text) {
+      let frame = this.discardedSaleTagContentFrames[this.discardedSaleTagContentFrames.length - 1];
+      if (frame.state.inside && character === '<') {
+        // Freeze the enclosing prefix while checking the nested header's own contents.
+        if (this.discardedSaleTagContentFrames.length >= 16) return { violation: 'OUTPUT_LIMIT', prescription };
+        frame = newSaleTagContentFrame();
+        this.discardedSaleTagContentFrames.push(frame);
+      }
+      const normalized = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\s]/u.test(character) ? ' ' : character;
+      frame.raw = (frame.raw + normalized).replace(/\s+/gu, ' ').slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      if (!/[*_`]/u.test(normalized)) frame.formatted = (frame.formatted + normalized).replace(/\s+/gu, ' ').slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      if (WRITE_CLAIM_PATTERN.test(frame.raw) || WRITE_CLAIM_PATTERN.test(frame.formatted)) return { violation: 'WRITE_CLAIM', prescription };
+      if (SECRET_PATTERN.test(frame.raw) || SECRET_PATTERN.test(frame.formatted)) return { violation: 'SECRET', prescription };
+      prescription ||= isUngroundedCropProtectionPrescription(frame.raw) || isUngroundedCropProtectionPrescription(frame.formatted);
+      const wasInside = frame.state.inside;
+      saleTextWithoutTagBoundaries(character, frame.state, false);
+      if (wasInside && !frame.state.inside && this.discardedSaleTagContentFrames.length > 1) this.discardedSaleTagContentFrames.pop();
+    }
+    return { violation: null, prescription };
+  }
+
   private discardSaleProse(final: boolean): GateCommit {
     const head = this.pending;
     this.pending = '';
@@ -910,6 +947,8 @@ export class StreamingAnswerGate {
       .replace(/\s+/gu, ' ');
     const normalizedHead = saleTextWithoutTagBoundaries(head, this.discardedSaleTagState, true);
     const decoded = this.discardedSaleDecodedText(head, final);
+    const originalContents = this.scanOriginalTagContents(decoded.original);
+    if (originalContents.violation) return this.refuse(originalContents.violation);
     // Keep a second bounded view without formatting, including tags split over
     // arbitrarily long transport cuts. A separate raw view preserves real keys
     // containing underscores; normalization cannot silently erase such tokens.
@@ -945,12 +984,17 @@ export class StreamingAnswerGate {
     const markdownHead = saleMarkdownLinkText(decoded.joined, this.discardedSaleMarkdownState);
     const markdownRawBlock = `${this.discardedSaleMarkdownContext}${markdownHead}`.replace(/\s+/gu, ' ');
     const markdownFormattingBlock = `${this.discardedSaleMarkdownFormattingContext}${markdownHead}`.replace(/[*_`]/gu, '').replace(/\s+/gu, ' ');
+    // Parse original Markdown before tag removal too: angle-wrapped URLs can
+    // contain apostrophes/parentheses which are not HTML attribute delimiters.
+    const originalMarkdownHead = saleMarkdownLinkText(decoded.original, this.discardedSaleOriginalMarkdownState);
+    const originalMarkdownRawBlock = (this.discardedSaleOriginalMarkdownContext + originalMarkdownHead).replace(/\s+/gu, ' ');
+    const originalMarkdownFormattingBlock = (this.discardedSaleOriginalMarkdownFormattingContext + originalMarkdownHead).replace(/[*_`]/gu, '').replace(/\s+/gu, ' ');
     const views = [rawBlock, formattingBlock, block, decodedRawBlock, decodedFormattingBlock, renderedRawBlock, renderedBlock,
-      originalJoinedRawBlock, originalJoinedFormattingBlock, markdownRawBlock, markdownFormattingBlock];
+      originalJoinedRawBlock, originalJoinedFormattingBlock, markdownRawBlock, markdownFormattingBlock, originalMarkdownRawBlock, originalMarkdownFormattingBlock];
     if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return this.refuse('WRITE_CLAIM');
     if (views.some((view) => SECRET_PATTERN.test(view))) return this.refuse('SECRET');
     const flags = ['UNVERIFIED_ECONOMIC_CLAIM_REMOVED'];
-    if (views.some(isUngroundedCropProtectionPrescription)) flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    if (originalContents.prescription || views.some(isUngroundedCropProtectionPrescription)) flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
     this.discardedSaleRenderedContext = renderedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleRenderedFormattingContext = renderedBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleDecodedContext = decodedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
@@ -959,6 +1003,8 @@ export class StreamingAnswerGate {
     this.discardedSaleOriginalJoinedFormattingContext = originalJoinedFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleMarkdownContext = markdownRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleMarkdownFormattingContext = markdownFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleOriginalMarkdownContext = originalMarkdownRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleOriginalMarkdownFormattingContext = originalMarkdownFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleFormattingContext = formattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleRawContext = rawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.progressiveSafetyContext = block.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
@@ -1114,6 +1160,10 @@ export class StreamingAnswerGate {
     this.discardedSaleMarkdownContext = '';
     this.discardedSaleMarkdownFormattingContext = '';
     this.discardedSaleMarkdownState = newSaleMarkdownScanState();
+    this.discardedSaleOriginalMarkdownContext = '';
+    this.discardedSaleOriginalMarkdownFormattingContext = '';
+    this.discardedSaleOriginalMarkdownState = newSaleMarkdownScanState();
+    this.discardedSaleTagContentFrames = [newSaleTagContentFrame()];
     this.discardedSaleReferenceTail = '';
     this.discardedSaleTagState = newSaleTagScanState();
     this.discardedSaleDecodedTagState = newSaleTagScanState();
