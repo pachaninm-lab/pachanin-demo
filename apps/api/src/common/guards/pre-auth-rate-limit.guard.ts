@@ -27,7 +27,10 @@ export class PreAuthRateLimitGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const response = context.switchToHttp().getResponse<Response>();
     const path = request.path || request.url.split('?', 1)[0];
-    if (BYPASS_PATHS.has(path)) return true;
+    // Express GET/HEAD readiness also accepts case variants and one trailing slash.
+    // Match only that existing root probe; other routes retain durable enforcement.
+    const readyProbe = (request.method === 'GET' || request.method === 'HEAD') && /^\/ready\/?$/i.test(path);
+    if (BYPASS_PATHS.has(path) || readyProbe) return true;
 
     try {
       const clientIp = this.trustedProxy.resolveRequestIp(request);

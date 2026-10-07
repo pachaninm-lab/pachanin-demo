@@ -49,7 +49,7 @@ describe('persistent auth policy', () => {
     Role.ADMIN,
     Role.COMPLIANCE_OFFICER,
     Role.ARBITRATOR,
-  ])('requires MFA before activating privileged role %s', (role) => {
+  ])('classifies privileged role %s for action MFA and the shorter idle timeout', (role) => {
     expect(requiresRoleMfa(role)).toBe(true);
   });
 
