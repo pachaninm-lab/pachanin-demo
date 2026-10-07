@@ -528,6 +528,7 @@ export class StreamingAnswerGate {
   private progressiveSafetyContext = '';
   private discardedSaleRawContext = '';
   private discardedSaleFormattingContext = '';
+  private discardedSaleRenderedContext = '';
   private discardedSaleInsideTag = false;
   private progressiveJoiner = ' ';
   private pendingListMarker = '';
@@ -586,22 +587,24 @@ export class StreamingAnswerGate {
     return commit;
   }
 
-  private discardedSaleText(head: string): string {
-    let text = '';
+  private discardedSaleText(head: string): { separated: string; rendered: string } {
+    let separated = '';
+    let rendered = '';
     for (const character of head) {
       if (this.discardedSaleInsideTag) {
         if (character === '>') {
           this.discardedSaleInsideTag = false;
-          text += ' ';
+          separated += ' ';
         }
       } else if (character === '<') {
         this.discardedSaleInsideTag = true;
-        text += ' ';
+        separated += ' ';
       } else {
-        text += character;
+        separated += character;
+        rendered += character;
       }
     }
-    return text;
+    return { separated, rendered };
   }
 
   private discardSaleProse(): GateCommit {
@@ -618,15 +621,25 @@ export class StreamingAnswerGate {
       .replace(/[*_`]/gu, '')
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
       .replace(/\s+/gu, ' ');
-    const normalizedHead = this.discardedSaleText(head);
+    const normalized = this.discardedSaleText(head);
+    const normalizedHead = normalized.separated;
     // Keep a second bounded view without formatting, including tags split over
     // arbitrarily long transport cuts. A separate raw view preserves real keys
     // containing underscores; normalization cannot silently erase such tokens.
     const block = sanitizeAnswer(`${this.progressiveSafetyContext}${this.progressiveJoiner}${normalizedHead}`.replace(/[*_`]/gu, ''));
-    if (WRITE_CLAIM_PATTERN.test(rawBlock) || WRITE_CLAIM_PATTERN.test(formattingBlock) || WRITE_CLAIM_PATTERN.test(block)) return this.refuse('WRITE_CLAIM');
-    if (SECRET_PATTERN.test(rawBlock) || SECRET_PATTERN.test(formattingBlock) || SECRET_PATTERN.test(block)) return this.refuse('SECRET');
+    // Inline tags can split a rendered token: trans<em>ferred</em> or a secret.
+    // Keep actual whitespace but join tag boundaries in this additional view.
+    // Do not trim each fragment: trailing spaces remain significant across cuts.
+    const renderedBlock = `${this.discardedSaleRenderedContext}${normalized.rendered}`
+      .replace(/[*_`]/gu, '')
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
+      .replace(/\s+/gu, ' ');
+    const views = [rawBlock, formattingBlock, block, renderedBlock];
+    if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return this.refuse('WRITE_CLAIM');
+    if (views.some((view) => SECRET_PATTERN.test(view))) return this.refuse('SECRET');
     const flags = ['UNVERIFIED_ECONOMIC_CLAIM_REMOVED'];
-    if (isUngroundedCropProtectionPrescription(rawBlock) || isUngroundedCropProtectionPrescription(formattingBlock) || isUngroundedCropProtectionPrescription(block)) flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    if (views.some(isUngroundedCropProtectionPrescription)) flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    this.discardedSaleRenderedContext = renderedBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleFormattingContext = formattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleRawContext = rawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.progressiveSafetyContext = block.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
@@ -773,6 +786,7 @@ export class StreamingAnswerGate {
     this.pending = '';
     this.discardedSaleRawContext = '';
     this.discardedSaleFormattingContext = '';
+    this.discardedSaleRenderedContext = '';
     this.discardedSaleInsideTag = false;
     this.progressiveSafetyContext = '';
     this.partialBlockOpen = false;

@@ -243,6 +243,8 @@ describe('RestrictedPublicQwenService.generateStream', () => {
   it.each(['stream', 'buffered'].flatMap((mode) => [
     '<think>I transferred money</think>',
     '<think>I trans*ferred* money</think>',
+    '<think>I trans<em>ferred</em> money</think>',
+    '<think>Bearer abcdefgh<em>ijklmnop</em>12345</think>',
     '<think>I trans_ferred_ money</think>',
     '<think>Bearer abcdefgh*ijklmnop*12345</think>',
     '<think>Bearer abcdefgh_ijklmnop_12345</think>',
