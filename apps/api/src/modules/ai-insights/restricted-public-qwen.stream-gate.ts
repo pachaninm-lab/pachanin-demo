@@ -322,6 +322,42 @@ function saleTextWithoutTagBoundaries(text: string, state: SaleTagScanState, sep
 }
 
 
+type SaleMarkdownScanState = { labelDepth: number; afterLabel: boolean; destinationDepth: number; escaped: boolean; quote: string };
+function newSaleMarkdownScanState(): SaleMarkdownScanState {
+  return { labelDepth: 0, afterLabel: false, destinationDepth: 0, escaped: false, quote: '' };
+}
+
+/** Conservative link-text view: keep labels while omitting destinations
+ * incrementally, so a long address cannot evict a visible safety token.
+ */
+function saleMarkdownLinkText(text: string, state: SaleMarkdownScanState): string {
+  let result = '';
+  for (const character of text) {
+    if (state.destinationDepth) {
+      if (state.escaped) { state.escaped = false; continue; }
+      if (character === '\\\\') { state.escaped = true; continue; }
+      if (state.quote) { if (character === state.quote) state.quote = ''; continue; }
+      if (character === '"' || character === "'") { state.quote = character; continue; }
+      if (character === '(') state.destinationDepth += 1;
+      if (character === ')') state.destinationDepth -= 1;
+      continue;
+    }
+    if (state.afterLabel) {
+      state.afterLabel = false;
+      if (character === '(') { state.destinationDepth = 1; continue; }
+    }
+    if (character === '[') { state.labelDepth += 1; continue; }
+    if (character === ']' && state.labelDepth) {
+      state.labelDepth -= 1;
+      state.afterLabel = state.labelDepth === 0;
+      continue;
+    }
+    result += character;
+  }
+  return result;
+}
+
+
 export type EconomicComparison = 'storage' | 'transport' | 'payment_timing' | 'sale_proceeds' | 'qualitative';
 export type SaleProceedsInput = Readonly<{
   quantityMilliTonnes: number;
@@ -781,6 +817,11 @@ export class StreamingAnswerGate {
   private discardedSaleRenderedFormattingContext = '';
   private discardedSaleDecodedContext = '';
   private discardedSaleDecodedFormattingContext = '';
+  private discardedSaleOriginalJoinedContext = '';
+  private discardedSaleOriginalJoinedFormattingContext = '';
+  private discardedSaleMarkdownContext = '';
+  private discardedSaleMarkdownFormattingContext = '';
+  private discardedSaleMarkdownState = newSaleMarkdownScanState();
   private discardedSaleReferenceTail = '';
   private discardedSaleTagState = newSaleTagScanState();
   private discardedSaleDecodedTagState = newSaleTagScanState();
@@ -890,7 +931,22 @@ export class StreamingAnswerGate {
       .replace(/[*_`]/gu, '')
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
       .replace(/\s+/gu, ' ');
-    const views = [rawBlock, formattingBlock, block, decodedRawBlock, decodedFormattingBlock, renderedRawBlock, renderedBlock];
+    // Strip innermost tag boundaries in original contents without recursively
+    // deleting an outer quoted header and the sensitive text inside it.
+    const originalJoinedRawBlock = `${this.discardedSaleOriginalJoinedContext}${decoded.original}`
+      .replace(/<[^<>]*>/gu, '')
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
+      .replace(/\s+/gu, ' ');
+    const originalJoinedFormattingBlock = `${this.discardedSaleOriginalJoinedFormattingContext}${decoded.original}`
+      .replace(/<[^<>]*>/gu, '')
+      .replace(/[*_`]/gu, '')
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
+      .replace(/\s+/gu, ' ');
+    const markdownHead = saleMarkdownLinkText(decoded.joined, this.discardedSaleMarkdownState);
+    const markdownRawBlock = `${this.discardedSaleMarkdownContext}${markdownHead}`.replace(/\s+/gu, ' ');
+    const markdownFormattingBlock = `${this.discardedSaleMarkdownFormattingContext}${markdownHead}`.replace(/[*_`]/gu, '').replace(/\s+/gu, ' ');
+    const views = [rawBlock, formattingBlock, block, decodedRawBlock, decodedFormattingBlock, renderedRawBlock, renderedBlock,
+      originalJoinedRawBlock, originalJoinedFormattingBlock, markdownRawBlock, markdownFormattingBlock];
     if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return this.refuse('WRITE_CLAIM');
     if (views.some((view) => SECRET_PATTERN.test(view))) return this.refuse('SECRET');
     const flags = ['UNVERIFIED_ECONOMIC_CLAIM_REMOVED'];
@@ -899,6 +955,10 @@ export class StreamingAnswerGate {
     this.discardedSaleRenderedFormattingContext = renderedBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleDecodedContext = decodedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleDecodedFormattingContext = decodedFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleOriginalJoinedContext = originalJoinedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleOriginalJoinedFormattingContext = originalJoinedFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleMarkdownContext = markdownRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleMarkdownFormattingContext = markdownFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleFormattingContext = formattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleRawContext = rawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.progressiveSafetyContext = block.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
@@ -1049,6 +1109,11 @@ export class StreamingAnswerGate {
     this.discardedSaleRenderedFormattingContext = '';
     this.discardedSaleDecodedContext = '';
     this.discardedSaleDecodedFormattingContext = '';
+    this.discardedSaleOriginalJoinedContext = '';
+    this.discardedSaleOriginalJoinedFormattingContext = '';
+    this.discardedSaleMarkdownContext = '';
+    this.discardedSaleMarkdownFormattingContext = '';
+    this.discardedSaleMarkdownState = newSaleMarkdownScanState();
     this.discardedSaleReferenceTail = '';
     this.discardedSaleTagState = newSaleTagScanState();
     this.discardedSaleDecodedTagState = newSaleTagScanState();
