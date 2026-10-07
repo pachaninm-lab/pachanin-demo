@@ -82,6 +82,15 @@ describe('explicit sale proceeds after delivery', () => {
     'Revenue: 00.125 tonnes at 100 RUB/tonne. Delivery 0 RUB.',
     'Revenue: 100 tons at 12000 RUB/tonne. Delivery 80000 RUB.',
     'How much revenue: 1,200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB?',
+    'How much revenue from 100 tonnes?',
+    'How much revenue would 100 tonnes of wheat generate?',
+    'Сколько выручки принесут 100 тонн пшеницы?',
+    '100吨小麦能有多少销售收入？',
+
+    'Какая выручка от 100 тонн?',
+    '小麦100吨，净收入是多少？',
+    'What would the proceeds be for 100 tonnes?',
+
     'Какая выручка: 1.200 тонн по 12000 руб/т. Доставка 80000 руб?',
     '净收入是多少：小麦1,200吨，价格12000卢布/吨。运输费80000卢布？',
     'What would the proceeds be for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?',
@@ -148,6 +157,7 @@ describe('explicit sale proceeds after delivery', () => {
   it.each([
     'Как повысить выручку хозяйства, которое выращивает 100 тонн пшеницы?',
     'How can I increase revenue from 100 tonnes of wheat?',
+    'What strategies can increase revenue from 100 tonnes of wheat?',
     '如何提高100吨小麦的销售收入？',
     'Как рассчитать выручку хозяйства?',
     'How do I calculate revenue?',
@@ -202,6 +212,27 @@ describe('explicit sale proceeds after delivery', () => {
     flags.push(...gate.flush().flags);
     expect(gate.violation).toBeNull();
     expect(flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    expect(gate.emitted).toBe('');
+  });
+  it.each([
+    ['<think>I transferred money</think>', 'WRITE_CLAIM'],
+    ['<analysis>Bearer abcdefghijklmnop12345</analysis>', 'SECRET'],
+    ['I <tag ' + 'x'.repeat(5000) + '>transferred money', 'WRITE_CLAIM'],
+  ].flatMap(([claim, violation]) => [1, 7, 511, 5000].map((size) => [claim, violation, size] as const)))('validates original trace/markup contents before discard: %s, chunk %i', (claim, violation, size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    for (let index = 0; index < claim.length; index += size) gate.push(claim.slice(index, index + size));
+    gate.flush();
+    expect(gate.violation).toBe(violation);
+    expect(gate.emitted).toBe('');
+  });
+  it.each(['<think>', '```analysis\n', '{"analysis":"', '<tag '].flatMap((prefix) => [1, 7, 511, 5000].map((size) => [prefix, size] as const)))('discards long unclosed constructs without holding their contents: %s, chunk %i', (prefix, size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    const prose = prefix + 'Harmless'.repeat(2000);
+    for (let index = 0; index < prose.length; index += size) {
+      expect(gate.push(prose.slice(index, index + size)).violation).toBeNull();
+      expect(gate.withheld.length <= 3000).toBe(true);
+    }
+    expect(gate.flush().violation).toBeNull();
     expect(gate.emitted).toBe('');
   });
   it('retains qualitative model commentary for existing non-sale comparisons', () => {

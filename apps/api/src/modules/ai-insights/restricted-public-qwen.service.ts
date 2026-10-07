@@ -83,6 +83,8 @@ type ProviderConfig = Readonly<{
 }>;
 type ProviderResult = Readonly<{
   content: string;
+  /** Bounded provider text for sale safety checks; never used as public output. */
+  rawSaleContent?: string;
   finishReason: 'stop' | 'length' | 'other';
   promptTokens: number | null;
   completionTokens: number | null;
@@ -234,8 +236,10 @@ export class RestrictedPublicQwenService {
         messages,
         tokenBudget.initialMaxTokens,
         controller.signal,
+        request.economicComparison === 'sale_proceeds',
       );
       let content = first.content;
+      let rawSaleContent = first.rawSaleContent ?? first.content;
       let finishReason = first.finishReason;
       let promptTokens = first.promptTokens;
       let completionTokens = first.completionTokens;
@@ -245,8 +249,9 @@ export class RestrictedPublicQwenService {
           ...messages,
           { role: 'assistant', content: first.content },
           { role: 'user', content: continuationInstruction(request.locale) },
-        ], tokenBudget.continuationMaxTokens, controller.signal);
+        ], tokenBudget.continuationMaxTokens, controller.signal, request.economicComparison === 'sale_proceeds');
         content = `${first.content}\n${continuation.content}`;
+        rawSaleContent = `${rawSaleContent}\n${continuation.rawSaleContent ?? continuation.content}`;
         finishReason = continuation.finishReason;
         promptTokens = sumNullable(first.promptTokens, continuation.promptTokens);
         completionTokens = sumNullable(first.completionTokens, continuation.completionTokens);
@@ -260,7 +265,7 @@ export class RestrictedPublicQwenService {
         safetyFlags.push('GENERAL_AGRO_DISEASE_COMPLETENESS_FLOOR');
         answer = plantDiseaseCompletenessFloor(request.locale);
       }
-      if (!answer) throw new ServiceUnavailableException('Restricted public model returned an empty answer.');
+      if (!answer && request.economicComparison !== 'sale_proceeds') throw new ServiceUnavailableException('Restricted public model returned an empty answer.');
       if (WRITE_CLAIM_PATTERN.test(answer)) {
         throw new ServiceUnavailableException('Restricted public model emitted a prohibited action claim.');
       }
@@ -286,7 +291,9 @@ export class RestrictedPublicQwenService {
           currentDataRequired: false, grounding: request.grounding,
           economicComparison: request.economicComparison,
         });
-        const screened = economicGate.push(`${answer}\n`);
+        // Sale mode checks the entire original provider text, including hidden
+        // or late claims, before discarding it in favor of the checked copy.
+        const screened = economicGate.push(`${request.economicComparison === 'sale_proceeds' ? rawSaleContent : answer}\n`);
         const tail = economicGate.flush();
         if (screened.violation || tail.violation) throw new ServiceUnavailableException('Restricted public model emitted a prohibited answer.');
         safetyFlags.push(...screened.flags, ...tail.flags);
@@ -581,6 +588,7 @@ async function callProvider(
   messages: readonly ChatMessage[],
   maxTokens: number,
   signal: AbortSignal,
+  checkedSale = false,
 ): Promise<ProviderResult> {
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -618,11 +626,12 @@ async function callProvider(
   const first = asRecord(choices[0]);
   const message = asRecord(first?.message);
   const content = cleanMultilineText(message?.content, 12_000);
-  if (!content) throw new ServiceUnavailableException('Restricted public model returned an empty answer.');
+  if ((!content && !checkedSale) || (checkedSale && typeof message?.content !== 'string')) throw new ServiceUnavailableException('Restricted public model returned an empty answer.');
   const finishReason = first?.finish_reason === 'stop' ? 'stop' : first?.finish_reason === 'length' ? 'length' : 'other';
   const usage = asRecord(row?.usage);
   return Object.freeze({
     content,
+    ...(checkedSale ? { rawSaleContent: String(message?.content) } : {}),
     finishReason,
     promptTokens: integerOrNull(usage?.prompt_tokens),
     completionTokens: integerOrNull(usage?.completion_tokens),

@@ -166,6 +166,15 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     'Посчитай выручку от перепродажи: купил 100 тонн по 12000 руб/т. Доставка 80000 руб.',
     'Revenue: 100 tons at 12000 RUB/tonne. Delivery 80000 RUB.',
     'How much revenue: 1,200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB?',
+    'How much revenue from 100 tonnes?',
+    'How much revenue would 100 tonnes of wheat generate?',
+    'Сколько выручки принесут 100 тонн пшеницы?',
+    '100吨小麦能有多少销售收入？',
+
+    'Какая выручка от 100 тонн?',
+    '小麦100吨，净收入是多少？',
+    'What would the proceeds be for 100 tonnes?',
+
     'Какая выручка: 1.200 тонн по 12000 руб/т. Доставка 80000 руб?',
     '净收入是多少：小麦1,200吨，价格12000卢布/吨。运输费80000卢布？',
     'What would the proceeds be for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?',
@@ -195,6 +204,86 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     expect(answer).not.toContain('1120000');
   });
 
+  it.each(['stream', 'buffered'].flatMap((mode) => ['', ' \n\t', '<think></think>', '```analysis\n```'].map((content) => [mode, content] as const)))('uses checked sale output after a successful empty provider result in %s: %s', async (mode, content) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    const raw = request({ locale: 'en', question, originalQuestion: question });
+    let answer = '';
+    let calls = 0;
+    let done = false;
+    if (mode === 'stream') {
+      const probe = installRuntime({ deltas: [content] });
+      for await (const event of service.generateStream(raw)) {
+        if (event.type === 'delta') answer += event.text;
+        if (event.type === 'done') done = true;
+      }
+      calls = probe.requests.length;
+    } else {
+      const fetchMock = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      global.fetch = fetchMock;
+      answer = (await service.generate(raw)).answer;
+      calls = fetchMock.mock.calls.length;
+      done = true;
+    }
+    expect(calls).toBe(1);
+    expect(done).toBe(true);
+    expect(answer).toContain('1200000 − 80000 = 1120000 RUB');
+    expect(answer.match(/1200000 − 80000 = 1120000 RUB/gu)).toHaveLength(1);
+  });
+  it.each(['stream', 'buffered'].flatMap((mode) => [
+    '<think>I transferred money</think>',
+    '<analysis>Bearer abcdefghijklmnop12345</analysis>',
+    'Harmless '.repeat(1600) + 'I transferred money',
+    'Harmless '.repeat(1600) + 'Bearer abcdefghijklmnop12345',
+  ].map((content) => [mode, content] as const)))('refuses hidden or late unsafe provider content in %s sale output', async (mode, content) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    const raw = request({ locale: 'en', question, originalQuestion: question });
+    let refused = false;
+    let done = false;
+    let calls = 0;
+    if (mode === 'stream') {
+      const probe = installRuntime({ deltas: [content] });
+      try {
+        for await (const event of service.generateStream(raw)) if (event.type === 'done') done = true;
+      } catch { refused = true; }
+      calls = probe.requests.length;
+    } else {
+      const fetchMock = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      global.fetch = fetchMock;
+      try { await service.generate(raw); done = true; } catch { refused = true; }
+      calls = fetchMock.mock.calls.length;
+    }
+    expect(calls).toBe(1);
+    expect(refused).toBe(true);
+    expect(done).toBe(false);
+  });
+  it.each(['stream', 'buffered'])('keeps empty-provider refusal for non-sale questions in %s', async (mode) => {
+    const raw = request({ question: 'How can I improve wheat crop quality?', originalQuestion: 'How can I improve wheat crop quality?', locale: 'en' });
+    let refused = false;
+    if (mode === 'stream') {
+      installRuntime({ deltas: [' \n\t'] });
+      try { for await (const _event of service.generateStream(raw)) { /* consume */ } } catch { refused = true; }
+    } else {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: ' \n\t' }, finish_reason: 'stop' }] })));
+      try { await service.generate(raw); } catch { refused = true; }
+    }
+    expect(refused).toBe(true);
+  });
+  it.each(['stream', 'buffered'])('keeps provider HTTP failure even when sale calculation is ready in %s', async (mode) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    const raw = request({ question, originalQuestion: question, locale: 'en' });
+    const fetchMock = jest.fn().mockResolvedValue(new Response('{}', { status: 503 }));
+    global.fetch = fetchMock;
+    let refused = false;
+    let done = false;
+    try {
+      if (mode === 'stream') {
+        for await (const event of service.generateStream(raw)) if (event.type === 'done') done = true;
+      } else { await service.generate(raw); done = true; }
+    } catch { refused = true; }
+    expect(fetchMock.mock.calls).toHaveLength(1);
+    expect(refused).toBe(true);
+    expect(done).toBe(false);
+  });
   it.each(['stream', 'buffered'])('screens economic conclusions and checks user arithmetic in %s output', async (mode) => {
     const question = 'Срок хранения два месяца. Насколько должна вырасти цена, чтобы покрыть только хранение?';
     const raw = request({ question, originalQuestion: question, history: [
