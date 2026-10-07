@@ -80,7 +80,51 @@ const CHINESE_PRESCRIPTION_PREFIX = /(?:使用|施用|选择|推荐)[^.!?。！�
 
 const EMPTY_COMMIT: GateCommit = Object.freeze({ text: '', flags: Object.freeze([]), violation: null });
 
-export type EconomicComparison = 'storage' | 'transport' | 'payment_timing' | 'qualitative';
+export type EconomicComparison = 'storage' | 'transport' | 'payment_timing' | 'sale_proceeds' | 'qualitative';
+export type SaleProceedsInput = Readonly<{
+  quantityMilliTonnes: number;
+  priceMinorPerTonne: number;
+  deliveryMinor: number;
+  grossMinor: number;
+  proceedsMinor: number;
+}>;
+
+const SALE_PROCEEDS_TOPIC = /выручк|revenue|proceeds|销售收入|净收入/iu;
+const SALE_NUMBER = '(?:\\d{1,3}(?:[ \\u00a0\\u202f]\\d{3})+|\\d{1,9})(?:[.,]\\d{1,3})?';
+const SALE_RUB = '(?:руб(?:лей|ля|ль)?\\.?|₽|RUB|卢布)';
+
+/** Same-turn, explicitly priced tonnes less one total delivery charge; never a profit forecast. */
+export function saleProceedsFromUser(question: string): SaleProceedsInput | null {
+  if (question.length > 1_200 || !SALE_PROCEEDS_TOPIC.test(question)) return null;
+  // Extra inputs, alternatives, negation and non-RUB currencies need clarification.
+  if (/[-−–—]\s*\d|%|процент|percent|税|налог|tax|НДС|VAT|USD|EUR|GBP|CNY|доллар|евро|юань|美元|欧元|[$€£]|(?:^|[^\p{L}])не(?:т)?(?=$|[^\p{L}])|\b(?:not|unknown|or)\b|неизвест|или|либо|不是|未知|或者/iu.test(question)) return null;
+  const quantities = [...question.matchAll(new RegExp(`(${SALE_NUMBER})\\s*(?:тонн(?:а|ы|у|е)?|tonnes?|tons?|吨)(?![\\p{L}])`, 'giu'))];
+  const prices = [...question.matchAll(new RegExp(`(${SALE_NUMBER})\\s*${SALE_RUB}\\s*(?:за\\s*тонн[уы]|/\\s*(?:т(?:онн[уы])?|tonnes?|tons?|吨)|per\\s*(?:tonne|ton))(?![\\p{L}])`, 'giu'))];
+  const delivery = [...question.matchAll(new RegExp(`(?:доставка|стоимость\\s+доставки|delivery(?:\\s+cost)?|运输费|运费)\\s*[:：]?\\s*(${SALE_NUMBER})\\s*${SALE_RUB}(?![\\p{L}])`, 'giu'))];
+  if (quantities.length !== 1 || prices.length !== 1 || delivery.length !== 1) return null;
+  const numbers = [...question.matchAll(new RegExp(SALE_NUMBER, 'gu'))];
+  if (numbers.length !== 3) return null;
+  const deliveryEnd = delivery[0].index! + delivery[0][0].length;
+  if (/^\s*(?:за|per|\/|每)/iu.test(question.slice(deliveryEnd))) return null;
+  const scaled = (raw: string, decimals: number): bigint | null => {
+    const value = raw.replace(/[ \u00a0\u202f]/gu, '').replace(',', '.');
+    if (!new RegExp(`^\\d{1,9}(?:\\.\\d{1,${decimals}})?$`, 'u').test(value)) return null;
+    const [whole, fraction = ''] = value.split('.');
+    return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(fraction.padEnd(decimals, '0'));
+  };
+  const quantity = scaled(quantities[0][1], 3);
+  const price = scaled(prices[0][1], 2);
+  const cost = scaled(delivery[0][1], 2);
+  if (quantity === null || price === null || cost === null || quantity <= 0n || price <= 0n) return null;
+  const product = quantity * price;
+  // Do not silently round fractional kopecks or exceed the public safe-integer range.
+  if (product % 1_000n !== 0n) return null;
+  const gross = product / 1_000n;
+  const proceeds = gross - cost;
+  const values = [quantity, price, cost, gross, proceeds];
+  if (values.some((value) => value > BigInt(Number.MAX_SAFE_INTEGER) || value < BigInt(Number.MIN_SAFE_INTEGER))) return null;
+  return Object.freeze({ quantityMilliTonnes: Number(quantity), priceMinorPerTonne: Number(price), deliveryMinor: Number(cost), grossMinor: Number(gross), proceedsMinor: Number(proceeds) });
+}
 export type PaymentTimingInput = Readonly<{
   immediatePriceMinor: number;
   delayedPriceMinor: number;
@@ -216,6 +260,7 @@ function storageAffirmativelyRequested(text: string): boolean {
 /** History establishes a topic only; assistant prose never establishes a quantity. */
 export function economicComparisonFor(question: string, history: readonly UserContextTurn[]): EconomicComparison | null {
   if (/документ|персональн|хранени[ея]\s+данных|платформ|document|personal data|data retention|platform|文件|个人数据|平台/iu.test(question)) return null;
+  if (saleProceedsFromUser(question) !== null) return 'sale_proceeds';
   if (paymentTimingFromUser(question) !== null) return 'payment_timing';
   if (TRANSPORT_COMPARISON.test(question) && /рейс|тонн|тариф|trip|tonne|rate|趟|吨|费率/iu.test(question)) return 'transport';
   const lastUser = [...history].reverse().find((turn) => turn.role === 'user')?.text ?? '';
@@ -337,7 +382,28 @@ export function storageCostFromUser(question: string, history: readonly UserCont
   return Number.isSafeInteger(minor) ? minor : null;
 }
 
-export function economicComparisonCopy(kind: EconomicComparison, locale: PublicLocale, storageMinor: number | null, payment: PaymentTimingInput | null = null): string {
+export function economicComparisonCopy(kind: EconomicComparison, locale: PublicLocale, storageMinor: number | null, payment: PaymentTimingInput | null = null, sale: SaleProceedsInput | null = null): string {
+  if (kind === 'sale_proceeds') {
+    if (sale === null) {
+      if (locale === 'en') return 'Specify the quantity in tonnes, the RUB-per-tonne price and the total delivery charge in the same question.';
+      if (locale === 'zh') return '请在同一个问题中明确吨数、每吨卢布价格和运输总费用。';
+      return 'Укажите в одном вопросе объём в тоннах, цену в рублях за тонну и полную стоимость доставки.';
+    }
+    const decimal = (value: number, scale: number): string => {
+      const negative = value < 0 ? '-' : '';
+      const digits = BigInt(Math.abs(value)).toString().padStart(scale + 1, '0');
+      const fraction = digits.slice(-scale).replace(/0+$/u, '');
+      return negative + digits.slice(0, -scale) + (fraction ? '.' + fraction : '');
+    };
+    const quantity = decimal(sale.quantityMilliTonnes, 3);
+    const price = decimal(sale.priceMinorPerTonne, 2);
+    const gross = decimal(sale.grossMinor, 2);
+    const delivery = decimal(sale.deliveryMinor, 2);
+    const net = decimal(sale.proceedsMinor, 2);
+    if (locale === 'en') return `Calculation from your inputs: ${quantity} t × ${price} RUB/t = ${gross} RUB gross revenue. After the stated delivery charge: ${gross} − ${delivery} = ${net} RUB. This is proceeds after delivery only, not profit; other costs and taxes are not included. No current market price was verified.`;
+    if (locale === 'zh') return `根据你提供的数据：${quantity}吨 × ${price}卢布/吨 = ${gross}卢布销售收入。扣除所述运输费用：${gross} − ${delivery} = ${net}卢布。这仅是扣除运输费后的收入，不是利润；未计入其他成本和税款，也未核实当前市场价格。`;
+    return `Расчёт по вашим данным: ${quantity} т × ${price} руб/т = ${gross} руб выручки. После указанной доставки: ${gross} − ${delivery} = ${net} руб. Это остаток после доставки, а не прибыль: другие расходы и налоги не учтены. Текущая рыночная цена не проверялась.`;
+  }
   if (kind === 'qualitative') {
     if (locale === 'en') return 'To assess profitability, compare confirmed costs and payment terms. A price comparison alone does not determine which option to choose.';
     if (locale === 'zh') return '评估收益时，应比较已核实的费用和付款条件；仅比较价格不能决定应选哪一种方案。';

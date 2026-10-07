@@ -118,6 +118,42 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     global.fetch = ORIGINAL_FETCH;
   });
 
+  it.each(['stream', 'buffered'])('appends checked sale proceeds while rejecting model arithmetic in %s output', async (mode) => {
+    const question = 'Пшеница: 100 тонн по 12 000 рублей за тонну. Доставка 80 000 рублей. Посчитай итоговую выручку после доставки и покажи расчёт.';
+    const raw = request({ question, originalQuestion: question, currentDataRequired: true });
+    const content = 'Выручка равна 999999 рублей. Этот вариант выгоднее. Проверьте условия приёмки. ';
+    let answer = '';
+    let calls = 0;
+    if (mode === 'stream') {
+      const probe = installRuntime({ deltas: [content] });
+      let sawEarlyCalculation = false;
+      for await (const event of service.generateStream(raw)) {
+        if (event.type === 'delta') {
+          answer += event.text;
+          if (event.text.includes('1200000 − 80000 = 1120000 руб')) {
+            expect(probe.generationCompletedAt).toBeNull();
+            expect(probe.requests).toHaveLength(0);
+            sawEarlyCalculation = true;
+          }
+        }
+      }
+      expect(sawEarlyCalculation).toBe(true);
+      calls = probe.requests.length;
+    } else {
+      const fetchMock = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      global.fetch = fetchMock;
+      answer = (await service.generate(raw)).answer;
+      calls = fetchMock.mock.calls.length;
+    }
+    expect(calls).toBe(1);
+    expect(answer).not.toContain('999999');
+    expect(answer).not.toContain('вариант выгоднее');
+    expect(answer).toContain('1200000 − 80000 = 1120000 руб');
+    expect(answer).toContain('а не прибыль');
+    expect(answer).toContain('Текущая рыночная цена не проверялась');
+    expect(answer.match(/1200000 − 80000 = 1120000 руб/gu)).toHaveLength(1);
+  });
+
   it.each(['stream', 'buffered'])('screens economic conclusions and checks user arithmetic in %s output', async (mode) => {
     const question = 'Срок хранения два месяца. Насколько должна вырасти цена, чтобы покрыть только хранение?';
     const raw = request({ question, originalQuestion: question, history: [

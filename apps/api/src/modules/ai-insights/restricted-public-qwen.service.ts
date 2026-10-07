@@ -35,6 +35,7 @@ import {
   economicComparisonFor,
   economicComparisonCopy,
   paymentTimingFromUser,
+  saleProceedsFromUser,
   storageCostFromUser,
   type EconomicComparison,
   type ProviderFinishReason,
@@ -360,6 +361,9 @@ export class RestrictedPublicQwenService {
       grounding: request.grounding,
       economicComparison: request.economicComparison,
     });
+    const earlyEconomicCopy = request.economicComparison === 'sale_proceeds'
+      ? checkedEconomicCopy(request)
+      : '';
 
     try {
       yield { type: 'meta', modelIdentity: config.model, answerMode: request.answerMode };
@@ -368,6 +372,9 @@ export class RestrictedPublicQwenService {
         safetyFlags.push('CURRENT_EVIDENCE_REQUIRED');
         yield { type: 'delta', text: `${publicCurrentEvidenceCopy(request)}\n\n` };
       }
+      // Checked supplied-input arithmetic is useful before model commentary completes.
+      // The original provider request and its safety/error/cancellation path still run.
+      if (earlyEconomicCopy) yield { type: 'delta', text: `${earlyEconomicCopy}\n\n` };
 
       const messages = buildMessages(request);
       const outcome = {
@@ -429,7 +436,9 @@ export class RestrictedPublicQwenService {
       if (tail.text) yield { type: 'delta', text: tail.text };
 
       let emitted = gate.emitted;
-      if (request.economicComparison) {
+      if (earlyEconomicCopy) {
+        emitted = [earlyEconomicCopy, emitted].filter(Boolean).join('\n\n');
+      } else if (request.economicComparison) {
         const copy = checkedEconomicCopy(request);
         const separator = emitted ? '\n\n' : '';
         yield { type: 'delta', text: `${separator}${copy}` };
@@ -753,6 +762,9 @@ function checkedEconomicCopy(request: NormalizedRequest): string {
       : null,
     request.economicComparison === 'payment_timing'
       ? paymentTimingFromUser(request.originalQuestion)
+      : null,
+    request.economicComparison === 'sale_proceeds'
+      ? saleProceedsFromUser(request.originalQuestion)
       : null,
   );
 }

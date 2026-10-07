@@ -4,6 +4,7 @@ import {
   economicBlockAllowed,
   economicComparisonFor,
   paymentTimingFromUser,
+  saleProceedsFromUser,
   storageCostFromUser,
   economicComparisonCopy,
 } from './restricted-public-qwen.stream-gate';
@@ -18,6 +19,57 @@ const grounding: PublicGrounding = Object.freeze({
   maturity: 'Только чтение.',
   confidence: 'medium',
   sources: Object.freeze([]),
+});
+
+describe('explicit sale proceeds after delivery', () => {
+  const question = 'Пшеница: 100 тонн по 12 000 рублей за тонну. Доставка 80 000 рублей. Посчитай итоговую выручку после доставки и покажи расчёт.';
+  it.each([
+    [question, 112000000],
+    ['Wheat: 100 tonnes at 12000 RUB per tonne. Delivery 80000 RUB. Calculate revenue after delivery.', 112000000],
+    ['小麦100吨，价格12000卢布/吨。运输费80000卢布。计算净收入。', 112000000],
+    ['Выручка: 1,5 тонны по 100,20 руб/т. Доставка 10,05 руб.', 14025],
+    ['Выручка: 100 тонн по 12000 руб/т. Доставка 0 руб.', 120000000],
+    ['Выручка: 1 тонна по 100 руб/т. Доставка 150 руб.', -5000],
+    ['Выручка: 100 тонн по 12\u00a0000 руб/т. Доставка 80\u202f000 руб.', 112000000],
+  ])('calculates only supplied amounts: %s', (input, proceeds) => {
+    const sale = saleProceedsFromUser(String(input));
+    expect(sale?.proceedsMinor).toBe(proceeds);
+    expect(economicComparisonFor(String(input), [])).toBe('sale_proceeds');
+    for (const locale of ['ru', 'en', 'zh'] as const) {
+      expect(economicComparisonCopy('sale_proceeds', locale, null, null, sale)).toContain(String(Number(proceeds) / 100));
+    }
+  });
+  it.each([
+    'Выручка: 100 тонн по 12000 руб/т.',
+    'Выручка: 100 тонн. Доставка 80000 руб.',
+    'Выручка: по 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка 800 руб/т.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка 800 руб за тонну.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб. Хранение 1000 руб.',
+    'Выручка: 100 или 200 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: -100 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: 100 тонн по -12000 руб/т. Доставка 80000 руб.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка -80000 руб.',
+    'Выручка: не 100 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: 0 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: 100 тонн по 0 руб/т. Доставка 80000 руб.',
+    'Выручка: 100 тонн по 12000 USD/т. Доставка 80000 руб.',
+    'Выручка: 100 тонн по 12 00 руб/т. Доставка 80000 руб.',
+    'Выручка: 0,001 тонны по 0,01 руб/т. Доставка 0 руб.',
+    'Выручка: 999999999 тонн по 999999999 руб/т. Доставка 0 руб.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб. НДС включён.',
+  ])('does not infer or round ambiguous inputs: %s', (input) => {
+    expect(saleProceedsFromUser(input)).toBeNull();
+    expect(economicComparisonFor(input, [{ role: 'assistant', text: question }])).not.toBe('sale_proceeds');
+  });
+  it('does not infer quantity or delivery from history and labels the limited result', () => {
+    expect(economicComparisonFor('Посчитай выручку', [{ role: 'user', text: question }])).not.toBe('sale_proceeds');
+    const copy = economicComparisonCopy('sale_proceeds', 'ru', null, null, saleProceedsFromUser(question));
+    expect(copy).toContain('100 т × 12000 руб/т = 1200000 руб');
+    expect(copy).toContain('1200000 − 80000 = 1120000 руб');
+    expect(copy).toContain('а не прибыль');
+    expect(copy).toContain('Текущая рыночная цена не проверялась');
+  });
 });
 
 function generalGate(overrides: Partial<ConstructorParameters<typeof StreamingAnswerGate>[0]> = {}) {
