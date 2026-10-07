@@ -83,6 +83,8 @@ describe('explicit sale proceeds after delivery', () => {
     'Revenue: 100 tons at 12000 RUB/tonne. Delivery 80000 RUB.',
     'Revenue: 100 tonnes at 12000 RUB/ton. Delivery 80000 RUB.',
     'Revenue: 100 tons at 12000 RUB/ton. Delivery 80000 RUB.',
+    'Посчитай выручку: 100 тонн по 12000 руб/т. Доставка 80000 руб. Выведи в документе.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб. На платформе.',
     'Revenue: corn delivery 80000 RUB. Wheat 100 tonnes at 12000 RUB/tonne.',
     'Revenue: wheat 100 tonnes at 12000 RUB/tonne. Corn delivery 80000 RUB.',
     'Выручка: кукуруза доставка 80000 руб. Пшеница 100 тонн по 12000 руб/т.',
@@ -124,15 +126,55 @@ describe('explicit sale proceeds after delivery', () => {
     '计算净收入：小麦100吨，价格12000卢布/吨。运输费80000卢布，每趟。',
   ])('does not infer or round ambiguous inputs: %s', (input) => {
     expect(saleProceedsFromUser(input)).toBeNull();
-    expect(economicComparisonFor(input, [{ role: 'assistant', text: question }])).not.toBe('sale_proceeds');
+    expect(economicComparisonFor(input, [{ role: 'assistant', text: question }])).toBe('sale_proceeds');
+    expect(economicComparisonCopy('sale_proceeds', 'en', null, null, saleProceedsFromUser(input))).toContain('Specify the quantity');
   });
   it('does not infer quantity or delivery from history and labels the limited result', () => {
-    expect(economicComparisonFor('Посчитай выручку', [{ role: 'user', text: question }])).not.toBe('sale_proceeds');
+    expect(economicComparisonFor('Посчитай выручку', [{ role: 'user', text: question }])).toBe('sale_proceeds');
+    expect(economicComparisonCopy('sale_proceeds', 'ru', null, null, saleProceedsFromUser('Посчитай выручку'))).not.toContain('1120000');
     const copy = economicComparisonCopy('sale_proceeds', 'ru', null, null, saleProceedsFromUser(question));
     expect(copy).toContain('100 т × 12000 руб/т = 1200000 руб');
     expect(copy).toContain('1200000 − 80000 = 1120000 руб');
     expect(copy).toContain('а не прибыль');
     expect(copy).toContain('Текущая рыночная цена не проверялась');
+  });
+  it.each([
+    'Как повысить выручку хозяйства, которое выращивает 100 тонн пшеницы?',
+    'How can I increase revenue from 100 tonnes of wheat?',
+    '如何提高100吨小麦的销售收入？',
+    'Как рассчитать выручку хозяйства?',
+    'How do I calculate revenue?',
+    '怎么计算净收入？',
+    'Как отразить выручку в документе бухгалтерского учёта?',
+  ])('retains model handling of conceptual/contextual revenue questions: %s', (input) => {
+    expect(economicComparisonFor(input, [])).not.toBe('sale_proceeds');
+  });
+  it.each([
+    'Gross revenue is one million two hundred thousand; proceeds after delivery are nine hundred thousand. ',
+    'Выручка — миллион двести тысяч; после доставки остаётся девятьсот тысяч. ',
+    '销售收入为一百二十万，扣除运输费后为九十万。',
+    'Остаётся девятьсот тысяч. ',
+  ].flatMap((claim) => [1, 2, 7, 500].map((size) => [claim, size] as const)))('does not publish model sale arithmetic in words: %s, chunk %i', (claim, size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'ru', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    const flags: string[] = [];
+    for (let index = 0; index < claim.length; index += size) flags.push(...gate.push(claim.slice(index, index + size)).flags);
+    flags.push(...gate.flush().flags);
+    expect(gate.emitted).toBe('');
+    expect(flags).toContain('UNVERIFIED_ECONOMIC_CLAIM_REMOVED');
+  });
+  it('retains qualitative model commentary for existing non-sale comparisons', () => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'ru', currentDataRequired: false, grounding, economicComparison: 'storage' });
+    gate.push('Проверьте условия приёмки. ');
+    gate.flush();
+    expect(gate.emitted).toContain('Проверьте условия приёмки');
+  });
+  it.each([
+    ['Я перевёл деньги за хранение. ', 'WRITE_CLAIM'],
+    ['Используйте ключ sk-proj-abcdefghijklmnop12345. ', 'SECRET'],
+  ] as const)('retains fail-closed action/secret validation before sale prose suppression: %s', (text, violation) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'ru', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    expect(gate.push(text).violation).toBe(violation);
+    expect(gate.emitted).toBe('');
   });
 });
 

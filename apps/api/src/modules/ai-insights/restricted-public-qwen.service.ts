@@ -372,8 +372,8 @@ export class RestrictedPublicQwenService {
         safetyFlags.push('CURRENT_EVIDENCE_REQUIRED');
         yield { type: 'delta', text: `${publicCurrentEvidenceCopy(request)}\n\n` };
       }
-      // Checked supplied-input arithmetic is useful before model commentary completes.
-      // The original provider request and its safety/error/cancellation path still run.
+      // Publish the checked result or missing-input clarification while the
+      // original provider request and its safety/error/cancellation path run.
       if (earlyEconomicCopy) yield { type: 'delta', text: `${earlyEconomicCopy}\n\n` };
 
       const messages = buildMessages(request);

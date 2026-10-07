@@ -167,6 +167,16 @@ export function saleProceedsFromUser(question: string): SaleProceedsInput | null
   if (values.some((value) => value > BigInt(Number.MAX_SAFE_INTEGER) || value < BigInt(Number.MIN_SAFE_INTEGER))) return null;
   return Object.freeze({ quantityMilliTonnes: Number(quantity), priceMinorPerTonne: Number(price), deliveryMinor: Number(cost), grossMinor: Number(gross), proceedsMinor: Number(proceeds) });
 }
+
+/** Recognize an attempted calculation even when its inputs need clarification. */
+function saleCalculationRequested(question: string): boolean {
+  if (!SALE_PROCEEDS_TOPIC.test(question)) return false;
+  const intent = /(?<![\p{L}])(?:(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?(?:\s+расч[её]т)?)\s+(?:(?:итоговую|чистую)\s+)?выручк[ауи]|(?:calculate|compute)\s+(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))(?![\p{L}])|计算\s*(?:净收入|销售收入)/iu;
+  const labelled = /^\s*(?:(?:расч[её]т\s+)?выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入)\s*[:：]/iu.test(question);
+  const suppliedInputs = /\d/u.test(question) && /тонн|\b(?:tonnes?|tons?)\b|吨|достав|delivery|运输费|运费/iu.test(question);
+  const bareRequest = new RegExp(`^\\s*(?:(?:пожалуйста|please)[,:]?\\s+|请\\s*)?(?:${intent.source})(?:\\s+(?:после\\s+доставки|after\\s+delivery))?\\s*[.!?。！？]*$`, 'iu').test(question);
+  return (suppliedInputs && (labelled || intent.test(question))) || bareRequest;
+}
 export type PaymentTimingInput = Readonly<{
   immediatePriceMinor: number;
   delayedPriceMinor: number;
@@ -301,8 +311,8 @@ function storageAffirmativelyRequested(text: string): boolean {
 
 /** History establishes a topic only; assistant prose never establishes a quantity. */
 export function economicComparisonFor(question: string, history: readonly UserContextTurn[]): EconomicComparison | null {
+  if (saleProceedsFromUser(question) !== null || saleCalculationRequested(question)) return 'sale_proceeds';
   if (/документ|персональн|хранени[ея]\s+данных|платформ|document|personal data|data retention|platform|文件|个人数据|平台/iu.test(question)) return null;
-  if (saleProceedsFromUser(question) !== null) return 'sale_proceeds';
   if (paymentTimingFromUser(question) !== null) return 'payment_timing';
   if (TRANSPORT_COMPARISON.test(question) && /рейс|тонн|тариф|trip|tonne|rate|趟|吨|费率/iu.test(question)) return 'transport';
   const lastUser = [...history].reverse().find((turn) => turn.role === 'user')?.text ?? '';
@@ -427,9 +437,9 @@ export function storageCostFromUser(question: string, history: readonly UserCont
 export function economicComparisonCopy(kind: EconomicComparison, locale: PublicLocale, storageMinor: number | null, payment: PaymentTimingInput | null = null, sale: SaleProceedsInput | null = null): string {
   if (kind === 'sale_proceeds') {
     if (sale === null) {
-      if (locale === 'en') return 'Specify the quantity in tonnes, the RUB-per-tonne price and the total delivery charge in the same question.';
-      if (locale === 'zh') return '请在同一个问题中明确吨数、每吨卢布价格和运输总费用。';
-      return 'Укажите в одном вопросе объём в тоннах, цену в рублях за тонну и полную стоимость доставки.';
+      if (locale === 'en') return 'Proceeds after delivery = quantity × sale price − total delivery charge. Specify the quantity in metric tonnes, the RUB-per-tonne sale price and the total delivery charge unambiguously in the same question for the same crop.';
+      if (locale === 'zh') return '扣除运输费后的收入 = 吨数 × 销售单价 − 运输总费用。请在同一个问题中明确同一种作物的公吨数、每吨卢布销售价格和运输总费用。';
+      return 'Остаток после доставки = объём × цена продажи − общая стоимость доставки. Укажите в одном вопросе однозначный объём в метрических тоннах, цену продажи в рублях за тонну и общую стоимость доставки одной культуры.';
     }
     const decimal = (value: number, scale: number): string => {
       const negative = value < 0 ? '-' : '';
@@ -637,7 +647,12 @@ export class StreamingAnswerGate {
         continue;
       }
 
-      if (this.options.economicComparison && !economicBlockAllowed(block)) {
+      // This exact supplied-input calculation already has a complete checked
+      // formula and limits. Model sale prose is not an arithmetic authority:
+      // suppress it irrespective of digits, currency tokens or number words.
+      // Action, secret and prescription validation above still runs first.
+      if (this.options.economicComparison === 'sale_proceeds'
+        || (this.options.economicComparison && !economicBlockAllowed(block))) {
         flags.push('UNVERIFIED_ECONOMIC_CLAIM_REMOVED');
         continue;
       }
