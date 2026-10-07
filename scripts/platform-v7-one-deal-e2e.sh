@@ -358,6 +358,14 @@ GRANT EXECUTE ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, 
 GRANT EXECUTE ON FUNCTION auth.staff_organization_directory(TEXT, TEXT, TEXT) TO one_deal_staff;
 GRANT EXECUTE ON FUNCTION auth.staff_organization_users(TEXT, TEXT, TEXT, TEXT) TO one_deal_staff;
 GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_staff;
+-- R1.3 Founder Control: the migration grants these only to roles that already
+-- exist when it runs. This harness recreates one_deal_staff afterwards, so the
+-- three exported read functions are granted here exactly as in the production
+-- runtime grants; the internal actor authorizer stays uncallable.
+GRANT EXECUTE ON FUNCTION auth.founder_company_health(TEXT, TEXT) TO one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.founder_metric_drilldown(TEXT, TEXT, TEXT, INTEGER) TO one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.founder_decision_queue(TEXT, TEXT, INTEGER) TO one_deal_staff;
+REVOKE ALL ON FUNCTION auth.founder_control_actor_authorized(TEXT, TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.staff_projection_capability(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.resolve_login_credential(TEXT) FROM one_deal_staff;
