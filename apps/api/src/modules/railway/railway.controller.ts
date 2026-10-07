@@ -2,7 +2,13 @@ import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nest
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { RailwayService, WagonStatus, WagonType } from './railway.service';
+import { RailwayService } from './railway.service';
+import {
+  CalculateDemurrageDto,
+  CreateGU12Dto,
+  RegisterWagonDto,
+  UpdateWagonStatusDto,
+} from './dto/railway.dto';
 
 @UseGuards(RolesGuard)
 @Roles('LOGISTICIAN', 'ADMIN', 'SUPPORT_MANAGER', 'EXECUTIVE', 'ACCOUNTING')
@@ -11,67 +17,75 @@ export class RailwayController {
   constructor(private readonly railway: RailwayService) {}
 
   @Get('wagons')
-  listWagons(@CurrentUser() user: any, @Query('orgId') orgId?: string) {
-    return this.railway.listWagons(orgId ?? user.orgId);
+  listWagons(@CurrentUser() user: any) {
+    // Организация — только из сессии. Прежний `?orgId=` отдавал парк любой
+    // организации, а пустая организация в сервисе означала «все вагоны».
+    return user?.orgId ? this.railway.listWagons(user.orgId) : [];
   }
 
   @Post('wagons')
   registerWagon(
-    @Body() body: { wagonNumber: string; type: WagonType; capacityTons: number },
+    @Body() body: RegisterWagonDto,
     @CurrentUser() user: any,
   ) {
-    return this.railway.registerWagon({ ...body, ownerOrgId: user.orgId });
+    // Поля перечислены поимённо, а не рассыпаны из тела: россыпь позволяла
+    // присланному клиентом `id` дойти до сервиса и победить сгенерированный.
+    return this.railway.registerWagon({
+      wagonNumber: body.wagonNumber,
+      type: body.type,
+      capacityTons: body.capacityTons,
+      ownerOrgId: user.orgId,
+    });
   }
 
   @Put('wagons/:id/status')
   @Roles('LOGISTICIAN', 'ADMIN')
   updateWagonStatus(
     @Param('id') id: string,
-    @Body() body: { status: WagonStatus; dealId?: string },
+    @Body() body: UpdateWagonStatusDto,
+    @CurrentUser() user: any,
   ) {
-    return this.railway.updateWagonStatus(id, body.status, body.dealId);
+    return this.railway.updateWagonStatus(id, body.status, user.orgId, body.dealId);
   }
 
   @Get('gu12')
-  listGU12(@Query('dealId') dealId?: string) {
-    return this.railway.listGU12(dealId);
+  listGU12(@CurrentUser() user: any, @Query('dealId') dealId?: string) {
+    return this.railway.listGU12(user?.orgId, dealId);
   }
 
   @Post('gu12')
   createGU12(
-    @Body() body: {
-      dealId: string;
-      wagonIds: string[];
-      departureStation: string;
-      destinationStation: string;
-      cargo: string;
-      volumeTons: number;
-      requestedDepartureAt: string;
-    },
+    @Body() body: CreateGU12Dto,
     @CurrentUser() user: any,
   ) {
-    return this.railway.createGU12({ ...body, requestorOrgId: user.orgId });
+    return this.railway.createGU12({
+      dealId: body.dealId,
+      wagonIds: body.wagonIds,
+      departureStation: body.departureStation,
+      destinationStation: body.destinationStation,
+      cargo: body.cargo,
+      volumeTons: body.volumeTons,
+      requestedDepartureAt: body.requestedDepartureAt,
+      requestorOrgId: user.orgId,
+    });
   }
 
   @Post('gu12/:id/submit')
-  submitGU12(@Param('id') id: string) {
-    return this.railway.submitGU12(id);
+  submitGU12(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.railway.submitGU12(id, user?.orgId);
   }
 
   @Post('demurrage/calculate')
   calculateDemurrage(
-    @Body() body: {
-      wagonId: string;
-      dealId?: string;
-      arrivedAt: string;
-      unloadingCompletedAt: string;
-    },
+    @Body() body: CalculateDemurrageDto,
+    @CurrentUser() user: any,
   ) {
-    return this.railway.calculateDemurrage(body);
+    return this.railway.calculateDemurrage(body, user?.orgId);
   }
 
   @Get('demurrage')
-  listDemurrage(@Query('dealId') dealId?: string) {
-    return this.railway.listDemurrage(dealId);
+  listDemurrage(@CurrentUser() user: any, @Query('dealId') dealId?: string) {
+    // Раньше список отдавал расчёты всех организаций вместе с их сделками.
+    return this.railway.listDemurrage(user?.orgId, dealId);
   }
 }

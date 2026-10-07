@@ -205,3 +205,27 @@ export function parseStaffCapabilitiesContract(value: unknown): StaffCapabilitie
     pendingApprovals,
   };
 }
+
+
+export type StaffHomeContract = {
+  identity: StaffCapabilitiesContract['identity'];
+  assignments: StaffCapabilitiesContract['assignments'];
+  authenticationAssurance: { mfaVerified: boolean };
+};
+
+/** Thin own-subject landing contract; it must carry no capability grants. */
+export function parseStaffHomeContract(value: unknown): StaffHomeContract | null {
+  if (!isRecord(value) || Object.keys(value).sort().join(',') !== 'assignments,authenticationAssurance,identity'
+    || !isRecord(value.identity) || typeof value.identity.id !== 'string' || !value.identity.id
+    || typeof value.identity.email !== 'string' || !value.identity.email
+    || !nullableString(value.identity.fullName)
+    || !Array.isArray(value.assignments) || !value.assignments.length || value.assignments.length > 100
+    || !isRecord(value.authenticationAssurance) || typeof value.authenticationAssurance.mfaVerified !== 'boolean') return null;
+  const assignments = value.assignments.map(parseAssignment);
+  if (assignments.some((assignment) => !assignment || assignment.status !== 'ACTIVE')) return null;
+  return {
+    identity: { id: value.identity.id, email: value.identity.email, fullName: value.identity.fullName },
+    assignments: assignments as StaffHomeContract['assignments'],
+    authenticationAssurance: { mfaVerified: value.authenticationAssurance.mfaVerified },
+  };
+}

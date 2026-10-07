@@ -1,11 +1,52 @@
+# Temporary atomic CORE prerequisite — canonical readiness #4829
+
+CURRENT: R1 release prerequisite: atomic canonical readiness recovery #4829
+OFFICIAL OVERALL: 5/100 = 5% (unchanged)
+
+CURRENT ALLOWED:
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
+- apps/api/test/staff-access/postgresql-staff-access.e2e-spec.ts
+- apps/api/src/main.ts
+- apps/api/src/health.controller.ts
+- apps/api/src/health.controller.spec.ts
+- apps/api/src/common/guards/pre-auth-rate-limit.guard.ts
+- apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts
+
+CURRENT CRITERIA:
+- owner disposition5935185862 permits this single atomic eleven-file bundle; no separate metadata-first/source cycle
+- exact six source blobs and eleven regular 100644 paths, preserved existing owners and histories
+- fresh whole-head independent review, separate owner audit and all native CI/security/Kubernetes acceptance
+- zero failed PgBouncer logical probes, complete deep-outbox scenarios and successful cleanup
+- preserve all accepted PRODUCT/concurrent admissions and official production progress
+
+Staff-session source #5766 merged as 2749279de3b070f3ff9b79224c26d03c590275bd; CORE writer handoff5931917682 and PRODUCT handoff5933030140 remain preserved. Neither proves R1 production acceptance. [Owner atomic disposition](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5935185862) replaces only the prior staged sequencing for this prerequisite.
+
+Order:
+1. Recheck fresh main/Hub, existing writers and actual PRODUCT handoff; accepted composition baseline is 5c43cd64fd61ee2e134ef319fa6c6087f1a37f14
+2. On existing fix/readiness-database-deadline-4829, combine immutable COR5 proposal5930247718, exact #5771/e358 staff test and the five revised governance documents, preserving original readiness and #5770/#5771 ancestry and attribution
+3. Verify all eleven paths, exact six source blobs/modes and every untouched tree leaf; preserve every accepted concurrent vector and admission
+4. Obtain fresh exact-published-head independent nonauthor full-diff review, separate author audit, full applicable native CI/security/PostgreSQL and unchanged zero-failure Kubernetes/deep-outbox/cleanup acceptance
+5. Recheck current head, findings and readiness, then ordinary expected-full-SHA manual merge; only after actual acceptance reconcile old proposals and return an actual writer handoff
+6. Prioritize the existing Gekta owner's real model activation and live quality/speed/stability acceptance under separate existing scopes and remaining topology/release prerequisites; R1.3 remains queued for its own admitted transition
+
+#5770 Security Abuse and #5771 Kubernetes failures remain preserved. Prior/local PASS does not transfer to the atomic head. Exact six source transitions are in canonical-readiness-cor5-4829-20261001. Unchanged standard candidate-list handling and legacy branch manifest do not provide immutable exact-eleven enforcement; independent whole-tree review must reject any extra path. No guard/workflow/manifest/PgBouncer/dependency/migration change, new recurring cost, provider activation or production authority is granted.
+
+The following R1 plan is retained as historical/subsequent context and unresolved acceptance requirements, not the current eleven-path source grant:
+
+---
+
 # PC-CROP MASTER v2.1 execution queue
 
-CURRENT: R1.2 Controlled open-as-role server authority
+PREVIOUS SLICE: R1.2 Controlled open-as-role server authority
 
 OFFICIAL OVERALL: 5/100 = 5%
 TARGET AFTER R1 PRODUCTION_PASS: 12/100 = 12%
 
-CURRENT ALLOWED:
+ARCHIVED R1.2 ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -15,7 +56,7 @@ CURRENT ALLOWED:
 - apps/api/src/modules/staff-access/**
 - apps/api/test/staff-access/**
 
-CURRENT CRITERIA:
+ARCHIVED R1.2 CRITERIA:
 - expose one server-owned canonical mapping for all 13 Founder role-mode cabinet intents;
 - preserve the authenticated Founder as actual actor and store effective organization/role only inside durable staff access context;
 - derive tenant server-side from the authorized organization; reject client-selected tenant/effective-role authority;
@@ -135,3 +176,13 @@ Execution sequence: independently review and manually merge this owner-authorize
 
 IR-20 remains active. Its final closure requires the exact-current-main REG.RU release, verified immutable running images and canonical production Compose topology, functional live acceptance for the touched outbox flow, and at least 30 minutes of observation required by MASTER. Worker publication, protected release and rollback work require their own reviewed scopes and operational evidence. Local patches, independent review, green CI, a Kubernetes PASS, image publication and a merge do not by themselves constitute `PRODUCTION_PASS`. No IR-21 or other product delivery slice opens before the required IR-20 acceptance is complete.
 
+
+## Queued TAI snapshot-only topology diagnostic — 2026-10-01
+
+This is a bounded follow-on to [Hub5934069236](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5934069236), authorized only for five-file preparation and a subsequent source draft by [Hub5941557816](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5941557816). Preserve current CORE/COR5 writer priority, PRODUCT handoffs, existing TAI ownership/#3582 lineage and every historical queue entry. The separate Gekta model-control history, including #5747, grants no topology scope or operation.
+
+1. Review and accept only the five appended governance changes after explicit closure of the serialized runtime no-main-merge window and fresh main/ownership checks; no concurrent runtime SHA movement.
+2. Then publish `fix/tai-bounded-topology-observer-20261001` as a draft containing only `scripts/tai-reg-ru-preflight.sh` (100755, exact `ac60f97dacdaf85ef1ccef63a1ea40709023d509`) and `scripts/check-tai-reg-ru-preflight.mjs` (100644, exact `70071581041d73e8d73f5d61d8699420844cdf86`) from the state-pinned transitions. Obtain fresh full-head independent review, owner audit and native checks.
+3. Retain source-merge and server-execution hold pending separate explicit approval of inherited automatic image-build/preflight effects, including image pulls and protected-checkout refresh. Do not invoke a controller/host or repair parity/detector behavior in this slice.
+
+The reduced payload only exposes existing preflight snapshot facts; fresh persisted/discovery comparison, immutable image/default-command/entrypoint and registry/freshness evidence remain NOT_PROVEN. The original topology blockers and separate deployment authority remain open. No CORE_TOPOLOGY_READY, R1 completion, permanent model switch, new rights/expenses or official progress beyond 5/100 follows.

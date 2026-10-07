@@ -11,11 +11,13 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
+import { dealText, type DealLocale } from '@/i18n/transaction-deal-copy';
 import styles from './DealCommandForm.module.css';
 
 type Payload = Record<string, unknown>;
 
 type Props = {
+  locale?: DealLocale;
   actionId: string;
   label: string;
   disabled?: boolean;
@@ -227,14 +229,14 @@ function normalizedPayload(values: Record<string, string>, fields: Field[]): Pay
   return payload;
 }
 
-function valueForReview(field: Field, value: string): string {
-  if (field.contextual) return 'Выбрано автоматически из сделки';
+function valueForReview(field: Field, value: string, locale: DealLocale): string {
+  if (field.contextual) return dealText('Выбрано автоматически из сделки', locale);
   if (field.type === 'datetime-local') {
     const date = new Date(value);
-    if (!Number.isNaN(date.getTime())) return date.toLocaleString('ru-RU');
+    if (!Number.isNaN(date.getTime())) return date.toLocaleString(locale === 'zh' ? 'zh-CN' : locale === 'en' ? 'en-US' : 'ru-RU');
   }
-  if (field.type === 'select') return field.options?.find((option) => option.value === value)?.label || value;
-  return value || 'Не указано';
+  if (field.type === 'select') return dealText(field.options?.find((option) => option.value === value)?.label || value, locale);
+  return value || dealText('Не указано', locale);
 }
 
 function fieldErrorId(actionId: string, fieldName: string): string {
@@ -246,25 +248,28 @@ function fieldHintId(actionId: string, fieldName: string): string {
 }
 
 function FieldControl({
+  locale = 'ru',
   actionId,
   field,
   value,
   showError,
   onChange,
 }: {
+  locale?: DealLocale;
   actionId: string;
   field: Field;
   value: string;
   showError: boolean;
   onChange: (value: string) => void;
 }) {
+  const t = (text: string) => dealText(text, locale);
   const invalid = showError && field.required && !value.trim();
   const describedBy = [field.hint ? fieldHintId(actionId, field.name) : '', invalid ? fieldErrorId(actionId, field.name) : ''].filter(Boolean).join(' ') || undefined;
 
   return (
     <label className={styles.field}>
       <span className={styles.fieldLabel}>
-        {field.label}
+        {t(field.label)}
         {field.required ? <span className={styles.requiredMark} aria-hidden='true'>*</span> : null}
       </span>
       {field.type === 'select' ? (
@@ -276,8 +281,8 @@ function FieldControl({
           aria-invalid={invalid}
           aria-describedby={describedBy}
         >
-          <option value=''>Выбери вариант</option>
-          {(field.options || []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          <option value=''>{t('Выбери вариант')}</option>
+          {(field.options || []).map((option) => <option key={option.value} value={option.value}>{t(option.label)}</option>)}
         </select>
       ) : (
         <input
@@ -285,29 +290,30 @@ function FieldControl({
           type={field.type === 'datetime-local' ? 'datetime-local' : 'text'}
           inputMode={field.type === 'decimal' ? 'decimal' : undefined}
           value={value}
-          placeholder={field.placeholder}
+          placeholder={field.placeholder ? t(field.placeholder) : undefined}
           onChange={(event) => onChange(event.target.value)}
           required={field.required}
           aria-invalid={invalid}
           aria-describedby={describedBy}
         />
       )}
-      {field.hint ? <small className={styles.hint} id={fieldHintId(actionId, field.name)}>{field.hint}</small> : null}
-      {invalid ? <small className={styles.fieldError} id={fieldErrorId(actionId, field.name)}>Заполни это поле.</small> : null}
+      {field.hint ? <small className={styles.hint} id={fieldHintId(actionId, field.name)}>{t(field.hint)}</small> : null}
+      {invalid ? <small className={styles.fieldError} id={fieldErrorId(actionId, field.name)}>{t('Заполни это поле.')}</small> : null}
     </label>
   );
 }
 
-function ReviewStep({ steps, values }: { steps: Step[]; values: Record<string, string> }) {
+function ReviewStep({ steps, values, locale, headingRef }: { steps: Step[]; values: Record<string, string>; locale: DealLocale; headingRef: React.RefObject<HTMLHeadingElement> }) {
+  const t = (text: string) => dealText(text, locale);
   return (
     <section className={styles.review} aria-labelledby='command-review-title'>
-      <h3 id='command-review-title' tabIndex={-1}>Проверь перед подтверждением</h3>
-      <p className={styles.reviewIntro}>Вернись назад, если что-то указано неверно. После подтверждения сервер ещё раз проверит права и состояние сделки.</p>
+      <h3 id='command-review-title' ref={headingRef} tabIndex={-1}>{t('Проверь перед подтверждением')}</h3>
+      <p className={styles.reviewIntro}>{t('Вернись назад, если что-то указано неверно. После подтверждения сервер ещё раз проверит права и состояние сделки.')}</p>
       <dl className={styles.reviewList}>
         {allFields(steps).map((field) => (
           <div className={styles.reviewRow} key={field.name}>
-            <dt>{field.reviewLabel || field.label}</dt>
-            <dd className={field.contextual ? styles.autoContext : undefined}>{valueForReview(field, values[field.name] || '')}</dd>
+            <dt>{t(field.reviewLabel || field.label)}</dt>
+            <dd className={field.contextual ? styles.autoContext : undefined}>{valueForReview(field, values[field.name] || '', locale)}</dd>
           </div>
         ))}
       </dl>
@@ -315,7 +321,8 @@ function ReviewStep({ steps, values }: { steps: Step[]; values: Record<string, s
   );
 }
 
-function LabForm({ disabled, submitting, initialValues, onSubmit }: Pick<Props, 'disabled' | 'submitting' | 'initialValues' | 'onSubmit'>) {
+function LabForm({ disabled, submitting, initialValues, onSubmit, locale = 'ru' }: Pick<Props, 'disabled' | 'submitting' | 'initialValues' | 'onSubmit' | 'locale'>) {
+  const t = (text: string, values?: Readonly<Record<string, string | number>>) => dealText(text, locale, values);
   const [step, setStep] = React.useState(0);
   const [showErrors, setShowErrors] = React.useState(false);
   const [values, setValues] = React.useState<Record<string, string>>(() => ({
@@ -371,39 +378,39 @@ function LabForm({ disabled, submitting, initialValues, onSubmit }: Pick<Props, 
   return (
     <form className={styles.form} onSubmit={submit} noValidate>
       <div className={styles.progressBlock}>
-        <div className={styles.progressText}><span>Шаг {step + 1} из {totalSteps}</span><span>{step === 3 ? 'Проверка' : 'Заполнение'}</span></div>
-        <progress className={styles.progress} value={step + 1} max={totalSteps} aria-label={`Шаг ${step + 1} из ${totalSteps}`} />
+        <div className={styles.progressText}><span>{t('Шаг {step} из {total}', { step: step + 1, total: totalSteps })}</span><span>{t(step === 3 ? 'Проверка' : 'Заполнение')}</span></div>
+        <progress className={styles.progress} value={step + 1} max={totalSteps} aria-label={t('Шаг {step} из {total}', { step: step + 1, total: totalSteps })} />
       </div>
 
       {showErrors ? (
-        <div className={styles.errorSummary} role='alert'><AlertCircle size={20} aria-hidden='true' /><div><strong>Не всё заполнено</strong>Проверь выделенные поля.</div></div>
+        <div className={styles.errorSummary} role='alert'><AlertCircle size={20} aria-hidden='true' /><div><strong>{t('Не всё заполнено')}</strong>{t('Проверь выделенные поля.')}</div></div>
       ) : null}
 
       {step === 0 ? (
         <fieldset className={styles.fieldset}>
-          <legend className={styles.legend} ref={headingRef} tabIndex={-1}>Проба и лаборатория</legend>
-          <p className={styles.stepHint}>Перепиши данные с маркировки пробы и карточки лаборатории.</p>
+          <legend className={styles.legend} ref={headingRef} tabIndex={-1}>{t('Проба и лаборатория')}</legend>
+          <p className={styles.stepHint}>{t('Перепиши данные с маркировки пробы и карточки лаборатории.')}</p>
           {[
             ['sampleId', 'Номер пробы'],
             ['protocolNumber', 'Номер протокола'],
             ['labId', 'Код лаборатории'],
             ['accreditationRef', 'Номер аккредитации'],
           ].map(([name, label]) => (
-            <FieldControl key={name} actionId='finalize_lab' field={{ name, label, required: true }} value={values[name] || ''} showError={showErrors} onChange={(value) => setValue(name, value)} />
+            <FieldControl locale={locale} key={name} actionId='finalize_lab' field={{ name, label, required: true }} value={values[name] || ''} showError={showErrors} onChange={(value) => setValue(name, value)} />
           ))}
         </fieldset>
       ) : null}
 
       {step === 1 ? (
         <fieldset className={styles.fieldset}>
-          <legend className={styles.legend} ref={headingRef} tabIndex={-1}>Фактические показатели</legend>
-          <p className={styles.stepHint}>Добавь каждый показатель отдельно. Для нормы достаточно нижней или верхней границы.</p>
+          <legend className={styles.legend} ref={headingRef} tabIndex={-1}>{t('Фактические показатели')}</legend>
+          <p className={styles.stepHint}>{t('Добавь каждый показатель отдельно. Для нормы достаточно нижней или верхней границы.')}</p>
           {indicators.map((indicator, index) => (
             <section className={styles.indicatorCard} key={index}>
               <div className={styles.indicatorHead}>
-                <strong>Показатель {index + 1}</strong>
+                <strong>{t('Показатель {index}', { index: index + 1 })}</strong>
                 {indicators.length > 1 ? (
-                  <button className={styles.iconButton} type='button' aria-label={`Удалить показатель ${index + 1}`} onClick={() => setIndicators((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
+                  <button className={styles.iconButton} type='button' aria-label={t('Удалить показатель {index}', { index: index + 1 })} onClick={() => setIndicators((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
                     <Trash2 size={18} aria-hidden='true' />
                   </button>
                 ) : null}
@@ -414,7 +421,7 @@ function LabForm({ disabled, submitting, initialValues, onSubmit }: Pick<Props, 
                 const missingNorm = showErrors && (name === 'normMin' || name === 'normMax') && !indicator.normMin.trim() && !indicator.normMax.trim();
                 return (
                   <label className={styles.field} key={name}>
-                    <span className={styles.fieldLabel}>{labels[name]}{required ? <span className={styles.requiredMark} aria-hidden='true'>*</span> : null}</span>
+                    <span className={styles.fieldLabel}>{t(labels[name])}{required ? <span className={styles.requiredMark} aria-hidden='true'>*</span> : null}</span>
                     <input
                       className={`${styles.input} ${(showErrors && required && !indicator[name].trim()) || missingNorm ? styles.invalid : ''}`}
                       inputMode={name === 'value' || name.startsWith('norm') ? 'decimal' : undefined}
@@ -424,52 +431,54 @@ function LabForm({ disabled, submitting, initialValues, onSubmit }: Pick<Props, 
                         setIndicators((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, [name]: event.target.value } : item));
                       }}
                     />
-                    {showErrors && required && !indicator[name].trim() ? <small className={styles.fieldError}>Заполни это поле.</small> : null}
-                    {missingNorm && name === 'normMax' ? <small className={styles.fieldError}>Укажи хотя бы одну границу нормы.</small> : null}
+                    {showErrors && required && !indicator[name].trim() ? <small className={styles.fieldError}>{t('Заполни это поле.')}</small> : null}
+                    {missingNorm && name === 'normMax' ? <small className={styles.fieldError}>{t('Укажи хотя бы одну границу нормы.')}</small> : null}
                   </label>
                 );
               })}
             </section>
           ))}
           <button className={styles.addButton} type='button' onClick={() => setIndicators((current) => [...current, { parameter: '', value: '', unit: '', normMin: '', normMax: '' }])}>
-            <Plus size={18} aria-hidden='true' />Добавить показатель
+            <Plus size={18} aria-hidden='true' />{t('Добавить показатель')}
           </button>
         </fieldset>
       ) : null}
 
       {step === 2 ? (
         <fieldset className={styles.fieldset}>
-          <legend className={styles.legend} ref={headingRef} tabIndex={-1}>Норма и подписанный протокол</legend>
-          <FieldControl actionId='finalize_lab' field={{ name: 'applicableStandard', label: 'Применимая норма', required: true, placeholder: 'ГОСТ, ТУ или условие договора' }} value={values.applicableStandard || ''} showError={showErrors} onChange={(value) => setValue('applicableStandard', value)} />
-          <FieldControl actionId='finalize_lab' field={{ name: 'finalizedAt', label: 'Когда анализ завершён?', type: 'datetime-local', required: true }} value={values.finalizedAt || ''} showError={showErrors} onChange={(value) => setValue('finalizedAt', value)} />
-          <FieldControl actionId='finalize_lab' field={{ name: 'signedEvidenceRef', label: 'Подписанный протокол', required: true, placeholder: 'Ссылка или номер файла' }} value={values.signedEvidenceRef || ''} showError={showErrors} onChange={(value) => setValue('signedEvidenceRef', value)} />
-          <p className={styles.note}>Итог PASSED/FAILED рассчитывает сервер по введённым значениям и нормам. Интерфейс не назначает результат.</p>
+          <legend className={styles.legend} ref={headingRef} tabIndex={-1}>{t('Норма и подписанный протокол')}</legend>
+          <FieldControl locale={locale} actionId='finalize_lab' field={{ name: 'applicableStandard', label: 'Применимая норма', required: true, placeholder: 'ГОСТ, ТУ или условие договора' }} value={values.applicableStandard || ''} showError={showErrors} onChange={(value) => setValue('applicableStandard', value)} />
+          <FieldControl locale={locale} actionId='finalize_lab' field={{ name: 'finalizedAt', label: 'Когда анализ завершён?', type: 'datetime-local', required: true }} value={values.finalizedAt || ''} showError={showErrors} onChange={(value) => setValue('finalizedAt', value)} />
+          <FieldControl locale={locale} actionId='finalize_lab' field={{ name: 'signedEvidenceRef', label: 'Подписанный протокол', required: true, placeholder: 'Ссылка или номер файла' }} value={values.signedEvidenceRef || ''} showError={showErrors} onChange={(value) => setValue('signedEvidenceRef', value)} />
+          <p className={styles.note}>{t('Итог PASSED/FAILED рассчитывает сервер по введённым значениям и нормам. Интерфейс не назначает результат.')}</p>
         </fieldset>
       ) : null}
 
       {step === 3 ? (
         <section className={styles.review} aria-labelledby='lab-review-title'>
-          <h3 id='lab-review-title' ref={headingRef as React.RefObject<HTMLHeadingElement>} tabIndex={-1}>Проверь результат</h3>
-          <p className={styles.reviewIntro}>Проба: {values.sampleId}. Протокол: {values.protocolNumber}. Показателей: {indicators.length}. После подтверждения сервер рассчитает итог.</p>
+          <h3 id='lab-review-title' ref={headingRef as React.RefObject<HTMLHeadingElement>} tabIndex={-1}>{t('Проверь результат')}</h3>
+          <p className={styles.reviewIntro}>{t('Проба: {sample}. Протокол: {protocol}. Показателей: {count}. После подтверждения сервер рассчитает итог.', { sample: values.sampleId || '', protocol: values.protocolNumber || '', count: indicators.length })}</p>
         </section>
       ) : null}
 
       <div className={styles.actions}>
         {step > 0 ? (
           <button className={styles.secondaryButton} type='button' onClick={() => { setStep((current) => current - 1); setShowErrors(false); }}>
-            <ArrowLeft size={18} aria-hidden='true' />Назад
+            <ArrowLeft size={18} aria-hidden='true' />{t('Назад')}
           </button>
         ) : <span className={styles.actionsSpacer} />}
         <button className={styles.primaryButton} type='submit' disabled={disabled || submitting}>
           {submitting ? <Loader2 className={styles.spin} size={18} aria-hidden='true' /> : step < 3 ? <ArrowRight size={18} aria-hidden='true' /> : <Check size={18} aria-hidden='true' />}
-          {submitting ? 'Подтверждаем…' : step < 3 ? 'Продолжить' : 'Подтвердить результат'}
+          {t(submitting ? 'Подтверждаем…' : step < 3 ? 'Продолжить' : 'Подтвердить результат')}
         </button>
       </div>
     </form>
   );
 }
 
-export function DealCommandForm({ actionId, label, disabled, submitting, initialValues, onSubmit }: Props) {
+export function DealCommandForm({ actionId, label, disabled, submitting, initialValues, onSubmit, locale = 'ru' }: Props) {
+  const t = (text: string, values?: Readonly<Record<string, string | number>>) => dealText(text, locale, values);
+  const reviewHeadingRef = React.useRef<HTMLHeadingElement>(null);
   const steps = ACTION_STEPS[actionId];
   const initialValuesKey = JSON.stringify(initialValues || {});
   const [step, setStep] = React.useState(0);
@@ -486,18 +495,18 @@ export function DealCommandForm({ actionId, label, disabled, submitting, initial
   }, [actionId, initialValuesKey]);
 
   React.useEffect(() => {
-    headingRef.current?.focus();
+    (headingRef.current ?? reviewHeadingRef.current)?.focus();
   }, [step]);
 
-  if (actionId === 'finalize_lab') return <LabForm disabled={disabled} submitting={submitting} initialValues={initialValues} onSubmit={onSubmit} />;
+  if (actionId === 'finalize_lab') return <LabForm disabled={disabled} submitting={submitting} initialValues={initialValues} onSubmit={onSubmit} locale={locale} />;
 
   if (!steps) {
     return (
       <div className={styles.simpleCommand}>
-        <p>После нажатия сервер проверит твои права, актуальное состояние сделки и обязательные основания. Действие не выполнится, если условия изменились.</p>
+        <p>{t('После нажатия сервер проверит твои права, актуальное состояние сделки и обязательные основания. Действие не выполнится, если условия изменились.')}</p>
         <button className={styles.simpleButton} type='button' onClick={() => void onSubmit({})} disabled={disabled || submitting}>
           {submitting ? <Loader2 className={styles.spin} size={18} aria-hidden='true' /> : <Check size={18} aria-hidden='true' />}
-          {submitting ? 'Подтверждаем…' : label}
+          {submitting ? t('Подтверждаем…') : label}
         </button>
       </div>
     );
@@ -556,45 +565,45 @@ export function DealCommandForm({ actionId, label, disabled, submitting, initial
   return (
     <form className={styles.form} onSubmit={submit} noValidate>
       <div className={styles.progressBlock}>
-        <div className={styles.progressText}><span>Шаг {step + 1} из {totalSteps}</span><span>{isReview ? 'Проверка' : 'Заполнение'}</span></div>
-        <progress className={styles.progress} value={step + 1} max={totalSteps} aria-label={`Шаг ${step + 1} из ${totalSteps}`} />
+        <div className={styles.progressText}><span>{t('Шаг {step} из {total}', { step: step + 1, total: totalSteps })}</span><span>{t(isReview ? 'Проверка' : 'Заполнение')}</span></div>
+        <progress className={styles.progress} value={step + 1} max={totalSteps} aria-label={t('Шаг {step} из {total}', { step: step + 1, total: totalSteps })} />
       </div>
 
       {showErrors && missingRequired.length > 0 ? (
-        <div className={styles.errorSummary} role='alert'><AlertCircle size={20} aria-hidden='true' /><div><strong>Не всё заполнено</strong>Проверь выделенные поля.</div></div>
+        <div className={styles.errorSummary} role='alert'><AlertCircle size={20} aria-hidden='true' /><div><strong>{t('Не всё заполнено')}</strong>{t('Проверь выделенные поля.')}</div></div>
       ) : null}
 
       {missingContext.length > 0 ? (
-        <div className={styles.contextError} role='alert'><AlertCircle size={20} aria-hidden='true' /><div><strong>Не удалось выбрать данные сделки</strong>Обнови экран. Не вводи технические коды вручную.</div></div>
+        <div className={styles.contextError} role='alert'><AlertCircle size={20} aria-hidden='true' /><div><strong>{t('Не удалось выбрать данные сделки')}</strong>{t('Обнови экран. Не вводи технические коды вручную.')}</div></div>
       ) : null}
 
       {current ? (
         <fieldset className={styles.fieldset}>
-          <legend className={styles.legend} ref={headingRef} tabIndex={-1}>{current.title}</legend>
-          {current.hint ? <p className={styles.stepHint}>{current.hint}</p> : null}
+          <legend className={styles.legend} ref={headingRef} tabIndex={-1}>{t(current.title)}</legend>
+          {current.hint ? <p className={styles.stepHint}>{t(current.hint)}</p> : null}
           {currentVisibleFields.map((field) => (
-            <FieldControl key={field.name} actionId={actionId} field={field} value={values[field.name] || ''} showError={showErrors} onChange={(value) => setValue(field.name, value)} />
+            <FieldControl locale={locale} key={field.name} actionId={actionId} field={field} value={values[field.name] || ''} showError={showErrors} onChange={(value) => setValue(field.name, value)} />
           ))}
           {hasLocationFields ? (
             <div className={styles.locationBlock}>
               <button className={styles.locationButton} type='button' onClick={requestLocation}>
-                <Crosshair size={18} aria-hidden='true' />Определить координаты
+                <Crosshair size={18} aria-hidden='true' />{t('Определить координаты')}
               </button>
-              {geoStatus ? <p className={styles.geoStatus} role='status'>{geoStatus}</p> : null}
+              {geoStatus ? <p className={styles.geoStatus} role='status'>{t(geoStatus)}</p> : null}
             </div>
           ) : null}
         </fieldset>
-      ) : <ReviewStep steps={steps} values={values} />}
+      ) : <ReviewStep steps={steps} values={values} locale={locale} headingRef={reviewHeadingRef} />}
 
       <div className={styles.actions}>
         {step > 0 ? (
           <button className={styles.secondaryButton} type='button' onClick={() => { setStep((currentStep) => currentStep - 1); setShowErrors(false); }}>
-            <ArrowLeft size={18} aria-hidden='true' />Назад
+            <ArrowLeft size={18} aria-hidden='true' />{t('Назад')}
           </button>
         ) : <span className={styles.actionsSpacer} />}
         <button className={styles.primaryButton} type='submit' disabled={disabled || submitting || missingContext.length > 0}>
           {submitting ? <Loader2 className={styles.spin} size={18} aria-hidden='true' /> : isReview ? <Check size={18} aria-hidden='true' /> : <ArrowRight size={18} aria-hidden='true' />}
-          {submitting ? 'Подтверждаем…' : isReview ? label : 'Продолжить'}
+          {submitting ? t('Подтверждаем…') : isReview ? label : t('Продолжить')}
         </button>
       </div>
     </form>

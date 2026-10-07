@@ -133,7 +133,7 @@ describe('anonymous public Auction market projection', () => {
     expect(publicFunction).toContain('v_observed_at AS observed_at');
     expect(publicFunction).toContain('WHERE NOT EXISTS (SELECT 1 FROM live_cards)');
     expect(service).toContain('SELECT *');
-    expect(service).toContain('FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT + 1})');
+    expect(service).toContain('FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT + 1}::integer)');
     expect(service).not.toContain('WITH observation AS MATERIALIZED');
     expect(service).not.toContain('LEFT JOIN LATERAL');
     expect(service).not.toContain('transaction_timestamp()');
@@ -149,7 +149,7 @@ describe('anonymous public Auction market projection', () => {
 
   it('serves a bounded PostgreSQL authority envelope without tenant, seller or database activity identifiers', () => {
     const service = read(servicePath);
-    expect(service).toContain('auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT + 1})');
+    expect(service).toContain('auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT + 1}::integer)');
     expect(service).toContain("source: 'POSTGRESQL'");
     expect(service).toContain("scope: 'PUBLIC_MARKET'");
     expect(service).toContain("projection: 'ANONYMIZED_PUBLIC_MARKET'");
