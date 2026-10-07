@@ -5314,6 +5314,91 @@
         "No schema, migration, dependency, API contract or production data change; output encoding and in-memory aggregation only.",
         "Preserve original history/attribution through ordinary merges; fresh separate whole-head review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge; API release remains separate and pending."
       ]
+    },
+    "gekta-history-lifecycle-guard-purpose-5818-20261007": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Renew only the existing Gekta recovery guard lane for the exact three-file protection of the later #5818 source/admission branches after native P1 finding4206716341. This purpose admits no Gekta runtime source and does not claim generic bootstrap machine enforcement.",
+      "authorityBaseExactMain": "6b78017ef34b3136579b77fd890a50f07299ee4f",
+      "implementationBranch": "governance/gekta-recovery-trusted-routes-20260927",
+      "allowedPaths": [
+        ".github/workflows/platform-v7-autopilot-guard.yml",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+        "scripts/p7-autopilot-guard.sh"
+      ],
+      "sourcePayload": [
+        {
+          "path": ".github/workflows/platform-v7-autopilot-guard.yml",
+          "beforeBlob": "5c3ebae3b42150718253909b719cbce6fe3ffe95",
+          "afterBlob": "038866cf1ee6b10e2d54cacb49271b59448a7456",
+          "sha256": "b96fe3d2f9186997527be76ef7d90bd10b357f448fbafe097e9b294dbb389122",
+          "bytes": 120183,
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+          "beforeBlob": "ae8bab12c192ac309db89f98d0201e4141969dc7",
+          "afterBlob": "fed17a996c5495017fc04eeb62223f85100db349",
+          "sha256": "48c5f1d102baa353e08e46e32767db7c4003f275d5ccf787fd10b7cf26986749",
+          "bytes": 25111,
+          "mode": "100644"
+        },
+        {
+          "path": "scripts/p7-autopilot-guard.sh",
+          "beforeBlob": "efc0215233f994b909057726824f49d96db30bc7",
+          "afterBlob": "97d7888e5dcdc29c46c192b22bac83611321be14",
+          "sha256": "4e8672f9a21d753d06ba00971768fcff424f448c43d162c6f1f7e8a640e330cc",
+          "bytes": 185522,
+          "mode": "100755"
+        }
+      ],
+      "stagedSourceBranch": "fix/gekta-history-lifecycle-5818",
+      "stagedAdmissionBranch": "governance/gekta-history-lifecycle-source-admission-5818",
+      "sourceAdmissionState": "STAGED_NOT_ADMITTED",
+      "stagedSourceAdmission": {
+        "owner": "OWNER_AUTHORIZED_SESSION",
+        "purpose": "F-05 / #5818: reject direct read and mutation of soft-deleted owned Gekta conversations and deleted project assignment using the existing workspace module, conditional active-row writes and consistent project-first transaction lock order. Preserve ownership and soft-delete retention.",
+        "implementationBranch": "fix/gekta-history-lifecycle-5818",
+        "originalIssue": 5818,
+        "allowedPaths": [
+          "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+          "apps/api/src/modules/gekta/gekta-workspace.spec.ts"
+        ],
+        "sourcePayload": [
+          {
+            "path": "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+            "beforeBlob": "94583469f013d8775676ead6ca489176c203968d",
+            "afterBlob": "0d3ee8956bece60d2a1a97fd1508196de7fde091",
+            "sha256": "f0963c9068e65d5452aa682e1305740c36c3dbd545fd7c6f8ee48b378605e519",
+            "bytes": 11536,
+            "mode": "100644"
+          },
+          {
+            "path": "apps/api/src/modules/gekta/gekta-workspace.spec.ts",
+            "beforeBlob": "489a23e9b802fc1d4e00780195031e6d30c7b25b",
+            "afterBlob": "b337b60335d106e7d0bc96695453f29d0562019a",
+            "sha256": "fc3501ae8e2a9412c424fbe66704a718141c409acd3afeeeed1564313ec74fc5",
+            "bytes": 14677,
+            "mode": "100644"
+          }
+        ],
+        "regressionEvidence": "Private existing workspace proposal: seven Gekta suites143/143 and root API/web typecheck PASS; compatible unchanged service23/35 new lifecycle failures,12pass. Full API unit execution3808passed/184existingpolicy skips/0testfailures, but process retained existing open handles and was stopped after test completion; no clean full-process PASS. Unit mocks do not prove real PostgreSQL concurrency. Fresh exact-head source review and native acceptance remain required.",
+        "requiredTruthBoundaries": [
+          "State-only admission precedes source publication/adoption. The implementation changes exactly these two existing regular files; accepted before/after blobs and SHA-256 bind the reviewed proposal. Preserve primary/current/global/R1 permissions, existing scopes/admissions, progress and other owners.",
+          "No schema, migration, lockfile, new core/model, consent, physical purge or production data change. Deleted content stays retained under existing policy. Already-deleted import titles remain idempotent. Snapshot reads are not an erase guarantee.",
+          "Actual separate exact-head independent review, owner audit, all applicable substantive native CI/security and freshly checked readiness precede an expected-full-SHA manual merge. Automatic merge stays disabled; preserve existing executor merge queue.",
+          "API full-stack release remains pending actual REG.RU access, intended image/OCI revision and live checks. Main merge does not prove deployment. Failed Qwen3.5-4B live run and spent one-use grant are unchanged; no model activation, grant reset or new comparison admitted here."
+        ],
+        "teamHubDependency": "#5469 CLAIM 6037413355; #5818; user continuation 2026-10-07"
+      },
+      "requiredTruthBoundaries": [
+        "Append only this purpose record. Preserve all prior state bytes/values, scope vectors, admissions, owners, primary/current/global permissions and progress. No runtime/source/admission branch scope is added here.",
+        "Continue the existing Gekta guard ref without force/reset or loss of ancestry; no active writer/open PR exists at f2c458689c8b0722698694d6338990e8b0c29701, which is fully behind current main. The three-path bootstrap remains generic: exact-content manual inspection and independent review of the complete current head are mandatory; do not describe it as automatically immutable/hash-enforced.",
+        "Guard registers both future source and state-admission branches in literal immutable classification, trusted-base workflow routes, PR-head defense/exclusions and source path event filters. The source validator binds accepted purpose/admission and exactly two existing regular blobs, SHA-256 and byte counts; reject main.ts, infrastructure, candidate authority, missing/extra files, renames and modes.",
+        "After actual guard acceptance only, publish a separate state-only source admission adding exactly the staged two-path vector and staged record plus the then-current base SHA. The staged payload and template in this purpose confer no source permission. Publish/adopt source only after that separate admission is actually accepted.",
+        "Preserve prior guard routes/negative tests and substantive CI/security, owner audit, actual independent exact-head review and fresh canonical readiness before ordinary expected-full-SHA manual merges. No source or guard writes by a competing owner; retain serialized executor queue. No automatic merge or provider-availability waiver.",
+        "No model/grant/runtime/DB/migration/consent/retention/purge/roles/provider/payment change here. Failed live Qwen result and spent grant remain unchanged. Canonical REG.RU SSH failure still blocks runtime inspection/deployment/live acceptance; metadata/source merge is not deployment."
+      ],
+      "teamHubDependency": "#5469 CLAIM6037413355 / P1guarddependency6037727724; #5818; #5819 nativefinding4206716341; owner continuation2026-10-07"
     }
   }
 }
