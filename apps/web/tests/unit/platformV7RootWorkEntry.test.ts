@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs';
+import { NextRequest } from 'next/server';
+import { middleware as publicLocaleMiddleware } from '../../middleware';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { POST as registrationBffPOST } from '@/app/api/auth/register/route';
@@ -431,7 +433,13 @@ describe('platform-v7 canonical public experience',()=>{
   });
 
   it('keeps the protected Deal on the authoritative execution workspace and governed command boundary',()=>{
-    expect(protectedDealRoute).toContain('<CanonicalDealWorkspace role={role} dealId={id} />');
+    // Locale is presentation context. Both accepted signatures bind the same
+    // canonical role and Deal; no other prop or authority override is admitted.
+    expect(protectedDealRoute).toMatch(/<CanonicalDealWorkspace role=\{role\} dealId=\{id\}(?: locale=\{locale\})? \/>/);
+    if (protectedDealRoute.includes('locale={locale}')) {
+      expect(protectedDealRoute).toContain("import { useLocale } from 'next-intl'");
+      expect(protectedDealRoute).toContain('const locale = useLocale();');
+    }
     expect(cleanDealAlias).toContain('/execution');
     expect(protectedDeal).toContain('/execution-workspace');
     expect(protectedDeal).toContain('/commands/${encodeURIComponent(action.id)}');
@@ -1160,5 +1168,82 @@ describe('post-acceptance registration uncertainty at the actual BFF boundary', 
     }
     expect(upstreamFetch).toHaveBeenCalledTimes(2);
     expect(sendTransactionalMail).toHaveBeenCalledTimes(2);
+  });
+});
+
+// Exercise the actual middleware boundary; no mocked locale resolver or cookie jar.
+
+describe('explicit public locale preference on clean navigation', () => {
+  const selectionCookie = 'pc-v7-locale-selection-v1';
+  const request = (path: string, cookies: Record<string, string> = {}) => {
+    const req = new NextRequest(`https://example.test${path}`);
+    for (const [name, value] of Object.entries(cookies)) req.cookies.set(name, value);
+    return req;
+  };
+  const forwardedLocale = (response: Response) => response.headers.get('x-middleware-request-x-pc-locale');
+
+  it.each(['ru', 'en', 'zh'] as const)('%s: remembers a fresh explicit choice through a clean public request', async (locale) => {
+    const selected = await publicLocaleMiddleware(request(`/platform-v7?lang=${locale}`, { 'pc-v7-locale': 'zh' }));
+    expect(selected.status).toBe(200);
+    expect(forwardedLocale(selected)).toBe(locale);
+    expect(selected.cookies.get(selectionCookie)).toMatchObject({ value: locale, httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 31536000 });
+    const clean = await publicLocaleMiddleware(request('/platform-v7', { 'pc-v7-locale': locale, [selectionCookie]: selected.cookies.get(selectionCookie)!.value }));
+    expect(forwardedLocale(clean)).toBe(locale);
+    expect(clean.headers.get('x-pc-locale')).toBe(locale);
+    expect(clean.headers.get('cache-control')).toContain('no-store');
+    expect(clean.headers.get('pragma')).toBe('no-cache');
+    expect(clean.cookies.get(selectionCookie)).toBeUndefined();
+  });
+
+  it.each([
+    {},
+    { 'pc-v7-locale': 'en' },
+    { 'pc-v7-locale': 'zh' },
+    { [selectionCookie]: 'en' },
+    { 'pc-v7-locale': 'en', [selectionCookie]: 'zh' },
+    { 'pc-v7-locale': 'owner', [selectionCookie]: 'owner' },
+    { 'pc-v7-locale': 'zh-CN', [selectionCookie]: 'zh-CN' },
+    { 'pc-v7-locale': 'en', 'pc-v7-locale-selection-v0': 'en' },
+  ])('keeps the canonical RU default for unselected, stale or invalid preference %j', async (cookies) => {
+    const response = await publicLocaleMiddleware(request('/platform-v7', cookies));
+    expect(response.status).toBe(200);
+    expect(forwardedLocale(response)).toBeNull();
+    expect(response.cookies.get(selectionCookie)).toBeUndefined();
+  });
+
+  it.each(['ru', 'en', 'zh'] as const)('%s: explicit query overrides a different remembered public locale', async (locale) => {
+    const oldLocale = locale === 'ru' ? 'en' : 'ru';
+    const response = await publicLocaleMiddleware(request(`/platform-v7/login?lang=${locale}`, { 'pc-v7-locale': oldLocale, [selectionCookie]: oldLocale }));
+    expect(forwardedLocale(response)).toBe(locale);
+    expect(response.cookies.get('pc-v7-locale')).toMatchObject({ value: locale, secure: true, sameSite: 'lax', path: '/', maxAge: 31536000 });
+    expect(response.cookies.get(selectionCookie)?.value).toBe(locale);
+  });
+
+  it('does not promote invalid queries or caller-supplied locale headers into a fresh selection', async () => {
+    const req = request('/platform-v7?lang=invalid', { 'pc-v7-locale': 'zh' });
+    req.headers.set('x-pc-locale', 'zh');
+    const response = await publicLocaleMiddleware(req);
+    expect(forwardedLocale(response)).toBeNull();
+    expect(response.cookies.get(selectionCookie)).toBeUndefined();
+  });
+
+  it('keeps the canonical Gekta path ahead of query and remembered preference', async () => {
+    const response = await publicLocaleMiddleware(request('/gekta/en?lang=zh', { 'pc-v7-locale': 'ru', [selectionCookie]: 'ru' }));
+    expect(forwardedLocale(response)).toBe('en');
+    expect(response.cookies.get(selectionCookie)).toBeUndefined();
+  });
+
+  it('does not restore a public preference in the owner control center', async () => {
+    const response = await publicLocaleMiddleware(request('/platform-v7/staff', { 'pc-v7-locale': 'zh', [selectionCookie]: 'zh' }));
+    expect(forwardedLocale(response)).toBeNull();
+    expect(response.cookies.get(selectionCookie)).toBeUndefined();
+  });
+
+  it('never turns a locale preference into a verified cabinet session', async () => {
+    const response = await publicLocaleMiddleware(request('/platform-v7/seller', { 'pc-v7-locale': 'en', [selectionCookie]: 'en' }));
+    expect(response.status).toBe(307);
+    expect(new URL(response.headers.get('location')!).pathname).toBe('/platform-v7/login');
+    expect(response.headers.get('cache-control')).toContain('no-store');
+    expect(response.cookies.get('pc_v7_cabinet')).toBeUndefined();
   });
 });

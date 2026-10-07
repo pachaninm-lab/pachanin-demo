@@ -37,7 +37,7 @@ RUN cd /prod/api \
 # runtime. Package control records are copied with the payload so Trivy/SBOM
 # inventory reflects the files that are actually installed.
 FROM debian:trixie-slim AS openssl-security-patch
-ARG OPENSSL_SECURITY_VERSION=3.5.7-1~deb13u2
+ARG OPENSSL_SECURITY_VERSION=3.5.7-1~deb13u3
 WORKDIR /tmp/openssl-security
 RUN set -eux; \
   apt-get update; \

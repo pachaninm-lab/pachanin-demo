@@ -728,7 +728,7 @@ export class PersistentAuthRepository {
   async expirePendingMfaChallenges(
     client: AuthSqlClient,
     sessionId: string,
-    type: 'STEP_UP',
+    type: 'STEP_UP' | 'TOTP_ENROLL',
   ): Promise<void> {
     await client.$executeRaw(Prisma.sql`
       UPDATE auth.mfa_challenges
@@ -1402,41 +1402,67 @@ export class PersistentAuthRepository {
       sessionId: string;
       userId: string;
       method: 'TOTP' | 'BACKUP';
+      challengeType: 'STEP_UP' | 'TOTP_ENROLL';
       backupHashes?: string[];
     },
   ): Promise<Date> {
-    const verifiedAt = new Date();
+    if (input.challengeType === 'TOTP_ENROLL' && input.method !== 'TOTP') {
+      throw new Error('MFA enrollment requires TOTP possession');
+    }
     const challengeUpdated = await client.$executeRaw(Prisma.sql`
       UPDATE auth.mfa_challenges
-      SET status = 'VERIFIED', verified_at = ${verifiedAt}
+      SET status = 'VERIFIED', verified_at = NOW()
       WHERE id = ${input.challengeId}
+        AND session_id = ${input.sessionId}
+        AND user_id = ${input.userId}
         AND status = 'PENDING'
-        AND type = 'STEP_UP'
+        AND expires_at > NOW()
+        AND type = ${input.challengeType}
     `);
     if (challengeUpdated !== 1) throw new Error('MFA step-up challenge conflict');
 
-    const sessionUpdated = await client.$executeRaw(Prisma.sql`
+    const sessions = await client.$queryRaw<Array<{ mfa_verified_at: Date }>>(Prisma.sql`
       UPDATE auth.sessions
       SET mfa_level = ${input.method},
-          mfa_verified_at = ${verifiedAt},
+          mfa_verified_at = NOW(),
           mfa_verified_method = ${input.method},
-          last_seen_at = ${verifiedAt},
-          updated_at = ${verifiedAt}
+          last_seen_at = NOW(),
+          updated_at = NOW()
       WHERE id = ${input.sessionId}
         AND user_id = ${input.userId}
         AND status = 'ACTIVE'
+      RETURNING mfa_verified_at
     `);
-    if (sessionUpdated !== 1) throw new Error('MFA step-up session conflict');
+    if (sessions.length !== 1) throw new Error('MFA step-up session conflict');
 
-    if (input.backupHashes) {
-      await client.$executeRaw(Prisma.sql`
-        UPDATE auth.credential_states
-        SET mfa_backup_hashes = ${JSON.stringify(input.backupHashes)}::jsonb,
-            updated_at = ${verifiedAt}
-        WHERE user_id = ${input.userId}
+    const credentialUpdated = await client.$executeRaw(Prisma.sql`
+      UPDATE auth.credential_states
+      SET mfa_enabled = CASE WHEN ${input.challengeType === 'TOTP_ENROLL'} THEN TRUE ELSE mfa_enabled END,
+          mfa_key_version = CASE
+            WHEN ${input.challengeType === 'TOTP_ENROLL' && input.method === 'TOTP'}
+              AND mfa_secret_ciphertext ~ '^v1:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+$'
+              THEN 'v1'
+            ELSE mfa_key_version
+          END,
+          mfa_backup_hashes = CASE
+            WHEN ${input.backupHashes === undefined} THEN mfa_backup_hashes
+            ELSE ${JSON.stringify(input.backupHashes ?? null)}::jsonb
+          END,
+          updated_at = NOW()
+      WHERE user_id = ${input.userId}
+    `);
+    if (credentialUpdated !== 1) throw new Error('MFA credential state conflict');
+    // Preserve the bounded PostgreSQL authority for the legacy user flag.
+    // NOW() binds the session and challenge to this same transaction.
+    if (input.challengeType === 'TOTP_ENROLL') {
+      const finalized = await client.$queryRaw<Array<{ updated: boolean }>>(Prisma.sql`
+        SELECT updated FROM auth.finalize_authenticated_user_mfa(
+          ${input.userId}, ${input.sessionId}, ${input.challengeId}
+        )
       `);
+      if (finalized[0]?.updated !== true) throw new Error('MFA user state conflict');
     }
-    return verifiedAt;
+    return sessions[0].mfa_verified_at;
   }
 
   async recordMfaFailure(
@@ -1459,11 +1485,20 @@ export class PersistentAuthRepository {
     userId: string,
     ciphertext: string,
     keyVersion: string,
+    pendingEnrollment = false,
   ): Promise<void> {
+    // Authenticated enrollment locks the credential before installing a new
+    // secret. A retired secret's counter must not block its replacement; an
+    // existing secret or another challenge keeps the replay high-water mark.
     await client.$executeRaw(Prisma.sql`
       UPDATE auth.credential_states
       SET mfa_secret_ciphertext = ${ciphertext},
+          mfa_enabled = CASE WHEN ${pendingEnrollment} THEN FALSE ELSE mfa_enabled END,
           mfa_key_version = ${keyVersion},
+          mfa_last_totp_counter = CASE
+            WHEN ${pendingEnrollment} AND mfa_secret_ciphertext IS NULL THEN NULL
+            ELSE mfa_last_totp_counter
+          END,
           updated_at = NOW()
       WHERE user_id = ${userId}
     `);
