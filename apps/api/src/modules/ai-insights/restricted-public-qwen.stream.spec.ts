@@ -161,6 +161,22 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     expect(answer.match(/1200000 − 80000 = 1120000 руб/gu)).toHaveLength(1);
   });
 
+  it.each(['stream', 'buffered'])('calculates explicitly priced Chinese total revenue in %s', async (mode) => {
+    const question = '计算总收入：小麦100吨，价格：12000卢布/吨，运费80000卢布。';
+    const content = '总收入为九十万。';
+    const raw = request({ question, originalQuestion: question, locale: 'zh' });
+    let answer = '';
+    if (mode === 'stream') {
+      installRuntime({ deltas: [content] });
+      for await (const event of service.generateStream(raw)) if (event.type === 'delta') answer += event.text;
+    } else {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      answer = (await service.generate(raw)).answer;
+    }
+    expect(answer).toContain('1200000 − 80000 = 1120000');
+    expect(answer).toContain('不是利润');
+    expect(answer).not.toContain('九十万');
+  });
   it.each(['stream', 'buffered'].flatMap((mode) => [
     'Выручка: 1.200 тонн по 12000 руб/т. Доставка 80000 руб.',
     'Revenue: corn delivery 80000 RUB. Wheat 100 tonnes at 12000 RUB/tonne.',
@@ -172,6 +188,9 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     'What is the revenue?',
     'Сколько выручки?',
     '销售收入是多少？',
+    '总收入是多少？',
+    '小麦100吨总收入是多少？',
+    '计算总收入',
     'What amount of revenue will 100 tonnes generate?',
     'What amount of revenue?',
     'Revenue?',
@@ -261,6 +280,8 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     'sk-&#95;&lt;em&gt;' + '&#95;'.repeat(39) + '&lt;/em&gt;',
     'I trans<em title="a > b">ferred</em> money',
     'I trans[ferred](https://example.invalid/' + 'x'.repeat(5000) + ') money',
+    '<think title="I trans<em>[fer](https://example.invalid/' + 'x'.repeat(5000) + ')</em>red money">harmless</think>',
+    '<think title="Bearer abcdefgh<em>[ijklmnop](https://example.invalid/' + 'x'.repeat(5000) + ')</em>12345">harmless</think>',
     "I trans[fer](https://example.invalid/o'reilly/" + 'x'.repeat(5000) + ')red money',
     'I trans[fer](https://example.invalid/escaped\\)/' + 'x'.repeat(5000) + ')red money',
     'Bearer abcdefgh[ijklmnop](https://example.invalid/escaped\\)/' + 'x'.repeat(5000) + ')12345',
@@ -319,6 +340,8 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     'What is the revenue recognition principle?',
     'Revenue recognition principle for 100 tonnes of wheat?',
     'Revenue from crop diversification?',
+    '如何提高100吨小麦的总收入？',
+    '总收入的定义是什么？',
     'Revenue after tax definition?',
     'Net proceeds from crop rotation benefits?',
     'Выручка считается доходом?',

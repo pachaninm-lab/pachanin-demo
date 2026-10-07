@@ -377,7 +377,7 @@ export type SaleProceedsInput = Readonly<{
   proceedsMinor: number;
 }>;
 
-const SALE_PROCEEDS_TOPIC = /выручк|revenue|proceeds|销售收入|净收入/iu;
+const SALE_PROCEEDS_TOPIC = /выручк|revenue|proceeds|销售收入|净收入|总收入/iu;
 const SALE_NUMBER = '(?:\\d{1,3}(?:[ \\u00a0\\u202f]\\d{3})+|\\d{1,9})(?:[.,]\\d{1,3})?';
 const SALE_RUB = '(?:руб(?:лей|ля|ль)?\\.?|₽|RUB|卢布)';
 
@@ -462,9 +462,9 @@ function saleCalculationRequested(question: string): boolean {
   // with the commodity/quantity; do not treat unrelated income as sale proceeds.
   const chineseSaleAmount = /(?:销售|出售|卖出)[^。！？\n]{0,80}多少\s*收入/u.test(question);
   if (!SALE_PROCEEDS_TOPIC.test(question) && !chineseSaleAmount) return false;
-  const intent = /(?<![\p{L}])(?:(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?(?:\s+расч[её]т)?)\s+(?:(?:итоговую|чистую)\s+)?выручк[ауи]|(?:calculate|compute)\s+(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))(?![\p{L}])|计算\s*(?:净收入|销售收入)/iu;
-  const labelled = /^\s*(?:(?:расч[её]т\s+)?выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入)\s*[:：]/iu.test(question);
-  const bareLabelQuestion = /^\s*(?:выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入)\s*[?？]\s*$/iu.test(question);
+  const intent = /(?<![\p{L}])(?:(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?(?:\s+расч[её]т)?)\s+(?:(?:итоговую|чистую)\s+)?выручк[ауи]|(?:calculate|compute)\s+(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))(?![\p{L}])|计算\s*(?:净收入|销售收入|总收入)/iu;
+  const labelled = /^\s*(?:(?:расч[её]т\s+)?выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入|总收入)\s*[:：]/iu.test(question);
+  const bareLabelQuestion = /^\s*(?:выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入|总收入)\s*[?？]\s*$/iu.test(question);
   const labelClause = question.match(/^\s*(?:выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))\s+(?:for|from|after|от|за|после)(?![\p{L}])\s+(.+?)\s*[?？]?\s*$/iu)?.[1] ?? '';
   const labelQuestion = bareLabelQuestion || Boolean(labelClause && (
     /\d/u.test(labelClause) && /тонн|\b(?:tonnes?|tons?)\b|吨|достав|delivery|运输费|运费/iu.test(labelClause)
@@ -480,7 +480,7 @@ function saleCalculationRequested(question: string): boolean {
   // A shared prefix such as "what is the revenue" is insufficient when followed
   // by "definition" or "recognition principle"; those need accounting answers.
   const amountQuestion = chineseSaleAmount || labelQuestion || amountNounQuestion
-    || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much\s+(?:(?:net|gross|total)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will))\s+(?:the|my|our)\s+(?:(?:net|gross|total)\s+)?|\s+amount\s+of\s+(?:(?:net|gross|total)\s+)?|\s+(?:(?:net|gross|total)\s+)?))(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does|be)\b))|(?:净收入|销售收入)[^。！？\n]{0,12}多少|多少\s*(?:净收入|销售收入)/iu.test(question);
+    || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much\s+(?:(?:net|gross|total)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will))\s+(?:the|my|our)\s+(?:(?:net|gross|total)\s+)?|\s+amount\s+of\s+(?:(?:net|gross|total)\s+)?|\s+(?:(?:net|gross|total)\s+)?))(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does|be)\b))|(?:净收入|销售收入|总收入)[^。！？\n]{0,12}多少|多少\s*(?:净收入|销售收入|总收入)/iu.test(question);
   const strategyQuestion = /стратег|\bstrateg(?:y|ies)\b|策略/iu.test(question);
   const improvementQuestion = /повыс|увелич|улучш|\b(?:increase|improve|enhance|boost|grow|raise)\b|提高|改善|增加/iu.test(question);
   if (!labelled && !intent.test(question)
@@ -827,8 +827,6 @@ export class StreamingAnswerGate {
   private discardedSaleRenderedFormattingContext = '';
   private discardedSaleDecodedContext = '';
   private discardedSaleDecodedFormattingContext = '';
-  private discardedSaleOriginalJoinedContext = '';
-  private discardedSaleOriginalJoinedFormattingContext = '';
   private discardedSaleMarkdownContext = '';
   private discardedSaleMarkdownFormattingContext = '';
   private discardedSaleMarkdownState = newSaleMarkdownScanState();
@@ -836,6 +834,7 @@ export class StreamingAnswerGate {
   private discardedSaleOriginalMarkdownFormattingContext = '';
   private discardedSaleOriginalMarkdownState = newSaleMarkdownScanState();
   private discardedSaleTagContentFrames = [newSaleTagContentFrame()];
+  private discardedSaleMarkdownTagContentFrames = [newSaleTagContentFrame()];
   private discardedSaleReferenceTail = '';
   private discardedSaleTagState = newSaleTagScanState();
   private discardedSaleDecodedTagState = newSaleTagScanState();
@@ -908,15 +907,15 @@ export class StreamingAnswerGate {
     return { original, joined: saleTextWithoutTagBoundaries(original, this.discardedSaleDecodedTagState, false) };
   }
 
-  private scanOriginalTagContents(text: string): { violation: GateViolation | null; prescription: boolean } {
+  private scanOriginalTagContents(text: string, frames: SaleTagContentFrame[]): { violation: GateViolation | null; prescription: boolean } {
     let prescription = false;
     for (const character of text) {
-      let frame = this.discardedSaleTagContentFrames[this.discardedSaleTagContentFrames.length - 1];
+      let frame = frames[frames.length - 1];
       if (frame.state.inside && character === '<') {
         // Freeze the enclosing prefix while checking the nested header's own contents.
-        if (this.discardedSaleTagContentFrames.length >= 16) return { violation: 'OUTPUT_LIMIT', prescription };
+        if (frames.length >= 16) return { violation: 'OUTPUT_LIMIT', prescription };
         frame = newSaleTagContentFrame();
-        this.discardedSaleTagContentFrames.push(frame);
+        frames.push(frame);
       }
       const normalized = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\s]/u.test(character) ? ' ' : character;
       frame.raw = (frame.raw + normalized).replace(/\s+/gu, ' ').slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
@@ -926,7 +925,7 @@ export class StreamingAnswerGate {
       prescription ||= isUngroundedCropProtectionPrescription(frame.raw) || isUngroundedCropProtectionPrescription(frame.formatted);
       const wasInside = frame.state.inside;
       saleTextWithoutTagBoundaries(character, frame.state, false);
-      if (wasInside && !frame.state.inside && this.discardedSaleTagContentFrames.length > 1) this.discardedSaleTagContentFrames.pop();
+      if (wasInside && !frame.state.inside && frames.length > 1) frames.pop();
     }
     return { violation: null, prescription };
   }
@@ -947,7 +946,7 @@ export class StreamingAnswerGate {
       .replace(/\s+/gu, ' ');
     const normalizedHead = saleTextWithoutTagBoundaries(head, this.discardedSaleTagState, true);
     const decoded = this.discardedSaleDecodedText(head, final);
-    const originalContents = this.scanOriginalTagContents(decoded.original);
+    const originalContents = this.scanOriginalTagContents(decoded.original, this.discardedSaleTagContentFrames);
     if (originalContents.violation) return this.refuse(originalContents.violation);
     // Keep a second bounded view without formatting, including tags split over
     // arbitrarily long transport cuts. A separate raw view preserves real keys
@@ -970,37 +969,26 @@ export class StreamingAnswerGate {
       .replace(/[*_`]/gu, '')
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
       .replace(/\s+/gu, ' ');
-    // Strip innermost tag boundaries in original contents without recursively
-    // deleting an outer quoted header and the sensitive text inside it.
-    const originalJoinedRawBlock = `${this.discardedSaleOriginalJoinedContext}${decoded.original}`
-      .replace(/<[^<>]*>/gu, '')
-      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
-      .replace(/\s+/gu, ' ');
-    const originalJoinedFormattingBlock = `${this.discardedSaleOriginalJoinedFormattingContext}${decoded.original}`
-      .replace(/<[^<>]*>/gu, '')
-      .replace(/[*_`]/gu, '')
-      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
-      .replace(/\s+/gu, ' ');
     const markdownHead = saleMarkdownLinkText(decoded.joined, this.discardedSaleMarkdownState);
     const markdownRawBlock = `${this.discardedSaleMarkdownContext}${markdownHead}`.replace(/\s+/gu, ' ');
     const markdownFormattingBlock = `${this.discardedSaleMarkdownFormattingContext}${markdownHead}`.replace(/[*_`]/gu, '').replace(/\s+/gu, ' ');
     // Parse original Markdown before tag removal too: angle-wrapped URLs can
     // contain apostrophes/parentheses which are not HTML attribute delimiters.
     const originalMarkdownHead = saleMarkdownLinkText(decoded.original, this.discardedSaleOriginalMarkdownState);
+    const composedContents = this.scanOriginalTagContents(originalMarkdownHead, this.discardedSaleMarkdownTagContentFrames);
+    if (composedContents.violation) return this.refuse(composedContents.violation);
     const originalMarkdownRawBlock = (this.discardedSaleOriginalMarkdownContext + originalMarkdownHead).replace(/\s+/gu, ' ');
     const originalMarkdownFormattingBlock = (this.discardedSaleOriginalMarkdownFormattingContext + originalMarkdownHead).replace(/[*_`]/gu, '').replace(/\s+/gu, ' ');
     const views = [rawBlock, formattingBlock, block, decodedRawBlock, decodedFormattingBlock, renderedRawBlock, renderedBlock,
-      originalJoinedRawBlock, originalJoinedFormattingBlock, markdownRawBlock, markdownFormattingBlock, originalMarkdownRawBlock, originalMarkdownFormattingBlock];
+      markdownRawBlock, markdownFormattingBlock, originalMarkdownRawBlock, originalMarkdownFormattingBlock];
     if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return this.refuse('WRITE_CLAIM');
     if (views.some((view) => SECRET_PATTERN.test(view))) return this.refuse('SECRET');
     const flags = ['UNVERIFIED_ECONOMIC_CLAIM_REMOVED'];
-    if (originalContents.prescription || views.some(isUngroundedCropProtectionPrescription)) flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    if (originalContents.prescription || composedContents.prescription || views.some(isUngroundedCropProtectionPrescription)) flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
     this.discardedSaleRenderedContext = renderedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleRenderedFormattingContext = renderedBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleDecodedContext = decodedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleDecodedFormattingContext = decodedFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
-    this.discardedSaleOriginalJoinedContext = originalJoinedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
-    this.discardedSaleOriginalJoinedFormattingContext = originalJoinedFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleMarkdownContext = markdownRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleMarkdownFormattingContext = markdownFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleOriginalMarkdownContext = originalMarkdownRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
@@ -1155,8 +1143,6 @@ export class StreamingAnswerGate {
     this.discardedSaleRenderedFormattingContext = '';
     this.discardedSaleDecodedContext = '';
     this.discardedSaleDecodedFormattingContext = '';
-    this.discardedSaleOriginalJoinedContext = '';
-    this.discardedSaleOriginalJoinedFormattingContext = '';
     this.discardedSaleMarkdownContext = '';
     this.discardedSaleMarkdownFormattingContext = '';
     this.discardedSaleMarkdownState = newSaleMarkdownScanState();
@@ -1164,6 +1150,7 @@ export class StreamingAnswerGate {
     this.discardedSaleOriginalMarkdownFormattingContext = '';
     this.discardedSaleOriginalMarkdownState = newSaleMarkdownScanState();
     this.discardedSaleTagContentFrames = [newSaleTagContentFrame()];
+    this.discardedSaleMarkdownTagContentFrames = [newSaleTagContentFrame()];
     this.discardedSaleReferenceTail = '';
     this.discardedSaleTagState = newSaleTagScanState();
     this.discardedSaleDecodedTagState = newSaleTagScanState();
