@@ -34,6 +34,9 @@ describe('explicit sale proceeds after delivery', () => {
     ['Выручка: 100 тонн по 12000 руб/т. Стоимость доставки 80000 руб.', 112000000],
     ['Delivery cost 80000 RUB. Wheat: 100 tonnes at 12000 RUB/tonne. Calculate revenue.', 112000000],
     ['Продаю пшеницу: 100 тонн по 12000 руб/т. Доставка 80000 руб. Посчитай выручку.', 112000000],
+    ['Revenue: 1 200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.', 1432000000],
+    ['计算净收入：小麦1200吨，价格12000卢布/吨。运输费80000卢布。', 1432000000],
+    ['Revenue: 0.125 tonnes at 100 RUB/tonne. Delivery 0 RUB.', 1250],
   ])('calculates only supplied amounts: %s', (input, proceeds) => {
     const sale = saleProceedsFromUser(String(input));
     expect(sale?.proceedsMinor).toBe(proceeds);
@@ -59,6 +62,11 @@ describe('explicit sale proceeds after delivery', () => {
     'Выручка: 100 тонн по 12000 USD/т. Доставка 80000 руб.',
     'Выручка: 100 тонн по 12 00 руб/т. Доставка 80000 руб.',
     'Выручка: 0,001 тонны по 0,01 руб/т. Доставка 0 руб.',
+    'Выручка: 0.001 тонны по 0,01 руб/т. Доставка 0 руб.',
+    'Revenue: 1,200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.',
+    '计算净收入：小麦1,200吨，价格12000卢布/吨。运输费80000卢布。',
+    'Выручка: 1,200 тонны по 12000 руб/т. Доставка 80000 руб.',
+    'Revenue: 0,125 tonnes at 100 RUB/tonne. Delivery 0 RUB.',
     'Выручка: 999999999 тонн по 999999999 руб/т. Доставка 0 руб.',
     'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб. НДС включён.',
     'Выручка: пшеница 100 тонн. Цена сои 12000 руб/т. Доставка 80000 руб.',
