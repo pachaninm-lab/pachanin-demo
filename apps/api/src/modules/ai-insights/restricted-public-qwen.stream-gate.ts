@@ -102,10 +102,16 @@ export function saleProceedsFromUser(question: string): SaleProceedsInput | null
   const prices = [...question.matchAll(new RegExp(`(${SALE_NUMBER})\\s*${SALE_RUB}\\s*(?:за\\s*тонн[уы]|/\\s*(?:т(?:онн[уы])?|tonnes?|tons?|吨)|per\\s*(?:tonne|ton))(?![\\p{L}])`, 'giu'))];
   const delivery = [...question.matchAll(new RegExp(`(?:доставка|стоимость\\s+доставки|delivery(?:\\s+cost)?|运输费|运费)\\s*[:：]?\\s*(${SALE_NUMBER})\\s*${SALE_RUB}(?![\\p{L}])`, 'giu'))];
   if (quantities.length !== 1 || prices.length !== 1 || delivery.length !== 1) return null;
+  const quantityEnd = quantities[0].index! + quantities[0][0].length;
+  const priceStart = prices[0].index!;
+  // Bind this price to this quantity, rather than borrowing another commodity's quote.
+  if (priceStart <= quantityEnd
+    || !/^\s*(?:по|at|(?:[,，;]\s*)?(?:цена|price|价格)\s*[:：]?)\s*$/iu.test(question.slice(quantityEnd, priceStart))) return null;
+  if (/примерн|около|приблиз|[~≈]|\b(?:about|approx(?:imately)?|roughly)\b|大约|约/iu.test(question)) return null;
   const numbers = [...question.matchAll(new RegExp(SALE_NUMBER, 'gu'))];
   if (numbers.length !== 3) return null;
   const deliveryEnd = delivery[0].index! + delivery[0][0].length;
-  if (/^\s*(?:за|per|\/|每)/iu.test(question.slice(deliveryEnd))) return null;
+  if (/^\s*(?:за|per|each|\/|кажд|ежемесяч|ежеднев|в\s+(?:месяц|день|неделю|год)|monthly|daily|每)/iu.test(question.slice(deliveryEnd))) return null;
   const scaled = (raw: string, decimals: number): bigint | null => {
     const value = raw.replace(/[ \u00a0\u202f]/gu, '').replace(',', '.');
     if (!new RegExp(`^\\d{1,9}(?:\\.\\d{1,${decimals}})?$`, 'u').test(value)) return null;

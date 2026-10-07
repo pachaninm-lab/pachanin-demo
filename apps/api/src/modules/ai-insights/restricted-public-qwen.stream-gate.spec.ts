@@ -58,6 +58,10 @@ describe('explicit sale proceeds after delivery', () => {
     'Выручка: 0,001 тонны по 0,01 руб/т. Доставка 0 руб.',
     'Выручка: 999999999 тонн по 999999999 руб/т. Доставка 0 руб.',
     'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб. НДС включён.',
+    'Выручка: пшеница 100 тонн. Цена сои 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: 100 тонн примерно по 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб в месяц.',
+    'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB each trip.',
   ])('does not infer or round ambiguous inputs: %s', (input) => {
     expect(saleProceedsFromUser(input)).toBeNull();
     expect(economicComparisonFor(input, [{ role: 'assistant', text: question }])).not.toBe('sale_proceeds');
