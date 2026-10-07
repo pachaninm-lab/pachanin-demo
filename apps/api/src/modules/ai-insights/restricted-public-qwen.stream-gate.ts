@@ -280,6 +280,48 @@ function decodeSaleCharacterReferences(text: string, final: boolean): string {
 
 
 
+type SaleTagScanState = { inside: boolean; quote: string; prefix: string; comment: boolean; dashes: number };
+function newSaleTagScanState(): SaleTagScanState {
+  return { inside: false, quote: '', prefix: '', comment: false, dashes: 0 };
+}
+
+/** One bounded lexical pass: quoted attribute delimiters and HTML comments
+ * cannot end a tag early or turn its contents into visible token fragments.
+ */
+function saleTextWithoutTagBoundaries(text: string, state: SaleTagScanState, separate: boolean): string {
+  let result = '';
+  for (const character of text) {
+    if (!state.inside) {
+      if (character !== '<') { result += character; continue; }
+      Object.assign(state, newSaleTagScanState(), { inside: true });
+      if (separate) result += ' ';
+      continue;
+    }
+    if (state.prefix.length < 3) {
+      state.prefix += character;
+      if (state.prefix === '!--') state.comment = true;
+    }
+    if (state.comment) {
+      if (character === '-') { state.dashes = Math.min(2, state.dashes + 1); continue; }
+      if (character === '>' && state.dashes === 2) {
+        Object.assign(state, newSaleTagScanState());
+        if (separate) result += ' ';
+      } else state.dashes = 0;
+      continue;
+    }
+    if (state.quote) {
+      if (character === state.quote) state.quote = '';
+    } else if (character === '"' || character === "'") {
+      state.quote = character;
+    } else if (character === '>') {
+      Object.assign(state, newSaleTagScanState());
+      if (separate) result += ' ';
+    }
+  }
+  return result;
+}
+
+
 export type EconomicComparison = 'storage' | 'transport' | 'payment_timing' | 'sale_proceeds' | 'qualitative';
 export type SaleProceedsInput = Readonly<{
   quantityMilliTonnes: number;
@@ -376,7 +418,12 @@ function saleCalculationRequested(question: string): boolean {
   if (!SALE_PROCEEDS_TOPIC.test(question) && !chineseSaleAmount) return false;
   const intent = /(?<![\p{L}])(?:(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?(?:\s+расч[её]т)?)\s+(?:(?:итоговую|чистую)\s+)?выручк[ауи]|(?:calculate|compute)\s+(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))(?![\p{L}])|计算\s*(?:净收入|销售收入)/iu;
   const labelled = /^\s*(?:(?:расч[её]т\s+)?выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入)\s*[:：]/iu.test(question);
-  const labelQuestion = /^\s*(?:(?:выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))(?=\s*(?:[?？]\s*$|(?:for|from|after|от|за|после)(?![\p{L}])))|(?:净收入|销售收入)\s*[?？]\s*$)/iu.test(question);
+  const bareLabelQuestion = /^\s*(?:выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入)\s*[?？]\s*$/iu.test(question);
+  const labelClause = question.match(/^\s*(?:выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))\s+(?:for|from|after|от|за|после)(?![\p{L}])\s+(.+?)\s*[?？]?\s*$/iu)?.[1] ?? '';
+  const labelQuestion = bareLabelQuestion || Boolean(labelClause && (
+    /\d/u.test(labelClause) && /тонн|\b(?:tonnes?|tons?)\b|吨|достав|delivery|运输费|运费/iu.test(labelClause)
+    || /\b(?:amount|sum)\b|сумм|размер|多少/iu.test(labelClause)
+  ));
   const amountNounQuestion = /\bwhat\s+(?:(?:is|would|will)\s+(?:the|my|our)\s+)?(?:amount|sum)\s+of\s+(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does|be)\b))|(?<![\p{L}])(?:какова|какая|какую)\s+сумм[ау]\s+выручки(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|будет|составит)(?![\p{L}])))/iu.test(question);
   const suppliedInputs = /\d/u.test(question) && /тонн|\b(?:tonnes?|tons?)\b|吨|достав|delivery|运输费|运费/iu.test(question);
   // Numeric sale/delivery inputs require checked calculation or clarification
@@ -732,7 +779,11 @@ export class StreamingAnswerGate {
   private discardedSaleFormattingContext = '';
   private discardedSaleRenderedContext = '';
   private discardedSaleRenderedFormattingContext = '';
-  private discardedSaleInsideTag = false;
+  private discardedSaleDecodedContext = '';
+  private discardedSaleDecodedFormattingContext = '';
+  private discardedSaleReferenceTail = '';
+  private discardedSaleTagState = newSaleTagScanState();
+  private discardedSaleDecodedTagState = newSaleTagScanState();
   private progressiveJoiner = ' ';
   private pendingListMarker = '';
   private readonly authority: string;
@@ -790,30 +841,22 @@ export class StreamingAnswerGate {
     return commit;
   }
 
-  private discardedSaleText(head: string): { separated: string; rendered: string } {
-    let separated = '';
-    let rendered = '';
-    for (const character of head) {
-      if (this.discardedSaleInsideTag) {
-        if (character === '>') {
-          this.discardedSaleInsideTag = false;
-          separated += ' ';
-        }
-      } else if (character === '<') {
-        this.discardedSaleInsideTag = true;
-        separated += ' ';
-      } else {
-        separated += character;
-        rendered += character;
-      }
-    }
-    return { separated, rendered };
+  private discardedSaleDecodedText(head: string, final: boolean): { original: string; joined: string } {
+    const encoded = this.discardedSaleReferenceTail + head;
+    const unfinished = !final
+      ? encoded.match(/&(?:#(?:[xX][0-9a-fA-F]*|[0-9]*)|[A-Za-z][A-Za-z0-9]{0,31})?$/u)?.[0] ?? ''
+      : '';
+    this.discardedSaleReferenceTail = unfinished ? decodeSaleCharacterReferences(unfinished, false) : '';
+    const original = decodeSaleCharacterReferences(encoded.slice(0, encoded.length - unfinished.length), true);
+    // Decode each original character reference once, then scan its tag boundaries.
+    // Retained decoded context is never passed back through the entity decoder.
+    return { original, joined: saleTextWithoutTagBoundaries(original, this.discardedSaleDecodedTagState, false) };
   }
 
   private discardSaleProse(final: boolean): GateCommit {
     const head = this.pending;
     this.pending = '';
-    if (!head && (!final || !this.discardedSaleRenderedContext)) return EMPTY_COMMIT;
+    if (!head && (!final || !(this.discardedSaleRenderedContext || this.discardedSaleDecodedContext || this.discardedSaleReferenceTail))) return EMPTY_COMMIT;
     // Nothing from this mode is published, so even unclosed traces, fences and
     // envelopes can be scanned and discarded immediately. Check original raw
     // contents before any formatting removal; trace text is not a safety bypass.
@@ -824,8 +867,8 @@ export class StreamingAnswerGate {
       .replace(/[*_`]/gu, '')
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
       .replace(/\s+/gu, ' ');
-    const normalized = this.discardedSaleText(head);
-    const normalizedHead = normalized.separated;
+    const normalizedHead = saleTextWithoutTagBoundaries(head, this.discardedSaleTagState, true);
+    const decoded = this.discardedSaleDecodedText(head, final);
     // Keep a second bounded view without formatting, including tags split over
     // arbitrarily long transport cuts. A separate raw view preserves real keys
     // containing underscores; normalization cannot silently erase such tokens.
@@ -833,20 +876,29 @@ export class StreamingAnswerGate {
     // Inline tags can split a rendered token: trans<em>ferred</em> or a secret.
     // Keep actual whitespace but join tag boundaries in this additional view.
     // Do not trim each fragment: trailing spaces remain significant across cuts.
-    const renderedRawBlock = decodeSaleCharacterReferences(`${this.discardedSaleRenderedContext}${normalized.rendered}`, final)
+    const decodedRawBlock = `${this.discardedSaleDecodedContext}${decoded.original}`
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
       .replace(/\s+/gu, ' ');
-    const renderedBlock = decodeSaleCharacterReferences(`${this.discardedSaleRenderedFormattingContext}${normalized.rendered}`, final)
+    const decodedFormattingBlock = `${this.discardedSaleDecodedFormattingContext}${decoded.original}`
       .replace(/[*_`]/gu, '')
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
       .replace(/\s+/gu, ' ');
-    const views = [rawBlock, formattingBlock, block, renderedRawBlock, renderedBlock];
+    const renderedRawBlock = `${this.discardedSaleRenderedContext}${decoded.joined}`
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
+      .replace(/\s+/gu, ' ');
+    const renderedBlock = `${this.discardedSaleRenderedFormattingContext}${decoded.joined}`
+      .replace(/[*_`]/gu, '')
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
+      .replace(/\s+/gu, ' ');
+    const views = [rawBlock, formattingBlock, block, decodedRawBlock, decodedFormattingBlock, renderedRawBlock, renderedBlock];
     if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return this.refuse('WRITE_CLAIM');
     if (views.some((view) => SECRET_PATTERN.test(view))) return this.refuse('SECRET');
     const flags = ['UNVERIFIED_ECONOMIC_CLAIM_REMOVED'];
     if (views.some(isUngroundedCropProtectionPrescription)) flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
     this.discardedSaleRenderedContext = renderedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleRenderedFormattingContext = renderedBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleDecodedContext = decodedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleDecodedFormattingContext = decodedFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleFormattingContext = formattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleRawContext = rawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.progressiveSafetyContext = block.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
@@ -995,7 +1047,11 @@ export class StreamingAnswerGate {
     this.discardedSaleFormattingContext = '';
     this.discardedSaleRenderedContext = '';
     this.discardedSaleRenderedFormattingContext = '';
-    this.discardedSaleInsideTag = false;
+    this.discardedSaleDecodedContext = '';
+    this.discardedSaleDecodedFormattingContext = '';
+    this.discardedSaleReferenceTail = '';
+    this.discardedSaleTagState = newSaleTagScanState();
+    this.discardedSaleDecodedTagState = newSaleTagScanState();
     this.progressiveSafetyContext = '';
     this.partialBlockOpen = false;
     return { text: '', flags: Object.freeze([]), violation };

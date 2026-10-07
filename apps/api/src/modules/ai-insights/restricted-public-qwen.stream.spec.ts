@@ -124,6 +124,7 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     ['Выручка — миллион двести тысяч; после доставки остаётся девятьсот тысяч. ', 'девятьсот тысяч'],
     ['销售收入为一百二十万，扣除运输费后为九十万。', '九十万'],
     ['Harmless'.repeat(2000), 'Harmless'],
+    ['I trans&amp;#102;erred money', 'trans&amp;'],
   ] as const).map(([content, forbidden]) => [mode, content, forbidden] as const)))('appends only checked sale proceeds in %s output: %s', async (mode, content, forbidden) => {
     const question = 'Пшеница: 100 тонн по 12 000 рублей за тонну. Доставка 80 000 рублей. Посчитай итоговую выручку после доставки и покажи расчёт.';
     const raw = request({ question, originalQuestion: question, currentDataRequired: true });
@@ -254,6 +255,16 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     '<think>I trans*ferred* money</think>',
     '<think>I trans<em>ferred</em> money</think>',
     'I trans&#x66;erred money',
+    'I trans&lt;em&gt;ferred&lt;/em&gt; money',
+    'Bearer abcdefgh&lt;em&gt;ijklmnop&lt;/em&gt;12345',
+    'I trans&#60;em&#62;&#42;ferred&#42;&#60;/em&#62; money',
+    'sk-&#95;&lt;em&gt;' + '&#95;'.repeat(39) + '&lt;/em&gt;',
+    'I trans<em title="a > b">ferred</em> money',
+    'I trans&lt;!-- \u0027 > --&gt;ferred money',
+    'Bearer abcdefgh<!-- \u0027 > -->ijklmnop12345',
+    'Bearer abcdefgh<em title="a > b">ijklmnop</em>12345',
+    '<think I trans&#102;erred money',
+    '<think Bearer abcdefgh&#105;jklmnop12345',
     'Bearer abcdefgh&#x69;jklmnop12345',
     'I trans&#102erred money',
     'Bearer&Tab;abcdefghijklmnop12345',
@@ -292,6 +303,9 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     'What is the revenue definition?',
     'What is the revenue recognition principle?',
     'Revenue recognition principle for 100 tonnes of wheat?',
+    'Revenue from crop diversification?',
+    'Revenue after tax definition?',
+    'Net proceeds from crop rotation benefits?',
     'Выручка считается доходом?',
     'Какая выручка считается доходом?',
   ].map((question) => [mode, question] as const)))('retains accounting explanations in %s output: %s', async (mode, question) => {

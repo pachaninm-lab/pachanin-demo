@@ -186,6 +186,9 @@ describe('explicit sale proceeds after delivery', () => {
     'What is the revenue definition?',
     'What is the revenue recognition principle?',
     'Revenue recognition principle for 100 tonnes of wheat?',
+    'Revenue from crop diversification?',
+    'Revenue after tax definition?',
+    'Net proceeds from crop rotation benefits?',
     'Выручка считается доходом?',
     'Какая выручка считается доходом?',
     'Каков размер выручки по определению бухгалтерского учёта?',
@@ -252,6 +255,16 @@ describe('explicit sale proceeds after delivery', () => {
     ['<think>I trans*ferred* money</think>', 'WRITE_CLAIM'],
     ['<think>I trans<em>ferred</em> money</think>', 'WRITE_CLAIM'],
     ['I trans&#x66;erred money', 'WRITE_CLAIM'],
+    ['I trans&lt;em&gt;ferred&lt;/em&gt; money', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh&lt;em&gt;ijklmnop&lt;/em&gt;12345', 'SECRET'],
+    ['I trans&#60;em&#62;&#42;ferred&#42;&#60;/em&#62; money', 'WRITE_CLAIM'],
+    ['sk-&#95;&lt;em&gt;' + '&#95;'.repeat(39) + '&lt;/em&gt;', 'SECRET'],
+    ['I trans<em title="a > b">ferred</em> money', 'WRITE_CLAIM'],
+    ['I trans&lt;!-- \u0027 > --&gt;ferred money', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh<!-- \u0027 > -->ijklmnop12345', 'SECRET'],
+    ['Bearer abcdefgh<em title="a > b">ijklmnop</em>12345', 'SECRET'],
+    ['<think I trans&#102;erred money', 'WRITE_CLAIM'],
+    ['<think Bearer abcdefgh&#105;jklmnop12345', 'SECRET'],
     ['Bearer abcdefgh&#x69;jklmnop12345', 'SECRET'],
     ['I trans&#102;erred money', 'WRITE_CLAIM'],
     ['I trans&#102erred money', 'WRITE_CLAIM'],
@@ -278,6 +291,14 @@ describe('explicit sale proceeds after delivery', () => {
     for (let index = 0; index < claim.length; index += size) gate.push(claim.slice(index, index + size));
     gate.flush();
     expect(gate.violation).toBe(violation);
+    expect(gate.emitted).toBe('');
+  });
+  it.each([1, 7, 511, 5000])('does not repeatedly decode literal escaped character references, chunk %i', (size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    const prose = 'I trans&amp;#102;erred money';
+    for (let index = 0; index < prose.length; index += size) gate.push(prose.slice(index, index + size));
+    expect(gate.flush().violation).toBeNull();
+    expect(gate.violation).toBeNull();
     expect(gate.emitted).toBe('');
   });
   it.each([1, 7, 511, 5000])('decodes a trailing semicolonless reference at flush, chunk %i', (size) => {
