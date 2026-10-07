@@ -3,6 +3,9 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/request-user';
 import { ElevatorService } from './elevator.service';
+import { CorrectWeighingActDto } from './dto/correct-weighing-act.dto';
+import { CreateWeighingActDto } from './dto/create-weighing-act.dto';
+import { DisputeActDto } from './dto/dispute-act.dto';
 
 @Controller('api/elevator')
 @UseGuards(JwtAuthGuard)
@@ -10,7 +13,7 @@ export class ElevatorController {
   constructor(private readonly elevator: ElevatorService) {}
 
   @Post('acts')
-  createAct(@Body() body: any, @CurrentUser() user: RequestUser) {
+  createAct(@Body() body: CreateWeighingActDto, @CurrentUser() user: RequestUser) {
     return this.elevator.createWeighingAct(body, user);
   }
 
@@ -40,12 +43,12 @@ export class ElevatorController {
   }
 
   @Patch('acts/:id/dispute')
-  disputeAct(@Param('id') id: string, @Body() body: { reason: string }, @CurrentUser() user: RequestUser) {
+  disputeAct(@Param('id') id: string, @Body() body: DisputeActDto, @CurrentUser() user: RequestUser) {
     return this.elevator.disputeAct(id, body.reason, user);
   }
 
   @Patch('acts/:id/correct')
-  correctAct(@Param('id') id: string, @Body() body: any, @CurrentUser() user: RequestUser) {
+  correctAct(@Param('id') id: string, @Body() body: CorrectWeighingActDto, @CurrentUser() user: RequestUser) {
     return this.elevator.correctAct(id, body, user);
   }
 }

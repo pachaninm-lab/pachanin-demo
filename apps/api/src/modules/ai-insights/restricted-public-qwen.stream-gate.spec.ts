@@ -31,6 +31,8 @@ describe('explicit sale proceeds after delivery', () => {
     ['Выручка: 100 тонн по 12000 руб/т. Доставка 0 руб.', 120000000],
     ['Выручка: 1 тонна по 100 руб/т. Доставка 150 руб.', -5000],
     ['Выручка: 100 тонн по 12\u00a0000 руб/т. Доставка 80\u202f000 руб.', 112000000],
+    ['Выручка: 100 тонн по 12000 руб/т. Стоимость доставки 80000 руб.', 112000000],
+    ['Delivery cost 80000 RUB. Wheat: 100 tonnes at 12000 RUB/tonne. Calculate revenue.', 112000000],
   ])('calculates only supplied amounts: %s', (input, proceeds) => {
     const sale = saleProceedsFromUser(String(input));
     expect(sale?.proceedsMinor).toBe(proceeds);
@@ -62,6 +64,23 @@ describe('explicit sale proceeds after delivery', () => {
     'Выручка: 100 тонн примерно по 12000 руб/т. Доставка 80000 руб.',
     'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб в месяц.',
     'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB each trip.',
+    'Посчитай выручку: стоимость хранения 100 тонн по 12000 руб/т и доставка 80000 руб.',
+    'Выручка: себестоимость 100 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: тариф на сушку 100 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Revenue: storage costs for 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.',
+    'Revenue: procurement of 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.',
+    'Выручка: покупаю 100 тонн по 12000 руб/т. Доставка 80000 руб.',
+    '计算净收入：仓储100吨，价格12000卢布/吨。运输费80000卢布。',
+    'Выручка: 100 тонн по 12000 руб/т. За каждый рейс доставка 80000 руб.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб., за каждый рейс.',
+    'Выручка: 100 тонн по 12000 руб/т. Ежемесячная доставка 80000 руб.',
+    'Выручка: 100 тонн по 12000 руб/т. За один рейс доставка 80000 руб.',
+    'Revenue: 100 tonnes at 12000 RUB/tonne. Each trip: delivery 80000 RUB.',
+    'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB, each trip.',
+    'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB. Per trip.',
+    'Revenue: 100 tonnes at 12000 RUB/tonne. Monthly delivery 80000 RUB.',
+    '计算净收入：小麦100吨，价格12000卢布/吨。每趟运输费80000卢布。',
+    '计算净收入：小麦100吨，价格12000卢布/吨。运输费80000卢布，每趟。',
   ])('does not infer or round ambiguous inputs: %s', (input) => {
     expect(saleProceedsFromUser(input)).toBeNull();
     expect(economicComparisonFor(input, [{ role: 'assistant', text: question }])).not.toBe('sale_proceeds');

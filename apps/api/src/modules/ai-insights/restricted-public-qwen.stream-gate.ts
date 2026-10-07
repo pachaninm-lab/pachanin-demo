@@ -102,6 +102,11 @@ export function saleProceedsFromUser(question: string): SaleProceedsInput | null
   const prices = [...question.matchAll(new RegExp(`(${SALE_NUMBER})\\s*${SALE_RUB}\\s*(?:за\\s*тонн[уы]|/\\s*(?:т(?:онн[уы])?|tonnes?|tons?|吨)|per\\s*(?:tonne|ton))(?![\\p{L}])`, 'giu'))];
   const delivery = [...question.matchAll(new RegExp(`(?:доставка|стоимость\\s+доставки|delivery(?:\\s+cost)?|运输费|运费)\\s*[:：]?\\s*(${SALE_NUMBER})\\s*${SALE_RUB}(?![\\p{L}])`, 'giu'))];
   if (quantities.length !== 1 || prices.length !== 1 || delivery.length !== 1) return null;
+  const deliveryEnd = delivery[0].index! + delivery[0][0].length;
+  // Only the matched delivery charge is a cost input. Other cost-qualified
+  // quantities or quotes must not be promoted to commodity sale prices.
+  const saleContext = question.slice(0, delivery[0].index!) + question.slice(deliveryEnd);
+  if (/стоимост|себестоим|затрат|расход|хранени|тариф|погруз|перевоз|аренд|сушк|очистк|закуп|покуп|приобр|плата\s+за|\b(?:costs?|expenses?|storage|freight|transport(?:ation)?|haulage|loading|drying|rental|processing|purchase|buy(?:ing)?|procurement)\b|成本|费用|仓储|储存|装卸|租|烘干|采购/iu.test(saleContext)) return null;
   const quantityEnd = quantities[0].index! + quantities[0][0].length;
   const priceStart = prices[0].index!;
   // Bind this price to this quantity, rather than borrowing another commodity's quote.
@@ -110,8 +115,11 @@ export function saleProceedsFromUser(question: string): SaleProceedsInput | null
   if (/примерн|около|приблиз|[~≈]|\b(?:about|approx(?:imately)?|roughly)\b|大约|约/iu.test(question)) return null;
   const numbers = [...question.matchAll(new RegExp(SALE_NUMBER, 'gu'))];
   if (numbers.length !== 3) return null;
-  const deliveryEnd = delivery[0].index! + delivery[0][0].length;
-  if (/^\s*(?:за|per|each|\/|кажд|ежемесяч|ежеднев|в\s+(?:месяц|день|неделю|год)|monthly|daily|每)/iu.test(question.slice(deliveryEnd))) return null;
+  // Remove the explicit unit sale quote; every remaining recurring/per-unit
+  // qualifier needs a total charge, whether before or after delivery and
+  // whether separated from its amount by punctuation or a sentence boundary.
+  const deliveryContext = question.slice(0, priceStart) + question.slice(priceStart + prices[0][0].length);
+  if (/кажд|ежемесяч|ежеднев|еженедел|ежегод|\b(?:per|each|monthly|daily|weekly|yearly)\b|в\s+(?:месяц|день|неделю|год)|за\s+(?:один\s+)?(?:рейс|тонн|месяц|день|неделю|год)|на\s+(?:рейс|месяц)|\/|每|按(?:趟|车|月|天)/iu.test(deliveryContext)) return null;
   const scaled = (raw: string, decimals: number): bigint | null => {
     const value = raw.replace(/[ \u00a0\u202f]/gu, '').replace(',', '.');
     if (!new RegExp(`^\\d{1,9}(?:\\.\\d{1,${decimals}})?$`, 'u').test(value)) return null;
