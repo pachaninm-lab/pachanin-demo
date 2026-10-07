@@ -2424,7 +2424,7 @@ test('security remediation pins the three affected dependency families', () => {
   const root = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   const web = JSON.parse(fs.readFileSync('apps/web/package.json', 'utf8'));
   assert.equal(root.pnpm.overrides.multer, '2.3.0');
-  assert.equal(root.pnpm.overrides.sharp, '0.35.4');
+  assert.equal(root.pnpm.overrides.sharp, '0.35.5');
   assert.equal(web.dependencies.next, '15.5.24');
 });
 
