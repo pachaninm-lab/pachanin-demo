@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
@@ -118,6 +118,17 @@ export class FactoringService implements OnModuleInit, OnModuleDestroy {
     }
     if (!ALLOWED_FACTORS.includes(params.factorName)) {
       throw new ForbiddenException(`Факторинговая компания "${params.factorName}" не подключена`);
+    }
+    // Отказывает и сервис, а не только граница: вызывающий в обход границы не
+    // должен уметь получить одобренную заявку без суммы. Замер показал, что при
+    // рейтинге автоодобрения статус APPROVED выставлялся на любом входе, включая
+    // NaN и опущенное поле, — и сумма уходила в ответ как `null`.
+    const requested = params.requestedAmountKopecks;
+    if (typeof requested !== 'number' || !Number.isInteger(requested)) {
+      throw new BadRequestException('Запрашиваемая сумма должна быть целым числом копеек.');
+    }
+    if (requested < 1 || requested > Number.MAX_SAFE_INTEGER) {
+      throw new BadRequestException('Запрашиваемая сумма должна быть положительной и в пределах точного целочисленного представления.');
     }
 
     const score = await this.scoreOrganization(params.organizationId, user);
