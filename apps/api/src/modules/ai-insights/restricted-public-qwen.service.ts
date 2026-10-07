@@ -396,7 +396,11 @@ export class RestrictedPublicQwenService {
         maxTokens: number,
       ): AsyncGenerator<PublicStreamEvent, void, undefined> {
         const attempt = candidateTrace?.beginAttempt(maxTokens) ?? null;
-        for await (const delta of callProviderStream(endpoint, config, turn, maxTokens, controller.signal)) {
+        let receivedStringContent = false;
+        let receivedFinishReason = false;
+        for await (const delta of callProviderStream(endpoint, config, turn, maxTokens, controller.signal, request.economicComparison === 'sale_proceeds')) {
+          if (delta.receivedStringContent) receivedStringContent = true;
+          if (delta.finishReason !== null) receivedFinishReason = true;
           candidateTrace?.observe(attempt, delta.finishReason, delta.promptTokens, delta.completionTokens);
           if (delta.finishReason !== null) outcome.finishReason = delta.finishReason;
           if (delta.promptTokens !== null) outcome.promptTokens = sumNullable(outcome.promptTokens, delta.promptTokens);
@@ -416,6 +420,10 @@ export class RestrictedPublicQwenService {
           }
           safetyFlags.push(...commit.flags);
           if (commit.text) yield { type: 'delta', text: commit.text };
+        }
+        if (request.economicComparison === 'sale_proceeds'
+          && (!receivedStringContent || !receivedFinishReason)) {
+          throw new ServiceUnavailableException('Restricted public model returned a malformed completion.');
         }
       };
 
@@ -528,11 +536,13 @@ async function* callProviderStream(
   messages: readonly ChatMessage[],
   maxTokens: number,
   signal: AbortSignal,
+  checkedSale = false,
 ): AsyncGenerator<{
   content: string;
   finishReason: ProviderFinishReason | null;
   promptTokens: number | null;
   completionTokens: number | null;
+  receivedStringContent?: boolean;
 }, void, undefined> {
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -561,6 +571,7 @@ async function* callProviderStream(
   const reader = response.body.getReader();
   const parser = new ProviderStreamParser();
   let bytes = 0;
+  let reportedStringContent = false;
 
   try {
     for (;;) {
@@ -571,12 +582,18 @@ async function* callProviderStream(
         throw new ServiceUnavailableException('Restricted public model response exceeded the byte limit.');
       }
       const delta = parser.push(value);
-      if (delta.content || delta.finishReason !== null || delta.promptTokens !== null || delta.completionTokens !== null) {
-        yield delta;
+      const receivedStringContent = checkedSale && parser.receivedStringContent;
+      if (delta.content || delta.finishReason !== null || delta.promptTokens !== null || delta.completionTokens !== null
+        || (receivedStringContent && !reportedStringContent)) {
+        yield checkedSale ? { ...delta, receivedStringContent } : delta;
+        reportedStringContent ||= receivedStringContent;
       }
     }
     const tail = parser.end();
-    if (tail.content || tail.finishReason !== null) yield tail;
+    const receivedStringContent = checkedSale && parser.receivedStringContent;
+    if (tail.content || tail.finishReason !== null || (receivedStringContent && !reportedStringContent)) {
+      yield checkedSale ? { ...tail, receivedStringContent } : tail;
+    }
   } finally {
     await reader.cancel().catch(() => undefined);
   }
@@ -626,7 +643,7 @@ async function callProvider(
   const first = asRecord(choices[0]);
   const message = asRecord(first?.message);
   const content = cleanMultilineText(message?.content, 12_000);
-  if ((!content && !checkedSale) || (checkedSale && typeof message?.content !== 'string')) throw new ServiceUnavailableException('Restricted public model returned an empty answer.');
+  if ((!content && !checkedSale) || (checkedSale && (typeof message?.content !== 'string' || typeof first?.finish_reason !== 'string' || !first.finish_reason))) throw new ServiceUnavailableException('Restricted public model returned an empty answer.');
   const finishReason = first?.finish_reason === 'stop' ? 'stop' : first?.finish_reason === 'length' ? 'length' : 'other';
   const usage = asRecord(row?.usage);
   return Object.freeze({

@@ -83,6 +83,11 @@ describe('explicit sale proceeds after delivery', () => {
     'Revenue: 100 tons at 12000 RUB/tonne. Delivery 80000 RUB.',
     'How much revenue: 1,200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB?',
     'How much revenue from 100 tonnes?',
+    'How much revenue?',
+    'What is the revenue?',
+    'Сколько выручки?',
+    '销售收入是多少？',
+
     'How much revenue would 100 tonnes of wheat generate?',
     'Сколько выручки принесут 100 тонн пшеницы?',
     '100吨小麦能有多少销售收入？',
@@ -158,6 +163,12 @@ describe('explicit sale proceeds after delivery', () => {
     'Как повысить выручку хозяйства, которое выращивает 100 тонн пшеницы?',
     'How can I increase revenue from 100 tonnes of wheat?',
     'What strategies can increase revenue from 100 tonnes of wheat?',
+    'What are the revenue strategies for 100 tonnes of wheat?',
+    'What would improve revenue from 100 tonnes of wheat?',
+    'Какая стратегия увеличит выручку от 100 тонн пшеницы?',
+    'How can I improve revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?',
+    'What is revenue?',
+
     '如何提高100吨小麦的销售收入？',
     'Как рассчитать выручку хозяйства?',
     'How do I calculate revenue?',
@@ -216,6 +227,9 @@ describe('explicit sale proceeds after delivery', () => {
   });
   it.each([
     ['<think>I transferred money</think>', 'WRITE_CLAIM'],
+    ['<think I trans**ferred** money', 'WRITE_CLAIM'],
+    ['<think Bearer **abcdefghijklmnop12345**', 'SECRET'],
+
     ['<analysis>Bearer abcdefghijklmnop12345</analysis>', 'SECRET'],
     ['I <tag ' + 'x'.repeat(5000) + '>transferred money', 'WRITE_CLAIM'],
   ].flatMap(([claim, violation]) => [1, 7, 511, 5000].map((size) => [claim, violation, size] as const)))('validates original trace/markup contents before discard: %s, chunk %i', (claim, violation, size) => {

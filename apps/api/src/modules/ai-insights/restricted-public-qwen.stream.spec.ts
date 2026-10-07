@@ -167,6 +167,11 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     'Revenue: 100 tons at 12000 RUB/tonne. Delivery 80000 RUB.',
     'How much revenue: 1,200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB?',
     'How much revenue from 100 tonnes?',
+    'How much revenue?',
+    'What is the revenue?',
+    'Сколько выручки?',
+    '销售收入是多少？',
+
     'How much revenue would 100 tonnes of wheat generate?',
     'Сколько выручки принесут 100 тонн пшеницы?',
     '100吨小麦能有多少销售收入？',
@@ -283,6 +288,34 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     expect(fetchMock.mock.calls).toHaveLength(1);
     expect(refused).toBe(true);
     expect(done).toBe(false);
+  });
+  it.each([
+    'data: [DONE]\n\n',
+    'data: {invalid-json}\n\ndata: [DONE]\n\n',
+    'data: {"usage":{"completion_tokens":0}}\n\ndata: [DONE]\n\n',
+    'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n',
+    'data: {"choices":[{"delta":{"content":""}}]}\n\ndata: [DONE]\n\n',
+  ])('refuses malformed empty sale SSE instead of sealing the checked copy: %s', async (body) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    const raw = request({ question, originalQuestion: question, locale: 'en' });
+    const fetchMock = jest.fn().mockResolvedValue(new Response(body, { headers: { 'Content-Type': 'text/event-stream' } }));
+    global.fetch = fetchMock;
+    let refused = false;
+    let done = false;
+    try { for await (const event of service.generateStream(raw)) if (event.type === 'done') done = true; } catch { refused = true; }
+    expect(fetchMock.mock.calls).toHaveLength(1);
+    expect(refused).toBe(true);
+    expect(done).toBe(false);
+  });
+  it.each([
+    { choices: [{ message: {}, finish_reason: 'stop' }] },
+    { choices: [{ message: { content: '' } }] },
+  ])('refuses malformed empty buffered sale completion', async (payload) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify(payload)));
+    let refused = false;
+    try { await service.generate(request({ question, originalQuestion: question, locale: 'en' })); } catch { refused = true; }
+    expect(refused).toBe(true);
   });
   it.each(['stream', 'buffered'])('screens economic conclusions and checks user arithmetic in %s output', async (mode) => {
     const question = 'Срок хранения два месяца. Насколько должна вырасти цена, чтобы покрыть только хранение?';

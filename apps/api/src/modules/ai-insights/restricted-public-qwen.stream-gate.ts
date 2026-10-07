@@ -178,9 +178,13 @@ function saleCalculationRequested(question: string): boolean {
   // regardless of whether the question is imperative or interrogative. A
   // contextual quantity alone does not suppress conceptual model answers.
   const monetaryInputs = /руб|RUB|USD|EUR|GBP|CNY|₽|[$€£]|卢布|美元|欧元|юань|доллар|евро/iu.test(question);
-  const amountQuestion = /(?<![\p{L}])(?:сколько|какая|какова|какую)[^.!?。！？\n]{0,40}выручк|выручк[ауи][^.!?。！？\n]{0,40}(?:сколько|какая|какова)|\bhow\s+much[^.!?。！？\n]{0,40}(?:revenue|proceeds)\b|\bwhat(?:(?:'s|\s+(?:is|are|would|will|was|were))[^.!?。！？\n]{0,40}|\s+(?:(?:net|gross|total)\s+)?)(?:revenue|proceeds)\b|(?:净收入|销售收入)[^。！？\n]{0,40}多少|多少[^。！？\n]{0,40}(?:净收入|销售收入)/iu.test(question);
+  const amountQuestion = /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи])|\bhow\s+much\s+(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b|\bwhat(?:(?:'s|\s+(?:is|are|was|were|would|will))\s+(?:the|my|our)\s+(?:(?:net|gross|total)\s+)?|\s+(?:(?:net|gross|total)\s+)?)(?:revenue|proceeds)\b|(?:净收入|销售收入)[^。！？\n]{0,12}多少|多少\s*(?:净收入|销售收入)/iu.test(question);
+  const strategyQuestion = /стратег|\bstrateg(?:y|ies)\b|策略/iu.test(question);
+  const improvementQuestion = /повыс|увелич|улучш|\b(?:increase|improve|enhance|boost|grow|raise)\b|提高|改善|增加/iu.test(question);
+  if (!labelled && !intent.test(question)
+    && (strategyQuestion || (improvementQuestion && !amountQuestion))) return false;
   const bareRequest = new RegExp(`^\\s*(?:(?:пожалуйста|please)[,:]?\\s+|请\\s*)?(?:${intent.source})(?:\\s+(?:после\\s+доставки|after\\s+delivery))?\\s*[.!?。！？]*$`, 'iu').test(question);
-  return (suppliedInputs && (monetaryInputs || amountQuestion || labelled || intent.test(question))) || bareRequest;
+  return amountQuestion || (suppliedInputs && (monetaryInputs || labelled || intent.test(question))) || bareRequest;
 }
 export type PaymentTimingInput = Readonly<{
   immediatePriceMinor: number;
@@ -516,6 +520,7 @@ export class StreamingAnswerGate {
   private partialBlockOpen = false;
   private progressiveSafetyContext = '';
   private discardedSaleRawContext = '';
+  private discardedSaleFormattingContext = '';
   private discardedSaleInsideTag = false;
   private progressiveJoiner = ' ';
   private pendingListMarker = '';
@@ -600,15 +605,22 @@ export class StreamingAnswerGate {
     // envelopes can be scanned and discarded immediately. Check original raw
     // contents before any formatting removal; trace text is not a safety bypass.
     const rawBlock = `${this.discardedSaleRawContext}${head}`.replace(/\s+/gu, ' ');
+    // Also normalize formatting within original tag contents, including an
+    // unclosed tag. The tag-stripped view alone cannot inspect that remainder.
+    const formattingBlock = `${this.discardedSaleFormattingContext}${head}`
+      .replace(/\*\*|__|`/gu, '')
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
+      .replace(/\s+/gu, ' ');
     const normalizedHead = this.discardedSaleText(head);
     // Keep a second bounded view without formatting, including tags split over
     // arbitrarily long transport cuts. A separate raw view preserves real keys
     // containing underscores; normalization cannot silently erase such tokens.
     const block = sanitizeAnswer(`${this.progressiveSafetyContext}${this.progressiveJoiner}${normalizedHead}`.replace(/\*\*|__|`/gu, ''));
-    if (WRITE_CLAIM_PATTERN.test(rawBlock) || WRITE_CLAIM_PATTERN.test(block)) return this.refuse('WRITE_CLAIM');
-    if (SECRET_PATTERN.test(rawBlock) || SECRET_PATTERN.test(block)) return this.refuse('SECRET');
+    if (WRITE_CLAIM_PATTERN.test(rawBlock) || WRITE_CLAIM_PATTERN.test(formattingBlock) || WRITE_CLAIM_PATTERN.test(block)) return this.refuse('WRITE_CLAIM');
+    if (SECRET_PATTERN.test(rawBlock) || SECRET_PATTERN.test(formattingBlock) || SECRET_PATTERN.test(block)) return this.refuse('SECRET');
     const flags = ['UNVERIFIED_ECONOMIC_CLAIM_REMOVED'];
-    if (isUngroundedCropProtectionPrescription(rawBlock) || isUngroundedCropProtectionPrescription(block)) flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    if (isUngroundedCropProtectionPrescription(rawBlock) || isUngroundedCropProtectionPrescription(formattingBlock) || isUngroundedCropProtectionPrescription(block)) flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    this.discardedSaleFormattingContext = formattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleRawContext = rawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.progressiveSafetyContext = block.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     if (normalizedHead) this.progressiveJoiner = /\s$/u.test(normalizedHead) ? ' ' : '';
@@ -753,6 +765,7 @@ export class StreamingAnswerGate {
     this.violationState = violation;
     this.pending = '';
     this.discardedSaleRawContext = '';
+    this.discardedSaleFormattingContext = '';
     this.discardedSaleInsideTag = false;
     this.progressiveSafetyContext = '';
     this.partialBlockOpen = false;
@@ -798,6 +811,11 @@ export class ProviderStreamParser {
   private buffer = '';
   private readonly decoder = new TextDecoder('utf-8');
   private doneState = false;
+  private stringContentReceived = false;
+
+  get receivedStringContent(): boolean {
+    return this.stringContentReceived;
+  }
 
   get finished(): boolean {
     return this.doneState;
@@ -847,6 +865,7 @@ export class ProviderStreamParser {
       const row = asRecord(parsed);
       const choice = asRecord(Array.isArray(row?.choices) ? row.choices[0] : null);
       const delta = asRecord(choice?.delta);
+      if (typeof delta?.content === 'string') this.stringContentReceived = true;
       const piece = typeof delta?.content === 'string' ? delta.content : '';
       if (piece) content += piece;
 
