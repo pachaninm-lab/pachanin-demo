@@ -37,6 +37,10 @@ describe('explicit sale proceeds after delivery', () => {
     ['Revenue: 1 200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.', 1432000000],
     ['计算净收入：小麦1200吨，价格12000卢布/吨。运输费80000卢布。', 1432000000],
     ['Revenue: 0.125 tonnes at 100 RUB/tonne. Delivery 0 RUB.', 1250],
+    ['Revenue: wheat delivery 80000 RUB. Wheat 100 tonnes at 12000 RUB/tonne.', 112000000],
+    ['Выручка: пшеница доставка 80000 руб. Пшеница 100 тонн по 12000 руб/т.', 112000000],
+    ['Revenue: corn maize 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.', 112000000],
+    ['Revenue: corn 玉米 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.', 112000000],
   ])('calculates only supplied amounts: %s', (input, proceeds) => {
     const sale = saleProceedsFromUser(String(input));
     expect(sale?.proceedsMinor).toBe(proceeds);
@@ -67,6 +71,15 @@ describe('explicit sale proceeds after delivery', () => {
     '计算净收入：小麦1,200吨，价格12000卢布/吨。运输费80000卢布。',
     'Выручка: 1,200 тонны по 12000 руб/т. Доставка 80000 руб.',
     'Revenue: 0,125 tonnes at 100 RUB/tonne. Delivery 0 RUB.',
+    'Revenue: corn delivery 80000 RUB. Wheat 100 tonnes at 12000 RUB/tonne.',
+    'Revenue: wheat 100 tonnes at 12000 RUB/tonne. Corn delivery 80000 RUB.',
+    'Выручка: кукуруза доставка 80000 руб. Пшеница 100 тонн по 12000 руб/т.',
+    'Выручка: пшеница 100 тонн по 12000 руб/т. Рис доставка 80000 руб.',
+    '计算净收入：玉米运输费80000卢布。小麦100吨，价格12000卢布/吨。',
+    'Revenue: wheat 100 tonnes at 12000 RUB/tonne. Soy delivery 80000 RUB.',
+    'Revenue: barley 100 tonnes at 12000 RUB/tonne. Rye delivery 80000 RUB.',
+    'Revenue: rice 100 tonnes at 12000 RUB/tonne. Canola delivery 80000 RUB.',
+    'Revenue: sunflower 100 tonnes at 12000 RUB/tonne. Corn delivery 80000 RUB.',
     'Выручка: 999999999 тонн по 999999999 руб/т. Доставка 0 руб.',
     'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб. НДС включён.',
     'Выручка: пшеница 100 тонн. Цена сои 12000 руб/т. Доставка 80000 руб.',

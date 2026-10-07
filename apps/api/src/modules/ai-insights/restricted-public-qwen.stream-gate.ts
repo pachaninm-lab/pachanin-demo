@@ -125,6 +125,19 @@ export function saleProceedsFromUser(question: string): SaleProceedsInput | null
   const context = question.replace(quoteSpan, '').replace(delivery[0][0], '');
   const saleWords = /(?<![\p{L}])(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?|итогов(?:ую|ая|ой)|чистую|выручк[ауи]|после\s+доставки|от\s+(?:пере)?продажи|расч[её]т|продаю|продам|прода[её]м|и|пшениц[ауые]|кукуруз[ауы]|ячмен[ьия]|рожь|рис|рапс|со[яюи]|подсолнечник[ау]?|calculate|compute|show|total|net|revenue|proceeds|after\s+delivery|calculation|result|sell|selling|and|wheat|corn|maize|barley|rye|rice|canola|soy(?:beans?)?|sunflower)(?![\p{L}])|小麦|玉米|大麦|黑麦|水稻|油菜|大豆|向日葵|计算|净收入|销售收入|总收入|结果|展示|出售|卖出/giu;
   if (!/^[\s:：,.!？?。！;，]*$/u.test(context.replace(saleWords, ''))) return null;
+  // A delivery charge for one crop cannot be subtracted from another crop's
+  // sale. Repeated names/translations of the same crop are one identity.
+  const cropKinds = [
+    /(?<![\p{L}])(?:пшениц[ауые]|wheat)(?![\p{L}])|小麦/iu,
+    /(?<![\p{L}])(?:кукуруз[ауы]|corn|maize)(?![\p{L}])|玉米/iu,
+    /(?<![\p{L}])(?:ячмен[ьия]|barley)(?![\p{L}])|大麦/iu,
+    /(?<![\p{L}])(?:рожь|rye)(?![\p{L}])|黑麦/iu,
+    /(?<![\p{L}])(?:рис|rice)(?![\p{L}])|水稻/iu,
+    /(?<![\p{L}])(?:рапс|canola)(?![\p{L}])|油菜/iu,
+    /(?<![\p{L}])(?:со[яюи]|soy(?:beans?)?)(?![\p{L}])|大豆/iu,
+    /(?<![\p{L}])(?:подсолнечник[ау]?|sunflower)(?![\p{L}])|向日葵/iu,
+  ];
+  if (cropKinds.filter((crop) => crop.test(question)).length > 1) return null;
   if (/примерн|около|приблиз|[~≈]|\b(?:about|approx(?:imately)?|roughly)\b|大约|约/iu.test(question)) return null;
   const numbers = [...question.matchAll(new RegExp(SALE_NUMBER, 'gu'))];
   if (numbers.length !== 3) return null;
