@@ -1912,6 +1912,11 @@
     "fix/gekta-history-lifecycle-5818": [
       "apps/api/src/modules/gekta/gekta-workspace.service.ts",
       "apps/api/src/modules/gekta/gekta-workspace.spec.ts"
+    ],
+    "governance/trusted-concurrent-scope-routing-guard-20261007": [
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml"
     ]
   },
   "currentAcceptance": [
@@ -5469,6 +5474,30 @@
         "CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
       ],
       "teamHubDependency": "#5469 DECISION REQUEST / CLAIM 2026-10-07 (PC-CROP executor with the Codex/Gekta lane as independent reviewer); admission #5817 thread 4206221770"
+    },
+    "trusted-concurrent-scope-routing-guard-ref-20261007": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "Admit one new dedicated three-path guard ref for the already recorded trusted-concurrent-scope routing guard step, because the ref named in purpose record trusted-concurrent-scope-routing-guard-purpose-20261007 can no longer be renewed: the accepted guard validates every change on governance/pc-crop-post-registration-progress-scope-4997 against the fixed Deal execution blobs of deal-execution-route-guard-purpose-20261001 (measured: running the accepted main guard on the finished guard change from that branch fails with DEAL_ROUTE_PIN_OR_MODE:scripts/p7-autopilot-guard.sh). This record admits no source branch, no state change other than this record and one three-path vector, and no weakening of any existing route.",
+      "authorityBaseExactMain": "dad76750509728e6f8fe1a8657c07f08749705b2",
+      "implementationBranch": "governance/trusted-concurrent-scope-routing-guard-20261007",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "supersedesRefOfPurpose": "trusted-concurrent-scope-routing-guard-purpose-20261007",
+      "requiredTruthBoundaries": [
+        "Append only this record and the one three-path vector of the new ref. Preserve all prior state bytes and values, scope vectors, admissions, owners, primary/current/global permissions and progress. The earlier purpose record stays as history; its plannedRule (literal registration of the nine admitted source branches, exact per-branch manifest mapping, MUTABLE_SCOPE_AUTHORITIES exemption only for the in-vector manifest, no candidate scope authority, Gekta payload-pin routes untouched) is the rule of the guard change on the new ref.",
+        "The guard change itself is a separate pull request from the new ref after this record is actually accepted; this record confers no source permission and does not claim automatic machine enforcement of its own text. The vector contains only the guard, its test and its workflow; the state file, AGENTS.md and every source path are outside it.",
+        "The guard change must pass exact-head independent review of the complete head, owner audit, every substantive native check and canonical readiness before an ordinary expected-full-SHA manual merge. No automatic merge, no provider-availability waiver.",
+        "Admission #5817 (nine F-06 sources) stays unmerged and unadmitted for sources until the guard change is accepted. A merged guard or metadata step is not deployment."
+      ],
+      "forbiddenAuthority": [
+        "SOURCE self-admission, candidate-controlled scope or arbitrary state changes",
+        "CORE/API/DB/RLS/role/session/money/provider/FGIS/deployment authority",
+        "CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
+      ],
+      "teamHubDependency": "#5469 CHECKPOINT 2026-10-07 (PC-CROP executor with the Codex/Gekta lane as independent reviewer); admission #5817 thread 4206221770; purpose #5823"
     }
   }
 }
