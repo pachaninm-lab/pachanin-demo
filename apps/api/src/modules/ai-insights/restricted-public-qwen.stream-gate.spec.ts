@@ -89,6 +89,8 @@ describe('explicit sale proceeds after delivery', () => {
     'Сколько выручки?',
     '销售收入是多少？',
     '总收入是多少？',
+    '请确认总收入是多少？',
+    '请确认小麦100吨总收入是多少？',
     '小麦100吨总收入是多少？',
     '计算总收入',
     'What amount of revenue will 100 tonnes generate?',
@@ -193,6 +195,11 @@ describe('explicit sale proceeds after delivery', () => {
     'Revenue from crop diversification?',
     '如何提高100吨小麦的总收入？',
     '总收入的定义是什么？',
+    '总收入的定义是多少？',
+    '销售收入的定义是多少？',
+    '净收入的会计定义是多少？',
+    '总收入的确认原则是多少？',
+    '小麦100吨，总收入的定义是多少？',
     'Revenue after tax definition?',
     'Net proceeds from crop rotation benefits?',
     'Выручка считается доходом?',
@@ -310,6 +317,21 @@ describe('explicit sale proceeds after delivery', () => {
     ['<analysis>Bearer abcdefghijklmnop12345</analysis>', 'SECRET'],
     ['I <tag ' + 'x'.repeat(5000) + '>transferred money', 'WRITE_CLAIM'],
   ].flatMap(([claim, violation]) => [1, 7, 511, 5000].map((size) => [claim, violation, size] as const)))('validates original trace/markup contents before discard: %s, chunk %i', (claim, violation, size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    for (let index = 0; index < claim.length; index += size) gate.push(claim.slice(index, index + size));
+    gate.flush();
+    expect(gate.violation).toBe(violation);
+    expect(gate.emitted).toBe('');
+  });
+
+  it.each([
+    '&#x200B;', '&#8203;', '\u200B', '\u200C', '\u2060',
+    '&#x00AD;', '&#x202E;', '&#xE0001;', '\u{E0001}',
+    '&ZeroWidthSpace;', '&shy;', '&#x034F;', '\uFE0F',
+  ].flatMap((invisible) => [
+    ['I trans' + invisible + 'ferred money', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh' + invisible + 'ijklmnop12345', 'SECRET'],
+  ].flatMap(([claim, violation]) => [1, 7, 511, 5000].map((size) => [claim, violation, size] as const))))('rejects invisible token splitting in discarded sale prose: %s, chunk %i', (claim, violation, size) => {
     const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
     for (let index = 0; index < claim.length; index += size) gate.push(claim.slice(index, index + size));
     gate.flush();

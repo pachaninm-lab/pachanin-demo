@@ -189,6 +189,8 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     'Сколько выручки?',
     '销售收入是多少？',
     '总收入是多少？',
+    '请确认总收入是多少？',
+    '请确认小麦100吨总收入是多少？',
     '小麦100吨总收入是多少？',
     '计算总收入',
     'What amount of revenue will 100 tonnes generate?',
@@ -335,6 +337,33 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     expect(refused).toBe(true);
     expect(done).toBe(false);
   });
+
+  it.each(['stream', 'buffered'].flatMap((mode) => [
+    '&#x200B;', '&#8203;', '\u200B', '\u200C', '\u2060',
+    '&#x00AD;', '&#x202E;', '&#xE0001;', '\u{E0001}',
+    '&ZeroWidthSpace;', '&shy;', '&#x034F;', '\uFE0F',
+  ].flatMap((invisible) => [
+    'I trans' + invisible + 'ferred money',
+    'Bearer abcdefgh' + invisible + 'ijklmnop12345',
+  ].map((content) => [mode, content] as const))))('refuses invisible token splitting in %s sale output: %s', async (mode, content) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    const raw = request({ locale: 'en', question, originalQuestion: question });
+    for (const size of [1, 7, 511, 5000]) {
+      let refused = false;
+      let done = false;
+      if (mode === 'stream') {
+        installRuntime({ deltas: Array.from({ length: Math.ceil(content.length / size) }, (_, index) => content.slice(index * size, (index + 1) * size)), gapMs: 0 });
+        try {
+          for await (const event of service.generateStream(raw)) if (event.type === 'done') done = true;
+        } catch { refused = true; }
+      } else {
+        global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+        try { await service.generate(raw); done = true; } catch { refused = true; }
+      }
+      expect(refused).toBe(true);
+      expect(done).toBe(false);
+    }
+  });
   it.each(['stream', 'buffered'].flatMap((mode) => [
     'What is the revenue definition?',
     'What is the revenue recognition principle?',
@@ -342,6 +371,11 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     'Revenue from crop diversification?',
     '如何提高100吨小麦的总收入？',
     '总收入的定义是什么？',
+    '总收入的定义是多少？',
+    '销售收入的定义是多少？',
+    '净收入的会计定义是多少？',
+    '总收入的确认原则是多少？',
+    '小麦100吨，总收入的定义是多少？',
     'Revenue after tax definition?',
     'Net proceeds from crop rotation benefits?',
     'Выручка считается доходом?',

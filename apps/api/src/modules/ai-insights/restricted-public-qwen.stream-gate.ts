@@ -81,10 +81,30 @@ const CHINESE_PRESCRIPTION_PREFIX = /(?:使用|施用|选择|推荐)[^.!?。！�
 const EMPTY_COMMIT: GateCommit = Object.freeze({ text: '', flags: Object.freeze([]), violation: null });
 
 /** Named references that can affect ASCII/Cyrillic safety tokens or whitespace.
- * HTML5 names from Python's standard html.entities table; unrelated Unicode
+ * HTML5 names from Python's standard html.entities table; format controls are
+ * included because invisible characters must not split a safety signature.
+ * Unrelated Unicode
  * references cannot form these signatures. Numeric references cover all scripts.
  */
 const SALE_SAFETY_CHARACTER_REFERENCES: Readonly<Record<string, string>> = Object.freeze({
+  "af;": "\u2061",
+  "ApplyFunction;": "\u2061",
+  "ic;": "\u2063",
+  "InvisibleComma;": "\u2063",
+  "InvisibleTimes;": "\u2062",
+  "it;": "\u2062",
+  "lrm;": "\u200e",
+  "NegativeMediumSpace;": "\u200b",
+  "NegativeThickSpace;": "\u200b",
+  "NegativeThinSpace;": "\u200b",
+  "NegativeVeryThinSpace;": "\u200b",
+  "NoBreak;": "\u2060",
+  "rlm;": "\u200f",
+  "shy": "\u00ad",
+  "shy;": "\u00ad",
+  "ZeroWidthSpace;": "\u200b",
+  "zwj;": "\u200d",
+  "zwnj;": "\u200c",
   "Acy;": "А",
   "acy;": "а",
   "AMP": "&",
@@ -460,7 +480,8 @@ export function saleProceedsFromUser(question: string): SaleProceedsInput | null
 function saleCalculationRequested(question: string): boolean {
   // Chinese sale amount questions can separate the sale verb and income noun
   // with the commodity/quantity; do not treat unrelated income as sale proceeds.
-  const chineseSaleAmount = /(?:销售|出售|卖出)[^。！？\n]{0,80}多少\s*收入/u.test(question);
+  const chineseConceptQuestion = /定义|概念|(?:确认|计量)(?:原则|条件|标准|方法)|会计(?:确认|计量)/u.test(question);
+  const chineseSaleAmount = !chineseConceptQuestion && /(?:销售|出售|卖出)[^。！？\n]{0,80}多少\s*收入/u.test(question);
   if (!SALE_PROCEEDS_TOPIC.test(question) && !chineseSaleAmount) return false;
   const intent = /(?<![\p{L}])(?:(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?(?:\s+расч[её]т)?)\s+(?:(?:итоговую|чистую)\s+)?выручк[ауи]|(?:calculate|compute)\s+(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))(?![\p{L}])|计算\s*(?:净收入|销售收入|总收入)/iu;
   const labelled = /^\s*(?:(?:расч[её]т\s+)?выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入|总收入)\s*[:：]/iu.test(question);
@@ -479,8 +500,9 @@ function saleCalculationRequested(question: string): boolean {
   // Require a complete amount phrase or a following sale/calculation clause.
   // A shared prefix such as "what is the revenue" is insufficient when followed
   // by "definition" or "recognition principle"; those need accounting answers.
-  const amountQuestion = chineseSaleAmount || labelQuestion || amountNounQuestion
-    || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much\s+(?:(?:net|gross|total)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will))\s+(?:the|my|our)\s+(?:(?:net|gross|total)\s+)?|\s+amount\s+of\s+(?:(?:net|gross|total)\s+)?|\s+(?:(?:net|gross|total)\s+)?))(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does|be)\b))|(?:净收入|销售收入|总收入)[^。！？\n]{0,12}多少|多少\s*(?:净收入|销售收入|总收入)/iu.test(question);
+  const chineseAmountQuestion = !chineseConceptQuestion && /(?:净收入|销售收入|总收入)[^。！？\n]{0,12}多少|多少\s*(?:净收入|销售收入|总收入)/u.test(question);
+  const amountQuestion = chineseSaleAmount || labelQuestion || amountNounQuestion || chineseAmountQuestion
+    || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much\s+(?:(?:net|gross|total)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will))\s+(?:the|my|our)\s+(?:(?:net|gross|total)\s+)?|\s+amount\s+of\s+(?:(?:net|gross|total)\s+)?|\s+(?:(?:net|gross|total)\s+)?))(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does|be)\b))/iu.test(question);
   const strategyQuestion = /стратег|\bstrateg(?:y|ies)\b|策略/iu.test(question);
   const improvementQuestion = /повыс|увелич|улучш|\b(?:increase|improve|enhance|boost|grow|raise)\b|提高|改善|增加/iu.test(question);
   if (!labelled && !intent.test(question)
@@ -815,6 +837,15 @@ export function economicComparisonCopy(kind: EconomicComparison, locale: PublicL
   return `${amount === null ? 'Для покрытия только хранения умножьте месячную стоимость за тонну на срок. Уточните эти два значения с единицами.' : `Расчёт по вашим данным: для покрытия только хранения цена должна вырасти на ${amount.replace('.', ',')} руб/т.`} Это не доказывает общую выгодность: сравните будущую чистую выручку, потери качества, финансирование и доставку.`;
 }
 
+/** Private detection view only; never a publishing or HTML sanitization boundary. */
+function saleSafetyView(text: string, removeFormatting = false): string {
+  const normalized = text
+    .replace(/[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu, '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
+    .replace(/\s+/gu, ' ');
+  return removeFormatting ? normalized.replace(/[*_`]/gu, '') : normalized;
+}
+
 export class StreamingAnswerGate {
   private pending = '';
   private published = '';
@@ -917,9 +948,10 @@ export class StreamingAnswerGate {
         frame = newSaleTagContentFrame();
         frames.push(frame);
       }
-      const normalized = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\s]/u.test(character) ? ' ' : character;
-      frame.raw = (frame.raw + normalized).replace(/\s+/gu, ' ').slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
-      if (!/[*_`]/u.test(normalized)) frame.formatted = (frame.formatted + normalized).replace(/\s+/gu, ' ').slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      // Join retained context before normalization so a format character split
+      // into UTF-16 surrogates disappears when its trailing surrogate arrives.
+      frame.raw = saleSafetyView(frame.raw + character).slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.formatted = saleSafetyView(frame.formatted + character, true).slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
       if (WRITE_CLAIM_PATTERN.test(frame.raw) || WRITE_CLAIM_PATTERN.test(frame.formatted)) return { violation: 'WRITE_CLAIM', prescription };
       if (SECRET_PATTERN.test(frame.raw) || SECRET_PATTERN.test(frame.formatted)) return { violation: 'SECRET', prescription };
       prescription ||= isUngroundedCropProtectionPrescription(frame.raw) || isUngroundedCropProtectionPrescription(frame.formatted);
@@ -937,13 +969,9 @@ export class StreamingAnswerGate {
     // Nothing from this mode is published, so even unclosed traces, fences and
     // envelopes can be scanned and discarded immediately. Check original raw
     // contents before any formatting removal; trace text is not a safety bypass.
-    const rawBlock = `${this.discardedSaleRawContext}${head}`.replace(/\s+/gu, ' ');
-    // Also normalize formatting within original tag contents, including an
-    // unclosed tag. The tag-stripped view alone cannot inspect that remainder.
-    const formattingBlock = `${this.discardedSaleFormattingContext}${head}`
-      .replace(/[*_`]/gu, '')
-      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
-      .replace(/\s+/gu, ' ');
+    const rawBlock = saleSafetyView(this.discardedSaleRawContext + head);
+    // Include original quoted/unclosed tag contents in the formatting view.
+    const formattingBlock = saleSafetyView(this.discardedSaleFormattingContext + head, true);
     const normalizedHead = saleTextWithoutTagBoundaries(head, this.discardedSaleTagState, true);
     const decoded = this.discardedSaleDecodedText(head, final);
     const originalContents = this.scanOriginalTagContents(decoded.original, this.discardedSaleTagContentFrames);
@@ -951,34 +979,24 @@ export class StreamingAnswerGate {
     // Keep a second bounded view without formatting, including tags split over
     // arbitrarily long transport cuts. A separate raw view preserves real keys
     // containing underscores; normalization cannot silently erase such tokens.
-    const block = sanitizeAnswer(`${this.progressiveSafetyContext}${this.progressiveJoiner}${normalizedHead}`.replace(/[*_`]/gu, ''));
+    const block = sanitizeAnswer(saleSafetyView(`${this.progressiveSafetyContext}${this.progressiveJoiner}${normalizedHead}`, true));
     // Inline tags can split a rendered token: trans<em>ferred</em> or a secret.
     // Keep actual whitespace but join tag boundaries in this additional view.
     // Do not trim each fragment: trailing spaces remain significant across cuts.
-    const decodedRawBlock = `${this.discardedSaleDecodedContext}${decoded.original}`
-      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
-      .replace(/\s+/gu, ' ');
-    const decodedFormattingBlock = `${this.discardedSaleDecodedFormattingContext}${decoded.original}`
-      .replace(/[*_`]/gu, '')
-      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
-      .replace(/\s+/gu, ' ');
-    const renderedRawBlock = `${this.discardedSaleRenderedContext}${decoded.joined}`
-      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
-      .replace(/\s+/gu, ' ');
-    const renderedBlock = `${this.discardedSaleRenderedFormattingContext}${decoded.joined}`
-      .replace(/[*_`]/gu, '')
-      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
-      .replace(/\s+/gu, ' ');
+    const decodedRawBlock = saleSafetyView(this.discardedSaleDecodedContext + decoded.original);
+    const decodedFormattingBlock = saleSafetyView(this.discardedSaleDecodedFormattingContext + decoded.original, true);
+    const renderedRawBlock = saleSafetyView(this.discardedSaleRenderedContext + decoded.joined);
+    const renderedBlock = saleSafetyView(this.discardedSaleRenderedFormattingContext + decoded.joined, true);
     const markdownHead = saleMarkdownLinkText(decoded.joined, this.discardedSaleMarkdownState);
-    const markdownRawBlock = `${this.discardedSaleMarkdownContext}${markdownHead}`.replace(/\s+/gu, ' ');
-    const markdownFormattingBlock = `${this.discardedSaleMarkdownFormattingContext}${markdownHead}`.replace(/[*_`]/gu, '').replace(/\s+/gu, ' ');
+    const markdownRawBlock = saleSafetyView(this.discardedSaleMarkdownContext + markdownHead);
+    const markdownFormattingBlock = saleSafetyView(this.discardedSaleMarkdownFormattingContext + markdownHead, true);
     // Parse original Markdown before tag removal too: angle-wrapped URLs can
     // contain apostrophes/parentheses which are not HTML attribute delimiters.
     const originalMarkdownHead = saleMarkdownLinkText(decoded.original, this.discardedSaleOriginalMarkdownState);
     const composedContents = this.scanOriginalTagContents(originalMarkdownHead, this.discardedSaleMarkdownTagContentFrames);
     if (composedContents.violation) return this.refuse(composedContents.violation);
-    const originalMarkdownRawBlock = (this.discardedSaleOriginalMarkdownContext + originalMarkdownHead).replace(/\s+/gu, ' ');
-    const originalMarkdownFormattingBlock = (this.discardedSaleOriginalMarkdownFormattingContext + originalMarkdownHead).replace(/[*_`]/gu, '').replace(/\s+/gu, ' ');
+    const originalMarkdownRawBlock = saleSafetyView(this.discardedSaleOriginalMarkdownContext + originalMarkdownHead);
+    const originalMarkdownFormattingBlock = saleSafetyView(this.discardedSaleOriginalMarkdownFormattingContext + originalMarkdownHead, true);
     const views = [rawBlock, formattingBlock, block, decodedRawBlock, decodedFormattingBlock, renderedRawBlock, renderedBlock,
       markdownRawBlock, markdownFormattingBlock, originalMarkdownRawBlock, originalMarkdownFormattingBlock];
     if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return this.refuse('WRITE_CLAIM');
