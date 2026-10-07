@@ -19,6 +19,8 @@ import publicSeoRouteRegistry from '@/lib/platform-v7/public-seo-routes.json';
 // layout additionally revalidates its user, tenant and membership through /auth/me.
 const CABINET_SESSION_COOKIE = 'pc_v7_cabinet';
 const CSRF_COOKIE = 'pc_csrf_token';
+// Only a fresh explicit public selection may survive a clean navigation.
+const LOCALE_SELECTION_COOKIE = 'pc-v7-locale-selection-v1';
 
 const PRESENTATION_DOWNLOAD_PATH = '/downloads/prozrachnaya-tsena-presentation.pdf';
 const PUBLIC_EXACT = new Set(['/', '/login', '/register', '/gekta', PRESENTATION_DOWNLOAD_PATH]);
@@ -318,6 +320,20 @@ function resolveLocaleFromQuery(req: NextRequest): string | null {
   return queryLocale && VALID_LOCALES.has(queryLocale) ? queryLocale : null;
 }
 
+function isPublicLocalePreferencePath(pathname: string): boolean {
+  return (pathname === '/platform-v7' || pathname.startsWith('/platform-v7/'))
+    && isPlatformV7PublicPath(pathname);
+}
+
+function resolveSelectedPublicLocale(req: NextRequest): string | null {
+  // Legacy preference cookies must not reopen a clean first visit in EN/ZH.
+  // Public presentation never selects the language of a protected/control realm.
+  if (!isPublicLocalePreferencePath(req.nextUrl.pathname)) return null;
+  const locale = req.cookies.get(LOCALE_COOKIE)?.value;
+  return locale && VALID_LOCALES.has(locale)
+    && req.cookies.get(LOCALE_SELECTION_COOKIE)?.value === locale ? locale : null;
+}
+
 function resolveGektaPathLocale(pathname: string): string | null {
   if (pathname === '/gekta/en' || pathname.startsWith('/gekta/en/')) return 'en';
   if (pathname === '/gekta/zh' || pathname.startsWith('/gekta/zh/')) return 'zh';
@@ -334,15 +350,17 @@ function withRoleHeaders(req: NextRequest, role: string, protectedResponse = fal
   requestHeaders.set('x-pc-search', req.nextUrl.search);
   const queryLocale = resolveLocaleFromQuery(req);
   const pathLocale = resolveGektaPathLocale(req.nextUrl.pathname);
-  const requestLocale = pathLocale || queryLocale;
+  const selectedLocale = resolveSelectedPublicLocale(req);
+  const requestLocale = pathLocale || queryLocale || selectedLocale;
   if (requestLocale) requestHeaders.set('x-pc-locale', requestLocale);
+  else requestHeaders.delete('x-pc-locale');
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('x-pc-role', role);
   response.headers.set('x-pc-pathname', req.nextUrl.pathname);
   if (queryLocale) persistLocaleCookie(req, response, queryLocale);
-  else if (pathLocale) response.headers.set('x-pc-locale', pathLocale);
+  else if (requestLocale) response.headers.set('x-pc-locale', requestLocale);
   ensureCsrfCookie(req, response);
-  return applySecurityHeaders(response, protectedResponse || Boolean(queryLocale), indexable);
+  return applySecurityHeaders(response, protectedResponse || Boolean(queryLocale || selectedLocale), indexable);
 }
 
 function ensureCsrfCookie(
@@ -374,6 +392,9 @@ function persistLocaleCookie(req: NextRequest, response: NextResponse, locale: s
   if (!VALID_LOCALES.has(locale)) return;
   if (req.cookies.get(LOCALE_COOKIE)?.value !== locale) {
     response.cookies.set(LOCALE_COOKIE, locale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', secure: true });
+  }
+  if (isPublicLocalePreferencePath(req.nextUrl.pathname) && req.cookies.get(LOCALE_SELECTION_COOKIE)?.value !== locale) {
+    response.cookies.set(LOCALE_SELECTION_COOKIE, locale, { httpOnly: true, path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', secure: true });
   }
   response.headers.set('x-pc-locale', locale);
   response.headers.set('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');

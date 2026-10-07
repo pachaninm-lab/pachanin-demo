@@ -238,6 +238,10 @@ function commandInitialValues(actionId: string, workspace: Workspace): Record<st
   return values;
 }
 
+function unknownCommandMessage(commandId: string): string {
+  return `Исход команды неизвестен. Код попытки: ${commandId}. Обнови подтверждённое состояние сделки после восстановления связи; если результат неясен, передай этот код поддержке. Не отправляй новую команду до сверки.`;
+}
+
 export function CanonicalDealWorkspace({ role: _role, dealId }: { role: PlatformRole; dealId: string }) {
   const [workspace, setWorkspace] = React.useState<Workspace | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -283,7 +287,7 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
   async function executePrimaryAction(payload: Record<string, unknown>) {
     const action = workspace?.roleProjection.primaryAction;
     const isSystemAction = action?.source === 'BANK_CALLBACK' || action?.waitingForRoles.includes('BANK_CALLBACK');
-    const outcomeUnknown = unverifiedCommand?.dealId === workspace?.deal.id && unverifiedCommand.actionId === action?.id;
+    const outcomeUnknown = unverifiedCommand?.dealId === workspace?.deal.id;
     if (!workspace || !action?.enabled || isSystemAction || submitting || workspace.blockers.length > 0 || outcomeUnknown) return;
 
     const commandId = globalThis.crypto?.randomUUID?.() ?? `command-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -329,13 +333,16 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
     }
   }
 
+  const currentUnknown = unverifiedCommand?.dealId === dealId ? unverifiedCommand : null;
+
   if (loading && !workspace) {
     return (
       <section className={styles.loading} aria-live='polite'>
         <div className={styles.stateContent}>
           <Loader2 size={25} className={styles.spin} aria-hidden='true' />
           <h1>Открываем сделку</h1>
-          <p>Сейчас покажем только твой следующий шаг.</p>
+          <p>{currentUnknown ? 'Проверяем сохранённое состояние сделки. Новая команда не отправляется.' : 'Сейчас покажем только твой следующий шаг.'}</p>
+          {currentUnknown ? <p role='alert'>{unknownCommandMessage(currentUnknown.commandId)}</p> : null}
         </div>
       </section>
     );
@@ -348,9 +355,10 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
           <AlertTriangle size={27} aria-hidden='true' />
           <h1>Рабочая сделка недоступна</h1>
           <p>{error || 'Сервер не вернул подтверждённое состояние.'}</p>
+          {currentUnknown ? <p>{unknownCommandMessage(currentUnknown.commandId)}</p> : null}
           <button className={styles.retryButton} type='button' onClick={() => void load()}>
             <RefreshCw size={18} aria-hidden='true' />
-            Повторить
+            {currentUnknown ? 'Повторить загрузку сделки' : 'Повторить'}
           </button>
         </div>
       </section>
@@ -359,7 +367,9 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
 
   const activeStep = workspace.spine.find((step) => step.state === 'active');
   const action = workspace.roleProjection.primaryAction;
-  const activeUnknown = unverifiedCommand?.dealId === workspace.deal.id && unverifiedCommand.actionId === action?.id
+  // A changed next action is not a receipt for the previous command. Keep its
+  // outcome unresolved for this Deal until the exact attempt can be reconciled.
+  const activeUnknown = unverifiedCommand?.dealId === workspace.deal.id
     ? unverifiedCommand
     : null;
   const systemAction = action?.source === 'BANK_CALLBACK' || action?.waitingForRoles.includes('BANK_CALLBACK');
@@ -455,7 +465,7 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
         </div>
 
         {activeUnknown ? (
-          <p className={styles.taskExplanation} role='alert'>Исход команды неизвестен. Код попытки: {activeUnknown.commandId}. Обнови подтверждённое состояние сделки после восстановления связи; если результат неясен, передай этот код поддержке. Не отправляй новую команду до сверки.</p>
+          <p className={styles.taskExplanation} role='alert'>{unknownCommandMessage(activeUnknown.commandId)}</p>
         ) : null}
 
         {hasBlockers && workspace.blockers.length > 1 ? (
