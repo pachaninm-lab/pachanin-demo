@@ -219,6 +219,32 @@ const bankErrorSnapshot: FirstCustomerWorkspaceSnapshot = {
 };
 
 describe('bank first-customer failure states', () => {
+  it.each([
+    { locale: 'ru', lang: 'ru' },
+    { locale: 'en', lang: 'en' },
+    { locale: 'zh-CN', lang: 'zh' },
+  ].flatMap((entry) => ['deal-bank-42', 'deal/银行?А&1#2'].map((dealId) => ({ ...entry, dealId }))))(
+    'preserves $locale on navigation to the exact server-provided Deal $dealId',
+    async ({ locale, lang, dealId }) => {
+      const serverHref = `/platform-v7/deals/${encodeURIComponent(dealId)}/execution`;
+      await renderBankWorkspace({
+        ...bankErrorSnapshot,
+        available: true,
+        forbidden: false,
+        correlationId: null,
+        items: [{ id: dealId, dealId, status: 'DOCUMENTS_PENDING', nextAction: null, href: serverHref }],
+      }, locale);
+      const deal = screen.getByRole('link', { name: new RegExp(dealId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) });
+      const href = deal.getAttribute('href');
+      expect(href).toBe(`${serverHref}?lang=${lang}`);
+      const target = new URL(href!, 'https://navigation.example.test');
+      expect(target.pathname).toBe(serverHref);
+      expect(Array.from(target.searchParams.entries())).toEqual([['lang', lang]]);
+      expect(target.hash).toBe('');
+      expect(screen.getByText('UNKNOWN', { exact: true })).toBeInTheDocument();
+    },
+  );
+
   it('uses a server-shaped Deal snapshot as navigation without turning its nextAction into a bank instruction', async () => {
     await renderBankWorkspace({
       ...bankErrorSnapshot,
@@ -235,7 +261,7 @@ describe('bank first-customer failure states', () => {
     expect(screen.getByRole('heading', { name: 'Следующее обязательное действие не опубликовано' })).toBeInTheDocument();
     expect(screen.getByText('UNKNOWN', { exact: true })).toBeInTheDocument();
     const deal = screen.getByRole('link', { name: /deal-bank-42/ });
-    expect(deal).toHaveAttribute('href', '/platform-v7/deals/deal-bank-42/execution');
+    expect(deal).toHaveAttribute('href', '/platform-v7/deals/deal-bank-42/execution?lang=ru');
     expect(deal).toHaveTextContent('Открыть сделку для проверки серверных фактов');
     expect(screen.queryByText('Серверная подсказка строки, не решение банка')).not.toBeInTheDocument();
     expect(screen.getByText('Банковские факты — UNKNOWN')).toBeInTheDocument();
@@ -336,7 +362,7 @@ describe('governed first-customer priority source contract', () => {
       expect(workspaceDecision).toContain("href='#first-customer-work-queue'");
       expect(workspaceDecision).toContain("owner: priorityUnknown ? undefined");
       expect(firstCustomerWorkspace).toContain('workspace.items.map((item) => item.href ?');
-      expect(firstCustomerWorkspace).toContain('href={item.href}');
+      expect(firstCustomerWorkspace).toContain("href={surface === 'bank' && !workspace.ownerControlled ? `${item.href}?lang=${locale}` : item.href}");
     },
   );
 

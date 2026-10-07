@@ -210,10 +210,12 @@ jobs:
               )
               assert result.stdout == '0\n' and result.stderr == ''
 
-          guard_probe = '''import importlib.util,sys
+          guard_probe = '''import importlib.util,os,pathlib,sys
           s=importlib.util.spec_from_file_location("guard",sys.argv[1])
           m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
-          sys.exit(m.candidate_exec_guard(int(sys.argv[2])))
+          m.STATE_DIR=pathlib.Path(sys.argv[3])/str(os.getpid())
+          m.reserve_execution(m.EXECUTION_GRANT,"critical","a"*40,"a"*40)
+          sys.exit(m.candidate_exec_guard(int(sys.argv[2]),execution_grant=m.EXECUTION_GRANT,corpus="critical",admitted_sha="a"*40,checkout_sha="a"*40))
           '''
           with tempfile.TemporaryDirectory() as temporary:
               root = pathlib.Path(temporary)
@@ -245,7 +247,7 @@ jobs:
                           'QWEN35_GUARDED_ARGV_JSON': json.dumps(argv),
                       }
                       with subprocess.Popen(
-                          [sys.executable, '-c', guard_probe, str(path), str(read_fd)],
+                          [sys.executable, '-c', guard_probe, str(path), str(read_fd), str(root / 'state')],
                           env=env, pass_fds=(read_fd,), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                       ) as child:
                           try:
@@ -400,7 +402,7 @@ jobs:
                       stack.enter_context(mock.patch.object(module, 'write_pid', side_effect=injected_pid_record))
                       stack.enter_context(mock.patch.object(module, 'launch_watchdog', side_effect=injected_watchdog))
                       try:
-                          module.start('a' * 64)
+                          module.start('a' * 64, execution_grant=module.EXECUTION_GRANT, corpus='critical', admitted_sha='a' * 40, checkout_sha='a' * 40)
                       except Exception as exc:
                           if expected[0] not in str(exc):
                               raise AssertionError(stage + ' wrong failure: ' + repr(exc)) from exc
@@ -563,14 +565,14 @@ jobs:
                       stack.enter_context(mock.patch.object(module, 'emit', return_value=None))
                       if break_guard:
                           try:
-                              module.start('a' * 64)
+                              module.start('a' * 64, execution_grant=module.EXECUTION_GRANT, corpus='critical', admitted_sha='a' * 40, checkout_sha='a' * 40)
                           except module.CandidateError as exc:
                               if 'candidate_guard_exited_before_release' not in str(exc):
                                   raise
                           else:
                               raise AssertionError('BrokenPipe release regression did not fail closed')
                       else:
-                          module.start('a' * 64)
+                          module.start('a' * 64, execution_grant=module.EXECUTION_GRANT, corpus='critical', admitted_sha='a' * 40, checkout_sha='a' * 40)
                   return writes
 
           success_writes = run_parent_release_order(False)
@@ -715,7 +717,7 @@ jobs:
                   stack.enter_context(mock.patch.object(module, 'stop_watchdog', stop_watchdog_mock))
                   stack.enter_context(mock.patch.object(module, 'verify_listener_absent', listener_mock))
                   try:
-                      module.start('a' * 64)
+                      module.start('a' * 64, execution_grant=module.EXECUTION_GRANT, corpus='critical', admitted_sha='a' * 40, checkout_sha='a' * 40)
                   except module.CandidateError as exc:
                       if 'candidate_start_cleanup_failed' not in str(exc):
                           raise
@@ -768,7 +770,9 @@ jobs:
                            mock.patch.object(module.os, 'nice', return_value=module.CANDIDATE_NICE_DELTA), \
                            mock.patch.object(module.os, 'execvpe', side_effect=RuntimeError('EXEC_REACHED')):
                           try:
-                              module.candidate_exec_guard(read_fd)
+                              with mock.patch.object(module, 'STATE_DIR', pathlib.Path(tmp) / ('split-state' if guarded is split_guarded else 'joined-state')):
+                                  module.reserve_execution(module.EXECUTION_GRANT, 'critical', 'a' * 40, 'a' * 40)
+                                  module.candidate_exec_guard(read_fd, execution_grant=module.EXECUTION_GRANT, corpus='critical', admitted_sha='a' * 40, checkout_sha='a' * 40)
                           except RuntimeError as exc:
                               if str(exc) != 'EXEC_REACHED':
                                   raise
@@ -807,7 +811,9 @@ jobs:
                       if child == 0:
                           try:
                               os.close(write_fd)
-                              code = module.candidate_exec_guard(read_fd)
+                              module.STATE_DIR = pathlib.Path(tmp) / 'fork-state'
+                              module.reserve_execution(module.EXECUTION_GRANT, 'critical', 'a' * 40, 'a' * 40)
+                              code = module.candidate_exec_guard(read_fd, execution_grant=module.EXECUTION_GRANT, corpus='critical', admitted_sha='a' * 40, checkout_sha='a' * 40)
                           except BaseException:
                               os._exit(97)
                           os._exit(code)
@@ -1178,7 +1184,7 @@ jobs:
                       stack.enter_context(mock.patch.object(module, 'stop_watchdog', side_effect=lambda: order.append('watchdog_stop')))
                       stack.enter_context(mock.patch.object(module, 'emit_candidate_start_diagnostic', side_effect=lambda *args: order.append('diagnostic')))
                       with self.assertRaises(module.CandidateError) as raised:
-                          module.start('a' * 64)
+                          module.start('a' * 64, execution_grant=module.EXECUTION_GRANT, corpus='critical', admitted_sha='a' * 40, checkout_sha='a' * 40)
                   self.assertEqual(str(raised.exception), 'candidate_start_cleanup_failed' if cleanup_fails else 'candidate_pidfd_setup_failed')
                   return order
 
@@ -1206,6 +1212,264 @@ jobs:
           PY
       - name: Install bounded API test dependencies
         run: pnpm install --frozen-lockfile --filter @pc/api...
+      - name: Prove irreversible execution grant without model calls
+        run: |
+          set -Eeuo pipefail
+          python3 <<'PY'
+          import contextlib
+          import importlib.util
+          import io
+          import multiprocessing
+          import os
+          import pathlib
+          import stat
+          import sys
+          import tempfile
+          import types
+          import unittest
+          from unittest import mock
+
+          path = pathlib.Path('scripts/gekta-qwen35-4b-model-host-candidate.py').resolve()
+          spec = importlib.util.spec_from_file_location('execution_grant_contract', path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+
+          class ExecutionGrantContract(unittest.TestCase):
+              def setUp(self):
+                  self.tmp = tempfile.TemporaryDirectory()
+                  self.addCleanup(self.tmp.cleanup)
+                  self.root = pathlib.Path(self.tmp.name)
+                  self.state = self.root / 'state'
+                  self.patch = mock.patch.object(module, 'STATE_DIR', self.state)
+                  self.patch.start()
+                  self.addCleanup(self.patch.stop)
+                  self.sha = 'a' * 40
+
+              def claim(self, corpus='critical', sha=None, **kwargs):
+                  sha = sha or self.sha
+                  module.reserve_execution(module.EXECUTION_GRANT, corpus, sha, sha, **kwargs)
+
+              def marker(self, corpus='critical', exec_release=False):
+                  return self.state / module.execution_marker_name(corpus, exec_release)
+
+              def guard(self, **kwargs):
+                  read_fd, write_fd = os.pipe()
+                  os.write(write_fd, b'G')
+                  os.close(write_fd)
+                  argv = ['/bin/true', '--model', str(module.CANDIDATE_PATH), '--alias', module.CANDIDATE_ALIAS]
+                  with mock.patch.dict(module.os.environ, {'QWEN35_GUARDED_ARGV_JSON': module.json.dumps(argv)}), mock.patch.object(module.os, 'nice', return_value=10), mock.patch.object(module.os, 'execvpe') as execute:
+                      code = module.candidate_exec_guard(read_fd, **kwargs)
+                  return code, execute.call_count
+
+              def test_second_claim_and_changed_sha_remain_spent(self):
+                  self.claim()
+                  for sha in (self.sha, 'b' * 40):
+                      with self.assertRaisesRegex(module.CandidateError, 'already_spent'):
+                          self.claim(sha=sha)
+
+              def test_legacy_start_is_rejected_before_any_process_or_secret_read(self):
+                  stdin = mock.Mock()
+                  with mock.patch.object(module, 'require_nonroot'), mock.patch.object(module.subprocess, 'Popen') as spawn, mock.patch.object(sys, 'argv', [str(path), 'start', '--candidate-key-stdin']), mock.patch.object(sys, 'stdin', stdin), contextlib.redirect_stdout(io.StringIO()):
+                      self.assertEqual(module.main(), 1)
+                  spawn.assert_not_called()
+                  stdin.read.assert_not_called()
+                  self.assertFalse(self.state.exists())
+
+              def test_unknown_grants_corpora_and_source_mismatches_cannot_reserve(self):
+                  for grant, corpus, admitted, checkout in (
+                      ('other', 'critical', self.sha, self.sha),
+                      (module.EXECUTION_GRANT, 'both', self.sha, self.sha),
+                      (module.EXECUTION_GRANT, 'critical', 'main', 'main'),
+                      (module.EXECUTION_GRANT, 'critical', self.sha, 'b' * 40),
+                  ):
+                      with self.assertRaises(module.CandidateError):
+                          module.reserve_execution(grant, corpus, admitted, checkout)
+                  self.assertFalse(self.state.exists())
+
+              def test_eight_simultaneous_claims_have_exactly_one_winner(self):
+                  os.close(module.execution_state_directory())
+                  ctx = multiprocessing.get_context('fork')
+                  barrier = ctx.Barrier(8)
+                  results = ctx.Queue()
+                  def worker():
+                      barrier.wait(timeout=10)
+                      try:
+                          self.claim()
+                      except module.CandidateError as exc:
+                          results.put(str(exc))
+                      else:
+                          results.put('reserved')
+                  children = [ctx.Process(target=worker) for _ in range(8)]
+                  for child in children:
+                      child.start()
+                  values = [results.get(timeout=10) for _ in children]
+                  for child in children:
+                      child.join(timeout=10)
+                      self.assertEqual(child.exitcode, 0)
+                  self.assertEqual(values.count('reserved'), 1)
+                  self.assertEqual(values.count('candidate_execution_already_spent'), 7)
+                  results.close()
+                  results.join_thread()
+
+              def test_crash_after_reservation_does_not_refund(self):
+                  child = os.fork()
+                  if child == 0:
+                      self.claim()
+                      os._exit(23)
+                  _, status = os.waitpid(child, 0)
+                  self.assertEqual(os.waitstatus_to_exitcode(status), 23)
+                  with self.assertRaisesRegex(module.CandidateError, 'already_spent'):
+                      self.claim()
+
+              def test_fsync_failure_stops_before_spawn_and_keeps_marker(self):
+                  for name, value in {'require_nonroot': None}.items():
+                      with mock.patch.object(module, name, return_value=value), mock.patch.object(module.os, 'fsync', side_effect=OSError('synthetic fsync failure')), mock.patch.object(module.subprocess, 'Popen') as spawn:
+                          with self.assertRaises(OSError):
+                              module.start('a' * 64, execution_grant=module.EXECUTION_GRANT, corpus='critical', admitted_sha=self.sha, checkout_sha=self.sha)
+                      spawn.assert_not_called()
+                  self.assertTrue(self.marker().exists())
+                  with self.assertRaisesRegex(module.CandidateError, 'already_spent'):
+                      self.claim()
+
+              def test_start_failure_before_artifact_never_refunds(self):
+                  with mock.patch.object(module, 'require_nonroot'), mock.patch.object(module, 'CANDIDATE_PATH', self.root / 'missing'), mock.patch.object(module.subprocess, 'Popen') as spawn:
+                      with self.assertRaisesRegex(module.CandidateError, 'artifact_missing'):
+                          module.start('a' * 64, execution_grant=module.EXECUTION_GRANT, corpus='critical', admitted_sha=self.sha, checkout_sha=self.sha)
+                  spawn.assert_not_called()
+                  with self.assertRaisesRegex(module.CandidateError, 'already_spent'):
+                      self.claim()
+
+              def test_reservation_is_private_and_fsyncs_file_then_directory(self):
+                  observed = []
+                  real_fsync = os.fsync
+                  def sync(fd):
+                      observed.append('dir' if stat.S_ISDIR(os.fstat(fd).st_mode) else 'file')
+                      real_fsync(fd)
+                  with mock.patch.object(module.os, 'fsync', side_effect=sync):
+                      self.claim()
+                  self.assertEqual(observed[0], 'file')
+                  self.assertGreater(len(observed), 2)
+                  self.assertTrue(all(kind == 'dir' for kind in observed[1:]))
+                  self.assertEqual(stat.S_IMODE(self.state.stat().st_mode), 0o700)
+                  self.assertEqual(stat.S_IMODE(self.marker().stat().st_mode), 0o600)
+
+              def test_ancestor_sync_failure_blocks_start_and_retains_claim(self):
+                  state = self.state
+                  actual_fsync = os.fsync
+                  def sync(fd):
+                      info = os.fstat(fd)
+                      parent = state.parent.stat()
+                      if (info.st_dev, info.st_ino) == (parent.st_dev, parent.st_ino):
+                          raise OSError('synthetic ancestor sync failure')
+                      actual_fsync(fd)
+                  with mock.patch.object(module, 'require_nonroot'), mock.patch.object(module.os, 'fsync', side_effect=sync), mock.patch.object(module.subprocess, 'Popen') as spawn:
+                      with self.assertRaises(OSError):
+                          module.start('a' * 64, execution_grant=module.EXECUTION_GRANT, corpus='critical', admitted_sha=self.sha, checkout_sha=self.sha)
+                  spawn.assert_not_called()
+                  self.assertTrue(self.marker().exists())
+                  with self.assertRaisesRegex(module.CandidateError, 'already_spent'):
+                      self.claim()
+
+              def test_directory_symlink_is_rejected_without_chmod(self):
+                  target = self.root / 'target'
+                  target.mkdir(mode=0o755)
+                  self.state.symlink_to(target, target_is_directory=True)
+                  with self.assertRaises(OSError):
+                      self.claim()
+                  self.assertEqual(stat.S_IMODE(target.stat().st_mode), 0o755)
+                  self.assertEqual(list(target.iterdir()), [])
+
+              def test_public_or_foreign_directory_is_rejected(self):
+                  self.state.mkdir(mode=0o755)
+                  with self.assertRaisesRegex(module.CandidateError, 'directory_unsafe'):
+                      self.claim()
+                  self.state.chmod(0o700)
+                  with mock.patch.object(module.os, 'geteuid', return_value=os.geteuid() + 1):
+                      with self.assertRaisesRegex(module.CandidateError, 'directory_unsafe'):
+                          self.claim()
+
+              def unsafe_entry(self, factory):
+                  os.close(module.execution_state_directory())
+                  factory(self.marker())
+                  with self.assertRaises(Exception):
+                      self.claim()
+
+              def test_marker_symlink_is_rejected_without_target_change(self):
+                  target = self.root / 'target'
+                  target.write_text('preserved')
+                  self.unsafe_entry(lambda p: p.symlink_to(target))
+                  self.assertEqual(target.read_text(), 'preserved')
+
+              def test_fifo_and_directory_markers_fail_without_blocking(self):
+                  self.unsafe_entry(lambda p: os.mkfifo(p, 0o600))
+                  self.marker().unlink()
+                  self.unsafe_entry(lambda p: p.mkdir())
+
+              def test_hardlinked_marker_is_rejected(self):
+                  target = self.root / 'target'
+                  target.write_text('{}')
+                  target.chmod(0o600)
+                  self.unsafe_entry(lambda p: os.link(target, p))
+
+              def test_foreign_marker_is_rejected(self):
+                  self.claim()
+                  original = os.fstat
+                  def fstat(fd):
+                      info = original(fd)
+                      if stat.S_ISREG(info.st_mode):
+                          return types.SimpleNamespace(st_mode=info.st_mode, st_uid=info.st_uid + 1, st_nlink=info.st_nlink, st_size=info.st_size)
+                      return info
+                  with mock.patch.object(module.os, 'fstat', side_effect=fstat):
+                      with self.assertRaisesRegex(module.CandidateError, 'marker_unsafe'):
+                          self.claim()
+
+              def test_corrupted_oversize_and_public_marker_remain_blocked(self):
+                  self.claim()
+                  for raw in (b'{}', b'\xff', b'x' * 1025):
+                      self.marker().write_bytes(raw)
+                      with self.assertRaises(Exception):
+                          self.claim()
+                      self.assertEqual(self.marker().read_bytes(), raw)
+                  self.marker().chmod(0o644)
+                  with self.assertRaisesRegex(module.CandidateError, 'marker_unsafe'):
+                      self.claim()
+
+              def test_extra_requires_same_sha_critical_and_is_separately_spent(self):
+                  with self.assertRaises(FileNotFoundError):
+                      self.claim('extra')
+                  self.claim()
+                  with self.assertRaisesRegex(module.CandidateError, 'source_mismatch'):
+                      self.claim('extra', 'b' * 40)
+                  self.assertFalse(self.marker('extra').exists())
+                  self.claim('extra')
+                  with self.assertRaisesRegex(module.CandidateError, 'already_spent'):
+                      self.claim('extra')
+
+              def test_direct_internal_guard_requires_reservation_and_exec_is_once(self):
+                  args = dict(execution_grant=module.EXECUTION_GRANT, corpus='critical', admitted_sha=self.sha, checkout_sha=self.sha)
+                  self.assertEqual(self.guard(), (85, 0))
+                  self.assertEqual(self.guard(**args), (85, 0))
+                  self.claim()
+                  self.assertEqual(self.guard(**args), (82, 1))
+                  self.assertEqual(self.guard(**args), (85, 0))
+                  self.assertTrue(self.marker(exec_release=True).exists())
+
+              def test_cleanup_retains_both_reservation_and_exec_marker(self):
+                  self.claim()
+                  self.claim(exec_release=True)
+                  before = {p.name: p.read_bytes() for p in self.state.iterdir()}
+                  with contextlib.ExitStack() as stack:
+                      for name, value in {'require_nonroot': None, 'load_state': {'pid': 999}, 'stop_candidate': None, 'verify_listener_absent': None, 'stop_watchdog': None, 'baseline_matches_state': True, 'baseline_runtime_healthy': True, 'proc_kb': 0, 'emit': None}.items():
+                          stack.enter_context(mock.patch.object(module, name, return_value=value))
+                      stack.enter_context(mock.patch.object(module, 'PID_PATH', self.state / 'candidate.pid'))
+                      stack.enter_context(mock.patch.object(module, 'CANDIDATE_IDENTITY_PATH', self.state / 'identity.json'))
+                      module.cleanup()
+                  self.assertEqual({p.name: p.read_bytes() for p in self.state.iterdir()}, before)
+                  with self.assertRaisesRegex(module.CandidateError, 'already_spent'):
+                      self.claim()
+
+          unittest.main(argv=['execution-grant-contract'], verbosity=2)
+          PY
       - name: Prove safety regressions and candidate contract
         run: |
           set -Eeuo pipefail
@@ -1222,7 +1486,7 @@ jobs:
           const path = require('node:path');
           const { spawnSync } = require('node:child_process');
           const workflow = fs.readFileSync('.github/workflows/gekta-qwen35-4b-model-host-candidate.yml', 'utf8');
-          const selection = workflow.match(/case "\$CANDIDATE_COMMAND" in[\s\S]*?echo "corpus=\$corpus" >> "\$GITHUB_OUTPUT"/);
+          const selection = workflow.match(/if \[\[ "\$CANDIDATE_COMMAND"[\s\S]*?echo "admitted_sha=\$admitted_sha" >> "\$GITHUB_OUTPUT"/);
           const execution = workflow.match(/case "\$CANDIDATE_CORPUS" in[\s\S]*?pnpm --filter @pc\/api exec jest --runInBand "\$\{specs\[@\]\}" 2>&1 \| tee "\$RUNNER_TEMP\/qwen35-acceptance"/);
           const classification = workflow.match(/function classifyCandidateEvidence\(e\) \{[\s\S]*?\n          \}/);
           assert.ok(classification, 'actual report classification required');
@@ -1246,14 +1510,13 @@ jobs:
             const critical = 'src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts';
             const extra = 'src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts';
             for (const [command, corpus, expected] of [
-              ['/gekta qwen35-4b candidate current-main', 'both', [critical, extra]],
-              ['/gekta qwen35-4b critical current-main', 'critical', [critical]],
-              ['/gekta qwen35-4b extra current-main', 'extra', [extra]],
+              ['/gekta qwen35-4b critical ' + 'a'.repeat(40), 'critical', [critical]],
+              ['/gekta qwen35-4b extra ' + 'a'.repeat(40), 'extra', [extra]],
             ]) {
               fs.writeFileSync(output, '');
               const selected = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command }, encoding: 'utf8' });
               assert.equal(selected.status, 0);
-              assert.equal(fs.readFileSync(output, 'utf8'), 'corpus=' + corpus + '\n');
+              assert.equal(fs.readFileSync(output, 'utf8'), 'corpus=' + corpus + '\nadmitted_sha=' + 'a'.repeat(40) + '\n');
               for (const status of [0, 7]) {
                 const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + execution[0]], { env: { ...env, CANDIDATE_CORPUS: corpus, SYNTHETIC_EXIT: String(status) }, encoding: 'utf8' });
                 assert.equal(result.status, status, 'capture must preserve real Jest failure');
@@ -1262,12 +1525,28 @@ jobs:
                 assert.ok(captured.includes('SYNTHETIC_JEST_STDERR_MARKER'));
               }
             }
-            for (const command of ['', '/gekta qwen35-4b extra current-main ', '/gekta qwen35-4b anything current-main', '/gekta qwen35-4b extra arbitrary-sha']) {
+            for (const command of ['', '/gekta qwen35-4b candidate current-main', '/gekta qwen35-4b candidate ' + 'a'.repeat(40), '/gekta qwen35-4b critical current-main', '/gekta qwen35-4b extra current-main', '/gekta qwen35-4b critical ' + 'A'.repeat(40), '/gekta qwen35-4b extra ' + 'a'.repeat(39), '/gekta qwen35-4b extra ' + 'a'.repeat(40) + ' ', '/gekta qwen35-4b extra current-main ', '/gekta qwen35-4b anything current-main', '/gekta qwen35-4b extra arbitrary-sha']) {
               const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command } });
               assert.equal(result.status, 1);
             }
             const invalid = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + execution[0]], { env: { ...env, CANDIDATE_CORPUS: 'unknown' } });
             assert.equal(invalid.status, 1);
+            const target = workflow.split('\n      - name: Resolve exact current main\n')[1].split('\n      - uses:')[0];
+            const resolution = target.split('        run: |\n')[1];
+            for (const [name, script] of Object.entries({
+              git: 'case "$*" in "fetch --no-tags origin main") exit 0;; "rev-parse origin/main") echo "$TEST_MAIN_SHA";; "rev-parse HEAD") echo "$TEST_HEAD_SHA";; *) exit 9;; esac',
+              gh: 'printf "%s\\n" "$TEST_API_SHA"',
+              python3: 'exit 0',
+              sha256sum: 'printf "%s  helper\\n" ' + 'c'.repeat(64),
+            })) fs.writeFileSync(path.join(dir, name), '#!/bin/bash\n' + script + '\n', { mode: 0o700 });
+            const a = 'a'.repeat(40), b = 'b'.repeat(40);
+            for (const [admitted, main, head, api, status] of [[a,a,a,a,0], [b,a,a,a,1], [a,b,a,a,1], [a,a,b,a,1], [a,a,a,b,1]]) {
+              fs.writeFileSync(output, '');
+              const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + resolution], {
+                env: { ...env, GITHUB_REPOSITORY: 'synthetic/repository', CANDIDATE_COMMAND: '/gekta qwen35-4b critical ' + admitted, TEST_MAIN_SHA: main, TEST_HEAD_SHA: head, TEST_API_SHA: api }, encoding: 'utf8',
+              });
+              assert.equal(result.status, status, 'admitted SHA/checkout/current main mismatch must fail before transport');
+            }
             console.log('QWEN35_CORPUS_CONTRACT=PASS (synthetic selection/capture; not real inference)');
           } finally {
             fs.rmSync(dir, { recursive: true, force: true });
@@ -1321,9 +1600,8 @@ jobs:
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
       (
-        github.event.comment.body == '/gekta qwen35-4b candidate current-main' ||
-        github.event.comment.body == '/gekta qwen35-4b critical current-main' ||
-        github.event.comment.body == '/gekta qwen35-4b extra current-main'
+        startsWith(github.event.comment.body, '/gekta qwen35-4b critical ') ||
+        startsWith(github.event.comment.body, '/gekta qwen35-4b extra ')
       ) &&
       (
         (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
@@ -1351,17 +1629,20 @@ jobs:
           CANDIDATE_COMMAND: ${{ github.event.comment.body }}
         run: |
           set -Eeuo pipefail
-          # Closed corpus selection; each invocation keeps its own 420-second lease.
-          case "$CANDIDATE_COMMAND" in
-            '/gekta qwen35-4b candidate current-main') corpus=both ;;
-            '/gekta qwen35-4b critical current-main') corpus=critical ;;
-            '/gekta qwen35-4b extra current-main') corpus=extra ;;
-            *) echo 'unsupported candidate corpus command' >&2; exit 1 ;;
-          esac
+          # The owner command admits one full source SHA. Legacy/combined commands
+          # cannot reach transport; this fence does not create another allowance.
+          if [[ "$CANDIDATE_COMMAND" =~ ^/gekta\ qwen35-4b\ (critical|extra)\ ([0-9a-f]{40})$ ]]; then
+            corpus="${BASH_REMATCH[1]}"
+            admitted_sha="${BASH_REMATCH[2]}"
+          else
+            echo 'unsupported candidate corpus or missing exact source SHA' >&2; exit 1
+          fi
           echo "corpus=$corpus" >> "$GITHUB_OUTPUT"
+          echo "admitted_sha=$admitted_sha" >> "$GITHUB_OUTPUT"
           git fetch --no-tags origin main
           sha="$(git rev-parse origin/main)"
           [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$sha" == "$admitted_sha" ]]
           [[ "$sha" == "$(git rev-parse HEAD)" ]]
           [[ "$sha" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
           helper='scripts/gekta-qwen35-4b-model-host-candidate.py'
@@ -1494,18 +1775,26 @@ jobs:
       - name: Start bounded non-root candidate window
         id: start
         env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          ADMITTED_SHA: ${{ steps.target.outputs.admitted_sha }}
+          CANDIDATE_CORPUS: ${{ steps.target.outputs.corpus }}
           MODEL_HOST: ${{ steps.ssh.outputs.host }}
           MODEL_USER: ${{ steps.ssh.outputs.user }}
           MODEL_PORT: ${{ steps.ssh.outputs.port }}
           REMOTE_HELPER: ${{ steps.ssh.outputs.remote_helper }}
         run: |
           set -Eeuo pipefail
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ && "$TARGET_SHA" == "$ADMITTED_SHA" ]]
+          [[ "$TARGET_SHA" == "$(git rev-parse HEAD)" ]]
+          [[ "$TARGET_SHA" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ "$CANDIDATE_CORPUS" == critical || "$CANDIDATE_CORPUS" == extra ]]
           printf '%s\n' "$QWEN35_CANDIDATE_KEY" |
             ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
               -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
               -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
               "$MODEL_USER@$MODEL_HOST" \
-              "python3 '$REMOTE_HELPER' start --candidate-key-stdin" \
+              "python3 '$REMOTE_HELPER' start --candidate-key-stdin --execution-grant gekta-critical-5974230017 --corpus '$CANDIDATE_CORPUS' --admitted-sha '$ADMITTED_SHA' --checkout-sha '$TARGET_SHA'" \
             | tee "$RUNNER_TEMP/qwen35-start"
           grep -Fxq 'QWEN35_CANDIDATE_NONROOT_PARALLEL=1' "$RUNNER_TEMP/qwen35-start"
           grep -Fxq 'QWEN35_CANDIDATE_START=PASS' "$RUNNER_TEMP/qwen35-start"

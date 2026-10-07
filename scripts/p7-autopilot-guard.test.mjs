@@ -497,9 +497,11 @@ function currentGitleaksReleaseAttestationFixture(t) {
   const count = source.split(gitleaksCurrentReviewedEntries).length - 1;
   assert.ok(count === 0 || count === 1, 'current reviewed entries occur together at most once');
   write(context.root, gitleaksReleaseAttestationPath, source.replace(gitleaksCurrentReviewedEntries, ''));
-  for (const file of ['.gitleaksignore', 'apps/tai/release-source-manifest.json']) {
-    write(context.root, file, fs.readFileSync(file, 'utf8'));
-  }
+  // This fixture models the immutable historical attestation, not today's allowlist.
+  const historicalIgnore = spawnSync('git', ['cat-file', 'blob', '5c151dc1a2b5329fb2d4feb1fd0c1713bbef96db'], { encoding: 'utf8' });
+  assert.equal(historicalIgnore.status, 0, `${historicalIgnore.stdout}\n${historicalIgnore.stderr}`);
+  write(context.root, '.gitleaksignore', historicalIgnore.stdout);
+  write(context.root, 'apps/tai/release-source-manifest.json', fs.readFileSync('apps/tai/release-source-manifest.json', 'utf8'));
   const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
   const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
   state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [gitleaksReleaseAttestationPath];
@@ -2422,7 +2424,7 @@ test('security remediation pins the three affected dependency families', () => {
   const root = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   const web = JSON.parse(fs.readFileSync('apps/web/package.json', 'utf8'));
   assert.equal(root.pnpm.overrides.multer, '2.3.0');
-  assert.equal(root.pnpm.overrides.sharp, '0.35.4');
+  assert.equal(root.pnpm.overrides.sharp, '0.35.5');
   assert.equal(web.dependencies.next, '15.5.24');
 });
 

@@ -28,3 +28,15 @@ Require fresh exact-published-head independent nonauthor review of all eleven fi
 Preserve actual PRODUCT handoff5933030140, accepted purpose3/guard/test/workflow and all other owners; recheck fresh main/Hub before publication or merge. Return an actual handoff and supersede old proposals only after real atomic acceptance. No production, provider activation, R1 completion or progress claim follows from this bundle.
 
 The next priority is the existing Gekta owner's actual model activation and live quality, speed and stability acceptance under its separate existing admissions and remaining topology/release prerequisites. This does not expand these eleven paths. R1.3 remains queued for a separately accepted scope transition; exact-main REG.RU and full 13-cabinet acceptance remain separate.
+
+## Queued snapshot-only topology diagnostic — 2026-10-01
+
+Preserve the entire current task and all existing owners. The bounded approval in [Hub5941557816](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5941557816) permits this five-file preparation and a subsequent exact two-file source draft only. It is a reduced continuation of [proposal5934069236](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5934069236), retaining the existing TAI/preflight owner and #3582 lineage, not a second observer or completed full-model proposal.
+
+After actual admission acceptance, the sole source branch is `fix/tai-bounded-topology-observer-20261001`:
+- `scripts/tai-reg-ru-preflight.sh`, mode 100755: `8f0f285bc436f3b4754204d198db5c68a4c916d2` -> `ac60f97dacdaf85ef1ccef63a1ea40709023d509`
+- `scripts/check-tai-reg-ru-preflight.mjs`, mode 100644: `15fb496d2aba5b2fda7adc0d55b8caaf8d6d1c79` -> `70071581041d73e8d73f5d61d8699420844cdf86`
+
+Use only the exact source transitions/SHA256 values in `tai-bounded-topology-observer-20261001`. Reuse existing private preflight JSON and ordered input snapshots; preserve every classifier, check, blocker, maturity and passed result. One additional Python collector reads bounded existing private work data/stdin, launches no child process and adds no wall-clock guarantee. No added Docker/Compose evaluation, daemon/image operation, network, source/env/protected-file read or workflow/controller change. Fresh persisted/discovery comparison, immutable-image/default-command evidence, registry provenance and freshness remain NOT_PROVEN.
+
+This five-file admission must wait for explicit closure of the serialized runtime no-main-merge window before governance merge. The subsequent source PR stays draft: source merge and server execution require separate explicit approval because existing automatic build/preflight controllers pull images and refresh protected checkout. Current Gekta diagnostic/runtime authority grants no topology operation. No new rights, credentials, expense or progress credit; official 5/100 and all existing priorities remain unchanged.

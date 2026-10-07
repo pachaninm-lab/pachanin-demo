@@ -176,3 +176,13 @@ Execution sequence: independently review and manually merge this owner-authorize
 
 IR-20 remains active. Its final closure requires the exact-current-main REG.RU release, verified immutable running images and canonical production Compose topology, functional live acceptance for the touched outbox flow, and at least 30 minutes of observation required by MASTER. Worker publication, protected release and rollback work require their own reviewed scopes and operational evidence. Local patches, independent review, green CI, a Kubernetes PASS, image publication and a merge do not by themselves constitute `PRODUCTION_PASS`. No IR-21 or other product delivery slice opens before the required IR-20 acceptance is complete.
 
+
+## Queued TAI snapshot-only topology diagnostic — 2026-10-01
+
+This is a bounded follow-on to [Hub5934069236](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5934069236), authorized only for five-file preparation and a subsequent source draft by [Hub5941557816](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5941557816). Preserve current CORE/COR5 writer priority, PRODUCT handoffs, existing TAI ownership/#3582 lineage and every historical queue entry. The separate Gekta model-control history, including #5747, grants no topology scope or operation.
+
+1. Review and accept only the five appended governance changes after explicit closure of the serialized runtime no-main-merge window and fresh main/ownership checks; no concurrent runtime SHA movement.
+2. Then publish `fix/tai-bounded-topology-observer-20261001` as a draft containing only `scripts/tai-reg-ru-preflight.sh` (100755, exact `ac60f97dacdaf85ef1ccef63a1ea40709023d509`) and `scripts/check-tai-reg-ru-preflight.mjs` (100644, exact `70071581041d73e8d73f5d61d8699420844cdf86`) from the state-pinned transitions. Obtain fresh full-head independent review, owner audit and native checks.
+3. Retain source-merge and server-execution hold pending separate explicit approval of inherited automatic image-build/preflight effects, including image pulls and protected-checkout refresh. Do not invoke a controller/host or repair parity/detector behavior in this slice.
+
+The reduced payload only exposes existing preflight snapshot facts; fresh persisted/discovery comparison, immutable image/default-command/entrypoint and registry/freshness evidence remain NOT_PROVEN. The original topology blockers and separate deployment authority remain open. No CORE_TOPOLOGY_READY, R1 completion, permanent model switch, new rights/expenses or official progress beyond 5/100 follows.
