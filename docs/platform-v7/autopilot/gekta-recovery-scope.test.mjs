@@ -3,10 +3,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 
 const scopes = {
+  "fix/gekta-history-lifecycle-5818": [
+    "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+    "apps/api/src/modules/gekta/gekta-workspace.spec.ts"
+  ],
   "fix/gekta-model-control-probe-20261001": [
     ".github/workflows/gekta-p0-speed-model-host-control-probe.yml"
   ],
@@ -58,6 +63,27 @@ function fixture(t, branch, { admitted = true, purpose = true } = {}) {
   write(root, 'scripts/p7-autopilot-guard.sh', sourceGuard);
   write(root, 'scripts/p7-source-controlled-scope.mjs', sourceResolver);
   const state = { allowedCurrentScope: ['README.md'], approvedConcurrentScopes: { [branch]: ['forged.txt'] } };
+  if (branch === 'fix/gekta-history-lifecycle-5818') {
+    const paths = scopes[branch];
+    const blob = value => createHash('sha1').update(`blob ${Buffer.byteLength(value)}\0${value}`).digest('hex');
+    const template = {
+      owner: 'OWNER_AUTHORIZED_SESSION', implementationBranch: branch, originalIssue: 5818, allowedPaths: paths,
+      sourcePayload: paths.map(file => ({ path: file, beforeBlob: blob('base'), afterBlob: blob('changed'),
+        mode: '100644', bytes: 7, sha256: createHash('sha256').update('changed').digest('hex') })),
+      requiredTruthBoundaries: ['No runtime/model or physical purge authority.'],
+    };
+    state.allowedCurrentScope.push('apps/api/src/main.ts', 'infra/production/injected.yml');
+    state.approvedConcurrentScopes = admitted ? { [branch]: paths } : {};
+    state.coordinationAdmissions = purpose ? {
+      'gekta-history-lifecycle-guard-purpose-5818-20261007': {
+        stagedSourceBranch: branch, stagedAdmissionBranch: 'governance/gekta-history-lifecycle-source-admission-5818',
+        stagedSourceAdmission: template,
+      },
+      ...(admitted ? { 'gekta-history-lifecycle-5818-20261007': {
+        ...template, authorityBaseExactMain: 'a'.repeat(40),
+      } } : {}),
+    } : {};
+  }
   if (branch === 'fix/gekta-model-control-probe-20261001') {
     state.approvedConcurrentScopes = admitted ? { [branch]: scopes[branch] } : {};
     state.coordinationAdmissions = purpose ? {
@@ -251,7 +277,10 @@ test('read-only diagnostic: rejects workflow-to-gitlink mode transition', t => {
   assert.match(r.stderr, /GEKTA_READONLY_DIAGNOSTIC_REGULAR_EXISTING_WORKFLOW_ONLY/u);
 });
 
-test('read-only diagnostic: a source-only PR triggers and selects PR-head defense', () => {
+for (const [routeBranch, routePath] of [
+  [readonlyDiagnosticBranch, readonlyDiagnosticPath],
+  ...scopes['fix/gekta-history-lifecycle-5818'].map(file => ['fix/gekta-history-lifecycle-5818', file]),
+]) test(`${routeBranch}: source-only ${routePath} triggers and selects PR-head defense`, () => {
   function pullRequestFilter(source) {
     const lines = source.split('\n');
     const on = lines.indexOf('on:');
@@ -285,21 +314,103 @@ test('read-only diagnostic: a source-only PR triggers and selects PR-head defens
   };
   const defense = workflow.match(/- name: Validate immutable scope with trusted base guard on PR head\n        if: >-\n([\s\S]*?)        env:/u)?.[1];
   assert.ok(defense, 'The actual PR-head defense condition is required');
-  const selected = runInNewContext(`(${defense})`, { github: { event_name: 'pull_request', head_ref: readonlyDiagnosticBranch } }, { timeout: 1000 });
+  const selected = runInNewContext(`(${defense})`, { github: { event_name: 'pull_request', head_ref: routeBranch } }, { timeout: 1000 });
   assert.equal(selected, true);
   const filter = pullRequestFilter(workflow);
-  assert.equal(filter.paths.filter(file => file === readonlyDiagnosticPath).length, 1, 'The exact source path must be in pull_request.paths');
-  const line = `      - '${readonlyDiagnosticPath}'\n`;
+  assert.equal(filter.paths.filter(file => file === routePath).length, 1, 'The exact source path must be in pull_request.paths');
+  const line = `      - '${routePath}'\n`;
   assert.equal(workflow.split(line).length - 1, 1);
   const missingTrigger = workflow.replace(line, '');
   for (const action of ['opened', 'synchronize', 'reopened']) {
-    assert.equal(triggers(workflow, action, readonlyDiagnosticPath) && selected, true, action);
-    assert.equal(triggers(missingTrigger, action, readonlyDiagnosticPath), false, `${action}: selectors alone must not mask a missing event trigger`);
+    assert.equal(triggers(workflow, action, routePath) && selected, true, action);
+    assert.equal(triggers(missingTrigger, action, routePath), false, `${action}: selectors alone must not mask a missing event trigger`);
     assert.equal(triggers(workflow, action, '.github/workflows/unrelated-model-control.yml'), false);
-    assert.equal(triggers(workflow, action, readonlyDiagnosticPath, 'not-main'), false);
+    assert.equal(triggers(workflow, action, routePath, 'not-main'), false);
   }
-  assert.deepEqual(pullRequestFilter(missingTrigger).paths, filter.paths.filter(file => file !== readonlyDiagnosticPath));
-  for (const marker of [`github.event.pull_request.head.ref == '${readonlyDiagnosticBranch}'`, `github.head_ref == '${readonlyDiagnosticBranch}'`, `github.head_ref != '${readonlyDiagnosticBranch}'`, `|${readonlyDiagnosticBranch}|`]) {
+  assert.deepEqual(pullRequestFilter(missingTrigger).paths, filter.paths.filter(file => file !== routePath));
+  for (const marker of [`github.event.pull_request.head.ref == '${routeBranch}'`, `github.head_ref == '${routeBranch}'`, `github.head_ref != '${routeBranch}'`, `|${routeBranch}|`]) {
     assert.equal(missingTrigger.split(marker).length, workflow.split(marker).length, 'Removing the event trigger leaves every selector unchanged');
   }
 });
+
+const historyBranch = 'fix/gekta-history-lifecycle-5818';
+const historyAdmissionBranch = 'governance/gekta-history-lifecycle-source-admission-5818';
+const historyPurposeKey = 'gekta-history-lifecycle-guard-purpose-5818-20261007';
+const historyAdmissionKey = 'gekta-history-lifecycle-5818-20261007';
+for (const options of [{ admitted: false }, { purpose: false }]) {
+  test(`history: trusted source requires accepted purpose and source admission ${JSON.stringify(options)}`, t => {
+    const c = fixture(t, historyBranch, options);
+    for (const file of scopes[historyBranch]) write(c.root, file, 'changed');
+    assert.notEqual(checkTrustedDiagnostic(c).status, 0);
+  });
+}
+for (const attack of ['main.ts', 'infrastructure', 'missing-file', 'wrong-content', 'rename', 'symlink', 'executable', 'state', 'resolver', 'guard']) {
+  test(`history: accepted two-file payload rejects ${attack}`, t => {
+    const c = fixture(t, historyBranch);
+    for (const file of scopes[historyBranch]) write(c.root, file, 'changed');
+    const first = path.join(c.root, scopes[historyBranch][0]);
+    if (attack === 'main.ts') write(c.root, 'apps/api/src/main.ts', 'injected');
+    if (attack === 'infrastructure') write(c.root, 'infra/production/injected.yml', 'injected');
+    if (attack === 'missing-file') write(c.root, scopes[historyBranch][0], 'base');
+    if (attack === 'wrong-content') write(c.root, scopes[historyBranch][0], 'other');
+    if (attack === 'rename') fs.renameSync(first, first + '.renamed');
+    if (attack === 'symlink') { fs.unlinkSync(first); fs.symlinkSync('../../../../../README.md', first); }
+    if (attack === 'executable') fs.chmodSync(first, 0o755);
+    if (attack === 'state') {
+      const state = JSON.parse(fs.readFileSync(path.join(c.root, statePath), 'utf8'));
+      state.allowedCurrentScope = ['**']; state.approvedConcurrentScopes[c.branch] = ['**'];
+      write(c.root, statePath, JSON.stringify(state));
+    }
+    if (attack === 'resolver') write(c.root, 'scripts/p7-source-controlled-scope.mjs', "console.log('**');");
+    if (attack === 'guard') write(c.root, 'scripts/p7-autopilot-guard.sh', '#!/bin/sh\nexit 0\n');
+    assert.notEqual(checkTrustedDiagnostic(c).status, 0);
+  });
+}
+function historyAdmissionFixture(t, options = {}) {
+  const c = fixture(t, historyBranch, { admitted: false, ...options });
+  git(c.root, 'switch', '-c', historyAdmissionBranch); c.branch = historyAdmissionBranch;
+  const state = JSON.parse(fs.readFileSync(path.join(c.root, statePath), 'utf8'));
+  state.approvedConcurrentScopes[historyBranch] = scopes[historyBranch];
+  if (state.coordinationAdmissions[historyPurposeKey]) {
+    state.coordinationAdmissions[historyAdmissionKey] = {
+      ...state.coordinationAdmissions[historyPurposeKey].stagedSourceAdmission, authorityBaseExactMain: c.base,
+    };
+  }
+  write(c.root, statePath, JSON.stringify(state));
+  return c;
+}
+test('history admission: accepted purpose allows exactly the state-only transition', t => {
+  const c = historyAdmissionFixture(t); const r = checkTrustedDiagnostic(c);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
+for (const attack of ['global-permission', 'extra-vector', 'wrong-payload', 'source-file', 'guard-file', 'state-executable', 'missing-purpose', 'base-source-moved']) {
+  test(`history admission: rejects ${attack}`, t => {
+    const c = historyAdmissionFixture(t, { purpose: attack !== 'missing-purpose' });
+    const full = path.join(c.root, statePath); const state = JSON.parse(fs.readFileSync(full, 'utf8'));
+    if (attack === 'global-permission') state.allowedCurrentScope = ['**'];
+    if (attack === 'extra-vector') state.approvedConcurrentScopes.evil = ['**'];
+    if (attack === 'wrong-payload') state.coordinationAdmissions[historyAdmissionKey].sourcePayload[0].afterBlob = 'b'.repeat(40);
+    write(c.root, statePath, JSON.stringify(state));
+    if (attack === 'source-file') write(c.root, scopes[historyBranch][0], 'changed');
+    if (attack === 'guard-file') write(c.root, 'scripts/p7-autopilot-guard.sh', '#!/bin/sh\nexit 0\n');
+    if (attack === 'state-executable') fs.chmodSync(full, 0o755);
+    if (attack === 'base-source-moved') {
+      git(c.root, 'stash', 'push', '-u');
+      write(c.root, scopes[historyBranch][0], 'new baseline'); git(c.root, 'add', '.'); git(c.root, 'commit', '-m', 'advance source');
+      c.base = git(c.root, 'rev-parse', 'HEAD'); git(c.root, 'stash', 'pop');
+      const updated = JSON.parse(fs.readFileSync(full, 'utf8'));
+      updated.coordinationAdmissions[historyAdmissionKey].authorityBaseExactMain = c.base;
+      write(c.root, statePath, JSON.stringify(updated));
+    }
+    const r = checkTrustedDiagnostic(c); assert.notEqual(r.status, 0, r.stdout + r.stderr);
+  });
+}
+for (const branch of [historyBranch, historyAdmissionBranch]) {
+  test(`history: all six native trusted-base and PR-defense selectors register ${branch}`, () => {
+    assert.equal(workflow.split(`github.event.pull_request.head.ref == '${branch}'`).length - 1, 1);
+    assert.equal(workflow.split(`github.head_ref == '${branch}'`).length - 1, 2);
+    assert.equal(workflow.split(`github.head_ref != '${branch}'`).length - 1, 1);
+    assert.equal(workflow.split(`|${branch}|`).length - 1, 2);
+    assert.ok(workflow.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"'));
+  });
+}
