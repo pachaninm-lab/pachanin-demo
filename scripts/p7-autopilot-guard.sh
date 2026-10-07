@@ -56,6 +56,8 @@ CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
+    "security/accounting-bff-csrf-3-5-1"|"security/module-body-validation"|"security/bff-upstream-path-encoding-4459"|"security/request-cookie-single-reader-4459"|"security/open-redirect-demo-login-4459"|"security/email-check-length-first-4459"|"security/browser-hardening-headers-4459"|"security/outbound-redirect-and-surface-4459"|"security/credential-surface-4459") return 0 ;;
+    "fix/gekta-history-lifecycle-5818"|"governance/gekta-history-lifecycle-source-admission-5818") return 0 ;;
     "$PRODUCT_DEAL_RUNTIME_BRANCH"|"$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH") return 0 ;;
     "governance/product-deal-execution-route-20261001"|"fix/deal-execution-route-20261001") return 0 ;;
     "fix/gekta-model-control-probe-20261001") return 0 ;;
@@ -513,6 +515,11 @@ if (!baseRef || !stateFile || !branch) {
 // These bounded recovery routes are owned by the accepted base guard.
 // Candidate state and manifests cannot widen their exact path sets.
 const gektaRecoveryScopes = {
+  "fix/gekta-history-lifecycle-5818": [
+    "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+    "apps/api/src/modules/gekta/gekta-workspace.spec.ts"
+  ],
+  "governance/gekta-history-lifecycle-source-admission-5818": [stateFile],
   "fix/gekta-model-control-probe-20261001": [
     ".github/workflows/gekta-p0-speed-model-host-control-probe.yml"
   ],
@@ -548,6 +555,64 @@ const gektaRecoveryScopes = {
 let scopes;
 if (Object.hasOwn(gektaRecoveryScopes, branch)) {
   scopes = gektaRecoveryScopes[branch];
+  if (branch === 'fix/gekta-history-lifecycle-5818' || branch === 'governance/gekta-history-lifecycle-source-admission-5818') {
+    const { isDeepStrictEqual } = require('node:util');
+    const { createHash } = require('node:crypto');
+    const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+    const fail = reason => { throw new Error(`GEKTA_HISTORY_SCOPE_${reason}`); };
+    const implementationBranch = 'fix/gekta-history-lifecycle-5818';
+    const admissionBranch = 'governance/gekta-history-lifecycle-source-admission-5818';
+    const admissionKey = 'gekta-history-lifecycle-5818-20261007';
+    const headRef = String(process.env.HEAD_REF || '').trim();
+    const accepted = JSON.parse(git(['show', `${baseRef}:${stateFile}`]));
+    const purpose = accepted.coordinationAdmissions?.['gekta-history-lifecycle-guard-purpose-5818-20261007'];
+    const paths = gektaRecoveryScopes[implementationBranch];
+    const template = purpose?.stagedSourceAdmission;
+    if (!purpose || purpose.stagedSourceBranch !== implementationBranch ||
+        purpose.stagedAdmissionBranch !== admissionBranch || !template ||
+        template.implementationBranch !== implementationBranch || template.originalIssue !== 5818 ||
+        !isDeepStrictEqual(template.allowedPaths, paths) ||
+        !Array.isArray(template.sourcePayload) || template.sourcePayload.length !== paths.length ||
+        !isDeepStrictEqual(template.sourcePayload.map(item => item.path), paths)) fail('PURPOSE_NOT_ACCEPTED');
+    if (!headRef) fail('HEAD_REQUIRED');
+    git(['merge-base', '--is-ancestor', baseRef, headRef]);
+    const entries = git(['diff', '--raw', '--no-abbrev', '--no-renames', '-z', baseRef, headRef]).split('\0');
+    if (entries.pop() !== '') fail('INVALID_DIFF');
+    for (const item of template.sourcePayload) {
+      if (item.mode !== '100644' || !/^[0-9a-f]{40}$/.test(item.beforeBlob) ||
+          !/^[0-9a-f]{40}$/.test(item.afterBlob) || !/^[0-9a-f]{64}$/.test(item.sha256) ||
+          !Number.isSafeInteger(item.bytes) || item.bytes <= 0) fail('INVALID_PAYLOAD');
+    }
+    if (branch === admissionBranch) {
+      if (entries.length !== 2 || entries[1] !== stateFile ||
+          !/^:100644 100644 [0-9a-f]{40} [0-9a-f]{40} M$/.test(entries[0])) fail('STATE_ONLY_REQUIRED');
+      if (Object.hasOwn(accepted.approvedConcurrentScopes, implementationBranch) ||
+          Object.hasOwn(accepted.coordinationAdmissions, admissionKey)) fail('ALREADY_ADMITTED');
+      for (const item of template.sourcePayload) {
+        if (git(['ls-tree', baseRef, '--', item.path]).trim() !== `100644 blob ${item.beforeBlob}\t${item.path}`) fail('BASE_SOURCE_MOVED');
+      }
+      const expected = structuredClone(accepted);
+      expected.approvedConcurrentScopes[implementationBranch] = paths;
+      expected.coordinationAdmissions[admissionKey] = {
+        ...template, authorityBaseExactMain: git(['rev-parse', baseRef]).trim(),
+      };
+      const candidate = JSON.parse(git(['show', `${headRef}:${stateFile}`]));
+      if (!isDeepStrictEqual(candidate, expected)) fail('STATE_TRANSITION_MISMATCH');
+    } else {
+      const admission = accepted.coordinationAdmissions?.[admissionKey];
+      if (!admission || !/^[0-9a-f]{40}$/.test(admission.authorityBaseExactMain || '') ||
+          !isDeepStrictEqual(accepted.approvedConcurrentScopes?.[branch], paths) ||
+          !isDeepStrictEqual(admission, { ...template, authorityBaseExactMain: admission.authorityBaseExactMain })) fail('SOURCE_NOT_ADMITTED');
+      if (entries.length !== paths.length * 2) fail('EXACT_TWO_PATHS_REQUIRED');
+      for (const item of template.sourcePayload) {
+        const index = entries.indexOf(item.path);
+        if (index < 1 || index % 2 !== 1 ||
+            entries[index - 1] !== `:100644 100644 ${item.beforeBlob} ${item.afterBlob} M`) fail('PAYLOAD_MISMATCH');
+        const bytes = execFileSync('git', ['show', `${headRef}:${item.path}`]);
+        if (bytes.length !== item.bytes || createHash('sha256').update(bytes).digest('hex') !== item.sha256) fail('CONTENT_MISMATCH');
+      }
+    }
+  }
   if (branch === 'fix/gekta-model-control-probe-20261001') {
     // A literal route is necessary but does not itself admit source. The
     // separately accepted one-path state transition must already be in base.
@@ -2556,7 +2621,7 @@ if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
 fi
 
-if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$IR20_BINDING_PREREQUISITE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_SCOPE_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BUYER_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BANK_HOME_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "governance/product-deal-execution-route-20261001" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH" ]; then
+if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$IR20_BINDING_PREREQUISITE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_SCOPE_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BUYER_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BANK_HOME_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "governance/product-deal-execution-route-20261001" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "governance/gekta-history-lifecycle-source-admission-5818" ]; then
   MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-autopilot-guard\.test\.mjs$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$|\.github/workflows/automerge\.yml$)' || true)
   # These manifests document the exact accepted path sets. They are not scope
   # authority: only approvedConcurrentScopes from the trusted base is used.
@@ -2592,6 +2657,40 @@ if (!manifest || Array.isArray(manifest) || typeof manifest !== 'object' ||
 }
 JS
     MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv "$PRODUCT_SCOPE_MANIFEST" || true)
+  fi
+  case "$CURRENT_BRANCH" in
+    "security/accounting-bff-csrf-3-5-1") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/accounting-bff-csrf-3-5-1.json' ;;
+    "security/module-body-validation") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/module-body-validation.json' ;;
+    "security/bff-upstream-path-encoding-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/bff-upstream-path-encoding-4459.json' ;;
+    "security/request-cookie-single-reader-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/request-cookie-single-reader-4459.json' ;;
+    "security/open-redirect-demo-login-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/open-redirect-demo-login-4459.json' ;;
+    "security/email-check-length-first-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/email-check-length-first-4459.json' ;;
+    "security/browser-hardening-headers-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/browser-hardening-headers-4459.json' ;;
+    "security/outbound-redirect-and-surface-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/outbound-redirect-and-surface-4459.json' ;;
+    "security/credential-surface-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/credential-surface-4459.json' ;;
+    *) CONCURRENT_SCOPE_MANIFEST='' ;;
+  esac
+  if [ -n "$CONCURRENT_SCOPE_MANIFEST" ] && printf '%s\n' "$DIFF_FILES" | grep -Fxq "$CONCURRENT_SCOPE_MANIFEST"; then
+    # The branch's own manifest documents the accepted vector; it is not scope
+    # authority. It is exempt only when that exact path is in the base vector
+    # and the file is a well-formed manifest for this exact branch.
+    CONCURRENT_MANIFEST_BASE_SCOPE="$APPROVED_BRANCH_SCOPE" CONCURRENT_MANIFEST_PATH="$CONCURRENT_SCOPE_MANIFEST" \
+      CONCURRENT_MANIFEST_BRANCH="$CURRENT_BRANCH" CONCURRENT_MANIFEST_HEAD="$HEAD_REF" node - <<'JS'
+const { execFileSync } = require('node:child_process');
+const branch = process.env.CONCURRENT_MANIFEST_BRANCH;
+const path = process.env.CONCURRENT_MANIFEST_PATH;
+const head = process.env.CONCURRENT_MANIFEST_HEAD;
+const acceptedPaths = process.env.CONCURRENT_MANIFEST_BASE_SCOPE.split(/\r?\n/u).filter(Boolean);
+if (!acceptedPaths.includes(path)) throw new Error('CONCURRENT_MANIFEST_NOT_ACCEPTED_IN_BASE');
+const raw = execFileSync('git', ['show', `${head}:${path}`], { encoding: 'utf8', maxBuffer: 64 * 1024 });
+const manifest = JSON.parse(raw);
+if (!manifest || Array.isArray(manifest) || typeof manifest !== 'object' ||
+    manifest.schemaVersion !== 'platform-v7.concurrent-scope.v1' ||
+    manifest.status !== 'active' || manifest.branch !== branch) {
+  throw new Error('CONCURRENT_MANIFEST_IDENTITY_INVALID');
+}
+JS
+    MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv "$CONCURRENT_SCOPE_MANIFEST" || true)
   fi
   if [ "$CURRENT_BRANCH" = "$QWEN_FAILED_EVIDENCE_BRANCH" ]; then
     # This diagnostic regression file is still subject to exact base-approved scope.
