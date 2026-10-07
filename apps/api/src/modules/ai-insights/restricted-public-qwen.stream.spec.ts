@@ -123,6 +123,7 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     ['Gross revenue is one million two hundred thousand; proceeds after delivery are nine hundred thousand. ', 'nine hundred thousand'],
     ['Выручка — миллион двести тысяч; после доставки остаётся девятьсот тысяч. ', 'девятьсот тысяч'],
     ['销售收入为一百二十万，扣除运输费后为九十万。', '九十万'],
+    ['Harmless'.repeat(2000), 'Harmless'],
   ] as const).map(([content, forbidden]) => [mode, content, forbidden] as const)))('appends only checked sale proceeds in %s output: %s', async (mode, content, forbidden) => {
     const question = 'Пшеница: 100 тонн по 12 000 рублей за тонну. Доставка 80 000 рублей. Посчитай итоговую выручку после доставки и покажи расчёт.';
     const raw = request({ question, originalQuestion: question, currentDataRequired: true });
@@ -164,6 +165,13 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     'Revenue: corn delivery 80000 RUB. Wheat 100 tonnes at 12000 RUB/tonne.',
     'Посчитай выручку от перепродажи: купил 100 тонн по 12000 руб/т. Доставка 80000 руб.',
     'Revenue: 100 tons at 12000 RUB/tonne. Delivery 80000 RUB.',
+    'How much revenue: 1,200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB?',
+    'Какая выручка: 1.200 тонн по 12000 руб/т. Доставка 80000 руб?',
+    '净收入是多少：小麦1,200吨，价格12000卢布/吨。运输费80000卢布？',
+    'What would the proceeds be for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?',
+    'Сколько составит выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб?',
+    'How much revenue: 100 tonnes at 12000 USD/tonne. Delivery 80000 RUB?',
+
     'Посчитай выручку: 100 тонн по 12000 руб/т. Доставка 80000 руб. Выведи в документе.',
     'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб. На платформе.',
   ].map((question) => [mode, question] as const)))('clarifies unsupported sale inputs instead of publishing model arithmetic in %s output: %s', async (mode, question) => {

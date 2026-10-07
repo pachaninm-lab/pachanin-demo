@@ -81,6 +81,13 @@ describe('explicit sale proceeds after delivery', () => {
     'Выручка: 1 200.500 тонн по 12000 руб/т. Доставка 80000 руб.',
     'Revenue: 00.125 tonnes at 100 RUB/tonne. Delivery 0 RUB.',
     'Revenue: 100 tons at 12000 RUB/tonne. Delivery 80000 RUB.',
+    'How much revenue: 1,200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB?',
+    'Какая выручка: 1.200 тонн по 12000 руб/т. Доставка 80000 руб?',
+    '净收入是多少：小麦1,200吨，价格12000卢布/吨。运输费80000卢布？',
+    'What would the proceeds be for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?',
+    'Сколько составит выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб?',
+    'How much revenue: 100 tonnes at 12000 USD/tonne. Delivery 80000 RUB?',
+
     'Revenue: 100 tonnes at 12000 RUB/ton. Delivery 80000 RUB.',
     'Revenue: 100 tons at 12000 RUB/ton. Delivery 80000 RUB.',
     'Посчитай выручку: 100 тонн по 12000 руб/т. Доставка 80000 руб. Выведи в документе.',
@@ -161,6 +168,41 @@ describe('explicit sale proceeds after delivery', () => {
     flags.push(...gate.flush().flags);
     expect(gate.emitted).toBe('');
     expect(flags).toContain('UNVERIFIED_ECONOMIC_CLAIM_REMOVED');
+  });
+  it.each([1, 7, 511, 5000])('discards long boundary-free sale prose with bounded safety state, chunk %i', (size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'ru', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    const prose = 'Harmless'.repeat(2000);
+    for (let index = 0; index < prose.length; index += size) {
+      expect(gate.push(prose.slice(index, index + size)).violation).toBeNull();
+      expect(gate.withheld.length <= 3000).toBe(true);
+    }
+    expect(gate.flush().violation).toBeNull();
+    expect(gate.emitted).toBe('');
+  });
+  it.each([
+    ['I transferred money', 'WRITE_CLAIM'],
+    ['Bearer ' + ' '.repeat(5000) + 'abcdefghijklmnop12345', 'SECRET'],
+    ['sk-proj-abcdefghijklmnop12345', 'SECRET'],
+    ['sk-proj-**' + 'a'.repeat(700) + '**', 'SECRET'],
+    ['sk-' + '_'.repeat(40), 'SECRET'],
+    ['Bearer <tag ' + 'x'.repeat(500) + '>abcdefghijklmnop12345', 'SECRET'],
+  ].flatMap(([claim, violation]) => [1, 7, 511, 5000].map((size) => [claim, violation, size] as const)))('checks late and split safety claims in discarded sale prose: %s, chunk %i', (claim, violation, size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    const prose = 'Harmless '.repeat(1600) + claim + ' ';
+    for (let index = 0; index < prose.length; index += size) gate.push(prose.slice(index, index + size));
+    gate.flush();
+    expect(gate.violation).toBe(violation);
+    expect(gate.emitted).toBe('');
+  });
+  it('keeps prescription removal evidence for split discarded sale prose', () => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    const prose = 'Harmless '.repeat(500) + 'Use fungicide at 2 l/ha';
+    const flags: string[] = [];
+    for (const character of prose) flags.push(...gate.push(character).flags);
+    flags.push(...gate.flush().flags);
+    expect(gate.violation).toBeNull();
+    expect(flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    expect(gate.emitted).toBe('');
   });
   it('retains qualitative model commentary for existing non-sale comparisons', () => {
     const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'ru', currentDataRequired: false, grounding, economicComparison: 'storage' });

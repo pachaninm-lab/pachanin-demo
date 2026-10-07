@@ -174,8 +174,12 @@ function saleCalculationRequested(question: string): boolean {
   const intent = /(?<![\p{L}])(?:(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?(?:\s+расч[её]т)?)\s+(?:(?:итоговую|чистую)\s+)?выручк[ауи]|(?:calculate|compute)\s+(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))(?![\p{L}])|计算\s*(?:净收入|销售收入)/iu;
   const labelled = /^\s*(?:(?:расч[её]т\s+)?выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入)\s*[:：]/iu.test(question);
   const suppliedInputs = /\d/u.test(question) && /тонн|\b(?:tonnes?|tons?)\b|吨|достав|delivery|运输费|运费/iu.test(question);
+  // Numeric sale/delivery inputs require checked calculation or clarification
+  // regardless of whether the question is imperative or interrogative. A
+  // contextual quantity alone does not suppress conceptual model answers.
+  const monetaryInputs = /руб|RUB|USD|EUR|GBP|CNY|₽|[$€£]|卢布|美元|欧元|юань|доллар|евро/iu.test(question);
   const bareRequest = new RegExp(`^\\s*(?:(?:пожалуйста|please)[,:]?\\s+|请\\s*)?(?:${intent.source})(?:\\s+(?:после\\s+доставки|after\\s+delivery))?\\s*[.!?。！？]*$`, 'iu').test(question);
-  return (suppliedInputs && (labelled || intent.test(question))) || bareRequest;
+  return (suppliedInputs && (monetaryInputs || labelled || intent.test(question))) || bareRequest;
 }
 export type PaymentTimingInput = Readonly<{
   immediatePriceMinor: number;
@@ -510,6 +514,7 @@ export class StreamingAnswerGate {
   private violationState: GateViolation | null = null;
   private partialBlockOpen = false;
   private progressiveSafetyContext = '';
+  private discardedSaleRawContext = '';
   private progressiveJoiner = ' ';
   private pendingListMarker = '';
   private readonly authority: string;
@@ -536,6 +541,18 @@ export class StreamingAnswerGate {
 
   push(delta: string): GateCommit {
     if (this.violationState !== null || !delta) return EMPTY_COMMIT;
+    if (this.options.economicComparison === 'sale_proceeds') {
+      const flags = new Set<string>();
+      // Bound each safety scan even if one transport delta contains a whole
+      // long answer. No provider sale prose is ever published.
+      for (let index = 0; index < delta.length; index += 512) {
+        this.pending += delta.slice(index, index + 512);
+        const commit = this.drain(false);
+        if (commit.violation) return commit;
+        for (const flag of commit.flags) flags.add(flag);
+      }
+      return { text: '', flags: Object.freeze([...flags]), violation: null };
+    }
     this.pending += delta;
     return this.drain(false);
   }
@@ -555,7 +572,37 @@ export class StreamingAnswerGate {
     return commit;
   }
 
+  private discardSaleProse(final: boolean): GateCommit {
+    const decidable = final ? this.pending.length : undecidedTailStart(this.pending);
+    if (!decidable) {
+      return this.pending.length > this.maxPendingChars
+        ? this.refuse('OUTPUT_LIMIT')
+        : EMPTY_COMMIT;
+    }
+    const head = this.pending.slice(0, decidable);
+    this.pending = this.pending.slice(decidable);
+    // Keep normalization and the bounded safety lookbehind across transport
+    // cuts. Whitespace-only fragments retain their separator, including a
+    // long gap between Bearer and its credential-shaped token.
+    const publicHead = stripInternalModelTrace(head);
+    const rawBlock = `${this.discardedSaleRawContext}${this.progressiveJoiner}${publicHead}`;
+    // Discarded prose needs no formatting. Scan raw tokens as well as a
+    // formatting-free view so a split/unclosed bold wrapper cannot hide a key;
+    // removing formatting must not hide a real underscore-containing key.
+    const block = sanitizeAnswer(`${this.progressiveSafetyContext}${this.progressiveJoiner}${publicHead}`.replace(/\*\*|__|`/gu, ''));
+    if (WRITE_CLAIM_PATTERN.test(rawBlock) || WRITE_CLAIM_PATTERN.test(block)) return this.refuse('WRITE_CLAIM');
+    if (SECRET_PATTERN.test(rawBlock) || SECRET_PATTERN.test(block)) return this.refuse('SECRET');
+    const flags = ['UNVERIFIED_ECONOMIC_CLAIM_REMOVED'];
+    if (isUngroundedCropProtectionPrescription(block)) flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    this.discardedSaleRawContext = rawBlock.replace(/[ \t]+/gu, ' ').slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.progressiveSafetyContext = block.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.progressiveJoiner = /[\s>]$/u.test(head) ? ' ' : '';
+    if (this.pending.length > this.maxPendingChars) return this.refuse('OUTPUT_LIMIT');
+    return { text: '', flags: Object.freeze(flags), violation: null };
+  }
+
   private drain(final: boolean): GateCommit {
+    if (this.options.economicComparison === 'sale_proceeds') return this.discardSaleProse(final);
     const decidable = final ? this.pending.length : undecidedTailStart(this.pending);
     const overflowing = !final && this.pending.length > this.maxPendingChars;
     const progressiveAllowed = !final
@@ -647,12 +694,7 @@ export class StreamingAnswerGate {
         continue;
       }
 
-      // This exact supplied-input calculation already has a complete checked
-      // formula and limits. Model sale prose is not an arithmetic authority:
-      // suppress it irrespective of digits, currency tokens or number words.
-      // Action, secret and prescription validation above still runs first.
-      if (this.options.economicComparison === 'sale_proceeds'
-        || (this.options.economicComparison && !economicBlockAllowed(block))) {
+      if (this.options.economicComparison && !economicBlockAllowed(block)) {
         flags.push('UNVERIFIED_ECONOMIC_CLAIM_REMOVED');
         continue;
       }
@@ -696,6 +738,7 @@ export class StreamingAnswerGate {
   private refuse(violation: GateViolation): GateCommit {
     this.violationState = violation;
     this.pending = '';
+    this.discardedSaleRawContext = '';
     this.progressiveSafetyContext = '';
     this.partialBlockOpen = false;
     return { text: '', flags: Object.freeze([]), violation };
