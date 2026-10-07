@@ -122,6 +122,10 @@ GRANT EXECUTE ON FUNCTION auth.staff_organization_directory(TEXT, TEXT, TEXT) TO
 GRANT EXECUTE ON FUNCTION auth.staff_organization_users(TEXT, TEXT, TEXT, TEXT) TO app_staff;
 GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT, TEXT) TO app_staff;
 GRANT EXECUTE ON FUNCTION auth.staff_reviewer_preflight() TO app_staff;
+GRANT EXECUTE ON FUNCTION auth.founder_company_health(TEXT, TEXT) TO app_staff;
+GRANT EXECUTE ON FUNCTION auth.founder_metric_drilldown(TEXT, TEXT, TEXT, INTEGER) TO app_staff;
+GRANT EXECUTE ON FUNCTION auth.founder_decision_queue(TEXT, TEXT, INTEGER) TO app_staff;
+REVOKE ALL ON FUNCTION auth.founder_control_actor_authorized(TEXT, TEXT) FROM app_staff;
 REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM app_staff;
 REVOKE ALL ON FUNCTION auth.staff_projection_capability(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN) FROM app_staff;
 REVOKE ALL ON FUNCTION auth.resolve_login_credential(TEXT) FROM app_staff;
@@ -276,6 +280,14 @@ REVOKE ALL ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT, TEXT)
   FROM app_runtime, app_storage, app_outbox;
 REVOKE ALL ON FUNCTION auth.staff_reviewer_preflight()
   FROM app_runtime, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.founder_company_health(TEXT, TEXT)
+  FROM app_runtime, app_auth, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.founder_metric_drilldown(TEXT, TEXT, TEXT, INTEGER)
+  FROM app_runtime, app_auth, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.founder_decision_queue(TEXT, TEXT, INTEGER)
+  FROM app_runtime, app_auth, app_storage, app_outbox;
+REVOKE ALL ON FUNCTION auth.founder_control_actor_authorized(TEXT, TEXT)
+  FROM app_runtime, app_auth, app_storage, app_outbox;
 
 -- Deal creation validates the confirmed seller and buyer without exposing
 -- their identity rows. The function is status-only, transaction-context-bound
