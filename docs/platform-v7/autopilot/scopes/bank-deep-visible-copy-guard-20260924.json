@@ -4,7 +4,7 @@
   "status": "active",
   "issue": 5565,
   "purpose": "Repair stale deep bank/deal visible-copy guard and clarify negative safety copy in RU/EN/ZH without changing payment authority.",
-  "authorityBaseExactMain": "83d84e37447c65133c3d6d9dbec7f4d9d4b8d68b",
+  "authorityBaseExactMain": "278b5da11666433889c61792b0712c50aaf27107",
   "allowedPaths": [
     "apps/web/app/platform-v7/bank/escrow/page.tsx",
     "apps/web/app/platform-v7/bank/factoring/page.tsx",
@@ -12,7 +12,9 @@
     "apps/web/app/platform-v7/profile/page.tsx",
     "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
     "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
-    "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+    "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json",
+    "apps/web/lib/bank-release-server.ts",
+    "apps/web/tests/unit/bankReleaseServer.test.ts"
   ],
   "requiredInvariants": [
     "The forbidden money-finality and demo vocabulary remains intact; the removed source path does not exist.",
