@@ -1908,6 +1908,10 @@
       "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
       "apps/api/src/modules/integration-events/integration-events.service.ts",
       "docs/platform-v7/autopilot/scopes/prototype-safe-aggregation.json"
+    ],
+    "fix/gekta-history-lifecycle-5818": [
+      "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+      "apps/api/src/modules/gekta/gekta-workspace.spec.ts"
     ]
   },
   "currentAcceptance": [
@@ -5399,6 +5403,43 @@
         "No model/grant/runtime/DB/migration/consent/retention/purge/roles/provider/payment change here. Failed live Qwen result and spent grant remain unchanged. Canonical REG.RU SSH failure still blocks runtime inspection/deployment/live acceptance; metadata/source merge is not deployment."
       ],
       "teamHubDependency": "#5469 CLAIM6037413355 / P1guarddependency6037727724; #5818; #5819 nativefinding4206716341; owner continuation2026-10-07"
+    },
+    "gekta-history-lifecycle-5818-20261007": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "F-05 / #5818: reject direct read and mutation of soft-deleted owned Gekta conversations and deleted project assignment using the existing workspace module, conditional active-row writes and consistent project-first transaction lock order. Preserve ownership and soft-delete retention.",
+      "implementationBranch": "fix/gekta-history-lifecycle-5818",
+      "originalIssue": 5818,
+      "allowedPaths": [
+        "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+        "apps/api/src/modules/gekta/gekta-workspace.spec.ts"
+      ],
+      "sourcePayload": [
+        {
+          "path": "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+          "beforeBlob": "94583469f013d8775676ead6ca489176c203968d",
+          "afterBlob": "0d3ee8956bece60d2a1a97fd1508196de7fde091",
+          "sha256": "f0963c9068e65d5452aa682e1305740c36c3dbd545fd7c6f8ee48b378605e519",
+          "bytes": 11536,
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/gekta/gekta-workspace.spec.ts",
+          "beforeBlob": "489a23e9b802fc1d4e00780195031e6d30c7b25b",
+          "afterBlob": "b337b60335d106e7d0bc96695453f29d0562019a",
+          "sha256": "fc3501ae8e2a9412c424fbe66704a718141c409acd3afeeeed1564313ec74fc5",
+          "bytes": 14677,
+          "mode": "100644"
+        }
+      ],
+      "regressionEvidence": "Private existing workspace proposal: seven Gekta suites143/143 and root API/web typecheck PASS; compatible unchanged service23/35 new lifecycle failures,12pass. Full API unit execution3808passed/184existingpolicy skips/0testfailures, but process retained existing open handles and was stopped after test completion; no clean full-process PASS. Unit mocks do not prove real PostgreSQL concurrency. Fresh exact-head source review and native acceptance remain required.",
+      "requiredTruthBoundaries": [
+        "State-only admission precedes source publication/adoption. The implementation changes exactly these two existing regular files; accepted before/after blobs and SHA-256 bind the reviewed proposal. Preserve primary/current/global/R1 permissions, existing scopes/admissions, progress and other owners.",
+        "No schema, migration, lockfile, new core/model, consent, physical purge or production data change. Deleted content stays retained under existing policy. Already-deleted import titles remain idempotent. Snapshot reads are not an erase guarantee.",
+        "Actual separate exact-head independent review, owner audit, all applicable substantive native CI/security and freshly checked readiness precede an expected-full-SHA manual merge. Automatic merge stays disabled; preserve existing executor merge queue.",
+        "API full-stack release remains pending actual REG.RU access, intended image/OCI revision and live checks. Main merge does not prove deployment. Failed Qwen3.5-4B live run and spent one-use grant are unchanged; no model activation, grant reset or new comparison admitted here."
+      ],
+      "teamHubDependency": "#5469 CLAIM 6037413355; #5818; user continuation 2026-10-07",
+      "authorityBaseExactMain": "ab39ed40f34733f9ba3cb2d44e6a1e9a35029f8c"
     }
   }
 }
