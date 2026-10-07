@@ -170,7 +170,10 @@ export function saleProceedsFromUser(question: string): SaleProceedsInput | null
 
 /** Recognize an attempted calculation even when its inputs need clarification. */
 function saleCalculationRequested(question: string): boolean {
-  if (!SALE_PROCEEDS_TOPIC.test(question)) return false;
+  // Chinese sale amount questions can separate the sale verb and income noun
+  // with the commodity/quantity; do not treat unrelated income as sale proceeds.
+  const chineseSaleAmount = /(?:销售|出售|卖出)[^。！？\n]{0,80}多少\s*收入/u.test(question);
+  if (!SALE_PROCEEDS_TOPIC.test(question) && !chineseSaleAmount) return false;
   const intent = /(?<![\p{L}])(?:(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?(?:\s+расч[её]т)?)\s+(?:(?:итоговую|чистую)\s+)?выручк[ауи]|(?:calculate|compute)\s+(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))(?![\p{L}])|计算\s*(?:净收入|销售收入)/iu;
   const labelled = /^\s*(?:(?:расч[её]т\s+)?выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入)\s*[:：]/iu.test(question);
   const suppliedInputs = /\d/u.test(question) && /тонн|\b(?:tonnes?|tons?)\b|吨|достав|delivery|运输费|运费/iu.test(question);
@@ -178,7 +181,11 @@ function saleCalculationRequested(question: string): boolean {
   // regardless of whether the question is imperative or interrogative. A
   // contextual quantity alone does not suppress conceptual model answers.
   const monetaryInputs = /руб|RUB|USD|EUR|GBP|CNY|₽|[$€£]|卢布|美元|欧元|юань|доллар|евро/iu.test(question);
-  const amountQuestion = /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи])|\bhow\s+much\s+(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b|\bwhat(?:(?:'s|\s+(?:is|are|was|were|would|will))\s+(?:the|my|our)\s+(?:(?:net|gross|total)\s+)?|\s+(?:(?:net|gross|total)\s+)?)(?:revenue|proceeds)\b|(?:净收入|销售收入)[^。！？\n]{0,12}多少|多少\s*(?:净收入|销售收入)/iu.test(question);
+  // Require a complete amount phrase or a following sale/calculation clause.
+  // A shared prefix such as "what is the revenue" is insufficient when followed
+  // by "definition" or "recognition principle"; those need accounting answers.
+  const amountQuestion = chineseSaleAmount
+    || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much\s+(?:(?:net|gross|total)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will))\s+(?:the|my|our)\s+(?:(?:net|gross|total)\s+)?|\s+amount\s+of\s+(?:(?:net|gross|total)\s+)?|\s+(?:(?:net|gross|total)\s+)?))(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does|be)\b))|(?:净收入|销售收入)[^。！？\n]{0,12}多少|多少\s*(?:净收入|销售收入)/iu.test(question);
   const strategyQuestion = /стратег|\bstrateg(?:y|ies)\b|策略/iu.test(question);
   const improvementQuestion = /повыс|увелич|улучш|\b(?:increase|improve|enhance|boost|grow|raise)\b|提高|改善|增加/iu.test(question);
   if (!labelled && !intent.test(question)
@@ -608,14 +615,14 @@ export class StreamingAnswerGate {
     // Also normalize formatting within original tag contents, including an
     // unclosed tag. The tag-stripped view alone cannot inspect that remainder.
     const formattingBlock = `${this.discardedSaleFormattingContext}${head}`
-      .replace(/\*\*|__|`/gu, '')
+      .replace(/[*_`]/gu, '')
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
       .replace(/\s+/gu, ' ');
     const normalizedHead = this.discardedSaleText(head);
     // Keep a second bounded view without formatting, including tags split over
     // arbitrarily long transport cuts. A separate raw view preserves real keys
     // containing underscores; normalization cannot silently erase such tokens.
-    const block = sanitizeAnswer(`${this.progressiveSafetyContext}${this.progressiveJoiner}${normalizedHead}`.replace(/\*\*|__|`/gu, ''));
+    const block = sanitizeAnswer(`${this.progressiveSafetyContext}${this.progressiveJoiner}${normalizedHead}`.replace(/[*_`]/gu, ''));
     if (WRITE_CLAIM_PATTERN.test(rawBlock) || WRITE_CLAIM_PATTERN.test(formattingBlock) || WRITE_CLAIM_PATTERN.test(block)) return this.refuse('WRITE_CLAIM');
     if (SECRET_PATTERN.test(rawBlock) || SECRET_PATTERN.test(formattingBlock) || SECRET_PATTERN.test(block)) return this.refuse('SECRET');
     const flags = ['UNVERIFIED_ECONOMIC_CLAIM_REMOVED'];

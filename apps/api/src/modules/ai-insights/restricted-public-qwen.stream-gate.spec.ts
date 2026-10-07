@@ -87,6 +87,12 @@ describe('explicit sale proceeds after delivery', () => {
     'What is the revenue?',
     'Сколько выручки?',
     '销售收入是多少？',
+    'What amount of revenue will 100 tonnes generate?',
+    'What amount of revenue?',
+    'Каков размер выручки от 100 тонн пшеницы?',
+    'Каков размер выручки?',
+    '销售100吨小麦会获得多少收入？',
+    '出售100吨小麦能获得多少收入？',
 
     'How much revenue would 100 tonnes of wheat generate?',
     'Сколько выручки принесут 100 тонн пшеницы?',
@@ -168,6 +174,10 @@ describe('explicit sale proceeds after delivery', () => {
     'Какая стратегия увеличит выручку от 100 тонн пшеницы?',
     'How can I improve revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?',
     'What is revenue?',
+    'What is the revenue definition?',
+    'What is the revenue recognition principle?',
+    'Какая выручка считается доходом?',
+    'Каков размер выручки по определению бухгалтерского учёта?',
 
     '如何提高100吨小麦的销售收入？',
     'Как рассчитать выручку хозяйства?',
@@ -228,6 +238,12 @@ describe('explicit sale proceeds after delivery', () => {
   it.each([
     ['<think>I transferred money</think>', 'WRITE_CLAIM'],
     ['<think I trans**ferred** money', 'WRITE_CLAIM'],
+    ['<think>I trans*ferred* money</think>', 'WRITE_CLAIM'],
+    ['<think>I trans_ferred_ money</think>', 'WRITE_CLAIM'],
+    ['<think>Bearer abcdefgh*ijklmnop*12345</think>', 'SECRET'],
+    ['<think>Bearer abcdefgh_ijklmnop_12345</think>', 'SECRET'],
+    ['<think I trans*ferred* money', 'WRITE_CLAIM'],
+    ['<think Bearer abcdefgh*ijklmnop*12345', 'SECRET'],
     ['<think Bearer **abcdefghijklmnop12345**', 'SECRET'],
 
     ['<analysis>Bearer abcdefghijklmnop12345</analysis>', 'SECRET'],

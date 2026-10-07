@@ -171,6 +171,12 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     'What is the revenue?',
     'Сколько выручки?',
     '销售收入是多少？',
+    'What amount of revenue will 100 tonnes generate?',
+    'What amount of revenue?',
+    'Каков размер выручки от 100 тонн пшеницы?',
+    'Каков размер выручки?',
+    '销售100吨小麦会获得多少收入？',
+    '出售100吨小麦能获得多少收入？',
 
     'How much revenue would 100 tonnes of wheat generate?',
     'Сколько выручки принесут 100 тонн пшеницы?',
@@ -236,6 +242,10 @@ describe('RestrictedPublicQwenService.generateStream', () => {
   });
   it.each(['stream', 'buffered'].flatMap((mode) => [
     '<think>I transferred money</think>',
+    '<think>I trans*ferred* money</think>',
+    '<think>I trans_ferred_ money</think>',
+    '<think>Bearer abcdefgh*ijklmnop*12345</think>',
+    '<think>Bearer abcdefgh_ijklmnop_12345</think>',
     '<analysis>Bearer abcdefghijklmnop12345</analysis>',
     'Harmless '.repeat(1600) + 'I transferred money',
     'Harmless '.repeat(1600) + 'Bearer abcdefghijklmnop12345',
@@ -260,6 +270,24 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     expect(calls).toBe(1);
     expect(refused).toBe(true);
     expect(done).toBe(false);
+  });
+  it.each(['stream', 'buffered'].flatMap((mode) => [
+    'What is the revenue definition?',
+    'What is the revenue recognition principle?',
+    'Какая выручка считается доходом?',
+  ].map((question) => [mode, question] as const)))('retains accounting explanations in %s output: %s', async (mode, question) => {
+    const content = 'Revenue recognition follows the applicable accounting policy and contractual obligations. ';
+    const raw = request({ question, originalQuestion: question, locale: 'en' });
+    let answer = '';
+    if (mode === 'stream') {
+      installRuntime({ deltas: [content] });
+      for await (const event of service.generateStream(raw)) if (event.type === 'delta') answer += event.text;
+    } else {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      answer = (await service.generate(raw)).answer;
+    }
+    expect(answer).toContain('Revenue recognition follows');
+    expect(answer).not.toContain('Specify the quantity');
   });
   it.each(['stream', 'buffered'])('keeps empty-provider refusal for non-sale questions in %s', async (mode) => {
     const raw = request({ question: 'How can I improve wheat crop quality?', originalQuestion: 'How can I improve wheat crop quality?', locale: 'en' });
