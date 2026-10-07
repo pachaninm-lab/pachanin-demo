@@ -4928,3 +4928,114 @@ test('Deal route: exact workflow blob in wrong mode rejects protected guard thre
  git(c.root,['update-index','--cacheinfo','100755,'+routeGuardPins[2][2]+','+routeWorkflowPath]);git(c.root,['commit','-m','wrong workflow mode']);
  const r=runRouteGuardCandidate(c);assert.notEqual(r.status,0,output(r));assert.match(output(r),/DEAL_ROUTE_PIN_OR_MODE/u);
 });
+
+const trustedConcurrentSourceBranches = [
+  'security/accounting-bff-csrf-3-5-1',
+  'security/module-body-validation',
+  'security/bff-upstream-path-encoding-4459',
+  'security/request-cookie-single-reader-4459',
+  'security/open-redirect-demo-login-4459',
+  'security/email-check-length-first-4459',
+  'security/browser-hardening-headers-4459',
+  'security/outbound-redirect-and-surface-4459',
+  'security/credential-surface-4459',
+];
+
+function trustedConcurrentManifestPath(branch) {
+  return `docs/platform-v7/autopilot/scopes/${branch.split('/')[1]}.json`;
+}
+
+function trustedConcurrentManifest(branch, overrides = {}) {
+  return `${JSON.stringify({
+    schemaVersion: 'platform-v7.concurrent-scope.v1',
+    branch,
+    status: 'active',
+    allowedPaths: ['apps/web/**'],
+    ...overrides,
+  }, null, 2)}\n`;
+}
+
+test('Trusted concurrent-scope sources are registered at every trusted-base workflow entry point', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
+  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
+    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
+  const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
+    .split('  standard_validation:')[0];
+  for (const branch of trustedConcurrentSourceBranches) {
+    assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${branch}'`), branch);
+    assert.ok(trusted.includes(`|${branch}|`), branch);
+    assert.ok(prHead.includes(`github.head_ref == '${branch}'`), branch);
+    assert.ok(prHead.includes(`|${branch}|`), branch);
+    assert.ok(standard.includes(`github.head_ref != '${branch}'`), branch);
+  }
+  assert.equal(new Set(trustedConcurrentSourceBranches).size, 9);
+});
+
+test('Trusted concurrent-scope sources are literal immutable branches in the guard', () => {
+  const guard = fs.readFileSync(sourceGuard, 'utf8');
+  const list = guard.split('is_immutable_scope_branch() {')[1].split('\n}\n')[0];
+  for (const branch of trustedConcurrentSourceBranches) {
+    assert.ok(list.includes(`"${branch}"`), branch);
+    assert.ok(guard.includes(`"${branch}") CONCURRENT_SCOPE_MANIFEST='${trustedConcurrentManifestPath(branch)}'`), branch);
+  }
+});
+
+for (const branch of trustedConcurrentSourceBranches) {
+  for (const mutation of ['admitted paths with own manifest', 'unadmitted', 'foreign source', 'self-expanded state',
+    'manifest outside base vector', 'manifest of another branch', 'manifest naming another branch', 'guard script edit']) {
+    test(`Trusted concurrent source ${branch}: ${mutation}`, (t) => {
+      const context = fixture(t, branch);
+      const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+      const manifest = trustedConcurrentManifestPath(branch);
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+      const vector = mutation === 'manifest outside base vector' ? ['allowed.txt'] : ['allowed.txt', manifest];
+      if (mutation === 'unadmitted') delete state.approvedConcurrentScopes[branch];
+      else state.approvedConcurrentScopes[branch] = vector;
+      write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+      commit(context.root, 'accepted admission baseline');
+      context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+      write(context.root, 'allowed.txt', 'bounded source change\n');
+      if (['admitted paths with own manifest', 'unadmitted', 'foreign source', 'self-expanded state', 'guard script edit'].includes(mutation)) {
+        write(context.root, manifest, trustedConcurrentManifest(branch));
+      }
+      if (mutation === 'manifest outside base vector') write(context.root, manifest, trustedConcurrentManifest(branch));
+      if (mutation === 'manifest of another branch') {
+        const other = trustedConcurrentSourceBranches.find((candidate) => candidate !== branch);
+        write(context.root, trustedConcurrentManifestPath(other), trustedConcurrentManifest(other));
+      }
+      if (mutation === 'manifest naming another branch') {
+        write(context.root, manifest, trustedConcurrentManifest('security/some-other-branch'));
+        state.approvedConcurrentScopes[branch] = vector;
+      }
+      if (mutation === 'foreign source') write(context.root, 'apps/web/app/layout.tsx', 'unadmitted source\n');
+      if (mutation === 'self-expanded state') {
+        state.approvedConcurrentScopes[branch] = [...vector, 'apps/web/app/layout.tsx'];
+        state.allowedCurrentScope.push('apps/web/**');
+        write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+        write(context.root, 'apps/web/app/layout.tsx', 'self-admitted source\n');
+      }
+      if (mutation === 'guard script edit') {
+        write(context.root, 'scripts/p7-autopilot-guard.sh', '#!/usr/bin/env bash\nexit 0\n', 0o755);
+      }
+      commit(context.root, mutation);
+      // The trusted-base workflow runs the accepted base copy of the guard, never the candidate's own edit.
+      const baseGuard = path.join(context.root, '..', `${path.basename(context.root)}-base-guard.sh`);
+      fs.writeFileSync(baseGuard, git(context.root, ['show', `${context.baseline}:scripts/p7-autopilot-guard.sh`]) + '\n');
+      t.after(() => fs.rmSync(baseGuard, { force: true }));
+      const result = mutation === 'guard script edit'
+        ? spawnSync('bash', [baseGuard], {
+          cwd: context.root,
+          env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: branch },
+          encoding: 'utf8',
+        })
+        : runGuard(context);
+      if (mutation === 'admitted paths with own manifest') {
+        assert.equal(result.status, 0, output(result));
+      } else {
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), /no immutable approved scope|Mutable scope authority changed|Files outside current autopilot scope|CONCURRENT_MANIFEST_|P7_IMMUTABLE_SCOPE/u);
+      }
+    });
+  }
+}
