@@ -33,6 +33,7 @@ describe('explicit sale proceeds after delivery', () => {
     ['Выручка: 100 тонн по 12\u00a0000 руб/т. Доставка 80\u202f000 руб.', 112000000],
     ['Выручка: 100 тонн по 12000 руб/т. Стоимость доставки 80000 руб.', 112000000],
     ['Delivery cost 80000 RUB. Wheat: 100 tonnes at 12000 RUB/tonne. Calculate revenue.', 112000000],
+    ['Продаю пшеницу: 100 тонн по 12000 руб/т. Доставка 80000 руб. Посчитай выручку.', 112000000],
   ])('calculates only supplied amounts: %s', (input, proceeds) => {
     const sale = saleProceedsFromUser(String(input));
     expect(sale?.proceedsMinor).toBe(proceeds);
@@ -70,6 +71,13 @@ describe('explicit sale proceeds after delivery', () => {
     'Revenue: storage costs for 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.',
     'Revenue: procurement of 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.',
     'Выручка: покупаю 100 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Посчитай выручку от перепродажи: купил 100 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Revenue: bought 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.',
+    '计算净收入：买了100吨，价格12000卢布/吨。运输费80000卢布。',
+    'Пшеница: 100 тонн по 12000 руб/т. Доставка 80000 руб. Я заплатил эту цену; посчитай выручку.',
+    'Wheat: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB. This is what I paid; calculate revenue.',
+    '小麦100吨，价格12000卢布/吨。运输费80000卢布。这是采购价，计算净收入。',
+    'Выручка: страховка 100 тонн по 12000 руб/т. Доставка 80000 руб.',
     '计算净收入：仓储100吨，价格12000卢布/吨。运输费80000卢布。',
     'Выручка: 100 тонн по 12000 руб/т. За каждый рейс доставка 80000 руб.',
     'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб., за каждый рейс.',

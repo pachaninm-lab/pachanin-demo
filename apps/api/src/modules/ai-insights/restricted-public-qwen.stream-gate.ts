@@ -112,6 +112,15 @@ export function saleProceedsFromUser(question: string): SaleProceedsInput | null
   // Bind this price to this quantity, rather than borrowing another commodity's quote.
   if (priceStart <= quantityEnd
     || !/^\s*(?:по|at|(?:[,，;]\s*)?(?:цена|price|价格)\s*[:：]?)\s*$/iu.test(question.slice(quantityEnd, priceStart))) return null;
+  // Authoritative money output accepts a small declarative sale/input grammar,
+  // not arbitrary prose containing these three numbers. Unknown acquisition,
+  // expense or contextual wording requires clarification rather than a guessed
+  // sale-price interpretation. Keep the full delivery charge out of this grammar.
+  const priceEnd = priceStart + prices[0][0].length;
+  const quoteSpan = question.slice(quantities[0].index!, priceEnd);
+  const context = question.replace(quoteSpan, '').replace(delivery[0][0], '');
+  const saleWords = /(?<![\p{L}])(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?|итогов(?:ую|ая|ой)|чистую|выручк[ауи]|после\s+доставки|от\s+(?:пере)?продажи|расч[её]т|продаю|продам|прода[её]м|и|пшениц[ауые]|кукуруз[ауы]|ячмен[ьия]|рожь|рис|рапс|со[яюи]|подсолнечник[ау]?|calculate|compute|show|total|net|revenue|proceeds|after\s+delivery|calculation|result|sell|selling|and|wheat|corn|maize|barley|rye|rice|canola|soy(?:beans?)?|sunflower)(?![\p{L}])|小麦|玉米|大麦|黑麦|水稻|油菜|大豆|向日葵|计算|净收入|销售收入|总收入|结果|展示|出售|卖出/giu;
+  if (!/^[\s:：,.!？?。！;，]*$/u.test(context.replace(saleWords, ''))) return null;
   if (/примерн|около|приблиз|[~≈]|\b(?:about|approx(?:imately)?|roughly)\b|大约|约/iu.test(question)) return null;
   const numbers = [...question.matchAll(new RegExp(SALE_NUMBER, 'gu'))];
   if (numbers.length !== 3) return null;
