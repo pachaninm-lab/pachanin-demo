@@ -1,11 +1,12 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
 import { MockRzdEtranAdapter } from '../../../../../packages/integration-sdk/src/adapters/rzd-etran.adapter';
 
-export type WagonType = 'HOPPER' | 'COVERED' | 'PLATFORM' | 'TANK';
-export type WagonStatus = 'FREE' | 'ASSIGNED' | 'IN_TRANSIT' | 'MAINTENANCE';
-export type GU12Status = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'EXECUTED';
+// Списки живут в railway.contract.ts по одному разу; имена типов сохранены,
+// чтобы существующие импорты из сервиса продолжали работать.
+export type { GU12Status, WagonStatus, WagonType } from './railway.contract';
+import type { GU12Status, WagonStatus, WagonType } from './railway.contract';
 
 export interface Wagon {
   id: string;
@@ -38,6 +39,8 @@ export interface GU12Request {
 
 export interface DemurrageRecord {
   id: string;
+  /** Организация, которая выполнила расчёт; только она видит запись. */
+  orgId: string;
   wagonId: string;
   dealId?: string;
   arrivedAt: string;
@@ -92,9 +95,16 @@ export class RailwayService {
     const existing = [...this.wagons.values()].find(w => w.wagonNumber === dto.wagonNumber);
     if (existing) throw new BadRequestException(`Wagon ${dto.wagonNumber} already registered`);
 
+    // Поля перечислены поимённо. Прежняя россыпь `{ id: <новый UUID>, ...dto }`
+    // позволяла присланному `id` перебить сгенерированный: замерено — вагон
+    // чужой организации переписывался на месте, номер и владелец менялись, а
+    // проверка дубля по номеру не срабатывала, потому что номер был другой.
     const wagon: Wagon = {
       id: randomUUID(),
-      ...dto,
+      wagonNumber: dto.wagonNumber,
+      type: dto.type,
+      capacityTons: dto.capacityTons,
+      ownerOrgId: dto.ownerOrgId,
       status: 'FREE',
       registeredAt: new Date().toISOString(),
     };
@@ -102,9 +112,23 @@ export class RailwayService {
     return wagon;
   }
 
-  updateWagonStatus(wagonId: string, status: WagonStatus, dealId?: string): Wagon {
+  /**
+   * Вагон, которым распоряжается организация вызывающего.
+   *
+   * Чужой вагон неотличим от несуществующего: тот же NotFoundException с тем
+   * же текстом, чтобы по ответу нельзя было перебрать идентификаторы других
+   * организаций. Без организации вызывающего отказ — сервис не угадывает её.
+   */
+  private ownedWagon(wagonId: string, actorOrgId: string): Wagon {
     const wagon = this.wagons.get(wagonId);
-    if (!wagon) throw new NotFoundException(`Wagon ${wagonId} not found`);
+    if (!actorOrgId || !wagon || wagon.ownerOrgId !== actorOrgId) {
+      throw new NotFoundException(`Wagon ${wagonId} not found`);
+    }
+    return wagon;
+  }
+
+  updateWagonStatus(wagonId: string, status: WagonStatus, actorOrgId: string, dealId?: string): Wagon {
+    const wagon = this.ownedWagon(wagonId, actorOrgId);
     wagon.status = status;
     wagon.currentDealId = dealId ?? wagon.currentDealId;
     return wagon;
@@ -120,9 +144,11 @@ export class RailwayService {
     volumeTons: number;
     requestedDepartureAt: string;
   }): GU12Request {
+    // В заявку попадают только вагоны организации-заявителя. Раньше чужой
+    // свободный вагон можно было вписать под свою сделку, а после одобрения
+    // он становился ASSIGNED с чужим currentDealId.
     for (const wid of dto.wagonIds) {
-      const w = this.wagons.get(wid);
-      if (!w) throw new NotFoundException(`Wagon ${wid} not found`);
+      const w = this.ownedWagon(wid, dto.requestorOrgId);
       if (w.status !== 'FREE') throw new BadRequestException(`Wagon ${w.wagonNumber} is not FREE`);
     }
 
@@ -143,9 +169,22 @@ export class RailwayService {
     return req;
   }
 
-  async submitGU12(requestId: string): Promise<GU12Request> {
+  /**
+   * Заявка ГУ-12 организации вызывающего. Чужая заявка неотличима от
+   * несуществующей — тот же NotFoundException с тем же текстом.
+   */
+  private ownedGU12(requestId: string, actorOrgId: string): GU12Request {
     const req = this.gu12Requests.get(requestId);
-    if (!req) throw new NotFoundException(`GU-12 request ${requestId} not found`);
+    if (!actorOrgId || !req || req.requestorOrgId !== actorOrgId) {
+      throw new NotFoundException(`GU-12 request ${requestId} not found`);
+    }
+    return req;
+  }
+
+  async submitGU12(requestId: string, actorOrgId: string): Promise<GU12Request> {
+    // Раньше заявку отправлял в ЭТРАН любой, кто знал её идентификатор, и
+    // после одобрения вагоны заявителя становились ASSIGNED по чужой команде.
+    const req = this.ownedGU12(requestId, actorOrgId);
     if (req.status !== 'DRAFT') throw new BadRequestException('Only DRAFT requests can be submitted');
 
     req.status = 'SUBMITTED';
@@ -183,9 +222,11 @@ export class RailwayService {
     return req;
   }
 
-  listGU12(dealId?: string): GU12Request[] {
-    const all = [...this.gu12Requests.values()];
-    return dealId ? all.filter(r => r.dealId === dealId) : all;
+  /** Только заявки организации-заявителя; без организации — пустой список. */
+  listGU12(requestorOrgId: string, dealId?: string): GU12Request[] {
+    if (!requestorOrgId) return [];
+    const own = [...this.gu12Requests.values()].filter(r => r.requestorOrgId === requestorOrgId);
+    return dealId ? own.filter(r => r.dealId === dealId) : own;
   }
 
   calculateDemurrage(dto: {
@@ -193,15 +234,25 @@ export class RailwayService {
     dealId?: string;
     arrivedAt: string;
     unloadingCompletedAt: string;
-  }): DemurrageRecord {
+  }, actorOrgId: string): DemurrageRecord {
+    // Запись демереджа принадлежит организации, которая её посчитала. Вагон
+    // может быть чужим — простой обычно считает грузополучатель, — поэтому
+    // владение вагоном здесь не проверяется; без организации расчёт не пишется.
+    if (!actorOrgId) throw new ForbiddenException('DEMURRAGE_ORG_REQUIRED');
     const arrivedMs = new Date(dto.arrivedAt).getTime();
     const completedMs = new Date(dto.unloadingCompletedAt).getTime();
+    // Демередж — деньги. Неразбираемая дата давала NaN на всю запись, а в JSON
+    // это уезжало как null: простой без суммы. Отказ честнее пустого числа.
+    if (!Number.isFinite(arrivedMs) || !Number.isFinite(completedMs)) {
+      throw new BadRequestException('DEMURRAGE_TIMESTAMP_INVALID');
+    }
     const totalHours = Math.max(0, (completedMs - arrivedMs) / 3_600_000);
     const detainedHours = Math.max(0, totalHours - FREE_TIME_HOURS);
     const totalKopecks = Math.round(detainedHours * DEMURRAGE_RATE_KOPECKS);
 
     const record: DemurrageRecord = {
       id: randomUUID(),
+      orgId: actorOrgId,
       wagonId: dto.wagonId,
       dealId: dto.dealId,
       arrivedAt: dto.arrivedAt,
@@ -216,8 +267,10 @@ export class RailwayService {
     return record;
   }
 
-  listDemurrage(dealId?: string): DemurrageRecord[] {
-    const all = [...this.demurrageRecords.values()];
-    return dealId ? all.filter(r => r.dealId === dealId) : all;
+  /** Только записи своей организации; без организации — пустой список. */
+  listDemurrage(orgId: string, dealId?: string): DemurrageRecord[] {
+    if (!orgId) return [];
+    const own = [...this.demurrageRecords.values()].filter(r => r.orgId === orgId);
+    return dealId ? own.filter(r => r.dealId === dealId) : own;
   }
 }
