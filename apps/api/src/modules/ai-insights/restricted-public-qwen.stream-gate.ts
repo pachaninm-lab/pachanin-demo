@@ -98,14 +98,16 @@ export function saleProceedsFromUser(question: string): SaleProceedsInput | null
   if (question.length > 1_200 || !SALE_PROCEEDS_TOPIC.test(question)) return null;
   // Extra inputs, alternatives, negation and non-RUB currencies need clarification.
   if (/[-−–—]\s*\d|%|процент|percent|税|налог|tax|НДС|VAT|USD|EUR|GBP|CNY|доллар|евро|юань|美元|欧元|[$€£]|(?:^|[^\p{L}])не(?:т)?(?=$|[^\p{L}])|\b(?:not|unknown|or)\b|неизвест|или|либо|不是|未知|或者/iu.test(question)) return null;
-  const quantities = [...question.matchAll(new RegExp(`(${SALE_NUMBER})\\s*(?:тонн(?:а|ы|у|е)?|tonnes?|tons?|吨)(?![\\p{L}])`, 'giu'))];
-  const prices = [...question.matchAll(new RegExp(`(${SALE_NUMBER})\\s*${SALE_RUB}\\s*(?:за\\s*тонн[уы]|/\\s*(?:т(?:онн[уы])?|tonnes?|tons?|吨)|per\\s*(?:tonne|ton))(?![\\p{L}])`, 'giu'))];
+  // English ton/tons can mean short or long tons; require explicit metric units.
+  const quantities = [...question.matchAll(new RegExp(`(${SALE_NUMBER})\\s*(?:тонн(?:а|ы|у|е)?|tonnes?|吨)(?![\\p{L}])`, 'giu'))];
+  const prices = [...question.matchAll(new RegExp(`(${SALE_NUMBER})\\s*${SALE_RUB}\\s*(?:за\\s*тонн[уы]|/\\s*(?:т(?:онн[уы])?|tonnes?|吨)|per\\s*tonne)(?![\\p{L}])`, 'giu'))];
   const delivery = [...question.matchAll(new RegExp(`(?:доставка|стоимость\\s+доставки|delivery(?:\\s+cost)?|运输费|运费)\\s*[:：]?\\s*(${SALE_NUMBER})\\s*${SALE_RUB}(?![\\p{L}])`, 'giu'))];
   if (quantities.length !== 1 || prices.length !== 1 || delivery.length !== 1) return null;
-  // A comma followed by three digits can be decimal tonnes or a thousands
-  // group. No locale/notation authority exists here, so require clarification;
-  // bare/space-grouped integers and dot-decimal tonnes remain explicit.
-  if (/,\d{3}$/u.test(quantities[0][1])) return null;
+  // Three trailing digits after a comma/dot can be fractional tonnes or a
+  // thousands group. Without notation authority, ask for clarification. A
+  // single zero before the decimal dot is an explicit sub-tonne fraction.
+  const quantityNotation = quantities[0][1].replace(/[ \u00a0\u202f]/gu, '');
+  if (/[.,]\d{3}$/u.test(quantityNotation) && !/^0\.\d{3}$/u.test(quantityNotation)) return null;
   const deliveryEnd = delivery[0].index! + delivery[0][0].length;
   // Only the matched delivery charge is a cost input. Other cost-qualified
   // quantities or quotes must not be promoted to commodity sale prices.
