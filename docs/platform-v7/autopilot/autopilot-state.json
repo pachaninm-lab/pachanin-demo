@@ -1913,6 +1913,11 @@
       "apps/api/src/modules/gekta/gekta-workspace.service.ts",
       "apps/api/src/modules/gekta/gekta-workspace.spec.ts"
     ],
+    "governance/trusted-concurrent-scope-routing-guard-20261007": [
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml"
+    ],
     "security/accounting-bff-csrf-3-5-1": [
       ".github/workflows/ci.yml",
       "apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts",
@@ -5545,10 +5550,63 @@
       "teamHubDependency": "#5469 CLAIM 6037413355; #5818; user continuation 2026-10-07",
       "authorityBaseExactMain": "ab39ed40f34733f9ba3cb2d44e6a1e9a35029f8c"
     },
+    "trusted-concurrent-scope-routing-guard-purpose-20261007": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "Renew only the existing accepted three-path guard ref so that the nine concurrent-scope source branches of admission #5817 are registered in the guard's literal trusted-base routes and resolved from the trusted base instead of from the candidate checkout, after native P1 finding 4206221770 on admission #5817 (the guard reads approvedConcurrentScopes and scope manifests from the candidate for branches outside the literal immutable list). This purpose admits no source branch, no state change other than this record, and no weakening of any existing route.",
+      "authorityBaseExactMain": "9251d72471f7342628861a387be9bc5c1db683d0",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "plannedRule": {
+        "literalRegistration": "Register exactly these nine source branches, and no others, in the guard's literal immutable classification and in every trusted-base workflow route, PR-head defense/exclusion and source path event filter that already lists the other protected branches: security/accounting-bff-csrf-3-5-1, security/module-body-validation, security/bff-upstream-path-encoding-4459, security/request-cookie-single-reader-4459, security/open-redirect-demo-login-4459, security/email-check-length-first-4459, security/browser-hardening-headers-4459, security/outbound-redirect-and-surface-4459, security/credential-surface-4459. This follows the established mechanism for protected concurrent-scope branches; no dynamic or candidate-readable routing is introduced.",
+        "effect": "For a registered branch the allowed paths are exactly approvedConcurrentScopes[branch] read from the accepted base state, never from the candidate; an unadmitted registered branch is allowed nothing. The candidate state file, AGENTS.md, scripts/p7-autopilot-guard.sh, scripts/p7-autopilot-guard.test.mjs, scripts/p7-source-controlled-scope.mjs and .github/workflows/platform-v7-autopilot-guard.yml remain rejected by the existing MUTABLE_SCOPE_AUTHORITIES rule. The only exemption is the branch's own docs/platform-v7/autopilot/scopes/<name>.json, and only when that exact path is in the base vector; it is documentation, not scope authority, and no other path under docs/platform-v7/autopilot/ is exempted. Diffs use --no-renames; the existing regular-file, deletion and rename rejections apply.",
+        "negativeTests": "Required: a registered source that edits its own state file; adds a path outside the base vector; is not yet admitted; a manifest path that is not in the base vector; a manifest of another branch; a guard, test, workflow or AGENTS path; a rename or deletion; an unregistered look-alike branch name still using the old route; and every existing literal immutable branch and the Gekta routes keep their exact behaviour."
+      },
+      "requiredTruthBoundaries": [
+        "Append only this purpose record. Preserve all prior state bytes and values, scope vectors, admissions, owners, primary/current/global permissions and progress. No source or admission branch scope is added here.",
+        "Continue the existing guard ref without force/reset or loss of ancestry. The guard change is a separate step after this purpose is actually accepted; this record confers no guard or source permission by itself and does not claim automatic machine enforcement of its own text.",
+        "The later guard change must keep every existing route and negative test, add the generic rule with its negative tests, and pass exact-head independent review of the complete head, owner audit, all substantive native checks and canonical readiness before an ordinary expected-full-SHA manual merge. No automatic merge, no provider-availability waiver.",
+        "Admission #5817 (nine F-06 sources) is refreshed and merged only after the guard change is actually accepted; until then no source of that batch is admitted or merged.",
+        "No model/grant/runtime/DB/migration/consent/retention/purge/roles/provider/payment change. A merged guard or metadata step is not deployment."
+      ],
+      "forbiddenAuthority": [
+        "SOURCE self-admission, candidate-controlled scope or arbitrary state changes",
+        "CORE/API/DB/RLS/role/session/money/provider/FGIS/deployment authority",
+        "CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
+      ],
+      "teamHubDependency": "#5469 DECISION REQUEST / CLAIM 2026-10-07 (PC-CROP executor with the Codex/Gekta lane as independent reviewer); admission #5817 thread 4206221770"
+    },
+    "trusted-concurrent-scope-routing-guard-ref-20261007": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "Admit one new dedicated three-path guard ref for the already recorded trusted-concurrent-scope routing guard step, because the ref named in purpose record trusted-concurrent-scope-routing-guard-purpose-20261007 can no longer be renewed: the accepted guard validates every change on governance/pc-crop-post-registration-progress-scope-4997 against the fixed Deal execution blobs of deal-execution-route-guard-purpose-20261001 (measured: running the accepted main guard on the finished guard change from that branch fails with DEAL_ROUTE_PIN_OR_MODE:scripts/p7-autopilot-guard.sh). This record admits no source branch, no state change other than this record and one three-path vector, and no weakening of any existing route.",
+      "authorityBaseExactMain": "dad76750509728e6f8fe1a8657c07f08749705b2",
+      "implementationBranch": "governance/trusted-concurrent-scope-routing-guard-20261007",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "supersedesRefOfPurpose": "trusted-concurrent-scope-routing-guard-purpose-20261007",
+      "requiredTruthBoundaries": [
+        "Append only this record and the one three-path vector of the new ref. Preserve all prior state bytes and values, scope vectors, admissions, owners, primary/current/global permissions and progress. The earlier purpose record stays as history; its plannedRule (literal registration of the nine admitted source branches, exact per-branch manifest mapping, MUTABLE_SCOPE_AUTHORITIES exemption only for the in-vector manifest, no candidate scope authority, Gekta payload-pin routes untouched) is the rule of the guard change on the new ref.",
+        "The guard change itself is a separate pull request from the new ref after this record is actually accepted; this record confers no source permission and does not claim automatic machine enforcement of its own text. The vector contains only the guard, its test and its workflow; the state file, AGENTS.md and every source path are outside it.",
+        "The guard change must pass exact-head independent review of the complete head, owner audit, every substantive native check and canonical readiness before an ordinary expected-full-SHA manual merge. No automatic merge, no provider-availability waiver.",
+        "Admission #5817 (nine F-06 sources) stays unmerged and unadmitted for sources until the guard change is accepted. A merged guard or metadata step is not deployment."
+      ],
+      "forbiddenAuthority": [
+        "SOURCE self-admission, candidate-controlled scope or arbitrary state changes",
+        "CORE/API/DB/RLS/role/session/money/provider/FGIS/deployment authority",
+        "CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
+      ],
+      "teamHubDependency": "#5469 CHECKPOINT 2026-10-07 (PC-CROP executor with the Codex/Gekta lane as independent reviewer); admission #5817 thread 4206221770; purpose #5823"
+    },
     "accounting-bff-csrf-3-5-1-forward-sync-20261007": {
       "owner": "CLAUDE_PC_CROP_EXECUTOR",
       "purpose": "F-06 web security: require an anti-forgery token on the accounting BFF write path (ASVS 3.5.1). Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
-      "authorityBaseExactMain": "d376a1e2164f33a414c6939ea5544ddfe062563e",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
       "implementationBranch": "security/accounting-bff-csrf-3-5-1",
       "originalPullRequest": 4957,
       "allowedPaths": [
@@ -5602,7 +5660,7 @@
       ],
       "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
       "liveFinding": "Original pull request #4957 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
-      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main d376a1e2164f33a414c6939ea5544ddfe062563e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
       "requiredTruthBoundaries": [
         "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
         "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
@@ -5611,7 +5669,7 @@
     "module-body-validation-forward-sync-20261007": {
       "owner": "CLAUDE_PC_CROP_EXECUTOR",
       "purpose": "F-06 API security: validate the weighing act, organization status and reputation batch request bodies. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
-      "authorityBaseExactMain": "d376a1e2164f33a414c6939ea5544ddfe062563e",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
       "implementationBranch": "security/module-body-validation",
       "originalPullRequest": 5113,
       "allowedPaths": [
@@ -5726,7 +5784,7 @@
       ],
       "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline) after forward-syncing main; hand edits are rejected.",
       "liveFinding": "Original pull request #5113 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
-      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main d376a1e2164f33a414c6939ea5544ddfe062563e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
       "requiredTruthBoundaries": [
         "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
         "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
@@ -5735,7 +5793,7 @@
     "bff-upstream-path-encoding-4459-forward-sync-20261007": {
       "owner": "CLAUDE_PC_CROP_EXECUTOR",
       "purpose": "F-06 web security: encode every path segment of the BFF before building the upstream address. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
-      "authorityBaseExactMain": "d376a1e2164f33a414c6939ea5544ddfe062563e",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
       "implementationBranch": "security/bff-upstream-path-encoding-4459",
       "originalPullRequest": 5614,
       "allowedPaths": [
@@ -5796,7 +5854,7 @@
       ],
       "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
       "liveFinding": "Original pull request #5614 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
-      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main d376a1e2164f33a414c6939ea5544ddfe062563e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
       "requiredTruthBoundaries": [
         "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
         "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
@@ -5805,7 +5863,7 @@
     "request-cookie-single-reader-4459-forward-sync-20261007": {
       "owner": "CLAUDE_PC_CROP_EXECUTOR",
       "purpose": "F-06 web security: parse the Cookie header in one place and refuse a repeated cookie name (ASVS V15.3.7). Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
-      "authorityBaseExactMain": "d376a1e2164f33a414c6939ea5544ddfe062563e",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
       "implementationBranch": "security/request-cookie-single-reader-4459",
       "originalPullRequest": 5625,
       "allowedPaths": [
@@ -5874,7 +5932,7 @@
       ],
       "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
       "liveFinding": "Original pull request #5625 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
-      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main d376a1e2164f33a414c6939ea5544ddfe062563e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
       "requiredTruthBoundaries": [
         "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
         "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
@@ -5883,7 +5941,7 @@
     "open-redirect-demo-login-4459-forward-sync-20261007": {
       "owner": "CLAUDE_PC_CROP_EXECUTOR",
       "purpose": "F-06 web security: close the open redirect in the three demo-login routes. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
-      "authorityBaseExactMain": "d376a1e2164f33a414c6939ea5544ddfe062563e",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
       "implementationBranch": "security/open-redirect-demo-login-4459",
       "originalPullRequest": 5616,
       "allowedPaths": [
@@ -5964,7 +6022,7 @@
       ],
       "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
       "liveFinding": "Original pull request #5616 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
-      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main d376a1e2164f33a414c6939ea5544ddfe062563e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
       "requiredTruthBoundaries": [
         "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
         "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
@@ -5973,7 +6031,7 @@
     "email-check-length-first-4459-forward-sync-20261007": {
       "owner": "CLAUDE_PC_CROP_EXECUTOR",
       "purpose": "F-06 web security: bound the e-mail length before matching it against the pattern in the public routes. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
-      "authorityBaseExactMain": "d376a1e2164f33a414c6939ea5544ddfe062563e",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
       "implementationBranch": "security/email-check-length-first-4459",
       "originalPullRequest": 5615,
       "allowedPaths": [
@@ -6046,7 +6104,7 @@
       ],
       "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
       "liveFinding": "Original pull request #5615 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
-      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main d376a1e2164f33a414c6939ea5544ddfe062563e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
       "requiredTruthBoundaries": [
         "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
         "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
@@ -6055,7 +6113,7 @@
     "browser-hardening-headers-4459-forward-sync-20261007": {
       "owner": "CLAUDE_PC_CROP_EXECUTOR",
       "purpose": "F-06 web security: give the CSP a report address and isolate the window from its opener. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
-      "authorityBaseExactMain": "d376a1e2164f33a414c6939ea5544ddfe062563e",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
       "implementationBranch": "security/browser-hardening-headers-4459",
       "originalPullRequest": 5140,
       "allowedPaths": [
@@ -6124,7 +6182,7 @@
       ],
       "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
       "liveFinding": "Original pull request #5140 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
-      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main d376a1e2164f33a414c6939ea5544ddfe062563e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
       "requiredTruthBoundaries": [
         "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
         "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
@@ -6133,7 +6191,7 @@
     "outbound-redirect-and-surface-4459-forward-sync-20261007": {
       "owner": "CLAUDE_PC_CROP_EXECUTOR",
       "purpose": "F-06 API security: close the outbound redirect, restrict the CORS method list and trim the /version surface. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
-      "authorityBaseExactMain": "d376a1e2164f33a414c6939ea5544ddfe062563e",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
       "implementationBranch": "security/outbound-redirect-and-surface-4459",
       "originalPullRequest": 5142,
       "allowedPaths": [
@@ -6227,7 +6285,7 @@
       ],
       "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
       "liveFinding": "Original pull request #5142 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
-      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main d376a1e2164f33a414c6939ea5544ddfe062563e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
       "requiredTruthBoundaries": [
         "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
         "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
@@ -6236,7 +6294,7 @@
     "credential-surface-4459-forward-sync-20261007": {
       "owner": "CLAUDE_PC_CROP_EXECUTOR",
       "purpose": "F-06 API security: rate-limit bulk exports. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
-      "authorityBaseExactMain": "d376a1e2164f33a414c6939ea5544ddfe062563e",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
       "implementationBranch": "security/credential-surface-4459",
       "originalPullRequest": 5143,
       "allowedPaths": [
@@ -6281,7 +6339,7 @@
       ],
       "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
       "liveFinding": "Original pull request #5143 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
-      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main d376a1e2164f33a414c6939ea5544ddfe062563e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
       "requiredTruthBoundaries": [
         "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
         "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
