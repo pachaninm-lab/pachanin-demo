@@ -56,6 +56,7 @@ CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
+    "security/accounting-bff-csrf-3-5-1"|"security/module-body-validation"|"security/bff-upstream-path-encoding-4459"|"security/request-cookie-single-reader-4459"|"security/open-redirect-demo-login-4459"|"security/email-check-length-first-4459"|"security/browser-hardening-headers-4459"|"security/outbound-redirect-and-surface-4459"|"security/credential-surface-4459") return 0 ;;
     "fix/gekta-history-lifecycle-5818"|"governance/gekta-history-lifecycle-source-admission-5818") return 0 ;;
     "$PRODUCT_DEAL_RUNTIME_BRANCH"|"$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH") return 0 ;;
     "governance/product-deal-execution-route-20261001"|"fix/deal-execution-route-20261001") return 0 ;;
@@ -2656,6 +2657,40 @@ if (!manifest || Array.isArray(manifest) || typeof manifest !== 'object' ||
 }
 JS
     MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv "$PRODUCT_SCOPE_MANIFEST" || true)
+  fi
+  case "$CURRENT_BRANCH" in
+    "security/accounting-bff-csrf-3-5-1") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/accounting-bff-csrf-3-5-1.json' ;;
+    "security/module-body-validation") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/module-body-validation.json' ;;
+    "security/bff-upstream-path-encoding-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/bff-upstream-path-encoding-4459.json' ;;
+    "security/request-cookie-single-reader-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/request-cookie-single-reader-4459.json' ;;
+    "security/open-redirect-demo-login-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/open-redirect-demo-login-4459.json' ;;
+    "security/email-check-length-first-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/email-check-length-first-4459.json' ;;
+    "security/browser-hardening-headers-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/browser-hardening-headers-4459.json' ;;
+    "security/outbound-redirect-and-surface-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/outbound-redirect-and-surface-4459.json' ;;
+    "security/credential-surface-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/credential-surface-4459.json' ;;
+    *) CONCURRENT_SCOPE_MANIFEST='' ;;
+  esac
+  if [ -n "$CONCURRENT_SCOPE_MANIFEST" ] && printf '%s\n' "$DIFF_FILES" | grep -Fxq "$CONCURRENT_SCOPE_MANIFEST"; then
+    # The branch's own manifest documents the accepted vector; it is not scope
+    # authority. It is exempt only when that exact path is in the base vector
+    # and the file is a well-formed manifest for this exact branch.
+    CONCURRENT_MANIFEST_BASE_SCOPE="$APPROVED_BRANCH_SCOPE" CONCURRENT_MANIFEST_PATH="$CONCURRENT_SCOPE_MANIFEST" \
+      CONCURRENT_MANIFEST_BRANCH="$CURRENT_BRANCH" CONCURRENT_MANIFEST_HEAD="$HEAD_REF" node - <<'JS'
+const { execFileSync } = require('node:child_process');
+const branch = process.env.CONCURRENT_MANIFEST_BRANCH;
+const path = process.env.CONCURRENT_MANIFEST_PATH;
+const head = process.env.CONCURRENT_MANIFEST_HEAD;
+const acceptedPaths = process.env.CONCURRENT_MANIFEST_BASE_SCOPE.split(/\r?\n/u).filter(Boolean);
+if (!acceptedPaths.includes(path)) throw new Error('CONCURRENT_MANIFEST_NOT_ACCEPTED_IN_BASE');
+const raw = execFileSync('git', ['show', `${head}:${path}`], { encoding: 'utf8', maxBuffer: 64 * 1024 });
+const manifest = JSON.parse(raw);
+if (!manifest || Array.isArray(manifest) || typeof manifest !== 'object' ||
+    manifest.schemaVersion !== 'platform-v7.concurrent-scope.v1' ||
+    manifest.status !== 'active' || manifest.branch !== branch) {
+  throw new Error('CONCURRENT_MANIFEST_IDENTITY_INVALID');
+}
+JS
+    MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv "$CONCURRENT_SCOPE_MANIFEST" || true)
   fi
   if [ "$CURRENT_BRANCH" = "$QWEN_FAILED_EVIDENCE_BRANCH" ]; then
     # This diagnostic regression file is still subject to exact base-approved scope.
