@@ -1,6 +1,7 @@
-import { ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { RequestUser } from '../../common/types/request-user';
+import { REPUTATION_BATCH_MAX } from './dto/reputation-batch.dto';
 
 export interface ReputationScore {
   orgId: string;
@@ -92,11 +93,27 @@ export class BusinessReputationService {
    */
   async getScoreBatch(orgIds: string[], user: RequestUser): Promise<Record<string, ReputationScore>> {
     const tenantId = this.assertTenantScope(user);
-    const results: Record<string, ReputationScore> = {};
+    if (!Array.isArray(orgIds)) {
+      throw new BadRequestException('orgIds должен быть массивом идентификаторов.');
+    }
+    if (orgIds.length > REPUTATION_BATCH_MAX) {
+      // Замерено: 20 000 идентификаторов давали 40 000 одновременных обращений
+      // к базе из ОДНОГО запроса. Граница стоит и здесь, а не только в DTO.
+      throw new BadRequestException(`Пакет оценок ограничен ${REPUTATION_BATCH_MAX} организациями.`);
+    }
+    // Накопитель — Map, а не объектный литерал: ключ приходит из запроса, и
+    // `results['__proto__'] = score` не создаёт собственного свойства, а
+    // ПОДМЕНЯЕТ прототип ответа — замерено. Object.fromEntries на выходе
+    // создаёт собственное свойство даже для '__proto__', поэтому форма ответа
+    // не меняется, а запись перестаёт теряться.
+    const results = new Map<string, ReputationScore>();
     await Promise.all(
       orgIds.map(async (id) => {
+        if (typeof id !== 'string') {
+          throw new BadRequestException('Каждый элемент orgIds должен быть строкой.');
+        }
         try {
-          results[id] = await this.getScore(id, user);
+          results.set(id, await this.getScore(id, user));
         } catch (error) {
           // Только «нет такой организации в этом тенанте» превращается в
           // пропуск. Отказ базы обязан дойти до вызывающего, иначе пакет
@@ -105,7 +122,7 @@ export class BusinessReputationService {
         }
       }),
     );
-    return results;
+    return Object.fromEntries(results);
   }
 
   invalidate(orgId: string, tenantId: string): void {
