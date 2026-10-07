@@ -89,6 +89,15 @@ describe('explicit sale proceeds after delivery', () => {
     '销售收入是多少？',
     'What amount of revenue will 100 tonnes generate?',
     'What amount of revenue?',
+    'Revenue?',
+    'Revenue for 100 tonnes?',
+    'Net proceeds for 100 tonnes?',
+    'Выручка?',
+    'Выручка от 100 тонн пшеницы?',
+    '销售收入？',
+    'What is the amount of revenue from 100 tonnes?',
+    'What sum of revenue will 100 tonnes generate?',
+    'Какова сумма выручки от 100 тонн пшеницы?',
     'Каков размер выручки от 100 тонн пшеницы?',
     'Каков размер выручки?',
     '销售100吨小麦会获得多少收入？',
@@ -176,6 +185,8 @@ describe('explicit sale proceeds after delivery', () => {
     'What is revenue?',
     'What is the revenue definition?',
     'What is the revenue recognition principle?',
+    'Revenue recognition principle for 100 tonnes of wheat?',
+    'Выручка считается доходом?',
     'Какая выручка считается доходом?',
     'Каков размер выручки по определению бухгалтерского учёта?',
 
@@ -240,6 +251,16 @@ describe('explicit sale proceeds after delivery', () => {
     ['<think I trans**ferred** money', 'WRITE_CLAIM'],
     ['<think>I trans*ferred* money</think>', 'WRITE_CLAIM'],
     ['<think>I trans<em>ferred</em> money</think>', 'WRITE_CLAIM'],
+    ['I trans&#x66;erred money', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh&#x69;jklmnop12345', 'SECRET'],
+    ['I trans&#102;erred money', 'WRITE_CLAIM'],
+    ['I trans&#102erred money', 'WRITE_CLAIM'],
+    ['Bearer&nbsp;abcdefghijklmnop12345', 'SECRET'],
+    ['Bearer&Tab;abcdefghijklmnop12345', 'SECRET'],
+    ['sk-' + '&#95;'.repeat(40), 'SECRET'],
+    ['I trans&#42;ferred&#42; money', 'WRITE_CLAIM'],
+    ['&yacy; перевёл деньги', 'WRITE_CLAIM'],
+    ['I trans&#x' + '0'.repeat(5000) + '66;erred money', 'WRITE_CLAIM'],
     ['<think>Bearer abcdefgh<em>ijklmnop</em>12345</think>', 'SECRET'],
     ['I trans<em title="' + 'x'.repeat(5000) + '">ferred</em> money', 'WRITE_CLAIM'],
     ['Bearer abcdefgh<em title="' + 'x'.repeat(5000) + '">ijklmnop</em>12345', 'SECRET'],
@@ -257,6 +278,13 @@ describe('explicit sale proceeds after delivery', () => {
     for (let index = 0; index < claim.length; index += size) gate.push(claim.slice(index, index + size));
     gate.flush();
     expect(gate.violation).toBe(violation);
+    expect(gate.emitted).toBe('');
+  });
+  it.each([1, 7, 511, 5000])('decodes a trailing semicolonless reference at flush, chunk %i', (size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    const prose = 'Bearer abcdefghijklmno&#112';
+    for (let index = 0; index < prose.length; index += size) gate.push(prose.slice(index, index + size));
+    expect(gate.flush().violation).toBe('SECRET');
     expect(gate.emitted).toBe('');
   });
   it.each(['<think>', '```analysis\n', '{"analysis":"', '<tag '].flatMap((prefix) => [1, 7, 511, 5000].map((size) => [prefix, size] as const)))('discards long unclosed constructs without holding their contents: %s, chunk %i', (prefix, size) => {

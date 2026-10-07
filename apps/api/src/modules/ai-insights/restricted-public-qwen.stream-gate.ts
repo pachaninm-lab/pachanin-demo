@@ -80,6 +80,206 @@ const CHINESE_PRESCRIPTION_PREFIX = /(?:使用|施用|选择|推荐)[^.!?。！�
 
 const EMPTY_COMMIT: GateCommit = Object.freeze({ text: '', flags: Object.freeze([]), violation: null });
 
+/** Named references that can affect ASCII/Cyrillic safety tokens or whitespace.
+ * HTML5 names from Python's standard html.entities table; unrelated Unicode
+ * references cannot form these signatures. Numeric references cover all scripts.
+ */
+const SALE_SAFETY_CHARACTER_REFERENCES: Readonly<Record<string, string>> = Object.freeze({
+  "Acy;": "А",
+  "acy;": "а",
+  "AMP": "&",
+  "amp": "&",
+  "AMP;": "&",
+  "amp;": "&",
+  "apos;": "'",
+  "ast;": "*",
+  "Bcy;": "Б",
+  "bcy;": "б",
+  "bsol;": "\\",
+  "CHcy;": "Ч",
+  "chcy;": "ч",
+  "colon;": ":",
+  "comma;": ",",
+  "commat;": "@",
+  "Dcy;": "Д",
+  "dcy;": "д",
+  "DiacriticalGrave;": "`",
+  "DJcy;": "Ђ",
+  "djcy;": "ђ",
+  "dollar;": "$",
+  "DScy;": "Ѕ",
+  "dscy;": "ѕ",
+  "DZcy;": "Џ",
+  "dzcy;": "џ",
+  "Ecy;": "Э",
+  "ecy;": "э",
+  "emsp13;": " ",
+  "emsp14;": " ",
+  "emsp;": " ",
+  "ensp;": " ",
+  "equals;": "=",
+  "excl;": "!",
+  "Fcy;": "Ф",
+  "fcy;": "ф",
+  "fjlig;": "fj",
+  "Gcy;": "Г",
+  "gcy;": "г",
+  "GJcy;": "Ѓ",
+  "gjcy;": "ѓ",
+  "grave;": "`",
+  "GT": ">",
+  "gt": ">",
+  "GT;": ">",
+  "gt;": ">",
+  "hairsp;": " ",
+  "HARDcy;": "Ъ",
+  "hardcy;": "ъ",
+  "Hat;": "^",
+  "Icy;": "И",
+  "icy;": "и",
+  "IEcy;": "Е",
+  "iecy;": "е",
+  "IOcy;": "Ё",
+  "iocy;": "ё",
+  "Iukcy;": "І",
+  "iukcy;": "і",
+  "Jcy;": "Й",
+  "jcy;": "й",
+  "Jsercy;": "Ј",
+  "jsercy;": "ј",
+  "Jukcy;": "Є",
+  "jukcy;": "є",
+  "Kcy;": "К",
+  "kcy;": "к",
+  "KHcy;": "Х",
+  "khcy;": "х",
+  "KJcy;": "Ќ",
+  "kjcy;": "ќ",
+  "lbrace;": "{",
+  "lbrack;": "[",
+  "lcub;": "{",
+  "Lcy;": "Л",
+  "lcy;": "л",
+  "LJcy;": "Љ",
+  "ljcy;": "љ",
+  "lowbar;": "_",
+  "lpar;": "(",
+  "lsqb;": "[",
+  "LT": "<",
+  "lt": "<",
+  "LT;": "<",
+  "lt;": "<",
+  "Mcy;": "М",
+  "mcy;": "м",
+  "MediumSpace;": " ",
+  "midast;": "*",
+  "nbsp": " ",
+  "nbsp;": " ",
+  "Ncy;": "Н",
+  "ncy;": "н",
+  "NewLine;": "\n",
+  "NJcy;": "Њ",
+  "njcy;": "њ",
+  "NonBreakingSpace;": " ",
+  "num;": "#",
+  "numsp;": " ",
+  "Ocy;": "О",
+  "ocy;": "о",
+  "Pcy;": "П",
+  "pcy;": "п",
+  "percnt;": "%",
+  "period;": ".",
+  "plus;": "+",
+  "puncsp;": " ",
+  "quest;": "?",
+  "QUOT": "\"",
+  "quot": "\"",
+  "QUOT;": "\"",
+  "quot;": "\"",
+  "rbrace;": "}",
+  "rbrack;": "]",
+  "rcub;": "}",
+  "Rcy;": "Р",
+  "rcy;": "р",
+  "rpar;": ")",
+  "rsqb;": "]",
+  "Scy;": "С",
+  "scy;": "с",
+  "semi;": ";",
+  "SHCHcy;": "Щ",
+  "shchcy;": "щ",
+  "SHcy;": "Ш",
+  "shcy;": "ш",
+  "SOFTcy;": "Ь",
+  "softcy;": "ь",
+  "sol;": "/",
+  "Tab;": "\t",
+  "Tcy;": "Т",
+  "tcy;": "т",
+  "ThickSpace;": "  ",
+  "thinsp;": " ",
+  "ThinSpace;": " ",
+  "TScy;": "Ц",
+  "tscy;": "ц",
+  "TSHcy;": "Ћ",
+  "tshcy;": "ћ",
+  "Ubrcy;": "Ў",
+  "ubrcy;": "ў",
+  "Ucy;": "У",
+  "ucy;": "у",
+  "UnderBar;": "_",
+  "Vcy;": "В",
+  "vcy;": "в",
+  "verbar;": "|",
+  "vert;": "|",
+  "VerticalLine;": "|",
+  "VeryThinSpace;": " ",
+  "YAcy;": "Я",
+  "yacy;": "я",
+  "Ycy;": "Ы",
+  "ycy;": "ы",
+  "YIcy;": "Ї",
+  "yicy;": "ї",
+  "YUcy;": "Ю",
+  "yucy;": "ю",
+  "Zcy;": "З",
+  "zcy;": "з",
+  "ZHcy;": "Ж",
+  "zhcy;": "ж"
+});
+const SALE_SAFETY_LEGACY_REFERENCES = Object.freeze(Object.keys(SALE_SAFETY_CHARACTER_REFERENCES)
+  .filter((name) => !name.endsWith(';')).sort((left, right) => right.length - left.length));
+
+/** Preserve unfinished references across cuts; canonicalize numeric tails so
+ * arbitrarily many leading zeros cannot evict the safety lookbehind.
+ */
+function decodeSaleCharacterReferences(text: string, final: boolean): string {
+  return text.replace(/&#(?:[xX]([0-9a-fA-F]*)|([0-9]+))(;?)|&([A-Za-z][A-Za-z0-9]{0,31})(;?)/gu,
+    (reference: string, hex: string | undefined, decimal: string | undefined, numericSemicolon: string | undefined,
+      name: string | undefined, namedSemicolon: string | undefined, offset: number) => {
+      if (name !== undefined) {
+        const exactName = name + (namedSemicolon ?? '');
+        if (Object.hasOwn(SALE_SAFETY_CHARACTER_REFERENCES, exactName)) {
+          if (!namedSemicolon && !final && offset + reference.length === text.length) return reference;
+          return SALE_SAFETY_CHARACTER_REFERENCES[exactName];
+        }
+        const legacy = SALE_SAFETY_LEGACY_REFERENCES.find((prefix) => name.startsWith(prefix));
+        return legacy ? SALE_SAFETY_CHARACTER_REFERENCES[legacy] + name.slice(legacy.length) + (namedSemicolon ?? '') : reference;
+      }
+      const rawDigits = hex ?? decimal ?? '';
+      if (!rawDigits) return reference;
+      const base = hex !== undefined ? 16 : 10;
+      const digits = rawDigits.replace(/^0+/u, '') || '0';
+      const value = digits.length > 8 ? 0x110000 : Math.min(parseInt(digits, base), 0x110000);
+      if (!numericSemicolon && !final && offset + reference.length === text.length) {
+        return '&#' + (base === 16 ? 'x' : '') + value.toString(base);
+      }
+      return String.fromCodePoint(value === 0 || value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff) ? 0xfffd : value);
+    });
+}
+
+
+
 export type EconomicComparison = 'storage' | 'transport' | 'payment_timing' | 'sale_proceeds' | 'qualitative';
 export type SaleProceedsInput = Readonly<{
   quantityMilliTonnes: number;
@@ -176,6 +376,8 @@ function saleCalculationRequested(question: string): boolean {
   if (!SALE_PROCEEDS_TOPIC.test(question) && !chineseSaleAmount) return false;
   const intent = /(?<![\p{L}])(?:(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?(?:\s+расч[её]т)?)\s+(?:(?:итоговую|чистую)\s+)?выручк[ауи]|(?:calculate|compute)\s+(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))(?![\p{L}])|计算\s*(?:净收入|销售收入)/iu;
   const labelled = /^\s*(?:(?:расч[её]т\s+)?выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入)\s*[:：]/iu.test(question);
+  const labelQuestion = /^\s*(?:(?:выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))(?=\s*(?:[?？]\s*$|(?:for|from|after|от|за|после)(?![\p{L}])))|(?:净收入|销售收入)\s*[?？]\s*$)/iu.test(question);
+  const amountNounQuestion = /\bwhat\s+(?:(?:is|would|will)\s+(?:the|my|our)\s+)?(?:amount|sum)\s+of\s+(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does|be)\b))|(?<![\p{L}])(?:какова|какая|какую)\s+сумм[ау]\s+выручки(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|будет|составит)(?![\p{L}])))/iu.test(question);
   const suppliedInputs = /\d/u.test(question) && /тонн|\b(?:tonnes?|tons?)\b|吨|достав|delivery|运输费|运费/iu.test(question);
   // Numeric sale/delivery inputs require checked calculation or clarification
   // regardless of whether the question is imperative or interrogative. A
@@ -184,7 +386,7 @@ function saleCalculationRequested(question: string): boolean {
   // Require a complete amount phrase or a following sale/calculation clause.
   // A shared prefix such as "what is the revenue" is insufficient when followed
   // by "definition" or "recognition principle"; those need accounting answers.
-  const amountQuestion = chineseSaleAmount
+  const amountQuestion = chineseSaleAmount || labelQuestion || amountNounQuestion
     || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much\s+(?:(?:net|gross|total)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will))\s+(?:the|my|our)\s+(?:(?:net|gross|total)\s+)?|\s+amount\s+of\s+(?:(?:net|gross|total)\s+)?|\s+(?:(?:net|gross|total)\s+)?))(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does|be)\b))|(?:净收入|销售收入)[^。！？\n]{0,12}多少|多少\s*(?:净收入|销售收入)/iu.test(question);
   const strategyQuestion = /стратег|\bstrateg(?:y|ies)\b|策略/iu.test(question);
   const improvementQuestion = /повыс|увелич|улучш|\b(?:increase|improve|enhance|boost|grow|raise)\b|提高|改善|增加/iu.test(question);
@@ -529,6 +731,7 @@ export class StreamingAnswerGate {
   private discardedSaleRawContext = '';
   private discardedSaleFormattingContext = '';
   private discardedSaleRenderedContext = '';
+  private discardedSaleRenderedFormattingContext = '';
   private discardedSaleInsideTag = false;
   private progressiveJoiner = ' ';
   private pendingListMarker = '';
@@ -607,10 +810,10 @@ export class StreamingAnswerGate {
     return { separated, rendered };
   }
 
-  private discardSaleProse(): GateCommit {
+  private discardSaleProse(final: boolean): GateCommit {
     const head = this.pending;
     this.pending = '';
-    if (!head) return EMPTY_COMMIT;
+    if (!head && (!final || !this.discardedSaleRenderedContext)) return EMPTY_COMMIT;
     // Nothing from this mode is published, so even unclosed traces, fences and
     // envelopes can be scanned and discarded immediately. Check original raw
     // contents before any formatting removal; trace text is not a safety bypass.
@@ -630,16 +833,20 @@ export class StreamingAnswerGate {
     // Inline tags can split a rendered token: trans<em>ferred</em> or a secret.
     // Keep actual whitespace but join tag boundaries in this additional view.
     // Do not trim each fragment: trailing spaces remain significant across cuts.
-    const renderedBlock = `${this.discardedSaleRenderedContext}${normalized.rendered}`
+    const renderedRawBlock = decodeSaleCharacterReferences(`${this.discardedSaleRenderedContext}${normalized.rendered}`, final)
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
+      .replace(/\s+/gu, ' ');
+    const renderedBlock = decodeSaleCharacterReferences(`${this.discardedSaleRenderedFormattingContext}${normalized.rendered}`, final)
       .replace(/[*_`]/gu, '')
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
       .replace(/\s+/gu, ' ');
-    const views = [rawBlock, formattingBlock, block, renderedBlock];
+    const views = [rawBlock, formattingBlock, block, renderedRawBlock, renderedBlock];
     if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return this.refuse('WRITE_CLAIM');
     if (views.some((view) => SECRET_PATTERN.test(view))) return this.refuse('SECRET');
     const flags = ['UNVERIFIED_ECONOMIC_CLAIM_REMOVED'];
     if (views.some(isUngroundedCropProtectionPrescription)) flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
-    this.discardedSaleRenderedContext = renderedBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleRenderedContext = renderedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleRenderedFormattingContext = renderedBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleFormattingContext = formattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleRawContext = rawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.progressiveSafetyContext = block.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
@@ -648,7 +855,7 @@ export class StreamingAnswerGate {
   }
 
   private drain(final: boolean): GateCommit {
-    if (this.options.economicComparison === 'sale_proceeds') return this.discardSaleProse();
+    if (this.options.economicComparison === 'sale_proceeds') return this.discardSaleProse(final);
     const decidable = final ? this.pending.length : undecidedTailStart(this.pending);
     const overflowing = !final && this.pending.length > this.maxPendingChars;
     const progressiveAllowed = !final
@@ -787,6 +994,7 @@ export class StreamingAnswerGate {
     this.discardedSaleRawContext = '';
     this.discardedSaleFormattingContext = '';
     this.discardedSaleRenderedContext = '';
+    this.discardedSaleRenderedFormattingContext = '';
     this.discardedSaleInsideTag = false;
     this.progressiveSafetyContext = '';
     this.partialBlockOpen = false;
