@@ -103,6 +103,7 @@ export const STAFF_ENDPOINT_POLICIES: readonly StaffEndpointPolicy[] = [
   privileged('GET', '/staff/audit/events', StaffAuthorizationClass.STAFF_PRIVILEGED_READ, StaffAuditClass.SENSITIVE_READ, [StaffAccessMode.CONTROL_PLANE], [StaffPermission.AUDIT_READ]),
   privileged('GET', '/staff/audit/actors/:actorUserId/verify', StaffAuthorizationClass.STAFF_PRIVILEGED_READ, StaffAuditClass.SENSITIVE_READ, [StaffAccessMode.CONTROL_PLANE], [StaffPermission.AUDIT_READ]),
 
+  policy('GET', '/staff/capabilities/home', StaffAuthorizationClass.STAFF_SELF_AUTHORITY_READ, StaffAuditClass.STANDARD_READ),
   policy('GET', '/staff/capabilities/me', StaffAuthorizationClass.STAFF_SELF_AUTHORITY_READ, StaffAuditClass.SENSITIVE_READ),
 
   privileged('GET', '/staff/workspaces/support', StaffAuthorizationClass.STAFF_PRIVILEGED_READ, StaffAuditClass.SENSITIVE_READ, [StaffAccessMode.CONTROL_PLANE], [StaffPermission.SUPPORT_CASE_READ]),

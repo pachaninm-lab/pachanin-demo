@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { isRetryableTransactionConflict } from '../../common/prisma/rls-transaction.service';
 
 export type StaffSqlClient = Pick<Prisma.TransactionClient, '$queryRaw' | '$executeRaw'>;
 
@@ -98,6 +99,13 @@ export type CriticalActionRow = {
   consumed_at: Date | null;
 };
 
+export class StaffSessionActivationRetryExhaustedError extends Error {
+  constructor() {
+    super('Staff session activation conflicted repeatedly');
+    this.name = 'StaffSessionActivationRetryExhaustedError';
+  }
+}
+
 @Injectable()
 export class StaffAccessRepository {
   constructor(readonly prisma: PrismaClient) {}
@@ -108,6 +116,19 @@ export class StaffAccessRepository {
       maxWait: 5_000,
       timeout: 15_000,
     });
+  }
+
+  async activateSessionTransaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    // Retry only an aborted activation, on a fresh SERIALIZABLE transaction.
+    // All callback effects are database writes; a token is returned only after commit.
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await this.transaction(work);
+      } catch (error) {
+        if (!isRetryableTransactionConflict(error)) throw error;
+        if (attempt >= 2) throw new StaffSessionActivationRetryExhaustedError();
+      }
+    }
   }
 
   async resolveTargetScope(
@@ -355,12 +376,46 @@ export class StaffAccessRepository {
       SELECT
         s.*,
         a.role AS staff_role,
-        g.target_deal_id
+        g.target_deal_id,
+        LEAST(s.expires_at, g.expires_at, COALESCE(a.valid_until, s.expires_at)) AS expires_at
       FROM auth.staff_access_sessions s
       JOIN auth.staff_access_grants g ON g.id = s.grant_id
       JOIN auth.staff_assignments a ON a.id = g.assignment_id
       WHERE s.token_hash = ${tokenHash}
-        AND s.actor_user_id = ${actorUserId}${lock}
+        AND s.actor_user_id = ${actorUserId}
+        AND s.status = 'ACTIVE' AND s.ended_at IS NULL AND s.expires_at > NOW()
+        AND g.grantee_user_id = s.actor_user_id
+        AND g.status = 'ACTIVE' AND g.revoked_at IS NULL
+        AND g.starts_at <= NOW() AND g.expires_at > NOW()
+        AND a.user_id = s.actor_user_id
+        AND a.status IN ('ELIGIBLE', 'ACTIVE') AND a.revoked_at IS NULL
+        AND a.valid_from <= NOW() AND (a.valid_until IS NULL OR a.valid_until > NOW())
+        AND s.access_mode = g.access_mode
+        AND s.effective_tenant_id IS NOT DISTINCT FROM g.target_tenant_id
+        AND s.effective_organization_id IS NOT DISTINCT FROM g.target_organization_id
+        AND s.effective_user_id IS NOT DISTINCT FROM g.target_user_id
+        AND s.effective_role IS NOT DISTINCT FROM g.target_role
+        AND s.permissions <@ g.permissions${lock}
+    `);
+    return rows[0] ?? null;
+  }
+
+  async getActiveAccessSession(
+    client: StaffSqlClient,
+    id: string,
+    actorUserId?: string,
+  ): Promise<StaffSessionRow | null> {
+    const actorFilter = actorUserId === undefined
+      ? Prisma.empty
+      : Prisma.sql` AND s.actor_user_id = ${actorUserId}`;
+    const rows = await client.$queryRaw<StaffSessionRow[]>(Prisma.sql`
+      SELECT s.*, a.role AS staff_role, g.target_deal_id
+      FROM auth.staff_access_sessions s
+      JOIN auth.staff_access_grants g ON g.id = s.grant_id
+      JOIN auth.staff_assignments a ON a.id = g.assignment_id
+      WHERE s.id = ${id}
+        AND s.status = 'ACTIVE' AND s.expires_at > NOW()${actorFilter}
+      FOR UPDATE OF s
     `);
     return rows[0] ?? null;
   }
@@ -385,6 +440,20 @@ export class StaffAccessRepository {
       WHERE id = ${id} AND actor_user_id = ${actorUserId} AND status = 'ACTIVE'
     `);
     return changed === 1;
+  }
+
+  async hasActiveSession(client: StaffSqlClient, actorUserId: string): Promise<boolean> {
+    const rows = await client.$queryRaw<Array<{ active: boolean }>>(Prisma.sql`
+      SELECT EXISTS (
+        SELECT 1 FROM auth.staff_access_sessions
+        WHERE actor_user_id = ${actorUserId}
+          AND status = 'ACTIVE' AND expires_at > NOW()
+      ) AS active
+    `);
+    if (!Array.isArray(rows) || rows.length !== 1 || typeof rows[0]?.active !== 'boolean') {
+      throw new Error('Staff active-session predicate is unavailable');
+    }
+    return rows[0].active;
   }
 
   listActiveSessions(client: StaffSqlClient, actorUserId?: string): Promise<StaffSessionRow[]> {
