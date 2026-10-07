@@ -5440,6 +5440,35 @@
       ],
       "teamHubDependency": "#5469 CLAIM 6037413355; #5818; user continuation 2026-10-07",
       "authorityBaseExactMain": "ab39ed40f34733f9ba3cb2d44e6a1e9a35029f8c"
+    },
+    "trusted-concurrent-scope-routing-guard-purpose-20261007": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "Renew only the existing accepted three-path guard ref so that concurrent-scope source branches admitted through coordinationAdmissions are resolved from the trusted base instead of from the candidate checkout, after native P1 finding 4206221770 on admission #5817 (the guard reads approvedConcurrentScopes and scope manifests from the candidate for branches outside the literal immutable list). This purpose admits no source branch, no state change other than this record, and no weakening of any existing route.",
+      "authorityBaseExactMain": "d376a1e2164f33a414c6939ea5544ddfe062563e",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "plannedRule": {
+        "trustedRoutedBranch": "A branch B is trusted-routed only if the accepted base state (never the candidate) has coordinationAdmissions[K] with implementationBranch equal to B, trustedBaseRouting === true and approvedConcurrentScopes[B] deep-equal to K.allowedPaths.",
+        "effect": "For such a branch the allowed paths are exactly that base vector. The candidate state file, AGENTS.md, scripts/p7-autopilot-guard.sh, scripts/p7-autopilot-guard.test.mjs, scripts/p7-source-controlled-scope.mjs and .github/workflows/platform-v7-autopilot-guard.yml can never be in such a vector (the validator rejects it). The diff is evaluated with --no-renames; every change must be a modification or addition of a regular 100644 file; deletions, renames, type changes, symlinks, executable and submodule modes are rejected; the head must contain the base. MUTABLE_SCOPE_AUTHORITIES exempts exactly the paths docs/platform-v7/autopilot/scopes/<name>.json that are in the base vector and nothing else under docs/platform-v7/autopilot/.",
+        "negativeTests": "Required: source edits its own state file; adds a path outside the vector; changes a mode; deletes or renames; manifest path not in the vector; flag missing; flag present but vector differs from the record; branch absent from base; a guard, test, workflow, AGENTS or state path inside a vector; every existing literal immutable branch and the Gekta routes keep their exact behaviour."
+      },
+      "requiredTruthBoundaries": [
+        "Append only this purpose record. Preserve all prior state bytes and values, scope vectors, admissions, owners, primary/current/global permissions and progress. No source or admission branch scope is added here.",
+        "Continue the existing guard ref without force/reset or loss of ancestry. The guard change is a separate step after this purpose is actually accepted; this record confers no guard or source permission by itself and does not claim automatic machine enforcement of its own text.",
+        "The later guard change must keep every existing route and negative test, add the generic rule with its negative tests, and pass exact-head independent review of the complete head, owner audit, all substantive native checks and canonical readiness before an ordinary expected-full-SHA manual merge. No automatic merge, no provider-availability waiver.",
+        "Admission #5817 (nine F-06 sources) is revised to set trustedBaseRouting only after the guard change is actually accepted; until then no source of that batch is admitted or merged.",
+        "No model/grant/runtime/DB/migration/consent/retention/purge/roles/provider/payment change. A merged guard or metadata step is not deployment."
+      ],
+      "forbiddenAuthority": [
+        "SOURCE self-admission, candidate-controlled scope or arbitrary state changes",
+        "CORE/API/DB/RLS/role/session/money/provider/FGIS/deployment authority",
+        "CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
+      ],
+      "teamHubDependency": "#5469 DECISION REQUEST / CLAIM 2026-10-07 (PC-CROP executor with the Codex/Gekta lane as independent reviewer); admission #5817 thread 4206221770"
     }
   }
 }
