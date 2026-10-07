@@ -5444,7 +5444,7 @@
     "trusted-concurrent-scope-routing-guard-purpose-20261007": {
       "owner": "CLAUDE_PC_CROP_EXECUTOR",
       "purpose": "Renew only the existing accepted three-path guard ref so that the nine concurrent-scope source branches of admission #5817 are registered in the guard's literal trusted-base routes and resolved from the trusted base instead of from the candidate checkout, after native P1 finding 4206221770 on admission #5817 (the guard reads approvedConcurrentScopes and scope manifests from the candidate for branches outside the literal immutable list). This purpose admits no source branch, no state change other than this record, and no weakening of any existing route.",
-      "authorityBaseExactMain": "d376a1e2164f33a414c6939ea5544ddfe062563e",
+      "authorityBaseExactMain": "9251d72471f7342628861a387be9bc5c1db683d0",
       "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
       "allowedPaths": [
         "scripts/p7-autopilot-guard.sh",
