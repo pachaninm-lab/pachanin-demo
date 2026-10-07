@@ -189,6 +189,9 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     'Сколько выручки?',
     '销售收入是多少？',
     '总收入是多少？',
+    '总收入的金额是多少？',
+    '销售收入大概有多少？',
+    '净收入总共多少？',
     '请确认总收入是多少？',
     '请确认小麦100吨总收入是多少？',
     '小麦100吨总收入是多少？',
@@ -273,6 +276,9 @@ describe('RestrictedPublicQwenService.generateStream', () => {
   });
   it.each(['stream', 'buffered'].flatMap((mode) => [
     '<think>I transferred money</think>',
+    'I\uFEFFtransferred money',
+    'Bearer\uFEFFabcdefghijklmnop12345',
+    '<think title="I\uFEFFtrans<em title=\u0027' + 'x'.repeat(5000) + '\u0027>*fer*</em>red money">harmless</think>',
     '<think>I trans*ferred* money</think>',
     '<think>I trans<em>ferred</em> money</think>',
     'I trans&#x66;erred money',
@@ -339,6 +345,34 @@ describe('RestrictedPublicQwenService.generateStream', () => {
   });
 
   it.each(['stream', 'buffered'].flatMap((mode) => [
+    ['I trans[fer][' + 'r'.repeat(321) + ']red money\n\n[' + 'r'.repeat(321) + ']: https://example.invalid/', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh[ijklmnop][' + 'r'.repeat(321) + ']12345\n\n[' + 'r'.repeat(321) + ']: https://example.invalid/', 'SECRET'],
+    ['I trans[fer][' + 'r'.repeat(900) + ']red money\n\n[' + 'r'.repeat(900) + ']: https://example.invalid/', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh[ijklmnop][' + 'r'.repeat(900) + ']12345\n\n[' + 'r'.repeat(900) + ']: https://example.invalid/', 'SECRET'],
+    ['<think title="I trans<em>[fer][' + 'r'.repeat(321) + ']</em>red money">harmless</think>\n\n[' + 'r'.repeat(321) + ']: https://example.invalid/', 'WRITE_CLAIM'],
+    ['<think title="Bearer abcdefgh<em>[ijklmnop][' + 'r'.repeat(321) + ']</em>12345">harmless</think>\n\n[' + 'r'.repeat(321) + ']: https://example.invalid/', 'SECRET'],
+    ['I trans[fer][' + 'r'.repeat(321) + '\\]r]red money\n\n[' + 'r'.repeat(321) + '\\]r]: https://example.invalid/', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh[ijklmnop][' + 'r'.repeat(321) + '\\]r]12345\n\n[' + 'r'.repeat(321) + '\\]r]: https://example.invalid/', 'SECRET'],
+  ].map(([content]) => [mode, content] as const)))('refuses long reference-style Markdown in %s sale output: %s', async (mode, content) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    const raw = request({ locale: 'en', question, originalQuestion: question });
+    for (const size of [1, 7, 511, 5000]) {
+      let refused = false;
+      let done = false;
+      if (mode === 'stream') {
+        installRuntime({ deltas: Array.from({ length: Math.ceil(content.length / size) }, (_, index) => content.slice(index * size, (index + 1) * size)), gapMs: 0 });
+        try {
+          for await (const event of service.generateStream(raw)) if (event.type === 'done') done = true;
+        } catch { refused = true; }
+      } else {
+        global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+        try { await service.generate(raw); done = true; } catch { refused = true; }
+      }
+      expect(refused).toBe(true);
+      expect(done).toBe(false);
+    }
+  });
+  it.each(['stream', 'buffered'].flatMap((mode) => [
     '&#x200B;', '&#8203;', '\u200B', '\u200C', '\u2060',
     '&#x00AD;', '&#x202E;', '&#xE0001;', '\u{E0001}',
     '&ZeroWidthSpace;', '&shy;', '&#x034F;', '\uFE0F',
@@ -371,6 +405,11 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     'Revenue from crop diversification?',
     '如何提高100吨小麦的总收入？',
     '总收入的定义是什么？',
+    '总收入的含义是多少？',
+    '销售收入的含义是多少？',
+    '净收入的会计含义是多少？',
+    '总收入的意思是多少？',
+    '总收入的释义是多少？',
     '总收入的定义是多少？',
     '销售收入的定义是多少？',
     '净收入的会计定义是多少？',

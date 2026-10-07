@@ -89,6 +89,9 @@ describe('explicit sale proceeds after delivery', () => {
     'Сколько выручки?',
     '销售收入是多少？',
     '总收入是多少？',
+    '总收入的金额是多少？',
+    '销售收入大概有多少？',
+    '净收入总共多少？',
     '请确认总收入是多少？',
     '请确认小麦100吨总收入是多少？',
     '小麦100吨总收入是多少？',
@@ -195,6 +198,11 @@ describe('explicit sale proceeds after delivery', () => {
     'Revenue from crop diversification?',
     '如何提高100吨小麦的总收入？',
     '总收入的定义是什么？',
+    '总收入的含义是多少？',
+    '销售收入的含义是多少？',
+    '净收入的会计含义是多少？',
+    '总收入的意思是多少？',
+    '总收入的释义是多少？',
     '总收入的定义是多少？',
     '销售收入的定义是多少？',
     '净收入的会计定义是多少？',
@@ -264,6 +272,9 @@ describe('explicit sale proceeds after delivery', () => {
   });
   it.each([
     ['<think>I transferred money</think>', 'WRITE_CLAIM'],
+    ['I\uFEFFtransferred money', 'WRITE_CLAIM'],
+    ['Bearer\uFEFFabcdefghijklmnop12345', 'SECRET'],
+    ['<think title="I\uFEFFtrans<em title=\u0027' + 'x'.repeat(5000) + '\u0027>*fer*</em>red money">harmless</think>', 'WRITE_CLAIM'],
     ['<think I trans**ferred** money', 'WRITE_CLAIM'],
     ['<think>I trans*ferred* money</think>', 'WRITE_CLAIM'],
     ['<think>I trans<em>ferred</em> money</think>', 'WRITE_CLAIM'],
@@ -324,6 +335,22 @@ describe('explicit sale proceeds after delivery', () => {
     expect(gate.emitted).toBe('');
   });
 
+  it.each([
+    ['I trans[fer][' + 'r'.repeat(321) + ']red money\n\n[' + 'r'.repeat(321) + ']: https://example.invalid/', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh[ijklmnop][' + 'r'.repeat(321) + ']12345\n\n[' + 'r'.repeat(321) + ']: https://example.invalid/', 'SECRET'],
+    ['I trans[fer][' + 'r'.repeat(900) + ']red money\n\n[' + 'r'.repeat(900) + ']: https://example.invalid/', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh[ijklmnop][' + 'r'.repeat(900) + ']12345\n\n[' + 'r'.repeat(900) + ']: https://example.invalid/', 'SECRET'],
+    ['<think title="I trans<em>[fer][' + 'r'.repeat(321) + ']</em>red money">harmless</think>\n\n[' + 'r'.repeat(321) + ']: https://example.invalid/', 'WRITE_CLAIM'],
+    ['<think title="Bearer abcdefgh<em>[ijklmnop][' + 'r'.repeat(321) + ']</em>12345">harmless</think>\n\n[' + 'r'.repeat(321) + ']: https://example.invalid/', 'SECRET'],
+    ['I trans[fer][' + 'r'.repeat(321) + '\\]r]red money\n\n[' + 'r'.repeat(321) + '\\]r]: https://example.invalid/', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh[ijklmnop][' + 'r'.repeat(321) + '\\]r]12345\n\n[' + 'r'.repeat(321) + '\\]r]: https://example.invalid/', 'SECRET'],
+  ].flatMap(([claim, violation]) => [1, 7, 511, 5000].map((size) => [claim, violation, size] as const)))('checks long reference-style Markdown labels in sale prose: %s, chunk %i', (claim, violation, size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    for (let index = 0; index < claim.length; index += size) gate.push(claim.slice(index, index + size));
+    gate.flush();
+    expect(gate.violation).toBe(violation);
+    expect(gate.emitted).toBe('');
+  });
   it.each([
     '&#x200B;', '&#8203;', '\u200B', '\u200C', '\u2060',
     '&#x00AD;', '&#x202E;', '&#xE0001;', '\u{E0001}',

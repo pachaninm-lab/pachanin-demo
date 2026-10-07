@@ -342,17 +342,23 @@ function saleTextWithoutTagBoundaries(text: string, state: SaleTagScanState, sep
 }
 
 
-type SaleMarkdownScanState = { labelDepth: number; afterLabel: boolean; destinationDepth: number; escaped: boolean; quote: string; titleSeparator: boolean; destinationStarted: boolean; angle: boolean };
+type SaleMarkdownScanState = { labelDepth: number; afterLabel: boolean; reference: boolean; destinationDepth: number; escaped: boolean; quote: string; titleSeparator: boolean; destinationStarted: boolean; angle: boolean };
 function newSaleMarkdownScanState(): SaleMarkdownScanState {
-  return { labelDepth: 0, afterLabel: false, destinationDepth: 0, escaped: false, quote: '', titleSeparator: false, destinationStarted: false, angle: false };
+  return { labelDepth: 0, afterLabel: false, reference: false, destinationDepth: 0, escaped: false, quote: '', titleSeparator: false, destinationStarted: false, angle: false };
 }
 
-/** Conservative link-text view: keep labels while omitting destinations
- * incrementally, so a long address cannot evict a visible safety token.
+/** Conservative link-text view: keep labels while omitting inline destinations
+ * and reference suffixes incrementally; no long link metadata is retained.
  */
 function saleMarkdownLinkText(text: string, state: SaleMarkdownScanState): string {
   let result = '';
   for (const character of text) {
+    if (state.reference) {
+      if (state.escaped) { state.escaped = false; continue; }
+      if (character === '\\') { state.escaped = true; continue; }
+      if (character === ']') state.reference = false;
+      continue;
+    }
     if (state.destinationDepth) {
       if (state.escaped) { state.escaped = false; state.destinationStarted = true; continue; }
       if (character === '\\') { state.escaped = true; continue; }
@@ -368,6 +374,7 @@ function saleMarkdownLinkText(text: string, state: SaleMarkdownScanState): strin
     }
     if (state.afterLabel) {
       state.afterLabel = false;
+      if (character === '[') { state.reference = true; state.escaped = false; continue; }
       if (character === '(') { state.destinationDepth = 1; state.titleSeparator = false; state.destinationStarted = false; state.angle = false; continue; }
     }
     if (character === '[') { state.labelDepth += 1; continue; }
@@ -382,9 +389,9 @@ function saleMarkdownLinkText(text: string, state: SaleMarkdownScanState): strin
 }
 
 
-type SaleTagContentFrame = { state: SaleTagScanState; raw: string; formatted: string };
+type SaleTagContentFrame = { state: SaleTagScanState; raw: string; formatted: string; originalRaw: string; originalFormatted: string };
 function newSaleTagContentFrame(): SaleTagContentFrame {
-  return { state: newSaleTagScanState(), raw: '', formatted: '' };
+  return { state: newSaleTagScanState(), raw: '', formatted: '', originalRaw: '', originalFormatted: '' };
 }
 
 
@@ -480,7 +487,7 @@ export function saleProceedsFromUser(question: string): SaleProceedsInput | null
 function saleCalculationRequested(question: string): boolean {
   // Chinese sale amount questions can separate the sale verb and income noun
   // with the commodity/quantity; do not treat unrelated income as sale proceeds.
-  const chineseConceptQuestion = /定义|概念|(?:确认|计量)(?:原则|条件|标准|方法)|会计(?:确认|计量)/u.test(question);
+  const chineseConceptQuestion = /定义|概念|含[义意]|意[思义]|释义|解释|(?:确认|计量)(?:原则|条件|标准|方法)|会计(?:确认|计量)/u.test(question);
   const chineseSaleAmount = !chineseConceptQuestion && /(?:销售|出售|卖出)[^。！？\n]{0,80}多少\s*收入/u.test(question);
   if (!SALE_PROCEEDS_TOPIC.test(question) && !chineseSaleAmount) return false;
   const intent = /(?<![\p{L}])(?:(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?(?:\s+расч[её]т)?)\s+(?:(?:итоговую|чистую)\s+)?выручк[ауи]|(?:calculate|compute)\s+(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))(?![\p{L}])|计算\s*(?:净收入|销售收入|总收入)/iu;
@@ -500,7 +507,8 @@ function saleCalculationRequested(question: string): boolean {
   // Require a complete amount phrase or a following sale/calculation clause.
   // A shared prefix such as "what is the revenue" is insufficient when followed
   // by "definition" or "recognition principle"; those need accounting answers.
-  const chineseAmountQuestion = !chineseConceptQuestion && /(?:净收入|销售收入|总收入)[^。！？\n]{0,12}多少|多少\s*(?:净收入|销售收入|总收入)/u.test(question);
+  // Match amount nouns/connectors, not arbitrary intervening conceptual words.
+  const chineseAmountQuestion = !chineseConceptQuestion && /(?:净收入|销售收入|总收入)\s*(?:的?\s*(?:金额|数额|总额|数目|数值)\s*)?(?:(?:总共|一共|合计|预计|预期|大约|大概|到底|应该|应当|可能)\s*)?(?:(?:会|将|能|可以)?\s*(?:是|为|有|达到|获得)\s*)?多少|多少\s*(?:净收入|销售收入|总收入)(?=\s*(?:$|[，,。！？?：:\n]))/u.test(question);
   const amountQuestion = chineseSaleAmount || labelQuestion || amountNounQuestion || chineseAmountQuestion
     || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much\s+(?:(?:net|gross|total)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will))\s+(?:the|my|our)\s+(?:(?:net|gross|total)\s+)?|\s+amount\s+of\s+(?:(?:net|gross|total)\s+)?|\s+(?:(?:net|gross|total)\s+)?))(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does|be)\b))/iu.test(question);
   const strategyQuestion = /стратег|\bstrateg(?:y|ies)\b|策略/iu.test(question);
@@ -838,9 +846,8 @@ export function economicComparisonCopy(kind: EconomicComparison, locale: PublicL
 }
 
 /** Private detection view only; never a publishing or HTML sanitization boundary. */
-function saleSafetyView(text: string, removeFormatting = false): string {
-  const normalized = text
-    .replace(/[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu, '')
+function saleSafetyView(text: string, removeFormatting = false, preserveFormatCharacters = false): string {
+  const normalized = (preserveFormatCharacters ? text : text.replace(/[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu, ''))
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
     .replace(/\s+/gu, ' ');
   return removeFormatting ? normalized.replace(/[*_`]/gu, '') : normalized;
@@ -952,9 +959,14 @@ export class StreamingAnswerGate {
       // into UTF-16 surrogates disappears when its trailing surrogate arrives.
       frame.raw = saleSafetyView(frame.raw + character).slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
       frame.formatted = saleSafetyView(frame.formatted + character, true).slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
-      if (WRITE_CLAIM_PATTERN.test(frame.raw) || WRITE_CLAIM_PATTERN.test(frame.formatted)) return { violation: 'WRITE_CLAIM', prescription };
-      if (SECRET_PATTERN.test(frame.raw) || SECRET_PATTERN.test(frame.formatted)) return { violation: 'SECRET', prescription };
-      prescription ||= isUngroundedCropProtectionPrescription(frame.raw) || isUngroundedCropProtectionPrescription(frame.formatted);
+      // Retain the original whitespace semantics too: FEFF can be an existing
+      // separator after an actor or Bearer rather than an inserted token split.
+      frame.originalRaw = saleSafetyView(frame.originalRaw + character, false, true).slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.originalFormatted = saleSafetyView(frame.originalFormatted + character, true, true).slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      const views = [frame.raw, frame.formatted, frame.originalRaw, frame.originalFormatted];
+      if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return { violation: 'WRITE_CLAIM', prescription };
+      if (views.some((view) => SECRET_PATTERN.test(view))) return { violation: 'SECRET', prescription };
+      prescription ||= views.some(isUngroundedCropProtectionPrescription);
       const wasInside = frame.state.inside;
       saleTextWithoutTagBoundaries(character, frame.state, false);
       if (wasInside && !frame.state.inside && frames.length > 1) frames.pop();
@@ -969,9 +981,9 @@ export class StreamingAnswerGate {
     // Nothing from this mode is published, so even unclosed traces, fences and
     // envelopes can be scanned and discarded immediately. Check original raw
     // contents before any formatting removal; trace text is not a safety bypass.
-    const rawBlock = saleSafetyView(this.discardedSaleRawContext + head);
+    const rawBlock = saleSafetyView(this.discardedSaleRawContext + head, false, true);
     // Include original quoted/unclosed tag contents in the formatting view.
-    const formattingBlock = saleSafetyView(this.discardedSaleFormattingContext + head, true);
+    const formattingBlock = saleSafetyView(this.discardedSaleFormattingContext + head, true, true);
     const normalizedHead = saleTextWithoutTagBoundaries(head, this.discardedSaleTagState, true);
     const decoded = this.discardedSaleDecodedText(head, final);
     const originalContents = this.scanOriginalTagContents(decoded.original, this.discardedSaleTagContentFrames);
@@ -983,8 +995,8 @@ export class StreamingAnswerGate {
     // Inline tags can split a rendered token: trans<em>ferred</em> or a secret.
     // Keep actual whitespace but join tag boundaries in this additional view.
     // Do not trim each fragment: trailing spaces remain significant across cuts.
-    const decodedRawBlock = saleSafetyView(this.discardedSaleDecodedContext + decoded.original);
-    const decodedFormattingBlock = saleSafetyView(this.discardedSaleDecodedFormattingContext + decoded.original, true);
+    const decodedRawBlock = saleSafetyView(this.discardedSaleDecodedContext + decoded.original, false, true);
+    const decodedFormattingBlock = saleSafetyView(this.discardedSaleDecodedFormattingContext + decoded.original, true, true);
     const renderedRawBlock = saleSafetyView(this.discardedSaleRenderedContext + decoded.joined);
     const renderedBlock = saleSafetyView(this.discardedSaleRenderedFormattingContext + decoded.joined, true);
     const markdownHead = saleMarkdownLinkText(decoded.joined, this.discardedSaleMarkdownState);
