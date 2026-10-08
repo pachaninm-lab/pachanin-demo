@@ -53,7 +53,10 @@ function installRuntime(script: RuntimeScript): RuntimeProbe {
               controller.error(Object.assign(new Error('aborted'), { name: 'AbortError' }));
               return;
             }
-            await new Promise((resolve) => setTimeout(resolve, script.gapMs ?? 5));
+            // Explicit zero-gap fixtures still yield asynchronously, without
+            // adding a timer tick to every one-character transport delta.
+            if (script.gapMs === 0) await Promise.resolve();
+            else await new Promise((resolve) => setTimeout(resolve, script.gapMs ?? 5));
             controller.enqueue(encoder.encode(
               `data: ${JSON.stringify({ choices: [{ delta: { content: delta } }] })}\n\n`,
             ));
@@ -195,6 +198,11 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     'How much will the net proceeds be after delivery?',
     'How much could our revenue be from selling 100 tonnes?',
     'How much were proceeds from selling 100 tonnes?',
+    "What has the revenue been for 100 tonnes?",
+    "What had our proceeds been after delivery?",
+    "What has revenue been?",
+    "What have the proceeds been from selling 100 tonnes?",
+    "What had our net proceeds been after delivery?",
     "How much has revenue from 100 tonnes amounted to?",
     "How much had the proceeds from selling 100 tonnes come to?",
     "What would revenue have been from 100 tonnes?",
@@ -465,6 +473,12 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     'How much is the revenue definition useful for farmers?',
     'What could revenue recognition mean for farmers?',
     'What should revenue recognition principles require?',
+    "Can revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB be recognized under IFRS?",
+    "Is revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB recognized under IFRS?",
+    "Как следует учитывать выручку от 100 тонн по 12000 руб/т с доставкой 80000 руб по МСФО?",
+    "Can revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB be recognized as income?",
+    "Is revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB recognized as income?",
+    "Как следует учитывать выручку от 100 тонн по 12000 руб/т с доставкой 80000 руб?",
     "How should revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB be recorded under IFRS?",
     "Why is revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB recognized as income?",
     "Under IFRS, how should revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB be recognized?",

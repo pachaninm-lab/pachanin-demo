@@ -601,18 +601,19 @@ function saleCalculationRequested(question: string): boolean {
     || !/\d|\b(?:delivery|selling|sale|sell|amount|sum)\b/iu.test(saleContinuation)
   )) return false;
   const englishAmountQuestion = amountContinuation
-    && /\b(?:how\s+much(?:\s+(?:is|are|was|were|would|will|could|can|should|do|does|did|has|have|had)(?:\s+(?:be|been))?)?\s+(?:(?:the|my|our)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will|could|can|should)(?:\s+(?:be|been))?)\s+(?:(?:the|my|our)\s+)?|\s+amount\s+of\s+|\s+))(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b/iu.test(question);
-  // A sale-input modifier can intervene before the conceptual predicate:
-  // "How should revenue from ... be recorded?" is still an explanation.
-  if (revenueClause && !englishAmountQuestion && !amountNounQuestion && !intent.test(question)
-    && /\b(?:how(?!\s+much\b)|why|explain|describe|should|when|whether)\b/iu.test(question)) return false;
+    && /\b(?:how\s+much(?:\s+(?:is|are|was|were|would|will|could|can|should|do|does|did|has|have|had)(?:\s+(?:be|been))?)?\s+(?:(?:the|my|our)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will|could|can|should|has|have|had)(?:\s+(?:be|been))?)\s+(?:(?:the|my|our)\s+)?|\s+amount\s+of\s+|\s+))(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b/iu.test(question);
   // Require a complete amount phrase or a following sale/calculation clause.
   // A shared prefix such as "what is the revenue" is insufficient when followed
   // by "definition" or "recognition principle"; those need accounting answers.
   // Match amount nouns/connectors, not arbitrary intervening conceptual words.
   const chineseAmountQuestion = !chineseConceptQuestion && CHINESE_REVENUE_AMOUNT_QUESTION.test(question);
   const amountQuestion = chineseSaleAmount || labelQuestion || amountNounQuestion || chineseAmountQuestion || englishAmountQuestion
-    || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much(?:\s+(?:is|are|was|were|would|will|could|can|should|do|does|did)(?:\s+be)?)?\s+(?:(?:the|my|our)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will|could|can|should)(?:\s+be)?)\s+(?:(?:the|my|our)\s+)?|\s+amount\s+of\s+|\s+))(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does)\b|be\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after)\b))|(?:amount(?:s|ed)?|come|came)\s+to\b))/iu.test(question);
+    || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much(?:\s+(?:is|are|was|were|would|will|could|can|should|do|does|did)(?:\s+be)?)?\s+(?:(?:the|my|our)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will|could|can|should|has|have|had)(?:\s+be)?)\s+(?:(?:the|my|our)\s+)?|\s+amount\s+of\s+|\s+))(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does)\b|be\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after)\b))|(?:amount(?:s|ed)?|come|came)\s+to\b))/iu.test(question);
+  // Monetary examples do not establish an amount request. Classify the
+  // financial clause across locales without enumerating question openers or
+  // accounting verbs; explicit amount/label/calculation requests stay checked.
+  const financialClause = /\b(?:revenue|proceeds)\s+\S|(?<![\p{L}])выручк[ауиы](?![\p{L}])\s+\S|(?:净收入|销售收入|总收入)\s*\S/iu.test(question);
+  if (financialClause && !amountQuestion && !labelled && !intent.test(question)) return false;
   const strategyQuestion = /стратег|\bstrateg(?:y|ies)\b|策略/iu.test(question);
   const improvementQuestion = /повыс|увелич|улучш|\b(?:increase|improve|enhance|boost|grow|raise)\b|提高|改善|增加/iu.test(question);
   if (!labelled && !intent.test(question)
