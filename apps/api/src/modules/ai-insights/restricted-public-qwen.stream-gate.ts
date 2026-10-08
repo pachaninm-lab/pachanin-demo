@@ -458,9 +458,9 @@ function saleMarkdownLinkText(text: string, state: SaleMarkdownScanState): strin
 }
 
 
-type SaleTagContentFrame = { state: SaleTagScanState; raw: string; formatted: string; originalRaw: string; originalFormatted: string };
+type SaleTagContentFrame = { state: SaleTagScanState; pendingTagStart: boolean; raw: string; formatted: string; originalRaw: string; originalFormatted: string };
 function newSaleTagContentFrame(): SaleTagContentFrame {
-  return { state: newSaleTagScanState(), raw: '', formatted: '', originalRaw: '', originalFormatted: '' };
+  return { state: newSaleTagScanState(), pendingTagStart: false, raw: '', formatted: '', originalRaw: '', originalFormatted: '' };
 }
 
 
@@ -599,8 +599,11 @@ function saleCalculationRequested(question: string): boolean {
   // Unsupported units/currencies still need clarification, not provider sums.
   const pricedSubject = `(?:(?:selling|(?:the\\s+)?sale\\s+of)\\s+)?${SALE_NUMBER}\\s+(?:tonnes?|tons?)(?:\\s+at\\s+${SALE_NUMBER}\\s+(?:${SALE_RUB}|[A-Z]{3})\\s*(?:/\\s*(?:t|tonnes?)|per\\s+tonne))?`;
   const nominalSubject = '(?!(?:be|been|being|have|has|had)\\b)[\\p{L}][\\p{L}-]*(?:\\s+[\\p{L}][\\p{L}-]*){0,2}';
-  const nounFrontAmountQuestion = new RegExp(`^(?:${pricedSubject}|${nominalSubject})\\s+${amountVerb}\\b`, 'iu').test(nounFrontHead)
-    || /^(?:(?:have|has|had)\s+)?(?:(?:be|been|being)\s+)?(?:generated|yielded|brought|produced|earned|received|made)\b/iu.test(nounFrontHead);
+  // A later direct object ("generate reports about revenue") is not the
+  // requested revenue amount. Accept the fronted object plus its adjuncts.
+  const amountComplement = '(?=\\s*(?:$|[.!?。！？,;:]|(?:from|for|after|before|by|with|without|in|on|at|during|over|through|via|per|today|now|tomorrow|yesterday)\\b|(?:this|last|next)\\s+(?:year|month|week|season)\\b))';
+  const nounFrontAmountQuestion = new RegExp(`^(?:${pricedSubject}|${nominalSubject})\\s+${amountVerb}\\b${amountComplement}`, 'iu').test(nounFrontHead)
+    || new RegExp(`^(?:(?:have|has|had)\\s+)?(?:(?:be|been|being)\\s+)?(?:generated|yielded|brought|produced|earned|received|made)\\b${amountComplement}`, 'iu').test(nounFrontHead);
   const revenueContinuation = revenueClause
     .replace(/[.!?。！？]+\s*$/u, '')
     .replace(/^(?:(?:is|are|was|were|do|does|did|will|would|can|could|should|may|might|must|has|have|had|be|been|being)(?:\s+|$)){0,3}/iu, '')
@@ -1108,13 +1111,24 @@ export class StreamingAnswerGate {
     };
     for (const character of text) {
       let frame = frames[frames.length - 1];
+      if (frame.pendingTagStart) {
+        frame.pendingTagStart = false;
+        if (/[A-Za-z!/?]/u.test(character)) {
+          // Only a lexical tag opener freezes the enclosing safety prefix.
+          // Literal < runs/less-than operators, including split/decoded ones
+          // in quoted attributes, do not consume nesting capacity.
+          const violation = scanFragment();
+          if (violation) return { violation, prescription };
+          if (frames.length >= 16) return { violation: 'OUTPUT_LIMIT', prescription };
+          frame = newSaleTagContentFrame();
+          frames.push(frame);
+        }
+        fragment += '<';
+        saleTextWithoutTagBoundaries('<', frame.state, false);
+      }
       if (frame.state.inside && character === '<') {
-        // Freeze the enclosing prefix while checking the nested header's own contents.
-        const violation = scanFragment();
-        if (violation) return { violation, prescription };
-        if (frames.length >= 16) return { violation: 'OUTPUT_LIMIT', prescription };
-        frame = newSaleTagContentFrame();
-        frames.push(frame);
+        frame.pendingTagStart = true;
+        continue;
       }
       fragment += character;
       const wasInside = frame.state.inside;
