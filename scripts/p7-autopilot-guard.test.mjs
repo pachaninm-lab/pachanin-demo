@@ -233,12 +233,19 @@ const gitleaksSessionMintingEntries =
   '        "8e1febfffeb4da36f1dba9badb7522ddb6513c1d:"\n' +
   '        "apps/web/tests/unit/sessionMintingSurface.spec.ts:generic-api-key:138",\n';
 
-// The repository test may already carry the session-minting synchronization;
-// historical fixtures are rebuilt from the source without it.
-function withoutSessionMintingEntries(source) {
-  const count = source.split(gitleaksSessionMintingEntries).length - 1;
-  assert.ok(count === 0 || count === 1, 'session-minting entries occur together at most once');
-  return source.replace(gitleaksSessionMintingEntries, '');
+// Historical attestation phases are bound to immutable accepted blobs, never to
+// the mutable repository test, so later accepted synchronizations cannot shift
+// their baselines.
+function acceptedBlob(blob) {
+  const result = spawnSync('git', ['cat-file', 'blob', blob], { encoding: 'utf8' });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  return result.stdout;
+}
+
+function blobOf(content) {
+  const result = spawnSync('git', ['hash-object', '--stdin'], { input: content, encoding: 'utf8' });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  return result.stdout.trim();
 }
 
 function baselineGitleaksReleaseAttestation(source) {
@@ -450,9 +457,8 @@ function kindMinioImageSourceFixture(t) {
   return context;
 }
 
-function gitleaksReleaseAttestationFixture(t) {
+function gitleaksReleaseAttestationFixture(t, source = fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8')) {
   const context = fixture(t, gitleaksReleaseAttestationBranch);
-  const source = fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8');
   write(context.root, gitleaksReleaseAttestationPath, baselineGitleaksReleaseAttestation(source));
   const state = JSON.parse(fs.readFileSync(path.join(context.root, 'docs/platform-v7/autopilot/autopilot-state.json'), 'utf8'));
   state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [gitleaksReleaseAttestationPath];
@@ -510,10 +516,8 @@ for (const mutation of ['remove existing assertion', 'add fifth fingerprint', 'a
 
 function currentGitleaksReleaseAttestationFixture(t) {
   const context = fixture(t, gitleaksReleaseAttestationBranch);
-  const source = withoutSessionMintingEntries(fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8'));
-  const count = source.split(gitleaksCurrentReviewedEntries).length - 1;
-  assert.ok(count === 0 || count === 1, 'current reviewed entries occur together at most once');
-  write(context.root, gitleaksReleaseAttestationPath, source.replace(gitleaksCurrentReviewedEntries, ''));
+  // The accepted test before the two-existing-fingerprint repair.
+  write(context.root, gitleaksReleaseAttestationPath, acceptedBlob('e589046fc52daf8a3632f70b6879543934be56ff'));
   // This fixture models the immutable historical attestation, not today's allowlist.
   const historicalIgnore = spawnSync('git', ['cat-file', 'blob', '5c151dc1a2b5329fb2d4feb1fd0c1713bbef96db'], { encoding: 'utf8' });
   assert.equal(historicalIgnore.status, 0, `${historicalIgnore.stdout}\n${historicalIgnore.stderr}`);
@@ -656,15 +660,11 @@ test('current Gitleaks attestation rejects implementation-owned scope and guard 
 
 function sessionMintingGitleaksReleaseAttestationFixture(t) {
   const context = fixture(t, gitleaksReleaseAttestationBranch);
-  const source = fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8');
-  write(context.root, gitleaksReleaseAttestationPath, withoutSessionMintingEntries(source));
+  // The accepted test after the two-existing-fingerprint repair.
+  write(context.root, gitleaksReleaseAttestationPath, acceptedBlob('404e172449f53c01369ef974a50079d6f6967d56'));
   // The accepted ignore file that already carries the two #5804 fingerprints.
-  const acceptedIgnore = spawnSync('git', ['cat-file', 'blob', '2c7aaa811ed3ea3dd1cf806ed1126705c173591b'], { encoding: 'utf8' });
-  assert.equal(acceptedIgnore.status, 0, `${acceptedIgnore.stdout}\n${acceptedIgnore.stderr}`);
-  write(context.root, '.gitleaksignore', acceptedIgnore.stdout);
-  const acceptedManifest = spawnSync('git', ['cat-file', 'blob', '35f96ccc7fe332ddd90454eeee19853ba0612b71'], { encoding: 'utf8' });
-  assert.equal(acceptedManifest.status, 0, `${acceptedManifest.stdout}\n${acceptedManifest.stderr}`);
-  write(context.root, 'apps/tai/release-source-manifest.json', acceptedManifest.stdout);
+  write(context.root, '.gitleaksignore', acceptedBlob('2c7aaa811ed3ea3dd1cf806ed1126705c173591b'));
+  write(context.root, 'apps/tai/release-source-manifest.json', acceptedBlob('35f96ccc7fe332ddd90454eeee19853ba0612b71'));
   const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
   const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
   state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [gitleaksReleaseAttestationPath];
@@ -813,6 +813,34 @@ for (const other of ['apps/landing/package.json', 'docs/ip/internal-package-meta
     assert.match(output(result), /Gitleaks release attestation session-minting repair must change exactly the attestation test/u);
   });
 }
+
+test('historical Gitleaks attestation fixtures hold for every accepted repository test revision', (t) => {
+  const stepC = synchronizeSessionMintingGitleaksReleaseAttestation(acceptedBlob('404e172449f53c01369ef974a50079d6f6967d56'));
+  assert.equal(blobOf(stepC), '95c914d64012a6260ca1090a01844b2c6f56cc3a');
+  for (const [revision, source] of [
+    ['404e1724', acceptedBlob('404e172449f53c01369ef974a50079d6f6967d56')],
+    ['95c914d6', stepC],
+  ]) {
+    // The legacy four-fingerprint phase is the only one still derived from the repository test.
+    const normalizedBaseline = baselineGitleaksReleaseAttestation(source);
+    assert.equal(baselineGitleaksReleaseAttestation(synchronizeGitleaksReleaseAttestation(normalizedBaseline)), normalizedBaseline, revision);
+    const legacy = gitleaksReleaseAttestationFixture(t, source);
+    const legacyBaseline = fs.readFileSync(path.join(legacy.root, gitleaksReleaseAttestationPath), 'utf8');
+    write(legacy.root, gitleaksReleaseAttestationPath, synchronizeGitleaksReleaseAttestation(legacyBaseline));
+    commit(legacy.root, `synchronize legacy attestation from ${revision}`);
+    const legacyResult = runGuard(legacy);
+    assert.equal(legacyResult.status, 0, `${revision}\n${output(legacyResult)}`);
+  }
+  // The two later phases start from immutable accepted blobs whatever the repository test holds.
+  const current = currentGitleaksReleaseAttestationFixture(t);
+  write(current.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(fs.readFileSync(path.join(current.root, gitleaksReleaseAttestationPath), 'utf8')));
+  commit(current.root, 'synchronize current exact fingerprint attestation');
+  assert.equal(runTrustedCurrentGitleaksGuard(current).status, 0);
+  const session = sessionMintingGitleaksReleaseAttestationFixture(t);
+  write(session.root, gitleaksReleaseAttestationPath, stepC);
+  commit(session.root, 'synchronize session-minting fingerprint attestation');
+  assert.equal(runTrustedCurrentGitleaksGuard(session).status, 0);
+});
 
 test('earlier Gitleaks attestation phase cannot apply the session-minting synchronization', (t) => {
   const context = currentGitleaksReleaseAttestationFixture(t);
