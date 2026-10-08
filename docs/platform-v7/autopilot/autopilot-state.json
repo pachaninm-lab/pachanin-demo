@@ -2031,6 +2031,18 @@
       ".github/workflows/tai-release-acceptance.yml",
       "apps/tai/tests/test_release_run_lookup_contract.py",
       "docs/platform-v7/autopilot/scopes/tai-release-run-event-filter-20261008.json"
+    ],
+    "fix/gekta-history-purge-import-20261008": [
+      "apps/api/prisma/schema.prisma",
+      "apps/api/prisma/migrations/20261008230000_gekta_history_import_purge/migration.sql",
+      "apps/api/src/modules/gekta/dto/gekta.dto.ts",
+      "apps/api/src/modules/gekta/gekta-body-validation.spec.ts",
+      "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+      "apps/api/src/modules/gekta/gekta-workspace.spec.ts",
+      "apps/api/test/industrial/gekta-history-postgresql.e2e-spec.ts",
+      "apps/web/lib/gekta/server-workspace.ts",
+      "apps/web/tests/unit/gektaServerHistory.test.ts",
+      "docs/gekta/history-removal-and-import.md"
     ]
   },
   "currentAcceptance": [
@@ -6702,6 +6714,125 @@
         "Credential/PII output, extra cost, owner/MFA bypass, fake review or forced/automatic merge, R1 or progress credit"
       ],
       "teamHubDependency": "#5469/6069284294; prior release window explicitly closed by #5469/6068819568."
+    },
+    "gekta-history-import-purge-20261008": {
+      "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+      "sourceOwnerRetained": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+      "purpose": "Bounded continuation of the canonical Gekta workspace to fix reproduced duplicate/lost anonymous imports and implement explicit owned history removal. Preserve the independently accepted #5818 soft-delete protection and its immutable recovery route; this separate source transition has no second owner/backend.",
+      "authorityBaseExactMain": "bb94418c516c8e22db9fbce541a5392d50aa60e5",
+      "userInstruction": "Максим: «Делай всё и завершай», 2026-10-08; existing CORE Hub6069913751.",
+      "implementationBranch": "fix/gekta-history-purge-import-20261008",
+      "allowedPaths": [
+        "apps/api/prisma/schema.prisma",
+        "apps/api/prisma/migrations/20261008230000_gekta_history_import_purge/migration.sql",
+        "apps/api/src/modules/gekta/dto/gekta.dto.ts",
+        "apps/api/src/modules/gekta/gekta-body-validation.spec.ts",
+        "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+        "apps/api/src/modules/gekta/gekta-workspace.spec.ts",
+        "apps/api/test/industrial/gekta-history-postgresql.e2e-spec.ts",
+        "apps/web/lib/gekta/server-workspace.ts",
+        "apps/web/tests/unit/gektaServerHistory.test.ts",
+        "docs/gekta/history-removal-and-import.md"
+      ],
+      "sourcePayloads": [
+        {
+          "path": "apps/api/prisma/schema.prisma",
+          "mode": "100644",
+          "beforeBlob": "96659e82e4b96655598d951ab353f75e90381196",
+          "afterBlob": "7b704cde7ddea20f3f9d45752e722200ead6dc6a",
+          "afterSha256": "e2695255142468514811fb05d552901db8c2037beb6253313ea93365a8eff564"
+        },
+        {
+          "path": "apps/api/prisma/migrations/20261008230000_gekta_history_import_purge/migration.sql",
+          "mode": "100644",
+          "beforeBlob": null,
+          "afterBlob": "dce3645135dca30691f6ec2b763a1117ea8bc4e5",
+          "afterSha256": "82597539b9f2c1feaaa3096d6524bc40069ed450558b1fed9385bf8691bbb1c8"
+        },
+        {
+          "path": "apps/api/src/modules/gekta/dto/gekta.dto.ts",
+          "mode": "100644",
+          "beforeBlob": "838b562280eda665392a9fce802283096545f841",
+          "afterBlob": "aad8ad7c908f05231435b5149f9b2055926463ef",
+          "afterSha256": "32856169eecc20be05b4b12ce1753abfd0794e60a1789018af5cd108306e7f88"
+        },
+        {
+          "path": "apps/api/src/modules/gekta/gekta-body-validation.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "764ee1b7cb86c7bd66490bbb510fd3a4ef15dbc8",
+          "afterBlob": "6708f5e02a8ded9c7202f5886e0d7612a3820810",
+          "afterSha256": "05a9809ce8f51fb7f99c9f49b9c244159f41b70c26b00b7887b204089088d969"
+        },
+        {
+          "path": "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+          "mode": "100644",
+          "beforeBlob": "0d3ee8956bece60d2a1a97fd1508196de7fde091",
+          "afterBlob": "bbba6d72c00e0a335c619aa82304e487c4dc69f8",
+          "afterSha256": "c9da10a54602f95ff7e441ea6d27676635096897584ec53d98627148cad1217c"
+        },
+        {
+          "path": "apps/api/src/modules/gekta/gekta-workspace.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "b337b60335d106e7d0bc96695453f29d0562019a",
+          "afterBlob": "3a25a67428217d54a8a982be3fc431ff8a0b73b2",
+          "afterSha256": "1c1d22e6f7ff403eac665be562033f87fb3bf16b6ce76be34cc28293c057d285"
+        },
+        {
+          "path": "apps/api/test/industrial/gekta-history-postgresql.e2e-spec.ts",
+          "mode": "100644",
+          "beforeBlob": null,
+          "afterBlob": "9a9e1d79a6f223e7e86e7c30474d5aa3ad64ef3c",
+          "afterSha256": "05abb8439a63ebc3951e77cb55dfd2bb137bd1ef7ddea774d67d08cedd94c2a9"
+        },
+        {
+          "path": "apps/web/lib/gekta/server-workspace.ts",
+          "mode": "100644",
+          "beforeBlob": "90e6987129d7d301bbc37d530014ef9708d4ff4c",
+          "afterBlob": "683425aeead5bad95ea6978834b3692652746cf8",
+          "afterSha256": "7b0646ff6fde2bc3c91b4c21240edaee0f04f1767ea6fb00261b9dd92526a297"
+        },
+        {
+          "path": "apps/web/tests/unit/gektaServerHistory.test.ts",
+          "mode": "100644",
+          "beforeBlob": "f59c472a08530ae0e626264d69e953f337b7a37c",
+          "afterBlob": "69dcd8d3cec0443d54f5d49706b14caa2129131d",
+          "afterSha256": "abbdc5c5c1ed5f15f753dfad76e4823baa2d5fb017fdfab1cc1786d38614a050"
+        },
+        {
+          "path": "docs/gekta/history-removal-and-import.md",
+          "mode": "100644",
+          "beforeBlob": null,
+          "afterBlob": "919fea625f5be0a56e214e58aeed5a8e6229c248",
+          "afterSha256": "22409488510ff9f8397a0528f22643495c0b2f39f422cb026d8e2f051b0fa08e"
+        }
+      ],
+      "prototypeTree": "964995bbc73e4862727d52b491752cef956c64f8",
+      "privateValidation": {
+        "apiCasesPassed": 110,
+        "webCasesPassed": 29,
+        "prismaValidate": "PASS",
+        "apiTypeScript": "PASS",
+        "webTypeScript": "PASS",
+        "nativePostgresql": "NOT_EXECUTED"
+      },
+      "requiredTruthBoundaries": [
+        "Governance changes exactly the five existing CORE governance documents. Append only this new ten-path source vector/record, one progress blocker and three bounded appended sections. Removing those restores every accepted state/progress value and original section. Preserve all prior owners/vectors/admissions, primary/current/writable scope, source leaves/modes and official 5/100; no guard/workflow/readiness change.",
+        "Source publication follows actual independent acceptance of this admission and ordinary composition with then-current accepted main, preserving the seven exact before blobs and absence of the three newly added files. Source diff is exactly these ten regular 100644 pinned files; all other current-main leaves remain unchanged. This standard candidate-list route is not mechanically immutable: actual independent nonauthor whole-tree review must enforce every path/blob/mode and reject candidate expansion or any altered authority.",
+        "Use only the existing PostgreSQL/Prisma/GektaAccount/workspace/session boundary. Add a forward-only minimal GektaHistoryImportReceipt model/table with unique account/importKey, no conversation FK, no stored message/title/citations/attachments/credentials, stable source-ID hashes and purpose-bound existing AUTH_TOKEN_PEPPER HMAC request fingerprints. Receipts survive conversation deletion to block restoration and are cascaded on account deletion. Existing schema blocks are otherwise byte-preserved and old migrations unchanged.",
+        "DELETE/clear removes only the authenticated account's requested conversation or complete active/legacy-soft-deleted history through one fixed-search_path EXECUTE-only SECURITY DEFINER function with account row locking. Existing message FK cascade removes message/citation/attachment metadata rows. Runtime receives no direct DELETE or new role/RLS/tenant authority: only SELECT/INSERT on the new receipt table and EXECUTE on the exact purge function for the three already enumerated runtime roles.",
+        "No deployment-time bulk deletion. Explicit user deletion/clear is required; repeated deletion is idempotent. Preserve ownership checks, legacy soft-deleted read/write rejection, project detach behavior, project-first ordering and the conditional conversation UPDATE held through append. Import/create/clear/delete serialize on the existing account row. Receipt and nested writes commit or roll back together; altered same-ID retry returns conflict without mutation.",
+        "Client always forwards its stable local sourceId; DTO bounds it, rejects malformed/null IDs and retains old-client omission compatibility. New IDs distinguish same titles and identical content; old clients without IDs cannot distinguish equal locale/title/message multisets or use dates/order as identity. Match/adopt legacy rows only by actual content, never title alone; retain their minimal legacy HMAC receipts before purge. Pepper rotation needs a separate transition and is not a retry admission.",
+        "The operational removal policy states the exact residual technical receipt and account-lifetime retention. It proves primary PostgreSQL row removal only, not disk/WAL/backup destruction or legal sufficiency. Do not modify public legal documents, consent/version/receipt policy, payment/provider/phone verification, registration/MFA, model/service control, existing platform RLS/roles or unrelated schemas. No cost or full-Gekta/R1/progress credit.",
+        "Local 110 API/29 web cases, TypeScript and Prisma validation are preparation evidence only. Before source acceptance require actual new-head native CI/security/Kubernetes and the automatically included real PostgreSQL industrial fixture using restricted capabilities and independent connections: eight concurrent duplicates, distinct/identical same-title IDs, physical purge/replay/conflict, legacy clear, nested rollback/retry, stale append after deletion, observed PG account-lock blocking against clear, foreign-account isolation and direct DELETE denial.",
+        "Each actual source head needs fresh independent whole-diff review, separate owner self-audit, all findings resolved and complete substantive native checks, followed by fresh canonical READY_FOR_MANUAL_REVIEW and ordinary full-expected-SHA manual merge. Head/base-dependent changes require fresh evidence; source acceptance is not live release. Actual immutable deployment/live/synthetic privacy checks and separate remaining model/consent/MFA results remain required."
+      ],
+      "forbiddenAuthority": [
+        "candidate-owned scope expansion, guard or CI weakening, forced/automatic merge",
+        "bulk deletion, global DELETE grants, role creation/rotation, tenant/RLS or unrelated schema changes",
+        "raw content/credential/PII logs, second persistence/auth authority, new model grant/service control, legal receipt change, recurring cost",
+        "fake PostgreSQL/runtime/backup/owner MFA/provider acceptance or R1/progress/completion credit"
+      ],
+      "teamHubDependency": "#5469/6069913751; security #5836 and canonical first-user journal source remain separate."
     }
   }
 }
