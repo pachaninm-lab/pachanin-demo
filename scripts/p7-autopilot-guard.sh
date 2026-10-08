@@ -424,6 +424,32 @@ if (baselineBlob === currentBaselineBlob) {
     '        "generic-api-key:17",\n';
   assert.equal(baseline.split(currentAnchor).length - 1, 1, 'Gitleaks release attestation current anchor must occur exactly once');
   assert.equal(head, baseline.replace(currentAnchor, currentAnchor + twoExistingFingerprints), 'Gitleaks release attestation repair must add exactly two existing fingerprints and preserve every existing byte and assertion');
+} else if (baselineBlob === '404e172449f53c01369ef974a50079d6f6967d56') {
+  // Purpose gitleaks-session-minting-attestation-guard-purpose-20261008: #5804
+  // appended two reviewed historical fingerprints to .gitleaksignore; only the
+  // exact synchronization of the release attestation with them is accepted.
+  assert.equal(treeEntry(process.env.P7_ATTESTATION_BASE, path), `100644 blob 404e172449f53c01369ef974a50079d6f6967d56\t${path}`, 'Gitleaks release attestation baseline must be the exact accepted regular file');
+  assert.equal(treeEntry(process.env.P7_ATTESTATION_HEAD, path), `100644 blob 95c914d64012a6260ca1090a01844b2c6f56cc3a\t${path}`, 'Gitleaks release attestation head must be the exact session-minting regular-file repair');
+  const acceptedInputs = {
+    '.gitleaksignore': '2c7aaa811ed3ea3dd1cf806ed1126705c173591b',
+    'apps/tai/release-source-manifest.json': '35f96ccc7fe332ddd90454eeee19853ba0612b71',
+  };
+  for (const [file, blob] of Object.entries(acceptedInputs)) {
+    for (const ref of [process.env.P7_ATTESTATION_BASE, process.env.P7_ATTESTATION_HEAD]) {
+      assert.equal(treeEntry(ref, file), `100644 blob ${blob}\t${file}`, `Gitleaks release attestation input must remain the exact accepted regular file: ${file}`);
+    }
+  }
+  const sessionMintingAnchor =
+    '        "3b76d0f3473b986b6354aaac528994f7ac343df2:"\n' +
+    '        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"\n' +
+    '        "generic-api-key:17",\n';
+  const sessionMintingFingerprints =
+    '        "8e1febfffeb4da36f1dba9badb7522ddb6513c1d:"\n' +
+    '        "apps/web/tests/unit/sessionMintingSurface.spec.ts:generic-api-key:137",\n' +
+    '        "8e1febfffeb4da36f1dba9badb7522ddb6513c1d:"\n' +
+    '        "apps/web/tests/unit/sessionMintingSurface.spec.ts:generic-api-key:138",\n';
+  assert.equal(baseline.split(sessionMintingAnchor).length - 1, 1, 'Gitleaks release attestation session-minting anchor must occur exactly once');
+  assert.equal(head, baseline.replace(sessionMintingAnchor, sessionMintingAnchor + sessionMintingFingerprints), 'Gitleaks release attestation repair must add exactly the two session-minting fingerprints and preserve every existing byte and assertion');
 } else {
 // Preserve the historical four-fingerprint transformation and its negative gates.
 const insertAfterCommodity =
