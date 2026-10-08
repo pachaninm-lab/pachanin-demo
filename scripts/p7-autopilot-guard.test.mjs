@@ -814,6 +814,26 @@ for (const other of ['apps/landing/package.json', 'docs/ip/internal-package-meta
   });
 }
 
+test('legacy Gitleaks attestation phase cannot apply the session-minting synchronization', (t) => {
+  const context = gitleaksReleaseAttestationFixture(t);
+  const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(synchronizeGitleaksReleaseAttestation(baseline)));
+  commit(context.root, 'attempt legacy and session-minting synchronizations together');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /must add exactly four reviewed fingerprints/u);
+});
+
+test('session-minting Gitleaks attestation phase cannot apply an earlier phase transformation', (t) => {
+  const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+  const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(baseline));
+  commit(context.root, 'attempt the two-existing-fingerprint transformation again');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Gitleaks release attestation head must be the exact session-minting regular-file repair/u);
+});
+
 test('historical Gitleaks attestation fixtures hold for every accepted repository test revision', (t) => {
   const stepC = synchronizeSessionMintingGitleaksReleaseAttestation(acceptedBlob('404e172449f53c01369ef974a50079d6f6967d56'));
   assert.equal(blobOf(stepC), '95c914d64012a6260ca1090a01844b2c6f56cc3a');
