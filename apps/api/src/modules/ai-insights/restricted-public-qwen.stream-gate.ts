@@ -405,6 +405,7 @@ export type SaleProceedsInput = Readonly<{
 }>;
 
 const SALE_PROCEEDS_TOPIC = /выручк|revenue|proceeds|销售收入|净收入|总收入/iu;
+const CHINESE_REVENUE_AMOUNT_QUESTION = /(?:净收入|销售收入|总收入|收入)\s*(?:的?\s*(?:金额|数额|总额|数目|数值)\s*)?(?:(?:总共|一共|合计|预计|预期|大约|大概|到底|应该|应当|可能)\s*)?(?:(?:会|将|能|可以)?\s*(?:是|为|有|达到|获得)\s*)?多少|多少\s*(?:净收入|销售收入|总收入|收入)(?=\s*(?:$|[，,。！？?：:\n]))/u;
 const SALE_NUMBER = '(?:\\d{1,3}(?:[ \\u00a0\\u202f]\\d{3})+|\\d{1,9})(?:[.,]\\d{1,3})?';
 const SALE_RUB = '(?:руб(?:лей|ля|ль)?\\.?|₽|RUB|卢布)';
 
@@ -488,10 +489,17 @@ function saleCalculationRequested(question: string): boolean {
   // Chinese sale amount questions can separate the sale verb and income noun
   // with the commodity/quantity; do not treat unrelated income as sale proceeds.
   const chineseConceptQuestion = /定义|概念|含[义意]|意[思义]|释义|解释|(?:确认|计量)(?:原则|条件|标准|方法)|会计(?:确认|计量)/u.test(question);
-  const chineseSaleAmount = !chineseConceptQuestion && /(?:销售|出售|卖出)[^。！？\n]{0,80}多少\s*收入/u.test(question);
-  if (!SALE_PROCEEDS_TOPIC.test(question) && !chineseSaleAmount) return false;
+  const chineseSaleIncome = /(?:销售|出售|卖出)[^。！？\n]{0,80}收入/u.test(question);
+  const chineseBareSaleAmount = chineseSaleIncome && /收入\s*[?？]\s*$/u.test(question)
+    && !/如何|怎么|怎样|提高|改善|增加|策略/u.test(question);
+  const chineseSaleAmount = !chineseConceptQuestion && (
+    /(?:销售|出售|卖出)[^。！？\n]{0,80}多少\s*收入/u.test(question)
+    || chineseSaleIncome && CHINESE_REVENUE_AMOUNT_QUESTION.test(question) || chineseBareSaleAmount
+  );
+  if (!SALE_PROCEEDS_TOPIC.test(question) && !chineseSaleIncome && !chineseSaleAmount) return false;
   const intent = /(?<![\p{L}])(?:(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?(?:\s+расч[её]т)?)\s+(?:(?:итоговую|чистую)\s+)?выручк[ауи]|(?:calculate|compute)\s+(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))(?![\p{L}])|计算\s*(?:净收入|销售收入|总收入)/iu;
   const labelled = /^\s*(?:(?:расч[её]т\s+)?выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入|总收入)\s*[:：]/iu.test(question);
+  if (chineseConceptQuestion && !intent.test(question)) return false;
   const bareLabelQuestion = /^\s*(?:выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入|总收入)\s*[?？]\s*$/iu.test(question);
   const labelClause = question.match(/^\s*(?:выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))\s+(?:for|from|after|от|за|после)(?![\p{L}])\s+(.+?)\s*[?？]?\s*$/iu)?.[1] ?? '';
   const labelQuestion = bareLabelQuestion || Boolean(labelClause && (
@@ -504,11 +512,16 @@ function saleCalculationRequested(question: string): boolean {
   // regardless of whether the question is imperative or interrogative. A
   // contextual quantity alone does not suppress conceptual model answers.
   const monetaryInputs = /руб|RUB|USD|EUR|GBP|CNY|₽|[$€£]|卢布|美元|欧元|юань|доллар|евро/iu.test(question);
+  const whatContinuation = question.match(/^\s*what\b[^.!?。！？\n]{0,40}\b(?:revenue|proceeds)\s+(?:after|for|from|of)\s+(.+?)\s*[?？]?\s*$/iu)?.[1] ?? '';
+  if (whatContinuation && !amountNounQuestion && !intent.test(question) && (
+    /\b(?:definition|meaning|concept|accounting|recognition|principles?|purposes?|diversification|rotation)\b/iu.test(whatContinuation)
+    || !/\d|\b(?:delivery|selling|sale|sell|amount|sum)\b/iu.test(whatContinuation)
+  )) return false;
   // Require a complete amount phrase or a following sale/calculation clause.
   // A shared prefix such as "what is the revenue" is insufficient when followed
   // by "definition" or "recognition principle"; those need accounting answers.
   // Match amount nouns/connectors, not arbitrary intervening conceptual words.
-  const chineseAmountQuestion = !chineseConceptQuestion && /(?:净收入|销售收入|总收入)\s*(?:的?\s*(?:金额|数额|总额|数目|数值)\s*)?(?:(?:总共|一共|合计|预计|预期|大约|大概|到底|应该|应当|可能)\s*)?(?:(?:会|将|能|可以)?\s*(?:是|为|有|达到|获得)\s*)?多少|多少\s*(?:净收入|销售收入|总收入)(?=\s*(?:$|[，,。！？?：:\n]))/u.test(question);
+  const chineseAmountQuestion = !chineseConceptQuestion && CHINESE_REVENUE_AMOUNT_QUESTION.test(question);
   const amountQuestion = chineseSaleAmount || labelQuestion || amountNounQuestion || chineseAmountQuestion
     || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much\s+(?:(?:net|gross|total)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will))\s+(?:the|my|our)\s+(?:(?:net|gross|total)\s+)?|\s+amount\s+of\s+(?:(?:net|gross|total)\s+)?|\s+(?:(?:net|gross|total)\s+)?))(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does|be)\b))/iu.test(question);
   const strategyQuestion = /стратег|\bstrateg(?:y|ies)\b|策略/iu.test(question);
@@ -847,7 +860,12 @@ export function economicComparisonCopy(kind: EconomicComparison, locale: PublicL
 
 /** Private detection view only; never a publishing or HTML sanitization boundary. */
 function saleSafetyView(text: string, removeFormatting = false, preserveFormatCharacters = false): string {
-  const normalized = (preserveFormatCharacters ? text : text.replace(/[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu, ''))
+  // FEFF is both ignorable and a valid Bearer separator. Retain that boundary
+  // before joining arbitrarily long ignorable runs, without splitting a key.
+  const joined = preserveFormatCharacters ? text : text
+    .replace(/(?<![a-z0-9._~+\/-])(Bearer)(?=[\p{Cf}\p{Default_Ignorable_Code_Point}\s]*\s)/giu, '$1 ')
+    .replace(/[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu, '');
+  const normalized = joined
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
     .replace(/\s+/gu, ' ');
   return removeFormatting ? normalized.replace(/[*_`]/gu, '') : normalized;
