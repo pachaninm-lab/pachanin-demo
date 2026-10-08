@@ -6409,6 +6409,42 @@
         "CI/security/readiness weakening, fake PASS or forced/automatic merge"
       ],
       "teamHubDependency": "#5469 release hold 6055339117; finding 6055454235; fix note 6055515611"
+    },
+    "outbound-redirect-and-surface-4459-qwen-service-order-20261008": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "Classification amendment for admitted source security/outbound-redirect-and-surface-4459 (original #5142): treat apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts as order-dependent. After admission, accepted Gekta source #5827 (merge b1972e0e60df071b3e7b81340c8ae9d1373cf93f) changed the same file (9dec4389 -> 3d7212b7), so the pinned afterBlob 26ddd166, measured against the older main, can no longer be reproduced by an ordinary merge. The source change itself is unchanged: exactly two added lines.",
+      "authorityBaseExactMain": "5c149f2b548035795261e8bc2833ee1f07b60edd",
+      "implementationBranch": "security/outbound-redirect-and-surface-4459",
+      "amendsAdmission": "outbound-redirect-and-surface-4459-forward-sync-20261007",
+      "additionalOrderDependentPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts"
+      ],
+      "sourceChangeForPath": {
+        "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "addedLines": [
+          "    redirect: 'error',",
+          "    redirect: 'error',"
+        ],
+        "removedLines": [],
+        "previousPin": {
+          "beforeBlob": "9dec43891152f993be29be5d4e735ad1e4545688",
+          "afterBlob": "26ddd16694f63c528f6812e46d574926c36a59f1"
+        },
+        "changedOnMainBy": "#5827 b1972e0e60df071b3e7b81340c8ae9d1373cf93f (9dec43891152f993be29be5d4e735ad1e4545688 -> 3d7212b7075098806f28221424178735ff2725b7)",
+        "informativeBlobAtThisMain": "71e2e3f2 (accepted main 5c149f2b plus exactly the two lines)"
+      },
+      "requiredTruthBoundaries": [
+        "Append only this record. The amended admission, its path vector, generated rule, existing order-dependent paths and every other pin stay byte-identical. For this one path the orderDependentRule of the amended record applies: at each exact reviewed head the file must equal accepted main plus only the two addedLines above, nothing removed and nothing else changed.",
+        "No Gekta model, prompt, inference, economics, grant or runtime authority is granted or changed; the two lines belong to the original #5142 outbound-redirect hardening that the Gekta lane already reviewed at admission.",
+        "The source still needs fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness on its refreshed head before an expected-full-SHA manual merge. This record grants no merge authority.",
+        "No production claim: a merged source is not deployed."
+      ],
+      "forbiddenAuthority": [
+        "Any other path, scope, workflow, guard, dependency, model, prompt or inference change",
+        "Hand-merged content from another source in this path",
+        "CI/security/readiness weakening, fake PASS or forced/automatic merge"
+      ],
+      "teamHubDependency": "#5469 renewed hold 6056370349; Gekta #5827 acceptance 6053858003"
     }
   }
 }
