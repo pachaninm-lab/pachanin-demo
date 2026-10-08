@@ -28,7 +28,9 @@
  *   - частота ограничена окном: сверх бюджета отчёты считаются, но не пишутся,
  *     и по окончании окна в лог уходит одна строка с числом отброшенных;
  *   - в лог попадают только известные поля, обрезанные по длине и очищенные от
- *     управляющих символов — иначе отправитель диктует содержимое лога.
+ *     управляющих символов — иначе отправитель диктует содержимое лога;
+ *   - у адресов в лог попадают только схема, хост и путь: строка запроса может
+ *     нести секрет (токен восстановления пароля), см. redactUri.
  *
  * Ограничение честное и его надо знать: счётчик живёт в памяти процесса. При
  * нескольких экземплярах бюджет умножается на их число. Общего хранилища здесь
@@ -66,6 +68,34 @@ function logSafe(value: unknown): string {
     .slice(0, MAX_FIELD_CHARS);
 }
 
+/**
+ * Адрес для лога: схема, хост и путь — без запроса, фрагмента и учётных данных.
+ *
+ * Браузер кладёт в document-uri и blocked-uri адрес вместе со строкой запроса
+ * (CSP3 §5.4 убирает только фрагмент и user:password), а в запросе живут
+ * секреты: страница восстановления пароля получает одноразовый токен в
+ * `?token=`. Писать такой адрес в лог — значит переносить действующий токен
+ * в журнал контейнера. Для разбора нарушения достаточно знать, на какой
+ * странице и какой ресурс сработал, поэтому запрос и фрагмент отрезаются для
+ * любого значения, а не только для известных страниц: список страниц с
+ * секретом в адресе устареет раньше, чем это правило.
+ *
+ * Ключевые слова CSP (inline, eval, self) и относительные значения не
+ * разбираются как URL — от них тоже отрезается всё после `?` и `#`. У адреса
+ * без хоста (data:, blob: и подобных) остаётся только схема: содержимое такого
+ * адреса — сами данные.
+ */
+function redactUri(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return value.split(/[?#]/u, 1)[0];
+  }
+  return url.host ? `${url.protocol}//${url.host}${url.pathname}` : url.protocol;
+}
+
 /** Поля, общие для формата report-uri и формата report-to. */
 export function normaliseReport(entry: unknown): Record<string, string> | null {
   if (!entry || typeof entry !== 'object') return null;
@@ -81,8 +111,8 @@ export function normaliseReport(entry: unknown): Record<string, string> | null {
 
   return {
     directive: logSafe(directive),
-    blocked: logSafe(blocked),
-    document: logSafe(document),
+    blocked: logSafe(redactUri(blocked)),
+    document: logSafe(redactUri(document)),
     disposition: logSafe(body.disposition),
   };
 }

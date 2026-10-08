@@ -121,6 +121,69 @@ describe('разбор отчёта CSP', () => {
   });
 });
 
+describe('секреты в адресе не попадают в лог', () => {
+  // Страница восстановления пароля получает одноразовый токен в ?token=, и
+  // браузер кладёт адрес страницы в отчёт вместе со строкой запроса.
+  const TOKEN = 'SYNTHETIC_RESET_TOKEN_5140';
+  const RECOVERY = `https://example.invalid/platform-v7/forgot-password?token=${TOKEN}&lang=ru#top`;
+
+  it('адрес документа — без запроса и фрагмента в обоих форматах', () => {
+    const legacy = normaliseReport({ 'csp-report': { 'effective-directive': 'script-src', 'document-uri': RECOVERY } });
+    const reporting = normaliseReport({ body: { effectiveDirective: 'script-src', documentURL: RECOVERY } });
+    for (const report of [legacy, reporting]) {
+      expect(report?.document).toBe('https://example.invalid/platform-v7/forgot-password');
+    }
+  });
+
+  it('заблокированный адрес — без запроса и без user:password', () => {
+    const report = normaliseReport({
+      'csp-report': { 'blocked-uri': `https://user:pass@cdn.invalid:8443/a.js?sig=${TOKEN}` },
+    });
+    expect(report?.blocked).toBe('https://cdn.invalid:8443/a.js');
+  });
+
+  it('ключевые слова, относительные адреса и адреса без хоста не протекают', () => {
+    const pick = (blocked: string) => normaliseReport({ 'csp-report': { 'blocked-uri': blocked } })?.blocked;
+    expect(pick('inline')).toBe('inline');
+    expect(pick('eval')).toBe('eval');
+    expect(pick(`/platform-v7/forgot-password?token=${TOKEN}`)).toBe('/platform-v7/forgot-password');
+    expect(pick(`data:text/plain,${TOKEN}`)).toBe('data:');
+    expect(pick(`blob:https://example.invalid/${TOKEN}`)).toBe('blob:');
+  });
+
+  async function loggedLines(contentType: string, body: unknown): Promise<string[]> {
+    const { POST } = await import('../../app/api/csp-report/route');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const response = await POST(new NextRequest('https://example.invalid/api/csp-report', {
+        method: 'POST',
+        headers: { 'content-type': contentType },
+        body: JSON.stringify(body),
+      }));
+      expect(response.status).toBe(204);
+      return warn.mock.calls.map((call) => call.join(' '));
+    } finally {
+      warn.mockRestore();
+    }
+  }
+
+  it('строка лога маршрута не содержит токена — формат report-uri', async () => {
+    const lines = await loggedLines('application/csp-report', {
+      'csp-report': { 'effective-directive': 'script-src', 'blocked-uri': `https://cdn.invalid/x.js?t=${TOKEN}`, 'document-uri': RECOVERY },
+    });
+    expect(lines.join('\n')).toContain('document=https://example.invalid/platform-v7/forgot-password');
+    expect(lines.join('\n')).not.toContain(TOKEN);
+  });
+
+  it('строка лога маршрута не содержит токена — формат report-to', async () => {
+    const lines = await loggedLines('application/reports+json', [
+      { type: 'csp-violation', body: { effectiveDirective: 'img-src', blockedURL: `https://cdn.invalid/p.png?t=${TOKEN}`, documentURL: RECOVERY } },
+    ]);
+    expect(lines.join('\n')).toContain('document=https://example.invalid/platform-v7/forgot-password');
+    expect(lines.join('\n')).not.toContain(TOKEN);
+  });
+});
+
 describe('бюджет окна', () => {
   it('пропускает до предела и отбрасывает сверх него', () => {
     const window = { startedAt: 0, accepted: 0, dropped: 0 };
