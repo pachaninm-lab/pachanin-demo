@@ -2026,6 +2026,70 @@
       ".github/workflows/tai-release-acceptance.yml",
       "apps/tai/tests/test_release_run_lookup_contract.py",
       "docs/platform-v7/autopilot/scopes/tai-release-run-event-filter-20261008.json"
+    ],
+    "security/rosstat-culture-tally-4459": [
+      ".github/workflows/sbom-scan.yml",
+      "apps/api/src/modules/exports/exports.service.ts",
+      "apps/api/src/modules/exports/rosstat-culture-tally.spec.ts",
+      "docs/platform-v7/autopilot/scopes/rosstat-culture-tally-4459.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/prototype-key-write-allowlist.json",
+      "scripts/ip/build-ip-clean-room.mjs",
+      "scripts/ip/build-license-map.mjs",
+      "scripts/ip/tally.mjs",
+      "scripts/ip/tally.test.mjs",
+      "scripts/security/verify-prototype-key-writes.mjs",
+      "scripts/security/verify-prototype-key-writes.test.mjs",
+      "scripts/tai-speed-baseline.mjs"
+    ],
+    "security/route-planner-body-validation": [
+      "apps/api/src/modules/route-planner/dto/route-planner.dto.ts",
+      "apps/api/src/modules/route-planner/route-planner-body-validation.spec.ts",
+      "apps/api/src/modules/route-planner/route-planner.contract.ts",
+      "apps/api/src/modules/route-planner/route-planner.controller.ts",
+      "apps/api/src/modules/route-planner/route-planner.service.ts",
+      "docs/platform-v7/autopilot/scopes/route-planner-body-validation.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/asvs-applicability-decisions.json",
+      "docs/security/cryptographic-inventory.json",
+      "docs/security/request-validation-baseline.json"
+    ],
+    "security/export-trade-body-validation": [
+      "apps/api/src/modules/export-trade/dto/export-trade.dto.ts",
+      "apps/api/src/modules/export-trade/export-trade-body-validation.spec.ts",
+      "apps/api/src/modules/export-trade/export-trade.contract.ts",
+      "apps/api/src/modules/export-trade/export-trade.controller.ts",
+      "apps/api/src/modules/export-trade/export-trade.service.ts",
+      "docs/platform-v7/autopilot/scopes/export-trade-body-validation.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/asvs-applicability-decisions.json",
+      "docs/security/cryptographic-inventory.json",
+      "docs/security/request-validation-baseline.json"
+    ],
+    "security/compliance-storage-body-validation": [
+      "apps/api/src/modules/compliance/compliance-body-validation.spec.ts",
+      "apps/api/src/modules/compliance/compliance.controller.ts",
+      "apps/api/src/modules/compliance/compliance.service.ts",
+      "apps/api/src/modules/compliance/dto/block-organization.dto.ts",
+      "apps/api/src/modules/compliance/dto/generate-regulatory-report.dto.ts",
+      "apps/api/src/modules/compliance/dto/resolve-kyc-task.dto.ts",
+      "apps/api/src/modules/storage/dto/confirm-upload.dto.ts",
+      "apps/api/src/modules/storage/dto/request-upload.dto.ts",
+      "apps/api/src/modules/storage/storage-body-validation.spec.ts",
+      "apps/api/src/modules/storage/storage.controller.ts",
+      "docs/platform-v7/autopilot/scopes/compliance-storage-body-validation.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json",
+      "docs/security/request-validation-baseline.json"
+    ],
+    "security/dependency-remediation-policy-4459": [
+      ".github/workflows/dependency-review.yml",
+      "docs/platform-v7/autopilot/scopes/dependency-remediation-policy-4459.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/DEPENDENCY_REMEDIATION_POLICY.md",
+      "docs/security/asvs-applicability-decisions.json",
+      "scripts/validate-pnpm-audit.mjs",
+      "scripts/validate-pnpm-audit.test.mjs"
     ]
   },
   "currentAcceptance": [
@@ -6494,6 +6558,441 @@
         "CORE/API/DB/RLS/role/session/money/provider/FGIS/model/deployment authority"
       ],
       "teamHubDependency": "#5469 P1 6056865167 (REPRODUCED CURRENT-MAIN TAI ATTESTATION PAGINATION DEFECT) and window close 6057168608"
+    },
+    "rosstat-culture-tally-4459-forward-sync-20261008": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 API/IP security: stop the 29-SKh culture tally from silently losing tonnage on prototype keys and add the prototype-key write detector. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
+      "authorityBaseExactMain": "e3d6ac14fcf4bcc5ae0409160442f271ae9e76fc",
+      "implementationBranch": "security/rosstat-culture-tally-4459",
+      "originalPullRequest": 5135,
+      "allowedPaths": [
+        ".github/workflows/sbom-scan.yml",
+        "apps/api/src/modules/exports/exports.service.ts",
+        "apps/api/src/modules/exports/rosstat-culture-tally.spec.ts",
+        "docs/platform-v7/autopilot/scopes/rosstat-culture-tally-4459.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/prototype-key-write-allowlist.json",
+        "scripts/ip/build-ip-clean-room.mjs",
+        "scripts/ip/build-license-map.mjs",
+        "scripts/ip/tally.mjs",
+        "scripts/ip/tally.test.mjs",
+        "scripts/security/verify-prototype-key-writes.mjs",
+        "scripts/security/verify-prototype-key-writes.test.mjs",
+        "scripts/tai-speed-baseline.mjs"
+      ],
+      "sourcePayload": [
+        {
+          "path": ".github/workflows/sbom-scan.yml",
+          "beforeBlob": "4abe63be0cea844c398f1145ff3872dac27d43aa",
+          "afterBlob": "1b2cb4bc1436787876e95d1bebb97a357852a527",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/exports/exports.service.ts",
+          "beforeBlob": "d45c8fda378322b73cc4618b1e2e22b0dc31a919",
+          "afterBlob": "06ed2b630ed633a4057d4558f31e39deef0c6598",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/exports/rosstat-culture-tally.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "3b318e8bdf88b142a765b3fe92ae06b9c81aefec",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/rosstat-culture-tally-4459.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "7e70aa737d85b4b68da6ccdbbb13030ca3d16468",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/security/prototype-key-write-allowlist.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "39d5074ce28f11e96b30adc61a1bf979187c05dd",
+          "mode": "100644"
+        },
+        {
+          "path": "scripts/ip/build-ip-clean-room.mjs",
+          "beforeBlob": "9124846ab64fff423736ab6034734b20a4c73c12",
+          "afterBlob": "fabedfddff2c33c2ebda6dd3ba32b2259eb35035",
+          "mode": "100644"
+        },
+        {
+          "path": "scripts/ip/build-license-map.mjs",
+          "beforeBlob": "5413d19b456c179e0a1a5098b3432fb0a400852d",
+          "afterBlob": "8ba83f83aef2cbf8060a2ddd1051c0ed317877ca",
+          "mode": "100644"
+        },
+        {
+          "path": "scripts/ip/tally.mjs",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "994ee49f099e639130e40008d4f047eb7d6ff8da",
+          "mode": "100644"
+        },
+        {
+          "path": "scripts/ip/tally.test.mjs",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "0e1a7581a07f2753e7e5361beafdb06c1ca8f080",
+          "mode": "100644"
+        },
+        {
+          "path": "scripts/security/verify-prototype-key-writes.mjs",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "458488ed387a43cd706f0df5f878c9715a4b2518",
+          "mode": "100644"
+        },
+        {
+          "path": "scripts/security/verify-prototype-key-writes.test.mjs",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "d62577fda4e306c39b404036251bee5931d35f38",
+          "mode": "100644"
+        },
+        {
+          "path": "scripts/tai-speed-baseline.mjs",
+          "beforeBlob": "a29d554ebdcda3b2f7f0c1720bbdae6804a514df",
+          "afterBlob": "cc7a4b5288e3364cd4a569fb74952e81eaded901",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline) after forward-syncing main; hand edits are rejected.",
+      "liveFinding": "Original pull request #5135 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main e3d6ac14fcf4bcc5ae0409160442f271ae9e76fc and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "requiredTruthBoundaries": [
+        "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
+        "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
+      ]
+    },
+    "route-planner-body-validation-forward-sync-20261008": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 API security: validate the route-planner request bodies so NaN and negative values cannot reach money arithmetic. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
+      "authorityBaseExactMain": "e3d6ac14fcf4bcc5ae0409160442f271ae9e76fc",
+      "implementationBranch": "security/route-planner-body-validation",
+      "originalPullRequest": 5047,
+      "allowedPaths": [
+        "apps/api/src/modules/route-planner/dto/route-planner.dto.ts",
+        "apps/api/src/modules/route-planner/route-planner-body-validation.spec.ts",
+        "apps/api/src/modules/route-planner/route-planner.contract.ts",
+        "apps/api/src/modules/route-planner/route-planner.controller.ts",
+        "apps/api/src/modules/route-planner/route-planner.service.ts",
+        "docs/platform-v7/autopilot/scopes/route-planner-body-validation.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/asvs-applicability-decisions.json",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/request-validation-baseline.json"
+      ],
+      "sourcePayload": [
+        {
+          "path": "apps/api/src/modules/route-planner/dto/route-planner.dto.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "6402e36dc580b40a2533e3d3a90234764a4af340",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/route-planner/route-planner-body-validation.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "0ac4b370bd8dbe70c13b48a486fe7f8a70b365a7",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/route-planner/route-planner.contract.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "c98919c0998bb31e5b77e5b76abbb5b662741700",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/route-planner/route-planner.controller.ts",
+          "beforeBlob": "48c7b3c553d881bd5646c525257cdf3f845fa7f2",
+          "afterBlob": "03d5ea4cd1b03ccdb1654eb0d5f42671b61a8e25",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/route-planner/route-planner.service.ts",
+          "beforeBlob": "4a181eb0fdbd202d3c8a7d31088d7661341b53e8",
+          "afterBlob": "1bdce4d788ff45b13d9e8a2bbb85e3a123a2b0bb",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/route-planner-body-validation.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "90f9c39504e3e91512a54cc30d56cfbbcaf7e7a3",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/security/asvs-applicability-decisions.json",
+          "beforeBlob": "b514c783769256f3aa7be255e761c419c7190cdd",
+          "afterBlob": "47adc54ffcd61a2a80b195b083ce8f213421858f",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/request-validation-baseline.json"
+      ],
+      "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline) after forward-syncing main; hand edits are rejected.",
+      "orderDependentPaths": [
+        "docs/security/asvs-applicability-decisions.json"
+      ],
+      "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
+      "liveFinding": "Original pull request #5047 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way). Requirement entries in docs/security/asvs-applicability-decisions.json, which this source edits, are merged field by field onto main because main moved the same entries (citations of files the source closes are removed).",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main e3d6ac14fcf4bcc5ae0409160442f271ae9e76fc and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "requiredTruthBoundaries": [
+        "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
+        "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
+      ]
+    },
+    "export-trade-body-validation-forward-sync-20261008": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 API security: validate the export-trade request bodies and stop a string price from reaching money arithmetic. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
+      "authorityBaseExactMain": "e3d6ac14fcf4bcc5ae0409160442f271ae9e76fc",
+      "implementationBranch": "security/export-trade-body-validation",
+      "originalPullRequest": 5087,
+      "allowedPaths": [
+        "apps/api/src/modules/export-trade/dto/export-trade.dto.ts",
+        "apps/api/src/modules/export-trade/export-trade-body-validation.spec.ts",
+        "apps/api/src/modules/export-trade/export-trade.contract.ts",
+        "apps/api/src/modules/export-trade/export-trade.controller.ts",
+        "apps/api/src/modules/export-trade/export-trade.service.ts",
+        "docs/platform-v7/autopilot/scopes/export-trade-body-validation.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/asvs-applicability-decisions.json",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/request-validation-baseline.json"
+      ],
+      "sourcePayload": [
+        {
+          "path": "apps/api/src/modules/export-trade/dto/export-trade.dto.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "cc2d3661c9158ee82a0d3ccd548d090731b0e3eb",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/export-trade/export-trade-body-validation.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "11d77c5d836035861d4e7295a55bb8da12d5b183",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/export-trade/export-trade.contract.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "212652194c2422d8aa0ca8aeb77ebc3c9357d30a",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/export-trade/export-trade.controller.ts",
+          "beforeBlob": "fdc09fb8d96043c4c860f0d6b0298999b060bbfc",
+          "afterBlob": "057e50f24d2d9ccc273485985f230d99a9222f86",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/export-trade/export-trade.service.ts",
+          "beforeBlob": "09afefa039267ad1e922312740958f051ed8e123",
+          "afterBlob": "627c1c6b292701ff3502b0368260c047608c09d8",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/export-trade-body-validation.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "c3cc4856eca20c446b1cbf07fb57fd67c68fab99",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/security/asvs-applicability-decisions.json",
+          "beforeBlob": "b514c783769256f3aa7be255e761c419c7190cdd",
+          "afterBlob": "36e6facb0e47b74119472720dcec97672f30bc4a",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/request-validation-baseline.json"
+      ],
+      "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline) after forward-syncing main; hand edits are rejected.",
+      "orderDependentPaths": [
+        "docs/security/asvs-applicability-decisions.json"
+      ],
+      "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
+      "liveFinding": "Original pull request #5087 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way). Requirement entries in docs/security/asvs-applicability-decisions.json, which this source edits, are merged field by field onto main because main moved the same entries (citations of files the source closes are removed).",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main e3d6ac14fcf4bcc5ae0409160442f271ae9e76fc and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "requiredTruthBoundaries": [
+        "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
+        "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
+      ]
+    },
+    "compliance-storage-body-validation-forward-sync-20261008": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 API security: validate the compliance report, KYC decision, organization block and storage upload bodies. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
+      "authorityBaseExactMain": "e3d6ac14fcf4bcc5ae0409160442f271ae9e76fc",
+      "implementationBranch": "security/compliance-storage-body-validation",
+      "originalPullRequest": 5109,
+      "allowedPaths": [
+        "apps/api/src/modules/compliance/compliance-body-validation.spec.ts",
+        "apps/api/src/modules/compliance/compliance.controller.ts",
+        "apps/api/src/modules/compliance/compliance.service.ts",
+        "apps/api/src/modules/compliance/dto/block-organization.dto.ts",
+        "apps/api/src/modules/compliance/dto/generate-regulatory-report.dto.ts",
+        "apps/api/src/modules/compliance/dto/resolve-kyc-task.dto.ts",
+        "apps/api/src/modules/storage/dto/confirm-upload.dto.ts",
+        "apps/api/src/modules/storage/dto/request-upload.dto.ts",
+        "apps/api/src/modules/storage/storage-body-validation.spec.ts",
+        "apps/api/src/modules/storage/storage.controller.ts",
+        "docs/platform-v7/autopilot/scopes/compliance-storage-body-validation.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/request-validation-baseline.json"
+      ],
+      "sourcePayload": [
+        {
+          "path": "apps/api/src/modules/compliance/compliance-body-validation.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "e278ed413e3e075139f5a17f16d45c17fe41225d",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/compliance/compliance.controller.ts",
+          "beforeBlob": "91715a531d813f2a2721f5c7bc8b2ca8e9fb4e38",
+          "afterBlob": "db4b6f9425b55cec2c8a99936045b5d87229ae9f",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/compliance/compliance.service.ts",
+          "beforeBlob": "2b5ca89c8ffaac1c7188d096cfd7d03890d4a19f",
+          "afterBlob": "df8d68c8bf397bfda3e1102eeb92b7f8aa8e59d1",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/compliance/dto/block-organization.dto.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "e7f0713d16e66f055d621584f1e0ac5a05c91ce3",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/compliance/dto/generate-regulatory-report.dto.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "142b23a87c02ad9e67f8998261d85af7cfa8f6f7",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/compliance/dto/resolve-kyc-task.dto.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "ed678a3a98cce85693d636be591b46bcd433bc9f",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/storage/dto/confirm-upload.dto.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "0db7a1dace3642fe2c2a2d05e51a9708e98d77ec",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/storage/dto/request-upload.dto.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "fa0c1f383087963b40acca7b3ff471c70988d6a6",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/storage/storage-body-validation.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "f0a74638ef964e2894d2548990d02ceb519a7632",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/storage/storage.controller.ts",
+          "beforeBlob": "c9f70e3cac5b6c24e5e18014f84fd092e9e73a0d",
+          "afterBlob": "3c7819518f4180027d0a3de35386a787d64ae1cc",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/compliance-storage-body-validation.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "1f662aa3fa638ac429631151ff90f35811b35db2",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/request-validation-baseline.json"
+      ],
+      "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline) after forward-syncing main; hand edits are rejected.",
+      "liveFinding": "Original pull request #5109 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main two of its files conflict with changes already on main: bank-reconciliation.controller.ts (main validates that body with bank-reconciliation.dto.ts, so this source drops its bank-reconciliation part and its two DTO files) and compliance.service.ts (both imports kept). Those resolutions are hand-written and are the only departure from the original diff; the scope manifest and the storage spec are adjusted accordingly.",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main e3d6ac14fcf4bcc5ae0409160442f271ae9e76fc and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "requiredTruthBoundaries": [
+        "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
+        "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
+      ]
+    },
+    "dependency-remediation-policy-4459-forward-sync-20261008": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 supply-chain security: record the vulnerability remediation deadline (ASVS V15.1.1/V15.2.1) and enforce HIGH findings in the pnpm audit gate. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
+      "authorityBaseExactMain": "e3d6ac14fcf4bcc5ae0409160442f271ae9e76fc",
+      "implementationBranch": "security/dependency-remediation-policy-4459",
+      "originalPullRequest": 5145,
+      "allowedPaths": [
+        ".github/workflows/dependency-review.yml",
+        "docs/platform-v7/autopilot/scopes/dependency-remediation-policy-4459.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/DEPENDENCY_REMEDIATION_POLICY.md",
+        "docs/security/asvs-applicability-decisions.json",
+        "scripts/validate-pnpm-audit.mjs",
+        "scripts/validate-pnpm-audit.test.mjs"
+      ],
+      "sourcePayload": [
+        {
+          "path": ".github/workflows/dependency-review.yml",
+          "beforeBlob": "85965b923fe81f384645d4a21cb7ebad5ae30cb3",
+          "afterBlob": "b51ac4c3a29f1d40eae461259202c67c46f88a93",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/dependency-remediation-policy-4459.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "b780c519f2d4034ea54290eb02a135c02f2c737f",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/security/DEPENDENCY_REMEDIATION_POLICY.md",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "38fd0379889551e2411418400783ef336ea0e64a",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/security/asvs-applicability-decisions.json",
+          "beforeBlob": "b514c783769256f3aa7be255e761c419c7190cdd",
+          "afterBlob": "f73572d927dd54334caf99a8ffbe72beb09a2fb9",
+          "mode": "100644"
+        },
+        {
+          "path": "scripts/validate-pnpm-audit.mjs",
+          "beforeBlob": "60489cb937d5bbcb907a3f2e6daf27071413875f",
+          "afterBlob": "6d1a583fc76e7cdeffb65488ac264b67c856a4c4",
+          "mode": "100644"
+        },
+        {
+          "path": "scripts/validate-pnpm-audit.test.mjs",
+          "beforeBlob": "d964b6b46102ac7cad7bb9100e313d84c77bc2a3",
+          "afterBlob": "b7f57982f2b8e83186013e13b7f414d3a12d5d6c",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline) after forward-syncing main; hand edits are rejected.",
+      "orderDependentPaths": [
+        "docs/security/asvs-applicability-decisions.json"
+      ],
+      "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
+      "liveFinding": "Original pull request #5145 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way). Requirement entries in docs/security/asvs-applicability-decisions.json, which this source edits, are merged field by field onto main because main moved the same entries (citations of files the source closes are removed).",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main e3d6ac14fcf4bcc5ae0409160442f271ae9e76fc and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "requiredTruthBoundaries": [
+        "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
+        "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
+      ]
     }
   }
 }
