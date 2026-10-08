@@ -391,7 +391,7 @@ fi
 # entries in .gitleaksignore. Each accepted transformation is bound by the trusted
 # base; the implementation cannot weaken the test or authorize new exceptions.
 if [ "$CURRENT_BRANCH" = "$GITLEAKS_RELEASE_ATTESTATION_BRANCH" ] && printf '%s\n' "$DIFF_FILES" | grep -Fxq 'apps/tai/tests/test_gitleaks_release_authority.py'; then
-  P7_ATTESTATION_BASE="$BASE_REF" P7_ATTESTATION_HEAD="$HEAD_REF" node - <<'JS'
+  P7_ATTESTATION_BASE="$BASE_REF" P7_ATTESTATION_HEAD="$HEAD_REF" P7_ATTESTATION_DIFF="$DIFF_FILES" node - <<'JS'
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const path = 'apps/tai/tests/test_gitleaks_release_authority.py';
@@ -450,6 +450,7 @@ if (baselineBlob === currentBaselineBlob) {
     '        "apps/web/tests/unit/sessionMintingSurface.spec.ts:generic-api-key:138",\n';
   assert.equal(baseline.split(sessionMintingAnchor).length - 1, 1, 'Gitleaks release attestation session-minting anchor must occur exactly once');
   assert.equal(head, baseline.replace(sessionMintingAnchor, sessionMintingAnchor + sessionMintingFingerprints), 'Gitleaks release attestation repair must add exactly the two session-minting fingerprints and preserve every existing byte and assertion');
+  assert.deepEqual((process.env.P7_ATTESTATION_DIFF || '').split('\n').filter(Boolean), [path], 'Gitleaks release attestation session-minting repair must change exactly the attestation test');
 } else {
 // Preserve the historical four-fingerprint transformation and its negative gates.
 const insertAfterCommodity =

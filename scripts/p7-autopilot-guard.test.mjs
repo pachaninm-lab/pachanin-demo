@@ -786,9 +786,33 @@ test('session-minting Gitleaks attestation rejects implementation-owned scope an
     commit(context.root, `attempt candidate ${target} authority`);
     const result = runTrustedCurrentGitleaksGuard(context);
     assert.notEqual(result.status, 0, output(result));
-    assert.match(output(result), /Mutable scope authority changed on a PC-CROP immutable-scope implementation branch/u);
+    // The one-file rule of this phase is the first defence that rejects the mix.
+    assert.match(output(result), /Gitleaks release attestation session-minting repair must change exactly the attestation test/u);
   }
 });
+
+for (const other of ['apps/landing/package.json', 'docs/ip/internal-package-metadata-exceptions.json']) {
+  test(`session-minting Gitleaks attestation rejects a mixed diff with ${other}`, (t) => {
+    const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+    // Model the real attestation ref vector, so the mix is otherwise in scope.
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [
+      gitleaksReleaseAttestationPath, 'apps/landing/package.json', 'docs/ip/internal-package-metadata-exceptions.json',
+    ];
+    write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+    write(context.root, other, '{}\n');
+    commit(context.root, 'accepted attestation ref vector with metadata paths');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(baseline));
+    write(context.root, other, '{"changed":true}\n');
+    commit(context.root, `attempt test synchronization mixed with ${other}`);
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Gitleaks release attestation session-minting repair must change exactly the attestation test/u);
+  });
+}
 
 test('earlier Gitleaks attestation phase cannot apply the session-minting synchronization', (t) => {
   const context = currentGitleaksReleaseAttestationFixture(t);
