@@ -6374,6 +6374,41 @@
         "CORE/API/DB/RLS/role/session/money/provider/FGIS/model/deployment authority, fake history/PASS or forced/automatic merge"
       ],
       "teamHubDependency": "#5469 DEPENDENCY 6054012950 (Gekta lane: exact-main TAI attestation defect) and DISPOSITION 6054082308 (PC-CROP main-queue owner takes the writer role)"
+    },
+    "browser-hardening-headers-4459-csp-report-redaction-20261008": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "Payload amendment for admitted source security/browser-hardening-headers-4459 (original #5140): re-pin exactly the CSP report helper and its regression spec to the fix for blocking finding 6055454235 (Codex Gekta session). The helper logged document-uri and blocked-uri with their query string; the password-recovery page carries a one-time reset token in ?token=, so a CSP violation there would have written that token into the web container log in both report formats. The fix logs only scheme, host and path of both addresses. No path, scope, owner or other pin changes.",
+      "authorityBaseExactMain": "a1ba45e58c384ebf612c1eaa489ddd90b16490a3",
+      "implementationBranch": "security/browser-hardening-headers-4459",
+      "amendsAdmission": "browser-hardening-headers-4459-forward-sync-20261007",
+      "fixCommit": "3ad805899761c1a109d60e653295ca4da16ce297",
+      "blockingFinding": "pachaninm-lab/pachanin-demo#5140 comment 6055454235",
+      "repinnedSourcePayload": [
+        {
+          "path": "apps/web/lib/security/csp-report.ts",
+          "previousAfterBlob": "0e0f29621abe94e4e93726f70ff36d726708ddc9",
+          "afterBlob": "486cb810e0a74ecf9f4226da1652c7930614f831",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/tests/unit/cspReportingAndCrossOriginHeaders.spec.ts",
+          "previousAfterBlob": "e6fd0e4021bebf2d404872737d15258640389a47",
+          "afterBlob": "b1a8d9e9f88929a69e186ba7621e57db7c911b5c",
+          "mode": "100644"
+        }
+      ],
+      "requiredTruthBoundaries": [
+        "Append only this record. The amended admission, its path vector, generated and order-dependent rules and all other pins stay byte-identical; at the reviewed head the two re-pinned paths must equal the afterBlob values here, every other non-generated, non-order-dependent path its original pin.",
+        "Body bound, request budget, 16-entry cap, field truncation, control-character removal and the uniform empty 204 of the CSP report endpoint remain unchanged; only the logged form of the two addresses changes.",
+        "The source still needs fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness on its refreshed head before an expected-full-SHA manual merge. This record grants no merge authority and does not resolve the finding by itself.",
+        "No production claim: a merged source is not deployed; web releases require the canonical owner exact-SHA commands."
+      ],
+      "forbiddenAuthority": [
+        "Any path, scope, workflow, guard, dependency or authentication/session/MFA/tenant/money change",
+        "Logging of URL query, fragment or credentials from CSP reports",
+        "CI/security/readiness weakening, fake PASS or forced/automatic merge"
+      ],
+      "teamHubDependency": "#5469 release hold 6055339117; finding 6055454235; fix note 6055515611"
     }
   }
 }
