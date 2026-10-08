@@ -144,6 +144,18 @@ describe('импорт анонимной истории: форма тела п
     expect(result.conversations[0]?.messages[0]?.role).toBe('user');
   });
 
+  it('сохраняет стабильный ID локального диалога, а старое тело без ID остаётся совместимым', async () => {
+    const result = await accept(ImportHistoryDto, { conversations: [{ ...conversation, sourceId: 'gekta-123_abc' }] });
+    expect(result.conversations[0]?.sourceId).toBe('gekta-123_abc');
+    expect((await accept(ImportHistoryDto, { conversations: [conversation] })).conversations[0]?.sourceId).toBeUndefined();
+  });
+
+  for (const sourceId of [null, '', 42, 'x'.repeat(129), '../other', 'some title']) {
+    it(`отклоняет некорректный sourceId ${JSON.stringify(sourceId)}`, async () => {
+      expect(await reject(ImportHistoryDto, { conversations: [{ ...conversation, sourceId }] })).toContain('sourceId');
+    });
+  }
+
   it('пустой объект вместо диалога отклоняется', async () => {
     expect(await reject(ImportHistoryDto, { conversations: [{}] })).toContain('title');
   });
