@@ -5174,6 +5174,7 @@ const trustedConcurrentSourceBranches = [
   'security/browser-hardening-headers-4459',
   'security/outbound-redirect-and-surface-4459',
   'security/credential-surface-4459',
+  'fix/tai-release-run-event-filter-20261008',
 ];
 
 function trustedConcurrentManifestPath(branch) {
@@ -5204,7 +5205,7 @@ test('Trusted concurrent-scope sources are registered at every trusted-base work
     assert.ok(prHead.includes(`|${branch}|`), branch);
     assert.ok(standard.includes(`github.head_ref != '${branch}'`), branch);
   }
-  assert.equal(new Set(trustedConcurrentSourceBranches).size, 9);
+  assert.equal(new Set(trustedConcurrentSourceBranches).size, 10);
 });
 
 test('Trusted concurrent-scope sources are literal immutable branches in the guard', () => {

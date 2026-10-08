@@ -56,7 +56,7 @@ CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
-    "security/accounting-bff-csrf-3-5-1"|"security/module-body-validation"|"security/bff-upstream-path-encoding-4459"|"security/request-cookie-single-reader-4459"|"security/open-redirect-demo-login-4459"|"security/email-check-length-first-4459"|"security/browser-hardening-headers-4459"|"security/outbound-redirect-and-surface-4459"|"security/credential-surface-4459") return 0 ;;
+    "security/accounting-bff-csrf-3-5-1"|"security/module-body-validation"|"security/bff-upstream-path-encoding-4459"|"security/request-cookie-single-reader-4459"|"security/open-redirect-demo-login-4459"|"security/email-check-length-first-4459"|"security/browser-hardening-headers-4459"|"security/outbound-redirect-and-surface-4459"|"security/credential-surface-4459"|"fix/tai-release-run-event-filter-20261008") return 0 ;;
     "fix/gekta-history-lifecycle-5818"|"governance/gekta-history-lifecycle-source-admission-5818") return 0 ;;
     "$PRODUCT_DEAL_RUNTIME_BRANCH"|"$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH") return 0 ;;
     "governance/product-deal-execution-route-20261001"|"fix/deal-execution-route-20261001") return 0 ;;
@@ -2695,6 +2695,7 @@ JS
     "security/browser-hardening-headers-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/browser-hardening-headers-4459.json' ;;
     "security/outbound-redirect-and-surface-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/outbound-redirect-and-surface-4459.json' ;;
     "security/credential-surface-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/credential-surface-4459.json' ;;
+    "fix/tai-release-run-event-filter-20261008") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/tai-release-run-event-filter-20261008.json' ;;
     *) CONCURRENT_SCOPE_MANIFEST='' ;;
   esac
   if [ -n "$CONCURRENT_SCOPE_MANIFEST" ] && printf '%s\n' "$DIFF_FILES" | grep -Fxq "$CONCURRENT_SCOPE_MANIFEST"; then

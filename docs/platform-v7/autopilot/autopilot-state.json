@@ -2021,6 +2021,11 @@
       "docs/platform-v7/autopilot/scopes/credential-surface-4459.json",
       "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
       "docs/security/asvs-applicability-decisions.json"
+    ],
+    "fix/tai-release-run-event-filter-20261008": [
+      ".github/workflows/tai-release-acceptance.yml",
+      "apps/tai/tests/test_release_run_lookup_contract.py",
+      "docs/platform-v7/autopilot/scopes/tai-release-run-event-filter-20261008.json"
     ]
   },
   "currentAcceptance": [
@@ -6409,6 +6414,86 @@
         "CI/security/readiness weakening, fake PASS or forced/automatic merge"
       ],
       "teamHubDependency": "#5469 release hold 6055339117; finding 6055454235; fix note 6055515611"
+    },
+    "outbound-redirect-and-surface-4459-qwen-service-order-20261008": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "Classification amendment for admitted source security/outbound-redirect-and-surface-4459 (original #5142): treat apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts as order-dependent. After admission, accepted Gekta source #5827 (merge b1972e0e60df071b3e7b81340c8ae9d1373cf93f) changed the same file (9dec4389 -> 3d7212b7), so the pinned afterBlob 26ddd166, measured against the older main, can no longer be reproduced by an ordinary merge. The source change itself is unchanged: exactly two added lines.",
+      "authorityBaseExactMain": "5c149f2b548035795261e8bc2833ee1f07b60edd",
+      "implementationBranch": "security/outbound-redirect-and-surface-4459",
+      "amendsAdmission": "outbound-redirect-and-surface-4459-forward-sync-20261007",
+      "additionalOrderDependentPaths": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts"
+      ],
+      "sourceChangeForPath": {
+        "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "addedLines": [
+          "    redirect: 'error',",
+          "    redirect: 'error',"
+        ],
+        "removedLines": [],
+        "previousPin": {
+          "beforeBlob": "9dec43891152f993be29be5d4e735ad1e4545688",
+          "afterBlob": "26ddd16694f63c528f6812e46d574926c36a59f1"
+        },
+        "changedOnMainBy": "#5827 b1972e0e60df071b3e7b81340c8ae9d1373cf93f (9dec43891152f993be29be5d4e735ad1e4545688 -> 3d7212b7075098806f28221424178735ff2725b7)",
+        "informativeBlobAtThisMain": "71e2e3f2 (accepted main 5c149f2b plus exactly the two lines)"
+      },
+      "requiredTruthBoundaries": [
+        "Append only this record. The amended admission, its path vector, generated rule, existing order-dependent paths and every other pin stay byte-identical. For this one path the orderDependentRule of the amended record applies: at each exact reviewed head the file must equal accepted main plus only the two addedLines above, nothing removed and nothing else changed.",
+        "No Gekta model, prompt, inference, economics, grant or runtime authority is granted or changed; the two lines belong to the original #5142 outbound-redirect hardening that the Gekta lane already reviewed at admission.",
+        "The source still needs fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness on its refreshed head before an expected-full-SHA manual merge. This record grants no merge authority.",
+        "No production claim: a merged source is not deployed."
+      ],
+      "forbiddenAuthority": [
+        "Any other path, scope, workflow, guard, dependency, model, prompt or inference change",
+        "Hand-merged content from another source in this path",
+        "CI/security/readiness weakening, fake PASS or forced/automatic merge"
+      ],
+      "teamHubDependency": "#5469 renewed hold 6056370349; Gekta #5827 acceptance 6053858003"
+    },
+    "tai-release-run-event-filter-20261008-admission": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "Admit one bounded TAI CI repair: make the exact-main attestation of TAI Release Acceptance independent of the 1000-result cap of the GitHub workflow-runs listing. Defect (reproduced by the Gekta lane on main 5c149f2b548035795261e8bc2833ee1f07b60edd, native run 37753208711 / job 113231257916 cancelled after reporting all 12 required workflows missing): the gate lists /actions/runs?head_sha=EXACT_HEAD&per_page=100 and filters event=push only after paging; the listing is capped at 1000 results, and a commit that also carries more than 1000 pull_request and issue_comment runs returns zero push runs. The repair adds event=push to the API query; every name, full-SHA, event, latest-run and success predicate stays.",
+      "authorityBaseExactMain": "ca6378af056d3e63db5a6020af1aadc85a5bc5e7",
+      "implementationBranch": "fix/tai-release-run-event-filter-20261008",
+      "allowedPaths": [
+        ".github/workflows/tai-release-acceptance.yml",
+        "apps/tai/tests/test_release_run_lookup_contract.py",
+        "docs/platform-v7/autopilot/scopes/tai-release-run-event-filter-20261008.json"
+      ],
+      "sourcePayload": [
+        {
+          "path": ".github/workflows/tai-release-acceptance.yml",
+          "beforeBlob": "052cc36b55ad073b29b4e68a478369729623e3c6",
+          "afterBlob": "2bf99ae07110938865453ea5355f6843f70887ca",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/tai/tests/test_release_run_lookup_contract.py",
+          "beforeBlob": "dc9755d1a7c67cd39ca3b6207c3c0d82f0e6ecf7",
+          "afterBlob": "149792890652214d197cb79fbee53421cd8e42e2",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/tai-release-run-event-filter-20261008.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "01bb8601fe29bca7fbb4a4d8496533700c616baf",
+          "mode": "100644"
+        }
+      ],
+      "requiredTruthBoundaries": [
+        "Append only this record and the one three-path vector of the branch. Preserve all prior state bytes and values, scope vectors, admissions, owners, primary/current/global permissions and progress.",
+        "The branch is routed by the trusted-base guard only after a separate guard change on governance/trusted-concurrent-scope-routing-guard-20261007 registers it (literal immutable branch plus its scope manifest, as for the nine F-06 sources) and that change is actually accepted; until then no source of this branch is merged. This record confers no source permission by itself and does not claim automatic machine enforcement of its own text.",
+        "Source change is exactly: one added query parameter (&event=push) with an explanatory comment in the release-acceptance lookup, one added contract test that fails on the previous workflow, and the branch scope manifest. All 12 required workflow names, the exact-SHA, event=push, newest-run and conclusion=success predicates, the --paginate --slurp aggregation, the 90-attempt wait, the artifacts and the production NOT_ATTESTED boundary stay byte-identical. The other consumers of the same lookup pattern (tai-model-conversion-diagnostics.yml, which also lists runs by head_sha) are not changed here.",
+        "Fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. No automatic merge, no provider-availability waiver, no missing-CI waiver.",
+        "A merged workflow fix is not a release attestation: TAI Release Acceptance must be observed fresh on the resulting main, and no old-main or old-head result transfers. No production claim."
+      ],
+      "forbiddenAuthority": [
+        "Any other workflow, guard, state, permission, trigger or required-workflow-list change",
+        "Weakening, skipping or waiving any predicate of the attestation, blank trigger commits, run deletion or protection bypass",
+        "CORE/API/DB/RLS/role/session/money/provider/FGIS/model/deployment authority"
+      ],
+      "teamHubDependency": "#5469 P1 6056865167 (REPRODUCED CURRENT-MAIN TAI ATTESTATION PAGINATION DEFECT) and window close 6057168608"
     }
   }
 }
