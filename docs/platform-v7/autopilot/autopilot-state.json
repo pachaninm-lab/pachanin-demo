@@ -1908,6 +1908,119 @@
       "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
       "apps/api/src/modules/integration-events/integration-events.service.ts",
       "docs/platform-v7/autopilot/scopes/prototype-safe-aggregation.json"
+    ],
+    "fix/gekta-history-lifecycle-5818": [
+      "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+      "apps/api/src/modules/gekta/gekta-workspace.spec.ts"
+    ],
+    "governance/trusted-concurrent-scope-routing-guard-20261007": [
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml"
+    ],
+    "security/accounting-bff-csrf-3-5-1": [
+      ".github/workflows/ci.yml",
+      "apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts",
+      "apps/web/app/platform-v7/accounting/AccountingTaskBoardClient.tsx",
+      "apps/web/tests/unit/accountingBffCsrf.spec.ts",
+      "docs/platform-v7/autopilot/scopes/accounting-bff-csrf-3-5-1.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
+    ],
+    "security/module-body-validation": [
+      "apps/api/src/modules/business-reputation/business-reputation-batch.spec.ts",
+      "apps/api/src/modules/business-reputation/business-reputation.controller.ts",
+      "apps/api/src/modules/business-reputation/business-reputation.service.ts",
+      "apps/api/src/modules/business-reputation/dto/reputation-batch.dto.ts",
+      "apps/api/src/modules/elevator/dto/correct-weighing-act.dto.ts",
+      "apps/api/src/modules/elevator/dto/create-weighing-act.dto.ts",
+      "apps/api/src/modules/elevator/dto/dispute-act.dto.ts",
+      "apps/api/src/modules/elevator/elevator-body-validation.spec.ts",
+      "apps/api/src/modules/elevator/elevator.controller.ts",
+      "apps/api/src/modules/elevator/elevator.service.ts",
+      "apps/api/src/modules/organizations/dto/update-organization-status.dto.ts",
+      "apps/api/src/modules/organizations/organizations.controller.ts",
+      "apps/api/src/modules/organizations/organizations.service.ts",
+      "docs/platform-v7/autopilot/scopes/module-body-validation.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json",
+      "docs/security/request-validation-baseline.json"
+    ],
+    "security/bff-upstream-path-encoding-4459": [
+      ".github/workflows/ci.yml",
+      "apps/web/app/api/proxy/[...path]/route.ts",
+      "apps/web/app/api/staff/[...path]/route.ts",
+      "apps/web/lib/server/upstream-path.ts",
+      "apps/web/tests/unit/bffUpstreamPathEncoding.test.ts",
+      "docs/platform-v7/autopilot/scopes/bff-upstream-path-encoding-4459.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
+    ],
+    "security/request-cookie-single-reader-4459": [
+      ".github/workflows/ci.yml",
+      "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+      "apps/web/lib/request-cookie.ts",
+      "apps/web/lib/server-request-actor.ts",
+      "apps/web/lib/server-request-security.ts",
+      "apps/web/tests/unit/requestCookieParsing.spec.ts",
+      "docs/platform-v7/autopilot/scopes/request-cookie-single-reader-4459.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
+    ],
+    "security/open-redirect-demo-login-4459": [
+      ".github/workflows/ci.yml",
+      "apps/web/app/api/auth/demo/instant/[role]/route.ts",
+      "apps/web/app/api/auth/demo/role/[role]/route.ts",
+      "apps/web/app/api/auth/demo/route.ts",
+      "apps/web/lib/server-request-security.ts",
+      "apps/web/tests/unit/authDemoOpenRedirect.test.ts",
+      "apps/web/tests/unit/serverRequestSecurity.test.ts",
+      "docs/platform-v7/autopilot/scopes/open-redirect-demo-login-4459.json",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+    ],
+    "security/email-check-length-first-4459": [
+      ".github/workflows/ci.yml",
+      "apps/web/app/api/auth/forgot-password/route.ts",
+      "apps/web/app/api/auth/organization-invitations/route.ts",
+      "apps/web/app/api/auth/register/route.ts",
+      "apps/web/app/api/auth/registration/resend/route.ts",
+      "apps/web/app/api/auth/registration/verify/route.ts",
+      "apps/web/tests/unit/emailCheckBoundedBeforePattern.test.ts",
+      "docs/platform-v7/autopilot/scopes/email-check-length-first-4459.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+    ],
+    "security/browser-hardening-headers-4459": [
+      ".github/workflows/ci.yml",
+      "apps/web/app/api/csp-report/route.ts",
+      "apps/web/lib/security/csp-report.ts",
+      "apps/web/middleware.ts",
+      "apps/web/tests/unit/cspReportingAndCrossOriginHeaders.spec.ts",
+      "docs/platform-v7/autopilot/scopes/browser-hardening-headers-4459.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/asvs-applicability-decisions.json",
+      "docs/security/cryptographic-inventory.json"
+    ],
+    "security/outbound-redirect-and-surface-4459": [
+      "apps/api/src/common/vault/vault-transit.service.ts",
+      "apps/api/src/health.controller.ts",
+      "apps/api/src/main.ts",
+      "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+      "apps/api/src/modules/ai-insights/outbound-redirect-and-surface.spec.ts",
+      "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+      "apps/api/src/modules/ml-client/ml-client.service.ts",
+      "apps/web/public/platform-v7/openapi.yaml",
+      "docs/api/openapi.yaml",
+      "docs/platform-v7/autopilot/scopes/outbound-redirect-and-surface-4459.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/asvs-applicability-decisions.json"
+    ],
+    "security/credential-surface-4459": [
+      "apps/api/src/modules/exports/exports-rate-limit.spec.ts",
+      "apps/api/src/modules/exports/exports.controller.ts",
+      "docs/platform-v7/autopilot/scopes/credential-surface-4459.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/asvs-applicability-decisions.json"
     ]
   },
   "currentAcceptance": [
@@ -5314,6 +5427,988 @@
         "No schema, migration, dependency, API contract or production data change; output encoding and in-memory aggregation only.",
         "Preserve original history/attribution through ordinary merges; fresh separate whole-head review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge; API release remains separate and pending."
       ]
+    },
+    "gekta-history-lifecycle-guard-purpose-5818-20261007": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "Renew only the existing Gekta recovery guard lane for the exact three-file protection of the later #5818 source/admission branches after native P1 finding4206716341. This purpose admits no Gekta runtime source and does not claim generic bootstrap machine enforcement.",
+      "authorityBaseExactMain": "6b78017ef34b3136579b77fd890a50f07299ee4f",
+      "implementationBranch": "governance/gekta-recovery-trusted-routes-20260927",
+      "allowedPaths": [
+        ".github/workflows/platform-v7-autopilot-guard.yml",
+        "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+        "scripts/p7-autopilot-guard.sh"
+      ],
+      "sourcePayload": [
+        {
+          "path": ".github/workflows/platform-v7-autopilot-guard.yml",
+          "beforeBlob": "5c3ebae3b42150718253909b719cbce6fe3ffe95",
+          "afterBlob": "038866cf1ee6b10e2d54cacb49271b59448a7456",
+          "sha256": "b96fe3d2f9186997527be76ef7d90bd10b357f448fbafe097e9b294dbb389122",
+          "bytes": 120183,
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+          "beforeBlob": "ae8bab12c192ac309db89f98d0201e4141969dc7",
+          "afterBlob": "fed17a996c5495017fc04eeb62223f85100db349",
+          "sha256": "48c5f1d102baa353e08e46e32767db7c4003f275d5ccf787fd10b7cf26986749",
+          "bytes": 25111,
+          "mode": "100644"
+        },
+        {
+          "path": "scripts/p7-autopilot-guard.sh",
+          "beforeBlob": "efc0215233f994b909057726824f49d96db30bc7",
+          "afterBlob": "97d7888e5dcdc29c46c192b22bac83611321be14",
+          "sha256": "4e8672f9a21d753d06ba00971768fcff424f448c43d162c6f1f7e8a640e330cc",
+          "bytes": 185522,
+          "mode": "100755"
+        }
+      ],
+      "stagedSourceBranch": "fix/gekta-history-lifecycle-5818",
+      "stagedAdmissionBranch": "governance/gekta-history-lifecycle-source-admission-5818",
+      "sourceAdmissionState": "STAGED_NOT_ADMITTED",
+      "stagedSourceAdmission": {
+        "owner": "OWNER_AUTHORIZED_SESSION",
+        "purpose": "F-05 / #5818: reject direct read and mutation of soft-deleted owned Gekta conversations and deleted project assignment using the existing workspace module, conditional active-row writes and consistent project-first transaction lock order. Preserve ownership and soft-delete retention.",
+        "implementationBranch": "fix/gekta-history-lifecycle-5818",
+        "originalIssue": 5818,
+        "allowedPaths": [
+          "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+          "apps/api/src/modules/gekta/gekta-workspace.spec.ts"
+        ],
+        "sourcePayload": [
+          {
+            "path": "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+            "beforeBlob": "94583469f013d8775676ead6ca489176c203968d",
+            "afterBlob": "0d3ee8956bece60d2a1a97fd1508196de7fde091",
+            "sha256": "f0963c9068e65d5452aa682e1305740c36c3dbd545fd7c6f8ee48b378605e519",
+            "bytes": 11536,
+            "mode": "100644"
+          },
+          {
+            "path": "apps/api/src/modules/gekta/gekta-workspace.spec.ts",
+            "beforeBlob": "489a23e9b802fc1d4e00780195031e6d30c7b25b",
+            "afterBlob": "b337b60335d106e7d0bc96695453f29d0562019a",
+            "sha256": "fc3501ae8e2a9412c424fbe66704a718141c409acd3afeeeed1564313ec74fc5",
+            "bytes": 14677,
+            "mode": "100644"
+          }
+        ],
+        "regressionEvidence": "Private existing workspace proposal: seven Gekta suites143/143 and root API/web typecheck PASS; compatible unchanged service23/35 new lifecycle failures,12pass. Full API unit execution3808passed/184existingpolicy skips/0testfailures, but process retained existing open handles and was stopped after test completion; no clean full-process PASS. Unit mocks do not prove real PostgreSQL concurrency. Fresh exact-head source review and native acceptance remain required.",
+        "requiredTruthBoundaries": [
+          "State-only admission precedes source publication/adoption. The implementation changes exactly these two existing regular files; accepted before/after blobs and SHA-256 bind the reviewed proposal. Preserve primary/current/global/R1 permissions, existing scopes/admissions, progress and other owners.",
+          "No schema, migration, lockfile, new core/model, consent, physical purge or production data change. Deleted content stays retained under existing policy. Already-deleted import titles remain idempotent. Snapshot reads are not an erase guarantee.",
+          "Actual separate exact-head independent review, owner audit, all applicable substantive native CI/security and freshly checked readiness precede an expected-full-SHA manual merge. Automatic merge stays disabled; preserve existing executor merge queue.",
+          "API full-stack release remains pending actual REG.RU access, intended image/OCI revision and live checks. Main merge does not prove deployment. Failed Qwen3.5-4B live run and spent one-use grant are unchanged; no model activation, grant reset or new comparison admitted here."
+        ],
+        "teamHubDependency": "#5469 CLAIM 6037413355; #5818; user continuation 2026-10-07"
+      },
+      "requiredTruthBoundaries": [
+        "Append only this purpose record. Preserve all prior state bytes/values, scope vectors, admissions, owners, primary/current/global permissions and progress. No runtime/source/admission branch scope is added here.",
+        "Continue the existing Gekta guard ref without force/reset or loss of ancestry; no active writer/open PR exists at f2c458689c8b0722698694d6338990e8b0c29701, which is fully behind current main. The three-path bootstrap remains generic: exact-content manual inspection and independent review of the complete current head are mandatory; do not describe it as automatically immutable/hash-enforced.",
+        "Guard registers both future source and state-admission branches in literal immutable classification, trusted-base workflow routes, PR-head defense/exclusions and source path event filters. The source validator binds accepted purpose/admission and exactly two existing regular blobs, SHA-256 and byte counts; reject main.ts, infrastructure, candidate authority, missing/extra files, renames and modes.",
+        "After actual guard acceptance only, publish a separate state-only source admission adding exactly the staged two-path vector and staged record plus the then-current base SHA. The staged payload and template in this purpose confer no source permission. Publish/adopt source only after that separate admission is actually accepted.",
+        "Preserve prior guard routes/negative tests and substantive CI/security, owner audit, actual independent exact-head review and fresh canonical readiness before ordinary expected-full-SHA manual merges. No source or guard writes by a competing owner; retain serialized executor queue. No automatic merge or provider-availability waiver.",
+        "No model/grant/runtime/DB/migration/consent/retention/purge/roles/provider/payment change here. Failed live Qwen result and spent grant remain unchanged. Canonical REG.RU SSH failure still blocks runtime inspection/deployment/live acceptance; metadata/source merge is not deployment."
+      ],
+      "teamHubDependency": "#5469 CLAIM6037413355 / P1guarddependency6037727724; #5818; #5819 nativefinding4206716341; owner continuation2026-10-07"
+    },
+    "gekta-history-lifecycle-5818-20261007": {
+      "owner": "OWNER_AUTHORIZED_SESSION",
+      "purpose": "F-05 / #5818: reject direct read and mutation of soft-deleted owned Gekta conversations and deleted project assignment using the existing workspace module, conditional active-row writes and consistent project-first transaction lock order. Preserve ownership and soft-delete retention.",
+      "implementationBranch": "fix/gekta-history-lifecycle-5818",
+      "originalIssue": 5818,
+      "allowedPaths": [
+        "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+        "apps/api/src/modules/gekta/gekta-workspace.spec.ts"
+      ],
+      "sourcePayload": [
+        {
+          "path": "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+          "beforeBlob": "94583469f013d8775676ead6ca489176c203968d",
+          "afterBlob": "0d3ee8956bece60d2a1a97fd1508196de7fde091",
+          "sha256": "f0963c9068e65d5452aa682e1305740c36c3dbd545fd7c6f8ee48b378605e519",
+          "bytes": 11536,
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/gekta/gekta-workspace.spec.ts",
+          "beforeBlob": "489a23e9b802fc1d4e00780195031e6d30c7b25b",
+          "afterBlob": "b337b60335d106e7d0bc96695453f29d0562019a",
+          "sha256": "fc3501ae8e2a9412c424fbe66704a718141c409acd3afeeeed1564313ec74fc5",
+          "bytes": 14677,
+          "mode": "100644"
+        }
+      ],
+      "regressionEvidence": "Private existing workspace proposal: seven Gekta suites143/143 and root API/web typecheck PASS; compatible unchanged service23/35 new lifecycle failures,12pass. Full API unit execution3808passed/184existingpolicy skips/0testfailures, but process retained existing open handles and was stopped after test completion; no clean full-process PASS. Unit mocks do not prove real PostgreSQL concurrency. Fresh exact-head source review and native acceptance remain required.",
+      "requiredTruthBoundaries": [
+        "State-only admission precedes source publication/adoption. The implementation changes exactly these two existing regular files; accepted before/after blobs and SHA-256 bind the reviewed proposal. Preserve primary/current/global/R1 permissions, existing scopes/admissions, progress and other owners.",
+        "No schema, migration, lockfile, new core/model, consent, physical purge or production data change. Deleted content stays retained under existing policy. Already-deleted import titles remain idempotent. Snapshot reads are not an erase guarantee.",
+        "Actual separate exact-head independent review, owner audit, all applicable substantive native CI/security and freshly checked readiness precede an expected-full-SHA manual merge. Automatic merge stays disabled; preserve existing executor merge queue.",
+        "API full-stack release remains pending actual REG.RU access, intended image/OCI revision and live checks. Main merge does not prove deployment. Failed Qwen3.5-4B live run and spent one-use grant are unchanged; no model activation, grant reset or new comparison admitted here."
+      ],
+      "teamHubDependency": "#5469 CLAIM 6037413355; #5818; user continuation 2026-10-07",
+      "authorityBaseExactMain": "ab39ed40f34733f9ba3cb2d44e6a1e9a35029f8c"
+    },
+    "trusted-concurrent-scope-routing-guard-purpose-20261007": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "Renew only the existing accepted three-path guard ref so that the nine concurrent-scope source branches of admission #5817 are registered in the guard's literal trusted-base routes and resolved from the trusted base instead of from the candidate checkout, after native P1 finding 4206221770 on admission #5817 (the guard reads approvedConcurrentScopes and scope manifests from the candidate for branches outside the literal immutable list). This purpose admits no source branch, no state change other than this record, and no weakening of any existing route.",
+      "authorityBaseExactMain": "9251d72471f7342628861a387be9bc5c1db683d0",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "plannedRule": {
+        "literalRegistration": "Register exactly these nine source branches, and no others, in the guard's literal immutable classification and in every trusted-base workflow route, PR-head defense/exclusion and source path event filter that already lists the other protected branches: security/accounting-bff-csrf-3-5-1, security/module-body-validation, security/bff-upstream-path-encoding-4459, security/request-cookie-single-reader-4459, security/open-redirect-demo-login-4459, security/email-check-length-first-4459, security/browser-hardening-headers-4459, security/outbound-redirect-and-surface-4459, security/credential-surface-4459. This follows the established mechanism for protected concurrent-scope branches; no dynamic or candidate-readable routing is introduced.",
+        "effect": "For a registered branch the allowed paths are exactly approvedConcurrentScopes[branch] read from the accepted base state, never from the candidate; an unadmitted registered branch is allowed nothing. The candidate state file, AGENTS.md, scripts/p7-autopilot-guard.sh, scripts/p7-autopilot-guard.test.mjs, scripts/p7-source-controlled-scope.mjs and .github/workflows/platform-v7-autopilot-guard.yml remain rejected by the existing MUTABLE_SCOPE_AUTHORITIES rule. The only exemption is the branch's own docs/platform-v7/autopilot/scopes/<name>.json, and only when that exact path is in the base vector; it is documentation, not scope authority, and no other path under docs/platform-v7/autopilot/ is exempted. Diffs use --no-renames; the existing regular-file, deletion and rename rejections apply.",
+        "negativeTests": "Required: a registered source that edits its own state file; adds a path outside the base vector; is not yet admitted; a manifest path that is not in the base vector; a manifest of another branch; a guard, test, workflow or AGENTS path; a rename or deletion; an unregistered look-alike branch name still using the old route; and every existing literal immutable branch and the Gekta routes keep their exact behaviour."
+      },
+      "requiredTruthBoundaries": [
+        "Append only this purpose record. Preserve all prior state bytes and values, scope vectors, admissions, owners, primary/current/global permissions and progress. No source or admission branch scope is added here.",
+        "Continue the existing guard ref without force/reset or loss of ancestry. The guard change is a separate step after this purpose is actually accepted; this record confers no guard or source permission by itself and does not claim automatic machine enforcement of its own text.",
+        "The later guard change must keep every existing route and negative test, add the generic rule with its negative tests, and pass exact-head independent review of the complete head, owner audit, all substantive native checks and canonical readiness before an ordinary expected-full-SHA manual merge. No automatic merge, no provider-availability waiver.",
+        "Admission #5817 (nine F-06 sources) is refreshed and merged only after the guard change is actually accepted; until then no source of that batch is admitted or merged.",
+        "No model/grant/runtime/DB/migration/consent/retention/purge/roles/provider/payment change. A merged guard or metadata step is not deployment."
+      ],
+      "forbiddenAuthority": [
+        "SOURCE self-admission, candidate-controlled scope or arbitrary state changes",
+        "CORE/API/DB/RLS/role/session/money/provider/FGIS/deployment authority",
+        "CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
+      ],
+      "teamHubDependency": "#5469 DECISION REQUEST / CLAIM 2026-10-07 (PC-CROP executor with the Codex/Gekta lane as independent reviewer); admission #5817 thread 4206221770"
+    },
+    "trusted-concurrent-scope-routing-guard-ref-20261007": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "Admit one new dedicated three-path guard ref for the already recorded trusted-concurrent-scope routing guard step, because the ref named in purpose record trusted-concurrent-scope-routing-guard-purpose-20261007 can no longer be renewed: the accepted guard validates every change on governance/pc-crop-post-registration-progress-scope-4997 against the fixed Deal execution blobs of deal-execution-route-guard-purpose-20261001 (measured: running the accepted main guard on the finished guard change from that branch fails with DEAL_ROUTE_PIN_OR_MODE:scripts/p7-autopilot-guard.sh). This record admits no source branch, no state change other than this record and one three-path vector, and no weakening of any existing route.",
+      "authorityBaseExactMain": "dad76750509728e6f8fe1a8657c07f08749705b2",
+      "implementationBranch": "governance/trusted-concurrent-scope-routing-guard-20261007",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "supersedesRefOfPurpose": "trusted-concurrent-scope-routing-guard-purpose-20261007",
+      "requiredTruthBoundaries": [
+        "Append only this record and the one three-path vector of the new ref. Preserve all prior state bytes and values, scope vectors, admissions, owners, primary/current/global permissions and progress. The earlier purpose record stays as history; its plannedRule (literal registration of the nine admitted source branches, exact per-branch manifest mapping, MUTABLE_SCOPE_AUTHORITIES exemption only for the in-vector manifest, no candidate scope authority, Gekta payload-pin routes untouched) is the rule of the guard change on the new ref.",
+        "The guard change itself is a separate pull request from the new ref after this record is actually accepted; this record confers no source permission and does not claim automatic machine enforcement of its own text. The vector contains only the guard, its test and its workflow; the state file, AGENTS.md and every source path are outside it.",
+        "The guard change must pass exact-head independent review of the complete head, owner audit, every substantive native check and canonical readiness before an ordinary expected-full-SHA manual merge. No automatic merge, no provider-availability waiver.",
+        "Admission #5817 (nine F-06 sources) stays unmerged and unadmitted for sources until the guard change is accepted. A merged guard or metadata step is not deployment."
+      ],
+      "forbiddenAuthority": [
+        "SOURCE self-admission, candidate-controlled scope or arbitrary state changes",
+        "CORE/API/DB/RLS/role/session/money/provider/FGIS/deployment authority",
+        "CI/security/readiness weakening, fake history/PASS or forced/automatic merge"
+      ],
+      "teamHubDependency": "#5469 CHECKPOINT 2026-10-07 (PC-CROP executor with the Codex/Gekta lane as independent reviewer); admission #5817 thread 4206221770; purpose #5823"
+    },
+    "accounting-bff-csrf-3-5-1-forward-sync-20261007": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 web security: require an anti-forgery token on the accounting BFF write path (ASVS 3.5.1). Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
+      "implementationBranch": "security/accounting-bff-csrf-3-5-1",
+      "originalPullRequest": 4957,
+      "allowedPaths": [
+        ".github/workflows/ci.yml",
+        "apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts",
+        "apps/web/app/platform-v7/accounting/AccountingTaskBoardClient.tsx",
+        "apps/web/tests/unit/accountingBffCsrf.spec.ts",
+        "docs/platform-v7/autopilot/scopes/accounting-bff-csrf-3-5-1.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json"
+      ],
+      "sourcePayload": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "beforeBlob": "594dca9fa8aaefd658c4ea721bd312a3a01a5069",
+          "afterBlob": "66502e506d4623746a15a464580383865fe9dbe5",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts",
+          "beforeBlob": "a1aa7519c5ce420923178e574b45858c11741fcd",
+          "afterBlob": "47a1946245b6444b8e83932f68053916ee1c592f",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/app/platform-v7/accounting/AccountingTaskBoardClient.tsx",
+          "beforeBlob": "3c24b947e45389bdad71d74221123025643b6ee8",
+          "afterBlob": "7e35a68943a624d9392f7ff798649a37dec23999",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/tests/unit/accountingBffCsrf.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "d4f8b8c21e936d982d3c0d9325030af46499abd3",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/accounting-bff-csrf-3-5-1.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "54cfd97b280ad3fdbb3a22f9f4b305d7d59f5b30",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json"
+      ],
+      "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline) after forward-syncing main; hand edits are rejected.",
+      "orderDependentPaths": [
+        ".github/workflows/ci.yml"
+      ],
+      "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
+      "liveFinding": "Original pull request #4957 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "requiredTruthBoundaries": [
+        "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
+        "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
+      ]
+    },
+    "module-body-validation-forward-sync-20261007": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 API security: validate the weighing act, organization status and reputation batch request bodies. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
+      "implementationBranch": "security/module-body-validation",
+      "originalPullRequest": 5113,
+      "allowedPaths": [
+        "apps/api/src/modules/business-reputation/business-reputation-batch.spec.ts",
+        "apps/api/src/modules/business-reputation/business-reputation.controller.ts",
+        "apps/api/src/modules/business-reputation/business-reputation.service.ts",
+        "apps/api/src/modules/business-reputation/dto/reputation-batch.dto.ts",
+        "apps/api/src/modules/elevator/dto/correct-weighing-act.dto.ts",
+        "apps/api/src/modules/elevator/dto/create-weighing-act.dto.ts",
+        "apps/api/src/modules/elevator/dto/dispute-act.dto.ts",
+        "apps/api/src/modules/elevator/elevator-body-validation.spec.ts",
+        "apps/api/src/modules/elevator/elevator.controller.ts",
+        "apps/api/src/modules/elevator/elevator.service.ts",
+        "apps/api/src/modules/organizations/dto/update-organization-status.dto.ts",
+        "apps/api/src/modules/organizations/organizations.controller.ts",
+        "apps/api/src/modules/organizations/organizations.service.ts",
+        "docs/platform-v7/autopilot/scopes/module-body-validation.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/request-validation-baseline.json"
+      ],
+      "sourcePayload": [
+        {
+          "path": "apps/api/src/modules/business-reputation/business-reputation-batch.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "67f3674413f79cbfe24e9dfdf44f9741eaf0e8df",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/business-reputation/business-reputation.controller.ts",
+          "beforeBlob": "df391f44cf59af439021fe3d406bbfb3cd035483",
+          "afterBlob": "3d4aa52d137884ca6df57ae6efee3ddc8ff7e992",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/business-reputation/business-reputation.service.ts",
+          "beforeBlob": "387c8419da30df3a9960737a2f6af4ce46c8ecca",
+          "afterBlob": "4b6e391c1ba9b37766ca242f7704e71b4c53c699",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/business-reputation/dto/reputation-batch.dto.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "41e98a4a149ba52653fdc24ee65aed06639a1057",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/elevator/dto/correct-weighing-act.dto.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "d7ccbbd3d2c6bcc0f5a1e1cac50fac5434e4a7d9",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/elevator/dto/create-weighing-act.dto.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "471386a9695ff64f34aa8606b85ed6add8558b92",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/elevator/dto/dispute-act.dto.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "a6d007a3671e94705b2bc2f730ed3d4f759ee871",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/elevator/elevator-body-validation.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "a3e4d4ef8c687327d249ccff4b5ff5f1cbb4c211",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/elevator/elevator.controller.ts",
+          "beforeBlob": "286c507c7ca0600159450a1d1a82cda44ef4527e",
+          "afterBlob": "3e0d9b6d64c91b7db1056dbcbeea018a9fd85411",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/elevator/elevator.service.ts",
+          "beforeBlob": "04f1fea42f0f57486fd9df40e16012dc7948ea7e",
+          "afterBlob": "635d3bd553b5db55fc9061d365288a2bffbd922f",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/organizations/dto/update-organization-status.dto.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "fe65be84471fc4173ad9ff35de911b3fe4cc9155",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/organizations/organizations.controller.ts",
+          "beforeBlob": "17aa537e93cceb7d02f4abdaa255d775132cae6b",
+          "afterBlob": "9aa77c0e19842d0c203e5960dc750514ecc1cd48",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/organizations/organizations.service.ts",
+          "beforeBlob": "5696e29dfd5c07823e1861149ddffeff7f6831ef",
+          "afterBlob": "31747bff7c81b0727b9e8980f5255d45895cced3",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/module-body-validation.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "9255cd0911d5f2b0f74ada9df72d855f997edb73",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/request-validation-baseline.json"
+      ],
+      "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline) after forward-syncing main; hand edits are rejected.",
+      "liveFinding": "Original pull request #5113 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "requiredTruthBoundaries": [
+        "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
+        "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
+      ]
+    },
+    "bff-upstream-path-encoding-4459-forward-sync-20261007": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 web security: encode every path segment of the BFF before building the upstream address. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
+      "implementationBranch": "security/bff-upstream-path-encoding-4459",
+      "originalPullRequest": 5614,
+      "allowedPaths": [
+        ".github/workflows/ci.yml",
+        "apps/web/app/api/proxy/[...path]/route.ts",
+        "apps/web/app/api/staff/[...path]/route.ts",
+        "apps/web/lib/server/upstream-path.ts",
+        "apps/web/tests/unit/bffUpstreamPathEncoding.test.ts",
+        "docs/platform-v7/autopilot/scopes/bff-upstream-path-encoding-4459.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json"
+      ],
+      "sourcePayload": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "beforeBlob": "594dca9fa8aaefd658c4ea721bd312a3a01a5069",
+          "afterBlob": "d835fcc3c33dcc994396f7040c7efc27afd339fe",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/app/api/proxy/[...path]/route.ts",
+          "beforeBlob": "e87db9a22b29be1a6340621d538b6e88b10e65f7",
+          "afterBlob": "a5677723e70e3512fb936213c172525b502bc32e",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/app/api/staff/[...path]/route.ts",
+          "beforeBlob": "23992931c0a83655673e2ce9a4eb661fe0a5e297",
+          "afterBlob": "b78248736ff4ca6b4a1c922df40d0fec71e9b4fe",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/lib/server/upstream-path.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "c3cdc3245bbeb9d690b2bae457aac5e4a53d11e4",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/tests/unit/bffUpstreamPathEncoding.test.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "082de8a6a39d9077fb3f2b508c66d719d94fb1fc",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/bff-upstream-path-encoding-4459.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "c376c87b1b681db57a944c2f598cbe38b60742e6",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json"
+      ],
+      "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline) after forward-syncing main; hand edits are rejected.",
+      "orderDependentPaths": [
+        ".github/workflows/ci.yml"
+      ],
+      "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
+      "liveFinding": "Original pull request #5614 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "requiredTruthBoundaries": [
+        "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
+        "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
+      ]
+    },
+    "request-cookie-single-reader-4459-forward-sync-20261007": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 web security: parse the Cookie header in one place and refuse a repeated cookie name (ASVS V15.3.7). Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
+      "implementationBranch": "security/request-cookie-single-reader-4459",
+      "originalPullRequest": 5625,
+      "allowedPaths": [
+        ".github/workflows/ci.yml",
+        "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+        "apps/web/lib/request-cookie.ts",
+        "apps/web/lib/server-request-actor.ts",
+        "apps/web/lib/server-request-security.ts",
+        "apps/web/tests/unit/requestCookieParsing.spec.ts",
+        "docs/platform-v7/autopilot/scopes/request-cookie-single-reader-4459.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json"
+      ],
+      "sourcePayload": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "beforeBlob": "594dca9fa8aaefd658c4ea721bd312a3a01a5069",
+          "afterBlob": "d4b7050c3409e86cb72b56d8b1067a31592c5873",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+          "beforeBlob": "2ab066dca5dfe4bc4573fe1d23ecf112d12967cd",
+          "afterBlob": "4809bedb9a4c10036405f14b4b9f1335fe25ac45",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/lib/request-cookie.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "4ca55af2b9f9057f47fa7ed6e49fbb9b155538e8",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/lib/server-request-actor.ts",
+          "beforeBlob": "70552eb01eec8b8e2a440a065ad4ae7914f31b7f",
+          "afterBlob": "82eb9fce440902cb683b3bcd874beece8107b6a8",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/lib/server-request-security.ts",
+          "beforeBlob": "742f5fef3a7a456e9fc4ba2f8c61c5a0cd41813a",
+          "afterBlob": "fa8b8708a2f14357ff3e40b566a36d49e2003757",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/tests/unit/requestCookieParsing.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "af6fa57b2284ced0f26fff244ea557f3dd006687",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/request-cookie-single-reader-4459.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "0dd18f2acbbc8084c84ab8d465ab99bd07165f5a",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json"
+      ],
+      "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline) after forward-syncing main; hand edits are rejected.",
+      "orderDependentPaths": [
+        ".github/workflows/ci.yml",
+        "apps/web/lib/server-request-security.ts"
+      ],
+      "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
+      "liveFinding": "Original pull request #5625 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "requiredTruthBoundaries": [
+        "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
+        "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
+      ]
+    },
+    "open-redirect-demo-login-4459-forward-sync-20261007": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 web security: close the open redirect in the three demo-login routes. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
+      "implementationBranch": "security/open-redirect-demo-login-4459",
+      "originalPullRequest": 5616,
+      "allowedPaths": [
+        ".github/workflows/ci.yml",
+        "apps/web/app/api/auth/demo/instant/[role]/route.ts",
+        "apps/web/app/api/auth/demo/role/[role]/route.ts",
+        "apps/web/app/api/auth/demo/route.ts",
+        "apps/web/lib/server-request-security.ts",
+        "apps/web/tests/unit/authDemoOpenRedirect.test.ts",
+        "apps/web/tests/unit/serverRequestSecurity.test.ts",
+        "docs/platform-v7/autopilot/scopes/open-redirect-demo-login-4459.json",
+        "docs/platform-v7/qa/web-unit-coverage-registry.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "sourcePayload": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "beforeBlob": "594dca9fa8aaefd658c4ea721bd312a3a01a5069",
+          "afterBlob": "b1427309fa0b6d6e1df3ec8301999185a6c1627d",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/app/api/auth/demo/instant/[role]/route.ts",
+          "beforeBlob": "2762062e2af8e9584923cbe3adbcdcda82e32bd4",
+          "afterBlob": "e1a2e49ca47f73f7a03f53cbed6760b46939186e",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/app/api/auth/demo/role/[role]/route.ts",
+          "beforeBlob": "e3b6faf512ed4895ad1f34df4bacd0c4c05cee78",
+          "afterBlob": "24c09e70d498b84d2ff5727ef281479f375a3f66",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/app/api/auth/demo/route.ts",
+          "beforeBlob": "6e56cff05ae8130bee92e8099766f37181b3cafe",
+          "afterBlob": "3f3cbc6e26d1505e5d624f1d3ef3cd683297b576",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/lib/server-request-security.ts",
+          "beforeBlob": "742f5fef3a7a456e9fc4ba2f8c61c5a0cd41813a",
+          "afterBlob": "b5a374bd1fa2a0c897d5041f52c52d44123bb873",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/tests/unit/authDemoOpenRedirect.test.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "ca58f99de9300f9d0d7166a513fcec032d0494f2",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/tests/unit/serverRequestSecurity.test.ts",
+          "beforeBlob": "e053ca424ea7f1e680002d240e0d5775703ce082",
+          "afterBlob": "67297ad342b4e7b3d781a0c0bb2c839c045ceb0f",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/open-redirect-demo-login-4459.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "81cd539509aacbaeecfc71316b6288b9945ba596",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/qa/web-unit-coverage-registry.json",
+          "beforeBlob": "6d6ed92b4e1b4c2b9da2dada6579d1a6635988d6",
+          "afterBlob": "77ff36134cc45e0b4939fcb10bf3ab51ca76e2da",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline) after forward-syncing main; hand edits are rejected.",
+      "orderDependentPaths": [
+        ".github/workflows/ci.yml",
+        "apps/web/lib/server-request-security.ts"
+      ],
+      "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
+      "liveFinding": "Original pull request #5616 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "requiredTruthBoundaries": [
+        "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
+        "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
+      ]
+    },
+    "email-check-length-first-4459-forward-sync-20261007": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 web security: bound the e-mail length before matching it against the pattern in the public routes. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
+      "implementationBranch": "security/email-check-length-first-4459",
+      "originalPullRequest": 5615,
+      "allowedPaths": [
+        ".github/workflows/ci.yml",
+        "apps/web/app/api/auth/forgot-password/route.ts",
+        "apps/web/app/api/auth/organization-invitations/route.ts",
+        "apps/web/app/api/auth/register/route.ts",
+        "apps/web/app/api/auth/registration/resend/route.ts",
+        "apps/web/app/api/auth/registration/verify/route.ts",
+        "apps/web/tests/unit/emailCheckBoundedBeforePattern.test.ts",
+        "docs/platform-v7/autopilot/scopes/email-check-length-first-4459.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "sourcePayload": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "beforeBlob": "594dca9fa8aaefd658c4ea721bd312a3a01a5069",
+          "afterBlob": "572d3ad4ebaad5fe98288b0737fa63f75abb6faa",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/app/api/auth/forgot-password/route.ts",
+          "beforeBlob": "4623196f2bf0004f1e372dde31e8b53af65a1b00",
+          "afterBlob": "8fe06e5b6499efad11f41c09cfe86b45392a14cc",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/app/api/auth/organization-invitations/route.ts",
+          "beforeBlob": "d79cbe592008cd8df3e221601c9ca534b2191a81",
+          "afterBlob": "958b0c3916176330ff31cc8fa9ede09361e07108",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/app/api/auth/register/route.ts",
+          "beforeBlob": "44c2f1206a733699f65d6dc0730ff776005849d0",
+          "afterBlob": "8e181ba4b0d6bdfdc8fda73b156794770da1281c",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/app/api/auth/registration/resend/route.ts",
+          "beforeBlob": "09d6b13526469171893c63ff69210a70327b80e4",
+          "afterBlob": "c23f7ffe76b9ea73271bc752423911c513807b64",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/app/api/auth/registration/verify/route.ts",
+          "beforeBlob": "b2336b751c8c1b01d6a3ab259120298b6cbc5b77",
+          "afterBlob": "e1f3a1dcdf6211ed52dfd355712f82d0f1fd9f5e",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/tests/unit/emailCheckBoundedBeforePattern.test.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "2d860274317885a4affd28811b01891c41743636",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/email-check-length-first-4459.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "bf6bb5ad606981c8423f0d917768cdd0639ec6c4",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline) after forward-syncing main; hand edits are rejected.",
+      "orderDependentPaths": [
+        ".github/workflows/ci.yml"
+      ],
+      "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
+      "liveFinding": "Original pull request #5615 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "requiredTruthBoundaries": [
+        "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
+        "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
+      ]
+    },
+    "browser-hardening-headers-4459-forward-sync-20261007": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 web security: give the CSP a report address and isolate the window from its opener. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
+      "implementationBranch": "security/browser-hardening-headers-4459",
+      "originalPullRequest": 5140,
+      "allowedPaths": [
+        ".github/workflows/ci.yml",
+        "apps/web/app/api/csp-report/route.ts",
+        "apps/web/lib/security/csp-report.ts",
+        "apps/web/middleware.ts",
+        "apps/web/tests/unit/cspReportingAndCrossOriginHeaders.spec.ts",
+        "docs/platform-v7/autopilot/scopes/browser-hardening-headers-4459.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/asvs-applicability-decisions.json",
+        "docs/security/cryptographic-inventory.json"
+      ],
+      "sourcePayload": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "beforeBlob": "594dca9fa8aaefd658c4ea721bd312a3a01a5069",
+          "afterBlob": "7d43dbd3472cfc3e0b6b26c69e6c5dfdce64dd9d",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/app/api/csp-report/route.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "6c113905c0dd92ebca669ec33e6d28f8db23fec3",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/lib/security/csp-report.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "0e0f29621abe94e4e93726f70ff36d726708ddc9",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/middleware.ts",
+          "beforeBlob": "d18e20272b694a294b14f1709d4e8e3621316639",
+          "afterBlob": "b2984582eda78844f2d7e8c7f18c2296f17dfa15",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/tests/unit/cspReportingAndCrossOriginHeaders.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "e6fd0e4021bebf2d404872737d15258640389a47",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/browser-hardening-headers-4459.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "a1caeee90f0329461eb343381bddd2ad3b5d3d13",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/security/asvs-applicability-decisions.json",
+          "beforeBlob": "1617d8e6ec3ff1ce4d52244306ade4ac641ea380",
+          "afterBlob": "bdb1214400647d3224a82d9c76a243a6a86446c0",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/cryptographic-inventory.json"
+      ],
+      "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline) after forward-syncing main; hand edits are rejected.",
+      "orderDependentPaths": [
+        ".github/workflows/ci.yml",
+        "docs/security/asvs-applicability-decisions.json"
+      ],
+      "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
+      "liveFinding": "Original pull request #5140 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "requiredTruthBoundaries": [
+        "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
+        "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
+      ]
+    },
+    "outbound-redirect-and-surface-4459-forward-sync-20261007": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 API security: close the outbound redirect, restrict the CORS method list and trim the /version surface. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
+      "implementationBranch": "security/outbound-redirect-and-surface-4459",
+      "originalPullRequest": 5142,
+      "allowedPaths": [
+        "apps/api/src/common/vault/vault-transit.service.ts",
+        "apps/api/src/health.controller.ts",
+        "apps/api/src/main.ts",
+        "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+        "apps/api/src/modules/ai-insights/outbound-redirect-and-surface.spec.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ml-client/ml-client.service.ts",
+        "apps/web/public/platform-v7/openapi.yaml",
+        "docs/api/openapi.yaml",
+        "docs/platform-v7/autopilot/scopes/outbound-redirect-and-surface-4459.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/asvs-applicability-decisions.json"
+      ],
+      "sourcePayload": [
+        {
+          "path": "apps/api/src/common/vault/vault-transit.service.ts",
+          "beforeBlob": "28381e58dcc0170efdcb10ce6e488665476e2e00",
+          "afterBlob": "d891b793fb13d62abb39af20e0c7835358d9ac9d",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/health.controller.ts",
+          "beforeBlob": "5487cc4565a904a26d2c7d6d0934a4e6e02869db",
+          "afterBlob": "d77c9de97e04cbb07e8b60117b2366abbe7d71ea",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/main.ts",
+          "beforeBlob": "7e7e7818b8a11f686ede92ae9ed2225c009dba94",
+          "afterBlob": "c7712fde46e56d4fe8a79efea9b0697fee93ca4f",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+          "beforeBlob": "6c44122b98ee8fae42f1b3e6b2d971e69f41590c",
+          "afterBlob": "17f94598c550f090980afc1acdcaded8e106f424",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/ai-insights/outbound-redirect-and-surface.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "f825508039e5f4bad2ed44b30d91de3cf749b47c",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "beforeBlob": "9dec43891152f993be29be5d4e735ad1e4545688",
+          "afterBlob": "26ddd16694f63c528f6812e46d574926c36a59f1",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/ml-client/ml-client.service.ts",
+          "beforeBlob": "6726da37935a7bacd3d752cc0296763c43a0dbb8",
+          "afterBlob": "11ec94f1d8a183baa6f900c0ea3a7f04cc121013",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/public/platform-v7/openapi.yaml",
+          "beforeBlob": "e04feda3cc648c14336f97c14689fc5ed03cff3b",
+          "afterBlob": "1eb69bda6cfd8dadfee26889d48e6f62ed6a897e",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/api/openapi.yaml",
+          "beforeBlob": "e04feda3cc648c14336f97c14689fc5ed03cff3b",
+          "afterBlob": "1eb69bda6cfd8dadfee26889d48e6f62ed6a897e",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/outbound-redirect-and-surface-4459.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "ce49d96d1a5b29e68f14941efc865e2859978142",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/security/asvs-applicability-decisions.json",
+          "beforeBlob": "1617d8e6ec3ff1ce4d52244306ade4ac641ea380",
+          "afterBlob": "f13ed9485c15ed3b208a203f6d7b99b9ae644e65",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline) after forward-syncing main; hand edits are rejected.",
+      "orderDependentPaths": [
+        "docs/security/asvs-applicability-decisions.json"
+      ],
+      "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
+      "liveFinding": "Original pull request #5142 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "requiredTruthBoundaries": [
+        "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
+        "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
+      ]
+    },
+    "credential-surface-4459-forward-sync-20261007": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "F-06 API security: rate-limit bulk exports. Continues the original pull request unchanged in substance; no change to authentication, session, MFA, tenant, money, schema, migration or dependency authority beyond what the listed paths do.",
+      "authorityBaseExactMain": "6710523e4605b9d22813e9edb7c66a2455619a4e",
+      "implementationBranch": "security/credential-surface-4459",
+      "originalPullRequest": 5143,
+      "allowedPaths": [
+        "apps/api/src/modules/exports/exports-rate-limit.spec.ts",
+        "apps/api/src/modules/exports/exports.controller.ts",
+        "docs/platform-v7/autopilot/scopes/credential-surface-4459.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+        "docs/security/asvs-applicability-decisions.json"
+      ],
+      "sourcePayload": [
+        {
+          "path": "apps/api/src/modules/exports/exports-rate-limit.spec.ts",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "21ed9c9078f8f6fdcf411c1326b1a145b581eee1",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/api/src/modules/exports/exports.controller.ts",
+          "beforeBlob": "2ab3586f244f74c0301b4e48c3942202acc5d86d",
+          "afterBlob": "040cdcd7f5b50909a3b1ab4e64740ba37b032251",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/credential-surface-4459.json",
+          "beforeBlob": "ABSENT",
+          "afterBlob": "81210f18f9e5d1eeb8124fa429010148c758cfeb",
+          "mode": "100644"
+        },
+        {
+          "path": "docs/security/asvs-applicability-decisions.json",
+          "beforeBlob": "1617d8e6ec3ff1ce4d52244306ade4ac641ea380",
+          "afterBlob": "f55f8a20fa5191f2fab1e2bcff53b30d35f76444",
+          "mode": "100644"
+        }
+      ],
+      "generatedPaths": [
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "generatedRule": "Generated files are not byte-pinned: they must equal the output of their repository generator on the final reviewed head (node scripts/security/discover-cryptography.mjs; node scripts/security/verify-request-validation-coverage.mjs --update-baseline) after forward-syncing main; hand edits are rejected.",
+      "orderDependentPaths": [
+        "docs/security/asvs-applicability-decisions.json"
+      ],
+      "orderDependentRule": "Paths listed in orderDependentPaths are edited by more than one prepared source (the CI web-unit test list, apps/web/lib/server-request-security.ts, docs/security/asvs-applicability-decisions.json). Their blobs depend on the order in which the sources land, so the pins below are measured against accepted main at admission time and are informative; at each exact reviewed head the file must equal accepted main plus only this source change (shown by git diff against main), never hand-merged content from another source.",
+      "liveFinding": "Original pull request #5143 is open and was not accepted: its review depended on the retired review provider. The defect it describes was not re-measured by this admission; the exact-head independent review must re-establish it from the diff and tests. At accepted main the own files of this source apply to the current tree without conflict (git apply --3way).",
+      "regressionEvidence": "Forward-synced by applying the original pull request's own diff 3-way onto accepted main 6710523e4605b9d22813e9edb7c66a2455619a4e and writing an ordinary merge commit with parents [original head, main]. Local preparation only: tests are run by the exact-head independent review and native CI, not claimed here.",
+      "requiredTruthBoundaries": [
+        "Preserve original history/attribution through ordinary merges; fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness precede an expected-full-SHA manual merge. Merges are strictly serialized (strict required-status-checks policy); each later source is refreshed on the new main and re-reviewed.",
+        "No production claim: a merged source is not deployed; web/API releases require the canonical owner exact-SHA commands."
+      ]
+    },
+    "gitleaks-session-minting-attestation-guard-purpose-20261008": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "Renew only the accepted three-path guard ref governance/trusted-concurrent-scope-routing-guard-20261007 for one trusted-base phase that lets the existing attestation ref fix/gitleaks-release-authority-attestation-20260912 synchronize apps/tai/tests/test_gitleaks_release_authority.py with the two reviewed historical fingerprints that merged #5804 appended to .gitleaksignore (8e1febfffeb4da36f1dba9badb7522ddb6513c1d:apps/web/tests/unit/sessionMintingSurface.spec.ts:generic-api-key:137 and :138). Native TAI Foundation is red on every main push since #5804 (run 37737718147 on b1972e0e60df071b3e7b81340c8ae9d1373cf93f: entries list has 21 expected, the accepted ignore file has 23), which blocks TAI Release Acceptance for current main. This purpose admits no source change, no new exception and no weakening of any existing phase.",
+      "authorityBaseExactMain": "b1972e0e60df071b3e7b81340c8ae9d1373cf93f",
+      "implementationBranch": "governance/trusted-concurrent-scope-routing-guard-20261007",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "attestationImplementationBranch": "fix/gitleaks-release-authority-attestation-20260912",
+      "plannedRule": {
+        "phase": "Only when the trusted base blob of apps/tai/tests/test_gitleaks_release_authority.py is 404e172449f53c01369ef974a50079d6f6967d56: both base and head must carry .gitleaksignore as regular 100644 blob 2c7aaa811ed3ea3dd1cf806ed1126705c173591b and apps/tai/release-source-manifest.json as regular 100644 blob 35f96ccc7fe332ddd90454eeee19853ba0612b71; the head test must be the regular 100644 blob 95c914d64012a6260ca1090a01844b2c6f56cc3a, which equals the base with exactly the two fingerprint entries above inserted once, in ignore-file order, directly after the existing 3b76d0f3473b986b6354aaac528994f7ac343df2 ... generic-api-key:17 entry; every other byte and assertion is preserved.",
+        "preserved": "The legacy four-fingerprint phase and the e589046fc52daf8a3632f70b6879543934be56ff to 404e172449f53c01369ef974a50079d6f6967d56 phase keep their exact behaviour; the landing metadata phase, the trusted-base workflow routing of the attestation ref and every other route are unchanged.",
+        "exactChangedFiles": "The synchronization diff from the trusted base must change exactly one path, apps/tai/tests/test_gitleaks_release_authority.py. The other two paths of the attestation ref vector (apps/landing/package.json and docs/ip/internal-package-metadata-exceptions.json) belong only to the separate landing-metadata phase and must not change in the same diff.",
+        "negativeTests": "Required with real Git fixtures: one fingerprint missing; an extra or altered fingerprint; reordered entries; an assertion removed or weakened; ignore file or release manifest drift on either side; non-regular mode; the test change combined with a change to either other vector path; and the two existing phases still accepting only their own transformations."
+      },
+      "requiredTruthBoundaries": [
+        "Append only this purpose record. Preserve all prior state bytes and values, scope vectors, admissions, owners, primary/current/global permissions and progress. The .gitleaksignore entries of #5804 stay exactly as accepted; nothing is added to, removed from or broadened in any exception list.",
+        "Continue the existing guard ref without force/reset or loss of ancestry. The guard change is a separate step after this purpose is actually accepted; this record confers no guard or source permission by itself and does not claim automatic machine enforcement of its own text.",
+        "The later guard change and the later one-file test synchronization must each pass exact-head independent review of the complete head, owner audit, every substantive native check and canonical readiness before an ordinary expected-full-SHA manual merge. No automatic merge, no provider-availability waiver.",
+        "A merged guard or test step is not deployment. Fresh accepted-main TAI Foundation and TAI Release Acceptance evidence must be collected on the resulting main, not relabeled from earlier runs."
+      ],
+      "forbiddenAuthority": [
+        "New, broadened or renewed Gitleaks exceptions; scanner, coverage, attestation or readiness weakening; test skips",
+        "SOURCE self-admission, candidate-controlled scope or arbitrary state changes",
+        "CORE/API/DB/RLS/role/session/money/provider/FGIS/model/deployment authority, fake history/PASS or forced/automatic merge"
+      ],
+      "teamHubDependency": "#5469 DEPENDENCY 6054012950 (Gekta lane: exact-main TAI attestation defect) and DISPOSITION 6054082308 (PC-CROP main-queue owner takes the writer role)"
+    },
+    "browser-hardening-headers-4459-csp-report-redaction-20261008": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "Payload amendment for admitted source security/browser-hardening-headers-4459 (original #5140): re-pin exactly the CSP report helper and its regression spec to the fix for blocking finding 6055454235 (Codex Gekta session). The helper logged document-uri and blocked-uri with their query string; the password-recovery page carries a one-time reset token in ?token=, so a CSP violation there would have written that token into the web container log in both report formats. The fix logs only scheme, host and path of both addresses. No path, scope, owner or other pin changes.",
+      "authorityBaseExactMain": "a1ba45e58c384ebf612c1eaa489ddd90b16490a3",
+      "implementationBranch": "security/browser-hardening-headers-4459",
+      "amendsAdmission": "browser-hardening-headers-4459-forward-sync-20261007",
+      "fixCommit": "3ad805899761c1a109d60e653295ca4da16ce297",
+      "blockingFinding": "pachaninm-lab/pachanin-demo#5140 comment 6055454235",
+      "repinnedSourcePayload": [
+        {
+          "path": "apps/web/lib/security/csp-report.ts",
+          "previousAfterBlob": "0e0f29621abe94e4e93726f70ff36d726708ddc9",
+          "afterBlob": "486cb810e0a74ecf9f4226da1652c7930614f831",
+          "mode": "100644"
+        },
+        {
+          "path": "apps/web/tests/unit/cspReportingAndCrossOriginHeaders.spec.ts",
+          "previousAfterBlob": "e6fd0e4021bebf2d404872737d15258640389a47",
+          "afterBlob": "b1a8d9e9f88929a69e186ba7621e57db7c911b5c",
+          "mode": "100644"
+        }
+      ],
+      "requiredTruthBoundaries": [
+        "Append only this record. The amended admission, its path vector, generated and order-dependent rules and all other pins stay byte-identical; at the reviewed head the two re-pinned paths must equal the afterBlob values here, every other non-generated, non-order-dependent path its original pin.",
+        "Body bound, request budget, 16-entry cap, field truncation, control-character removal and the uniform empty 204 of the CSP report endpoint remain unchanged; only the logged form of the two addresses changes.",
+        "The source still needs fresh separate whole-head independent review, owner audit, applicable native CI/security and canonical readiness on its refreshed head before an expected-full-SHA manual merge. This record grants no merge authority and does not resolve the finding by itself.",
+        "No production claim: a merged source is not deployed; web releases require the canonical owner exact-SHA commands."
+      ],
+      "forbiddenAuthority": [
+        "Any path, scope, workflow, guard, dependency or authentication/session/MFA/tenant/money change",
+        "Logging of URL query, fragment or credentials from CSP reports",
+        "CI/security/readiness weakening, fake PASS or forced/automatic merge"
+      ],
+      "teamHubDependency": "#5469 release hold 6055339117; finding 6055454235; fix note 6055515611"
     }
   }
 }
