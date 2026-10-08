@@ -515,7 +515,9 @@ function saleCalculationRequested(question: string): boolean {
   // regardless of whether the question is imperative or interrogative. A
   // contextual quantity alone does not suppress conceptual model answers.
   const monetaryInputs = /руб|RUB|USD|EUR|GBP|CNY|₽|[$€£]|卢布|美元|欧元|юань|доллар|евро/iu.test(question);
-  const whatContinuation = question.match(/^\s*what\b[^.!?。！？\n]{0,40}\b(?:revenue|proceeds)\s+(?:after|for|from|of)\s+(.+?)\s*[?？]?\s*$/iu)?.[1] ?? '';
+  const conceptualBeContinuation = /^\s*what\b[^.!?。！？\n]{0,80}\b(?:revenue|proceeds)\s+be\s+(?:recogni[sz]ed|called|used|defined|classified|recorded|reported|understood|treated|considered)\b/iu.test(question);
+  if (conceptualBeContinuation && !amountNounQuestion && !intent.test(question)) return false;
+  const whatContinuation = question.match(/^\s*what\b[^.!?。！？\n]{0,40}\b(?:revenue|proceeds)\s+(?:be\s+)?(?:after|for|from|of)\s+(.+?)\s*[?？]?\s*$/iu)?.[1] ?? '';
   if (whatContinuation && !amountNounQuestion && !intent.test(question) && (
     /\b(?:definition|meaning|concept|accounting|recognition|principles?|purposes?|diversification|rotation)\b/iu.test(whatContinuation)
     || !/\d|\b(?:delivery|selling|sale|sell|amount|sum)\b/iu.test(whatContinuation)
@@ -526,7 +528,7 @@ function saleCalculationRequested(question: string): boolean {
   // Match amount nouns/connectors, not arbitrary intervening conceptual words.
   const chineseAmountQuestion = !chineseConceptQuestion && CHINESE_REVENUE_AMOUNT_QUESTION.test(question);
   const amountQuestion = chineseSaleAmount || labelQuestion || amountNounQuestion || chineseAmountQuestion
-    || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much(?:\s+(?:is|are|was|were|would|will|could|can|should)(?:\s+be)?)?\s+(?:(?:the|my|our)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will|could|can|should)(?:\s+be)?)\s+(?:(?:the|my|our)\s+)?|\s+amount\s+of\s+|\s+))(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does|be)\b))/iu.test(question);
+    || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much(?:\s+(?:is|are|was|were|would|will|could|can|should|do|does|did)(?:\s+be)?)?\s+(?:(?:the|my|our)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will|could|can|should)(?:\s+be)?)\s+(?:(?:the|my|our)\s+)?|\s+amount\s+of\s+|\s+))(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does)\b|be\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after)\b))|(?:amount(?:s|ed)?|come|came)\s+to\b))/iu.test(question);
   const strategyQuestion = /стратег|\bstrateg(?:y|ies)\b|策略/iu.test(question);
   const improvementQuestion = /повыс|увелич|улучш|\b(?:increase|improve|enhance|boost|grow|raise)\b|提高|改善|增加/iu.test(question);
   if (!labelled && !intent.test(question)
@@ -871,7 +873,7 @@ function saleSafetyView(text: string, removeFormatting = false, preserveFormatCh
   const normalized = joined
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
     .replace(/\s+/gu, ' ');
-  return removeFormatting ? normalized.replace(/[*_`]/gu, '') : normalized;
+  return removeFormatting ? normalized.replace(/[*_`~]/gu, '') : normalized;
 }
 
 export class StreamingAnswerGate {
