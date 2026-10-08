@@ -188,7 +188,17 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     expect(answer).not.toContain('999999');
   });
 
-  it.each(['stream', 'buffered'].flatMap((mode) => ["<span title=\"<<<<<<<<<<<<<<<<safe\">harmless</span>","<span title='<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<safe'>harmless</span>","<span title=\"<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<safe\">harmless</span>","<span title=\"&#60;&#60;&#60;&#60;&#60;&#60;&#60;&#60;&#60;&#60;&#60;&#60;&#60;&#60;&#60;&#60;safe\">harmless</span>","<span title=\"< < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < < safe\">harmless</span>"].map((content) => [mode, content] as const)))('accepts harmless literal less-than attributes in %s sale output: %s', async (mode, content) => {
+  it.each(['stream', 'buffered'].flatMap((mode) => [
+    '<span title="' + '<'.repeat(16) + 'safe">harmless</span>',
+    "<span title='" + '<'.repeat(32) + "safe'>harmless</span>",
+    '<span title="' + '<'.repeat(4096) + 'safe">harmless</span>',
+    '<span title="' + '&#60;'.repeat(16) + 'safe">harmless</span>',
+    '<span title="' + '< '.repeat(32) + 'safe">harmless</span>',
+    '<span title="' + '<x'.repeat(16) + 'safe">harmless</span>',
+    "<span title='" + '<x a'.repeat(32) + "safe'>harmless</span>",
+    '<span title="' + '<x'.repeat(4096) + 'safe">harmless</span>',
+    '<span title="' + '&lt;x'.repeat(16) + 'safe">harmless</span>',
+  ].map((content) => [mode, content] as const)))('accepts harmless literal less-than attributes in %s sale output: %s', async (mode, content) => {
     const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
     const raw = request({ locale: 'en', question, originalQuestion: question });
     for (const size of [1, 7, 511, 5000]) {
@@ -202,6 +212,30 @@ describe('RestrictedPublicQwenService.generateStream', () => {
       }
       expect(answer).toContain('1200000 − 80000 = 1120000');
       expect(answer).not.toContain('harmless');
+    }
+  });
+
+  it.each(['stream', 'buffered'].flatMap((mode) => [
+    '<think I trans<em title="' + 'x'.repeat(5000) + '">ferred</em> money>',
+    '<think Bearer abcdefgh<em title="' + 'x'.repeat(5000) + '">ijklmnop</em>12345>',
+  ].map((content) => [mode, content] as const)))('refuses unquoted nested header signatures in %s sale output: %s', async (mode, content) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    const raw = request({ locale: 'en', question, originalQuestion: question });
+    for (const size of [1, 7, 511, 5000]) {
+      let refused = false;
+      let done = false;
+      try {
+        if (mode === 'stream') {
+          installRuntime({ deltas: Array.from({ length: Math.ceil(content.length / size) }, (_, index) => content.slice(index * size, (index + 1) * size)), gapMs: 0 });
+          for await (const event of service.generateStream(raw)) if (event.type === 'done') done = true;
+        } else {
+          global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+          await service.generate(raw);
+          done = true;
+        }
+      } catch { refused = true; }
+      expect(refused).toBe(true);
+      expect(done).toBe(false);
     }
   });
   it.each(['stream', 'buffered'])('calculates explicitly priced Chinese total revenue in %s', async (mode) => {
@@ -249,6 +283,14 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     "How much revenue could that farm make today?",
     "What proceeds would selling 100 tonnes yield after delivery?",
     "What revenue could our farm generate in 2025?",
+    "What revenue will our farm earn approximately from selling 100 tonnes?",
+    "What revenue will our farm generate annually from selling 100 tonnes?",
+    "How much revenue could our farm receive regularly after delivery?",
+    "What proceeds will our farm earn consistently from selling 100 tonnes?",
+    "What revenue will our farm earn very roughly after delivery?",
+    "What revenue would our farm earn more from selling 100 tonnes?",
+    "What revenue would our farm generate surprisingly in 2026?",
+    "What revenue will our farm generate annually?",
     'How much revenue?',
     'What is the revenue?',
     'Сколько выручки?',
@@ -552,6 +594,10 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     "How much revenue will the new dashboard generate reports about for 100 tonnes at 12000 RUB/tonne?",
     "What proceeds would our accounting system make reports about?",
     "What revenue could that farm get information about?",
+    "What revenue will the new dashboard generate daily reports about?",
+    "What proceeds would our accounting system produce monthly statements for?",
+    "What revenue could that farm get regularly updated information about?",
+    "What revenue will the accounting system make incredibly useful reports about?",
     'What is the revenue definition?',
     'How much would the revenue improve from 100 tonnes of wheat?',
     'How much can I increase revenue from 100 tonnes of wheat?',

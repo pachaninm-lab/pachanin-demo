@@ -458,9 +458,17 @@ function saleMarkdownLinkText(text: string, state: SaleMarkdownScanState): strin
 }
 
 
-type SaleTagContentFrame = { state: SaleTagScanState; pendingTagStart: boolean; raw: string; formatted: string; originalRaw: string; originalFormatted: string };
-function newSaleTagContentFrame(): SaleTagContentFrame {
-  return { state: newSaleTagScanState(), pendingTagStart: false, raw: '', formatted: '', originalRaw: '', originalFormatted: '' };
+type SaleTagContentFrame = {
+  state: SaleTagScanState; closingQuote: string; pendingTagStart: boolean;
+  raw: string; formatted: string; originalRaw: string; originalFormatted: string;
+  renderedRaw: string; renderedFormatted: string; renderedOriginalRaw: string; renderedOriginalFormatted: string;
+};
+function newSaleTagContentFrame(closingQuote = ''): SaleTagContentFrame {
+  return {
+    state: newSaleTagScanState(), closingQuote, pendingTagStart: false,
+    raw: '', formatted: '', originalRaw: '', originalFormatted: '',
+    renderedRaw: '', renderedFormatted: '', renderedOriginalRaw: '', renderedOriginalFormatted: '',
+  };
 }
 
 
@@ -601,7 +609,8 @@ function saleCalculationRequested(question: string): boolean {
   const nominalSubject = '(?!(?:be|been|being|have|has|had)\\b)[\\p{L}][\\p{L}-]*(?:\\s+[\\p{L}][\\p{L}-]*){0,2}';
   // A later direct object ("generate reports about revenue") is not the
   // requested revenue amount. Accept the fronted object plus its adjuncts.
-  const amountComplement = '(?=\\s*(?:$|[.!?。！？,;:]|(?:from|for|after|before|by|with|without|in|on|at|during|over|through|via|per|today|now|tomorrow|yesterday)\\b|(?:this|last|next)\\s+(?:year|month|week|season)\\b))';
+  const amountAdverbs = '(?:\\s+(?:(?:very|quite|rather)\\s+)?(?:[A-Za-z][A-Za-z-]*ly|often|sometimes|always|never|already|still|well|fast|hard|more|less|again|once|twice))*';
+  const amountComplement = `${amountAdverbs}(?=\\s*(?:$|[.!?。！？,;:]|(?:from|for|after|before|by|with|without|in|on|at|during|over|through|via|per|today|now|tomorrow|yesterday)\\b|(?:this|last|next)\\s+(?:year|month|week|season)\\b))`;
   const nounFrontAmountQuestion = new RegExp(`^(?:${pricedSubject}|${nominalSubject})\\s+${amountVerb}\\b${amountComplement}`, 'iu').test(nounFrontHead)
     || new RegExp(`^(?:(?:have|has|had)\\s+)?(?:(?:be|been|being)\\s+)?(?:generated|yielded|brought|produced|earned|received|made)\\b${amountComplement}`, 'iu').test(nounFrontHead);
   const revenueContinuation = revenueClause
@@ -997,6 +1006,8 @@ export class StreamingAnswerGate {
   private discardedSaleOriginalMarkdownState = newSaleMarkdownScanState();
   private discardedSaleTagContentFrames = [newSaleTagContentFrame()];
   private discardedSaleMarkdownTagContentFrames = [newSaleTagContentFrame()];
+  private discardedSaleUnquotedTagContentFrames = [newSaleTagContentFrame()];
+  private discardedSaleUnquotedMarkdownTagContentFrames = [newSaleTagContentFrame()];
   private discardedSaleReferenceTail = '';
   private discardedSaleRawJoinedReferenceTail = '';
   private discardedSaleRawJoinedContext = '';
@@ -1088,6 +1099,77 @@ export class StreamingAnswerGate {
   private scanOriginalTagContents(text: string, frames: SaleTagContentFrame[]): { violation: GateViolation | null; prescription: boolean } {
     let prescription = false;
     let fragment = '';
+    let renderedFragment = '';
+    const scanFragment = (): GateViolation | null => {
+      if (!fragment) return null;
+      const frame = frames[frames.length - 1];
+      // Normalize a bounded fragment once, before trimming its lookbehind.
+      // Keep enclosing prefixes frozen at nested-tag boundaries, and retain
+      // original whitespace / split-surrogate semantics in the four views.
+      const raw = saleSafetyView(frame.raw + fragment);
+      const formatted = saleSafetyView(frame.formatted + fragment, true);
+      const originalRaw = saleSafetyView(frame.originalRaw + fragment, false, true);
+      const originalFormatted = saleSafetyView(frame.originalFormatted + fragment, true, true);
+      // Reuse the four views for plain text; quoted tag contents also retain
+      // a rendered view so long inner attributes cannot evict an outer prefix.
+      const identical = renderedFragment === fragment && frame.renderedRaw === frame.raw
+        && frame.renderedFormatted === frame.formatted && frame.renderedOriginalRaw === frame.originalRaw
+        && frame.renderedOriginalFormatted === frame.originalFormatted;
+      const renderedRaw = identical ? raw : saleSafetyView(frame.renderedRaw + renderedFragment);
+      const renderedFormatted = identical ? formatted : saleSafetyView(frame.renderedFormatted + renderedFragment, true);
+      const renderedOriginalRaw = identical ? originalRaw : saleSafetyView(frame.renderedOriginalRaw + renderedFragment, false, true);
+      const renderedOriginalFormatted = identical ? originalFormatted : saleSafetyView(frame.renderedOriginalFormatted + renderedFragment, true, true);
+      const views = identical ? [raw, formatted, originalRaw, originalFormatted]
+        : [raw, formatted, originalRaw, originalFormatted, renderedRaw, renderedFormatted, renderedOriginalRaw, renderedOriginalFormatted];
+      frame.raw = raw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.formatted = formatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.originalRaw = originalRaw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.originalFormatted = originalFormatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.renderedRaw = renderedRaw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.renderedFormatted = renderedFormatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.renderedOriginalRaw = renderedOriginalRaw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.renderedOriginalFormatted = renderedOriginalFormatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      fragment = '';
+      renderedFragment = '';
+      if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return 'WRITE_CLAIM';
+      if (views.some((view) => SECRET_PATTERN.test(view))) return 'SECRET';
+      prescription ||= views.some(isUngroundedCropProtectionPrescription);
+      return null;
+    };
+    for (const character of text) {
+      let frame = frames[frames.length - 1];
+      if (frame.closingQuote === character && !frame.state.inside) {
+        const violation = scanFragment();
+        if (violation) return { violation, prescription };
+        frames.pop();
+        frame = frames[frames.length - 1];
+      }
+      fragment += character;
+      const previousQuote = frame.state.quote;
+      renderedFragment += !frame.state.inside && character !== '<'
+        ? character : saleTextWithoutTagBoundaries(character, frame.state, false);
+      const openedQuote = !previousQuote && frame.state.quote !== '';
+      if (openedQuote || fragment.length >= 512) {
+        const violation = scanFragment();
+        if (violation) return { violation, prescription };
+      }
+      if (openedQuote) {
+        // Attribute content gets its own bounded lexical view. Literal <x
+        // sequences remain inside that value instead of opening header frames.
+        // Nested quoted values still preserve the earlier secret/write checks.
+        if (frames.length >= 16) return { violation: 'OUTPUT_LIMIT', prescription };
+        frames.push(newSaleTagContentFrame(frame.state.quote));
+      }
+    }
+    return { violation: scanFragment(), prescription };
+  }
+
+  private scanUnquotedTagContents(text: string, frames: SaleTagContentFrame[]): { violation: GateViolation | null; prescription: boolean } {
+    // Quoted-value parsing above owns quoted tag-like text. This second bounded
+    // interpretation retains signatures inside malformed unquoted headers.
+    if (frames.length === 1 && !frames[0].state.inside && !frames[0].raw && !text.includes('<')) return { violation: null, prescription: false };
+    let prescription = false;
+    let fragment = '';
     const scanFragment = (): GateViolation | null => {
       if (!fragment) return null;
       const frame = frames[frames.length - 1];
@@ -1126,7 +1208,7 @@ export class StreamingAnswerGate {
         fragment += '<';
         saleTextWithoutTagBoundaries('<', frame.state, false);
       }
-      if (frame.state.inside && character === '<') {
+      if (frame.state.inside && !frame.state.quote && character === '<') {
         frame.pendingTagStart = true;
         continue;
       }
@@ -1142,6 +1224,7 @@ export class StreamingAnswerGate {
     }
     return { violation: scanFragment(), prescription };
   }
+
 
   private discardSaleProse(final: boolean): GateCommit {
     const head = this.pending;
@@ -1160,6 +1243,8 @@ export class StreamingAnswerGate {
     const rawJoinedFormattingBlock = saleSafetyView(this.discardedSaleRawJoinedFormattingContext + rawJoined, true);
     const originalContents = this.scanOriginalTagContents(decoded.original, this.discardedSaleTagContentFrames);
     if (originalContents.violation) return this.refuse(originalContents.violation);
+    const unquotedContents = this.scanUnquotedTagContents(decoded.original, this.discardedSaleUnquotedTagContentFrames);
+    if (unquotedContents.violation) return this.refuse(unquotedContents.violation);
     // Keep a second bounded view without formatting, including tags split over
     // arbitrarily long transport cuts. A separate raw view preserves real keys
     // containing underscores; normalization cannot silently erase such tokens.
@@ -1179,6 +1264,8 @@ export class StreamingAnswerGate {
     const originalMarkdownHead = saleMarkdownLinkText(decoded.original, this.discardedSaleOriginalMarkdownState);
     const composedContents = this.scanOriginalTagContents(originalMarkdownHead, this.discardedSaleMarkdownTagContentFrames);
     if (composedContents.violation) return this.refuse(composedContents.violation);
+    const unquotedComposedContents = this.scanUnquotedTagContents(originalMarkdownHead, this.discardedSaleUnquotedMarkdownTagContentFrames);
+    if (unquotedComposedContents.violation) return this.refuse(unquotedComposedContents.violation);
     const originalMarkdownRawBlock = saleSafetyView(this.discardedSaleOriginalMarkdownContext + originalMarkdownHead);
     const originalMarkdownFormattingBlock = saleSafetyView(this.discardedSaleOriginalMarkdownFormattingContext + originalMarkdownHead, true);
     const views = [rawBlock, formattingBlock, block, decodedRawBlock, decodedFormattingBlock, renderedRawBlock, renderedBlock,
@@ -1186,7 +1273,7 @@ export class StreamingAnswerGate {
     if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return this.refuse('WRITE_CLAIM');
     if (views.some((view) => SECRET_PATTERN.test(view))) return this.refuse('SECRET');
     const flags = ['UNVERIFIED_ECONOMIC_CLAIM_REMOVED'];
-    if (originalContents.prescription || composedContents.prescription || views.some(isUngroundedCropProtectionPrescription)) flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    if (originalContents.prescription || composedContents.prescription || unquotedContents.prescription || unquotedComposedContents.prescription || views.some(isUngroundedCropProtectionPrescription)) flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
     this.discardedSaleRawJoinedContext = rawJoinedBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleRawJoinedFormattingContext = rawJoinedFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleRenderedContext = renderedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
@@ -1355,6 +1442,8 @@ export class StreamingAnswerGate {
     this.discardedSaleOriginalMarkdownState = newSaleMarkdownScanState();
     this.discardedSaleTagContentFrames = [newSaleTagContentFrame()];
     this.discardedSaleMarkdownTagContentFrames = [newSaleTagContentFrame()];
+    this.discardedSaleUnquotedTagContentFrames = [newSaleTagContentFrame()];
+    this.discardedSaleUnquotedMarkdownTagContentFrames = [newSaleTagContentFrame()];
     this.discardedSaleReferenceTail = '';
     this.discardedSaleRawJoinedReferenceTail = '';
     this.discardedSaleRawJoinedContext = '';
