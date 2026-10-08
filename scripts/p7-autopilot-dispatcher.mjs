@@ -26,7 +26,7 @@ const CONTROLLED_PILOT_NOTICE = [
   'Maturity: controlled-pilot / pre-integration.',
   'Do not overstate maturity or imply live external integrations.',
   'Do not change apps/landing, production UI, visual/theme/onboarding, adapters, server actions, AI gateway runtime, DB/migrations or lockfiles unless the current step explicitly allows it.',
-  'Do not auto-merge. Human review and green checks are required.',
+  'Do not auto-merge. Independent review and green checks are required before a manual SHA-bound merge.',
 ].join('\n');
 
 function repoPath(relativePath) {
@@ -132,7 +132,7 @@ function buildCurrentPrompt(input) {
     '',
     blockedBy.length > 0
       ? blockedBy.map((item) => `- BLOCKED: ${item}`).join('\n')
-      : '- Current step is allowed to advance after human-reviewed green/closed/mergeable status.',
+      : '- Current step is allowed to advance only after independently reviewed acceptance and manual SHA-bound merge.',
     '',
     '## Allowed current scope',
     '',
@@ -185,7 +185,7 @@ function buildReviewPrompt(input) {
     '',
     blockedBy.length > 0
       ? blockedBy.map((item) => `- BLOCKED: ${item}`).join('\n')
-      : '- Current step may be advanced only after human merge approval.',
+      : '- Current step may be advanced only after independently reviewed acceptance and manual SHA-bound merge.',
     '',
     '## Queue snapshot',
     '',

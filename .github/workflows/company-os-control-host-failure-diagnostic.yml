@@ -1,0 +1,160 @@
+name: Company OS Control Host Failure Diagnostic
+
+on:
+  workflow_run:
+    workflows:
+      - 'Company OS Control Host Authorized Cutover 2026-08-18'
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+concurrency:
+  group: company-os-control-host-failure-diagnostic
+  cancel-in-progress: false
+
+env:
+  TARGET_ISSUE: '4159'
+  CONTROL_DOMAIN: 'control.xn----8sbjf4befbjgs9b.xn--p1ai'
+  PRIMARY_DOMAIN: 'xn----8sbjf4befbjgs9b.xn--p1ai'
+  PRIMARY_DOMAIN_UNICODE: 'процент-агро.рф'
+  CANONICAL_VPS: '195.19.12.120'
+  MIN_BOUNDARY_COMMIT: 'ef01ce98aad645ec941d03f88bdc0275e763e604'
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  diagnose:
+    if: github.event.workflow_run.conclusion != 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve pinned SSH identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$CANONICAL_VPS}")"; user="$(trim "${SSH_USER_SECRET:-}")"; port="$(trim "${SSH_PORT_SECRET:-22}")"; expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$CANONICAL_VPS" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$port" =~ ^[0-9]+$ && "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          validate_key(){ local source="$1" target="$HOME/.ssh/id_pc_prod" pub; tr -d '\r' < "$source" > "$target"; chmod 600 "$target"; grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1; pub="$(mktemp)"; ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"; }
+          try_slot(){ local raw="$1" a b c; [[ -n "$raw" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}"
+          scan="$(mktemp)"; match="$(mktemp)"; pinned=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"; ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" == "$expected" ]] && printf '%s\n' "$line" >> "$match"; done < "$scan"
+            sort -u -o "$match" "$match"; [[ "$(grep -c . "$match" || true)" == 1 ]] && { pinned=1; break; }; (( attempt == 3 )) || sleep "$attempt"
+          done
+          rm -f "$scan"; [[ "$pinned" == 1 ]]; mv "$match" "$HOME/.ssh/known_hosts"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" 'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; echo READY' | grep -Fxq READY
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"
+
+      - name: Collect bounded read-only production facts
+        id: facts
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          USER: ${{ steps.ssh.outputs.user }}
+        run: |
+          set -euo pipefail
+          remote="$RUNNER_TEMP/company-os-control-failure.env"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" bash -s -- "$CONTROL_DOMAIN" "$PRIMARY_DOMAIN" "$PRIMARY_DOMAIN_UNICODE" <<'REMOTE' > "$remote"
+          set -euo pipefail
+          control_domain="${1:?}"; primary_domain="${2:?}"; primary_unicode="${3:?}"
+          caddy_active=NO; caddy_valid=UNKNOWN; control_declared=NO; control_blocks=0; upstream_count=UNKNOWN
+          systemctl is-active --quiet caddy && caddy_active=YES || true
+          if command -v caddy >/dev/null 2>&1 && [[ -r /etc/caddy/Caddyfile ]]; then
+            caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 && caddy_valid=YES || caddy_valid=NO
+            grep -Fq "$control_domain" /etc/caddy/Caddyfile && control_declared=YES || true
+            control_blocks="$(grep -c '# BEGIN COMPANY OS CONTROL HOST' /etc/caddy/Caddyfile || true)"
+            json="$(mktemp)"
+            if caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile --pretty > "$json" 2>/dev/null; then
+              upstream_count="$(jq -r --arg p "$primary_domain" --arg u "$primary_unicode" '[.. | objects | select(has("match") and has("handle")) | select(any(.match[]?.host[]?; . == $p or . == $u)) | .handle[]? | .. | objects | .upstreams[]?.dial?] | unique | length' "$json" 2>/dev/null || echo INVALID)"
+            fi
+            rm -f "$json"
+          fi
+          mapfile -t running_web < <(docker ps -q --filter 'label=com.docker.compose.service=web' | sort -u)
+          web_count="${#running_web[@]}"; web_revision=UNKNOWN; web_image_id=UNKNOWN; working_dir_state=UNKNOWN; config_state=UNKNOWN; env_state=UNKNOWN; contract_wired=UNKNOWN; gate_state=UNKNOWN
+          if [[ "$web_count" == 1 ]]; then
+            web_id="${running_web[0]}"; web_image_id="$(docker inspect --format '{{.Image}}' "$web_id" 2>/dev/null || true)"
+            [[ "$web_image_id" =~ ^sha256:[0-9a-f]{64}$ ]] || web_image_id=UNKNOWN
+            if [[ "$web_image_id" != UNKNOWN ]]; then web_revision="$(docker image inspect "$web_image_id" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || true)"; [[ "$web_revision" =~ ^[0-9a-f]{40}$ ]] || web_revision=UNKNOWN; fi
+            working_dir="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$web_id" 2>/dev/null || true)"
+            config_csv="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$web_id" 2>/dev/null || true)"
+            if [[ "$working_dir" =~ ^/(opt|srv|var/www)/[A-Za-z0-9_./-]+$ && -d "$working_dir" ]]; then working_dir_state=READY; [[ -f "$working_dir/.env" && -r "$working_dir/.env" && -w "$working_dir/.env" ]] && env_state=READY || env_state=MISSING_OR_NOT_WRITABLE; else working_dir_state=INVALID; env_state=UNKNOWN; fi
+            if [[ -n "$config_csv" ]]; then
+              config_state=READY; contract_wired=NO; IFS=',' read -r -a configs <<< "$config_csv"
+              for raw in "${configs[@]}"; do file="$raw"; [[ "$file" = /* ]] || file="$working_dir/$file"; [[ -r "$file" ]] || config_state=INVALID; grep -Fq 'PC_CONTROL_HOST_ENABLED' "$file" 2>/dev/null && contract_wired=YES || true; done
+            else config_state=MISSING; contract_wired=UNKNOWN; fi
+            gate="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$web_id" 2>/dev/null | grep -E '^PC_CONTROL_HOST_ENABLED=' | tail -1 || true)"
+            [[ "$gate" == 'PC_CONTROL_HOST_ENABLED=true' ]] && gate_state=ENABLED || gate_state=DISABLED_OR_ABSENT
+          fi
+          printf '%s\n' "CADDY_ACTIVE=$caddy_active" "CADDY_VALID=$caddy_valid" "CONTROL_DECLARED=$control_declared" "CONTROL_BLOCKS=$control_blocks" "UPSTREAM_COUNT=$upstream_count" "WEB_COUNT=$web_count" "WEB_REVISION=$web_revision" "WEB_IMAGE_ID=$web_image_id" "WORKING_DIR_STATE=$working_dir_state" "CONFIG_STATE=$config_state" "ENV_STATE=$env_state" "CONTRACT_WIRED=$contract_wired" "CONTROL_GATE=$gate_state"
+          REMOTE
+          for key in CADDY_ACTIVE CADDY_VALID CONTROL_DECLARED CONTROL_BLOCKS UPSTREAM_COUNT WEB_COUNT WEB_REVISION WEB_IMAGE_ID WORKING_DIR_STATE CONFIG_STATE ENV_STATE CONTRACT_WIRED CONTROL_GATE; do value="$(grep -E "^${key}=" "$remote" | tail -1 | cut -d= -f2- || true)"; [[ -n "$value" ]] || value=UNKNOWN; echo "${key,,}=$value" >> "$GITHUB_OUTPUT"; done
+
+      - name: Classify boundary ancestry
+        id: ancestry
+        shell: bash
+        env:
+          WEB_REVISION: ${{ steps.facts.outputs.web_revision }}
+        run: |
+          set -euo pipefail
+          state=UNKNOWN
+          if [[ "$WEB_REVISION" =~ ^[0-9a-f]{40}$ ]] && git cat-file -e "$WEB_REVISION^{commit}" 2>/dev/null; then
+            git merge-base --is-ancestor "$MIN_BOUNDARY_COMMIT" "$WEB_REVISION" && state=PRESENT || state=STALE
+          fi
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+
+      - name: Publish bounded diagnostic
+        uses: actions/github-script@v7
+        env:
+          FAILED_RUN: ${{ github.event.workflow_run.id }}
+          FAILED_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          CADDY_ACTIVE: ${{ steps.facts.outputs.caddy_active }}
+          CADDY_VALID: ${{ steps.facts.outputs.caddy_valid }}
+          CONTROL_DECLARED: ${{ steps.facts.outputs.control_declared }}
+          CONTROL_BLOCKS: ${{ steps.facts.outputs.control_blocks }}
+          UPSTREAM_COUNT: ${{ steps.facts.outputs.upstream_count }}
+          WEB_COUNT: ${{ steps.facts.outputs.web_count }}
+          WEB_REVISION: ${{ steps.facts.outputs.web_revision }}
+          BOUNDARY_ANCESTRY: ${{ steps.ancestry.outputs.state }}
+          WORKING_DIR_STATE: ${{ steps.facts.outputs.working_dir_state }}
+          CONFIG_STATE: ${{ steps.facts.outputs.config_state }}
+          ENV_STATE: ${{ steps.facts.outputs.env_state }}
+          CONTRACT_WIRED: ${{ steps.facts.outputs.contract_wired }}
+          CONTROL_GATE: ${{ steps.facts.outputs.control_gate }}
+        with:
+          script: |
+            const body = [
+              '## Company OS control-host failed-cutover diagnostic',
+              '',
+              `- Failed run / attempt: \`${process.env.FAILED_RUN} / ${process.env.FAILED_ATTEMPT}\``,
+              `- Caddy active / valid: \`${process.env.CADDY_ACTIVE} / ${process.env.CADDY_VALID}\``,
+              `- Control declaration / marker blocks: \`${process.env.CONTROL_DECLARED} / ${process.env.CONTROL_BLOCKS}\``,
+              `- Primary upstream count: \`${process.env.UPSTREAM_COUNT}\``,
+              `- Running web count: \`${process.env.WEB_COUNT}\``,
+              `- Running web revision: \`${process.env.WEB_REVISION}\``,
+              `- Company OS boundary ancestry: **${process.env.BOUNDARY_ANCESTRY}**`,
+              `- Working dir / Compose / env: \`${process.env.WORKING_DIR_STATE} / ${process.env.CONFIG_STATE} / ${process.env.ENV_STATE}\``,
+              `- Control contract / runtime gate: \`${process.env.CONTRACT_WIRED} / ${process.env.CONTROL_GATE}\``,
+              '',
+              'Read-only diagnostic. Production mutation: **NONE**.',
+            ].join('\n');
+            await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: Number(process.env.TARGET_ISSUE), body});

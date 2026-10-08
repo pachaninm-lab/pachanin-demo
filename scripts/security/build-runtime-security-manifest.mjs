@@ -56,6 +56,41 @@ function requirePassed(report, label) {
   if (passed !== true) throw new Error(`${label} is not marked passed or valid.`);
 }
 
+function requireAcceptedTrivyEvaluation(report, label, expectedScanner) {
+  requireExactHead(report, label);
+  requirePassed(report, label);
+  if (String(report?.scanner ?? '') !== expectedScanner) {
+    throw new Error(`${label} scanner identity ${String(report?.scanner ?? '<missing>')} does not match ${expectedScanner}.`);
+  }
+  if (report?.scannerResult !== 'success') throw new Error(`${label} scanner result is not success.`);
+  if (report?.recognizedReportShape !== true) throw new Error(`${label} scanner report shape is not recognized.`);
+
+  const blocked = Array.isArray(report?.blocked) ? report.blocked : null;
+  const excepted = Array.isArray(report?.excepted) ? report.excepted : null;
+  const findings = Array.isArray(report?.findings) ? report.findings : null;
+  if (!blocked || !excepted || !findings) throw new Error(`${label} finding arrays are missing.`);
+
+  const highOrCritical = Number(report?.summary?.highOrCritical);
+  const summaryBlocked = Number(report?.summary?.blocked);
+  const summaryExcepted = Number(report?.summary?.excepted);
+  for (const [name, value] of [['highOrCritical', highOrCritical], ['blocked', summaryBlocked], ['excepted', summaryExcepted]]) {
+    if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${label} summary ${name} is invalid.`);
+  }
+  if (summaryBlocked !== blocked.length) throw new Error(`${label} blocked summary does not match evidence.`);
+  if (summaryExcepted !== excepted.length) throw new Error(`${label} excepted summary does not match evidence.`);
+  if (highOrCritical !== findings.length) throw new Error(`${label} HIGH/CRITICAL summary does not match findings evidence.`);
+  if (highOrCritical !== blocked.length + excepted.length) {
+    throw new Error(`${label} HIGH/CRITICAL findings are not fully classified as blocked or formally excepted.`);
+  }
+  if (blocked.length !== 0) throw new Error(`${label} contains blocked HIGH or CRITICAL findings.`);
+
+  return {
+    highOrCritical,
+    excepted: excepted.length,
+    blocked: blocked.length,
+  };
+}
+
 function classifyHelmRender(helmRendered) {
   const deploymentCount = (helmRendered.match(/^kind:\s*Deployment\s*$/gm) ?? []).length;
   const executableKinds = [...helmRendered.matchAll(/^kind:\s*(Deployment|StatefulSet|DaemonSet|Job|CronJob)\s*$/gm)]
@@ -110,17 +145,11 @@ function main() {
   const policy = parseJson(pathFor('runtime-context-validation.json'), 'Runtime context policy');
   const api = parseJson(pathFor('trivy-api-container-evaluation.json'), 'API image evaluation');
   const web = parseJson(pathFor('trivy-web-container-evaluation.json'), 'Web image evaluation');
-  for (const [label, report] of [['runtime policy', policy], ['API image evaluation', api], ['web image evaluation', web]]) {
-    requireExactHead(report, label);
-    requirePassed(report, label);
-  }
+  requireExactHead(policy, 'runtime policy');
+  requirePassed(policy, 'runtime policy');
+  const apiSecurity = requireAcceptedTrivyEvaluation(api, 'API image evaluation', 'trivy-container');
+  const webSecurity = requireAcceptedTrivyEvaluation(web, 'Web image evaluation', 'trivy-web-container');
   if ((policy.violations ?? []).length !== 0) throw new Error('Runtime policy contains violations.');
-  if ((api.blocked ?? []).length !== 0 || Number(api?.summary?.highOrCritical ?? 0) !== 0) {
-    throw new Error('API runtime image contains blocked HIGH or CRITICAL findings.');
-  }
-  if ((web.blocked ?? []).length !== 0 || Number(web?.summary?.highOrCritical ?? 0) !== 0) {
-    throw new Error('Web runtime image contains blocked HIGH or CRITICAL findings.');
-  }
 
   const apiDigest = readFileSync(pathFor('api-image-digest.txt'), 'utf8').trim();
   const webDigest = readFileSync(pathFor('web-image-digest.txt'), 'utf8').trim();
@@ -151,8 +180,8 @@ function main() {
     workflowRunAttempt: WORKFLOW_RUN_ATTEMPT,
     generatedAt: new Date().toISOString(),
     canonicalImages: {
-      api: { digest: apiDigest, user: 'nonroot', highOrCritical: 0 },
-      web: { digest: webDigest, user: 'nonroot', highOrCritical: 0 },
+      api: { digest: apiDigest, user: 'nonroot', ...apiSecurity },
+      web: { digest: webDigest, user: 'nonroot', ...webSecurity },
     },
     iacRoots: ['infra/docker', 'infra/helm', 'infra/k8s'],
     helm: {

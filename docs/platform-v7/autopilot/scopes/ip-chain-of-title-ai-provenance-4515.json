@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4515,
+  "branch": "ip/chain-of-title-ai-provenance",
+  "status": "active",
+  "purpose": "Publish the chain-of-title register and the AI-assisted provenance disclosure, recording contributor rights status and AI tooling involvement honestly without asserting ownership that no document supports.",
+  "authorityBaseExactMain": "0e5fbc7997221d02e2ac57ee7f55295e2c56fdf4",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/ip/AI_ASSISTED_PROVENANCE.md",
+    "docs/ip/CHAIN_OF_TITLE_REGISTER.md",
+    "docs/ip/CONTRIBUTORS.csv",
+    "docs/platform-v7/autopilot/scopes/ip-chain-of-title-ai-provenance-4515.json"
+  ],
+  "requiredInvariants": [
+    "No contributor may be marked RESOLVED without a referenced signed instrument; none exists, so all remain UNRESOLVED.",
+    "Contracts, personal documents and raw email addresses must never be stored in Git; only references, SHA-256 hashes and statuses.",
+    "AI tooling involvement must be disclosed, not hidden, including the vendor and commit count.",
+    "No file may be relabelled first-party on the strength of AI authorship.",
+    "Every figure must name the exact source SHA it was measured on.",
+    "Qwen remains THIRD_PARTY_INFRASTRUCTURE and must never be presented as the rights holder's own model.",
+    "No product code, dependency, workflow or production configuration may change.",
+    "Merge and CI success are not REG.RU production deployment evidence."
+  ],
+  "acceptance": [
+    "All 21 contributor identities are classified and carry a rights status.",
+    "Commit counts across the register sum to the analysed history exactly (23235).",
+    "The third-party individual contributor and the unattributed local identity are both escalated as HUMAN_LEGAL_ACTION_REQUIRED.",
+    "AI involvement is disclosed for both vendors with commit counts.",
+    "CONTRIBUTORS.csv publishes email SHA-256 only, never a raw address.",
+    "The concurrent-scope guard accepts exactly the four authorized paths."
+  ]
+}

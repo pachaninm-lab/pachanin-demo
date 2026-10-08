@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "platform-v7-production-i18n-runtime-fix-2198",
+  "branch": "fix/p7-production-i18n-runtime-2198",
+  "issue": 2198,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "01e38e835f2fec57603eb31e063e62567396a1c2"
+  },
+  "purpose": "Fix the two deterministic defects proven by production i18n acceptance run 31905082081: semantic week-token translation and residual Cyrillic in the translated production document title, without weakening the acceptance policy or changing auth, backend, release authority or infrastructure.",
+  "allowedPaths": [
+    "apps/web/lib/platform-v7/i18n/translation-runtime.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-production-i18n-runtime-fix-2198.json"
+  ],
+  "productBoundary": {
+    "publicRoute": "/platform-v7",
+    "mode": "translation-runtime-defect-fix-only",
+    "runtimeMutation": "translation-output-only",
+    "accountData": "unchanged",
+    "languages": ["en", "zh"],
+    "newRecurringCostRub": 0
+  },
+  "forbiddenChanges": [
+    "production i18n acceptance allowlist or fail-closed criteria",
+    "translation dictionary contents or unrelated UI copy",
+    "PC-CROP registration, reviewer, MFA, password-reset or session runtime",
+    "Deal, role, tenant, RBAC, RLS, PostgreSQL or money authority",
+    "Gekta model/runtime/prompt/latency changes",
+    "production credentials, release authority, Caddy, DNS or direct REG.RU mutation",
+    "paid external services or new infrastructure"
+  ],
+  "requiredChecks": [
+    "source-controlled scope guard",
+    "workflow syntax",
+    "web typecheck and unit tests",
+    "security and governance gates",
+    "git diff --check",
+    "exact-SHA REG.RU full-stack release after merge",
+    "Platform V7 Production i18n Acceptance PASS on exact deployed SHA"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "Completion requires exact deployed-main production acceptance. Merge or CI alone is not production evidence. Protected role-cockpit localization remains outside this bounded public-surface fix until exercised with valid production identities."
+}

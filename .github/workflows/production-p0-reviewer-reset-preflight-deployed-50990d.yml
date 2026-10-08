@@ -1,0 +1,171 @@
+name: Production P0 Reviewer Reset Preflight Deployed 50990d
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-reset-preflight-deployed-50990d.yml'
+      - 'scripts/production-p0-reviewer-reset-preflight-deployed-50990d.sh'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-reset-preflight-deployed-50990d-${{ github.event_name }}-${{ github.event.comment.id || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate deployed-50990d reset preflight contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
+        github.event.comment.body == '/production p0-reviewer-reset-preflight deployed-50990d'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+      actions: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate fail-closed read-only contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/production-p0-reviewer-reset-preflight-deployed-50990d.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          workflow = Path('.github/workflows/production-p0-reviewer-reset-preflight-deployed-50990d.yml').read_text(encoding='utf-8')
+          script = Path('scripts/production-p0-reviewer-reset-preflight-deployed-50990d.sh').read_text(encoding='utf-8')
+          merged = workflow + '\n' + script
+          required = [
+              "EXPECTED_DEPLOYED_SHA='50990d616463c3aa7a4888fc182bc6064931b080'",
+              "IMAP_RUN_ID='31923014818'",
+              "SMTP_RUN_ID='31923847459'",
+              'IMAP_AUTH_RESULT=PASS',
+              'SMTP587_AUTH_RESULT=PASS',
+              'auth.staff_reviewer_login_readiness()',
+              'auth.staff_reviewer_password_reset_subject()',
+              'StrictHostKeyChecking=yes',
+              'RESET_AUTHORIZED=YES',
+              'PRODUCTION_MUTATION=NONE',
+              "github.event.comment.author_association == 'OWNER'",
+              'github.event.comment.performed_via_github_app.id == 1144995',
+          ]
+          missing = [marker for marker in required if marker not in merged]
+          if missing:
+              raise SystemExit('missing read-only invariants: ' + ' | '.join(missing))
+          forbidden = [
+              '/api/auth/forgot-password',
+              '--request POST', '-X POST', '--data', '--data-binary',
+              'send_message(', 'sendmail(', 'MAIL FROM', 'RCPT TO',
+              'INSERT INTO', 'UPDATE auth.', 'DELETE FROM', 'TRUNCATE ', 'ALTER ROLE',
+              'docker restart', 'docker compose', 'docker service',
+              'PC_RECONCILE_ACTIVE_RUNTIME',
+          ]
+          bad = [marker for marker in forbidden if marker in script]
+          if bad:
+              raise SystemExit('production mutation surface forbidden: ' + ' | '.join(bad))
+          PY
+
+      - name: Verify exact owner-issued provenance
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          EXPECTED_BODY: /production p0-reviewer-reset-preflight deployed-50990d
+          TRUSTED_CONNECTOR_APP_ID: '1144995'
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          app="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$assoc" == 'OWNER' && "$body" == "$EXPECTED_BODY" ]]
+          if [[ "$GITHUB_ACTOR" == "$owner" && "${{ github.triggering_actor }}" == "$owner" ]]; then
+            echo OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$app" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+            echo OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
+
+      - name: Resolve exact current main
+        id: target
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  preflight:
+    name: Verify deployed reviewer reset authorization without mutation
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.contract.result == 'success' &&
+      needs.contract.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Confirm exact current-main checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+
+      - name: Run deployed read-only reset preflight
+        shell: bash
+        run: bash scripts/production-p0-reviewer-reset-preflight-deployed-50990d.sh

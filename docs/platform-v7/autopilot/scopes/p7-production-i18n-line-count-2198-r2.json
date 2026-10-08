@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "p7-production-i18n-line-count-2198-r2",
+  "branch": "fix/p7-production-i18n-line-count-2198-r2",
+  "issue": 2198,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "a9c16814960520b20e8ae0c722570d9a3b4147f9"
+  },
+  "purpose": "Repair the final Platform V7 exact-production i18n acceptance after run 32019421832. The Chromium 320x700 evidence screenshot shows the localized Hero H1 rendered in four visual lines, while the current Range-on-parent implementation over-counts nested block span rectangles as six lines. Replace only that measurement with text-node client-rect counting so the existing <=5 rendered-line master requirement is measured accurately. Do not weaken any visual threshold. The same run also exposed transient REG.RU 502 responses for WebKit CSS/JS assets; those are not to be masked by this change and must be re-attested by a clean exact-production rerun.",
+  "allowedPaths": [
+    "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts",
+    "docs/platform-v7/autopilot/scopes/p7-production-i18n-line-count-2198-r2.json"
+  ],
+  "evidence": {
+    "productionAcceptanceRun": 32019421832,
+    "deployedExactSha": "a9c16814960520b20e8ae0c722570d9a3b4147f9",
+    "exactPublicRevisionGate": "PASS",
+    "dictionaryContract": "PASS",
+    "translationRuntimeContract": "PASS",
+    "chromiumFailure": "320px Hero H1 line counter reported 6 although screenshot evidence shows four rendered text lines; parent Range includes nested span geometry",
+    "webkitFailure": "production returned 502 for multiple Next CSS/JS assets during the WebKit attempt, producing a ChunkLoadError / partially unstyled retry",
+    "fixBoundary": "test measurement only; production asset health remains a real acceptance requirement and must pass on rerun"
+  },
+  "forbiddenChanges": [
+    "homepage copy, localization dictionaries or canonical brand wording",
+    "homepage design CSS or runtime components",
+    "authentication, registration, MFA, RBAC, RLS, tenant or organization authority",
+    "API, database, Deal, money, evidence or Gekta semantics",
+    "production release infrastructure",
+    "weakening residual-Cyrillic, CJK typography, no-overflow, touch-target, Hero CTA, Hero card >=14px or H1 <=5 rendered-line thresholds"
+  ],
+  "requiredChecks": [
+    "source-controlled scope guard",
+    "exact-head web and governance checks",
+    "full exact-production EN/ZH Chromium and WebKit browser matrix after protected exact-SHA release",
+    "dedicated RU 320x700 master-design gate on production",
+    "no 502/ChunkLoadError from required production CSS/JS assets during the browser matrix"
+  ],
+  "newRecurringCostRub": 0,
+  "maturityBoundary": "This repair only makes the H1 line-count assertion reflect actual rendered text lines. It does not establish production PASS; the complete exact-production browser matrix must rerun successfully without static-asset failures."
+}

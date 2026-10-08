@@ -1,11 +1,16 @@
 name: Platform V7 Production Mobile Acceptance
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/platform-v7-production-mobile-acceptance.yml'
+      - 'docs/platform-v7/autopilot/scopes/production-mobile-controller-handoff-20260927.json'
   workflow_run:
     workflows:
       - 'Production Web Exact-SHA Release'
       - 'Production Web Owner Exact-SHA Command'
-      - 'Production Full-Stack Exact-SHA Release'
+      - 'platform-v7 safe merge'
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -26,13 +31,222 @@ concurrency:
 env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
   RELEASE_ISSUE_NUMBER: 3048
+  CONTROLLER_EVIDENCE_LIB: |
+    job_state_json() {
+      local jobs_json="$1" name="$2"
+      jq -r --arg name "$name" \
+        '[.jobs[] | select(.name == $name)] | if length == 1 then .[0].conclusion else "missing-or-ambiguous" end' \
+        <<< "$jobs_json"
+    }
+
+    verify_controller_json() {
+      local run_json="$1" jobs_json="$2" expected_id="$3" expected_attempt="$4"
+      local expected_sha="$5" expected_repo="$6" expected_owner="$7"
+
+      [[ "$expected_id" =~ ^[0-9]+$ && "$expected_attempt" =~ ^[0-9]+$ ]] || return 10
+      [[ "$expected_sha" =~ ^[0-9a-f]{40}$ ]] || return 11
+      jq -e --argjson id "$expected_id" --argjson attempt "$expected_attempt" \
+        --arg sha "$expected_sha" --arg repo "$expected_repo" --arg owner "$expected_owner" \
+        '.id == $id and .run_attempt == $attempt and .name == "platform-v7 safe merge" and
+         .path == ".github/workflows/platform-v7-safe-merge.yml" and .event == "issue_comment" and
+         .head_branch == "main" and .head_sha == $sha and .status == "completed" and
+         .conclusion == "success" and .repository.full_name == $repo and
+         .head_repository.full_name == $repo and .actor.login == $owner and
+         .triggering_actor.login == $owner' <<< "$run_json" >/dev/null || return 12
+
+      local total_count jobs_length
+      total_count="$(jq -r '.total_count' <<< "$jobs_json")"
+      jobs_length="$(jq -r '.jobs | length' <<< "$jobs_json")"
+      [[ "$total_count" =~ ^[0-9]+$ && "$total_count" == "$jobs_length" && "$total_count" -le 100 ]] || return 13
+
+      local control
+      control="$(job_state_json "$jobs_json" 'production-release-control-3072')"
+      if [[ "$control" == skipped ]]; then
+        printf 'false\n'
+        return 0
+      fi
+      [[ "$control" == success ]] || return 14
+
+      local required=(
+        'production-full-stack-execution-3072 / Validate full-stack release contract'
+        'production-full-stack-execution-3072 / Migrate, deploy API/web and canonical outbox, verify live delivery'
+        'production-auth-mail-cutover-3072 / Validate auth-mail cutover contract'
+        'production-auth-mail-cutover-3072 / Cut over exact production to durable auth-mail worker'
+        'production-reviewer-readiness-3072 / Validate production reviewer inspect contract'
+        'production-reviewer-readiness-3072 / Read-only REG.RU reviewer login readiness'
+      )
+      local job_name
+      for job_name in "${required[@]}"; do
+        [[ "$(job_state_json "$jobs_json" "$job_name")" == success ]] || return 15
+      done
+      printf 'true\n'
+    }
+
+    evidence_field() {
+      local evidence="$1" key="$2" file="$3"
+      sed -n "s/^$key=//p" "$evidence/$file" | tail -1 | tr -d '\r'
+    }
+
+    verify_evidence_dir() {
+      local evidence="$1" expected_sha="$2" file
+      [[ "$expected_sha" =~ ^[0-9a-f]{40}$ ]] || return 20
+      for file in sha256.txt target-sha.txt production-action.log live.log durable-intake-db.log ir20-observation.log; do
+        [[ -f "$evidence/$file" ]] || return 21
+      done
+      (cd "$evidence" && sed 's#  artifacts/production-full-stack-release/#  #' sha256.txt | sha256sum --check --status --strict) || return 22
+      [[ "$(tr -d '[:space:]' < "$evidence/target-sha.txt")" == "$expected_sha" ]] || return 23
+      [[ "$(evidence_field "$evidence" EXACT_IMAGE_SOURCE production-action.log)" == pinned-ssh ]] || return 24
+      [[ "$(evidence_field "$evidence" MIGRATION_COMPLETE production-action.log)" == 1 ]] || return 25
+      [[ "$(evidence_field "$evidence" DEPLOYMENT_COMPLETE production-action.log)" == 1 ]] || return 26
+      [[ "$(evidence_field "$evidence" DEPLOYED_API_REVISION production-action.log)" == "$expected_sha" ]] || return 27
+      [[ "$(evidence_field "$evidence" DEPLOYED_WEB_REVISION production-action.log)" == "$expected_sha" ]] || return 28
+      [[ "$(evidence_field "$evidence" DEPLOYED_OUTBOX_WORKER_REVISION production-action.log)" == "$expected_sha" ]] || return 29
+      [[ "$(evidence_field "$evidence" IR20_KAFKA_READY production-action.log)" == 1 ]] || return 30
+      [[ "$(evidence_field "$evidence" IR20_OUTBOX_WORKER_READY production-action.log)" == 1 ]] || return 31
+      [[ "$(evidence_field "$evidence" LIVE_ACCEPTANCE live.log)" == PASS ]] || return 32
+      [[ "$(evidence_field "$evidence" DURABLE_INTAKE_DB durable-intake-db.log)" == PASS ]] || return 33
+      [[ "$(evidence_field "$evidence" IR20_LIVE_OUTBOX_DELIVERY durable-intake-db.log)" == PASS ]] || return 34
+      [[ "$(evidence_field "$evidence" IR20_RUNTIME_OBSERVATION ir20-observation.log)" == PASS ]] || return 35
+    }
+
+    verify_main_matches() {
+      local expected_sha="$1" current_main="$2"
+      [[ "$expected_sha" =~ ^[0-9a-f]{40}$ && "$current_main" == "$expected_sha" ]]
+    }
 
 jobs:
+  controller-evidence-regression:
+    name: Controller evidence gate regression
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Exercise accepted and rejected controller evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          lib="$RUNNER_TEMP/controller-evidence-lib.sh"
+          printf '%s\n' "$CONTROLLER_EVIDENCE_LIB" > "$lib"
+          # shellcheck disable=SC1090
+          source "$lib"
+
+          sha='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+          repo='pachaninm-lab/pachanin-demo'
+          owner='pachaninm-lab'
+          run_json="$(jq -n --arg sha "$sha" --arg repo "$repo" --arg owner "$owner" '{
+            id: 42,
+            run_attempt: 3,
+            name: "platform-v7 safe merge",
+            path: ".github/workflows/platform-v7-safe-merge.yml",
+            event: "issue_comment",
+            head_branch: "main",
+            head_sha: $sha,
+            status: "completed",
+            conclusion: "success",
+            repository: {full_name: $repo},
+            head_repository: {full_name: $repo},
+            actor: {login: $owner},
+            triggering_actor: {login: $owner}
+          }')"
+          jobs_json="$(jq -n '{
+            total_count: 7,
+            jobs: [
+              {name:"production-release-control-3072",conclusion:"success"},
+              {name:"production-full-stack-execution-3072 / Validate full-stack release contract",conclusion:"success"},
+              {name:"production-full-stack-execution-3072 / Migrate, deploy API/web and canonical outbox, verify live delivery",conclusion:"success"},
+              {name:"production-auth-mail-cutover-3072 / Validate auth-mail cutover contract",conclusion:"success"},
+              {name:"production-auth-mail-cutover-3072 / Cut over exact production to durable auth-mail worker",conclusion:"success"},
+              {name:"production-reviewer-readiness-3072 / Validate production reviewer inspect contract",conclusion:"success"},
+              {name:"production-reviewer-readiness-3072 / Read-only REG.RU reviewer login readiness",conclusion:"success"}
+            ]
+          }')"
+
+          [[ "$(verify_controller_json "$run_json" "$jobs_json" 42 3 "$sha" "$repo" "$owner")" == true ]]
+
+          skipped_jobs="$(jq '(.jobs[] | select(.name=="production-release-control-3072").conclusion) = "skipped"' <<< "$jobs_json")"
+          [[ "$(verify_controller_json "$run_json" "$skipped_jobs" 42 3 "$sha" "$repo" "$owner")" == false ]]
+
+          missing_jobs="$(jq 'del(.jobs[] | select(.name=="production-auth-mail-cutover-3072 / Validate auth-mail cutover contract")) | .total_count=(.jobs|length)' <<< "$jobs_json")"
+          if verify_controller_json "$run_json" "$missing_jobs" 42 3 "$sha" "$repo" "$owner" >/dev/null; then
+            echo 'missing required job was accepted' >&2
+            exit 31
+          fi
+
+          duplicate_jobs="$(jq '.jobs += [.jobs[1]] | .total_count=(.jobs|length)' <<< "$jobs_json")"
+          if verify_controller_json "$run_json" "$duplicate_jobs" 42 3 "$sha" "$repo" "$owner" >/dev/null; then
+            echo 'duplicate required job was accepted' >&2
+            exit 32
+          fi
+
+          wrong_actor="$(jq '.actor.login="attacker"' <<< "$run_json")"
+          if verify_controller_json "$wrong_actor" "$jobs_json" 42 3 "$sha" "$repo" "$owner" >/dev/null; then
+            echo 'wrong controller actor was accepted' >&2
+            exit 33
+          fi
+
+          make_evidence() {
+            local dir="$1"
+            mkdir -p "$dir"
+            printf '%s\n' "$sha" > "$dir/target-sha.txt"
+            printf '%s\n' \
+              'EXACT_IMAGE_SOURCE=pinned-ssh' \
+              'MIGRATION_COMPLETE=1' \
+              'DEPLOYMENT_COMPLETE=1' \
+              "DEPLOYED_API_REVISION=$sha" \
+              "DEPLOYED_WEB_REVISION=$sha" \
+              "DEPLOYED_OUTBOX_WORKER_REVISION=$sha" \
+              'IR20_KAFKA_READY=1' \
+              'IR20_OUTBOX_WORKER_READY=1' \
+              > "$dir/production-action.log"
+            printf 'LIVE_ACCEPTANCE=PASS\n' > "$dir/live.log"
+            printf 'DURABLE_INTAKE_DB=PASS\nIR20_LIVE_OUTBOX_DELIVERY=PASS\n' > "$dir/durable-intake-db.log"
+            printf 'IR20_RUNTIME_OBSERVATION=PASS\n' > "$dir/ir20-observation.log"
+            (
+              cd "$dir"
+              sha256sum target-sha.txt production-action.log live.log durable-intake-db.log ir20-observation.log \
+                | sed 's#  #  artifacts/production-full-stack-release/#'
+            ) > "$dir/sha256.txt"
+          }
+
+          good="$RUNNER_TEMP/evidence-good"
+          make_evidence "$good"
+          verify_evidence_dir "$good" "$sha"
+
+          bad_checksum="$RUNNER_TEMP/evidence-bad-checksum"
+          cp -a "$good" "$bad_checksum"
+          printf 'tamper\n' >> "$bad_checksum/live.log"
+          if verify_evidence_dir "$bad_checksum" "$sha"; then
+            echo 'bad checksum was accepted' >&2
+            exit 34
+          fi
+
+          bad_marker="$RUNNER_TEMP/evidence-bad-marker"
+          cp -a "$good" "$bad_marker"
+          sed -i 's/^DEPLOYMENT_COMPLETE=1$/DEPLOYMENT_COMPLETE=0/' "$bad_marker/production-action.log"
+          (
+            cd "$bad_marker"
+            sha256sum target-sha.txt production-action.log live.log durable-intake-db.log ir20-observation.log \
+              | sed 's#  #  artifacts/production-full-stack-release/#'
+          ) > "$bad_marker/sha256.txt"
+          if verify_evidence_dir "$bad_marker" "$sha"; then
+            echo 'bad deployment marker was accepted' >&2
+            exit 35
+          fi
+
+          verify_main_matches "$sha" "$sha"
+          if verify_main_matches "$sha" 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'; then
+            echo 'main drift was accepted' >&2
+            exit 36
+          fi
+
   accepted:
     name: Resolve accepted protected Web release
     if: >-
       github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success'
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.name != 'platform-v7 safe merge'
     permissions:
       contents: read
       actions: read
@@ -41,16 +255,88 @@ jobs:
       release_run_id: ${{ github.event.workflow_run.id }}
       manual_sha: ''
 
+  accepted-full-stack:
+    name: Verify nested owner-controlled full-stack deployment
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.name == 'platform-v7 safe merge' &&
+      github.event.workflow_run.event == 'issue_comment' &&
+      github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: read
+      actions: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      deployment_accepted: ${{ steps.evidence.outputs.deployment_accepted }}
+      accepted_sha: ${{ steps.evidence.outputs.accepted_sha }}
+    steps:
+      - name: Verify controller identity and nested deploy jobs
+        id: controller
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTROLLER_RUN_ID: ${{ github.event.workflow_run.id }}
+          CONTROLLER_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          CONTROLLER_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          lib="$RUNNER_TEMP/controller-evidence-lib.sh"
+          printf '%s\n' "$CONTROLLER_EVIDENCE_LIB" > "$lib"
+          # shellcheck disable=SC1090
+          source "$lib"
+
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CONTROLLER_RUN_ID")
+          jobs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CONTROLLER_RUN_ID/attempts/$CONTROLLER_ATTEMPT/jobs?per_page=100")
+          candidate="$(verify_controller_json "$run" "$jobs" "$CONTROLLER_RUN_ID" "$CONTROLLER_ATTEMPT" \
+            "$CONTROLLER_SHA" "$GITHUB_REPOSITORY" "$GITHUB_REPOSITORY_OWNER")"
+          echo "candidate=$candidate" >> "$GITHUB_OUTPUT"
+          if [[ "$candidate" == false ]]; then
+            echo 'No owner release command in this safe-merge run.'
+          fi
+
+      - name: Download exact nested release evidence
+        if: steps.controller.outputs.candidate == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: production-full-stack-release-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+          path: nested-release-evidence
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Bind full-stack evidence to exact main and live deployment
+        id: evidence
+        if: steps.controller.outputs.candidate == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTROLLER_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          lib="$RUNNER_TEMP/controller-evidence-lib.sh"
+          printf '%s\n' "$CONTROLLER_EVIDENCE_LIB" > "$lib"
+          # shellcheck disable=SC1090
+          source "$lib"
+
+          evidence=nested-release-evidence
+          verify_evidence_dir "$evidence" "$CONTROLLER_SHA"
+
+          current_main=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          verify_main_matches "$CONTROLLER_SHA" "$current_main" || {
+            echo "Main advanced after the nested deployment: deployed=$CONTROLLER_SHA main=$current_main" >&2
+            exit 19
+          }
+          echo "accepted_sha=$CONTROLLER_SHA" >> "$GITHUB_OUTPUT"
+          echo 'deployment_accepted=true' >> "$GITHUB_OUTPUT"
+
   mobile-acceptance:
-    name: 320x700, 375x812, 390x844 and 430x932 production acceptance
-    needs: accepted
+    name: Chromium + WebKit 320x700, 375x812, 390x844 and 430x932 production acceptance
+    needs: [accepted, accepted-full-stack]
     if: >-
       always() &&
       (github.event_name == 'workflow_dispatch' ||
-       (github.event_name == 'workflow_run' &&
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.name == 'Production Full-Stack Exact-SHA Release') ||
-       needs.accepted.outputs.deployment_accepted == 'true')
+       needs.accepted.outputs.deployment_accepted == 'true' ||
+       needs.accepted-full-stack.outputs.deployment_accepted == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
@@ -60,15 +346,17 @@ jobs:
         env:
           INPUT_TARGET_SHA: ${{ inputs.target_sha }}
           ACCEPTED_SHA: ${{ needs.accepted.outputs.accepted_sha }}
-          RELEASE_TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
-          RELEASE_WORKFLOW: ${{ github.event.workflow_run.name }}
+          FULL_STACK_SHA: ${{ needs.accepted-full-stack.outputs.accepted_sha }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$GITHUB_EVENT_NAME" == workflow_run && -n "${ACCEPTED_SHA:-}" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" == workflow_run && -n "${FULL_STACK_SHA:-}" ]]; then
+            target_sha="$FULL_STACK_SHA"
+          elif [[ "$GITHUB_EVENT_NAME" == workflow_run && -n "${ACCEPTED_SHA:-}" ]]; then
             target_sha="$ACCEPTED_SHA"
           elif [[ "$GITHUB_EVENT_NAME" == workflow_run ]]; then
-            target_sha="$RELEASE_TARGET_SHA"
+            echo 'No accepted release evidence for this workflow run.' >&2
+            exit 2
           elif [[ -n "${INPUT_TARGET_SHA:-}" ]]; then
             target_sha="$INPUT_TARGET_SHA"
           else
@@ -85,10 +373,16 @@ jobs:
       - name: Verify exact public revision before browser acceptance
         id: revision
         env:
+          GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.target_sha }}
         shell: bash
         run: |
           set -euo pipefail
+          current_main=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          [[ "$current_main" == "$TARGET_SHA" ]] || {
+            echo "Main differs before mobile acceptance: target=$TARGET_SHA main=$current_main" >&2
+            exit 19
+          }
           evidence_dir='artifacts/platform-v7-production-mobile/live-revision'
           summary="$evidence_dir/attempts.tsv"
           mkdir -p "$evidence_dir"
@@ -158,15 +452,113 @@ jobs:
       - name: Install exact repository dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Chromium runtime
-        run: pnpm --filter @pc/web exec playwright install --with-deps chromium
+      - name: Install Chromium and WebKit runtimes
+        run: pnpm --filter @pc/web exec playwright install --with-deps chromium webkit
 
-      - name: Run exact mobile viewport acceptance
+      - name: Run exact dual-engine mobile viewport acceptance
         id: acceptance
         continue-on-error: true
         env:
           PLAYWRIGHT_BASE_URL: ${{ env.LIVE_BASE }}
         run: pnpm --filter @pc/web exec playwright test --config=playwright.production-mobile.config.ts
+
+      - name: Verify public Gekta burger handoff in Chromium and WebKit
+        id: burger-handoff
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ env.LIVE_BASE }}
+          EVIDENCE_DIR: ${{ github.workspace }}/artifacts/platform-v7-production-mobile/burger-handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          trap 'printf "FAIL\n" > "$EVIDENCE_DIR/result.txt"' ERR
+          pnpm --filter @pc/web exec node --input-type=module <<'NODE'
+          import { chromium, webkit } from '@playwright/test';
+
+          const base = process.env.PLAYWRIGHT_BASE_URL;
+          const evidence = process.env.EVIDENCE_DIR;
+          if (!base || !evidence) throw new Error('burger handoff environment missing');
+
+          for (const [engine, browserType] of [['chromium', chromium], ['webkit', webkit]]) {
+            const browser = await browserType.launch({ headless: true });
+            try {
+              const page = await browser.newPage({
+                viewport: { width: 390, height: 844 },
+                locale: 'ru-RU',
+                timezoneId: 'Europe/Moscow',
+              });
+              const response = await page.goto(
+                `${base}/platform-v7?lang=ru&burger-handoff=${Date.now()}`,
+                { waitUntil: 'load', timeout: 30_000 },
+              );
+              if (!response?.ok()) throw new Error(`${engine}: public home HTTP ${response?.status() ?? 'missing'}`);
+
+              const dock = page.locator(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
+              const launcher = dock.locator('.pc-public-contact-dock-assistant');
+              const bottomNav = page.locator('.pc-cp-bottom-nav');
+              await dock.waitFor({ state: 'visible', timeout: 15_000 });
+              await launcher.waitFor({ state: 'visible', timeout: 15_000 });
+              await bottomNav.waitFor({ state: 'visible', timeout: 15_000 });
+
+              const [launcherBox, bottomBox] = await Promise.all([launcher.boundingBox(), bottomNav.boundingBox()]);
+              if (!launcherBox || !bottomBox) throw new Error(`${engine}: launcher/nav geometry missing`);
+              if (launcherBox.width < 44 || launcherBox.height < 44) {
+                throw new Error(`${engine}: launcher below 44px (${launcherBox.width}x${launcherBox.height})`);
+              }
+              if (launcherBox.y + launcherBox.height > bottomBox.y - 4) {
+                throw new Error(`${engine}: launcher overlaps bottom navigation`);
+              }
+
+              const menu = page.locator('details.pc-site-mobile-menu');
+              const toggle = menu.locator('summary');
+              await toggle.click();
+              await page.waitForFunction(() => document.querySelector('details.pc-site-mobile-menu')?.hasAttribute('open'));
+              await dock.waitFor({ state: 'hidden', timeout: 5_000 });
+              await page.screenshot({ path: `${evidence}/${engine}-burger-open.png`, animations: 'disabled' });
+
+              await toggle.click();
+              await page.waitForFunction(() => !document.querySelector('details.pc-site-mobile-menu')?.hasAttribute('open'));
+              await dock.waitFor({ state: 'visible', timeout: 5_000 });
+              await launcher.waitFor({ state: 'visible', timeout: 5_000 });
+              await page.screenshot({ path: `${evidence}/${engine}-burger-closed.png`, animations: 'disabled' });
+
+              await launcher.click();
+              const panel = page.locator('#pc-public-assistant-panel');
+              await panel.waitFor({ state: 'visible', timeout: 15_000 });
+              await panel.locator('textarea').waitFor({ state: 'visible', timeout: 15_000 });
+              await page.screenshot({ path: `${evidence}/${engine}-assistant-panel.png`, animations: 'disabled' });
+            } finally {
+              await browser.close();
+            }
+          }
+          NODE
+          trap - ERR
+          printf 'PASS\n' > "$EVIDENCE_DIR/result.txt"
+
+      - name: Confirm exact main and live revision after browser acceptance
+        id: final_revision
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+          INITIAL_REVISION_OUTCOME: ${{ steps.revision.outcome }}
+          ACCEPTANCE_OUTCOME: ${{ steps.acceptance.outcome }}
+          BURGER_HANDOFF_OUTCOME: ${{ steps.burger-handoff.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$INITIAL_REVISION_OUTCOME" == success && "$ACCEPTANCE_OUTCOME" == success && "$BURGER_HANDOFF_OUTCOME" == success ]]
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          live_sha=$(curl --fail --silent --show-error --location --compressed \
+            --connect-timeout 10 --max-time 30 --retry 2 --retry-all-errors \
+            "$LIVE_BASE/manifest-pc-deploy.json?mobile-final=$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" | jq -r '.commitSha // empty')
+          [[ "$live_sha" == "$TARGET_SHA" ]]
+          current_main=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          [[ "$current_main" == "$TARGET_SHA" ]] || {
+            echo "Main advanced during mobile acceptance: target=$TARGET_SHA main=$current_main" >&2
+            exit 19
+          }
 
       - name: Publish mobile acceptance record
         if: always()
@@ -176,19 +568,33 @@ jobs:
           REVISION_OUTCOME: ${{ steps.revision.outcome }}
           MANIFEST_SHA: ${{ steps.revision.outputs.manifest_sha }}
           ACCEPTANCE_OUTCOME: ${{ steps.acceptance.outcome }}
+          BURGER_HANDOFF_OUTCOME: ${{ steps.burger-handoff.outcome }}
+          FINAL_REVISION_OUTCOME: ${{ steps.final_revision.outcome }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts/platform-v7-production-mobile
           [[ "$REVISION_OUTCOME" == success ]] && revision_result=PASS || revision_result=FAIL
-          case "$ACCEPTANCE_OUTCOME" in success) result=PASS ;; failure) result=FAIL ;; *) result=NOT_RUN ;; esac
+          [[ "$FINAL_REVISION_OUTCOME" == success ]] && final_revision_result=PASS || final_revision_result=FAIL
+          [[ "$BURGER_HANDOFF_OUTCOME" == success ]] && burger_result=PASS || burger_result=FAIL
+          if [[ "$ACCEPTANCE_OUTCOME" == success && "$FINAL_REVISION_OUTCOME" == success ]]; then
+            result=PASS
+          elif [[ "$ACCEPTANCE_OUTCOME" == failure || "$FINAL_REVISION_OUTCOME" == failure ]]; then
+            result=FAIL
+          else
+            result=NOT_RUN
+          fi
           record=artifacts/platform-v7-production-mobile/issue-comment.md
           {
-            echo "## Platform V7 + Gekta production mobile acceptance \`$GITHUB_RUN_ID\`"
+            echo "## Platform V7 + Gekta production mobile acceptance \`$GITHUB_RUN_ID\` attempt \`$GITHUB_RUN_ATTEMPT\`"
             echo
             echo "- target SHA: \`$TARGET_SHA\`"
             echo "- exact public revision gate: \`$revision_result\`"
+            echo "- final exact main/live revision gate: \`$final_revision_result\`"
+            echo "- Gekta burger open/hide/close/restore and real assistant panel (Chromium + WebKit): \`$burger_result\`"
             echo "- manifest revision: \`${MANIFEST_SHA:-missing}\`"
+            echo "- browser engines: \`Chromium + WebKit\`"
+            echo "- retries: \`0\`"
             echo "- Gekta viewport 320×700: \`$result\`"
             echo "- Gekta viewport 375×812: \`$result\`"
             echo "- Platform V7 + Gekta viewport 390×844: \`$result\`"
@@ -197,9 +603,19 @@ jobs:
             echo "- Gekta EN/ZH canonical mobile smoke: \`$result\`"
             echo "- horizontal overflow: \`$result\`"
             echo "- 44 px Gekta primary touch targets: \`$result\`"
+            echo "- mobile Trust cards one-column/readable contract: \`$result\`"
+            echo "- Market RU/EN/ZH never accepts unavailable as PASS: \`$result\`"
+            echo "- linked public pages RU/EN/ZH: \`$result\`"
+            echo "- Gekta launcher above bottom navigation: \`$result\`"
+            if [[ "$result" == PASS ]]; then
+              echo "- failures: \`0\`"
+            else
+              echo "- failures: \`nonzero-or-not-run\`"
+            fi
             echo "- Platform V7 sticky header, anchors and Deal workspace: \`$result\`"
             echo "- screenshots and traces: workflow artifact"
             echo "- workflow run ID: \`$GITHUB_RUN_ID\`"
+            echo "- workflow run attempt: \`$GITHUB_RUN_ATTEMPT\`"
           } > "$record"
           gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
 
@@ -214,16 +630,20 @@ jobs:
           for candidate in apps/web/test-results/production-mobile apps/web/playwright-report-production-mobile; do
             [[ ! -e "$candidate" ]] || roots+=("$candidate")
           done
-          find "${roots[@]}" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$evidence_dir/sha256.txt"
           printf '%s\n' '${{ steps.target.outputs.target_sha }}' > "$evidence_dir/target-sha.txt"
           printf '%s\n' '${{ steps.revision.outcome }}' > "$evidence_dir/revision-outcome.txt"
           printf '%s\n' '${{ steps.acceptance.outcome }}' > "$evidence_dir/outcome.txt"
+          printf '%s\n' '${{ steps.burger-handoff.outcome }}' > "$evidence_dir/burger-handoff-outcome.txt"
+          printf '%s\n' '${{ steps.final_revision.outcome }}' > "$evidence_dir/final-revision-outcome.txt"
+          printf '%s\n' "$GITHUB_RUN_ATTEMPT" > "$evidence_dir/run-attempt.txt"
+          printf '%s\n' 'chromium' 'webkit' > "$evidence_dir/browser-engines.txt"
+          find "${roots[@]}" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$evidence_dir/sha256.txt"
 
       - name: Upload production mobile evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: platform-v7-production-mobile-${{ github.run_id }}
+          name: platform-v7-production-mobile-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
             apps/web/test-results/production-mobile
             apps/web/playwright-report-production-mobile
@@ -239,3 +659,5 @@ jobs:
           set -euo pipefail
           [[ '${{ steps.revision.outcome }}' == success ]] || exit 41
           [[ '${{ steps.acceptance.outcome }}' == success ]] || exit 40
+          [[ '${{ steps.burger-handoff.outcome }}' == success ]] || exit 43
+          [[ '${{ steps.final_revision.outcome }}' == success ]] || exit 42

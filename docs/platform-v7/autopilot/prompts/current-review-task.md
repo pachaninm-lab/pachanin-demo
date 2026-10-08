@@ -1,211 +1,32 @@
-# Review current task — IR-10.4 Settlement PostgreSQL Authority
+# Independent review — atomic canonical readiness prerequisite #4829
 
-Maturity: pre-integration / isolated PostgreSQL evidence only.
-Do not imply live bank, nominal-account, credit, reserve or payout integration.
-Do not auto-merge. Review exact diff, exact-head evidence and repository scope.
+Inspect the complete exact-published-head diff against accepted main and the [owner-approved eleven-path disposition](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5935185862). Verify the existing readiness branch, CORE source ownership and ordinary ancestry preserving original readiness plus #5770/#5771. This bounded atomic exception supersedes only the previous metadata-first/source sequence, not any acceptance gate.
 
-## Required scope checks
+Require exactly the five named governance documents, exact #5771/e358 staff-test blob `1b0010715cbcd636d15b1c9c4e5587baca16137c`, and all five unchanged COR5 blobs/modes from #4829/comment5930247718. Check every before/after transition and regular 100644 mode in `canonical-readiness-cor5-4829-20261001`; BLOCK an omitted/extra path, altered source blob or mode. Verify every other accepted-base tree leaf, all old PRODUCT/concurrent vectors and coordination admissions unchanged. Primary/writable scopes must list precisely eleven paths, including only the exact staff test, with no broader wildcard. Candidate state and additive legacy manifest do not independently authorize this diff or enforce an immutable exact-eleven gate.
 
-- `apps/landing`, `apps/web`, lockfiles and packages diff must be 0 for the serialized IR-10.4 branch, except for the explicitly approved concurrent scopes below;
-- no live provider activation, credentials or fake-live claims;
-- no RuntimeCore, optional Prisma, repository factory, ActionExecutor memory authority or process-memory OutboxService in the production settlement graph;
-- no float/`amountRub` financial authority;
-- no human/operator confirmation of reserve or release;
-- no trigger/RLS/idempotency/ledger bypass in fixtures;
-- no temporary/self-modifying workflow and no direct push from Actions;
-- state, task prompt and actual diff must agree.
+BLOCK readiness deadline/grace/threshold changes, queue RLS bypass, privileged credentials, hidden service-wide-health claims, unknown migration success, cache renewal from stale facts, unbounded concurrent queries or expanded auth/rate exemptions. Guard, workflow, manifest, PgBouncer, dependency and migration bytes must remain unchanged.
 
-## Approved concurrent infrastructure scope — IR-K8S #2659 / PR #2660
+Require fresh separate nonauthor full-head review, distinct implementation-owner audit, applicable complete substantive native CI/security/PostgreSQL evidence and actual Kubernetes zero-failure PgBouncer, deep-outbox and cleanup gates. Preserve #5770 Security Abuse and #5771 Kubernetes failures. Prior proposal review5932138051 and local composition tests are not final-head approval or hosted CI. Distinguish passed assertions, skipped phases/tests and pre-existing open-handle/worker-teardown warnings. Any head change invalidates prior review/audit/CI; all current findings and readiness must be freshly checked before an ordinary manual expected-full-SHA merge.
 
-The serialized primary task remains IR-10.4. A separate, isolated infrastructure acceptance slice is authorized for branch `ir/k8s-production-like-2659` under:
+Official progress remains 5/100. No production, 13-role, R1 or full-spec completion follows from this slice. Gekta's subsequent existing-owner activation/live acceptance priority grants no extra source or release scope; exact-main REG.RU and remaining topology/release requirements remain separate.
 
-`docs/platform-v7/autopilot/scopes/ir-k8s-production-like-2659.json`
+## Queued snapshot-only topology admission and draft review — 2026-10-01
 
-Review this branch only against that exact allow-list. It may add the production-like Kubernetes workflow, disposable kind topology, runtime dependencies, hardening manifests, PgBouncer configuration and `scripts/release/production-like-kubernetes-*` acceptance/evidence tooling. It must not change application/domain code, Prisma schema or migrations, web code, packages or lockfiles.
+Review this preparation as exactly five existing regular 100644 governance files: state, progress, current task/review prompts and execution queue. Verify the append-only state vector/record, one appended progress blocker and three appended document sections. Removing these additions must restore every accepted-base byte/value; all 184 prior vectors, 49 admissions, PRIMARY/current/writable scopes, owners, diagnostic history, COR5 and official 5/100 remain unchanged. Every source/tree leaf and mode outside those five paths must be identical.
 
-This concurrent scope proves only a disposable multi-node production-like deployment, immutable rollout and same-schema rollback. It does not advance the global maturity status, does not prove provider HA/PITR or production capacity, and does not authorize any live external integration.
+The later draft on `fix/tai-bounded-topology-observer-20261001` must contain exactly the two source transitions pinned in `tai-bounded-topology-observer-20261001`: shell `8f0f285b` -> `ac60f97d`, mode 100755; checker `15fb496d` -> `70071581`, mode 100644. Verify complete Git/SHA256 identities, not these abbreviations. Ordinary concurrent scopes do not mechanically enforce source hashes or exact-two-file exclusivity; reject any unapproved content/path/mode even if generic guards pass.
 
-## Approved concurrent public homepage scope — PR #3046
+Preserve the legacy classifier fingerprint, all checks/blockers/maturity/passed and the five-blocker fixture. Require typed redacted existing-snapshot facts, complete ordered lexical input/service counts and unchanged duplicates. Never label fresh persisted/discovery models, immutable/default-command/entrypoint evidence, registry authority or freshness proven. Verify no added Docker/Compose/network/protected-source reads; explicitly allow the single bounded-data Python collector and existing private work JSON/stdin/optional JSON reads, with no collector child process or new wall-clock guarantee. Test malformed/unavailable/oversize optional data, final UTF-8 plus newline size, bounded-unknown fallback and omission when even unknown cannot fit; preserve oversized legacy reports rather than truncating them.
 
-The user explicitly authorized a narrow public-copy completion slice on branch `agent/platform-v7-strategic-rebuild-v3` under:
+Require separate actual-head independent review, owner audit and applicable native CI/security; do not transfer private fixture PASS. Governance admission still requires full fresh readiness before its ordinary merge, plus explicit runtime-window closure and fresh main/Hub checks. For the source draft, report expected draft-status readiness blocking and never mark it ready solely to obtain PASS; full source readiness applies only before later separately authorized source acceptance. Source publication is draft-only; source merge and server execution stay held because inherited controllers pull images and refresh protected checkout. No end-to-end zero-write, production/topology acceptance, new permission/cost or model activation claim is authorized.
 
-`docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json`
 
-Review this branch only against its exact allow-list. It may change the RU/EN/ZH public homepage copy, the dedicated public-copy test and the bound scope manifest. It must not change API, database, RBAC, protected routes, TAI runtime, intake persistence, deployment topology, lockfiles or packages.
+## Gekta consent and first-user release prerequisites — 2026-10-08
 
-The public text must present the platform through capabilities and user outcomes, must not contain development-stage or maturity-status language, and must not claim that bank, FGIS, EDI or another external system is connected without separate runtime evidence.
+The renewed user instruction «Делай всё и завершай» and Hub6069284294 continue the existing Gekta/CORE lane. This five-document admission adds only three exact paths to the existing security vector and two exact metadata paths to the existing first-user consent-race vector. It changes no primary/global/current scope, owner, guard, workflow, old admission, source or official 5/100.
 
-## Approved concurrent premium homepage completion — PR #3191
+Use the state record `gekta-consent-first-user-release-prerequisites-20261008` as the exact payload for two separate source PRs: nine regular security files (current signed consent, actual client consent/quota decision, explicit consent before production smoke generation and tests) and six regular first-user files (complete #4637 journal handoff after the security checker is accepted). Preserve the historical #3072 provisioning authority. The existing candidate-list guard route is not immutable payload enforcement; genuine independent whole-tree review must verify all pinned blobs/modes and reject extras, independently of guard PASS.
 
-The user explicitly authorized a finite UX/UI completion of the public `/platform-v7` homepage on branch `agent/platform-v7-home-10of10-v1`. This authority is independent of the implementation branch and is effective only after the governance PR that adds this section is merged to `main`.
+Fresh exact-head independent review, separate implementation-owner audit, substantive CI/security/PostgreSQL/Kubernetes and manual readiness precede each ordinary expected-full-SHA source merge. Keep #5836 P2 4224220487 unresolved until the actual client correction is present and independently inspected; consent restriction cannot release with the old pre-consent smoke. Native independent review is optional as a provider but actual review is mandatory. No private test, old head or metadata admission substitutes for source acceptance.
 
-The branch is bound to `docs/platform-v7/autopilot/scopes/platform-v7-home-10of10-v1.json` and may change only these paths:
-
-- `apps/web/app/platform-v7/page.tsx`;
-- `apps/web/components/platform-v7/OrganizationConnectForm.module.css`;
-- `apps/web/components/platform-v7/OrganizationConnectForm.tsx`;
-- `apps/web/components/platform-v7/PlatformV7StrategicHome.tsx`;
-- `apps/web/components/platform-v7/PublicContactDock.tsx`;
-- `apps/web/components/platform-v7/PublicDealRoleScenario.module.css`;
-- `apps/web/components/platform-v7/PublicDealRoleScenario.tsx`;
-- `apps/web/i18n/platform-v7-hero-message.ts`;
-- `apps/web/i18n/platform-v7-home-v3.ts`;
-- `apps/web/i18n/platform-v7-organization-connect.ts`;
-- `apps/web/styles/platform-v7-hero-infrastructure-message.css`;
-- `apps/web/styles/platform-v7-strategic-home-v3.css`;
-- `apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts`;
-- `apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts`;
-- `apps/web/tests/unit/platformV7PublicIndustrialCopy.test.ts`;
-- `apps/web/tests/unit/platformV7PublicTypography.test.ts`;
-- `apps/web/tests/unit/platformV7RootWorkEntry.test.ts`;
-- `apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts`;
-- `docs/platform-v7/autopilot/scopes/platform-v7-home-10of10-v1.json`.
-
-This slice may improve visual hierarchy, page density, hero and Control Tower presentation, responsive layout, RU/EN/ZH copy, public role simulation, progressive organization-intake UX, contact-dock behavior, SEO metadata and their bound tests. It must preserve the existing Deal/domain architecture, durable intake endpoint and idempotency contract, server-authoritative RBAC, TAI action boundaries, bank authority, government adapters and REG.RU production topology. It must not change API code, database schema or migrations, protected routes, packages, lockfiles, production workflows, secrets or deployment topology.
-
-Return BLOCKED if the diff exceeds the exact allow-list; if public copy claims verified connectivity without runtime evidence; if the scenario is presented as a real live Deal; if the progressive form weakens consent, durable idempotency, replay conflict, rate limiting or no-JavaScript fail-closed behavior; if RU/EN/ZH is incomplete; or if mobile accessibility, 44×44 targets, no-overflow, browser matrix or Lighthouse thresholds fail.
-
-## Approved concurrent public organization intake scope
-
-The user explicitly authorized a durable organization-connection intake on branch `agent/platform-v7-organization-intake-v1` under:
-
-`docs/platform-v7/autopilot/scopes/platform-v7-organization-intake-v1.json`
-
-Review this branch only against its exact allow-list. It may add one pre-tenant PostgreSQL request model and forward-only migration, a public API intake module, a same-origin web BFF, the existing RU/EN/ZH form wiring and targeted API/web tests. It must not create organizations, users, memberships, roles or tenants; it must not change Deal, money, bank, FGIS, EDI, TAI or deployment authority.
-
-The request, audit event and outbox event must commit atomically. Raw IP and user-agent values must never be stored. Personal data must not enter logs, analytics, audit metadata, outbox payloads or URLs. Exact idempotency replay must return the original request; conflicting replay and rate-limit violations must fail closed.
-
-## Approved concurrent production web hardening scope — PR #3044
-
-The user explicitly authorized a narrow REG.RU web-only operational slice on branch `ops/production-web-hardening-v1`. Review only these paths:
-
-- `.github/workflows/production-hosting-authority.yml`;
-- `.github/workflows/production-web-exact-sha.yml`;
-- `.github/workflows/production-web-key-normalization-retry.yml`;
-- `apps/web/app/api/health/ready/route.ts`;
-- `docs/ops/active-hosting-contour.md`;
-- `docs/ops/production-web-hardening.md`;
-- `docs/ops/virtual-server-production-runbook.md`;
-- `docs/ops/vps-post-deploy-checklist.md`;
-- `infra/compose/production-web-hardening.override.yml`;
-- `infra/docker/Dockerfile.web`;
-- `scripts/check-production-hosting-authority.mjs`;
-- `scripts/check-production-web-hardening.mjs`;
-- `scripts/production-web-exact-sha.sh`;
-- `scripts/production-web-live-acceptance.sh`;
-- `scripts/production-web-remote-entrypoint.sh`.
-
-This slice may add exact-SHA web deployment, readiness healthcheck, immutable rollback, Compose metadata recovery, Watchtower retirement and a one-shot fail-closed SSH private-key normalization retry against the already published immutable target. It must not change API, PostgreSQL, migrations, Caddy, production environment values, volumes, networks, domain logic, money logic, external integrations, packages or lockfiles. Production claims require running OCI revision and live-domain evidence.
-
-## Approved concurrent TAI model-capacity scope — issue #3317
-
-Review branch `agent/tai-ap-19a-model-capacity-gate-3317` only against the exact
-allow-list in `autopilot-state.json`.
-
-The branch may introduce a bounded non-blocking local-model capacity gate, production
-configuration `TAI_MODEL_MAX_INFLIGHT` with default `1` and allowed range `1..4`,
-overload propagation to HTTP 429 plus `Retry-After`, and focused tests. Primary and
-fallback attempts for one request must share one admitted slot, and the slot must be
-released after success, empty output, and every exception.
-
-Return BLOCKED if the diff adds a queue, raises the default above `1`, treats overload as
-an ordinary RAG abstention, acquires another slot for fallback, bypasses model admission
-or local-only transport, changes production topology, enables a write tool, or claims
-measured performance, model admission, deployment, or operational acceptance.
-
-## Automatic hard blockers
-
-Return BLOCKED immediately for any of the following:
-
-1. Settlement mutation still calls RuntimeCore or process-memory OutboxService.
-2. Money authority is persisted or calculated in floating-point units.
-3. `confirmWorksheet`, `releasePayment` or another human endpoint can confirm bank money movement.
-4. Callback validation omits partner/key version/event/operation/fingerprint binding.
-5. Exact callback replay creates a second financial effect, while conflicting replay is accepted.
-6. Reserve, release, refund, beneficiary allocation or partial payout can exceed confirmed funds or become negative.
-7. Payment/bank-operation/ledger/audit/outbox writes can partially commit.
-8. Confirmed ledger or callback facts can be updated or deleted.
-9. Reconciliation mismatch silently changes authority instead of entering manual review.
-10. Same-tenant outsider or cross-tenant access passes under restricted principals.
-11. CI is made green by disabling RLS, triggers, constraints or required tests.
-
-For the approved IR-K8S concurrent scope, also return BLOCKED if:
-
-12. The actual diff exceeds the allow-list in the IR-K8S scope manifest.
-13. A chart or acceptance overlay creates additive broad egress that weakens destination-scoped NetworkPolicy.
-14. A probe/helper pod impersonates a monitored workload selector or gains unnecessary network authority.
-15. Images are mutable, mixed-commit, not registry-digest addressed or not bound to the exact head.
-16. API or worker runs schema migrations, or application principals gain DDL authority.
-17. Evidence is not machine-readable, exact-head bound or contains violated thresholds.
-
-For the public homepage concurrent scope, return BLOCKED if:
-
-18. The diff exceeds the bound homepage scope.
-19. Public copy includes implementation-stage, pilot, pre-live or maturity-status language.
-20. Public copy states that an external system is connected without verified runtime evidence.
-21. RU, EN or ZH is incomplete or semantically inconsistent.
-
-For the public organization intake concurrent scope, return BLOCKED if:
-
-22. The diff exceeds the bound organization-intake scope.
-23. Request persistence is in-memory, client-authoritative or non-transactional.
-24. Personal data, raw IP or raw user-agent values enter logs, URLs, analytics, audit metadata or outbox payloads.
-25. Consent version/timestamp, payload hash, idempotency key or database-backed rate limits are missing.
-26. Exact replay creates a second request, conflicting replay is accepted, or request/audit/outbox can partially commit.
-27. The public endpoint creates an organization, user, membership, role, tenant or privileged session.
-
-For the production web hardening concurrent scope, return BLOCKED if:
-
-28. The diff exceeds the 15-path hardening allow-list.
-29. SSH identity or protected server paths are committed, printed or defaulted to an unprotected principal.
-30. Deployment uses `latest`, mutable-image acceptance or Watchtower polling as release evidence.
-31. A non-web service, Caddy, environment, volume, network, API or database is mutated.
-32. The image lacks exact manifest/revision binding, readiness healthcheck or an immutable rollback path.
-33. The retry workflow accepts a public key, encrypted key, unknown key material or secret disclosure instead of failing closed before SSH.
-
-## Review questions
-
-1. Does production bootstrap fail closed for missing, memory and unknown payment repository modes?
-2. Is PostgreSQL the only production settlement authority?
-3. Are tenant, actor, Deal participation and financial role derived server-side?
-4. Are all amounts integer kopecks with explicit overflow and boundary checks?
-5. Are payment terms and release basis versioned Deal-linked facts?
-6. Do reserve/release/refund requests atomically create payment state, bank operation, audit and PENDING outbox?
-7. Can only a verified callback confirm money movement?
-8. Are callbacks durably idempotent across restart and multiple instances?
-9. Are holds, partial releases, beneficiary allocations and refunds bounded by confirmed reserve?
-10. Are ledger entries append-only, balanced and linked to audit/correlation IDs?
-11. Does reconciliation mismatch fail closed without mutating confirmed authority?
-12. Are same-tenant outsiders and cross-tenant users denied by PostgreSQL RLS?
-13. Do empty/baseline migrations, drift, typecheck, tests, build, one-deal, DR and exact-head security gates pass?
-
-For IR-K8S #2659 additionally verify:
-
-14. Does default Helm rendering remain fail-closed with zero executable workloads?
-15. Are API, web, worker and migration images a complete immutable exact-head digest set?
-16. Does one separate migration Job complete before API/web/worker rollout?
-17. Are two replicas of API, web and outbox worker ready on separate worker nodes?
-18. Do PDB, anti-affinity, non-root, read-only filesystem, dropped capabilities, seccomp and disabled service-account tokens hold at runtime?
-19. Are NetworkPolicies destination-scoped without additive broad chart policies?
-20. Do single-pod deletion, rolling update and same-schema rollback meet all declared thresholds?
-21. Does the evidence artifact identify the exact commit, commands, actuals, thresholds, violations and maturity boundary?
-
-## Mandatory exact PostgreSQL proof matrix
-
-- reserve request and verified callback confirmation;
-- release request and verified callback confirmation;
-- exact replay and conflicting replay;
-- two-instance callback and command races;
-- restart persistence;
-- same-tenant outsider and cross-tenant denial;
-- hold/dispute blocking;
-- partial payout and multiple beneficiaries;
-- over-release, negative amount and overflow denial;
-- refund bounds;
-- reconciliation match and mismatch/manual review;
-- full rollback with no partial payment/bank operation/ledger/audit/outbox effects;
-- append-only denial for confirmed financial facts.
-
-## Decision format
-
-Return PASS or BLOCKED. If BLOCKED, state severity, exact file/line or migration object, financial or operational risk and exact fix. Industrial Integration-Ready remains NO-GO regardless of this slice until IR-90 acceptance.
+After source acceptance the existing exact-main REG.RU application release remains separate. Actual immutable running revisions, live checks and observation are required. Full first-user PASS additionally requires real mail, user MFA and the visible existing PLATFORM_OWNER fresh-MFA 7/30/lifetime ceremony. No new model grant/service-control permission, registration receipt, purge/schema/history mutation, expense, R1/progress or whole-Gekta completion follows.

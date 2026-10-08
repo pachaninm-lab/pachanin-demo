@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4529,
+  "branch": "sec/asvs-applicability-4529",
+  "status": "active",
+  "purpose": "Move ASVS from inventory toward evidence-backed applicability by making an unearned PASS impossible to express, and decide the first chapter whose inapplicability is machine-provable.",
+  "authorityBaseExactMain": "5d70577f51dec7cc318f2582453660b25be05fb9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/sbom-scan.yml",
+    "docs/platform-v7/autopilot/scopes/asvs-applicability-4529.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "scripts/security/asvs-decisions.mjs",
+    "scripts/security/asvs-decisions.test.mjs",
+    "scripts/security/build-asvs-matrix.mjs",
+    "scripts/security/build-asvs-matrix.test.mjs"
+  ],
+  "requiredInvariants": [
+    "No PASS may be inferred from the presence of MFA, RLS, CodeQL, an SBOM or a passing test; each requirement needs its own evidence.",
+    "NOT_APPLICABLE requires a technical justification and at least one condition re-evaluated on every run.",
+    "PASS requires the requirement to be APPLICABLE and to carry evidence and conditions.",
+    "FAIL stays FAIL and must describe the gap.",
+    "A malformed or stale decision is rejected, never silently downgraded to pending.",
+    "finalPass stays false while any requirement is NOT_ASSESSED or PENDING_APPLICABILITY_REVIEW.",
+    "Requirement prose from the standard must not be copied into the evidence artifact.",
+    "Proprietary source must not be sent to any external service; only the pinned public standard is downloaded.",
+    "No product logic, dependency, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "A decision without evidence fails.",
+    "A decision with no conditions fails.",
+    "A decision whose condition stopped holding is rejected and the requirement returns to pending.",
+    "A PASS on a NOT_APPLICABLE requirement fails.",
+    "A decision for a requirement absent from the pinned standard fails.",
+    "Duplicate decisions fail.",
+    "One pending requirement out of hundreds still blocks finalPass.",
+    "V17 WebRTC is NOT_APPLICABLE on machine-verified absence, and V10 OAuth/OIDC is deliberately left applicable.",
+    "The concurrent-scope guard accepts exactly the seven authorized paths."
+  ]
+}

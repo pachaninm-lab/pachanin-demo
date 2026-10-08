@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4855,
+  "branch": "security/v831-stale-evidence-ref-4855",
+  "status": "active",
+  "purpose": "Finish what #4855 started. That pass established that infra/sql/production-rls-policies.sql is applied by no deploy path, and re-pointed V8.3.1's revocation condition at the migration chain accordingly - but it appended the migration to the evidence array instead of replacing the artifact, so the artifact stayed. scripts/security/asvs-decisions.mjs joins every entry of that array into evidence_ref, which means the generated matrix went on presenting a file that reaches no database as evidence that authorization is enforced. Raised by review on #4855 after it had already merged; verified against the generated matrix rather than taken on trust.",
+  "authorityBaseExactMain": "d3d00c0fe",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/v831-stale-evidence-ref-4855.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "The verdict does not move. V8.3.1 stays PASS, because this is a defect in what the record cites, not in the control the requirement is about - the same distinction #4855 itself drew when it declined to move the status.",
+    "Only the artifact reference is removed. The global guard and the RLS transaction service stay, and so does the migration #4855 added; those three are what the requirement actually rests on.",
+    "V8.1.1 is NOT touched. It cites the same artifact and there the citation is legitimate: V8.1.1 is about authorization DOCUMENTATION, and a document need not execute to be one. Removing it there would be the mirror image of the error being fixed here.",
+    "No source code changes. No migration. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "The defect was verified in the generated artifact, not argued from the decisions file: before the change ASVS_MATRIX.csv gave V8.3.1 an evidence_ref containing policies:infra/sql/production-rls-policies.sql; after it, that reference is gone and the remaining three are the guard, the transaction context and the applied migration.",
+    "Counts unchanged: PASS 126 / FAIL 93 / NOT_APPLICABLE 88 / NOT_ASSESSED 38. No other verdict moved.",
+    "Revocation still works after the edit, which is the thing that would have been easy to break: gutting every CREATE POLICY and ENABLE ROW LEVEL SECURITY out of the applied chain moves V8.3.1 from PASS to NOT_ASSESSED, and restoring the chain returns it to PASS. The condition #4855 installed is still load-bearing.",
+    "The diff is a single deleted line. The file was rewritten through JSON.parse/stringify with two-space indent and a trailing newline, matching its existing formatting exactly, so nothing else moved."
+  ]
+}

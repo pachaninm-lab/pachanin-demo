@@ -1,0 +1,359 @@
+name: Production Auth-Mail Worker Remount f166
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-auth-mail-worker-remount-f166.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-auth-mail-worker-remount-f166
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  TARGET_ISSUE_NUMBER: '3785'
+  SUBJECT_PRODUCTION_SHA: f166f50e8526cf43f3193e771be05ebc66888494
+  REMEDIATION_COMMAND: /production p0-auth-mail-worker-remount-f166
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate worker-only recreate boundary
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('.github/workflows/production-auth-mail-worker-remount-f166.yml').read_text(encoding='utf-8')
+          required=[
+            '--force-recreate auth-mail-worker',
+            'AUTH_MAIL_PRISMACLIENTINITIALIZATIONERROR',
+            'API_WEB_UNCHANGED',
+            'WORKER_READY',
+            'DB_CREDENTIAL_MUTATED 0',
+            'PRODUCTION_MUTATION AUTH_MAIL_WORKER_RECREATED_AND_NORMAL_PROCESSING_RESUMED',
+          ]
+          missing=[x for x in required if x not in text]
+          if missing: raise SystemExit('missing invariant: '+' | '.join(missing))
+          remediation=text.split('\n  remediate:\n',1)[1]
+          forbidden=[
+            'ALTER ROLE','CREATE ROLE','DROP ROLE','UPDATE auth.','INSERT INTO','DELETE FROM',
+            'provision-production-auth-mail-runtime','docker restart','docker rm -f','docker system prune',
+            'PASSWORD_RESET_REPLAYED','PC_SMTP_PASS=',
+          ]
+          bad=[x for x in forbidden if x in remediation]
+          if bad: raise SystemExit('unsafe remediation surface: '+' | '.join(bad))
+          PY
+
+  remediate:
+    name: Recreate only retained f166 auth-mail worker
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3785 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/production p0-auth-mail-worker-remount-f166' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bind exact current main and fixed deployed subject
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$(git rev-parse HEAD)" == "$main_sha" ]]
+          [[ "$SUBJECT_PRODUCTION_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "${SUBJECT_PRODUCTION_SHA}^{commit}"
+          git merge-base --is-ancestor "$SUBJECT_PRODUCTION_SHA" "$main_sha"
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+          echo "subject_sha=$SUBJECT_PRODUCTION_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || exit 10
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || exit 11
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || exit 13
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"; chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 14
+          scan="$(mktemp)"; match="$(mktemp)"; ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do
+              [[ -n "$line" ]] || continue
+              fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+              [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+            done < "$scan"
+            sort -u -o "$match" "$match"
+            [[ "$(grep -c . "$match" || true)" == 1 ]] && { ready=1; break; }
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$ready" == 1 ]] || exit 15
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; python3 --version >/dev/null; echo SSH_AUTH_OK' | grep -Fxq SSH_AUTH_OK
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Recreate exact worker and rebind current root projection
+        id: repair
+        shell: bash
+        env:
+          SUBJECT_SHA: ${{ steps.target.outputs.subject_sha }}
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -euo pipefail
+          raw="$(mktemp)"; clean="$(mktemp)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "bash -s -- '$SUBJECT_SHA'" > "$raw" 2>&1 <<'REMOTE'
+          set -Eeuo pipefail
+          subject_sha="$1"
+          runtime='/var/lib/pc-secret-authority/runtime'
+          emit(){ printf '%s=%s\n' "$1" "$2"; }
+          fail(){ emit AUTH_MAIL_WORKER_REMOUNT_F166 FAIL; emit ERROR_CODE "$1"; emit DB_CREDENTIAL_MUTATED 0; emit API_WEB_MUTATED 0; emit PRODUCTION_MUTATION "$2"; exit "${3:-1}"; }
+          [[ "$(id -u)" -eq 0 ]] || fail ROOT_REQUIRED NONE 20
+          [[ "$subject_sha" =~ ^[0-9a-f]{40}$ ]] || fail SUBJECT_SHA_INVALID NONE 21
+
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 )) || fail WEB_CARDINALITY NONE 22
+          web_id="${web_ids[0]}"
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          [[ "$project" =~ ^[A-Za-z0-9_.-]{1,128}$ ]] || fail PROJECT_INVALID NONE 23
+          mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
+          (( ${#api_ids[@]} == 1 )) || fail API_CARDINALITY NONE 24
+          api_id="${api_ids[0]}"
+          mapfile -t worker_ids < <(docker ps -aq --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker')
+          (( ${#worker_ids[@]} == 1 )) || fail WORKER_CARDINALITY NONE 25
+          worker_id="${worker_ids[0]}"
+
+          api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
+          web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
+          worker_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$worker_id")"
+          [[ "$api_revision" == "$subject_sha" && "$web_revision" == "$subject_sha" && "$worker_revision" == "$subject_sha" ]] \
+            || fail REVISION_PARITY_FAILED NONE 26
+          emit PRE_REVISION_PARITY PASS
+
+          startup_codes="$(docker logs --tail 300 "$worker_id" 2>&1 | sed -nE 's/^Auth-mail worker failed to start: ([A-Z0-9_]{1,120})$/\1/p' | sort -u || true)"
+          [[ "$startup_codes" == AUTH_MAIL_PRISMACLIENTINITIALIZATIONERROR ]] || fail PRECONDITION_CHANGED NONE 27
+          emit PRE_STARTUP_CODE AUTH_MAIL_PRISMACLIENTINITIALIZATIONERROR
+
+          [[ -d "$runtime" && ! -L "$runtime" && "$(stat -c '%a:%u:%g' "$runtime")" == '700:0:0' ]] || fail RUNTIME_ROOT_INVALID NONE 28
+          [[ -d "$runtime/keyring" && ! -L "$runtime/keyring" ]] || fail RUNTIME_KEYRING_INVALID NONE 29
+          for p in "$runtime/current-key-version" "$runtime/database-url" "$runtime/transport.env"; do
+            [[ -f "$p" && ! -L "$p" && "$(stat -c '%a:%u:%g' "$p")" == '444:0:0' ]] || fail RUNTIME_PROJECTION_INVALID NONE 30
+          done
+          emit RUNTIME_PROJECTION PASS
+
+          working_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$worker_id")"
+          config_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$worker_id")"
+          [[ "$working_dir" == /* && "$working_dir" != / && -d "$working_dir" && ! -L "$working_dir" && -n "$config_files" ]] \
+            || fail COMPOSE_AUTHORITY_INVALID NONE 31
+          working_dir="$(realpath -e -- "$working_dir")"
+          dc=(docker compose --project-directory "$working_dir" --project-name "$project")
+          IFS=',' read -r -a raw_files <<< "$config_files"
+          for raw_file in "${raw_files[@]}"; do
+            file="${raw_file#"${raw_file%%[![:space:]]*}"}"
+            file="${file%"${file##*[![:space:]]}"}"
+            [[ -n "$file" ]] || continue
+            [[ "$file" == /* ]] || file="$working_dir/$file"
+            [[ -f "$file" && ! -L "$file" ]] || fail COMPOSE_FILE_INVALID NONE 32
+            dc+=(-f "$(realpath -e -- "$file")")
+          done
+          (( ${#dc[@]} > 6 )) || fail COMPOSE_FILES_EMPTY NONE 33
+
+          cfg="$(mktemp)"; trap 'rm -f "$cfg"' EXIT
+          "${dc[@]}" config --format json > "$cfg"
+          worker_image="$(docker inspect --format '{{.Config.Image}}' "$worker_id")"
+          python3 - "$cfg" "$worker_image" "$runtime" <<'PY' || exit 34
+          import json,sys
+          cfg=json.load(open(sys.argv[1],encoding='utf-8')); image=sys.argv[2]; runtime=sys.argv[3]
+          w=(cfg.get('services') or {}).get('auth-mail-worker') or {}
+          if str(w.get('image') or '') != image: raise SystemExit(1)
+          cmd=w.get('command') or []
+          text=' '.join(map(str,cmd)) if isinstance(cmd,list) else str(cmd)
+          if 'dist/apps/api/src/auth-mail-worker.js' not in text: raise SystemExit(1)
+          env=w.get('environment') or {}
+          if isinstance(env,list):
+              env={str(x).partition('=')[0]:str(x).partition('=')[2] for x in env}
+          expected={
+            'NODE_ENV':'production','RUNTIME_COMPONENT':'auth-mail-worker','AUTH_MAIL_WORKER_ENABLED':'true',
+            'AUTH_MAIL_WORKER_HEALTH_PORT':'3003','AUTH_MAIL_OUTBOX_KEYRING_DIR':'/run/pc-auth-mail/keyring',
+            'AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION_FILE':'/run/pc-auth-mail/current-key-version',
+            'AUTH_MAIL_DATABASE_URL_FILE':'/run/pc-auth-mail/database-url','AUTH_MAIL_TRANSPORT_FILE':'/run/pc-auth-mail/transport.env'}
+          if any(str(env.get(k,''))!=v for k,v in expected.items()): raise SystemExit(1)
+          if any(k in env for k in ('DATABASE_URL','AUTH_DATABASE_URL','AUTH_MAIL_DATABASE_URL','PC_SMTP_PASS')): raise SystemExit(1)
+          vols=w.get('volumes') or []
+          expected_mounts={
+            '/run/pc-auth-mail/keyring':runtime+'/keyring',
+            '/run/pc-auth-mail/current-key-version':runtime+'/current-key-version',
+            '/run/pc-auth-mail/database-url':runtime+'/database-url',
+            '/run/pc-auth-mail/transport.env':runtime+'/transport.env'}
+          seen={}
+          for v in vols:
+              if not isinstance(v,dict): continue
+              target=str(v.get('target') or '')
+              if target in expected_mounts:
+                  seen[target]=(str(v.get('source') or ''),bool(v.get('read_only')))
+          if any(seen.get(t)!=(s,True) for t,s in expected_mounts.items()): raise SystemExit(1)
+          PY
+          [[ "$?" == 0 ]] || fail COMPOSE_CONTRACT_FAILED NONE 34
+          emit COMPOSE_CONTRACT PASS
+
+          old_worker_id="$worker_id"
+          "${dc[@]}" up -d --no-deps --pull never --force-recreate auth-mail-worker >/dev/null 2>&1 \
+            || fail WORKER_RECREATE_FAILED AUTH_MAIL_WORKER_RECREATE_ATTEMPTED 35
+          emit WORKER_RECREATED PASS
+
+          worker_ready=0
+          for attempt in $(seq 1 30); do
+            mapfile -t current_workers < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker')
+            if (( ${#current_workers[@]} == 1 )); then
+              current="${current_workers[0]}"
+              revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$current" 2>/dev/null || true)"
+              health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$current" 2>/dev/null || true)"
+              if [[ "$current" != "$old_worker_id" && "$revision" == "$subject_sha" && "$health" == healthy ]] && \
+                 docker exec "$current" /nodejs/bin/node -e "fetch('http://127.0.0.1:3003/ready',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
+                worker_ready=1; break
+              fi
+            fi
+            sleep 4
+          done
+          (( worker_ready == 1 )) || fail WORKER_STILL_NOT_READY AUTH_MAIL_WORKER_RECREATED_ONLY 36
+          emit WORKER_REVISION PASS
+          emit WORKER_READY PASS
+
+          mapfile -t api_after < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
+          mapfile -t web_after < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=web')
+          (( ${#api_after[@]} == 1 && ${#web_after[@]} == 1 )) || fail API_WEB_CARDINALITY_CHANGED AUTH_MAIL_WORKER_RECREATED_ONLY 37
+          [[ "${api_after[0]}" == "$api_id" && "${web_after[0]}" == "$web_id" ]] || fail API_WEB_CONTAINER_CHANGED AUTH_MAIL_WORKER_RECREATED_ONLY 38
+          emit API_WEB_UNCHANGED PASS
+          emit DB_CREDENTIAL_MUTATED 0
+          emit API_WEB_MUTATED 0
+          emit AUTH_MAIL_WORKER_REMOUNT_F166 PASS
+          emit ERROR_CODE NONE
+          emit PRODUCTION_MUTATION AUTH_MAIL_WORKER_RECREATED_AND_NORMAL_PROCESSING_RESUMED
+          REMOTE
+          rc=$?
+          set -e
+          sed -nE '/^(AUTH_MAIL_WORKER_REMOUNT_F166|ERROR_CODE|PRE_REVISION_PARITY|PRE_STARTUP_CODE|RUNTIME_PROJECTION|COMPOSE_CONTRACT|WORKER_RECREATED|WORKER_REVISION|WORKER_READY|API_WEB_UNCHANGED|DB_CREDENTIAL_MUTATED|API_WEB_MUTATED|PRODUCTION_MUTATION)=[A-Za-z0-9_.:-]{1,180}$/p' "$raw" > "$clean"
+          rm -f "$raw"; cat "$clean"; echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          while IFS='=' read -r k v; do
+            case "$k" in
+              AUTH_MAIL_WORKER_REMOUNT_F166|ERROR_CODE|PRE_REVISION_PARITY|PRE_STARTUP_CODE|RUNTIME_PROJECTION|COMPOSE_CONTRACT|WORKER_RECREATED|WORKER_REVISION|WORKER_READY|API_WEB_UNCHANGED|DB_CREDENTIAL_MUTATED|API_WEB_MUTATED|PRODUCTION_MUTATION)
+                echo "${k,,}=$v" >> "$GITHUB_OUTPUT";;
+            esac
+          done < "$clean"
+          rm -f "$clean"
+
+      - name: Publish sanitized remount evidence
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ steps.repair.outputs.auth_mail_worker_remount_f166 }}
+          ERROR_CODE: ${{ steps.repair.outputs.error_code }}
+          PRE_REVISION: ${{ steps.repair.outputs.pre_revision_parity }}
+          PRE_STARTUP: ${{ steps.repair.outputs.pre_startup_code }}
+          RUNTIME: ${{ steps.repair.outputs.runtime_projection }}
+          COMPOSE: ${{ steps.repair.outputs.compose_contract }}
+          RECREATED: ${{ steps.repair.outputs.worker_recreated }}
+          REVISION: ${{ steps.repair.outputs.worker_revision }}
+          READY: ${{ steps.repair.outputs.worker_ready }}
+          API_WEB_UNCHANGED: ${{ steps.repair.outputs.api_web_unchanged }}
+          DB_MUTATED: ${{ steps.repair.outputs.db_credential_mutated }}
+          API_WEB_MUTATED: ${{ steps.repair.outputs.api_web_mutated }}
+          MUTATION: ${{ steps.repair.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          record="$(mktemp)"
+          {
+            echo '### PC-CROP auth-mail worker remount f166'; echo
+            echo "- result / safe error: \`${RESULT:-unknown} / ${ERROR_CODE:-unknown}\`"
+            echo "- pre revision / startup code: \`${PRE_REVISION:-unknown} / ${PRE_STARTUP:-unknown}\`"
+            echo "- runtime projection / compose contract: \`${RUNTIME:-unknown} / ${COMPOSE:-unknown}\`"
+            echo "- worker recreated / revision / ready: \`${RECREATED:-unknown} / ${REVISION:-unknown} / ${READY:-unknown}\`"
+            echo "- API/Web unchanged: \`${API_WEB_UNCHANGED:-unknown}\`"
+            echo "- DB credential mutated / API-Web mutated: \`${DB_MUTATED:-unknown} / ${API_WEB_MUTATED:-unknown}\`"
+            echo "- production mutation: \`${MUTATION:-unknown}\`"
+            echo '- no database URL/password/hash, SMTP credential, recipient, token, raw log or container ID is published.'
+          } > "$record"
+          gh issue comment "$TARGET_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f "$record"
+
+      - name: Enforce bounded remediation result
+        shell: bash
+        env:
+          REMOTE_RC: ${{ steps.repair.outputs.rc }}
+          RESULT: ${{ steps.repair.outputs.auth_mail_worker_remount_f166 }}
+          READY: ${{ steps.repair.outputs.worker_ready }}
+          API_WEB_UNCHANGED: ${{ steps.repair.outputs.api_web_unchanged }}
+          DB_MUTATED: ${{ steps.repair.outputs.db_credential_mutated }}
+          API_WEB_MUTATED: ${{ steps.repair.outputs.api_web_mutated }}
+          MUTATION: ${{ steps.repair.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          [[ "${REMOTE_RC:-1}" == 0 ]]
+          [[ "$RESULT" == PASS ]]
+          [[ "$READY" == PASS ]]
+          [[ "$API_WEB_UNCHANGED" == PASS ]]
+          [[ "$DB_MUTATED" == 0 ]]
+          [[ "$API_WEB_MUTATED" == 0 ]]
+          [[ "$MUTATION" == AUTH_MAIL_WORKER_RECREATED_AND_NORMAL_PROCESSING_RESUMED ]]

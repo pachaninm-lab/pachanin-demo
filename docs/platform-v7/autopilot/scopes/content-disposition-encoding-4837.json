@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4837,
+  "branch": "security/content-disposition-encoding-4837",
+  "status": "active",
+  "purpose": "Close ASVS V5.4.1 and V5.4.2 by routing the four file-serving routes through the Content-Disposition builder that already existed. attachmentDisposition in apps/api/src/common/security was written for V3.2.1 and does exactly what these two requirements ask - it strips path separators, removes control characters, escapes quotes in the ASCII form and emits the RFC 5987 filename* alongside it - and the export and compliance routes built their header with a template literal instead. The control existed, was correct, sat in common/security, and the places that needed it did not call it. That is the same shape as #4827, #4828, #4829, #4831 and #4835.",
+  "authorityBaseExactMain": "6c359d2918145582e752c35a8c2efe0b2aafe4dc",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/content-disposition-encoding-4837.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "apps/api/src/common/security/content-disposition.spec.ts",
+    "apps/api/src/modules/exports/exports.controller.ts",
+    "apps/api/src/modules/exports/exports-content-disposition.spec.ts",
+    "apps/api/src/modules/compliance/compliance.controller.ts"
+  ],
+  "requiredInvariants": [
+    "The builder itself is not modified. It was already correct; the defect was that three routes did not call it. Changing it here would mix a wiring fix with a behaviour change and make the mutation evidence ambiguous.",
+    "All four routes move, not only the one that takes user input. The requirement is about how a served name is encoded rather than where the name came from, and the next person to add a parameter to one of these routes should not have to remember anything.",
+    "The wiring is proved by tests on the controller, not only on the builder. A test on the builder alone passes just as well while nothing calls it, which is precisely the defect being closed.",
+    "CRLF is not claimed as a fixed vulnerability. Node already rejects control characters in a header value with ERR_INVALID_CHAR, so response splitting was not available through this path; the builder strips them anyway so the route returns a file rather than a 500. Recording it as a closed injection would be inventing evidence.",
+    "The missing tenant predicate in exportLedgerCsv and exportDealsCsv is out of scope and is recorded rather than quietly fixed or ignored. Whether the row policy named ledger_select_all closes that path is unestablished; it is a V8 authorization question and needs a live-database pass of its own.",
+    "No production, REG.RU, DNS, database or credential mutation. No migration, no new dependency, no lockfile change. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "The builder had no test of any kind despite being correct. It has six now, and the routes have three that prove it is reached.",
+    "Reachability established rather than assumed: exportLedgerCsv does not reject an unknown dealId - assertExportRole checks only the role, findMany({ where: { dealId } }).catch(() => []) turns any string into an empty result, and the route answers 200. Any user holding an export role therefore puts an arbitrary string into the header.",
+    "Two injections proven by running them before the fix: a dealId of x\"; filename=\"ledger.csv.exe produced a header with two filename parameters, and a Cyrillic dealId went into the header raw with no filename*.",
+    "One non-finding recorded as such: CRLF threw ERR_INVALID_CHAR from Node itself, so there was no response splitting to close here.",
+    "Unit mutation caught: reverting the ledger route to the hand-built header fails 2 of the 3 controller tests.",
+    "Two matrix mutations, each revoking BOTH requirements: reverting the ledger route, and reverting the compliance route.",
+    "V5.4.1 and V5.4.2 move FAIL to PASS: PASS 121 to 123, FAIL 98 to 96, applied 332 / rejected 0, with no other verdict moved.",
+    "One test assertion was wrong when first written and the test was corrected rather than the code bent to it: it demanded that the text following a stripped newline disappear from the filename. The splitting primitive is the newline, not the words after it, so the residual text is harmless and asserting otherwise would have checked the wrong property.",
+    "exports and compliance suites 20 of 20; tsc exit 0."
+  ]
+}

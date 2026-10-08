@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "company-os/f2b-readiness-4159",
+  "status": "active",
+  "purpose": "Run a bounded owner-only read-only readiness diagnostic for the production control.процент-агро.рф edge before any DNS, Caddy, Compose, environment or deployment mutation.",
+  "authorityBaseExactMain": "7eca30a3c723e1950e5dd09a19f664eaaff0ed5f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/company-os-control-host-readiness.yml",
+    "docs/company-os/f2b-readiness.md"
+  ],
+  "requiredInvariants": [
+    "The workflow is owner-only, issue-4159-only and exact-command gated.",
+    "The diagnostic performs no DNS mutation, Caddy reload/write, Compose up/down/restart, container mutation, environment write, secret write or application deployment.",
+    "Production SSH uses only protected repository secrets, validates the pinned host fingerprint and never prints private keys, secret values or protected filesystem paths.",
+    "DNS A/AAAA and HTTPS/certificate observations are collected before any production SSH action and are recorded without guessing.",
+    "The diagnostic verifies the canonical REG.RU VPS identity and only performs read-only Docker/Caddy/process/config introspection.",
+    "Caddy configuration is reduced to bounded boolean/topology evidence; full configuration contents are not posted to the issue.",
+    "Docker/Compose evidence is reduced to service names, health/status and immutable image identifiers; container environment contents are never dumped.",
+    "The PC_CONTROL_HOST_ENABLED state is reported only as ENABLED, DISABLED_OR_ABSENT or UNKNOWN; no environment file is printed.",
+    "The result must classify the next step as READY_FOR_EDGE_CUTOVER, OWNER_DNS_ACTION_REQUIRED or BLOCKED_READINESS with explicit reason markers.",
+    "Merge, workflow success and diagnostic evidence are not production cutover evidence."
+  ],
+  "acceptance": [
+    "A successful diagnostic proves whether control DNS points to the canonical VPS or is absent/mismatched.",
+    "If DNS resolves, HTTPS certificate subject/validity and HTTP status are observed without accepting invalid TLS as success.",
+    "Pinned SSH identity and root/docker/compose/caddy read-only access are proven without secret disclosure.",
+    "Current web runtime immutable image reference and control-host gate state are captured in bounded evidence.",
+    "No production mutation occurs in any branch of the diagnostic.",
+    "The issue receives only sanitized readiness status and a workflow evidence link/artifact reference.",
+    "No new recurring cost is introduced."
+  ]
+}

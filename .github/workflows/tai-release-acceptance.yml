@@ -48,11 +48,16 @@ jobs:
           ]'
           printf '%s\n' "$required_json" > required-workflows.json
 
+          # event=push is filtered by the API, not after paging. A filtered
+          # listing is capped at 1000 results, so on a commit that also has
+          # many pull_request and issue_comment runs the push runs this gate
+          # needs were pushed out of the window and every required workflow
+          # looked missing.
           for attempt in $(seq 1 90); do
             gh api --paginate --slurp \
               -H 'Accept: application/vnd.github+json' \
               -H 'X-GitHub-Api-Version: 2022-11-28' \
-              "/repos/${REPOSITORY}/actions/runs?head_sha=${EXACT_HEAD}&per_page=100" \
+              "/repos/${REPOSITORY}/actions/runs?head_sha=${EXACT_HEAD}&per_page=100&event=push" \
               > workflow-runs-pages.json
 
             set +e
@@ -74,7 +79,11 @@ jobs:
           latest = {}
           for run in runs:
               name = run.get("name")
-              if name not in required or run.get("head_sha") != exact_head:
+              if (
+                  name not in required
+                  or run.get("head_sha") != exact_head
+                  or run.get("event") != "push"
+              ):
                   continue
               current = latest.get(name)
               key = (run.get("run_number", 0), run.get("id", 0))

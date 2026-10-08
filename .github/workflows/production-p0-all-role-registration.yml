@@ -24,13 +24,15 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-p0-all-role-registration
+  group: ${{ github.event_name == 'issue_comment' && (github.event.issue.number == 3072 || github.event.issue.number == 4637) && github.event.comment.user.login == github.repository_owner && github.actor == github.repository_owner && github.event.comment.body == '/production p0-all-role-registration current-main' && 'pc-crop-registration-lifecycle' || 'production-p0-all-role-registration' }}
   cancel-in-progress: false
+  queue: max
 
 env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
   RELEASE_ISSUE_NUMBER: 3072
+  CONTINUATION_ISSUE_NUMBER: 4637
   EVIDENCE_DIR: artifacts/production-p0-all-role-registration
 
 jobs:
@@ -41,7 +43,7 @@ jobs:
       github.event_name == 'push' ||
       (
         github.event_name == 'issue_comment' &&
-        github.event.issue.number == 3072 &&
+        (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
         github.event.comment.user.login == github.repository_owner &&
         github.actor == github.repository_owner &&
         github.triggering_actor == github.repository_owner &&
@@ -66,17 +68,23 @@ jobs:
     if: >-
       needs.contract.result == 'success' &&
       github.event_name == 'issue_comment' &&
-      github.event.issue.number == 3072 &&
+      (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
       github.event.comment.user.login == github.repository_owner &&
       github.actor == github.repository_owner &&
       github.triggering_actor == github.repository_owner &&
       github.event.comment.body == '/production p0-all-role-registration current-main'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    concurrency:
+      group: pc-crop-production-release-candidate
+      cancel-in-progress: false
+      queue: max
     permissions:
       actions: read
       contents: read
       issues: write
+    env:
+      RELEASE_ISSUE_NUMBER: ${{ github.event.issue.number }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -84,75 +92,157 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Resolve exact current main
+      - name: Resolve immutable candidate from latest First Customer intent
         id: target
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          git fetch --no-tags origin main
-          target="$(git rev-parse origin/main)"
-          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$target" == "$(git rev-parse HEAD)" ]]
-          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
-          echo "sha=$target" >> "$GITHUB_OUTPUT"
-
-      - name: Require same-revision deep First Customer Acceptance
-        id: deep
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
-        run: |
-          set -euo pipefail
           runs="$RUNNER_TEMP/deep-runs.json"
-          gh api \
-            "repos/$GITHUB_REPOSITORY/actions/workflows/production-p0-first-customer-acceptance.yml/runs?event=issue_comment&status=success&per_page=100" \
+          jobs="$RUNNER_TEMP/deep-jobs.json"
+          artifacts="$RUNNER_TEMP/deep-artifacts.json"
+          gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/production-p0-first-customer-acceptance.yml/runs?event=issue_comment&branch=main&actor=$GITHUB_REPOSITORY_OWNER&per_page=100" \
             > "$runs"
-          read -r deep_run_id deep_updated_at < <(node - "$runs" "$TARGET_SHA" <<'NODE'
+          candidates_parser_file="$RUNNER_TEMP/pc-p0-candidates-parser-4.txt"
+          node - "$runs" > "$candidates_parser_file" <<'NODE'
           const fs = require('node:fs');
-          const [path, target] = process.argv.slice(2);
+          const [path] = process.argv.slice(2);
           const report = JSON.parse(fs.readFileSync(path, 'utf8'));
-          const matches = (report.workflow_runs || []).filter((run) =>
-            run.head_sha === target &&
-            run.status === 'completed' &&
-            run.conclusion === 'success'
-          ).sort((a, b) => Number(b.id) - Number(a.id));
-          if (matches.length < 1) process.exit(2);
-          process.stdout.write(`${matches[0].id} ${matches[0].updated_at}\n`);
+          const pages = Array.isArray(report) ? report : [report];
+          const workflowRuns = pages.flatMap((page) => page.workflow_runs || []);
+          for (const run of workflowRuns.sort((a, b) => Number(b.id) - Number(a.id))) {
+            if (run.event === 'issue_comment' && Number.isSafeInteger(Number(run.id))) {
+              process.stdout.write(`${run.id} ${run.run_attempt || 1} ${run.status || 'unknown'} ${run.conclusion || 'pending'} ${run.updated_at}\n`);
+            }
+          }
+          NODE
+          mapfile -t candidates < "$candidates_parser_file"
+          deep_run_id=''
+          deep_run_attempt=''
+          deep_updated_at=''
+          for candidate in "${candidates[@]}"; do
+            read -r candidate_run candidate_attempt candidate_status candidate_conclusion candidate_updated <<< "$candidate"
+            [[ "$candidate_run" =~ ^[0-9]{2,20}$ && "$candidate_attempt" =~ ^[0-9]{1,4}$ ]] || continue
+            for materialize_attempt in $(seq 1 5); do
+              gh api "repos/$GITHUB_REPOSITORY/actions/runs/$candidate_run/attempts/$candidate_attempt/jobs?per_page=100" > "$jobs"
+              [[ "$(node -e "const p=require(process.argv[1]);process.stdout.write(String((p.jobs||[]).length))" "$jobs")" != 0 ]] && break
+              sleep 2
+            done
+            job_count="$(node -e "const p=require(process.argv[1]);process.stdout.write(String((p.jobs||[]).length))" "$jobs")"
+            if [[ "$job_count" == 0 ]]; then
+              echo "P0_FIRST_CUSTOMER_INTENT_JOBS_NOT_MATERIALIZED=$candidate_run" >&2
+              exit 14
+            fi
+            set +e
+            node - "$jobs" "$candidate_status" "$candidate_conclusion" "$candidate_attempt" <<'NODE'
+          const fs = require('node:fs');
+          const [path, runStatus, runConclusion, runAttempt] = process.argv.slice(2);
+          const jobs = JSON.parse(fs.readFileSync(path, 'utf8')).jobs || [];
+          const contract = jobs.filter((job) => job.name === 'Validate production P0 acceptance contract');
+          const acceptance = jobs.filter((job) => job.name === 'Two public customers · staff MFA · RLS · causal receipt');
+          const contractSkipped = contract.length === 1 && contract[0].conclusion === 'skipped';
+          const acceptanceSkipped = acceptance.length === 1 && acceptance[0].conclusion === 'skipped';
+          if (contractSkipped && acceptanceSkipped) {
+            process.exit(Number(runAttempt) > 1 ? 5 : 2);
+          }
+          if (contract.length !== 1 || acceptance.length !== 1) process.exit(3);
+          if (runStatus !== 'completed' || runConclusion !== 'success'
+            || contract[0].conclusion !== 'success' || acceptance[0].conclusion !== 'success') process.exit(4);
+          NODE
+            verdict=$?
+            set -e
+            if [[ "$verdict" == 2 ]]; then
+              continue
+            elif [[ "$verdict" == 0 ]]; then
+              deep_run_id="$candidate_run"
+              deep_run_attempt="$candidate_attempt"
+              deep_updated_at="$candidate_updated"
+              break
+            else
+              echo "P0_LATEST_FIRST_CUSTOMER_INTENT_NOT_TERMINAL_PASS=$candidate_run" >&2
+              exit 13
+            fi
+          done
+          [[ "$deep_run_id" =~ ^[0-9]{2,20}$ && "$deep_run_attempt" =~ ^[0-9]{1,4}$ ]]
+          [[ "$deep_updated_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$deep_run_id/artifacts?per_page=100" > "$artifacts"
+          read -r target artifact_name < <(node - "$artifacts" "$deep_run_id" "$deep_run_attempt" <<'NODE'
+          const fs = require('node:fs');
+          const [path, runId, attempt] = process.argv.slice(2);
+          const artifacts = JSON.parse(fs.readFileSync(path, 'utf8')).artifacts || [];
+          const pattern = new RegExp(`^production-p0-first-customer-([0-9a-f]{40})-${runId}-${attempt}$`);
+          const matches = artifacts.filter((artifact) => artifact.expired !== true && pattern.test(String(artifact.name || '')));
+          if (matches.length !== 1) process.exit(2);
+          const sha = String(matches[0].name).match(pattern)[1];
+          process.stdout.write(`${sha} ${matches[0].name}\n`);
           NODE
           )
-          [[ "$deep_run_id" =~ ^[0-9]{2,20}$ ]]
-          [[ "$deep_updated_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]
-          artifact_name="production-p0-first-customer-$TARGET_SHA-$deep_run_id"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
           deep_dir="$RUNNER_TEMP/deep-first-customer"
           mkdir -p "$deep_dir"
           gh run download "$deep_run_id" --repo "$GITHUB_REPOSITORY" \
             --name "$artifact_name" --dir "$deep_dir"
-          result="$(find "$deep_dir" -type f -name result.json -print -quit)"
-          [[ -n "$result" && -f "$result" ]]
-          node - "$result" "$TARGET_SHA" <<'NODE'
+          mapfile -t results < <(find "$deep_dir" -type f -name result.json -print)
+          [[ "${#results[@]}" == 1 && -f "${results[0]}" ]]
+          result="${results[0]}"
+          node - "$result" "$target" "$deep_run_id-$deep_run_attempt" <<'NODE'
           const fs = require('node:fs');
-          const [path, target] = process.argv.slice(2);
+          const [path, target, expectedRunId] = process.argv.slice(2);
           const result = JSON.parse(fs.readFileSync(path, 'utf8'));
           if (result.schemaVersion !== 'production.p0.first-customer.acceptance.v1'
-            || result.passed !== true || result.targetSha !== target
+            || result.passed !== true || result.targetSha !== target || result.runId !== expectedRunId
+            || !/^[0-9]{2,20}$/.test(String(result.releaseControllerRunId || ''))
+            || !/^[0-9]{1,4}$/.test(String(result.releaseControllerRunAttempt || ''))
             || result.decisionReplayNotificationSuppressed !== true
             || !Array.isArray(result.identities) || result.identities.length !== 2
+            || !result.identities.every((identity) => identity.mailDeliveryAcknowledged === true
+              && identity.emailVerified === true && identity.staffApprovedWithFreshMfa === true
+              && identity.initialMfaEnrollment === true && identity.freshMfaRelogin === true
+              && identity.logoutRevokedSession === true && typeof identity.auditId === 'string'
+              && typeof identity.outboxId === 'string')
             || result.production?.apiRevisionExact !== true
             || result.production?.webRevisionExact !== true
             || result.production?.migrationImageRevisionExact !== true
+            || result.production?.authMailWorkerRevisionExact !== true
+            || result.production?.authMailWorkerReady !== true
+            || result.tenantIsolation?.distinctTenants !== true
+            || result.tenantIsolation?.tenantAPostgresqlRlsCount !== 1
+            || result.tenantIsolation?.tenantBPostgresqlRlsCount !== 0
+            || result.causalReceiptProducer !== 'auth.emit_registration_lifecycle_receipt(text,text)'
             || result.secretsOrRawTokensInEvidence !== false) process.exit(3);
           NODE
+          release_controller_run_id="$(node -e "const r=require(process.argv[1]);process.stdout.write(String(r.releaseControllerRunId))" "$result")"
+          release_controller_run_attempt="$(node -e "const r=require(process.argv[1]);process.stdout.write(String(r.releaseControllerRunAttempt))" "$result")"
+          [[ "$release_controller_run_id" =~ ^[0-9]{2,20}$ ]]
+          [[ "$release_controller_run_attempt" =~ ^[0-9]{1,4}$ ]]
           not_before="$(node -e \
             "const t=Date.parse(process.argv[1]); if(!Number.isFinite(t)) process.exit(1); process.stdout.write(String(Math.floor(t/1000)+905))" \
             "$deep_updated_at")"
           [[ "$not_before" =~ ^[0-9]{10}$ ]]
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
-          echo "run_id=$deep_run_id" >> "$GITHUB_OUTPUT"
+          git fetch --no-tags origin main
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$target^{commit}"
+          git merge-base --is-ancestor "$target" "$current"
+          git checkout --detach "$target"
+          [[ "$(git rev-parse HEAD)" == "$target" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+          echo "deep_run_id=$deep_run_id" >> "$GITHUB_OUTPUT"
+          echo "deep_run_attempt=$deep_run_attempt" >> "$GITHUB_OUTPUT"
+          echo "release_run_id=$release_controller_run_id" >> "$GITHUB_OUTPUT"
+          echo "release_run_attempt=$release_controller_run_attempt" >> "$GITHUB_OUTPUT"
           echo "reviewer_window_not_before_epoch=$not_before" >> "$GITHUB_OUTPUT"
-          rm -rf "$deep_dir" "$runs"
+          rm -rf "$deep_dir"
+          rm -f "$runs" "$jobs" "$artifacts"
+
+      - name: Validate 9-role contract from immutable candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/check-production-p0-all-role-registration.mjs
+          bash -n scripts/production-p0-all-role-registration.sh
 
       - name: Install pinned live Chromium runtime without protected credentials
         id: browser
@@ -162,7 +252,8 @@ jobs:
           corepack enable
           pnpm install --filter @pc/web... --frozen-lockfile --ignore-scripts
           pnpm --filter @pc/web exec playwright install --with-deps chromium
-          module="$(pnpm --filter @pc/web exec node -p "require.resolve('playwright')")"
+          module="$(pnpm --filter @pc/web exec node -p "require.resolve('@playwright/test')")"
+          pnpm --filter @pc/web exec node -e "const { chromium } = require('@playwright/test'); if (!chromium || typeof chromium.launch !== 'function') process.exit(1)"
           [[ "$module" == /* && -f "$module" ]]
           echo "module=$module" >> "$GITHUB_OUTPUT"
 
@@ -181,8 +272,13 @@ jobs:
           SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
         run: |
           set -euo pipefail
-          guard_main() {
-            [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          guard_candidate_ancestry() {
+            local current
+            git fetch --no-tags origin main >/dev/null
+            current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+            [[ "$(git rev-parse origin/main)" == "$current" ]]
+            git cat-file -e "$TARGET_SHA^{commit}"
+            git merge-base --is-ancestor "$TARGET_SHA" "$current"
           }
           trim() {
             local value="$1"
@@ -227,7 +323,7 @@ jobs:
           try_slot "${SSH_KEY_PRIMARY:-}" \
             || try_slot "${SSH_KEY_SECONDARY:-}" \
             || try_slot "${SSH_KEY_FALLBACK:-}"
-          guard_main
+          guard_candidate_ancestry
           mapfile -t dns_ipv4 < <(
             getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u
           )
@@ -244,7 +340,7 @@ jobs:
           mv "$match" "$known_hosts"
           rm -f "$scan"
           chmod 0600 "$known_hosts"
-          guard_main
+          guard_candidate_ancestry
           ssh -i "$key_path" -p "$port" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
@@ -256,15 +352,147 @@ jobs:
           echo "key_path=$key_path" >> "$GITHUB_OUTPUT"
           echo "known_hosts=$known_hosts" >> "$GITHUB_OUTPUT"
 
-      - name: Execute exact-main production 9-role matrix
+      - name: Require selected First Customer attempt remains current
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEEP_RUN_ID: ${{ steps.target.outputs.deep_run_id }}
+          DEEP_RUN_ATTEMPT: ${{ steps.target.outputs.deep_run_attempt }}
+        run: |
+          set -euo pipefail
+          read -r current_attempt current_status current_conclusion current_created < <(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$DEEP_RUN_ID" \
+            --jq '[.run_attempt, .status, (.conclusion // "pending"), .created_at] | @tsv')
+          [[ "$current_attempt" == "$DEEP_RUN_ATTEMPT" \
+            && "$current_status" == completed \
+            && "$current_conclusion" == success ]]
+          [[ "$current_created" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]
+          jobs="$RUNNER_TEMP/current-first-customer-jobs.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DEEP_RUN_ID/attempts/$DEEP_RUN_ATTEMPT/jobs?per_page=100" > "$jobs"
+          node - "$jobs" <<'NODE'
+          const fs = require('node:fs');
+          const jobs = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')).jobs || [];
+          for (const name of [
+            'Validate production P0 acceptance contract',
+            'Two public customers · staff MFA · RLS · causal receipt',
+          ]) {
+            const matches = jobs.filter((job) => job.name === name);
+            if (matches.length !== 1 || matches[0].conclusion !== 'success') process.exit(2);
+          }
+          NODE
+          runs="$RUNNER_TEMP/newer-first-customer-intents.json"
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/workflows/production-p0-first-customer-acceptance.yml/runs?event=issue_comment&branch=main&actor=$GITHUB_REPOSITORY_OWNER&created=%3E%3D$current_created&per_page=100" > "$runs"
+          newer_parser_file="$RUNNER_TEMP/pc-p0-newer-parser-5.txt"
+          node - "$runs" "$DEEP_RUN_ID" > "$newer_parser_file" <<'NODE'
+          const fs = require('node:fs');
+          const [path, expected] = process.argv.slice(2);
+          const payload = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const pages = Array.isArray(payload) ? payload : [payload];
+          for (const run of pages.flatMap((page) => page.workflow_runs || [])) {
+            if (Number(run.id) > Number(expected)) process.stdout.write(`${run.id} ${run.run_attempt || 1} ${run.status}\n`);
+          }
+          NODE
+          mapfile -t newer < "$newer_parser_file"
+          for row in "${newer[@]}"; do
+            read -r run_id run_attempt run_status <<< "$row"
+            jobs="$RUNNER_TEMP/newer-first-customer-$run_id.json"
+            materialized=0
+            for materialize_attempt in $(seq 1 5); do
+              gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/attempts/$run_attempt/jobs?per_page=100" > "$jobs"
+              if [[ "$(node -e "const p=require(process.argv[1]);process.stdout.write(String((p.jobs||[]).length))" "$jobs")" != 0 ]]; then
+                materialized=1
+                break
+              fi
+              [[ "$run_status" == completed ]] && break
+              sleep 2
+            done
+            intent_state="$(node - "$jobs" <<'NODE'
+          const fs = require('node:fs');
+          const jobs = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')).jobs || [];
+          const contract = jobs.filter((job) => job.name === 'Validate production P0 acceptance contract');
+          const acceptance = jobs.filter((job) => job.name === 'Two public customers · staff MFA · RLS · causal receipt');
+          const skipped = (matches) => matches.length === 1 && matches[0].conclusion === 'skipped';
+          process.stdout.write(
+            skipped(contract) && skipped(acceptance)
+              ? 'irrelevant' : 'intent',
+          );
+          NODE
+            )"
+            [[ "$run_attempt" == 1 && "$materialized" == 1 \
+              && "$intent_state" == irrelevant ]] || {
+              echo "P0_NEWER_FIRST_CUSTOMER_INTENT_BLOCKS_ALL_ROLE=$run_id" >&2
+              exit 16
+            }
+          done
+
+      - name: Require First Customer release remains latest intent
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_RUN_ID: ${{ steps.target.outputs.release_run_id }}
+          RELEASE_RUN_ATTEMPT: ${{ steps.target.outputs.release_run_attempt }}
+        run: |
+          set -euo pipefail
+          read -r expected_attempt expected_status expected_conclusion expected_created < <(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
+            --jq '[.run_attempt, .status, (.conclusion // "pending"), .created_at] | @tsv')
+          [[ "$expected_attempt" == "$RELEASE_RUN_ATTEMPT" \
+            && "$expected_status" == completed && "$expected_conclusion" == success ]]
+          [[ "$expected_created" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]
+          runs="$RUNNER_TEMP/newer-release-intents.json"
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/workflows/platform-v7-safe-merge.yml/runs?event=issue_comment&branch=main&actor=$GITHUB_REPOSITORY_OWNER&created=%3E%3D$expected_created&per_page=100" > "$runs"
+          newer_parser_file="$RUNNER_TEMP/pc-p0-newer-parser-6.txt"
+          node - "$runs" "$RELEASE_RUN_ID" > "$newer_parser_file" <<'NODE'
+          const fs = require('node:fs');
+          const [path, expected] = process.argv.slice(2);
+          const payload = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const pages = Array.isArray(payload) ? payload : [payload];
+          for (const run of pages.flatMap((page) => page.workflow_runs || [])) {
+            if (Number(run.id) > Number(expected)) process.stdout.write(`${run.id} ${run.run_attempt || 1} ${run.status}\n`);
+          }
+          NODE
+          mapfile -t newer < "$newer_parser_file"
+          for row in "${newer[@]}"; do
+            read -r run_id run_attempt run_status <<< "$row"
+            jobs="$RUNNER_TEMP/newer-release-$run_id.json"
+            materialized=0
+            for materialize_attempt in $(seq 1 5); do
+              gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/attempts/$run_attempt/jobs?per_page=100" > "$jobs"
+              if [[ "$(node -e "const p=require(process.argv[1]);process.stdout.write(String((p.jobs||[]).length))" "$jobs")" != 0 ]]; then
+                materialized=1
+                break
+              fi
+              [[ "$run_status" == completed ]] && break
+              sleep 2
+            done
+            read -r count state < <(node - "$jobs" <<'NODE'
+          const fs = require('node:fs');
+          const jobs = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')).jobs || [];
+          const matches = jobs.filter((job) => job.name === 'production-release-control-3072');
+          process.stdout.write(`${matches.length} ${matches[0]?.conclusion || matches[0]?.status || 'none'}\n`);
+          NODE
+            )
+            [[ "$run_attempt" == 1 && "$materialized" == 1 \
+              && "$count" == 1 && "$state" == skipped ]] || {
+              echo "P0_NEWER_RELEASE_INTENT_BLOCKS_ALL_ROLE=$run_id" >&2
+              exit 15
+            }
+          done
+          rm -f "$runs" "$RUNNER_TEMP"/newer-release-*.json
+
+      - name: Execute immutable-candidate production 9-role matrix
         id: matrix
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          DEEP_RUN_ID: ${{ steps.target.outputs.deep_run_id }}
+          DEEP_RUN_ATTEMPT: ${{ steps.target.outputs.deep_run_attempt }}
+          RELEASE_RUN_ID: ${{ steps.target.outputs.release_run_id }}
+          RELEASE_RUN_ATTEMPT: ${{ steps.target.outputs.release_run_attempt }}
           PC_P0_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           PC_P0_LIVE_BASE: ${{ env.LIVE_BASE }}
           PC_P0_EVIDENCE_DIR: ${{ env.EVIDENCE_DIR }}
-          PC_P0_REVIEWER_WINDOW_NOT_BEFORE_EPOCH: ${{ steps.deep.outputs.reviewer_window_not_before_epoch }}
+          PC_P0_APPROVAL_WINDOW_NOT_BEFORE_EPOCH: ${{ steps.target.outputs.reviewer_window_not_before_epoch }}
           PC_P0_PLAYWRIGHT_MODULE: ${{ steps.browser.outputs.module }}
           PC_P0_EMAIL_TEMPLATE: ${{ secrets.PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE || secrets.PC_PROD_P0_EMAIL_TEMPLATE }}
           PC_P0_IMAP_HOST: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_HOST || secrets.PC_PROD_P0_IMAP_HOST }}
@@ -280,12 +508,95 @@ jobs:
           PC_P0_SSH_KNOWN_HOSTS: ${{ steps.ssh.outputs.known_hosts }}
         run: |
           set -euo pipefail
+          read -r deep_attempt deep_status deep_conclusion < <(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$DEEP_RUN_ID" \
+            --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')
+          [[ "$deep_attempt" == "$DEEP_RUN_ATTEMPT" \
+            && "$deep_status" == completed && "$deep_conclusion" == success ]] \
+            || { echo P0_FIRST_CUSTOMER_ATTEMPT_CHANGED_BEFORE_ALL_ROLE >&2; exit 33; }
+          read -r release_attempt release_status release_conclusion < <(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
+            --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')
+          [[ "$release_attempt" == "$RELEASE_RUN_ATTEMPT" \
+            && "$release_status" == completed && "$release_conclusion" == success ]] \
+            || { echo P0_RELEASE_ATTEMPT_CHANGED_BEFORE_ALL_ROLE >&2; exit 32; }
+          command -v setsid >/dev/null
           mkdir -p "$EVIDENCE_DIR"
-          bash scripts/production-p0-all-role-registration.sh '${{ steps.target.outputs.sha }}' \
-            | tee "$EVIDENCE_DIR/run.log"
+          lineage_done="$RUNNER_TEMP/all-role-lineage-monitor.done"
+          lineage_blocker="$RUNNER_TEMP/all-role-lineage-monitor.blocker"
+          rm -f "$lineage_done" "$lineage_blocker"
+          runner_pid=''
+          monitor_pid=''
+          cleanup_supervisor() {
+            touch "$lineage_done" 2>/dev/null || true
+            if [[ -n "${monitor_pid:-}" ]] && kill -0 "$monitor_pid" 2>/dev/null; then
+              kill -TERM "$monitor_pid" 2>/dev/null || true
+            fi
+            wait "${monitor_pid:-0}" 2>/dev/null || true
+            if [[ -n "${runner_pid:-}" ]] && kill -0 "$runner_pid" 2>/dev/null; then
+              kill -TERM -- "-$runner_pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup_supervisor EXIT
+          monitor_source_attempts() {
+            local label run_id expected snapshot attempt status conclusion
+            while [[ ! -e "$lineage_done" ]]; do
+              for source in \
+                "first-customer:$DEEP_RUN_ID:$DEEP_RUN_ATTEMPT" \
+                "release:$RELEASE_RUN_ID:$RELEASE_RUN_ATTEMPT"; do
+                IFS=: read -r label run_id expected <<< "$source"
+                if ! snapshot="$(gh api \
+                  "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" \
+                  --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')"; then
+                  printf 'P0_%s_ATTEMPT_MONITOR_LOOKUP_FAILED\n' "${label^^}" \
+                    | tr '-' '_' > "$lineage_blocker"
+                  break 2
+                fi
+                read -r attempt status conclusion <<< "$snapshot"
+                if [[ "$attempt" != "$expected" || "$status" != completed || "$conclusion" != success ]]; then
+                  printf 'P0_%s_ATTEMPT_CHANGED_DURING_ALL_ROLE\n' "${label^^}" \
+                    | tr '-' '_' > "$lineage_blocker"
+                  break 2
+                fi
+              done
+              for _ in $(seq 1 15); do
+                [[ -e "$lineage_done" ]] && return 0
+                sleep 1
+              done
+            done
+            if [[ -s "$lineage_blocker" ]] && kill -0 "$runner_pid" 2>/dev/null; then
+              kill -TERM -- "-$runner_pid" 2>/dev/null || true
+              for _ in $(seq 1 10); do
+                kill -0 "$runner_pid" 2>/dev/null || return 0
+                sleep 1
+              done
+              kill -KILL -- "-$runner_pid" 2>/dev/null || true
+            fi
+          }
+          set +e
+          setsid --wait bash -c \
+            'set -o pipefail; bash scripts/production-p0-all-role-registration.sh "$1" | tee "$2/run.log"' \
+            _ '${{ steps.target.outputs.sha }}' "$EVIDENCE_DIR" &
+          runner_pid=$!
+          monitor_source_attempts &
+          monitor_pid=$!
+          wait "$runner_pid"
+          runner_status=$?
+          touch "$lineage_done"
+          wait "$monitor_pid"
+          monitor_status=$?
+          set -e
+          trap - EXIT
+          cleanup_supervisor
+          if [[ -s "$lineage_blocker" ]]; then
+            cat "$lineage_blocker" >&2
+            exit 32
+          fi
+          [[ "$monitor_status" == 0 ]] || { echo P0_ACCEPTANCE_LINEAGE_MONITOR_FAILED >&2; exit 32; }
+          exit "$runner_status"
 
-      - name: Enforce bounded redacted 9-role evidence
-        id: evidence
+      - name: Scan bounded redacted 9-role evidence
+        id: redaction
         if: always()
         shell: bash
         run: |
@@ -305,42 +616,199 @@ jobs:
             1) ;;
             *) echo P0_ALL_ROLE_EVIDENCE_SCAN_FAILED >&2; exit 31 ;;
           esac
-          node - "$EVIDENCE_DIR/result.json" '${{ steps.target.outputs.sha }}' <<'NODE'
+          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 \
+            | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
+
+      - name: Enforce terminal PASS in bounded 9-role evidence
+        id: evidence
+        if: always() && steps.redaction.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - "$EVIDENCE_DIR/result.json" '${{ steps.target.outputs.sha }}' '${{ github.run_id }}-${{ github.run_attempt }}' <<'NODE'
           const fs = require('node:fs');
-          const [path, target] = process.argv.slice(2);
+          const [path, target, runId] = process.argv.slice(2);
           const result = JSON.parse(fs.readFileSync(path, 'utf8'));
           if (result.schemaVersion !== 'production.p0.all-role-registration.v1'
-            || result.passed !== true || result.targetSha !== target
+            || result.passed !== true || result.targetSha !== target || result.runId !== runId
             || result.completed !== 9 || result.required !== 9
             || result.topology?.organizations !== 8 || result.topology?.tenants !== 8
             || result.topology?.memberships !== 9
             || !Array.isArray(result.roles) || result.roles.length !== 9
             || result.desktopChromium !== true || result.mobileChromium !== true
             || result.logoutRelogin !== true || result.secretsOrPiiInEvidence !== false) process.exit(2);
+          if (result.production?.apiRevisionExact !== true
+            || result.production?.webRevisionExact !== true
+            || result.production?.authMailWorkerRevisionExact !== true
+            || result.production?.authMailWorkerReady !== true) process.exit(3);
           NODE
-          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 \
-            | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
 
-      - name: Guard exact main before artifact publication
+      - name: Guard immutable candidate before artifact publication
         id: artifact_guard
         if: always()
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ steps.target.outputs.sha }}
+          RELEASE_RUN_ID: ${{ steps.target.outputs.release_run_id }}
+          RELEASE_RUN_ATTEMPT: ${{ steps.target.outputs.release_run_attempt }}
+          DEEP_RUN_ID: ${{ steps.target.outputs.deep_run_id }}
+          DEEP_RUN_ATTEMPT: ${{ steps.target.outputs.deep_run_attempt }}
         run: |
           set -euo pipefail
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          assert_first_customer_intent_current() {
+            local runs row run_id run_status jobs materialized intent_state
+            read -r current_attempt current_status current_conclusion current_created < <(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$DEEP_RUN_ID" \
+              --jq '[.run_attempt, .status, (.conclusion // "pending"), .created_at] | @tsv')
+            [[ "$current_attempt" == "$DEEP_RUN_ATTEMPT" \
+              && "$current_status" == completed \
+              && "$current_conclusion" == success ]]
+            [[ "$current_created" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]
+            jobs="$RUNNER_TEMP/current-first-customer-jobs.json"
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$DEEP_RUN_ID/attempts/$DEEP_RUN_ATTEMPT/jobs?per_page=100" > "$jobs"
+            node - "$jobs" <<'NODE'
+          const fs = require('node:fs');
+          const jobs = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')).jobs || [];
+          for (const name of [
+            'Validate production P0 acceptance contract',
+            'Two public customers · staff MFA · RLS · causal receipt',
+          ]) {
+            const matches = jobs.filter((job) => job.name === name);
+            if (matches.length !== 1 || matches[0].conclusion !== 'success') process.exit(2);
+          }
+          NODE
+            runs="$RUNNER_TEMP/newer-first-customer-intents.json"
+            gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/workflows/production-p0-first-customer-acceptance.yml/runs?event=issue_comment&branch=main&actor=$GITHUB_REPOSITORY_OWNER&created=%3E%3D$current_created&per_page=100" > "$runs"
+            newer_parser_file="$RUNNER_TEMP/pc-p0-newer-parser-7.txt"
+            node - "$runs" "$DEEP_RUN_ID" > "$newer_parser_file" <<'NODE'
+          const fs = require('node:fs');
+          const [path, expected] = process.argv.slice(2);
+          const payload = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const pages = Array.isArray(payload) ? payload : [payload];
+          for (const run of pages.flatMap((page) => page.workflow_runs || [])) {
+            if (Number(run.id) > Number(expected)) process.stdout.write(`${run.id} ${run.run_attempt || 1} ${run.status}\n`);
+          }
+          NODE
+            mapfile -t newer < "$newer_parser_file"
+            for row in "${newer[@]}"; do
+              read -r run_id run_attempt run_status <<< "$row"
+              jobs="$RUNNER_TEMP/newer-first-customer-$run_id.json"
+              materialized=0
+              for materialize_attempt in $(seq 1 5); do
+                gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/attempts/$run_attempt/jobs?per_page=100" > "$jobs"
+                if [[ "$(node -e "const p=require(process.argv[1]);process.stdout.write(String((p.jobs||[]).length))" "$jobs")" != 0 ]]; then
+                  materialized=1
+                  break
+                fi
+                [[ "$run_status" == completed ]] && break
+                sleep 2
+              done
+              intent_state="$(node - "$jobs" <<'NODE'
+          const fs = require('node:fs');
+          const jobs = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')).jobs || [];
+          const contract = jobs.filter((job) => job.name === 'Validate production P0 acceptance contract');
+          const acceptance = jobs.filter((job) => job.name === 'Two public customers · staff MFA · RLS · causal receipt');
+          const skipped = (matches) => matches.length === 1 && matches[0].conclusion === 'skipped';
+          process.stdout.write(
+            skipped(contract) && skipped(acceptance)
+              ? 'irrelevant' : 'intent',
+          );
+          NODE
+              )"
+              [[ "$run_attempt" == 1 && "$materialized" == 1 \
+                && "$intent_state" == irrelevant ]] || return 1
+            done
+            read -r current_attempt current_status current_conclusion < <(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$DEEP_RUN_ID" \
+              --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')
+            [[ "$current_attempt" == "$DEEP_RUN_ATTEMPT" \
+              && "$current_status" == completed && "$current_conclusion" == success ]]
+          }
+          assert_no_newer_release_intent() {
+            local runs row run_id run_status jobs count state materialized
+            read -r expected_attempt expected_status expected_conclusion expected_created < <(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
+              --jq '[.run_attempt, .status, (.conclusion // "pending"), .created_at] | @tsv')
+            [[ "$expected_attempt" == "$RELEASE_RUN_ATTEMPT" \
+              && "$expected_status" == completed && "$expected_conclusion" == success ]]
+            [[ "$expected_created" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]
+            runs="$RUNNER_TEMP/terminal-release-intents.json"
+            gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/workflows/platform-v7-safe-merge.yml/runs?event=issue_comment&branch=main&actor=$GITHUB_REPOSITORY_OWNER&created=%3E%3D$expected_created&per_page=100" > "$runs"
+            newer_parser_file="$RUNNER_TEMP/pc-p0-newer-parser-8.txt"
+            node - "$runs" "$RELEASE_RUN_ID" > "$newer_parser_file" <<'NODE'
+          const fs = require('node:fs');
+          const [path, expected] = process.argv.slice(2);
+          const payload = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const pages = Array.isArray(payload) ? payload : [payload];
+          for (const run of pages.flatMap((page) => page.workflow_runs || [])) {
+            if (Number(run.id) > Number(expected)) process.stdout.write(`${run.id} ${run.run_attempt || 1} ${run.status}\n`);
+          }
+          NODE
+            mapfile -t newer < "$newer_parser_file"
+            for row in "${newer[@]}"; do
+              read -r run_id run_attempt run_status <<< "$row"
+              jobs="$RUNNER_TEMP/terminal-release-$run_id.json"
+              materialized=0
+              for materialize_attempt in $(seq 1 5); do
+                gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/attempts/$run_attempt/jobs?per_page=100" > "$jobs"
+                if [[ "$(node -e "const p=require(process.argv[1]);process.stdout.write(String((p.jobs||[]).length))" "$jobs")" != 0 ]]; then
+                  materialized=1
+                  break
+                fi
+                [[ "$run_status" == completed ]] && break
+                sleep 2
+              done
+              read -r count state < <(node - "$jobs" <<'NODE'
+          const fs = require('node:fs');
+          const jobs = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')).jobs || [];
+          const matches = jobs.filter((job) => job.name === 'production-release-control-3072');
+          process.stdout.write(`${matches.length} ${matches[0]?.conclusion || matches[0]?.status || 'none'}\n`);
+          NODE
+              )
+              [[ "$run_attempt" == 1 && "$materialized" == 1 \
+                && "$count" == 1 && "$state" == skipped ]] || return 1
+            done
+            read -r expected_attempt expected_status expected_conclusion < <(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
+              --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')
+            [[ "$expected_attempt" == "$RELEASE_RUN_ATTEMPT" \
+              && "$expected_status" == completed && "$expected_conclusion" == success ]]
+          }
+          git fetch --no-tags origin main >/dev/null
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current"
+          assert_first_customer_intent_current
+          assert_no_newer_release_intent
+          git fetch --no-tags origin main >/dev/null
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current"
+          read -r deep_attempt deep_status deep_conclusion < <(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$DEEP_RUN_ID" \
+            --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')
+          [[ "$deep_attempt" == "$DEEP_RUN_ATTEMPT" \
+            && "$deep_status" == completed && "$deep_conclusion" == success ]] \
+            || { echo P0_FIRST_CUSTOMER_ATTEMPT_CHANGED_BEFORE_ALL_ROLE_ARTIFACT >&2; exit 33; }
+          read -r release_attempt release_status release_conclusion < <(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
+            --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')
+          [[ "$release_attempt" == "$RELEASE_RUN_ATTEMPT" \
+            && "$release_status" == completed && "$release_conclusion" == success ]] \
+            || { echo P0_RELEASE_ATTEMPT_CHANGED_BEFORE_ALL_ROLE_ARTIFACT >&2; exit 32; }
 
       - name: Upload bounded production 9-role evidence
         id: upload
         if: >-
           always() &&
-          steps.evidence.outcome == 'success' &&
+          steps.redaction.outcome == 'success' &&
           steps.artifact_guard.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: production-p0-all-role-${{ steps.target.outputs.sha }}-${{ github.run_id }}
+          name: production-p0-all-role-${{ steps.target.outputs.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ env.EVIDENCE_DIR }}
           if-no-files-found: error
           retention-days: 90
@@ -370,7 +838,11 @@ jobs:
           TARGET_SHA: ${{ steps.target.outputs.sha }}
         run: |
           set -euo pipefail
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          git fetch --no-tags origin main >/dev/null
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current"
           result=FAIL
           blocker=UNKNOWN
           if [[ -f "$EVIDENCE_DIR/run.log" ]]; then
@@ -378,6 +850,7 @@ jobs:
             grep -Fxq P0_ALL_ROLE_REGISTRATION=PASS "$EVIDENCE_DIR/run.log" && result=PASS
           fi
           [[ "${{ steps.matrix.outcome }}" == success ]] || result=FAIL
+          [[ "${{ steps.redaction.outcome }}" == success ]] || result=FAIL
           [[ "${{ steps.evidence.outcome }}" == success ]] || result=FAIL
           [[ "${{ steps.artifact_guard.outcome }}" == success ]] || result=FAIL
           [[ "${{ steps.upload.outcome }}" == success ]] || result=FAIL
@@ -386,14 +859,14 @@ jobs:
           {
             echo "## Production P0 all-role registration"
             echo
-            echo "- exact main: `$TARGET_SHA`"
-            echo "- result: `$result`"
-            echo "- matrix: `9/9 required`"
-            echo "- topology: `8 organizations / 8 tenants / 9 memberships`"
-            echo "- desktop Chromium: `${{ steps.evidence.outcome == 'success' && 'PASS' || 'FAIL' }}`"
-            echo "- mobile Chromium and relogin: `${{ steps.evidence.outcome == 'success' && 'PASS' || 'FAIL' }}`"
-            echo "- blocker: `${blocker:-none}`"
-            echo "- raw identity or credential data published: `0`"
+            printf -- '- immutable release candidate: `%s`\n' "$TARGET_SHA"
+            printf -- '- result: `%s`\n' "$result"
+            printf -- '- matrix: `9/9 required`\n'
+            printf -- '- topology: `8 organizations / 8 tenants / 9 memberships`\n'
+            printf -- '- desktop Chromium: `%s`\n' "${{ steps.evidence.outcome == 'success' && 'PASS' || 'FAIL' }}"
+            printf -- '- mobile Chromium and relogin: `%s`\n' "${{ steps.evidence.outcome == 'success' && 'PASS' || 'FAIL' }}"
+            printf -- '- blocker: `%s`\n' "${blocker:-none}"
+            printf -- '- raw identity or credential data published: `0`\n'
             echo "- run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           } > "$record"
           gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
@@ -408,8 +881,13 @@ jobs:
           TARGET_SHA: ${{ steps.target.outputs.sha }}
         run: |
           set -euo pipefail
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          git fetch --no-tags origin main >/dev/null
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current"
           [[ '${{ steps.matrix.outcome }}' == success ]]
+          [[ '${{ steps.redaction.outcome }}' == success ]]
           [[ '${{ steps.evidence.outcome }}' == success ]]
           [[ '${{ steps.artifact_guard.outcome }}' == success ]]
           [[ '${{ steps.upload.outcome }}' == success ]]

@@ -1,0 +1,91 @@
+.bootstrap {
+  display: grid;
+  gap: 1rem;
+  margin: 1rem auto 1.25rem;
+  width: min(100% - 2rem, 72rem);
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid rgba(28, 103, 78, 0.22);
+  border-radius: 1.75rem;
+  background: linear-gradient(135deg, rgba(236, 249, 244, 0.98), rgba(255, 255, 255, 0.98));
+  box-shadow: 0 1rem 2.5rem rgba(21, 73, 58, 0.08);
+  color: #0d2c23;
+}
+
+.bootstrap h2 {
+  margin: 0.25rem 0 0.5rem;
+  max-width: 24ch;
+  font-size: clamp(1.65rem, 4vw, 2.6rem);
+  line-height: 1.05;
+}
+
+.bootstrap p {
+  margin: 0;
+  max-width: 68ch;
+  color: #526d64;
+  font-size: clamp(1rem, 2.5vw, 1.2rem);
+  line-height: 1.5;
+}
+
+.eyebrow {
+  color: #1b7657 !important;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.bootstrap button {
+  min-height: 3.5rem;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.9rem 1.4rem;
+  border: 0;
+  border-radius: 1rem;
+  background: #146846;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.bootstrap button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.bootstrap button:focus-visible {
+  outline: 3px solid rgba(20, 104, 70, 0.35);
+  outline-offset: 3px;
+}
+
+.secondary {
+  border: 1px solid rgba(20, 104, 70, 0.35) !important;
+  background: #fff !important;
+  color: #146846 !important;
+}
+
+.status,
+.error {
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+}
+
+.status {
+  background: rgba(20, 104, 70, 0.08);
+}
+
+.error {
+  background: #fff2ef;
+  color: #8a2d1e !important;
+}
+
+@media (max-width: 640px) {
+  .bootstrap {
+    width: calc(100% - 1rem);
+    margin-top: 0.5rem;
+    border-radius: 1.35rem;
+  }
+
+  .bootstrap button {
+    width: 100%;
+  }
+}

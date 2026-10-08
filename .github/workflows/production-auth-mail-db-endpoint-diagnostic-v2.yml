@@ -1,0 +1,427 @@
+name: Production Auth-Mail DB Endpoint Diagnostic v2
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-auth-mail-db-endpoint-diagnostic-v2.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-auth-mail-db-endpoint-diagnostic-v2
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  TARGET_ISSUE_NUMBER: '3785'
+  SUBJECT_PRODUCTION_SHA: 033964e2e553c595482b774784cf808815eccbc7
+  MIGRATION_DATASOURCE_FIX_SHA: 1762b4a22a99d786a971e78cbe16ec1f74bb5a74
+  EXPECTED_PROVISION_BLOB: ae36405e7916a7c44deede109f204776fc49fc04
+  DIAGNOSTIC_COMMAND: /production p0-auth-mail-db-endpoint-v2 current-main
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate auth-mail DB endpoint diagnostic v2 contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Enforce read-only and pinned datasource boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path=Path('.github/workflows/production-auth-mail-db-endpoint-diagnostic-v2.yml')
+          text=path.read_text(encoding='utf-8')
+          required=[
+            'SUBJECT_PRODUCTION_SHA: 033964e2e553c595482b774784cf808815eccbc7',
+            'MIGRATION_DATASOURCE_FIX_SHA: 1762b4a22a99d786a971e78cbe16ec1f74bb5a74',
+            'EXPECTED_PROVISION_BLOB: ae36405e7916a7c44deede109f204776fc49fc04',
+            'DIAGNOSTIC_COMMAND: /production p0-auth-mail-db-endpoint-v2 current-main',
+            'MIGRATION_ENDPOINT_PARITY',
+            'API_AUTH_ENDPOINT_PARITY',
+            'PRISMA_CONNECT_CLASS',
+            'PRISMA_PRINCIPAL_CLASS',
+            'ROLE_CONTRACT',
+            'MAIL_OUTBOX_SELECT_CLASS',
+            'PRODUCTION_MUTATION NONE',
+          ]
+          missing=[x for x in required if x not in text]
+          if missing:
+              raise SystemExit('missing v2 invariant: '+' | '.join(missing))
+          diagnostic=text.split('\n  diagnostic:\n',1)[1]
+          forbidden=[
+            'ALTER ROLE', 'CREATE ROLE', 'DROP ROLE', 'GRANT ', 'REVOKE ',
+            'rotate-db', 'rotate-smtp', 'rotate-key', 'docker compose up',
+            'docker restart', 'docker rm', 'docker run', '--force-recreate',
+            'prisma migrate', 'prisma db execute', 'PASSWORD_RESET_REPLAYED YES',
+            'PRODUCTION_MUTATION DB_',
+          ]
+          bad=[x for x in forbidden if x in diagnostic]
+          if bad:
+              raise SystemExit('mutation surface forbidden: '+' | '.join(bad))
+          PY
+
+  diagnostic:
+    name: Read-only migration-datasource and Prisma classifier
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3785 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/production p0-auth-mail-db-endpoint-v2 current-main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bind current main, immutable worker core and reviewed provision fix
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          diagnostic_main_sha="$(git rev-parse origin/main)"
+          [[ "$diagnostic_main_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$diagnostic_main_sha" ]]
+          git cat-file -e "${SUBJECT_PRODUCTION_SHA}^{commit}"
+          git cat-file -e "${MIGRATION_DATASOURCE_FIX_SHA}^{commit}"
+          git merge-base --is-ancestor "$SUBJECT_PRODUCTION_SHA" "$diagnostic_main_sha"
+          git merge-base --is-ancestor "$MIGRATION_DATASOURCE_FIX_SHA" "$diagnostic_main_sha"
+          git diff --quiet "$SUBJECT_PRODUCTION_SHA..$diagnostic_main_sha" -- \
+            apps/api/src/auth-mail-worker.ts \
+            apps/api/prisma/migrations/20260812010000_p0_industrial_auth_mail_outbox/migration.sql \
+            scripts/production-auth-mail-outbox-cutover-core.sh
+          [[ "$(git hash-object scripts/provision-production-auth-mail-runtime.sh)" == "$EXPECTED_PROVISION_BLOB" ]]
+          echo "diagnostic_main_sha=$diagnostic_main_sha" >> "$GITHUB_OUTPUT"
+          echo "subject_sha=$SUBJECT_PRODUCTION_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || exit 10
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || exit 11
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || exit 13
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"; chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 14
+          scan="$(mktemp)"; match="$(mktemp)"; pinned_ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              [[ "$(grep -c . "$match" || true)" == 1 ]] && { pinned_ready=1; break; }
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; exit 15; }
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; python3 --version >/dev/null; echo SSH_AUTH_OK' \
+            | grep -Fxq SSH_AUTH_OK
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Classify migration endpoint and Prisma stages without mutation
+        id: diagnostic
+        shell: bash
+        env:
+          SUBJECT_SHA: ${{ steps.target.outputs.subject_sha }}
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -euo pipefail
+          raw="$(mktemp)"; clean="$(mktemp)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "bash -s -- '$SUBJECT_SHA'" > "$raw" 2>&1 <<'REMOTE'
+          set -Eeuo pipefail
+          subject_sha="$1"
+          runtime_root='/var/lib/pc-secret-authority/runtime'
+          db_file="$runtime_root/database-url"
+          tmp_root="$(mktemp -d /tmp/pc-auth-mail-db-endpoint-v2.XXXXXX)"
+          cleanup(){ rm -rf -- "$tmp_root"; }
+          trap cleanup EXIT
+          emit(){ printf '%s=%s\n' "$1" "$2"; }
+          fail(){ emit AUTH_MAIL_DB_ENDPOINT_V2 FAIL; emit ERROR_CODE "$1"; emit PRODUCTION_MUTATION NONE; exit "${2:-1}"; }
+
+          [[ "$(id -u)" -eq 0 ]] || fail ROOT_REQUIRED 20
+          [[ "$subject_sha" =~ ^[0-9a-f]{40}$ ]] || fail SUBJECT_SHA_INVALID 21
+          command -v docker >/dev/null 2>&1 || fail DOCKER_REQUIRED 22
+          command -v python3 >/dev/null 2>&1 || fail PYTHON_REQUIRED 23
+          [[ -f "$db_file" && ! -L "$db_file" && "$(stat -c '%a:%u:%g' "$db_file")" == '444:0:0' ]] || fail DB_RUNTIME_FILE_INVALID 24
+
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 )) || fail WEB_CARDINALITY 25
+          web_id="${web_ids[0]}"
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          [[ -n "$project" ]] || fail PROJECT_MISSING 26
+          mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
+          (( ${#api_ids[@]} == 1 )) || fail API_CARDINALITY 27
+          api_id="${api_ids[0]}"
+          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")" == "$subject_sha" ]] || fail API_REVISION_DRIFT 28
+          [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")" == "$subject_sha" ]] || fail WEB_REVISION_DRIFT 29
+
+          subject_workers=()
+          while IFS= read -r candidate; do
+            [[ -n "$candidate" ]] || continue
+            [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$candidate" 2>/dev/null || true)" == "$subject_sha" ]] && subject_workers+=("$candidate")
+          done < <(docker ps -aq --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker')
+          (( ${#subject_workers[@]} == 1 )) || fail WORKER_CARDINALITY 30
+          worker_id="${subject_workers[0]}"
+          state="$(docker inspect --format '{{.State.Status}}' "$worker_id" 2>/dev/null || true)"
+          health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$worker_id" 2>/dev/null || true)"
+          [[ "$state" =~ ^(created|running|paused|restarting|removing|exited|dead)$ ]] || state=unknown
+          [[ "$health" =~ ^(none|starting|healthy|unhealthy)$ ]] || health=unknown
+          emit WORKER_STATE "$state"
+          emit WORKER_HEALTH "$health"
+          startup_codes="$(docker logs --tail 300 "$worker_id" 2>&1 | sed -nE 's/^Auth-mail worker failed to start: ([A-Z0-9_]{1,120})$/\1/p' | sort -u || true)"
+          startup_count="$(grep -c . <<< "$startup_codes" || true)"
+          if [[ "$startup_count" == 0 ]]; then startup_code=NONE; elif [[ "$startup_count" == 1 ]]; then startup_code="$startup_codes"; else startup_code=MULTIPLE_SAFE_CODES; fi
+          [[ "$startup_code" =~ ^[A-Z0-9_]{1,120}$ ]] || startup_code=INVALID_SAFE_CODE
+          emit STARTUP_CODE "$startup_code"
+
+          working_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$worker_id")"
+          config_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$worker_id")"
+          [[ "$working_dir" == /* && "$working_dir" != / && -d "$working_dir" && ! -L "$working_dir" && -n "$config_files" ]] || fail COMPOSE_AUTHORITY_INVALID 31
+          working_dir="$(realpath -e -- "$working_dir")"
+          dc=(docker compose --project-directory "$working_dir" --project-name "$project")
+          IFS=',' read -r -a raw_files <<< "$config_files"
+          compose_count=0
+          for raw_file in "${raw_files[@]}"; do
+            file="${raw_file#"${raw_file%%[![:space:]]*}"}"; file="${file%"${file##*[![:space:]]}"}"
+            [[ -n "$file" ]] || continue
+            [[ "$file" == /* ]] || file="$working_dir/$file"
+            [[ -f "$file" && ! -L "$file" ]] || fail COMPOSE_FILE_INVALID 32
+            file="$(realpath -e -- "$file")"
+            [[ "$file" == "$working_dir"/* ]] || fail COMPOSE_FILE_OUTSIDE_AUTHORITY 33
+            dc+=(-f "$file"); compose_count=$((compose_count+1))
+          done
+          (( compose_count >= 1 )) || fail COMPOSE_FILE_CARDINALITY 34
+          compose_json="$tmp_root/compose.json"; chmod 600 "$compose_json"
+          "${dc[@]}" config --format json > "$compose_json" || fail COMPOSE_RENDER_FAILED 35
+
+          migration_file="$tmp_root/migration-url"; api_file="$tmp_root/api-auth-url"; chmod 600 "$migration_file" "$api_file"
+          python3 - "$compose_json" "$migration_file" <<'PY' || fail MIGRATION_DATASOURCE_DISCOVERY_FAILED 36
+          import json,re,sys
+          from urllib.parse import urlsplit
+          cfg=json.load(open(sys.argv[1],encoding='utf-8')); services=cfg.get('services') or {}
+          candidates=[]
+          for name,service in services.items():
+              image=str(service.get('image') or '')
+              command=service.get('command'); command=' '.join(command) if isinstance(command,list) else str(command or '')
+              if re.search(r'(^|[-_])(migrate|migration)([-_]|$)',name,re.I) or 'grainflow-migration' in image or ('prisma' in command and 'migrate' in command): candidates.append(name)
+          if len(candidates)!=1: raise SystemExit(1)
+          env=services[candidates[0]].get('environment') or {}
+          if isinstance(env,list): env=dict(item.split('=',1) for item in env if isinstance(item,str) and '=' in item)
+          value=str(env.get('DATABASE_URL') or '').strip(); u=urlsplit(value)
+          if u.scheme not in ('postgres','postgresql') or not u.username or not u.password or not u.hostname or not u.path.strip('/'): raise SystemExit(1)
+          open(sys.argv[2],'w',encoding='utf-8').write(value+'\n')
+          PY
+          docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | sed -n 's/^AUTH_DATABASE_URL=//p' | head -1 > "$api_file"
+          [[ -s "$api_file" ]] || fail API_AUTH_URL_MISSING 37
+
+          endpoint_out="$tmp_root/endpoint.out"
+          python3 - "$db_file" "$migration_file" "$api_file" "$worker_id" "$api_id" "$project" <<'PY' > "$endpoint_out" || fail ENDPOINT_CLASSIFIER_FAILED 38
+          import json,subprocess,sys
+          from urllib.parse import urlsplit,unquote,parse_qsl
+          db_file,mig_file,api_file,worker_id,api_id,project=sys.argv[1:]
+          wu=urlsplit(open(db_file,encoding='utf-8').read().strip())
+          mu=urlsplit(open(mig_file,encoding='utf-8').read().strip())
+          au=urlsplit(open(api_file,encoding='utf-8').read().strip())
+          if wu.scheme not in ('postgres','postgresql') or mu.scheme not in ('postgres','postgresql') or au.scheme not in ('postgres','postgresql'): raise SystemExit(2)
+          if unquote(wu.username or '')!='pc_auth_mail_runtime' or not wu.password: raise SystemExit(3)
+          def authority(u): return ((u.hostname or '').lower(),u.port or 5432,u.path,tuple(sorted(parse_qsl(u.query,keep_blank_values=True))))
+          def inspect(cid): return json.loads(subprocess.check_output(['docker','inspect',cid],text=True))[0]
+          def nets(obj): return set(((obj.get('NetworkSettings') or {}).get('Networks') or {}).keys())
+          def names(obj):
+              out=set(); name=str(obj.get('Name') or '').lstrip('/').lower()
+              if name: out.add(name)
+              labels=(obj.get('Config') or {}).get('Labels') or {}; service=str(labels.get('com.docker.compose.service') or '').lower()
+              if service: out.add(service)
+              for data in ((obj.get('NetworkSettings') or {}).get('Networks') or {}).values():
+                  ip=str(data.get('IPAddress') or '').lower()
+                  if ip: out.add(ip)
+                  for alias in data.get('Aliases') or []: out.add(str(alias).lower())
+              return out
+          wi,ai=inspect(worker_id),inspect(api_id); host=(wu.hostname or '').lower(); kind='OTHER'; backend=None
+          ids=subprocess.check_output(['docker','ps','-q','--filter',f'label=com.docker.compose.project={project}'],text=True).split()
+          for cid in ids:
+              obj=inspect(cid); image=str((obj.get('Config') or {}).get('Image') or '').lower(); labels=(obj.get('Config') or {}).get('Labels') or {}; service=str(labels.get('com.docker.compose.service') or '').lower()
+              if host not in names(obj): continue
+              if 'pgbouncer' in image or 'pgbouncer' in service: kind='PGBOUNCER'; backend=obj; break
+              if image.startswith('postgres:') or '/postgres:' in image or service in {'postgres','db','database'}: kind='POSTGRES'; backend=obj; break
+          if host in {'localhost','127.0.0.1','::1'}: kind='LOOPBACK'; backend=None
+          print('WORKER_DB_USER=PASS')
+          print('MIGRATION_ENDPOINT_PARITY='+('PASS' if authority(wu)==authority(mu) else 'FAIL'))
+          print('API_AUTH_ENDPOINT_PARITY='+('PASS' if authority(wu)==authority(au) else 'FAIL'))
+          print('DB_ENDPOINT_KIND='+kind)
+          print('DB_PORT_CLASS='+('POSTGRES_DEFAULT' if (wu.port or 5432)==5432 else 'NONDEFAULT'))
+          print('WORKER_API_SHARED_NETWORK='+('PASS' if nets(wi)&nets(ai) else 'FAIL'))
+          print('WORKER_DB_BACKEND_SHARED_NETWORK='+('NA' if backend is None else ('PASS' if nets(wi)&nets(backend) else 'FAIL')))
+          PY
+          cat "$endpoint_out"
+
+          prisma_script="$tmp_root/prisma-probe.js"; chmod 600 "$prisma_script"
+          python3 - "$db_file" > "$prisma_script" <<'PY'
+          import json,sys
+          url=open(sys.argv[1],encoding='utf-8').read().strip()
+          print("const {PrismaClient}=require('@prisma/client');")
+          print('const url='+json.dumps(url)+';')
+          print(r'''
+          const safe=(e)=>{
+            const vals=[e?.errorCode,e?.meta?.code,e?.code,e?.name].filter(Boolean).map(x=>String(x).toUpperCase().replace(/[^A-Z0-9_]/g,'_').slice(0,40)).filter(Boolean);
+            return (vals.slice(0,3).join('_')||'UNKNOWN').slice(0,100);
+          };
+          const out=(k,v)=>process.stdout.write(`${k}=${v}\n`);
+          const p=new PrismaClient({datasources:{db:{url}}});
+          (async()=>{
+            try { await p.$connect(); out('PRISMA_CONNECT_CLASS','PASS'); out('CURRENT_CREDENTIAL_LOGIN','PASS'); }
+            catch(e){ out('PRISMA_CONNECT_CLASS',safe(e)); out('CURRENT_CREDENTIAL_LOGIN','FAIL'); out('PRISMA_PRINCIPAL_CLASS','NOT_RUN'); out('ROLE_CONTRACT','NOT_RUN'); out('MAIL_OUTBOX_SELECT_CLASS','NOT_RUN'); return; }
+            try {
+              const rows=await p.$queryRawUnsafe('SELECT current_user');
+              out('PRISMA_PRINCIPAL_CLASS',rows?.[0]?.current_user==='pc_auth_mail_runtime'?'PASS':'WRONG_PRINCIPAL');
+            } catch(e){ out('PRISMA_PRINCIPAL_CLASS',safe(e)); out('ROLE_CONTRACT','NOT_RUN'); out('MAIL_OUTBOX_SELECT_CLASS','NOT_RUN'); return; }
+            try {
+              const rows=await p.$queryRawUnsafe("SELECT rolcanlogin, rolsuper, rolbypassrls, rolinherit, has_database_privilege(current_user,current_database(),'CONNECT') AS connect_ok, has_schema_privilege(current_user,'auth','USAGE') AS schema_ok, has_table_privilege(current_user,'auth.mail_outbox','SELECT') AS select_ok FROM pg_roles WHERE rolname=current_user");
+              const r=rows?.[0];
+              const ok=!!r && r.rolcanlogin===true && r.rolsuper===false && r.rolbypassrls===false && r.rolinherit===false && r.connect_ok===true && r.schema_ok===true && r.select_ok===true;
+              out('ROLE_CONTRACT',ok?'PASS':'FAIL');
+            } catch(e){ out('ROLE_CONTRACT',safe(e)); }
+            try { await p.$queryRawUnsafe('SELECT 1 FROM auth.mail_outbox LIMIT 0'); out('MAIL_OUTBOX_SELECT_CLASS','PASS'); }
+            catch(e){ out('MAIL_OUTBOX_SELECT_CLASS',safe(e)); }
+          })().finally(async()=>{await p.$disconnect().catch(()=>{});});
+          ''')
+          PY
+          prisma_out="$tmp_root/prisma.out"
+          docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - < "$prisma_script" > "$prisma_out" 2>/dev/null || true
+          for key in PRISMA_CONNECT_CLASS CURRENT_CREDENTIAL_LOGIN PRISMA_PRINCIPAL_CLASS ROLE_CONTRACT MAIL_OUTBOX_SELECT_CLASS; do
+            value="$(sed -nE "s/^${key}=([A-Z0-9_]{1,100})$/\\1/p" "$prisma_out" | head -1)"
+            [[ -n "$value" ]] || value=NO_SAFE_RESULT
+            emit "$key" "$value"
+          done
+
+          emit AUTH_MAIL_DB_ENDPOINT_V2 PASS
+          emit ERROR_CODE NONE
+          emit PRODUCTION_MUTATION NONE
+          REMOTE
+          remote_rc=$?
+          set -e
+          sed -nE '/^(AUTH_MAIL_DB_ENDPOINT_V2|ERROR_CODE|WORKER_STATE|WORKER_HEALTH|STARTUP_CODE|WORKER_DB_USER|MIGRATION_ENDPOINT_PARITY|API_AUTH_ENDPOINT_PARITY|DB_ENDPOINT_KIND|DB_PORT_CLASS|WORKER_API_SHARED_NETWORK|WORKER_DB_BACKEND_SHARED_NETWORK|PRISMA_CONNECT_CLASS|CURRENT_CREDENTIAL_LOGIN|PRISMA_PRINCIPAL_CLASS|ROLE_CONTRACT|MAIL_OUTBOX_SELECT_CLASS|PRODUCTION_MUTATION)=[A-Za-z0-9_.:-]{1,160}$/p' "$raw" > "$clean"
+          rm -f "$raw"; cat "$clean"; echo "rc=$remote_rc" >> "$GITHUB_OUTPUT"
+          while IFS='=' read -r key value; do
+            case "$key" in AUTH_MAIL_DB_ENDPOINT_V2|ERROR_CODE|WORKER_STATE|WORKER_HEALTH|STARTUP_CODE|WORKER_DB_USER|MIGRATION_ENDPOINT_PARITY|API_AUTH_ENDPOINT_PARITY|DB_ENDPOINT_KIND|DB_PORT_CLASS|WORKER_API_SHARED_NETWORK|WORKER_DB_BACKEND_SHARED_NETWORK|PRISMA_CONNECT_CLASS|CURRENT_CREDENTIAL_LOGIN|PRISMA_PRINCIPAL_CLASS|ROLE_CONTRACT|MAIL_OUTBOX_SELECT_CLASS|PRODUCTION_MUTATION) echo "${key,,}=$value" >> "$GITHUB_OUTPUT";; esac
+          done < "$clean"
+          rm -f "$clean"
+
+      - name: Publish sanitized v2 evidence
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DIAGNOSTIC_MAIN_SHA: ${{ steps.target.outputs.diagnostic_main_sha }}
+          SUBJECT_SHA: ${{ steps.target.outputs.subject_sha }}
+          REMOTE_RC: ${{ steps.diagnostic.outputs.rc }}
+          DIAGNOSTIC: ${{ steps.diagnostic.outputs.auth_mail_db_endpoint_v2 }}
+          ERROR_CODE: ${{ steps.diagnostic.outputs.error_code }}
+          WORKER_STATE: ${{ steps.diagnostic.outputs.worker_state }}
+          WORKER_HEALTH: ${{ steps.diagnostic.outputs.worker_health }}
+          STARTUP_CODE: ${{ steps.diagnostic.outputs.startup_code }}
+          WORKER_DB_USER: ${{ steps.diagnostic.outputs.worker_db_user }}
+          MIGRATION_ENDPOINT_PARITY: ${{ steps.diagnostic.outputs.migration_endpoint_parity }}
+          API_AUTH_ENDPOINT_PARITY: ${{ steps.diagnostic.outputs.api_auth_endpoint_parity }}
+          DB_ENDPOINT_KIND: ${{ steps.diagnostic.outputs.db_endpoint_kind }}
+          DB_PORT_CLASS: ${{ steps.diagnostic.outputs.db_port_class }}
+          WORKER_API_SHARED_NETWORK: ${{ steps.diagnostic.outputs.worker_api_shared_network }}
+          WORKER_DB_BACKEND_SHARED_NETWORK: ${{ steps.diagnostic.outputs.worker_db_backend_shared_network }}
+          PRISMA_CONNECT_CLASS: ${{ steps.diagnostic.outputs.prisma_connect_class }}
+          CURRENT_CREDENTIAL_LOGIN: ${{ steps.diagnostic.outputs.current_credential_login }}
+          PRISMA_PRINCIPAL_CLASS: ${{ steps.diagnostic.outputs.prisma_principal_class }}
+          ROLE_CONTRACT: ${{ steps.diagnostic.outputs.role_contract }}
+          MAIL_OUTBOX_SELECT_CLASS: ${{ steps.diagnostic.outputs.mail_outbox_select_class }}
+          PRODUCTION_MUTATION: ${{ steps.diagnostic.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          record="$(mktemp)"
+          {
+            echo '### PC-CROP auth-mail DB endpoint diagnostic v2'
+            echo
+            echo "- diagnostic main SHA: \`${DIAGNOSTIC_MAIN_SHA:-unknown}\`"
+            echo "- production subject SHA: \`${SUBJECT_SHA:-unknown}\`"
+            echo "- diagnostic: \`${DIAGNOSTIC:-unknown}\` (rc=\`${REMOTE_RC:-unknown}\`)"
+            echo "- safe error code: \`${ERROR_CODE:-unknown}\`"
+            echo "- worker state / health / startup: \`${WORKER_STATE:-unknown} / ${WORKER_HEALTH:-unknown} / ${STARTUP_CODE:-unknown}\`"
+            echo "- worker DB user: \`${WORKER_DB_USER:-unknown}\`"
+            echo "- migration endpoint parity / API auth endpoint parity: \`${MIGRATION_ENDPOINT_PARITY:-unknown} / ${API_AUTH_ENDPOINT_PARITY:-unknown}\`"
+            echo "- endpoint kind / port class: \`${DB_ENDPOINT_KIND:-unknown} / ${DB_PORT_CLASS:-unknown}\`"
+            echo "- worker↔API / worker↔DB-backend network: \`${WORKER_API_SHARED_NETWORK:-unknown} / ${WORKER_DB_BACKEND_SHARED_NETWORK:-unknown}\`"
+            echo "- Prisma connect / credential login: \`${PRISMA_CONNECT_CLASS:-unknown} / ${CURRENT_CREDENTIAL_LOGIN:-unknown}\`"
+            echo "- Prisma principal / role contract / mail_outbox SELECT: \`${PRISMA_PRINCIPAL_CLASS:-unknown} / ${ROLE_CONTRACT:-unknown} / ${MAIL_OUTBOX_SELECT_CLASS:-unknown}\`"
+            echo "- production mutation: \`${PRODUCTION_MUTATION:-unknown}\`"
+            echo '- hostnames, database names, URLs, passwords/hashes, container IDs, raw Prisma/PostgreSQL errors and mail/reviewer credentials are never published.'
+          } > "$record"
+          gh issue comment "$TARGET_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f "$record"
+
+      - name: Enforce read-only v2 result
+        shell: bash
+        env:
+          REMOTE_RC: ${{ steps.diagnostic.outputs.rc }}
+          DIAGNOSTIC: ${{ steps.diagnostic.outputs.auth_mail_db_endpoint_v2 }}
+          PRODUCTION_MUTATION: ${{ steps.diagnostic.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          [[ "${REMOTE_RC:-1}" == 0 ]]
+          [[ "$DIAGNOSTIC" == PASS ]]
+          [[ "$PRODUCTION_MUTATION" == NONE ]]

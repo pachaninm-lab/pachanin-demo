@@ -1,5 +1,15 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import {
+  GEKTA_CONVERSATION_TITLE_MAX,
+  GEKTA_IMPORT_MAX_CONVERSATIONS,
+  GEKTA_IMPORT_MAX_MESSAGES,
+  GEKTA_MESSAGE_BODY_MAX,
+  GEKTA_PROJECT_DESCRIPTION_MAX,
+  GEKTA_PROJECT_NAME_MAX,
+  type GektaMessageRole,
+} from './gekta.contract';
 
 /**
  * Проекты и история диалогов зарегистрированного пользователя.
@@ -8,11 +18,13 @@ import { PrismaService } from '../../common/prisma/prisma.service';
  * чужой идентификатор не открывает доступ к чужим данным.
  */
 
-type Ownable = { accountId: string };
+type Ownable = { accountId: string; deletedAt?: Date | null };
 
-const MAX_NAME = 60;
-const MAX_DESCRIPTION = 240;
-const MAX_TITLE = 80;
+// Пределы объявлены один раз в gekta.contract.ts: DTO проверяет границу по
+// тем же числам, которыми режет сервис.
+const MAX_NAME = GEKTA_PROJECT_NAME_MAX;
+const MAX_DESCRIPTION = GEKTA_PROJECT_DESCRIPTION_MAX;
+const MAX_TITLE = GEKTA_CONVERSATION_TITLE_MAX;
 
 function clean(value: string, limit: number): string {
   return value
@@ -29,6 +41,35 @@ export class GektaWorkspaceService {
   private assertOwned(row: Ownable | null, accountId: string): void {
     if (!row) throw new NotFoundException('not_found');
     if (row.accountId !== accountId) throw new ForbiddenException('not_owner');
+  }
+
+  private assertActiveOwned(row: Ownable | null, accountId: string): void {
+    this.assertOwned(row, accountId);
+    if (row?.deletedAt) throw new NotFoundException('not_found');
+  }
+
+  private async retainActiveProject(tx: Prisma.TransactionClient, accountId: string, projectId: string): Promise<void> {
+    const project = await tx.gektaProject.findUnique({ where: { id: projectId } });
+    this.assertActiveOwned(project, accountId);
+    // The conditional UPDATE serializes assignment with project deletion.
+    const updated = await tx.gektaProject.updateMany({
+      where: { id: projectId, accountId, deletedAt: null },
+      data: { updatedAt: new Date() },
+    });
+    if (updated.count !== 1) throw new NotFoundException('not_found');
+  }
+
+  private async updateActiveConversation(
+    tx: Prisma.TransactionClient, accountId: string, conversationId: string,
+    data: Prisma.GektaConversationUpdateManyMutationInput,
+  ): Promise<void> {
+    // This row lock is held through message creation/return; deletion cannot
+    // commit between the active check and the transaction's write.
+    const updated = await tx.gektaConversation.updateMany({
+      where: { id: conversationId, accountId, deletedAt: null },
+      data,
+    });
+    if (updated.count !== 1) throw new NotFoundException('not_found');
   }
 
   async listProjects(accountId: string) {
@@ -49,15 +90,16 @@ export class GektaWorkspaceService {
 
   async renameProject(accountId: string, projectId: string, name: string, description?: string) {
     const project = await this.prisma.gektaProject.findUnique({ where: { id: projectId } });
-    this.assertOwned(project, accountId);
+    this.assertActiveOwned(project, accountId);
     const cleanName = clean(name, MAX_NAME);
     if (!cleanName) throw new BadRequestException('project_name_required');
-    return this.prisma.gektaProject.update({
-      where: { id: projectId },
-      data: {
-        name: cleanName,
-        ...(description === undefined ? {} : { description: clean(description, MAX_DESCRIPTION) }),
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.gektaProject.updateMany({
+        where: { id: projectId, accountId, deletedAt: null },
+        data: { name: cleanName, ...(description === undefined ? {} : { description: clean(description, MAX_DESCRIPTION) }) },
+      });
+      if (updated.count !== 1) throw new NotFoundException('not_found');
+      return tx.gektaProject.findUniqueOrThrow({ where: { id: projectId } });
     });
   }
 
@@ -65,9 +107,16 @@ export class GektaWorkspaceService {
   async deleteProject(accountId: string, projectId: string, now: Date = new Date()) {
     const project = await this.prisma.gektaProject.findUnique({ where: { id: projectId } });
     this.assertOwned(project, accountId);
+    if (project!.deletedAt) return project;
     return this.prisma.$transaction(async (tx) => {
-      await tx.gektaConversation.updateMany({ where: { projectId, accountId }, data: { projectId: null } });
-      return tx.gektaProject.update({ where: { id: projectId }, data: { deletedAt: now } });
+      // Lock the project before its conversations, as create/move do.
+      const deleted = await tx.gektaProject.updateMany({
+        where: { id: projectId, accountId, deletedAt: null }, data: { deletedAt: now },
+      });
+      if (deleted.count === 1) {
+        await tx.gektaConversation.updateMany({ where: { projectId, accountId }, data: { projectId: null } });
+      }
+      return tx.gektaProject.findUniqueOrThrow({ where: { id: projectId } });
     });
   }
 
@@ -90,73 +139,76 @@ export class GektaWorkspaceService {
       where: { id: conversationId },
       include: { messages: { orderBy: { createdAt: 'asc' } } },
     });
-    this.assertOwned(conversation, accountId);
+    this.assertActiveOwned(conversation, accountId);
     return conversation;
   }
 
   async createConversation(accountId: string, title: string, locale: string, projectId?: string | null) {
-    if (projectId) {
-      const project = await this.prisma.gektaProject.findUnique({ where: { id: projectId } });
-      this.assertOwned(project, accountId);
-    }
-    return this.prisma.gektaConversation.create({
-      data: {
-        accountId,
-        title: clean(title, MAX_TITLE) || 'Новый диалог',
-        locale,
-        projectId: projectId ?? null,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      if (projectId) await this.retainActiveProject(tx, accountId, projectId);
+      return tx.gektaConversation.create({
+        data: { accountId, title: clean(title, MAX_TITLE) || 'Новый диалог', locale, projectId: projectId ?? null },
+      });
     });
   }
 
   async appendMessage(accountId: string, conversationId: string, message: {
-    role: 'user' | 'assistant';
+    role: GektaMessageRole;
     body: string;
     citations?: unknown;
     attachments?: unknown;
   }) {
     const conversation = await this.prisma.gektaConversation.findUnique({ where: { id: conversationId } });
-    this.assertOwned(conversation, accountId);
+    this.assertActiveOwned(conversation, accountId);
     return this.prisma.$transaction(async (tx) => {
+      await this.updateActiveConversation(tx, accountId, conversationId, { updatedAt: new Date() });
       const created = await tx.gektaMessage.create({
         data: {
           conversationId,
           role: message.role,
-          body: message.body.slice(0, 12_000),
+          body: message.body.slice(0, GEKTA_MESSAGE_BODY_MAX),
           citations: (message.citations ?? undefined) as never,
           attachments: (message.attachments ?? undefined) as never,
         },
       });
-      await tx.gektaConversation.update({ where: { id: conversationId }, data: { updatedAt: new Date() } });
       return created;
     });
   }
 
   async renameConversation(accountId: string, conversationId: string, title: string) {
     const conversation = await this.prisma.gektaConversation.findUnique({ where: { id: conversationId } });
-    this.assertOwned(conversation, accountId);
+    this.assertActiveOwned(conversation, accountId);
     const cleanTitle = clean(title, MAX_TITLE);
     if (!cleanTitle) throw new BadRequestException('conversation_title_required');
-    return this.prisma.gektaConversation.update({
-      where: { id: conversationId },
-      data: { title: cleanTitle },
+    return this.prisma.$transaction(async (tx) => {
+      await this.updateActiveConversation(tx, accountId, conversationId, { title: cleanTitle });
+      return tx.gektaConversation.findUniqueOrThrow({ where: { id: conversationId } });
     });
   }
 
   async moveConversation(accountId: string, conversationId: string, projectId: string | null) {
     const conversation = await this.prisma.gektaConversation.findUnique({ where: { id: conversationId } });
-    this.assertOwned(conversation, accountId);
-    if (projectId) {
-      const project = await this.prisma.gektaProject.findUnique({ where: { id: projectId } });
-      this.assertOwned(project, accountId);
-    }
-    return this.prisma.gektaConversation.update({ where: { id: conversationId }, data: { projectId } });
+    this.assertActiveOwned(conversation, accountId);
+    return this.prisma.$transaction(async (tx) => {
+      if (projectId) await this.retainActiveProject(tx, accountId, projectId);
+      const moved = await tx.gektaConversation.updateMany({
+        where: { id: conversationId, accountId, deletedAt: null }, data: { projectId },
+      });
+      if (moved.count !== 1) throw new NotFoundException('not_found');
+      return tx.gektaConversation.findUniqueOrThrow({ where: { id: conversationId } });
+    });
   }
 
   async deleteConversation(accountId: string, conversationId: string, now: Date = new Date()) {
     const conversation = await this.prisma.gektaConversation.findUnique({ where: { id: conversationId } });
     this.assertOwned(conversation, accountId);
-    return this.prisma.gektaConversation.update({ where: { id: conversationId }, data: { deletedAt: now } });
+    if (conversation!.deletedAt) return conversation;
+    return this.prisma.$transaction(async (tx) => {
+      await tx.gektaConversation.updateMany({
+        where: { id: conversationId, accountId, deletedAt: null }, data: { deletedAt: now },
+      });
+      return tx.gektaConversation.findUniqueOrThrow({ where: { id: conversationId } });
+    });
   }
 
   async clearHistory(accountId: string, now: Date = new Date()) {
@@ -177,12 +229,12 @@ export class GektaWorkspaceService {
       title: string;
       locale: string;
       createdAt?: string;
-      messages: readonly { role: 'user' | 'assistant'; body: string; createdAt?: string }[];
+      messages: readonly { role: GektaMessageRole; body: string; createdAt?: string }[];
     }[],
     now: Date = new Date(),
   ) {
     const imported: string[] = [];
-    for (const incoming of conversations.slice(0, 60)) {
+    for (const incoming of conversations.slice(0, GEKTA_IMPORT_MAX_CONVERSATIONS)) {
       const title = clean(incoming.title, MAX_TITLE);
       if (!title) continue;
 
@@ -199,9 +251,9 @@ export class GektaWorkspaceService {
           importedAt: now,
           createdAt: incoming.createdAt ? new Date(incoming.createdAt) : now,
           messages: {
-            create: incoming.messages.slice(0, 80).map((message) => ({
+            create: incoming.messages.slice(0, GEKTA_IMPORT_MAX_MESSAGES).map((message) => ({
               role: message.role,
-              body: message.body.slice(0, 12_000),
+              body: message.body.slice(0, GEKTA_MESSAGE_BODY_MAX),
               createdAt: message.createdAt ? new Date(message.createdAt) : now,
             })),
           },

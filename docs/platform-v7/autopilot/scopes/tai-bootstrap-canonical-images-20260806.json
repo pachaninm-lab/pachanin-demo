@@ -1,6 +1,6 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/gekta-p0-speed-canonical-images-3896",
+  "branch": "fix/tai-bootstrap-canonical-images-20260806",
   "status": "active",
   "title": "Gekta P0 SPEED exact-main canonical image trigger",
   "priority": "P0",
