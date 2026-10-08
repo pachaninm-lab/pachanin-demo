@@ -35,6 +35,7 @@ import {
   type GektaAnonymousSession,
 } from '@/lib/gekta/anonymous-session';
 import { resolveAnonymousEntitlement } from '@/lib/gekta/entitlement';
+import { GEKTA_LEGAL_VERSION } from '@/lib/gekta/legal';
 import {
   GEKTA_AUTH_TIMEOUT_MS,
   gektaApiBase,
@@ -320,7 +321,7 @@ async function authorizeGektaAnswer(request: NextRequest): Promise<{
       anonymousSession: null,
     };
   }
-  const consumed = admitReservedAnswer(current, ticket);
+  const consumed = admitReservedAnswer(current, ticket, GEKTA_LEGAL_VERSION);
   if (!consumed) {
     return {
       response: NextResponse.json(
