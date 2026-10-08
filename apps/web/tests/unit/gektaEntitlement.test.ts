@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { runInNewContext } from 'node:vm';
+import { transpileModule } from 'typescript';
 import { NextRequest } from 'next/server';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { middleware as applyMiddleware } from '../../middleware';
 import { GET, POST } from '@/app/api/gekta/entitlement/route';
 import {
@@ -63,6 +65,33 @@ async function askOnce(cookie: string): Promise<{ cookie: string; allowed: boole
 }
 
 describe('Gekta anonymous entitlement', () => {
+  it.each([
+    { allowed: false, reason: 'consent_required', expected: null, expectedEvents: [] },
+    { allowed: false, expected: null, expectedEvents: ['gekta_anonymous_limit_reached', 'gekta_registration_gate_view'] },
+    { allowed: true, ticket: 'server-ticket', expected: 'server-ticket', expectedEvents: [] },
+  ])('classifies the actual workspace reservation decision without confusing consent with quota: $reason $allowed', async ({ expected, expectedEvents, ...payload }) => {
+    const source = read('components/gekta/GektaChatWorkspace.tsx');
+    const start = source.indexOf('const reserveAnswer = React.useCallback(');
+    const terminator = '}, [applyEntitlement, locale, workspaceMode]);';
+    const end = source.indexOf(terminator, start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const callback = source.slice(start, end + terminator.length);
+    const applyEntitlement = vi.fn();
+    const track = vi.fn();
+    const fetch = vi.fn(async () => new Response(JSON.stringify(payload), { status: 200 }));
+    const context = {
+      React: { useCallback: (callback: () => Promise<string | null>) => callback },
+      workspaceMode: 'local', locale: 'ru', fetch, applyEntitlement, track,
+    };
+    const compiled = transpileModule(`${callback}\nglobalThis.result = reserveAnswer();`, {}).outputText;
+    const result = runInNewContext(`${compiled}\nglobalThis.result`, context, { timeout: 1_000 });
+    expect(await result).toBe(expected);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(applyEntitlement).toHaveBeenCalledWith(payload);
+    expect(track.mock.calls.map(([event]) => event)).toEqual(expectedEvents);
+  });
+
   const originalSecret = process.env.GEKTA_ANONYMOUS_SESSION_SECRET;
   const originalLimit = process.env.GEKTA_ANONYMOUS_FREE_ANSWERS;
 

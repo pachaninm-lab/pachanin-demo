@@ -186,3 +186,14 @@ This is a bounded follow-on to [Hub5934069236](https://github.com/pachaninm-lab/
 3. Retain source-merge and server-execution hold pending separate explicit approval of inherited automatic image-build/preflight effects, including image pulls and protected-checkout refresh. Do not invoke a controller/host or repair parity/detector behavior in this slice.
 
 The reduced payload only exposes existing preflight snapshot facts; fresh persisted/discovery comparison, immutable image/default-command/entrypoint and registry/freshness evidence remain NOT_PROVEN. The original topology blockers and separate deployment authority remain open. No CORE_TOPOLOGY_READY, R1 completion, permanent model switch, new rights/expenses or official progress beyond 5/100 follows.
+
+
+## Gekta consent and first-user release prerequisites — 2026-10-08
+
+The renewed user instruction «Делай всё и завершай» and Hub6069284294 continue the existing Gekta/CORE lane. This five-document admission adds only three exact paths to the existing security vector and two exact metadata paths to the existing first-user consent-race vector. It changes no primary/global/current scope, owner, guard, workflow, old admission, source or official 5/100.
+
+Use the state record `gekta-consent-first-user-release-prerequisites-20261008` as the exact payload for two separate source PRs: nine regular security files (current signed consent, actual client consent/quota decision, explicit consent before production smoke generation and tests) and six regular first-user files (complete #4637 journal handoff after the security checker is accepted). Preserve the historical #3072 provisioning authority. The existing candidate-list guard route is not immutable payload enforcement; genuine independent whole-tree review must verify all pinned blobs/modes and reject extras, independently of guard PASS.
+
+Fresh exact-head independent review, separate implementation-owner audit, substantive CI/security/PostgreSQL/Kubernetes and manual readiness precede each ordinary expected-full-SHA source merge. Keep #5836 P2 4224220487 unresolved until the actual client correction is present and independently inspected; consent restriction cannot release with the old pre-consent smoke. Native independent review is optional as a provider but actual review is mandatory. No private test, old head or metadata admission substitutes for source acceptance.
+
+After source acceptance the existing exact-main REG.RU application release remains separate. Actual immutable running revisions, live checks and observation are required. Full first-user PASS additionally requires real mail, user MFA and the visible existing PLATFORM_OWNER fresh-MFA 7/30/lifetime ceremony. No new model grant/service-control permission, registration receipt, purge/schema/history mutation, expense, R1/progress or whole-Gekta completion follows.

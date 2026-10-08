@@ -1255,7 +1255,10 @@
       "apps/web/tests/unit/gektaEntitlement.test.ts",
       "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
       "apps/web/tests/unit/gektaServerHistory.test.ts",
-      "docs/platform-v7/autopilot/scopes/gekta-security-review-20260813.json"
+      "docs/platform-v7/autopilot/scopes/gekta-security-review-20260813.json",
+      "apps/web/components/gekta/GektaChatWorkspace.tsx",
+      "scripts/production-web-live-acceptance.sh",
+      "scripts/check-production-gekta-first-user-acceptance.mjs"
     ],
     "diag/p0-reviewer-reset-attempt-classifier-3785": [
       ".github/workflows/production-p0-reviewer-reset-attempt-classifier.yml",
@@ -1275,7 +1278,9 @@
       "apps/web/tests/unit/gektaEntitlement.test.ts",
       "scripts/production-gekta-first-user-acceptance.mjs",
       "scripts/check-production-gekta-first-user-acceptance.mjs",
-      "docs/platform-v7/autopilot/scopes/gekta-first-user-consent-race-3072.json"
+      "docs/platform-v7/autopilot/scopes/gekta-first-user-consent-race-3072.json",
+      "docs/ops/production-gekta-first-user-acceptance.md",
+      "docs/platform-v7/autopilot/scopes/production-gekta-runtime-20260813.json"
     ],
     "fix/codeql-v2-26-3-upstream-lock-4072": [
       "codeql/insufficient-password-hash-corrected/upstream.lock.json",
@@ -6494,6 +6499,209 @@
         "CORE/API/DB/RLS/role/session/money/provider/FGIS/model/deployment authority"
       ],
       "teamHubDependency": "#5469 P1 6056865167 (REPRODUCED CURRENT-MAIN TAI ATTESTATION PAGINATION DEFECT) and window close 6057168608"
+    },
+    "gekta-consent-first-user-release-prerequisites-20261008": {
+      "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+      "purpose": "Admit only the missing existing-source boundaries needed to finish current anonymous consent and the canonical first-user acceptance journal. Server draft #5836 has native P2 4224220487 (consent denial misclassified as quota exhaustion); unchanged production smoke reserves without consent, and legacy first-user journal #3072 is full. This is source admission, not model/privacy/history completion or production acceptance.",
+      "authorityBaseExactMain": "e3d6ac14fcf4bcc5ae0409160442f271ae9e76fc",
+      "userInstruction": "Максим: «Делай всё и завершай», 2026-10-08; existing lane claims #5469/6069001471 and #5469/6069284294.",
+      "admissionChanges": {
+        "codex/gekta-security-review": {
+          "previousAllowedPaths": [
+            "apps/api/prisma/migrations/20260813110000_gekta_anonymous_answer_admission/migration.sql",
+            "apps/api/src/modules/gekta/gekta-anonymous-admission.controller.spec.ts",
+            "apps/api/src/modules/gekta/gekta-anonymous-admission.controller.ts",
+            "apps/api/src/modules/gekta/gekta-anonymous-admission.service.spec.ts",
+            "apps/api/src/modules/gekta/gekta-anonymous-admission.service.ts",
+            "apps/api/src/modules/gekta/gekta.module.ts",
+            "apps/web/app/api/agro-chat/route.ts",
+            "apps/web/app/api/gekta/entitlement/route.ts",
+            "apps/web/lib/gekta/anonymous-session.ts",
+            "apps/web/lib/gekta/entitlement.ts",
+            "apps/web/lib/gekta/server-workspace.ts",
+            "apps/web/lib/server/gekta-auth-route.ts",
+            "apps/web/tests/unit/gektaEntitlement.test.ts",
+            "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+            "apps/web/tests/unit/gektaServerHistory.test.ts",
+            "docs/platform-v7/autopilot/scopes/gekta-security-review-20260813.json"
+          ],
+          "additionalPaths": [
+            "apps/web/components/gekta/GektaChatWorkspace.tsx",
+            "scripts/production-web-live-acceptance.sh",
+            "scripts/check-production-gekta-first-user-acceptance.mjs"
+          ],
+          "acceptedAllowedPaths": [
+            "apps/api/prisma/migrations/20260813110000_gekta_anonymous_answer_admission/migration.sql",
+            "apps/api/src/modules/gekta/gekta-anonymous-admission.controller.spec.ts",
+            "apps/api/src/modules/gekta/gekta-anonymous-admission.controller.ts",
+            "apps/api/src/modules/gekta/gekta-anonymous-admission.service.spec.ts",
+            "apps/api/src/modules/gekta/gekta-anonymous-admission.service.ts",
+            "apps/api/src/modules/gekta/gekta.module.ts",
+            "apps/web/app/api/agro-chat/route.ts",
+            "apps/web/app/api/gekta/entitlement/route.ts",
+            "apps/web/lib/gekta/anonymous-session.ts",
+            "apps/web/lib/gekta/entitlement.ts",
+            "apps/web/lib/gekta/server-workspace.ts",
+            "apps/web/lib/server/gekta-auth-route.ts",
+            "apps/web/tests/unit/gektaEntitlement.test.ts",
+            "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+            "apps/web/tests/unit/gektaServerHistory.test.ts",
+            "docs/platform-v7/autopilot/scopes/gekta-security-review-20260813.json",
+            "apps/web/components/gekta/GektaChatWorkspace.tsx",
+            "scripts/production-web-live-acceptance.sh",
+            "scripts/check-production-gekta-first-user-acceptance.mjs"
+          ]
+        },
+        "fix/gekta-first-user-consent-race-3072": {
+          "previousAllowedPaths": [
+            ".github/workflows/production-gekta-first-user-acceptance.yml",
+            "apps/web/middleware.ts",
+            "apps/web/tests/unit/gektaEntitlement.test.ts",
+            "scripts/production-gekta-first-user-acceptance.mjs",
+            "scripts/check-production-gekta-first-user-acceptance.mjs",
+            "docs/platform-v7/autopilot/scopes/gekta-first-user-consent-race-3072.json"
+          ],
+          "additionalPaths": [
+            "docs/ops/production-gekta-first-user-acceptance.md",
+            "docs/platform-v7/autopilot/scopes/production-gekta-runtime-20260813.json"
+          ],
+          "acceptedAllowedPaths": [
+            ".github/workflows/production-gekta-first-user-acceptance.yml",
+            "apps/web/middleware.ts",
+            "apps/web/tests/unit/gektaEntitlement.test.ts",
+            "scripts/production-gekta-first-user-acceptance.mjs",
+            "scripts/check-production-gekta-first-user-acceptance.mjs",
+            "docs/platform-v7/autopilot/scopes/gekta-first-user-consent-race-3072.json",
+            "docs/ops/production-gekta-first-user-acceptance.md",
+            "docs/platform-v7/autopilot/scopes/production-gekta-runtime-20260813.json"
+          ]
+        }
+      },
+      "sourcePayloads": {
+        "codex/gekta-security-review": [
+          {
+            "path": "apps/web/app/api/agro-chat/route.ts",
+            "mode": "100644",
+            "beforeBlob": "e45a2903a822f4126989a5afb3d039528e2c7561",
+            "afterBlob": "b33f27dfa491ed97cb5dd6a3e8ace4a02d93023d",
+            "afterSha256": "fc63a39c8ce37d5f5c6b993eb4ff98ccca08c16265b2d2707b13859b79480422"
+          },
+          {
+            "path": "apps/web/app/api/gekta/entitlement/route.ts",
+            "mode": "100644",
+            "beforeBlob": "c53f9bd4bb85a4db7b3d0a554f6730ccaf1e3a51",
+            "afterBlob": "e185452be8aa5e28435f284e5bc3da4de7c31810",
+            "afterSha256": "8c8f9e440fecd2ec717b4b120d7f773264e26b1bc776bf9f14c478857c035d17"
+          },
+          {
+            "path": "apps/web/lib/gekta/anonymous-session.ts",
+            "mode": "100644",
+            "beforeBlob": "4b5089be18cc265931b28fc5ccee5ef419cc1518",
+            "afterBlob": "2f72737bb9a7469b4bb2f64075602c935f1c68e5",
+            "afterSha256": "b1032107aabb6088e4c306bc5a70702ca4c182e0ae58a7e348a998553470435a"
+          },
+          {
+            "path": "apps/web/tests/unit/gektaEntitlement.test.ts",
+            "mode": "100644",
+            "beforeBlob": "3d4f019ddc21517c1e71e065de06f4398e433ced",
+            "afterBlob": "6958735d5310478b7d23254a3ffcf94c587d8668",
+            "afterSha256": "8b8f36551bb3e6a9ce9b370e49e3c49b4af398d0e566ba1e387829925be2948c"
+          },
+          {
+            "path": "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+            "mode": "100644",
+            "beforeBlob": "85c6d2c4475b03eeda273f8ea8953c173a1f7a22",
+            "afterBlob": "65d97a1ed57b41f2850c676823196f8b53e64471",
+            "afterSha256": "b47ecb68b7aaff71c075163ff24aecb3ed012b87d8dda27d82686bb68e07d4d5"
+          },
+          {
+            "path": "apps/web/components/gekta/GektaChatWorkspace.tsx",
+            "mode": "100644",
+            "beforeBlob": "0fe071db3295e2109564a7a56ec07b263c73bd68",
+            "afterBlob": "5d21c4bdafd2c0eb6d951662b5f4e7f703d82d56",
+            "afterSha256": "468ed4ad28eebb8cfd1c29640a93a44e792fe1eea332dd10cd71a8421c4a9343"
+          },
+          {
+            "path": "scripts/production-web-live-acceptance.sh",
+            "mode": "100755",
+            "beforeBlob": "0ff78deda9a3bbd9ba683179e53610541f93ca4f",
+            "afterBlob": "401e68869cc9e329be0b9e770b0831cf44a90a62",
+            "afterSha256": "583c820c0d41f45f2e6f07bfe5da491892953dd3bf88f32f482d024cd7500d51"
+          },
+          {
+            "path": "scripts/check-production-gekta-first-user-acceptance.mjs",
+            "mode": "100644",
+            "beforeBlob": "8ad31a586eea3d6ed3825c3f8db34077fffac70b",
+            "afterBlob": "7f6d98469ec3a347d2c947036a9da1f053b7b443",
+            "afterSha256": "42c35a50d2aa068b8d50f65adbb6d3af9d020f5d9f84bb141a5ac0ac82062908"
+          },
+          {
+            "path": "docs/platform-v7/autopilot/scopes/gekta-security-review-20260813.json",
+            "mode": "100644",
+            "beforeBlob": "d414d4057aa8b2a3dc6729f6e05ba45ada8de65b",
+            "afterBlob": "591ab55b43a484a502c30729e5c5bac2f6b16706",
+            "afterSha256": "acafc187039f52e8ad2afbb3fd85b9df02130495861c99c8ba45630b699c6a9b"
+          }
+        ],
+        "fix/gekta-first-user-consent-race-3072": [
+          {
+            "path": ".github/workflows/production-gekta-first-user-acceptance.yml",
+            "mode": "100644",
+            "beforeBlob": "22a7b2e9e15c786998b2ed713d3a1cf7c7b5996b",
+            "afterBlob": "292167e997f8a50903efb777305ab4cb7562b253",
+            "afterSha256": "3ab10108df7e4f6ad3a393e3e7c604713cbeafcd5b7577fbfc2518ce50c63ea8"
+          },
+          {
+            "path": "scripts/production-gekta-first-user-acceptance.mjs",
+            "mode": "100644",
+            "beforeBlob": "80d382609b8cb47dfada91c242b33ebcf3764991",
+            "afterBlob": "fa0951c42392cc31896ce88efe29037641ab3822",
+            "afterSha256": "383636f29f9bc08b05c8a9c70710b5a91cebc29ff4d08bdbe4c80fccb7d89620"
+          },
+          {
+            "path": "scripts/check-production-gekta-first-user-acceptance.mjs",
+            "mode": "100644",
+            "beforeBlob": "7f6d98469ec3a347d2c947036a9da1f053b7b443",
+            "afterBlob": "83b2e7db7757af53172a39cbe3dc8b6211149a43",
+            "afterSha256": "9680c509085acdaa6698add76a7c36ed215cc8a6fd12d60459dbe51380b4e4e7"
+          },
+          {
+            "path": "docs/ops/production-gekta-first-user-acceptance.md",
+            "mode": "100644",
+            "beforeBlob": "45cf24c3c88ebfd3b6fb3c76539db6da640034c6",
+            "afterBlob": "1b99553d3dc9666e757d9d3b3fac7c789f6af137",
+            "afterSha256": "28e62d7e75f4e2f4aab5e99973d34c963531f932de07c629ab13d79b370b8688"
+          },
+          {
+            "path": "docs/platform-v7/autopilot/scopes/production-gekta-runtime-20260813.json",
+            "mode": "100644",
+            "beforeBlob": "5b274df49735b0db8fc0cf691e963467c7f9ddcf",
+            "afterBlob": "adea1f6502bcdb1c4a91d9fa5f381e59d100e13d",
+            "afterSha256": "dd9c3022fecaebd04ad6b8d9428b36c0b013f40b659f3f30dca761bfeef2b343"
+          },
+          {
+            "path": "docs/platform-v7/autopilot/scopes/gekta-first-user-consent-race-3072.json",
+            "mode": "100644",
+            "beforeBlob": "8647e985ca1f48c42dd4eedecc8d5565e4287f61",
+            "afterBlob": "636c1c96b4a47eda04af93309eac8d88da691597",
+            "afterSha256": "28c0c1b4ecdb310595dd833374959dd67bb036d34657802d31072e75182c64c3"
+          }
+        ]
+      },
+      "requiredTruthBoundaries": [
+        "Governance diff is exactly the five existing governance documents. Primary/current/writable scope, every other vector, all prior admissions, owners, source leaves and modes, and official 5/100 remain unchanged. Removing this record, five added vector paths, one progress blocker and three appended sections restores the accepted base.",
+        "Existing security source may change exactly the nine pinned regular files: signed current consent before reservation/admission, no quota mutation on denial, actual client consent/quota analytics distinction, explicit current-consent smoke before any reserve/generation, contract and regression tests, and its own documentation manifest. No new legal document/version/receipt authority is created.",
+        "Existing first-user source may change exactly the six pinned regular files after the security source is accepted. The checker beforeBlob is the pinned security checker afterBlob; all other beforeBlob values are from this accepted base. Journal #4637 is mandatory for both OWNER-association/matching-owner-actors gates and initial/intermediate/terminal publication. Preserve legacy #3072 provisioning metadata, exact current main/deployed checks, real mail, mandatory user MFA, trial/history/projects and visible PLATFORM_OWNER grant ceremony.",
+        "Existing standard routes are not mechanically immutable exact-payload enforcement. Candidate state/manifest lists and guard PASS are not independent authority: separate nonauthor whole-tree review must verify these exact source payloads and reject every extra path/content/mode or altered scope authority before acceptance. No automatic machine-enforcement or review PASS is inferred from this text.",
+        "Each published source head needs fresh actual independent diff review, separate implementation-owner exact-head audit, complete applicable substantive native CI/security/PostgreSQL/Kubernetes, all findings resolved and freshly rechecked manual readiness before an ordinary full-expected-SHA manual merge. A head/base-dependent content change requires new evidence; no PASS transfers from private proposals or prior heads.",
+        "Only after accepted source and fresh exact-main green gates may the existing application controller release immutable images on REG.RU under the renewed user instruction. Actual deployed revisions, live checks, rollback readiness and observation remain required; a merge/build/green CI is not deployment or whole-Gekta completion."
+      ],
+      "forbiddenAuthority": [
+        "Guard/workflow/readiness weakening or generic/global scope expansion",
+        "Model grant replay/reset/new inference/service-control authority, schema/DB/RLS/tenant/role changes, registration receipt change or physical purge",
+        "Credential/PII output, extra cost, owner/MFA bypass, fake review or forced/automatic merge, R1 or progress credit"
+      ],
+      "teamHubDependency": "#5469/6069284294; prior release window explicitly closed by #5469/6068819568."
     }
   }
 }
