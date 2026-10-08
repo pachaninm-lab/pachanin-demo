@@ -130,14 +130,23 @@ forbid('executor', [
 requireAll('live', [
   '/api/gekta/entitlement',
   '--data \'{"action":"reserve"}\'',
+  '--data \'{"action":"consent"}\'',
+  'verify_current_consent "$consent_body"',
+  'if (( consent_ok == 1 )); then',
+  'if (( consent_ok == 1 && reserve_ok == 1 )); then',
+  'GEKTA_CONSENT=PASS',
   'x-gekta-answer-ticket: $answer_ticket',
   '-c "$cookie_jar" -b "$cookie_jar"',
   '"complete":true',
 ]);
 
 forbid('live', [
-  /(?:echo|printf)[^\n]*(?:answer_ticket|cookie_jar|reserve_body)/iu,
+  /(?:echo|printf)[^\n]*(?:answer_ticket|cookie_jar|reserve_body|consent_body)/iu,
 ]);
+
+if (source.live.indexOf('--data \'{"action":"consent"}\'') >= source.live.indexOf('--data \'{"action":"reserve"}\'')) {
+  throw new Error('live: consent must precede reservation');
+}
 
 requireAll('runbook', [
   '/production gekta-first-user current-main',
