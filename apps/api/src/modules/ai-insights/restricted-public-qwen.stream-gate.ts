@@ -300,9 +300,12 @@ function decodeSaleCharacterReferences(text: string, final: boolean): string {
 
 
 
-type SaleTagScanState = { inside: boolean; quote: string; prefix: string; comment: boolean; dashes: number };
+type SaleTagScanState = {
+  inside: boolean; quote: string; prefix: string; comment: boolean; dashes: number;
+  attribute: 'tag' | 'before' | 'name' | 'afterName' | 'value' | 'unquoted' | 'afterQuoted' | 'selfClosing';
+};
 function newSaleTagScanState(): SaleTagScanState {
-  return { inside: false, quote: '', prefix: '', comment: false, dashes: 0 };
+  return { inside: false, quote: '', prefix: '', comment: false, dashes: 0, attribute: 'tag' };
 }
 
 /** One bounded lexical pass: quoted attribute delimiters and HTML comments
@@ -330,12 +333,42 @@ function saleTextWithoutTagBoundaries(text: string, state: SaleTagScanState, sep
       continue;
     }
     if (state.quote) {
-      if (character === state.quote) state.quote = '';
-    } else if (character === '"' || character === "'") {
-      state.quote = character;
-    } else if (character === '>') {
+      if (character === state.quote) { state.quote = ''; state.attribute = 'afterQuoted'; }
+      continue;
+    }
+    if (character === '>') {
       Object.assign(state, newSaleTagScanState());
       if (separate) result += ' ';
+      continue;
+    }
+    // Quotes are delimiters only at the start of an attribute value. Quotes
+    // inside an unquoted value/name are literal data, so > still ends the tag.
+    const space = /[\t\n\f\r ]/u.test(character);
+    switch (state.attribute) {
+      case 'tag':
+        if (space) state.attribute = 'before';
+        else if (character === '/') state.attribute = 'selfClosing';
+        break;
+      case 'before': case 'afterQuoted': case 'selfClosing':
+        state.attribute = space ? 'before' : character === '/' ? 'selfClosing' : 'name';
+        break;
+      case 'name':
+        if (character === '=') state.attribute = 'value';
+        else if (space) state.attribute = 'afterName';
+        else if (character === '/') state.attribute = 'selfClosing';
+        break;
+      case 'afterName':
+        if (character === '=') state.attribute = 'value';
+        else if (!space) state.attribute = character === '/' ? 'selfClosing' : 'name';
+        break;
+      case 'value':
+        if (space) break;
+        if (character === '"' || character === "'") state.quote = character;
+        else state.attribute = 'unquoted';
+        break;
+      case 'unquoted':
+        if (space) state.attribute = 'before';
+        break;
     }
   }
   return result;
@@ -515,8 +548,11 @@ function saleCalculationRequested(question: string): boolean {
   // regardless of whether the question is imperative or interrogative. A
   // contextual quantity alone does not suppress conceptual model answers.
   const monetaryInputs = /руб|RUB|USD|EUR|GBP|CNY|₽|[$€£]|卢布|美元|欧元|юань|доллар|евро/iu.test(question);
-  const conceptualBeContinuation = /^\s*what\b[^.!?。！？\n]{0,80}\b(?:revenue|proceeds)\s+be\s+(?:recogni[sz]ed|called|used|defined|classified|recorded|reported|understood|treated|considered)\b/iu.test(question);
-  if (conceptualBeContinuation && !amountNounQuestion && !intent.test(question)) return false;
+  const whatBeContinuation = question.match(/^\s*what\b[^.!?。！？\n]{0,80}\b(?:revenue|proceeds)\s+be\s+(.+)/iu)?.[1] ?? '';
+  // Recognize the structure of an amount continuation, not a finite list of
+  // accounting verbs. A conceptual predicate must survive even monetary inputs.
+  const beAmountContinuation = /^(?:from|for|of|after)\b|^(?:(?:about|around|approximately|roughly)\s+)?\d/iu.test(whatBeContinuation);
+  if (whatBeContinuation && !beAmountContinuation && !amountNounQuestion && !intent.test(question)) return false;
   const whatContinuation = question.match(/^\s*what\b[^.!?。！？\n]{0,40}\b(?:revenue|proceeds)\s+(?:be\s+)?(?:after|for|from|of)\s+(.+?)\s*[?？]?\s*$/iu)?.[1] ?? '';
   if (whatContinuation && !amountNounQuestion && !intent.test(question) && (
     /\b(?:definition|meaning|concept|accounting|recognition|principles?|purposes?|diversification|rotation)\b/iu.test(whatContinuation)
@@ -897,6 +933,10 @@ export class StreamingAnswerGate {
   private discardedSaleTagContentFrames = [newSaleTagContentFrame()];
   private discardedSaleMarkdownTagContentFrames = [newSaleTagContentFrame()];
   private discardedSaleReferenceTail = '';
+  private discardedSaleRawJoinedReferenceTail = '';
+  private discardedSaleRawJoinedContext = '';
+  private discardedSaleRawJoinedFormattingContext = '';
+  private discardedSaleRawJoinedTagState = newSaleTagScanState();
   private discardedSaleTagState = newSaleTagScanState();
   private discardedSaleDecodedTagState = newSaleTagScanState();
   private progressiveJoiner = ' ';
@@ -968,6 +1008,18 @@ export class StreamingAnswerGate {
     return { original, joined: saleTextWithoutTagBoundaries(original, this.discardedSaleDecodedTagState, false) };
   }
 
+  /** Parse literal tag syntax before decoding attribute text: an entity quote
+   * in an unquoted value is data and cannot open a quoted attribute. */
+  private discardedSaleRawJoinedText(head: string, final: boolean): string {
+    const joined = saleTextWithoutTagBoundaries(head, this.discardedSaleRawJoinedTagState, false);
+    const encoded = this.discardedSaleRawJoinedReferenceTail + joined;
+    const unfinished = !final
+      ? encoded.match(/&(?:#(?:[xX][0-9a-fA-F]*|[0-9]*)|[A-Za-z][A-Za-z0-9]{0,31})?$/u)?.[0] ?? ''
+      : '';
+    this.discardedSaleRawJoinedReferenceTail = unfinished ? decodeSaleCharacterReferences(unfinished, false) : '';
+    return decodeSaleCharacterReferences(encoded.slice(0, encoded.length - unfinished.length), true);
+  }
+
   private scanOriginalTagContents(text: string, frames: SaleTagContentFrame[]): { violation: GateViolation | null; prescription: boolean } {
     let prescription = false;
     for (const character of text) {
@@ -1000,7 +1052,7 @@ export class StreamingAnswerGate {
   private discardSaleProse(final: boolean): GateCommit {
     const head = this.pending;
     this.pending = '';
-    if (!head && (!final || !(this.discardedSaleRenderedContext || this.discardedSaleDecodedContext || this.discardedSaleReferenceTail))) return EMPTY_COMMIT;
+    if (!head && (!final || !(this.discardedSaleRenderedContext || this.discardedSaleDecodedContext || this.discardedSaleReferenceTail || this.discardedSaleRawJoinedReferenceTail))) return EMPTY_COMMIT;
     // Nothing from this mode is published, so even unclosed traces, fences and
     // envelopes can be scanned and discarded immediately. Check original raw
     // contents before any formatting removal; trace text is not a safety bypass.
@@ -1009,6 +1061,9 @@ export class StreamingAnswerGate {
     const formattingBlock = saleSafetyView(this.discardedSaleFormattingContext + head, true, true);
     const normalizedHead = saleTextWithoutTagBoundaries(head, this.discardedSaleTagState, true);
     const decoded = this.discardedSaleDecodedText(head, final);
+    const rawJoined = this.discardedSaleRawJoinedText(head, final);
+    const rawJoinedBlock = saleSafetyView(this.discardedSaleRawJoinedContext + rawJoined);
+    const rawJoinedFormattingBlock = saleSafetyView(this.discardedSaleRawJoinedFormattingContext + rawJoined, true);
     const originalContents = this.scanOriginalTagContents(decoded.original, this.discardedSaleTagContentFrames);
     if (originalContents.violation) return this.refuse(originalContents.violation);
     // Keep a second bounded view without formatting, including tags split over
@@ -1033,11 +1088,13 @@ export class StreamingAnswerGate {
     const originalMarkdownRawBlock = saleSafetyView(this.discardedSaleOriginalMarkdownContext + originalMarkdownHead);
     const originalMarkdownFormattingBlock = saleSafetyView(this.discardedSaleOriginalMarkdownFormattingContext + originalMarkdownHead, true);
     const views = [rawBlock, formattingBlock, block, decodedRawBlock, decodedFormattingBlock, renderedRawBlock, renderedBlock,
-      markdownRawBlock, markdownFormattingBlock, originalMarkdownRawBlock, originalMarkdownFormattingBlock];
+      markdownRawBlock, markdownFormattingBlock, originalMarkdownRawBlock, originalMarkdownFormattingBlock, rawJoinedBlock, rawJoinedFormattingBlock];
     if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return this.refuse('WRITE_CLAIM');
     if (views.some((view) => SECRET_PATTERN.test(view))) return this.refuse('SECRET');
     const flags = ['UNVERIFIED_ECONOMIC_CLAIM_REMOVED'];
     if (originalContents.prescription || composedContents.prescription || views.some(isUngroundedCropProtectionPrescription)) flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    this.discardedSaleRawJoinedContext = rawJoinedBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleRawJoinedFormattingContext = rawJoinedFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleRenderedContext = renderedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleRenderedFormattingContext = renderedBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
     this.discardedSaleDecodedContext = decodedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
@@ -1205,6 +1262,10 @@ export class StreamingAnswerGate {
     this.discardedSaleTagContentFrames = [newSaleTagContentFrame()];
     this.discardedSaleMarkdownTagContentFrames = [newSaleTagContentFrame()];
     this.discardedSaleReferenceTail = '';
+    this.discardedSaleRawJoinedReferenceTail = '';
+    this.discardedSaleRawJoinedContext = '';
+    this.discardedSaleRawJoinedFormattingContext = '';
+    this.discardedSaleRawJoinedTagState = newSaleTagScanState();
     this.discardedSaleTagState = newSaleTagScanState();
     this.discardedSaleDecodedTagState = newSaleTagScanState();
     this.progressiveSafetyContext = '';
