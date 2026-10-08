@@ -133,7 +133,7 @@ export async function FirstCustomerWorkspace({ surface }: { surface: FirstCustom
         {workspace.available && workspace.items.length ? (
           <OperationalQueue aria-label={copy.queue}>
             {workspace.items.map((item) => item.href ? (
-              <OperationalQueueLink key={item.id} href={item.href} title={item.id} detail={surface === 'bank' && !workspace.ownerControlled ? copy.bankQueueDetail : item.nextAction || copy.noNext} status={<StatusChip tone='information'>{item.status}</StatusChip>} />
+              <OperationalQueueLink key={item.id} href={surface === 'bank' && !workspace.ownerControlled ? `${item.href}?lang=${locale}` : item.href} title={item.id} detail={surface === 'bank' && !workspace.ownerControlled ? copy.bankQueueDetail : item.nextAction || copy.noNext} status={<StatusChip tone='information'>{item.status}</StatusChip>} />
             ) : (
               <InlineNotice key={item.id} tone='information' title={`${item.id} · ${item.status}`}>{surface === 'bank' && !workspace.ownerControlled ? copy.bankQueueDetail : item.nextAction || copy.noNext}</InlineNotice>
             ))}

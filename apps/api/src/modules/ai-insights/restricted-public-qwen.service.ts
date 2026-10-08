@@ -35,6 +35,7 @@ import {
   economicComparisonFor,
   economicComparisonCopy,
   paymentTimingFromUser,
+  saleProceedsFromUser,
   storageCostFromUser,
   type EconomicComparison,
   type ProviderFinishReason,
@@ -82,6 +83,8 @@ type ProviderConfig = Readonly<{
 }>;
 type ProviderResult = Readonly<{
   content: string;
+  /** Bounded provider text for sale safety checks; never used as public output. */
+  rawSaleContent?: string;
   finishReason: 'stop' | 'length' | 'other';
   promptTokens: number | null;
   completionTokens: number | null;
@@ -233,8 +236,10 @@ export class RestrictedPublicQwenService {
         messages,
         tokenBudget.initialMaxTokens,
         controller.signal,
+        request.economicComparison === 'sale_proceeds',
       );
       let content = first.content;
+      let rawSaleContent = first.rawSaleContent ?? first.content;
       let finishReason = first.finishReason;
       let promptTokens = first.promptTokens;
       let completionTokens = first.completionTokens;
@@ -244,8 +249,9 @@ export class RestrictedPublicQwenService {
           ...messages,
           { role: 'assistant', content: first.content },
           { role: 'user', content: continuationInstruction(request.locale) },
-        ], tokenBudget.continuationMaxTokens, controller.signal);
+        ], tokenBudget.continuationMaxTokens, controller.signal, request.economicComparison === 'sale_proceeds');
         content = `${first.content}\n${continuation.content}`;
+        rawSaleContent = `${rawSaleContent}\n${continuation.rawSaleContent ?? continuation.content}`;
         finishReason = continuation.finishReason;
         promptTokens = sumNullable(first.promptTokens, continuation.promptTokens);
         completionTokens = sumNullable(first.completionTokens, continuation.completionTokens);
@@ -259,7 +265,7 @@ export class RestrictedPublicQwenService {
         safetyFlags.push('GENERAL_AGRO_DISEASE_COMPLETENESS_FLOOR');
         answer = plantDiseaseCompletenessFloor(request.locale);
       }
-      if (!answer) throw new ServiceUnavailableException('Restricted public model returned an empty answer.');
+      if (!answer && request.economicComparison !== 'sale_proceeds') throw new ServiceUnavailableException('Restricted public model returned an empty answer.');
       if (WRITE_CLAIM_PATTERN.test(answer)) {
         throw new ServiceUnavailableException('Restricted public model emitted a prohibited action claim.');
       }
@@ -285,11 +291,19 @@ export class RestrictedPublicQwenService {
           currentDataRequired: false, grounding: request.grounding,
           economicComparison: request.economicComparison,
         });
-        const screened = economicGate.push(`${answer}\n`);
+        // Sale mode checks the entire original provider text, including hidden
+        // or late claims, before discarding it in favor of the checked copy.
+        const screened = economicGate.push(`${request.economicComparison === 'sale_proceeds' ? rawSaleContent : answer}\n`);
         const tail = economicGate.flush();
         if (screened.violation || tail.violation) throw new ServiceUnavailableException('Restricted public model emitted a prohibited answer.');
         safetyFlags.push(...screened.flags, ...tail.flags);
-        answer = [economicGate.emitted, checkedEconomicCopy(request)].filter(Boolean).join('\n\n');
+        answer = [
+          request.economicComparison === 'sale_proceeds' && request.currentDataRequired
+            ? publicCurrentEvidenceCopy(request)
+            : '',
+          economicGate.emitted,
+          checkedEconomicCopy(request),
+        ].filter(Boolean).join('\n\n');
       }
 
       const linkFree = stripRawLinks(answer);
@@ -360,6 +374,9 @@ export class RestrictedPublicQwenService {
       grounding: request.grounding,
       economicComparison: request.economicComparison,
     });
+    const earlyEconomicCopy = request.economicComparison === 'sale_proceeds'
+      ? checkedEconomicCopy(request)
+      : '';
 
     try {
       yield { type: 'meta', modelIdentity: config.model, answerMode: request.answerMode };
@@ -368,6 +385,9 @@ export class RestrictedPublicQwenService {
         safetyFlags.push('CURRENT_EVIDENCE_REQUIRED');
         yield { type: 'delta', text: `${publicCurrentEvidenceCopy(request)}\n\n` };
       }
+      // Publish the checked result or missing-input clarification while the
+      // original provider request and its safety/error/cancellation path run.
+      if (earlyEconomicCopy) yield { type: 'delta', text: `${earlyEconomicCopy}\n\n` };
 
       const messages = buildMessages(request);
       const outcome = {
@@ -382,7 +402,11 @@ export class RestrictedPublicQwenService {
         maxTokens: number,
       ): AsyncGenerator<PublicStreamEvent, void, undefined> {
         const attempt = candidateTrace?.beginAttempt(maxTokens) ?? null;
-        for await (const delta of callProviderStream(endpoint, config, turn, maxTokens, controller.signal)) {
+        let receivedStringContent = false;
+        let receivedFinishReason = false;
+        for await (const delta of callProviderStream(endpoint, config, turn, maxTokens, controller.signal, request.economicComparison === 'sale_proceeds')) {
+          if (delta.receivedStringContent) receivedStringContent = true;
+          if (delta.finishReason !== null) receivedFinishReason = true;
           candidateTrace?.observe(attempt, delta.finishReason, delta.promptTokens, delta.completionTokens);
           if (delta.finishReason !== null) outcome.finishReason = delta.finishReason;
           if (delta.promptTokens !== null) outcome.promptTokens = sumNullable(outcome.promptTokens, delta.promptTokens);
@@ -402,6 +426,10 @@ export class RestrictedPublicQwenService {
           }
           safetyFlags.push(...commit.flags);
           if (commit.text) yield { type: 'delta', text: commit.text };
+        }
+        if (request.economicComparison === 'sale_proceeds'
+          && (!receivedStringContent || !receivedFinishReason)) {
+          throw new ServiceUnavailableException('Restricted public model returned a malformed completion.');
         }
       };
 
@@ -429,7 +457,9 @@ export class RestrictedPublicQwenService {
       if (tail.text) yield { type: 'delta', text: tail.text };
 
       let emitted = gate.emitted;
-      if (request.economicComparison) {
+      if (earlyEconomicCopy) {
+        emitted = [earlyEconomicCopy, emitted].filter(Boolean).join('\n\n');
+      } else if (request.economicComparison) {
         const copy = checkedEconomicCopy(request);
         const separator = emitted ? '\n\n' : '';
         yield { type: 'delta', text: `${separator}${copy}` };
@@ -512,14 +542,17 @@ async function* callProviderStream(
   messages: readonly ChatMessage[],
   maxTokens: number,
   signal: AbortSignal,
+  checkedSale = false,
 ): AsyncGenerator<{
   content: string;
   finishReason: ProviderFinishReason | null;
   promptTokens: number | null;
   completionTokens: number | null;
+  receivedStringContent?: boolean;
 }, void, undefined> {
   const response = await fetch(endpoint, {
     method: 'POST',
+    redirect: 'error',
     headers: {
       Accept: 'text/event-stream',
       'Content-Type': 'application/json; charset=utf-8',
@@ -545,6 +578,7 @@ async function* callProviderStream(
   const reader = response.body.getReader();
   const parser = new ProviderStreamParser();
   let bytes = 0;
+  let reportedStringContent = false;
 
   try {
     for (;;) {
@@ -555,12 +589,18 @@ async function* callProviderStream(
         throw new ServiceUnavailableException('Restricted public model response exceeded the byte limit.');
       }
       const delta = parser.push(value);
-      if (delta.content || delta.finishReason !== null || delta.promptTokens !== null || delta.completionTokens !== null) {
-        yield delta;
+      const receivedStringContent = checkedSale && parser.receivedStringContent;
+      if (delta.content || delta.finishReason !== null || delta.promptTokens !== null || delta.completionTokens !== null
+        || (receivedStringContent && !reportedStringContent)) {
+        yield checkedSale ? { ...delta, receivedStringContent } : delta;
+        reportedStringContent ||= receivedStringContent;
       }
     }
     const tail = parser.end();
-    if (tail.content || tail.finishReason !== null) yield tail;
+    const receivedStringContent = checkedSale && parser.receivedStringContent;
+    if (tail.content || tail.finishReason !== null || (receivedStringContent && !reportedStringContent)) {
+      yield checkedSale ? { ...tail, receivedStringContent } : tail;
+    }
   } finally {
     await reader.cancel().catch(() => undefined);
   }
@@ -572,9 +612,11 @@ async function callProvider(
   messages: readonly ChatMessage[],
   maxTokens: number,
   signal: AbortSignal,
+  checkedSale = false,
 ): Promise<ProviderResult> {
   const response = await fetch(endpoint, {
     method: 'POST',
+    redirect: 'error',
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json; charset=utf-8',
@@ -609,11 +651,12 @@ async function callProvider(
   const first = asRecord(choices[0]);
   const message = asRecord(first?.message);
   const content = cleanMultilineText(message?.content, 12_000);
-  if (!content) throw new ServiceUnavailableException('Restricted public model returned an empty answer.');
+  if ((!content && !checkedSale) || (checkedSale && (typeof message?.content !== 'string' || typeof first?.finish_reason !== 'string' || !first.finish_reason))) throw new ServiceUnavailableException('Restricted public model returned an empty answer.');
   const finishReason = first?.finish_reason === 'stop' ? 'stop' : first?.finish_reason === 'length' ? 'length' : 'other';
   const usage = asRecord(row?.usage);
   return Object.freeze({
     content,
+    ...(checkedSale ? { rawSaleContent: String(message?.content) } : {}),
     finishReason,
     promptTokens: integerOrNull(usage?.prompt_tokens),
     completionTokens: integerOrNull(usage?.completion_tokens),
@@ -754,6 +797,9 @@ function checkedEconomicCopy(request: NormalizedRequest): string {
     request.economicComparison === 'payment_timing'
       ? paymentTimingFromUser(request.originalQuestion)
       : null,
+    request.economicComparison === 'sale_proceeds'
+      ? saleProceedsFromUser(request.originalQuestion)
+      : null,
   );
 }
 
@@ -861,7 +907,22 @@ function buildGroundedPrompt(request: NormalizedRequest): string {
     '',
     'MINIMUM_ANSWER_QUALITY:',
     'Apply the system-defined domain completeness rule within its safety and evidence limits. Begin domain advice with a direct conclusion naming the unambiguous subject correctly; never guess an uncertain subject. Cover the requested supportable breadth. For diagnosis, use one compact sentence per conditional cause, combining its mechanism and distinguishing observation on the correct part; avoid uncertain technical labels. For a requested range use its lowest supportable count. Only when no breadth is requested, explicitly discuss at least two concrete applicable factors before asking for more data. Finish every point; omit optional examples and closing offers before required observations or safety caveats.',
+    ...(request.answerMode === 'general_agro'
+      ? ['SUBJECT_AND_EVIDENCE_REMINDER:', subjectAndEvidenceReminder(request.locale)]
+      : []),
   ].join('\n');
+}
+
+function subjectAndEvidenceReminder(locale: PublicLocale): string {
+  // Keep the model-facing reminder beside the unchanged question in its language.
+  // This is instruction delivery, not subject detection or answer validation.
+  if (locale === 'en') {
+    return 'For domain advice, an obvious spelling mistake does not make an otherwise unambiguous subject unknown: name it correctly in the opening and do not ask for facts already supplied. Preserve numbers, units, identifiers and quoted data; ask when the subject is genuinely ambiguous. For plant diagnosis, without the growth stage, affected extent, plant viability and diagnostic evidence, do not state that a diagnosis is established or that chemical treatment, replanting or replacement is necessary; give conditional diagnostic checks first.';
+  }
+  if (locale === 'zh') {
+    return '提供专业建议时，明显的拼写错误不意味着本已明确的对象未知：在开头正确写出对象名称，不要重复询问已提供的信息。保留数字、单位、标识符和引用原文；对象确实不明确时再提问。诊断植物问题时，若缺少生长阶段、受影响范围、植株存活状况和诊断证据，不要断言已确诊或必须进行化学处理、重新播种或更换；先给出有条件的诊断检查。';
+  }
+  return 'В предметном ответе очевидная опечатка не делает однозначный предмет неизвестным: назови его правильно в первом выводе и не переспрашивай уже сообщённые сведения. Сохраняй числа, единицы, идентификаторы и цитаты; при реальной неоднозначности уточни предмет. Для диагностики растений без стадии развития, масштаба поражения, жизнеспособности растений и диагностических данных не объявляй диагноз установленным, а химическую обработку, пересев или замену необходимыми; сначала предложи условные диагностические проверки.';
 }
 
 function enforceGeneralAgroCompleteness(

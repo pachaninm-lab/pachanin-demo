@@ -510,3 +510,25 @@ def test_diagnostics_flattens_page_two_and_reports_newest_filtered_release(
     assert all(
         item["status"] == "completed" and item["conclusion"] == "success" for item in required
     )
+
+
+def test_release_acceptance_filters_push_events_before_the_result_cap() -> None:
+    """GitHub caps a filtered runs listing at 1000 results.
+
+    The gate selects push runs of the exact main commit. When it filters the
+    event only after paging, a commit with more than 1000 pull_request and
+    issue_comment runs returns zero push runs and every required workflow looks
+    missing. Only the API-side filter keeps the push runs inside the window, so
+    the contract is that the lookup carries event=push and keeps the local
+    event check as a second line of defence.
+    """
+    source = _source(RELEASE_ACCEPTANCE)
+    command = _lookup_command(source, "actions/runs?head_sha=${EXACT_HEAD}&per_page=100")
+    assert "&event=push" in command
+    assert "&per_page=100&event=push" in command
+    assert "status=success" not in command
+    assert "--paginate" in command
+    assert "--slurp" in command
+
+    block = _python_block(RELEASE_ACCEPTANCE, "workflow-wait-state.json", "for run in runs")
+    assert 'run.get("event") != "push"' in block
