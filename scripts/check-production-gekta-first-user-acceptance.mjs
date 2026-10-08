@@ -29,7 +29,11 @@ function forbid(name, patterns) {
 requireAll('workflow', [
   'name: Production Gekta First-User Acceptance',
   'issue_comment:',
-  "github.event.issue.number == 3072",
+  'RELEASE_ISSUE_NUMBER: 4637',
+  "github.event.issue.number == 4637",
+  "github.event.comment.author_association == 'OWNER'",
+  'github.actor == github.repository_owner',
+  'github.triggering_actor == github.repository_owner',
   "github.event.comment.user.login == github.repository_owner",
   "github.event.comment.body == '/production gekta-first-user current-main'",
   'github.event.pull_request.head.sha || github.sha',
@@ -64,6 +68,9 @@ forbid('workflow', [
 requireAll('executor', [
   "LIVE_BASE === 'https://xn----8sbjf4befbjgs9b.xn--p1ai'",
   "REPOSITORY === 'pachaninm-lab/pachanin-demo'",
+  "RELEASE_ISSUE_NUMBER === '4637'",
+  "'GEKTA_RELEASE_ISSUE_AUTHORITY_INVALID'",
+  "'issue', 'comment', RELEASE_ISSUE_NUMBER",
   'assertExactMain();',
   '/manifest-pc-deploy.json?gekta-acceptance=',
   "requireFromWeb('@playwright/test')",
@@ -147,6 +154,11 @@ forbid('live', [
 if (source.live.indexOf('--data \'{"action":"consent"}\'') >= source.live.indexOf('--data \'{"action":"reserve"}\'')) {
   throw new Error('live: consent must precede reservation');
 }
+for (const fragment of ["github.event.issue.number == 4637", "github.event.comment.author_association == 'OWNER'", 'github.actor == github.repository_owner', 'github.triggering_actor == github.repository_owner']) {
+  if (source.workflow.split(fragment).length !== 3) throw new Error('workflow: both owner-only gates must use the canonical journal');
+}
+forbid('workflow', [/github\.event\.issue\.number == 3072/u]);
+forbid('executor', [/'issue', 'comment', '3072'/u]);
 
 requireAll('runbook', [
   '/production gekta-first-user current-main',
@@ -162,9 +174,11 @@ requireAll('runbook', [
   'SMS',
   'billing',
   'DECLARED',
+  '#4637',
 ]);
 
 const scope = JSON.parse(source.scope);
+if (scope.firstUserReleaseIssue !== 4637) throw new Error('scope: first-user journal');
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') throw new Error('scope: schemaVersion');
 if (scope.branch !== 'ops/production-gekta-runtime-20260813') throw new Error('scope: branch');
 if (scope.productionHosting !== 'REG_RU_EXISTING_INFRASTRUCTURE_ONLY') throw new Error('scope: hosting');

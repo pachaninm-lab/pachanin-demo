@@ -6867,12 +6867,12 @@
       "actualFinding": "#5842/4225193950; isolated actual exact-head20dc dispatcher exit0 loses three added blockers. All three new prompt sections actually remain exactly once in both regenerated prompts through the queue snapshot; preserve this existing behavior.",
       "privateValidation": {
         "closestActualDispatcherCases": 3,
-        "fullGuardSuite": "PENDING",
+        "fullGuardSuite": "PASS: actual 796/796 tests, zero skipped/failed, exit0; duration281649ms",
         "nativeCI": "NOT_EXECUTED",
         "sourceRef": "NOT_PUBLISHED"
       },
       "requiredTruthBoundaries": [
-        "This prerequisite replaces the unaccepted larger #5842 proposal with exactly five CORE governance files. Preserve every old accepted state/record/vector/owner/primary eleven paths/progress5, #5839 history/#5836 security and concurrent Claude work. Only one new closed two-path vector/record, one explicit nextStep text change and three appended dispatcher sections. No new unsupported generated-progress blockers are introduced by this admission.",
+        "This prerequisite replaces the unaccepted larger #5842 proposal with exactly five CORE governance files. Preserve every old accepted state/record/vector/owner/primary eleven paths/progress5, #5839 history/#5836 security and concurrent Claude work. Only one new closed two-path vector/record, timestamp-only progress refresh with every prior routing/blocker value unchanged and three appended dispatcher sections. No new unsupported generated-progress blockers are introduced by this admission.",
         "Actual independent admission acceptance precedes source publication. Source changes exactly these two pinned existing regular files, ordinarily composed with then-current accepted main and all other leaves/modes preserved. Generic candidate scope is not immutable payload enforcement: genuine nonauthor independent whole-tree pin review is required.",
         "Dispatcher derives only explicitly declared dispatcherBlocker text from canonical coordinationAdmissions records; validate nonempty bounded single-line strings, deduplicate, and fail before generated-output writes on malformed declarations. Existing generic step block, current-step/status/next-candidate logic, scopes/roles/owners/review/manual-merge policy and source authority remain unchanged.",
         "Two actual-CLI regression cases run generation twice: blockers remain exactly once, queue section in each prompt remains exactly once, readiness remains5/currentstep unchanged/state unchanged; invalid declarations reject before changing progress or prompts. Preserve every prior test and native requirement. No fake green/acceptance/progress credit.",
