@@ -297,7 +297,13 @@ export class RestrictedPublicQwenService {
         const tail = economicGate.flush();
         if (screened.violation || tail.violation) throw new ServiceUnavailableException('Restricted public model emitted a prohibited answer.');
         safetyFlags.push(...screened.flags, ...tail.flags);
-        answer = [economicGate.emitted, checkedEconomicCopy(request)].filter(Boolean).join('\n\n');
+        answer = [
+          request.economicComparison === 'sale_proceeds' && request.currentDataRequired
+            ? publicCurrentEvidenceCopy(request)
+            : '',
+          economicGate.emitted,
+          checkedEconomicCopy(request),
+        ].filter(Boolean).join('\n\n');
       }
 
       const linkFree = stripRawLinks(answer);

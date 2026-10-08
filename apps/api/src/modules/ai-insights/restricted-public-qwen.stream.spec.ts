@@ -121,6 +121,43 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     global.fetch = ORIGINAL_FETCH;
   });
 
+  it.each(['stream', 'buffered'].flatMap((mode) => [false, true].flatMap((currentDataRequired) => ([
+    ['ru', 'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб.', true, 'Свежие данные по этому вопросу я сейчас не могу проверить. Ниже — что стоит учесть для решения.', 'Укажите в одном вопросе'],
+    ['ru', 'Сколько выручки?', false, 'Свежие данные по этому вопросу я сейчас не могу проверить. Ниже — что стоит учесть для решения.', 'Укажите в одном вопросе'],
+    ['en', 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.', true, 'I cannot verify fresh information on this question. Here is what to check before deciding.', 'Specify the quantity'],
+    ['en', 'What revenue will our farm earn annually from selling 100 tonnes?', false, 'I cannot verify fresh information on this question. Here is what to check before deciding.', 'Specify the quantity'],
+    ['zh', '销售收入：100吨，价格12000卢布/吨。运输总费用80000卢布。', true, '我目前无法核实这个问题的最新信息。下面说明决策前需要核对的要点。', '请在同一个问题中明确'],
+    ['zh', '销售收入多少?', false, '我目前无法核实这个问题的最新信息。下面说明决策前需要核对的要点。', '请在同一个问题中明确'],
+  ] as const).map(([locale, question, complete, notice, clarification]) => [mode, currentDataRequired, locale, question, complete, notice, clarification] as const))))('preserves current-evidence sale notice in %s (current=%s, %s): %s', async (mode, currentDataRequired, locale, question, complete, notice, clarification) => {
+    const raw = request({ locale, question, originalQuestion: question, currentDataRequired });
+    const content = 'Unchecked revenue is 999999.';
+    let answer = '';
+    let flags: readonly string[] = [];
+    if (mode === 'stream') {
+      installRuntime({ deltas: [content], gapMs: 0 });
+      for await (const event of service.generateStream(raw)) {
+        if (event.type === 'delta') answer += event.text;
+        if (event.type === 'done') flags = event.safetyFlags;
+      }
+    } else {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      const result = await service.generate(raw);
+      answer = result.answer;
+      flags = result.safetyFlags;
+    }
+    expect(answer.split(notice).length - 1).toBe(currentDataRequired ? 1 : 0);
+    expect(answer.startsWith(notice)).toBe(currentDataRequired);
+    expect(flags.includes('CURRENT_EVIDENCE_REQUIRED')).toBe(currentDataRequired);
+    expect(answer).not.toContain('999999');
+    if (complete) {
+      expect(answer).toContain('1200000 − 80000 = 1120000');
+      expect(answer).not.toContain(clarification);
+    } else {
+      expect(answer).toContain(clarification);
+      expect(answer).not.toContain('1120000');
+    }
+  });
+
   it.each(['stream', 'buffered'].flatMap((mode) => ([
     ['Выручка равна 999999 рублей. Этот вариант выгоднее. Проверьте условия приёмки. ', '999999'],
     ['Gross revenue is one million two hundred thousand; proceeds after delivery are nine hundred thousand. ', 'nine hundred thousand'],
