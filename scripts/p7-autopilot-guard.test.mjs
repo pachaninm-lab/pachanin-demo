@@ -223,6 +223,30 @@ const gitleaksCurrentReviewedEntries =
   '        "3b76d0f3473b986b6354aaac528994f7ac343df2:"\n' +
   '        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"\n' +
   '        "generic-api-key:17",\n';
+const gitleaksSessionMintingAnchor =
+  '        "3b76d0f3473b986b6354aaac528994f7ac343df2:"\n' +
+  '        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"\n' +
+  '        "generic-api-key:17",\n';
+const gitleaksSessionMintingEntries =
+  '        "8e1febfffeb4da36f1dba9badb7522ddb6513c1d:"\n' +
+  '        "apps/web/tests/unit/sessionMintingSurface.spec.ts:generic-api-key:137",\n' +
+  '        "8e1febfffeb4da36f1dba9badb7522ddb6513c1d:"\n' +
+  '        "apps/web/tests/unit/sessionMintingSurface.spec.ts:generic-api-key:138",\n';
+
+// Historical attestation phases are bound to immutable accepted blobs, never to
+// the mutable repository test, so later accepted synchronizations cannot shift
+// their baselines.
+function acceptedBlob(blob) {
+  const result = spawnSync('git', ['cat-file', 'blob', blob], { encoding: 'utf8' });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  return result.stdout;
+}
+
+function blobOf(content) {
+  const result = spawnSync('git', ['hash-object', '--stdin'], { input: content, encoding: 'utf8' });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  return result.stdout.trim();
+}
 
 function baselineGitleaksReleaseAttestation(source) {
   const serviceCount = source.split(gitleaksServiceMarketplace).length - 1;
@@ -433,9 +457,8 @@ function kindMinioImageSourceFixture(t) {
   return context;
 }
 
-function gitleaksReleaseAttestationFixture(t) {
+function gitleaksReleaseAttestationFixture(t, source = fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8')) {
   const context = fixture(t, gitleaksReleaseAttestationBranch);
-  const source = fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8');
   write(context.root, gitleaksReleaseAttestationPath, baselineGitleaksReleaseAttestation(source));
   const state = JSON.parse(fs.readFileSync(path.join(context.root, 'docs/platform-v7/autopilot/autopilot-state.json'), 'utf8'));
   state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [gitleaksReleaseAttestationPath];
@@ -493,10 +516,8 @@ for (const mutation of ['remove existing assertion', 'add fifth fingerprint', 'a
 
 function currentGitleaksReleaseAttestationFixture(t) {
   const context = fixture(t, gitleaksReleaseAttestationBranch);
-  const source = fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8');
-  const count = source.split(gitleaksCurrentReviewedEntries).length - 1;
-  assert.ok(count === 0 || count === 1, 'current reviewed entries occur together at most once');
-  write(context.root, gitleaksReleaseAttestationPath, source.replace(gitleaksCurrentReviewedEntries, ''));
+  // The accepted test before the two-existing-fingerprint repair.
+  write(context.root, gitleaksReleaseAttestationPath, acceptedBlob('e589046fc52daf8a3632f70b6879543934be56ff'));
   // This fixture models the immutable historical attestation, not today's allowlist.
   const historicalIgnore = spawnSync('git', ['cat-file', 'blob', '5c151dc1a2b5329fb2d4feb1fd0c1713bbef96db'], { encoding: 'utf8' });
   assert.equal(historicalIgnore.status, 0, `${historicalIgnore.stdout}\n${historicalIgnore.stderr}`);
@@ -635,6 +656,220 @@ test('current Gitleaks attestation rejects implementation-owned scope and guard 
     assert.notEqual(result.status, 0, output(result));
     assert.match(output(result), /Mutable scope authority changed on a PC-CROP immutable-scope implementation branch/u);
   }
+});
+
+function sessionMintingGitleaksReleaseAttestationFixture(t) {
+  const context = fixture(t, gitleaksReleaseAttestationBranch);
+  // The accepted test after the two-existing-fingerprint repair.
+  write(context.root, gitleaksReleaseAttestationPath, acceptedBlob('404e172449f53c01369ef974a50079d6f6967d56'));
+  // The accepted ignore file that already carries the two #5804 fingerprints.
+  write(context.root, '.gitleaksignore', acceptedBlob('2c7aaa811ed3ea3dd1cf806ed1126705c173591b'));
+  write(context.root, 'apps/tai/release-source-manifest.json', acceptedBlob('35f96ccc7fe332ddd90454eeee19853ba0612b71'));
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+  state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [gitleaksReleaseAttestationPath];
+  write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+  commit(context.root, 'accepted exact session-minting Gitleaks attestation inputs');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  assert.equal(git(context.root, ['rev-parse', `${context.baseline}:${gitleaksReleaseAttestationPath}`]), '404e172449f53c01369ef974a50079d6f6967d56');
+  assert.equal(git(context.root, ['rev-parse', `${context.baseline}:.gitleaksignore`]), '2c7aaa811ed3ea3dd1cf806ed1126705c173591b');
+  assert.equal(git(context.root, ['rev-parse', `${context.baseline}:apps/tai/release-source-manifest.json`]), '35f96ccc7fe332ddd90454eeee19853ba0612b71');
+  return context;
+}
+
+function synchronizeSessionMintingGitleaksReleaseAttestation(baseline) {
+  assert.equal(baseline.split(gitleaksSessionMintingAnchor).length - 1, 1);
+  return baseline.replace(gitleaksSessionMintingAnchor, gitleaksSessionMintingAnchor + gitleaksSessionMintingEntries);
+}
+
+test('session-minting Gitleaks attestation accepts only the exact two-fingerprint synchronization', (t) => {
+  const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+  const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(baseline));
+  commit(context.root, 'synchronize session-minting fingerprint attestation');
+  assert.equal(git(context.root, ['rev-parse', `HEAD:${gitleaksReleaseAttestationPath}`]), '95c914d64012a6260ca1090a01844b2c6f56cc3a');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+
+for (const mutation of [
+  'remove manifest assertion', 'weaken format assertion', 'remove old fingerprint',
+  'add extra fingerprint', 'alter first fingerprint', 'alter second fingerprint',
+  'omit first fingerprint', 'omit second fingerprint', 'reverse fingerprint order',
+]) {
+  test(`session-minting Gitleaks attestation rejects candidate content: ${mutation}`, (t) => {
+    const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    let candidate = synchronizeSessionMintingGitleaksReleaseAttestation(baseline);
+    if (mutation === 'remove manifest assertion') candidate = candidate.replace('    assert ".gitleaksignore" in manifest["files"]\n', '');
+    if (mutation === 'weaken format assertion') candidate = candidate.replace('    assert all(_FINGERPRINT.fullmatch(entry) is not None for entry in entries)\n', '    assert True\n');
+    if (mutation === 'remove old fingerprint') candidate = candidate.replace(gitleaksCommodityAnchor, '');
+    if (mutation === 'add extra fingerprint') candidate = candidate.replace('    ]\n', '        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:extra.py:generic-api-key:1",\n    ]\n');
+    if (mutation === 'alter first fingerprint') candidate = candidate.replace('generic-api-key:137', 'generic-api-key:139');
+    if (mutation === 'alter second fingerprint') candidate = candidate.replace('generic-api-key:138', 'generic-api-key:139');
+    const lines = gitleaksSessionMintingEntries.split('\n').filter(Boolean);
+    if (mutation === 'omit first fingerprint') candidate = candidate.replace(gitleaksSessionMintingEntries, `${lines.slice(2).join('\n')}\n`);
+    if (mutation === 'omit second fingerprint') candidate = candidate.replace(gitleaksSessionMintingEntries, `${lines.slice(0, 2).join('\n')}\n`);
+    if (mutation === 'reverse fingerprint order') candidate = candidate.replace(gitleaksSessionMintingEntries, `${[...lines.slice(2), ...lines.slice(0, 2)].join('\n')}\n`);
+    write(context.root, gitleaksReleaseAttestationPath, candidate);
+    commit(context.root, `attempt ${mutation}`);
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Gitleaks release attestation head must be the exact session-minting regular-file repair/u);
+  });
+}
+
+for (const file of ['.gitleaksignore', 'apps/tai/release-source-manifest.json']) {
+  for (const side of ['base', 'head']) {
+    test(`session-minting Gitleaks attestation rejects ${side} input drift: ${file}`, (t) => {
+      const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+      if (side === 'base') {
+        fs.appendFileSync(path.join(context.root, file), '\n');
+        commit(context.root, 'drift accepted input');
+        context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+      }
+      const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+      write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(baseline));
+      if (side === 'head') fs.appendFileSync(path.join(context.root, file), '\n');
+      commit(context.root, 'attempt repair with drifting input');
+      const result = runTrustedCurrentGitleaksGuard(context);
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /Gitleaks release attestation input must remain the exact accepted regular file/u);
+    });
+  }
+}
+
+test('session-minting Gitleaks attestation rejects baseline assertion drift', (t) => {
+  const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+  const file = path.join(context.root, gitleaksReleaseAttestationPath);
+  write(context.root, gitleaksReleaseAttestationPath, fs.readFileSync(file, 'utf8').replace('    assert ".gitleaksignore" in manifest["files"]\n', ''));
+  commit(context.root, 'drift accepted test assertion');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(fs.readFileSync(file, 'utf8')));
+  commit(context.root, 'attempt repair over drifting test');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Gitleaks release attestation commodity-profile anchor must occur exactly once/u);
+});
+
+for (const side of ['base', 'head']) {
+  test(`session-minting Gitleaks attestation rejects ${side} executable mode`, (t) => {
+    const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+    if (side === 'base') {
+      fs.chmodSync(path.join(context.root, gitleaksReleaseAttestationPath), 0o755);
+      commit(context.root, 'drift accepted test mode');
+      context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    }
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(baseline), 0o755);
+    commit(context.root, 'attempt executable test repair');
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Gitleaks release attestation (baseline|head) must be the exact/u);
+  });
+}
+
+test('session-minting Gitleaks attestation rejects implementation-owned scope and guard expansion', (t) => {
+  for (const target of ['state', 'guard']) {
+    const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(baseline));
+    if (target === 'state') {
+      const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+      state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch].push('README.md');
+      write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+      write(context.root, 'README.md', 'unapproved self-admission\n');
+    } else {
+      write(context.root, 'scripts/p7-autopilot-guard.sh', '#!/usr/bin/env bash\nexit 0\n');
+    }
+    commit(context.root, `attempt candidate ${target} authority`);
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    // The one-file rule of this phase is the first defence that rejects the mix.
+    assert.match(output(result), /Gitleaks release attestation session-minting repair must change exactly the attestation test/u);
+  }
+});
+
+for (const other of ['apps/landing/package.json', 'docs/ip/internal-package-metadata-exceptions.json']) {
+  test(`session-minting Gitleaks attestation rejects a mixed diff with ${other}`, (t) => {
+    const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+    // Model the real attestation ref vector, so the mix is otherwise in scope.
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [
+      gitleaksReleaseAttestationPath, 'apps/landing/package.json', 'docs/ip/internal-package-metadata-exceptions.json',
+    ];
+    write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+    write(context.root, other, '{}\n');
+    commit(context.root, 'accepted attestation ref vector with metadata paths');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(baseline));
+    write(context.root, other, '{"changed":true}\n');
+    commit(context.root, `attempt test synchronization mixed with ${other}`);
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Gitleaks release attestation session-minting repair must change exactly the attestation test/u);
+  });
+}
+
+test('legacy Gitleaks attestation phase cannot apply the session-minting synchronization', (t) => {
+  const context = gitleaksReleaseAttestationFixture(t);
+  const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(synchronizeGitleaksReleaseAttestation(baseline)));
+  commit(context.root, 'attempt legacy and session-minting synchronizations together');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /must add exactly four reviewed fingerprints/u);
+});
+
+test('session-minting Gitleaks attestation phase cannot apply an earlier phase transformation', (t) => {
+  const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+  const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(baseline));
+  commit(context.root, 'attempt the two-existing-fingerprint transformation again');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Gitleaks release attestation head must be the exact session-minting regular-file repair/u);
+});
+
+test('historical Gitleaks attestation fixtures hold for every accepted repository test revision', (t) => {
+  const stepC = synchronizeSessionMintingGitleaksReleaseAttestation(acceptedBlob('404e172449f53c01369ef974a50079d6f6967d56'));
+  assert.equal(blobOf(stepC), '95c914d64012a6260ca1090a01844b2c6f56cc3a');
+  for (const [revision, source] of [
+    ['404e1724', acceptedBlob('404e172449f53c01369ef974a50079d6f6967d56')],
+    ['95c914d6', stepC],
+  ]) {
+    // The legacy four-fingerprint phase is the only one still derived from the repository test.
+    const normalizedBaseline = baselineGitleaksReleaseAttestation(source);
+    assert.equal(baselineGitleaksReleaseAttestation(synchronizeGitleaksReleaseAttestation(normalizedBaseline)), normalizedBaseline, revision);
+    const legacy = gitleaksReleaseAttestationFixture(t, source);
+    const legacyBaseline = fs.readFileSync(path.join(legacy.root, gitleaksReleaseAttestationPath), 'utf8');
+    write(legacy.root, gitleaksReleaseAttestationPath, synchronizeGitleaksReleaseAttestation(legacyBaseline));
+    commit(legacy.root, `synchronize legacy attestation from ${revision}`);
+    const legacyResult = runGuard(legacy);
+    assert.equal(legacyResult.status, 0, `${revision}\n${output(legacyResult)}`);
+  }
+  // The two later phases start from immutable accepted blobs whatever the repository test holds.
+  const current = currentGitleaksReleaseAttestationFixture(t);
+  write(current.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(fs.readFileSync(path.join(current.root, gitleaksReleaseAttestationPath), 'utf8')));
+  commit(current.root, 'synchronize current exact fingerprint attestation');
+  assert.equal(runTrustedCurrentGitleaksGuard(current).status, 0);
+  const session = sessionMintingGitleaksReleaseAttestationFixture(t);
+  write(session.root, gitleaksReleaseAttestationPath, stepC);
+  commit(session.root, 'synchronize session-minting fingerprint attestation');
+  assert.equal(runTrustedCurrentGitleaksGuard(session).status, 0);
+});
+
+test('earlier Gitleaks attestation phase cannot apply the session-minting synchronization', (t) => {
+  const context = currentGitleaksReleaseAttestationFixture(t);
+  const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(synchronizeCurrentGitleaksReleaseAttestation(baseline)));
+  commit(context.root, 'attempt both synchronizations from the earlier baseline');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Gitleaks release attestation head must be the exact two-fingerprint regular-file repair/u);
 });
 
 test('kind MinIO image-source scope accepts exactly three paths and rejects ci.yml', (t) => {
@@ -4928,3 +5163,115 @@ test('Deal route: exact workflow blob in wrong mode rejects protected guard thre
  git(c.root,['update-index','--cacheinfo','100755,'+routeGuardPins[2][2]+','+routeWorkflowPath]);git(c.root,['commit','-m','wrong workflow mode']);
  const r=runRouteGuardCandidate(c);assert.notEqual(r.status,0,output(r));assert.match(output(r),/DEAL_ROUTE_PIN_OR_MODE/u);
 });
+
+const trustedConcurrentSourceBranches = [
+  'security/accounting-bff-csrf-3-5-1',
+  'security/module-body-validation',
+  'security/bff-upstream-path-encoding-4459',
+  'security/request-cookie-single-reader-4459',
+  'security/open-redirect-demo-login-4459',
+  'security/email-check-length-first-4459',
+  'security/browser-hardening-headers-4459',
+  'security/outbound-redirect-and-surface-4459',
+  'security/credential-surface-4459',
+  'fix/tai-release-run-event-filter-20261008',
+];
+
+function trustedConcurrentManifestPath(branch) {
+  return `docs/platform-v7/autopilot/scopes/${branch.split('/')[1]}.json`;
+}
+
+function trustedConcurrentManifest(branch, overrides = {}) {
+  return `${JSON.stringify({
+    schemaVersion: 'platform-v7.concurrent-scope.v1',
+    branch,
+    status: 'active',
+    allowedPaths: ['apps/web/**'],
+    ...overrides,
+  }, null, 2)}\n`;
+}
+
+test('Trusted concurrent-scope sources are registered at every trusted-base workflow entry point', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
+  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
+    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
+  const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
+    .split('  standard_validation:')[0];
+  for (const branch of trustedConcurrentSourceBranches) {
+    assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${branch}'`), branch);
+    assert.ok(trusted.includes(`|${branch}|`), branch);
+    assert.ok(prHead.includes(`github.head_ref == '${branch}'`), branch);
+    assert.ok(prHead.includes(`|${branch}|`), branch);
+    assert.ok(standard.includes(`github.head_ref != '${branch}'`), branch);
+  }
+  assert.equal(new Set(trustedConcurrentSourceBranches).size, 10);
+});
+
+test('Trusted concurrent-scope sources are literal immutable branches in the guard', () => {
+  const guard = fs.readFileSync(sourceGuard, 'utf8');
+  const list = guard.split('is_immutable_scope_branch() {')[1].split('\n}\n')[0];
+  for (const branch of trustedConcurrentSourceBranches) {
+    assert.ok(list.includes(`"${branch}"`), branch);
+    assert.ok(guard.includes(`"${branch}") CONCURRENT_SCOPE_MANIFEST='${trustedConcurrentManifestPath(branch)}'`), branch);
+  }
+});
+
+for (const branch of trustedConcurrentSourceBranches) {
+  for (const mutation of ['admitted paths with own manifest', 'unadmitted', 'foreign source', 'self-expanded state',
+    'manifest outside base vector', 'manifest of another branch', 'manifest naming another branch', 'guard script edit']) {
+    test(`Trusted concurrent source ${branch}: ${mutation}`, (t) => {
+      const context = fixture(t, branch);
+      const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+      const manifest = trustedConcurrentManifestPath(branch);
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+      const vector = mutation === 'manifest outside base vector' ? ['allowed.txt'] : ['allowed.txt', manifest];
+      if (mutation === 'unadmitted') delete state.approvedConcurrentScopes[branch];
+      else state.approvedConcurrentScopes[branch] = vector;
+      write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+      commit(context.root, 'accepted admission baseline');
+      context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+      write(context.root, 'allowed.txt', 'bounded source change\n');
+      if (['admitted paths with own manifest', 'unadmitted', 'foreign source', 'self-expanded state', 'guard script edit'].includes(mutation)) {
+        write(context.root, manifest, trustedConcurrentManifest(branch));
+      }
+      if (mutation === 'manifest outside base vector') write(context.root, manifest, trustedConcurrentManifest(branch));
+      if (mutation === 'manifest of another branch') {
+        const other = trustedConcurrentSourceBranches.find((candidate) => candidate !== branch);
+        write(context.root, trustedConcurrentManifestPath(other), trustedConcurrentManifest(other));
+      }
+      if (mutation === 'manifest naming another branch') {
+        write(context.root, manifest, trustedConcurrentManifest('security/some-other-branch'));
+        state.approvedConcurrentScopes[branch] = vector;
+      }
+      if (mutation === 'foreign source') write(context.root, 'apps/web/app/layout.tsx', 'unadmitted source\n');
+      if (mutation === 'self-expanded state') {
+        state.approvedConcurrentScopes[branch] = [...vector, 'apps/web/app/layout.tsx'];
+        state.allowedCurrentScope.push('apps/web/**');
+        write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+        write(context.root, 'apps/web/app/layout.tsx', 'self-admitted source\n');
+      }
+      if (mutation === 'guard script edit') {
+        write(context.root, 'scripts/p7-autopilot-guard.sh', '#!/usr/bin/env bash\nexit 0\n', 0o755);
+      }
+      commit(context.root, mutation);
+      // The trusted-base workflow runs the accepted base copy of the guard, never the candidate's own edit.
+      const baseGuard = path.join(context.root, '..', `${path.basename(context.root)}-base-guard.sh`);
+      fs.writeFileSync(baseGuard, git(context.root, ['show', `${context.baseline}:scripts/p7-autopilot-guard.sh`]) + '\n');
+      t.after(() => fs.rmSync(baseGuard, { force: true }));
+      const result = mutation === 'guard script edit'
+        ? spawnSync('bash', [baseGuard], {
+          cwd: context.root,
+          env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: branch },
+          encoding: 'utf8',
+        })
+        : runGuard(context);
+      if (mutation === 'admitted paths with own manifest') {
+        assert.equal(result.status, 0, output(result));
+      } else {
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), /no immutable approved scope|Mutable scope authority changed|Files outside current autopilot scope|CONCURRENT_MANIFEST_|P7_IMMUTABLE_SCOPE/u);
+      }
+    });
+  }
+}
