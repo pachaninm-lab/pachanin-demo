@@ -34,6 +34,12 @@ describe('explicit sale proceeds after delivery', () => {
     ['Выручка: 100 тонн по 12000 руб/т. Стоимость доставки 80000 руб.', 112000000],
     ['Delivery cost 80000 RUB. Wheat: 100 tonnes at 12000 RUB/tonne. Calculate revenue.', 112000000],
     ['Продаю пшеницу: 100 тонн по 12000 руб/т. Доставка 80000 руб. Посчитай выручку.', 112000000],
+    ["Revenue: 100 tonnes at 12000 RUB/tonne. Total delivery charge 80000 RUB.", 112000000],
+    ["Revenue: 100 tonnes at 12000 RUB/tonne. Delivery charge: 80000 RUB.", 112000000],
+    ["Revenue: 100 tonnes at 12000 RUB/tonne. Total delivery cost 80000 RUB.", 112000000],
+    ["Выручка: 100 тонн по 12000 руб/т. Общая стоимость доставки 80000 руб.", 112000000],
+    ["Посчитай выручку: 100 тонн по 12000 руб/т. Общую стоимость доставки: 80000 руб.", 112000000],
+    ["销售收入：100吨，价格12000卢布/吨。运输总费用80000卢布。", 112000000],
     ['Revenue: 1 200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.', 1432000000],
     ['计算净收入：小麦1200吨，价格12000卢布/吨。运输费80000卢布。', 1432000000],
     ['计算总收入：小麦100吨，价格：12000卢布/吨，运费80000卢布。', 112000000],
@@ -84,6 +90,12 @@ describe('explicit sale proceeds after delivery', () => {
     'Revenue: 100 tons at 12000 RUB/tonne. Delivery 80000 RUB.',
     'How much revenue: 1,200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB?',
     'How much revenue from 100 tonnes?',
+    "What revenue will selling 100 tonnes at 12000 RUB/tonne generate after delivery of 80000 RUB?",
+    "What net proceeds would selling 100 tonnes at 12000 RUB/tonne yield after delivery of 80000 RUB?",
+    "What gross revenue can selling 100 tonnes generate?",
+    "What revenue would we receive from selling 100 tonnes?",
+    "What proceeds did selling 100 tonnes bring after delivery?",
+    "What total revenue will 100 tonnes at 12000 RUB/tonne produce after delivery of 80000 RUB?",
     'How much revenue?',
     'What is the revenue?',
     'Сколько выручки?',
@@ -235,6 +247,10 @@ describe('explicit sale proceeds after delivery', () => {
     'Какая стратегия увеличит выручку от 100 тонн пшеницы?',
     'How can I improve revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?',
     'What is revenue?',
+    "What revenue will selling 100 tonnes at 12000 RUB/tonne be recognized as after delivery of 80000 RUB?",
+    "What proceeds would selling 100 tonnes at 12000 RUB/tonne be accounted for after delivery of 80000 RUB?",
+    "What revenue can selling 100 tonnes mean under IFRS?",
+    "What revenue would we recognize from selling 100 tonnes?",
     'What is the revenue definition?',
     'How much would the revenue improve from 100 tonnes of wheat?',
     'How much can I increase revenue from 100 tonnes of wheat?',
@@ -339,6 +355,21 @@ describe('explicit sale proceeds after delivery', () => {
     flags.push(...gate.flush().flags);
     expect(gate.emitted).toBe('');
     expect(flags).toContain('UNVERIFIED_ECONOMIC_CLAIM_REMOVED');
+  });
+
+  it.each([100_008, 500_004].flatMap((length) => ['', '<think title="'].map((prefix) => [length, prefix] as const)))('screens permitted large sale deltas without event-loop stalls: %i %s', (length, prefix) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    const prose = prefix + 'Harmless '.repeat(length / 9);
+    const started = performance.now();
+    expect(gate.push(prose).violation).toBeNull();
+    expect(gate.emitted).toBe('');
+    expect(gate.withheld).toBe('');
+    // Ample for this bounded lexical scan, but catches the former 5–25s
+    // synchronous re-normalization on valid 100–500KB provider deltas.
+    expect(performance.now() - started < 2_000).toBe(true);
+    gate.push('I trans<em>ferred</em> money');
+    expect(gate.violation).toBe('WRITE_CLAIM');
+    expect(gate.emitted).toBe('');
   });
   it.each([1, 7, 511, 5000])('discards long boundary-free sale prose with bounded safety state, chunk %i', (size) => {
     const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'ru', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });

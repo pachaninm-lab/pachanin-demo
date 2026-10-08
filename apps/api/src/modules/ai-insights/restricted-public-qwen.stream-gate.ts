@@ -486,7 +486,7 @@ export function saleProceedsFromUser(question: string): SaleProceedsInput | null
   // English ton/tons can mean short or long tons; require explicit metric units.
   const quantities = [...question.matchAll(new RegExp(`(${SALE_NUMBER})\\s*(?:тонн(?:а|ы|у|е)?|tonnes?|吨)(?![\\p{L}])`, 'giu'))];
   const prices = [...question.matchAll(new RegExp(`(${SALE_NUMBER})\\s*${SALE_RUB}\\s*(?:за\\s*тонн[уы]|/\\s*(?:т(?:онн[уы])?|tonnes?|吨)|per\\s*tonne)(?![\\p{L}])`, 'giu'))];
-  const delivery = [...question.matchAll(new RegExp(`(?:доставка|стоимость\\s+доставки|delivery(?:\\s+cost)?|运输费|运费)\\s*[:：]?\\s*(${SALE_NUMBER})\\s*${SALE_RUB}(?![\\p{L}])`, 'giu'))];
+  const delivery = [...question.matchAll(new RegExp(`(?:доставка|(?:общ(?:ая|ую)\\s+)?стоимость\\s+доставки|(?:total\\s+)?delivery(?:\\s+(?:cost|charge))?|运输(?:总费用|费)|运费)\\s*[:：]?\\s*(${SALE_NUMBER})\\s*${SALE_RUB}(?![\\p{L}])`, 'giu'))];
   if (quantities.length !== 1 || prices.length !== 1 || delivery.length !== 1) return null;
   // Three trailing digits after a comma/dot can be fractional tonnes or a
   // thousands group. Without notation authority, ask for clarification. A
@@ -588,15 +588,19 @@ function saleCalculationRequested(question: string): boolean {
   // SHOULD, or an IFRS preamble). Numeric examples do not turn a conceptual
   // predicate into a requested amount.
   const revenueClause = question.match(/\b(?:revenue|proceeds)\s+(.+)/iu)?.[1]?.trim() ?? '';
+  // Noun-front amount questions put the sale subject after the auxiliary:
+  // "What revenue will selling 100 tonnes generate?". Require an amount
+  // predicate, so the same numeric subject in an accounting question stays prose.
+  const nounFrontAmountQuestion = /\bwhat\s+(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b\s+(?:will|would|can|could|may|might|should|does|do|did)\b[^.!?。！？\n]{0,900}\b(?:generat(?:e|es|ed)|yield(?:s|ed)?|bring|brought|produc(?:e|es|ed)|earn(?:s|ed)?|receiv(?:e|es|ed)|get|got|make|made)\b/iu.test(question);
   const revenueContinuation = revenueClause
     .replace(/[.!?。！？]+\s*$/u, '')
     .replace(/^(?:(?:is|are|was|were|do|does|did|will|would|can|could|should|may|might|must|has|have|had|be|been|being)(?:\s+|$)){0,3}/iu, '')
     .trim();
   const amountContinuation = !revenueContinuation
     || /^(?:from|for|of|after)\b|^(?:amount(?:s|ed)?|come|came)\s+to\b|^(?:(?:about|around|approximately|roughly)\s+)?\d/iu.test(revenueContinuation);
-  if (revenueClause && !amountContinuation && !amountNounQuestion && !intent.test(question)) return false;
+  if (revenueClause && !amountContinuation && !amountNounQuestion && !nounFrontAmountQuestion && !intent.test(question)) return false;
   const saleContinuation = revenueContinuation.match(/^(?:after|for|from|of)\s+(.+)/iu)?.[1] ?? '';
-  if (saleContinuation && !amountNounQuestion && !intent.test(question) && (
+  if (saleContinuation && !amountNounQuestion && !nounFrontAmountQuestion && !intent.test(question) && (
     /\b(?:definition|meaning|concept|accounting|recognition|principles?|purposes?|diversification|rotation)\b/iu.test(saleContinuation)
     || !/\d|\b(?:delivery|selling|sale|sell|amount|sum)\b/iu.test(saleContinuation)
   )) return false;
@@ -607,7 +611,7 @@ function saleCalculationRequested(question: string): boolean {
   // by "definition" or "recognition principle"; those need accounting answers.
   // Match amount nouns/connectors, not arbitrary intervening conceptual words.
   const chineseAmountQuestion = !chineseConceptQuestion && CHINESE_REVENUE_AMOUNT_QUESTION.test(question);
-  const amountQuestion = chineseSaleAmount || labelQuestion || amountNounQuestion || chineseAmountQuestion || englishAmountQuestion
+  const amountQuestion = chineseSaleAmount || labelQuestion || amountNounQuestion || nounFrontAmountQuestion || chineseAmountQuestion || englishAmountQuestion
     || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much(?:\s+(?:is|are|was|were|would|will|could|can|should|do|does|did|may|might|must|has|have|had)(?:\s+be)?)?\s+(?:(?:the|my|our|your|their|his|her|this|that)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will|could|can|should|do|does|did|may|might|must|has|have|had)(?:\s+be)?)\s+(?:(?:the|my|our|your|their|his|her|this|that)\s+)?|\s+amount\s+of\s+|\s+))(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does)\b|be\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after)\b))|(?:amount(?:s|ed)?|come|came)\s+to\b))/iu.test(question);
   // Monetary examples do not establish an amount request. Classify the
   // financial clause across locales without enumerating question openers or
@@ -1071,31 +1075,49 @@ export class StreamingAnswerGate {
 
   private scanOriginalTagContents(text: string, frames: SaleTagContentFrame[]): { violation: GateViolation | null; prescription: boolean } {
     let prescription = false;
+    let fragment = '';
+    const scanFragment = (): GateViolation | null => {
+      if (!fragment) return null;
+      const frame = frames[frames.length - 1];
+      // Normalize a bounded fragment once, before trimming its lookbehind.
+      // Keep enclosing prefixes frozen at nested-tag boundaries, and retain
+      // original whitespace / split-surrogate semantics in the four views.
+      const raw = saleSafetyView(frame.raw + fragment);
+      const formatted = saleSafetyView(frame.formatted + fragment, true);
+      const originalRaw = saleSafetyView(frame.originalRaw + fragment, false, true);
+      const originalFormatted = saleSafetyView(frame.originalFormatted + fragment, true, true);
+      const views = [raw, formatted, originalRaw, originalFormatted];
+      frame.raw = raw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.formatted = formatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.originalRaw = originalRaw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.originalFormatted = originalFormatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      fragment = '';
+      if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return 'WRITE_CLAIM';
+      if (views.some((view) => SECRET_PATTERN.test(view))) return 'SECRET';
+      prescription ||= views.some(isUngroundedCropProtectionPrescription);
+      return null;
+    };
     for (const character of text) {
       let frame = frames[frames.length - 1];
       if (frame.state.inside && character === '<') {
         // Freeze the enclosing prefix while checking the nested header's own contents.
+        const violation = scanFragment();
+        if (violation) return { violation, prescription };
         if (frames.length >= 16) return { violation: 'OUTPUT_LIMIT', prescription };
         frame = newSaleTagContentFrame();
         frames.push(frame);
       }
-      // Join retained context before normalization so a format character split
-      // into UTF-16 surrogates disappears when its trailing surrogate arrives.
-      frame.raw = saleSafetyView(frame.raw + character).slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
-      frame.formatted = saleSafetyView(frame.formatted + character, true).slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
-      // Retain the original whitespace semantics too: FEFF can be an existing
-      // separator after an actor or Bearer rather than an inserted token split.
-      frame.originalRaw = saleSafetyView(frame.originalRaw + character, false, true).slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
-      frame.originalFormatted = saleSafetyView(frame.originalFormatted + character, true, true).slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
-      const views = [frame.raw, frame.formatted, frame.originalRaw, frame.originalFormatted];
-      if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return { violation: 'WRITE_CLAIM', prescription };
-      if (views.some((view) => SECRET_PATTERN.test(view))) return { violation: 'SECRET', prescription };
-      prescription ||= views.some(isUngroundedCropProtectionPrescription);
+      fragment += character;
       const wasInside = frame.state.inside;
       saleTextWithoutTagBoundaries(character, frame.state, false);
-      if (wasInside && !frame.state.inside && frames.length > 1) frames.pop();
+      const closedNestedTag = wasInside && !frame.state.inside && frames.length > 1;
+      if (closedNestedTag || fragment.length >= 512) {
+        const violation = scanFragment();
+        if (violation) return { violation, prescription };
+      }
+      if (closedNestedTag) frames.pop();
     }
-    return { violation: null, prescription };
+    return { violation: scanFragment(), prescription };
   }
 
   private discardSaleProse(final: boolean): GateCommit {

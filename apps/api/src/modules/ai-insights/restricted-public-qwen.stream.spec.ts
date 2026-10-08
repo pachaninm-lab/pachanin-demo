@@ -164,6 +164,29 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     expect(answer.match(/1200000 − 80000 = 1120000 руб/gu)).toHaveLength(1);
   });
 
+  it.each(['stream', 'buffered'].flatMap((mode) => [
+    ['en', 'Revenue: 100 tonnes at 12000 RUB/tonne. Total delivery charge 80000 RUB.'],
+    ['en', 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery charge: 80000 RUB.'],
+    ['en', 'Revenue: 100 tonnes at 12000 RUB/tonne. Total delivery cost 80000 RUB.'],
+    ['ru', 'Выручка: 100 тонн по 12000 руб/т. Общая стоимость доставки 80000 руб.'],
+    ['ru', 'Посчитай выручку: 100 тонн по 12000 руб/т. Общую стоимость доставки: 80000 руб.'],
+    ['zh', '销售收入：100吨，价格12000卢布/吨。运输总费用80000卢布。'],
+  ].map(([locale, question]) => [mode, locale, question] as const)))('accepts localized clarification delivery labels in %s: %s %s', async (mode, locale, question) => {
+    const raw = request({ locale, question, originalQuestion: question });
+    let answer = '';
+    if (mode === 'stream') {
+      const probe = installRuntime({ deltas: ['Unchecked revenue is 999999.'] });
+      for await (const event of service.generateStream(raw)) if (event.type === 'delta') answer += event.text;
+      expect(probe.requests).toHaveLength(1);
+    } else {
+      const provider = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: 'Unchecked revenue is 999999.' }, finish_reason: 'stop' }] })));
+      global.fetch = provider;
+      answer = (await service.generate(raw)).answer;
+      expect(provider.mock.calls).toHaveLength(1);
+    }
+    expect(answer).toContain('1200000 − 80000 = 1120000');
+    expect(answer).not.toContain('999999');
+  });
   it.each(['stream', 'buffered'])('calculates explicitly priced Chinese total revenue in %s', async (mode) => {
     const question = '计算总收入：小麦100吨，价格：12000卢布/吨，运费80000卢布。';
     const content = '总收入为九十万。';
@@ -187,6 +210,12 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     'Revenue: 100 tons at 12000 RUB/tonne. Delivery 80000 RUB.',
     'How much revenue: 1,200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB?',
     'How much revenue from 100 tonnes?',
+    "What revenue will selling 100 tonnes at 12000 RUB/tonne generate after delivery of 80000 RUB?",
+    "What net proceeds would selling 100 tonnes at 12000 RUB/tonne yield after delivery of 80000 RUB?",
+    "What gross revenue can selling 100 tonnes generate?",
+    "What revenue would we receive from selling 100 tonnes?",
+    "What proceeds did selling 100 tonnes bring after delivery?",
+    "What total revenue will 100 tonnes at 12000 RUB/tonne produce after delivery of 80000 RUB?",
     'How much revenue?',
     'What is the revenue?',
     'Сколько выручки?',
@@ -475,6 +504,10 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     }
   });
   it.each(['stream', 'buffered'].flatMap((mode) => [
+    "What revenue will selling 100 tonnes at 12000 RUB/tonne be recognized as after delivery of 80000 RUB?",
+    "What proceeds would selling 100 tonnes at 12000 RUB/tonne be accounted for after delivery of 80000 RUB?",
+    "What revenue can selling 100 tonnes mean under IFRS?",
+    "What revenue would we recognize from selling 100 tonnes?",
     'What is the revenue definition?',
     'How much would the revenue improve from 100 tonnes of wheat?',
     'How much can I increase revenue from 100 tonnes of wheat?',
