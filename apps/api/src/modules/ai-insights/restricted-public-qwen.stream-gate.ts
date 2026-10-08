@@ -497,6 +497,9 @@ function saleCalculationRequested(question: string): boolean {
     || chineseSaleIncome && CHINESE_REVENUE_AMOUNT_QUESTION.test(question) || chineseBareSaleAmount
   );
   if (!SALE_PROCEEDS_TOPIC.test(question) && !chineseSaleIncome && !chineseSaleAmount) return false;
+  // Without an article or sale/amount clause, "What is revenue?" asks for
+  // the concept. Optional articles must not turn that definition into a sum.
+  if (/^\s*what(?:'s|\s+(?:is|are))\s+(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\s*[.!?。！？]*\s*$/iu.test(question)) return false;
   const intent = /(?<![\p{L}])(?:(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?(?:\s+расч[её]т)?)\s+(?:(?:итоговую|чистую)\s+)?выручк[ауи]|(?:calculate|compute)\s+(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))(?![\p{L}])|计算\s*(?:净收入|销售收入|总收入)/iu;
   const labelled = /^\s*(?:(?:расч[её]т\s+)?выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入|总收入)\s*[:：]/iu.test(question);
   if (chineseConceptQuestion && !intent.test(question)) return false;
@@ -523,7 +526,7 @@ function saleCalculationRequested(question: string): boolean {
   // Match amount nouns/connectors, not arbitrary intervening conceptual words.
   const chineseAmountQuestion = !chineseConceptQuestion && CHINESE_REVENUE_AMOUNT_QUESTION.test(question);
   const amountQuestion = chineseSaleAmount || labelQuestion || amountNounQuestion || chineseAmountQuestion
-    || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much\s+(?:(?:net|gross|total)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will))\s+(?:the|my|our)\s+(?:(?:net|gross|total)\s+)?|\s+amount\s+of\s+(?:(?:net|gross|total)\s+)?|\s+(?:(?:net|gross|total)\s+)?))(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does|be)\b))/iu.test(question);
+    || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much(?:\s+(?:is|are|was|were|would|will|could|can|should)(?:\s+be)?)?\s+(?:(?:the|my|our)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will|could|can|should)(?:\s+be)?)\s+(?:(?:the|my|our)\s+)?|\s+amount\s+of\s+|\s+))(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does|be)\b))/iu.test(question);
   const strategyQuestion = /стратег|\bstrateg(?:y|ies)\b|策略/iu.test(question);
   const improvementQuestion = /повыс|увелич|улучш|\b(?:increase|improve|enhance|boost|grow|raise)\b|提高|改善|增加/iu.test(question);
   if (!labelled && !intent.test(question)
