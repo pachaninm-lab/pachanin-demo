@@ -80,8 +80,10 @@ for (const needle of [
   'const MAIL_TIMEOUT_MS = 5_000;',
   "'EHLO transparent-price.local'",
   '`AUTH PLAIN ${Buffer.from(',
+  'to = smtpMailbox(mail.to);',
+  'mime = buildSmtpMimeMessage({ ...mail, to }, from);',
   '`MAIL FROM:<${from}>`',
-  '`RCPT TO:<${mail.to}>`',
+  '`RCPT TO:<${to}>`',
   "'DATA', [354]",
   'socket.write(`${mime}\\r\\n.\\r\\n`);',
   'MAIL_TIMEOUT_MS + 2_500',
@@ -89,7 +91,7 @@ for (const needle of [
 
 const expectedPaths = [workflowPath, scriptPath, 'scripts/check-production-p0-web-container-smtp-delivery-proof.mjs', scopePath].sort();
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') fail('unexpected scope schemaVersion');
-if (scope.branch !== 'diag/p0-web-container-smtp-delivery-proof-3785') fail('unexpected scope branch');
+if (scope.branch !== 'fix/p0-web-smtp-proof-canonical-recipient-3785') fail('unexpected scope branch');
 if (scope.issue !== 3785 || scope.releaseIssue !== 3072) fail('scope authority mismatch');
 if (JSON.stringify([...scope.allowedPaths].sort()) !== JSON.stringify(expectedPaths)) fail('scope allowedPaths mismatch');
 for (const [key, expected] of Object.entries({

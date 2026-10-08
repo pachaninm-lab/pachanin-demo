@@ -1,0 +1,178 @@
+name: Production Auth-Mail Worker Network Rebind f166
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/production-auth-mail-worker-network-rebind-f166.yml']
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-auth-mail-worker-network-rebind-f166
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  TARGET_ISSUE_NUMBER: '3785'
+  SUBJECT_SHA: f166f50e8526cf43f3193e771be05ebc66888494
+  COMMAND: /production p0-auth-mail-worker-network-rebind-f166
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate worker-network-only remediation
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ github.event.pull_request.head.sha }}' }
+      - shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path('.github/workflows/production-auth-mail-worker-network-rebind-f166.yml').read_text()
+          req=['PRE_NETWORK_MISMATCH','API_NETWORK_REBOUND','--force-recreate auth-mail-worker','AUTH_MAIL_PRISMACLIENTINITIALIZATIONERROR','DB_CREDENTIAL_MUTATED 0','API_WEB_UNCHANGED PASS','PRODUCTION_MUTATION AUTH_MAIL_WORKER_NETWORK_REBOUND']
+          bad=['ALTER ROLE','CREATE ROLE','DROP ROLE','UPDATE auth.','INSERT INTO','DELETE FROM','docker restart','docker system prune','sendAuthMailSmtp','claimBatch']
+          if [x for x in req if x not in t]: raise SystemExit('missing invariant')
+          if [x for x in bad if x in t.split('\n  remediate:\n',1)[1]]: raise SystemExit('unsafe surface')
+          PY
+
+  remediate:
+    name: Move only retained f166 worker onto API network
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3785 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/production p0-auth-mail-worker-network-rebind-f166' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: main, fetch-depth: 0 }
+
+      - name: Bind fixed deployed subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]]
+          git cat-file -e "${SUBJECT_SHA}^{commit}"
+          git merge-base --is-ancestor "$SUBJECT_SHA" origin/main
+
+      - name: Resolve protected SSH authority
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"; user="$(trim "${SSH_USER_SECRET:-}")"; port="$(trim "${SSH_PORT_SECRET:-22}")"; expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$port" =~ ^[0-9]+$ && "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          valid(){ local f="$1"; tr -d '\r' < "$f" > "$HOME/.ssh/id_pc_prod"; chmod 600 "$HOME/.ssh/id_pc_prod"; ! grep -Eq '^(ssh-|ecdsa-|sk-)' "$HOME/.ssh/id_pc_prod" && ssh-keygen -y -P '' -f "$HOME/.ssh/id_pc_prod" >/dev/null 2>&1; }
+          slot(){ local r="$1" a b c; [[ -n "$r" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$r" > "$a"; valid "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${r//\\n/$'\n'}" > "$b"; valid "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$r" | base64 -d > "$c" 2>/dev/null && valid "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
+          slot "${SSH_KEY_PRIMARY:-}" || slot "${SSH_KEY_SECONDARY:-}" || slot "${SSH_KEY_FALLBACK:-}" || exit 14
+          scan="$(mktemp)"; match="$(mktemp)"; ok=0
+          for n in 1 2 3; do : > "$scan"; : > "$match"; ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true; while IFS= read -r l; do fp="$(printf '%s\n' "$l" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$l" >> "$match"; done < "$scan"; sort -u -o "$match" "$match"; [[ "$(grep -c . "$match" || true)" == 1 ]] && { ok=1; break; }; sleep "$n"; done
+          [[ "$ok" == 1 ]]; mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$user@$host" 'test "$(id -u)" -eq 0 && docker version >/dev/null && docker compose version >/dev/null && echo OK' | grep -Fxq OK
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Execute exact worker network remediation
+        id: fix
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -euo pipefail
+          raw="$(mktemp)"; clean="$(mktemp)"; set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" "bash -s -- '$SUBJECT_SHA'" > "$raw" 2>&1 <<'REMOTE'
+          set -Eeuo pipefail
+          sha="$1"; runtime=/var/lib/pc-secret-authority/runtime
+          emit(){ printf '%s=%s\n' "$1" "$2"; }
+          fail(){ emit AUTH_MAIL_WORKER_NETWORK_REBIND FAIL; emit ERROR_CODE "$1"; emit DB_CREDENTIAL_MUTATED 0; emit API_WEB_MUTATED 0; emit PRODUCTION_MUTATION "$2"; exit "${3:-1}"; }
+          [[ "$(id -u)" -eq 0 && "$sha" =~ ^[0-9a-f]{40}$ ]] || fail INPUT_INVALID NONE 20
+          mapfile -t web < <(docker ps -q --filter 'label=com.docker.compose.service=web'); (( ${#web[@]} == 1 )) || fail WEB_CARDINALITY NONE 21
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "${web[0]}")"; [[ "$project" =~ ^[A-Za-z0-9_.-]{1,128}$ ]] || fail PROJECT_INVALID NONE 22
+          mapfile -t api < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api'); mapfile -t worker < <(docker ps -aq --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker')
+          (( ${#api[@]} == 1 && ${#worker[@]} == 1 )) || fail RUNTIME_CARDINALITY NONE 23
+          api_id="${api[0]}"; worker_id="${worker[0]}"; web_id="${web[0]}"
+          for id in "$api_id" "$worker_id" "$web_id"; do [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$id")" == "$sha" ]] || fail REVISION_PARITY NONE 24; done
+          emit PRE_REVISION_PARITY PASS
+          codes="$(docker logs --tail 300 "$worker_id" 2>&1 | sed -nE 's/^Auth-mail worker failed to start: ([A-Z0-9_]{1,120})$/\1/p' | sort -u || true)"; [[ "$codes" == AUTH_MAIL_PRISMACLIENTINITIALIZATIONERROR ]] || fail PRECONDITION_CHANGED NONE 25; emit PRE_STARTUP_CODE AUTH_MAIL_PRISMACLIENTINITIALIZATIONERROR
+          [[ -d "$runtime" && ! -L "$runtime" && "$(stat -c '%a:%u:%g' "$runtime")" == 700:0:0 ]] || fail RUNTIME_INVALID NONE 26
+          for p in "$runtime/current-key-version" "$runtime/database-url" "$runtime/transport.env"; do [[ -f "$p" && ! -L "$p" && "$(stat -c '%a:%u:%g' "$p")" == 444:0:0 ]] || fail RUNTIME_INVALID NONE 27; done
+          [[ -d "$runtime/keyring" && ! -L "$runtime/keyring" ]] || fail RUNTIME_INVALID NONE 28; emit RUNTIME_PROJECTION PASS
+          image="$(docker inspect --format '{{.Config.Image}}' "$worker_id")"; [[ "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image" 2>/dev/null || true)" == "$sha" ]] || fail IMAGE_REVISION NONE 29; emit WORKER_IMAGE_REVISION PASS
+          mapfile -t an < <(docker inspect --format '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' "$api_id" | sed '/^$/d'); mapfile -t wn < <(docker inspect --format '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' "$worker_id" | sed '/^$/d')
+          (( ${#an[@]} == 1 && ${#wn[@]} == 1 )) || fail NETWORK_CARDINALITY NONE 30
+          api_net="${an[0]}"; worker_net="${wn[0]}"; [[ "$api_net" =~ ^[A-Za-z0-9_.-]{1,128}$ && "$worker_net" =~ ^[A-Za-z0-9_.-]{1,128}$ && "$api_net" != "$worker_net" ]] || fail PRE_NETWORK_MISMATCH_ABSENT NONE 31
+          docker network inspect "$api_net" >/dev/null; emit PRE_NETWORK_MISMATCH PASS
+          dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$api_id")"; [[ "$dir" == /* && "$dir" != / && -d "$dir" && ! -L "$dir" ]] || fail WORKING_DIR NONE 32; dir="$(realpath -e -- "$dir")"; overlay="$dir/compose.auth-mail-worker-f166.network.json"; tmp="$(mktemp "$dir/.auth-mail-network.XXXXXX.json")"; trap 'rm -f "$tmp"' EXIT
+          python3 - "$tmp" "$image" "$runtime" "$api_net" <<'PY'
+          import json,sys
+          p,img,r,n=sys.argv[1:5]
+          c={'services':{'auth-mail-worker':{'image':img,'pull_policy':'never','command':['dist/apps/api/src/auth-mail-worker.js'],'restart':'unless-stopped','environment':{'NODE_ENV':'production','RUNTIME_COMPONENT':'auth-mail-worker','AUTH_MAIL_WORKER_ENABLED':'true','AUTH_MAIL_WORKER_HEALTH_PORT':'3003','AUTH_MAIL_OUTBOX_KEYRING_DIR':'/run/pc-auth-mail/keyring','AUTH_MAIL_OUTBOX_CURRENT_KEY_VERSION_FILE':'/run/pc-auth-mail/current-key-version','AUTH_MAIL_DATABASE_URL_FILE':'/run/pc-auth-mail/database-url','AUTH_MAIL_TRANSPORT_FILE':'/run/pc-auth-mail/transport.env'},'volumes':[{'type':'bind','source':r+'/keyring','target':'/run/pc-auth-mail/keyring','read_only':True},{'type':'bind','source':r+'/current-key-version','target':'/run/pc-auth-mail/current-key-version','read_only':True},{'type':'bind','source':r+'/database-url','target':'/run/pc-auth-mail/database-url','read_only':True},{'type':'bind','source':r+'/transport.env','target':'/run/pc-auth-mail/transport.env','read_only':True}],'healthcheck':{'test':['CMD','/nodejs/bin/node','-e',"fetch('http://127.0.0.1:3003/ready',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"],'interval':'10s','timeout':'5s','retries':12,'start_period':'10s'},'networks':['runtime']}},'networks':{'runtime':{'external':True,'name':n}}}
+          open(p,'w').write(json.dumps(c,separators=(',',':'))+'\n')
+          PY
+          chmod 600 "$tmp"; chown 0:0 "$tmp"; docker compose --project-directory "$dir" --project-name "$project" -f "$tmp" config --quiet || fail OVERLAY_INVALID NONE 33; mv -f "$tmp" "$overlay"; chmod 600 "$overlay"; chown 0:0 "$overlay"; emit OVERLAY_WRITTEN PASS
+          old="$worker_id"; docker compose --project-directory "$dir" --project-name "$project" -f "$overlay" up -d --no-deps --pull never --force-recreate auth-mail-worker >/dev/null 2>&1 || fail RECREATE_FAILED AUTH_MAIL_WORKER_NETWORK_REBIND_ATTEMPTED 34; emit WORKER_RECREATED PASS
+          ready=0
+          for n in $(seq 1 30); do mapfile -t now < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=auth-mail-worker'); if (( ${#now[@]} == 1 )); then id="${now[0]}"; h="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id" 2>/dev/null || true)"; rev="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$id" 2>/dev/null || true)"; mapfile -t nn < <(docker inspect --format '{{range $k,$v := .NetworkSettings.Networks}}{{println $k}}{{end}}' "$id" | sed '/^$/d'); if [[ "$id" != "$old" && "$h" == healthy && "$rev" == "$sha" && ${#nn[@]} == 1 && "${nn[0]}" == "$api_net" ]] && docker exec "$id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3003/ready',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then ready=1; worker_id="$id"; break; fi; fi; sleep 4; done
+          (( ready == 1 )) || fail WORKER_NOT_READY AUTH_MAIL_WORKER_NETWORK_REBOUND_BUT_NOT_READY 35; emit API_NETWORK_REBOUND PASS; emit WORKER_READY PASS
+          mapfile -t aa < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api'); mapfile -t ww < <(docker ps -q --filter "label=com.docker.compose.service=web"); (( ${#aa[@]} == 1 && ${#ww[@]} == 1 )) && [[ "${aa[0]}" == "$api_id" && "${ww[0]}" == "$web_id" ]] || fail API_WEB_CHANGED AUTH_MAIL_WORKER_NETWORK_REBOUND 36; emit API_WEB_UNCHANGED PASS
+          emit DB_CREDENTIAL_MUTATED 0; emit API_WEB_MUTATED 0; emit AUTH_MAIL_WORKER_NETWORK_REBIND PASS; emit ERROR_CODE NONE; emit PRODUCTION_MUTATION AUTH_MAIL_WORKER_NETWORK_REBOUND
+          REMOTE
+          rc=$?; set -e
+          sed -nE '/^(AUTH_MAIL_WORKER_NETWORK_REBIND|ERROR_CODE|PRE_REVISION_PARITY|PRE_STARTUP_CODE|RUNTIME_PROJECTION|WORKER_IMAGE_REVISION|PRE_NETWORK_MISMATCH|OVERLAY_WRITTEN|WORKER_RECREATED|API_NETWORK_REBOUND|WORKER_READY|API_WEB_UNCHANGED|DB_CREDENTIAL_MUTATED|API_WEB_MUTATED|PRODUCTION_MUTATION)=[A-Za-z0-9_.:-]{1,180}$/p' "$raw" > "$clean"; rm -f "$raw"; cat "$clean"; echo "rc=$rc" >> "$GITHUB_OUTPUT"; while IFS='=' read -r k v; do echo "${k,,}=$v" >> "$GITHUB_OUTPUT"; done < "$clean"; rm -f "$clean"
+
+      - name: Publish sanitized network-rebind evidence
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ steps.fix.outputs.auth_mail_worker_network_rebind }}
+          ERROR: ${{ steps.fix.outputs.error_code }}
+          PRE: ${{ steps.fix.outputs.pre_network_mismatch }}
+          RECREATED: ${{ steps.fix.outputs.worker_recreated }}
+          REBOUND: ${{ steps.fix.outputs.api_network_rebound }}
+          READY: ${{ steps.fix.outputs.worker_ready }}
+          APIWEB: ${{ steps.fix.outputs.api_web_unchanged }}
+          DBM: ${{ steps.fix.outputs.db_credential_mutated }}
+          AWM: ${{ steps.fix.outputs.api_web_mutated }}
+          MUT: ${{ steps.fix.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          printf '### PC-CROP auth-mail worker network rebind f166\n\n- result / safe error: `%s / %s`\n- pre network mismatch: `%s`\n- worker recreated / API network rebound / ready: `%s / %s / %s`\n- API-Web unchanged: `%s`\n- DB credential mutated / API-Web mutated: `%s / %s`\n- production mutation: `%s`\n' "${RESULT:-unknown}" "${ERROR:-unknown}" "${PRE:-unknown}" "${RECREATED:-unknown}" "${REBOUND:-unknown}" "${READY:-unknown}" "${APIWEB:-unknown}" "${DBM:-unknown}" "${AWM:-unknown}" "${MUT:-unknown}" > /tmp/e
+          gh issue comment "$TARGET_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file /tmp/e
+
+      - name: Enforce bounded network repair
+        shell: bash
+        env:
+          RC: ${{ steps.fix.outputs.rc }}
+          RESULT: ${{ steps.fix.outputs.auth_mail_worker_network_rebind }}
+          READY: ${{ steps.fix.outputs.worker_ready }}
+          REBOUND: ${{ steps.fix.outputs.api_network_rebound }}
+          APIWEB: ${{ steps.fix.outputs.api_web_unchanged }}
+          DBM: ${{ steps.fix.outputs.db_credential_mutated }}
+          AWM: ${{ steps.fix.outputs.api_web_mutated }}
+          MUT: ${{ steps.fix.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          [[ "${RC:-1}" == 0 && "$RESULT" == PASS && "$READY" == PASS && "$REBOUND" == PASS && "$APIWEB" == PASS && "$DBM" == 0 && "$AWM" == 0 && "$MUT" == AUTH_MAIL_WORKER_NETWORK_REBOUND ]]

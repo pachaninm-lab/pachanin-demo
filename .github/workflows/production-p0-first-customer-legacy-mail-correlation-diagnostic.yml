@@ -1,0 +1,270 @@
+name: Production P0 First-Customer Legacy Mail Correlation Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-first-customer-legacy-mail-correlation-diagnostic.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-p0-first-customer-legacy-mail-correlation-diagnostic
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  TARGET_ISSUE_NUMBER: '3785'
+  SUBJECT_SHA: 55f78afe5f01f1aa2732a984b5cc0ccb1ccfcc71
+  RUN_WINDOW_START: '2026-08-15T12:56:00Z'
+  RUN_WINDOW_END: '2026-08-15T13:01:00Z'
+  DIAGNOSTIC_COMMAND: /production p0-first-customer-legacy-mail-correlation 31885882933
+  PC_P0_IMAP_HOST: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_HOST || secrets.PC_PROD_P0_IMAP_HOST }}
+  PC_P0_IMAP_PORT: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PORT || secrets.PC_PROD_P0_IMAP_PORT }}
+  PC_P0_IMAP_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
+  PC_P0_IMAP_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+  PC_P0_IMAP_FOLDER: ${{ secrets.PC_PROD_P0_IMAP_FOLDER }}
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate read-only legacy-mail correlation diagnostic
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          text=Path('.github/workflows/production-p0-first-customer-legacy-mail-correlation-diagnostic.yml').read_text(encoding='utf-8')
+          required=['registration_email_delivery_result','WEB_DELIVERY_EVENT_COUNT','WEB_DELIVERED_TRUE_COUNT','WEB_PROVIDER_CLASS','IMAP_LOGIN','IMAP_RECIPIENT_MATCH_MESSAGES','IMAP_VERIFICATION_LINK_MESSAGES','IMAP_TOKEN_SHAPE_MESSAGES','readonly=True','PRODUCTION_MUTATION NONE']
+          missing=[x for x in required if x not in text]
+          if missing: raise SystemExit('missing invariant: '+' | '.join(missing))
+          diagnostic=text.split('\n  diagnostic:\n',1)[1]
+          forbidden=['docker restart','docker rm','docker compose up','docker compose down','ALTER ROLE','CREATE ROLE','DROP ROLE','GRANT ','REVOKE ','INSERT INTO','UPDATE auth.','DELETE FROM','TRUNCATE ','prisma migrate','prisma db execute','curl -X POST','sendTransactionalMail(','sendAuthMailSmtp(','EXPUNGE','APPEND ']
+          bad=[x for x in forbidden if x in diagnostic]
+          if bad: raise SystemExit('mutation surface forbidden: '+' | '.join(bad))
+          PY
+
+  diagnostic:
+    name: Correlate failed registration delivery with mailbox without mutation
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3785 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/production p0-first-customer-legacy-mail-correlation 31885882933' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind current main to failed-run production subject
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$(git rev-parse HEAD)" == "$main_sha" ]]
+          git cat-file -e "${SUBJECT_SHA}^{commit}"
+          git merge-base --is-ancestor "$SUBJECT_SHA" "$main_sha"
+          git diff --quiet "$SUBJECT_SHA..$main_sha" -- apps/web/app/api/auth/register/route.ts apps/web/lib/server/transactional-mail.ts apps/api/src/modules/auth/registration-application.service.ts
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"; user="$(trim "${SSH_USER_SECRET:-}")"; port="$(trim "${SSH_PORT_SECRET:-22}")"; expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || exit 10
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || exit 11
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || exit 13
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          validate_key(){ local source="$1" target="$HOME/.ssh/id_pc_prod" pub; tr -d '\r' < "$source" > "$target"; chmod 600 "$target"; grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1; pub="$(mktemp)"; ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"; }
+          try_slot(){ local raw="$1" a b c; [[ -n "$raw" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 14
+          scan="$(mktemp)"; match="$(mktemp)"; ready=0
+          for attempt in 1 2 3; do : > "$scan"; : > "$match"; ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true; while IFS= read -r line; do [[ -n "$line" ]] || continue; fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"; sort -u -o "$match" "$match"; [[ "$(grep -c . "$match" || true)" == 1 ]] && { ready=1; break; }; (( attempt == 3 )) || sleep "$attempt"; done
+          [[ "$ready" == 1 ]] || exit 15
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" 'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; echo SSH_AUTH_OK' | grep -Fxq SSH_AUTH_OK
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Classify legacy Web delivery event without mutation
+        id: webmail
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -euo pipefail
+          raw="$(mktemp)"; clean="$(mktemp)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" "bash -s -- '$SUBJECT_SHA' '$RUN_WINDOW_START' '$RUN_WINDOW_END'" > "$raw" 2>&1 <<'REMOTE'
+          set -Eeuo pipefail
+          subject_sha="$1"; window_start="$2"; window_end="$3"
+          emit(){ printf '%s=%s\n' "$1" "$2"; }
+          finish(){ emit LEGACY_WEB_MAIL_DIAGNOSTIC "$1"; emit ERROR_CODE "$2"; emit PRODUCTION_MUTATION NONE; exit "${3:-0}"; }
+          [[ "$(id -u)" -eq 0 ]] || finish FAIL ROOT_REQUIRED 20
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web'); (( ${#web_ids[@]} == 1 )) || finish FAIL WEB_CARDINALITY 22
+          web_id="${web_ids[0]}"; [[ "$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")" == "$subject_sha" ]] || finish FAIL WEB_REVISION_DRIFT 23
+          logs="$(mktemp)"; trap 'rm -f "$logs"' EXIT; docker logs --since "$window_start" --until "$window_end" "$web_id" > "$logs" 2>&1
+          python3 - "$logs" <<'PY'
+          import json,re,sys
+          events=[]
+          for line in open(sys.argv[1],encoding='utf-8',errors='replace'):
+              m=re.search(r'registration_email_delivery_result\s+(\{.*\})',line)
+              if not m: continue
+              try: p=json.loads(m.group(1))
+              except Exception: continue
+              provider=str(p.get('provider') or 'unknown'); reason=str(p.get('reason') or 'unknown'); delivered=p.get('delivered') is True; account=str(p.get('accountHash') or '')
+              if provider not in {'resend','smtp','none'}: provider='unknown'
+              reason=re.sub(r'[^A-Za-z0-9_.:-]','_',reason)[:100] or 'unknown'
+              if not re.fullmatch(r'[a-f0-9]{16}',account): account='unknown'
+              events.append((provider,reason,delivered,account))
+          providers=sorted({e[0] for e in events}); reasons=sorted({e[1] for e in events}); accounts=sorted({e[3] for e in events if e[3]!='unknown'})
+          print('WEB_DELIVERY_EVENT_COUNT='+str(len(events))); print('WEB_DELIVERED_TRUE_COUNT='+str(sum(1 for e in events if e[2])))
+          print('WEB_PROVIDER_CLASS='+(providers[0].upper() if len(providers)==1 else ('NONE' if not providers else 'MULTIPLE')))
+          print('WEB_REASON_CLASS='+(reasons[0].upper() if len(reasons)==1 else ('NONE' if not reasons else 'MULTIPLE')))
+          print('WEB_ACCOUNT_CARDINALITY='+str(len(accounts))); print('WEB_ACCOUNT_HASH='+(accounts[0] if len(accounts)==1 else 'NONE'))
+          PY
+          finish PASS NONE 0
+          REMOTE
+          rc=$?; set -e
+          sed -nE '/^(LEGACY_WEB_MAIL_DIAGNOSTIC|ERROR_CODE|WEB_DELIVERY_EVENT_COUNT|WEB_DELIVERED_TRUE_COUNT|WEB_PROVIDER_CLASS|WEB_REASON_CLASS|WEB_ACCOUNT_CARDINALITY|WEB_ACCOUNT_HASH|PRODUCTION_MUTATION)=[A-Za-z0-9_.:-]{1,160}$/p' "$raw" > "$clean"; rm -f "$raw"; cat "$clean"; echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          while IFS='=' read -r k v; do case "$k" in LEGACY_WEB_MAIL_DIAGNOSTIC|ERROR_CODE|WEB_DELIVERY_EVENT_COUNT|WEB_DELIVERED_TRUE_COUNT|WEB_PROVIDER_CLASS|WEB_REASON_CLASS|WEB_ACCOUNT_CARDINALITY|WEB_ACCOUNT_HASH|PRODUCTION_MUTATION) echo "${k,,}=$v" >> "$GITHUB_OUTPUT";; esac; done < "$clean"; rm -f "$clean"
+
+      - name: Correlate mailbox metadata read-only
+        id: imap
+        shell: bash
+        env:
+          ACCOUNT_HASH: ${{ steps.webmail.outputs.web_account_hash }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > "$RUNNER_TEMP/p0-imap-correlation"
+          import email,hashlib,html,imaplib,os,re,ssl
+          from datetime import datetime,timezone
+          from email.header import decode_header,make_header
+          from email.policy import default
+          from email.utils import getaddresses,parsedate_to_datetime
+          from urllib.parse import parse_qs,urlparse,unquote
+          def emit(k,v): print(f'{k}={v}')
+          account_hash=os.environ.get('ACCOUNT_HASH','')
+          if not re.fullmatch(r'[a-f0-9]{16}',account_hash): emit('IMAP_DIAGNOSTIC','FAIL'); emit('IMAP_ERROR_CODE','WEB_ACCOUNT_HASH_UNAVAILABLE'); raise SystemExit(31)
+          host=os.environ.get('PC_P0_IMAP_HOST','').strip(); user=os.environ.get('PC_P0_IMAP_USER',''); password=os.environ.get('PC_P0_IMAP_PASSWORD',''); port=int((os.environ.get('PC_P0_IMAP_PORT') or '993').strip()); folder=(os.environ.get('PC_P0_IMAP_FOLDER') or 'INBOX').strip() or 'INBOX'
+          if not host or not user or not password: emit('IMAP_DIAGNOSTIC','FAIL'); emit('IMAP_ERROR_CODE','IMAP_PREREQUISITE_MISSING'); raise SystemExit(32)
+          start=datetime.fromisoformat(os.environ['RUN_WINDOW_START'].replace('Z','+00:00')).timestamp()-300; end=datetime.fromisoformat(os.environ['RUN_WINDOW_END'].replace('Z','+00:00')).timestamp()+300
+          client=None
+          try:
+              client=imaplib.IMAP4_SSL(host,port,ssl_context=ssl.create_default_context()); client.login(user,password); emit('IMAP_LOGIN','PASS'); st,_=client.select(folder,readonly=True)
+              if st!='OK': raise RuntimeError('SELECT')
+              st,data=client.search(None,'ALL');
+              if st!='OK': raise RuntimeError('SEARCH')
+              window=recipient_count=subject_count=link_count=token_count=0
+              for ident in reversed((data[0] or b'').split()[-500:]):
+                  st,rows=client.fetch(ident,'(BODY.PEEK[])'); raw=next((r[1] for r in rows if isinstance(r,tuple) and len(r)>1),None) if st=='OK' else None
+                  if not raw: continue
+                  msg=email.message_from_bytes(raw,policy=default)
+                  try:
+                      dt=parsedate_to_datetime(msg.get('date')); dt=dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc); ts=dt.timestamp()
+                  except Exception: continue
+                  if ts<start or ts>end: continue
+                  window+=1; recipients=[]
+                  for h in ('to','cc','delivered-to','x-original-to','envelope-to'): recipients.extend(a for _,a in getaddresses(msg.get_all(h,[])) if a)
+                  matched=False
+                  for addr in recipients:
+                      val=addr.strip().lower();
+                      if val.count('@')!=1: continue
+                      local,domain=val.rsplit('@',1); candidates={val}
+                      try: candidates.add(local+'@'+domain.encode('ascii').decode('idna').lower())
+                      except Exception: pass
+                      try: candidates.add(local+'@'+domain.encode('idna').decode('ascii').lower())
+                      except Exception: pass
+                      if any(hashlib.sha256(x.encode()).hexdigest()[:16]==account_hash for x in candidates): matched=True; break
+                  if not matched: continue
+                  recipient_count+=1
+                  try: subject=str(make_header(decode_header(str(msg.get('subject') or ''))))
+                  except Exception: subject=str(msg.get('subject') or '')
+                  if ('подтвердите email' in subject.lower() or 'confirm your email' in subject.lower() or '确认电子邮箱' in subject): subject_count+=1
+                  parts=[]
+                  for part in (msg.walk() if msg.is_multipart() else (msg,)):
+                      if part.get_content_type() not in ('text/plain','text/html'): continue
+                      try: parts.append(part.get_content())
+                      except Exception: parts.append((part.get_payload(decode=True) or b'').decode(part.get_content_charset() or 'utf-8',errors='replace'))
+                  body=html.unescape('\n'.join(parts)); urls=re.findall(r'https://[^\s<>"\']+/platform-v7/register\?[^\s<>"\']+',body,re.I)
+                  if urls: link_count+=1
+                  if any(48<=len(unquote((parse_qs(urlparse(u).query).get('verify') or [''])[0]))<=512 and re.fullmatch(r'[A-Za-z0-9._~-]+',unquote((parse_qs(urlparse(u).query).get('verify') or [''])[0])) for u in urls): token_count+=1
+              client.logout(); client=None
+              emit('IMAP_WINDOW_MESSAGES',window); emit('IMAP_RECIPIENT_MATCH_MESSAGES',recipient_count); emit('IMAP_REGISTRATION_SUBJECT_MESSAGES',subject_count); emit('IMAP_VERIFICATION_LINK_MESSAGES',link_count); emit('IMAP_TOKEN_SHAPE_MESSAGES',token_count); emit('IMAP_DIAGNOSTIC','PASS'); emit('IMAP_ERROR_CODE','NONE')
+          except Exception:
+              if client is not None:
+                  try: client.logout()
+                  except Exception: pass
+              emit('IMAP_DIAGNOSTIC','FAIL'); emit('IMAP_ERROR_CODE','IMAP_READ_FAILED'); raise SystemExit(33)
+          PY
+          cat "$RUNNER_TEMP/p0-imap-correlation"
+          while IFS='=' read -r k v; do case "$k" in IMAP_DIAGNOSTIC|IMAP_ERROR_CODE|IMAP_LOGIN|IMAP_WINDOW_MESSAGES|IMAP_RECIPIENT_MATCH_MESSAGES|IMAP_REGISTRATION_SUBJECT_MESSAGES|IMAP_VERIFICATION_LINK_MESSAGES|IMAP_TOKEN_SHAPE_MESSAGES) [[ "$v" =~ ^[A-Za-z0-9_.:-]{1,160}$ ]] || exit 40; echo "${k,,}=$v" >> "$GITHUB_OUTPUT";; esac; done < "$RUNNER_TEMP/p0-imap-correlation"; rm -f "$RUNNER_TEMP/p0-imap-correlation"
+
+      - name: Publish sanitized correlation evidence
+        if: always()
+        shell: bash
+        env:
+          MAIN_SHA: ${{ steps.target.outputs.main_sha }}
+          WEB_RC: ${{ steps.webmail.outputs.rc }}
+          WEB_RESULT: ${{ steps.webmail.outputs.legacy_web_mail_diagnostic }}
+          WEB_ERROR: ${{ steps.webmail.outputs.error_code }}
+          WEB_EVENTS: ${{ steps.webmail.outputs.web_delivery_event_count }}
+          WEB_DELIVERED: ${{ steps.webmail.outputs.web_delivered_true_count }}
+          WEB_PROVIDER: ${{ steps.webmail.outputs.web_provider_class }}
+          WEB_REASON: ${{ steps.webmail.outputs.web_reason_class }}
+          WEB_ACCOUNTS: ${{ steps.webmail.outputs.web_account_cardinality }}
+          IMAP_RESULT: ${{ steps.imap.outputs.imap_diagnostic }}
+          IMAP_ERROR: ${{ steps.imap.outputs.imap_error_code }}
+          IMAP_LOGIN: ${{ steps.imap.outputs.imap_login }}
+          IMAP_WINDOW: ${{ steps.imap.outputs.imap_window_messages }}
+          IMAP_RECIPIENT: ${{ steps.imap.outputs.imap_recipient_match_messages }}
+          IMAP_SUBJECT: ${{ steps.imap.outputs.imap_registration_subject_messages }}
+          IMAP_LINK: ${{ steps.imap.outputs.imap_verification_link_messages }}
+          IMAP_TOKEN: ${{ steps.imap.outputs.imap_token_shape_messages }}
+          PRODUCTION_MUTATION: ${{ steps.webmail.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          record="$(mktemp)"; { echo '### PC-CROP legacy Web verification-mail correlation · run 31885882933'; echo; echo "- diagnostic main: \`${MAIN_SHA:-unknown}\`"; echo "- subject production SHA: \`$SUBJECT_SHA\`"; echo "- Web delivery classifier: \`${WEB_RESULT:-unknown}\` (rc=\`${WEB_RC:-unknown}\`, safe error=\`${WEB_ERROR:-unknown}\`)"; echo "- Web registration delivery events / delivered=true: \`${WEB_EVENTS:-unknown} / ${WEB_DELIVERED:-unknown}\`"; echo "- Web provider / reason class: \`${WEB_PROVIDER:-unknown} / ${WEB_REASON:-unknown}\`"; echo "- Web account-hash cardinality: \`${WEB_ACCOUNTS:-unknown}\`"; echo "- IMAP read classifier / login: \`${IMAP_RESULT:-unknown} / ${IMAP_LOGIN:-unknown}\` (safe error=\`${IMAP_ERROR:-unknown}\`)"; echo "- IMAP window / recipient-correlated messages: \`${IMAP_WINDOW:-unknown} / ${IMAP_RECIPIENT:-unknown}\`"; echo "- correlated registration-subject / verification-link / valid-token-shape messages: \`${IMAP_SUBJECT:-unknown} / ${IMAP_LINK:-unknown} / ${IMAP_TOKEN:-unknown}\`"; echo "- production mutation: \`${PRODUCTION_MUTATION:-unknown}\`"; echo '- raw email addresses, message bodies, verification/status tokens, credentials, cookies, database URLs, container IDs and provider raw responses are not published.'; } > "$record"; gh issue comment "$TARGET_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"; rm -f "$record"
+
+      - name: Enforce read-only diagnostic result
+        shell: bash
+        env:
+          WEB_RC: ${{ steps.webmail.outputs.rc }}
+          WEB_RESULT: ${{ steps.webmail.outputs.legacy_web_mail_diagnostic }}
+          IMAP_RESULT: ${{ steps.imap.outputs.imap_diagnostic }}
+          PRODUCTION_MUTATION: ${{ steps.webmail.outputs.production_mutation }}
+        run: |
+          set -euo pipefail
+          [[ "${WEB_RC:-1}" == 0 ]]; [[ "$WEB_RESULT" == PASS ]]; [[ "$IMAP_RESULT" == PASS ]]; [[ "$PRODUCTION_MUTATION" == NONE ]]

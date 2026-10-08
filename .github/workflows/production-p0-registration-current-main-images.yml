@@ -1,0 +1,248 @@
+name: Production P0 Registration Current-Main Images
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-registration-current-main-images.yml'
+      - '.github/workflows/docker-publish.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-registration-current-main-images.yml'
+      - '.github/workflows/docker-publish.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-registration-current-main-images
+  cancel-in-progress: false
+
+env:
+  RELEASE_ISSUE_NUMBER: 3072
+  EVIDENCE_DIR: artifacts/production-p0-registration-current-main-images
+
+jobs:
+  contract:
+    name: Validate registration image-build authority
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == 'P0_REGISTRATION_IMAGES_RUN=1'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Enforce bounded owner-only contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          file='.github/workflows/production-p0-registration-current-main-images.yml'
+          canonical='.github/workflows/docker-publish.yml'
+
+          grep -Fq "github.event.issue.number == 3072" "$file"
+          grep -Fq "github.event.comment.user.login == github.repository_owner" "$file"
+          grep -Fq "github.actor == github.repository_owner" "$file"
+          grep -Fq "github.triggering_actor == github.repository_owner" "$file"
+          grep -Fq "github.event.comment.body == 'P0_REGISTRATION_IMAGES_RUN=1'" "$file"
+          grep -Fq 'uses: ./.github/workflows/docker-publish.yml' "$file"
+          grep -Fq 'packages: write' "$file"
+          grep -Fq 'for component in api web migration' "$file"
+          grep -Fq 'PRODUCTION_MUTATION=NONE' "$file"
+
+          grep -Fq 'workflow_call:' "$canonical"
+          grep -Fq 'type: string' "$canonical"
+          grep -Fq "contains(inputs.services, 'api')" "$canonical"
+          grep -Fq "contains(inputs.services, 'web')" "$canonical"
+          grep -Fq "contains(inputs.services, 'migration')" "$canonical"
+
+          nested_dispatch='gh workflow run docker-publish'.yml
+          if grep -Fq "$nested_dispatch" "$file"; then
+            echo 'Nested workflow dispatch is forbidden for this authority' >&2
+            exit 1
+          fi
+
+          forbidden_pattern='docker compose|ssh |scp |kubectl|prisma migrate|psql|DATABASE_URL'
+          if grep -Ev '^[[:space:]]*forbidden_pattern=' "$file" | grep -Eq "$forbidden_pattern"; then
+            exit 1
+          fi
+
+  target:
+    name: Freeze exact current-main target
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == 'P0_REGISTRATION_IMAGES_RUN=1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.target.outputs.sha }}
+      short: ${{ steps.target.outputs.short }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve immutable current-main target
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="$(git rev-parse HEAD)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$GITHUB_SHA" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+          echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build canonical images for frozen main
+    needs: target
+    if: needs.target.result == 'success'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      services: api,web,migration
+
+  verify:
+    name: Prove exact-main API/Web/migration images
+    needs: [contract, target, build]
+    if: >-
+      always() &&
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == 'P0_REGISTRATION_IMAGES_RUN=1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+      packages: read
+    steps:
+      - name: Prove exact immutable images
+        id: prove
+        if: needs.target.result == 'success' && needs.build.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.target.outputs.sha }}
+          SHORT_SHA: ${{ needs.target.outputs.short }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$SHORT_SHA" =~ ^[0-9a-f]{7}$ ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+
+          : > "$EVIDENCE_DIR/images.tsv"
+          for component in api web migration; do
+            image="ghcr.io/pachaninm-lab/grainflow-${component}:sha-${SHORT_SHA}"
+            docker pull "$image" >/dev/null
+            revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")"
+            [[ "$revision" == "$TARGET_SHA" ]]
+            digest="$(docker image inspect --format '{{ index .RepoDigests 0 }}' "$image")"
+            [[ "$digest" == *@sha256:* ]]
+            printf '%s\t%s\t%s\n' "$component" "$revision" "$digest" >> "$EVIDENCE_DIR/images.tsv"
+          done
+
+          [[ "$(wc -l < "$EVIDENCE_DIR/images.tsv" | tr -d ' ')" == 3 ]]
+          {
+            printf 'TARGET_SHA=%s\n' "$TARGET_SHA"
+            printf 'IMAGE_AUTHORITY_RUN_ID=%s\n' "$GITHUB_RUN_ID"
+            printf 'API_IMAGE=PASS\nWEB_IMAGE=PASS\nMIGRATION_IMAGE=PASS\n'
+            printf 'PRODUCTION_MUTATION=NONE\n'
+          } > "$EVIDENCE_DIR/result.env"
+
+      - name: Publish bounded registration image evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.target.outputs.sha }}
+          TARGET_RESULT: ${{ needs.target.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+
+          gate_result='FAIL'
+          if [[ "$TARGET_RESULT" == 'success' && "$BUILD_RESULT" == 'success' ]] &&
+             [[ -f "$EVIDENCE_DIR/result.env" ]] &&
+             grep -Fqx 'API_IMAGE=PASS' "$EVIDENCE_DIR/result.env" &&
+             grep -Fqx 'WEB_IMAGE=PASS' "$EVIDENCE_DIR/result.env" &&
+             grep -Fqx 'MIGRATION_IMAGE=PASS' "$EVIDENCE_DIR/result.env"; then
+            gate_result='PASS'
+          fi
+
+          {
+            printf '### PC-CROP registration exact-main images\n\n'
+            printf -- '- target SHA: `%s`\n' "${TARGET_SHA:-unknown}"
+            printf -- '- image authority run: `%s`\n' "$GITHUB_RUN_ID"
+            printf -- '- target gate: `%s`\n' "${TARGET_RESULT^^}"
+            printf -- '- build gate: `%s`\n' "${BUILD_RESULT^^}"
+            printf -- '- final gate: `%s`\n' "$gate_result"
+            printf -- '- required images: `api`, `web`, `migration`\n'
+            printf -- '- production mutation: `NONE`\n'
+            printf -- '- registration journeys executed: `0`\n'
+            printf -- '- secrets or image credentials published: `no`\n'
+          } > "$EVIDENCE_DIR/summary.md"
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/summary.md"
+
+      - name: Upload bounded evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-p0-registration-current-main-images-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
+      - name: Enforce terminal image gate
+        if: always()
+        env:
+          TARGET_RESULT: ${{ needs.target.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_RESULT" == 'success' ]]
+          [[ "$BUILD_RESULT" == 'success' ]]
+          test -f "$EVIDENCE_DIR/result.env"
+          grep -Fqx 'API_IMAGE=PASS' "$EVIDENCE_DIR/result.env"
+          grep -Fqx 'WEB_IMAGE=PASS' "$EVIDENCE_DIR/result.env"
+          grep -Fqx 'MIGRATION_IMAGE=PASS' "$EVIDENCE_DIR/result.env"
+          grep -Fqx 'PRODUCTION_MUTATION=NONE' "$EVIDENCE_DIR/result.env"

@@ -49,11 +49,7 @@ for (const fragment of [
   'outputs:\n      evidence_json: ${{ steps.evidence.outputs.json }}',
   'len(raw) > 65536',
   "json.dumps(payload, ensure_ascii=True, separators=(',', ':'))",
-  'actions: write',
-  'actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/dispatches',
-  'inputs[confirmation]=ACTIVATE-RESTRICTED-QWEN-REG-RU',
-  'inputs[upstream_run_id]=$GITHUB_RUN_ID',
-  'inputs[upstream_run_attempt]=$GITHUB_RUN_ATTEMPT',
+  'name: Publish terminal preflight status',
   'production mutation:',
 ]) requireFragment(automatic, paths.automatic, fragment);
 
@@ -67,6 +63,11 @@ forbid(live, paths.automatic, /docker\s+(?:run|pull|compose|exec|login)/u, 'dire
 forbid(automatic, paths.automatic, /ssh(?:-keyscan)?\s|scp\s/u, 'inbound or arbitrary SSH transport is forbidden');
 forbid(automatic, paths.automatic, /continue-on-error:\s*true/mu, 'continue-on-error success laundering is forbidden');
 forbid(automatic, paths.automatic, /pull_request_target:/u, 'pull_request_target is forbidden');
+forbid(automatic, paths.automatic, /actions:\s*write/u, 'read-only automatic preflight must not receive workflow dispatch authority');
+forbid(automatic, paths.automatic, /actions\/workflows\/tai-restricted-qwen-reg-ru-activation[.]yml\/dispatches/u,
+  'canonical image publication and automatic preflight must not dispatch production activation');
+forbid(automatic, paths.automatic, /inputs\[confirmation\]=ACTIVATE-RESTRICTED-QWEN-REG-RU/u,
+  'automatic preflight must not mint production activation confirmation');
 
 for (const fragment of [
   "'TAI Automatic REG.RU Preflight'",
@@ -101,4 +102,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI automatic exact release chain contract PASS: canonical build workflow_run, actionless REG.RU preflight, bounded evidence, protected activation dispatch and existing automatic deployment remain exact-main and fail-closed.');
+console.log('TAI automatic preflight contract PASS: canonical build workflow_run remains read-only, actionless on REG.RU, bounded-evidence and unable to dispatch production activation.');

@@ -65,7 +65,9 @@ describe('CodeQL password-hash model correction', () => {
   it('is attached to the analysis', () => {
     expect(config).toContain('./codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql');
     // The guards must run the same binary that performed the analysis.
-    expect(workflow).toContain('CODEQL_ACTION_CLI_VERSION_INFO');
+    expect(workflow).toContain('id: init');
+    expect(workflow).toContain('CODEQL_BIN: ${{ steps.init.outputs.codeql-path }}');
+    expect(workflow).not.toContain('CODEQL_ACTION_CLI_VERSION_INFO');
     expect(code(workflow)).not.toMatch(/^\s+codeql /m);
     expect(workflow).toContain('config-file: ./.github/codeql/codeql-config.yml');
   });
@@ -145,10 +147,14 @@ describe('CodeQL password-hash model correction', () => {
   it('pins the upstream it was derived from, for drift detection', () => {
     const lock = JSON.parse(readFileSync(join(REPO_ROOT,
       'codeql/insufficient-password-hash-corrected/upstream.lock.json'), 'utf8'));
+    const query = readFileSync(join(REPO_ROOT,
+      'codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql'), 'utf8');
 
-    expect(lock.codeqlCli).toBe('2.26.2');
-    expect(lock.queriesPack).toEqual({ name: 'codeql/javascript-queries', version: '2.4.2' });
-    expect(lock.upstreamTag).toBe('codeql-cli/v2.26.2');
+    expect(lock.codeqlCli).toBe('2.27.1');
+    expect(lock.queriesPack).toEqual({ name: 'codeql/javascript-queries', version: '2.4.6' });
+    expect(lock.derivedFromTag).toBe('codeql-cli/v2.26.4');
+    expect(lock.upstreamTag).toBe('codeql-cli/v2.27.1');
+    expect(query).toContain(`Derived from the upstream query at ${lock.derivedFromTag},`);
     expect(lock.upstream.query).toContain('CWE-916/InsufficientPasswordHash.ql');
     expect(lock.replacedRuleId).toBe('js/insufficient-password-hash');
     expect(lock.semanticDiff.length).toBeGreaterThan(0);

@@ -1,7 +1,9 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser } from '../../common/types/request-user';
+import { outboundUrlProblem } from '../../common/security/outbound-url';
+import { PARTNER_API_SCOPES } from './partner-api.scopes';
 
 export interface ApiKey {
   id: string;
@@ -27,7 +29,7 @@ export interface WebhookSubscription {
   createdAt: string;
 }
 
-const AVAILABLE_SCOPES = ['deals:read', 'deals:write', 'shipments:read', 'documents:read', 'payments:read'];
+
 
 @Injectable()
 export class PartnerApiService {
@@ -41,7 +43,7 @@ export class PartnerApiService {
     params: { name: string; scopes: string[]; rateLimit?: number; expiresInDays?: number },
     user: RequestUser,
   ): { apiKey: string; keyId: string; prefix: string; expiresAt: string } {
-    const invalidScopes = params.scopes.filter((s) => !AVAILABLE_SCOPES.includes(s));
+    const invalidScopes = params.scopes.filter((s) => !(PARTNER_API_SCOPES as readonly string[]).includes(s));
     if (invalidScopes.length > 0) throw new ForbiddenException(`Unknown scopes: ${invalidScopes.join(', ')}`);
 
     const rawKey = `gf_${randomBytes(32).toString('hex')}`;
@@ -95,6 +97,16 @@ export class PartnerApiService {
     params: { url: string; events: string[] },
     user: RequestUser,
   ): { subscriptionId: string; secret: string } {
+    // Stays here, and the reason has changed rather than gone away. The endpoint
+    // now declares SubscribeWebhookDto, so ValidationPipe does see the field -
+    // but it checks the SHAPE. Which hosts may be reached is deployment policy
+    // read at call time from configuredAllowedHosts(), not a property of the
+    // type, and duplicating it in the DTO would create two sources of truth
+    // that drift. Form is rejected earlier now; destination is still decided
+    // here.
+    const problem = outboundUrlProblem(params.url);
+    if (problem) throw new BadRequestException({ code: problem });
+
     const id = `wh-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const secret = `whsec_${randomBytes(24).toString('hex')}`;
     const sub: WebhookSubscription = {

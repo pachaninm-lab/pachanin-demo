@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/provider-independent-review-20260918",
+  "status": "active",
+  "authorizedBy": "explicit-owner-instruction-2026-09-18-remove-codex-block",
+  "purpose": "Remove mandatory AI-provider availability from merge readiness while retaining actual independent review and manual SHA-bound merges.",
+  "authorityBaseExactMain": "a85f5641998157bcabab7e6527d47f0113db79f5",
+  "allowedPaths": [
+    ".github/workflows/automerge.yml",
+    ".github/workflows/local-qwen-independent-review.yml",
+    ".github/workflows/octopus-independent-review.yml",
+    ".github/workflows/platform-v7-autopilot-guard.yml",
+    "AGENTS.md",
+    "docs/platform-v7/autopilot/scopes/provider-independent-review-20260918.json",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs",
+    "docs/platform-v7/execution-queue.md",
+    "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+    "docs/platform-v7/autopilot/prompts/current-review-task.md",
+    "scripts/p7-autopilot-dispatcher.mjs",
+    "scripts/p7-autopilot-guard.test.mjs",
+    "scripts/test-provider-independent-readiness-workflow.mjs"
+  ],
+  "requiredInvariants": [
+    "AI-provider quota, availability and absence of AI review cannot veto engineering readiness.",
+    "Actual independent review of the exact current diff is mandatory before each manual merge and is recorded without impersonating a native reviewer.",
+    "Engineering readiness is not independent-review approval or automatic-merge authorization.",
+    "Legacy automatic merge callers fail closed; native auto-merge must be disabled.",
+    "Full exact-head substantive CI/security, owner audit, current unresolved findings and active changes requests remain enforced.",
+    "GitHub server-side protections remain active and no forced merge or fabricated status is allowed.",
+    "This owner-authorized policy transition is reviewed and tested transparently; an obsolete AI-only rule does not require an AI provider to remove itself.",
+    "IR-20 remains active until verified REG.RU PRODUCTION_PASS; no later delivery slice is unlocked."
+  ],
+  "boundaries": {
+    "productBehaviorChange": false,
+    "databaseChange": false,
+    "gektaRuntimeChange": false,
+    "productionMutation": false,
+    "substantiveSecurityChecksWeakened": false,
+    "githubServerProtectionsChanged": false,
+    "newScheduledAutomation": false,
+    "newRecurringCostRub": 0
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

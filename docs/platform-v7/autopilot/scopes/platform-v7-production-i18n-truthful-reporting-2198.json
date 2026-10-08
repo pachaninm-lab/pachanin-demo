@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "platform-v7-production-i18n-truthful-reporting-2198",
+  "branch": "fix/platform-v7-production-i18n-truthful-reporting-2198",
+  "issue": 2198,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "57337d51e2e1b216f1c8c0a1c46cdd828ef95784"
+  },
+  "purpose": "Make Platform V7 production design/i18n acceptance reporting evidence-accurate. A single aggregate Playwright browser failure must not be copied into independent claims that Chromium, WebKit, residual Cyrillic, horizontal overflow, Chinese typography, and locale persistence each failed unless those child gates were independently proven. Preserve all existing fail-closed release and browser acceptance requirements; change reporting semantics only.",
+  "allowedPaths": [
+    ".github/workflows/platform-v7-production-i18n-acceptance.yml",
+    "docs/platform-v7/autopilot/scopes/platform-v7-production-i18n-truthful-reporting-2198.json"
+  ],
+  "productionEvidence": {
+    "referenceRun": 31922127060,
+    "referenceRevision": "3249191e922a03258fe9edfec38c7df170157393",
+    "artifactId": 9256702363,
+    "provenPrimaryFailure": "residual Cyrillic in visible text/aria-label on EN 320 before later child checks could be independently established",
+    "fixedByMergedPr": 4247,
+    "reportingDefect": "workflow copied aggregate browser_result to every child UX gate"
+  },
+  "boundaries": {
+    "productDesignChange": false,
+    "copyChange": false,
+    "authChange": false,
+    "apiChange": false,
+    "databaseChange": false,
+    "productionMutation": false,
+    "acceptanceWeakening": false,
+    "newRecurringCostRub": 0
+  }
+}

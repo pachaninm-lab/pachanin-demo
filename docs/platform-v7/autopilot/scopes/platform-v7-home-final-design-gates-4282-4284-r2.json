@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "platform-v7-home-final-design-gates-4282-4284-r2",
+  "branch": "fix/p7-home-final-design-gates-4282-4284-r2",
+  "issue": 4282,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "440e40753e2cac13c93f8e007d9fe17c2b66caba"
+  },
+  "purpose": "Close the remaining proven homepage production-design blockers on the post-CJK main and encode the explicit Final Design Project v4.0 mobile release gates in both pre-merge and exact-production browser acceptance: keep the full canonical brand visible at 320/375 px; enforce a 14 CSS px minimum across every visible Hero Deal-card text node; keep the 320px Hero H1 within five rendered lines; keep the primary Hero CTA fully inside the 320x700 first viewport; and preserve zero horizontal overflow and >=44px main controls.",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
+    "apps/web/playwright.acceptance.config.ts",
+    "apps/web/styles/platform-v7-home-mobile-brand.css",
+    "apps/web/styles/platform-v7-home-hero-card-legibility.css",
+    "apps/web/tests/e2e/platform-v7-home-brand-visibility.spec.ts",
+    "apps/web/tests/e2e/platform-v7-hero-card-min14.spec.ts",
+    "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-home-final-design-gates-4282-4284-r2.json"
+  ],
+  "evidence": {
+    "brandDesignSystemRun": 31959951170,
+    "artifact": "platform-v7-design-system-v8-acceptance",
+    "observed320": "brand visible as Прозра… before the bounded fix",
+    "observed375": "brand still ellipsized before the bounded fix",
+    "observed390": "full Прозрачная Цена visible before the bounded fix",
+    "brandMasterGate": "Final Design Project v4.0: brand name must not be clipped at 320 px",
+    "heroMasterGate": "Final Design Project v4.0: Hero Deal card font must not be below 14px",
+    "heroLineCountMasterGate": "Final Design Project v4.0: one H1 must occupy no more than five lines at 320 px",
+    "heroPrimaryCtaMasterGate": "Final Design Project v4.0: primary CTA must be above the fold at 320 px",
+    "heroDiagnosticPr": 4285,
+    "heroDiagnosticBrowserAcceptance": "PASS on isolated diagnostic head 85510877ff5c4682502499d13240f9b8e32d0801",
+    "cjkPrerequisite": "PR #4281 merged as 440e40753e2cac13c93f8e007d9fe17c2b66caba after exact-head web-unit, Design System v8 and blocking Kubernetes PASS",
+    "productionAcceptance": "Existing Platform V7 Production i18n Acceptance executes the homepage design gates on EN/ZH deployed exact SHA and an explicit RU 320x700 production master test, with 320x700 screenshot evidence"
+  },
+  "forbiddenChanges": [
+    "hero CTA wording or later approved homepage action-copy changes",
+    "approved content hierarchy, deal card semantic entity count or connection flow",
+    "authentication, registration, MFA, RBAC, RLS, tenant or organization authority",
+    "API, database, Deal, money, evidence or Gekta semantics",
+    "production release infrastructure or acceptance weakening",
+    "touch targets below 44x44",
+    "hiding Hero Deal content to satisfy the typography gate",
+    "remote fonts, new paid or recurring services"
+  ],
+  "requiredChecks": [
+    "source-controlled scope guard",
+    "dedicated Playwright brand visibility assertion at 320/375/390/430",
+    "computed Hero Deal-card font-size acceptance at 320/375/390/430/768/1440",
+    "320x700 rendered H1 line-count acceptance <=5",
+    "320x700 primary Hero CTA fully inside first viewport",
+    "zero horizontal overflow and >=44px header controls",
+    "Platform V7 Design System v8 Acceptance",
+    "web build/typecheck, security and governance gates",
+    "fresh exact-head Production-like Kubernetes Acceptance on the post-CJK combined state",
+    "exact deployed SHA production browser acceptance: explicit RU 320x700 master gate plus EN/ZH localization matrix with the same homepage design gates"
+  ],
+  "newRecurringCostRub": 0,
+  "maturityBoundary": "Source and pre-merge browser acceptance are necessary but not production evidence. Final merge requires fresh exact-head acceptance on this post-CJK combined state; production design PASS additionally requires the existing exact-production browser workflow to pass on the deployed exact descendant."
+}

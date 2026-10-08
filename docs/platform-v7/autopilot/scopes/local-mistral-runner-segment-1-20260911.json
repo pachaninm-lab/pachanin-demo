@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-runner-segment-1-20260911",
+  "status": "active",
+  "purpose": "Stage and independently review the first inert segment of the future Local Mistral review runner without activating executable review behavior.",
+  "authorityBaseExactMain": "2f45e16446e46a93fad211b866475d7b33610af7",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-runner.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-runner-segment-1-20260911.json"
+  ],
+  "requiredInvariants": [
+    "The staged .inert file is not executed or referenced by any workflow.",
+    "Local Qwen workflow and exact-head verifier remain unchanged and are the independent authority for this PR.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data or production routing behavior changes.",
+    "Production hosting remains REG.RU only and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

@@ -1,7 +1,9 @@
 import { PrismaService } from '../../src/common/prisma/prisma.service';
-import { OutboxService } from '../../src/common/outbox/outbox.service';
+import { Prisma } from '@prisma/client';
+import { OutboxService, OutboxRedriveResult } from '../../src/common/outbox/outbox.service';
 import {
   DurableOutboxWorker,
+  OutboxDeliveryError,
   OutboxLeaseLostError,
 } from '../../src/modules/integration-events/durable-outbox.worker';
 
@@ -99,6 +101,155 @@ afterAll(async () => {
 });
 
 describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
+  it('database-fences a legacy claim during the rolling migration window', async () => {
+    const [availableRole] = await prismaA.$queryRaw<Array<{ roleName: string }>>`
+      SELECT rolname AS "roleName"
+      FROM pg_catalog.pg_roles
+      WHERE rolname IN ('app_outbox', 'app_deal')
+        AND has_table_privilege(rolname, 'public.outbox_entries', 'SELECT')
+        AND has_column_privilege(rolname, 'public.outbox_entries', 'status', 'UPDATE')
+        AND has_column_privilege(rolname, 'public.outbox_entries', 'leaseOwner', 'UPDATE')
+        AND has_column_privilege(rolname, 'public.outbox_entries', 'leaseToken', 'UPDATE')
+        AND has_column_privilege(rolname, 'public.outbox_entries', 'leaseExpiresAt', 'UPDATE')
+        AND has_column_privilege(rolname, 'public.outbox_entries', 'heartbeatAt', 'UPDATE')
+        AND has_column_privilege(rolname, 'public.outbox_entries', 'lastAttemptAt', 'UPDATE')
+      ORDER BY (rolname = 'app_outbox') DESC
+      LIMIT 1
+    `;
+    // This role-specific proof runs authoritatively in the mandatory PostgreSQL
+    // acceptance workflows. The aggregate admin-only CI contour has no runtime
+    // role to assume, so it must not seed a row that can pollute later cases.
+    if (!availableRole) return;
+
+    const [id] = await seedEntries('legacy-claim-fence', 1);
+    const useDedicatedRole = availableRole.roleName === 'app_outbox';
+    const marketingId = useDedicatedRole
+      ? (await seedEntries('marketing-claim-fence', 1, {
+        type: 'MARKETING_SOCIAL_PUBLISH_V1',
+      }))[0]
+      : null;
+    await prismaA.$executeRawUnsafe(useDedicatedRole ? `
+        CREATE POLICY outbox_claim_protocol_acceptance
+        ON public."outbox_entries"
+        FOR ALL TO app_outbox
+        USING ("id" = current_setting('pc_crop.test_outbox_id', true))
+        WITH CHECK ("id" = current_setting('pc_crop.test_outbox_id', true))
+      ` : `
+        CREATE POLICY outbox_claim_protocol_acceptance
+        ON public."outbox_entries"
+        FOR ALL TO app_deal
+        USING ("id" = current_setting('pc_crop.test_outbox_id', true))
+        WITH CHECK ("id" = current_setting('pc_crop.test_outbox_id', true))
+      `);
+
+    try {
+      await expect(prismaA.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT set_config('pc_crop.test_outbox_id', ${id}, true)::text`;
+        await tx.$executeRawUnsafe(useDedicatedRole
+          ? 'SET LOCAL ROLE app_outbox'
+          : 'SET LOCAL ROLE app_deal');
+        await tx.$executeRaw`
+          UPDATE public."outbox_entries"
+          SET "status" = 'PROCESSING',
+              "leaseOwner" = 'legacy-worker',
+              "leaseToken" = md5(random()::text),
+              "leaseExpiresAt" = NOW() + interval '60 seconds',
+              "heartbeatAt" = NOW()
+          WHERE "id" = ${id}
+        `;
+      })).rejects.toThrow(/legacy outbox claim protocol is fenced/);
+
+      const claimed = await prismaA.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT set_config('pc_crop.test_outbox_id', ${id}, true)::text`;
+        await tx.$executeRawUnsafe(useDedicatedRole
+          ? 'SET LOCAL ROLE app_outbox'
+          : 'SET LOCAL ROLE app_deal');
+        await tx.$executeRawUnsafe("SET LOCAL pc_crop.outbox_claim_protocol = '2'");
+        return tx.$executeRaw`
+          UPDATE public."outbox_entries"
+          SET "status" = 'PROCESSING',
+              "leaseOwner" = 'protocol-v2-worker',
+              "leaseToken" = 'protocol-v2-token',
+              "leaseExpiresAt" = NOW() + interval '60 seconds',
+              "heartbeatAt" = NOW(),
+              "lastAttemptAt" = NULL
+          WHERE "id" = ${id}
+        `;
+      });
+      expect(claimed).toBe(1);
+
+      if (useDedicatedRole) {
+        await expect(prismaA.$transaction(async (tx) => {
+          await tx.$queryRaw`SELECT set_config('pc_crop.test_outbox_id', ${marketingId}, true)::text`;
+          await tx.$executeRawUnsafe('SET LOCAL ROLE app_outbox');
+          return tx.$executeRaw`
+            UPDATE public."outbox_entries"
+            SET "status" = 'PROCESSING',
+                "leaseOwner" = 'legacy-worker',
+                "leaseToken" = 'legacy-marketing-token',
+                "leaseExpiresAt" = NOW() + interval '60 seconds',
+                "heartbeatAt" = NOW(),
+                "lastAttemptAt" = NULL
+            WHERE "id" = ${marketingId}
+          `;
+        })).rejects.toThrow(/legacy outbox claim protocol is fenced/);
+
+        const marketingClaimed = await prismaA.$transaction(async (tx) => {
+          await tx.$queryRaw`SELECT set_config('pc_crop.test_outbox_id', ${marketingId}, true)::text`;
+          await tx.$executeRawUnsafe('SET LOCAL ROLE app_outbox');
+          return tx.$executeRaw`
+            UPDATE public."outbox_entries"
+            SET "status" = 'PROCESSING',
+                "leaseOwner" = 'marketing-social-acceptance',
+                "leaseToken" = 'marketing-worker-token',
+                "leaseExpiresAt" = NOW() + interval '60 seconds',
+                "heartbeatAt" = NOW(),
+                "lastAttemptAt" = NULL
+            WHERE "id" = ${marketingId}
+          `;
+        });
+        expect(marketingClaimed).toBe(1);
+        const marketingLease = await prismaA.outboxEntry.findUniqueOrThrow({
+          where: { id: marketingId },
+        });
+        expect(marketingLease.lastAttemptAt).not.toBeNull();
+
+        await prismaA.outboxEntry.update({
+          where: { id: marketingId },
+          data: { leaseExpiresAt: new Date(Date.now() - 1_000) },
+        });
+        await expect(prismaA.$transaction(async (tx) => {
+          await tx.$queryRaw`SELECT set_config('pc_crop.test_outbox_id', ${marketingId}, true)::text`;
+          await tx.$executeRawUnsafe('SET LOCAL ROLE app_outbox');
+          return tx.$executeRaw`
+            UPDATE public."outbox_entries"
+            SET "status" = 'PROCESSING',
+                "leaseOwner" = 'marketing-social-reclaimer',
+                "leaseToken" = 'marketing-reclaim-token',
+                "leaseExpiresAt" = NOW() + interval '60 seconds',
+                "heartbeatAt" = NOW()
+            WHERE "id" = ${marketingId}
+          `;
+        })).rejects.toThrow(/legacy outbox claim protocol is fenced/);
+
+        const marketingQuarantine = await workerA.drainOnce('protocol-v2-quarantine', 1);
+        expect(marketingQuarantine).toMatchObject({ manualReview: 1, claimed: 0 });
+        const quarantinedMarketing = await prismaA.outboxEntry.findUniqueOrThrow({
+          where: { id: marketingId },
+        });
+        expect(quarantinedMarketing.status).toBe('MANUAL_REVIEW');
+        expect(quarantinedMarketing.lastErrorCode).toBe('WORKER_CRASH_OUTCOME_UNKNOWN');
+      }
+    } finally {
+      await prismaA.$executeRawUnsafe(`
+        DROP POLICY IF EXISTS outbox_claim_protocol_acceptance
+        ON public."outbox_entries"
+      `);
+    }
+
+    await workerA.markDelivered('protocol-v2-worker', id, 'protocol-v2-token');
+  });
+
   it('gives two concurrent workers disjoint tokenized claims', async () => {
     const ids = await seedEntries('two-workers', 20);
 
@@ -156,11 +307,49 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     await workerA.markDelivered('worker-heartbeat', id, claim.leaseToken);
   });
 
+  it('parks an expired lease after attempt start instead of risking duplicate delivery', async () => {
+    const [id] = await seedEntries('crash-after-attempt', 1);
+    const [claim] = await workerA.claimBatch('worker-crash-after-attempt', 1, 1);
+    await workerA.markAttemptStarted('worker-crash-after-attempt', id, claim.leaseToken);
+    await new Promise((resolve) => setTimeout(resolve, 1_300));
+
+    const recoveryReport = await workerB.drainOnce('worker-safe-recovery', 1);
+    expect(recoveryReport).toMatchObject({ manualReview: 1, claimed: 0 });
+    const row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
+    expect(row.status).toBe('MANUAL_REVIEW');
+    expect(row.lastErrorCategory).toBe('AMBIGUOUS');
+    expect(row.lastErrorCode).toBe('WORKER_CRASH_OUTCOME_UNKNOWN');
+    expect(row.manualReviewAt).not.toBeNull();
+  });
+
+  it('rejects a stale failure acknowledgement after the delivery lease expires', async () => {
+    const [id] = await seedEntries('stale-failure-acknowledgement', 1);
+    const [claim] = await workerA.claimBatch('worker-stale-failure', 1, 1);
+    await workerA.markAttemptStarted('worker-stale-failure', id, claim.leaseToken);
+    await new Promise((resolve) => setTimeout(resolve, 1_300));
+
+    await expect(workerA.markFailed('worker-stale-failure', claim, {
+      category: 'TRANSIENT',
+      code: 'PROVIDER_TIMEOUT',
+      message: 'late transport failure',
+    })).rejects.toBeInstanceOf(OutboxLeaseLostError);
+
+    const staleRecoveryReport = await workerB.drainOnce('worker-stale-failure-recovery', 1);
+    expect(staleRecoveryReport).toMatchObject({ manualReview: 1, claimed: 0 });
+    const row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
+    expect(row.status).toBe('MANUAL_REVIEW');
+    expect(row.lastErrorCode).toBe('WORKER_CRASH_OUTCOME_UNKNOWN');
+  });
+
   it('retries with deterministic exponential backoff and parks at DEAD_LETTER', async () => {
     const type = `${RUN_ID}.retry-dead-letter`;
     const [id] = await seedEntries('retry-dead-letter', 1);
     workerA.registerHandler(type, async () => {
-      throw new Error('provider unavailable');
+      throw new OutboxDeliveryError(
+        'TRANSIENT',
+        'PROVIDER_UNAVAILABLE',
+        'provider unavailable',
+      );
     });
 
     const beforeFirst = Date.now();
@@ -195,13 +384,84 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     expect(row.status).toBe('DEAD_LETTER');
     expect(row.sentAt).toBeNull();
     expect(row.lastError).toContain('no transport handler');
+    expect(row.lastErrorCategory).toBe('PERMANENT');
+    expect(row.lastErrorCode).toBe('TRANSPORT_HANDLER_MISSING');
+  });
+
+  it.each([
+    ['timeout', Object.assign(new Error('provider timeout'), { code: 'ETIMEDOUT' }), 'TRANSIENT', 'PROVIDER_TIMEOUT', 'PENDING'],
+    ['429', Object.assign(new Error('rate limited'), { status: 429 }), 'TRANSIENT', 'PROVIDER_RATE_LIMITED', 'PENDING'],
+    ['400', Object.assign(new Error('invalid request'), { statusCode: 400 }), 'PERMANENT', 'PROVIDER_HTTP_400', 'DEAD_LETTER'],
+    ['503', Object.assign(new Error('provider unavailable'), { statusCode: 503 }), 'TRANSIENT', 'PROVIDER_HTTP_503', 'PENDING'],
+  ])('durably classifies provider %s failures', async (
+    testName,
+    failure,
+    expectedCategory,
+    expectedCode,
+    expectedStatus,
+  ) => {
+    const type = `${RUN_ID}.classified-${testName}`;
+    const [id] = await seedEntries(`classified-${testName}`, 1);
+    workerA.registerHandler(type, async () => { throw failure; });
+
+    await workerA.drainOnce(`worker-classified-${testName}`, 1);
+    const row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
+    expect(row.status).toBe(expectedStatus);
+    expect(row.lastErrorCategory).toBe(expectedCategory);
+    expect(row.lastErrorCode).toBe(expectedCode);
+    expect(row.lastAttemptAt).not.toBeNull();
+  });
+
+  it('parks an ambiguous outcome without retry and permits only audited redrive', async () => {
+    const type = `${RUN_ID}.ambiguous-delivery`;
+    const [id] = await seedEntries('ambiguous-delivery', 1);
+    workerA.registerHandler(type, async () => {
+      throw new OutboxDeliveryError(
+        'AMBIGUOUS',
+        'PROVIDER_DELIVERY_AMBIGUOUS',
+        'request sent but acknowledgement was lost',
+      );
+    });
+
+    const report = await workerA.drainOnce('worker-ambiguous', 1);
+    expect(report).toMatchObject({ manualReview: 1, retried: 0, deadLettered: 0 });
+    let row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
+    expect(row.status).toBe('MANUAL_REVIEW');
+    expect(row.lastErrorCategory).toBe('AMBIGUOUS');
+    expect(row.manualReviewAt).not.toBeNull();
+    expect(await workerB.claimBatch('worker-no-ambiguous-retry', 10)).toHaveLength(0);
+
+    const redrive = await outbox.redrive({
+      entryId: id,
+      actorUserId: 'admin-outbox-e2e',
+      reason: 'provider reconciliation proved no delivery',
+      idempotencyKey: `${RUN_ID}.ambiguous-redrive`,
+    });
+    expect(redrive.replayed).toBe(false);
+    const [event] = await prismaA.outboxRedriveEvent.findMany({ where: { outboxEntryId: id } });
+    expect(event.previousStatus).toBe('MANUAL_REVIEW');
+    expect(event.previousErrorCode).toBe('PROVIDER_DELIVERY_AMBIGUOUS');
+    expect(event.previousErrorCategory).toBe('AMBIGUOUS');
+    expect(event.previousLastAttemptAt).not.toBeNull();
+    expect(event.previousManualReviewAt).not.toBeNull();
+
+    workerA.registerHandler(type, async () => undefined);
+    expect((await workerA.drainOnce('worker-reconciled', 1)).delivered).toBe(1);
+    row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
+    expect(row.status).toBe('SENT');
+    expect(row.lastErrorCategory).toBeNull();
+    expect(row.manualReviewAt).toBeNull();
   });
 
   it('redrives exactly once with an append-only hash-chain audit and never mutates terminal receipts', async () => {
     const type = `${RUN_ID}.audited-redrive`;
     const [id] = await seedEntries('audited-redrive', 1, { maxRetries: 1 });
     workerA.registerHandler(type, async () => {
-      throw new Error('temporary provider failure');
+      throw new OutboxDeliveryError(
+        'TRANSIENT',
+        'PROVIDER_UNAVAILABLE',
+        'temporary provider failure',
+      );
     });
     await workerA.drainOnce('worker-redrive-fail', 1);
 
@@ -222,8 +482,16 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     expect(replay.replayed).toBe(true);
     expect(replay.redriveEventId).toBe(first.redriveEventId);
 
+    await expect(outbox.redrive({
+      entryId: id,
+      actorUserId: 'admin-outbox-e2e',
+      reason: 'different command under a reused key',
+      idempotencyKey,
+    })).rejects.toThrow('Redrive idempotency conflict');
+
     const events = await prismaA.outboxRedriveEvent.findMany({ where: { outboxEntryId: id } });
     expect(events).toHaveLength(1);
+    expect(events[0].requestFingerprint).toMatch(/^[a-f0-9]{64}$/);
     expect(events[0].hash).toMatch(/^[a-f0-9]{64}$/);
     expect(events[0].previousStatus).toBe('DEAD_LETTER');
 
@@ -266,5 +534,59 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     expect(stats.total).toBeGreaterThan(0);
     expect(stats.confirmed).toBeGreaterThan(0);
     expect(stats.deadLetter).toBeGreaterThan(0);
+  });
+
+  it('appends after the latest redrive even when its transaction began before that predecessor', async () => {
+    const entryIds = await seedEntries('audit-append-order', 3, { status: 'DEAD_LETTER' });
+    try {
+      const appendedIds: string[] = [];
+      const request = (index: number) => ({
+        entryId: entryIds[index], actorUserId: 'admin-outbox-e2e',
+        reason: 'provider reconciliation proved no delivery',
+        idempotencyKey: `${RUN_ID}.audit-append-order.${index}`,
+      });
+      const otherOutbox = new OutboxService(prismaB);
+      const earlierTransaction = new OutboxService({
+        $transaction: (
+          operation: (tx: Prisma.TransactionClient) => Promise<OutboxRedriveResult>,
+          options: { isolationLevel: Prisma.TransactionIsolationLevel },
+        ) => prismaA.$transaction(async (tx) => {
+          // A has begun, but has taken no snapshot. B commits its complete redrive
+          // before A's first query; Serializable therefore legitimately sees B.
+          await prismaB.$queryRaw`SELECT 1 AS waited FROM pg_sleep(0.02)`;
+          const first = await otherOutbox.redrive(request(0));
+          appendedIds.push(first.redriveEventId);
+          const predecessor = await prismaB.outboxRedriveEvent.findUniqueOrThrow({
+            where: { id: first.redriveEventId },
+          });
+          const [transaction] = await tx.$queryRaw<Array<{ startedAt: Date }>>`
+            SELECT CURRENT_TIMESTAMP AS "startedAt"
+          `;
+          expect(transaction.startedAt.getTime()).toBeLessThan(predecessor.createdAt.getTime());
+          return operation(tx);
+        }, options),
+      } as unknown as PrismaService);
+
+      const second = await earlierTransaction.redrive(request(1));
+      appendedIds.push(second.redriveEventId);
+      const third = await otherOutbox.redrive(request(2));
+      appendedIds.push(third.redriveEventId);
+
+      const events = await prismaA.outboxRedriveEvent.findMany({
+        where: { id: { in: appendedIds } },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      });
+      expect(events.map((event) => event.id)).toEqual(appendedIds);
+      expect(events[1].prevHash).toBe(events[0].hash);
+      expect(events[2].prevHash).toBe(events[1].hash);
+      expect(events[1].createdAt.getTime()).toBeGreaterThan(events[0].createdAt.getTime());
+      expect(events[2].createdAt.getTime()).toBeGreaterThan(events[1].createdAt.getTime());
+    } finally {
+      // These rows exercise audit ordering only; keep later suites from claiming them.
+      await prismaA.outboxEntry.updateMany({
+        where: { id: { in: entryIds }, status: 'PENDING' },
+        data: { nextRetryAt: FOREIGN_DEFER_UNTIL },
+      });
+    }
   });
 });

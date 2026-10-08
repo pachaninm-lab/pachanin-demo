@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-crop-control-preflight-stage-3785-v2",
+  "status": "active",
+  "purpose": "Classify the exact guarded Compose cutover preflight stage for PC-CROP #3785 after a no-mutation stop, without changing production services, configuration, database or release images.",
+  "authorityBaseExactMain": "aa2a2850e2eee336eb4df59bee00e23a39cdf401",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/company-os-control-host-readiness-v2.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-control-preflight-stage-3785.json"
+  ],
+  "requiredInvariants": [
+    "The diagnostic is owner-only, issue-4159-only, exact-command-only and pinned-SSH-only.",
+    "It must not edit the production environment file, bound Caddy configuration, Compose service definitions, database or application image.",
+    "It may acquire the existing cutover lock, read Docker and Compose metadata, create and remove a private temporary directory, and run one offline no-network Caddy validation container from the already running immutable Caddy image.",
+    "Temporary copies are removed on normal exit, blocked classification, HUP, INT and TERM; SIGKILL remains untrappable by the operating system.",
+    "Only bounded uppercase preflight state and stage classifications may be published; production paths, environment contents, secrets and container identifiers remain undisclosed.",
+    "The existing readiness state, exact web revision, DNS, TLS, Caddy and gate evidence remain independently reported.",
+    "GO remains forbidden until First Customer and all 9 of 9 role journeys pass."
+  ],
+  "acceptance": [
+    "Workflow YAML parses and embedded remote Bash parses before merge.",
+    "The diagnostic returns READY_BEFORE_BACKUP, ALREADY_READY or the first bounded blocking stage.",
+    "A completed run independently confirms production mutation NONE.",
+    "No cutover rerun occurs until this diagnostic identifies a safe preflight disposition."
+  ]
+}

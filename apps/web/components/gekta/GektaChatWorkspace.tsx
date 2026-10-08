@@ -908,7 +908,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
         <main className={`relative flex min-w-0 flex-1 flex-col ${activeChat ? 'h-full' : ''}`}>
           <header className='flex min-h-14 shrink-0 items-center gap-2 border-b border-slate-200/80 bg-[#fcfbf7]/95 px-3 backdrop-blur md:px-5'>
             <button type='button' onClick={() => setDrawerOpen(true)} className='flex h-11 w-11 items-center justify-center rounded-xl hover:bg-slate-100 md:hidden' aria-label={ui.openMenu}><Menu className='h-5 w-5' aria-hidden='true' /></button>
-            <Link href={GEKTA_PATHS[locale]} className='flex min-w-0 items-center gap-2 rounded-xl px-1.5 py-1 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700' aria-label={ui.productHome} data-gekta-brand-home='true'>
+            <Link href={GEKTA_PATHS[locale]} className='flex min-h-11 min-w-0 items-center gap-2 rounded-xl px-1.5 py-1 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700' aria-label={ui.productHome} data-gekta-brand-home='true'>
               <span aria-hidden='true' className='grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-800 text-base font-black text-white'>G</span>
               <span className='min-w-0'><span className='block truncate text-sm font-bold tracking-[0.12em]'>{brand}</span><span className='hidden truncate text-xs text-slate-500 sm:block'>{product.maker}</span></span>
             </Link>

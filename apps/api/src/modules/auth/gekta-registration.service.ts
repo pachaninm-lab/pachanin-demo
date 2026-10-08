@@ -1,5 +1,10 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
+import { hashPassword, upgradePasswordHashIfNeeded, verifyPassword } from './password-hashing';
+import {
+  isStrongPassword,
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
+} from '../../common/validators/strong-password.validator';
 import { randomUUID } from 'crypto';
 import { appendAuthAudit } from './auth-audit';
 import { hashAuthMaterial, hashClientValue, secureEqual } from './auth-crypto';
@@ -30,7 +35,6 @@ import {
  * обращении к кабинету, один раз на пользователя.
  */
 
-const BCRYPT_ROUNDS = 12;
 const MAX_EMAIL_LENGTH = 320;
 const MAX_NAME_LENGTH = 120;
 const MAX_PHONE_LENGTH = 32;
@@ -48,11 +52,13 @@ export type GektaRegistrationInput = {
 };
 
 function assertPasswordPolicy(password: string): void {
-  const classes = [/[a-z]/u, /[A-Z]/u, /\d/u, /[^A-Za-z0-9]/u].filter((pattern) => pattern.test(password)).length;
-  if (password.length < 12 || password.length > 128 || classes < 3) {
+  // Delegates to the one policy in strong-password.validator.ts. This used to
+  // be a private copy, and the copy had already lost the all-same and
+  // sequential checks the shared rule applies.
+  if (!isStrongPassword(password)) {
     throw new BadRequestException({
       code: 'PASSWORD_POLICY_FAILED',
-      message: 'Пароль должен быть от 12 до 128 символов и содержать минимум три класса символов.',
+      message: `Пароль должен быть от ${MIN_PASSWORD_LENGTH} до ${MAX_PASSWORD_LENGTH} символов, содержать минимум три класса символов и не быть простой последовательностью.`,
     });
   }
 }
@@ -116,7 +122,7 @@ export class GektaRegistrationService {
     assertPasswordPolicy(String(input.password ?? ''));
     const phone = normalizeDeclaredPhone(input.phone);
 
-    const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
+    const passwordHash = await hashPassword(input.password);
     const userId = `usr_${randomUUID()}`;
     const emailToken = issueRegistrationEmailToken();
     const now = new Date();
@@ -340,10 +346,10 @@ export class GektaRegistrationService {
     const email = String(emailInput ?? '').trim().toLowerCase();
     const accountHash = hashAuthMaterial(`account:${email}`);
     const credential = await this.repository.findGektaLoginCredential(this.repository.prisma, email);
-    const validPassword = await bcrypt.compare(
-      String(password ?? ''),
-      credential?.password_hash ?? DUMMY_PASSWORD_HASH,
-    );
+    // Same opportunistic upgrade as the platform pathway, from the same
+    // function. Two login paths with two different rehash rules would leave one
+    // population truncated at 72 bytes forever.
+    const validPassword = await verifyPassword(String(password ?? ''), credential?.password_hash);
     const result = await this.repository.transaction(async (tx) => {
       await this.repository.ensureLoginThrottle(tx, accountHash);
       const throttle = await this.repository.getLoginThrottle(tx, accountHash, true);
@@ -423,6 +429,24 @@ export class GektaRegistrationService {
       return { kind: 'mfa' as const, enrollment };
     });
 
+    // Перезапись legacy-хеша — после решения о входе и только при успехе.
+    // Между доказательством пароля и перечитыванием в транзакции её быть не
+    // может: перечитывание для того и существует, чтобы отказать, если хеш
+    // изменился, а перезапись — это ровно такое изменение. Так первый же вход
+    // каждой учётной записи с bcrypt-хешем и получал отказ.
+    if (credential && validPassword && result.kind !== 'invalid') {
+      await upgradePasswordHashIfNeeded(
+        String(password ?? ''),
+        credential.password_hash,
+        (next, conditionalOn) => this.repository.upgradePasswordHashFormat(
+          this.repository.prisma,
+          credential.user_id,
+          next,
+          conditionalOn,
+        ),
+      );
+    }
+
     if (result.kind === 'invalid') throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS' });
     return {
       status: 'MFA_REQUIRED' as const,
@@ -448,4 +472,4 @@ export class GektaRegistrationService {
 
 // Сравнение выполняется всегда, даже когда пользователя нет: иначе время
 // ответа сообщало бы, зарегистрирован ли email.
-const DUMMY_PASSWORD_HASH = bcrypt.hashSync('invalid-password-sentinel', BCRYPT_ROUNDS);
+

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-first-user-consent-race-3072",
+  "branch": "fix/gekta-first-user-consent-race-3072",
+  "status": "active",
+  "authorizedBy": "merged-governance-pr-4084",
+  "baseline": {
+    "branch": "main",
+    "commit": "28099e17def45a4f8b43e832c5dae720d28bd1ab"
+  },
+  "purpose": "Close the remaining clean-browser Gekta first-user boundary by admitting only the exact anonymous entitlement route through middleware, proving the signed consent cookie persists via a fresh authoritative GET after consent POST, and repairing the protected evidence scan without widening account APIs.",
+  "allowedPaths": [
+    ".github/workflows/production-gekta-first-user-acceptance.yml",
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/gektaEntitlement.test.ts",
+    "scripts/production-gekta-first-user-acceptance.mjs",
+    "scripts/check-production-gekta-first-user-acceptance.mjs",
+    "docs/platform-v7/autopilot/scopes/gekta-first-user-consent-race-3072.json"
+  ],
+  "forbiddenChanges": [
+    "a broad public /api/gekta prefix",
+    "consent bypass or pre-acceptance answer submission",
+    "anonymous quota, registration, email, MFA or owner-grant weakening",
+    "public account, operator or owner APIs",
+    "credential, token, email, phone, password, MFA secret or cookie output",
+    "billing, SMS, payments, NPD or acquiring",
+    "production mutation outside the existing protected first-user workflow"
+  ],
+  "requiredChecks": [
+    "Gekta entitlement unit regression",
+    "functional middleware exact-route boundary",
+    "production first-user source contract",
+    "workflow YAML syntax validation",
+    "platform-v7 source-controlled scope guard",
+    "exact-main protected release and live first-user acceptance"
+  ],
+  "deploymentState": "not-deployed"
+}

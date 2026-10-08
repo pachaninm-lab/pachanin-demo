@@ -31,6 +31,27 @@ link_has_attributes() {
   return 1
 }
 
+extract_entitlement_ticket() {
+  local file="$1"
+  python3 - "$file" <<'PY'
+import json
+import sys
+
+try:
+    with open(sys.argv[1], "rb") as source:
+        payload = json.load(source)
+except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+    raise SystemExit(1)
+
+if not isinstance(payload, dict) or payload.get("allowed") is not True:
+    raise SystemExit(1)
+ticket = payload.get("ticket")
+if not isinstance(ticket, str):
+    raise SystemExit(1)
+sys.stdout.write(ticket)
+PY
+}
+
 check_html() {
   local body="$1" locale_label="$2" lang="$3" title="$4" h1="$5" canonical="$6"
   local html_tag missing=()
@@ -132,23 +153,79 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   fi
 
   stream_id="gektaaccept${TARGET_SHA:0:12}${attempt}"
+  cookie_jar="$(mktemp)"
+  reserve_body="$(mktemp)"
   stream_headers="$(mktemp)"
   stream_body="$(mktemp)"
+
+  set +e
+  reserve_code="$(curl -sS -c "$cookie_jar" -b "$cookie_jar" -o "$reserve_body" -w '%{http_code}' --max-time 20 \
+    -H 'Content-Type: application/json' -H 'Accept: application/json' \
+    --data '{"action":"reserve"}' \
+    "$LIVE_BASE/api/gekta/entitlement")"
+  reserve_rc=$?
+  set -e
+
+  answer_ticket="$(extract_entitlement_ticket "$reserve_body" 2>/dev/null || true)"
+  reserve_ok=0
+  ticket_state=invalid
+  if [[ "$reserve_rc" == 0 && "$reserve_code" == 200 && "$answer_ticket" =~ ^[0-9a-z]{8,12}\.[A-Za-z0-9_-]{16}$ ]]; then
+    reserve_ok=1
+    ticket_state=valid
+  fi
+
+  set +e
   stream_code="$(curl -sS -D "$stream_headers" -o "$stream_body" -w '%{http_code}' --no-buffer --max-time 155 \
+    -c "$cookie_jar" -b "$cookie_jar" \
     -H 'Content-Type: application/json' -H 'Accept: text/event-stream' \
+    -H "x-gekta-answer-ticket: $answer_ticket" \
     --data "{\"message\":\"Ответь одним коротким предложением: что проверить при падении урожайности озимой пшеницы?\",\"locale\":\"ru\",\"context\":\"gekta-standalone\",\"conversationId\":\"$stream_id\",\"history\":[]}" \
-    "$LIVE_BASE/api/agro-chat?stream=1" || true)"
+    "$LIVE_BASE/api/agro-chat?stream=1")"
+  stream_rc=$?
+  set -e
+
   stream_type="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/ {sub(/^[^:]+:[[:space:]]*/, ""); print; exit}' "$stream_headers" | tr -d '\r')"
+  stream_type_ok=0
+  stream_type_class=missing
+  if [[ -n "$stream_type" ]]; then stream_type_class=other; fi
+  if grep -Eiq '^text/event-stream' <<< "$stream_type"; then
+    stream_type_ok=1
+    stream_type_class=sse
+  fi
+
+  stream_meta=0
+  stream_token=0
+  stream_done=0
+  stream_complete=0
+  stream_leak=0
+  grep -Fq '"event":"meta"' "$stream_body" && stream_meta=1
+  grep -Fq '"event":"token"' "$stream_body" && stream_token=1
+  grep -Fq '"event":"done"' "$stream_body" && stream_done=1
+  grep -Fq '"complete":true' "$stream_body" && stream_complete=1
+  if grep -Eiq 'tenantId|roleId|subjectId|llama\.cpp|Qwen3|reasoning_content|tool_calls' "$stream_body"; then
+    stream_leak=1
+  fi
+  stream_body_bytes="$(wc -c < "$stream_body" | tr -d '[:space:]')"
+
   stream_ok=0
-  if [[ "$stream_code" == 200 ]] \
-    && grep -Eiq '^text/event-stream' <<< "$stream_type" \
-    && grep -Fq '"event":"meta"' "$stream_body" \
-    && grep -Fq '"event":"token"' "$stream_body" \
-    && grep -Fq '"event":"done"' "$stream_body" \
-    && ! grep -Eiq 'tenantId|roleId|subjectId|llama\.cpp|Qwen3|reasoning_content|tool_calls' "$stream_body"; then
+  if (( reserve_ok == 1 )) \
+    && [[ "$stream_rc" == 0 ]] \
+    && [[ "$stream_code" == 200 ]] \
+    && (( stream_type_ok == 1 )) \
+    && (( stream_meta == 1 )) \
+    && (( stream_token == 1 )) \
+    && (( stream_done == 1 )) \
+    && (( stream_complete == 1 )) \
+    && (( stream_leak == 0 )); then
     stream_ok=1
   fi
-  rm -f "$stream_headers" "$stream_body"
+
+  printf 'GEKTA_STREAM_DETAIL attempt=%s reserve_rc=%s reserve_http=%s ticket=%s stream_rc=%s stream_http=%s content_type=%s meta=%s token=%s done=%s complete=%s leak=%s body_bytes=%s\n' \
+    "$attempt" "$reserve_rc" "${reserve_code:-000}" "$ticket_state" \
+    "$stream_rc" "${stream_code:-000}" "$stream_type_class" \
+    "$stream_meta" "$stream_token" "$stream_done" "$stream_complete" "$stream_leak" "${stream_body_bytes:-0}"
+
+  rm -f "$cookie_jar" "$reserve_body" "$stream_headers" "$stream_body"
 
   if (( manifest_ok == 1 && crawler_ok == 1 && compat_ok == 1 && indexation_ok == 1 && stream_ok == 1 )) \
     && [[ "$ru_code" == 200 && "$en_code" == 200 && "$zh_code" == 200 ]] \

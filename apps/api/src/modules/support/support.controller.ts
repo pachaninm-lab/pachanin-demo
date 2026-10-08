@@ -2,7 +2,14 @@ import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@ne
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/request-user';
-import { SupportService, TicketPriority } from './support.service';
+import { SupportService } from './support.service';
+import {
+  AddCommentDto,
+  AssignTicketDto,
+  CreateTicketDto,
+  EscalateTicketDto,
+  ResolveTicketDto,
+} from './dto/support.dto';
 
 @Controller('api/support')
 @UseGuards(JwtAuthGuard)
@@ -11,7 +18,7 @@ export class SupportController {
 
   @Post('tickets')
   createTicket(
-    @Body() body: { subject: string; description: string; category: string; priority?: TicketPriority; dealId?: string; organizationId?: string },
+    @Body() body: CreateTicketDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.support.createTicket(body, user);
@@ -40,7 +47,7 @@ export class SupportController {
   @Patch('tickets/:id/assign')
   assign(
     @Param('id') id: string,
-    @Body() body: { assigneeId: string },
+    @Body() body: AssignTicketDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.support.assignTicket(id, body.assigneeId, user);
@@ -49,7 +56,7 @@ export class SupportController {
   @Patch('tickets/:id/resolve')
   resolve(
     @Param('id') id: string,
-    @Body() body: { resolution: string },
+    @Body() body: ResolveTicketDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.support.resolveTicket(id, body.resolution, user);
@@ -58,7 +65,7 @@ export class SupportController {
   @Patch('tickets/:id/escalate')
   escalate(
     @Param('id') id: string,
-    @Body() body: { reason: string },
+    @Body() body: EscalateTicketDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.support.escalateTicket(id, body.reason, user);
@@ -67,7 +74,7 @@ export class SupportController {
   @Post('tickets/:id/comments')
   addComment(
     @Param('id') id: string,
-    @Body() body: { text: string; isInternal?: boolean },
+    @Body() body: AddCommentDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.support.addComment(id, body.text, user, body.isInternal);

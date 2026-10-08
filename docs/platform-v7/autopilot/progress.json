@@ -1,20 +1,32 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 0,
-  "currentStep": "IR-10.4 Settlement PostgreSQL Authority",
-  "lastCompletedStep": "#2426 Labs PostgreSQL Authority",
+  "fullTzReadinessPercent": 5,
+  "currentStep": "R1 release prerequisite: atomic canonical readiness recovery #4829",
+  "lastCompletedStep": "R1.1 exact 13-cabinet inventory admitted by PR #5468",
   "openPr": null,
   "blockedBy": [
-    "Production settlement still permits RuntimeCore, process-memory outbox, optional Prisma and repository selection; PostgreSQL authority is not yet exclusive."
+    "Atomic COR5 + exact staff-test prerequisite: final whole-head review and complete CI/security/Kubernetes acceptance pending",
+    "REG.RU topology/exact-runtime evidence pending",
+    "R1 production 13-cabinet acceptance pending",
+    "Queued snapshot-only topology diagnostic: exact two-file TAI source draft after separate five-file admission; no fresh topology/image authority. Admission merge waits for serialized runtime-window closure; observer source merge and server execution remain held."
   ],
-  "nextStep": "IR-10.4 Settlement PostgreSQL Authority",
-  "updatedAt": "2026-07-13T12:27:00.000Z",
+  "nextStep": "Accept the exact eleven-file prerequisite on the existing readiness branch; then prioritize Gekta through its existing owner and separate scope/release gates",
+  "updatedAt": "2026-10-01T15:51:00+00:00",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
     "noAutoMerge": true,
     "controlledPilotOnly": true,
-    "noSelfModifyingWorkflow": true,
-    "noDirectPushToMain": true
-  }
+    "serverAuthority": true,
+    "noClientSelectedRole": true,
+    "noParallelUxFgisBankImplementation": true
+  },
+  "masterV21": {
+    "overallProductionProgress": "5/100=5%",
+    "r1TargetAfterProductionPass": "12/100=12%",
+    "exactMain": "5da8e80744908413102214f91dd68018911b892e",
+    "productionSha": "5da8e80744908413102214f91dd68018911b892e",
+    "productionControllerRun": 35520784872
+  },
+  "currentTaskExecution": "Owner disposition 5935185862 permits only the atomic eleven-file prerequisite; #5770/#5771 failed evidence stays preserved. No R1 or overall production credit and no Gekta source/release expansion."
 }

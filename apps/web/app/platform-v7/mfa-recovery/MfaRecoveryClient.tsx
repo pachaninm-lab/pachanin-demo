@@ -8,40 +8,52 @@ type Locale = 'ru' | 'en' | 'zh';
 
 const COPY = {
   ru: {
-    title: 'Подтвердить восстановление MFA',
-    lead: 'Введи текущий пароль. Только после его проверки прежний MFA будет отозван.',
-    password: 'Текущий пароль', show: 'Показать пароль', hide: 'Скрыть пароль',
-    submit: 'Подтвердить и отозвать MFA', loading: 'Проверяем…',
-    invalid: 'Ссылка или пароль недействительны, ссылка истекла либо уже использована.',
-    unavailable: 'Сервис восстановления MFA временно недоступен. Доступ не изменён.',
-    rateLimited: 'Слишком много попыток. Повтори позже.',
-    successTitle: 'Прежний MFA отозван',
-    successText: 'Все активные сессии завершены. При следующем входе настрой новый TOTP и сохрани новые резервные коды.',
+    title: 'Подтверждение восстановления защиты входа',
+    lead: 'Введите текущий пароль. Существующая настройка второго фактора будет сброшена только после успешной проверки.',
+    password: 'Текущий пароль',
+    show: 'Показать пароль',
+    hide: 'Скрыть пароль',
+    submit: 'Подтвердить восстановление',
+    loading: 'Выполняется проверка…',
+    invalid: 'Ссылка или пароль недействительны, ссылка истекла либо уже была использована.',
+    unavailable: 'Сервис восстановления защиты входа временно недоступен. Настройки доступа не изменены.',
+    rateLimited: 'Превышено допустимое количество попыток. Повторите попытку позднее.',
+    successTitle: 'Защита входа сброшена',
+    successText: 'Все активные сессии завершены. При следующем входе настройте приложение-аутентификатор и сохраните новые резервные коды.',
     login: 'Перейти ко входу',
+    reference: 'Идентификатор обращения',
   },
   en: {
-    title: 'Confirm MFA recovery',
-    lead: 'Enter your current password. The previous MFA is revoked only after the password is verified.',
-    password: 'Current password', show: 'Show password', hide: 'Hide password',
-    submit: 'Confirm and revoke MFA', loading: 'Verifying…',
+    title: 'Confirm sign-in protection recovery',
+    lead: 'Enter your current password. The existing two-factor setting will be reset only after successful verification.',
+    password: 'Current password',
+    show: 'Show password',
+    hide: 'Hide password',
+    submit: 'Confirm recovery',
+    loading: 'Verifying…',
     invalid: 'The link or password is invalid, or the link has expired or already been used.',
-    unavailable: 'The MFA recovery service is temporarily unavailable. Access was not changed.',
+    unavailable: 'Sign-in protection recovery is temporarily unavailable. Your access settings were not changed.',
     rateLimited: 'Too many attempts. Try again later.',
-    successTitle: 'Previous MFA revoked',
-    successText: 'All active sessions were terminated. At your next sign-in, enroll a new TOTP and save the new backup codes.',
+    successTitle: 'Sign-in protection reset',
+    successText: 'All active sessions were terminated. At your next sign-in, set up an authenticator app and save the new backup codes.',
     login: 'Go to sign in',
+    reference: 'Request reference',
   },
   zh: {
-    title: '确认 MFA 恢复',
-    lead: '请输入当前密码。只有密码验证通过后，旧 MFA 才会被撤销。',
-    password: '当前密码', show: '显示密码', hide: '隐藏密码',
-    submit: '确认并撤销 MFA', loading: '正在验证…',
+    title: '确认恢复登录保护',
+    lead: '请输入当前密码。只有验证成功后，现有双重验证设置才会被重置。',
+    password: '当前密码',
+    show: '显示密码',
+    hide: '隐藏密码',
+    submit: '确认恢复',
+    loading: '正在验证…',
     invalid: '链接或密码无效，或者链接已过期或已被使用。',
-    unavailable: 'MFA 恢复服务暂时不可用。访问权限未更改。',
+    unavailable: '登录保护恢复服务暂时不可用。访问设置未发生更改。',
     rateLimited: '尝试次数过多。请稍后再试。',
-    successTitle: '旧 MFA 已撤销',
-    successText: '所有活动会话均已终止。下次登录时，请设置新的 TOTP 并保存新的备用代码。',
+    successTitle: '登录保护已重置',
+    successText: '所有活动会话均已终止。下次登录时，请设置身份验证器应用并保存新的备用代码。',
     login: '前往登录',
+    reference: '请求编号',
   },
 } as const;
 
@@ -103,7 +115,7 @@ export function MfaRecoveryClient({ token, locale }: { token: string; locale: Lo
         <CheckCircle2 size={42} strokeWidth={1.9} aria-hidden='true' />
         <h2>{copy.successTitle}</h2>
         <p>{copy.successText}</p>
-        {correlationId ? <p className='pc-recovery-note'>ID: {correlationId}</p> : null}
+        {correlationId ? <p className='pc-recovery-note'>{copy.reference}: {correlationId}</p> : null}
         <a className='pc-recovery-primary-link' href='/platform-v7/login'>{copy.login}</a>
       </section>
     );
@@ -155,7 +167,7 @@ export function MfaRecoveryClient({ token, locale }: { token: string; locale: Lo
       </label>
       {error ? (
         <p ref={errorRef} id='pc-mfa-recovery-error' className='pc-recovery-error' role='alert' tabIndex={-1}>
-          {error}{correlationId ? ` ID: ${correlationId}` : ''}
+          {error}{correlationId ? ` ${copy.reference}: ${correlationId}` : ''}
         </p>
       ) : null}
       <button className='pc-recovery-submit' type='submit' disabled={submitting} aria-busy={submitting}>

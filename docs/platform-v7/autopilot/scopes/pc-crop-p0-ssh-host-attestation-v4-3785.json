@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-crop-p0-ssh-host-attestation-output-v4-3785",
+  "status": "active",
+  "purpose": "Registration #3785 / release #3072 / host-identity incident #4445: repair GitHub Actions false secret-suppression of the already successful external public-key evidence by using a digit-free letters-only job-output transport, while preserving the same dual-channel read-only attestation. No trust-anchor update or production mutation is authorized.",
+  "approvedBy": "owner-registration-continuation-3785",
+  "authorityBaseExactMain": "844f037537fd5a68f47716d3c77a92033f29036d",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-p0-ssh-host-key-attestation-v4.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-p0-ssh-host-attestation-v4-3785.json"
+  ],
+  "requiredBehavior": [
+    "owner-only exact command on #4445",
+    "exact-current-main binding before and after evidence collection",
+    "mandatory protected production SSH port and canonical REG.RU IPv4/DNS guard",
+    "three byte-identical non-empty hosted ssh-keyscan observations",
+    "digit-free A-P letters-only encoding for external public fingerprint evidence across GitHub job-output boundaries; local evidence remains hex-encoded and secret-free",
+    "self-hosted pc-prod job uses shell steps only, receives no repository secrets and reads only public SSH host-key files",
+    "self-hosted runner remains non-root and without direct Docker authority",
+    "every externally observed public key must be present in local production /etc/ssh public-key authority",
+    "stored protected pin is compared only in final hosted classifier and is never printed",
+    "replacement public fingerprint is published only when the stored pin is independently proven stale",
+    "PRODUCTION_MUTATION=NONE"
+  ],
+  "forbiddenCapabilities": [
+    "automatic or implicit SSH trust-anchor update",
+    "accept-new or disabled StrictHostKeyChecking",
+    "authenticated SSH login",
+    "reading any SSH private key",
+    "secret, variable or credential mutation",
+    "sudo or production filesystem mutation",
+    "Docker mutation, service restart, deployment or migration",
+    "database, auth, password-reset, email, MFA, role or tenant mutation",
+    "new recurring cost or unrelated product work"
+  ],
+  "acceptanceEvidence": [
+    "workflow syntax and project-lock checks pass",
+    "focused pull-request contract proves the production-side job contains no marketplace actions and no repository secrets",
+    "owner command produces either CURRENT or STALE only after external/local public-key agreement",
+    "STALE result includes one attested replacement public fingerprint and CURRENT result includes no replacement",
+    "production mutation remains NONE"
+  ]
+}

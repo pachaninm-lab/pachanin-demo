@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
+import { upgradePasswordHashIfNeeded, verifyPassword } from './password-hashing';
 import { randomUUID } from 'crypto';
 import {
   FINANCIAL_MFA_THRESHOLD_KOPECKS,
@@ -27,7 +27,7 @@ import {
   secureEqual,
   sha256,
   stableJson,
-  verifyTotp,
+  matchTotpCounter,
 } from './auth-crypto';
 import { CURRENT_CONSENT_VERSION } from './consent-policy';
 import {
@@ -49,12 +49,65 @@ import {
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/**
+ * How long a session may sit unused before it stops being one.
+ *
+ * The absolute cap is thirty days and is re-checked on every request, but an
+ * absolute cap does not bound idle exposure: until this was added, a session
+ * left untouched on a shared or lost device stayed valid for the whole thirty
+ * days. The timestamp to bound it with was already stored and already
+ * maintained - every authenticated request touches last_seen_at, throttled to
+ * one write a minute - and nothing read it.
+ *
+ * One hour for an ordinary session, fifteen minutes for a privileged one.
+ *
+ * The first version of this control used twelve hours, and the reasoning
+ * recorded for it argued that drivers, elevator operators and surveyors are
+ * interrupted by the job rather than by choice, so a shorter limit would be met
+ * by keeping a tab awake rather than by better security. That argument was
+ * rejected by the owner, and the rejection is the right one: it treated the
+ * session as the only way to preserve work. The answer to an interrupted shift
+ * is to keep the state and let the person reauthenticate back into it, not to
+ * leave an authenticated session lying open on a device in a truck cab for
+ * half a day. An idle limit that is generous because logging back in is
+ * inconvenient is a limit set by the UX budget rather than by risk.
+ *
+ * The privileged tier is decided from the role already on the session row that
+ * this same function is validating - not from staffRoles, not from a second
+ * lookup - so there is one authority for who is privileged and it is the same
+ * one the rest of the request uses. The set is ROLES_REQUIRING_MFA, which is
+ * this platform's existing definition of a privileged actor; inventing a second
+ * notion of "privileged" here is precisely the inconsistency V6.3.4 is about.
+ *
+ * Neither number stands alone in front of the risky operations: financial
+ * commands above a threshold already demand recently verified MFA regardless of
+ * session age, and that step-up is not relaxed to compensate for a shorter idle
+ * window. The idle limit bounds ambient exposure.
+ *
+ * Two constants. If the operational answer is a different number, these are the
+ * lines to change.
+ */
+export const SESSION_IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+export const PRIVILEGED_SESSION_IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+
+/**
+ * The idle limit that applies to a session held by this role.
+ *
+ * Takes the role as it appears on the session context row, so an unknown or
+ * malformed value falls to the shorter-lived ordinary limit rather than to no
+ * limit at all.
+ */
+export function idleTimeoutMsForRole(role: string | null | undefined): number {
+  return ROLES_REQUIRING_MFA.includes(role as Role)
+    ? PRIVILEGED_SESSION_IDLE_TIMEOUT_MS
+    : SESSION_IDLE_TIMEOUT_MS;
+}
+
 const MFA_CHALLENGE_TTL_MS = 10 * 60 * 1000;
 const MEMBERSHIP_SELECTION_TTL_MS = 5 * 60 * 1000;
 const MFA_FRESHNESS_MS = 15 * 60 * 1000;
 const MAX_FAILED_LOGINS = 5;
 const LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
-const DUMMY_PASSWORD_HASH = bcrypt.hashSync('invalid-password-sentinel', 10);
 
 const KNOWN_ROLES = new Set<string>(Object.values(Role));
 const PRIVILEGED_MFA_ROLES = new Set<string>(ROLES_REQUIRING_MFA);
@@ -99,10 +152,7 @@ export class AuthService {
       this.repository.prisma,
       email,
     );
-    const validPassword = await bcrypt.compare(
-      dto.password,
-      loginCredential?.password_hash ?? DUMMY_PASSWORD_HASH,
-    );
+    const validPassword = await verifyPassword(dto.password, loginCredential?.password_hash);
 
     const result = await this.repository.transaction(async (tx) => {
       await this.repository.ensureLoginThrottle(tx, accountHash);
@@ -212,6 +262,30 @@ export class AuthService {
       return this.createLoginSession(tx, selectedIdentity, credential, userAgent, ip);
     });
 
+    // The legacy hash is rewritten here, after the login decision and only for a
+    // login that succeeded — never between the password proof and the
+    // transaction's re-read. That re-read exists to refuse a proof whose
+    // credential changed underneath it, and a rewrite placed before it IS such a
+    // change: it made every first login of a bcrypt account fail with
+    // CREDENTIAL_CHANGED_DURING_LOGIN. The guard was right; the moment was wrong.
+    // Nothing here can turn a correct password into a refusal, because the
+    // decision is already made and this value is not read.
+    const loginDenied = result.kind === 'locked'
+      || result.kind === 'invalid'
+      || result.kind === 'no_context';
+    if (loginCredential && validPassword && !loginDenied) {
+      await upgradePasswordHashIfNeeded(
+        dto.password,
+        loginCredential.password_hash,
+        (next, conditionalOn) => this.repository.upgradePasswordHashFormat(
+          this.repository.prisma,
+          loginCredential.user_id,
+          next,
+          conditionalOn,
+        ),
+      );
+    }
+
     if (result.kind === 'locked') {
       const retryAfterSec = Math.max(1, Math.ceil((result.lockedUntil.getTime() - Date.now()) / 1000));
       throw new UnauthorizedException(`Account temporarily locked. Try again in ${retryAfterSec}s.`);
@@ -232,16 +306,6 @@ export class AuthService {
         challengeToken: result.challengeToken,
         challengeExpiresAt: result.expiresAt,
         memberships: result.memberships,
-      };
-    }
-    if (result.kind === 'mfa') {
-      return {
-        mfaRequired: true,
-        challengeToken: result.challengeToken,
-        challengeExpiresAt: result.expiresAt,
-        setupSecret: result.setupSecret,
-        otpAuthUri: result.otpAuthUri,
-        user: result.user,
       };
     }
     return { mfaRequired: false, ...result };
@@ -299,16 +363,6 @@ export class AuthService {
     });
 
     if (result.kind === 'invalid') throw new UnauthorizedException('Invalid or expired membership selection');
-    if (result.kind === 'mfa') {
-      return {
-        mfaRequired: true,
-        challengeToken: result.challengeToken,
-        challengeExpiresAt: result.expiresAt,
-        setupSecret: result.setupSecret,
-        otpAuthUri: result.otpAuthUri,
-        user: result.user,
-      };
-    }
     return { mfaRequired: false, ...result };
   }
 
@@ -459,7 +513,7 @@ export class AuthService {
 
       const credential = await this.requireCredentialState(tx, challenge.user_id, true);
       if (!credential.mfa_secret_ciphertext) return { kind: 'invalid' as const };
-      const verification = this.verifyMfaCode(credential, dto.code);
+      const verification = await this.verifyMfaCode(tx, credential, dto.code);
       if (!verification) {
         const terminal = challenge.challenge_attempts + 1 >= challenge.challenge_max_attempts;
         await this.repository.recordMfaFailure(tx, challenge.challenge_id, terminal);
@@ -540,11 +594,21 @@ export class AuthService {
       if (!context || invalidReason) throw new UnauthorizedException('Session is not active');
 
       const credential = await this.requireCredentialState(tx, context.user_id, true);
-      if (!credential.mfa_enabled || !credential.mfa_secret_ciphertext) {
-        throw new ForbiddenException('MFA enrollment is required before step-up verification');
+      const enrollment = !credential.mfa_enabled || !credential.mfa_secret_ciphertext;
+      // Enrollment is explicit and authenticated; ordinary password login never
+      // generates a secret, creates an MFA challenge or claims MFA possession.
+      // Reuse a pending secret across tabs instead of invalidating another tab.
+      const setupSecret = enrollment
+        ? credential.mfa_secret_ciphertext
+          ? decryptMfaSecret(credential.mfa_secret_ciphertext)
+          : generateTotpSecret()
+        : undefined;
+      if (setupSecret && !credential.mfa_secret_ciphertext) {
+        const encrypted = encryptMfaSecret(setupSecret);
+        await this.repository.setMfaSecret(tx, context.user_id, encrypted.ciphertext, encrypted.keyVersion, true);
       }
-
-      await this.repository.expirePendingMfaChallenges(tx, context.session_id, 'STEP_UP');
+      const challengeType = enrollment ? 'TOTP_ENROLL' : 'STEP_UP';
+      await this.repository.expirePendingMfaChallenges(tx, context.session_id, challengeType);
       const issuedChallenge = issueMfaChallengeCredential();
       const expiresAt = new Date(Date.now() + MFA_CHALLENGE_TTL_MS);
       await this.repository.createMfaChallenge(tx, {
@@ -552,7 +616,7 @@ export class AuthService {
         sessionId: context.session_id,
         userId: context.user_id,
         challengeTokenHash: issuedChallenge.storedDigest,
-        type: 'STEP_UP',
+        type: challengeType,
         expiresAt,
       });
       await this.audit(tx, {
@@ -569,7 +633,12 @@ export class AuthService {
         ok: true,
         challengeToken: issuedChallenge.rawToken,
         expiresAt: expiresAt.toISOString(),
-        methods: ['totp', 'backup_code'] as const,
+        methods: enrollment ? ['totp'] : ['totp', 'backup_code'],
+        ...(setupSecret ? {
+          enrollmentRequired: true,
+          setupSecret,
+          otpAuthUri: buildOtpAuthUri(context.email, setupSecret),
+        } : {}),
       };
     });
   }
@@ -589,7 +658,7 @@ export class AuthService {
       if (
         !challenge
         || !secureEqual(challenge.challenge_token_hash, parsed.storedDigest)
-        || challenge.challenge_type !== 'STEP_UP'
+        || !['STEP_UP', 'TOTP_ENROLL'].includes(challenge.challenge_type)
         || challenge.session_id !== user.sessionId
         || challenge.user_id !== user.id
       ) {
@@ -619,11 +688,12 @@ export class AuthService {
       }
 
       const credential = await this.requireCredentialState(tx, challenge.user_id, true);
-      if (!credential.mfa_enabled || !credential.mfa_secret_ciphertext) {
+      const enrollment = challenge.challenge_type === 'TOTP_ENROLL';
+      if (!credential.mfa_secret_ciphertext || credential.mfa_enabled === enrollment) {
         return { kind: 'invalid' as const };
       }
-      const verification = this.verifyMfaCode(credential, dto.code);
-      if (!verification) {
+      const verification = await this.verifyMfaCode(tx, credential, dto.code);
+      if (!verification || (enrollment && verification.method !== 'TOTP')) {
         const terminal = challenge.challenge_attempts + 1 >= challenge.challenge_max_attempts;
         await this.repository.recordMfaFailure(tx, challenge.challenge_id, terminal);
         await this.audit(tx, {
@@ -640,12 +710,16 @@ export class AuthService {
         return { kind: 'invalid' as const };
       }
 
+      const backupCodes = enrollment ? generateBackupCodes() : undefined;
       const verifiedAt = await this.repository.activateMfaStepUp(tx, {
         challengeId: challenge.challenge_id,
         sessionId: challenge.session_id,
         userId: challenge.user_id,
         method: verification.method,
-        backupHashes: verification.method === 'BACKUP' ? verification.remainingBackupHashes : undefined,
+        challengeType: enrollment ? 'TOTP_ENROLL' : 'STEP_UP',
+        backupHashes: backupCodes
+          ? backupCodes.hashes
+          : verification.method === 'BACKUP' ? verification.remainingBackupHashes : undefined,
       });
       await this.audit(tx, {
         userId: challenge.user_id,
@@ -657,11 +731,14 @@ export class AuthService {
         outcome: 'SUCCESS',
         metadata: this.clientMetadata(userAgent, ip, { method: verification.method }),
       });
-      return { kind: 'success' as const, verifiedAt };
+      return { kind: 'success' as const, verifiedAt, backupCodes };
     });
 
     if (result.kind === 'invalid') throw new UnauthorizedException('Invalid or expired MFA step-up challenge');
-    return { ok: true, mfaVerified: true, mfaVerifiedAt: result.verifiedAt.toISOString() };
+    return {
+      ok: true, mfaVerified: true, mfaVerifiedAt: result.verifiedAt.toISOString(),
+      ...(result.backupCodes ? { backupCodes: result.backupCodes.codes } : {}),
+    };
   }
 
   async logout(dto: { refreshToken?: string }, sessionId?: string) {
@@ -737,9 +814,6 @@ export class AuthService {
     }
 
     const role = this.role(context.role);
-    if ((requiresRoleMfa(role) || context.is_org_admin) && !context.mfa_verified_at) {
-      throw new UnauthorizedException('MFA verification is required for this role');
-    }
     await this.repository.touchSession(this.repository.prisma, context.session_id);
     return {
       id: context.user_id,
@@ -885,61 +959,19 @@ export class AuthService {
     const sessionId = `ses_${randomUUID()}`;
     const familyId = `rf_${randomUUID()}`;
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-    const mfaRequired = requiresRoleMfa(this.role(identity.role)) || identity.is_org_admin || credential.mfa_enabled;
     await this.repository.createSession(tx, {
       id: sessionId,
       userId: identity.user_id,
       membershipId: identity.membership_id,
       organizationId: identity.organization_id,
       tenantId: identity.tenant_id,
-      status: mfaRequired ? 'MFA_PENDING' : 'ACTIVE',
+      status: 'ACTIVE',
       refreshFamilyId: familyId,
       credentialVersion: credential.credential_version,
       userAgentHash: hashClientValue(userAgent),
       ipHash: hashClientValue(ip),
       expiresAt,
     });
-
-    if (mfaRequired) {
-      const enrollment = !credential.mfa_enabled || !credential.mfa_secret_ciphertext;
-      let setupSecret: string | undefined;
-      if (enrollment) {
-        setupSecret = generateTotpSecret();
-        const encrypted = encryptMfaSecret(setupSecret);
-        await this.repository.setMfaSecret(tx, identity.user_id, encrypted.ciphertext, encrypted.keyVersion);
-      }
-      const issuedChallenge = issueMfaChallengeCredential();
-      const challengeExpiresAt = new Date(Date.now() + MFA_CHALLENGE_TTL_MS);
-      await this.repository.createMfaChallenge(tx, {
-        id: issuedChallenge.credentialId,
-        sessionId,
-        userId: identity.user_id,
-        challengeTokenHash: issuedChallenge.storedDigest,
-        type: enrollment ? 'TOTP_ENROLL' : 'TOTP_VERIFY',
-        expiresAt: challengeExpiresAt,
-      });
-      await this.audit(tx, {
-        userId: identity.user_id,
-        sessionId,
-        membershipId: identity.membership_id,
-        organizationId: identity.organization_id,
-        tenantId: identity.tenant_id,
-        action: 'auth.login.mfa_required',
-        outcome: 'SUCCESS',
-        metadata: this.clientMetadata(userAgent, ip, { enrollment }),
-      });
-      return {
-        kind: 'mfa' as const,
-        challengeToken: issuedChallenge.rawToken,
-        expiresAt: challengeExpiresAt.toISOString(),
-        setupSecret,
-        otpAuthUri: setupSecret ? buildOtpAuthUri(identity.email, setupSecret) : undefined,
-        // A pending-MFA response never discloses organization, tenant or
-        // membership authority. The complete projection is returned only
-        // after successful challenge verification.
-        user: { email: identity.email, role: this.role(identity.role) },
-      };
-    }
 
     const tokens = await this.issueActiveTokens(tx, identity, {
       id: sessionId,
@@ -956,7 +988,7 @@ export class AuthService {
       tenantId: identity.tenant_id,
       action: 'auth.login',
       outcome: 'SUCCESS',
-      metadata: this.clientMetadata(userAgent, ip),
+      metadata: this.clientMetadata(userAgent, ip, { authenticationMethod: 'PASSWORD' }),
     });
     return { kind: 'active' as const, ...tokens };
   }
@@ -1034,6 +1066,11 @@ export class AuthService {
   private sessionInvalidReason(context: SessionContextRow, allowMfaPending = false): string | null {
     if (context.session_status === 'REVOKED') return 'SESSION_REVOKED';
     if (context.session_status === 'EXPIRED' || context.session_expires_at <= new Date()) return 'SESSION_EXPIRED';
+    // Evaluated before touchSession runs, so the reading is the previous
+    // activity rather than this request's own.
+    if (context.session_last_seen_at.getTime() + idleTimeoutMsForRole(context.role) <= Date.now()) {
+      return 'SESSION_IDLE_TIMEOUT';
+    }
     if (context.session_status !== 'ACTIVE' && !(allowMfaPending && context.session_status === 'MFA_PENDING')) {
       return 'SESSION_NOT_ACTIVE';
     }
@@ -1045,14 +1082,33 @@ export class AuthService {
     return null;
   }
 
-  private verifyMfaCode(
+  /**
+   * Async because a TOTP match is not an acceptance until the time step it
+   * proves has been consumed, and consuming is a database write.
+   *
+   * The consume lives here rather than in the callers on purpose. There are
+   * three call sites, and a control that each of them has to remember to invoke
+   * is a control that one of them will eventually not invoke - which is how the
+   * matching backup-code path stayed correct while this one did not. Here there
+   * is no way to obtain a TOTP acceptance without having consumed it.
+   */
+  private async verifyMfaCode(
+    client: AuthSqlClient,
     credential: CredentialStateRow,
     code: string,
-  ): { method: 'TOTP' } | { method: 'BACKUP'; remainingBackupHashes: string[] } | null {
+  ): Promise<{ method: 'TOTP' } | { method: 'BACKUP'; remainingBackupHashes: string[] } | null> {
     const secret = credential.mfa_secret_ciphertext
       ? decryptMfaSecret(credential.mfa_secret_ciphertext)
       : null;
-    if (secret && verifyTotp(secret, code)) return { method: 'TOTP' };
+    if (secret) {
+      const counter = matchTotpCounter(secret, code);
+      if (counter !== null) {
+        // A replayed or stale counter advances nothing, and a refusal to
+        // advance is a refusal to authenticate. Fail closed.
+        const consumed = await this.repository.consumeTotpCounter(client, credential.user_id, counter);
+        return consumed ? { method: 'TOTP' } : null;
+      }
+    }
     const hashes = Array.isArray(credential.mfa_backup_hashes)
       ? credential.mfa_backup_hashes.filter((item): item is string => typeof item === 'string')
       : [];

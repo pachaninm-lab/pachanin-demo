@@ -41,6 +41,7 @@ jobs:
           node-version: "20"
 
       - name: Initialize CodeQL
+        id: init
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
@@ -55,10 +56,12 @@ jobs:
       # tail is capped, and an artifact populated only on success is empty
       # exactly when it is needed.
       - name: Locate the CodeQL CLI and its bundled packs
+        env:
+          CODEQL_BIN: ${{ steps.init.outputs.codeql-path }}
         run: |
           set -euo pipefail
           mkdir -p artifacts/codeql
-          CODEQL_BIN="$(node -e 'process.stdout.write(JSON.parse(process.env.CODEQL_ACTION_CLI_VERSION_INFO).cmd)')"
+          test -n "$CODEQL_BIN"
           test -x "$CODEQL_BIN"
           echo "CODEQL_BIN=$CODEQL_BIN" >> "$GITHUB_ENV"
           "$CODEQL_BIN" version --format=json \

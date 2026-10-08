@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthMailModule } from '../auth-mail/auth-mail.module';
 import { BusinessReputationModule } from '../business-reputation/business-reputation.module';
 import { AuthController } from './auth.controller';
 import { AuthPrismaService } from './auth-prisma.service';
@@ -13,10 +14,11 @@ import { PasswordResetService } from './password-reset.service';
 import { PersistentAuthRepository } from './persistent-auth.repository';
 import { ProductSessionService } from './product-session.service';
 import { RegistrationApplicationService } from './registration-application.service';
+import { RegistrationCancellationService } from './registration-cancellation.service';
 import { RegistrationDecisionService } from './registration-decision.service';
 
 @Module({
-  imports: [BusinessReputationModule],
+  imports: [BusinessReputationModule, AuthMailModule],
   controllers: [AuthController, GektaRegistrationController],
   providers: [
     AuthPrismaService,
@@ -28,6 +30,7 @@ import { RegistrationDecisionService } from './registration-decision.service';
     PasswordResetRepository,
     PasswordResetService,
     RegistrationApplicationService,
+    RegistrationCancellationService,
     RegistrationDecisionService,
     AuthService,
     ProductSessionService,
@@ -43,6 +46,7 @@ import { RegistrationDecisionService } from './registration-decision.service';
     OrganizationInvitationService,
     PasswordResetService,
     RegistrationApplicationService,
+    RegistrationCancellationService,
     RegistrationDecisionService,
     PersistentAuthRepository,
     AuthPrismaService,

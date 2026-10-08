@@ -1,0 +1,309 @@
+name: TAI Owner REG.RU Runner Recovery
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tai-reg-ru-runner-recovery-owner-command.yml"
+      - "docs/platform-v7/autopilot/scopes/pc-prod-runner-recovery-3365.json"
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-reg-ru-runner-recovery-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+  EVIDENCE_DIR: artifacts/pc-prod-runner-recovery
+
+jobs:
+  contract:
+    name: Validate narrow runner-recovery authority
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify scope and forbidden capabilities
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          workflow_path = Path('.github/workflows/tai-reg-ru-runner-recovery-owner-command.yml')
+          scope_path = Path('docs/platform-v7/autopilot/scopes/pc-prod-runner-recovery-3365.json')
+          workflow = workflow_path.read_text(encoding='utf-8')
+          scope = json.loads(scope_path.read_text(encoding='utf-8'))
+          expected_paths = {
+              str(workflow_path),
+              str(scope_path),
+          }
+          if scope.get('schemaVersion') != 'platform-v7.concurrent-scope.v1':
+              raise SystemExit('scope schema mismatch')
+          if scope.get('branch') != 'fix/pc-prod-runner-recovery-3365':
+              raise SystemExit('scope branch mismatch')
+          if scope.get('authorityBaseExactMain') != 'f75bfd014ec67253713bd501be051fa8447a37a8':
+              raise SystemExit('scope base mismatch')
+          if set(scope.get('allowedPaths') or []) != expected_paths:
+              raise SystemExit('scope path mismatch')
+          required_workflow = [
+              "/tai recover-pc-prod-runner current-main",
+              "StrictHostKeyChecking=yes",
+              "<<'REMOTE'",
+          ]
+          for marker in required_workflow:
+              if marker not in workflow:
+                  raise SystemExit(f'missing workflow recovery marker: {marker}')
+          try:
+              remote = workflow.split("<<'REMOTE'\n", 1)[1].split("\n          REMOTE", 1)[0]
+          except IndexError as exc:
+              raise SystemExit('fixed remote recovery block is missing') from exc
+          required_remote = [
+              "systemctl restart \"$service\"",
+              "systemctl is-active --quiet \"$service\"",
+              "sudo -u pcactions -H docker version",
+              "df -Pk",
+          ]
+          for marker in required_remote:
+              if marker not in remote:
+                  raise SystemExit(f'missing remote recovery marker: {marker}')
+          forbidden_remote = [
+              'docker system prune',
+              'docker image prune',
+              'docker builder prune',
+              'docker rm ',
+              'docker rmi ',
+              'docker compose up',
+              'docker compose down',
+              'systemctl stop ',
+              'config.sh',
+              'svc.sh install',
+          ]
+          for marker in forbidden_remote:
+              if marker in remote:
+                  raise SystemExit(f'forbidden remote recovery capability: {marker}')
+          PY
+
+  recover:
+    name: Recover existing pc-prod runner through pinned REG.RU SSH
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/tai recover-pc-prod-runner current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact current main
+        id: target
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target_sha="$(git rev-parse origin/main)"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$target_sha" ]]
+          echo "sha=$target_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected root key and pinned production identity
+        id: ssh
+        run: |
+          set -Eeuo pipefail
+          trim(){ local value="$1"; value="${value#"${value%%[![:space:]]*}"}"; value="${value%"${value##*[![:space:]]}"}"; printf '%s' "$value"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'Canonical VPS mismatch.' >&2; exit 10; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || exit 11
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || exit 13
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" public_key
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$public_key" 2>/dev/null || { rm -f "$public_key"; return 1; }
+            ssh-keygen -lf "$public_key" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+            rm -f "$public_key"
+          }
+          try_slot(){
+            local raw="$1" first second third
+            [[ -n "$raw" ]] || return 1
+            first="$(mktemp)"; second="$(mktemp)"; third="$(mktemp)"
+            printf '%s\n' "$raw" > "$first"
+            validate_key "$first" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$second"
+            validate_key "$second" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$third" 2>/dev/null && validate_key "$third" && { rm -f "$first" "$second" "$third"; return 0; }
+            rm -f "$first" "$second" "$third"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || {
+            echo 'No valid protected SSH private key is configured.' >&2
+            exit 14
+          }
+
+          scan="$(mktemp)"; match="$(mktemp)"; pinned_ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned_ready=1; break; fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; echo 'Pinned host key mismatch.' >&2; exit 15; }
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; echo ROOT_SSH_AUTH_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq ROOT_SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Restart only the existing runner and collect bounded evidence
+        id: recovery
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -Eeuo pipefail
+          log="$EVIDENCE_DIR/recovery.log"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$USER@$HOST" 'bash -s' > "$log" 2>&1 <<'REMOTE'
+          set -Eeuo pipefail
+          [[ "$(id -u)" -eq 0 ]]
+          mapfile -t service_files < <(find /etc/systemd/system -maxdepth 1 -type f -name 'actions.runner.pachaninm-lab-pachanin-demo.pc-prod-*.service' -print | sort -u)
+          [[ "${#service_files[@]}" -eq 1 ]] || { echo 'RUNNER_SERVICE_CARDINALITY_INVALID'; exit 30; }
+          service="$(basename "${service_files[0]}")"
+          configured_user="$(systemctl show "$service" --property=User --value)"
+          [[ "$configured_user" == pcactions ]] || { echo 'RUNNER_SERVICE_USER_INVALID'; exit 31; }
+          previous_state="$(systemctl is-active "$service" 2>/dev/null || true)"
+          case "$previous_state" in active|inactive|failed|activating|deactivating) ;; *) echo 'RUNNER_SERVICE_STATE_INVALID'; exit 32;; esac
+          timeout 30s systemctl restart "$service"
+          ready=0
+          for _ in $(seq 1 15); do
+            if systemctl is-active --quiet "$service"; then ready=1; break; fi
+            sleep 1
+          done
+          [[ "$ready" -eq 1 ]] || { echo 'RUNNER_SERVICE_NOT_ACTIVE'; exit 33; }
+          main_pid="$(systemctl show "$service" --property=MainPID --value)"
+          [[ "$main_pid" =~ ^[1-9][0-9]*$ && -r "/proc/$main_pid/status" ]] || { echo 'RUNNER_PROCESS_UNAVAILABLE'; exit 34; }
+          docker_gid="$(getent group docker | cut -d: -f3 || true)"
+          if [[ -n "$docker_gid" ]]; then
+            process_groups=" $(awk '/^Groups:/ {for (i=2;i<=NF;i++) printf "%s ",$i}' "/proc/$main_pid/status")"
+            [[ "$process_groups" != *" $docker_gid "* ]] || { echo 'RUNNER_PROCESS_HAS_DOCKER_GROUP'; exit 35; }
+          fi
+          if sudo -u pcactions -H docker version >/dev/null 2>&1; then
+            echo 'RUNNER_DIRECT_DOCKER_AUTHORITY_PRESENT'; exit 36
+          fi
+          docker_root="$(docker info --format '{{.DockerRootDir}}')"
+          [[ -n "$docker_root" && -d "$docker_root" ]] || { echo 'DOCKER_ROOT_UNAVAILABLE'; exit 37; }
+          docker_available_kib="$(df -Pk "$docker_root" | awk 'NR==2{print $4}')"
+          containerd_target=/var/lib/containerd
+          [[ -d "$containerd_target" ]] || containerd_target=/
+          containerd_available_kib="$(df -Pk "$containerd_target" | awk 'NR==2{print $4}')"
+          [[ "$docker_available_kib" =~ ^[0-9]+$ && "$containerd_available_kib" =~ ^[0-9]+$ ]]
+          hard_min_kib=$((5 * 1024 * 1024))
+          target_kib=$((6 * 1024 * 1024))
+          headroom_5g=BLOCKED; (( containerd_available_kib >= hard_min_kib )) && headroom_5g=PASS
+          headroom_6g=BLOCKED; (( containerd_available_kib >= target_kib )) && headroom_6g=PASS
+          printf 'PC_PROD_RUNNER_RECOVERY=PASS\n'
+          printf 'RUNNER_SERVICE=%s\n' "$service"
+          printf 'RUNNER_PREVIOUS_STATE=%s\n' "$previous_state"
+          printf 'RUNNER_FINAL_STATE=active\n'
+          printf 'RUNNER_USER=pcactions\n'
+          printf 'DIRECT_DOCKER_AUTHORITY=false\n'
+          printf 'DOCKER_AVAILABLE_KIB=%s\n' "$docker_available_kib"
+          printf 'CONTAINERD_AVAILABLE_KIB=%s\n' "$containerd_available_kib"
+          printf 'HEADROOM_5G=%s\n' "$headroom_5g"
+          printf 'HEADROOM_6G=%s\n' "$headroom_6g"
+          REMOTE
+          rc=$?
+          set -e
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          if (( rc == 0 )); then
+            grep -Fxq PC_PROD_RUNNER_RECOVERY=PASS "$log"
+            grep -Fxq RUNNER_FINAL_STATE=active "$log"
+            grep -Fxq DIRECT_DOCKER_AUTHORITY=false "$log"
+          fi
+          cat "$log"
+
+      - name: Publish bounded recovery result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          RECOVERY_RC: ${{ steps.recovery.outputs.rc }}
+        run: |
+          set -Eeuo pipefail
+          log="$EVIDENCE_DIR/recovery.log"
+          value(){ sed -n "s/^$1=//p" "$log" 2>/dev/null | tail -1; }
+          status=FAIL
+          [[ "${RECOVERY_RC:-missing}" == 0 ]] && [[ "$(value PC_PROD_RUNNER_RECOVERY)" == PASS ]] && status=PASS
+          record="$EVIDENCE_DIR/issue-record.md"
+          {
+            echo '## REG.RU pc-prod runner recovery'
+            echo
+            echo "- result: \`$status\`"
+            echo "- exact main: \`${TARGET_SHA:-unknown}\`"
+            echo "- runner previous state: \`$(value RUNNER_PREVIOUS_STATE || true)\`"
+            echo "- runner final state: \`$(value RUNNER_FINAL_STATE || true)\`"
+            echo "- direct Docker authority: \`$(value DIRECT_DOCKER_AUTHORITY || true)\`"
+            echo "- Docker available KiB: \`$(value DOCKER_AVAILABLE_KIB || true)\`"
+            echo "- containerd available KiB: \`$(value CONTAINERD_AVAILABLE_KIB || true)\`"
+            echo "- 5 GiB hard minimum: \`$(value HEADROOM_5G || true)\`"
+            echo "- 6 GiB target: \`$(value HEADROOM_6G || true)\`"
+            echo "- production application/Docker/data mutation: \`NONE\`"
+            echo "- run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > "$record"
+          gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          cat "$record" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove local SSH key material
+        if: always()
+        run: rm -rf "$HOME/.ssh"
+
+      - name: Enforce recovery result
+        if: always()
+        env:
+          RECOVERY_RC: ${{ steps.recovery.outputs.rc }}
+        run: |
+          set -Eeuo pipefail
+          [[ "${RECOVERY_RC:-missing}" == 0 ]]
+          grep -Fxq PC_PROD_RUNNER_RECOVERY=PASS "$EVIDENCE_DIR/recovery.log"

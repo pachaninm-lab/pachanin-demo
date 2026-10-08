@@ -1,13 +1,17 @@
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { PasswordStaffHome } from '@/components/platform-v7/staff/PasswordStaffHome';
 import { OwnerAccessCenter } from '@/components/platform-v7/staff/OwnerAccessCenter';
 import { StaffOperationalWorkspacesDeferred } from '@/components/platform-v7/staff/StaffOperationalWorkspacesDeferred';
 import { StaffPlatformShell } from '@/components/platform-v7/staff/StaffPlatformShell';
 import { RegistrationReviewQueue } from '@/components/platform-v7/staff/RegistrationReviewQueue';
 import { ACCESS_COOKIE, CSRF_COOKIE } from '@/lib/auth-cookies';
+import { parseStaffCapabilitiesContract, parseStaffHomeContract, type StaffHomeContract } from '@/lib/platform-v7/staff-capabilities';
 import { verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
+import { FIXTURE_AUDIENCE, fixtureTokenIsForService } from '@/lib/platform-v7/fixture-token';
 import { staffAccessTaskCatalog } from '@/lib/platform-v7/staff-access-task-catalog';
+import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
 import { DEFAULT_LOCALE, isAppLocale, type AppLocale } from '@/i18n/locale';
 import { ownerAccessCenterMessages } from '@/i18n/owner-access-center-messages';
 import { staffOperationalWorkspaceMessages } from '@/i18n/staff-operational-workspace-messages';
@@ -38,19 +42,7 @@ function controlledSessionSecret(): string {
   return readEnv('JWT_SECRET') || readEnv('PC_CABINET_SESSION_SECRET');
 }
 
-function resolveApiOrigin(): string {
-  const configured = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').trim();
-  if (!configured) return '';
-  try {
-    const url = new URL(configured);
-    if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') return '';
-    return url.toString().replace(/\/$/, '');
-  } catch {
-    return '';
-  }
-}
-
-const API_ORIGIN = resolveApiOrigin();
+const API_BASE_URL = resolveServerApiBaseUrl();
 
 type VerifiedIdentity = {
   id?: string;
@@ -64,19 +56,17 @@ type VerifiedIdentity = {
   mfaVerified?: boolean;
   mfaVerifiedAt?: string;
   staffRoles?: string[];
+  staffCapabilities?: string[];
+  staffWorkspaces?: string[];
   staffOwner?: boolean;
 };
 
 type Verification =
   | { status: 'verified'; identity: VerifiedIdentity }
+  | { status: 'password'; identity: VerifiedIdentity; home: StaffHomeContract }
   | { status: 'forbidden'; identity: VerifiedIdentity }
   | { status: 'unauthenticated' }
   | { status: 'unavailable' };
-
-type StaffAssignment = {
-  role?: string;
-  status?: string;
-};
 
 async function verifyControlledIdentity(accessToken: string): Promise<Verification | null> {
   if (!controlledFixtureEnabled()) return null;
@@ -85,6 +75,7 @@ async function verifyControlledIdentity(accessToken: string): Promise<Verificati
 
   const claims = await verifyHs256Jwt(accessToken, secret);
   const expiresAt = typeof claims?.exp === 'number' ? claims.exp : 0;
+  if (!fixtureTokenIsForService(claims, FIXTURE_AUDIENCE.staffPage)) return null;
   if (!claims || claims.testAccess !== true) return null;
   if (
     expiresAt <= Math.floor(Date.now() / 1000)
@@ -121,6 +112,7 @@ async function verifyControlledIdentity(accessToken: string): Promise<Verificati
       tenantId: typeof claims.tenantId === 'string'
         ? claims.tenantId
         : 'tenant-canonical-test',
+      staffRoles: ['PLATFORM_OWNER'],
       staffOwner: owner,
     },
   };
@@ -134,9 +126,9 @@ async function resolveLocale(): Promise<AppLocale> {
 async function verifyIdentity(accessToken: string): Promise<Verification> {
   const controlled = await verifyControlledIdentity(accessToken);
   if (controlled) return controlled;
-  if (!API_ORIGIN) return { status: 'unavailable' };
+  if (!API_BASE_URL) return { status: 'unavailable' };
   try {
-    const response = await fetch(`${API_ORIGIN}/auth/me`, {
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
       headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
       cache: 'no-store',
       redirect: 'manual',
@@ -149,30 +141,51 @@ async function verifyIdentity(accessToken: string): Promise<Verification> {
     if (!identity || typeof identity !== 'object' || typeof identity.id !== 'string') {
       return { status: 'unauthenticated' };
     }
-    const assignmentResponse = await fetch(`${API_ORIGIN}/staff/assignments/me`, {
+
+    if (identity.mfaVerified === false) {
+      const homeResponse = await fetch(`${API_BASE_URL}/staff/capabilities/home`, {
+        headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+        cache: 'no-store', redirect: 'manual', signal: AbortSignal.timeout(6_000),
+      });
+      if (homeResponse.status === 401) return { status: 'unauthenticated' };
+      if (homeResponse.status === 403) return { status: 'forbidden', identity };
+      if (!homeResponse.ok) return { status: 'unavailable' };
+      const home = parseStaffHomeContract(await homeResponse.json().catch(() => null));
+      if (!home || home.identity.id !== identity.id || home.authenticationAssurance.mfaVerified !== false) {
+        return { status: 'unavailable' };
+      }
+      return { status: 'password', identity, home };
+    }
+
+    const capabilitiesResponse = await fetch(`${API_BASE_URL}/staff/capabilities/me`, {
       headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
       cache: 'no-store',
       redirect: 'manual',
       signal: AbortSignal.timeout(6_000),
     });
-    if (assignmentResponse.status === 401) return { status: 'unauthenticated' };
-    if (assignmentResponse.status === 403) return { status: 'forbidden', identity };
-    if (!assignmentResponse.ok) return { status: 'unavailable' };
-    const assignments = await assignmentResponse.json().catch(() => null) as StaffAssignment[] | null;
-    if (!Array.isArray(assignments)) return { status: 'unavailable' };
-    const staffRoles = assignments
-      .filter((assignment) => ['ACTIVE', 'ELIGIBLE'].includes(String(assignment?.status || '')))
-      .map((assignment) => String(assignment?.role || ''))
-      .filter(Boolean);
-    if (staffRoles.length === 0 || identity.mfaVerified !== true) {
+    if (capabilitiesResponse.status === 401) return { status: 'unauthenticated' };
+    if (capabilitiesResponse.status === 403) return { status: 'forbidden', identity };
+    if (capabilitiesResponse.status >= 300 && capabilitiesResponse.status < 400) return { status: 'unavailable' };
+    if (!capabilitiesResponse.ok) return { status: 'unavailable' };
+
+    const capabilities = parseStaffCapabilitiesContract(
+      await capabilitiesResponse.json().catch(() => null),
+    );
+    if (!capabilities) return { status: 'unavailable' };
+    if (capabilities.identity.id !== identity.id) {
       return { status: 'forbidden', identity };
     }
+
     return {
       status: 'verified',
       identity: {
         ...identity,
-        staffRoles,
-        staffOwner: staffRoles.includes('PLATFORM_OWNER'),
+        mfaVerified: true,
+        mfaVerifiedAt: capabilities.authenticationAssurance.mfaVerifiedAt ?? undefined,
+        staffRoles: capabilities.roles,
+        staffCapabilities: capabilities.capabilities,
+        staffWorkspaces: capabilities.workspaces,
+        staffOwner: capabilities.roles.includes('PLATFORM_OWNER'),
       },
     };
   } catch {
@@ -197,9 +210,13 @@ export default async function StaffControlCenterPage() {
       ? platformHome(role, verification.identity.isOrgAdmin === true)
       : '/platform-v7/login');
   }
-  if (verification.status === 'verified' && !csrfToken) {
+  if ((verification.status === 'verified' || verification.status === 'password') && !csrfToken) {
     redirect('/platform-v7/staff/prepare');
   }
+
+  if (verification.status === 'password') return <StaffPlatformShell locale={locale}>
+    <PasswordStaffHome locale={locale} home={verification.home} />
+  </StaffPlatformShell>;
 
   return (
     <StaffPlatformShell locale={locale}>
