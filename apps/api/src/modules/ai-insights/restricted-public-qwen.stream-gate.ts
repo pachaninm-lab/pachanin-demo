@@ -591,7 +591,16 @@ function saleCalculationRequested(question: string): boolean {
   // Noun-front amount questions put the sale subject after the auxiliary:
   // "What revenue will selling 100 tonnes generate?". Require an amount
   // predicate, so the same numeric subject in an accounting question stays prose.
-  const nounFrontAmountQuestion = /\bwhat\s+(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b\s+(?:will|would|can|could|may|might|should|does|do|did)\b[^.!?。！？\n]{0,900}\b(?:generat(?:e|es|ed)|yield(?:s|ed)?|bring|brought|produc(?:e|es|ed)|earn(?:s|ed)?|receiv(?:e|es|ed)|get|got|make|made)\b/iu.test(question);
+  const nounFrontClause = question.match(/\b(?:what|how\s+much)\s+(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b\s+(?:is|are|was|were|will|would|can|could|may|might|should|does|do|did|has|have|had)\s+(.+)/iu)?.[1] ?? '';
+  const nounFrontHead = nounFrontClause.split(/\b(?:when|while|if|because|although|unless|provided)\b/iu)[0].trim();
+  const amountVerb = '(?:generat(?:e|es|ed)|yield(?:s|ed)?|bring|brought|produc(?:e|es|ed)|earn(?:s|ed)?|receiv(?:e|es|ed)|get|got|make|made)';
+  // Attach the amount predicate to a subject in the primary question. An
+  // arbitrary later "generates" in an IFRS condition is not that predicate.
+  // Unsupported units/currencies still need clarification, not provider sums.
+  const pricedSubject = `(?:(?:selling|(?:the\\s+)?sale\\s+of)\\s+)?${SALE_NUMBER}\\s+(?:tonnes?|tons?)(?:\\s+at\\s+${SALE_NUMBER}\\s+(?:${SALE_RUB}|[A-Z]{3})\\s*(?:/\\s*(?:t|tonnes?)|per\\s+tonne))?`;
+  const nominalSubject = '(?!(?:be|been|being|have|has|had)\\b)[\\p{L}][\\p{L}-]*(?:\\s+[\\p{L}][\\p{L}-]*){0,2}';
+  const nounFrontAmountQuestion = new RegExp(`^(?:${pricedSubject}|${nominalSubject})\\s+${amountVerb}\\b`, 'iu').test(nounFrontHead)
+    || /^(?:(?:have|has|had)\s+)?(?:(?:be|been|being)\s+)?(?:generated|yielded|brought|produced|earned|received|made)\b/iu.test(nounFrontHead);
   const revenueContinuation = revenueClause
     .replace(/[.!?。！？]+\s*$/u, '')
     .replace(/^(?:(?:is|are|was|were|do|does|did|will|would|can|could|should|may|might|must|has|have|had|be|been|being)(?:\s+|$)){0,3}/iu, '')
