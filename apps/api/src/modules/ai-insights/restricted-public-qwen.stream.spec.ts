@@ -198,6 +198,16 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     "<span title='" + '<x a'.repeat(32) + "safe'>harmless</span>",
     '<span title="' + '<x'.repeat(4096) + 'safe">harmless</span>',
     '<span title="' + '&lt;x'.repeat(16) + 'safe">harmless</span>',
+    '<span title="' + "<x a='".repeat(32) + 'safe">harmless</span>',
+    "<span title='" + '<x a="'.repeat(32) + "safe'>harmless</span>",
+    '<span title="' + "<x a='".repeat(1024) + 'safe">harmless</span>',
+    '<span title="' + '&lt;x a=&#39;'.repeat(32) + 'safe">harmless</span>',
+    '<span title="<x">harmless</span>'.repeat(32),
+    "<span title='<x'>harmless</span>".repeat(32),
+    '<span title="&lt;x">harmless</span>'.repeat(32),
+    '<span title="<x a">harmless</span>'.repeat(32),
+    ('<span title="' + "<x a='".repeat(15) + 'safe">harmless</span>').repeat(32),
+    ("<span title='" + '<x a="'.repeat(15) + "safe'>harmless</span>").repeat(32),
   ].map((content) => [mode, content] as const)))('accepts harmless literal less-than attributes in %s sale output: %s', async (mode, content) => {
     const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
     const raw = request({ locale: 'en', question, originalQuestion: question });
@@ -218,7 +228,11 @@ describe('RestrictedPublicQwenService.generateStream', () => {
   it.each(['stream', 'buffered'].flatMap((mode) => [
     '<think I trans<em title="' + 'x'.repeat(5000) + '">ferred</em> money>',
     '<think Bearer abcdefgh<em title="' + 'x'.repeat(5000) + '">ijklmnop</em>12345>',
-  ].map((content) => [mode, content] as const)))('refuses unquoted nested header signatures in %s sale output: %s', async (mode, content) => {
+    '<think title="I trans<em title="' + 'x'.repeat(5000) + '">ferred</em> money">harmless</think>',
+    '<think title="Bearer abcdefgh<em title="' + 'x'.repeat(5000) + '">ijklmnop</em>12345">harmless</think>',
+    '<think title="<em title="I trans<strong title=\u0027' + 'x'.repeat(5000) + '\u0027>fer</strong>red money">">harmless</think>',
+    '<think title="<em title="Bearer abcdefgh<strong title=\u0027' + 'x'.repeat(5000) + '\u0027>ijklmnop</strong>12345">">harmless</think>',
+  ].map((content) => [mode, content] as const)))('refuses nested header metadata signatures in %s sale output: %s', async (mode, content) => {
     const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
     const raw = request({ locale: 'en', question, originalQuestion: question });
     for (const size of [1, 7, 511, 5000]) {
@@ -291,6 +305,16 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     "What revenue would our farm earn more from selling 100 tonnes?",
     "What revenue would our farm generate surprisingly in 2026?",
     "What revenue will our farm generate annually?",
+    "What revenue will our small family farm generate annually from selling 100 tonnes?",
+    "How much revenue would the newly established family farming cooperative earn from selling 100 tonnes?",
+    "What proceeds could our regional sustainable grain farming enterprise receive regularly after delivery?",
+    "What revenue does the entire small family farming business generate monthly?",
+    "What revenue did our very small family grain farm make last year?",
+    "What proceeds will the farm operated by our family members yield from selling 100 tonnes?",
+    "What revenue will selling 100 tonnes of wheat generate annually?",
+    "What revenue will our family's farm earn annually from selling 100 tonnes?",
+    "What revenue could our family’s farm receive after delivery?",
+    "What proceeds would selling 100 kilograms of wheat yield after delivery?",
     'How much revenue?',
     'What is the revenue?',
     'Сколько выручки?',
@@ -598,6 +622,14 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     "What proceeds would our accounting system produce monthly statements for?",
     "What revenue could that farm get regularly updated information about?",
     "What revenue will the accounting system make incredibly useful reports about?",
+    "What revenue will our small family farm recognize under IFRS when selling 100 tonnes?",
+    "What revenue will the newly established accounting information system generate daily reports about?",
+    "How much revenue should our regional sustainable farming accounting department disclose in statements?",
+    "What proceeds would the accounting department of our extended family farming business produce monthly statements for?",
+    "What revenue will selling 100 tonnes of wheat recognize under IFRS?",
+    "What revenue should our family's farm recognize under accounting standards?",
+    "What revenue will selling 100 tonnes of wheat produce informational reports about?",
+    "What proceeds should our family’s farming business disclose in statements?",
     'What is the revenue definition?',
     'How much would the revenue improve from 100 tonnes of wheat?',
     'How much can I increase revenue from 100 tonnes of wheat?',

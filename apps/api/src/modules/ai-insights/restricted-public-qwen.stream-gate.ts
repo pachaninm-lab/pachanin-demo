@@ -606,7 +606,9 @@ function saleCalculationRequested(question: string): boolean {
   // arbitrary later "generates" in an IFRS condition is not that predicate.
   // Unsupported units/currencies still need clarification, not provider sums.
   const pricedSubject = `(?:(?:selling|(?:the\\s+)?sale\\s+of)\\s+)?${SALE_NUMBER}\\s+(?:tonnes?|tons?)(?:\\s+at\\s+${SALE_NUMBER}\\s+(?:${SALE_RUB}|[A-Z]{3})\\s*(?:/\\s*(?:t|tonnes?)|per\\s+tonne))?`;
-  const nominalSubject = '(?!(?:be|been|being|have|has|had)\\b)[\\p{L}][\\p{L}-]*(?:\\s+[\\p{L}][\\p{L}-]*){0,2}';
+  // Subject recognition also accepts possessives and numeric noun phrases;
+  // it does not validate sale units or amounts, which still require clarification.
+  const nominalSubject = '(?!(?:be|been|being|have|has|had)\\b)[\\p{L}\\p{N}][\\p{L}\\p{N}\\x27’-]*(?:\\s+[\\p{L}\\p{N}][\\p{L}\\p{N}\\x27’-]*)*';
   // A later direct object ("generate reports about revenue") is not the
   // requested revenue amount. Accept the fronted object plus its adjuncts.
   const amountAdverbs = '(?:\\s+(?:(?:very|quite|rather)\\s+)?(?:[A-Za-z][A-Za-z-]*ly|often|sometimes|always|never|already|still|well|fast|hard|more|less|again|once|twice))*';
@@ -1138,11 +1140,24 @@ export class StreamingAnswerGate {
     };
     for (const character of text) {
       let frame = frames[frames.length - 1];
-      if (frame.closingQuote === character && !frame.state.inside) {
-        const violation = scanFragment();
-        if (violation) return { violation, prescription };
-        frames.pop();
-        frame = frames[frames.length - 1];
+      const quotedValueOpener = frame.state.inside && !frame.state.comment && !frame.state.declaration
+        && !frame.state.quote && frame.state.attribute === 'value';
+      // Keep a same-delimiter inner attribute in this frame's rendered view,
+      // rather than recursively allocating another quoted-value context. This
+      // preserves split signatures across long inner metadata without making
+      // literal opposite-quote runs consume the nesting limit.
+      const borrowedDelimiter = frame.closingQuote === character && quotedValueOpener;
+      if ((character === '"' || character === "'") && frame.state.quote !== character && !quotedValueOpener) {
+        // An outer closing delimiter also ends unfinished private inner views.
+        // Otherwise serial benign attributes can accumulate stale contexts.
+        let closingIndex = frames.length - 1;
+        while (closingIndex > 0 && frames[closingIndex].closingQuote !== character) closingIndex -= 1;
+        if (closingIndex > 0) {
+          const violation = scanFragment();
+          if (violation) return { violation, prescription };
+          frames.length = closingIndex;
+          frame = frames[frames.length - 1];
+        }
       }
       fragment += character;
       const previousQuote = frame.state.quote;
@@ -1153,7 +1168,7 @@ export class StreamingAnswerGate {
         const violation = scanFragment();
         if (violation) return { violation, prescription };
       }
-      if (openedQuote) {
+      if (openedQuote && !borrowedDelimiter) {
         // Attribute content gets its own bounded lexical view. Literal <x
         // sequences remain inside that value instead of opening header frames.
         // Nested quoted values still preserve the earlier secret/write checks.
