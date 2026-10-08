@@ -301,11 +301,12 @@ function decodeSaleCharacterReferences(text: string, final: boolean): string {
 
 
 type SaleTagScanState = {
-  inside: boolean; quote: string; prefix: string; comment: boolean; dashes: number;
+  inside: boolean; quote: string; prefix: string; comment: boolean; declaration: boolean;
+  commentPhase: 'start' | 'startDash' | 'data' | 'endDash' | 'end' | 'endBang';
   attribute: 'tag' | 'before' | 'name' | 'afterName' | 'value' | 'unquoted' | 'afterQuoted' | 'selfClosing';
 };
 function newSaleTagScanState(): SaleTagScanState {
-  return { inside: false, quote: '', prefix: '', comment: false, dashes: 0, attribute: 'tag' };
+  return { inside: false, quote: '', prefix: '', comment: false, declaration: false, commentPhase: 'start', attribute: 'tag' };
 }
 
 /** One bounded lexical pass: quoted attribute delimiters and HTML comments
@@ -322,14 +323,49 @@ function saleTextWithoutTagBoundaries(text: string, state: SaleTagScanState, sep
     }
     if (state.prefix.length < 3) {
       state.prefix += character;
-      if (state.prefix === '!--') state.comment = true;
+      if (state.prefix === '!--') { state.comment = true; state.commentPhase = 'start'; continue; }
+      if (state.prefix[0] === '!' || state.prefix[0] === '?') state.declaration = true;
     }
     if (state.comment) {
-      if (character === '-') { state.dashes = Math.min(2, state.dashes + 1); continue; }
-      if (character === '>' && state.dashes === 2) {
+      let closed = false;
+      switch (state.commentPhase) {
+        case 'start':
+          closed = character === '>';
+          state.commentPhase = character === '-' ? 'startDash' : 'data';
+          break;
+        case 'startDash':
+          closed = character === '>';
+          state.commentPhase = character === '-' ? 'end' : 'data';
+          break;
+        case 'data':
+          if (character === '-') state.commentPhase = 'endDash';
+          break;
+        case 'endDash':
+          state.commentPhase = character === '-' ? 'end' : 'data';
+          break;
+        case 'end':
+          closed = character === '>';
+          if (character === '!') state.commentPhase = 'endBang';
+          else if (character !== '-') state.commentPhase = 'data';
+          break;
+        case 'endBang':
+          closed = character === '>';
+          state.commentPhase = character === '-' ? 'endDash' : 'data';
+          break;
+      }
+      if (closed) {
         Object.assign(state, newSaleTagScanState());
         if (separate) result += ' ';
-      } else state.dashes = 0;
+      }
+      continue;
+    }
+    // Non-element declarations cannot borrow attribute quote semantics. This
+    // private signature view conservatively ends them at >; nothing is published.
+    if (state.declaration) {
+      if (character === '>') {
+        Object.assign(state, newSaleTagScanState());
+        if (separate) result += ' ';
+      }
       continue;
     }
     if (state.quote) {
@@ -548,22 +584,34 @@ function saleCalculationRequested(question: string): boolean {
   // regardless of whether the question is imperative or interrogative. A
   // contextual quantity alone does not suppress conceptual model answers.
   const monetaryInputs = /руб|RUB|USD|EUR|GBP|CNY|₽|[$€£]|卢布|美元|欧元|юань|доллар|евро/iu.test(question);
-  const whatBeContinuation = question.match(/^\s*what\b[^.!?。！？\n]{0,80}\b(?:revenue|proceeds)\s+be\s+(.+)/iu)?.[1] ?? '';
-  // Recognize the structure of an amount continuation, not a finite list of
-  // accounting verbs. A conceptual predicate must survive even monetary inputs.
-  const beAmountContinuation = /^(?:from|for|of|after)\b|^(?:(?:about|around|approximately|roughly)\s+)?\d/iu.test(whatBeContinuation);
-  if (whatBeContinuation && !beAmountContinuation && !amountNounQuestion && !intent.test(question)) return false;
-  const whatContinuation = question.match(/^\s*what\b[^.!?。！？\n]{0,40}\b(?:revenue|proceeds)\s+(?:be\s+)?(?:after|for|from|of)\s+(.+?)\s*[?？]?\s*$/iu)?.[1] ?? '';
-  if (whatContinuation && !amountNounQuestion && !intent.test(question) && (
-    /\b(?:definition|meaning|concept|accounting|recognition|principles?|purposes?|diversification|rotation)\b/iu.test(whatContinuation)
-    || !/\d|\b(?:delivery|selling|sale|sell|amount|sum)\b/iu.test(whatContinuation)
+  // Inspect the financial clause independently of its opener (HOW, EXPLAIN,
+  // SHOULD, or an IFRS preamble). Numeric examples do not turn a conceptual
+  // predicate into a requested amount.
+  const revenueClause = question.match(/\b(?:revenue|proceeds)\s+(.+)/iu)?.[1]?.trim() ?? '';
+  const revenueContinuation = revenueClause
+    .replace(/[.!?。！？]+\s*$/u, '')
+    .replace(/^(?:(?:is|are|was|were|do|does|did|will|would|can|could|should|may|might|must|has|have|had|be|been|being)(?:\s+|$)){0,3}/iu, '')
+    .trim();
+  const amountContinuation = !revenueContinuation
+    || /^(?:from|for|of|after)\b|^(?:amount(?:s|ed)?|come|came)\s+to\b|^(?:(?:about|around|approximately|roughly)\s+)?\d/iu.test(revenueContinuation);
+  if (revenueClause && !amountContinuation && !amountNounQuestion && !intent.test(question)) return false;
+  const saleContinuation = revenueContinuation.match(/^(?:after|for|from|of)\s+(.+)/iu)?.[1] ?? '';
+  if (saleContinuation && !amountNounQuestion && !intent.test(question) && (
+    /\b(?:definition|meaning|concept|accounting|recognition|principles?|purposes?|diversification|rotation)\b/iu.test(saleContinuation)
+    || !/\d|\b(?:delivery|selling|sale|sell|amount|sum)\b/iu.test(saleContinuation)
   )) return false;
+  const englishAmountQuestion = amountContinuation
+    && /\b(?:how\s+much(?:\s+(?:is|are|was|were|would|will|could|can|should|do|does|did|has|have|had)(?:\s+(?:be|been))?)?\s+(?:(?:the|my|our)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will|could|can|should)(?:\s+(?:be|been))?)\s+(?:(?:the|my|our)\s+)?|\s+amount\s+of\s+|\s+))(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b/iu.test(question);
+  // A sale-input modifier can intervene before the conceptual predicate:
+  // "How should revenue from ... be recorded?" is still an explanation.
+  if (revenueClause && !englishAmountQuestion && !amountNounQuestion && !intent.test(question)
+    && /\b(?:how(?!\s+much\b)|why|explain|describe|should|when|whether)\b/iu.test(question)) return false;
   // Require a complete amount phrase or a following sale/calculation clause.
   // A shared prefix such as "what is the revenue" is insufficient when followed
   // by "definition" or "recognition principle"; those need accounting answers.
   // Match amount nouns/connectors, not arbitrary intervening conceptual words.
   const chineseAmountQuestion = !chineseConceptQuestion && CHINESE_REVENUE_AMOUNT_QUESTION.test(question);
-  const amountQuestion = chineseSaleAmount || labelQuestion || amountNounQuestion || chineseAmountQuestion
+  const amountQuestion = chineseSaleAmount || labelQuestion || amountNounQuestion || chineseAmountQuestion || englishAmountQuestion
     || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much(?:\s+(?:is|are|was|were|would|will|could|can|should|do|does|did)(?:\s+be)?)?\s+(?:(?:the|my|our)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will|could|can|should)(?:\s+be)?)\s+(?:(?:the|my|our)\s+)?|\s+amount\s+of\s+|\s+))(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does)\b|be\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after)\b))|(?:amount(?:s|ed)?|come|came)\s+to\b))/iu.test(question);
   const strategyQuestion = /стратег|\bstrateg(?:y|ies)\b|策略/iu.test(question);
   const improvementQuestion = /повыс|увелич|улучш|\b(?:increase|improve|enhance|boost|grow|raise)\b|提高|改善|增加/iu.test(question);
