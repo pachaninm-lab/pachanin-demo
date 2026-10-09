@@ -66,7 +66,7 @@ export function isGektaLegalEvidence(value: unknown): value is GektaLegalEvidenc
   const registration = value.sourceSurface === 'GEKTA_REGISTRATION';
   for (const [name, slug, purpose] of [
     ['terms', 'usloviya-ispolzovaniya-gekta', registration ? 'SERVICE_TERMS' : 'TERMS_NOTICE'],
-    ['privacy', 'politika-konfidencialnosti', registration ? 'PERSONAL_DATA' : 'PRIVACY_NOTICE'],
+    ['privacy', registration ? 'politika-obrabotki-personalnyh-dannyh' : 'politika-konfidencialnosti', registration ? 'PERSONAL_DATA' : 'PRIVACY_NOTICE'],
   ]) {
     const doc = value[name];
     if (!keys(doc, ['purpose', 'source', 'version', 'contentHash', 'document']) || doc.purpose !== purpose

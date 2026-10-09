@@ -27,6 +27,7 @@ const PUBLIC_EXACT = new Set([
   '/', '/login', '/register', '/gekta', PRESENTATION_DOWNLOAD_PATH,
   '/legal/usloviya-ispolzovaniya-gekta',
   '/legal/politika-konfidencialnosti',
+  '/legal/politika-obrabotki-personalnyh-dannyh',
 ]);
 const PUBLIC_PREFIX = [
   '/_next/',

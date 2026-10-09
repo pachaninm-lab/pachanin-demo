@@ -23,13 +23,13 @@ const profileHash = legalContentHash({ id: 'test-operator', effectiveFrom: '2026
 const publicDocument = (slug: string) => ({ slug, title: 'Public test terms', description: 'Public document fixture',
   summary: 'Public legal summary', sections: [{ heading: 'Operator', paragraphs: ['Test operator disclosure'] }] });
 const termsDocument = publicDocument('usloviya-ispolzovaniya-gekta');
-const privacyDocument = publicDocument('politika-konfidencialnosti');
+const privacyDocument = publicDocument('politika-obrabotki-personalnyh-dannyh');
 const EVIDENCE: GektaLegalEvidence = {
   schemaVersion: 'gekta.legal-evidence.v1', version: '2026-08-12.2', surfaceLocale: 'en', documentLocale: 'ru',
   sourceSurface: 'GEKTA_REGISTRATION', profile: { id: 'test-operator', effectiveFrom: '2026-08-12', contentHash: profileHash },
   terms: { purpose: 'SERVICE_TERMS', source: '/legal/usloviya-ispolzovaniya-gekta', version: '2026-08-12.2',
     contentHash: renderedLegalDocumentHash('2026-08-12.2', profileHash, termsDocument), document: termsDocument },
-  privacy: { purpose: 'PERSONAL_DATA', source: '/legal/politika-konfidencialnosti', version: '2026-08-12.2',
+  privacy: { purpose: 'PERSONAL_DATA', source: '/legal/politika-obrabotki-personalnyh-dannyh', version: '2026-08-12.2',
     contentHash: renderedLegalDocumentHash('2026-08-12.2', profileHash, privacyDocument), document: privacyDocument },
 };
 const VALID = {
@@ -149,7 +149,7 @@ describe('Регистрация в Гекте не спрашивает орг�
       metadata: expect.objectContaining({
         consent: expect.objectContaining({
           terms: expect.objectContaining({ version: '2026-08-12.2', purpose: 'SERVICE_TERMS', source: '/legal/usloviya-ispolzovaniya-gekta', document: termsDocument }),
-          privacy: expect.objectContaining({ version: '2026-08-12.2', purpose: 'PERSONAL_DATA', source: '/legal/politika-konfidencialnosti', document: privacyDocument }),
+          privacy: expect.objectContaining({ version: '2026-08-12.2', purpose: 'PERSONAL_DATA', source: '/legal/politika-obrabotki-personalnyh-dannyh', document: privacyDocument }),
           surfaceLocale: 'en', documentLocale: 'ru', profile: EVIDENCE.profile,
         }),
         acceptedServiceTerms: true,

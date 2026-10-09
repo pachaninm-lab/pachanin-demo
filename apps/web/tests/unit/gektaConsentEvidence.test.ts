@@ -119,6 +119,13 @@ describe('Gekta displayed legal evidence', () => {
     expect(isGektaLegalEvidence(evidence)).toBe(true);
     expect(evidence).toMatchObject({ version: GEKTA_LEGAL_VERSION, surfaceLocale: locale, documentLocale: 'ru',
       profile: { id: profile.id, effectiveFrom: profile.effectiveFrom, contentHash: legalContentHash(profile) } });
+    expect(evidence.privacy).toMatchObject({ purpose: 'PERSONAL_DATA',
+      source: '/legal/politika-obrabotki-personalnyh-dannyh',
+      document: { slug: 'politika-obrabotki-personalnyh-dannyh' } });
+    const accountDataText = evidence.privacy.document.sections.flatMap(section => section.paragraphs).join('\n');
+    expect(accountDataText).toContain('адрес электронной почты');
+    expect(accountDataText).toContain('номер телефона');
+    expect(accountDataText).toContain('идентификатор аккаунта');
     for (const kind of ['terms', 'privacy'] as const) {
       const expected = renderLegalDocument(getGektaLegalDocument(evidence[kind].document.slug)!, profile);
       expect(evidence[kind].document).toEqual(expected);
@@ -135,7 +142,21 @@ describe('Gekta displayed legal evidence', () => {
     expect(isGektaLegalEvidence(anonymous)).toBe(true);
     expect(anonymous.terms.purpose).toBe('TERMS_NOTICE');
     expect(anonymous.privacy.purpose).toBe('PRIVACY_NOTICE');
+    expect(anonymous.privacy.source).toBe('/legal/politika-konfidencialnosti');
+    expect(anonymous.privacy.document.slug).toBe('politika-konfidencialnosti');
     expect(sealGektaConsentSnapshot(anonymous, TEST_KEY, now)).toBeNull();
+  });
+
+  it('rejects the anonymous document as account-data consent and rejects the account document as an anonymous notice', () => {
+    const registration = currentGektaLegalEvidence('ru', 'GEKTA_REGISTRATION');
+    const anonymous = currentGektaLegalEvidence('ru', 'GEKTA_ANONYMOUS_NOTICE');
+    const oldRegistration = { ...registration, privacy: { ...anonymous.privacy, purpose: 'PERSONAL_DATA' } };
+    expect(isGektaLegalEvidence(oldRegistration)).toBe(false);
+    expect(sealGektaConsentSnapshot(oldRegistration as typeof registration, TEST_KEY, now)).toBeNull();
+    const token = sealGektaConsentSnapshot(registration, TEST_KEY, now);
+    expect(verifyGektaConsentSnapshot(token, oldRegistration, TEST_KEY, now)).toBeNull();
+    const wrongNotice = { ...anonymous, privacy: { ...registration.privacy, purpose: 'PRIVACY_NOTICE' } };
+    expect(isGektaLegalEvidence(wrongNotice)).toBe(false);
   });
 
   it('is stable for object-key order, sensitive to document order/content and operator profile', () => {

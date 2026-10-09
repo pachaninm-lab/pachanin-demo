@@ -11,7 +11,8 @@ export function currentGektaLegalEvidence(locale: GektaLocale, sourceSurface: Ge
   const profileHash = legalContentHash(profile);
   const registration = sourceSurface === 'GEKTA_REGISTRATION';
   const terms = renderLegalDocument(getGektaLegalDocument('usloviya-ispolzovaniya-gekta')!, profile);
-  const privacy = renderLegalDocument(getGektaLegalDocument('politika-konfidencialnosti')!, profile);
+  const privacy = renderLegalDocument(getGektaLegalDocument(registration
+    ? 'politika-obrabotki-personalnyh-dannyh' : 'politika-konfidencialnosti')!, profile);
   return {
     schemaVersion: 'gekta.legal-evidence.v1', version: GEKTA_LEGAL_VERSION,
     surfaceLocale: locale, documentLocale: 'ru', sourceSurface,
