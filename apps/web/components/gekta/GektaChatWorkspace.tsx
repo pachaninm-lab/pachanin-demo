@@ -583,8 +583,9 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
         body: JSON.stringify({ action: 'reserve' }),
       });
       if (!response.ok) return null;
-      const payload = await response.json() as { allowed?: boolean; ticket?: string | null };
+      const payload = await response.json() as { allowed?: boolean; ticket?: string | null; reason?: string };
       applyEntitlement(payload);
+      if (payload.reason === 'consent_required') return null;
       if (!payload.allowed) {
         track('gekta_anonymous_limit_reached', locale);
         track('gekta_registration_gate_view', locale);

@@ -45,7 +45,8 @@ export async function POST(request: Request) {
   const email = String(body.email || '').trim().toLowerCase();
   const locale = SUPPORTED_LOCALES.has(String(body.locale)) ? String(body.locale) : 'ru';
 
-  if (!/^\S+@\S+\.\S+$/.test(email) || email.length > 254) {
+  // Length first: `||` short-circuits, so the pattern only ever sees a bounded string.
+  if (email.length > 254 || !/^\S+@\S+\.\S+$/.test(email)) {
     return json({ accepted: false, code: 'INVALID_EMAIL', correlationId }, 400);
   }
 

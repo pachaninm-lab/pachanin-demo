@@ -1,6 +1,22 @@
 import { readFileSync } from 'node:fs';
+import { NextRequest } from 'next/server';
+import { middleware as publicLocaleMiddleware } from '../../middleware';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { POST as registrationBffPOST } from '@/app/api/auth/register/route';
+import { GET as registrationStatusGET } from '@/app/api/auth/registration/status/route';
+import { POST as registrationResendPOST } from '@/app/api/auth/registration/resend/route';
+import { registrationContextEndpoint, verifiedRegistrationContinuationHref } from '@/lib/platform-v7/public-registration-continuation';
+import { sendTransactionalMail } from '../../lib/server/transactional-mail';
+
+vi.mock('../../lib/server-request-security', () => ({ assertCsrf: () => ({ ok: true }) }));
+vi.mock('../../lib/server/transactional-mail', () => ({ sendTransactionalMail: vi.fn() }));
+import {
+  classifyRegistrationStatusResponse,
+  classifyRegistrationSubmitResponse,
+  parseRegistrationStatusSnapshot,
+  registrationOperationForPayload,
+} from '@/lib/platform-v7/registration-outcome';
 import { createElement, isValidElement, type ReactNode, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { act, cleanup, render, waitFor } from '@testing-library/react';
@@ -130,7 +146,12 @@ describe('platform-v7 canonical public experience',()=>{
   });
 
   it('opens Gekta through the existing public assistant authority without private context',()=>{
-    expect(gektaChatButton).toContain("new CustomEvent('pc:public-assistant-context'");
+    // One open operation that survives a cold first click (assistant chunk not
+    // yet mounted); no hidden-DOM lookup or synthetic click.
+    expect(gektaChatButton).toContain('usePublicGektaEntry()');
+    expect(gektaChatButton).toContain('open({');
+    expect(gektaChatButton).not.toContain('MutationObserver');
+    expect(gektaChatButton).not.toContain('.click()');
     expect(gektaChatButton).toContain("context: 'platform'");
     expect(gektaChatButton).not.toContain('tenantId');
     expect(gektaChatButton).not.toContain('dealId');
@@ -412,7 +433,13 @@ describe('platform-v7 canonical public experience',()=>{
   });
 
   it('keeps the protected Deal on the authoritative execution workspace and governed command boundary',()=>{
-    expect(protectedDealRoute).toContain('<CanonicalDealWorkspace role={role} dealId={id} />');
+    // Locale is presentation context. Both accepted signatures bind the same
+    // canonical role and Deal; no other prop or authority override is admitted.
+    expect(protectedDealRoute).toMatch(/<CanonicalDealWorkspace role=\{role\} dealId=\{id\}(?: locale=\{locale\})? \/>/);
+    if (protectedDealRoute.includes('locale={locale}')) {
+      expect(protectedDealRoute).toContain("import { useLocale } from 'next-intl'");
+      expect(protectedDealRoute).toContain('const locale = useLocale();');
+    }
     expect(cleanDealAlias).toContain('/execution');
     expect(protectedDeal).toContain('/execution-workspace');
     expect(protectedDeal).toContain('/commands/${encodeURIComponent(action.id)}');
@@ -836,6 +863,53 @@ describe('public market identity, context and truthful states', () => {
     expect(miss.querySelector('[data-market-state="noMatch"]')).toBeTruthy();
     expect(miss.querySelector('a')?.getAttribute('href')).toBe('/platform-v7/market?lang=ru');
   });
+  it('binds a published card to its exact detail and application context in all public locales', async () => {
+    const a = lot(A);
+    const b = lot(B, { culture: 'barley' });
+    const filters = publicMarketContext({ q: 'wheat', region: 'Тамбов', grade: '3', sort: 'price-asc' });
+    for (const locale of ['ru', 'en', 'zh'] as const) {
+      publicMarketReadMock.mockResolvedValue(result([a, b]));
+      const results = markup(await CanonicalMarketResults({
+        locale, query: filters.q, filters: { crop: filters.crop, region: filters.region, grade: filters.grade }, sort: filters.sort,
+      }));
+      const cards = [...results.querySelectorAll<HTMLAnchorElement>('.pc-cp-lot-title')];
+      expect(cards).toHaveLength(1);
+      const offerUrl = new URL(cards[0]!.getAttribute('href')!, 'https://example.invalid');
+      expect(offerUrl.pathname).toBe('/platform-v7/market');
+      expect(offerUrl.searchParams.get('lot')).toBe(A);
+      expect(publicMarketContext(Object.fromEntries(offerUrl.searchParams))).toEqual(filters);
+
+      publicMarketReadMock.mockResolvedValue(result([b, a]));
+      const detail = markup(await CanonicalPublicLotView({
+        locale, lotRef: offerUrl.searchParams.get('lot'),
+        context: publicMarketContext(Object.fromEntries(offerUrl.searchParams)),
+      }));
+      expect(detail.querySelector('[data-market-state]')).toBeNull();
+      expect(detail.querySelector('.pc-cp-lot-summary h1')?.textContent).toContain(PUBLIC_CROP_LABELS[locale].wheat);
+      expect(detail.querySelector('.pc-cp-lot-summary h1')?.textContent).not.toContain(PUBLIC_CROP_LABELS[locale].barley);
+      const apply = detail.querySelector<HTMLAnchorElement>('.pc-cp-lot-summary a[href^="/platform-v7/register?"]');
+      expect(apply).toBeTruthy();
+      const application = new URL(apply!.getAttribute('href')!, 'https://example.invalid');
+      const next = publicMarketRegistrationContext(Object.fromEntries(application.searchParams));
+      expect(application.searchParams.get('intent')).toBe('buy');
+      expect(application.searchParams.get('lot')).toBe(A);
+      expect(next).toEqual({ filters, lotRef: A, selectedCrop: 'wheat' });
+      expect(application.searchParams.get('returnTo')).toBe(marketHref(locale, filters));
+
+      for (const items of [[b], [a, { ...a }]]) {
+        publicMarketReadMock.mockResolvedValue(result(items));
+        const absent = markup(await CanonicalPublicLotView({ locale, lotRef: A, context: filters }));
+        expect(absent.querySelector('[data-market-state="notPublished"]')).toBeTruthy();
+        expect(absent.querySelector('.pc-cp-lot-summary, .pc-cp-lot-meta--detail')).toBeNull();
+      }
+      publicMarketReadMock.mockClear();
+      for (const invalid of ['0', '1', [A, A], [A, B], A + '/extra']) {
+        const rejected = markup(await CanonicalPublicLotView({ locale, lotRef: invalid, context: filters }));
+        expect(rejected.querySelector('[data-market-state="invalidLink"]')).toBeTruthy();
+      }
+      expect(publicMarketReadMock).not.toHaveBeenCalled();
+    }
+  });
   it('renders only the requested published offer after reordering and shows missing after removal', async () => {
     const a=lot(A); const b=lot(B,{culture:'barley'});
     for (const items of [[a,b],[b,a],[b]]) {
@@ -861,5 +935,315 @@ describe('public market identity, context and truthful states', () => {
     expect(view.container.querySelector('time')?.dateTime).toBe('2026-09-22T12:00:02Z');
     expect(view.container.querySelector('[data-state]')).toBeNull();
     view.unmount(); expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+
+describe('public registration truthful outcomes', () => {
+  it('preserves the same idempotency key only for the exact unknown payload', () => {
+    let sequence = 0;
+    const makeKey = () => `key-${++sequence}`;
+    const first = registrationOperationForPayload('{"email":"a@example.test"}', null, makeKey);
+    const retry = registrationOperationForPayload('{"email":"a@example.test"}', first, makeKey);
+    const changed = registrationOperationForPayload('{"email":"b@example.test"}', first, makeKey);
+    expect(retry).toBe(first);
+    expect(retry.idempotencyKey).toBe('key-1');
+    expect(changed.idempotencyKey).toBe('key-2');
+  });
+
+  it('classifies accepted, confirmed invalid, unavailable and indeterminate mutation results without inventing success', () => {
+    expect(classifyRegistrationSubmitResponse({ ok: true, status: 202 }, { accepted: true })).toBe('accepted');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 400 }, { accepted: false })).toBe('invalid');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, { accepted: false })).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, { outcome: 'unknown' })).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, { outcome: 'unknown', code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE' })).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, { outcome: 'unknown', code: 'REGISTRATION_DELIVERY_CONTRACT_UNKNOWN' })).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 409 }, { accepted: false })).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 429 }, { accepted: false })).toBe('unavailable');
+    expect(classifyRegistrationSubmitResponse({ ok: true, status: 200 }, {})).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, null)).toBe('unknown');
+  });
+
+  it('accepts business status only when both server status and next action are allowlisted', () => {
+    expect(parseRegistrationStatusSnapshot({
+      ok: true,
+      applicationId: 'APP-1',
+      status: 'ORGANIZATION_VERIFICATION_PENDING',
+      nextAction: 'WAIT_FOR_REVIEW',
+      reason: null,
+    })).toMatchObject({
+      applicationId: 'APP-1',
+      status: 'ORGANIZATION_VERIFICATION_PENDING',
+      nextAction: 'WAIT_FOR_REVIEW',
+    });
+    expect(parseRegistrationStatusSnapshot({ ok: true, status: 'APPROVED', nextAction: 'FORGED_ACTION' })).toBeNull();
+    expect(parseRegistrationStatusSnapshot({ ok: true, status: 'FORGED_STATUS', nextAction: 'WAIT' })).toBeNull();
+    expect(parseRegistrationStatusSnapshot({ ok: true, status: 'APPROVED' })).toBeNull();
+  });
+
+  it('keeps invalid/unavailable transport truth separate from business status', () => {
+    expect(classifyRegistrationStatusResponse({ ok: false, status: 404 }, { ok: false, code: 'REGISTRATION_APPLICATION_NOT_FOUND' })).toEqual({ kind: 'invalid' });
+    expect(classifyRegistrationStatusResponse({ ok: false, status: 503 }, { ok: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE' })).toEqual({ kind: 'unavailable' });
+    expect(classifyRegistrationStatusResponse({ ok: false, status: 429 }, { ok: false, code: 'REGISTRATION_STATUS_RATE_LIMITED' })).toEqual({ kind: 'unavailable' });
+    expect(classifyRegistrationStatusResponse({ ok: false, status: 429 }, { ok: false, code: 'REGISTRATION_APPLICATION_NOT_FOUND' })).toEqual({ kind: 'unavailable' });
+    expect(classifyRegistrationStatusResponse({ ok: true, status: 200 }, { ok: true, status: 'APPROVED' })).toEqual({ kind: 'unavailable' });
+    expect(classifyRegistrationStatusResponse({ ok: true, status: 200 }, {
+      ok: true, status: 'ACTIVATED', nextAction: 'LOGIN',
+    })).toMatchObject({ kind: 'available', status: { status: 'ACTIVATED', nextAction: 'LOGIN' } });
+  });
+
+  it('does not retain the old VERIFY_EMAIL fallback in either public registration component', () => {
+    const publicForm = read('app/platform-v7/register/RegisterFormClientPublic.tsx');
+    const localizedForm = read('app/platform-v7/register/RegisterFormClient.tsx');
+    for (const source of [publicForm, localizedForm]) {
+      expect(source).not.toContain("status?.status || 'EMAIL_VERIFICATION_REQUIRED'");
+      expect(source).not.toContain("status?.nextAction || 'VERIFY_EMAIL'");
+      expect(source).toContain("statusReadState !== 'available'");
+      expect(source).toContain('registrationOperationForPayload(');
+      expect(source).toContain('submitLockRef.current = true');
+    }
+  });
+
+  it('marks only transport loss as an unknown BFF result instead of saying it was rejected', () => {
+    const bff = read('app/api/auth/register/route.ts');
+    expect(bff).toContain("outcome: 'unknown'");
+    expect(bff).toContain("code: 'REGISTRATION_RESULT_UNKNOWN'");
+    expect(bff).toContain("code: 'REGISTRATION_DELIVERY_UNCONFIRMED'");
+    expect(bff).toContain("code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE'");
+    expect(read('app/api/auth/registration/status/route.ts')).toContain("'REGISTRATION_STATUS_RATE_LIMITED'");
+    expect(bff).toContain("if (!apiResponse.ok || payload.accepted !== true)");
+  });
+});
+
+
+describe('post-acceptance registration uncertainty at the actual BFF boundary', () => {
+  const names = ['API_URL', 'REGISTRATION_DELIVERY_KEY', 'RESEND_API_KEY', 'RESEND_FROM_EMAIL'] as const;
+  const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  afterEach(() => {
+    for (const name of names) {
+      if (previous[name] === undefined) delete process.env[name];
+      else process.env[name] = previous[name];
+    }
+    vi.unstubAllGlobals();
+    vi.mocked(sendTransactionalMail).mockReset();
+  });
+
+  it.each([
+    ['unconfirmed mail delivery', {
+      accepted: true, applicationId: 'APP-1', statusToken: 'status-token',
+      emailDelivery: { email: 'fixture@example.test', token: 'verify-token' },
+    }, 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE'],
+  ])('keeps %s UNKNOWN after an upstream accepted registration', async (_, upstream, code) => {
+    process.env.API_URL = 'http://api.example.test';
+    process.env.REGISTRATION_DELIVERY_KEY = 'fixture-delivery-key-0123456789abcdef';
+    process.env.RESEND_API_KEY = 'fixture-mail-key';
+    process.env.RESEND_FROM_EMAIL = 'sender@example.test';
+    const upstreamFetch = vi.fn(async () => Response.json(upstream, { status: 202 }));
+    vi.stubGlobal('fetch', upstreamFetch);
+    vi.mocked(sendTransactionalMail).mockResolvedValue({
+      delivered: false, provider: 'resend', reason: 'unconfirmed',
+    });
+    const key = 'fixed-operation-key-0123456789';
+    const request = new Request('http://localhost:3000/api/auth/register', {
+      method: 'POST',
+      headers: { 'idempotency-key': key, 'content-type': 'application/json' },
+      body: JSON.stringify({ workspace: 'seller', email: 'fixture@example.test', locale: 'ru' }),
+    });
+    const response = await registrationBffPOST(request);
+    const result = await response.json();
+    expect(upstreamFetch).toHaveBeenCalledTimes(1);
+    expect(upstreamFetch.mock.calls[0]?.[1]).toMatchObject({
+      method: 'POST', headers: { 'idempotency-key': key },
+    });
+    expect(response.status).toBe(503);
+    expect(result).toMatchObject({ outcome: 'unknown', code });
+    expect(result).not.toHaveProperty('accepted', false);
+    expect(classifyRegistrationSubmitResponse(response, result)).toBe('unknown');
+    expect(sendTransactionalMail).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves an uncertain mail attempt through the same-key replay and offers resend without claiming delivery', async () => {
+    process.env.API_URL = 'http://api.example.test';
+    process.env.REGISTRATION_DELIVERY_KEY = 'fixture-delivery-key-0123456789abcdef';
+    process.env.RESEND_API_KEY = 'fixture-mail-key';
+    process.env.RESEND_FROM_EMAIL = 'sender@example.test';
+    const upstreamFetch = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        accepted: true, applicationId: 'APP-1', statusToken: 'rst_reg_fixture',
+        emailDelivery: { email: 'fixture@example.test', token: 'verify-token' },
+      }, { status: 202 }))
+      .mockResolvedValueOnce(Response.json({ accepted: true, applicationId: 'APP-1' }, { status: 202 }));
+    vi.stubGlobal('fetch', upstreamFetch);
+    vi.mocked(sendTransactionalMail).mockResolvedValue({
+      delivered: false, provider: 'resend', reason: 'unconfirmed',
+    });
+    const key = 'fixed-operation-key-0123456789';
+    const request = () => new Request('http://localhost:3000/api/auth/register', {
+      method: 'POST',
+      headers: { 'idempotency-key': key, 'content-type': 'application/json' },
+      body: JSON.stringify({ workspace: 'seller', email: 'fixture@example.test', locale: 'ru' }),
+    });
+    const first = await registrationBffPOST(request());
+    expect(first.status).toBe(503);
+    expect(classifyRegistrationSubmitResponse(first, await first.json())).toBe('unknown');
+    const replay = await registrationBffPOST(request());
+    const result = await replay.json();
+    expect(replay.status).toBe(202);
+    expect(result).toMatchObject({ accepted: true, deliveryConfirmed: false, code: 'REGISTRATION_DELIVERY_UNCONFIRMED' });
+    expect(classifyRegistrationSubmitResponse(replay, result)).toBe('accepted');
+    expect(upstreamFetch).toHaveBeenCalledTimes(2);
+    expect(upstreamFetch.mock.calls.map((call) => (call[1] as RequestInit).headers)).toEqual([
+      expect.objectContaining({ 'idempotency-key': key }),
+      expect.objectContaining({ 'idempotency-key': key }),
+    ]);
+    expect(sendTransactionalMail).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves temporary status rate limiting instead of rejecting a valid token', async () => {
+    process.env.API_URL = 'http://api.example.test';
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ statusCode: 429 }, { status: 429 })));
+    const response = await registrationStatusGET(new Request(
+      'http://localhost:3000/api/auth/registration/status?token=rst_reg_fixture',
+    ));
+    const result = await response.json();
+    expect(response.status).toBe(429);
+    expect(result).toMatchObject({ ok: false, code: 'REGISTRATION_STATUS_RATE_LIMITED' });
+    expect(classifyRegistrationStatusResponse(response, result)).toEqual({ kind: 'unavailable' });
+  });
+
+  it.each(['ru', 'en', 'zh'] as const)('%s: carries a real public selection through initial and resend email links', async (locale) => {
+    process.env.API_URL = 'http://api.example.test';
+    process.env.REGISTRATION_DELIVERY_KEY = 'x'.repeat(32);
+    process.env.RESEND_API_KEY = 'fixture-mail-key';
+    process.env.RESEND_FROM_EMAIL = 'sender@example.test';
+    const upstreamFetch = vi.fn(async () => Response.json({
+      accepted: true,
+      applicationId: 'APP-1',
+      statusToken: 'rst_reg_fixture',
+      emailDelivery: { email: 'fixture@example.test', token: 'verify-token' },
+    }, { status: 202 }));
+    vi.stubGlobal('fetch', upstreamFetch);
+    vi.mocked(sendTransactionalMail).mockResolvedValue({
+      delivered: true, provider: 'resend', reason: 'sent',
+    });
+    const lot = 'market-11111111-1111-4111-8111-111111111111';
+    const returnTo = marketHref(locale, { crop: 'wheat', sort: 'price-asc' });
+    const source = new URLSearchParams({
+      intent: 'buy', crop: 'wheat', lot, returnTo,
+      verify: 'spent-secret', role: 'owner', tenantId: 'foreign',
+    });
+    const query = `?${source.toString()}`;
+    for (const action of ['register', 'resend'] as const) {
+      const endpoint = registrationContextEndpoint(action, query, locale);
+      expect(endpoint).not.toMatch(/verify=|tenantId=|role=/);
+      const url = `http://localhost:3000${endpoint}&role=admin&redirect=https%3A%2F%2Fexternal.invalid`;
+      const response = action === 'register'
+        ? await registrationBffPOST(new Request(url, {
+          method: 'POST', headers: { 'idempotency-key': 'fixed-operation-key-0123456789', 'content-type': 'application/json' },
+          body: JSON.stringify({ workspace: 'buyer', email: 'fixture@example.test', locale }),
+        }))
+        : await registrationResendPOST(new Request(url, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email: 'fixture@example.test', locale }),
+        }));
+      expect(response.status).toBe(202);
+      const text = String(vi.mocked(sendTransactionalMail).mock.calls.at(-1)?.[0].text || '');
+      const link = text.match(/https?:\/\/[^\s]+/)?.[0];
+      expect(link).toBeTruthy();
+      const verify = new URL(link!);
+      expect(verify.pathname).toBe('/platform-v7/register');
+      expect(verify.searchParams.get('verify')).toBe('verify-token');
+      expect(verify.searchParams.get('lang')).toBe(locale);
+      expect(verify.searchParams.get('intent')).toBe('buy');
+      expect(verify.searchParams.get('crop')).toBe('wheat');
+      expect(verify.searchParams.get('lot')).toBe(lot);
+      expect(verify.searchParams.get('returnTo')).toBe(returnTo);
+      expect(verify.searchParams.has('role')).toBe(false);
+      expect(verify.searchParams.has('tenantId')).toBe(false);
+      expect(verify.searchParams.has('redirect')).toBe(false);
+      const continuation = new URL(verifiedRegistrationContinuationHref(verify.search, 'rst_reg_fixture', locale), 'https://example.test');
+      expect(continuation.searchParams.has('verify')).toBe(false);
+      expect(continuation.searchParams.get('returnTo')).toBe(returnTo);
+      expect(continuation.searchParams.get('lot')).toBe(lot);
+    }
+    expect(upstreamFetch).toHaveBeenCalledTimes(2);
+    expect(sendTransactionalMail).toHaveBeenCalledTimes(2);
+  });
+});
+
+// Exercise the actual middleware boundary; no mocked locale resolver or cookie jar.
+
+describe('explicit public locale preference on clean navigation', () => {
+  const selectionCookie = 'pc-v7-locale-selection-v1';
+  const request = (path: string, cookies: Record<string, string> = {}) => {
+    const req = new NextRequest(`https://example.test${path}`);
+    for (const [name, value] of Object.entries(cookies)) req.cookies.set(name, value);
+    return req;
+  };
+  const forwardedLocale = (response: Response) => response.headers.get('x-middleware-request-x-pc-locale');
+
+  it.each(['ru', 'en', 'zh'] as const)('%s: remembers a fresh explicit choice through a clean public request', async (locale) => {
+    const selected = await publicLocaleMiddleware(request(`/platform-v7?lang=${locale}`, { 'pc-v7-locale': 'zh' }));
+    expect(selected.status).toBe(200);
+    expect(forwardedLocale(selected)).toBe(locale);
+    expect(selected.cookies.get(selectionCookie)).toMatchObject({ value: locale, httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 31536000 });
+    const clean = await publicLocaleMiddleware(request('/platform-v7', { 'pc-v7-locale': locale, [selectionCookie]: selected.cookies.get(selectionCookie)!.value }));
+    expect(forwardedLocale(clean)).toBe(locale);
+    expect(clean.headers.get('x-pc-locale')).toBe(locale);
+    expect(clean.headers.get('cache-control')).toContain('no-store');
+    expect(clean.headers.get('pragma')).toBe('no-cache');
+    expect(clean.cookies.get(selectionCookie)).toBeUndefined();
+  });
+
+  it.each([
+    {},
+    { 'pc-v7-locale': 'en' },
+    { 'pc-v7-locale': 'zh' },
+    { [selectionCookie]: 'en' },
+    { 'pc-v7-locale': 'en', [selectionCookie]: 'zh' },
+    { 'pc-v7-locale': 'owner', [selectionCookie]: 'owner' },
+    { 'pc-v7-locale': 'zh-CN', [selectionCookie]: 'zh-CN' },
+    { 'pc-v7-locale': 'en', 'pc-v7-locale-selection-v0': 'en' },
+  ])('keeps the canonical RU default for unselected, stale or invalid preference %j', async (cookies) => {
+    const response = await publicLocaleMiddleware(request('/platform-v7', cookies));
+    expect(response.status).toBe(200);
+    expect(forwardedLocale(response)).toBeNull();
+    expect(response.cookies.get(selectionCookie)).toBeUndefined();
+  });
+
+  it.each(['ru', 'en', 'zh'] as const)('%s: explicit query overrides a different remembered public locale', async (locale) => {
+    const oldLocale = locale === 'ru' ? 'en' : 'ru';
+    const response = await publicLocaleMiddleware(request(`/platform-v7/login?lang=${locale}`, { 'pc-v7-locale': oldLocale, [selectionCookie]: oldLocale }));
+    expect(forwardedLocale(response)).toBe(locale);
+    expect(response.cookies.get('pc-v7-locale')).toMatchObject({ value: locale, secure: true, sameSite: 'lax', path: '/', maxAge: 31536000 });
+    expect(response.cookies.get(selectionCookie)?.value).toBe(locale);
+  });
+
+  it('does not promote invalid queries or caller-supplied locale headers into a fresh selection', async () => {
+    const req = request('/platform-v7?lang=invalid', { 'pc-v7-locale': 'zh' });
+    req.headers.set('x-pc-locale', 'zh');
+    const response = await publicLocaleMiddleware(req);
+    expect(forwardedLocale(response)).toBeNull();
+    expect(response.cookies.get(selectionCookie)).toBeUndefined();
+  });
+
+  it('keeps the canonical Gekta path ahead of query and remembered preference', async () => {
+    const response = await publicLocaleMiddleware(request('/gekta/en?lang=zh', { 'pc-v7-locale': 'ru', [selectionCookie]: 'ru' }));
+    expect(forwardedLocale(response)).toBe('en');
+    expect(response.cookies.get(selectionCookie)).toBeUndefined();
+  });
+
+  it('does not restore a public preference in the owner control center', async () => {
+    const response = await publicLocaleMiddleware(request('/platform-v7/staff', { 'pc-v7-locale': 'zh', [selectionCookie]: 'zh' }));
+    expect(forwardedLocale(response)).toBeNull();
+    expect(response.cookies.get(selectionCookie)).toBeUndefined();
+  });
+
+  it('never turns a locale preference into a verified cabinet session', async () => {
+    const response = await publicLocaleMiddleware(request('/platform-v7/seller', { 'pc-v7-locale': 'en', [selectionCookie]: 'en' }));
+    expect(response.status).toBe(307);
+    expect(new URL(response.headers.get('location')!).pathname).toBe('/platform-v7/login');
+    expect(response.headers.get('cache-control')).toContain('no-store');
+    expect(response.cookies.get('pc_v7_cabinet')).toBeUndefined();
   });
 });

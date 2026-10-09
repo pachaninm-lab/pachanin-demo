@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { getLocale } from 'next-intl/server';
+import { cookies } from 'next/headers';
 import { ContactClient } from './ContactClient';
+import { CONTACT_RESULT_COOKIE, contactResultFromRequest } from '@/lib/platform-v7/contact-result-receipt';
 
 type Locale = 'ru' | 'en' | 'zh';
 type ContactSearchParams = Record<string, string | string[] | undefined>;
@@ -39,14 +41,6 @@ function localeOf(params: ContactSearchParams, fallbackLocale: string): Locale {
   return normalizeLocale(fallbackLocale);
 }
 
-function isSent(searchParams: ContactSearchParams) {
-  const raw = first(searchParams.sent);
-  return raw === '1' || raw === 'true';
-}
-
-function hasDeliveryError(searchParams: ContactSearchParams) {
-  return Boolean(first(searchParams.error));
-}
 
 export async function generateMetadata(
   props: { searchParams?: Promise<ContactSearchParams> },
@@ -82,5 +76,11 @@ export default async function PlatformV7ContactPage(
 ) {
   const params = (await props.searchParams) ?? {};
   const locale = localeOf(params, await getLocale());
-  return <ContactClient sent={isSent(params)} failed={hasDeliveryError(params)} locale={locale} />;
+  const cookieStore = await cookies();
+  const result = contactResultFromRequest(
+    params,
+    cookieStore.get(CONTACT_RESULT_COOKIE)?.value,
+    Math.floor(Date.now() / 1000),
+  );
+  return <ContactClient sent={result === 'delivered'} failed={result === 'failed'} locale={locale} />;
 }

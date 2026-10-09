@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2286,
+  "scannedFiles": 2314,
   "operations": [
     {
       "operation": "encryption",
@@ -43,11 +43,11 @@
     {
       "operation": "hash",
       "label": "Hashing",
-      "sites": 85,
+      "sites": 88,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 85,
+          "sites": 88,
           "files": [
             "apps/api/src/common/outbox/outbox.service.ts",
             "apps/api/src/common/security/rate-limit.service.ts",
@@ -75,6 +75,7 @@
             "apps/api/src/modules/documents/prisma-document.repository.ts",
             "apps/api/src/modules/evidence-pack/evidence-pack.service.ts",
             "apps/api/src/modules/exports/exports.service.ts",
+            "apps/api/src/modules/gekta/gekta-workspace.service.ts",
             "apps/api/src/modules/labs/lab-authority.service.ts",
             "apps/api/src/modules/labs/prisma-lab.repository.ts",
             "apps/api/src/modules/logistics/prisma-shipment.repository.ts",
@@ -132,11 +133,11 @@
     {
       "operation": "mac",
       "label": "Message authentication",
-      "sites": 23,
+      "sites": 24,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 22,
+          "sites": 23,
           "files": [
             "apps/api/src/common/security/rate-limit.service.ts",
             "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
@@ -153,6 +154,7 @@
             "apps/api/src/shared/integration-signature.ts",
             "apps/web/lib/gekta/anonymous-session.ts",
             "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/platform-v7/contact-result-receipt.ts",
             "apps/web/lib/platform-v7/marketing-attribution.server.ts",
             "apps/web/lib/platform-v7/tai-internal-stream.ts",
             "apps/web/lib/server-request-actor.ts",
@@ -254,11 +256,11 @@
     {
       "operation": "csprng",
       "label": "Cryptographic randomness",
-      "sites": 30,
+      "sites": 31,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 30,
+          "sites": 31,
           "files": [
             "apps/api/src/common/config/secrets.ts",
             "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
@@ -274,6 +276,7 @@
             "apps/web/app/api/lots/route.ts",
             "apps/web/lib/gekta/anonymous-session.ts",
             "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/platform-v7/contact-result-receipt.ts",
             "apps/web/lib/platform-v7/govIdentityBridge.ts",
             "apps/web/lib/server-request-security.ts",
             "apps/web/lib/server/gekta-mfa-ticket.ts",
@@ -286,11 +289,11 @@
     {
       "operation": "uuid",
       "label": "UUID generation",
-      "sites": 240,
+      "sites": 241,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 240,
+          "sites": 241,
           "files": [
             "apps/api/src/modules/accounting/connection-attestation.repository.ts",
             "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
@@ -402,6 +405,7 @@
             "apps/web/components/platform-v7/OrganizationConnectForm.tsx",
             "apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx",
             "apps/web/components/platform-v7/staff/StaffSupportCaseWorkspace.tsx",
+            "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
             "apps/web/lib/commercial-workspace-repository.ts",
             "apps/web/lib/offline.ts",
             "apps/web/lib/server/transactional-mail.ts",
@@ -414,11 +418,11 @@
     {
       "operation": "weak-prng",
       "label": "Non-cryptographic randomness",
-      "sites": 54,
+      "sites": 53,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 54,
+          "sites": 53,
           "files": [
             "apps/api/src/auth-mail-worker.ts",
             "apps/api/src/common/prisma/rls-transaction.service.ts",
@@ -451,7 +455,6 @@
             "apps/web/components/platform-v7/LabPhotoUpload.tsx",
             "apps/web/components/platform-v7/PriceChart.tsx",
             "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
-            "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
             "apps/web/components/v7r/DemoDealAutoplay.tsx",
             "apps/web/lib/id-factory.ts",
             "apps/web/lib/observability.ts",
@@ -469,11 +472,11 @@
     {
       "operation": "constant-time",
       "label": "Constant-time comparison",
-      "sites": 24,
+      "sites": 25,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 24,
+          "sites": 25,
           "files": [
             "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
             "apps/api/src/modules/auth/auth-crypto.ts",
@@ -495,6 +498,7 @@
             "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
             "apps/web/lib/gekta/anonymous-session.ts",
             "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/platform-v7/contact-result-receipt.ts",
             "apps/web/lib/platform-v7/marketing-attribution.server.ts",
             "apps/web/lib/server-request-actor.ts",
             "apps/web/lib/server-request-security.ts",
@@ -506,20 +510,21 @@
     {
       "operation": "webcrypto",
       "label": "WebCrypto operations",
-      "sites": 5,
+      "sites": 6,
       "algorithms": [
+        {
+          "algorithm": "digest",
+          "sites": 2,
+          "files": [
+            "apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx",
+            "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx"
+          ]
+        },
         {
           "algorithm": "importkey",
           "sites": 2,
           "files": [
             "apps/web/lib/platform-v7/verified-session.ts"
-          ]
-        },
-        {
-          "algorithm": "digest",
-          "sites": 1,
-          "files": [
-            "apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx"
           ]
         },
         {
@@ -596,6 +601,13 @@
       "kind": "secret",
       "files": [
         "apps/api/src/modules/settlement-engine/bank-key-registry.service.ts"
+      ]
+    },
+    {
+      "name": "CONTACT_RESULT_HMAC_SECRET",
+      "kind": "secret",
+      "files": [
+        "apps/web/lib/platform-v7/contact-result-receipt.ts"
       ]
     },
     {

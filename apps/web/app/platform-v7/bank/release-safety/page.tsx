@@ -74,9 +74,9 @@ type SelectedCopy = {
 const COPY: Record<Locale, ReleaseCopy> = {
   ru: {
     metadataTitle: 'Проверка выплаты',
-    metadataDescription: 'Серверно подтверждённый вход в проверку условий выплаты по конкретной Сделке без клиентского выпуска денег.',
+    metadataDescription: 'Серверно подтверждённый вход в проверку условий выплаты по конкретной Сделке без изменения денежного статуса в браузере.',
     eyebrow: 'Выплата · основание · внешний банковский callback',
-    title: 'Проверка выплаты не является кнопкой выпуска денег',
+    title: 'Проверка условий выплаты без перечисления средств в браузере',
     description: 'Выбери серверно доступную Сделку. Backend проверяет резерв, сумму, удержания, спор, документы, ФГИС/СДИЗ, транспорт, приёмку, качество и ручные остановки до создания запроса банку.',
     status: 'release подтверждает только банк',
     priorityTitle: 'Открой Сделку и проверь её фактические блокеры',
@@ -94,7 +94,7 @@ const COPY: Record<Locale, ReleaseCopy> = {
     evidenceValue: 'полный evidence pack',
     evidenceHint: 'документы, приёмка, качество, транспорт и отсутствие открытого спора',
     requestLabel: 'Release request',
-    requestValue: 'идемпотентная команда',
+    requestValue: 'один внутренний запрос на операцию',
     requestHint: 'создаёт outbox-запись, но не меняет деньги на RELEASED',
     callbackLabel: 'Финальное подтверждение',
     callbackValue: 'verified bank callback',
@@ -105,10 +105,10 @@ const COPY: Record<Locale, ReleaseCopy> = {
     labels: { money: 'Сумма', blocker: 'Блокер', owner: 'Ответственный', result: 'Цепочка результата', nextAction: 'Следующее безопасное действие', prioritySection: 'Главная задача проверки выплаты', factsSection: 'Неизменяемые границы выплаты' },
   },
   en: {
-    metadataTitle: 'Payout readiness', metadataDescription: 'Server-authorized access to payout-condition checks for a specific Deal without client-side fund release.', eyebrow: 'Payout · basis · external bank callback', title: 'Payout readiness is not a release button', description: 'Select a server-accessible Deal. The backend checks reserve, amount, holds, dispute, documents, regulatory status, transport, acceptance, quality and manual stops before creating a bank request.', status: 'release is confirmed by the bank only', priorityTitle: 'Open a Deal and inspect its actual blockers', priorityDescription: 'A global screen must not calculate readiness from fixtures. The decision uses only the current server state of a specific Deal and the participant’s authority.', amount: 'determined by the server inside the Deal', blocker: 'readiness is unconfirmed without a selected Deal', owner: 'participants close conditions; the bank confirms the operation', result: 'release request → callback → reconciliation → audit', registryAction: 'Select a Deal', bankAction: 'Return to bank workspace', reserveLabel: 'Reserve', reserveValue: 'must be confirmed', reserveHint: 'a reserve request does not by itself enable payout', evidenceLabel: 'Basis', evidenceValue: 'complete evidence pack', evidenceHint: 'documents, acceptance, quality, transport and no open dispute', requestLabel: 'Release request', requestValue: 'idempotent command', requestHint: 'creates an outbox record but does not set money to RELEASED', callbackLabel: 'Final confirmation', callbackValue: 'verified bank callback', callbackHint: 'signature, event ID, operation ID, replay protection and reconciliation', boundary: 'The platform cannot manually assign RESERVED or RELEASED. Even when all conditions are closed, it only creates a request. Money state changes after a verified bank callback; an error, conflict or mismatch routes the operation to manual review.', noticeTitle: 'Safe verification sequence', noticeBody: 'Select a Deal below. Its workspace shows the real next action and blockers from the server. Close the mandatory conditions, then an authorized money role with current MFA may send a release request. Until the bank callback arrives, the funds remain unconfirmed.', labels: { money: 'Amount', blocker: 'Blocker', owner: 'Owner', result: 'Result chain', nextAction: 'Next safe action', prioritySection: 'Primary payout-readiness task', factsSection: 'Non-negotiable payout boundaries' },
+    metadataTitle: 'Payout readiness', metadataDescription: 'Server-authorized access to payout-condition checks for a specific Deal without client-side fund release.', eyebrow: 'Payout · basis · external bank callback', title: 'Payout readiness is not a release button', description: 'Select a server-accessible Deal. The backend checks reserve, amount, holds, dispute, documents, regulatory status, transport, acceptance, quality and manual stops before creating a bank request.', status: 'release is confirmed by the bank only', priorityTitle: 'Open a Deal and inspect its actual blockers', priorityDescription: 'A global screen must not calculate readiness from fixtures. The decision uses only the current server state of a specific Deal and the participant’s authority.', amount: 'determined by the server inside the Deal', blocker: 'readiness is unconfirmed without a selected Deal', owner: 'participants close conditions; the bank confirms the operation', result: 'release request → callback → reconciliation → audit', registryAction: 'Select a Deal', bankAction: 'Return to bank workspace', reserveLabel: 'Reserve', reserveValue: 'must be confirmed', reserveHint: 'a reserve request does not by itself enable payout', evidenceLabel: 'Basis', evidenceValue: 'complete evidence pack', evidenceHint: 'documents, acceptance, quality, transport and no open dispute', requestLabel: 'Release request', requestValue: 'one internal request per operation', requestHint: 'creates an outbox record but does not set money to RELEASED', callbackLabel: 'Final confirmation', callbackValue: 'verified bank callback', callbackHint: 'signature, event ID, operation ID, replay protection and reconciliation', boundary: 'The platform cannot manually assign RESERVED or RELEASED. Even when all conditions are closed, it only creates a request. Money state changes after a verified bank callback; an error, conflict or mismatch routes the operation to manual review.', noticeTitle: 'Safe verification sequence', noticeBody: 'Select a Deal below. Its workspace shows the real next action and blockers from the server. Close the mandatory conditions, then an authorized money role with current MFA may send a release request. Until the bank callback arrives, the funds remain unconfirmed.', labels: { money: 'Amount', blocker: 'Blocker', owner: 'Owner', result: 'Result chain', nextAction: 'Next safe action', prioritySection: 'Primary payout-readiness task', factsSection: 'Non-negotiable payout boundaries' },
   },
   zh: {
-    metadataTitle: '付款就绪检查', metadataDescription: '进入具体交易的付款条件检查，访问权限由服务器确认，客户端不能放款。', eyebrow: '付款 · 依据 · 外部银行回调', title: '付款就绪检查不是放款按钮', description: '请选择服务器确认可访问的交易。Backend 会在创建银行申请前检查预留、金额、冻结、争议、文件、监管状态、运输、验收、质量和人工停止项。', status: '只有银行可以确认付款', priorityTitle: '打开交易并检查实际阻塞项', priorityDescription: '全局页面不得根据 fixture 数据计算付款就绪状态。判断只能基于具体交易的当前服务器状态和参与方权限。', amount: '由服务器在具体交易中确定', blocker: '未选择交易时，付款就绪状态无法确认', owner: '参与方关闭条件，银行确认操作', result: '付款申请 → 回调 → 对账 → 审计', registryAction: '选择交易', bankAction: '返回银行工作区', reserveLabel: '资金预留', reserveValue: '必须已确认', reserveHint: '预留申请本身不能开启付款', evidenceLabel: '付款依据', evidenceValue: '完整证据包', evidenceHint: '文件、验收、质量、运输以及不存在未结争议', requestLabel: '付款申请', requestValue: '幂等命令', requestHint: '创建 outbox 记录，但不会把资金状态设为 RELEASED', callbackLabel: '最终确认', callbackValue: '经过验证的银行回调', callbackHint: '签名、事件 ID、操作 ID、防重放和后续对账', boundary: '平台不能手动设置 RESERVED 或 RELEASED。即使所有条件已关闭，平台也只能创建申请。只有经过验证的银行回调才能改变资金状态；错误、冲突或不一致会转入人工复核。', noticeTitle: '安全检查顺序', noticeBody: '请在下方选择交易。交易工作区会显示服务器返回的实际下一步和阻塞项。关闭必备条件后，具有当前 MFA 的授权资金角色可以发送付款申请。在银行回调到达之前，资金仍视为未确认。', labels: { money: '金额', blocker: '阻塞项', owner: '负责人', result: '结果链', nextAction: '下一项安全操作', prioritySection: '主要付款检查任务', factsSection: '不可绕过的付款边界' },
+    metadataTitle: '付款就绪检查', metadataDescription: '进入具体交易的付款条件检查，访问权限由服务器确认，客户端不能放款。', eyebrow: '付款 · 依据 · 外部银行回调', title: '付款就绪检查不是放款按钮', description: '请选择服务器确认可访问的交易。Backend 会在创建银行申请前检查预留、金额、冻结、争议、文件、监管状态、运输、验收、质量和人工停止项。', status: '只有银行可以确认付款', priorityTitle: '打开交易并检查实际阻塞项', priorityDescription: '全局页面不得根据 fixture 数据计算付款就绪状态。判断只能基于具体交易的当前服务器状态和参与方权限。', amount: '由服务器在具体交易中确定', blocker: '未选择交易时，付款就绪状态无法确认', owner: '参与方关闭条件，银行确认操作', result: '付款申请 → 回调 → 对账 → 审计', registryAction: '选择交易', bankAction: '返回银行工作区', reserveLabel: '资金预留', reserveValue: '必须已确认', reserveHint: '预留申请本身不能开启付款', evidenceLabel: '付款依据', evidenceValue: '完整证据包', evidenceHint: '文件、验收、质量、运输以及不存在未结争议', requestLabel: '付款申请', requestValue: '每笔操作一条内部申请', requestHint: '创建 outbox 记录，但不会把资金状态设为 RELEASED', callbackLabel: '最终确认', callbackValue: '经过验证的银行回调', callbackHint: '签名、事件 ID、操作 ID、防重放和后续对账', boundary: '平台不能手动设置 RESERVED 或 RELEASED。即使所有条件已关闭，平台也只能创建申请。只有经过验证的银行回调才能改变资金状态；错误、冲突或不一致会转入人工复核。', noticeTitle: '安全检查顺序', noticeBody: '请在下方选择交易。交易工作区会显示服务器返回的实际下一步和阻塞项。关闭必备条件后，具有当前 MFA 的授权资金角色可以发送付款申请。在银行回调到达之前，资金仍视为未确认。', labels: { money: '金额', blocker: '阻塞项', owner: '负责人', result: '结果链', nextAction: '下一项安全操作', prioritySection: '主要付款检查任务', factsSection: '不可绕过的付款边界' },
   },
 };
 
@@ -178,6 +178,154 @@ function renderRegistry(locale: Locale) {
   );
 }
 
+type ReleaseReasonCopy = {
+  unknownBlocker: string;
+  unknownWarning: string;
+  document: string;
+  reasons: Record<string, string>;
+  documentTypes: Record<string, string>;
+  documentChecks: Record<string, string>;
+};
+
+const RELEASE_REASON_COPY: Record<Locale, ReleaseReasonCopy> = {
+  "ru": {
+    "unknownBlocker": "Дополнительное условие выплаты требует проверки в Сделке.",
+    "unknownWarning": "Дополнительные сведения нужно проверить в Сделке.",
+    "document": "Документ",
+    "reasons": {
+      "ACCEPTANCE_NOT_READY": "Приёмка ещё не подтверждена.",
+      "PAYMENT_NOT_PERSISTED": "Платёжное обязательство не зафиксировано.",
+      "PAYMENT_AMOUNT_MISMATCH": "Сумма платёжного обязательства расходится с суммой Сделки.",
+      "RESERVE_NOT_CONFIRMED": "Резерв средств не подтверждён.",
+      "OPEN_DISPUTE": "По Сделке есть открытый спор.",
+      "ACTIVE_MONEY_HOLD": "На средства действует удержание.",
+      "PAYMENT_CALLBACK_REQUIRES_MANUAL_REVIEW": "Подтверждение банка требует ручной сверки.",
+      "RELEASE_OPERATION_REQUIRES_MANUAL_REVIEW": "Операция выплаты требует ручной сверки.",
+      "RELEASE_OUTBOX_REQUIRES_MANUAL_REVIEW": "Запрос выплаты требует ручной сверки.",
+      "BANK_OPERATION_CURRENCY_REQUIRES_MANUAL_REVIEW": "Валюта банковской операции расходится с валютой Сделки; требуется ручная сверка.",
+      "BANK_OPERATION_AMOUNT_REQUIRES_MANUAL_REVIEW": "Сумма банковской операции расходится с суммой Сделки; требуется ручная сверка.",
+      "RELEASE_STATE_CONTRADICTION": "Сведения о выплате противоречат друг другу; требуется ручная сверка.",
+      "RELEASE_REQUEST_NOT_PERSISTED": "Запрос выплаты не зафиксирован.",
+      "DEAL_NOT_AT_RELEASE_STAGE": "Сделка ещё не на этапе выплаты.",
+      "RECONCILIATION_RESULT_NOT_EXPOSED_IN_DEAL_WORKSPACE": "Результат банковской сверки пока недоступен.",
+      "VIEWER_CANNOT_REQUEST_RELEASE": "Для запроса выплаты нужна уполномоченная денежная роль."
+    },
+    "documentTypes": {
+      "CONTRACT": "Договор",
+      "TTN": "Товарно-транспортная накладная",
+      "WEIGHING_ACT": "Акт взвешивания",
+      "LAB_PROTOCOL": "Лабораторный протокол",
+      "ACCEPTANCE_ACT": "Акт приёмки"
+    },
+    "documentChecks": {
+      "MISSING": "документ не представлен.",
+      "DUPLICATE_LATEST_VERSION": "есть несколько текущих версий; требуется сверка.",
+      "STATUS_NOT_SIGNED": "подписание не подтверждено.",
+      "HASH_MISSING": "нет подтверждения целостности документа.",
+      "STORAGE_MISSING": "файл не представлен в доказательствах Сделки.",
+      "NOT_IMMUTABLE": "версия документа не зафиксирована.",
+      "SIGNED_AT_MISSING": "время подписания не подтверждено.",
+      "SIGNATORIES_INVALID": "участники подписания не подтверждены.",
+      "BANK_NOT_ACCEPTED": "принятие документа банком не подтверждено."
+    }
+  },
+  "en": {
+    "unknownBlocker": "An additional payout condition needs checking in the Deal.",
+    "unknownWarning": "Additional information needs checking in the Deal.",
+    "document": "Document",
+    "reasons": {
+      "ACCEPTANCE_NOT_READY": "Acceptance is not yet confirmed.",
+      "PAYMENT_NOT_PERSISTED": "The payment obligation is not recorded.",
+      "PAYMENT_AMOUNT_MISMATCH": "The payment obligation amount differs from the Deal amount.",
+      "RESERVE_NOT_CONFIRMED": "The funds reserve is unconfirmed.",
+      "OPEN_DISPUTE": "The Deal has an open dispute.",
+      "ACTIVE_MONEY_HOLD": "A hold applies to the funds.",
+      "PAYMENT_CALLBACK_REQUIRES_MANUAL_REVIEW": "Bank confirmation requires manual reconciliation.",
+      "RELEASE_OPERATION_REQUIRES_MANUAL_REVIEW": "The payout operation requires manual reconciliation.",
+      "RELEASE_OUTBOX_REQUIRES_MANUAL_REVIEW": "The payout request requires manual reconciliation.",
+      "BANK_OPERATION_CURRENCY_REQUIRES_MANUAL_REVIEW": "The bank operation currency differs from the Deal currency; manual reconciliation is required.",
+      "BANK_OPERATION_AMOUNT_REQUIRES_MANUAL_REVIEW": "The bank operation amount differs from the Deal amount; manual reconciliation is required.",
+      "RELEASE_STATE_CONTRADICTION": "Payout records contradict each other; manual reconciliation is required.",
+      "RELEASE_REQUEST_NOT_PERSISTED": "The payout request is not recorded.",
+      "DEAL_NOT_AT_RELEASE_STAGE": "The Deal has not reached the payout stage.",
+      "RECONCILIATION_RESULT_NOT_EXPOSED_IN_DEAL_WORKSPACE": "The bank reconciliation result is not yet available.",
+      "VIEWER_CANNOT_REQUEST_RELEASE": "An authorized money role is required to request payout."
+    },
+    "documentTypes": {
+      "CONTRACT": "Contract",
+      "TTN": "Consignment note",
+      "WEIGHING_ACT": "Weighing record",
+      "LAB_PROTOCOL": "Laboratory report",
+      "ACCEPTANCE_ACT": "Acceptance record"
+    },
+    "documentChecks": {
+      "MISSING": "the document is not provided.",
+      "DUPLICATE_LATEST_VERSION": "several current versions exist; reconciliation is required.",
+      "STATUS_NOT_SIGNED": "signing is not confirmed.",
+      "HASH_MISSING": "document integrity is not attested.",
+      "STORAGE_MISSING": "the file is not provided in the Deal evidence.",
+      "NOT_IMMUTABLE": "the document version is not fixed.",
+      "SIGNED_AT_MISSING": "the signing time is not confirmed.",
+      "SIGNATORIES_INVALID": "the signatories are not confirmed.",
+      "BANK_NOT_ACCEPTED": "bank acceptance of the document is not confirmed."
+    }
+  },
+  "zh": {
+    "unknownBlocker": "另有付款条件需要在交易中核查。",
+    "unknownWarning": "另有信息需要在交易中核查。",
+    "document": "文件",
+    "reasons": {
+      "ACCEPTANCE_NOT_READY": "验收尚未确认。",
+      "PAYMENT_NOT_PERSISTED": "付款义务尚未记录。",
+      "PAYMENT_AMOUNT_MISMATCH": "付款义务金额与交易金额不一致。",
+      "RESERVE_NOT_CONFIRMED": "资金预留尚未确认。",
+      "OPEN_DISPUTE": "该交易存在未结争议。",
+      "ACTIVE_MONEY_HOLD": "资金存在冻结或扣留。",
+      "PAYMENT_CALLBACK_REQUIRES_MANUAL_REVIEW": "银行确认需要人工对账。",
+      "RELEASE_OPERATION_REQUIRES_MANUAL_REVIEW": "付款操作需要人工对账。",
+      "RELEASE_OUTBOX_REQUIRES_MANUAL_REVIEW": "付款申请需要人工对账。",
+      "BANK_OPERATION_CURRENCY_REQUIRES_MANUAL_REVIEW": "银行操作币种与交易币种不一致，需要人工对账。",
+      "BANK_OPERATION_AMOUNT_REQUIRES_MANUAL_REVIEW": "银行操作金额与交易金额不一致，需要人工对账。",
+      "RELEASE_STATE_CONTRADICTION": "付款记录相互矛盾，需要人工对账。",
+      "RELEASE_REQUEST_NOT_PERSISTED": "付款申请尚未记录。",
+      "DEAL_NOT_AT_RELEASE_STAGE": "交易尚未进入付款阶段。",
+      "RECONCILIATION_RESULT_NOT_EXPOSED_IN_DEAL_WORKSPACE": "银行对账结果暂不可用。",
+      "VIEWER_CANNOT_REQUEST_RELEASE": "申请付款需要具有资金操作权限的角色。"
+    },
+    "documentTypes": {
+      "CONTRACT": "合同",
+      "TTN": "货物运输单",
+      "WEIGHING_ACT": "称重记录",
+      "LAB_PROTOCOL": "实验室报告",
+      "ACCEPTANCE_ACT": "验收记录"
+    },
+    "documentChecks": {
+      "MISSING": "尚未提供文件。",
+      "DUPLICATE_LATEST_VERSION": "存在多个当前版本，需要核查。",
+      "STATUS_NOT_SIGNED": "签署尚未确认。",
+      "HASH_MISSING": "文件完整性尚未得到证明。",
+      "STORAGE_MISSING": "交易证据中未提供该文件。",
+      "NOT_IMMUTABLE": "文件版本尚未固定。",
+      "SIGNED_AT_MISSING": "签署时间尚未确认。",
+      "SIGNATORIES_INVALID": "签署方尚未确认。",
+      "BANK_NOT_ACCEPTED": "银行对该文件的接受尚未确认。"
+    }
+  }
+};
+
+function releaseReason(locale: Locale, reason: string, warning = false): string {
+  const copy = RELEASE_REASON_COPY[locale];
+  if (Object.hasOwn(copy.reasons, reason)) return copy.reasons[reason];
+  const document = /^DOCUMENT:([^:]+):([^:]+)$/.exec(reason);
+  if (document) {
+    const name = Object.hasOwn(copy.documentTypes, document[1]) ? copy.documentTypes[document[1]] : copy.document;
+    const check = Object.hasOwn(copy.documentChecks, document[2]) ? copy.documentChecks[document[2]] : copy.unknownBlocker;
+    return `${name}: ${check}`;
+  }
+  return warning ? copy.unknownWarning : copy.unknownBlocker;
+}
+
+
 function renderSelected(projection: BankReleaseProjection, locale: Locale) {
   const common = COPY[locale];
   const copy = SELECTED_COPY[locale];
@@ -185,8 +333,8 @@ function renderSelected(projection: BankReleaseProjection, locale: Locale) {
   const context = `dealId=${encodeURIComponent(projection.dealId)}&shipmentId=${encodeURIComponent(projection.shipmentId)}`;
   const dealHref = `/platform-v7/deals/${encodeURIComponent(projection.dealId)}/clean`;
   const documentsHref = `/platform-v7/deal-documents-basis?${context}`;
-  const blockers = projection.blockers.join(' · ');
-  const warningText = projection.warnings.join(' · ');
+  const blockers = projection.blockers.map((reason) => releaseReason(locale, reason)).join(' · ');
+  const warningText = projection.warnings.map((reason) => releaseReason(locale, reason, true)).join(' · ');
   const statusTone = projection.state === 'released' || projection.state === 'ready_to_request' ? 'success' : projection.state === 'awaiting_bank' ? 'information' : projection.state === 'manual_review' ? 'critical' : 'warning';
 
   return (

@@ -110,8 +110,11 @@ export type NextActionCardProps = React.HTMLAttributes<HTMLElement> & {
   icon?: React.ReactNode;
   blocked?: boolean;
   impact?: string;
+  impactLabel?: string;
   owner?: string;
+  ownerLabel?: string;
   deadline?: string;
+  deadlineLabel?: string;
   actions?: React.ReactNode;
 };
 
@@ -122,17 +125,20 @@ export function NextActionCard({
   icon,
   blocked = false,
   impact,
+  impactLabel = 'Влияние',
   owner,
+  ownerLabel = 'Ответственный',
   deadline,
+  deadlineLabel = 'Срок',
   actions,
   className,
   ...props
 }: NextActionCardProps) {
   const meta = [
-    impact ? { label: 'Влияние', value: impact } : null,
-    owner ? { label: 'Ответственный', value: owner } : null,
-    deadline ? { label: 'Срок', value: deadline } : null,
-  ].filter((item): item is { label: string; value: string } => Boolean(item));
+    impact ? { kind: 'impact', label: impactLabel, value: impact } : null,
+    owner ? { kind: 'owner', label: ownerLabel, value: owner } : null,
+    deadline ? { kind: 'deadline', label: deadlineLabel, value: deadline } : null,
+  ].filter((item): item is { kind: string; label: string; value: string } => Boolean(item));
 
   return (
     <section
@@ -152,7 +158,7 @@ export function NextActionCard({
       {meta.length > 0 ? (
         <dl className={styles.nextActionMeta}>
           {meta.map((item) => (
-            <div key={item.label} className={styles.nextActionMetaItem}>
+            <div key={item.kind} className={styles.nextActionMetaItem}>
               <dt>{item.label}</dt>
               <dd>{item.value}</dd>
             </div>

@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { appendPublicRegistrationContext } from '@/lib/platform-v7/public-registration-continuation';
 import { sendTransactionalMail } from '../../../../../lib/server/transactional-mail';
 import { assertCsrf } from '../../../../../lib/server-request-security';
 
@@ -38,7 +39,8 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   const email = String(body.email || '').trim().toLowerCase();
   const locale = (body.locale === 'en' || body.locale === 'zh' ? body.locale : 'ru') as Locale;
-  if (!/^\S+@\S+\.\S+$/.test(email) || email.length > 254) {
+  // Length first: `||` short-circuits, so the pattern only ever sees a bounded string.
+  if (email.length > 254 || !/^\S+@\S+\.\S+$/.test(email)) {
     return json({ accepted: false, code: 'INVALID_EMAIL', correlationId }, 400);
   }
   const upstream = String(process.env.API_URL || '').trim().replace(/\/$/, '');
@@ -71,6 +73,7 @@ export async function POST(request: Request) {
     const verifyUrl = new URL('/platform-v7/register', origin);
     verifyUrl.searchParams.set('verify', delivery.token);
     verifyUrl.searchParams.set('lang', locale);
+    appendPublicRegistrationContext(verifyUrl, new URL(request.url).search, locale);
     const copy = COPY[locale];
     const result = await sendTransactionalMail({
       to: delivery.email,

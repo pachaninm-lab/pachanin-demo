@@ -1,6 +1,9 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Request } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { loginAs, type CabinetRole } from './support/acceptance-login';
+import { randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
+import { ACCEPTANCE_PASSWORD, ACCEPTANCE_TOTP_SECRET, acceptanceEmail, loginAs, totp, type CabinetRole } from './support/acceptance-login';
 
 
 const AUTHORITY_AHASH: Record<string,{hash:string;maxDistance:number}> = {
@@ -168,7 +171,7 @@ test.describe('canonical visual authority evidence', () => {
   const responsiveWidths = [320, 375, 390, 768, 1280, 1440] as const;
   for (const width of responsiveWidths) {
     test(`responsive contract ${width}px`, async ({ page, baseURL }) => {
-      const height = width <= 390 ? 844 : width <= 768 ? 1024 : 900;
+      const height = width === 320 ? 700 : width <= 390 ? 844 : width <= 768 ? 1024 : 900;
       await page.setViewportSize({ width, height });
       for (const route of [
         '/platform-v7?lang=ru',
@@ -181,6 +184,35 @@ test.describe('canonical visual authority evidence', () => {
         const response = await page.goto(route, { waitUntil: 'domcontentloaded' });
         expect(response?.status(), `${route} should return 200 at ${width}px`).toBe(200);
         await expectPublicRoute(page, route, baseURL, targets.find((target) => target.path === route)?.ready);
+        if (width === 320 && route === '/platform-v7?lang=ru') {
+          await page.evaluate(() => document.fonts.ready);
+          const heading = page.locator('#pc-cp-home-title');
+          await expect(heading).toBeVisible();
+          const renderedLines = await heading.evaluate((node) => {
+            const tops: number[] = [];
+            const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+            let current = walker.nextNode();
+            while (current) {
+              if (current.textContent?.trim()) {
+                const range = document.createRange();
+                range.selectNodeContents(current);
+                for (const rect of Array.from(range.getClientRects())) {
+                  if (rect.width > 0 && rect.height > 0 && !tops.some((top) => Math.abs(top - rect.top) <= 1)) tops.push(rect.top);
+                }
+              }
+              current = walker.nextNode();
+            }
+            return tops.length;
+          });
+          expect(renderedLines, '320px homepage H1 rendered lines').toBeGreaterThanOrEqual(1);
+          expect(renderedLines, '320px homepage H1 rendered lines').toBeLessThanOrEqual(5);
+          const primary = page.locator('.pc-cp-hero .pc-cp-actions a[href*="intent=sell"]').first();
+          await expect(primary).toBeVisible();
+          const box = await primary.boundingBox();
+          expect(box, '320x700 primary CTA bounds').not.toBeNull();
+          expect(box!.y, '320x700 primary CTA top').toBeGreaterThanOrEqual(0);
+          expect(box!.y + box!.height, '320x700 primary CTA bottom').toBeLessThanOrEqual(701);
+        }
         const overflow = await page.evaluate(() => Math.max(
           document.documentElement.scrollWidth - document.documentElement.clientWidth,
           document.body.scrollWidth - document.body.clientWidth,
@@ -351,6 +383,117 @@ async function rotateCabinetRole(page: Page, role: CabinetRole, baseURL: string)
   await loginAs(page, role, baseURL);
 }
 
+// This fixture is confined to the existing disposable PostgreSQL matrix. Each
+// browser gets its own ordinary ACCOUNTING identity, preserving the empty-bank
+// fixture and avoiding shared MFA replay state across parallel browser projects.
+async function seedReadyBankJourney(baseURL: string) {
+  const origin = new URL(baseURL);
+  const database = new URL(process.env.DATABASE_URL || '');
+  if (origin.protocol !== 'https:' || !['localhost', '127.0.0.1'].includes(origin.hostname)
+    || origin.username || origin.password
+    || !['postgres:', 'postgresql:'].includes(database.protocol)
+    || !['localhost', '127.0.0.1', 'postgres'].includes(database.hostname)
+    || database.pathname !== '/dsv8_acceptance') {
+    throw new Error('READY bank fixtures require the localhost TLS/disposable dsv8_acceptance PostgreSQL matrix');
+  }
+  const apiRequire = createRequire(resolve(process.cwd(), '../api/package.json'));
+  const { PrismaClient } = apiRequire('@prisma/client');
+  const bcrypt = apiRequire('bcryptjs');
+  const { encryptMfaSecret } = apiRequire('./dist/apps/api/src/modules/auth/auth-crypto.js');
+  const prisma = new PrismaClient();
+  const email = `dsv8.ready-bank.${randomUUID()}@acceptance.invalid`;
+  const dealId = `dsv8-ready-bank-${randomUUID()}`;
+  const passwordHash = await bcrypt.hash(ACCEPTANCE_PASSWORD, 10);
+  const inn = () => {
+    const digits = String(100000000n + BigInt(`0x${randomUUID().replaceAll('-', '')}`) % 900000000n);
+    const checksum = [2, 4, 10, 3, 5, 9, 4, 6, 8]
+      .reduce((sum, weight, index) => sum + weight * Number(digits[index]), 0);
+    return `${digits}${(checksum % 11) % 10}`;
+  };
+  try {
+    return await prisma.$transaction(async (tx: typeof prisma) => {
+      const bank = await tx.organization.create({ data: {
+        inn: inn(), name: 'Acceptance READY bank', type: 'LEGAL',
+        status: 'VERIFIED', kycStatus: 'APPROVED', verifiedAt: new Date(),
+      } });
+      const seller = await tx.organization.create({ data: {
+        inn: inn(), name: 'Acceptance READY seller', type: 'LEGAL',
+        status: 'VERIFIED', kycStatus: 'APPROVED', verifiedAt: new Date(), tenantId: bank.tenantId,
+      } });
+      const buyer = await tx.organization.create({ data: {
+        inn: inn(), name: 'Acceptance READY buyer', type: 'LEGAL',
+        status: 'VERIFIED', kycStatus: 'APPROVED', verifiedAt: new Date(), tenantId: bank.tenantId,
+      } });
+      const user = await tx.user.create({ data: {
+        email, passwordHash, fullName: 'Acceptance READY bank user', status: 'ACTIVE',
+      } });
+      await tx.userOrg.create({ data: {
+        userId: user.id, organizationId: bank.id, role: 'ACCOUNTING',
+        status: 'ACTIVE', isDefault: true, isOrgAdmin: false, activatedAt: new Date(),
+      } });
+      const { ciphertext, keyVersion } = encryptMfaSecret(ACCEPTANCE_TOTP_SECRET);
+      await tx.$executeRawUnsafe(
+        'INSERT INTO auth.credential_states (user_id, mfa_enabled, mfa_secret_ciphertext, mfa_key_version) VALUES ($1, TRUE, $2, $3)',
+        user.id, ciphertext, keyVersion,
+      );
+      await tx.deal.create({ data: {
+        id: dealId, tenantId: bank.tenantId, sellerOrgId: seller.id, buyerOrgId: buyer.id,
+        status: 'DRAFT', currency: 'RUB',
+      } });
+      await tx.dealParticipant.create({ data: {
+        dealId, tenantId: bank.tenantId, organizationId: bank.id, userId: user.id,
+        role: 'ACCOUNTING', accessLevel: 'READ', status: 'ACTIVE',
+      } });
+      return { email, dealId, organizationId: bank.id, tenantId: bank.tenantId };
+    });
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+async function loginReadyBankJourney(page: Page, email: string, baseURL: string) {
+  const context = page.context();
+  let authenticated = false;
+  for (let attempt = 0; attempt < 3 && !authenticated; attempt += 1) {
+    if (attempt) await page.waitForTimeout(30_000 - (Date.now() % 30_000) + 1_000);
+    await context.clearCookies();
+    await page.goto('/platform-v7/login', { waitUntil: 'load' });
+    const csrf = async () => {
+      const value = (await context.cookies(baseURL)).find((cookie) => cookie.name === 'pc_csrf_token')?.value;
+      expect(value, 'ordinary login must receive the middleware CSRF cookie').toBeTruthy();
+      return value!;
+    };
+    const login = await context.request.post('/api/auth/login', {
+      headers: { 'content-type': 'application/json', 'x-csrf-token': await csrf() },
+      data: { email, password: ACCEPTANCE_PASSWORD },
+    });
+    expect(login.status()).toBeLessThan(400);
+    const passwordSession = await login.json();
+    expect(passwordSession.ok).toBe(true);
+    expect(passwordSession.mfaRequired, 'ordinary ACCOUNTING login needs only the password').not.toBe(true);
+    const passwordIdentity = await context.request.get('/api/auth/me');
+    expect(passwordIdentity.status()).toBe(200);
+    expect((await passwordIdentity.json()).mfaVerified).toBe(false);
+    const start = await context.request.post('/api/auth/mfa-step-up/start', {
+      headers: { 'content-type': 'application/json', 'x-csrf-token': await csrf() }, data: {},
+    });
+    expect(start.status(), 'authenticated protected-action MFA start').toBeLessThan(400);
+    expect((await start.json()).ok).toBe(true);
+    const verify = await context.request.post('/api/auth/mfa-step-up/verify', {
+      headers: { 'content-type': 'application/json', 'x-csrf-token': await csrf() },
+      data: { code: totp(ACCEPTANCE_TOTP_SECRET) },
+    });
+    authenticated = verify.status() < 400 && (await verify.json()).mfaVerified === true;
+  }
+  expect(authenticated, 'server-proved action MFA for isolated READY bank user').toBe(true);
+  const protectedIdentity = await context.request.get('/api/auth/me');
+  expect(protectedIdentity.status()).toBe(200);
+  expect((await protectedIdentity.json()).mfaVerified).toBe(true);
+  const names = (await context.cookies(baseURL)).map((cookie) => cookie.name);
+  expect(names).toContain('pc_v7_cabinet');
+  expect(names).toContain('pc_access_token');
+}
+
 test.describe('canonical protected cabinet boundary', () => {
   const operatorRoute = '/platform-v7/operator';
 
@@ -389,6 +532,193 @@ test.describe('canonical protected cabinet boundary', () => {
     await rotateCabinetRole(page, 'seller', loginBase);
     await page.goto(operatorRoute, { waitUntil: 'load' });
     await expect(page).not.toHaveURL(new RegExp(`${operatorRoute}$`));
+  });
+
+  test('verified buyer sees the server-scoped home in each locale', async ({ page, baseURL }) => {
+    test.skip(!baseURL?.startsWith('https://'), 'Protected login authority runs in the TLS Design System acceptance workflow.');
+    test.setTimeout(180_000);
+    await loginAs(page, 'buyer', baseURL!);
+
+    const copy = {
+      ru: { description: 'Сервер проверяет доступ к сделкам для роли покупателя', ready: 'сервер подтверждён', empty: 'очередь пуста', unknown: 'Следующее обязательное действие не опубликовано', emptyTitle: 'Рабочих объектов пока нет', teamTitle: 'Роли и участники из PostgreSQL' },
+      en: { description: 'The server checks Deal access for the buyer role', ready: 'server confirmed', empty: 'queue is empty', unknown: 'Required next action is not published', emptyTitle: 'No work objects yet', teamTitle: 'Roles and members from PostgreSQL' },
+      zh: { description: '服务器会核查买方角色的交易访问权限', ready: '服务器已确认', empty: '队列为空', unknown: '服务器未提供优先执行的操作', emptyTitle: '暂时没有工作对象', teamTitle: '来自 PostgreSQL 的角色和成员' },
+    } as const;
+    for (const [locale, expected] of Object.entries(copy)) {
+      const response = await page.goto(`/platform-v7/buyer?lang=${locale}`, { waitUntil: 'domcontentloaded' });
+      expect(response?.status(), `${locale} buyer route`).toBe(200);
+      const workspace = page.getByTestId('p0-first-customer-workspace-buyer');
+      await expect(workspace).toBeVisible();
+      await expect(workspace).toContainText(expected.description);
+      const header = workspace.locator(':scope > header');
+      const confirmed = header.getByText(expected.ready, { exact: true });
+      const empty = header.getByText(expected.empty, { exact: true });
+      await expect(confirmed.or(empty)).toBeVisible();
+      await expect(workspace.locator('a[href^="/platform-v7/profile/team"]'))
+        .toHaveAttribute('href', `/platform-v7/profile/team?lang=${locale}`);
+      if (await confirmed.isVisible()) {
+        await expect(workspace.getByRole('heading', { name: expected.unknown })).toBeVisible();
+        await expect(workspace.getByText('UNKNOWN', { exact: true })).toBeVisible();
+        const dealLinks = workspace.locator('#first-customer-work-queue a[href^="/platform-v7/deals/"]');
+        await expect(dealLinks).not.toHaveCount(0);
+        for (const dealLink of await dealLinks.all()) {
+          await expect(dealLink).toHaveAttribute('href', new RegExp(`\\?lang=${locale}$`));
+        }
+      } else {
+        await expect(workspace.getByRole('heading', { name: expected.emptyTitle })).toBeVisible();
+        await expect(workspace.locator('a[href^="/platform-v7/profile?"]'))
+          .toHaveAttribute('href', `/platform-v7/profile?lang=${locale}`);
+      }
+      await expect(page.locator('[data-transaction-role-cockpit]')).toHaveCount(0);
+      await canonicalNoOverflow(page);
+      await workspace.locator('a[href^="/platform-v7/profile/team"]').click();
+      await expect(page).toHaveURL(new RegExp(`/platform-v7/profile/team\\?lang=${locale}$`));
+      await expect(page.locator('html')).toHaveAttribute('lang', locale === 'zh' ? 'zh-CN' : locale);
+      await expect(page.getByTestId('platform-v7-profile-team-v8').getByRole('heading', { name: expected.teamTitle, exact: true }))
+        .toBeVisible();
+    }
+  });
+
+  test('seeded bank sees an honest empty home on mobile in each locale', async ({ page, baseURL }) => {
+    test.skip(!baseURL?.startsWith('https://'), 'Protected login authority runs in the TLS Design System acceptance workflow.');
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginAs(page, 'bank', baseURL!);
+
+    const copy = {
+      ru: { description: 'Сервер проверяет роль банковского кабинета и доступ к сделкам', empty: 'очередь пуста', unknown: 'Банковские факты — UNKNOWN', emptyTitle: 'Рабочих объектов пока нет' },
+      en: { description: 'The server checks the bank cabinet role and access to Deals', empty: 'queue is empty', unknown: 'Bank facts — UNKNOWN', emptyTitle: 'No work objects yet' },
+      zh: { description: '服务器会核查银行工作台角色和交易访问权限', empty: '队列为空', unknown: '银行事实 — UNKNOWN', emptyTitle: '暂时没有工作对象' },
+    } as const;
+    for (const [locale, expected] of Object.entries(copy)) {
+      const response = await page.goto(`/platform-v7/bank?lang=${locale}`, { waitUntil: 'domcontentloaded' });
+      expect(response?.status(), `${locale} bank route`).toBe(200);
+      const workspace = page.getByTestId('p0-first-customer-workspace-bank');
+      await expect(workspace).toBeVisible();
+      await expect(workspace).toContainText(expected.description);
+      await expect(workspace.getByText(expected.unknown, { exact: true })).toBeVisible();
+      const header = workspace.locator(':scope > header');
+      await expect(header.getByText(expected.empty, { exact: true })).toBeVisible();
+      await expect(workspace.getByRole('heading', { name: expected.emptyTitle })).toBeVisible();
+      await expect(workspace.locator('#first-customer-work-queue a[href^="/platform-v7/deals/"]')).toHaveCount(0);
+      const profileLink = workspace.getByRole('link', { name: locale === 'ru' ? 'Профиль доступа' : locale === 'en' ? 'Access profile' : '访问档案' });
+      await profileLink.focus();
+      await expect(profileLink).toBeFocused();
+      await expect(page.locator('[data-transaction-role-cockpit]')).toHaveCount(0);
+      await canonicalNoOverflow(page);
+    }
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/platform-v7/bank?lang=ru', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('p0-first-customer-workspace-bank')).toBeVisible();
+    await canonicalNoOverflow(page);
+  });
+
+  test('READY bank queue opens the same server-authorized Deal in RU EN ZH on mobile and desktop', async ({ page, baseURL }, testInfo) => {
+    test.skip(!baseURL?.startsWith('https://'), 'Native PostgreSQL and ordinary MFA run in the TLS Design System acceptance workflow.');
+    test.setTimeout(180_000);
+    const fixture = await seedReadyBankJourney(baseURL!);
+    await loginReadyBankJourney(page, fixture.email, baseURL!);
+    const authority = await page.context().request.get(`/api/proxy/deals/${fixture.dealId}/workspace`);
+    expect(authority.status()).toBe(200);
+    const projection = await authority.json();
+    expect(projection.deal.id).toBe(fixture.dealId);
+    expect(projection.deal.tenantId).toBe(fixture.tenantId);
+    expect(projection.viewer.organizationId).toBe(fixture.organizationId);
+    expect(projection.viewer.role).toBe('ACCOUNTING');
+    expect(projection.viewer.accessLevel).toBe('READ');
+    const execution = await page.context().request.get(`/api/proxy/deals/${fixture.dealId}/execution-workspace`);
+    expect(execution.status()).toBe(200);
+    const executionProjection = await execution.json();
+    expect(executionProjection.deal.id).toBe(fixture.dealId);
+    expect(executionProjection.roleProjection.role).toBe('ACCOUNTING');
+    expect(executionProjection.roleProjection.canAct).toBe(false);
+    const runtimeFailures: string[] = [];
+    const commandWrites: string[] = [];
+    const observeJourney = (journeyPage: Page) => {
+      journeyPage.on('pageerror', (error) => runtimeFailures.push(error.message));
+      journeyPage.on('console', (message) => {
+        if (message.type() === 'error' && /hydration|uncaught|error boundary/i.test(message.text())) runtimeFailures.push(message.text());
+      });
+      journeyPage.on('request', (request) => {
+        if (request.method() !== 'GET' && /\/api\/proxy\/deals\/[^/]+\/commands\//.test(new URL(request.url()).pathname)) {
+          commandWrites.push(request.method() + ' ' + new URL(request.url()).pathname);
+        }
+      });
+    };
+    observeJourney(page);
+    const reloadLabels = { ru: 'Повторить загрузку сделки', en: 'Reload deal state', zh: '重新读取交易状态' } as const;
+    for (const width of [390, 1440]) {
+      for (const locale of ['ru', 'en', 'zh'] as const) {
+        // Each journey starts on a new page in the same server-authenticated
+        // context. Keep prior pages open and observed through the final checks;
+        // replacing or resizing them can abort unrelated catalog/prefetch work.
+        const journeyPage = await page.context().newPage();
+        observeJourney(journeyPage);
+        await journeyPage.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+        // Observe the real catalog response and its complete body. The queue
+        // link is a full-document navigation; do not interrupt this shell fetch
+        // while measuring runtime errors. This does not require global idle.
+        const catalogFinished = () => new Promise<void>((resolve, reject) => {
+          let catalogRequest: Request | undefined;
+          const onRequest = (request: Request) => {
+            if (!catalogRequest && request.method() === 'GET'
+              && new URL(request.url()).pathname === '/api/proxy/ai-assistant/catalog') catalogRequest = request;
+          };
+          const cleanup = () => {
+            clearTimeout(timeout);
+            journeyPage.off('request', onRequest);
+            journeyPage.off('requestfinished', onFinished);
+            journeyPage.off('requestfailed', onFailed);
+          };
+          const onFinished = (request: Request) => {
+            if (request !== catalogRequest) return;
+            cleanup();
+            resolve();
+          };
+          const onFailed = (request: Request) => {
+            if (request !== catalogRequest) return;
+            cleanup();
+            reject(new Error(`Bank journey catalog failed: ${request.failure()?.errorText || 'request failed'}`));
+          };
+          const timeout = setTimeout(() => {
+            cleanup();
+            reject(new Error('Bank journey catalog request/body did not finish within 30000ms'));
+          }, 30_000);
+          journeyPage.on('request', onRequest);
+          journeyPage.on('requestfinished', onFinished);
+          journeyPage.on('requestfailed', onFailed);
+        });
+        const bankRoute = `/platform-v7/bank?lang=${locale}`;
+        const bankCatalog = catalogFinished();
+        await Promise.all([
+          journeyPage.goto(bankRoute, { waitUntil: 'domcontentloaded' }).then((response) => expect(response?.status()).toBe(200)),
+          bankCatalog,
+        ]);
+        await expectPublicRoute(journeyPage, bankRoute, baseURL, '[data-testid="p0-first-customer-workspace-bank"]');
+        const route = `/platform-v7/deals/${fixture.dealId}/execution?lang=${locale}`;
+        const link = journeyPage.locator('#first-customer-work-queue').getByRole('link', { name: fixture.dealId, exact: false });
+        await expect(link).toHaveCount(1);
+        await expect(link).toHaveAttribute('href', route);
+        await canonicalNoOverflow(journeyPage);
+        await link.focus();
+        await expect(link).toBeFocused();
+        const dealCatalog = catalogFinished();
+        await Promise.all([link.press('Enter'), dealCatalog]);
+        const workspace = journeyPage.locator(`[data-transaction-workspace="v8"][data-canonical-deal="${fixture.dealId}"]`);
+        await expectPublicRoute(journeyPage, route, baseURL, `[data-transaction-workspace="v8"][data-canonical-deal="${fixture.dealId}"]`);
+        const htmlLocale = locale === 'zh' ? 'zh-CN' : locale;
+        await expect(journeyPage.locator('html')).toHaveAttribute('lang', htmlLocale);
+        await expect(workspace).toHaveAttribute('lang', htmlLocale);
+        await expect(workspace).toHaveAttribute('data-role', 'bank');
+        await expect(workspace.getByRole('button', { name: reloadLabels[locale], exact: true })).toBeVisible();
+        await canonicalNoOverflow(journeyPage);
+        await canonicalA11y(journeyPage);
+        await journeyPage.screenshot({ path: testInfo.outputPath(`ready-bank-deal-${locale}-${width}.png`), animations: 'disabled' });
+      }
+    }
+    expect(runtimeFailures).toEqual([]);
+    expect(commandWrites, 'readonly queue navigation must never submit a Deal command').toEqual([]);
   });
 
   test('all twelve server-verified role shells retain fixed cabinet chrome', async ({ page, baseURL }) => {
@@ -483,8 +813,19 @@ test.describe('canonical cross-browser public smoke', () => {
         expect(box).not.toBeNull();
         expect(box!.height).toBeGreaterThanOrEqual(43.999);
       }
-      const gektaDock=page.locator(".pc-public-contact-dock[data-public-mode='gekta']");
-      await expect(gektaDock).toBeHidden();
+      const publicDock=page.locator(".pc-public-contact-dock[data-assistant-context='public']");
+      const gektaAction=publicDock.locator('.pc-public-contact-dock-assistant');
+      await expect(publicDock).toHaveAttribute('data-public-mode',route.includes('/login')?'full':'gekta');
+      await expect(publicDock).toBeVisible();
+      await expect(gektaAction).toBeVisible();
+      await expect(gektaAction).toBeEnabled();
+      const gektaBox=await gektaAction.boundingBox();
+      const bottomBeforeScroll=await bottom.boundingBox();
+      expect(gektaBox).not.toBeNull();
+      expect(bottomBeforeScroll).not.toBeNull();
+      expect(gektaBox!.width).toBeGreaterThanOrEqual(44);
+      expect(gektaBox!.height).toBeGreaterThanOrEqual(44);
+      expect(gektaBox!.y+gektaBox!.height).toBeLessThanOrEqual(bottomBeforeScroll!.y-4);
 
       await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
       const bottomBox=await bottom.boundingBox();
@@ -725,4 +1066,183 @@ test.describe('owner UX v2 About and Trust geometry', () => {
       });
     }
   }
+});
+
+
+async function seedOwnEnrollmentSubject(baseURL: string) {
+  const origin = new URL(baseURL);
+  const database = new URL(process.env.DATABASE_URL || '');
+  if (origin.protocol !== 'https:' || !['localhost', '127.0.0.1'].includes(origin.hostname)
+    || origin.username || origin.password
+    || !['postgres:', 'postgresql:'].includes(database.protocol)
+    || !['localhost', '127.0.0.1', 'postgres'].includes(database.hostname)
+    || database.pathname !== '/dsv8_acceptance') {
+    throw new Error('Own enrollment requires the localhost TLS/disposable dsv8_acceptance PostgreSQL matrix');
+  }
+  const apiRequire = createRequire(resolve(process.cwd(), '../api/package.json'));
+  const { PrismaClient } = apiRequire('@prisma/client');
+  const bcrypt = apiRequire('bcryptjs');
+  const prisma = new PrismaClient();
+  const email = `dsv8.own-enrollment.${randomUUID()}@acceptance.invalid`;
+  const passwordHash = await bcrypt.hash(ACCEPTANCE_PASSWORD, 10);
+  try {
+    await prisma.$transaction(async (tx: typeof prisma) => {
+      const digits = String(100000000n + BigInt(`0x${randomUUID().replaceAll('-', '')}`) % 900000000n);
+      const checksum = [2, 4, 10, 3, 5, 9, 4, 6, 8]
+        .reduce((sum, weight, index) => sum + weight * Number(digits[index]), 0);
+      const organization = await tx.organization.create({ data: {
+        inn: `${digits}${(checksum % 11) % 10}`, name: 'Acceptance own enrollment', type: 'LEGAL',
+        status: 'VERIFIED', kycStatus: 'APPROVED', verifiedAt: new Date(),
+      } });
+      const user = await tx.user.create({ data: { email, passwordHash, fullName: 'Acceptance ordinary subject', status: 'ACTIVE' } });
+      await tx.userOrg.create({ data: {
+        userId: user.id, organizationId: organization.id, role: 'GUEST', status: 'ACTIVE',
+        isDefault: true, isOrgAdmin: false, activatedAt: new Date(),
+      } });
+    });
+    return email;
+  } finally { await prisma.$disconnect(); }
+}
+
+test('canonical protected cabinet boundary: password-only login opens the ordinary buyer cabinet without an MFA challenge', async ({ page, baseURL }) => {
+  test.skip(!baseURL?.startsWith('https://'), 'Password-session authority requires the TLS PostgreSQL acceptance contour.');
+  type LoginEvidence = { status: number; body: unknown };
+  const observedLogins: LoginEvidence[] = [];
+  let deliverNextLogin: ((evidence: LoginEvidence) => void) | undefined;
+  await page.exposeBinding('__pcAcceptanceActualPasswordResponse', (source, evidence: LoginEvidence) => {
+    expect(source.page).toBe(page);
+    expect(source.frame).toBe(page.mainFrame());
+    observedLogins.push(evidence);
+    expect(deliverNextLogin, 'this actual response belongs to an armed form submission').toBeDefined();
+    const deliver = deliverNextLogin!;
+    deliverNextLogin = undefined;
+    deliver(evidence);
+  });
+  // Chromium retires response bodies when the form performs full navigation.
+  // Retain a clone of the genuine response before returning the original to
+  // application code; the real request, response and cookies are unchanged.
+  await page.addInitScript(() => {
+    const originalFetch = window.fetch;
+    window.fetch = async (input, init) => {
+      const response = await originalFetch.call(window, input, init);
+      const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
+      const url = new URL(response.url, window.location.href);
+      if (url.origin === window.location.origin && url.pathname === '/api/auth/login'
+        && method.toUpperCase() === 'POST') {
+        const observer = (window as unknown as {
+          __pcAcceptanceActualPasswordResponse: (evidence: { status: number; body: unknown }) => Promise<void>;
+        }).__pcAcceptanceActualPasswordResponse;
+        await observer({ status: response.status, body: await response.clone().json() });
+      }
+      return response;
+    };
+  });
+  const submitPasswordLogin = async (): Promise<LoginEvidence> => {
+    const previousCount = observedLogins.length;
+    expect(deliverNextLogin, 'the preceding form response was consumed').toBeUndefined();
+    const delivered = new Promise<LoginEvidence>(resolve => { deliverNextLogin = resolve; });
+    const pending = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/login'
+      && response.request().method() === 'POST');
+    await page.locator('form').filter({ has: page.locator('input[name="password"]') }).locator('button[type="submit"]').click();
+    const [response, evidence] = await Promise.all([pending, delivered]);
+    expect(response.status()).toBe(200);
+    expect(observedLogins, 'one actual response retained for this form submission').toHaveLength(previousCount + 1);
+    expect(evidence).toBe(observedLogins[previousCount]);
+    expect(evidence.status).toBe(response.status());
+    return evidence;
+  };
+  await page.context().clearCookies();
+  await page.goto('/platform-v7/login?lang=ru', { waitUntil: 'domcontentloaded' });
+  await page.locator('input[name="email"]').fill(acceptanceEmail('buyer'));
+  await page.locator('input[name="password"]').fill(ACCEPTANCE_PASSWORD);
+  const response = await submitPasswordLogin();
+  expect(response.status).toBe(200);
+  expect(response.body).toMatchObject({ ok: true, mfaRequired: false });
+  await expect(page).toHaveURL(/\/platform-v7\/buyer(?:[?]|$)/);
+  await expect(page.getByTestId('p0-first-customer-workspace-buyer')).toBeVisible();
+  await expect(page.locator('input[name="verification-code"]')).toHaveCount(0);
+  const profile = await page.context().request.get('/api/auth/me');
+  expect(profile.status()).toBe(200);
+  const payload = await profile.json();
+  expect(payload.user?.mfaVerified ?? payload.mfaVerified).toBe(false);
+  await canonicalNoOverflow(page);
+
+  // A fresh non-admin membership also has a genuine own-subject enrollment
+  // path. No staff assignment, preinstalled secret or assurance flag is seeded.
+  const email = await seedOwnEnrollmentSubject(baseURL!);
+  const passwordLogin = async () => {
+    await page.context().clearCookies();
+    await page.goto('/platform-v7/login?lang=ru', { waitUntil: 'domcontentloaded' });
+    await page.locator('input[name="email"]').fill(email);
+    await page.locator('input[name="password"]').fill(ACCEPTANCE_PASSWORD);
+    const loginResponse = await submitPasswordLogin();
+    expect(loginResponse.status).toBe(200);
+    expect(loginResponse.body).toMatchObject({ ok: true, mfaRequired: false });
+    await expect(page).toHaveURL(/\/platform-v7\/profile(?:[?]|$)/);
+    await page.goto('/platform-v7/profile?lang=ru', { waitUntil: 'networkidle' });
+    const identity = await page.context().request.get('/api/auth/me');
+    expect(identity.status()).toBe(200);
+    const body = await identity.json();
+    expect(body.user?.mfaVerified ?? body.mfaVerified).toBe(false);
+    return page.locator('[data-own-mfa-verification]');
+  };
+  const startOwn = async (target: Page) => {
+    const pending = target.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/mfa-step-up/start');
+    await target.locator('[data-own-mfa-verification]').getByRole('button', { name: 'Подготовить защищённое действие' }).click();
+    const response = await pending;
+    expect(response.status()).toBe(200);
+    return response.json();
+  };
+  let panel = await passwordLogin();
+  await expect(panel).toBeVisible();
+  const secondTab = await page.context().newPage();
+  try {
+    await secondTab.goto('/platform-v7/profile?lang=ru', { waitUntil: 'networkidle' });
+    const setup = await startOwn(page);
+    expect(setup).toMatchObject({ ok: true, enrollmentRequired: true, setupSecret: expect.any(String) });
+    expect(setup).not.toHaveProperty('challengeToken');
+    const secondSetup = await startOwn(secondTab);
+    expect(secondSetup.setupSecret).toBe(setup.setupSecret);
+    const remaining = 30_000 - (Date.now() % 30_000);
+    if (remaining < 5_000) await page.waitForTimeout(remaining + 100);
+    await panel.getByLabel('Код подтверждения').fill(totp(setup.setupSecret));
+    const proofPending = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/mfa-step-up/verify');
+    await panel.getByRole('button', { name: 'Подтвердить', exact: true }).click();
+    const proofResponse = await proofPending;
+    expect(proofResponse.status()).toBe(200);
+    const proof = await proofResponse.json();
+    expect(proof).toMatchObject({ ok: true, mfaVerified: true });
+    expect(proof.backupCodes).toHaveLength(8);
+    for (const code of proof.backupCodes) {
+      expect(code).toMatch(/^[A-Z2-7]{6}(?:-[A-Z2-7]{6}){3}$/);
+      await expect(panel.getByText(code, { exact: true })).toBeVisible();
+    }
+    await canonicalNoOverflow(page);
+    await secondTab.reload({ waitUntil: 'networkidle' });
+    await expect(secondTab.locator('[data-own-mfa-verification]')).toHaveCount(0);
+    const assured = await secondTab.context().request.get('/api/auth/me');
+    expect(assured.status()).toBe(200);
+    const assuredBody = await assured.json();
+    expect(assuredBody.user?.mfaVerified ?? assuredBody.mfaVerified).toBe(true);
+
+    // Spend a disclosed credential through the actual form, then prove its
+    // server-side one-use denial from another fresh password session.
+    for (const expectedStatus of [200, 401]) {
+      panel = await passwordLogin();
+      const challenge = await startOwn(page);
+      expect(challenge.enrollmentRequired).not.toBe(true);
+      await panel.getByLabel('Код подтверждения').fill(proof.backupCodes[0]);
+      const pending = page.waitForResponse(response => new URL(response.url()).pathname === '/api/auth/mfa-step-up/verify');
+      await panel.getByRole('button', { name: 'Подтвердить', exact: true }).click();
+      const result = await pending;
+      expect(result.status()).toBe(expectedStatus);
+      expect(await result.json()).not.toHaveProperty('backupCodes');
+      const identity = await page.context().request.get('/api/auth/me');
+      expect(identity.status()).toBe(200);
+      const identityBody = await identity.json();
+      expect(identityBody.user?.mfaVerified ?? identityBody.mfaVerified).toBe(expectedStatus === 200);
+    }
+    await expect(panel.getByRole('alert')).toBeVisible();
+    await canonicalNoOverflow(page);
+  } finally { await secondTab.close(); }
 });

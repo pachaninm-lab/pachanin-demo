@@ -1,3 +1,5 @@
+import assert from 'node:assert/strict';
+import { filterPublicLots, publicMarketContext, type PublicSortableLot } from '@/lib/platform-v7/public-market-navigation';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -164,5 +166,103 @@ describe('public hero critical-path image', () => {
     const component = read('apps/web/components/platform-v7/PublicHeroMedia.tsx');
     expect(component).not.toContain("'use client'");
     expect(component).not.toMatch(/fetch\(|readFile|useEffect|setTimeout|requestIdleCallback/);
+  });
+});
+
+// UX-09 / T11: synthetic public offers only; no API or business-system writes.
+describe('public market token search', () => {
+  const wheat: PublicSortableLot = Object.freeze({
+    publicRef: 'market-11111111-1111-4111-8111-111111111111',
+    culture: 'Пшеница', grade: '3 класс', region: 'Тамбовская область',
+    auctionEndsAt: '2026-10-01T00:00:00Z',
+    startPriceKopecksPerTon: '9007199254740993', volumeTons: '10.000001',
+  });
+  const barley: PublicSortableLot = Object.freeze({
+    ...wheat, publicRef: 'market-22222222-2222-4222-8222-222222222222',
+    culture: 'Ячмень', region: 'Воронежская область',
+  });
+  const lots = Object.freeze([wheat, barley]);
+
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    it(`matches every query token across public fields in ${locale}`, () => {
+      for (const q of ['пшеница', 'пшеница Тамбов', 'wheat Тамбов 3', '小麦 Тамбов класс']) {
+        assert.deepEqual(filterPublicLots(lots, publicMarketContext({ q }), locale), [wheat]);
+      }
+      assert.deepEqual(filterPublicLots(lots, publicMarketContext({ q: 'пшеница Воронеж' }), locale), []);
+      assert.deepEqual(filterPublicLots(lots, publicMarketContext({ q: 'пшеница nonexistent' }), locale), []);
+    });
+
+    it(`normalizes case and accepted whitespace without dropping repeated terms in ${locale}`, () => {
+      for (const q of ['  ПШЕНИЦА   ТАМБОВ  ', 'WHEAT\u00a0\u00a0ТАМБОВ', '小麦\u3000Тамбов', 'wheat wheat Тамбов']) {
+        assert.deepEqual(filterPublicLots(lots, publicMarketContext({ q }), locale), [wheat]);
+      }
+      assert.deepEqual(filterPublicLots(lots, publicMarketContext({ q: '   ' }), locale), lots);
+    });
+  }
+
+  it('keeps unspaced CJK substring search and permits spaced cross-field CJK queries', () => {
+    const chinese = { ...wheat, culture: '小麦', grade: '三级', region: '黑龙江省' };
+    for (const q of ['黑龙江', '小麦', '小麦 黑龙江 三']) {
+      assert.deepEqual(filterPublicLots([chinese], publicMarketContext({ q }), 'zh'), [chinese]);
+    }
+    assert.deepEqual(filterPublicLots([chinese], publicMarketContext({ q: '小麦 玉米' }), 'zh'), []);
+  });
+
+  it('allows several tokens in one public field but never merges text across field boundaries', () => {
+    assert.deepEqual(filterPublicLots(lots, publicMarketContext({ q: 'Тамбовская область' }), 'ru'), [wheat]);
+    assert.deepEqual(filterPublicLots(lots, publicMarketContext({ q: 'wheatтамбов' }), 'ru'), []);
+  });
+
+  it('never searches seller, tenant, public identity, money or other non-searchable fields', () => {
+    const decorated = { ...wheat, sellerName: 'HiddenSeller', tenantId: 'HiddenTenant' };
+    for (const q of ['HiddenSeller', 'HiddenTenant', wheat.publicRef, wheat.startPriceKopecksPerTon, '2026-10-01']) {
+      assert.deepEqual(filterPublicLots([decorated], publicMarketContext({ q }), 'en'), []);
+    }
+  });
+
+  it('combines token search with each existing explicit filter', () => {
+    const context = { q: 'wheat Тамбов', crop: 'wheat', region: 'ТАМБОВ', grade: '3' };
+    assert.deepEqual(filterPublicLots(lots, publicMarketContext(context), 'en'), [wheat]);
+    for (const mismatch of [{ crop: 'barley' }, { region: 'Воронеж' }, { grade: '4' }]) {
+      assert.deepEqual(filterPublicLots(lots, publicMarketContext({ ...context, ...mismatch }), 'en'), []);
+    }
+  });
+
+  it('preserves exact price sorting beyond Number precision and places unavailable prices last', () => {
+    const cheaper = { ...wheat, publicRef: barley.publicRef, startPriceKopecksPerTon: '9007199254740992' };
+    const unavailable = { ...wheat, publicRef: 'market-33333333-3333-4333-8333-333333333333', startPriceKopecksPerTon: 'unknown' };
+    const offers = Object.freeze([wheat, unavailable, cheaper]);
+    assert.deepEqual(filterPublicLots(offers, publicMarketContext({ q: 'wheat Тамбов', sort: 'price-asc' }), 'en'), [cheaper, wheat, unavailable]);
+    assert.deepEqual(filterPublicLots(offers, publicMarketContext({ q: 'wheat Тамбов', sort: 'price-desc' }), 'en'), [wheat, cheaper, unavailable]);
+    assert.deepEqual(offers, [wheat, unavailable, cheaper]);
+  });
+
+  it('preserves exact volume and closing-time sorting after token search', () => {
+    const larger = { ...wheat, publicRef: barley.publicRef, volumeTons: '10.000002', auctionEndsAt: '2026-09-30T00:00:00Z' };
+    const offers = Object.freeze([wheat, larger]);
+    for (const sort of ['volume-desc', 'closing']) {
+      assert.deepEqual(filterPublicLots(offers, publicMarketContext({ q: 'wheat Тамбов', sort }), 'ru'), [larger, wheat]);
+    }
+    assert.deepEqual(offers, [wheat, larger]);
+  });
+
+  it('preserves the existing query boundary instead of silently truncating search terms', () => {
+    assert.equal(publicMarketContext({ q: 'x'.repeat(121) }).q, '');
+    assert.equal(publicMarketContext({ q: ['wheat', 'barley'] }).q, '');
+    assert.equal(publicMarketContext({ q: 'wheat\nТамбов' }).q, '');
+    assert.equal(publicMarketContext({ q: 'wheat\u0000Тамбов' }).q, '');
+    const manyTerms = { ...wheat, region: 'aa bb cc dd ee ff gg hh ii' };
+    const q = 'wheat aa bb cc dd ee ff gg hh ii';
+    assert.deepEqual(filterPublicLots([manyTerms], publicMarketContext({ q }), 'en'), [manyTerms]);
+    assert.deepEqual(filterPublicLots([manyTerms], publicMarketContext({ q: `${q} missing` }), 'en'), []);
+  });
+
+  it('retains original record identity and input order when sorting is not requested', () => {
+    const noGrade = { ...wheat, publicRef: barley.publicRef, grade: null };
+    const offers = Object.freeze([noGrade, wheat]);
+    const selected = filterPublicLots(offers, publicMarketContext({ q: 'wheat Тамбов' }), 'ru');
+    assert.equal(selected[0], noGrade);
+    assert.equal(selected[1], wheat);
+    assert.deepEqual(filterPublicLots([], publicMarketContext({ q: 'wheat Тамбов' }), 'ru'), []);
   });
 });

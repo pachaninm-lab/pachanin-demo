@@ -6,6 +6,7 @@
   "acceptanceOperationalStatus": "OWNER_ONLY_EXACT_MAIN_REAL_MAIL_BROWSER_ACCEPTANCE",
   "issue": 4033,
   "releaseIssue": 3072,
+  "firstUserReleaseIssue": 4637,
   "title": "Production Gekta registration runtime provision and exact-SHA activation",
   "allowedPaths": [
     ".github/workflows/production-gekta-first-user-acceptance.yml",
@@ -48,7 +49,7 @@
     "the exact full-stack release refuses to proceed unless both protected Gekta runtime files are valid and immutable API/Web revisions match exact current main",
     "emergency rollback and verify-intake remain independent of the newly provisioned files and restore the recorded baseline override without injecting them",
     "production hosting remains the existing REG.RU contour and new recurring cost remains 0 RUB",
-    "OWNER_ONLY_EXACT_MAIN_REAL_MAIL_BROWSER_ACCEPTANCE runs only from release issue 3072 against exact main and its exact deployed public manifest",
+    "OWNER_ONLY_EXACT_MAIN_REAL_MAIL_BROWSER_ACCEPTANCE runs only from release issue 4637 with OWNER association and matching owner actor/triggering_actor against exact main and its exact deployed public manifest; initial ceremony, intermediate markers and terminal result use this same bounded journal",
     "no reviewer password, owner password or TOTP secret enters GitHub Actions",
     "only a synthetic run-scoped phone locator may be published for the visible owner ceremony",
     "all ten anonymous answers must complete the real production SSE path and consume their one-time durable PostgreSQL admission; cookie-only reserve/complete simulation is forbidden",

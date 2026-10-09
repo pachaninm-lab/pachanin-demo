@@ -257,6 +257,11 @@ GRANT SELECT, INSERT, UPDATE ON
 TO one_deal_auth;
 GRANT SELECT, INSERT ON auth.audit_events, auth.staff_access_events TO one_deal_auth;
 REVOKE UPDATE, DELETE ON auth.staff_access_events FROM one_deal_auth;
+-- The disposable auth principal is created after migrations. Mirror the
+-- existing production auth-role grants for the real recovery service.
+GRANT SELECT, INSERT, UPDATE ON auth.mfa_recovery_challenges TO one_deal_auth;
+GRANT SELECT, INSERT ON auth.organization_membership_command_events, auth.mfa_recovery_events TO one_deal_auth;
+REVOKE UPDATE, DELETE, TRUNCATE ON auth.organization_membership_command_events, auth.mfa_recovery_events FROM one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.lock_staff_access_event_chain(TEXT) TO one_deal_auth;
 
 GRANT EXECUTE ON FUNCTION auth.resolve_login_credential(TEXT) TO one_deal_auth;
@@ -353,6 +358,14 @@ GRANT EXECUTE ON FUNCTION auth.staff_admission_decision(TEXT, TEXT, TEXT, TEXT, 
 GRANT EXECUTE ON FUNCTION auth.staff_organization_directory(TEXT, TEXT, TEXT) TO one_deal_staff;
 GRANT EXECUTE ON FUNCTION auth.staff_organization_users(TEXT, TEXT, TEXT, TEXT) TO one_deal_staff;
 GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT, TEXT) TO one_deal_staff;
+-- R1.3 Founder Control: the migration grants these only to roles that already
+-- exist when it runs. This harness recreates one_deal_staff afterwards, so the
+-- three exported read functions are granted here exactly as in the production
+-- runtime grants; the internal actor authorizer stays uncallable.
+GRANT EXECUTE ON FUNCTION auth.founder_company_health(TEXT, TEXT) TO one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.founder_metric_drilldown(TEXT, TEXT, TEXT, INTEGER) TO one_deal_staff;
+GRANT EXECUTE ON FUNCTION auth.founder_decision_queue(TEXT, TEXT, INTEGER) TO one_deal_staff;
+REVOKE ALL ON FUNCTION auth.founder_control_actor_authorized(TEXT, TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.staff_admission_capability(TEXT, TEXT, TEXT, TEXT, TEXT) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.staff_projection_capability(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN) FROM one_deal_staff;
 REVOKE ALL ON FUNCTION auth.resolve_login_credential(TEXT) FROM one_deal_staff;
@@ -1057,6 +1070,33 @@ AUTH_BOOTSTRAP_PROOF="$(psql "$AUTH_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT
 echo "[one-deal] auth bootstrap proof direct-users:minimal-credential-rows:post-password-surface:registration-lifecycle:legacy-context-execute = $AUTH_BOOTSTRAP_PROOF"
 if [[ "$AUTH_BOOTSTRAP_PROOF" != "0:0:true:true:false" && "$AUTH_BOOTSTRAP_PROOF" != "0:0:t:t:f" ]]; then
   echo "Auth principal minimal bootstrap boundary failed: $AUTH_BOOTSTRAP_PROOF" >&2
+  exit 1
+fi
+
+MFA_RECOVERY_ROLE_PROOF="$(psql "$AUTH_URL" -X -At --set ON_ERROR_STOP=1 <<'SQL'
+SELECT bool_and(has_table_privilege(current_user, table_name, privilege_name) = allowed)::text
+FROM (VALUES
+  ('auth.mfa_recovery_challenges', 'SELECT', true),
+  ('auth.mfa_recovery_challenges', 'INSERT', true),
+  ('auth.mfa_recovery_challenges', 'UPDATE', true),
+  ('auth.mfa_recovery_challenges', 'DELETE', false),
+  ('auth.mfa_recovery_challenges', 'TRUNCATE', false),
+  ('auth.organization_membership_command_events', 'SELECT', true),
+  ('auth.organization_membership_command_events', 'INSERT', true),
+  ('auth.organization_membership_command_events', 'UPDATE', false),
+  ('auth.organization_membership_command_events', 'DELETE', false),
+  ('auth.organization_membership_command_events', 'TRUNCATE', false),
+  ('auth.mfa_recovery_events', 'SELECT', true),
+  ('auth.mfa_recovery_events', 'INSERT', true),
+  ('auth.mfa_recovery_events', 'UPDATE', false),
+  ('auth.mfa_recovery_events', 'DELETE', false),
+  ('auth.mfa_recovery_events', 'TRUNCATE', false)
+) AS expected(table_name, privilege_name, allowed);
+SQL
+)"
+echo "[one-deal] restricted recovery grants and append-only event boundary: $MFA_RECOVERY_ROLE_PROOF"
+if [[ "$MFA_RECOVERY_ROLE_PROOF" != "true" && "$MFA_RECOVERY_ROLE_PROOF" != "t" ]]; then
+  echo "Auth principal recovery privilege boundary failed" >&2
   exit 1
 fi
 STORAGE_ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','SELECT')::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','UPDATE')::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','INSERT')::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','DELETE')::text FROM pg_roles WHERE rolname='one_deal_storage'")"

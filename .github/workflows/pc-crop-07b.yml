@@ -99,22 +99,58 @@ jobs:
 
       - name: Enforce exact PC-CROP-07B scope
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_BRANCH: ${{ github.base_ref }}
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
           printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
-          if [[ "${{ github.event_name }}" == 'pull_request' ]]; then
-            git fetch --no-tags origin "${{ github.base_ref }}"
-            base_ref="origin/${{ github.base_ref }}"
+          if [ "$EVENT_NAME" = 'workflow_dispatch' ]; then
+            printf '%s\n' 'workflow_dispatch' > "$EVIDENCE_DIR/base-ref.txt"
+            printf '%s\n' 'MANUAL_DISPATCH' > "$EVIDENCE_DIR/scope-mode.txt"
+            echo 'Manual dispatch: full acceptance runs without a diff ownership decision.'
+            exit 0
+          fi
+          if [ "$EVENT_NAME" = 'pull_request' ]; then
+            git fetch --no-tags origin "$BASE_BRANCH"
+            base_ref="origin/$BASE_BRANCH"
+          elif [ -n "$PUSH_BEFORE" ] \
+            && [ "$PUSH_BEFORE" != '0000000000000000000000000000000000000000' ] \
+            && git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null; then
+            base_ref="$PUSH_BEFORE"
           else
             base_ref='HEAD^'
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
-          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          if grep -Ev '^(\.github/workflows/pc-crop-07b\.yml|apps/api/src/app\.module\.ts|apps/api/src/modules/regulatory-integration/.*|apps/web/app/api/platform-v7/integrations/.*|apps/web/app/api/staff/integration-control-tower/.*|apps/web/app/api/staff/integrations/.*|apps/web/app/platform-v7/integrations/.*|apps/web/components/crop-platform/(IntegrationControlTowerClient\.tsx|IntegrationControlTowerClient\.module\.css|integration-control-tower-live-adapter\.ts)|apps/web/lib/platform-v7/(cabinet-access-policy|design-system-v8-route-policy|route-canonicalization|routes)\.ts|apps/web/tests/unit/(integrationControlTowerLiveAdapter|platformV7IntegrationControlTower|platformV7RouteCanonicalization)\.test\.ts|apps/web/tsconfig\.pc-crop\.json|docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower\.json|scripts/(p7-autopilot-guard\.sh|verify-pc-crop-07b\.mjs))$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
-            echo 'PC-CROP-07B contains out-of-scope files:' >&2
-            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
-            exit 1
+          # Keep both sides of renames and raw UTF-8 names for ownership.
+          # Reject control delimiters rather than interpreting quoted paths.
+          git diff --no-renames --name-only -z "$base_ref...$EXACT_HEAD" > "$EVIDENCE_DIR/changed-files.nul"
+          while IFS= read -r -d '' changed_path; do
+            case "$changed_path" in
+              *$'\n'*|*$'\r'*|*$'\t'*)
+                echo 'Unsupported control delimiter in changed path' >&2
+                exit 1
+                ;;
+            esac
+            printf '%s\n' "$changed_path"
+          done < "$EVIDENCE_DIR/changed-files.nul" | LC_ALL=C sort > "$EVIDENCE_DIR/changed-files.txt"
+
+          # Shared route/auth dependencies trigger the complete compatibility
+          # suite; they do not make another feature part of this owned slice.
+          # Actual regulatory source keeps the unchanged bounded allowlist.
+          grep -E '^(\.github/workflows/pc-crop-07b\.yml$|apps/api/src/modules/regulatory-integration/|apps/web/app/api/platform-v7/integrations/|apps/web/app/api/staff/integration-control-tower/|apps/web/app/api/staff/integrations/|apps/web/app/platform-v7/integrations/|apps/web/components/crop-platform/(IntegrationControlTowerClient\.tsx|IntegrationControlTowerClient\.module\.css|integration-control-tower-live-adapter\.ts)$|apps/web/tests/unit/(integrationControlTowerLiveAdapter|platformV7IntegrationControlTower)\.test\.ts$|docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower\.json$|scripts/verify-pc-crop-07b\.mjs$)' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/slice-files.txt" || true
+          if [ -s "$EVIDENCE_DIR/slice-files.txt" ]; then
+            printf '%s\n' 'SLICE_REMEDIATION' > "$EVIDENCE_DIR/scope-mode.txt"
+            if grep -Ev '^(\.github/workflows/pc-crop-07b\.yml|apps/api/src/app\.module\.ts|apps/api/src/modules/regulatory-integration/.*|apps/web/app/api/platform-v7/integrations/.*|apps/web/app/api/staff/integration-control-tower/.*|apps/web/app/api/staff/integrations/.*|apps/web/app/platform-v7/integrations/.*|apps/web/components/crop-platform/(IntegrationControlTowerClient\.tsx|IntegrationControlTowerClient\.module\.css|integration-control-tower-live-adapter\.ts)|apps/web/lib/platform-v7/(cabinet-access-policy|design-system-v8-route-policy|route-canonicalization|routes)\.ts|apps/web/tests/unit/(integrationControlTowerLiveAdapter|platformV7IntegrationControlTower|platformV7RouteCanonicalization)\.test\.ts|apps/web/tsconfig\.pc-crop\.json|docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower\.json|scripts/(p7-autopilot-guard\.sh|verify-pc-crop-07b\.mjs))$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+              echo 'PC-CROP-07B contains out-of-scope files:' >&2
+              cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+              exit 1
+            fi
+          else
+            printf '%s\n' 'SHARED_INFRASTRUCTURE_ONLY' > "$EVIDENCE_DIR/scope-mode.txt"
+            echo 'Shared dependency change: full acceptance continues.'
           fi
 
       - uses: pnpm/action-setup@v4

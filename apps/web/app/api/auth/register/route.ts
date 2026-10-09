@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { appendPublicRegistrationContext } from '@/lib/platform-v7/public-registration-continuation';
 import { sendTransactionalMail } from '../../../../lib/server/transactional-mail';
 import { assertCsrf } from '../../../../lib/server-request-security';
 
@@ -124,8 +125,9 @@ export async function POST(request: Request) {
   if (
     idempotencyKey.length < 16
     || idempotencyKey.length > 128
-    || !/^\S+@\S+\.\S+$/.test(email)
+    // Length before pattern, so the pattern only ever sees a bounded string.
     || email.length > 254
+    || !/^\S+@\S+\.\S+$/.test(email)
     || !PUBLIC_WORKSPACES.has(workspace)
     || Object.prototype.hasOwnProperty.call(body, 'role')
     || Object.prototype.hasOwnProperty.call(body, 'requestedRole')
@@ -183,17 +185,18 @@ export async function POST(request: Request) {
 
     const delivery = payload.emailDelivery;
     if (!delivery?.email || !delivery.token || !payload.statusToken) {
-      console.error('registration_delivery_contract_invalid', JSON.stringify({
+      console.info('registration_delivery_contract_invalid', JSON.stringify({
         correlationId,
         registrationApplicationRef: payload.applicationId,
         accountHash: accountHash(email),
       }));
-      return json({ accepted: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE', correlationId: payload.correlationId || correlationId }, 503);
+      return json({ accepted: true, deliveryConfirmed: false, code: 'REGISTRATION_DELIVERY_UNCONFIRMED', correlationId: payload.correlationId || correlationId }, 202);
     }
     const verifyUrl = new URL('/platform-v7/register', normalizeOrigin(request));
     verifyUrl.searchParams.set('verify', delivery.token);
     verifyUrl.searchParams.set('statusToken', payload.statusToken);
     verifyUrl.searchParams.set('lang', locale);
+    appendPublicRegistrationContext(verifyUrl, new URL(request.url).search, locale);
     const copy = mailCopy[locale];
     const deliveryAttempt = await deliverRegistrationMail({
       to: delivery.email,
@@ -218,7 +221,7 @@ export async function POST(request: Request) {
         attempts: deliveryAttempt.attempts,
       }));
       return json({
-        accepted: false,
+        outcome: 'unknown',
         code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE',
         correlationId: payload.correlationId || correlationId,
       }, 503);
@@ -236,6 +239,6 @@ export async function POST(request: Request) {
       accountHash: accountHash(email),
       reason: error instanceof Error ? error.name : 'unknown',
     }));
-    return json({ accepted: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE', correlationId }, 503);
+    return json({ outcome: 'unknown', code: 'REGISTRATION_RESULT_UNKNOWN', correlationId }, 503);
   }
 }
