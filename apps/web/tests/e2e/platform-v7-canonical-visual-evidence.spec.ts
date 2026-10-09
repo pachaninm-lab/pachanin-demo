@@ -554,15 +554,26 @@ test.describe('canonical protected cabinet boundary', () => {
       const confirmed = header.getByText(expected.ready, { exact: true });
       const empty = header.getByText(expected.empty, { exact: true });
       await expect(confirmed.or(empty)).toBeVisible();
+      await expect(workspace.locator('a[href^="/platform-v7/profile/team"]'))
+        .toHaveAttribute('href', `/platform-v7/profile/team?lang=${locale}`);
       if (await confirmed.isVisible()) {
         await expect(workspace.getByRole('heading', { name: expected.unknown })).toBeVisible();
         await expect(workspace.getByText('UNKNOWN', { exact: true })).toBeVisible();
-        await expect(workspace.locator('#first-customer-work-queue a[href^="/platform-v7/deals/"]')).not.toHaveCount(0);
+        const dealLinks = workspace.locator('#first-customer-work-queue a[href^="/platform-v7/deals/"]');
+        await expect(dealLinks).not.toHaveCount(0);
+        for (const dealLink of await dealLinks.all()) {
+          await expect(dealLink).toHaveAttribute('href', new RegExp(`\\?lang=${locale}$`));
+        }
       } else {
         await expect(workspace.getByRole('heading', { name: expected.emptyTitle })).toBeVisible();
+        await expect(workspace.locator('a[href^="/platform-v7/profile?"]'))
+          .toHaveAttribute('href', `/platform-v7/profile?lang=${locale}`);
       }
       await expect(page.locator('[data-transaction-role-cockpit]')).toHaveCount(0);
       await canonicalNoOverflow(page);
+      await workspace.locator('a[href^="/platform-v7/profile/team"]').click();
+      await expect(page).toHaveURL(new RegExp(`/platform-v7/profile/team\\?lang=${locale}$`));
+      await expect(page.locator('html')).toHaveAttribute('lang', locale);
     }
   });
 
