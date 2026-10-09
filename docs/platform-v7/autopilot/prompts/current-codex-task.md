@@ -1,10 +1,40 @@
-# Current task — atomic canonical readiness prerequisite #4829
+# Codex current task — R1 release prerequisite: atomic canonical readiness recovery #4829
 
-Official progress remains **5/100**. Staff-session source #5766 is merged; R1 production acceptance remains open.
+Maturity: controlled-pilot / pre-integration.
+Do not overstate maturity or imply live external integrations.
+Do not change apps/landing, production UI, visual/theme/onboarding, adapters, server actions, AI gateway runtime, DB/migrations or lockfiles unless the current step explicitly allows it.
+Do not auto-merge. Independent review and green checks are required before a manual SHA-bound merge.
 
-The [owner-approved atomic disposition](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5935185862) replaces the separate metadata-first/source sequence for this one prerequisite. Use only the existing `fix/readiness-database-deadline-4829` branch with CORE as the existing writer. Preserve original readiness history and proposals #5770 (`056b185503e2db46956d2e6b76b78e936e963b37`) and #5771 (`e358177634856c9e71a0961497e7802f49213485`) through ordinary ancestry.
+## Source of truth
 
-The complete accepted-base diff must contain exactly these eleven existing regular 100644 files:
+- State: `docs/platform-v7/autopilot/autopilot-state.json`
+- Queue: `docs/platform-v7/execution-queue.md`
+- Progress: `docs/platform-v7/autopilot/progress.json`
+
+## Current step
+
+R1 release prerequisite: atomic canonical readiness recovery #4829
+
+## Next candidate
+
+Gekta existing-owner model activation and live quality/speed/stability acceptance: after this prerequisite, within separate existing scopes and remaining release/topology gates
+
+## Transition guard
+
+- BLOCKED: R1 release prerequisite: atomic canonical readiness recovery #4829 is not green/closed/mergeable. Dispatcher will not advance to Gekta existing-owner model activation and live quality/speed/stability acceptance: after this prerequisite, within separate existing scopes and remaining release/topology gates.
+- BLOCKED: Gekta history dual-identity P1 requires separately accepted thirteen-path replacement, genuine fresh independent review and thirteen-case restricted PostgreSQL acceptance; historical green ef cases are not acceptance of the new payload.
+- BLOCKED: Gekta live history fixture must use actual importedCount and block stable/legacy replay after purge; corrected four-path source and protected exact-main live execution remain pending despite seventeen private contract passes.
+- BLOCKED: Gekta release CI is blocked by the unchanged PC-CROP-10C instantaneous fixture clock race; exact one-test-file correction requires separate genuine review/native26-case acceptance without runtime or SQL authority changes.
+- BLOCKED: Gekta model source is blocked by genuine credential-before-validation P2; corrected four-path immutable source needs separate acceptance and real new native review, then authorized one-use execution. Retired grant remains spent; permanent control remains INTERACTION_REQUIRED.
+- BLOCKED: Gekta dispatcher explicit unaccepted-payload supersession correction is pending separate two-file source acceptance; registered public legal18 and anonymous17 replacements remain private and blocked until that accepted dispatcher exists.
+- BLOCKED: Gekta positive dispatcher regression fixture isolation is pending separate exact one-test-file source acceptance; future registered18/anonymous17 metadata remains private and blocked. Runtime duplicate/cycle/owner/scope rejection remains unchanged.
+- BLOCKED: Gekta anonymous document acknowledgement requires separately accepted seventeen-path source after actual registered18 guest legal and owned4 acceptance, then real exact-main REG.RU/mobile execution; old private19 composition is not source or production authority.
+- BLOCKED: Gekta registered18 source is blocked by actual Kubernetes source-binding input capacity; exact two-path named governance capacity correction requires separately accepted metadata/source and genuine native full preflight/KIND before fresh registration acceptance.
+- BLOCKED: Gekta registered18 remains blocked by real180s guard timeout and DockerHub429; separately admitted one-test-file baseline fixture cache needs its own genuine review/native/readiness/manual acceptance, then actual recomposed registration preflight/Kubernetes PASS. No timeout or test is weakened.
+- BLOCKED: Gekta registration18 is blocked by genuine current392 P1 wrong personal-data document binding; separate six-payload same-vector admission and corrected-source exact-head review/native/canonical/manual acceptance are required. Prior392 bounded preflight PASS is genuine but does not satisfy corrected-source acceptance or resolve the P1; old source slot was explicitly released.
+
+## Allowed current scope
+
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
@@ -17,29 +47,208 @@ The complete accepted-base diff must contain exactly these eleven existing regul
 - apps/api/src/common/guards/pre-auth-rate-limit.guard.ts
 - apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts
 
-Adopt all five COR5 source blobs unchanged from original proposal #4829/comment5930247718 and the exact staff-test blob `1b0010715cbcd636d15b1c9c4e5587baca16137c` from #5771/e358. Preserve source attribution to the existing CORE producer and proposal histories. The full source transitions are recorded in `canonical-readiness-cor5-4829-20261001`. Only the five listed governance documents are revised for the atomic disposition; every prior accepted concurrent vector and admission stays unchanged.
+## Forbidden zones
 
-No guard, workflow, manifest, PgBouncer configuration, dependency, migration, unrelated source or mode changes. No staff-source/test wildcard expansion. The legacy branch manifest is historical, and standard candidate-list routing is not mechanically immutable exact-eleven enforcement; external owner authority and independent whole-tree review enforce this boundary.
+- apps/landing
+- apps/web
+- package.json
+- package-lock.json
+- pnpm-lock.yaml
+- packages
+- live integration activation
+- production migration execution
+- production credentials and secret material
 
-Reuse the canonical HealthController, restricted Prisma principal and OutboxService. Preserve the 1500ms deadline, 15000ms grace, single flight, immediate/late pending-migration invalidation and existing thresholds. Service-wide queue state stays UNKNOWN where RLS hides rows. Probe aliases must not weaken unrelated rate/auth controls.
+## Active queue
 
-Require fresh exact-published-head independent nonauthor review of all eleven files, separate implementation-owner audit, all applicable full native CI/security/PostgreSQL and unchanged Kubernetes with zero failed PgBouncer logical probes, complete deep-outbox scenarios and successful cleanup. Preserve old #5770 Security Abuse and #5771 Kubernetes failures; local proposal/composition results never transfer PASS to this head. Report skipped tests and pre-existing aggregate teardown limitations explicitly. Recheck current head, all findings and manual readiness immediately before an ordinary expected-full-SHA merge.
+# Temporary atomic CORE prerequisite — canonical readiness #4829
 
-Preserve actual PRODUCT handoff5933030140, accepted purpose3/guard/test/workflow and all other owners; recheck fresh main/Hub before publication or merge. Return an actual handoff and supersede old proposals only after real atomic acceptance. No production, provider activation, R1 completion or progress claim follows from this bundle.
+CURRENT: R1 release prerequisite: atomic canonical readiness recovery #4829
+OFFICIAL OVERALL: 5/100 = 5% (unchanged)
 
-The next priority is the existing Gekta owner's actual model activation and live quality, speed and stability acceptance under its separate existing admissions and remaining topology/release prerequisites. This does not expand these eleven paths. R1.3 remains queued for a separately accepted scope transition; exact-main REG.RU and full 13-cabinet acceptance remain separate.
+CURRENT ALLOWED:
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
+- apps/api/test/staff-access/postgresql-staff-access.e2e-spec.ts
+- apps/api/src/main.ts
+- apps/api/src/health.controller.ts
+- apps/api/src/health.controller.spec.ts
+- apps/api/src/common/guards/pre-auth-rate-limit.guard.ts
+- apps/api/src/common/guards/pre-auth-rate-limit.guard.spec.ts
 
-## Queued snapshot-only topology diagnostic — 2026-10-01
+CURRENT CRITERIA:
+- owner disposition5935185862 permits this single atomic eleven-file bundle; no separate metadata-first/source cycle
+- exact six source blobs and eleven regular 100644 paths, preserved existing owners and histories
+- fresh whole-head independent review, separate owner audit and all native CI/security/Kubernetes acceptance
+- zero failed PgBouncer logical probes, complete deep-outbox scenarios and successful cleanup
+- preserve all accepted PRODUCT/concurrent admissions and official production progress
 
-Preserve the entire current task and all existing owners. The bounded approval in [Hub5941557816](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5941557816) permits this five-file preparation and a subsequent exact two-file source draft only. It is a reduced continuation of [proposal5934069236](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5934069236), retaining the existing TAI/preflight owner and #3582 lineage, not a second observer or completed full-model proposal.
+Staff-session source #5766 merged as 2749279de3b070f3ff9b79224c26d03c590275bd; CORE writer handoff5931917682 and PRODUCT handoff5933030140 remain preserved. Neither proves R1 production acceptance. [Owner atomic disposition](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5935185862) replaces only the prior staged sequencing for this prerequisite.
 
-After actual admission acceptance, the sole source branch is `fix/tai-bounded-topology-observer-20261001`:
-- `scripts/tai-reg-ru-preflight.sh`, mode 100755: `8f0f285bc436f3b4754204d198db5c68a4c916d2` -> `ac60f97dacdaf85ef1ccef63a1ea40709023d509`
-- `scripts/check-tai-reg-ru-preflight.mjs`, mode 100644: `15fb496d2aba5b2fda7adc0d55b8caaf8d6d1c79` -> `70071581041d73e8d73f5d61d8699420844cdf86`
+Order:
+1. Recheck fresh main/Hub, existing writers and actual PRODUCT handoff; accepted composition baseline is 5c43cd64fd61ee2e134ef319fa6c6087f1a37f14
+2. On existing fix/readiness-database-deadline-4829, combine immutable COR5 proposal5930247718, exact #5771/e358 staff test and the five revised governance documents, preserving original readiness and #5770/#5771 ancestry and attribution
+3. Verify all eleven paths, exact six source blobs/modes and every untouched tree leaf; preserve every accepted concurrent vector and admission
+4. Obtain fresh exact-published-head independent nonauthor full-diff review, separate author audit, full applicable native CI/security/PostgreSQL and unchanged zero-failure Kubernetes/deep-outbox/cleanup acceptance
+5. Recheck current head, findings and readiness, then ordinary expected-full-SHA manual merge; only after actual acceptance reconcile old proposals and return an actual writer handoff
+6. Prioritize the existing Gekta owner's real model activation and live quality/speed/stability acceptance under separate existing scopes and remaining topology/release prerequisites; R1.3 remains queued for its own admitted transition
 
-Use only the exact source transitions/SHA256 values in `tai-bounded-topology-observer-20261001`. Reuse existing private preflight JSON and ordered input snapshots; preserve every classifier, check, blocker, maturity and passed result. One additional Python collector reads bounded existing private work data/stdin, launches no child process and adds no wall-clock guarantee. No added Docker/Compose evaluation, daemon/image operation, network, source/env/protected-file read or workflow/controller change. Fresh persisted/discovery comparison, immutable-image/default-command evidence, registry provenance and freshness remain NOT_PROVEN.
+#5770 Security Abuse and #5771 Kubernetes failures remain preserved. Prior/local PASS does not transfer to the atomic head. Exact six source transitions are in canonical-readiness-cor5-4829-20261001. Unchanged standard candidate-list handling and legacy branch manifest do not provide immutable exact-eleven enforcement; independent whole-tree review must reject any extra path. No guard/workflow/manifest/PgBouncer/dependency/migration change, new recurring cost, provider activation or production authority is granted.
 
-This five-file admission must wait for explicit closure of the serialized runtime no-main-merge window before governance merge. The subsequent source PR stays draft: source merge and server execution require separate explicit approval because existing automatic build/preflight controllers pull images and refresh protected checkout. Current Gekta diagnostic/runtime authority grants no topology operation. No new rights, credentials, expense or progress credit; official 5/100 and all existing priorities remain unchanged.
+The following R1 plan is retained as historical/subsequent context and unresolved acceptance requirements, not the current eleven-path source grant:
+
+---
+
+# PC-CROP MASTER v2.1 execution queue
+
+PREVIOUS SLICE: R1.2 Controlled open-as-role server authority
+
+OFFICIAL OVERALL: 5/100 = 5%
+TARGET AFTER R1 PRODUCTION_PASS: 12/100 = 12%
+
+ARCHIVED R1.2 ALLOWED:
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
+- docs/execution/**
+- apps/api/src/modules/staff-access/**
+- apps/api/test/staff-access/**
+
+ARCHIVED R1.2 CRITERIA:
+- expose one server-owned canonical mapping for all 13 Founder role-mode cabinet intents;
+- preserve the authenticated Founder as actual actor and store effective organization/role only inside durable staff access context;
+- derive tenant server-side from the authorized organization; reject client-selected tenant/effective-role authority;
+- create role mode through existing PLATFORM_OWNER + recent MFA + VIEW_AS request/grant/session flow;
+- keep VIEW_AS read-only; high-risk actions remain behind ordinary authority, MFA and approval boundaries;
+- preserve reason, ticket, expiry, end/revoke and append-only audit evidence;
+- prove forged cabinet key, cross-tenant target, stale/revoked/expired session and write-in-VIEW_AS denials;
+- do not touch PRODUCT UX/FGIS/bank visual work.
+
+LOCKED:
+- R1.3 CEO overview and P0/P1 decision queue until R1.2 is merged with exact-head evidence.
+- R1 official 7 points remain 0 until the whole block has PRODUCTION_PASS.
+
+NEXT:
+- Layer: R1.3 CEO overview and P0/P1 decision queue
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/autopilot/progress.json
+  - docs/platform-v7/autopilot/prompts/current-codex-task.md
+  - docs/platform-v7/autopilot/prompts/current-review-task.md
+  - docs/platform-v7/execution-queue.md
+  - docs/execution/**
+  - apps/api/src/app.module.ts
+  - apps/api/src/modules/founder-control/**
+  - apps/api/src/modules/staff-access/staff-access.types.ts
+  - apps/api/prisma/migrations/*_founder_control_center/**
+  - infra/kind/production-like/postgresql-runtime-grants.sql
+  - apps/api/test/staff-access/**
+  - .github/workflows/ci.yml
+- Success criteria:
+  - Company Health contract combines business, operations, finance, risk and system health without fake numeric fallback
+  - every metric exposes source/freshness/grain/formula or an explicit unavailable state plus drill-down reference
+  - P0/P1 queue exposes owner, deadline, impact, next action, escalation and source
+  - Founder read authority is PLATFORM_OWNER-only and current durable assignment/MFA are revalidated
+  - empty/unavailable is honest; plan/forecast never masquerades as actual
+- Readiness remains MASTER_R1_IN_PROGRESS.
+
+## R1.1 closed evidence
+- exact inventory: `docs/execution/R1_1_EXACT_INVENTORY_2026-09-20.md`
+- exact baseline used: `5da8e80744908413102214f91dd68018911b892e`
+- canonical 13 cabinet roots are derived from current server role/route authority.
+- controlled-test owner shortcut is explicitly excluded from R1 production evidence.
+- fragmented role/permission registries are recorded as R1 deltas rather than silently treated as canonical.
+
+## R1 factual baseline
+- MASTER: PC-CROP_CODEX_MASTER_TZ_v2.1_2026-09-12.
+- R0 = PRODUCTION_PASS.
+- IR-20 Canonical Durable Outbox = PRODUCTION_PASS.
+- overall remains 5/100 until all R1 requirements pass together.
+- Team Hub #5469 is the live cross-contour coordination bus.
+- PRODUCT owns visual UX/FGIS/bank surfaces; CORE owns R1 server truth/authority/contracts.
+
+## R1 PASS
+R1 remains IN_PROGRESS until REQ-R1-001..005 and REQ-ROL-001..006 are evidenced on one accepted exact SHA, including 13/13 open/read-or-authorized-action/return, denied/high-risk cases, real-data-only Founder metrics with source/drill-down, actual-actor/effective-role audit, PRE_RELEASE_PASS, exact-current-main REG.RU release, exact production identity, live acceptance and required observation. Only then may OVERALL_PRODUCTION_PROGRESS become 12/100 = 12%.
+
+## Historical policy records retained for regression compatibility
+The following sections are archival records. Their dated statements such as “IR-20 remains active” describe the state at that historical checkpoint and are superseded by the exact R0/IR-20 PRODUCTION_PASS evidence above. They remain verbatim because review-policy regression tests intentionally verify their preservation.
+
+## Historical conditional Qwen diagnostics — 2026-09-12
+
+Archived instruction only. The current provider-independent policy below retires this PR-review workflow; this record grants no current implementation authority.
+
+This is preliminary instruction alignment for future branch
+`fix/local-qwen-failed-review-evidence-20260912`, not current implementation
+permission. Implementation is permitted only after the immutable prior authority
+proposed in PR #5335 is accepted and merged into `main`, and the implementation
+base's trusted scope authorizes that exact branch and both paths below. This
+paragraph does not change state or expand any permission; primary tasks and all
+other scope boundaries remain unchanged.
+
+The future implementation is limited to exactly:
+
+- `.github/workflows/local-qwen-independent-review.yml`
+- `docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs`
+
+Preserve bounded rejected-candidate diagnostics before policy-validation failure
+can discard them, including evidence transfer before the final failure exit.
+Bind evidence to the exact head/run/attempt/diff/manifest/chunk identity and
+verify content hashes. Reject invalid UTF-8 and envelopes exceeding 64 KiB.
+Preserve the original failure result, fail-closed behavior and cleanup of remote
+and unvalidated temporary files. Add no
+model calls and change no review semantics, model selection, policy, status or
+merge/review gates. Diagnostic artifacts are not accepted review evidence.
+
+Proceed only when that prior authority and base-scope match are independently
+verified; otherwise keep this implementation blocked.
+
+## Historical paused concurrent W1 acceptance — 2026-09-12
+
+The following is the recorded state on 2026-09-12, not a fresh status or an active provider requirement.
+
+W1 PR #5332 at `ff03424d073e97d52f1a8cf38dad3de74345ed08` remains
+blocked by current Qwen policy-validation failure and Octopus community quota.
+Its successful native review and code/security checks do not override those
+provider failures. W1 is safely paused without production completion, must not
+be retried merely to obtain PASS, and does not alter the serialized IR-10.5 scope.
+Confirmed master production acceptance remains 0/100 (0%).
+
+## Owner-authorized provider-independent review — 2026-09-18
+
+The owner's later explicit instruction removes the Codex blocking dependency and authorizes a durable provider-independent review policy. This supersedes the earlier same-day plan that required #5422 followed by a four-path `fix/provider-neutral-review-admission-20260918` PR while retaining native Codex/Copilot authority. That earlier plan and its observed provider failures are historical; they are not prerequisites for this owner-authorized migration. MASTER v2.1 R0.2 provider selection is superseded only for development review. Independent review, engineering quality, exact-SHA evidence and production acceptance remain required. Qwen remains confined to Gekta; Gekta inference, models, evaluation and production runtime are unchanged.
+
+The newly authorized migration is one narrow PR on `fix/provider-independent-review-20260918`, limited to its exact scope manifest: review policy and prompts, the deterministic readiness verifier and its regressions, removal of mandatory PR-provider workflow entry points, retirement of automated merge behavior, and the scope enforcement needed for these exact paths. This grants no additional product, database, dependency, deployment or secret-access scope. The migration itself requires actual independent review of its current diff, fresh applicable CI/security and a manual SHA-bound merge under existing GitHub protections. It does not depend on a native AI provider producing a review event.
+
+Current review contract:
+
+- No named AI provider, quota, account plan, model endpoint or hosted review service is a mandatory dependency. Optional AI review findings remain review findings and must be addressed when applicable.
+- An independent human or a separate session review agent must inspect the actual exact-head diff. The implementation author cannot supply their own independent review. Record the full head SHA, reviewer identity and independence, reviewed scope, checks, limitations and findings. Session review is recorded as session review, never forged as native GitHub bot or human approval.
+- The deterministic engineering-readiness check retains exact-head identity, complete applicable substantive CI/security checks, implementation-owner exact-head audit, active latest `CHANGES_REQUESTED` and unresolved current review-thread blocking. No provider failure can conceal a substantive failure or resolve a finding.
+- `--manual-readiness` can return `READY_FOR_MANUAL_REVIEW`; this is a readiness result, not independent-review PASS or merge permission. The default CLI returns `AUTOMATIC_MERGE_DISABLED`. Missing or stale independent review must be resolved through a real reviewer before a manual merge.
+- Automated merging and label-based merge authority are disabled. Immediately before a manual merge, the authorized operator verifies the independent review, reloads current head and readiness, and supplies the full expected head SHA. Existing GitHub branch protections apply; no force merge, fabricated checks or approval impersonation is permitted.
+- A head change invalidates previous review, owner audit and CI evidence. Provider retirement does not transfer historical PASS, dismiss findings or claim production acceptance.
+
+Required regressions: absent, rate-limited and retired AI providers cannot block otherwise valid manual readiness; readiness never enables automatic merge; missing or stale owner audit, malformed or incomplete check metadata, red/pending substantive CI, active changes-requested and unresolved review threads still block. Preserve meaningful exact-head and workflow-run authority coverage, including the distinction between transport failure and malformed metadata. Negative evidence must not become PASS because a provider is retired.
+
+Execution sequence: independently review and manually merge this owner-authorized migration after fresh applicable CI; verify live main; reassess #5422 and #5406 against that main and preserve their still-needed scope-enforcement and check-run-authority fixes without reintroducing provider binding; then forward-sync #5347, reuse the saved app_outbox transaction-local claim-protocol fixture, and obtain full CI plus real Production-like Kubernetes Acceptance PASS before its independent review and manual SHA-bound merge. Every remaining change stays in a separately approved narrow scope.
+
+IR-20 remains active. Its final closure requires the exact-current-main REG.RU release, verified immutable running images and canonical production Compose topology, functional live acceptance for the touched outbox flow, and at least 30 minutes of observation required by MASTER. Worker publication, protected release and rollback work require their own reviewed scopes and operational evidence. Local patches, independent review, green CI, a Kubernetes PASS, image publication and a merge do not by themselves constitute `PRODUCTION_PASS`. No IR-21 or other product delivery slice opens before the required IR-20 acceptance is complete.
+
+
+## Queued TAI snapshot-only topology diagnostic — 2026-10-01
+
+This is a bounded follow-on to [Hub5934069236](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5934069236), authorized only for five-file preparation and a subsequent source draft by [Hub5941557816](https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-5941557816). Preserve current CORE/COR5 writer priority, PRODUCT handoffs, existing TAI ownership/#3582 lineage and every historical queue entry. The separate Gekta model-control history, including #5747, grants no topology scope or operation.
+
+1. Review and accept only the five appended governance changes after explicit closure of the serialized runtime no-main-merge window and fresh main/ownership checks; no concurrent runtime SHA movement.
+2. Then publish `fix/tai-bounded-topology-observer-20261001` as a draft containing only `scripts/tai-reg-ru-preflight.sh` (100755, exact `ac60f97dacdaf85ef1ccef63a1ea40709023d509`) and `scripts/check-tai-reg-ru-preflight.mjs` (100644, exact `70071581041d73e8d73f5d61d8699420844cdf86`) from the state-pinned transitions. Obtain fresh full-head independent review, owner audit and native checks.
+3. Retain source-merge and server-execution hold pending separate explicit approval of inherited automatic image-build/preflight effects, including image pulls and protected-checkout refresh. Do not invoke a controller/host or repair parity/detector behavior in this slice.
+
+The reduced payload only exposes existing preflight snapshot facts; fresh persisted/discovery comparison, immutable image/default-command/entrypoint and registry/freshness evidence remain NOT_PROVEN. The original topology blockers and separate deployment authority remain open. No CORE_TOPOLOGY_READY, R1 completion, permanent model switch, new rights/expenses or official progress beyond 5/100 follows.
 
 
 ## Gekta consent and first-user release prerequisites — 2026-10-08
@@ -253,3 +462,13 @@ Source refs change only after genuine separate exact-head metadata review, owner
 No auto/force merge, fake status/review/receipt, skipped or weakened gate, new backend/key/role/budget, source lock/owner/MFA/root/polkit bypass, spent marker/refund/permanent model/routing change, credential exposure or production/full privacy/maturity claim.
 
 Gekta registration18 is blocked by genuine current392 P1 wrong personal-data document binding; separate six-payload same-vector admission and corrected-source exact-head review/native/canonical/manual acceptance are required. Prior392 bounded preflight PASS is genuine but does not satisfy corrected-source acceptance or resolve the P1; old source slot was explicitly released.
+
+
+## Gekta registration prerequisite generated-view correction — genuine P2 still under review
+
+Genuine native P2 review5476226308/comment4235298697/threadPRRT_kwDOR7So_c6q-Vvp of unacceptedfc4b reproduced stale superseded blockers in committed progress/current prompts. Use the unchanged actual dispatcher to regenerate both full current prompts and synchronize only the progress blockedBy derived array to its complete ordered current blocker set. Preserve all non-blocker progress fields/legacy fields/raw nextStep/timestamp and the unchanged source-of-truth state current/nextStep/owners/scopes/PRIMARY11/Claude/official5. Old109 raw state records/full payloads remain frozen; six full replacement payloads and twelve prior full afters unchanged. Historical admission prose stays retained in append-only queue and Git ancestry; current prompt prefixes are necessarily regenerated, not claimed byte-preserved. Re-run actual unchanged dispatcher twice in isolation: generated prompts must match complete bytes, active prompt BLOCKED rows and progress blockedBy must equal the full current dispatcher set, and retired registration-choice blocker must be absent from all active views. No guard/dispatcher/schema/source payload/runtime/gate/timeout change; oldfc4b review/native/readiness is not transferred to corrected head.
+
+
+## Implementation brief
+
+Implement R1 release prerequisite: atomic canonical readiness recovery #4829 strictly inside the state allowed scope.
