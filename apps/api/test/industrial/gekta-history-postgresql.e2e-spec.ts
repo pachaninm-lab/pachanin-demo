@@ -165,15 +165,24 @@ describe('Gekta history: real restricted PostgreSQL import, purge and concurrenc
     const resume = deferred();
     const paused = new GektaWorkspaceService({
       $transaction: (fn: (tx: Prisma.TransactionClient) => Promise<unknown>) => left.$transaction(async tx => {
-        return fn({ ...tx, gektaHistoryImportReceipt: { ...tx.gektaHistoryImportReceipt,
+        const receipt = { ...tx.gektaHistoryImportReceipt,
           findUnique: async (args: Prisma.GektaHistoryImportReceiptFindUniqueArgs) => {
             locked.resolve(); await resume.promise; return tx.gektaHistoryImportReceipt.findUnique(args);
           },
-        } } as unknown as Prisma.TransactionClient);
+        };
+        // Prisma's raw-query methods are not enumerable. Forward the actual
+        // transaction through a proxy so the real FOR UPDATE still executes.
+        return fn(new Proxy(tx, { get(target, property) {
+          if (property === 'gektaHistoryImportReceipt') return receipt;
+          const value = Reflect.get(target, property);
+          return typeof value === 'function' ? value.bind(target) : value;
+        } }));
       }, { timeout: 10_000 }),
     } as unknown as PrismaService);
     const importResult = paused.importAnonymousHistory(account, [incoming()]);
-    await locked.promise;
+    await Promise.race([locked.promise, importResult.then(() => {
+      throw new Error('Import completed before its receipt barrier');
+    })]);
     const clearResult = service(right).clearHistory(account);
     try { await waitForBlockedHistoryTransaction(); } finally { resume.resolve(); }
     expect((await importResult).importedCount).toBe(1);
@@ -196,5 +205,26 @@ describe('Gekta history: real restricted PostgreSQL import, purge and concurrenc
     expect(capabilities[0]).toEqual({ direct_delete: false, receipt_delete: false, can_purge: true });
     await service(left).clearHistory(account);
     expect(await admin.gektaConversation.findUnique({ where: { id: foreign.id } })).not.toBeNull();
+  });
+
+  it.each(['stable', 'legacy'] as const)('retains %s receipts through auth pepper rotation and does not restore purged rows', async kind => {
+    const previousPepper = process.env.AUTH_TOKEN_PEPPER;
+    const record = kind === 'stable' ? incoming() : { ...incoming(), sourceId: undefined };
+    try {
+      process.env.AUTH_TOKEN_PEPPER = 'own-synthetic-pepper-before-rotation';
+      const created = await service(left).importAnonymousHistory(account, [record]);
+      expect(created.importedCount).toBe(1);
+      await service(left).deleteConversation(account, created.conversationIds[0]);
+      const before = await admin.gektaHistoryImportReceipt.findMany({ where: { accountId: account } });
+      process.env.AUTH_TOKEN_PEPPER = 'own-synthetic-pepper-after-rotation';
+      expect((await service(right).importAnonymousHistory(account, [record])).importedCount).toBe(0);
+      expect(await admin.gektaConversation.count({ where: { accountId: account } })).toBe(0);
+      expect(await admin.gektaMessage.count({ where: { conversation: { accountId: account } } })).toBe(0);
+      expect(await admin.gektaHistoryImportReceipt.findMany({ where: { accountId: account } })).toEqual(before);
+      if (kind === 'stable') await expect(service(right).importAnonymousHistory(account, [incoming('local-1', 'changed')])).rejects.toThrow('import_identity_conflict');
+    } finally {
+      if (previousPepper === undefined) delete process.env.AUTH_TOKEN_PEPPER;
+      else process.env.AUTH_TOKEN_PEPPER = previousPepper;
+    }
   });
 });

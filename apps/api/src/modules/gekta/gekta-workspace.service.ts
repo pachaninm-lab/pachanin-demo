@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { Prisma } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { hashAuthMaterial, stableJson } from '../auth/auth-crypto';
+import { stableJson } from '../auth/auth-crypto';
 import {
   GEKTA_CONVERSATION_TITLE_MAX,
   GEKTA_IMPORT_MAX_CONVERSATIONS,
@@ -60,9 +60,9 @@ export class GektaWorkspaceService {
     const messages = incoming.messages.slice(0, GEKTA_IMPORT_MAX_MESSAGES)
       .map(m => [m.role, m.body.slice(0, GEKTA_MESSAGE_BODY_MAX)])
       .sort((a, b) => stableJson(a).localeCompare(stableJson(b)));
-    return `legacy-v1:${hashAuthMaterial(`gekta-history-import-legacy-v1:${stableJson({
+    return `legacy-v1:${createHash('sha256').update(`gekta-history-import-legacy-v1:${stableJson({
       accountId, title: clean(incoming.title, MAX_TITLE), locale: incoming.locale, messages,
-    })}`)}`;
+    })}`).digest('hex')}`;
   }
 
   private async retainImportReceipts(tx: Prisma.TransactionClient, accountId: string, conversationId?: string): Promise<void> {
@@ -293,12 +293,12 @@ export class GektaWorkspaceService {
         const importKey = incoming.sourceId === undefined ? legacyKey
           : `id-v1:${createHash('sha256').update(`gekta-history-import-id-v1:${stableJson({ accountId, sourceId: incoming.sourceId })}`).digest('hex')}`;
         const payloadHash = incoming.sourceId === undefined ? legacyKey.split(':')[1]
-          : hashAuthMaterial(`gekta-history-import-payload-v1:${stableJson({
+          : createHash('sha256').update(`gekta-history-import-payload-v1:${stableJson({
             accountId, title, locale: incoming.locale, createdAt: incoming.createdAt ?? null,
             messages: incoming.messages.slice(0, GEKTA_IMPORT_MAX_MESSAGES).map(m => ({
               role: m.role, body: m.body.slice(0, GEKTA_MESSAGE_BODY_MAX), createdAt: m.createdAt ?? null,
             })),
-          })}`);
+          })}`).digest('hex');
         const received = await tx.gektaHistoryImportReceipt.findUnique({
           where: { accountId_importKey: { accountId, importKey } },
         }) ?? (importKey === legacyKey ? null : await tx.gektaHistoryImportReceipt.findUnique({

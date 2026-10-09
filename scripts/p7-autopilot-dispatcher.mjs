@@ -87,6 +87,19 @@ function isGreenOrClosed(state) {
   return ['green', 'closed', 'mergeable', 'merged'].includes(status);
 }
 
+function coordinationAdmissionBlockers(state) {
+  const blockers = [];
+  for (const [name, record] of Object.entries(state.coordinationAdmissions ?? {})) {
+    if (!record || typeof record !== 'object' || !Object.hasOwn(record, 'dispatcherBlocker')) continue;
+    const value = record.dispatcherBlocker;
+    if (typeof value !== 'string' || !value.trim() || value.length > 2000 || /[\r\n]/u.test(value)) {
+      throw new Error(`Invalid dispatcher admission blocker: ${name}`);
+    }
+    blockers.push(value.trim());
+  }
+  return [...new Set(blockers)];
+}
+
 function assertNoForbiddenClaim(text, target) {
   const lowered = text.toLowerCase();
   const found = FORBIDDEN_CLAIMS.filter((claim) => lowered.includes(claim.toLowerCase()));
@@ -209,9 +222,10 @@ async function main() {
   const locked = state.lockedUntilCurrentGreen ?? parseListAfterHeading(queue, 'LOCKED UNTIL 5.1 GREEN');
   const nextCandidate = locked[0] ?? 'No queued next step.';
   const currentClosed = isGreenOrClosed(state);
-  const blockedBy = currentClosed
-    ? []
-    : [`${current} is not green/closed/mergeable. Dispatcher will not advance to ${nextCandidate}.`];
+  const blockedBy = [...new Set([
+    ...(currentClosed ? [] : [`${current} is not green/closed/mergeable. Dispatcher will not advance to ${nextCandidate}.`]),
+    ...coordinationAdmissionBlockers(state),
+  ])];
 
   const codexPromptPath = promptNameForCurrent(current, 'codex');
   const reviewPromptPath = promptNameForCurrent(current, 'review');

@@ -83,6 +83,27 @@ describe('Gekta workspace ownership', () => {
 });
 
 describe('Gekta anonymous history import', () => {
+  it.each(['stable', 'legacy'] as const)('does not recreate %s imports after authentication pepper rotation', async kind => {
+    const previousPepper = process.env.AUTH_TOKEN_PEPPER;
+    const create = jest.fn().mockResolvedValue({ id: 'c-imported' });
+    const service = new GektaWorkspaceService(prismaWith({
+      gektaConversation: { findMany: async () => [], create },
+    }));
+    const record = { ...(kind === 'stable' ? { sourceId: 'local-stable-1' } : {}), title: 'Own fixture', locale: 'ru', messages: [{ role: 'user' as const, body: 'own body' }] };
+    try {
+      process.env.AUTH_TOKEN_PEPPER = 'own-synthetic-pepper-before-rotation';
+      expect((await service.importAnonymousHistory('acc-1', [record])).importedCount).toBe(1);
+      process.env.AUTH_TOKEN_PEPPER = 'own-synthetic-pepper-after-rotation';
+      expect((await service.importAnonymousHistory('acc-1', [record])).importedCount).toBe(0);
+      expect(create).toHaveBeenCalledTimes(1);
+      if (kind === 'stable') await expect(service.importAnonymousHistory('acc-1', [{ ...record, messages: [{ role: 'user', body: 'changed' }] }])).rejects.toThrow('import_identity_conflict');
+      expect(create).toHaveBeenCalledTimes(1);
+    } finally {
+      if (previousPepper === undefined) delete process.env.AUTH_TOKEN_PEPPER;
+      else process.env.AUTH_TOKEN_PEPPER = previousPepper;
+    }
+  });
+
   it('does not duplicate a conversation that was already imported', async () => {
     const created: string[] = [];
     const service = new GektaWorkspaceService(prismaWith({
