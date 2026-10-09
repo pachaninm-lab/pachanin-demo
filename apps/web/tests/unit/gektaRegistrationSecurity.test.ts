@@ -12,7 +12,9 @@ import {
   serializeAnonymousSession,
   createAnonymousSession,
   issueTicket,
+  recordConsent,
 } from '@/lib/gekta/anonymous-session';
+import { GEKTA_LEGAL_VERSION } from '@/lib/gekta/legal';
 import {
   clearGektaMfaCookieOptions,
   gektaEmailCookieOptions,
@@ -275,7 +277,8 @@ describe('Gekta answer admission', () => {
 
   it('consumes the matching signed reservation at generation admission', async () => {
     const ticket = issueTicket();
-    const reserved = reserveAnswer(createAnonymousSession(), ticket);
+    const now = new Date();
+    const reserved = reserveAnswer(recordConsent(createAnonymousSession(now), GEKTA_LEGAL_VERSION, now), ticket);
     const serialized = serializeAnonymousSession(reserved);
     expect(parseAnonymousSession(serialized)).toMatchObject({ pending: ticket });
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
@@ -293,7 +296,8 @@ describe('Gekta answer admission', () => {
 
   it('rejects a replay even when the browser resends its old signed cookie', async () => {
     const ticket = issueTicket();
-    const serialized = serializeAnonymousSession(reserveAnswer(createAnonymousSession(), ticket));
+    const now = new Date();
+    const serialized = serializeAnonymousSession(reserveAnswer(recordConsent(createAnonymousSession(now), GEKTA_LEGAL_VERSION, now), ticket));
     const durable = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ allowed: true }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ allowed: false }), { status: 200 }));
@@ -309,7 +313,8 @@ describe('Gekta answer admission', () => {
 
   it('fails closed when distributed admission is unavailable', async () => {
     const ticket = issueTicket();
-    const serialized = serializeAnonymousSession(reserveAnswer(createAnonymousSession(), ticket));
+    const now = new Date();
+    const serialized = serializeAnonymousSession(reserveAnswer(recordConsent(createAnonymousSession(now), GEKTA_LEGAL_VERSION, now), ticket));
     vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 503 })));
 
     const response = await chatPost(chatRequest({
@@ -319,4 +324,24 @@ describe('Gekta answer admission', () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ code: 'GEKTA_SERVICE_UNAVAILABLE' });
   });
+
+  it.each(['absent', 'obsolete', 'withdrawn', 'future', 'before-session', 'fractional'] as const)(
+    'rejects a legacy ticket with %s consent before any upstream request', async (kind) => {
+      const now = new Date();
+      const ticket = issueTicket(now);
+      const initial = createAnonymousSession(now);
+      const consent = kind === 'absent' ? undefined : kind === 'withdrawn' ? null : {
+        version: kind === 'obsolete' ? 'obsolete-version' : GEKTA_LEGAL_VERSION,
+        at: kind === 'future' ? now.getTime() + 60_000 : kind === 'before-session' ? now.getTime() - 1 : kind === 'fractional' ? now.getTime() - 0.5 : now.getTime(),
+      };
+      const serialized = serializeAnonymousSession({ ...reserveAnswer(initial, ticket), consent });
+      const upstream = vi.fn(async () => new Response(JSON.stringify({ allowed: true }), { status: 200 }));
+      vi.stubGlobal('fetch', upstream);
+      const response = await chatPost(chatRequest({ ticket, cookie: `${GEKTA_ANONYMOUS_COOKIE}=${serialized}` }));
+      expect(response.status).toBe(409);
+      expect(await response.json()).toEqual({ code: 'GEKTA_ANSWER_RESERVATION_INVALID' });
+      expect(upstream).not.toHaveBeenCalled();
+      expect(response.headers.get('set-cookie')).toBeNull();
+    },
+  );
 });

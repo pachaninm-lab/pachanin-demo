@@ -1511,6 +1511,136 @@ test('Qwen failed-evidence candidate regressions run unprivileged and block the 
   }
 });
 
+test('admission blockers survive actual dispatcher regeneration without duplication or maturity credit', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-admission-dispatcher-regression-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  state.current = 'R1 release prerequisite: atomic canonical readiness recovery #4829';
+  state.currentStatus = 'blocked';
+  state.coordinationAdmissions.fixtureOne = { dispatcherBlocker: 'Own fixture: source acceptance remains pending.' };
+  state.coordinationAdmissions.fixtureDuplicate = { dispatcherBlocker: 'Own fixture: source acceptance remains pending.' };
+  state.coordinationAdmissions.fixtureTwo = { dispatcherBlocker: 'Own fixture: actual runtime remains pending.' };
+  const section = '\n## Own admission fixture\nSource and runtime acceptance remain separate.\n';
+  write(root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify(state));
+  write(root, 'docs/platform-v7/execution-queue.md', fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8') + section);
+  write(root, 'docs/platform-v7/autopilot/progress.json', JSON.stringify({ fullTzReadinessPercent: 5 }));
+  for (const file of ['current-codex-task.md', 'current-review-task.md']) write(root, 'docs/platform-v7/autopilot/prompts/' + file, 'Before regeneration');
+  for (let run = 0; run < 2; run += 1) {
+    const result = spawnSync(process.execPath, [path.resolve('scripts/p7-autopilot-dispatcher.mjs')], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, output(result));
+    const progress = JSON.parse(fs.readFileSync(path.join(root, 'docs/platform-v7/autopilot/progress.json'), 'utf8'));
+    assert.equal(progress.fullTzReadinessPercent, 5);
+    assert.equal(progress.currentStep, state.current);
+    for (const blocker of ['Own fixture: source acceptance remains pending.', 'Own fixture: actual runtime remains pending.']) assert.equal(progress.blockedBy.filter(x => x === blocker).length, 1);
+    for (const file of ['current-codex-task.md', 'current-review-task.md']) {
+      const text = fs.readFileSync(path.join(root, 'docs/platform-v7/autopilot/prompts', file), 'utf8');
+      assert.equal(text.split(section).length - 1, 1);
+      assert.ok(text.includes('Own fixture: source acceptance remains pending.'));
+      assert.ok(text.includes('Own fixture: actual runtime remains pending.'));
+    }
+  }
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'docs/platform-v7/autopilot/autopilot-state.json'), 'utf8')), state);
+});
+
+test('invalid admission blocker fails the dispatcher before writing generated outputs', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-invalid-admission-blocker-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  const originalProgress = JSON.stringify({ fullTzReadinessPercent: 5, blockedBy: ['Existing truthful blocker'] });
+  for (const value of [false, '', ' ', 'first\nsecond', 'x'.repeat(2001)]) {
+    state.coordinationAdmissions.fixtureInvalid = { dispatcherBlocker: value };
+    write(root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify(state));
+    write(root, 'docs/platform-v7/execution-queue.md', fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8'));
+    write(root, 'docs/platform-v7/autopilot/progress.json', originalProgress);
+    for (const file of ['current-codex-task.md', 'current-review-task.md']) write(root, 'docs/platform-v7/autopilot/prompts/' + file, 'Original prompt');
+    const result = spawnSync(process.execPath, [path.resolve('scripts/p7-autopilot-dispatcher.mjs')], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Invalid dispatcher admission blocker: fixtureInvalid/u);
+    assert.equal(fs.readFileSync(path.join(root, 'docs/platform-v7/autopilot/progress.json'), 'utf8'), originalProgress);
+    for (const file of ['current-codex-task.md', 'current-review-task.md']) assert.equal(fs.readFileSync(path.join(root, 'docs/platform-v7/autopilot/prompts', file), 'utf8'), 'Original prompt');
+  }
+});
+
+function dispatcherSupersessionFixture(t, state) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-dispatcher-supersession-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  write(root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify(state));
+  write(root, 'docs/platform-v7/execution-queue.md', fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8'));
+  const outputs = ['docs/platform-v7/autopilot/progress.json', 'docs/platform-v7/autopilot/prompts/current-codex-task.md', 'docs/platform-v7/autopilot/prompts/current-review-task.md'];
+  for (const file of outputs) write(root, file, file.endsWith('.json') ? JSON.stringify({ fullTzReadinessPercent: 5, blockedBy: ['Original blocker'] }) : 'Original prompt');
+  return { root, outputs, run: () => spawnSync(process.execPath, [path.resolve('scripts/p7-autopilot-dispatcher.mjs')], { cwd: root, encoding: 'utf8' }) };
+}
+
+test('dispatcher supersession: actual registered18 and anonymous17 retire old requirements transitively while frozen records and current stay unchanged', (t) => {
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  const registered = state.coordinationAdmissions['gekta-registration-refresh-ci-correction-20261009'];
+  const anonymous = state.coordinationAdmissions['gekta-anonymous-document-evidence-20261009'];
+  const originalRegistered = state.coordinationAdmissions['gekta-registration-document-evidence-20261008'];
+  state.coordinationAdmissions = {
+    'gekta-registration-document-evidence-20261008': originalRegistered,
+    'gekta-registration-refresh-ci-correction-20261009': registered,
+    'gekta-anonymous-document-evidence-20261009': anonymous,
+  };
+  const extra = ['apps/web/middleware.ts', 'apps/web/tests/unit/gektaAnonymousLegalRoutes.test.ts'];
+  for (const path of extra) if (!state.approvedConcurrentScopes[registered.implementationBranch].includes(path)) state.approvedConcurrentScopes[registered.implementationBranch].push(path);
+  state.coordinationAdmissions.fixtureRegistered18 = {
+    ...structuredClone(registered), sourcePayloads: [...registered.sourcePayloads, ...extra.map(path => ({ path }))],
+    supersedesUnacceptedPayloadOf: 'gekta-registration-refresh-ci-correction-20261009', dispatcherBlocker: 'Current registered eighteen-path source remains pending.',
+  };
+  state.coordinationAdmissions.fixtureAnonymous17 = {
+    ...structuredClone(anonymous), sourcePayloads: anonymous.sourcePayloads.filter(pin => !extra.includes(pin.path)),
+    supersedesUnacceptedPayloadOf: 'gekta-anonymous-document-evidence-20261009', dispatcherBlocker: 'Current anonymous seventeen-path source remains pending.',
+  };
+  const fixture = dispatcherSupersessionFixture(t, state);
+  const retired = [registered.dispatcherBlocker, anonymous.dispatcherBlocker, state.coordinationAdmissions['gekta-registration-document-evidence-20261008'].dispatcherBlocker];
+  const active = [state.coordinationAdmissions.fixtureRegistered18.dispatcherBlocker, state.coordinationAdmissions.fixtureAnonymous17.dispatcherBlocker];
+  for (let iteration = 0; iteration < 2; iteration += 1) {
+    const result = fixture.run(); assert.equal(result.status, 0, output(result));
+    const progress = JSON.parse(fs.readFileSync(path.join(fixture.root, fixture.outputs[0]), 'utf8'));
+    for (const blocker of retired) assert.equal(progress.blockedBy.includes(blocker), false, blocker);
+    for (const blocker of active) assert.equal(progress.blockedBy.filter(value => value === blocker).length, 1);
+    assert.equal(progress.currentStep, state.current); assert.equal(progress.nextStep, state.current); assert.equal(progress.fullTzReadinessPercent, 5);
+    for (const file of fixture.outputs.slice(1)) {
+      const prompt = fs.readFileSync(path.join(fixture.root, file), 'utf8').split('## Active queue')[0].split('## Queue snapshot')[0];
+      for (const blocker of retired) assert.equal(prompt.includes(`- BLOCKED: ${blocker}`), false);
+      for (const blocker of active) assert.equal(prompt.split(`- BLOCKED: ${blocker}`).length - 1, 1);
+    }
+  }
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(fixture.root, 'docs/platform-v7/autopilot/autopilot-state.json'), 'utf8')), state);
+});
+
+const invalidDispatcherSupersessions = [
+  ['missing target', s => { s.coordinationAdmissions.fixtureChild.supersedesUnacceptedPayloadOf = 'missing'; }],
+  ['blank target', s => { s.coordinationAdmissions.fixtureChild.supersedesUnacceptedPayloadOf = ' '; }],
+  ['multiline target', s => { s.coordinationAdmissions.fixtureChild.supersedesUnacceptedPayloadOf = 'fixtureParent\n'; }],
+  ['non-string target', s => { s.coordinationAdmissions.fixtureChild.supersedesUnacceptedPayloadOf = []; }],
+  ['self target', s => { s.coordinationAdmissions.fixtureChild.supersedesUnacceptedPayloadOf = 'fixtureChild'; }],
+  ['cycle', s => { s.coordinationAdmissions.fixtureParent.supersedesUnacceptedPayloadOf = 'fixtureChild'; }],
+  ['foreign owner', s => { s.coordinationAdmissions.fixtureChild.owner = 'OTHER_OWNER'; }],
+  ['missing owner', s => { delete s.coordinationAdmissions.fixtureChild.owner; }],
+  ['no replacement blocker', s => { delete s.coordinationAdmissions.fixtureChild.dispatcherBlocker; }],
+  ['non-source target', s => { delete s.coordinationAdmissions.fixtureParent.sourcePayloads; }],
+  ['unrelated source lineage', s => { s.coordinationAdmissions.fixtureChild.sourcePayloads = [{ path: 'fixture/unrelated' }]; }],
+  ['duplicate source path', s => { s.coordinationAdmissions.fixtureChild.sourcePayloads.push({ path: 'fixture/a' }); }],
+  ['missing approved source scope', s => { delete s.approvedConcurrentScopes['fixture/source']; }],
+  ['scope without source path', s => { s.approvedConcurrentScopes['fixture/source'] = ['fixture/b']; }],
+  ['ambiguous fork', s => { s.coordinationAdmissions.fixtureFork = { ...structuredClone(s.coordinationAdmissions.fixtureChild), dispatcherBlocker: 'Competing pending source.' }; }],
+];
+for (const [name, mutate] of invalidDispatcherSupersessions) {
+  test(`dispatcher supersession: rejects ${name} before writing progress or prompts`, (t) => {
+    const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+    const source = { owner: 'FIXTURE_SOURCE_OWNER', implementationBranch: 'fixture/source', sourcePayloads: [{ path: 'fixture/a' }, { path: 'fixture/b' }], dispatcherBlocker: 'Original pending source.' };
+    state.approvedConcurrentScopes['fixture/source'] = ['fixture/a', 'fixture/b'];
+    state.coordinationAdmissions.fixtureParent = source;
+    state.coordinationAdmissions.fixtureChild = { ...structuredClone(source), sourcePayloads: [{ path: 'fixture/a' }], supersedesUnacceptedPayloadOf: 'fixtureParent', dispatcherBlocker: 'Replacement pending source.' };
+    mutate(state); const fixture = dispatcherSupersessionFixture(t, state);
+    const before = fixture.outputs.map(file => fs.readFileSync(path.join(fixture.root, file), 'utf8'));
+    const result = fixture.run(); assert.equal(result.status, 1, output(result)); assert.match(result.stderr, /Invalid dispatcher admission supersession/u);
+    assert.deepEqual(fixture.outputs.map(file => fs.readFileSync(path.join(fixture.root, file), 'utf8')), before);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(fixture.root, 'docs/platform-v7/autopilot/autopilot-state.json'), 'utf8')), state);
+  });
+}
+
 test('provider-independent review policy survives actual dispatcher regeneration without duplication', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-review-policy-dispatcher-regression-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
@@ -5275,3 +5405,127 @@ for (const branch of trustedConcurrentSourceBranches) {
     });
   }
 }
+
+
+const immutableStatePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+const immutableStateCapacity = 3 * 1024 * 1024;
+const boundedStateBranch = 'security/credential-surface-4459';
+
+function sizedImmutableState(state, bytes) {
+  const value = { ...state, retainedCapacityFixture: '' };
+  const empty = JSON.stringify(value);
+  const remaining = bytes - Buffer.byteLength(empty);
+  assert.ok(remaining >= 0);
+  // Mixed-width text catches character-count and UTF8 truncation mistakes.
+  value.retainedCapacityFixture = '测'.repeat(Math.floor(remaining / 3)) + 'x'.repeat(remaining % 3);
+  const result = JSON.stringify(value);
+  assert.equal(Buffer.byteLength(result), bytes);
+  return result;
+}
+
+function boundedStateFixture(t, bytes, branch = boundedStateBranch) {
+  const context = fixture(t, branch);
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, immutableStatePath), 'utf8'));
+  write(context.root, immutableStatePath, sizedImmutableState(state, bytes));
+  commit(context.root, 'accepted full bounded state');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  return context;
+}
+
+test('immutable state capacity reads the complete actual accepted buyer registry', (t) => {
+  const context = fixture(t, buyerBranch);
+  const retained = fs.readFileSync(immutableStatePath);
+  assert.ok(retained.length > 1024 * 1024);
+  assert.ok(retained.length <= immutableStateCapacity);
+  const file = 'apps/web/components/platform-v7/FirstCustomerWorkspace.tsx';
+  const manifest = 'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json';
+  write(context.root, immutableStatePath, retained);
+  write(context.root, manifest, fs.readFileSync(manifest));
+  write(context.root, file, 'accepted buyer source\n');
+  commit(context.root, 'full actual accepted registry and manifest');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  write(context.root, file, 'authorized buyer source\n');
+  commit(context.root, 'authorized buyer change');
+  const result = runGuard(context);
+  assert.equal(result.status, 0, output(result));
+  assert.deepEqual(fs.readFileSync(path.join(context.root, immutableStatePath)), retained);
+});
+
+for (const bytes of [1024 * 1024 + 1, 2251808, immutableStateCapacity]) {
+  test(`immutable state capacity accepts complete UTF8 base of ${bytes} bytes`, (t) => {
+    const context = boundedStateFixture(t, bytes);
+    write(context.root, 'allowed.txt', 'authorized bounded-state change\n');
+    commit(context.root, 'authorized bounded-state change');
+    const result = runGuard(context);
+    assert.equal(result.status, 0, output(result));
+    assert.match(result.stdout, /Scope guard passed\./u);
+  });
+}
+
+for (const bytes of [immutableStateCapacity + 1, immutableStateCapacity + 128 * 1024]) {
+  test(`immutable state capacity rejects accepted base of ${bytes} bytes`, (t) => {
+    const context = boundedStateFixture(t, bytes);
+    write(context.root, 'allowed.txt', 'otherwise authorized change\n');
+    commit(context.root, 'otherwise authorized change');
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /P7_IMMUTABLE_STATE_CAPACITY/u);
+  });
+}
+
+test('immutable state capacity rejects oversized candidate in state-only admission', (t) => {
+  const context = boundedStateFixture(t, 2251808, buyerAdmissionBranch);
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, immutableStatePath), 'utf8'));
+  write(context.root, immutableStatePath, sizedImmutableState(state, immutableStateCapacity + 1));
+  commit(context.root, 'oversized state-only candidate');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /P7_IMMUTABLE_STATE_CAPACITY/u);
+});
+
+test('immutable state capacity rejects invalid UTF8 instead of decoding replacement characters', (t) => {
+  const context = boundedStateFixture(t, 2251808);
+  const target = path.join(context.root, immutableStatePath);
+  const bytes = fs.readFileSync(target);
+  const offset = bytes.indexOf(Buffer.from('测'));
+  assert.ok(offset > 0);
+  bytes[offset] = 0xff;
+  fs.writeFileSync(target, bytes);
+  commit(context.root, 'invalid UTF8 accepted state');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  write(context.root, 'allowed.txt', 'otherwise authorized change\n');
+  commit(context.root, 'otherwise authorized change');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /P7_IMMUTABLE_STATE_UTF8/u);
+});
+
+for (const mutation of ['global path', 'candidate self-admission']) {
+  test(`immutable state capacity preserves rejection of ${mutation} on large state`, (t) => {
+    const context = boundedStateFixture(t, 2251808);
+    if (mutation === 'candidate self-admission') {
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, immutableStatePath), 'utf8'));
+      state.approvedConcurrentScopes[boundedStateBranch].push('README.md');
+      write(context.root, immutableStatePath, JSON.stringify(state));
+    }
+    write(context.root, 'README.md', 'unapproved change\n');
+    commit(context.root, mutation);
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), mutation === 'global path' ? /Files outside current autopilot scope/u : /Mutable scope authority changed/u);
+  });
+}
+
+test('immutable state capacity does not enlarge the ordinary manifest buffer', (t) => {
+  const context = publicHomeImplementationFixture(t);
+  const target = path.join(context.root, publicHomeImplementationManifest);
+  const manifest = JSON.parse(fs.readFileSync(target, 'utf8'));
+  write(context.root, publicHomeImplementationManifest, sizedImmutableState(manifest, 1024 * 1024 + 1));
+  commit(context.root, 'oversized ordinary manifest base');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  write(context.root, 'apps/web/app/platform-v7/page.tsx', 'authorized presentation\n');
+  commit(context.root, 'authorized presentation');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /accepted public-home manifest:.*ENOBUFS/u);
+});

@@ -127,7 +127,9 @@ jobs:
                               require(len(entry) == 4 and entry[0] in ('100644', '100755') and entry[1] == 'blob' and entry[3] == path)
                               content = git('cat-file', 'blob', entry[2])
                               total += len(content)
-                              require(len(content) <= 2 * 1024 * 1024 and total <= 32 * 1024 * 1024)
+                              # Full reviewed payloads grow the one named governance registry; all other source limits stay fixed.
+                              max_source_bytes = (3 if path == 'docs/platform-v7/autopilot/autopilot-state.json' else 2) * 1024 * 1024
+                              require(len(content) <= max_source_bytes and total <= 32 * 1024 * 1024)
                               content.decode('utf-8')
                               require(hashlib.sha1(b'blob ' + str(len(content)).encode() + b'\0' + content).hexdigest() == entry[2])
                               report['sources'].append({'ref': label, 'path': path, 'blob': entry[2],
