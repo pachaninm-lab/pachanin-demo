@@ -70,5 +70,14 @@ def test_gitleaks_exceptions_are_exact_and_release_attested() -> None:
         "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:1005",
         "db4f0a50b8df0a5e1045d3b9dc6a6fdc9d2806b0:"
         "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:1018",
+        "2dbd66d9bf258113272825d7b082b20e3b15a2b6:"
+        "docs/platform-v7/autopilot/autopilot-state.json:generic-api-key:2713",
+        "3b76d0f3473b986b6354aaac528994f7ac343df2:"
+        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"
+        "generic-api-key:17",
+        "8e1febfffeb4da36f1dba9badb7522ddb6513c1d:"
+        "apps/web/tests/unit/sessionMintingSurface.spec.ts:generic-api-key:137",
+        "8e1febfffeb4da36f1dba9badb7522ddb6513c1d:"
+        "apps/web/tests/unit/sessionMintingSurface.spec.ts:generic-api-key:138",
     ]
     assert all(_FINGERPRINT.fullmatch(entry) is not None for entry in entries)

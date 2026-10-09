@@ -4,7 +4,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
-import { Public } from '../../common/decorators/public.decorator';
+import { PasswordSessionAuthAction, Public } from '../../common/decorators/public.decorator';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { AuthService } from './auth.service';
 import { PasswordResetService } from './password-reset.service';
@@ -196,6 +196,7 @@ export class AuthController {
   }
 
   @RateLimit({ name: 'auth_mfa_step_up_start', scope: 'user', limit: 5, windowSeconds: 300 })
+  @PasswordSessionAuthAction()
   @Post('mfa/step-up/start')
   startMfaStepUp(
     @CurrentUser() user: RequestUser,
@@ -206,6 +207,7 @@ export class AuthController {
   }
 
   @RateLimit({ name: 'auth_mfa_step_up_verify', scope: 'user', limit: 10, windowSeconds: 300 })
+  @PasswordSessionAuthAction()
   @Post('mfa/step-up/verify')
   verifyMfaStepUp(
     @Body() dto: MfaVerifyDto,
@@ -216,6 +218,7 @@ export class AuthController {
     return this.authService.verifyMfaStepUp(user, dto, userAgent, ip);
   }
 
+  @PasswordSessionAuthAction()
   @Post('logout')
   @Public()
   @RateLimit({ name: 'auth_logout', scope: 'ip', limit: 30, windowSeconds: 60, limitEnv: 'RATE_LIMIT_AUTH_LOGOUT', windowEnv: 'RATE_LIMIT_WINDOW_SECONDS' })

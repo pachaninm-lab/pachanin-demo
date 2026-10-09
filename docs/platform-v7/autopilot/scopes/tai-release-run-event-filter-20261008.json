@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-release-run-event-filter-20261008",
+  "status": "active",
+  "allowedPaths": [
+    ".github/workflows/tai-release-acceptance.yml",
+    "apps/tai/tests/test_release_run_lookup_contract.py",
+    "docs/platform-v7/autopilot/scopes/tai-release-run-event-filter-20261008.json"
+  ]
+}

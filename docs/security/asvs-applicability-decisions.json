@@ -1032,7 +1032,7 @@
         "entry-point:apps/api/src/main.ts",
         "unvalidated-endpoints:apps/api/src/modules/saga/saga.controller.ts",
         "unvalidated-endpoints:apps/api/src/modules/export-trade/export-trade.controller.ts",
-        "unvalidated-endpoints:apps/api/src/modules/railway/railway.controller.ts"
+        "unvalidated-endpoints:apps/api/src/modules/route-planner/route-planner.controller.ts"
       ],
       "conditions": [
         {
@@ -1052,14 +1052,14 @@
           "paths": [
             "apps/api/src/modules/saga/saga.controller.ts",
             "apps/api/src/modules/export-trade/export-trade.controller.ts",
-            "apps/api/src/modules/railway/railway.controller.ts"
+            "apps/api/src/modules/route-planner/route-planner.controller.ts"
           ],
           "patterns": [
             "@body() body: {"
           ]
         }
       ],
-      "note": "Positive validation against declared constraints exists for the endpoints that declare a DTO, and does not exist at all for the ones that do not. Measured across endpoints rather than across DTO files: 81 endpoints declare @Body() body: { ... } as an inline TypeScript type and 78 declare a DTO class. An inline type erases to Object at runtime, ValidationPipe skips a parameter whose metatype it cannot transform, so for those 81 the global pipe validates nothing. 77 of them sit on POST, PUT, PATCH or DELETE, across roughly twenty modules including settlement-engine and saga - about half the write surface of the API. Correction: this decision was first recorded PASS. The note said every DTO file carries class-validator constraints and the global pipe applies them, which is literally true and still gave the wrong answer, because it measured the DTO files that exist rather than the endpoints that need one - the same wrong-denominator mistake the SBOM coverage work was built to prevent. The conditions passed because they checked main.ts for useGlobalPipes and whitelist: true; both are present, and neither tells you whether the pipe has anything to act on. Some of the 81 are inert legacy surfaces - legacy-admin-identity-boundary.ts replaces the admin role and organization mutators with functions that throw ServiceUnavailable - so they validate nothing and also do nothing; they are not cited as live examples. Update in this pass: the partner API surface named above has been closed. POST api/partner/api-keys, POST api/partner/webhooks and POST api/partner/webhooks/:id/test now declare GenerateApiKeyDto, SubscribeWebhookDto and TestWebhookDto, so the pipe finally has something to act on there. The ratchet moved 92 -> 89 unvalidated and 100 -> 103 DTO-typed, and the baseline was tightened in the same pass so the gain cannot be given back silently. The requirement stays FAIL and the conditions are re-pointed at surfaces that still carry the defect - gekta.controller.ts (13 inline bodies) and kyc.controller.ts (5) - because closing the file a decision cites revokes that decision, and a FAIL must keep naming something that is actually still broken rather than a file that has been fixed. What the closed endpoints did before, measured on the service rather than argued from the type: rateLimit 999999999 was accepted, so a caller lifted its own rate limit; expiresInDays -30 was accepted and issued an already-expired key; expiresInDays 1e12 raised RangeError: Invalid time value, and scopes given as a string raised TypeError: params.scopes.filter is not a function - both of which reached the client as 500 rather than 400; and events given as a string matched w.events.includes('*') by SUBSTRING, so any string containing an asterisk subscribed the webhook to every event on the platform. Update in this pass: kyc.controller.ts, named above as a still-defective surface, has been closed. Its five bodies now declare VerifyOrganizationDto, TransactionAmlCheckDto, InitiateKycDto, RknIncidentDto and VerifyInnDto, so INN, BIK, account number, kopeck amount and incident date are checked in form before they reach the FNS registry, the AML screening or the Roskomnadzor XML. The ratchet moved 89 -> 84 unvalidated and 103 -> 108 DTO-typed, and the baseline was tightened in the same pass. The requirement stays FAIL and the conditions are re-pointed at surfaces that still carry the defect - gekta.controller.ts (13 inline bodies) and support.controller.ts (5) - because closing the file a decision cites revokes that decision, and a FAIL must keep naming something actually broken. Update in this pass: support.controller.ts, named above as a still-defective surface, has been closed. Its five bodies now declare CreateTicketDto, AssignTicketDto, ResolveTicketDto, EscalateTicketDto and AddCommentDto. The finding worth recording there was not an authorisation gap - assignTicket, resolveTicket and escalateTicket are already behind assertSupport, addComment requires the support role or ticket authorship, and isInternal is multiplied by a role check in the service - but that the TicketPriority union did not exist at runtime. Measured: priority 'СРОЧНО!!!' was stored verbatim, and listQueue sorts on priorityOrder[p] ?? 3, so an unrecognised priority took the LOWEST rank - a ticket its reporter marked urgent in their own words was silently pushed to the bottom of the support queue rather than rejected. The ratchet moved 84 -> 79 unvalidated and 108 -> 113 DTO-typed, baseline tightened in the same pass. The requirement stays FAIL and is re-pointed at gekta.controller.ts (13 inline bodies) and export-trade.controller.ts (4), both of which still carry the defect. admin.controller.ts is deliberately not cited: part of that surface is the inert legacy boundary that throws ServiceUnavailable, so it validates nothing and also does nothing. Update in this pass: gekta.controller.ts, named above as a still-defective surface, has been closed. All thirteen bodies across GektaController and GektaOperatorController now declare DTO classes, and the conditions are re-pointed at railway.controller.ts and route-planner.controller.ts, which still carry the defect - closing the file a decision cites revokes that decision, so a FAIL has to keep naming something that is actually still broken. What the closed endpoints did before, measured rather than argued. The locale column is VarChar(8) and the boundary bounded nothing: POST gekta/projects with a nine-character locale reached PostgreSQL and came back 22001 value too long for type character varying(8) - PostgreSQL does not truncate on insert, it refuses - so user input became a 500. String({}) yields the literal \"[object Object]\", fifteen characters, which was enough on its own. The anonymous-history import went into the service through an as never cast: a conversation object with no messages raised TypeError: Cannot read properties of undefined (reading 'slice') and one with no title the same on 'replace', both 500 on user input. That same import wrote message.role verbatim into a VarChar(16) column while the live append route normalised anything that was not 'assistant' to 'user' - two write paths, one column, two different rules, and the role 'system' was measured persisting through the import path. An unparseable createdAt reached Prisma as Invalid Date. On the operator side the owner console already refuses to submit an action without a reason, but the server accepted String(body?.reason ?? '') - an empty reason, and an object written into the immutable audit trail as \"[object Object]\"; a check that only runs in the browser is not enforcement, and an audit entry reading 'lifetime access granted, reason empty' explains nothing. body?.suspended !== false was measured true for the string \"false\" and for 0, so an operator lifting a suspension re-applied it. new Date('garbage') is an object and therefore truthy, so the service's own guard - if kind is not LIFETIME and !expiresAt, throw - did not catch an unparseable until at all; it now checks Number.isNaN(getTime()) and raises BadRequest rather than a bare Error. An unknown grant kind used to become DAYS_7 silently; that fallback was a correct privilege boundary for LIFETIME, which needs its own permission and its own route, but the operator was never told, and a refusal at the boundary is honest without weakening the boundary. Separately, and not a validation defect: the import cap silently truncated. One hundred short conversations serialise to 13,391 bytes and fit in a single 64 KiB part, the server imports at most 60 per request and returned ok, and the client then marked the migration done - forty conversations of a user's history disappeared with no error anywhere. The client now splits parts by count as well as by bytes, bound by a test to the server's own constant. Fourteen mutations were applied to the new conditions. Thirteen were caught on the first run and the fourteenth found a hole in these very tests: removing @IsInt() from the trial extension changed nothing, because the fractional value the test used was 0.5 and @Min(1) already rejected it. Measured with 30.5, inside the permitted range, that mutation now fails - a condition a mutation can walk past is not a condition. The ratchet moved 79 -> 66 unvalidated and 116 -> 129 DTO-typed, measured against main at 5ec9a302e, so all thirteen are this pass; the stored floor rises 113 -> 129 and the baseline was tightened in the same pass so the gain cannot be given back silently."
+      "note": "Positive validation against declared constraints exists for the endpoints that declare a DTO, and does not exist at all for the ones that do not. Measured across endpoints rather than across DTO files: 81 endpoints declare @Body() body: { ... } as an inline TypeScript type and 78 declare a DTO class. An inline type erases to Object at runtime, ValidationPipe skips a parameter whose metatype it cannot transform, so for those 81 the global pipe validates nothing. 77 of them sit on POST, PUT, PATCH or DELETE, across roughly twenty modules including settlement-engine and saga - about half the write surface of the API. Correction: this decision was first recorded PASS. The note said every DTO file carries class-validator constraints and the global pipe applies them, which is literally true and still gave the wrong answer, because it measured the DTO files that exist rather than the endpoints that need one - the same wrong-denominator mistake the SBOM coverage work was built to prevent. The conditions passed because they checked main.ts for useGlobalPipes and whitelist: true; both are present, and neither tells you whether the pipe has anything to act on. Some of the 81 are inert legacy surfaces - legacy-admin-identity-boundary.ts replaces the admin role and organization mutators with functions that throw ServiceUnavailable - so they validate nothing and also do nothing; they are not cited as live examples. Update in this pass: the partner API surface named above has been closed. POST api/partner/api-keys, POST api/partner/webhooks and POST api/partner/webhooks/:id/test now declare GenerateApiKeyDto, SubscribeWebhookDto and TestWebhookDto, so the pipe finally has something to act on there. The ratchet moved 92 -> 89 unvalidated and 100 -> 103 DTO-typed, and the baseline was tightened in the same pass so the gain cannot be given back silently. The requirement stays FAIL and the conditions are re-pointed at surfaces that still carry the defect - gekta.controller.ts (13 inline bodies) and kyc.controller.ts (5) - because closing the file a decision cites revokes that decision, and a FAIL must keep naming something that is actually still broken rather than a file that has been fixed. What the closed endpoints did before, measured on the service rather than argued from the type: rateLimit 999999999 was accepted, so a caller lifted its own rate limit; expiresInDays -30 was accepted and issued an already-expired key; expiresInDays 1e12 raised RangeError: Invalid time value, and scopes given as a string raised TypeError: params.scopes.filter is not a function - both of which reached the client as 500 rather than 400; and events given as a string matched w.events.includes('*') by SUBSTRING, so any string containing an asterisk subscribed the webhook to every event on the platform. Update in this pass: kyc.controller.ts, named above as a still-defective surface, has been closed. Its five bodies now declare VerifyOrganizationDto, TransactionAmlCheckDto, InitiateKycDto, RknIncidentDto and VerifyInnDto, so INN, BIK, account number, kopeck amount and incident date are checked in form before they reach the FNS registry, the AML screening or the Roskomnadzor XML. The ratchet moved 89 -> 84 unvalidated and 103 -> 108 DTO-typed, and the baseline was tightened in the same pass. The requirement stays FAIL and the conditions are re-pointed at surfaces that still carry the defect - gekta.controller.ts (13 inline bodies) and support.controller.ts (5) - because closing the file a decision cites revokes that decision, and a FAIL must keep naming something actually broken. Update in this pass: support.controller.ts, named above as a still-defective surface, has been closed. Its five bodies now declare CreateTicketDto, AssignTicketDto, ResolveTicketDto, EscalateTicketDto and AddCommentDto. The finding worth recording there was not an authorisation gap - assignTicket, resolveTicket and escalateTicket are already behind assertSupport, addComment requires the support role or ticket authorship, and isInternal is multiplied by a role check in the service - but that the TicketPriority union did not exist at runtime. Measured: priority 'СРОЧНО!!!' was stored verbatim, and listQueue sorts on priorityOrder[p] ?? 3, so an unrecognised priority took the LOWEST rank - a ticket its reporter marked urgent in their own words was silently pushed to the bottom of the support queue rather than rejected. The ratchet moved 84 -> 79 unvalidated and 108 -> 113 DTO-typed, baseline tightened in the same pass. The requirement stays FAIL and is re-pointed at gekta.controller.ts (13 inline bodies) and export-trade.controller.ts (4), both of which still carry the defect. admin.controller.ts is deliberately not cited: part of that surface is the inert legacy boundary that throws ServiceUnavailable, so it validates nothing and also does nothing. Update in this pass: gekta.controller.ts, named above as a still-defective surface, has been closed. All thirteen bodies across GektaController and GektaOperatorController now declare DTO classes, and the conditions are re-pointed at railway.controller.ts and route-planner.controller.ts, which still carry the defect - closing the file a decision cites revokes that decision, so a FAIL has to keep naming something that is actually still broken. What the closed endpoints did before, measured rather than argued. The locale column is VarChar(8) and the boundary bounded nothing: POST gekta/projects with a nine-character locale reached PostgreSQL and came back 22001 value too long for type character varying(8) - PostgreSQL does not truncate on insert, it refuses - so user input became a 500. String({}) yields the literal \"[object Object]\", fifteen characters, which was enough on its own. The anonymous-history import went into the service through an as never cast: a conversation object with no messages raised TypeError: Cannot read properties of undefined (reading 'slice') and one with no title the same on 'replace', both 500 on user input. That same import wrote message.role verbatim into a VarChar(16) column while the live append route normalised anything that was not 'assistant' to 'user' - two write paths, one column, two different rules, and the role 'system' was measured persisting through the import path. An unparseable createdAt reached Prisma as Invalid Date. On the operator side the owner console already refuses to submit an action without a reason, but the server accepted String(body?.reason ?? '') - an empty reason, and an object written into the immutable audit trail as \"[object Object]\"; a check that only runs in the browser is not enforcement, and an audit entry reading 'lifetime access granted, reason empty' explains nothing. body?.suspended !== false was measured true for the string \"false\" and for 0, so an operator lifting a suspension re-applied it. new Date('garbage') is an object and therefore truthy, so the service's own guard - if kind is not LIFETIME and !expiresAt, throw - did not catch an unparseable until at all; it now checks Number.isNaN(getTime()) and raises BadRequest rather than a bare Error. An unknown grant kind used to become DAYS_7 silently; that fallback was a correct privilege boundary for LIFETIME, which needs its own permission and its own route, but the operator was never told, and a refusal at the boundary is honest without weakening the boundary. Separately, and not a validation defect: the import cap silently truncated. One hundred short conversations serialise to 13,391 bytes and fit in a single 64 KiB part, the server imports at most 60 per request and returned ok, and the client then marked the migration done - forty conversations of a user's history disappeared with no error anywhere. The client now splits parts by count as well as by bytes, bound by a test to the server's own constant. Fourteen mutations were applied to the new conditions. Thirteen were caught on the first run and the fourteenth found a hole in these very tests: removing @IsInt() from the trial extension changed nothing, because the fractional value the test used was 0.5 and @Min(1) already rejected it. Measured with 30.5, inside the permitted range, that mutation now fails - a condition a mutation can walk past is not a condition. The ratchet moved 79 -> 66 unvalidated and 116 -> 129 DTO-typed, measured against main at 5ec9a302e, so all thirteen are this pass; the stored floor rises 113 -> 129 and the baseline was tightened in the same pass so the gain cannot be given back silently. Update in this pass: railway.controller.ts is closed. Its four bodies now declare RegisterWagonDto, UpdateWagonStatusDto, CreateGU12Dto and CalculateDemurrageDto, and the conditions move to saga.controller.ts, export-trade.controller.ts and route-planner.controller.ts. The missing DTO was not the worst of it. The controller handed the body to the service as a spread - { ...body, ownerOrgId: user.orgId } - and registerWagon built the record as { id: randomUUID(), ...dto }, so a client-supplied id WON over the generated one. Measured on the live service: posting an existing wagon's id overwrote that wagon in place; the fleet count stayed at three, wagonNumber went 52000001 to 99999999 and ownerOrgId went org-logistics-001 to org-attacker. The duplicate-number guard never fired because the number differed, and since listWagons filters on ownerOrgId the wagon left its owner's list and appeared in the caller's. Scope stated honestly: this module keeps state in in-memory Maps rather than PostgreSQL, so the effect is per-process and lost on restart - it is not database corruption and is not described as such. Separately, demurrage is money and it was computable as NaN: an unparseable arrivedAt produced detainedHours NaN and totalKopecks NaN, which JSON serialises as null - a detention record with no amount. Both the boundary and the service refuse it now, the service too because a caller that bypasses the boundary must not be able to store NaN. One existing guard is left alone and not claimed as this pass's work: swapped dates already yielded zero through Math.max. Eight mutations were applied; six were caught at once and two were not, both weak tests rather than safe code. Dropping { strict: true } from the demurrage dates changed nothing because the test fed 'garbage', which the non-strict mode also rejects - re-measured with 2026-02-31, which parses but does not exist, it fails. Removing @IsNumber() from capacityTons also changed nothing, and that one is genuine redundancy rather than a test gap: with @Min and @Max present, @Min compares with >= and rejects NaN, Infinity and strings on its own. The decorator is kept as a statement of intent but is not load-bearing and is not presented as such; the test asserts the property instead."
     },
     {
       "requirementId": "V2.2.2",
@@ -1068,8 +1068,8 @@
       "evidence": [
         "entry-point:apps/api/src/main.ts",
         "unvalidated-endpoints:apps/api/src/modules/export-trade/export-trade.controller.ts",
-        "unvalidated-endpoints:apps/api/src/modules/railway/railway.controller.ts",
-        "unvalidated-endpoints:apps/api/src/modules/route-planner/route-planner.controller.ts"
+        "unvalidated-endpoints:apps/api/src/modules/route-planner/route-planner.controller.ts",
+        "unvalidated-endpoints:apps/api/src/modules/saga/saga.controller.ts"
       ],
       "conditions": [
         {
@@ -1088,15 +1088,15 @@
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/modules/export-trade/export-trade.controller.ts",
-            "apps/api/src/modules/railway/railway.controller.ts",
-            "apps/api/src/modules/route-planner/route-planner.controller.ts"
+            "apps/api/src/modules/route-planner/route-planner.controller.ts",
+            "apps/api/src/modules/saga/saga.controller.ts"
           ],
           "patterns": [
             "@body() body: {"
           ]
         }
       ],
-      "note": "Where validation happens it happens server-side, which is the right place. The requirement asks that the application be DESIGNED to enforce input validation at a trusted service layer, and half of it is not. Measured across endpoints rather than across DTO files: 81 endpoints declare @Body() body: { ... } as an inline TypeScript type and 78 declare a DTO class. An inline type erases to Object at runtime, ValidationPipe skips a parameter whose metatype it cannot transform, so for those 81 the global pipe validates nothing. 77 of them sit on POST, PUT, PATCH or DELETE, across roughly twenty modules including settlement-engine and saga - about half the write surface of the API. The clearest live instance is the partner webhook registration: POST api/partner/webhooks takes { url, events } as an inline type, nothing validates the url, and partner-api.service.ts stores it as given. Correction: this decision was first recorded PASS. The note said every DTO file carries class-validator constraints and the global pipe applies them, which is literally true and still gave the wrong answer, because it measured the DTO files that exist rather than the endpoints that need one - the same wrong-denominator mistake the SBOM coverage work was built to prevent. The conditions passed because they checked main.ts for useGlobalPipes and whitelist: true; both are present, and neither tells you whether the pipe has anything to act on. Some of the 81 are inert legacy surfaces - legacy-admin-identity-boundary.ts replaces the admin role and organization mutators with functions that throw ServiceUnavailable - so they validate nothing and also do nothing; they are not cited as live examples. Update in this pass: the partner API surface named above has been closed. POST api/partner/api-keys, POST api/partner/webhooks and POST api/partner/webhooks/:id/test now declare GenerateApiKeyDto, SubscribeWebhookDto and TestWebhookDto, so the pipe finally has something to act on there. The ratchet moved 92 -> 89 unvalidated and 100 -> 103 DTO-typed, and the baseline was tightened in the same pass so the gain cannot be given back silently. The requirement stays FAIL and the conditions are re-pointed at surfaces that still carry the defect - gekta.controller.ts (13 inline bodies) and kyc.controller.ts (5) - because closing the file a decision cites revokes that decision, and a FAIL must keep naming something that is actually still broken rather than a file that has been fixed. What the closed endpoints did before, measured on the service rather than argued from the type: rateLimit 999999999 was accepted, so a caller lifted its own rate limit; expiresInDays -30 was accepted and issued an already-expired key; expiresInDays 1e12 raised RangeError: Invalid time value, and scopes given as a string raised TypeError: params.scopes.filter is not a function - both of which reached the client as 500 rather than 400; and events given as a string matched w.events.includes('*') by SUBSTRING, so any string containing an asterisk subscribed the webhook to every event on the platform. Update in this pass: kyc.controller.ts, named above as a still-defective surface, has been closed. Its five bodies now declare VerifyOrganizationDto, TransactionAmlCheckDto, InitiateKycDto, RknIncidentDto and VerifyInnDto, so INN, BIK, account number, kopeck amount and incident date are checked in form before they reach the FNS registry, the AML screening or the Roskomnadzor XML. The ratchet moved 89 -> 84 unvalidated and 103 -> 108 DTO-typed, and the baseline was tightened in the same pass. The requirement stays FAIL and the conditions are re-pointed at surfaces that still carry the defect - gekta.controller.ts (13 inline bodies) and support.controller.ts (5) - because closing the file a decision cites revokes that decision, and a FAIL must keep naming something actually broken. Update in this pass: support.controller.ts, named above as a still-defective surface, has been closed. Its five bodies now declare CreateTicketDto, AssignTicketDto, ResolveTicketDto, EscalateTicketDto and AddCommentDto. The finding worth recording there was not an authorisation gap - assignTicket, resolveTicket and escalateTicket are already behind assertSupport, addComment requires the support role or ticket authorship, and isInternal is multiplied by a role check in the service - but that the TicketPriority union did not exist at runtime. Measured: priority 'СРОЧНО!!!' was stored verbatim, and listQueue sorts on priorityOrder[p] ?? 3, so an unrecognised priority took the LOWEST rank - a ticket its reporter marked urgent in their own words was silently pushed to the bottom of the support queue rather than rejected. The ratchet moved 84 -> 79 unvalidated and 108 -> 113 DTO-typed, baseline tightened in the same pass. The requirement stays FAIL and is re-pointed at gekta.controller.ts (13 inline bodies) and export-trade.controller.ts (4), both of which still carry the defect. admin.controller.ts is deliberately not cited: part of that surface is the inert legacy boundary that throws ServiceUnavailable, so it validates nothing and also does nothing. Update in this pass: gekta.controller.ts, named above as a still-defective surface, has been closed. All thirteen bodies across GektaController and GektaOperatorController now declare DTO classes, and the conditions are re-pointed at railway.controller.ts and route-planner.controller.ts, which still carry the defect - closing the file a decision cites revokes that decision, so a FAIL has to keep naming something that is actually still broken. What the closed endpoints did before, measured rather than argued. The locale column is VarChar(8) and the boundary bounded nothing: POST gekta/projects with a nine-character locale reached PostgreSQL and came back 22001 value too long for type character varying(8) - PostgreSQL does not truncate on insert, it refuses - so user input became a 500. String({}) yields the literal \"[object Object]\", fifteen characters, which was enough on its own. The anonymous-history import went into the service through an as never cast: a conversation object with no messages raised TypeError: Cannot read properties of undefined (reading 'slice') and one with no title the same on 'replace', both 500 on user input. That same import wrote message.role verbatim into a VarChar(16) column while the live append route normalised anything that was not 'assistant' to 'user' - two write paths, one column, two different rules, and the role 'system' was measured persisting through the import path. An unparseable createdAt reached Prisma as Invalid Date. On the operator side the owner console already refuses to submit an action without a reason, but the server accepted String(body?.reason ?? '') - an empty reason, and an object written into the immutable audit trail as \"[object Object]\"; a check that only runs in the browser is not enforcement, and an audit entry reading 'lifetime access granted, reason empty' explains nothing. body?.suspended !== false was measured true for the string \"false\" and for 0, so an operator lifting a suspension re-applied it. new Date('garbage') is an object and therefore truthy, so the service's own guard - if kind is not LIFETIME and !expiresAt, throw - did not catch an unparseable until at all; it now checks Number.isNaN(getTime()) and raises BadRequest rather than a bare Error. An unknown grant kind used to become DAYS_7 silently; that fallback was a correct privilege boundary for LIFETIME, which needs its own permission and its own route, but the operator was never told, and a refusal at the boundary is honest without weakening the boundary. Separately, and not a validation defect: the import cap silently truncated. One hundred short conversations serialise to 13,391 bytes and fit in a single 64 KiB part, the server imports at most 60 per request and returned ok, and the client then marked the migration done - forty conversations of a user's history disappeared with no error anywhere. The client now splits parts by count as well as by bytes, bound by a test to the server's own constant. Fourteen mutations were applied to the new conditions. Thirteen were caught on the first run and the fourteenth found a hole in these very tests: removing @IsInt() from the trial extension changed nothing, because the fractional value the test used was 0.5 and @Min(1) already rejected it. Measured with 30.5, inside the permitted range, that mutation now fails - a condition a mutation can walk past is not a condition. The ratchet moved 79 -> 66 unvalidated and 116 -> 129 DTO-typed, measured against main at 5ec9a302e, so all thirteen are this pass; the stored floor rises 113 -> 129 and the baseline was tightened in the same pass so the gain cannot be given back silently."
+      "note": "Where validation happens it happens server-side, which is the right place. The requirement asks that the application be DESIGNED to enforce input validation at a trusted service layer, and half of it is not. Measured across endpoints rather than across DTO files: 81 endpoints declare @Body() body: { ... } as an inline TypeScript type and 78 declare a DTO class. An inline type erases to Object at runtime, ValidationPipe skips a parameter whose metatype it cannot transform, so for those 81 the global pipe validates nothing. 77 of them sit on POST, PUT, PATCH or DELETE, across roughly twenty modules including settlement-engine and saga - about half the write surface of the API. The clearest live instance is the partner webhook registration: POST api/partner/webhooks takes { url, events } as an inline type, nothing validates the url, and partner-api.service.ts stores it as given. Correction: this decision was first recorded PASS. The note said every DTO file carries class-validator constraints and the global pipe applies them, which is literally true and still gave the wrong answer, because it measured the DTO files that exist rather than the endpoints that need one - the same wrong-denominator mistake the SBOM coverage work was built to prevent. The conditions passed because they checked main.ts for useGlobalPipes and whitelist: true; both are present, and neither tells you whether the pipe has anything to act on. Some of the 81 are inert legacy surfaces - legacy-admin-identity-boundary.ts replaces the admin role and organization mutators with functions that throw ServiceUnavailable - so they validate nothing and also do nothing; they are not cited as live examples. Update in this pass: the partner API surface named above has been closed. POST api/partner/api-keys, POST api/partner/webhooks and POST api/partner/webhooks/:id/test now declare GenerateApiKeyDto, SubscribeWebhookDto and TestWebhookDto, so the pipe finally has something to act on there. The ratchet moved 92 -> 89 unvalidated and 100 -> 103 DTO-typed, and the baseline was tightened in the same pass so the gain cannot be given back silently. The requirement stays FAIL and the conditions are re-pointed at surfaces that still carry the defect - gekta.controller.ts (13 inline bodies) and kyc.controller.ts (5) - because closing the file a decision cites revokes that decision, and a FAIL must keep naming something that is actually still broken rather than a file that has been fixed. What the closed endpoints did before, measured on the service rather than argued from the type: rateLimit 999999999 was accepted, so a caller lifted its own rate limit; expiresInDays -30 was accepted and issued an already-expired key; expiresInDays 1e12 raised RangeError: Invalid time value, and scopes given as a string raised TypeError: params.scopes.filter is not a function - both of which reached the client as 500 rather than 400; and events given as a string matched w.events.includes('*') by SUBSTRING, so any string containing an asterisk subscribed the webhook to every event on the platform. Update in this pass: kyc.controller.ts, named above as a still-defective surface, has been closed. Its five bodies now declare VerifyOrganizationDto, TransactionAmlCheckDto, InitiateKycDto, RknIncidentDto and VerifyInnDto, so INN, BIK, account number, kopeck amount and incident date are checked in form before they reach the FNS registry, the AML screening or the Roskomnadzor XML. The ratchet moved 89 -> 84 unvalidated and 103 -> 108 DTO-typed, and the baseline was tightened in the same pass. The requirement stays FAIL and the conditions are re-pointed at surfaces that still carry the defect - gekta.controller.ts (13 inline bodies) and support.controller.ts (5) - because closing the file a decision cites revokes that decision, and a FAIL must keep naming something actually broken. Update in this pass: support.controller.ts, named above as a still-defective surface, has been closed. Its five bodies now declare CreateTicketDto, AssignTicketDto, ResolveTicketDto, EscalateTicketDto and AddCommentDto. The finding worth recording there was not an authorisation gap - assignTicket, resolveTicket and escalateTicket are already behind assertSupport, addComment requires the support role or ticket authorship, and isInternal is multiplied by a role check in the service - but that the TicketPriority union did not exist at runtime. Measured: priority 'СРОЧНО!!!' was stored verbatim, and listQueue sorts on priorityOrder[p] ?? 3, so an unrecognised priority took the LOWEST rank - a ticket its reporter marked urgent in their own words was silently pushed to the bottom of the support queue rather than rejected. The ratchet moved 84 -> 79 unvalidated and 108 -> 113 DTO-typed, baseline tightened in the same pass. The requirement stays FAIL and is re-pointed at gekta.controller.ts (13 inline bodies) and export-trade.controller.ts (4), both of which still carry the defect. admin.controller.ts is deliberately not cited: part of that surface is the inert legacy boundary that throws ServiceUnavailable, so it validates nothing and also does nothing. Update in this pass: gekta.controller.ts, named above as a still-defective surface, has been closed. All thirteen bodies across GektaController and GektaOperatorController now declare DTO classes, and the conditions are re-pointed at railway.controller.ts and route-planner.controller.ts, which still carry the defect - closing the file a decision cites revokes that decision, so a FAIL has to keep naming something that is actually still broken. What the closed endpoints did before, measured rather than argued. The locale column is VarChar(8) and the boundary bounded nothing: POST gekta/projects with a nine-character locale reached PostgreSQL and came back 22001 value too long for type character varying(8) - PostgreSQL does not truncate on insert, it refuses - so user input became a 500. String({}) yields the literal \"[object Object]\", fifteen characters, which was enough on its own. The anonymous-history import went into the service through an as never cast: a conversation object with no messages raised TypeError: Cannot read properties of undefined (reading 'slice') and one with no title the same on 'replace', both 500 on user input. That same import wrote message.role verbatim into a VarChar(16) column while the live append route normalised anything that was not 'assistant' to 'user' - two write paths, one column, two different rules, and the role 'system' was measured persisting through the import path. An unparseable createdAt reached Prisma as Invalid Date. On the operator side the owner console already refuses to submit an action without a reason, but the server accepted String(body?.reason ?? '') - an empty reason, and an object written into the immutable audit trail as \"[object Object]\"; a check that only runs in the browser is not enforcement, and an audit entry reading 'lifetime access granted, reason empty' explains nothing. body?.suspended !== false was measured true for the string \"false\" and for 0, so an operator lifting a suspension re-applied it. new Date('garbage') is an object and therefore truthy, so the service's own guard - if kind is not LIFETIME and !expiresAt, throw - did not catch an unparseable until at all; it now checks Number.isNaN(getTime()) and raises BadRequest rather than a bare Error. An unknown grant kind used to become DAYS_7 silently; that fallback was a correct privilege boundary for LIFETIME, which needs its own permission and its own route, but the operator was never told, and a refusal at the boundary is honest without weakening the boundary. Separately, and not a validation defect: the import cap silently truncated. One hundred short conversations serialise to 13,391 bytes and fit in a single 64 KiB part, the server imports at most 60 per request and returned ok, and the client then marked the migration done - forty conversations of a user's history disappeared with no error anywhere. The client now splits parts by count as well as by bytes, bound by a test to the server's own constant. Fourteen mutations were applied to the new conditions. Thirteen were caught on the first run and the fourteenth found a hole in these very tests: removing @IsInt() from the trial extension changed nothing, because the fractional value the test used was 0.5 and @Min(1) already rejected it. Measured with 30.5, inside the permitted range, that mutation now fails - a condition a mutation can walk past is not a condition. The ratchet moved 79 -> 66 unvalidated and 116 -> 129 DTO-typed, measured against main at 5ec9a302e, so all thirteen are this pass; the stored floor rises 113 -> 129 and the baseline was tightened in the same pass so the gain cannot be given back silently. Update in this pass: railway.controller.ts is closed. Its four bodies now declare RegisterWagonDto, UpdateWagonStatusDto, CreateGU12Dto and CalculateDemurrageDto, and the conditions move to saga.controller.ts, export-trade.controller.ts and route-planner.controller.ts. The missing DTO was not the worst of it. The controller handed the body to the service as a spread - { ...body, ownerOrgId: user.orgId } - and registerWagon built the record as { id: randomUUID(), ...dto }, so a client-supplied id WON over the generated one. Measured on the live service: posting an existing wagon's id overwrote that wagon in place; the fleet count stayed at three, wagonNumber went 52000001 to 99999999 and ownerOrgId went org-logistics-001 to org-attacker. The duplicate-number guard never fired because the number differed, and since listWagons filters on ownerOrgId the wagon left its owner's list and appeared in the caller's. Scope stated honestly: this module keeps state in in-memory Maps rather than PostgreSQL, so the effect is per-process and lost on restart - it is not database corruption and is not described as such. Separately, demurrage is money and it was computable as NaN: an unparseable arrivedAt produced detainedHours NaN and totalKopecks NaN, which JSON serialises as null - a detention record with no amount. Both the boundary and the service refuse it now, the service too because a caller that bypasses the boundary must not be able to store NaN. One existing guard is left alone and not claimed as this pass's work: swapped dates already yielded zero through Math.max. Eight mutations were applied; six were caught at once and two were not, both weak tests rather than safe code. Dropping { strict: true } from the demurrage dates changed nothing because the test fed 'garbage', which the non-strict mode also rejects - re-measured with 2026-02-31, which parses but does not exist, it fails. Removing @IsNumber() from capacityTons also changed nothing, and that one is genuine redundancy rather than a test gap: with @Min and @Max present, @Min compares with >= and rejects NaN, Infinity and strings on its own. The decorator is kept as a statement of intent but is not load-bearing and is not presented as such; the test asserts the property instead."
     },
     {
       "requirementId": "V2.2.3",
@@ -1309,34 +1309,54 @@
     {
       "requirementId": "V2.4.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "export-controller:apps/api/src/modules/exports/exports.controller.ts"
+        "apps/api/src/modules/exports/exports.controller.ts",
+        "apps/api/src/common/guards/rate-limit.guard.ts",
+        "apps/api/src/app.module.ts",
+        "apps/api/src/modules/exports/exports-rate-limit.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the export controller serves bulk data",
-          "check": "PRESENT_AT_PATH",
+          "condition": "every export route still carries a per-actor rate limit",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/exports/exports.controller.ts"
           ],
           "patterns": [
-            "content-disposition"
+            "exports_deals",
+            "exports_evidence",
+            "exports_ledger",
+            "exports_outbox_status",
+            "exports_deal_report",
+            "exports_regulatory",
+            "scope: 'user'"
           ]
         },
         {
-          "condition": "it still carries no anti-automation control",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the guard that reads those decorators is still registered globally, so the decorator is enforcement rather than annotation",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/exports/exports.controller.ts"
+            "apps/api/src/app.module.ts"
           ],
           "patterns": [
-            "@ratelimit",
-            "throttle"
+            "ratelimitguard",
+            "app_guard"
+          ]
+        },
+        {
+          "condition": "the check reads the metadata through Reflector with the key the guard uses, not by searching the file for the decorator text",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports-rate-limit.spec.ts"
+          ],
+          "patterns": [
+            "rate_limit_options",
+            "reflector"
           ]
         }
       ],
-      "note": "Rate limiting exists on authentication and a few deal endpoints, but the endpoints that return bulk data carry none - and those are the ones the requirement names, because they are the exfiltration surface. nginx declares limit_req zones, but that configuration is referenced by no deployment file in the repository, so it cannot be shown to apply."
+      "note": "Every route on the exports controller now carries a per-actor rate limit, and the guard that reads them (RateLimitGuard) is registered as a global APP_GUARD after the auth guard, so request.user is populated by the time it runs - the decorator is enforcement, not annotation, and a condition asserts that registration separately. Scope is 'user' rather than 'ip' deliberately: a whole office legitimately shares one address, while an account exfiltrating data keeps its identity across addresses. Limits are proportional to what a request costs - the registry export returns up to 10 000 deals in one response and is capped at 10 per 5 minutes, per-deal reads at 30, and the regulatory report, the most expensive of all, at 5 per 15 minutes. The nginx limit_req zones are still not credited: no deployment file in the repository references that configuration, so its effect cannot be shown. The check reads metadata through Reflector with the key imported from the decorator module rather than searching the source for '@RateLimit' - a decorator applied to the wrong method, or one whose key drifted from the guard's, would look identical to a text search. That mattered in practice: the first version of the check guessed the key and guessed wrong. Proven by negative mutation: removing one decorator fails four tests, switching scope to 'ip' fails one, and giving two routes the same name fails one."
     },
     {
       "requirementId": "V2.4.2",
@@ -1728,45 +1748,95 @@
     {
       "requirementId": "V3.4.7",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "repository-scan:no-csp-report-endpoint"
+        "apps/web/middleware.ts",
+        "apps/web/app/api/csp-report/route.ts",
+        "apps/web/lib/security/csp-report.ts",
+        "apps/web/tests/unit/cspReportingAndCrossOriginHeaders.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the served CSP still specifies no report-uri or report-to directive anywhere",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/web"
+          "condition": "the served CSP still names a report destination through both mechanisms, and the report-to endpoint is still declared",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
           ],
           "patterns": [
-            "report-uri",
-            "report-to"
+            "report-uri /api/csp-report",
+            "report-to csp-endpoint",
+            "reporting-endpoints"
+          ]
+        },
+        {
+          "condition": "the endpoint that receives the reports still exists and still bounds what it reads and what it writes to the log",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/csp-report/route.ts",
+            "apps/web/lib/security/csp-report.ts"
+          ],
+          "patterns": [
+            "csp-report"
+          ]
+        },
+        {
+          "condition": "the bounds themselves are still in the module the route calls",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/security/csp-report.ts"
+          ],
+          "patterns": [
+            "max_reports_per_window",
+            "\\u0000-\\u001f",
+            "max_field_chars"
+          ]
+        },
+        {
+          "condition": "the route still reads the body under a ceiling and still answers 204 to everything",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/csp-report/route.ts"
+          ],
+          "patterns": [
+            "readboundedbody",
+            "status: 204",
+            "export async function post"
+          ]
+        },
+        {
+          "condition": "the endpoint is still reachable without a session, since the browser sends reports with no credentials",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
+          ],
+          "patterns": [
+            "'/api/csp-report',"
           ]
         }
       ],
-      "note": "The CSP names no location to report violations to - neither report-uri nor report-to appears anywhere in the policy or in apps/web/lib or apps/web/app. Violations that do occur (including ones caused by the unsafe-inline/unsafe-eval gap recorded under V3.4.3) are invisible to the operator; the browser silently blocks or allows per the policy with nothing recorded anywhere this application controls. Corrected on review: the scan roots originally excluded apps/web/middleware.ts (which sits directly under apps/web, not under apps/web/lib or apps/web/app), even though this decision itself identifies that file as the effective location for served headers - so a future addition there would not have caused this FAIL to self-revoke. Roots now include apps/web directly."
+      "note": "The served CSP now names /api/csp-report through report-uri and, for browsers that use the Reporting API, through report-to with the endpoint declared in a Reporting-Endpoints header. The receiving route exists and is deliberately narrow: it reads the body under a ceiling rather than trusting content-length (chunked requests carry none, which is why the pre-check form is unsound), it admits at most 120 reports per minute and counts the rest, it strips control characters from every logged field so a sender cannot append its own line to the log, and it answers 204 to everything so it is not an oracle. Reachability is part of the control and is checked separately: the route is in the middleware public allowlist, because a browser sends violation reports without credentials and would otherwise receive a redirect to the login form. The pure logic lives in apps/web/lib/security/csp-report.ts rather than in the route file: a Next.js Route Handler may only export names from a fixed set, and exporting a helper so a test could import it fails the production build with \"normaliseReport is not a valid Route export field\". Unit tests do not catch that - vitest does not enforce the route contract, only next build does. Proven by negative mutation: removing report-uri, removing the allowlist entry, removing the control-character strip and removing the window budget each fail a distinct test."
     },
     {
       "requirementId": "V3.4.8",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "repository-scan:no-coop-header"
+        "apps/web/middleware.ts",
+        "apps/web/tests/unit/cspReportingAndCrossOriginHeaders.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "no Cross-Origin-Opener-Policy header is still set anywhere in the web app",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/web"
+          "condition": "every response from applySecurityHeaders still carries Cross-Origin-Opener-Policy: same-origin",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
           ],
           "patterns": [
-            "cross-origin-opener-policy"
+            "cross-origin-opener-policy', 'same-origin"
           ]
         }
       ],
-      "note": "No response sets Cross-Origin-Opener-Policy - a scan of apps/web/lib and apps/web/app for the header name returns zero matches, and it is absent from applySecurityHeaders() alongside the headers that are set. Without it, a window this application opens (or is opened by) retains the default shared-window-object behaviour that enables tabnabbing and frame-counting-style attacks the header exists to close off. Corrected on review: the scan roots originally excluded apps/web/middleware.ts (which sits directly under apps/web, not under apps/web/lib or apps/web/app), even though this decision itself identifies that file as the effective location for served headers - so a future addition there would not have caused this FAIL to self-revoke. Roots now include apps/web directly."
+      "note": "applySecurityHeaders now sets Cross-Origin-Opener-Policy: same-origin, so a document does not share a browsing context group with whatever opened it. The risk of setting it was measured before it was set rather than assumed: window.open does not occur anywhere in apps/web, and the government identity flow is a full-page authorization-code redirect (govIdentityBridge.ts sets redirect_uri), so there is no popup whose opener reference this header could break. Proven by negative mutation: removing the header fails the test."
     },
     {
       "requirementId": "V3.5.1",
@@ -1905,22 +1975,21 @@
       "status": "FAIL",
       "evidence": [
         "apps/api/src/modules/storage/storage.service.ts",
-        "repository-scan:no-corp-header"
+        "apps/web/middleware.ts"
       ],
       "conditions": [
         {
-          "condition": "no Cross-Origin-Resource-Policy header is still set anywhere in the API or web app",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/api/src",
-            "apps/web"
+          "condition": "the download path still hands the browser a presigned storage URL, so the bytes are fetched from the storage origin and no header this application sets governs that load",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/storage/storage.service.ts"
           ],
           "patterns": [
-            "cross-origin-resource-policy"
+            "getpresigneddownloadurl"
           ]
         }
       ],
-      "note": "A handful of routes check sec-fetch-site (credited under V3.5.3), but that covers the chat/assistant endpoints specifically, not authenticated file access generally. The file-download path (storage.service.ts's getDownloadUrl, already assessed under V3.2.1) issues a presigned object-storage URL with a TTL - once issued, anyone holding that URL can load it directly against the storage origin for the life of the TTL, bypassing this application's request handling (and any Sec-Fetch check on it) entirely. No Cross-Origin-Resource-Policy header is set anywhere in the API or the web app - a scan returns zero matches - so there is no browser-side backstop instructing a cross-origin page not to embed a returned resource either. Corrected on review: the scan roots originally excluded apps/web/middleware.ts (which sits directly under apps/web, not under apps/web/lib or apps/web/app), even though this decision itself identifies that file as the effective location for served headers - so a future addition there would not have caused this FAIL to self-revoke. Roots now include apps/web directly."
+      "note": "Updated, and the verdict does not change. Cross-Origin-Resource-Policy is now set on every response from applySecurityHeaders, which removes the part of the earlier note that said the header appears nowhere. The value is same-site, and it was first written here as same-origin on the reasoning that the application has no cross-domain consumers. That reasoning was wrong: the platform is served from the apex AND from control.<apex> (control-host.ts), two origins sharing one registrable domain and running one application, so same-origin would have refused a subresource one of them loads from the other and broken the control plane. same-site refuses every genuinely foreign origin, which is what the requirement asks for. The correction is recorded rather than quietly applied, because \"stricter is better\" is exactly the instinct that produced the wrong value. It does not close this requirement, and saying so plainly matters more than the header: the file-download path issues a presigned object-storage URL (storage.service.ts getDownloadUrl), the bytes never pass through this application, and the browser loads them from the storage origin - so a header set here cannot govern that load at all. The earlier condition asserted that no CORP header existed anywhere; keeping it would have made this decision self-revoke the moment the header was added, for a reason unrelated to why the requirement fails. The condition is now anchored on the presigned path that is the actual gap. Closing this needs the storage origin itself to return CORP, or the download to be proxied through the application - neither is a change to this repository alone."
     },
     {
       "requirementId": "V3.6.1",
@@ -2074,34 +2143,34 @@
     {
       "requirementId": "V4.1.4",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "cors:apps/api/src/main.ts"
+        "apps/api/src/main.ts",
+        "apps/api/src/modules/ai-insights/outbound-redirect-and-surface.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "CORS is configured",
+          "condition": "enableCors still declares the method allowlist explicitly rather than leaving the framework default",
           "check": "PRESENT_AT_PATH",
           "paths": [
             "apps/api/src/main.ts"
           ],
           "patterns": [
-            "enablecors"
+            "methods: ['get', 'post', 'put', 'patch', 'delete', 'options']"
           ]
         },
         {
-          "condition": "no method allowlist constrains it",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the check that the allowlist still covers every method the controllers declare is still in place",
+          "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/main.ts"
+            "apps/api/src/modules/ai-insights/outbound-redirect-and-surface.spec.ts"
           ],
           "patterns": [
-            "methods:",
-            "allowedmethods"
+            "@(get|post|put|patch|delete|head|all)\\("
           ]
         }
       ],
-      "note": "No explicit HTTP method allowlist exists. enableCors is configured with an origin and credentials but no methods option, so preflight advertises the framework default rather than the methods this API supports. Credited: route binding means an undeclared method on a declared path does not execute a handler. That limits what runs; it is not the explicit allowlist the requirement asks for, and it says nothing about what preflight advertises."
+      "note": "enableCors now declares methods explicitly, so preflight advertises what this API supports rather than the framework default. The list was measured from the controllers rather than written from memory: @Get 221, @Post 206, @Patch 31, @Delete 7, @Put 1, with no @Head, @Options or @All declared anywhere; OPTIONS is included because preflight itself uses it. Route binding already limited what executes, which was credited before and is unchanged - the gap this closes is what preflight advertises, which route binding says nothing about. A test recomputes the declared set from the controllers and fails if a method appears that the allowlist does not cover, so adding a @Head handler later cannot silently outrun this. Proven by negative mutation: removing the methods option fails the test."
     },
     {
       "requirementId": "V4.1.5",
@@ -9056,23 +9125,47 @@
     {
       "requirementId": "V13.4.6",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "apps/api/src/health.controller.ts"
+        "apps/api/src/health.controller.ts",
+        "apps/web/public/platform-v7/openapi.yaml",
+        "apps/api/src/modules/ai-insights/outbound-redirect-and-surface.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the unauthenticated version endpoint still returns build date, commit and Node version alongside the version string",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the version route is no longer marked public - the decorator is not directly above it",
+          "check": "ABSENT_AT_PATH",
           "paths": [
             "apps/api/src/health.controller.ts"
           ],
           "patterns": [
-            "nodeversion: process.version"
+            "@public()\n  @get('version')"
+          ]
+        },
+        {
+          "condition": "the liveness probes this replaces it for are still public, so restricting version did not take the probe surface with it",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/health.controller.ts"
+          ],
+          "patterns": [
+            "@public()\n  @get('health')",
+            "@public()\n  @get('ready')"
+          ]
+        },
+        {
+          "condition": "the published specification still declares the route as requiring a bearer token",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/public/platform-v7/openapi.yaml"
+          ],
+          "patterns": [
+            "operationid: getversion",
+            "security: [{ bearerauth: [] }]"
           ]
         }
       ],
-      "note": "A dedicated, explicitly public endpoint returns detailed backend version information with no authentication: GET /version responds with the application version, build date, commit hash and Node.js runtime version. This is precisely what the requirement names - detailed version information of backend components, exposed rather than withheld. Unlike V13.4.5, this requirement carries no \"unless explicitly intended\" allowance; being deliberate does not satisfy it."
+      "note": "GET /version no longer carries the public-route decorator, so the global guard requires authentication for it. The endpoint returned application version, build date, commit hash and Node runtime version to any anonymous caller - a precise fingerprint for matching known runtime and dependency vulnerabilities - and unlike V13.4.5 this requirement carries no 'unless explicitly intended' allowance. The operational risk of restricting it was measured, not assumed: no Kubernetes probe uses this path. Probe paths across infra/k8s and infra/helm are /health, /ready, /live and /-/ready, and a test recomputes that set from the manifests and fails if any probe path ever mentions version. /health and /ready remain public for liveness, and a condition asserts that so this change cannot quietly take the probe surface with it. The published OpenAPI description was updated in the same change from security: [] to bearerAuth with a 401 response, because a specification that still advertises the route as open would be a false statement about the API. The first condition is an exact adjacency check rather than a search for the decorator anywhere in the file: three other routes in this controller are legitimately public, so a file-wide search would say nothing. Proven by negative mutation: restoring the decorator above the route fails the test."
     },
     {
       "requirementId": "V13.4.7",
@@ -9882,35 +9975,50 @@
     {
       "requirementId": "V15.3.2",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
         "apps/api/src/modules/ml-client/ml-client.service.ts",
-        "redirect-guarded-counterexample:apps/api/src/modules/storage/object-storage.adapter.ts"
+        "apps/api/src/modules/role-eligibility/role-eligibility-security.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+        "apps/api/src/modules/storage/object-storage.adapter.ts",
+        "apps/api/src/modules/marketing/connectors/telegram.publisher.ts",
+        "apps/api/src/modules/marketing/connectors/vk.publisher.ts",
+        "apps/api/src/common/vault/vault-transit.service.ts",
+        "apps/api/src/modules/ai-insights/outbound-redirect-and-surface.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the ML client fetch call still sets no redirect option, leaving it on fetch's default follow behaviour",
-          "check": "ABSENT_AT_PATH",
-          "paths": [
-            "apps/api/src/modules/ml-client/ml-client.service.ts"
-          ],
-          "patterns": [
-            "redirect: 'error'",
-            "redirect: 'manual'"
-          ]
-        },
-        {
-          "condition": "the object-storage adapter still shows what the guarded version of this call looks like, for comparison",
+          "condition": "every file that issues an outbound fetch still sets redirect: 'error' on it",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/storage/object-storage.adapter.ts"
+            "apps/api/src/modules/ml-client/ml-client.service.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility-security.ts",
+            "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+            "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+            "apps/api/src/modules/storage/object-storage.adapter.ts",
+            "apps/api/src/modules/marketing/connectors/telegram.publisher.ts",
+            "apps/api/src/modules/marketing/connectors/vk.publisher.ts",
+            "apps/api/src/common/vault/vault-transit.service.ts"
           ],
           "patterns": [
             "redirect: 'error'"
           ]
+        },
+        {
+          "condition": "the sweep that finds every call site and the credential-carrying subset is still in place, so a new unguarded call fails rather than passing unnoticed",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/ai-insights/outbound-redirect-and-surface.spec.ts"
+          ],
+          "patterns": [
+            "await fetch\\(",
+            "redirect:\\s*'error'",
+            "authorization|x-vault-token"
+          ]
         }
       ],
-      "note": "Of the 11 outbound fetch() call sites in the API, only object-storage.adapter.ts (2 sites) explicitly sets redirect: 'error', which fails the request rather than silently following a redirect - the correct, safe configuration this requirement asks for. The other 9 - ml-client.service.ts, partner-api.controller.ts, webhook-dispatcher.service.ts, restricted-public-qwen.service.ts (x2), ai-assistant.service.ts (x2), and vault-transit.service.ts (x2) - set no redirect option at all, which means fetch's default (follow) applies: a 3xx response from any of those endpoints is followed automatically. This compounds the already-recorded SSRF-shaped gap in the partner webhook path (ASVS V13.2.4/V13.2.5, V1.2.2, V1.3.6): a partner-controlled webhook URL that responds with a redirect to an internal address would be followed, not rejected."
+      "note": "All twelve outbound fetch call sites in the API now set redirect: 'error', so a 3xx from any of them fails the request instead of being followed. The harm is concrete rather than theoretical and was measured before the change: the Vault transit calls carry X-Vault-Token and the Qwen calls carry Authorization: Bearer, so a followed redirect would resend those credentials to a destination chosen by whoever answered. Every endpoint involved is configured, not user-supplied - ML_BASE, VAULT_ADDR and the AI baseUrl all come from configuration - so a redirect from any of them is never legitimate. Two call sites were already correct before this change (object-storage.adapter.ts) and three more had been fixed since the original assessment (role-eligibility-security.ts and the two marketing connectors); the partner webhook path is stronger still, going through safeOutboundRequest with a host allowlist and per-hop checks rather than a bare fetch. The condition names every file individually: PRESENT_AT_PATH holds only when all of them carry the option, so dropping it anywhere revokes this decision. Proven by negative mutation: removing it from the Vault client fails two tests, including the one that specifically covers credential-carrying requests."
     },
     {
       "requirementId": "V15.3.3",

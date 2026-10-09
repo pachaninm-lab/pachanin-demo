@@ -221,7 +221,13 @@ function MarketState({ locale, kind, context }: { locale: CanonicalPublicLocale;
   const description = kind === 'empty' ? copy.emptyText : kind === 'unavailable' ? copy.unavailableText : copy.noMatchText;
   const href = kind === 'unavailable' ? marketHref(locale, context) : kind === 'noMatch' ? marketHref(locale, publicMarketContext()) : marketApplicationHref(locale, 'sell', context);
   const label = kind === 'unavailable' ? copy.retry : kind === 'noMatch' ? copy.reset : copy.sell;
-  return <article className='pc-cp-card pc-cp-market-state' data-market-state={kind}><div><h3>{title}</h3><p>{description}</p></div><a className='pc-cp-button pc-cp-button--secondary' href={href}>{label}<ArrowRight size={16} aria-hidden='true' /></a></article>;
+  return <article className='pc-cp-card pc-cp-market-state' data-market-state={kind}>
+    <div><h3>{title}</h3><p>{description}</p></div>
+    <div className='pc-cp-market-recovery-actions' style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+      <a className='pc-cp-button pc-cp-button--secondary' href={href}>{label}<ArrowRight size={16} aria-hidden='true' /></a>
+      {kind === 'empty' ? <a className='pc-cp-button pc-cp-button--secondary' href={marketApplicationHref(locale, 'buy', context)}>{copy.buy}<ArrowRight size={16} aria-hidden='true' /></a> : null}
+    </div>
+  </article>;
 }
 function CropPhoto({ crop, locale, catalogue = false }: { crop: PublicCrop | ''; locale: CanonicalPublicLocale; catalogue?: boolean }) {
   if (!crop) return <div className='pc-cp-crop-photo pc-cp-crop-photo--missing'><PackageSearch size={32} aria-hidden='true' /><span>{COPY[locale].noPhoto}</span></div>;

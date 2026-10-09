@@ -33,8 +33,11 @@ type Copy = {
   orgType: string;
   legalName: string;
   inn: string;
+  innHint: string;
   kpp: string;
+  kppHint: string;
   ogrn: string;
+  ogrnHint: string;
   region: string;
   fullName: string;
   position: string;
@@ -108,8 +111,11 @@ const COPY: Record<Locale, Copy> = {
     orgType: 'Правовой статус',
     legalName: 'Наименование организации / ФИО предпринимателя',
     inn: 'ИНН',
+    innHint: '10 цифр для юридического лица или 12 цифр для ИП / физического лица.',
     kpp: 'КПП (при наличии)',
+    kppHint: 'В этой форме принимаются 9 цифр. Для ИП и самозанятых обычно не указывается.',
     ogrn: 'ОГРН / ОГРНИП (при наличии)',
+    ogrnHint: '13 цифр для ОГРН или 15 цифр для ОГРНИП.',
     region: 'Регион',
     fullName: 'ФИО заявителя',
     position: 'Должность или статус',
@@ -214,8 +220,11 @@ const COPY: Record<Locale, Copy> = {
     orgType: 'Legal status',
     legalName: 'Organization legal name / proprietor full name',
     inn: 'Tax ID (INN)',
+    innHint: '10 digits for a legal entity or 12 digits for a sole proprietor / individual.',
     kpp: 'KPP (if applicable)',
+    kppHint: 'This form accepts 9 digits. Usually not applicable to sole proprietors or self-employed individuals.',
     ogrn: 'OGRN / OGRNIP (if applicable)',
+    ogrnHint: '13 digits for OGRN or 15 digits for OGRNIP.',
     region: 'Region',
     fullName: 'Applicant full name',
     position: 'Position or status',
@@ -320,8 +329,11 @@ const COPY: Record<Locale, Copy> = {
     orgType: '法律身份',
     legalName: '组织法定名称 / 经营者姓名',
     inn: '税号（INN）',
+    innHint: '法人为10位数字，个体经营者或自然人为12位数字。',
     kpp: 'KPP（如适用）',
+    kppHint: '本表单接受9位数字。个体经营者和自雇人士通常无需填写。',
     ogrn: 'OGRN / OGRNIP（如适用）',
+    ogrnHint: 'OGRN为13位数字，OGRNIP为15位数字。',
     region: '地区',
     fullName: '申请人姓名',
     position: '职务或身份',
@@ -800,9 +812,9 @@ export function RegisterFormClient({
         <div className='p0-register-section-heading'><h2>2. {copy.organizationSection}</h2><p>{copy.organizationLead}</p></div>
         <div className='p0-register-grid'>
           <label className='p0-register-wide'><span>{copy.legalName} *</span><input name='orgLegalName' minLength={2} maxLength={300} required autoComplete='organization' /></label>
-          <label><span>{copy.inn} *</span><input name='orgInn' inputMode='numeric' pattern='(?:[0-9]{10}|[0-9]{12})' required /></label>
-          <label><span>{copy.kpp}</span><input name='orgKpp' inputMode='numeric' pattern='[0-9]{9}' /></label>
-          <label><span>{copy.ogrn}</span><input name='orgOgrn' inputMode='numeric' pattern='(?:[0-9]{13}|[0-9]{15})' /></label>
+          <label><span>{copy.inn} *</span><input name='orgInn' inputMode='numeric' pattern='(?:[0-9]{10}|[0-9]{12})' required aria-describedby='p0-register-inn-hint' /><small id='p0-register-inn-hint'>{copy.innHint}</small></label>
+          <label><span>{copy.kpp}</span><input name='orgKpp' inputMode='numeric' pattern='[0-9]{9}' aria-describedby='p0-register-kpp-hint' /><small id='p0-register-kpp-hint'>{copy.kppHint}</small></label>
+          <label><span>{copy.ogrn}</span><input name='orgOgrn' inputMode='numeric' pattern='(?:[0-9]{13}|[0-9]{15})' aria-describedby='p0-register-ogrn-hint' /><small id='p0-register-ogrn-hint'>{copy.ogrnHint}</small></label>
           <label><span>{copy.region} *</span><input name='region' minLength={2} maxLength={160} required autoComplete='address-level1' /></label>
         </div>
       </section>

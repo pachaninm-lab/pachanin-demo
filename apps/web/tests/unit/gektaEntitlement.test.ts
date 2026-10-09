@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { runInNewContext } from 'node:vm';
+import { transpileModule } from 'typescript';
 import { NextRequest } from 'next/server';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { middleware as applyMiddleware } from '../../middleware';
 import { GET, POST } from '@/app/api/gekta/entitlement/route';
 import {
@@ -11,10 +13,12 @@ import {
   isFreshAnswerTicket,
   issueTicket,
   parseAnonymousSession,
+  recordConsent,
   reserveAnswer,
   serializeAnonymousSession,
 } from '@/lib/gekta/anonymous-session';
 import { GEKTA_ENTITLEMENT_STATES, isBlockedState, resolveAnonymousEntitlement } from '@/lib/gekta/entitlement';
+import { GEKTA_LEGAL_VERSION } from '@/lib/gekta/legal';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 const ORIGIN = 'https://example.test';
@@ -44,6 +48,11 @@ function cookieFrom(response: Response): string {
   return match ? decodeURIComponent(match[1]) : '';
 }
 
+async function consentedCookie(): Promise<string> {
+  const cookie = cookieFrom(await GET(request('GET')));
+  return cookieFrom(await POST(request('POST', cookie, { action: 'consent' })));
+}
+
 /** Drive the full reserve → complete cycle the client performs per answer. */
 async function askOnce(cookie: string): Promise<{ cookie: string; allowed: boolean; remaining: number | null }> {
   const reserveResponse = await POST(request('POST', cookie, { action: 'reserve' }));
@@ -56,6 +65,33 @@ async function askOnce(cookie: string): Promise<{ cookie: string; allowed: boole
 }
 
 describe('Gekta anonymous entitlement', () => {
+  it.each([
+    { allowed: false, reason: 'consent_required', expected: null, expectedEvents: [] },
+    { allowed: false, expected: null, expectedEvents: ['gekta_anonymous_limit_reached', 'gekta_registration_gate_view'] },
+    { allowed: true, ticket: 'server-ticket', expected: 'server-ticket', expectedEvents: [] },
+  ])('classifies the actual workspace reservation decision without confusing consent with quota: $reason $allowed', async ({ expected, expectedEvents, ...payload }) => {
+    const source = read('components/gekta/GektaChatWorkspace.tsx');
+    const start = source.indexOf('const reserveAnswer = React.useCallback(');
+    const terminator = '}, [applyEntitlement, locale, workspaceMode]);';
+    const end = source.indexOf(terminator, start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const callback = source.slice(start, end + terminator.length);
+    const applyEntitlement = vi.fn();
+    const track = vi.fn();
+    const fetch = vi.fn(async () => new Response(JSON.stringify(payload), { status: 200 }));
+    const context = {
+      React: { useCallback: (callback: () => Promise<string | null>) => callback },
+      workspaceMode: 'local', locale: 'ru', fetch, applyEntitlement, track,
+    };
+    const compiled = transpileModule(`${callback}\nglobalThis.result = reserveAnswer();`, {}).outputText;
+    const result = runInNewContext(`${compiled}\nglobalThis.result`, context, { timeout: 1_000 });
+    expect(await result).toBe(expected);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(applyEntitlement).toHaveBeenCalledWith(payload);
+    expect(track.mock.calls.map(([event]) => event)).toEqual(expectedEvents);
+  });
+
   const originalSecret = process.env.GEKTA_ANONYMOUS_SESSION_SECRET;
   const originalLimit = process.env.GEKTA_ANONYMOUS_FREE_ANSWERS;
 
@@ -125,7 +161,7 @@ describe('Gekta anonymous entitlement', () => {
   });
 
   it('counts completed answers, not sends, and gates on the tenth', async () => {
-    let cookie = cookieFrom(await GET(request('GET')));
+    let cookie = await consentedCookie();
     for (let index = 0; index < 10; index += 1) {
       const result = await askOnce(cookie);
       expect(result.allowed).toBe(true);
@@ -140,7 +176,7 @@ describe('Gekta anonymous entitlement', () => {
   });
 
   it('charges a reserved answer that is never reported as completed', async () => {
-    let cookie = cookieFrom(await GET(request('GET')));
+    let cookie = await consentedCookie();
     // Reserve without completing, five times in a row.
     for (let index = 0; index < 5; index += 1) {
       const response = await POST(request('POST', cookie, { action: 'reserve' }));
@@ -155,9 +191,9 @@ describe('Gekta anonymous entitlement', () => {
   it('expires an answer ticket before its distributed replay bucket can reset', () => {
     const issued = new Date('2026-08-13T10:00:00.000Z');
     const ticket = issueTicket(issued);
-    const reserved = reserveAnswer(createAnonymousSession(issued), ticket);
+    const reserved = reserveAnswer(recordConsent(createAnonymousSession(issued), GEKTA_LEGAL_VERSION, issued), ticket);
     expect(isFreshAnswerTicket(ticket, new Date(issued.getTime() + 10 * 60_000))).toBe(true);
-    expect(admitReservedAnswer(reserved, ticket, new Date(issued.getTime() + 10 * 60_000 + 1))).toBeNull();
+    expect(admitReservedAnswer(reserved, ticket, GEKTA_LEGAL_VERSION, new Date(issued.getTime() + 10 * 60_000 + 1))).toBeNull();
   });
 
   it('rejects an expired or implausibly future-dated anonymous session', () => {
@@ -169,7 +205,7 @@ describe('Gekta anonymous entitlement', () => {
   });
 
   it('refuses a forged or edited counter instead of trusting it', async () => {
-    const honest = await askOnce(cookieFrom(await GET(request('GET'))));
+    const honest = await askOnce(await consentedCookie());
     const session = parseAnonymousSession(honest.cookie);
     expect(session).not.toBeNull();
     const forged = serializeAnonymousSession({ ...session!, used: 0 });
@@ -190,6 +226,44 @@ describe('Gekta anonymous entitlement', () => {
     expect(resolveAnonymousEntitlement({ used: 3 }, new Date()).state).toBe('REGISTRATION_REQUIRED');
     process.env.GEKTA_ANONYMOUS_FREE_ANSWERS = '1001';
     expect((await (await GET(request('GET'))).json()).entitlement.limit).toBe(1000);
+  });
+
+  it('denies reservation before consent without charging or issuing a ticket', async () => {
+    const cookie = cookieFrom(await GET(request('GET')));
+    const before = parseAnonymousSession(cookie)!;
+    const response = await POST(request('POST', cookie, { action: 'reserve' }));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toMatchObject({ allowed: false, ticket: null, reason: 'consent_required', legalVersion: GEKTA_LEGAL_VERSION });
+    expect(body.entitlement.remaining).toBe(10);
+    expect(parseAnonymousSession(cookieFrom(response))).toMatchObject({ sid: before.sid, used: 0, pending: null });
+  });
+
+  it.each(['obsolete', 'withdrawn', 'future', 'before-session', 'fractional'] as const)(
+    'denies %s consent without settling an outstanding answer', async (kind) => {
+      const now = new Date();
+      const initial = recordConsent(createAnonymousSession(now), GEKTA_LEGAL_VERSION, now);
+      const consent = kind === 'withdrawn' ? null : {
+        version: kind === 'obsolete' ? 'obsolete-version' : GEKTA_LEGAL_VERSION,
+        at: kind === 'future' ? now.getTime() + 60_000 : kind === 'before-session' ? now.getTime() - 1 : kind === 'fractional' ? now.getTime() - 0.5 : now.getTime(),
+      };
+      const pending = issueTicket(now);
+      const cookie = serializeAnonymousSession({ ...reserveAnswer(initial, pending), used: 2, consent });
+      const response = await POST(request('POST', cookie, { action: 'reserve' }));
+      expect(await response.json()).toMatchObject({ allowed: false, ticket: null, reason: 'consent_required', consent: null, legalVersion: GEKTA_LEGAL_VERSION });
+      expect(parseAnonymousSession(cookieFrom(response))).toMatchObject({ sid: initial.sid, used: 2, pending });
+    },
+  );
+
+  it('reserves after explicit acceptance of the current server version', async () => {
+    const cookie = await consentedCookie();
+    const accepted = parseAnonymousSession(cookie)!;
+    expect(accepted.consent?.version).toBe(GEKTA_LEGAL_VERSION);
+    const response = await POST(request('POST', cookie, { action: 'reserve' }));
+    const body = await response.json();
+    expect(body.allowed).toBe(true);
+    expect(typeof body.ticket).toBe('string');
+    expect(parseAnonymousSession(cookieFrom(response))).toMatchObject({ used: 0, pending: body.ticket, consent: accepted.consent });
   });
 
   it('rejects cross-site writes and unknown actions', async () => {
