@@ -2043,6 +2043,10 @@
       "apps/web/lib/gekta/server-workspace.ts",
       "apps/web/tests/unit/gektaServerHistory.test.ts",
       "docs/gekta/history-removal-and-import.md"
+    ],
+    "fix/gekta-dispatcher-admission-blockers-20261008": [
+      "scripts/p7-autopilot-dispatcher.mjs",
+      "scripts/p7-autopilot-guard.test.mjs"
     ]
   },
   "currentAcceptance": [
@@ -6833,6 +6837,53 @@
         "fake PostgreSQL/runtime/backup/owner MFA/provider acceptance or R1/progress/completion credit"
       ],
       "teamHubDependency": "#5469/6069913751; security #5836 and canonical first-user journal source remain separate."
+    },
+    "gekta-dispatcher-admission-blockers-20261008": {
+      "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+      "purpose": "Admit only the dispatcher durability prerequisite for the actual #5842/4225193950 review finding. Required regeneration replaces explicitly added coordination blockers with a generic step message. Source derives bounded unique blockers from canonical coordination admission records; queue snapshots already preserve prompt sections.",
+      "authorityBaseExactMain": "1a17471f73b1e6432c1c1575952fef9af3dcfb29",
+      "implementationBranch": "fix/gekta-dispatcher-admission-blockers-20261008",
+      "allowedPaths": [
+        "scripts/p7-autopilot-dispatcher.mjs",
+        "scripts/p7-autopilot-guard.test.mjs"
+      ],
+      "sourcePayloads": [
+        {
+          "path": "scripts/p7-autopilot-dispatcher.mjs",
+          "mode": "100644",
+          "beforeBlob": "1d958f67b3f34c70be3aa217f550d298636d4497",
+          "afterBlob": "9a8392be0e3529820fe1e8bd42a13caff2799453",
+          "afterSha256": "a76944aba2b93f3e929a86553e7eb894af684f7bffb89430cb9c946e4e2176bf"
+        },
+        {
+          "path": "scripts/p7-autopilot-guard.test.mjs",
+          "mode": "100644",
+          "beforeBlob": "f31af209ac3ae2d4dbb43c657c8de8971298591b",
+          "afterBlob": "e8fd615048f51c66842239b77fc64585630db88a",
+          "afterSha256": "9184d34270ec27dceba40692e45f4644f884ddf2a603985c69941706feb05ca1"
+        }
+      ],
+      "prototypeTree": "7ec48ec0f7ae7aefdfd2b1264f0a282e90265805",
+      "actualFinding": "#5842/4225193950; isolated actual exact-head20dc dispatcher exit0 loses three added blockers. All three new prompt sections actually remain exactly once in both regenerated prompts through the queue snapshot; preserve this existing behavior.",
+      "privateValidation": {
+        "closestActualDispatcherCases": 3,
+        "fullGuardSuite": "PASS: actual 796/796 tests, zero skipped/failed, exit0; duration281649ms",
+        "nativeCI": "NOT_EXECUTED",
+        "sourceRef": "NOT_PUBLISHED"
+      },
+      "requiredTruthBoundaries": [
+        "This prerequisite replaces the unaccepted larger #5842 proposal with exactly five CORE governance files. Preserve every old accepted state/record/vector/owner/primary eleven paths/progress5, #5839 history/#5836 security and concurrent Claude work. Only one new closed two-path vector/record, timestamp-only progress refresh with every prior routing/blocker value unchanged and three appended dispatcher sections. No new unsupported generated-progress blockers are introduced by this admission.",
+        "Actual independent admission acceptance precedes source publication. Source changes exactly these two pinned existing regular files, ordinarily composed with then-current accepted main and all other leaves/modes preserved. Generic candidate scope is not immutable payload enforcement: genuine nonauthor independent whole-tree pin review is required.",
+        "Dispatcher derives only explicitly declared dispatcherBlocker text from canonical coordinationAdmissions records; validate nonempty bounded single-line strings, deduplicate, and fail before generated-output writes on malformed declarations. Existing generic step block, current-step/status/next-candidate logic, scopes/roles/owners/review/manual-merge policy and source authority remain unchanged.",
+        "Two actual-CLI regression cases run generation twice: blockers remain exactly once, queue section in each prompt remains exactly once, readiness remains5/currentstep unchanged/state unchanged; invalid declarations reject before changing progress or prompts. Preserve every prior test and native requirement. No fake green/acceptance/progress credit.",
+        "Canonical state, exact source pins and queue alone authorize this narrowly reviewed source phase; an old generic generated progress message is not permission to publish other Gekta sources. Registration/model/corrected-history admissions from the earlier unaccepted proposal are held privately and absent from this final metadata. Accept dispatcher source first, then re-propose their independent five-document admissions with explicit durable blocker fields and actual regenerated-output checks.",
+        "Require fresh exact-head independent review, separate owner audit, complete substantive native checks and canonical manual readiness before ordinary expected-full-SHA manual merge. This metadata is not the dispatcher implementation or full finding/runtime closure. No product source, history purge/new model execution/consent path, service/credential/MFA/role, production or official progress authority is granted."
+      ],
+      "forbiddenAuthority": [
+        "Global scope/guard/readiness weakening or automatic/force merge; fake review/native/progress completion",
+        "Any source beyond the two pinned dispatcher/test paths; current-step/owner/primary-scope change",
+        "Gekta runtime source publication before its separately accepted admission; model grant reset/new inference/permanent control/MFA or credential bypass"
+      ]
     }
   }
 }
