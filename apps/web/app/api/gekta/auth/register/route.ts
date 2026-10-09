@@ -124,7 +124,8 @@ export async function POST(request: Request) {
       }));
       return gektaAuthJson({
         accepted: false,
-        code: status === 429 ? 'RATE_LIMITED' : status === 503 ? 'REGISTRATION_SERVICE_UNAVAILABLE' : 'REGISTRATION_REQUEST_INVALID',
+        code: status === 429 ? 'RATE_LIMITED' : status === 503 ? 'REGISTRATION_SERVICE_UNAVAILABLE'
+          : response.status === 400 && payload?.code === 'CONSENT_REFRESH_REQUIRED' ? 'CONSENT_REFRESH_REQUIRED' : 'REGISTRATION_REQUEST_INVALID',
         correlationId,
       }, status);
     }

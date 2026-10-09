@@ -109,6 +109,30 @@ describe('Gekta registration security boundary', () => {
     vi.unstubAllGlobals();
   });
 
+  it('preserves an upstream consent-refresh rejection after local proof validation', async () => {
+    const fetch = vi.fn(async () => Response.json({ code: 'CONSENT_REFRESH_REQUIRED', privateDetail: 'not-public' }, { status: 400 }));
+    vi.stubGlobal('fetch', fetch);
+    const response = await registerPost(bffRequest({ fullName: 'Тест согласия', phone: '+7 916 000-00-00',
+      email: 'consent-boundary@example.test', password: fixtureValue('Strong1!'), acceptedServiceTerms: true,
+      acceptedPersonalData: true, locale: 'ru' }));
+    expect(response.status).toBe(400);
+    const payload = await response.json();
+    expect(payload.code).toBe('CONSENT_REFRESH_REQUIRED');
+    expect(payload.privateDetail).toBeUndefined();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps unknown upstream registration codes private', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ code: 'PRIVATE_DIAGNOSTIC', privateDetail: 'not-public' }, { status: 400 })));
+    const response = await registerPost(bffRequest({ fullName: 'Тест согласия', phone: '+7 916 000-00-00',
+      email: 'consent-boundary@example.test', password: fixtureValue('Strong1!'), acceptedServiceTerms: true,
+      acceptedPersonalData: true, locale: 'ru' }));
+    expect(response.status).toBe(400);
+    const payload = await response.json();
+    expect(payload.code).toBe('REGISTRATION_REQUEST_INVALID');
+    expect(payload.privateDetail).toBeUndefined();
+  });
+
   it('keeps the API email bearer token inside the BFF while sending the real link', async () => {
     const calls: Array<{ url: string; init?: RequestInit }> = [];
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
