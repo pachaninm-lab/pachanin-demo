@@ -203,7 +203,13 @@ implements FgisGrainTenantReadTransport, FgisGrainTenantReadOutcomeAuthority {
   async start(
     claim: FgisGrainTenantReadClaimCapability,
   ): Promise<FgisGrainTenantReadClaimStart> {
-    return startAsTransport(claim);
+    const started = await startAsTransport(claim);
+    // PostgreSQL records microseconds while this in-process fixture's Date
+    // serializes milliseconds. An immediate fake response in the same tick
+    // can round below the database fence. Model a real asynchronous response
+    // without rounding or relaxing the authoritative database timestamp.
+    await new Promise<void>((resolve) => setTimeout(resolve, 2));
+    return started;
   }
 }
 
