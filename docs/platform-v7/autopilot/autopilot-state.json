@@ -8933,6 +8933,76 @@
       "payloadRetention": "Exact full proposed UTF-8 bytes are retained in each sourcePayloads.afterContentUtf8 in this reviewed reachable governance blob. Verify mode, SHA256 and canonical Git blob hash before source materialization; no hidden scratch or private prototype authority. All actually accepted dependency beforeBlobs must still match before any source ref update.",
       "nativeIndependentFinding": "https://github.com/pachaninm-lab/pachanin-demo/pull/5848#discussion_r4233747480",
       "publicationStatus": "ADMISSION_ONLY_IMPLEMENTATION_SOURCE_NOT_ACCEPTED"
+    },
+    "gekta-guard-fixture-snapshot-cache-20261009": {
+      "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+      "authorityBaseExactMain": "288838afbb4eba38d2f8f2deaf643f8a7daf9c6f",
+      "implementationBranch": "fix/gekta-dispatcher-admission-blockers-20261008",
+      "allowedPaths": [
+        "scripts/p7-autopilot-dispatcher.mjs",
+        "scripts/p7-autopilot-guard.test.mjs"
+      ],
+      "plannedChangedPaths": [
+        "scripts/p7-autopilot-guard.test.mjs"
+      ],
+      "userInstruction": "Максим: «Доведи гекту до финала» / «Делай всё и завершай». Existing Gekta execution continuation; not a human MFA attestation.",
+      "scopeStatus": "Existing CORE dispatcher/test branch and unchanged two-path vector; only the already admitted guard test file changes. Dispatcher and all old purposes/payloads/scopes/owners remain unchanged.",
+      "purpose": "Reduce repeated fixture setup in the unchanged823 guard cases after genuine registered20c source-preflight guard exit124 under the retained180s bound. Exact Node22.23.3 and24.8.0 local full comparisons are effectively equal336081ms/337754ms; do not publish a runtime switch as the cure. Keep the complete original fixture constructor and every test body/data/assertion byte-identical; cache only its genuine completed baseline by implementation branch plus full guard/resolver input bytes. Clone complete worktree/Git metadata to a fresh independent per-test directory, never hardlink/share mutable refs or files. Custom Git author/config/repository/environment (except noninteractive GIT_PAGER), hooks or templates, including any conditional include found recursively before repository initialization, take the original constructor; copied HEAD/source-branch ref is explicitly checked. Source/native acceptance remains separate from actual bounded registration/runtime acceptance.",
+      "dispatcherBlocker": "Gekta registered18 remains blocked by real180s guard timeout and DockerHub429; separately admitted one-test-file baseline fixture cache needs its own genuine review/native/readiness/manual acceptance, then actual recomposed registration preflight/Kubernetes PASS. No timeout or test is weakened.",
+      "sourcePayloads": [
+        {
+          "path": "scripts/p7-autopilot-guard.test.mjs",
+          "mode": "100644",
+          "beforeBlob": "96a773997c1b3588d139050afca2b4a3f9ab268f",
+          "beforeSha256": "065f607bd23378bc6942ec080a7c7b45169a7d65fb33e43649d7aefea90da346",
+          "afterBlob": "a86f8b00d46339d7de098b8eabcbd597e99b0d47",
+          "afterSha256": "3798a55cb13322b675e01c71ab1eb848b55c0f0222c795f2665dfdfee15999d5",
+          "afterBytes": 441802,
+          "afterContentDerivation": {
+            "format": "accepted-git-utf8-plus-complete-unified-diff-v1",
+            "acceptedBeforeCommit": "288838afbb4eba38d2f8f2deaf643f8a7daf9c6f",
+            "acceptedBeforePath": "scripts/p7-autopilot-guard.test.mjs",
+            "acceptedBeforeBlob": "96a773997c1b3588d139050afca2b4a3f9ab268f",
+            "acceptedBeforeSha256": "065f607bd23378bc6942ec080a7c7b45169a7d65fb33e43649d7aefea90da346",
+            "completeUnifiedDiffUtf8": "diff --git a/scripts/p7-autopilot-guard.test.mjs b/scripts/p7-autopilot-guard.test.mjs\nindex 96a773997c1b3588d139050afca2b4a3f9ab268f..a86f8b00d46339d7de098b8eabcbd597e99b0d47 100644\n--- a/scripts/p7-autopilot-guard.test.mjs\n+++ b/scripts/p7-autopilot-guard.test.mjs\n@@ -5,7 +5,7 @@ import path from 'node:path';\n import { spawnSync } from 'node:child_process';\n import { createHash } from 'node:crypto';\n import { inflateSync } from 'node:zlib';\n-import test from 'node:test';\n+import test, { after } from 'node:test';\n \n const finalPublicBranches = [\n   'agent/platform-v7-strategic-rebuild-v3',\n@@ -299,7 +299,44 @@ function commit(root, message) {\n   git(root, ['commit', '-m', message]);\n }\n \n+// Reuse only an immutable copy of a genuine baseline built by the unchanged\n+// constructor. Every caller receives separate files, refs and mutable history.\n+const fixtureSnapshots = new Map();\n+let fixtureSnapshotDirectory;\n+after(() => {\n+  if (fixtureSnapshotDirectory) fs.rmSync(fixtureSnapshotDirectory, { recursive: true, force: true });\n+});\n+\n function fixture(t, implementationBranch) {\n+  // Conditional includes may activate only after the fixture Git directory exists.\n+  // Conservatively retain the constructor for any conditional include or custom setup.\n+  if (Object.keys(process.env).some(name => name.startsWith('GIT_') && name !== 'GIT_PAGER')) return constructFixture(t, implementationBranch);\n+  const custom = spawnSync('git', ['config', '--includes', '--get-regexp', '^(core\\\\.[Hh]ooks[Pp]ath|init\\\\.[Tt]emplate[Dd]ir|include[Ii]f\\\\..*\\\\.path)$'], { cwd: os.tmpdir(), encoding: 'utf8' });\n+  if (custom.status !== 1) return constructFixture(t, implementationBranch);\n+  const guard = fs.readFileSync(sourceGuard, 'utf8');\n+  const resolver = fs.readFileSync(sourceResolver, 'utf8');\n+  const key = createHash('sha256').update(JSON.stringify([implementationBranch, guard, resolver])).digest('hex');\n+  const previous = fixtureSnapshots.get(key);\n+  if (previous) {\n+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-immutable-scope-guard-'));\n+    t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));\n+    fs.cpSync(previous.directory, root, { recursive: true, dereference: false });\n+    assert.equal(fs.readFileSync(path.join(root, '.git', 'HEAD'), 'utf8'), `ref: refs/heads/${implementationBranch}\\n`);\n+    assert.equal(fs.readFileSync(path.join(root, '.git', 'refs', 'heads', implementationBranch), 'utf8'), `${previous.baseline}\\n`);\n+    return { root, baseline: previous.baseline, implementationBranch };\n+  }\n+  const context = constructFixture(t, implementationBranch);\n+  if (fs.readFileSync(path.join(context.root, 'scripts/p7-autopilot-guard.sh'), 'utf8') !== guard ||\n+      fs.readFileSync(path.join(context.root, 'scripts/p7-source-controlled-scope.mjs'), 'utf8') !== resolver ||\n+      fs.readdirSync(path.join(context.root, '.git', 'hooks')).some(name => !name.endsWith('.sample'))) return context;\n+  fixtureSnapshotDirectory ??= fs.mkdtempSync(path.join(os.tmpdir(), 'p7-fixture-snapshots-'));\n+  const directory = path.join(fixtureSnapshotDirectory, key);\n+  fs.cpSync(context.root, directory, { recursive: true, dereference: false });\n+  fixtureSnapshots.set(key, { directory, baseline: context.baseline });\n+  return context;\n+}\n+\n+function constructFixture(t, implementationBranch) {\n   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-immutable-scope-guard-'));\n   t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));\n \n",
+            "patchSha256": "fdd28f39fe051badb6b1d78d9d4b94bf1a12f805d15d66f38f0f4615ff4f8b9e",
+            "patchBytes": 3575,
+            "decodedAfterBytes": 441802,
+            "decodedAfterBlob": "a86f8b00d46339d7de098b8eabcbd597e99b0d47",
+            "decodedAfterSha256": "3798a55cb13322b675e01c71ab1eb848b55c0f0222c795f2665dfdfee15999d5"
+          }
+        }
+      ],
+      "payloadRetention": "Lossless complete source information is retained as the reachable ACTUALLY accepted before UTF-8 file at pinned288/path/blob/SHA256 plus the complete UTF-8 one-file full-index patch. Every after byte was reconstructed with strict git apply --check --index and git apply --index, then exact complete UTF8/length/Git/SHA256 comparison; no hash-only or unreferenced-after blob is the authority. Reviewers must independently reconstruct before acceptance. This avoids appending another441802 plaintext bytes beyond the fixed3MiB registry, without removing any old record or changing any size/schema/runtime-decoder limit.",
+      "reconstructionContract": [
+        "Fetch exact accepted288 test file, verify100644/before blob/fullSHA256/fullUTF8 and reachable accepted commit",
+        "Verify the complete patch byte length/SHA256 and exactly one full-index M file with exact before/after OIDs100644; reject additional path/rename/mode/context mutation",
+        "Apply to a clean Git index containing precisely the verified before bytes with --check --index, then --index; require exact after441802bytes/fullUTF8/Gita86f8b00d46339d7de098b8eabcbd597e99b0d47/fullSHA256; no unverified patch offset or private cache is authority",
+        "Before source publication, actual newly accepted main must still match the exact before test and every other accepted leaf; preserve old source480c ancestry and use ordinary expected-old forcefalse update"
+      ],
+      "reviewCorrection": "Actual independent P2 review4234990758 of2b6700dbbc56687869ca21cfe7d4fba6b7398ec6 reproduced conditional gitdir core.hooksPath missing from tmp-root effective configuration. Correction explicitly uses --includes and rejects every includeIf.*.path, including inactive and nested conditional includes. Genuine original candidate runs the conditional pre-commit hook once for two fixtures; corrected candidate runs it twice with zero cache entries, both gitdir and gitdir/i reproduced. Normal caching and physical inode/history isolation still pass. Original constructor and whole test inverse byte-identical. New full exact24.8 test is running; historical6e result is not transferred.",
+      "privateValidation": "Actual original constructor/test data/bodies/assertions inverse restores the entire accepted before file byte-for-byte. Actual-wrapper proof: original Git tree/config/file modes and source branch preserved, distinct inode/worktree/ref history, second mutation does not alter first or third cloned baseline, distinct branch separated, explicit GIT_AUTHOR_NAME invokes the original real Git constructor. Initial overly broad GIT_PAGER fallback yielded zero caches; private benchmark was explicitly stopped130 and changed only to ignore noninteractive pager, not author/config/repository overrides. Earlier private initial-commit-only cache823PASS320155ms vs exact24.8 baseline337754ms was not published; Earlier superseded6e exactNode24.8.0 complete-fixture run PASS823/823, fail/cancelled/skipped0, exit0, duration261376.398954ms versus unchanged same-runtime337754.416153ms (one local comparison, about22.6percent reduction). This is not native180s or runtime PASS. No native fix or180sPASS is inferred.",
+      "nativeFailureEvidence": {
+        "head": "20c1d661f0b1c09843662aab2769c03966cdb53d",
+        "run": 37988469158,
+        "job": 114016295236,
+        "artifact": 11643828657,
+        "outerSha256": "f8f56d878f7f909f1dbff59efe4ed686408fc4f8297fb6200f6c6a76606e38b1",
+        "boundSourcesIndependentlyVerified": 1334,
+        "guardExit": 124,
+        "branchScopeExit": 0,
+        "guardOutputBytes": 15,
+        "diagnosticComment": 6089550127
+      },
+      "sourcePrerequisites": [
+        "Separately accepted five-GOV immutable proposal, new genuine exact-head nonauthor review/owner audit/complete applicable native/canonical READY/full-SHA manual acceptance before source ref update",
+        "Only existing guard-test file source after is materialized from the separately reviewed lossless descriptor; actual source head has independent own review/audit/native944+other applicable gates/readiness/manual acceptance",
+        "Unchanged Kubernetes path filters do not trigger on p7 test-only source; a missing/skipped K8s run is never bounded-preflight/runtime PASS. Actual recomposed registration18 must trigger and PASS real180s preflight plus image/KIND/deep outbox/storage/cleanup before registration acceptance",
+        "No automatically extended/rerun old SOURCE18 slot; explicit serialized new prerequisite/source ordering and concrete bounded terminal receipt are required"
+      ],
+      "requiredTruthBoundaries": "Preserve every old raw state byte/value/full source payload/pin/owner/scope/PRIMARY11/current/nextStep/Claude lane/official5. Preserve complete823test names/bodies/assertions/selection, real Git constructor/helper/status assertions, separate per-test files and refs, all existing negatives and cleanup. No workflow/180s/kill5s/8min/300min/resource/ZIP/provenance/private-error/schema/source-size/CI/security/role/key/SQL/model/hosting control changes. Genuine native current-head results only; local speed is not bounded source/runtime acceptance.",
+      "forbiddenAuthority": "No test skipping/filtering/sharding/reduced assertions, cached test results or copied PASS; only genuine immutable fixture inputs may be reused. No shared mutable ref/inode/working tree, author/config/hook/template override reuse, stale review/native result transfer, auto/force merge, scope/owner takeover, credential/MFA/lock/root/polkit bypass, nonce spend/refund, paid activation or production completion claim.",
+      "publicationStatus": "ADMISSION_ONLY_IMPLEMENTATION_SOURCE_NOT_ACCEPTED"
     }
   }
 }
