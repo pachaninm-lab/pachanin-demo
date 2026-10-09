@@ -2067,9 +2067,7 @@
       "docs/security/cryptographic-inventory.json",
       "docs/security/cryptographic-key-usage.json",
       ".github/workflows/ci.yml",
-      "docs/platform-v7/qa/web-unit-coverage-registry.json",
-      "apps/web/middleware.ts",
-      "apps/web/tests/unit/gektaAnonymousLegalRoutes.test.ts"
+      "docs/platform-v7/qa/web-unit-coverage-registry.json"
     ],
     "fix/gekta-candidate-oneuse-grant-20261008": [
       ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
@@ -8050,338 +8048,42 @@
       "privateValidation": "Actual canonical clean-cache production Next build exit0/273pages, fresh web TypeScript0, crypto/keyusage16 and coverage12 contracts PASS. Real private production-build HTTP RU/EN/ZH PASS: actual committed terms/privacy pages remain on legal route and render expected document; bad commitment is notFound; valid same-cookie ACK succeeds and missing proof409; registration has fresh per-request15minute nonce and stable full-public-evidence hash. Closest83 tests before later2 refresh/2 private-mode cases were PASS; real whole-site private-mode owner gate seven route cases PASS. Actual selected44 files/1259 tests PASS; native selection includes all consent/route/entitlement/voice regressions. All prototype/dependency compositions are private, not accepted source. Local browsers absent; actual native/mobile/live/source review still required.",
       "publicationStatus": "ADMISSION_ONLY_SOURCE_NOT_ACCEPTED"
     },
-    "gekta-registration-public-legal-correction-20261009": {
+    "gekta-dispatcher-supersession-correction-20261009": {
       "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
       "authorityBaseExactMain": "8671dfe23c386c486f97ac34e2d125f6c9a32a53",
       "requiredTruthBoundaries": "Source refs change only after genuine separate exact-head metadata review, owner audit, complete native gates, fresh canonical readiness and ordinary expected-full-SHA acceptance. Implementation has its own independent exact-head review/audit/native gates/readiness/manual merge. Private composition is not accepted source. Preserve every frozen admission/owner/Claude lane, PRIMARY11/current/nextStep and official5/100.",
       "forbiddenAuthority": "No auto/force merge, fake status/review/receipt, skipped or weakened gate, new backend/key/role/budget, source lock/owner/MFA/root/polkit bypass, spent marker/refund/permanent model/routing change, credential exposure or production/full privacy/maturity claim.",
       "userInstruction": "Максим: «Доведи гекту до финала» / «Делай всё и завершай». Existing Gekta execution continuation; not a human MFA attestation.",
-      "priorAdmissionRetained": "All accepted old records and full before/after pins remain frozen; this separately accepted record may supersede only the unaccepted source payload.",
+      "priorAdmissionRetained": "All accepted admission records, payload pins, owners and path vectors remain frozen. This is a forward correction to actually accepted dispatcher source, not retirement of its accepted admission.",
       "sourcePayloads": [
         {
-          "path": "packages/domain-core/src/gekta-consent-evidence.ts",
+          "path": "scripts/p7-autopilot-dispatcher.mjs",
           "mode": "100644",
-          "beforeBlob": null,
-          "afterBlob": "96f468077556927b3600e9ee6512b29ee4387383",
-          "afterSha256": "bfb82d492fb039f19b2d10e51a23ac4c6f2e36ab37b5c536de401fc5577ee864"
+          "beforeBlob": "9a8392be0e3529820fe1e8bd42a13caff2799453",
+          "beforeSha256": "a76944aba2b93f3e929a86553e7eb894af684f7bffb89430cb9c946e4e2176bf",
+          "afterBlob": "62deabc99be1f1726a692265ef4660eadb3a3549",
+          "afterSha256": "3710d9c2469e58e8c0a2c9187d2227a82f37efc5ae7ffb21dfe9aa856273835e"
         },
         {
-          "path": "apps/web/lib/gekta/consent-evidence-server.ts",
+          "path": "scripts/p7-autopilot-guard.test.mjs",
           "mode": "100644",
-          "beforeBlob": null,
-          "afterBlob": "06cc7129bdce9352b2544e8a647bca12ba733f91",
-          "afterSha256": "34d4bef1e4d5c8f0e571307127a102cf8af8c46ecb3bc2b1dd38bbe7eba21059"
-        },
-        {
-          "path": "apps/web/app/gekta/register/page.tsx",
-          "mode": "100644",
-          "beforeBlob": "e07f490d82b4e661e9514a4c6a07880bfc9a1045",
-          "afterBlob": "4e8d1a17398b0a9c80edbfe7887041691f0f627c",
-          "afterSha256": "df9b442772b7c24ba953d8d7975020c1690e88be8d305c9aaaabfb82b863d8a7"
-        },
-        {
-          "path": "apps/web/components/gekta/GektaRegistrationClient.tsx",
-          "mode": "100644",
-          "beforeBlob": "34cf2859521c6ac321b08b6fedcfac9213e81134",
-          "afterBlob": "8362db273f61a22ba60d6cfe6565b6c08e128fb6",
-          "afterSha256": "9af1a760bf3a0a57d3c16f70726f8451063f8fe2f72495e8b6c3cd82747cd004"
-        },
-        {
-          "path": "apps/web/app/api/gekta/auth/register/route.ts",
-          "mode": "100644",
-          "beforeBlob": "95680b9ce11283b844792c88e139898339f6e3ec",
-          "afterBlob": "d99b16dce28db4c6f153b8b2542c2d0c786ca642",
-          "afterSha256": "2cbbe7574463b17d8b0cd0f1817cd63ee656854ef12d1e51ef29c3350769bf9d"
-        },
-        {
-          "path": "apps/web/app/legal/[slug]/page.tsx",
-          "mode": "100644",
-          "beforeBlob": "d24c199c1523c8cc68e900879f704ac13f3839ee",
-          "afterBlob": "d17c67161de1211e04c9601b4bf74cf6435dbdc3",
-          "afterSha256": "88f684bd325eb6628ffbb039991bf719801566032fc03a6c7144d3eeb5b0c441"
-        },
-        {
-          "path": "apps/api/src/modules/auth/gekta-registration.controller.ts",
-          "mode": "100644",
-          "beforeBlob": "422d17bb30d04694d3f666a2d2b355721df06efc",
-          "afterBlob": "929a2fbcae657a15c27448d2e1baddf4a32e359f",
-          "afterSha256": "7e6f4e58ead8ee23a15458661342e0171797b75266d9588d0c3b208ce1f35533"
-        },
-        {
-          "path": "apps/api/src/modules/auth/gekta-registration.service.ts",
-          "mode": "100644",
-          "beforeBlob": "8c3a5b605dfad93ed6ba5e8cec531a9e6b404fd0",
-          "afterBlob": "8a3503c786c70ee0bbaf89ae147abf7edd01b9fe",
-          "afterSha256": "865ff66b3f203b544b9428df8f9aef35b5cefeb753f13db4d7112e7aca96d4bf"
-        },
-        {
-          "path": "apps/api/src/modules/auth/gekta-registration.spec.ts",
-          "mode": "100644",
-          "beforeBlob": "cee1aa71fac5fbc1ea341568286cc0ae35122a9f",
-          "afterBlob": "40912dccbc61ae3bd08623274cc9c314451de517",
-          "afterSha256": "199158f158f81896d68d8f2dfc910dbdd51d21cabb5deba18e49e51270f71b38"
-        },
-        {
-          "path": "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
-          "mode": "100644",
-          "beforeBlob": "65d97a1ed57b41f2850c676823196f8b53e64471",
-          "afterBlob": "9980b2c1f3b1acf857e79a9a5f2e974cbdd473bf",
-          "afterSha256": "7697025f06b7abf9e0cd5ca80f81a2f77217b8a3525da635584449bdb38b08e4"
-        },
-        {
-          "path": "apps/web/tests/unit/gektaConsentEvidence.test.ts",
-          "mode": "100644",
-          "beforeBlob": null,
-          "afterBlob": "d50f504c3832adb6c8fde77f62a10386b204e967",
-          "afterSha256": "59c030100908db70d7d47bf7693cce9151717f8354d374eab92f6b53bb559af5"
-        },
-        {
-          "path": "docs/gekta/consent-document-evidence.md",
-          "mode": "100644",
-          "beforeBlob": null,
-          "afterBlob": "9c1de655c43fae29125761879bc7b6a857f29893",
-          "afterSha256": "f9059eaea157352497e2778a5b4803acec4cd7bac7023fc4ab9df62936d934ee"
-        },
-        {
-          "path": "docs/security/cryptographic-inventory.json",
-          "mode": "100644",
-          "beforeBlob": "3fde26e3933191b16cbb3ed5be444d31b5d9a8d0",
-          "afterBlob": "caeaf802d1d7507d6040469b03b86e0fc6494fda",
-          "afterSha256": "11e19e54ac2c877ead4a65e8da512898d4c07dab7511164bb08609db2bf9df98"
-        },
-        {
-          "path": "docs/security/cryptographic-key-usage.json",
-          "mode": "100644",
-          "beforeBlob": "4a2ff3b8d57f4a7280edf38bc4590ff6a420ea97",
-          "afterBlob": "cd9be452a9ed367c2ea8274c979f624371a06354",
-          "afterSha256": "136c9b67dabc0bb7a4cca5b45526839b26ccdc18b9f349dd43dba122d98461f7"
-        },
-        {
-          "path": ".github/workflows/ci.yml",
-          "mode": "100644",
-          "beforeBlob": "94db11636b725fdd61828129985b4f57e1da01a1",
-          "afterBlob": "1b14cf8d130f0bfbc7b6337076822d49469c92be",
-          "afterSha256": "cce6cae1410155d27c038ca90ea46cb6d929bd8fd459b622a52a917186210e6b"
-        },
-        {
-          "path": "docs/platform-v7/qa/web-unit-coverage-registry.json",
-          "mode": "100644",
-          "beforeBlob": "77ff36134cc45e0b4939fcb10bf3ab51ca76e2da",
-          "afterBlob": "1413fbf2714ebd3f80cb7b54ff7fcbc16322211d",
-          "afterSha256": "274005484897378cf0898bdf10a2c71fdb34150cf645d862dd91eb228fdcdb1f"
-        },
-        {
-          "path": "apps/web/middleware.ts",
-          "mode": "100644",
-          "beforeBlob": "b2984582eda78844f2d7e8c7f18c2296f17dfa15",
-          "afterBlob": "553150e360edf2182ca3b5195ddbf860902175f7",
-          "afterSha256": "1ebb327c72573b94742fc4bc63befb023184d2108bc81c86e066b0d6308a1924"
-        },
-        {
-          "path": "apps/web/tests/unit/gektaAnonymousLegalRoutes.test.ts",
-          "mode": "100644",
-          "beforeBlob": null,
-          "afterBlob": "31570991983cf5cf36fd321f1c2ea84078310122",
-          "afterSha256": "e5cd1b7a9bb664174420047d014b540831ce128bb9b11f1091c6a09964844135"
+          "beforeBlob": "e8fd615048f51c66842239b77fc64585630db88a",
+          "beforeSha256": "9184d34270ec27dceba40692e45f4644f884ddf2a603985c69941706feb05ca1",
+          "afterBlob": "11cf941e18c627f1edf1d7bbdce2525f426aadb4",
+          "afterSha256": "b9f0c224088cb2376c38089e8a90731f3d029fc44e00afa02ce97868dc0d95a6"
         }
       ],
-      "prototypeCommit": "c5c72869b84cbfc4b78e31ed6788215315d05e1e",
-      "prototypeTree": "aa13d1456cd5ca0a53d0f1a91d8a30aab4594b2d",
-      "scopeStatus": "Old accepted16 scope correctly lacks middleware and new legal-route test; separate18 admission required",
-      "implementationBranch": "fix/gekta-registration-document-evidence-20261008",
+      "prototypeTree": "44e39a528a395ae686391418fba17c2404ebd75b",
+      "prototypeCommit": "706b3383b6c8b9ecec1152abbc8062053d6e7bdd",
+      "implementationBranch": "fix/gekta-dispatcher-admission-blockers-20261008",
       "allowedPaths": [
-        "packages/domain-core/src/gekta-consent-evidence.ts",
-        "apps/web/lib/gekta/consent-evidence-server.ts",
-        "apps/web/app/gekta/register/page.tsx",
-        "apps/web/components/gekta/GektaRegistrationClient.tsx",
-        "apps/web/app/api/gekta/auth/register/route.ts",
-        "apps/web/app/legal/[slug]/page.tsx",
-        "apps/api/src/modules/auth/gekta-registration.controller.ts",
-        "apps/api/src/modules/auth/gekta-registration.service.ts",
-        "apps/api/src/modules/auth/gekta-registration.spec.ts",
-        "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
-        "apps/web/tests/unit/gektaConsentEvidence.test.ts",
-        "docs/gekta/consent-document-evidence.md",
-        "docs/security/cryptographic-inventory.json",
-        "docs/security/cryptographic-key-usage.json",
-        ".github/workflows/ci.yml",
-        "docs/platform-v7/qa/web-unit-coverage-registry.json",
-        "apps/web/middleware.ts",
-        "apps/web/tests/unit/gektaAnonymousLegalRoutes.test.ts"
+        "scripts/p7-autopilot-dispatcher.mjs",
+        "scripts/p7-autopilot-guard.test.mjs"
       ],
-      "supersedesUnacceptedPayloadOf": "gekta-registration-refresh-ci-correction-20261009",
-      "independentFinding": "https://github.com/pachaninm-lab/pachanin-demo/pull/5848#discussion_r4226259126",
-      "purpose": "Actual independent P1 4226259126 on3bc reproduces guest legal links redirecting to platform-v7. Move exactly the two already privately prepared middleware/test paths into mandatory registered18 source before registration acceptance: public EXACT terms/privacy routes only, all unknown/nested/cabinet and whole-site private-mode gates retained. Execute the new seven-case route test in real CI and update only discovered/executed counts in its truthful registry; preserve every existing exclusion and all original registered document/expiry/API/UI/audit/key/mail/MFA/legal-copy bytes. Prior corrected16 native40/1206 and coverage PASS are historical, not closure of this P1. Old16/19 records remain frozen.",
-      "dispatcherBlocker": "Gekta registered shown-document evidence is blocked by real guest legal redirects; corrected eighteen-path source must make exact terms/privacy routes reachable and run actual coverage before genuine native/review/readiness/manual acceptance.",
-      "privateValidation": "Actual source3bc route test fails2/7 expected200 but received307, with5 protection cases already passing. After exactly two public route additions, new7 cases and corrected registry930 discovered/41 executed/889 unchanged exclusions; coverage12 and crypto16 contracts PASS. Actual selected41 files/1213 tests PASS. All whole-tree/pins remain private; no source ref or acceptance inferred.",
-      "sourcePrerequisites": [
-        "Actually accepted history13 and model4 at8671dfe23c386c486f97ac34e2d125f6c9a32a53",
-        "Actual separate18-source admission before implementation ref update"
-      ]
-    },
-    "gekta-anonymous-after-public-legal-20261009": {
-      "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
-      "authorityBaseExactMain": "8671dfe23c386c486f97ac34e2d125f6c9a32a53",
-      "requiredTruthBoundaries": "Source refs change only after genuine separate exact-head metadata review, owner audit, complete native gates, fresh canonical readiness and ordinary expected-full-SHA acceptance. Implementation has its own independent exact-head review/audit/native gates/readiness/manual merge. Private composition is not accepted source. Preserve every frozen admission/owner/Claude lane, PRIMARY11/current/nextStep and official5/100.",
-      "forbiddenAuthority": "No auto/force merge, fake status/review/receipt, skipped or weakened gate, new backend/key/role/budget, source lock/owner/MFA/root/polkit bypass, spent marker/refund/permanent model/routing change, credential exposure or production/full privacy/maturity claim.",
-      "userInstruction": "Максим: «Доведи гекту до финала» / «Делай всё и завершай». Existing Gekta execution continuation; not a human MFA attestation.",
-      "priorAdmissionRetained": "All accepted old records and full before/after pins remain frozen; this separately accepted record may supersede only the unaccepted source payload.",
-      "sourcePayloads": [
-        {
-          "path": ".github/workflows/ci.yml",
-          "mode": "100644",
-          "beforeBlob": "1b14cf8d130f0bfbc7b6337076822d49469c92be",
-          "afterBlob": "e396e36b3b2f806608690e30d29c962c634d4f70",
-          "afterSha256": "b0e6d0990b7cc279c405d7cc23431b4186bb3670fc6499ede628e1cebd8bba1a"
-        },
-        {
-          "path": "docs/platform-v7/qa/web-unit-coverage-registry.json",
-          "mode": "100644",
-          "beforeBlob": "1413fbf2714ebd3f80cb7b54ff7fcbc16322211d",
-          "afterBlob": "1f133b1cc810259a1cc749e66dd932025de28d63",
-          "afterSha256": "1a415ef304a8551c60f34fac2fdcad5faac0a04c261c93f575c984c0de7b4c73"
-        },
-        {
-          "path": "apps/web/lib/gekta/anonymous-session.ts",
-          "mode": "100644",
-          "beforeBlob": "2f72737bb9a7469b4bb2f64075602c935f1c68e5",
-          "afterBlob": "76daf1bbe15dc208f29cf5f0eca06582d0c3b739",
-          "afterSha256": "164a8c18406dc9fd65eec1eb5938bbd2002aa1691e1583ca59f15428aecdb1f2"
-        },
-        {
-          "path": "apps/web/lib/gekta/anonymous-consent-evidence.ts",
-          "mode": "100644",
-          "beforeBlob": null,
-          "afterBlob": "c72e243d0709d7fb2525396f949e664852d82f3e",
-          "afterSha256": "2bde234b2d3c1ed3838cde52d2e588492b563a69d390bcaac7ac4877830855fb"
-        },
-        {
-          "path": "apps/web/app/api/gekta/entitlement/route.ts",
-          "mode": "100644",
-          "beforeBlob": "e185452be8aa5e28435f284e5bc3da4de7c31810",
-          "afterBlob": "917687a7cfb4966bec5f14a633d1442819639bb1",
-          "afterSha256": "0a2539b85e9b7e4343b154d0c519e01d9640c206cad8a5d1e77ff8ef2a06e9a4"
-        },
-        {
-          "path": "apps/web/app/api/agro-chat/route.ts",
-          "mode": "100644",
-          "beforeBlob": "b33f27dfa491ed97cb5dd6a3e8ace4a02d93023d",
-          "afterBlob": "46aa9ccebc710f688ee7e9b408b3e0cbde27b365",
-          "afterSha256": "d8bea7550194ac14f1a4efa988238278c28a192488619d7b7db5a2b564bdfa57"
-        },
-        {
-          "path": "apps/web/components/gekta/GektaChatWorkspace.tsx",
-          "mode": "100644",
-          "beforeBlob": "5d21c4bdafd2c0eb6d951662b5f4e7f703d82d56",
-          "afterBlob": "85590e0232a848181ca6ca8ac512ea3bb323cbbe",
-          "afterSha256": "ffe4fca31295adf242291e10c75496daf61471994c9630e109c581cccbf41b06"
-        },
-        {
-          "path": "apps/web/components/gekta/GektaConsentDialog.tsx",
-          "mode": "100644",
-          "beforeBlob": "6e3e97096e9d2a9fca1b1e299fccf3559ad1fc95",
-          "afterBlob": "59c8773df63ed1ee45782d721faeaff90da2f21b",
-          "afterSha256": "481cc36706c6b792088e06980e0693ca225de7f4e8d26c801cc0c5eb3f7abb2e"
-        },
-        {
-          "path": "apps/web/tests/unit/gektaEntitlement.test.ts",
-          "mode": "100644",
-          "beforeBlob": "6958735d5310478b7d23254a3ffcf94c587d8668",
-          "afterBlob": "2b1e715689922b0f8c13b05c5820f2acdb9eb413",
-          "afterSha256": "ef3a35323e20f66d34c14e671b17a5544b317e5fa3ec610a71ecd7328719e8da"
-        },
-        {
-          "path": "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
-          "mode": "100644",
-          "beforeBlob": "9980b2c1f3b1acf857e79a9a5f2e974cbdd473bf",
-          "afterBlob": "502c535cad03a7862e233194f3a19cbbf7eebecc",
-          "afterSha256": "4c158b9cd59478dd470ebad1173b539d581754be05799c5f3669530d69394e77"
-        },
-        {
-          "path": "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
-          "mode": "100644",
-          "beforeBlob": "65478f70995be9e29ca4f9be666e9a5867a427e4",
-          "afterBlob": "46e12d3935905015d3f68b63258e28e568854df3",
-          "afterSha256": "afd50dbf33730ce742421e3308a603632e0ffcb1671d9eee5e4b4fd6ee3f09d6"
-        },
-        {
-          "path": "apps/web/tests/unit/gektaAnonymousDocumentEvidence.test.ts",
-          "mode": "100644",
-          "beforeBlob": null,
-          "afterBlob": "ddc0c28aad091b026fc8a7aab682c42c5eb8415b",
-          "afterSha256": "b42357820b66d0af92b69ca49afc1e8c0ecbe547c392b9b0146d0024cfb30705"
-        },
-        {
-          "path": "scripts/production-web-live-acceptance.sh",
-          "mode": "100755",
-          "beforeBlob": "401e68869cc9e329be0b9e770b0831cf44a90a62",
-          "afterBlob": "5d2379fd140e584f627f3a30de1b223c267ecb47",
-          "afterSha256": "f6bb3a25ac8c6290b5face6b6debadcaecff17e2ada7e9c7120d1b0ed1933feb"
-        },
-        {
-          "path": "scripts/check-production-gekta-first-user-acceptance.mjs",
-          "mode": "100644",
-          "beforeBlob": "7d0d07208201cc20e067f927a2f929f8f67ac8d4",
-          "afterBlob": "eb078839d5d0d37535d80d4f82dbe9451c4b12d6",
-          "afterSha256": "14f8484bf29aeb396d02206c4d3de08a77bf1d3169af4e593529a094c5249049"
-        },
-        {
-          "path": "scripts/gekta-speed-browser-baseline.mjs",
-          "mode": "100644",
-          "beforeBlob": "cfc449fc3492001bc1b2609bf75571d0a53f9703",
-          "afterBlob": "f7a69f0874fad9ad72554f9f199548f3b552d3ea",
-          "afterSha256": "b6817b7fdc08281a6e38f5512c1c6dd1254bdfe9e6c714de32f0de53359d418d"
-        },
-        {
-          "path": "docs/security/cryptographic-inventory.json",
-          "mode": "100644",
-          "beforeBlob": "caeaf802d1d7507d6040469b03b86e0fc6494fda",
-          "afterBlob": "69caca8651838f58727f52e62148f4548dc4eff4",
-          "afterSha256": "237d0fab1e12bbc08cd943fe11ec17d22442b9ae82bf236e2af807ff0cc4e598"
-        },
-        {
-          "path": "docs/gekta/anonymous-document-evidence.md",
-          "mode": "100644",
-          "beforeBlob": null,
-          "afterBlob": "0d60ab69b7d659ef64bfd501a0e6d4e78338b80b",
-          "afterSha256": "54fdfd4e28e4a7b05dbe70609da1e5816c8a74d7a118ff470668904046b01a39"
-        }
-      ],
-      "prototypeTree": "d6d821ace79635953145ee32d0a7e0e7cb5b56df",
-      "prototypeCommit": "e0241aac6e19b02e5219e47e56038ed2a6b2f27c",
-      "prospectiveBeforeTree": "834b166fa799135e6ee1b4a95ef72348147e7e1d",
-      "prospectiveBeforeCommit": "296971db02c887d4955d1c934dfdf73040e1fc64",
-      "actualAuthorityBase": "8671dfe23c386c486f97ac34e2d125f6c9a32a53",
-      "implementationBranch": "fix/gekta-anonymous-document-evidence-20261009",
-      "allowedPaths": [
-        ".github/workflows/ci.yml",
-        "docs/platform-v7/qa/web-unit-coverage-registry.json",
-        "apps/web/lib/gekta/anonymous-session.ts",
-        "apps/web/lib/gekta/anonymous-consent-evidence.ts",
-        "apps/web/app/api/gekta/entitlement/route.ts",
-        "apps/web/app/api/agro-chat/route.ts",
-        "apps/web/components/gekta/GektaChatWorkspace.tsx",
-        "apps/web/components/gekta/GektaConsentDialog.tsx",
-        "apps/web/tests/unit/gektaEntitlement.test.ts",
-        "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
-        "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
-        "apps/web/tests/unit/gektaAnonymousDocumentEvidence.test.ts",
-        "scripts/production-web-live-acceptance.sh",
-        "scripts/check-production-gekta-first-user-acceptance.mjs",
-        "scripts/gekta-speed-browser-baseline.mjs",
-        "docs/security/cryptographic-inventory.json",
-        "docs/gekta/anonymous-document-evidence.md"
-      ],
-      "purpose": "Supersede only the unaccepted anonymous19 source dependency order after actual new registration guest-route P1. The two exact public middleware/legal-test afterBlobs now belong to required registered18 and must actually be accepted first; anonymous17 leaves them unchanged. All seventeen anonymous afterBlobs remain byte-identical to the admitted19 private payload, with only actual shared CI/registry before pins rebased to registered41 coverage. Keep existing anonymous key/sid/quota/backend, signed full-document/profile/locale proof, server ACK, source scopes/owners/private-mode/cabinet protection and public legal copy. Native selection actually retains all registered41 tests and adds anonymous notice plus promoted entitlement/voice; no skipped or new excluded test.",
-      "dispatcherBlocker": "Gekta anonymous document acknowledgement requires separately accepted seventeen-path source after actual registered18 guest legal and owned4 acceptance, then real exact-main REG.RU/mobile execution; old private19 composition is not source or production authority.",
-      "sourcePrerequisites": [
-        "Actually accepted history13 and corrected model4",
-        "Actually accepted registration18 from gekta-registration-public-legal-correction-20261009, including exact CI/registry beforeBlobs and unchanged public middleware/test afterBlobs",
-        "Actually accepted owned4 from gekta-owned-history-contract-correction-20261009"
-      ],
-      "privateValidation": "Actual canonical clean-cache production Next build exit0/273pages, fresh web TypeScript0, crypto/keyusage16 and coverage12 contracts PASS. Real private production-build HTTP RU/EN/ZH PASS: actual committed terms/privacy pages remain on legal route and render expected document; bad commitment is notFound; valid same-cookie ACK succeeds and missing proof409; registration has fresh per-request15minute nonce and stable full-public-evidence hash. Closest83 tests before later2 refresh/2 private-mode cases were PASS; real whole-site private-mode owner gate seven route cases PASS. Actual selected44 files/1259 tests PASS; native selection includes all consent/route/entitlement/voice regressions. All prototype/dependency compositions are private, not accepted source. Local browsers absent; actual native/mobile/live/source review still required. All17 afterBlobs are exactly the old19 afterBlobs; the2 moved public-route paths are unchanged across the prospective transition. Revised full before/after Git/mode/SHA256 composition is private and must be rechecked against actually accepted dependencies before publication.",
-      "publicationStatus": "ADMISSION_ONLY_SOURCE_NOT_ACCEPTED",
-      "supersedesUnacceptedPayloadOf": "gekta-anonymous-document-evidence-20261009"
+      "purpose": "Actual independent P1 4226326348 showed that generated active blockers keep replaced unaccepted payload instructions. Validate explicit same-owner scoped source lineage and reject missing, ambiguous or cyclic replacements before any write; render only terminal active blockers. Preserve all records, scopes, current/next/readiness and historical text. This narrow two-source correction changes no scope, admission, source, merge, release, model or runtime authority. Registered18/anonymous17 metadata is deliberately withdrawn from this bootstrap and must receive fresh separate acceptance after the dispatcher implementation is actually accepted.",
+      "dispatcherBlocker": "Gekta dispatcher explicit unaccepted-payload supersession correction is pending separate two-file source acceptance; registered public legal18 and anonymous17 replacements remain private and blocked until that accepted dispatcher exists.",
+      "privateValidation": "Actual old dispatcher reproduced obsolete registered16 blocker in the replacement scenario. Corrected targeted 16/16 cases PASS: positive registered18/anonymous17 chain runs twice; missing/blank/multiline/non-string/self/cycle/owner/footprint/scope/duplicate/fork failures preserve every output. Full dispatcher/guard suite pending; full before/after Git, modes, SHA256 and all-other-leaf proof PASS. No new source ref or runtime execution.",
+      "independentFinding": "https://github.com/pachaninm-lab/pachanin-demo/pull/5850#discussion_r4226326348"
     }
   }
 }
