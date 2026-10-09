@@ -199,6 +199,43 @@ describe('platform-v7 owner access center task UX', () => {
     vi.unstubAllGlobals();
   });
 
+  it('clears protected data before reconciling an end that committed with a lost response', async () => {
+    const { session, registry, canonical, props } = roleModeFixtures();
+    let ended = false;
+    let endRequests = 0;
+    let releaseReconciliation!: (response: Response) => void;
+    const reconciliation = new Promise<Response>((resolve) => { releaseReconciliation = resolve; });
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path === '/platform-v7/staff/role-mode') return json(registry);
+      if (path === '/api/staff/session-context') return ended ? reconciliation : json({ active: true, session });
+      if (path === '/api/staff/access/sessions') return json(ended ? [] : [{ id: session.accessSessionId, status: 'ACTIVE' }]);
+      if (path === '/api/staff/founder/role-mode/session') return ended ? json({ code: 'ROLE_MODE_SESSION_INACTIVE' }, 401) : json(canonical);
+      if (path === '/api/staff/organizations/organization-1/cabinet/BUYER') return json({ deals: [{ id: 'private-ended-deal' }] });
+      if (path === '/platform-v7/staff/prepare?format=json') return json({ ok: true, csrfToken: 'a'.repeat(32) });
+      if (path === '/api/staff/access/sessions/session-1/end') {
+        endRequests += 1;
+        ended = true;
+        throw new TypeError('test response lost after commit');
+      }
+      throw new Error(`Unexpected staff request: ${path}`);
+    }));
+
+    const view = render(createElement(RoleModeCenter, props));
+    await waitFor(() => expect(view.getByText('private-ended-deal')).toBeInTheDocument());
+    fireEvent.click(view.getByRole('button', { name: 'Завершить режим и вернуться в Control Center' }));
+    await waitFor(() => expect(view.queryByText('private-ended-deal')).toBeNull());
+    expect(view.container.querySelector('[data-founder-role-mode-active]')).toBeNull();
+    expect(endRequests).toBe(1);
+
+    await act(async () => { releaseReconciliation(json({ active: false, session: null })); });
+    await waitFor(() => expect(view.getByText('ID реальной организации')).toBeInTheDocument());
+    expect(view.queryByText('private-ended-deal')).toBeNull();
+    expect(view.container.querySelector('[data-founder-role-mode-active]')).toBeNull();
+    expect(endRequests).toBe(1);
+  });
+
   it('removes an active VIEW_AS projection when canonical revalidation fails', async () => {
     const { session, registry, canonical, props } = roleModeFixtures();
     let registryUnavailable = false;

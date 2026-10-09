@@ -143,12 +143,12 @@ const EMPLOYEE_LABEL: Record<AppLocale, string> = {
 const OWNER_COPY = {
   ru: {
     eyebrow: 'Владелец платформы',
-    title: 'Открыть как роль — через серверную authority',
-    description: 'Control Center использует канонический VIEW_AS-контракт. Роль, tenant и разрешения назначает сервер; браузер передаёт только выбранный кабинет, реальную организацию, причину, тикет и срок.',
-    access: '13 серверных кабинетов',
-    accessBody: 'Список приходит из pc-crop.founder-role-mode.v1. Если сервер не подтверждает кабинет или организацию, просмотр не открывается.',
+    title: 'Просмотр кабинетов',
+    description: 'Выберите организацию и кабинет. Укажите основание и срок просмотра. Доступ откроется после проверки ваших полномочий.',
+    access: '13 кабинетов для просмотра',
+    accessBody: 'Доступные кабинеты проверяются при каждом входе. Просмотр доступен только для организаций, на которые у вас есть полномочия.',
     boundary: 'Режим только для чтения',
-    boundaryBody: 'Деньги, банковская финальность, подпись, лабораторная финализация, приёмка, арбитраж и удаление evidence остаются запрещены. Текущий web-контур пока показывает делегированную read-only проекцию внутри Control Center; canonicalPath не используется как локальная authority.',
+    boundaryBody: 'Можно просматривать доступные сделки. Нельзя проводить платежи, подтверждать банковские операции, подписывать документы, утверждать результаты лаборатории и приёмки, принимать решения по спорам или удалять доказательства.',
     organization: 'ID реальной организации',
     organizationHint: 'Введите ID организации, доступной владельцу. Контролируемые тестовые организации сервер отклоняет.',
     ticket: 'Тикет / основание',
@@ -162,32 +162,32 @@ const OWNER_COPY = {
     back: 'Вернуться ко всем кабинетам',
     loading: 'Проверяем владельца и серверный реестр…',
     active: 'Открыто как роль',
-    actor: 'Фактический actor',
-    effectiveOrganization: 'Эффективная организация',
-    effectiveRole: 'Эффективная роль',
+    actor: 'Кто просматривает',
+    effectiveOrganization: 'Организация',
+    effectiveRole: 'Кабинет',
     expires: 'Действует до',
     restrictions: 'Ограничения',
     return: 'Завершить режим и вернуться в Control Center',
     returning: 'Завершаем режим…',
     canonicalPath: 'Канонический маршрут',
-    transportPending: 'Прямой переход на canonicalPath пока не используется: web-транспорт делегированной staff-сессии должен оставаться server-authoritative. Ни role, ни tenant не синтезируются в браузере.',
-    projection: 'Read-only проекция кабинета',
-    projectionEmpty: 'В доступной проекции нет сделок.',
-    projectionUnavailable: 'Проекция кабинета временно недоступна. Делегированная сессия остаётся read-only.',
-    statusPending: 'Запрос создан, но активный grant сервер не вернул. Режим не открыт.',
-    registryUnavailable: 'Канонический реестр role-mode временно недоступен.',
+    transportPending: 'Здесь показаны доступные данные кабинета. Полный переход в рабочий кабинет пока недоступен.',
+    projection: 'Сделки организации',
+    projectionEmpty: 'В доступном списке нет сделок.',
+    projectionUnavailable: 'Список сделок временно недоступен. Режим просмотра остаётся только для чтения.',
+    statusPending: 'Запрос создан, но доступ ещё не подтверждён. Просмотр не открыт.',
+    registryUnavailable: 'Список доступных кабинетов временно недоступен.',
     protectedSessionActive: 'Уже активна другая защищённая staff-сессия. Завершите её перед открытием Founder role-mode.',
     sessionUnknown: 'Состояние защищённой сессии не подтверждено. Повторите проверку перед открытием кабинета.',
     retry: 'Повторить проверку сессии',
   },
   en: {
     eyebrow: 'Platform owner',
-    title: 'Open as role through server authority',
-    description: 'Control Center consumes the canonical VIEW_AS contract. The server assigns role, tenant and permissions; the browser sends only the selected cabinet, real organization, reason, ticket and duration.',
-    access: '13 server-owned cabinets',
-    accessBody: 'The list comes from pc-crop.founder-role-mode.v1. If the server cannot verify the cabinet or organization, the view stays closed.',
+    title: 'View workspaces',
+    description: 'Choose an organization and workspace. Enter the reason and duration of access. The view opens after your permissions are verified.',
+    access: '13 workspaces to view',
+    accessBody: 'Available workspaces are checked each time you enter. You can view only organizations you are authorized to access.',
     boundary: 'Read-only mode',
-    boundaryBody: 'Money movement, bank finality, signing, laboratory finalization, acceptance, arbitration and evidence deletion remain prohibited. The current web contour renders the delegated read-only projection inside Control Center; canonicalPath is not used as local authority.',
+    boundaryBody: 'You can view available deals. You cannot make payments, confirm bank operations, sign documents, approve laboratory or acceptance results, decide disputes, or delete evidence.',
     organization: 'Real organization ID',
     organizationHint: 'Enter an organization ID available to the owner. Controlled test organizations are rejected by the server.',
     ticket: 'Ticket / basis',
@@ -201,32 +201,32 @@ const OWNER_COPY = {
     back: 'Back to all cabinets',
     loading: 'Checking owner authority and server registry…',
     active: 'Open as role',
-    actor: 'Actual actor',
-    effectiveOrganization: 'Effective organization',
-    effectiveRole: 'Effective role',
+    actor: 'Viewed by',
+    effectiveOrganization: 'Organization',
+    effectiveRole: 'Workspace',
     expires: 'Expires',
     restrictions: 'Restrictions',
     return: 'End mode and return to Control Center',
     returning: 'Ending mode…',
     canonicalPath: 'Canonical route',
-    transportPending: 'Direct navigation to canonicalPath is not used yet: delegated staff-session transport must remain server-authoritative. The browser never synthesizes role or tenant.',
-    projection: 'Read-only cabinet projection',
-    projectionEmpty: 'No deals are present in the available projection.',
-    projectionUnavailable: 'The cabinet projection is temporarily unavailable. The delegated session remains read-only.',
-    statusPending: 'The request was created, but the server did not return an active grant. The mode was not opened.',
-    registryUnavailable: 'The canonical role-mode registry is temporarily unavailable.',
+    transportPending: 'Available workspace data is shown here. Opening the full working workspace is not yet available.',
+    projection: 'Organization deals',
+    projectionEmpty: 'There are no deals in the available list.',
+    projectionUnavailable: 'The deal list is temporarily unavailable. The view remains read-only.',
+    statusPending: 'The request was created, but access has not yet been confirmed. The view was not opened.',
+    registryUnavailable: 'The list of available workspaces is temporarily unavailable.',
     protectedSessionActive: 'Another protected staff session is active. End it before opening Founder role mode.',
     sessionUnknown: 'The protected session state is unverified. Check it again before opening a cabinet.',
     retry: 'Check session again',
   },
   zh: {
     eyebrow: '平台所有者',
-    title: '通过服务器权限“以角色查看”',
-    description: 'Control Center 使用规范 VIEW_AS 合同。角色、租户和权限由服务器分配；浏览器只提交工作台、真实组织、原因、工单和时限。',
-    access: '13 个服务器工作台',
-    accessBody: '列表来自 pc-crop.founder-role-mode.v1。若服务器无法验证工作台或组织，则不会开启查看。',
+    title: '查看工作台',
+    description: '选择组织和工作台，填写查看原因和时限。权限验证通过后即可查看。',
+    access: '13 个可查看的工作台',
+    accessBody: '每次进入都会检查可用工作台。您只能查看已获授权的组织。',
     boundary: '只读模式',
-    boundaryBody: '资金操作、银行最终状态、签署、实验室终审、验收、仲裁和 evidence 删除仍被禁止。当前 Web 仅在 Control Center 内显示委托的只读投影；canonicalPath 不作为本地权限。',
+    boundaryBody: '可以查看可用交易，但不能付款、确认银行操作、签署文件、批准实验室或验收结果、裁决争议或删除证据。',
     organization: '真实组织 ID',
     organizationHint: '输入所有者可访问的组织 ID。服务器会拒绝受控测试组织。',
     ticket: '工单 / 依据',
@@ -240,25 +240,58 @@ const OWNER_COPY = {
     back: '返回全部工作台',
     loading: '正在检查所有者权限和服务器注册表…',
     active: '以角色查看',
-    actor: '实际操作者',
-    effectiveOrganization: '有效组织',
-    effectiveRole: '有效角色',
+    actor: '查看者',
+    effectiveOrganization: '组织',
+    effectiveRole: '工作台',
     expires: '有效期至',
     restrictions: '限制',
     return: '结束模式并返回 Control Center',
     returning: '正在结束模式…',
     canonicalPath: '规范路由',
-    transportPending: '暂不直接跳转 canonicalPath：委托 staff 会话的 Web 传输必须保持服务器权威。浏览器不会自行生成 role 或 tenant。',
-    projection: '工作台只读投影',
-    projectionEmpty: '当前可用投影中没有交易。',
-    projectionUnavailable: '工作台投影暂时不可用。委托会话仍保持只读。',
-    statusPending: '请求已创建，但服务器未返回可激活 grant，因此模式尚未开启。',
-    registryUnavailable: '规范 role-mode 注册表暂时不可用。',
+    transportPending: '此处显示可用的工作台数据。目前尚不能进入完整的业务工作台。',
+    projection: '组织交易',
+    projectionEmpty: '可用列表中暂无交易。',
+    projectionUnavailable: '交易列表暂时不可用。查看模式仍为只读。',
+    statusPending: '请求已创建，但访问权限尚未确认，因此未打开查看。',
+    registryUnavailable: '可用工作台列表暂时不可用。',
     protectedSessionActive: '已有其他受保护 staff 会话。请先结束该会话，再开启 Founder role-mode。',
     sessionUnknown: '受保护会话状态尚未确认。请重新检查后再打开工作台。',
     retry: '重新检查会话',
   },
 } as const;
+
+const RESTRICTION_LABELS: Record<AppLocale, Record<string, string>> = {
+  ru: {
+    READ_ONLY: 'Только просмотр',
+    NO_PAYMENT_RELEASE: 'Без проведения платежей',
+    NO_BANK_CALLBACK_CONFIRM: 'Без подтверждения банковских операций',
+    NO_DOCUMENT_SIGN: 'Без подписи документов',
+    NO_LAB_FINALIZE: 'Без утверждения лабораторных результатов',
+    NO_ACCEPTANCE_SIGN: 'Без подписи приёмки',
+    NO_ARBITRATION_DECIDE: 'Без принятия решений по спорам',
+    NO_EVIDENCE_DELETE: 'Без удаления доказательств',
+  },
+  en: {
+    READ_ONLY: 'View only',
+    NO_PAYMENT_RELEASE: 'No payments',
+    NO_BANK_CALLBACK_CONFIRM: 'No bank operation confirmation',
+    NO_DOCUMENT_SIGN: 'No document signing',
+    NO_LAB_FINALIZE: 'No laboratory result approval',
+    NO_ACCEPTANCE_SIGN: 'No acceptance signing',
+    NO_ARBITRATION_DECIDE: 'No dispute decisions',
+    NO_EVIDENCE_DELETE: 'No evidence deletion',
+  },
+  zh: {
+    READ_ONLY: '仅可查看',
+    NO_PAYMENT_RELEASE: '不能付款',
+    NO_BANK_CALLBACK_CONFIRM: '不能确认银行操作',
+    NO_DOCUMENT_SIGN: '不能签署文件',
+    NO_LAB_FINALIZE: '不能批准实验室结果',
+    NO_ACCEPTANCE_SIGN: '不能签署验收',
+    NO_ARBITRATION_DECIDE: '不能裁决争议',
+    NO_EVIDENCE_DELETE: '不能删除证据',
+  },
+};
 
 function currentCsrfToken(fallback: string) {
   if (typeof document === 'undefined') return fallback;
@@ -817,7 +850,17 @@ export function OwnerAccessCenter(props: Props) {
         window.location.assign(returnPath);
       }
     } catch (error) {
+      // A lost response does not prove that the end mutation rolled back.
+      // Remove cached protected data before reconciling; never resend the end.
+      loadGeneration.current += 1;
+      setSessionContext({ active: false, session: null });
+      setSessionKnown(false);
+      setActiveMode(null);
+      setProjection(null);
+      setProjectionUnavailable(true);
+      setNotice(text.sessionUnknown);
       setOpenError(error instanceof Error ? error.message : text.openFailed);
+      window.dispatchEvent(new Event('pc:staff-session-changed'));
     } finally {
       window.clearTimeout(timeoutId);
       setBusyKey(null);
@@ -875,21 +918,19 @@ export function OwnerAccessCenter(props: Props) {
               <p className={styles.eyebrow}>{text.active}</p>
               <h2>{cabinetLabel({ key: activeMode.cabinetKey, canonicalPath: activeMode.canonicalPath, effectiveRole: activeMode.effectiveRole }, copy, locale)}</h2>
             </div>
-            <span className={styles.readOnlyBadge}>VIEW_AS · READ_ONLY</span>
+            <span className={styles.readOnlyBadge}>{text.boundary}</span>
           </div>
           <dl className={styles.modeFacts}>
             <div><dt>{text.actor}</dt><dd>{activeMode.actorDisplayName}</dd></div>
             <div><dt>{text.effectiveOrganization}</dt><dd>{activeMode.effectiveOrganizationId}</dd></div>
-            <div><dt>{text.effectiveRole}</dt><dd>{activeMode.effectiveRole}</dd></div>
+            <div><dt>{text.effectiveRole}</dt><dd>{cabinetLabel({ key: activeMode.cabinetKey, canonicalPath: activeMode.canonicalPath, effectiveRole: activeMode.effectiveRole }, copy, locale)}</dd></div>
             <div><dt>{text.expires}</dt><dd>{formatDate(activeMode.expiresAt, locale)}</dd></div>
           </dl>
           <div className={styles.restrictions}>
             <strong>{text.restrictions}</strong>
-            <ul>{activeMode.restrictions.map((item) => <li key={item}>{item}</li>)}</ul>
+            <ul>{activeMode.restrictions.map((item) => <li key={item}>{RESTRICTION_LABELS[locale][item] ?? item}</li>)}</ul>
           </div>
           <div className={styles.routeMetadata}>
-            <span>{text.canonicalPath}</span>
-            <code>{activeMode.canonicalPath || '—'}</code>
             <p>{text.transportPending}</p>
           </div>
           <button
@@ -971,10 +1012,7 @@ export function OwnerAccessCenter(props: Props) {
               <article key={item.key} className={styles.cabinetCard}>
                 <span className={styles.number} aria-hidden="true">{item.icon}</span>
                 <h2>{item.label}</h2>
-                <p className={styles.organization}>
-                  <span>{item.effectiveRole}</span>
-                  <strong>{item.canonicalPath}</strong>
-                </p>
+                <p className={styles.organization}>{text.boundary}</p>
                 <button
                   type="button"
                   onClick={() => void openCabinet(item)}
