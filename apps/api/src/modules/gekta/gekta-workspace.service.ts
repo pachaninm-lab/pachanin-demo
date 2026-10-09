@@ -71,8 +71,7 @@ export class GektaWorkspaceService {
       include: { messages: true },
     });
     for (const row of rows) {
-      const receipt = await tx.gektaHistoryImportReceipt.findFirst({ where: { accountId, conversationId: row.id } });
-      if (receipt) continue;
+      // Backfill old stable-only receipts before either form of purge.
       const importKey = this.legacyImportKey(accountId, {
         title: row.title, locale: row.locale,
         messages: row.messages.map(m => ({ role: m.role as GektaMessageRole, body: m.body })),
@@ -301,14 +300,28 @@ export class GektaWorkspaceService {
           })}`).digest('hex');
         const received = await tx.gektaHistoryImportReceipt.findUnique({
           where: { accountId_importKey: { accountId, importKey } },
-        }) ?? (importKey === legacyKey ? null : await tx.gektaHistoryImportReceipt.findUnique({
-          where: { accountId_importKey: { accountId, importKey: legacyKey } },
-        }));
+        });
         if (received) {
-          if (received.importKey === importKey && received.payloadHash !== payloadHash) {
+          if (received.payloadHash !== payloadHash) {
             throw new ConflictException('import_identity_conflict');
           }
+          if (importKey !== legacyKey) await tx.gektaHistoryImportReceipt.createMany({
+            data: [{ accountId, importKey: legacyKey, payloadHash: legacyKey.split(':')[1], conversationId: received.conversationId, importedAt: now }], skipDuplicates: true,
+          });
           continue;
+        }
+        if (importKey !== legacyKey) {
+          const legacyReceipt = await tx.gektaHistoryImportReceipt.findUnique({
+            where: { accountId_importKey: { accountId, importKey: legacyKey } },
+          });
+          // A stable import's legacy alias suppresses old-client replay, but
+          // must never coalesce different stable IDs with identical content.
+          if (legacyReceipt && !await tx.gektaHistoryImportReceipt.findFirst({
+            where: { accountId, conversationId: legacyReceipt.conversationId, importKey: { startsWith: 'id-v1:' } },
+          })) {
+            await tx.gektaHistoryImportReceipt.create({ data: { accountId, importKey, payloadHash, conversationId: legacyReceipt.conversationId, importedAt: now } });
+            continue;
+          }
         }
 
         // Adopt a legacy row/soft-delete only when it has no stable receipt and
@@ -338,6 +351,9 @@ export class GektaWorkspaceService {
           },
         });
         await tx.gektaHistoryImportReceipt.create({ data: { accountId, importKey, payloadHash, conversationId: created.id, importedAt: now } });
+        if (importKey !== legacyKey) await tx.gektaHistoryImportReceipt.createMany({
+          data: [{ accountId, importKey: legacyKey, payloadHash: legacyKey.split(':')[1], conversationId: created.id, importedAt: now }], skipDuplicates: true,
+        });
         if (!existingId) imported.push(created.id);
       }
       return { importedCount: imported.length, conversationIds: imported };

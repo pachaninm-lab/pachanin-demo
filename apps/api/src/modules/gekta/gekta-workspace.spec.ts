@@ -6,14 +6,18 @@ const NOW = new Date('2026-08-12T12:00:00.000Z');
 /** Минимальный двойник Prisma: только то, что сервис действительно вызывает. */
 function prismaWith(overrides: Record<string, unknown>): PrismaService {
   const receipts: Record<string, unknown>[] = [];
-  const matches = (row: Record<string, unknown>, where: Record<string, unknown>) => Object.entries(where).every(([k, v]) => row[k] === v);
+  const matches = (row: Record<string, unknown>, where: Record<string, unknown>) => Object.entries(where).every(([k, v]) =>
+    typeof v === 'object' && v !== null && 'startsWith' in v ? String(row[k]).startsWith(String(v.startsWith)) : row[k] === v);
   const db = {
     $queryRaw: async (sql: { values: unknown[] }) => [{ id: sql.values[0] }],
     gektaHistoryImportReceipt: {
       findUnique: async ({ where }: { where: { accountId_importKey: Record<string, unknown> } }) => receipts.find(r => matches(r, where.accountId_importKey)) ?? null,
       findFirst: async ({ where }: { where: Record<string, unknown> }) => receipts.find(r => matches(r, where)) ?? null,
       create: async ({ data }: { data: Record<string, unknown> }) => { receipts.push(data); return data; },
-      createMany: async ({ data }: { data: Record<string, unknown>[] }) => { receipts.push(...data); return { count: data.length }; },
+      createMany: async ({ data }: { data: Record<string, unknown>[] }) => {
+        const fresh = data.filter(r => !receipts.some(existing => existing.accountId === r.accountId && existing.importKey === r.importKey));
+        receipts.push(...fresh); return { count: fresh.length };
+      },
     },
     ...overrides,
   };
@@ -83,6 +87,28 @@ describe('Gekta workspace ownership', () => {
 });
 
 describe('Gekta anonymous history import', () => {
+  it('does not duplicate a stable import when an old client omits sourceId', async () => {
+    const create = jest.fn().mockResolvedValue({ id: 'c-imported' });
+    const service = new GektaWorkspaceService(prismaWith({ gektaConversation: { findMany: async () => [], create } }));
+    const record = { sourceId: 'stable-1', title: 'Own fixture', locale: 'ru', messages: [{ role: 'user' as const, body: 'own body' }] };
+    expect((await service.importAnonymousHistory('acc-1', [record])).importedCount).toBe(1);
+    const { sourceId: _sourceId, ...legacy } = record;
+    expect((await service.importAnonymousHistory('acc-1', [legacy])).importedCount).toBe(0);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect((await service.importAnonymousHistory('acc-1', [{ ...record, sourceId: 'stable-2' }])).importedCount).toBe(1);
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it('adopts a legacy receipt once and binds changed stable payloads to a conflict', async () => {
+    const create = jest.fn().mockResolvedValue({ id: 'c-imported' });
+    const service = new GektaWorkspaceService(prismaWith({ gektaConversation: { findMany: async () => [], create } }));
+    const record = { title: 'Own fixture', locale: 'ru', messages: [{ role: 'user' as const, body: 'own body' }] };
+    expect((await service.importAnonymousHistory('acc-1', [record])).importedCount).toBe(1);
+    expect((await service.importAnonymousHistory('acc-1', [{ ...record, sourceId: 'stable-1' }])).importedCount).toBe(0);
+    await expect(service.importAnonymousHistory('acc-1', [{ ...record, sourceId: 'stable-1', messages: [{ role: 'user', body: 'changed' }] }])).rejects.toThrow('import_identity_conflict');
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
   it.each(['stable', 'legacy'] as const)('does not recreate %s imports after authentication pepper rotation', async kind => {
     const previousPepper = process.env.AUTH_TOKEN_PEPPER;
     const create = jest.fn().mockResolvedValue({ id: 'c-imported' });

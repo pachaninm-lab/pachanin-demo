@@ -83,7 +83,7 @@ describe('Gekta history: real restricted PostgreSQL import, purge and concurrenc
       .importAnonymousHistory(account, [incoming()])));
     expect(results.map(r => r.importedCount).reduce((a, b) => a + b, 0)).toBe(1);
     expect(await admin.gektaConversation.count({ where: { accountId: account } })).toBe(1);
-    expect(await admin.gektaHistoryImportReceipt.count({ where: { accountId: account } })).toBe(1);
+    expect(await admin.gektaHistoryImportReceipt.count({ where: { accountId: account } })).toBe(2);
     expect(await admin.gektaMessage.count({ where: { conversation: { accountId: account } } })).toBe(1);
     const fresh = new PrismaClient({ datasources: { db: { url: restrictedUrl.toString() } } });
     try { expect((await service(fresh).importAnonymousHistory(account, [incoming()])).importedCount).toBe(0); }
@@ -112,7 +112,7 @@ describe('Gekta history: real restricted PostgreSQL import, purge and concurrenc
     await expect(service(right).deleteConversation(account, first.conversationIds[0])).resolves.toEqual({ deleted: true });
     expect(await admin.gektaConversation.count({ where: { accountId: otherAccount } })).toBe(1);
     const receipts = await admin.gektaHistoryImportReceipt.findMany({ where: { accountId: account } });
-    expect(receipts).toHaveLength(1);
+    expect(receipts).toHaveLength(2);
     expect(Object.keys(receipts[0]).sort()).toEqual(['accountId', 'conversationId', 'importKey', 'importedAt', 'payloadHash']);
     expect(JSON.stringify(receipts)).not.toContain('own synthetic question');
     expect(JSON.stringify(receipts)).not.toContain('Same title');
@@ -130,6 +130,37 @@ describe('Gekta history: real restricted PostgreSQL import, purge and concurrenc
     expect(await admin.gektaMessage.count({ where: { conversationId: legacy.id } })).toBe(0);
     expect((await service(right).importAnonymousHistory(account, [{ title: 'legacy', locale: 'ru', messages: [{ role: 'user', body: 'legacy body' }] }])).importedCount).toBe(0);
     expect(await admin.gektaConversation.count({ where: { accountId: otherAccount } })).toBe(1);
+  });
+
+  it.each(['delete', 'clear'] as const)('backfills a pre-upgrade stable-only receipt before %s and rejects legacy replay', async operation => {
+    const record = incoming();
+    const first = await service(left).importAnonymousHistory(account, [record]);
+    // Reproduce rows written by the previous stable-only implementation in
+    // this disposable test DB; no production role gains receipt DELETE.
+    await admin.gektaHistoryImportReceipt.deleteMany({ where: { accountId: account, importKey: { startsWith: 'legacy-v1:' } } });
+    expect(await admin.gektaHistoryImportReceipt.count({ where: { accountId: account } })).toBe(1);
+    if (operation === 'delete') await service(left).deleteConversation(account, first.conversationIds[0]);
+    else await service(left).clearHistory(account);
+    const { sourceId: _sourceId, ...legacy } = record;
+    expect((await service(right).importAnonymousHistory(account, [legacy])).importedCount).toBe(0);
+    expect((await service(right).importAnonymousHistory(account, [record])).importedCount).toBe(0);
+    expect(await admin.gektaConversation.count({ where: { accountId: account } })).toBe(0);
+    expect(await admin.gektaMessage.count({ where: { conversationId: first.conversationIds[0] } })).toBe(0);
+    expect(await admin.gektaHistoryImportReceipt.count({ where: { accountId: account } })).toBe(2);
+  });
+
+  it('serializes old-client replay with stable import and specific deletion without a second conversation', async () => {
+    const record = incoming();
+    const first = await service(left).importAnonymousHistory(account, [record]);
+    const { sourceId: _sourceId, ...legacy } = record;
+    const [replay] = await Promise.all([
+      service(right).importAnonymousHistory(account, [legacy]),
+      service(left).deleteConversation(account, first.conversationIds[0]),
+    ]);
+    expect(replay.importedCount).toBe(0);
+    expect((await service(right).importAnonymousHistory(account, [legacy])).importedCount).toBe(0);
+    expect(await admin.gektaConversation.count({ where: { accountId: account } })).toBe(0);
+    expect(await admin.gektaMessage.count({ where: { conversationId: first.conversationIds[0] } })).toBe(0);
   });
 
   it('rolls back the whole import and receipts when a nested message fails, then accepts a valid retry', async () => {
