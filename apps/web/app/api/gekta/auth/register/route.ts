@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { verifyGektaConsentSnapshot } from '../../../../../../../packages/domain-core/src/gekta-consent-evidence';
+import { currentGektaLegalEvidence } from '@/lib/gekta/consent-evidence-server';
 import { sendTransactionalMail, isTransactionalMailConfigured } from '@/lib/server/transactional-mail';
 import { assertCsrf, resolveRequestTargetOrigin } from '@/lib/server-request-security';
 import {
@@ -86,6 +88,11 @@ export async function POST(request: Request) {
     return gektaAuthJson({ accepted: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE', correlationId }, 503);
   }
 
+  const consentEvidence = currentGektaLegalEvidence(locale, 'GEKTA_REGISTRATION');
+  if (!verifyGektaConsentSnapshot(body.consentSnapshot, consentEvidence, deliveryKey)) {
+    return gektaAuthJson({ accepted: false, code: 'CONSENT_REFRESH_REQUIRED', correlationId }, 400);
+  }
+
   try {
     const response = await fetch(`${upstream}/gekta/auth/register`, {
       method: 'POST',
@@ -97,6 +104,8 @@ export async function POST(request: Request) {
         password,
         acceptedServiceTerms: true,
         acceptedPersonalData: true,
+        consentSnapshot: body.consentSnapshot,
+        consentEvidence,
       }),
       cache: 'no-store',
       redirect: 'manual',
