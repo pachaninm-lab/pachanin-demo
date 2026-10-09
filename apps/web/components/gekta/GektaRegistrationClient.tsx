@@ -59,8 +59,19 @@ export function GektaRegistrationClient({ initialLocale, initialEmailConfirmatio
   const [phone, setPhone] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
-  const [terms, setTerms] = React.useState(false);
-  const [privacy, setPrivacy] = React.useState(false);
+  // Committed links bind the rendered documents and merchant profile. A renewed
+  // nonce for the same commitments does not change what the user accepted.
+  const consentIdentity = JSON.stringify([initialLocale, consentPresentation?.termsHref ?? null,
+    consentPresentation?.privacyHref ?? null, Boolean(consentPresentation?.snapshot)]);
+  const [choices, setChoices] = React.useState(() => ({ identity: consentIdentity, terms: false, privacy: false }));
+  const choicesMatch = choices.identity === consentIdentity;
+  if (!choicesMatch) setChoices({ identity: consentIdentity, terms: false, privacy: false });
+  const terms = choicesMatch && choices.terms;
+  const privacy = choicesMatch && choices.privacy;
+  const setTerms = (value: boolean) => setChoices((previous) => ({ identity: consentIdentity,
+    terms: value, privacy: previous.identity === consentIdentity && previous.privacy }));
+  const setPrivacy = (value: boolean) => setChoices((previous) => ({ identity: consentIdentity,
+    terms: previous.identity === consentIdentity && previous.terms, privacy: value }));
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
   const [notice, setNotice] = React.useState('');
@@ -98,6 +109,7 @@ export function GektaRegistrationClient({ initialLocale, initialEmailConfirmatio
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); if (busy) return;
     if (mode === 'register' && !consentPresentation?.snapshot) { setError(ui.unavailable); return; }
+    if (mode === 'register' && (consentRefreshRequired || !terms || !privacy)) { setError(consentRefreshRequired ? ui.consentRefresh : ui.genericError); return; }
     setBusy(true); setError(''); setNotice('');
     try {
       const response = mode === 'register' ? await post('/api/gekta/auth/register', { fullName, phone, email, password, acceptedServiceTerms: terms, acceptedPersonalData: privacy, locale: initialLocale, consentSnapshot: consentPresentation?.snapshot }) : await post('/api/gekta/auth/login', { email, password });
