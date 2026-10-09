@@ -8557,6 +8557,56 @@
       ],
       "payloadRetention": "Exact full proposed UTF-8 bytes are retained in each sourcePayloads.afterContentUtf8 in reachable reviewed governance. Verify both before/after Git/modes/fullSHA256; no private prototype or scratch-only authority.",
       "publicationStatus": "ADMISSION_ONLY_SOURCE_NOT_ACCEPTED"
+    },
+    "product-immutable-state-capacity-20261009": {
+      "owner": "CLAUDE_PC_CROP_EXECUTOR",
+      "purpose": "Bounded complete-byte immutable-state loader correction for genuine native buyer guard ENOBUFS; fixed 3 MiB only for docs/platform-v7/autopilot/autopilot-state.json in the existing accepted guard. All non-state buffers, trusted-base routes, source scopes, modes, immutable pins and security/readiness checks remain unchanged.",
+      "authorityBaseExactMain": "b0629ea4e36dcd46fb0ccfabbe7445ef429019bf",
+      "implementationBranch": "governance/trusted-concurrent-scope-routing-guard-20261007",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "plannedChangedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs"
+      ],
+      "requiredTruthBoundaries": [
+        "Append only this purpose record; every previous byte/value, owner, vector, admission, PRIMARY/current/next/progress and source payload remains frozen. No source accompanies the purpose admission.",
+        "Retain the existing guard owner and branch ancestry. The future source changes exactly guard100755 and test100644; workflow and all other leaves remain unchanged.",
+        "Read all repeated accepted/candidate immutable states as full bounded bytes; reject state above 3 MiB, invalid UTF8, absent authority, scope expansion and every existing negative case. No generic or candidate-defined capacity.",
+        "Support results are private and confer no accepted gate, source publication, merge or production authority. Each admission/source head needs fresh separate nonauthor full-diff review, owner audit, complete native checks, current canonical readiness and ordinary full-expected-SHA manual acceptance.",
+        "After accepted loader source, normally compose original buyer PR5857 onto actual main and independently rerun all current-head gates; old guard/collector/browser/source results do not transfer. Exact-main REG.RU live acceptance remains required.",
+        "Future whole-head source review must match exactly the two support afterBlobs/modes bound here; no third-path/workflow edit is planned or authorized by this purpose. If current source beforeBlobs drift, recompose and propose a reviewed replacement rather than transferring these pins."
+      ],
+      "forbiddenAuthority": [
+        "Owner transfer or competing guard/CORE writer",
+        "Broad scope/buffer/state exceptions or truncated registry/payloads",
+        "Skipped/weakened CI/security/readiness/independent review or forged statuses",
+        "Force/automatic merge, API/DB/provider/session/payment/money mutation or production claim"
+      ],
+      "nativeFailureEvidence": {
+        "pr": 5857,
+        "head": "3b5460e0884f27b81c77d6275b0d0406ba5e9fd9",
+        "run": 37896108694,
+        "job": 113707704616
+      },
+      "supportPatchSha256": "4fc194dca507c5f1ee09ad475cba2be9d0eb3a5793021509f513162ed77cfea4",
+      "sourcePins": [
+        {
+          "path": "scripts/p7-autopilot-guard.sh",
+          "mode": "100755",
+          "beforeBlob": "a1f244d2f3501272031cbd183dfdfc66d4a8505c",
+          "afterBlob": "30390830edaef4304e7a776ca764cbd6a4d953d0"
+        },
+        {
+          "path": "scripts/p7-autopilot-guard.test.mjs",
+          "mode": "100644",
+          "beforeBlob": "14b43469f8825515bd2541cc794a28d6f800ae87",
+          "afterBlob": "96a773997c1b3588d139050afca2b4a3f9ab268f"
+        }
+      ]
     }
   }
 }

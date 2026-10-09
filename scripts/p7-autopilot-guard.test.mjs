@@ -5405,3 +5405,127 @@ for (const branch of trustedConcurrentSourceBranches) {
     });
   }
 }
+
+
+const immutableStatePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+const immutableStateCapacity = 3 * 1024 * 1024;
+const boundedStateBranch = 'security/credential-surface-4459';
+
+function sizedImmutableState(state, bytes) {
+  const value = { ...state, retainedCapacityFixture: '' };
+  const empty = JSON.stringify(value);
+  const remaining = bytes - Buffer.byteLength(empty);
+  assert.ok(remaining >= 0);
+  // Mixed-width text catches character-count and UTF8 truncation mistakes.
+  value.retainedCapacityFixture = '测'.repeat(Math.floor(remaining / 3)) + 'x'.repeat(remaining % 3);
+  const result = JSON.stringify(value);
+  assert.equal(Buffer.byteLength(result), bytes);
+  return result;
+}
+
+function boundedStateFixture(t, bytes, branch = boundedStateBranch) {
+  const context = fixture(t, branch);
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, immutableStatePath), 'utf8'));
+  write(context.root, immutableStatePath, sizedImmutableState(state, bytes));
+  commit(context.root, 'accepted full bounded state');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  return context;
+}
+
+test('immutable state capacity reads the complete actual accepted buyer registry', (t) => {
+  const context = fixture(t, buyerBranch);
+  const retained = fs.readFileSync(immutableStatePath);
+  assert.ok(retained.length > 1024 * 1024);
+  assert.ok(retained.length <= immutableStateCapacity);
+  const file = 'apps/web/components/platform-v7/FirstCustomerWorkspace.tsx';
+  const manifest = 'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json';
+  write(context.root, immutableStatePath, retained);
+  write(context.root, manifest, fs.readFileSync(manifest));
+  write(context.root, file, 'accepted buyer source\n');
+  commit(context.root, 'full actual accepted registry and manifest');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  write(context.root, file, 'authorized buyer source\n');
+  commit(context.root, 'authorized buyer change');
+  const result = runGuard(context);
+  assert.equal(result.status, 0, output(result));
+  assert.deepEqual(fs.readFileSync(path.join(context.root, immutableStatePath)), retained);
+});
+
+for (const bytes of [1024 * 1024 + 1, 2251808, immutableStateCapacity]) {
+  test(`immutable state capacity accepts complete UTF8 base of ${bytes} bytes`, (t) => {
+    const context = boundedStateFixture(t, bytes);
+    write(context.root, 'allowed.txt', 'authorized bounded-state change\n');
+    commit(context.root, 'authorized bounded-state change');
+    const result = runGuard(context);
+    assert.equal(result.status, 0, output(result));
+    assert.match(result.stdout, /Scope guard passed\./u);
+  });
+}
+
+for (const bytes of [immutableStateCapacity + 1, immutableStateCapacity + 128 * 1024]) {
+  test(`immutable state capacity rejects accepted base of ${bytes} bytes`, (t) => {
+    const context = boundedStateFixture(t, bytes);
+    write(context.root, 'allowed.txt', 'otherwise authorized change\n');
+    commit(context.root, 'otherwise authorized change');
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /P7_IMMUTABLE_STATE_CAPACITY/u);
+  });
+}
+
+test('immutable state capacity rejects oversized candidate in state-only admission', (t) => {
+  const context = boundedStateFixture(t, 2251808, buyerAdmissionBranch);
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, immutableStatePath), 'utf8'));
+  write(context.root, immutableStatePath, sizedImmutableState(state, immutableStateCapacity + 1));
+  commit(context.root, 'oversized state-only candidate');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /P7_IMMUTABLE_STATE_CAPACITY/u);
+});
+
+test('immutable state capacity rejects invalid UTF8 instead of decoding replacement characters', (t) => {
+  const context = boundedStateFixture(t, 2251808);
+  const target = path.join(context.root, immutableStatePath);
+  const bytes = fs.readFileSync(target);
+  const offset = bytes.indexOf(Buffer.from('测'));
+  assert.ok(offset > 0);
+  bytes[offset] = 0xff;
+  fs.writeFileSync(target, bytes);
+  commit(context.root, 'invalid UTF8 accepted state');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  write(context.root, 'allowed.txt', 'otherwise authorized change\n');
+  commit(context.root, 'otherwise authorized change');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /P7_IMMUTABLE_STATE_UTF8/u);
+});
+
+for (const mutation of ['global path', 'candidate self-admission']) {
+  test(`immutable state capacity preserves rejection of ${mutation} on large state`, (t) => {
+    const context = boundedStateFixture(t, 2251808);
+    if (mutation === 'candidate self-admission') {
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, immutableStatePath), 'utf8'));
+      state.approvedConcurrentScopes[boundedStateBranch].push('README.md');
+      write(context.root, immutableStatePath, JSON.stringify(state));
+    }
+    write(context.root, 'README.md', 'unapproved change\n');
+    commit(context.root, mutation);
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), mutation === 'global path' ? /Files outside current autopilot scope/u : /Mutable scope authority changed/u);
+  });
+}
+
+test('immutable state capacity does not enlarge the ordinary manifest buffer', (t) => {
+  const context = publicHomeImplementationFixture(t);
+  const target = path.join(context.root, publicHomeImplementationManifest);
+  const manifest = JSON.parse(fs.readFileSync(target, 'utf8'));
+  write(context.root, publicHomeImplementationManifest, sizedImmutableState(manifest, 1024 * 1024 + 1));
+  commit(context.root, 'oversized ordinary manifest base');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  write(context.root, 'apps/web/app/platform-v7/page.tsx', 'authorized presentation\n');
+  commit(context.root, 'authorized presentation');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /accepted public-home manifest:.*ENOBUFS/u);
+});
