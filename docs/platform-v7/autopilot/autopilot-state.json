@@ -1555,7 +1555,8 @@
     "fgis/regulatory-truth-ux-20260921": [
       "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
       "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
-      "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts"
+      "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts",
+      "apps/web/vitest.config.ts"
     ],
     "ux/seller-truthful-first-screen-20260922": [
       "apps/web/app/platform-v7/seller/page.tsx",
@@ -8656,6 +8657,76 @@
           "afterBlob": "91c9f62d99c4ca2cec8dee681af446b51885d3e0"
         }
       ]
+    },
+    "product-fgis-vitest-source-resolution-correction-20261009": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Correct the actual clean-runner Vitest resolution failure in keyboard-only FGIS confirmation-dialog source2092. Add the existing TypeScript canonical design-system source mapping and resolve its existing React peer from the web application. No component mock, test skip, package/workspace/lockfile or runtime authority change.",
+      "authorityBaseExactMain": "da9aa706e61c0abf80ce332250238618645f4e61",
+      "implementationBranch": "fgis/regulatory-truth-ux-20260921",
+      "supersedesOnly": "The original product-fgis-confirmation-focus-20261009 future source exactly-three-path restriction, solely to permit this one existing Vitest config leaf. Retain that entire original record and ALL three original before/after pins unchanged. Every other original restriction remains applicable.",
+      "allowedPaths": [
+        "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
+        "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
+        "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts",
+        "apps/web/vitest.config.ts"
+      ],
+      "nativeFailureEvidence": {
+        "sourceHead": "2092c0ce0c11f070a661be07a351b12fcb799fc6",
+        "runId": 37979640619,
+        "jobId": 113986572733,
+        "failure": "Failed to resolve import @pc/design-system-v8; focused file loaded zero cases, other two files11PASS. Local manual links masked the missing canonical-source mapping."
+      },
+      "requiredTruthBoundaries": [
+        "Only append this corrective purpose and append the fourth exact existing file to this one branch vector. Removing both changes restores every accepted state byte and semantic value. Preserve all other owners, records, scopes, PRIMARY/current/next/progress and Gekta payloads.",
+        "Retain the original source ref and its94+2092 ancestry. Future source changes exactly four100644 leaves against actual accepted main: three original frozen blobs and this one pinned test config. All other accepted-main leaves remain identical.",
+        "The config maps the real excluded source package and uses the existing application React peer; it supplies no mocked component, skipped assertion, dependency/workspace change, CI/guard modification or lower threshold.",
+        "Actual local clean-resolution before11PASS/one focused-suiteFAIL and after29PASS, protected web types exit0 are preparation only. Native2092 industrial CI138PASS117skip1FAIL with806ms above800ms remains a historical blocker; unchanged full native CI must pass afresh on the corrective head.",
+        "Every published metadata and corrective source head requires fresh distinct nonauthor full-diff review, separate owner audit, complete applicable native checks, actual canonical readiness and immediately fresh manual full-expected-SHA acceptance. No earlier head/private/session PASS transfer.",
+        "No keyboard/source acceptance implies canonical FGIS recovery, regulatory/provider/bank/staff dependency closure, source-to-production deployment, progress credit or full UX+BANKS+FGIS closure. Exact-main REG.RU and protected live acceptance remain required."
+      ],
+      "forbiddenAuthority": [
+        "Browser local/session storage or substitute UNKNOWN authority",
+        "API/DTO/database/inbox/outbox/reconciliation/RLS/tenant/session/provider/payment/money mutation",
+        "CORE producer or guard owner transfer, competing writer, any fifth source path or additional scope expansion",
+        "Skipped/weakened checks, forged receipts/statuses, force/automatic merge or production claims"
+      ],
+      "privateSourceCommit": "64c3ef1dd13c46496bd5df0e727bb309fb814f62",
+      "unchangedCommandRequestSha256": "1585abef7f36c0d32b8e67cb1c4361ba1712e934ac8028b60c183a91e53147f1",
+      "unchangedPendingIdentitySha256": "997b9689c0410055d71bf1e8f4a04f693f28f553ab0a0467334f2110fbdd28bd",
+      "sourcePins": [
+        {
+          "path": "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
+          "mode": "100644",
+          "beforeBlob": "700af2139e6c2808a2fa226db1b73a065f8eb827",
+          "afterBlob": "d8b23f57b4897aaa4471c69612c4e8da0e7b0068"
+        },
+        {
+          "path": "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
+          "mode": "100644",
+          "beforeBlob": "1c35841a418fa8d6089fe0483a6d88179d392b50",
+          "afterBlob": "0e5805508bc3ba3905ac0a512af474cf93f346e1"
+        },
+        {
+          "path": "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts",
+          "mode": "100644",
+          "beforeBlob": "b9344f408f915a3ae6f73b24d10a898c41af564c",
+          "afterBlob": "91c9f62d99c4ca2cec8dee681af446b51885d3e0"
+        },
+        {
+          "path": "apps/web/vitest.config.ts",
+          "mode": "100644",
+          "beforeBlob": "b9fd99ec0242ffd542c603b3fae007f3f53c9105",
+          "afterBlob": "da03096b6305a17cf671ce5ee9e7b56d761bc3eb"
+        }
+      ],
+      "correctiveConfigPayload": {
+        "path": "apps/web/vitest.config.ts",
+        "mode": "100644",
+        "beforeBlob": "b9fd99ec0242ffd542c603b3fae007f3f53c9105",
+        "afterBlob": "da03096b6305a17cf671ce5ee9e7b56d761bc3eb",
+        "sha256": "dcb50d4dc1c639785c4d5ed7d5e0294b03f876d1c817627faa8f2e0fc6eb4552",
+        "afterContentUTF8": "import { defineConfig } from 'vitest/config';\nimport react from '@vitejs/plugin-react';\nimport path from 'path';\n\nexport default defineConfig({\n  plugins: [react()],\n  test: {\n    environment: 'happy-dom',\n    globals: true,\n    setupFiles: ['./tests/setup.ts'],\n    include: ['./tests/unit/**/*.{test,spec}.{ts,tsx}'],\n    coverage: {\n      provider: 'v8',\n      include: ['components/v9/**', 'lib/v9/**', 'stores/**'],\n      thresholds: { lines: 70 },\n    },\n  },\n  resolve: {\n    // Resolve source packages against the web app's existing React peer.\n    dedupe: ['react', 'react-dom'],\n    alias: {\n      // Match the existing TypeScript source mapping for this package, which\n      // is deliberately excluded from pnpm workspace package linking.\n      '@pc/design-system-v8': path.resolve(\n        __dirname,\n        '../../packages/design-system-v8/src/index.ts',\n      ),\n      // The boundary validates through the API's contract module itself rather\n      // than a copy, so the test run must resolve the same file the build does.\n      '@pc/ai-assistant-stream-contract': path.resolve(\n        __dirname,\n        '../api/src/modules/ai-insights/ai-assistant-stream.contract.ts',\n      ),\n      '@pc/ai-assistant-admission-manifest': path.resolve(\n        __dirname,\n        '../api/src/modules/ai-insights/ai-assistant-admission.manifest.ts',\n      ),\n      '@': path.resolve(__dirname, '.'),\n    },\n  },\n});\n"
+      }
     }
   }
 }
