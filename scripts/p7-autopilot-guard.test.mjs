@@ -1575,8 +1575,14 @@ test('dispatcher supersession: actual registered18 and anonymous17 retire old re
   const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
   const registered = state.coordinationAdmissions['gekta-registration-refresh-ci-correction-20261009'];
   const anonymous = state.coordinationAdmissions['gekta-anonymous-document-evidence-20261009'];
+  const originalRegistered = state.coordinationAdmissions['gekta-registration-document-evidence-20261008'];
+  state.coordinationAdmissions = {
+    'gekta-registration-document-evidence-20261008': originalRegistered,
+    'gekta-registration-refresh-ci-correction-20261009': registered,
+    'gekta-anonymous-document-evidence-20261009': anonymous,
+  };
   const extra = ['apps/web/middleware.ts', 'apps/web/tests/unit/gektaAnonymousLegalRoutes.test.ts'];
-  state.approvedConcurrentScopes[registered.implementationBranch].push(...extra);
+  for (const path of extra) if (!state.approvedConcurrentScopes[registered.implementationBranch].includes(path)) state.approvedConcurrentScopes[registered.implementationBranch].push(path);
   state.coordinationAdmissions.fixtureRegistered18 = {
     ...structuredClone(registered), sourcePayloads: [...registered.sourcePayloads, ...extra.map(path => ({ path }))],
     supersedesUnacceptedPayloadOf: 'gekta-registration-refresh-ci-correction-20261009', dispatcherBlocker: 'Current registered eighteen-path source remains pending.',
