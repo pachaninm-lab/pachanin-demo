@@ -146,7 +146,7 @@ describe('Design System v8 money role reference slice', () => {
 // This package is deliberately outside pnpm-workspace.yaml. Render the actual
 // workspace source with bounded presentation stubs so the governed CI job can
 // test bank state decisions without relying on a local node_modules symlink.
-async function renderBankWorkspace(snapshot: FirstCustomerWorkspaceSnapshot, locale = 'ru') {
+async function renderBankWorkspace(snapshot: FirstCustomerWorkspaceSnapshot, locale = 'ru', surface: 'bank' | 'buyer' = 'bank') {
   const compiled = ts.transpileModule(firstCustomerWorkspace, {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
@@ -196,8 +196,8 @@ async function renderBankWorkspace(snapshot: FirstCustomerWorkspaceSnapshot, loc
     require: requireWorkspaceDependency,
   }, { filename: 'FirstCustomerWorkspace.tsx' });
   const workspace = runtimeModule.exports.FirstCustomerWorkspace as
-    (props: { surface: 'bank' }) => Promise<ReactElement>;
-  render(await workspace({ surface: 'bank' }));
+    (props: { surface: 'bank' | 'buyer' }) => Promise<ReactElement>;
+  render(await workspace({ surface }));
 }
 
 const bankErrorSnapshot: FirstCustomerWorkspaceSnapshot = {
@@ -362,7 +362,7 @@ describe('governed first-customer priority source contract', () => {
       expect(workspaceDecision).toContain("href='#first-customer-work-queue'");
       expect(workspaceDecision).toContain("owner: priorityUnknown ? undefined");
       expect(firstCustomerWorkspace).toContain('workspace.items.map((item) => item.href ?');
-      expect(firstCustomerWorkspace).toContain("href={surface === 'bank' && !workspace.ownerControlled ? `${item.href}?lang=${locale}` : item.href}");
+      expect(firstCustomerWorkspace).toContain("href={surface === 'bank' && !workspace.ownerControlled ? `${item.href}?lang=${locale}` : buyerHref(item.href)}");
     },
   );
 
@@ -372,5 +372,59 @@ describe('governed first-customer priority source contract', () => {
     expect(workspaceDecision).toContain('first?.href');
     expect(firstCustomerWorkspace).toContain("workspace.ownerControlled && state === 'ready' ? copy.ownerReady");
     expect(firstCustomerWorkspace).toContain("href='/platform-v7/staff'");
+  });
+});
+
+
+const buyerSnapshot: FirstCustomerWorkspaceSnapshot = {
+  ...bankErrorSnapshot,
+  profile: { ...bankErrorSnapshot.profile, role: 'BUYER', surfaceRole: 'buyer' },
+  organization: { ...bankErrorSnapshot.organization, currentRole: 'BUYER' },
+};
+
+describe('buyer selected-language navigation', () => {
+  it.each([
+    { locale: 'ru', lang: 'ru' },
+    { locale: 'en', lang: 'en' },
+    { locale: 'zh-CN', lang: 'zh' },
+  ].flatMap((entry) => ['deal-buyer-42', 'deal/银行?А&1#2'].map((dealId) => ({ ...entry, dealId }))))(
+    'keeps $locale on the exact server-provided Deal $dealId',
+    async ({ locale, lang, dealId }) => {
+      const serverHref = `/platform-v7/deals/${encodeURIComponent(dealId)}/execution`;
+      await renderBankWorkspace({
+        ...buyerSnapshot, available: true, forbidden: false, correlationId: null,
+        items: [{ id: dealId, dealId, status: 'DOCUMENTS_PENDING', nextAction: null, href: serverHref }],
+      }, locale, 'buyer');
+      const link = screen.getAllByRole('link').find((entry) => entry.textContent?.includes(dealId));
+      expect(link).toHaveAttribute('href', `${serverHref}?lang=${lang}`);
+      const target = new URL(link!.getAttribute('href')!, 'https://navigation.example.test');
+      expect(target.pathname).toBe(serverHref);
+      expect(Array.from(target.searchParams.entries())).toEqual([['lang', lang]]);
+      expect(target.hash).toBe('');
+      expect(screen.getByText('UNKNOWN', { exact: true })).toBeInTheDocument();
+    },
+  );
+
+  it.each(['ru', 'en', 'zh'].flatMap((locale) => [
+    { locale, available: true, forbidden: false },
+    { locale, available: false, forbidden: false },
+    { locale, available: false, forbidden: true },
+  ]))('keeps $locale when opening profile/team from available=$available forbidden=$forbidden', async ({ locale, available, forbidden }) => {
+    await renderBankWorkspace({ ...buyerSnapshot, available, forbidden }, locale, 'buyer');
+    const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
+    expect(hrefs).toContain(`/platform-v7/profile?lang=${locale}`);
+    expect(hrefs).toContain(`/platform-v7/profile/team?lang=${locale}`);
+    expect(hrefs).not.toContain('/platform-v7/staff');
+  });
+
+  it('preserves the owner-controlled route and return destination', async () => {
+    await renderBankWorkspace({
+      ...buyerSnapshot, available: true, forbidden: false, ownerControlled: true,
+      profile: { ...buyerSnapshot.profile, role: 'PLATFORM_OWNER' },
+      items: [{ id: 'OWNER-BUYER-CONTROLLED', dealId: null, status: 'CONTROLLED_TEST', nextAction: null, href: '/platform-v7/buyer/lots' }],
+    }, 'en', 'buyer');
+    expect(screen.getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual([
+      '/platform-v7/buyer/lots', '/platform-v7/staff', '/platform-v7/buyer/lots',
+    ]);
   });
 });
