@@ -1561,6 +1561,80 @@ test('invalid admission blocker fails the dispatcher before writing generated ou
   }
 });
 
+function dispatcherSupersessionFixture(t, state) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-dispatcher-supersession-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  write(root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify(state));
+  write(root, 'docs/platform-v7/execution-queue.md', fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8'));
+  const outputs = ['docs/platform-v7/autopilot/progress.json', 'docs/platform-v7/autopilot/prompts/current-codex-task.md', 'docs/platform-v7/autopilot/prompts/current-review-task.md'];
+  for (const file of outputs) write(root, file, file.endsWith('.json') ? JSON.stringify({ fullTzReadinessPercent: 5, blockedBy: ['Original blocker'] }) : 'Original prompt');
+  return { root, outputs, run: () => spawnSync(process.execPath, [path.resolve('scripts/p7-autopilot-dispatcher.mjs')], { cwd: root, encoding: 'utf8' }) };
+}
+
+test('dispatcher supersession: actual registered18 and anonymous17 retire old requirements transitively while frozen records and current stay unchanged', (t) => {
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  const registered = state.coordinationAdmissions['gekta-registration-refresh-ci-correction-20261009'];
+  const anonymous = state.coordinationAdmissions['gekta-anonymous-document-evidence-20261009'];
+  const extra = ['apps/web/middleware.ts', 'apps/web/tests/unit/gektaAnonymousLegalRoutes.test.ts'];
+  state.approvedConcurrentScopes[registered.implementationBranch].push(...extra);
+  state.coordinationAdmissions.fixtureRegistered18 = {
+    ...structuredClone(registered), sourcePayloads: [...registered.sourcePayloads, ...extra.map(path => ({ path }))],
+    supersedesUnacceptedPayloadOf: 'gekta-registration-refresh-ci-correction-20261009', dispatcherBlocker: 'Current registered eighteen-path source remains pending.',
+  };
+  state.coordinationAdmissions.fixtureAnonymous17 = {
+    ...structuredClone(anonymous), sourcePayloads: anonymous.sourcePayloads.filter(pin => !extra.includes(pin.path)),
+    supersedesUnacceptedPayloadOf: 'gekta-anonymous-document-evidence-20261009', dispatcherBlocker: 'Current anonymous seventeen-path source remains pending.',
+  };
+  const fixture = dispatcherSupersessionFixture(t, state);
+  const retired = [registered.dispatcherBlocker, anonymous.dispatcherBlocker, state.coordinationAdmissions['gekta-registration-document-evidence-20261008'].dispatcherBlocker];
+  const active = [state.coordinationAdmissions.fixtureRegistered18.dispatcherBlocker, state.coordinationAdmissions.fixtureAnonymous17.dispatcherBlocker];
+  for (let iteration = 0; iteration < 2; iteration += 1) {
+    const result = fixture.run(); assert.equal(result.status, 0, output(result));
+    const progress = JSON.parse(fs.readFileSync(path.join(fixture.root, fixture.outputs[0]), 'utf8'));
+    for (const blocker of retired) assert.equal(progress.blockedBy.includes(blocker), false, blocker);
+    for (const blocker of active) assert.equal(progress.blockedBy.filter(value => value === blocker).length, 1);
+    assert.equal(progress.currentStep, state.current); assert.equal(progress.nextStep, state.current); assert.equal(progress.fullTzReadinessPercent, 5);
+    for (const file of fixture.outputs.slice(1)) {
+      const prompt = fs.readFileSync(path.join(fixture.root, file), 'utf8').split('## Active queue')[0].split('## Queue snapshot')[0];
+      for (const blocker of retired) assert.equal(prompt.includes(`- BLOCKED: ${blocker}`), false);
+      for (const blocker of active) assert.equal(prompt.split(`- BLOCKED: ${blocker}`).length - 1, 1);
+    }
+  }
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(fixture.root, 'docs/platform-v7/autopilot/autopilot-state.json'), 'utf8')), state);
+});
+
+const invalidDispatcherSupersessions = [
+  ['missing target', s => { s.coordinationAdmissions.fixtureChild.supersedesUnacceptedPayloadOf = 'missing'; }],
+  ['blank target', s => { s.coordinationAdmissions.fixtureChild.supersedesUnacceptedPayloadOf = ' '; }],
+  ['multiline target', s => { s.coordinationAdmissions.fixtureChild.supersedesUnacceptedPayloadOf = 'fixtureParent\n'; }],
+  ['non-string target', s => { s.coordinationAdmissions.fixtureChild.supersedesUnacceptedPayloadOf = []; }],
+  ['self target', s => { s.coordinationAdmissions.fixtureChild.supersedesUnacceptedPayloadOf = 'fixtureChild'; }],
+  ['cycle', s => { s.coordinationAdmissions.fixtureParent.supersedesUnacceptedPayloadOf = 'fixtureChild'; }],
+  ['foreign owner', s => { s.coordinationAdmissions.fixtureChild.owner = 'OTHER_OWNER'; }],
+  ['missing owner', s => { delete s.coordinationAdmissions.fixtureChild.owner; }],
+  ['no replacement blocker', s => { delete s.coordinationAdmissions.fixtureChild.dispatcherBlocker; }],
+  ['non-source target', s => { delete s.coordinationAdmissions.fixtureParent.sourcePayloads; }],
+  ['unrelated source lineage', s => { s.coordinationAdmissions.fixtureChild.sourcePayloads = [{ path: 'fixture/unrelated' }]; }],
+  ['duplicate source path', s => { s.coordinationAdmissions.fixtureChild.sourcePayloads.push({ path: 'fixture/a' }); }],
+  ['missing approved source scope', s => { delete s.approvedConcurrentScopes['fixture/source']; }],
+  ['scope without source path', s => { s.approvedConcurrentScopes['fixture/source'] = ['fixture/b']; }],
+  ['ambiguous fork', s => { s.coordinationAdmissions.fixtureFork = { ...structuredClone(s.coordinationAdmissions.fixtureChild), dispatcherBlocker: 'Competing pending source.' }; }],
+];
+for (const [name, mutate] of invalidDispatcherSupersessions) {
+  test(`dispatcher supersession: rejects ${name} before writing progress or prompts`, (t) => {
+    const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+    const source = { owner: 'FIXTURE_SOURCE_OWNER', implementationBranch: 'fixture/source', sourcePayloads: [{ path: 'fixture/a' }, { path: 'fixture/b' }], dispatcherBlocker: 'Original pending source.' };
+    state.approvedConcurrentScopes['fixture/source'] = ['fixture/a', 'fixture/b'];
+    state.coordinationAdmissions.fixtureParent = source;
+    state.coordinationAdmissions.fixtureChild = { ...structuredClone(source), sourcePayloads: [{ path: 'fixture/a' }], supersedesUnacceptedPayloadOf: 'fixtureParent', dispatcherBlocker: 'Replacement pending source.' };
+    mutate(state); const fixture = dispatcherSupersessionFixture(t, state);
+    const before = fixture.outputs.map(file => fs.readFileSync(path.join(fixture.root, file), 'utf8'));
+    const result = fixture.run(); assert.equal(result.status, 1, output(result)); assert.match(result.stderr, /Invalid dispatcher admission supersession/u);
+    assert.deepEqual(fixture.outputs.map(file => fs.readFileSync(path.join(fixture.root, file), 'utf8')), before);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(fixture.root, 'docs/platform-v7/autopilot/autopilot-state.json'), 'utf8')), state);
+  });
+}
+
 test('provider-independent review policy survives actual dispatcher regeneration without duplication', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-review-policy-dispatcher-regression-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
