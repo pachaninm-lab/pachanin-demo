@@ -8607,6 +8607,55 @@
           "afterBlob": "96a773997c1b3588d139050afca2b4a3f9ab268f"
         }
       ]
+    },
+    "product-fgis-confirmation-focus-20261009": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Keyboard-only confirmation-dialog focus containment, reason autofocus, executing-dialog Escape/backdrop interlock, and same-session focus restoration in the existing PRODUCT FGIS Control Tower. Recompose the retained source ref on accepted main with no browser storage or command/read/projection change; no regulatory authority or provider activation.",
+      "authorityBaseExactMain": "9bbf6a971ba310d4f47a1fc725437e46d3fcbf04",
+      "implementationBranch": "fgis/regulatory-truth-ux-20260921",
+      "allowedPaths": [
+        "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
+        "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
+        "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "Append only this purpose record. Preserve every previous byte/value, owner, admission, allowed vector, PRIMARY/current/next/progress and full retained payload. No application source accompanies this metadata step.",
+        "Retain PRODUCT owner, original source ref and prior94a537fbb9d667219f3906d5a1d3f04340ede821 ancestry. The future accepted-main-based source tree changes exactly these three100644 leaves; all other accepted-main leaves remain byte-identical.",
+        "Preserve original pending command identity generation, eligibility, URL, headers, body, response phase/read projection and authenticated no-store boundaries. No durable UNKNOWN protocol is claimed implemented by this focus correction.",
+        "The earlier unaccepted browser-storage UNKNOWN source on94a is deferred in the final main-based tree while its commit ancestry is retained. CORE5655/5658 canonical durable prepare/recover, cancellation fence and applicability remain separate prerequisites for their consumers, not acceptance evidence for this keyboard-only repair.",
+        "Private17/17 mounted DOM tests and direct web tsc exit0 are local preparation only. Focused unit file is currently outside native named web-unit selection; no native/browser/production PASS is inferred. Every published metadata/source head requires fresh separate nonauthor full-diff review, owner audit, complete substantive native CI, canonical readiness and ordinary full-expected-SHA manual acceptance.",
+        "No owner transfer, parallel FGIS writer, source scope expansion, CI weakening, inferred LIVE/finality/applicability, progress credit or full UX+BANKS+FGIS/REG.RU closure. Exact-main production acceptance remains required.",
+        "Future source review must match exactly these three before/after blob pins and modes. If accepted source bytes drift, recompose and independently review a replacement rather than transferring stale pins."
+      ],
+      "forbiddenAuthority": [
+        "Browser local/session storage or substitute UNKNOWN authority",
+        "API/DTO/database/inbox/outbox/reconciliation/RLS/tenant/session/provider/payment/money mutation",
+        "CORE producer or guard owner transfer, competing writer or another source path",
+        "Skipped/weakened checks, forged receipts/statuses, force/automatic merge or production claims"
+      ],
+      "privateSourceCommit": "57f6386dc89c2656ec02b2c7d71a1834e04e6f0f",
+      "unchangedCommandRequestSha256": "1585abef7f36c0d32b8e67cb1c4361ba1712e934ac8028b60c183a91e53147f1",
+      "unchangedPendingIdentitySha256": "997b9689c0410055d71bf1e8f4a04f693f28f553ab0a0467334f2110fbdd28bd",
+      "sourcePins": [
+        {
+          "path": "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
+          "mode": "100644",
+          "beforeBlob": "700af2139e6c2808a2fa226db1b73a065f8eb827",
+          "afterBlob": "f304bdf45ebe953ba2584609ba2474aababba2dd"
+        },
+        {
+          "path": "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
+          "mode": "100644",
+          "beforeBlob": "1c35841a418fa8d6089fe0483a6d88179d392b50",
+          "afterBlob": "0e5805508bc3ba3905ac0a512af474cf93f346e1"
+        },
+        {
+          "path": "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts",
+          "mode": "100644",
+          "beforeBlob": "b9344f408f915a3ae6f73b24d10a898c41af564c",
+          "afterBlob": "78110b9305ae7639be8ca8e4e757dcc9813198e3"
+        }
+      ]
     }
   }
 }
