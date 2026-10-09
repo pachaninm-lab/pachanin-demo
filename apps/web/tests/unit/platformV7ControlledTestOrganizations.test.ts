@@ -64,22 +64,16 @@ describe('Platform V7 controlled test organization network', () => {
     }
   });
 
-  it('shows and submits the assigned organization on the owner cabinet selector', () => {
-    expect(ownerCenter).toContain('CONTROLLED_CABINET_CONTEXTS');
-    // The heading this pinned was replaced by copy that states the property
-    // instead of naming the feature: each cabinet opens in its bound controlled
-    // organization, the owner account and its MFA stay real, and the client role
-    // is not substituted in the API. Asserting that sentence keeps the panel
-    // from quietly going back to describing a role swap.
-    expect(ownerCenter).toContain('контролируемой тестовой организации');
-    expect(ownerCenter).toContain('роль клиента не подменяется в API');
-    expect(ownerCenter).toContain('name="organizationId"');
-    expect(ownerCenter).toContain('item.organization.organizationId');
-    expect(ownerCenter).toContain('item.organization.organizationName');
-    // The panel used to branch on a fixture identity id. That branch is gone,
-    // and its absence is the stronger property: the owner cabinet selector has
-    // no fixture-only path through it, so what an owner sees is not decided by
-    // whether they are the controlled test owner.
+  it('keeps controlled fixtures separate from the canonical Founder role-mode selector', () => {
+    expect(ownerCenter).not.toContain('CONTROLLED_CABINET_CONTEXTS');
+    expect(ownerCenter).toContain("row.schemaVersion !== 'pc-crop.founder-role-mode.v1'");
+    expect(ownerCenter).toContain('row.cabinets.length !== 13');
+    expect(ownerCenter).toContain('registry?.cabinets.map');
+    expect(ownerCenter).toContain('organizationId.trim().length < 3');
+    expect(ownerCenter).toContain("organizationHint: 'Введите ID организации, доступной владельцу. Контролируемые тестовые организации сервер отклоняет.'");
+    expect(ownerCenter).toContain("fetch('/api/staff/founder/role-mode/session'");
+    expect(ownerCenter).toContain("canonical.mode === 'VIEW_AS'");
+    expect(ownerCenter).toContain('canonical.readOnly === true');
     expect(ownerCenter).not.toContain('owner-controlled-test');
   });
 
