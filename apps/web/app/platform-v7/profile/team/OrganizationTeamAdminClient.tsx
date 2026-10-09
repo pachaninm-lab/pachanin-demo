@@ -32,6 +32,7 @@ const COPY = {
     invitations: 'Приглашения', joins: 'Заявки на присоединение', members: 'Действующие доступы', emptyInvitations: 'Приглашений пока нет.', emptyJoins: 'Новых заявок нет.',
     resend: 'Отправить повторно', revokeInvitation: 'Отозвать приглашение', approve: 'Одобрить', reject: 'Отклонить', reason: 'Основание решения',
     changeRole: 'Сохранить роль', revokeMember: 'Отозвать доступ', resetMfa: 'Инициировать восстановление MFA', mfaRecoverySent: 'Одноразовая ссылка отправлена сотруднику. MFA и доступ пока не изменены.', admin: 'Администратор организации', mfa: 'Для управления нужна свежая MFA.',
+    enrollmentLead: 'Добавь этот ключ в приложение-аутентификатор, затем введи код. Для входа в кабинет код не требуется.', backupLead: 'Сохрани резервные коды: каждый можно использовать только один раз.',
     stepUpTitle: 'Подтвердить MFA', stepUpLead: 'Введи текущий код TOTP или резервный код. Активная сессия останется открытой.', stepUpStart: 'Начать проверку', stepUpCode: 'Код MFA', stepUpVerify: 'Подтвердить', stepUpRestart: 'Начать заново', stepUpInvalid: 'Код не подтверждён. Начни проверку заново.',
     unavailable: 'Сервер не выполнил команду. Доступ не изменён.', success: 'Команда выполнена.', expires: 'Истекает', status: 'Статус', correlation: 'ID', activeSessions: 'Активных сессий', lastSeen: 'Последняя активность', confirmRevoke: 'Отозвать доступ этого сотрудника и все его сессии?',
   },
@@ -39,11 +40,13 @@ const COPY = {
     title: 'Access management', inviteTitle: 'Invite employee', email: 'Work email', role: 'Role', invite: 'Send invitation', sending: 'Sending…',
     invitations: 'Invitations', joins: 'Join requests', members: 'Current access', emptyInvitations: 'No invitations yet.', emptyJoins: 'No new requests.',
     resend: 'Resend', revokeInvitation: 'Revoke invitation', approve: 'Approve', reject: 'Reject', reason: 'Decision reason', changeRole: 'Save role', revokeMember: 'Revoke access',
+    enrollmentLead: 'Add this key to your authenticator, then enter its code. Signing in to your cabinet does not require a code.', backupLead: 'Save these backup codes. Each can be used only once.',
     resetMfa: 'Initiate MFA recovery', mfaRecoverySent: 'A single-use link was sent to the employee. MFA and access have not changed yet.', admin: 'Organization administrator', mfa: 'Fresh MFA is required.', stepUpTitle: 'Confirm MFA', stepUpLead: 'Enter your current TOTP or backup code. Your active session stays open.', stepUpStart: 'Start verification', stepUpCode: 'MFA code', stepUpVerify: 'Confirm', stepUpRestart: 'Start again', stepUpInvalid: 'The code was not confirmed. Start verification again.', unavailable: 'The server did not execute the command. Access was not changed.', success: 'Command completed.', expires: 'Expires', status: 'Status', correlation: 'ID', activeSessions: 'Active sessions', lastSeen: 'Last activity', confirmRevoke: 'Revoke this employee access and all related sessions?',
   },
   zh: {
     title: '访问管理', inviteTitle: '邀请员工', email: '工作邮箱', role: '角色', invite: '发送邀请', sending: '正在发送…', invitations: '邀请', joins: '加入申请', members: '当前访问权限',
     emptyInvitations: '暂无邀请。', emptyJoins: '暂无新申请。', resend: '重新发送', revokeInvitation: '撤销邀请', approve: '批准', reject: '拒绝', reason: '决定依据', changeRole: '保存角色', revokeMember: '撤销访问权限', resetMfa: '发起 MFA 恢复', mfaRecoverySent: '一次性链接已发送给员工。MFA 和访问权限尚未更改。',
+    enrollmentLead: '将此密钥添加到身份验证应用，然后输入验证码。登录账户无需验证码。', backupLead: '请保存备用代码。每个代码只能使用一次。',
     admin: '组织管理员', mfa: '管理操作需要最新 MFA。', stepUpTitle: '确认 MFA', stepUpLead: '请输入当前 TOTP 或备用代码。活动会话将保持打开。', stepUpStart: '开始验证', stepUpCode: 'MFA 代码', stepUpVerify: '确认', stepUpRestart: '重新开始', stepUpInvalid: '代码未通过验证。请重新开始。', unavailable: '服务器未执行命令。访问权限未更改。', success: '命令已完成。', expires: '到期时间', status: '状态', correlation: 'ID', activeSessions: '活动会话', lastSeen: '最后活动', confirmRevoke: '撤销该员工的访问权限和所有相关会话？',
   },
 } as const;
@@ -94,6 +97,8 @@ export function OrganizationTeamAdminClient({
   const [freshMfa, setFreshMfa] = React.useState(hasFreshMfa);
   const [stepUpStarted, setStepUpStarted] = React.useState(false);
   const [stepUpCode, setStepUpCode] = React.useState('');
+  const [setupSecret, setSetupSecret] = React.useState('');
+  const [backupCodes, setBackupCodes] = React.useState<string[]>([]);
   const [invitations, setInvitations] = React.useState<Invitation[]>([]);
   const [joins, setJoins] = React.useState<JoinRequest[]>([]);
   const [loading, setLoading] = React.useState(freshMfa);
@@ -130,13 +135,15 @@ export function OrganizationTeamAdminClient({
 
   async function beginStepUp() {
     if (busy) return;
-    setBusy('mfa-step-up-start'); setError(''); setMessage(''); setStepUpCode('');
+    setBusy('mfa-step-up-start'); setError(''); setMessage(''); setStepUpCode(''); setSetupSecret('');
     try {
       const response = await fetch('/api/auth/mfa-step-up/start', {
         method: 'POST', headers: applyCsrfHeader({ 'Content-Type': 'application/json' }), body: '{}',
         cache: 'no-store', credentials: 'same-origin', signal: AbortSignal.timeout(10_000),
       });
-      if (!response.ok) throw new Error('step_up_start_failed');
+      const payload = await readJson(response);
+      if (!response.ok || payload.ok !== true) throw new Error('step_up_start_failed');
+      setSetupSecret(payload.enrollmentRequired === true && typeof payload.setupSecret === 'string' ? payload.setupSecret : '');
       setStepUpStarted(true);
     } catch {
       setError(copy.unavailable);
@@ -147,7 +154,7 @@ export function OrganizationTeamAdminClient({
   async function verifyStepUp(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const code = stepUpCode.trim();
-    if (busy || !/^(?:\d{6}|[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4})$/.test(code)) {
+    if (busy || !/^(?:\d{6}|[A-Za-z2-7]{6}(?:-[A-Za-z2-7]{6}){3}|[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4})$/.test(code)) {
       setError(copy.stepUpInvalid);
       return;
     }
@@ -160,11 +167,14 @@ export function OrganizationTeamAdminClient({
       const payload = await readJson(response);
       if (!response.ok || payload.mfaVerified !== true) throw new Error('step_up_verify_failed');
       setFreshMfa(true);
+      setSetupSecret('');
+      if (Array.isArray(payload.backupCodes)) setBackupCodes(payload.backupCodes.filter((code): code is string => typeof code === 'string'));
       setStepUpStarted(false);
       setStepUpCode('');
       setMessage(copy.success);
     } catch {
       setError(copy.stepUpInvalid);
+      setSetupSecret('');
       setStepUpStarted(false);
       setStepUpCode('');
     } finally { setBusy(''); }
@@ -289,6 +299,7 @@ export function OrganizationTeamAdminClient({
     {error ? <p className={styles.error} role='alert'>{error}</p> : null}
     {!stepUpStarted ? <button type='button' onClick={() => void beginStepUp()} disabled={Boolean(busy)}>{copy.stepUpStart}</button> : (
       <form className={styles.form} onSubmit={verifyStepUp}>
+        {setupSecret ? <div><p>{copy.enrollmentLead}</p><code>{setupSecret}</code></div> : null}
         <label><span>{copy.stepUpCode}</span><input value={stepUpCode} onChange={(event) => setStepUpCode(event.target.value)} required autoComplete='one-time-code' inputMode='text' maxLength={32} autoFocus /></label>
         <div className={styles.actions}>
           <button type='submit' disabled={Boolean(busy)}>{copy.stepUpVerify}</button>
@@ -303,6 +314,7 @@ export function OrganizationTeamAdminClient({
       <h2 id='team-admin-title'>{copy.title}</h2>
       {error ? <p className={styles.error} role='alert'>{error}</p> : null}
       {message ? <p className={styles.success} role='status'>{message}</p> : null}
+      {backupCodes.length ? <div><p>{copy.backupLead}</p><ul>{backupCodes.map((code) => <li key={code}><code>{code}</code></li>)}</ul></div> : null}
 
       <form className={styles.form} onSubmit={invite}>
         <h3>{copy.inviteTitle}</h3>

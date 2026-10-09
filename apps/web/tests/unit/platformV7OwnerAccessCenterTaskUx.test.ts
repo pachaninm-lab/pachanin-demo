@@ -1,13 +1,17 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createElement } from 'react';
+import { NextRequest } from 'next/server';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ACCESS_COOKIE, CSRF_COOKIE } from '../../lib/auth-cookies';
+import { CONTROL_PLATFORM_HOST, PRIMARY_PLATFORM_HOST } from '../../lib/platform-v7/control-host';
 import { ownerAccessCenterMessages } from '../../i18n/owner-access-center-messages';
 import { OwnerAccessCenter as RoleModeCenter } from '../../components/platform-v7/staff/OwnerAccessCenterV3';
 import { OwnerAccessCenter as BootstrapCenter } from '../../components/platform-v7/staff/OwnerAccessCenterV4';
 
-const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
+const repoRoot = resolve(__dirname, '../../../..');
+const read = (path: string) => readFileSync(resolve(repoRoot, path), 'utf8');
 const page = read('apps/web/app/platform-v7/staff/page.tsx');
 const entry = read('apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx');
 const bootstrap = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV4.tsx');
@@ -20,6 +24,137 @@ const directCss = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV
 const center = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV2.tsx');
 const catalog = read('apps/web/lib/platform-v7/staff-access-task-catalog.ts');
 const deferred = read('apps/web/components/platform-v7/staff/StaffOperationalWorkspacesDeferred.tsx');
+
+describe('Founder role-mode request boundary', () => {
+  const origin = `https://${CONTROL_PLATFORM_HOST}`;
+  const csrf = 'test-csrf-value';
+  const requestBody = {
+    cabinetKey: 'buyer', organizationId: 'organization-1',
+    reason: 'Review the real organization cabinet', ticketId: 'ticket-1', durationSeconds: 900,
+  };
+
+  function request(method = 'GET', body?: unknown, headers: Record<string, string> = {}, query = '') {
+    const receivedHeaders = {
+      host: CONTROL_PLATFORM_HOST, origin,
+      cookie: `${ACCESS_COOKIE}=test-access-cookie; ${CSRF_COOKIE}=${csrf}`,
+      'x-csrf-token': csrf, 'content-type': 'application/json', ...headers,
+    };
+    const received = new NextRequest(`${origin}/platform-v7/staff/role-mode${query}`, {
+      method,
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+    // Happy DOM models browser request construction and strips Host/Cookie/
+    // Origin. Populate the received server request after construction instead.
+    for (const [name, value] of Object.entries(receivedHeaders)) received.headers.set(name, value);
+    if (receivedHeaders.cookie) {
+      received.cookies.set(ACCESS_COOKIE, 'test-access-cookie');
+      received.cookies.set(CSRF_COOKIE, csrf);
+    }
+    return received;
+  }
+
+  beforeEach(() => {
+    vi.resetModules();
+    vi.stubEnv('API_URL', 'https://backend.example.test/api');
+    vi.stubEnv('PC_CONTROL_HOST_ENABLED', 'true');
+    vi.stubEnv('PC_PUBLIC_ORIGIN', `https://${PRIMARY_PLATFORM_HOST}`);
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it.each([
+    [{ host: PRIMARY_PLATFORM_HOST, 'x-forwarded-host': CONTROL_PLATFORM_HOST }, 421, 'CONTROL_HOST_REQUIRED'],
+    [{ cookie: '' }, 401, 'UNAUTHENTICATED'],
+  ])('rejects invalid request authority before any upstream call', async (headers, status, code) => {
+    const { GET } = await import('../../app/platform-v7/staff/role-mode/route');
+    const response = await GET(request('GET', undefined, headers));
+    expect(response.status).toBe(status);
+    expect(await response.json()).toMatchObject({ code });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { 'x-csrf-token': '' },
+    { 'x-csrf-token': 'different-test-value' },
+    { origin: 'https://other.example.test' },
+  ])('rejects missing, mismatched or cross-origin CSRF without creating a request', async (headers) => {
+    const { POST } = await import('../../app/platform-v7/staff/role-mode/route');
+    const response = await POST(request('POST', requestBody, headers));
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ code: 'CSRF_REJECTED' });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { ...requestBody, durationSeconds: 59 },
+    { ...requestBody, durationSeconds: 3601 },
+    { ...requestBody, organizationId: 'x' },
+    { ...requestBody, reason: 'short' },
+  ])('rejects invalid role-mode input without contacting the API', async (body) => {
+    const { POST } = await import('../../app/platform-v7/staff/role-mode/route');
+    const response = await POST(request('POST', body));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: 'ROLE_MODE_REQUEST_INVALID' });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('bounds request bytes before forwarding', async () => {
+    const { POST } = await import('../../app/platform-v7/staff/role-mode/route');
+    const response = await POST(request('POST', { ...requestBody, padding: 'x'.repeat(16 * 1024) }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: 'INVALID_REQUEST_BODY' });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('forwards only bounded request fields and strips an upstream credential', async () => {
+    vi.mocked(fetch).mockResolvedValue(json({ grantId: 'grant-1', accessToken: 'test-upstream-token' }, 201));
+    const { POST } = await import('../../app/platform-v7/staff/role-mode/route');
+    const response = await POST(request('POST', {
+      ...requestBody, targetTenantId: 'client-tenant', targetRole: 'PLATFORM_OWNER',
+      permissions: ['all'], canonicalPath: 'https://other.example.test',
+    }, { 'x-correlation-id': 'test-role-mode' }));
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({ grantId: 'grant-1', correlationId: 'test-role-mode' });
+    expect(response.headers.get('cache-control')).toContain('no-store');
+    expect(fetch).toHaveBeenCalledOnce();
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe('https://backend.example.test/api/staff/founder/role-mode/requests');
+    expect(init).toMatchObject({ method: 'POST', redirect: 'manual', cache: 'no-store' });
+    expect(JSON.parse(init!.body as string)).toEqual(requestBody);
+    expect(new Headers(init!.headers).get('authorization')).toBe('Bearer test-access-cookie');
+  });
+
+  it('keeps session verification on the canonical staff BFF', async () => {
+    const { GET } = await import('../../app/platform-v7/staff/role-mode/route');
+    const response = await GET(request('GET', undefined, {}, '?view=session'));
+    expect(response.status).toBe(410);
+    expect(await response.json()).toMatchObject({ code: 'ROLE_MODE_SESSION_USE_STAFF_BFF' });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each(['GET', 'POST'])('rejects an upstream redirect for %s', async (method) => {
+    vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 302, headers: { location: 'https://other.example.test' } }));
+    const route = await import('../../app/platform-v7/staff/role-mode/route');
+    const response = method === 'POST'
+      ? await route.POST(request(method, requestBody))
+      : await route.GET(request(method));
+    expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({ code: 'UPSTREAM_REDIRECT_REJECTED' });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it('fails closed when the upstream registry is unavailable', async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error('test network failure'));
+    const { GET } = await import('../../app/platform-v7/staff/role-mode/route');
+    const response = await GET(request());
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ code: 'ROLE_MODE_REGISTRY_UNAVAILABLE' });
+  });
+});
 
 function keys(value: unknown, prefix = ''): string[] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return [prefix];
@@ -367,7 +502,7 @@ describe('platform-v7 owner access center task UX', () => {
   });
 
   it('repairs missing or stale CSRF before every founder role-mode request', () => {
-    expect(page).toContain("verification.status === 'verified' && !csrfToken");
+    expect(page).toContain("(verification.status === 'verified' || verification.status === 'password') && !csrfToken");
     expect(page).toContain("redirect('/platform-v7/staff/prepare')");
     expect(prepareRoute).toContain("request.nextUrl.searchParams.get('format') === 'json'");
     expect(prepareRoute).toContain("NextResponse.json({ ok: true, csrfToken: token })");

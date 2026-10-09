@@ -9,7 +9,7 @@ import { register, collectDefaultMetrics, Counter, Histogram } from 'prom-client
 import { MaskedLoggerService } from './common/logger/masked-logger.service';
 import { createTrustedProxyPolicy } from './common/security/trusted-proxy';
 import { configureRequestBodyLimits } from './common/security/request-body-limit';
-import { assertIndustrialProductionStartup, INDUSTRIAL_CORE_MIGRATION } from './common/config/industrial-mode';
+import { assertIndustrialProductionStartup } from './common/config/industrial-mode';
 import { PrismaService } from './common/prisma/prisma.service';
 import { installLastResortHandlers } from './common/process/last-resort-handlers';
 
@@ -59,6 +59,16 @@ async function bootstrap() {
   app.enableCors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     credentials: true,
+    // ASVS 5.0 V4.1.4: список методов задан явно, а не оставлен на умолчание
+    // фреймворка. Привязка маршрутов и так не даст выполниться обработчику для
+    // необъявленного метода — но это ограничивает то, ЧТО выполняется, и ничего
+    // не говорит о том, что preflight РЕКЛАМИРУЕТ браузеру.
+    //
+    // Список измерен по декораторам контроллеров, а не выписан наугад:
+    // @Get 221, @Post 206, @Patch 31, @Delete 7, @Put 1. Ни @Head, ни @Options,
+    // ни @All не объявлены нигде; OPTIONS добавлен потому, что им идёт сам
+    // preflight.
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   // HTTP metrics instrumentation
@@ -99,33 +109,10 @@ async function bootstrap() {
     res.json({ status: 'ok', ts: new Date().toISOString(), env: process.env.NODE_ENV || 'development' });
   });
 
-  // /ready reports readiness only after real dependency checks: a live
-  // PostgreSQL round-trip and fully applied migrations including the
-  // industrial transaction core. /health above stays a pure liveness probe.
+  // /ready is registered only by the canonical HealthController. Its bounded
+  // single-flight read checks both the industrial migration chain and outbox
+  // database before recording a positive readiness result.
   const prisma = app.get(PrismaService, { strict: false });
-  app.getHttpAdapter().get('/ready', async (_req: any, res: any) => {
-    const checks: Record<string, string> = { api: 'ok', database: 'unknown', migrations: 'unknown' };
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-      checks.database = 'ok';
-      const rows = (await prisma.$queryRaw`
-        SELECT
-          (SELECT COUNT(*)::int FROM "_prisma_migrations" WHERE finished_at IS NULL AND rolled_back_at IS NULL) AS unfinished,
-          (SELECT COUNT(*)::int FROM "_prisma_migrations" WHERE migration_name = ${INDUSTRIAL_CORE_MIGRATION} AND finished_at IS NOT NULL) AS core
-      `) as Array<{ unfinished: number; core: number }>;
-      const state = rows[0];
-      checks.migrations = state && state.unfinished === 0 && state.core > 0 ? 'ok' : 'pending';
-    } catch {
-      checks.database = checks.database === 'ok' ? 'ok' : 'failed';
-      if (checks.migrations === 'unknown') checks.migrations = 'failed';
-    }
-    const ready = checks.database === 'ok' && checks.migrations === 'ok';
-    res.status(ready ? 200 : 503).json({
-      status: ready ? 'ready' : 'unavailable',
-      checks,
-      ts: new Date().toISOString(),
-    });
-  });
 
   app.getHttpAdapter().get('/version', (_req: any, res: any) => {
     res.json({

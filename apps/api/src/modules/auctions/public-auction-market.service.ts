@@ -38,7 +38,7 @@ export class PublicAuctionMarketService {
     // Read one extra eligible row in the same snapshot to prove hasMore.
     const rows = await this.prisma.$queryRaw<PublicMarketLotRow[]>(Prisma.sql`
       SELECT *
-      FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT + 1})
+      FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT + 1}::integer)
       ORDER BY projected_at DESC NULLS LAST,
                auction_ends_at ASC NULLS LAST,
                public_ref ASC NULLS LAST

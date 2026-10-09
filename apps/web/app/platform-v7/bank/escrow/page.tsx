@@ -5,7 +5,7 @@ type PageSearchParams = { dealId?: string | string[]; shipmentId?: string | stri
 
 export const metadata: Metadata = {
   title: 'Безопасная сделка · Прозрачная Цена',
-  description: 'Совместимый вход в каноническую серверную проверку резервирования и выпуска денег по Сделке.',
+  description: 'Совместимый вход в каноническую серверную проверку резервирования и условий выплаты по Сделке.',
   robots: { index: false, follow: false },
 };
 
