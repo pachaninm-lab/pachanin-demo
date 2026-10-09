@@ -43,11 +43,11 @@
     {
       "operation": "hash",
       "label": "Hashing",
-      "sites": 85,
+      "sites": 88,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 85,
+          "sites": 88,
           "files": [
             "apps/api/src/common/outbox/outbox.service.ts",
             "apps/api/src/common/security/rate-limit.service.ts",
@@ -75,6 +75,7 @@
             "apps/api/src/modules/documents/prisma-document.repository.ts",
             "apps/api/src/modules/evidence-pack/evidence-pack.service.ts",
             "apps/api/src/modules/exports/exports.service.ts",
+            "apps/api/src/modules/gekta/gekta-workspace.service.ts",
             "apps/api/src/modules/labs/lab-authority.service.ts",
             "apps/api/src/modules/labs/prisma-lab.repository.ts",
             "apps/api/src/modules/logistics/prisma-shipment.repository.ts",

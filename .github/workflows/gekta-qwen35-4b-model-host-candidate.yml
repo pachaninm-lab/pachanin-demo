@@ -23,11 +23,6 @@ concurrency:
 
 env:
   SPEED_ISSUE_NUMBER: '3896'
-  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
-  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
-  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
-  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
-  MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
 
 jobs:
   contract:
@@ -47,7 +42,48 @@ jobs:
         with:
           node-version-file: .node-version
           cache: pnpm
+      - name: Prove SSH secrets follow successful command validation
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import unittest
+          source = Path('.github/workflows/gekta-qwen35-4b-model-host-candidate.yml').read_text()
+          def validate(text):
+              transport = text.index('      - name: Resolve pinned non-root model-user transport\n')
+              end = text.index('      - name: Stage helper and prepare candidate bytes', transport)
+              resolver = text.index('      - name: Resolve exact current main\n')
+              assert resolver < transport
+              block = text[transport:end]
+              assert "        if: steps.target.outcome == 'success'\n" in block
+              assert 'continue-on-error:' not in text[resolver:transport]
+              matches = list(re.finditer(r'(?m)^( +)(MODEL_[A-Z_]+_SECRET): (\$\{\{ secrets\.TAI_MODEL[^}]+\}\})$', text))
+              expected = {'MODEL_HOST_SECRET', 'MODEL_USER_SECRET', 'MODEL_PORT_SECRET', 'MODEL_KEY_SECRET', 'MODEL_HOST_KEY_SECRET'}
+              assert len(matches) == 5 and {m[2] for m in matches} == expected
+              assert all(transport < m.start() < end and len(m[1]) == 10 for m in matches)
+          class CredentialBoundary(unittest.TestCase):
+              def test_current_workflow(self):
+                  validate(source)
+              def test_workflow_level_secret_rejected(self):
+                  expression = '${' + '{ secrets.' + 'TAI_MODEL_SSH_KEY }}'
+                  with self.assertRaises(AssertionError):
+                      validate(source.replace("  SPEED_ISSUE_NUMBER: '3896'", "  SPEED_ISSUE_NUMBER: '3896'\n  MODEL_KEY_SECRET: " + expression))
+              def test_checkout_step_secret_rejected(self):
+                  expression = '${' + '{ secrets.' + 'TAI_MODEL_SSH_KEY }}'
+                  with self.assertRaises(AssertionError):
+                      validate(source.replace('      - name: Resolve exact current main\n', '        env:\n          MODEL_KEY_SECRET: ' + expression + '\n      - name: Resolve exact current main\n'))
+              def test_transport_always_rejected(self):
+                  with self.assertRaises(AssertionError):
+                      validate(source.replace("        if: steps.target.outcome == 'success'\n", '        if: always()\n'))
+              def test_resolver_soft_failure_rejected(self):
+                  with self.assertRaises(AssertionError):
+                      validate(source.replace('      - name: Resolve exact current main\n', '      - name: Resolve exact current main\n        continue-on-error: true\n'))
+          unittest.main(argv=['credential-boundary-contract'], verbosity=2)
+          PY
       - name: Prove immutable non-root candidate helper
+        # Contract jobs and all pre-validation steps remain SSH-secret free.
+        # The command resolver's failure must prevent credential injection.
         run: |
           set -Eeuo pipefail
           helper='scripts/gekta-qwen35-4b-model-host-candidate.py'
@@ -1675,8 +1711,16 @@ jobs:
         run: pnpm install --frozen-lockfile --filter @pc/api...
       - name: Resolve pinned non-root model-user transport
         id: ssh
+        if: steps.target.outcome == 'success'
         env:
           TARGET_SHA: ${{ steps.target.outputs.sha }}
+          # This step is reached only after the command and exact main validate.
+          # Retired or malformed commands never receive SSH credentials.
+          MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+          MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+          MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+          MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+          MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
         run: |
           set -Eeuo pipefail
           trim(){
