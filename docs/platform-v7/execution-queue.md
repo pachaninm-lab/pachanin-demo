@@ -374,3 +374,28 @@ Preserve every old raw state byte/value/full source payload/pin/owner/scope/PRIM
 No test skipping/filtering/sharding/reduced assertions, cached test results or copied PASS; only genuine immutable fixture inputs may be reused. No shared mutable ref/inode/working tree, author/config/hook/template override reuse, stale review/native result transfer, auto/force merge, scope/owner takeover, credential/MFA/lock/root/polkit bypass, nonce spend/refund, paid activation or production completion claim.
 
 Gekta registered18 remains blocked by real180s guard timeout and DockerHub429; separately admitted one-test-file baseline fixture cache needs its own genuine review/native/readiness/manual acceptance, then actual recomposed registration preflight/Kubernetes PASS. No timeout or test is weakened.
+
+
+## Gekta existing account-policy binding prerequisite — registration P1 still unresolved
+
+Bind registration PERSONAL_DATA evidence to the existing account-data policy politika-obrabotki-personalnyh-dannyh, whose actual text describes email/phone/account and retention, instead of anonymous-dialog/cookie notice politika-konfidencialnosti. The server snapshot and strict shared validator select this existing document only for registration; anonymous PRIVACY_NOTICE remains bound to the original anonymous notice. Make only the exact account-policy legal route publicly reachable, including private mode, while retaining private subpaths/account/cabinet guards. Update existing API audit evidence fixture and focused document/security tests, including rejection of both cross-surface swaps. No legal text or legal-finality claim.
+
+Exactly the existing CORE registration18 vector and branch; six replacement after payloads, twelve exact unchanged full after payloads retained in the frozen prior record. No path, owner or PRIMARY11 expansion.
+
+Retained purpose `gekta-registration-personal-data-document-correction-20261009` supersedes only the unaccepted payload of `gekta-registration-choice-transition-correction-20261009`; all old raw records remain frozen.
+
+Each replacement retains its entire strict UTF8 after, mode, exact accepted-main before Git/SHA256 pins and after length/Git/SHA256 pins. The other twelve full UTF8 afters remain in the unchanged reachable prior admission, with their complete pins explicitly repeated here. Materialize the eighteen-path union, replacing only these six; verify actual accepted before pins and every complete after byte before source publication. No hash-only/private prototype authority.
+
+Corrected actual source: three focused web files53/53 PASS; web typecheck exit0; generated genuine PrismaClient5.22.0 from existing schema then API registration23/23 PASS. Initial API attempt had zero tests/TS2345 because offline ignore-scripts installation lacked Prisma generation; no diagnostic or assertion was weakened. Complete crypto discovery2316files/12classes/28keys is byte-identical to retained source JSON; key usage28/28 PASS. Accepted base/source18 pins checked, twelve unchanged complete UTF8 afters exact, six replacement UTF8/length/Git/SHA256 verified. These are local results, not native review/runtime/READY.
+
+Separate additive five-GOV exact-head admission must obtain genuine independent review, distinct owner audit, complete applicable native checks, current canonical readiness and fresh full-SHA manual acceptance before source ref changes
+Preserve all frozen records/raw state/current/nextStep/scopes/owners/PRIMARY11/Claude lane/official5 and original eighteen-path registration before pins; materialize twelve unchanged afters plus six replacements against actual accepted main
+Corrected source keeps old392 ancestry and actual accepted-main parent; ordinary expected-old forcefalse source update only in a new explicitly bounded serialized registration window
+Corrected source needs new whole-head independent review/audit, genuine bounded180s/kill5s preflight, complete applicable image/KIND/deep outbox/storage/cleanup gates, current canonical READY and fresh full-SHA manual acceptance
+P1 remains unresolved until actual corrected published-head review/evidence; no older source review/native PASS is transferred. Owned4 then Anon17 are separate later source phases; production/model/first-user acceptance follows genuine accepted final source
+
+Source refs change only after genuine separate exact-head metadata review, owner audit, complete native gates, fresh canonical readiness and ordinary expected-full-SHA acceptance. Implementation has its own independent exact-head review/audit/native gates/readiness/manual merge. Private composition is not accepted source. Preserve every frozen admission/owner/Claude lane, PRIMARY11/current/nextStep and official5/100. Preserve full prior raw records and payloads, original anonymous document semantics, account/cabinet/private subpath enforcement and all checks/timeouts. No law/compliance-finality claims.
+
+No auto/force merge, fake status/review/receipt, skipped or weakened gate, new backend/key/role/budget, source lock/owner/MFA/root/polkit bypass, spent marker/refund/permanent model/routing change, credential exposure or production/full privacy/maturity claim.
+
+Gekta registration18 is blocked by genuine current392 P1 wrong personal-data document binding; separate six-payload same-vector admission and corrected-source exact-head review/native/canonical/manual acceptance are required. Prior392 bounded preflight PASS is genuine but does not satisfy corrected-source acceptance or resolve the P1; old source slot was explicitly released.
