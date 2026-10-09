@@ -1511,6 +1511,56 @@ test('Qwen failed-evidence candidate regressions run unprivileged and block the 
   }
 });
 
+test('admission blockers survive actual dispatcher regeneration without duplication or maturity credit', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-admission-dispatcher-regression-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  state.current = 'R1 release prerequisite: atomic canonical readiness recovery #4829';
+  state.currentStatus = 'blocked';
+  state.coordinationAdmissions.fixtureOne = { dispatcherBlocker: 'Own fixture: source acceptance remains pending.' };
+  state.coordinationAdmissions.fixtureDuplicate = { dispatcherBlocker: 'Own fixture: source acceptance remains pending.' };
+  state.coordinationAdmissions.fixtureTwo = { dispatcherBlocker: 'Own fixture: actual runtime remains pending.' };
+  const section = '\n## Own admission fixture\nSource and runtime acceptance remain separate.\n';
+  write(root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify(state));
+  write(root, 'docs/platform-v7/execution-queue.md', fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8') + section);
+  write(root, 'docs/platform-v7/autopilot/progress.json', JSON.stringify({ fullTzReadinessPercent: 5 }));
+  for (const file of ['current-codex-task.md', 'current-review-task.md']) write(root, 'docs/platform-v7/autopilot/prompts/' + file, 'Before regeneration');
+  for (let run = 0; run < 2; run += 1) {
+    const result = spawnSync(process.execPath, [path.resolve('scripts/p7-autopilot-dispatcher.mjs')], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, output(result));
+    const progress = JSON.parse(fs.readFileSync(path.join(root, 'docs/platform-v7/autopilot/progress.json'), 'utf8'));
+    assert.equal(progress.fullTzReadinessPercent, 5);
+    assert.equal(progress.currentStep, state.current);
+    for (const blocker of ['Own fixture: source acceptance remains pending.', 'Own fixture: actual runtime remains pending.']) assert.equal(progress.blockedBy.filter(x => x === blocker).length, 1);
+    for (const file of ['current-codex-task.md', 'current-review-task.md']) {
+      const text = fs.readFileSync(path.join(root, 'docs/platform-v7/autopilot/prompts', file), 'utf8');
+      assert.equal(text.split(section).length - 1, 1);
+      assert.ok(text.includes('Own fixture: source acceptance remains pending.'));
+      assert.ok(text.includes('Own fixture: actual runtime remains pending.'));
+    }
+  }
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'docs/platform-v7/autopilot/autopilot-state.json'), 'utf8')), state);
+});
+
+test('invalid admission blocker fails the dispatcher before writing generated outputs', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-invalid-admission-blocker-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  const originalProgress = JSON.stringify({ fullTzReadinessPercent: 5, blockedBy: ['Existing truthful blocker'] });
+  for (const value of [false, '', ' ', 'first\nsecond', 'x'.repeat(2001)]) {
+    state.coordinationAdmissions.fixtureInvalid = { dispatcherBlocker: value };
+    write(root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify(state));
+    write(root, 'docs/platform-v7/execution-queue.md', fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8'));
+    write(root, 'docs/platform-v7/autopilot/progress.json', originalProgress);
+    for (const file of ['current-codex-task.md', 'current-review-task.md']) write(root, 'docs/platform-v7/autopilot/prompts/' + file, 'Original prompt');
+    const result = spawnSync(process.execPath, [path.resolve('scripts/p7-autopilot-dispatcher.mjs')], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Invalid dispatcher admission blocker: fixtureInvalid/u);
+    assert.equal(fs.readFileSync(path.join(root, 'docs/platform-v7/autopilot/progress.json'), 'utf8'), originalProgress);
+    for (const file of ['current-codex-task.md', 'current-review-task.md']) assert.equal(fs.readFileSync(path.join(root, 'docs/platform-v7/autopilot/prompts', file), 'utf8'), 'Original prompt');
+  }
+});
+
 test('provider-independent review policy survives actual dispatcher regeneration without duplication', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-review-policy-dispatcher-regression-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
