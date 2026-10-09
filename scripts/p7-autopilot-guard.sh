@@ -539,6 +539,26 @@ if (!baseRef || !stateFile || !branch) {
   throw new Error('P7_IMMUTABLE_SCOPE: immutable scope inputs are required');
 }
 
+// Only the named immutable registry gets this fixed allowance. Read complete
+// bytes before decoding; every manifest/source reader keeps its existing bound.
+const immutableStateCapacity = 3 * 1024 * 1024;
+function readImmutableState(ref) {
+  if (stateFile !== 'docs/platform-v7/autopilot/autopilot-state.json') {
+    throw new Error('P7_IMMUTABLE_STATE_PATH');
+  }
+  let bytes;
+  try {
+    bytes = execFileSync('git', ['show', `${ref}:${stateFile}`], { maxBuffer: immutableStateCapacity + 1 });
+  } catch (error) {
+    if (error?.code === 'ENOBUFS') throw new Error('P7_IMMUTABLE_STATE_CAPACITY');
+    throw error;
+  }
+  if (bytes.length > immutableStateCapacity) throw new Error('P7_IMMUTABLE_STATE_CAPACITY');
+  const text = bytes.toString('utf8');
+  if (!Buffer.from(text, 'utf8').equals(bytes)) throw new Error('P7_IMMUTABLE_STATE_UTF8');
+  return text;
+}
+
 // These bounded recovery routes are owned by the accepted base guard.
 // Candidate state and manifests cannot widen their exact path sets.
 const gektaRecoveryScopes = {
@@ -591,7 +611,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     const admissionBranch = 'governance/gekta-history-lifecycle-source-admission-5818';
     const admissionKey = 'gekta-history-lifecycle-5818-20261007';
     const headRef = String(process.env.HEAD_REF || '').trim();
-    const accepted = JSON.parse(git(['show', `${baseRef}:${stateFile}`]));
+    const accepted = JSON.parse(readImmutableState(baseRef));
     const purpose = accepted.coordinationAdmissions?.['gekta-history-lifecycle-guard-purpose-5818-20261007'];
     const paths = gektaRecoveryScopes[implementationBranch];
     const template = purpose?.stagedSourceAdmission;
@@ -623,7 +643,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
       expected.coordinationAdmissions[admissionKey] = {
         ...template, authorityBaseExactMain: git(['rev-parse', baseRef]).trim(),
       };
-      const candidate = JSON.parse(git(['show', `${headRef}:${stateFile}`]));
+      const candidate = JSON.parse(readImmutableState(headRef));
       if (!isDeepStrictEqual(candidate, expected)) fail('STATE_TRANSITION_MISMATCH');
     } else {
       const admission = accepted.coordinationAdmissions?.[admissionKey];
@@ -647,7 +667,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     const headRef = String(process.env.HEAD_REF || '').trim();
     const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
     const fail = reason => { throw new Error(`GEKTA_READONLY_DIAGNOSTIC_${reason}`); };
-    const accepted = JSON.parse(git(['show', `${baseRef}:${stateFile}`]));
+    const accepted = JSON.parse(readImmutableState(baseRef));
     const purpose = accepted.coordinationAdmissions?.['gekta-readonly-control-diagnostic-prerequisite-20261001'];
     if (!purpose || purpose.stagedDiagnosticBranch !== branch ||
         !isDeepStrictEqual(purpose.stagedDiagnosticPaths, scopes)) fail('PURPOSE_NOT_ACCEPTED');
@@ -696,7 +716,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
 } else {
   let state;
   try {
-    const raw = execFileSync('git', ['show', `${baseRef}:${stateFile}`], { encoding: 'utf8' });
+    const raw = readImmutableState(baseRef);
     state = JSON.parse(raw);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -785,7 +805,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     const combinedScope = [...originalTestScope, ...metadataPaths];
     const headRef = String(process.env.HEAD_REF || 'HEAD');
     const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
-    const readState = ref => execFileSync('git', ['show', `${ref}:${stateFile}`], { encoding: 'utf8' });
+    const readState = ref => readImmutableState(ref);
     const treeEntry = (ref, file) => git(['ls-tree', ref, '--', file]);
     const regularBlob = (ref, file, blob) => assert.equal(treeEntry(ref, file), `100644 blob ${blob}\t${file}`, `LANDING_METADATA_EXACT_FILE:${ref}:${file}`);
     const regularState = ref => assert.match(treeEntry(ref, stateFile), /^100644 blob [0-9a-f]{40}\t/u, 'LANDING_METADATA_STATE_FILE_MODE');
@@ -896,7 +916,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     const baseSha = execFileSync('git', ['rev-parse', `${baseRef}^{commit}`], { encoding: 'utf8' }).trim();
     const mergeBase = execFileSync('git', ['merge-base', baseRef, headRef], { encoding: 'utf8' }).trim();
     if (mergeBase !== baseSha) throw new Error('DEAL_RUNTIME_BASE_NOT_ANCESTOR');
-    const readState = (ref) => execFileSync('git', ['show', `${ref}:${stateFile}`], { encoding: 'utf8' });
+    const readState = (ref) => readImmutableState(ref);
     const fileMode = (ref, file) => execFileSync('git', ['ls-tree', ref, '--', file], { encoding: 'utf8' }).split(' ')[0];
     const fields = execFileSync('git', ['diff', '--no-renames', '--name-status', '-z', `${baseRef}...${headRef}`], { encoding: 'utf8' }).split('\0');
     if (fields.pop() !== '' || fields.length % 2 !== 0) throw new Error('DEAL_RUNTIME_DIFF_METADATA_INVALID');
@@ -1547,7 +1567,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
     const { isDeepStrictEqual } = require('node:util');
     const headRef = String(process.env.HEAD_REF || 'HEAD');
     const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${statePath}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     const key = 'ux-buyer-first-customer-route-20260927-coordination';
     const implementationBranch = 'ux/buyer-first-customer-home-20260925';
     const originalKey = 'ux-buyer-first-customer-home-20260925-coordination';
@@ -1627,7 +1647,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
         Object.hasOwn(state.coordinationAdmissions || {}, coordinationKey)) {
       throw new Error('PRODUCT_BUYER_ADMISSION_ALREADY_PRESENT');
     }
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${statePath}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     const expected = structuredClone(state);
     if (!expected.coordinationAdmissions) expected.coordinationAdmissions = {};
     const baseSha = execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim();
@@ -1676,7 +1696,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
         Object.hasOwn(state.coordinationAdmissions || {}, coordinationKey)) {
       throw new Error('PRODUCT_BANK_HOME_ADMISSION_ALREADY_PRESENT');
     }
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${statePath}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     const expected = structuredClone(state);
     if (!expected.coordinationAdmissions) expected.coordinationAdmissions = {};
     const baseSha = execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim();
@@ -1957,7 +1977,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
     const priorKey = 'bank-deep-visible-copy-guard-20260924-coordination';
     const headRef = String(process.env.HEAD_REF || 'HEAD');
     const baseSha = execFileSync('git', ['rev-parse', `${baseRef}^{commit}`], { encoding: 'utf8' }).trim();
-    const read = (ref, file) => execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+    const read = (ref, file) => file === stateFile ? readImmutableState(ref) : execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8', maxBuffer: 1024 * 1024 });
     const entry = (ref, file) => execFileSync('git', ['ls-tree', ref, '--', file], { encoding: 'utf8' }).trim();
     const mode = (ref, file) => entry(ref, file).split(' ')[0];
     if (!isDeepStrictEqual(state.coordinationAdmissions[bankMoneyPurposeKey], requiredPurpose) ||
@@ -2051,7 +2071,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
   if (branch === 'governance/product-bank-fgis-ux-source-admission-20260924' && !bankMoneyPhase) {
     const { isDeepStrictEqual } = require('node:util');
     const headRef = String(process.env.HEAD_REF || 'HEAD');
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${stateFile}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     const expected = new Map([
       ['bank/deep-visible-copy-guard-20260924', {
         key: 'bank-deep-visible-copy-guard-20260924-coordination',
@@ -2257,7 +2277,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
     }
     if (!isDeepStrictEqual(scopes, expected)) throw new Error('INDUSTRIAL_DIAGNOSTIC_ACCEPTED_SCOPE_MISMATCH');
     const headRef = String(process.env.HEAD_REF || 'HEAD');
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${stateFile}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     if (!isDeepStrictEqual(candidate, baseline)) throw new Error('INDUSTRIAL_DIAGNOSTIC_STATE_MUTATION');
     const changes = execFileSync('git', ['diff', '--no-renames', '--name-status', `${baseRef}...${headRef}`], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
     for (const change of changes) {
@@ -2280,7 +2300,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
         throw new Error('P7_IMMUTABLE_SCOPE: public governance requires unchanged regular-file modes');
       }
     }
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${stateFile}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     const baseline = JSON.parse(JSON.stringify(state));
     for (const admittedBranch of ['agent/platform-v7-strategic-rebuild-v3', 'fix/public-registration-final-copy-4916']) {
       if (candidate.approvedConcurrentScopes) delete candidate.approvedConcurrentScopes[admittedBranch];
@@ -2342,7 +2362,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
   const purposeKey = 'deal-execution-route-guard-purpose-20261001';
   const admissionKey = 'deal-execution-route-20261001';
   const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
-  const read = (ref, file) => execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8' });
+  const read = (ref, file) => file === stateFile ? readImmutableState(ref) : execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8' });
   const headRef = String(process.env.HEAD_REF || 'HEAD');
   const base = JSON.parse(read(baseRef, stateFile));
   const relevant = branch === admissionBranch || branch === sourceBranch ||
