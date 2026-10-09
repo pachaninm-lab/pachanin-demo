@@ -1,0 +1,171 @@
+{
+  "schemaVersion": "pc-crop.contributor-identity-register.v1",
+  "generatedFor": "Прозрачная Цена / ГЕКТА",
+  "rightsholder": {
+    "role": "PRINCIPAL_RIGHTSHOLDER",
+    "note": "Правообладатель платформы. Конкретные реквизиты подставляются при подписании — см. docs/ip/legal/."
+  },
+  "legalBasis": {
+    "authorIsNaturalPerson": "ГК РФ ст. 1257: автором произведения признаётся гражданин, творческим трудом которого оно создано. Программное средство автором быть не может, поэтому выход инструмента не порождает отдельного автора, у которого нужно было бы приобретать право.",
+    "toolOutput": "ГК РФ ст. 1257 в системной связи со ст. 1228: соавтором признаётся лицо, внёсшее творческий вклад. Лицо, оказавшее техническое содействие, соавтором не признаётся. Генеративный инструмент, запущенный под управлением оператора, относится к средствам создания произведения, а не к соавторам.",
+    "employeeWork": "ГК РФ ст. 1295: исключительное право на служебное произведение принадлежит работодателю, если договором не предусмотрено иное.",
+    "commissionedWork": "ГК РФ ст. 1288 и ст. 1234: договор авторского заказа с условием об отчуждении исключительного права.",
+    "creativityThreshold": "ГК РФ ст. 1259 п. 5: авторские права не распространяются на идеи, методы, процессы; охраняется форма. Строки без творческого содержания (пустые строки, служебные комментарии, машинно-сгенерированные lock-файлы) самостоятельного произведения не образуют."
+  },
+  "identityClasses": {
+    "PRINCIPAL": "Правообладатель. Собственный творческий труд; отчуждение самому себе не требуется, требуется декларация авторства и прав.",
+    "HUMAN_CONTRIBUTOR": "Физическое лицо — автор, чьи строки сохранились в текущем дереве. Требуется правоустанавливающий документ.",
+    "AI_TOOL": "Генеративный инструмент. Автором не признаётся; фиксируется как средство создания (tool provenance).",
+    "CI_AUTOMATION": "Автоматика репозитория, действующая под учётной записью и конфигурацией правообладателя. Отдельного автора не порождает.",
+    "OPERATIONS_ACCOUNT": "Служебная учётная запись на инфраструктуре правообладателя."
+  },
+  "identities": [
+    {
+      "displayName": "pachaninm-lab",
+      "emails": [
+        "pachaninm@gmail.com",
+        "263435807+pachaninm-lab@users.noreply.github.com",
+        "pachaninm-lab@users.noreply.github.com"
+      ],
+      "commits": 22075,
+      "class": "PRINCIPAL",
+      "evidence": "Владелец репозитория и учётной записи GitHub pachaninm-lab; 22 075 коммитов из 23 639 (93.4%) по всей истории (git log --all --no-merges).",
+      "instrumentRequired": "DECLARATION_OF_AUTHORSHIP_AND_RIGHTS",
+      "rationale": "Собственный творческий труд правообладателя. Приобретать право не у кого — требуется зафиксировать авторство и принадлежность права.",
+      "mergeCommits": 1341
+    },
+    {
+      "displayName": "Platon",
+      "emails": [
+        "platon@MacBook-Pro-Platon.local"
+      ],
+      "commits": 88,
+      "class": "HUMAN_CONTRIBUTOR",
+      "evidence": "88 коммитов, 20.05.2026–12.06.2026. Адрес — локальное имя личной машины (MacBook-Pro-Platon.local), корпоративного домена нет. По git blame сохранилось 8 610 строк в 133 файлах, из них 721 строка в 24 файлах защищаемого ядра.",
+      "instrumentRequired": "ASSIGNMENT_OR_EMPLOYEE_WORK_CONFIRMATION",
+      "rationale": "Единственное, кроме правообладателя, физическое лицо с сохранившимся творческим вкладом. Основание зависит от фактических отношений: при трудовых — ст. 1295, при подряде/заказе — ст. 1288 со ст. 1234. Подготовлены оба документа."
+    },
+    {
+      "displayName": "Claude",
+      "emails": [
+        "noreply@anthropic.com"
+      ],
+      "commits": 986,
+      "class": "AI_TOOL",
+      "evidence": "Служебный адрес поставщика инструмента (noreply@anthropic.com); коммиты выполнены при запуске инструмента оператором репозитория.",
+      "instrumentRequired": "NONE",
+      "rationale": "Инструмент, а не гражданин. По ст. 1257 автором быть не может; отдельного правообладателя, у которого приобреталось бы право, не возникает. Фиксируется как tool provenance.",
+      "mergeCommits": 116
+    },
+    {
+      "displayName": "claude[bot]",
+      "emails": [
+        "claude[bot]@users.noreply.github.com"
+      ],
+      "commits": 0,
+      "class": "AI_TOOL",
+      "evidence": "Приложение GitHub, запускаемое из репозитория правообладателя.",
+      "instrumentRequired": "NONE",
+      "rationale": "То же основание, что и для Claude.",
+      "absentFromHistory": "Авторских коммитов нет: 4 слияни(я/й) и ничего более. Слияние фиксирует решение принять работу, а не самостоятельное творческое выражение, и в базис авторства не входит.",
+      "mergeCommits": 4
+    },
+    {
+      "displayName": "Codex",
+      "emails": [
+        "codex@openai.local"
+      ],
+      "commits": 65,
+      "class": "AI_TOOL",
+      "evidence": "Локальный служебный адрес инструмента (codex@openai.local).",
+      "instrumentRequired": "NONE",
+      "rationale": "То же основание, что и для Claude."
+    },
+    {
+      "displayName": "root",
+      "emails": [
+        "root@cv7660557.novalocal"
+      ],
+      "commits": 4,
+      "class": "OPERATIONS_ACCOUNT",
+      "evidence": "Хост cv7660557.novalocal — производственный сервер правообладателя. Три коммита из четырёх пустые («ci: trigger …»), четвёртый пересобирает pnpm-lock.yaml. По git blame сохранилось ДВЕ строки: пустая строка и служебный комментарий «# Exact-head CI trigger: identity RLS acceptance.» в scripts/platform-v7-rls-integration.sh.",
+      "instrumentRequired": "NONE",
+      "rationale": "Служебная учётная запись на инфраструктуре правообладателя. Сохранившееся содержание творческим не является (ст. 1259 п. 5), самостоятельного произведения не образует."
+    }
+  ],
+  "ciAutomation": {
+    "class": "CI_AUTOMATION",
+    "instrumentRequired": "NONE",
+    "rationale": "Автоматика репозитория, настроенная и запускаемая правообладателем. Отдельного автора не порождает; результат относится к работам правообладателя.",
+    "identities": [
+      {
+        "displayName": "github-actions[bot]",
+        "commits": 321,
+        "mergeCommits": 16
+      },
+      {
+        "displayName": "platform-v7-agent",
+        "commits": 50
+      },
+      {
+        "displayName": "platform-v7-ops",
+        "commits": 16
+      },
+      {
+        "displayName": "p7-state",
+        "commits": 15
+      },
+      {
+        "displayName": "pc-crop-governed-bot",
+        "commits": 5,
+        "mergeCommits": 2
+      },
+      {
+        "displayName": "public-entry-watch",
+        "commits": 3
+      },
+      {
+        "displayName": "dependabot[bot]",
+        "commits": 3
+      },
+      {
+        "displayName": "pc-crop-governance-bot",
+        "commits": 2,
+        "mergeCommits": 1
+      },
+      {
+        "displayName": "pc-crop-authority[bot]",
+        "commits": 2
+      },
+      {
+        "displayName": "p7-authority-bot",
+        "commits": 2
+      },
+      {
+        "displayName": "platform-v7-industrial-bot",
+        "commits": 1
+      },
+      {
+        "displayName": "pc-crop-auth-mail-fix",
+        "commits": 1
+      },
+      {
+        "displayName": "pc-crop-auth-mail-checker",
+        "commits": 1
+      }
+    ]
+  },
+  "completeness": {
+    "totalCommitsNoMerges": 23640,
+    "identitiesEnumerated": 19,
+    "method": "git log --all --no-merges --format='%aN|%aE' | sort | uniq -c — полное перечисление, а не выборка.",
+    "humanAuthorsBesidesPrincipal": 1,
+    "note": "Единственное физическое лицо помимо правообладателя — Platon. Всё остальное — правообладатель, инструменты и автоматика.",
+    "basis": "git log --all --no-merges --format=%aN",
+    "measuredAt": "2026-09-06T14:44:52.358Z",
+    "verifier": "node scripts/ip/verify-contributor-identity-register.mjs",
+    "mergeBasis": "git log --all --merges --format=%aN — считается отдельно и в базис авторства не входит.",
+    "mergesByPrincipalOnDefaultBranch": 1195,
+    "mergesTotalOnDefaultBranch": 1241
+  }
+}

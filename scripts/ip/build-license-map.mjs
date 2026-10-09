@@ -259,14 +259,34 @@ const rows = [...byKey.values()].map((item) => {
   };
 }).sort((a, b) => a.purl.localeCompare(b.purl) || a.version.localeCompare(b.version));
 
-const summary = rows.reduce((acc, row) => {
-  acc[row.classification] = (acc[row.classification] ?? 0) + 1;
-  return acc;
-}, {});
-const scopeSummary = rows.reduce((acc, row) => {
-  acc[row.dependencyScope] = (acc[row.dependencyScope] ?? 0) + 1;
-  return acc;
-}, {});
+/**
+ * Подсчёт через Map со сверкой итога — не через `acc[row.field]` по объекту.
+ *
+ * Прежняя форма теряла строки молча. Ключ читается из разобранного SBOM, то
+ * есть является данными, и на значениях `__proto__` и `constructor` счёт
+ * ломается по-разному: первое не считается вовсе (чтение возвращает прототип,
+ * `?? 0` не срабатывает, присваивание числа в `__proto__` — no-op), второе даёт
+ * в колонке счётчика строку вида «function Object() { … }1». Замерено: из пяти
+ * строк с двумя `__proto__` и одним `constructor` итог сходился к двум.
+ *
+ * Эти числа идут в раздел 4 досье IP due diligence и в утверждение о нулевых
+ * неразрешённых лицензиях. Счётчик, который может тихо потерять компонент, —
+ * ровно то неизмеренное утверждение, против которого построен весь контур,
+ * независимо от того, какие значения приходят сегодня.
+ */
+function tally(rows, field) {
+  const counts = new Map();
+  for (const row of rows) counts.set(row[field], (counts.get(row[field]) ?? 0) + 1);
+  const total = [...counts.values()].reduce((sum, n) => sum + n, 0);
+  if (total !== rows.length) {
+    console.error(`license-map: подсчёт по «${field}» потерял строки — ${total} из ${rows.length}`);
+    process.exit(1);
+  }
+  return Object.fromEntries(counts);
+}
+
+const summary = tally(rows, 'classification');
+const scopeSummary = tally(rows, 'dependencyScope');
 
 writeFileSync(join(outDir, 'license-map.csv'), [
   'component,version,purl,type,dependency_scope,workspaces,detected_license,resolved_license,elected_license,classification,evidence,sbom_sources',
