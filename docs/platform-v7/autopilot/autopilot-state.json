@@ -8047,6 +8047,43 @@
       ],
       "privateValidation": "Actual canonical clean-cache production Next build exit0/273pages, fresh web TypeScript0, crypto/keyusage16 and coverage12 contracts PASS. Real private production-build HTTP RU/EN/ZH PASS: actual committed terms/privacy pages remain on legal route and render expected document; bad commitment is notFound; valid same-cookie ACK succeeds and missing proof409; registration has fresh per-request15minute nonce and stable full-public-evidence hash. Closest83 tests before later2 refresh/2 private-mode cases were PASS; real whole-site private-mode owner gate seven route cases PASS. Actual selected44 files/1259 tests PASS; native selection includes all consent/route/entitlement/voice regressions. All prototype/dependency compositions are private, not accepted source. Local browsers absent; actual native/mobile/live/source review still required.",
       "publicationStatus": "ADMISSION_ONLY_SOURCE_NOT_ACCEPTED"
+    },
+    "gekta-dispatcher-supersession-correction-20261009": {
+      "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+      "authorityBaseExactMain": "8671dfe23c386c486f97ac34e2d125f6c9a32a53",
+      "requiredTruthBoundaries": "Source refs change only after genuine separate exact-head metadata review, owner audit, complete native gates, fresh canonical readiness and ordinary expected-full-SHA acceptance. Implementation has its own independent exact-head review/audit/native gates/readiness/manual merge. Private composition is not accepted source. Preserve every frozen admission/owner/Claude lane, PRIMARY11/current/nextStep and official5/100.",
+      "forbiddenAuthority": "No auto/force merge, fake status/review/receipt, skipped or weakened gate, new backend/key/role/budget, source lock/owner/MFA/root/polkit bypass, spent marker/refund/permanent model/routing change, credential exposure or production/full privacy/maturity claim.",
+      "userInstruction": "Максим: «Доведи гекту до финала» / «Делай всё и завершай». Existing Gekta execution continuation; not a human MFA attestation.",
+      "priorAdmissionRetained": "All accepted admission records, payload pins, owners and path vectors remain frozen. This is a forward correction to actually accepted dispatcher source, not retirement of its accepted admission.",
+      "sourcePayloads": [
+        {
+          "path": "scripts/p7-autopilot-dispatcher.mjs",
+          "mode": "100644",
+          "beforeBlob": "9a8392be0e3529820fe1e8bd42a13caff2799453",
+          "beforeSha256": "a76944aba2b93f3e929a86553e7eb894af684f7bffb89430cb9c946e4e2176bf",
+          "afterBlob": "62deabc99be1f1726a692265ef4660eadb3a3549",
+          "afterSha256": "3710d9c2469e58e8c0a2c9187d2227a82f37efc5ae7ffb21dfe9aa856273835e"
+        },
+        {
+          "path": "scripts/p7-autopilot-guard.test.mjs",
+          "mode": "100644",
+          "beforeBlob": "e8fd615048f51c66842239b77fc64585630db88a",
+          "beforeSha256": "9184d34270ec27dceba40692e45f4644f884ddf2a603985c69941706feb05ca1",
+          "afterBlob": "11cf941e18c627f1edf1d7bbdce2525f426aadb4",
+          "afterSha256": "b9f0c224088cb2376c38089e8a90731f3d029fc44e00afa02ce97868dc0d95a6"
+        }
+      ],
+      "prototypeTree": "44e39a528a395ae686391418fba17c2404ebd75b",
+      "prototypeCommit": "706b3383b6c8b9ecec1152abbc8062053d6e7bdd",
+      "implementationBranch": "fix/gekta-dispatcher-admission-blockers-20261008",
+      "allowedPaths": [
+        "scripts/p7-autopilot-dispatcher.mjs",
+        "scripts/p7-autopilot-guard.test.mjs"
+      ],
+      "purpose": "Actual independent P1 4226326348 showed that generated active blockers keep replaced unaccepted payload instructions. Validate explicit same-owner scoped source lineage and reject missing, ambiguous or cyclic replacements before any write; render only terminal active blockers. Preserve all records, scopes, current/next/readiness and historical text. This narrow two-source correction changes no scope, admission, source, merge, release, model or runtime authority. Registered18/anonymous17 metadata is deliberately withdrawn from this bootstrap and must receive fresh separate acceptance after the dispatcher implementation is actually accepted.",
+      "dispatcherBlocker": "Gekta dispatcher explicit unaccepted-payload supersession correction is pending separate two-file source acceptance; registered public legal18 and anonymous17 replacements remain private and blocked until that accepted dispatcher exists.",
+      "privateValidation": "Actual old dispatcher reproduced obsolete registered16 blocker in the replacement scenario. Corrected targeted 16/16 cases PASS: positive registered18/anonymous17 chain runs twice; missing/blank/multiline/non-string/self/cycle/owner/footprint/scope/duplicate/fork failures preserve every output. Full dispatcher/guard suite pending; full before/after Git, modes, SHA256 and all-other-leaf proof PASS. No new source ref or runtime execution.",
+      "independentFinding": "https://github.com/pachaninm-lab/pachanin-demo/pull/5850#discussion_r4226326348"
     }
   }
 }
