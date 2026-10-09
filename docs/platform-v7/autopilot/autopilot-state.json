@@ -2042,11 +2042,42 @@
       "apps/api/test/industrial/gekta-history-postgresql.e2e-spec.ts",
       "apps/web/lib/gekta/server-workspace.ts",
       "apps/web/tests/unit/gektaServerHistory.test.ts",
-      "docs/gekta/history-removal-and-import.md"
+      "docs/gekta/history-removal-and-import.md",
+      "scripts/platform-v7-forward-only-migration-check.mjs",
+      "apps/api/src/common/prisma/rls-transaction.service.spec.ts",
+      "docs/security/cryptographic-inventory.json"
     ],
     "fix/gekta-dispatcher-admission-blockers-20261008": [
       "scripts/p7-autopilot-dispatcher.mjs",
       "scripts/p7-autopilot-guard.test.mjs"
+    ],
+    "fix/gekta-registration-document-evidence-20261008": [
+      "packages/domain-core/src/gekta-consent-evidence.ts",
+      "apps/web/lib/gekta/consent-evidence-server.ts",
+      "apps/web/app/gekta/register/page.tsx",
+      "apps/web/components/gekta/GektaRegistrationClient.tsx",
+      "apps/web/app/api/gekta/auth/register/route.ts",
+      "apps/web/app/legal/[slug]/page.tsx",
+      "apps/api/src/modules/auth/gekta-registration.controller.ts",
+      "apps/api/src/modules/auth/gekta-registration.service.ts",
+      "apps/api/src/modules/auth/gekta-registration.spec.ts",
+      "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+      "apps/web/tests/unit/gektaConsentEvidence.test.ts",
+      "docs/gekta/consent-document-evidence.md",
+      "docs/security/cryptographic-inventory.json",
+      "docs/security/cryptographic-key-usage.json"
+    ],
+    "fix/gekta-candidate-oneuse-grant-20261008": [
+      ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+      "scripts/gekta-qwen35-4b-model-host-candidate.py",
+      "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json",
+      "docs/gekta/model-oneuse-grant-20261008.md"
+    ],
+    "fix/gekta-owned-history-runtime-20261009": [
+      "docs/ops/production-gekta-first-user-acceptance.md",
+      "docs/platform-v7/autopilot/scopes/production-gekta-runtime-20260813.json",
+      "scripts/check-production-gekta-first-user-acceptance.mjs",
+      "scripts/production-gekta-first-user-acceptance.mjs"
     ]
   },
   "currentAcceptance": [
@@ -6884,6 +6915,508 @@
         "Any source beyond the two pinned dispatcher/test paths; current-step/owner/primary-scope change",
         "Gekta runtime source publication before its separately accepted admission; model grant reset/new inference/permanent control/MFA or credential bypass"
       ]
+    },
+    "gekta-registration-document-evidence-20261008": {
+      "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+      "sourceOwnerRetained": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+      "purpose": "Continue the existing Gekta registration boundary: the actual form links Gekta 2026-08-12.2 documents while the API stores the platform 2026-09-03 consent pair. Bind the actual displayed public document/profile/interface-language snapshot to the existing auth-audit receipt, without a second receipt backend or changing public legal copy.",
+      "authorityBaseExactMain": "d062abfba576b8a5875f9856bdffd16efb163438",
+      "userInstruction": "Максим: «Делай всё и завершай», 2026-10-08; existing CORE/Gekta lane and actual merged #5836 source, pending #5839 history admission/#5840 canonical journal. This is separate source preparation, never renewal of spent model grant.",
+      "implementationBranch": "fix/gekta-registration-document-evidence-20261008",
+      "allowedPaths": [
+        "packages/domain-core/src/gekta-consent-evidence.ts",
+        "apps/web/lib/gekta/consent-evidence-server.ts",
+        "apps/web/app/gekta/register/page.tsx",
+        "apps/web/components/gekta/GektaRegistrationClient.tsx",
+        "apps/web/app/api/gekta/auth/register/route.ts",
+        "apps/web/app/legal/[slug]/page.tsx",
+        "apps/api/src/modules/auth/gekta-registration.controller.ts",
+        "apps/api/src/modules/auth/gekta-registration.service.ts",
+        "apps/api/src/modules/auth/gekta-registration.spec.ts",
+        "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+        "apps/web/tests/unit/gektaConsentEvidence.test.ts",
+        "docs/gekta/consent-document-evidence.md",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/cryptographic-key-usage.json"
+      ],
+      "sourcePayloads": [
+        {
+          "path": "packages/domain-core/src/gekta-consent-evidence.ts",
+          "mode": "100644",
+          "beforeBlob": null,
+          "afterBlob": "96f468077556927b3600e9ee6512b29ee4387383",
+          "afterSha256": "bfb82d492fb039f19b2d10e51a23ac4c6f2e36ab37b5c536de401fc5577ee864"
+        },
+        {
+          "path": "apps/web/lib/gekta/consent-evidence-server.ts",
+          "mode": "100644",
+          "beforeBlob": null,
+          "afterBlob": "06cc7129bdce9352b2544e8a647bca12ba733f91",
+          "afterSha256": "34d4bef1e4d5c8f0e571307127a102cf8af8c46ecb3bc2b1dd38bbe7eba21059"
+        },
+        {
+          "path": "apps/web/app/gekta/register/page.tsx",
+          "mode": "100644",
+          "beforeBlob": "e07f490d82b4e661e9514a4c6a07880bfc9a1045",
+          "afterBlob": "4e8d1a17398b0a9c80edbfe7887041691f0f627c",
+          "afterSha256": "df9b442772b7c24ba953d8d7975020c1690e88be8d305c9aaaabfb82b863d8a7"
+        },
+        {
+          "path": "apps/web/components/gekta/GektaRegistrationClient.tsx",
+          "mode": "100644",
+          "beforeBlob": "34cf2859521c6ac321b08b6fedcfac9213e81134",
+          "afterBlob": "8362db273f61a22ba60d6cfe6565b6c08e128fb6",
+          "afterSha256": "9af1a760bf3a0a57d3c16f70726f8451063f8fe2f72495e8b6c3cd82747cd004"
+        },
+        {
+          "path": "apps/web/app/api/gekta/auth/register/route.ts",
+          "mode": "100644",
+          "beforeBlob": "95680b9ce11283b844792c88e139898339f6e3ec",
+          "afterBlob": "472039defd79bce84c441c343970c56932475d6c",
+          "afterSha256": "4ef80047311af1316b9e42e68a7a2595b3b8eadf4870785903b67854431e65c7"
+        },
+        {
+          "path": "apps/web/app/legal/[slug]/page.tsx",
+          "mode": "100644",
+          "beforeBlob": "d24c199c1523c8cc68e900879f704ac13f3839ee",
+          "afterBlob": "d17c67161de1211e04c9601b4bf74cf6435dbdc3",
+          "afterSha256": "88f684bd325eb6628ffbb039991bf719801566032fc03a6c7144d3eeb5b0c441"
+        },
+        {
+          "path": "apps/api/src/modules/auth/gekta-registration.controller.ts",
+          "mode": "100644",
+          "beforeBlob": "422d17bb30d04694d3f666a2d2b355721df06efc",
+          "afterBlob": "929a2fbcae657a15c27448d2e1baddf4a32e359f",
+          "afterSha256": "7e6f4e58ead8ee23a15458661342e0171797b75266d9588d0c3b208ce1f35533"
+        },
+        {
+          "path": "apps/api/src/modules/auth/gekta-registration.service.ts",
+          "mode": "100644",
+          "beforeBlob": "8c3a5b605dfad93ed6ba5e8cec531a9e6b404fd0",
+          "afterBlob": "8a3503c786c70ee0bbaf89ae147abf7edd01b9fe",
+          "afterSha256": "865ff66b3f203b544b9428df8f9aef35b5cefeb753f13db4d7112e7aca96d4bf"
+        },
+        {
+          "path": "apps/api/src/modules/auth/gekta-registration.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "cee1aa71fac5fbc1ea341568286cc0ae35122a9f",
+          "afterBlob": "40912dccbc61ae3bd08623274cc9c314451de517",
+          "afterSha256": "199158f158f81896d68d8f2dfc910dbdd51d21cabb5deba18e49e51270f71b38"
+        },
+        {
+          "path": "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+          "mode": "100644",
+          "beforeBlob": "65d97a1ed57b41f2850c676823196f8b53e64471",
+          "afterBlob": "6969066c7d21e61a1d9e989b426650bed3415749",
+          "afterSha256": "709ea1c0a9ec1267b8a9f6edd72fb1597fb7150e3ba525c1682ecc9b8ca9b59c"
+        },
+        {
+          "path": "apps/web/tests/unit/gektaConsentEvidence.test.ts",
+          "mode": "100644",
+          "beforeBlob": null,
+          "afterBlob": "d50f504c3832adb6c8fde77f62a10386b204e967",
+          "afterSha256": "59c030100908db70d7d47bf7693cce9151717f8354d374eab92f6b53bb559af5"
+        },
+        {
+          "path": "docs/gekta/consent-document-evidence.md",
+          "mode": "100644",
+          "beforeBlob": null,
+          "afterBlob": "9c1de655c43fae29125761879bc7b6a857f29893",
+          "afterSha256": "f9059eaea157352497e2778a5b4803acec4cd7bac7023fc4ab9df62936d934ee"
+        },
+        {
+          "path": "docs/security/cryptographic-inventory.json",
+          "mode": "100644",
+          "beforeBlob": "3fde26e3933191b16cbb3ed5be444d31b5d9a8d0",
+          "afterBlob": "caeaf802d1d7507d6040469b03b86e0fc6494fda",
+          "afterSha256": "11e19e54ac2c877ead4a65e8da512898d4c07dab7511164bb08609db2bf9df98"
+        },
+        {
+          "path": "docs/security/cryptographic-key-usage.json",
+          "mode": "100644",
+          "beforeBlob": "4a2ff3b8d57f4a7280edf38bc4590ff6a420ea97",
+          "afterBlob": "cd9be452a9ed367c2ea8274c979f624371a06354",
+          "afterSha256": "136c9b67dabc0bb7a4cca5b45526839b26ccdc18b9f349dd43dba122d98461f7"
+        }
+      ],
+      "prototypeTree": "a099dc2a5d2c9787c187ccd2862fa20cd1724121",
+      "privateValidation": {
+        "apiCasesPassed": 23,
+        "webCasesPassed": 36,
+        "apiTypeScript": "PASS",
+        "webTypeScript": "PASS",
+        "webBuild": "PASS_CAPTURED_EXIT_0",
+        "nativeCI": "NOT_EXECUTED",
+        "production": "NOT_EXECUTED",
+        "cryptoInventoryTests": 8,
+        "keyUsageTests": 8
+      },
+      "requiredTruthBoundaries": [
+        "Governance changes exactly the five existing CORE documents: one new closed fourteen-path vector/record, one progress blocker and three appended sections. Removing those restores every prior parsed value and original text. Preserve all owners/primary/current/writable scopes, accepted #5818/#5837/security source, history admission, concurrent Claude F-06 work, every source leaf/mode and official 5/100; no guard/workflow/readiness change.",
+        "Publish the source only after actual independent acceptance of this admission; ordinarily compose with then-current accepted main, requiring ten existing before blobs (one contingent catalogue from accepted corrected history) and four absent new paths to remain exact. Source diff is exactly these fourteen regular 100644 pinned files. The standard candidate-list route is not mechanically immutable payload enforcement: genuine independent nonauthor whole-tree review must enforce paths/blobs/modes and reject extras or altered authority.",
+        "Reuse the existing actual merchant-profile and legal renderer. Bind complete rendered public Gekta terms/privacy documents, current public version, Russian document language, actual RU/EN/ZH interface language, distinct SERVICE_TERMS/PERSONAL_DATA purposes and exact current profile digest/id/effective date. Public legal copy/version and platform consent-policy pair remain unchanged; unconfigured operator stays truthfully unconfigured.",
+        "Use a closed-schema bounded pure shared Node implementation with deterministic canonical JSON/SHA-256 and 15-minute signed form commitment over the existing registration delivery key. Missing/tampered/future/expired/locale/profile/document commitments deny before registration/hash/transaction/mail effects. The BFF forwards only its own current evidence and ignores forged client receipts; API requires the existing internal delivery boundary and verifies the same signed public snapshot. A public direct API request cannot create a new user without that boundary/proof.",
+        "Keep the two checkbox choices explicit and initially unchecked. Commitment failure clears both choices, displays localized refresh instructions and requires a actual page reload before resubmission; missing signing configuration displays unavailable. Locale change cannot silently rebind a prior choice. Version/hash/profile links display exact current committed content or reject a stale link; ordinary public routes display the actual current profile dynamically.",
+        "Reuse only the existing hash-chained auth audit and credential-state version pair for the newly created Gekta account. Store public rendered document snapshot/digests, profile digest/id/effective date, purposes, interface/document languages, form-issued/server-accepted timestamps and two existing accepted booleans atomically with registration. Store no key, password, snapshot signature, extra user-identity field or second consent table. Preserve suppressed-email enumeration resistance, phone DECLARED state, email-token confinement, CSRF/rate limits and mandatory MFA.",
+        "Fresh exact-head independent review, separate owner audit, all applicable native unit/build/security/PostgreSQL/Kubernetes and canonical manual readiness precede ordinary expected-full-SHA manual merge. Local 23/36/typechecks and the captured production build exit 0 are only closest preparation results; native current-head evidence remains required. Neither unattached tree nor metadata grants production or privacy completion; native current-head evidence must resolve build/runtime effects.",
+        "After accepted source, release requires fresh exact-main CI/images, existing REG.RU controller, actual immutable running identity/live checks and required observation. This technical record proves choices/form presentation, not that a person read the text. Legal/operator review, registered-consent withdrawal, anonymous notice full-document binding, history purge/retention/backups, model/service-control, real owner MFA/grants and whole-Gekta/R1 acceptance remain separate.",
+        "The two extra security artefacts are generated public crypto facts and the existing delivery-key purpose map only. First accept corrected history so this shared catalogue has the exact admitted prerequisite blob; regenerate/verify the full catalogue against the actual fourteen-path registration source. Keep key names/values confined and preserve every other key boundary. Existing delivery-key purpose gains only the distinct short-lived Gekta registration form commitment, never credential authority."
+      ],
+      "forbiddenAuthority": [
+        "Global scope/guard/readiness weakening, platform auth/session policy or visual ownership change",
+        "Public legal copy/version/operator facts, paid activation, new consent backend/schema/RLS/tenant/role or fake erasure",
+        "Model grant reset/replay/new inference, permanent service control, credential/MFA bypass, extra expense, automatic/force merge or official progress credit"
+      ],
+      "teamHubDependency": "#5469/6070481689; existing CORE owner, no current production release/HOLD or Claude ACK inferred.",
+      "sourcePublicationDependencies": [
+        "Actual acceptance of the thirteen-path corrected history source under gekta-history-acceptance-correction-20261008 is required first. Its generated crypto catalogue after blob is the registration catalogue before blob; the nine other existing source prerequisites/four absent paths must be checked on then-current accepted main. No future prerequisite is represented as already accepted."
+      ],
+      "dispatcherBlocker": "Gekta registration document evidence remains pending exact fourteen-path admission/source acceptance, native build/runtime and actual release; no whole privacy completion.",
+      "dispatcherPrerequisite": {
+        "acceptedMain": "d062abfba576b8a5875f9856bdffd16efb163438",
+        "sourceHead": "9e916ffa02b2d0fce572adb6aced0eb5e656ecd7",
+        "sourcePr": 5843,
+        "independentReview": 6071477604,
+        "canonicalReadyJob": 113601664901,
+        "actualNativeMainGuardCases": 917,
+        "wholeRemainingLeavesPreserved": true
+      },
+      "dispatcherValidation": "PASS: actual accepted source regenerated twice; all four declared blockers and four queue sections remain once in each prompt, canonical state/currentstep/official5 unchanged. Contract/regeneration proof is not source/runtime acceptance."
+    },
+    "gekta-candidate-oneuse-grant-20261008": {
+      "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+      "sourceOwnerRetained": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+      "purpose": "Separate new owner-authorized one-use Qwen3.5-4B candidate allowance after the renewed 2026-10-08 finish instruction; retire old command/grant capability without altering any spent marker, guard, baseline service, routing, privilege or credential.",
+      "authorityBaseExactMain": "d062abfba576b8a5875f9856bdffd16efb163438",
+      "userInstruction": "Максим: «Делай всё и завершай», 2026-10-08; real automated operator record #3896/6070851050 binds the concrete private four-file prototype. Not a human MFA attestation, independent review, runtime PASS or refund of the retired grant.",
+      "ownerReceipt": "https://github.com/pachaninm-lab/pachanin-demo/issues/3896#issuecomment-6070851050",
+      "implementationBranch": "fix/gekta-candidate-oneuse-grant-20261008",
+      "allowedPaths": [
+        ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+        "scripts/gekta-qwen35-4b-model-host-candidate.py",
+        "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json",
+        "docs/gekta/model-oneuse-grant-20261008.md"
+      ],
+      "sourcePayloads": [
+        {
+          "path": ".github/workflows/gekta-qwen35-4b-model-host-candidate.yml",
+          "mode": "100644",
+          "beforeBlob": "30117b1b1c9adc258303d852b7e2e7d3a051e7af",
+          "afterBlob": "9e11d21a1d65982179ab4d9082e264a1e99a139a",
+          "afterSha256": "a6c6a39a825291bcd99ae70af37407308262c0b3b00b59c47589ee6725d4df3f"
+        },
+        {
+          "path": "scripts/gekta-qwen35-4b-model-host-candidate.py",
+          "mode": "100644",
+          "beforeBlob": "ccf9e2650f0970d2677dc1d0902c82e2b223701f",
+          "afterBlob": "f71c03e5972106270ae3f63f88e9836227bccac4",
+          "afterSha256": "bcdba13f1f4eea221e2ca0b7f03cb5c4059edf0dfc57042bbfa1614ea33ebb88"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json",
+          "mode": "100644",
+          "beforeBlob": "43c20f7c3bc1aae0e045f771e84f92b8ca361734",
+          "afterBlob": "cae8c009067076fe7a10d53498af118e71b2fea8",
+          "afterSha256": "ee5c0e67484c189ea5e94361a2a7d5a844b21e5d4c9f1f9a37668b302db955b2"
+        },
+        {
+          "path": "docs/gekta/model-oneuse-grant-20261008.md",
+          "mode": "100644",
+          "beforeBlob": null,
+          "afterBlob": "173b6ed2a7af99bbe7f4acc808f893970a1880b7",
+          "afterSha256": "53deee56e8efa6dbe0813242c352abd2f76412ba16205934d38f5a55c3d09ff8"
+        }
+      ],
+      "prototypeTree": "16ff571e8f7e6fb926a91e3af1d40b2cfa44755e",
+      "executionGrant": {
+        "identity": "gekta-finish-20261008-4b-oneuse",
+        "retiredSpentIdentity": "gekta-critical-5974230017",
+        "criticalMaximum": 1,
+        "extraMaximum": 1,
+        "leaseSecondsPerCorpus": 420,
+        "extraPrecondition": "Operator inspected actual same-source critical PASS, cleanup PASS and unchanged healthy 8B; critical marker alone proves consumption only.",
+        "renewal": "NONE_ON_FAILURE_CANCEL_RETRY_SOURCE_OR_RUN_CHANGE",
+        "paidOrRecurringActivation": false,
+        "permanentModelActivation": false
+      },
+      "privateValidation": {
+        "immutableHelper": "PASS",
+        "OSIdentityAndCredentialFreePreExec": "PASS",
+        "startupDiagnosticCases": 16,
+        "irreversibleGrantCases": 20,
+        "actualClosedCommandAndFailureCapture": "PASS_SYNTHETIC_NOT_INFERENCE",
+        "ownershipWatchdogRecovery": "LOCAL_UID0_REAL_CHILD_NONROOT_GUARD_BLOCKED; NATIVE_NONROOT_CI_REQUIRED",
+        "realCandidateInference": "NOT_EXECUTED",
+        "permanentControl": "NO_AUTHORITY_GRANTED",
+        "ownScopeAuthorityContract": "PASS: actual bounded owner Node contract accepts new four-path scope branch; prior private3 failed branch equality"
+      },
+      "requiredTruthBoundaries": [
+        "Governance changes exactly the five current CORE documents, adding only this closed four-path vector/record, one progress blocker and three appended sections alongside the distinct registered-consent admission. Removing only these new additions restores every prior parsed value and original text. Preserve owners/primary scopes/accepted history and consent-journal admissions/Claude F-06/every other scope/source/official 5/100; no guard or readiness weakening.",
+        "Admission and exact independent source acceptance precede source runtime capability. Before source publication ordinarily compose with then-current accepted main, requiring all three existing before blobs and one absent added path exact. Genuine independent nonauthor whole-tree review enforces all four payloads/blobs/modes and every remaining leaf; the standard candidate route is not mechanically immutable.",
+        "This separately admitted fresh grant permits at most one critical and one conditional extra corpus. Retired old grant and old command syntax are rejected before marker creation/spawn/secret read; do not remove, reset, edit, refund or interpret old/new marker bytes as a PASS receipt. Source/run/transport changes cannot replenish either new slot. Keep exclusive/fsynced closed private markers and source equality.",
+        "Preserve all current 420s lease/pidfd watchdog/term-kill margin/non-root OS identity/pinned SSH host key/resource guards/credential-free argv/private tunnel/loopback/exact immutable 4B artifact/unchanged healthy active 8B/cleanup/failure-preserving capture and owner-only issue3896 boundaries. Commands must explicitly name this grant plus full exact current main SHA; old queued command cannot consume a new slot.",
+        "After source acceptance/native gates and an actual new owner sole-body command, inspect real workflow artifacts for critical 10 cases and extra 4 cases on the same source, baseline identity/health and cleanup. Each selected corpus report remains PARTIAL; combine only actual receipts, never mocks/diagnostic/marker consumption. No extra invocation after either slot is spent.",
+        "Fresh exact-head independent review, separate owner audit, complete substantive native CI/security and canonical readiness precede ordinary full-expected-SHA manual merge. Root-local ownership fixture cannot produce actual non-root PASS here; native current-head run must settle it without changing guards or granting privilege.",
+        "No permanent model activation, service-control permission, sudo/polkit bypass, routing/public candidate/production secret change, new role, recurring inference or paid allowance follows. Existing POLKIT_INTERACTION_REQUIRED remains a separate capability boundary; candidate PASS is not production replacement or whole-Gekta/progress acceptance."
+      ],
+      "forbiddenAuthority": [
+        "Retired or fresh marker reset/refund/retry; new allowance inferred from source/run/name only",
+        "Root/sudo/service mutation/polkit bypass/role or secret provisioning; permanent activation or routing change",
+        "Guard/readiness/global-scope weakening; fake independent review/CI/MFA/inference or automatic/force merge; new owner/history backend; official progress credit"
+      ],
+      "teamHubDependency": "#5469 existing CORE/Gekta owner; preserve actual accepted main and concurrent Claude F-06; no Claude ACK or production release/HOLD inferred.",
+      "actualContractCorrection": "The prior private3 payload omitted the existing own scope manifest. Actual contract compares its branch to GITHUB_HEAD_REF, so the old fix/gekta-qwen35-guard-argv-form-20260928 identity would reject the proposed new source branch. Final4 includes that manifest, preserves all old required/forbidden boundaries and appends the distinct one-use/retired-slot limits.",
+      "dispatcherBlocker": "Gekta new one-use4B grant requires separately accepted exact four-path source/native gates and actual owner commands; retired grant stays spent, no permanent control or inferred runtime PASS.",
+      "dispatcherPrerequisite": {
+        "acceptedMain": "d062abfba576b8a5875f9856bdffd16efb163438",
+        "sourceHead": "9e916ffa02b2d0fce572adb6aced0eb5e656ecd7",
+        "sourcePr": 5843,
+        "independentReview": 6071477604,
+        "canonicalReadyJob": 113601664901,
+        "actualNativeMainGuardCases": 917,
+        "wholeRemainingLeavesPreserved": true
+      },
+      "dispatcherValidation": "PASS: actual accepted source regenerated twice; all four declared blockers and four queue sections remain once in each prompt, canonical state/currentstep/official5 unchanged. Contract/regeneration proof is not source/runtime acceptance."
+    },
+    "gekta-history-acceptance-correction-20261008": {
+      "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+      "sourceOwnerRetained": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+      "purpose": "Close actual #5841 independent P1 and native acceptance failures before any history source acceptance: pepper-independent account/purpose receipt fingerprints, actual non-enumerable Prisma transaction proxy/barrier, exact additive-function migration gate attestation and generated crypto inventory.",
+      "authorityBaseExactMain": "d062abfba576b8a5875f9856bdffd16efb163438",
+      "userInstruction": "Existing renewed owner instruction «Делай всё и завершай», actual #5841/4225107297 P1 and native CI failures. This is a separately accepted correction prerequisite, never accepting a red source head.",
+      "implementationBranch": "fix/gekta-history-purge-import-20261008",
+      "previousPublishedUnacceptedHead": "27114622a8fd9aa308b4f536d297549f574f9779",
+      "priorAdmissionRetained": "gekta-history-import-purge-20261008 / merged #5839 stays unchanged; its original published payload is historical and unaccepted. This correction record pins the authoritative final thirteen-path whole source diff and appends only three existing guard/test/catalog paths to that branch vector.",
+      "allowedPaths": [
+        "apps/api/prisma/schema.prisma",
+        "apps/api/prisma/migrations/20261008230000_gekta_history_import_purge/migration.sql",
+        "apps/api/src/modules/gekta/dto/gekta.dto.ts",
+        "apps/api/src/modules/gekta/gekta-body-validation.spec.ts",
+        "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+        "apps/api/src/modules/gekta/gekta-workspace.spec.ts",
+        "apps/api/test/industrial/gekta-history-postgresql.e2e-spec.ts",
+        "apps/web/lib/gekta/server-workspace.ts",
+        "apps/web/tests/unit/gektaServerHistory.test.ts",
+        "docs/gekta/history-removal-and-import.md",
+        "scripts/platform-v7-forward-only-migration-check.mjs",
+        "apps/api/src/common/prisma/rls-transaction.service.spec.ts",
+        "docs/security/cryptographic-inventory.json"
+      ],
+      "sourcePayloads": [
+        {
+          "path": "apps/api/prisma/schema.prisma",
+          "mode": "100644",
+          "beforeBlob": "96659e82e4b96655598d951ab353f75e90381196",
+          "afterBlob": "7b704cde7ddea20f3f9d45752e722200ead6dc6a",
+          "afterSha256": "e2695255142468514811fb05d552901db8c2037beb6253313ea93365a8eff564"
+        },
+        {
+          "path": "apps/api/prisma/migrations/20261008230000_gekta_history_import_purge/migration.sql",
+          "mode": "100644",
+          "beforeBlob": null,
+          "afterBlob": "dce3645135dca30691f6ec2b763a1117ea8bc4e5",
+          "afterSha256": "82597539b9f2c1feaaa3096d6524bc40069ed450558b1fed9385bf8691bbb1c8"
+        },
+        {
+          "path": "apps/api/src/modules/gekta/dto/gekta.dto.ts",
+          "mode": "100644",
+          "beforeBlob": "838b562280eda665392a9fce802283096545f841",
+          "afterBlob": "aad8ad7c908f05231435b5149f9b2055926463ef",
+          "afterSha256": "32856169eecc20be05b4b12ce1753abfd0794e60a1789018af5cd108306e7f88"
+        },
+        {
+          "path": "apps/api/src/modules/gekta/gekta-body-validation.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "764ee1b7cb86c7bd66490bbb510fd3a4ef15dbc8",
+          "afterBlob": "6708f5e02a8ded9c7202f5886e0d7612a3820810",
+          "afterSha256": "05a9809ce8f51fb7f99c9f49b9c244159f41b70c26b00b7887b204089088d969"
+        },
+        {
+          "path": "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+          "mode": "100644",
+          "beforeBlob": "0d3ee8956bece60d2a1a97fd1508196de7fde091",
+          "afterBlob": "b6cac11944ee069de826be9bea047bdef6bf59bd",
+          "afterSha256": "7076f06d685c0e90ece2f18a40bfa2e071a64dc59c56fbd17658864dff179f7d"
+        },
+        {
+          "path": "apps/api/src/modules/gekta/gekta-workspace.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "b337b60335d106e7d0bc96695453f29d0562019a",
+          "afterBlob": "947ed553c6072e3ad2d8451b8737ce262e7d89c4",
+          "afterSha256": "b1580ebc037e0049a1045f88f0e0bf18adcc2ccaf5261ea6fd9bd7aa3faaffb5"
+        },
+        {
+          "path": "apps/api/test/industrial/gekta-history-postgresql.e2e-spec.ts",
+          "mode": "100644",
+          "beforeBlob": null,
+          "afterBlob": "8d318f75472cc06b1dfe114841df1e3e6e673566",
+          "afterSha256": "9e4b4852b4cddcce1c525f8cb93845fcb23687b75ec2d42bf6acdfd19bd46453"
+        },
+        {
+          "path": "apps/web/lib/gekta/server-workspace.ts",
+          "mode": "100644",
+          "beforeBlob": "90e6987129d7d301bbc37d530014ef9708d4ff4c",
+          "afterBlob": "683425aeead5bad95ea6978834b3692652746cf8",
+          "afterSha256": "7b0646ff6fde2bc3c91b4c21240edaee0f04f1767ea6fb00261b9dd92526a297"
+        },
+        {
+          "path": "apps/web/tests/unit/gektaServerHistory.test.ts",
+          "mode": "100644",
+          "beforeBlob": "f59c472a08530ae0e626264d69e953f337b7a37c",
+          "afterBlob": "69dcd8d3cec0443d54f5d49706b14caa2129131d",
+          "afterSha256": "abbdc5c5c1ed5f15f753dfad76e4823baa2d5fb017fdfab1cc1786d38614a050"
+        },
+        {
+          "path": "docs/gekta/history-removal-and-import.md",
+          "mode": "100644",
+          "beforeBlob": null,
+          "afterBlob": "cb40b6998176a6b4ee4bba26a1780b2881acc498",
+          "afterSha256": "17d80bbcf8ef9adb393e72c7ef8f7973c27c16a7f2f6dbcf6d211f30e4373521"
+        },
+        {
+          "path": "scripts/platform-v7-forward-only-migration-check.mjs",
+          "mode": "100644",
+          "beforeBlob": "869eb4cd9b5dc06cbc428a1b734681d4b156d67c",
+          "afterBlob": "adeadd287ad22a6a5732ec0fa8d0d989f464805c",
+          "afterSha256": "7980b20364b6be1839b5517e40bbccdac56c505fbac6305efa00050eb6a12d09"
+        },
+        {
+          "path": "apps/api/src/common/prisma/rls-transaction.service.spec.ts",
+          "mode": "100644",
+          "beforeBlob": "18a5fef9c1cb5ade8050a54d4a52e1fe9eccd0f4",
+          "afterBlob": "1dd65c39baed1775abe4bdc6d80af4ecd78da678",
+          "afterSha256": "9a32d05d5eb70de311d31152332f97a1d1a54abee98ad9eeb7cc3d86841c0565"
+        },
+        {
+          "path": "docs/security/cryptographic-inventory.json",
+          "mode": "100644",
+          "beforeBlob": "6adf593045b70b884f80c88ac8221cd73222f027",
+          "afterBlob": "3fde26e3933191b16cbb3ed5be444d31b5d9a8d0",
+          "afterSha256": "93bcfb53d9e024e96b2caa23120b625b44d692515d9872f6fd47802c20354300"
+        }
+      ],
+      "prototypeTree": "757eec1db6c1ac4f0de4553410db980631a32729",
+      "prototypeCommit": "7cb8affa0d82452fb0714f7d089c84d3cb60569d",
+      "actualFindings": {
+        "independentP1": "#5841/4225107297: HMAC legacy lookup can restore deleted history after auth pepper rotation. Must fix, keep thread open until fresh exact-head independent review.",
+        "nativeNodeCIJob": 113587406516,
+        "nativeProvenanceJob": 113587407904,
+        "nativePostgreSQLJob": 113587406241,
+        "nativePostgreSQLObserved": "7 of 8 new history cases passed; real import/clear barrier failed because object spread omits transaction raw-query methods, then test timed out. Overall industrial run FAILED (133 passed, 1 failed, 117 skipped). No whole PostgreSQL PASS."
+      },
+      "privateValidation": {
+        "closestApiCases": 138,
+        "apiTypeScript": "PASS",
+        "cryptoInventoryTests": 8,
+        "correctedNativePostgreSQL": "NOT_EXECUTED",
+        "sourceRefUpdate": "NOT_EXECUTED",
+        "production": "NOT_EXECUTED"
+      },
+      "requiredTruthBoundaries": [
+        "Accept this five-document correction before replacing the unaccepted history source head. Preserve the original #5839 record byte/value content, existing owner/backend, all old scopes/source/Claude F-06 and official5/100; append only the three explicit scope paths. Removing new records/blockers/sections and that three-path tail restores every previous state/progress/text value.",
+        "The final whole source diff is exactly these thirteen regular pinned paths relative to actual accepted main1a17471f73b1e6432c1c1575952fef9af3dcfb29, ordinarily composed with then-current main and prior published271 ancestry. No initial/red/private head receives acceptance credit. Actual independent nonauthor whole-tree review enforces pins/modes; the ordinary candidate list is not immutable enforcement.",
+        "Only account/purpose-bound SHA-256 technical deduplication identities are retained, independent of auth pepper for both source-ID and legacy imports. No plaintext content, secret, new table beyond the original receipt or new auth authority. Explicitly disclose digest guessability and retention; it is not encryption, legal sufficiency, complete erasure or backup removal. Two unit and two real PostgreSQL cases prove deletion then replay across pepper rotation; retain changed-ID-payload conflict checks.",
+        "The actual Prisma transaction proxy retains bound non-enumerable raw query methods; account FOR UPDATE and the concurrent clear execute on independent real PostgreSQL connections. Race the barrier against early import failure instead of hanging. Do not replace lock evidence with a mock, widen timeouts or skip the case. All ten new real history cases must pass natively.",
+        "Forward-only gate exception admits only the entire exact additive migration SHA-256 82597539b9f2c1feaaa3096d6524bc40069ed450558b1fed9385bf8691bbb1c8 under its exact existing name, suppressing only the DELETE-definition false positive. Every changed byte, different name, deployment-time purge call, extra DELETE or other destructive rule remains blocked. Six behavioral CLI cases live in an existing automatically run API suite; no global scope/readiness/security weakening.",
+        "Generated crypto JSON must match actual final history source; no manually lowered discovery floor or hidden operation. Preserve receipt/function/migration bytes and narrow existing runtime grants with no bulk deployment deletion/direct DELETE/new roles/RLS changes.",
+        "After actual admission, source publication, fresh exact-head independent review with P1 resolved, separate audit, complete native unit/build/provenance/security/PostgreSQL/Kubernetes and canonical readiness precede ordinary full-SHA manual merge. Actual release/physical deletion/privacy/owner-MFA/model closure are separate."
+      ],
+      "forbiddenAuthority": [
+        "Delete or reset any consent/model/audit/history authority, forged native/review PASS or fake secure erasure",
+        "General DELETE exception, scope/guard/readiness weakening, direct runtime DELETE/new roles or migrations beyond pinned payload",
+        "Unaccepted future catalogue assumed current, other owner/source overwrite, automatic/force merge or official progress credit"
+      ],
+      "dispatcherBlocker": "Gekta history source is red: actual independent pepper-rotation P1 and native migration/catalog/Prisma barrier defects require separately accepted thirteen-path correction and fresh ten-case PostgreSQL acceptance.",
+      "dispatcherPrerequisite": {
+        "acceptedMain": "d062abfba576b8a5875f9856bdffd16efb163438",
+        "sourceHead": "9e916ffa02b2d0fce572adb6aced0eb5e656ecd7",
+        "sourcePr": 5843,
+        "independentReview": 6071477604,
+        "canonicalReadyJob": 113601664901,
+        "actualNativeMainGuardCases": 917,
+        "wholeRemainingLeavesPreserved": true
+      },
+      "dispatcherValidation": "PASS: actual accepted source regenerated twice; all four declared blockers and four queue sections remain once in each prompt, canonical state/currentstep/official5 unchanged. Contract/regeneration proof is not source/runtime acceptance."
+    },
+    "gekta-owned-history-live-fixture-20261009": {
+      "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+      "purpose": "Admit a bounded live synthetic-account history fixture before the existing visible owner ceremony: duplicate import, specific-id delete/import race, replay0, changed-payload409 and bounded own cleanup. No collection clear or direct SQL/credentials/model inference.",
+      "authorityBaseExactMain": "d062abfba576b8a5875f9856bdffd16efb163438",
+      "implementationBranch": "fix/gekta-owned-history-runtime-20261009",
+      "allowedPaths": [
+        "docs/ops/production-gekta-first-user-acceptance.md",
+        "docs/platform-v7/autopilot/scopes/production-gekta-runtime-20260813.json",
+        "scripts/check-production-gekta-first-user-acceptance.mjs",
+        "scripts/production-gekta-first-user-acceptance.mjs"
+      ],
+      "sourcePayloads": [
+        {
+          "path": "docs/ops/production-gekta-first-user-acceptance.md",
+          "mode": "100644",
+          "beforeBlob": "1b99553d3dc9666e757d9d3b3fac7c789f6af137",
+          "afterBlob": "50da8dcdc0cb74b58404cc2720156ee28046c30b",
+          "afterSha256": "f16cf42600d743363ac6569fbf4fccdd57cd76dbcd85199c25bd68d439a224ca"
+        },
+        {
+          "path": "docs/platform-v7/autopilot/scopes/production-gekta-runtime-20260813.json",
+          "mode": "100644",
+          "beforeBlob": "adea1f6502bcdb1c4a91d9fa5f381e59d100e13d",
+          "afterBlob": "ef632a5850fa7849e8212793c8b1a0d9d8e39246",
+          "afterSha256": "e58270c1d5f93f905e75e6917a041ccc34ed694a3417a6133966df794ec91163"
+        },
+        {
+          "path": "scripts/check-production-gekta-first-user-acceptance.mjs",
+          "mode": "100644",
+          "beforeBlob": "83b2e7db7757af53172a39cbe3dc8b6211149a43",
+          "afterBlob": "ef5998cf2474c3a53925fd1c07c7dba793b3fccb",
+          "afterSha256": "6f489af7bf11b4df70e5ce15d34f35e02c018aa846a2ceba55c4a60ecce7c9e6"
+        },
+        {
+          "path": "scripts/production-gekta-first-user-acceptance.mjs",
+          "mode": "100644",
+          "beforeBlob": "fa0951c42392cc31896ce88efe29037641ab3822",
+          "afterBlob": "ba724ca62e9d69936260b74da33209a2ccd00472",
+          "afterSha256": "dd0caea8f85e0b04443c13d0ce355eb6d816b4199d78afaef500226699409ad8"
+        }
+      ],
+      "prototypeTree": "55ffb502102f7b2106c3dd7266dbe8bd882c565a",
+      "dispatcherBlocker": "Gekta own history live fixture requires separately accepted four-path source, accepted corrected history/registered receipt, exact-main REG.RU release and real protected synthetic-account execution; native mocks do not prove live or backup erasure.",
+      "sourcePrerequisites": [
+        "Actual accepted corrected thirteen-path history source (stable sourceId receipts/physical purge/true PostgreSQL cases)",
+        "Actual accepted fourteen-path registered-consent receipt source and canonical #4637 first-user journal",
+        "Actual independently accepted dispatcher source #5843/head9e916ffa02b2d0fce572adb6aced0eb5e656ecd7/maind062abfba576b8a5875f9856bdffd16efb163438"
+      ],
+      "privateValidation": {
+        "actualOwnedFixtureAndDeadlineCases": 16,
+        "actualCheckerExit": 0,
+        "executorSyntax": "PASS",
+        "nativeCI": "NOT_EXECUTED",
+        "actualLiveFixture": "NOT_EXECUTED"
+      },
+      "requiredTruthBoundaries": [
+        "This admission adds only one closed four-path source vector/record, one canonical dispatcherBlocker/progress text and three appended sections within the same five CORE governance documents. All accepted state/progress/owners/scopes/source leaves/primary11/official5/Claude work remain preserved; no source ref before genuine independent admission acceptance.",
+        "After actually accepted history13/registration14, compose with then-current accepted main and require all four existing before blobs and exact after Git blobs/SHA256/regular100644 modes; every other leaf is preserved. Genuine independent nonauthor whole-tree review must enforce pins; the standard candidate-list guard is not immutable payload enforcement.",
+        "Use only browser APIs through the real newly registered/mail-verified/MFA-authenticated run-owned synthetic account. One inert single-message fixture, random unique run marker/sourceId/title, two concurrent imports then specific-id delete versus replay; exact one initial import,404/no active matching rows, replay0, changed-body409 required. No inference, direct SQL, owner/reviewer credentials, broad collection clear or other-account access.",
+        "Each fixture request has a30000ms abort covering request/response-body and possible authenticated refresh; reject malformed timeout values before fetch. Cleanup at most two exact unique-title rows through their safe specific IDs in this same synthetic account, preserve original ten answers/projects and fail if cleanup is unverified. Negative mock cases and body/refresh deadline regressions cannot emit PASS. These are contract cases, not actual live acceptance.",
+        "Call the fixture unconditionally after real trial/history/projects and before the visible owner ceremony; bounded PASS markers and eventual result flags depend on its success and cleanup. Preserve exact-main/deployed-manifest/OWNER-only #4637/real mail/mandatory user MFA/fresh PLATFORM_OWNER MFA/7/30/lifetime grants/logout guards and existing operational scope branch/roles/boundaries.",
+        "Live HTTP behavior does not claim a direct production SQL row count, backups erasure or whole privacy completion. Actual source PostgreSQL cases prove physical conversation/message row absence and clear; real deployed exact-source API fixture separately verifies executable-role behavior and non-restoration. No new role, secret/service authority, primary R1 or progress credit.",
+        "Fresh exact-head independent review, distinct owner self-audit, complete substantive native CI/security and fresh canonical readiness precede ordinary full-expected-SHA manual merge. Actual live execution happens only via the protected owner command after exact-main release; no force/auto merge or fake runtime PASS."
+      ],
+      "forbiddenAuthority": [
+        "Foreign history deletion, collection DELETE, unbounded fixtures or deleting original ten answers/projects",
+        "DB/owner/reviewer credentials, direct SQL, extra roles, privileged/server mutation or model calls",
+        "Fake PostgreSQL/live/backup/owner-MFA acceptance, scope/guard/readiness weakening or R1/progress completion"
+      ],
+      "dispatcherPrerequisite": {
+        "acceptedMain": "d062abfba576b8a5875f9856bdffd16efb163438",
+        "sourceHead": "9e916ffa02b2d0fce572adb6aced0eb5e656ecd7",
+        "sourcePr": 5843,
+        "independentReview": 6071477604,
+        "canonicalReadyJob": 113601664901,
+        "actualNativeMainGuardCases": 917,
+        "wholeRemainingLeavesPreserved": true
+      },
+      "dispatcherValidation": "PASS: actual accepted source regenerated twice; all four declared blockers and four queue sections remain once in each prompt, canonical state/currentstep/official5 unchanged. Contract/regeneration proof is not source/runtime acceptance."
     }
   }
 }
