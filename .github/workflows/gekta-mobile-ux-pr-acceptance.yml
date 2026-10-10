@@ -73,6 +73,7 @@ jobs:
           set -euo pipefail
           umask 077
           tls_dir="$(mktemp -d "$RUNNER_TEMP/gekta-mobile-tls.XXXXXX")"
+          printf 'GEKTA_TEST_TLS_DIR=%s\n' "$tls_dir" >> "$GITHUB_ENV"
           openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
             -subj '/CN=Gekta ephemeral browser test CA' \
             -addext 'basicConstraints=critical,CA:TRUE' \
@@ -97,7 +98,6 @@ jobs:
           fi
           certutil -A -d "sql:$HOME/.pki/nssdb" -n gekta-mobile-fixture -t 'C,,' -i "$tls_dir/ca.crt"
           {
-            printf 'GEKTA_TEST_TLS_DIR=%s\n' "$tls_dir"
             printf 'NODE_EXTRA_CA_CERTS=%s\n' "$tls_dir/ca.crt"
           } >> "$GITHUB_ENV"
 
@@ -138,4 +138,5 @@ jobs:
           set -euo pipefail
           if [[ -n "${GEKTA_TEST_TLS_DIR:-}" && "$GEKTA_TEST_TLS_DIR" == "$RUNNER_TEMP"/gekta-mobile-tls.* ]]; then
             rm -rf -- "$GEKTA_TEST_TLS_DIR"
+            printf 'NODE_EXTRA_CA_CERTS=\n' >> "$GITHUB_ENV"
           fi
