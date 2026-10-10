@@ -49,8 +49,11 @@ jobs:
           set -Eeuo pipefail
           python3 - <<'PY'
           import ast
+          import json
           import pathlib
           import re
+          import subprocess
+          import textwrap
           from types import SimpleNamespace as Namespace
 
           workflow = pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_text(encoding='utf-8')
@@ -151,6 +154,51 @@ jobs:
               if actual != expected:
                   raise SystemExit(f'actual diagnostic route rejected: {name}: {actual} != {expected}')
           print(f'PASS: {len(cases)} actual-condition diagnostic route cases; historical journal and non-owner execution rejected.')
+          match = re.search(r"^          image_metadata_script=\"\$\(cat <<'PY_IMAGE_METADATA'\n(.*?)^          PY_IMAGE_METADATA\n", workflow, re.M | re.S)
+          if not match:
+              raise SystemExit('missing actual image metadata normalizer')
+          normalizer = textwrap.dedent(match[1])
+          image_id = 'sha256:' + 'a' * 64
+          revision = 'b' * 40
+          secret = 'ENV_VALUE_MUST_NOT_BE_PUBLISHED'
+          fixture = {'Id': image_id, 'Size': 123, 'RepoTags': ['example/api:fixture'],
+                     'RepoDigests': ['example/api@sha256:' + 'c' * 64],
+                     'Created': '2026-01-01T00:00:00Z',
+                     'Config': {'Labels': {'org.opencontainers.image.revision': revision}, 'Env': [secret]}}
+          metadata_cases = [
+              ('labelled image', {}, True, revision),
+              ('missing Config', {'Config': None}, True, 'unknown'),
+              ('empty Config', {'Config': {}}, True, 'unknown'),
+              ('null Labels', {'Config': {'Labels': None}}, True, 'unknown'),
+              ('empty Labels', {'Config': {'Labels': {}}}, True, 'unknown'),
+              ('malformed Labels', {'Config': {'Labels': []}}, True, 'unknown'),
+              ('invalid revision', {'Config': {'Labels': {'org.opencontainers.image.revision': secret}}}, True, 'unknown'),
+              ('unreferenced image', {'RepoTags': None, 'RepoDigests': None}, True, revision),
+              ('wrong image identity', {'Id': 'sha256:' + 'd' * 64}, False, None),
+              ('invalid size', {'Size': True}, False, None),
+              ('invalid tags', {'RepoTags': 'not-a-list'}, False, None),
+              ('invalid digests', {'RepoDigests': [1]}, False, None),
+          ]
+          for name, changes, success, expected_revision in metadata_cases:
+              payload = [{**fixture, **changes}]
+              result = subprocess.run(['python3', '-c', normalizer, image_id], input=json.dumps(payload),
+                                      text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+              if (result.returncode == 0) != success or secret in result.stdout + result.stderr:
+                  raise SystemExit(f'image metadata normalization rejected: {name}')
+              if success:
+                  lines = result.stdout.splitlines()
+                  if len(lines) != 2 or not lines[0].endswith('|' + expected_revision):
+                      raise SystemExit(f'image metadata shape rejected: {name}')
+                  if not lines[1].startswith('IMAGE_DIGEST_RECORD=' + image_id + '|'):
+                      raise SystemExit(f'image digest attribution rejected: {name}')
+              elif result.stdout:
+                  raise SystemExit(f'partial malformed image record forbidden: {name}')
+          for payload in ([], [fixture, fixture]):
+              result = subprocess.run(['python3', '-c', normalizer, image_id], input=json.dumps(payload),
+                                      text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+              if result.returncode == 0 or result.stdout or secret in result.stderr:
+                  raise SystemExit('ambiguous image metadata was accepted')
+          print('PASS: 14 actual runtime image metadata fixtures; legacy Labels UNKNOWN, malformed records rejected and Config.Env omitted.')
           print('PASS: remote diagnostic is owner-only, exact-main, pinned-SSH and contains no Docker delete/prune or service restart/stop capability.')
           PY
 
@@ -287,6 +335,7 @@ jobs:
           echo 'SCHEMA=pc.production-docker-headroom-diagnostic.v1'
           echo 'MUTATION_MODE=READ_ONLY'
           docker_root="$(docker info --format '{{.DockerRootDir}}')"
+          command -v python3 >/dev/null 2>&1
           printf 'DOCKER_ROOT=%s\n' "$docker_root"
           docker info --format 'DOCKER_SERVER_VERSION={{.ServerVersion}}
           DOCKER_STORAGE_DRIVER={{.Driver}}
@@ -298,6 +347,11 @@ jobs:
           printf 'DOCKER_FS_INODES_TOTAL=%s\nDOCKER_FS_INODES_USED=%s\nDOCKER_FS_INODES_AVAILABLE=%s\nDOCKER_FS_INODES_USED_PERCENT=%s\n' "$itotal" "$iused" "$iavail" "$ipct"
           if command -v findmnt >/dev/null 2>&1; then
             printf 'DOCKER_FS_FINDMNT=%s\n' "$(findmnt -n -T "$docker_root" -o SOURCE,FSTYPE,TARGET,OPTIONS | tr '\n' ' ')"
+          fi
+          if command -v lsblk >/dev/null 2>&1 && block_devices="$(lsblk -b -n -r -o NAME,TYPE,SIZE,FSTYPE 2>/dev/null)"; then
+            printf '%s\n' "$block_devices" | sed 's/^/BLOCK_DEVICE_RECORD=/'
+          else
+            echo 'BLOCK_DEVICE_INVENTORY=unknown'
           fi
 
           containers="$(docker ps -aq --no-trunc | wc -l | tr -d '[:space:]')"
@@ -336,13 +390,54 @@ jobs:
           docker system df -v
           echo 'DOCKER_DF_VERBOSE_END=1'
 
+          image_metadata_script="$(cat <<'PY_IMAGE_METADATA'
+          import json
+          import re
+          import sys
+
+          def invalid():
+              raise SystemExit('INVALID_IMAGE_METADATA')
+
+          try:
+              records = json.load(sys.stdin)
+          except (ValueError, TypeError):
+              invalid()
+          expected_id = sys.argv[1]
+          if not isinstance(records, list) or len(records) != 1 or not isinstance(records[0], dict):
+              invalid()
+          item = records[0]
+          if not re.fullmatch(r'sha256:[0-9a-f]{64}', expected_id) or item.get('Id') != expected_id:
+              invalid()
+          size = item.get('Size')
+          if type(size) is not int or size < 0:
+              invalid()
+          refs = {}
+          for key in ('RepoTags', 'RepoDigests'):
+              values = item.get(key)
+              values = [] if values is None else values
+              if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+                  invalid()
+              refs[key] = values
+          config = item.get('Config')
+          config = config if isinstance(config, dict) else {}
+          labels = config.get('Labels')
+          labels = labels if isinstance(labels, dict) else {}
+          revision = labels.get('org.opencontainers.image.revision')
+          revision = revision if isinstance(revision, str) and re.fullmatch(r'[0-9a-f]{40}', revision) else 'unknown'
+          created = item.get('Created')
+          created = created if isinstance(created, str) and re.fullmatch(r'[0-9T:Z.+-]+', created) else 'unknown'
+          print(f"IMAGE_RECORD={expected_id}|{size}|{json.dumps(refs['RepoTags'])}|{created}|{revision}")
+          print(f"IMAGE_DIGEST_RECORD={expected_id}|{json.dumps(refs['RepoDigests'])}")
+          PY_IMAGE_METADATA
+          )"
           while IFS= read -r image_id; do
             [[ -n "$image_id" ]] || continue
-            docker image inspect --format 'IMAGE_RECORD={{.Id}}|{{.Size}}|{{json .RepoTags}}|{{.Created}}|{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image_id"
+            docker image inspect "$image_id" | python3 -c "$image_metadata_script" "$image_id"
           done < <(docker image ls -q --no-trunc | sort -u)
 
           while IFS= read -r cid; do
             [[ -n "$cid" ]] || continue
+            docker inspect --format 'CONTAINER_IMAGE_REF={{.Id}}|{{.Image}}' "$cid"
             docker inspect --size --format 'CONTAINER_SIZE={{.Id}}|{{.Name}}|{{.SizeRw}}|{{.SizeRootFs}}|{{.State.Status}}|{{.State.StartedAt}}' "$cid" || true
             log_path="$(docker inspect --format '{{.LogPath}}' "$cid" 2>/dev/null || true)"
             if [[ -n "$log_path" && -f "$log_path" ]]; then
@@ -369,7 +464,14 @@ jobs:
 
           if command -v lsof >/dev/null 2>&1; then
             echo 'LSOF_AVAILABLE=1'
-            lsof -nP +L1 2>/dev/null | awk 'NR>1 && $7 ~ /^[0-9]+$/ {count += 1; total += $7} END {printf "DELETED_OPEN_FILE_COUNT=%d\nDELETED_OPEN_FILE_BYTES=%.0f\n", count, total}'
+            if lsof_output="$(lsof -nP +L1 2>/dev/null)"; then
+              echo 'LSOF_COLLECTION_STATUS=complete'
+              printf '%s\n' "$lsof_output" | awk 'NR>1 && $7 ~ /^[0-9]+$/ {count += 1; total += $7} END {printf "DELETED_OPEN_FILE_COUNT=%d\nDELETED_OPEN_FILE_BYTES=%.0f\n", count, total}'
+            else
+              echo 'LSOF_COLLECTION_STATUS=unknown'
+              echo 'DELETED_OPEN_FILE_COUNT=unknown'
+              echo 'DELETED_OPEN_FILE_BYTES=unknown'
+            fi
           else
             echo 'LSOF_AVAILABLE=0'
             echo 'DELETED_OPEN_FILE_COUNT=unknown'
