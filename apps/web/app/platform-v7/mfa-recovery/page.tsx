@@ -10,9 +10,30 @@ import { MfaRecoveryClient } from './MfaRecoveryClient';
 type Locale = 'ru' | 'en' | 'zh';
 
 const COPY = {
-  ru: { nav: 'Навигация восстановления MFA', tagline: 'Цифровая платформа агросделок', home: 'На главную', language: 'Сменить язык', title: 'Безопасное восстановление MFA', lead: 'Одноразовая ссылка и текущий пароль подтверждают личность. Администратор организации не может отключить MFA самостоятельно.' },
-  en: { nav: 'MFA recovery navigation', tagline: 'Digital agricultural deal platform', home: 'Home', language: 'Change language', title: 'Secure MFA recovery', lead: 'The single-use link and current password confirm identity. An organization administrator cannot disable MFA unilaterally.' },
-  zh: { nav: 'MFA 恢复导航', tagline: '农业交易数字平台', home: '返回首页', language: '切换语言', title: '安全恢复 MFA', lead: '一次性链接和当前密码用于确认身份。组织管理员不能单方面禁用 MFA。' },
+  ru: {
+    nav: 'Навигация восстановления защиты входа',
+    tagline: 'Доступ к платформе',
+    home: 'На главную',
+    language: 'Сменить язык',
+    title: 'Восстановление защиты входа',
+    lead: 'Одноразовая ссылка и текущий пароль подтверждают личность. Настройка второго фактора изменяется только после успешной проверки.',
+  },
+  en: {
+    nav: 'Sign-in protection recovery navigation',
+    tagline: 'Platform access',
+    home: 'Home',
+    language: 'Change language',
+    title: 'Recover sign-in protection',
+    lead: 'The single-use link and current password confirm identity. Two-factor protection is changed only after successful verification.',
+  },
+  zh: {
+    nav: '登录保护恢复导航',
+    tagline: '平台访问',
+    home: '返回首页',
+    language: '切换语言',
+    title: '恢复登录保护',
+    lead: '一次性链接和当前密码用于确认身份。只有验证成功后，双重验证设置才会更改。',
+  },
 } as const;
 
 function first(value: string | string[] | undefined) {

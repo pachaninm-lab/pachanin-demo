@@ -42,6 +42,13 @@ function registerInput(sourceType: string) {
     sourceType: sourceType as 'FGIS',
     sourceExternalId: 'FGIS-PARTY-CLAIMED-BY-CLIENT',
     idempotencyKey: 'register-one',
+    inventoryPositionId: 'inventory-position-one',
+    inventoryExpectedVersion: '1',
+    profileVersionId: 'profile-one',
+    unitCode: 'TON',
+    quantity: '500.000000',
+    correlationId: 'correlation-register-one',
+    reason: 'Publish declared stock with a canonical inventory reservation.',
   };
 }
 
@@ -59,8 +66,9 @@ describe('auction lot registration — ФГИС source cannot be self-verified',
     await expect(service.registerLot(registerInput('FGIS'), farmer)).rejects.toBeInstanceOf(
       UnprocessableEntityException,
     );
-    // Nothing was written, and no transaction was even opened.
+    // No auction transaction is opened; the quarantine denial is durably audited.
     expect(withTrustedContext).not.toHaveBeenCalled();
+    expect(audit.last.denialCode).toBe(FGIS_LEGACY_ERROR_CODES.VERIFIED_LOT_PATH_NOT_READY);
   });
 
   it('denies with the P0.2 code and does not echo the claimed external id', async () => {
@@ -73,9 +81,9 @@ describe('auction lot registration — ФГИС source cannot be self-verified',
     expect(JSON.stringify(body)).not.toContain('FGIS-PARTY-CLAIMED-BY-CLIENT');
   });
 
-  it('leaves the non-FGIS source types working', async () => {
-    // The quarantine withdraws one unproven claim; it is not an auction-wide
-    // kill switch. These reach the command and fail only on the stubbed tx.
+  it('allows non-FGIS source claims to reach declared inventory-bound registration', async () => {
+    // Every source label still needs the canonical stock binding. PostgreSQL
+    // persists DECLARED and never treats the label as independent verification.
     withTrustedContext.mockResolvedValue({ result: {} });
     for (const sourceType of ['ERP', 'MANUAL_VERIFIED', 'OTHER']) {
       withTrustedContext.mockClear();

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-reviewer-reset-enqueue-db-state-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_ENQUEUE_DB_STATE_READ_ONLY",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Read-only production DB state for auth.enqueue_mail_outbox after reviewer reset SQLSTATE 42883",
+  "migrationName": "20260812010000_p0_industrial_auth_mail_outbox",
+  "functionSignature": "auth.enqueue_mail_outbox(text,text,text,text,text,integer,text,text,text,integer,timestamptz,timestamptz)",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-enqueue-db-state.yml",
+    "scripts/production-p0-reviewer-reset-enqueue-db-state.sh",
+    "scripts/check-production-p0-reviewer-reset-enqueue-db-state.mjs",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-enqueue-db-state-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseRead": true,
+    "databaseMutation": false,
+    "catalogReadOnly": true,
+    "migrationMetadataReadOnly": true,
+    "identityMutation": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "resetReplay": false,
+    "mailSend": false,
+    "deploymentMutation": false,
+    "containerLifecycleMutation": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawDbErrorOutput": false,
+    "customerRowRead": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "activeApiPrincipalProbe": true,
+    "migrationAuthorityProbe": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "query PostgreSQL catalog through the same DATABASE_URL principal as the active API",
+    "classify auth schema, mail_outbox table, exact enqueue function and EXECUTE privilege without invoking the function",
+    "resolve the existing Compose migration datasource in memory and query only the named _prisma_migrations row",
+    "prove migration datasource target parity with the active API database without publishing any DSN, hostname, database name or credential",
+    "read PostgreSQL catalog and migration metadata only; read no customer or user rows",
+    "publish only bounded PASS/FAIL/state classes plus active OCI revision",
+    "do not replay password reset, send mail, modify database grants/schema/rows, restart containers or deploy",
+    "new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

@@ -1,0 +1,450 @@
+name: Production Docker Headroom Read-Only Diagnostic
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/production-docker-headroom-diagnostic.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-docker-headroom-readonly-diagnostic
+  cancel-in-progress: false
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  AUTHORITY_ISSUE_NUMBER: 3072
+  EVIDENCE_DIR: artifacts/production-docker-headroom-diagnostic
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate read-only diagnostic contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 3072 &&
+       github.event.comment.body == '/production diagnose-docker current-main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Prove read-only boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import pathlib
+          import re
+
+          workflow = pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_text(encoding='utf-8')
+          required = [
+              "github.event.issue.number == 3072",
+              "github.event.comment.body == '/production diagnose-docker current-main'",
+              'github.event.comment.user.login',
+              'github.repository_owner',
+              'PC_PROD_SSH_HOST_FINGERPRINT',
+              'StrictHostKeyChecking=yes',
+              'BatchMode=yes',
+              'MUTATION_MODE=READ_ONLY',
+              'docker system df',
+              'docker inspect --size',
+              'lsof -nP +L1',
+              'RUNTIME_API_STARTED_AT=',
+              'RUNTIME_WEB_STARTED_AT=',
+              'DOCKER_OBJECT_COUNTS=',
+          ]
+          for needle in required:
+              if needle not in workflow:
+                  raise SystemExit(f'missing diagnostic boundary: {needle}')
+
+          fragments = [
+              ('docker ' + 'system ' + 'prune'),
+              ('docker ' + 'image ' + 'prune'),
+              ('docker ' + 'builder ' + 'prune'),
+              ('docker ' + 'container ' + 'prune'),
+              ('docker ' + 'volume ' + 'prune'),
+              ('docker ' + 'network ' + 'prune'),
+              ('docker ' + 'image ' + 'rm'),
+              ('docker ' + 'container ' + 'rm'),
+              ('docker ' + 'volume ' + 'rm'),
+              ('docker ' + 'network ' + 'rm'),
+              ('docker ' + 'restart'),
+              ('docker ' + 'stop'),
+              ('docker ' + 'kill'),
+              ('systemctl ' + 'restart'),
+              ('systemctl ' + 'stop'),
+              ('truncate ' + '-s'),
+          ]
+          for forbidden in fragments:
+              if forbidden in workflow:
+                  raise SystemExit(f'forbidden production mutation capability: {forbidden}')
+          if re.search(r'StrictHostKeyChecking\s*=\s*no', workflow, re.I):
+              raise SystemExit('host verification bypass forbidden')
+          print('PASS: remote diagnostic is owner-only, exact-main, pinned-SSH and contains no Docker delete/prune or service restart/stop capability.')
+          PY
+
+  diagnose:
+    name: Diagnose production Docker storage without mutation
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.body == '/production diagnose-docker current-main' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      needs.contract.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind exact current main inside diagnostic job
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          git fetch --no-tags origin main
+          target_sha="$(gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target_sha" == "$(git rev-parse origin/main)" ]]
+          git checkout --detach "$target_sha"
+          [[ "$(git rev-parse HEAD)" == "$target_sha" ]]
+          echo "TARGET_SHA=$target_sha" >> "$GITHUB_ENV"
+          printf '%s\n' "$target_sha" > "$EVIDENCE_DIR/target-sha.txt"
+
+      - name: Resolve protected key and pinned VPS identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'Canonical VPS mismatch.' >&2; exit 10; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo 'Protected production principal is missing or invalid.' >&2; exit 11; }
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo 'Pinned host fingerprint is required.' >&2; exit 13; }
+          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
+          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            ssh-keygen -lf "$pub" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || {
+            echo 'No valid protected SSH private key is configured.' >&2
+            exit 14
+          }
+
+          scan="$(mktemp)"; match="$(mktemp)"
+          pinned_ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned_ready=1; break; fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; echo 'Pinned host key mismatch after bounded retries.' >&2; exit 15; }
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          echo "PROD_HOST=$host" >> "$GITHUB_ENV"
+          echo "PROD_PORT=$port" >> "$GITHUB_ENV"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$SSH_USER_SECRET@$host" \
+            'set -Eeuo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; echo SSH_AUTH_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+
+      - name: Collect read-only storage and runtime evidence
+        id: probe
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          remote_script="$(cat <<'REMOTE'
+          set -Eeuo pipefail
+          echo 'SCHEMA=pc.production-docker-headroom-diagnostic.v1'
+          echo 'MUTATION_MODE=READ_ONLY'
+          docker_root="$(docker info --format '{{.DockerRootDir}}')"
+          printf 'DOCKER_ROOT=%s\n' "$docker_root"
+          docker info --format 'DOCKER_SERVER_VERSION={{.ServerVersion}}
+          DOCKER_STORAGE_DRIVER={{.Driver}}
+          DOCKER_CPUS={{.NCPU}}
+          DOCKER_MEMORY_BYTES={{.MemTotal}}'
+          read -r fs total used avail pct mount < <(df -Pk "$docker_root" | awk 'NR==2{print $1,$2,$3,$4,$5,$6}')
+          printf 'DOCKER_FS_DEVICE=%s\nDOCKER_FS_TOTAL_KB=%s\nDOCKER_FS_USED_KB=%s\nDOCKER_FS_AVAILABLE_KB=%s\nDOCKER_FS_USED_PERCENT=%s\nDOCKER_FS_MOUNT=%s\n' "$fs" "$total" "$used" "$avail" "$pct" "$mount"
+          read -r ifs itotal iused iavail ipct imount < <(df -Pi "$docker_root" | awk 'NR==2{print $1,$2,$3,$4,$5,$6}')
+          printf 'DOCKER_FS_INODES_TOTAL=%s\nDOCKER_FS_INODES_USED=%s\nDOCKER_FS_INODES_AVAILABLE=%s\nDOCKER_FS_INODES_USED_PERCENT=%s\n' "$itotal" "$iused" "$iavail" "$ipct"
+          if command -v findmnt >/dev/null 2>&1; then
+            printf 'DOCKER_FS_FINDMNT=%s\n' "$(findmnt -n -T "$docker_root" -o SOURCE,FSTYPE,TARGET,OPTIONS | tr '\n' ' ')"
+          fi
+
+          containers="$(docker ps -aq --no-trunc | wc -l | tr -d '[:space:]')"
+          volumes="$(docker volume ls -q | wc -l | tr -d '[:space:]')"
+          networks="$(docker network ls -q | wc -l | tr -d '[:space:]')"
+          images="$(docker image ls -q --no-trunc | sort -u | wc -l | tr -d '[:space:]')"
+          printf 'DOCKER_OBJECT_COUNTS=containers:%s,volumes:%s,networks:%s,images:%s\n' "$containers" "$volumes" "$networks" "$images"
+
+          mapfile -t api_ids < <(docker ps -q --no-trunc --filter 'label=com.docker.compose.service=api')
+          mapfile -t web_ids < <(docker ps -q --no-trunc --filter 'label=com.docker.compose.service=web')
+          printf 'RUNTIME_API_COUNT=%s\nRUNTIME_WEB_COUNT=%s\n' "${#api_ids[@]}" "${#web_ids[@]}"
+          if (( ${#api_ids[@]} == 1 )); then
+            cid="${api_ids[0]}"
+            docker inspect --format 'RUNTIME_API_ID={{.Id}}
+          RUNTIME_API_IMAGE_ID={{.Image}}
+          RUNTIME_API_REVISION={{index .Config.Labels "org.opencontainers.image.revision"}}
+          RUNTIME_API_CREATED={{.Created}}
+          RUNTIME_API_STARTED_AT={{.State.StartedAt}}
+          RUNTIME_API_STATUS={{.State.Status}}' "$cid"
+          fi
+          if (( ${#web_ids[@]} == 1 )); then
+            cid="${web_ids[0]}"
+            docker inspect --format 'RUNTIME_WEB_ID={{.Id}}
+          RUNTIME_WEB_IMAGE_ID={{.Image}}
+          RUNTIME_WEB_REVISION={{index .Config.Labels "org.opencontainers.image.revision"}}
+          RUNTIME_WEB_CREATED={{.Created}}
+          RUNTIME_WEB_STARTED_AT={{.State.StartedAt}}
+          RUNTIME_WEB_STATUS={{.State.Status}}' "$cid"
+          fi
+
+          echo 'DOCKER_DF_BEGIN=1'
+          docker system df --format '{{json .}}' | sed 's/^/DOCKER_DF_JSON=/'
+          echo 'DOCKER_DF_END=1'
+
+          echo 'DOCKER_DF_VERBOSE_BEGIN=1'
+          docker system df -v
+          echo 'DOCKER_DF_VERBOSE_END=1'
+
+          while IFS= read -r image_id; do
+            [[ -n "$image_id" ]] || continue
+            docker image inspect --format 'IMAGE_RECORD={{.Id}}|{{.Size}}|{{json .RepoTags}}|{{.Created}}|{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image_id"
+          done < <(docker image ls -q --no-trunc | sort -u)
+
+          while IFS= read -r cid; do
+            [[ -n "$cid" ]] || continue
+            docker inspect --size --format 'CONTAINER_SIZE={{.Id}}|{{.Name}}|{{.SizeRw}}|{{.SizeRootFs}}|{{.State.Status}}|{{.State.StartedAt}}' "$cid" || true
+            log_path="$(docker inspect --format '{{.LogPath}}' "$cid" 2>/dev/null || true)"
+            if [[ -n "$log_path" && -f "$log_path" ]]; then
+              printf 'CONTAINER_LOG_BYTES=%s|%s\n' "$(stat -c '%s' "$log_path")" "$cid"
+            fi
+          done < <(docker ps -aq --no-trunc)
+
+          for path in "$docker_root" "$docker_root/overlay2" "$docker_root/buildkit" "$docker_root/containers" "$docker_root/image" "$docker_root/volumes" /var/lib/containerd /var/log; do
+            if [[ -e "$path" ]]; then
+              printf 'DU_TOTAL_BYTES=%s|%s\n' "$(du -x -s -B1 "$path" 2>/dev/null | awk '{print $1}')" "$path"
+            fi
+          done
+          if [[ -d "$docker_root" ]]; then
+            du -x -B1 --max-depth=1 "$docker_root" 2>/dev/null | sort -nr | while read -r bytes path; do printf 'DU_DOCKER_CHILD_BYTES=%s|%s\n' "$bytes" "$path"; done
+          fi
+          if [[ -d /var ]]; then
+            du -x -B1 --max-depth=1 /var 2>/dev/null | sort -nr | head -25 | while read -r bytes path; do printf 'DU_VAR_CHILD_BYTES=%s|%s\n' "$bytes" "$path"; done
+          fi
+          if [[ -d /srv ]]; then
+            du -x -B1 --max-depth=1 /srv 2>/dev/null | sort -nr | head -25 | while read -r bytes path; do printf 'DU_SRV_CHILD_BYTES=%s|%s\n' "$bytes" "$path"; done
+          fi
+
+          builder_du="$(docker builder du 2>/dev/null || true)"
+          if [[ -n "$builder_du" ]]; then
+            echo 'BUILDER_DU_AVAILABLE=1'
+            printf '%s\n' "$builder_du"
+          else
+            echo 'BUILDER_DU_AVAILABLE=0'
+          fi
+
+          if command -v lsof >/dev/null 2>&1; then
+            echo 'LSOF_AVAILABLE=1'
+            lsof -nP +L1 2>/dev/null | awk 'NR>1 && $7 ~ /^[0-9]+$/ {count += 1; total += $7} END {printf "DELETED_OPEN_FILE_COUNT=%d\nDELETED_OPEN_FILE_BYTES=%.0f\n", count, total}'
+          else
+            echo 'LSOF_AVAILABLE=0'
+            echo 'DELETED_OPEN_FILE_COUNT=unknown'
+            echo 'DELETED_OPEN_FILE_BYTES=unknown'
+          fi
+          echo 'PROBE_COMPLETE=1'
+          REMOTE
+          )"
+
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$SSH_USER_SECRET@$PROD_HOST" 'bash -s' \
+            > "$EVIDENCE_DIR/remote-output.txt" 2> "$EVIDENCE_DIR/remote-stderr.txt" <<< "$remote_script"
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$EVIDENCE_DIR/remote-exit-code.txt"
+          (( rc == 0 ))
+          grep -Fxq 'MUTATION_MODE=READ_ONLY' "$EVIDENCE_DIR/remote-output.txt"
+          grep -Fxq 'PROBE_COMPLETE=1' "$EVIDENCE_DIR/remote-output.txt"
+          echo 'complete=true' >> "$GITHUB_OUTPUT"
+
+      - name: Cleanup protected transport
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
+
+      - name: Build bounded diagnostic summary
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          root = Path('artifacts/production-docker-headroom-diagnostic')
+          raw = root / 'remote-output.txt'
+          lines = raw.read_text(encoding='utf-8', errors='replace').splitlines() if raw.exists() else []
+          scalar = {}
+          images = []
+          du = []
+          logs = []
+          docker_df = []
+          for line in lines:
+              if line.startswith('IMAGE_RECORD='):
+                  parts = line.split('=', 1)[1].split('|', 4)
+                  if len(parts) >= 2:
+                      try: size = int(parts[1])
+                      except ValueError: size = 0
+                      images.append((size, parts[0], parts[2] if len(parts) > 2 else ''))
+                  continue
+              if line.startswith(('DU_TOTAL_BYTES=', 'DU_DOCKER_CHILD_BYTES=', 'DU_VAR_CHILD_BYTES=', 'DU_SRV_CHILD_BYTES=')):
+                  payload = line.split('=', 1)[1]
+                  if '|' in payload:
+                      size, path = payload.split('|', 1)
+                      try: du.append((int(size), path))
+                      except ValueError: pass
+                  continue
+              if line.startswith('CONTAINER_LOG_BYTES='):
+                  payload = line.split('=', 1)[1]
+                  if '|' in payload:
+                      size, cid = payload.split('|', 1)
+                      try: logs.append((int(size), cid[:12]))
+                      except ValueError: pass
+                  continue
+              if line.startswith('DOCKER_DF_JSON='):
+                  try: docker_df.append(json.loads(line.split('=', 1)[1]))
+                  except json.JSONDecodeError: pass
+                  continue
+              if '=' in line and not line.startswith(('DOCKER_DF_VERBOSE_', 'BUILDER_')):
+                  k, v = line.split('=', 1)
+                  if k and len(k) < 80:
+                      scalar[k] = v
+
+          images.sort(reverse=True)
+          du_unique = {}
+          for size, path in du:
+              du_unique[path] = max(size, du_unique.get(path, 0))
+          top_du = sorted(((v, k) for k, v in du_unique.items()), reverse=True)[:10]
+          logs.sort(reverse=True)
+
+          def gib(value):
+              try: return f"{int(value)/(1024**3):.2f} GiB"
+              except Exception: return 'unknown'
+          def mib_from_kb(value):
+              try: return f"{int(value)/1024:.1f} MiB"
+              except Exception: return 'unknown'
+
+          target = (root / 'target-sha.txt').read_text().strip() if (root / 'target-sha.txt').exists() else 'unknown'
+          body = [
+              '## Production Docker headroom read-only diagnostic',
+              '',
+              f"- exact main: `{target}`;",
+              f"- mutation mode: `{scalar.get('MUTATION_MODE', 'not-proven')}`;",
+              f"- Docker free: `{mib_from_kb(scalar.get('DOCKER_FS_AVAILABLE_KB'))}`; filesystem used: `{scalar.get('DOCKER_FS_USED_PERCENT', 'unknown')}`; inodes used: `{scalar.get('DOCKER_FS_INODES_USED_PERCENT', 'unknown')}`;",
+              f"- Docker driver/root: `{scalar.get('DOCKER_STORAGE_DRIVER', 'unknown')}` / `{scalar.get('DOCKER_ROOT', 'unknown')}`;",
+              f"- objects: `{scalar.get('DOCKER_OBJECT_COUNTS', 'unknown')}`;",
+              f"- API: revision `{scalar.get('RUNTIME_API_REVISION', 'unknown')}`, status `{scalar.get('RUNTIME_API_STATUS', 'unknown')}`, started `{scalar.get('RUNTIME_API_STARTED_AT', 'unknown')}`;",
+              f"- Web: revision `{scalar.get('RUNTIME_WEB_REVISION', 'unknown')}`, status `{scalar.get('RUNTIME_WEB_STATUS', 'unknown')}`, started `{scalar.get('RUNTIME_WEB_STARTED_AT', 'unknown')}`;",
+              f"- deleted-open files: `{scalar.get('DELETED_OPEN_FILE_COUNT', 'unknown')}` / `{gib(scalar.get('DELETED_OPEN_FILE_BYTES'))}`;",
+              '',
+              '**Largest measured storage consumers:**',
+          ]
+          for size, path in top_du[:8]:
+              body.append(f"- `{path}` — `{gib(size)}`")
+          if images:
+              body += ['', '**Largest Docker image objects:**']
+              for size, image_id, tags in images[:6]:
+                  body.append(f"- `{image_id[:19]}` — `{gib(size)}` — `{tags[:160]}`")
+          if logs:
+              body += ['', '**Largest container JSON logs:**']
+              for size, cid in logs[:5]:
+                  body.append(f"- `{cid}` — `{gib(size)}`")
+          if docker_df:
+              body += ['', '**Docker system df:**']
+              for row in docker_df:
+                  body.append(f"- `{json.dumps(row, ensure_ascii=True, sort_keys=True)[:500]}`")
+          body += ['', 'This probe performs no Docker deletion/prune, container/service restart, database write or customer-data mutation.']
+          (root / 'issue-record.md').write_text('\n'.join(body) + '\n', encoding='utf-8')
+          PY
+
+      - name: Publish diagnostic evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh issue comment "$AUTHORITY_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/issue-record.md"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-docker-headroom-diagnostic-${{ github.run_id }}
+          path: artifacts/production-docker-headroom-diagnostic
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0

@@ -1,22 +1,50 @@
 name: Production P0 Reviewer Inspect
 
 on:
+  workflow_call:
+    inputs:
+      controller_authorized:
+        description: 'Set only by the owner-authorized production release controller.'
+        required: true
+        type: boolean
+      controller_target_sha:
+        description: 'Immutable release candidate after successful auth-mail cutover.'
+        required: true
+        type: string
+      controller_run_id:
+        description: 'Owner release-controller run containing release and mail jobs.'
+        required: true
+        type: string
+      controller_issue_number:
+        description: 'Owner-validated release issue propagated by the controller.'
+        required: true
+        type: number
   pull_request:
     branches: [main]
     paths:
       - '.github/workflows/production-p0-reviewer-inspect.yml'
       - 'scripts/production-p0-reviewer-inspect.sh'
+      - 'scripts/production-p0-employee-join-state-inspect.sh'
       - 'scripts/check-production-p0-reviewer-inspect.mjs'
+      - 'apps/api/src/modules/auth/password-hashing.ts'
+      - 'apps/api/src/modules/auth/password-reset.service.ts'
+      - 'apps/api/src/modules/auth/password-reset.repository.ts'
       - 'apps/api/prisma/migrations/20260810124500_p0_reviewer_login_readiness/migration.sql'
       - 'apps/api/prisma/migrations/20260810125000_p0_reviewer_login_readiness_acl_correction/migration.sql'
+      - 'apps/api/prisma/migrations/20260831160000_p0_reviewer_scrypt_readiness/migration.sql'
   push:
     branches: [main]
     paths:
       - '.github/workflows/production-p0-reviewer-inspect.yml'
       - 'scripts/production-p0-reviewer-inspect.sh'
+      - 'scripts/production-p0-employee-join-state-inspect.sh'
       - 'scripts/check-production-p0-reviewer-inspect.mjs'
+      - 'apps/api/src/modules/auth/password-hashing.ts'
+      - 'apps/api/src/modules/auth/password-reset.service.ts'
+      - 'apps/api/src/modules/auth/password-reset.repository.ts'
       - 'apps/api/prisma/migrations/20260810124500_p0_reviewer_login_readiness/migration.sql'
       - 'apps/api/prisma/migrations/20260810125000_p0_reviewer_login_readiness_acl_correction/migration.sql'
+      - 'apps/api/prisma/migrations/20260831160000_p0_reviewer_scrypt_readiness/migration.sql'
   issue_comment:
     types: [created]
 
@@ -26,16 +54,26 @@ permissions:
 concurrency:
   group: production-p0-reviewer-inspect
   cancel-in-progress: false
+  queue: max
 
 jobs:
   contract:
     name: Validate production reviewer inspect contract
     if: >-
+      (inputs.controller_authorized == true &&
+       github.event_name == 'issue_comment' &&
+       (inputs.controller_issue_number == 3072 || inputs.controller_issue_number == 4637) &&
+       inputs.controller_issue_number == github.event.issue.number &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.author_association == 'OWNER' &&
+       github.event.comment.body == '/production release current-main' &&
+       github.actor == github.repository_owner &&
+       github.triggering_actor == github.repository_owner) ||
       github.event_name == 'pull_request' ||
       github.event_name == 'push' ||
       (
         github.event_name == 'issue_comment' &&
-        github.event.issue.number == 3072 &&
+        (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
         github.event.comment.user.login == github.repository_owner &&
         github.actor == github.repository_owner &&
         github.triggering_actor == github.repository_owner &&
@@ -46,7 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          ref: ${{ inputs.controller_authorized == true && inputs.controller_target_sha || github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
@@ -54,6 +92,44 @@ jobs:
           node-version: '24'
       - run: node scripts/check-production-p0-reviewer-inspect.mjs
       - run: bash -n scripts/production-p0-reviewer-inspect.sh
+      - name: Validate bounded employee join state inspector
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/production-p0-employee-join-state-inspect.sh
+          node <<'NODE'
+          const fs = require('node:fs');
+          const source = fs.readFileSync('scripts/production-p0-employee-join-state-inspect.sh', 'utf8');
+          const required = [
+            "SOURCE_RUN='33155036583-1'",
+            "SOURCE_SHA='0069e8bdc741d0c955823b14ad629513570a7bb7'",
+            "REGISTER_CORRELATION='p0-all-role-register:0069e8bdc741:33155036583-1:employee'",
+            "DECISION_CORRELATION='p0-all-role-employee-join:0069e8bdc741:33155036583-1'",
+            'StrictHostKeyChecking=yes',
+            'auth.registration_applications',
+            'auth.registration_application_events',
+            'PRODUCTION_MUTATION=NONE',
+            'employee decision replay: \\`NONE\\`',
+            'raw identifiers or credentials published: \\`0\\`',
+          ];
+          for (const marker of required) {
+            if (!source.includes(marker)) throw new Error(`Missing employee state inspector marker: ${marker}`);
+          }
+          const forbidden = [
+            /\bINSERT\s+INTO\b/i,
+            /\bUPDATE\s+(?:auth\.|public\.)/i,
+            /\bDELETE\s+FROM\b/i,
+            /\bCREATE\s+(?:ROLE|USER|TABLE|FUNCTION)\b/i,
+            /\bALTER\s+(?:ROLE|USER|TABLE)\b/i,
+            /\bDROP\s+(?:ROLE|USER|TABLE|FUNCTION)\b/i,
+            /-X\s+POST\b/i,
+            /curl[^\n]+--data/i,
+            /console\.(?:log|error)\([^\n]*(?:DATABASE_URL|password|token|email|phone|application\.id)/i,
+          ];
+          for (const pattern of forbidden) {
+            if (pattern.test(source)) throw new Error(`Employee state inspector is not bounded read-only: ${pattern}`);
+          }
+          NODE
 
   inspect:
     name: Read-only REG.RU reviewer login readiness
@@ -61,16 +137,28 @@ jobs:
     if: >-
       needs.contract.result == 'success' &&
       github.event_name == 'issue_comment' &&
-      github.event.issue.number == 3072 &&
       github.event.comment.user.login == github.repository_owner &&
       github.actor == github.repository_owner &&
       github.triggering_actor == github.repository_owner &&
-      github.event.comment.body == '/production p0-reviewer-inspect current-main'
+      (
+        (inputs.controller_authorized == true &&
+         (inputs.controller_issue_number == 3072 || inputs.controller_issue_number == 4637) &&
+         inputs.controller_issue_number == github.event.issue.number &&
+         github.event.comment.author_association == 'OWNER' &&
+         github.event.comment.body == '/production release current-main') ||
+        (inputs.controller_authorized != true &&
+         (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
+         github.event.comment.body == '/production p0-reviewer-inspect current-main')
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
       issues: write
+    concurrency:
+      group: pc-crop-production-release-candidate
+      cancel-in-progress: false
+      queue: max
     env:
       GH_TOKEN: ${{ github.token }}
       PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
@@ -80,12 +168,40 @@ jobs:
       PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
       PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+      PC_PRODUCTION_AUTHORITY_ISSUE_NUMBER: ${{ inputs.controller_authorized == true && inputs.controller_issue_number || github.event.issue.number }}
+      PC_P0_TARGET_SHA: ${{ inputs.controller_authorized == true && inputs.controller_target_sha || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ inputs.controller_authorized == true && inputs.controller_target_sha || github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Inspect exact-main reviewer readiness without mutation
+      - name: Bind reviewer readiness to immutable release candidate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTROLLER_AUTHORIZED: ${{ inputs.controller_authorized == true }}
+          CONTROLLER_RUN_ID: ${{ inputs.controller_run_id }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          current_main="$(git rev-parse origin/main)"
+          [[ "$current_main" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          target="${PC_P0_TARGET_SHA:-$current_main}"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          git merge-base --is-ancestor "$target" "$current_main"
+          if [[ "$CONTROLLER_AUTHORIZED" == true ]]; then
+            [[ "$CONTROLLER_RUN_ID" == "$GITHUB_RUN_ID" ]]
+            [[ "$target" == "$GITHUB_SHA" ]]
+          fi
+          git checkout --detach "$target"
+          node scripts/check-production-p0-reviewer-inspect.mjs
+          bash -n scripts/production-p0-reviewer-inspect.sh
+      - name: Inspect failed employee join persisted state without mutation
+        if: inputs.controller_authorized != true
+        shell: bash
+        run: bash scripts/production-p0-employee-join-state-inspect.sh
+      - name: Inspect immutable-candidate reviewer readiness without mutation
         shell: bash
         run: bash scripts/production-p0-reviewer-inspect.sh

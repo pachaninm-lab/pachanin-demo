@@ -1,20 +1,40 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 0,
-  "currentStep": "IR-10.4 Settlement PostgreSQL Authority",
-  "lastCompletedStep": "#2426 Labs PostgreSQL Authority",
+  "fullTzReadinessPercent": 5,
+  "currentStep": "R1 release prerequisite: atomic canonical readiness recovery #4829",
+  "lastCompletedStep": "R1.1 exact 13-cabinet inventory admitted by PR #5468",
   "openPr": null,
   "blockedBy": [
-    "Production settlement still permits RuntimeCore, process-memory outbox, optional Prisma and repository selection; PostgreSQL authority is not yet exclusive."
+    "R1 release prerequisite: atomic canonical readiness recovery #4829 is not green/closed/mergeable. Dispatcher will not advance to Gekta existing-owner model activation and live quality/speed/stability acceptance: after this prerequisite, within separate existing scopes and remaining release/topology gates.",
+    "Gekta history dual-identity P1 requires separately accepted thirteen-path replacement, genuine fresh independent review and thirteen-case restricted PostgreSQL acceptance; historical green ef cases are not acceptance of the new payload.",
+    "Gekta release CI is blocked by the unchanged PC-CROP-10C instantaneous fixture clock race; exact one-test-file correction requires separate genuine review/native26-case acceptance without runtime or SQL authority changes.",
+    "Gekta model source is blocked by genuine credential-before-validation P2; corrected four-path immutable source needs separate acceptance and real new native review, then authorized one-use execution. Retired grant remains spent; permanent control remains INTERACTION_REQUIRED.",
+    "Gekta dispatcher explicit unaccepted-payload supersession correction is pending separate two-file source acceptance; registered public legal18 and anonymous17 replacements remain private and blocked until that accepted dispatcher exists.",
+    "Gekta positive dispatcher regression fixture isolation is pending separate exact one-test-file source acceptance; future registered18/anonymous17 metadata remains private and blocked. Runtime duplicate/cycle/owner/scope rejection remains unchanged.",
+    "Gekta registered18 source is blocked by actual Kubernetes source-binding input capacity; exact two-path named governance capacity correction requires separately accepted metadata/source and genuine native full preflight/KIND before fresh registration acceptance.",
+    "Gekta registered18 remains blocked by real180s guard timeout and DockerHub429; separately admitted one-test-file baseline fixture cache needs its own genuine review/native/readiness/manual acceptance, then actual recomposed registration preflight/Kubernetes PASS. No timeout or test is weakened.",
+    "Gekta registration18 is blocked by genuine current392 P1 wrong personal-data document binding; separate six-payload same-vector admission and corrected-source exact-head review/native/canonical/manual acceptance are required. Prior392 bounded preflight PASS is genuine but does not satisfy corrected-source acceptance or resolve the P1; old source slot was explicitly released.",
+    "Gekta owned-history4 is blocked by genuine fed3 P2 contradictory four-versus-five runbook markers; separately accepted complete corrected four-path payload and fresh source review/native/canonical/manual acceptance are required before live execution.",
+    "Gekta anonymous17 is blocked by genuine current1a4 P1 reserve fallback binding EN/ZH interfaces to RU consent evidence; separately accepted three-payload same-vector correction and fresh exact-head source review/native/canonical/manual acceptance are required before live execution.",
+    "Gekta anonymous17 acceptance is blocked by genuine108b Mobile PR failures from obsolete bare legal-link selectors; separately accept the exact existing mobile-owner one-test-file commitment-aware correction, then recompose unchanged anonymous17 afters on actual accepted mobile main and obtain new exact-head native/mobile/KIND/readiness/manual acceptance."
   ],
-  "nextStep": "IR-10.4 Settlement PostgreSQL Authority",
-  "updatedAt": "2026-07-13T12:27:00.000Z",
+  "nextStep": "Accept the exact eleven-file prerequisite on the existing readiness branch; then prioritize Gekta through its existing owner and separate scope/release gates",
+  "updatedAt": "2026-10-09T20:04:35Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
     "noAutoMerge": true,
     "controlledPilotOnly": true,
-    "noSelfModifyingWorkflow": true,
-    "noDirectPushToMain": true
-  }
+    "serverAuthority": true,
+    "noClientSelectedRole": true,
+    "noParallelUxFgisBankImplementation": true
+  },
+  "masterV21": {
+    "overallProductionProgress": "5/100=5%",
+    "r1TargetAfterProductionPass": "12/100=12%",
+    "exactMain": "5da8e80744908413102214f91dd68018911b892e",
+    "productionSha": "5da8e80744908413102214f91dd68018911b892e",
+    "productionControllerRun": 35520784872
+  },
+  "currentTaskExecution": "Owner disposition 5935185862 permits only the atomic eleven-file prerequisite; #5770/#5771 failed evidence stays preserved. No R1 or overall production credit and no Gekta source/release expansion."
 }

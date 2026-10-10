@@ -12,7 +12,11 @@ import {
   serializeAnonymousSession,
   createAnonymousSession,
   issueTicket,
+  recordConsent,
 } from '@/lib/gekta/anonymous-session';
+import { GEKTA_LEGAL_VERSION } from '@/lib/gekta/legal';
+import { currentGektaLegalEvidence, registrationConsentPresentation } from '@/lib/gekta/consent-evidence-server';
+import { sealGektaConsentSnapshot } from '../../../../packages/domain-core/src/gekta-consent-evidence';
 import {
   clearGektaMfaCookieOptions,
   gektaEmailCookieOptions,
@@ -36,6 +40,8 @@ function setEnv(name: string, value: string | undefined) {
 }
 
 function bffRequest(body: Record<string, unknown>): Request {
+  const locale = body.locale === 'en' || body.locale === 'zh' ? body.locale : 'ru';
+  body = { consentSnapshot: registrationConsentPresentation(locale, DELIVERY_KEY).snapshot, ...body };
   return {
     method: 'POST',
     url: 'https://gekta.example.test/api/gekta/auth/register',
@@ -103,6 +109,30 @@ describe('Gekta registration security boundary', () => {
     vi.unstubAllGlobals();
   });
 
+  it('preserves an upstream consent-refresh rejection after local proof validation', async () => {
+    const fetch = vi.fn(async () => Response.json({ code: 'CONSENT_REFRESH_REQUIRED', privateDetail: 'not-public' }, { status: 400 }));
+    vi.stubGlobal('fetch', fetch);
+    const response = await registerPost(bffRequest({ fullName: 'Тест согласия', phone: '+7 916 000-00-00',
+      email: 'consent-boundary@example.test', password: fixtureValue('Strong1!'), acceptedServiceTerms: true,
+      acceptedPersonalData: true, locale: 'ru' }));
+    expect(response.status).toBe(400);
+    const payload = await response.json();
+    expect(payload.code).toBe('CONSENT_REFRESH_REQUIRED');
+    expect(payload.privateDetail).toBeUndefined();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps unknown upstream registration codes private', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ code: 'PRIVATE_DIAGNOSTIC', privateDetail: 'not-public' }, { status: 400 })));
+    const response = await registerPost(bffRequest({ fullName: 'Тест согласия', phone: '+7 916 000-00-00',
+      email: 'consent-boundary@example.test', password: fixtureValue('Strong1!'), acceptedServiceTerms: true,
+      acceptedPersonalData: true, locale: 'ru' }));
+    expect(response.status).toBe(400);
+    const payload = await response.json();
+    expect(payload.code).toBe('REGISTRATION_REQUEST_INVALID');
+    expect(payload.privateDetail).toBeUndefined();
+  });
+
   it('keeps the API email bearer token inside the BFF while sending the real link', async () => {
     const calls: Array<{ url: string; init?: RequestInit }> = [];
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -131,6 +161,8 @@ describe('Gekta registration security boundary', () => {
     expect(response.status).toBe(202);
     expect(await response.text()).not.toContain('rev_secret_bearer_token');
     expect(new Headers(calls[0].init?.headers).get('x-registration-delivery-key')).toBe(DELIVERY_KEY);
+    const forwarded = JSON.parse(String(calls[0].init?.body));
+    expect(forwarded.consentEvidence).toEqual(currentGektaLegalEvidence('ru', 'GEKTA_REGISTRATION'));
     expect(String(calls[1].init?.body)).toContain('https://gekta.example.test/api/gekta/auth/email/verify?token=rev_secret_bearer_token');
   });
 
@@ -144,6 +176,41 @@ describe('Gekta registration security boundary', () => {
     expect(response.status).toBe(202);
     expect(await response.json()).toMatchObject({ accepted: true, status: 'EMAIL_VERIFICATION_REQUIRED' });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['missing', 'tampered', 'expired', 'locale changed', 'operator changed'])(
+    'rejects a %s displayed-document commitment before API/mail side effects', async (variant) => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      const evidence = currentGektaLegalEvidence('ru', 'GEKTA_REGISTRATION');
+      const body: Record<string, unknown> = { fullName: 'Иван Агроном', phone: '+7 916 000-00-00', email: 'new@example.test',
+        password: 'Sever0oborot!2026', acceptedServiceTerms: true, acceptedPersonalData: true, locale: 'ru',
+        consentSnapshot: sealGektaConsentSnapshot(evidence, DELIVERY_KEY) };
+      if (variant === 'missing') body.consentSnapshot = undefined;
+      if (variant === 'tampered') body.consentSnapshot = `${body.consentSnapshot}x`;
+      if (variant === 'expired') body.consentSnapshot = sealGektaConsentSnapshot(evidence, DELIVERY_KEY, new Date(Date.now() - 16 * 60_000));
+      if (variant === 'locale changed') body.locale = 'en';
+      const previousProfile = process.env.GEKTA_MERCHANT_PROFILE_ID;
+      const previousName = process.env.GEKTA_MERCHANT_LEGAL_NAME;
+      try {
+        if (variant === 'operator changed') { process.env.GEKTA_MERCHANT_PROFILE_ID = 'changed-profile'; process.env.GEKTA_MERCHANT_LEGAL_NAME = 'Test changed operator'; }
+        const response = await registerPost(bffRequest(body));
+        expect(response.status).toBe(400);
+        expect(await response.json()).toMatchObject({ code: 'CONSENT_REFRESH_REQUIRED' });
+        expect(fetchMock).not.toHaveBeenCalled();
+      } finally { setEnv('GEKTA_MERCHANT_PROFILE_ID', previousProfile); setEnv('GEKTA_MERCHANT_LEGAL_NAME', previousName); }
+    },
+  );
+
+  it('ignores a forged client legal receipt and forwards only the server-rendered documents', async () => {
+    const fetchMock = vi.fn(async () => Response.json({ status: 'EMAIL_VERIFICATION_REQUIRED' }));
+    vi.stubGlobal('fetch', fetchMock);
+    const response = await registerPost(bffRequest({ fullName: 'Иван Агроном', phone: '+7 916 000-00-00', email: 'new@example.test',
+      password: 'Sever0oborot!2026', acceptedServiceTerms: true, acceptedPersonalData: true, locale: 'en',
+      consentEvidence: { terms: { source: '/platform-v7/terms', version: 'fake' } } }));
+    expect(response.status).toBe(202);
+    const sent = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(sent.consentEvidence).toEqual(currentGektaLegalEvidence('en', 'GEKTA_REGISTRATION'));
   });
 
   it('rejects an oversized auth body before calling the API', async () => {
@@ -275,7 +342,8 @@ describe('Gekta answer admission', () => {
 
   it('consumes the matching signed reservation at generation admission', async () => {
     const ticket = issueTicket();
-    const reserved = reserveAnswer(createAnonymousSession(), ticket);
+    const now = new Date();
+    const reserved = reserveAnswer(recordConsent(createAnonymousSession(now), GEKTA_LEGAL_VERSION, now), ticket);
     const serialized = serializeAnonymousSession(reserved);
     expect(parseAnonymousSession(serialized)).toMatchObject({ pending: ticket });
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
@@ -293,7 +361,8 @@ describe('Gekta answer admission', () => {
 
   it('rejects a replay even when the browser resends its old signed cookie', async () => {
     const ticket = issueTicket();
-    const serialized = serializeAnonymousSession(reserveAnswer(createAnonymousSession(), ticket));
+    const now = new Date();
+    const serialized = serializeAnonymousSession(reserveAnswer(recordConsent(createAnonymousSession(now), GEKTA_LEGAL_VERSION, now), ticket));
     const durable = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ allowed: true }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ allowed: false }), { status: 200 }));
@@ -309,7 +378,8 @@ describe('Gekta answer admission', () => {
 
   it('fails closed when distributed admission is unavailable', async () => {
     const ticket = issueTicket();
-    const serialized = serializeAnonymousSession(reserveAnswer(createAnonymousSession(), ticket));
+    const now = new Date();
+    const serialized = serializeAnonymousSession(reserveAnswer(recordConsent(createAnonymousSession(now), GEKTA_LEGAL_VERSION, now), ticket));
     vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 503 })));
 
     const response = await chatPost(chatRequest({
@@ -319,4 +389,24 @@ describe('Gekta answer admission', () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ code: 'GEKTA_SERVICE_UNAVAILABLE' });
   });
+
+  it.each(['absent', 'obsolete', 'withdrawn', 'future', 'before-session', 'fractional'] as const)(
+    'rejects a legacy ticket with %s consent before any upstream request', async (kind) => {
+      const now = new Date();
+      const ticket = issueTicket(now);
+      const initial = createAnonymousSession(now);
+      const consent = kind === 'absent' ? undefined : kind === 'withdrawn' ? null : {
+        version: kind === 'obsolete' ? 'obsolete-version' : GEKTA_LEGAL_VERSION,
+        at: kind === 'future' ? now.getTime() + 60_000 : kind === 'before-session' ? now.getTime() - 1 : kind === 'fractional' ? now.getTime() - 0.5 : now.getTime(),
+      };
+      const serialized = serializeAnonymousSession({ ...reserveAnswer(initial, ticket), consent });
+      const upstream = vi.fn(async () => new Response(JSON.stringify({ allowed: true }), { status: 200 }));
+      vi.stubGlobal('fetch', upstream);
+      const response = await chatPost(chatRequest({ ticket, cookie: `${GEKTA_ANONYMOUS_COOKIE}=${serialized}` }));
+      expect(response.status).toBe(409);
+      expect(await response.json()).toEqual({ code: 'GEKTA_ANSWER_RESERVATION_INVALID' });
+      expect(upstream).not.toHaveBeenCalled();
+      expect(response.headers.get('set-cookie')).toBeNull();
+    },
+  );
 });

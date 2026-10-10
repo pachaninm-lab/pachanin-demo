@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-mobile-consent-acceptance-3048",
+  "branch": "fix/gekta-mobile-consent-active-chat-3048",
+  "issue": 3048,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "bd01e7e3150230be1d457599497a213cd76d3984"
+  },
+  "purpose": "Align the Gekta production mobile acceptance with the required consent at the active-chat transition while preserving the canonical legal links, viewport, localization, overflow and 44px assertions.",
+  "allowedPaths": [
+    "apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-mobile-consent-acceptance-3048.json"
+  ]
+}

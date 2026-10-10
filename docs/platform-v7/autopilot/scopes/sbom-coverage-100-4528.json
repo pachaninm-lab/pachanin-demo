@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4528,
+  "branch": "audit/sbom-coverage-artifact-4459",
+  "status": "active",
+  "purpose": "Prove 100% SBOM coverage of dependency-bearing roots by discovering the denominator from the tree, including components that carry third-party imports without declaring a manifest, and by verifying every exclusion on each run instead of trusting a list.",
+  "authorityBaseExactMain": "411e5b8af7f6b0a6527bd77959115b7aeccd2b21",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/sbom-scan.yml",
+    "docs/ip/sbom-coverage-scope.json",
+    "docs/platform-v7/autopilot/scopes/sbom-coverage-100-4528.json",
+    "scripts/ip/build-sbom-coverage.mjs",
+    "scripts/ip/build-sbom-coverage.test.mjs",
+    "scripts/ip/sbom-coverage-model.mjs",
+    "scripts/ip/verify-ip-evidence.mjs"
+  ],
+  "requiredInvariants": [
+    "The denominator must be discovered from the tracked tree and never hand-entered.",
+    "A component carrying third-party imports without a declared manifest must appear in the denominator, not vanish from it.",
+    "100% may only be reported when uncovered is 0 and unknown is 0; a rounded percentage must never stand in for completeness.",
+    "An exclusion is valid only while every supporting condition still holds, re-evaluated on each run.",
+    "An exclusion with no conditions, or with a failing condition, must fail closed as a fabricated justification.",
+    "Evidence must be deterministic and bound to the exact source SHA.",
+    "apps/landing must not be modified - AGENTS.md forbids it and this slice only reads its manifest.",
+    "No product business logic, dependency, lockfile, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "A new manifest with no SBOM mapping fails closed.",
+    "An unrecognised ecosystem fails closed.",
+    "A runtime component without an SBOM is never counted as covered.",
+    "A justified non-runtime exclusion is permitted and re-verified.",
+    "A false 100% with uncovered > 0 fails closed.",
+    "Two runs over the same tree produce byte-identical evidence.",
+    "Every CSV row is bound to the exact source SHA.",
+    "The concurrent-scope guard accepts exactly the seven authorized paths."
+  ]
+}

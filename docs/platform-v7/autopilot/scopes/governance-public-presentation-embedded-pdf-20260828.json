@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/public-presentation-embedded-pdf-20260828",
+  "status": "active",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/governance-public-presentation-embedded-pdf-20260828.json",
+    "docs/platform-v7/autopilot/scopes/public-presentation-gekta-product-20260828.json"
+  ]
+}

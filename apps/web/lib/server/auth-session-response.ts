@@ -29,6 +29,10 @@ export type AuthenticatedSessionPayload = {
   };
 };
 
+export type AuthenticatedSessionOptions = {
+  controlPlane?: boolean;
+};
+
 export type GektaAuthenticatedSessionPayload = {
   accessToken: string;
   refreshToken: string;
@@ -95,9 +99,17 @@ export function platformHome(role: SurfaceRole, isOrganizationAdmin = false) {
   return routes[role];
 }
 
+function sameSiteForSession<T extends object>(
+  base: T,
+  controlPlane: boolean,
+): T & { sameSite: 'lax' | 'strict' } {
+  return { ...base, sameSite: controlPlane ? 'strict' : 'lax' };
+}
+
 export async function applyAuthenticatedSession(
   response: NextResponse,
   payload: AuthenticatedSessionPayload,
+  options: AuthenticatedSessionOptions = {},
 ): Promise<{ role: SurfaceRole; redirectTo: string } | null> {
   const role = normalizeSurfaceRole(payload.user.role, payload.user.surfaceRole);
   if (
@@ -107,6 +119,7 @@ export async function applyAuthenticatedSession(
     || !payload.user.tenantId
     || !payload.user.membershipId
   ) return null;
+  const controlPlane = options.controlPlane === true;
   const expiresIn = Math.max(60, Math.min(Number(payload.expiresIn || 900), 24 * 60 * 60));
   const exp = Math.floor(Date.now() / 1000) + expiresIn;
   const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
@@ -120,23 +133,26 @@ export async function applyAuthenticatedSession(
   });
   if (!cabinetToken) return null;
 
-  response.cookies.set(ACCESS_COOKIE, payload.accessToken, cookieSecurity());
-  response.cookies.set(REFRESH_COOKIE, payload.refreshToken, cookieSecurity());
+  response.cookies.set(ACCESS_COOKIE, payload.accessToken, sameSiteForSession(cookieSecurity(), controlPlane));
+  response.cookies.set(REFRESH_COOKIE, payload.refreshToken, sameSiteForSession(cookieSecurity(), controlPlane));
   response.cookies.set(
     SESSION_COOKIE,
     encodeURIComponent(JSON.stringify({ role, exp, email: payload.user.email })),
-    sessionMarkerCookie(),
+    sameSiteForSession(sessionMarkerCookie(), controlPlane),
   );
-  response.cookies.set(CSRF_COOKIE, generateCsrfToken(), csrfCookieSecurity());
+  response.cookies.set(CSRF_COOKIE, generateCsrfToken(), sameSiteForSession(csrfCookieSecurity(), controlPlane));
   response.cookies.set(CABINET_SESSION_COOKIE, cabinetToken, {
     path: '/',
     maxAge: expiresIn,
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: controlPlane ? 'strict' : 'lax',
     secure: process.env.NODE_ENV === 'production',
   });
 
-  return { role, redirectTo: platformHome(role, payload.user.isOrgAdmin === true) };
+  return {
+    role,
+    redirectTo: controlPlane ? '/platform-v7/staff' : platformHome(role, payload.user.isOrgAdmin === true),
+  };
 }
 
 /** Product session: the same auth cookies, without a fabricated organization. */
@@ -169,8 +185,19 @@ export function applyGektaAuthenticatedSession(
   return true;
 }
 
-export function clearAuthenticatedSession(response: NextResponse) {
+export function clearAuthenticatedSession(
+  response: NextResponse,
+  options: AuthenticatedSessionOptions = {},
+) {
+  const sameSite = options.controlPlane === true ? 'strict' as const : 'lax' as const;
+  const secure = process.env.NODE_ENV === 'production';
   for (const name of [ACCESS_COOKIE, REFRESH_COOKIE, SESSION_COOKIE, CSRF_COOKIE, CABINET_SESSION_COOKIE]) {
-    response.cookies.set(name, '', { path: '/', expires: new Date(0), maxAge: 0 });
+    response.cookies.set(name, '', {
+      path: '/',
+      expires: new Date(0),
+      maxAge: 0,
+      sameSite,
+      secure,
+    });
   }
 }

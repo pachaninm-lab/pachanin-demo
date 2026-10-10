@@ -6,6 +6,8 @@ import { ownerAccessCenterMessages } from '../../i18n/owner-access-center-messag
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 const page = read('apps/web/app/platform-v7/staff/page.tsx');
 const entry = read('apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx');
+const bootstrap = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV4.tsx');
+const bootstrapCss = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV4.module.css');
 const directCenter = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx');
 const directRoute = read('apps/web/app/platform-v7/staff/open-cabinet/route.ts');
 const submitRoute = read('apps/web/app/platform-v7/staff/open-cabinet/submit/route.ts');
@@ -25,7 +27,8 @@ function keys(value: unknown, prefix = ''): string[] {
 describe('platform-v7 owner access center task UX', () => {
   it('provides all twelve owner cabinet transitions', () => {
     expect(page).toContain('<OwnerAccessCenter');
-    expect(entry).toContain("export { OwnerAccessCenter } from './OwnerAccessCenterV3'");
+    expect(entry).toContain("export { OwnerAccessCenter } from './OwnerAccessCenterV4'");
+    expect(bootstrap).toContain('<OwnerAccessCenterV3 {...props} />');
     for (const role of ['operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor', 'elevator', 'lab', 'bank', 'arbitrator', 'compliance', 'executive']) {
       expect(directCenter).toContain(`role: '${role}'`);
     }
@@ -95,10 +98,30 @@ describe('platform-v7 owner access center task UX', () => {
     expect(deferred).toContain('if (!ready || !active) return null');
   });
 
+  it('opens only the existing bounded manage-staff control-plane authority', () => {
+    expect(bootstrap).toContain("item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE'");
+    expect(bootstrap).toContain("accessMode: 'CONTROL_PLANE'");
+    expect(bootstrap).toContain("'staff-request:read'");
+    expect(bootstrap).toContain("'staff-request:approve'");
+    expect(bootstrap).toContain("ticketId: 'PC-CROP-3785'");
+    expect(bootstrap).toContain('durationSeconds: 30 * 60');
+    expect(bootstrap).toContain("fetch('/api/staff/access/requests'");
+    expect(bootstrap).toContain("fetch(`/api/staff/access/grants/${encodeURIComponent(grantId)}/activate`");
+    expect(bootstrap).toContain("'X-CSRF-Token': token");
+    expect(bootstrap).toContain("credentials: 'same-origin'");
+    expect(bootstrap).not.toContain('break-glass');
+    expect(bootstrap).not.toContain('localStorage');
+    expect(bootstrap).not.toContain('sessionStorage');
+  });
+
   it('remains mobile-first and multilingual', () => {
     expect(directCss).toContain('@media (max-width: 520px)');
     expect(directCss).toContain('grid-template-columns: 1fr');
     expect(directCss).toContain('min-height: 54px');
+    expect(bootstrapCss).toContain('@media (max-width: 640px)');
+    expect(bootstrap).toContain('ru: {');
+    expect(bootstrap).toContain('en: {');
+    expect(bootstrap).toContain('zh: {');
     expect(keys(ownerAccessCenterMessages.en)).toEqual(keys(ownerAccessCenterMessages.ru));
     expect(keys(ownerAccessCenterMessages.zh)).toEqual(keys(ownerAccessCenterMessages.ru));
   });

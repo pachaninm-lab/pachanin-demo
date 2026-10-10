@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/authenticated-totp-owner-readiness-3785",
+  "status": "active",
+  "purpose": "Repair the owner/reviewer readiness compatibility drift only after the existing password and a freshly verified authoritative TOTP have succeeded. This PR does not reset a password, replace or recover MFA, backfill production data, or authorize a release.",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "authorityBaseExactMain": "1df1e55d4596c0bfe1ffa957f4d821bdcb26b5cb",
+  "productionRuntimePolicy": "API_WEB_AUTH_MAIL_WORKER_MUST_EQUAL_EXACT_CURRENT_MAIN",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260822143000_p0_authenticated_totp_compatibility/migration.sql",
+    "apps/api/src/common/prisma/auth-principal-provisioning.spec.ts",
+    "apps/api/src/modules/auth/persistent-auth.repository.spec.ts",
+    "apps/api/src/modules/auth/persistent-auth.repository.ts",
+    "docs/platform-v7/autopilot/scopes/authenticated-totp-owner-readiness-3785.json",
+    "scripts/check-authenticated-totp-owner-readiness.mjs",
+    "scripts/platform-v7-database-dr-rehearsal.sh",
+    "scripts/platform-v7-rls-integration.sh"
+  ],
+  "boundaries": {
+    "registrationOnly": true,
+    "reviewerOwnerAccessOnly": true,
+    "freshTotpRequired": true,
+    "sameTransactionProofRequired": true,
+    "backupCodeCannotReconcile": true,
+    "passwordResetOrRecovery": false,
+    "mfaSecretReplacement": false,
+    "broadDataBackfill": false,
+    "newRoleOrGrant": false,
+    "roleOrTenantMutation": false,
+    "pullRequestProductionMutation": false,
+    "deploymentAuthorized": false,
+    "dnsMutation": false,
+    "sshPinMutation": false,
+    "credentialOutput": false,
+    "newRecurringCostRub": 0
+  },
+  "requiredInvariants": [
+    "The authoritative MFA state remains auth.credential_states. The only compatibility write is public.users.mfaEnabled=true for the exact authenticated user.",
+    "The challenge compare-and-set is bound to the exact challenge, session and user IDs before a session can become active.",
+    "The compatibility finalizer accepts TOTP_ENROLL or TOTP_VERIFY only when the challenge and active session were both verified at transaction_timestamp() in the same transaction.",
+    "The session is unrevoked and unexpired, the challenge is unexpired, the verified method and MFA level are TOTP, and the session credential version equals the current credential version.",
+    "A successful TOTP may reconcile only redundant v1 key metadata whose ciphertext already has the valid v1 envelope. It never changes the ciphertext, enabled authority, backup hashes, password or throttle state.",
+    "BACKUP verification never calls the compatibility finalizer and can never approve an authenticator or key-metadata reconciliation.",
+    "The existing pc_auth_mfa_authority owner, column-bounded users ACL, runtime EXECUTE grants and PUBLIC revoke remain unchanged; no role or grant is added.",
+    "There is no one-time UPDATE or production backfill in the migration. Reconciliation occurs only inside a later ordinary authenticated TOTP transaction after an authorized release.",
+    "The isolated PostgreSQL DR restore proves the same function owner, ACL and fresh TOTP body after --no-owner --no-acl restore.",
+    "No password, TOTP value, setup key, backup code, ciphertext, cookie, token, email or other reviewer identifier is emitted by the patch or its evidence.",
+    "New recurring cost remains 0 RUB."
+  ],
+  "acceptance": [
+    "Changed paths equal this eight-path allow-list and pass the source-controlled scope guard.",
+    "The forward-only migration changes only the existing finalizer body/owner/PUBLIC revoke and contains no broad auth-table write or data backfill.",
+    "Unit tests prove exact challenge/session/user CAS, TOTP invocation, backup-code exclusion and fail-closed rollback.",
+    "Throwaway PostgreSQL integration proves fresh TOTP_VERIFY false-to-true, idempotence, and rejection of backup, mismatched, expired, stale and credential-version-drift tuples.",
+    "DR rehearsal proves the restored fresh-TOTP finalizer boundary.",
+    "After a separately authorized exact-main release, one ordinary existing-password plus fresh-TOTP login is required before the read-only reviewer inspect may advance to 1/1."
+  ]
+}

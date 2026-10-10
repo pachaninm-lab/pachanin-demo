@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LOCALE_COOKIE } from '@/i18n/locale';
+import { controlledCabinetContext } from '@/lib/platform-v7/controlled-test-organizations';
+import {
+  controlHostEnabled,
+  controlHostUrl,
+  isControlHostRequest,
+  isControlRealmPathAllowed,
+  isPrimaryPlatformHostRequest,
+  ownerCabinetSessionMatchesRoot,
+  ownerControlledCabinetRole,
+  primaryPlatformUrl,
+} from '@/lib/platform-v7/control-host';
 import { observeServerCabinetAccess } from '@/lib/platform-v7/server-cabinet-access';
 import { readVerifiedCabinetSessionContext } from '@/lib/platform-v7/verified-session';
 import publicSeoRouteRegistry from '@/lib/platform-v7/public-seo-routes.json';
@@ -8,8 +19,16 @@ import publicSeoRouteRegistry from '@/lib/platform-v7/public-seo-routes.json';
 // layout additionally revalidates its user, tenant and membership through /auth/me.
 const CABINET_SESSION_COOKIE = 'pc_v7_cabinet';
 const CSRF_COOKIE = 'pc_csrf_token';
+// Only a fresh explicit public selection may survive a clean navigation.
+const LOCALE_SELECTION_COOKIE = 'pc-v7-locale-selection-v1';
 
-const PUBLIC_EXACT = new Set(['/', '/login', '/register', '/gekta']);
+const PRESENTATION_DOWNLOAD_PATH = '/downloads/prozrachnaya-tsena-presentation.pdf';
+const PUBLIC_EXACT = new Set([
+  '/', '/login', '/register', '/gekta', PRESENTATION_DOWNLOAD_PATH,
+  '/legal/usloviya-ispolzovaniya-gekta',
+  '/legal/politika-konfidencialnosti',
+  '/legal/politika-obrabotki-personalnyh-dannyh',
+]);
 const PUBLIC_PREFIX = [
   '/_next/',
   '/favicon',
@@ -81,6 +100,9 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7/open',
   '/platform-v7/login',
   '/platform-v7/register',
+  '/platform-v7/market',
+  '/platform-v7/gekta',
+  '/platform-v7/capabilities',
   '/platform-v7/forgot-password',
   '/platform-v7/invitation',
   '/platform-v7/mfa-recovery',
@@ -99,12 +121,20 @@ const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
 const PUBLIC_API_EXACT = new Set([
   '/api/health/ready',
   '/api/agro-chat',
+  // A brand-new Gekta visitor has no platform session yet. The exact
+  // entitlement route creates its signed anonymous quota cookie and remains
+  // route-authoritative for same-origin writes; broader Gekta APIs stay
+  // behind their own product or platform sessions.
+  '/api/gekta/entitlement',
   '/api/public-platform-assistant',
   '/api/public-platform-assistant/attachments',
   '/api/restricted-public-platform-assistant',
   '/api/platform-v7/organization-connect',
   '/api/platform-v7/inquiries',
   '/api/platform-v7/leads',
+  // Браузер шлёт отчёт о нарушении CSP без учётных данных и не повторяет
+  // попытку. За сессией такая точка не работала бы вовсе.
+  '/api/csp-report',
 ]);
 
 function isPrivateMode(): boolean {
@@ -199,10 +229,35 @@ function applySecurityHeaders(response: NextResponse, protectedResponse = false,
   response.headers.set('referrer-policy', 'no-referrer');
   response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=()');
   response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains; preload');
+  // Куда браузер шлёт нарушения. Без адреса политика работает, но её
+  // срабатывания никто не видит: ни ложные, ни настоящие. Указаны оба
+  // механизма — report-uri устарел, но поддержан шире, а report-to требует
+  // объявления адресата отдельным заголовком Reporting-Endpoints.
+  response.headers.set('reporting-endpoints', 'csp-endpoint="/api/csp-report"');
   response.headers.set(
     'content-security-policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; report-uri /api/csp-report; report-to csp-endpoint"
   );
+  // Разрыв связи с окном-открывателем: документ не делит browsing context
+  // group со страницей, которая его открыла. Измерено перед постановкой:
+  // window.open в apps/web не встречается ни разу, а вход через
+  // государственный провайдер идёт полностраничным редиректом
+  // (govIdentityBridge.ts выставляет redirect_uri), поэтому popup-потоков,
+  // которые этот заголовок мог бы сломать, здесь нет.
+  response.headers.set('cross-origin-opener-policy', 'same-origin');
+  // Ресурсы приложения не встраиваются чужими сайтами. Это согласовано с уже
+  // стоящим frame-ancestors 'none', и Access-Control-Allow-Origin в apps/web
+  // не выставляется нигде.
+  //
+  // Значение — same-site, а не same-origin, и это измерено, а не выбрано по
+  // принципу «строже значит лучше». Платформа отдаётся с апекса И с
+  // control.<апекс> (control-host.ts: PRIMARY_PLATFORM_HOST и
+  // CONTROL_PLATFORM_HOST) — это два origin'а и один registrable domain, то
+  // есть одно приложение. same-origin отказал бы в подресурсе, который один из
+  // них загружает у другого, и сломал бы контур управления. same-site
+  // по-прежнему отказывает любому действительно постороннему origin'у — а
+  // требование именно об этом.
+  response.headers.set('cross-origin-resource-policy', 'same-site');
   if (protectedResponse) {
     response.headers.set('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
     response.headers.set('pragma', 'no-cache');
@@ -270,6 +325,20 @@ function resolveLocaleFromQuery(req: NextRequest): string | null {
   return queryLocale && VALID_LOCALES.has(queryLocale) ? queryLocale : null;
 }
 
+function isPublicLocalePreferencePath(pathname: string): boolean {
+  return (pathname === '/platform-v7' || pathname.startsWith('/platform-v7/'))
+    && isPlatformV7PublicPath(pathname);
+}
+
+function resolveSelectedPublicLocale(req: NextRequest): string | null {
+  // Legacy preference cookies must not reopen a clean first visit in EN/ZH.
+  // Public presentation never selects the language of a protected/control realm.
+  if (!isPublicLocalePreferencePath(req.nextUrl.pathname)) return null;
+  const locale = req.cookies.get(LOCALE_COOKIE)?.value;
+  return locale && VALID_LOCALES.has(locale)
+    && req.cookies.get(LOCALE_SELECTION_COOKIE)?.value === locale ? locale : null;
+}
+
 function resolveGektaPathLocale(pathname: string): string | null {
   if (pathname === '/gekta/en' || pathname.startsWith('/gekta/en/')) return 'en';
   if (pathname === '/gekta/zh' || pathname.startsWith('/gekta/zh/')) return 'zh';
@@ -281,26 +350,35 @@ function withRoleHeaders(req: NextRequest, role: string, protectedResponse = fal
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-pc-role', role);
   requestHeaders.set('x-pc-pathname', req.nextUrl.pathname);
+  // Navigation-only query context lets zero-hydration locale links preserve
+  // registration/status tokens without turning query values into authority.
+  requestHeaders.set('x-pc-search', req.nextUrl.search);
   const queryLocale = resolveLocaleFromQuery(req);
   const pathLocale = resolveGektaPathLocale(req.nextUrl.pathname);
-  const requestLocale = pathLocale || queryLocale;
+  const selectedLocale = resolveSelectedPublicLocale(req);
+  const requestLocale = pathLocale || queryLocale || selectedLocale;
   if (requestLocale) requestHeaders.set('x-pc-locale', requestLocale);
+  else requestHeaders.delete('x-pc-locale');
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('x-pc-role', role);
   response.headers.set('x-pc-pathname', req.nextUrl.pathname);
   if (queryLocale) persistLocaleCookie(req, response, queryLocale);
-  else if (pathLocale) response.headers.set('x-pc-locale', pathLocale);
+  else if (requestLocale) response.headers.set('x-pc-locale', requestLocale);
   ensureCsrfCookie(req, response);
-  return applySecurityHeaders(response, protectedResponse || Boolean(queryLocale), indexable);
+  return applySecurityHeaders(response, protectedResponse || Boolean(queryLocale || selectedLocale), indexable);
 }
 
-function ensureCsrfCookie(req: NextRequest, response: NextResponse) {
+function ensureCsrfCookie(
+  req: NextRequest,
+  response: NextResponse,
+  sameSite: 'lax' | 'strict' = 'lax',
+) {
   if (req.cookies.get(CSRF_COOKIE)?.value) return;
   response.cookies.set(CSRF_COOKIE, crypto.randomUUID().replaceAll('-', ''), {
     httpOnly: false,
     path: '/',
     maxAge: 60 * 60 * 8,
-    sameSite: 'lax',
+    sameSite,
     secure: req.nextUrl.protocol === 'https:' || process.env.NODE_ENV === 'production',
   });
 }
@@ -320,6 +398,9 @@ function persistLocaleCookie(req: NextRequest, response: NextResponse, locale: s
   if (req.cookies.get(LOCALE_COOKIE)?.value !== locale) {
     response.cookies.set(LOCALE_COOKIE, locale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', secure: true });
   }
+  if (isPublicLocalePreferencePath(req.nextUrl.pathname) && req.cookies.get(LOCALE_SELECTION_COOKIE)?.value !== locale) {
+    response.cookies.set(LOCALE_SELECTION_COOKIE, locale, { httpOnly: true, path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', secure: true });
+  }
   response.headers.set('x-pc-locale', locale);
   response.headers.set('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
   response.headers.set('pragma', 'no-cache');
@@ -328,6 +409,38 @@ function persistLocaleCookie(req: NextRequest, response: NextResponse, locale: s
 
 function markPlatformV7Entry(response: NextResponse) {
   response.cookies.set(PLATFORM_V7_ENTRY_COOKIE, 'true', { path: '/', maxAge: 60 * 60 * 4, sameSite: 'lax', secure: true });
+}
+
+function controlRealmResponse(req: NextRequest) {
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.delete('x-pc-role');
+  requestHeaders.delete('x-pc-owner-key');
+  requestHeaders.set('x-pc-control-realm', 'true');
+  requestHeaders.set('x-pc-pathname', req.nextUrl.pathname);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set('x-pc-control-realm', 'true');
+  response.headers.set('x-pc-pathname', req.nextUrl.pathname);
+  ensureCsrfCookie(req, response, 'strict');
+  return applySecurityHeaders(response, true, false);
+}
+
+function controlRealmDenied(req: NextRequest) {
+  const headers = {
+    'cache-control': 'no-store, no-cache, must-revalidate, private',
+    'content-type': req.nextUrl.pathname.startsWith('/api/') ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8',
+  };
+  const response = req.nextUrl.pathname.startsWith('/api/')
+    ? NextResponse.json({ ok: false, code: 'CONTROL_REALM_ROUTE_DENIED' }, { status: 404, headers })
+    : new NextResponse('Not found.', { status: 404, headers });
+  return applySecurityHeaders(response, true, false);
+}
+
+function controlHostRequired(req: NextRequest) {
+  const response = NextResponse.json(
+    { ok: false, code: 'CONTROL_HOST_REQUIRED' },
+    { status: 421, headers: { 'cache-control': 'no-store, no-cache, must-revalidate, private' } },
+  );
+  return applySecurityHeaders(response, true, false);
 }
 
 function legacyGektaLocaleRedirect(req: NextRequest): NextResponse | null {
@@ -342,6 +455,42 @@ function legacyGektaLocaleRedirect(req: NextRequest): NextResponse | null {
 
 export async function middleware(req: NextRequest) {
   const p = req.nextUrl.pathname;
+
+  if (controlHostEnabled()) {
+    if (isControlHostRequest(req)) {
+      if (p === '/') {
+        return applySecurityHeaders(NextResponse.redirect(controlHostUrl('/platform-v7/staff'), 308), true, false);
+      }
+      // Registration remains a public-company action and is never served from
+      // the internal realm. This is a safe host-only redirect, not a privilege handoff.
+      if (p === '/platform-v7/register') {
+        return applySecurityHeaders(NextResponse.redirect(primaryPlatformUrl(p, req.nextUrl.search), 308), true, false);
+      }
+
+      const ownerRole = ownerControlledCabinetRole(p);
+      if (ownerRole !== null) {
+        // Exact owner roots continue below to signed-session validation.
+      } else if (isControlRealmPathAllowed(p)) {
+        return controlRealmResponse(req);
+      } else {
+        return controlRealmDenied(req);
+      }
+    }
+
+    const staffPage = isPlatformV7StaffPath(p);
+    const staffApi = p === '/api/staff' || p.startsWith('/api/staff/');
+    if (staffPage) {
+      if (isPrimaryPlatformHostRequest(req)) {
+        return applySecurityHeaders(
+          NextResponse.redirect(controlHostUrl(p, req.nextUrl.search), 308),
+          true,
+          false,
+        );
+      }
+      return controlHostRequired(req);
+    }
+    if (staffApi) return controlHostRequired(req);
+  }
 
   const gektaRedirect = legacyGektaLocaleRedirect(req);
   if (gektaRedirect) return gektaRedirect;
@@ -403,7 +552,7 @@ export async function middleware(req: NextRequest) {
 
   if (p === '/platform-v7' || p.startsWith('/platform-v7/')) {
     const isEntry = p === '/platform-v7';
-    const isIndexable = isEntry && PLATFORM_V7_INDEXABLE_EXACT.has(p) && !privateModeEnabled;
+    const isIndexable = PLATFORM_V7_INDEXABLE_EXACT.has(p) && !privateModeEnabled;
     if (isStaticFileRequest(p)) return applySecurityHeaders(NextResponse.next(), false);
     if (isPlatformV7PublicPath(p) || isPlatformV7StaffPath(p)) {
       const routeRole = isPublicRegistrationPath(p) ? 'organization' : presentationRole;
@@ -415,9 +564,30 @@ export async function middleware(req: NextRequest) {
     }
 
     const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
-    const context = secret
-      ? await readVerifiedCabinetSessionContext(req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null, secret, Math.floor(Date.now() / 1000))
+    const cabinetToken = req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? '';
+    const context = secret.length >= 32 && secret.length <= 4096 && cabinetToken.length > 0 && cabinetToken.length <= 8192
+      ? await readVerifiedCabinetSessionContext(cabinetToken, secret, Math.floor(Date.now() / 1000))
       : null;
+
+    if (controlHostEnabled() && isControlHostRequest(req)) {
+      const ownerRole = ownerControlledCabinetRole(p);
+      const expected = ownerRole === null ? null : controlledCabinetContext(ownerRole);
+      if (
+        ownerRole === null
+        || !context
+        || !expected
+        || context.ownerAccess !== true
+        || typeof context.userId !== 'string'
+        || context.userId.trim().length === 0
+        || context.role !== ownerRole
+        || expected.role !== ownerRole
+        || context.organizationId !== expected.organizationId
+        || context.tenantId !== expected.tenantId
+        || !ownerCabinetSessionMatchesRoot(p, context, expected)
+      ) return controlRealmDenied(req);
+      return controlRealmResponse(req);
+    }
+
     if (context?.role === 'organization') {
       if (!isOrganizationCabinetPath(p)) {
         const target = req.nextUrl.clone();
@@ -455,6 +625,12 @@ export async function middleware(req: NextRequest) {
     const response = withRoleHeaders(req, routeRole, privateModeEnabled && protectedPath, isIndexable);
     if (isPublicRegistrationPath(p)) clearPresentationRoleCookie(response);
     else persistRoleCookie(req, response, routeRole);
+    if (p === PRESENTATION_DOWNLOAD_PATH) {
+      response.headers.set(
+        'content-disposition',
+        'attachment; filename="prozrachnaya-tsena-presentation.pdf"',
+      );
+    }
     return response;
   }
 

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-reviewer-smtp-stage-4136",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_SMTP_STAGE_PROBE",
+  "issue": 4136,
+  "registrationMatrixIssue": 3785,
+  "releaseIssue": 3072,
+  "title": "Classify the reviewer SMTP temporary failure stage without sending mail or replaying password reset",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-smtp-stage-probe.yml",
+    "scripts/production-p0-reviewer-smtp-stage-probe.sh",
+    "scripts/check-production-p0-reviewer-smtp-stage-probe.mjs",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-smtp-stage-probe-4136.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "passwordResetRequest": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "mailSend": false,
+    "smtpAuthAttempt": true,
+    "smtpMailFromProbe": true,
+    "smtpRecipientProbe": true,
+    "smtpDataCommand": false,
+    "reviewerIdentityAccess": true,
+    "reviewerIdentityOutput": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "rawProtocolOutput": false,
+    "deploymentMutation": false,
+    "containerLifecycleMutation": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "fixedDeployedRevision": "7b66f65f8fc7fc4bbedb56c94088ad1473462c92",
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the only production command is owner-only on release issue 3072 and fixed to /production p0-reviewer-smtp-stage-probe current-main",
+    "current main must remain exact and the proven deployed API/Web revision 7b66f65f8fc7fc4bbedb56c94088ad1473462c92 must remain an ancestor of it",
+    "active production API and Web containers must remain in parity and exactly on the fixed deployed revision before any SMTP connection",
+    "the unique reviewer address is resolved only inside REG.RU through the existing restricted pc_staff_runtime authority and is never published",
+    "the probe uses the active Web container SMTP configuration without publishing sender, recipient, username, password or raw environment values",
+    "the probe follows production implicit TLS port 465, EHLO transparent-price.local, AUTH PLAIN, MAIL FROM and RCPT TO semantics",
+    "after RCPT TO the probe sends RSET and QUIT and never sends an SMTP DATA command or message content",
+    "only bounded result, stage and numeric SMTP code/family cross the SSH boundary",
+    "no password-reset HTTP request, database write, password/MFA/session mutation, deployment or container lifecycle mutation is allowed",
+    "production mutation is NONE and new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

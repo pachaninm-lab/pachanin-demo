@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "owner/home-accounting-faq-20260818",
+  "status": "active",
+  "operationalStatus": "OWNER_DIRECTED_PUBLIC_FAQ_REFINEMENT",
+  "ownerDecision": {
+    "date": "2026-08-18",
+    "instruction": "Add one short homepage FAQ question explaining how the accountant works with 1C and EDI."
+  },
+  "allowedPaths": [
+    "apps/web/i18n/platform-v7-home-story-product.ts",
+    "apps/web/tests/unit/platformV7HomepageProductCopy.test.ts",
+    "docs/platform-v7/autopilot/scopes/home-accounting-faq-20260818.json"
+  ],
+  "publicClaims": {
+    "directLiveIntegrationClaim": false,
+    "universal1CCompatibilityClaim": false,
+    "replacementOf1COrEdoClaim": false,
+    "conditionalConnectionLanguageRequired": true
+  },
+  "boundaries": {
+    "designOrLayoutChange": false,
+    "dealArchitectureRewrite": false,
+    "apiOrDatabaseChange": false,
+    "authOrRbacChange": false,
+    "bankingAuthorityChange": false,
+    "externalConnectivityClaim": false,
+    "productionTopologyChange": false,
+    "existingGektaProductBoundaryChange": false
+  },
+  "requiredChecks": [
+    "node scripts/p7-autopilot-dispatcher.mjs",
+    "bash scripts/p7-autopilot-guard.sh",
+    "pnpm typecheck",
+    "pnpm test -- platformV7HomepageProductCopy.test.ts",
+    "existing platform-v7 homepage copy and safety regression tests"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newMandatoryCostsRub": 0
+}

@@ -1,0 +1,280 @@
+name: Gekta P0 SPEED G3E Ubatch256
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-p0-speed-g3e-ubatch256.yml'
+      - 'scripts/gekta-qwen-g3e-runtime.py'
+      - 'scripts/gekta-qwen-g3e-bootstrap.sh'
+      - 'docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3e-ubatch256-3896.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-p0-speed-g3e-ubatch256
+  cancel-in-progress: false
+
+env:
+  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+  MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
+  SPEED_ISSUE_NUMBER: '3896'
+
+jobs:
+  contract:
+    name: Validate exact one-factor G3E contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prove helper and bootstrap offline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/gekta-qwen-g3c-runtime.py scripts/gekta-qwen-g3e-runtime.py
+          GEKTA_G3E_BASE_SOURCE=scripts/gekta-qwen-g3c-runtime.py python3 scripts/gekta-qwen-g3e-runtime.py self-test | tee "$RUNNER_TEMP/g3e-self-test"
+          grep -qx 'GEKTA_G3E_SELF_TEST=PASS' "$RUNNER_TEMP/g3e-self-test"
+          bash -n scripts/gekta-qwen-g3e-bootstrap.sh
+      - name: Prove bounded authority and experiment invariant
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const workflow = fs.readFileSync('.github/workflows/gekta-p0-speed-g3e-ubatch256.yml', 'utf8');
+          const runtime = fs.readFileSync('scripts/gekta-qwen-g3e-runtime.py', 'utf8');
+          const bootstrap = fs.readFileSync('scripts/gekta-qwen-g3e-bootstrap.sh', 'utf8');
+          const scope = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3e-ubatch256-3896.json', 'utf8'));
+          for (const required of [
+            '/gekta speed-g3e stage-bootstrap current-main',
+            '/gekta speed-g3e ubatch256 current-main',
+            '/gekta speed-g3e rollback current-main',
+            '/gekta speed-g3e status current-main',
+            "github.event.comment.author_association == 'OWNER'",
+            'github.event.comment.performed_via_github_app.id == 1144995',
+            'secrets.TAI_MODEL_SSH_KEY', 'secrets.TAI_MODEL_SSH_HOST_KEY', 'StrictHostKeyChecking=yes'
+          ]) if (!workflow.includes(required)) throw new Error(`missing authority token: ${required}`);
+          for (const required of [
+            'b"128", b"256"', 'str(facts.get("ubatch_size", "")) != "256"',
+            'B._validate_baseline_facts', 'B._restore(metadata, cleanup=True)',
+            'historical_g3c_state_not_clean', '110-gekta-g3e.conf'
+          ]) if (!runtime.includes(required)) throw new Error(`missing runtime invariant: ${required}`);
+          const sudoers = 'Cmnd_Alias GEKTA_QWEN_G3E = /usr/local/sbin/gekta-qwen-g3e ubatch256, /usr/local/sbin/gekta-qwen-g3e rollback, /usr/local/sbin/gekta-qwen-g3e status';
+          if (!bootstrap.includes(sudoers)) throw new Error('exact sudoers allowlist missing');
+          for (const forbidden of ['NOPASSWD: ALL','SETENV:','sudo -s','sudo bash','sudo sh','TAI_MODEL_ROOT_SSH_KEY','PC_PROD_SSH_KEY','VPS_SSH_KEY']) {
+            if (bootstrap.includes(forbidden) || workflow.includes(`secrets.${forbidden}`)) throw new Error(`forbidden authority: ${forbidden}`);
+          }
+          if (scope.branch !== 'perf/gekta-p0-speed-g3e-ubatch256-3896' || scope.issue !== 3896 || scope.newRecurringCostRub !== 0) throw new Error('scope authority mismatch');
+          const allowed = new Set(scope.allowedPaths);
+          for (const p of [
+            '.github/workflows/gekta-p0-speed-g3e-ubatch256.yml',
+            'scripts/gekta-qwen-g3e-runtime.py',
+            'scripts/gekta-qwen-g3e-bootstrap.sh',
+            'docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3e-ubatch256-3896.json'
+          ]) if (!allowed.has(p)) throw new Error(`scope missing path: ${p}`);
+          NODE
+          GITHUB_HEAD_REF=perf/gekta-p0-speed-g3e-ubatch256-3896 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
+
+  stage:
+    name: Stage exact G3E bootstrap bytes
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3896 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.body == '/gekta speed-g3e stage-bootstrap current-main' &&
+      (
+        (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+        (github.actor == 'chatgpt-codex-connector[bot]' && github.triggering_actor == 'chatgpt-codex-connector[bot]' && github.event.comment.performed_via_github_app.id == 1144995)
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve exact main and package hashes
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          sha="$(git rev-parse origin/main)"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ && "$sha" == "$(git rev-parse HEAD)" ]]
+          [[ "$sha" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          runtime='scripts/gekta-qwen-g3e-runtime.py'
+          bootstrap='scripts/gekta-qwen-g3e-bootstrap.sh'
+          base='scripts/gekta-qwen-g3c-runtime.py'
+          GEKTA_G3E_BASE_SOURCE="$base" python3 "$runtime" self-test | grep -qx 'GEKTA_G3E_SELF_TEST=PASS'
+          bash -n "$bootstrap"
+          runtime_sha="$(sha256sum "$runtime" | awk '{print $1}')"
+          bootstrap_sha="$(sha256sum "$bootstrap" | awk '{print $1}')"
+          base_sha="$(sha256sum "$base" | awk '{print $1}')"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "runtime_sha=$runtime_sha" >> "$GITHUB_OUTPUT"
+          echo "bootstrap_sha=$bootstrap_sha" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+          echo "stage_dir=/tmp/gekta-g3e-bootstrap-$sha-$GITHUB_RUN_ID" >> "$GITHUB_OUTPUT"
+      - name: Resolve pinned model-host transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){ local raw="$1" target="$2" a b c; [[ -n "$raw" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$raw" > "$a"; printf '%s' "${raw//\\n/$'\n'}" > "$b"; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true; for candidate in "$a" "$b" "$c"; do if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then install -m 0600 "$candidate" "$target"; rm -f "$a" "$b" "$c"; return 0; fi; done; rm -f "$a" "$b" "$c"; return 1; }
+          host="$(trim "${MODEL_HOST_SECRET:-}")"; user="$(trim "${MODEL_USER_SECRET:-}")"; port="$(trim "${MODEL_PORT_SECRET:-22}")"
+          [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535))
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"; write_key "$(trim "${MODEL_KEY_SECRET:-}")" "$HOME/.ssh/id_tai_model" || exit 21
+          pin="$(trim "${MODEL_HOST_KEY_SECRET:-}")"; [[ -n "$pin" ]] || exit 22; pin_type="$(printf '%s' "$pin" | awk '{print $(NF-1)}')"; pin_material="$(printf '%s' "$pin" | awk '{print $NF}')"
+          scanned="$(ssh-keyscan -T 30 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"; printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned {ok=1} END{exit ok?0:1}' || exit 22
+          printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"; chmod 600 "$HOME/.ssh/model_known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+      - name: Stage and verify without root
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+          STAGE_DIR: ${{ steps.target.outputs.stage_dir }}
+          RUNTIME_SHA: ${{ steps.target.outputs.runtime_sha }}
+          BOOTSTRAP_SHA: ${{ steps.target.outputs.bootstrap_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_opts=(-i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
+          scp_opts=(-i "$HOME/.ssh/id_tai_model" -P "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
+          ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "set -euo pipefail; umask 077; test ! -e '$STAGE_DIR'; mkdir '$STAGE_DIR'"
+          scp "${scp_opts[@]}" scripts/gekta-qwen-g3e-runtime.py "$MODEL_USER@$MODEL_HOST:$STAGE_DIR/runtime.py"
+          scp "${scp_opts[@]}" scripts/gekta-qwen-g3e-bootstrap.sh "$MODEL_USER@$MODEL_HOST:$STAGE_DIR/bootstrap.sh"
+          remote="$(ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "set -euo pipefail; chmod 0400 '$STAGE_DIR/runtime.py' '$STAGE_DIR/bootstrap.sh'; sha256sum '$STAGE_DIR/runtime.py' '$STAGE_DIR/bootstrap.sh'")"
+          [[ "$(sed -n '1{s/[[:space:]].*$//;p}' <<<"$remote")" == "$RUNTIME_SHA" ]]
+          [[ "$(sed -n '2{s/[[:space:]].*$//;p}' <<<"$remote")" == "$BOOTSTRAP_SHA" ]]
+          echo 'GEKTA_G3E_BOOTSTRAP_STAGE=READY' > "$RUNNER_TEMP/g3e-stage"
+          echo 'GEKTA_G3E_BOOTSTRAP_RUNTIME_MUTATION=NONE' >> "$RUNNER_TEMP/g3e-stage"
+      - name: Publish exact root bootstrap action
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          STAGE_DIR: ${{ steps.target.outputs.stage_dir }}
+          RUNTIME_SHA: ${{ steps.target.outputs.runtime_sha }}
+          BOOTSTRAP_SHA: ${{ steps.target.outputs.bootstrap_sha }}
+          BASE_SHA: ${{ steps.target.outputs.base_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          root_dir="/root/gekta-g3e-bootstrap-$TARGET_SHA-$GITHUB_RUN_ID"
+          body="$RUNNER_TEMP/g3e-stage-comment.md"
+          {
+            echo '## Gekta P0 SPEED G3E ubatch256 bootstrap staged'
+            echo; echo "- exact repository main: \`$TARGET_SHA\`"; echo "- workflow run: \`$GITHUB_RUN_ID\`"; echo '- model/runtime mutation during staging: `NONE`'; echo '- root SSH credential in GitHub: `NONE`'; echo '- new recurring cost: `0 RUB`'; echo; echo '```text'; cat "$RUNNER_TEMP/g3e-stage"; echo '```'; echo
+            echo 'One root-shell action is required on the model host before GitHub can execute the bounded candidate:'; echo; echo '```bash'
+            printf '%s\n' "set -Eeuo pipefail; src='$STAGE_DIR'; dst='$root_dir'; test ! -e \"\$dst\"; /usr/bin/install -d -o root -g root -m 0700 \"\$dst\"; /usr/bin/install -o root -g root -m 0400 \"\$src/runtime.py\" \"\$dst/runtime.py\"; /usr/bin/install -o root -g root -m 0400 \"\$src/bootstrap.sh\" \"\$dst/bootstrap.sh\"; printf '%s  %s\\n' '$RUNTIME_SHA' \"\$dst/runtime.py\" | /usr/bin/sha256sum -c -; printf '%s  %s\\n' '$BOOTSTRAP_SHA' \"\$dst/bootstrap.sh\" | /usr/bin/sha256sum -c -; /bin/bash \"\$dst/bootstrap.sh\" \"\$dst/runtime.py\" '$BASE_SHA'; /bin/rm -rf -- \"\$dst\" \"\$src\""
+            echo '```'; echo; echo 'The audited bootstrap installs only the G3E helper and exact three-command sudoers allowlist; it does not restart or mutate the model runtime.'
+          } > "$body"
+          gh issue comment "$SPEED_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
+      - name: Cleanup transport
+        if: always()
+        run: rm -f "$HOME/.ssh/id_tai_model" "$HOME/.ssh/model_known_hosts"
+
+  candidate:
+    name: Execute exact G3E runtime action
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3896 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      (
+        (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+        (github.actor == 'chatgpt-codex-connector[bot]' && github.triggering_actor == 'chatgpt-codex-connector[bot]' && github.event.comment.performed_via_github_app.id == 1144995)
+      ) &&
+      (
+        github.event.comment.body == '/gekta speed-g3e ubatch256 current-main' ||
+        github.event.comment.body == '/gekta speed-g3e rollback current-main' ||
+        github.event.comment.body == '/gekta speed-g3e status current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve exact current main and action
+        id: target
+        env:
+          COMMAND: ${{ github.event.comment.body }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main; sha="$(git rev-parse origin/main)"; [[ "$sha" =~ ^[0-9a-f]{40}$ && "$sha" == "$(git rev-parse HEAD)" ]]; [[ "$sha" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          case "$COMMAND" in '/gekta speed-g3e ubatch256 current-main') action=ubatch256 ;; '/gekta speed-g3e rollback current-main') action=rollback ;; '/gekta speed-g3e status current-main') action=status ;; *) exit 20 ;; esac
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"; echo "action=$action" >> "$GITHUB_OUTPUT"; echo "helper_sha=$(sha256sum scripts/gekta-qwen-g3e-runtime.py | awk '{print $1}')" >> "$GITHUB_OUTPUT"; echo "base_sha=$(sha256sum scripts/gekta-qwen-g3c-runtime.py | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+      - name: Resolve pinned model-host transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){ local raw="$1" target="$2" a b c; [[ -n "$raw" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$raw" > "$a"; printf '%s' "${raw//\\n/$'\n'}" > "$b"; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true; for candidate in "$a" "$b" "$c"; do if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then install -m 0600 "$candidate" "$target"; rm -f "$a" "$b" "$c"; return 0; fi; done; rm -f "$a" "$b" "$c"; return 1; }
+          host="$(trim "${MODEL_HOST_SECRET:-}")"; user="$(trim "${MODEL_USER_SECRET:-}")"; port="$(trim "${MODEL_PORT_SECRET:-22}")"; [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535))
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"; write_key "$(trim "${MODEL_KEY_SECRET:-}")" "$HOME/.ssh/id_tai_model" || exit 21
+          pin="$(trim "${MODEL_HOST_KEY_SECRET:-}")"; [[ -n "$pin" ]] || exit 22; pin_type="$(printf '%s' "$pin" | awk '{print $(NF-1)}')"; pin_material="$(printf '%s' "$pin" | awk '{print $NF}')"; scanned="$(ssh-keyscan -T 30 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"; printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned {ok=1} END{exit ok?0:1}' || exit 22
+          printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"; chmod 600 "$HOME/.ssh/model_known_hosts"; echo "host=$host" >> "$GITHUB_OUTPUT"; echo "user=$user" >> "$GITHUB_OUTPUT"; echo "port=$port" >> "$GITHUB_OUTPUT"
+      - name: Verify exact installed controller and execute
+        id: execute
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+          EXPECTED_HELPER_SHA: ${{ steps.target.outputs.helper_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.target.outputs.base_sha }}
+          ACTION: ${{ steps.target.outputs.action }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_base=(ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes "$MODEL_USER@$MODEL_HOST")
+          result="$RUNNER_TEMP/g3e-result"; raw="$RUNNER_TEMP/g3e-raw"; : > "$result"; : > "$raw"
+          remote_helper="$("${ssh_base[@]}" 'sha256sum /usr/local/sbin/gekta-qwen-g3e 2>/dev/null' | awk '{print $1}' || true)"; remote_base="$("${ssh_base[@]}" 'sha256sum /usr/local/libexec/gekta-qwen-g3c-base.py 2>/dev/null' | awk '{print $1}' || true)"
+          rc=0
+          if [[ "$remote_helper" != "$EXPECTED_HELPER_SHA" || "$remote_base" != "$EXPECTED_BASE_SHA" ]]; then echo 'GEKTA_G3E_ERROR=bootstrap_required' > "$result"; rc=30; else set +e; "${ssh_base[@]}" "sudo -n /usr/local/sbin/gekta-qwen-g3e $ACTION" > "$raw" 2>&1; rc=$?; set -e; grep -E '^GEKTA_G3E_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$raw" > "$result" || true; [[ -s "$result" ]] || echo 'GEKTA_G3E_ERROR=bounded_evidence_missing' > "$result"; fi
+          rm -f "$raw"; echo "rc=$rc" >> "$GITHUB_OUTPUT"; cat "$result"
+      - name: Publish bounded G3E evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          ACTION: ${{ steps.target.outputs.action }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/g3e-result"; [[ -s "$result" ]] || echo 'GEKTA_G3E_ERROR=execution_not_reached' > "$result"; body="$RUNNER_TEMP/g3e-comment.md"
+          { echo '## Gekta P0 SPEED G3E ubatch256 controller'; echo; echo "- exact repository main: \`${TARGET_SHA:-unknown}\`"; echo "- workflow run: \`$GITHUB_RUN_ID\`"; echo "- action: \`${ACTION:-unknown}\`"; echo '- invariant: `ubatch 128↔256 only`'; echo '- threads/tb/parallel/ctx/batch: `16/16/1/8192/512`'; echo '- new recurring cost: `0 RUB`'; echo; echo '```text'; sed -n '1,40p' "$result"; echo '```'; } > "$body"; gh issue comment "$SPEED_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
+      - name: Enforce execution result
+        if: always()
+        env:
+          RC: ${{ steps.execute.outputs.rc }}
+        run: '[[ "${RC:-1}" == 0 ]]'
+      - name: Cleanup transport
+        if: always()
+        run: rm -f "$HOME/.ssh/id_tai_model" "$HOME/.ssh/model_known_hosts"

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4551,
+  "branch": "sec/asvs-v4-api-4551",
+  "status": "active",
+  "purpose": "Assess ASVS V4 API and Web Service, including an SSRF in the partner webhook dispatcher and a WebSocket surface that only looks alive.",
+  "authorityBaseExactMain": "50eed4c44432f270c0581562d102dd37c3208b5c",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v4-api-4551.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "A coverage claim names the denominator it measured.",
+    "A dead surface is not given a FAIL for a defect that cannot occur, and the forward risk is stated instead.",
+    "A reference inside a test is not mistaken for a served API.",
+    "One blocker is treated the same way in every chapter that meets it.",
+    "FAIL is recorded and reported, never resolved by editing product logic.",
+    "finalPass stays false.",
+    "No product logic, dependency, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "V4.2.5 is FAIL, describing the SSRF precisely and linking it to the inline-body-type correction.",
+    "V4.1.1 states its denominator: seven raw response paths, seven declared content types.",
+    "V4.4.x are NOT_APPLICABLE via NO_RUNTIME_CALLER, with the forward risk of the orphaned client stated in the note.",
+    "V4.3.x do not mistake a graphql string inside a test for a served API.",
+    "V4.1.2 and V4.2.x carry the same edge blocker treatment as V12, not a new one.",
+    "All 16 V4 requirements are decided: 2 PASS, 2 FAIL, 6 not assessed, 6 justified non-applicable.",
+    "finalPass stays false."
+  ]
+}
