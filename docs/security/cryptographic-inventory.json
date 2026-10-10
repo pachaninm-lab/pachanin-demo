@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2314,
+  "scannedFiles": 2316,
   "operations": [
     {
       "operation": "encryption",
@@ -43,11 +43,11 @@
     {
       "operation": "hash",
       "label": "Hashing",
-      "sites": 88,
+      "sites": 89,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 88,
+          "sites": 89,
           "files": [
             "apps/api/src/common/outbox/outbox.service.ts",
             "apps/api/src/common/security/rate-limit.service.ts",
@@ -125,6 +125,7 @@
             "packages/domain-core/src/audit-log.ts",
             "packages/domain-core/src/deal-event-chain.ts",
             "packages/domain-core/src/deal-signing-service.ts",
+            "packages/domain-core/src/gekta-consent-evidence.ts",
             "packages/integration-sdk/src/adapters/cryptopro.adapter.ts"
           ]
         }
@@ -133,11 +134,11 @@
     {
       "operation": "mac",
       "label": "Message authentication",
-      "sites": 24,
+      "sites": 25,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 23,
+          "sites": 24,
           "files": [
             "apps/api/src/common/security/rate-limit.service.ts",
             "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
@@ -158,6 +159,7 @@
             "apps/web/lib/platform-v7/marketing-attribution.server.ts",
             "apps/web/lib/platform-v7/tai-internal-stream.ts",
             "apps/web/lib/server-request-actor.ts",
+            "packages/domain-core/src/gekta-consent-evidence.ts",
             "packages/integration-sdk/src/security/webhook-security.ts"
           ]
         },
@@ -256,11 +258,11 @@
     {
       "operation": "csprng",
       "label": "Cryptographic randomness",
-      "sites": 31,
+      "sites": 32,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 31,
+          "sites": 32,
           "files": [
             "apps/api/src/common/config/secrets.ts",
             "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
@@ -281,6 +283,7 @@
             "apps/web/lib/server-request-security.ts",
             "apps/web/lib/server/gekta-mfa-ticket.ts",
             "apps/web/lib/server/mfa-login-ticket.ts",
+            "packages/domain-core/src/gekta-consent-evidence.ts",
             "packages/integration-sdk/src/adapters/mfa.adapter.ts"
           ]
         }
@@ -472,11 +475,11 @@
     {
       "operation": "constant-time",
       "label": "Constant-time comparison",
-      "sites": 25,
+      "sites": 26,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 25,
+          "sites": 26,
           "files": [
             "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
             "apps/api/src/modules/auth/auth-crypto.ts",
@@ -502,6 +505,7 @@
             "apps/web/lib/platform-v7/marketing-attribution.server.ts",
             "apps/web/lib/server-request-actor.ts",
             "apps/web/lib/server-request-security.ts",
+            "packages/domain-core/src/gekta-consent-evidence.ts",
             "packages/integration-sdk/src/security/webhook-security.ts"
           ]
         }

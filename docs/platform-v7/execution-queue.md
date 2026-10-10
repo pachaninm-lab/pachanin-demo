@@ -404,3 +404,21 @@ Gekta registration18 is blocked by genuine current392 P1 wrong personal-data doc
 ## Gekta registration prerequisite generated-view correction — genuine P2 still under review
 
 Genuine native P2 review5476226308/comment4235298697/threadPRRT_kwDOR7So_c6q-Vvp of unacceptedfc4b reproduced stale superseded blockers in committed progress/current prompts. Use the unchanged actual dispatcher to regenerate both full current prompts and synchronize only the progress blockedBy derived array to its complete ordered current blocker set. Preserve all non-blocker progress fields/legacy fields/raw nextStep/timestamp and the unchanged source-of-truth state current/nextStep/owners/scopes/PRIMARY11/Claude/official5. Old109 raw state records/full payloads remain frozen; six full replacement payloads and twelve prior full afters unchanged. Historical admission prose stays retained in append-only queue and Git ancestry; current prompt prefixes are necessarily regenerated, not claimed byte-preserved. Re-run actual unchanged dispatcher twice in isolation: generated prompts must match complete bytes, active prompt BLOCKED rows and progress blockedBy must equal the full current dispatcher set, and retired registration-choice blocker must be absent from all active views. No guard/dispatcher/schema/source payload/runtime/gate/timeout change; oldfc4b review/native/readiness is not transferred to corrected head.
+
+
+## Gekta owned-history five-marker documentation prerequisite — genuine source P2 unresolved
+
+Correct the contradictory first-user runbook sentence from four to all five history PASS markers, matching the actual unchanged executor and final runbook paragraph. Retain the other three full source afters byte-for-byte. Exactly the existing owned-history4 vector; no executor, checker, scope, owner, runtime or acceptance criteria change.
+
+Retained corrective purpose `gekta-owned-history-five-markers-document-correction-20261010` supersedes only the unaccepted four-path payload of `gekta-owned-history-contract-correction-20261009`. All old records and source payloads remain frozen.
+
+All four entire UTF8 afters are retained here, with exact regular modes, actual accepted-main before Git/SHA256 and complete after length/Git/SHA256. Only one after differs from unaccepted fed3. Old110 raw records/payloads remain frozen. No hidden scratch or hash-only authority.
+
+Corrected runbook has exactly five required history markers in both paragraphs; unchanged executor emits all five only after bounded own cleanup. Actual corrected source checker17 fixture/deadline cases PASS; local VM contracts are not live acceptance. Full frozen before/after/mode/UTF8/Git/SHA256 verified and unchanged other3 whole afters equal actual published fed3. Use actual unchanged dispatcher twice in isolated canonical inputs: complete prompts must be byte-identical and active BLOCKED rows/progress blockedBy must equal its full ordered set, retiring only the superseded active owned-contract blocker. Preserve all non-blocker progress fields/raw nextStep/timestamp, state current/scopes/owners/PRIMARY11/Claude/official5 and append-only queue history.
+
+Actually accepted corrected registration18 main5618e224d90edb3cc8b2567735515ac9b104bc9e; old metadata/source admissions retained.
+Separate five-GOV admission needs actual independent whole-head payload reconstruction review, distinct owner audit, complete native checks, current canonical READY and fresh ordinary full-SHA manual acceptance before source ref changes.
+Then existing ops source must retain oldfed3 and actual newly accepted-main ancestry, normal expected-old forcefalse, new explicitly bounded serialized source phase; new whole-head independent review/audit/all applicable native/current canonical/fresh manual acceptance. P2 thread remains unresolved until genuine corrected published-head review and evidence.
+Only then actual owned-base ANON17, final stable-main REG.RU release/model/first-user execution; local contracts, branch-filter absence and prior-head results never prove live operations or human owner grants.
+
+Gekta owned-history4 is blocked by genuine fed3 P2 contradictory four-versus-five runbook markers; separately accepted complete corrected four-path payload and fresh source review/native/canonical/manual acceptance are required before live execution.

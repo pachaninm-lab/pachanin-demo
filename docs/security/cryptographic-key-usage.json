@@ -362,7 +362,8 @@
         "apps/web/lib/server/gekta-auth-route.ts"
       ],
       "mayProtect": [
-        "The delivery boundary for registration and registration-decision mail"
+        "The delivery boundary for registration and registration-decision mail",
+        "The short-lived Gekta registration form commitment, with its separate HMAC purpose/domain; no authentication credential authority"
       ],
       "mustNotProtect": [
         "The registration credential itself, and any other delivery contour"
