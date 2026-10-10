@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pachanin.example/schemas/efgis-zsn-api-document.source-lock.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schemaVersion", "systemCode", "status", "operator", "operatorInstructionsUrl", "operatorLinkLabel", "publicArtifactUrl", "retrievalMethod", "retrievedAt", "documentTitle", "declaredDocumentYear", "declaredContractVersion", "pdfPages", "artifactSizeBytes", "artifactSha256", "existingRegistryVersion", "registryHandoffStatus", "boundaries"],
+  "properties": {
+    "$schema": { "const": "./efgis-zsn-api-document.source-lock.schema.json" },
+    "schemaVersion": { "const": "pc-crop.efgis-zsn-api-document-source-lock.v1" },
+    "systemCode": { "const": "EFGIS_ZSN" },
+    "status": { "const": "PUBLIC_DOCUMENT_HASH_PINNED_CONTRACT_VERSION_UNKNOWN" },
+    "operator": { "const": "ФГБУ «Россельхозземмониторинг»" },
+    "operatorInstructionsUrl": { "const": "https://rshzm.ru/instructions" },
+    "operatorLinkLabel": { "const": "Описание API интерфейса" },
+    "publicArtifactUrl": { "const": "https://disk.yandex.ru/i/blNZsdLcAxJsHg" },
+    "retrievalMethod": { "type": "string", "minLength": 20 },
+    "retrievedAt": { "type": "string", "format": "date-time" },
+    "documentTitle": { "const": "Инструкция по работе с API в ЕФГИС ЗСН" },
+    "declaredDocumentYear": { "const": 2025 },
+    "declaredContractVersion": { "type": "null" },
+    "pdfPages": { "const": 39 },
+    "artifactSizeBytes": { "const": 906732 },
+    "artifactSha256": { "const": "8d9b2fdd8a5c560347e08b8bd5bfd118a163b3f1636dbe4ff63bfc9a5742cdd7" },
+    "existingRegistryVersion": { "const": "1.0.0" },
+    "registryHandoffStatus": { "const": "PENDING_GOVERNED_SUCCESSOR" },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceDocumentationOnly", "apiVersionInferredFromPath", "organizationAccessAttested", "credentialsOrSignaturePresent", "platformReadEnabled", "platformWriteEnabled", "externalE2eAccepted", "productionAttested"],
+      "properties": {
+        "sourceDocumentationOnly": { "const": true },
+        "apiVersionInferredFromPath": { "const": false },
+        "organizationAccessAttested": { "const": false },
+        "credentialsOrSignaturePresent": { "const": false },
+        "platformReadEnabled": { "const": false },
+        "platformWriteEnabled": { "const": false },
+        "externalE2eAccepted": { "const": false },
+        "productionAttested": { "const": false }
+      }
+    }
+  }
+}

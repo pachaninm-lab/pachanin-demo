@@ -100,6 +100,14 @@ export type SessionContextRow = IdentityRow & {
   mfa_level: string;
   mfa_verified_at: Date | null;
   session_expires_at: Date;
+  /**
+   * When this session was last used, throttled to one write a minute by
+   * touchSession. The column has been stored since the sessions table was
+   * created; nothing read it, so an idle session stayed valid for its full
+   * absolute lifetime. It is selected here so the inactivity limit can be
+   * decided from it.
+   */
+  session_last_seen_at: Date;
   revoked_at: Date | null;
   revocation_reason: string | null;
   current_credential_version: number;
@@ -131,6 +139,7 @@ export type ProductSessionContextRow = {
   mfa_level: string;
   mfa_verified_at: Date | null;
   session_expires_at: Date;
+  session_last_seen_at: Date;
   revoked_at: Date | null;
   revocation_reason: string | null;
   current_credential_version: number;
@@ -295,6 +304,31 @@ export class PersistentAuthRepository {
       FROM auth.resolve_login_credential(${email})
     `);
     return rows[0] ?? null;
+  }
+
+  /**
+   * Rewrites a stored password hash into the current format, or reports that it
+   * did not.
+   *
+   * Conditional on the exact previous value, so a concurrent password change or
+   * a parallel login that already upgraded wins and this call changes nothing.
+   * The narrow definer function is the write path because public."users" is
+   * under FORCE row level security; the runtime role cannot write that table
+   * directly and does not need to.
+   *
+   * This is not an authentication step. The caller has already verified the
+   * password against the previous hash.
+   */
+  async upgradePasswordHashFormat(
+    client: AuthSqlClient,
+    userId: string,
+    nextHash: string,
+    expectedHash: string,
+  ): Promise<boolean> {
+    const rows = await client.$queryRaw<Array<{ upgraded: boolean }>>(Prisma.sql`
+      SELECT auth.upgrade_password_hash_format(${userId}, ${nextHash}, ${expectedHash}) AS upgraded
+    `);
+    return rows[0]?.upgraded === true;
   }
 
   async findIdentitiesByUser(
@@ -486,6 +520,39 @@ export class PersistentAuthRepository {
     `);
   }
 
+  /**
+   * Consumes a TOTP time-step counter, or refuses because it is not new.
+   *
+   * The whole control is the predicate. A read-then-write would leave a window
+   * where two processes both see the old value and both accept the same code;
+   * a single conditional UPDATE cannot, because PostgreSQL serialises the row
+   * and the second statement re-evaluates against the value the first wrote.
+   * The API and the workers are separate processes, so that is the race that
+   * matters here rather than a theoretical one.
+   *
+   * Strictly greater, not greater-or-equal: RFC 6238 section 5.2 requires that
+   * a counter already accepted never be accepted again, and the same rule also
+   * refuses an older counter still inside the acceptance window, which is the
+   * shape a replay actually takes.
+   *
+   * Returns false when no row changed - replayed counter, stale counter, or no
+   * such credential row - and every one of those is a refusal.
+   */
+  async consumeTotpCounter(
+    client: AuthSqlClient,
+    userId: string,
+    counter: number,
+  ): Promise<boolean> {
+    const updated = await client.$executeRaw(Prisma.sql`
+      UPDATE auth.credential_states
+      SET mfa_last_totp_counter = ${counter},
+          updated_at = NOW()
+      WHERE user_id = ${userId}
+        AND (mfa_last_totp_counter IS NULL OR mfa_last_totp_counter < ${counter})
+    `);
+    return updated === 1;
+  }
+
   async clearLoginThrottle(client: AuthSqlClient, accountHash: string): Promise<void> {
     await client.$executeRaw(Prisma.sql`
       UPDATE auth.login_throttles
@@ -661,7 +728,7 @@ export class PersistentAuthRepository {
   async expirePendingMfaChallenges(
     client: AuthSqlClient,
     sessionId: string,
-    type: 'STEP_UP',
+    type: 'STEP_UP' | 'TOTP_ENROLL',
   ): Promise<void> {
     await client.$executeRaw(Prisma.sql`
       UPDATE auth.mfa_challenges
@@ -767,6 +834,7 @@ export class PersistentAuthRepository {
         s.mfa_level,
         s.mfa_verified_at,
         s.expires_at AS session_expires_at,
+        s.last_seen_at AS session_last_seen_at,
         s.revoked_at,
         s.revocation_reason,
         cs.credential_version AS current_credential_version,
@@ -798,6 +866,7 @@ export class PersistentAuthRepository {
         s.mfa_level,
         s.mfa_verified_at,
         s.expires_at AS session_expires_at,
+        s.last_seen_at AS session_last_seen_at,
         s.revoked_at,
         s.revocation_reason,
         cs.credential_version AS current_credential_version,
@@ -842,6 +911,7 @@ export class PersistentAuthRepository {
         s.mfa_level,
         s.mfa_verified_at,
         s.expires_at AS session_expires_at,
+        s.last_seen_at AS session_last_seen_at,
         s.revoked_at,
         s.revocation_reason,
         cs.credential_version AS current_credential_version,
@@ -1026,6 +1096,7 @@ export class PersistentAuthRepository {
         s.mfa_level,
         s.mfa_verified_at,
         s.expires_at AS session_expires_at,
+        s.last_seen_at AS session_last_seen_at,
         s.revoked_at,
         s.revocation_reason,
         cs.credential_version AS current_credential_version,
@@ -1065,6 +1136,7 @@ export class PersistentAuthRepository {
         s.mfa_level,
         s.mfa_verified_at,
         s.expires_at AS session_expires_at,
+        s.last_seen_at AS session_last_seen_at,
         s.revoked_at,
         s.revocation_reason,
         cs.credential_version AS current_credential_version,
@@ -1112,6 +1184,7 @@ export class PersistentAuthRepository {
         s.mfa_level,
         s.mfa_verified_at,
         s.expires_at AS session_expires_at,
+        s.last_seen_at AS session_last_seen_at,
         s.revoked_at,
         s.revocation_reason,
         cs.credential_version AS current_credential_version,
@@ -1266,6 +1339,8 @@ export class PersistentAuthRepository {
       UPDATE auth.mfa_challenges
       SET status = 'VERIFIED', verified_at = NOW()
       WHERE id = ${input.challengeId}
+        AND session_id = ${input.sessionId}
+        AND user_id = ${input.userId}
         AND status = 'PENDING'
         AND type IN ('TOTP_ENROLL', 'TOTP_VERIFY')
     `);
@@ -1288,6 +1363,13 @@ export class PersistentAuthRepository {
     const credentialUpdated = await client.$executeRaw(Prisma.sql`
       UPDATE auth.credential_states
       SET mfa_enabled = CASE WHEN ${input.enableMfa} THEN TRUE ELSE mfa_enabled END,
+          mfa_key_version = CASE
+            WHEN ${input.method === 'TOTP'}
+              AND mfa_secret_ciphertext
+                ~ '^v1:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+$'
+              THEN 'v1'
+            ELSE mfa_key_version
+          END,
           mfa_backup_hashes = CASE
             WHEN ${JSON.stringify(input.backupHashes ?? null)}::jsonb IS NULL THEN mfa_backup_hashes
             ELSE ${JSON.stringify(input.backupHashes ?? null)}::jsonb
@@ -1299,7 +1381,10 @@ export class PersistentAuthRepository {
       WHERE user_id = ${input.userId}
     `);
     if (credentialUpdated !== 1) throw new Error('MFA credential state conflict');
-    if (input.enableMfa) {
+    // A fresh TOTP proves possession of the authoritative authenticator for
+    // both enrollment and ordinary verification. Re-run the bounded legacy
+    // flag finalizer on either TOTP path, but never on a backup-code login.
+    if (input.method === 'TOTP') {
       const finalized = await client.$queryRaw<Array<{ updated: boolean }>>(Prisma.sql`
         SELECT updated
         FROM auth.finalize_authenticated_user_mfa(
@@ -1317,41 +1402,67 @@ export class PersistentAuthRepository {
       sessionId: string;
       userId: string;
       method: 'TOTP' | 'BACKUP';
+      challengeType: 'STEP_UP' | 'TOTP_ENROLL';
       backupHashes?: string[];
     },
   ): Promise<Date> {
-    const verifiedAt = new Date();
+    if (input.challengeType === 'TOTP_ENROLL' && input.method !== 'TOTP') {
+      throw new Error('MFA enrollment requires TOTP possession');
+    }
     const challengeUpdated = await client.$executeRaw(Prisma.sql`
       UPDATE auth.mfa_challenges
-      SET status = 'VERIFIED', verified_at = ${verifiedAt}
+      SET status = 'VERIFIED', verified_at = NOW()
       WHERE id = ${input.challengeId}
+        AND session_id = ${input.sessionId}
+        AND user_id = ${input.userId}
         AND status = 'PENDING'
-        AND type = 'STEP_UP'
+        AND expires_at > NOW()
+        AND type = ${input.challengeType}
     `);
     if (challengeUpdated !== 1) throw new Error('MFA step-up challenge conflict');
 
-    const sessionUpdated = await client.$executeRaw(Prisma.sql`
+    const sessions = await client.$queryRaw<Array<{ mfa_verified_at: Date }>>(Prisma.sql`
       UPDATE auth.sessions
       SET mfa_level = ${input.method},
-          mfa_verified_at = ${verifiedAt},
+          mfa_verified_at = NOW(),
           mfa_verified_method = ${input.method},
-          last_seen_at = ${verifiedAt},
-          updated_at = ${verifiedAt}
+          last_seen_at = NOW(),
+          updated_at = NOW()
       WHERE id = ${input.sessionId}
         AND user_id = ${input.userId}
         AND status = 'ACTIVE'
+      RETURNING mfa_verified_at
     `);
-    if (sessionUpdated !== 1) throw new Error('MFA step-up session conflict');
+    if (sessions.length !== 1) throw new Error('MFA step-up session conflict');
 
-    if (input.backupHashes) {
-      await client.$executeRaw(Prisma.sql`
-        UPDATE auth.credential_states
-        SET mfa_backup_hashes = ${JSON.stringify(input.backupHashes)}::jsonb,
-            updated_at = ${verifiedAt}
-        WHERE user_id = ${input.userId}
+    const credentialUpdated = await client.$executeRaw(Prisma.sql`
+      UPDATE auth.credential_states
+      SET mfa_enabled = CASE WHEN ${input.challengeType === 'TOTP_ENROLL'} THEN TRUE ELSE mfa_enabled END,
+          mfa_key_version = CASE
+            WHEN ${input.challengeType === 'TOTP_ENROLL' && input.method === 'TOTP'}
+              AND mfa_secret_ciphertext ~ '^v1:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+$'
+              THEN 'v1'
+            ELSE mfa_key_version
+          END,
+          mfa_backup_hashes = CASE
+            WHEN ${input.backupHashes === undefined} THEN mfa_backup_hashes
+            ELSE ${JSON.stringify(input.backupHashes ?? null)}::jsonb
+          END,
+          updated_at = NOW()
+      WHERE user_id = ${input.userId}
+    `);
+    if (credentialUpdated !== 1) throw new Error('MFA credential state conflict');
+    // Preserve the bounded PostgreSQL authority for the legacy user flag.
+    // NOW() binds the session and challenge to this same transaction.
+    if (input.challengeType === 'TOTP_ENROLL') {
+      const finalized = await client.$queryRaw<Array<{ updated: boolean }>>(Prisma.sql`
+        SELECT updated FROM auth.finalize_authenticated_user_mfa(
+          ${input.userId}, ${input.sessionId}, ${input.challengeId}
+        )
       `);
+      if (finalized[0]?.updated !== true) throw new Error('MFA user state conflict');
     }
-    return verifiedAt;
+    return sessions[0].mfa_verified_at;
   }
 
   async recordMfaFailure(
@@ -1374,11 +1485,20 @@ export class PersistentAuthRepository {
     userId: string,
     ciphertext: string,
     keyVersion: string,
+    pendingEnrollment = false,
   ): Promise<void> {
+    // Authenticated enrollment locks the credential before installing a new
+    // secret. A retired secret's counter must not block its replacement; an
+    // existing secret or another challenge keeps the replay high-water mark.
     await client.$executeRaw(Prisma.sql`
       UPDATE auth.credential_states
       SET mfa_secret_ciphertext = ${ciphertext},
+          mfa_enabled = CASE WHEN ${pendingEnrollment} THEN FALSE ELSE mfa_enabled END,
           mfa_key_version = ${keyVersion},
+          mfa_last_totp_counter = CASE
+            WHEN ${pendingEnrollment} AND mfa_secret_ciphertext IS NULL THEN NULL
+            ELSE mfa_last_totp_counter
+          END,
           updated_at = NOW()
       WHERE user_id = ${userId}
     `);

@@ -4,9 +4,27 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { inflateRawSync, inflateSync } from 'node:zlib';
 import { NextRequest, NextResponse } from 'next/server';
 import ExcelJS from 'exceljs';
+import {
+  MEDIA_TYPES,
+  TEXT_EXTENSIONS,
+  assertContentMatchesExtension,
+} from '../../../../lib/uploads/content-signature';
+import {
+  type PixelBudget,
+  assertImageWithinPixelBudget,
+  createPixelBudget,
+} from '../../../../lib/uploads/image-dimensions';
+import {
+  type InflateBudget,
+  assertArchiveDeclared,
+  assertArchiveInflatesWithinBudget,
+  createInflateBudget,
+  inflatePdfStream,
+  readArchiveEntry,
+} from '../../../../lib/uploads/decompression-budget';
+import { readBoundedBody } from '../../../../lib/uploads/bounded-body';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -15,13 +33,14 @@ const execFileAsync = promisify(execFile);
 const MAX_FILES = 4;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 24 * 1024 * 1024;
+/** Потолок самого тела: полезная нагрузка плюс запас на multipart-обвязку. */
+const MAX_BODY_BYTES = MAX_TOTAL_BYTES + 1_000_000;
 const MAX_EXTRACTED_CHARS = 18_000;
 const MAX_OCR_PDF_PAGES = 4;
 const OCR_TIMEOUT_MS = 30_000;
 const MIN_NATIVE_PDF_TEXT = 80;
 const OCR_LANGUAGES = 'rus+eng+chi_sim';
 
-const TEXT_EXTENSIONS = new Set(['txt', 'md', 'csv', 'json', 'xml']);
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'heic']);
 const RECOGNIZED_BUT_NOT_CONNECTED = new Set(['doc']);
 
@@ -74,40 +93,8 @@ function decodeXml(value: string): string {
     .replace(/&amp;/gu, '&');
 }
 
-function zipEntry(buffer: Buffer, wanted: string): Buffer {
-  let eocd = -1;
-  for (let offset = Math.max(0, buffer.length - 65_557); offset <= buffer.length - 22; offset += 1) {
-    if (buffer.readUInt32LE(offset) === 0x06054b50) eocd = offset;
-  }
-  if (eocd < 0) throw new Error('INVALID_ZIP_DOCUMENT');
-  const entries = buffer.readUInt16LE(eocd + 10);
-  let cursor = buffer.readUInt32LE(eocd + 16);
-  for (let index = 0; index < entries; index += 1) {
-    if (buffer.readUInt32LE(cursor) !== 0x02014b50) throw new Error('INVALID_ZIP_DIRECTORY');
-    const method = buffer.readUInt16LE(cursor + 10);
-    const compressedSize = buffer.readUInt32LE(cursor + 20);
-    const nameLength = buffer.readUInt16LE(cursor + 28);
-    const extraLength = buffer.readUInt16LE(cursor + 30);
-    const commentLength = buffer.readUInt16LE(cursor + 32);
-    const localOffset = buffer.readUInt32LE(cursor + 42);
-    const name = buffer.subarray(cursor + 46, cursor + 46 + nameLength).toString('utf8');
-    if (name === wanted) {
-      if (buffer.readUInt32LE(localOffset) !== 0x04034b50) throw new Error('INVALID_ZIP_LOCAL_HEADER');
-      const localNameLength = buffer.readUInt16LE(localOffset + 26);
-      const localExtraLength = buffer.readUInt16LE(localOffset + 28);
-      const start = localOffset + 30 + localNameLength + localExtraLength;
-      const compressed = buffer.subarray(start, start + compressedSize);
-      if (method === 0) return compressed;
-      if (method === 8) return inflateRawSync(compressed);
-      throw new Error('UNSUPPORTED_ZIP_COMPRESSION');
-    }
-    cursor += 46 + nameLength + extraLength + commentLength;
-  }
-  throw new Error('DOCUMENT_CONTENT_NOT_FOUND');
-}
-
-function extractDocx(bytes: Buffer): { text: string; truncated: boolean } {
-  const xml = zipEntry(bytes, 'word/document.xml').toString('utf8');
+function extractDocx(bytes: Buffer, budget: InflateBudget): { text: string; truncated: boolean } {
+  const xml = readArchiveEntry(bytes, 'word/document.xml', budget).toString('utf8');
   const text = decodeXml(xml)
     .replace(/<w:tab\b[^>]*\/>/gu, '\t')
     .replace(/<w:br\b[^>]*\/>/gu, '\n')
@@ -154,16 +141,22 @@ function pdfTextOperators(content: string): string[] {
   return values;
 }
 
-function extractPdf(bytes: Buffer): { text: string; truncated: boolean } {
+function extractPdf(bytes: Buffer, budget: InflateBudget): { text: string; truncated: boolean } {
   const source = bytes.toString('latin1');
   const values = pdfTextOperators(source);
   const streamPattern = /stream\r?\n([\s\S]*?)\r?\nendstream/gu;
   for (const match of source.matchAll(streamPattern)) {
     const start = match.index ?? 0;
     const dictionary = source.slice(Math.max(0, start - 500), start);
-    let stream = Buffer.from(match[1], 'latin1');
+    let stream: Buffer = Buffer.from(match[1], 'latin1');
     if (/\/FlateDecode\b/u.test(dictionary)) {
-      try { stream = inflateSync(stream); } catch { continue; }
+      // У потока PDF объявленного несжатого размера нет, поэтому здесь работает
+      // только исполняющая граница. Пропуск повреждённого потока и отказ по
+      // бюджету разделяет сам вызываемый, а не catch здесь: у этого места нет
+      // возможности перепутать их.
+      const inflated = inflatePdfStream(stream, budget);
+      if (inflated === null) continue;
+      stream = inflated;
     }
     values.push(...pdfTextOperators(stream.toString('latin1')));
   }
@@ -261,20 +254,41 @@ async function extractWorkbook(file: File): Promise<{ text: string; truncated: b
   return cleanText(lines.join('\n'));
 }
 
-async function extract(file: File): Promise<ExtractedDocument> {
+async function extract(
+  file: File,
+  budget: PixelBudget,
+  inflateBudget: InflateBudget,
+): Promise<ExtractedDocument> {
   const ext = extension(file.name);
   const bytes: Buffer = Buffer.from(new Uint8Array(await file.arrayBuffer()));
   const checksumSha256 = createHash('sha256').update(bytes).digest('hex');
   let extracted: { text: string; truncated: boolean };
 
+  // До любого разбора: содержимое обязано соответствовать расширению, иначе
+  // обработчик выбирается строкой, которую задаёт отправитель.
+  assertContentMatchesExtension(ext, bytes);
+
+  // И до запуска декодера: объявленные размеры обязаны укладываться в пределы.
+  // Предел размера файла ограничивает вход, а не выход распаковщика.
+  assertImageWithinPixelBudget(ext, bytes, budget);
+
+  // То же правило для архивов. Здесь оно нужно ещё и потому, что xlsx
+  // распаковывает ExcelJS: остановить его на потолке нельзя, и объявленные
+  // числа - единственное, что можно спросить у файла до этого.
+  assertArchiveDeclared(ext, bytes, inflateBudget);
+
   if (TEXT_EXTENSIONS.has(ext)) {
     extracted = cleanText(bytes.toString('utf8'));
   } else if (ext === 'xlsx') {
+    // Распаковывает ExcelJS, остановить его на потолке нельзя. Поэтому записи
+    // разжимаются здесь под бюджетом и выбрасываются: подделанный каталог не
+    // дойдёт до него, а бюджет спишется по фактическим байтам.
+    assertArchiveInflatesWithinBudget(ext, bytes, inflateBudget);
     extracted = await extractWorkbook(file);
   } else if (ext === 'docx') {
-    extracted = extractDocx(bytes);
+    extracted = extractDocx(bytes, inflateBudget);
   } else if (ext === 'pdf') {
-    const native = extractPdf(bytes);
+    const native = extractPdf(bytes, inflateBudget);
     extracted = native.text.length >= MIN_NATIVE_PDF_TEXT ? native : await ocrPdf(bytes);
   } else if (IMAGE_EXTENSIONS.has(ext)) {
     extracted = await ocrImage(bytes, ext);
@@ -288,7 +302,7 @@ async function extract(file: File): Promise<ExtractedDocument> {
   return {
     id: randomUUID(),
     name: file.name.slice(0, 180),
-    mediaType: file.type || 'application/octet-stream',
+    mediaType: MEDIA_TYPES[ext] ?? 'application/octet-stream',
     size: file.size,
     checksumSha256,
     text: extracted.text,
@@ -301,14 +315,40 @@ export async function POST(request: NextRequest) {
     return json({ error: 'CROSS_SITE_REQUEST_BLOCKED' }, 403);
   }
 
+  // Объявленный размер — быстрый отказ честному клиенту, и только. Границей он
+  // быть не может: у chunked-запроса этого заголовка нет, а мусор в нём даёт
+  // NaN, и в обоих случаях условие не срабатывает. Проверено запуском (#4848).
   const declaredLength = Number(request.headers.get('content-length') || '0');
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_TOTAL_BYTES + 1_000_000) {
-    return json({ error: 'UPLOAD_TOO_LARGE' }, 413);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    return json({ error: 'UPLOAD_TOO_LARGE', maxTotalBytes: MAX_TOTAL_BYTES }, 413);
+  }
+
+  // Настоящая граница: считаем байты по мере чтения и отменяем поток на потолке,
+  // не дожидаясь formData(), который буферизует тело целиком.
+  //
+  // Чтение обёрнуто, потому что оборвавшийся клиент роняет `reader.read()`.
+  // Раньше такой обрыв приходился на `request.formData()` внутри try и давал
+  // контролируемый 400; перенос чтения наружу превратил бы его в 500. Найдено
+  // ревью на #4852 — регрессия этого же прохода.
+  //
+  // Код ответа тот же, что и прежде: тело не удалось получить в пригодном виде.
+  // Заводить для этого новый код значило бы расширить поверхность там, где
+  // задача — вернуть прежнее поведение.
+  let bounded: ArrayBuffer | null;
+  try {
+    bounded = await readBoundedBody(request.body, MAX_BODY_BYTES);
+  } catch {
+    return json({ error: 'INVALID_MULTIPART_BODY' }, 400);
+  }
+  if (bounded === null) {
+    return json({ error: 'UPLOAD_TOO_LARGE', maxTotalBytes: MAX_TOTAL_BYTES }, 413);
   }
 
   let form: FormData;
   try {
-    form = await request.formData();
+    form = await new Response(bounded, {
+      headers: { 'content-type': request.headers.get('content-type') ?? '' },
+    }).formData();
   } catch {
     return json({ error: 'INVALID_MULTIPART_BODY' }, 400);
   }
@@ -324,9 +364,11 @@ export async function POST(request: NextRequest) {
 
   const documents: ExtractedDocument[] = [];
   const rejected: Array<{ name: string; code: string }> = [];
+  const budget = createPixelBudget();
+  const inflateBudget = createInflateBudget();
   for (const file of files) {
     try {
-      documents.push(await extract(file));
+      documents.push(await extract(file, budget, inflateBudget));
     } catch (error) {
       const code = error instanceof Error ? error.message : 'DOCUMENT_EXTRACTION_FAILED';
       rejected.push({ name: file.name.slice(0, 180), code });

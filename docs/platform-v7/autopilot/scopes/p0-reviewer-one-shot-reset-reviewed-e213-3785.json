@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-one-shot-reset-reviewed-e213-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_ONE_SHOT_RESET_REVIEWED_E213",
+  "issue": 3785,
+  "registrationMatrixIssue": 3785,
+  "releaseIssue": 3072,
+  "sourceBlob": "e213ab8f658fd2f3dbbbc131fa84a5246db26e47",
+  "title": "Execute one reviewer password reset only after a fresh successful exact-signature preflight",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-one-shot-reset-reviewed-e213.yml",
+    "docs/platform-v7/autopilot/scopes/p0-reviewer-one-shot-reset-reviewed-e213-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "ONE_SHOT_REVIEWER_RESET_ONLY_AFTER_FRESH_EXACT_MAIN_PREFLIGHT",
+    "databaseMutation": true,
+    "passwordResetRequest": true,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "mailSend": true,
+    "smtpDataCommand": false,
+    "reviewerIdentityAccess": false,
+    "reviewerIdentityOutput": false,
+    "credentialOutput": false,
+    "rawProtocolOutput": false,
+    "deploymentMutation": false,
+    "containerLifecycleMutation": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the immutable reviewer reset source is pinned to Git blob 7a586ded1b40ab3812335b351d0e8cc519020aa4",
+    "the immutable drift-tolerant preflight source is pinned to Git blob 83d9c310c257844ac288fdfc2feb9e6fdddf900f",
+    "the reviewed reset-critical authority is merged fix 55acf811e3484cabe5d15c7197b24f0a6633d4c3 and must remain an ancestor of exact current main",
+    "the workflow resolves the active merged exact-signature preflight by its exact workflow path and accepts only a successful issue-comment run for the same exact current main from the previous two hours",
+    "both the exact-signature preflight contract job and production authorization job must have completed successfully before a reset authorization can be considered fresh",
+    "the same patched fail-closed preflight is rerun immediately before claim and must still emit RESET_AUTHORIZED=YES, PRODUCTION_MUTATION=NONE and runtime SHA equal to exact current main",
+    "authorization is irreversibly claimed in release issue 3072 before the reset request and a claimed preflight run cannot be replayed",
+    "the immutable reset source is patched only in RUNNER_TEMP to the exact owner command and already-proven runtime revision guards, then executed once",
+    "pull-request events perform contract validation only and cannot execute reset, mail, identity, database, runtime, container or deployment mutation",
+    "trusted connector provenance is accepted only for GitHub App id 1144995 acting for the repository owner",
+    "no reviewer identity, reset bearer, credential, database URL or raw provider response is published",
+    "new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

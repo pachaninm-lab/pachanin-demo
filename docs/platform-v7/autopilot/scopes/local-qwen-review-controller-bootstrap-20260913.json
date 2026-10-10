@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/local-qwen-review-controller-bootstrap-20260913",
+  "status": "active",
+  "purpose": "Authorize one isolated review-controller bootstrap that implements the provider-maintenance classification already defined by the merged Local Qwen authority without modifying the Local Qwen provider itself. The controller slice is reviewed by the existing independent provider before merge; only after this controller slice is merged may the separate provider-maintenance branch use the merged bootstrap contract.",
+  "authorityBaseExactMain": "b462ecf0be90fa630440217961fb850b29076303",
+  "upstreamAuthority": {
+    "pullRequest": 5354,
+    "mainCommit": "b462ecf0be90fa630440217961fb850b29076303",
+    "manifestPath": "docs/platform-v7/autopilot/scopes/local-qwen-exact-line-evidence-20260913.json",
+    "providerMaintenanceBranch": "fix/local-qwen-evidence-binding-20260913"
+  },
+  "allowedPaths": [
+    ".github/workflows/automerge.yml",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+  ],
+  "requiredChange": {
+    "summary": "Teach the trusted exact-head review controller and verifier to recognize only the already-authorized providerMaintenanceBootstrap contract from merged live main and to publish a distinct provider-neutral bootstrap result. The implementation must not change the Local Qwen workflow, provider identity, provider status, model/runtime/policy pins, substantive review rules or product code.",
+    "controllerResult": "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW",
+    "reviewGateStatusContext": "review-gate/exact-head",
+    "bootstrapStatusDescriptionMustBeProviderNeutral": true,
+    "bootstrapMustNotCreateIndependentReview": true,
+    "bootstrapMustNotCreateProviderSuccessStatus": true,
+    "bootstrapMustNotCreateReviewSubmission": true
+  },
+  "admission": {
+    "implementationBranchExact": "fix/local-qwen-review-controller-bootstrap-20260913",
+    "implementationMustBeBasedOnMainContainingThisManifest": true,
+    "implementationMustChangeOnlyAllowedPaths": true,
+    "localQwenProviderWorkflowModificationForbidden": true,
+    "genuineIndependentExactHeadReviewRequired": true,
+    "ownerExactHeadSelfAuditRequired": true,
+    "allOtherRequiredChecksTerminalGreen": true,
+    "unresolvedReviewThreadsRequired": 0,
+    "activeChangesRequestedRequired": 0,
+    "liveMainMustEqualImplementationBaseBeforeMerge": true,
+    "onAnyMismatch": "FAIL_CLOSED"
+  },
+  "requiredInvariants": [
+    "The implementation reads provider-maintenance authority only from a source-controlled scope already present on merged live main; PR-head authority data cannot grant itself bootstrap eligibility.",
+    "The controller bootstrap branch cannot change .github/workflows/local-qwen-independent-review.yml or any product/runtime file.",
+    "The controller implementation itself cannot use providerMaintenanceBootstrap for admission and must receive genuine independent exact-head review under the pre-bootstrap verifier.",
+    "Bootstrap eligibility remains restricted to the exact provider-maintenance branch and exact allowed implementation paths declared by the merged upstream authority.",
+    "A bootstrap success is a governance maintenance classification only. It is not Codex, Copilot, Octopus or Local Qwen independent review authority and must not be described as such.",
+    "Existing Codex, Copilot, Octopus and Local Qwen exact-head review paths remain unchanged and fail closed under their current identity, status and immutable-run checks.",
+    "Owner self-audit, zero unresolved current threads, zero active CHANGES_REQUESTED, exact live head, exact live-main ancestry and required CI remain mandatory for the provider-maintenance bootstrap.",
+    "The provider-maintenance bootstrap remains ineligible for substantive or product PRs, including PR #5349.",
+    "After the separate Local Qwen provider repair merges, PR #5349 must forward-sync to exact current main and obtain a fresh strengthened Local Qwen exact-head review; no bootstrap classification transfers to it.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data, dependency, lockfile or production runtime behavior changes are authorized.",
+    "Production hosting remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

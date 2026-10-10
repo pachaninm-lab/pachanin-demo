@@ -207,7 +207,7 @@
   background: #066832;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1100px) {
   .pc-site-nav {
     display: none;
   }

@@ -30,6 +30,8 @@ export class GektaRegistrationController {
       phone?: string;
       acceptedServiceTerms?: boolean;
       acceptedPersonalData?: boolean;
+      consentSnapshot?: unknown;
+      consentEvidence?: unknown;
     },
     @Headers('x-registration-delivery-key') deliveryKey?: string,
     @Headers('user-agent') userAgent?: string,
@@ -42,6 +44,8 @@ export class GektaRegistrationController {
       phone: String(body?.phone ?? ''),
       acceptedServiceTerms: body?.acceptedServiceTerms === true,
       acceptedPersonalData: body?.acceptedPersonalData === true,
+      consentSnapshot: body?.consentSnapshot,
+      consentEvidence: body?.consentEvidence,
     }, deliveryKey, userAgent, ip);
   }
 

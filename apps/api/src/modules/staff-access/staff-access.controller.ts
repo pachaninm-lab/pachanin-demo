@@ -23,6 +23,7 @@ import {
   DecideStaffAccessDto,
   EndStaffSessionDto,
   RequestCriticalActionDto,
+  RequestFounderRoleModeDto,
   RequestStaffAccessDto,
   RevokeStaffAssignmentDto,
 } from './staff-access.dto';
@@ -66,7 +67,35 @@ export class StaffAccessController {
     return this.access.listMyAssignments(request.user);
   }
 
+  @Get('founder/role-mode/registry')
+  @RateLimit({ name: 'founder_role_mode_registry', scope: 'user', limit: 60, windowSeconds: 60 })
+  founderRoleModeRegistry(@Req() request: StaffRequest) {
+    return this.access.founderRoleModeRegistry(request.user);
+  }
+
+  @Post('founder/role-mode/requests')
+  @RateLimit({ name: 'founder_role_mode_request', scope: 'user', limit: 30, windowSeconds: 300 })
+  requestFounderRoleMode(
+    @Req() request: StaffRequest,
+    @Body() body: RequestFounderRoleModeDto,
+    @Headers('x-correlation-id') correlationId?: string,
+  ) {
+    return this.access.requestFounderRoleMode(request.user, body, correlationId);
+  }
+
+  @Get('founder/role-mode/session')
+  @UseGuards(StaffAccessGuard)
+  @StaffAccessModes(StaffAccessMode.VIEW_AS)
+  @StaffPermissions(StaffPermission.CABINET_VIEW_AS)
+  @RateLimit({ name: 'founder_role_mode_session', scope: 'user', limit: 120, windowSeconds: 60 })
+  founderRoleModeSession(@Req() request: StaffRequest) {
+    return this.access.founderRoleModeSession(request.user, this.requireAccessContext(request));
+  }
+
   @Get('registration/applications')
+  @UseGuards(StaffAccessGuard)
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE)
+  @StaffPermissions(StaffPermission.STAFF_REQUEST_READ)
   @RateLimit({ name: 'staff_registration_application_list', scope: 'user', limit: 60, windowSeconds: 60 })
   async registrationApplications(@Req() request: StaffRequest) {
     await this.access.requirePermission(request.user, StaffPermission.STAFF_REQUEST_READ);

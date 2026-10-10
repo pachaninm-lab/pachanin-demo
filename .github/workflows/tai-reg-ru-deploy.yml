@@ -50,8 +50,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: tai-reg-ru-deployment-${{ github.event.pull_request.number || 'production' }}
+  group: ${{ github.event_name == 'pull_request' && format('tai-reg-ru-deployment-pr-{0}', github.event.pull_request.number) || 'pc-crop-registration-lifecycle' }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   upstream_activation_gate:

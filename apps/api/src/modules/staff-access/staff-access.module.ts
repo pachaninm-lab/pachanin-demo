@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { AuthPrismaService } from '../auth/auth-prisma.service';
+import { RegistrationCancellationController } from './registration-cancellation.controller';
 import { StaffAccessController } from './staff-access.controller';
 import { StaffAccessGuard } from './staff-access.guard';
 import { StaffAccessRepository } from './staff-access.repository';
@@ -10,6 +11,8 @@ import { StaffAssignmentService } from './staff-assignment.service';
 import { StaffAuditService } from './staff-audit.service';
 import { StaffAuditWriterService } from './staff-audit-writer.service';
 import { StaffAuthorityPrismaService } from './staff-authority-prisma.service';
+import { StaffCapabilitiesController } from './staff-capabilities.controller';
+import { StaffCapabilitiesService } from './staff-capabilities.service';
 import { StaffDelegatedAccessGuard } from './staff-delegated-access.guard';
 import { StaffEmergencyService } from './staff-emergency.service';
 import { StaffProjectionService } from './staff-projection.service';
@@ -21,7 +24,12 @@ import { StaffWorkspaceService } from './staff-workspace.service';
 
 @Module({
   imports: [AuthModule],
-  controllers: [StaffAccessController, StaffWorkspaceController],
+  controllers: [
+    StaffAccessController,
+    RegistrationCancellationController,
+    StaffCapabilitiesController,
+    StaffWorkspaceController,
+  ],
   providers: [
     StaffAuthorityPrismaService,
     {
@@ -35,6 +43,7 @@ import { StaffWorkspaceService } from './staff-workspace.service';
     StaffAssignmentService,
     StaffAuditService,
     StaffAuditWriterService,
+    StaffCapabilitiesService,
     StaffEmergencyService,
     StaffProjectionService,
     StaffSupportService,

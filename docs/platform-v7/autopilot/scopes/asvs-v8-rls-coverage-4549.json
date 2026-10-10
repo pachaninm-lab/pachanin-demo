@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4549,
+  "branch": "sec/asvs-v8-rls-coverage-4549",
+  "status": "active",
+  "purpose": "Correct V8.2.2 and V8.4.1 from PASS to FAIL after verifying the RLS denominator I had flagged as unverified: 3 of 40 tenant-bearing tables carry no policy.",
+  "authorityBaseExactMain": "abdcdd7e7ff6d3135ec6d0bd80ce5afd2215f3bc",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v8-rls-coverage-4549.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "A coverage claim names the denominator it measured, not the numerator it liked.",
+    "A missing control is not reported as an observed breach, and an observed breach is not softened into a missing control.",
+    "What the uncovered table does have is credited, and named as the wrong kind of control for this requirement.",
+    "A fail-closed behaviour is never counted as an exposure.",
+    "No product logic, schema, dependency, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "V8.2.2 and V8.4.1 are FAIL with 37 of 40 stated and the three tables named.",
+    "The notes say no cross-tenant read is exposed today and why - the reading service has no callers.",
+    "Append-only on deal_events is credited and identified as an integrity control, not a tenancy control.",
+    "The 165 plain-client calls are explicitly not presented as an exposure, because a policy-protected table fails closed.",
+    "V8.3.1 keeps its PASS with the universal claim scoped to the 37 covered tables.",
+    "Conditions anchor on the absence of a policy for the uncovered table, so the FAILs self-revoke.",
+    "Matrix state: 26 PASS, 43 FAIL, finalPass false."
+  ]
+}

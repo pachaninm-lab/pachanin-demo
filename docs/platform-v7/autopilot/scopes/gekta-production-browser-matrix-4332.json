@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-production-browser-matrix-4332",
+  "branch": "agent/gekta-production-browser-matrix-4332",
+  "issue": 4332,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "d62a66ecfa73f92f67f63acce6ac95333798164e"
+  },
+  "purpose": "Close the final production browser-evidence gap for the bounded Gekta mobile UX repair by requiring the exact live acceptance suite to execute on both Chromium and WebKit without changing product behavior or weakening any gate.",
+  "allowedPaths": [
+    ".github/workflows/platform-v7-production-mobile-acceptance.yml",
+    "apps/web/playwright.production-mobile.config.ts",
+    "apps/web/tests/unit/gektaProductionBrowserMatrix.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-production-browser-matrix-4332.json"
+  ],
+  "productBoundary": {
+    "publicRoute": "/gekta",
+    "mode": "acceptance-contract-only",
+    "applicationRuntime": "unchanged",
+    "backendApi": "unchanged",
+    "streamingProtocol": "unchanged",
+    "modelBoundary": "unchanged",
+    "authentication": "unchanged",
+    "postgresql": "unchanged",
+    "languages": ["ru", "en", "zh"],
+    "newRecurringCostRub": 0
+  },
+  "forbiddenChanges": [
+    "application components, styles, copy or behavior",
+    "backend API, streaming protocol, model runtime, auth, registration, roles or PostgreSQL",
+    "production credentials, protected release authority or direct REG.RU mutation",
+    "paid device farms, new SaaS, libraries or infrastructure",
+    "weakening viewport, keyboard, accessibility, localization, runtime or exact-revision thresholds",
+    "treating WebKit emulation as a replacement for mandatory real iPhone and Android soak"
+  ],
+  "requiredChecks": [
+    "production Playwright config exposes Chromium and WebKit projects",
+    "production workflow installs Chromium and WebKit runtimes",
+    "unit regression prevents either browser from being removed",
+    "workflow syntax and exact-head CI pass",
+    "exact-SHA REG.RU release and live revision match",
+    "three consecutive clean Chromium plus WebKit production acceptance executions",
+    "real-device iPhone and Android keyboard soak remains mandatory before issue closure"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "Acceptance-contract correction only. No production-complete claim until exact-SHA dual-engine evidence and documented real-device iPhone/Android soak both pass."
+}

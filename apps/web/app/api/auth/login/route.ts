@@ -1,18 +1,22 @@
 import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { CSRF_COOKIE, csrfCookieSecurity } from '../../../../lib/auth-cookies';
 import {
   applyAuthenticatedSession,
+  clearAuthenticatedSession,
   normalizeSurfaceRole,
   platformHome,
   type AuthenticatedSessionPayload,
 } from '../../../../lib/server/auth-session-response';
+import { isControlHostRequest } from '../../../../lib/platform-v7/control-host';
 import {
   MFA_PENDING_COOKIE,
   clearMfaPendingCookieOptions,
   mfaPendingCookieOptions,
   sealMfaLoginTicket,
 } from '../../../../lib/server/mfa-login-ticket';
-import { assertCsrf } from '../../../../lib/server-request-security';
+import { assertCsrf, generateCsrfToken } from '../../../../lib/server-request-security';
+import { classifyUpstreamLoginFailure, logLoginRefusal } from '../../../../lib/server/auth-login-failure';
 import {
   MEMBERSHIP_SELECTION_COOKIE,
   clearMembershipSelectionCookieOptions,
@@ -76,7 +80,33 @@ function forwardedHeaders(request: Request, correlationId: string) {
   };
 }
 
-async function completeSession(payload: ApiLoginPayload, correlationId: string) {
+/**
+ * A password-proven transition to membership selection or MFA belongs to the
+ * new account, not to whatever account happened to be authenticated in this
+ * browser before the user opened /login. Remove that stale browser authority
+ * before exposing a pending challenge, then immediately issue a fresh CSRF
+ * cookie so the pending flow can continue without inheriting identity state.
+ *
+ * The previous server-side session is deliberately not used as authority for
+ * the new flow. Its browser bearer cookies are removed here; normal logout and
+ * token expiry remain the server-side revocation mechanisms for that session.
+ */
+function clearPreviousAuthenticatedBrowserSession(
+  response: NextResponse,
+  controlPlane: boolean,
+) {
+  clearAuthenticatedSession(response, { controlPlane });
+  response.cookies.set(CSRF_COOKIE, generateCsrfToken(), {
+    ...csrfCookieSecurity(),
+    sameSite: controlPlane ? 'strict' : 'lax',
+  });
+}
+
+async function completeSession(
+  payload: ApiLoginPayload,
+  correlationId: string,
+  controlPlane: boolean,
+) {
   if (
     !payload.accessToken
     || !payload.refreshToken
@@ -87,37 +117,49 @@ async function completeSession(payload: ApiLoginPayload, correlationId: string) 
     || !payload.user.tenantId
     || !payload.user.membershipId
   ) {
-    console.error('auth_service_incomplete_session', JSON.stringify({ correlationId }));
+    console.error('auth_service_incomplete_session', JSON.stringify({ correlationId, controlPlane }));
     return json({ ok: false, code: 'AUTH_SERVICE_INVALID_RESPONSE', message: UNIVERSAL_ERROR, correlationId }, 502);
   }
 
   const role = normalizeSurfaceRole(payload.user.role, payload.user.surfaceRole);
   if (!role) {
-    console.error('auth_service_unauthorized_role', JSON.stringify({ correlationId }));
+    console.error('auth_service_unauthorized_role', JSON.stringify({ correlationId, controlPlane }));
     return json({ ok: false, code: 'AUTH_SERVICE_INVALID_ROLE', message: UNIVERSAL_ERROR, correlationId }, 403);
   }
+  const redirectTo = controlPlane
+    ? '/platform-v7/staff'
+    : payload.staffOwner
+      ? '/platform-v7/staff'
+      : platformHome(role, payload.user.isOrgAdmin === true);
   const response = json({
     ok: true,
     mfaRequired: false,
-    redirectTo: payload.staffOwner
-      ? '/platform-v7/staff'
-      : platformHome(role, payload.user.isOrgAdmin === true),
+    redirectTo,
     correlationId,
   });
-  const session = await applyAuthenticatedSession(response, payload as AuthenticatedSessionPayload);
+  const session = await applyAuthenticatedSession(
+    response,
+    payload as AuthenticatedSessionPayload,
+    { controlPlane },
+  );
   if (!session) {
-    console.error('cabinet_session_signing_failed', JSON.stringify({ correlationId }));
+    console.error('cabinet_session_signing_failed', JSON.stringify({ correlationId, controlPlane }));
     return json({ ok: false, code: 'SESSION_CONFIGURATION_ERROR', message: UNIVERSAL_ERROR, correlationId }, 503);
   }
   response.cookies.set(MFA_PENDING_COOKIE, '', clearMfaPendingCookieOptions());
   response.cookies.set(MEMBERSHIP_SELECTION_COOKIE, '', clearMembershipSelectionCookieOptions());
+  if (controlPlane) console.info('control_plane_login_success', JSON.stringify({ correlationId }));
   return response;
 }
 
 export async function POST(request: Request) {
   const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const controlPlane = isControlHostRequest(request);
   const csrf = assertCsrf(request);
-  if (!csrf.ok) return json({ ok: false, code: 'CSRF_REJECTED', message: UNIVERSAL_ERROR, correlationId }, 403);
+  if (!csrf.ok) {
+    logLoginRefusal({ correlationId, controlPlane, code: 'CSRF_REJECTED', reason: csrf.reason });
+    return json({ ok: false, code: 'CSRF_REJECTED', message: UNIVERSAL_ERROR, correlationId }, 403);
+  }
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   const email = String(body.email || '').trim().toLowerCase();
   const password = String(body.password || '');
@@ -127,7 +169,7 @@ export async function POST(request: Request) {
   }
 
   if (!API_URL) {
-    console.error('auth_service_not_configured', JSON.stringify({ correlationId }));
+    console.error('auth_service_not_configured', JSON.stringify({ correlationId, controlPlane }));
     return json({ ok: false, code: 'AUTH_SERVICE_UNAVAILABLE', message: UNIVERSAL_ERROR, correlationId }, 503);
   }
 
@@ -142,13 +184,18 @@ export async function POST(request: Request) {
     const payload = await apiResponse.json().catch(() => ({} as ApiLoginPayload)) as ApiLoginPayload;
 
     if (!apiResponse.ok) {
-      const rateLimited = apiResponse.status === 429;
+      // Keep the auth service's own distinction: a wrong password, a throttle,
+      // a proven password with an inactive organization/membership and an
+      // unusable auth-service answer are different classes, both for the
+      // person signing in and in the redacted server log.
+      const failure = classifyUpstreamLoginFailure(apiResponse.status, payload);
+      logLoginRefusal({ correlationId, controlPlane, code: failure.code, upstreamStatus: apiResponse.status });
       return json({
         ok: false,
-        code: rateLimited ? 'RATE_LIMITED' : 'INVALID_CREDENTIALS',
+        code: failure.code,
         message: UNIVERSAL_ERROR,
         correlationId,
-      }, rateLimited ? 429 : 401);
+      }, failure.status);
     }
 
     if (payload.membershipSelectionRequired) {
@@ -162,7 +209,7 @@ export async function POST(request: Request) {
         ))
         : [];
       if (!payload.challengeToken || memberships.length < 2 || memberships.length > 50) {
-        console.error('auth_service_invalid_membership_selection', JSON.stringify({ correlationId }));
+        console.error('auth_service_invalid_membership_selection', JSON.stringify({ correlationId, controlPlane }));
         return json({ ok: false, code: 'AUTH_SERVICE_INVALID_RESPONSE', message: UNIVERSAL_ERROR, correlationId }, 502);
       }
       const response = json({
@@ -172,6 +219,7 @@ export async function POST(request: Request) {
         expiresAt: payload.challengeExpiresAt || null,
         correlationId,
       });
+      clearPreviousAuthenticatedBrowserSession(response, controlPlane);
       response.cookies.set(MEMBERSHIP_SELECTION_COOKIE, payload.challengeToken, membershipSelectionCookieOptions());
       response.cookies.set(MFA_PENDING_COOKIE, '', clearMfaPendingCookieOptions());
       return response;
@@ -179,7 +227,7 @@ export async function POST(request: Request) {
 
     if (payload.mfaRequired) {
       if (!payload.challengeToken || !payload.user?.email || !payload.user.role) {
-        console.error('auth_service_incomplete_mfa_challenge', JSON.stringify({ correlationId }));
+        console.error('auth_service_incomplete_mfa_challenge', JSON.stringify({ correlationId, controlPlane }));
         return json({ ok: false, code: 'AUTH_SERVICE_INVALID_RESPONSE', message: UNIVERSAL_ERROR, correlationId }, 502);
       }
 
@@ -187,7 +235,7 @@ export async function POST(request: Request) {
       try {
         ticket = sealMfaLoginTicket({ challengeToken: payload.challengeToken, user: payload.user });
       } catch {
-        console.error('mfa_ticket_secret_not_configured', JSON.stringify({ correlationId }));
+        console.error('mfa_ticket_secret_not_configured', JSON.stringify({ correlationId, controlPlane }));
         return json({ ok: false, code: 'MFA_UNAVAILABLE', message: UNIVERSAL_ERROR, correlationId }, 503);
       }
 
@@ -201,15 +249,17 @@ export async function POST(request: Request) {
         expiresAt: payload.challengeExpiresAt || null,
         correlationId,
       });
+      clearPreviousAuthenticatedBrowserSession(response, controlPlane);
       response.cookies.set(MFA_PENDING_COOKIE, ticket, mfaPendingCookieOptions());
       response.cookies.set(MEMBERSHIP_SELECTION_COOKIE, '', clearMembershipSelectionCookieOptions());
       return response;
     }
 
-    return completeSession(payload, correlationId);
+    return completeSession(payload, correlationId, controlPlane);
   } catch (error) {
     console.error('auth_login_transport_failure', JSON.stringify({
       correlationId,
+      controlPlane,
       reason: error instanceof Error ? error.name : 'unknown',
     }));
     return json({ ok: false, code: 'AUTH_SERVICE_UNAVAILABLE', message: UNIVERSAL_ERROR, correlationId }, 503);

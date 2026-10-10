@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "p7-production-gekta-stream-2198",
+  "branch": "diag/p7-production-gekta-stream-2198",
+  "issue": 2198,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "25bb9e0f548e4abc6d9ef894e10e9aa1f1be4eef"
+  },
+  "purpose": "Classify the sole failing condition from production web release run 32029226201. The exact 688c8ca web revision is live and healthy, and all static/public RU/EN/ZH checks passed; only the anonymous Gekta SSE stream gate failed without safe stage-level evidence. Add one owner-only, bounded public diagnostic that records transport, HTTP, content type, timing and event-presence metadata without publishing tickets, cookies, model content or protected values.",
+  "allowedPaths": [
+    ".github/workflows/production-gekta-stream-diagnostic.yml",
+    "docs/platform-v7/autopilot/scopes/p7-production-gekta-stream-2198.json"
+  ],
+  "evidence": {
+    "failedReleaseRun": 32029226201,
+    "liveRevisionEstablishedByAudit": "688c8ca798c9e9ecc2033f66db3fe17c846c0b3e",
+    "auditRun": 32032342325,
+    "liveState": "healthy",
+    "staticAcceptance": "manifest exact, HTTP 200, indexation, crawler and compatibility checks passed for RU/EN/ZH",
+    "remainingFailure": "stream=fail",
+    "command": "/production gekta stream diagnostic",
+    "attemptLimit": 3,
+    "mutationBoundary": "public entitlement reservation and bounded read-only inference request only; no configuration, container, database administration, registration, mail, deploy or rollback action"
+  },
+  "forbiddenChanges": [
+    "homepage copy, localization dictionaries, design CSS or production UI components",
+    "H1 <=5 rendered-line, >=14px text, 44px touch-target, CTA, overflow, CJK or residual-Cyrillic gates",
+    "authentication, registration, MFA, RBAC, RLS, tenant, organization or database authority",
+    "Gekta entitlement, streaming, model runtime or API behavior",
+    "production deployment, rollback, image override or Compose mutation",
+    "publication of answer tickets, cookies, response text, secrets, credentials or protected server paths",
+    "new external services, recurring costs or paid APIs"
+  ],
+  "requiredChecks": [
+    "source-controlled scope guard",
+    "workflow syntax validation",
+    "owner-only issue-3048 command boundary",
+    "three-attempt hard cap",
+    "safe redacted evidence contract",
+    "zero production configuration mutation"
+  ],
+  "newRecurringCostRub": 0,
+  "maturityBoundary": "A diagnostic PASS establishes only the public Gekta stream path at the observed revision. A diagnostic failure establishes a classified blocker. Neither result claims final design production acceptance without a successful canonical exact-SHA release and Chromium plus WebKit RU/EN/ZH browser acceptance."
+}

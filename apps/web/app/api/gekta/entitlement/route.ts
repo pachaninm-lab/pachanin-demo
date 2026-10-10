@@ -4,6 +4,7 @@ import {
   GEKTA_ANONYMOUS_COOKIE_MAX_AGE_SECONDS,
   completeAnswer,
   createAnonymousSession,
+  hasCurrentConsent,
   issueTicket,
   parseAnonymousSession,
   reserveAnswer,
@@ -89,6 +90,21 @@ export async function POST(request: NextRequest) {
     const ticket = typeof payload.ticket === 'string' ? payload.ticket : '';
     const settled = completeAnswer(current, ticket);
     return respond(settled, { entitlement: resolveAnonymousEntitlement({ used: settled.used }, now), registrationUrl: registrationUrl(), billingEnabled: isBillingEnabled() }, now);
+  }
+
+  // Return the current notice through the existing client decision contract.
+  // Denial must not charge or replace an outstanding reservation.
+  if (!hasCurrentConsent(current, GEKTA_LEGAL_VERSION, now)) {
+    return respond(current, {
+      allowed: false,
+      ticket: null,
+      reason: 'consent_required',
+      consent: null,
+      legalVersion: GEKTA_LEGAL_VERSION,
+      entitlement: resolveAnonymousEntitlement({ used: current.used }, now),
+      registrationUrl: registrationUrl(),
+      billingEnabled: isBillingEnabled(),
+    }, now);
   }
 
   // An answer that was reserved but never reported is charged now.

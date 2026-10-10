@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "production-web-ssh-keepalive-2198",
+  "branch": "fix/production-web-ssh-keepalive-2198",
+  "issue": 2198,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "814af66605718a861e1c1e79a16a0fdc018f6fe0"
+  },
+  "intent": "Keep the protected web-only exact-SHA production SSH session alive during long remote image pulls after two evidenced Broken pipe failures.",
+  "allowedPaths": [
+    ".github/workflows/production-web-exact-sha.yml",
+    "docs/platform-v7/autopilot/scopes/production-web-ssh-keepalive-2198.json"
+  ],
+  "forbidden": [
+    "product UI changes",
+    "API changes",
+    "database changes",
+    "auth changes",
+    "direct VPS mutation",
+    "security gate weakening"
+  ],
+  "acceptance": [
+    "workflow syntax passes",
+    "production action and rollback SSH use ServerAliveInterval=15, ServerAliveCountMax=12 and TCPKeepAlive=yes",
+    "no product/runtime behavior changes outside release transport",
+    "exact-SHA web release remains fail-closed"
+  ]
+}

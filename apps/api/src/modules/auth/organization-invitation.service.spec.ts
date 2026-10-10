@@ -226,8 +226,8 @@ describe('organization invitation authority', () => {
       token: token.token,
       password: 'Correct-Horse-9!',
       fullName: 'Employee User',
-      termsVersion: '2026-07-31',
-      privacyVersion: '2026-07-31',
+      termsVersion: '2026-09-03',
+      privacyVersion: '2026-09-03',
       acceptTerms: true,
       acceptPrivacy: true,
     }, 'corr-expired')).rejects.toBeInstanceOf(BadRequestException);
@@ -250,8 +250,8 @@ describe('organization invitation authority', () => {
       token: token.token,
       password: 'Correct-Horse-9!',
       fullName: 'Employee User',
-      termsVersion: '2026-07-31',
-      privacyVersion: '2026-07-31',
+      termsVersion: '2026-09-03',
+      privacyVersion: '2026-09-03',
       acceptTerms: true,
       acceptPrivacy: true,
     }, 'corr-reuse')).rejects.toBeInstanceOf(BadRequestException);
@@ -269,7 +269,7 @@ describe('organization invitation authority', () => {
       password: 'Correct-Horse-9!',
       fullName: 'Employee User',
       termsVersion: 'future-client-version',
-      privacyVersion: '2026-07-31',
+      privacyVersion: '2026-09-03',
       acceptTerms: true,
       acceptPrivacy: true,
     }, 'corr-consent')).rejects.toBeInstanceOf(BadRequestException);
@@ -290,8 +290,8 @@ describe('organization invitation authority', () => {
       token: token.token,
       password: 'legacy1!',
       fullName: 'Employee User',
-      termsVersion: '2026-07-31',
-      privacyVersion: '2026-07-31',
+      termsVersion: '2026-09-03',
+      privacyVersion: '2026-09-03',
       acceptTerms: true,
       acceptPrivacy: true,
     }, 'corr-new-weak')).rejects.toMatchObject({ response: { code: 'PASSWORD_POLICY_FAILED' } });
@@ -324,8 +324,8 @@ describe('organization invitation authority', () => {
       token: token.token,
       password,
       fullName: 'Existing Employee',
-      termsVersion: '2026-07-31',
-      privacyVersion: '2026-07-31',
+      termsVersion: '2026-09-03',
+      privacyVersion: '2026-09-03',
       acceptTerms: true,
       acceptPrivacy: true,
     }, 'corr-existing-legacy')).resolves.toMatchObject({ ok: true, membershipId: expect.any(String) });
@@ -336,7 +336,7 @@ describe('organization invitation authority', () => {
       .map((call) => sqlText((call as unknown[])[0]))
       .join('\n')).toContain('accept_organization_invitation_identity');
     expect(repository.ensureCredentialState).toHaveBeenCalledWith(
-      expect.anything(), 'existing-user', '2026-07-31|2026-07-31', expect.any(Date),
+      expect.anything(), 'existing-user', '2026-09-03|2026-09-03', expect.any(Date),
     );
   });
 

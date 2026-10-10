@@ -21,6 +21,10 @@ const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://процент-агро.рф';
 
+// Хост аналитики намеренно не перечислен. Действующую CSP отдаёт
+// middleware, и она этот хост не разрешает; пока он оставался здесь,
+// репозиторий заявлял два разных намерения про стороннюю загрузку скрипта,
+// и безопасное побеждало только за счёт порядка применения заголовков.
 const securityHeaders = [
   { key: 'X-DNS-Prefetch-Control', value: 'on' },
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
@@ -32,11 +36,11 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://mc.yandex.ru https://api-maps.yandex.ru",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api-maps.yandex.ru",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https:",
-      "connect-src 'self' https://mc.yandex.ru https://api-maps.yandex.ru wss:",
+      "connect-src 'self' https://api-maps.yandex.ru wss:",
       "frame-src 'self'",
       "worker-src 'self' blob:",
       "manifest-src 'self'",

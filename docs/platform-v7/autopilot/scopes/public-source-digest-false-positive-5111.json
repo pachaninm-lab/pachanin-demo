@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 5111,
+  "branch": "fix/public-source-digest-false-positive-5111",
+  "status": "active",
+  "authorizedBy": "explicit-owner-homepage-completion-5111",
+  "purpose": "Resolve one proven Gitleaks false positive on a public-source SHA-256 assertion without suppressing any real credential or weakening secret scanning.",
+  "authorityBaseExactMain": "f01942250fa33cc4f431e7198596040507079ca1",
+  "effectiveAfter": "This governance-only manifest is accepted into main. The implementation must start from that accepted main and cannot change this manifest or any other authority.",
+  "allowedPaths": [
+    ".gitleaksignore"
+  ],
+  "requiredInvariants": [
+    "Append only the exact existing finding fingerprint bcc5ba620f5e8cfec4e540c4b9fab4e236393c63:apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:227, with a factual explanatory comment.",
+    "The matched value must equal the independently recomputed SHA-256 of the public apps/web/components/gekta/GektaAccessGate.tsx source at the reviewed source and current main; it is an immutable-source regression assertion, not an API credential.",
+    "Preserve every existing ignore entry. No wildcard, path-level exclusion, rule-level exclusion, inline suppression, scanner configuration, scanner version, workflow or scan-range change is permitted.",
+    "The exception is restricted to the recorded historical commit, file, rule and line; it cannot exclude a future finding or another value by path or rule.",
+    "No runtime, authentication, registration, role, tenant, API, database, legal-consent, Gekta gateway/account/entitlement or production source changes are allowed."
+  ],
+  "acceptance": [
+    "Exactly one file changes, with one appended finding fingerprint and its explanatory comment.",
+    "The original SARIF finding and independently recomputed public-source digest are retained as the evidence for the false-positive determination.",
+    "The normal pinned Gitleaks job and all other substantive exact-head CI pass without changing their checks, thresholds or workflows.",
+    "No independent-review PASS is invented. Any homepage-only owner-exception merge is explicitly recorded and verifies current head/main immediately before merging.",
+    "This remediation does not constitute a production release or final homepage acceptance."
+  ],
+  "forbiddenChanges": [
+    ".github/workflows/**",
+    ".gitleaks.toml",
+    "scripts/**",
+    "apps/**",
+    "packages/**",
+    "docs/**",
+    "production credentials or configuration"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

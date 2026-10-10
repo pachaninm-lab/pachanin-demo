@@ -97,6 +97,8 @@ requireAll('workflow', [
   'github.event.issue.number == 3072',
   "github.event.comment.body == '/production provision-gekta-runtime current-main'",
   'github.event.comment.user.login == github.repository_owner',
+  'TARGET_SHA: ${{ github.sha }}',
+  '[[ "$TARGET_SHA" == "$target_sha" ]]',
   '[[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]',
   '[[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]',
   'node scripts/check-production-gekta-runtime-provision.mjs',
@@ -120,6 +122,12 @@ requireAll('workflow', [
   'actions/upload-artifact@v4',
   'retention-days: 90',
 ]);
+if ((content.workflow.match(/TARGET_SHA: \$\{\{ github\.sha \}\}/g) || []).length !== 4) {
+  failures.push(`${paths.workflow}: every exact-SHA job must consume the immutable issue-comment event SHA directly`);
+}
+if (/needs\.authority\.outputs\.target_sha|steps\.target\.outputs\.sha|echo\s+["']sha=.*GITHUB_OUTPUT/.test(content.workflow)) {
+  failures.push(`${paths.workflow}: exact SHA must not cross a job-output secret-masking boundary`);
+}
 forbid('provisioner', [
   /cat\s+.*pc-gekta/i,
   /source\s+.*pc-gekta/i,

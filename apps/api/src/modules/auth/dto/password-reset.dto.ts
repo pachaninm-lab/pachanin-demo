@@ -1,9 +1,13 @@
-import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class RequestPasswordResetDto {
   @IsEmail()
   @MaxLength(254)
   email!: string;
+
+  @IsOptional()
+  @IsIn(['ru', 'en', 'zh'])
+  locale?: 'ru' | 'en' | 'zh';
 }
 
 export class ConfirmPasswordResetDto {

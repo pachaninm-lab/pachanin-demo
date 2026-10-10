@@ -10,14 +10,14 @@ export function GektaTopicPage({ topic }: { topic: GektaTopic }) {
   });
   const promptHref = `/gekta?prompt=${encodeURIComponent(topic.prompt)}#gekta-chat`;
   return (
-    <main className='min-h-screen bg-[#fbfaf5] text-slate-950'>
+    <main className='min-h-screen overflow-x-clip bg-[#fbfaf5] text-slate-950'>
       <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: safeJsonLd(getGektaTopicSchema(topic)) }} />
       <div className='mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12'>
-        <Link href='/gekta' className='inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-50'><ArrowLeft className='h-4 w-4' aria-hidden='true' />Гекта</Link>
+        <Link href='/gekta' className='inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'><ArrowLeft className='h-4 w-4' aria-hidden='true' />Гекта</Link>
         <p className='mt-10 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800'>ГЕКТА · Аграрный интеллект</p>
-        <h1 className='mt-4 max-w-4xl text-balance text-4xl font-semibold tracking-[-0.035em] sm:text-6xl'>{topic.h1}</h1>
+        <h1 className='mt-4 max-w-4xl text-balance text-[36px] font-semibold leading-[1.04] tracking-[-0.035em] sm:text-6xl'>{topic.h1}</h1>
         <p className='mt-6 max-w-3xl text-lg leading-8 text-slate-600'>{topic.lead}</p>
-        <Link href={promptHref} className='mt-8 inline-flex min-h-12 items-center gap-2 rounded-full bg-emerald-800 px-6 py-3 font-semibold text-white hover:bg-emerald-900'>Спросить Гекту по этой задаче<ArrowRight className='h-4 w-4' aria-hidden='true' /></Link>
+        <Link href={promptHref} className='mt-8 inline-flex min-h-12 items-center gap-2 rounded-full bg-emerald-800 px-6 py-3 font-semibold text-white hover:bg-emerald-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-700'>Спросить Гекту по этой задаче<ArrowRight className='h-4 w-4' aria-hidden='true' /></Link>
       </div>
 
       <section className='border-y border-slate-200 bg-white'>
@@ -36,14 +36,19 @@ export function GektaTopicPage({ topic }: { topic: GektaTopic }) {
         <div className='mx-auto max-w-5xl px-4 py-14 sm:px-6 sm:py-20'>
           <h2 className='text-2xl font-semibold tracking-tight sm:text-3xl'>Начни с конкретного вопроса</h2>
           <blockquote className='mt-6 rounded-3xl border border-emerald-900/10 bg-white p-6 text-lg leading-8 text-slate-800'>{topic.prompt}</blockquote>
-          <Link href={promptHref} className='mt-6 inline-flex min-h-12 items-center gap-2 rounded-full bg-emerald-800 px-6 py-3 font-semibold text-white hover:bg-emerald-900'>Открыть вопрос в Гекте<ArrowRight className='h-4 w-4' aria-hidden='true' /></Link>
+          <Link href={promptHref} className='mt-6 inline-flex min-h-12 items-center gap-2 rounded-full bg-emerald-800 px-6 py-3 font-semibold text-white hover:bg-emerald-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-700'>Открыть вопрос в Гекте<ArrowRight className='h-4 w-4' aria-hidden='true' /></Link>
         </div>
       </section>
 
       <section className='mx-auto max-w-5xl px-4 py-14 sm:px-6 sm:py-20'>
         <h2 className='text-2xl font-semibold tracking-tight sm:text-3xl'>Связанные задачи</h2>
-        <div className='mt-6 grid gap-3 md:grid-cols-3'>{related.map((item) => <Link key={item.slug} href={`/gekta/${item.slug}`} className='group rounded-2xl border border-slate-200 bg-white p-5 font-semibold text-slate-900 hover:border-emerald-300'>{item.h1}<ArrowRight className='mt-5 h-4 w-4 text-emerald-800 transition group-hover:translate-x-0.5' aria-hidden='true' /></Link>)}</div>
-        <div className='mt-10 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold'><Link href='/gekta'>Все возможности Гекты</Link><Link href='/platform-v7/trust'>Trust Center</Link><Link href='/platform-v7'>«Прозрачная Цена»</Link></div>
+        <div className='mt-6 grid gap-3 md:grid-cols-3'>{related.map((item) => <Link key={item.slug} href={`/gekta/${item.slug}`} className='group min-h-11 rounded-2xl border border-slate-200 bg-white p-5 font-semibold text-slate-900 hover:border-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'>{item.h1}<ArrowRight className='mt-5 h-4 w-4 text-emerald-800 transition group-hover:translate-x-0.5' aria-hidden='true' /></Link>)}</div>
+        <nav aria-label='Дополнительная навигация Гекты' className='mt-10 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold'>
+          <Link className='inline-flex min-h-11 items-center' href='/gekta'>Все возможности Гекты</Link>
+          <Link className='inline-flex min-h-11 items-center' href='/gekta/security'>Данные и безопасность</Link>
+          <Link className='inline-flex min-h-11 items-center' href='/gekta/support'>Поддержка</Link>
+          <Link className='inline-flex min-h-11 items-center' href='/platform-v7'>«Прозрачная Цена»</Link>
+        </nav>
       </section>
     </main>
   );
