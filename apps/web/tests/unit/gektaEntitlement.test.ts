@@ -49,8 +49,10 @@ function cookieFrom(response: Response): string {
 }
 
 async function consentedCookie(): Promise<string> {
-  const cookie = cookieFrom(await GET(request('GET')));
-  return cookieFrom(await POST(request('POST', cookie, { action: 'consent' })));
+  const initial = await GET(request('GET'));
+  const cookie = cookieFrom(initial);
+  const presentation = (await initial.json()).legalPresentation;
+  return cookieFrom(await POST(request('POST', cookie, { action: 'consent', noticeSnapshot: presentation.snapshot, locale: presentation.locale })));
 }
 
 /** Drive the full reserve → complete cycle the client performs per answer. */
@@ -65,6 +67,12 @@ async function askOnce(cookie: string): Promise<{ cookie: string; allowed: boole
 }
 
 describe('Gekta anonymous entitlement', () => {
+  it('refuses acceptance without a commitment to the displayed anonymous notice', async () => {
+    const initial = await GET(request('GET'));
+    const response = await POST(request('POST', cookieFrom(initial), { action: 'consent' }));
+    expect(response.status).toBe(409);
+    expect(parseAnonymousSession(cookieFrom(response))?.consent).toBeNull();
+  });
   it.each([
     { allowed: false, reason: 'consent_required', expected: null, expectedEvents: [] },
     { allowed: false, expected: null, expectedEvents: ['gekta_anonymous_limit_reached', 'gekta_registration_gate_view'] },

@@ -26,7 +26,7 @@ export type GektaAnonymousSession = Readonly<{
   pending: string | null;
   issuedAt: number;
   /** Recorded acceptance of the legal notice: which version, and when. */
-  consent?: Readonly<{ version: string; at: number }> | null;
+  consent?: Readonly<{ version: string; at: number; evidenceHash?: string; surfaceLocale?: 'ru' | 'en' | 'zh' }> | null;
 }>;
 
 let processSecret: string | null = null;
@@ -49,6 +49,32 @@ function safeEqual(a: string, b: string): boolean {
   const right = Buffer.from(b);
   if (left.length !== right.length) return false;
   return timingSafeEqual(left, right);
+}
+
+const NOTICE_PURPOSE = 'gekta-anonymous-notice.v1';
+const NOTICE_TTL_MS = 15 * 60_000;
+
+/** Commit only to public documents; this is not an authentication credential. */
+export function sealAnonymousNotice(session: GektaAnonymousSession, evidenceHash: string, locale: 'ru' | 'en' | 'zh', now: Date): string {
+  const body = Buffer.from(JSON.stringify({ purpose: NOTICE_PURPOSE, sid: session.sid, evidenceHash, locale,
+    issuedAt: now.getTime(), expiresAt: now.getTime() + NOTICE_TTL_MS, nonce: randomBytes(16).toString('base64url') })).toString('base64url');
+  return `${body}.${sign(`${NOTICE_PURPOSE}:${body}`)}`;
+}
+
+export function verifyAnonymousNotice(token: unknown, session: GektaAnonymousSession, evidenceHash: string, locale: 'ru' | 'en' | 'zh', now: Date): boolean {
+  if (typeof token !== 'string' || token.length > 2_048 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/u.test(token) || !Number.isSafeInteger(now.getTime())) return false;
+  const [body, signature] = token.split('.');
+  if (!safeEqual(signature, sign(`${NOTICE_PURPOSE}:${body}`))) return false;
+  try {
+    const value = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    return Boolean(value && typeof value === 'object' && !Array.isArray(value)
+      && Object.keys(value).sort().join('|') === 'evidenceHash|expiresAt|issuedAt|locale|nonce|purpose|sid'
+      && value.purpose === NOTICE_PURPOSE && value.sid === session.sid && value.evidenceHash === evidenceHash && value.locale === locale
+      && Number.isSafeInteger(value.issuedAt) && Number.isSafeInteger(value.expiresAt)
+      && value.expiresAt === value.issuedAt + NOTICE_TTL_MS && value.issuedAt >= session.issuedAt
+      && value.issuedAt <= now.getTime() && now.getTime() < value.expiresAt
+      && typeof value.nonce === 'string' && /^[A-Za-z0-9_-]{22}$/u.test(value.nonce));
+  } catch { return false; }
 }
 
 export function createAnonymousSession(now: Date = new Date()): GektaAnonymousSession {
@@ -83,11 +109,13 @@ export function parseAnonymousSession(
     if (age < -60_000 || age > GEKTA_ANONYMOUS_COOKIE_MAX_AGE_SECONDS * 1_000) return null;
     const pending = typeof value.pending === 'string' && value.pending ? value.pending : null;
     const rawConsent = value.consent;
-    let consent: { version: string; at: number } | null = null;
+    let consent: GektaAnonymousSession['consent'] = null;
     if (rawConsent && typeof rawConsent === 'object' && !Array.isArray(rawConsent)) {
       const record = rawConsent as Record<string, unknown>;
       if (typeof record.version === 'string' && typeof record.at === 'number' && Number.isFinite(record.at)) {
-        consent = { version: record.version, at: record.at };
+        consent = { version: record.version, at: record.at,
+          ...(typeof record.evidenceHash === 'string' && /^sha256:[0-9a-f]{64}$/u.test(record.evidenceHash) ? { evidenceHash: record.evidenceHash } : {}),
+          ...(record.surfaceLocale === 'ru' || record.surfaceLocale === 'en' || record.surfaceLocale === 'zh' ? { surfaceLocale: record.surfaceLocale } : {}) };
       }
     }
     return { sid: value.sid, used: value.used, pending, issuedAt: value.issuedAt, consent };
@@ -96,8 +124,8 @@ export function parseAnonymousSession(
   }
 }
 
-export function recordConsent(session: GektaAnonymousSession, version: string, now: Date): GektaAnonymousSession {
-  return { ...session, consent: { version, at: now.getTime() } };
+export function recordConsent(session: GektaAnonymousSession, version: string, now: Date, binding?: Readonly<{ evidenceHash: string; surfaceLocale: 'ru' | 'en' | 'zh' }>): GektaAnonymousSession {
+  return { ...session, consent: { version, at: now.getTime(), ...binding } };
 }
 
 /** Require current acceptance recorded during this session by the server clock. */
