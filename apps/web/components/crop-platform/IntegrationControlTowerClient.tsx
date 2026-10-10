@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -291,6 +292,23 @@ export function IntegrationControlTowerClient({
   const [pending, setPending] = React.useState<PendingAction | null>(null);
   const [executing, setExecuting] = React.useState(false);
   const [receipt, setReceipt] = React.useState('');
+  const inFlight = React.useRef(false);
+  const actionOrigin = React.useRef<{ element: HTMLButtonElement; sessionToken: string } | null>(null);
+  const reasonInput = React.useRef<HTMLTextAreaElement>(null);
+  const stateHeading = React.useRef<HTMLHeadingElement>(null);
+  const focusAfterRead = React.useRef(false);
+  const currentPhase = React.useRef(state.phase);
+  const currentToken = React.useRef(csrfToken);
+  currentPhase.current = state.phase;
+  currentToken.current = csrfToken;
+  React.useEffect(() => {
+    if (executing) reasonInput.current?.focus();
+  }, [executing]);
+  React.useEffect(() => {
+    if (!focusAfterRead.current || state.phase === 'loading') return;
+    focusAfterRead.current = false;
+    if (actionOrigin.current?.sessionToken === csrfToken) stateHeading.current?.focus();
+  }, [csrfToken, state.phase]);
 
   const loadDetail = React.useCallback(async (
     adapterCode: string,
@@ -407,8 +425,10 @@ export function IntegrationControlTowerClient({
     });
   }, [locale, query, state.records, statusFilter]);
 
-  const prepareAction = () => {
+  const prepareAction = (event: React.MouseEvent<HTMLButtonElement>) => {
     if (!selected) return;
+    focusAfterRead.current = false;
+    actionOrigin.current = { element: event.currentTarget, sessionToken: csrfToken };
     const action = selected.primaryAction;
     const eventVersion = action.entryId
       ? selected.recentEvents.find((event) => event.id === action.entryId)?.version
@@ -426,8 +446,13 @@ export function IntegrationControlTowerClient({
     setReceipt('');
   };
 
+  const dismissPending = () => {
+    if (!inFlight.current) setPending(null);
+  };
+
   const execute = async () => {
     if (!pending || pending.reason.trim().length < 12 || !pending.ifMatch) return;
+    inFlight.current = true;
     setExecuting(true);
     try {
       const path = pending.action === 'REDRIVE'
@@ -461,6 +486,7 @@ export function IntegrationControlTowerClient({
       setPending(null);
       await load('retry');
     } finally {
+      inFlight.current = false;
       setExecuting(false);
     }
   };
@@ -470,7 +496,7 @@ export function IntegrationControlTowerClient({
     return (
       <Surface className={styles.stateSurface} role={state.phase === 'error' || state.phase === 'conflict' ? 'alert' : undefined}>
         {state.phase === 'loading' ? <RefreshCw className={styles.spin} size={28} /> : <AlertTriangle size={30} />}
-        <h1>{message}</h1>
+        <h1 ref={stateHeading} tabIndex={-1}>{message}</h1>
         {state.phase !== 'loading' && state.phase !== 'forbidden' && state.phase !== 'empty' ? (
           <Button variant='secondary' onClick={() => void load('retry')}><RefreshCw size={18} />{copy.retry}</Button>
         ) : null}
@@ -483,7 +509,7 @@ export function IntegrationControlTowerClient({
       <Surface className={styles.hero}>
         <div>
           <StatusChip tone='information'>{copy.eyebrow}</StatusChip>
-          <h1 id='integration-control-tower-title'>{copy.title}</h1>
+          <h1 ref={stateHeading} tabIndex={-1} id='integration-control-tower-title'>{copy.title}</h1>
           <p>{copy.lead}</p>
           <InlineNotice tone='neutral' title={copy.status} icon={<ShieldCheck size={18} />}>
             {copy.evidenceBoundary}
@@ -582,14 +608,33 @@ export function IntegrationControlTowerClient({
       </div>
 
       {pending ? (
-        <div className={styles.dialogBackdrop} role='presentation'>
-          <Surface className={styles.dialog} role='dialog' aria-modal='true' aria-labelledby='integration-action-title'>
-            <header><AlertTriangle size={24} /><h2 id='integration-action-title'>{copy.actionTitle}</h2></header>
-            <p>{selected?.primaryAction.reason}</p>
-            <label><span>{copy.reason}</span><textarea value={pending.reason} onChange={(event) => setPending({ ...pending, reason: event.currentTarget.value })} placeholder={copy.reasonPlaceholder} rows={5} /></label>
-            <div><Button variant='secondary' disabled={executing} onClick={() => setPending(null)}>{copy.cancel}</Button><Button disabled={executing || pending.reason.trim().length < 12 || !pending.ifMatch} onClick={() => void execute()}>{executing ? copy.executing : copy.confirm}</Button></div>
-          </Surface>
-        </div>
+        <Dialog.Root open onOpenChange={(open) => { if (!open) dismissPending(); }}>
+          <Dialog.Portal>
+            <Dialog.Overlay className={styles.dialogBackdrop}>
+              <Dialog.Content className={styles.dialogFrame} role='dialog' aria-modal='true' aria-busy={executing}
+                onOpenAutoFocus={(event) => { event.preventDefault(); reasonInput.current?.focus(); }}
+                onEscapeKeyDown={(event) => { if (inFlight.current) event.preventDefault(); }}
+                onInteractOutside={(event) => event.preventDefault()}
+                onCloseAutoFocus={(event) => {
+                  event.preventDefault();
+                  const origin = actionOrigin.current;
+                  if (origin?.sessionToken !== currentToken.current) return;
+                  if (origin.element.isConnected && !origin.element.disabled) origin.element.focus();
+                  else {
+                    focusAfterRead.current = currentPhase.current === 'loading';
+                    stateHeading.current?.focus();
+                  }
+                }}>
+                <Surface className={styles.dialog}>
+                  <header><AlertTriangle size={24} /><Dialog.Title asChild><h2>{copy.actionTitle}</h2></Dialog.Title></header>
+                  <Dialog.Description asChild><p>{selected?.primaryAction.reason}</p></Dialog.Description>
+                  <label><span>{copy.reason}</span><textarea ref={reasonInput} value={pending.reason} onChange={(event) => setPending({ ...pending, reason: event.currentTarget.value })} placeholder={copy.reasonPlaceholder} rows={5} /></label>
+                  <div><Button variant='secondary' disabled={executing} onClick={dismissPending}>{copy.cancel}</Button><Button disabled={executing || pending.reason.trim().length < 12 || !pending.ifMatch} onClick={() => void execute()}>{executing ? copy.executing : copy.confirm}</Button></div>
+                </Surface>
+              </Dialog.Content>
+            </Dialog.Overlay>
+          </Dialog.Portal>
+        </Dialog.Root>
       ) : null}
     </section>
   );

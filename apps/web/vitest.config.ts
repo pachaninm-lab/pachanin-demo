@@ -16,7 +16,15 @@ export default defineConfig({
     },
   },
   resolve: {
+    // Resolve source packages against the web app's existing React peer.
+    dedupe: ['react', 'react-dom'],
     alias: {
+      // Match the existing TypeScript source mapping for this package, which
+      // is deliberately excluded from pnpm workspace package linking.
+      '@pc/design-system-v8': path.resolve(
+        __dirname,
+        '../../packages/design-system-v8/src/index.ts',
+      ),
       // The boundary validates through the API's contract module itself rather
       // than a copy, so the test run must resolve the same file the build does.
       '@pc/ai-assistant-stream-contract': path.resolve(

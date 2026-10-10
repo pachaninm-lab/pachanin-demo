@@ -1,6 +1,10 @@
+import React from 'react';
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { IntegrationControlTowerClient } from '@/components/crop-platform/IntegrationControlTowerClient';
 import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
 import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-route-policy';
 import { PLATFORM_V7_INTEGRATIONS_ROUTE } from '@/lib/platform-v7/routes';
@@ -140,5 +144,134 @@ describe('Platform V7 Integration Control Tower vertical', () => {
     expect(css).toContain(':focus-visible');
     expect(css).toContain('prefers-reduced-motion');
     expect(css).toContain('safe-area-inset-bottom');
+  });
+});
+
+describe('Control Tower confirmation keyboard focus', () => {
+  // Explicit local read/command boundaries; no real provider or staff mutation.
+  const record = {
+    adapterCode: 'FGIS_ZERNO', adapterVersion: '1', provider: 'LOCAL_TEST_BOUNDARY',
+    capabilities: [], environment: 'TEST', honestStatus: 'ADAPTER_READY',
+    schemaVersion: '1', mappingVersion: '1', freshnessAt: '2026-10-09T00:00:00Z',
+    lastSuccessAt: null, lastErrorAt: null, lastErrorCode: null,
+    inboxDepth: 0, oldestEventAt: null, retryCount: 0, quarantineCount: 0,
+    deadCount: 0, processingCount: 0, conflictCount: 0,
+    providerAcknowledgedCount: 0, businessAcceptedCount: 0,
+    reconciliationState: 'NOT_REQUESTED', reconciliationUpdatedAt: null,
+    credentialReferenceExpiresAt: null, credentialMetadataAvailable: false,
+    aggregateVersion: '7', recentEvents: [],
+    primaryAction: { id: 'RECONCILE', allowed: true, reasonCode: 'ALLOWED',
+      requiresConfirmation: true, owner: 'OPERATOR', impact: 'HIGH', entryId: null },
+  };
+  const locales = [
+    { locale: 'ru', action: 'Запустить сверку' },
+    { locale: 'en', action: 'Start reconciliation' },
+    { locale: 'zh', action: '启动核对' },
+  ];
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  async function mount(locale: string, action: string, post?: () => Promise<Response>, beforeRead?: () => Promise<void> | undefined) {
+    const fetchBoundary = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === 'POST') {
+        if (!post) throw new Error('unexpected command');
+        return post();
+      }
+      if (!url.startsWith('/api/staff/integration-control-tower')) throw new Error(`unexpected read ${url}`);
+      await beforeRead?.();
+      return new Response(JSON.stringify(url.includes('eventLimit=') ? record : { items: [record], nextCursor: null }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    vi.stubGlobal('fetch', fetchBoundary);
+    const user = userEvent.setup();
+    const view = render(React.createElement(IntegrationControlTowerClient, { locale, csrfToken: 'local-focus-boundary' }));
+    const trigger = await screen.findByRole('button', { name: action });
+    await user.click(trigger);
+    return { user, trigger, fetchBoundary, view, dialog: screen.getByRole('dialog'), reason: screen.getByRole('textbox') as HTMLTextAreaElement };
+  }
+
+  it.each(locales)('focuses the reason, contains Tab and restores the trigger after Escape in $locale', async ({ locale, action }) => {
+    const { user, trigger, reason, dialog, fetchBoundary } = await mount(locale, action);
+    expect(document.activeElement).toBe(reason);
+    await user.type(reason, 'Verifiable local keyboard reason');
+    await user.tab();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    await user.tab();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    await user.tab();
+    expect(document.activeElement).toBe(reason);
+    await user.tab({ shift: true });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    expect(fetchBoundary.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
+  });
+
+  it.each(locales)('keeps executing focus contained and ignores Escape and backdrop dismissal in $locale', async ({ locale, action }) => {
+    let finish!: (response: Response) => void;
+    const response = new Promise<Response>(resolve => { finish = resolve; });
+    const { user, reason, dialog, fetchBoundary } = await mount(locale, action, () => response);
+    await user.type(reason, 'Verifiable local keyboard reason');
+    const buttons = dialog.querySelectorAll('button');
+    await user.click(buttons[1]!);
+    await waitFor(() => expect(dialog).toHaveAttribute('aria-busy', 'true'));
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('dialog')).toBe(dialog);
+    await user.tab();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    await user.click(dialog.parentElement!);
+    expect(screen.getByRole('dialog')).toBe(dialog);
+    expect(fetchBoundary.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
+    await act(async () => { finish(new Response(JSON.stringify({ message: 'Local version rejection' }),
+      { status: 428, headers: { 'Content-Type': 'application/json' } })); });
+    const heading = await screen.findByRole('heading', { name: 'Local version rejection' });
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+    expect(fetchBoundary.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
+  });
+
+  it('keeps focus after a delayed read replaces the temporary loading heading', async () => {
+    let posted = false;
+    let releaseRead!: () => void;
+    const readReady = new Promise<void>(resolve => { releaseRead = resolve; });
+    const { user, reason, dialog, fetchBoundary } = await mount('en', 'Start reconciliation', async () =>
+      { posted = true; return new Response(JSON.stringify({ commandId: 'local-receipt' }), { status: 200 }); },
+      () => posted ? readReady : undefined);
+    await user.type(reason, 'Verifiable local keyboard reason');
+    await user.click(dialog.querySelectorAll('button')[1]!);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const loadingHeading = screen.getByRole('heading', { level: 1 });
+    await waitFor(() => expect(document.activeElement).toBe(loadingHeading));
+    await act(async () => { releaseRead(); });
+    await screen.findByRole('button', { name: 'Start reconciliation' });
+    const finalHeading = screen.getByRole('heading', { level: 1 });
+    expect(finalHeading).not.toBe(loadingHeading);
+    await waitFor(() => expect(document.activeElement).toBe(finalHeading));
+    expect(fetchBoundary.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
+  });
+
+  it('does not restore focus to the origin belonging to a changed session', async () => {
+    const { user, trigger, view, fetchBoundary } = await mount('en', 'Start reconciliation');
+    view.rerender(React.createElement(IntegrationControlTowerClient, { locale: 'en', csrfToken: 'changed-local-session' }));
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(document.activeElement).not.toBe(trigger));
+    expect(fetchBoundary.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
+  });
+
+  it('restores the heading when a read disables the original action while the dialog is open', async () => {
+    const { user, trigger, fetchBoundary } = await mount('en', 'Start reconciliation');
+    const deniedRecord = { ...record, primaryAction: { ...record.primaryAction, allowed: false, reasonCode: 'STAFF_AUTHORITY_REQUIRED' } };
+    fetchBoundary.mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (init?.method === 'POST' || !url.startsWith('/api/staff/integration-control-tower')) throw new Error('unexpected command or read');
+      return new Response(JSON.stringify(url.includes('eventLimit=') ? deniedRecord : { items: [deniedRecord], nextCursor: null }), { status: 200 });
+    });
+    await act(async () => { window.dispatchEvent(new Event('online')); });
+    await waitFor(() => expect(trigger).toBeDisabled());
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 })));
+    expect(fetchBoundary.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
   });
 });
