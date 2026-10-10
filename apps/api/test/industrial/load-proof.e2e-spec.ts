@@ -75,14 +75,38 @@ function backoff(attempt: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 20 * attempt + Math.random() * 60));
 }
 
+type CycleDiagnostic = { fixtureIndex: number; phase: string; attempt: number };
+
+// Only fixed classifications leave the test: never serialize error messages,
+// stacks, SQL, payloads, identifiers or arbitrary database/provider metadata.
+function safeFailureClasses(error: unknown): ReadonlyArray<{ kind: string; code: string; databaseCode: string }> {
+  const classes: Array<{ kind: string; code: string; databaseCode: string }> = [];
+  const seen = new Set<unknown>();
+  let current = error;
+  while (current && typeof current === 'object' && !seen.has(current) && classes.length < 3) {
+    seen.add(current);
+    const value = current as { name?: unknown; code?: unknown; meta?: { code?: unknown }; cause?: unknown };
+    const kind = current instanceof ConflictException ? 'ConflictException'
+      : ['Error', 'AggregateError', 'PrismaClientKnownRequestError', 'NotFoundException', 'ForbiddenException', 'BadRequestException'].find((name) => value.name === name) ?? 'unknown';
+    const code = ['P2002', 'P2010', 'P2025', 'P2034'].find((code) => value.code === code) ?? 'unknown';
+    const databaseCode = ['40001', '40P01', '23505'].find((code) => value.meta?.code === code) ?? 'unknown';
+    classes.push({ kind, code, databaseCode });
+    current = value.cause;
+  }
+  return classes.length ? classes : [{ kind: 'unknown', code: 'unknown', databaseCode: 'unknown' }];
+}
+
 async function runStep(
   instance: ServiceInstance,
   fixture: DealFixture,
   actionId: DealActionId,
   userKey: string,
+  diagnostic: CycleDiagnostic,
 ): Promise<void> {
   const MAX_ATTEMPTS = 12;
+  diagnostic.phase = actionId;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+    diagnostic.attempt = attempt + 1;
     const deal = await instance.prisma.deal.findUniqueOrThrow({
       where: { id: fixture.dealId },
       select: { updatedAt: true, version: true },
@@ -110,7 +134,10 @@ async function bankConfirm(
   instance: ServiceInstance,
   fixture: DealFixture,
   operation: 'RESERVE' | 'RELEASE',
+  diagnostic: CycleDiagnostic,
 ): Promise<void> {
+  diagnostic.phase = operation === 'RESERVE' ? 'bank_reserve' : 'bank_release';
+  diagnostic.attempt = 0; // Existing initial three-callback race, before retries.
   const kind = operation === 'RESERVE' ? 'bank-reserve' : 'bank-release';
   const callback = {
     dealId: fixture.dealId,
@@ -129,6 +156,7 @@ async function bankConfirm(
   if (outcomes.some((outcome) => outcome.status === 'fulfilled')) return;
 
   for (let attempt = 0; attempt < 12; attempt += 1) {
+    diagnostic.attempt = attempt + 1;
     try {
       await instance.gateway.executeBankCallback(callback);
       return;
@@ -140,24 +168,56 @@ async function bankConfirm(
 }
 
 async function runDealCycle(fixture: DealFixture, index: number): Promise<void> {
-  for (let step = 0; step < USER_STEPS.length; step += 1) {
-    const instance = (index + step) % 2 === 0 ? alpha : beta;
-    await runStep(instance, fixture, USER_STEPS[step].actionId, USER_STEPS[step].userKey);
-  }
-  await bankConfirm(index % 2 === 0 ? alpha : beta, fixture, 'RESERVE');
-  for (let step = 0; step < POST_RESERVE_STEPS.length; step += 1) {
-    const instance = (index + step) % 2 === 0 ? beta : alpha;
-    const currentStep = POST_RESERVE_STEPS[step];
-    if (currentStep.actionId === 'finalize_lab') {
-      await prepareLaboratoryLifecycle(instance, fixture);
+  const diagnostic: CycleDiagnostic = { fixtureIndex: index, phase: 'start', attempt: 0 };
+  try {
+    for (let step = 0; step < USER_STEPS.length; step += 1) {
+      const instance = (index + step) % 2 === 0 ? alpha : beta;
+      await runStep(instance, fixture, USER_STEPS[step].actionId, USER_STEPS[step].userKey, diagnostic);
     }
-    await runStep(instance, fixture, currentStep.actionId, currentStep.userKey);
+    await bankConfirm(index % 2 === 0 ? alpha : beta, fixture, 'RESERVE', diagnostic);
+    for (let step = 0; step < POST_RESERVE_STEPS.length; step += 1) {
+      const instance = (index + step) % 2 === 0 ? beta : alpha;
+      const currentStep = POST_RESERVE_STEPS[step];
+      if (currentStep.actionId === 'finalize_lab') {
+        diagnostic.phase = 'prepare_laboratory';
+        diagnostic.attempt = 1;
+        await prepareLaboratoryLifecycle(instance, fixture);
+      }
+      await runStep(instance, fixture, currentStep.actionId, currentStep.userKey, diagnostic);
+    }
+    await bankConfirm(index % 2 === 0 ? beta : alpha, fixture, 'RELEASE', diagnostic);
+    await runStep(alpha, fixture, 'close_deal', 'operator', diagnostic);
+  } catch (error) {
+    try {
+      console.error(`[industrial-load-failure] ${JSON.stringify({ ...diagnostic, errors: safeFailureClasses(error) })}`);
+    } finally {
+      // Diagnostic formatting must never replace the original rejected reason.
+      throw error;
+    }
   }
-  await bankConfirm(index % 2 === 0 ? beta : alpha, fixture, 'RELEASE');
-  await runStep(alpha, fixture, 'close_deal', 'operator');
 }
 
 describe('Industrial core load proof on two instances', () => {
+  it('reports allowlisted nested failure classifications without private error data', () => {
+    const cause = Object.assign(new Error('private SQL and credentials'), { code: 'P2034', meta: { code: '40001', query: 'private' } });
+    const error = Object.assign(new ConflictException('private bank reference'), { cause });
+    expect(safeFailureClasses(error)).toEqual([
+      { kind: 'ConflictException', code: 'unknown', databaseCode: 'unknown' },
+      { kind: 'Error', code: 'P2034', databaseCode: '40001' },
+    ]);
+    expect(JSON.stringify(safeFailureClasses(error))).not.toContain('private');
+  });
+
+  it('bounds cyclic causes and rejects arbitrary classifications', () => {
+    const error: { name: string; code: string; meta: { code: string }; cause?: unknown } = {
+      name: 'private name', code: 'private code', meta: { code: 'private database' },
+    };
+    error.cause = error;
+    expect(safeFailureClasses(error)).toEqual([{ kind: 'unknown', code: 'unknown', databaseCode: 'unknown' }]);
+    expect(safeFailureClasses('private thrown value')).toEqual([{ kind: 'unknown', code: 'unknown', databaseCode: 'unknown' }]);
+    expect(safeFailureClasses({ cause: { cause: { cause: { code: 'P2034' } } } })).toHaveLength(3);
+  });
+
   it(`drives ${DEALS} deals through full concurrent cycles with zero duplicate money`, async () => {
     latenciesMs.length = 0;
     const fixtures: DealFixture[] = [];
