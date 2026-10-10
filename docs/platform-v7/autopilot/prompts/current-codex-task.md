@@ -33,6 +33,7 @@ Gekta existing-owner model activation and live quality/speed/stability acceptanc
 - BLOCKED: Gekta owned-history4 is blocked by genuine fed3 P2 contradictory four-versus-five runbook markers; separately accepted complete corrected four-path payload and fresh source review/native/canonical/manual acceptance are required before live execution.
 - BLOCKED: Gekta anonymous17 is blocked by genuine current1a4 P1 reserve fallback binding EN/ZH interfaces to RU consent evidence; separately accepted three-payload same-vector correction and fresh exact-head source review/native/canonical/manual acceptance are required before live execution.
 - BLOCKED: Gekta anonymous17 acceptance is blocked by genuine108b Mobile PR failures from obsolete bare legal-link selectors; separately accept the exact existing mobile-owner one-test-file commitment-aware correction, then recompose unchanged anonymous17 afters on actual accepted mobile main and obtain new exact-head native/mobile/KIND/readiness/manual acceptance.
+- BLOCKED: Anonymous76f is terminalblocked: nativeMobile13FAIL27PASS on HTTP WebKit Secure-cookie rejection and independent P2 stream diagnostic missing bound consent. Separately accept retained HTTPS fixture and diagnostic bootstrap on their existing accepted scopes/refs, then unchangedAnon17 requires all fresh exact-head gates.
 
 ## Allowed current scope
 
@@ -528,6 +529,19 @@ Only after actual mobile-source acceptance recompose the exact seventeen anonymo
 Then actual final stable-main/Hub/PRODUCT owner-order/OCI coordination permits REG.RU exact-image release, authorized one-use critical model run, real first-user/mail/MFA/history/owned cleanup and fresh HUMAN owner grants. Keep frozen future PRODUCT atomic-pair owner/purpose/later order.
 
 Gekta anonymous17 acceptance is blocked by genuine108b Mobile PR failures from obsolete bare legal-link selectors; separately accept the exact existing mobile-owner one-test-file commitment-aware correction, then recompose unchanged anonymous17 afters on actual accepted mobile main and obtain new exact-head native/mobile/KIND/readiness/manual acceptance.
+
+
+## Gekta trusted HTTPS and stream consent prerequisites
+
+Restore actual signed-notice acceptance without weakening Secure cookies, SID binding, TLS verification, real server ACK or any40 browser assertions. Existing accepted mobile viewport21 manifest/ref changes only workflow/config to ephemeral trusted HTTPS of the same production build. Existing diagnostic2 manifest/ref changes only workflow to RU notice plus matching same-jar ACK before reserve. Separate serialized source phases; no scope/owner/accepted-record rewrite, no application/runtime behavior change or live PASS.
+
+Actual TLS proxy trusted HTTPS/real Secure-cookie POST ACK PASS; unknown CA and HTTP reject PASS. Actual extracted diagnostic helpers valid notice/ACK PASS and12 malformed/stale/locale/evidence/timestamp negatives reject. YAML/bash syntax and webtype0. Fresh crypto fullJSON equals accepted28keys/12classes; ephemeral private keys remain in owned temporary fixture, never artifacts. These are local contracts, not browser/native/live acceptance.
+
+Only after actual additive GOV5 independent full decode review, owner audit, all applicable native gates/current canonical/fullSHA manual acceptance: existing mobile viewport ref keeps old31b405+actualmain ancestry, only2 decoded files; all fresh native browser40/review/gates/manual. Then existing diagnostic ref keeps old131bc7+actualmain ancestry, only1 decoded file and fresh own review/gates/manual. Finally exact frozenAnon17 on actual accepted dependencies with allfresh signed40/CI/KIND/deep/storage/cleanup/READY/manual. Preserve PRODUCT5622 atomic-pair owner/laterorder, one CORE writer/fixed bounded terminal phases. No production/model/human grants here.
+
+Anonymous76f is terminalblocked: nativeMobile13FAIL27PASS on HTTP WebKit Secure-cookie rejection and independent P2 stream diagnostic missing bound consent. Separately accept retained HTTPS fixture and diagnostic bootstrap on their existing accepted scopes/refs, then unchangedAnon17 requires all fresh exact-head gates.
+
+Complete source derivation retained under `gekta-trusted-https-and-stream-consent-prerequisites-20261010`: accepted full before bytes plus zlib full afters using the explicit accepted-before dictionary. Independent complete reconstruction/mode/length/Git/SHA256 is mandatory; all113 old RAW records, scopes, owners, PRIMARY11/current/rawnextStep/Claude/official5 remain unchanged. Fixed3MiB cap is unchanged.
 
 
 ## Implementation brief
