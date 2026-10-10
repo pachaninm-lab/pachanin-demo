@@ -7,6 +7,7 @@ import { GektaRegistrationService, normalizeDeclaredPhone } from './gekta-regist
 import { PersistentAuthRepository } from './persistent-auth.repository';
 import { ProductSessionService } from './product-session.service';
 import { issueRegistrationEmailToken } from './registration-token';
+import { legalContentHash, renderedLegalDocumentHash, sealGektaConsentSnapshot, type GektaLegalEvidence } from '../../../../../packages/domain-core/src/gekta-consent-evidence';
 
 const migration = fs.readFileSync(
   path.join(process.cwd(), 'prisma/migrations/20260813070000_gekta_registration_identity/migration.sql'),
@@ -17,6 +18,20 @@ const serviceSource = fs.readFileSync(
   'utf8',
 );
 
+const DELIVERY_KEY = 'gekta-registration-delivery-key-at-least-32-chars';
+const profileHash = legalContentHash({ id: 'test-operator', effectiveFrom: '2026-08-12' });
+const publicDocument = (slug: string) => ({ slug, title: 'Public test terms', description: 'Public document fixture',
+  summary: 'Public legal summary', sections: [{ heading: 'Operator', paragraphs: ['Test operator disclosure'] }] });
+const termsDocument = publicDocument('usloviya-ispolzovaniya-gekta');
+const privacyDocument = publicDocument('politika-obrabotki-personalnyh-dannyh');
+const EVIDENCE: GektaLegalEvidence = {
+  schemaVersion: 'gekta.legal-evidence.v1', version: '2026-08-12.2', surfaceLocale: 'en', documentLocale: 'ru',
+  sourceSurface: 'GEKTA_REGISTRATION', profile: { id: 'test-operator', effectiveFrom: '2026-08-12', contentHash: profileHash },
+  terms: { purpose: 'SERVICE_TERMS', source: '/legal/usloviya-ispolzovaniya-gekta', version: '2026-08-12.2',
+    contentHash: renderedLegalDocumentHash('2026-08-12.2', profileHash, termsDocument), document: termsDocument },
+  privacy: { purpose: 'PERSONAL_DATA', source: '/legal/politika-obrabotki-personalnyh-dannyh', version: '2026-08-12.2',
+    contentHash: renderedLegalDocumentHash('2026-08-12.2', profileHash, privacyDocument), document: privacyDocument },
+};
 const VALID = {
   email: 'Agronom@Example.Test',
   password: 'Sever0oborot!2026',
@@ -24,8 +39,9 @@ const VALID = {
   phone: '+7 916 000-00-00',
   acceptedServiceTerms: true,
   acceptedPersonalData: true,
+  consentSnapshot: sealGektaConsentSnapshot(EVIDENCE, DELIVERY_KEY),
+  consentEvidence: EVIDENCE,
 };
-const DELIVERY_KEY = 'gekta-registration-delivery-key-at-least-32-chars';
 
 function repository(outcome: 'CREATED' | 'SUPPRESSED' = 'CREATED') {
   return {
@@ -108,8 +124,9 @@ describe('Регистрация в Гекте не спрашивает орг�
     expect(await verifyPassword(VALID.password, prepared.passwordHash)).toBe(true);
     expect(await verifyPassword('a-different-password', prepared.passwordHash)).toBe(false);
 
-    const publicResult = await service(repository('CREATED')).register(VALID);
-    expect(publicResult).not.toHaveProperty('emailDelivery');
+    const publicRepo = repository('CREATED');
+    await expect(service(publicRepo).register(VALID)).rejects.toMatchObject({ response: { code: 'CONSENT_REFRESH_REQUIRED' } });
+    expect(publicRepo.transaction).not.toHaveBeenCalled();
   });
 
   it('отвечает на занятый email тем же, чем на свободный', async () => {
@@ -131,13 +148,46 @@ describe('Регистрация в Гекте не спрашивает орг�
     expect(repo.insertAudit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       metadata: expect.objectContaining({
         consent: expect.objectContaining({
-          terms: expect.objectContaining({ version: '2026-09-03', contentHash: expect.stringMatching(/^sha256:/u) }),
-          privacy: expect.objectContaining({ version: '2026-09-03', contentHash: expect.stringMatching(/^sha256:/u) }),
+          terms: expect.objectContaining({ version: '2026-08-12.2', purpose: 'SERVICE_TERMS', source: '/legal/usloviya-ispolzovaniya-gekta', document: termsDocument }),
+          privacy: expect.objectContaining({ version: '2026-08-12.2', purpose: 'PERSONAL_DATA', source: '/legal/politika-obrabotki-personalnyh-dannyh', document: privacyDocument }),
+          surfaceLocale: 'en', documentLocale: 'ru', profile: EVIDENCE.profile,
         }),
         acceptedServiceTerms: true,
         acceptedPersonalData: true,
       }),
     }));
+    expect(repo.ensureCredentialState).toHaveBeenCalledWith(expect.anything(), 'usr_1', '2026-08-12.2|2026-08-12.2', expect.any(Date));
+    const auditMetadata = repo.insertAudit.mock.calls.map(([, event]) => event.metadata);
+    expect(JSON.stringify(auditMetadata)).not.toContain(VALID.consentSnapshot);
+    expect(JSON.stringify(auditMetadata)).not.toContain(DELIVERY_KEY);
+  });
+
+  it.each(['missing', 'tampered', 'expired', 'different locale', 'different purpose', 'different document', 'untrusted key'])(
+    'не пишет пользователя, challenge или аудит при %s commitment', async (variant) => {
+      const repo = repository();
+      const input = { ...VALID };
+      let key = DELIVERY_KEY;
+      if (variant === 'missing') input.consentSnapshot = null;
+      if (variant === 'tampered') input.consentSnapshot = `${VALID.consentSnapshot}x`;
+      if (variant === 'expired') input.consentSnapshot = sealGektaConsentSnapshot(EVIDENCE, DELIVERY_KEY, new Date(Date.now() - 16 * 60_000));
+      if (variant === 'different locale') input.consentEvidence = { ...EVIDENCE, surfaceLocale: 'zh' };
+      if (variant === 'different purpose') input.consentEvidence = { ...EVIDENCE, sourceSurface: 'GEKTA_ANONYMOUS_NOTICE' };
+      if (variant === 'different document') input.consentEvidence = { ...EVIDENCE, terms: { ...EVIDENCE.terms, document: { ...termsDocument, summary: 'Changed after display' } } };
+      if (variant === 'untrusted key') key = `${DELIVERY_KEY}x`;
+      await expect(service(repo).register(input, key)).rejects.toMatchObject({ response: { code: 'CONSENT_REFRESH_REQUIRED' } });
+      expect(repo.transaction).not.toHaveBeenCalled();
+      expect(repo.prepareGektaRegistrationIdentity).not.toHaveBeenCalled();
+      expect(repo.createGektaEmailChallenge).not.toHaveBeenCalled();
+      expect(repo.insertAudit).not.toHaveBeenCalled();
+    },
+  );
+
+  it('records the displayed snapshot separately from the server acceptance timestamp', async () => {
+    const repo = repository();
+    await service(repo).register(VALID, DELIVERY_KEY);
+    expect(repo.insertAudit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ metadata: expect.objectContaining({
+      consentPresentation: { evidenceHash: legalContentHash(EVIDENCE), issuedAt: expect.any(String), acceptedAt: expect.any(String) },
+    }) }));
   });
 });
 
