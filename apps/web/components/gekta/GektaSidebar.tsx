@@ -16,6 +16,11 @@ const UI = {
 
 const NAV_ITEM = 'mt-1 flex min-h-11 w-full items-center gap-2 rounded-xl px-2 text-left text-sm text-slate-700 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700';
 
+function utilityRoute(locale: GektaLocale, page: 'security' | 'support'): string {
+  const base = GEKTA_PATHS[locale];
+  return `${base}/${page}`;
+}
+
 export function GektaSidebar({ locale, conversations, projects, activeId, activeProjectId, search, searchState, projectCounts, onSearch, onNew, onSelect, onRename, onDelete, onClear, onSettings, onProjectCreate, onProjectRename, onProjectDelete, onProjectOpen, onConversationProject }: {
   locale: GektaLocale;
   conversations: readonly GektaConversation[];
@@ -23,7 +28,6 @@ export function GektaSidebar({ locale, conversations, projects, activeId, active
   activeId: string | null;
   activeProjectId: string | null;
   search: string;
-  /** Состояние серверного поиска: у анонимного режима его нет. */
   searchState?: 'idle' | 'loading' | 'error';
   projectCounts: Readonly<Record<string, number>>;
   onSearch: (value: string) => void;
@@ -48,13 +52,13 @@ export function GektaSidebar({ locale, conversations, projects, activeId, active
       <Link href={GEKTA_PATHS[locale]} className={NAV_ITEM}>
         <Home className='h-4 w-4 text-emerald-700' aria-hidden='true' />{ui.productHome}
       </Link>
-      <Link href='/platform-v7/trust' className={NAV_ITEM}>
+      <Link href={utilityRoute(locale, 'security')} className={NAV_ITEM}>
         <ShieldCheck className='h-4 w-4 text-emerald-700' aria-hidden='true' />{ui.info}
       </Link>
       <Link href='/platform-v7' className={NAV_ITEM}>
         <ArrowUpRight className='h-4 w-4 text-slate-500' aria-hidden='true' />{ui.back}
       </Link>
-      <Link href='/platform-v7/contact' className={NAV_ITEM}>
+      <Link href={utilityRoute(locale, 'support')} className={NAV_ITEM}>
         <LifeBuoy className='h-4 w-4 text-slate-500' aria-hidden='true' />{ui.support}
       </Link>
       {conversations.length ? (
@@ -84,8 +88,6 @@ export function GektaSidebar({ locale, conversations, projects, activeId, active
         <input type='search' value={search} onChange={(event) => onSearch(event.target.value)} placeholder={ui.search} className='min-h-11 w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100' />
       </label>
 
-      {/* Состояние поиска объявляется живой областью: результат приходит
-          асинхронно, и без объявления смена списка остаётся незамеченной. */}
       <p className='mt-1 min-h-4 px-2 text-xs text-slate-500' role='status' aria-live='polite' data-gekta-search-state={searchState ?? 'idle'}>
         {searchState === 'loading' ? ui.searching : null}
         {searchState === 'error' ? ui.searchFailed : null}

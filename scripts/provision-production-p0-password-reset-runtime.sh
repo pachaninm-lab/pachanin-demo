@@ -7,6 +7,9 @@ PROD_DIR_B64="${PC_PROD_DIR_B64:-}"
 RECONCILE_ACTIVE_RUNTIME="${PC_RECONCILE_ACTIVE_RUNTIME:-0}"
 
 fail() { printf 'ERROR_CODE=%s\n' "$1" >&2; exit "${2:-1}"; }
+if [[ "$(basename -- "$0")" == 'pc-auth-runtime-reconcile-32218490249.sh' ]]; then
+  fail STALE_ACTIONS_ORPHAN_NEUTRALIZED 79
+fi
 decode() {
   [[ -z "${1:-}" ]] && return 0
   printf '%s' "$1" | base64 -d

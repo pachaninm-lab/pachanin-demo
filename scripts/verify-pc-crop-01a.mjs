@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -19,7 +19,6 @@ const CSS_TYPES_PATH = 'apps/web/components/crop-platform/css-modules.d.ts';
 const DOC_PATH = 'docs/crop-platform/PC-CROP-01A-DOMAIN-AND-UX.md';
 const WORKFLOW_PATH = '.github/workflows/pc-crop-01a.yml';
 const VERIFIER_PATH = 'scripts/verify-pc-crop-01a.mjs';
-const SUCCESSOR_WORKFLOW_PATH = '.github/workflows/pc-crop-01b4.yml';
 
 const EXPECTED_PATHS = new Set([
   PACKAGE_PATH,
@@ -57,14 +56,11 @@ function forbidToken(text, token, label) {
 }
 
 function changedFiles() {
-  try {
-    return execFileSync('git', ['diff', '--name-only', 'origin/main...HEAD'], {
-      cwd: ROOT,
-      encoding: 'utf8',
-    }).trim().split(/\r?\n/).filter(Boolean);
-  } catch {
-    return [];
-  }
+  const base = process.env.BASE_REF || 'origin/main';
+  return execFileSync('git', ['diff', '--name-only', `${base}...HEAD`], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  }).trim().split(/\r?\n/).filter(Boolean);
 }
 
 function exactHead() {
@@ -72,24 +68,6 @@ function exactHead() {
     cwd: ROOT,
     encoding: 'utf8',
   }).trim();
-}
-
-function isSuccessorOwnedPath(path) {
-  return path === SUCCESSOR_WORKFLOW_PATH
-    || path === '.github/workflows/pc-crop-01b3.yml'
-    || path.startsWith('apps/api/src/modules/commodity-profiles/')
-    || path.startsWith('apps/web/app/api/platform-v7/commodity-profiles/')
-    || path.startsWith('apps/web/app/api/staff/commodity-profile-registry/')
-    || path.startsWith('apps/web/app/api/staff/commodity-profiles/')
-    || path.startsWith('apps/web/app/platform-v7/commodity-profiles/')
-    || path === 'apps/web/components/crop-platform/CommodityProfileRegistryClient.tsx'
-    || path === 'apps/web/components/crop-platform/CommodityProfileRegistryClient.module.css'
-    || path === 'apps/web/components/crop-platform/commodity-profile-live-adapter.ts'
-    || path === 'apps/web/lib/platform-v7/routes.ts'
-    || path === 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'
-    || path === 'apps/web/lib/platform-v7/cabinet-access-policy.ts'
-    || path === 'apps/web/tests/unit/platformV7CommodityProfileLiveRegistry.test.ts'
-    || path === 'apps/web/tests/unit/commodityProfileLiveAdapter.test.ts';
 }
 
 const scope = JSON.parse(read(SCOPE_PATH));
@@ -105,7 +83,6 @@ const doc = read(DOC_PATH);
 const index = read(INDEX_PATH);
 const packageJson = JSON.parse(read(PACKAGE_PATH));
 const workflow = read(WORKFLOW_PATH);
-const successorPresent = existsSync(resolve(ROOT, SUCCESSOR_WORKFLOW_PATH));
 
 if (scope.schemaVersion !== 'pc-crop.concurrent-scope.v1') fail('scope schema version mismatch');
 if (scope.branch !== 'agent/pc-crop-01-commodity-registry-foundation') fail('scope branch mismatch');
@@ -118,8 +95,7 @@ if (new Set(scope.allowedPaths).size !== EXPECTED_PATHS.size || scope.allowedPat
 }
 
 const diff = changedFiles();
-const unexpected = diff.filter((path) => !EXPECTED_PATHS.has(path) && !(successorPresent && isSuccessorOwnedPath(path)));
-if (unexpected.length > 0) fail(`files outside exact foundation or declared successor scope: ${unexpected.join(', ')}`);
+const ownedDiff = diff.filter((path) => EXPECTED_PATHS.has(path));
 
 for (const archetype of [
   'DRY_BULK',
@@ -234,8 +210,16 @@ for (const token of [
   'commodity-profile.test.ts',
   'pc-crop-01a-domain-typecheck.log',
   'pc-crop-01a-web-typecheck.log',
+  'bash scripts/p7-autopilot-guard.sh',
+  'verify-pc-crop-01a-scope-isolation.test.mjs',
   'retention-days: 90',
 ]) requireToken(workflow, token, 'workflow acceptance');
+for (const token of [
+  'git update-ref refs/remotes/origin/main HEAD',
+  'agent/pc-crop-01b4-private-bff-live-registry',
+  'agent/pc-crop-01b4-postmerge-remediation',
+  'continue-on-error',
+]) forbidToken(workflow, token, 'workflow scope isolation');
 
 const report = {
   schemaVersion: 'pc-crop.acceptance.v1',
@@ -246,6 +230,11 @@ const report = {
   baseExactMain: scope.baseExactMain,
   operationalStatus: 'NOT_ATTESTED',
   checkedPaths: [...EXPECTED_PATHS].sort(),
+  changedPaths: {
+    total: diff.length,
+    ownedByPcCrop01A: ownedDiff.sort(),
+    externalScopePaths: diff.filter((path) => !EXPECTED_PATHS.has(path)).sort(),
+  },
   counts: {
     archetypes: 6,
     lifecycleStates: 6,
@@ -254,8 +243,8 @@ const report = {
     domainTests: 11,
   },
   boundaries: {
-    postgresRuntimeAuthority: successorPresent ? 'SUCCESSOR_PC_CROP_01B4' : 'NOT_IN_THIS_SLICE',
-    successorScopeDelegated: successorPresent,
+    postgresRuntimeAuthority: 'NOT_IN_THIS_SLICE',
+    externalScopeAuthority: 'CENTRAL_P7_AUTOPILOT_GUARD',
     externalIntegrations: 'NOT_CONNECTED_OR_ATTESTED',
     hashAuthority: 'SERVER_CRYPTO_ADAPTER_SHA256',
     repositoryCompilerModernization: 'SEPARATE_TRACKED_DEBT',

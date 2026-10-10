@@ -31,12 +31,22 @@ function close(overrides: Record<string, unknown> = {}) {
     actorCapabilities: CLOSER,
     outstandingDerivedTasks: 0,
     unsignedDocuments: 0,
+    undecidedServiceLines: 0,
     now: NOW,
     ...overrides,
   } as Parameters<typeof evaluatePeriodClose>[0]);
 }
 
 describe('closing a period', () => {
+  it('refuses to close over a service line nobody decided', () => {
+    // Not tidiness: the services guard refuses an approval whose line falls in
+    // a closed month, so closing over a RENDERED line discards that charge
+    // rather than deferring it.
+    const decision = close({ undecidedServiceLines: 1 });
+    expect(decision.permitted).toBe(false);
+    expect(decision.refusals).toContain(PeriodRefusal.SERVICE_LINES_UNDECIDED);
+  });
+
   it('closes a finished period with nothing outstanding', () => {
     expect(close()).toEqual({ permitted: true, refusals: [] });
   });

@@ -100,6 +100,13 @@ export function recordConsent(session: GektaAnonymousSession, version: string, n
   return { ...session, consent: { version, at: now.getTime() } };
 }
 
+/** Require current acceptance recorded during this session by the server clock. */
+export function hasCurrentConsent(session: GektaAnonymousSession, version: string, now: Date = new Date()): boolean {
+  const consent = session.consent;
+  return Boolean(version && consent && consent.version === version
+    && Number.isSafeInteger(consent.at) && consent.at >= session.issuedAt && consent.at <= now.getTime());
+}
+
 export function issueTicket(now: Date = new Date()): string {
   return `${now.getTime().toString(36)}.${randomBytes(12).toString('base64url')}`;
 }
@@ -139,8 +146,10 @@ export function completeAnswer(session: GektaAnonymousSession, ticket: string): 
 export function admitReservedAnswer(
   session: GektaAnonymousSession,
   ticket: string,
+  legalVersion: string,
   now: Date = new Date(),
 ): GektaAnonymousSession | null {
+  if (!hasCurrentConsent(session, legalVersion, now)) return null;
   if (!ticket || session.pending !== ticket || !isFreshAnswerTicket(ticket, now)) return null;
   return { ...session, used: session.used + 1, pending: null };
 }

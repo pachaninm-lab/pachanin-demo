@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, CheckCircle2, ShieldCheck } from 'lucide-react';
-import { GEKTA_TOPICS, getGektaCopy, type GektaLocale } from '@/lib/gekta/content';
+import { GEKTA_PATHS, GEKTA_TOPICS, getGektaCopy, type GektaLocale } from '@/lib/gekta/content';
 import { getGektaProductCopy } from '@/lib/gekta/product-copy';
 import { GektaCapabilities } from './GektaCapabilities';
 import { GektaLegalFooter } from './GektaLegalFooter';
@@ -10,6 +10,7 @@ export function GektaDiscoverySections({ locale }: { locale: GektaLocale }) {
   const product = getGektaProductCopy(locale);
   const isRu = locale === 'ru';
   const trustLabel = locale === 'en' ? 'How Gekta handles data and security' : locale === 'zh' ? 'Gekta 如何处理数据与安全' : 'Как Гекта работает с данными и безопасностью';
+  const trustHref = `${GEKTA_PATHS[locale]}/security`;
 
   return (
     <div className='border-t border-slate-200/80 bg-[#fbfaf5]' data-gekta-server-discovery='true'>
@@ -62,7 +63,7 @@ export function GektaDiscoverySections({ locale }: { locale: GektaLocale }) {
       <section className='border-y border-emerald-900/10 bg-[#eff5ee]'>
         <div className='mx-auto grid max-w-6xl gap-8 px-4 py-16 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:py-24'>
           <div><ShieldCheck className='h-8 w-8 text-emerald-800' aria-hidden='true' /><h2 className='mt-5 text-2xl font-semibold tracking-tight text-slate-950 sm:text-4xl'>{copy.trustTitle}</h2></div>
-          <div>{copy.trustText.map((paragraph) => <p key={paragraph} className='mb-5 text-base leading-7 text-slate-700'>{paragraph}</p>)}<Link href='/platform-v7/trust' className='inline-flex items-center gap-2 font-semibold text-emerald-800 underline-offset-4 hover:underline'>{trustLabel}<ArrowRight className='h-4 w-4' aria-hidden='true' /></Link></div>
+          <div>{copy.trustText.map((paragraph) => <p key={paragraph} className='mb-5 text-base leading-7 text-slate-700'>{paragraph}</p>)}<Link href={trustHref} className='inline-flex min-h-11 items-center gap-2 font-semibold text-emerald-800 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-700'>{trustLabel}<ArrowRight className='h-4 w-4' aria-hidden='true' /></Link></div>
         </div>
       </section>
 

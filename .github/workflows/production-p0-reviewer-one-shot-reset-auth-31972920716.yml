@@ -60,8 +60,8 @@ jobs:
           bash -n scripts/production-p0-reviewer-password-reset-request.sh
           bash -n scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh
           [[ "$(git hash-object scripts/production-p0-reviewer-password-reset-request.sh)" == '7a586ded1b40ab3812335b351d0e8cc519020aa4' ]]
-          [[ "$(git hash-object scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh)" == 'e68a54d68bc56585827a21738ee38735aeaee57d' ]]
-          grep -Fqx "BASELINE_SHA='440e40753e2cac13c93f8e007d9fe17c2b66caba'" scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh
+          [[ "$(git hash-object scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh)" == '83d9c310c257844ac288fdfc2feb9e6fdddf900f' ]]
+          grep -Fqx "SAFE_BASELINE_SHA='440e40753e2cac13c93f8e007d9fe17c2b66caba'" scripts/production-p0-reviewer-reset-drift-tolerant-preflight.sh
           grep -Fqx "COMMAND='/production p0-reviewer-reset-request current-main'" scripts/production-p0-reviewer-password-reset-request.sh
 
       - name: Verify exact owner-issued provenance
@@ -140,7 +140,7 @@ jobs:
       TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
       AUTHORIZATION_RUN_ID: '31972920716'
       SOURCE_BLOB_SHA: '7a586ded1b40ab3812335b351d0e8cc519020aa4'
-      PREFLIGHT_BLOB_SHA: 'e68a54d68bc56585827a21738ee38735aeaee57d'
+      PREFLIGHT_BLOB_SHA: '83d9c310c257844ac288fdfc2feb9e6fdddf900f'
       COMMAND: /production p0-reviewer-reset-request authorized-31972920716
       CLAIM_MARKER: P0_REVIEWER_RESET_AUTHORIZATION_CLAIM=31972920716
       PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}

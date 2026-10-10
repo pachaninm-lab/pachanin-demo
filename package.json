@@ -1,6 +1,7 @@
 {
   "name": "prozrachnaya-cena-runtime",
   "private": true,
+  "license": "UNLICENSED",
   "packageManager": "pnpm@10.2.1",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
@@ -23,6 +24,8 @@
     "pilot:up": "bash ./scripts/pilot-up.sh",
     "audit:roles": "node ./scripts/audit-role-contract-consistency.mjs",
     "audit:flows": "node ./scripts/audit-critical-flows.mjs",
+    "audit:ip:packages": "node ./scripts/ip/verify-private-packages.mjs",
+    "audit:ip:clean-room": "node ./scripts/ip/build-ip-clean-room.mjs artifacts/ip-clean-room",
     "release:industrial": "node ./scripts/build-industrial-release.mjs",
     "db:seed:service-providers": "pnpm --filter @pc/api ts-node prisma/service-providers.seed.ts",
     "verify:shared": "tsc -p ./tsconfig.shared-verify.json --noEmit",
@@ -43,17 +46,22 @@
       "fast-uri": ">=3.1.1",
       "glob": ">=10.5.0",
       "lodash": ">=4.18.0",
-      "multer": ">=2.2.0",
+      "multer": "2.3.0",
       "picomatch": ">=4.0.4",
       "ws": ">=8.21.0",
       "brace-expansion@<2.1.2": "2.1.2",
-      "brace-expansion@>=5.0.0 <5.0.9": "5.0.9",
+      "brace-expansion@>=5.0.0 <5.0.12": "5.0.12",
       "archiver@5.3.2>readdir-glob": "3.0.0",
-      "engine.io@<6.6.7": "6.6.7",
+      "engine.io@<6.6.10": "6.6.10",
       "socket.io-parser@>=4.0.0 <4.2.7": "4.2.7",
-      "sharp": "0.35.3",
+      "sharp": "0.35.5",
       "postcss": "8.5.18",
-      "nanoid@<3.3.18": "3.3.18"
+      "nanoid@<3.3.18": "3.3.18",
+      "undici@>=6.7.0 <6.28.1": "6.28.1",
+      "undici@>=7.0.0 <7.29.1": "7.29.1",
+      "@grpc/grpc-js@<1.14.5": "1.14.5",
+      "proxy-addr@<2.0.8": "2.0.8",
+      "source-map-js@<1.2.2": "1.2.2"
     }
   },
   "devDependencies": {

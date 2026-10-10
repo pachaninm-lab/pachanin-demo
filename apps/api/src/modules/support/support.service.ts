@@ -1,12 +1,21 @@
-import { ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  Optional,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { PasswordResetService } from '../auth/password-reset.service';
+import { assertRecentSettlementFinancialMfa } from '../settlement-engine/settlement-financial-mfa.guard';
 import { RequestUser, Role } from '../../common/types/request-user';
+import { TICKET_PRIORITIES, type TicketPriority } from './support.priorities';
 
 const SUPPORT_ROLES: Role[] = [Role.SUPPORT_MANAGER, Role.ADMIN];
 
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'ESCALATED';
-export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export { TICKET_PRIORITIES, type TicketPriority } from './support.priorities';
 
 export interface SupportTicket {
   id: string;
@@ -36,6 +45,24 @@ export interface TicketComment {
   createdAt: string;
 }
 
+/**
+ * Ранг приоритета в очереди — позиция в каноническом массиве.
+ *
+ * Раньше здесь лежал ВТОРОЙ список: `{ CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }`
+ * с падением на `?? 3`. Найдено ревью: пока список приоритетов один, а порядок
+ * задаётся отдельным объектом, добавление нового значения в
+ * `TICKET_PRIORITIES` заставило бы его пройти проверку на границе и тут же
+ * провалиться в `?? 3` — то есть вернуло бы ровно то молчаливое понижение,
+ * ради устранения которого эта правка и делалась.
+ *
+ * Неизвестное значение всё ещё получает низший ранг, но теперь это последний
+ * рубеж, а не рабочий путь: создать такой приоритет через API нельзя.
+ */
+function priorityRank(priority: string): number {
+  const index = (TICKET_PRIORITIES as readonly string[]).indexOf(priority);
+  return index === -1 ? TICKET_PRIORITIES.length : index;
+}
+
 @Injectable()
 export class SupportService {
   private readonly tickets: SupportTicket[] = [];
@@ -45,7 +72,30 @@ export class SupportService {
   constructor(
     @Optional() private readonly prisma?: PrismaService,
     @Optional() private readonly audit?: AuditService,
+    @Optional() private readonly passwordReset?: PasswordResetService,
   ) {}
+
+  /**
+   * Свежий MFA для административного действия над чужой учётной записью.
+   *
+   * Переиспользуется уже существующий и уже применённый механизм, а не пишется
+   * второй: он читает mfaVerified и mfaVerifiedAt из серверной сессии и держит
+   * окно свежести, а клиентским заголовкам не верит. Общего в нём только имя -
+   * по существу это generic-проверка. Дублировать её значило бы завести вторую
+   * расходящуюся реализацию, то есть ровно тот дефект, который эта программа
+   * устраняет в других местах.
+   *
+   * Код ошибки переписывается на контекстный: возвращать вызывающему
+   * RECENT_FINANCIAL_MFA_REQUIRED с эндпоинта поддержки было бы сообщением не о
+   * том. Логика при этом не копируется - только формулировка отказа.
+   */
+  private assertRecentMfa(user: RequestUser): void {
+    try {
+      assertRecentSettlementFinancialMfa(user);
+    } catch {
+      throw new ForbiddenException({ code: 'RECENT_ADMIN_MFA_REQUIRED' });
+    }
+  }
 
   private assertSupport(user: RequestUser): void {
     if (!SUPPORT_ROLES.includes(user.role as Role)) {
@@ -92,10 +142,7 @@ export class SupportService {
         }
         return true;
       })
-      .sort((a, b) => {
-        const priorityOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-        return (priorityOrder[a.priority] ?? 3) - (priorityOrder[b.priority] ?? 3);
-      });
+      .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority));
   }
 
   getTicket(id: string, user: RequestUser): SupportTicket {
@@ -173,11 +220,67 @@ export class SupportService {
     return { dealId, _viewedBy: user.id, _viewedAt: new Date().toISOString(), _note: 'read-only view' };
   }
 
-  resetUserPassword(userId: string, user: RequestUser): { message: string; resetToken: string } {
+  /**
+   * Административная инициация сброса пароля (ASVS V6.4.6).
+   *
+   * Требование звучит так: администратор может ЗАПУСТИТЬ процедуру сброса, но
+   * это не должно позволять ему сменить или выбрать пароль пользователя -
+   * иначе он этот пароль знает.
+   *
+   * Поэтому здесь нет собственного механизма выдачи токена. Запуск передаётся
+   * штатной authority - PasswordResetService, - которая создаёт непрозрачный
+   * токен, сохраняет его и отправляет ПОЛЬЗОВАТЕЛЮ через durable outbox.
+   * Администратору не возвращается ни пароль, ни токен, ни признак того,
+   * существует ли учётная запись. Это строже требования: он не только не
+   * выбирает пароль, но и не может воспользоваться ссылкой сам.
+   *
+   * До этого метод возвращал значение с префиксом RESET, выведённое из
+   * системных часов в base36: полностью предсказуемое, к тому же нигде не
+   * сохранявшееся и ни с чем не связанное. То есть контроль был одновременно
+   * заявлен и не существовал, а его заготовка была небезопасна по построению.
+   *
+   * Литерал прежнего выражения здесь намеренно не приводится: условие в
+   * реестре проверяет его отсутствие в этом файле, а проверка присутствия
+   * строки не отличает живой код от цитаты в комментарии.
+   */
+  async resetUserPassword(userId: string, user: RequestUser): Promise<{ accepted: true; message: string }> {
     this.assertSupport(user);
-    const resetToken = `RESET-${Date.now().toString(36).toUpperCase()}`;
+    this.assertRecentMfa(user);
+
+    // Fail-closed: без базы или без штатной authority инициировать нечего, и
+    // притворяться, что сброс запущен, нельзя - именно это делала заглушка.
+    if (!this.prisma || !this.passwordReset) {
+      this.logAudit('support:user:password_reset:unavailable', user, userId);
+      throw new ServiceUnavailableException('Password reset initiation is not available');
+    }
+
+    const deliveryKey = String(process.env.PASSWORD_RESET_DELIVERY_KEY ?? '');
+
+    // Поиск по идентификатору, а ответ - одинаковый в любом случае, поэтому
+    // отсутствие учётной записи через этот эндпоинт не различимо.
+    let email: string | null = null;
+    try {
+      const target = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      });
+      email = target?.email ?? null;
+    } catch {
+      email = null;
+    }
+
+    if (email) {
+      // Токен создаёт и отправляет штатная authority; сюда он не возвращается.
+      await this.passwordReset.request(email, undefined, deliveryKey, undefined, undefined);
+    }
+
+    // В аудит - факт административного запуска, без секрета и без адреса.
     this.logAudit('support:user:password_reset', user, userId);
-    return { message: `Токен сброса пароля сгенерирован для пользователя ${userId}`, resetToken };
+
+    return {
+      accepted: true,
+      message: 'Если учётная запись существует, инструкции по сбросу пароля отправлены её владельцу.',
+    };
   }
 
   getStats(user: RequestUser): {

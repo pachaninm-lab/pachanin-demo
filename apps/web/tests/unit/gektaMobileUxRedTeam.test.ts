@@ -30,7 +30,8 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(viewport).toContain("--gekta-composer-height");
     expect(viewport).toContain('Math.max(0, Math.min(maxInset');
     expect(viewport).toContain("document.addEventListener('focusin'");
-    expect(viewport).toContain("document.body.style.overflow = 'hidden'");
+    expect(viewport).not.toContain("document.body.style.overflow = 'hidden'");
+    expect(viewport).not.toContain("root.style.overflow = 'hidden'");
     expect(product).toContain("[data-gekta-chat-workspace='true']:not(.overflow-hidden)");
     expect(product).toContain('overflow: visible');
     expect(product).toContain("[data-gekta-chat-workspace='true'].overflow-hidden main > div:first-of-type");
@@ -66,15 +67,18 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(viewport).toContain('前往最新消息');
   });
 
-  it('uses a compact iOS-safe composer with one focus ring and complete disabled semantics', () => {
+  it('uses iOS-safe form sizing, one focus ring and complete disabled semantics', () => {
     expect(composer).toContain('rows={1}');
     expect(composer).toContain('text-[16px]');
     expect(composer).toContain('Math.min(144, Math.max(68');
     expect(composer).toContain('Boolean(value.trim() || documents.length)');
     expect(composer).toContain('ATTACHMENT_ONLY_PROMPT');
     expect(composer).toContain('CircleSlash2');
-    expect(composer).toContain('text-sm leading-5');
-    expect(composer).toContain('История этого режима хранится в браузере');
+    expect(composer).toContain('text-[14px] leading-5');
+    expect(composer).toContain('Не отправляй пароли, токены и другие секреты.');
+    expect(product).toContain("input:not([type='checkbox']):not([type='radio']):not([type='file'])");
+    expect(product).toContain('font-size: 16px !important');
+    expect(product).toContain("[data-gekta-phone-card='true'] button");
     expect(attachments).toContain('textareaFocused');
     expect(attachments).not.toContain('focus-within:border-emerald-700');
     expect(attachments).toContain('shadow-[0_10px_30px');
@@ -106,6 +110,7 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(drawer).toContain("element.removeAttribute('inert')");
     expect(drawer).toContain("aria-modal='true'");
     expect(drawer).toContain('min-h-14 shrink-0');
+    expect(drawer).toContain("target?.closest('a[href]')");
     expect(dialogFocus).toContain("event.key === 'Escape'");
     expect(dialogFocus).toContain('window.requestAnimationFrame');
     expect(dialogFocus).toContain("restore.closest('[inert]')");
@@ -141,4 +146,44 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(floating).toContain('display: inline-flex');
     expect(floating).toContain('padding-bottom: 0 !important');
   });
+});
+it('keeps the drawer focus session and latest Escape handler across parent rerenders', async () => {
+  const React = await import('react');
+  const { render, fireEvent, act, cleanup } = await import('@testing-library/react');
+  const { vi } = await import('vitest');
+  const { GektaMobileDrawer } = await import('../../components/gekta/GektaMobileDrawer');
+  const frames: FrameRequestCallback[] = [];
+  const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+    frames.push(callback);
+    return frames.length;
+  });
+  const flushFrames = () => act(() => { frames.splice(0).forEach(callback => callback(0)); });
+  const opener = document.createElement('button');
+  opener.textContent = 'Open history';
+  document.body.appendChild(opener);
+  opener.focus();
+  const initialClose = vi.fn();
+  const latestClose = vi.fn();
+  const view = (open: boolean, onClose: () => void) => React.createElement(GektaMobileDrawer, {
+    open, onClose, closeLabel: 'Close history',
+    children: React.createElement('button', null, 'History item'),
+  });
+  try {
+    const screen = render(view(true, initialClose));
+    const closeButton = screen.getAllByRole('button', { name: 'Close history' }).at(-1)!;
+    expect(document.activeElement).toBe(closeButton);
+    screen.rerender(view(true, latestClose));
+    flushFrames();
+    expect(document.activeElement, 'background updates must not release modal focus').toBe(closeButton);
+    fireEvent.keyDown(closeButton, { key: 'Escape' });
+    expect(initialClose).not.toHaveBeenCalled();
+    expect(latestClose).toHaveBeenCalledTimes(1);
+    screen.rerender(view(false, latestClose));
+    flushFrames();
+    expect(document.activeElement, 'closing restores the original opener').toBe(opener);
+  } finally {
+    cleanup();
+    raf.mockRestore();
+    opener.remove();
+  }
 });

@@ -85,7 +85,7 @@ export async function POST(request: Request) {
       : null;
     delete payload.joinNotificationDelivery;
     const recipients = Array.isArray(joinNotification?.recipients)
-      ? joinNotification.recipients.filter((item): item is string => typeof item === 'string' && /^\S+@\S+\.\S+$/.test(item)).slice(0, 20)
+      ? joinNotification.recipients.filter((item): item is string => typeof item === 'string' && item.length <= 254 && /^\S+@\S+\.\S+$/.test(item)).slice(0, 20)
       : [];
     if (recipients.length > 0) {
       const copy = joinAdminCopy[locale];

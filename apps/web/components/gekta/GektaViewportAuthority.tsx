@@ -31,21 +31,20 @@ function isTextEntry(node: Element | null): boolean {
 /**
  * Mobile browser chrome and the on-screen keyboard do not reliably participate
  * in CSS viewport units. This runtime authority follows the actually visible
- * viewport, batches resize/scroll work into animation frames, measures the
- * composer, and locks the document while either chat or keyboard owns it.
+ * viewport, batches resize/scroll work into animation frames and measures the
+ * composer. It deliberately does not lock html/body scrolling: modal surfaces
+ * own their own lock, while keyboard ownership stays local to the Gekta shell.
  */
 export function GektaViewportAuthority() {
   React.useEffect(() => {
     const root = document.documentElement;
     const viewport = window.visualViewport;
-    const initialRootOverflow = root.style.overflow;
-    const initialBodyOverflow = document.body.style.overflow;
-    let bodyLocked = false;
     let frame = 0;
     let observedComposer: HTMLElement | null = null;
     let observer: MutationObserver | null = null;
     let lastViewportWidth = 0;
     let layoutBaselineHeight = 0;
+    let textEntryEngaged = isTextEntry(document.activeElement);
 
     const composerObserver = new ResizeObserver(() => {
       const composer = observedComposer;
@@ -63,18 +62,6 @@ export function GektaViewportAuthority() {
         root.style.setProperty(COMPOSER_HEIGHT, `${Math.ceil(composer.getBoundingClientRect().height)}px`);
       } else {
         root.style.removeProperty(COMPOSER_HEIGHT);
-      }
-    };
-
-    const setDocumentLock = (locked: boolean) => {
-      if (locked === bodyLocked) return;
-      bodyLocked = locked;
-      if (locked) {
-        root.style.overflow = 'hidden';
-        document.body.style.overflow = 'hidden';
-      } else {
-        root.style.overflow = initialRootOverflow;
-        document.body.style.overflow = initialBodyOverflow;
       }
     };
 
@@ -114,10 +101,13 @@ export function GektaViewportAuthority() {
 
       const rawInset = layoutBaselineHeight - visibleHeight - visibleTop;
       const maxInset = Math.min(MAX_KEYBOARD_INSET_PX, Math.round(layoutBaselineHeight * 0.75));
-      const keyboardInset = isTextEntry(document.activeElement)
+      const activeTextEntry = isTextEntry(document.activeElement);
+      if (activeTextEntry) textEntryEngaged = true;
+      const keyboardInset = textEntryEngaged
         ? Math.max(0, Math.min(maxInset, Math.round(rawInset)))
         : 0;
       const keyboardOpen = keyboardInset > KEYBOARD_THRESHOLD_PX;
+      if (!keyboardOpen && !activeTextEntry) textEntryEngaged = false;
 
       root.style.setProperty(VIEWPORT_HEIGHT, `${visibleHeight}px`);
       root.style.setProperty(VIEWPORT_TOP, `${visibleTop}px`);
@@ -125,8 +115,6 @@ export function GektaViewportAuthority() {
       if (keyboardOpen) root.dataset.gektaKeyboardOpen = 'true';
       else delete root.dataset.gektaKeyboardOpen;
 
-      const workspace = document.querySelector<HTMLElement>("[data-gekta-chat-workspace='true']");
-      setDocumentLock(Boolean(workspace?.classList.contains('overflow-hidden') || keyboardOpen));
       syncRuntimeSurfaces(keyboardOpen);
     };
 
@@ -135,19 +123,24 @@ export function GektaViewportAuthority() {
       frame = window.requestAnimationFrame(syncViewport);
     };
 
+    const handleFocusIn = (event: FocusEvent) => {
+      if (isTextEntry(event.target instanceof Element ? event.target : null)) textEntryEngaged = true;
+      scheduleViewportSync();
+    };
+
     scheduleViewportSync();
     viewport?.addEventListener('resize', scheduleViewportSync);
     viewport?.addEventListener('scroll', scheduleViewportSync);
     window.addEventListener('resize', scheduleViewportSync);
     window.addEventListener('orientationchange', scheduleViewportSync);
-    document.addEventListener('focusin', scheduleViewportSync);
+    document.addEventListener('focusin', handleFocusIn);
     document.addEventListener('focusout', scheduleViewportSync);
 
     observer = new MutationObserver(scheduleViewportSync);
     const workspace = document.querySelector("[data-gekta-chat-workspace='true']");
     observer.observe(workspace ?? document.body, {
       attributes: true,
-      attributeFilter: ['class'],
+      attributeFilter: ['class', 'data-gekta-chat-active'],
       childList: true,
       subtree: true,
     });
@@ -158,12 +151,10 @@ export function GektaViewportAuthority() {
       viewport?.removeEventListener('scroll', scheduleViewportSync);
       window.removeEventListener('resize', scheduleViewportSync);
       window.removeEventListener('orientationchange', scheduleViewportSync);
-      document.removeEventListener('focusin', scheduleViewportSync);
+      document.removeEventListener('focusin', handleFocusIn);
       document.removeEventListener('focusout', scheduleViewportSync);
       observer?.disconnect();
       composerObserver.disconnect();
-      root.style.overflow = initialRootOverflow;
-      document.body.style.overflow = initialBodyOverflow;
       root.style.removeProperty(VIEWPORT_HEIGHT);
       root.style.removeProperty(VIEWPORT_TOP);
       root.style.removeProperty(KEYBOARD_INSET);

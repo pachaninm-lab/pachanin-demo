@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4945,
+  "branch": "fix/registration-idempotency-csprng-4945",
+  "status": "active",
+  "purpose": "Bounded registration-security correction after public UX PR #4917. Remove the newly introduced non-cryptographic fallback from the public registration idempotency key, require Web Crypto UUID generation, and restore the generated cryptographic inventory to the exact scanner output without changing registration authority or business behavior.",
+  "authorityBaseExactMain": "4de039b826311b6f000df5105acc4615b3419792",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+    "docs/security/cryptographic-inventory.json",
+    "docs/platform-v7/autopilot/scopes/registration-idempotency-csprng-4945.json"
+  ],
+  "requiredInvariants": [
+    "The public registration idempotency key is generated only with globalThis.crypto.randomUUID and has no Math.random fallback.",
+    "The existing idempotency-key header contract, CSRF boundary, registration API payload and retry semantics remain unchanged.",
+    "No role derivation, tenant authority, reviewer authority, MFA policy, RLS policy, database schema, production credential or registration lifecycle is changed.",
+    "The committed cryptographic inventory equals the scanner output for the exact pull-request head.",
+    "New recurring cost remains 0 RUB and this pull request performs no production mutation."
+  ],
+  "acceptance": [
+    "Conservative provenance, licenses & SBOM baseline passes on the exact pull-request head.",
+    "Web typecheck/build and registration-related tests pass.",
+    "The public registration component contains no Math.random call and the generated inventory records the new direct UUID site.",
+    "After merge, production release and PC-CROP acceptance are rerun against the resulting exact current-main SHA."
+  ]
+}

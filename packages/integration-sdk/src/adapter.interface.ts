@@ -1,4 +1,4 @@
-export type AdapterMode = 'mock' | 'sandbox' | 'live';
+export type AdapterMode = 'disabled' | 'mock' | 'sandbox' | 'live';
 
 export interface HealthStatus {
   status: 'ok' | 'degraded' | 'down';

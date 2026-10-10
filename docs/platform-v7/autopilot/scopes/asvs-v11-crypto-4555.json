@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4555,
+  "branch": "sec/asvs-v11-crypto-4555",
+  "status": "active",
+  "purpose": "Assess ASVS V11 Cryptography, where the algorithm set is uniform and strong, and the gaps are in the policy, the agility and one work factor.",
+  "authorityBaseExactMain": "829eb17b0df96ea55155fc71cca436f8b6862d67",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v11-crypto-4555.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "A coverage claim names the denominator it measured, and pairs it with the negative check that makes it conclusive.",
+    "The randomness denominator includes sub-128-bit CSPRNG output, not only non-CSPRNG output - ASVS 5.0 states that UUIDs do not satisfy the 128-bit condition.",
+    "An SBOM is not offered as if it answered a cryptographic inventory.",
+    "A weak primitive found in the tree is named even when it is not a cryptographic use, so a reader who greps for it does not conclude the assessment missed it.",
+    "Evidence that lives outside the repository is NOT_ASSESSED, never FAIL, and the same blocker is treated the same way as in V4, V12 and V16.",
+    "FAIL is recorded and reported, never resolved by editing product logic.",
+    "finalPass stays false.",
+    "No product logic, dependency, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "V11.5.1 states all three generator classes - 47 randomBytes, 306 randomUUID, 50 Math.random - and names the two sub-128-bit generators of intended-unguessable values rather than counting Math.random alone.",
+    "V11.2.4 is FAIL on the bcrypt cost-10 dummy hash against cost-12 stored hashes, with the correct counterpart in GektaRegistrationService credited.",
+    "V11.4.1 is PASS and still names both PostgreSQL md5 call sites and what they protect.",
+    "V11.1.1 names SECRET_ROTATION_REGISTER.md and says why an exposure report is not a key management policy.",
+    "V11.1.2 says explicitly that the SBOM does not answer a cryptographic inventory.",
+    "V11.2.2 credits the two subsystems that do support key replacement before recording the FAIL.",
+    "V11.6.1 rests on a machine-checked absence of signature operations plus a NO_RUNTIME_CALLER check on the verification lifecycle, and corrects an earlier draft claim that was wrong as written.",
+    "V11.6.2, V11.7.1 and V11.7.2 are NOT_ASSESSED on the host and edge configuration blocker, consistent with V4 and V12.",
+    "All 24 V11 requirements are decided: 14 PASS, 6 FAIL, 1 not applicable, 3 not assessed.",
+    "finalPass stays false."
+  ]
+}

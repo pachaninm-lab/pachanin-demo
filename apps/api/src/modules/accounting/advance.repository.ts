@@ -10,6 +10,7 @@ import {
   evaluateRecordAdvance,
   remainingKopecks,
 } from './advance.policy';
+import { monthIsClosed } from './period-window';
 import { WorkTaskRepository } from './work-task.repository';
 
 /**
@@ -162,11 +163,7 @@ export class AdvanceRepository {
       const capabilities = await this.tasks.capabilitiesWithin(tx);
       const membership = await this.tasks.membershipWithin(tx);
       const evidence = await this.readEvidence(tx, input.bankOperationId);
-      const arrivalMonthIsClosed = await this.monthIsClosed(
-        tx,
-        context.orgId,
-        input.receivedAt,
-      );
+      const arrivalMonthIsClosed = await monthIsClosed(tx, context.orgId, input.receivedAt);
 
       const decision = evaluateRecordAdvance({
         mayRecord:
@@ -263,11 +260,7 @@ export class AdvanceRepository {
         amountKopecks: input.amountKopecks,
         advanceAmountKopecks: advance?.amountKopecks ?? 0n,
         alreadyAppliedKopecks: BigInt(advance?.applied ?? 0),
-        applicationMonthIsClosed: await this.monthIsClosed(
-          tx,
-          context.orgId,
-          input.appliedAt,
-        ),
+        applicationMonthIsClosed: await monthIsClosed(tx, context.orgId, input.appliedAt),
         reason: input.reason,
         idempotencyKey: input.idempotencyKey,
       });
@@ -345,22 +338,5 @@ export class AdvanceRepository {
       amountKopecks: operation.amountKopecks,
       currency: operation.currency,
     };
-  }
-
-  private async monthIsClosed(
-    tx: Prisma.TransactionClient,
-    orgId: string,
-    at: Date,
-  ): Promise<boolean> {
-    const rows = await tx.$queryRaw<{ closed: boolean }[]>`
-      SELECT EXISTS (
-        SELECT 1 FROM public."accounting_periods"
-         WHERE "organizationId" = ${orgId}
-           AND "status" = 'CLOSED'
-           AND "periodStart" <= ${at}
-           AND "periodEnd" > ${at}
-      ) AS closed
-    `;
-    return rows[0]?.closed === true;
   }
 }

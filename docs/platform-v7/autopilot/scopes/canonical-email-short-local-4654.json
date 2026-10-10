@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4654,
+  "branch": "security/canonical-email-short-local-4654",
+  "status": "active",
+  "purpose": "Close the gap where the canonical email rule matched nothing at all when the local part is a single character, so addresses like a@b.co and x@mail.ru travelled completely unmasked on all three channels that share maskText - the access-log middleware, the global logger, and the Sentry outbound handler. Verified by running maskText, not by reading the regex: a@b.co came back untouched while ab@b.co became a***@b.co.",
+  "authorityBaseExactMain": "ee42e6574239f1f6a763afa8084318a8f3e73e49",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/canonical-email-short-local-4654.json",
+    "apps/api/src/common/security/sensitive-data.ts",
+    "apps/api/src/common/security/sensitive-data.spec.ts"
+  ],
+  "requiredInvariants": [
+    "One rule is added; no existing rule, field name, class or exported symbol is modified. The existing email rule keeps its pattern and its replacement.",
+    "Only one-character local parts change behaviour. Verified against origin/main by running the pre-change rule set over the same corpus: ab@b.co, a.b@x.com, ivan.petrov@example.com and user_1@sub.domain.co.uk all produce byte-identical output before and after, and the spec pins each of them.",
+    "The local part is removed entirely rather than partially masked. Keeping a prefix is meaningless when the prefix is the whole local part, which is why partial masking is not the fix here.",
+    "The domain is preserved, consistent with every other rule in the set.",
+    "The new rule is placed after the existing email rule. Placed before it, it would strip the last character of a long local part instead of leaving that address to the main rule; the spec pins this ordering.",
+    "No production, REG.RU, DNS or database mutation, and no business logic change."
+  ],
+  "acceptance": [
+    "maskText('a@b.co') returns '***@b.co' and maskText('x@mail.ru') returns '***@mail.ru'.",
+    "The spec guard that requires a VALUE_SAMPLES entry for every rule is satisfied - it failed first without one, which is how the new rule was caught as unverified.",
+    "src/common/security passes 81/81 and the full API suite passes with no regressions.",
+    "pnpm --filter @pc/api typecheck passes."
+  ]
+}

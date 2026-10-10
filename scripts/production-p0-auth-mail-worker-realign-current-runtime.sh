@@ -117,21 +117,22 @@ web_id_before="$web_id"
 if [[ "$worker_revision" == "$desired_sha" ]]; then
   state="$(docker inspect --format '{{.State.Status}}' "$worker_id" 2>/dev/null || true)"
   health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$worker_id" 2>/dev/null || true)"
-  [[ "$state" == running && "$health" == healthy ]] || fail ALREADY_ALIGNED_BUT_NOT_HEALTHY 32
-  docker exec "$worker_id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3003/ready',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1 \
-    || fail ALREADY_ALIGNED_READY_FAILED 33
-  emit WORKER_RECREATED NO
-  emit WORKER_REVISION PASS
-  emit WORKER_READY PASS
-  emit API_WEB_UNCHANGED PASS
-  emit API_WEB_MUTATED 0
-  emit DB_CREDENTIAL_MUTATED 0
-  emit ROLLBACK_ATTEMPTED NO
-  emit ROLLBACK_COMPLETE NA
-  emit AUTH_MAIL_WORKER_REALIGN PASS
-  emit ERROR_CODE NONE
-  emit PRODUCTION_MUTATION NONE
-  exit 0
+  if [[ "$state" == running && "$health" == healthy ]] && \
+     docker exec "$worker_id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3003/ready',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then
+    emit WORKER_RECREATED NO
+    emit WORKER_REVISION PASS
+    emit WORKER_READY PASS
+    emit API_WEB_UNCHANGED PASS
+    emit API_WEB_MUTATED 0
+    emit DB_CREDENTIAL_MUTATED 0
+    emit ROLLBACK_ATTEMPTED NO
+    emit ROLLBACK_COMPLETE NA
+    emit AUTH_MAIL_WORKER_REALIGN PASS
+    emit ERROR_CODE NONE
+    emit PRODUCTION_MUTATION NONE
+    exit 0
+  fi
+  emit ALIGNED_UNHEALTHY_RECREATE REQUIRED
 fi
 
 [[ -d "$runtime" && ! -L "$runtime" && "$(stat -c '%a:%u:%g' "$runtime")" == '700:0:0' ]] || fail RUNTIME_ROOT_INVALID 34

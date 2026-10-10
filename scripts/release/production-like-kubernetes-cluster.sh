@@ -106,7 +106,7 @@ test "$(kubectl get deployment kafka -n "$NAMESPACE" -o jsonpath='{.status.ready
 test "$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka --no-headers | wc -l | tr -d ' ')" = "1"
 
 kubectl run minio-init -n "$NAMESPACE" --restart=Never \
-  --image=minio/mc:RELEASE.2024-05-09T17-04-24Z \
+  --image=quay.io/minio/mc:RELEASE.2024-05-09T17-04-24Z@sha256:3e9666a093d0a8fcbbac606346c415ae9277a0ca96989a6bdddd3d03e90a21b4 \
   --env="MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}" \
   --env="MINIO_SECRET_KEY=${MINIO_SECRET_KEY}" \
   --command -- /bin/sh -ec \
@@ -446,6 +446,22 @@ SELECT
     AND NOT has_table_privilege('pc_registration_decision_authority', 'public.users', 'INSERT')
     AND NOT has_table_privilege('pc_registration_decision_authority', 'public.user_orgs', 'INSERT')
     AND NOT has_table_privilege('pc_registration_decision_authority', 'public.organizations', 'INSERT')
+    AND NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'UPDATE')
+    AND has_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'id', 'UPDATE')
+    AND NOT has_any_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'UPDATE WITH GRANT OPTION')
+    AND (SELECT count(*) FROM pg_attribute attribute
+         WHERE attribute.attrelid = 'auth.registration_applications'::regclass
+           AND attribute.attnum > 0
+           AND NOT attribute.attisdropped
+           AND has_column_privilege(
+             'pc_registration_decision_authority',
+             'auth.registration_applications',
+             attribute.attname,
+             'UPDATE'
+           )) = 1
+    AND NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'INSERT')
+    AND NOT has_any_column_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'INSERT')
+    AND NOT has_table_privilege('pc_registration_decision_authority', 'auth.registration_applications', 'DELETE')
   )::int::text
   || ':' ||
   (

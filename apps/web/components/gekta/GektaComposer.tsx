@@ -9,15 +9,15 @@ import { GektaAttachments } from './GektaAttachments';
 import { GektaVoiceInput } from './GektaVoiceInput';
 
 const COMPACT_PLACEHOLDER: Record<GektaLocale, string> = {
-  ru: 'Задай вопрос по сельскому хозяйству',
-  en: 'Ask about farming or agribusiness',
-  zh: '询问农业生产或农业经营',
+  ru: 'Задай вопрос Гекте',
+  en: 'Ask Gekta',
+  zh: '向 Gekta 提问',
 };
 
 const COMPACT_BOUNDARY: Record<GektaLocale, string> = {
-  ru: 'История этого режима хранится в браузере. Не отправляй секреты, пароли и токены.',
-  en: 'This mode stores its history in your browser. Do not send secrets, passwords or tokens.',
-  zh: '此模式的历史记录保存在浏览器中。请勿发送秘密、密码或令牌。',
+  ru: 'Не отправляй пароли, токены и другие секреты.',
+  en: 'Do not send passwords, tokens or other secrets.',
+  zh: '请勿发送密码、令牌或其他秘密信息。',
 };
 
 const ATTACHMENT_ONLY_PROMPT: Record<GektaLocale, string> = {
@@ -25,13 +25,6 @@ const ATTACHMENT_ONLY_PROMPT: Record<GektaLocale, string> = {
   en: 'Analyse the attached materials.',
   zh: '请分析所附材料。',
 };
-
-type RelocationState = Readonly<{
-  focused: boolean;
-  start: number;
-  end: number;
-  direction: 'forward' | 'backward' | 'none';
-}>;
 
 export function GektaComposer({ locale, value, placeholder, sending, stopLabel, sendLabel, boundary, documents, voiceEnabled, onDocuments, onChange, onSubmit, onStop, onError }: {
   locale: GektaLocale;
@@ -51,8 +44,6 @@ export function GektaComposer({ locale, value, placeholder, sending, stopLabel, 
 }) {
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const pendingAttachmentSubmit = React.useRef(false);
-  const currentSlot = React.useRef<HTMLElement | null>(null);
-  const relocation = React.useRef<RelocationState | null>(null);
   const [voiceStatus, setVoiceStatus] = React.useState('');
   const [startSlot, setStartSlot] = React.useState<HTMLElement | null>(null);
   const canSubmit = Boolean(value.trim() || documents.length);
@@ -62,52 +53,22 @@ export function GektaComposer({ locale, value, placeholder, sending, stopLabel, 
     if (!workspace) return undefined;
 
     const syncSlot = () => {
-      const keyboardOpen = document.documentElement.dataset.gektaKeyboardOpen === 'true';
-      const target = workspace.classList.contains('overflow-hidden') || keyboardOpen
+      const target = workspace.classList.contains('overflow-hidden')
         ? null
         : workspace.querySelector<HTMLElement>("[data-gekta-composer-slot='true']");
-      if (currentSlot.current === target) return;
-
-      const textarea = textareaRef.current;
-      if (textarea) {
-        relocation.current = {
-          focused: document.activeElement === textarea,
-          start: textarea.selectionStart,
-          end: textarea.selectionEnd,
-          direction: textarea.selectionDirection ?? 'none',
-        };
-      }
-      currentSlot.current = target;
-      setStartSlot(target);
+      setStartSlot((current) => (current === target ? current : target));
     };
 
     syncSlot();
-    const workspaceObserver = new MutationObserver(syncSlot);
-    workspaceObserver.observe(workspace, {
+    const observer = new MutationObserver(syncSlot);
+    observer.observe(workspace, {
       attributes: true,
       attributeFilter: ['class'],
       childList: true,
       subtree: true,
     });
-    const keyboardObserver = new MutationObserver(syncSlot);
-    keyboardObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['data-gekta-keyboard-open'],
-    });
-    return () => {
-      workspaceObserver.disconnect();
-      keyboardObserver.disconnect();
-    };
+    return () => observer.disconnect();
   }, []);
-
-  React.useLayoutEffect(() => {
-    const textarea = textareaRef.current;
-    const state = relocation.current;
-    if (!textarea || !state) return;
-    if (state.focused) textarea.focus({ preventScroll: true });
-    textarea.setSelectionRange(state.start, state.end, state.direction);
-    relocation.current = null;
-  }, [startSlot]);
 
   React.useEffect(() => {
     const textarea = textareaRef.current;
@@ -136,7 +97,23 @@ export function GektaComposer({ locale, value, placeholder, sending, stopLabel, 
     <div data-gekta-composer-root='true' className='mx-auto w-full max-w-[960px] px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 sm:px-6 sm:pb-[max(12px,env(safe-area-inset-bottom))] sm:pt-3'>
       <GektaAttachments locale={locale} disabled={sending} documents={documents} onChange={onDocuments} onError={onError}>
         <label htmlFor='gekta-composer-input' className='sr-only'>{placeholder}</label>
-        <textarea id='gekta-composer-input' ref={textareaRef} value={value} onChange={(event) => onChange(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submitComposer(); } }} rows={1} maxLength={1200} placeholder={COMPACT_PLACEHOLDER[locale]} aria-describedby='gekta-composer-boundary' className='block max-h-36 min-h-[68px] w-full resize-none overflow-y-auto bg-transparent px-4 pb-14 pt-3.5 text-[16px] leading-6 text-slate-900 outline-none placeholder:text-[15px] placeholder:text-slate-400' />
+        <textarea
+          id='gekta-composer-input'
+          ref={textareaRef}
+          value={value}
+          onInput={(event) => onChange(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              submitComposer();
+            }
+          }}
+          rows={1}
+          maxLength={1200}
+          placeholder={COMPACT_PLACEHOLDER[locale]}
+          aria-describedby='gekta-composer-boundary'
+          className='block max-h-36 min-h-[68px] w-full resize-none overflow-y-auto bg-transparent px-4 pb-14 pt-3.5 text-[16px] leading-6 text-slate-900 outline-none placeholder:text-[15px] placeholder:text-slate-400'
+        />
         <div className='absolute bottom-3 right-3 flex items-center gap-2'>
           {voiceEnabled && !sending ? (
             <GektaVoiceInput
@@ -144,9 +121,8 @@ export function GektaComposer({ locale, value, placeholder, sending, stopLabel, 
               disabled={sending}
               onStatus={setVoiceStatus}
               onTranscript={(text) => {
-                // The transcript is offered for editing, never sent on its own.
                 onChange(value ? `${value.trim()} ${text}`.slice(0, 1200) : text.slice(0, 1200));
-                textareaRef.current?.focus();
+                textareaRef.current?.focus({ preventScroll: true });
               }}
             />
           ) : null}
@@ -157,6 +133,7 @@ export function GektaComposer({ locale, value, placeholder, sending, stopLabel, 
               type='button'
               onClick={submitComposer}
               disabled={!canSubmit}
+              data-gekta-submit='true'
               className={`flex h-11 min-w-11 items-center justify-center gap-2 rounded-xl px-3 text-[14px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 ${canSubmit ? 'bg-emerald-800 text-white hover:bg-emerald-900' : 'cursor-not-allowed border border-dashed border-slate-300 bg-slate-100 text-slate-500'}`}
               aria-label={sendLabel}
             >
