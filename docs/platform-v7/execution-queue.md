@@ -422,3 +422,23 @@ Then existing ops source must retain oldfed3 and actual newly accepted-main ance
 Only then actual owned-base ANON17, final stable-main REG.RU release/model/first-user execution; local contracts, branch-filter absence and prior-head results never prove live operations or human owner grants.
 
 Gekta owned-history4 is blocked by genuine fed3 P2 contradictory four-versus-five runbook markers; separately accepted complete corrected four-path payload and fresh source review/native/canonical/manual acceptance are required before live execution.
+
+
+## Gekta anonymous reserve interface-locale prerequisite — genuine source P1 unresolved
+
+Correct genuine anonymous17 P1: every actual client reserve request supplies its current interface locale; the server requires a receipt for that locale and issues same-locale signed presentation without charging or replacing pending work. The client rejects another-locale evidence and displays only a current-locale presentation, then hides it only after server-confirmed same-locale consent. Preserve legacy no-locale server callers using their existing receipt locale. Retain fourteen other full source afters byte-for-byte; no document text, registered18, SID, quota, backend, key, scope, owner, routing or maturity change.
+
+Retained corrective purpose `gekta-anonymous-reserve-interface-locale-correction-20261010` supersedes only the unaccepted payload of `gekta-anonymous-after-public-legal-20261009`. All old records and full source payloads remain frozen.
+
+All three replacement entire strict UTF8 afters, regular modes, actual accepted-main before Git/SHA256 and after length/Git/SHA256 are retained here. Fourteen unchanged entire afters remain reachable in the frozen prior admission and their complete pins are repeated here. Materialize the exact seventeen-path union; old111 raw semantic records and all full payloads remain frozen. No hidden scratch or hash-only authority; fixed governance 3MiB cap remains unchanged.
+
+Six real client callback-to-route EN/ZH regressions failed against actual published1a4 (6 failed/13 passed), then all passed after the three-path correction. Focused two-file42/42 PASS; all actual selected44 web files1277/1277 PASS in19.28s; web typecheck exit0. Crypto discovery full JSON byte-identical; key usage28/28 PASS; coverage931 discovered/44 executed/887 unchanged reasoned exclusions PASS. Tests exercise actual extracted client callbacks and actual Next route/cookie consent ACK, fallback after absent initial GET, rejection of real RU presentation, and preservation of SID/used2/pending on locale change. Local results are not native acceptance.
+
+Actually accepted registered18 main5618 and corrected owned-history4 main6b05; anonymous1a4 remains unaccepted and its old SOURCE75 phase was explicitly terminated BLOCKED/released early without extension.
+Separate additive five-GOV admission requires genuine independent whole-head reconstruction review, distinct owner audit, complete applicable native checks, current canonical READY and fresh full-SHA ordinary manual acceptance before source ref changes.
+Preserve all old raw records/full payloads/current/nextStep/scopes/owners/PRIMARY11/Claude/official5; use actual unchanged dispatcher twice and byte-identical complete prompts, matching full active ordered blockers and retiring only the superseded anonymous blocker. Queue keeps exact old prefix; non-blocker progress fields/raw nextStep/timestamp remain unchanged.
+Then corrected existing anonymous source retains old1a4 and actual newly accepted-main ancestry; ordinary expected-old forcefalse update and a newly explicit serialized75minute phase, terminal on acceptance/blocker/release without extension.
+Corrected source needs new whole-head independent review, separate owner audit, genuine bounded180s/kill5s preflight, complete native web/build/mobile/security/KIND/deep outbox/storage/cleanup, current canonical READY and fresh full-SHA manual acceptance. P1 stays unresolved until genuine corrected published-head review/evidence; old-head PASS never transfers.
+Only accepted final source and stable main permit actual REG.RU exact-image release, authorized one-use model critical execution, real mobile/first-user/mail/MFA/history verification and fresh HUMAN PLATFORM_OWNER grants. No local contract, skipped grant job or image publication proves live acceptance. Preserve future PRODUCT atomic-pair owner/purpose/later order.
+
+Gekta anonymous17 is blocked by genuine current1a4 P1 reserve fallback binding EN/ZH interfaces to RU consent evidence; separately accepted three-payload same-vector correction and fresh exact-head source review/native/canonical/manual acceptance are required before live execution.
