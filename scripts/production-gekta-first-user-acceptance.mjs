@@ -303,30 +303,41 @@ async function exactPublicRevision(context) {
 
 async function pageJson(page, pathName, init = {}) {
   return page.evaluate(async ({ pathName, init }) => {
-    const csrf = document.cookie.split('; ').find((row) => row.startsWith('pc_csrf_token='))?.split('=').slice(1).join('=') || '';
-    const request = async () => fetch(pathName, {
-      method: init.method || 'GET',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: {
-        Accept: 'application/json',
-        ...(init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
-        ...((init.method || 'GET') === 'GET' ? {} : { 'x-csrf-token': decodeURIComponent(csrf) }),
-      },
-      ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
-    });
-    let response = await request();
-    if (response.status === 401 && pathName.startsWith('/api/gekta/account/')) {
-      await fetch('/api/gekta/auth/refresh', {
-        method: 'POST', credentials: 'same-origin', cache: 'no-store',
-        headers: { 'x-csrf-token': decodeURIComponent(csrf) },
-      });
-      response = await request();
+    if (init.timeoutMs !== undefined && (!Number.isSafeInteger(init.timeoutMs) || init.timeoutMs < 1 || init.timeoutMs > 30_000)) {
+      throw new Error('GEKTA_OWNED_HISTORY_TIMEOUT_INVALID');
     }
-    const text = await response.text();
-    let data = null;
-    try { data = text ? JSON.parse(text) : null; } catch {}
-    return { status: response.status, data };
+    const controller = init.timeoutMs === undefined ? null : new AbortController();
+    const timer = controller ? setTimeout(() => controller.abort(), init.timeoutMs) : null;
+    try {
+      const csrf = document.cookie.split('; ').find((row) => row.startsWith('pc_csrf_token='))?.split('=').slice(1).join('=') || '';
+      const request = async () => fetch(pathName, {
+        method: init.method || 'GET',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+          ...(init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+          ...((init.method || 'GET') === 'GET' ? {} : { 'x-csrf-token': decodeURIComponent(csrf) }),
+        },
+        ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+        ...(controller ? { signal: controller.signal } : {}),
+      });
+      let response = await request();
+      if (response.status === 401 && pathName.startsWith('/api/gekta/account/')) {
+        await fetch('/api/gekta/auth/refresh', {
+          method: 'POST', credentials: 'same-origin', cache: 'no-store',
+          headers: { 'x-csrf-token': decodeURIComponent(csrf) },
+          ...(controller ? { signal: controller.signal } : {}),
+        });
+        response = await request();
+      }
+      const text = await response.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch {}
+      return { status: response.status, data };
+    } finally {
+      if (timer !== null) clearTimeout(timer);
+    }
   }, { pathName, init });
 }
 
@@ -510,6 +521,68 @@ async function registerAndActivate(page, identity, email, password) {
   return secret;
 }
 
+async function proveOwnedHistoryRemoval(page) {
+  stage = 'owned-history-removal';
+  const nonce = randomBytes(8).toString('hex');
+  const title = `Gekta fixture ${RUN_ID} ${nonce}`;
+  const payload = { conversations: [{
+    sourceId: `gekta_fixture_${TARGET_SHA.slice(0, 12)}_${RUN_ID}_${nonce}`,
+    title, locale: 'ru', createdAt: new Date().toISOString(),
+    messages: [{ role: 'user', body: 'Run-owned history acceptance fixture; no inference.' }],
+  }] };
+  const fixtureJson = (pathName, init = {}) => pageJson(page, pathName, { ...init, timeoutMs: 30_000 });
+  const importFixture = (body = payload) => fixtureJson('/api/gekta/account/history/import', { method: 'POST', body });
+  const listFixture = () => fixtureJson(`/api/gekta/account/conversations?search=${encodeURIComponent(title)}`);
+  const ownedRows = (response) => {
+    assert(response.status === 200 && Array.isArray(response.data?.conversations), 'GEKTA_OWNED_HISTORY_LIST_FAILED');
+    const rows = response.data.conversations.filter((row) => row.title === title);
+    assert(rows.length <= 2 && rows.every((row) => typeof row.id === 'string' && /^[A-Za-z0-9_-]{1,128}$/u.test(row.id)), 'GEKTA_OWNED_HISTORY_FIXTURE_BOUNDARY_FAILED');
+    return rows;
+  };
+  let failure = null;
+  try {
+    const duplicates = await Promise.all([importFixture(), importFixture()]);
+    assert(duplicates.every((response) => response.status === 201 && [0, 1].includes(response.data?.importedCount))
+      && duplicates.reduce((sum, response) => sum + response.data.importedCount, 0) === 1, 'GEKTA_OWNED_HISTORY_DUPLICATE_IMPORT_FAILED');
+    const rows = ownedRows(await listFixture());
+    assert(rows.length === 1, 'GEKTA_OWNED_HISTORY_DUPLICATE_ROWS');
+    const fixturePath = `/api/gekta/account/conversations/${encodeURIComponent(rows[0].id)}`;
+    const [removed, racingImport] = await Promise.all([
+      fixtureJson(fixturePath, { method: 'DELETE' }), importFixture(),
+    ]);
+    assert(removed.status === 200 && racingImport.status === 201 && racingImport.data?.importedCount === 0, 'GEKTA_OWNED_HISTORY_DELETE_IMPORT_RACE_FAILED');
+    const gone = await fixtureJson(fixturePath);
+    assert(gone.status === 404 && ownedRows(await listFixture()).length === 0, 'GEKTA_OWNED_HISTORY_REMOVAL_FAILED');
+    const replay = await importFixture();
+    assert(replay.status === 201 && replay.data?.importedCount === 0 && ownedRows(await listFixture()).length === 0, 'GEKTA_OWNED_HISTORY_REPLAY_RESTORED');
+    const { sourceId: _sourceId, ...legacy } = payload.conversations[0];
+    const legacyReplay = await importFixture({ conversations: [legacy] });
+    assert(legacyReplay.status === 201 && legacyReplay.data?.importedCount === 0 && ownedRows(await listFixture()).length === 0, 'GEKTA_OWNED_HISTORY_LEGACY_REPLAY_RESTORED');
+    const changed = { conversations: [{ ...payload.conversations[0], messages: [{ role: 'user', body: 'Changed run-owned fixture.' }] }] };
+    assert((await importFixture(changed)).status === 409, 'GEKTA_OWNED_HISTORY_CONFLICT_NOT_REJECTED');
+  } catch (error) {
+    failure = error;
+    throw error;
+  } finally {
+    try {
+      // At most two exact-title rows from this newly created synthetic account.
+      // Never clear its imported ten answers, projects or another account.
+      for (const row of ownedRows(await listFixture())) {
+        const cleanup = await fixtureJson(`/api/gekta/account/conversations/${encodeURIComponent(row.id)}`, { method: 'DELETE' });
+        assert(cleanup.status === 200, 'GEKTA_OWNED_HISTORY_CLEANUP_FAILED');
+      }
+      assert(ownedRows(await listFixture()).length === 0, 'GEKTA_OWNED_HISTORY_CLEANUP_FAILED');
+    } catch (error) {
+      if (!failure) throw error;
+    }
+  }
+  console.log('GEKTA_OWNED_HISTORY_DUPLICATE_IMPORT=PASS');
+  console.log('GEKTA_OWNED_HISTORY_DELETE_IMPORT_RACE=PASS');
+  console.log('GEKTA_OWNED_HISTORY_REPLAY_BLOCKED=PASS');
+  console.log('GEKTA_OWNED_HISTORY_LEGACY_REPLAY_BLOCKED=PASS');
+  console.log('GEKTA_OWNED_HISTORY_CHANGED_PAYLOAD_CONFLICT=PASS');
+}
+
 async function proveAccountWorkspace(page, identity) {
   stage = 'trial-and-phone';
   const account = await waitFor(async () => {
@@ -546,6 +619,7 @@ async function proveAccountWorkspace(page, identity) {
     return response.status === 200 && response.data?.projects?.some((project) => project.name === identity.project);
   }, { timeoutMs: 45_000, code: 'GEKTA_SERVER_PROJECT_CREATE_FAILED' });
   console.log('GEKTA_SERVER_PROJECTS=PASS');
+  await proveOwnedHistoryRemoval(page);
 }
 
 async function waitForOwnerGrants(page, identity) {
@@ -639,6 +713,11 @@ async function writeResult(passed, blocker = null) {
       declaredPhone: true,
       serverHistorySearch: true,
       serverProjects: true,
+      ownedHistoryDuplicateImport: true,
+      ownedHistoryDeleteImportRace: true,
+      ownedHistoryReplayBlocked: true,
+      ownedHistoryLegacyReplayBlocked: true,
+      ownedHistoryChangedPayloadConflict: true,
       ownerPhoneSearch: true,
       ownerGrant7Days: true,
       ownerGrant30Days: true,
