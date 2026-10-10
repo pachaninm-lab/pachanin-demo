@@ -42,6 +42,7 @@ Review the diff, not the agent report.
 - BLOCKED: Gekta registration18 is blocked by genuine current392 P1 wrong personal-data document binding; separate six-payload same-vector admission and corrected-source exact-head review/native/canonical/manual acceptance are required. Prior392 bounded preflight PASS is genuine but does not satisfy corrected-source acceptance or resolve the P1; old source slot was explicitly released.
 - BLOCKED: Gekta owned-history4 is blocked by genuine fed3 P2 contradictory four-versus-five runbook markers; separately accepted complete corrected four-path payload and fresh source review/native/canonical/manual acceptance are required before live execution.
 - BLOCKED: Gekta anonymous17 is blocked by genuine current1a4 P1 reserve fallback binding EN/ZH interfaces to RU consent evidence; separately accepted three-payload same-vector correction and fresh exact-head source review/native/canonical/manual acceptance are required before live execution.
+- BLOCKED: Gekta anonymous17 acceptance is blocked by genuine108b Mobile PR failures from obsolete bare legal-link selectors; separately accept the exact existing mobile-owner one-test-file commitment-aware correction, then recompose unchanged anonymous17 afters on actual accepted mobile main and obtain new exact-head native/mobile/KIND/readiness/manual acceptance.
 
 ## Queue snapshot
 
@@ -489,6 +490,28 @@ Corrected source needs new whole-head independent review, separate owner audit, 
 Only accepted final source and stable main permit actual REG.RU exact-image release, authorized one-use model critical execution, real mobile/first-user/mail/MFA/history verification and fresh HUMAN PLATFORM_OWNER grants. No local contract, skipped grant job or image publication proves live acceptance. Preserve future PRODUCT atomic-pair owner/purpose/later order.
 
 Gekta anonymous17 is blocked by genuine current1a4 P1 reserve fallback binding EN/ZH interfaces to RU consent evidence; separately accepted three-payload same-vector correction and fresh exact-head source review/native/canonical/manual acceptance are required before live execution.
+
+
+## Gekta mobile committed legal-link touch-target acceptance prerequisite
+
+Restore the existing 44x44 mobile legal-link touch-target acceptance against the versioned full-document/profile commitment URLs introduced by anonymous17. Exactly one existing E2E test file, within the unchanged pre-existing four-path mobile-owner scope. Inspect exactly two consent anchors, retain every geometry/keyboard/viewport/language assertion, and require the exact same-origin current server-presentation URLs with exactly v/h/p, current legal version, full distinct document hashes and common profile hash. Before clicking, capture the real consent POST response; require successful server receipt/version and, when a signed presentation exists, current-locale/evidence ACK. The actually accepted predecessor lacks a presentation and has exact bare links, so that explicit legacy schema must retain those exact bare paths; it never permits stripping commitments when a presentation exists. No application, legal document, entitlement, quota, backend, key, role, workflow, dependency or runtime behavior changes.
+
+One test-file subset of unchanged approved fix/gekta-brand-touch-target-4018 scope4. Original PR4061 actually merged2026-08-13T15:35:13Z; current retained ref4ca24235507469e98aa3c58177e0c3f42d0ba751. Keep old ref ancestry, current accepted-main parent and all other accepted leaves; no existing manifest/owner/scope rewrite or anonymous17 expansion.
+
+Retained purpose `gekta-mobile-committed-legal-link-acceptance-20261010` changes no anonymous17 payload or frozen scope.
+
+Retain this entire strict UTF8 after24691bytes, regular100644 mode, actual acceptedcf before Git/SHA256 and complete after length/Git/SHA256. All112 old raw semantic records/full payloads and every other state/scope/owner/current/nextStep/PRIMARY11/Claude/official5 field stay frozen. Fixed governance3MiB cap unchanged; no hash-only or hidden prototype authority.
+
+Actual changed helper executed with the real Playwright plain expect matchers and the real TSconfig ES2022 target: 2 valid legacy/committed cases plus14 independently malformed URL/presentation cases rejected, total16 PASS. Web typecheck exit0; unchanged mobile red-team12/12 PASS; real Playwright discovery still40 tests across4 files/two browsers. No browser runtime installed locally, no actual browser PASS claimed. Initial scratch extraction used TypeScript defaultES5 and lost URLSearchParams iterator spread, correctly failed before any publication; use actual inherited ES2022 target, no source assertion weakened. Current actual native108b failure10/30 is retained, not rerun or relabelled PASS.
+
+Separate additive five-GOV purpose requires genuine exact-head independent full-payload review, separate owner audit, all applicable native gates, current canonical READY and fresh ordinary SHA-bound manual acceptance before source-ref changes.
+Use actual unchanged dispatcher twice in isolated canonical inputs, byte-identical complete prompts and the entire ordered active blocker set equal in progress and both prompts; queue keeps its entire old prefix, all non-blocker progress fields/raw nextStep/timestamp and all old raw state inverse remain unchanged.
+Then existing mobile branch source retains old4ca plus actually accepted-main ancestry; materialize only this one full after with all before/mode/length/Git/SHA256 pins and keep all other accepted leaves untouched. Normal expected-old forcefalse, explicitly new serialized bounded75minute source phase, terminal on acceptance/blocker/release without extension.
+Mobile test source requires its own new whole-head independent review, distinct owner audit, actual Chromium/WebKit complete40-case execution with every existing viewport/44px/keyboard/language assertion, applicable CI/security/immutable images/bounded preflight/fullKIND/deep/storage/cleanup/current canonical/fresh full-SHA manual acceptance. Test-only source is not deployed behavior or live acceptance.
+Only after actual mobile-source acceptance recompose the exact seventeen anonymous afters unchanged from the accepted existing corrective purpose against that actual new main; all17 before pins must still match, retain old108b ancestry and actualmain parent, new explicit75minute anonymous phase and ALLfresh exact-head review/native/mobile/KIND/deep/storage/cleanup/canonical/manual gates. No prior108b or mobile-head native result transfer; old phase6092159229 stays TERMINALBLOCKED/released.
+Then actual final stable-main/Hub/PRODUCT owner-order/OCI coordination permits REG.RU exact-image release, authorized one-use critical model run, real first-user/mail/MFA/history/owned cleanup and fresh HUMAN owner grants. Keep frozen future PRODUCT atomic-pair owner/purpose/later order.
+
+Gekta anonymous17 acceptance is blocked by genuine108b Mobile PR failures from obsolete bare legal-link selectors; separately accept the exact existing mobile-owner one-test-file commitment-aware correction, then recompose unchanged anonymous17 afters on actual accepted mobile main and obtain new exact-head native/mobile/KIND/readiness/manual acceptance.
 
 
 ## Review brief
