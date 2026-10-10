@@ -24,14 +24,21 @@ async function assertNoHorizontalOverflow(page: Page, label: string) {
 }
 
 async function assertNoBrokenVisibleImages(page: Page, label: string) {
-  const brokenImages = await page.locator('img:visible').evaluateAll((images) =>
-    images
-      .filter((image) => image instanceof HTMLImageElement)
-      .filter((image) => !image.complete || image.naturalWidth === 0 || image.naturalHeight === 0)
-      .map((image) => ({ src: image.getAttribute('src'), alt: image.getAttribute('alt') })),
-  );
-
-  expect(brokenImages, `${label} should not have broken visible images`).toEqual([]);
+  for (const image of await page.locator('img:visible').all()) {
+    // CSS-visible lazy images may still be offscreen after DOMContentLoaded.
+    // Bring each one into view and require its actual decoded dimensions.
+    await image.scrollIntoViewIfNeeded();
+    await expect
+      .poll(
+        () => image.evaluate((element) =>
+          element instanceof HTMLImageElement
+          && element.complete
+          && element.naturalWidth > 0
+          && element.naturalHeight > 0),
+        { message: `${label} should load ${await image.getAttribute('src')}`, timeout: 15_000 },
+      )
+      .toBe(true);
+  }
 }
 
 test.describe('platform-v7 production public and authentication boundary', () => {
@@ -71,7 +78,11 @@ test.describe('platform-v7 production public and authentication boundary', () =>
       const finalUrl = new URL(page.url());
       expect(finalUrl.pathname).toBe('/platform-v7/login');
       expect(finalUrl.searchParams.get('next')).toBe(protectedPath);
-      await expect(page.getByRole('heading', { name: 'Войти' })).toBeVisible();
+      await expect(page.getByRole('heading', { level: 1, name: 'Вход в платформу', exact: true })).toBeVisible();
+      await expect(page.getByRole('textbox', { name: 'Адрес электронной почты', exact: true })).toBeVisible();
+      await expect(page.locator('#pc-auth-password')).toBeVisible();
+      await expect(page.locator('#pc-auth-password')).toHaveAttribute('type', 'password');
+      await expect(page.getByRole('button', { name: 'Войти', exact: true })).toBeVisible();
       await expect(page.locator('body')).not.toContainText('Ошибка страницы');
       await assertNoHorizontalOverflow(page, `${protectedPath} authentication redirect`);
     });
