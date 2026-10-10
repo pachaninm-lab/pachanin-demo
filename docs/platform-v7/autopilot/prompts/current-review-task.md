@@ -831,6 +831,377 @@ This narrow corrective purpose preserves the entire capped state and all114 full
 ```
 
 
+## PRODUCT pinned FGIS quartet classifier and canonical lock — additive PRIMARY prerequisite
+
+The complete original-owner purpose below is retained byte-for-byte from proposal blob 7b0049e95ed756230051812d796a4fa7c3a7cb86. This metadata is forward-composed on actually accepted main ea5a77a3a171b497f75a36c3619bfff3ac20ef43 after diagnostic #5876 and anonymous #5869 acceptance. The original proposal authorityBaseExactMain is historical; all six current source before pins match this actual accepted main. Exactly the existing PRIMARY execution queue and two unchanged-dispatcher generated prompts change. All old queue-prefix bytes, state114, progress, owners, scopes, source payloads and current ordered views remain unchanged. Fresh exact-head independent review, separate owner audit, native checks, canonical readiness and ordinary SHA-bound acceptance remain mandatory before source publication.
+
+```json
+{
+  "purposeId": "product-fgis-07b-pinned-quartet-atomic-lock-correction-20261010",
+  "owner": "ACCOUNT_2_PRODUCT",
+  "sourceOwnerRetained": "CORE/shared CI; existing bounded PRODUCT #5799 delegation only",
+  "authorityBaseExactMain": "9cdfed1ad171312f772616ffe22bbb55dfc73016",
+  "metadataPaths": [
+    "docs/platform-v7/execution-queue.md",
+    "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+    "docs/platform-v7/autopilot/prompts/current-review-task.md"
+  ],
+  "implementationBranch": "fix/shared-ci-deal-route-classifier-5799",
+  "originalSourceHeadPreservedThroughOrdinaryAncestry": "3d0a84937d8059780d1c1d77afa8390269aa630f",
+  "metadataBranchRetained": "governance/product-fgis-confirmation-focus-20261009",
+  "metadataHeadPreservedThroughOrdinaryAncestry": "a76f57dfc714ed68893d1d62cf8dd338cf121b66",
+  "purpose": "Allow only the existing immutable-base-admitted FGIS four-file focus/config correction through the unchanged PC07B owned-slice classifier, while renewing only its canonical permissions/jobs lock scalar in the same source commit.",
+  "supersedesOnly": "For this future atomic two-leaf source phase only, supersede the old before/after workflow-job-digest and lock pins in shared-ci-deal-route-classifier-5799-20261004 and shared-ci-07b-job-lock-renewal-5799-20261005. Preserve both entire raw records, existing three-path vector, all other original requirements and the unchanged 01B4 workflow.",
+  "allowedSourcePaths": [
+    ".github/workflows/pc-crop-07b.yml",
+    "docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json"
+  ],
+  "existingConcurrentVector": [
+    ".github/workflows/pc-crop-01b4.yml",
+    ".github/workflows/pc-crop-07b.yml",
+    "docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json"
+  ],
+  "unchangedThirdScopePath": {
+    "path": ".github/workflows/pc-crop-01b4.yml",
+    "mode": "100644",
+    "blob": "0d933df385bb22f60b4c2deea16dc225c82ca052",
+    "sha256": "67eea8f2bf46571ba4195c42364e0bc30fb1ba11306ef88327bcf59511a4548c"
+  },
+  "lockScalar": {
+    "jsonPath": "workflows[.github/workflows/pc-crop-07b.yml].permissionsAndJobsSha256",
+    "before": "87d8a19924249d706f24aca26899a75a382bd04ece11ca87c353c90cabcee764",
+    "after": "433c8a12a6326d6b67b6c611bcaeacc6469d42dd6457e48903f7efdee58c25d2",
+    "rawInverseRestoresEntireOldLock": true
+  },
+  "sourceTransitions": [
+    {
+      "path": ".github/workflows/pc-crop-07b.yml",
+      "mode": "100644",
+      "beforeBlob": "754e6a0bdf86d62be87f6f89df90a9cc8420a694",
+      "beforeSha256": "4f839caa134af293953e52db1b15f230d5f246ea98137281329e356e6bf43f52",
+      "beforeBytes": 13779,
+      "afterBlob": "e42618eb090137d9e46b75e3ec9fcc9ce417ef29",
+      "afterSha256": "8645be6fc68a36b262d0f05a058f6c908b1bd907c66f3d7a5ea37b2ca0d91a40",
+      "afterBytes": 17608,
+      "afterContentUTF8": "name: PC-CROP-07B Integration Control Tower Acceptance\n\non:\n  pull_request:\n    paths:\n      - 'apps/api/src/modules/regulatory-integration/dto/regulatory-integration-control-tower.dto.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.command.service.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.controller.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.policy.spec.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.policy.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.postgresql.spec.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.redrive.repository.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.repository.spec.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.repository.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.reconciliation.repository.ts'\n      - 'apps/web/app/api/platform-v7/integrations/**'\n      - 'apps/web/app/api/staff/integration-control-tower/**'\n      - 'apps/web/app/api/staff/integrations/**'\n      - 'apps/web/app/platform-v7/integrations/**'\n      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.module.css'\n      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.tsx'\n      - 'apps/web/components/crop-platform/integration-control-tower-live-adapter.ts'\n      - 'apps/web/lib/platform-v7/cabinet-access-policy.ts'\n      - 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'\n      - 'apps/web/lib/platform-v7/route-canonicalization.ts'\n      - 'apps/web/lib/platform-v7/routes.ts'\n      - 'apps/web/tests/unit/integrationControlTowerLiveAdapter.test.ts'\n      - 'apps/web/tests/unit/platformV7IntegrationControlTower.test.ts'\n      - 'apps/web/tests/unit/platformV7RouteCanonicalization.test.ts'\n      - 'apps/web/tsconfig.pc-crop.json'\n      - 'docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower.json'\n      - 'scripts/verify-pc-crop-07b.mjs'\n  push:\n    branches: [main]\n    paths:\n      - 'apps/api/src/modules/regulatory-integration/dto/regulatory-integration-control-tower.dto.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.command.service.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.controller.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.policy.spec.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.policy.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.postgresql.spec.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.redrive.repository.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.repository.spec.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.repository.ts'\n      - 'apps/api/src/modules/regulatory-integration/regulatory-integration.reconciliation.repository.ts'\n      - 'apps/web/app/api/platform-v7/integrations/**'\n      - 'apps/web/app/api/staff/integration-control-tower/**'\n      - 'apps/web/app/api/staff/integrations/**'\n      - 'apps/web/app/platform-v7/integrations/**'\n      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.module.css'\n      - 'apps/web/components/crop-platform/IntegrationControlTowerClient.tsx'\n      - 'apps/web/components/crop-platform/integration-control-tower-live-adapter.ts'\n      - 'apps/web/lib/platform-v7/cabinet-access-policy.ts'\n      - 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'\n      - 'apps/web/lib/platform-v7/route-canonicalization.ts'\n      - 'apps/web/lib/platform-v7/routes.ts'\n      - 'apps/web/tests/unit/integrationControlTowerLiveAdapter.test.ts'\n      - 'apps/web/tests/unit/platformV7IntegrationControlTower.test.ts'\n      - 'apps/web/tests/unit/platformV7RouteCanonicalization.test.ts'\n      - 'apps/web/tsconfig.pc-crop.json'\n      - 'docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower.json'\n      - 'scripts/verify-pc-crop-07b.mjs'\n  workflow_dispatch:\npermissions:\n  contents: read\n\nconcurrency:\n  group: pc-crop-07b-${{ github.event.pull_request.number || github.ref }}\n  cancel-in-progress: true\n\nenv:\n  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}\n  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public\n  EVIDENCE_DIR: artifacts/pc-crop-07b\n\njobs:\n  integration-control-tower:\n    name: PostgreSQL 16 · private BFF · honest statuses · governed commands\n    runs-on: ubuntu-24.04\n    timeout-minutes: 45\n    services:\n      postgres:\n        image: postgres:16\n        env:\n          POSTGRES_DB: grainflow\n          POSTGRES_USER: postgres\n          POSTGRES_PASSWORD: postgres\n        ports: ['5432:5432']\n        options: >-\n          --health-cmd \"pg_isready -U postgres -d grainflow\"\n          --health-interval 5s --health-timeout 5s --health-retries 20\n\n    steps:\n      - name: Checkout exact revision\n        uses: actions/checkout@v4\n        with:\n          ref: ${{ env.EXACT_HEAD }}\n          fetch-depth: 0\n\n      - name: Enforce exact PC-CROP-07B scope\n        shell: bash\n        env:\n          EVENT_NAME: ${{ github.event_name }}\n          BASE_BRANCH: ${{ github.base_ref }}\n          PUSH_BEFORE: ${{ github.event.before }}\n        run: |\n          set -euo pipefail\n          mkdir -p \"$EVIDENCE_DIR\"\n          printf '%s\\n' \"$EXACT_HEAD\" > \"$EVIDENCE_DIR/exact-head.txt\"\n          if [ \"$EVENT_NAME\" = 'workflow_dispatch' ]; then\n            printf '%s\\n' 'workflow_dispatch' > \"$EVIDENCE_DIR/base-ref.txt\"\n            printf '%s\\n' 'MANUAL_DISPATCH' > \"$EVIDENCE_DIR/scope-mode.txt\"\n            echo 'Manual dispatch: full acceptance runs without a diff ownership decision.'\n            exit 0\n          fi\n          if [ \"$EVENT_NAME\" = 'pull_request' ]; then\n            git fetch --no-tags origin \"$BASE_BRANCH\"\n            base_ref=\"origin/$BASE_BRANCH\"\n          elif [ -n \"$PUSH_BEFORE\" ] \\\n            && [ \"$PUSH_BEFORE\" != '0000000000000000000000000000000000000000' ] \\\n            && git cat-file -e \"${PUSH_BEFORE}^{commit}\" 2>/dev/null; then\n            base_ref=\"$PUSH_BEFORE\"\n          else\n            base_ref='HEAD^'\n          fi\n          printf '%s\\n' \"$base_ref\" > \"$EVIDENCE_DIR/base-ref.txt\"\n          # Keep both sides of renames and raw UTF-8 names for ownership.\n          # Reject control delimiters rather than interpreting quoted paths.\n          git diff --no-renames --name-only -z \"$base_ref...$EXACT_HEAD\" > \"$EVIDENCE_DIR/changed-files.nul\"\n          while IFS= read -r -d '' changed_path; do\n            case \"$changed_path\" in\n              *$'\\n'*|*$'\\r'*|*$'\\t'*)\n                echo 'Unsupported control delimiter in changed path' >&2\n                exit 1\n                ;;\n            esac\n            printf '%s\\n' \"$changed_path\"\n          done < \"$EVIDENCE_DIR/changed-files.nul\" | LC_ALL=C sort > \"$EVIDENCE_DIR/changed-files.txt\"\n\n          # Shared route/auth dependencies trigger the complete compatibility\n          # suite; they do not make another feature part of this owned slice.\n          # Actual regulatory source keeps the unchanged bounded allowlist.\n          grep -E '^(\\.github/workflows/pc-crop-07b\\.yml$|apps/api/src/modules/regulatory-integration/|apps/web/app/api/platform-v7/integrations/|apps/web/app/api/staff/integration-control-tower/|apps/web/app/api/staff/integrations/|apps/web/app/platform-v7/integrations/|apps/web/components/crop-platform/(IntegrationControlTowerClient\\.tsx|IntegrationControlTowerClient\\.module\\.css|integration-control-tower-live-adapter\\.ts)$|apps/web/tests/unit/(integrationControlTowerLiveAdapter|platformV7IntegrationControlTower)\\.test\\.ts$|docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower\\.json$|scripts/verify-pc-crop-07b\\.mjs$)' \"$EVIDENCE_DIR/changed-files.txt\" > \"$EVIDENCE_DIR/slice-files.txt\" || true\n          if [ -s \"$EVIDENCE_DIR/slice-files.txt\" ]; then\n            printf '%s\\n' 'SLICE_REMEDIATION' > \"$EVIDENCE_DIR/scope-mode.txt\"\n            if grep -Ev '^(\\.github/workflows/pc-crop-07b\\.yml|apps/api/src/app\\.module\\.ts|apps/api/src/modules/regulatory-integration/.*|apps/web/app/api/platform-v7/integrations/.*|apps/web/app/api/staff/integration-control-tower/.*|apps/web/app/api/staff/integrations/.*|apps/web/app/platform-v7/integrations/.*|apps/web/components/crop-platform/(IntegrationControlTowerClient\\.tsx|IntegrationControlTowerClient\\.module\\.css|integration-control-tower-live-adapter\\.ts)|apps/web/lib/platform-v7/(cabinet-access-policy|design-system-v8-route-policy|route-canonicalization|routes)\\.ts|apps/web/tests/unit/(integrationControlTowerLiveAdapter|platformV7IntegrationControlTower|platformV7RouteCanonicalization)\\.test\\.ts|apps/web/tsconfig\\.pc-crop\\.json|docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower\\.json|scripts/(p7-autopilot-guard\\.sh|verify-pc-crop-07b\\.mjs))$' \"$EVIDENCE_DIR/changed-files.txt\" > \"$EVIDENCE_DIR/out-of-scope.txt\"; then\n              # One immutable-base-admitted source quartet may include its exact test config.\n              # Keep the existing allowlist; every other out-of-scope path still fails.\n              if ! PINNED_SCOPE_BASE=\"$base_ref\" python3 - <<'PY_PINNED_TEST_CONFIG'\n          import hashlib, json, os, re, subprocess, sys\n          from pathlib import Path\n\n          def require(ok):\n              if not ok:\n                  raise ValueError('PINNED_TEST_CONFIG_REJECTED')\n\n          def git(*args):\n              return subprocess.check_output(['git', *args], stderr=subprocess.DEVNULL, timeout=30)\n\n          try:\n              branch = 'fgis/regulatory-truth-ux-20260921'\n              config = 'apps/web/vitest.config.ts'\n              paths = ['apps/web/components/crop-platform/IntegrationControlTowerClient.tsx',\n                       'apps/web/components/crop-platform/IntegrationControlTowerClient.module.css',\n                       'apps/web/tests/unit/platformV7IntegrationControlTower.test.ts', config]\n              evidence = Path(os.environ['EVIDENCE_DIR'])\n              require((evidence / 'out-of-scope.txt').read_text().splitlines() == [config])\n              require((evidence / 'changed-files.txt').read_text().splitlines() == sorted(paths))\n              event = os.environ['EVENT_NAME']\n              require((event == 'pull_request' and os.environ.get('GITHUB_HEAD_REF') == branch)\n                      or (event == 'push' and os.environ.get('GITHUB_REF') == 'refs/heads/main'))\n              base = git('rev-parse', os.environ['PINNED_SCOPE_BASE'] + '^{commit}').decode().strip()\n              head = os.environ['EXACT_HEAD']\n              require(bool(re.fullmatch('[0-9a-f]{40}', base)) and bool(re.fullmatch('[0-9a-f]{40}', head)))\n              state_path = 'docs/platform-v7/autopilot/autopilot-state.json'\n              base_bytes = git('show', base + ':' + state_path)\n              require(len(base_bytes) <= 3 * 1024 * 1024 and git('show', head + ':' + state_path) == base_bytes)\n              state = json.loads(base_bytes.decode('utf-8'))\n              old = state['coordinationAdmissions']['product-fgis-confirmation-focus-20261009']\n              record = state['coordinationAdmissions']['product-fgis-vitest-source-resolution-correction-20261009']\n              require(old['owner'] == record['owner'] == 'ACCOUNT_2_PRODUCT')\n              require(old['implementationBranch'] == record['implementationBranch'] == branch)\n              require(old['allowedPaths'] == paths[:3] and record['allowedPaths'] == paths)\n              require(state['approvedConcurrentScopes'][branch] == paths)\n              pins = record['sourcePins']\n              require(len(pins) == 4 and pins[:3] == old['sourcePins'])\n              require([pin['path'] for pin in pins] == paths)\n              for pin in pins:\n                  require(pin['mode'] == '100644')\n                  for ref, key in [(base, 'beforeBlob'), (head, 'afterBlob')]:\n                      entry = git('ls-tree', ref, '--', pin['path']).decode().strip().split()\n                      require(entry == ['100644', 'blob', pin[key], pin['path']])\n              payload = record['correctiveConfigPayload']\n              require(all(payload[key] == pins[3][key] for key in ('path', 'mode', 'beforeBlob', 'afterBlob')))\n              content = git('show', head + ':' + config)\n              require(content == payload['afterContentUTF8'].encode('utf-8'))\n              require(hashlib.sha256(content).hexdigest() == payload['sha256'])\n              print('PC_CROP_07B_PINNED_TEST_CONFIG_PASS head=' + head + ' base=' + base)\n          except Exception:\n              print('PC_CROP_07B_PINNED_TEST_CONFIG_REJECTED', file=sys.stderr)\n              sys.exit(1)\n          PY_PINNED_TEST_CONFIG\n              then\n                echo 'PC-CROP-07B contains out-of-scope files:' >&2\n                cat \"$EVIDENCE_DIR/out-of-scope.txt\" >&2\n                exit 1\n              fi\n            fi\n          else\n            printf '%s\\n' 'SHARED_INFRASTRUCTURE_ONLY' > \"$EVIDENCE_DIR/scope-mode.txt\"\n            echo 'Shared dependency change: full acceptance continues.'\n          fi\n\n      - uses: pnpm/action-setup@v4\n        with:\n          version: '10.2.1'\n\n      - uses: actions/setup-node@v4\n        with:\n          node-version: '24'\n          cache: pnpm\n          cache-dependency-path: pnpm-lock.yaml\n\n      - name: Install frozen dependencies\n        run: pnpm install --frozen-lockfile\n\n      - name: Apply complete migration chain\n        shell: bash\n        run: |\n          set -o pipefail\n          pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee \"$EVIDENCE_DIR/migrate-deploy.log\"\n          pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee \"$EVIDENCE_DIR/migrate-status.log\"\n          pnpm --filter @pc/api exec prisma generate 2>&1 | tee \"$EVIDENCE_DIR/prisma-generate.log\"\n\n      - name: Typecheck API authority\n        run: pnpm --filter @pc/api typecheck 2>&1 | tee \"$EVIDENCE_DIR/api-typecheck.log\"\n\n      - name: Run policy and read-model unit contracts\n        shell: bash\n        run: |\n          set -o pipefail\n          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \\\n            src/modules/regulatory-integration/regulatory-integration.control-tower.policy.spec.ts \\\n            src/modules/regulatory-integration/regulatory-integration.control-tower.repository.spec.ts \\\n            2>&1 | tee \"$EVIDENCE_DIR/api-unit.log\"\n\n      - name: Run PostgreSQL tenant and command acceptance\n        env:\n          PC_CROP_07B_POSTGRESQL: '1'\n        shell: bash\n        run: |\n          set -o pipefail\n          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \\\n            src/modules/regulatory-integration/regulatory-integration.control-tower.postgresql.spec.ts \\\n            2>&1 | tee \"$EVIDENCE_DIR/postgresql-acceptance.log\"\n\n      - name: Typecheck protected Integration Control Tower\n        run: pnpm --filter @pc/web exec tsc -p tsconfig.pc-crop.json --noEmit 2>&1 | tee \"$EVIDENCE_DIR/web-typecheck.log\"\n\n      - name: Run private BFF and UX contracts\n        shell: bash\n        run: |\n          set -o pipefail\n          pnpm --filter @pc/web exec vitest run \\\n            tests/unit/integrationControlTowerLiveAdapter.test.ts \\\n            tests/unit/platformV7IntegrationControlTower.test.ts \\\n            tests/unit/platformV7RouteCanonicalization.test.ts \\\n            2>&1 | tee \"$EVIDENCE_DIR/web-contracts.log\"\n\n      - name: Build fail-closed machine-readable acceptance\n        run: node scripts/verify-pc-crop-07b.mjs\n\n      - name: Enforce exact-head acceptance evidence\n        shell: bash\n        run: |\n          node <<'NODE'\n          const fs = require('node:fs');\n          const report = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/pc-crop-07b-acceptance.json`, 'utf8'));\n          if (report.schemaVersion !== 'pc-crop.integration-control-tower-acceptance.v1') process.exit(1);\n          if (report.slice !== 'PC-CROP-07B' || report.issue !== 3040) process.exit(1);\n          if (report.status !== 'PASS' || report.operationalStatus !== 'NOT_ATTESTED') process.exit(1);\n          if (report.exactHead !== process.env.EXACT_HEAD || report.postgresql !== '16') process.exit(1);\n          const i = report.invariants || {};\n          for (const value of Object.values(i)) if (value !== true) process.exit(1);\n          const b = report.boundaries || {};\n          if (b.publicUnauthenticatedIntegrationRoute !== false) process.exit(1);\n          if (b.rawPayloadOrSecretDisplay !== false) process.exit(1);\n          if (b.liveExternalProviderCall !== false) process.exit(1);\n          if (b.secondInboxOutboxOrRelay !== false) process.exit(1);\n          if (b.productionDeployment !== false || b.productionHosting !== 'REG_RU_VPS_ONLY') process.exit(1);\n          NODE\n\n      - name: Upload exact-head PC-CROP-07B evidence\n        if: always()\n        uses: actions/upload-artifact@v4\n        with:\n          name: pc-crop-07b-${{ env.EXACT_HEAD }}\n          path: artifacts/pc-crop-07b\n          if-no-files-found: error\n          retention-days: 90\n"
+    },
+    {
+      "path": "docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json",
+      "mode": "100644",
+      "beforeBlob": "87b91ba25714047da962e84308953d2a310c3aed",
+      "beforeSha256": "a873e5e72f677e02bab3cb18a9b7d1e33c4743147580daae2f27e6bfc98a602c",
+      "beforeBytes": 1004,
+      "afterBlob": "ce37dcd55f47d4977ff1d402fd88b196c0de219e",
+      "afterSha256": "415b71b8e15b021e695c78a9228a28a5129df2e66ce8f2730de6e5195f821c3e",
+      "afterBytes": 1004,
+      "afterContentUTF8": "{\n  \"schemaVersion\": \"pc-crop.predecessor-trigger-lock.v1\",\n  \"baselineCommit\": \"3133779b10b69950ed0f01c9a58e9f98e4d957fe\",\n  \"workflowCount\": 5,\n  \"workflows\": {\n    \".github/workflows/pc-crop-07a.yml\": {\n      \"permissionsAndJobsSha256\": \"e7db6fa3da6ef29ae7d83c2e8d7ba5b108f917315831413ccbb482760e66218c\"\n    },\n    \".github/workflows/pc-crop-07b.yml\": {\n      \"permissionsAndJobsSha256\": \"433c8a12a6326d6b67b6c611bcaeacc6469d42dd6457e48903f7efdee58c25d2\"\n    },\n    \".github/workflows/pc-crop-08b.yml\": {\n      \"permissionsAndJobsSha256\": \"d96b09bb58b0818f7b0f03e6f2c22bba257c5825fdedc029dd536af45489abcd\"\n    },\n    \".github/workflows/pc-crop-08c.yml\": {\n      \"permissionsAndJobsSha256\": \"e7476625e3553755aff2ec932c82955852b0848a695ab0b01ce02c9399e7bdb2\"\n    },\n    \".github/workflows/pc-crop-08d.yml\": {\n      \"permissionsAndJobsSha256\": \"1c9e6ce6afc2109e5eb668a550669116dfa8393bf6092101e3b63027c1003c74\"\n    }\n  },\n  \"operationalStatus\": \"NOT_ATTESTED\",\n  \"productionHosting\": \"REG_RU_VPS_ONLY\"\n}\n"
+    }
+  ],
+  "consumer": {
+    "pr": 5622,
+    "branch": "fgis/regulatory-truth-ux-20260921",
+    "retainedUnacceptedHead": "da946e8be23c3ce351cc48b0703a5c015f783642",
+    "originalAdmission": "product-fgis-confirmation-focus-20261009",
+    "correctiveAdmission": "product-fgis-vitest-source-resolution-correction-20261009",
+    "sourcePins": [
+      {
+        "path": "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
+        "mode": "100644",
+        "beforeBlob": "700af2139e6c2808a2fa226db1b73a065f8eb827",
+        "afterBlob": "d8b23f57b4897aaa4471c69612c4e8da0e7b0068"
+      },
+      {
+        "path": "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
+        "mode": "100644",
+        "beforeBlob": "1c35841a418fa8d6089fe0483a6d88179d392b50",
+        "afterBlob": "0e5805508bc3ba3905ac0a512af474cf93f346e1"
+      },
+      {
+        "path": "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts",
+        "mode": "100644",
+        "beforeBlob": "b9344f408f915a3ae6f73b24d10a898c41af564c",
+        "afterBlob": "91c9f62d99c4ca2cec8dee681af446b51885d3e0"
+      },
+      {
+        "path": "apps/web/vitest.config.ts",
+        "mode": "100644",
+        "beforeBlob": "b9fd99ec0242ffd542c603b3fae007f3f53c9105",
+        "afterBlob": "da03096b6305a17cf671ce5ee9e7b56d761bc3eb"
+      }
+    ]
+  },
+  "scopeException": "Keep the actual allowlist. Only when its existing failure branch sees exactly the pinned Vitest config outside the allowlist, require the exact original four-file diff, original PR branch or actual main push, pre-existing immutable BASE original/corrective owner/branch/vectors/all four regular-file before/after Git pins/full config UTF8 and SHA256, and byte-identical HEAD state. Every fifth file, mode/symlink, wrong branch/base/payload/owner/vector/pin or self-admission is rejected. Preserve all other executable steps, triggers, permissions, assertions, thresholds, timeouts, native full acceptance and genuine manual-dispatch behavior.",
+  "retentionAuthority": "This full UTF8 purpose belongs in the existing AGENTS-listed PRIMARY execution-queue source of truth and the byte-identical unchanged-dispatcher-generated prompt snapshots. Do not alter the fixed 3MiB state, progress, guard, dispatcher, schema, scopes, owners or any old full payload. Candidate source cannot grant its own authority. This purpose requires separate genuine accepted metadata before implementation-ref publication.",
+  "serialization": "Honor Team Hub6094873437 diagnostic then anonymous before PRODUCT atomic pair. Private preparation is not a writer claim. Re-fetch actual main and announced concrete PRODUCT metadata/source slot before either public phase; preserve all accepted additions during ordinary forward composition.",
+  "privateEvidence": {
+    "executedProof": {
+      "base": "9cdfed1ad171312f772616ffe22bbb55dfc73016",
+      "scopeCases": 31,
+      "canonicalCases": 9,
+      "actualShellAndCanonicalVerifier": true,
+      "results": [
+        {
+          "case": "original workflow rejects the real admitted quartet",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "corrected exact quartet main push",
+          "expected": "PASS",
+          "exit": 0,
+          "matched": true
+        },
+        {
+          "case": "corrected exact quartet PR with genuine local base fetch",
+          "expected": "PASS",
+          "exit": 0,
+          "matched": true
+        },
+        {
+          "case": "wrong PR branch",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "push to another branch",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "unrecognized event",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "missing original admission",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "missing corrective admission",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "wrong original owner",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "wrong corrective owner",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "wrong original branch",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "wrong corrective branch",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "wrong original vector",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "wrong corrective vector",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "wrong trusted concurrent vector",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "original/corrective source-pin mismatch",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "missing source pin",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "source pin order drift",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "wrong source mode pin",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "changed first source bytes",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "changed config bytes",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "changed config before bytes",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "executable config mode",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "symlink config",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "payload Git pin drift",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "payload full UTF8 drift",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "payload SHA256 drift",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "head changes its own admission",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "fifth otherwise-allowlisted file",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "fifth unlisted file",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "oversized immutable state",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "unchanged five-workflow canonical baseline",
+          "expected": "PASS",
+          "exit": 0,
+          "matched": true
+        },
+        {
+          "case": "atomic workflow and one-scalar lock",
+          "expected": "PASS",
+          "exit": 0,
+          "matched": true
+        },
+        {
+          "case": "workflow without lock",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "lock without workflow",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "lock schema drift",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "lock baseline drift",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "lock workflow set drift",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "another workflow scalar drift",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        },
+        {
+          "case": "another workflow body drift",
+          "expected": "REJECT",
+          "exit": 1,
+          "matched": true
+        }
+      ],
+      "nativeAcceptance": false,
+      "productionAcceptance": false,
+      "lockRawInverse": true,
+      "otherWorkflowSemanticsPreserved": true
+    },
+    "priorIndependentPrivateReview": 6088640019,
+    "truthBoundary": "Local actual-shell and unchanged canonical-verifier fixtures only; no native PostgreSQL/BFF/browser/hosted/source/release acceptance."
+  },
+  "requiredAcceptance": [
+    "Metadata changes exactly the existing queue and two generated current prompts; every old queue-prefix byte, entire state/progress, all old admissions/full source payloads/owners/PRIMARY11/current/raw nextStep/Claude/official5 and every other tree leaf remain unchanged. Verify unchanged dispatcher twice with identical full prompts and complete ordered active views.",
+    "After actual metadata acceptance and the concrete announced source slot, compose the original shared-CI ref with fresh actually accepted main. Exactly these two existing100644 source leaves change; all other main leaves, including state/progress/01B4 and original FGIS quartet pins, remain byte-identical. Reject any accepted-before pin drift and return to bounded preparation rather than replacing the frozen payload silently.",
+    "Both metadata and source require fresh exact-whole-head independent review, distinct implementation-owner audit, all applicable native CI/security/current canonical READY, fresh full collection and ordinary expected-full-SHA manual merge. No forced/automatic merge or old-head evidence transfer.",
+    "Preserve original requirement for genuine PC07B workflow_dispatch at the exact new published source head with complete PostgreSQL/BFF/JIT/governed-command acceptance; workflow-only omitted-trigger evidence is insufficient. The manual run is for the source prerequisite full suite and cannot substitute for the later natural FGIS quartet scope path.",
+    "Only after actual source prerequisite acceptance recompose original FGIS quartet on fresh accepted main, retaining source ancestry/four frozen afters and obtaining genuinely fresh 07B scope+runtime, whole native CI/Kubernetes/security/review/readiness/manual acceptance. Previously observed guard timeout and old source runs remain historical; current bounded preflight must pass afresh.",
+    "BANK5525, FGIS5526/5655/5658, protected live sessions, full role/i18n/a11y acceptance and exact-current-main REG.RU release/live acceptance remain separate open requirements. No provider maturity, model nonce, HUMAN ceremony, money/signature/state authority or official progress change."
+  ],
+  "publicationStatus": "PRIVATE_REVIEWABLE_ADMISSION_SOURCE_UNACCEPTED"
+}
+```
+
+
 ## Review brief
 
 Review R1 release prerequisite: atomic canonical readiness recovery #4829 strictly against the state allowed scope and queue.
