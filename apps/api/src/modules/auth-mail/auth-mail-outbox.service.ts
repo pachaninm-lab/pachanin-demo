@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 import type { AuthSqlClient } from '../auth/persistent-auth.repository';
 import {
   type AuthMailEnvelope,
@@ -34,6 +35,14 @@ export type EnqueueAuthMailInput = {
 };
 
 type EnqueueResult = { outbox_id: string; replayed: boolean };
+
+export type RegistrationDecisionMailDelivery = {
+  status: 'MISSING' | 'PENDING' | 'PROCESSING' | 'SENT' | 'DEAD_LETTER';
+  attemptCount: number;
+  maxAttempts: number;
+  lastErrorCode: string | null;
+  sentAt: Date | null;
+};
 
 @Injectable()
 export class AuthMailOutboxService {
@@ -70,21 +79,26 @@ export class AuthMailOutboxService {
     // comparing randomized AES-GCM ciphertext.
     const digest = authMailReplayDigest(input.envelope, { kind, idempotencyKey });
     const encrypted = encryptAuthMailEnvelope(input.envelope, { kind, idempotencyKey, correlationId });
+
+    // Bind every placeholder to the reviewed regprocedure signature. PostgreSQL
+    // function lookup is type-exact for parameterized values; in particular,
+    // an inferred int8 parameter does not resolve the two intentional int4
+    // positions and fails with SQLSTATE 42883 before the function can execute.
     const rows = await tx.$queryRaw<EnqueueResult[]>(Prisma.sql`
       SELECT outbox_id, replayed
       FROM auth.enqueue_mail_outbox(
-        ${`auth_mail_${randomUUID()}`},
-        ${kind},
-        ${encrypted.ciphertext},
-        ${encrypted.iv},
-        ${encrypted.tag},
-        ${encrypted.keyVersion},
-        ${digest},
-        ${idempotencyKey},
-        ${correlationId},
-        ${maxAttempts},
-        ${availableAt},
-        ${input.expiresAt}
+        ${`auth_mail_${randomUUID()}`}::text,
+        ${kind}::text,
+        ${encrypted.ciphertext}::text,
+        ${encrypted.iv}::text,
+        ${encrypted.tag}::text,
+        ${encrypted.keyVersion}::integer,
+        ${digest}::text,
+        ${idempotencyKey}::text,
+        ${correlationId}::text,
+        ${maxAttempts}::integer,
+        ${availableAt}::timestamptz,
+        ${input.expiresAt}::timestamptz
       )
     `);
     if (rows.length !== 1 || !rows[0]?.outbox_id) {
@@ -93,4 +107,58 @@ export class AuthMailOutboxService {
 
     return { queued: true, replayed: Boolean(rows[0].replayed), envelopeDigest: digest };
   }
+
+  async registrationDecisionStatus(
+    client: AuthSqlClient,
+    idempotencyKeyInput: string,
+  ): Promise<RegistrationDecisionMailDelivery> {
+    const idempotencyKey = String(idempotencyKeyInput || '').trim();
+    if (!/^auth-mail:registration-decision:[a-f0-9]{64}$/.test(idempotencyKey)) {
+      throw new Error('Registration-decision mail idempotency key is invalid');
+    }
+    const rows = await client.$queryRaw<Array<{
+      delivery_status: RegistrationDecisionMailDelivery['status'];
+      attempt_count: number;
+      max_attempts: number;
+      last_error_code: string | null;
+      sent_at: Date | null;
+    }>>(Prisma.sql`
+      SELECT delivery_status, attempt_count, max_attempts, last_error_code, sent_at
+      FROM auth.registration_decision_mail_delivery_status(${idempotencyKey}::text)
+    `);
+    const row = rows[0];
+    if (!row || !['MISSING', 'PENDING', 'PROCESSING', 'SENT', 'DEAD_LETTER'].includes(row.delivery_status)) {
+      throw new Error('Registration-decision mail status authority returned an invalid result');
+    }
+    return {
+      status: row.delivery_status,
+      attemptCount: Number(row.attempt_count || 0),
+      maxAttempts: Number(row.max_attempts || 0),
+      lastErrorCode: row.last_error_code || null,
+      sentAt: row.sent_at || null,
+    };
+  }
+
+  async waitForRegistrationDecisionDelivery(
+    client: AuthSqlClient,
+    idempotencyKey: string,
+    options: { timeoutMs?: number; pollMs?: number } = {},
+  ): Promise<RegistrationDecisionMailDelivery> {
+    const timeoutMs = options.timeoutMs ?? 50_000;
+    const pollMs = options.pollMs ?? 250;
+    if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 120_000) {
+      throw new Error('Registration-decision delivery timeout is invalid');
+    }
+    if (!Number.isInteger(pollMs) || pollMs < 100 || pollMs > 2_000) {
+      throw new Error('Registration-decision delivery poll interval is invalid');
+    }
+    const deadline = Date.now() + timeoutMs;
+    let latest = await this.registrationDecisionStatus(client, idempotencyKey);
+    while (!['SENT', 'DEAD_LETTER'].includes(latest.status) && Date.now() < deadline) {
+      await delay(Math.min(pollMs, Math.max(1, deadline - Date.now())));
+      latest = await this.registrationDecisionStatus(client, idempotencyKey);
+    }
+    return latest;
+  }
+
 }

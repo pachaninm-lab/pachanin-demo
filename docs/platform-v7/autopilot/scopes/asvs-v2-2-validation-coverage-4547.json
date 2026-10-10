@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4547,
+  "branch": "sec/asvs-v2-2-validation-coverage-4547",
+  "status": "active",
+  "purpose": "Correct V2.2.1 and V2.2.2 from PASS to FAIL. Both rested on the wrong denominator: the DTO files that exist rather than the endpoints that need one.",
+  "authorityBaseExactMain": "ecb81f1b237e63a61fde7e166a5cfc4cb7cdcdeb",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v2-2-validation-coverage-4547.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "A coverage claim states the denominator it measured and why that denominator is the right one.",
+    "The corrected FAIL carries a condition that revokes it when the endpoints are converted to DTOs.",
+    "Only instances traced to a live effect are cited; inert legacy surfaces are excluded and said to be excluded.",
+    "No product logic, dependency, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "V2.2.1 and V2.2.2 are FAIL, with the 77-of-81 measurement stated in the note.",
+    "Both notes record that the decision was first PASS and why that was wrong.",
+    "The conditions anchor on the inline-body pattern, so the FAIL self-revokes.",
+    "The partner webhook registration is cited as the live instance; the disabled admin mutators are not.",
+    "Matrix state: 28 PASS, 41 FAIL, finalPass false."
+  ]
+}

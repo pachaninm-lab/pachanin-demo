@@ -75,6 +75,9 @@ jobs:
 
           for attempt in 1 2 3; do
             cookie_jar="$(mktemp)"
+            notice_body="$(mktemp)"
+            consent_payload="$(mktemp)"
+            consent_body="$(mktemp)"
             reserve_body="$(mktemp)"
             reserve_headers="$(mktemp)"
             reserve_error="$(mktemp)"
@@ -82,13 +85,66 @@ jobs:
             stream_headers="$(mktemp)"
             stream_error="$(mktemp)"
 
+            # Bootstrap the signed RU presentation and real ACK in this same jar.
+            # Never publish notice snapshots, consent receipts or cookie values.
+            set +e
+            notice_code="$(curl -sS -o "$notice_body" -c "$cookie_jar" -b "$cookie_jar" \
+              -w '%{http_code}' --compressed --max-time 20 \
+              "$LIVE_BASE/api/gekta/entitlement?lang=ru" 2>/dev/null)"
+            notice_rc=$?
+            set -e
+            consent_code=000
+            consent_rc=1
+            consent_ok=0
+            if (( notice_rc == 0 )) && [[ "$notice_code" == 200 ]] && node -e '
+              const fs = require("node:fs");
+              try {
+                const notice = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+                const p = notice.legalPresentation;
+                if (!p || p.locale !== "ru" || typeof p.snapshot !== "string" || p.snapshot.length > 2048 ||
+                    !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/.test(p.snapshot)) process.exit(1);
+                fs.writeFileSync(process.argv[2], JSON.stringify({ action: "consent", locale: "ru", noticeSnapshot: p.snapshot }));
+              } catch { process.exit(1); }
+            ' "$notice_body" "$consent_payload"; then
+              set +e
+              consent_code="$(curl -sS -o "$consent_body" -c "$cookie_jar" -b "$cookie_jar" \
+                -w '%{http_code}' --compressed --max-time 20 -H 'Content-Type: application/json' \
+                --data-binary "@$consent_payload" "$LIVE_BASE/api/gekta/entitlement" 2>/dev/null)"
+              consent_rc=$?
+              set -e
+              if (( consent_rc == 0 )) && [[ "$consent_code" == 200 ]] && node -e '
+                const fs = require("node:fs");
+                try {
+                  const notice = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+                  const ack = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+                  const consent = ack.consent;
+                  const binding = JSON.parse(Buffer.from(notice.legalPresentation.snapshot.split(".")[0], "base64url"));
+                  if (!consent || typeof notice.legalVersion !== "string" || !notice.legalVersion ||
+                      ack.legalVersion !== notice.legalVersion || consent.version !== notice.legalVersion ||
+                      ack.consentCurrent !== true || consent.surfaceLocale !== "ru" ||
+                      !Number.isSafeInteger(consent.at) || consent.at < 0 ||
+                      !/^sha256:[0-9a-f]{64}$/.test(consent.evidenceHash) ||
+                      consent.evidenceHash !== binding.evidenceHash || binding.locale !== "ru") process.exit(1);
+                } catch { process.exit(1); }
+              ' "$notice_body" "$consent_body"; then consent_ok=1; fi
+            fi
+            printf 'ATTEMPT=%s NOTICE_RC=%s NOTICE_HTTP=%s CONSENT_RC=%s CONSENT_HTTP=%s CONSENT_ACK=%s\n' \
+              "$attempt" "$notice_rc" "${notice_code:-missing}" "$consent_rc" "$consent_code" "$consent_ok" | tee -a "$log"
+            if (( consent_ok != 1 )); then
+              final_reason=consent-bootstrap-failed
+              rm -f "$cookie_jar" "$notice_body" "$consent_payload" "$consent_body" \
+                "$reserve_body" "$reserve_headers" "$reserve_error" "$stream_body" "$stream_headers" "$stream_error"
+              (( attempt < 3 )) && sleep 10
+              continue
+            fi
+
             set +e
             reserve_metrics="$(curl -sS -D "$reserve_headers" -o "$reserve_body" \
               -c "$cookie_jar" -b "$cookie_jar" \
               -w '%{http_code}\t%{content_type}\t%{time_total}\t%{size_download}' \
               --compressed --max-time 25 \
               -H 'Content-Type: application/json' -H 'Accept: application/json' \
-              --data '{"action":"reserve"}' \
+              --data '{"action":"reserve","locale":"ru"}' \
               "$LIVE_BASE/api/gekta/entitlement" 2>"$reserve_error")"
             reserve_rc=$?
             set -e
@@ -109,7 +165,7 @@ jobs:
 
             if (( reserve_rc != 0 )) || [[ "$reserve_code" != 200 ]] || [[ "$allowed" != true ]] || (( ticket_valid != 1 )); then
               final_reason="reserve-${reserve_code_name:-http-${reserve_code:-missing}}"
-              rm -f "$cookie_jar" "$reserve_body" "$reserve_headers" "$reserve_error" \
+              rm -f "$notice_body" "$consent_payload" "$consent_body" "$cookie_jar" "$reserve_body" "$reserve_headers" "$reserve_error" \
                 "$stream_body" "$stream_headers" "$stream_error"
               (( attempt < 3 )) && sleep 10
               continue
@@ -153,7 +209,7 @@ jobs:
               final_result=STREAM_PASS
               final_reason=complete-sse
               passed_attempt="$attempt"
-              rm -f "$cookie_jar" "$reserve_body" "$reserve_headers" "$reserve_error" \
+              rm -f "$notice_body" "$consent_payload" "$consent_body" "$cookie_jar" "$reserve_body" "$reserve_headers" "$reserve_error" \
                 "$stream_body" "$stream_headers" "$stream_error"
               break
             fi
@@ -166,7 +222,7 @@ jobs:
               final_reason="stream-http-${stream_code:-missing}"
             fi
 
-            rm -f "$cookie_jar" "$reserve_body" "$reserve_headers" "$reserve_error" \
+            rm -f "$notice_body" "$consent_payload" "$consent_body" "$cookie_jar" "$reserve_body" "$reserve_headers" "$reserve_error" \
               "$stream_body" "$stream_headers" "$stream_error"
             (( attempt < 3 )) && sleep 10
           done

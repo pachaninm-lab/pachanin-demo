@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4653,
+  "branch": "security/canonical-masking-in-global-logger-4653",
+  "status": "active",
+  "purpose": "Make MaskedLoggerService - the global Nest logger installed in main.ts, outbox-worker.ts and marketing-outbox-worker.ts, through which every this.logger.* call in the API passes - consume the canonical sensitive-data classification instead of its own private pattern list. sensitive-data.ts claimed in its own header that all internal logs and outbound telemetry take one list; the unification had in fact reached the access-log middleware and the Sentry handler but not this service, which imported nothing from sensitive-data.ts and knew 7 hardcoded JSON key names against the canonical ~70. Verified empirically: the new spec fails 73 of 85 cases against the pre-change implementation.",
+  "authorityBaseExactMain": "45480bebab9bbf173561c78afd8dc3ff03983bbd",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/canonical-masking-in-global-logger-4653.json",
+    "apps/api/src/common/logger/masked-logger.service.ts",
+    "apps/api/src/common/logger/masked-logger.service.spec.ts",
+    "apps/api/src/common/security/sensitive-data.ts"
+  ],
+  "requiredInvariants": [
+    "The change is strictly additive in coverage except where it deliberately converges on the platform's declared policy, verified by a coverage-floor test that re-runs the previous private pattern list over a corpus. Two divergences were found by that test and are named in the spec rather than waived. First, the canonical card rule keeps the leading and trailing four digits where the old rule blanked the number. Second, the canonical email rules keep the domain where the old rule replaced the whole address including the domain. Both are accepted for the same reason: that is what the Sentry channel and the access log already do, so restoring the stricter local behaviour would recreate the very divergence this scope removes. The one-character-local-part gap the floor test also exposed was a defect in the classification itself and was fixed there instead, in issue 4654 / PR 4657, which is now on main; the temporary residual pattern that covered it here has been removed rather than left as dead code.",
+    "SENSITIVE_VALUE_RULES is NOT extended. Moving the two residual heuristics into the canonical rules would apply them to the Sentry outbound channel and the access-log line as well, where 'any 10-digit number' would also mask unix epoch seconds. They stay local to the logger and the reason is written down where they live.",
+    "Only the sensitive-data.ts header comment changes in that file - no rule, name, class or exported symbol is touched.",
+    "Log output format is unchanged: non-string optional params keep going through String(param) exactly as before, so this pass does not alter what a log line looks like beyond masking more of it.",
+    "No business logic, no production, REG.RU, DNS or database mutation.",
+    "pnpm --filter @pc/api typecheck passes with zero errors."
+  ],
+  "acceptance": [
+    "masked-logger.service.ts imports the classification from ../security/sensitive-data and holds no hand-maintained list of sensitive field names.",
+    "masked-logger.service.spec.ts enumerates the whole of SENSITIVE_FIELD_NAMES and asserts each name is redacted by the global logger, so a name added to the canonical classification cannot silently miss this channel.",
+    "The spec fails against the pre-change implementation (73 of 85) and passes after (85 of 85).",
+    "src/common suites pass with no regressions.",
+    "The sensitive-data.ts header no longer claims more than the code does.",
+    "The coverage-floor test passes, so the migration loses no masking that the previous private list performed, apart from the two divergences named above.",
+    "masked-logger.service.ts carries exactly two residual patterns - the quoted 10-digit INN and the long opaque run - and no email stopgap, since that gap is closed in the canonical classification on main."
+  ]
+}

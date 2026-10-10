@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/ir20-release-core-20260918",
+  "status": "active",
+  "authorizedBy": "owner-request-complete-IR20-2026-09-18",
+  "purpose": "Bind the existing protected release executor to the canonical runtime project and immutable image identities, and keep SSH fingerprints free of key comments, before the separate IR-20 worker rollout.",
+  "allowedPaths": [
+    ".github/workflows/production-full-stack-exact-sha.yml",
+    "scripts/production-full-stack-exact-sha.sh",
+    "scripts/release/verify-production-image-binding.py",
+    "scripts/release/test-production-image-binding.py",
+    "scripts/test-production-release-target-isolation.py",
+    "scripts/test-production-full-stack-ssh-fingerprint.py",
+    "docs/platform-v7/autopilot/scopes/ir20-release-core-20260918.json"
+  ],
+  "requiredInvariants": [
+    "Preserve existing release controller authority, permissions, inputs, events and concurrency.",
+    "Bind affected containers to the actual canonical Compose project and preserve unrelated services.",
+    "Verify registry digest, full image revision and running container image identity without trusting mutable tags or container labels alone.",
+    "Do not expose SSH key material, comments, credentials or protected operations paths.",
+    "This change does not authorize an incompatible worker rollback or establish production acceptance.",
+    "Fresh independent review and applicable CI precede a manual SHA-bound merge."
+  ]
+}

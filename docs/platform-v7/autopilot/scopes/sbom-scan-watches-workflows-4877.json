@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4877,
+  "branch": "ci/sbom-scan-watches-workflows-4877",
+  "status": "active",
+  "purpose": "Close the class #4875 closed an instance of. Canonical SBOM Generation and IP Clean Room runs scripts/security/verify-action-pinning.mjs at step 11, but its path filters never watched .github/workflows/**. So the four workflows that pushed floating action references past the ratchet ceiling never triggered the gate that rejects them, main went red, every open pull request inherited it, and the repair PR did not trigger the gate either. A gate that cannot see the class of change that breaks it is not a gate for that class.",
+  "authorityBaseExactMain": "dc61910f5",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/sbom-scan-watches-workflows-4877.json",
+    ".github/workflows/sbom-scan.yml"
+  ],
+  "requiredInvariants": [
+    "Both triggers are changed, not one. The pull_request filter is what stops a regression landing; the push filter is what makes main's own state observable afterwards. #4875 demonstrated that fixing only what is visible on pull requests leaves the merge commit unverified - its effect could only be confirmed later, from an unrelated PR that happened to touch apps/**.",
+    "scripts/security/verify-action-pinning.mjs is added alongside, so that editing the ratchet itself runs the job that executes it. A check whose own source can change without the check running is the same defect one level up.",
+    "Nothing is removed and no threshold is touched. The baseline ceiling stays 1028 and the 1025 remaining floating references stay recorded as historical debt in SUPPLY_CHAIN_MATRIX.md. This pass changes only what the gate looks at.",
+    "The pre-existing '.github/workflows/sbom-scan.yml' entry is now subsumed by the glob and is left in place rather than tidied away: removing it would be an unrelated edit in a pass about coverage, and it costs nothing.",
+    "No source code, no migration, no production or REG.RU mutation. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "The gap was established by reading both triggers of the workflow, not inferred from the failure: neither pull_request.paths nor push.paths contained .github/workflows/**, and the only workflow either watched was sbom-scan.yml itself.",
+    "It was confirmed against observed behaviour rather than left as a reading. On #4875 - a pull request whose entire diff is four workflow files - the check 'Conservative provenance, licenses & SBOM baseline' does not appear among the 60 check runs at all. On #4871, whose diff touches apps/api/**, the same check appears and passed. That contrast is the defect and its absence, measured on real runs.",
+    "After the change both filters carry .github/workflows/** and scripts/security/verify-action-pinning.mjs; the file still parses and both jobs are intact.",
+    "Cost is stated rather than hidden: sbom-scan will now run on every workflow-only pull request, which lengthens CI on those. That is the price of the gate seeing the changes that can break it, and it is the reason the filter is widened deliberately rather than quietly.",
+    "Not claimed: that this makes the remaining 1025 floating references safe, or that the ratchet baseline is tight. Tightening 1028 to 1025 is a separate decision recorded on #4877 and deliberately not taken here."
+  ]
+}

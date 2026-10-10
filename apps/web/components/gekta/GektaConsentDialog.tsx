@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import Link from 'next/link';
 import type { GektaLocale } from '@/lib/gekta/content';
 import { useDialogFocus } from './useDialogFocus';
@@ -34,16 +35,63 @@ const UI = {
   },
 } as const;
 
+function activeDraftAtMount(): boolean {
+  if (typeof document === 'undefined') return false;
+  const composer = document.getElementById('gekta-composer-input');
+  return composer instanceof HTMLTextAreaElement
+    && (document.activeElement === composer || composer.value.trim().length > 0);
+}
+
 /**
  * One compact notice before the first conversation. Acceptance is recorded
  * server-side against the session id and the document version, so it is not
  * shown again until the documents actually change.
+ *
+ * The entitlement probe is asynchronous. If its answer arrives after a person
+ * has already started typing, the notice waits for the next submit intent
+ * instead of stealing focus from the composer while the mobile keyboard owns
+ * the visual viewport. The intercepted submit is never sent before consent.
  */
 export function GektaConsentDialog({ locale, onAccept }: { locale: GektaLocale; onAccept: () => void }) {
   const ui = UI[locale];
-  // Accepting is the only way out: this notice has no dismiss action.
-  const panelRef = useDialogFocus(true, onAccept);
+  const [deferred, setDeferred] = React.useState(activeDraftAtMount);
+  // Accepting is the only way out: Escape is swallowed but never treated as consent.
+  const ignoreEscape = React.useCallback(() => {}, []);
+  const panelRef = useDialogFocus(!deferred, ignoreEscape);
   const legalLinkClass = 'inline-flex min-h-11 items-center font-medium text-emerald-800 underline underline-offset-2 sm:min-h-0';
+
+  React.useEffect(() => {
+    if (!deferred) return undefined;
+
+    const reveal = (event: Event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setDeferred(false);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLTextAreaElement) || target.id !== 'gekta-composer-input') return;
+      if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
+      reveal(event);
+    };
+
+    const onClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (!target.closest("[data-gekta-submit='true']")) return;
+      reveal(event);
+    };
+
+    document.addEventListener('keydown', onKeyDown, true);
+    document.addEventListener('click', onClick, true);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      document.removeEventListener('click', onClick, true);
+    };
+  }, [deferred]);
+
+  if (deferred) return null;
 
   return (
     <div className='fixed inset-0 z-[95] flex items-end justify-center bg-slate-950/45 p-0 sm:items-center sm:p-4'>

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4616,
+  "branch": "feat/marketing-editorial-core-4616",
+  "status": "active",
+  "purpose": "Implement the isolated fail-closed market-radar evidence normalization, deterministic topic scoring and editorial planning tranche for the Autonomous APK Social Growth Engine, without production outbound, public Qwen contract changes or paid promotion.",
+  "authorityBaseExactMain": "d92b2b7e66a805aea830afd6519af7dcd320e3fa",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/marketing-social-growth.yml",
+    "apps/api/src/modules/marketing/marketing-editorial-core.spec.ts",
+    "apps/api/src/modules/marketing/marketing-editorial-core.ts",
+    "docs/platform-v7/autopilot/scopes/marketing-editorial-core-4616.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "requiredInvariants": [
+    "Only fixed trusted source identifiers and exact HTTPS hosts are admitted; environment variables cannot expand the registry.",
+    "Unknown, malformed, future, stale, duplicate, prompt-injection-shaped and off-topic evidence fails closed before content planning.",
+    "Duplicate identity is based on normalized source content and is independent of URL tracking or query variants; the source URL remains provenance only.",
+    "Promotional plans remain UNCERTAIN and cannot auto-publish without a separate legal classification gate.",
+    "This tranche does not change the restricted public Qwen request contract and does not claim governed-current model grounding.",
+    "No production credentials, social-account connection, outbound enablement, paid mode, database mutation, DNS change or REG.RU deployment.",
+    "No cold-DM automation, fake engagement, account farming, CAPTCHA bypass or platform-rule circumvention.",
+    "New mandatory and recurring spend remains 0 RUB."
+  ],
+  "acceptance": [
+    "API and web typecheck pass on the exact PR head.",
+    "The isolated marketing worker builds on the exact PR head.",
+    "Radar evidence, off-topic rejection, duplicate URL-variant rejection, deterministic 70/20/10 planning and legal-classification tests pass.",
+    "Existing outbound safety, Telegram, VK, attribution, Telegram-to-QWO and organization-intake regression gates remain green.",
+    "Every changed non-governance path is contained in allowedPaths.",
+    "Generated cryptographic inventory artifacts are refreshed from the exact PR head and remain derived evidence only."
+  ]
+}

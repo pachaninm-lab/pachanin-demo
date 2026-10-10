@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4576,
+  "branch": "sec/outbound-telemetry-parity-4576",
+  "status": "active",
+  "purpose": "Close ASVS V14.2.4 at its cause: give the platform one sensitive-data classification, so the channel that leaves the platform can no longer be protected more weakly than the internal logs.",
+  "authorityBaseExactMain": "a666ee6e817ba0dd5d84a937712d0a7f4dbb3027",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/outbound-telemetry-parity-4576.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "apps/api/src/common/security/sensitive-data.ts",
+    "apps/api/src/common/security/sensitive-data.spec.ts",
+    "apps/api/src/common/middleware/log-masking.middleware.ts",
+    "apps/api/src/sentry.ts"
+  ],
+  "requiredInvariants": [
+    "Coverage only widens; no class is dropped from the internal classification to make the sinks agree.",
+    "One module declares the classification and both sinks consume it.",
+    "Field names are matched exactly after normalization, never by substring, so coverage is not overstated.",
+    "Events stay useful: non-sensitive fields and the user id survive redaction.",
+    "Personal data is not collected by SDK default.",
+    "Tests derive their cases from the classification, so a new class is enforced outbound automatically.",
+    "A decision whose evidence this change invalidates is rewritten in the same PR.",
+    "No new dependency and no cryptography.",
+    "finalPass stays false.",
+    "No production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "Every name in the shared classification is redacted in body, headers, extra, contexts, tags, breadcrumb data and query string, asserted by iterating the list itself.",
+    "Every value rule has a sample and the suite fails if a rule ships without one.",
+    "Authorization, Set-Cookie and cookies never leave, while ordinary headers survive.",
+    "The outbound scrubber and the internal masker produce identical output for the same payload.",
+    "Dropping a surface from the scrubber was verified to turn the suite red.",
+    "V14.2.4 moves FAIL to PASS with conditions that watch both sinks and the parity test.",
+    "The evidence gate rejects 0 decisions at the head.",
+    "finalPass stays false."
+  ]
+}

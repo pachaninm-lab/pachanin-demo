@@ -39,6 +39,14 @@ export const PeriodRefusal = {
   PERIOD_HAS_NOT_ENDED: 'PERIOD_HAS_NOT_ENDED',
   WORK_OUTSTANDING: 'WORK_OUTSTANDING',
   UNSIGNED_DOCUMENTS: 'UNSIGNED_DOCUMENTS',
+  /**
+   * Service lines nobody approved or rejected, rendered inside the window.
+   *
+   * Blocking, and for a mechanical reason rather than a tidiness one: the
+   * services guard refuses an approval whose line falls in a closed month, so
+   * closing over a RENDERED line does not defer that charge — it discards it.
+   */
+  SERVICE_LINES_UNDECIDED: 'SERVICE_LINES_UNDECIDED',
   WINDOW_IS_EMPTY: 'WINDOW_IS_EMPTY',
   WINDOW_OVERLAPS: 'WINDOW_OVERLAPS',
 } as const;
@@ -56,6 +64,8 @@ export interface CloseRequest {
   readonly outstandingDerivedTasks: number;
   /** Documents raised inside the window carrying no signature. */
   readonly unsignedDocuments: number;
+  /** Service lines rendered inside the window that are still RENDERED. */
+  readonly undecidedServiceLines: number;
   readonly now: Date;
 }
 
@@ -95,6 +105,9 @@ export function evaluatePeriodClose(request: CloseRequest): PeriodDecision {
   }
   if (request.unsignedDocuments > 0) {
     refusals.push(PeriodRefusal.UNSIGNED_DOCUMENTS);
+  }
+  if (request.undecidedServiceLines > 0) {
+    refusals.push(PeriodRefusal.SERVICE_LINES_UNDECIDED);
   }
 
   return { permitted: refusals.length === 0, refusals };
@@ -224,10 +237,18 @@ export function describeReadiness(
   outstandingDerivedTasks: number,
   unsignedDocuments: number,
   now: Date,
+  // Defaulted so the existing callers keep their meaning: a reader who passes
+  // three counts is asking the same question they were before, and gets the
+  // same answer.
+  undecidedServiceLines = 0,
 ): PeriodReadiness {
   if (period.status === PeriodStatus.CLOSED) return PeriodReadiness.CLOSED;
   if (period.periodEnd.getTime() > now.getTime()) return PeriodReadiness.STILL_RUNNING;
-  if (outstandingDerivedTasks > 0 || unsignedDocuments > 0) {
+  if (
+    outstandingDerivedTasks > 0
+    || unsignedDocuments > 0
+    || undecidedServiceLines > 0
+  ) {
     return PeriodReadiness.WAITING_ON_WORK;
   }
   return PeriodReadiness.READY_TO_CLOSE;

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4581,
+  "branch": "sec/crypto-discovery-4581",
+  "status": "active",
+  "purpose": "Close ASVS V11.1.3 with a repository-owned mechanism that enumerates every cryptographic instance rather than only the insecure ones, and correct the V11.4.1 note it immediately proved incomplete.",
+  "authorityBaseExactMain": "a666ee6e817ba0dd5d84a937712d0a7f4dbb3027",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/crypto-discovery-4581.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "scripts/security/discover-cryptography.mjs",
+    "scripts/security/discover-cryptography.test.mjs",
+    ".github/workflows/sbom-scan.yml"
+  ],
+  "requiredInvariants": [
+    "The mechanism enumerates instances; it never judges them, so a clean run is not a security claim.",
+    "An operation with no sites is reported as zero, never omitted.",
+    "Key material is named and never read; no key value can reach the artefact.",
+    "A pattern match that is configuration rather than key material is labelled, never silently dropped.",
+    "The artefact is committed and a test fails when it goes stale, so the inventory is maintained rather than a snapshot.",
+    "The artefact states its own limits, including that it is not a key-management policy.",
+    "A finding that contradicts an already-merged note corrects that note in place.",
+    "No security gate is weakened and no action reference is added; the pinning ratchet stays at 1028.",
+    "finalPass stays false.",
+    "No product logic, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "The scanner covers all 17 operation classes and records the algorithm for each, not just the call.",
+    "A test proves a key value in source cannot appear in the artefact.",
+    "The staleness guard was mutation-checked: editing the committed inventory turns it red.",
+    "V11.1.3 moves FAIL to PASS with conditions watching the script, the artefact, the staleness guard and the CI wiring.",
+    "V11.4.1 keeps PASS and its note is corrected to name the two TOTP HMAC-SHA1 sites and why they are approved.",
+    "V11.1.1, V11.1.2 and V11.1.4 stay FAIL, because policy is not a measurement.",
+    "The evidence gate rejects 0 decisions and all 60 security-script tests pass.",
+    "finalPass stays false."
+  ]
+}

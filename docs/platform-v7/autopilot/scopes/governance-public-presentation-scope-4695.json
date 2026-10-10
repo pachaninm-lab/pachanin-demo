@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/public-presentation-scope-4695",
+  "status": "active",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/governance-public-presentation-scope-4695.json",
+    "docs/platform-v7/autopilot/scopes/public-presentation-download-4695.json"
+  ]
+}

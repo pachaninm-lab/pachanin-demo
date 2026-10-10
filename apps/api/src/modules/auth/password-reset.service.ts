@@ -1,5 +1,10 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
+import { hashPassword } from './password-hashing';
+import {
+  isStrongPassword,
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
+} from '../../common/validators/strong-password.validator';
 import { randomUUID, timingSafeEqual } from 'crypto';
 import { AuthMailOutboxService } from '../auth-mail/auth-mail-outbox.service';
 import { normalizeAuthMailLocale, passwordResetMail } from '../auth-mail/auth-mail-templates';
@@ -32,11 +37,13 @@ function deliveryAuthorized(provided?: string): boolean {
 }
 
 function assertPasswordPolicy(password: string): void {
-  const classes = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((pattern) => pattern.test(password)).length;
-  if (password.length < 12 || password.length > 128 || classes < 3) {
+  // Delegates to the one policy in strong-password.validator.ts, for the same
+  // reason as the Gekta registration path: this was a private copy that had
+  // drifted away from the shared rule.
+  if (!isStrongPassword(password)) {
     throw new BadRequestException({
       code: 'PASSWORD_POLICY_FAILED',
-      message: 'The password must be 12-128 characters and include at least three character classes.',
+      message: `The password must be ${MIN_PASSWORD_LENGTH}-${MAX_PASSWORD_LENGTH} characters, include at least three character classes and not be a trivial sequence.`,
     });
   }
 }
@@ -167,7 +174,7 @@ export class PasswordResetService {
     const parsed = parsePasswordResetToken(tokenInput);
     if (!parsed) throw this.invalidReset();
 
-    const passwordHash = await bcrypt.hash(newPassword, 12);
+    const passwordHash = await hashPassword(newPassword);
     const now = new Date();
     const ipHash = hashClientValue(ip);
 

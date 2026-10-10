@@ -154,11 +154,15 @@ export function PlatformV7ProtectedShell({
   const ownerPreview = isRoleRoot && previewState?.path === normalizedPath
     ? previewState.preview
     : null;
+  const serverScopedHome = (
+    (normalizedPath === '/platform-v7/buyer' && verifiedRole === 'buyer')
+    || (normalizedPath === '/platform-v7/bank' && verifiedRole === 'bank')
+  );
 
-  // Normal role roots render their final canonical dashboard on the server and on
-  // the first client tree. The presentation-only owner preview may replace it only
-  // after its explicit test marker is resolved, so regular users never incur a
-  // loading-card-to-dashboard layout shift.
+  // Buyer and bank server pages use their respective verified sessions. Keep
+  // their server-scoped queues and failure states mounted at the ordinary role
+  // roots. The controlled owner preview still takes precedence once its
+  // presentation marker has been resolved.
   const workSurface = isRoleRoot
     ? ownerPreview
       ? (
@@ -176,7 +180,9 @@ export function PlatformV7ProtectedShell({
           {children}
         </>
       )
-      : <RoleIntentDashboard role={verifiedRole} />
+      : serverScopedHome
+        ? children
+        : <RoleIntentDashboard role={verifiedRole} />
     : children;
 
   const showPlatformFooter = !isRoleRoot || !ownerPreview;

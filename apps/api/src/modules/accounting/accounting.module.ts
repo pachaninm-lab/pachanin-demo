@@ -3,6 +3,12 @@ import { PrismaModule } from '../../common/prisma/prisma.module';
 import { AccountingController } from './accounting.controller';
 import { AccountingDocumentVersionRepository } from './accounting-document-version.repository';
 import { AccountingSourceSnapshotRepository } from './accounting-source-snapshot.repository';
+import { AdvanceRepository } from './advance.repository';
+import { DealServiceRepository } from './deal-service.repository';
+import { PaymentRepository } from './payment.repository';
+import { ConnectionAttestationRepository } from './connection-attestation.repository';
+import { ConnectionCenterRepository } from './connection-center.repository';
+import { ReconciliationRepository } from './reconciliation.repository';
 import { AccountingPeriodRepository } from './accounting-period.repository';
 import { DocumentTransmissionRepository } from './document-transmission.repository';
 import { WorkTaskDeriver } from './work-task.deriver';
@@ -27,6 +33,12 @@ import { WorkTaskRepository } from './work-task.repository';
     WorkTaskDeriver,
     AccountingPeriodRepository,
     DocumentTransmissionRepository,
+    AdvanceRepository,
+    DealServiceRepository,
+    PaymentRepository,
+    ReconciliationRepository,
+    ConnectionCenterRepository,
+    ConnectionAttestationRepository,
   ],
   exports: [
     AccountingSourceSnapshotRepository,
@@ -35,6 +47,12 @@ import { WorkTaskRepository } from './work-task.repository';
     WorkTaskDeriver,
     AccountingPeriodRepository,
     DocumentTransmissionRepository,
+    AdvanceRepository,
+    DealServiceRepository,
+    PaymentRepository,
+    ReconciliationRepository,
+    ConnectionCenterRepository,
+    ConnectionAttestationRepository,
   ],
 })
 export class AccountingModule {}

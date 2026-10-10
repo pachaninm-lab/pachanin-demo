@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/presentation-gekta-frame-download-20260830",
+  "status": "active",
+  "allowedPaths": [
+    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
+    "apps/web/lib/presentation-pdf/gekta-frame-patch.ts",
+    "apps/web/tests/unit/platformV7PresentationDownload.test.ts",
+    "docs/ip/FILE_PROVENANCE.csv",
+    "docs/ip/FILE_PROVENANCE.json",
+    "docs/security/cryptographic-inventory.json"
+  ]
+}

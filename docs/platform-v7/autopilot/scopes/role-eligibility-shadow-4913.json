@@ -1,0 +1,20 @@
+{
+  "issue": 4913,
+  "baselineSha": "d0fe9bfc275321e0768ec86ce55e82c958e07880",
+  "branch": "feat/role-eligibility-shadow-4913",
+  "mode": "production-shadow-advisory",
+  "registrationCodeChanged": false,
+  "registrationBehaviorChanged": false,
+  "enforcement": false,
+  "newMandatoryRecurringCostRub": 0,
+  "mockProductionEvidence": false,
+  "prohibited": [
+    "registration authority mutation",
+    "automatic registration approval/rejection",
+    "client-authoritative eligibility",
+    "paid mandatory source dependency",
+    "unofficial or reverse-engineered source",
+    "production mock evidence"
+  ],
+  "requiredTerminal": "ROLE_ELIGIBILITY_CONTOUR=PASS"
+}
