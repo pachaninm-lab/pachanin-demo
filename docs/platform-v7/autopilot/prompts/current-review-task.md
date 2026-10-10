@@ -528,6 +528,69 @@ Anonymous76f is terminalblocked: nativeMobile13FAIL27PASS on HTTP WebKit Secure-
 Complete source derivation retained under `gekta-trusted-https-and-stream-consent-prerequisites-20261010`: accepted full before bytes plus zlib full afters using the explicit accepted-before dictionary. Independent complete reconstruction/mode/length/Git/SHA256 is mandatory; all113 old RAW records, scopes, owners, PRIMARY11/current/rawnextStep/Claude/official5 remain unchanged. Fixed3MiB cap is unchanged.
 
 
+## Gekta TLS failed-setup key cleanup — additive queue prerequisite
+
+This narrow correction preserves every byte of the capped state/114 records and all old full payloads. The repository AGENTS.md names execution-queue.md as source of truth, and the current PRIMARY11 scope already admits queue and generated prompt updates. Retain complete source bytes here, obtain separate actual independent/native/canonical/full-SHA manual acceptance, then publish only the corrected existing viewport2 source. No frozen-registry replacement or limit increase. Existing active13 dispatcher blocker views remain unchanged; their HTTPS prerequisite is still blocked pending this precise correction.
+
+```json
+{
+  "schema": "gekta.execution-queue.full-source-correction.v1",
+  "purposeId": "gekta-mobile-tls-failure-cleanup-correction-20261010",
+  "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+  "userInstruction": "Максим: «Делай всё и завершай».",
+  "authorityBaseExactMain": "03ef052931e36a2029e9aafb73b42e9e7e36eee3",
+  "implementationBranch": "agent/gekta-mobile-viewport-regression-20260817",
+  "existingAcceptedScopeManifest": "docs/platform-v7/autopilot/scopes/gekta-mobile-viewport-regression-4332.json",
+  "plannedSourcePaths": [
+    ".github/workflows/gekta-mobile-ux-pr-acceptance.yml",
+    "apps/web/playwright.gekta-mobile-pr.config.ts"
+  ],
+  "correctsOnlyUnacceptedSource": {
+    "head": "6fdcc601d87dcafb0db168f376938d4a2ecdb86b",
+    "pr": 5874,
+    "finding": 4236272578,
+    "thread": "PRRT_kwDOR7So_c6rAsH0",
+    "terminalRelease": 6093502766,
+    "originalFailure": "Directory registration occurs after fallible setup; failed certificate/trust/package/NSS operations can leave owned private keys until runner disposal. Actual successful native40 does not test this failure path."
+  },
+  "sourcePayloads": [
+    {
+      "path": ".github/workflows/gekta-mobile-ux-pr-acceptance.yml",
+      "mode": "100644",
+      "beforeBlob": "ab9eb92b997174d4e6ff19a3abc178d30093a670",
+      "beforeSha256": "8d2f1ef8e1dc9294e8c98aa03bad3a7fbded7f163ce6086dae52baaf1d35f0ec",
+      "afterBlob": "a758b67927e6442bb1606bfa437dde2193d683fa",
+      "afterSha256": "8572c9067c89a7d2b2795bab4d29ad379f4bf3c455fc6e8b7933bc309bf3bd46",
+      "afterBytes": 5725,
+      "afterContentUtf8": "name: Gekta Mobile UX PR Acceptance\n\non:\n  pull_request:\n    paths:\n      - 'apps/web/components/gekta/**'\n      - 'apps/web/lib/gekta/mobile-copy.ts'\n      - 'apps/web/tests/e2e/gekta-production-mobile-acceptance.spec.ts'\n      - 'apps/web/tests/e2e/gekta-keyboard-start-acceptance.spec.ts'\n      - 'apps/web/tests/e2e/gekta-hero-density-acceptance.spec.ts'\n      - 'apps/web/tests/unit/gektaMobileUxRedTeam.test.ts'\n      - 'apps/web/tests/unit/gektaKeyboardStartContract.test.ts'\n      - 'apps/web/tests/unit/gektaMobileCopy.test.ts'\n      - 'apps/web/playwright.gekta-mobile-pr.config.ts'\n      - 'apps/web/playwright.production-mobile.config.ts'\n      - '.github/workflows/gekta-mobile-ux-pr-acceptance.yml'\n      - 'docs/platform-v7/autopilot/scopes/gekta-mobile-viewport-regression-4332.json'\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: gekta-mobile-ux-pr-${{ github.event.pull_request.number || github.ref }}\n  cancel-in-progress: true\n\njobs:\n  browser-acceptance:\n    name: Chromium + WebKit mobile UX contract\n    runs-on: ubuntu-24.04\n    timeout-minutes: 35\n    env:\n      EXPECTED_HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}\n\n    steps:\n      - name: Checkout exact PR head\n        uses: actions/checkout@v4\n        with:\n          ref: ${{ env.EXPECTED_HEAD_SHA }}\n          fetch-depth: 1\n\n      - name: Verify exact checked-out SHA\n        shell: bash\n        run: |\n          set -euo pipefail\n          actual_sha=\"$(git rev-parse HEAD)\"\n          test \"$actual_sha\" = \"$EXPECTED_HEAD_SHA\"\n          printf 'EXACT_HEAD_SHA=%s\\n' \"$actual_sha\"\n\n      - uses: pnpm/action-setup@v4\n        with:\n          version: 10.2.1\n\n      - uses: actions/setup-node@v4\n        with:\n          node-version: 24\n          cache: pnpm\n\n      - name: Install exact dependencies\n        run: pnpm install --frozen-lockfile\n\n      - name: Build exact Web head\n        env:\n          NEXT_TELEMETRY_DISABLED: '1'\n        run: pnpm --filter @pc/web build\n\n      - name: Install Chromium and WebKit runtimes\n        run: pnpm --filter @pc/web exec playwright install --with-deps chromium webkit\n\n      - name: Establish ephemeral trusted loopback TLS\n        shell: bash\n        run: |\n          set -euo pipefail\n          umask 077\n          tls_dir=\"$(mktemp -d \"$RUNNER_TEMP/gekta-mobile-tls.XXXXXX\")\"\n          printf 'GEKTA_TEST_TLS_DIR=%s\\n' \"$tls_dir\" >> \"$GITHUB_ENV\"\n          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \\\n            -subj '/CN=Gekta ephemeral browser test CA' \\\n            -addext 'basicConstraints=critical,CA:TRUE' \\\n            -addext 'keyUsage=critical,keyCertSign,cRLSign' \\\n            -keyout \"$tls_dir/ca.key\" -out \"$tls_dir/ca.crt\" 2>/dev/null\n          openssl req -new -newkey rsa:2048 -nodes -subj '/CN=127.0.0.1' \\\n            -keyout \"$tls_dir/server.key\" -out \"$tls_dir/server.csr\" 2>/dev/null\n          printf '%s\\n' 'subjectAltName=IP:127.0.0.1,DNS:localhost' \\\n            'basicConstraints=critical,CA:FALSE' \\\n            'keyUsage=critical,digitalSignature,keyEncipherment' \\\n            'extendedKeyUsage=serverAuth' > \"$tls_dir/server.ext\"\n          openssl x509 -req -in \"$tls_dir/server.csr\" -CA \"$tls_dir/ca.crt\" \\\n            -CAkey \"$tls_dir/ca.key\" -CAcreateserial -days 1 \\\n            -extfile \"$tls_dir/server.ext\" -out \"$tls_dir/server.crt\" 2>/dev/null\n          openssl verify -CAfile \"$tls_dir/ca.crt\" -verify_ip 127.0.0.1 \"$tls_dir/server.crt\"\n          sudo cp \"$tls_dir/ca.crt\" /usr/local/share/ca-certificates/gekta-mobile-fixture.crt\n          sudo update-ca-certificates >/dev/null\n          sudo apt-get install -y --no-install-recommends libnss3-tools >/dev/null\n          mkdir -p \"$HOME/.pki/nssdb\"\n          if [[ ! -f \"$HOME/.pki/nssdb/cert9.db\" ]]; then\n            certutil -N -d \"sql:$HOME/.pki/nssdb\" --empty-password\n          fi\n          certutil -A -d \"sql:$HOME/.pki/nssdb\" -n gekta-mobile-fixture -t 'C,,' -i \"$tls_dir/ca.crt\"\n          {\n            printf 'NODE_EXTRA_CA_CERTS=%s\\n' \"$tls_dir/ca.crt\"\n          } >> \"$GITHUB_ENV\"\n\n      - name: Run Gekta mobile UX browser acceptance\n        env:\n          CI: 'true'\n          PLAYWRIGHT_BASE_URL: https://127.0.0.1:3000\n        run: pnpm --filter @pc/web exec playwright test --config=playwright.gekta-mobile-pr.config.ts\n\n      - name: Record exact tested SHA\n        if: always()\n        shell: bash\n        run: |\n          set -euo pipefail\n          mkdir -p artifacts/gekta-mobile-pr\n          git rev-parse HEAD > artifacts/gekta-mobile-pr/head-sha.txt\n          printf '%s\\n' \"$EXPECTED_HEAD_SHA\" > artifacts/gekta-mobile-pr/expected-head-sha.txt\n          find apps/web/test-results/gekta-mobile-pr apps/web/playwright-report-gekta-mobile-pr artifacts/gekta-mobile-pr \\\n            -type f -print0 2>/dev/null | sort -z | xargs -0 -r sha256sum > artifacts/gekta-mobile-pr/sha256.txt\n\n      - name: Upload Gekta mobile PR evidence\n        if: always()\n        uses: actions/upload-artifact@v4\n        with:\n          name: gekta-mobile-pr-${{ github.run_id }}\n          path: |\n            apps/web/test-results/gekta-mobile-pr\n            apps/web/playwright-report-gekta-mobile-pr\n            artifacts/gekta-mobile-pr\n          if-no-files-found: error\n          retention-days: 30\n          compression-level: 0\n\n      - name: Remove owned ephemeral TLS keys\n        if: always()\n        shell: bash\n        run: |\n          set -euo pipefail\n          if [[ -n \"${GEKTA_TEST_TLS_DIR:-}\" && \"$GEKTA_TEST_TLS_DIR\" == \"$RUNNER_TEMP\"/gekta-mobile-tls.* ]]; then\n            rm -rf -- \"$GEKTA_TEST_TLS_DIR\"\n            printf 'NODE_EXTRA_CA_CERTS=\\n' >> \"$GITHUB_ENV\"\n          fi\n"
+    }
+  ],
+  "unchangedFullConfig": {
+    "path": "apps/web/playwright.gekta-mobile-pr.config.ts",
+    "mode": "100644",
+    "beforeBlob": "50d8b386a3449890196954bc955906f843e3d282",
+    "beforeSha256": "4b228e1163a1b50ba8b0b6044ced729408e4e61dd9c9f04dd05242abae72f46a",
+    "afterBlob": "78ea126d1b699bfb6107dae17bfaf5d9a37e91b7",
+    "afterSha256": "ccbf4d4c72ad0e9d83eca6d4ade688dd4a7abcde70589a84eefa40ba6082bfea",
+    "afterBytes": 2528,
+    "completeReachableAcceptedAuthority": {
+      "commit": "03ef052931e36a2029e9aafb73b42e9e7e36eee3",
+      "statePath": "docs/platform-v7/autopilot/autopilot-state.json",
+      "stateBlob": "063c6b9f5f6e341ef809398c544886e5bb584696",
+      "purposeId": "gekta-trusted-https-and-stream-consent-prerequisites-20261010",
+      "payloadPath": "apps/web/playwright.gekta-mobile-pr.config.ts",
+      "derivation": "Use that accepted purpose completeSourceDerivation and ordered accepted-before dictionary to decode the entire full source after; verify exact UTF8/mode/length/Git/SHA256. Not a hash-only reference."
+    }
+  },
+  "retentionAuthority": "This complete corrective record is retained in the existing PRIMARY execution-queue source of truth and byte-identical unchanged-dispatcher-generated current prompts. State3145707/114acceptedRAWrecords and all previous payloads remain byte-identical under fixed3MiB. No new central-registry record, cap/schema/decoder/guard/scope/owner change. Independent exact-full-head acceptance of this queue purpose is mandatory before changing the source ref; candidate source cannot grant itself authority.",
+  "correction": "Register GEKTA_TEST_TLS_DIR in GITHUB_ENV immediately after successful mktemp, before ANY fallible certificate/trust/package/NSS operation. Always-owned cleanup then removes partial keys even on setup failure. After deletion clear only the expired test NODE_EXTRA_CA_CERTS pointer for later runner actions. All production-build/TLSverification/Securecookie/SIDboundACK/40browser assertions/retries/timeouts/exactSHA/artifacts/otheracceptedfiles remain unchanged.",
+  "privateEvidence": "Actual extracted public6fdcc setup/cleanup with synthetic command injection reproduces remaining1ownedTLSdirectory and partialkey on firstopensslfailure. Corrected actual extracted shell plus modeled GitHub GITHUB_ENV propagation removes all owned directories/keys for each of9certificate/trust/package/NSSfailures and successfulsetup:10PASS. Wrappers are test doubles, no real system/NSS/production mutation or nativebrowserPASS. Corrected YAML/allbash syntaxPASS; unchanged config fullbody preserved. Native40PASS on old6fdcc remains historical, not proof of corrected head.",
+  "mandatoryNext": "Fresh independent fullqueue/payload review, distinctaudit, allapplicable nativeCI/security/currentliteralcanonical/newwholefresh/fullSHAmanual acceptance. Then source keeps old6fdcc and ACTUALnewacceptedmain parents; only this complete correctedWF plus the identical accepted fullconfig, original viewport21scope/owner unchanged, expectedoldforcefalse/newexplicit75 and ALLfresh40/823fullsource/KINDdeep/storage/cleanup/review/canonical/manual. No oldnativePASS transfer, rerun/phaseextension/auto/force merge. Diagnostic originalref remains next, then EXACTfrozenAnon17/allfreshsigned40/fullKIND, then realREG.RU release/authorizedmodeloneuse/realfirstuser/HUMANgrants.",
+  "publicationStatus": "QUEUE_CORRECTIVE_PURPOSE_ONLY_IMPLEMENTATION_UNACCEPTED"
+}
+```
+
+
 ## Review brief
 
 Review R1 release prerequisite: atomic canonical readiness recovery #4829 strictly against the state allowed scope and queue.
