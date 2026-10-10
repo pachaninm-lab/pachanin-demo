@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2316,
+  "scannedFiles": 2317,
   "operations": [
     {
       "operation": "encryption",
@@ -258,11 +258,11 @@
     {
       "operation": "csprng",
       "label": "Cryptographic randomness",
-      "sites": 32,
+      "sites": 33,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 32,
+          "sites": 33,
           "files": [
             "apps/api/src/common/config/secrets.ts",
             "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",

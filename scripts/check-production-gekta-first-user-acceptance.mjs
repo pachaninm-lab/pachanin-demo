@@ -139,7 +139,8 @@ forbid('executor', [
 requireAll('live', [
   '/api/gekta/entitlement',
   '--data \'{"action":"reserve"}\'',
-  '--data \'{"action":"consent"}\'',
+  'build_anonymous_notice_payload "$notice_body" "$notice_payload"',
+  '--data-binary "@$notice_payload"',
   'verify_current_consent "$consent_body"',
   'if (( consent_ok == 1 )); then',
   'if (( consent_ok == 1 && reserve_ok == 1 )); then',
@@ -153,7 +154,7 @@ forbid('live', [
   /(?:echo|printf)[^\n]*(?:answer_ticket|cookie_jar|reserve_body|consent_body)/iu,
 ]);
 
-if (source.live.indexOf('--data \'{"action":"consent"}\'') >= source.live.indexOf('--data \'{"action":"reserve"}\'')) {
+if (source.live.indexOf('--data-binary "@$notice_payload"') >= source.live.indexOf('--data \'{"action":"reserve"}\'')) {
   throw new Error('live: consent must precede reservation');
 }
 for (const fragment of ["github.event.issue.number == 4637", "github.event.comment.author_association == 'OWNER'", 'github.actor == github.repository_owner', 'github.triggering_actor == github.repository_owner']) {

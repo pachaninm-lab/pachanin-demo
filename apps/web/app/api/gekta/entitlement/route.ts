@@ -4,18 +4,24 @@ import {
   GEKTA_ANONYMOUS_COOKIE_MAX_AGE_SECONDS,
   completeAnswer,
   createAnonymousSession,
-  hasCurrentConsent,
   issueTicket,
   parseAnonymousSession,
   reserveAnswer,
   serializeAnonymousSession,
   recordConsent,
+  verifyAnonymousNotice,
   settlePending,
   type GektaAnonymousSession,
 } from '@/lib/gekta/anonymous-session';
 import { GEKTA_LEGAL_VERSION } from '@/lib/gekta/legal';
 import { resolveAnonymousEntitlement } from '@/lib/gekta/entitlement';
 import { isBillingEnabled } from '@/lib/gekta/merchant';
+import { anonymousConsentHash, anonymousConsentPresentation, hasCurrentAnonymousConsent } from '@/lib/gekta/anonymous-consent-evidence';
+import type { GektaLocale } from '@/lib/gekta/content';
+
+function noticeLocale(value: unknown): GektaLocale {
+  return value === 'en' || value === 'zh' ? value : 'ru';
+}
 
 function registrationUrl(): string | null {
   const configured = process.env.GEKTA_REGISTRATION_URL?.trim();
@@ -35,24 +41,26 @@ function cookieOptions() {
   };
 }
 
-function respond(session: GektaAnonymousSession, body: Record<string, unknown>, now: Date) {
-  const response = NextResponse.json(body, { headers: { 'Cache-Control': 'no-store' } });
+function respond(session: GektaAnonymousSession, body: Record<string, unknown>, now: Date, status = 200) {
+  const response = NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
   response.cookies.set(GEKTA_ANONYMOUS_COOKIE, serializeAnonymousSession(session), cookieOptions());
   void now;
   return response;
 }
 
-function readSession(request: NextRequest): GektaAnonymousSession {
-  return parseAnonymousSession(request.cookies.get(GEKTA_ANONYMOUS_COOKIE)?.value) ?? createAnonymousSession();
+function readSession(request: NextRequest, now: Date): GektaAnonymousSession {
+  return parseAnonymousSession(request.cookies.get(GEKTA_ANONYMOUS_COOKIE)?.value, now) ?? createAnonymousSession(now);
 }
 
 export async function GET(request: NextRequest) {
   const now = new Date();
-  const session = readSession(request);
+  const session = readSession(request, now);
   return respond(session, {
     entitlement: resolveAnonymousEntitlement({ used: session.used }, now),
     consent: session.consent ?? null,
     legalVersion: GEKTA_LEGAL_VERSION,
+    consentCurrent: hasCurrentAnonymousConsent(session, now, noticeLocale(new URL(request.url).searchParams.get('lang'))),
+    legalPresentation: anonymousConsentPresentation(session, noticeLocale(new URL(request.url).searchParams.get('lang')), now),
     registrationUrl: registrationUrl(),
     billingEnabled: isBillingEnabled(),
   }, now);
@@ -77,13 +85,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'unsupported_action' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }
 
-  const current = readSession(request);
+  const current = readSession(request, now);
 
   if (action === 'consent') {
-    // Consent is bound to the anonymous session id, the document version and
-    // the server clock, and signed so the record cannot be edited client-side.
-    const accepted = recordConsent(current, GEKTA_LEGAL_VERSION, now);
-    return respond(accepted, { entitlement: resolveAnonymousEntitlement({ used: accepted.used }, now), consent: accepted.consent, legalVersion: GEKTA_LEGAL_VERSION, registrationUrl: registrationUrl(), billingEnabled: isBillingEnabled() }, now);
+    const locale = noticeLocale(payload.locale);
+    const evidenceHash = anonymousConsentHash(locale);
+    if (!['ru', 'en', 'zh'].includes(String(payload.locale)) || !verifyAnonymousNotice(payload.noticeSnapshot, current, evidenceHash, locale, now)) {
+      return respond(current, { error: 'notice_changed', consent: null, consentCurrent: false,
+        legalVersion: GEKTA_LEGAL_VERSION, legalPresentation: anonymousConsentPresentation(current, locale, now) }, now, 409);
+    }
+    const accepted = recordConsent(current, GEKTA_LEGAL_VERSION, now, { evidenceHash, surfaceLocale: locale });
+    return respond(accepted, { entitlement: resolveAnonymousEntitlement({ used: accepted.used }, now), consent: accepted.consent,
+      consentCurrent: true, legalVersion: GEKTA_LEGAL_VERSION, registrationUrl: registrationUrl(), billingEnabled: isBillingEnabled() }, now);
   }
 
   if (action === 'complete') {
@@ -94,13 +107,15 @@ export async function POST(request: NextRequest) {
 
   // Return the current notice through the existing client decision contract.
   // Denial must not charge or replace an outstanding reservation.
-  if (!hasCurrentConsent(current, GEKTA_LEGAL_VERSION, now)) {
+  if (!hasCurrentAnonymousConsent(current, now)) {
     return respond(current, {
       allowed: false,
       ticket: null,
       reason: 'consent_required',
       consent: null,
       legalVersion: GEKTA_LEGAL_VERSION,
+      consentCurrent: false,
+      legalPresentation: anonymousConsentPresentation(current, noticeLocale(current.consent?.surfaceLocale), now),
       entitlement: resolveAnonymousEntitlement({ used: current.used }, now),
       registrationUrl: registrationUrl(),
       billingEnabled: isBillingEnabled(),

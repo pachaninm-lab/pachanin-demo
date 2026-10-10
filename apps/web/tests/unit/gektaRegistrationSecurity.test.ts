@@ -1,3 +1,4 @@
+import { anonymousConsentHash } from '@/lib/gekta/anonymous-consent-evidence';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { NextRequest } from 'next/server';
@@ -343,7 +344,7 @@ describe('Gekta answer admission', () => {
   it('consumes the matching signed reservation at generation admission', async () => {
     const ticket = issueTicket();
     const now = new Date();
-    const reserved = reserveAnswer(recordConsent(createAnonymousSession(now), GEKTA_LEGAL_VERSION, now), ticket);
+    const reserved = reserveAnswer(recordConsent(createAnonymousSession(now), GEKTA_LEGAL_VERSION, now, { evidenceHash: anonymousConsentHash('ru'), surfaceLocale: 'ru' }), ticket);
     const serialized = serializeAnonymousSession(reserved);
     expect(parseAnonymousSession(serialized)).toMatchObject({ pending: ticket });
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
@@ -362,7 +363,7 @@ describe('Gekta answer admission', () => {
   it('rejects a replay even when the browser resends its old signed cookie', async () => {
     const ticket = issueTicket();
     const now = new Date();
-    const serialized = serializeAnonymousSession(reserveAnswer(recordConsent(createAnonymousSession(now), GEKTA_LEGAL_VERSION, now), ticket));
+    const serialized = serializeAnonymousSession(reserveAnswer(recordConsent(createAnonymousSession(now), GEKTA_LEGAL_VERSION, now, { evidenceHash: anonymousConsentHash('ru'), surfaceLocale: 'ru' }), ticket));
     const durable = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ allowed: true }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ allowed: false }), { status: 200 }));
@@ -379,7 +380,7 @@ describe('Gekta answer admission', () => {
   it('fails closed when distributed admission is unavailable', async () => {
     const ticket = issueTicket();
     const now = new Date();
-    const serialized = serializeAnonymousSession(reserveAnswer(recordConsent(createAnonymousSession(now), GEKTA_LEGAL_VERSION, now), ticket));
+    const serialized = serializeAnonymousSession(reserveAnswer(recordConsent(createAnonymousSession(now), GEKTA_LEGAL_VERSION, now, { evidenceHash: anonymousConsentHash('ru'), surfaceLocale: 'ru' }), ticket));
     vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 503 })));
 
     const response = await chatPost(chatRequest({

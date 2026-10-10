@@ -79,10 +79,10 @@ describe('Gekta legal surface', () => {
     expect(consent).toContain('Перед началом');
     expect(consent).toContain('Гекта использует искусственный интеллект');
     expect(consent).toContain('Понятно, начать');
-    expect(consent).toContain("href='/legal/usloviya-ispolzovaniya-gekta'");
-    expect(consent).toContain("href='/legal/politika-konfidencialnosti'");
-    expect(workspace).toContain("body: JSON.stringify({ action: 'consent' })");
-    expect(workspace).toContain('setConsentRequired(body.consent?.version !== body.legalVersion);');
+    expect(consent).toContain("termsHref = '/legal/usloviya-ispolzovaniya-gekta'");
+    expect(consent).toContain("privacyHref = '/legal/politika-konfidencialnosti'");
+    expect(workspace).toContain("noticeSnapshot: legalPresentation.snapshot");
+    expect(workspace).toContain('setConsentRequired(body.consentCurrent !== true);');
   });
 
   it('does not let a late consent probe steal active composer focus or submit before acceptance', () => {
@@ -122,7 +122,7 @@ describe('Gekta legal surface', () => {
 
   it('links the documents from the product footer and publishes them for crawlers', () => {
     expect(footer).toContain('GEKTA_LEGAL_DOCUMENTS.map(');
-    expect(footer).toContain("href='/platform-v7/contact'");
+    expect(footer).toContain("href={`${GEKTA_PATHS[locale]}/support`}");
     expect(footer).toContain('{ui.pending}');
     expect(legalRoute).toContain('generateStaticParams');
     expect(legalRoute).toContain('alternates: { canonical: `/legal/${document.slug}` }');

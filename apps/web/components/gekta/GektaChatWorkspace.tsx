@@ -41,6 +41,7 @@ import { GEKTA_ENTER_CHAT_EVENT } from './GektaProductCta';
 import { GektaSettingsDialog, type GektaAnswerLocale } from './GektaSettingsDialog';
 import { GektaAccessGate, GektaRemainingBadge } from './GektaAccessGate';
 import { GektaConsentDialog } from './GektaConsentDialog';
+import type { AnonymousConsentPresentation } from '@/lib/gekta/anonymous-consent-evidence';
 import type { GektaEntitlementSnapshot } from '@/lib/gekta/entitlement';
 import type { GektaConversation, GektaMessage } from './GektaChatTypes';
 
@@ -182,6 +183,9 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
   const [registrationUrl, setRegistrationUrl] = React.useState<string | null>(null);
   const [billingEnabled, setBillingEnabled] = React.useState(false);
   const [consentRequired, setConsentRequired] = React.useState(false);
+  const [legalPresentation, setLegalPresentation] = React.useState<AnonymousConsentPresentation | null>(null);
+  const [acceptingConsent, setAcceptingConsent] = React.useState(false);
+  const [consentError, setConsentError] = React.useState(false);
   const [voiceInputEnabled, setVoiceInputEnabled] = React.useState(true);
   const [speechEnabled, setSpeechEnabled] = React.useState(true);
   const [loggingOut, setLoggingOut] = React.useState(false);
@@ -515,37 +519,47 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
 
   const applyEntitlement = React.useCallback((payload: unknown) => {
     if (!payload || typeof payload !== 'object') return;
-    const body = payload as { entitlement?: GektaEntitlementSnapshot; registrationUrl?: unknown; billingEnabled?: unknown; consent?: { version?: unknown } | null; legalVersion?: unknown };
+    const body = payload as { entitlement?: GektaEntitlementSnapshot; registrationUrl?: unknown; billingEnabled?: unknown; consentCurrent?: unknown; legalVersion?: unknown; legalPresentation?: AnonymousConsentPresentation };
     if (body.entitlement && typeof body.entitlement === 'object') setEntitlement(body.entitlement);
     setRegistrationUrl(typeof body.registrationUrl === 'string' ? body.registrationUrl : null);
     setBillingEnabled(body.billingEnabled === true);
     if (typeof body.legalVersion === 'string') {
-      // Re-asked only when the documents themselves change version.
-      setConsentRequired(body.consent?.version !== body.legalVersion);
+      setConsentRequired(body.consentCurrent !== true);
+      const notice = body.legalPresentation;
+      if (notice && typeof notice.snapshot === 'string' && notice.snapshot.length <= 2_048
+        && ['ru', 'en', 'zh'].includes(notice.locale) && typeof notice.termsHref === 'string' && typeof notice.privacyHref === 'string'
+        && notice.termsHref.startsWith('/legal/') && notice.privacyHref.startsWith('/legal/')) setLegalPresentation(notice);
     }
   }, []);
 
   const acceptConsent = React.useCallback(async () => {
-    setConsentRequired(false);
-    track('gekta_legal_consent_accepted', locale);
+    if (acceptingConsent || !legalPresentation) return;
+    setAcceptingConsent(true);
+    setConsentError(false);
     try {
       const response = await fetch('/api/gekta/entitlement', {
         method: 'POST',
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'consent' }),
+        body: JSON.stringify({ action: 'consent', noticeSnapshot: legalPresentation.snapshot, locale: legalPresentation.locale }),
       });
-      if (response.ok) applyEntitlement(await response.json());
+      const payload = await response.json();
+      applyEntitlement(payload);
+      if (response.ok && payload?.consentCurrent === true) track('gekta_legal_consent_accepted', locale);
+      else { setConsentRequired(true); setConsentError(true); }
     } catch {
-      // The notice is shown again on the next visit if the record did not land.
+      setConsentRequired(true);
+      setConsentError(true);
+    } finally {
+      setAcceptingConsent(false);
     }
-  }, [locale]);
+  }, [locale, legalPresentation, acceptingConsent, applyEntitlement]);
 
   React.useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch('/api/gekta/entitlement', { cache: 'no-store' });
+        const response = await fetch(`/api/gekta/entitlement?lang=${locale}`, { cache: 'no-store' });
         if (!response.ok) return;
         const payload: unknown = await response.json();
         if (!cancelled) applyEntitlement(payload);
@@ -555,7 +569,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
       }
     })();
     return () => { cancelled = true; };
-  }, [applyEntitlement]);
+  }, [applyEntitlement, locale]);
 
   /** Server decides whether another answer may be generated. */
   const reserveAnswer = React.useCallback(async (): Promise<string | null> => {
@@ -932,7 +946,9 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
         </main>
       </div>
       <GektaMobileDrawer open={drawerOpen} closeLabel={ui.closeMenu} onClose={() => setDrawerOpen(false)}><GektaSidebar {...sidebarProps} /></GektaMobileDrawer>
-      {consentRequired && activeChat ? <GektaConsentDialog locale={locale} onAccept={() => void acceptConsent()} /> : null}
+      {consentRequired && activeChat ? <GektaConsentDialog locale={locale} onAccept={() => void acceptConsent()}
+        termsHref={legalPresentation?.termsHref} privacyHref={legalPresentation?.privacyHref}
+        disabled={acceptingConsent || !legalPresentation} failed={consentError} /> : null}
       {settingsOpen ? (
         <GektaSettingsDialog
           locale={locale}
