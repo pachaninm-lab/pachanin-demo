@@ -24,6 +24,37 @@ async function presentation(locale = 'ru') {
   return { cookie: cookie(response), notice: body.legalPresentation };
 }
 
+function actualClient(locale: string, initialCookie?: string) {
+  const source = readFileSync('components/gekta/GektaChatWorkspace.tsx', 'utf8');
+  const callbacks = ['applyEntitlement', 'acceptConsent', 'reserveAnswer'].map(name => {
+    const start = source.indexOf(`const ${name} = React.useCallback(`);
+    const end = source.indexOf('\n  }, [', start);
+    const finish = source.indexOf(');', end) + 2;
+    expect(start).toBeGreaterThan(-1); expect(end).toBeGreaterThan(start); expect(finish).toBeGreaterThan(end);
+    return source.slice(start, finish);
+  });
+  let currentCookie = initialCookie;
+  const state: { notice: { locale: string; snapshot: string } | null; required: boolean } = { notice: null, required: false };
+  const context: Record<string, unknown> = { React: { useCallback: (fn: unknown) => fn },
+    locale, workspaceMode: 'local', acceptingConsent: false, legalPresentation: null,
+    setEntitlement: vi.fn(), setRegistrationUrl: vi.fn(), setBillingEnabled: vi.fn(),
+    setConsentRequired: vi.fn(value => { state.required = value; }),
+    setLegalPresentation: vi.fn(value => { state.notice = value; context.legalPresentation = value; }),
+    setAcceptingConsent: vi.fn(value => { context.acceptingConsent = value; }),
+    setConsentError: vi.fn(), track: vi.fn() };
+  const fetch = vi.fn(async (_url: string, init: RequestInit) => {
+    const response = await POST(request(currentCookie, JSON.parse(String(init.body)), locale));
+    currentCookie = cookie(response);
+    return response;
+  });
+  context.fetch = fetch;
+  const compiled = transpileModule(`${callbacks.join('\n')}\nglobalThis.callbacks = { applyEntitlement, acceptConsent, reserveAnswer };`, {}).outputText;
+  const functions = runInNewContext(`${compiled}\nglobalThis.callbacks`, context, { timeout: 1_000 }) as {
+    applyEntitlement: (payload: unknown) => unknown; acceptConsent: () => Promise<void>; reserveAnswer: () => Promise<string | null>;
+  };
+  return { functions, state, fetch, currentCookie: () => currentCookie };
+}
+
 describe('Actual anonymous document/profile/session commitment', () => {
   beforeEach(() => {
     vi.stubEnv('GEKTA_ANONYMOUS_SESSION_SECRET', 'own-synthetic-notice-key-32-characters');
@@ -85,6 +116,38 @@ describe('Actual anonymous document/profile/session commitment', () => {
     expect(parseAnonymousSession(cookie(reserve))).toMatchObject({ sid: old.sid, used: 2, pending: seeded.pending });
   });
 
+  it.each(['en', 'zh'])('preserves %s through actual reserve fallback and ACK without an initial presentation', async locale => {
+    // Failed and unfinished initial GET both leave this actual client callback without a presentation.
+    const client = actualClient(locale);
+    expect(await client.functions.reserveAnswer()).toBeNull();
+    expect(client.state.required).toBe(true);
+    expect(client.state.notice?.locale).toBe(locale);
+    expect(parseAnonymousSession(client.currentCookie())?.used).toBe(0);
+    await client.functions.acceptConsent();
+    expect(parseAnonymousSession(client.currentCookie())?.consent?.surfaceLocale).toBe(locale);
+    expect(client.state.required).toBe(false);
+    expect(await client.functions.reserveAnswer()).toEqual(expect.any(String));
+  });
+
+  it.each(['en', 'zh'])('does not accept a real Russian proof in the actual %s interface', async locale => {
+    const shown = await presentation('ru');
+    const client = actualClient(locale, shown.cookie);
+    client.functions.applyEntitlement({ legalVersion: GEKTA_LEGAL_VERSION, consentCurrent: false, legalPresentation: shown.notice });
+    await client.functions.acceptConsent();
+    expect(client.fetch).not.toHaveBeenCalled();
+    expect(parseAnonymousSession(client.currentCookie())?.consent).toBeNull();
+  });
+
+  it.each(['en', 'zh'])('requests %s presentation instead of reusing a Russian receipt without charging a pending answer', async locale => {
+    const shown = await presentation('ru');
+    const accepted = await POST(request(shown.cookie, { action: 'consent', locale: 'ru', noticeSnapshot: shown.notice.snapshot }));
+    const old = parseAnonymousSession(cookie(accepted))!;
+    const seeded = { ...old, used: 2, pending: 'own-existing-reservation' };
+    const response = await POST(request(serializeAnonymousSession(seeded), { action: 'reserve', locale }));
+    expect(await response.json()).toMatchObject({ allowed: false, reason: 'consent_required', legalPresentation: { locale } });
+    expect(parseAnonymousSession(cookie(response))).toMatchObject({ sid: old.sid, used: 2, pending: seeded.pending });
+  });
+
   it.each(['success', 'rejected', 'transport'])('the actual client hides the notice only after a confirmed %s response', async outcome => {
     const source = readFileSync('components/gekta/GektaChatWorkspace.tsx', 'utf8');
     const start = source.indexOf('const acceptConsent = React.useCallback(');
@@ -97,7 +160,7 @@ describe('Actual anonymous document/profile/session commitment', () => {
       if (outcome === 'transport') throw new Error('own transport failure');
       return new Response(JSON.stringify({ consentCurrent: outcome === 'success' }), { status: outcome === 'success' ? 200 : 409 });
     });
-    const applyEntitlement = vi.fn(payload => { if (payload.consentCurrent === true) setConsentRequired(false); });
+    const applyEntitlement = vi.fn(payload => { if (payload.consentCurrent === true) setConsentRequired(false); return payload.consentCurrent === true; });
     const code = transpileModule(`${source.slice(start, end + endMarker.length)}\nglobalThis.result = acceptConsent();`, {}).outputText;
     await runInNewContext(`${code}\nglobalThis.result`, { React: { useCallback: fn => fn }, locale: 'ru', acceptingConsent: false,
       legalPresentation: { locale: 'ru', snapshot: 'own-public-commitment' }, fetch, applyEntitlement, track,

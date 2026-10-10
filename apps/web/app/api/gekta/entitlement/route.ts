@@ -107,7 +107,8 @@ export async function POST(request: NextRequest) {
 
   // Return the current notice through the existing client decision contract.
   // Denial must not charge or replace an outstanding reservation.
-  if (!hasCurrentAnonymousConsent(current, now)) {
+  const reserveLocale = noticeLocale(payload.locale ?? current.consent?.surfaceLocale);
+  if (!hasCurrentAnonymousConsent(current, now, reserveLocale)) {
     return respond(current, {
       allowed: false,
       ticket: null,
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
       consent: null,
       legalVersion: GEKTA_LEGAL_VERSION,
       consentCurrent: false,
-      legalPresentation: anonymousConsentPresentation(current, noticeLocale(current.consent?.surfaceLocale), now),
+      legalPresentation: anonymousConsentPresentation(current, reserveLocale, now),
       entitlement: resolveAnonymousEntitlement({ used: current.used }, now),
       registrationUrl: registrationUrl(),
       billingEnabled: isBillingEnabled(),

@@ -519,21 +519,27 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
 
   const applyEntitlement = React.useCallback((payload: unknown) => {
     if (!payload || typeof payload !== 'object') return;
-    const body = payload as { entitlement?: GektaEntitlementSnapshot; registrationUrl?: unknown; billingEnabled?: unknown; consentCurrent?: unknown; legalVersion?: unknown; legalPresentation?: AnonymousConsentPresentation };
+    const body = payload as { entitlement?: GektaEntitlementSnapshot; registrationUrl?: unknown; billingEnabled?: unknown; consentCurrent?: unknown; legalVersion?: unknown; consent?: { surfaceLocale?: unknown } | null; legalPresentation?: AnonymousConsentPresentation };
     if (body.entitlement && typeof body.entitlement === 'object') setEntitlement(body.entitlement);
     setRegistrationUrl(typeof body.registrationUrl === 'string' ? body.registrationUrl : null);
     setBillingEnabled(body.billingEnabled === true);
     if (typeof body.legalVersion === 'string') {
-      setConsentRequired(body.consentCurrent !== true);
       const notice = body.legalPresentation;
+      const proofLocale = notice?.locale ?? body.consent?.surfaceLocale;
+      if (proofLocale !== locale) { setConsentRequired(true); return false; }
+      setConsentRequired(body.consentCurrent !== true);
       if (notice && typeof notice.snapshot === 'string' && notice.snapshot.length <= 2_048
         && ['ru', 'en', 'zh'].includes(notice.locale) && typeof notice.termsHref === 'string' && typeof notice.privacyHref === 'string'
         && notice.termsHref.startsWith('/legal/') && notice.privacyHref.startsWith('/legal/')) setLegalPresentation(notice);
+      return body.consentCurrent === true;
     }
-  }, []);
+    return false;
+  }, [locale]);
+
+  const currentLegalPresentation = legalPresentation?.locale === locale ? legalPresentation : null;
 
   const acceptConsent = React.useCallback(async () => {
-    if (acceptingConsent || !legalPresentation) return;
+    if (acceptingConsent || !legalPresentation || legalPresentation.locale !== locale) return;
     setAcceptingConsent(true);
     setConsentError(false);
     try {
@@ -544,8 +550,8 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
         body: JSON.stringify({ action: 'consent', noticeSnapshot: legalPresentation.snapshot, locale: legalPresentation.locale }),
       });
       const payload = await response.json();
-      applyEntitlement(payload);
-      if (response.ok && payload?.consentCurrent === true) track('gekta_legal_consent_accepted', locale);
+      const confirmed = applyEntitlement(payload);
+      if (response.ok && confirmed === true) track('gekta_legal_consent_accepted', locale);
       else { setConsentRequired(true); setConsentError(true); }
     } catch {
       setConsentRequired(true);
@@ -594,7 +600,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
         method: 'POST',
         cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reserve' }),
+        body: JSON.stringify({ action: 'reserve', locale }),
       });
       if (!response.ok) return null;
       const payload = await response.json() as { allowed?: boolean; ticket?: string | null; reason?: string };
@@ -946,9 +952,9 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
         </main>
       </div>
       <GektaMobileDrawer open={drawerOpen} closeLabel={ui.closeMenu} onClose={() => setDrawerOpen(false)}><GektaSidebar {...sidebarProps} /></GektaMobileDrawer>
-      {consentRequired && activeChat ? <GektaConsentDialog locale={locale} onAccept={() => void acceptConsent()}
-        termsHref={legalPresentation?.termsHref} privacyHref={legalPresentation?.privacyHref}
-        disabled={acceptingConsent || !legalPresentation} failed={consentError} /> : null}
+      {consentRequired && activeChat && currentLegalPresentation ? <GektaConsentDialog locale={locale} onAccept={() => void acceptConsent()}
+        termsHref={currentLegalPresentation.termsHref} privacyHref={currentLegalPresentation.privacyHref}
+        disabled={acceptingConsent} failed={consentError} /> : null}
       {settingsOpen ? (
         <GektaSettingsDialog
           locale={locale}
