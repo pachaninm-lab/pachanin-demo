@@ -172,6 +172,9 @@ jobs:
               base = git('rev-parse', os.environ['PINNED_SCOPE_BASE'] + '^{commit}').decode().strip()
               head = os.environ['EXACT_HEAD']
               require(bool(re.fullmatch('[0-9a-f]{40}', base)) and bool(re.fullmatch('[0-9a-f]{40}', head)))
+              # A stale head must not omit any newly accepted non-quartet leaf.
+              require(git('diff', '--no-renames', '--name-only', '-z', base, head)
+                      == b''.join(path.encode('utf-8') + b'\0' for path in sorted(paths)))
               state_path = 'docs/platform-v7/autopilot/autopilot-state.json'
               base_bytes = git('show', base + ':' + state_path)
               require(len(base_bytes) <= 3 * 1024 * 1024 and git('show', head + ':' + state_path) == base_bytes)
