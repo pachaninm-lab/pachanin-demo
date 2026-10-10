@@ -540,3 +540,243 @@ This narrow correction preserves every byte of the capped state/114 records and 
   "publicationStatus": "QUEUE_CORRECTIVE_PURPOSE_ONLY_IMPLEMENTATION_UNACCEPTED"
 }
 ```
+
+
+## Gekta diagnostic fresh receipt and owned cleanup — additive queue prerequisite
+
+This narrow corrective purpose preserves the entire capped state and all114 full accepted records. The existing AGENTS-listed execution queue retains complete source bytes for separate independent/native/canonical/full-SHA acceptance before updating the original diagnostic source. Current PRIMARY11 permits these three queue/prompt paths. No new central record, cap increase, ownership change or historical payload replacement.
+
+```json
+{
+  "schema": "gekta.execution-queue.full-source-correction.v1",
+  "purposeId": "gekta-stream-fresh-ack-owned-cleanup-correction-20261010",
+  "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+  "userInstruction": "Максим: «Делай всё и завершай».",
+  "authorityBaseExactMain": "9cdfed1ad171312f772616ffe22bbb55dfc73016",
+  "implementationBranch": "diag/p7-production-gekta-stream-2198",
+  "existingAcceptedScopeManifest": "docs/platform-v7/autopilot/scopes/p7-production-gekta-stream-2198.json",
+  "plannedSourcePaths": [
+    ".github/workflows/production-gekta-stream-diagnostic.yml"
+  ],
+  "correctsOnlyUnacceptedSource": {
+    "head": "c846c6f2aa77bcd77c555aea7e3b75640061e79e",
+    "pr": 5876,
+    "findings": [
+      4236714956,
+      4236714961
+    ],
+    "threads": [
+      "PRRT_kwDOR7So_c6rBvLC",
+      "PRRT_kwDOR7So_c6rBvLF"
+    ],
+    "terminalRelease": 6094695578,
+    "originalFailure": "Receipt timestamp is not bound to this fresh signed notice; later temporary allocation/write/failure can leave sensitive owned files without EXIT cleanup."
+  },
+  "sourcePayloads": [
+    {
+      "path": ".github/workflows/production-gekta-stream-diagnostic.yml",
+      "mode": "100644",
+      "beforeBlob": "f0d1711ab2581df7ae01af115e8f5c478de46433",
+      "beforeSha256": "e689c63c813236dd087dee2b347fa2be70d524bc003a2a4ab0c92bac0d7c651f",
+      "afterBlob": "cfeb4b14aa96468483823f25a127ba2b24392679",
+      "afterSha256": "685904acd6c16869c4fe229f2a26d3d0e69634a94e5b8e122e96c6cbe3b8dbc5",
+      "afterBytes": 17528,
+      "afterContentUtf8": "name: Production Gekta Stream Diagnostic\n\non:\n  issue_comment:\n    types: [created]\n\npermissions:\n  contents: read\n  issues: write\n\nconcurrency:\n  group: production-gekta-stream-diagnostic\n  cancel-in-progress: false\n\njobs:\n  diagnostic:\n    name: Diagnose one bounded public Gekta stream\n    if: >-\n      github.event.issue.number == 3048 &&\n      github.event.comment.user.login == github.repository_owner &&\n      github.event.comment.body == '/production gekta stream diagnostic'\n    runs-on: ubuntu-24.04\n    timeout-minutes: 15\n\n    env:\n      LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai\n      EVIDENCE_DIR: artifacts/production-gekta-stream-diagnostic\n\n    steps:\n      - name: Run bounded public diagnostic\n        id: diagnostic\n        shell: bash\n        run: |\n          set -Eeuo pipefail\n          mkdir -p \"$EVIDENCE_DIR\"\n          log=\"$EVIDENCE_DIR/diagnostic.log\"\n          : > \"$log\"\n\n          one_line() {\n            tr '\\r\\n' '  ' | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//' | cut -c1-240\n          }\n\n          json_field() {\n            local file=\"$1\" field=\"$2\"\n            node -e '\n              const fs = require(\"node:fs\");\n              const [file, field] = process.argv.slice(1);\n              try {\n                const value = JSON.parse(fs.readFileSync(file, \"utf8\"))?.[field];\n                if (typeof value === \"string\") process.stdout.write(value.slice(0, 160));\n                else if (typeof value === \"boolean\" || typeof value === \"number\") process.stdout.write(String(value));\n              } catch {}\n            ' \"$file\" \"$field\" 2>/dev/null || true\n          }\n\n          # Register cleanup before creating any sensitive owned files.\n          owned_tmp=\"\"\n          cleanup_owned() {\n            local status=$?\n            trap - EXIT\n            if [[ -n \"$owned_tmp\" && \"$owned_tmp\" == \"$RUNNER_TEMP\"/gekta-stream-diagnostic.* ]] && [[ -d \"$owned_tmp\" && -f \"$owned_tmp/.gekta-owned\" && ! -L \"$owned_tmp/.gekta-owned\" ]] \\\n              && [[ \"$(cat -- \"$owned_tmp/.gekta-owned\" 2>/dev/null)\" == \"$owned_marker\" ]]; then\n              rm -rf -- \"$owned_tmp\"\n            fi\n            exit \"$status\"\n          }\n          trap cleanup_owned EXIT\n          trap 'exit 130' INT\n          trap 'exit 143' TERM\n          [[ \"$GITHUB_RUN_ID\" =~ ^[0-9]+$ && \"${GITHUB_RUN_ATTEMPT:-1}\" =~ ^[0-9]+$ ]]\n          owned_identity=\"$(node -e 'process.stdout.write(require(\"node:crypto\").randomBytes(32).toString(\"hex\"))')\"\n          [[ \"$owned_identity\" =~ ^[0-9a-f]{64}$ ]]\n          owned_nonce=\"${owned_identity:0:32}\"\n          owned_marker=\"${owned_identity:32:32}\"\n          owned_tmp=\"$RUNNER_TEMP/gekta-stream-diagnostic.$GITHUB_RUN_ID.${GITHUB_RUN_ATTEMPT:-1}.$$.$owned_nonce\"\n          if [[ -e \"$owned_tmp\" || -L \"$owned_tmp\" ]]; then\n            owned_tmp=\"\"\n            echo 'Owned diagnostic temporary allocation collision.' >&2\n            exit 1\n          fi\n          umask 077\n          if ! node -e '\n            const fs = require(\"node:fs\");\n            const root = process.argv[1];\n            const marker = fs.readFileSync(0, \"utf8\").trim();\n            if (!/^[0-9a-f]{32}$/.test(marker)) process.exit(1);\n            let created = false;\n            const removeOwned = () => {\n              if (created) fs.rmSync(root, { recursive: true, force: true });\n            };\n            process.on(\"SIGINT\", () => { removeOwned(); process.exit(130); });\n            process.on(\"SIGTERM\", () => { removeOwned(); process.exit(143); });\n            try {\n              fs.mkdirSync(root, { mode: 0o700 });\n              created = true;\n              fs.writeFileSync(root + \"/.gekta-owned\", marker + \"\\n\", { flag: \"wx\", mode: 0o600 });\n            } catch {\n              removeOwned();\n              process.exit(1);\n            }\n          ' \"$owned_tmp\" <<< \"$owned_marker\"; then\n            owned_tmp=\"\"\n            echo 'Owned diagnostic temporary allocation failed.' >&2\n            exit 1\n          fi\n          manifest_body=\"$owned_tmp/manifest.json\"\n          manifest_code=\"$(curl -sS -o \"$manifest_body\" -w '%{http_code}' --compressed --max-time 20 \\\n            \"$LIVE_BASE/manifest-pc-deploy.json?diagnostic=$GITHUB_RUN_ID\" || true)\"\n          manifest_revision=\"$(node -e '\n            const fs = require(\"node:fs\");\n            try {\n              const value = JSON.parse(fs.readFileSync(process.argv[1], \"utf8\"));\n              const candidates = [value?.revision, value?.sha, value?.commit, value?.gitSha];\n              const revision = candidates.find((item) => typeof item === \"string\" && /^[0-9a-f]{40}$/.test(item));\n              if (revision) process.stdout.write(revision);\n            } catch {}\n          ' \"$manifest_body\" 2>/dev/null || true)\"\n          rm -f \"$manifest_body\"\n          printf 'MANIFEST_HTTP=%s\\nMANIFEST_REVISION=%s\\n' \\\n            \"${manifest_code:-missing}\" \"${manifest_revision:-unknown}\" | tee -a \"$log\"\n\n          final_result=STREAM_FAIL\n          final_reason=not-established\n          passed_attempt=0\n\n          for attempt in 1 2 3; do\n            attempt_dir=\"$owned_tmp/attempt-$attempt\"\n            mkdir -- \"$attempt_dir\"\n            cookie_jar=\"$attempt_dir/cookies\"\n            notice_body=\"$attempt_dir/notice.json\"\n            consent_payload=\"$attempt_dir/consent-payload.json\"\n            consent_body=\"$attempt_dir/consent-receipt.json\"\n            reserve_body=\"$attempt_dir/reserve.json\"\n            reserve_headers=\"$attempt_dir/reserve.headers\"\n            reserve_error=\"$attempt_dir/reserve.error\"\n            stream_body=\"$attempt_dir/stream.body\"\n            stream_headers=\"$attempt_dir/stream.headers\"\n            stream_error=\"$attempt_dir/stream.error\"\n\n            # Bootstrap the signed RU presentation and real ACK in this same jar.\n            # Never publish notice snapshots, consent receipts or cookie values.\n            set +e\n            notice_code=\"$(curl -sS -o \"$notice_body\" -c \"$cookie_jar\" -b \"$cookie_jar\" \\\n              -w '%{http_code}' --compressed --max-time 20 \\\n              \"$LIVE_BASE/api/gekta/entitlement?lang=ru\" 2>/dev/null)\"\n            notice_rc=$?\n            set -e\n            consent_code=000\n            consent_rc=1\n            consent_ok=0\n            if (( notice_rc == 0 )) && [[ \"$notice_code\" == 200 ]] && node -e '\n              const fs = require(\"node:fs\");\n              try {\n                const notice = JSON.parse(fs.readFileSync(process.argv[1], \"utf8\"));\n                const p = notice.legalPresentation;\n                if (!p || p.locale !== \"ru\" || typeof p.snapshot !== \"string\" || p.snapshot.length > 2048 ||\n                    !/^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]{43}$/.test(p.snapshot)) process.exit(1);\n                const binding = JSON.parse(Buffer.from(p.snapshot.split(\".\")[0], \"base64url\"));\n                const now = Date.now();\n                if (!Number.isSafeInteger(binding.issuedAt) || binding.issuedAt < 0 ||\n                    !Number.isSafeInteger(binding.expiresAt) || binding.expiresAt !== binding.issuedAt + 900000 ||\n                    binding.issuedAt > now || now >= binding.expiresAt) process.exit(1);\n                fs.writeFileSync(process.argv[2], JSON.stringify({ action: \"consent\", locale: \"ru\", noticeSnapshot: p.snapshot }));\n              } catch { process.exit(1); }\n            ' \"$notice_body\" \"$consent_payload\"; then\n              set +e\n              consent_code=\"$(curl -sS -o \"$consent_body\" -c \"$cookie_jar\" -b \"$cookie_jar\" \\\n                -w '%{http_code}' --compressed --max-time 20 -H 'Content-Type: application/json' \\\n                --data-binary \"@$consent_payload\" \"$LIVE_BASE/api/gekta/entitlement\" 2>/dev/null)\"\n              consent_rc=$?\n              set -e\n              consent_response_at=\"$(node -e 'process.stdout.write(String(Date.now()))')\"\n              if (( consent_rc == 0 )) && [[ \"$consent_code\" == 200 ]] && node -e '\n                const fs = require(\"node:fs\");\n                try {\n                  const notice = JSON.parse(fs.readFileSync(process.argv[1], \"utf8\"));\n                  const ack = JSON.parse(fs.readFileSync(process.argv[2], \"utf8\"));\n                  const consent = ack.consent;\n                  const binding = JSON.parse(Buffer.from(notice.legalPresentation.snapshot.split(\".\")[0], \"base64url\"));\n                  const responseAt = Number(process.argv[3]);\n                  if (!Number.isSafeInteger(responseAt) || responseAt < 0 ||\n                      !Number.isSafeInteger(binding.issuedAt) || binding.issuedAt < 0 ||\n                      !Number.isSafeInteger(binding.expiresAt) || binding.expiresAt !== binding.issuedAt + 900000 ||\n                      binding.issuedAt > responseAt || responseAt >= binding.expiresAt) process.exit(1);\n                  if (!consent || typeof notice.legalVersion !== \"string\" || !notice.legalVersion ||\n                      ack.legalVersion !== notice.legalVersion || consent.version !== notice.legalVersion ||\n                      ack.consentCurrent !== true || consent.surfaceLocale !== \"ru\" ||\n                      !Number.isSafeInteger(consent.at) || consent.at < binding.issuedAt || consent.at > responseAt ||\n                      !/^sha256:[0-9a-f]{64}$/.test(consent.evidenceHash) ||\n                      consent.evidenceHash !== binding.evidenceHash || binding.locale !== \"ru\") process.exit(1);\n                } catch { process.exit(1); }\n              ' \"$notice_body\" \"$consent_body\" \"$consent_response_at\"; then consent_ok=1; fi\n            fi\n            printf 'ATTEMPT=%s NOTICE_RC=%s NOTICE_HTTP=%s CONSENT_RC=%s CONSENT_HTTP=%s CONSENT_ACK=%s\\n' \\\n              \"$attempt\" \"$notice_rc\" \"${notice_code:-missing}\" \"$consent_rc\" \"$consent_code\" \"$consent_ok\" | tee -a \"$log\"\n            if (( consent_ok != 1 )); then\n              final_reason=consent-bootstrap-failed\n              rm -f \"$cookie_jar\" \"$notice_body\" \"$consent_payload\" \"$consent_body\" \\\n                \"$reserve_body\" \"$reserve_headers\" \"$reserve_error\" \"$stream_body\" \"$stream_headers\" \"$stream_error\"\n              (( attempt < 3 )) && sleep 10\n              continue\n            fi\n\n            set +e\n            reserve_metrics=\"$(curl -sS -D \"$reserve_headers\" -o \"$reserve_body\" \\\n              -c \"$cookie_jar\" -b \"$cookie_jar\" \\\n              -w '%{http_code}\\t%{content_type}\\t%{time_total}\\t%{size_download}' \\\n              --compressed --max-time 25 \\\n              -H 'Content-Type: application/json' -H 'Accept: application/json' \\\n              --data '{\"action\":\"reserve\",\"locale\":\"ru\"}' \\\n              \"$LIVE_BASE/api/gekta/entitlement\" 2>\"$reserve_error\")\"\n            reserve_rc=$?\n            set -e\n\n            IFS=$'\\t' read -r reserve_code reserve_type reserve_time reserve_bytes <<< \"$reserve_metrics\"\n            allowed=\"$(json_field \"$reserve_body\" allowed)\"\n            reserve_code_name=\"$(json_field \"$reserve_body\" code)\"\n            [[ -n \"$reserve_code_name\" ]] || reserve_code_name=\"$(json_field \"$reserve_body\" error)\"\n            ticket=\"$(json_field \"$reserve_body\" ticket)\"\n            ticket_valid=0\n            [[ \"$ticket\" =~ ^[0-9a-z]{8,12}\\.[A-Za-z0-9_-]{16}$ ]] && ticket_valid=1\n            reserve_error_text=\"$(one_line < \"$reserve_error\")\"\n\n            printf 'ATTEMPT=%s RESERVE_RC=%s RESERVE_HTTP=%s RESERVE_TYPE=%s RESERVE_TIME=%s RESERVE_BYTES=%s ALLOWED=%s TICKET_VALID=%s RESERVE_CODE=%s RESERVE_CURL_ERROR=%s\\n' \\\n              \"$attempt\" \"$reserve_rc\" \"${reserve_code:-missing}\" \"${reserve_type:-missing}\" \\\n              \"${reserve_time:-missing}\" \"${reserve_bytes:-missing}\" \"${allowed:-unknown}\" \"$ticket_valid\" \\\n              \"${reserve_code_name:-none}\" \"${reserve_error_text:-none}\" | tee -a \"$log\"\n\n            if (( reserve_rc != 0 )) || [[ \"$reserve_code\" != 200 ]] || [[ \"$allowed\" != true ]] || (( ticket_valid != 1 )); then\n              final_reason=\"reserve-${reserve_code_name:-http-${reserve_code:-missing}}\"\n              rm -f \"$notice_body\" \"$consent_payload\" \"$consent_body\" \"$cookie_jar\" \"$reserve_body\" \"$reserve_headers\" \"$reserve_error\" \\\n                \"$stream_body\" \"$stream_headers\" \"$stream_error\"\n              (( attempt < 3 )) && sleep 10\n              continue\n            fi\n\n            conversation_id=\"gektaaccept${GITHUB_RUN_ID}${attempt}\"\n            : > \"$stream_body\"\n            set +e\n            stream_metrics=\"$(curl -sS -D \"$stream_headers\" -o \"$stream_body\" \\\n              -c \"$cookie_jar\" -b \"$cookie_jar\" \\\n              -w '%{http_code}\\t%{content_type}\\t%{time_starttransfer}\\t%{time_total}\\t%{size_download}' \\\n              --no-buffer --max-time 170 \\\n              -H 'Content-Type: application/json' -H 'Accept: text/event-stream' \\\n              -H \"x-gekta-answer-ticket: $ticket\" \\\n              --data \"{\\\"message\\\":\\\"Ответь одним коротким предложением: что проверить при падении урожайности озимой пшеницы?\\\",\\\"locale\\\":\\\"ru\\\",\\\"context\\\":\\\"gekta-standalone\\\",\\\"conversationId\\\":\\\"$conversation_id\\\",\\\"history\\\":[]}\" \\\n              \"$LIVE_BASE/api/agro-chat?stream=1\" 2>\"$stream_error\")\"\n            stream_rc=$?\n            set -e\n\n            IFS=$'\\t' read -r stream_code stream_type stream_ttft stream_time stream_bytes <<< \"$stream_metrics\"\n            meta=0; token=0; done=0; complete=0\n            grep -Fq '\"event\":\"meta\"' \"$stream_body\" && meta=1\n            grep -Fq '\"event\":\"token\"' \"$stream_body\" && token=1\n            grep -Fq '\"event\":\"done\"' \"$stream_body\" && done=1\n            grep -Fq '\"complete\":true' \"$stream_body\" && complete=1\n            token_count=\"$(grep -Fo '\"event\":\"token\"' \"$stream_body\" 2>/dev/null | wc -l | tr -d ' ' || true)\"\n            body_sha=\"$(sha256sum \"$stream_body\" | awk '{print $1}')\"\n            stream_code_name=\"$(grep -Eo '\"code\"[[:space:]]*:[[:space:]]*\"[A-Z0-9_]+' \"$stream_body\" | head -n1 | sed -E 's/.*\"([A-Z0-9_]+)$/\\1/' || true)\"\n            [[ -n \"$stream_code_name\" ]] || stream_code_name=\"$(json_field \"$stream_body\" code)\"\n            stream_error_text=\"$(one_line < \"$stream_error\")\"\n\n            printf 'ATTEMPT=%s STREAM_RC=%s STREAM_HTTP=%s STREAM_TYPE=%s STREAM_TTFT=%s STREAM_TIME=%s STREAM_BYTES=%s META=%s TOKEN=%s TOKEN_COUNT=%s DONE=%s COMPLETE=%s STREAM_CODE=%s BODY_SHA256=%s STREAM_CURL_ERROR=%s\\n' \\\n              \"$attempt\" \"$stream_rc\" \"${stream_code:-missing}\" \"${stream_type:-missing}\" \\\n              \"${stream_ttft:-missing}\" \"${stream_time:-missing}\" \"${stream_bytes:-missing}\" \\\n              \"$meta\" \"$token\" \"${token_count:-0}\" \"$done\" \"$complete\" \\\n              \"${stream_code_name:-none}\" \"$body_sha\" \"${stream_error_text:-none}\" | tee -a \"$log\"\n\n            if (( stream_rc == 0 )) \\\n              && [[ \"$stream_code\" == 200 ]] \\\n              && [[ \"${stream_type,,}\" == text/event-stream* ]] \\\n              && (( meta == 1 && token == 1 && done == 1 && complete == 1 )); then\n              final_result=STREAM_PASS\n              final_reason=complete-sse\n              passed_attempt=\"$attempt\"\n              rm -f \"$notice_body\" \"$consent_payload\" \"$consent_body\" \"$cookie_jar\" \"$reserve_body\" \"$reserve_headers\" \"$reserve_error\" \\\n                \"$stream_body\" \"$stream_headers\" \"$stream_error\"\n              break\n            fi\n\n            if [[ -n \"$stream_code_name\" ]]; then\n              final_reason=\"$stream_code_name\"\n            elif (( stream_rc == 28 )); then\n              final_reason=stream-timeout\n            else\n              final_reason=\"stream-http-${stream_code:-missing}\"\n            fi\n\n            rm -f \"$notice_body\" \"$consent_payload\" \"$consent_body\" \"$cookie_jar\" \"$reserve_body\" \"$reserve_headers\" \"$reserve_error\" \\\n              \"$stream_body\" \"$stream_headers\" \"$stream_error\"\n            (( attempt < 3 )) && sleep 10\n          done\n\n          printf 'DIAGNOSTIC_RESULT=%s\\nDIAGNOSTIC_REASON=%s\\nPASSED_ATTEMPT=%s\\n' \\\n            \"$final_result\" \"$final_reason\" \"$passed_attempt\" | tee -a \"$log\"\n\n          {\n            printf '## Production Gekta stream diagnostic `%s`\\n\\n' \"$GITHUB_RUN_ID\"\n            printf -- '- manifest HTTP: `%s`\\n' \"${manifest_code:-missing}\"\n            printf -- '- manifest revision: `%s`\\n' \"${manifest_revision:-unknown}\"\n            printf -- '- diagnostic result: `%s`\\n' \"$final_result\"\n            printf -- '- reason: `%s`\\n' \"$final_reason\"\n            printf -- '- successful attempt: `%s`\\n' \"$passed_attempt\"\n            printf -- '- bounded attempts: `3`\\n'\n            printf -- '- ticket, cookie and response content published: `no`\\n'\n            printf -- '- production configuration mutation: `none`\\n'\n          } > \"$EVIDENCE_DIR/summary.md\"\n\n          echo \"result=$final_result\" >> \"$GITHUB_OUTPUT\"\n          echo \"reason=$final_reason\" >> \"$GITHUB_OUTPUT\"\n          echo \"revision=${manifest_revision:-unknown}\" >> \"$GITHUB_OUTPUT\"\n\n      - name: Publish diagnostic record\n        if: always()\n        env:\n          GH_TOKEN: ${{ github.token }}\n        shell: bash\n        run: |\n          set -euo pipefail\n          test -s \"$EVIDENCE_DIR/summary.md\"\n          gh issue comment 3048 --repo \"$GITHUB_REPOSITORY\" --body-file \"$EVIDENCE_DIR/summary.md\"\n\n      - name: Upload diagnostic evidence\n        if: always()\n        uses: actions/upload-artifact@v4\n        with:\n          name: production-gekta-stream-diagnostic-${{ github.run_id }}\n          path: ${{ env.EVIDENCE_DIR }}\n          if-no-files-found: error\n          retention-days: 30\n          compression-level: 0\n"
+    }
+  ],
+  "retentionAuthority": "Retain the entire complete corrected workflow in existing AGENTS-listed PRIMARY execution queue and unchanged-dispatcher generated prompt snapshots. Every byte of capped state114/full frozen records/progress/old queue prefix/scopes/owners is unchanged. No cap/registry/schema/decoder/verifier/test/scope rewrite. Independent exact-head queue acceptance precedes source-ref update; source does not authorize itself.",
+  "correction": "Validate safe signed-notice issuedAt/expiresAt and unchanged fifteen-minute lifetime; receipt time must be at least this issuedAt and no later than the captured acknowledgement-response time, with notice still current. Initialize owned path empty and install EXIT/INT/TERM cleanup before allocation. Validate numeric run/attempt and assign the unique RUNNER_TEMP run/attempt/PID path plus unguessable 128-bit node:crypto randomBytes suffix before fallible mkdir. Reject existing file/symlink collisions without deleting them; clear the owned pointer and fail on unsuccessful mkdir to preserve a foreign directory that wins the precheck/create race. Use umask077; create one owned directory, and put each fresh attempt jar/notice/payload/receipt/transport files below it. Delete only owned prefix; do not claim untrappable SIGKILL cleanup. Existing bounded three attempts/sleep10/stream170s/workflow15min/owner-only command/transport/redaction/event assertions remain unchanged. Split crypto256-bit identity into an unguessable path nonce and separate private128-bit ownership marker. Node allocator installs INT/TERM handlers before atomic mkdir, writes private0600 exclusive marker only after mkdir success, and removes its newly created root on marker-write failure or child signal. Parent EXIT removes only matching regular non-symlink ownership marker, preserving foreign failed-allocation+TERM paths; marker is passed on stdin, not args or logs. Precreate stream body before curl so no-response connection/TLS failure remains bounded, classifiable, and publishes final summary after up to three attempts.",
+  "privateEvidence": {
+    "status": "PASS",
+    "actualCorrectedWorkflowBlob": "cfeb4b14aa96468483823f25a127ba2b24392679",
+    "actualCorrectedWorkflowSha256": "685904acd6c16869c4fe229f2a26d3d0e69634a94e5b8e122e96c6cbe3b8dbc5",
+    "actualCorrectedWorkflowBytes": 17528,
+    "syntheticHelperPositiveCases": 4,
+    "syntheticHelperNegativeCases": 37,
+    "oldPublicAllocationFailureOwnedFilesRemaining": 2,
+    "b8AllocationCancellationOwnedDirectoriesLeaked": 1,
+    "d686ForeignCollisionRaceSentinelDeleted": true,
+    "actualNodeCrypto128BitDistinctRandomSuffixes": true,
+    "correctedActualShellCases": [
+      {
+        "fault": "mkdir:1",
+        "exitCode": 97,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "node:1",
+        "exitCode": 97,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "node:2",
+        "exitCode": 1,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "mkdir:2",
+        "exitCode": 97,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "curl:1",
+        "exitCode": 0,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "node:3",
+        "exitCode": 0,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "tee:1",
+        "exitCode": 97,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "curl:2",
+        "exitCode": 0,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "node:4",
+        "exitCode": 0,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "curl:3",
+        "exitCode": 0,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "node:5",
+        "exitCode": 97,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "node:6",
+        "exitCode": 0,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "tee:2",
+        "exitCode": 97,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "curl:4",
+        "exitCode": 0,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "tee:3",
+        "exitCode": 97,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "curl:5",
+        "exitCode": 0,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "tee:4",
+        "exitCode": 97,
+        "ownedRemaining": 0
+      },
+      {
+        "signal": "TERM-after-sensitive-files",
+        "exitCode": 143,
+        "ownedRemaining": 0
+      },
+      {
+        "signal": "TERM-during-owned-allocation-before-command-return",
+        "exitCode": 143,
+        "ownedRemaining": 0
+      },
+      {
+        "collision": "exact-run-attempt-pid",
+        "exitCode": 1,
+        "ownedRemaining": 0,
+        "foreignSentinelPreserved": true
+      },
+      {
+        "race": "foreign-created-after-precheck-before-mkdir",
+        "exitCode": 1,
+        "ownedRemaining": 0,
+        "foreignSentinelPreserved": true
+      },
+      {
+        "race": "foreign-collision-plus-TERM-before-failed-allocator-return",
+        "exitCode": 143,
+        "ownedRemaining": 0,
+        "foreignSentinelPreserved": true
+      },
+      {
+        "signal": "TERM-between-actual-mkdir-and-marker-write",
+        "exitCode": 143,
+        "ownedRemaining": 0
+      },
+      {
+        "fault": "actual-marker-write-failure-after-mkdir",
+        "exitCode": 1,
+        "ownedRemaining": 0
+      },
+      {
+        "race": "forged-path-nonce-marker-plus-failed-allocation-TERM",
+        "exitCode": 143,
+        "ownedRemaining": 0,
+        "foreignSentinelPreserved": true
+      },
+      {
+        "transport": "three-no-response-body-connection-failures",
+        "exitCode": 0,
+        "ownedRemaining": 0,
+        "attempts": 3,
+        "failureSummaryPublished": true
+      },
+      {
+        "normal": "synthetic-success",
+        "exitCode": 0,
+        "ownedRemaining": 0
+      }
+    ],
+    "usesCommandDoubles": true,
+    "realNetworkOrProductionMutation": false,
+    "nativeOrLivePass": false,
+    "untrappableSigkillNotClaimed": true
+  },
+  "mandatoryNext": "Genuine fresh independent full queue/payload review, distinct author audit, all applicable native CI/security/current canonical literal READY/new whole/manual expected-full-SHA queue acceptance. Then original diagnostic branch keeps old c846 and actual newly accepted main as parents; publish exactly this full workflow with frozen scope2/owner, normal expected-old force=false, NEW bounded source phase/fresh independent review/syntax/security/authority/current canonical/new whole/manual. Resolve original actual findings only after correction and genuine fresh clean review. Do not transfer old head PASS, reset/extend terminal phases, loop retries, drop checks, weaken guards, force/auto merge, or run diagnostic before final anonymous release. Frozen Anon17 and real REG.RU/model-oneuse/HUMAN ceremony follow actual dependencies.",
+  "publicationStatus": "QUEUE_CORRECTIVE_PURPOSE_ONLY_IMPLEMENTATION_UNACCEPTED",
+  "correctsOnlyUnacceptedQueue": {
+    "head": "b6f0a6ff70efb41bfde0b908b4076cbda3c22916",
+    "pr": 5877,
+    "findings": [
+      4236752109,
+      4236752612
+    ],
+    "threads": [
+      "PRRT_kwDOR7So_c6rB06_",
+      "PRRT_kwDOR7So_c6rB0_J"
+    ],
+    "terminalRelease": 6094798812,
+    "originalFailure": "Owned mktemp command substitution can receive TERM after allocation and before cleanup traps exist.",
+    "subsequentHead": "de5aa7909d608bcecaa2dc64460d84d5321e2d44",
+    "subsequentFindings": [
+      4236799491
+    ],
+    "subsequentThreads": [
+      "PRRT_kwDOR7So_c6rB8YG"
+    ],
+    "subsequentTerminalRelease": 6094939213,
+    "secondSubsequentHead": "50d0cd09a67b8aa7fdd51f23a652e16cc294c791",
+    "secondSubsequentFindings": [
+      4236825404
+    ],
+    "secondSubsequentThreads": [
+      "PRRT_kwDOR7So_c6rCAdv"
+    ],
+    "secondSubsequentTerminalRelease": 6095002185,
+    "secondSubsequentAuthorReproduction": "Actual foreign-after-precheck collision plus TERM after failing mkdir before return deletes sentinel despite random suffix/pointer clear; marker-gated cleanup required."
+  }
+}
+```
