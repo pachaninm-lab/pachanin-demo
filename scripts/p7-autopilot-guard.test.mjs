@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { inflateSync } from 'node:zlib';
-import test from 'node:test';
+import test, { after } from 'node:test';
 
 const finalPublicBranches = [
   'agent/platform-v7-strategic-rebuild-v3',
@@ -299,7 +299,44 @@ function commit(root, message) {
   git(root, ['commit', '-m', message]);
 }
 
+// Reuse only an immutable copy of a genuine baseline built by the unchanged
+// constructor. Every caller receives separate files, refs and mutable history.
+const fixtureSnapshots = new Map();
+let fixtureSnapshotDirectory;
+after(() => {
+  if (fixtureSnapshotDirectory) fs.rmSync(fixtureSnapshotDirectory, { recursive: true, force: true });
+});
+
 function fixture(t, implementationBranch) {
+  // Conditional includes may activate only after the fixture Git directory exists.
+  // Conservatively retain the constructor for any conditional include or custom setup.
+  if (Object.keys(process.env).some(name => name.startsWith('GIT_') && name !== 'GIT_PAGER')) return constructFixture(t, implementationBranch);
+  const custom = spawnSync('git', ['config', '--includes', '--get-regexp', '^(core\\.[Hh]ooks[Pp]ath|init\\.[Tt]emplate[Dd]ir|include[Ii]f\\..*\\.path)$'], { cwd: os.tmpdir(), encoding: 'utf8' });
+  if (custom.status !== 1) return constructFixture(t, implementationBranch);
+  const guard = fs.readFileSync(sourceGuard, 'utf8');
+  const resolver = fs.readFileSync(sourceResolver, 'utf8');
+  const key = createHash('sha256').update(JSON.stringify([implementationBranch, guard, resolver])).digest('hex');
+  const previous = fixtureSnapshots.get(key);
+  if (previous) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-immutable-scope-guard-'));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
+    fs.cpSync(previous.directory, root, { recursive: true, dereference: false });
+    assert.equal(fs.readFileSync(path.join(root, '.git', 'HEAD'), 'utf8'), `ref: refs/heads/${implementationBranch}\n`);
+    assert.equal(fs.readFileSync(path.join(root, '.git', 'refs', 'heads', implementationBranch), 'utf8'), `${previous.baseline}\n`);
+    return { root, baseline: previous.baseline, implementationBranch };
+  }
+  const context = constructFixture(t, implementationBranch);
+  if (fs.readFileSync(path.join(context.root, 'scripts/p7-autopilot-guard.sh'), 'utf8') !== guard ||
+      fs.readFileSync(path.join(context.root, 'scripts/p7-source-controlled-scope.mjs'), 'utf8') !== resolver ||
+      fs.readdirSync(path.join(context.root, '.git', 'hooks')).some(name => !name.endsWith('.sample'))) return context;
+  fixtureSnapshotDirectory ??= fs.mkdtempSync(path.join(os.tmpdir(), 'p7-fixture-snapshots-'));
+  const directory = path.join(fixtureSnapshotDirectory, key);
+  fs.cpSync(context.root, directory, { recursive: true, dereference: false });
+  fixtureSnapshots.set(key, { directory, baseline: context.baseline });
+  return context;
+}
+
+function constructFixture(t, implementationBranch) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-immutable-scope-guard-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
