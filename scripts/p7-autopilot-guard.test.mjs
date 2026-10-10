@@ -5,7 +5,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { inflateSync } from 'node:zlib';
-import test from 'node:test';
+import test, { after } from 'node:test';
 
 const finalPublicBranches = [
   'agent/platform-v7-strategic-rebuild-v3',
@@ -223,6 +223,30 @@ const gitleaksCurrentReviewedEntries =
   '        "3b76d0f3473b986b6354aaac528994f7ac343df2:"\n' +
   '        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"\n' +
   '        "generic-api-key:17",\n';
+const gitleaksSessionMintingAnchor =
+  '        "3b76d0f3473b986b6354aaac528994f7ac343df2:"\n' +
+  '        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"\n' +
+  '        "generic-api-key:17",\n';
+const gitleaksSessionMintingEntries =
+  '        "8e1febfffeb4da36f1dba9badb7522ddb6513c1d:"\n' +
+  '        "apps/web/tests/unit/sessionMintingSurface.spec.ts:generic-api-key:137",\n' +
+  '        "8e1febfffeb4da36f1dba9badb7522ddb6513c1d:"\n' +
+  '        "apps/web/tests/unit/sessionMintingSurface.spec.ts:generic-api-key:138",\n';
+
+// Historical attestation phases are bound to immutable accepted blobs, never to
+// the mutable repository test, so later accepted synchronizations cannot shift
+// their baselines.
+function acceptedBlob(blob) {
+  const result = spawnSync('git', ['cat-file', 'blob', blob], { encoding: 'utf8' });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  return result.stdout;
+}
+
+function blobOf(content) {
+  const result = spawnSync('git', ['hash-object', '--stdin'], { input: content, encoding: 'utf8' });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  return result.stdout.trim();
+}
 
 function baselineGitleaksReleaseAttestation(source) {
   const serviceCount = source.split(gitleaksServiceMarketplace).length - 1;
@@ -275,7 +299,44 @@ function commit(root, message) {
   git(root, ['commit', '-m', message]);
 }
 
+// Reuse only an immutable copy of a genuine baseline built by the unchanged
+// constructor. Every caller receives separate files, refs and mutable history.
+const fixtureSnapshots = new Map();
+let fixtureSnapshotDirectory;
+after(() => {
+  if (fixtureSnapshotDirectory) fs.rmSync(fixtureSnapshotDirectory, { recursive: true, force: true });
+});
+
 function fixture(t, implementationBranch) {
+  // Conditional includes may activate only after the fixture Git directory exists.
+  // Conservatively retain the constructor for any conditional include or custom setup.
+  if (Object.keys(process.env).some(name => name.startsWith('GIT_') && name !== 'GIT_PAGER')) return constructFixture(t, implementationBranch);
+  const custom = spawnSync('git', ['config', '--includes', '--get-regexp', '^(core\\.[Hh]ooks[Pp]ath|init\\.[Tt]emplate[Dd]ir|include[Ii]f\\..*\\.path)$'], { cwd: os.tmpdir(), encoding: 'utf8' });
+  if (custom.status !== 1) return constructFixture(t, implementationBranch);
+  const guard = fs.readFileSync(sourceGuard, 'utf8');
+  const resolver = fs.readFileSync(sourceResolver, 'utf8');
+  const key = createHash('sha256').update(JSON.stringify([implementationBranch, guard, resolver])).digest('hex');
+  const previous = fixtureSnapshots.get(key);
+  if (previous) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-immutable-scope-guard-'));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
+    fs.cpSync(previous.directory, root, { recursive: true, dereference: false });
+    assert.equal(fs.readFileSync(path.join(root, '.git', 'HEAD'), 'utf8'), `ref: refs/heads/${implementationBranch}\n`);
+    assert.equal(fs.readFileSync(path.join(root, '.git', 'refs', 'heads', implementationBranch), 'utf8'), `${previous.baseline}\n`);
+    return { root, baseline: previous.baseline, implementationBranch };
+  }
+  const context = constructFixture(t, implementationBranch);
+  if (fs.readFileSync(path.join(context.root, 'scripts/p7-autopilot-guard.sh'), 'utf8') !== guard ||
+      fs.readFileSync(path.join(context.root, 'scripts/p7-source-controlled-scope.mjs'), 'utf8') !== resolver ||
+      fs.readdirSync(path.join(context.root, '.git', 'hooks')).some(name => !name.endsWith('.sample'))) return context;
+  fixtureSnapshotDirectory ??= fs.mkdtempSync(path.join(os.tmpdir(), 'p7-fixture-snapshots-'));
+  const directory = path.join(fixtureSnapshotDirectory, key);
+  fs.cpSync(context.root, directory, { recursive: true, dereference: false });
+  fixtureSnapshots.set(key, { directory, baseline: context.baseline });
+  return context;
+}
+
+function constructFixture(t, implementationBranch) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-immutable-scope-guard-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
@@ -433,9 +494,8 @@ function kindMinioImageSourceFixture(t) {
   return context;
 }
 
-function gitleaksReleaseAttestationFixture(t) {
+function gitleaksReleaseAttestationFixture(t, source = fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8')) {
   const context = fixture(t, gitleaksReleaseAttestationBranch);
-  const source = fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8');
   write(context.root, gitleaksReleaseAttestationPath, baselineGitleaksReleaseAttestation(source));
   const state = JSON.parse(fs.readFileSync(path.join(context.root, 'docs/platform-v7/autopilot/autopilot-state.json'), 'utf8'));
   state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [gitleaksReleaseAttestationPath];
@@ -493,13 +553,13 @@ for (const mutation of ['remove existing assertion', 'add fifth fingerprint', 'a
 
 function currentGitleaksReleaseAttestationFixture(t) {
   const context = fixture(t, gitleaksReleaseAttestationBranch);
-  const source = fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8');
-  const count = source.split(gitleaksCurrentReviewedEntries).length - 1;
-  assert.ok(count === 0 || count === 1, 'current reviewed entries occur together at most once');
-  write(context.root, gitleaksReleaseAttestationPath, source.replace(gitleaksCurrentReviewedEntries, ''));
-  for (const file of ['.gitleaksignore', 'apps/tai/release-source-manifest.json']) {
-    write(context.root, file, fs.readFileSync(file, 'utf8'));
-  }
+  // The accepted test before the two-existing-fingerprint repair.
+  write(context.root, gitleaksReleaseAttestationPath, acceptedBlob('e589046fc52daf8a3632f70b6879543934be56ff'));
+  // This fixture models the immutable historical attestation, not today's allowlist.
+  const historicalIgnore = spawnSync('git', ['cat-file', 'blob', '5c151dc1a2b5329fb2d4feb1fd0c1713bbef96db'], { encoding: 'utf8' });
+  assert.equal(historicalIgnore.status, 0, `${historicalIgnore.stdout}\n${historicalIgnore.stderr}`);
+  write(context.root, '.gitleaksignore', historicalIgnore.stdout);
+  write(context.root, 'apps/tai/release-source-manifest.json', fs.readFileSync('apps/tai/release-source-manifest.json', 'utf8'));
   const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
   const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
   state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [gitleaksReleaseAttestationPath];
@@ -633,6 +693,220 @@ test('current Gitleaks attestation rejects implementation-owned scope and guard 
     assert.notEqual(result.status, 0, output(result));
     assert.match(output(result), /Mutable scope authority changed on a PC-CROP immutable-scope implementation branch/u);
   }
+});
+
+function sessionMintingGitleaksReleaseAttestationFixture(t) {
+  const context = fixture(t, gitleaksReleaseAttestationBranch);
+  // The accepted test after the two-existing-fingerprint repair.
+  write(context.root, gitleaksReleaseAttestationPath, acceptedBlob('404e172449f53c01369ef974a50079d6f6967d56'));
+  // The accepted ignore file that already carries the two #5804 fingerprints.
+  write(context.root, '.gitleaksignore', acceptedBlob('2c7aaa811ed3ea3dd1cf806ed1126705c173591b'));
+  write(context.root, 'apps/tai/release-source-manifest.json', acceptedBlob('35f96ccc7fe332ddd90454eeee19853ba0612b71'));
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+  state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [gitleaksReleaseAttestationPath];
+  write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+  commit(context.root, 'accepted exact session-minting Gitleaks attestation inputs');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  assert.equal(git(context.root, ['rev-parse', `${context.baseline}:${gitleaksReleaseAttestationPath}`]), '404e172449f53c01369ef974a50079d6f6967d56');
+  assert.equal(git(context.root, ['rev-parse', `${context.baseline}:.gitleaksignore`]), '2c7aaa811ed3ea3dd1cf806ed1126705c173591b');
+  assert.equal(git(context.root, ['rev-parse', `${context.baseline}:apps/tai/release-source-manifest.json`]), '35f96ccc7fe332ddd90454eeee19853ba0612b71');
+  return context;
+}
+
+function synchronizeSessionMintingGitleaksReleaseAttestation(baseline) {
+  assert.equal(baseline.split(gitleaksSessionMintingAnchor).length - 1, 1);
+  return baseline.replace(gitleaksSessionMintingAnchor, gitleaksSessionMintingAnchor + gitleaksSessionMintingEntries);
+}
+
+test('session-minting Gitleaks attestation accepts only the exact two-fingerprint synchronization', (t) => {
+  const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+  const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(baseline));
+  commit(context.root, 'synchronize session-minting fingerprint attestation');
+  assert.equal(git(context.root, ['rev-parse', `HEAD:${gitleaksReleaseAttestationPath}`]), '95c914d64012a6260ca1090a01844b2c6f56cc3a');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+
+for (const mutation of [
+  'remove manifest assertion', 'weaken format assertion', 'remove old fingerprint',
+  'add extra fingerprint', 'alter first fingerprint', 'alter second fingerprint',
+  'omit first fingerprint', 'omit second fingerprint', 'reverse fingerprint order',
+]) {
+  test(`session-minting Gitleaks attestation rejects candidate content: ${mutation}`, (t) => {
+    const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    let candidate = synchronizeSessionMintingGitleaksReleaseAttestation(baseline);
+    if (mutation === 'remove manifest assertion') candidate = candidate.replace('    assert ".gitleaksignore" in manifest["files"]\n', '');
+    if (mutation === 'weaken format assertion') candidate = candidate.replace('    assert all(_FINGERPRINT.fullmatch(entry) is not None for entry in entries)\n', '    assert True\n');
+    if (mutation === 'remove old fingerprint') candidate = candidate.replace(gitleaksCommodityAnchor, '');
+    if (mutation === 'add extra fingerprint') candidate = candidate.replace('    ]\n', '        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:extra.py:generic-api-key:1",\n    ]\n');
+    if (mutation === 'alter first fingerprint') candidate = candidate.replace('generic-api-key:137', 'generic-api-key:139');
+    if (mutation === 'alter second fingerprint') candidate = candidate.replace('generic-api-key:138', 'generic-api-key:139');
+    const lines = gitleaksSessionMintingEntries.split('\n').filter(Boolean);
+    if (mutation === 'omit first fingerprint') candidate = candidate.replace(gitleaksSessionMintingEntries, `${lines.slice(2).join('\n')}\n`);
+    if (mutation === 'omit second fingerprint') candidate = candidate.replace(gitleaksSessionMintingEntries, `${lines.slice(0, 2).join('\n')}\n`);
+    if (mutation === 'reverse fingerprint order') candidate = candidate.replace(gitleaksSessionMintingEntries, `${[...lines.slice(2), ...lines.slice(0, 2)].join('\n')}\n`);
+    write(context.root, gitleaksReleaseAttestationPath, candidate);
+    commit(context.root, `attempt ${mutation}`);
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Gitleaks release attestation head must be the exact session-minting regular-file repair/u);
+  });
+}
+
+for (const file of ['.gitleaksignore', 'apps/tai/release-source-manifest.json']) {
+  for (const side of ['base', 'head']) {
+    test(`session-minting Gitleaks attestation rejects ${side} input drift: ${file}`, (t) => {
+      const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+      if (side === 'base') {
+        fs.appendFileSync(path.join(context.root, file), '\n');
+        commit(context.root, 'drift accepted input');
+        context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+      }
+      const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+      write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(baseline));
+      if (side === 'head') fs.appendFileSync(path.join(context.root, file), '\n');
+      commit(context.root, 'attempt repair with drifting input');
+      const result = runTrustedCurrentGitleaksGuard(context);
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /Gitleaks release attestation input must remain the exact accepted regular file/u);
+    });
+  }
+}
+
+test('session-minting Gitleaks attestation rejects baseline assertion drift', (t) => {
+  const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+  const file = path.join(context.root, gitleaksReleaseAttestationPath);
+  write(context.root, gitleaksReleaseAttestationPath, fs.readFileSync(file, 'utf8').replace('    assert ".gitleaksignore" in manifest["files"]\n', ''));
+  commit(context.root, 'drift accepted test assertion');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(fs.readFileSync(file, 'utf8')));
+  commit(context.root, 'attempt repair over drifting test');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Gitleaks release attestation commodity-profile anchor must occur exactly once/u);
+});
+
+for (const side of ['base', 'head']) {
+  test(`session-minting Gitleaks attestation rejects ${side} executable mode`, (t) => {
+    const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+    if (side === 'base') {
+      fs.chmodSync(path.join(context.root, gitleaksReleaseAttestationPath), 0o755);
+      commit(context.root, 'drift accepted test mode');
+      context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    }
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(baseline), 0o755);
+    commit(context.root, 'attempt executable test repair');
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Gitleaks release attestation (baseline|head) must be the exact/u);
+  });
+}
+
+test('session-minting Gitleaks attestation rejects implementation-owned scope and guard expansion', (t) => {
+  for (const target of ['state', 'guard']) {
+    const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(baseline));
+    if (target === 'state') {
+      const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+      state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch].push('README.md');
+      write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+      write(context.root, 'README.md', 'unapproved self-admission\n');
+    } else {
+      write(context.root, 'scripts/p7-autopilot-guard.sh', '#!/usr/bin/env bash\nexit 0\n');
+    }
+    commit(context.root, `attempt candidate ${target} authority`);
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    // The one-file rule of this phase is the first defence that rejects the mix.
+    assert.match(output(result), /Gitleaks release attestation session-minting repair must change exactly the attestation test/u);
+  }
+});
+
+for (const other of ['apps/landing/package.json', 'docs/ip/internal-package-metadata-exceptions.json']) {
+  test(`session-minting Gitleaks attestation rejects a mixed diff with ${other}`, (t) => {
+    const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+    // Model the real attestation ref vector, so the mix is otherwise in scope.
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [
+      gitleaksReleaseAttestationPath, 'apps/landing/package.json', 'docs/ip/internal-package-metadata-exceptions.json',
+    ];
+    write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+    write(context.root, other, '{}\n');
+    commit(context.root, 'accepted attestation ref vector with metadata paths');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(baseline));
+    write(context.root, other, '{"changed":true}\n');
+    commit(context.root, `attempt test synchronization mixed with ${other}`);
+    const result = runTrustedCurrentGitleaksGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Gitleaks release attestation session-minting repair must change exactly the attestation test/u);
+  });
+}
+
+test('legacy Gitleaks attestation phase cannot apply the session-minting synchronization', (t) => {
+  const context = gitleaksReleaseAttestationFixture(t);
+  const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(synchronizeGitleaksReleaseAttestation(baseline)));
+  commit(context.root, 'attempt legacy and session-minting synchronizations together');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /must add exactly four reviewed fingerprints/u);
+});
+
+test('session-minting Gitleaks attestation phase cannot apply an earlier phase transformation', (t) => {
+  const context = sessionMintingGitleaksReleaseAttestationFixture(t);
+  const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(baseline));
+  commit(context.root, 'attempt the two-existing-fingerprint transformation again');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Gitleaks release attestation head must be the exact session-minting regular-file repair/u);
+});
+
+test('historical Gitleaks attestation fixtures hold for every accepted repository test revision', (t) => {
+  const stepC = synchronizeSessionMintingGitleaksReleaseAttestation(acceptedBlob('404e172449f53c01369ef974a50079d6f6967d56'));
+  assert.equal(blobOf(stepC), '95c914d64012a6260ca1090a01844b2c6f56cc3a');
+  for (const [revision, source] of [
+    ['404e1724', acceptedBlob('404e172449f53c01369ef974a50079d6f6967d56')],
+    ['95c914d6', stepC],
+  ]) {
+    // The legacy four-fingerprint phase is the only one still derived from the repository test.
+    const normalizedBaseline = baselineGitleaksReleaseAttestation(source);
+    assert.equal(baselineGitleaksReleaseAttestation(synchronizeGitleaksReleaseAttestation(normalizedBaseline)), normalizedBaseline, revision);
+    const legacy = gitleaksReleaseAttestationFixture(t, source);
+    const legacyBaseline = fs.readFileSync(path.join(legacy.root, gitleaksReleaseAttestationPath), 'utf8');
+    write(legacy.root, gitleaksReleaseAttestationPath, synchronizeGitleaksReleaseAttestation(legacyBaseline));
+    commit(legacy.root, `synchronize legacy attestation from ${revision}`);
+    const legacyResult = runGuard(legacy);
+    assert.equal(legacyResult.status, 0, `${revision}\n${output(legacyResult)}`);
+  }
+  // The two later phases start from immutable accepted blobs whatever the repository test holds.
+  const current = currentGitleaksReleaseAttestationFixture(t);
+  write(current.root, gitleaksReleaseAttestationPath, synchronizeCurrentGitleaksReleaseAttestation(fs.readFileSync(path.join(current.root, gitleaksReleaseAttestationPath), 'utf8')));
+  commit(current.root, 'synchronize current exact fingerprint attestation');
+  assert.equal(runTrustedCurrentGitleaksGuard(current).status, 0);
+  const session = sessionMintingGitleaksReleaseAttestationFixture(t);
+  write(session.root, gitleaksReleaseAttestationPath, stepC);
+  commit(session.root, 'synchronize session-minting fingerprint attestation');
+  assert.equal(runTrustedCurrentGitleaksGuard(session).status, 0);
+});
+
+test('earlier Gitleaks attestation phase cannot apply the session-minting synchronization', (t) => {
+  const context = currentGitleaksReleaseAttestationFixture(t);
+  const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+  write(context.root, gitleaksReleaseAttestationPath, synchronizeSessionMintingGitleaksReleaseAttestation(synchronizeCurrentGitleaksReleaseAttestation(baseline)));
+  commit(context.root, 'attempt both synchronizations from the earlier baseline');
+  const result = runTrustedCurrentGitleaksGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Gitleaks release attestation head must be the exact two-fingerprint regular-file repair/u);
 });
 
 test('kind MinIO image-source scope accepts exactly three paths and rejects ci.yml', (t) => {
@@ -1273,6 +1547,136 @@ test('Qwen failed-evidence candidate regressions run unprivileged and block the 
     assert.equal(result.status === 0, !fails, output(result));
   }
 });
+
+test('admission blockers survive actual dispatcher regeneration without duplication or maturity credit', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-admission-dispatcher-regression-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  state.current = 'R1 release prerequisite: atomic canonical readiness recovery #4829';
+  state.currentStatus = 'blocked';
+  state.coordinationAdmissions.fixtureOne = { dispatcherBlocker: 'Own fixture: source acceptance remains pending.' };
+  state.coordinationAdmissions.fixtureDuplicate = { dispatcherBlocker: 'Own fixture: source acceptance remains pending.' };
+  state.coordinationAdmissions.fixtureTwo = { dispatcherBlocker: 'Own fixture: actual runtime remains pending.' };
+  const section = '\n## Own admission fixture\nSource and runtime acceptance remain separate.\n';
+  write(root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify(state));
+  write(root, 'docs/platform-v7/execution-queue.md', fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8') + section);
+  write(root, 'docs/platform-v7/autopilot/progress.json', JSON.stringify({ fullTzReadinessPercent: 5 }));
+  for (const file of ['current-codex-task.md', 'current-review-task.md']) write(root, 'docs/platform-v7/autopilot/prompts/' + file, 'Before regeneration');
+  for (let run = 0; run < 2; run += 1) {
+    const result = spawnSync(process.execPath, [path.resolve('scripts/p7-autopilot-dispatcher.mjs')], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, output(result));
+    const progress = JSON.parse(fs.readFileSync(path.join(root, 'docs/platform-v7/autopilot/progress.json'), 'utf8'));
+    assert.equal(progress.fullTzReadinessPercent, 5);
+    assert.equal(progress.currentStep, state.current);
+    for (const blocker of ['Own fixture: source acceptance remains pending.', 'Own fixture: actual runtime remains pending.']) assert.equal(progress.blockedBy.filter(x => x === blocker).length, 1);
+    for (const file of ['current-codex-task.md', 'current-review-task.md']) {
+      const text = fs.readFileSync(path.join(root, 'docs/platform-v7/autopilot/prompts', file), 'utf8');
+      assert.equal(text.split(section).length - 1, 1);
+      assert.ok(text.includes('Own fixture: source acceptance remains pending.'));
+      assert.ok(text.includes('Own fixture: actual runtime remains pending.'));
+    }
+  }
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'docs/platform-v7/autopilot/autopilot-state.json'), 'utf8')), state);
+});
+
+test('invalid admission blocker fails the dispatcher before writing generated outputs', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-invalid-admission-blocker-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  const originalProgress = JSON.stringify({ fullTzReadinessPercent: 5, blockedBy: ['Existing truthful blocker'] });
+  for (const value of [false, '', ' ', 'first\nsecond', 'x'.repeat(2001)]) {
+    state.coordinationAdmissions.fixtureInvalid = { dispatcherBlocker: value };
+    write(root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify(state));
+    write(root, 'docs/platform-v7/execution-queue.md', fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8'));
+    write(root, 'docs/platform-v7/autopilot/progress.json', originalProgress);
+    for (const file of ['current-codex-task.md', 'current-review-task.md']) write(root, 'docs/platform-v7/autopilot/prompts/' + file, 'Original prompt');
+    const result = spawnSync(process.execPath, [path.resolve('scripts/p7-autopilot-dispatcher.mjs')], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Invalid dispatcher admission blocker: fixtureInvalid/u);
+    assert.equal(fs.readFileSync(path.join(root, 'docs/platform-v7/autopilot/progress.json'), 'utf8'), originalProgress);
+    for (const file of ['current-codex-task.md', 'current-review-task.md']) assert.equal(fs.readFileSync(path.join(root, 'docs/platform-v7/autopilot/prompts', file), 'utf8'), 'Original prompt');
+  }
+});
+
+function dispatcherSupersessionFixture(t, state) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-dispatcher-supersession-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  write(root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify(state));
+  write(root, 'docs/platform-v7/execution-queue.md', fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8'));
+  const outputs = ['docs/platform-v7/autopilot/progress.json', 'docs/platform-v7/autopilot/prompts/current-codex-task.md', 'docs/platform-v7/autopilot/prompts/current-review-task.md'];
+  for (const file of outputs) write(root, file, file.endsWith('.json') ? JSON.stringify({ fullTzReadinessPercent: 5, blockedBy: ['Original blocker'] }) : 'Original prompt');
+  return { root, outputs, run: () => spawnSync(process.execPath, [path.resolve('scripts/p7-autopilot-dispatcher.mjs')], { cwd: root, encoding: 'utf8' }) };
+}
+
+test('dispatcher supersession: actual registered18 and anonymous17 retire old requirements transitively while frozen records and current stay unchanged', (t) => {
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  const registered = state.coordinationAdmissions['gekta-registration-refresh-ci-correction-20261009'];
+  const anonymous = state.coordinationAdmissions['gekta-anonymous-document-evidence-20261009'];
+  const originalRegistered = state.coordinationAdmissions['gekta-registration-document-evidence-20261008'];
+  state.coordinationAdmissions = {
+    'gekta-registration-document-evidence-20261008': originalRegistered,
+    'gekta-registration-refresh-ci-correction-20261009': registered,
+    'gekta-anonymous-document-evidence-20261009': anonymous,
+  };
+  const extra = ['apps/web/middleware.ts', 'apps/web/tests/unit/gektaAnonymousLegalRoutes.test.ts'];
+  for (const path of extra) if (!state.approvedConcurrentScopes[registered.implementationBranch].includes(path)) state.approvedConcurrentScopes[registered.implementationBranch].push(path);
+  state.coordinationAdmissions.fixtureRegistered18 = {
+    ...structuredClone(registered), sourcePayloads: [...registered.sourcePayloads, ...extra.map(path => ({ path }))],
+    supersedesUnacceptedPayloadOf: 'gekta-registration-refresh-ci-correction-20261009', dispatcherBlocker: 'Current registered eighteen-path source remains pending.',
+  };
+  state.coordinationAdmissions.fixtureAnonymous17 = {
+    ...structuredClone(anonymous), sourcePayloads: anonymous.sourcePayloads.filter(pin => !extra.includes(pin.path)),
+    supersedesUnacceptedPayloadOf: 'gekta-anonymous-document-evidence-20261009', dispatcherBlocker: 'Current anonymous seventeen-path source remains pending.',
+  };
+  const fixture = dispatcherSupersessionFixture(t, state);
+  const retired = [registered.dispatcherBlocker, anonymous.dispatcherBlocker, state.coordinationAdmissions['gekta-registration-document-evidence-20261008'].dispatcherBlocker];
+  const active = [state.coordinationAdmissions.fixtureRegistered18.dispatcherBlocker, state.coordinationAdmissions.fixtureAnonymous17.dispatcherBlocker];
+  for (let iteration = 0; iteration < 2; iteration += 1) {
+    const result = fixture.run(); assert.equal(result.status, 0, output(result));
+    const progress = JSON.parse(fs.readFileSync(path.join(fixture.root, fixture.outputs[0]), 'utf8'));
+    for (const blocker of retired) assert.equal(progress.blockedBy.includes(blocker), false, blocker);
+    for (const blocker of active) assert.equal(progress.blockedBy.filter(value => value === blocker).length, 1);
+    assert.equal(progress.currentStep, state.current); assert.equal(progress.nextStep, state.current); assert.equal(progress.fullTzReadinessPercent, 5);
+    for (const file of fixture.outputs.slice(1)) {
+      const prompt = fs.readFileSync(path.join(fixture.root, file), 'utf8').split('## Active queue')[0].split('## Queue snapshot')[0];
+      for (const blocker of retired) assert.equal(prompt.includes(`- BLOCKED: ${blocker}`), false);
+      for (const blocker of active) assert.equal(prompt.split(`- BLOCKED: ${blocker}`).length - 1, 1);
+    }
+  }
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(fixture.root, 'docs/platform-v7/autopilot/autopilot-state.json'), 'utf8')), state);
+});
+
+const invalidDispatcherSupersessions = [
+  ['missing target', s => { s.coordinationAdmissions.fixtureChild.supersedesUnacceptedPayloadOf = 'missing'; }],
+  ['blank target', s => { s.coordinationAdmissions.fixtureChild.supersedesUnacceptedPayloadOf = ' '; }],
+  ['multiline target', s => { s.coordinationAdmissions.fixtureChild.supersedesUnacceptedPayloadOf = 'fixtureParent\n'; }],
+  ['non-string target', s => { s.coordinationAdmissions.fixtureChild.supersedesUnacceptedPayloadOf = []; }],
+  ['self target', s => { s.coordinationAdmissions.fixtureChild.supersedesUnacceptedPayloadOf = 'fixtureChild'; }],
+  ['cycle', s => { s.coordinationAdmissions.fixtureParent.supersedesUnacceptedPayloadOf = 'fixtureChild'; }],
+  ['foreign owner', s => { s.coordinationAdmissions.fixtureChild.owner = 'OTHER_OWNER'; }],
+  ['missing owner', s => { delete s.coordinationAdmissions.fixtureChild.owner; }],
+  ['no replacement blocker', s => { delete s.coordinationAdmissions.fixtureChild.dispatcherBlocker; }],
+  ['non-source target', s => { delete s.coordinationAdmissions.fixtureParent.sourcePayloads; }],
+  ['unrelated source lineage', s => { s.coordinationAdmissions.fixtureChild.sourcePayloads = [{ path: 'fixture/unrelated' }]; }],
+  ['duplicate source path', s => { s.coordinationAdmissions.fixtureChild.sourcePayloads.push({ path: 'fixture/a' }); }],
+  ['missing approved source scope', s => { delete s.approvedConcurrentScopes['fixture/source']; }],
+  ['scope without source path', s => { s.approvedConcurrentScopes['fixture/source'] = ['fixture/b']; }],
+  ['ambiguous fork', s => { s.coordinationAdmissions.fixtureFork = { ...structuredClone(s.coordinationAdmissions.fixtureChild), dispatcherBlocker: 'Competing pending source.' }; }],
+];
+for (const [name, mutate] of invalidDispatcherSupersessions) {
+  test(`dispatcher supersession: rejects ${name} before writing progress or prompts`, (t) => {
+    const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+    const source = { owner: 'FIXTURE_SOURCE_OWNER', implementationBranch: 'fixture/source', sourcePayloads: [{ path: 'fixture/a' }, { path: 'fixture/b' }], dispatcherBlocker: 'Original pending source.' };
+    state.approvedConcurrentScopes['fixture/source'] = ['fixture/a', 'fixture/b'];
+    state.coordinationAdmissions.fixtureParent = source;
+    state.coordinationAdmissions.fixtureChild = { ...structuredClone(source), sourcePayloads: [{ path: 'fixture/a' }], supersedesUnacceptedPayloadOf: 'fixtureParent', dispatcherBlocker: 'Replacement pending source.' };
+    mutate(state); const fixture = dispatcherSupersessionFixture(t, state);
+    const before = fixture.outputs.map(file => fs.readFileSync(path.join(fixture.root, file), 'utf8'));
+    const result = fixture.run(); assert.equal(result.status, 1, output(result)); assert.match(result.stderr, /Invalid dispatcher admission supersession/u);
+    assert.deepEqual(fixture.outputs.map(file => fs.readFileSync(path.join(fixture.root, file), 'utf8')), before);
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(fixture.root, 'docs/platform-v7/autopilot/autopilot-state.json'), 'utf8')), state);
+  });
+}
 
 test('provider-independent review policy survives actual dispatcher regeneration without duplication', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-review-policy-dispatcher-regression-'));
@@ -2422,7 +2826,7 @@ test('security remediation pins the three affected dependency families', () => {
   const root = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   const web = JSON.parse(fs.readFileSync('apps/web/package.json', 'utf8'));
   assert.equal(root.pnpm.overrides.multer, '2.3.0');
-  assert.equal(root.pnpm.overrides.sharp, '0.35.4');
+  assert.equal(root.pnpm.overrides.sharp, '0.35.5');
   assert.equal(web.dependencies.next, '15.5.24');
 });
 
@@ -4925,4 +5329,240 @@ test('Deal route: exact workflow blob in wrong mode rejects protected guard thre
  const c=routeFixture(t,{branch:routeGuardBranch,admitted:false,guardAdoption:true});applyRouteGuard(c);
  git(c.root,['update-index','--cacheinfo','100755,'+routeGuardPins[2][2]+','+routeWorkflowPath]);git(c.root,['commit','-m','wrong workflow mode']);
  const r=runRouteGuardCandidate(c);assert.notEqual(r.status,0,output(r));assert.match(output(r),/DEAL_ROUTE_PIN_OR_MODE/u);
+});
+
+const trustedConcurrentSourceBranches = [
+  'security/accounting-bff-csrf-3-5-1',
+  'security/module-body-validation',
+  'security/bff-upstream-path-encoding-4459',
+  'security/request-cookie-single-reader-4459',
+  'security/open-redirect-demo-login-4459',
+  'security/email-check-length-first-4459',
+  'security/browser-hardening-headers-4459',
+  'security/outbound-redirect-and-surface-4459',
+  'security/credential-surface-4459',
+  'fix/tai-release-run-event-filter-20261008',
+];
+
+function trustedConcurrentManifestPath(branch) {
+  return `docs/platform-v7/autopilot/scopes/${branch.split('/')[1]}.json`;
+}
+
+function trustedConcurrentManifest(branch, overrides = {}) {
+  return `${JSON.stringify({
+    schemaVersion: 'platform-v7.concurrent-scope.v1',
+    branch,
+    status: 'active',
+    allowedPaths: ['apps/web/**'],
+    ...overrides,
+  }, null, 2)}\n`;
+}
+
+test('Trusted concurrent-scope sources are registered at every trusted-base workflow entry point', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
+  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
+    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
+  const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
+    .split('  standard_validation:')[0];
+  for (const branch of trustedConcurrentSourceBranches) {
+    assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${branch}'`), branch);
+    assert.ok(trusted.includes(`|${branch}|`), branch);
+    assert.ok(prHead.includes(`github.head_ref == '${branch}'`), branch);
+    assert.ok(prHead.includes(`|${branch}|`), branch);
+    assert.ok(standard.includes(`github.head_ref != '${branch}'`), branch);
+  }
+  assert.equal(new Set(trustedConcurrentSourceBranches).size, 10);
+});
+
+test('Trusted concurrent-scope sources are literal immutable branches in the guard', () => {
+  const guard = fs.readFileSync(sourceGuard, 'utf8');
+  const list = guard.split('is_immutable_scope_branch() {')[1].split('\n}\n')[0];
+  for (const branch of trustedConcurrentSourceBranches) {
+    assert.ok(list.includes(`"${branch}"`), branch);
+    assert.ok(guard.includes(`"${branch}") CONCURRENT_SCOPE_MANIFEST='${trustedConcurrentManifestPath(branch)}'`), branch);
+  }
+});
+
+for (const branch of trustedConcurrentSourceBranches) {
+  for (const mutation of ['admitted paths with own manifest', 'unadmitted', 'foreign source', 'self-expanded state',
+    'manifest outside base vector', 'manifest of another branch', 'manifest naming another branch', 'guard script edit']) {
+    test(`Trusted concurrent source ${branch}: ${mutation}`, (t) => {
+      const context = fixture(t, branch);
+      const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+      const manifest = trustedConcurrentManifestPath(branch);
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+      const vector = mutation === 'manifest outside base vector' ? ['allowed.txt'] : ['allowed.txt', manifest];
+      if (mutation === 'unadmitted') delete state.approvedConcurrentScopes[branch];
+      else state.approvedConcurrentScopes[branch] = vector;
+      write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+      commit(context.root, 'accepted admission baseline');
+      context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+      write(context.root, 'allowed.txt', 'bounded source change\n');
+      if (['admitted paths with own manifest', 'unadmitted', 'foreign source', 'self-expanded state', 'guard script edit'].includes(mutation)) {
+        write(context.root, manifest, trustedConcurrentManifest(branch));
+      }
+      if (mutation === 'manifest outside base vector') write(context.root, manifest, trustedConcurrentManifest(branch));
+      if (mutation === 'manifest of another branch') {
+        const other = trustedConcurrentSourceBranches.find((candidate) => candidate !== branch);
+        write(context.root, trustedConcurrentManifestPath(other), trustedConcurrentManifest(other));
+      }
+      if (mutation === 'manifest naming another branch') {
+        write(context.root, manifest, trustedConcurrentManifest('security/some-other-branch'));
+        state.approvedConcurrentScopes[branch] = vector;
+      }
+      if (mutation === 'foreign source') write(context.root, 'apps/web/app/layout.tsx', 'unadmitted source\n');
+      if (mutation === 'self-expanded state') {
+        state.approvedConcurrentScopes[branch] = [...vector, 'apps/web/app/layout.tsx'];
+        state.allowedCurrentScope.push('apps/web/**');
+        write(context.root, statePath, `${JSON.stringify(state, null, 2)}\n`);
+        write(context.root, 'apps/web/app/layout.tsx', 'self-admitted source\n');
+      }
+      if (mutation === 'guard script edit') {
+        write(context.root, 'scripts/p7-autopilot-guard.sh', '#!/usr/bin/env bash\nexit 0\n', 0o755);
+      }
+      commit(context.root, mutation);
+      // The trusted-base workflow runs the accepted base copy of the guard, never the candidate's own edit.
+      const baseGuard = path.join(context.root, '..', `${path.basename(context.root)}-base-guard.sh`);
+      fs.writeFileSync(baseGuard, git(context.root, ['show', `${context.baseline}:scripts/p7-autopilot-guard.sh`]) + '\n');
+      t.after(() => fs.rmSync(baseGuard, { force: true }));
+      const result = mutation === 'guard script edit'
+        ? spawnSync('bash', [baseGuard], {
+          cwd: context.root,
+          env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: branch },
+          encoding: 'utf8',
+        })
+        : runGuard(context);
+      if (mutation === 'admitted paths with own manifest') {
+        assert.equal(result.status, 0, output(result));
+      } else {
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), /no immutable approved scope|Mutable scope authority changed|Files outside current autopilot scope|CONCURRENT_MANIFEST_|P7_IMMUTABLE_SCOPE/u);
+      }
+    });
+  }
+}
+
+
+const immutableStatePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+const immutableStateCapacity = 3 * 1024 * 1024;
+const boundedStateBranch = 'security/credential-surface-4459';
+
+function sizedImmutableState(state, bytes) {
+  const value = { ...state, retainedCapacityFixture: '' };
+  const empty = JSON.stringify(value);
+  const remaining = bytes - Buffer.byteLength(empty);
+  assert.ok(remaining >= 0);
+  // Mixed-width text catches character-count and UTF8 truncation mistakes.
+  value.retainedCapacityFixture = '测'.repeat(Math.floor(remaining / 3)) + 'x'.repeat(remaining % 3);
+  const result = JSON.stringify(value);
+  assert.equal(Buffer.byteLength(result), bytes);
+  return result;
+}
+
+function boundedStateFixture(t, bytes, branch = boundedStateBranch) {
+  const context = fixture(t, branch);
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, immutableStatePath), 'utf8'));
+  write(context.root, immutableStatePath, sizedImmutableState(state, bytes));
+  commit(context.root, 'accepted full bounded state');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  return context;
+}
+
+test('immutable state capacity reads the complete actual accepted buyer registry', (t) => {
+  const context = fixture(t, buyerBranch);
+  const retained = fs.readFileSync(immutableStatePath);
+  assert.ok(retained.length > 1024 * 1024);
+  assert.ok(retained.length <= immutableStateCapacity);
+  const file = 'apps/web/components/platform-v7/FirstCustomerWorkspace.tsx';
+  const manifest = 'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json';
+  write(context.root, immutableStatePath, retained);
+  write(context.root, manifest, fs.readFileSync(manifest));
+  write(context.root, file, 'accepted buyer source\n');
+  commit(context.root, 'full actual accepted registry and manifest');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  write(context.root, file, 'authorized buyer source\n');
+  commit(context.root, 'authorized buyer change');
+  const result = runGuard(context);
+  assert.equal(result.status, 0, output(result));
+  assert.deepEqual(fs.readFileSync(path.join(context.root, immutableStatePath)), retained);
+});
+
+for (const bytes of [1024 * 1024 + 1, 2251808, immutableStateCapacity]) {
+  test(`immutable state capacity accepts complete UTF8 base of ${bytes} bytes`, (t) => {
+    const context = boundedStateFixture(t, bytes);
+    write(context.root, 'allowed.txt', 'authorized bounded-state change\n');
+    commit(context.root, 'authorized bounded-state change');
+    const result = runGuard(context);
+    assert.equal(result.status, 0, output(result));
+    assert.match(result.stdout, /Scope guard passed\./u);
+  });
+}
+
+for (const bytes of [immutableStateCapacity + 1, immutableStateCapacity + 128 * 1024]) {
+  test(`immutable state capacity rejects accepted base of ${bytes} bytes`, (t) => {
+    const context = boundedStateFixture(t, bytes);
+    write(context.root, 'allowed.txt', 'otherwise authorized change\n');
+    commit(context.root, 'otherwise authorized change');
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /P7_IMMUTABLE_STATE_CAPACITY/u);
+  });
+}
+
+test('immutable state capacity rejects oversized candidate in state-only admission', (t) => {
+  const context = boundedStateFixture(t, 2251808, buyerAdmissionBranch);
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, immutableStatePath), 'utf8'));
+  write(context.root, immutableStatePath, sizedImmutableState(state, immutableStateCapacity + 1));
+  commit(context.root, 'oversized state-only candidate');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /P7_IMMUTABLE_STATE_CAPACITY/u);
+});
+
+test('immutable state capacity rejects invalid UTF8 instead of decoding replacement characters', (t) => {
+  const context = boundedStateFixture(t, 2251808);
+  const target = path.join(context.root, immutableStatePath);
+  const bytes = fs.readFileSync(target);
+  const offset = bytes.indexOf(Buffer.from('测'));
+  assert.ok(offset > 0);
+  bytes[offset] = 0xff;
+  fs.writeFileSync(target, bytes);
+  commit(context.root, 'invalid UTF8 accepted state');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  write(context.root, 'allowed.txt', 'otherwise authorized change\n');
+  commit(context.root, 'otherwise authorized change');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /P7_IMMUTABLE_STATE_UTF8/u);
+});
+
+for (const mutation of ['global path', 'candidate self-admission']) {
+  test(`immutable state capacity preserves rejection of ${mutation} on large state`, (t) => {
+    const context = boundedStateFixture(t, 2251808);
+    if (mutation === 'candidate self-admission') {
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, immutableStatePath), 'utf8'));
+      state.approvedConcurrentScopes[boundedStateBranch].push('README.md');
+      write(context.root, immutableStatePath, JSON.stringify(state));
+    }
+    write(context.root, 'README.md', 'unapproved change\n');
+    commit(context.root, mutation);
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), mutation === 'global path' ? /Files outside current autopilot scope/u : /Mutable scope authority changed/u);
+  });
+}
+
+test('immutable state capacity does not enlarge the ordinary manifest buffer', (t) => {
+  const context = publicHomeImplementationFixture(t);
+  const target = path.join(context.root, publicHomeImplementationManifest);
+  const manifest = JSON.parse(fs.readFileSync(target, 'utf8'));
+  write(context.root, publicHomeImplementationManifest, sizedImmutableState(manifest, 1024 * 1024 + 1));
+  commit(context.root, 'oversized ordinary manifest base');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  write(context.root, 'apps/web/app/platform-v7/page.tsx', 'authorized presentation\n');
+  commit(context.root, 'authorized presentation');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /accepted public-home manifest:.*ENOBUFS/u);
 });

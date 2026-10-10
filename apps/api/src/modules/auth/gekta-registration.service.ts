@@ -8,7 +8,7 @@ import {
 import { randomUUID } from 'crypto';
 import { appendAuthAudit } from './auth-audit';
 import { hashAuthMaterial, hashClientValue, secureEqual } from './auth-crypto';
-import { CURRENT_CONSENT_EVIDENCE } from './consent-policy';
+import { isGektaLegalEvidence, verifyGektaConsentSnapshot } from '../../../../../packages/domain-core/src/gekta-consent-evidence';
 import { PersistentAuthRepository } from './persistent-auth.repository';
 import { ProductSessionService } from './product-session.service';
 import {
@@ -49,6 +49,8 @@ export type GektaRegistrationInput = {
   phone: string;
   acceptedServiceTerms: boolean;
   acceptedPersonalData: boolean;
+  consentSnapshot?: unknown;
+  consentEvidence?: unknown;
 };
 
 function assertPasswordPolicy(password: string): void {
@@ -122,6 +124,13 @@ export class GektaRegistrationService {
     assertPasswordPolicy(String(input.password ?? ''));
     const phone = normalizeDeclaredPhone(input.phone);
 
+    const consentEvidence = input.consentEvidence;
+    const consentProof = deliveryAuthorized(deliveryKey)
+      ? verifyGektaConsentSnapshot(input.consentSnapshot, consentEvidence, String(deliveryKey).trim()) : null;
+    if (!consentProof || !isGektaLegalEvidence(consentEvidence)) {
+      throw new BadRequestException({ code: 'CONSENT_REFRESH_REQUIRED' });
+    }
+
     const passwordHash = await hashPassword(input.password);
     const userId = `usr_${randomUUID()}`;
     const emailToken = issueRegistrationEmailToken();
@@ -148,7 +157,7 @@ export class GektaRegistrationService {
       await this.repository.ensureCredentialState(
         tx,
         prepared.user_id,
-        `${CURRENT_CONSENT_EVIDENCE.terms.version}|${CURRENT_CONSENT_EVIDENCE.privacy.version}`,
+        `${consentEvidence.terms.version}|${consentEvidence.privacy.version}`,
         now,
       );
       await this.repository.createGektaEmailChallenge(tx, {
@@ -162,7 +171,9 @@ export class GektaRegistrationService {
         action: 'auth.gekta.register',
         outcome: 'SUCCESS',
         metadata: this.clientMetadata(userAgent, ip, {
-          consent: CURRENT_CONSENT_EVIDENCE,
+          consent: consentEvidence,
+          consentPresentation: { evidenceHash: consentProof.evidenceHash,
+            issuedAt: new Date(consentProof.issuedAt).toISOString(), acceptedAt: now.toISOString() },
           acceptedServiceTerms: true,
           acceptedPersonalData: true,
           phoneState: 'DECLARED',

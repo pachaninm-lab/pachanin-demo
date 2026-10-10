@@ -144,9 +144,67 @@ jobs:
           if [ -s "$EVIDENCE_DIR/slice-files.txt" ]; then
             printf '%s\n' 'SLICE_REMEDIATION' > "$EVIDENCE_DIR/scope-mode.txt"
             if grep -Ev '^(\.github/workflows/pc-crop-07b\.yml|apps/api/src/app\.module\.ts|apps/api/src/modules/regulatory-integration/.*|apps/web/app/api/platform-v7/integrations/.*|apps/web/app/api/staff/integration-control-tower/.*|apps/web/app/api/staff/integrations/.*|apps/web/app/platform-v7/integrations/.*|apps/web/components/crop-platform/(IntegrationControlTowerClient\.tsx|IntegrationControlTowerClient\.module\.css|integration-control-tower-live-adapter\.ts)|apps/web/lib/platform-v7/(cabinet-access-policy|design-system-v8-route-policy|route-canonicalization|routes)\.ts|apps/web/tests/unit/(integrationControlTowerLiveAdapter|platformV7IntegrationControlTower|platformV7RouteCanonicalization)\.test\.ts|apps/web/tsconfig\.pc-crop\.json|docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower\.json|scripts/(p7-autopilot-guard\.sh|verify-pc-crop-07b\.mjs))$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
-              echo 'PC-CROP-07B contains out-of-scope files:' >&2
-              cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
-              exit 1
+              # One immutable-base-admitted source quartet may include its exact test config.
+              # Keep the existing allowlist; every other out-of-scope path still fails.
+              if ! PINNED_SCOPE_BASE="$base_ref" python3 - <<'PY_PINNED_TEST_CONFIG'
+          import hashlib, json, os, re, subprocess, sys
+          from pathlib import Path
+
+          def require(ok):
+              if not ok:
+                  raise ValueError('PINNED_TEST_CONFIG_REJECTED')
+
+          def git(*args):
+              return subprocess.check_output(['git', *args], stderr=subprocess.DEVNULL, timeout=30)
+
+          try:
+              branch = 'fgis/regulatory-truth-ux-20260921'
+              config = 'apps/web/vitest.config.ts'
+              paths = ['apps/web/components/crop-platform/IntegrationControlTowerClient.tsx',
+                       'apps/web/components/crop-platform/IntegrationControlTowerClient.module.css',
+                       'apps/web/tests/unit/platformV7IntegrationControlTower.test.ts', config]
+              evidence = Path(os.environ['EVIDENCE_DIR'])
+              require((evidence / 'out-of-scope.txt').read_text().splitlines() == [config])
+              require((evidence / 'changed-files.txt').read_text().splitlines() == sorted(paths))
+              event = os.environ['EVENT_NAME']
+              require((event == 'pull_request' and os.environ.get('GITHUB_HEAD_REF') == branch)
+                      or (event == 'push' and os.environ.get('GITHUB_REF') == 'refs/heads/main'))
+              base = git('rev-parse', os.environ['PINNED_SCOPE_BASE'] + '^{commit}').decode().strip()
+              head = os.environ['EXACT_HEAD']
+              require(bool(re.fullmatch('[0-9a-f]{40}', base)) and bool(re.fullmatch('[0-9a-f]{40}', head)))
+              state_path = 'docs/platform-v7/autopilot/autopilot-state.json'
+              base_bytes = git('show', base + ':' + state_path)
+              require(len(base_bytes) <= 3 * 1024 * 1024 and git('show', head + ':' + state_path) == base_bytes)
+              state = json.loads(base_bytes.decode('utf-8'))
+              old = state['coordinationAdmissions']['product-fgis-confirmation-focus-20261009']
+              record = state['coordinationAdmissions']['product-fgis-vitest-source-resolution-correction-20261009']
+              require(old['owner'] == record['owner'] == 'ACCOUNT_2_PRODUCT')
+              require(old['implementationBranch'] == record['implementationBranch'] == branch)
+              require(old['allowedPaths'] == paths[:3] and record['allowedPaths'] == paths)
+              require(state['approvedConcurrentScopes'][branch] == paths)
+              pins = record['sourcePins']
+              require(len(pins) == 4 and pins[:3] == old['sourcePins'])
+              require([pin['path'] for pin in pins] == paths)
+              for pin in pins:
+                  require(pin['mode'] == '100644')
+                  for ref, key in [(base, 'beforeBlob'), (head, 'afterBlob')]:
+                      entry = git('ls-tree', ref, '--', pin['path']).decode().strip().split()
+                      require(entry == ['100644', 'blob', pin[key], pin['path']])
+              payload = record['correctiveConfigPayload']
+              require(all(payload[key] == pins[3][key] for key in ('path', 'mode', 'beforeBlob', 'afterBlob')))
+              content = git('show', head + ':' + config)
+              require(content == payload['afterContentUTF8'].encode('utf-8'))
+              require(hashlib.sha256(content).hexdigest() == payload['sha256'])
+              print('PC_CROP_07B_PINNED_TEST_CONFIG_PASS head=' + head + ' base=' + base)
+          except Exception:
+              print('PC_CROP_07B_PINNED_TEST_CONFIG_REJECTED', file=sys.stderr)
+              sys.exit(1)
+          PY_PINNED_TEST_CONFIG
+              then
+                echo 'PC-CROP-07B contains out-of-scope files:' >&2
+                cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+                exit 1
+              fi
             fi
           else
             printf '%s\n' 'SHARED_INFRASTRUCTURE_ONLY' > "$EVIDENCE_DIR/scope-mode.txt"

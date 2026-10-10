@@ -34,7 +34,9 @@ import {
   serializeAnonymousSession,
   type GektaAnonymousSession,
 } from '@/lib/gekta/anonymous-session';
+import { hasCurrentAnonymousConsent } from '@/lib/gekta/anonymous-consent-evidence';
 import { resolveAnonymousEntitlement } from '@/lib/gekta/entitlement';
+import { GEKTA_LEGAL_VERSION } from '@/lib/gekta/legal';
 import {
   GEKTA_AUTH_TIMEOUT_MS,
   gektaApiBase,
@@ -320,7 +322,7 @@ async function authorizeGektaAnswer(request: NextRequest): Promise<{
       anonymousSession: null,
     };
   }
-  const consumed = admitReservedAnswer(current, ticket);
+  const consumed = hasCurrentAnonymousConsent(current) ? admitReservedAnswer(current, ticket, GEKTA_LEGAL_VERSION) : null;
   if (!consumed) {
     return {
       response: NextResponse.json(

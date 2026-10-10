@@ -80,7 +80,574 @@ const CHINESE_PRESCRIPTION_PREFIX = /(?:使用|施用|选择|推荐)[^.!?。！�
 
 const EMPTY_COMMIT: GateCommit = Object.freeze({ text: '', flags: Object.freeze([]), violation: null });
 
-export type EconomicComparison = 'storage' | 'transport' | 'payment_timing' | 'qualitative';
+/** Named references that can affect ASCII/Cyrillic safety tokens or whitespace.
+ * HTML5 names from Python's standard html.entities table; format controls are
+ * included because invisible characters must not split a safety signature.
+ * Unrelated Unicode
+ * references cannot form these signatures. Numeric references cover all scripts.
+ */
+const SALE_SAFETY_CHARACTER_REFERENCES: Readonly<Record<string, string>> = Object.freeze({
+  "af;": "\u2061",
+  "ApplyFunction;": "\u2061",
+  "ic;": "\u2063",
+  "InvisibleComma;": "\u2063",
+  "InvisibleTimes;": "\u2062",
+  "it;": "\u2062",
+  "lrm;": "\u200e",
+  "NegativeMediumSpace;": "\u200b",
+  "NegativeThickSpace;": "\u200b",
+  "NegativeThinSpace;": "\u200b",
+  "NegativeVeryThinSpace;": "\u200b",
+  "NoBreak;": "\u2060",
+  "rlm;": "\u200f",
+  "shy": "\u00ad",
+  "shy;": "\u00ad",
+  "ZeroWidthSpace;": "\u200b",
+  "zwj;": "\u200d",
+  "zwnj;": "\u200c",
+  "Acy;": "А",
+  "acy;": "а",
+  "AMP": "&",
+  "amp": "&",
+  "AMP;": "&",
+  "amp;": "&",
+  "apos;": "'",
+  "ast;": "*",
+  "Bcy;": "Б",
+  "bcy;": "б",
+  "bsol;": "\\",
+  "CHcy;": "Ч",
+  "chcy;": "ч",
+  "colon;": ":",
+  "comma;": ",",
+  "commat;": "@",
+  "Dcy;": "Д",
+  "dcy;": "д",
+  "DiacriticalGrave;": "`",
+  "DJcy;": "Ђ",
+  "djcy;": "ђ",
+  "dollar;": "$",
+  "DScy;": "Ѕ",
+  "dscy;": "ѕ",
+  "DZcy;": "Џ",
+  "dzcy;": "џ",
+  "Ecy;": "Э",
+  "ecy;": "э",
+  "emsp13;": " ",
+  "emsp14;": " ",
+  "emsp;": " ",
+  "ensp;": " ",
+  "equals;": "=",
+  "excl;": "!",
+  "Fcy;": "Ф",
+  "fcy;": "ф",
+  "fjlig;": "fj",
+  "Gcy;": "Г",
+  "gcy;": "г",
+  "GJcy;": "Ѓ",
+  "gjcy;": "ѓ",
+  "grave;": "`",
+  "GT": ">",
+  "gt": ">",
+  "GT;": ">",
+  "gt;": ">",
+  "hairsp;": " ",
+  "HARDcy;": "Ъ",
+  "hardcy;": "ъ",
+  "Hat;": "^",
+  "Icy;": "И",
+  "icy;": "и",
+  "IEcy;": "Е",
+  "iecy;": "е",
+  "IOcy;": "Ё",
+  "iocy;": "ё",
+  "Iukcy;": "І",
+  "iukcy;": "і",
+  "Jcy;": "Й",
+  "jcy;": "й",
+  "Jsercy;": "Ј",
+  "jsercy;": "ј",
+  "Jukcy;": "Є",
+  "jukcy;": "є",
+  "Kcy;": "К",
+  "kcy;": "к",
+  "KHcy;": "Х",
+  "khcy;": "х",
+  "KJcy;": "Ќ",
+  "kjcy;": "ќ",
+  "lbrace;": "{",
+  "lbrack;": "[",
+  "lcub;": "{",
+  "Lcy;": "Л",
+  "lcy;": "л",
+  "LJcy;": "Љ",
+  "ljcy;": "љ",
+  "lowbar;": "_",
+  "lpar;": "(",
+  "lsqb;": "[",
+  "LT": "<",
+  "lt": "<",
+  "LT;": "<",
+  "lt;": "<",
+  "Mcy;": "М",
+  "mcy;": "м",
+  "MediumSpace;": " ",
+  "midast;": "*",
+  "nbsp": " ",
+  "nbsp;": " ",
+  "Ncy;": "Н",
+  "ncy;": "н",
+  "NewLine;": "\n",
+  "NJcy;": "Њ",
+  "njcy;": "њ",
+  "NonBreakingSpace;": " ",
+  "num;": "#",
+  "numsp;": " ",
+  "Ocy;": "О",
+  "ocy;": "о",
+  "Pcy;": "П",
+  "pcy;": "п",
+  "percnt;": "%",
+  "period;": ".",
+  "plus;": "+",
+  "puncsp;": " ",
+  "quest;": "?",
+  "QUOT": "\"",
+  "quot": "\"",
+  "QUOT;": "\"",
+  "quot;": "\"",
+  "rbrace;": "}",
+  "rbrack;": "]",
+  "rcub;": "}",
+  "Rcy;": "Р",
+  "rcy;": "р",
+  "rpar;": ")",
+  "rsqb;": "]",
+  "Scy;": "С",
+  "scy;": "с",
+  "semi;": ";",
+  "SHCHcy;": "Щ",
+  "shchcy;": "щ",
+  "SHcy;": "Ш",
+  "shcy;": "ш",
+  "SOFTcy;": "Ь",
+  "softcy;": "ь",
+  "sol;": "/",
+  "Tab;": "\t",
+  "Tcy;": "Т",
+  "tcy;": "т",
+  "ThickSpace;": "  ",
+  "thinsp;": " ",
+  "ThinSpace;": " ",
+  "TScy;": "Ц",
+  "tscy;": "ц",
+  "TSHcy;": "Ћ",
+  "tshcy;": "ћ",
+  "Ubrcy;": "Ў",
+  "ubrcy;": "ў",
+  "Ucy;": "У",
+  "ucy;": "у",
+  "UnderBar;": "_",
+  "Vcy;": "В",
+  "vcy;": "в",
+  "verbar;": "|",
+  "vert;": "|",
+  "VerticalLine;": "|",
+  "VeryThinSpace;": " ",
+  "YAcy;": "Я",
+  "yacy;": "я",
+  "Ycy;": "Ы",
+  "ycy;": "ы",
+  "YIcy;": "Ї",
+  "yicy;": "ї",
+  "YUcy;": "Ю",
+  "yucy;": "ю",
+  "Zcy;": "З",
+  "zcy;": "з",
+  "ZHcy;": "Ж",
+  "zhcy;": "ж"
+});
+const SALE_SAFETY_LEGACY_REFERENCES = Object.freeze(Object.keys(SALE_SAFETY_CHARACTER_REFERENCES)
+  .filter((name) => !name.endsWith(';')).sort((left, right) => right.length - left.length));
+
+/** Preserve unfinished references across cuts; canonicalize numeric tails so
+ * arbitrarily many leading zeros cannot evict the safety lookbehind.
+ */
+function decodeSaleCharacterReferences(text: string, final: boolean): string {
+  return text.replace(/&#(?:[xX]([0-9a-fA-F]*)|([0-9]+))(;?)|&([A-Za-z][A-Za-z0-9]{0,31})(;?)/gu,
+    (reference: string, hex: string | undefined, decimal: string | undefined, numericSemicolon: string | undefined,
+      name: string | undefined, namedSemicolon: string | undefined, offset: number) => {
+      if (name !== undefined) {
+        const exactName = name + (namedSemicolon ?? '');
+        if (Object.hasOwn(SALE_SAFETY_CHARACTER_REFERENCES, exactName)) {
+          if (!namedSemicolon && !final && offset + reference.length === text.length) return reference;
+          return SALE_SAFETY_CHARACTER_REFERENCES[exactName];
+        }
+        const legacy = SALE_SAFETY_LEGACY_REFERENCES.find((prefix) => name.startsWith(prefix));
+        return legacy ? SALE_SAFETY_CHARACTER_REFERENCES[legacy] + name.slice(legacy.length) + (namedSemicolon ?? '') : reference;
+      }
+      const rawDigits = hex ?? decimal ?? '';
+      if (!rawDigits) return reference;
+      const base = hex !== undefined ? 16 : 10;
+      const digits = rawDigits.replace(/^0+/u, '') || '0';
+      const value = digits.length > 8 ? 0x110000 : Math.min(parseInt(digits, base), 0x110000);
+      if (!numericSemicolon && !final && offset + reference.length === text.length) {
+        return '&#' + (base === 16 ? 'x' : '') + value.toString(base);
+      }
+      return String.fromCodePoint(value === 0 || value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff) ? 0xfffd : value);
+    });
+}
+
+
+
+type SaleTagScanState = {
+  inside: boolean; quote: string; prefix: string; comment: boolean; declaration: boolean;
+  commentPhase: 'start' | 'startDash' | 'data' | 'endDash' | 'end' | 'endBang';
+  attribute: 'tag' | 'before' | 'name' | 'afterName' | 'value' | 'unquoted' | 'afterQuoted' | 'selfClosing';
+};
+function newSaleTagScanState(): SaleTagScanState {
+  return { inside: false, quote: '', prefix: '', comment: false, declaration: false, commentPhase: 'start', attribute: 'tag' };
+}
+
+/** One bounded lexical pass: quoted attribute delimiters and HTML comments
+ * cannot end a tag early or turn its contents into visible token fragments.
+ */
+function saleTextWithoutTagBoundaries(text: string, state: SaleTagScanState, separate: boolean): string {
+  let result = '';
+  for (const character of text) {
+    if (!state.inside) {
+      if (character !== '<') { result += character; continue; }
+      Object.assign(state, newSaleTagScanState(), { inside: true });
+      if (separate) result += ' ';
+      continue;
+    }
+    if (state.prefix.length < 3) {
+      state.prefix += character;
+      if (state.prefix === '!--') { state.comment = true; state.commentPhase = 'start'; continue; }
+      if (state.prefix[0] === '!' || state.prefix[0] === '?') state.declaration = true;
+    }
+    if (state.comment) {
+      let closed = false;
+      switch (state.commentPhase) {
+        case 'start':
+          closed = character === '>';
+          state.commentPhase = character === '-' ? 'startDash' : 'data';
+          break;
+        case 'startDash':
+          closed = character === '>';
+          state.commentPhase = character === '-' ? 'end' : 'data';
+          break;
+        case 'data':
+          if (character === '-') state.commentPhase = 'endDash';
+          break;
+        case 'endDash':
+          state.commentPhase = character === '-' ? 'end' : 'data';
+          break;
+        case 'end':
+          closed = character === '>';
+          if (character === '!') state.commentPhase = 'endBang';
+          else if (character !== '-') state.commentPhase = 'data';
+          break;
+        case 'endBang':
+          closed = character === '>';
+          state.commentPhase = character === '-' ? 'endDash' : 'data';
+          break;
+      }
+      if (closed) {
+        Object.assign(state, newSaleTagScanState());
+        if (separate) result += ' ';
+      }
+      continue;
+    }
+    // Non-element declarations cannot borrow attribute quote semantics. This
+    // private signature view conservatively ends them at >; nothing is published.
+    if (state.declaration) {
+      if (character === '>') {
+        Object.assign(state, newSaleTagScanState());
+        if (separate) result += ' ';
+      }
+      continue;
+    }
+    if (state.quote) {
+      if (character === state.quote) { state.quote = ''; state.attribute = 'afterQuoted'; }
+      continue;
+    }
+    if (character === '>') {
+      Object.assign(state, newSaleTagScanState());
+      if (separate) result += ' ';
+      continue;
+    }
+    // Quotes are delimiters only at the start of an attribute value. Quotes
+    // inside an unquoted value/name are literal data, so > still ends the tag.
+    const space = /[\t\n\f\r ]/u.test(character);
+    switch (state.attribute) {
+      case 'tag':
+        if (space) state.attribute = 'before';
+        else if (character === '/') state.attribute = 'selfClosing';
+        break;
+      case 'before': case 'afterQuoted': case 'selfClosing':
+        state.attribute = space ? 'before' : character === '/' ? 'selfClosing' : 'name';
+        break;
+      case 'name':
+        if (character === '=') state.attribute = 'value';
+        else if (space) state.attribute = 'afterName';
+        else if (character === '/') state.attribute = 'selfClosing';
+        break;
+      case 'afterName':
+        if (character === '=') state.attribute = 'value';
+        else if (!space) state.attribute = character === '/' ? 'selfClosing' : 'name';
+        break;
+      case 'value':
+        if (space) break;
+        if (character === '"' || character === "'") state.quote = character;
+        else state.attribute = 'unquoted';
+        break;
+      case 'unquoted':
+        if (space) state.attribute = 'before';
+        break;
+    }
+  }
+  return result;
+}
+
+
+type SaleMarkdownScanState = { labelDepth: number; afterLabel: boolean; reference: boolean; destinationDepth: number; escaped: boolean; quote: string; titleSeparator: boolean; destinationStarted: boolean; angle: boolean };
+function newSaleMarkdownScanState(): SaleMarkdownScanState {
+  return { labelDepth: 0, afterLabel: false, reference: false, destinationDepth: 0, escaped: false, quote: '', titleSeparator: false, destinationStarted: false, angle: false };
+}
+
+/** Conservative link-text view: keep labels while omitting inline destinations
+ * and reference suffixes incrementally; no long link metadata is retained.
+ */
+function saleMarkdownLinkText(text: string, state: SaleMarkdownScanState): string {
+  let result = '';
+  for (const character of text) {
+    if (state.reference) {
+      if (state.escaped) { state.escaped = false; continue; }
+      if (character === '\\') { state.escaped = true; continue; }
+      if (character === ']') state.reference = false;
+      continue;
+    }
+    if (state.destinationDepth) {
+      if (state.escaped) { state.escaped = false; state.destinationStarted = true; continue; }
+      if (character === '\\') { state.escaped = true; continue; }
+      if (state.angle) { if (character === '>') state.angle = false; continue; }
+      if (state.quote) { if (character === state.quote) state.quote = ''; continue; }
+      if (!state.destinationStarted && character === '<') { state.angle = true; state.destinationStarted = true; continue; }
+      if (state.titleSeparator && state.destinationDepth === 1 && (character === '"' || character === "'")) { state.quote = character; continue; }
+      if (character === '(') state.destinationDepth += 1;
+      if (character === ')') state.destinationDepth -= 1;
+      state.titleSeparator = state.destinationDepth === 1 && /\s/u.test(character);
+      state.destinationStarted ||= !/\s/u.test(character);
+      continue;
+    }
+    if (state.afterLabel) {
+      state.afterLabel = false;
+      if (character === '[') { state.reference = true; state.escaped = false; continue; }
+      if (character === '(') { state.destinationDepth = 1; state.titleSeparator = false; state.destinationStarted = false; state.angle = false; continue; }
+    }
+    if (character === '[') { state.labelDepth += 1; continue; }
+    if (character === ']' && state.labelDepth) {
+      state.labelDepth -= 1;
+      state.afterLabel = state.labelDepth === 0;
+      continue;
+    }
+    result += character;
+  }
+  return result;
+}
+
+
+type SaleTagContentFrame = {
+  state: SaleTagScanState; closingQuote: string; pendingTagStart: boolean;
+  raw: string; formatted: string; originalRaw: string; originalFormatted: string;
+  renderedRaw: string; renderedFormatted: string; renderedOriginalRaw: string; renderedOriginalFormatted: string;
+};
+function newSaleTagContentFrame(closingQuote = ''): SaleTagContentFrame {
+  return {
+    state: newSaleTagScanState(), closingQuote, pendingTagStart: false,
+    raw: '', formatted: '', originalRaw: '', originalFormatted: '',
+    renderedRaw: '', renderedFormatted: '', renderedOriginalRaw: '', renderedOriginalFormatted: '',
+  };
+}
+
+
+export type EconomicComparison = 'storage' | 'transport' | 'payment_timing' | 'sale_proceeds' | 'qualitative';
+export type SaleProceedsInput = Readonly<{
+  quantityMilliTonnes: number;
+  priceMinorPerTonne: number;
+  deliveryMinor: number;
+  grossMinor: number;
+  proceedsMinor: number;
+}>;
+
+const SALE_PROCEEDS_TOPIC = /выручк|revenue|proceeds|销售收入|净收入|总收入/iu;
+const CHINESE_REVENUE_AMOUNT_QUESTION = /(?:净收入|销售收入|总收入|收入)\s*(?:的?\s*(?:金额|数额|总额|数目|数值)\s*)?(?:(?:总共|一共|合计|预计|预期|大约|大概|到底|应该|应当|可能)\s*)?(?:(?:会|将|能|可以)?\s*(?:是|为|有|达到|获得)\s*)?多少|多少\s*(?:净收入|销售收入|总收入|收入)(?=\s*(?:$|[，,。！？?：:\n]))/u;
+const SALE_NUMBER = '(?:\\d{1,3}(?:[ \\u00a0\\u202f]\\d{3})+|\\d{1,9})(?:[.,]\\d{1,3})?';
+const SALE_RUB = '(?:руб(?:лей|ля|ль)?\\.?|₽|RUB|卢布)';
+
+/** Same-turn, explicitly priced tonnes less one total delivery charge; never a profit forecast. */
+export function saleProceedsFromUser(question: string): SaleProceedsInput | null {
+  if (question.length > 1_200 || !SALE_PROCEEDS_TOPIC.test(question)) return null;
+  // Extra inputs, alternatives, negation and non-RUB currencies need clarification.
+  if (/[-−–—]\s*\d|%|процент|percent|税|налог|tax|НДС|VAT|USD|EUR|GBP|CNY|доллар|евро|юань|美元|欧元|[$€£]|(?:^|[^\p{L}])не(?:т)?(?=$|[^\p{L}])|\b(?:not|unknown|or)\b|неизвест|или|либо|不是|未知|或者/iu.test(question)) return null;
+  // English ton/tons can mean short or long tons; require explicit metric units.
+  const quantities = [...question.matchAll(new RegExp(`(${SALE_NUMBER})\\s*(?:тонн(?:а|ы|у|е)?|tonnes?|吨)(?![\\p{L}])`, 'giu'))];
+  const prices = [...question.matchAll(new RegExp(`(${SALE_NUMBER})\\s*${SALE_RUB}\\s*(?:за\\s*тонн[уы]|/\\s*(?:т(?:онн[уы])?|tonnes?|吨)|per\\s*tonne)(?![\\p{L}])`, 'giu'))];
+  const delivery = [...question.matchAll(new RegExp(`(?:доставка|(?:общ(?:ая|ую)\\s+)?стоимость\\s+доставки|(?:total\\s+)?delivery(?:\\s+(?:cost|charge))?|运输(?:总费用|费)|运费)\\s*[:：]?\\s*(${SALE_NUMBER})\\s*${SALE_RUB}(?![\\p{L}])`, 'giu'))];
+  if (quantities.length !== 1 || prices.length !== 1 || delivery.length !== 1) return null;
+  // Three trailing digits after a comma/dot can be fractional tonnes or a
+  // thousands group. Without notation authority, ask for clarification. A
+  // single zero before the decimal dot is an explicit sub-tonne fraction.
+  const quantityNotation = quantities[0][1].replace(/[ \u00a0\u202f]/gu, '');
+  if (/[.,]\d{3}$/u.test(quantityNotation) && !/^0\.\d{3}$/u.test(quantityNotation)) return null;
+  const deliveryEnd = delivery[0].index! + delivery[0][0].length;
+  // Only the matched delivery charge is a cost input. Other cost-qualified
+  // quantities or quotes must not be promoted to commodity sale prices.
+  const saleContext = question.slice(0, delivery[0].index!) + question.slice(deliveryEnd);
+  if (/стоимост|себестоим|затрат|расход|хранени|тариф|погруз|перевоз|аренд|сушк|очистк|закуп|покуп|приобр|плата\s+за|\b(?:costs?|expenses?|storage|freight|transport(?:ation)?|haulage|loading|drying|rental|processing|purchase|buy(?:ing)?|procurement)\b|成本|费用|仓储|储存|装卸|租|烘干|采购/iu.test(saleContext)) return null;
+  const quantityEnd = quantities[0].index! + quantities[0][0].length;
+  const priceStart = prices[0].index!;
+  // Bind this price to this quantity, rather than borrowing another commodity's quote.
+  if (priceStart <= quantityEnd
+    || !/^\s*(?:по|at|(?:[,，;]\s*)?(?:цена|price|价格)\s*[:：]?)\s*$/iu.test(question.slice(quantityEnd, priceStart))) return null;
+  // Authoritative money output accepts a small declarative sale/input grammar,
+  // not arbitrary prose containing these three numbers. Unknown acquisition,
+  // expense or contextual wording requires clarification rather than a guessed
+  // sale-price interpretation. Keep the full delivery charge out of this grammar.
+  const priceEnd = priceStart + prices[0][0].length;
+  const quoteSpan = question.slice(quantities[0].index!, priceEnd);
+  const context = question.replace(quoteSpan, '').replace(delivery[0][0], '');
+  const saleWords = /(?<![\p{L}])(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?|итогов(?:ую|ая|ой)|чистую|выручк[ауи]|после\s+доставки|от\s+(?:пере)?продажи|расч[её]т|продаю|продам|прода[её]м|и|пшениц[ауые]|кукуруз[ауы]|ячмен[ьия]|рожь|рис|рапс|со[яюи]|подсолнечник[ау]?|calculate|compute|show|total|net|revenue|proceeds|after\s+delivery|calculation|result|sell|selling|and|wheat|corn|maize|barley|rye|rice|canola|soy(?:beans?)?|sunflower)(?![\p{L}])|小麦|玉米|大麦|黑麦|水稻|油菜|大豆|向日葵|计算|净收入|销售收入|总收入|结果|展示|出售|卖出/giu;
+  if (!/^[\s:：,.!？?。！;，]*$/u.test(context.replace(saleWords, ''))) return null;
+  // A delivery charge for one crop cannot be subtracted from another crop's
+  // sale. Repeated names/translations of the same crop are one identity.
+  const cropKinds = [
+    /(?<![\p{L}])(?:пшениц[ауые]|wheat)(?![\p{L}])|小麦/iu,
+    /(?<![\p{L}])(?:кукуруз[ауы]|corn|maize)(?![\p{L}])|玉米/iu,
+    /(?<![\p{L}])(?:ячмен[ьия]|barley)(?![\p{L}])|大麦/iu,
+    /(?<![\p{L}])(?:рожь|rye)(?![\p{L}])|黑麦/iu,
+    /(?<![\p{L}])(?:рис|rice)(?![\p{L}])|水稻/iu,
+    /(?<![\p{L}])(?:рапс|canola)(?![\p{L}])|油菜/iu,
+    /(?<![\p{L}])(?:со[яюи]|soy(?:beans?)?)(?![\p{L}])|大豆/iu,
+    /(?<![\p{L}])(?:подсолнечник[ау]?|sunflower)(?![\p{L}])|向日葵/iu,
+  ];
+  if (cropKinds.filter((crop) => crop.test(question)).length > 1) return null;
+  if (/примерн|около|приблиз|[~≈]|\b(?:about|approx(?:imately)?|roughly)\b|大约|约/iu.test(question)) return null;
+  const numbers = [...question.matchAll(new RegExp(SALE_NUMBER, 'gu'))];
+  if (numbers.length !== 3) return null;
+  // Remove the explicit unit sale quote; every remaining recurring/per-unit
+  // qualifier needs a total charge, whether before or after delivery and
+  // whether separated from its amount by punctuation or a sentence boundary.
+  const deliveryContext = question.slice(0, priceStart) + question.slice(priceStart + prices[0][0].length);
+  if (/кажд|ежемесяч|ежеднев|еженедел|ежегод|\b(?:per|each|monthly|daily|weekly|yearly)\b|в\s+(?:месяц|день|неделю|год)|за\s+(?:один\s+)?(?:рейс|тонн|месяц|день|неделю|год)|на\s+(?:рейс|месяц)|\/|每|按(?:趟|车|月|天)/iu.test(deliveryContext)) return null;
+  const scaled = (raw: string, decimals: number): bigint | null => {
+    const value = raw.replace(/[ \u00a0\u202f]/gu, '').replace(',', '.');
+    if (!new RegExp(`^\\d{1,9}(?:\\.\\d{1,${decimals}})?$`, 'u').test(value)) return null;
+    const [whole, fraction = ''] = value.split('.');
+    return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(fraction.padEnd(decimals, '0'));
+  };
+  const quantity = scaled(quantities[0][1], 3);
+  const price = scaled(prices[0][1], 2);
+  const cost = scaled(delivery[0][1], 2);
+  if (quantity === null || price === null || cost === null || quantity <= 0n || price <= 0n) return null;
+  const product = quantity * price;
+  // Do not silently round fractional kopecks or exceed the public safe-integer range.
+  if (product % 1_000n !== 0n) return null;
+  const gross = product / 1_000n;
+  const proceeds = gross - cost;
+  const values = [quantity, price, cost, gross, proceeds];
+  if (values.some((value) => value > BigInt(Number.MAX_SAFE_INTEGER) || value < BigInt(Number.MIN_SAFE_INTEGER))) return null;
+  return Object.freeze({ quantityMilliTonnes: Number(quantity), priceMinorPerTonne: Number(price), deliveryMinor: Number(cost), grossMinor: Number(gross), proceedsMinor: Number(proceeds) });
+}
+
+/** Recognize an attempted calculation even when its inputs need clarification. */
+function saleCalculationRequested(question: string): boolean {
+  // Chinese sale amount questions can separate the sale verb and income noun
+  // with the commodity/quantity; do not treat unrelated income as sale proceeds.
+  const chineseConceptQuestion = /定义|概念|含[义意]|意[思义]|释义|解释|(?:确认|计量)(?:原则|条件|标准|方法)|会计(?:确认|计量)/u.test(question);
+  const chineseSaleIncome = /(?:销售|出售|卖出)[^。！？\n]{0,80}收入/u.test(question);
+  const chineseBareSaleAmount = chineseSaleIncome && /收入\s*[?？]\s*$/u.test(question)
+    && !/如何|怎么|怎样|提高|改善|增加|策略/u.test(question);
+  const chineseSaleAmount = !chineseConceptQuestion && (
+    /(?:销售|出售|卖出)[^。！？\n]{0,80}多少\s*收入/u.test(question)
+    || chineseSaleIncome && CHINESE_REVENUE_AMOUNT_QUESTION.test(question) || chineseBareSaleAmount
+  );
+  if (!SALE_PROCEEDS_TOPIC.test(question) && !chineseSaleIncome && !chineseSaleAmount) return false;
+  // Without an article or sale/amount clause, "What is revenue?" asks for
+  // the concept. Optional articles must not turn that definition into a sum.
+  if (/^\s*what(?:'s|\s+(?:is|are))\s+(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\s*[.!?。！？]*\s*$/iu.test(question)) return false;
+  const intent = /(?<![\p{L}])(?:(?:посчитай(?:те)?|рассчитай(?:те)?|покажи(?:те)?(?:\s+расч[её]т)?)\s+(?:(?:итоговую|чистую)\s+)?выручк[ауи]|(?:calculate|compute)\s+(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))(?![\p{L}])|计算\s*(?:净收入|销售收入|总收入)/iu;
+  const labelled = /^\s*(?:(?:расч[её]т\s+)?выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入|总收入)\s*[:：]/iu.test(question);
+  if (chineseConceptQuestion && !intent.test(question)) return false;
+  const bareLabelQuestion = /^\s*(?:выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds)|净收入|销售收入|总收入)\s*[?？]\s*$/iu.test(question);
+  const labelClause = question.match(/^\s*(?:выручк[ауи]|(?:(?:net|total|gross)\s+)?(?:revenue|proceeds))\s+(?:for|from|after|от|за|после)(?![\p{L}])\s+(.+?)\s*[?？]?\s*$/iu)?.[1] ?? '';
+  const labelQuestion = bareLabelQuestion || Boolean(labelClause && (
+    /\d/u.test(labelClause) && /тонн|\b(?:tonnes?|tons?)\b|吨|достав|delivery|运输费|运费/iu.test(labelClause)
+    || /\b(?:amount|sum)\b|сумм|размер|多少/iu.test(labelClause)
+  ));
+  const amountNounQuestion = /\bwhat\s+(?:(?:is|would|will)\s+(?:the|my|our|your|their|his|her|this|that)\s+)?(?:amount|sum)\s+of\s+(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does|be)\b))|(?<![\p{L}])(?:какова|какая|какую)\s+сумм[ау]\s+выручки(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|будет|составит)(?![\p{L}])))/iu.test(question);
+  const suppliedInputs = /\d/u.test(question) && /тонн|\b(?:tonnes?|tons?)\b|吨|достав|delivery|运输费|运费/iu.test(question);
+  // Numeric sale/delivery inputs require checked calculation or clarification
+  // regardless of whether the question is imperative or interrogative. A
+  // contextual quantity alone does not suppress conceptual model answers.
+  const monetaryInputs = /руб|RUB|USD|EUR|GBP|CNY|₽|[$€£]|卢布|美元|欧元|юань|доллар|евро/iu.test(question);
+  // Inspect the financial clause independently of its opener (HOW, EXPLAIN,
+  // SHOULD, or an IFRS preamble). Numeric examples do not turn a conceptual
+  // predicate into a requested amount.
+  const revenueClause = question.match(/\b(?:revenue|proceeds)\s+(.+)/iu)?.[1]?.trim() ?? '';
+  // Noun-front amount questions put the sale subject after the auxiliary:
+  // "What revenue will selling 100 tonnes generate?". Require an amount
+  // predicate, so the same numeric subject in an accounting question stays prose.
+  const nounFrontClause = question.match(/\b(?:what|how\s+much)\s+(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b\s+(?:is|are|was|were|will|would|can|could|may|might|should|does|do|did|has|have|had)\s+(.+)/iu)?.[1] ?? '';
+  const nounFrontHead = nounFrontClause.split(/\b(?:when|while|if|because|although|unless|provided)\b/iu)[0].trim();
+  const amountVerb = '(?:generat(?:e|es|ed)|yield(?:s|ed)?|bring|brought|produc(?:e|es|ed)|earn(?:s|ed)?|receiv(?:e|es|ed)|get|got|make|made)';
+  // Attach the amount predicate to a subject in the primary question. An
+  // arbitrary later "generates" in an IFRS condition is not that predicate.
+  // Unsupported units/currencies still need clarification, not provider sums.
+  const pricedSubject = `(?:(?:selling|(?:the\\s+)?sale\\s+of)\\s+)?${SALE_NUMBER}\\s+(?:tonnes?|tons?)(?:\\s+at\\s+${SALE_NUMBER}\\s+(?:${SALE_RUB}|[A-Z]{3})\\s*(?:/\\s*(?:t|tonnes?)|per\\s+tonne))?`;
+  // Subject recognition also accepts possessives and numeric noun phrases;
+  // it does not validate sale units or amounts, which still require clarification.
+  const nominalSubject = '(?!(?:be|been|being|have|has|had)\\b)[\\p{L}\\p{N}][\\p{L}\\p{N}\\x27’-]*(?:\\s+[\\p{L}\\p{N}][\\p{L}\\p{N}\\x27’-]*)*';
+  // A later direct object ("generate reports about revenue") is not the
+  // requested revenue amount. Accept the fronted object plus its adjuncts.
+  const amountAdverbs = '(?:\\s+(?:(?:very|quite|rather)\\s+)?(?:[A-Za-z][A-Za-z-]*ly|often|sometimes|always|never|already|still|well|fast|hard|more|less|again|once|twice))*';
+  const amountComplement = `${amountAdverbs}(?=\\s*(?:$|[.!?。！？,;:]|(?:from|for|after|before|by|with|without|in|on|at|during|over|through|via|per|today|now|tomorrow|yesterday)\\b|(?:this|last|next)\\s+(?:year|month|week|season)\\b))`;
+  const nounFrontAmountQuestion = new RegExp(`^(?:${pricedSubject}|${nominalSubject})\\s+${amountVerb}\\b${amountComplement}`, 'iu').test(nounFrontHead)
+    || new RegExp(`^(?:(?:have|has|had)\\s+)?(?:(?:be|been|being)\\s+)?(?:generated|yielded|brought|produced|earned|received|made)\\b${amountComplement}`, 'iu').test(nounFrontHead);
+  const revenueContinuation = revenueClause
+    .replace(/[.!?。！？]+\s*$/u, '')
+    .replace(/^(?:(?:is|are|was|were|do|does|did|will|would|can|could|should|may|might|must|has|have|had|be|been|being)(?:\s+|$)){0,3}/iu, '')
+    .trim();
+  const amountContinuation = !revenueContinuation
+    || /^(?:from|for|of|after)\b|^(?:amount(?:s|ed)?|come|came)\s+to\b|^(?:(?:about|around|approximately|roughly)\s+)?\d/iu.test(revenueContinuation);
+  if (revenueClause && !amountContinuation && !amountNounQuestion && !nounFrontAmountQuestion && !intent.test(question)) return false;
+  const saleContinuation = revenueContinuation.match(/^(?:after|for|from|of)\s+(.+)/iu)?.[1] ?? '';
+  if (saleContinuation && !amountNounQuestion && !nounFrontAmountQuestion && !intent.test(question) && (
+    /\b(?:definition|meaning|concept|accounting|recognition|principles?|purposes?|diversification|rotation)\b/iu.test(saleContinuation)
+    || !/\d|\b(?:delivery|selling|sale|sell|amount|sum)\b/iu.test(saleContinuation)
+  )) return false;
+  const englishAmountQuestion = amountContinuation
+    && /\b(?:how\s+much(?:\s+(?:is|are|was|were|would|will|could|can|should|do|does|did|may|might|must|has|have|had)(?:\s+(?:be|been))?)?\s+(?:(?:the|my|our|your|their|his|her|this|that)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will|could|can|should|do|does|did|may|might|must|has|have|had)(?:\s+(?:be|been))?)\s+(?:(?:the|my|our|your|their|his|her|this|that)\s+)?|\s+amount\s+of\s+|\s+))(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b/iu.test(question);
+  // Require a complete amount phrase or a following sale/calculation clause.
+  // A shared prefix such as "what is the revenue" is insufficient when followed
+  // by "definition" or "recognition principle"; those need accounting answers.
+  // Match amount nouns/connectors, not arbitrary intervening conceptual words.
+  const chineseAmountQuestion = !chineseConceptQuestion && CHINESE_REVENUE_AMOUNT_QUESTION.test(question);
+  const amountQuestion = chineseSaleAmount || labelQuestion || amountNounQuestion || nounFrontAmountQuestion || chineseAmountQuestion || englishAmountQuestion
+    || /(?<![\p{L}])(?:сколько(?:\s+(?:будет|составит|получу))?\s+выручк[ауи]|(?:какая|какую|какова)\s+(?:будет\s+)?(?:(?:чистая|итоговая|общая|чистую|итоговую|общую)\s+)?выручк[ауи]|(?:каков|какой)\s+размер\s+выручки)(?=\s*(?:$|[.!?。！？:：]|(?:от|за|после|на|принес[\p{L}]*|получ[\p{L}]*|будет|составит)(?![\p{L}])))|\b(?:how\s+much(?:\s+(?:is|are|was|were|would|will|could|can|should|do|does|did|may|might|must|has|have|had)(?:\s+be)?)?\s+(?:(?:the|my|our|your|their|his|her|this|that)\s+)?|what(?:(?:'s|\s+(?:is|are|was|were|would|will|could|can|should|do|does|did|may|might|must|has|have|had)(?:\s+be)?)\s+(?:(?:the|my|our|your|their|his|her|this|that)\s+)?|\s+amount\s+of\s+|\s+))(?:(?:net|gross|total)\s+)?(?:revenue|proceeds)\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after|would|will|could|can|does)\b|be\b(?=\s*(?:$|[.!?。！？:：]|(?:from|for|of|after)\b))|(?:amount(?:s|ed)?|come|came)\s+to\b))/iu.test(question);
+  // Monetary examples do not establish an amount request. Classify the
+  // financial clause across locales without enumerating question openers or
+  // accounting verbs; explicit amount/label/calculation requests stay checked.
+  const financialClause = /\b(?:revenue|proceeds)\b[\s\p{P}]*\S|(?<![\p{L}])выручк[ауиы](?![\p{L}])[\s\p{P}]*\S|(?:净收入|销售收入|总收入)\s*\S/iu.test(question);
+  if (financialClause && !amountQuestion && !labelled && !intent.test(question)) return false;
+  const strategyQuestion = /стратег|\bstrateg(?:y|ies)\b|策略/iu.test(question);
+  const improvementQuestion = /повыс|увелич|улучш|\b(?:increase|improve|enhance|boost|grow|raise)\b|提高|改善|增加/iu.test(question);
+  if (!labelled && !intent.test(question)
+    && (strategyQuestion || (improvementQuestion && !amountQuestion))) return false;
+  const bareRequest = new RegExp(`^\\s*(?:(?:пожалуйста|please)[,:]?\\s+|请\\s*)?(?:${intent.source})(?:\\s+(?:после\\s+доставки|after\\s+delivery))?\\s*[.!?。！？]*$`, 'iu').test(question);
+  return amountQuestion || (suppliedInputs && (monetaryInputs || labelled || intent.test(question))) || bareRequest;
+}
 export type PaymentTimingInput = Readonly<{
   immediatePriceMinor: number;
   delayedPriceMinor: number;
@@ -215,6 +782,7 @@ function storageAffirmativelyRequested(text: string): boolean {
 
 /** History establishes a topic only; assistant prose never establishes a quantity. */
 export function economicComparisonFor(question: string, history: readonly UserContextTurn[]): EconomicComparison | null {
+  if (saleProceedsFromUser(question) !== null || saleCalculationRequested(question)) return 'sale_proceeds';
   if (/документ|персональн|хранени[ея]\s+данных|платформ|document|personal data|data retention|platform|文件|个人数据|平台/iu.test(question)) return null;
   if (paymentTimingFromUser(question) !== null) return 'payment_timing';
   if (TRANSPORT_COMPARISON.test(question) && /рейс|тонн|тариф|trip|tonne|rate|趟|吨|费率/iu.test(question)) return 'transport';
@@ -337,7 +905,28 @@ export function storageCostFromUser(question: string, history: readonly UserCont
   return Number.isSafeInteger(minor) ? minor : null;
 }
 
-export function economicComparisonCopy(kind: EconomicComparison, locale: PublicLocale, storageMinor: number | null, payment: PaymentTimingInput | null = null): string {
+export function economicComparisonCopy(kind: EconomicComparison, locale: PublicLocale, storageMinor: number | null, payment: PaymentTimingInput | null = null, sale: SaleProceedsInput | null = null): string {
+  if (kind === 'sale_proceeds') {
+    if (sale === null) {
+      if (locale === 'en') return 'Proceeds after delivery = quantity × sale price − total delivery charge. Specify the quantity in metric tonnes, the RUB-per-tonne sale price and the total delivery charge unambiguously in the same question for the same crop.';
+      if (locale === 'zh') return '扣除运输费后的收入 = 吨数 × 销售单价 − 运输总费用。请在同一个问题中明确同一种作物的公吨数、每吨卢布销售价格和运输总费用。';
+      return 'Остаток после доставки = объём × цена продажи − общая стоимость доставки. Укажите в одном вопросе однозначный объём в метрических тоннах, цену продажи в рублях за тонну и общую стоимость доставки одной культуры.';
+    }
+    const decimal = (value: number, scale: number): string => {
+      const negative = value < 0 ? '-' : '';
+      const digits = BigInt(Math.abs(value)).toString().padStart(scale + 1, '0');
+      const fraction = digits.slice(-scale).replace(/0+$/u, '');
+      return negative + digits.slice(0, -scale) + (fraction ? '.' + fraction : '');
+    };
+    const quantity = decimal(sale.quantityMilliTonnes, 3);
+    const price = decimal(sale.priceMinorPerTonne, 2);
+    const gross = decimal(sale.grossMinor, 2);
+    const delivery = decimal(sale.deliveryMinor, 2);
+    const net = decimal(sale.proceedsMinor, 2);
+    if (locale === 'en') return `Calculation from your inputs: ${quantity} t × ${price} RUB/t = ${gross} RUB gross revenue. After the stated delivery charge: ${gross} − ${delivery} = ${net} RUB. This is proceeds after delivery only, not profit; other costs and taxes are not included. No current market price was verified.`;
+    if (locale === 'zh') return `根据你提供的数据：${quantity}吨 × ${price}卢布/吨 = ${gross}卢布销售收入。扣除所述运输费用：${gross} − ${delivery} = ${net}卢布。这仅是扣除运输费后的收入，不是利润；未计入其他成本和税款，也未核实当前市场价格。`;
+    return `Расчёт по вашим данным: ${quantity} т × ${price} руб/т = ${gross} руб выручки. После указанной доставки: ${gross} − ${delivery} = ${net} руб. Это остаток после доставки, а не прибыль: другие расходы и налоги не учтены. Текущая рыночная цена не проверялась.`;
+  }
   if (kind === 'qualitative') {
     if (locale === 'en') return 'To assess profitability, compare confirmed costs and payment terms. A price comparison alone does not determine which option to choose.';
     if (locale === 'zh') return '评估收益时，应比较已核实的费用和付款条件；仅比较价格不能决定应选哪一种方案。';
@@ -386,12 +975,48 @@ export function economicComparisonCopy(kind: EconomicComparison, locale: PublicL
   return `${amount === null ? 'Для покрытия только хранения умножьте месячную стоимость за тонну на срок. Уточните эти два значения с единицами.' : `Расчёт по вашим данным: для покрытия только хранения цена должна вырасти на ${amount.replace('.', ',')} руб/т.`} Это не доказывает общую выгодность: сравните будущую чистую выручку, потери качества, финансирование и доставку.`;
 }
 
+/** Private detection view only; never a publishing or HTML sanitization boundary. */
+function saleSafetyView(text: string, removeFormatting = false, preserveFormatCharacters = false): string {
+  // FEFF is both ignorable and a valid Bearer separator. Retain that boundary
+  // before joining arbitrarily long ignorable runs, without splitting a key.
+  const joined = preserveFormatCharacters ? text : text
+    .replace(/(?<![a-z0-9._~+\/-])(Bearer)(?=[\p{Cf}\p{Default_Ignorable_Code_Point}\s]*\s)/giu, '$1 ')
+    .replace(/[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu, '');
+  const normalized = joined
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/gu, ' ')
+    .replace(/\s+/gu, ' ');
+  return removeFormatting ? normalized.replace(/[*_`~]/gu, '') : normalized;
+}
+
 export class StreamingAnswerGate {
   private pending = '';
   private published = '';
   private violationState: GateViolation | null = null;
   private partialBlockOpen = false;
   private progressiveSafetyContext = '';
+  private discardedSaleRawContext = '';
+  private discardedSaleFormattingContext = '';
+  private discardedSaleRenderedContext = '';
+  private discardedSaleRenderedFormattingContext = '';
+  private discardedSaleDecodedContext = '';
+  private discardedSaleDecodedFormattingContext = '';
+  private discardedSaleMarkdownContext = '';
+  private discardedSaleMarkdownFormattingContext = '';
+  private discardedSaleMarkdownState = newSaleMarkdownScanState();
+  private discardedSaleOriginalMarkdownContext = '';
+  private discardedSaleOriginalMarkdownFormattingContext = '';
+  private discardedSaleOriginalMarkdownState = newSaleMarkdownScanState();
+  private discardedSaleTagContentFrames = [newSaleTagContentFrame()];
+  private discardedSaleMarkdownTagContentFrames = [newSaleTagContentFrame()];
+  private discardedSaleUnquotedTagContentFrames = [newSaleTagContentFrame()];
+  private discardedSaleUnquotedMarkdownTagContentFrames = [newSaleTagContentFrame()];
+  private discardedSaleReferenceTail = '';
+  private discardedSaleRawJoinedReferenceTail = '';
+  private discardedSaleRawJoinedContext = '';
+  private discardedSaleRawJoinedFormattingContext = '';
+  private discardedSaleRawJoinedTagState = newSaleTagScanState();
+  private discardedSaleTagState = newSaleTagScanState();
+  private discardedSaleDecodedTagState = newSaleTagScanState();
   private progressiveJoiner = ' ';
   private pendingListMarker = '';
   private readonly authority: string;
@@ -418,6 +1043,18 @@ export class StreamingAnswerGate {
 
   push(delta: string): GateCommit {
     if (this.violationState !== null || !delta) return EMPTY_COMMIT;
+    if (this.options.economicComparison === 'sale_proceeds') {
+      const flags = new Set<string>();
+      // Bound each safety scan even if one transport delta contains a whole
+      // long answer. No provider sale prose is ever published.
+      for (let index = 0; index < delta.length; index += 512) {
+        this.pending += delta.slice(index, index + 512);
+        const commit = this.drain(false);
+        if (commit.violation) return commit;
+        for (const flag of commit.flags) flags.add(flag);
+      }
+      return { text: '', flags: Object.freeze([...flags]), violation: null };
+    }
     this.pending += delta;
     return this.drain(false);
   }
@@ -437,7 +1074,240 @@ export class StreamingAnswerGate {
     return commit;
   }
 
+  private discardedSaleDecodedText(head: string, final: boolean): { original: string; joined: string } {
+    const encoded = this.discardedSaleReferenceTail + head;
+    const unfinished = !final
+      ? encoded.match(/&(?:#(?:[xX][0-9a-fA-F]*|[0-9]*)|[A-Za-z][A-Za-z0-9]{0,31})?$/u)?.[0] ?? ''
+      : '';
+    this.discardedSaleReferenceTail = unfinished ? decodeSaleCharacterReferences(unfinished, false) : '';
+    const original = decodeSaleCharacterReferences(encoded.slice(0, encoded.length - unfinished.length), true);
+    // Decode each original character reference once, then scan its tag boundaries.
+    // Retained decoded context is never passed back through the entity decoder.
+    return { original, joined: saleTextWithoutTagBoundaries(original, this.discardedSaleDecodedTagState, false) };
+  }
+
+  /** Parse literal tag syntax before decoding attribute text: an entity quote
+   * in an unquoted value is data and cannot open a quoted attribute. */
+  private discardedSaleRawJoinedText(head: string, final: boolean): string {
+    const joined = saleTextWithoutTagBoundaries(head, this.discardedSaleRawJoinedTagState, false);
+    const encoded = this.discardedSaleRawJoinedReferenceTail + joined;
+    const unfinished = !final
+      ? encoded.match(/&(?:#(?:[xX][0-9a-fA-F]*|[0-9]*)|[A-Za-z][A-Za-z0-9]{0,31})?$/u)?.[0] ?? ''
+      : '';
+    this.discardedSaleRawJoinedReferenceTail = unfinished ? decodeSaleCharacterReferences(unfinished, false) : '';
+    return decodeSaleCharacterReferences(encoded.slice(0, encoded.length - unfinished.length), true);
+  }
+
+  private scanOriginalTagContents(text: string, frames: SaleTagContentFrame[]): { violation: GateViolation | null; prescription: boolean } {
+    let prescription = false;
+    let fragment = '';
+    let renderedFragment = '';
+    const scanFragment = (): GateViolation | null => {
+      if (!fragment) return null;
+      const frame = frames[frames.length - 1];
+      // Normalize a bounded fragment once, before trimming its lookbehind.
+      // Keep enclosing prefixes frozen at nested-tag boundaries, and retain
+      // original whitespace / split-surrogate semantics in the four views.
+      const raw = saleSafetyView(frame.raw + fragment);
+      const formatted = saleSafetyView(frame.formatted + fragment, true);
+      const originalRaw = saleSafetyView(frame.originalRaw + fragment, false, true);
+      const originalFormatted = saleSafetyView(frame.originalFormatted + fragment, true, true);
+      // Reuse the four views for plain text; quoted tag contents also retain
+      // a rendered view so long inner attributes cannot evict an outer prefix.
+      const identical = renderedFragment === fragment && frame.renderedRaw === frame.raw
+        && frame.renderedFormatted === frame.formatted && frame.renderedOriginalRaw === frame.originalRaw
+        && frame.renderedOriginalFormatted === frame.originalFormatted;
+      const renderedRaw = identical ? raw : saleSafetyView(frame.renderedRaw + renderedFragment);
+      const renderedFormatted = identical ? formatted : saleSafetyView(frame.renderedFormatted + renderedFragment, true);
+      const renderedOriginalRaw = identical ? originalRaw : saleSafetyView(frame.renderedOriginalRaw + renderedFragment, false, true);
+      const renderedOriginalFormatted = identical ? originalFormatted : saleSafetyView(frame.renderedOriginalFormatted + renderedFragment, true, true);
+      const views = identical ? [raw, formatted, originalRaw, originalFormatted]
+        : [raw, formatted, originalRaw, originalFormatted, renderedRaw, renderedFormatted, renderedOriginalRaw, renderedOriginalFormatted];
+      frame.raw = raw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.formatted = formatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.originalRaw = originalRaw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.originalFormatted = originalFormatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.renderedRaw = renderedRaw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.renderedFormatted = renderedFormatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.renderedOriginalRaw = renderedOriginalRaw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.renderedOriginalFormatted = renderedOriginalFormatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      fragment = '';
+      renderedFragment = '';
+      if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return 'WRITE_CLAIM';
+      if (views.some((view) => SECRET_PATTERN.test(view))) return 'SECRET';
+      prescription ||= views.some(isUngroundedCropProtectionPrescription);
+      return null;
+    };
+    for (const character of text) {
+      let frame = frames[frames.length - 1];
+      const quotedValueOpener = frame.state.inside && !frame.state.comment && !frame.state.declaration
+        && !frame.state.quote && frame.state.attribute === 'value';
+      // Keep a same-delimiter inner attribute in this frame's rendered view,
+      // rather than recursively allocating another quoted-value context. This
+      // preserves split signatures across long inner metadata without making
+      // literal opposite-quote runs consume the nesting limit.
+      const borrowedDelimiter = frame.closingQuote === character && quotedValueOpener;
+      if ((character === '"' || character === "'") && frame.state.quote !== character && !quotedValueOpener) {
+        // An outer closing delimiter also ends unfinished private inner views.
+        // Otherwise serial benign attributes can accumulate stale contexts.
+        let closingIndex = frames.length - 1;
+        while (closingIndex > 0 && frames[closingIndex].closingQuote !== character) closingIndex -= 1;
+        if (closingIndex > 0) {
+          const violation = scanFragment();
+          if (violation) return { violation, prescription };
+          frames.length = closingIndex;
+          frame = frames[frames.length - 1];
+        }
+      }
+      fragment += character;
+      const previousQuote = frame.state.quote;
+      renderedFragment += !frame.state.inside && character !== '<'
+        ? character : saleTextWithoutTagBoundaries(character, frame.state, false);
+      const openedQuote = !previousQuote && frame.state.quote !== '';
+      if (openedQuote || fragment.length >= 512) {
+        const violation = scanFragment();
+        if (violation) return { violation, prescription };
+      }
+      if (openedQuote && !borrowedDelimiter) {
+        // Attribute content gets its own bounded lexical view. Literal <x
+        // sequences remain inside that value instead of opening header frames.
+        // Nested quoted values still preserve the earlier secret/write checks.
+        if (frames.length >= 16) return { violation: 'OUTPUT_LIMIT', prescription };
+        frames.push(newSaleTagContentFrame(frame.state.quote));
+      }
+    }
+    return { violation: scanFragment(), prescription };
+  }
+
+  private scanUnquotedTagContents(text: string, frames: SaleTagContentFrame[]): { violation: GateViolation | null; prescription: boolean } {
+    // Quoted-value parsing above owns quoted tag-like text. This second bounded
+    // interpretation retains signatures inside malformed unquoted headers.
+    if (frames.length === 1 && !frames[0].state.inside && !frames[0].raw && !text.includes('<')) return { violation: null, prescription: false };
+    let prescription = false;
+    let fragment = '';
+    const scanFragment = (): GateViolation | null => {
+      if (!fragment) return null;
+      const frame = frames[frames.length - 1];
+      // Normalize a bounded fragment once, before trimming its lookbehind.
+      // Keep enclosing prefixes frozen at nested-tag boundaries, and retain
+      // original whitespace / split-surrogate semantics in the four views.
+      const raw = saleSafetyView(frame.raw + fragment);
+      const formatted = saleSafetyView(frame.formatted + fragment, true);
+      const originalRaw = saleSafetyView(frame.originalRaw + fragment, false, true);
+      const originalFormatted = saleSafetyView(frame.originalFormatted + fragment, true, true);
+      const views = [raw, formatted, originalRaw, originalFormatted];
+      frame.raw = raw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.formatted = formatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.originalRaw = originalRaw.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      frame.originalFormatted = originalFormatted.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+      fragment = '';
+      if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return 'WRITE_CLAIM';
+      if (views.some((view) => SECRET_PATTERN.test(view))) return 'SECRET';
+      prescription ||= views.some(isUngroundedCropProtectionPrescription);
+      return null;
+    };
+    for (const character of text) {
+      let frame = frames[frames.length - 1];
+      if (frame.pendingTagStart) {
+        frame.pendingTagStart = false;
+        if (/[A-Za-z!/?]/u.test(character)) {
+          // Only a lexical tag opener freezes the enclosing safety prefix.
+          // Literal < runs/less-than operators, including split/decoded ones
+          // in quoted attributes, do not consume nesting capacity.
+          const violation = scanFragment();
+          if (violation) return { violation, prescription };
+          if (frames.length >= 16) return { violation: 'OUTPUT_LIMIT', prescription };
+          frame = newSaleTagContentFrame();
+          frames.push(frame);
+        }
+        fragment += '<';
+        saleTextWithoutTagBoundaries('<', frame.state, false);
+      }
+      if (frame.state.inside && !frame.state.quote && character === '<') {
+        frame.pendingTagStart = true;
+        continue;
+      }
+      fragment += character;
+      const wasInside = frame.state.inside;
+      saleTextWithoutTagBoundaries(character, frame.state, false);
+      const closedNestedTag = wasInside && !frame.state.inside && frames.length > 1;
+      if (closedNestedTag || fragment.length >= 512) {
+        const violation = scanFragment();
+        if (violation) return { violation, prescription };
+      }
+      if (closedNestedTag) frames.pop();
+    }
+    return { violation: scanFragment(), prescription };
+  }
+
+
+  private discardSaleProse(final: boolean): GateCommit {
+    const head = this.pending;
+    this.pending = '';
+    if (!head && (!final || !(this.discardedSaleRenderedContext || this.discardedSaleDecodedContext || this.discardedSaleReferenceTail || this.discardedSaleRawJoinedReferenceTail))) return EMPTY_COMMIT;
+    // Nothing from this mode is published, so even unclosed traces, fences and
+    // envelopes can be scanned and discarded immediately. Check original raw
+    // contents before any formatting removal; trace text is not a safety bypass.
+    const rawBlock = saleSafetyView(this.discardedSaleRawContext + head, false, true);
+    // Include original quoted/unclosed tag contents in the formatting view.
+    const formattingBlock = saleSafetyView(this.discardedSaleFormattingContext + head, true, true);
+    const normalizedHead = saleTextWithoutTagBoundaries(head, this.discardedSaleTagState, true);
+    const decoded = this.discardedSaleDecodedText(head, final);
+    const rawJoined = this.discardedSaleRawJoinedText(head, final);
+    const rawJoinedBlock = saleSafetyView(this.discardedSaleRawJoinedContext + rawJoined);
+    const rawJoinedFormattingBlock = saleSafetyView(this.discardedSaleRawJoinedFormattingContext + rawJoined, true);
+    const originalContents = this.scanOriginalTagContents(decoded.original, this.discardedSaleTagContentFrames);
+    if (originalContents.violation) return this.refuse(originalContents.violation);
+    const unquotedContents = this.scanUnquotedTagContents(decoded.original, this.discardedSaleUnquotedTagContentFrames);
+    if (unquotedContents.violation) return this.refuse(unquotedContents.violation);
+    // Keep a second bounded view without formatting, including tags split over
+    // arbitrarily long transport cuts. A separate raw view preserves real keys
+    // containing underscores; normalization cannot silently erase such tokens.
+    const block = sanitizeAnswer(saleSafetyView(`${this.progressiveSafetyContext}${this.progressiveJoiner}${normalizedHead}`, true));
+    // Inline tags can split a rendered token: trans<em>ferred</em> or a secret.
+    // Keep actual whitespace but join tag boundaries in this additional view.
+    // Do not trim each fragment: trailing spaces remain significant across cuts.
+    const decodedRawBlock = saleSafetyView(this.discardedSaleDecodedContext + decoded.original, false, true);
+    const decodedFormattingBlock = saleSafetyView(this.discardedSaleDecodedFormattingContext + decoded.original, true, true);
+    const renderedRawBlock = saleSafetyView(this.discardedSaleRenderedContext + decoded.joined);
+    const renderedBlock = saleSafetyView(this.discardedSaleRenderedFormattingContext + decoded.joined, true);
+    const markdownHead = saleMarkdownLinkText(decoded.joined, this.discardedSaleMarkdownState);
+    const markdownRawBlock = saleSafetyView(this.discardedSaleMarkdownContext + markdownHead);
+    const markdownFormattingBlock = saleSafetyView(this.discardedSaleMarkdownFormattingContext + markdownHead, true);
+    // Parse original Markdown before tag removal too: angle-wrapped URLs can
+    // contain apostrophes/parentheses which are not HTML attribute delimiters.
+    const originalMarkdownHead = saleMarkdownLinkText(decoded.original, this.discardedSaleOriginalMarkdownState);
+    const composedContents = this.scanOriginalTagContents(originalMarkdownHead, this.discardedSaleMarkdownTagContentFrames);
+    if (composedContents.violation) return this.refuse(composedContents.violation);
+    const unquotedComposedContents = this.scanUnquotedTagContents(originalMarkdownHead, this.discardedSaleUnquotedMarkdownTagContentFrames);
+    if (unquotedComposedContents.violation) return this.refuse(unquotedComposedContents.violation);
+    const originalMarkdownRawBlock = saleSafetyView(this.discardedSaleOriginalMarkdownContext + originalMarkdownHead);
+    const originalMarkdownFormattingBlock = saleSafetyView(this.discardedSaleOriginalMarkdownFormattingContext + originalMarkdownHead, true);
+    const views = [rawBlock, formattingBlock, block, decodedRawBlock, decodedFormattingBlock, renderedRawBlock, renderedBlock,
+      markdownRawBlock, markdownFormattingBlock, originalMarkdownRawBlock, originalMarkdownFormattingBlock, rawJoinedBlock, rawJoinedFormattingBlock];
+    if (views.some((view) => WRITE_CLAIM_PATTERN.test(view))) return this.refuse('WRITE_CLAIM');
+    if (views.some((view) => SECRET_PATTERN.test(view))) return this.refuse('SECRET');
+    const flags = ['UNVERIFIED_ECONOMIC_CLAIM_REMOVED'];
+    if (originalContents.prescription || composedContents.prescription || unquotedContents.prescription || unquotedComposedContents.prescription || views.some(isUngroundedCropProtectionPrescription)) flags.push('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    this.discardedSaleRawJoinedContext = rawJoinedBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleRawJoinedFormattingContext = rawJoinedFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleRenderedContext = renderedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleRenderedFormattingContext = renderedBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleDecodedContext = decodedRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleDecodedFormattingContext = decodedFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleMarkdownContext = markdownRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleMarkdownFormattingContext = markdownFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleOriginalMarkdownContext = originalMarkdownRawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleOriginalMarkdownFormattingContext = originalMarkdownFormattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleFormattingContext = formattingBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.discardedSaleRawContext = rawBlock.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    this.progressiveSafetyContext = block.slice(-PROGRESSIVE_SAFETY_LOOKBEHIND_CHARS);
+    if (normalizedHead) this.progressiveJoiner = /\s$/u.test(normalizedHead) ? ' ' : '';
+    return { text: '', flags: Object.freeze(flags), violation: null };
+  }
+
   private drain(final: boolean): GateCommit {
+    if (this.options.economicComparison === 'sale_proceeds') return this.discardSaleProse(final);
     const decidable = final ? this.pending.length : undecidedTailStart(this.pending);
     const overflowing = !final && this.pending.length > this.maxPendingChars;
     const progressiveAllowed = !final
@@ -573,6 +1443,29 @@ export class StreamingAnswerGate {
   private refuse(violation: GateViolation): GateCommit {
     this.violationState = violation;
     this.pending = '';
+    this.discardedSaleRawContext = '';
+    this.discardedSaleFormattingContext = '';
+    this.discardedSaleRenderedContext = '';
+    this.discardedSaleRenderedFormattingContext = '';
+    this.discardedSaleDecodedContext = '';
+    this.discardedSaleDecodedFormattingContext = '';
+    this.discardedSaleMarkdownContext = '';
+    this.discardedSaleMarkdownFormattingContext = '';
+    this.discardedSaleMarkdownState = newSaleMarkdownScanState();
+    this.discardedSaleOriginalMarkdownContext = '';
+    this.discardedSaleOriginalMarkdownFormattingContext = '';
+    this.discardedSaleOriginalMarkdownState = newSaleMarkdownScanState();
+    this.discardedSaleTagContentFrames = [newSaleTagContentFrame()];
+    this.discardedSaleMarkdownTagContentFrames = [newSaleTagContentFrame()];
+    this.discardedSaleUnquotedTagContentFrames = [newSaleTagContentFrame()];
+    this.discardedSaleUnquotedMarkdownTagContentFrames = [newSaleTagContentFrame()];
+    this.discardedSaleReferenceTail = '';
+    this.discardedSaleRawJoinedReferenceTail = '';
+    this.discardedSaleRawJoinedContext = '';
+    this.discardedSaleRawJoinedFormattingContext = '';
+    this.discardedSaleRawJoinedTagState = newSaleTagScanState();
+    this.discardedSaleTagState = newSaleTagScanState();
+    this.discardedSaleDecodedTagState = newSaleTagScanState();
     this.progressiveSafetyContext = '';
     this.partialBlockOpen = false;
     return { text: '', flags: Object.freeze([]), violation };
@@ -617,6 +1510,11 @@ export class ProviderStreamParser {
   private buffer = '';
   private readonly decoder = new TextDecoder('utf-8');
   private doneState = false;
+  private stringContentReceived = false;
+
+  get receivedStringContent(): boolean {
+    return this.stringContentReceived;
+  }
 
   get finished(): boolean {
     return this.doneState;
@@ -666,6 +1564,7 @@ export class ProviderStreamParser {
       const row = asRecord(parsed);
       const choice = asRecord(Array.isArray(row?.choices) ? row.choices[0] : null);
       const delta = asRecord(choice?.delta);
+      if (typeof delta?.content === 'string') this.stringContentReceived = true;
       const piece = typeof delta?.content === 'string' ? delta.content : '';
       if (piece) content += piece;
 

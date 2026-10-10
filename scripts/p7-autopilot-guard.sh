@@ -56,6 +56,8 @@ CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
+    "security/accounting-bff-csrf-3-5-1"|"security/module-body-validation"|"security/bff-upstream-path-encoding-4459"|"security/request-cookie-single-reader-4459"|"security/open-redirect-demo-login-4459"|"security/email-check-length-first-4459"|"security/browser-hardening-headers-4459"|"security/outbound-redirect-and-surface-4459"|"security/credential-surface-4459"|"fix/tai-release-run-event-filter-20261008") return 0 ;;
+    "fix/gekta-history-lifecycle-5818"|"governance/gekta-history-lifecycle-source-admission-5818") return 0 ;;
     "$PRODUCT_DEAL_RUNTIME_BRANCH"|"$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH") return 0 ;;
     "governance/product-deal-execution-route-20261001"|"fix/deal-execution-route-20261001") return 0 ;;
     "fix/gekta-model-control-probe-20261001") return 0 ;;
@@ -389,7 +391,7 @@ fi
 # entries in .gitleaksignore. Each accepted transformation is bound by the trusted
 # base; the implementation cannot weaken the test or authorize new exceptions.
 if [ "$CURRENT_BRANCH" = "$GITLEAKS_RELEASE_ATTESTATION_BRANCH" ] && printf '%s\n' "$DIFF_FILES" | grep -Fxq 'apps/tai/tests/test_gitleaks_release_authority.py'; then
-  P7_ATTESTATION_BASE="$BASE_REF" P7_ATTESTATION_HEAD="$HEAD_REF" node - <<'JS'
+  P7_ATTESTATION_BASE="$BASE_REF" P7_ATTESTATION_HEAD="$HEAD_REF" P7_ATTESTATION_DIFF="$DIFF_FILES" node - <<'JS'
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const path = 'apps/tai/tests/test_gitleaks_release_authority.py';
@@ -422,6 +424,33 @@ if (baselineBlob === currentBaselineBlob) {
     '        "generic-api-key:17",\n';
   assert.equal(baseline.split(currentAnchor).length - 1, 1, 'Gitleaks release attestation current anchor must occur exactly once');
   assert.equal(head, baseline.replace(currentAnchor, currentAnchor + twoExistingFingerprints), 'Gitleaks release attestation repair must add exactly two existing fingerprints and preserve every existing byte and assertion');
+} else if (baselineBlob === '404e172449f53c01369ef974a50079d6f6967d56') {
+  // Purpose gitleaks-session-minting-attestation-guard-purpose-20261008: #5804
+  // appended two reviewed historical fingerprints to .gitleaksignore; only the
+  // exact synchronization of the release attestation with them is accepted.
+  assert.equal(treeEntry(process.env.P7_ATTESTATION_BASE, path), `100644 blob 404e172449f53c01369ef974a50079d6f6967d56\t${path}`, 'Gitleaks release attestation baseline must be the exact accepted regular file');
+  assert.equal(treeEntry(process.env.P7_ATTESTATION_HEAD, path), `100644 blob 95c914d64012a6260ca1090a01844b2c6f56cc3a\t${path}`, 'Gitleaks release attestation head must be the exact session-minting regular-file repair');
+  const acceptedInputs = {
+    '.gitleaksignore': '2c7aaa811ed3ea3dd1cf806ed1126705c173591b',
+    'apps/tai/release-source-manifest.json': '35f96ccc7fe332ddd90454eeee19853ba0612b71',
+  };
+  for (const [file, blob] of Object.entries(acceptedInputs)) {
+    for (const ref of [process.env.P7_ATTESTATION_BASE, process.env.P7_ATTESTATION_HEAD]) {
+      assert.equal(treeEntry(ref, file), `100644 blob ${blob}\t${file}`, `Gitleaks release attestation input must remain the exact accepted regular file: ${file}`);
+    }
+  }
+  const sessionMintingAnchor =
+    '        "3b76d0f3473b986b6354aaac528994f7ac343df2:"\n' +
+    '        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"\n' +
+    '        "generic-api-key:17",\n';
+  const sessionMintingFingerprints =
+    '        "8e1febfffeb4da36f1dba9badb7522ddb6513c1d:"\n' +
+    '        "apps/web/tests/unit/sessionMintingSurface.spec.ts:generic-api-key:137",\n' +
+    '        "8e1febfffeb4da36f1dba9badb7522ddb6513c1d:"\n' +
+    '        "apps/web/tests/unit/sessionMintingSurface.spec.ts:generic-api-key:138",\n';
+  assert.equal(baseline.split(sessionMintingAnchor).length - 1, 1, 'Gitleaks release attestation session-minting anchor must occur exactly once');
+  assert.equal(head, baseline.replace(sessionMintingAnchor, sessionMintingAnchor + sessionMintingFingerprints), 'Gitleaks release attestation repair must add exactly the two session-minting fingerprints and preserve every existing byte and assertion');
+  assert.deepEqual((process.env.P7_ATTESTATION_DIFF || '').split('\n').filter(Boolean), [path], 'Gitleaks release attestation session-minting repair must change exactly the attestation test');
 } else {
 // Preserve the historical four-fingerprint transformation and its negative gates.
 const insertAfterCommodity =
@@ -510,9 +539,34 @@ if (!baseRef || !stateFile || !branch) {
   throw new Error('P7_IMMUTABLE_SCOPE: immutable scope inputs are required');
 }
 
+// Only the named immutable registry gets this fixed allowance. Read complete
+// bytes before decoding; every manifest/source reader keeps its existing bound.
+const immutableStateCapacity = 3 * 1024 * 1024;
+function readImmutableState(ref) {
+  if (stateFile !== 'docs/platform-v7/autopilot/autopilot-state.json') {
+    throw new Error('P7_IMMUTABLE_STATE_PATH');
+  }
+  let bytes;
+  try {
+    bytes = execFileSync('git', ['show', `${ref}:${stateFile}`], { maxBuffer: immutableStateCapacity + 1 });
+  } catch (error) {
+    if (error?.code === 'ENOBUFS') throw new Error('P7_IMMUTABLE_STATE_CAPACITY');
+    throw error;
+  }
+  if (bytes.length > immutableStateCapacity) throw new Error('P7_IMMUTABLE_STATE_CAPACITY');
+  const text = bytes.toString('utf8');
+  if (!Buffer.from(text, 'utf8').equals(bytes)) throw new Error('P7_IMMUTABLE_STATE_UTF8');
+  return text;
+}
+
 // These bounded recovery routes are owned by the accepted base guard.
 // Candidate state and manifests cannot widen their exact path sets.
 const gektaRecoveryScopes = {
+  "fix/gekta-history-lifecycle-5818": [
+    "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+    "apps/api/src/modules/gekta/gekta-workspace.spec.ts"
+  ],
+  "governance/gekta-history-lifecycle-source-admission-5818": [stateFile],
   "fix/gekta-model-control-probe-20261001": [
     ".github/workflows/gekta-p0-speed-model-host-control-probe.yml"
   ],
@@ -548,6 +602,64 @@ const gektaRecoveryScopes = {
 let scopes;
 if (Object.hasOwn(gektaRecoveryScopes, branch)) {
   scopes = gektaRecoveryScopes[branch];
+  if (branch === 'fix/gekta-history-lifecycle-5818' || branch === 'governance/gekta-history-lifecycle-source-admission-5818') {
+    const { isDeepStrictEqual } = require('node:util');
+    const { createHash } = require('node:crypto');
+    const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+    const fail = reason => { throw new Error(`GEKTA_HISTORY_SCOPE_${reason}`); };
+    const implementationBranch = 'fix/gekta-history-lifecycle-5818';
+    const admissionBranch = 'governance/gekta-history-lifecycle-source-admission-5818';
+    const admissionKey = 'gekta-history-lifecycle-5818-20261007';
+    const headRef = String(process.env.HEAD_REF || '').trim();
+    const accepted = JSON.parse(readImmutableState(baseRef));
+    const purpose = accepted.coordinationAdmissions?.['gekta-history-lifecycle-guard-purpose-5818-20261007'];
+    const paths = gektaRecoveryScopes[implementationBranch];
+    const template = purpose?.stagedSourceAdmission;
+    if (!purpose || purpose.stagedSourceBranch !== implementationBranch ||
+        purpose.stagedAdmissionBranch !== admissionBranch || !template ||
+        template.implementationBranch !== implementationBranch || template.originalIssue !== 5818 ||
+        !isDeepStrictEqual(template.allowedPaths, paths) ||
+        !Array.isArray(template.sourcePayload) || template.sourcePayload.length !== paths.length ||
+        !isDeepStrictEqual(template.sourcePayload.map(item => item.path), paths)) fail('PURPOSE_NOT_ACCEPTED');
+    if (!headRef) fail('HEAD_REQUIRED');
+    git(['merge-base', '--is-ancestor', baseRef, headRef]);
+    const entries = git(['diff', '--raw', '--no-abbrev', '--no-renames', '-z', baseRef, headRef]).split('\0');
+    if (entries.pop() !== '') fail('INVALID_DIFF');
+    for (const item of template.sourcePayload) {
+      if (item.mode !== '100644' || !/^[0-9a-f]{40}$/.test(item.beforeBlob) ||
+          !/^[0-9a-f]{40}$/.test(item.afterBlob) || !/^[0-9a-f]{64}$/.test(item.sha256) ||
+          !Number.isSafeInteger(item.bytes) || item.bytes <= 0) fail('INVALID_PAYLOAD');
+    }
+    if (branch === admissionBranch) {
+      if (entries.length !== 2 || entries[1] !== stateFile ||
+          !/^:100644 100644 [0-9a-f]{40} [0-9a-f]{40} M$/.test(entries[0])) fail('STATE_ONLY_REQUIRED');
+      if (Object.hasOwn(accepted.approvedConcurrentScopes, implementationBranch) ||
+          Object.hasOwn(accepted.coordinationAdmissions, admissionKey)) fail('ALREADY_ADMITTED');
+      for (const item of template.sourcePayload) {
+        if (git(['ls-tree', baseRef, '--', item.path]).trim() !== `100644 blob ${item.beforeBlob}\t${item.path}`) fail('BASE_SOURCE_MOVED');
+      }
+      const expected = structuredClone(accepted);
+      expected.approvedConcurrentScopes[implementationBranch] = paths;
+      expected.coordinationAdmissions[admissionKey] = {
+        ...template, authorityBaseExactMain: git(['rev-parse', baseRef]).trim(),
+      };
+      const candidate = JSON.parse(readImmutableState(headRef));
+      if (!isDeepStrictEqual(candidate, expected)) fail('STATE_TRANSITION_MISMATCH');
+    } else {
+      const admission = accepted.coordinationAdmissions?.[admissionKey];
+      if (!admission || !/^[0-9a-f]{40}$/.test(admission.authorityBaseExactMain || '') ||
+          !isDeepStrictEqual(accepted.approvedConcurrentScopes?.[branch], paths) ||
+          !isDeepStrictEqual(admission, { ...template, authorityBaseExactMain: admission.authorityBaseExactMain })) fail('SOURCE_NOT_ADMITTED');
+      if (entries.length !== paths.length * 2) fail('EXACT_TWO_PATHS_REQUIRED');
+      for (const item of template.sourcePayload) {
+        const index = entries.indexOf(item.path);
+        if (index < 1 || index % 2 !== 1 ||
+            entries[index - 1] !== `:100644 100644 ${item.beforeBlob} ${item.afterBlob} M`) fail('PAYLOAD_MISMATCH');
+        const bytes = execFileSync('git', ['show', `${headRef}:${item.path}`]);
+        if (bytes.length !== item.bytes || createHash('sha256').update(bytes).digest('hex') !== item.sha256) fail('CONTENT_MISMATCH');
+      }
+    }
+  }
   if (branch === 'fix/gekta-model-control-probe-20261001') {
     // A literal route is necessary but does not itself admit source. The
     // separately accepted one-path state transition must already be in base.
@@ -555,7 +667,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     const headRef = String(process.env.HEAD_REF || '').trim();
     const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
     const fail = reason => { throw new Error(`GEKTA_READONLY_DIAGNOSTIC_${reason}`); };
-    const accepted = JSON.parse(git(['show', `${baseRef}:${stateFile}`]));
+    const accepted = JSON.parse(readImmutableState(baseRef));
     const purpose = accepted.coordinationAdmissions?.['gekta-readonly-control-diagnostic-prerequisite-20261001'];
     if (!purpose || purpose.stagedDiagnosticBranch !== branch ||
         !isDeepStrictEqual(purpose.stagedDiagnosticPaths, scopes)) fail('PURPOSE_NOT_ACCEPTED');
@@ -604,7 +716,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
 } else {
   let state;
   try {
-    const raw = execFileSync('git', ['show', `${baseRef}:${stateFile}`], { encoding: 'utf8' });
+    const raw = readImmutableState(baseRef);
     state = JSON.parse(raw);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -693,7 +805,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     const combinedScope = [...originalTestScope, ...metadataPaths];
     const headRef = String(process.env.HEAD_REF || 'HEAD');
     const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
-    const readState = ref => execFileSync('git', ['show', `${ref}:${stateFile}`], { encoding: 'utf8' });
+    const readState = ref => readImmutableState(ref);
     const treeEntry = (ref, file) => git(['ls-tree', ref, '--', file]);
     const regularBlob = (ref, file, blob) => assert.equal(treeEntry(ref, file), `100644 blob ${blob}\t${file}`, `LANDING_METADATA_EXACT_FILE:${ref}:${file}`);
     const regularState = ref => assert.match(treeEntry(ref, stateFile), /^100644 blob [0-9a-f]{40}\t/u, 'LANDING_METADATA_STATE_FILE_MODE');
@@ -804,7 +916,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     const baseSha = execFileSync('git', ['rev-parse', `${baseRef}^{commit}`], { encoding: 'utf8' }).trim();
     const mergeBase = execFileSync('git', ['merge-base', baseRef, headRef], { encoding: 'utf8' }).trim();
     if (mergeBase !== baseSha) throw new Error('DEAL_RUNTIME_BASE_NOT_ANCESTOR');
-    const readState = (ref) => execFileSync('git', ['show', `${ref}:${stateFile}`], { encoding: 'utf8' });
+    const readState = (ref) => readImmutableState(ref);
     const fileMode = (ref, file) => execFileSync('git', ['ls-tree', ref, '--', file], { encoding: 'utf8' }).split(' ')[0];
     const fields = execFileSync('git', ['diff', '--no-renames', '--name-status', '-z', `${baseRef}...${headRef}`], { encoding: 'utf8' }).split('\0');
     if (fields.pop() !== '' || fields.length % 2 !== 0) throw new Error('DEAL_RUNTIME_DIFF_METADATA_INVALID');
@@ -1455,7 +1567,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
     const { isDeepStrictEqual } = require('node:util');
     const headRef = String(process.env.HEAD_REF || 'HEAD');
     const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${statePath}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     const key = 'ux-buyer-first-customer-route-20260927-coordination';
     const implementationBranch = 'ux/buyer-first-customer-home-20260925';
     const originalKey = 'ux-buyer-first-customer-home-20260925-coordination';
@@ -1535,7 +1647,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
         Object.hasOwn(state.coordinationAdmissions || {}, coordinationKey)) {
       throw new Error('PRODUCT_BUYER_ADMISSION_ALREADY_PRESENT');
     }
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${statePath}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     const expected = structuredClone(state);
     if (!expected.coordinationAdmissions) expected.coordinationAdmissions = {};
     const baseSha = execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim();
@@ -1584,7 +1696,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
         Object.hasOwn(state.coordinationAdmissions || {}, coordinationKey)) {
       throw new Error('PRODUCT_BANK_HOME_ADMISSION_ALREADY_PRESENT');
     }
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${statePath}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     const expected = structuredClone(state);
     if (!expected.coordinationAdmissions) expected.coordinationAdmissions = {};
     const baseSha = execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim();
@@ -1865,7 +1977,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
     const priorKey = 'bank-deep-visible-copy-guard-20260924-coordination';
     const headRef = String(process.env.HEAD_REF || 'HEAD');
     const baseSha = execFileSync('git', ['rev-parse', `${baseRef}^{commit}`], { encoding: 'utf8' }).trim();
-    const read = (ref, file) => execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+    const read = (ref, file) => file === stateFile ? readImmutableState(ref) : execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8', maxBuffer: 1024 * 1024 });
     const entry = (ref, file) => execFileSync('git', ['ls-tree', ref, '--', file], { encoding: 'utf8' }).trim();
     const mode = (ref, file) => entry(ref, file).split(' ')[0];
     if (!isDeepStrictEqual(state.coordinationAdmissions[bankMoneyPurposeKey], requiredPurpose) ||
@@ -1959,7 +2071,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
   if (branch === 'governance/product-bank-fgis-ux-source-admission-20260924' && !bankMoneyPhase) {
     const { isDeepStrictEqual } = require('node:util');
     const headRef = String(process.env.HEAD_REF || 'HEAD');
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${stateFile}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     const expected = new Map([
       ['bank/deep-visible-copy-guard-20260924', {
         key: 'bank-deep-visible-copy-guard-20260924-coordination',
@@ -2165,7 +2277,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
     }
     if (!isDeepStrictEqual(scopes, expected)) throw new Error('INDUSTRIAL_DIAGNOSTIC_ACCEPTED_SCOPE_MISMATCH');
     const headRef = String(process.env.HEAD_REF || 'HEAD');
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${stateFile}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     if (!isDeepStrictEqual(candidate, baseline)) throw new Error('INDUSTRIAL_DIAGNOSTIC_STATE_MUTATION');
     const changes = execFileSync('git', ['diff', '--no-renames', '--name-status', `${baseRef}...${headRef}`], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
     for (const change of changes) {
@@ -2188,7 +2300,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
         throw new Error('P7_IMMUTABLE_SCOPE: public governance requires unchanged regular-file modes');
       }
     }
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${stateFile}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     const baseline = JSON.parse(JSON.stringify(state));
     for (const admittedBranch of ['agent/platform-v7-strategic-rebuild-v3', 'fix/public-registration-final-copy-4916']) {
       if (candidate.approvedConcurrentScopes) delete candidate.approvedConcurrentScopes[admittedBranch];
@@ -2250,7 +2362,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
   const purposeKey = 'deal-execution-route-guard-purpose-20261001';
   const admissionKey = 'deal-execution-route-20261001';
   const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
-  const read = (ref, file) => execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8' });
+  const read = (ref, file) => file === stateFile ? readImmutableState(ref) : execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8' });
   const headRef = String(process.env.HEAD_REF || 'HEAD');
   const base = JSON.parse(read(baseRef, stateFile));
   const relevant = branch === admissionBranch || branch === sourceBranch ||
@@ -2556,7 +2668,7 @@ if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
 fi
 
-if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$IR20_BINDING_PREREQUISITE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_SCOPE_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BUYER_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BANK_HOME_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "governance/product-deal-execution-route-20261001" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH" ]; then
+if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$IR20_BINDING_PREREQUISITE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_SCOPE_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BUYER_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BANK_HOME_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "governance/product-deal-execution-route-20261001" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "governance/gekta-history-lifecycle-source-admission-5818" ]; then
   MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-autopilot-guard\.test\.mjs$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$|\.github/workflows/automerge\.yml$)' || true)
   # These manifests document the exact accepted path sets. They are not scope
   # authority: only approvedConcurrentScopes from the trusted base is used.
@@ -2592,6 +2704,41 @@ if (!manifest || Array.isArray(manifest) || typeof manifest !== 'object' ||
 }
 JS
     MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv "$PRODUCT_SCOPE_MANIFEST" || true)
+  fi
+  case "$CURRENT_BRANCH" in
+    "security/accounting-bff-csrf-3-5-1") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/accounting-bff-csrf-3-5-1.json' ;;
+    "security/module-body-validation") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/module-body-validation.json' ;;
+    "security/bff-upstream-path-encoding-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/bff-upstream-path-encoding-4459.json' ;;
+    "security/request-cookie-single-reader-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/request-cookie-single-reader-4459.json' ;;
+    "security/open-redirect-demo-login-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/open-redirect-demo-login-4459.json' ;;
+    "security/email-check-length-first-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/email-check-length-first-4459.json' ;;
+    "security/browser-hardening-headers-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/browser-hardening-headers-4459.json' ;;
+    "security/outbound-redirect-and-surface-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/outbound-redirect-and-surface-4459.json' ;;
+    "security/credential-surface-4459") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/credential-surface-4459.json' ;;
+    "fix/tai-release-run-event-filter-20261008") CONCURRENT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/tai-release-run-event-filter-20261008.json' ;;
+    *) CONCURRENT_SCOPE_MANIFEST='' ;;
+  esac
+  if [ -n "$CONCURRENT_SCOPE_MANIFEST" ] && printf '%s\n' "$DIFF_FILES" | grep -Fxq "$CONCURRENT_SCOPE_MANIFEST"; then
+    # The branch's own manifest documents the accepted vector; it is not scope
+    # authority. It is exempt only when that exact path is in the base vector
+    # and the file is a well-formed manifest for this exact branch.
+    CONCURRENT_MANIFEST_BASE_SCOPE="$APPROVED_BRANCH_SCOPE" CONCURRENT_MANIFEST_PATH="$CONCURRENT_SCOPE_MANIFEST" \
+      CONCURRENT_MANIFEST_BRANCH="$CURRENT_BRANCH" CONCURRENT_MANIFEST_HEAD="$HEAD_REF" node - <<'JS'
+const { execFileSync } = require('node:child_process');
+const branch = process.env.CONCURRENT_MANIFEST_BRANCH;
+const path = process.env.CONCURRENT_MANIFEST_PATH;
+const head = process.env.CONCURRENT_MANIFEST_HEAD;
+const acceptedPaths = process.env.CONCURRENT_MANIFEST_BASE_SCOPE.split(/\r?\n/u).filter(Boolean);
+if (!acceptedPaths.includes(path)) throw new Error('CONCURRENT_MANIFEST_NOT_ACCEPTED_IN_BASE');
+const raw = execFileSync('git', ['show', `${head}:${path}`], { encoding: 'utf8', maxBuffer: 64 * 1024 });
+const manifest = JSON.parse(raw);
+if (!manifest || Array.isArray(manifest) || typeof manifest !== 'object' ||
+    manifest.schemaVersion !== 'platform-v7.concurrent-scope.v1' ||
+    manifest.status !== 'active' || manifest.branch !== branch) {
+  throw new Error('CONCURRENT_MANIFEST_IDENTITY_INVALID');
+}
+JS
+    MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv "$CONCURRENT_SCOPE_MANIFEST" || true)
   fi
   if [ "$CURRENT_BRANCH" = "$QWEN_FAILED_EVIDENCE_BRANCH" ]; then
     # This diagnostic regression file is still subject to exact base-approved scope.
