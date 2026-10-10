@@ -27,11 +27,11 @@ Gekta existing-owner model activation and live quality/speed/stability acceptanc
 - BLOCKED: Gekta model source is blocked by genuine credential-before-validation P2; corrected four-path immutable source needs separate acceptance and real new native review, then authorized one-use execution. Retired grant remains spent; permanent control remains INTERACTION_REQUIRED.
 - BLOCKED: Gekta dispatcher explicit unaccepted-payload supersession correction is pending separate two-file source acceptance; registered public legal18 and anonymous17 replacements remain private and blocked until that accepted dispatcher exists.
 - BLOCKED: Gekta positive dispatcher regression fixture isolation is pending separate exact one-test-file source acceptance; future registered18/anonymous17 metadata remains private and blocked. Runtime duplicate/cycle/owner/scope rejection remains unchanged.
-- BLOCKED: Gekta anonymous document acknowledgement requires separately accepted seventeen-path source after actual registered18 guest legal and owned4 acceptance, then real exact-main REG.RU/mobile execution; old private19 composition is not source or production authority.
 - BLOCKED: Gekta registered18 source is blocked by actual Kubernetes source-binding input capacity; exact two-path named governance capacity correction requires separately accepted metadata/source and genuine native full preflight/KIND before fresh registration acceptance.
 - BLOCKED: Gekta registered18 remains blocked by real180s guard timeout and DockerHub429; separately admitted one-test-file baseline fixture cache needs its own genuine review/native/readiness/manual acceptance, then actual recomposed registration preflight/Kubernetes PASS. No timeout or test is weakened.
 - BLOCKED: Gekta registration18 is blocked by genuine current392 P1 wrong personal-data document binding; separate six-payload same-vector admission and corrected-source exact-head review/native/canonical/manual acceptance are required. Prior392 bounded preflight PASS is genuine but does not satisfy corrected-source acceptance or resolve the P1; old source slot was explicitly released.
 - BLOCKED: Gekta owned-history4 is blocked by genuine fed3 P2 contradictory four-versus-five runbook markers; separately accepted complete corrected four-path payload and fresh source review/native/canonical/manual acceptance are required before live execution.
+- BLOCKED: Gekta anonymous17 is blocked by genuine current1a4 P1 reserve fallback binding EN/ZH interfaces to RU consent evidence; separately accepted three-payload same-vector correction and fresh exact-head source review/native/canonical/manual acceptance are required before live execution.
 
 ## Allowed current scope
 
@@ -485,6 +485,26 @@ Then existing ops source must retain oldfed3 and actual newly accepted-main ance
 Only then actual owned-base ANON17, final stable-main REG.RU release/model/first-user execution; local contracts, branch-filter absence and prior-head results never prove live operations or human owner grants.
 
 Gekta owned-history4 is blocked by genuine fed3 P2 contradictory four-versus-five runbook markers; separately accepted complete corrected four-path payload and fresh source review/native/canonical/manual acceptance are required before live execution.
+
+
+## Gekta anonymous reserve interface-locale prerequisite — genuine source P1 unresolved
+
+Correct genuine anonymous17 P1: every actual client reserve request supplies its current interface locale; the server requires a receipt for that locale and issues same-locale signed presentation without charging or replacing pending work. The client rejects another-locale evidence and displays only a current-locale presentation, then hides it only after server-confirmed same-locale consent. Preserve legacy no-locale server callers using their existing receipt locale. Retain fourteen other full source afters byte-for-byte; no document text, registered18, SID, quota, backend, key, scope, owner, routing or maturity change.
+
+Retained corrective purpose `gekta-anonymous-reserve-interface-locale-correction-20261010` supersedes only the unaccepted payload of `gekta-anonymous-after-public-legal-20261009`. All old records and full source payloads remain frozen.
+
+All three replacement entire strict UTF8 afters, regular modes, actual accepted-main before Git/SHA256 and after length/Git/SHA256 are retained here. Fourteen unchanged entire afters remain reachable in the frozen prior admission and their complete pins are repeated here. Materialize the exact seventeen-path union; old111 raw semantic records and all full payloads remain frozen. No hidden scratch or hash-only authority; fixed governance 3MiB cap remains unchanged.
+
+Six real client callback-to-route EN/ZH regressions failed against actual published1a4 (6 failed/13 passed), then all passed after the three-path correction. Focused two-file42/42 PASS; all actual selected44 web files1277/1277 PASS in19.28s; web typecheck exit0. Crypto discovery full JSON byte-identical; key usage28/28 PASS; coverage931 discovered/44 executed/887 unchanged reasoned exclusions PASS. Tests exercise actual extracted client callbacks and actual Next route/cookie consent ACK, fallback after absent initial GET, rejection of real RU presentation, and preservation of SID/used2/pending on locale change. Local results are not native acceptance.
+
+Actually accepted registered18 main5618 and corrected owned-history4 main6b05; anonymous1a4 remains unaccepted and its old SOURCE75 phase was explicitly terminated BLOCKED/released early without extension.
+Separate additive five-GOV admission requires genuine independent whole-head reconstruction review, distinct owner audit, complete applicable native checks, current canonical READY and fresh full-SHA ordinary manual acceptance before source ref changes.
+Preserve all old raw records/full payloads/current/nextStep/scopes/owners/PRIMARY11/Claude/official5; use actual unchanged dispatcher twice and byte-identical complete prompts, matching full active ordered blockers and retiring only the superseded anonymous blocker. Queue keeps exact old prefix; non-blocker progress fields/raw nextStep/timestamp remain unchanged.
+Then corrected existing anonymous source retains old1a4 and actual newly accepted-main ancestry; ordinary expected-old forcefalse update and a newly explicit serialized75minute phase, terminal on acceptance/blocker/release without extension.
+Corrected source needs new whole-head independent review, separate owner audit, genuine bounded180s/kill5s preflight, complete native web/build/mobile/security/KIND/deep outbox/storage/cleanup, current canonical READY and fresh full-SHA manual acceptance. P1 stays unresolved until genuine corrected published-head review/evidence; old-head PASS never transfers.
+Only accepted final source and stable main permit actual REG.RU exact-image release, authorized one-use model critical execution, real mobile/first-user/mail/MFA/history verification and fresh HUMAN PLATFORM_OWNER grants. No local contract, skipped grant job or image publication proves live acceptance. Preserve future PRODUCT atomic-pair owner/purpose/later order.
+
+Gekta anonymous17 is blocked by genuine current1a4 P1 reserve fallback binding EN/ZH interfaces to RU consent evidence; separately accepted three-payload same-vector correction and fresh exact-head source review/native/canonical/manual acceptance are required before live execution.
 
 
 ## Implementation brief
