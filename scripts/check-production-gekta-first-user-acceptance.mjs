@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
 
 const files = {
   workflow: '.github/workflows/production-gekta-first-user-acceptance.yml',
@@ -137,7 +139,8 @@ forbid('executor', [
 requireAll('live', [
   '/api/gekta/entitlement',
   '--data \'{"action":"reserve"}\'',
-  '--data \'{"action":"consent"}\'',
+  'build_anonymous_notice_payload "$notice_body" "$notice_payload"',
+  '--data-binary "@$notice_payload"',
   'verify_current_consent "$consent_body"',
   'if (( consent_ok == 1 )); then',
   'if (( consent_ok == 1 && reserve_ok == 1 )); then',
@@ -151,7 +154,7 @@ forbid('live', [
   /(?:echo|printf)[^\n]*(?:answer_ticket|cookie_jar|reserve_body|consent_body)/iu,
 ]);
 
-if (source.live.indexOf('--data \'{"action":"consent"}\'') >= source.live.indexOf('--data \'{"action":"reserve"}\'')) {
+if (source.live.indexOf('--data-binary "@$notice_payload"') >= source.live.indexOf('--data \'{"action":"reserve"}\'')) {
   throw new Error('live: consent must precede reservation');
 }
 for (const fragment of ["github.event.issue.number == 4637", "github.event.comment.author_association == 'OWNER'", 'github.actor == github.repository_owner', 'github.triggering_actor == github.repository_owner']) {
@@ -226,4 +229,134 @@ for (const [key, expected] of Object.entries({
   if (mailIdnaScope.boundaries?.[key] !== expected) throw new Error(`mail-idna scope: boundary ${key}`);
 }
 
-console.log('PASS: exact-main owner-only Gekta production acceptance proves ten live durably admitted anonymous answers, the registration boundary, IDNA-equivalent real mail verification, mandatory MFA, a 30-day trial, declared phone, server history/search/projects, visible owner phone search and 7/30/lifetime grants, then logout and fresh MFA login without retaining credentials or PII.');
+requireAll('executor', [
+  'await proveOwnedHistoryRemoval(page);',
+  'GEKTA_OWNED_HISTORY_DUPLICATE_IMPORT=PASS',
+  'GEKTA_OWNED_HISTORY_DELETE_IMPORT_RACE=PASS',
+  'GEKTA_OWNED_HISTORY_REPLAY_BLOCKED=PASS',
+  'GEKTA_OWNED_HISTORY_CHANGED_PAYLOAD_CONFLICT=PASS',
+  'GEKTA_OWNED_HISTORY_CLEANUP_FAILED',
+  'timeoutMs: 30_000',
+  'controller.abort()',
+  'clearTimeout(timer)',
+]);
+if (scope.boundaries?.historyFixtureMutation !== 'NEW_RUN_OWNED_SINGLE_CONVERSATION_ONLY') throw new Error('scope: owned history fixture boundary');
+
+const ownedStart = source.executor.indexOf('async function proveOwnedHistoryRemoval(page) {');
+const ownedEnd = source.executor.indexOf('async function proveAccountWorkspace(', ownedStart);
+assert(ownedStart >= 0 && ownedEnd > ownedStart);
+const ownedFunction = source.executor.slice(ownedStart, ownedEnd);
+for (const behavior of ['pass', 'foreign-row', 'duplicate', 'receipt-lost', 'legacy-alias-lost', 'delete-lost', 'conflict-lost', 'transport-failure', 'cleanup-failure']) {
+  const rows = new Map();
+  const receipts = new Map();
+  const logs = [];
+  const deletions = [];
+  let nextId = 0;
+  let changed = false;
+  const context = {
+    TARGET_SHA: 'a'.repeat(40), RUN_ID: '42', stage: '',
+    randomBytes: () => ({ toString: () => 'b'.repeat(16) }),
+    console: { log: (line) => logs.push(line) },
+    assert: (condition, code) => { if (!condition) throw new Error(code); },
+    pageJson: async (_page, pathName, init = {}) => {
+      assert.equal(init.timeoutMs, 30_000);
+      const url = new URL(pathName, 'https://fixture.invalid');
+      const method = init.method || 'GET';
+      if (url.pathname === '/api/gekta/account/history/import' && method === 'POST') {
+        assert.equal(init.body.conversations.length, 1);
+        const item = init.body.conversations[0];
+        if (item.sourceId !== undefined) assert.match(item.sourceId, /^gekta_fixture_a{12}_42_b{16}$/u);
+        else assert.equal(behavior === 'legacy-alias-lost' || receipts.has('legacy'), true);
+        const fingerprint = JSON.stringify(item);
+        const previous = receipts.get(item.sourceId ?? 'legacy');
+        if (previous !== undefined && previous !== fingerprint) {
+          changed = true;
+          return { status: behavior === 'conflict-lost' ? 201 : 409, data: { importedCount: 0 } };
+        }
+        if (previous !== undefined && behavior !== 'duplicate') return { status: 201, data: { importedCount: 0 } };
+        receipts.set(item.sourceId ?? 'legacy', fingerprint);
+        if (item.sourceId !== undefined && behavior !== 'legacy-alias-lost') {
+          const { sourceId: _sourceId, ...legacy } = item;
+          receipts.set('legacy', JSON.stringify(legacy));
+        }
+        rows.set(`owned-${++nextId}`, { id: `owned-${nextId}`, title: item.title, sourceId: item.sourceId });
+        return { status: behavior === 'transport-failure' ? 500 : 201, data: { importedCount: 1 } };
+      }
+      if (url.pathname === '/api/gekta/account/conversations' && method === 'GET') {
+        if (behavior === 'cleanup-failure' && changed) return { status: 500, data: null };
+        const items = [...rows.values()];
+        if (behavior === 'foreign-row') items.push({ id: 'real-existing', title: 'Existing imported answer' });
+        return { status: 200, data: { conversations: items } };
+      }
+      const match = url.pathname.match(/^\/api\/gekta\/account\/conversations\/(owned-\d+)$/u);
+      assert(match, 'request must target only a known run-owned fixture id, never collection DELETE');
+      if (method === 'GET') return { status: rows.has(match[1]) ? 200 : 404, data: null };
+      assert.equal(method, 'DELETE');
+      deletions.push(match[1]);
+      if (behavior !== 'delete-lost') {
+        if (behavior === 'receipt-lost' && rows.has(match[1])) { receipts.delete(rows.get(match[1]).sourceId); receipts.delete('legacy'); }
+        rows.delete(match[1]);
+      }
+      return { status: 200, data: { deleted: true } };
+    },
+  };
+  vm.createContext(context);
+  vm.runInContext(ownedFunction, context);
+  if (['pass', 'foreign-row'].includes(behavior)) {
+    await context.proveOwnedHistoryRemoval({});
+    assert.equal(rows.size, 0);
+    assert.equal(logs.length, 5);
+    assert.equal(receipts.size, 2);
+  } else {
+    await assert.rejects(context.proveOwnedHistoryRemoval({}), /GEKTA_OWNED_HISTORY_/u);
+    assert.equal(logs.length, 0, 'a failed case or cleanup cannot emit PASS');
+    if (behavior === 'transport-failure' || behavior === 'duplicate') assert.equal(rows.size, 0, 'cleanup still removes only its own at-most-two fixtures');
+  }
+  assert(deletions.every((id) => /^owned-\d+$/u.test(id)));
+}
+
+const requestStart = source.executor.indexOf('async function pageJson(');
+const requestEnd = source.executor.indexOf('function isEntitlementResponse(', requestStart);
+const requestFunction = source.executor.slice(requestStart, requestEnd);
+for (const behavior of ['normal', 'body-timeout', 'refresh', 'legacy', 0, 30_001, 0.5, NaN]) {
+  let callback;
+  let cleared = 0;
+  const calls = [];
+  const context = {
+    AbortController,
+    document: { cookie: 'pc_csrf_token=synthetic' },
+    setTimeout: (fn, delay) => { assert.equal(delay, 30_000); callback = fn; return 7; },
+    clearTimeout: (id) => { assert.equal(id, 7); cleared++; },
+    fetch: async (pathName, init) => {
+      calls.push({ pathName, init });
+      const status = behavior === 'refresh' && calls.length === 1 ? 401 : 200;
+      return { status, text: async () => {
+        if (behavior === 'body-timeout') return new Promise((_resolve, reject) => {
+          init.signal.addEventListener('abort', () => reject(new Error('AbortError')), { once: true });
+          callback();
+        });
+        return '{"fixture":true}';
+      } };
+    },
+  };
+  vm.createContext(context);
+  vm.runInContext(requestFunction, context);
+  const page = { evaluate: (fn, args) => fn(args) };
+  const init = behavior === 'legacy' ? {} : { timeoutMs: typeof behavior === 'number' ? behavior : 30_000 };
+  if (typeof behavior === 'number') {
+    await assert.rejects(context.pageJson(page, '/api/gekta/account/history/import', init), /GEKTA_OWNED_HISTORY_TIMEOUT_INVALID/u);
+    assert.equal(calls.length, 0);
+  } else if (behavior === 'body-timeout') {
+    await assert.rejects(context.pageJson(page, '/api/gekta/account/history/import', init), /AbortError/u);
+    assert.equal(cleared, 1);
+  } else {
+    const result = await context.pageJson(page, '/api/gekta/account/conversations', init);
+    assert.equal(result.status, 200);
+    assert.equal(result.data.fixture, true);
+    assert.equal(calls.length, behavior === 'refresh' ? 3 : 1);
+    assert.equal(cleared, behavior === 'legacy' ? 0 : 1);
+    assert(calls.every(({ init }) => behavior === 'legacy' ? init.signal === undefined : init.signal === calls[0].init.signal));
+  }
+}
+
+console.log('PASS: first-user contract and17 owned-fixture/deadline regression cases; actual live mail/MFA/history/owner grants still require the protected exact-main owner run.');

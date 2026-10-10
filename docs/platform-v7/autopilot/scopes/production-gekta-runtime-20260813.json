@@ -35,7 +35,8 @@
     "rawLogOutput": false,
     "ownerOnly": true,
     "exactMainGuard": true,
-    "newRecurringCostRub": 0
+    "newRecurringCostRub": 0,
+    "historyFixtureMutation": "NEW_RUN_OWNED_SINGLE_CONVERSATION_ONLY"
   },
   "acceptance": [
     "the owner-only command is accepted only on release issue 3072 and exact current main is rechecked before any REG.RU mutation",
@@ -55,7 +56,9 @@
     "all ten anonymous answers must complete the real production SSE path and consume their one-time durable PostgreSQL admission; cookie-only reserve/complete simulation is forbidden",
     "the existing PLATFORM_OWNER session with fresh MFA searches by phone and issues audited 7-day, 30-day and lifetime grants observed by the synthetic user session",
     "real transactional email, mandatory user MFA, one 30-day trial, server history/search/projects and fresh logout/login are required",
-    "billing remains disabled; SMS, acquiring, NPD and payments are outside this launch"
+    "billing remains disabled; SMS, acquiring, NPD and payments are outside this launch",
+    "Before the visible owner ceremony, import one newly generated non-PII run-owned conversation twice concurrently, require only one import, race its specific-id deletion against replay, require404/no matching active rows, stable and legacy replay0 and changed-payload409, and perform bounded cleanup of at most two exact-title run-owned rows.",
+    "Only authenticated browser calls for the synthetic acceptance account are used. Each fixture request has a30-second abort deadline covering headers/body/refresh. Never collection-clear its original ten answers/projects, target another account, read direct database credentials or claim backup erasure; live HTTP evidence complements genuine primary-row PostgreSQL source acceptance."
   ],
   "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
 }
