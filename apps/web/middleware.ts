@@ -28,6 +28,7 @@ const PUBLIC_EXACT = new Set([
   '/legal/usloviya-ispolzovaniya-gekta',
   '/legal/politika-konfidencialnosti',
   '/legal/politika-obrabotki-personalnyh-dannyh',
+  '/legal/hranenie-i-udalenie-istorii',
 ]);
 const PUBLIC_PREFIX = [
   '/_next/',
