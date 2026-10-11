@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "status": "active",
+  "authorizedBy": "explicit-owner-instruction-2026-10-11-prinimay-i-dovodi-do-finisha-necessary-bounded-predecessor-compatibility",
+  "owner": "ACCOUNT_1_CORE",
+  "contributor": "ACCOUNT_2_PRODUCT",
+  "authorityBaseExactMain": "43aa983e9ccc4f723cbb964b7b76a898172b05fe",
+  "teamHubClaim": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6107266520",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "branch": "fix/pc-crop-predecessor-5580-20261011",
+  "purpose": "Preserve every original predecessor lock and legacy variant while separately classifying exactly one full-byte pinned PC-CROP-07B compatibility workflow and its three exact additive gate-owned triggers.",
+  "allowedPaths": [
+    "scripts/pc-crop-predecessor-trigger-governance.mjs",
+    "scripts/test-pc-crop-predecessor-07b-compat.mjs",
+    ".github/workflows/pc-crop-predecessor-trigger-governance.yml"
+  ],
+  "effectiveAfter": "Metadata-only admission independently accepted first; SOURCE changes only these three regular files from actual accepted main and cannot change this manifest or lock.",
+  "blockedSourcePR": 5894,
+  "blockedSourceHead": "666b86471404c57fe175057bc2dcdd367e20fca8",
+  "failureRun": 38125703133,
+  "failureJob": 114429510735,
+  "pinnedCompatibility": {
+    "workflow": ".github/workflows/pc-crop-07b.yml",
+    "mode": "100644",
+    "afterBlob": "80b574492cbdc6a4549849886dda3d4ba61926f8",
+    "sha256": "bd1ceffd85e2de0c46914e3d75c3ec9a234d698ff8db08124a227a11d807c412",
+    "sourceHead": "666b86471404c57fe175057bc2dcdd367e20fca8",
+    "sourceTree": "b8b499df1725860cf3af513fd171a2e403ef4189",
+    "nativeFullAcceptanceRun": 38125703077,
+    "nativeFullAcceptanceJob": 114429510724,
+    "additionalTriggers": [
+      ".github/workflows/pc-crop-07b.yml",
+      "scripts/verify-pc-crop-07b-routing-compat.py",
+      "scripts/test-pc-crop-07b-routing-compat.py"
+    ]
+  },
+  "requiredInvariants": [
+    "Keep pc-crop-predecessor-trigger-lock.json bytes and all five original locked legacy variants and original exact trigger maps intact. All four other predecessor workflows and successor handoff contract remain unchanged.",
+    "The sole additive PC-CROP-07B variant must match the complete fixed blob and SHA256 above. Its variant authority is this exact unchanged regular100644 manifest from an actual accepted ancestor base, never candidate-owned metadata, a working-tree pin, arbitrary environment hash or newly generated lock. Wrong/missing/stale/nonancestor/metadata/control/mode/blob/hash/byte or extra trigger rejects.",
+    "For the additive variant only, preserve exactly its three additional gate/script trigger paths and verify its complete fixed bytes before any canonical apply. No general workflow self-trigger/body drift allowance. Apply remains idempotent and never changes a submitted accepted variant.",
+    "Original FGIS quartet classifier and complete migration/APIpolicy/PostgreSQLtenantcommands/protectedwebtypecheck/BFFUX/failclosed exactHEADevidence remain byte-identical in the fixed variant; genuine independent review and native114429510724 already verified them. This prerequisite never changes any07Bworkflow byte or original5894 four source leaves.",
+    "Regression runs actual predecessor guard with genuine Git fixture authorities: original and exact added variants pass/idempotent, drifted full workflow/trigger/body/other predecessor/lock, wrong candidate/base manifest, absent/malformed/unreachable authority all fail. No test removed, substantive gate skip, continue-on-error, threshold decrease, generic mutable lock or guard bypass.",
+    "Existing predecessor workflow adds exact regression invocation and exact script/admission triggers, preserving all other jobs/services/permissions/successor checks/upload and clean-tree enforcement. Required checks remain mandatory.",
+    "Exactly three regular SOURCE leaves; all other tree leaves/state/PRIMARY/current/progress/owners/locks/other guards/workflows/runtime/contracts/provider and budget/hosting bytes unchanged.",
+    "Every published META/GUARD/compatibility/routing HEAD needs fresh actual nonauthor independent review, separate exactHEAD audit, complete substantive native/security/latest completed SUCCESS readiness and ordinary expected-fullSHA manual merge. After GUARD acceptance, SOURCE5894 ordinarily merges actual accepted main with no force and obtains fresh own-head checks; no prior-head PASS transfer."
+  ],
+  "forbiddenChanges": [
+    "all runtime or API/business/command source",
+    "all other workflows/scripts",
+    "docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json",
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/scopes/**",
+    "docs/platform-v7/autopilot/progress.json",
+    "pnpm-lock.yaml",
+    "package.json",
+    "production credentials or server configuration"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "status": "active",
+  "authorizedBy": "explicit-owner-instruction-2026-10-11-prinimay-i-dovodi-do-finisha-necessary-bounded-predecessor-compatibility",
+  "owner": "ACCOUNT_1_CORE",
+  "contributor": "ACCOUNT_2_PRODUCT",
+  "authorityBaseExactMain": "43aa983e9ccc4f723cbb964b7b76a898172b05fe",
+  "teamHubClaim": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6107266520",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "branch": "governance/pc-crop-predecessor-5580-20261011",
+  "purpose": "Add only the immutable path/purpose authority for a separately reviewed finite predecessor compatibility variant. This metadata never changes a lock, guard, workflow, source or existing authority.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/governance-pc-crop-predecessor-5580-20261011.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-predecessor-5580-20261011.json"
+  ],
+  "implementationBranch": "fix/pc-crop-predecessor-5580-20261011",
+  "implementationManifest": "docs/platform-v7/autopilot/scopes/pc-crop-predecessor-5580-20261011.json",
+  "implementationAllowedPathCount": 3,
+  "requiredInvariants": [
+    "Exactly these two regular100644 leaves added; every existing leaf/state/owner/PRIMARY/current/progress/guard/workflow/lock and all BANK/FGIS/routing/Founder authority unchanged.",
+    "Separate actual nonauthor current-head whole-diff review, author audit, all applicable native/security/readiness and ordinary expected-fullSHA manual merge precede guarded SOURCE publication.",
+    "This is a necessary bounded prerequisite for real failed native predecessor38125703133/job114429510735. It grants no generic guard exception, provider/credential/runtime/command/tenant/hosting authority or source ownership transfer."
+  ]
+}
