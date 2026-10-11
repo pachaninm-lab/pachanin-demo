@@ -16,7 +16,7 @@
   ],
   "implementationBranch": "fix/pc-crop-07b-routing-5580-20261011",
   "implementationManifest": "docs/platform-v7/autopilot/scopes/pc-crop-07b-routing-5580-20261011.json",
-  "implementationAllowedPathCount": 3,
+  "implementationAllowedPathCount": 4,
   "requiredInvariants": [
     "The metadata diff adds exactly these two regular 100644 manifests; every existing tree leaf, all state/owners/PRIMARY/current/progress, the original FGIS four-path vector and accepted routing manifest remain byte-identical.",
     "Actual independent current-head review, separate author audit, all applicable native/security/readiness and ordinary expected-full-SHA manual merge precede compatibility SOURCE publication. The source-controlled resolver admits paths only; actual SOURCE review must verify all purpose invariants and full tree, with no candidate-owned admission changes.",
