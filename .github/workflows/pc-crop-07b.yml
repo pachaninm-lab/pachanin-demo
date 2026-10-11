@@ -30,6 +30,9 @@ on:
       - 'apps/web/tsconfig.pc-crop.json'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower.json'
       - 'scripts/verify-pc-crop-07b.mjs'
+      - '.github/workflows/pc-crop-07b.yml'
+      - 'scripts/verify-pc-crop-07b-routing-compat.py'
+      - 'scripts/test-pc-crop-07b-routing-compat.py'
   push:
     branches: [main]
     paths:
@@ -60,6 +63,9 @@ on:
       - 'apps/web/tsconfig.pc-crop.json'
       - 'docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower.json'
       - 'scripts/verify-pc-crop-07b.mjs'
+      - '.github/workflows/pc-crop-07b.yml'
+      - 'scripts/verify-pc-crop-07b-routing-compat.py'
+      - 'scripts/test-pc-crop-07b-routing-compat.py'
   workflow_dispatch:
 permissions:
   contents: read
@@ -140,10 +146,10 @@ jobs:
           # Shared route/auth dependencies trigger the complete compatibility
           # suite; they do not make another feature part of this owned slice.
           # Actual regulatory source keeps the unchanged bounded allowlist.
-          grep -E '^(\.github/workflows/pc-crop-07b\.yml$|apps/api/src/modules/regulatory-integration/|apps/web/app/api/platform-v7/integrations/|apps/web/app/api/staff/integration-control-tower/|apps/web/app/api/staff/integrations/|apps/web/app/platform-v7/integrations/|apps/web/components/crop-platform/(IntegrationControlTowerClient\.tsx|IntegrationControlTowerClient\.module\.css|integration-control-tower-live-adapter\.ts)$|apps/web/tests/unit/(integrationControlTowerLiveAdapter|platformV7IntegrationControlTower)\.test\.ts$|docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower\.json$|scripts/verify-pc-crop-07b\.mjs$)' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/slice-files.txt" || true
+          grep -E '^(\.github/workflows/pc-crop-07b\.yml$|apps/api/src/modules/regulatory-integration/|apps/web/app/api/platform-v7/integrations/|apps/web/app/api/staff/integration-control-tower/|apps/web/app/api/staff/integrations/|apps/web/app/platform-v7/integrations/|apps/web/components/crop-platform/(IntegrationControlTowerClient\.tsx|IntegrationControlTowerClient\.module\.css|integration-control-tower-live-adapter\.ts)$|apps/web/tests/unit/(integrationControlTowerLiveAdapter|platformV7IntegrationControlTower)\.test\.ts$|docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower\.json$|scripts/(verify-pc-crop-07b\.mjs|(verify|test)-pc-crop-07b-routing-compat\.py)$)' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/slice-files.txt" || true
           if [ -s "$EVIDENCE_DIR/slice-files.txt" ]; then
             printf '%s\n' 'SLICE_REMEDIATION' > "$EVIDENCE_DIR/scope-mode.txt"
-            if grep -Ev '^(\.github/workflows/pc-crop-07b\.yml|apps/api/src/app\.module\.ts|apps/api/src/modules/regulatory-integration/.*|apps/web/app/api/platform-v7/integrations/.*|apps/web/app/api/staff/integration-control-tower/.*|apps/web/app/api/staff/integrations/.*|apps/web/app/platform-v7/integrations/.*|apps/web/components/crop-platform/(IntegrationControlTowerClient\.tsx|IntegrationControlTowerClient\.module\.css|integration-control-tower-live-adapter\.ts)|apps/web/lib/platform-v7/(cabinet-access-policy|design-system-v8-route-policy|route-canonicalization|routes)\.ts|apps/web/tests/unit/(integrationControlTowerLiveAdapter|platformV7IntegrationControlTower|platformV7RouteCanonicalization)\.test\.ts|apps/web/tsconfig\.pc-crop\.json|docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower\.json|scripts/(p7-autopilot-guard\.sh|verify-pc-crop-07b\.mjs))$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+            if grep -Ev '^(\.github/workflows/pc-crop-07b\.yml|apps/api/src/app\.module\.ts|apps/api/src/modules/regulatory-integration/.*|apps/web/app/api/platform-v7/integrations/.*|apps/web/app/api/staff/integration-control-tower/.*|apps/web/app/api/staff/integrations/.*|apps/web/app/platform-v7/integrations/.*|apps/web/components/crop-platform/(IntegrationControlTowerClient\.tsx|IntegrationControlTowerClient\.module\.css|integration-control-tower-live-adapter\.ts)|apps/web/lib/platform-v7/(cabinet-access-policy|design-system-v8-route-policy|route-canonicalization|routes)\.ts|apps/web/tests/unit/(integrationControlTowerLiveAdapter|platformV7IntegrationControlTower|platformV7RouteCanonicalization)\.test\.ts|apps/web/tsconfig\.pc-crop\.json|docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower\.json|scripts/(p7-autopilot-guard\.sh|verify-pc-crop-07b\.mjs|(verify|test)-pc-crop-07b-routing-compat\.py))$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
               # One immutable-base-admitted source quartet may include its exact test config.
               # Keep the existing allowlist; every other out-of-scope path still fails.
               if ! PINNED_SCOPE_BASE="$base_ref" python3 - <<'PY_PINNED_TEST_CONFIG'
@@ -204,15 +210,34 @@ jobs:
               sys.exit(1)
           PY_PINNED_TEST_CONFIG
               then
-                echo 'PC-CROP-07B contains out-of-scope files:' >&2
-                cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
-                exit 1
+                # Only the separately admitted, exact immutable routing vector may continue.
+                # This classification runs the same complete PG/BFF acceptance below.
+                if ! PINNED_SCOPE_BASE="$base_ref" python3 scripts/verify-pc-crop-07b-routing-compat.py; then
+                  echo 'PC-CROP-07B contains out-of-scope files:' >&2
+                  cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+                  exit 1
+                fi
               fi
             fi
           else
             printf '%s\n' 'SHARED_INFRASTRUCTURE_ONLY' > "$EVIDENCE_DIR/scope-mode.txt"
             echo 'Shared dependency change: full acceptance continues.'
           fi
+
+      - name: Verify routing classification and admitted change preservation
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ "$EVENT_NAME" = 'pull_request' ] \
+            && [ "$GITHUB_HEAD_REF" = 'fix/pc-crop-07b-routing-5580-20261011' ]; then
+            args+=(--verify-admitted-compatibility)
+          fi
+          # Classifier negatives run for every event. Historical whole-file
+          # preservation applies only to the separately admitted compatibility PR.
+          python3 scripts/test-pc-crop-07b-routing-compat.py "${args[@]}"
 
       - uses: pnpm/action-setup@v4
         with:
