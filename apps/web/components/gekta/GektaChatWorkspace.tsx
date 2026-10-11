@@ -923,7 +923,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
   const brand = locale === 'ru' ? 'ГЕКТА' : 'GEKTA';
 
   return (
-    <section id='gekta-chat' className={`bg-[#fcfbf7] text-slate-950 ${activeChat ? 'h-[100svh] overflow-hidden' : 'min-h-[760px]'}`} data-gekta-chat-workspace='true'>
+    <section id='gekta-chat' lang={locale === 'zh' ? 'zh-CN' : locale} className={`bg-[#fcfbf7] text-slate-950 ${activeChat ? 'h-[100svh] overflow-hidden' : 'min-h-[760px]'}`} data-gekta-chat-workspace='true'>
       <div className={`mx-auto flex w-full max-w-[1880px] ${activeChat ? 'h-full' : 'min-h-[760px]'}`}>
         <aside className='hidden w-[280px] shrink-0 border-r border-slate-200 md:block'><GektaSidebar {...sidebarProps} /></aside>
         <main className={`relative flex min-w-0 flex-1 flex-col ${activeChat ? 'h-full' : ''}`}>
