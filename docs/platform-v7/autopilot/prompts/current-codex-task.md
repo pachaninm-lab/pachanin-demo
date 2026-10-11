@@ -1845,3 +1845,90 @@ User continuation «Заканчивай» retains the existing CORE/Gekta owner
 Separate record `gekta-firstuser-mfa-button-binding-correction-20261011` admits only the pinned executor/checker correction on existing `ops/production-gekta-runtime-20260813`; it does not rewrite earlier owned-history or consent purposes. Full baseline-bound diff and after Git/SHA256/regular modes are retained in state. Before source publication, actually accept this five-document admission with genuine independent whole-head review, owner audit, substantive native checks/current readiness and ordinary full-SHA manual merge. Then source requires its own exact-head review/native/readiness/manual acceptance, followed by fresh exact-main deployed first-user execution.
 
 Private stale-selector rejection, corrected source contract/17 fixture-deadline cases/3 binding negatives/syntax PASS do not prove live MFA/trial/history/projects/owner grants. Preserve all old admissions/scopes/owners/primary11/official5; general candidate-list guard is not immutable payload enforcement. No UI/product/auth-server/workflow/guard, model grant/reset/switch, credentials/direct SQL, spending or official progress authority is added. Actual prior runtime claim was terminally released at16:52:45UTC; no standing hold or extension remains.
+
+
+## Gekta live language and history-notice correction — 2026-10-11
+
+Two actual site findings (comments6110939667 and6110961419) retained by existing CORE handoff6110975297 require a separate narrow correction: localized workspace language inheritance and the bare history/deletion document link. User continuation «Заканчивай» retains the existing CORE/Gekta owner and the existing19-path anonymous-document source vector; it does not rewrite any prior frozen payload or registry. The complete four-file correction is pinned below. State/progress remain byte-identical. This three-document purpose and later four-file source each require their own independent full-head review/native checks/audit/current readiness/manual full-SHA acceptance. Current3c release/mobile hold must terminate before any main merge. Browser credential protection has prevented further manual UI observation; no unseen live result is claimed. Human owner MFA and RF confirmation remain pending.
+
+```json
+{
+  "purposeId": "gekta-live-language-and-history-notice-correction-20261011",
+  "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+  "authorityBaseExactMain": "3c340ef1fa355bad813ccd1a4fe485a64004cf09",
+  "sourceBranch": "fix/gekta-anonymous-document-evidence-20261009",
+  "existingSourceBranchHead": "ad437b092f34e76c1ec7cc70a7e8e04904ff2304",
+  "acceptedScopeVector": [
+    ".github/workflows/ci.yml",
+    "docs/platform-v7/qa/web-unit-coverage-registry.json",
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/gektaAnonymousLegalRoutes.test.ts",
+    "apps/web/lib/gekta/anonymous-session.ts",
+    "apps/web/lib/gekta/anonymous-consent-evidence.ts",
+    "apps/web/app/api/gekta/entitlement/route.ts",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/components/gekta/GektaChatWorkspace.tsx",
+    "apps/web/components/gekta/GektaConsentDialog.tsx",
+    "apps/web/tests/unit/gektaEntitlement.test.ts",
+    "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+    "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
+    "apps/web/tests/unit/gektaAnonymousDocumentEvidence.test.ts",
+    "scripts/production-web-live-acceptance.sh",
+    "scripts/check-production-gekta-first-user-acceptance.mjs",
+    "scripts/gekta-speed-browser-baseline.mjs",
+    "docs/security/cryptographic-inventory.json",
+    "docs/gekta/anonymous-document-evidence.md"
+  ],
+  "sourcePayloads": [
+    {
+      "path": "apps/web/components/gekta/GektaChatWorkspace.tsx",
+      "mode": "100644",
+      "beforeBlob": "8b01c92f2bf3fa7cecf2169fa90c3818b48000ef",
+      "afterBlob": "87cb729280040854a880497c415ec8f780c79ccd",
+      "bytes": 58372,
+      "sha256": "e7547cbadea00299a4d04bcaac44d98b42bbc7f71ea13d0d2b886b141312f63a"
+    },
+    {
+      "path": "apps/web/middleware.ts",
+      "mode": "100644",
+      "beforeBlob": "d778d95a76f5202c15da6368372447ea498df41e",
+      "afterBlob": "c530ca121bf0a19a93416077cfb3f7ce0464dc66",
+      "bytes": 28471,
+      "sha256": "1024d3d311e766e8f8fac15434bc228bd35e350d0bf000e427170d22dc68f33a"
+    },
+    {
+      "path": "apps/web/tests/unit/gektaAnonymousLegalRoutes.test.ts",
+      "mode": "100644",
+      "beforeBlob": "d3986acc30e59155fa1d2231cf51c658c01660af",
+      "afterBlob": "593c84d14275b936e34af13678ced56aa306e76f",
+      "bytes": 2527,
+      "sha256": "01620fd27c8c212255d80c166bda4f1e5d303b108ba6cb6277e3bc6288689f5c"
+    },
+    {
+      "path": "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
+      "mode": "100644",
+      "beforeBlob": "46e12d3935905015d3f68b63258e28e568854df3",
+      "afterBlob": "7c1986cb587f9a5776946dcae6c5aab0fa5e11b6",
+      "bytes": 9859,
+      "sha256": "1c7db0ece39b0e5659759360ce96a3765c6e969ab465373340ebcdd5f278f772"
+    }
+  ],
+  "fullSourceDiff": "--- a/apps/web/components/gekta/GektaChatWorkspace.tsx\n+++ b/apps/web/components/gekta/GektaChatWorkspace.tsx\n@@ -923,7 +923,7 @@\n   const brand = locale === 'ru' ? 'ГЕКТА' : 'GEKTA';\n \n   return (\n-    <section id='gekta-chat' className={`bg-[#fcfbf7] text-slate-950 ${activeChat ? 'h-[100svh] overflow-hidden' : 'min-h-[760px]'}`} data-gekta-chat-workspace='true'>\n+    <section id='gekta-chat' lang={locale === 'zh' ? 'zh-CN' : locale} className={`bg-[#fcfbf7] text-slate-950 ${activeChat ? 'h-[100svh] overflow-hidden' : 'min-h-[760px]'}`} data-gekta-chat-workspace='true'>\n       <div className={`mx-auto flex w-full max-w-[1880px] ${activeChat ? 'h-full' : 'min-h-[760px]'}`}>\n         <aside className='hidden w-[280px] shrink-0 border-r border-slate-200 md:block'><GektaSidebar {...sidebarProps} /></aside>\n         <main className={`relative flex min-w-0 flex-1 flex-col ${activeChat ? 'h-full' : ''}`}>\n--- a/apps/web/middleware.ts\n+++ b/apps/web/middleware.ts\n@@ -28,6 +28,7 @@\n   '/legal/usloviya-ispolzovaniya-gekta',\n   '/legal/politika-konfidencialnosti',\n   '/legal/politika-obrabotki-personalnyh-dannyh',\n+  '/legal/hranenie-i-udalenie-istorii',\n ]);\n const PUBLIC_PREFIX = [\n   '/_next/',\n--- a/apps/web/tests/unit/gektaAnonymousLegalRoutes.test.ts\n+++ b/apps/web/tests/unit/gektaAnonymousLegalRoutes.test.ts\n@@ -9,8 +9,10 @@\n   return middleware(new NextRequest(`https://xn----8sbjf4befbjgs9b.xn--p1ai${path}`));\n }\n \n+const publicDocuments = ['/legal/usloviya-ispolzovaniya-gekta', '/legal/politika-konfidencialnosti', '/legal/politika-obrabotki-personalnyh-dannyh', '/legal/hranenie-i-udalenie-istorii'];\n+\n describe('anonymous Gekta legal document routing', () => {\n-  it.each(['/legal/usloviya-ispolzovaniya-gekta', '/legal/politika-konfidencialnosti', '/legal/politika-obrabotki-personalnyh-dannyh'])('serves the exact notice document %s without login', async (path) => {\n+  it.each(publicDocuments)('serves the exact notice document %s without login', async (path) => {\n     const response = await guest(`${path}?v=2026-08-12.2&h=${'a'.repeat(64)}&p=${'b'.repeat(64)}`);\n     expect(response.status).toBe(200);\n     expect(response.headers.get('x-middleware-next')).toBe('1');\n@@ -18,7 +20,14 @@\n     expect(response.headers.get('x-content-type-options')).toBe('nosniff');\n   });\n \n-  it.each(['/legal/usloviya-ispolzovaniya-gekta', '/legal/politika-konfidencialnosti', '/legal/politika-obrabotki-personalnyh-dannyh'])('retains the whole-site private-mode owner gate for %s', async (path) => {\n+  it.each(publicDocuments)('serves the bare footer link %s without login', async (path) => {\n+    const response = await guest(path);\n+    expect(response.status).toBe(200);\n+    expect(response.headers.get('x-middleware-next')).toBe('1');\n+    expect(response.headers.get('location')).toBeNull();\n+  });\n+\n+  it.each(publicDocuments)('retains the whole-site private-mode owner gate for %s', async (path) => {\n     vi.stubEnv('PC_PRIVATE_PASSWORD', 'private-cabinet-test-only');\n     const response = await guest(path, 'on');\n     expect(response.status).toBe(401);\n@@ -26,7 +35,7 @@\n     expect(response.headers.get('location')).toBeNull();\n   });\n \n-  it.each(['/legal/private-document', '/legal/politika-konfidencialnosti/private', '/legal/politika-obrabotki-personalnyh-dannyh/private'])('retains guest enforcement for %s', async (path) => {\n+  it.each(['/legal/private-document', '/legal/politika-konfidencialnosti/private', '/legal/politika-obrabotki-personalnyh-dannyh/private', '/legal/hranenie-i-udalenie-istorii/private'])('retains guest enforcement for %s', async (path) => {\n     const response = await guest(path);\n     expect(response.status).toBe(307);\n     expect(new URL(response.headers.get('location')!).pathname).toBe('/platform-v7');\n--- a/apps/web/tests/unit/gektaVoiceAndLegal.test.ts\n+++ b/apps/web/tests/unit/gektaVoiceAndLegal.test.ts\n@@ -1,10 +1,18 @@\n import { readFileSync } from 'node:fs';\n import { resolve } from 'node:path';\n-import { describe, expect, it } from 'vitest';\n+import { describe, expect, it, vi } from 'vitest';\n+import { createElement } from 'react';\n+import { renderToStaticMarkup } from 'react-dom/server';\n+import { GektaChatWorkspace } from '@/components/gekta/GektaChatWorkspace';\n import { GEKTA_SPEECH_LOCALES, pickVoice, transcriptFrom } from '@/lib/gekta/speech';\n import { GEKTA_LEGAL_DOCUMENTS, GEKTA_LEGAL_VERSION, getGektaLegalDocument } from '@/lib/gekta/legal';\n import { createAnonymousSession, parseAnonymousSession, recordConsent, serializeAnonymousSession } from '@/lib/gekta/anonymous-session';\n import seoRoutes from '@/lib/platform-v7/public-seo-routes.json';\n+\n+vi.mock('next/navigation', async (importOriginal) => ({\n+  ...await importOriginal<typeof import('next/navigation')>(),\n+  useRouter: () => ({ push: vi.fn() }),\n+}));\n \n const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');\n \n@@ -132,3 +140,25 @@\n     }\n   });\n });\n+\n+describe('Gekta interface language inheritance', () => {\n+  it.each([\n+    { locale: 'ru' as const, language: 'ru', menu: 'Открыть историю' },\n+    { locale: 'en' as const, language: 'en', menu: 'Open history' },\n+    { locale: 'zh' as const, language: 'zh-CN', menu: '打开历史记录' },\n+  ])('declares $language for the actual $locale workspace under Russian platform chrome', ({ locale, language, menu }) => {\n+    const chrome = document.createElement('div');\n+    chrome.lang = 'ru';\n+    chrome.innerHTML = renderToStaticMarkup(createElement(GektaChatWorkspace, { locale }));\n+    const region = chrome.querySelector<HTMLElement>('[data-gekta-chat-workspace]');\n+    expect(region).not.toBeNull();\n+    expect(region!.lang).toBe(language);\n+    const menuButton = Array.from(region!.querySelectorAll('button')).find(button => button.getAttribute('aria-label') === menu);\n+    expect(menuButton).toBeDefined();\n+    expect(menuButton!.closest('[lang]')?.getAttribute('lang')).toBe(language);\n+    const composer = region!.querySelector('textarea');\n+    expect(composer).not.toBeNull();\n+    expect(composer!.closest('[lang]')?.getAttribute('lang')).toBe(language);\n+    expect(chrome.lang).toBe('ru');\n+  });\n+});\n",
+  "actualFindingComments": [
+    6110939667,
+    6110961419
+  ],
+  "existingCoreHandoff": 6110975297,
+  "requirements": [
+    "Existing19-path vector and all historical frozen purposes/afters remain unchanged; only the four full regular100644 payloads above are admitted by this separate additive correction purpose. No state/progress/guard/registry/role/budget mutation.",
+    "First accept this three-document purpose through actual independent exact-head review, owner audit, all applicable native checks/current canonical readiness and ordinary expected-full-SHA manual merge. No source ref publication before this purpose is actually accepted.",
+    "Do not merge any main change while exact3c runtime claim6112150724 is holding release38163163090 or its automatic exact-SHA mobile gates. Terminally release that claim before accepting the purpose/source; no silent hard-end extension.",
+    "Source must retain the existing branch ancestry through ordinary no-force expected-ref fast-forward to a child of actual accepted metadata main. Source itself requires a new genuine independent whole-diff/full-tree review, owner audit, substantive native checks/current readiness and ordinary full-SHA manual merge. Trusted base before blobs must match above; all other leaves including state/progress remain identical. Candidate-list guard is not full immutable-payload enforcement; independent exact-tree audit must verify every before/after/mode/hash and unchanged remainder.",
+    "Declare language only on the existing localized workspace region, with zh-CN for Chinese; preserve Russian platform chrome. No root layout, product copy, auth, consent snapshots, legal content, history/import/deletion implementation, model/provider/payment change.",
+    "Publish only the exact existing /legal/hranenie-i-udalenie-istorii document slug. No public /legal prefix or nested/private/auth/owner bypass; preserve whole-site PC_PRIVATE_MODE.",
+    "Native tests must exercise actual rendered workspace DOM language inheritance RU/EN/ZH and actual middleware bare/query routes, nested/private paths, account/cabinet and whole-site private-mode gates. Local React/Vitest is unavailable: no private render/runtime PASS is claimed.",
+    "After source acceptance, claim a separate bounded exact-main release/mobile/first-user phase; native immutable-image/live-identity/migration/30-minute stability/mobile and real first-user checks must execute anew. Earlier6f55/3c runtime evidence is historical and cannot prove the final corrected revision.",
+    "Owner MFA/grants and RF processing confirmation remain human-only. Qwen critical budget is spent/FAILED with actual cleanup; no retry/reset/permanent switch, privilege bypass or new spending. No official progress or overall Gekta completion claim is added."
+  ]
+}
+```
