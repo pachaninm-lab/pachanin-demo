@@ -16,10 +16,11 @@
   ],
   "implementationBranch": "fix/pc-crop-predecessor-5580-20261011",
   "implementationManifest": "docs/platform-v7/autopilot/scopes/pc-crop-predecessor-5580-20261011.json",
-  "implementationAllowedPathCount": 3,
+  "implementationAllowedPathCount": 4,
   "requiredInvariants": [
     "Exactly these two regular100644 leaves added; every existing leaf/state/owner/PRIMARY/current/progress/guard/workflow/lock and all BANK/FGIS/routing/Founder authority unchanged.",
     "Separate actual nonauthor current-head whole-diff review, author audit, all applicable native/security/readiness and ordinary expected-fullSHA manual merge precede guarded SOURCE publication.",
     "This is a necessary bounded prerequisite for real failed native predecessor38125703133/job114429510735. It grants no generic guard exception, provider/credential/runtime/command/tenant/hosting authority or source ownership transfer."
-  ]
+  ],
+  "scopeRefinementClaim": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6107326625"
 }

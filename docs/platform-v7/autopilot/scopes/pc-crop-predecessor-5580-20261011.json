@@ -13,7 +13,8 @@
   "allowedPaths": [
     "scripts/pc-crop-predecessor-trigger-governance.mjs",
     "scripts/test-pc-crop-predecessor-07b-compat.mjs",
-    ".github/workflows/pc-crop-predecessor-trigger-governance.yml"
+    ".github/workflows/pc-crop-predecessor-trigger-governance.yml",
+    "scripts/p7-source-controlled-scope.mjs"
   ],
   "effectiveAfter": "Metadata-only admission independently accepted first; SOURCE changes only these three regular files from actual accepted main and cannot change this manifest or lock.",
   "blockedSourcePR": 5894,
@@ -42,12 +43,13 @@
     "Original FGIS quartet classifier and complete migration/APIpolicy/PostgreSQLtenantcommands/protectedwebtypecheck/BFFUX/failclosed exactHEADevidence remain byte-identical in the fixed variant; genuine independent review and native114429510724 already verified them. This prerequisite never changes any07Bworkflow byte or original5894 four source leaves.",
     "Regression runs actual predecessor guard with genuine Git fixture authorities: original and exact added variants pass/idempotent, drifted full workflow/trigger/body/other predecessor/lock, wrong candidate/base manifest, absent/malformed/unreachable authority all fail. No test removed, substantive gate skip, continue-on-error, threshold decrease, generic mutable lock or guard bypass.",
     "Existing predecessor workflow adds exact regression invocation and exact script/admission triggers, preserving all other jobs/services/permissions/successor checks/upload and clean-tree enforcement. Required checks remain mandatory.",
-    "Exactly three regular SOURCE leaves; all other tree leaves/state/PRIMARY/current/progress/owners/locks/other guards/workflows/runtime/contracts/provider and budget/hosting bytes unchanged.",
-    "Every published META/GUARD/compatibility/routing HEAD needs fresh actual nonauthor independent review, separate exactHEAD audit, complete substantive native/security/latest completed SUCCESS readiness and ordinary expected-fullSHA manual merge. After GUARD acceptance, SOURCE5894 ordinarily merges actual accepted main with no force and obtains fresh own-head checks; no prior-head PASS transfer."
+    "Exactly four regular SOURCE leaves; all other tree leaves/state/PRIMARY/current/progress/owners/locks/other guards/workflows/runtime/contracts/provider and budget/hosting bytes unchanged.",
+    "Every published META/GUARD/compatibility/routing HEAD needs fresh actual nonauthor independent review, separate exactHEAD audit, complete substantive native/security/latest completed SUCCESS readiness and ordinary expected-fullSHA manual merge. After GUARD acceptance, SOURCE5894 ordinarily merges actual accepted main with no force and obtains fresh own-head checks; no prior-head PASS transfer.",
+    "For exactly this GUARD branch, fix/pc-crop-07b-routing-5580-20261011 and fix/protected-entry-locale-5580-20261011, source-controlled resolver binds real accepted BASE ancestor, loads branch manifest from BASE, requires identical regular manifest in BASE/HEAD/worktree, exact whole BASE-to-HEAD allowed source path set and all regular source HEAD leaves. Candidate-owned authority/extra runtime or infrastructure/partial/stale/rename/delete/mode vectors reject before generic scope allowlists. Other branches and governance resolution remain unchanged; the immutable literal p7-autopilot-guard and global state remain untouched. Actual Git regressions reproduce old candidate expansion PASS and verify corrected rejection."
   ],
   "forbiddenChanges": [
     "all runtime or API/business/command source",
-    "all other workflows/scripts",
+    "all workflows/scripts except the exact four allowedPaths",
     "docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/autopilot/scopes/**",
@@ -55,5 +57,6 @@
     "pnpm-lock.yaml",
     "package.json",
     "production credentials or server configuration"
-  ]
+  ],
+  "scopeRefinementClaim": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6107326625"
 }
