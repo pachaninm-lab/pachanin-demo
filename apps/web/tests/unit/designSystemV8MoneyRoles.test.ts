@@ -163,7 +163,7 @@ async function renderBankWorkspace(snapshot: FirstCustomerWorkspaceSnapshot, loc
       priority: { title: string; result?: string; primaryAction?: ReactNode; secondaryAction?: ReactNode }; children: ReactNode;
     }) => createElement('main', { 'data-testid': testId },
       createElement('span', null, statusLabel), createElement('h2', null, priority.title),
-      createElement('span', null, priority.result), priority.primaryAction, priority.secondaryAction, children),
+      createElement('output', { 'aria-label': 'Workspace result' }, priority.result), priority.primaryAction, priority.secondaryAction, children),
     OperationalCockpitSection: ({ id, children }: { id?: string; children: ReactNode }) =>
       createElement('section', { id }, children),
     OperationalQueue: (props: { children: ReactNode }) => withChildren('div', props),
@@ -313,16 +313,39 @@ describe('bank first-customer failure states', () => {
   });
 
   it.each([
-    { forbidden: true, status: 'доступ запрещён', title: 'Роль не соответствует кабинету' },
-    { forbidden: false, status: 'серверная очередь недоступна', title: 'Не подменять недоступный backend' },
-  ])('keeps $title explicit without making a bank decision', async ({ forbidden, status, title }) => {
-    await renderBankWorkspace({ ...bankErrorSnapshot, forbidden });
+    {
+      locale: 'ru', forbidden: true, status: 'доступ запрещён', title: 'Роль не соответствует кабинету',
+      unknown: 'Банковские факты — UNKNOWN', queueReady: 'очередь сделок доступна',
+    },
+    {
+      locale: 'ru', forbidden: false, status: 'серверная очередь недоступна', title: 'Не подменять недоступный backend',
+      unknown: 'Банковские факты — UNKNOWN', queueReady: 'очередь сделок доступна',
+    },
+    {
+      locale: 'en', forbidden: true, status: 'access denied', title: 'Role does not match this cabinet',
+      unknown: 'Bank facts — UNKNOWN', queueReady: 'Deal queue available',
+    },
+    {
+      locale: 'en', forbidden: false, status: 'server queue unavailable', title: 'Do not substitute an unavailable backend',
+      unknown: 'Bank facts — UNKNOWN', queueReady: 'Deal queue available',
+    },
+    {
+      locale: 'zh-CN', forbidden: true, status: '禁止访问', title: '角色与此工作空间不匹配',
+      unknown: '银行事实 — UNKNOWN', queueReady: '交易队列可用',
+    },
+    {
+      locale: 'zh-CN', forbidden: false, status: '服务器队列不可用', title: '不得替换不可用的 backend',
+      unknown: '银行事实 — UNKNOWN', queueReady: '交易队列可用',
+    },
+  ])('keeps $locale $title and its result explicit without making a bank decision', async ({ locale, forbidden, status, title, unknown, queueReady }) => {
+    await renderBankWorkspace({ ...bankErrorSnapshot, forbidden }, locale);
 
     expect(screen.getAllByText(status, { exact: true }).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('Workspace result')).toHaveTextContent(status, { normalizeWhitespace: true });
     expect(screen.getByRole('heading', { name: title })).toBeInTheDocument();
-    expect(screen.getByText('Банковские факты — UNKNOWN')).toBeInTheDocument();
+    expect(screen.getByText(unknown)).toBeInTheDocument();
     expect(screen.getByText(/Correlation ID: bank-error-correlation/)).toBeInTheDocument();
-    expect(screen.queryByText('очередь сделок доступна')).not.toBeInTheDocument();
+    expect(screen.queryByText(queueReady)).not.toBeInTheDocument();
     expect(screen.queryByText('Сбер')).not.toBeInTheDocument();
   });
 });
