@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/protected-entry-locale-5580-20261011",
+  "status": "active",
+  "authorizedBy": "explicit-owner-instruction-2026-10-11-prinimay-i-dovodi-do-finisha",
+  "owner": "ACCOUNT_1_CORE",
+  "contributor": "ACCOUNT_2_PRODUCT",
+  "purpose": "Admit only the separately reviewed four-file navigation/locale correction accepted by the owner on 2026-10-11. This metadata PR changes no runtime or existing authority.",
+  "authorityBaseExactMain": "08939e9ff87e7d11807e3091901214ef71dd8dff",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/governance-protected-entry-locale-5580-20261011.json",
+    "docs/platform-v7/autopilot/scopes/protected-entry-locale-5580-20261011.json"
+  ],
+  "implementationBranch": "fix/protected-entry-locale-5580-20261011",
+  "implementationManifest": "docs/platform-v7/autopilot/scopes/protected-entry-locale-5580-20261011.json",
+  "implementationAllowedPathCount": 4,
+  "requiredInvariants": [
+    "The metadata diff adds exactly these two regular 100644 scope files, with no other changed tree leaf and no global state/capacity/dispatcher/guard/workflow/owner/progress mutation.",
+    "Source publication waits for actual independent current-head metadata review, separate author audit, complete applicable native/security/readiness and ordinary SHA-bound manual acceptance. User authorization is a bounded source instruction, not a waiver of review or branch protection.",
+    "CORE retains auth/session/tenant/route authority. The test and exact three runtime pins belong only to this navigation correction; no new BANK/FGIS/Founder authority or production acceptance is implied."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
