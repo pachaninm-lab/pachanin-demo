@@ -16,6 +16,44 @@ const mailIdnaScopePath = 'docs/platform-v7/autopilot/scopes/gekta-first-user-ma
 
 const source = Object.fromEntries(Object.entries(files).map(([name, file]) => [name, readFileSync(file, 'utf8')]));
 
+// Bind both real MFA clicks to the independent product's visible RU label.
+const registrationClient = readFileSync('apps/web/components/gekta/GektaRegistrationClient.tsx', 'utf8');
+const ruUi = registrationClient.match(/ru: \{([\s\S]*?)\n  \},\n  en: \{/u);
+assert(ruUi, 'registration client: RU presentation missing');
+const mfaConfirmation = ruUi[1].match(/\bconfirm: '([^']+)'/u)?.[1];
+assert(mfaConfirmation, 'registration client: MFA confirmation label missing');
+
+function assertMfaButtonBindings(executor, visibleLabel) {
+  for (const [start, end] of [
+    ['async function registerAndActivate(', 'async function proveOwnedHistoryRemoval('],
+    ['async function logoutAndLogin(', 'async function writeResult('],
+  ]) {
+    const from = executor.indexOf(start);
+    const to = executor.indexOf(end, from);
+    assert(from >= 0 && to > from, 'MFA acceptance function boundary missing');
+    const body = executor.slice(from, to);
+    const buttons = [...body.matchAll(/getByRole\('button', \{ name: '([^']+)', exact: true \}\)/gu)];
+    assert.equal(buttons.filter((match) => match[1] === visibleLabel).length, 1,
+      `${start}: must click the actual product MFA button exactly once`);
+  }
+}
+
+assertMfaButtonBindings(source.executor, mfaConfirmation);
+const currentMfaSelector = `name: '${mfaConfirmation}', exact: true`;
+const firstMfaSelector = source.executor.indexOf(currentMfaSelector);
+const secondMfaSelector = source.executor.indexOf(currentMfaSelector, firstMfaSelector + 1);
+assert(firstMfaSelector >= 0 && secondMfaSelector > firstMfaSelector);
+for (const position of [firstMfaSelector, secondMfaSelector]) {
+  const stale = source.executor.slice(0, position)
+    + "name: 'Obsolete MFA acceptance label', exact: true"
+    + source.executor.slice(position + currentMfaSelector.length);
+  assert.throws(() => assertMfaButtonBindings(stale, mfaConfirmation),
+    /must click the actual product MFA button exactly once/u);
+}
+assert.throws(() => assertMfaButtonBindings(source.executor, 'Changed product MFA label'),
+  /must click the actual product MFA button exactly once/u);
+console.log('PASS: actual RU MFA button binding in enrollment/fresh login and3 stale-label rejection regressions.');
+
 function requireAll(name, values) {
   for (const value of values) {
     if (!source[name].includes(value)) throw new Error(`${name}: missing ${JSON.stringify(value)}`);
