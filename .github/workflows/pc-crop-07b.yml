@@ -224,8 +224,20 @@ jobs:
             echo 'Shared dependency change: full acceptance continues.'
           fi
 
-      - name: Verify pinned routing classification and unchanged acceptance
-        run: python3 scripts/test-pc-crop-07b-routing-compat.py
+      - name: Verify routing classification and admitted change preservation
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ "$EVENT_NAME" = 'pull_request' ] \
+            && [ "$GITHUB_HEAD_REF" = 'fix/pc-crop-07b-routing-5580-20261011' ]; then
+            args+=(--verify-admitted-compatibility)
+          fi
+          # Classifier negatives run for every event. Historical whole-file
+          # preservation applies only to the separately admitted compatibility PR.
+          python3 scripts/test-pc-crop-07b-routing-compat.py "${args[@]}"
 
       - uses: pnpm/action-setup@v4
         with:

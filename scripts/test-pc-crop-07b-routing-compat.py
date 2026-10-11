@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Rejection tests for the additional classifier, not FGIS/provider acceptance."""
 import contextlib
+import argparse
 import hashlib
 import importlib.util
 import io
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -172,6 +174,10 @@ class RoutingCompatibility(unittest.TestCase):
             self.assertEqual(CLASSIFIER.main(), 1)
         self.assertEqual(output.getvalue(), 'PC_CROP_07B_PINNED_ROUTING_REJECTED\n')
 
+
+class AdmittedCompatibilityPreservation(unittest.TestCase):
+    """Whole-file preservation belongs only to this admitted compatibility PR."""
+
     def test_login_assertion_accepts_both_syntaxes_and_rejects_other_destinations(self):
         path = 'apps/web/tests/unit/platformV7IntegrationControlTower.test.ts'
         original = subprocess.check_output(['git', 'show',
@@ -204,5 +210,17 @@ class RoutingCompatibility(unittest.TestCase):
         self.assertIn('python3 scripts/verify-pc-crop-07b-routing-compat.py', candidate)
 
 
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--verify-admitted-compatibility', action='store_true',
+                        help='also verify the historical preservation constraints of this compatibility PR')
+    args = parser.parse_args()
+    loader = unittest.defaultTestLoader
+    suite = loader.loadTestsFromTestCase(RoutingCompatibility)
+    if args.verify_admitted_compatibility:
+        suite.addTests(loader.loadTestsFromTestCase(AdmittedCompatibilityPreservation))
+    return 0 if unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful() else 1
+
+
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    sys.exit(main())
