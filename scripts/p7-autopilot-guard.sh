@@ -56,6 +56,7 @@ CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
+    "fix/pc-crop-docker-headroom-rollover-4637") return 0 ;;
     "security/accounting-bff-csrf-3-5-1"|"security/module-body-validation"|"security/bff-upstream-path-encoding-4459"|"security/request-cookie-single-reader-4459"|"security/open-redirect-demo-login-4459"|"security/email-check-length-first-4459"|"security/browser-hardening-headers-4459"|"security/outbound-redirect-and-surface-4459"|"security/credential-surface-4459"|"fix/tai-release-run-event-filter-20261008") return 0 ;;
     "fix/gekta-history-lifecycle-5818"|"governance/gekta-history-lifecycle-source-admission-5818") return 0 ;;
     "$PRODUCT_DEAL_RUNTIME_BRANCH"|"$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH") return 0 ;;
@@ -600,7 +601,65 @@ const gektaRecoveryScopes = {
   ]
 };
 let scopes;
-if (Object.hasOwn(gektaRecoveryScopes, branch)) {
+if (branch === 'fix/pc-crop-docker-headroom-rollover-4637') {
+  // This source may consume only a separately accepted, base-owned purpose.
+  // PRIMARY, a candidate manifest and candidate guard never grant authority.
+  const { isDeepStrictEqual } = require('node:util');
+  const { createHash } = require('node:crypto');
+  const fail = code => { throw new Error('PC_CROP_HEADROOM_SCOPE_' + code); };
+  const headRef = String(process.env.HEAD_REF || '').trim();
+  const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 + 1 });
+  const read = (ref, file) => file === stateFile ? readImmutableState(ref) : git(['show', `${ref}:${file}`]);
+  const baseSha = git(['rev-parse', `${baseRef}^{commit}`]).trim();
+  if (!headRef || git(['merge-base', baseRef, headRef]).trim() !== baseSha) fail('BASE_NOT_ANCESTOR');
+  const queuePath = 'docs/platform-v7/execution-queue.md';
+  const marker = '\n## PC-CROP bounded Docker headroom source exception — 2026-10-11\n\n```json\n';
+  const queue = read(baseRef, queuePath);
+  const parts = queue.split(marker);
+  if (parts.length !== 2) fail('PURPOSE_NOT_ACCEPTED');
+  const end = parts[1].indexOf('\n```\n');
+  if (end < 0) fail('PURPOSE_FORMAT');
+  let purpose;
+  try { purpose = JSON.parse(parts[1].slice(0, end)); } catch { fail('PURPOSE_FORMAT'); }
+  const paths = ["scripts/production-docker-headroom-recovery.sh", ".github/workflows/production-docker-headroom-recovery.yml", "docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json"];
+  const payloads = [{"path":"scripts/production-docker-headroom-recovery.sh","mode":"100755","beforeBlob":"3dd97da34a9b149f53b1c188b26d720d7576d0ab","afterBlob":"07d0ddcda00d4456460c4ad13e0a82f121c9a791","sha256":"8910d754d4a5b5af091483e8ae268d66619ef9f195eaed030dfe28f1640b11b1","bytes":19207},{"path":".github/workflows/production-docker-headroom-recovery.yml","mode":"100644","beforeBlob":"f9ab8807f33328eac803d4d7da7dd092c1f5ee9b","afterBlob":"66b785760b55f2b30d3c558f86510e54689a6682","sha256":"eb36884acccb65bd21ec3f20fc1a288a07df0b9af20c6aa0365941e566dcf107","bytes":34369},{"path":"docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json","mode":"100644","beforeBlob":"4a795f9aa2e07c3d58751748d9102797947862c0","afterBlob":"2637bb76fe60f7b68422b110e199d81e6705139e","sha256":"93a84fd8e4f78aed3eeb55fd5aa8e014473cab2ee8837de803c2f7180c5ff36d","bytes":4218}];
+  if (purpose.purposeId !== 'pc-crop-bounded-docker-headroom-20261011' ||
+      purpose.sourceBranch !== branch || purpose.owner !== 'ACCOUNT_1_CORE' ||
+      purpose.contributor !== 'ACCOUNT_2_PRODUCT' ||
+      purpose.authorityBaseExactMain !== '64f1089e181bf60a620fde7fab48b429be26c1f9' ||
+      !isDeepStrictEqual(purpose.sourcePayloads, payloads)) fail('PURPOSE_IDENTITY');
+  try { execFileSync('git', ['merge-base', '--is-ancestor', purpose.authorityBaseExactMain, baseRef], { stdio: 'pipe' }); }
+  catch { fail('AUTHORITY_NOT_ANCESTOR'); }
+  const accepted = JSON.parse(readImmutableState(baseRef));
+  if (!isDeepStrictEqual(accepted.approvedConcurrentScopes?.[branch], paths)) fail('SOURCE_NOT_ADMITTED');
+  if (read(headRef, stateFile) !== read(baseRef, stateFile)) fail('STATE_MUTATION');
+  const guardPaths = ['scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs', '.github/workflows/platform-v7-autopilot-guard.yml'];
+  if (!Array.isArray(purpose.guardPayloads) || purpose.guardPayloads.length !== guardPaths.length ||
+      !isDeepStrictEqual(purpose.guardPayloads.map(item => item.path), guardPaths)) fail('GUARD_PAYLOAD_IDENTITY');
+  const entry = (ref, file) => git(['ls-tree', ref, '--', file]).trim();
+  const exact = (ref, item, blob) => {
+    if (!['100644', '100755'].includes(item.mode) || !/^[0-9a-f]{40}$/.test(blob || '') ||
+        entry(ref, item.path) !== `${item.mode} blob ${blob}\t${item.path}`) fail('BLOB_OR_MODE:' + item.path);
+  };
+  for (const item of purpose.guardPayloads) {
+    exact(baseRef, item, item.afterBlob);
+    const bytes = execFileSync('git', ['show', `${baseRef}:${item.path}`], { maxBuffer: 2 * 1024 * 1024 });
+    if (bytes.length !== item.bytes || createHash('sha256').update(bytes).digest('hex') !== item.sha256) fail('GUARD_NOT_ACCEPTED');
+  }
+  const fields = git(['diff', '--raw', '--no-abbrev', '--no-renames', '-z', baseRef, headRef]).split('\0');
+  if (fields.pop() !== '' || fields.length !== payloads.length * 2) fail('EXACT_THREE_PATHS_REQUIRED');
+  const expected = new Map(payloads.map(item => [item.path, item]));
+  for (let i = 0; i < fields.length; i += 2) {
+    const item = expected.get(fields[i + 1]);
+    if (!item || fields[i] !== `:${item.mode} ${item.mode} ${item.beforeBlob} ${item.afterBlob} M`) fail('SOURCE_PAYLOAD_OR_MODE');
+    expected.delete(item.path);
+    exact(baseRef, item, item.beforeBlob); exact(headRef, item, item.afterBlob);
+    const bytes = execFileSync('git', ['show', `${headRef}:${item.path}`]);
+    if (bytes.length !== item.bytes || createHash('sha256').update(bytes).digest('hex') !== item.sha256) fail('SOURCE_CONTENT');
+  }
+  if (expected.size) fail('EXACT_THREE_PATHS_REQUIRED');
+  scopes = paths;
+} else if (Object.hasOwn(gektaRecoveryScopes, branch)) {
   scopes = gektaRecoveryScopes[branch];
   if (branch === 'fix/gekta-history-lifecycle-5818' || branch === 'governance/gekta-history-lifecycle-source-admission-5818') {
     const { isDeepStrictEqual } = require('node:util');
@@ -2670,6 +2729,11 @@ fi
 
 if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$IR20_BINDING_PREREQUISITE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_SCOPE_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BUYER_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BANK_HOME_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "governance/product-deal-execution-route-20261001" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "governance/gekta-history-lifecycle-source-admission-5818" ]; then
   MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-autopilot-guard\.test\.mjs$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$|\.github/workflows/automerge\.yml$)' || true)
+  # The source branch above has already matched every full before/after blob,
+  # mode and content hash against the separately accepted base purpose.
+  if [ "$CURRENT_BRANCH" = "fix/pc-crop-docker-headroom-rollover-4637" ]; then
+    MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv 'docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json' || true)
+  fi
   # These manifests document the exact accepted path sets. They are not scope
   # authority: only approvedConcurrentScopes from the trusted base is used.
   case "$CURRENT_BRANCH" in
