@@ -44,108 +44,7 @@
     "MASTER v2.1 R0 PRODUCTION_PASS 5da8e80744908413102214f91dd68018911b892e / controller 35520784872 / 5 of 100",
     "R1.1 Server-side inventory of 13 cabinets and authority — docs/execution/R1_1_EXACT_INVENTORY_2026-09-20.md"
   ],
-  "closedCapabilities": {
-    "persistentIdentityAndMfa": {
-      "status": "merged-isolated-postgresql-evidence",
-      "prs": [
-        "#2276",
-        "#2280",
-        "#2282",
-        "#2283"
-      ]
-    },
-    "restrictedDatabasePrincipals": {
-      "status": "merged-isolated-postgresql-evidence",
-      "pr": "#2287"
-    },
-    "dealCommandCore": {
-      "status": "merged-isolated-postgresql-evidence",
-      "prs": [
-        "#2260",
-        "#2270",
-        "#2274",
-        "#2378",
-        "#2406",
-        "#2407"
-      ]
-    },
-    "documentsPostgresqlAuthority": {
-      "status": "merged-isolated-postgresql-evidence",
-      "pr": "#2410",
-      "mergeCommit": "a485371e54b31fc787c061643c0068184e373c7b",
-      "remainingBoundaries": [
-        "IR-32 document state machines",
-        "IR-40 evidence retention",
-        "IR-41 signature verification",
-        "IR-53 EDO mapping"
-      ]
-    },
-    "logisticsPostgresqlAuthority": {
-      "status": "merged-isolated-postgresql-evidence",
-      "pr": "#2412",
-      "mergeCommit": "a272a1e64b1a30d1e5b2a3052ca66653afd7b66f",
-      "remainingBoundaries": [
-        "IR-31 normalized logistics and acceptance",
-        "IR-54 GIS EPD mapping",
-        "IR-70 production load and operations"
-      ]
-    },
-    "labsPostgresqlAuthority": {
-      "status": "merged-isolated-postgresql-evidence",
-      "pr": "#2426",
-      "mergeCommit": "576d813c2d305efb645c9d26fa81a38fb6e4abbe",
-      "verifiedHead": "73149bb4fba09a33875311faea313bb2ad272503",
-      "remainingBoundaries": [
-        "IR-32 cross-module state machines",
-        "IR-40 evidence retention",
-        "IR-41 signature verification",
-        "IR-50 external adapter conformance"
-      ]
-    },
-    "settlementPostgresqlAuthority": {
-      "status": "merged-production-like-kubernetes-evidence",
-      "pr": "#5338",
-      "mergeCommit": "9dbff1a67225a006ec5f33ebe7fa8b483a368718",
-      "verifiedHead": "686c89f6cf2438baebb01f6bf4abcafb3eb85963",
-      "remainingBoundaries": [
-        "live bank and nominal-account integration",
-        "REG.RU deployment acceptance",
-        "IR-20 canonical durable outbox",
-        "IR-70 through IR-90 production, security and end-to-end acceptance"
-      ]
-    },
-    "disputesPostgresqlAuthority": {
-      "status": "merged-exact-head-postgresql-evidence",
-      "evidenceCommit": "397e98955d9f98704c40befd0088a1390556e0fa",
-      "workflowRun": "34726015616",
-      "artifactDigest": "sha256:01c713e0487c3ad040aca44e7d6631063a0788e60be4cc77a5de1097f12bdc60",
-      "remainingBoundaries": [
-        "production-like complete Deal dispute-cycle acceptance",
-        "target load and worker-failure operations",
-        "live external dispute providers",
-        "IR-70 through IR-90 production, security and end-to-end acceptance"
-      ]
-    },
-    "durableOutboxWorkerImplementation": {
-      "status": "merged-but-not-exclusive-production-owner",
-      "pr": "#2378",
-      "remainingBoundary": "IR-20 must remove the legacy process-memory relay and enforce one production owner."
-    },
-    "bankReconciliationAndKeyRotation": {
-      "status": "merged-isolated-postgresql-evidence",
-      "pr": "#2379"
-    },
-    "isolatedBackupRestore": {
-      "status": "merged-ci-rehearsal-only",
-      "pr": "#2291",
-      "productionAcceptance": false
-    },
-    "ciScaleLoadCorrectness": {
-      "status": "merged-ci-scale-only",
-      "pr": "#2404",
-      "productionCapacityAcceptance": false
-    }
-  },
+  "closedCapabilities": {"persistentIdentityAndMfa":{"status":"merged-isolated-postgresql-evidence","prs":["#2276","#2280","#2282","#2283"]},"restrictedDatabasePrincipals":{"status":"merged-isolated-postgresql-evidence","pr":"#2287"},"dealCommandCore":{"status":"merged-isolated-postgresql-evidence","prs":["#2260","#2270","#2274","#2378","#2406","#2407"]},"documentsPostgresqlAuthority":{"status":"merged-isolated-postgresql-evidence","pr":"#2410","mergeCommit":"a485371e54b31fc787c061643c0068184e373c7b","remainingBoundaries":["IR-32 document state machines","IR-40 evidence retention","IR-41 signature verification","IR-53 EDO mapping"]},"logisticsPostgresqlAuthority":{"status":"merged-isolated-postgresql-evidence","pr":"#2412","mergeCommit":"a272a1e64b1a30d1e5b2a3052ca66653afd7b66f","remainingBoundaries":["IR-31 normalized logistics and acceptance","IR-54 GIS EPD mapping","IR-70 production load and operations"]},"labsPostgresqlAuthority":{"status":"merged-isolated-postgresql-evidence","pr":"#2426","mergeCommit":"576d813c2d305efb645c9d26fa81a38fb6e4abbe","verifiedHead":"73149bb4fba09a33875311faea313bb2ad272503","remainingBoundaries":["IR-32 cross-module state machines","IR-40 evidence retention","IR-41 signature verification","IR-50 external adapter conformance"]},"settlementPostgresqlAuthority":{"status":"merged-production-like-kubernetes-evidence","pr":"#5338","mergeCommit":"9dbff1a67225a006ec5f33ebe7fa8b483a368718","verifiedHead":"686c89f6cf2438baebb01f6bf4abcafb3eb85963","remainingBoundaries":["live bank and nominal-account integration","REG.RU deployment acceptance","IR-20 canonical durable outbox","IR-70 through IR-90 production, security and end-to-end acceptance"]},"disputesPostgresqlAuthority":{"status":"merged-exact-head-postgresql-evidence","evidenceCommit":"397e98955d9f98704c40befd0088a1390556e0fa","workflowRun":"34726015616","artifactDigest":"sha256:01c713e0487c3ad040aca44e7d6631063a0788e60be4cc77a5de1097f12bdc60","remainingBoundaries":["production-like complete Deal dispute-cycle acceptance","target load and worker-failure operations","live external dispute providers","IR-70 through IR-90 production, security and end-to-end acceptance"]},"durableOutboxWorkerImplementation":{"status":"merged-but-not-exclusive-production-owner","pr":"#2378","remainingBoundary":"IR-20 must remove the legacy process-memory relay and enforce one production owner."},"bankReconciliationAndKeyRotation":{"status":"merged-isolated-postgresql-evidence","pr":"#2379"},"isolatedBackupRestore":{"status":"merged-ci-rehearsal-only","pr":"#2291","productionAcceptance":false},"ciScaleLoadCorrectness":{"status":"merged-ci-scale-only","pr":"#2404","productionCapacityAcceptance":false}},
   "openBlockers": [
     "R1.2 staff-session source #5766 is merged as 2749279de3b070f3ff9b79224c26d03c590275bd; exact-main REG.RU and full 13-cabinet acceptance remain unproved.",
     "Atomic readiness prerequisite #4829 combines the unchanged COR5 source, exact staff-test fix and five governance documents under owner disposition 5935185862; fresh whole-head independent review and complete CI/security/Kubernetes acceptance remain pending.",
@@ -2117,6 +2016,11 @@
     "fix/gekta-k8s-retained-capacity-20261009": [
       ".github/workflows/production-like-kubernetes-acceptance.yml",
       "scripts/release/production-like-kubernetes-source-preflight-test.sh"
+    ],
+    "fix/pc-crop-docker-headroom-rollover-4637": [
+      "scripts/production-docker-headroom-recovery.sh",
+      ".github/workflows/production-docker-headroom-recovery.yml",
+      "docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json"
     ]
   },
   "currentAcceptance": [
