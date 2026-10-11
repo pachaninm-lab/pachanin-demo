@@ -5570,7 +5570,7 @@ test('immutable state capacity does not enlarge the ordinary manifest buffer', (
 // The recovery exception is exercised with the full retained source patch and
 // real Git blobs/modes, using the same accepted-base guard as native validation.
 const headroomBranch = 'fix/pc-crop-docker-headroom-rollover-4637';
-const headroomMarker = '\n## PC-CROP bounded Docker headroom source exception — 2026-10-11\n\n```json\n';
+const headroomMarker = '\n## PC-CROP bounded Docker headroom parent-prune correction — 2026-10-11\n\n```json\n';
 function headroomPurpose() {
   const queue = fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8');
   const parts = queue.split(headroomMarker);
@@ -5626,6 +5626,14 @@ function checkHeadroom(c, expected = 1) {
   assert.equal(r.status === 0 ? 0 : 1, expected, output(r));
   if (expected) assert.match(output(r), /PC_CROP_HEADROOM_SCOPE_|Mutable scope authority changed/u);
 }
+test('headroom: rejects restoring implicit parent pruning in the committed source', t => {
+  const c = headroomFixture(t); applyHeadroomPayload(c);
+  const file = path.join(c.root, 'scripts/production-docker-headroom-recovery.sh');
+  const correct = fs.readFileSync(file, 'utf8');
+  assert.equal(correct.split("'rm', '--no-prune', ").length - 1, 2);
+  fs.writeFileSync(file, correct.replaceAll("'rm', '--no-prune', ", "'rm', "));
+  checkHeadroom(c);
+});
 test('headroom: full retained three-file payload passes from accepted base', t => {
   const c = headroomFixture(t); applyHeadroomPayload(c); checkHeadroom(c, 0);
 });
