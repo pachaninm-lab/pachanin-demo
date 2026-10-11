@@ -12,8 +12,9 @@ const SCOPE = 'docs/platform-v7/autopilot/scopes/pc-crop-predecessor-5580-202610
 const LOCK = 'docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json';
 const WORKFLOW = '.github/workflows/pc-crop-07b.yml';
 const WORKFLOWS = ['07a', '07b', '08b', '08c', '08d'].map(x => '.github/workflows/pc-crop-' + x + '.yml');
-const PINNED = execFileSync('git', ['show',
-  '666b86471404c57fe175057bc2dcdd367e20fca8:' + WORKFLOW], { cwd: ROOT });
+const ADMISSION = JSON.parse(readFileSync(join(ROOT, SCOPE)));
+const PINNED = execFileSync('git', ['cat-file', 'blob',
+  ADMISSION.pinnedCompatibilitySource.find(entry => entry.path === WORKFLOW).afterBlob], { cwd: ROOT });
 
 test('every admitted SOURCE leaf triggers the independent native scope step', () => {
   const workflow = readFileSync(join(ROOT, '.github/workflows/pc-crop-predecessor-trigger-governance.yml'), 'utf8');
@@ -52,6 +53,7 @@ function fixture(t, variant = 'compatibility', scopeBeforeBase = true) {
   const run = (args = [], override = {}) => spawnSync(process.execPath, [PROGRAM, ...args], {
     cwd: directory, encoding: 'utf8',
     env: { ...process.env, GOVERNANCE_BASE_SHA: base, GITHUB_SHA: git('rev-parse', 'HEAD'),
+      EXACT_HEAD: git('rev-parse', 'HEAD'),
       EVIDENCE_DIR: 'evidence', ...override },
   });
   const commit = () => { git('add', '.'); git('commit', '--allow-empty', '-qm', 'Negative vector'); };
@@ -63,6 +65,7 @@ function pass(result) {
   const report = JSON.parse(result.stdout.trim());
   assert.equal(report.status, 'PASS');
   assert.equal(report.workflowCount, 5);
+  assert.match(report.exactHead, /^[a-f0-9]{40}$/u);
   assert.equal(report.boundaries.acceptanceWeakening, false);
   assert.ok(Object.values(report.invariants).every(x => x === true));
   return report;
@@ -71,6 +74,85 @@ function pass(result) {
 function reject(result) {
   assert.notEqual(result.status, 0, 'A drifted or unauthorized vector was accepted');
 }
+
+test('native evidence binds actual checkout even when GITHUB_SHA is a synthetic PR merge', t => {
+  const f = fixture(t);
+  const head = f.git('rev-parse', 'HEAD');
+  assert.equal(pass(f.run([], { GITHUB_SHA: 'f'.repeat(40) })).exactHead, head);
+});
+
+test('wrong or malformed expected HEAD rejects before apply changes any byte', t => {
+  const f = fixture(t);
+  for (const expected of ['f'.repeat(40), '', 'HEAD', '1'.repeat(39), f.git('rev-parse', 'HEAD') + '\n']) {
+    reject(f.run(['--apply'], { EXACT_HEAD: expected }));
+    assert.equal(f.git('diff', '--name-only'), '');
+    assert.equal(f.git('status', '--porcelain'), '');
+  }
+});
+
+test('local invocation without expected HEAD reports the real Git commit', t => {
+  const f = fixture(t, 'legacy');
+  const head = f.git('rev-parse', 'HEAD');
+  assert.equal(pass(f.run([], { EXACT_HEAD: undefined, GITHUB_SHA: 'f'.repeat(40) })).exactHead, head);
+});
+
+function successorFixture(t) {
+  const f = fixture(t, 'legacy');
+  const scopePath = 'docs/platform-v7/autopilot/scopes/pc-crop-successor-trigger-handoff-3290.json';
+  const scope = JSON.parse(readFileSync(join(ROOT, scopePath)));
+  for (const path of [scopePath, 'scripts/pc-crop-successor-trigger-governance.mjs', '.github/workflows/pc-crop-08f.yml']) {
+    f.put(path, readFileSync(join(ROOT, path)));
+  }
+  f.commit();
+  const acceptedBase = f.git('rev-parse', 'HEAD');
+  f.git('commit', '--allow-empty', '-qm', 'Exact successor evidence fixture');
+  // The native workflow explicitly fetches this independently pinned authority.
+  // Import only its real unchanged Git objects for this local fixture, without
+  // requiring unrelated history or lazy promisor blobs in a partial checkout.
+  const authority = scope.handoffs.successorCommit;
+  for (const ref of [authority, authority + '^{tree}', authority + ':.github',
+    authority + ':.github/workflows', authority + ':' + scope.handoffs.successorWorkflow]) {
+    const sha = execFileSync('git', ['rev-parse', ref], { cwd: ROOT, encoding: 'utf8' }).trim();
+    const type = execFileSync('git', ['cat-file', '-t', sha], { cwd: ROOT, encoding: 'utf8' }).trim();
+    const bytes = execFileSync('git', ['cat-file', type, sha], { cwd: ROOT });
+    const imported = execFileSync('git', ['hash-object', '-t', type, '-w', '--stdin'],
+      { cwd: f.directory, input: bytes, encoding: 'utf8' }).trim();
+    assert.equal(imported, sha);
+  }
+  f.put('.git/FETCH_HEAD', authority + '\t\tImported exact pinned successor fixture authority\n');
+  f.put('.git/shallow', authority + '\n');
+  const workflow = readFileSync(join(ROOT, '.github/workflows/pc-crop-predecessor-trigger-governance.yml'), 'utf8');
+  const match = workflow.match(/      - name: Prove successor trigger handoff contract[\s\S]*?        run: \|\n([\s\S]*?)\n      - name:/);
+  assert.ok(match, 'Actual successor invocation missing');
+  const script = match[1].split('\n').map(line => line.replace(/^          /, '')).join('\n');
+  f.successor = (expected = f.git('rev-parse', 'HEAD')) => spawnSync('bash', ['-c', script], {
+    cwd: f.directory, encoding: 'utf8',
+    env: { ...process.env, GOVERNANCE_BASE_SHA: acceptedBase, EXACT_HEAD: expected,
+      GITHUB_SHA: 'f'.repeat(40), EVIDENCE_DIR: 'successor-evidence' },
+  });
+  return f;
+}
+
+test('actual unchanged successor verifier reports checkout HEAD through the native wrapper', t => {
+  const f = successorFixture(t);
+  const result = f.successor();
+  assert.equal(result.status, 0, result.stderr);
+  const report = JSON.parse(result.stdout.trim());
+  assert.equal(report.schemaVersion, 'pc-crop.successor-trigger-handoff-acceptance.v1');
+  assert.equal(report.status, 'PASS');
+  assert.equal(report.exactHead, f.git('rev-parse', 'HEAD'));
+  assert.ok(Object.values(report.invariants).every(value => value === true));
+  assert.deepEqual(JSON.parse(readFileSync(join(f.directory, 'successor-evidence/successor-trigger-handoff.json'))), report);
+});
+
+test('actual successor wrapper rejects wrong or malformed HEAD before report creation', t => {
+  const f = successorFixture(t);
+  for (const expected of ['f'.repeat(40), '', 'HEAD', f.git('rev-parse', 'HEAD') + '\n']) {
+    reject(f.successor(expected));
+    assert.throws(() => readFileSync(join(f.directory, 'successor-evidence/successor-trigger-handoff.json')));
+    assert.equal(f.git('status', '--porcelain'), '');
+  }
+});
 
 test('all five original locked variants remain accepted and apply is idempotent', t => {
   const f = fixture(t, 'legacy');
@@ -336,7 +418,7 @@ test('other governance branches retain the existing candidate-only admission beh
   assert.equal(result.stdout.trim(), 'docs/platform-v7/autopilot/scopes/ordinary.json');
 });
 
-function downstreamFixture(t, branch, manifest, candidate) {
+function downstreamFixture(t, branch, manifest) {
   const f = fixture(t, 'legacy');
   const file = 'docs/platform-v7/autopilot/scopes/' + manifest;
   const bytes = readFileSync(join(ROOT, file));
@@ -354,7 +436,13 @@ function downstreamFixture(t, branch, manifest, candidate) {
   f.commit();
   f.acceptedBase = f.git('rev-parse', 'HEAD');
   for (const path of scope.allowedPaths) {
-    f.put(path, execFileSync('git', ['show', candidate + ':' + path], { cwd: ROOT }));
+    const pin = ADMISSION.pinnedCompatibilitySource.find(entry => entry.path === path);
+    // Compatibility replays the admitted blobs. Routing exercises only the
+    // complete source-path/mode boundary, using explicitly synthetic fixture
+    // comments; it does not attest runtime behavior or depend on an open PR.
+    const bytes = pin ? execFileSync('git', ['cat-file', 'blob', pin.afterBlob], { cwd: ROOT })
+      : Buffer.concat([readFileSync(join(f.directory, path)), Buffer.from('\n// routing scope fixture only\n')]);
+    f.put(path, bytes);
   }
   f.commit();
   const workflow = readFileSync(join(ROOT, '.github/workflows/pc-crop-predecessor-trigger-governance.yml'), 'utf8');
@@ -368,23 +456,23 @@ function downstreamFixture(t, branch, manifest, candidate) {
   return f;
 }
 
-test('actual native accepted-base step accepts the original exact compatibility SOURCE', t => {
+test('actual native accepted-base step accepts the four admitted compatibility blobs', t => {
   const f = downstreamFixture(t, 'fix/pc-crop-07b-routing-5580-20261011',
-    'pc-crop-07b-routing-5580-20261011.json', '666b86471404c57fe175057bc2dcdd367e20fca8');
+    'pc-crop-07b-routing-5580-20261011.json');
   const result = f.nativeScope();
   assert.equal(result.status, 0, result.stderr);
 });
 
-test('actual native accepted-base step accepts the original exact routing SOURCE', t => {
+test('actual native accepted-base step accepts the complete four-leaf routing scope fixture', t => {
   const f = downstreamFixture(t, 'fix/protected-entry-locale-5580-20261011',
-    'protected-entry-locale-5580-20261011.json', '786f62889f8a17f9d25e92e5b8a6e4941d8f205d');
+    'protected-entry-locale-5580-20261011.json');
   const result = f.nativeScope();
   assert.equal(result.status, 0, result.stderr);
 });
 
 test('actual native step rejects a candidate validator replacement using accepted-base executable', t => {
   const f = downstreamFixture(t, 'fix/protected-entry-locale-5580-20261011',
-    'protected-entry-locale-5580-20261011.json', '786f62889f8a17f9d25e92e5b8a6e4941d8f205d');
+    'protected-entry-locale-5580-20261011.json');
   f.put(SOURCE_HELPER, 'process.exit(0);\n'); f.commit();
   const candidate = spawnSync(process.execPath, [SOURCE_HELPER], { cwd: f.directory });
   assert.equal(candidate.status, 0);
@@ -393,7 +481,7 @@ test('actual native step rejects a candidate validator replacement using accepte
 
 test('actual native step rejects stale-empty SOURCE even when legacy shell guard returns early PASS', t => {
   const f = downstreamFixture(t, 'fix/protected-entry-locale-5580-20261011',
-    'protected-entry-locale-5580-20261011.json', '786f62889f8a17f9d25e92e5b8a6e4941d8f205d');
+    'protected-entry-locale-5580-20261011.json');
   f.git('checkout', '-q', '--detach', f.acceptedBase);
   assert.equal(f.git('diff', '--name-only', f.acceptedBase + '...HEAD'), '');
   const shell = execFileSync('git', ['show', '43aa983e9ccc4f723cbb964b7b76a898172b05fe:scripts/p7-autopilot-guard.sh'], { cwd: ROOT });

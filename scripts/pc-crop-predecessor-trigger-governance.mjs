@@ -238,7 +238,17 @@ function applyTriggers() {
   assertLock(lock);
 }
 
-function verify() {
+function exactCheckoutHead() {
+  const head = git('rev-parse', 'HEAD^{commit}').trim();
+  const expected = process.env.EXACT_HEAD;
+  if (!/^[a-f0-9]{40}$/u.test(head)
+      || (expected !== undefined && (!/^[a-f0-9]{40}$/u.test(expected) || expected !== head))) {
+    throw new Error('predecessor evidence checkout differs from exact expected HEAD');
+  }
+  return head;
+}
+
+function verify(exactHead) {
   const lock = loadLock();
   if (!lock) throw new Error('predecessor trigger lock is missing');
   assertLock(lock);
@@ -264,7 +274,7 @@ function verify() {
   const report = {
     schemaVersion: 'pc-crop.predecessor-trigger-governance-acceptance.v1',
     issue: 3170,
-    exactHead: process.env.GITHUB_SHA || 'LOCAL',
+    exactHead,
     status: 'PASS',
     workflowCount: Object.keys(workflows).length,
     invariants: {
@@ -290,5 +300,6 @@ function verify() {
   process.stdout.write(`${JSON.stringify(report)}\n`);
 }
 
+const exactHead = exactCheckoutHead();
 if (APPLY) applyTriggers();
-verify();
+verify(exactHead);

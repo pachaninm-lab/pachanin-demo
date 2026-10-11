@@ -134,7 +134,13 @@ jobs:
           fi
 
       - name: Prove successor trigger handoff contract
-        run: node scripts/pc-crop-successor-trigger-governance.mjs
+        shell: bash
+        run: |
+          set -euo pipefail
+          checkout_head="$(git rev-parse 'HEAD^{commit}')"
+          [[ "$checkout_head" =~ ^[a-f0-9]{40}$ && "$checkout_head" == "$EXACT_HEAD" ]]
+          # The unchanged successor verifier uses GITHUB_SHA only for its report.
+          GITHUB_SHA="$checkout_head" node scripts/pc-crop-successor-trigger-governance.mjs
 
       - name: Enforce idempotent clean authority
         shell: bash
