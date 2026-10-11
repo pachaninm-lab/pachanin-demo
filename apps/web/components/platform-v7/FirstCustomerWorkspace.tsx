@@ -98,7 +98,7 @@ export async function FirstCustomerWorkspace({ surface }: { surface: FirstCustom
     description: priorityUnknown ? unknownDescription : state === 'ready' ? copy.ownerReadyDescription : state === 'empty' ? copy.emptyDescription : state === 'forbidden' ? copy.forbiddenDescription : copy.degradedDescription,
     blocker: state === 'degraded' || state === 'forbidden' ? (workspace.correlationId || copy.degradedDescription) : undefined,
     owner: priorityUnknown ? undefined : state === 'degraded' ? copy.status : ROLE_LABEL[locale][surface],
-    result: priorityUnknown ? copy.priorityUnknownResult : state === 'ready' ? first?.status : state === 'empty' ? copy.empty : copy.degraded,
+    result: priorityUnknown ? copy.priorityUnknownResult : state === 'ready' ? first?.status : state === 'empty' ? copy.empty : state === 'forbidden' ? copy.forbidden : copy.degraded,
     primaryAction: priorityUnknown
       ? <a className={operationalCockpitClasses.primaryLink} href='#first-customer-work-queue'>{copy.workQueue}</a>
       : first?.href
