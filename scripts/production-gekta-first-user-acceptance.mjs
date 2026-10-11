@@ -510,7 +510,7 @@ async function registerAndActivate(page, identity, email, password) {
 
   stage = 'mandatory-mfa-enrollment';
   await page.getByLabel('Код MFA', { exact: true }).fill(await currentTotp(secret));
-  await page.getByRole('button', { name: 'Подтвердить и начать trial', exact: true }).click();
+  await page.getByRole('button', { name: 'Подтвердить и начать пробный период', exact: true }).click();
   await page.getByRole('heading', { name: 'Сохраните резервные коды', exact: true }).waitFor({ state: 'visible', timeout: 30_000 });
   assert(await page.locator('ul li').count() >= 8, 'GEKTA_MFA_BACKUP_CODES_MISSING');
   await page.getByLabel('Я сохранил резервные коды в безопасном месте', { exact: true }).check();
@@ -679,7 +679,7 @@ async function logoutAndLogin(page, email, password, mfaSecret, identity) {
   await page.getByRole('button', { name: 'Войти', exact: true }).click();
   await page.getByRole('heading', { name: 'Введите второй фактор', exact: true }).waitFor({ state: 'visible', timeout: 30_000 });
   await page.getByLabel('Код MFA', { exact: true }).fill(await currentTotp(mfaSecret));
-  await page.getByRole('button', { name: 'Подтвердить и начать trial', exact: true }).click();
+  await page.getByRole('button', { name: 'Подтвердить и начать пробный период', exact: true }).click();
   await page.waitForURL(/\/gekta(?:\?|$)/u, { timeout: 30_000 });
   const lifetime = await waitFor(async () => {
     const response = await pageJson(page, '/api/gekta/account/entitlement');
