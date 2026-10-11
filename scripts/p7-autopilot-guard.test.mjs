@@ -5566,3 +5566,117 @@ test('immutable state capacity does not enlarge the ordinary manifest buffer', (
   assert.notEqual(result.status, 0, output(result));
   assert.match(output(result), /accepted public-home manifest:.*ENOBUFS/u);
 });
+
+// The recovery exception is exercised with the full retained source patch and
+// real Git blobs/modes, using the same accepted-base guard as native validation.
+const headroomBranch = 'fix/pc-crop-docker-headroom-rollover-4637';
+const headroomMarker = '\n## PC-CROP bounded Docker headroom source exception — 2026-10-11\n\n```json\n';
+function headroomPurpose() {
+  const queue = fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8');
+  const parts = queue.split(headroomMarker);
+  assert.equal(parts.length, 2, 'complete recovery purpose must be retained');
+  return JSON.parse(parts[1].slice(0, parts[1].indexOf('\n```\n')));
+}
+function headroomFixture(t, mutate = () => {}, { ancestry = true } = {}) {
+  const purpose = headroomPurpose();
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-crop-headroom-scope-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = { allowedCurrentScope: ['README.md', 'apps/api/src/main.ts'],
+    approvedConcurrentScopes: { [headroomBranch]: purpose.sourcePayloads.map(item => item.path) } };
+  mutate(purpose, state);
+  for (const file of ['scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs',
+    '.github/workflows/platform-v7-autopilot-guard.yml', 'scripts/p7-source-controlled-scope.mjs']) {
+    write(root, file, fs.readFileSync(file, 'utf8'));
+    fs.chmodSync(path.join(root, file), file.endsWith('.sh') ? 0o755 : 0o644);
+  }
+  for (const item of headroomPurpose().sourcePayloads) {
+    const r = spawnSync('git', ['cat-file', 'blob', item.beforeBlob], { encoding: 'utf8' });
+    assert.equal(r.status, 0, output(r)); write(root, item.path, r.stdout);
+    fs.chmodSync(path.join(root, item.path), item.mode === '100755' ? 0o755 : 0o644);
+  }
+  write(root, statePath, JSON.stringify(state));
+  write(root, 'docs/platform-v7/execution-queue.md', headroomMarker + JSON.stringify(purpose) + '\n```\n');
+  write(root, 'README.md', 'accepted unrelated source\n');
+  git(root, ['init', '--initial-branch=main']);
+  git(root, ['config', 'user.name', 'Recovery regression']);
+  git(root, ['config', 'user.email', 'recovery@example.invalid']);
+  const objectDir = spawnSync('git', ['rev-parse', '--path-format=absolute', '--git-path', 'objects'], { encoding: 'utf8' });
+  assert.equal(objectDir.status, 0, output(objectDir));
+  write(root, '.git/objects/info/alternates', objectDir.stdout.trim() + '\n');
+  git(root, ['add', '.']); const tree = git(root, ['write-tree']);
+  const baseline = git(root, ['commit-tree', tree, ...(ancestry ? ['-p', headroomPurpose().authorityBaseExactMain] : []), '-m', 'accepted scope fixture']);
+  git(root, ['update-ref', 'HEAD', baseline]); git(root, ['switch', '-c', headroomBranch]);
+  return { root, baseline, implementationBranch: headroomBranch };
+}
+function applyHeadroomPayload(c) {
+  const r = spawnSync('git', ['apply', '--index', '-'], { cwd: c.root, encoding: 'utf8', input: headroomPurpose().sourcePatch });
+  assert.equal(r.status, 0, output(r));
+}
+function runTrustedHeadroomGuard(c) {
+  const trusted = spawnSync('git', ['show', c.baseline + ':scripts/p7-autopilot-guard.sh'], { cwd: c.root, encoding: 'utf8' });
+  assert.equal(trusted.status, 0, output(trusted));
+  const file = path.join(c.root, '.git', 'trusted-headroom-guard.sh'); fs.writeFileSync(file, trusted.stdout);
+  return spawnSync('bash', [file], { cwd: c.root, encoding: 'utf8', env: { ...process.env,
+    BASE_REF: c.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: c.implementationBranch } });
+}
+function checkHeadroom(c, expected = 1) {
+  commit(c.root, 'candidate recovery source');
+  const r = runTrustedHeadroomGuard(c);
+  assert.equal(r.status === 0 ? 0 : 1, expected, output(r));
+  if (expected) assert.match(output(r), /PC_CROP_HEADROOM_SCOPE_|Mutable scope authority changed/u);
+}
+test('headroom: full retained three-file payload passes from accepted base', t => {
+  const c = headroomFixture(t); applyHeadroomPayload(c); checkHeadroom(c, 0);
+});
+for (const [name, mutate] of [
+  ['missing source admission', (_, state) => { delete state.approvedConcurrentScopes[headroomBranch]; }],
+  ['widened source vector', (_, state) => { state.approvedConcurrentScopes[headroomBranch].push('README.md'); }],
+  ['wrong retained owner', purpose => { purpose.owner = 'ACCOUNT_2_PRODUCT'; }],
+  ['wrong source branch', purpose => { purpose.sourceBranch = 'fix/other-recovery'; }],
+  ['wrong source after blob', purpose => { purpose.sourcePayloads[0].afterBlob = 'a'.repeat(40); }],
+  ['unaccepted guard bytes', purpose => { purpose.guardPayloads[0].afterBlob = 'a'.repeat(40); }],
+  ['wrong guard content checksum', purpose => { purpose.guardPayloads[0].sha256 = 'a'.repeat(64); }],
+]) test('headroom: rejects ' + name, t => {
+  const c = headroomFixture(t, mutate); applyHeadroomPayload(c); checkHeadroom(c);
+});
+test('headroom: rejects missing accepted purpose', t => {
+  const c = headroomFixture(t); write(c.root, 'docs/platform-v7/execution-queue.md', 'missing purpose\n');
+  commit(c.root, 'base without purpose'); c.baseline = git(c.root, ['rev-parse', 'HEAD']);
+  applyHeadroomPayload(c); checkHeadroom(c);
+});
+test('headroom: rejects authority without accepted-main ancestry', t => {
+  const c = headroomFixture(t, () => {}, { ancestry: false }); applyHeadroomPayload(c); checkHeadroom(c);
+});
+for (const item of ['scripts/production-docker-headroom-recovery.sh', '.github/workflows/production-docker-headroom-recovery.yml',
+  'docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json']) {
+  test('headroom: rejects partial source without ' + item, t => {
+    const c = headroomFixture(t); applyHeadroomPayload(c); git(c.root, ['restore', '--source=HEAD', '--staged', '--worktree', '--', item]); checkHeadroom(c);
+  });
+  test('headroom: rejects modified bytes in ' + item, t => {
+    const c = headroomFixture(t); applyHeadroomPayload(c); fs.appendFileSync(path.join(c.root, item), '\n'); checkHeadroom(c);
+  });
+  test('headroom: rejects changed mode in ' + item, t => {
+    const c = headroomFixture(t); applyHeadroomPayload(c); const target = path.join(c.root, item);
+    fs.chmodSync(target, item.endsWith('.sh') ? 0o644 : 0o755); checkHeadroom(c);
+  });
+}
+for (const item of ['README.md', 'apps/api/src/main.ts', 'scripts/p7-autopilot-guard.sh',
+  'docs/platform-v7/autopilot/autopilot-state.json', 'docs/platform-v7/execution-queue.md']) {
+  test('headroom: rejects PRIMARY or candidate authority mutation ' + item, t => {
+    const c = headroomFixture(t); applyHeadroomPayload(c); write(c.root, item, 'candidate authority\n'); checkHeadroom(c);
+  });
+}
+test('headroom: candidate correct dirty bytes cannot rescue committed wrong payload', t => {
+  const c = headroomFixture(t); applyHeadroomPayload(c); const file = 'scripts/production-docker-headroom-recovery.sh';
+  const correct = fs.readFileSync(path.join(c.root, file)); fs.appendFileSync(path.join(c.root, file), '\n');
+  commit(c.root, 'wrong committed payload'); fs.writeFileSync(path.join(c.root, file), correct);
+  const r = runTrustedHeadroomGuard(c); assert.notEqual(r.status, 0, output(r)); assert.match(output(r), /PC_CROP_HEADROOM_SCOPE_SOURCE_PAYLOAD_OR_MODE/u);
+});
+test('headroom: both workflow entry points use trusted-base scope and reject forks', () => {
+  const text = fs.readFileSync(sourceWorkflow, 'utf8');
+  for (const marker of ["github.event.pull_request.head.ref == '" + headroomBranch + "'",
+    "github.head_ref == '" + headroomBranch + "'", "github.head_ref != '" + headroomBranch + "'",
+    '|' + headroomBranch + '|', 'git show "$BASE_SHA:scripts/p7-autopilot-guard.sh"',
+    'HEAD_REPOSITORY', 'PC-CROP immutable scope · PR-head defense']) assert.ok(text.includes(marker), marker);
+});
