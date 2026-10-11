@@ -1,6 +1,10 @@
 name: Platform V7 Production i18n Acceptance
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/platform-v7-production-i18n-acceptance.yml'
   workflow_run:
     workflows:
       - 'Production Web Exact-SHA Release'
@@ -26,8 +30,116 @@ concurrency:
 env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
   I18N_ISSUE_NUMBER: 2198
+  I18N_EVIDENCE_LIB: |
+    build_i18n_evidence_checksums() {
+      local evidence_dir="$1" target_sha="$2" revision_outcome="$3"
+      local dictionary_outcome="$4" runtime_outcome="$5" browser_outcome="$6"
+      local last_run='apps/web/test-results/production-i18n/.last-run.json'
+      shift 6
+      printf '%s\n' "$target_sha" > "$evidence_dir/target-sha.txt"
+      printf '%s\n' "$revision_outcome" > "$evidence_dir/revision-outcome.txt"
+      printf '%s\n' "$dictionary_outcome" > "$evidence_dir/dictionary-outcome.txt"
+      printf '%s\n' "$runtime_outcome" > "$evidence_dir/runtime-outcome.txt"
+      printf '%s\n' "$browser_outcome" > "$evidence_dir/browser-outcome.txt"
+      # Retain only the actual Playwright record under a visible evidence name.
+      if [[ -f "$last_run" ]]; then
+        cp -- "$last_run" "$evidence_dir/playwright-last-run.json"
+      fi
+      find "$@" -type f ! -path '*/.*' ! -path "$evidence_dir/sha256.txt" -print0 \
+        | sort -z | xargs -0 -r sha256sum > "$evidence_dir/sha256.txt"
+    }
 
 jobs:
+  evidence-contract:
+    name: i18n evidence archive contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Verify complete passed, failed and absent browser evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          lib="$RUNNER_TEMP/i18n-evidence-lib.sh"
+          printf '%s\n' "$I18N_EVIDENCE_LIB" > "$lib"
+          # shellcheck disable=SC1090
+          source "$lib"
+          fixture=$(mktemp -d "$RUNNER_TEMP/i18n-evidence.XXXXXX")
+          trap 'rm -rf -- "$fixture"' EXIT
+          evidence_dir='artifacts/platform-v7-production-i18n'
+          results='apps/web/test-results/production-i18n'
+          report='apps/web/playwright-report-production-i18n'
+          target='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+          expected_files=(
+            "$evidence_dir/issue-comment.md"
+            "$evidence_dir/target-sha.txt"
+            "$evidence_dir/revision-outcome.txt"
+            "$evidence_dir/dictionary-outcome.txt"
+            "$evidence_dir/runtime-outcome.txt"
+            "$evidence_dir/browser-outcome.txt"
+            "$evidence_dir/playwright-last-run.json"
+            "$results/screenshot.png"
+            "$report/index.html"
+            "$report/sha256.txt"
+          )
+
+          for status in passed failed; do
+            mkdir -p "$fixture/$status"
+            cd "$fixture/$status"
+            mkdir -p "$evidence_dir" "$results/.private" "$report"
+            browser_outcome=success
+            failed_tests='[]'
+            if [[ "$status" == failed ]]; then
+              browser_outcome=failure
+              failed_tests='["i18n-contract-case"]'
+            fi
+            printf '{"status":"%s","failedTests":%s}\n' "$status" "$failed_tests" > "$results/.last-run.json"
+            printf 'hidden sentinel\n' > "$results/.env"
+            printf 'nested hidden sentinel\n' > "$results/.private/receipt.txt"
+            printf 'acceptance record\n' > "$evidence_dir/issue-comment.md"
+            printf 'browser image\n' > "$results/screenshot.png"
+            printf 'browser report\n' > "$report/index.html"
+            printf 'report-owned checksum evidence\n' > "$report/sha256.txt"
+
+            build_i18n_evidence_checksums "$evidence_dir" "$target" success success success "$browser_outcome" \
+              "$evidence_dir" "$results" "$report"
+            cmp -- "$results/.last-run.json" "$evidence_dir/playwright-last-run.json"
+            [[ $(wc -l < "$evidence_dir/sha256.txt") == "${#expected_files[@]}" ]]
+            for file in "${expected_files[@]}"; do
+              grep -Fq "  $file" "$evidence_dir/sha256.txt"
+            done
+            ! grep -Fq '/.' "$evidence_dir/sha256.txt"
+            grep -Fxq "$target" "$evidence_dir/target-sha.txt"
+            grep -Fxq "$browser_outcome" "$evidence_dir/browser-outcome.txt"
+            sha256sum --check --status --strict "$evidence_dir/sha256.txt"
+
+            printf 'tamper\n' >> "$evidence_dir/playwright-last-run.json"
+            if sha256sum --check --status --strict "$evidence_dir/sha256.txt"; then
+              echo 'tampered Playwright record was accepted' >&2
+              exit 51
+            fi
+            build_i18n_evidence_checksums "$evidence_dir" "$target" success success success "$browser_outcome" \
+              "$evidence_dir" "$results" "$report"
+            printf 'tamper\n' >> "$evidence_dir/browser-outcome.txt"
+            if sha256sum --check --status --strict "$evidence_dir/sha256.txt"; then
+              echo 'tampered late browser outcome was accepted' >&2
+              exit 52
+            fi
+          done
+
+          mkdir -p "$fixture/not-run"
+          cd "$fixture/not-run"
+          mkdir -p "$evidence_dir"
+          build_i18n_evidence_checksums "$evidence_dir" "$target" failure skipped skipped skipped "$evidence_dir"
+          [[ ! -e "$evidence_dir/playwright-last-run.json" ]]
+          [[ $(wc -l < "$evidence_dir/sha256.txt") == 5 ]]
+          grep -Fxq failure "$evidence_dir/revision-outcome.txt"
+          grep -Fxq skipped "$evidence_dir/browser-outcome.txt"
+          sha256sum --check --status --strict "$evidence_dir/sha256.txt"
+          printf 'PASS: complete i18n checksums preserve actual passed/failed evidence and cover late outcome records without hidden-file uploads.\n'
+
   accepted:
     name: Resolve accepted protected Web release
     if: >-
@@ -254,12 +366,14 @@ jobs:
           for candidate in apps/web/test-results/production-i18n apps/web/playwright-report-production-i18n; do
             [[ ! -e "$candidate" ]] || roots+=("$candidate")
           done
-          find "${roots[@]}" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$evidence_dir/sha256.txt"
-          printf '%s\n' '${{ steps.target.outputs.target_sha }}' > "$evidence_dir/target-sha.txt"
-          printf '%s\n' '${{ steps.revision.outcome }}' > "$evidence_dir/revision-outcome.txt"
-          printf '%s\n' '${{ steps.dictionary.outcome }}' > "$evidence_dir/dictionary-outcome.txt"
-          printf '%s\n' '${{ steps.runtime.outcome }}' > "$evidence_dir/runtime-outcome.txt"
-          printf '%s\n' '${{ steps.browser.outcome }}' > "$evidence_dir/browser-outcome.txt"
+          lib="$RUNNER_TEMP/i18n-evidence-lib.sh"
+          printf '%s\n' "$I18N_EVIDENCE_LIB" > "$lib"
+          # shellcheck disable=SC1090
+          source "$lib"
+          build_i18n_evidence_checksums "$evidence_dir" \
+            '${{ steps.target.outputs.target_sha }}' '${{ steps.revision.outcome }}' \
+            '${{ steps.dictionary.outcome }}' '${{ steps.runtime.outcome }}' '${{ steps.browser.outcome }}' \
+            "${roots[@]}"
 
       - name: Upload production i18n evidence
         if: always()
