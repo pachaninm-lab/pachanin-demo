@@ -23,7 +23,7 @@ describe('Platform V7 Integration Control Tower vertical', () => {
     expect(exists('app/api/staff/integrations/[adapterCode]/commands/reconcile/route.ts')).toBe(true);
     const page = read('app/platform-v7/integrations/page.tsx');
     expect(page).toContain('ACCESS_COOKIE');
-    expect(page).toContain("redirect('/platform-v7/login");
+    expect(page).toMatch(/redirect\(['"`]\/platform-v7\/login\?/);
     expect(page).toContain("data-authority='postgresql-private-bff'");
     expect(page).toContain("data-static-authority-fallback='false'");
   });
