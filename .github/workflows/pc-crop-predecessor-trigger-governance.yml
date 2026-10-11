@@ -15,6 +15,17 @@ on:
       - 'docs/platform-v7/autopilot/scopes/pc-crop-successor-trigger-handoff-3290.json'
       - 'scripts/pc-crop-predecessor-trigger-governance.mjs'
       - 'scripts/pc-crop-successor-trigger-governance.mjs'
+      - 'scripts/test-pc-crop-predecessor-07b-compat.mjs'
+      - 'scripts/p7-source-controlled-scope.mjs'
+      - 'scripts/verify-pc-crop-07b-routing-compat.py'
+      - 'scripts/test-pc-crop-07b-routing-compat.py'
+      - 'apps/web/tests/unit/platformV7IntegrationControlTower.test.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-predecessor-5580-20261011.json'
+      - 'docs/platform-v7/autopilot/scopes/governance-pc-crop-predecessor-5580-20261011.json'
+      - 'apps/web/middleware.ts'
+      - 'apps/web/next.config.js'
+      - 'apps/web/app/platform-v7/integrations/page.tsx'
+      - 'apps/web/tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts'
   push:
     branches:
       - main
@@ -32,6 +43,17 @@ on:
       - 'docs/platform-v7/autopilot/scopes/pc-crop-successor-trigger-handoff-3290.json'
       - 'scripts/pc-crop-predecessor-trigger-governance.mjs'
       - 'scripts/pc-crop-successor-trigger-governance.mjs'
+      - 'scripts/test-pc-crop-predecessor-07b-compat.mjs'
+      - 'scripts/p7-source-controlled-scope.mjs'
+      - 'scripts/verify-pc-crop-07b-routing-compat.py'
+      - 'scripts/test-pc-crop-07b-routing-compat.py'
+      - 'apps/web/tests/unit/platformV7IntegrationControlTower.test.ts'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-predecessor-5580-20261011.json'
+      - 'docs/platform-v7/autopilot/scopes/governance-pc-crop-predecessor-5580-20261011.json'
+      - 'apps/web/middleware.ts'
+      - 'apps/web/next.config.js'
+      - 'apps/web/app/platform-v7/integrations/page.tsx'
+      - 'apps/web/tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts'
   workflow_dispatch:
 
 permissions:
@@ -45,6 +67,7 @@ jobs:
     env:
       EVIDENCE_DIR: artifacts/pc-crop-predecessor-trigger-governance
       GOVERNANCE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+      EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@v4
@@ -77,6 +100,38 @@ jobs:
 
       - name: Apply canonical predecessor triggers
         run: node scripts/pc-crop-predecessor-trigger-governance.mjs --apply
+
+      - name: Validate complete accepted-base finish SOURCE scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$GITHUB_HEAD_REF" in
+            fix/pc-crop-predecessor-5580-20261011)
+              # This separately admitted validator change needs full nonauthor
+              # current-head review; its own test result is not trusted code approval.
+              BASE_REF="$GOVERNANCE_BASE_SHA" HEAD_REF="$EXACT_HEAD" \
+                node scripts/p7-source-controlled-scope.mjs
+              ;;
+            fix/pc-crop-07b-routing-5580-20261011|fix/protected-entry-locale-5580-20261011)
+              # Run accepted-base bytes, independently of candidate validators
+              # and of the shell guard's early empty-merge-base-diff return.
+              trusted_helper="$(mktemp --suffix=.mjs)"
+              trap 'rm -f "$trusted_helper"' EXIT
+              git show "$GOVERNANCE_BASE_SHA:scripts/p7-source-controlled-scope.mjs" > "$trusted_helper"
+              BASE_REF="$GOVERNANCE_BASE_SHA" HEAD_REF="$EXACT_HEAD" node "$trusted_helper"
+              ;;
+          esac
+
+      - name: Test exact admitted PC-CROP-07B variant and rejection vectors
+        run: node --test scripts/test-pc-crop-predecessor-07b-compat.mjs
+
+      - name: Verify historical preservation for the current combined admission
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_HEAD_REF" == 'fix/pc-crop-predecessor-5580-20261011' ]]; then
+            python3 scripts/test-pc-crop-07b-routing-compat.py --verify-admitted-compatibility
+          fi
 
       - name: Prove successor trigger handoff contract
         run: node scripts/pc-crop-successor-trigger-governance.mjs
