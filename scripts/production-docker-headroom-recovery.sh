@@ -47,6 +47,9 @@ required_kb = int(required_raw)
 target_kb = int(target_raw)
 canonical_tag = re.compile(r'^ghcr[.]io/pachaninm-lab/grainflow-(api|web|migration|tai):[A-Za-z0-9_.-]+$')
 canonical_digest = re.compile(r'^ghcr[.]io/pachaninm-lab/grainflow-(api|web|migration|tai)@sha256:[0-9a-f]{64}$')
+transfer_tag = re.compile(r'^pc-crop-transfer/(api|web|migration):([0-9a-f]{40})$')
+transfer_digest = re.compile(r'^pc-crop-transfer/(api|web|migration)@sha256:[0-9a-f]{64}$')
+revision_re = re.compile(r'^[0-9a-f]{40}$')
 image_id_re = re.compile(r'^sha256:[0-9a-f]{64}$')
 reclaim_components = {'api', 'web', 'migration'}
 max_reference_removals_per_image = 128
@@ -88,6 +91,11 @@ def inspect_image(image_id):
     data = json.loads(result.stdout)
     if len(data) != 1 or not isinstance(data[0], dict):
         raise RuntimeError('image_inspect_ambiguous')
+    actual_id = data[0].get('Id')
+    if not isinstance(actual_id, str) or not image_id_re.fullmatch(actual_id):
+        raise RuntimeError('image_inspect_id_invalid')
+    if image_id_re.fullmatch(image_id) and actual_id != image_id:
+        raise RuntimeError('image_inspect_id_mismatch')
     return data[0]
 
 
@@ -110,33 +118,52 @@ def image_refs(item):
 def ref_component(ref):
     tag_match = canonical_tag.fullmatch(ref)
     if tag_match:
-        return tag_match.group(1), 'TAG'
+        return tag_match.group(1), 'TAG', 'REGISTRY_CANONICAL'
     digest_match = canonical_digest.fullmatch(ref)
     if digest_match:
-        return digest_match.group(1), 'DIGEST'
+        return digest_match.group(1), 'DIGEST', 'REGISTRY_CANONICAL'
+    tag_match = transfer_tag.fullmatch(ref)
+    if tag_match:
+        return tag_match.group(1), 'TAG', 'EXACT_SHA_TRANSFER_ALIAS'
+    digest_match = transfer_digest.fullmatch(ref)
+    if digest_match:
+        return digest_match.group(1), 'DIGEST', 'EXACT_SHA_TRANSFER_ALIAS'
     return None
 
 
-def classify_release_image(item, require_tag=True):
+def classify_release_image(item, require_tag=True, allow_attested_digest_only=False):
     refs = image_refs(item)
     if refs is None or not refs:
         return None
     tags = []
     components = set()
+    namespaces = set()
     for ref in refs:
         classified = ref_component(ref)
         if classified is None:
             return None
-        component, ref_type = classified
+        component, ref_type, namespace = classified
         components.add(component)
+        namespaces.add(namespace)
         if ref_type == 'TAG':
             tags.append(ref)
-    if (require_tag and not tags) or len(components) != 1:
+    if (require_tag and not tags) or len(components) != 1 or len(namespaces) != 1:
         return None
     component = next(iter(components))
     if component not in reclaim_components:
         return None
-    return component, tuple(sorted(set(tags))), refs
+    namespace = next(iter(namespaces))
+    config = item.get('Config') if isinstance(item.get('Config'), dict) else {}
+    labels = config.get('Labels') if isinstance(config.get('Labels'), dict) else {}
+    revision = labels.get('org.opencontainers.image.revision')
+    if not isinstance(revision, str) or not revision_re.fullmatch(revision):
+        return None
+    if namespace == 'EXACT_SHA_TRANSFER_ALIAS':
+        # The accepted release controller imports these three component aliases.
+        # A digest-only, mismatched, mixed or unknown alias is not disposable.
+        if (not tags and not allow_attested_digest_only) or any(transfer_tag.fullmatch(tag).group(2) != revision for tag in tags):
+            return None
+    return component, namespace, tuple(sorted(set(tags))), refs
 
 
 def remove_failure_class(result):
@@ -156,7 +183,7 @@ def remove_failure_class(result):
     return 'OTHER'
 
 
-def attest_candidate(image_id, component):
+def attest_candidate(image_id, component, namespace, expected_revision):
     if image_id in container_image_ids():
         return None, 'CONTAINER_REFERENCE'
     item = inspect_image(image_id)
@@ -167,12 +194,16 @@ def attest_candidate(image_id, component):
     revision = labels.get('org.opencontainers.image.revision') if isinstance(labels, dict) else None
     if revision == target_sha:
         return None, 'TARGET_REVISION'
+    if revision != expected_revision:
+        return None, 'UNEXPECTED_REFERENCE_STATE'
     refs = image_refs(item)
     if refs is None:
         return None, 'UNEXPECTED_REFERENCE_STATE'
     if refs:
-        classification = classify_release_image(item, require_tag=False)
-        if classification is None or classification[0] != component:
+        # Discovery required matching full-SHA tags. After a tag is removed,
+        # its digest-only remainder is allowed only for this immutable record.
+        classification = classify_release_image(item, require_tag=False, allow_attested_digest_only=True)
+        if classification is None or classification[:2] != (component, namespace):
             return None, 'UNEXPECTED_REFERENCE_STATE'
     return item, None
 
@@ -193,7 +224,7 @@ for image_id in image_ids:
     classification = classify_release_image(item, require_tag=False)
     if classification is None:
         continue
-    component, tags, refs = classification
+    component, namespace, tags, refs = classification
     config = item.get('Config') if isinstance(item.get('Config'), dict) else {}
     labels = config.get('Labels') if isinstance(config.get('Labels'), dict) else {}
     revision = labels.get('org.opencontainers.image.revision') if isinstance(labels, dict) else None
@@ -204,6 +235,7 @@ for image_id in image_ids:
     records.append({
         'id': image_id,
         'component': component,
+        'namespace': namespace,
         'tags': tags,
         'refs': refs,
         'created': created,
@@ -215,7 +247,9 @@ for image_id in image_ids:
 
 by_component = defaultdict(list)
 for record in records:
-    by_component[record['component']].append(record)
+    # Keep the original registry rollback reserve AND two transfer generations.
+    # A newer unaccepted registry import cannot displace the transfer rollback.
+    by_component[(record['component'], record['namespace'])].append(record)
 for component_records in by_component.values():
     for record in sorted(component_records, key=lambda row: row['created'], reverse=True)[:2]:
         protected.add(record['id'])
@@ -239,7 +273,7 @@ for record in eligible:
     failed = False
 
     for _ in range(max_reference_removals_per_image):
-        item, attestation_error = attest_candidate(record['id'], record['component'])
+        item, attestation_error = attest_candidate(record['id'], record['component'], record['namespace'], record['revision'])
         if attestation_error:
             remove_failures[attestation_error] += 1
             failed = True
@@ -257,14 +291,19 @@ for record in eligible:
 
         if refs:
             ref = refs[0]
-            result = command(['docker', 'image', 'rm', ref], check=False)
+            referenced = inspect_image(ref)
+            if referenced is None or referenced.get('Id') != record['id']:
+                remove_failures['UNEXPECTED_REFERENCE_STATE'] += 1
+                failed = True
+                break
+            result = command(['docker', 'image', 'rm', '--no-prune', ref], check=False)
             if result.returncode != 0:
                 remove_failures[remove_failure_class(result)] += 1
                 failed = True
                 break
             removed_references += 1
 
-            item_after, attestation_error = attest_candidate(record['id'], record['component'])
+            item_after, attestation_error = attest_candidate(record['id'], record['component'], record['namespace'], record['revision'])
             if attestation_error:
                 remove_failures[attestation_error] += 1
                 failed = True
@@ -286,7 +325,7 @@ for record in eligible:
 
         # An unused image object with no remaining repository references may be
         # removed only by its immutable full ID and still never with --force.
-        result = command(['docker', 'image', 'rm', record['id']], check=False)
+        result = command(['docker', 'image', 'rm', '--no-prune', record['id']], check=False)
         if result.returncode != 0:
             remove_failures[remove_failure_class(result)] += 1
             failed = True
@@ -316,6 +355,8 @@ payload = {
     'mode': 'BOUNDED_UNUSED_CANONICAL_IMAGE_RECLAIM',
     'deleteAuthority': 'CANONICAL_REFERENCE_OR_FULL_IMAGE_ID_NO_FORCE',
     'reclaimComponents': sorted(reclaim_components),
+    'reclaimNamespaces': ['EXACT_SHA_TRANSFER_ALIAS', 'REGISTRY_CANONICAL'],
+    'rollbackImagesPerComponentPerNamespace': 2,
     'requiredAvailableKb': required_kb,
     'targetAvailableKb': target_kb,
     'beforeAvailableKb': before_kb,
@@ -355,6 +396,8 @@ if value.get('runId') != int(run_id): raise SystemExit('run mismatch')
 if value.get('mode') != 'BOUNDED_UNUSED_CANONICAL_IMAGE_RECLAIM': raise SystemExit('mode mismatch')
 if value.get('deleteAuthority') != 'CANONICAL_REFERENCE_OR_FULL_IMAGE_ID_NO_FORCE': raise SystemExit('delete authority mismatch')
 if value.get('reclaimComponents') != ['api', 'migration', 'web']: raise SystemExit('component scope mismatch')
+if value.get('reclaimNamespaces') != ['EXACT_SHA_TRANSFER_ALIAS', 'REGISTRY_CANONICAL']: raise SystemExit('namespace scope mismatch')
+if value.get('rollbackImagesPerComponentPerNamespace') != 2: raise SystemExit('rollback reserve mismatch')
 if value.get('requiredAvailableKb') != int(required_raw): raise SystemExit('required threshold mismatch')
 if value.get('targetAvailableKb') != int(target_raw): raise SystemExit('target threshold mismatch')
 for key in ('beforeAvailableKb','afterAvailableKb','canonicalImageCount','eligibleImageCount','containerProtectedImageCount','protectedImageCount','attemptedImageCount','removedReferenceCount','deletedImageCount','skippedImageCount','reclaimedBytes'):
