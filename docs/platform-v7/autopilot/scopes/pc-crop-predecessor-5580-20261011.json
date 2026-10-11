@@ -55,7 +55,7 @@
   ],
   "forbiddenChanges": [
     "all runtime or API/business/command source; only the one exact pinned existing FGIS test assertion is admitted",
-    "all workflows/scripts except the exact four allowedPaths",
+    "all workflows/scripts except the exact eight allowedPaths",
     "docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/autopilot/scopes/**",
