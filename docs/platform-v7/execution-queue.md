@@ -1764,3 +1764,12 @@ The preceding full accepted purpose and its failed source payloads remain histor
   "independentFindingCommentId": 6104556954
 }
 ```
+
+
+## Gekta actual first-user MFA button correction — 2026-10-11
+
+User continuation «Заканчивай» retains the existing CORE/Gekta owner. Actual exact6f55 first-user38156170584 passed ten durable streaming answers, registration and real verification email, then stopped before owner ceremony: both executor MFA clicks require obsolete RU text absent from the unchanged product UI. Product TOTP rejection is not established.
+
+Separate record `gekta-firstuser-mfa-button-binding-correction-20261011` admits only the pinned executor/checker correction on existing `ops/production-gekta-runtime-20260813`; it does not rewrite earlier owned-history or consent purposes. Full baseline-bound diff and after Git/SHA256/regular modes are retained in state. Before source publication, actually accept this five-document admission with genuine independent whole-head review, owner audit, substantive native checks/current readiness and ordinary full-SHA manual merge. Then source requires its own exact-head review/native/readiness/manual acceptance, followed by fresh exact-main deployed first-user execution.
+
+Private stale-selector rejection, corrected source contract/17 fixture-deadline cases/3 binding negatives/syntax PASS do not prove live MFA/trial/history/projects/owner grants. Preserve all old admissions/scopes/owners/primary11/official5; general candidate-list guard is not immutable payload enforcement. No UI/product/auth-server/workflow/guard, model grant/reset/switch, credentials/direct SQL, spending or official progress authority is added. Actual prior runtime claim was terminally released at16:52:45UTC; no standing hold or extension remains.
