@@ -1997,7 +1997,7 @@ This bounded purpose proposal stays on the retained PRODUCT metadata/source hist
     "production": "NOT_EXECUTED"
   },
   "requirements": [
-    "Metadata proposal only. Appending exactly this section preserves every old raw byte of the queue and both current prompt snapshots. Entire state/progress, all 114 old raw records/payloads/owners/vectors, PRIMARY11/current/nextStep and official5/100 remain byte-identical. No source vector or allowed-path expansion.",
+    "Metadata proposal only. Appending exactly this section preserves every old raw byte of the queue and both current prompt snapshots. Entire state/progress, all accepted old raw records/payloads/owners/vectors, PRIMARY11/current/nextStep and official5/100 remain byte-identical. No source vector or allowed-path expansion.",
     "Retain both original metadata and SOURCE histories; no force/reset or competing metadata/FGIS writer. A fresh bounded own PRODUCT metadata claim follows actual previous phase release and fresh main/Hub/ownership checks. No CORE/Gekta/Claude transfer.",
     "Metadata requires genuine independent exact-whole-head review, distinct author audit, all applicable substantive native CI/security, latest actual canonical readiness and ordinary full-expected-SHA manual merge before any SOURCE publication.",
     "Only after actual metadata acceptance may the retained SOURCE be forward-composed on actual accepted main. Exactly the two regular100644 payloads, current before pins and all after lengths/Git/SHA256 must match. Every other accepted-main leaf/mode, including this accepted metadata and all state/progress/guards/workflows/manifests, remains equal. SOURCE has its own fresh exact-whole-head review/audit/native gates/current readiness/manual full-SHA acceptance.",
