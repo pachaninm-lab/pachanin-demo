@@ -4,9 +4,10 @@ import {
   type BankCapability,
 } from '../../../../../packages/domain-core/src/bank-capability';
 import type { IntegrationCapabilityMaturity } from '../../../../../packages/domain-core/src/integration-capability';
-import type {
-  BankProviderFamily,
-  BankReferenceAdapter,
+import {
+  REAL_BANK_PROVIDER_FAMILIES,
+  type BankProviderFamily,
+  type BankReferenceAdapter,
 } from './bank-adapter.port';
 
 export type BankRoutingReadiness = 'VERIFIED_CURRENT' | 'MISSING_OR_UNKNOWN' | 'EXPIRED_OR_REVOKED';
@@ -50,15 +51,24 @@ function isRuntimeNonBlankString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function isRuntimeProviderFamily(value: unknown): value is BankProviderFamily {
+  return typeof value === 'string'
+    && (REAL_BANK_PROVIDER_FAMILIES as readonly string[]).includes(value);
+}
+
 export class BankCapabilityRouter {
   private readonly byProvider = new Map<BankProviderFamily, BankReferenceAdapter>();
 
   constructor(adapters: readonly BankReferenceAdapter[]) {
     for (const adapter of adapters) {
-      if (this.byProvider.has(adapter.providerFamily)) {
-        throw new Error(`DUPLICATE_BANK_ADAPTER:${adapter.providerFamily}`);
+      const providerFamily = adapter?.providerFamily;
+      if (!isRuntimeProviderFamily(providerFamily)) {
+        throw new Error('NO_ADAPTER_FOR_SERVER_HELD_PROVIDER');
       }
-      this.byProvider.set(adapter.providerFamily, adapter);
+      if (this.byProvider.has(providerFamily)) {
+        throw new Error(`DUPLICATE_BANK_ADAPTER:${providerFamily}`);
+      }
+      this.byProvider.set(providerFamily, adapter);
     }
   }
 
@@ -74,8 +84,10 @@ export class BankCapabilityRouter {
       };
     }
 
-    const adapter = this.byProvider.get(authority.providerFamily) ?? null;
-    if (!adapter) {
+    const adapter = isRuntimeProviderFamily(authority.providerFamily)
+      ? this.byProvider.get(authority.providerFamily) ?? null
+      : null;
+    if (!adapter || adapter.providerFamily !== authority.providerFamily) {
       return {
         status: 'UNAVAILABLE',
         adapter: null,

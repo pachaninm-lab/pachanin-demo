@@ -319,3 +319,64 @@ describe('bank capability router', () => {
     }
   });
 });
+
+describe('bank adapter provider identity at runtime', () => {
+  const malformedProviderFamilies = [
+    { name: 'unrecognized provider', providerFamily: 'OTHER_BANK' },
+    { name: 'test-only provider identity', providerFamily: 'TEST_DOUBLE_A' },
+    { name: 'empty identity', providerFamily: '' },
+    { name: 'numeric identity', providerFamily: 42 },
+    { name: 'missing identity', providerFamily: undefined },
+  ];
+  const adapterMethods = ['describeRequest', 'mapDispatchResponse', 'mapReceiptResponse'] as const;
+
+  it.each(malformedProviderFamilies)('rejects registration of $name without invoking the adapter', ({ providerFamily }) => {
+    const adapter = liveTestAdapter(providerFamily as BankProviderFamily, ['DIRECT_PAYMENT']);
+    const calls = adapterMethods.map(method => jest.spyOn(adapter, method));
+
+    expect(() => new BankCapabilityRouter([adapter])).toThrow('NO_ADAPTER_FOR_SERVER_HELD_PROVIDER');
+    for (const call of calls) expect(call).not.toHaveBeenCalled();
+  });
+
+  it.each(malformedProviderFamilies)('does not route an authority with $name', ({ providerFamily }) => {
+    const adapters = (['SBER', 'ALFA_BANK', 'T_BANK'] as const)
+      .map(provider => liveTestAdapter(provider, ['DIRECT_PAYMENT']));
+    const calls = adapters.flatMap(adapter => adapterMethods.map(method => jest.spyOn(adapter, method)));
+    const testRouter = new BankCapabilityRouter(adapters);
+
+    expect(testRouter.route(authority(providerFamily as BankProviderFamily), 'DIRECT_PAYMENT')).toEqual({
+      status: 'UNAVAILABLE',
+      adapter: null,
+      reason: 'NO_ADAPTER_FOR_SERVER_HELD_PROVIDER',
+    });
+    for (const call of calls) expect(call).not.toHaveBeenCalled();
+  });
+
+  it.each(['ALFA_BANK', 'T_BANK', 'OTHER_BANK'])('rejects an adapter changed from SBER to %s after registration', providerFamily => {
+    const adapter = liveTestAdapter('SBER', ['DIRECT_PAYMENT']);
+    const calls = adapterMethods.map(method => jest.spyOn(adapter, method));
+    const testRouter = new BankCapabilityRouter([adapter]);
+    Object.assign(adapter, { providerFamily });
+
+    expect(testRouter.route(authority('SBER'), 'DIRECT_PAYMENT')).toEqual({
+      status: 'UNAVAILABLE',
+      adapter: null,
+      reason: 'NO_ADAPTER_FOR_SERVER_HELD_PROVIDER',
+    });
+    for (const call of calls) expect(call).not.toHaveBeenCalled();
+  });
+
+  it.each(['SBER', 'ALFA_BANK', 'T_BANK'] as const)('preserves matching %s test-double routing without invoking its methods', providerFamily => {
+    const adapter = liveTestAdapter(providerFamily, ['DIRECT_PAYMENT']);
+    const calls = adapterMethods.map(method => jest.spyOn(adapter, method));
+    const testRouter = new BankCapabilityRouter([adapter]);
+    const result = testRouter.route(authority(providerFamily), 'DIRECT_PAYMENT');
+
+    expect(result).toMatchObject({
+      status: 'READY_FOR_REAL_TRAFFIC',
+      authority: { providerFamily },
+    });
+    expect(result.adapter).toBe(adapter);
+    for (const call of calls) expect(call).not.toHaveBeenCalled();
+  });
+});
