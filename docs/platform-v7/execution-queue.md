@@ -1996,3 +1996,167 @@ This bounded purpose proposal stays on the retained PRODUCT metadata/source hist
   ]
 }
 ```
+
+
+## Separate admission: gekta-standalone-document-language-20261015
+
+- Owner: EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION. User Maxim explicitly requested completion on 2026-10-15. This is not human MFA, an RF-processing attestation, a review, or production acceptance.
+- Exact observed main and public manifest: `a6784252a57a8a5e14f231bc18a64d67ab0fd274`. Actual fresh isolated Chrome on the authorized Mac reproduced RU -> EN -> ZH navigation with `html.lang=ru` while the chat subtree becomes `en`/`zh-CN`. The existing root layout is retained during client navigation. Direct fresh page loads are correctly localized.
+- Existing source lineage: `fix/gekta-anonymous-document-evidence-20261009`. Exactly two already-allowed source/test paths below; its existing nineteen-path vector, all old admissions and frozen before/after payloads remain unchanged. This separate purpose does not expand any older purpose.
+- Proposed behavior: the actual workspace effect may synchronize html language and an existing Content-Language meta only on its exact matching standalone Gekta path. Embedded, nested, owner-console, registration, and mismatched-locale surfaces do not acquire document language. Cleanup restores the prior value only if its own value is still present; absent original attributes remain absent, and a different newer page locale is preserved. Existing subtree lang, server content, consent, account authority, model/service, MFA, DB, quota and cost boundaries are unchanged.
+- Private validation: real mounted-React regression tests on unchanged product source produced 4 expected new failures and 19 passes; actual corrected product plus the original/legal/consent/entitlement suites produced 99/99 PASS across 5 files. These are local tests using the existing dependency installation, not native CI, independent review, browser-on-built-candidate, or production PASS. Fresh current-production Chrome geometry checks separately passed 12 combinations (three languages, four widths); they do not transfer to this changed source. Local WebKit is NOT_RUN because the installed macOS 13.1 is unsupported by the available Playwright WebKit.
+- Publication sequence: accept this append-only three-document metadata candidate only after its own actual independent whole-diff/full-tree review, separate owner audit, applicable native CI and current canonical readiness. Then derive exactly the pinned two-file source from the then-current accepted main on the retained source branch, preserving its history by ordinary nonforce fast-forward; require a fresh independent source review/audit/native gates/current readiness/manual full expected-SHA merge. No direct main write, auto/force merge, fake review/status, workflow or guard weakening.
+- Release remains a separate owner-controlled exact-main image/release/stability and genuine Chromium/WebKit/public-user acceptance operation. The previous first-user owner-grant window has terminally expired; do not reuse its phone or claim it still waits. Only an actual new authorized first-user WAITING can request the real owner's fresh MFA and sequential grants. RF processing confirmation remains human-only. Qwen candidate critical FAILED/SPENT/cleaned; current 8B retained, no retry/refund/reset/extra/permanent switch or new cost.
+- No accepted source or production change is made by this metadata. All prior document bytes, state/progress/primary/next-step fields, guards, workflows, permissions and other owners remain identical.
+
+### Exact source pins
+
+```json
+{
+  "purpose": "gekta-standalone-document-language-20261015",
+  "base": "a6784252a57a8a5e14f231bc18a64d67ab0fd274",
+  "implementationBranch": "fix/gekta-anonymous-document-evidence-20261009",
+  "paths": [
+    {
+      "path": "apps/web/components/gekta/GektaChatWorkspace.tsx",
+      "mode": "100644",
+      "beforeBlob": "87cb729280040854a880497c415ec8f780c79ccd",
+      "beforeSha256": "e7547cbadea00299a4d04bcaac44d98b42bbc7f71ea13d0d2b886b141312f63a",
+      "beforeBytes": 58372,
+      "afterBlob": "f1ae751dfea93b56ecb0a4b54032ad5e4dab2721",
+      "afterSha256": "e2e0a9f4c8998ef1ffd88fc16f93fd23806bffe4a201793ea9cfa09f3dda0c58",
+      "afterBytes": 59634
+    },
+    {
+      "path": "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
+      "mode": "100644",
+      "beforeBlob": "7c1986cb587f9a5776946dcae6c5aab0fa5e11b6",
+      "beforeSha256": "1c7db0ece39b0e5659759360ce96a3765c6e969ab465373340ebcdd5f278f772",
+      "beforeBytes": 9859,
+      "afterBlob": "44a7913883c48fafdf64fca7cb14ec704487ebf7",
+      "afterSha256": "14bfb3cf4ccad21251fb8d6c07d789976f1490adf6694b173a2996312724b911",
+      "afterBytes": 13231
+    }
+  ],
+  "patchSha256": "0a1e77492eaa989abfd9ae9cec9ec19563e443e8e210d7e274cb2a2863268fcb",
+  "patchBytes": 5573
+}
+```
+
+### Complete proposed zero-context source diff
+
+Use `git apply --unidiff-zero` only against the exact pinned before blobs. The diff contains every change; zero unchanged context prevents trailing blank-context whitespace in these append-only Markdown documents.
+
+```diff
+diff --git a/apps/web/components/gekta/GektaChatWorkspace.tsx b/apps/web/components/gekta/GektaChatWorkspace.tsx
+index 87cb72928..f1ae751df 100644
+--- a/apps/web/components/gekta/GektaChatWorkspace.tsx
++++ b/apps/web/components/gekta/GektaChatWorkspace.tsx
+@@ -163,0 +164,23 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
++  React.useEffect(() => {
++    // Next client navigation retains the root layout. Only a matching standalone
++    // route may update document language; embedded chat keeps its host's locale.
++    if (window.location.pathname !== GEKTA_PATHS[locale]) return;
++    const root = document.documentElement;
++    const language = locale === 'zh' ? 'zh-CN' : locale;
++    const previousLanguage = root.getAttribute('lang');
++    const contentLanguage = document.querySelector<HTMLMetaElement>('meta[http-equiv="Content-Language" i]');
++    const previousContentLanguage = contentLanguage?.getAttribute('content') ?? null;
++    root.setAttribute('lang', language);
++    contentLanguage?.setAttribute('content', language);
++    return () => {
++      // A newly mounted page may already own these attributes. Never overwrite it.
++      if (root.getAttribute('lang') === language) {
++        if (previousLanguage === null) root.removeAttribute('lang');
++        else root.setAttribute('lang', previousLanguage);
++      }
++      if (contentLanguage?.getAttribute('content') === language) {
++        if (previousContentLanguage === null) contentLanguage.removeAttribute('content');
++        else contentLanguage.setAttribute('content', previousContentLanguage);
++      }
++    };
++  }, [locale]);
+diff --git a/apps/web/tests/unit/gektaVoiceAndLegal.test.ts b/apps/web/tests/unit/gektaVoiceAndLegal.test.ts
+index 7c1986cb5..44a791388 100644
+--- a/apps/web/tests/unit/gektaVoiceAndLegal.test.ts
++++ b/apps/web/tests/unit/gektaVoiceAndLegal.test.ts
+@@ -3 +3,2 @@ import { resolve } from 'node:path';
+-import { describe, expect, it, vi } from 'vitest';
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
++import { cleanup, render, waitFor } from '@testing-library/react';
+@@ -164,0 +166,74 @@ describe('Gekta interface language inheritance', () => {
++
++
++describe('Gekta standalone document language lifecycle', () => {
++  let meta: HTMLMetaElement;
++  beforeEach(() => {
++    window.localStorage.clear();
++    document.documentElement.lang = 'ru';
++    meta = document.createElement('meta');
++    meta.httpEquiv = 'Content-Language';
++    meta.content = 'ru';
++    document.head.appendChild(meta);
++    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('{}', { status: 401 }));
++  });
++  afterEach(() => {
++    cleanup();
++    meta.remove();
++    window.history.replaceState(null, '', '/');
++    document.documentElement.lang = 'ru';
++    vi.restoreAllMocks();
++  });
++
++  it('updates the actual mounted workspace and root on RU -> EN -> ZH -> RU client navigation', async () => {
++    window.history.replaceState(null, '', '/gekta');
++    const view = render(createElement(GektaChatWorkspace, { locale: 'ru' }));
++    for (const [locale, pathname, language] of [
++      ['en', '/gekta/en', 'en'], ['zh', '/gekta/zh', 'zh-CN'], ['ru', '/gekta', 'ru'],
++    ] as const) {
++      window.history.replaceState(null, '', pathname);
++      view.rerender(createElement(GektaChatWorkspace, { locale }));
++      await waitFor(() => expect(document.documentElement.lang).toBe(language));
++      expect(meta.content).toBe(language);
++      expect(view.container.querySelector('textarea')?.closest('[lang]')?.getAttribute('lang')).toBe(language);
++    }
++  });
++
++  it.each(['/platform-v7', '/gekta/console', '/gekta/register', '/gekta/en/price', '/gekta/en-extra', '/gekta'])
++  ('never changes platform or mismatched document language at %s', (pathname) => {
++    window.history.replaceState(null, '', pathname);
++    render(createElement(GektaChatWorkspace, { locale: 'en' }));
++    expect(document.documentElement.lang).toBe('ru');
++    expect(meta.content).toBe('ru');
++  });
++
++  it('restores pre-existing document metadata when the standalone workspace unmounts', async () => {
++    window.history.replaceState(null, '', '/gekta/en');
++    const view = render(createElement(GektaChatWorkspace, { locale: 'en' }));
++    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
++    view.unmount();
++    expect(document.documentElement.lang).toBe('ru');
++    expect(meta.content).toBe('ru');
++  });
++
++  it('does not overwrite metadata acquired by a newer page owner', async () => {
++    window.history.replaceState(null, '', '/gekta/zh');
++    const view = render(createElement(GektaChatWorkspace, { locale: 'zh' }));
++    await waitFor(() => expect(document.documentElement.lang).toBe('zh-CN'));
++    document.documentElement.lang = 'fr';
++    meta.content = 'fr';
++    view.unmount();
++    expect(document.documentElement.lang).toBe('fr');
++    expect(meta.content).toBe('fr');
++  });
++
++  it('preserves absent metadata instead of inventing a head element or an old lang', async () => {
++    window.history.replaceState(null, '', '/gekta/en');
++    meta.remove();
++    document.documentElement.removeAttribute('lang');
++    const view = render(createElement(GektaChatWorkspace, { locale: 'en' }));
++    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
++    expect(document.head.querySelector('meta[http-equiv="Content-Language"]')).toBeNull();
++    view.unmount();
++    expect(document.documentElement.hasAttribute('lang')).toBe(false);
++  });
++});
+```
