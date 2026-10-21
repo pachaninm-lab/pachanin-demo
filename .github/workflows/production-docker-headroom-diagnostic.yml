@@ -229,6 +229,18 @@ jobs:
               assert baseline['image_refs'] == [(cid, image_id)]
               assert baseline['volume_mounts'] == 1 and baseline['services'] == [(cid, 'api')]
               assert secret not in json.dumps(baseline)
+              # Real file/directory reads must preserve access times, including relatime mounts.
+              import os
+              evidence_paths = (root, containers, child, config)
+              for evidence_path in evidence_paths:
+                  os.utime(evidence_path, ns=(1, evidence_path.stat().st_mtime_ns))
+              assert inventory(str(root))['status'] == 'COMPLETE'
+              assert all(evidence_path.stat().st_atime_ns == 1 for evidence_path in evidence_paths)
+              from unittest import mock
+              with mock.patch.object(os, 'O_NOATIME', None):
+                  assert inventory(str(root))['status'] == 'UNAVAILABLE'
+              with mock.patch.object(os, 'open', side_effect=PermissionError('not permitted')):
+                  assert inventory(str(root))['status'] == 'UNAVAILABLE'
 
               for malformed in ([], None, {'ID': 'b' * 64}, '{bad json'):
                   config.write_text(malformed if isinstance(malformed, str) else json.dumps(malformed))
@@ -241,15 +253,14 @@ jobs:
               config.symlink_to(target)
               assert inventory(str(root))['rejected'] == 1
               config.unlink()
-              with config.open('wb') as handle:
-                  handle.truncate(scope['MAX_METADATA_BYTES'] + 1)
+              config.write_text(json.dumps({**payload, 'padding': 'x' * scope['MAX_METADATA_BYTES']}))
               assert inventory(str(root))['rejected'] == 1
               config.unlink()
               assert inventory(str(root))['rejected'] == 1
               config.write_text(json.dumps({**payload, 'Image': secret,
                   'Config': {'Labels': {'com.docker.compose.service': secret}}}))
               unknown = inventory(str(root))
-              assert unknown['unknown_images'] == 1 and not unknown['image_refs']
+              assert unknown['status'] == 'PARTIAL' and unknown['unknown_images'] == 1 and not unknown['image_refs']
               assert unknown['services'] == [(cid, 'other')] and secret not in json.dumps(unknown)
               assert inventory(str(root / 'missing'))['status'] == 'UNAVAILABLE'
               child.rename(root / 'outside')
@@ -306,7 +317,7 @@ jobs:
               'CONTAINER_RESTORE_ENOSPC': 1, 'METADATA_ERROR': 1, 'CORRUPTION_INDICATOR': 1}
           assert secret not in json.dumps(classified)
           assert all(value == 0 for value in scope['journal_classification'](secret).values())
-          print('PASS: actual on-disk metadata identity/symlink/size/missing/limit/privacy fixtures and journal classification; no data-integrity claim.')
+          print('PASS: actual on-disk metadata identity/no-atime/symlink/size/missing/limit/privacy fixtures and journal classification; no data-integrity claim.')
           print('PASS: remote diagnostic is owner-only, exact-main, pinned-SSH and contains no Docker delete/prune or service restart/stop capability.')
           PY
 
@@ -509,7 +520,7 @@ jobs:
 
 
           def read_metadata(directory_fd, name):
-              fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+              fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_NOATIME,
                            dir_fd=directory_fd)
               try:
                   before = os.fstat(fd)
@@ -534,7 +545,10 @@ jobs:
               result = {'status': 'UNAVAILABLE', 'directories': 0, 'valid': 0,
                         'rejected': 0, 'unknown_images': 0, 'volume_mounts': 0,
                         'image_refs': [], 'services': []}
-              flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+              no_atime = getattr(os, 'O_NOATIME', None)
+              if no_atime is None:
+                  return result
+              flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | no_atime
               root_fd = containers_fd = None
               try:
                   root_fd = os.open(root, flags)
@@ -579,7 +593,7 @@ jobs:
                       finally:
                           if child_fd is not None:
                               os.close(child_fd)
-                  result['status'] = 'PARTIAL' if result['rejected'] else 'COMPLETE'
+                  result['status'] = 'PARTIAL' if result['rejected'] or result['unknown_images'] else 'COMPLETE'
               except (OSError, ValueError, TypeError):
                   result['status'] = 'UNAVAILABLE'
               finally:
@@ -866,7 +880,7 @@ jobs:
               f"- API: revision `{scalar.get('RUNTIME_API_REVISION', 'unknown')}`, status `{scalar.get('RUNTIME_API_STATUS', 'unknown')}`, started `{scalar.get('RUNTIME_API_STARTED_AT', 'unknown')}`;",
               f"- Web: revision `{scalar.get('RUNTIME_WEB_REVISION', 'unknown')}`, status `{scalar.get('RUNTIME_WEB_STATUS', 'unknown')}`, started `{scalar.get('RUNTIME_WEB_STARTED_AT', 'unknown')}`;",
               f"- deleted-open files: `{scalar.get('DELETED_OPEN_FILE_COUNT', 'unknown')}` / `{gib(scalar.get('DELETED_OPEN_FILE_BYTES'))}`;",
-              f"- on-disk container metadata: `{scalar.get('CONTAINER_METADATA_STATUS', 'not-collected')}`; directories `{scalar.get('CONTAINER_METADATA_DIRECTORIES', 'unknown')}`; valid `{scalar.get('CONTAINER_METADATA_VALID', 'unknown')}`; rejected `{scalar.get('CONTAINER_METADATA_REJECTED', 'unknown')}`;",
+              f"- on-disk container metadata: `{scalar.get('CONTAINER_METADATA_STATUS', 'not-collected')}`; directories `{scalar.get('CONTAINER_METADATA_DIRECTORIES', 'unknown')}`; valid `{scalar.get('CONTAINER_METADATA_VALID', 'unknown')}`; unresolved image IDs `{scalar.get('CONTAINER_METADATA_UNKNOWN_IMAGES', 'unknown')}`; rejected `{scalar.get('CONTAINER_METADATA_REJECTED', 'unknown')}`;",
               f"- Docker journal classification: `{scalar.get('DOCKER_JOURNAL_STATUS', 'not-collected')}`; restore errors `{scalar.get('DOCKER_JOURNAL_CONTAINER_RESTORE_ERROR', 'unknown')}`; restore+ENOSPC `{scalar.get('DOCKER_JOURNAL_CONTAINER_RESTORE_ENOSPC', 'unknown')}`; corruption indicators `{scalar.get('DOCKER_JOURNAL_CORRUPTION_INDICATOR', 'unknown')}`;",
               '- Volume data integrity and backup/restore applicability: `NOT_ATTESTED`; metadata and log indicators alone authorize no cleanup or restart.',
 
