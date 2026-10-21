@@ -199,6 +199,114 @@ jobs:
               if result.returncode == 0 or result.stdout or secret in result.stderr:
                   raise SystemExit('ambiguous image metadata was accepted')
           print('PASS: 14 actual runtime image metadata fixtures; legacy Labels UNKNOWN, malformed records rejected and Config.Env omitted.')
+          match = re.search(r"^          container_forensics_script=\"\$\(cat <<'PY_CONTAINER_FORENSICS'\n(.*?)^          PY_CONTAINER_FORENSICS\n", workflow, re.M | re.S)
+          if not match:
+              raise SystemExit('missing container metadata reconciler')
+          forensic_source = textwrap.dedent(match[1])
+          scope = {'__name__': 'contract_fixture'}
+          exec(compile(forensic_source, '<actual container reconciler>', 'exec'), scope)
+          import contextlib
+          import io
+          import tempfile
+          from pathlib import Path
+
+          with tempfile.TemporaryDirectory() as fixture_directory:
+              root = Path(fixture_directory)
+              containers = root / 'containers'
+              containers.mkdir()
+              cid = 'a' * 64
+              child = containers / cid
+              child.mkdir()
+              config = child / 'config.v2.json'
+              payload = {'ID': cid, 'Image': image_id,
+                         'Config': {'Env': [secret], 'Labels': {
+                             'com.docker.compose.service': 'api', 'untrusted': secret}},
+                         'MountPoints': {secret: {'Type': 'volume', 'Source': secret}}}
+              config.write_text(json.dumps(payload))
+              inventory = scope['metadata_inventory']
+              baseline = inventory(str(root))
+              assert baseline['status'] == 'COMPLETE' and baseline['valid'] == 1
+              assert baseline['image_refs'] == [(cid, image_id)]
+              assert baseline['volume_mounts'] == 1 and baseline['services'] == [(cid, 'api')]
+              assert secret not in json.dumps(baseline)
+
+              for malformed in ([], None, {'ID': 'b' * 64}, '{bad json'):
+                  config.write_text(malformed if isinstance(malformed, str) else json.dumps(malformed))
+                  found = inventory(str(root))
+                  assert found['status'] == 'PARTIAL' and found['valid'] == 0
+                  assert not found['image_refs'] and found['rejected'] == 1
+              config.unlink()
+              target = root / 'must-not-read'
+              target.write_text(json.dumps(payload))
+              config.symlink_to(target)
+              assert inventory(str(root))['rejected'] == 1
+              config.unlink()
+              with config.open('wb') as handle:
+                  handle.truncate(scope['MAX_METADATA_BYTES'] + 1)
+              assert inventory(str(root))['rejected'] == 1
+              config.unlink()
+              assert inventory(str(root))['rejected'] == 1
+              config.write_text(json.dumps({**payload, 'Image': secret,
+                  'Config': {'Labels': {'com.docker.compose.service': secret}}}))
+              unknown = inventory(str(root))
+              assert unknown['unknown_images'] == 1 and not unknown['image_refs']
+              assert unknown['services'] == [(cid, 'other')] and secret not in json.dumps(unknown)
+              assert inventory(str(root / 'missing'))['status'] == 'UNAVAILABLE'
+              child.rename(root / 'outside')
+              child.symlink_to(root / 'outside', target_is_directory=True)
+              assert inventory(str(root))['rejected'] == 1
+              child.unlink()
+              config = root / 'outside' / 'config.v2.json'
+              config.write_text(json.dumps(payload))
+              (root / 'outside').rename(child)
+              scope['collect_journal'] = lambda: ('UNAVAILABLE', None)
+              output = io.StringIO()
+              with contextlib.redirect_stdout(output):
+                  scope['main'](str(root))
+              assert secret not in output.getvalue() and fixture_directory not in output.getvalue()
+              assert 'VOLUME_DATA_INTEGRITY=NOT_ATTESTED' in output.getvalue()
+              assert 'BACKUP_RESTORE_APPLICABILITY=NOT_ATTESTED' in output.getvalue()
+              scope['MAX_CONTAINERS'] = 0
+              assert inventory(str(root))['status'] == 'LIMIT_EXCEEDED'
+
+          # Exercise the actual bounded pipe reader with real child processes.
+          import sys
+          from unittest import mock
+          original_popen = subprocess.Popen
+          # Restore the real reader after the output-redaction fixture.
+          actual_scope = {'__name__': 'journal_fixture'}
+          exec(compile(forensic_source, '<actual journal reader>', 'exec'), actual_scope)
+          journal_reader = actual_scope['collect_journal']
+          for program, expected_status in (
+              ('print("error restoring container: no space left on device")', 'COMPLETE'),
+              ('raise SystemExit(7)', 'UNAVAILABLE'),
+              ('import sys; sys.stdout.write("x" * (4 * 1024 * 1024 + 1))', 'LIMIT_EXCEEDED'),
+          ):
+              children = []
+              def fixture_popen(argv, **kwargs):
+                  assert argv == ['journalctl', '--unit=docker.service', '--lines=400',
+                                  '--no-pager', '--output=cat']
+                  child = original_popen([sys.executable, '-c', program], **kwargs)
+                  children.append(child)
+                  return child
+              with mock.patch.object(subprocess, 'Popen', side_effect=fixture_popen):
+                  status, counts = journal_reader()
+              assert status == expected_status and all(child.poll() is not None for child in children)
+              if expected_status == 'COMPLETE':
+                  assert counts['CONTAINER_RESTORE_ENOSPC'] == 1
+              else:
+                  assert counts is None
+          print('PASS: actual journal reader handles nonzero exit and oversize output, reaps its own children and never invokes a daemon mutation.')
+
+          classified = scope['journal_classification'](
+              'error restoring container ' + secret + ': no space left on device\n'
+              + 'failed to load container: invalid config.v2.json ' + secret + '\n'
+              + 'checksum mismatch ' + secret + '\n')
+          assert classified == {'ENOSPC': 1, 'CONTAINER_RESTORE_ERROR': 2,
+              'CONTAINER_RESTORE_ENOSPC': 1, 'METADATA_ERROR': 1, 'CORRUPTION_INDICATOR': 1}
+          assert secret not in json.dumps(classified)
+          assert all(value == 0 for value in scope['journal_classification'](secret).values())
+          print('PASS: actual on-disk metadata identity/symlink/size/missing/limit/privacy fixtures and journal classification; no data-integrity claim.')
           print('PASS: remote diagnostic is owner-only, exact-main, pinned-SSH and contains no Docker delete/prune or service restart/stop capability.')
           PY
 
@@ -381,6 +489,190 @@ jobs:
           RUNTIME_WEB_STARTED_AT={{.State.StartedAt}}
           RUNTIME_WEB_STATUS={{.State.Status}}' "$cid"
           fi
+
+          # Reconcile daemon inventory with surviving metadata before any recovery.
+          container_forensics_script="$(cat <<'PY_CONTAINER_FORENSICS'
+          import json
+          import os
+          import re
+          import stat
+          import subprocess
+          import sys
+
+          MAX_METADATA_BYTES = 4 * 1024 * 1024
+          MAX_CONTAINERS = 2048
+          ID_PATTERN = re.compile(r'[0-9a-f]{64}')
+          IMAGE_PATTERN = re.compile(r'sha256:[0-9a-f]{64}')
+          SERVICES = frozenset(('api', 'web', 'postgres', 'postgresql', 'redis', 'minio',
+                                'caddy', 'kafka', 'zookeeper', 'outbox-worker',
+                                'auth-mail-worker', 'migration', 'migrations', 'pgbouncer'))
+
+
+          def read_metadata(directory_fd, name):
+              fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                           dir_fd=directory_fd)
+              try:
+                  before = os.fstat(fd)
+                  if not stat.S_ISREG(before.st_mode) or before.st_size > MAX_METADATA_BYTES:
+                      raise ValueError('INVALID_METADATA')
+                  with os.fdopen(fd, 'rb', closefd=False) as stream:
+                      data = stream.read(MAX_METADATA_BYTES + 1)
+                  after = os.fstat(fd)
+                  if len(data) > MAX_METADATA_BYTES or (
+                      before.st_size, before.st_mtime_ns, before.st_ctime_ns
+                  ) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns):
+                      raise ValueError('UNSTABLE_METADATA')
+                  item = json.loads(data)
+                  if not isinstance(item, dict):
+                      raise ValueError('INVALID_METADATA')
+                  return item
+              finally:
+                  os.close(fd)
+
+
+          def metadata_inventory(root):
+              result = {'status': 'UNAVAILABLE', 'directories': 0, 'valid': 0,
+                        'rejected': 0, 'unknown_images': 0, 'volume_mounts': 0,
+                        'image_refs': [], 'services': []}
+              flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+              root_fd = containers_fd = None
+              try:
+                  root_fd = os.open(root, flags)
+                  containers_fd = os.open('containers', flags, dir_fd=root_fd)
+                  # Bounded enumeration; absent/inaccessible metadata never means zero containers.
+                  with os.scandir(containers_fd) as entries:
+                      names = []
+                      for entry in entries:
+                          if len(names) == MAX_CONTAINERS:
+                              result['status'] = 'LIMIT_EXCEEDED'
+                              return result
+                          names.append(entry.name)
+                  for name in sorted(names):
+                      if ID_PATTERN.fullmatch(name) is None:
+                          result['rejected'] += 1
+                          continue
+                      result['directories'] += 1
+                      child_fd = None
+                      try:
+                          child_fd = os.open(name, flags, dir_fd=containers_fd)
+                          item = read_metadata(child_fd, 'config.v2.json')
+                          if item.get('ID') != name:
+                              raise ValueError('IDENTITY_MISMATCH')
+                          image = item.get('Image')
+                          if isinstance(image, str) and IMAGE_PATTERN.fullmatch(image):
+                              result['image_refs'].append((name, image))
+                          else:
+                              result['unknown_images'] += 1
+                          config = item.get('Config')
+                          labels = config.get('Labels') if isinstance(config, dict) else None
+                          service = labels.get('com.docker.compose.service') if isinstance(labels, dict) else None
+                          service = service if isinstance(service, str) and service in SERVICES else 'other'
+                          result['services'].append((name, service))
+                          mounts = item.get('MountPoints')
+                          if isinstance(mounts, dict):
+                              result['volume_mounts'] += sum(
+                                  isinstance(value, dict) and value.get('Type') == 'volume'
+                                  for value in mounts.values())
+                          result['valid'] += 1
+                      except (OSError, ValueError, TypeError, RecursionError):
+                          result['rejected'] += 1
+                      finally:
+                          if child_fd is not None:
+                              os.close(child_fd)
+                  result['status'] = 'PARTIAL' if result['rejected'] else 'COMPLETE'
+              except (OSError, ValueError, TypeError):
+                  result['status'] = 'UNAVAILABLE'
+              finally:
+                  if containers_fd is not None:
+                      os.close(containers_fd)
+                  if root_fd is not None:
+                      os.close(root_fd)
+              return result
+
+
+          def journal_classification(payload):
+              # Only closed-vocabulary counts leave this function; raw lines may contain secrets.
+              result = {'ENOSPC': 0, 'CONTAINER_RESTORE_ERROR': 0,
+                        'CONTAINER_RESTORE_ENOSPC': 0, 'METADATA_ERROR': 0,
+                        'CORRUPTION_INDICATOR': 0}
+              for line in payload.splitlines():
+                  line = line.lower()
+                  enospc = 'no space left on device' in line or 'enospc' in line
+                  restore = 'container' in line and any(value in line for value in (
+                      'failed to load', 'error loading', 'error restoring', 'failed to restore'))
+                  result['ENOSPC'] += enospc
+                  result['CONTAINER_RESTORE_ERROR'] += restore
+                  result['CONTAINER_RESTORE_ENOSPC'] += enospc and restore
+                  result['METADATA_ERROR'] += any(value in line for value in (
+                      'config.v2.json', 'hostconfig.json')) and any(value in line for value in (
+                          'error', 'failed', 'invalid', 'cannot', 'unable'))
+                  result['CORRUPTION_INDICATOR'] += any(value in line for value in (
+                      'database corruption', 'invalid database', 'checksum mismatch',
+                      'invalid page', 'unexpected end of json'))
+              return result
+
+
+          def collect_journal():
+              try:
+                  child = subprocess.Popen(
+                      ['journalctl', '--unit=docker.service', '--lines=400', '--no-pager',
+                       '--output=cat'], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                      stderr=subprocess.DEVNULL)
+                  try:
+                      # Stop a local reader at the cap; never signal the Docker daemon.
+                      import selectors
+                      import time
+                      payload = bytearray()
+                      deadline = time.monotonic() + 10
+                      with selectors.DefaultSelector() as selector:
+                          selector.register(child.stdout, selectors.EVENT_READ)
+                          while time.monotonic() < deadline:
+                              ready = selector.select(max(0, deadline - time.monotonic()))
+                              if not ready:
+                                  return 'TIMEOUT', None
+                              chunk = os.read(child.stdout.fileno(), 65536)
+                              if not chunk:
+                                  code = child.wait(timeout=max(0.1, deadline - time.monotonic()))
+                                  if code != 0:
+                                      return 'UNAVAILABLE', None
+                                  return 'COMPLETE', journal_classification(payload.decode('utf-8', errors='replace'))
+                              payload.extend(chunk)
+                              if len(payload) > MAX_METADATA_BYTES:
+                                  return 'LIMIT_EXCEEDED', None
+                          return 'TIMEOUT', None
+                  finally:
+                      if child.poll() is None:
+                          child.kill()
+                      child.wait(timeout=2)
+                      child.stdout.close()
+              except (OSError, subprocess.SubprocessError):
+                  return 'UNAVAILABLE', None
+
+
+          def main(root):
+              result = metadata_inventory(root)
+              print('CONTAINER_METADATA_STATUS=' + result['status'])
+              for field in ('directories', 'valid', 'rejected', 'unknown_images', 'volume_mounts'):
+                  print('CONTAINER_METADATA_' + field.upper() + '=' + str(result[field]))
+              for cid, image in result['image_refs']:
+                  print('ON_DISK_CONTAINER_IMAGE_REF=' + cid + '|' + image)
+              for cid, service in result['services']:
+                  print('ON_DISK_CONTAINER_SERVICE=' + cid + '|' + service)
+              status, counts = collect_journal()
+              print('DOCKER_JOURNAL_STATUS=' + status)
+              if counts is not None:
+                  for key, value in counts.items():
+                      print('DOCKER_JOURNAL_' + key + '=' + str(value))
+              # Directory/volume existence and log indicators are not data-integrity acceptance.
+              print('VOLUME_DATA_INTEGRITY=NOT_ATTESTED')
+              print('BACKUP_RESTORE_APPLICABILITY=NOT_ATTESTED')
+
+
+          if __name__ == '__main__':
+              main(sys.argv[1])
+          PY_CONTAINER_FORENSICS
+          )"
+          python3 -c "$container_forensics_script" "$docker_root"
 
           echo 'DOCKER_DF_BEGIN=1'
           docker system df --format '{{json .}}' | sed 's/^/DOCKER_DF_JSON=/'
@@ -574,6 +866,10 @@ jobs:
               f"- API: revision `{scalar.get('RUNTIME_API_REVISION', 'unknown')}`, status `{scalar.get('RUNTIME_API_STATUS', 'unknown')}`, started `{scalar.get('RUNTIME_API_STARTED_AT', 'unknown')}`;",
               f"- Web: revision `{scalar.get('RUNTIME_WEB_REVISION', 'unknown')}`, status `{scalar.get('RUNTIME_WEB_STATUS', 'unknown')}`, started `{scalar.get('RUNTIME_WEB_STARTED_AT', 'unknown')}`;",
               f"- deleted-open files: `{scalar.get('DELETED_OPEN_FILE_COUNT', 'unknown')}` / `{gib(scalar.get('DELETED_OPEN_FILE_BYTES'))}`;",
+              f"- on-disk container metadata: `{scalar.get('CONTAINER_METADATA_STATUS', 'not-collected')}`; directories `{scalar.get('CONTAINER_METADATA_DIRECTORIES', 'unknown')}`; valid `{scalar.get('CONTAINER_METADATA_VALID', 'unknown')}`; rejected `{scalar.get('CONTAINER_METADATA_REJECTED', 'unknown')}`;",
+              f"- Docker journal classification: `{scalar.get('DOCKER_JOURNAL_STATUS', 'not-collected')}`; restore errors `{scalar.get('DOCKER_JOURNAL_CONTAINER_RESTORE_ERROR', 'unknown')}`; restore+ENOSPC `{scalar.get('DOCKER_JOURNAL_CONTAINER_RESTORE_ENOSPC', 'unknown')}`; corruption indicators `{scalar.get('DOCKER_JOURNAL_CORRUPTION_INDICATOR', 'unknown')}`;",
+              '- Volume data integrity and backup/restore applicability: `NOT_ATTESTED`; metadata and log indicators alone authorize no cleanup or restart.',
+
               '',
               '**Largest measured storage consumers:**',
           ]
