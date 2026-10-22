@@ -66,8 +66,7 @@ jobs:
               'StrictHostKeyChecking=yes',
               'BatchMode=yes',
               'MUTATION_MODE=READ_ONLY',
-              'docker system df',
-              'docker inspect --size',
+              'RECURSIVE_STORAGE_USAGE=NOT_COLLECTED_ATIME_PRESERVATION',
               'lsof -nP +L1',
               'RUNTIME_API_STARTED_AT=',
               'RUNTIME_WEB_STARTED_AT=',
@@ -96,6 +95,10 @@ jobs:
               ('systemctl ' + 'restart'),
               ('systemctl ' + 'stop'),
               ('truncate ' + '-s'),
+              ('docker ' + 'system ' + 'df'),
+              ('docker ' + 'inspect ' + '--size'),
+              ('docker ' + 'builder ' + 'du'),
+              ('du ' + '-x'),
           ]
           for forbidden in fragments:
               if forbidden in workflow:
@@ -321,6 +324,28 @@ jobs:
           assert all(value == 0 for value in scope['journal_classification'](secret).values())
           print('PASS: actual on-disk metadata identity/no-atime/symlink/size/missing/limit/privacy fixtures and journal classification; no data-integrity claim.')
 
+          print('PASS: remote diagnostic is owner-only, exact-main, pinned-SSH and contains no Docker delete/prune or service restart/stop capability.')
+          PY
+
+      - name: Verify preservation and bounded-publication fixtures
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import contextlib
+          import io
+          import json
+          import os
+          import pathlib
+          import re
+          import subprocess
+          import tempfile
+          import textwrap
+          from pathlib import Path
+          from unittest import mock
+          workflow = Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_text()
+          cid = 'a' * 64
+          secret = 'ENV_VALUE_MUST_NOT_BE_PUBLISHED'
           match = re.search(r"^          preservation_preflight_script=\"\$\(cat <<'PY_PRESERVATION_PREFLIGHT'\n(.*?)^          PY_PRESERVATION_PREFLIGHT\n", workflow, re.M | re.S)
           if not match:
               raise SystemExit('missing actual preservation preflight')
@@ -423,6 +448,56 @@ jobs:
                   assert preflight['restart_inventory'](str(docker))['status'] == 'UNAVAILABLE'
                   assert preflight['volume_inventory'](str(docker))['status'] == 'UNAVAILABLE'
                   assert preflight['backup_inventory'](str(backups))['status'] == 'UNAVAILABLE'
+              # Execute the complete actual remote script, including every later storage step.
+              def actual_step(name):
+                  block = workflow.split('      - name: ' + name + '\n', 1)[1].split('\n      - name: ', 1)[0]
+                  return textwrap.dedent(block.split('        run: |\n', 1)[1])
+              binaries = root / 'bin'
+              evidence = root / 'evidence'
+              binaries.mkdir()
+              evidence.mkdir()
+              sha = 'a' * 40
+              scripts = {
+                  'git': '#!/bin/bash\nif [[ "$1" == rev-parse ]]; then echo ' + sha + '; fi\n',
+                  'ssh': '#!/bin/bash\ncat > "$CAPTURE"\nprintf "MUTATION_MODE=READ_ONLY\\nPROBE_COMPLETE=1\\n"\n',
+                  'docker': '#!/bin/bash\ncase "$1" in\n'
+                      'info) if [[ "$*" == *DockerRootDir* ]]; then printf "%s\\n" "$FIXTURE_DOCKER_ROOT"; '
+                      'else printf "DOCKER_SERVER_VERSION=fixture\\nDOCKER_STORAGE_DRIVER=fixture\\n"; fi;;\n'
+                      'ps|volume|network|image) :;;\n'
+                      '*) printf "%s\\n" "$*" >> "$FORBIDDEN_CALLS";;\nesac\n',
+                  'du': '#!/bin/bash\nprintf "recursive-walk\\n" >> "$FORBIDDEN_CALLS"\n',
+                  'findmnt': '#!/bin/bash\nexit 0\n',
+                  'lsblk': '#!/bin/bash\nexit 0\n',
+                  'lsof': '#!/bin/bash\nexit 0\n',
+                  'journalctl': '#!/bin/bash\nexit 0\n',
+              }
+              for name, source in scripts.items():
+                  binary = binaries / name
+                  binary.write_text(source)
+                  binary.chmod(0o700)
+              env = dict(os.environ, EVIDENCE_DIR=str(evidence), TARGET_SHA=sha,
+                         PROD_PORT='22', PROD_HOST='fixture.invalid', SSH_USER_SECRET='fixture',
+                         GITHUB_OUTPUT=str(root / 'github-output'), CAPTURE=str(root / 'captured.sh'),
+                         FIXTURE_DOCKER_ROOT=str(docker), FORBIDDEN_CALLS=str(root / 'forbidden-calls'),
+                         PATH=str(binaries) + ':' + os.environ['PATH'])
+              subprocess.run(['bash', '-c', actual_step('Prepare bounded preservation preflight payload')],
+                             env=env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+              subprocess.run(['bash', '-c', actual_step('Collect read-only storage and runtime evidence')],
+                             env=env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+              remote = (root / 'captured.sh').read_text()
+              import base64
+              import shlex
+              encoded = shlex.split(remote.splitlines()[0])[0].split('=', 1)[1]
+              assert base64.b64decode(encoded, validate=True) == (evidence / 'preservation-preflight.py').read_bytes()
+              subprocess.run(['bash', '-n'], input=remote, text=True, check=True)
+              for path in paths:
+                  os.utime(path, ns=(1, path.stat().st_mtime_ns))
+              completed = subprocess.run(['bash', '-c', remote], env=env, check=True,
+                                         text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
+              assert not (root / 'forbidden-calls').exists(), 'recursive/Engine size query reached protected storage'
+              assert all(path.stat().st_atime_ns == 1 for path in paths), 'complete remote probe changed protected atime'
+              assert 'PROBE_COMPLETE=1' in completed.stdout
+              assert 'RECURSIVE_STORAGE_USAGE=NOT_COLLECTED_ATIME_PRESERVATION' in completed.stdout
               preflight['MAX_ENTRIES'] = 0
               assert preflight['restart_inventory'](str(docker))['status'] == 'UNAVAILABLE'
               preflight['MAX_ENTRIES'] = 2048
@@ -435,8 +510,37 @@ jobs:
               assert 'RESTORE_VERIFICATION=NOT_PERFORMED' in output.getvalue()
               assert 'EXTERNAL_BACKUP_EVIDENCE=NOT_COLLECTED' in output.getvalue()
           print('PASS: actual preservation preflight rejects unsafe restart metadata, symlink ancestors/files, unknown policies, malformed PG layout and bounds; preserves atime and redacts private values without claiming restore acceptance.')
-          print('PASS: remote diagnostic is owner-only, exact-main, pinned-SSH and contains no Docker delete/prune or service restart/stop capability.')
+          # Run the actual summary step against the maximum permitted structured arrays.
+          with tempfile.TemporaryDirectory() as fixture_directory:
+              root = Path(fixture_directory)
+              evidence = root / 'artifacts' / 'production-docker-headroom-diagnostic'
+              evidence.mkdir(parents=True)
+              records = [{'role': 'postgres', 'policy': 'unless-stopped', 'retry': 0,
+                          'watchtower': False, 'compose_labels_present': True} for _ in range(2048)]
+              layouts = [{'major': '16', 'pid_file_present': True} for _ in range(2048)]
+              observations = {
+                  'STARTUP_POLICY_PREFLIGHT': {'status': 'COMPLETE', 'records': records, 'rejected': 0},
+                  'VOLUME_LAYOUT_PREFLIGHT': {'status': 'STRUCTURAL_ONLY', 'directories': 2048,
+                      'rejected': 0, 'postgres_layouts': layouts, 'unsupported_or_non_postgres': 0},
+                  'LOCAL_BACKUP_METADATA': {'status': 'METADATA_ONLY', 'files': 2048, 'bytes': 999999999,
+                      'dumps': 1024, 'checksums': 1024, 'other': 0, 'unsafe_permissions': 0,
+                      'unsafe_directory_permissions': False, 'newest_mtime': 1},
+              }
+              raw = '\n'.join(key + '=' + json.dumps(value) for key, value in observations.items())
+              assert len(raw.encode()) > 180000
+              (evidence / 'remote-output.txt').write_text(raw)
+              (evidence / 'target-sha.txt').write_text('a' * 40)
+              subprocess.run(['bash', '-c', actual_step('Build bounded diagnostic summary')], cwd=root,
+                             env=dict(os.environ, EVIDENCE_DIR=str(evidence)),
+                             check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+              summary = (evidence / 'issue-record.md').read_text()
+              assert len(summary.encode()) < 6000 and len(summary) < 6000
+              assert '"records":2048' in summary and '"postgres_layout_count":2048' in summary
+              assert 'compose_labels_present' not in summary and 'postgres_layouts' not in summary
+              assert (evidence / 'remote-output.txt').read_text() == raw
+          print('PASS: complete actual remote probe preserves protected atime and exact payload; 2048-entry arrays stay in the artifact while the actual issue summary remains under6000 bytes.')
           PY
+
 
   diagnose:
     name: Diagnose production Docker storage without mutation
@@ -1077,13 +1181,9 @@ jobs:
 
           printf '%s' "$PRESERVATION_PREFLIGHT_B64" | base64 --decode | python3 - "$docker_root"
 
-          echo 'DOCKER_DF_BEGIN=1'
-          docker system df --format '{{json .}}' | sed 's/^/DOCKER_DF_JSON=/'
-          echo 'DOCKER_DF_END=1'
-
-          echo 'DOCKER_DF_VERBOSE_BEGIN=1'
-          docker system df -v
-          echo 'DOCKER_DF_VERBOSE_END=1'
+          # Engine size queries can traverse protected volume/rootfs directories.
+          echo 'DOCKER_DF_STATUS=NOT_COLLECTED_ATIME_PRESERVATION'
+          echo 'CONTAINER_SIZE_STATUS=NOT_COLLECTED_ATIME_PRESERVATION'
 
           image_metadata_script="$(cat <<'PY_IMAGE_METADATA'
           import json
@@ -1133,29 +1233,15 @@ jobs:
           while IFS= read -r cid; do
             [[ -n "$cid" ]] || continue
             docker inspect --format 'CONTAINER_IMAGE_REF={{.Id}}|{{.Image}}' "$cid"
-            docker inspect --size --format 'CONTAINER_SIZE={{.Id}}|{{.Name}}|{{.SizeRw}}|{{.SizeRootFs}}|{{.State.Status}}|{{.State.StartedAt}}' "$cid" || true
             log_path="$(docker inspect --format '{{.LogPath}}' "$cid" 2>/dev/null || true)"
             if [[ -n "$log_path" && -f "$log_path" ]]; then
               printf 'CONTAINER_LOG_BYTES=%s|%s\n' "$(stat -c '%s' "$log_path")" "$cid"
             fi
           done < <(docker ps -aq --no-trunc)
 
-          for path in "$docker_root" "$docker_root/overlay2" "$docker_root/buildkit" "$docker_root/containers" "$docker_root/image" "$docker_root/volumes" /var/lib/containerd /var/log /var /srv; do
-            if [[ -e "$path" ]]; then
-              printf 'DU_TOTAL_BYTES=%s|%s\n' "$(du -x -s -B1 "$path" 2>/dev/null | awk '{print $1}')" "$path"
-            fi
-          done
-          if [[ -d "$docker_root" ]]; then
-            du -x -B1 --max-depth=1 "$docker_root" 2>/dev/null | sort -nr | while read -r bytes path; do printf 'DU_DOCKER_CHILD_BYTES=%s|%s\n' "$bytes" "$path"; done
-          fi
-
-          builder_du="$(docker builder du 2>/dev/null || true)"
-          if [[ -n "$builder_du" ]]; then
-            echo 'BUILDER_DU_AVAILABLE=1'
-            printf '%s\n' "$builder_du"
-          else
-            echo 'BUILDER_DU_AVAILABLE=0'
-          fi
+          # Do not recursively walk customer data or Docker/backup directories.
+          echo 'RECURSIVE_STORAGE_USAGE=NOT_COLLECTED_ATIME_PRESERVATION'
+          echo 'BUILDER_DU_AVAILABLE=0'
 
           if command -v lsof >/dev/null 2>&1; then
             echo 'LSOF_AVAILABLE=1'
@@ -1260,6 +1346,39 @@ jobs:
               try: return f"{int(value)/1024:.1f} MiB"
               except Exception: return 'unknown'
 
+          def preflight_summary(key):
+              try:
+                  value = json.loads(scalar.get(key, 'null'))
+                  if not isinstance(value, dict):
+                      return 'not-collected'
+                  if key == 'STARTUP_POLICY_PREFLIGHT':
+                      records = value.get('records', [])
+                      counts = {policy: sum(row.get('policy') == policy for row in records)
+                                for policy in ('no', 'always', 'unless-stopped', 'on-failure')}
+                      value = {'status': value.get('status'), 'records': len(records),
+                               'rejected': value.get('rejected'),
+                               'restart_policy_counts': counts,
+                               'watchtower_count': sum(row.get('watchtower') is True for row in records),
+                               'watchtower_auto_restart_count': sum(
+                                   row.get('watchtower') is True and row.get('policy') != 'no'
+                                   for row in records)}
+                  elif key == 'VOLUME_LAYOUT_PREFLIGHT':
+                      layouts = value.get('postgres_layouts', [])
+                      majors = sorted({row['major'] for row in layouts})
+                      value = {field: value.get(field) for field in
+                               ('status', 'directories', 'rejected', 'unsupported_or_non_postgres')}
+                      value.update(postgres_layout_count=len(layouts),
+                                   postgres_major_versions=majors[:10],
+                                   omitted_major_versions=max(0, len(majors) - 10),
+                                   pid_file_count=sum(row.get('pid_file_present') is True for row in layouts))
+                  elif key == 'LOCAL_BACKUP_METADATA':
+                      value = {field: value.get(field) for field in
+                               ('status', 'files', 'bytes', 'dumps', 'checksums', 'other',
+                                'unsafe_permissions', 'unsafe_directory_permissions', 'newest_mtime')}
+                  return json.dumps(value, sort_keys=True, separators=(',', ':'))
+              except (ValueError, TypeError, KeyError, AttributeError):
+                  return 'invalid-observation'
+
           target = (root / 'target-sha.txt').read_text().strip() if (root / 'target-sha.txt').exists() else 'unknown'
           body = [
               '## Production Docker headroom read-only diagnostic',
@@ -1274,11 +1393,12 @@ jobs:
               f"- deleted-open files: `{scalar.get('DELETED_OPEN_FILE_COUNT', 'unknown')}` / `{gib(scalar.get('DELETED_OPEN_FILE_BYTES'))}`;",
               f"- on-disk container metadata: `{scalar.get('CONTAINER_METADATA_STATUS', 'not-collected')}`; directories `{scalar.get('CONTAINER_METADATA_DIRECTORIES', 'unknown')}`; valid `{scalar.get('CONTAINER_METADATA_VALID', 'unknown')}`; unresolved image IDs `{scalar.get('CONTAINER_METADATA_UNKNOWN_IMAGES', 'unknown')}`; rejected `{scalar.get('CONTAINER_METADATA_REJECTED', 'unknown')}`;",
               f"- Docker journal classification: `{scalar.get('DOCKER_JOURNAL_STATUS', 'not-collected')}`; restore errors `{scalar.get('DOCKER_JOURNAL_CONTAINER_RESTORE_ERROR', 'unknown')}`; restore+ENOSPC `{scalar.get('DOCKER_JOURNAL_CONTAINER_RESTORE_ENOSPC', 'unknown')}`; corruption indicators `{scalar.get('DOCKER_JOURNAL_CORRUPTION_INDICATOR', 'unknown')}`;",
-              f"- Startup policy preflight: `{scalar.get('STARTUP_POLICY_PREFLIGHT', 'not-collected')}`;",
-              f"- Local backup file metadata: `{scalar.get('LOCAL_BACKUP_METADATA', 'not-collected')}`;",
-              f"- PostgreSQL volume layout observation: `{scalar.get('VOLUME_LAYOUT_PREFLIGHT', 'not-collected')}`;",
+              f"- Startup policy preflight: `{preflight_summary('STARTUP_POLICY_PREFLIGHT')}`;",
+              f"- Local backup file metadata: `{preflight_summary('LOCAL_BACKUP_METADATA')}`;",
+              f"- PostgreSQL volume layout observation: `{preflight_summary('VOLUME_LAYOUT_PREFLIGHT')}`;",
               '- Volume data integrity and backup/restore applicability: `NOT_ATTESTED`; local file metadata and structural observations do not verify a backup or authorize startup.',
               '- External backup evidence: `NOT_COLLECTED`; restore verification: `NOT_PERFORMED`.',
+              '- Recursive disk/rootfs/build-cache size queries: `NOT_COLLECTED_ATIME_PRESERVATION`; full structured preflight records remain only in the artifact.',
 
               '',
               '**Largest measured storage consumers:**',
