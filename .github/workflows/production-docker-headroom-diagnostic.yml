@@ -565,7 +565,6 @@ jobs:
           set -Eeuo pipefail
           # Bounded observations only; no startup or restore acceptance.
           preservation_preflight_script="$(cat <<'PY_PRESERVATION_PREFLIGHT'
-          import collections
           import json
           import os
           import re
@@ -580,15 +579,15 @@ jobs:
           POLICIES = frozenset(('', 'no', 'always', 'unless-stopped', 'on-failure'))
 
 
-          def directory_flags():
+          def directory_flags(traverse_only=False):
               no_atime = getattr(os, 'O_NOATIME', None)
               if no_atime is None:
                   raise OSError('NO_NOATIME')
-              return os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | no_atime
+              return os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | (0 if traverse_only else no_atime)
 
 
-          def checked_directory(name, parent=None, allow_data_owner=False):
-              fd = os.open(name, directory_flags(), dir_fd=parent)
+          def checked_directory(name, parent=None, allow_data_owner=False, traverse_only=False):
+              fd = os.open(name, directory_flags(traverse_only), dir_fd=parent)
               try:
                   if not allow_data_owner and os.fstat(fd).st_uid not in (0, os.geteuid()):
                       raise ValueError('UNTRUSTED_OWNER')
@@ -604,13 +603,16 @@ jobs:
               components = path.split('/')[1:]
               if any(part in ('', '.', '..') for part in components):
                   raise ValueError('INVALID_PATH')
-              fd = checked_directory('/')
+              fd = checked_directory('/', traverse_only=True)
               try:
                   for component in components:
-                      child = checked_directory(component, fd)
+                      child = checked_directory(component, fd, traverse_only=True)
                       os.close(fd)
                       fd = child
-                  return fd
+                  # Traversal does not read directory entries. Only the leaf is enumerated.
+                  leaf = checked_directory('.', fd)
+                  os.close(fd)
+                  return leaf
               except BaseException:
                   os.close(fd)
                   raise
