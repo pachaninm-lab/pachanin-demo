@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 concurrency:
   group: production-docker-headroom-readonly-diagnostic
@@ -20,13 +19,6 @@ env:
   DEFAULT_HOST: 195.19.12.120
   AUTHORITY_ISSUE_NUMBER: 4637
   EVIDENCE_DIR: artifacts/production-docker-headroom-diagnostic
-  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
-  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
-  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
-  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
-  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
-  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
-  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
 
 jobs:
   contract:
@@ -107,6 +99,10 @@ jobs:
               raise SystemExit('host verification bypass forbidden')
           if not re.search(r'^  AUTHORITY_ISSUE_NUMBER: 4637$', workflow, re.M):
               raise SystemExit('diagnostic evidence must use the successor authority journal')
+
+          unprivileged = workflow.split('\n  diagnose:\n', 1)[0]
+          if ('secrets' + '.') in unprivileged or ('issues: ' + 'write') in unprivileged:
+              raise SystemExit('PR contract must not receive production secrets or issue-write authority')
 
           conditions = {}
           allowed_nodes = (ast.Expression, ast.BoolOp, ast.And, ast.Or, ast.Compare,
@@ -558,6 +554,14 @@ jobs:
     permissions:
       contents: read
       issues: write
+    env:
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
     steps:
       - uses: actions/checkout@v4
         with:
