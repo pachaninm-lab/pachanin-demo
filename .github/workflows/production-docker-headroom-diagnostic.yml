@@ -72,6 +72,8 @@ jobs:
               'RUNTIME_API_STARTED_AT=',
               'RUNTIME_WEB_STARTED_AT=',
               'DOCKER_OBJECT_COUNTS=',
+              'STARTUP_AUTHORIZATION=NOT_GRANTED',
+              'RESTORE_VERIFICATION=NOT_PERFORMED',
           ]
           for needle in required:
               if needle not in workflow:
@@ -318,6 +320,121 @@ jobs:
           assert secret not in json.dumps(classified)
           assert all(value == 0 for value in scope['journal_classification'](secret).values())
           print('PASS: actual on-disk metadata identity/no-atime/symlink/size/missing/limit/privacy fixtures and journal classification; no data-integrity claim.')
+
+          match = re.search(r"^          preservation_preflight_script=\"\$\(cat <<'PY_PRESERVATION_PREFLIGHT'\n(.*?)^          PY_PRESERVATION_PREFLIGHT\n", workflow, re.M | re.S)
+          if not match:
+              raise SystemExit('missing actual preservation preflight')
+          preservation_source = textwrap.dedent(match[1])
+          preflight = {'__name__': 'preservation_fixture'}
+          exec(compile(preservation_source, '<actual preservation preflight>', 'exec'), preflight)
+          with tempfile.TemporaryDirectory() as fixture_directory:
+              root = Path(fixture_directory)
+              docker = root / 'docker'
+              containers = docker / 'containers'
+              child = containers / cid
+              child.mkdir(parents=True)
+              config = child / 'config.v2.json'
+              host = child / 'hostconfig.json'
+              original_config = {'ID': cid, 'Config': {
+                  'Image': 'containrrr/watchtower:latest', 'Env': [secret],
+                  'Labels': {'com.docker.compose.service': 'watchtower',
+                             'com.docker.compose.project': secret,
+                             'com.docker.compose.project.working_dir': secret,
+                             'com.docker.compose.project.config_files': secret}}}
+              original_host = {'RestartPolicy': {'Name': 'always', 'MaximumRetryCount': 0}}
+              config.write_text(json.dumps(original_config))
+              host.write_text(json.dumps(original_host))
+              restart = preflight['restart_inventory'](str(docker))
+              assert restart['status'] == 'COMPLETE' and len(restart['records']) == 1
+              assert restart['records'][0] == {
+                  'role': 'watchtower', 'policy': 'always', 'retry': 0,
+                  'watchtower': True, 'compose_labels_present': True}
+              assert secret not in json.dumps(restart)
+              for invalid in ({}, {'Name': 'unknown', 'MaximumRetryCount': 0},
+                              {'Name': 'always', 'MaximumRetryCount': True},
+                              {'Name': 'on-failure', 'MaximumRetryCount': -1}):
+                  host.write_text(json.dumps({'RestartPolicy': invalid}))
+                  rejected = preflight['restart_inventory'](str(docker))
+                  assert rejected['status'] == 'PARTIAL' and rejected['rejected'] == 1
+              host.write_text(json.dumps(original_host))
+              host.unlink()
+              host.symlink_to(config)
+              assert preflight['restart_inventory'](str(docker))['rejected'] == 1
+              host.unlink()
+              host.write_text(json.dumps(original_host))
+              config.write_text(json.dumps({**original_config, 'ID': 'b' * 64}))
+              assert preflight['restart_inventory'](str(docker))['rejected'] == 1
+              config.write_text(json.dumps(original_config))
+              data = docker / 'volumes' / secret / '_data'
+              data.mkdir(parents=True)
+              for directory in ('base', 'global', 'pg_wal'):
+                  (data / directory).mkdir()
+              (data / 'PG_VERSION').write_text('16\n')
+              (data / 'global' / 'pg_control').write_bytes(b'opaque-control')
+              (data / 'postmaster.pid').write_text(secret)
+              layout = preflight['volume_inventory'](str(docker))
+              assert layout['status'] == 'STRUCTURAL_ONLY'
+              assert layout['postgres_layouts'] == [{'major': '16', 'pid_file_present': True}]
+              assert secret not in json.dumps(layout)
+              (data / 'PG_VERSION').write_text(secret)
+              assert preflight['volume_inventory'](str(docker))['rejected'] == 1
+              (data / 'PG_VERSION').write_text('16\n')
+              (data / 'pg_wal').rmdir()
+              (data / 'pg_wal').symlink_to(data / 'base', target_is_directory=True)
+              assert preflight['volume_inventory'](str(docker))['rejected'] == 1
+              (data / 'pg_wal').unlink()
+              (data / 'pg_wal').mkdir()
+              backups = root / 'backups'
+              backups.mkdir()
+              dump = backups / (secret + '.backup')
+              digest = backups / (secret + '.backup.sha256')
+              dump.write_bytes(b'opaque-backup')
+              digest.write_text(secret)
+              dump.chmod(0o600)
+              digest.chmod(0o600)
+              found = preflight['backup_inventory'](str(backups))
+              assert found['status'] == 'METADATA_ONLY' and found['dumps'] == found['checksums'] == 1
+              assert found['unsafe_permissions'] == 0 and secret not in json.dumps(found)
+              dump.chmod(0o644)
+              assert preflight['backup_inventory'](str(backups))['unsafe_permissions'] == 1
+              dump.chmod(0o600)
+              assert preflight['backup_inventory'](str(root / 'missing'))['status'] == 'ABSENT'
+              link = root / 'alias'
+              link.symlink_to(root, target_is_directory=True)
+              assert preflight['backup_inventory'](str(link / 'backups'))['status'] == 'UNAVAILABLE'
+              digest.unlink()
+              digest.symlink_to(dump)
+              assert preflight['backup_inventory'](str(backups))['status'] == 'UNAVAILABLE'
+              digest.unlink()
+              digest.write_text(secret)
+              digest.chmod(0o600)
+              # All observations preserve atime; backup bytes, PID and control contents stay unread.
+              paths = [root, docker, containers, child, config, host, backups, dump, digest,
+                       docker / 'volumes', data.parent, data, data / 'PG_VERSION',
+                       data / 'base', data / 'global', data / 'pg_wal',
+                       data / 'global' / 'pg_control', data / 'postmaster.pid']
+              for path in paths:
+                  os.utime(path, ns=(1, path.stat().st_mtime_ns))
+              assert preflight['restart_inventory'](str(docker))['status'] == 'COMPLETE'
+              assert preflight['volume_inventory'](str(docker))['status'] == 'STRUCTURAL_ONLY'
+              assert preflight['backup_inventory'](str(backups))['status'] == 'METADATA_ONLY'
+              assert all(path.stat().st_atime_ns == 1 for path in paths)
+              with mock.patch.object(os, 'O_NOATIME', None):
+                  assert preflight['restart_inventory'](str(docker))['status'] == 'UNAVAILABLE'
+                  assert preflight['volume_inventory'](str(docker))['status'] == 'UNAVAILABLE'
+                  assert preflight['backup_inventory'](str(backups))['status'] == 'UNAVAILABLE'
+              preflight['MAX_ENTRIES'] = 0
+              assert preflight['restart_inventory'](str(docker))['status'] == 'UNAVAILABLE'
+              preflight['MAX_ENTRIES'] = 2048
+              output = io.StringIO()
+              with mock.patch.dict(preflight, {'backup_inventory': lambda unused: found}):
+                  with contextlib.redirect_stdout(output):
+                      preflight['main'](str(docker))
+              assert secret not in output.getvalue() and fixture_directory not in output.getvalue()
+              assert 'STARTUP_AUTHORIZATION=NOT_GRANTED' in output.getvalue()
+              assert 'RESTORE_VERIFICATION=NOT_PERFORMED' in output.getvalue()
+              assert 'EXTERNAL_BACKUP_EVIDENCE=NOT_COLLECTED' in output.getvalue()
+          print('PASS: actual preservation preflight rejects unsafe restart metadata, symlink ancestors/files, unknown policies, malformed PG layout and bounds; preserves atime and redacts private values without claiming restore acceptance.')
           print('PASS: remote diagnostic is owner-only, exact-main, pinned-SSH and contains no Docker delete/prune or service restart/stop capability.')
           PY
 
@@ -441,6 +558,274 @@ jobs:
             'set -Eeuo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; echo SSH_AUTH_OK' \
             > "$EVIDENCE_DIR/ssh-auth.txt"
           grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+
+      - name: Prepare bounded preservation preflight payload
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Bounded observations only; no startup or restore acceptance.
+          preservation_preflight_script="$(cat <<'PY_PRESERVATION_PREFLIGHT'
+          import collections
+          import json
+          import os
+          import re
+          import stat
+          import sys
+
+          MAX_ENTRIES = 2048
+          MAX_BYTES = 4 * 1024 * 1024
+          ROLES = frozenset(('api', 'web', 'postgres', 'postgresql', 'redis', 'minio',
+                            'caddy', 'kafka', 'zookeeper', 'outbox-worker',
+                            'auth-mail-worker', 'migration', 'migrations', 'pgbouncer', 'watchtower'))
+          POLICIES = frozenset(('', 'no', 'always', 'unless-stopped', 'on-failure'))
+
+
+          def directory_flags():
+              no_atime = getattr(os, 'O_NOATIME', None)
+              if no_atime is None:
+                  raise OSError('NO_NOATIME')
+              return os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | no_atime
+
+
+          def checked_directory(name, parent=None, allow_data_owner=False):
+              fd = os.open(name, directory_flags(), dir_fd=parent)
+              try:
+                  if not allow_data_owner and os.fstat(fd).st_uid not in (0, os.geteuid()):
+                      raise ValueError('UNTRUSTED_OWNER')
+                  return fd
+              except BaseException:
+                  os.close(fd)
+                  raise
+
+
+          def absolute_directory(path):
+              if not isinstance(path, str) or not path.startswith('/'):
+                  raise ValueError('INVALID_PATH')
+              components = path.split('/')[1:]
+              if any(part in ('', '.', '..') for part in components):
+                  raise ValueError('INVALID_PATH')
+              fd = checked_directory('/')
+              try:
+                  for component in components:
+                      child = checked_directory(component, fd)
+                      os.close(fd)
+                      fd = child
+                  return fd
+              except BaseException:
+                  os.close(fd)
+                  raise
+
+
+          def names(fd):
+              result = []
+              with os.scandir(fd) as entries:
+                  for entry in entries:
+                      if len(result) >= MAX_ENTRIES:
+                          raise ValueError('LIMIT_EXCEEDED')
+                      result.append(entry.name)
+              return sorted(result)
+
+
+          def read_file(fd, name, limit=MAX_BYTES, allow_data_owner=False):
+              child = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_NOATIME,
+                              dir_fd=fd)
+              try:
+                  before = os.fstat(child)
+                  if (not stat.S_ISREG(before.st_mode) or
+                          (not allow_data_owner and before.st_uid != os.geteuid())
+                          or before.st_size > limit):
+                      raise ValueError('INVALID_FILE')
+                  with os.fdopen(child, 'rb', closefd=False) as stream:
+                      payload = stream.read(limit + 1)
+                  after = os.fstat(child)
+                  fields = ('st_size', 'st_mtime_ns', 'st_ctime_ns')
+                  if len(payload) > limit or any(getattr(before, k) != getattr(after, k) for k in fields):
+                      raise ValueError('UNSTABLE_FILE')
+                  return payload
+              finally:
+                  os.close(child)
+
+
+          def restart_inventory(root):
+              result = {'status': 'UNAVAILABLE', 'records': [], 'rejected': 0}
+              root_fd = containers_fd = None
+              try:
+                  root_fd = absolute_directory(root)
+                  containers_fd = checked_directory('containers', root_fd)
+                  for name in names(containers_fd):
+                      child = None
+                      try:
+                          if re.fullmatch(r'[0-9a-f]{64}', name) is None:
+                              raise ValueError('INVALID_ID')
+                          child = checked_directory(name, containers_fd)
+                          config = json.loads(read_file(child, 'config.v2.json'))
+                          host = json.loads(read_file(child, 'hostconfig.json'))
+                          if not isinstance(config, dict) or config.get('ID') != name or not isinstance(host, dict):
+                              raise ValueError('INVALID_METADATA')
+                          options = config.get('Config')
+                          if not isinstance(options, dict):
+                              raise ValueError('INVALID_CONFIG')
+                          labels = options.get('Labels')
+                          if labels is None:
+                              labels = {}
+                          if not isinstance(labels, dict):
+                              raise ValueError('INVALID_LABELS')
+                          role = labels.get('com.docker.compose.service')
+                          role = role if isinstance(role, str) and role in ROLES else 'other'
+                          policy = host.get('RestartPolicy')
+                          if not isinstance(policy, dict) or policy.get('Name') not in POLICIES:
+                              raise ValueError('UNKNOWN_RESTART_POLICY')
+                          retry = policy.get('MaximumRetryCount')
+                          if type(retry) is not int or not 0 <= retry <= 2147483647:
+                              raise ValueError('INVALID_RETRY_COUNT')
+                          image = options.get('Image', '')
+                          if not isinstance(image, str):
+                              raise ValueError('INVALID_IMAGE')
+                          watcher = role == 'watchtower' or image.split('@')[0].rsplit('/', 1)[-1].split(':')[0] == 'watchtower'
+                          compose = all(isinstance(labels.get(key), str) and bool(labels[key])
+                                        for key in ('com.docker.compose.project',
+                                                    'com.docker.compose.project.working_dir',
+                                                    'com.docker.compose.project.config_files'))
+                          result['records'].append({'role': role, 'policy': policy['Name'] or 'no',
+                                                    'retry': retry, 'watchtower': watcher,
+                                                    'compose_labels_present': compose})
+                      except (OSError, ValueError, TypeError, RecursionError):
+                          result['rejected'] += 1
+                      finally:
+                          if child is not None:
+                              os.close(child)
+                  result['status'] = 'PARTIAL' if result['rejected'] else 'COMPLETE'
+              except (OSError, ValueError, TypeError):
+                  result['status'] = 'UNAVAILABLE'
+              finally:
+                  for fd in (containers_fd, root_fd):
+                      if fd is not None:
+                          os.close(fd)
+              return result
+
+
+          def backup_inventory(path):
+              result = {'status': 'UNAVAILABLE', 'files': 0, 'bytes': 0, 'dumps': 0,
+                        'checksums': 0, 'other': 0, 'unsafe_permissions': 0,
+                        'newest_mtime': 0, 'unsafe_directory_permissions': False}
+              fd = None
+              try:
+                  fd = absolute_directory(path)
+                  result['unsafe_directory_permissions'] = bool(stat.S_IMODE(os.fstat(fd).st_mode) & 0o077)
+                  for name in names(fd):
+                      info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                      if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid():
+                          raise ValueError('UNTRUSTED_BACKUP_ENTRY')
+                      result['files'] += 1
+                      result['bytes'] += info.st_size
+                      result['newest_mtime'] = max(result['newest_mtime'], int(info.st_mtime))
+                      result['unsafe_permissions'] += bool(stat.S_IMODE(info.st_mode) & 0o077)
+                      result['dumps' if name.endswith('.backup') else
+                             'checksums' if name.endswith('.sha256') else 'other'] += 1
+                  result['status'] = 'METADATA_ONLY'
+              except FileNotFoundError:
+                  result['status'] = 'ABSENT'
+              except (OSError, ValueError, TypeError):
+                  result['status'] = 'UNAVAILABLE'
+              finally:
+                  if fd is not None:
+                      os.close(fd)
+              return result
+
+
+          def pg_layout(fd):
+              try:
+                  version = read_file(fd, 'PG_VERSION', 32, allow_data_owner=True).decode('ascii').strip()
+              except FileNotFoundError:
+                  return None
+              if re.fullmatch(r'[0-9]{1,2}(?:\.[0-9]{1,2})?', version) is None:
+                  raise ValueError('INVALID_PG_VERSION')
+              opened = []
+              try:
+                  for name in ('global', 'base', 'pg_wal'):
+                      opened.append(checked_directory(name, fd, allow_data_owner=True))
+                  control = os.stat('pg_control', dir_fd=opened[0], follow_symlinks=False)
+                  if not stat.S_ISREG(control.st_mode) or control.st_size <= 0:
+                      raise ValueError('INVALID_CONTROL_FILE')
+                  try:
+                      pid = os.stat('postmaster.pid', dir_fd=fd, follow_symlinks=False)
+                      if not stat.S_ISREG(pid.st_mode):
+                          raise ValueError('INVALID_PID_FILE')
+                      pid_present = True
+                  except FileNotFoundError:
+                      pid_present = False
+                  return {'major': version, 'pid_file_present': pid_present}
+              finally:
+                  for child in opened:
+                      os.close(child)
+
+
+          def volume_inventory(root):
+              result = {'status': 'UNAVAILABLE', 'directories': 0, 'rejected': 0,
+                        'postgres_layouts': [], 'unsupported_or_non_postgres': 0}
+              root_fd = volumes_fd = None
+              try:
+                  root_fd = absolute_directory(root)
+                  volumes_fd = checked_directory('volumes', root_fd)
+                  for name in names(volumes_fd):
+                      # Docker also stores its own database and backing-filesystem marker here.
+                      if name in ('metadata.db', 'backingFsBlockDev'):
+                          continue
+                      volume_fd = data_fd = nested_fd = None
+                      try:
+                          volume_fd = checked_directory(name, volumes_fd)
+                          data_fd = checked_directory('_data', volume_fd, allow_data_owner=True)
+                          result['directories'] += 1
+                          layouts = []
+                          layout = pg_layout(data_fd)
+                          if layout is not None:
+                              layouts.append(layout)
+                          try:
+                              nested_fd = checked_directory('pgdata', data_fd, allow_data_owner=True)
+                          except FileNotFoundError:
+                              nested_fd = None
+                          if nested_fd is not None:
+                              layout = pg_layout(nested_fd)
+                              if layout is not None:
+                                  layouts.append(layout)
+                          if len(layouts) > 1:
+                              raise ValueError('AMBIGUOUS_PG_LAYOUT')
+                          result['postgres_layouts'].extend(layouts)
+                          result['unsupported_or_non_postgres'] += not layouts
+                      except (OSError, ValueError, TypeError, UnicodeError):
+                          result['rejected'] += 1
+                      finally:
+                          for fd in (nested_fd, data_fd, volume_fd):
+                              if fd is not None:
+                                  os.close(fd)
+                  result['status'] = 'PARTIAL' if result['rejected'] else 'STRUCTURAL_ONLY'
+              except (OSError, ValueError, TypeError):
+                  result['status'] = 'UNAVAILABLE'
+              finally:
+                  for fd in (volumes_fd, root_fd):
+                      if fd is not None:
+                          os.close(fd)
+              return result
+
+
+          def main(root):
+              restart = restart_inventory(root)
+              backup = backup_inventory('/var/lib/pc-release-authority/backups')
+              volumes = volume_inventory(root)
+              for key, value in (('STARTUP_POLICY_PREFLIGHT', restart),
+                                 ('LOCAL_BACKUP_METADATA', backup),
+                                 ('VOLUME_LAYOUT_PREFLIGHT', volumes)):
+                  print(key + '=' + json.dumps(value, sort_keys=True, separators=(',', ':')))
+              print('STARTUP_AUTHORIZATION=NOT_GRANTED')
+              print('EXTERNAL_BACKUP_EVIDENCE=NOT_COLLECTED')
+              print('RESTORE_VERIFICATION=NOT_PERFORMED')
+
+
+          if __name__ == '__main__':
+              main(sys.argv[1])
+          PY_PRESERVATION_PREFLIGHT
+          )"
+          printf '%s\n' "$preservation_preflight_script" > "$EVIDENCE_DIR/preservation-preflight.py"
 
       - name: Collect read-only storage and runtime evidence
         id: probe
@@ -688,6 +1073,8 @@ jobs:
           )"
           python3 -c "$container_forensics_script" "$docker_root"
 
+          printf '%s' "$PRESERVATION_PREFLIGHT_B64" | base64 --decode | python3 - "$docker_root"
+
           echo 'DOCKER_DF_BEGIN=1'
           docker system df --format '{{json .}}' | sed 's/^/DOCKER_DF_JSON=/'
           echo 'DOCKER_DF_END=1'
@@ -786,6 +1173,9 @@ jobs:
           echo 'PROBE_COMPLETE=1'
           REMOTE
           )"
+          preservation_source_b64="$(base64 -w0 "$EVIDENCE_DIR/preservation-preflight.py")"
+          [[ "$preservation_source_b64" =~ ^[A-Za-z0-9+/=]+$ ]]
+          remote_script="PRESERVATION_PREFLIGHT_B64='$preservation_source_b64'"$'\n'"$remote_script"
 
           set +e
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$SSH_USER_SECRET@$PROD_HOST" 'bash -s' \
@@ -882,7 +1272,11 @@ jobs:
               f"- deleted-open files: `{scalar.get('DELETED_OPEN_FILE_COUNT', 'unknown')}` / `{gib(scalar.get('DELETED_OPEN_FILE_BYTES'))}`;",
               f"- on-disk container metadata: `{scalar.get('CONTAINER_METADATA_STATUS', 'not-collected')}`; directories `{scalar.get('CONTAINER_METADATA_DIRECTORIES', 'unknown')}`; valid `{scalar.get('CONTAINER_METADATA_VALID', 'unknown')}`; unresolved image IDs `{scalar.get('CONTAINER_METADATA_UNKNOWN_IMAGES', 'unknown')}`; rejected `{scalar.get('CONTAINER_METADATA_REJECTED', 'unknown')}`;",
               f"- Docker journal classification: `{scalar.get('DOCKER_JOURNAL_STATUS', 'not-collected')}`; restore errors `{scalar.get('DOCKER_JOURNAL_CONTAINER_RESTORE_ERROR', 'unknown')}`; restore+ENOSPC `{scalar.get('DOCKER_JOURNAL_CONTAINER_RESTORE_ENOSPC', 'unknown')}`; corruption indicators `{scalar.get('DOCKER_JOURNAL_CORRUPTION_INDICATOR', 'unknown')}`;",
-              '- Volume data integrity and backup/restore applicability: `NOT_ATTESTED`; metadata and log indicators alone authorize no cleanup or restart.',
+              f"- Startup policy preflight: `{scalar.get('STARTUP_POLICY_PREFLIGHT', 'not-collected')}`;",
+              f"- Local backup file metadata: `{scalar.get('LOCAL_BACKUP_METADATA', 'not-collected')}`;",
+              f"- PostgreSQL volume layout observation: `{scalar.get('VOLUME_LAYOUT_PREFLIGHT', 'not-collected')}`;",
+              '- Volume data integrity and backup/restore applicability: `NOT_ATTESTED`; local file metadata and structural observations do not verify a backup or authorize startup.',
+              '- External backup evidence: `NOT_COLLECTED`; restore verification: `NOT_PERFORMED`.',
 
               '',
               '**Largest measured storage consumers:**',
