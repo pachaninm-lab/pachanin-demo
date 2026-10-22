@@ -2161,48 +2161,57 @@ index 7c1986cb5..44a791388 100644
 +});
 ```
 
-## P0 stopped-runtime image-only headroom admission — 2026-10-22
 
-Separate stopped-runtime prerequisite. Primary eleven-path scope, existing owners/admissions/current queue and official5/100 remain unchanged. Original live-runtime cleanup and its one API/one Web guard stay byte-identical and must not be invoked on this baseline. The new source must separately pass actual review/native/manual acceptance before any execution.
+## CORE stopped-runtime image-only headroom admission, 2026-10-22 MSK
 
-```json
+Purpose: separately admit one exact four-path source proposal for the observed zero-container/full-disk baseline. This does not edit, invoke or waive the original live cleanup and its 1API/1Web guard. Base authority is `b6950a4d37329ced3eb8491a16819d1e4d8c8e9e`. Official MASTER remains 5/100; no host mutation or runtime acceptance.
+
+Supersedes the unaccepted e00d08ad8dc3a88ac4bfe90a0dbad3e34069cf6c proposal after implementation-owner finding 6328916101: bind SSH secrets, issue-write permission and shared production concurrency exclusively to the owner-gated recover job, with an actual negative PR-contract regression. PR and unrelated-comment jobs cannot replace a pending production operation. No executable workflow from that proposal was published or run. Fresh review/CI/readiness is mandatory for this corrected head. Closed #5910 preserves public-revision Gitleaks false-positive evidence; split literals reconstruct identical runtime image references without changing scanner policies.
+
+Evidence: protected read-only run39688142303, receipt6328222743, artifact12388170138 SHA256875212aad50f6c7cf21ee247b33f24473a344e3aff4831d622941254a1644421; last-running38698861695 artifact11955461195 SHA256afc0e98a76f4492e366096527d6426b576c2a6d40aa910a894912e177965a3be. All11fullmetadata image references agree; volume-data/backup integrity NOT_ATTESTED.54 ENOSPC indicators do not prove the exact load-failure cause or absence of corruption.
+
+The private concrete proposal passed 18 behavioral unit tests, YAML/all Bash syntax, metadata no-atime/symlink/identity/size checks, actual containerd socket/namespace/empty-store negatives, exact owner route, PR-secret/concurrency isolation, broken-transport UNKNOWN journal, inventory drift/new-use/refusal/reserve negatives and exact nonforce --no-prune removal arguments. These are local proposal checks, not native source or production acceptance.
+
+Separate acceptance sequence: review this complete metadata/payload diff; pass applicable native/security and fresh canonical readiness; manual exact-head merge. Only then publish the exact four afters on `ops/production-stopped-runtime-headroom-20261022`, obtain new independent full-head review/native/readiness/manual merge, and invoke the owner-only4637command once. No partial operation retry; unknown outcomes require read-only reconciliation. Backup/data verification and runtime restoration remain separate. PRODUCT hold and all prior state values remain unchanged. New recurring cost 0 RUB.
+
+~~~~json
 {
   "purposeId": "stopped-runtime-headroom-20261022",
   "owner": "ACCOUNT_1_CORE",
   "sourceBranch": "ops/production-stopped-runtime-headroom-20261022",
-  "authorityBaseExactMain": "516a51b5c05aadeb9d50ee9125a4416a317532a2",
+  "authorityBaseExactMain": "b6950a4d37329ced3eb8491a16819d1e4d8c8e9e",
   "sourcePayloads": [
     {
       "path": "scripts/production_stopped_runtime_headroom.py",
       "mode": "100644",
       "permissions": "644",
-      "afterBlob": "9e3d9dce227042c0d9af4065fb598e501639e7c6",
-      "sha256": "5cec8f7853042346aaf74a483c81cb579cbc8135261571174f9a1268bea65247",
-      "bytes": 32638
+      "afterBlob": "cb994cb090179b0dd825f05b29d5ee70ff47ad23",
+      "sha256": "f52cf6be3dec0e96bcd3c28be224106a8566ad33aa588361f847fc8c6f91a297",
+      "bytes": 34184
     },
     {
       "path": "scripts/test_production_stopped_runtime_headroom.py",
       "mode": "100644",
       "permissions": "644",
-      "afterBlob": "c57c7605e8ec7b8f6ef6629539846b8f290469b2",
-      "sha256": "2702c40ae2259c8a0e18c3d03a4eaee2cb1e02cebb25546216c1514670845a2c",
-      "bytes": 13320
+      "afterBlob": "70d21912f0e889bc3d5b6b6827d1f23d5add600c",
+      "sha256": "acf023440cfcf3f836168ff3954bcf28b32f96acb335f0dae380a7ae39ef7d2c",
+      "bytes": 20051
     },
     {
       "path": ".github/workflows/production-stopped-runtime-headroom.yml",
       "mode": "100644",
       "permissions": "644",
-      "afterBlob": "dffb6bae2f6f8ab5b7d97b01a7726e555190c97a",
-      "sha256": "2880c4dae94b89123d7b113795a643b174c66ae5525fc187326b694650defb26",
-      "bytes": 14016
+      "afterBlob": "045af6a295250433967716b6c44fdee16984aa38",
+      "sha256": "74baa9ce0296c479de310e63a70ed0f6c53607d02ef7ab35a0caad4c22d846d3",
+      "bytes": 14851
     },
     {
       "path": "docs/ops/production-stopped-runtime-headroom.md",
       "mode": "100644",
       "permissions": "644",
-      "afterBlob": "02c96c65638373ee8dfd32b166d044c3924595fc",
-      "sha256": "eca6801e8ec88d0c466c013bac862a805697056c8c7a6e4da73257616df6aae1",
-      "bytes": 2926
+      "afterBlob": "14d6a242976b9a68bf6c314a28b228e9e594f2d3",
+      "sha256": "0c3fec4c46e549aca88f0a419a5deffadf0a6014ee2d40d905db6f93edd4aa5b",
+      "bytes": 4674
     }
   ],
   "evidence": {
@@ -2214,17 +2223,13 @@ Separate stopped-runtime prerequisite. Primary eleven-path scope, existing owner
     "candidateImageCount": 40
   },
   "operation": "SEPARATE_STOPPED_RUNTIME_IMAGE_ONLY_STAGE",
-  "limits": "Preserve original cleanup and 1API/1Web guard; exact40fullIDs only; full metadata+image-use+volume/network revalidation before every nonforce --no-prune removal; preserve11available rollback-reserve images. No restart/DB/volume/customer-data mutation. Separate source exact-head review/native/manual acceptance before owner-only4637 command. No backup/data/runtime acceptance.",
+  "limits": "Preserve original cleanup and 1API/1Web guard; exact40fullIDs only; full metadata+image-use+volume/network revalidation before every nonforce --no-prune removal; preserve11available rollback-reserve images. Zero actual containerd containers/tasks through the allowlisted root-owned reported socket is mandatory. Protected secret env, issue-write permission and shared production concurrency only in the owner-gated recover job, never PR contract. No restart/DB/volume/customer-data mutation. Separate source exact-head review/native/manual acceptance before owner-only4637 command. No backup/data/runtime acceptance.",
   "newRecurringCostRub": 0,
   "productionAcceptance": false
 }
-```
+~~~~
 
-Only the exact forty immutable historical image IDs are candidates; all current metadata, actual image-use references, named-volume/network sets and available rollback reserves must remain verified before every nonforce, no-prune removal. No restart, DB/volume/customer-data mutation, arbitrary input, exception, new cost or false backup/runtime acceptance. Full literal reviewable source afters follow; hashes bind UTF-8 file bytes outside these fences.
-
-Representation correction: superseded PR5910 retains the original rejected source and negative native evidence. Its scanner matched thirteen known public revision identifiers on one long source line. String fragments reconstruct exactly the same candidate-reference values; no candidate, protection or scanner configuration changes. Private tests prove equal runtime vectors and zero findings under the actual v8.24.3 generic rule and its built-in allowlists. Fresh exact-head review/native checks remain mandatory.
-
-### scripts/production_stopped_runtime_headroom.py
+### Literal source proposal: scripts/production_stopped_runtime_headroom.py
 
 ~~~~python
 #!/usr/bin/env python3
@@ -2389,6 +2394,29 @@ class Host:
         finally:
             connection.close()
 
+    def observe_empty_containerd(self, info):
+        # Engine image-use counters describe Docker's own container store only.
+        value = info.get('Containerd') if isinstance(info, dict) else None
+        address = value.get('Address') if isinstance(value, dict) else None
+        namespaces = value.get('Namespaces') if isinstance(value, dict) else None
+        require(address in ('/run/containerd/containerd.sock', '/var/run/containerd/containerd.sock',
+                            '/run/docker/containerd/containerd.sock', '/var/run/docker/containerd/containerd.sock')
+                and isinstance(namespaces, dict) and namespaces.get('Containers') == 'moby',
+                'CONTAINERD_ENDPOINT_UNKNOWN')
+        try:
+            details = os.lstat(address)
+        except OSError:
+            raise RecoveryError('CONTAINERD_SOCKET_UNAVAILABLE') from None
+        require(stat.S_ISSOCK(details.st_mode) and details.st_uid == 0, 'CONTAINERD_SOCKET_IDENTITY')
+        for kind in ('containers', 'tasks'):
+            try:
+                result = self.command(['ctr', '--address', address, '--namespace', 'moby',
+                                       kind, 'list', '--quiet'], allow_failure=True)
+            except (OSError, subprocess.TimeoutExpired):
+                raise RecoveryError('CONTAINERD_PROBE_UNAVAILABLE') from None
+            require(result.returncode == 0, 'CONTAINERD_INVENTORY_UNAVAILABLE')
+            require(not result.stdout.strip(), 'CONTAINERD_OBJECTS_PRESENT')
+
     def observe(self):
         require(not os.environ.get('DOCKER_HOST') and not os.environ.get('DOCKER_CONTEXT')
                 and not os.environ.get('DOCKER_API_VERSION'), 'DOCKER_CONTEXT_ENV')
@@ -2400,6 +2428,7 @@ class Host:
         info = self.read_api('/v1.51/info')
         require(isinstance(info, dict) and info.get('DockerRootDir') == ROOT and
                 info.get('Driver') == 'overlayfs', 'DOCKER_STORAGE_CHANGED')
+        self.observe_empty_containerd(info)
         require(os.stat(ROOT).st_dev == os.stat(SNAPSHOT_ROOT).st_dev,
                 'STORAGE_FILESYSTEM_CHANGED')
         configs, mount_names = metadata()
@@ -2529,9 +2558,10 @@ def main():
 
 if __name__ == '__main__':
     raise SystemExit(main())
+
 ~~~~
 
-### scripts/test_production_stopped_runtime_headroom.py
+### Literal source proposal: scripts/test_production_stopped_runtime_headroom.py
 
 ~~~~python
 import contextlib
@@ -2705,15 +2735,17 @@ class RecoveryTests(unittest.TestCase):
                     value = b'\n'.join(('volume' + str(i)).encode() for i in range(19))
                 elif argv[:3] == ['docker', 'network', 'ls']:
                     value = b'\n'.join(('network' + str(i)).encode() for i in range(6))
+                elif argv[:5] == ['ctr', '--address', '/run/containerd/containerd.sock', '--namespace', 'moby']:
+                    value = b''
                 else:
                     raise AssertionError('Unexpected command')
                 return SimpleNamespace(stdout=value, returncode=0)
             def read_api(self, path):
                 if path.endswith('/info'):
-                    return {'DockerRootDir': m.ROOT, 'Driver': 'overlayfs'}
+                    return {'DockerRootDir': m.ROOT, 'Driver': 'overlayfs', 'Containerd': {'Address': '/run/containerd/containerd.sock', 'Namespaces': {'Containers': 'moby'}}}
                 return [{'Id': USED, 'Containers': 1}, {'Id': IMAGE, 'Containers': 1 if self.foreign_used else self.usage}]
         configs = (((CID, USED, 'private-hash'),), frozenset({'volume0'}))
-        with patch.dict(os.environ, {}, clear=True), patch.object(m, 'metadata', return_value=configs), patch.object(os, 'stat', return_value=SimpleNamespace(st_dev=1)):
+        with patch.dict(os.environ, {}, clear=True), patch.object(m, 'metadata', return_value=configs), patch.object(os, 'stat', return_value=SimpleNamespace(st_dev=1)), patch.object(os, 'lstat', return_value=SimpleNamespace(st_mode=m.stat.S_IFSOCK, st_uid=0)):
             self.assertIn(USED, ReadHost().observe()[4])
             for name, value in (('endpoint', 'ssh://untrusted'), ('containers', b'unknown-container'), ('usage', -1), ('usage', None), ('usage', True), ('foreign_used', True)):
                 with self.subTest(name=name, value=value):
@@ -2724,6 +2756,33 @@ class RecoveryTests(unittest.TestCase):
             with patch.dict(os.environ, {'DOCKER_HOST': 'unix:///different.sock'}):
                 with self.assertRaisesRegex(m.RecoveryError, 'DOCKER_CONTEXT_ENV'):
                     ReadHost().observe()
+
+    def test_actual_containerd_probe_requires_pinned_socket_and_empty_real_stores(self):
+        from types import SimpleNamespace as N
+        host = m.Host()
+        info = {'Containerd': {'Address':'/run/containerd/containerd.sock',
+                              'Namespaces':{'Containers':'moby'}}}
+        with patch.object(os,'lstat',return_value=N(st_mode=m.stat.S_IFSOCK,st_uid=0)), patch.object(host,'command',return_value=N(returncode=0,stdout=b'')) as call:
+            host.observe_empty_containerd(info)
+            self.assertEqual([x.args[0] for x in call.call_args_list], [
+                ['ctr','--address','/run/containerd/containerd.sock','--namespace','moby','containers','list','--quiet'],
+                ['ctr','--address','/run/containerd/containerd.sock','--namespace','moby','tasks','list','--quiet']])
+            for value in ({}, {'Containerd':{'Address':'/untrusted.sock','Namespaces':{'Containers':'moby'}}},
+                          {'Containerd':{'Address':'/run/containerd/containerd.sock','Namespaces':{'Containers':'unknown'}}}):
+                with self.assertRaisesRegex(m.RecoveryError,'CONTAINERD_ENDPOINT_UNKNOWN'):
+                    host.observe_empty_containerd(value)
+            for value in (N(st_mode=m.stat.S_IFREG,st_uid=0), N(st_mode=m.stat.S_IFSOCK,st_uid=1000)):
+                with patch.object(os,'lstat',return_value=value), self.assertRaisesRegex(m.RecoveryError,'CONTAINERD_SOCKET_IDENTITY'):
+                    host.observe_empty_containerd(info)
+            with patch.object(os,'lstat',side_effect=FileNotFoundError()), self.assertRaisesRegex(m.RecoveryError,'CONTAINERD_SOCKET_UNAVAILABLE'):
+                host.observe_empty_containerd(info)
+            with patch.object(host,'command',side_effect=FileNotFoundError()), self.assertRaisesRegex(m.RecoveryError,'CONTAINERD_PROBE_UNAVAILABLE'):
+                host.observe_empty_containerd(info)
+            for values, code in (([N(returncode=1,stdout=b'')],'CONTAINERD_INVENTORY_UNAVAILABLE'),
+                                  ([N(returncode=0,stdout=b'object')],'CONTAINERD_OBJECTS_PRESENT'),
+                                  ([N(returncode=0,stdout=b''),N(returncode=0,stdout=b'task')],'CONTAINERD_OBJECTS_PRESENT')):
+                with patch.object(host,'command',side_effect=values), self.assertRaisesRegex(m.RecoveryError,code):
+                    host.observe_empty_containerd(info)
 
     def test_actual_workflow_requires_exact_owner_command_and_successful_contract(self):
         import ast
@@ -2756,6 +2815,68 @@ class RecoveryTests(unittest.TestCase):
         self.assertNotIn('StrictHostKeyChecking=no', workflow)
         self.assertIn('production-full-stack-exact-sha', workflow)
         self.assertIn('SOURCE_VECTOR_MISMATCH', workflow)
+
+    def test_pull_request_contract_has_no_protected_secret_or_issue_write_binding(self):
+        here = Path(__file__).parent
+        workflow_path = here / 'production-stopped-runtime-headroom.yml'
+        if not workflow_path.exists():
+            workflow_path = here.parent / '.github/workflows/production-stopped-runtime-headroom.yml'
+        workflow = workflow_path.read_text()
+        global_scope, jobs = workflow.split('\njobs:\n', 1)
+        contract, recovery = jobs.split('\n  recover:\n', 1)
+        self.assertNotIn('secrets.', global_scope + contract)
+        self.assertNotIn('issues: write', global_scope + contract)
+        self.assertNotIn('concurrency:', global_scope + contract)
+        self.assertIn('    concurrency:\n      group: production-full-stack-exact-sha\n      cancel-in-progress: false', recovery)
+        for binding in ('PC_PROD_HOST', 'PC_PROD_SSH_USER', 'PC_PROD_SSH_PORT',
+                        'PC_PROD_SSH_KEY', 'PC_PROD_SSH_PRIVATE_KEY', 'VPS_SSH_KEY',
+                        'PC_PROD_SSH_HOST_FINGERPRINT'):
+            self.assertEqual(recovery.count('secrets.' + binding + ' }'), 1)
+        self.assertIn('    permissions:\n      contents: read\n      issues: write', recovery)
+
+    def test_actual_output_validator_retains_unknown_journal_on_broken_transport(self):
+        import re
+        import subprocess
+        import sys
+        import textwrap
+        here = Path(__file__).parent
+        workflow_path = here / 'production-stopped-runtime-headroom.yml'
+        if not workflow_path.exists():
+            workflow_path = here.parent / '.github/workflows/production-stopped-runtime-headroom.yml'
+        workflow = workflow_path.read_text()
+        def actual_block(marker):
+            match = re.search("<<'" + marker + "'\n(.*?)\n          " + marker + "\n", workflow, re.S)
+            self.assertIsNotNone(match)
+            return textwrap.dedent(match[1])
+        pending, record = actual_block('PY_PENDING'), actual_block('PY_RECORD')
+        self.assertLess(workflow.index("<<'PY_PENDING'"), workflow.index('"python3 - --sha'))
+        valid = {'schemaVersion':'pc.stopped-runtime-headroom.v1','targetSha':TARGET,
+                 'beforeAvailableKb':0,'afterAvailableKb':6*1024*1024,'attemptedImages':1,
+                 'deletedImages':1,'refusedImages':0,'passed':True,'targetReached':True,
+                 'metadataUnchanged':True,'volumesUnchanged':True,'networksUnchanged':True,
+                 'runtimeRestored':False,'volumeDataIntegrity':'NOT_ATTESTED'}
+        for raw, accepted in (('',False), ('UNTRUSTED_SECRET',False),
+                              (json.dumps({**valid,'injected':'UNTRUSTED_SECRET'}),False),
+                              (json.dumps(valid),True)):
+            with self.subTest(raw_kind='valid' if accepted else 'rejected'):
+                with tempfile.TemporaryDirectory() as root_name:
+                    root = Path(root_name)
+                    result = subprocess.run([sys.executable,'-',TARGET,str(root)],input=pending,
+                        text=True,capture_output=True)
+                    self.assertEqual(result.returncode,0,result.stderr)
+                    source = root/'input.txt';source.write_text(raw)
+                    result = subprocess.run([sys.executable,'-',str(source),TARGET,str(root)],
+                        input=record,text=True,capture_output=True)
+                    body = (root/'issue-record.md').read_text()
+                    self.assertNotIn('UNTRUSTED_SECRET',body)
+                    if accepted:
+                        self.assertEqual(result.returncode,0,result.stderr)
+                        self.assertTrue((root/'result.jsonl').is_file())
+                    else:
+                        self.assertNotEqual(result.returncode,0)
+                        self.assertIn('`UNKNOWN`',body)
+                        self.assertIn('Do not retry',body)
+                        self.assertFalse((root/'result.jsonl').exists())
 
     def test_actual_metadata_checks_identity_symlinks_size_and_atime(self):
         with tempfile.TemporaryDirectory() as root_name:
@@ -2790,9 +2911,10 @@ class RecoveryTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
 ~~~~
 
-### .github/workflows/production-stopped-runtime-headroom.yml
+### Literal source proposal: .github/workflows/production-stopped-runtime-headroom.yml
 
 ~~~~yaml
 name: Production Stopped Runtime Headroom
@@ -2809,23 +2931,11 @@ on:
 
 permissions:
   contents: read
-  issues: write
-
-concurrency:
-  group: production-full-stack-exact-sha
-  cancel-in-progress: false
 
 env:
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
   DEFAULT_HOST: 195.19.12.120
   EVIDENCE_DIR: artifacts/production-stopped-runtime-headroom
-  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
-  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
-  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
-  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
-  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
-  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
-  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
 
 jobs:
   contract:
@@ -2856,6 +2966,20 @@ jobs:
       github.triggering_actor == github.repository_owner &&
       needs.contract.result == 'success'
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    concurrency:
+      group: production-full-stack-exact-sha
+      cancel-in-progress: false
+    env:
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -2972,6 +3096,17 @@ jobs:
           set -Eeuo pipefail
           git fetch --no-tags origin main
           [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          # A broken transport or rejected output must still leave a safe journal outcome.
+          python3 - "$TARGET_SHA" "$EVIDENCE_DIR" <<'PY_PENDING'
+          import pathlib, re, sys
+          target, output = sys.argv[1:]
+          if not re.fullmatch('[0-9a-f]{40}', target):
+              raise SystemExit('INVALID_SOURCE_SHA')
+          body = '# Stopped-runtime image headroom\n\nExact source: `'+target+'`.\n\n'
+          body += 'Stage outcome: `UNKNOWN`; runtime restored: `false`; volume data integrity: `NOT_ATTESTED`.\n'
+          body += 'No validated terminal result is available. Do not retry; perform fresh read-only reconciliation.\n'
+          pathlib.Path(output,'issue-record.md').write_text(body)
+          PY_PENDING
           raw="$(mktemp)"
           trap 'rm -f "$raw"' EXIT
           set +e
@@ -3049,9 +3184,10 @@ jobs:
           path: artifacts/production-stopped-runtime-headroom
           if-no-files-found: error
           retention-days: 90
+
 ~~~~
 
-### docs/ops/production-stopped-runtime-headroom.md
+### Literal source proposal: docs/ops/production-stopped-runtime-headroom.md
 
 ~~~~markdown
 # Stopped-runtime image headroom
@@ -3060,13 +3196,24 @@ This is a separate CORE P0 prerequisite for the observed zero-container baseline
 
 Only the exact 40 historical full image IDs are candidates. Source inputs are hash-verified artifacts12388170138 and11955461195, whose eleven full container/image references agree exactly. The available two-newest reserve per component/namespace is preserved explicitly (eleven images total; the existing registry-Web namespace contains only one image). All original registry images remain outside this operation's candidate list. No third-party image, model, build cache, parent image, container, volume, network or customer data may be removed.
 
-The owner-only command is `/production reclaim-stopped-runtime current-main` in4637, after this exact source has independently passed its separate admission, review, native checks and merge. No schedule, arbitrary input, direct SSH credential export, force deletion, alias-based removal, daemon restart or standalone old-script invocation is authorized.
+The owner-only command is `/production reclaim-stopped-runtime current-main` in #4637, after this exact source has independently passed its separate admission, review, native checks and merge. No schedule, arbitrary input, direct SSH credential export, force deletion, alias-based removal, daemon restart or standalone old-script invocation is authorized.
 
-Before each non-force `docker image rm --no-prune FULL_ID`, require unchanged full on-disk configs, exactly the pinned eleven references, named-volume availability, unchanged19volumes/6networks, zero daemon containers, the local pinned Docker endpoint, nonnegative actual Engine API1.51 image use counts, no unreconciled containerd reference, intact rollback reserve, exact candidate refs/revision and current-target protection. Any drift, unknown count, unsupported API, forbidden context or missing metadata stops before the next removal. The static list cannot expand. Refused removals are not forced or retried. The stage stops at6GiB, requires at least5GiB, and records ambiguous attempts before reconciliation.
+Before each non-force `docker image rm --no-prune FULL_ID`, require unchanged full on-disk configs, exactly the pinned eleven references, named-volume availability, unchanged 19 volumes / 6 networks, zero daemon containers, the local pinned Docker endpoint, nonnegative actual Engine API1.51 image use counts, no unreconciled containerd reference, intact rollback reserve, exact candidate refs/revision and current-target protection. Any drift, unknown count, unsupported API, forbidden context or missing metadata stops before the next removal. The static list cannot expand. Refused removals are not forced or retried. The stage stops at 6 GiB, requires at least 5 GiB, and records ambiguous attempts before reconciliation.
 
 Output is bounded aggregate JSON, never raw config/environment/daemon logs. Source, transport and host outcomes remain distinct. A failure after an attempt requires a new read-only reconciliation; do not replay an operation whose outcome is unknown. A successful image stage establishes only headroom and unchanged metadata/object sets. It does not prove volume-data integrity, backup applicability, restarted services, current-main application deployment, money/FGIS integration or MASTER progress.
 
-After headroom, a separate governed data/backup verification and restoration stage remains necessary. No daemon restart or data restoration is part of this operation. New recurring cost0RUB.
+After headroom, a separate governed data/backup verification and restoration stage remains necessary. No daemon restart or data restoration is part of this operation. New recurring cost 0 RUB.
 
 Primary sources checked2026-10-22MSK: https://docs.docker.com/reference/api/engine/version-history/ (API1.51 per-image Containers count); https://docs.docker.com/reference/api/engine/version/v1.51/ ; https://docs.docker.com/reference/cli/docker/image/rm/ ; https://man7.org/linux/man-pages/man2/open.2.html . Unknown or unavailable contracts fail closed.
+
+Protected SSH secret bindings and issue-write permission exist only in the owner-gated recovery job. The pull-request contract inherits contents-read permission and no protected secret bindings; its negative regression preserves that boundary.
+
+The shared production concurrency group is acquired only by the owner-gated recovery job. PR-contract and unrelated-comment jobs cannot replace a queued production operation.
+
+Concurrency semantics checked against the primary GitHub Actions documentation: https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency .
+
+A bounded UNKNOWN journal record is created before the first remote mutation attempt. Broken transport or rejected output retains that record, publishes no raw data and requires read-only reconciliation before another operation. Actual embedded validator regression covers empty, malformed, injected and valid terminal output.
+
+Engine image-use counts are supplemental. Every observation also requires direct read-only `ctr` queries proving zero actual containerd container objects and tasks in Docker's exclusive moby namespace, through its reported allowlisted root-owned local socket. Unknown socket/namespace, missing tooling, a failed query or any containerd object blocks all further removal. This stricter condition has not yet been attested on the host. Primary implementation sources: https://github.com/moby/moby/blob/master/daemon/containerd/image_list.go ; https://github.com/moby/moby/blob/master/api/types/system/info.go ; https://github.com/containerd/containerd/blob/main/cmd/ctr/commands/containers/containers.go ; https://github.com/containerd/containerd/blob/main/cmd/ctr/commands/tasks/list.go .
+
 ~~~~
