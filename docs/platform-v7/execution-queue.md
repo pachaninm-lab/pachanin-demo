@@ -2160,3 +2160,2184 @@ index 7c1986cb5..44a791388 100644
 +  });
 +});
 ```
+
+
+## CORE stopped-runtime image-only headroom admission, 2026-10-22 MSK
+
+Purpose: separately admit one exact six-path source proposal for the observed zero-container/full-disk baseline. The original cleanup script/manual route and 1API/1Web guard remain unchanged. Both legacy workflows receive queue:max; the spent owner-push recover job is disabled so the scheduling correction cannot itself run a host mutation. Base authority is `b6950a4d37329ced3eb8491a16819d1e4d8c8e9e`. Official MASTER remains 5/100; no host mutation or runtime acceptance.
+
+Supersedes unaccepted57b5f9fe28b162fb8b0b3f961ef7b5866e545bbb after independent P1 review4343303751. All shared group participants now require queue:max; a complete repository participant regression rejects the previous single-pending legacy configuration. The spent automatic owner-push recover job is explicitly retired, preventing its workflow cochange from starting cleanup on merge. The new workflow retains job-scoped production lock, protected secrets and issue-write permission, direct empty-containerd checks and an UNKNOWN transport journal. No executable source has been published or run. Owner follow-up also requires final inventory reconciliation with or without deletion and exact alias reconciliation after a refusal. Fresh independent full-head review/CI/readiness is mandatory. Closed #5910 preserves public-revision Gitleaks false-positive evidence; split literals reconstruct identical references without scanner policy changes.
+
+Evidence: protected read-only run39688142303, receipt6328222743, artifact12388170138 SHA256875212aad50f6c7cf21ee247b33f24473a344e3aff4831d622941254a1644421; last-running38698861695 artifact11955461195 SHA256afc0e98a76f4492e366096527d6426b576c2a6d40aa910a894912e177965a3be. All11fullmetadata image references agree; volume-data/backup integrity NOT_ATTESTED.54 ENOSPC indicators do not prove the exact load-failure cause or absence of corruption.
+
+The private concrete proposal passed 22 behavioral unit tests, YAML/all Bash syntax, metadata no-atime/symlink/identity/size checks, actual containerd socket/namespace/empty-store negatives, exact owner route, PR-secret/concurrency isolation, broken-transport UNKNOWN journal, inventory drift/new-use/refusal/reserve negatives and exact nonforce --no-prune removal arguments. These are local proposal checks, not native source or production acceptance.
+
+Separate acceptance sequence: review this complete metadata/payload diff; pass applicable native/security and fresh canonical readiness; manual exact-head merge. Only then publish the exact six afters on `ops/production-stopped-runtime-headroom-20261022`, obtain new independent full-head review/native/readiness/manual merge, and invoke the owner-only4637command once. No partial operation retry; unknown outcomes require read-only reconciliation. Backup/data verification and runtime restoration remain separate. PRODUCT hold and all prior state values remain unchanged. New recurring cost 0 RUB.
+
+~~~~json
+{
+  "purposeId": "stopped-runtime-headroom-20261022",
+  "owner": "ACCOUNT_1_CORE",
+  "sourceBranch": "ops/production-stopped-runtime-headroom-20261022",
+  "authorityBaseExactMain": "b6950a4d37329ced3eb8491a16819d1e4d8c8e9e",
+  "sourcePayloads": [
+    {
+      "path": "scripts/production_stopped_runtime_headroom.py",
+      "mode": "100644",
+      "permissions": "644",
+      "afterBlob": "1577966d56b9cdd6a5ce586f9f63096a53a4e7b9",
+      "sha256": "6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14",
+      "bytes": 34619
+    },
+    {
+      "path": "scripts/test_production_stopped_runtime_headroom.py",
+      "mode": "100644",
+      "permissions": "644",
+      "afterBlob": "ec7a2973425dff5dac7e7d863efb1da664966077",
+      "sha256": "cea0d3593cebf7058aa4b6e2177c9812bc4f3d96c206b415447194c1a6276964",
+      "bytes": 25568
+    },
+    {
+      "path": ".github/workflows/production-stopped-runtime-headroom.yml",
+      "mode": "100644",
+      "permissions": "644",
+      "afterBlob": "3a44ece78c402a67492430a691bae1f59be1d551",
+      "sha256": "540c773112105455e6344a98097274a5278e615331e179cb90a1b96df85c7478",
+      "bytes": 15204
+    },
+    {
+      "path": "docs/ops/production-stopped-runtime-headroom.md",
+      "mode": "100644",
+      "permissions": "644",
+      "afterBlob": "bfcf64a4392e882f6f93ff3fd6ed6454dee09c7e",
+      "sha256": "a50dd752eeba9bd3e2b2b94ebf0a19bb403355088639d78978f47394c582e97c",
+      "bytes": 5213
+    },
+    {
+      "beforeBlob": "13564e9ebae27c85cbb12e23d2b03ead2406d422",
+      "path": ".github/workflows/production-docker-headroom-recovery.yml",
+      "mode": "100644",
+      "permissions": "644",
+      "afterBlob": "aa78eee35b3c6145cb4d875925036d8da9ebe449",
+      "sha256": "0c8eab322b9a11eaf8ea0cf44c67ac3c069d9f5a5d420f8553bc4e19f40f43f8",
+      "bytes": 37558
+    },
+    {
+      "beforeBlob": "6f913950c70d3fcb94f7facb56c05e1807756c13",
+      "path": ".github/workflows/production-docker-headroom-owner-push-once.yml",
+      "mode": "100644",
+      "permissions": "644",
+      "afterBlob": "44ac362f0a8993e506739f237a4808355e0b1792",
+      "sha256": "83b8b9e0ffcdd7362698f008dd3654c9bb4f2d38dcdf7b274b6cecaca2cec6e8",
+      "bytes": 14673
+    }
+  ],
+  "evidence": {
+    "currentRun": 39688142303,
+    "currentArtifactSha256": "875212aad50f6c7cf21ee247b33f24473a344e3aff4831d622941254a1644421",
+    "lastRunningRun": 38698861695,
+    "lastRunningArtifactSha256": "afc0e98a76f4492e366096527d6426b576c2a6d40aa910a894912e177965a3be",
+    "matchingMetadataReferences": 11,
+    "candidateImageCount": 40
+  },
+  "operation": "SEPARATE_STOPPED_RUNTIME_IMAGE_ONLY_STAGE",
+  "limits": "Preserve original cleanup script/manual route and 1API/1Web guard; queue:max on every shared participant; retire spent owner-push recover job; exact40fullIDs only; full metadata+image-use+volume/network revalidation before every nonforce --no-prune removal; preserve11available rollback-reserve images. Zero actual containerd containers/tasks through the allowlisted root-owned reported socket is mandatory. Protected secret env, issue-write permission and shared production concurrency only in the owner-gated recover job, never PR contract. No restart/DB/volume/customer-data mutation. Separate source exact-head review/native/manual acceptance before owner-only4637 command. No backup/data/runtime acceptance.",
+  "newRecurringCostRub": 0,
+  "productionAcceptance": false
+}
+~~~~
+
+### Literal source proposal: scripts/production_stopped_runtime_headroom.py
+
+~~~~python
+#!/usr/bin/env python3
+"""Separately admitted image-only recovery. Never restart or alter a volume."""
+import argparse
+import fcntl
+import hashlib
+import http.client
+import json
+import os
+import re
+import socket
+import stat
+import subprocess
+import sys
+
+EXPECTED_REFS = (('12bfcce897d597a3ccdd9bf31983068f9a10b7ffd18d03a40ad1c61a4e12674a', 'sha256:4d7ca23ed1e7e090c3e2f1b89e1b89e836b420ee7f378b93f639bb7f0581a6fc'), ('17516de051ffd378f3622d5a07d4d3ef57cfc1932487e874a26d9bfaa995bf8a', 'sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e'), ('6119f0e5fac156df9259ab6e5567e992662b22908606752f659685c4b2fe3950', 'sha256:844f60b64e4724a5aa8245e019dace0d3f199f7433ce6c57676cb30a920dbad9'), ('653b305a8005c24a1fea5f91ffdcdb7700e7422c313f1b3418eb14b218f90d1a', 'sha256:9ec337037ee981951c014137f1ecff53c23db0a932e916ad560b56f8c198923e'), ('6eb7ab343f41a718e82e0c827352ee32bcf13faff62d7c6670f58d8bbabc0b84', 'sha256:a8f08480e1f88f2647fed492d1178c06abb0d0c1fbf02c682a61e2f483fb3954'), ('7043af9bad5ca06a4e5b41866dc63d4889e8be524fbf3da79e474b4d1a729b6f', 'sha256:4c1ca296ef525f108f5d3552cc337c0c09587cf8dae7f0067fd93349e47dc1cd'), ('7358c38820f8e01e60f26d76f033c6bd9cddf89a534ef5cecf2a2d2224e6029e', 'sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20'), ('aed36194798b430728291a901c135bbd6b8b2d0ac01cdd1bded91710b25b595f', 'sha256:2f567fcecb11c8db3de549f178a1f4a3817ed5c86b27143775cc8e1ad4cc0f27'), ('d6e112cce121edd1c18972e3b73cd5b63d8733d32d43cf21cd32f14adb9a4862', 'sha256:4d7ca23ed1e7e090c3e2f1b89e1b89e836b420ee7f378b93f639bb7f0581a6fc'), ('e643540aecc11ff0158fdca743af410e8746bb7ed408c9cc8b5dd3fccb618d65', 'sha256:4a9a5687ef842f091619ba0c442901c1d760bff225231cd4dbc70b411ce74d49'), ('ebcd97792d16557493f7b9ec46ddb50d3c57bf2abaedbc2fde6832b8116363a4', 'sha256:24cdd3a7fa89d2bed150560ebea81ff1943badfa61e51d66bb541a6b0d7fb047'))
+_CANDIDATE_PINS = (
+    {'id': 'sha256:a1aad119237cdd82b1f4d1ad3d830cd117267470d8359cf10dada349e374c815', 'component': 'web', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/web', ':', 'b05c3ae9ed43b945669fe51d3906a91e7acdf722'), ('pc-crop-transfer/web@sha256', ':', 'a1aad119237cdd82b1f4d1ad3d830cd117267470d8359cf10dada349e374c815')], 'revision': 'b05c3ae9ed43b945669fe51d3906a91e7acdf722', 'created': '2026-10-11T20:33:30.64631666Z'},
+    {'id': 'sha256:4b300d46d6f1bc0ea5b04a05c292072ba688c8bab3c69b199ce2c1110967492d', 'component': 'api', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/api', ':', 'b05c3ae9ed43b945669fe51d3906a91e7acdf722'), ('pc-crop-transfer/api@sha256', ':', '4b300d46d6f1bc0ea5b04a05c292072ba688c8bab3c69b199ce2c1110967492d')], 'revision': 'b05c3ae9ed43b945669fe51d3906a91e7acdf722', 'created': '2026-10-11T20:32:37.200588908Z'},
+    {'id': 'sha256:f3d7429169b9588edb15bc30d0f785aacc8e1ec322c93052785cda917f702a0f', 'component': 'migration', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/migration', ':', 'b05c3ae9ed43b945669fe51d3906a91e7acdf722'), ('pc-crop-transfer/migration@sha256', ':', 'f3d7429169b9588edb15bc30d0f785aacc8e1ec322c93052785cda917f702a0f')], 'revision': 'b05c3ae9ed43b945669fe51d3906a91e7acdf722', 'created': '2026-10-11T20:32:11.446182279Z'},
+    {'id': 'sha256:53258879b6988f16c6ece5aaf4dde0de57b00ff5e72d8f1d48c19123d86b273a', 'component': 'web', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/web', ':', '3c340ef1fa355bad813ccd1a4fe485a64004cf09'), ('pc-crop-transfer/web@sha256', ':', '53258879b6988f16c6ece5aaf4dde0de57b00ff5e72d8f1d48c19123d86b273a')], 'revision': '3c340ef1fa355bad813ccd1a4fe485a64004cf09', 'created': '2026-10-11T18:20:41.107460359Z'},
+    {'id': 'sha256:fd793fef31559046a0878683619b87223ea513189270a73995001c973b0b010d', 'component': 'api', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/api', ':', '3c340ef1fa355bad813ccd1a4fe485a64004cf09'), ('pc-crop-transfer/api@sha256', ':', 'fd793fef31559046a0878683619b87223ea513189270a73995001c973b0b010d')], 'revision': '3c340ef1fa355bad813ccd1a4fe485a64004cf09', 'created': '2026-10-11T18:19:09.336084277Z'},
+    {'id': 'sha256:91cd7b5a8e719e5b386c006eafba9810d3d294400035b183c8d6ca7765db56f3', 'component': 'migration', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/migration', ':', '3c340ef1fa355bad813ccd1a4fe485a64004cf09'), ('pc-crop-transfer/migration@sha256', ':', '91cd7b5a8e719e5b386c006eafba9810d3d294400035b183c8d6ca7765db56f3')], 'revision': '3c340ef1fa355bad813ccd1a4fe485a64004cf09', 'created': '2026-10-11T18:18:34.863615688Z'},
+    {'id': 'sha256:d7bafe64617728abd545e60df91aaf031a73a51cbf55a11a7b9a3dbe501b0d39', 'component': 'api', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/api', ':', '1b0b6889a352391e77eb3814ee186b41b16053a2'), ('pc-crop-transfer/api@sha256', ':', 'd7bafe64617728abd545e60df91aaf031a73a51cbf55a11a7b9a3dbe501b0d39')], 'revision': '1b0b6889a352391e77eb3814ee186b41b16053a2', 'created': '2026-10-05T15:12:37.032730217Z'},
+    {'id': 'sha256:fdfcd61759f904ec02b0828c5ad6709a30e82aa1b71349f4a988ae650e7823bf', 'component': 'migration', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/migration', ':', '1b0b6889a352391e77eb3814ee186b41b16053a2'), ('pc-crop-transfer/migration@sha256', ':', 'fdfcd61759f904ec02b0828c5ad6709a30e82aa1b71349f4a988ae650e7823bf')], 'revision': '1b0b6889a352391e77eb3814ee186b41b16053a2', 'created': '2026-10-05T15:12:31.194380483Z'},
+    {'id': 'sha256:679b54bb3bafe00520a4f8c0648920f9447aeee2882b47d78afffd33858f94a9', 'component': 'api', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/api', ':', '06f686d52247ebe7805f1b75d937b2ca8daf8f6f'), ('pc-crop-transfer/api@sha256', ':', '679b54bb3bafe00520a4f8c0648920f9447aeee2882b47d78afffd33858f94a9')], 'revision': '06f686d52247ebe7805f1b75d937b2ca8daf8f6f', 'created': '2026-09-27T19:56:19.398755521Z'},
+    {'id': 'sha256:9e8e2f40bbc107c88281722b3c96db1c85bfc11f55c40a6b03f90de3e6608f1f', 'component': 'migration', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/migration', ':', '06f686d52247ebe7805f1b75d937b2ca8daf8f6f'), ('pc-crop-transfer/migration@sha256', ':', '9e8e2f40bbc107c88281722b3c96db1c85bfc11f55c40a6b03f90de3e6608f1f')], 'revision': '06f686d52247ebe7805f1b75d937b2ca8daf8f6f', 'created': '2026-09-27T19:55:58.928630222Z'},
+    {'id': 'sha256:ca3c6584b35a75d10205032dd4f29f77ea4e0843e32d6f042f3b199e17f57e6a', 'component': 'web', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/web', ':', 'bdecafb969b2dd3f3862d385a7e11b8181177946'), ('pc-crop-transfer/web@sha256', ':', 'ca3c6584b35a75d10205032dd4f29f77ea4e0843e32d6f042f3b199e17f57e6a')], 'revision': 'bdecafb969b2dd3f3862d385a7e11b8181177946', 'created': '2026-09-27T16:14:56.706450491Z'},
+    {'id': 'sha256:29fdf5225c5bf9911bd00840dfe580aa9696915438efcc44fd0fb2e2c7b2f870', 'component': 'migration', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/migration', ':', 'bdecafb969b2dd3f3862d385a7e11b8181177946'), ('pc-crop-transfer/migration@sha256', ':', '29fdf5225c5bf9911bd00840dfe580aa9696915438efcc44fd0fb2e2c7b2f870')], 'revision': 'bdecafb969b2dd3f3862d385a7e11b8181177946', 'created': '2026-09-27T16:12:50.933285573Z'},
+    {'id': 'sha256:d2c1e1fc386a363c0f81d4e1e83f880cdcc70d44997842287f8c60b49bff326d', 'component': 'api', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/api', ':', 'bdecafb969b2dd3f3862d385a7e11b8181177946'), ('pc-crop-transfer/api@sha256', ':', 'd2c1e1fc386a363c0f81d4e1e83f880cdcc70d44997842287f8c60b49bff326d')], 'revision': 'bdecafb969b2dd3f3862d385a7e11b8181177946', 'created': '2026-09-27T16:12:02.941302405Z'},
+    {'id': 'sha256:5faab3e4282f3b803ac5c24fa4a228030349a14292d30f135ec1064afac557e7', 'component': 'web', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/web', ':', '337e123ac52bfe5be3e0db8bb4cf0601f275edc8'), ('pc-crop-transfer/web@sha256', ':', '5faab3e4282f3b803ac5c24fa4a228030349a14292d30f135ec1064afac557e7')], 'revision': '337e123ac52bfe5be3e0db8bb4cf0601f275edc8', 'created': '2026-09-27T02:18:03.421034847Z'},
+    {'id': 'sha256:ba18419818e75ec3a179f7b97414f30d5c1abf1b9f94e4ffef0bd2daee2a60ca', 'component': 'api', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/api', ':', '337e123ac52bfe5be3e0db8bb4cf0601f275edc8'), ('pc-crop-transfer/api@sha256', ':', 'ba18419818e75ec3a179f7b97414f30d5c1abf1b9f94e4ffef0bd2daee2a60ca')], 'revision': '337e123ac52bfe5be3e0db8bb4cf0601f275edc8', 'created': '2026-09-27T02:16:24.303954361Z'},
+    {'id': 'sha256:05ecc7cc9420766db40fd503ebe45dd8fdf87c753f9f99c3062b4fc3f392a229', 'component': 'migration', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/migration', ':', '337e123ac52bfe5be3e0db8bb4cf0601f275edc8'), ('pc-crop-transfer/migration@sha256', ':', '05ecc7cc9420766db40fd503ebe45dd8fdf87c753f9f99c3062b4fc3f392a229')], 'revision': '337e123ac52bfe5be3e0db8bb4cf0601f275edc8', 'created': '2026-09-27T02:16:02.978949352Z'},
+    {'id': 'sha256:a15c1c9efe20e8c7d33a0c54390afd79bcf3e4ec2c8d835e626f68c735564641', 'component': 'web', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/web', ':', '202093945454dd1c743741c7821b60fecc17a2fc'), ('pc-crop-transfer/web@sha256', ':', 'a15c1c9efe20e8c7d33a0c54390afd79bcf3e4ec2c8d835e626f68c735564641')], 'revision': '202093945454dd1c743741c7821b60fecc17a2fc', 'created': '2026-09-27T00:43:58.475318773Z'},
+    {'id': 'sha256:a0655c724362ed9d0739bd7288a8f1d6fc1eea99bfb650b6b1d754e09569ac15', 'component': 'api', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/api', ':', '202093945454dd1c743741c7821b60fecc17a2fc'), ('pc-crop-transfer/api@sha256', ':', 'a0655c724362ed9d0739bd7288a8f1d6fc1eea99bfb650b6b1d754e09569ac15')], 'revision': '202093945454dd1c743741c7821b60fecc17a2fc', 'created': '2026-09-27T00:41:55.051117706Z'},
+    {'id': 'sha256:c3203f9095cd2362d413d9a508ffde11539e4c154e27e94e6f2f9ebad22783b6', 'component': 'migration', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/migration', ':', '202093945454dd1c743741c7821b60fecc17a2fc'), ('pc-crop-transfer/migration@sha256', ':', 'c3203f9095cd2362d413d9a508ffde11539e4c154e27e94e6f2f9ebad22783b6')], 'revision': '202093945454dd1c743741c7821b60fecc17a2fc', 'created': '2026-09-27T00:41:46.868262054Z'},
+    {'id': 'sha256:a3cd9b50da8ac834f9ee463d7efedff5200f9680d6608fef6b56e6f866592768', 'component': 'web', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/web', ':', '18e02668f84f7f88842779a9097f145504b105bb'), ('pc-crop-transfer/web@sha256', ':', 'a3cd9b50da8ac834f9ee463d7efedff5200f9680d6608fef6b56e6f866592768')], 'revision': '18e02668f84f7f88842779a9097f145504b105bb', 'created': '2026-09-26T22:47:32.249335327Z'},
+    {'id': 'sha256:9d2fe4419d7abf2d99f3e7c980679d2ab8bd0ff7cb6d99bddba5a9c76c9784ca', 'component': 'api', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/api', ':', '18e02668f84f7f88842779a9097f145504b105bb'), ('pc-crop-transfer/api@sha256', ':', '9d2fe4419d7abf2d99f3e7c980679d2ab8bd0ff7cb6d99bddba5a9c76c9784ca')], 'revision': '18e02668f84f7f88842779a9097f145504b105bb', 'created': '2026-09-26T22:45:54.918471918Z'},
+    {'id': 'sha256:51d10fa5108251c7105718bed072e563148b4675c3be28a49c1502f8b49ceaaf', 'component': 'migration', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/migration', ':', '18e02668f84f7f88842779a9097f145504b105bb'), ('pc-crop-transfer/migration@sha256', ':', '51d10fa5108251c7105718bed072e563148b4675c3be28a49c1502f8b49ceaaf')], 'revision': '18e02668f84f7f88842779a9097f145504b105bb', 'created': '2026-09-26T22:45:33.290891786Z'},
+    {'id': 'sha256:6da5baabea788f520cfab5c22daec7437f0cdd71fd18c8317e41be03420c169a', 'component': 'web', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/web', ':', '35ce3841f15572bfcba7c8d7e03afb858da0888d'), ('pc-crop-transfer/web@sha256', ':', '6da5baabea788f520cfab5c22daec7437f0cdd71fd18c8317e41be03420c169a')], 'revision': '35ce3841f15572bfcba7c8d7e03afb858da0888d', 'created': '2026-09-26T17:23:09.393294053Z'},
+    {'id': 'sha256:6f6dc52644b2b307d58a8f85efe8c09b3db06868a0130c9b7281bcd031a828dc', 'component': 'api', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/api', ':', '35ce3841f15572bfcba7c8d7e03afb858da0888d'), ('pc-crop-transfer/api@sha256', ':', '6f6dc52644b2b307d58a8f85efe8c09b3db06868a0130c9b7281bcd031a828dc')], 'revision': '35ce3841f15572bfcba7c8d7e03afb858da0888d', 'created': '2026-09-26T17:21:53.073352425Z'},
+    {'id': 'sha256:9c840dcffbec3d0feb966b9d8571b06d6fb0c1dd707e073c3ce71a9f75eacc2a', 'component': 'migration', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/migration', ':', '35ce3841f15572bfcba7c8d7e03afb858da0888d'), ('pc-crop-transfer/migration@sha256', ':', '9c840dcffbec3d0feb966b9d8571b06d6fb0c1dd707e073c3ce71a9f75eacc2a')], 'revision': '35ce3841f15572bfcba7c8d7e03afb858da0888d', 'created': '2026-09-26T17:21:30.950834394Z'},
+    {'id': 'sha256:4ccea94710e28ac1c328f476929ef2665c2e5fdd2779f52de7eda74400e753e1', 'component': 'web', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/web', ':', '45343a799c6a8b0753ce5d29b77de9a3e30ef67e'), ('pc-crop-transfer/web@sha256', ':', '4ccea94710e28ac1c328f476929ef2665c2e5fdd2779f52de7eda74400e753e1')], 'revision': '45343a799c6a8b0753ce5d29b77de9a3e30ef67e', 'created': '2026-09-26T09:31:56.867728216Z'},
+    {'id': 'sha256:201bd721a59d291b380fddcf568217a7b400a6371a02c932068ba2a20dd23bff', 'component': 'api', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/api', ':', '45343a799c6a8b0753ce5d29b77de9a3e30ef67e'), ('pc-crop-transfer/api@sha256', ':', '201bd721a59d291b380fddcf568217a7b400a6371a02c932068ba2a20dd23bff')], 'revision': '45343a799c6a8b0753ce5d29b77de9a3e30ef67e', 'created': '2026-09-26T09:30:05.441449699Z'},
+    {'id': 'sha256:115dfe4315574ccf1761597d41ca49f832983f7f8737e03d9dd00ab87e9cc1e6', 'component': 'migration', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/migration', ':', '45343a799c6a8b0753ce5d29b77de9a3e30ef67e'), ('pc-crop-transfer/migration@sha256', ':', '115dfe4315574ccf1761597d41ca49f832983f7f8737e03d9dd00ab87e9cc1e6')], 'revision': '45343a799c6a8b0753ce5d29b77de9a3e30ef67e', 'created': '2026-09-26T09:29:40.703765115Z'},
+    {'id': 'sha256:f612c944a6cfa81eb785277441b50fd22026be9146df5824fa0794cad52d0e78', 'component': 'web', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/web', ':', '9504fa801603669709ff8f7157ab6a5e0abcda70'), ('pc-crop-transfer/web@sha256', ':', 'f612c944a6cfa81eb785277441b50fd22026be9146df5824fa0794cad52d0e78')], 'revision': '9504fa801603669709ff8f7157ab6a5e0abcda70', 'created': '2026-09-26T07:31:09.174052283Z'},
+    {'id': 'sha256:94a12e6ee2d450e7d7bd2ac2368fc52a435cd041c5e0864c3b59a26a046bb205', 'component': 'api', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/api', ':', '9504fa801603669709ff8f7157ab6a5e0abcda70'), ('pc-crop-transfer/api@sha256', ':', '94a12e6ee2d450e7d7bd2ac2368fc52a435cd041c5e0864c3b59a26a046bb205')], 'revision': '9504fa801603669709ff8f7157ab6a5e0abcda70', 'created': '2026-09-26T07:28:57.552917154Z'},
+    {'id': 'sha256:874c13b75195100754176dc0836597a14cad351e05aeedb1aef5cec923dd5e63', 'component': 'migration', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/migration', ':', '9504fa801603669709ff8f7157ab6a5e0abcda70'), ('pc-crop-transfer/migration@sha256', ':', '874c13b75195100754176dc0836597a14cad351e05aeedb1aef5cec923dd5e63')], 'revision': '9504fa801603669709ff8f7157ab6a5e0abcda70', 'created': '2026-09-26T07:28:34.513994473Z'},
+    {'id': 'sha256:c059daadc018e45039c741a44eb8ef407b301023c5bbe9b769291a1c23e46d02', 'component': 'web', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/web', ':', 'b8a3cffbb527468edaf12186b1cf78e71c1880a1'), ('pc-crop-transfer/web@sha256', ':', 'c059daadc018e45039c741a44eb8ef407b301023c5bbe9b769291a1c23e46d02')], 'revision': 'b8a3cffbb527468edaf12186b1cf78e71c1880a1', 'created': '2026-09-26T04:06:43.47010224Z'},
+    {'id': 'sha256:cf001d46c9b2475ce2c5715d280aea47458f493dfc387c7cf371a1dcc50cf17a', 'component': 'api', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/api', ':', 'b8a3cffbb527468edaf12186b1cf78e71c1880a1'), ('pc-crop-transfer/api@sha256', ':', 'cf001d46c9b2475ce2c5715d280aea47458f493dfc387c7cf371a1dcc50cf17a')], 'revision': 'b8a3cffbb527468edaf12186b1cf78e71c1880a1', 'created': '2026-09-26T04:05:00.884095911Z'},
+    {'id': 'sha256:c2fcd47c39c56106563381c2f61b264bdaf5bc195b9d9d4087152a49a2e19d6f', 'component': 'migration', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/migration', ':', 'b8a3cffbb527468edaf12186b1cf78e71c1880a1'), ('pc-crop-transfer/migration@sha256', ':', 'c2fcd47c39c56106563381c2f61b264bdaf5bc195b9d9d4087152a49a2e19d6f')], 'revision': 'b8a3cffbb527468edaf12186b1cf78e71c1880a1', 'created': '2026-09-26T04:04:46.512902978Z'},
+    {'id': 'sha256:6265ba6eb7a34c5d796ac3d73a9b3a49452617f557414d7d612060c53b350d10', 'component': 'web', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/web', ':', 'a445c448232c406bacf99aa6b4804814626f12fa'), ('pc-crop-transfer/web@sha256', ':', '6265ba6eb7a34c5d796ac3d73a9b3a49452617f557414d7d612060c53b350d10')], 'revision': 'a445c448232c406bacf99aa6b4804814626f12fa', 'created': '2026-09-26T02:17:39.520562494Z'},
+    {'id': 'sha256:bc817251c0779c06c1da2010f2b376067fca012470074b001b696acf3c1d037c', 'component': 'migration', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/migration', ':', 'a445c448232c406bacf99aa6b4804814626f12fa'), ('pc-crop-transfer/migration@sha256', ':', 'bc817251c0779c06c1da2010f2b376067fca012470074b001b696acf3c1d037c')], 'revision': 'a445c448232c406bacf99aa6b4804814626f12fa', 'created': '2026-09-26T02:15:59.457312974Z'},
+    {'id': 'sha256:01bc0bd9ece1c44fcb370e3964a7e458d3119f8a058a548727733441501faff6', 'component': 'api', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/api', ':', 'a445c448232c406bacf99aa6b4804814626f12fa'), ('pc-crop-transfer/api@sha256', ':', '01bc0bd9ece1c44fcb370e3964a7e458d3119f8a058a548727733441501faff6')], 'revision': 'a445c448232c406bacf99aa6b4804814626f12fa', 'created': '2026-09-26T02:14:15.705418883Z'},
+    {'id': 'sha256:5ffb0a71b1cc1e18bb37f8ca4256443d8132fe715533a1940de72653d3ac1174', 'component': 'web', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/web', ':', 'ec8fe20a473224248c29ef725514e878f18eb850'), ('pc-crop-transfer/web@sha256', ':', '5ffb0a71b1cc1e18bb37f8ca4256443d8132fe715533a1940de72653d3ac1174')], 'revision': 'ec8fe20a473224248c29ef725514e878f18eb850', 'created': '2026-09-25T22:08:05.720335221Z'},
+    {'id': 'sha256:4b8b9c1effa5713a539cda4df2e74f2128b0bc954b4f5a778901b3a422a3b0ee', 'component': 'api', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/api', ':', 'ec8fe20a473224248c29ef725514e878f18eb850'), ('pc-crop-transfer/api@sha256', ':', '4b8b9c1effa5713a539cda4df2e74f2128b0bc954b4f5a778901b3a422a3b0ee')], 'revision': 'ec8fe20a473224248c29ef725514e878f18eb850', 'created': '2026-09-25T22:07:28.897295685Z'},
+    {'id': 'sha256:cc4714a9ede0b695dab7c4b24383780887c39d210e2e44cc024db4aba4ac1b5c', 'component': 'migration', 'namespace': 'EXACT_SHA_TRANSFER_ALIAS', 'refs': [('pc-crop-transfer/migration', ':', 'ec8fe20a473224248c29ef725514e878f18eb850'), ('pc-crop-transfer/migration@sha256', ':', 'cc4714a9ede0b695dab7c4b24383780887c39d210e2e44cc024db4aba4ac1b5c')], 'revision': 'ec8fe20a473224248c29ef725514e878f18eb850', 'created': '2026-09-25T22:06:14.43571801Z'},
+)
+CANDIDATES = tuple({**item, "refs": ["".join(parts) for parts in item["refs"]]} for item in _CANDIDATE_PINS)
+RESERVE_IDS = frozenset(['sha256:13a99697559fde7ff8245b4d0c2cd7b90eb3292a3e31a79d1bc0d01a85fa4ce8', 'sha256:41a3900d11ffe088b3226f7a8951b6282ebdb1705dc7b336dbfaee3102af164a', 'sha256:4a9a5687ef842f091619ba0c442901c1d760bff225231cd4dbc70b411ce74d49', 'sha256:4d7ca23ed1e7e090c3e2f1b89e1b89e836b420ee7f378b93f639bb7f0581a6fc', 'sha256:58f1a6b4c2878f9c4f634a1b9f0d8da281883a45ce3a9db22d5fd051b9273685', 'sha256:95c60694dc993377abafa3be51250f67aff75a0fadc4f70d3fa8358310f2b026', 'sha256:9fb62d1b17da5c227a13ff1ad5c516e176201de5449bb3217839b345fe7576b2', 'sha256:b23c7fe9f4463475a3c5a9b3a61b4be1d5c0fa284474b3080eef1076838fdc52', 'sha256:b9567aaecb630ae4641ac5c663d105687b0611bd7ee90ac2b156b8a9ad06a6b1', 'sha256:c4ea2c75d86b514d40948fa2a3f4dedadd3079eb833fcd959b53d79ea393c6b3', 'sha256:e7dc10ad63727b24252f754445b49a02ef2a7d7d56c57f689d4e23afe814fc26'])
+REQUIRED_KB = 5 * 1024 * 1024
+TARGET_KB = 6 * 1024 * 1024
+IMAGE_ID = re.compile(r'sha256:[0-9a-f]{64}')
+CONTAINER_ID = re.compile(r'[0-9a-f]{64}')
+ROOT = '/var/lib/docker'
+SNAPSHOT_ROOT = '/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs'
+
+
+class RecoveryError(Exception):
+    pass
+
+
+def require(condition, code):
+    if not condition:
+        raise RecoveryError(code)
+
+
+def metadata(root=ROOT):
+    """No-follow, non-atime read of every config; hashes stay inside the host."""
+    require(hasattr(os, 'O_NOATIME'), 'NON_ATIME_UNSUPPORTED')
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NOATIME
+    root_fd = os.open(root, flags)
+    directory_fd = None
+    records = []
+    mounts = set()
+    try:
+        directory_fd = os.open('containers', flags, dir_fd=root_fd)
+        with os.scandir(directory_fd) as entries:
+            names = []
+            for entry in entries:
+                require(len(names) < 32, 'METADATA_LIMIT')
+                names.append(entry.name)
+        require(len(names) == len(EXPECTED_REFS), 'METADATA_COUNT')
+        for cid in sorted(names):
+            require(CONTAINER_ID.fullmatch(cid), 'METADATA_DIRECTORY')
+            child_fd = os.open(cid, flags, dir_fd=directory_fd)
+            try:
+                fd = os.open('config.v2.json', os.O_RDONLY | os.O_NOFOLLOW |
+                             os.O_NOATIME | os.O_NONBLOCK, dir_fd=child_fd)
+                try:
+                    before = os.fstat(fd)
+                    require(stat.S_ISREG(before.st_mode) and before.st_size <= 4 * 1024 * 1024,
+                            'METADATA_TYPE_SIZE')
+                    with os.fdopen(fd, 'rb', closefd=False) as handle:
+                        raw = handle.read(4 * 1024 * 1024 + 1)
+                    after = os.fstat(fd)
+                    require(len(raw) <= 4 * 1024 * 1024 and
+                            (before.st_size, before.st_mtime_ns, before.st_ctime_ns) ==
+                            (after.st_size, after.st_mtime_ns, after.st_ctime_ns), 'METADATA_CHANGED')
+                    value = json.loads(raw)
+                finally:
+                    os.close(fd)
+            finally:
+                os.close(child_fd)
+            require(isinstance(value, dict) and value.get('ID') == cid and
+                    isinstance(value.get('Image'), str) and IMAGE_ID.fullmatch(value['Image']),
+                    'METADATA_IDENTITY')
+            records.append((cid, value['Image'], hashlib.sha256(raw).hexdigest()))
+            points = value.get('MountPoints')
+            require(isinstance(points, dict), 'MOUNTS_UNKNOWN')
+            for point in points.values():
+                require(isinstance(point, dict), 'MOUNT_UNKNOWN')
+                if point.get('Type') == 'volume':
+                    name = point.get('Name')
+                    require(isinstance(name, str) and 0 < len(name) <= 255, 'VOLUME_UNKNOWN')
+                    mounts.add(name)
+        require([(cid, image) for cid, image, _ in records] == sorted(map(tuple, EXPECTED_REFS)),
+                'HISTORICAL_REFERENCE_MISMATCH')
+        return tuple(records), frozenset(mounts)
+    finally:
+        if directory_fd is not None:
+            os.close(directory_fd)
+        os.close(root_fd)
+
+
+class UnixConnection(http.client.HTTPConnection):
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.settimeout(self.timeout)
+        self.sock.connect('/var/run/docker.sock')
+
+
+class Host:
+    def command(self, argv, allow_failure=False):
+        result = subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                stderr=subprocess.DEVNULL, timeout=60)
+        require(allow_failure or result.returncode == 0, 'DOCKER_COMMAND_FAILED')
+        require(len(result.stdout) <= 16 * 1024 * 1024, 'COMMAND_OUTPUT_LIMIT')
+        return result
+
+    def read_api(self, path):
+        require(path in ('/v1.51/images/json?all=1', '/v1.51/info'), 'API_PATH')
+        connection = UnixConnection('localhost', timeout=15)
+        try:
+            connection.request('GET', path)
+            response = connection.getresponse()
+            require(response.status == 200, 'DOCKER_API_UNAVAILABLE')
+            raw = response.read(16 * 1024 * 1024 + 1)
+            require(len(raw) <= 16 * 1024 * 1024, 'API_OUTPUT_LIMIT')
+            return json.loads(raw)
+        finally:
+            connection.close()
+
+    def observe_empty_containerd(self, info):
+        # Engine image-use counters describe Docker's own container store only.
+        value = info.get('Containerd') if isinstance(info, dict) else None
+        address = value.get('Address') if isinstance(value, dict) else None
+        namespaces = value.get('Namespaces') if isinstance(value, dict) else None
+        require(address in ('/run/containerd/containerd.sock', '/var/run/containerd/containerd.sock',
+                            '/run/docker/containerd/containerd.sock', '/var/run/docker/containerd/containerd.sock')
+                and isinstance(namespaces, dict) and namespaces.get('Containers') == 'moby',
+                'CONTAINERD_ENDPOINT_UNKNOWN')
+        try:
+            details = os.lstat(address)
+        except OSError:
+            raise RecoveryError('CONTAINERD_SOCKET_UNAVAILABLE') from None
+        require(stat.S_ISSOCK(details.st_mode) and details.st_uid == 0, 'CONTAINERD_SOCKET_IDENTITY')
+        for kind in ('containers', 'tasks'):
+            try:
+                result = self.command(['ctr', '--address', address, '--namespace', 'moby',
+                                       kind, 'list', '--quiet'], allow_failure=True)
+            except (OSError, subprocess.TimeoutExpired):
+                raise RecoveryError('CONTAINERD_PROBE_UNAVAILABLE') from None
+            require(result.returncode == 0, 'CONTAINERD_INVENTORY_UNAVAILABLE')
+            require(not result.stdout.strip(), 'CONTAINERD_OBJECTS_PRESENT')
+
+    def observe(self):
+        require(not os.environ.get('DOCKER_HOST') and not os.environ.get('DOCKER_CONTEXT')
+                and not os.environ.get('DOCKER_API_VERSION'), 'DOCKER_CONTEXT_ENV')
+        endpoint = self.command(['docker', 'context', 'inspect', '--format',
+                                 '{{.Endpoints.docker.Host}}']).stdout.decode().strip()
+        require(endpoint == 'unix:///var/run/docker.sock', 'DOCKER_ENDPOINT')
+        require(not self.command(['docker', 'ps', '-aq', '--no-trunc']).stdout.strip(),
+                'DAEMON_CONTAINERS_PRESENT')
+        info = self.read_api('/v1.51/info')
+        require(isinstance(info, dict) and info.get('DockerRootDir') == ROOT and
+                info.get('Driver') == 'overlayfs', 'DOCKER_STORAGE_CHANGED')
+        self.observe_empty_containerd(info)
+        require(os.stat(ROOT).st_dev == os.stat(SNAPSHOT_ROOT).st_dev,
+                'STORAGE_FILESYSTEM_CHANGED')
+        configs, mount_names = metadata()
+        volumes = tuple(sorted(self.command(['docker', 'volume', 'ls', '-q']).stdout.splitlines()))
+        networks = tuple(sorted(self.command(['docker', 'network', 'ls', '-q', '--no-trunc']).stdout.splitlines()))
+        require(len(set(volumes)) == len(volumes) == 19 and len(set(networks)) == len(networks) == 6,
+                'OBJECT_COUNTS_CHANGED')
+        require({name.encode() for name in mount_names}.issubset(volumes), 'MOUNTED_VOLUME_MISSING')
+        images = self.read_api('/v1.51/images/json?all=1')
+        require(isinstance(images, list) and len(images) <= 2048, 'IMAGE_INVENTORY_UNKNOWN')
+        all_ids, used = set(), set()
+        for item in images:
+            require(isinstance(item, dict) and isinstance(item.get('Id'), str) and
+                    IMAGE_ID.fullmatch(item['Id']) and type(item.get('Containers')) is int and
+                    item['Containers'] >= 0, 'IMAGE_USAGE_UNKNOWN')
+            all_ids.add(item['Id'])
+            if item['Containers']:
+                used.add(item['Id'])
+        protected = {image for _, image, _ in configs}
+        require(used.issubset(protected), 'UNRECONCILED_CONTAINERD_REFERENCE')
+        require(protected.issubset(all_ids), 'PROTECTED_IMAGE_MISSING')
+        return configs, volumes, networks, frozenset(all_ids), frozenset(used)
+
+    def available_kb(self):
+        value = os.statvfs(SNAPSHOT_ROOT)
+        return value.f_bavail * value.f_frsize // 1024
+
+    def inspect(self, image_id):
+        require(IMAGE_ID.fullmatch(image_id), 'IMAGE_ID')
+        result = self.command(['docker', 'image', 'inspect', image_id], allow_failure=True)
+        if result.returncode:
+            return None
+        values = json.loads(result.stdout)
+        require(isinstance(values, list) and len(values) == 1 and
+                isinstance(values[0], dict) and values[0].get('Id') == image_id, 'IMAGE_INSPECT')
+        return values[0]
+
+    def remove(self, image_id):
+        require(IMAGE_ID.fullmatch(image_id), 'IMAGE_ID')
+        return self.command(['docker', 'image', 'rm', '--no-prune', image_id],
+                            allow_failure=True).returncode == 0
+
+
+def attest_image(item, candidate, target_sha):
+    require(isinstance(item, dict), 'CANDIDATE_MISSING')
+    config = item.get('Config')
+    labels = config.get('Labels') if isinstance(config, dict) else None
+    revision = labels.get('org.opencontainers.image.revision') if isinstance(labels, dict) else None
+    require(revision == candidate['revision'] and revision != target_sha and
+            revision != 'a6784252a57a8a5e14f231bc18a64d67ab0fd274', 'REVISION_CHANGED')
+    refs = []
+    for key in ('RepoTags', 'RepoDigests'):
+        values = item.get(key)
+        values = [] if values is None else values
+        require(isinstance(values, list) and all(isinstance(x, str) for x in values), 'REFERENCES_UNKNOWN')
+        refs.extend(values)
+    require(sorted(set(refs)) == candidate['refs'], 'REFERENCES_CHANGED')
+
+
+def recover(host, target_sha, candidates=CANDIDATES, emit=None, reserve_ids=RESERVE_IDS):
+    require(re.fullmatch('[0-9a-f]{40}', target_sha), 'INVALID_SHA')
+    baseline = host.observe()
+    require(reserve_ids.issubset(baseline[3]), 'ROLLBACK_RESERVE_MISSING')
+    protected = {image for _, image, _ in baseline[0]} | set(baseline[4]) | set(reserve_ids)
+    require(all(c['id'] not in protected for c in candidates), 'PROTECTED_CANDIDATE')
+    for candidate in candidates:
+        attest_image(host.inspect(candidate['id']), candidate, target_sha)
+    removed = set()
+    before = host.available_kb()
+    attempts = failures = 0
+    for candidate in candidates:
+        if host.available_kb() >= TARGET_KB:
+            break
+        current = host.observe()
+        require(current[:3] == baseline[:3] and current[3] == baseline[3] - removed,
+                'PRE_REMOVAL_DRIFT')
+        require(candidate['id'] not in current[4], 'NEW_CONTAINER_REFERENCE')
+        attest_image(host.inspect(candidate['id']), candidate, target_sha)
+        attempts += 1
+        accepted = host.remove(candidate['id'])
+        if emit:
+            emit({'stage': 'REMOVAL_ATTEMPT_RETURNED', 'targetSha': target_sha,
+                  'attempt': attempts, 'accepted': accepted, 'outcome': 'NOT_YET_RECONCILED'})
+        after_item = host.inspect(candidate['id'])
+        if after_item is None:
+            require(accepted, 'UNKNOWN_REMOVAL_OUTCOME')
+            removed.add(candidate['id'])
+        else:
+            require(not accepted, 'UNKNOWN_REMOVAL_OUTCOME')
+            # A refused command may have partially changed aliases. Reconcile
+            # the exact refs/revision before considering another candidate.
+            attest_image(after_item, candidate, target_sha)
+            failures += 1
+        after = host.observe()
+        require(after[:3] == baseline[:3] and after[3] == baseline[3] - removed,
+                'POST_REMOVAL_DRIFT')
+    # Reconcile even when free space was already sufficient and no removal ran.
+    final = host.observe()
+    require(final[:3] == baseline[:3] and final[3] == baseline[3] - removed,
+            'FINAL_INVENTORY_DRIFT')
+    available = host.available_kb()
+    return {'schemaVersion': 'pc.stopped-runtime-headroom.v1', 'targetSha': target_sha,
+            'beforeAvailableKb': before, 'afterAvailableKb': available, 'attemptedImages': attempts,
+            'deletedImages': len(removed), 'refusedImages': failures,
+            'passed': available >= REQUIRED_KB, 'targetReached': available >= TARGET_KB,
+            'metadataUnchanged': True, 'volumesUnchanged': True, 'networksUnchanged': True,
+            'runtimeRestored': False, 'volumeDataIntegrity': 'NOT_ATTESTED'}
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--sha', required=True)
+    parser.add_argument('--execute', action='store_true', required=True)
+    args = parser.parse_args()
+    try:
+        require(os.geteuid() == 0, 'ROOT_REQUIRED')
+        fd = os.open('/run/pc-crop-stopped-headroom.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        try:
+            details = os.fstat(fd)
+            require(stat.S_ISREG(details.st_mode) and details.st_uid == 0 and
+                    stat.S_IMODE(details.st_mode) == 0o600, 'LOCK_IDENTITY')
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            report = recover(Host(), args.sha, emit=lambda value: print(json.dumps(value), flush=True))
+        finally:
+            os.close(fd)
+        print(json.dumps(report, separators=(',', ':')))
+        return 0 if report['passed'] else 2
+    except Exception as error:
+        code = str(error) if isinstance(error, RecoveryError) else 'UNCLASSIFIED_FAILURE'
+        print(json.dumps({'schemaVersion': 'pc.stopped-runtime-headroom.v1', 'passed': False,
+                          'errorCode': code, 'runtimeRestored': False, 'mutationOutcome': 'RECONCILIATION_REQUIRED_IF_STARTED'}))
+        return 1
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
+
+~~~~
+
+### Literal source proposal: scripts/test_production_stopped_runtime_headroom.py
+
+~~~~python
+import contextlib
+import copy
+import importlib.util
+import json
+import os
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+spec = importlib.util.spec_from_file_location('recovery', Path(__file__).with_name('production_stopped_runtime_headroom.py'))
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+TARGET = 'b' * 40
+CID = 'c' * 64
+IMAGE = 'sha256:' + 'a' * 64
+USED = 'sha256:' + 'd' * 64
+CANDIDATE = {'id': IMAGE, 'refs': ['pc-crop-transfer/web:' + 'e' * 40], 'revision': 'e' * 40}
+ITEM = {'Id': IMAGE, 'RepoTags': CANDIDATE['refs'], 'RepoDigests': [],
+        'Config': {'Labels': {'org.opencontainers.image.revision': 'e' * 40}}}
+
+
+class FakeHost:
+    def __init__(self):
+        self.item = copy.deepcopy(ITEM)
+        self.deleted = False
+        self.calls = []
+        self.space = 0
+        self.refuse = False
+        self.observe_count = 0
+        self.drift_at = None
+        self.used_at = None
+
+    def observe(self):
+        self.observe_count += 1
+        volumes = ('one',) if self.drift_at != self.observe_count else ('different',)
+        images = frozenset({USED} if self.deleted else {USED, IMAGE})
+        used = frozenset({USED, IMAGE} if self.used_at == self.observe_count else {USED})
+        return ((CID, USED, 'private-config-hash'),), volumes, ('network',), images, used
+
+    def available_kb(self):
+        return self.space
+
+    def inspect(self, image):
+        self.calls.append(('inspect', image))
+        return None if self.deleted else self.item
+
+    def remove(self, image):
+        self.calls.append(('remove', image))
+        if self.refuse:
+            return False
+        self.deleted = True
+        self.space = m.TARGET_KB
+        return True
+
+
+class RecoveryTests(unittest.TestCase):
+    def test_success_preserves_protected_inventory_and_publishes_ambiguous_attempt(self):
+        host, events = FakeHost(), []
+        result = m.recover(host, TARGET, (CANDIDATE,), events.append, frozenset({USED}))
+        self.assertTrue(result['passed'])
+        self.assertEqual(result['deletedImages'], 1)
+        self.assertEqual(events[0]['outcome'], 'NOT_YET_RECONCILED')
+        self.assertEqual([c for c in host.calls if c[0] == 'remove'], [('remove', IMAGE)])
+        self.assertFalse(result['runtimeRestored'])
+        self.assertEqual(result['volumeDataIntegrity'], 'NOT_ATTESTED')
+
+    def test_pre_removal_drift_performs_no_deletion(self):
+        host = FakeHost()
+        host.drift_at = 2
+        with self.assertRaisesRegex(m.RecoveryError, 'PRE_REMOVAL_DRIFT'):
+            m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))
+        self.assertFalse(host.deleted)
+
+    def test_new_containerd_reference_performs_no_deletion(self):
+        host = FakeHost()
+        host.used_at = 2
+        with self.assertRaisesRegex(m.RecoveryError, 'NEW_CONTAINER_REFERENCE'):
+            m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))
+        self.assertFalse(host.deleted)
+
+    def test_post_removal_drift_is_failure_not_success(self):
+        host = FakeHost()
+        host.drift_at = 3
+        with self.assertRaisesRegex(m.RecoveryError, 'POST_REMOVAL_DRIFT'):
+            m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))
+        self.assertTrue(host.deleted)
+
+    def test_nonforce_refusal_is_not_retried_or_claimed_as_free_space(self):
+        host = FakeHost()
+        host.refuse = True
+        result = m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))
+        self.assertFalse(result['passed'])
+        self.assertEqual(result['refusedImages'], 1)
+        self.assertEqual(len([c for c in host.calls if c[0] == 'remove']), 1)
+
+    def test_final_reconciliation_rejects_drift_with_and_without_removals(self):
+        for sufficient, drift_at in ((True, 2), (False, 4)):
+            with self.subTest(initial_headroom=sufficient):
+                host = FakeHost()
+                host.space = m.TARGET_KB if sufficient else 0
+                host.drift_at = drift_at
+                with self.assertRaisesRegex(m.RecoveryError, 'FINAL_INVENTORY_DRIFT'):
+                    m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))
+                self.assertEqual(host.deleted, not sufficient)
+
+    def test_refused_partial_untag_is_not_a_reconciled_refusal(self):
+        host = FakeHost()
+        def partially_untag(image):
+            host.calls.append(('remove', image))
+            host.item['RepoTags'] = []
+            return False
+        host.remove = partially_untag
+        with self.assertRaisesRegex(m.RecoveryError, 'REFERENCES_CHANGED'):
+            m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))
+        self.assertEqual([c for c in host.calls if c[0] == 'remove'], [('remove', IMAGE)])
+        self.assertFalse(host.deleted)
+
+    def test_already_sufficient_space_has_zero_deletions(self):
+        host = FakeHost()
+        host.space = m.TARGET_KB
+        self.assertEqual(m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))['deletedImages'], 0)
+        self.assertFalse(host.deleted)
+
+    def test_unknown_ref_target_revision_and_missing_inspect_fail_before_mutation(self):
+        for kind in ('foreign_ref', 'target', 'missing'):
+            with self.subTest(kind=kind):
+                host = FakeHost()
+                if kind == 'foreign_ref':
+                    host.item['RepoTags'] = ['unapproved/image:private']
+                elif kind == 'target':
+                    host.item['Config']['Labels']['org.opencontainers.image.revision'] = TARGET
+                else:
+                    host.deleted = True
+                with self.assertRaises(m.RecoveryError):
+                    m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))
+                self.assertFalse(any(c[0] == 'remove' for c in host.calls))
+
+    def test_protected_candidate_rejected(self):
+        host = FakeHost()
+        with self.assertRaisesRegex(m.RecoveryError, 'PROTECTED_CANDIDATE'):
+            m.recover(host, TARGET, ({**CANDIDATE, 'id': USED},), reserve_ids=frozenset({USED}))
+        self.assertFalse(host.deleted)
+
+    def test_missing_rollback_reserve_prevents_deletion(self):
+        host = FakeHost()
+        with self.assertRaisesRegex(m.RecoveryError, 'ROLLBACK_RESERVE_MISSING'):
+            m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({'sha256:' + 'f' * 64}))
+        self.assertFalse(host.deleted)
+
+    def test_actual_remove_argv_has_no_force_and_no_parent_prune(self):
+        host = m.Host()
+        with patch.object(host, 'command') as call:
+            call.return_value.returncode = 0
+            self.assertTrue(host.remove(IMAGE))
+            self.assertEqual(call.call_args.args[0], ['docker', 'image', 'rm', '--no-prune', IMAGE])
+        with self.assertRaises(m.RecoveryError):
+            host.remove('not-an-image')
+
+    def test_source_candidates_are_exact_bounded_transfer_images_and_preserve_reserves(self):
+        self.assertEqual(len(m.CANDIDATES), 40)
+        self.assertEqual(len({c['id'] for c in m.CANDIDATES}), 40)
+        self.assertTrue(set(c['id'] for c in m.CANDIDATES).isdisjoint(m.RESERVE_IDS))
+        self.assertTrue(set(c['id'] for c in m.CANDIDATES).isdisjoint(image for _, image in m.EXPECTED_REFS))
+        self.assertEqual(len(m.EXPECTED_REFS), 11)
+        for candidate in m.CANDIDATES:
+            self.assertEqual(candidate['namespace'], 'EXACT_SHA_TRANSFER_ALIAS')
+            self.assertIn(candidate['component'], ('api', 'migration', 'web'))
+            for ref in candidate['refs']:
+                prefix = 'pc-crop-transfer/' + candidate['component']
+                self.assertTrue(ref == prefix + ':' + candidate['revision'] or
+                                m.re.fullmatch(m.re.escape(prefix) + r'@sha256:[0-9a-f]{64}', ref))
+
+    def test_read_api_cannot_open_an_arbitrary_endpoint(self):
+        with self.assertRaisesRegex(m.RecoveryError, 'API_PATH'):
+            m.Host().read_api('/containers/create')
+
+    def test_actual_host_observation_fails_closed_on_transport_and_usage_ambiguity(self):
+        from types import SimpleNamespace
+        class ReadHost(m.Host):
+            endpoint = 'unix:///var/run/docker.sock'
+            containers = b''
+            usage = 0
+            foreign_used = False
+            def command(self, argv, **kwargs):
+                if argv[:3] == ['docker', 'context', 'inspect']:
+                    value = self.endpoint.encode()
+                elif argv[:2] == ['docker', 'ps']:
+                    value = self.containers
+                elif argv[:3] == ['docker', 'volume', 'ls']:
+                    value = b'\n'.join(('volume' + str(i)).encode() for i in range(19))
+                elif argv[:3] == ['docker', 'network', 'ls']:
+                    value = b'\n'.join(('network' + str(i)).encode() for i in range(6))
+                elif argv[:5] == ['ctr', '--address', '/run/containerd/containerd.sock', '--namespace', 'moby']:
+                    value = b''
+                else:
+                    raise AssertionError('Unexpected command')
+                return SimpleNamespace(stdout=value, returncode=0)
+            def read_api(self, path):
+                if path.endswith('/info'):
+                    return {'DockerRootDir': m.ROOT, 'Driver': 'overlayfs', 'Containerd': {'Address': '/run/containerd/containerd.sock', 'Namespaces': {'Containers': 'moby'}}}
+                return [{'Id': USED, 'Containers': 1}, {'Id': IMAGE, 'Containers': 1 if self.foreign_used else self.usage}]
+        configs = (((CID, USED, 'private-hash'),), frozenset({'volume0'}))
+        with patch.dict(os.environ, {}, clear=True), patch.object(m, 'metadata', return_value=configs), patch.object(os, 'stat', return_value=SimpleNamespace(st_dev=1)), patch.object(os, 'lstat', return_value=SimpleNamespace(st_mode=m.stat.S_IFSOCK, st_uid=0)):
+            self.assertIn(USED, ReadHost().observe()[4])
+            for name, value in (('endpoint', 'ssh://untrusted'), ('containers', b'unknown-container'), ('usage', -1), ('usage', None), ('usage', True), ('foreign_used', True)):
+                with self.subTest(name=name, value=value):
+                    host = ReadHost()
+                    setattr(host, name, value)
+                    with self.assertRaises(m.RecoveryError):
+                        host.observe()
+            with patch.dict(os.environ, {'DOCKER_HOST': 'unix:///different.sock'}):
+                with self.assertRaisesRegex(m.RecoveryError, 'DOCKER_CONTEXT_ENV'):
+                    ReadHost().observe()
+
+    def test_actual_containerd_probe_requires_pinned_socket_and_empty_real_stores(self):
+        from types import SimpleNamespace as N
+        host = m.Host()
+        info = {'Containerd': {'Address':'/run/containerd/containerd.sock',
+                              'Namespaces':{'Containers':'moby'}}}
+        with patch.object(os,'lstat',return_value=N(st_mode=m.stat.S_IFSOCK,st_uid=0)), patch.object(host,'command',return_value=N(returncode=0,stdout=b'')) as call:
+            host.observe_empty_containerd(info)
+            self.assertEqual([x.args[0] for x in call.call_args_list], [
+                ['ctr','--address','/run/containerd/containerd.sock','--namespace','moby','containers','list','--quiet'],
+                ['ctr','--address','/run/containerd/containerd.sock','--namespace','moby','tasks','list','--quiet']])
+            for value in ({}, {'Containerd':{'Address':'/untrusted.sock','Namespaces':{'Containers':'moby'}}},
+                          {'Containerd':{'Address':'/run/containerd/containerd.sock','Namespaces':{'Containers':'unknown'}}}):
+                with self.assertRaisesRegex(m.RecoveryError,'CONTAINERD_ENDPOINT_UNKNOWN'):
+                    host.observe_empty_containerd(value)
+            for value in (N(st_mode=m.stat.S_IFREG,st_uid=0), N(st_mode=m.stat.S_IFSOCK,st_uid=1000)):
+                with patch.object(os,'lstat',return_value=value), self.assertRaisesRegex(m.RecoveryError,'CONTAINERD_SOCKET_IDENTITY'):
+                    host.observe_empty_containerd(info)
+            with patch.object(os,'lstat',side_effect=FileNotFoundError()), self.assertRaisesRegex(m.RecoveryError,'CONTAINERD_SOCKET_UNAVAILABLE'):
+                host.observe_empty_containerd(info)
+            with patch.object(host,'command',side_effect=FileNotFoundError()), self.assertRaisesRegex(m.RecoveryError,'CONTAINERD_PROBE_UNAVAILABLE'):
+                host.observe_empty_containerd(info)
+            for values, code in (([N(returncode=1,stdout=b'')],'CONTAINERD_INVENTORY_UNAVAILABLE'),
+                                  ([N(returncode=0,stdout=b'object')],'CONTAINERD_OBJECTS_PRESENT'),
+                                  ([N(returncode=0,stdout=b''),N(returncode=0,stdout=b'task')],'CONTAINERD_OBJECTS_PRESENT')):
+                with patch.object(host,'command',side_effect=values), self.assertRaisesRegex(m.RecoveryError,code):
+                    host.observe_empty_containerd(info)
+
+    def test_actual_workflow_requires_exact_owner_command_and_successful_contract(self):
+        import ast
+        import re
+        from types import SimpleNamespace as N
+        here = Path(__file__).parent
+        workflow_path = here / 'production-stopped-runtime-headroom.yml'
+        if not workflow_path.exists():
+            workflow_path = here.parent / '.github/workflows/production-stopped-runtime-headroom.yml'
+        workflow = workflow_path.read_text()
+        codes = []
+        for job in ('contract', 'recover'):
+            block = workflow.split('\n  ' + job + ':\n', 1)[1].split('\n    runs-on:', 1)[0]
+            condition = re.search(r'\n    if: >-\n((?:      [^\n]*\n)+)', '\n' + block + '\n')[1]
+            condition = ' '.join(line.strip() for line in condition.splitlines()).replace('&&', ' and ').replace('||', ' or ')
+            tree = ast.parse(condition, mode='eval')
+            allowed = (ast.Expression, ast.BoolOp, ast.And, ast.Or, ast.Compare, ast.Eq, ast.Attribute, ast.Name, ast.Load, ast.Constant)
+            self.assertTrue(all(type(node) in allowed for node in ast.walk(tree)))
+            codes.append(compile(tree, '<actual owner route>', 'eval'))
+        def routed(issue=4637, body='/production reclaim-stopped-runtime current-main', author='owner', actor='owner', triggering='owner', association='OWNER', result='success', event='issue_comment'):
+            github = N(event_name=event, repository_owner='owner', actor=actor, triggering_actor=triggering,
+                event=N(issue=N(number=issue),comment=N(body=body,author_association=association,user=N(login=author))))
+            return tuple(bool(eval(code, {'__builtins__': {}}, {'github':github,'needs':N(contract=N(result=result))})) for code in codes)
+        self.assertEqual(routed(), (True, True))
+        self.assertEqual(routed(event='pull_request'), (True, False))
+        for changes in ({'issue':5469}, {'body':'/production reclaim-docker current-main'}, {'body':'/production reclaim-stopped-runtime current-main\n'}, {'event':'push'}):
+            self.assertEqual(routed(**changes), (False, False))
+        for changes in ({'author':'other'}, {'actor':'other'}, {'triggering':'other'}, {'association':'COLLABORATOR'}, {'result':'failure'}, {'result':'skipped'}):
+            self.assertEqual(routed(**changes), (True, False))
+        self.assertNotIn('StrictHostKeyChecking=no', workflow)
+        self.assertIn('production-full-stack-exact-sha', workflow)
+        self.assertIn('SOURCE_VECTOR_MISMATCH', workflow)
+
+    def test_pull_request_contract_has_no_protected_secret_or_issue_write_binding(self):
+        here = Path(__file__).parent
+        workflow_path = here / 'production-stopped-runtime-headroom.yml'
+        if not workflow_path.exists():
+            workflow_path = here.parent / '.github/workflows/production-stopped-runtime-headroom.yml'
+        workflow = workflow_path.read_text()
+        global_scope, jobs = workflow.split('\njobs:\n', 1)
+        contract, recovery = jobs.split('\n  recover:\n', 1)
+        self.assertNotIn('secrets.', global_scope + contract)
+        self.assertNotIn('issues: write', global_scope + contract)
+        self.assertNotIn('concurrency:', global_scope + contract)
+        self.assertIn('    concurrency:\n      group: production-full-stack-exact-sha\n      cancel-in-progress: false', recovery)
+        for binding in ('PC_PROD_HOST', 'PC_PROD_SSH_USER', 'PC_PROD_SSH_PORT',
+                        'PC_PROD_SSH_KEY', 'PC_PROD_SSH_PRIVATE_KEY', 'VPS_SSH_KEY',
+                        'PC_PROD_SSH_HOST_FINGERPRINT'):
+            self.assertEqual(recovery.count('secrets.' + binding + ' }'), 1)
+        self.assertIn('    permissions:\n      contents: read\n      issues: write', recovery)
+
+    def test_all_shared_production_participants_keep_multiple_pending_operations(self):
+        here = Path(__file__).parent
+        workflow_dir = here.parent / '.github/workflows'
+        if not workflow_dir.is_dir():
+            workflow_dir = here.parent / 'pc-crop/.github/workflows'
+        workflows = {p.name: p.read_text() for p in workflow_dir.iterdir()
+                     if p.suffix in ('.yml', '.yaml')}
+        # In the private proposal, overlay the exact future payloads. In source
+        # CI these same files already reside in .github/workflows.
+        for name in ('production-stopped-runtime-headroom.yml',
+                     'production-docker-headroom-recovery.yml',
+                     'production-docker-headroom-owner-push-once.yml'):
+            if (here / name).is_file():
+                workflows[name] = (here / name).read_text()
+        def participants_and_validate(payloads):
+            participants = set()
+            for name, text in payloads.items():
+                lines = text.splitlines()
+                for i, line in enumerate(lines):
+                    if line.strip() != 'concurrency:':
+                        continue
+                    indent = len(line) - len(line.lstrip())
+                    block = []
+                    for child in lines[i + 1:]:
+                        if child.strip() and not child.lstrip().startswith('#'):
+                            if len(child) - len(child.lstrip()) <= indent:
+                                break
+                            block.append(child.strip())
+                    if 'group: production-full-stack-exact-sha' not in block:
+                        continue
+                    participants.add(name)
+                    if block.count('queue: max') != 1 or block.count('cancel-in-progress: false') != 1:
+                        raise ValueError('SHARED_PRODUCTION_PENDING_REPLACEMENT:' + name)
+            return participants
+        expected = {'production-full-stack-exact-sha.yml',
+                    'production-stopped-runtime-headroom.yml',
+                    'production-docker-headroom-recovery.yml',
+                    'production-docker-headroom-owner-push-once.yml'}
+        self.assertEqual(participants_and_validate(workflows), expected)
+        # Exercise the actual prior default-single-pending regression on every
+        # participant, rather than merely checking the new workflow in isolation.
+        for name in sorted(expected):
+            with self.subTest(legacy_default=name):
+                broken = dict(workflows)
+                broken[name] = broken[name].replace('queue: max', '# default pending replacement')
+                with self.assertRaisesRegex(ValueError, 'SHARED_PRODUCTION_PENDING_REPLACEMENT'):
+                    participants_and_validate(broken)
+
+    def test_spent_owner_push_bridge_cannot_mutate_host_when_its_queue_is_corrected(self):
+        import ast
+        import re
+        from types import SimpleNamespace as N
+        here = Path(__file__).parent
+        name = 'production-docker-headroom-owner-push-once.yml'
+        path = here / name
+        if not path.is_file():
+            path = here.parent / '.github/workflows' / name
+        workflow = path.read_text()
+        recovery = workflow.split('\n  recover:\n', 1)[1]
+        condition = re.search(r'\n    if: >-\n((?:      [^\n]*\n)+)', recovery)[1]
+        condition = ' '.join(line.strip() for line in condition.splitlines())
+        condition = condition.replace('&&', ' and ').replace('false', 'False')
+        tree = ast.parse(condition, mode='eval')
+        allowed = (ast.Expression, ast.BoolOp, ast.And, ast.Compare, ast.Eq,
+                   ast.Attribute, ast.Name, ast.Load, ast.Constant)
+        self.assertTrue(all(type(node) in allowed for node in ast.walk(tree)))
+        self.assertIsInstance(tree.body, ast.BoolOp)
+        self.assertIs(tree.body.values[0].value, False)
+        for event in ('push', 'pull_request', 'issue_comment', 'workflow_dispatch'):
+            github = N(event_name=event, repository_owner='owner', actor='owner', triggering_actor='owner')
+            self.assertFalse(eval(compile(tree, '<retired owner-push bridge>', 'eval'),
+                                  {'__builtins__': {}}, {'github': github}))
+        self.assertIn('scripts/production-docker-headroom-recovery.sh', workflow)
+
+    def test_actual_output_validator_retains_unknown_journal_on_broken_transport(self):
+        import re
+        import subprocess
+        import sys
+        import textwrap
+        here = Path(__file__).parent
+        workflow_path = here / 'production-stopped-runtime-headroom.yml'
+        if not workflow_path.exists():
+            workflow_path = here.parent / '.github/workflows/production-stopped-runtime-headroom.yml'
+        workflow = workflow_path.read_text()
+        def actual_block(marker):
+            match = re.search("<<'" + marker + "'\n(.*?)\n          " + marker + "\n", workflow, re.S)
+            self.assertIsNotNone(match)
+            return textwrap.dedent(match[1])
+        pending, record = actual_block('PY_PENDING'), actual_block('PY_RECORD')
+        self.assertLess(workflow.index("<<'PY_PENDING'"), workflow.index('"python3 - --sha'))
+        valid = {'schemaVersion':'pc.stopped-runtime-headroom.v1','targetSha':TARGET,
+                 'beforeAvailableKb':0,'afterAvailableKb':6*1024*1024,'attemptedImages':1,
+                 'deletedImages':1,'refusedImages':0,'passed':True,'targetReached':True,
+                 'metadataUnchanged':True,'volumesUnchanged':True,'networksUnchanged':True,
+                 'runtimeRestored':False,'volumeDataIntegrity':'NOT_ATTESTED'}
+        for raw, accepted in (('',False), ('UNTRUSTED_SECRET',False),
+                              (json.dumps({**valid,'injected':'UNTRUSTED_SECRET'}),False),
+                              (json.dumps(valid),True)):
+            with self.subTest(raw_kind='valid' if accepted else 'rejected'):
+                with tempfile.TemporaryDirectory() as root_name:
+                    root = Path(root_name)
+                    result = subprocess.run([sys.executable,'-',TARGET,str(root)],input=pending,
+                        text=True,capture_output=True)
+                    self.assertEqual(result.returncode,0,result.stderr)
+                    source = root/'input.txt';source.write_text(raw)
+                    result = subprocess.run([sys.executable,'-',str(source),TARGET,str(root)],
+                        input=record,text=True,capture_output=True)
+                    body = (root/'issue-record.md').read_text()
+                    self.assertNotIn('UNTRUSTED_SECRET',body)
+                    if accepted:
+                        self.assertEqual(result.returncode,0,result.stderr)
+                        self.assertTrue((root/'result.jsonl').is_file())
+                    else:
+                        self.assertNotEqual(result.returncode,0)
+                        self.assertIn('`UNKNOWN`',body)
+                        self.assertIn('Do not retry',body)
+                        self.assertFalse((root/'result.jsonl').exists())
+
+    def test_actual_metadata_checks_identity_symlinks_size_and_atime(self):
+        with tempfile.TemporaryDirectory() as root_name:
+            root = Path(root_name)
+            directory = root / 'containers' / CID
+            directory.mkdir(parents=True)
+            config = directory / 'config.v2.json'
+            value = {'ID': CID, 'Image': USED, 'MountPoints': {}, 'Config': {'Env': ['SECRET']}}
+            config.write_text(json.dumps(value))
+            with patch.object(m, 'EXPECTED_REFS', ((CID, USED),)):
+                paths = (root, directory.parent, directory, config)
+                for path in paths:
+                    os.utime(path, ns=(1, path.stat().st_mtime_ns))
+                records, _ = m.metadata(root_name)
+                self.assertEqual(records[0][:2], (CID, USED))
+                self.assertNotIn('SECRET', repr(records))
+                self.assertTrue(all(path.stat().st_atime_ns == 1 for path in paths))
+                config.write_text(json.dumps({**value, 'ID': 'x'}))
+                with self.assertRaises(m.RecoveryError):
+                    m.metadata(root_name)
+                config.unlink()
+                target = root / 'target'
+                target.write_text(json.dumps(value))
+                config.symlink_to(target)
+                with self.assertRaises(OSError):
+                    m.metadata(root_name)
+                config.unlink()
+                config.write_text(json.dumps({**value, 'padding': 'x' * (4 * 1024 * 1024)}))
+                with self.assertRaises(m.RecoveryError):
+                    m.metadata(root_name)
+
+
+if __name__ == '__main__':
+    unittest.main()
+
+~~~~
+
+### Literal source proposal: .github/workflows/production-stopped-runtime-headroom.yml
+
+~~~~yaml
+name: Production Stopped Runtime Headroom
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/production-stopped-runtime-headroom.yml'
+      - 'scripts/production_stopped_runtime_headroom.py'
+      - 'scripts/test_production_stopped_runtime_headroom.py'
+      - 'docs/ops/production-stopped-runtime-headroom.md'
+      - '.github/workflows/production-docker-headroom-recovery.yml'
+      - '.github/workflows/production-docker-headroom-owner-push-once.yml'
+      - '.github/workflows/production-full-stack-exact-sha.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  EVIDENCE_DIR: artifacts/production-stopped-runtime-headroom
+
+jobs:
+  contract:
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 4637 &&
+       github.event.comment.body == '/production reclaim-stopped-runtime current-main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Verify fail-closed recovery fixtures
+        run: python3 scripts/test_production_stopped_runtime_headroom.py
+
+  recover:
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4637 &&
+      github.event.comment.body == '/production reclaim-stopped-runtime current-main' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      needs.contract.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    concurrency:
+      group: production-full-stack-exact-sha
+      cancel-in-progress: false
+      queue: max
+    env:
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind accepted exact main and evidence journal
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          git fetch --no-tags origin main
+          target_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ && "$target_sha" == "$(git rev-parse origin/main)" ]]
+          git checkout --detach "$target_sha"
+          echo "TARGET_SHA=$target_sha" >> "$GITHUB_ENV"
+          printf '%s\n' "$target_sha" > "$EVIDENCE_DIR/target-sha.txt"
+          python3 - <<'PY_BIND'
+          import hashlib, json, pathlib, stat
+          state = json.loads(pathlib.Path('docs/platform-v7/autopilot/autopilot-state.json').read_text())
+          purpose = state.get('coordinationAdmissions', {}).get('stopped-runtime-headroom-20261022')
+          if not isinstance(purpose, dict) or purpose.get('owner') != 'ACCOUNT_1_CORE' or purpose.get('sourceBranch') != 'ops/production-stopped-runtime-headroom-20261022':
+              raise SystemExit('ACCEPTED_SOURCE_PURPOSE_MISSING')
+          expected_paths = ['scripts/production_stopped_runtime_headroom.py', 'scripts/test_production_stopped_runtime_headroom.py', '.github/workflows/production-stopped-runtime-headroom.yml', 'docs/ops/production-stopped-runtime-headroom.md', '.github/workflows/production-docker-headroom-recovery.yml', '.github/workflows/production-docker-headroom-owner-push-once.yml']
+          if [item.get('path') for item in purpose.get('sourcePayloads', [])] != expected_paths:
+              raise SystemExit('SOURCE_VECTOR_MISMATCH')
+          for item in purpose['sourcePayloads']:
+              path = pathlib.Path(item['path'])
+              info = path.lstat()
+              if not stat.S_ISREG(info.st_mode) or format(stat.S_IMODE(info.st_mode), 'o') != item['permissions']:
+                  raise SystemExit('SOURCE_TYPE_MODE_MISMATCH')
+              raw = path.read_bytes()
+              if len(raw) != item['bytes'] or hashlib.sha256(raw).hexdigest() != item['sha256']:
+                  raise SystemExit('SOURCE_PAYLOAD_MISMATCH')
+          PY_BIND
+          read -r state comments is_pr < <(gh api "repos/${GITHUB_REPOSITORY}/issues/4637" --jq '[.state,.comments,has("pull_request")] | @tsv')
+          [[ "$state" == open && "$comments" =~ ^[0-9]+$ && "$is_pr" == false ]] && (( comments < 2500 ))
+      - name: Resolve protected key and pinned VPS identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'Canonical VPS mismatch.' >&2; exit 10; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo 'Protected production principal is missing or invalid.' >&2; exit 11; }
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo 'Pinned host fingerprint is required.' >&2; exit 13; }
+          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
+          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            ssh-keygen -lf "$pub" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || {
+            echo 'No valid protected SSH private key is configured.' >&2
+            exit 14
+          }
+
+          scan="$(mktemp)"; match="$(mktemp)"
+          pinned_ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned_ready=1; break; fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; echo 'Pinned host key mismatch after bounded retries.' >&2; exit 15; }
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          echo "PROD_HOST=$host" >> "$GITHUB_ENV"
+          echo "PROD_PORT=$port" >> "$GITHUB_ENV"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$SSH_USER_SECRET@$host" \
+            'set -Eeuo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; echo SSH_AUTH_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+
+      - name: Execute only the separately accepted image-only stage
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          # A broken transport or rejected output must still leave a safe journal outcome.
+          python3 - "$TARGET_SHA" "$EVIDENCE_DIR" <<'PY_PENDING'
+          import pathlib, re, sys
+          target, output = sys.argv[1:]
+          if not re.fullmatch('[0-9a-f]{40}', target):
+              raise SystemExit('INVALID_SOURCE_SHA')
+          body = '# Stopped-runtime image headroom\n\nExact source: `'+target+'`.\n\n'
+          body += 'Stage outcome: `UNKNOWN`; runtime restored: `false`; volume data integrity: `NOT_ATTESTED`.\n'
+          body += 'No validated terminal result is available. Do not retry; perform fresh read-only reconciliation.\n'
+          pathlib.Path(output,'issue-record.md').write_text(body)
+          PY_PENDING
+          raw="$(mktemp)"
+          trap 'rm -f "$raw"' EXIT
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            "$SSH_USER_SECRET@$PROD_HOST" "python3 - --sha '$TARGET_SHA' --execute" \
+            < scripts/production_stopped_runtime_headroom.py > "$raw" 2>/dev/null
+          rc=$?
+          set -e
+          # Never upload unvalidated output or raw Docker/SSH errors.
+          python3 - "$raw" "$TARGET_SHA" "$EVIDENCE_DIR" <<'PY_RECORD'
+          import json, pathlib, re, sys
+          raw, expected, output = sys.argv[1:]
+          data = pathlib.Path(raw).read_bytes()
+          if len(data) > 131072:
+              raise SystemExit('OUTPUT_LIMIT')
+          progress = {'stage','targetSha','attempt','accepted','outcome'}
+          final = {'schemaVersion','targetSha','beforeAvailableKb','afterAvailableKb','attemptedImages','deletedImages','refusedImages','passed','targetReached','metadataUnchanged','volumesUnchanged','networksUnchanged','runtimeRestored','volumeDataIntegrity'}
+          failed = {'schemaVersion','passed','errorCode','runtimeRestored','mutationOutcome'}
+          rows = []
+          for line in data.decode('utf-8').splitlines():
+              item = json.loads(line)
+              if not isinstance(item, dict) or set(item) not in (progress, final, failed):
+                  raise SystemExit('OUTPUT_SCHEMA')
+              if set(item) == progress:
+                  if item['targetSha'] != expected or item['stage'] != 'REMOVAL_ATTEMPT_RETURNED' or item['outcome'] != 'NOT_YET_RECONCILED' or type(item['attempt']) is not int or not 1 <= item['attempt'] <= 40 or type(item['accepted']) is not bool:
+                      raise SystemExit('PROGRESS_SCHEMA')
+              else:
+                  if item['schemaVersion'] != 'pc.stopped-runtime-headroom.v1' or item['runtimeRestored'] is not False or type(item['passed']) is not bool:
+                      raise SystemExit('RESULT_SCHEMA')
+                  if set(item) == failed:
+                      if item['passed'] is not False or not isinstance(item['errorCode'], str) or not re.fullmatch('[A-Z_]{1,64}', item['errorCode']) or item['mutationOutcome'] != 'RECONCILIATION_REQUIRED_IF_STARTED':
+                          raise SystemExit('ERROR_SCHEMA')
+                  else:
+                      if item['targetSha'] != expected or item['volumeDataIntegrity'] != 'NOT_ATTESTED' or any(item[key] is not True for key in ('metadataUnchanged','volumesUnchanged','networksUnchanged')):
+                          raise SystemExit('INVARIANT_SCHEMA')
+                      for key in ('beforeAvailableKb','afterAvailableKb','attemptedImages','deletedImages','refusedImages'):
+                          if type(item[key]) is not int or item[key] < 0:
+                              raise SystemExit('COUNT_SCHEMA')
+                      if type(item['targetReached']) is not bool or item['attemptedImages'] > 40 or item['deletedImages'] + item['refusedImages'] != item['attemptedImages'] or item['passed'] != (item['afterAvailableKb'] >= 5*1024*1024) or item['targetReached'] != (item['afterAvailableKb'] >= 6*1024*1024):
+                          raise SystemExit('THRESHOLD_SCHEMA')
+              rows.append(item)
+          if not rows or set(rows[-1]) not in (final, failed) or any(set(row) != progress for row in rows[:-1]):
+              raise SystemExit('TERMINAL_RESULT_MISSING')
+          result = rows[-1]
+          pathlib.Path(output,'result.jsonl').write_text(''.join(json.dumps(x,separators=(',',':'))+'\n' for x in rows))
+          body = '# Stopped-runtime image headroom\n\nExact source: `'+expected+'`.\n\n'
+          body += 'Image-only stage result: `'+str(result['passed'])+'`; runtime restored: `false`; volume data integrity: `NOT_ATTESTED`.\n'
+          if result['passed']:
+              body += 'Available KiB: `'+str(result['afterAvailableKb'])+'`; deleted image objects: `'+str(result['deletedImages'])+'`.\n'
+          else:
+              body += 'Failure requires fresh reconciliation; never replay the old cleanup or assume no partial removal.\n'
+          pathlib.Path(output,'issue-record.md').write_text(body)
+          PY_RECORD
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          (( rc == 0 ))
+      - name: Cleanup protected transport
+        if: always()
+        shell: bash
+        run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
+      - name: Publish bounded terminal evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ -f "$EVIDENCE_DIR/issue-record.md" ]]; then
+            gh issue comment 4637 --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/issue-record.md"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stopped-runtime-headroom-${{ github.run_id }}
+          path: artifacts/production-stopped-runtime-headroom
+          if-no-files-found: error
+          retention-days: 90
+
+~~~~
+
+### Literal source proposal: docs/ops/production-stopped-runtime-headroom.md
+
+~~~~markdown
+# Stopped-runtime image headroom
+
+This is a separate CORE P0 prerequisite for the observed zero-container baseline. It does not replace or invoke the existing live-runtime cleanup, whose one API/one Web precondition and immutable payload remain unchanged.
+
+Only the exact 40 historical full image IDs are candidates. Source inputs are hash-verified artifacts12388170138 and11955461195, whose eleven full container/image references agree exactly. The available two-newest reserve per component/namespace is preserved explicitly (eleven images total; the existing registry-Web namespace contains only one image). All original registry images remain outside this operation's candidate list. No third-party image, model, build cache, parent image, container, volume, network or customer data may be removed.
+
+The owner-only command is `/production reclaim-stopped-runtime current-main` in #4637, after this exact source has independently passed its separate admission, review, native checks and merge. No schedule, arbitrary input, direct SSH credential export, force deletion, alias-based removal, daemon restart or standalone old-script invocation is authorized.
+
+Before each non-force `docker image rm --no-prune FULL_ID`, require unchanged full on-disk configs, exactly the pinned eleven references, named-volume availability, unchanged 19 volumes / 6 networks, zero daemon containers, the local pinned Docker endpoint, nonnegative actual Engine API1.51 image use counts, no unreconciled containerd reference, intact rollback reserve, exact candidate refs/revision and current-target protection. Any drift, unknown count, unsupported API, forbidden context or missing metadata stops before the next removal. The static list cannot expand. Refused removals are not forced or retried; their exact remaining refs/revision must still reconcile. A final complete inventory reconciliation is mandatory even when the initial free space was already sufficient and no removal ran. The stage stops at 6 GiB, requires at least 5 GiB, and records ambiguous attempts before reconciliation.
+
+Output is bounded aggregate JSON, never raw config/environment/daemon logs. Source, transport and host outcomes remain distinct. A failure after an attempt requires a new read-only reconciliation; do not replay an operation whose outcome is unknown. A successful image stage establishes only headroom and unchanged metadata/object sets. It does not prove volume-data integrity, backup applicability, restarted services, current-main application deployment, money/FGIS integration or MASTER progress.
+
+After headroom, a separate governed data/backup verification and restoration stage remains necessary. No daemon restart or data restoration is part of this operation. New recurring cost 0 RUB.
+
+Primary sources checked2026-10-22MSK: https://docs.docker.com/reference/api/engine/version-history/ (API1.51 per-image Containers count); https://docs.docker.com/reference/api/engine/version/v1.51/ ; https://docs.docker.com/reference/cli/docker/image/rm/ ; https://man7.org/linux/man-pages/man2/open.2.html . Unknown or unavailable contracts fail closed.
+
+Protected SSH secret bindings and issue-write permission exist only in the owner-gated recovery job. The pull-request contract inherits contents-read permission and no protected secret bindings; its negative regression preserves that boundary.
+
+The new workflow acquires the shared production concurrency group only in the owner-gated recovery job. Every repository participant in this group uses `queue: max`, including both legacy headroom workflows, so unrelated events do not replace a pending recovery. The spent owner-push bridge is explicitly retired (`false` recover condition): accepting its scheduling correction cannot automatically invoke a host mutation. The original cleanup script and manual owner command retain their existing 1API/1Web guard unchanged.
+
+Concurrency semantics checked against the primary GitHub Actions documentation: https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency .
+
+A bounded UNKNOWN journal record is created before the first remote mutation attempt. Broken transport or rejected output retains that record, publishes no raw data and requires read-only reconciliation before another operation. Actual embedded validator regression covers empty, malformed, injected and valid terminal output.
+
+Engine image-use counts are supplemental. Every observation also requires direct read-only `ctr` queries proving zero actual containerd container objects and tasks in Docker's exclusive moby namespace, through its reported allowlisted root-owned local socket. Unknown socket/namespace, missing tooling, a failed query or any containerd object blocks all further removal. This stricter condition has not yet been attested on the host. Primary implementation sources: https://github.com/moby/moby/blob/master/daemon/containerd/image_list.go ; https://github.com/moby/moby/blob/master/api/types/system/info.go ; https://github.com/containerd/containerd/blob/main/cmd/ctr/commands/containers/containers.go ; https://github.com/containerd/containerd/blob/main/cmd/ctr/commands/tasks/list.go .
+
+~~~~
+
+### Exact legacy source after: .github/workflows/production-docker-headroom-recovery.yml
+
+JSON string array; concatenate decoded elements without separators to reconstruct every byte, including inherited whitespace. Before blob: `13564e9ebae27c85cbb12e23d2b03ead2406d422`.
+
+~~~~json
+[
+  "name: Production Docker Headroom Recovery\n",
+  "\n",
+  "on:\n",
+  "  pull_request:\n",
+  "    paths:\n",
+  "      - '.github/workflows/production-docker-headroom-recovery.yml'\n",
+  "      - 'scripts/production-docker-headroom-recovery.sh'\n",
+  "      - 'docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json'\n",
+  "  issue_comment:\n",
+  "    types: [created]\n",
+  "\n",
+  "permissions:\n",
+  "  contents: read\n",
+  "  issues: write\n",
+  "\n",
+  "concurrency:\n",
+  "  # Serialize this storage mutation with the exact-SHA production rollout.\n",
+  "  group: production-full-stack-exact-sha\n",
+  "  cancel-in-progress: false\n",
+  "  queue: max\n",
+  "\n",
+  "env:\n",
+  "  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai\n",
+  "  DEFAULT_HOST: 195.19.12.120\n",
+  "  RECOVERY_ISSUE_NUMBER: 4637\n",
+  "  EVIDENCE_DIR: artifacts/production-docker-headroom-recovery\n",
+  "  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}\n",
+  "  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}\n",
+  "  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}\n",
+  "  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}\n",
+  "  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}\n",
+  "  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}\n",
+  "  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}\n",
+  "\n",
+  "jobs:\n",
+  "  contract:\n",
+  "    name: Validate bounded recovery contract\n",
+  "    if: >-\n",
+  "      github.event_name == 'pull_request' ||\n",
+  "      (github.event_name == 'issue_comment' &&\n",
+  "       github.event.issue.number == 4637 &&\n",
+  "       github.event.comment.body == '/production reclaim-docker current-main')\n",
+  "    runs-on: ubuntu-24.04\n",
+  "    timeout-minutes: 10\n",
+  "    steps:\n",
+  "      - uses: actions/checkout@v4\n",
+  "        with:\n",
+  "          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}\n",
+  "          persist-credentials: false\n",
+  "      - name: Validate shell and recovery boundary\n",
+  "        shell: bash\n",
+  "        run: |\n",
+  "          set -Eeuo pipefail\n",
+  "          bash -n scripts/production-docker-headroom-recovery.sh\n",
+  "          python3 - <<'PY'\n",
+  "          import json\n",
+  "          import pathlib\n",
+  "          import re\n",
+  "\n",
+  "          workflow = pathlib.Path('.github/workflows/production-docker-headroom-recovery.yml').read_text(encoding='utf-8')\n",
+  "          script = pathlib.Path('scripts/production-docker-headroom-recovery.sh').read_text(encoding='utf-8')\n",
+  "          scope = json.loads(pathlib.Path('docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json').read_text(encoding='utf-8'))\n",
+  "          required_workflow = [\n",
+  "              \"github.event.issue.number == 4637\",\n",
+  "              \"github.event.comment.body == '/production reclaim-docker current-main'\",\n",
+  "              'github.event.comment.user.login',\n",
+  "              'github.repository_owner',\n",
+  "              'PC_PROD_SSH_HOST_FINGERPRINT',\n",
+  "              'StrictHostKeyChecking=yes',\n",
+  "              'BatchMode=yes',\n",
+  "              'scripts/production-docker-headroom-recovery.sh',\n",
+  "              'CONTAINERD_STORAGE_FILESYSTEM_SHARED=1',\n",
+  "              'RUNTIME_CONTAINER_IDENTITY_UNCHANGED=1',\n",
+  "              'DOCKER_OBJECT_COUNTS_UNCHANGED=1',\n",
+  "              'echo \"TARGET_SHA=$target_sha\" >> \"$GITHUB_ENV\"',\n",
+  "              'mkdir -p \"$EVIDENCE_DIR\"',\n",
+  "          ]\n",
+  "          required_script = [\n",
+  "              'REQUIRED_KB=$((5 * 1024 * 1024))',\n",
+  "              'TARGET_KB=$((6 * 1024 * 1024))',\n",
+  "              \"docker info --format '{{.DockerRootDir}}'\",\n",
+  "              \"stat -c '%d' /var/lib/containerd\",\n",
+  "              \"docker', 'ps', '-aq', '--no-trunc'\",\n",
+  "              \"grainflow-(api|web|migration|tai)\",\n",
+  "              \"revision == target_sha\",\n",
+  "              \"[:2]\",\n",
+  "              \"docker', 'image', 'rm'\",\n",
+  "              \"'rm', '--no-prune', ref\",\n",
+  "              \"'rm', '--no-prune', record['id']\",\n",
+  "              'BOUNDED_UNUSED_CANONICAL_IMAGE_RECLAIM',\n",
+  "              'DOCKER_HEADROOM_RECOVERY=',\n",
+  "          ]\n",
+  "          for needle in required_workflow:\n",
+  "              if needle not in workflow:\n",
+  "                  raise SystemExit(f'missing workflow boundary: {needle}')\n",
+  "          for needle in required_script:\n",
+  "              if needle not in script:\n",
+  "                  raise SystemExit(f'missing recovery boundary: {needle}')\n",
+  "          cross_job_target = 'needs.resolve.outputs.' + 'target_sha'\n",
+  "          if cross_job_target in workflow:\n",
+  "              raise SystemExit('cross-job target SHA output is forbidden because GitHub secret masking can redact ordinary SHAs')\n",
+  "          forbidden = [\n",
+  "              r'docker\\s+system\\s+prune',\n",
+  "              r'docker\\s+image\\s+prune',\n",
+  "              r'docker\\s+builder\\s+prune',\n",
+  "              r'docker\\s+(?:container|volume|network)\\s+(?:rm|prune)',\n",
+  "              r'docker[^\\n]*\\brm\\s+-f\\b',\n",
+  "              r'StrictHostKeyChecking' + r'=no',\n",
+  "              r'ssh' + r'pass',\n",
+  "              r'SSH_' + r'PASSWORD',\n",
+  "          ]\n",
+  "          combined = workflow + '\\n' + script\n",
+  "          for pattern in forbidden:\n",
+  "              if re.search(pattern, combined, re.I):\n",
+  "                  raise SystemExit(f'forbidden recovery capability: {pattern}')\n",
+  "          if scope.get('branch') != 'fix/pc-crop-docker-headroom-rollover-4637':\n",
+  "              raise SystemExit('scope branch mismatch')\n",
+  "          if scope.get('issue') != 3785 or scope.get('evidenceIssue') != 3072:\n",
+  "              raise SystemExit('historical authority binding mismatch')\n",
+  "          if scope.get('authorityContinuationIssue') != 4637 or scope.get('registrationMatrixIssue') != 3785:\n",
+  "              raise SystemExit('continuation authority mismatch')\n",
+  "          if scope.get('newRecurringCostRub') != 0:\n",
+  "              raise SystemExit('scope recurring cost mismatch')\n",
+  "          print('PASS: bounded hosted recovery preserves running/stopped container images, exact-main images, two newest canonical rollback images, and forbids broad prune/delete capabilities.')\n",
+  "          PY\n",
+  "\n",
+  "      - name: Prove actual bounded reclaim positive and negative scenarios\n",
+  "        shell: bash\n",
+  "        run: |\n",
+  "          python3 - <<'PY_RECLAIM_TEST'\n",
+  "          import ast\n",
+  "          import copy\n",
+  "          import hashlib\n",
+  "          import json\n",
+  "          import pathlib\n",
+  "          import re\n",
+  "          import subprocess\n",
+  "          import sys\n",
+  "          import tempfile\n",
+  "          import unittest\n",
+  "          from unittest.mock import patch\n",
+  "          \n",
+  "          SOURCE = pathlib.Path('scripts/production-docker-headroom-recovery.sh').read_text()\n",
+  "          PAYLOAD = SOURCE.split(\"<<'PY_RECLAIM'\\n\", 1)[1].split('\\nPY_RECLAIM\\n', 1)[0]\n",
+  "          TARGET = 'f' * 40\n",
+  "          GIB_KB = 1024 * 1024\n",
+  "          \n",
+  "          \n",
+  "          def image(component, generation, namespace='transfer', revision=None):\n",
+  "              revision = revision or hashlib.sha1(f'{component}-{namespace}-{generation}'.encode()).hexdigest()\n",
+  "              image_id = 'sha256:' + hashlib.sha256(f'{component}-{namespace}-{generation}'.encode()).hexdigest()\n",
+  "              prefix = f'pc-crop-transfer/{component}' if namespace == 'transfer' else f'ghcr.io/pachaninm-lab/grainflow-{component}'\n",
+  "              return {\n",
+  "                  'Id': image_id, 'Size': 1024 * 1024,\n",
+  "                  'Created': f'2026-09-{generation:02d}T00:00:00.000000000Z',\n",
+  "                  'RepoTags': [f'{prefix}:{revision}'],\n",
+  "                  'RepoDigests': [f'{prefix}@{image_id}'],\n",
+  "                  'Config': {'Labels': {'org.opencontainers.image.revision': revision}},\n",
+  "              }\n",
+  "          \n",
+  "          \n",
+  "          class DockerFixture:\n",
+  "              def __init__(self, items=None, free=0, gain=6 * GIB_KB, all_become_used=False, changed_refs=False, changed_ref_target=False, removal_error=False, retain_unreferenced=False, parent_chain=False):\n",
+  "                  items = items or [image(c, g, n) for c in ('api', 'web', 'migration') for n in ('transfer', 'canonical') for g in (1, 2, 3)]\n",
+  "                  self.images = {i['Id']: copy.deepcopy(i) for i in items}\n",
+  "                  self.parent_links = {}\n",
+  "                  self.unattested_parents = ()\n",
+  "                  if parent_chain:\n",
+  "                      child = image('web', 1)['Id']\n",
+  "                      parent_ids = tuple('sha256:' + hashlib.sha256(f'unproven-parent-{n}'.encode()).hexdigest() for n in (1, 2))\n",
+  "                      for parent_id in parent_ids:\n",
+  "                          self.images[parent_id] = {'Id': parent_id, 'Size': 0, 'Created': '2026-08-01T00:00:00Z',\n",
+  "                                                    'RepoTags': [], 'RepoDigests': [], 'Config': {'Labels': None}}\n",
+  "                      self.parent_links = {child: parent_ids[0], parent_ids[0]: parent_ids[1]}\n",
+  "                      self.unattested_parents = parent_ids\n",
+  "                  self.before = copy.deepcopy(self.images)\n",
+  "                  self.containers = {}\n",
+  "                  self.free = free\n",
+  "                  self.gain = gain\n",
+  "                  self.all_become_used = all_become_used\n",
+  "                  self.changed_refs = changed_refs\n",
+  "                  self.changed_ref_target = changed_ref_target\n",
+  "                  self.removal_error = removal_error\n",
+  "                  self.retain_unreferenced = retain_unreferenced\n",
+  "                  self.ps_calls = 0\n",
+  "                  self.ls_done = False\n",
+  "                  self.removed_refs = []\n",
+  "                  self.deleted = []\n",
+  "                  self.all_commands = []\n",
+  "          \n",
+  "              def resolve(self, ref):\n",
+  "                  if ref in self.images:\n",
+  "                      return self.images[ref]\n",
+  "                  return next((x for x in self.images.values() if ref in (x.get('RepoTags') or []) + (x.get('RepoDigests') or [])), None)\n",
+  "          \n",
+  "              def run(self, argv, **kwargs):\n",
+  "                  self.all_commands.append(argv)\n",
+  "                  assert kwargs['stdout'] == subprocess.PIPE and kwargs['stderr'] == subprocess.PIPE\n",
+  "                  stdout, stderr, rc = '', '', 0\n",
+  "                  if argv[:2] == ['df', '-Pk']:\n",
+  "                      stdout = f'Filesystem 1024-blocks Used Available Capacity Mounted on\\n/dev/test 99999999 100 {self.free} 100% /test\\n'\n",
+  "                  elif argv == ['docker', 'ps', '-aq', '--no-trunc']:\n",
+  "                      self.ps_calls += 1\n",
+  "                      if self.all_become_used and self.ps_calls > 1:\n",
+  "                          self.containers = {f'container-{i}': k for i, k in enumerate(self.images)}\n",
+  "                      stdout = '\\n'.join(self.containers)\n",
+  "                  elif argv[:2] == ['docker', 'inspect']:\n",
+  "                      stdout = json.dumps([{'Image': self.containers[argv[2]]}])\n",
+  "                  elif argv == ['docker', 'image', 'ls', '-q', '--no-trunc']:\n",
+  "                      self.ls_done = True\n",
+  "                      stdout = '\\n'.join(self.images)\n",
+  "                  elif argv[:3] == ['docker', 'image', 'inspect']:\n",
+  "                      ref = argv[3]\n",
+  "                      row = self.resolve(ref)\n",
+  "                      if self.changed_refs and self.ps_calls > 1 and row:\n",
+  "                          row['RepoTags'] = ['third-party/unapproved:latest']\n",
+  "                      if self.changed_ref_target and not ref.startswith('sha256:') and self.ps_calls > 1 and row:\n",
+  "                          row = {**row, 'Id': 'sha256:' + 'e' * 64}\n",
+  "                      if row:\n",
+  "                          stdout = json.dumps([row])\n",
+  "                      else:\n",
+  "                          rc, stderr = 1, 'No such image'\n",
+  "                  elif argv[:3] == ['docker', 'image', 'rm']:\n",
+  "                      arguments = argv[3:]\n",
+  "                      no_prune = arguments[:1] == ['--no-prune']\n",
+  "                      ref = arguments[-1]\n",
+  "                      assert arguments == (['--no-prune', ref] if no_prune else [ref]) and not ref.startswith('-'), argv\n",
+  "                      row = self.resolve(ref)\n",
+  "                      if self.removal_error:\n",
+  "                          rc, stderr = 1, 'no space left on device'\n",
+  "                      elif row is None:\n",
+  "                          rc, stderr = 1, 'No such image'\n",
+  "                      else:\n",
+  "                          assert row['Id'] not in self.containers.values(), 'referenced image removal attempted'\n",
+  "                          self.removed_refs.append(ref)\n",
+  "                          for key in ('RepoTags', 'RepoDigests'):\n",
+  "                              row[key] = [r for r in (row.get(key) or []) if r != ref]\n",
+  "                          if ref == row['Id'] or not self.retain_unreferenced and not row['RepoTags'] + row['RepoDigests']:\n",
+  "                              self.deleted.append(row['Id'])\n",
+  "                              del self.images[row['Id']]\n",
+  "                              self.free += self.gain\n",
+  "                              # Model Docker's documented automatic deletion of untagged parents.\n",
+  "                              parent_id = self.parent_links.get(row['Id'])\n",
+  "                              while not no_prune and parent_id in self.images:\n",
+  "                                  parent = self.images[parent_id]\n",
+  "                                  if parent_id in self.containers.values() or parent['RepoTags'] or parent['RepoDigests']:\n",
+  "                                      break\n",
+  "                                  self.deleted.append(parent_id)\n",
+  "                                  del self.images[parent_id]\n",
+  "                                  parent_id = self.parent_links.get(parent_id)\n",
+  "                  else:\n",
+  "                      raise AssertionError(f'unexpected capability: {argv}')\n",
+  "                  return subprocess.CompletedProcess(argv, rc, stdout, stderr)\n",
+  "          \n",
+  "          \n",
+  "          def execute(fixture):\n",
+  "              with tempfile.TemporaryDirectory() as tmp:\n",
+  "                  report = pathlib.Path(tmp) / 'report.json'\n",
+  "                  argv = ['reclaim', TARGET, '123', str(report), str(5 * GIB_KB), str(6 * GIB_KB), '/test']\n",
+  "                  code = 0\n",
+  "                  with patch.object(sys, 'argv', argv), patch.object(subprocess, 'run', fixture.run):\n",
+  "                      try:\n",
+  "                          exec(compile(PAYLOAD, '<actual recovery payload>', 'exec'), {})\n",
+  "                      except SystemExit as e:\n",
+  "                          code = e.code\n",
+  "                  return code, json.loads(report.read_text())\n",
+  "          \n",
+  "          \n",
+  "          class RecoveryTests(unittest.TestCase):\n",
+  "              def test_proven_transfer_tag_then_digest_removes_object(self):\n",
+  "                  f = DockerFixture([image('web', g) for g in (1, 2, 3)])\n",
+  "                  code, report = execute(f)\n",
+  "                  self.assertEqual(code, 0)\n",
+  "                  self.assertEqual(report['removedReferenceCount'], 2)\n",
+  "                  self.assertEqual(report['deletedImageCount'], 1)\n",
+  "                  self.assertNotIn(image('web', 1)['Id'], f.images)\n",
+  "                  self.assertIn(image('web', 2)['Id'], f.images)\n",
+  "                  self.assertIn(image('web', 3)['Id'], f.images)\n",
+  "          \n",
+  "              def test_attested_orphan_removed_only_by_exact_id(self):\n",
+  "                  f = DockerFixture([image('web', g) for g in (1, 2, 3)], retain_unreferenced=True)\n",
+  "                  code, report = execute(f)\n",
+  "                  self.assertEqual(code, 0)\n",
+  "                  self.assertEqual(report['removedReferenceCount'], 2)\n",
+  "                  self.assertEqual(report['deletedImageCount'], 1)\n",
+  "                  self.assertEqual(f.removed_refs[-1], image('web', 1)['Id'])\n",
+  "          \n",
+  "              def assert_unattested_parent_chain_survives(self, retain_unreferenced):\n",
+  "                  f = DockerFixture([image('web', g) for g in (1, 2, 3)],\n",
+  "                                    retain_unreferenced=retain_unreferenced, parent_chain=True)\n",
+  "                  code, report = execute(f)\n",
+  "                  self.assertEqual(code, 0)\n",
+  "                  self.assertTrue(report['passed'])\n",
+  "                  self.assertEqual(report['eligibleImageCount'], 1)\n",
+  "                  self.assertEqual(report['deletedImageCount'], 1)\n",
+  "                  self.assertEqual(f.deleted, [image('web', 1)['Id']])\n",
+  "                  for parent_id in f.unattested_parents:\n",
+  "                      self.assertEqual(f.images.get(parent_id), f.before[parent_id])\n",
+  "                  self.assertIn(image('web', 2)['Id'], f.images)\n",
+  "                  self.assertIn(image('web', 3)['Id'], f.images)\n",
+  "                  if retain_unreferenced:\n",
+  "                      self.assertEqual(f.removed_refs[-1], image('web', 1)['Id'])\n",
+  "                  else:\n",
+  "                      self.assertFalse(f.removed_refs[-1].startswith('sha256:'))\n",
+  "          \n",
+  "              def test_reference_removal_preserves_unattested_parent_chain(self):\n",
+  "                  self.assert_unattested_parent_chain_survives(retain_unreferenced=False)\n",
+  "          \n",
+  "              def test_immutable_id_removal_preserves_unattested_parent_chain(self):\n",
+  "                  self.assert_unattested_parent_chain_survives(retain_unreferenced=True)\n",
+  "          \n",
+  "              def test_actual_payload_stops_at_target_and_preserves_both_reserves(self):\n",
+  "                  f = DockerFixture()\n",
+  "                  code, report = execute(f)\n",
+  "                  self.assertEqual(code, 0)\n",
+  "                  self.assertEqual(report['deletedImageCount'], 1)\n",
+  "                  self.assertEqual(report['afterAvailableKb'], 6 * GIB_KB)\n",
+  "                  self.assertTrue(report['passed'])\n",
+  "                  self.assertEqual(report['eligibleImageCount'], 6)\n",
+  "                  for c in ('api', 'web', 'migration'):\n",
+  "                      for n in ('canonical', 'transfer'):\n",
+  "                          for g in (2, 3):\n",
+  "                              self.assertIn(image(c, g, n)['Id'], f.images)\n",
+  "          \n",
+  "              def test_no_removal_when_capacity_already_sufficient(self):\n",
+  "                  f = DockerFixture(free=6 * GIB_KB)\n",
+  "                  _, report = execute(f)\n",
+  "                  self.assertEqual(f.removed_refs, [])\n",
+  "                  self.assertEqual(report['attemptedImageCount'], 0)\n",
+  "          \n",
+  "              def test_running_and_stopped_container_images_are_protected(self):\n",
+  "                  f = DockerFixture()\n",
+  "                  for n in ('canonical', 'transfer'):\n",
+  "                      for c in ('api', 'web', 'migration'):\n",
+  "                          f.containers[f'{n}-{c}-stopped'] = image(c, 1, n)['Id']\n",
+  "                  code, report = execute(f)\n",
+  "                  self.assertEqual(code, 91)\n",
+  "                  self.assertEqual(report['eligibleImageCount'], 0)\n",
+  "                  self.assertEqual(f.removed_refs, [])\n",
+  "          \n",
+  "              def test_new_container_reference_before_removal_fails_closed(self):\n",
+  "                  f = DockerFixture(all_become_used=True)\n",
+  "                  code, report = execute(f)\n",
+  "                  self.assertEqual(code, 91)\n",
+  "                  self.assertEqual(f.removed_refs, [])\n",
+  "                  self.assertEqual(report['removeFailureCounts']['CONTAINER_REFERENCE'], 6)\n",
+  "          \n",
+  "              def test_changed_reference_namespace_fails_closed(self):\n",
+  "                  f = DockerFixture(changed_refs=True)\n",
+  "                  code, report = execute(f)\n",
+  "                  self.assertEqual(code, 91)\n",
+  "                  self.assertEqual(f.removed_refs, [])\n",
+  "                  self.assertEqual(report['removeFailureCounts']['UNEXPECTED_REFERENCE_STATE'], 6)\n",
+  "          \n",
+  "              def test_reference_now_resolves_to_different_image_fails_closed(self):\n",
+  "                  f = DockerFixture(changed_ref_target=True)\n",
+  "                  code, report = execute(f)\n",
+  "                  self.assertEqual(code, 91)\n",
+  "                  self.assertEqual(f.removed_refs, [])\n",
+  "                  self.assertEqual(report['removeFailureCounts']['UNEXPECTED_REFERENCE_STATE'], 6)\n",
+  "          \n",
+  "              def test_docker_removal_failure_has_no_false_capacity_pass(self):\n",
+  "                  f = DockerFixture(removal_error=True)\n",
+  "                  code, report = execute(f)\n",
+  "                  self.assertEqual(code, 91)\n",
+  "                  self.assertFalse(report['passed'])\n",
+  "                  self.assertEqual(report['deletedImageCount'], 0)\n",
+  "                  self.assertEqual(report['afterAvailableKb'], 0)\n",
+  "                  self.assertEqual(report['removeFailureCounts']['NO_SPACE'], 6)\n",
+  "          \n",
+  "              def test_exact_main_revision_is_protected(self):\n",
+  "                  items = [image('web', g) for g in (1, 2, 3)]\n",
+  "                  items[0] = image('web', 1, revision=TARGET)\n",
+  "                  f = DockerFixture(items)\n",
+  "                  code, report = execute(f)\n",
+  "                  self.assertEqual(code, 91)\n",
+  "                  self.assertEqual(report['eligibleImageCount'], 0)\n",
+  "                  self.assertEqual(f.removed_refs, [])\n",
+  "          \n",
+  "              def test_new_registry_import_cannot_displace_transfer_rollback(self):\n",
+  "                  items = [image('web', g, n) for n, generations in [('canonical', (1, 5, 6)), ('transfer', (1, 2, 3))] for g in generations]\n",
+  "                  f = DockerFixture(items)\n",
+  "                  _, report = execute(f)\n",
+  "                  self.assertEqual(report['eligibleImageCount'], 2)\n",
+  "                  self.assertIn(image('web', 2)['Id'], f.images)\n",
+  "                  self.assertIn(image('web', 3)['Id'], f.images)\n",
+  "                  self.assertIn(image('web', 5, 'canonical')['Id'], f.images)\n",
+  "                  self.assertIn(image('web', 6, 'canonical')['Id'], f.images)\n",
+  "          \n",
+  "              def test_container_environment_never_enters_report(self):\n",
+  "                  f = DockerFixture()\n",
+  "                  for row in f.images.values():\n",
+  "                      row['Config']['Env'] = ['SECRET=CUSTOMER_ENV_SENTINEL']\n",
+  "                  _, report = execute(f)\n",
+  "                  self.assertNotIn('CUSTOMER_ENV_SENTINEL', json.dumps(report))\n",
+  "          \n",
+  "              def test_invalid_image_identity_fails_before_any_removal(self):\n",
+  "                  f = DockerFixture()\n",
+  "                  next(iter(f.images.values()))['Id'] = 'sha256:' + 'e' * 64\n",
+  "                  with self.assertRaisesRegex(RuntimeError, 'image_inspect_id_mismatch'):\n",
+  "                      execute(f)\n",
+  "                  self.assertEqual(f.removed_refs, [])\n",
+  "          \n",
+  "              def test_classifier_positive_and_negative_cases_from_actual_source(self):\n",
+  "                  module = ast.parse(PAYLOAD)\n",
+  "                  constants = {'canonical_tag', 'canonical_digest', 'transfer_tag', 'transfer_digest', 'revision_re', 'image_id_re', 'reclaim_components'}\n",
+  "                  functions = {'image_refs', 'ref_component', 'classify_release_image'}\n",
+  "                  nodes = [n for n in module.body if isinstance(n, (ast.Import, ast.ImportFrom)) or isinstance(n, ast.FunctionDef) and n.name in functions or isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id in constants for t in n.targets)]\n",
+  "                  ns = {}\n",
+  "                  exec(compile(ast.Module(body=nodes, type_ignores=[]), '<actual classifier>', 'exec'), ns)\n",
+  "                  classify = ns['classify_release_image']\n",
+  "                  positive = image('web', 1)\n",
+  "                  self.assertIsNotNone(classify(positive, require_tag=False))\n",
+  "                  digest_only = image('web', 1, 'canonical')\n",
+  "                  digest_only['RepoTags'] = []\n",
+  "                  self.assertIsNotNone(classify(digest_only, require_tag=False))\n",
+  "                  cases = []\n",
+  "                  for component in ('tai', 'outbox-worker'):\n",
+  "                      cases.extend([image(component, 1, 'canonical'), image(component, 1)])\n",
+  "                  for config in (None, {}, {'Labels': None}, {'Labels': {}}, {'Labels': {'org.opencontainers.image.revision': 'unknown'}}, {'Labels': {'org.opencontainers.image.revision': 'a' * 39}}):\n",
+  "                      cases.append({**positive, 'Config': config})\n",
+  "                  cases.extend([\n",
+  "                      {**positive, 'RepoTags': []},\n",
+  "                      {**positive, 'RepoTags': None},\n",
+  "                      {**positive, 'RepoTags': ['pc-crop-transfer/web:latest']},\n",
+  "                      {**positive, 'RepoTags': ['pc-crop-transfer/web:' + 'd' * 40]},\n",
+  "                      {**positive, 'RepoTags': [1]},\n",
+  "                      {**positive, 'RepoDigests': ['pc-crop-transfer/api@sha256:' + 'b' * 64]},\n",
+  "                      {**positive, 'RepoDigests': ['third-party/web@sha256:' + 'b' * 64]},\n",
+  "                      {**positive, 'RepoDigests': ['ghcr.io/pachaninm-lab/grainflow-web@sha256:' + 'b' * 64]},\n",
+  "                      {**positive, 'RepoTags': positive['RepoTags'] + ['third-party/unapproved:latest']},\n",
+  "                      {**positive, 'RepoTags': positive['RepoTags'] + ['pc-crop-transfer/api:' + positive['Config']['Labels']['org.opencontainers.image.revision']]},\n",
+  "                  ])\n",
+  "                  for i, row in enumerate(cases):\n",
+  "                      with self.subTest(case=i):\n",
+  "                          self.assertIsNone(classify(row, require_tag=False))\n",
+  "                  print(f'CLASSIFIER_NEGATIVE_CASES={len(cases)}')\n",
+  "          \n",
+  "          \n",
+  "          if __name__ == '__main__':\n",
+  "              unittest.main()\n",
+  "          PY_RECLAIM_TEST\n",
+  "\n",
+  "  resolve:\n",
+  "    name: Resolve owner-authorized exact current main\n",
+  "    if: >-\n",
+  "      github.event_name == 'issue_comment' &&\n",
+  "      github.event.issue.number == 4637 &&\n",
+  "      github.event.comment.body == '/production reclaim-docker current-main'\n",
+  "    runs-on: ubuntu-24.04\n",
+  "    timeout-minutes: 10\n",
+  "    steps:\n",
+  "      - name: Enforce repository-owner command authority\n",
+  "        env:\n",
+  "          COMMENTER: ${{ github.event.comment.user.login }}\n",
+  "          ACTOR: ${{ github.actor }}\n",
+  "          TRIGGERING_ACTOR: ${{ github.triggering_actor }}\n",
+  "          OWNER: ${{ github.repository_owner }}\n",
+  "        shell: bash\n",
+  "        run: |\n",
+  "          set -Eeuo pipefail\n",
+  "          [[ \"$COMMENTER\" == \"$OWNER\" ]]\n",
+  "          [[ \"$ACTOR\" == \"$OWNER\" ]]\n",
+  "          [[ \"$TRIGGERING_ACTOR\" == \"$OWNER\" ]]\n",
+  "      - name: Resolve exact current main authority\n",
+  "        env:\n",
+  "          GH_TOKEN: ${{ github.token }}\n",
+  "        shell: bash\n",
+  "        run: |\n",
+  "          set -Eeuo pipefail\n",
+  "          target_sha=\"$(gh api -H 'Accept: application/vnd.github+json' \"repos/${GITHUB_REPOSITORY}/commits/main\" --jq '.sha')\"\n",
+  "          [[ \"$target_sha\" =~ ^[0-9a-f]{40}$ ]]\n",
+  "          echo 'Current-main authority resolved without cross-job SHA output.'\n",
+  "\n",
+  "  reclaim:\n",
+  "    name: Reclaim only unused canonical production images\n",
+  "    needs: [contract, resolve]\n",
+  "    if: >-\n",
+  "      github.event_name == 'issue_comment' &&\n",
+  "      needs.contract.result == 'success' &&\n",
+  "      needs.resolve.result == 'success'\n",
+  "    runs-on: ubuntu-24.04\n",
+  "    timeout-minutes: 20\n",
+  "    permissions:\n",
+  "      contents: read\n",
+  "      issues: write\n",
+  "    steps:\n",
+  "      - uses: actions/checkout@v4\n",
+  "        with:\n",
+  "          ref: main\n",
+  "          fetch-depth: 0\n",
+  "          persist-credentials: false\n",
+  "\n",
+  "      - name: Bind and revalidate exact current main inside reclaim job\n",
+  "        env:\n",
+  "          GH_TOKEN: ${{ github.token }}\n",
+  "        shell: bash\n",
+  "        run: |\n",
+  "          set -Eeuo pipefail\n",
+  "          mkdir -p \"$EVIDENCE_DIR\"\n",
+  "          git fetch --no-tags origin main\n",
+  "          target_sha=\"$(gh api -H 'Accept: application/vnd.github+json' \"repos/${GITHUB_REPOSITORY}/commits/main\" --jq '.sha')\"\n",
+  "          [[ \"$target_sha\" =~ ^[0-9a-f]{40}$ ]]\n",
+  "          [[ \"$target_sha\" == \"$(git rev-parse origin/main)\" ]]\n",
+  "          git checkout --detach \"$target_sha\"\n",
+  "          [[ \"$(git rev-parse HEAD)\" == \"$target_sha\" ]]\n",
+  "          echo \"TARGET_SHA=$target_sha\" >> \"$GITHUB_ENV\"\n",
+  "          printf '%s\\n' \"$target_sha\" > \"$EVIDENCE_DIR/target-sha.txt\"\n",
+  "\n",
+  "      - name: Resolve protected key and pinned VPS identity\n",
+  "        id: ssh\n",
+  "        shell: bash\n",
+  "        run: |\n",
+  "          set -Eeuo pipefail\n",
+  "          trim(){ local v=\"$1\"; v=\"${v#\"${v%%[![:space:]]*}\"}\"; v=\"${v%\"${v##*[![:space:]]}\"}\"; printf '%s' \"$v\"; }\n",
+  "          host=\"$(trim \"${SSH_HOST_SECRET:-$DEFAULT_HOST}\")\"\n",
+  "          user=\"$(trim \"${SSH_USER_SECRET:-}\")\"\n",
+  "          port=\"$(trim \"${SSH_PORT_SECRET:-22}\")\"\n",
+  "          expected=\"$(trim \"${SSH_HOST_FINGERPRINT_SECRET:-}\")\"\n",
+  "          [[ \"$host\" == \"$DEFAULT_HOST\" ]] || { echo 'Canonical VPS mismatch.' >&2; exit 10; }\n",
+  "          [[ -n \"$user\" && \"$user\" == \"${SSH_USER_SECRET:-}\" && \"$user\" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo 'Protected production principal is missing or invalid.' >&2; exit 11; }\n",
+  "          [[ \"$port\" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12\n",
+  "          [[ \"$expected\" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo 'Pinned host fingerprint is required.' >&2; exit 13; }\n",
+  "          domain_ips=\"$(getent ahostsv4 \"$LIVE_DOMAIN\" | awk '{print $1}' | sort -u || true)\"\n",
+  "          grep -Fxq \"$DEFAULT_HOST\" <<< \"$domain_ips\"\n",
+  "          mkdir -p \"$HOME/.ssh\" \"$EVIDENCE_DIR\"\n",
+  "          chmod 700 \"$HOME/.ssh\"\n",
+  "\n",
+  "          validate_key(){\n",
+  "            local source=\"$1\" target=\"$HOME/.ssh/id_pc_prod\" pub\n",
+  "            tr -d '\\r' < \"$source\" > \"$target\"\n",
+  "            chmod 600 \"$target\"\n",
+  "            grep -Eq '^(ssh-|ecdsa-|sk-)' \"$target\" && return 1\n",
+  "            pub=\"$(mktemp)\"\n",
+  "            ssh-keygen -y -P '' -f \"$target\" > \"$pub\" 2>/dev/null || { rm -f \"$pub\"; return 1; }\n",
+  "            ssh-keygen -lf \"$pub\" > \"$EVIDENCE_DIR/ssh-key-fingerprint.txt\"\n",
+  "            rm -f \"$pub\"\n",
+  "          }\n",
+  "          try_slot(){\n",
+  "            local raw=\"$1\" a b c\n",
+  "            [[ -n \"$raw\" ]] || return 1\n",
+  "            a=\"$(mktemp)\"; b=\"$(mktemp)\"; c=\"$(mktemp)\"\n",
+  "            printf '%s\\n' \"$raw\" > \"$a\"\n",
+  "            validate_key \"$a\" && { rm -f \"$a\" \"$b\" \"$c\"; return 0; }\n",
+  "            printf '%s' \"${raw//\\\\n/$'\\n'}\" > \"$b\"\n",
+  "            validate_key \"$b\" && { rm -f \"$a\" \"$b\" \"$c\"; return 0; }\n",
+  "            printf '%s' \"$raw\" | base64 --decode > \"$c\" 2>/dev/null && validate_key \"$c\" && { rm -f \"$a\" \"$b\" \"$c\"; return 0; }\n",
+  "            rm -f \"$a\" \"$b\" \"$c\"; return 1\n",
+  "          }\n",
+  "          try_slot \"${SSH_KEY_PRIMARY:-}\" || try_slot \"${SSH_KEY_SECONDARY:-}\" || try_slot \"${SSH_KEY_FALLBACK:-}\" || {\n",
+  "            echo 'No valid protected SSH private key is configured.' >&2\n",
+  "            exit 14\n",
+  "          }\n",
+  "\n",
+  "          scan=\"$(mktemp)\"; match=\"$(mktemp)\"\n",
+  "          pinned_ready=0\n",
+  "          for attempt in 1 2 3; do\n",
+  "            : > \"$scan\"; : > \"$match\"\n",
+  "            ssh-keyscan -T 10 -p \"$port\" \"$host\" 2>/dev/null | sort -u > \"$scan\" || true\n",
+  "            if [[ -s \"$scan\" ]]; then\n",
+  "              while IFS= read -r line; do\n",
+  "                fp=\"$(printf '%s\\n' \"$line\" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)\"\n",
+  "                [[ \"$fp\" != \"$expected\" ]] || printf '%s\\n' \"$line\" >> \"$match\"\n",
+  "              done < \"$scan\"\n",
+  "              sort -u -o \"$match\" \"$match\"\n",
+  "              if [[ \"$(grep -c . \"$match\" || true)\" == 1 ]]; then pinned_ready=1; break; fi\n",
+  "            fi\n",
+  "            (( attempt == 3 )) || sleep \"$attempt\"\n",
+  "          done\n",
+  "          [[ \"$pinned_ready\" == 1 ]] || { rm -f \"$scan\" \"$match\"; echo 'Pinned host key mismatch after bounded retries.' >&2; exit 15; }\n",
+  "          mv \"$match\" \"$HOME/.ssh/known_hosts\"\n",
+  "          rm -f \"$scan\"\n",
+  "          chmod 600 \"$HOME/.ssh/known_hosts\"\n",
+  "          ssh -i \"$HOME/.ssh/id_pc_prod\" -p \"$port\" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \"$SSH_USER_SECRET@$host\" \\\n",
+  "            'set -Eeuo pipefail; test \"$(id -u)\" -eq 0; docker version >/dev/null; echo SSH_AUTH_OK' \\\n",
+  "            > \"$EVIDENCE_DIR/ssh-auth.txt\"\n",
+  "          grep -Fxq SSH_AUTH_OK \"$EVIDENCE_DIR/ssh-auth.txt\"\n",
+  "          echo \"host=$host\" >> \"$GITHUB_OUTPUT\"\n",
+  "          echo \"port=$port\" >> \"$GITHUB_OUTPUT\"\n",
+  "\n",
+  "      - name: Copy bounded recovery script\n",
+  "        env:\n",
+  "          HOST: ${{ steps.ssh.outputs.host }}\n",
+  "          PORT: ${{ steps.ssh.outputs.port }}\n",
+  "        shell: bash\n",
+  "        run: |\n",
+  "          set -Eeuo pipefail\n",
+  "          scp -i \"$HOME/.ssh/id_pc_prod\" -P \"$PORT\" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \\\n",
+  "            scripts/production-docker-headroom-recovery.sh \\\n",
+  "            \"$SSH_USER_SECRET@$HOST:/tmp/pc-docker-headroom-${GITHUB_RUN_ID}.sh\"\n",
+  "\n",
+  "      - name: Execute bounded recovery and prove runtime immutability\n",
+  "        id: recovery\n",
+  "        env:\n",
+  "          HOST: ${{ steps.ssh.outputs.host }}\n",
+  "          PORT: ${{ steps.ssh.outputs.port }}\n",
+  "        shell: bash\n",
+  "        run: |\n",
+  "          set -Eeuo pipefail\n",
+  "          git fetch --no-tags origin main\n",
+  "          [[ \"$(git rev-parse origin/main)\" == \"$TARGET_SHA\" ]]\n",
+  "          raw=\"$(mktemp)\"\n",
+  "          set +e\n",
+  "          ssh -i \"$HOME/.ssh/id_pc_prod\" -p \"$PORT\" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \"$SSH_USER_SECRET@$HOST\" \\\n",
+  "            \"set -Eeuo pipefail\n",
+  "            script='/tmp/pc-docker-headroom-${GITHUB_RUN_ID}.sh'\n",
+  "            chmod 0700 \\\"\\$script\\\"\n",
+  "            mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')\n",
+  "            mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')\n",
+  "            (( \\${#api_ids[@]} == 1 && \\${#web_ids[@]} == 1 ))\n",
+  "            before_api_id=\\\"\\${api_ids[0]}\\\"; before_web_id=\\\"\\${web_ids[0]}\\\"\n",
+  "            before_api_revision=\\\"\\$(docker inspect --format '{{ index .Config.Labels \\\"org.opencontainers.image.revision\\\" }}' \\\"\\$before_api_id\\\")\\\"\n",
+  "            before_web_revision=\\\"\\$(docker inspect --format '{{ index .Config.Labels \\\"org.opencontainers.image.revision\\\" }}' \\\"\\$before_web_id\\\")\\\"\n",
+  "            before_containers=\\\"\\$(docker ps -aq | wc -l | tr -d '[:space:]')\\\"\n",
+  "            before_volumes=\\\"\\$(docker volume ls -q | wc -l | tr -d '[:space:]')\\\"\n",
+  "            before_networks=\\\"\\$(docker network ls -q | wc -l | tr -d '[:space:]')\\\"\n",
+  "            \\\"\\$script\\\" '$TARGET_SHA' '$GITHUB_RUN_ID'\n",
+  "            after_api_id=\\\"\\$(docker ps -q --filter 'label=com.docker.compose.service=api')\\\"\n",
+  "            after_web_id=\\\"\\$(docker ps -q --filter 'label=com.docker.compose.service=web')\\\"\n",
+  "            [[ \\\"\\$after_api_id\\\" == \\\"\\$before_api_id\\\" && \\\"\\$after_web_id\\\" == \\\"\\$before_web_id\\\" ]]\n",
+  "            after_api_revision=\\\"\\$(docker inspect --format '{{ index .Config.Labels \\\"org.opencontainers.image.revision\\\" }}' \\\"\\$after_api_id\\\")\\\"\n",
+  "            after_web_revision=\\\"\\$(docker inspect --format '{{ index .Config.Labels \\\"org.opencontainers.image.revision\\\" }}' \\\"\\$after_web_id\\\")\\\"\n",
+  "            [[ \\\"\\$after_api_revision\\\" == \\\"\\$before_api_revision\\\" && \\\"\\$after_web_revision\\\" == \\\"\\$before_web_revision\\\" ]]\n",
+  "            after_containers=\\\"\\$(docker ps -aq | wc -l | tr -d '[:space:]')\\\"\n",
+  "            after_volumes=\\\"\\$(docker volume ls -q | wc -l | tr -d '[:space:]')\\\"\n",
+  "            after_networks=\\\"\\$(docker network ls -q | wc -l | tr -d '[:space:]')\\\"\n",
+  "            [[ \\\"\\$after_containers\\\" == \\\"\\$before_containers\\\" && \\\"\\$after_volumes\\\" == \\\"\\$before_volumes\\\" && \\\"\\$after_networks\\\" == \\\"\\$before_networks\\\" ]]\n",
+  "            printf 'RUNTIME_CONTAINER_IDENTITY_UNCHANGED=1\\\\n'\n",
+  "            printf 'RUNTIME_REVISIONS_UNCHANGED=1\\\\n'\n",
+  "            printf 'BASELINE_API_REVISION=%s\\\\n' \\\"\\$after_api_revision\\\"\n",
+  "            printf 'BASELINE_WEB_REVISION=%s\\\\n' \\\"\\$after_web_revision\\\"\n",
+  "            printf 'DOCKER_OBJECT_COUNTS_UNCHANGED=1\\\\n'\" > \"$raw\" 2>&1\n",
+  "          rc=$?\n",
+  "          set -e\n",
+  "          sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g; /(_PATH|_DIR|COMPOSE|CONFIG_FILES)=/ s#=.*#=[REDACTED]#' \"$raw\" > \"$EVIDENCE_DIR/recovery.log\"\n",
+  "          rm -f \"$raw\"\n",
+  "          cat \"$EVIDENCE_DIR/recovery.log\"\n",
+  "          (( rc == 0 )) || exit \"$rc\"\n",
+  "          grep -Fxq 'DOCKER_HEADROOM_RECOVERY=PASS' \"$EVIDENCE_DIR/recovery.log\"\n",
+  "          grep -Fxq 'CONTAINERD_STORAGE_FILESYSTEM_SHARED=1' \"$EVIDENCE_DIR/recovery.log\"\n",
+  "          grep -Fxq 'RUNTIME_CONTAINER_IDENTITY_UNCHANGED=1' \"$EVIDENCE_DIR/recovery.log\"\n",
+  "          grep -Fxq 'RUNTIME_REVISIONS_UNCHANGED=1' \"$EVIDENCE_DIR/recovery.log\"\n",
+  "          grep -Fxq 'DOCKER_OBJECT_COUNTS_UNCHANGED=1' \"$EVIDENCE_DIR/recovery.log\"\n",
+  "          after=\"$(sed -n 's/^DOCKER_HEADROOM_AFTER_KB=//p' \"$EVIDENCE_DIR/recovery.log\" | tail -1)\"\n",
+  "          [[ \"$after\" =~ ^[0-9]+$ && \"$after\" -ge $((5 * 1024 * 1024)) ]]\n",
+  "          echo \"after_kb=$after\" >> \"$GITHUB_OUTPUT\"\n",
+  "\n",
+  "      - name: Cleanup protected transport\n",
+  "        if: always()\n",
+  "        env:\n",
+  "          HOST: ${{ steps.ssh.outputs.host }}\n",
+  "          PORT: ${{ steps.ssh.outputs.port }}\n",
+  "        shell: bash\n",
+  "        run: |\n",
+  "          set -Eeuo pipefail\n",
+  "          if [[ -n \"${HOST:-}\" && -n \"${PORT:-}\" && -f \"$HOME/.ssh/id_pc_prod\" && -f \"$HOME/.ssh/known_hosts\" ]]; then\n",
+  "            ssh -i \"$HOME/.ssh/id_pc_prod\" -p \"$PORT\" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \"$SSH_USER_SECRET@$HOST\" \\\n",
+  "              \"rm -f '/tmp/pc-docker-headroom-${GITHUB_RUN_ID}.sh'\" || true\n",
+  "          fi\n",
+  "          rm -f \"$HOME/.ssh/id_pc_prod\" \"$HOME/.ssh/known_hosts\"\n",
+  "\n",
+  "      - name: Publish bounded recovery evidence\n",
+  "        if: always()\n",
+  "        env:\n",
+  "          GH_TOKEN: ${{ github.token }}\n",
+  "          RECOVERY_OUTCOME: ${{ steps.recovery.outcome }}\n",
+  "          AFTER_KB: ${{ steps.recovery.outputs.after_kb }}\n",
+  "        shell: bash\n",
+  "        run: |\n",
+  "          set -Eeuo pipefail\n",
+  "          mkdir -p \"$EVIDENCE_DIR\"\n",
+  "          status=FAIL_CLOSED\n",
+  "          [[ \"$RECOVERY_OUTCOME\" != success ]] || status=PASS\n",
+  "          after=\"${AFTER_KB:-unknown}\"\n",
+  "          target=\"${TARGET_SHA:-unresolved}\"\n",
+  "          {\n",
+  "            echo \"## Production Docker headroom recovery run \\`$GITHUB_RUN_ID\\`\"\n",
+  "            echo\n",
+  "            echo \"- target SHA: \\`$target\\`\"\n",
+  "            echo \"- result: \\`$status\\`\"\n",
+  "            echo \"- available after (KiB): \\`$after\\`\"\n",
+  "            echo \"- policy: bounded unused canonical images only\"\n",
+  "            echo \"- running API/web containers and revisions: unchanged when PASS\"\n",
+  "            echo \"- containers/volumes/networks: unchanged when PASS\"\n",
+  "            echo \"- production application/database/customer-data mutation: none\"\n",
+  "          } > \"$EVIDENCE_DIR/issue-record.md\"\n",
+  "          gh issue comment \"$RECOVERY_ISSUE_NUMBER\" --repo \"$GITHUB_REPOSITORY\" --body-file \"$EVIDENCE_DIR/issue-record.md\"\n",
+  "\n",
+  "      - uses: actions/upload-artifact@v4\n",
+  "        if: always()\n",
+  "        with:\n",
+  "          name: production-docker-headroom-recovery-${{ github.run_id }}\n",
+  "          path: artifacts/production-docker-headroom-recovery\n",
+  "          if-no-files-found: error\n",
+  "          retention-days: 90\n",
+  "          compression-level: 0\n"
+]
+~~~~
+
+### Exact legacy source after: .github/workflows/production-docker-headroom-owner-push-once.yml
+
+JSON string array; concatenate decoded elements without separators to reconstruct every byte, including inherited whitespace. Before blob: `6f913950c70d3fcb94f7facb56c05e1807756c13`.
+
+~~~~json
+[
+  "name: Production Docker Headroom Owner Push Once\n",
+  "\n",
+  "on:\n",
+  "  pull_request:\n",
+  "    branches: [main]\n",
+  "    paths:\n",
+  "      - '.github/workflows/production-docker-headroom-owner-push-once.yml'\n",
+  "      - 'scripts/production-docker-headroom-recovery.sh'\n",
+  "  push:\n",
+  "    branches: [main]\n",
+  "    paths:\n",
+  "      - '.github/workflows/production-docker-headroom-owner-push-once.yml'\n",
+  "\n",
+  "permissions:\n",
+  "  contents: read\n",
+  "\n",
+  "concurrency:\n",
+  "  group: production-full-stack-exact-sha\n",
+  "  cancel-in-progress: false\n",
+  "  queue: max\n",
+  "\n",
+  "# One-shot recovery bridge for PC-CROP registration. The production mutation is\n",
+  "# deliberately limited to the already-governed recovery script: unused old\n",
+  "# canonical API/Web/migration images only. No containers, volumes, networks,\n",
+  "# application state, database state, or customer data are mutated.\n",
+  "env:\n",
+  "  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai\n",
+  "  DEFAULT_HOST: 195.19.12.120\n",
+  "  EVIDENCE_DIR: artifacts/production-docker-headroom-owner-push-once\n",
+  "  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}\n",
+  "  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}\n",
+  "  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}\n",
+  "  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}\n",
+  "  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}\n",
+  "  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}\n",
+  "  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}\n",
+  "\n",
+  "jobs:\n",
+  "  contract:\n",
+  "    name: Validate bounded owner-push recovery contract\n",
+  "    runs-on: ubuntu-24.04\n",
+  "    timeout-minutes: 10\n",
+  "    steps:\n",
+  "      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262\n",
+  "        with:\n",
+  "          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}\n",
+  "          persist-credentials: false\n",
+  "      - name: Validate source-controlled recovery boundary\n",
+  "        shell: bash\n",
+  "        run: |\n",
+  "          set -Eeuo pipefail\n",
+  "          bash -n scripts/production-docker-headroom-recovery.sh\n",
+  "          python3 - <<'PY'\n",
+  "          import pathlib\n",
+  "          import re\n",
+  "\n",
+  "          workflow = pathlib.Path('.github/workflows/production-docker-headroom-owner-push-once.yml').read_text(encoding='utf-8')\n",
+  "          recovery = pathlib.Path('scripts/production-docker-headroom-recovery.sh').read_text(encoding='utf-8')\n",
+  "          required_workflow = [\n",
+  "              \"github.event_name == 'push'\",\n",
+  "              'github.actor == github.repository_owner',\n",
+  "              'github.triggering_actor == github.repository_owner',\n",
+  "              'production-full-stack-exact-sha',\n",
+  "              'StrictHostKeyChecking=yes',\n",
+  "              'BatchMode=yes',\n",
+  "              'scripts/production-docker-headroom-recovery.sh',\n",
+  "              'RUNTIME_CONTAINER_IDENTITY_UNCHANGED=1',\n",
+  "              'RUNTIME_REVISIONS_UNCHANGED=1',\n",
+  "              'DOCKER_OBJECT_COUNTS_UNCHANGED=1',\n",
+  "              'CURRENT_MAIN_AFTER_RECOVERY=',\n",
+  "          ]\n",
+  "          required_recovery = [\n",
+  "              'REQUIRED_KB=$((5 * 1024 * 1024))',\n",
+  "              'TARGET_KB=$((6 * 1024 * 1024))',\n",
+  "              \"docker', 'ps', '-aq', '--no-trunc'\",\n",
+  "              \"grainflow-(api|web|migration|tai)\",\n",
+  "              \"revision == target_sha\",\n",
+  "              \"docker', 'image', 'rm'\",\n",
+  "              'BOUNDED_UNUSED_CANONICAL_IMAGE_RECLAIM',\n",
+  "              'DOCKER_HEADROOM_RECOVERY=',\n",
+  "          ]\n",
+  "          for needle in required_workflow:\n",
+  "              if needle not in workflow:\n",
+  "                  raise SystemExit(f'missing workflow boundary: {needle}')\n",
+  "          for needle in required_recovery:\n",
+  "              if needle not in recovery:\n",
+  "                  raise SystemExit(f'missing recovery boundary: {needle}')\n",
+  "          forbidden = [\n",
+  "              r'docker\\s+system\\s+prune',\n",
+  "              r'docker\\s+image\\s+prune',\n",
+  "              r'docker\\s+builder\\s+prune',\n",
+  "              r'docker\\s+(?:container|volume|network)\\s+(?:rm|prune)',\n",
+  "              r'docker[^\\n]*\\brm\\s+-f\\b',\n",
+  "              r'StrictHostKeyChecking' + r'=no',\n",
+  "              r'ssh' + r'pass',\n",
+  "              r'SSH_' + r'PASSWORD',\n",
+  "          ]\n",
+  "          combined = workflow + '\\n' + recovery\n",
+  "          for pattern in forbidden:\n",
+  "              if re.search(pattern, combined, re.I):\n",
+  "                  raise SystemExit(f'forbidden recovery capability: {pattern}')\n",
+  "          print('PASS: owner-push recovery is bounded to unused canonical images and preserves production runtime objects.')\n",
+  "          PY\n",
+  "\n",
+  "  recover:\n",
+  "    name: Reclaim unused canonical images on exact owner push\n",
+  "    needs: contract\n",
+  "    # Retired one-shot bridge: a scheduling correction must never invoke a host mutation.\n",
+  "    # The owner-command workflow remains the live cleanup authority.\n",
+  "    if: >-\n",
+  "      false &&\n",
+  "      github.event_name == 'push' &&\n",
+  "      github.actor == github.repository_owner &&\n",
+  "      github.triggering_actor == github.repository_owner\n",
+  "    runs-on: ubuntu-24.04\n",
+  "    timeout-minutes: 20\n",
+  "    steps:\n",
+  "      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262\n",
+  "        with:\n",
+  "          ref: ${{ github.sha }}\n",
+  "          fetch-depth: 0\n",
+  "          persist-credentials: false\n",
+  "\n",
+  "      - name: Bind immutable current main\n",
+  "        env:\n",
+  "          GH_TOKEN: ${{ github.token }}\n",
+  "        shell: bash\n",
+  "        run: |\n",
+  "          set -Eeuo pipefail\n",
+  "          mkdir -p \"$EVIDENCE_DIR\"\n",
+  "          git fetch --no-tags origin main\n",
+  "          target_sha=\"$GITHUB_SHA\"\n",
+  "          [[ \"$target_sha\" =~ ^[0-9a-f]{40}$ ]]\n",
+  "          [[ \"$target_sha\" == \"$(git rev-parse HEAD)\" ]]\n",
+  "          [[ \"$target_sha\" == \"$(git rev-parse origin/main)\" ]]\n",
+  "          [[ \"$target_sha\" == \"$(gh api \"repos/$GITHUB_REPOSITORY/commits/main\" --jq .sha)\" ]]\n",
+  "          echo \"TARGET_SHA=$target_sha\" >> \"$GITHUB_ENV\"\n",
+  "          printf '%s\\n' \"$target_sha\" > \"$EVIDENCE_DIR/target-sha.txt\"\n",
+  "\n",
+  "      - name: Resolve protected key and pinned VPS identity\n",
+  "        id: ssh\n",
+  "        shell: bash\n",
+  "        run: |\n",
+  "          set -Eeuo pipefail\n",
+  "          trim(){ local v=\"$1\"; v=\"${v#\"${v%%[![:space:]]*}\"}\"; v=\"${v%\"${v##*[![:space:]]}\"}\"; printf '%s' \"$v\"; }\n",
+  "          host=\"$(trim \"${SSH_HOST_SECRET:-$DEFAULT_HOST}\")\"\n",
+  "          user=\"$(trim \"${SSH_USER_SECRET:-}\")\"\n",
+  "          port=\"$(trim \"${SSH_PORT_SECRET:-22}\")\"\n",
+  "          expected=\"$(trim \"${SSH_HOST_FINGERPRINT_SECRET:-}\")\"\n",
+  "          [[ \"$host\" == \"$DEFAULT_HOST\" ]] || { echo P0_CANONICAL_VPS_MISMATCH >&2; exit 10; }\n",
+  "          [[ -n \"$user\" && \"$user\" == \"${SSH_USER_SECRET:-}\" && \"$user\" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo P0_PROTECTED_SSH_PRINCIPAL_INVALID >&2; exit 11; }\n",
+  "          [[ \"$port\" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) || exit 12\n",
+  "          [[ \"$expected\" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo P0_PINNED_HOST_FINGERPRINT_MISSING >&2; exit 13; }\n",
+  "          domain_ips=\"$(getent ahostsv4 \"$LIVE_DOMAIN\" | awk '{print $1}' | sort -u || true)\"\n",
+  "          grep -Fxq \"$DEFAULT_HOST\" <<< \"$domain_ips\" || { echo P0_CANONICAL_DNS_MISMATCH >&2; exit 14; }\n",
+  "          mkdir -p \"$HOME/.ssh\"\n",
+  "          chmod 700 \"$HOME/.ssh\"\n",
+  "\n",
+  "          validate_key(){\n",
+  "            local source=\"$1\" target=\"$HOME/.ssh/id_pc_prod\" pub\n",
+  "            tr -d '\\r' < \"$source\" > \"$target\"\n",
+  "            chmod 600 \"$target\"\n",
+  "            grep -Eq '^(ssh-|ecdsa-|sk-)' \"$target\" && return 1\n",
+  "            pub=\"$(mktemp)\"\n",
+  "            ssh-keygen -y -P '' -f \"$target\" > \"$pub\" 2>/dev/null || { rm -f \"$pub\"; return 1; }\n",
+  "            rm -f \"$pub\"\n",
+  "          }\n",
+  "          try_slot(){\n",
+  "            local raw=\"$1\" a b c\n",
+  "            [[ -n \"$raw\" ]] || return 1\n",
+  "            a=\"$(mktemp)\"; b=\"$(mktemp)\"; c=\"$(mktemp)\"\n",
+  "            printf '%s\\n' \"$raw\" > \"$a\"\n",
+  "            validate_key \"$a\" && { rm -f \"$a\" \"$b\" \"$c\"; return 0; }\n",
+  "            printf '%s' \"${raw//\\\\n/$'\\n'}\" > \"$b\"\n",
+  "            validate_key \"$b\" && { rm -f \"$a\" \"$b\" \"$c\"; return 0; }\n",
+  "            printf '%s' \"$raw\" | base64 --decode > \"$c\" 2>/dev/null && validate_key \"$c\" && { rm -f \"$a\" \"$b\" \"$c\"; return 0; }\n",
+  "            rm -f \"$a\" \"$b\" \"$c\"; return 1\n",
+  "          }\n",
+  "          try_slot \"${SSH_KEY_PRIMARY:-}\" || try_slot \"${SSH_KEY_SECONDARY:-}\" || try_slot \"${SSH_KEY_FALLBACK:-}\" || { echo P0_PROTECTED_SSH_KEY_INVALID >&2; exit 15; }\n",
+  "\n",
+  "          scan=\"$(mktemp)\"; match=\"$(mktemp)\"; ready=0\n",
+  "          for attempt in 1 2 3; do\n",
+  "            : > \"$scan\"; : > \"$match\"\n",
+  "            ssh-keyscan -T 10 -p \"$port\" \"$host\" 2>/dev/null | sort -u > \"$scan\" || true\n",
+  "            if [[ -s \"$scan\" ]]; then\n",
+  "              while IFS= read -r line; do\n",
+  "                fp=\"$(printf '%s\\n' \"$line\" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)\"\n",
+  "                [[ \"$fp\" != \"$expected\" ]] || printf '%s\\n' \"$line\" >> \"$match\"\n",
+  "              done < \"$scan\"\n",
+  "              sort -u -o \"$match\" \"$match\"\n",
+  "              if [[ \"$(grep -c . \"$match\" || true)\" == 1 ]]; then ready=1; break; fi\n",
+  "            fi\n",
+  "            (( attempt == 3 )) || sleep \"$attempt\"\n",
+  "          done\n",
+  "          [[ \"$ready\" == 1 ]] || { rm -f \"$scan\" \"$match\"; echo P0_PINNED_HOST_KEY_MISMATCH >&2; exit 16; }\n",
+  "          mv \"$match\" \"$HOME/.ssh/known_hosts\"\n",
+  "          rm -f \"$scan\"\n",
+  "          chmod 600 \"$HOME/.ssh/known_hosts\"\n",
+  "          ssh -i \"$HOME/.ssh/id_pc_prod\" -p \"$port\" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \"$user@$host\" \\\n",
+  "            'set -Eeuo pipefail; test \"$(id -u)\" -eq 0; docker version >/dev/null; echo SSH_AUTH_OK' \\\n",
+  "            > \"$EVIDENCE_DIR/ssh-auth.txt\"\n",
+  "          grep -Fxq SSH_AUTH_OK \"$EVIDENCE_DIR/ssh-auth.txt\"\n",
+  "          echo \"host=$host\" >> \"$GITHUB_OUTPUT\"\n",
+  "          echo \"port=$port\" >> \"$GITHUB_OUTPUT\"\n",
+  "\n",
+  "      - name: Execute bounded recovery and prove production immutability\n",
+  "        env:\n",
+  "          GH_TOKEN: ${{ github.token }}\n",
+  "          HOST: ${{ steps.ssh.outputs.host }}\n",
+  "          PORT: ${{ steps.ssh.outputs.port }}\n",
+  "        shell: bash\n",
+  "        run: |\n",
+  "          set -Eeuo pipefail\n",
+  "          git fetch --no-tags origin main\n",
+  "          [[ \"$TARGET_SHA\" == \"$(git rev-parse origin/main)\" ]]\n",
+  "          [[ \"$TARGET_SHA\" == \"$(gh api \"repos/$GITHUB_REPOSITORY/commits/main\" --jq .sha)\" ]]\n",
+  "          remote_script=\"/tmp/pc-docker-headroom-owner-push-${GITHUB_RUN_ID}.sh\"\n",
+  "          scp -i \"$HOME/.ssh/id_pc_prod\" -P \"$PORT\" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \\\n",
+  "            scripts/production-docker-headroom-recovery.sh \"$SSH_USER_SECRET@$HOST:$remote_script\"\n",
+  "          raw=\"$(mktemp)\"\n",
+  "          set +e\n",
+  "          ssh -i \"$HOME/.ssh/id_pc_prod\" -p \"$PORT\" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \"$SSH_USER_SECRET@$HOST\" \\\n",
+  "            \"set -Eeuo pipefail\n",
+  "            chmod 0700 '$remote_script'\n",
+  "            mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')\n",
+  "            mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')\n",
+  "            (( \\${#api_ids[@]} == 1 && \\${#web_ids[@]} == 1 ))\n",
+  "            before_api_id=\\\"\\${api_ids[0]}\\\"; before_web_id=\\\"\\${web_ids[0]}\\\"\n",
+  "            before_api_revision=\\\"\\$(docker inspect --format '{{ index .Config.Labels \\\"org.opencontainers.image.revision\\\" }}' \\\"\\$before_api_id\\\")\\\"\n",
+  "            before_web_revision=\\\"\\$(docker inspect --format '{{ index .Config.Labels \\\"org.opencontainers.image.revision\\\" }}' \\\"\\$before_web_id\\\")\\\"\n",
+  "            before_containers=\\\"\\$(docker ps -aq | wc -l | tr -d '[:space:]')\\\"\n",
+  "            before_volumes=\\\"\\$(docker volume ls -q | wc -l | tr -d '[:space:]')\\\"\n",
+  "            before_networks=\\\"\\$(docker network ls -q | wc -l | tr -d '[:space:]')\\\"\n",
+  "            '$remote_script' '$TARGET_SHA' '$GITHUB_RUN_ID'\n",
+  "            after_api_id=\\\"\\$(docker ps -q --filter 'label=com.docker.compose.service=api')\\\"\n",
+  "            after_web_id=\\\"\\$(docker ps -q --filter 'label=com.docker.compose.service=web')\\\"\n",
+  "            [[ \\\"\\$after_api_id\\\" == \\\"\\$before_api_id\\\" && \\\"\\$after_web_id\\\" == \\\"\\$before_web_id\\\" ]]\n",
+  "            after_api_revision=\\\"\\$(docker inspect --format '{{ index .Config.Labels \\\"org.opencontainers.image.revision\\\" }}' \\\"\\$after_api_id\\\")\\\"\n",
+  "            after_web_revision=\\\"\\$(docker inspect --format '{{ index .Config.Labels \\\"org.opencontainers.image.revision\\\" }}' \\\"\\$after_web_id\\\")\\\"\n",
+  "            [[ \\\"\\$after_api_revision\\\" == \\\"\\$before_api_revision\\\" && \\\"\\$after_web_revision\\\" == \\\"\\$before_web_revision\\\" ]]\n",
+  "            after_containers=\\\"\\$(docker ps -aq | wc -l | tr -d '[:space:]')\\\"\n",
+  "            after_volumes=\\\"\\$(docker volume ls -q | wc -l | tr -d '[:space:]')\\\"\n",
+  "            after_networks=\\\"\\$(docker network ls -q | wc -l | tr -d '[:space:]')\\\"\n",
+  "            [[ \\\"\\$after_containers\\\" == \\\"\\$before_containers\\\" && \\\"\\$after_volumes\\\" == \\\"\\$before_volumes\\\" && \\\"\\$after_networks\\\" == \\\"\\$before_networks\\\" ]]\n",
+  "            printf 'RUNTIME_CONTAINER_IDENTITY_UNCHANGED=1\\\\n'\n",
+  "            printf 'RUNTIME_REVISIONS_UNCHANGED=1\\\\n'\n",
+  "            printf 'DOCKER_OBJECT_COUNTS_UNCHANGED=1\\\\n'\" > \"$raw\" 2>&1\n",
+  "          rc=$?\n",
+  "          set -e\n",
+  "          sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g' \"$raw\" > \"$EVIDENCE_DIR/recovery.log\"\n",
+  "          rm -f \"$raw\"\n",
+  "          cat \"$EVIDENCE_DIR/recovery.log\"\n",
+  "          (( rc == 0 )) || exit \"$rc\"\n",
+  "          grep -Fxq DOCKER_HEADROOM_RECOVERY=PASS \"$EVIDENCE_DIR/recovery.log\"\n",
+  "          grep -Fxq RUNTIME_CONTAINER_IDENTITY_UNCHANGED=1 \"$EVIDENCE_DIR/recovery.log\"\n",
+  "          grep -Fxq RUNTIME_REVISIONS_UNCHANGED=1 \"$EVIDENCE_DIR/recovery.log\"\n",
+  "          grep -Fxq DOCKER_OBJECT_COUNTS_UNCHANGED=1 \"$EVIDENCE_DIR/recovery.log\"\n",
+  "          after=\"$(sed -n 's/^DOCKER_HEADROOM_AFTER_KB=//p' \"$EVIDENCE_DIR/recovery.log\" | tail -1)\"\n",
+  "          [[ \"$after\" =~ ^[0-9]+$ && \"$after\" -ge $((5 * 1024 * 1024)) ]]\n",
+  "          current=\"$(gh api \"repos/$GITHUB_REPOSITORY/commits/main\" --jq .sha)\"\n",
+  "          printf 'CURRENT_MAIN_AFTER_RECOVERY=%s\\n' \"$current\" | tee \"$EVIDENCE_DIR/current-main-after.txt\"\n",
+  "          [[ \"$current\" == \"$TARGET_SHA\" ]]\n",
+  "\n",
+  "      - name: Cleanup protected transport\n",
+  "        if: always()\n",
+  "        env:\n",
+  "          HOST: ${{ steps.ssh.outputs.host }}\n",
+  "          PORT: ${{ steps.ssh.outputs.port }}\n",
+  "        shell: bash\n",
+  "        run: |\n",
+  "          set -Eeuo pipefail\n",
+  "          if [[ -n \"${HOST:-}\" && -n \"${PORT:-}\" && -f \"$HOME/.ssh/id_pc_prod\" && -f \"$HOME/.ssh/known_hosts\" ]]; then\n",
+  "            ssh -i \"$HOME/.ssh/id_pc_prod\" -p \"$PORT\" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \"$SSH_USER_SECRET@$HOST\" \\\n",
+  "              \"rm -f '/tmp/pc-docker-headroom-owner-push-${GITHUB_RUN_ID}.sh'\" || true\n",
+  "          fi\n",
+  "          rm -f \"$HOME/.ssh/id_pc_prod\" \"$HOME/.ssh/known_hosts\"\n",
+  "\n",
+  "      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02\n",
+  "        if: always()\n",
+  "        with:\n",
+  "          name: production-docker-headroom-owner-push-${{ github.run_id }}\n",
+  "          path: artifacts/production-docker-headroom-owner-push-once\n",
+  "          if-no-files-found: error\n",
+  "          retention-days: 90\n",
+  "          compression-level: 0\n"
+]
+~~~~
