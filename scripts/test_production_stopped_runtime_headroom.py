@@ -273,11 +273,19 @@ class RecoveryTests(unittest.TestCase):
         self.assertIn('SOURCE_VECTOR_MISMATCH', workflow)
 
     def test_pull_request_contract_has_no_protected_secret_or_issue_write_binding(self):
+        import re
         here = Path(__file__).parent
         workflow_path = here / 'production-stopped-runtime-headroom.yml'
         if not workflow_path.exists():
             workflow_path = here.parent / '.github/workflows/production-stopped-runtime-headroom.yml'
         workflow = workflow_path.read_text()
+        references = re.findall(r'(?m)^\s*-\s*uses:\s*(\S+)\s*$', workflow)
+        def pinned(reference):
+            return re.fullmatch(r'actions/(?:checkout|upload-artifact)@[0-9a-f]{40}', reference) is not None
+        self.assertEqual(len(references), 3)
+        self.assertTrue(all(pinned(reference) for reference in references))
+        for reference in references:
+            self.assertFalse(pinned(reference.split('@')[0] + '@v4'))
         global_scope, jobs = workflow.split('\njobs:\n', 1)
         contract, recovery = jobs.split('\n  recover:\n', 1)
         self.assertNotIn('secrets.', global_scope + contract)
