@@ -1012,6 +1012,21 @@ jobs:
                   assert published['passed'] is success and secret not in summary and len(summary) < 6000
                   assert secret not in json.dumps(published)
 
+          # The operational job joins the same non-cancelling queue as production writers.
+          lock = ('    concurrency:\n'
+                  '      group: production-full-stack-exact-sha\n'
+                  '      cancel-in-progress: false\n'
+                  '      queue: max\n')
+          operational_header = workflow.split('\n  inspect:\n', 1)[1].split('\n    steps:\n', 1)[0]
+          assert operational_header.count(lock) == 1
+          for existing in ('production-cold-preservation.yml', 'production-stopped-runtime-headroom.yml'):
+              accepted = pathlib.Path('.github/workflows', existing).read_text()
+              assert lock in accepted, 'inspection must use the existing shared production queue contract'
+          contract_block = workflow.split('\n  contract:\n', 1)[1].split('\n  diagnose:\n', 1)[0]
+          assert not re.search(r'^    concurrency:', contract_block, re.M)
+          assert '  group: production-docker-headroom-readonly-diagnostic' in workflow.split('\njobs:\n', 1)[0]
+          print('PASS: actual inspection uses the accepted shared production lock, non-cancelling max queue; PR contract remains unprivileged.')
+
           conditions = {}
           for job in ('contract', 'diagnose', 'inspect'):
               block = workflow.split('\n  ' + job + ':\n', 1)[1].split('\n    runs-on:', 1)[0]
@@ -2226,6 +2241,10 @@ jobs:
     permissions:
       contents: read
       issues: write
+    concurrency:
+      group: production-full-stack-exact-sha
+      cancel-in-progress: false
+      queue: max
     env:
       EVIDENCE_DIR: artifacts/stopped-recovery-inspection
       SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
