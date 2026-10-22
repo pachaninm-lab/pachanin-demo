@@ -6115,3 +6115,1902 @@ A recovery run is bound to the immutable event commit: checkout uses `github.sha
 The post-SSH current-main check and exact SSH-status/result consistency must pass before replacing the prewritten UNKNOWN evidence. Success requires status0; the helper's known exception and insufficient-headroom results require status1 and2 respectively and remain failures. A transport error such as255, an inconsistent status, malformed output or post-transport source drift retains UNKNOWN, publishes no terminal result JSON and requires read-only reconciliation. Tests execute the actual Bash stage with a fake transport; no real host or credential is used. GitHub variable contracts: https://docs.github.com/en/actions/reference/workflows-and-actions/variables .
 
 ~~~~
+
+
+## CORE encrypted cold-preservation source admission — 2026-10-22
+
+This two-file metadata prerequisite prepares exactly five source afters for a separate one-use cold-preservation operation. It does not execute, deploy or admit runtime restoration. Base `51d3aad6942212c46a12168326d661221045d172`; continue sole-executor owner handoff6335899093 and preparation handoff6338338615, retaining the existing CORE reservation6186992409, PRODUCT/UX/bank/FGIS holds and official5/100. Old cleanup6186994879 and completed image command6331214722 remain non-replayable. Diagnostic39763026727 receipt6338520899 on current base51d proves0containers/19volumes/6networks/444images and0host PostgreSQL processes at its observation. Volume profile COMPLETE19/19:458141058 logical bytes,312594432 allocated bytes,8397 entries; free6658.2MiB. This is metadata observation, not archive/database integrity or current execution permission; fresh bounded source/quiescence/free-space checks remain mandatory.
+
+State capacity stays3145728bytes. Original state3145639bytes had89bytes free. Only JSON whitespace outside the entire coordinationAdmissions span and whitespace inside the existing CORE-owned canonical-readiness-cor5-4829-20261001 object are compacted. Every previous parsed value/type/key order remains identical; every other old admission object is retained byte-for-byte. Append one five-path vector and one purpose only; no guard, threshold, primary/global scope, progress, old rights or other owner record changes. Result3145378bytes leaves350bytes. This is not a new general state-minification permission.
+
+The original unaccepted source proposal reported14 local preservation/transport tests and all24 retained headroom tests, including actual GNU tar/GnuPG roundtrip, binary xattrs/hardlinks/sparse data, unchanged expired source access/change times, complete2051-file traversal and global cap rejection, no-follow/special-file/byte-cap and runtime-drift negatives, exclusive non-replay, key/receipt fsync faults, tampered ciphertext rejection before parsing, owner/credential/concurrency isolation, actual Bash SSH255/status/post-main-drift UNKNOWN evidence and closed sanitized publication schema. YAML/all Bash syntax/run lengths pass. Those historical results are not current candidate validation, native source acceptance or host evidence. The candidate adds a public-artifact allowlist regression and the approved custody/retention scope; fresh checks must be reported separately.
+
+Independent review must inspect this complete literal source proposal, state semantics/raw-object proof and every source byte/mode. After native security/checks, separate owner exact-head audit, fresh canonical readiness and manual expected-head metadata merge, publish these exact five source afters on ops/production-cold-preservation-20261022 with state/guard/all other leaves unchanged. That separate source head needs its own independent whole-head review, substantive native CI/security, author audit, resolved findings, fresh canonical readiness and manual expected-head merge. Only then invoke the owner-only4637 preservation command once. The job uses the unchanged accepted read-only dependency blob1577966d56b9cdd6a5ce586f9f63096a53a4e7b9; no image removal/restart/SQL/migration or existing-backup deletion. New fifth shared production participant keeps queue:max; all previous queue-negative regressions remain.
+
+Full complete data profile and fresh authoritative empty-runtime checks precede every new host write. Key/ciphertext are root-private and stay on-host; archive verification is authenticated content/metadata verification, not PostgreSQL restore or off-host/RPO acceptance. Runtime restored=false; database integrity NOT_ATTESTED; restore NOT_PERFORMED; off-host recovery NOT_ESTABLISHED. Source/key/manifest/customer bytes never enter the evidence artifact. Capacity or identity failures require new review, never widened limits or blind retry. Existing unless-stopped workers must not auto-resume; controlled restore is a separate step.
+
+
+Owner-approved incident boundary2026-10-22: publish only these two metadata and five pinned source paths through two sequential reviewed PRs; one preservation command after acceptance. The highly sensitive copy and one new archive-only passphrase remain on the same existing server/root-only. Disk-backed anonymous plaintext verification is explicitly included; block erasure is not guaranteed. Retain archive/key until a separate disposal decision, with review seven days after success; no automatic deletion. Public90-day evidence is exactly target-sha.txt, issue-record.md and validated result.json, with aggregate counts/digest/status only. No key/archive/manifest/customer paths, raw stderr or SSH markers leave the server. No restart/restore/delete, off-host copy/key transfer, new access rights or expense. Existing quota must suffice. This continues the existing sole writer and does not cancel any other owner or establish runtime restoration.
+
+~~~~json
+{
+  "purpose": {
+    "owner": "ACCOUNT_1_CORE",
+    "sourceBranch": "ops/production-cold-preservation-20261022",
+    "authorityBaseExactMain": "51d3aad6942212c46a12168326d661221045d172",
+    "mode": "100644",
+    "sha256": {
+      "scripts/production_cold_preservation.py": "4f92c1adc1c8dd2c21e054e6b7df2f19cb1c6d0fe6f28e94dfba0d21a2c026e0",
+      "scripts/test_production_cold_preservation.py": "07ac220b5bbbcde36b590fbc86a15c7bc5257e1a7bc0d30b92b08e499e8b7ad0",
+      ".github/workflows/production-cold-preservation.yml": "a821a247abe57c26fe1c1ed56bf4d1772995fcbcd0569457bdd805aa4e473381",
+      "docs/ops/production-cold-preservation.md": "9d1419ee978cfa700b3cb653ea3d0bc2ba65544f2e1cc9e4b954a2fe719f8a26",
+      "scripts/test_production_stopped_runtime_headroom.py": "6658a4492242e7ee3e7be9b83be4df005cd879c389b0ee00cb0aefa6d2cf7201"
+    },
+    "dependencySha256": "6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14",
+    "limits": "One-use owner-approved sensitive on-host encrypted copy; one archive passphrase; seven-day review/no deletion; three public receipts only. Fresh bounds/quiescence, exact review/native/manual gates. No restart/restore/replay/off-host transfer/new access/cost; all holds and5/100 retained."
+  },
+  "sourcePayloads": [
+    {
+      "path": "scripts/production_cold_preservation.py",
+      "mode": "100644",
+      "bytes": 27276,
+      "sha256": "4f92c1adc1c8dd2c21e054e6b7df2f19cb1c6d0fe6f28e94dfba0d21a2c026e0",
+      "afterBlob": "bdbadce366d6ab59327c30a3cfbf5fc7ebf42b02"
+    },
+    {
+      "path": "scripts/test_production_cold_preservation.py",
+      "mode": "100644",
+      "bytes": 22105,
+      "sha256": "07ac220b5bbbcde36b590fbc86a15c7bc5257e1a7bc0d30b92b08e499e8b7ad0",
+      "afterBlob": "4c5aca90466fb076d942ac34a1f9a0e036b02805"
+    },
+    {
+      "path": ".github/workflows/production-cold-preservation.yml",
+      "mode": "100644",
+      "bytes": 14113,
+      "sha256": "a821a247abe57c26fe1c1ed56bf4d1772995fcbcd0569457bdd805aa4e473381",
+      "afterBlob": "2eee047e8821f64ea33156c3bb5daf44a09c2ecd"
+    },
+    {
+      "path": "docs/ops/production-cold-preservation.md",
+      "mode": "100644",
+      "bytes": 9781,
+      "sha256": "9d1419ee978cfa700b3cb653ea3d0bc2ba65544f2e1cc9e4b954a2fe719f8a26",
+      "afterBlob": "a0eab1991d5c65c49e9f44ab20a6ae2a528e7bee"
+    },
+    {
+      "path": "scripts/test_production_stopped_runtime_headroom.py",
+      "mode": "100644",
+      "bytes": 34004,
+      "sha256": "6658a4492242e7ee3e7be9b83be4df005cd879c389b0ee00cb0aefa6d2cf7201",
+      "afterBlob": "ea6430963a568e1356a7706c8514d5215fdd9c38"
+    }
+  ],
+  "dependency": {
+    "path": "scripts/production_stopped_runtime_headroom.py",
+    "mode": "100644",
+    "blob": "1577966d56b9cdd6a5ce586f9f63096a53a4e7b9",
+    "sha256": "6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14"
+  }
+}
+~~~~
+
+### Literal source after: scripts/production_cold_preservation.py
+
+~~~~python
+#!/usr/bin/env python3
+"""Bounded local cold preservation; never starts a service or accepts a restore."""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import secrets
+import shutil
+import stat
+import subprocess
+import tempfile
+import time
+from decimal import Decimal
+from pathlib import Path
+
+MAX_ENTRIES = 100_000
+MAX_DEPTH = 64
+MAX_PATH_BYTES = 32 * 1024 * 1024
+MAX_XATTR_BYTES = 16 * 1024 * 1024
+MAX_SOURCE_BYTES = 1024 * 1024 * 1024
+MAX_MANIFEST_BYTES = 128 * 1024 * 1024
+MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024
+RESERVE_BYTES = 2 * 1024 * 1024 * 1024
+SCRATCH_MARGIN_BYTES = 256 * 1024 * 1024
+MANIFEST_NAME = 'pc-cold-preservation-manifest.json'
+BACKUP_ROOT = '/var/lib/pc-release-authority/backups'
+OPERATION_NAME = 'cold-preservation-20261022'
+CHILD_ENV = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LC_ALL': 'C.UTF-8'}
+
+
+class PreservationError(Exception):
+    """Only fixed public error codes may cross the operational boundary."""
+
+
+def require(condition, code):
+    if not condition:
+        raise PreservationError(code)
+
+
+def directory_fd(name, parent=None):
+    require(hasattr(os, 'O_NOATIME'), 'NOATIME_UNAVAILABLE')
+    return os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NOATIME,
+                   dir_fd=parent)
+
+
+def absolute_directory(path, owner_uid=0):
+    require(isinstance(path, str) and path.startswith('/'), 'DIRECTORY_PATH')
+    parts = path.split('/')[1:]
+    require(parts and all(part not in ('', '.', '..') for part in parts), 'DIRECTORY_PATH')
+    # Traversal reads no directory entries; only enumerated leaf descriptors need NOATIME.
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    fd = os.open('/', flags)
+    try:
+        for part in parts:
+            info = os.fstat(fd)
+            require(info.st_uid in (0, owner_uid), 'DIRECTORY_OWNER')
+            require(not (stat.S_IMODE(info.st_mode) & 0o022) or
+                    (info.st_uid == 0 and bool(info.st_mode & stat.S_ISVTX)), 'DIRECTORY_WRITABLE')
+            child = os.open(part, flags, dir_fd=fd)
+            os.close(fd)
+            fd = child
+        info = os.fstat(fd)
+        require(info.st_uid == owner_uid and not (stat.S_IMODE(info.st_mode) & 0o022),
+                'DIRECTORY_OWNER_MODE')
+        leaf = directory_fd('.', fd)
+        os.close(fd)
+        return leaf
+    except BaseException:
+        os.close(fd)
+        raise
+
+
+def stable_stat(info):
+    return (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_gid,
+            info.st_size, info.st_mtime_ns, info.st_ctime_ns, info.st_atime_ns, info.st_nlink)
+
+
+class SourceSnapshot:
+    def __init__(self, root, volume_names, *, owner_uid=0, seconds=60):
+        self.root = str(root)
+        self.volume_names = tuple(sorted(volume_names))
+        require(len(self.volume_names) == len(set(self.volume_names)) and
+                all(isinstance(name, str) and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,254}', name)
+                    for name in self.volume_names), 'VOLUME_IDENTITY')
+        self.owner_uid = owner_uid
+        self.deadline = time.monotonic() + seconds
+        self.entries = {}
+        self.source_bytes = self.path_bytes = self.xattr_bytes = self.discovered = 0
+        self.root_fd = absolute_directory(self.root, owner_uid)
+        self.device = os.fstat(self.root_fd).st_dev
+
+    def close(self):
+        if self.root_fd is not None:
+            os.close(self.root_fd)
+            self.root_fd = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+
+    def _budget(self):
+        require(time.monotonic() <= self.deadline, 'SOURCE_TIMEOUT')
+        require(len(self.entries) < MAX_ENTRIES, 'SOURCE_ENTRY_LIMIT')
+
+    def _attributes(self, fd):
+        result = {}
+        for name in sorted(os.listxattr(fd)):
+            # Extended ACL/security namespaces need a separately reviewed restoration profile.
+            require(name.startswith('user.'), 'XATTR_PROFILE_UNSUPPORTED')
+            value = os.getxattr(fd, name)
+            self.xattr_bytes += len(name.encode('utf-8', 'surrogateescape')) + len(value)
+            require(self.xattr_bytes <= MAX_XATTR_BYTES, 'XATTR_LIMIT')
+            result[name] = {'bytes': len(value), 'sha256': hashlib.sha256(value).hexdigest()}
+        return result
+
+    def _record(self, path, fd, before, kind, digest=None):
+        require(path not in self.entries, 'DUPLICATE_SOURCE_PATH')
+        self.path_bytes += len(os.fsencode(path))
+        require(self.path_bytes <= MAX_PATH_BYTES, 'SOURCE_PATH_LIMIT')
+        attributes = self._attributes(fd)
+        require(stable_stat(before) == stable_stat(os.fstat(fd)), 'SOURCE_CHANGED')
+        self.entries[path] = {
+            'kind': kind, 'uid': before.st_uid, 'gid': before.st_gid,
+            'mode': stat.S_IMODE(before.st_mode), 'mtime_ns': before.st_mtime_ns,
+            'ctime_ns': before.st_ctime_ns, 'atime_ns': before.st_atime_ns,
+            'device': before.st_dev, 'inode': before.st_ino, 'nlink': before.st_nlink,
+            'size': before.st_size if kind == 'file' else 0,
+            'sha256': digest, 'xattrs': attributes,
+        }
+
+    def _visit(self, parent, name, path, depth, descend=True, require_directory=False):
+        self._budget()
+        require(depth <= MAX_DEPTH and len(os.fsencode(path)) <= 4096, 'SOURCE_DEPTH_PATH')
+        before = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        require(not require_directory or stat.S_ISDIR(before.st_mode), 'SOURCE_DIRECTORY_REQUIRED')
+        require(before.st_dev == self.device, 'SOURCE_DEVICE_CHANGED')
+        require(stat.S_ISDIR(before.st_mode) or stat.S_ISREG(before.st_mode),
+                'SOURCE_LINK_OR_SPECIAL')
+        flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_NONBLOCK
+        if stat.S_ISDIR(before.st_mode):
+            flags |= os.O_DIRECTORY
+        fd = os.open(name, flags, dir_fd=parent)
+        try:
+            require(stable_stat(before) == stable_stat(os.fstat(fd)), 'SOURCE_ENTRY_CHANGED')
+            if stat.S_ISDIR(before.st_mode):
+                self._record(path, fd, before, 'directory')
+                if descend:
+                    names = []
+                    with os.scandir(fd) as iterator:
+                        for item in iterator:
+                            self.discovered += 1
+                            require(self.discovered <= MAX_ENTRIES, 'SOURCE_ENTRY_LIMIT')
+                            names.append(item.name)
+                    for child in sorted(names, key=os.fsencode):
+                        self._visit(fd, child, path + '/' + child, depth + 1)
+                require(stable_stat(before) == stable_stat(os.fstat(fd)), 'SOURCE_DIRECTORY_CHANGED')
+            else:
+                self.source_bytes += before.st_size
+                require(self.source_bytes <= MAX_SOURCE_BYTES, 'SOURCE_BYTE_LIMIT')
+                digest = hashlib.sha256()
+                count = 0
+                while True:
+                    require(time.monotonic() <= self.deadline, 'SOURCE_TIMEOUT')
+                    chunk = os.read(fd, 64 * 1024)
+                    if not chunk:
+                        break
+                    count += len(chunk)
+                    require(count <= before.st_size, 'SOURCE_FILE_GREW')
+                    digest.update(chunk)
+                require(count == before.st_size, 'SOURCE_FILE_CHANGED')
+                self._record(path, fd, before, 'file', digest.hexdigest())
+        finally:
+            os.close(fd)
+
+    def capture(self):
+        self._visit(self.root_fd, 'containers', 'containers', 0, require_directory=True)
+        self._visit(self.root_fd, 'volumes', 'volumes', 0, descend=False, require_directory=True)
+        parent = directory_fd('volumes', self.root_fd)
+        try:
+            for name in self.volume_names:
+                volume = directory_fd(name, parent)
+                try:
+                    data = directory_fd('_data', volume)
+                    os.close(data)
+                finally:
+                    os.close(volume)
+                self._visit(parent, name, 'volumes/' + name, 1, require_directory=True)
+        finally:
+            os.close(parent)
+        return self
+
+    def manifest(self):
+        raw = json.dumps({'schema': 'pc.cold-preservation.manifest.v1', 'entries': self.entries},
+                         sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode()
+        require(len(raw) <= MAX_MANIFEST_BYTES, 'MANIFEST_LIMIT')
+        return raw
+
+
+def verify_archive(handle, snapshot):
+    """Verify authenticated decrypted bytes/metadata; this is not a database restore."""
+    import tarfile
+    manifest = snapshot.manifest()
+    expected_manifest = hashlib.sha256(manifest).hexdigest()
+    seen = set()
+    deadline = time.monotonic() + 300
+    with tarfile.open(fileobj=handle, mode='r:', encoding='utf-8', errors='surrogateescape') as archive:
+        for member in archive:
+            require(time.monotonic() <= deadline, 'ARCHIVE_VERIFY_TIMEOUT')
+            name = member.name.rstrip('/')
+            require(name not in seen, 'ARCHIVE_DUPLICATE')
+            seen.add(name)
+            if name == MANIFEST_NAME:
+                require(member.isfile() and member.size == len(manifest) and member.mode == 0o600 and
+                        member.uid == snapshot.owner_uid and member.gid == os.getegid(), 'ARCHIVE_MANIFEST')
+                stream = archive.extractfile(member)
+                require(stream is not None, 'ARCHIVE_MANIFEST')
+                digest = hashlib.sha256()
+                while chunk := stream.read(64 * 1024):
+                    digest.update(chunk)
+                require(digest.hexdigest() == expected_manifest, 'ARCHIVE_MANIFEST')
+                continue
+            expected = snapshot.entries.get(name)
+            require(expected is not None and not name.startswith('/') and
+                    all(part not in ('', '.', '..') for part in name.split('/')), 'ARCHIVE_PATH')
+            require(member.uid == expected['uid'] and member.gid == expected['gid'] and
+                    member.mode == expected['mode'], 'ARCHIVE_OWNERSHIP_MODE')
+            stamp = member.pax_headers.get('mtime', str(member.mtime))
+            require(Decimal(stamp) * 1_000_000_000 == expected['mtime_ns'], 'ARCHIVE_TIMESTAMP')
+            attributes = {}
+            for key, value in member.pax_headers.items():
+                if key.startswith('SCHILY.xattr.'):
+                    payload = value.encode('utf-8', 'surrogateescape')
+                    attributes[key[len('SCHILY.xattr.'):]] = {
+                        'bytes': len(payload), 'sha256': hashlib.sha256(payload).hexdigest()}
+            if member.islnk():
+                target = snapshot.entries.get(member.linkname)
+                require(member.linkname != name and member.linkname in seen and target is not None and
+                        target['kind'] == 'file' and (target['device'], target['inode']) ==
+                        (expected['device'], expected['inode']) and target['xattrs'] == expected['xattrs'],
+                        'ARCHIVE_HARDLINK')
+                # GNU tar stores inode xattrs on the preceding data member only.
+                if not attributes:
+                    attributes = target['xattrs']
+            require(attributes == expected['xattrs'], 'ARCHIVE_XATTR')
+            if expected['kind'] == 'directory':
+                require(member.isdir(), 'ARCHIVE_TYPE')
+            else:
+                require(member.isfile() or member.islnk(), 'ARCHIVE_TYPE')
+                stream = archive.extractfile(member)
+                require(stream is not None, 'ARCHIVE_FILE')
+                digest = hashlib.sha256()
+                count = 0
+                while chunk := stream.read(64 * 1024):
+                    require(time.monotonic() <= deadline, 'ARCHIVE_VERIFY_TIMEOUT')
+                    count += len(chunk)
+                    require(count <= expected['size'], 'ARCHIVE_FILE_LIMIT')
+                    digest.update(chunk)
+                require(count == expected['size'] and digest.hexdigest() == expected['sha256'],
+                        'ARCHIVE_CONTENT')
+    require(seen == set(snapshot.entries) | {MANIFEST_NAME}, 'ARCHIVE_INCOMPLETE')
+
+
+def child_limits():
+    """Linux children die with their controller and cannot exhaust the filesystem."""
+    import ctypes
+    import resource
+    import signal
+    parent = os.getppid()
+    libc = ctypes.CDLL(None, use_errno=True)
+    if libc.prctl(1, signal.SIGKILL, 0, 0, 0) != 0 or os.getppid() != parent or parent == 1:
+        os._exit(125)
+    os.umask(0o077)
+    resource.setrlimit(resource.RLIMIT_FSIZE, (MAX_ARCHIVE_BYTES, MAX_ARCHIVE_BYTES))
+    resource.setrlimit(resource.RLIMIT_CPU, (300, 300))
+    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+
+
+def sync(fd):
+    os.fsync(fd)
+
+
+def private_file(parent, name):
+    fd = os.open(name, os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=parent)
+    info = os.fstat(fd)
+    require(stat.S_ISREG(info.st_mode) and stat.S_IMODE(info.st_mode) == 0o600 and
+            info.st_uid == os.geteuid() and info.st_nlink == 1, 'PRIVATE_FILE_IDENTITY')
+    return fd
+
+
+def anonymous_file(parent_path, device):
+    handle = tempfile.TemporaryFile(mode='w+b', dir=parent_path)
+    info = os.fstat(handle.fileno())
+    require(stat.S_ISREG(info.st_mode) and stat.S_IMODE(info.st_mode) == 0o600 and
+            info.st_nlink == 0 and info.st_dev == device, 'ANONYMOUS_FILE_IDENTITY')
+    return handle
+
+
+def gpg_arguments(home, key_fd):
+    return ['/usr/bin/gpg', '--no-options', '--homedir', home, '--no-autostart', '--batch', '--no-tty',
+            '--no-symkey-cache', '--pinentry-mode', 'loopback', '--passphrase-fd', str(key_fd)]
+
+
+def make_encrypted_archive(snapshot, operation_fd, key_fd):
+    """No named plaintext: manifest/list and decrypted verification use anonymous FDs."""
+    import sys
+    import tarfile
+    operation_path = '/proc/self/fd/' + str(operation_fd)
+    device = os.fstat(operation_fd).st_dev
+    with anonymous_file(operation_path, device) as prefix, anonymous_file(operation_path, device) as names:
+        manifest = snapshot.manifest()
+        header = tarfile.TarInfo(MANIFEST_NAME)
+        header.mode = 0o600
+        header.uid, header.gid, header.size = snapshot.owner_uid, os.getegid(), len(manifest)
+        prefix.write(header.tobuf(format=tarfile.PAX_FORMAT))
+        prefix.write(manifest)
+        prefix.write(b'\0' * (-len(manifest) % 512))
+        prefix.seek(0)
+        for path in sorted(snapshot.entries, key=os.fsencode):
+            names.write(os.fsencode(path) + b'\0')
+        names.seek(0)
+        os.mkdir('gnupg', 0o700, dir_fd=operation_fd)
+        sync(operation_fd)
+        home = operation_path + '/gnupg'
+        tar = ['/usr/bin/tar', '--create', '--format=posix', '--atime-preserve=system', '--sparse',
+               '--acls', '--xattrs', '--numeric-owner', '--null', '--verbatim-files-from',
+               '--no-recursion', '--directory', '/proc/self/fd/' + str(snapshot.root_fd),
+               '--files-from', '/proc/self/fd/' + str(names.fileno())]
+        # The child writes a manifest prefix, then becomes GNU tar. There is no shell.
+        producer_code = ('import os,sys\nfd=int(sys.argv[1])\n'
+                         'while True:\n b=os.read(fd,65536)\n if not b: break\n'
+                         ' view=memoryview(b)\n while view:\n  view=view[os.write(1,view):]\n'
+                         'os.close(fd)\nos.execvp(sys.argv[2],sys.argv[2:])\n')
+        cipher_fd = private_file(operation_fd, 'preservation.tar.gpg')
+        producer = encryptor = None
+        try:
+            producer = subprocess.Popen([sys.executable, '-I', '-c', producer_code,
+                                         str(prefix.fileno()), *tar], stdin=subprocess.DEVNULL,
+                                        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                        pass_fds=(prefix.fileno(), names.fileno(), snapshot.root_fd),
+                                        preexec_fn=child_limits, env=CHILD_ENV)
+            os.lseek(key_fd, 0, os.SEEK_SET)
+            encryptor = subprocess.Popen(gpg_arguments(home, key_fd) + [
+                '--symmetric', '--cipher-algo', 'AES256', '--s2k-digest-algo', 'SHA256',
+                '--s2k-count', '65011712', '--compress-algo', 'none', '--output', '-'],
+                stdin=producer.stdout, stdout=cipher_fd, stderr=subprocess.DEVNULL,
+                pass_fds=(key_fd, operation_fd), preexec_fn=child_limits, env=CHILD_ENV)
+            producer.stdout.close()
+            require(encryptor.wait(timeout=300) == 0, 'ENCRYPTION_FAILED')
+            require(producer.wait(timeout=30) == 0, 'ARCHIVE_PRODUCER_FAILED')
+            sync(cipher_fd)
+            size = os.fstat(cipher_fd).st_size
+            require(0 < size <= MAX_ARCHIVE_BYTES, 'CIPHERTEXT_SIZE')
+            sync(operation_fd)
+            # GPG must authenticate the complete stream before the parser sees it.
+            with anonymous_file(operation_path, device) as plaintext:
+                os.lseek(key_fd, 0, os.SEEK_SET)
+                os.lseek(cipher_fd, 0, os.SEEK_SET)
+                result = subprocess.run(gpg_arguments(home, key_fd) + ['--decrypt', '--output', '-'],
+                                        stdin=cipher_fd, stdout=plaintext, stderr=subprocess.DEVNULL,
+                                        pass_fds=(key_fd, operation_fd), preexec_fn=child_limits,
+                                        timeout=300, env=CHILD_ENV)
+                require(result.returncode == 0, 'ARCHIVE_AUTHENTICATION_FAILED')
+                require(0 < os.fstat(plaintext.fileno()).st_size <= MAX_ARCHIVE_BYTES,
+                        'PLAINTEXT_SIZE')
+                plaintext.seek(0)
+                verify_archive(plaintext, snapshot)
+            os.lseek(cipher_fd, 0, os.SEEK_SET)
+            digest = hashlib.sha256()
+            while chunk := os.read(cipher_fd, 64 * 1024):
+                digest.update(chunk)
+            return size, digest.hexdigest()
+        finally:
+            for process in (encryptor, producer):
+                if process is not None and process.poll() is None:
+                    process.kill()
+                    process.wait(timeout=15)
+            if producer is not None and producer.stdout is not None:
+                producer.stdout.close()
+            os.close(cipher_fd)
+
+
+def no_postgres_processes():
+    result = subprocess.run(['/usr/bin/ps', '-C', 'postgres,postmaster', '-o', 'pid='],
+                            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                            stderr=subprocess.DEVNULL, timeout=10, env=CHILD_ENV)
+    require(result.returncode in (0, 1) and len(result.stdout) <= 16384 and
+            not result.stdout.strip(), 'POSTGRES_PROCESS_PRESENT_OR_UNKNOWN')
+
+
+def tool_preflight():
+    for name, marker in [('/usr/bin/tar', b'GNU tar'), ('/usr/bin/gpg', b'GnuPG')]:
+        require(shutil.which(name) is not None, 'PRESERVATION_TOOL_UNAVAILABLE')
+        result = subprocess.run([name, '--version'], stdin=subprocess.DEVNULL,
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10, env=CHILD_ENV)
+        require(result.returncode == 0 and len(result.stdout) <= 16384 and marker in result.stdout,
+                'PRESERVATION_TOOL_UNSUPPORTED')
+
+
+def preserve(host, target_sha, run_id, *, source_root='/var/lib/docker', backup_root=BACKUP_ROOT,
+             owner_uid=0, runtime_probe=no_postgres_processes, tools_probe=tool_preflight):
+    """Only fresh quiescent observations and a complete profile can authorize writes."""
+    import fcntl
+    require(os.getuid() == os.geteuid() == owner_uid and re.fullmatch('[0-9a-f]{40}', target_sha) and
+            re.fullmatch('[1-9][0-9]{0,19}', run_id), 'OPERATOR_SOURCE_IDENTITY')
+    baseline = host.observe()
+    runtime_probe()
+    tools_probe()
+    volume_names = [value.decode('ascii') for value in baseline[1]]
+    with SourceSnapshot(source_root, volume_names, owner_uid=owner_uid) as snapshot:
+        snapshot.capture()
+        # Force manifest/profile bounds before any archive/key/operation-directory write.
+        snapshot.manifest()
+        backup_fd = absolute_directory(backup_root, owner_uid)
+        operation_fd = key_fd = None
+        try:
+            info = os.fstat(backup_fd)
+            require(stat.S_IMODE(info.st_mode) == 0o700 and info.st_dev == snapshot.device,
+                    'BACKUP_ROOT_IDENTITY')
+            fcntl.flock(backup_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            try:
+                os.stat(OPERATION_NAME, dir_fd=backup_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                raise PreservationError('OPERATION_ALREADY_EXISTS_RECONCILE')
+            free = os.fstatvfs(backup_fd)
+            available = free.f_bavail * free.f_frsize
+            require(available >= 2 * MAX_ARCHIVE_BYTES + RESERVE_BYTES + SCRATCH_MARGIN_BYTES,
+                    'PRESERVATION_SPACE_INSUFFICIENT')
+            require(host.observe() == baseline, 'PRE_WRITE_RUNTIME_DRIFT')
+            runtime_probe()
+            # All prerequisites above are read-only. An existing operation is never replayed.
+            os.mkdir(OPERATION_NAME, 0o700, dir_fd=backup_fd)
+            sync(backup_fd)
+            operation_fd = directory_fd(OPERATION_NAME, backup_fd)
+            key_fd = private_file(operation_fd, 'passphrase')
+            payload = (secrets.token_urlsafe(48) + '\n').encode('ascii')
+            require(os.write(key_fd, payload) == len(payload), 'KEY_WRITE_FAILED')
+            sync(key_fd)
+            sync(operation_fd)
+            # The durable key precedes the first ciphertext byte; never remove it on failure.
+            archive_bytes, cipher_sha = make_encrypted_archive(snapshot, operation_fd, key_fd)
+            with SourceSnapshot(source_root, volume_names, owner_uid=owner_uid) as after:
+                after.capture()
+                require(snapshot.entries == after.entries, 'POST_COPY_SOURCE_DRIFT')
+            runtime_probe()
+            require(host.observe() == baseline, 'POST_COPY_RUNTIME_DRIFT')
+            free = os.fstatvfs(backup_fd)
+            require(free.f_bavail * free.f_frsize >= RESERVE_BYTES, 'POST_COPY_SPACE_RESERVE')
+            report = {
+                'schemaVersion': 'pc.cold-preservation.v1', 'targetSha': target_sha, 'runId': run_id,
+                'passed': True, 'status': 'ENCRYPTED_COLD_PRESERVATION_VERIFIED',
+                'ciphertextBytes': archive_bytes, 'ciphertextSha256': cipher_sha,
+                'entries': len(snapshot.entries), 'sourceBytes': snapshot.source_bytes,
+                'volumes': len(volume_names), 'sourceUnchanged': True, 'runtimeUnchanged': True,
+                'runtimeRestored': False, 'databaseIntegrity': 'NOT_ATTESTED',
+                'restoreVerification': 'NOT_PERFORMED', 'offHostRecovery': 'NOT_ESTABLISHED',
+            }
+            receipt = private_file(operation_fd, 'receipt.pending')
+            try:
+                raw = (json.dumps(report, separators=(',', ':')) + '\n').encode()
+                require(os.write(receipt, raw) == len(raw), 'RECEIPT_WRITE_FAILED')
+                sync(receipt)
+            finally:
+                os.close(receipt)
+            sync(operation_fd)
+            os.rename('receipt.pending', 'receipt.json', src_dir_fd=operation_fd, dst_dir_fd=operation_fd)
+            sync(operation_fd)
+            sync(backup_fd)
+            return report
+        finally:
+            if key_fd is not None:
+                os.close(key_fd)
+            if operation_fd is not None:
+                os.close(operation_fd)
+            os.close(backup_fd)
+
+
+def main():
+    import argparse
+    from production_stopped_runtime_headroom import Host, RecoveryError
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--sha', required=True)
+    parser.add_argument('--run-id', required=True)
+    parser.add_argument('--execute', action='store_true', required=True)
+    args = parser.parse_args()
+    try:
+        result = preserve(Host(), args.sha, args.run_id)
+        print(json.dumps(result, separators=(',', ':')), flush=True)
+        return 0
+    except Exception as error:
+        code = str(error) if isinstance(error, (PreservationError, RecoveryError)) else 'UNCLASSIFIED_FAILURE'
+        if not re.fullmatch('[A-Z_]{1,64}', code):
+            code = 'UNCLASSIFIED_FAILURE'
+        print(json.dumps({'schemaVersion': 'pc.cold-preservation.v1', 'passed': False,
+                          'errorCode': code, 'runtimeRestored': False,
+                          'mutationOutcome': 'RECONCILIATION_REQUIRED_IF_STARTED'}, separators=(',', ':')),
+              flush=True)
+        return 1
+
+
+def validate_terminal(raw, target_sha, run_id, ssh_status):
+    """The runner publishes only this closed vocabulary after transport/source binding."""
+    require(isinstance(raw, bytes) and 0 < len(raw) <= 16384, 'OUTPUT_LIMIT')
+    value = json.loads(raw)
+    require(isinstance(value, dict), 'OUTPUT_SCHEMA')
+    failed = {'schemaVersion', 'passed', 'errorCode', 'runtimeRestored', 'mutationOutcome'}
+    final = {'schemaVersion', 'targetSha', 'runId', 'passed', 'status', 'ciphertextBytes',
+             'ciphertextSha256', 'entries', 'sourceBytes', 'volumes', 'sourceUnchanged',
+             'runtimeUnchanged', 'runtimeRestored', 'databaseIntegrity', 'restoreVerification',
+             'offHostRecovery'}
+    require(set(value) in (failed, final) and value.get('schemaVersion') == 'pc.cold-preservation.v1'
+            and value.get('runtimeRestored') is False and type(value.get('passed')) is bool,
+            'OUTPUT_SCHEMA')
+    if set(value) == failed:
+        require(value['passed'] is False and isinstance(value['errorCode'], str) and
+                re.fullmatch('[A-Z_]{1,64}', value['errorCode']) and
+                value['mutationOutcome'] == 'RECONCILIATION_REQUIRED_IF_STARTED' and ssh_status == 1,
+                'FAILURE_OR_TRANSPORT_SCHEMA')
+    else:
+        require(value['targetSha'] == target_sha and value['runId'] == run_id and
+                value['passed'] is True and ssh_status == 0 and
+                value['status'] == 'ENCRYPTED_COLD_PRESERVATION_VERIFIED' and
+                value['sourceUnchanged'] is True and value['runtimeUnchanged'] is True and
+                value['databaseIntegrity'] == 'NOT_ATTESTED' and
+                value['restoreVerification'] == 'NOT_PERFORMED' and
+                value['offHostRecovery'] == 'NOT_ESTABLISHED', 'RESULT_INVARIANT_SCHEMA')
+        for key, minimum, maximum in [('ciphertextBytes', 1, MAX_ARCHIVE_BYTES),
+                                      ('entries', 1, MAX_ENTRIES),
+                                      ('sourceBytes', 0, MAX_SOURCE_BYTES), ('volumes', 19, 19)]:
+            require(type(value[key]) is int and minimum <= value[key] <= maximum, 'RESULT_COUNT_SCHEMA')
+        require(isinstance(value['ciphertextSha256'], str) and
+                re.fullmatch('[0-9a-f]{64}', value['ciphertextSha256']), 'RESULT_DIGEST_SCHEMA')
+    return value
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
+~~~~
+
+### Literal source after: scripts/test_production_cold_preservation.py
+
+~~~~python
+#!/usr/bin/env python3
+"""Synthetic local files only: no Docker socket, production host or credential."""
+import copy
+import hashlib
+import io
+import json
+import os
+from pathlib import Path
+import stat
+import subprocess
+import tarfile
+import tempfile
+import textwrap
+import unittest
+from unittest.mock import patch
+
+import production_cold_preservation as cold
+
+SHA = 'a' * 40
+
+
+def workflow_step(name):
+    here = Path(__file__).parent
+    path = here / 'production-cold-preservation.yml'
+    if not path.is_file():
+        path = here.parent / '.github/workflows/production-cold-preservation.yml'
+    text = path.read_text()
+    block = text.split('      - name: ' + name + '\n', 1)[1].split('\n      - ', 1)[0]
+    return text, textwrap.dedent(block.split('        run: |\n', 1)[1])
+
+
+def valid_terminal():
+    return {'schemaVersion': 'pc.cold-preservation.v1', 'targetSha': SHA, 'runId': '12345',
+            'passed': True, 'status': 'ENCRYPTED_COLD_PRESERVATION_VERIFIED',
+            'ciphertextBytes': 1234, 'ciphertextSha256': 'd' * 64, 'entries': 3000,
+            'sourceBytes': 1048576, 'volumes': 19, 'sourceUnchanged': True,
+            'runtimeUnchanged': True, 'runtimeRestored': False, 'databaseIntegrity': 'NOT_ATTESTED',
+            'restoreVerification': 'NOT_PERFORMED', 'offHostRecovery': 'NOT_ESTABLISHED'}
+
+
+class Host:
+    def __init__(self):
+        self.calls = 0
+        self.drift_at = None
+        self.state = ((), (b'database',), (), frozenset(), frozenset())
+
+    def observe(self):
+        self.calls += 1
+        if self.calls == self.drift_at:
+            return self.state[:-1] + (frozenset({'unexpected'}),)
+        return self.state
+
+
+class PreservationTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name) / 'docker'
+        self.backup = Path(self.temp.name) / 'backups'
+        self.root.mkdir(mode=0o700)
+        self.backup.mkdir(mode=0o700)
+        (self.root / 'containers').mkdir()
+        (self.root / 'containers' / 'metadata').write_bytes(b'private synthetic configuration')
+        self.data = self.root / 'volumes' / 'database' / '_data'
+        self.data.mkdir(parents=True)
+        self.payload = self.data / '-данные\n name'
+        self.payload.write_bytes(b'\0synthetic customer fixture\xff')
+        self.payload.chmod(0o640)
+        os.setxattr(self.payload, 'user.binary', b'\0\xff\nfixture')
+        os.link(self.payload, self.data / 'hardlink')
+        with (self.data / 'sparse').open('wb') as handle:
+            handle.seek(1024 * 1024)
+            handle.write(b'end')
+        self.age()
+        self.host = Host()
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def age(self):
+        for parent, directories, files in os.walk(self.root):
+            for name in [*directories, *files]:
+                os.utime(Path(parent) / name, ns=(946684800123456789, 978307200123456789))
+        os.utime(self.root, ns=(946684800123456789, 978307200123456789))
+
+    def preserve(self, **options):
+        return cold.preserve(self.host, SHA, '12345', source_root=str(self.root),
+                             backup_root=str(self.backup), owner_uid=os.geteuid(),
+                             runtime_probe=options.pop('runtime_probe', lambda: None), **options)
+
+    def snapshot(self):
+        with cold.SourceSnapshot(self.root, ['database'], owner_uid=os.geteuid()) as snapshot:
+            snapshot.capture()
+            return copy.deepcopy(snapshot.entries)
+
+    def test_actual_gnu_tar_gpg_roundtrip_preserves_source_and_private_evidence(self):
+        before = self.snapshot()
+        result = self.preserve()
+        self.assertEqual(before, self.snapshot())
+        self.assertEqual(self.host.calls, 3)
+        operation = self.backup / cold.OPERATION_NAME
+        cipher = operation / 'preservation.tar.gpg'
+        self.assertTrue(result['passed'])
+        self.assertFalse(result['runtimeRestored'])
+        self.assertEqual(result['databaseIntegrity'], 'NOT_ATTESTED')
+        self.assertEqual(result['restoreVerification'], 'NOT_PERFORMED')
+        self.assertEqual(result['ciphertextSha256'], hashlib.sha256(cipher.read_bytes()).hexdigest())
+        self.assertEqual(result, json.loads((operation / 'receipt.json').read_text()))
+        self.assertEqual(stat.S_IMODE(operation.stat().st_mode), 0o700)
+        for name in ('passphrase', 'preservation.tar.gpg', 'receipt.json'):
+            self.assertEqual(stat.S_IMODE((operation / name).stat().st_mode), 0o600)
+        self.assertFalse(list(operation.rglob('S.gpg-agent*')))
+        self.assertEqual({p.name for p in operation.iterdir()},
+                         {'gnupg', 'passphrase', 'preservation.tar.gpg', 'receipt.json'})
+        self.assertNotIn('private synthetic configuration', json.dumps(result))
+        self.assertNotIn('user.binary', json.dumps(result))
+        key = os.open(operation / 'passphrase', os.O_RDONLY)
+        try:
+            with cipher.open('rb') as source:
+                decrypted = subprocess.run(cold.gpg_arguments(str(operation / 'gnupg'), key) +
+                                           ['--decrypt', '--output', '-'], stdin=source,
+                                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                           pass_fds=(key,), check=True, env=cold.CHILD_ENV).stdout
+        finally:
+            os.close(key)
+        # Verify real extraction as well as the production content verifier.
+        restored = Path(self.temp.name) / 'restored'
+        restored.mkdir()
+        subprocess.run(['/usr/bin/tar', '--extract', '--xattrs', '--acls', '--sparse',
+                        '--same-permissions', '--file', '-', '--directory', str(restored)],
+                       input=decrypted, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                       check=True, env=cold.CHILD_ENV)
+        output = restored / self.payload.relative_to(self.root)
+        self.assertEqual(output.read_bytes(), b'\0synthetic customer fixture\xff')
+        self.assertEqual(os.getxattr(output, 'user.binary'), b'\0\xff\nfixture')
+        self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o640)
+        self.assertEqual(output.stat().st_ino, (output.parent / 'hardlink').stat().st_ino)
+        self.assertLess((output.parent / 'sparse').stat().st_blocks * 512, 1024 * 1024)
+
+    def test_corrupt_ciphertext_never_reaches_archive_parser_or_success_receipt(self):
+        real_run = subprocess.run
+        def corrupt_before_authentication(argv, **options):
+            if '--decrypt' in argv:
+                fd = options['stdin']
+                last = os.fstat(fd).st_size - 1
+                value = os.pread(fd, 1, last)
+                os.pwrite(fd, bytes([value[0] ^ 1]), last)
+            return real_run(argv, **options)
+        with patch.object(cold.subprocess, 'run', side_effect=corrupt_before_authentication), \
+             patch.object(cold, 'verify_archive', side_effect=AssertionError('UNAUTHENTICATED_PARSE')):
+            with self.assertRaisesRegex(cold.PreservationError, 'ARCHIVE_AUTHENTICATION_FAILED'):
+                self.preserve()
+        operation = self.backup / cold.OPERATION_NAME
+        self.assertTrue((operation / 'passphrase').is_file())
+        self.assertTrue((operation / 'preservation.tar.gpg').is_file())
+        self.assertFalse((operation / 'receipt.json').exists())
+
+    def test_more_than_2048_files_are_completely_profiled_and_global_bound_is_enforced(self):
+        for i in range(2051):
+            (self.data / str(i)).touch()
+        complete = self.snapshot()
+        self.assertIn('volumes/database/_data/2050', complete)
+        with patch.object(cold, 'MAX_ENTRIES', 100):
+            with self.assertRaisesRegex(cold.PreservationError, 'SOURCE_ENTRY_LIMIT'):
+                self.preserve()
+        self.assertEqual(list(self.backup.iterdir()), [])
+
+    def test_symlink_special_file_missing_data_and_source_byte_limit_block_before_write(self):
+        unsafe = self.data / 'unsafe'
+        for kind in ('symlink', 'fifo'):
+            with self.subTest(kind=kind):
+                if kind == 'symlink':
+                    unsafe.symlink_to('/etc/passwd')
+                else:
+                    os.mkfifo(unsafe)
+                with self.assertRaisesRegex(cold.PreservationError, 'SOURCE_LINK_OR_SPECIAL'):
+                    self.preserve()
+                unsafe.unlink()
+                self.assertEqual(list(self.backup.iterdir()), [])
+        with patch.object(cold, 'MAX_SOURCE_BYTES', 10):
+            with self.assertRaisesRegex(cold.PreservationError, 'SOURCE_BYTE_LIMIT'):
+                self.preserve()
+        self.data.rename(self.data.with_name('missing'))
+        with self.assertRaises(FileNotFoundError):
+            self.preserve()
+        self.assertEqual(list(self.backup.iterdir()), [])
+
+    def test_readonly_preconditions_and_runtime_drift_never_create_an_operation(self):
+        self.host.drift_at = 2
+        with self.assertRaisesRegex(cold.PreservationError, 'PRE_WRITE_RUNTIME_DRIFT'):
+            self.preserve()
+        self.assertEqual(list(self.backup.iterdir()), [])
+        def running():
+            raise cold.PreservationError('POSTGRES_PROCESS_PRESENT_OR_UNKNOWN')
+        with self.assertRaisesRegex(cold.PreservationError, 'POSTGRES_PROCESS_PRESENT_OR_UNKNOWN'):
+            self.preserve(runtime_probe=running)
+        self.assertEqual(list(self.backup.iterdir()), [])
+        self.backup.chmod(0o755)
+        with self.assertRaisesRegex(cold.PreservationError, 'BACKUP_ROOT_IDENTITY'):
+            self.preserve()
+        self.assertEqual(list(self.backup.iterdir()), [])
+
+    def test_existing_operation_is_never_overwritten_or_replayed(self):
+        operation = self.backup / cold.OPERATION_NAME
+        operation.mkdir(mode=0o700)
+        sentinel = operation / 'passphrase'
+        sentinel.write_bytes(b'synthetic preserved recovery key')
+        with self.assertRaisesRegex(cold.PreservationError, 'OPERATION_ALREADY_EXISTS_RECONCILE'):
+            self.preserve()
+        self.assertEqual(sentinel.read_bytes(), b'synthetic preserved recovery key')
+        self.assertEqual(list(operation.iterdir()), [sentinel])
+
+    def test_post_copy_runtime_or_source_drift_preserves_cipher_key_without_success_receipt(self):
+        self.host.drift_at = 3
+        with self.assertRaisesRegex(cold.PreservationError, 'POST_COPY_RUNTIME_DRIFT'):
+            self.preserve()
+        operation = self.backup / cold.OPERATION_NAME
+        self.assertTrue((operation / 'passphrase').is_file())
+        self.assertTrue((operation / 'preservation.tar.gpg').is_file())
+        self.assertFalse((operation / 'receipt.json').exists())
+
+    def test_key_durability_failure_never_starts_archive(self):
+        real_sync = cold.sync
+        def reject_key(fd):
+            if stat.S_ISREG(os.fstat(fd).st_mode):
+                raise OSError('synthetic sync failure')
+            return real_sync(fd)
+        with patch.object(cold, 'sync', side_effect=reject_key), \
+             patch.object(cold, 'make_encrypted_archive') as archive:
+            with self.assertRaises(OSError):
+                self.preserve()
+            archive.assert_not_called()
+        self.assertFalse((self.backup / cold.OPERATION_NAME / 'receipt.json').exists())
+
+    def test_receipt_durability_failure_never_returns_success(self):
+        real_sync = cold.sync
+        def reject_receipt(fd):
+            link = os.readlink('/proc/self/fd/' + str(fd))
+            if link.endswith('/receipt.pending'):
+                raise OSError('synthetic receipt sync failure')
+            return real_sync(fd)
+        with patch.object(cold, 'sync', side_effect=reject_receipt):
+            with self.assertRaises(OSError):
+                self.preserve()
+        operation = self.backup / cold.OPERATION_NAME
+        self.assertTrue((operation / 'passphrase').is_file())
+        self.assertTrue((operation / 'preservation.tar.gpg').is_file())
+        self.assertFalse((operation / 'receipt.json').exists())
+
+    def test_host_postgres_probe_rejects_unknown_and_nonempty_output(self):
+        for status, output in [(2, b''), (0, b'12\n'), (1, b'not-pids'), (0, b'1' * 16385)]:
+            with self.subTest(status=status, output_length=len(output)):
+                with patch.object(cold.subprocess, 'run', return_value=subprocess.CompletedProcess([], status, output)):
+                    with self.assertRaises(cold.PreservationError):
+                        cold.no_postgres_processes()
+        with patch.object(cold.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1, b'')):
+            cold.no_postgres_processes()
+
+    def test_publication_rejects_extra_fields_false_claims_bad_counts_and_transport(self):
+        valid = valid_terminal()
+        self.assertEqual(cold.validate_terminal(json.dumps(valid).encode(), SHA, '12345', 0), valid)
+        mutations = [{'injected': 'SYNTHETIC_SECRET'}, {'targetSha': 'b' * 40}, {'runId': '999'},
+                     {'runtimeRestored': True}, {'databaseIntegrity': 'VERIFIED'},
+                     {'restoreVerification': 'PERFORMED'}, {'offHostRecovery': 'ESTABLISHED'},
+                     {'sourceUnchanged': False}, {'entries': True}, {'entries': cold.MAX_ENTRIES + 1},
+                     {'sourceBytes': cold.MAX_SOURCE_BYTES + 1}, {'volumes': 18},
+                     {'ciphertextSha256': 'SECRET'}, {'ciphertextBytes': 0}]
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                with self.assertRaises(cold.PreservationError):
+                    cold.validate_terminal(json.dumps({**valid, **mutation}).encode(), SHA, '12345', 0)
+        for status in (1, 2, 124, 255):
+            with self.assertRaises(cold.PreservationError):
+                cold.validate_terminal(json.dumps(valid).encode(), SHA, '12345', status)
+
+    def test_actual_workflow_permissions_owner_gate_and_shared_queue(self):
+        workflow, _ = workflow_step('Bind accepted exact main and evidence journal')
+        global_part, jobs = workflow.split('\njobs:\n', 1)
+        contract, recovery = jobs.split('\n  recover:\n', 1)
+        self.assertNotIn('secrets.', global_part + contract)
+        self.assertNotIn('issues: write', global_part + contract)
+        self.assertNotIn('concurrency:', global_part + contract)
+        for condition in ["github.event_name == 'issue_comment'", 'github.event.issue.number == 4637',
+                          "github.event.comment.body == '/production preserve-stopped-data current-main'",
+                          'github.event.comment.user.login == github.repository_owner',
+                          "github.event.comment.author_association == 'OWNER'",
+                          'github.actor == github.repository_owner',
+                          'github.triggering_actor == github.repository_owner',
+                          "needs.contract.result == 'success'"]:
+            self.assertIn(condition, recovery)
+        self.assertIn('group: production-full-stack-exact-sha\n      cancel-in-progress: false\n      queue: max', recovery)
+        self.assertIn('ref: ${{ github.sha }}', recovery)
+        self.assertNotIn('ref: main\n', recovery)
+
+    def test_public_artifact_selects_only_three_bounded_receipts(self):
+        workflow, _ = workflow_step('Bind accepted exact main and evidence journal')
+        upload = workflow.split('      - uses: actions/upload-artifact@', 1)[1]
+        self.assertIn('retention-days: 90', upload)
+        block = upload.split('          path: |\n', 1)[1].split('\n          if-no-files-found:', 1)[0]
+        paths = [line.strip() for line in block.splitlines()]
+        wanted = {'target-sha.txt', 'issue-record.md', 'result.json'}
+        self.assertEqual(paths, ['artifacts/production-cold-preservation/' + name
+                                for name in ['target-sha.txt', 'issue-record.md', 'result.json']])
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            evidence = base / 'artifacts/production-cold-preservation'
+            evidence.mkdir(parents=True)
+            forbidden = {'passphrase', 'preservation.tar.gpg', 'manifest.json',
+                         'remote-stderr.txt', 'ssh-key-fingerprint.txt', 'ssh-auth.txt',
+                         'customer-records.json'}
+            for name in wanted | forbidden:
+                (evidence / name).write_text('synthetic fixture only')
+            selected = {path.name for pattern in paths for path in base.glob(pattern)}
+            self.assertEqual(selected, wanted)
+
+    def test_actual_event_binding_rejects_stale_workflow_checkout_and_main(self):
+        import sys
+        _, source = workflow_step('Bind accepted exact main and evidence journal')
+        prefix = source.split("python3 - <<'PY_BIND'\n", 1)[0]
+        for override in ({}, {'GITHUB_WORKFLOW_SHA': 'b' * 40}, {'FIXTURE_HEAD': 'b' * 40},
+                         {'FIXTURE_MAIN': 'b' * 40}, {'FIXTURE_API': 'b' * 40},
+                         {'GITHUB_WORKFLOW_REF': 'fixture/repo/.github/workflows/wrong.yml@refs/heads/main'}):
+            with self.subTest(override=override), tempfile.TemporaryDirectory() as name:
+                root = Path(name)
+                commands = root / 'bin'
+                commands.mkdir()
+                programs = {
+                    'git': "import os,sys\na=sys.argv[1:]\nif a[0]=='fetch':sys.exit(0)\nif a==['rev-parse','HEAD']:print(os.environ['FIXTURE_HEAD'])\nelif a==['rev-parse','origin/main']:print(os.environ['FIXTURE_MAIN'])\nelse:sys.exit(9)\n",
+                    'gh': "import os\nprint(os.environ['FIXTURE_API'])\n"}
+                for command, code in programs.items():
+                    path = commands / command
+                    path.write_text('#!' + sys.executable + '\n' + code)
+                    path.chmod(0o755)
+                env = {**os.environ, 'PATH': str(commands) + os.pathsep + os.environ['PATH'],
+                       'GITHUB_SHA': SHA, 'GITHUB_WORKFLOW_SHA': SHA, 'GITHUB_REPOSITORY': 'fixture/repo',
+                       'GITHUB_WORKFLOW_REF': 'fixture/repo/.github/workflows/production-cold-preservation.yml@refs/heads/main',
+                       'FIXTURE_HEAD': SHA, 'FIXTURE_MAIN': SHA, 'FIXTURE_API': SHA,
+                       'EVIDENCE_DIR': str(root / 'evidence'), 'GITHUB_ENV': str(root / 'env'), **override}
+                result = subprocess.run(['bash', '-ceu', prefix], cwd=root, env=env, capture_output=True)
+                self.assertEqual(result.returncode == 0, not override)
+
+    def test_actual_bash_transport_never_publishes_success_for_unknown_outcome(self):
+        import sys
+        _, source = workflow_step('Execute only the separately accepted cold-preservation stage')
+        failed = {'schemaVersion': 'pc.cold-preservation.v1', 'passed': False,
+                  'errorCode': 'POST_COPY_RUNTIME_DRIFT', 'runtimeRestored': False,
+                  'mutationOutcome': 'RECONCILIATION_REQUIRED_IF_STARTED'}
+        cases = [(valid_terminal(), 0, SHA, 'success'), (valid_terminal(), 255, SHA, 'unknown'),
+                 (valid_terminal(), 1, SHA, 'unknown'), (valid_terminal(), 0, 'b' * 40, 'unknown'),
+                 ({**valid_terminal(), 'injected': 'SYNTHETIC_SECRET'}, 0, SHA, 'unknown'),
+                 (failed, 1, SHA, 'failure'), (failed, 0, SHA, 'unknown'), (None, 255, SHA, 'unknown')]
+        for value, status, post, outcome in cases:
+            with self.subTest(status=status, post=post, outcome=outcome), tempfile.TemporaryDirectory() as name:
+                root = Path(name)
+                commands = root / 'bin'
+                commands.mkdir()
+                scripts = root / 'scripts'
+                scripts.mkdir()
+                for filename in ('production_cold_preservation.py', 'production_stopped_runtime_headroom.py'):
+                    (scripts / filename).write_bytes(Path(__file__).with_name(filename).read_bytes())
+                output = root / 'evidence'
+                output.mkdir()
+                fixture = root / 'output'
+                fixture.write_text('' if value is None else json.dumps(value))
+                programs = {
+                    'git': "import os,sys,pathlib\na=sys.argv[1:]\nif a[0]=='fetch':sys.exit(0)\nif a==['rev-parse','origin/main']:print(os.environ['FIXTURE_POST'] if pathlib.Path(os.environ['FIXTURE_DONE']).exists() else os.environ['TARGET_SHA'])\nelse:sys.exit(9)\n",
+                    'ssh': "import os,sys,pathlib\npathlib.Path(os.environ['FIXTURE_DONE']).touch()\nsys.stdout.write(pathlib.Path(os.environ['FIXTURE_OUTPUT']).read_text())\nsys.exit(int(os.environ['FIXTURE_STATUS']))\n"}
+                for command, code in programs.items():
+                    path = commands / command
+                    path.write_text('#!' + sys.executable + '\n' + code)
+                    path.chmod(0o755)
+                env = {**os.environ, 'PATH': str(commands) + os.pathsep + os.environ['PATH'],
+                       'TARGET_SHA': SHA, 'GITHUB_RUN_ID': '12345', 'EVIDENCE_DIR': str(output),
+                       'SSH_USER_SECRET': 'fixture', 'PROD_HOST': '127.0.0.1', 'PROD_PORT': '1',
+                       'FIXTURE_DONE': str(root / 'done'), 'FIXTURE_POST': post,
+                       'FIXTURE_STATUS': str(status), 'FIXTURE_OUTPUT': str(fixture)}
+                result = subprocess.run(['bash', '-ceu', source], cwd=root, env=env, capture_output=True)
+                body = (output / 'issue-record.md').read_text()
+                self.assertNotIn('SYNTHETIC_SECRET', body)
+                self.assertEqual(result.returncode == 0, outcome == 'success', result.stderr.decode())
+                if outcome == 'unknown':
+                    self.assertIn('`UNKNOWN`', body)
+                    self.assertFalse((output / 'result.json').exists())
+                else:
+                    self.assertNotIn('`UNKNOWN`', body)
+                    self.assertTrue((output / 'result.json').is_file())
+
+
+if __name__ == '__main__':
+    unittest.main()
+~~~~
+
+### Literal source after: .github/workflows/production-cold-preservation.yml
+
+~~~~yaml
+name: Production Cold Preservation
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/production_cold_preservation.py'
+      - 'scripts/test_production_cold_preservation.py'
+      - '.github/workflows/production-cold-preservation.yml'
+      - 'docs/ops/production-cold-preservation.md'
+      - 'scripts/test_production_stopped_runtime_headroom.py'
+      - 'scripts/production_stopped_runtime_headroom.py'
+      - '.github/workflows/production-full-stack-exact-sha.yml'
+      - '.github/workflows/production-docker-headroom-recovery.yml'
+      - '.github/workflows/production-docker-headroom-owner-push-once.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  EVIDENCE_DIR: artifacts/production-cold-preservation
+
+jobs:
+  contract:
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 4637 &&
+       github.event.comment.body == '/production preserve-stopped-data current-main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Verify encrypted preservation and shared production contracts
+        run: |
+          python3 -B scripts/test_production_cold_preservation.py
+          python3 -B scripts/test_production_stopped_runtime_headroom.py
+
+  recover:
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4637 &&
+      github.event.comment.body == '/production preserve-stopped-data current-main' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      needs.contract.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    concurrency:
+      group: production-full-stack-exact-sha
+      cancel-in-progress: false
+      queue: max
+    env:
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind accepted exact main and evidence journal
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          target_sha="$GITHUB_SHA"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$GITHUB_WORKFLOW_SHA" == "$target_sha" ]]
+          [[ "$GITHUB_WORKFLOW_REF" == "$GITHUB_REPOSITORY/.github/workflows/production-cold-preservation.yml@refs/heads/main" ]]
+          [[ "$(git rev-parse HEAD)" == "$target_sha" ]]
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$target_sha" ]]
+          [[ "$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)" == "$target_sha" ]]
+          echo "TARGET_SHA=$target_sha" >> "$GITHUB_ENV"
+          printf '%s\n' "$target_sha" > "$EVIDENCE_DIR/target-sha.txt"
+          python3 - <<'PY_BIND'
+          import hashlib, json, pathlib, stat
+          state = json.loads(pathlib.Path('docs/platform-v7/autopilot/autopilot-state.json').read_text())
+          purpose = state.get('coordinationAdmissions', {}).get('cold-preservation-20261022')
+          if not isinstance(purpose, dict) or purpose.get('owner') != 'ACCOUNT_1_CORE' or purpose.get('sourceBranch') != 'ops/production-cold-preservation-20261022':
+              raise SystemExit('ACCEPTED_SOURCE_PURPOSE_MISSING')
+          expected = ['scripts/production_cold_preservation.py', 'scripts/test_production_cold_preservation.py', '.github/workflows/production-cold-preservation.yml', 'docs/ops/production-cold-preservation.md', 'scripts/test_production_stopped_runtime_headroom.py']
+          if list(purpose.get('sha256', {})) != expected or purpose.get('mode') != '100644':
+              raise SystemExit('SOURCE_VECTOR_MISMATCH')
+          payloads = dict(purpose['sha256'])
+          payloads['scripts/production_stopped_runtime_headroom.py'] = purpose.get('dependencySha256')
+          for name, expected_hash in payloads.items():
+              path = pathlib.Path(name)
+              info = path.lstat()
+              if not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o644 or not 0 < info.st_size <= 200000:
+                  raise SystemExit('SOURCE_TYPE_MODE_SIZE_MISMATCH')
+              if hashlib.sha256(path.read_bytes()).hexdigest() != expected_hash:
+                  raise SystemExit('SOURCE_PAYLOAD_MISMATCH')
+          PY_BIND
+          read -r state comments is_pr < <(gh api "repos/${GITHUB_REPOSITORY}/issues/4637" --jq '[.state,.comments,has("pull_request")] | @tsv')
+          [[ "$state" == open && "$comments" =~ ^[0-9]+$ && "$is_pr" == false ]] && (( comments < 2500 ))
+      - name: Resolve protected key and pinned VPS identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'Canonical VPS mismatch.' >&2; exit 10; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo 'Protected production principal is missing or invalid.' >&2; exit 11; }
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo 'Pinned host fingerprint is required.' >&2; exit 13; }
+          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
+          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            ssh-keygen -lf "$pub" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || {
+            echo 'No valid protected SSH private key is configured.' >&2
+            exit 14
+          }
+
+          scan="$(mktemp)"; match="$(mktemp)"
+          pinned_ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned_ready=1; break; fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; echo 'Pinned host key mismatch after bounded retries.' >&2; exit 15; }
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          echo "PROD_HOST=$host" >> "$GITHUB_ENV"
+          echo "PROD_PORT=$port" >> "$GITHUB_ENV"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$SSH_USER_SECRET@$host" \
+            'set -Eeuo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; echo SSH_AUTH_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+
+      - name: Execute only the separately accepted cold-preservation stage
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          python3 - "$TARGET_SHA" "$EVIDENCE_DIR" <<'PY_PENDING'
+          import pathlib, re, sys
+          target, output = sys.argv[1:]
+          if not re.fullmatch('[0-9a-f]{40}', target):
+              raise SystemExit('INVALID_SOURCE_SHA')
+          body = '# Cold preservation\n\nExact source: `'+target+'`.\n\n'
+          body += 'Stage outcome: `UNKNOWN`; runtime restored: `false`; restore verification: `NOT_PERFORMED`.\n'
+          body += 'Do not retry. Reconcile the private operation and durable receipt through a separately accepted read-only step.\n'
+          pathlib.Path(output,'issue-record.md').write_text(body)
+          PY_PENDING
+          raw="$(mktemp)"
+          payload="$(mktemp)"
+          trap 'rm -f "$raw" "$payload"' EXIT
+          python3 - > "$payload" <<'PY_PAYLOAD'
+          import base64, pathlib
+          common = base64.b64encode(pathlib.Path('scripts/production_stopped_runtime_headroom.py').read_bytes()).decode('ascii')
+          source = base64.b64encode(pathlib.Path('scripts/production_cold_preservation.py').read_bytes()).decode('ascii')
+          print('import sys,types,base64')
+          print("module=types.ModuleType('production_stopped_runtime_headroom')")
+          print("sys.modules[module.__name__]=module")
+          print("exec(compile(base64.b64decode("+repr(common)+"),'<accepted-read-only-dependency>','exec'),module.__dict__)")
+          print("exec(compile(base64.b64decode("+repr(source)+"),'<accepted-cold-preservation>','exec'),globals())")
+          PY_PAYLOAD
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            "$SSH_USER_SECRET@$PROD_HOST" "python3 - --sha '$TARGET_SHA' --run-id '$GITHUB_RUN_ID' --execute" \
+            < "$payload" > "$raw" 2>/dev/null
+          rc=$?
+          set -e
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          python3 - "$raw" "$TARGET_SHA" "$GITHUB_RUN_ID" "$EVIDENCE_DIR" "$rc" <<'PY_RECORD'
+          import json, pathlib, sys
+          sys.path.insert(0, 'scripts')
+          from production_cold_preservation import validate_terminal
+          raw, expected, run_id, output, status = sys.argv[1:]
+          with pathlib.Path(raw).open('rb') as handle:
+              data = handle.read(16385)
+          result = validate_terminal(data, expected, run_id, int(status))
+          body = '# Cold preservation\n\nExact source: `'+expected+'`.\n\n'
+          body += 'Preservation passed: `'+str(result['passed'])+'`; runtime restored: `false`; restore verification: `NOT_PERFORMED`.\n'
+          if result['passed']:
+              body += 'Authenticated archive contents and unchanged source/runtime were checked. This is not a database restore or off-host recovery acceptance.\n'
+              body += 'Ciphertext SHA256: `'+result['ciphertextSha256']+'`; selected volumes: `'+str(result['volumes'])+'`.\n'
+          else:
+              body += 'Failure code: `'+result['errorCode']+'`. Do not retry; retain the key/archive for read-only reconciliation.\n'
+          pathlib.Path(output,'result.json').write_text(json.dumps(result,separators=(',',':'))+'\n')
+          pathlib.Path(output,'issue-record.md').write_text(body)
+          PY_RECORD
+          (( rc == 0 ))
+      - name: Cleanup protected transport
+        if: always()
+        shell: bash
+        run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
+      - name: Publish bounded terminal evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ -f "$EVIDENCE_DIR/issue-record.md" ]]; then
+            gh issue comment 4637 --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/issue-record.md"
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: cold-preservation-${{ github.run_id }}
+          path: |
+            artifacts/production-cold-preservation/target-sha.txt
+            artifacts/production-cold-preservation/issue-record.md
+            artifacts/production-cold-preservation/result.json
+          if-no-files-found: error
+          retention-days: 90
+~~~~
+
+### Literal source after: docs/ops/production-cold-preservation.md
+
+~~~~markdown
+# Stopped data: encrypted cold preservation
+
+This is a separate ACCOUNT_1_CORE incident-preservation prerequisite for the observed zero-container state. It reuses only the accepted headroom helper's read-only Host observation, whose source SHA256 is pinned in the separate admission. It never calls that helper's image-removal or recovery functions. The completed image command6331214722 and old cleanup6186994879 must never be replayed.
+
+After separate metadata admission, exact source admission, independent current-head review, native checks, owner audit and manual SHA-bound merge, the repository owner may issue `/production preserve-stopped-data current-main` once in #4637. The event commit, workflow commit/ref, checkout, fetched main and API main must agree. A queued workflow cannot adopt a later main. The owner-gated job shares `production-full-stack-exact-sha`, `queue: max`, cancellation disabled. The PR contract receives no protected credentials or issue-write permission. No additional recurring cost is introduced.
+
+Before its first host write, require the real root principal, unchanged 11 historical Docker metadata references, zero Engine containers and zero direct containerd container objects/tasks through the allowlisted root-owned reported socket, unchanged 19 volumes/6 networks/image inventory, and zero host PostgreSQL/postmaster processes. Persisted Docker Running flags are stale metadata and are not process evidence. Read-only GNU tar/GnuPG capability checks must pass. The existing backup directory must be root-owned0700, on the source filesystem. No new account, dependency, agent, storage service or permission change is authorized.
+
+The separately reviewed complete profile covers the full surviving containers tree, the volumes directory's own metadata and all nineteen Engine-selected volume directories, each with a real `_data` directory. It does not read Docker's hot volume metadata database. This profile allows at most100000 selected entries globally, depth64,4096bytes per path,32MiB combined path bytes,16MiB combined user xattrs,1GiB logical source bytes and60seconds per full source pass. It supports ordinary directories/files, hardlinks, sparse data and binary `user.*` xattrs. Symlinks, special files, cross-filesystem traversal and unsupported ACL/security xattrs stop before writing. Diagnostic39763026727 on main51d3aad6942212c46a12168326d661221045d172 completed all19 volumes:458141058 logical bytes,312594432 allocated bytes,8397 entries. Its6658.2MiB free-space observation is historical; containers-tree bytes remain additional and the in-operation source/free-space gates must freshly pass. Any limit requires a new reviewed profile; never raise a limit during an operation.
+
+All source traversal/content reads use pinned no-follow/no-atime descriptors and stable inode/device/size/time checks. Require at least6.25GiB available before writing: two2GiB archive budgets,2GiB remaining reserve and256MiB scratch margin. Recheck runtime immediately before the first write. The fixed one-use private operation directory is created exclusively under the existing root-only backup directory. An existing operation refuses; nothing is overwritten or automatically deleted.
+
+A random384-bit passphrase is written to an exclusive0600 file, then fsynced with its containing directory before encryption begins. The key stays on the server; it is never an argument, environment value, artifact, log or public hash. GNU tar receives an explicit NUL-separated file list, no recursion, numeric owners, sparse/xattr/ACL support and `--atime-preserve=system`. An encrypted internal manifest binds all selected content hashes, numeric ownership, modes, nanosecond timestamps, inode groups and user xattrs. Its plaintext prefix and filename list use anonymous files only.
+
+GnuPG uses AES256, SHA256 S2K, the fixed maximum iterated S2K count65011712, no compression, no options-file loading, no agent autostart or symmetric-key cache, and passphrase input through an inherited descriptor. The child environment is fixed and tar/gpg/ps use absolute system paths. Child file-size/CPU/time bounds and parent-death termination apply only to this operation's own children. Raw tool stderr, source paths, configs, environment values and per-file hashes never cross the host boundary.
+
+The ciphertext and key are retained on any failure. Decryption goes to an anonymous0600 file on the same filesystem. The complete GnuPG process must authenticate successfully before the tar parser runs. Then verify the exact selected path set, file contents, hardlink groups, owners, modes, nanosecond modification times and binary user xattrs. A second complete no-atime source pass and fresh host/process observations must match. Require2GiB remaining reserve. The aggregate receipt is fsynced before its final rename; both operation and parent directories are fsynced before reporting success. A transport error, source drift, malformed output or mismatched SSH status retains the prewritten UNKNOWN journal. Only the explicit target-sha.txt, issue-record.md and validated aggregate result.json enter the90-day Actions evidence artifact; never upload the whole evidence directory, SSH fingerprint/auth markers, raw stderr or incidental files. Artifact retention is not a new customer-data retention policy: the artifact contains no archive, key, manifest or customer files.
+
+Success means `ENCRYPTED_COLD_PRESERVATION_VERIFIED`: authenticated archive contents matched the observed source. Runtime restoration remains false, database integrity is NOT_ATTESTED, restore verification is NOT_PERFORMED and off-host recovery is NOT_ESTABLISHED. A local same-host incident copy does not satisfy automated PostgreSQL restore verification, disaster recovery, business RPO/RTO, external irreversible-intent durability or long-term backup/retention requirements. It does not change MASTER progress, enable financial/signature actions or establish external integrations.
+
+Do not restart Docker or recreate the existing stack during this stage. All eleven surviving metadata records have `unless-stopped` and manually-stopped=false; restarting could launch workers and external effects. Controlled recovery needs its own admitted boundary for isolated PostgreSQL16 copy validation and service/worker activation. Do not edit Docker internals, invoke migrations or reuse spent deployment/model authority. Retain the CORE writer reservation6186992409 and all PRODUCT/UX/bank/FGIS holds.
+
+If the outcome is UNKNOWN or failed after a write, do not rerun the command or remove the operation directory. Preserve the key/ciphertext and obtain a separately reviewed read-only reconciliation. Even a durable receipt cannot establish database restore acceptance. Existing old backup files remain untouched. Off-host transfer/key custody and restore drills remain separate prerequisites requiring an explicit recipient, channel and custody decision. Retain this incident archive and its passphrase until a separate owner disposal decision; review the need seven days after its successful receipt. No automatic deletion, expiry job or new recurring charge is authorized.
+
+Primary implementation references checked2026-10-22: https://www.gnu.org/software/tar/manual/tar.html ; https://www.gnupg.org/documentation/manuals/gnupg24/gpg.1.html ; https://www.postgresql.org/docs/16/backup-file.html ; https://docs.docker.com/engine/containers/start-containers-automatically/ .
+
+## Approved bounded incident stage, 2026-10-22
+
+The existing sole CORE executor continues owner handoff6335899093 and preparation handoff6338338615. The owner approved the complete two-PR/seven-file stage, one owner-only4637 preservation command, one new archive passphrase, temporary disk decryption for verification, local root-only custody, incident hold with seven-day review, and aggregate public receipts. Exact-head review/native gates and ordinary manual merge remain mandatory for each PR. This is no permission for restart, restore, deletion, off-host transfer, new access rights or expense.
+
+Copy only /var/lib/docker/containers, the volumes directory metadata and all19 Engine-selected volume directories, including their _data. This is not a full-host image: external bind mounts, Compose/environment files outside those trees and other host data are not included. Coverage of mutable external mounts remains a prerequisite to broader recovery claims. The entire selected copy is highly sensitive: container environments/logs and persisted data may contain existing passwords, tokens, signing/TLS keys, sessions, credential hashes and personal/customer records. Do not inspect or publish their values.
+
+The only recipient is the same existing production server and its existing root operators. The exclusive directory is /var/lib/pc-release-authority/backups/cold-preservation-20261022/, mode0700; passphrase, archive and receipt are0600. The archive-specific passphrase is a durable new encryption secret, not a one-time login code or new SSH/API/database credential. Generate it only inside the accepted on-host operation and retain it there. No archive, key or manifest is sent to GitHub, ChatGPT, Library or an operator workstation.
+
+Verification temporarily writes decrypted archive bytes to an anonymous0600 file on the same production filesystem, up to2GiB. Closing/unlinking that file does not guarantee erasure of its disk blocks. Key and ciphertext share a host; this protects a pre-change incident copy, not server-loss disaster recovery or root compromise. Existing paid-service/billing settings must not change; unavailable included Actions/storage quota blocks execution instead of authorizing overage. Public artifact retention is90days and does not govern the private archive hold.
+~~~~
+
+### Literal source after: scripts/test_production_stopped_runtime_headroom.py
+
+~~~~python
+import contextlib
+import copy
+import importlib.util
+import json
+import os
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+spec = importlib.util.spec_from_file_location('recovery', Path(__file__).with_name('production_stopped_runtime_headroom.py'))
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+TARGET = 'b' * 40
+CID = 'c' * 64
+IMAGE = 'sha256:' + 'a' * 64
+USED = 'sha256:' + 'd' * 64
+CANDIDATE = {'id': IMAGE, 'refs': ['pc-crop-transfer/web:' + 'e' * 40], 'revision': 'e' * 40}
+ITEM = {'Id': IMAGE, 'RepoTags': CANDIDATE['refs'], 'RepoDigests': [],
+        'Config': {'Labels': {'org.opencontainers.image.revision': 'e' * 40}}}
+
+
+def actual_workflow_step(name):
+    import textwrap
+    here = Path(__file__).parent
+    path = here / 'production-stopped-runtime-headroom.yml'
+    if not path.is_file():
+        path = here.parent / '.github/workflows/production-stopped-runtime-headroom.yml'
+    workflow = path.read_text()
+    block = workflow.split('      - name: ' + name + '\n', 1)[1].split('\n      - ', 1)[0]
+    return workflow, textwrap.dedent(block.split('        run: |\n', 1)[1])
+
+
+class FakeHost:
+    def __init__(self):
+        self.item = copy.deepcopy(ITEM)
+        self.deleted = False
+        self.calls = []
+        self.space = 0
+        self.refuse = False
+        self.observe_count = 0
+        self.drift_at = None
+        self.used_at = None
+
+    def observe(self):
+        self.observe_count += 1
+        volumes = ('one',) if self.drift_at != self.observe_count else ('different',)
+        images = frozenset({USED} if self.deleted else {USED, IMAGE})
+        used = frozenset({USED, IMAGE} if self.used_at == self.observe_count else {USED})
+        return ((CID, USED, 'private-config-hash'),), volumes, ('network',), images, used
+
+    def available_kb(self):
+        return self.space
+
+    def inspect(self, image):
+        self.calls.append(('inspect', image))
+        return None if self.deleted else self.item
+
+    def remove(self, image):
+        self.calls.append(('remove', image))
+        if self.refuse:
+            return False
+        self.deleted = True
+        self.space = m.TARGET_KB
+        return True
+
+
+class RecoveryTests(unittest.TestCase):
+    def test_success_preserves_protected_inventory_and_publishes_ambiguous_attempt(self):
+        host, events = FakeHost(), []
+        result = m.recover(host, TARGET, (CANDIDATE,), events.append, frozenset({USED}))
+        self.assertTrue(result['passed'])
+        self.assertEqual(result['deletedImages'], 1)
+        self.assertEqual(events[0]['outcome'], 'NOT_YET_RECONCILED')
+        self.assertEqual([c for c in host.calls if c[0] == 'remove'], [('remove', IMAGE)])
+        self.assertFalse(result['runtimeRestored'])
+        self.assertEqual(result['volumeDataIntegrity'], 'NOT_ATTESTED')
+
+    def test_pre_removal_drift_performs_no_deletion(self):
+        host = FakeHost()
+        host.drift_at = 2
+        with self.assertRaisesRegex(m.RecoveryError, 'PRE_REMOVAL_DRIFT'):
+            m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))
+        self.assertFalse(host.deleted)
+
+    def test_new_containerd_reference_performs_no_deletion(self):
+        host = FakeHost()
+        host.used_at = 2
+        with self.assertRaisesRegex(m.RecoveryError, 'NEW_CONTAINER_REFERENCE'):
+            m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))
+        self.assertFalse(host.deleted)
+
+    def test_post_removal_drift_is_failure_not_success(self):
+        host = FakeHost()
+        host.drift_at = 3
+        with self.assertRaisesRegex(m.RecoveryError, 'POST_REMOVAL_DRIFT'):
+            m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))
+        self.assertTrue(host.deleted)
+
+    def test_nonforce_refusal_is_not_retried_or_claimed_as_free_space(self):
+        host = FakeHost()
+        host.refuse = True
+        result = m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))
+        self.assertFalse(result['passed'])
+        self.assertEqual(result['refusedImages'], 1)
+        self.assertEqual(len([c for c in host.calls if c[0] == 'remove']), 1)
+
+    def test_final_reconciliation_rejects_drift_with_and_without_removals(self):
+        for sufficient, drift_at in ((True, 2), (False, 4)):
+            with self.subTest(initial_headroom=sufficient):
+                host = FakeHost()
+                host.space = m.TARGET_KB if sufficient else 0
+                host.drift_at = drift_at
+                with self.assertRaisesRegex(m.RecoveryError, 'FINAL_INVENTORY_DRIFT'):
+                    m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))
+                self.assertEqual(host.deleted, not sufficient)
+
+    def test_refused_partial_untag_is_not_a_reconciled_refusal(self):
+        host = FakeHost()
+        def partially_untag(image):
+            host.calls.append(('remove', image))
+            host.item['RepoTags'] = []
+            return False
+        host.remove = partially_untag
+        with self.assertRaisesRegex(m.RecoveryError, 'REFERENCES_CHANGED'):
+            m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))
+        self.assertEqual([c for c in host.calls if c[0] == 'remove'], [('remove', IMAGE)])
+        self.assertFalse(host.deleted)
+
+    def test_already_sufficient_space_has_zero_deletions(self):
+        host = FakeHost()
+        host.space = m.TARGET_KB
+        self.assertEqual(m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))['deletedImages'], 0)
+        self.assertFalse(host.deleted)
+
+    def test_unknown_ref_target_revision_and_missing_inspect_fail_before_mutation(self):
+        for kind in ('foreign_ref', 'target', 'missing'):
+            with self.subTest(kind=kind):
+                host = FakeHost()
+                if kind == 'foreign_ref':
+                    host.item['RepoTags'] = ['unapproved/image:private']
+                elif kind == 'target':
+                    host.item['Config']['Labels']['org.opencontainers.image.revision'] = TARGET
+                else:
+                    host.deleted = True
+                with self.assertRaises(m.RecoveryError):
+                    m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))
+                self.assertFalse(any(c[0] == 'remove' for c in host.calls))
+
+    def test_protected_candidate_rejected(self):
+        host = FakeHost()
+        with self.assertRaisesRegex(m.RecoveryError, 'PROTECTED_CANDIDATE'):
+            m.recover(host, TARGET, ({**CANDIDATE, 'id': USED},), reserve_ids=frozenset({USED}))
+        self.assertFalse(host.deleted)
+
+    def test_missing_rollback_reserve_prevents_deletion(self):
+        host = FakeHost()
+        with self.assertRaisesRegex(m.RecoveryError, 'ROLLBACK_RESERVE_MISSING'):
+            m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({'sha256:' + 'f' * 64}))
+        self.assertFalse(host.deleted)
+
+    def test_actual_remove_argv_has_no_force_and_no_parent_prune(self):
+        host = m.Host()
+        with patch.object(host, 'command') as call:
+            call.return_value.returncode = 0
+            self.assertTrue(host.remove(IMAGE))
+            self.assertEqual(call.call_args.args[0], ['docker', 'image', 'rm', '--no-prune', IMAGE])
+        with self.assertRaises(m.RecoveryError):
+            host.remove('not-an-image')
+
+    def test_source_candidates_are_exact_bounded_transfer_images_and_preserve_reserves(self):
+        self.assertEqual(len(m.CANDIDATES), 40)
+        self.assertEqual(len({c['id'] for c in m.CANDIDATES}), 40)
+        self.assertTrue(set(c['id'] for c in m.CANDIDATES).isdisjoint(m.RESERVE_IDS))
+        self.assertTrue(set(c['id'] for c in m.CANDIDATES).isdisjoint(image for _, image in m.EXPECTED_REFS))
+        self.assertEqual(len(m.EXPECTED_REFS), 11)
+        for candidate in m.CANDIDATES:
+            self.assertEqual(candidate['namespace'], 'EXACT_SHA_TRANSFER_ALIAS')
+            self.assertIn(candidate['component'], ('api', 'migration', 'web'))
+            for ref in candidate['refs']:
+                prefix = 'pc-crop-transfer/' + candidate['component']
+                self.assertTrue(ref == prefix + ':' + candidate['revision'] or
+                                m.re.fullmatch(m.re.escape(prefix) + r'@sha256:[0-9a-f]{64}', ref))
+
+    def test_read_api_cannot_open_an_arbitrary_endpoint(self):
+        with self.assertRaisesRegex(m.RecoveryError, 'API_PATH'):
+            m.Host().read_api('/containers/create')
+
+    def test_actual_host_observation_fails_closed_on_transport_and_usage_ambiguity(self):
+        from types import SimpleNamespace
+        class ReadHost(m.Host):
+            endpoint = 'unix:///var/run/docker.sock'
+            containers = b''
+            usage = 0
+            foreign_used = False
+            def command(self, argv, **kwargs):
+                if argv[:3] == ['docker', 'context', 'inspect']:
+                    value = self.endpoint.encode()
+                elif argv[:2] == ['docker', 'ps']:
+                    value = self.containers
+                elif argv[:3] == ['docker', 'volume', 'ls']:
+                    value = b'\n'.join(('volume' + str(i)).encode() for i in range(19))
+                elif argv[:3] == ['docker', 'network', 'ls']:
+                    value = b'\n'.join(('network' + str(i)).encode() for i in range(6))
+                elif argv[:5] == ['ctr', '--address', '/run/containerd/containerd.sock', '--namespace', 'moby']:
+                    value = b''
+                else:
+                    raise AssertionError('Unexpected command')
+                return SimpleNamespace(stdout=value, returncode=0)
+            def read_api(self, path):
+                if path.endswith('/info'):
+                    return {'DockerRootDir': m.ROOT, 'Driver': 'overlayfs', 'Containerd': {'Address': '/run/containerd/containerd.sock', 'Namespaces': {'Containers': 'moby'}}}
+                return [{'Id': USED, 'Containers': 1}, {'Id': IMAGE, 'Containers': 1 if self.foreign_used else self.usage}]
+        configs = (((CID, USED, 'private-hash'),), frozenset({'volume0'}))
+        with patch.dict(os.environ, {}, clear=True), patch.object(m, 'metadata', return_value=configs), patch.object(os, 'stat', return_value=SimpleNamespace(st_dev=1)), patch.object(os, 'lstat', return_value=SimpleNamespace(st_mode=m.stat.S_IFSOCK, st_uid=0)):
+            self.assertIn(USED, ReadHost().observe()[4])
+            for name, value in (('endpoint', 'ssh://untrusted'), ('containers', b'unknown-container'), ('usage', -1), ('usage', None), ('usage', True), ('foreign_used', True)):
+                with self.subTest(name=name, value=value):
+                    host = ReadHost()
+                    setattr(host, name, value)
+                    with self.assertRaises(m.RecoveryError):
+                        host.observe()
+            with patch.dict(os.environ, {'DOCKER_HOST': 'unix:///different.sock'}):
+                with self.assertRaisesRegex(m.RecoveryError, 'DOCKER_CONTEXT_ENV'):
+                    ReadHost().observe()
+
+    def test_actual_containerd_probe_requires_pinned_socket_and_empty_real_stores(self):
+        from types import SimpleNamespace as N
+        host = m.Host()
+        info = {'Containerd': {'Address':'/run/containerd/containerd.sock',
+                              'Namespaces':{'Containers':'moby'}}}
+        with patch.object(os,'lstat',return_value=N(st_mode=m.stat.S_IFSOCK,st_uid=0)), patch.object(host,'command',return_value=N(returncode=0,stdout=b'')) as call:
+            host.observe_empty_containerd(info)
+            self.assertEqual([x.args[0] for x in call.call_args_list], [
+                ['ctr','--address','/run/containerd/containerd.sock','--namespace','moby','containers','list','--quiet'],
+                ['ctr','--address','/run/containerd/containerd.sock','--namespace','moby','tasks','list','--quiet']])
+            for value in ({}, {'Containerd':{'Address':'/untrusted.sock','Namespaces':{'Containers':'moby'}}},
+                          {'Containerd':{'Address':'/run/containerd/containerd.sock','Namespaces':{'Containers':'unknown'}}}):
+                with self.assertRaisesRegex(m.RecoveryError,'CONTAINERD_ENDPOINT_UNKNOWN'):
+                    host.observe_empty_containerd(value)
+            for value in (N(st_mode=m.stat.S_IFREG,st_uid=0), N(st_mode=m.stat.S_IFSOCK,st_uid=1000)):
+                with patch.object(os,'lstat',return_value=value), self.assertRaisesRegex(m.RecoveryError,'CONTAINERD_SOCKET_IDENTITY'):
+                    host.observe_empty_containerd(info)
+            with patch.object(os,'lstat',side_effect=FileNotFoundError()), self.assertRaisesRegex(m.RecoveryError,'CONTAINERD_SOCKET_UNAVAILABLE'):
+                host.observe_empty_containerd(info)
+            with patch.object(host,'command',side_effect=FileNotFoundError()), self.assertRaisesRegex(m.RecoveryError,'CONTAINERD_PROBE_UNAVAILABLE'):
+                host.observe_empty_containerd(info)
+            for values, code in (([N(returncode=1,stdout=b'')],'CONTAINERD_INVENTORY_UNAVAILABLE'),
+                                  ([N(returncode=0,stdout=b'object')],'CONTAINERD_OBJECTS_PRESENT'),
+                                  ([N(returncode=0,stdout=b''),N(returncode=0,stdout=b'task')],'CONTAINERD_OBJECTS_PRESENT')):
+                with patch.object(host,'command',side_effect=values), self.assertRaisesRegex(m.RecoveryError,code):
+                    host.observe_empty_containerd(info)
+
+    def test_actual_workflow_requires_exact_owner_command_and_successful_contract(self):
+        import ast
+        import re
+        from types import SimpleNamespace as N
+        here = Path(__file__).parent
+        workflow_path = here / 'production-stopped-runtime-headroom.yml'
+        if not workflow_path.exists():
+            workflow_path = here.parent / '.github/workflows/production-stopped-runtime-headroom.yml'
+        workflow = workflow_path.read_text()
+        codes = []
+        for job in ('contract', 'recover'):
+            block = workflow.split('\n  ' + job + ':\n', 1)[1].split('\n    runs-on:', 1)[0]
+            condition = re.search(r'\n    if: >-\n((?:      [^\n]*\n)+)', '\n' + block + '\n')[1]
+            condition = ' '.join(line.strip() for line in condition.splitlines()).replace('&&', ' and ').replace('||', ' or ')
+            tree = ast.parse(condition, mode='eval')
+            allowed = (ast.Expression, ast.BoolOp, ast.And, ast.Or, ast.Compare, ast.Eq, ast.Attribute, ast.Name, ast.Load, ast.Constant)
+            self.assertTrue(all(type(node) in allowed for node in ast.walk(tree)))
+            codes.append(compile(tree, '<actual owner route>', 'eval'))
+        def routed(issue=4637, body='/production reclaim-stopped-runtime current-main', author='owner', actor='owner', triggering='owner', association='OWNER', result='success', event='issue_comment'):
+            github = N(event_name=event, repository_owner='owner', actor=actor, triggering_actor=triggering,
+                event=N(issue=N(number=issue),comment=N(body=body,author_association=association,user=N(login=author))))
+            return tuple(bool(eval(code, {'__builtins__': {}}, {'github':github,'needs':N(contract=N(result=result))})) for code in codes)
+        self.assertEqual(routed(), (True, True))
+        self.assertEqual(routed(event='pull_request'), (True, False))
+        for changes in ({'issue':5469}, {'body':'/production reclaim-docker current-main'}, {'body':'/production reclaim-stopped-runtime current-main\n'}, {'event':'push'}):
+            self.assertEqual(routed(**changes), (False, False))
+        for changes in ({'author':'other'}, {'actor':'other'}, {'triggering':'other'}, {'association':'COLLABORATOR'}, {'result':'failure'}, {'result':'skipped'}):
+            self.assertEqual(routed(**changes), (True, False))
+        self.assertNotIn('StrictHostKeyChecking=no', workflow)
+        self.assertIn('production-full-stack-exact-sha', workflow)
+        self.assertIn('SOURCE_VECTOR_MISMATCH', workflow)
+
+    def test_pull_request_contract_has_no_protected_secret_or_issue_write_binding(self):
+        import re
+        here = Path(__file__).parent
+        workflow_path = here / 'production-stopped-runtime-headroom.yml'
+        if not workflow_path.exists():
+            workflow_path = here.parent / '.github/workflows/production-stopped-runtime-headroom.yml'
+        workflow = workflow_path.read_text()
+        references = re.findall(r'(?m)^\s*-\s*uses:\s*(\S+)\s*$', workflow)
+        def pinned(reference):
+            return re.fullmatch(r'actions/(?:checkout|upload-artifact)@[0-9a-f]{40}', reference) is not None
+        self.assertEqual(len(references), 3)
+        self.assertTrue(all(pinned(reference) for reference in references))
+        for reference in references:
+            self.assertFalse(pinned(reference.split('@')[0] + '@v4'))
+        global_scope, jobs = workflow.split('\njobs:\n', 1)
+        contract, recovery = jobs.split('\n  recover:\n', 1)
+        self.assertNotIn('secrets.', global_scope + contract)
+        self.assertNotIn('issues: write', global_scope + contract)
+        self.assertNotIn('concurrency:', global_scope + contract)
+        self.assertIn('    concurrency:\n      group: production-full-stack-exact-sha\n      cancel-in-progress: false', recovery)
+        for binding in ('PC_PROD_HOST', 'PC_PROD_SSH_USER', 'PC_PROD_SSH_PORT',
+                        'PC_PROD_SSH_KEY', 'PC_PROD_SSH_PRIVATE_KEY', 'VPS_SSH_KEY',
+                        'PC_PROD_SSH_HOST_FINGERPRINT'):
+            self.assertEqual(recovery.count('secrets.' + binding + ' }'), 1)
+        self.assertIn('    permissions:\n      contents: read\n      issues: write', recovery)
+
+    def test_all_shared_production_participants_keep_multiple_pending_operations(self):
+        here = Path(__file__).parent
+        workflow_dir = here.parent / '.github/workflows'
+        if not workflow_dir.is_dir():
+            workflow_dir = here.parent / 'pc-crop/.github/workflows'
+        workflows = {p.name: p.read_text() for p in workflow_dir.iterdir()
+                     if p.suffix in ('.yml', '.yaml')}
+        # In the private proposal, overlay the exact future payloads. In source
+        # CI these same files already reside in .github/workflows.
+        for name in ('production-cold-preservation.yml',
+                     'production-stopped-runtime-headroom.yml',
+                     'production-docker-headroom-recovery.yml',
+                     'production-docker-headroom-owner-push-once.yml'):
+            if (here / name).is_file():
+                workflows[name] = (here / name).read_text()
+        def participants_and_validate(payloads):
+            participants = set()
+            for name, text in payloads.items():
+                lines = text.splitlines()
+                for i, line in enumerate(lines):
+                    if line.strip() != 'concurrency:':
+                        continue
+                    indent = len(line) - len(line.lstrip())
+                    block = []
+                    for child in lines[i + 1:]:
+                        if child.strip() and not child.lstrip().startswith('#'):
+                            if len(child) - len(child.lstrip()) <= indent:
+                                break
+                            block.append(child.strip())
+                    if 'group: production-full-stack-exact-sha' not in block:
+                        continue
+                    participants.add(name)
+                    if block.count('queue: max') != 1 or block.count('cancel-in-progress: false') != 1:
+                        raise ValueError('SHARED_PRODUCTION_PENDING_REPLACEMENT:' + name)
+            return participants
+        expected = {'production-cold-preservation.yml',
+                    'production-full-stack-exact-sha.yml',
+                    'production-stopped-runtime-headroom.yml',
+                    'production-docker-headroom-recovery.yml',
+                    'production-docker-headroom-owner-push-once.yml'}
+        self.assertEqual(participants_and_validate(workflows), expected)
+        # Exercise the actual prior default-single-pending regression on every
+        # participant, rather than merely checking the new workflow in isolation.
+        for name in sorted(expected):
+            with self.subTest(legacy_default=name):
+                broken = dict(workflows)
+                broken[name] = broken[name].replace('queue: max', '# default pending replacement')
+                with self.assertRaisesRegex(ValueError, 'SHARED_PRODUCTION_PENDING_REPLACEMENT'):
+                    participants_and_validate(broken)
+
+    def test_spent_owner_push_bridge_cannot_mutate_host_when_its_queue_is_corrected(self):
+        import ast
+        import re
+        from types import SimpleNamespace as N
+        here = Path(__file__).parent
+        name = 'production-docker-headroom-owner-push-once.yml'
+        path = here / name
+        if not path.is_file():
+            path = here.parent / '.github/workflows' / name
+        workflow = path.read_text()
+        recovery = workflow.split('\n  recover:\n', 1)[1]
+        condition = re.search(r'\n    if: >-\n((?:      [^\n]*\n)+)', recovery)[1]
+        condition = ' '.join(line.strip() for line in condition.splitlines())
+        condition = condition.replace('&&', ' and ').replace('false', 'False')
+        tree = ast.parse(condition, mode='eval')
+        allowed = (ast.Expression, ast.BoolOp, ast.And, ast.Compare, ast.Eq,
+                   ast.Attribute, ast.Name, ast.Load, ast.Constant)
+        self.assertTrue(all(type(node) in allowed for node in ast.walk(tree)))
+        self.assertIsInstance(tree.body, ast.BoolOp)
+        self.assertIs(tree.body.values[0].value, False)
+        for event in ('push', 'pull_request', 'issue_comment', 'workflow_dispatch'):
+            github = N(event_name=event, repository_owner='owner', actor='owner', triggering_actor='owner')
+            self.assertFalse(eval(compile(tree, '<retired owner-push bridge>', 'eval'),
+                                  {'__builtins__': {}}, {'github': github}))
+        self.assertIn('scripts/production-docker-headroom-recovery.sh', workflow)
+
+    def test_actual_output_validator_retains_unknown_journal_on_broken_transport(self):
+        import re
+        import subprocess
+        import sys
+        import textwrap
+        here = Path(__file__).parent
+        workflow_path = here / 'production-stopped-runtime-headroom.yml'
+        if not workflow_path.exists():
+            workflow_path = here.parent / '.github/workflows/production-stopped-runtime-headroom.yml'
+        workflow = workflow_path.read_text()
+        def actual_block(marker):
+            match = re.search("<<'" + marker + "'\n(.*?)\n          " + marker + "\n", workflow, re.S)
+            self.assertIsNotNone(match)
+            return textwrap.dedent(match[1])
+        pending, record = actual_block('PY_PENDING'), actual_block('PY_RECORD')
+        self.assertLess(workflow.index("<<'PY_PENDING'"), workflow.index('"python3 - --sha'))
+        valid = {'schemaVersion':'pc.stopped-runtime-headroom.v1','targetSha':TARGET,
+                 'beforeAvailableKb':0,'afterAvailableKb':6*1024*1024,'attemptedImages':1,
+                 'deletedImages':1,'refusedImages':0,'passed':True,'targetReached':True,
+                 'metadataUnchanged':True,'volumesUnchanged':True,'networksUnchanged':True,
+                 'runtimeRestored':False,'volumeDataIntegrity':'NOT_ATTESTED'}
+        failed = {'schemaVersion':'pc.stopped-runtime-headroom.v1','passed':False,
+                  'errorCode':'CONTAINERD_CONTAINERS_PRESENT','runtimeRestored':False,
+                  'mutationOutcome':'RECONCILIATION_REQUIRED_IF_STARTED'}
+        capacity = {**valid,'afterAvailableKb':0,'passed':False,'targetReached':False}
+        cases = [('',255,False), ('UNTRUSTED_SECRET',0,False),
+                 (json.dumps({**valid,'injected':'UNTRUSTED_SECRET'}),0,False),
+                 (json.dumps(valid),0,True)]
+        cases += [(json.dumps(valid),rc,False) for rc in (1,2,124,255)]
+        cases += [(json.dumps(failed),rc,rc == 1) for rc in (0,1,2,255)]
+        cases += [(json.dumps(capacity),rc,rc == 2) for rc in (0,1,2,255)]
+        self.assertIn('"$EVIDENCE_DIR" "$rc" <<\'PY_RECORD\'', workflow)
+        for raw, status, accepted in cases:
+            with self.subTest(accepted=accepted, ssh_status=status):
+                with tempfile.TemporaryDirectory() as root_name:
+                    root = Path(root_name)
+                    result = subprocess.run([sys.executable,'-',TARGET,str(root)],input=pending,
+                        text=True,capture_output=True)
+                    self.assertEqual(result.returncode,0,result.stderr)
+                    source = root/'input.txt';source.write_text(raw)
+                    result = subprocess.run([sys.executable,'-',str(source),TARGET,str(root),str(status)],
+                        input=record,text=True,capture_output=True)
+                    body = (root/'issue-record.md').read_text()
+                    self.assertNotIn('UNTRUSTED_SECRET',body)
+                    if accepted:
+                        self.assertEqual(result.returncode,0,result.stderr)
+                        self.assertTrue((root/'result.jsonl').is_file())
+                    else:
+                        self.assertNotEqual(result.returncode,0)
+                        self.assertIn('`UNKNOWN`',body)
+                        self.assertIn('Do not retry',body)
+                        self.assertFalse((root/'result.jsonl').exists())
+
+    def test_actual_event_binding_rejects_queued_main_and_workflow_drift(self):
+        import subprocess
+        import sys
+        workflow, source = actual_workflow_step('Bind accepted exact main and evidence journal')
+        prefix = source.split("python3 - <<'PY_BIND'\n", 1)[0]
+        recovery = workflow.split('\n  recover:\n', 1)[1]
+        self.assertIn('ref: ${{ github.sha }}', recovery)
+        self.assertNotIn('ref: main\n', recovery)
+        self.assertNotIn('git checkout --detach', prefix)
+        other = 'c' * 40
+        cases = [({},True), ({'GITHUB_SHA':'invalid'},False),
+                 ({'GITHUB_WORKFLOW_SHA':other},False),
+                 ({'GITHUB_WORKFLOW_REF':'fixture/repo/.github/workflows/other.yml@refs/heads/main'},False),
+                 ({'FIXTURE_CHECKOUT':other},False),
+                 ({'FIXTURE_FETCHED':other,'FIXTURE_API_MAIN':other},False),
+                 ({'FIXTURE_API_MAIN':other},False),
+                 ({'FIXTURE_FETCH_STATUS':'1'},False)]
+        for changes, accepted in cases:
+            with self.subTest(changes=changes):
+                with tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory); commands = root/'bin';commands.mkdir()
+                    programs = {
+                        'git': "import os,sys\na=sys.argv[1:]\nif a and a[0]=='fetch':sys.exit(int(os.environ.get('FIXTURE_FETCH_STATUS','0')))\nif a==['rev-parse','HEAD']:print(os.environ['FIXTURE_CHECKOUT'])\nelif a==['rev-parse','origin/main']:print(os.environ['FIXTURE_FETCHED'])\nelse:sys.exit(9)\n",
+                        'gh': "import os\nprint(os.environ['FIXTURE_API_MAIN'])\n"}
+                    for name, code in programs.items():
+                        path=commands/name;path.write_text('#!'+sys.executable+'\n'+code);path.chmod(0o755)
+                    output=root/'github-env';output.write_text('')
+                    env={**os.environ,'PATH':str(commands)+os.pathsep+os.environ['PATH'],
+                         'GITHUB_SHA':TARGET,'GITHUB_WORKFLOW_SHA':TARGET,
+                         'GITHUB_REPOSITORY':'fixture/repo',
+                         'GITHUB_WORKFLOW_REF':'fixture/repo/.github/workflows/production-stopped-runtime-headroom.yml@refs/heads/main',
+                         'GITHUB_ENV':str(output),'EVIDENCE_DIR':str(root/'evidence'),
+                         'FIXTURE_CHECKOUT':TARGET,'FIXTURE_FETCHED':TARGET,
+                         'FIXTURE_API_MAIN':TARGET,**changes}
+                    result=subprocess.run(['bash','-ceu',prefix],cwd=root,env=env,text=True,capture_output=True)
+                    self.assertEqual(result.returncode == 0,accepted,result.stderr)
+                    self.assertEqual('TARGET_SHA='+TARGET in output.read_text(),accepted)
+
+    def test_actual_bash_stage_keeps_unknown_for_transport_or_post_source_ambiguity(self):
+        import subprocess
+        import sys
+        workflow, source = actual_workflow_step('Execute only the separately accepted image-only stage')
+        final={'schemaVersion':'pc.stopped-runtime-headroom.v1','targetSha':TARGET,
+               'beforeAvailableKb':0,'afterAvailableKb':6*1024*1024,'attemptedImages':1,
+               'deletedImages':1,'refusedImages':0,'passed':True,'targetReached':True,
+               'metadataUnchanged':True,'volumesUnchanged':True,'networksUnchanged':True,
+               'runtimeRestored':False,'volumeDataIntegrity':'NOT_ATTESTED'}
+        failed={'schemaVersion':'pc.stopped-runtime-headroom.v1','passed':False,
+                'errorCode':'CONTAINERD_CONTAINERS_PRESENT','runtimeRestored':False,
+                'mutationOutcome':'RECONCILIATION_REQUIRED_IF_STARTED'}
+        capacity={**final,'afterAvailableKb':0,'passed':False,'targetReached':False}
+        cases=[('success',final,0,TARGET,'success'),
+               ('transport',final,255,TARGET,'unknown'),
+               ('wrong-status',final,2,TARGET,'unknown'),
+               ('source-drift',final,0,'c'*40,'unknown'),
+               ('capacity',capacity,2,TARGET,'failure'),
+               ('exception',failed,1,TARGET,'failure'),
+               ('false-success',failed,0,TARGET,'unknown'),
+               ('empty',None,255,TARGET,'unknown')]
+        for name, payload, status, post_sha, expected in cases:
+            with self.subTest(case=name):
+                with tempfile.TemporaryDirectory() as directory:
+                    root=Path(directory);commands=root/'bin';commands.mkdir()
+                    output=root/'evidence';output.mkdir()
+                    dummy=root/'scripts/production_stopped_runtime_headroom.py';dummy.parent.mkdir();dummy.write_text('# fixture only\n')
+                    raw=root/'fixture-output';raw.write_text('' if payload is None else json.dumps(payload)+'\n')
+                    done=root/'ssh-done'
+                    programs={
+                        'git': "import os,sys,pathlib\na=sys.argv[1:]\nif a and a[0]=='fetch':sys.exit(0)\nif a==['rev-parse','origin/main']:print(os.environ['FIXTURE_POST_SHA'] if pathlib.Path(os.environ['FIXTURE_DONE']).exists() else os.environ['TARGET_SHA'])\nelse:sys.exit(9)\n",
+                        'ssh': "import os,sys,pathlib\npathlib.Path(os.environ['FIXTURE_DONE']).write_text('done')\nsys.stdout.write(pathlib.Path(os.environ['FIXTURE_OUTPUT']).read_text())\nsys.exit(int(os.environ['FIXTURE_STATUS']))\n"}
+                    for command, code in programs.items():
+                        path=commands/command;path.write_text('#!'+sys.executable+'\n'+code);path.chmod(0o755)
+                    env={**os.environ,'PATH':str(commands)+os.pathsep+os.environ['PATH'],
+                         'TARGET_SHA':TARGET,'EVIDENCE_DIR':str(output),
+                         'SSH_USER_SECRET':'fixture','PROD_HOST':'127.0.0.1','PROD_PORT':'1',
+                         'FIXTURE_OUTPUT':str(raw),'FIXTURE_STATUS':str(status),
+                         'FIXTURE_POST_SHA':post_sha,'FIXTURE_DONE':str(done)}
+                    result=subprocess.run(['bash','-ceu',source],cwd=root,env=env,text=True,capture_output=True)
+                    self.assertTrue(done.is_file())
+                    body=(output/'issue-record.md').read_text()
+                    self.assertEqual(result.returncode == 0,expected == 'success',result.stderr)
+                    terminal=output/'result.jsonl'
+                    if expected == 'unknown':
+                        self.assertIn('`UNKNOWN`',body)
+                        self.assertFalse(terminal.exists())
+                    else:
+                        self.assertNotIn('`UNKNOWN`',body)
+                        self.assertTrue(terminal.is_file())
+                        self.assertEqual(json.loads(terminal.read_text().splitlines()[-1])['passed'],expected == 'success')
+
+    def test_actual_metadata_checks_identity_symlinks_size_and_atime(self):
+        with tempfile.TemporaryDirectory() as root_name:
+            root = Path(root_name)
+            directory = root / 'containers' / CID
+            directory.mkdir(parents=True)
+            config = directory / 'config.v2.json'
+            value = {'ID': CID, 'Image': USED, 'MountPoints': {}, 'Config': {'Env': ['SECRET']}}
+            config.write_text(json.dumps(value))
+            with patch.object(m, 'EXPECTED_REFS', ((CID, USED),)):
+                paths = (root, directory.parent, directory, config)
+                for path in paths:
+                    os.utime(path, ns=(1, path.stat().st_mtime_ns))
+                records, _ = m.metadata(root_name)
+                self.assertEqual(records[0][:2], (CID, USED))
+                self.assertNotIn('SECRET', repr(records))
+                self.assertTrue(all(path.stat().st_atime_ns == 1 for path in paths))
+                config.write_text(json.dumps({**value, 'ID': 'x'}))
+                with self.assertRaises(m.RecoveryError):
+                    m.metadata(root_name)
+                config.unlink()
+                target = root / 'target'
+                target.write_text(json.dumps(value))
+                config.symlink_to(target)
+                with self.assertRaises(OSError):
+                    m.metadata(root_name)
+                config.unlink()
+                config.write_text(json.dumps({**value, 'padding': 'x' * (4 * 1024 * 1024)}))
+                with self.assertRaises(m.RecoveryError):
+                    m.metadata(root_name)
+
+
+if __name__ == '__main__':
+    unittest.main()
+~~~~
