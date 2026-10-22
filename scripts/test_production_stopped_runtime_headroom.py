@@ -20,6 +20,17 @@ ITEM = {'Id': IMAGE, 'RepoTags': CANDIDATE['refs'], 'RepoDigests': [],
         'Config': {'Labels': {'org.opencontainers.image.revision': 'e' * 40}}}
 
 
+def actual_workflow_step(name):
+    import textwrap
+    here = Path(__file__).parent
+    path = here / 'production-stopped-runtime-headroom.yml'
+    if not path.is_file():
+        path = here.parent / '.github/workflows/production-stopped-runtime-headroom.yml'
+    workflow = path.read_text()
+    block = workflow.split('      - name: ' + name + '\n', 1)[1].split('\n      - ', 1)[0]
+    return workflow, textwrap.dedent(block.split('        run: |\n', 1)[1])
+
+
 class FakeHost:
     def __init__(self):
         self.item = copy.deepcopy(ITEM)
@@ -393,17 +404,26 @@ class RecoveryTests(unittest.TestCase):
                  'deletedImages':1,'refusedImages':0,'passed':True,'targetReached':True,
                  'metadataUnchanged':True,'volumesUnchanged':True,'networksUnchanged':True,
                  'runtimeRestored':False,'volumeDataIntegrity':'NOT_ATTESTED'}
-        for raw, accepted in (('',False), ('UNTRUSTED_SECRET',False),
-                              (json.dumps({**valid,'injected':'UNTRUSTED_SECRET'}),False),
-                              (json.dumps(valid),True)):
-            with self.subTest(raw_kind='valid' if accepted else 'rejected'):
+        failed = {'schemaVersion':'pc.stopped-runtime-headroom.v1','passed':False,
+                  'errorCode':'CONTAINERD_CONTAINERS_PRESENT','runtimeRestored':False,
+                  'mutationOutcome':'RECONCILIATION_REQUIRED_IF_STARTED'}
+        capacity = {**valid,'afterAvailableKb':0,'passed':False,'targetReached':False}
+        cases = [('',255,False), ('UNTRUSTED_SECRET',0,False),
+                 (json.dumps({**valid,'injected':'UNTRUSTED_SECRET'}),0,False),
+                 (json.dumps(valid),0,True)]
+        cases += [(json.dumps(valid),rc,False) for rc in (1,2,124,255)]
+        cases += [(json.dumps(failed),rc,rc == 1) for rc in (0,1,2,255)]
+        cases += [(json.dumps(capacity),rc,rc == 2) for rc in (0,1,2,255)]
+        self.assertIn('"$EVIDENCE_DIR" "$rc" <<\'PY_RECORD\'', workflow)
+        for raw, status, accepted in cases:
+            with self.subTest(accepted=accepted, ssh_status=status):
                 with tempfile.TemporaryDirectory() as root_name:
                     root = Path(root_name)
                     result = subprocess.run([sys.executable,'-',TARGET,str(root)],input=pending,
                         text=True,capture_output=True)
                     self.assertEqual(result.returncode,0,result.stderr)
                     source = root/'input.txt';source.write_text(raw)
-                    result = subprocess.run([sys.executable,'-',str(source),TARGET,str(root)],
+                    result = subprocess.run([sys.executable,'-',str(source),TARGET,str(root),str(status)],
                         input=record,text=True,capture_output=True)
                     body = (root/'issue-record.md').read_text()
                     self.assertNotIn('UNTRUSTED_SECRET',body)
@@ -415,6 +435,96 @@ class RecoveryTests(unittest.TestCase):
                         self.assertIn('`UNKNOWN`',body)
                         self.assertIn('Do not retry',body)
                         self.assertFalse((root/'result.jsonl').exists())
+
+    def test_actual_event_binding_rejects_queued_main_and_workflow_drift(self):
+        import subprocess
+        import sys
+        workflow, source = actual_workflow_step('Bind accepted exact main and evidence journal')
+        prefix = source.split("python3 - <<'PY_BIND'\n", 1)[0]
+        recovery = workflow.split('\n  recover:\n', 1)[1]
+        self.assertIn('ref: ${{ github.sha }}', recovery)
+        self.assertNotIn('ref: main\n', recovery)
+        self.assertNotIn('git checkout --detach', prefix)
+        other = 'c' * 40
+        cases = [({},True), ({'GITHUB_SHA':'invalid'},False),
+                 ({'GITHUB_WORKFLOW_SHA':other},False),
+                 ({'GITHUB_WORKFLOW_REF':'fixture/repo/.github/workflows/other.yml@refs/heads/main'},False),
+                 ({'FIXTURE_CHECKOUT':other},False),
+                 ({'FIXTURE_FETCHED':other,'FIXTURE_API_MAIN':other},False),
+                 ({'FIXTURE_API_MAIN':other},False),
+                 ({'FIXTURE_FETCH_STATUS':'1'},False)]
+        for changes, accepted in cases:
+            with self.subTest(changes=changes):
+                with tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory); commands = root/'bin';commands.mkdir()
+                    programs = {
+                        'git': "import os,sys\na=sys.argv[1:]\nif a and a[0]=='fetch':sys.exit(int(os.environ.get('FIXTURE_FETCH_STATUS','0')))\nif a==['rev-parse','HEAD']:print(os.environ['FIXTURE_CHECKOUT'])\nelif a==['rev-parse','origin/main']:print(os.environ['FIXTURE_FETCHED'])\nelse:sys.exit(9)\n",
+                        'gh': "import os\nprint(os.environ['FIXTURE_API_MAIN'])\n"}
+                    for name, code in programs.items():
+                        path=commands/name;path.write_text('#!'+sys.executable+'\n'+code);path.chmod(0o755)
+                    output=root/'github-env';output.write_text('')
+                    env={**os.environ,'PATH':str(commands)+os.pathsep+os.environ['PATH'],
+                         'GITHUB_SHA':TARGET,'GITHUB_WORKFLOW_SHA':TARGET,
+                         'GITHUB_REPOSITORY':'fixture/repo',
+                         'GITHUB_WORKFLOW_REF':'fixture/repo/.github/workflows/production-stopped-runtime-headroom.yml@refs/heads/main',
+                         'GITHUB_ENV':str(output),'EVIDENCE_DIR':str(root/'evidence'),
+                         'FIXTURE_CHECKOUT':TARGET,'FIXTURE_FETCHED':TARGET,
+                         'FIXTURE_API_MAIN':TARGET,**changes}
+                    result=subprocess.run(['bash','-ceu',prefix],cwd=root,env=env,text=True,capture_output=True)
+                    self.assertEqual(result.returncode == 0,accepted,result.stderr)
+                    self.assertEqual('TARGET_SHA='+TARGET in output.read_text(),accepted)
+
+    def test_actual_bash_stage_keeps_unknown_for_transport_or_post_source_ambiguity(self):
+        import subprocess
+        import sys
+        workflow, source = actual_workflow_step('Execute only the separately accepted image-only stage')
+        final={'schemaVersion':'pc.stopped-runtime-headroom.v1','targetSha':TARGET,
+               'beforeAvailableKb':0,'afterAvailableKb':6*1024*1024,'attemptedImages':1,
+               'deletedImages':1,'refusedImages':0,'passed':True,'targetReached':True,
+               'metadataUnchanged':True,'volumesUnchanged':True,'networksUnchanged':True,
+               'runtimeRestored':False,'volumeDataIntegrity':'NOT_ATTESTED'}
+        failed={'schemaVersion':'pc.stopped-runtime-headroom.v1','passed':False,
+                'errorCode':'CONTAINERD_CONTAINERS_PRESENT','runtimeRestored':False,
+                'mutationOutcome':'RECONCILIATION_REQUIRED_IF_STARTED'}
+        capacity={**final,'afterAvailableKb':0,'passed':False,'targetReached':False}
+        cases=[('success',final,0,TARGET,'success'),
+               ('transport',final,255,TARGET,'unknown'),
+               ('wrong-status',final,2,TARGET,'unknown'),
+               ('source-drift',final,0,'c'*40,'unknown'),
+               ('capacity',capacity,2,TARGET,'failure'),
+               ('exception',failed,1,TARGET,'failure'),
+               ('false-success',failed,0,TARGET,'unknown'),
+               ('empty',None,255,TARGET,'unknown')]
+        for name, payload, status, post_sha, expected in cases:
+            with self.subTest(case=name):
+                with tempfile.TemporaryDirectory() as directory:
+                    root=Path(directory);commands=root/'bin';commands.mkdir()
+                    output=root/'evidence';output.mkdir()
+                    dummy=root/'scripts/production_stopped_runtime_headroom.py';dummy.parent.mkdir();dummy.write_text('# fixture only\n')
+                    raw=root/'fixture-output';raw.write_text('' if payload is None else json.dumps(payload)+'\n')
+                    done=root/'ssh-done'
+                    programs={
+                        'git': "import os,sys,pathlib\na=sys.argv[1:]\nif a and a[0]=='fetch':sys.exit(0)\nif a==['rev-parse','origin/main']:print(os.environ['FIXTURE_POST_SHA'] if pathlib.Path(os.environ['FIXTURE_DONE']).exists() else os.environ['TARGET_SHA'])\nelse:sys.exit(9)\n",
+                        'ssh': "import os,sys,pathlib\npathlib.Path(os.environ['FIXTURE_DONE']).write_text('done')\nsys.stdout.write(pathlib.Path(os.environ['FIXTURE_OUTPUT']).read_text())\nsys.exit(int(os.environ['FIXTURE_STATUS']))\n"}
+                    for command, code in programs.items():
+                        path=commands/command;path.write_text('#!'+sys.executable+'\n'+code);path.chmod(0o755)
+                    env={**os.environ,'PATH':str(commands)+os.pathsep+os.environ['PATH'],
+                         'TARGET_SHA':TARGET,'EVIDENCE_DIR':str(output),
+                         'SSH_USER_SECRET':'fixture','PROD_HOST':'127.0.0.1','PROD_PORT':'1',
+                         'FIXTURE_OUTPUT':str(raw),'FIXTURE_STATUS':str(status),
+                         'FIXTURE_POST_SHA':post_sha,'FIXTURE_DONE':str(done)}
+                    result=subprocess.run(['bash','-ceu',source],cwd=root,env=env,text=True,capture_output=True)
+                    self.assertTrue(done.is_file())
+                    body=(output/'issue-record.md').read_text()
+                    self.assertEqual(result.returncode == 0,expected == 'success',result.stderr)
+                    terminal=output/'result.jsonl'
+                    if expected == 'unknown':
+                        self.assertIn('`UNKNOWN`',body)
+                        self.assertFalse(terminal.exists())
+                    else:
+                        self.assertNotIn('`UNKNOWN`',body)
+                        self.assertTrue(terminal.is_file())
+                        self.assertEqual(json.loads(terminal.read_text().splitlines()[-1])['passed'],expected == 'success')
 
     def test_actual_metadata_checks_identity_symlinks_size_and_atime(self):
         with tempfile.TemporaryDirectory() as root_name:
