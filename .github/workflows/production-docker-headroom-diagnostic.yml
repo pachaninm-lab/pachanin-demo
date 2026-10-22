@@ -2915,7 +2915,7 @@ jobs:
             gh issue comment "$AUTHORITY_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/issue-record.md"
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: stopped-recovery-inspection-${{ github.run_id }}
