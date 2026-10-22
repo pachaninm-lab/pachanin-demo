@@ -321,6 +321,35 @@ describe('bank capability router', () => {
 });
 
 describe('bank adapter provider identity at runtime', () => {
+  it.each([
+    ['capabilities', false],
+    ['capabilities', true],
+    ['liveTransportImplemented', false],
+    ['liveTransportImplemented', true],
+  ] as const)(
+    'rejects provider drift during %s read (authority also changed: %s)', (property, changeAuthority) => {
+      const adapter = liveTestAdapter('SBER', ['DIRECT_PAYMENT']);
+      const router = new BankCapabilityRouter([adapter]);
+      const serverAuthority = authority('SBER');
+      const calls = (['describeRequest', 'mapDispatchResponse', 'mapReceiptResponse'] as const)
+        .map(method => jest.spyOn(adapter, method));
+      Object.defineProperty(adapter, property, {
+        get() {
+          Object.assign(adapter, { providerFamily: 'T_BANK' });
+          if (changeAuthority) Object.assign(serverAuthority, { providerFamily: 'T_BANK' });
+          return property === 'capabilities' ? ['DIRECT_PAYMENT'] : true;
+        },
+      });
+
+      expect(router.route(serverAuthority, 'DIRECT_PAYMENT')).toEqual({
+        status: 'UNAVAILABLE',
+        adapter: null,
+        reason: 'NO_ADAPTER_FOR_SERVER_HELD_PROVIDER',
+      });
+      for (const call of calls) expect(call).not.toHaveBeenCalled();
+    },
+  );
+
   const malformedProviderFamilies = [
     { name: 'unrecognized provider', providerFamily: 'OTHER_BANK' },
     { name: 'test-only provider identity', providerFamily: 'TEST_DOUBLE_A' },

@@ -84,10 +84,11 @@ export class BankCapabilityRouter {
       };
     }
 
-    const adapter = isRuntimeProviderFamily(authority.providerFamily)
-      ? this.byProvider.get(authority.providerFamily) ?? null
+    const providerFamily = authority.providerFamily;
+    const adapter = isRuntimeProviderFamily(providerFamily)
+      ? this.byProvider.get(providerFamily) ?? null
       : null;
-    if (!adapter || adapter.providerFamily !== authority.providerFamily) {
+    if (!adapter || adapter.providerFamily !== providerFamily) {
       return {
         status: 'UNAVAILABLE',
         adapter: null,
@@ -187,6 +188,16 @@ export class BankCapabilityRouter {
         status: 'NOT_ACTIVATED',
         adapter,
         reason: 'REFERENCE_ADAPTER_HAS_NO_LIVE_TRANSPORT',
+      };
+    }
+
+    // Adapter properties may be accessors. Revalidate the original lookup
+    // identity after reading readiness so drift cannot yield an admitted route.
+    if (adapter.providerFamily !== providerFamily || authority.providerFamily !== providerFamily) {
+      return {
+        status: 'UNAVAILABLE',
+        adapter: null,
+        reason: 'NO_ADAPTER_FOR_SERVER_HELD_PROVIDER',
       };
     }
 
