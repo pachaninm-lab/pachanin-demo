@@ -2166,11 +2166,11 @@ index 7c1986cb5..44a791388 100644
 
 Purpose: separately admit one exact six-path source proposal for the observed zero-container/full-disk baseline. The original cleanup script/manual route and 1API/1Web guard remain unchanged. Both legacy workflows receive queue:max; the spent owner-push recover job is disabled so the scheduling correction cannot itself run a host mutation. Base authority is `b6950a4d37329ced3eb8491a16819d1e4d8c8e9e`. Official MASTER remains 5/100; no host mutation or runtime acceptance.
 
-Supersedes unaccepted57b5f9fe28b162fb8b0b3f961ef7b5866e545bbb after independent P1 review4343303751. All shared group participants now require queue:max; a complete repository participant regression rejects the previous single-pending legacy configuration. The spent automatic owner-push recover job is explicitly retired, preventing its workflow cochange from starting cleanup on merge. The new workflow retains job-scoped production lock, protected secrets and issue-write permission, direct empty-containerd checks and an UNKNOWN transport journal. No executable source has been published or run. Fresh independent full-head review/CI/readiness is mandatory. Closed #5910 preserves public-revision Gitleaks false-positive evidence; split literals reconstruct identical references without scanner policy changes.
+Supersedes unaccepted57b5f9fe28b162fb8b0b3f961ef7b5866e545bbb after independent P1 review4343303751. All shared group participants now require queue:max; a complete repository participant regression rejects the previous single-pending legacy configuration. The spent automatic owner-push recover job is explicitly retired, preventing its workflow cochange from starting cleanup on merge. The new workflow retains job-scoped production lock, protected secrets and issue-write permission, direct empty-containerd checks and an UNKNOWN transport journal. No executable source has been published or run. Owner follow-up also requires final inventory reconciliation with or without deletion and exact alias reconciliation after a refusal. Fresh independent full-head review/CI/readiness is mandatory. Closed #5910 preserves public-revision Gitleaks false-positive evidence; split literals reconstruct identical references without scanner policy changes.
 
 Evidence: protected read-only run39688142303, receipt6328222743, artifact12388170138 SHA256875212aad50f6c7cf21ee247b33f24473a344e3aff4831d622941254a1644421; last-running38698861695 artifact11955461195 SHA256afc0e98a76f4492e366096527d6426b576c2a6d40aa910a894912e177965a3be. All11fullmetadata image references agree; volume-data/backup integrity NOT_ATTESTED.54 ENOSPC indicators do not prove the exact load-failure cause or absence of corruption.
 
-The private concrete proposal passed 20 behavioral unit tests, YAML/all Bash syntax, metadata no-atime/symlink/identity/size checks, actual containerd socket/namespace/empty-store negatives, exact owner route, PR-secret/concurrency isolation, broken-transport UNKNOWN journal, inventory drift/new-use/refusal/reserve negatives and exact nonforce --no-prune removal arguments. These are local proposal checks, not native source or production acceptance.
+The private concrete proposal passed 22 behavioral unit tests, YAML/all Bash syntax, metadata no-atime/symlink/identity/size checks, actual containerd socket/namespace/empty-store negatives, exact owner route, PR-secret/concurrency isolation, broken-transport UNKNOWN journal, inventory drift/new-use/refusal/reserve negatives and exact nonforce --no-prune removal arguments. These are local proposal checks, not native source or production acceptance.
 
 Separate acceptance sequence: review this complete metadata/payload diff; pass applicable native/security and fresh canonical readiness; manual exact-head merge. Only then publish the exact six afters on `ops/production-stopped-runtime-headroom-20261022`, obtain new independent full-head review/native/readiness/manual merge, and invoke the owner-only4637command once. No partial operation retry; unknown outcomes require read-only reconciliation. Backup/data verification and runtime restoration remain separate. PRODUCT hold and all prior state values remain unchanged. New recurring cost 0 RUB.
 
@@ -2185,17 +2185,17 @@ Separate acceptance sequence: review this complete metadata/payload diff; pass a
       "path": "scripts/production_stopped_runtime_headroom.py",
       "mode": "100644",
       "permissions": "644",
-      "afterBlob": "cb994cb090179b0dd825f05b29d5ee70ff47ad23",
-      "sha256": "f52cf6be3dec0e96bcd3c28be224106a8566ad33aa588361f847fc8c6f91a297",
-      "bytes": 34184
+      "afterBlob": "1577966d56b9cdd6a5ce586f9f63096a53a4e7b9",
+      "sha256": "6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14",
+      "bytes": 34619
     },
     {
       "path": "scripts/test_production_stopped_runtime_headroom.py",
       "mode": "100644",
       "permissions": "644",
-      "afterBlob": "be6ddbe58e6b2c93a50cb46a52828db465074e82",
-      "sha256": "90ba6ce3daaddcfce8b04e156e4bd0b2c2503b390ab811d678009f5aeb242b9d",
-      "bytes": 24418
+      "afterBlob": "ec7a2973425dff5dac7e7d863efb1da664966077",
+      "sha256": "cea0d3593cebf7058aa4b6e2177c9812bc4f3d96c206b415447194c1a6276964",
+      "bytes": 25568
     },
     {
       "path": ".github/workflows/production-stopped-runtime-headroom.yml",
@@ -2209,9 +2209,9 @@ Separate acceptance sequence: review this complete metadata/payload diff; pass a
       "path": "docs/ops/production-stopped-runtime-headroom.md",
       "mode": "100644",
       "permissions": "644",
-      "afterBlob": "60306740f0850693125fa83f7ccc515ef9f472bf",
-      "sha256": "89f24a0e990f1affe50e2e5ff0c0a1d57156b8c54fe08d2ac005352a563ff16d",
-      "bytes": 5024
+      "afterBlob": "bfcf64a4392e882f6f93ff3fd6ed6454dee09c7e",
+      "sha256": "a50dd752eeba9bd3e2b2b94ebf0a19bb403355088639d78978f47394c582e97c",
+      "bytes": 5213
     },
     {
       "beforeBlob": "13564e9ebae27c85cbb12e23d2b03ead2406d422",
@@ -2536,10 +2536,17 @@ def recover(host, target_sha, candidates=CANDIDATES, emit=None, reserve_ids=RESE
             removed.add(candidate['id'])
         else:
             require(not accepted, 'UNKNOWN_REMOVAL_OUTCOME')
+            # A refused command may have partially changed aliases. Reconcile
+            # the exact refs/revision before considering another candidate.
+            attest_image(after_item, candidate, target_sha)
             failures += 1
         after = host.observe()
         require(after[:3] == baseline[:3] and after[3] == baseline[3] - removed,
                 'POST_REMOVAL_DRIFT')
+    # Reconcile even when free space was already sufficient and no removal ran.
+    final = host.observe()
+    require(final[:3] == baseline[:3] and final[3] == baseline[3] - removed,
+            'FINAL_INVENTORY_DRIFT')
     available = host.available_kb()
     return {'schemaVersion': 'pc.stopped-runtime-headroom.v1', 'targetSha': target_sha,
             'beforeAvailableKb': before, 'afterAvailableKb': available, 'attemptedImages': attempts,
@@ -2677,6 +2684,28 @@ class RecoveryTests(unittest.TestCase):
         self.assertFalse(result['passed'])
         self.assertEqual(result['refusedImages'], 1)
         self.assertEqual(len([c for c in host.calls if c[0] == 'remove']), 1)
+
+    def test_final_reconciliation_rejects_drift_with_and_without_removals(self):
+        for sufficient, drift_at in ((True, 2), (False, 4)):
+            with self.subTest(initial_headroom=sufficient):
+                host = FakeHost()
+                host.space = m.TARGET_KB if sufficient else 0
+                host.drift_at = drift_at
+                with self.assertRaisesRegex(m.RecoveryError, 'FINAL_INVENTORY_DRIFT'):
+                    m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))
+                self.assertEqual(host.deleted, not sufficient)
+
+    def test_refused_partial_untag_is_not_a_reconciled_refusal(self):
+        host = FakeHost()
+        def partially_untag(image):
+            host.calls.append(('remove', image))
+            host.item['RepoTags'] = []
+            return False
+        host.remove = partially_untag
+        with self.assertRaisesRegex(m.RecoveryError, 'REFERENCES_CHANGED'):
+            m.recover(host, TARGET, (CANDIDATE,), reserve_ids=frozenset({USED}))
+        self.assertEqual([c for c in host.calls if c[0] == 'remove'], [('remove', IMAGE)])
+        self.assertFalse(host.deleted)
 
     def test_already_sufficient_space_has_zero_deletions(self):
         host = FakeHost()
@@ -3294,7 +3323,7 @@ Only the exact 40 historical full image IDs are candidates. Source inputs are ha
 
 The owner-only command is `/production reclaim-stopped-runtime current-main` in #4637, after this exact source has independently passed its separate admission, review, native checks and merge. No schedule, arbitrary input, direct SSH credential export, force deletion, alias-based removal, daemon restart or standalone old-script invocation is authorized.
 
-Before each non-force `docker image rm --no-prune FULL_ID`, require unchanged full on-disk configs, exactly the pinned eleven references, named-volume availability, unchanged 19 volumes / 6 networks, zero daemon containers, the local pinned Docker endpoint, nonnegative actual Engine API1.51 image use counts, no unreconciled containerd reference, intact rollback reserve, exact candidate refs/revision and current-target protection. Any drift, unknown count, unsupported API, forbidden context or missing metadata stops before the next removal. The static list cannot expand. Refused removals are not forced or retried. The stage stops at 6 GiB, requires at least 5 GiB, and records ambiguous attempts before reconciliation.
+Before each non-force `docker image rm --no-prune FULL_ID`, require unchanged full on-disk configs, exactly the pinned eleven references, named-volume availability, unchanged 19 volumes / 6 networks, zero daemon containers, the local pinned Docker endpoint, nonnegative actual Engine API1.51 image use counts, no unreconciled containerd reference, intact rollback reserve, exact candidate refs/revision and current-target protection. Any drift, unknown count, unsupported API, forbidden context or missing metadata stops before the next removal. The static list cannot expand. Refused removals are not forced or retried; their exact remaining refs/revision must still reconcile. A final complete inventory reconciliation is mandatory even when the initial free space was already sufficient and no removal ran. The stage stops at 6 GiB, requires at least 5 GiB, and records ambiguous attempts before reconciliation.
 
 Output is bounded aggregate JSON, never raw config/environment/daemon logs. Source, transport and host outcomes remain distinct. A failure after an attempt requires a new read-only reconciliation; do not replay an operation whose outcome is unknown. A successful image stage establishes only headroom and unchanged metadata/object sets. It does not prove volume-data integrity, backup applicability, restarted services, current-main application deployment, money/FGIS integration or MASTER progress.
 
