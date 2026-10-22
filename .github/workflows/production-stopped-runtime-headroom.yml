@@ -1,0 +1,271 @@
+name: Production Stopped Runtime Headroom
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/production-stopped-runtime-headroom.yml'
+      - 'scripts/production_stopped_runtime_headroom.py'
+      - 'scripts/test_production_stopped_runtime_headroom.py'
+      - 'docs/ops/production-stopped-runtime-headroom.md'
+      - '.github/workflows/production-docker-headroom-recovery.yml'
+      - '.github/workflows/production-docker-headroom-owner-push-once.yml'
+      - '.github/workflows/production-full-stack-exact-sha.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  EVIDENCE_DIR: artifacts/production-stopped-runtime-headroom
+
+jobs:
+  contract:
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 4637 &&
+       github.event.comment.body == '/production reclaim-stopped-runtime current-main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Verify fail-closed recovery fixtures
+        run: python3 scripts/test_production_stopped_runtime_headroom.py
+
+  recover:
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4637 &&
+      github.event.comment.body == '/production reclaim-stopped-runtime current-main' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      needs.contract.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    concurrency:
+      group: production-full-stack-exact-sha
+      cancel-in-progress: false
+      queue: max
+    env:
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind accepted exact main and evidence journal
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          git fetch --no-tags origin main
+          target_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ && "$target_sha" == "$(git rev-parse origin/main)" ]]
+          git checkout --detach "$target_sha"
+          echo "TARGET_SHA=$target_sha" >> "$GITHUB_ENV"
+          printf '%s\n' "$target_sha" > "$EVIDENCE_DIR/target-sha.txt"
+          python3 - <<'PY_BIND'
+          import hashlib, json, pathlib, stat
+          state = json.loads(pathlib.Path('docs/platform-v7/autopilot/autopilot-state.json').read_text())
+          purpose = state.get('coordinationAdmissions', {}).get('stopped-runtime-headroom-20261022')
+          if not isinstance(purpose, dict) or purpose.get('owner') != 'ACCOUNT_1_CORE' or purpose.get('sourceBranch') != 'ops/production-stopped-runtime-headroom-20261022':
+              raise SystemExit('ACCEPTED_SOURCE_PURPOSE_MISSING')
+          expected_paths = ['scripts/production_stopped_runtime_headroom.py', 'scripts/test_production_stopped_runtime_headroom.py', '.github/workflows/production-stopped-runtime-headroom.yml', 'docs/ops/production-stopped-runtime-headroom.md', '.github/workflows/production-docker-headroom-recovery.yml', '.github/workflows/production-docker-headroom-owner-push-once.yml']
+          if [item.get('path') for item in purpose.get('sourcePayloads', [])] != expected_paths:
+              raise SystemExit('SOURCE_VECTOR_MISMATCH')
+          for item in purpose['sourcePayloads']:
+              path = pathlib.Path(item['path'])
+              info = path.lstat()
+              if not stat.S_ISREG(info.st_mode) or format(stat.S_IMODE(info.st_mode), 'o') != item['permissions']:
+                  raise SystemExit('SOURCE_TYPE_MODE_MISMATCH')
+              raw = path.read_bytes()
+              if len(raw) != item['bytes'] or hashlib.sha256(raw).hexdigest() != item['sha256']:
+                  raise SystemExit('SOURCE_PAYLOAD_MISMATCH')
+          PY_BIND
+          read -r state comments is_pr < <(gh api "repos/${GITHUB_REPOSITORY}/issues/4637" --jq '[.state,.comments,has("pull_request")] | @tsv')
+          [[ "$state" == open && "$comments" =~ ^[0-9]+$ && "$is_pr" == false ]] && (( comments < 2500 ))
+      - name: Resolve protected key and pinned VPS identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'Canonical VPS mismatch.' >&2; exit 10; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo 'Protected production principal is missing or invalid.' >&2; exit 11; }
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo 'Pinned host fingerprint is required.' >&2; exit 13; }
+          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
+          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            ssh-keygen -lf "$pub" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || {
+            echo 'No valid protected SSH private key is configured.' >&2
+            exit 14
+          }
+
+          scan="$(mktemp)"; match="$(mktemp)"
+          pinned_ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned_ready=1; break; fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; echo 'Pinned host key mismatch after bounded retries.' >&2; exit 15; }
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          echo "PROD_HOST=$host" >> "$GITHUB_ENV"
+          echo "PROD_PORT=$port" >> "$GITHUB_ENV"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$SSH_USER_SECRET@$host" \
+            'set -Eeuo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; echo SSH_AUTH_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+
+      - name: Execute only the separately accepted image-only stage
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          # A broken transport or rejected output must still leave a safe journal outcome.
+          python3 - "$TARGET_SHA" "$EVIDENCE_DIR" <<'PY_PENDING'
+          import pathlib, re, sys
+          target, output = sys.argv[1:]
+          if not re.fullmatch('[0-9a-f]{40}', target):
+              raise SystemExit('INVALID_SOURCE_SHA')
+          body = '# Stopped-runtime image headroom\n\nExact source: `'+target+'`.\n\n'
+          body += 'Stage outcome: `UNKNOWN`; runtime restored: `false`; volume data integrity: `NOT_ATTESTED`.\n'
+          body += 'No validated terminal result is available. Do not retry; perform fresh read-only reconciliation.\n'
+          pathlib.Path(output,'issue-record.md').write_text(body)
+          PY_PENDING
+          raw="$(mktemp)"
+          trap 'rm -f "$raw"' EXIT
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            "$SSH_USER_SECRET@$PROD_HOST" "python3 - --sha '$TARGET_SHA' --execute" \
+            < scripts/production_stopped_runtime_headroom.py > "$raw" 2>/dev/null
+          rc=$?
+          set -e
+          # Never upload unvalidated output or raw Docker/SSH errors.
+          python3 - "$raw" "$TARGET_SHA" "$EVIDENCE_DIR" <<'PY_RECORD'
+          import json, pathlib, re, sys
+          raw, expected, output = sys.argv[1:]
+          data = pathlib.Path(raw).read_bytes()
+          if len(data) > 131072:
+              raise SystemExit('OUTPUT_LIMIT')
+          progress = {'stage','targetSha','attempt','accepted','outcome'}
+          final = {'schemaVersion','targetSha','beforeAvailableKb','afterAvailableKb','attemptedImages','deletedImages','refusedImages','passed','targetReached','metadataUnchanged','volumesUnchanged','networksUnchanged','runtimeRestored','volumeDataIntegrity'}
+          failed = {'schemaVersion','passed','errorCode','runtimeRestored','mutationOutcome'}
+          rows = []
+          for line in data.decode('utf-8').splitlines():
+              item = json.loads(line)
+              if not isinstance(item, dict) or set(item) not in (progress, final, failed):
+                  raise SystemExit('OUTPUT_SCHEMA')
+              if set(item) == progress:
+                  if item['targetSha'] != expected or item['stage'] != 'REMOVAL_ATTEMPT_RETURNED' or item['outcome'] != 'NOT_YET_RECONCILED' or type(item['attempt']) is not int or not 1 <= item['attempt'] <= 40 or type(item['accepted']) is not bool:
+                      raise SystemExit('PROGRESS_SCHEMA')
+              else:
+                  if item['schemaVersion'] != 'pc.stopped-runtime-headroom.v1' or item['runtimeRestored'] is not False or type(item['passed']) is not bool:
+                      raise SystemExit('RESULT_SCHEMA')
+                  if set(item) == failed:
+                      if item['passed'] is not False or not isinstance(item['errorCode'], str) or not re.fullmatch('[A-Z_]{1,64}', item['errorCode']) or item['mutationOutcome'] != 'RECONCILIATION_REQUIRED_IF_STARTED':
+                          raise SystemExit('ERROR_SCHEMA')
+                  else:
+                      if item['targetSha'] != expected or item['volumeDataIntegrity'] != 'NOT_ATTESTED' or any(item[key] is not True for key in ('metadataUnchanged','volumesUnchanged','networksUnchanged')):
+                          raise SystemExit('INVARIANT_SCHEMA')
+                      for key in ('beforeAvailableKb','afterAvailableKb','attemptedImages','deletedImages','refusedImages'):
+                          if type(item[key]) is not int or item[key] < 0:
+                              raise SystemExit('COUNT_SCHEMA')
+                      if type(item['targetReached']) is not bool or item['attemptedImages'] > 40 or item['deletedImages'] + item['refusedImages'] != item['attemptedImages'] or item['passed'] != (item['afterAvailableKb'] >= 5*1024*1024) or item['targetReached'] != (item['afterAvailableKb'] >= 6*1024*1024):
+                          raise SystemExit('THRESHOLD_SCHEMA')
+              rows.append(item)
+          if not rows or set(rows[-1]) not in (final, failed) or any(set(row) != progress for row in rows[:-1]):
+              raise SystemExit('TERMINAL_RESULT_MISSING')
+          result = rows[-1]
+          pathlib.Path(output,'result.jsonl').write_text(''.join(json.dumps(x,separators=(',',':'))+'\n' for x in rows))
+          body = '# Stopped-runtime image headroom\n\nExact source: `'+expected+'`.\n\n'
+          body += 'Image-only stage result: `'+str(result['passed'])+'`; runtime restored: `false`; volume data integrity: `NOT_ATTESTED`.\n'
+          if result['passed']:
+              body += 'Available KiB: `'+str(result['afterAvailableKb'])+'`; deleted image objects: `'+str(result['deletedImages'])+'`.\n'
+          else:
+              body += 'Failure requires fresh reconciliation; never replay the old cleanup or assume no partial removal.\n'
+          pathlib.Path(output,'issue-record.md').write_text(body)
+          PY_RECORD
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          (( rc == 0 ))
+      - name: Cleanup protected transport
+        if: always()
+        shell: bash
+        run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
+      - name: Publish bounded terminal evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ -f "$EVIDENCE_DIR/issue-record.md" ]]; then
+            gh issue comment 4637 --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/issue-record.md"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stopped-runtime-headroom-${{ github.run_id }}
+          path: artifacts/production-stopped-runtime-headroom
+          if-no-files-found: error
+          retention-days: 90

@@ -17,6 +17,7 @@ permissions:
 concurrency:
   group: production-full-stack-exact-sha
   cancel-in-progress: false
+  queue: max
 
 # One-shot recovery bridge for PC-CROP registration. The production mutation is
 # deliberately limited to the already-governed recovery script: unused old
@@ -104,7 +105,10 @@ jobs:
   recover:
     name: Reclaim unused canonical images on exact owner push
     needs: contract
+    # Retired one-shot bridge: a scheduling correction must never invoke a host mutation.
+    # The owner-command workflow remains the live cleanup authority.
     if: >-
+      false &&
       github.event_name == 'push' &&
       github.actor == github.repository_owner &&
       github.triggering_actor == github.repository_owner
