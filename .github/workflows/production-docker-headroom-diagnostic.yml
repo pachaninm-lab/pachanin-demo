@@ -836,6 +836,47 @@ jobs:
               profile, pg_path, roots, device, tokens = namespace['volume_profile'](names, str(docker))
               assert profile['postgres']['logicalBytes'] == 8195 and profile['volumes'] == 19
               assert secret not in json.dumps(profile) and profile['postgres']['integrity'] == 'NOT_ATTESTED'
+              # Normal PG16 layout: root plus per-database markers, never additional clusters.
+              for oid in ('1', '16384'):
+                  database = pg / 'base' / oid
+                  database.mkdir(parents=True)
+                  (database / 'PG_VERSION').write_bytes(b'16\n')
+              (pg / 'base' / '16384' / 'client_table').write_text(secret)
+              open_before_profile = os.open
+
+              def metadata_only_open(name, *args, **kwargs):
+                  assert name not in ('client_table', 'pg_control'), 'database content was opened'
+                  return open_before_profile(name, *args, **kwargs)
+
+              with patch.object(namespace['os'], 'open', metadata_only_open):
+                  normal = namespace['volume_profile'](names, str(docker))[0]
+              assert normal['postgres']['logicalBytes'] == 8201 + len(secret)
+              assert normal['postgres']['major'] == 16 and secret not in json.dumps(normal)
+              (pg / 'PG_VERSION').rename(pg / 'PG_VERSION.saved')
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              (pg / 'PG_VERSION.saved').rename(pg / 'PG_VERSION')
+              (pg / 'global').rename(pg / 'global.saved')
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              (pg / 'global.saved').rename(pg / 'global')
+              (pg / 'global' / 'pg_control').rename(pg / 'global' / 'pg_control.saved')
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              (pg / 'global' / 'pg_control.saved').rename(pg / 'global' / 'pg_control')
+              (pg / 'base' / '1' / 'PG_VERSION').write_bytes(b'15\n')
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              (pg / 'base' / '1' / 'PG_VERSION').write_bytes(b'16\n')
+              (pg / 'base' / 'invalid-oid').mkdir()
+              (pg / 'base' / 'invalid-oid' / 'PG_VERSION').write_bytes(b'16\n')
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              (pg / 'base' / 'invalid-oid' / 'PG_VERSION').unlink()
+              (pg / 'base' / 'invalid-oid').rmdir()
+              other = docker / 'volumes' / names[1] / '_data'
+              (other / 'PG_VERSION').write_bytes(b'16\n')
+              (other / 'global').mkdir()
+              (other / 'global' / 'pg_control').write_bytes(b'control')
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              (other / 'global' / 'pg_control').unlink()
+              (other / 'global').rmdir()
+              (other / 'PG_VERSION').unlink()
               (pg / 'postmaster.pid').write_text('stale or active, never assume')
               rejected(lambda: namespace['volume_profile'](names, str(docker)))
               (pg / 'postmaster.pid').unlink()
@@ -1001,7 +1042,7 @@ jobs:
           assert route(event='pull_request') == (True, False, False)
           assert route(body='/production diagnose-docker current-main') == (True, True, False)
           assert route(body='/production preserve-stopped-data current-main') == (False, False, False)
-          print('PASS: actual assembled inspector, archive digest/private modes/no key reads, 19-volume PG16 binding, bounds/races/symlinks, closed publication/transport/main drift, owner-only separate routes.')
+          print('PASS: actual assembled inspector, archive digest/private modes/no key reads, 19-volume normal PG16 root/base OID markers, malformed/orphan/multiple-cluster rejection, metadata-only DB reads, bounds/races/symlinks, closed publication/transport/main drift, owner-only separate routes.')
 
           PY_INSPECTION_TESTS
 
@@ -2505,7 +2546,7 @@ jobs:
                       all(type(n) is str and re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.-]{0,254}', n)
                           for n in names), 'VOLUME_NAMES')
               deadline, count = time.monotonic() + 20, 0
-              clusters, sizes, roots, tokens = [], {}, set(), []
+              markers, clusters, sizes, roots, tokens = [], [], {}, set(), []
               root_fd = open_directory(root + '/volumes')
               device = os.fstat(root_fd).st_dev
 
@@ -2539,20 +2580,7 @@ jobs:
                               if entry.name == 'PG_VERSION':
                                   version, _ = read_regular(fd, entry.name, 32)
                                   require(version.strip() == b'16', 'POSTGRES_VERSION')
-                                  control = os.open('global', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW |
-                                                    os.O_NOATIME, dir_fd=fd)
-                                  try:
-                                      ctrl = os.stat('pg_control', dir_fd=control, follow_symlinks=False)
-                                      require(stat.S_ISREG(ctrl.st_mode) and ctrl.st_size > 0, 'POSTGRES_CONTROL')
-                                  finally:
-                                      os.close(control)
-                                  try:
-                                      os.stat('postmaster.pid', dir_fd=fd, follow_symlinks=False)
-                                  except FileNotFoundError:
-                                      pass
-                                  else:
-                                      raise InspectionError('POSTMASTER_PID_PRESENT')
-                                  clusters.append((private_path, info.st_uid, info.st_gid))
+                                  markers.append((private_path, info.st_uid, info.st_gid))
                           tokens.append((path, signature(info)))
                   require(signature(before) == signature(os.fstat(fd)), 'PROFILE_CHANGED')
                   tokens.append((private_path, signature(before)))
@@ -2571,8 +2599,40 @@ jobs:
                           allocated += b
                       finally:
                           os.close(fd)
+                  # initdb writes both the cluster PG_VERSION and base/<databaseOID>/PG_VERSION.
+                  # Classify after traversal so directory enumeration order cannot affect it.
+                  for path, uid, gid in markers:
+                      require(time.monotonic() <= deadline, 'PROFILE_BOUND')
+                      fd = open_directory(path)
+                      try:
+                          try:
+                              control = os.open('global', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW |
+                                                os.O_NOATIME, dir_fd=fd)
+                          except FileNotFoundError:
+                              continue
+                          try:
+                              ctrl = os.stat('pg_control', dir_fd=control, follow_symlinks=False)
+                              require(stat.S_ISREG(ctrl.st_mode) and ctrl.st_size > 0, 'POSTGRES_CONTROL')
+                          finally:
+                              os.close(control)
+                          try:
+                              os.stat('postmaster.pid', dir_fd=fd, follow_symlinks=False)
+                          except FileNotFoundError:
+                              pass
+                          else:
+                              raise InspectionError('POSTMASTER_PID_PRESENT')
+                          clusters.append((path, uid, gid))
+                      finally:
+                          os.close(fd)
                   require(len(clusters) == 1, 'POSTGRES_CLUSTER_COUNT')
                   path, uid, gid = clusters[0]
+                  for marker, marker_uid, marker_gid in markers:
+                      if marker == path:
+                          continue
+                      prefix = path + '/base/'
+                      oid = marker[len(prefix):] if marker.startswith(prefix) else ''
+                      require(re.fullmatch('[1-9][0-9]{0,9}', oid) and int(oid) <= 4294967295 and
+                              (marker_uid, marker_gid) == (uid, gid), 'POSTGRES_DATABASE_MARKER')
                   logical, blocks = sizes[path]
                   return {'volumes': 19, 'entries': count, 'logicalBytes': total, 'allocatedBytes': allocated,
                           'postgres': {'major': 16, 'uid': uid, 'gid': gid,
@@ -2829,7 +2889,8 @@ jobs:
 
           ERROR_CODES = frozenset(('ARCHIVE_DIGEST', 'ARCHIVE_DIRECTORY', 'ARCHIVE_PRIVATE_MODE',
               'ARCHIVE_RECEIPT', 'ENGINE_NOT_EMPTY', 'HISTORICAL_BINDING_DRIFT', 'POSTGRES_IMAGE_BINDING',
-              'POSTGRES_CLUSTER_COUNT', 'POSTGRES_VERSION', 'POSTGRES_CONTROL', 'POSTMASTER_PID_PRESENT',
+              'POSTGRES_CLUSTER_COUNT', 'POSTGRES_VERSION', 'POSTGRES_CONTROL', 'POSTGRES_DATABASE_MARKER',
+              'POSTMASTER_PID_PRESENT',
               'PROFILE_BOUND', 'PROFILE_CHANGED', 'PROFILE_DEVICE', 'PROFILE_TYPE', 'RUNTIME_DRIFT',
               'VOLUME_OUTSIDE_COPY', 'VOLUME_NAMES', 'FILE_CHANGED', 'FILE_LIMIT', 'FILE_TIMEOUT',
               'FILE_TYPE_SIZE', 'PROCESS_BOUND', 'INSPECTION_UNAVAILABLE'))
