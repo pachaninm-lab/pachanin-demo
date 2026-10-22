@@ -369,8 +369,24 @@ jobs:
               assert restart['status'] == 'COMPLETE' and len(restart['records']) == 1
               assert restart['records'][0] == {
                   'role': 'watchtower', 'policy': 'always', 'retry': 0,
-                  'watchtower': True, 'compose_labels_present': True}
+                  'watchtower': True, 'compose_labels_present': True,
+                  'runtime_metadata': {'container_id': cid, 'driver': 'unknown',
+                      'state': dict.fromkeys(('Running', 'Paused', 'Restarting', 'OOMKilled', 'Dead')),
+                      'manually_stopped': None, 'ever_started': None, 'exit_code': None,
+                      'StartedAt': 'unknown', 'FinishedAt': 'unknown'}}
               assert secret not in json.dumps(restart)
+              observed_config = {**original_config, 'Driver': 'overlayfs',
+                  'HasBeenManuallyStopped': True, 'HasBeenStartedBefore': True,
+                  'State': {'Running': False, 'Paused': False, 'Restarting': False,
+                      'OOMKilled': True, 'Dead': False, 'ExitCode': 137,
+                      'StartedAt': '2026-10-01T12:00:00.123456789Z', 'FinishedAt': secret}}
+              config.write_text(json.dumps(observed_config))
+              runtime = preflight['restart_inventory'](str(docker))['records'][0]['runtime_metadata']
+              assert runtime['driver'] == 'overlayfs' and runtime['manually_stopped'] is True
+              assert runtime['state']['OOMKilled'] is True and runtime['exit_code'] == 137
+              assert runtime['StartedAt'] == '2026-10-01T12:00:00.123456789Z'
+              assert runtime['FinishedAt'] == 'unknown' and secret not in json.dumps(runtime)
+              config.write_text(json.dumps(original_config))
               for invalid in ({}, {'Name': 'unknown', 'MaximumRetryCount': 0},
                               {'Name': 'always', 'MaximumRetryCount': True},
                               {'Name': 'on-failure', 'MaximumRetryCount': -1}):
@@ -494,6 +510,50 @@ jobs:
               assert all(path.stat().st_atime_ns == 1 for path in paths), 'complete remote probe changed protected atime'
               assert 'PROBE_COMPLETE=1' in completed.stdout
               assert 'RECURSIVE_STORAGE_USAGE=NOT_COLLECTED_ATIME_PRESERVATION' in completed.stdout
+              profile = preflight['volume_capacity'](str(docker))
+              assert profile['status'] == 'METADATA_ONLY' and profile['volumes'] == 1
+              assert profile['files'] == 3 and profile['symlinks'] == 0
+              assert all(path.stat().st_atime_ns == 1 for path in paths)
+              alias = data / 'link-to-private-data'
+              alias.symlink_to(data / 'base', target_is_directory=True)
+              assert preflight['volume_capacity'](str(docker))['symlinks'] == 1
+              alias.unlink()
+              # Actual bounded command reader must terminate/reap oversized or stalled children.
+              import sys
+              for command, expected in (
+                  ([sys.executable, '-c', 'print("ok")'], 'COMPLETE'),
+                  ([sys.executable, '-c', 'raise SystemExit(7)'], 'UNAVAILABLE'),
+                  ([sys.executable, '-c', 'print("x"*10000)'], 'LIMIT_EXCEEDED'),
+                  ([sys.executable, '-c', 'import time; time.sleep(2)'], 'TIMEOUT')):
+                  found, payload = preflight['bounded_command'](command, cap=1024,
+                      seconds=0.2 if expected == 'TIMEOUT' else 2)
+                  assert found == expected
+                  assert payload == b'ok\n' if found == 'COMPLETE' else payload is None
+              stamp = b't 1784847517123456\n'
+              log = ('Loading containers: start.\nFailed to load container ' + secret +
+                     ': no space left on device\nLoading containers: done.\n').encode()
+              def startup_command(argv, **kwargs):
+                  if argv[0] == 'busctl':
+                      return 'COMPLETE', stamp
+                  assert argv == ['journalctl', '--unit=docker.service', '--since=@1784847517.123456',
+                      '--until=@1784847817.123456', '--lines=+400', '--no-pager', '--output=cat']
+                  return 'COMPLETE', log
+              with mock.patch.dict(preflight, {'bounded_command': startup_command}):
+                  window = preflight['startup_window']()
+              assert window['status'] == 'COMPLETE' and window['indicators']['ENOSPC'] == 1
+              assert window['indicators']['RESTORE_ERROR'] == 1 and secret not in json.dumps(window)
+              with mock.patch.dict(preflight, {'bounded_command': mock.Mock(side_effect=[
+                      ('COMPLETE', stamp), ('COMPLETE', log), ('COMPLETE', b't 1784847517123457\n')])}):
+                  assert preflight['startup_window']() == {'status': 'UNSTABLE_DAEMON'}
+              with mock.patch.dict(preflight, {'bounded_command': lambda *a, **k: ('COMPLETE', b'bad')}):
+                  assert preflight['startup_window']() == {'status': 'UNAVAILABLE'}
+              with mock.patch.dict(preflight, {'bounded_command': mock.Mock(side_effect=[
+                      ('COMPLETE', stamp), ('COMPLETE', b''), ('COMPLETE', stamp)])}):
+                  assert preflight['startup_window']()['status'] == 'NO_RECORDS'
+              with mock.patch.dict(preflight, {'bounded_command': lambda *a, **k: ('COMPLETE', b'1\n2\n')}):
+                  assert preflight['host_postgres_processes']() == {'status': 'COMPLETE', 'count': 2}
+              with mock.patch.dict(preflight, {'bounded_command': lambda *a, **k: ('COMPLETE', secret.encode())}):
+                  assert preflight['host_postgres_processes']() == {'status': 'UNAVAILABLE'}
               preflight['MAX_ENTRIES'] = 0
               assert preflight['restart_inventory'](str(docker))['status'] == 'UNAVAILABLE'
               preflight['MAX_ENTRIES'] = 2048
@@ -796,9 +856,26 @@ jobs:
                                         for key in ('com.docker.compose.project',
                                                     'com.docker.compose.project.working_dir',
                                                     'com.docker.compose.project.config_files'))
+                          state = config.get('State')
+                          state = state if isinstance(state, dict) else {}
+                          flags = {key: state.get(key) if type(state.get(key)) is bool else None
+                                   for key in ('Running', 'Paused', 'Restarting', 'OOMKilled', 'Dead')}
+                          stopped = config.get('HasBeenManuallyStopped')
+                          driver = config.get('Driver')
+                          driver = driver if driver in ('overlayfs', 'overlay2', 'vfs', 'btrfs', 'zfs') else 'unknown'
+                          code = state.get('ExitCode')
+                          ever = config.get('HasBeenStartedBefore')
+                          runtime = {'container_id': name, 'driver': driver, 'state': flags,
+                                     'manually_stopped': stopped if type(stopped) is bool else None,
+                                     'ever_started': ever if type(ever) is bool else None,
+                                     'exit_code': code if type(code) is int and 0 <= code <= 255 else None}
+                          for key in ('StartedAt', 'FinishedAt'):
+                              value = state.get(key)
+                              runtime[key] = value if isinstance(value, str) and len(value) <= 64 and re.fullmatch(
+                        r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,9})?(?:Z|[+-][0-9]{2}:[0-9]{2})', value) else 'unknown'
                           result['records'].append({'role': role, 'policy': policy['Name'] or 'no',
                                                     'retry': retry, 'watchtower': watcher,
-                                                    'compose_labels_present': compose})
+                                                    'compose_labels_present': compose, 'runtime_metadata': runtime})
                       except (OSError, ValueError, TypeError, RecursionError):
                           result['rejected'] += 1
                       finally:
@@ -918,13 +995,183 @@ jobs:
               return result
 
 
+          def bounded_command(argv, cap=65536, seconds=5, accepted=(0,)):
+              import selectors
+              import subprocess
+              import time
+              child = None
+              try:
+                  child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                           stderr=subprocess.DEVNULL)
+                  payload = bytearray()
+                  deadline = time.monotonic() + seconds
+                  with selectors.DefaultSelector() as selector:
+                      selector.register(child.stdout, selectors.EVENT_READ)
+                      while time.monotonic() < deadline:
+                          if not selector.select(max(0, deadline - time.monotonic())):
+                              return 'TIMEOUT', None
+                          chunk = os.read(child.stdout.fileno(), 16384)
+                          if not chunk:
+                              code = child.wait(timeout=max(0.1, deadline - time.monotonic()))
+                              return ('COMPLETE', bytes(payload)) if code in accepted else ('UNAVAILABLE', None)
+                          payload.extend(chunk)
+                          if len(payload) > cap:
+                              return 'LIMIT_EXCEEDED', None
+                  return 'TIMEOUT', None
+              except (OSError, ValueError, subprocess.SubprocessError):
+                  return 'UNAVAILABLE', None
+              finally:
+                  if child is not None:
+                      if child.poll() is None:
+                          child.kill()
+                      child.wait(timeout=2)
+                      child.stdout.close()
+
+
+          def startup_window():
+              import time
+              getter = ['busctl', '--system', 'get-property', 'org.freedesktop.systemd1',
+                        '/org/freedesktop/systemd1/unit/docker_2eservice',
+                        'org.freedesktop.systemd1.Service', 'ExecMainStartTimestamp']
+              status, raw = bounded_command(getter, cap=4096)
+              match = re.fullmatch(rb't ([0-9]+)\s*', raw or b'')
+              if status != 'COMPLETE' or match is None:
+                  return {'status': 'UNAVAILABLE'}
+              micros = int(match[1])
+              start, fraction = divmod(micros, 1000000)
+              if not 1577836800 <= start <= time.time() + 60:
+                  return {'status': 'UNAVAILABLE'}
+              status, payload = bounded_command(
+                  ['journalctl', '--unit=docker.service', '--since=@' + f'{start}.{fraction:06d}',
+                   '--until=@' + f'{start + 300}.{fraction:06d}', '--lines=+400', '--no-pager', '--output=cat'],
+                  cap=4 * 1024 * 1024, seconds=10)
+              after_status, after = bounded_command(getter, cap=4096)
+              if after_status != 'COMPLETE' or after != raw:
+                  return {'status': 'UNSTABLE_DAEMON'}
+              result = {'status': status, 'daemon_start_epoch_us': micros, 'window_seconds': 300,
+                        'record_limit': 400, 'order': 'OLDEST_FIRST', 'byte_limit': 4 * 1024 * 1024}
+              if status != 'COMPLETE':
+                  return result
+              text = payload.decode('utf-8', errors='replace').strip()
+              if text in ('', '-- No entries --'):
+                  result['status'] = 'NO_RECORDS'
+                  return result
+              lines = [line.lower() for line in text.splitlines()]
+              terms = {
+                  'ENOSPC': ('no space left on device', 'enospc'),
+                  'RESTORE_ERROR': ('failed to load container', 'error loading container',
+                                    'error restoring container', 'failed to restore container'),
+                  'METADATA_ERROR': ('invalid config.v2.json', 'invalid hostconfig.json',
+                                     'unexpected end of json'),
+                  'STORAGE_ERROR': ('failed to mount', 'storage driver', 'snapshotter error',
+                                    'layer does not exist'),
+                  'PERMISSION_ERROR': ('permission denied', 'read-only file system'),
+                  'CORRUPTION_INDICATOR': ('database corruption', 'checksum mismatch', 'invalid page'),
+                  'LOAD_STARTED': ('loading containers: start',),
+                  'LOAD_COMPLETED': ('loading containers: done',),
+              }
+              result['lines'] = len(lines)
+              if len(lines) >= 400:
+                  result['status'] = 'WINDOW_LIMIT_REACHED'
+              result['indicators'] = {key: sum(any(term in line for term in values) for line in lines)
+                                      for key, values in terms.items()}
+              return result
+
+
+          def host_postgres_processes():
+              status, raw = bounded_command(['ps', '-C', 'postgres,postmaster', '-o', 'pid='],
+                                            cap=16384, accepted=(0, 1))
+              if status != 'COMPLETE':
+                  return {'status': status}
+              pids = (raw or b'').split()
+              if len(pids) > MAX_ENTRIES or any(re.fullmatch(rb'[0-9]+', pid) is None for pid in pids):
+                  return {'status': 'UNAVAILABLE'}
+              return {'status': 'COMPLETE', 'count': len(set(pids))}
+
+
+          def preservation_tools():
+              import shutil
+              return {name: shutil.which(name) is not None for name in
+                      ('openssl', 'gpg', 'age', 'tar', 'rsync', 'cp',
+                       'pg_controldata', 'pg_checksums', 'postgres', 'busctl')}
+
+
+          def volume_capacity(root):
+              import time
+              result = {'status': 'UNAVAILABLE', 'volumes': 0, 'entries': 0, 'files': 0,
+                        'directories': 0, 'logical_bytes': 0, 'allocated_bytes': 0,
+                        'symlinks': 0, 'special_entries': 0, 'cross_device_entries': 0,
+                        'separate_filesystem_volumes': 0}
+              deadline = time.monotonic() + 10
+              root_fd = volumes_fd = None
+
+              def visit(fd, depth, device):
+                  if depth > 64 or time.monotonic() > deadline:
+                      raise ValueError('PROFILE_LIMIT')
+                  for name in names(fd):
+                      result['entries'] += 1
+                      if result['entries'] > 200000 or time.monotonic() > deadline:
+                          raise ValueError('PROFILE_LIMIT')
+                      info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                      if info.st_dev != device:
+                          result['cross_device_entries'] += 1
+                      elif stat.S_ISLNK(info.st_mode):
+                          result['symlinks'] += 1
+                      elif stat.S_ISDIR(info.st_mode):
+                          child = checked_directory(name, fd, allow_data_owner=True)
+                          try:
+                              result['directories'] += 1
+                              visit(child, depth + 1, device)
+                          finally:
+                              os.close(child)
+                      elif stat.S_ISREG(info.st_mode):
+                          result['files'] += 1
+                          result['logical_bytes'] += info.st_size
+                          result['allocated_bytes'] += info.st_blocks * 512
+                      else:
+                          result['special_entries'] += 1
+
+              try:
+                  root_fd = absolute_directory(root)
+                  volumes_fd = checked_directory('volumes', root_fd)
+                  for name in names(volumes_fd):
+                      if name in ('metadata.db', 'backingFsBlockDev'):
+                          continue
+                      volume_fd = data_fd = None
+                      try:
+                          volume_fd = checked_directory(name, volumes_fd)
+                          data_fd = checked_directory('_data', volume_fd, allow_data_owner=True)
+                          device = os.fstat(data_fd).st_dev
+                          result['separate_filesystem_volumes'] += device != os.fstat(root_fd).st_dev
+                          result['volumes'] += 1
+                          visit(data_fd, 0, device)
+                      finally:
+                          for fd in (data_fd, volume_fd):
+                              if fd is not None:
+                                  os.close(fd)
+                  result['status'] = 'METADATA_ONLY'
+              except ValueError:
+                  result['status'] = 'LIMIT_OR_UNTRUSTED'
+              except (OSError, TypeError):
+                  result['status'] = 'UNAVAILABLE'
+              finally:
+                  for fd in (volumes_fd, root_fd):
+                      if fd is not None:
+                          os.close(fd)
+              return result
+
+
           def main(root):
               restart = restart_inventory(root)
               backup = backup_inventory('/var/lib/pc-release-authority/backups')
               volumes = volume_inventory(root)
               for key, value in (('STARTUP_POLICY_PREFLIGHT', restart),
                                  ('LOCAL_BACKUP_METADATA', backup),
-                                 ('VOLUME_LAYOUT_PREFLIGHT', volumes)):
+                                 ('VOLUME_LAYOUT_PREFLIGHT', volumes),
+                                 ('DOCKER_STARTUP_WINDOW', startup_window()),
+                                 ('HOST_POSTGRES_PROCESSES', host_postgres_processes()),
+                                 ('PRESERVATION_TOOLS', preservation_tools()),
+                                 ('VOLUME_CAPACITY_PROFILE', volume_capacity(root))):
                   print(key + '=' + json.dumps(value, sort_keys=True, separators=(',', ':')))
               print('STARTUP_AUTHORIZATION=NOT_GRANTED')
               print('EXTERNAL_BACKUP_EVIDENCE=NOT_COLLECTED')
@@ -1400,6 +1647,10 @@ jobs:
               f"- Startup policy preflight: `{preflight_summary('STARTUP_POLICY_PREFLIGHT')}`;",
               f"- Local backup file metadata: `{preflight_summary('LOCAL_BACKUP_METADATA')}`;",
               f"- PostgreSQL volume layout observation: `{preflight_summary('VOLUME_LAYOUT_PREFLIGHT')}`;",
+              f"- Docker startup window: `{scalar.get('DOCKER_STARTUP_WINDOW', 'not-collected')}`;",
+              f"- Host PostgreSQL processes: `{scalar.get('HOST_POSTGRES_PROCESSES', 'not-collected')}`;",
+              f"- Preservation tool availability: `{scalar.get('PRESERVATION_TOOLS', 'not-collected')}`;",
+              f"- Volume capacity metadata: `{scalar.get('VOLUME_CAPACITY_PROFILE', 'not-collected')}`;",
               '- Volume data integrity and backup/restore applicability: `NOT_ATTESTED`; local file metadata and structural observations do not verify a backup or authorize startup.',
               '- External backup evidence: `NOT_COLLECTED`; restore verification: `NOT_PERFORMED`.',
               '- Recursive disk/rootfs/build-cache size queries: `NOT_COLLECTED_ATIME_PRESERVATION`; full structured preflight records remain only in the artifact.',
