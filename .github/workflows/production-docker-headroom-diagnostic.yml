@@ -323,7 +323,7 @@ jobs:
           print('PASS: remote diagnostic is owner-only, exact-main, pinned-SSH and contains no Docker delete/prune or service restart/stop capability.')
           PY
 
-      - name: Verify preservation and bounded-publication fixtures
+      - name: Verify preservation and complete capacity fixtures
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -346,6 +346,13 @@ jobs:
           if not match:
               raise SystemExit('missing actual preservation preflight')
           preservation_source = textwrap.dedent(match[1])
+          match = re.search(r"^          capacity_profile_script=\"\$\(cat <<'PY_CAPACITY_PROFILE'\n(.*?)^          PY_CAPACITY_PROFILE\n", workflow, re.M | re.S)
+          if not match:
+              raise SystemExit('missing actual capacity profile')
+          capacity_source = textwrap.dedent(match[1])
+          marker = "if __name__ == '__main__':"
+          assert preservation_source.count(marker) == 1
+          preservation_source = preservation_source.replace(marker, capacity_source + '\n\n' + marker)
           preflight = {'__name__': 'preservation_fixture'}
           exec(compile(preservation_source, '<actual preservation preflight>', 'exec'), preflight)
           with tempfile.TemporaryDirectory() as fixture_directory:
@@ -494,6 +501,8 @@ jobs:
                          PATH=str(binaries) + ':' + os.environ['PATH'])
               subprocess.run(['bash', '-c', actual_step('Prepare bounded preservation preflight payload')],
                              env=env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+              subprocess.run(['bash', '-c', actual_step('Prepare bounded capacity profile payload')],
+                             env=env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
               subprocess.run(['bash', '-c', actual_step('Collect read-only storage and runtime evidence')],
                              env=env, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
               remote = (root / 'captured.sh').read_text()
@@ -513,10 +522,99 @@ jobs:
               profile = preflight['volume_capacity'](str(docker))
               assert profile['status'] == 'METADATA_ONLY' and profile['volumes'] == 1
               assert profile['files'] == 3 and profile['symlinks'] == 0
+              assert profile['profile_complete'] and profile['completed_volumes'] == 1
+              assert profile['reason'] == 'COMPLETE'
               assert all(path.stat().st_atime_ns == 1 for path in paths)
+              # A real PostgreSQL-sized directory must use the unchanged global
+              # 200000-entry/10-second budget, rather than the 2048-name forensic cap.
+              wide = data / 'base' / 'wide'
+              wide.mkdir()
+              wide_files = []
+              for index in range(4097):
+                  path = wide / (secret + str(index))
+                  path.write_bytes(b'fixture-data')
+                  wide_files.append(path)
+              for index in range(18):
+                  extra = docker / 'volumes' / ('fixture-' + str(index)) / '_data'
+                  extra.mkdir(parents=True)
+                  paths.extend((extra.parent, extra))
+              paths.extend((wide, *wide_files))
+              for path in paths:
+                  os.utime(path, ns=(1, path.stat().st_mtime_ns))
+              profile = preflight['volume_capacity'](str(docker))
+              expected_bytes = (len(b'16\n') + len(b'opaque-control') + len(secret.encode())
+                                + 4097 * len(b'fixture-data'))
+              assert profile['profile_complete'] and profile['completed_volumes'] == profile['volumes'] == 19
+              assert profile['files'] == 4100 and profile['logical_bytes'] == expected_bytes
+              assert profile['status'] == 'METADATA_ONLY' and profile['reason'] == 'COMPLETE'
+              assert secret not in json.dumps(profile) and fixture_directory not in json.dumps(profile)
+              assert all(path.stat().st_atime_ns == 1 for path in paths)
+              completed = subprocess.run(['bash', '-c', remote], env=env, check=True,
+                                         text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
+              actual_capacity = json.loads(next(line.split('=', 1)[1] for line in completed.stdout.splitlines()
+                                               if line.startswith('VOLUME_CAPACITY_PROFILE=')))
+              assert actual_capacity == profile, 'whole remote payload did not retain complete capacity traversal'
+              assert all(path.stat().st_atime_ns == 1 for path in paths)
+              assert not (root / 'forbidden-calls').exists()
+              assert preflight['MAX_ENTRIES'] == 2048
+              assert (preflight['CAPACITY_ENTRY_LIMIT'], preflight['CAPACITY_SECONDS'],
+                      preflight['CAPACITY_DEPTH_LIMIT']) == (200000, 10, 64)
+              with mock.patch.dict(preflight, {'CAPACITY_ENTRY_LIMIT': 8}):
+                  partial = preflight['volume_capacity'](str(docker))
+              assert not partial['profile_complete'] and partial['reason'] == 'ENTRY_LIMIT'
+              assert partial['status'] == 'LIMIT_OR_UNTRUSTED' and partial['entries'] == 8
+              clock = iter((0, 11))
+              with mock.patch('time.monotonic', side_effect=lambda: next(clock, 11)):
+                  partial = preflight['volume_capacity'](str(docker))
+              assert not partial['profile_complete'] and partial['reason'] == 'TIME_LIMIT'
+              assert partial['status'] == 'LIMIT_OR_UNTRUSTED'
+              deep = data / 'deep'
+              deep_paths = []
+              for unused in range(65):
+                  deep.mkdir()
+                  deep_paths.append(deep)
+                  deep = deep / 'nested'
+              partial = preflight['volume_capacity'](str(docker))
+              assert not partial['profile_complete'] and partial['reason'] == 'DEPTH_LIMIT'
+              for path in reversed(deep_paths):
+                  path.rmdir()
+              real_scandir = os.scandir
+              mutation_inode = wide.stat().st_ino
+              mutate = lambda: (wide / 'raced-file').write_bytes(b'fixture-race')
+              class ChangedDirectory:
+                  def __init__(self, fd):
+                      self.fd = fd
+                      self.inner = real_scandir(fd)
+                  def __enter__(self):
+                      self.inner.__enter__()
+                      return self
+                  def __iter__(self):
+                      yield from self.inner
+                      if os.fstat(self.fd).st_ino == mutation_inode:
+                          mutate()
+                  def __exit__(self, *args):
+                      return self.inner.__exit__(*args)
+              with mock.patch.object(os, 'scandir', ChangedDirectory):
+                  partial = preflight['volume_capacity'](str(docker))
+              assert not partial['profile_complete'] and partial['reason'] == 'DIRECTORY_CHANGED'
+              assert partial['status'] == 'LIMIT_OR_UNTRUSTED'
+              (wide / 'raced-file').unlink()
+              mutation_inode = data.stat().st_ino
+              moved = data.parent / 'moved-data'
+              def replace_data_root():
+                  data.rename(moved)
+                  data.mkdir()
+              mutate = replace_data_root
+              with mock.patch.object(os, 'scandir', ChangedDirectory):
+                  partial = preflight['volume_capacity'](str(docker))
+              assert not partial['profile_complete'] and partial['reason'] == 'DIRECTORY_CHANGED'
+              data.rmdir()
+              moved.rename(data)
               alias = data / 'link-to-private-data'
               alias.symlink_to(data / 'base', target_is_directory=True)
-              assert preflight['volume_capacity'](str(docker))['symlinks'] == 1
+              partial = preflight['volume_capacity'](str(docker))
+              assert partial['symlinks'] == 1 and not partial['profile_complete']
+              assert partial['reason'] == 'UNSUPPORTED_ENTRIES'
               alias.unlink()
               # Actual bounded command reader must terminate/reap oversized or stalled children.
               import sys
@@ -565,7 +663,26 @@ jobs:
               assert 'STARTUP_AUTHORIZATION=NOT_GRANTED' in output.getvalue()
               assert 'RESTORE_VERIFICATION=NOT_PERFORMED' in output.getvalue()
               assert 'EXTERNAL_BACKUP_EVIDENCE=NOT_COLLECTED' in output.getvalue()
-          print('PASS: actual preservation preflight rejects unsafe restart metadata, symlink ancestors/files, unknown policies, malformed PG layout and bounds; preserves atime and redacts private values without claiming restore acceptance.')
+          print('PASS: actual preservation preflight and complete remote payload reject unsafe metadata, races and bounds; 19-volume/4097-file traversal preserves atime and redacts private values without claiming restore acceptance.')
+          PY
+
+      - name: Verify bounded diagnostic summary publication
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+          import subprocess
+          import tempfile
+          import textwrap
+          from pathlib import Path
+          workflow = Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_text()
+          def actual_step(name):
+              block = workflow.split('      - name: ' + name + '\n', 1)[1].split('\n      - name: ', 1)[0]
+              return textwrap.dedent(block.split('        run: |\n', 1)[1])
           # Run the actual summary step against the maximum permitted structured arrays.
           with tempfile.TemporaryDirectory() as fixture_directory:
               root = Path(fixture_directory)
@@ -594,7 +711,7 @@ jobs:
               assert '"records":2048' in summary and '"postgres_layout_count":2048' in summary
               assert 'compose_labels_present' not in summary and 'postgres_layouts' not in summary
               assert (evidence / 'remote-output.txt').read_text() == raw
-          print('PASS: complete actual remote probe preserves protected atime and exact payload; 2048-entry arrays stay in the artifact while the actual issue summary remains under6000 bytes.')
+          print('PASS: 2048-entry arrays stay in the artifact while the actual issue summary remains under6000 bytes.')
           PY
 
 
@@ -1096,71 +1213,6 @@ jobs:
                        'pg_controldata', 'pg_checksums', 'postgres', 'busctl')}
 
 
-          def volume_capacity(root):
-              import time
-              result = {'status': 'UNAVAILABLE', 'volumes': 0, 'entries': 0, 'files': 0,
-                        'directories': 0, 'logical_bytes': 0, 'allocated_bytes': 0,
-                        'symlinks': 0, 'special_entries': 0, 'cross_device_entries': 0,
-                        'separate_filesystem_volumes': 0}
-              deadline = time.monotonic() + 10
-              root_fd = volumes_fd = None
-
-              def visit(fd, depth, device):
-                  if depth > 64 or time.monotonic() > deadline:
-                      raise ValueError('PROFILE_LIMIT')
-                  for name in names(fd):
-                      result['entries'] += 1
-                      if result['entries'] > 200000 or time.monotonic() > deadline:
-                          raise ValueError('PROFILE_LIMIT')
-                      info = os.stat(name, dir_fd=fd, follow_symlinks=False)
-                      if info.st_dev != device:
-                          result['cross_device_entries'] += 1
-                      elif stat.S_ISLNK(info.st_mode):
-                          result['symlinks'] += 1
-                      elif stat.S_ISDIR(info.st_mode):
-                          child = checked_directory(name, fd, allow_data_owner=True)
-                          try:
-                              result['directories'] += 1
-                              visit(child, depth + 1, device)
-                          finally:
-                              os.close(child)
-                      elif stat.S_ISREG(info.st_mode):
-                          result['files'] += 1
-                          result['logical_bytes'] += info.st_size
-                          result['allocated_bytes'] += info.st_blocks * 512
-                      else:
-                          result['special_entries'] += 1
-
-              try:
-                  root_fd = absolute_directory(root)
-                  volumes_fd = checked_directory('volumes', root_fd)
-                  for name in names(volumes_fd):
-                      if name in ('metadata.db', 'backingFsBlockDev'):
-                          continue
-                      volume_fd = data_fd = None
-                      try:
-                          volume_fd = checked_directory(name, volumes_fd)
-                          data_fd = checked_directory('_data', volume_fd, allow_data_owner=True)
-                          device = os.fstat(data_fd).st_dev
-                          result['separate_filesystem_volumes'] += device != os.fstat(root_fd).st_dev
-                          result['volumes'] += 1
-                          visit(data_fd, 0, device)
-                      finally:
-                          for fd in (data_fd, volume_fd):
-                              if fd is not None:
-                                  os.close(fd)
-                  result['status'] = 'METADATA_ONLY'
-              except ValueError:
-                  result['status'] = 'LIMIT_OR_UNTRUSTED'
-              except (OSError, TypeError):
-                  result['status'] = 'UNAVAILABLE'
-              finally:
-                  for fd in (volumes_fd, root_fd):
-                      if fd is not None:
-                          os.close(fd)
-              return result
-
-
           def main(root):
               restart = restart_inventory(root)
               backup = backup_inventory('/var/lib/pc-release-authority/backups')
@@ -1183,6 +1235,136 @@ jobs:
           PY_PRESERVATION_PREFLIGHT
           )"
           printf '%s\n' "$preservation_preflight_script" > "$EVIDENCE_DIR/preservation-preflight.py"
+
+      - name: Prepare bounded capacity profile payload
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          capacity_profile_script="$(cat <<'PY_CAPACITY_PROFILE'
+          CAPACITY_ENTRY_LIMIT = 200000
+          CAPACITY_SECONDS = 10
+          CAPACITY_DEPTH_LIMIT = 64
+
+
+          def volume_capacity(root):
+              import time
+              result = {'status': 'UNAVAILABLE', 'volumes': 0, 'entries': 0, 'files': 0,
+                        'directories': 0, 'logical_bytes': 0, 'allocated_bytes': 0,
+                        'symlinks': 0, 'special_entries': 0, 'cross_device_entries': 0,
+                        'separate_filesystem_volumes': 0, 'completed_volumes': 0,
+                        'profile_complete': False, 'reason': 'NOT_COLLECTED'}
+              deadline = time.monotonic() + CAPACITY_SECONDS
+              root_fd = volumes_fd = None
+
+              def unchanged(before, after):
+                  return all(getattr(before, key) == getattr(after, key) for key in
+                             ('st_dev', 'st_ino', 'st_mode', 'st_uid', 'st_gid',
+                              'st_mtime_ns', 'st_ctime_ns'))
+
+              def within_time():
+                  if time.monotonic() > deadline:
+                      raise ValueError('TIME_LIMIT')
+
+              def visit(fd, depth, device):
+                  within_time()
+                  if depth > CAPACITY_DEPTH_LIMIT:
+                      raise ValueError('DEPTH_LIMIT')
+                  before = os.fstat(fd)
+                  # Capacity has its own existing global entry/time/depth budget.
+                  # The forensic names() cap must not truncate a wide data directory.
+                  with os.scandir(fd) as entries:
+                      for entry in entries:
+                          within_time()
+                          if result['entries'] >= CAPACITY_ENTRY_LIMIT:
+                              raise ValueError('ENTRY_LIMIT')
+                          result['entries'] += 1
+                          info = os.stat(entry.name, dir_fd=fd, follow_symlinks=False)
+                          if info.st_dev != device:
+                              result['cross_device_entries'] += 1
+                          elif stat.S_ISLNK(info.st_mode):
+                              result['symlinks'] += 1
+                          elif stat.S_ISDIR(info.st_mode):
+                              child = checked_directory(entry.name, fd, allow_data_owner=True)
+                              try:
+                                  if not unchanged(info, os.fstat(child)):
+                                      raise ValueError('DIRECTORY_CHANGED')
+                                  result['directories'] += 1
+                                  visit(child, depth + 1, device)
+                              finally:
+                                  os.close(child)
+                          elif stat.S_ISREG(info.st_mode):
+                              result['files'] += 1
+                              result['logical_bytes'] += info.st_size
+                              result['allocated_bytes'] += info.st_blocks * 512
+                          else:
+                              result['special_entries'] += 1
+                  within_time()
+                  if not unchanged(before, os.fstat(fd)):
+                      raise ValueError('DIRECTORY_CHANGED')
+
+              try:
+                  root_fd = absolute_directory(root)
+                  volumes_fd = checked_directory('volumes', root_fd)
+                  volumes_before = os.fstat(volumes_fd)
+                  root_before = os.fstat(root_fd)
+                  for name in names(volumes_fd):
+                      within_time()
+                      if name in ('metadata.db', 'backingFsBlockDev'):
+                          continue
+                      volume_fd = data_fd = None
+                      try:
+                          volume_fd = checked_directory(name, volumes_fd)
+                          volume_before = os.fstat(volume_fd)
+                          data_fd = checked_directory('_data', volume_fd, allow_data_owner=True)
+                          device = os.fstat(data_fd).st_dev
+                          result['separate_filesystem_volumes'] += device != os.fstat(root_fd).st_dev
+                          result['volumes'] += 1
+                          visit(data_fd, 0, device)
+                          if not unchanged(volume_before, os.fstat(volume_fd)):
+                              raise ValueError('DIRECTORY_CHANGED')
+                          result['completed_volumes'] += 1
+                      finally:
+                          for fd in (data_fd, volume_fd):
+                              if fd is not None:
+                                  os.close(fd)
+                  if (not unchanged(volumes_before, os.fstat(volumes_fd)) or
+                          not unchanged(root_before, os.fstat(root_fd))):
+                      raise ValueError('DIRECTORY_CHANGED')
+                  if any(result[key] for key in ('symlinks', 'special_entries', 'cross_device_entries')):
+                      raise ValueError('UNSUPPORTED_ENTRIES')
+                  result.update(status='METADATA_ONLY', profile_complete=True, reason='COMPLETE')
+              except ValueError as error:
+                  result['status'] = 'LIMIT_OR_UNTRUSTED'
+                  code = str(error)
+                  result['reason'] = code if code in (
+                      'TIME_LIMIT', 'ENTRY_LIMIT', 'DEPTH_LIMIT', 'DIRECTORY_CHANGED',
+                      'UNSUPPORTED_ENTRIES') else 'UNTRUSTED_DIRECTORY'
+              except (OSError, TypeError):
+                  result['status'] = 'UNAVAILABLE'
+                  result['reason'] = 'FILESYSTEM_UNAVAILABLE'
+              finally:
+                  for fd in (volumes_fd, root_fd):
+                      if fd is not None:
+                          os.close(fd)
+              return result
+
+
+          PY_CAPACITY_PROFILE
+          )"
+          printf '%s\n' "$capacity_profile_script" > "$EVIDENCE_DIR/capacity-profile.py"
+          python3 - "$EVIDENCE_DIR/preservation-preflight.py" "$EVIDENCE_DIR/capacity-profile.py" <<'PY_ASSEMBLE'
+          import pathlib
+          import sys
+          path = pathlib.Path(sys.argv[1])
+          base = path.read_text()
+          capacity = pathlib.Path(sys.argv[2]).read_text()
+          marker = "if __name__ == '__main__':"
+          if base.count(marker) != 1:
+              raise SystemExit('PRESERVATION_PAYLOAD_MARKER')
+          complete = base.replace(marker, capacity + '\n\n' + marker)
+          compile(complete, '<complete preservation preflight>', 'exec')
+          path.write_text(complete)
+          PY_ASSEMBLE
 
       - name: Collect read-only storage and runtime evidence
         id: probe
