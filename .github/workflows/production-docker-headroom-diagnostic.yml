@@ -529,21 +529,21 @@ jobs:
                       seconds=0.2 if expected == 'TIMEOUT' else 2)
                   assert found == expected
                   assert payload == b'ok\n' if found == 'COMPLETE' else payload is None
-              stamp = b't 1784847517000000\n'
+              stamp = b't 1784847517123456\n'
               log = ('Loading containers: start.\nFailed to load container ' + secret +
                      ': no space left on device\nLoading containers: done.\n').encode()
               def startup_command(argv, **kwargs):
                   if argv[0] == 'busctl':
                       return 'COMPLETE', stamp
-                  assert argv == ['journalctl', '--unit=docker.service', '--since=@1784847517',
-                      '--until=@1784847817', '--lines=400', '--no-pager', '--output=cat']
+                  assert argv == ['journalctl', '--unit=docker.service', '--since=@1784847517.123456',
+                      '--until=@1784847817.123456', '--lines=+400', '--no-pager', '--output=cat']
                   return 'COMPLETE', log
               with mock.patch.dict(preflight, {'bounded_command': startup_command}):
                   window = preflight['startup_window']()
               assert window['status'] == 'COMPLETE' and window['indicators']['ENOSPC'] == 1
               assert window['indicators']['RESTORE_ERROR'] == 1 and secret not in json.dumps(window)
               with mock.patch.dict(preflight, {'bounded_command': mock.Mock(side_effect=[
-                      ('COMPLETE', stamp), ('COMPLETE', log), ('COMPLETE', b't 1784847518000000\n')])}):
+                      ('COMPLETE', stamp), ('COMPLETE', log), ('COMPLETE', b't 1784847517123457\n')])}):
                   assert preflight['startup_window']() == {'status': 'UNSTABLE_DAEMON'}
               with mock.patch.dict(preflight, {'bounded_command': lambda *a, **k: ('COMPLETE', b'bad')}):
                   assert preflight['startup_window']() == {'status': 'UNAVAILABLE'}
@@ -1038,18 +1038,18 @@ jobs:
               if status != 'COMPLETE' or match is None:
                   return {'status': 'UNAVAILABLE'}
               micros = int(match[1])
-              start = micros // 1000000
+              start, fraction = divmod(micros, 1000000)
               if not 1577836800 <= start <= time.time() + 60:
                   return {'status': 'UNAVAILABLE'}
               status, payload = bounded_command(
-                  ['journalctl', '--unit=docker.service', '--since=@' + str(start),
-                   '--until=@' + str(start + 300), '--lines=400', '--no-pager', '--output=cat'],
+                  ['journalctl', '--unit=docker.service', '--since=@' + f'{start}.{fraction:06d}',
+                   '--until=@' + f'{start + 300}.{fraction:06d}', '--lines=+400', '--no-pager', '--output=cat'],
                   cap=4 * 1024 * 1024, seconds=10)
               after_status, after = bounded_command(getter, cap=4096)
               if after_status != 'COMPLETE' or after != raw:
                   return {'status': 'UNSTABLE_DAEMON'}
-              result = {'status': status, 'daemon_start_epoch': start, 'window_seconds': 300,
-                        'record_limit': 400, 'byte_limit': 4 * 1024 * 1024}
+              result = {'status': status, 'daemon_start_epoch_us': micros, 'window_seconds': 300,
+                        'record_limit': 400, 'order': 'OLDEST_FIRST', 'byte_limit': 4 * 1024 * 1024}
               if status != 'COMPLETE':
                   return result
               text = payload.decode('utf-8', errors='replace').strip()
