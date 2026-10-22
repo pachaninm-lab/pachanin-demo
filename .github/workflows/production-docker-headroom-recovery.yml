@@ -17,6 +17,7 @@ concurrency:
   # Serialize this storage mutation with the exact-SHA production rollout.
   group: production-full-stack-exact-sha
   cancel-in-progress: false
+  queue: max
 
 env:
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
