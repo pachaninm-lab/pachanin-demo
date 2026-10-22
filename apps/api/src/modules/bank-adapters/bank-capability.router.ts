@@ -56,13 +56,24 @@ function isRuntimeProviderFamily(value: unknown): value is BankProviderFamily {
     && (REAL_BANK_PROVIDER_FAMILIES as readonly string[]).includes(value);
 }
 
+function readRuntimeProviderFamily(value: unknown): BankProviderFamily | null {
+  if (typeof value !== 'object' || value === null) return null;
+  // Provider identity must be an own data field, as on reference adapters and
+  // server-held DTOs. Reading an identity getter could mutate an already checked
+  // adapter/authority pair, including during the final readiness check itself.
+  const identity = Object.getOwnPropertyDescriptor(value, 'providerFamily');
+  return identity && Object.hasOwn(identity, 'value') && isRuntimeProviderFamily(identity.value)
+    ? identity.value
+    : null;
+}
+
 export class BankCapabilityRouter {
   private readonly byProvider = new Map<BankProviderFamily, BankReferenceAdapter>();
 
   constructor(adapters: readonly BankReferenceAdapter[]) {
     for (const adapter of adapters) {
-      const providerFamily = adapter?.providerFamily;
-      if (!isRuntimeProviderFamily(providerFamily)) {
+      const providerFamily = readRuntimeProviderFamily(adapter);
+      if (providerFamily === null) {
         throw new Error('NO_ADAPTER_FOR_SERVER_HELD_PROVIDER');
       }
       if (this.byProvider.has(providerFamily)) {
@@ -84,11 +95,11 @@ export class BankCapabilityRouter {
       };
     }
 
-    const providerFamily = authority.providerFamily;
-    const adapter = isRuntimeProviderFamily(providerFamily)
+    const providerFamily = readRuntimeProviderFamily(authority);
+    const adapter = providerFamily !== null
       ? this.byProvider.get(providerFamily) ?? null
       : null;
-    if (!adapter || adapter.providerFamily !== providerFamily) {
+    if (!adapter || readRuntimeProviderFamily(adapter) !== providerFamily) {
       return {
         status: 'UNAVAILABLE',
         adapter: null,
@@ -191,9 +202,9 @@ export class BankCapabilityRouter {
       };
     }
 
-    // Adapter properties may be accessors. Revalidate the original lookup
-    // identity after reading readiness so drift cannot yield an admitted route.
-    if (adapter.providerFamily !== providerFamily || authority.providerFamily !== providerFamily) {
+    // Capability/readiness properties may be accessors. Revalidate identity
+    // without invoking identity getters those reads may have installed.
+    if (readRuntimeProviderFamily(adapter) !== providerFamily || readRuntimeProviderFamily(authority) !== providerFamily) {
       return {
         status: 'UNAVAILABLE',
         adapter: null,

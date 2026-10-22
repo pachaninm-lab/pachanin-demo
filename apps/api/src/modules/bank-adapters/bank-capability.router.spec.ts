@@ -321,6 +321,79 @@ describe('bank capability router', () => {
 });
 
 describe('bank adapter provider identity at runtime', () => {
+  it('rejects an identity accessor at registration without executing it', () => {
+    const adapter = liveTestAdapter('SBER', ['DIRECT_PAYMENT']);
+    const identity = jest.fn(() => 'SBER');
+    Object.defineProperty(adapter, 'providerFamily', { get: identity });
+
+    expect(() => new BankCapabilityRouter([adapter])).toThrow('NO_ADAPTER_FOR_SERVER_HELD_PROVIDER');
+    expect(identity).not.toHaveBeenCalled();
+  });
+
+  it('rejects a self-mutating adapter identity getter without executing it', () => {
+    const adapter = liveTestAdapter('SBER', ['DIRECT_PAYMENT']);
+    const router = new BankCapabilityRouter([adapter]);
+    let reads = 0;
+    const identity = jest.fn(() => {
+      if (++reads === 2) {
+        Object.defineProperty(adapter, 'providerFamily', { value: 'T_BANK', configurable: true });
+      }
+      return 'SBER';
+    });
+    Object.defineProperty(adapter, 'providerFamily', { get: identity, configurable: true });
+
+    expect(router.route(authority('SBER'), 'DIRECT_PAYMENT')).toEqual({
+      status: 'UNAVAILABLE', adapter: null, reason: 'NO_ADAPTER_FOR_SERVER_HELD_PROVIDER',
+    });
+    expect(identity).not.toHaveBeenCalled();
+  });
+
+  it('rejects an authority identity getter that can change the adapter after its final check', () => {
+    const adapter = liveTestAdapter('SBER', ['DIRECT_PAYMENT']);
+    const router = new BankCapabilityRouter([adapter]);
+    const serverAuthority = authority('SBER');
+    let reads = 0;
+    const identity = jest.fn(() => {
+      if (++reads === 2) Object.assign(adapter, { providerFamily: 'T_BANK' });
+      return 'SBER';
+    });
+    Object.defineProperty(serverAuthority, 'providerFamily', { get: identity });
+
+    expect(router.route(serverAuthority, 'DIRECT_PAYMENT')).toEqual({
+      status: 'UNAVAILABLE', adapter: null, reason: 'NO_ADAPTER_FOR_SERVER_HELD_PROVIDER',
+    });
+    expect(identity).not.toHaveBeenCalled();
+    expect(adapter.providerFamily).toBe('SBER');
+  });
+
+  it.each([
+    ['capabilities', 'adapter'],
+    ['capabilities', 'authority'],
+    ['liveTransportImplemented', 'adapter'],
+    ['liveTransportImplemented', 'authority'],
+  ] as const)('rejects an identity getter installed on %s read into %s', (property, target) => {
+    const adapter = liveTestAdapter('SBER', ['DIRECT_PAYMENT']);
+    const router = new BankCapabilityRouter([adapter]);
+    const serverAuthority = authority('SBER');
+    const identity = jest.fn(() => 'SBER');
+    const calls = (['describeRequest', 'mapDispatchResponse', 'mapReceiptResponse'] as const)
+      .map(method => jest.spyOn(adapter, method));
+    Object.defineProperty(adapter, property, {
+      get() {
+        Object.defineProperty(target === 'adapter' ? adapter : serverAuthority, 'providerFamily', {
+          get: identity, configurable: true,
+        });
+        return property === 'capabilities' ? ['DIRECT_PAYMENT'] : true;
+      },
+    });
+
+    expect(router.route(serverAuthority, 'DIRECT_PAYMENT')).toEqual({
+      status: 'UNAVAILABLE', adapter: null, reason: 'NO_ADAPTER_FOR_SERVER_HELD_PROVIDER',
+    });
+    expect(identity).not.toHaveBeenCalled();
+    for (const call of calls) expect(call).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['capabilities', false],
     ['capabilities', true],
