@@ -29,7 +29,7 @@ jobs:
       github.event_name == 'pull_request' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.number == 4637 &&
-       github.event.comment.body == '/production preserve-stopped-data current-main')
+       github.event.comment.body == '/production preserve-stopped-bindings current-main')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -47,7 +47,7 @@ jobs:
     if: >-
       github.event_name == 'issue_comment' &&
       github.event.issue.number == 4637 &&
-      github.event.comment.body == '/production preserve-stopped-data current-main' &&
+      github.event.comment.body == '/production preserve-stopped-bindings current-main' &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
       github.actor == github.repository_owner &&
@@ -94,11 +94,20 @@ jobs:
           echo "TARGET_SHA=$target_sha" >> "$GITHUB_ENV"
           printf '%s\n' "$target_sha" > "$EVIDENCE_DIR/target-sha.txt"
           python3 - <<'PY_BIND'
-          import hashlib, json, pathlib, stat
+          import hashlib, json, pathlib, re, stat, subprocess
           state = json.loads(pathlib.Path('docs/platform-v7/autopilot/autopilot-state.json').read_text())
-          purpose = state.get('coordinationAdmissions', {}).get('cold-preservation-20261022')
+          purpose = state.get('coordinationAdmissions', {}).get('cold-bindings-preservation-20261023')
           if not isinstance(purpose, dict) or purpose.get('owner') != 'ACCOUNT_1_CORE' or purpose.get('sourceBranch') != 'ops/production-cold-preservation-20261022':
               raise SystemExit('ACCEPTED_SOURCE_PURPOSE_MISSING')
+          if (purpose.get('operationName') != 'cold-bindings-preservation-20261023' or
+              purpose.get('ownerDecision') != '#5469#issuecomment-6354447020' or
+              purpose.get('productionAcceptance') is not False or
+              not isinstance(purpose.get('authorityBaseExactMain'), str) or
+              not re.fullmatch('[0-9a-f]{40}', purpose['authorityBaseExactMain'])):
+              raise SystemExit('ACCEPTED_OPERATION_PURPOSE_MISMATCH')
+          if subprocess.run(['git', 'merge-base', '--is-ancestor', purpose['authorityBaseExactMain'], 'HEAD'],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
+              raise SystemExit('ACCEPTED_OPERATION_ANCESTRY_MISMATCH')
           expected = ['scripts/production_cold_preservation.py', 'scripts/test_production_cold_preservation.py', '.github/workflows/production-cold-preservation.yml', 'docs/ops/production-cold-preservation.md', 'scripts/test_production_stopped_runtime_headroom.py']
           if list(purpose.get('sha256', {})) != expected or purpose.get('mode') != '100644':
               raise SystemExit('SOURCE_VECTOR_MISMATCH')
@@ -215,7 +224,7 @@ jobs:
           PY_PAYLOAD
           set +e
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
-            "$SSH_USER_SECRET@$PROD_HOST" "python3 - --sha '$TARGET_SHA' --run-id '$GITHUB_RUN_ID' --execute" \
+            "$SSH_USER_SECRET@$PROD_HOST" "python3 - --sha '$TARGET_SHA' --run-id '$GITHUB_RUN_ID' --execute --bindings" \
             < "$payload" > "$raw" 2>/dev/null
           rc=$?
           set -e
@@ -224,7 +233,7 @@ jobs:
           python3 - "$raw" "$TARGET_SHA" "$GITHUB_RUN_ID" "$EVIDENCE_DIR" "$rc" <<'PY_RECORD'
           import json, pathlib, sys
           sys.path.insert(0, 'scripts')
-          from production_cold_preservation import validate_terminal
+          from production_cold_preservation import validate_bindings_terminal as validate_terminal
           raw, expected, run_id, output, status = sys.argv[1:]
           with pathlib.Path(raw).open('rb') as handle:
               data = handle.read(16385)
@@ -232,8 +241,8 @@ jobs:
           body = '# Cold preservation\n\nExact source: `'+expected+'`.\n\n'
           body += 'Preservation passed: `'+str(result['passed'])+'`; runtime restored: `false`; restore verification: `NOT_PERFORMED`.\n'
           if result['passed']:
-              body += 'Authenticated archive contents and unchanged source/runtime were checked. This is not a database restore or off-host recovery acceptance.\n'
-              body += 'Ciphertext SHA256: `'+result['ciphertextSha256']+'`; selected volumes: `'+str(result['volumes'])+'`.\n'
+              body += 'Authenticated bind/configuration archive contents and unchanged source/runtime were checked; Compose parity and env-file coverage are not attested. This is not a database restore or off-host recovery acceptance.\n'
+              body += 'Ciphertext SHA256: `'+result['ciphertextSha256']+'`; selected roots: `'+str(result['selectedRoots'])+'`.\n'
           else:
               body += 'Failure code: `'+result['errorCode']+'`. Do not retry; retain the key/archive for read-only reconciliation.\n'
           pathlib.Path(output,'result.json').write_text(json.dumps(result,separators=(',',':'))+'\n')
