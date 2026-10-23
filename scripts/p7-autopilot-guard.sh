@@ -667,9 +667,42 @@ if (branch === 'fix/pc-crop-docker-headroom-rollover-4637') {
     const acceptedText = readImmutableState(baseRef);
     const accepted = JSON.parse(acceptedText);
     const purpose = accepted.coordinationAdmissions?.['stopped-recovery-inspection-test-20261023'];
-    // A missing accepted purpose retains the original workflow-only route.
-    // Candidate metadata cannot enable this exact test correction.
-    if (purpose !== undefined) {
+    const errorsPurpose = accepted.coordinationAdmissions?.['stopped-inspection-errors-20261023'];
+    // New phases consume accepted-base authority; absence retains the historical route.
+    // Candidate metadata cannot enable either pinned transition.
+    if (errorsPurpose !== undefined) {
+      const fail = reason => { throw new Error('STOPPED_INSPECTION_ERRORS_SCOPE_' + reason); };
+      const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
+      const headRef = String(process.env.HEAD_REF || '').trim();
+      const origin = '05ea2dda74ced6eafb3255beb2a44df5abce9a78';
+      const workflow = '.github/workflows/production-docker-headroom-diagnostic.yml';
+      const testPath = 'scripts/test_production_stopped_runtime_headroom.py';
+      const beforeBlob = '18401c26bc8f91bb4d47d084bea8edec6fd33675';
+      const afterBlob = '274708ec5cff763ffeccd0137c3048346b720b05';
+      if (!isDeepStrictEqual(errorsPurpose, { owner: 'ACCOUNT_1_CORE',
+          ownerDecision: '#5469#issuecomment-6354447020', authorityBaseExactMain: origin,
+          sourceBeforeBlob: beforeBlob, sourceAfterBlob: afterBlob, productionAcceptance: false }) ||
+          !isDeepStrictEqual(accepted.approvedConcurrentScopes?.[branch], [workflow, testPath])) fail('ACCEPTED_PURPOSE');
+      try {
+        if (!headRef || git(['merge-base', baseRef, headRef]) !== git(['rev-parse', `${baseRef}^{commit}`]) ||
+            git(['merge-base', origin, baseRef]) !== origin) fail('ANCESTRY');
+      } catch { fail('ANCESTRY'); }
+      const exactEntry = (ref, file, blob) => {
+        if (git(['ls-tree', ref, '--', file]) !== `100644 blob ${blob}\t${file}`) fail('BLOB_OR_MODE');
+      };
+      for (const ref of [baseRef, headRef]) {
+        if (!git(['ls-tree', ref, '--', stateFile]).startsWith('100644 blob ')) fail('STATE_MODE');
+        exactEntry(ref, testPath, 'bc2c092cea71aaca1c94121b02d1bd87cf83df5f');
+      }
+      if (readImmutableState(headRef) !== acceptedText) fail('STATE_MUTATION');
+      const changes = git(['diff', '--raw', '--no-abbrev', '--no-renames', '-z', baseRef, headRef]);
+      if (changes !== `:100644 100644 ${beforeBlob} ${afterBlob} M\0${workflow}\0`) fail('EXACT_WORKFLOW');
+      exactEntry(baseRef, workflow, beforeBlob); exactEntry(headRef, workflow, afterBlob);
+      const after = execFileSync('git', ['show', `${headRef}:${workflow}`]);
+      if (after.length !== 183028 || createHash('sha256').update(after).digest('hex') !==
+          '177abf22e507e68a888b5b2233a82eed779d0b12ec759e8d08145f687de2b254') fail('SOURCE_CONTENT');
+      scopes = [workflow];
+    } else if (purpose !== undefined) {
       const fail = reason => { throw new Error('STOPPED_INSPECTION_SCOPE_' + reason); };
       const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
       const headRef = String(process.env.HEAD_REF || '').trim();
