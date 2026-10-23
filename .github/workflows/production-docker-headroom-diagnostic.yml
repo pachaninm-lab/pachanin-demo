@@ -723,7 +723,9 @@ jobs:
           python3 - <<'PY_INSPECTION_TESTS'
           import ast
           import copy
+          import contextlib
           import hashlib
+          import io
           import json
           import os
           import pathlib
@@ -990,6 +992,91 @@ jobs:
               poisoned = copy.deepcopy(result)
               poisoned['bindings']['services'][0]['role'] = secret
               rejected(lambda: namespace['validate'](poisoned, 'e' * 40, '12345', 0))
+
+              # Exercise the real orchestration/closed result, including unexpected failures
+              # at every observation boundary. Exception strings must never become evidence.
+              def failure():
+                  raise OSError(secret)
+
+              def check_failure(code):
+                  failed = namespace['inspection_result']('e' * 40, '12345')
+                  assert failed == {'schemaVersion': namespace['SCHEMA'], 'passed': False,
+                      'status': 'INSPECTION_FAILED', 'runtimeRestored': False,
+                      'startupAuthorized': False, 'errorCode': code}
+                  namespace['validate'](failed, 'e' * 40, '12345', 1)
+                  assert secret not in json.dumps(failed)
+                  rejected(lambda: namespace['validate'](failed, 'e' * 40, '12345', 0))
+                  rejected(lambda: namespace['validate'](failed, 'e' * 40, '12345', 255))
+                  return failed
+
+              for name, stage in (('archive', 'ARCHIVE'), ('metadata', 'METADATA'),
+                                  ('volume_profile', 'VOLUMES'), ('image_metadata', 'IMAGES'),
+                                  ('bindings', 'BINDINGS'), ('mem_available', 'CAPACITY'),
+                                  ('process_counts', 'PROCESSES')):
+                  saved_function = namespace[name]
+                  namespace[name] = lambda *args: failure()
+                  check_failure(stage + '_UNAVAILABLE')
+                  namespace[name] = saved_function
+              saved_api = namespace['api']
+              for path, stage in (('/info', 'ENGINE'), ('/volumes', 'VOLUMES')):
+                  namespace['api'] = lambda requested: failure() if requested == path else saved_api(requested)
+                  check_failure(stage + '_UNAVAILABLE')
+              namespace['api'] = saved_api
+              saved_metadata = namespace['metadata']
+              metadata_calls = [0]
+
+              def revalidation_failure():
+                  metadata_calls[0] += 1
+                  return saved_metadata() if metadata_calls[0] == 1 else failure()
+
+              namespace['metadata'] = revalidation_failure
+              check_failure('REVALIDATION_UNAVAILABLE')
+              namespace['metadata'] = saved_metadata
+              assert namespace['inspection_result']('e' * 40, '12345')['passed'] is True
+
+              # Fixed invariant failures remain specific; foreign exceptions/codes stay generic.
+              saved_inspect = namespace['inspect']
+
+              class UntrustedError(E):
+                  def __str__(self):
+                      raise AssertionError('exception text must not be evaluated')
+
+              for error, code in ((E('MOUNT_PATH'), 'MOUNT_PATH'), (E('API_STATUS'), 'API_STATUS'),
+                                  (E(secret), 'INSPECTION_UNAVAILABLE'),
+                                  (E('ARCHIVE_DIGEST', secret), 'INSPECTION_UNAVAILABLE'),
+                                  (UntrustedError('ARCHIVE_DIGEST'), 'INSPECTION_UNAVAILABLE'),
+                                  (ValueError(secret), 'INSPECTION_UNAVAILABLE')):
+                  def fail_inspect(*args):
+                      raise error
+                  namespace['inspect'] = fail_inspect
+                  check_failure(code)
+              namespace['inspect'] = saved_inspect
+              tree = ast.parse(source)
+              fixed_codes = {node.args[-1].value for node in ast.walk(tree)
+                  if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and
+                  node.func.id in ('require', 'InspectionError') and node.args and
+                  isinstance(node.args[-1], ast.Constant) and type(node.args[-1].value) is str}
+              assert fixed_codes <= namespace['ERROR_CODES'], 'a fixed rejection code was hidden'
+              assert all(re.fullmatch('[A-Z][A-Z0-9_]{0,63}', code) for code in namespace['ERROR_CODES'])
+              with namespace['observation']('ARCHIVE'):
+                  pass
+              rejected(lambda: namespace['observation'](secret).__enter__())
+              main = next(node for node in tree.body if isinstance(node, ast.If) and
+                  ast.unparse(node.test) == "__name__ == '__main__'")
+              entry = compile(ast.Module(body=[main], type_ignores=[]), '<actual inspector entry>', 'exec')
+              for argv in (['inspector'], ['inspector', 'invalid'], ['inspector', 'invalid', '12345']):
+                  stdout = io.StringIO()
+                  with patch.dict(namespace, {'__name__': '__main__'}), \
+                          patch.object(namespace['sys'], 'argv', argv), contextlib.redirect_stdout(stdout):
+                      try:
+                          exec(entry, namespace)
+                      except SystemExit as exit_status:
+                          assert exit_status.code == 1
+                      else:
+                          raise AssertionError('invalid invocation did not fail')
+                  assert json.loads(stdout.getvalue())['errorCode'] == 'INVOCATION'
+                  assert secret not in stdout.getvalue()
+              print('PASS: all9 observation stages fail closed; fixed invariants survive; foreign codes/exception text are excluded; actual CLI failures remain closed JSON.')
               namespace.update(real)
 
               # Exercise actual publication, including invalid/oversized/transport/drift paths.
@@ -1000,7 +1087,12 @@ jobs:
                                  POST_MAIN='e' * 40)
               # The production pinned checksum, rather than the synthetic archive digest, is required.
               result['archive']['ciphertextSha256'] = '800264a1819ba26869e4b79d1f6874dc5078aa982ab333fdd999629f6b490603'
+              failed_fixture = {'schemaVersion': namespace['SCHEMA'], 'passed': False,
+                  'status': 'INSPECTION_FAILED', 'runtimeRestored': False,
+                  'startupAuthorized': False, 'errorCode': 'ARCHIVE_UNAVAILABLE'}
               for raw, changes, success in [(json.dumps(result), {}, True),
+                                            (json.dumps(failed_fixture), {'SSH_STATUS': '1'}, False),
+                                            (json.dumps({**failed_fixture, 'errorCode': secret}), {'SSH_STATUS': '1'}, False),
                                             (secret, {}, False), ('x' * 32769, {}, False),
                                             (json.dumps(result), {'SSH_STATUS': '255'}, False),
                                             (json.dumps(result), {'POST_MAIN': 'f' * 40}, False)]:
@@ -1011,6 +1103,8 @@ jobs:
                   summary = (evidence / 'issue-record.md').read_text()
                   assert published['passed'] is success and secret not in summary and len(summary) < 6000
                   assert secret not in json.dumps(published)
+                  if published.get('errorCode') == 'ARCHIVE_UNAVAILABLE':
+                      assert '`ARCHIVE_UNAVAILABLE`' in summary and published['status'] == 'INSPECTION_FAILED'
 
           # The operational job joins the same non-cancelling queue as production writers.
           lock = ('    concurrency:\n'
@@ -2376,6 +2470,7 @@ jobs:
           import stat
           import sys
           import time
+          from contextlib import contextmanager
 
           SCHEMA = 'pc.stopped-recovery-inspection.v1'
           COPY_SHA = '800264a1819ba26869e4b79d1f6874dc5078aa982ab333fdd999629f6b490603'
@@ -2400,6 +2495,22 @@ jobs:
           def require(value, code):
               if not value:
                   raise InspectionError(code)
+
+
+          OBSERVATION_STAGES = frozenset(('ARCHIVE', 'ENGINE', 'METADATA', 'VOLUMES',
+                                         'IMAGES', 'BINDINGS', 'REVALIDATION', 'CAPACITY', 'PROCESSES'))
+
+
+          @contextmanager
+          def observation(stage):
+              require(stage in OBSERVATION_STAGES, 'INVOCATION')
+              try:
+                  yield
+              except InspectionError:
+                  raise
+              except Exception:
+                  # Fixed source-owned phase only; never exception text, paths or input values.
+                  raise InspectionError(stage + '_UNAVAILABLE') from None
 
 
           def integer(value, maximum=2**63-1):
@@ -2789,39 +2900,50 @@ jobs:
 
           def inspect(target, run):
               require(HEX.fullmatch(target) and re.fullmatch('[0-9]{1,20}', run), 'INVOCATION')
-              copied, device = archive()
-              info = api('/info')
-              containers = api('/containers/json?all=true')
-              require(type(info) is dict and info.get('DockerRootDir') == DOCKER_ROOT and
-                      type(containers) is list and not containers and info.get('Containers') == 0,
-                      'ENGINE_NOT_EMPTY')
-              records = metadata()
-              inventory = api('/volumes')
-              require(type(inventory) is dict and type(inventory.get('Volumes')) is list, 'VOLUME_API')
-              names = [item['Name'] for item in inventory['Volumes']]
-              profile, pg_path, roots, data_device, tokens = volume_profile(names)
-              images = {image: image_metadata(api('/images/' + image + '/json'), image)
-                        for image in sorted({record['Image'] for record in records})}
-              bound = bindings(records, roots, pg_path, images)
-              # Recheck metadata identities after the bounded inspection; no atomic-snapshot claim.
-              require(records == metadata() and api('/containers/json?all=true') == [], 'RUNTIME_DRIFT')
-              deadline = time.monotonic() + 30
-              for path, token in tokens:
-                  require(time.monotonic() <= deadline, 'PROFILE_BOUND')
-                  parent, name = path.rsplit('/', 1)
-                  fd = open_directory(parent)
-                  try:
-                      require(signature(os.stat(name, dir_fd=fd, follow_symlinks=False)) == token,
-                              'PROFILE_CHANGED')
-                  finally:
-                      os.close(fd)
+              with observation('ARCHIVE'):
+                  copied, device = archive()
+              with observation('ENGINE'):
+                  info = api('/info')
+                  containers = api('/containers/json?all=true')
+                  require(type(info) is dict and info.get('DockerRootDir') == DOCKER_ROOT and
+                          type(containers) is list and not containers and info.get('Containers') == 0,
+                          'ENGINE_NOT_EMPTY')
+              with observation('METADATA'):
+                  records = metadata()
+              with observation('VOLUMES'):
+                  inventory = api('/volumes')
+                  require(type(inventory) is dict and type(inventory.get('Volumes')) is list, 'VOLUME_API')
+                  names = [item['Name'] for item in inventory['Volumes']]
+                  profile, pg_path, roots, data_device, tokens = volume_profile(names)
+              with observation('IMAGES'):
+                  images = {image: image_metadata(api('/images/' + image + '/json'), image)
+                            for image in sorted({record['Image'] for record in records})}
+              with observation('BINDINGS'):
+                  bound = bindings(records, roots, pg_path, images)
+              with observation('REVALIDATION'):
+                  # Recheck identities after inspection; no atomic-snapshot claim.
+                  require(records == metadata() and api('/containers/json?all=true') == [], 'RUNTIME_DRIFT')
+                  deadline = time.monotonic() + 30
+                  for path, token in tokens:
+                      require(time.monotonic() <= deadline, 'PROFILE_BOUND')
+                      parent, name = path.rsplit('/', 1)
+                      fd = open_directory(parent)
+                      try:
+                          require(signature(os.stat(name, dir_fd=fd, follow_symlinks=False)) == token,
+                                  'PROFILE_CHANGED')
+                      finally:
+                          os.close(fd)
+              with observation('CAPACITY'):
+                  available = mem_available()
+              with observation('PROCESSES'):
+                  processes = process_counts()
               return {'schemaVersion': SCHEMA, 'targetSha': target, 'runId': run, 'passed': True,
                       'status': 'READ_ONLY_METADATA_INSPECTED', 'runtimeRestored': False,
                       'startupAuthorized': False, 'archive': copied, 'volumes': profile,
                       'images': list(images.values()), 'bindings': bound,
-                      'capacity': {'memAvailableBytes': mem_available(),
+                      'capacity': {'memAvailableBytes': available,
                                    'archiveAndDataSameFilesystem': device == data_device},
-                      'processes': process_counts(),
+                      'processes': processes,
                       'databaseIntegrity': 'NOT_ATTESTED'}
 
 
@@ -2906,25 +3028,41 @@ jobs:
               return value
 
 
-          ERROR_CODES = frozenset(('ARCHIVE_DIGEST', 'ARCHIVE_DIRECTORY', 'ARCHIVE_PRIVATE_MODE',
-              'ARCHIVE_RECEIPT', 'ENGINE_NOT_EMPTY', 'HISTORICAL_BINDING_DRIFT', 'POSTGRES_IMAGE_BINDING',
+          ERROR_CODES = frozenset(('INVOCATION', 'INTEGER', 'DIRECTORY_PATH', 'LEAF_NAME',
+              'ARCHIVE_DIGEST', 'ARCHIVE_DIRECTORY', 'ARCHIVE_PRIVATE_MODE', 'ARCHIVE_RECEIPT',
+              'ENGINE_NOT_EMPTY', 'API_PATH', 'SOCKET_IDENTITY', 'API_STATUS', 'API_LIMIT',
+              'CONTAINER_METADATA_COUNT', 'CONTAINER_ID', 'CONTAINER_METADATA', 'CONTAINER_LABELS',
+              'CONTAINER_ENV', 'HISTORICAL_BINDING_DRIFT', 'VOLUME_API', 'POSTGRES_IMAGE_BINDING',
               'POSTGRES_CLUSTER_COUNT', 'POSTGRES_VERSION', 'POSTGRES_CONTROL', 'POSTGRES_DATABASE_MARKER',
-              'POSTMASTER_PID_PRESENT',
+              'POSTMASTER_PID_PRESENT', 'IMAGE_IDENTITY', 'IMAGE_CONFIG', 'IMAGE_LABELS', 'IMAGE_ENV',
+              'MOUNT_METADATA', 'MOUNT_PATH', 'COMPOSE_LABEL_BOUND', 'COMPOSE_REFERENCE_TYPE',
               'PROFILE_BOUND', 'PROFILE_CHANGED', 'PROFILE_DEVICE', 'PROFILE_TYPE', 'RUNTIME_DRIFT',
               'VOLUME_OUTSIDE_COPY', 'VOLUME_NAMES', 'FILE_CHANGED', 'FILE_LIMIT', 'FILE_TIMEOUT',
-              'FILE_TYPE_SIZE', 'PROCESS_BOUND', 'INSPECTION_UNAVAILABLE'))
+              'FILE_TYPE_SIZE', 'PROCESS_BOUND', 'MEMINFO_BOUND', 'MEMINFO_SCHEMA',
+              'OUTPUT_TYPE', 'OUTPUT_SCHEMA', 'OUTPUT_FAILURE', 'OUTPUT_IDENTITY', 'OUTPUT_ARCHIVE',
+              'OUTPUT_ARCHIVE_BOUND', 'OUTPUT_VOLUMES', 'OUTPUT_ENTRY_BOUND', 'OUTPUT_POSTGRES',
+              'OUTPUT_IMAGES', 'OUTPUT_IMAGE', 'OUTPUT_BINDINGS', 'OUTPUT_SERVICES', 'OUTPUT_SERVICE',
+              'OUTPUT_CAPACITY', 'OUTPUT_PROCESSES', 'OUTPUT_BOUND', 'INSPECTION_UNAVAILABLE')) | \
+              frozenset(stage + '_UNAVAILABLE' for stage in OBSERVATION_STAGES)
 
 
-          if __name__ == '__main__':
+          def inspection_result(target, run):
               try:
-                  result = inspect(sys.argv[1], sys.argv[2])
-                  validate(result, sys.argv[1], sys.argv[2], 0)
+                  result = inspect(target, run)
+                  validate(result, target, run, 0)
               except Exception as error:
                   # Never serialize exception text, paths, raw input or remote stderr.
                   result = {'schemaVersion': SCHEMA, 'passed': False, 'status': 'INSPECTION_FAILED',
                             'runtimeRestored': False, 'startupAuthorized': False,
-                            'errorCode': str(error) if isinstance(error, InspectionError) and
-                            str(error) in ERROR_CODES else 'INSPECTION_UNAVAILABLE'}
+                            'errorCode': error.args[0] if type(error) is InspectionError and
+                            len(error.args) == 1 and type(error.args[0]) is str and
+                            error.args[0] in ERROR_CODES else 'INSPECTION_UNAVAILABLE'}
+              return result
+
+
+          if __name__ == '__main__':
+              result = inspection_result(sys.argv[1] if len(sys.argv) > 1 else '',
+                                         sys.argv[2] if len(sys.argv) > 2 else '')
               print(json.dumps(result, separators=(',', ':'), sort_keys=True))
               raise SystemExit(0 if result['passed'] else 1)
 
@@ -2971,6 +3109,8 @@ jobs:
           summary = '## Stopped recovery inspection\n\n'
           summary += 'Target: `' + os.environ['TARGET_SHA'] + '`; run ' + os.environ['GITHUB_RUN_ID'] + '.\n\n'
           summary += 'Status: **' + result['status'] + '**. Services were not started; database integrity is NOT_ATTESTED.\n'
+          if result.get('errorCode') in namespace['ERROR_CODES']:
+              summary += '\nFixed failure code: `' + result['errorCode'] + '`.\n'
           if result['passed']:
               summary += '\nArchive/capacity: `' + json.dumps(result['archive'], separators=(',', ':')) + '`\n'
               summary += '\nVolumes/PostgreSQL: `' + json.dumps(result['volumes'], separators=(',', ':')) + '`\n'
