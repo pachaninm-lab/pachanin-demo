@@ -685,6 +685,27 @@ class StoppedPhysicalCopyTests(unittest.TestCase):
             copy.cleanup()
         command.assert_not_called()
 
+    def test_late_transfer_waits_consume_remaining_time_and_expiry_never_starts_another_wait(self):
+        copy=self.module.DockerCopy(SHA,'12345')
+        copy.deadline=100
+        process=mock.Mock()
+        process.wait.return_value=0
+        with mock.patch.object(self.module.time,'monotonic',return_value=97.5):
+            self.assertEqual(copy.wait_for(process,120),0)
+        process.wait.assert_called_once_with(timeout=2.5)
+        process.wait.reset_mock()
+        with mock.patch.object(self.module.time,'monotonic',return_value=100), \
+             self.assertRaisesRegex(self.module.StoppedCopyError,'OPERATION_DEADLINE'):
+            copy.wait_for(process,15)
+        process.wait.assert_not_called()
+        with mock.patch.object(self.module.time,'monotonic',return_value=101):
+            copy.begin_cleanup()
+        self.assertEqual(copy.deadline,161)
+        with mock.patch.object(self.module.time,'monotonic',return_value=111):
+            copy.begin_cleanup()
+            self.assertEqual(copy.remaining(120),50)
+        self.assertEqual(copy.deadline,161,'cleanup must never renew its own budget')
+
     def test_actual_clone_commands_never_enable_checksums_or_start_a_source_service(self):
         copy = self.module.DockerCopy(SHA, '12345')
         copy.container_id = 'a'*64

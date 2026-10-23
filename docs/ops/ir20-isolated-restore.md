@@ -64,8 +64,12 @@ preserved ciphertexts are checked again. The private finalized aggregate report
 is fsynced before success can leave the process; no raw database/configuration,
 archive, key, private path, principal or database name is published.
 
-The operation budget is600seconds plus a separate60second cleanup budget; source
-content is at most384MiB/20000entries, with a2GiB available-memory and disk reserve.
+Container work has a600second budget, including the remaining-time bounds on
+both physical-copy process waits. Producer termination and container cleanup
+share one separate60second budget that cannot renew itself. Source captures are
+separately bounded45second passes and each preserved-ciphertext read is bounded
+30seconds; a later admitted controller must enforce the overall host timeout.
+Source content is at most384MiB/20000entries, with a2GiB available-memory and disk reserve.
 The source-only CI fixture uses the existing verified CI PostgreSQL16 image with
 synthetic checksum-enabled data, substitutes only that fixture image ID in the
 in-memory test module, and exercises the actual copy/recovery/checksum/cleanup

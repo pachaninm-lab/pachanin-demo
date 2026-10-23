@@ -190,12 +190,25 @@ class DockerCopy:
         self.container_id = None
         self.create_attempted = False
         self.deadline = time.monotonic() + 600
+        self.cleanup_deadline = None
         self.tmpfs = None
 
+    def remaining(self, seconds):
+        remaining = self.deadline - time.monotonic()
+        check(remaining > 0, 'OPERATION_DEADLINE')
+        return min(seconds, remaining)
+
+    def wait_for(self, process, seconds):
+        return process.wait(timeout=self.remaining(seconds))
+
+    def begin_cleanup(self):
+        if self.cleanup_deadline is None:
+            self.cleanup_deadline = time.monotonic() + 60
+        self.deadline = self.cleanup_deadline
+
     def command(self, args, *, data=None, limit=1024 * 1024, seconds=120, allowed_failure=False):
-        check(time.monotonic() < self.deadline, 'OPERATION_DEADLINE')
         result = subprocess.run(DOCKER + args, input=data, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                                timeout=min(seconds, max(1, self.deadline - time.monotonic())), env=ENV)
+                                timeout=self.remaining(seconds), env=ENV)
         check(len(result.stdout) <= limit, 'DOCKER_OUTPUT_LIMIT')
         check(allowed_failure or result.returncode == 0, 'OWNED_DOCKER_COMMAND')
         return result
@@ -254,6 +267,7 @@ class DockerCopy:
         return self.command(['exec', '-i', self.container_id] + args, **kwargs)
 
     def transfer(self, snapshot, volume, cold):
+        self.remaining(120)
         # Both lists are complete frozen descriptor-derived selections, never recursive guesses.
         names = b'\0'.join(('_data' + name[4:]).encode() for name in snapshot.entries) + b'\0'
         parent = cold.directory_fd('volumes', snapshot.root_fd)
@@ -274,14 +288,16 @@ class DockerCopy:
                     '--no-same-owner', '--same-permissions', '--strip-components=1', '-xf', '-', '-C', DATA],
                     stdin=source.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=ENV)
                 source.stdout.close()
-                check(destination.wait(timeout=120) == 0 and source.wait(timeout=15) == 0, 'PHYSICAL_COPY_FAILED')
+                check(self.wait_for(destination, 120) == 0 and self.wait_for(source, 15) == 0,
+                      'PHYSICAL_COPY_FAILED')
             finally:
                 os.close(listing)
         finally:
             for process in (source, destination):
                 if process is not None and process.poll() is None:
+                    self.begin_cleanup()
                     process.kill()
-                    process.wait(timeout=15)
+                    self.wait_for(process, 15)
             if volume_fd is not None:
                 os.close(volume_fd)
             os.close(parent)
@@ -356,14 +372,13 @@ printf 'local all all trust\\n' > /tmp/pc-ir20-pg_hba.conf
     def cleanup(self):
         if not self.create_attempted:
             return
-        self.deadline = time.monotonic() + 60
+        self.begin_cleanup()
         row = self.inspection(self.name)
         identifier = row.get('Id')
         check(type(identifier) is str and re.fullmatch('[0-9a-f]{64}', identifier) and
               row.get('Config', {}).get('Labels', {}).get(LABEL) == self.identity and
               (self.container_id is None or identifier == self.container_id), 'CLEANUP_IDENTITY')
         # Cleanup retains its own bounded deadline even after the work budget expires.
-        self.deadline = time.monotonic() + 60
         self.command(['rm', '-f', identifier], seconds=30)
         remaining = self.command(['ps', '-aq', '--no-trunc', '--filter', 'id=' + identifier], seconds=15)
         check(not remaining.stdout.strip(), 'CLEANUP_NOT_PROVEN')
