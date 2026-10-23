@@ -913,37 +913,103 @@ jobs:
               bound = namespace['bindings']([record], roots, str(pg), {image: normalized})
               assert bound['readWriteBindsOutsideCopy'] == 1
               assert bound['currentComposeParity'] == 'NOT_ATTESTED' and secret not in json.dumps(bound)
-              # Preserve both existing limits; classify their independent failure shapes.
-              label_cases = ((secret + 'x' * (8193 - len(secret)), 'COMPOSE_LABEL_SIZE_BOUND'),
-                             (','.join([secret] * 17), 'COMPOSE_LABEL_COUNT_BOUND'),
-                             (','.join([secret + 'x' * 512] * 17), 'COMPOSE_LABEL_BOTH_BOUND'))
-              for files, code in label_cases:
+              # Move the old 11 x 16 filesystem budget across labels, never enlarge it.
+              assert len(namespace['EXPECTED_REFS']) == 11
+              assert namespace['MAX_COMPOSE_REFERENCES'] == 176
+
+              def label_record(files, primary=True, working='/' + secret):
                   labelled = copy.deepcopy(record)
+                  if not primary:
+                      labelled['Config']['Env'] = []
+                      labelled['Config']['Labels']['com.docker.compose.service'] = 'web'
+                      labelled['MountPoints'] = {}
                   labelled['Config']['Labels'].update({
-                      'com.docker.compose.project.working_dir': '/' + secret,
+                      'com.docker.compose.project.working_dir': working,
                       'com.docker.compose.project.config_files': files})
+                  return labelled
+
+              def label_result(rows):
+                  accessed = []
+                  def missing_reference(path):
+                      accessed.append(path)
+                      raise FileNotFoundError()
+                  with patch.dict(namespace, open_directory=missing_reference):
+                      result = namespace['bindings'](rows, roots, str(pg), {image: normalized})
+                  assert result['currentComposeParity'] == 'NOT_ATTESTED'
+                  assert result['bindContentsPreserved'] is False and secret not in json.dumps(result)
+                  assert result['composeLabelFilesMissing'] == len(accessed)
+                  return result, accessed
+
+              def label_failure(rows, code):
                   def forbidden_reference(*args):
-                      raise AssertionError('out-of-bound Compose references must not be inspected')
+                      raise AssertionError('rejected Compose references must not be inspected')
                   with patch.dict(namespace, open_directory=forbidden_reference):
                       try:
-                          namespace['bindings']([labelled], roots, str(pg), {image: normalized})
+                          namespace['bindings'](rows, roots, str(pg), {image: normalized})
                       except E as error:
                           assert error.args == (code,) and secret not in str(error)
                       else:
-                          raise AssertionError('a Compose label limit was relaxed')
-              # The exact 8192-character/16-component boundaries still pass; no contents are read.
-              for files in ('x' * 8192, '\u00e9' * 8192, ','.join(['x'] * 16)):
-                  labelled = copy.deepcopy(record)
-                  labelled['Config']['Labels'].update({
-                      'com.docker.compose.project.working_dir': '/' + secret,
-                      'com.docker.compose.project.config_files': files})
-                  def missing_reference(*args):
-                      raise FileNotFoundError()
-                  with patch.dict(namespace, open_directory=missing_reference):
-                      accepted_label = namespace['bindings']([labelled], roots, str(pg), {image: normalized})
-                  assert accepted_label['currentComposeParity'] == 'NOT_ATTESTED'
-                  assert secret not in json.dumps(accepted_label)
-              print('PASS: unchanged Compose label bounds distinguish size/count/both; references stay unread and failures stay private.')
+                          raise AssertionError('a Compose reference guard was skipped')
+
+              for files in (secret + 'x' * (8193 - len(secret)),
+                            ','.join([secret + 'x' * 512] * 17)):
+                  label_failure([label_record(files)], 'COMPOSE_LABEL_SIZE_BOUND')
+              label_failure([label_record('x', working='/' + 'x' * 4096)], 'COMPOSE_WORKING_BOUND')
+              for files in ('', ',x', 'x,,y', 'x,', 'x\0y'):
+                  label_failure([label_record(files)], 'COMPOSE_REFERENCE_PATH')
+              for files in ('x' * 8192, '\u00e9' * 8192, ','.join(['x'] * 16),
+                            ','.join(['x'] * 257)):
+                  result, accessed = label_result([label_record(files)])
+                  assert len(accessed) == 1
+              seventeen = ','.join('ref' + str(i) for i in range(17))
+              assert len(label_result([label_record(seventeen)])[1]) == 17
+              # Duplicate labels across all11 records must not multiply filesystem work.
+              duplicated = [label_record(seventeen, primary=(i == 0)) for i in range(11)]
+              assert len(label_result(duplicated)[1]) == 17
+
+              def distributed_references(total):
+                  refs = ['ref' + str(i) for i in range(total)]
+                  return [label_record(','.join(refs[total*i//11:total*(i+1)//11]), primary=(i == 0))
+                          for i in range(11)]
+
+              assert len(label_result([label_record(','.join('ref' + str(i) for i in range(176)))])[1]) == 176
+              assert len(label_result(distributed_references(176))[1]) == 176
+              label_failure([label_record(','.join('ref' + str(i) for i in range(177)))],
+                            'COMPOSE_REFERENCE_BOUND')
+              label_failure(distributed_references(177), 'COMPOSE_REFERENCE_BOUND')
+              with patch.object(namespace['time'], 'monotonic', side_effect=[0, 16]):
+                  label_failure([label_record('x')], 'COMPOSE_REFERENCE_TIME_BOUND')
+              with patch.object(namespace['time'], 'monotonic', side_effect=[0, 0, 16]):
+                  try:
+                      label_result([label_record('x')])
+                  except E as error:
+                      assert error.args == ('COMPOSE_REFERENCE_TIME_BOUND',)
+                  else:
+                      raise AssertionError('a completed slow lookup escaped the deadline')
+              with patch.object(namespace['time'], 'monotonic', side_effect=[0, 15, 15]):
+                  assert len(label_result([label_record('x')])[1]) == 1
+
+              # Real nofollow/type checks still inspect every distinct reference without opening contents.
+              compose_root = base / 'compose-references'
+              compose_root.mkdir()
+              (compose_root / 'app.yml').write_text(secret)
+              (compose_root / 'not-a-file').mkdir()
+              real_reference_open = namespace['os'].open
+              def reference_open(name, *args, **kwargs):
+                  assert name not in ('app.yml', 'not-a-file'), 'Compose contents were opened'
+                  return real_reference_open(name, *args, **kwargs)
+              with patch.object(namespace['os'], 'open', reference_open):
+                  checked = namespace['bindings']([label_record('app.yml', working=str(compose_root))],
+                                                  roots, str(pg), {image: normalized})
+                  assert checked['composeLabelFilesPresent'] == 1 and secret not in json.dumps(checked)
+                  try:
+                      namespace['bindings']([label_record('app.yml,not-a-file', working=str(compose_root))],
+                                            roots, str(pg), {image: normalized})
+                  except E as error:
+                      assert error.args == ('COMPOSE_REFERENCE_TYPE',)
+                  else:
+                      raise AssertionError('a non-regular reference was skipped')
+              print('PASS: Compose labels share the old176-reference budget;8192-character/privacy/nofollow/type guards and15s deadline stay fail-closed.')
               broken = copy.deepcopy(record)
               broken['Config']['Env'] = ['PGDATA=/wrong']
               rejected(lambda: namespace['bindings']([broken], roots, str(pg), {image: normalized}))
@@ -1014,6 +1080,14 @@ jobs:
               result = namespace['inspect']('e' * 40, '12345')
               namespace['validate'](result, 'e' * 40, '12345', 0)
               assert secret not in json.dumps(result)
+              for present, missing, accepted in ((176, 0, True), (0, 176, True), (88, 88, True),
+                                                 (176, 1, False), (1, 176, False), (4096, 0, False)):
+                  counted = copy.deepcopy(result)
+                  counted['bindings'].update(composeLabelFilesPresent=present, composeLabelFilesMissing=missing)
+                  if accepted:
+                      namespace['validate'](counted, 'e' * 40, '12345', 0)
+                  else:
+                      rejected(lambda: namespace['validate'](counted, 'e' * 40, '12345', 0))
               for status in (1, 255):
                   rejected(lambda: namespace['validate'](result, 'e' * 40, '12345', status))
               rejected(lambda: namespace['validate'](result, 'f' * 40, '12345', 0))
@@ -1076,6 +1150,10 @@ jobs:
                                   (E('COMPOSE_LABEL_SIZE_BOUND'), 'COMPOSE_LABEL_SIZE_BOUND'),
                                   (E('COMPOSE_LABEL_COUNT_BOUND'), 'COMPOSE_LABEL_COUNT_BOUND'),
                                   (E('COMPOSE_LABEL_BOTH_BOUND'), 'COMPOSE_LABEL_BOTH_BOUND'),
+                                  (E('COMPOSE_WORKING_BOUND'), 'COMPOSE_WORKING_BOUND'),
+                                  (E('COMPOSE_REFERENCE_PATH'), 'COMPOSE_REFERENCE_PATH'),
+                                  (E('COMPOSE_REFERENCE_BOUND'), 'COMPOSE_REFERENCE_BOUND'),
+                                  (E('COMPOSE_REFERENCE_TIME_BOUND'), 'COMPOSE_REFERENCE_TIME_BOUND'),
                                   (E(secret), 'INSPECTION_UNAVAILABLE'),
                                   (E('ARCHIVE_DIGEST', secret), 'INSPECTION_UNAVAILABLE'),
                                   (UntrustedError('ARCHIVE_DIGEST'), 'INSPECTION_UNAVAILABLE'),
@@ -2517,6 +2595,8 @@ jobs:
           MAX_BYTES = 4 * 1024 * 1024
           MAX_ARCHIVE = 2 * 1024 * 1024 * 1024
           MAX_ENTRIES = 100000
+          # Preserve the old 11-record x 16-reference total filesystem-check budget.
+          MAX_COMPOSE_REFERENCES = 16 * len(EXPECTED_REFS)
           ROLES = frozenset(('api', 'web', 'postgres', 'postgresql', 'db', 'redis', 'minio',
                              'kafka', 'caddy', 'outbox-worker', 'auth-mail-worker', 'marketing-worker',
                              'elasticsearch', 'migration', 'outbox', 'auth-mail'))
@@ -2865,20 +2945,21 @@ jobs:
                   files = labels.get('com.docker.compose.project.config_files')
                   working = labels.get('com.docker.compose.project.working_dir')
                   if type(files) is str and type(working) is str and working.startswith('/'):
-                      label_count = files.count(',') + 1
-                      if len(files) > 8192 and label_count > 16:
-                          raise InspectionError('COMPOSE_LABEL_BOTH_BOUND')
                       require(len(files) <= 8192, 'COMPOSE_LABEL_SIZE_BOUND')
-                      require(label_count <= 16, 'COMPOSE_LABEL_COUNT_BOUND')
+                      require(len(working) <= 4096, 'COMPOSE_WORKING_BOUND')
                       for path in files.split(','):
+                          require(path and '\0' not in path, 'COMPOSE_REFERENCE_PATH')
                           if not path.startswith('/'):
                               path = working.rstrip('/') + '/' + path
                           compose_files.add(path)
+                          require(len(compose_files) <= MAX_COMPOSE_REFERENCES, 'COMPOSE_REFERENCE_BOUND')
               require(len(pg_bindings) == 1 and images[pg_bindings[0]]['postgresMajor'] == 16,
                       'POSTGRES_IMAGE_BINDING')
               # Metadata only: no Compose compiler, dotenv resolution, credential reads or config contents.
               existing, missing = 0, 0
+              deadline = time.monotonic() + 15
               for path in sorted(compose_files):
+                  require(time.monotonic() <= deadline, 'COMPOSE_REFERENCE_TIME_BOUND')
                   try:
                       parent, name = path.rsplit('/', 1)
                       fd = open_directory(parent)
@@ -2890,6 +2971,7 @@ jobs:
                           os.close(fd)
                   except FileNotFoundError:
                       missing += 1
+                  require(time.monotonic() <= deadline, 'COMPOSE_REFERENCE_TIME_BOUND')
               return {'services': services, 'postgresImage': pg_bindings[0],
                       'readWriteBindsOutsideCopy': rw_binds, 'readOnlyBindsOutsideCopy': ro_binds,
                       'unknownMounts': unknown, 'composeLabelFilesPresent': existing,
@@ -3047,6 +3129,8 @@ jobs:
               for key in ('readWriteBindsOutsideCopy', 'readOnlyBindsOutsideCopy', 'unknownMounts',
                           'composeLabelFilesPresent', 'composeLabelFilesMissing'):
                   integer(bound[key], 4096)
+              require(bound['composeLabelFilesPresent'] + bound['composeLabelFilesMissing'] <=
+                      MAX_COMPOSE_REFERENCES, 'OUTPUT_BINDINGS')
               require(type(bound['services']) is list and len(bound['services']) == len(EXPECTED_REFS),
                       'OUTPUT_SERVICES')
               for service in bound['services']:
@@ -3075,6 +3159,7 @@ jobs:
               'POSTMASTER_PID_PRESENT', 'IMAGE_IDENTITY', 'IMAGE_CONFIG', 'IMAGE_LABELS', 'IMAGE_ENV',
               'MOUNT_METADATA', 'MOUNT_PATH', 'COMPOSE_LABEL_BOUND', 'COMPOSE_REFERENCE_TYPE',
               'COMPOSE_LABEL_SIZE_BOUND', 'COMPOSE_LABEL_COUNT_BOUND', 'COMPOSE_LABEL_BOTH_BOUND',
+              'COMPOSE_WORKING_BOUND', 'COMPOSE_REFERENCE_PATH', 'COMPOSE_REFERENCE_BOUND', 'COMPOSE_REFERENCE_TIME_BOUND',
               'PROFILE_BOUND', 'PROFILE_CHANGED', 'PROFILE_DEVICE', 'PROFILE_TYPE', 'RUNTIME_DRIFT',
               'VOLUME_OUTSIDE_COPY', 'VOLUME_NAMES', 'FILE_CHANGED', 'FILE_LIMIT', 'FILE_TIMEOUT',
               'FILE_TYPE_SIZE', 'PROCESS_BOUND', 'MEMINFO_BOUND', 'MEMINFO_SCHEMA',
