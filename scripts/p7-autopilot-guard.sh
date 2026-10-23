@@ -95,11 +95,16 @@ try { state = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(stateB
 catch { reject('STATE_ENCODING_OR_JSON'); }
 const admission = state.coordinationAdmissions?.['ir20-stopped-copy-source-20261023'];
 if (!admission) reject('ACCEPTED_ADMISSION_MISSING');
+if (!isDeepStrictEqual(Object.keys(admission).sort(), [
+    'authorityBaseExactMain', 'dependencySha256', 'limits', 'owner', 'ownerDecision',
+    'productionAcceptance', 'productionInvocationAuthorized', 'sourceBranch', 'sourcePins', 'writerHandoff',
+  ])) reject('ADMISSION_SCHEMA');
 if (admission.owner !== 'ACCOUNT_1_CORE' || admission.sourceBranch !== branch ||
     admission.ownerDecision !== '#5469#issuecomment-6354447020' ||
     admission.writerHandoff !== '#5469#issuecomment-6368785509' ||
     admission.productionInvocationAuthorized !== false || admission.productionAcceptance !== false ||
-    !/^[0-9a-f]{40}$/.test(admission.authorityBaseExactMain || '')) reject('ADMISSION_IDENTITY');
+    !/^[0-9a-f]{40}$/.test(admission.authorityBaseExactMain || '') ||
+    admission.limits !== 'Six-path source-only stopped PG16 volatile-copy prerequisite. No host dispatch, original startup, transfer or new cost.') reject('ADMISSION_IDENTITY');
 if (!isDeepStrictEqual(state.approvedConcurrentScopes?.[branch], paths)) reject('ACCEPTED_VECTOR');
 if (!Array.isArray(admission.sourcePins) || admission.sourcePins.length !== paths.length) reject('PIN_COUNT');
 git(['merge-base', '--is-ancestor', admission.authorityBaseExactMain, base]);
@@ -114,7 +119,12 @@ for (let index = 0; index < paths.length; index++) {
   const pin = admission.sourcePins[index];
   if (!pin || !isDeepStrictEqual(Object.keys(pin).sort(), ['mode', 'path', 'sha256']) ||
       pin.path !== file || pin.mode !== modes[index] || !/^[0-9a-f]{64}$/.test(pin.sha256 || '')) reject(`PIN_SCHEMA:${file}`);
-  if (entry(base, file) !== pin.mode || entry(head, file) !== pin.mode) reject(`MODE:${file}`);
+  if (entry(admission.authorityBaseExactMain, file) !== pin.mode ||
+      entry(base, file) !== pin.mode || entry(head, file) !== pin.mode) reject(`MODE:${file}`);
+  // The admission's immutable main SHA binds the complete before bytes too.
+  // A later main fix must receive a new reviewed transition, never be reverted
+  // merely because the candidate still matches the old after-payload pins.
+  if (!bytes(base, file).equals(bytes(admission.authorityBaseExactMain, file))) reject(`REPLACEMENT_BASE_DRIFT:${file}`);
   if (digest(bytes(head, file)) !== pin.sha256) reject(`DIGEST:${file}`);
 }
 const dependencies = {

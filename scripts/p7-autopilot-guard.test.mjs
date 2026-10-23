@@ -499,6 +499,7 @@ function stoppedIr20Fixture(t, mutateAccepted = () => {}) {
         'scripts/production_cold_preservation.py': '19c873694debb0076701a912b394aad6bb0e092947f04d97e5144320ca5ca832',
       },
       productionInvocationAuthorized: false, productionAcceptance: false,
+      limits: 'Six-path source-only stopped PG16 volatile-copy prerequisite. No host dispatch, original startup, transfer or new cost.',
     } },
   };
   for (let index = 0; index < stoppedIr20Paths.length; index++) {
@@ -507,6 +508,8 @@ function stoppedIr20Fixture(t, mutateAccepted = () => {}) {
   for (const file of Object.keys(state.coordinationAdmissions[stoppedIr20Key].dependencySha256)) {
     write(context.root, file, fs.readFileSync(file), fs.statSync(file).mode);
   }
+  commit(context.root, 'immutable before-source profile');
+  state.coordinationAdmissions[stoppedIr20Key].authorityBaseExactMain = git(context.root, ['rev-parse', 'HEAD']);
   mutateAccepted(state, context);
   write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify(state));
   commit(context.root, 'separately accepted stopped-copy pins');
@@ -564,6 +567,7 @@ test('IR20 stopped-copy pins: unchanged three-MiB state capacity remains usable'
 });
 
 for (const mutation of ['missing admission', 'wrong owner', 'wrong branch', 'wrong owner decision', 'wrong handoff',
+  'unknown startup grant', 'unknown restore grant', 'unknown field', 'changed limits',
   'execution grant', 'acceptance grant', 'expanded vector', 'reordered pins', 'invalid digest', 'wrong mode pin',
   'missing pin', 'extra pin field', 'wrong dependency pin', 'wrong dependency bytes', 'nonancestor authority']) {
   test(`IR20 stopped-copy pins: rejects accepted authority with ${mutation}`, t => {
@@ -574,6 +578,10 @@ for (const mutation of ['missing admission', 'wrong owner', 'wrong branch', 'wro
       if (mutation === 'wrong branch') record.sourceBranch = 'other';
       if (mutation === 'wrong owner decision') record.ownerDecision = 'candidate decision';
       if (mutation === 'wrong handoff') record.writerHandoff = 'candidate handoff';
+      if (mutation === 'unknown startup grant') record.startupAuthorized = true;
+      if (mutation === 'unknown restore grant') record.restoreAuthorized = true;
+      if (mutation === 'unknown field') record.additionalAuthority = false;
+      if (mutation === 'changed limits') record.limits = 'Original startup permitted';
       if (mutation === 'execution grant') record.productionInvocationAuthorized = true;
       if (mutation === 'acceptance grant') record.productionAcceptance = true;
       if (mutation === 'expanded vector') state.approvedConcurrentScopes[stoppedIr20Branch] = [...stoppedIr20Paths, '**'];
@@ -590,6 +598,20 @@ for (const mutation of ['missing admission', 'wrong owner', 'wrong branch', 'wro
     commit(context.root, 'candidate cannot repair accepted authority');
     const result = runStoppedIr20Trusted(t, context);
     assert.notEqual(result.status, 0, output(result));
+  });
+}
+
+for (const file of stoppedIr20Paths) {
+  test(`IR20 stopped-copy pins: preserves intervening main bytes in ${file}`, t => {
+    const context = stoppedIr20Fixture(t);
+    fs.appendFileSync(path.join(context.root, file), 'intervening accepted main fix\n');
+    commit(context.root, 'new accepted main source fix after admission');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    context.writePayload();
+    commit(context.root, 'stale pinned source attempts to replace main fix');
+    const result = runStoppedIr20Trusted(t, context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /REPLACEMENT_BASE_DRIFT/u);
   });
 }
 
