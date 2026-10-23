@@ -469,6 +469,194 @@ function output(result) {
   return `${result.stdout}\n${result.stderr}`;
 }
 
+const stoppedIr20Branch = 'ops/ir20-isolated-restore-20260919';
+const stoppedIr20Paths = [
+  'scripts/release/ir20-restore-drill.sh',
+  'scripts/release/test-ir20-restore-drill.py',
+  'scripts/release/test-ir20-restore-drill-integration.sh',
+  '.github/workflows/ir20-restore-drill.yml',
+  'docs/ops/ir20-isolated-restore.md',
+  'docs/platform-v7/autopilot/scopes/ir20-isolated-restore-20260919.json',
+];
+const stoppedIr20Key = 'ir20-stopped-copy-source-20261023';
+function stoppedIr20Fixture(t, mutateAccepted = () => {}) {
+  const context = fixture(t, stoppedIr20Branch);
+  const modes = ['100755', '100755', '100755', '100644', '100644', '100644'];
+  const payloads = stoppedIr20Paths.map((file, index) => `accepted stopped-copy source ${index}: ${file}\n`);
+  const state = {
+    allowedCurrentScope: ['README.md', '**'],
+    approvedConcurrentScopes: { [stoppedIr20Branch]: stoppedIr20Paths },
+    coordinationAdmissions: { [stoppedIr20Key]: {
+      owner: 'ACCOUNT_1_CORE', sourceBranch: stoppedIr20Branch,
+      ownerDecision: '#5469#issuecomment-6354447020',
+      writerHandoff: '#5469#issuecomment-6368785509',
+      authorityBaseExactMain: context.baseline,
+      sourcePins: stoppedIr20Paths.map((file, index) => ({
+        path: file, mode: modes[index], sha256: createHash('sha256').update(payloads[index]).digest('hex'),
+      })),
+      dependencySha256: {
+        'scripts/production_stopped_runtime_headroom.py': '6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14',
+        'scripts/production_cold_preservation.py': '19c873694debb0076701a912b394aad6bb0e092947f04d97e5144320ca5ca832',
+      },
+      productionInvocationAuthorized: false, productionAcceptance: false,
+      limits: 'Six-path source-only stopped PG16 volatile-copy prerequisite. No host dispatch, original startup, transfer or new cost.',
+    } },
+  };
+  for (let index = 0; index < stoppedIr20Paths.length; index++) {
+    write(context.root, stoppedIr20Paths[index], `old source ${index}\n`, parseInt(modes[index], 8));
+  }
+  for (const file of Object.keys(state.coordinationAdmissions[stoppedIr20Key].dependencySha256)) {
+    write(context.root, file, fs.readFileSync(file), fs.statSync(file).mode);
+  }
+  commit(context.root, 'immutable before-source profile');
+  state.coordinationAdmissions[stoppedIr20Key].authorityBaseExactMain = git(context.root, ['rev-parse', 'HEAD']);
+  mutateAccepted(state, context);
+  write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify(state));
+  commit(context.root, 'separately accepted stopped-copy pins');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  context.state = state;
+  context.payloads = payloads;
+  context.writePayload = () => stoppedIr20Paths.forEach((file, index) =>
+    write(context.root, file, payloads[index], parseInt(modes[index], 8)));
+  return context;
+}
+function runStoppedIr20Trusted(t, context) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ir20-base-guard-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const trusted = path.join(directory, 'guard.sh');
+  write(directory, 'guard.sh', git(context.root, ['show', `${context.baseline}:scripts/p7-autopilot-guard.sh`]));
+  return spawnSync('bash', [trusted], { cwd: context.root, encoding: 'utf8', env: {
+    ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: stoppedIr20Branch,
+  } });
+}
+
+test('IR20 stopped-copy pins: trusted base accepts exact six objects with no execution grant', t => {
+  const context = stoppedIr20Fixture(t);
+  context.writePayload();
+  commit(context.root, 'exact admitted payload');
+  const result = runStoppedIr20Trusted(t, context);
+  assert.equal(result.status, 0, output(result));
+  assert.match(output(result), /IR20_SOURCE_PINS: accepted-base exact six-file payload verified/u);
+});
+
+test('IR20 stopped-copy pins: candidate-only admission cannot grant itself authority', t => {
+  let proposed;
+  const context = stoppedIr20Fixture(t, state => {
+    proposed = structuredClone(state);
+    delete state.coordinationAdmissions[stoppedIr20Key];
+    delete state.approvedConcurrentScopes[stoppedIr20Branch];
+  });
+  context.writePayload();
+  write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify(proposed));
+  commit(context.root, 'candidate tries to self-admit exact payload');
+  const result = runStoppedIr20Trusted(t, context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /ACCEPTED_ADMISSION_MISSING/u);
+});
+
+test('IR20 stopped-copy pins: unchanged three-MiB state capacity remains usable', t => {
+  const context = stoppedIr20Fixture(t);
+  const file = path.join(context.root, 'docs/platform-v7/autopilot/autopilot-state.json');
+  fs.appendFileSync(file, ' '.repeat(3 * 1024 * 1024 - fs.statSync(file).size));
+  commit(context.root, 'accepted state at existing byte capacity');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  context.writePayload();
+  commit(context.root, 'exact six objects');
+  const result = runStoppedIr20Trusted(t, context);
+  assert.equal(result.status, 0, output(result));
+});
+
+for (const mutation of ['missing admission', 'wrong owner', 'wrong branch', 'wrong owner decision', 'wrong handoff',
+  'unknown startup grant', 'unknown restore grant', 'unknown field', 'changed limits',
+  'execution grant', 'acceptance grant', 'expanded vector', 'reordered pins', 'invalid digest', 'wrong mode pin',
+  'missing pin', 'extra pin field', 'wrong dependency pin', 'wrong dependency bytes', 'nonancestor authority']) {
+  test(`IR20 stopped-copy pins: rejects accepted authority with ${mutation}`, t => {
+    const context = stoppedIr20Fixture(t, (state, fixtureContext) => {
+      const record = state.coordinationAdmissions[stoppedIr20Key];
+      if (mutation === 'missing admission') delete state.coordinationAdmissions[stoppedIr20Key];
+      if (mutation === 'wrong owner') record.owner = 'OTHER';
+      if (mutation === 'wrong branch') record.sourceBranch = 'other';
+      if (mutation === 'wrong owner decision') record.ownerDecision = 'candidate decision';
+      if (mutation === 'wrong handoff') record.writerHandoff = 'candidate handoff';
+      if (mutation === 'unknown startup grant') record.startupAuthorized = true;
+      if (mutation === 'unknown restore grant') record.restoreAuthorized = true;
+      if (mutation === 'unknown field') record.additionalAuthority = false;
+      if (mutation === 'changed limits') record.limits = 'Original startup permitted';
+      if (mutation === 'execution grant') record.productionInvocationAuthorized = true;
+      if (mutation === 'acceptance grant') record.productionAcceptance = true;
+      if (mutation === 'expanded vector') state.approvedConcurrentScopes[stoppedIr20Branch] = [...stoppedIr20Paths, '**'];
+      if (mutation === 'reordered pins') record.sourcePins.reverse();
+      if (mutation === 'invalid digest') record.sourcePins[0].sha256 = 'invalid';
+      if (mutation === 'wrong mode pin') record.sourcePins[0].mode = '100644';
+      if (mutation === 'missing pin') record.sourcePins.pop();
+      if (mutation === 'extra pin field') record.sourcePins[0].alternate = true;
+      if (mutation === 'wrong dependency pin') record.dependencySha256['scripts/production_cold_preservation.py'] = '0'.repeat(64);
+      if (mutation === 'wrong dependency bytes') write(fixtureContext.root, 'scripts/production_cold_preservation.py', 'unreviewed dependency');
+      if (mutation === 'nonancestor authority') record.authorityBaseExactMain = '0'.repeat(40);
+    });
+    context.writePayload();
+    commit(context.root, 'candidate cannot repair accepted authority');
+    const result = runStoppedIr20Trusted(t, context);
+    assert.notEqual(result.status, 0, output(result));
+  });
+}
+
+for (const file of stoppedIr20Paths) {
+  test(`IR20 stopped-copy pins: preserves intervening main bytes in ${file}`, t => {
+    const context = stoppedIr20Fixture(t);
+    fs.appendFileSync(path.join(context.root, file), 'intervening accepted main fix\n');
+    commit(context.root, 'new accepted main source fix after admission');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    context.writePayload();
+    commit(context.root, 'stale pinned source attempts to replace main fix');
+    const result = runStoppedIr20Trusted(t, context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /REPLACEMENT_BASE_DRIFT/u);
+  });
+}
+
+for (const mutation of ['extra code', 'partial payload', 'extra path', 'candidate guard bypass', 'candidate workflow bypass',
+  'candidate pins', 'file mode', 'symlink', 'rename', 'empty diff', 'dependency change']) {
+  test(`IR20 stopped-copy pins: trusted guard rejects ${mutation}`, t => {
+    const context = stoppedIr20Fixture(t);
+    if (mutation !== 'empty diff') context.writePayload();
+    const first = stoppedIr20Paths[0];
+    if (mutation === 'extra code') fs.appendFileSync(path.join(context.root, first), '\n# unpinned mutation\n');
+    if (mutation === 'partial payload') write(context.root, stoppedIr20Paths[5], 'old source 5\n');
+    if (mutation === 'extra path') write(context.root, 'README.md', 'candidate-wide primary scope is not authority');
+    if (mutation === 'candidate guard bypass') write(context.root, 'scripts/p7-autopilot-guard.sh', 'exit 0\n');
+    if (mutation === 'candidate workflow bypass') write(context.root, '.github/workflows/platform-v7-autopilot-guard.yml', 'name: bypass\n');
+    if (mutation === 'candidate pins') {
+      context.state.coordinationAdmissions[stoppedIr20Key].sourcePins[0].sha256 = '0'.repeat(64);
+      write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify(context.state));
+    }
+    if (mutation === 'file mode') fs.chmodSync(path.join(context.root, first), 0o644);
+    if (mutation === 'symlink') {
+      fs.unlinkSync(path.join(context.root, first));
+      fs.symlinkSync('test-ir20-restore-drill.py', path.join(context.root, first));
+    }
+    if (mutation === 'rename') fs.renameSync(path.join(context.root, first), path.join(context.root, `${first}.renamed`));
+    if (mutation === 'dependency change') fs.appendFileSync(path.join(context.root, 'scripts/production_cold_preservation.py'), '\n# drift\n');
+    if (mutation !== 'empty diff') commit(context.root, `adversarial ${mutation}`);
+    const result = runStoppedIr20Trusted(t, context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /IR20_SOURCE_PINS:/u);
+  });
+}
+
+for (const mutation of ['oversize', 'invalid UTF-8']) {
+  test(`IR20 stopped-copy pins: fails closed on ${mutation} accepted state before empty-diff shortcut`, t => {
+    const context = stoppedIr20Fixture(t);
+    const file = path.join(context.root, 'docs/platform-v7/autopilot/autopilot-state.json');
+    if (mutation === 'oversize') fs.writeFileSync(file, ' '.repeat(3 * 1024 * 1024 + 1));
+    else fs.appendFileSync(file, Buffer.from([0xff]));
+    commit(context.root, `invalid accepted state ${mutation}`);
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    const result = runStoppedIr20Trusted(t, context);
+    assert.notEqual(result.status, 0, output(result));
+  });
+}
+
 function qwenFailedEvidenceFixture(t) {
   const context = fixture(t, qwenFailedEvidenceBranch);
   fs.mkdirSync(path.join(context.root, 'docs/platform-v7/autopilot/scopes'), { recursive: true });
@@ -1465,7 +1653,7 @@ test('governance branches retain unprivileged head regression validation', () =>
   assert.ok(workflow.includes('run: node --test scripts/p7-autopilot-guard.test.mjs'));
 });
 
-for (const branch of ['feat/pc-crop-auction-inventory-authority-4997', 'ops/pc-crop-w1-production-acceptance-4997', qwenFailedEvidenceBranch, kindMinioImageSourceBranch, gitleaksReleaseAttestationBranch, ...finalPublicBranches, finalPublicGovernanceBranch, industrialGovernanceBranch, industrialDiagnosticBranch]) {
+for (const branch of ['feat/pc-crop-auction-inventory-authority-4997', 'ops/pc-crop-w1-production-acceptance-4997', qwenFailedEvidenceBranch, kindMinioImageSourceBranch, gitleaksReleaseAttestationBranch, ...finalPublicBranches, finalPublicGovernanceBranch, industrialGovernanceBranch, industrialDiagnosticBranch, 'ops/ir20-isolated-restore-20260919']) {
 test(`${branch}: trusted scope routing retains substantive head validation`, () => {
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
   const section = (start, end) => {
