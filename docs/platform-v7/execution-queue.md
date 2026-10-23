@@ -8014,3 +8014,31 @@ class RecoveryTests(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main()
 ~~~~
+
+## Stopped recovery inspection shared queue test prerequisite 20261023
+
+Owner decision: Team Hub #5469 comment 6354447020 explicitly transfers the existing CORE recovery and source merge coordination to the current executor. This replaces the wait for a CORE writer handoff; mandatory review, substantive native checks and manual expected SHA acceptance remain unchanged. The preserved cold copy is not replayed, restored, opened or deleted by this source prerequisite.
+
+Current accepted source is `a509789c22298375130d70fde95915b8daa7634a`. Retained inspection PR #5921 at `b6b1521d28e92b9fe5e3a68462c9c6cd2abaefdf` adds the sixth shared production workflow. Its unchanged stopped runtime test still expects five participants. The prior exact experiment #5921 comment 6351985211 reproduced 23 passing tests and one failure; adding the diagnostic participant to the expected set produced 24 passing tests without changing any assertion or mutation loop. Those local results do not constitute native or production acceptance.
+
+This metadata phase changes exactly this queue and the state registry: append the existing stopped runtime test to the retained diagnostic branch vector, and append only the compact `stopped-recovery-inspection-test-20261023` record. All other semantic values and previous admission object bytes remain unchanged. The fixed 3 MiB state reader limit remains unchanged; the resulting registry must stay within it. Official production progress remains 5/100.
+
+The previously selected `governance/pc-crop-post-registration-progress-scope-4997` ref is still bound by the accepted guard to the older exact Deal route guard payload. Reusing it for this correction would fail that existing gate. Continue the necessary two file guard prerequisite on the already accepted `governance/industrial-load-diagnostics-20260919` ref instead. This is the same existing trusted guard owner and validator, with no additional writer, new branch route or permission waiver. Its accepted seven path vector remains unchanged; only `scripts/p7-autopilot-guard.sh` and `scripts/p7-autopilot-guard.test.mjs` may change for this prerequisite, with modes 100755 and 100644 respectively. State, workflow entry points and every other source leaf stay identical to accepted metadata main. Preserve all historical exact source and routing checks for other branches.
+
+The future guard must read this purpose and the complete two path diagnostic vector only from accepted BASE, require an unchanged HEAD state, a BASE ancestor and exactly two modified regular 100644 source paths. The diagnostic workflow retains its existing review controlled source authority. The additional test file is limited to the exact frozen change below, checked by full Git blob, SHA256, byte length and literal before to after transformation. A candidate cannot add its own purpose or vector, replace the guard, include extra files, remove assertions or use executable, symlink, rename or partial source changes. In the absence of this purpose, preserve the original workflow only diagnostic behavior. Add actual Git fixture regressions for these positive and negative cases and run the complete existing suite without lowering its coverage, assertions or timeout.
+
+Frozen test payload:
+
+```json
+{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","beforeBlob":"ea6430963a568e1356a7706c8514d5215fdd9c38","afterBlob":"bc2c092cea71aaca1c94121b02d1bd87cf83df5f","sha256":"6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9","bytes":34069}
+```
+
+```diff
+-        expected = {'production-cold-preservation.yml',
++        expected = {'production-docker-headroom-diagnostic.yml',
++                    'production-cold-preservation.yml',
+```
+
+After this metadata is independently reviewed, substantively checked and accepted, accept the two file trusted guard prerequisite with its own fresh independent review, separate author audit, full native checks and readiness. Then refresh the original #5921 branch normally on actual accepted main, retain all original ancestry and its existing inspector, and apply only the frozen test correction alongside that workflow. The corrected source requires fresh whole head review, applicable CI/security and resolved findings before a manual full expected SHA merge. No previous head review or readiness is transferred.
+
+Before any once only read only inspection command, reconcile the actual original command and workflow/job history and confirm no prior dispatch of that command or concurrent production operation. Source acceptance does not authorize a restore or service startup. Controlled PostgreSQL validation, capacity, Compose/bind parity, service/worker activation, exact release and authenticated cabinet acceptance remain subsequent explicit source and operational gates. No money movement, signature, government mutation, new access, secret transfer, new cost or production completion follows from this metadata.
