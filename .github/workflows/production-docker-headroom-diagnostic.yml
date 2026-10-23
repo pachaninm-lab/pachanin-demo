@@ -913,6 +913,37 @@ jobs:
               bound = namespace['bindings']([record], roots, str(pg), {image: normalized})
               assert bound['readWriteBindsOutsideCopy'] == 1
               assert bound['currentComposeParity'] == 'NOT_ATTESTED' and secret not in json.dumps(bound)
+              # Preserve both existing limits; classify their independent failure shapes.
+              label_cases = ((secret + 'x' * (8193 - len(secret)), 'COMPOSE_LABEL_SIZE_BOUND'),
+                             (','.join([secret] * 17), 'COMPOSE_LABEL_COUNT_BOUND'),
+                             (','.join([secret + 'x' * 512] * 17), 'COMPOSE_LABEL_BOTH_BOUND'))
+              for files, code in label_cases:
+                  labelled = copy.deepcopy(record)
+                  labelled['Config']['Labels'].update({
+                      'com.docker.compose.project.working_dir': '/' + secret,
+                      'com.docker.compose.project.config_files': files})
+                  def forbidden_reference(*args):
+                      raise AssertionError('out-of-bound Compose references must not be inspected')
+                  with patch.dict(namespace, open_directory=forbidden_reference):
+                      try:
+                          namespace['bindings']([labelled], roots, str(pg), {image: normalized})
+                      except E as error:
+                          assert error.args == (code,) and secret not in str(error)
+                      else:
+                          raise AssertionError('a Compose label limit was relaxed')
+              # The exact 8192-character/16-component boundaries still pass; no contents are read.
+              for files in ('x' * 8192, '\u00e9' * 8192, ','.join(['x'] * 16)):
+                  labelled = copy.deepcopy(record)
+                  labelled['Config']['Labels'].update({
+                      'com.docker.compose.project.working_dir': '/' + secret,
+                      'com.docker.compose.project.config_files': files})
+                  def missing_reference(*args):
+                      raise FileNotFoundError()
+                  with patch.dict(namespace, open_directory=missing_reference):
+                      accepted_label = namespace['bindings']([labelled], roots, str(pg), {image: normalized})
+                  assert accepted_label['currentComposeParity'] == 'NOT_ATTESTED'
+                  assert secret not in json.dumps(accepted_label)
+              print('PASS: unchanged Compose label bounds distinguish size/count/both; references stay unread and failures stay private.')
               broken = copy.deepcopy(record)
               broken['Config']['Env'] = ['PGDATA=/wrong']
               rejected(lambda: namespace['bindings']([broken], roots, str(pg), {image: normalized}))
@@ -1042,6 +1073,9 @@ jobs:
                       raise AssertionError('exception text must not be evaluated')
 
               for error, code in ((E('MOUNT_PATH'), 'MOUNT_PATH'), (E('API_STATUS'), 'API_STATUS'),
+                                  (E('COMPOSE_LABEL_SIZE_BOUND'), 'COMPOSE_LABEL_SIZE_BOUND'),
+                                  (E('COMPOSE_LABEL_COUNT_BOUND'), 'COMPOSE_LABEL_COUNT_BOUND'),
+                                  (E('COMPOSE_LABEL_BOTH_BOUND'), 'COMPOSE_LABEL_BOTH_BOUND'),
                                   (E(secret), 'INSPECTION_UNAVAILABLE'),
                                   (E('ARCHIVE_DIGEST', secret), 'INSPECTION_UNAVAILABLE'),
                                   (UntrustedError('ARCHIVE_DIGEST'), 'INSPECTION_UNAVAILABLE'),
@@ -2831,7 +2865,11 @@ jobs:
                   files = labels.get('com.docker.compose.project.config_files')
                   working = labels.get('com.docker.compose.project.working_dir')
                   if type(files) is str and type(working) is str and working.startswith('/'):
-                      require(len(files) <= 8192 and len(files.split(',')) <= 16, 'COMPOSE_LABEL_BOUND')
+                      label_count = files.count(',') + 1
+                      if len(files) > 8192 and label_count > 16:
+                          raise InspectionError('COMPOSE_LABEL_BOTH_BOUND')
+                      require(len(files) <= 8192, 'COMPOSE_LABEL_SIZE_BOUND')
+                      require(label_count <= 16, 'COMPOSE_LABEL_COUNT_BOUND')
                       for path in files.split(','):
                           if not path.startswith('/'):
                               path = working.rstrip('/') + '/' + path
@@ -3036,6 +3074,7 @@ jobs:
               'POSTGRES_CLUSTER_COUNT', 'POSTGRES_VERSION', 'POSTGRES_CONTROL', 'POSTGRES_DATABASE_MARKER',
               'POSTMASTER_PID_PRESENT', 'IMAGE_IDENTITY', 'IMAGE_CONFIG', 'IMAGE_LABELS', 'IMAGE_ENV',
               'MOUNT_METADATA', 'MOUNT_PATH', 'COMPOSE_LABEL_BOUND', 'COMPOSE_REFERENCE_TYPE',
+              'COMPOSE_LABEL_SIZE_BOUND', 'COMPOSE_LABEL_COUNT_BOUND', 'COMPOSE_LABEL_BOTH_BOUND',
               'PROFILE_BOUND', 'PROFILE_CHANGED', 'PROFILE_DEVICE', 'PROFILE_TYPE', 'RUNTIME_DRIFT',
               'VOLUME_OUTSIDE_COPY', 'VOLUME_NAMES', 'FILE_CHANGED', 'FILE_LIMIT', 'FILE_TIMEOUT',
               'FILE_TYPE_SIZE', 'PROCESS_BOUND', 'MEMINFO_BOUND', 'MEMINFO_SCHEMA',
