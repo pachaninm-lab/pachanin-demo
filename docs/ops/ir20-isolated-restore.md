@@ -64,6 +64,12 @@ preserved ciphertexts are checked again. The private finalized aggregate report
 is fsynced before success can leave the process; no raw database/configuration,
 archive, key, private path, principal or database name is published.
 
+Failed report publication invalidates both report markers and synchronizes their
+removal while retaining the exclusive owned-operation journal. Failed marker
+removal or synchronization reports `REPORT_CLEANUP_NOT_PROVEN`; the operation
+remains ambiguous and cannot be replayed. A surviving private report never
+overrides the pending journal or a failed process/transport result.
+
 Container work has a600second budget, including the remaining-time bounds on
 both physical-copy process waits. Producer termination and container cleanup
 share one separate60second budget that cannot renew itself. Source captures are

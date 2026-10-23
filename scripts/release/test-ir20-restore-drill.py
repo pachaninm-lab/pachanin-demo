@@ -753,6 +753,87 @@ class StoppedPhysicalCopyTests(unittest.TestCase):
         self.assertNotIn(CANARY,result.stdout+result.stderr)
         self.assertEqual(result.stderr,'IR20_STOPPED_ERROR=ARGUMENTS\n')
 
+    def publication_case(self, fault):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);root.chmod(0o700)
+            copy=self.module.DockerCopy(SHA,'12345')
+            with mock.patch.object(self.module,'preserved_copies'):
+                with self.module.operation_journal(self.cold,str(root),SHA,'12345',copy) as (backup_fd,operation_fd):
+                    directory=root/self.module.OPERATION
+                    journal=(directory/'operation.pending').read_bytes()
+                    real_sync=self.cold.sync
+                    real_open=self.cold.private_file
+                    real_write=self.module.os.write
+                    real_close=self.module.os.close
+                    real_rename=self.module.os.rename
+                    real_unlink=self.module.os.unlink
+                    sync_calls=[0]
+                    def synchronize(fd):
+                        sync_calls[0]+=1
+                        target={'file_sync':1,'directory_before_rename':2,
+                                'directory_after_rename':3,'parent_sync':4,
+                                'unlink_failure':3,'cleanup_sync_failure':1}.get(fault)
+                        if sync_calls[0]==target or (fault=='cleanup_sync_failure' and sync_calls[0]>1):
+                            raise OSError(5,CANARY)
+                        return real_sync(fd)
+                    def private_file(fd,name):
+                        if fault=='open':raise OSError(5,CANARY)
+                        return real_open(fd,name)
+                    def write(fd,data):
+                        if fault=='write':raise OSError(5,CANARY)
+                        return real_write(fd,data[:-1] if fault=='short_write' else data)
+                    def close(fd):
+                        report_file=os.readlink('/proc/self/fd/'+str(fd)).endswith('/report.pending')
+                        real_close(fd)
+                        if fault=='close' and report_file:raise OSError(5,CANARY)
+                    def rename(*args,**kwargs):
+                        if fault=='rename':raise OSError(5,CANARY)
+                        result=real_rename(*args,**kwargs)
+                        if fault=='rename_after_effect':raise OSError(5,CANARY)
+                        return result
+                    def unlink(name,**kwargs):
+                        if fault=='unlink_failure' and name=='report.json':raise OSError(5,CANARY)
+                        return real_unlink(name,**kwargs)
+                    expected='REPORT_CLEANUP_NOT_PROVEN' if fault in ('unlink_failure','cleanup_sync_failure') else 'REPORT_PUBLICATION_FAILED'
+                    with mock.patch.object(self.cold,'sync',side_effect=synchronize), \
+                         mock.patch.object(self.cold,'private_file',side_effect=private_file), \
+                         mock.patch.object(self.module.os,'write',side_effect=write), \
+                         mock.patch.object(self.module.os,'close',side_effect=close), \
+                         mock.patch.object(self.module.os,'rename',side_effect=rename), \
+                         mock.patch.object(self.module.os,'unlink',side_effect=unlink), \
+                         self.assertRaisesRegex(self.module.StoppedCopyError,expected) as error:
+                        self.module.publish_stopped_report(self.cold,backup_fd,operation_fd,
+                            {'passed':True,'targetSha':SHA,'runtimeRestored':False})
+                    self.assertNotIn(CANARY,str(error.exception))
+                    self.assertFalse((directory/'report.pending').exists())
+                    if fault!='unlink_failure':self.assertFalse((directory/'report.json').exists())
+                    self.assertEqual((directory/'operation.pending').read_bytes(),journal)
+                    self.assertEqual(json.loads(journal)['status'],'UNKNOWN_RECONCILIATION_REQUIRED')
+                with self.assertRaisesRegex(self.module.StoppedCopyError,'OPERATION_ALREADY_EXISTS_RECONCILE'):
+                    with self.module.operation_journal(self.cold,str(root),SHA,'12345',copy):pass
+
+    def test_each_stopped_report_publication_failure_invalidates_markers_and_retains_journal(self):
+        for fault in ('open','write','short_write','file_sync','directory_before_rename',
+                      'rename','rename_after_effect','directory_after_rename','parent_sync','close'):
+            with self.subTest(fault=fault):self.publication_case(fault)
+
+    def test_stopped_report_invalidation_failure_is_explicitly_unproved(self):
+        for fault in ('unlink_failure','cleanup_sync_failure'):
+            with self.subTest(fault=fault):self.publication_case(fault)
+
+    def test_actual_coordinator_removes_positive_report_after_final_directory_sync_failure(self):
+        real_sync=self.cold.sync
+        injected=[False]
+        def fail_after_rename(fd):
+            directory=Path(os.readlink('/proc/self/fd/'+str(fd)))
+            if not injected[0] and directory.is_dir() and (directory/'report.json').exists():
+                injected[0]=True
+                raise OSError(5,CANARY)
+            return real_sync(fd)
+        with mock.patch.object(self.cold,'sync',side_effect=fail_after_rename):
+            self.full_case('publication_failure')
+        self.assertTrue(injected[0],'the real coordinator must reach the post-rename barrier')
+
     def test_preserved_private_ciphertext_guards_reject_tampering_links_and_public_modes(self):
         import hashlib
         with tempfile.TemporaryDirectory() as temp:

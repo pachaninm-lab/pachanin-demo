@@ -466,6 +466,40 @@ def operation_journal(cold, backup_root, sha, run_id, copy):
         os.close(root_fd)
 
 
+def publish_stopped_report(cold, backup_fd, operation_fd, report):
+    try:
+        pending = cold.private_file(operation_fd, 'report.pending')
+        try:
+            raw = (json.dumps(report, separators=(',', ':')) + '\n').encode()
+            check(os.write(pending, raw) == len(raw), 'REPORT_WRITE')
+            cold.sync(pending)
+        finally:
+            os.close(pending)
+        cold.sync(operation_fd)
+        os.rename('report.pending', 'report.json', src_dir_fd=operation_fd, dst_dir_fd=operation_fd)
+        cold.sync(operation_fd)
+        cold.sync(backup_fd)
+    except BaseException:
+        # Only this invocation's two report markers are invalidated.
+        # The durable owned identity journal remains for reconciliation.
+        invalidated = True
+        for name in ('report.pending', 'report.json'):
+            try:
+                os.unlink(name, dir_fd=operation_fd)
+            except FileNotFoundError:
+                pass
+            except BaseException:
+                invalidated = False
+        for fd in (operation_fd, backup_fd):
+            try:
+                cold.sync(fd)
+            except BaseException:
+                invalidated = False
+        raise StoppedCopyError('REPORT_PUBLICATION_FAILED' if invalidated else
+                               'REPORT_CLEANUP_NOT_PROVEN') from None
+    return report
+
+
 def validate_stopped(cold, helper, sha, run_id, *, source_root='/var/lib/docker', backup_root=None,
                      docker_factory=DockerCopy):
     check(os.getuid() == os.geteuid() == 0 and re.fullmatch('[0-9a-f]{40}', sha) and
@@ -518,18 +552,7 @@ def validate_stopped(cold, helper, sha, run_id, *, source_root='/var/lib/docker'
                       'databaseIntegrity': 'NOT_FULLY_ATTESTED', 'runtimeRestored': False,
                       'startupAuthorized': False, 'fullDrAcceptance': 'NOT_PROVEN',
                       'offHostRecovery': 'NOT_ESTABLISHED'}
-            pending = cold.private_file(operation_fd, 'report.pending')
-            try:
-                raw = (json.dumps(report, separators=(',', ':')) + '\n').encode()
-                check(os.write(pending, raw) == len(raw), 'REPORT_WRITE')
-                cold.sync(pending)
-            finally:
-                os.close(pending)
-            cold.sync(operation_fd)
-            os.rename('report.pending', 'report.json', src_dir_fd=operation_fd, dst_dir_fd=operation_fd)
-            cold.sync(operation_fd)
-            cold.sync(backup_fd)
-            return report
+            return publish_stopped_report(cold, backup_fd, operation_fd, report)
 
 
 def stopped_main(arguments):
