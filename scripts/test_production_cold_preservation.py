@@ -38,6 +38,15 @@ def valid_terminal():
             'restoreVerification': 'NOT_PERFORMED', 'offHostRecovery': 'NOT_ESTABLISHED'}
 
 
+def valid_bindings_terminal():
+    result = valid_terminal()
+    result.pop('volumes')
+    result.update(schemaVersion=cold.BINDINGS_SCHEMA, status='ENCRYPTED_BINDINGS_PRESERVATION_VERIFIED',
+                  selectedRoots=16, bindReferences=8, composeFiles=8, startupAuthorized=False,
+                  currentComposeParity='NOT_ATTESTED', environmentFilesCovered=False)
+    return result
+
+
 class Host:
     def __init__(self):
         self.calls = 0
@@ -280,7 +289,7 @@ class PreservationTests(unittest.TestCase):
         self.assertNotIn('issues: write', global_part + contract)
         self.assertNotIn('concurrency:', global_part + contract)
         for condition in ["github.event_name == 'issue_comment'", 'github.event.issue.number == 4637',
-                          "github.event.comment.body == '/production preserve-stopped-data current-main'",
+                          "github.event.comment.body == '/production preserve-stopped-bindings current-main'",
                           'github.event.comment.user.login == github.repository_owner',
                           "github.event.comment.author_association == 'OWNER'",
                           'github.actor == github.repository_owner',
@@ -341,12 +350,12 @@ class PreservationTests(unittest.TestCase):
     def test_actual_bash_transport_never_publishes_success_for_unknown_outcome(self):
         import sys
         _, source = workflow_step('Execute only the separately accepted cold-preservation stage')
-        failed = {'schemaVersion': 'pc.cold-preservation.v1', 'passed': False,
+        failed = {'schemaVersion': cold.BINDINGS_SCHEMA, 'passed': False,
                   'errorCode': 'POST_COPY_RUNTIME_DRIFT', 'runtimeRestored': False,
                   'mutationOutcome': 'RECONCILIATION_REQUIRED_IF_STARTED'}
-        cases = [(valid_terminal(), 0, SHA, 'success'), (valid_terminal(), 255, SHA, 'unknown'),
-                 (valid_terminal(), 1, SHA, 'unknown'), (valid_terminal(), 0, 'b' * 40, 'unknown'),
-                 ({**valid_terminal(), 'injected': 'SYNTHETIC_SECRET'}, 0, SHA, 'unknown'),
+        cases = [(valid_bindings_terminal(), 0, SHA, 'success'), (valid_bindings_terminal(), 255, SHA, 'unknown'),
+                 (valid_bindings_terminal(), 1, SHA, 'unknown'), (valid_bindings_terminal(), 0, 'b' * 40, 'unknown'),
+                 ({**valid_bindings_terminal(), 'injected': 'SYNTHETIC_SECRET'}, 0, SHA, 'unknown'),
                  (failed, 1, SHA, 'failure'), (failed, 0, SHA, 'unknown'), (None, 255, SHA, 'unknown')]
         for value, status, post, outcome in cases:
             with self.subTest(status=status, post=post, outcome=outcome), tempfile.TemporaryDirectory() as name:
@@ -383,6 +392,287 @@ class PreservationTests(unittest.TestCase):
                 else:
                     self.assertNotIn('`UNKNOWN`', body)
                     self.assertTrue((output / 'result.json').is_file())
+
+
+class BindingPreservationTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.filesystem = self.root / 'filesystem'
+        self.configs = self.filesystem / 'etc'
+        self.configs.mkdir(parents=True)
+        self.docker = self.root / 'docker'
+        (self.docker / 'containers').mkdir(parents=True)
+        self.backup = self.root / 'backups'
+        self.backup.mkdir(mode=0o700)
+        self.old = self.backup / cold.OPERATION_NAME
+        self.old.mkdir(mode=0o700)
+        (self.old / 'passphrase').write_bytes(b'old key must remain unchanged')
+        (self.old / 'preservation.tar.gpg').write_bytes(b'old ciphertext must remain unchanged')
+        self.files = ['/etc/compose-%d.yml' % i for i in range(8)]
+        self.binds = ['/etc/binding-%d' % i for i in range(8)]
+        for name in self.files + self.binds:
+            (self.filesystem / name[1:]).write_bytes(b'private fixture\0\xff: ' + name.encode())
+        self.values = []
+        for index in range(11):
+            self.values.append({'ID': format(index + 1, '064x'), 'Image': 'sha256:' + 'd' * 64,
+                                'MountPoints': ({'mount': {'Type': 'bind', 'RW': False,
+                                                         'Source': self.binds[index]}}
+                                                if index < 8 else {}),
+                                'Config': {'Labels': ({'com.docker.compose.project.config_files': ','.join(self.files),
+                                                      'com.docker.compose.project.working_dir': '/etc'}
+                                                     if index == 0 else {})}})
+        self.host = Host()
+        self.write_records()
+        for parent, directories, files in os.walk(self.filesystem):
+            for name in directories + files:
+                os.utime(Path(parent) / name, ns=(946684800123456789, 978307200123456789))
+        self.original = {p.name: p.read_bytes() for p in self.old.iterdir()}
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def write_records(self):
+        self.raw = [json.dumps(value, separators=(',', ':')).encode() for value in self.values]
+        self.hashes = tuple((value['ID'], value['Image'], hashlib.sha256(raw).hexdigest())
+                            for value, raw in zip(self.values, self.raw))
+        for value, raw in zip(self.values, self.raw):
+            parent = self.docker / 'containers' / value['ID']
+            parent.mkdir(exist_ok=True)
+            (parent / 'config.v2.json').write_bytes(raw)
+        self.host.state = (self.hashes, (b'database',), (), frozenset(), frozenset())
+
+    def preserve(self):
+        return cold.preserve_bindings(self.host, SHA, '12345', source_root=str(self.docker),
+                                      filesystem_root=str(self.filesystem), backup_root=str(self.backup),
+                                      owner_uid=os.geteuid(), runtime_probe=lambda: None)
+
+    def assert_no_new_operation(self):
+        self.assertEqual(list(self.backup.iterdir()), [self.old])
+        self.assertEqual(self.original, {p.name: p.read_bytes() for p in self.old.iterdir()})
+
+    def test_actual_binding_archive_roundtrip_preserves_all_sources_and_old_key(self):
+        paths, compose = cold.configuration_paths(self.raw, self.hashes)
+        with cold.ConfigurationSnapshot(str(self.filesystem), paths, compose,
+                                         owner_uid=os.geteuid()) as before:
+            before.capture()
+            entries = copy.deepcopy(before.entries)
+        result = self.preserve()
+        with cold.ConfigurationSnapshot(str(self.filesystem), paths, compose,
+                                         owner_uid=os.geteuid()) as after:
+            after.capture()
+            self.assertEqual(entries, after.entries)
+        self.assertEqual(cold.validate_bindings_terminal(json.dumps(result).encode(), SHA, '12345', 0), result)
+        self.assertEqual(self.host.calls, 3)
+        self.assertEqual(result['selectedRoots'], 16)
+        self.assertEqual(result['bindReferences'], result['composeFiles'])
+        self.assertFalse(result['startupAuthorized'])
+        self.assertFalse(result['environmentFilesCovered'])
+        operation = self.backup / cold.BINDINGS_OPERATION
+        self.assertEqual(result, json.loads((operation / 'receipt.json').read_bytes()))
+        self.assertEqual(self.original, {p.name: p.read_bytes() for p in self.old.iterdir()})
+        self.assertNotIn('private fixture', json.dumps(result))
+        for p in operation.iterdir():
+            if p.is_file():
+                self.assertEqual(stat.S_IMODE(p.stat().st_mode), 0o600)
+        with self.assertRaisesRegex(cold.PreservationError, 'OPERATION_ALREADY_EXISTS_RECONCILE'):
+            self.preserve()
+
+    def test_record_and_selection_drift_rejected_before_writes(self):
+        for mutate in (
+                lambda v: v[0]['MountPoints']['mount'].update(RW=True),
+                lambda v: v[0]['MountPoints']['mount'].update(Type='unexpected'),
+                lambda v: v[0]['MountPoints']['mount'].update(Source='/etc/../private'),
+                lambda v: v[0]['MountPoints']['mount'].update(Source='/etc/bad\0name'),
+                lambda v: v[0]['MountPoints']['mount'].update(Source='/var'),
+                lambda v: v[0]['MountPoints']['mount'].update(Source='/var/run/docker.sock'),
+                lambda v: v[0]['MountPoints']['mount'].update(Source='/etc'),
+                lambda v: v[0]['Config']['Labels'].update({'com.docker.compose.project.config_files': ','.join(self.files[:7])}),
+                lambda v: v[0]['Config']['Labels'].update({'com.docker.compose.project.config_files': ','.join(self.files + ['/etc/ninth.yml'])}),
+                lambda v: v[0]['MountPoints'].clear()):
+            with self.subTest(mutate=mutate):
+                values = copy.deepcopy(self.values)
+                mutate(values)
+                raw = [json.dumps(v).encode() for v in values]
+                hashes = [(v['ID'], v['Image'], hashlib.sha256(r).hexdigest()) for v, r in zip(values, raw)]
+                with self.assertRaises(cold.PreservationError):
+                    cold.configuration_paths(raw, hashes)
+                self.assert_no_new_operation()
+        with self.assertRaisesRegex(cold.PreservationError, 'CONFIG_RECORD_DRIFT'):
+            cold.configuration_paths([b' ' + self.raw[0], *self.raw[1:]], self.hashes)
+
+    def test_relative_compose_names_resolve_without_reading_or_guessing_dotenv(self):
+        self.values[0]['Config']['Labels']['com.docker.compose.project.config_files'] = ','.join(
+            name.rsplit('/', 1)[1] for name in self.files)
+        self.write_records()
+        paths, compose = cold.configuration_paths(self.raw, self.hashes)
+        self.assertEqual(compose, frozenset(self.files))
+        self.assertEqual(set(paths), set(self.files + self.binds))
+
+    def test_file_link_special_mode_and_parent_link_block_before_write(self):
+        target = self.filesystem / self.binds[0][1:]
+        old = target.read_bytes()
+        for kind in ('symlink', 'fifo', 'writable'):
+            with self.subTest(kind=kind):
+                target.unlink()
+                if kind == 'symlink':
+                    target.symlink_to(self.configs / 'compose-0.yml')
+                elif kind == 'fifo':
+                    os.mkfifo(target)
+                else:
+                    target.write_bytes(old)
+                    target.chmod(0o666)
+                with self.assertRaises(cold.PreservationError):
+                    self.preserve()
+                self.assert_no_new_operation()
+        target.unlink()
+        target.write_bytes(old)
+        self.configs.rename(self.filesystem / 'elsewhere')
+        self.configs.symlink_to(self.filesystem / 'elsewhere', target_is_directory=True)
+        with self.assertRaises(OSError):
+            self.preserve()
+        self.assert_no_new_operation()
+
+    def test_complete_bounds_and_runtime_drift_reject_before_writes(self):
+        for attribute, value in (('entry_limit', 1), ('source_limit', 1), ('path_limit', 1), ('manifest_limit', 1)):
+            with self.subTest(attribute=attribute), patch.object(cold.ConfigurationSnapshot, attribute, value):
+                with self.assertRaises(cold.PreservationError):
+                    self.preserve()
+                self.assert_no_new_operation()
+        self.host.drift_at = self.host.calls + 2
+        with self.assertRaisesRegex(cold.PreservationError, 'PRE_WRITE_RUNTIME_DRIFT'):
+            self.preserve()
+        self.assert_no_new_operation()
+
+    def test_post_copy_failure_retains_new_ciphertext_and_key_without_success(self):
+        self.host.drift_at = 3
+        with self.assertRaisesRegex(cold.PreservationError, 'POST_COPY_RUNTIME_DRIFT'):
+            self.preserve()
+        operation = self.backup / cold.BINDINGS_OPERATION
+        self.assertTrue((operation / 'passphrase').is_file())
+        self.assertTrue((operation / 'preservation.tar.gpg').is_file())
+        self.assertFalse((operation / 'receipt.json').exists())
+        self.assertEqual(self.original, {p.name: p.read_bytes() for p in self.old.iterdir()})
+
+    def test_closed_binding_publication_rejects_forged_transport_and_authority(self):
+        value = valid_bindings_terminal()
+        for update in ({'startupAuthorized': True}, {'environmentFilesCovered': True},
+                       {'databaseIntegrity': 'PASS'}, {'currentComposeParity': 'PASS'},
+                       {'bindReferences': 7}, {'composeFiles': 9}, {'selectedRoots': True},
+                       {'entries': cold.BINDINGS_ENTRIES + 1}, {'sourceBytes': cold.BINDINGS_SOURCE_BYTES + 1},
+                       {'ciphertextBytes': cold.BINDINGS_ARCHIVE_BYTES + 1}, {'secret': 'NEVER_PUBLISH'},
+                       {'targetSha': 'b' * 40}, {'runId': '2'}):
+            with self.subTest(update=update), self.assertRaises(cold.PreservationError):
+                cold.validate_bindings_terminal(json.dumps({**value, **update}).encode(), SHA, '12345', 0)
+        for status in (1, 255):
+            with self.assertRaises(cold.PreservationError):
+                cold.validate_bindings_terminal(json.dumps(value).encode(), SHA, '12345', status)
+        duplicated = json.dumps(value)[:-1] + ', "passed": true}'
+        with self.assertRaisesRegex(cold.PreservationError, 'OUTPUT_DUPLICATE'):
+            cold.validate_bindings_terminal(duplicated.encode(), SHA, '12345', 0)
+
+    def test_short_space_or_failed_key_sync_cannot_start_an_archive(self):
+        from types import SimpleNamespace
+        with patch.object(cold.os, 'fstatvfs', return_value=SimpleNamespace(f_bavail=1, f_frsize=4096)):
+            with self.assertRaisesRegex(cold.PreservationError, 'PRESERVATION_SPACE_INSUFFICIENT'):
+                self.preserve()
+        self.assert_no_new_operation()
+        real_sync = cold.sync
+        def refuse_key(fd):
+            if os.readlink('/proc/self/fd/' + str(fd)).endswith('/passphrase'):
+                raise OSError('fixture only')
+            real_sync(fd)
+        with patch.object(cold, 'sync', side_effect=refuse_key), patch.object(cold, 'make_encrypted_archive') as archive:
+            with self.assertRaises(OSError):
+                self.preserve()
+            archive.assert_not_called()
+        self.assertFalse((self.backup / cold.BINDINGS_OPERATION / 'receipt.json').exists())
+        self.assertEqual(self.original, {p.name: p.read_bytes() for p in self.old.iterdir()})
+
+    def test_changed_binding_after_encryption_never_receives_a_success_receipt(self):
+        real_archive = cold.make_encrypted_archive
+        def change(*args):
+            result = real_archive(*args)
+            (self.filesystem / self.binds[0][1:]).write_bytes(b'fixture changed after archive')
+            return result
+        with patch.object(cold, 'make_encrypted_archive', side_effect=change):
+            with self.assertRaisesRegex(cold.PreservationError, 'POST_COPY_SOURCE_DRIFT'):
+                self.preserve()
+        operation = self.backup / cold.BINDINGS_OPERATION
+        self.assertTrue((operation / 'preservation.tar.gpg').is_file())
+        self.assertFalse((operation / 'receipt.json').exists())
+
+    def test_actual_owner_binding_route_disables_the_spent_original_command(self):
+        import ast
+        import re
+        from types import SimpleNamespace as NS
+        workflow, _ = workflow_step('Bind accepted exact main and evidence journal')
+        conditions = []
+        for job in ('contract', 'recover'):
+            block = workflow.split('\n  ' + job + ':\n', 1)[1].split('\n    runs-on:', 1)[0]
+            expression = ' '.join(re.search(r'\n    if: >-\n((?:      [^\n]*\n)+)', '\n' + block + '\n')[1].split())
+            conditions.append(compile(ast.parse(expression.replace('&&', ' and ').replace('||', ' or '), mode='eval'), '<route>', 'eval'))
+        def route(event='issue_comment', issue=4637, body='/production preserve-stopped-bindings current-main',
+                  author='owner', actor='owner', triggering='owner', association='OWNER', result='success'):
+            context = {'github': NS(event_name=event, repository_owner='owner', actor=actor, triggering_actor=triggering,
+                                    event=NS(issue=NS(number=issue), comment=NS(body=body, author_association=association,
+                                                                            user=NS(login=author)))),
+                       'needs': NS(contract=NS(result=result))}
+            return tuple(bool(eval(expression, {'__builtins__': {}}, context)) for expression in conditions)
+        self.assertEqual(route(), (True, True))
+        self.assertEqual(route(event='pull_request'), (True, False))
+        for update in ({'event': 'push'}, {'issue': 5469}, {'body': '/production preserve-stopped-data current-main'},
+                       {'body': '/production preserve-stopped-bindings current-main\n'}):
+            self.assertEqual(route(**update), (False, False))
+        for update in ({'author': 'other'}, {'actor': 'other'}, {'triggering': 'other'}, {'association': 'NONE'},
+                       {'result': 'failure'}, {'result': 'skipped'}):
+            self.assertEqual(route(**update), (True, False))
+
+    def test_actual_source_binding_rejects_missing_pins_wrong_operation_and_payload_drift(self):
+        import sys
+        workflow, _ = workflow_step('Bind accepted exact main and evidence journal')
+        code = workflow.split("          python3 - <<'PY_BIND'\n", 1)[1].split('          PY_BIND', 1)[0]
+        code = textwrap.dedent(code)
+        names = ['scripts/production_cold_preservation.py', 'scripts/test_production_cold_preservation.py',
+                 '.github/workflows/production-cold-preservation.yml', 'docs/ops/production-cold-preservation.md',
+                 'scripts/test_production_stopped_runtime_headroom.py']
+        dependency = 'scripts/production_stopped_runtime_headroom.py'
+        base = Path(__file__).resolve().parent.parent
+        for alteration in ('none', 'owner', 'operation', 'decision', 'acceptance', 'vector', 'hash', 'mode', 'link', 'dependency', 'ancestry'):
+            with self.subTest(alteration=alteration), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for name in names + [dependency]:
+                    p = root / name
+                    p.parent.mkdir(parents=True, exist_ok=True)
+                    p.write_bytes((base / name).read_bytes())
+                    p.chmod(0o644)
+                purpose = {'owner': 'ACCOUNT_1_CORE', 'sourceBranch': 'ops/production-cold-preservation-20261022',
+                           'operationName': cold.BINDINGS_OPERATION, 'ownerDecision': '#5469#issuecomment-6354447020',
+                           'productionAcceptance': False, 'authorityBaseExactMain': SHA, 'mode': '100644',
+                           'sha256': {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names},
+                           'dependencySha256': hashlib.sha256((root / dependency).read_bytes()).hexdigest()}
+                if alteration == 'owner': purpose['owner'] = 'OTHER'
+                if alteration == 'operation': purpose['operationName'] = cold.OPERATION_NAME
+                if alteration == 'decision': purpose['ownerDecision'] = 'candidate-owned'
+                if alteration == 'acceptance': purpose['productionAcceptance'] = True
+                if alteration == 'vector': purpose['sha256']['extra/path'] = 'f' * 64
+                if alteration == 'hash': (root / names[0]).write_bytes(b'changed implementation')
+                if alteration == 'mode': (root / names[0]).chmod(0o755)
+                if alteration == 'link':
+                    (root / names[0]).unlink()
+                    (root / names[0]).symlink_to(base / names[0])
+                if alteration == 'dependency': (root / dependency).write_bytes(b'changed helper')
+                state = root / 'docs/platform-v7/autopilot/autopilot-state.json'
+                state.parent.mkdir(parents=True)
+                state.write_text(json.dumps({'coordinationAdmissions': {'cold-bindings-preservation-20261023': purpose}}))
+                commands = root / 'bin'
+                commands.mkdir()
+                git = commands / 'git'
+                git.write_text('#!' + sys.executable + '\nimport sys\nsys.exit(' + ('1' if alteration == 'ancestry' else '0') + ')\n')
+                git.chmod(0o755)
+                result = subprocess.run([sys.executable, '-I', '-c', code], cwd=root, capture_output=True,
+                                        env={**os.environ, 'PATH': str(commands) + os.pathsep + os.environ['PATH']})
+                self.assertEqual(result.returncode == 0, alteration == 'none', result.stderr.decode())
 
 
 if __name__ == '__main__':
