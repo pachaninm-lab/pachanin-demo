@@ -1877,6 +1877,62 @@ function nextSecurityFixture(t) {
   context.baseline = git(context.root, ['rev-parse', 'HEAD']);
   return context;
 }
+function nextSecuritySizedState(context, size) {
+  const file = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, file), 'utf8'));
+  state.capacityProbe = '测';
+  state.capacityPadding = '';
+  const overhead = Buffer.byteLength(JSON.stringify(state));
+  assert.ok(size >= overhead);
+  state.capacityPadding = 'x'.repeat(size - overhead);
+  const text = JSON.stringify(state);
+  assert.equal(Buffer.byteLength(text), size);
+  return text;
+}
+for (const size of [2251808, 3 * 1024 * 1024]) {
+  test(`Next security patch reads complete accepted and head state of ${size} bytes`, t => {
+    const context = nextSecurityFixture(t);
+    write(context.root, immutableStatePath, nextSecuritySizedState(context, size));
+    commit(context.root, 'large accepted security state');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    write(context.root, 'apps/web/package.json', '{"dependencies":{"next":"15.5.28"}}');
+    commit(context.root, 'bounded security patch with complete state');
+    const result = runGuard(context);
+    assert.equal(result.status, 0, output(result));
+  });
+}
+for (const side of ['base', 'head']) {
+  for (const mutation of ['capacity', 'invalid UTF8', 'global scope']) {
+    test(`Next security patch rejects ${side} ${mutation} with large state`, t => {
+      const context = nextSecurityFixture(t);
+      const file = immutableStatePath;
+      let text = nextSecuritySizedState(context, mutation === 'capacity' ? 3 * 1024 * 1024 + 1 : 2251808);
+      if (mutation === 'global scope') {
+        const state = JSON.parse(text);
+        if (side === 'base') delete state.approvedConcurrentScopes[nextSecurityPatchBranch];
+        else state.allowedCurrentScope.push('apps/web/**');
+        text = JSON.stringify(state);
+      }
+      let bytes = Buffer.from(text);
+      if (mutation === 'invalid UTF8') {
+        const offset = bytes.indexOf(Buffer.from('测'));
+        assert.ok(offset > 0); bytes[offset] = 0xff;
+      }
+      if (side === 'base') {
+        fs.writeFileSync(path.join(context.root, file), bytes);
+        commit(context.root, 'invalid accepted security state');
+        context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+        // A valid candidate cannot repair or replace unaccepted base authority.
+        write(context.root, file, nextSecuritySizedState(nextSecurityFixture(t), 2251808));
+      } else fs.writeFileSync(path.join(context.root, file), bytes);
+      write(context.root, 'apps/web/package.json', '{"dependencies":{"next":"15.5.28"}}');
+      commit(context.root, 'security state rejection probe');
+      const result = runGuard(context);
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /NEXT_SECURITY_PATCH_(STATE_CAPACITY|STATE_UTF8|STATE_MUTATION|ACCEPTED_SCOPE_MISSING)/u);
+    });
+  }
+}
 test('Next security patch admits the manifests and lockfile after prior governance', (t) => {
   const context = nextSecurityFixture(t);
   write(context.root, 'apps/web/package.json', '{"dependencies":{"next":"15.5.24"}}');
@@ -2827,7 +2883,7 @@ test('security remediation pins the three affected dependency families', () => {
   const web = JSON.parse(fs.readFileSync('apps/web/package.json', 'utf8'));
   assert.equal(root.pnpm.overrides.multer, '2.3.0');
   assert.equal(root.pnpm.overrides.sharp, '0.35.5');
-  assert.equal(web.dependencies.next, '15.5.24');
+  assert.equal(web.dependencies.next, '15.5.28');
 });
 
 test('SBOM isolated pnpm commands preserve the setup-node cache store root', () => {
@@ -5585,11 +5641,13 @@ function headroomFixture(t, mutate = () => {}, { ancestry = true } = {}) {
   const state = { allowedCurrentScope: ['README.md', 'apps/api/src/main.ts'],
     approvedConcurrentScopes: { [headroomBranch]: purpose.sourcePayloads.map(item => item.path) } };
   mutate(purpose, state);
-  for (const file of ['scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs',
-    '.github/workflows/platform-v7-autopilot-guard.yml', 'scripts/p7-source-controlled-scope.mjs']) {
-    write(root, file, fs.readFileSync(file, 'utf8'));
-    fs.chmodSync(path.join(root, file), file.endsWith('.sh') ? 0o755 : 0o644);
+  // Seed the actual pinned historical guard tree, not a later worktree repair.
+  for (const item of headroomPurpose().guardPayloads) {
+    const r = spawnSync('git', ['cat-file', 'blob', item.afterBlob], { encoding: 'utf8' });
+    assert.equal(r.status, 0, output(r)); write(root, item.path, r.stdout);
+    fs.chmodSync(path.join(root, item.path), item.mode === '100755' ? 0o755 : 0o644);
   }
+  write(root, 'scripts/p7-source-controlled-scope.mjs', fs.readFileSync('scripts/p7-source-controlled-scope.mjs', 'utf8'));
   for (const item of headroomPurpose().sourcePayloads) {
     const r = spawnSync('git', ['cat-file', 'blob', item.beforeBlob], { encoding: 'utf8' });
     assert.equal(r.status, 0, output(r)); write(root, item.path, r.stdout);
