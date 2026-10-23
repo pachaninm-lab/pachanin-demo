@@ -669,25 +669,36 @@ if (branch === 'fix/pc-crop-docker-headroom-rollover-4637') {
     const purpose = accepted.coordinationAdmissions?.['stopped-recovery-inspection-test-20261023'];
     const errorsPurpose = accepted.coordinationAdmissions?.['stopped-inspection-errors-20261023'];
     const composePurpose = accepted.coordinationAdmissions?.['stopped-compose-label-errors-20261023'];
+    const referencePurpose = accepted.coordinationAdmissions?.['stopped-compose-reference-budget-20261023'];
     // New phases consume accepted-base authority; absence retains the historical route.
     // Candidate metadata cannot enable either pinned transition.
-    if (composePurpose !== undefined || errorsPurpose !== undefined) {
+    if (referencePurpose !== undefined || composePurpose !== undefined || errorsPurpose !== undefined) {
       const fail = reason => { throw new Error('STOPPED_INSPECTION_ERRORS_SCOPE_' + reason); };
       const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
       const headRef = String(process.env.HEAD_REF || '').trim();
       const compose = composePurpose !== undefined;
-      const selectedPurpose = compose ? composePurpose : errorsPurpose;
-      const origin = compose ? 'bab8d46b1c82d8c82faf1a51690cc19662f103f4' : '05ea2dda74ced6eafb3255beb2a44df5abce9a78';
+      const reference = referencePurpose !== undefined;
+      const selectedPurpose = reference ? referencePurpose : compose ? composePurpose : errorsPurpose;
+      const origin = reference ? 'b5f8d55cef2034ebfa59effba367cf6c083ab42f' :
+        compose ? 'bab8d46b1c82d8c82faf1a51690cc19662f103f4' : '05ea2dda74ced6eafb3255beb2a44df5abce9a78';
       const workflow = '.github/workflows/production-docker-headroom-diagnostic.yml';
       const testPath = 'scripts/test_production_stopped_runtime_headroom.py';
-      const beforeBlob = compose ? '274708ec5cff763ffeccd0137c3048346b720b05' : '18401c26bc8f91bb4d47d084bea8edec6fd33675';
-      const afterBlob = compose ? 'e1ab7a02bc7a1f7db106077128821a563d6ef689' : '274708ec5cff763ffeccd0137c3048346b720b05';
-      if (compose && !isDeepStrictEqual(errorsPurpose, { owner: 'ACCOUNT_1_CORE',
+      const beforeBlob = reference ? 'e1ab7a02bc7a1f7db106077128821a563d6ef689' :
+        compose ? '274708ec5cff763ffeccd0137c3048346b720b05' : '18401c26bc8f91bb4d47d084bea8edec6fd33675';
+      const afterBlob = reference ? '03dbdc1d5e9a97687ddd7713e896fb3094f0f8a0' :
+        compose ? 'e1ab7a02bc7a1f7db106077128821a563d6ef689' : '274708ec5cff763ffeccd0137c3048346b720b05';
+      if ((reference || compose) && !isDeepStrictEqual(errorsPurpose, { owner: 'ACCOUNT_1_CORE',
           ownerDecision: '#5469#issuecomment-6354447020',
           authorityBaseExactMain: '05ea2dda74ced6eafb3255beb2a44df5abce9a78',
           sourceBeforeBlob: '18401c26bc8f91bb4d47d084bea8edec6fd33675',
           sourceAfterBlob: '274708ec5cff763ffeccd0137c3048346b720b05',
           productionAcceptance: false })) fail('PRIOR_PURPOSE');
+      if (reference && !isDeepStrictEqual(composePurpose, { owner: 'ACCOUNT_1_CORE',
+          ownerDecision: '#5469#issuecomment-6354447020',
+          authorityBaseExactMain: 'bab8d46b1c82d8c82faf1a51690cc19662f103f4',
+          sourceBeforeBlob: '274708ec5cff763ffeccd0137c3048346b720b05',
+          sourceAfterBlob: 'e1ab7a02bc7a1f7db106077128821a563d6ef689',
+          productionAcceptance: false })) fail('PRIOR_COMPOSE_PURPOSE');
       if (!isDeepStrictEqual(selectedPurpose, { owner: 'ACCOUNT_1_CORE',
           ownerDecision: '#5469#issuecomment-6354447020', authorityBaseExactMain: origin,
           sourceBeforeBlob: beforeBlob, sourceAfterBlob: afterBlob, productionAcceptance: false }) ||
@@ -708,8 +719,9 @@ if (branch === 'fix/pc-crop-docker-headroom-rollover-4637') {
       if (changes !== `:100644 100644 ${beforeBlob} ${afterBlob} M\0${workflow}\0`) fail('EXACT_WORKFLOW');
       exactEntry(baseRef, workflow, beforeBlob); exactEntry(headRef, workflow, afterBlob);
       const after = execFileSync('git', ['show', `${headRef}:${workflow}`]);
-      if (after.length !== (compose ? 185937 : 183028) || createHash('sha256').update(after).digest('hex') !==
-          (compose ? '50adc9a41e460f367396571c4f121fd54ff4552a48f52806ad2beca7b2af2ffc' :
+      if (after.length !== (reference ? 191427 : compose ? 185937 : 183028) || createHash('sha256').update(after).digest('hex') !==
+          (reference ? '09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a' :
+            compose ? '50adc9a41e460f367396571c4f121fd54ff4552a48f52806ad2beca7b2af2ffc' :
             '177abf22e507e68a888b5b2233a82eed779d0b12ec759e8d08145f687de2b254')) fail('SOURCE_CONTENT');
       scopes = [workflow];
     } else if (purpose !== undefined) {
