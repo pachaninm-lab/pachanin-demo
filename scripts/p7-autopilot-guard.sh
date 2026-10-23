@@ -54,8 +54,85 @@ PRODUCT_DEAL_RUNTIME_BRANCH="ux/deal-runtime-unknown-20260929"
 PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH="governance/product-deal-runtime-admission-20260929"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
+# The stopped-copy executor is executable recovery authority. Its six source
+# objects must match a separate admission already present in the trusted base;
+# a manifest or admission supplied by the candidate cannot authorize itself.
+if [ "$CURRENT_BRANCH" = 'ops/ir20-isolated-restore-20260919' ]; then
+  BASE_REF="$BASE_REF" HEAD_REF="$HEAD_REF" STATE_FILE="$STATE_FILE" node - <<'JS_IR20_SOURCE_PINS'
+const { execFileSync } = require('node:child_process');
+const { createHash } = require('node:crypto');
+const { isDeepStrictEqual } = require('node:util');
+const base = process.env.BASE_REF;
+const head = process.env.HEAD_REF;
+const branch = 'ops/ir20-isolated-restore-20260919';
+const stateFile = process.env.STATE_FILE;
+const capacity = 3 * 1024 * 1024;
+function reject(reason) { throw new Error(`IR20_SOURCE_PINS:${reason}`); }
+function git(args, maxBuffer = capacity + 1) {
+  return execFileSync('git', args, { maxBuffer });
+}
+function bytes(ref, file, maxBuffer) { return git(['show', `${ref}:${file}`], maxBuffer); }
+function digest(value) { return createHash('sha256').update(value).digest('hex'); }
+function entry(ref, file) {
+  const value = git(['ls-tree', ref, '--', file]).toString('utf8').trim();
+  const match = /^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/.exec(value);
+  if (!match || match[3] !== file) reject(`REGULAR_FILE:${file}`);
+  return match[1];
+}
+const paths = [
+  'scripts/release/ir20-restore-drill.sh',
+  'scripts/release/test-ir20-restore-drill.py',
+  'scripts/release/test-ir20-restore-drill-integration.sh',
+  '.github/workflows/ir20-restore-drill.yml',
+  'docs/ops/ir20-isolated-restore.md',
+  'docs/platform-v7/autopilot/scopes/ir20-isolated-restore-20260919.json',
+];
+const modes = ['100755', '100755', '100755', '100644', '100644', '100644'];
+const stateBytes = bytes(base, stateFile);
+if (stateBytes.length > capacity) reject('STATE_CAPACITY');
+let state;
+try { state = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(stateBytes)); }
+catch { reject('STATE_ENCODING_OR_JSON'); }
+const admission = state.coordinationAdmissions?.['ir20-stopped-copy-source-20261023'];
+if (!admission) reject('ACCEPTED_ADMISSION_MISSING');
+if (admission.owner !== 'ACCOUNT_1_CORE' || admission.sourceBranch !== branch ||
+    admission.ownerDecision !== '#5469#issuecomment-6354447020' ||
+    admission.writerHandoff !== '#5469#issuecomment-6368785509' ||
+    admission.productionInvocationAuthorized !== false || admission.productionAcceptance !== false ||
+    !/^[0-9a-f]{40}$/.test(admission.authorityBaseExactMain || '')) reject('ADMISSION_IDENTITY');
+if (!isDeepStrictEqual(state.approvedConcurrentScopes?.[branch], paths)) reject('ACCEPTED_VECTOR');
+if (!Array.isArray(admission.sourcePins) || admission.sourcePins.length !== paths.length) reject('PIN_COUNT');
+git(['merge-base', '--is-ancestor', admission.authorityBaseExactMain, base]);
+git(['merge-base', '--is-ancestor', base, head]);
+if (!bytes(head, stateFile).equals(stateBytes)) reject('CANDIDATE_STATE_MUTATION');
+const changes = git(['diff', '--no-renames', '--name-status', `${base}...${head}`])
+  .toString('utf8').trim().split('\n').filter(Boolean).map(line => line.split('\t'));
+if (changes.length !== paths.length || changes.some(([status, file, extra]) =>
+    status !== 'M' || extra || !paths.includes(file))) reject('EXACT_SIX_PATH_DIFF');
+for (let index = 0; index < paths.length; index++) {
+  const file = paths[index];
+  const pin = admission.sourcePins[index];
+  if (!pin || !isDeepStrictEqual(Object.keys(pin).sort(), ['mode', 'path', 'sha256']) ||
+      pin.path !== file || pin.mode !== modes[index] || !/^[0-9a-f]{64}$/.test(pin.sha256 || '')) reject(`PIN_SCHEMA:${file}`);
+  if (entry(base, file) !== pin.mode || entry(head, file) !== pin.mode) reject(`MODE:${file}`);
+  if (digest(bytes(head, file)) !== pin.sha256) reject(`DIGEST:${file}`);
+}
+const dependencies = {
+  'scripts/production_stopped_runtime_headroom.py': '6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14',
+  'scripts/production_cold_preservation.py': '19c873694debb0076701a912b394aad6bb0e092947f04d97e5144320ca5ca832',
+};
+if (!isDeepStrictEqual(admission.dependencySha256, dependencies)) reject('DEPENDENCY_PINS');
+for (const [file, sha] of Object.entries(dependencies)) {
+  if (entry(base, file) !== entry(head, file) || digest(bytes(base, file)) !== sha ||
+      digest(bytes(head, file)) !== sha) reject(`DEPENDENCY:${file}`);
+}
+console.log('IR20_SOURCE_PINS: accepted-base exact six-file payload verified; no production invocation grant.');
+JS_IR20_SOURCE_PINS
+fi
+
 is_immutable_scope_branch() {
   case "$1" in
+    'ops/ir20-isolated-restore-20260919') return 0 ;;
     "fix/pc-crop-docker-headroom-rollover-4637") return 0 ;;
     "security/accounting-bff-csrf-3-5-1"|"security/module-body-validation"|"security/bff-upstream-path-encoding-4459"|"security/request-cookie-single-reader-4459"|"security/open-redirect-demo-login-4459"|"security/email-check-length-first-4459"|"security/browser-hardening-headers-4459"|"security/outbound-redirect-and-surface-4459"|"security/credential-surface-4459"|"fix/tai-release-run-event-filter-20261008") return 0 ;;
     "fix/gekta-history-lifecycle-5818"|"governance/gekta-history-lifecycle-source-admission-5818") return 0 ;;
@@ -2850,6 +2927,10 @@ fi
 
 if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$IR20_BINDING_PREREQUISITE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_SCOPE_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BUYER_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BANK_HOME_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "governance/product-deal-execution-route-20261001" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "governance/gekta-history-lifecycle-source-admission-5818" ]; then
   MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-autopilot-guard\.test\.mjs$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$|\.github/workflows/automerge\.yml$)' || true)
+  if [ "$CURRENT_BRANCH" = 'ops/ir20-isolated-restore-20260919' ]; then
+    # This exact manifest has already matched the immutable accepted-base pin.
+    MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -v -x 'docs/platform-v7/autopilot/scopes/ir20-isolated-restore-20260919.json' || true)
+  fi
   # The source branch above has already matched every full before/after blob,
   # mode and content hash against the separately accepted base purpose.
   if [ "$CURRENT_BRANCH" = "fix/pc-crop-docker-headroom-rollover-4637" ]; then
