@@ -2218,3 +2218,47 @@ index 7c1986cb5..44a791388 100644
 +  });
 +});
 ```
+
+
+## Separate source admission ir20 stopped copy 2026 10 23
+
+Owner: ACCOUNT_1_CORE under owner continuation6354447020, handoff6368785509
+and source continuation6376438168. The original six-file authority base remains
+c938b74a745f2a7ef466dbdf204a971594443113. Trusted validator5938 is accepted on
+current main d79d376df8b5b06ab4acfd8937c1e6c9c699e3b3.
+This metadata resolves current-scope review P1 4361735415 on source PR5936.
+The historical source-controlled manifest and a green legacy guard did not put
+the original IR20 six-path ref in current approvedConcurrentScopes.
+
+Admit only the original ops/ir20-isolated-restore-20260919 six-path vector below,
+with the exact corrected source/dependency hashes. Frozen correction54d61272
+retains the original logical executor, the remaining-time fix and the synthetic
+CI bind root999:999. It invalidates both report markers on publication failure,
+retains the nonreplayable identity journal and reports unproved invalidation.
+Local42/42 synthetic tests passed; real PostgreSQL and native source checks
+remain required. No source or host operation follows from this metadata. Source must compose these exact pins on the then-current accepted main,
+retain source ancestry, and pass fresh independent whole-head review, separate
+author audit, native real-PostgreSQL/substantive/security/Kubernetes checks,
+canonical readiness and ordinary full-expected-SHA acceptance.
+
+State remains below its unchanged3MiB cap. Only outside-string whitespace in the
+existing CORE-owned gekta-consent-first-user-release-prerequisites-20261008 value
+is compacted. Its JSON tokens/strings/escapes/values are unchanged. Every other
+old admission raw value, all existing ordered scope vectors/raw values and every
+other top-level byte/value are preserved. Remove the new vector/purpose and the
+entire old semantic state is identical. No Gekta source/behavior or other owner's
+authority changes. Primary/current/next-step/progress remain unchanged.
+
+The source prerequisite uses only an isolated owned volatile non-root networkless
+PG16 copy. No production workflow event, protected credential, host dispatch,
+original database/application/worker startup, migration, archive decryption or key read,
+offhost transfer, provider action or new cost is admitted. A later actual host
+controller and fresh serialized operation decision remain separate requirements.
+Bindings39979779958 remains complete/spent; original19volumes and both private
+archives/keys are retained. Whole UX/BANKS/FGIS NOT_CLOSED; official5/100.
+
+Exact admitted purpose and source pins:
+
+```json
+{"owner":"ACCOUNT_1_CORE","sourceBranch":"ops/ir20-isolated-restore-20260919","ownerDecision":"#5469#issuecomment-6354447020","writerHandoff":"#5469#issuecomment-6368785509","authorityBaseExactMain":"c938b74a745f2a7ef466dbdf204a971594443113","sourcePins":[{"path":"scripts/release/ir20-restore-drill.sh","mode":"100755","sha256":"c4d06679a8e039b352a2a5d59669fee9189cd495dd1edd4ed53a2f035fe74740"},{"path":"scripts/release/test-ir20-restore-drill.py","mode":"100755","sha256":"ed21003b25db619c9d4b4a41deb749bfd6f54f25aa2bacef142725cbc8131ab7"},{"path":"scripts/release/test-ir20-restore-drill-integration.sh","mode":"100755","sha256":"8427fb929e5455008252f8e868b1ce6da578efd67e47813b00f97cf76a94aaf2"},{"path":".github/workflows/ir20-restore-drill.yml","mode":"100644","sha256":"0eef2d1b6b7258db3e4ac3bbc4d13f1e3b2362fb37b9fa03617be3d79f5fabf0"},{"path":"docs/ops/ir20-isolated-restore.md","mode":"100644","sha256":"ff3ed080c9a5daa72b437bdfa78b6552d52c82fe4402d63bcebc88b3f460df3e"},{"path":"docs/platform-v7/autopilot/scopes/ir20-isolated-restore-20260919.json","mode":"100644","sha256":"3bf2cb622a6b4b0ca8f8b7fe7f4b9fbd89b648439db7dd36b82ee47a135689f4"}],"dependencySha256":{"scripts/production_stopped_runtime_headroom.py":"6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14","scripts/production_cold_preservation.py":"19c873694debb0076701a912b394aad6bb0e092947f04d97e5144320ca5ca832"},"productionInvocationAuthorized":false,"productionAcceptance":false,"limits":"Six-path source-only stopped PG16 volatile-copy prerequisite. No host dispatch, original startup, transfer or new cost."}
+```
