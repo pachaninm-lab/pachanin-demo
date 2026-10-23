@@ -2666,8 +2666,24 @@ const fs = require('fs');
 const { execFileSync } = require('node:child_process');
 const { isDeepStrictEqual } = require('node:util');
 const branch = String(process.env.GITHUB_HEAD_REF || '').trim();
+// Match the existing immutable registry ceiling, only for this named state
+// reader. Never enlarge ordinary source/manifest buffers or truncate authority.
+function readSecurityPatchState(ref) {
+  const capacity = 3 * 1024 * 1024;
+  let bytes;
+  try {
+    bytes = execFileSync('git', ['show', `${ref}:docs/platform-v7/autopilot/autopilot-state.json`], { maxBuffer: capacity + 1 });
+  } catch (error) {
+    if (error?.code === 'ENOBUFS') throw new Error('NEXT_SECURITY_PATCH_STATE_CAPACITY');
+    throw error;
+  }
+  if (bytes.length > capacity) throw new Error('NEXT_SECURITY_PATCH_STATE_CAPACITY');
+  const text = bytes.toString('utf8');
+  if (!Buffer.from(text, 'utf8').equals(bytes)) throw new Error('NEXT_SECURITY_PATCH_STATE_UTF8');
+  return text;
+}
 const state = JSON.parse(branch === 'security/pc-crop-next-15-5-24-4997'
-  ? execFileSync('git', ['show', `${process.env.P7_SCOPE_HEAD_REF}:docs/platform-v7/autopilot/autopilot-state.json`], { encoding: 'utf8' })
+  ? readSecurityPatchState(process.env.P7_SCOPE_HEAD_REF)
   : fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
 let scopes = branch ? state.approvedConcurrentScopes?.[branch] : undefined;
 if (branch === 'security/pc-crop-next-15-5-24-4997') {
@@ -2679,7 +2695,7 @@ if (branch === 'security/pc-crop-next-15-5-24-4997') {
   // Bootstrap is bound to that exact base state; it is not a generic fallback.
   let accepted;
   try {
-    accepted = JSON.parse(execFileSync('git', ['show', `${process.env.P7_SCOPE_BASE_REF}:docs/platform-v7/autopilot/autopilot-state.json`], { encoding: 'utf8' }));
+    accepted = JSON.parse(readSecurityPatchState(process.env.P7_SCOPE_BASE_REF));
   } catch {
     throw new Error('NEXT_SECURITY_PATCH_ACCEPTED_SCOPE_MISSING');
   }
