@@ -56,3 +56,57 @@ PY
 [[ "$(docker --host unix:///var/run/docker.sock exec "$SOURCE_ID" psql -XqAt -U postgres -d fixture -c 'SELECT count(*) FROM outbox_entries')" == 20 ]]
 [[ -z "$(docker --host unix:///var/run/docker.sock ps -aq --filter label=pc-crop.ir20-restore)" ]]
 printf 'IR20_REAL_POSTGRES_RESTORE_FIXTURE=PASS\n'
+
+# The same executor's stopped-copy engine is exercised with synthetic bytes only.
+# The CI image ID replaces the frozen production image ID in this in-memory fixture
+# module; no production source, command route, host identity or archive is used.
+python3 -I - "$ROOT" "$TARGET_SHA" "$IMAGE" <<'PY_STOPPED_INTEGRATION'
+import hashlib,json,os,pathlib,subprocess,sys,tempfile,time,types
+root,sha,image=map(str,sys.argv[1:])
+source=pathlib.Path(root,'scripts/release/ir20-restore-drill.sh').read_text().split("<<'PY_STOPPED_SOURCE'\n",1)[1].split('\nPY_STOPPED_SOURCE\n',1)[0]
+mode=types.ModuleType('ir20_stopped_ci_fixture')
+exec(compile(source,'<actual-stopped-copy-source>','exec'),mode.__dict__)
+cold,_=mode.dependencies(root)
+def docker(*args, data=None):
+    result=subprocess.run(['docker','--host','unix:///var/run/docker.sock',*args],input=data,
+                          stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=120,check=True)
+    return result.stdout
+mode.PG_IMAGE=docker('image','inspect','--format','{{.Id}}',image).decode().strip()
+assert len(mode.PG_IMAGE)==71 and mode.PG_IMAGE.startswith('sha256:')
+with tempfile.TemporaryDirectory(prefix='pc-ir20-stopped-fixture-') as temp:
+    base=pathlib.Path(temp);data=base/'volumes'/'pg-fixture'/'_data';data.mkdir(parents=True,mode=0o700)
+    for p in (base,base/'volumes',base/'volumes'/'pg-fixture'):p.chmod(0o700)
+    name='pc-ir20-stopped-fixture-'+os.urandom(8).hex()
+    source_id=None;copy=None
+    try:
+        source_id=docker('run','--pull=never','-d','--name',name,'--network','none',
+                         '--mount','type=bind,source='+str(data)+',target='+mode.DATA,
+                         '-e','POSTGRES_USER=postgres','-e','POSTGRES_DB=fixture',
+                         '-e','POSTGRES_HOST_AUTH_METHOD=trust','-e','POSTGRES_INITDB_ARGS=--data-checksums',image).decode().strip()
+        ready=False
+        for _ in range(40):
+            result=subprocess.run(['docker','--host','unix:///var/run/docker.sock','exec',source_id,
+                                   'pg_isready','-q','-U','postgres','-d','fixture'],
+                                  stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=5)
+            if result.returncode==0:ready=True;break
+            time.sleep(1)
+        assert ready,'synthetic PostgreSQL did not become ready'
+        docker('exec','-i',source_id,'psql','-Xq','-v','ON_ERROR_STOP=1','-U','postgres','-d','fixture',
+               data=b"CREATE TABLE physical_copy_fixture(id int PRIMARY KEY, payload text NOT NULL); INSERT INTO physical_copy_fixture SELECT i, repeat('synthetic UTF8 ',50) FROM generate_series(1,100) i; CHECKPOINT;\n")
+        docker('stop','--time','30',source_id)
+        docker('rm',source_id);source_id=None
+        with mode.pg_snapshot(cold,str(base),'pg-fixture') as before:
+            before.capture();mode.validate_snapshot(before)
+            copy=mode.DockerCopy(sha,'123456789')
+            copy.create('postgres','fixture',before.entries['data']['mode'])
+            copy.transfer(before,'pg-fixture',cold)
+            assert copy.recover('postgres','fixture')=='VERIFIED'
+            copy.cleanup();copy=None
+            with mode.pg_snapshot(cold,str(base),'pg-fixture') as after:
+                after.capture();assert before.entries==after.entries,'synthetic stopped source changed'
+        assert not docker('ps','-aq','--filter','label='+mode.LABEL).strip()
+    finally:
+        if copy is not None:copy.cleanup()
+        if source_id is not None:docker('rm','-f',source_id)
+print('IR20_REAL_STOPPED_POSTGRES_COPY_FIXTURE=PASS')
+PY_STOPPED_INTEGRATION
