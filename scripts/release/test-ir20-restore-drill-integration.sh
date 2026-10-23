@@ -76,6 +76,10 @@ assert len(mode.PG_IMAGE)==71 and mode.PG_IMAGE.startswith('sha256:')
 with tempfile.TemporaryDirectory(prefix='pc-ir20-stopped-fixture-') as temp:
     base=pathlib.Path(temp);data=base/'volumes'/'pg-fixture'/'_data';data.mkdir(parents=True,mode=0o700)
     for p in (base,base/'volumes',base/'volumes'/'pg-fixture'):p.chmod(0o700)
+    # Docker's entrypoint chowns the bind root's user, not its existing group.
+    # Seed the synthetic source with the recorded production 999:999 profile.
+    os.chown(data,mode.PG_UID,mode.PG_GID)
+    assert (data.stat().st_uid,data.stat().st_gid)==(999,999)
     name='pc-ir20-stopped-fixture-'+os.urandom(8).hex()
     source_id=None;copy=None
     try:
