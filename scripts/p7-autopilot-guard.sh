@@ -661,6 +661,56 @@ if (branch === 'fix/pc-crop-docker-headroom-rollover-4637') {
   scopes = paths;
 } else if (Object.hasOwn(gektaRecoveryScopes, branch)) {
   scopes = gektaRecoveryScopes[branch];
+  if (branch === 'fix/gekta-docker-diagnostic-route-20260927') {
+    const { isDeepStrictEqual } = require('node:util');
+    const { createHash } = require('node:crypto');
+    const acceptedText = readImmutableState(baseRef);
+    const accepted = JSON.parse(acceptedText);
+    const purpose = accepted.coordinationAdmissions?.['stopped-recovery-inspection-test-20261023'];
+    // A missing accepted purpose retains the original workflow-only route.
+    // Candidate metadata cannot enable this exact test correction.
+    if (purpose !== undefined) {
+      const fail = reason => { throw new Error('STOPPED_INSPECTION_SCOPE_' + reason); };
+      const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
+      const headRef = String(process.env.HEAD_REF || '').trim();
+      const origin = purpose?.authorityBaseExactMain;
+      const testPath = 'scripts/test_production_stopped_runtime_headroom.py';
+      const paths = [...gektaRecoveryScopes[branch], testPath];
+      if (typeof origin !== 'string' || !/^[0-9a-f]{40}$/u.test(origin) ||
+          !isDeepStrictEqual(purpose, { owner: 'ACCOUNT_1_CORE', ownerDecision: '#5469#issuecomment-6354447020',
+            productionAcceptance: false, authorityBaseExactMain: origin }) ||
+          !isDeepStrictEqual(accepted.approvedConcurrentScopes?.[branch], paths)) fail('ACCEPTED_PURPOSE');
+      try {
+        if (!headRef || git(['merge-base', baseRef, headRef]) !== git(['rev-parse', `${baseRef}^{commit}`]) ||
+            git(['merge-base', origin, baseRef]) !== origin) fail('ANCESTRY');
+      } catch { fail('ANCESTRY'); }
+      for (const ref of [baseRef, headRef]) {
+        if (!git(['ls-tree', ref, '--', stateFile]).startsWith('100644 blob ')) fail('STATE_MODE');
+      }
+      if (readImmutableState(headRef) !== acceptedText) fail('STATE_MUTATION');
+      const changes = git(['diff', '--no-renames', '--name-status', `${baseRef}...${headRef}`])
+        .split('\n').filter(Boolean).map(line => line.split('\t'));
+      if (!isDeepStrictEqual(changes, paths.map(file => ['M', file]).sort((a, b) => a[1].localeCompare(b[1], 'en')))) fail('EXACT_TWO_PATHS');
+      for (const file of paths) for (const ref of [baseRef, headRef]) {
+        if (!git(['ls-tree', ref, '--', file]).startsWith('100644 blob ')) fail('FILE_MODE');
+      }
+      const beforeBlob = 'ea6430963a568e1356a7706c8514d5215fdd9c38';
+      const afterBlob = 'bc2c092cea71aaca1c94121b02d1bd87cf83df5f';
+      if (git(['rev-parse', `${baseRef}:${testPath}`]) !== beforeBlob ||
+          git(['rev-parse', `${headRef}:${testPath}`]) !== afterBlob) fail('TEST_BLOB');
+      const before = execFileSync('git', ['show', `${baseRef}:${testPath}`]);
+      const after = execFileSync('git', ['show', `${headRef}:${testPath}`]);
+      if (before.length !== 34004 || after.length !== 34069 ||
+          createHash('sha256').update(before).digest('hex') !== '6658a4492242e7ee3e7be9b83be4df005cd879c389b0ee00cb0aefa6d2cf7201' ||
+          createHash('sha256').update(after).digest('hex') !== '6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9') fail('TEST_CONTENT');
+      const oldLine = "        expected = {'production-cold-preservation.yml',\n";
+      const newLines = "        expected = {'production-docker-headroom-diagnostic.yml',\n" +
+        "                    'production-cold-preservation.yml',\n";
+      const text = before.toString('utf8');
+      if (text.split(oldLine).length !== 2 || !Buffer.from(text.replace(oldLine, newLines), 'utf8').equals(after)) fail('TEST_REPLACEMENT');
+      scopes = paths;
+    }
+  }
   if (branch === 'fix/gekta-history-lifecycle-5818' || branch === 'governance/gekta-history-lifecycle-source-admission-5818') {
     const { isDeepStrictEqual } = require('node:util');
     const { createHash } = require('node:crypto');

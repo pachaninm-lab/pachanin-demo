@@ -5746,3 +5746,100 @@ test('headroom: both workflow entry points use trusted-base scope and reject for
     '|' + headroomBranch + '|', 'git show "$BASE_SHA:scripts/p7-autopilot-guard.sh"',
     'HEAD_REPOSITORY', 'PC-CROP immutable scope · PR-head defense']) assert.ok(text.includes(marker), marker);
 });
+
+const stoppedInspectionBranch = 'fix/gekta-docker-diagnostic-route-20260927';
+const stoppedInspectionKey = 'stopped-recovery-inspection-test-20261023';
+const stoppedInspectionWorkflow = '.github/workflows/production-docker-headroom-diagnostic.yml';
+const stoppedInspectionTest = 'scripts/test_production_stopped_runtime_headroom.py';
+const stoppedInspectionState = 'docs/platform-v7/autopilot/autopilot-state.json';
+const stoppedInspectionOrigin = 'a509789c22298375130d70fde95915b8daa7634a';
+function stoppedInspectionFixture(t, mutation = '') {
+  const c = fixture(t, stoppedInspectionBranch);
+  const objectDir = git(process.cwd(), ['rev-parse', '--path-format=absolute', '--git-path', 'objects']);
+  write(c.root, '.git/objects/info/alternates', objectDir + '\n');
+  const before = git(process.cwd(), ['show', stoppedInspectionOrigin + ':' + stoppedInspectionTest]) + '\n';
+  assert.equal(createHash('sha256').update(before).digest('hex'), '6658a4492242e7ee3e7be9b83be4df005cd879c389b0ee00cb0aefa6d2cf7201');
+  const purpose = { owner: 'ACCOUNT_1_CORE', ownerDecision: '#5469#issuecomment-6354447020',
+    productionAcceptance: false, authorityBaseExactMain: stoppedInspectionOrigin };
+  const state = { allowedCurrentScope: ['README.md'], approvedConcurrentScopes: {
+    [stoppedInspectionBranch]: [stoppedInspectionWorkflow, stoppedInspectionTest],
+  }, coordinationAdmissions: { [stoppedInspectionKey]: purpose } };
+  if (mutation === 'wrong owner') purpose.owner = 'ACCOUNT_2_PRODUCT';
+  if (mutation === 'wrong decision') purpose.ownerDecision = '#5469#issuecomment-0';
+  if (mutation === 'production credit') purpose.productionAcceptance = true;
+  if (mutation === 'extra purpose field') purpose.extraAuthority = true;
+  if (mutation === 'malformed origin') purpose.authorityBaseExactMain = 'main';
+  if (mutation === 'unrelated origin') purpose.authorityBaseExactMain = '0'.repeat(40);
+  if (mutation === 'widened accepted vector') state.approvedConcurrentScopes[stoppedInspectionBranch].push('README.md');
+  if (['missing accepted purpose', 'candidate-only purpose', 'legacy workflow only'].includes(mutation)) {
+    delete state.coordinationAdmissions[stoppedInspectionKey];
+    state.approvedConcurrentScopes[stoppedInspectionBranch] = [stoppedInspectionWorkflow];
+  }
+  write(c.root, stoppedInspectionState, JSON.stringify(state) + '\n');
+  write(c.root, stoppedInspectionWorkflow, 'name: accepted diagnostic fixture\n');
+  write(c.root, stoppedInspectionTest, before + (mutation === 'changed accepted test' ? '# extra\n' : ''));
+  git(c.root, ['add', '--all']);
+  const tree = git(c.root, ['write-tree']);
+  c.baseline = git(c.root, ['commit-tree', tree, '-p', stoppedInspectionOrigin, '-m', 'accepted inspection authority fixture']);
+  git(c.root, ['update-ref', 'HEAD', c.baseline]);
+  const after = before.replace("        expected = {'production-cold-preservation.yml',\n",
+    "        expected = {'production-docker-headroom-diagnostic.yml',\n                    'production-cold-preservation.yml',\n");
+  assert.equal(createHash('sha256').update(after).digest('hex'), '6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9');
+  if (mutation !== 'missing workflow') write(c.root, stoppedInspectionWorkflow, 'name: candidate diagnostic fixture\n');
+  if (!['missing test', 'legacy workflow only'].includes(mutation)) write(c.root, stoppedInspectionTest, after);
+  if (mutation === 'changed candidate test') fs.appendFileSync(path.join(c.root, stoppedInspectionTest), '# extra\n');
+  if (mutation === 'extra source') write(c.root, 'README.md', 'unauthorized source\n');
+  if (mutation === 'state mutation') state.allowedCurrentScope.push('**');
+  if (mutation === 'candidate-only purpose') {
+    state.coordinationAdmissions[stoppedInspectionKey] = purpose;
+    state.approvedConcurrentScopes[stoppedInspectionBranch] = [stoppedInspectionWorkflow, stoppedInspectionTest];
+  }
+  if (['state mutation', 'candidate-only purpose'].includes(mutation)) write(c.root, stoppedInspectionState, JSON.stringify(state) + '\n');
+  if (mutation === 'test executable') fs.chmodSync(path.join(c.root, stoppedInspectionTest), 0o755);
+  if (mutation === 'workflow executable') fs.chmodSync(path.join(c.root, stoppedInspectionWorkflow), 0o755);
+  if (mutation === 'state executable') fs.chmodSync(path.join(c.root, stoppedInspectionState), 0o755);
+  if (mutation === 'test symlink') {
+    fs.unlinkSync(path.join(c.root, stoppedInspectionTest));
+    fs.symlinkSync('README.md', path.join(c.root, stoppedInspectionTest));
+  }
+  return c;
+}
+function checkStoppedInspection(c, accepted = false) {
+  commit(c.root, 'candidate inspection source');
+  const result = runIndustrialTrustedGuard(c);
+  if (accepted) assert.equal(result.status, 0, output(result));
+  else {
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /STOPPED_INSPECTION_SCOPE_|Files outside current autopilot scope|Mutable scope authority changed/u);
+  }
+}
+for (const mutation of ['', 'legacy workflow only']) {
+  test('stopped inspection: accepts ' + (mutation || 'exact admitted two-file correction'), t => {
+    checkStoppedInspection(stoppedInspectionFixture(t, mutation), true);
+  });
+}
+for (const mutation of ['wrong owner', 'wrong decision', 'production credit', 'extra purpose field',
+  'malformed origin', 'unrelated origin', 'widened accepted vector', 'missing workflow', 'missing test',
+  'changed accepted test', 'changed candidate test', 'extra source', 'state mutation', 'test executable',
+  'workflow executable', 'state executable', 'test symlink', 'missing accepted purpose', 'candidate-only purpose']) {
+  test('stopped inspection: rejects ' + mutation, t => checkStoppedInspection(stoppedInspectionFixture(t, mutation)));
+}
+test('stopped inspection: dirty correct test cannot rescue committed wrong bytes', t => {
+  const c = stoppedInspectionFixture(t, 'changed candidate test');
+  commit(c.root, 'wrong committed test');
+  const wrong = fs.readFileSync(path.join(c.root, stoppedInspectionTest), 'utf8');
+  write(c.root, stoppedInspectionTest, wrong.slice(0, -'# extra\n'.length));
+  const result = runIndustrialTrustedGuard(c);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /STOPPED_INSPECTION_SCOPE_TEST_BLOB/u);
+});
+test('stopped inspection: rejects a head which skips the accepted base', t => {
+  const c = stoppedInspectionFixture(t);
+  git(c.root, ['add', '--all']);
+  const tree = git(c.root, ['write-tree']);
+  const head = git(c.root, ['commit-tree', tree, '-p', stoppedInspectionOrigin, '-m', 'head skips accepted base']);
+  git(c.root, ['update-ref', 'HEAD', head]);
+  const result = runIndustrialTrustedGuard(c);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /STOPPED_INSPECTION_SCOPE_ANCESTRY/u);
+});
