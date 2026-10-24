@@ -302,6 +302,7 @@ function commit(root, message) {
 // Reuse only an immutable copy of a genuine baseline built by the unchanged
 // constructor. Every caller receives separate files, refs and mutable history.
 const fixtureSnapshots = new Map();
+const compositeFixtureSnapshots = new Map();
 let fixtureSnapshotDirectory;
 after(() => {
   if (fixtureSnapshotDirectory) fs.rmSync(fixtureSnapshotDirectory, { recursive: true, force: true });
@@ -320,7 +321,7 @@ function fixture(t, implementationBranch) {
   if (previous) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-immutable-scope-guard-'));
     t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
-    fs.cpSync(previous.directory, root, { recursive: true, dereference: false });
+    copyFixtureSnapshot(previous.directory, root);
     assert.equal(fs.readFileSync(path.join(root, '.git', 'HEAD'), 'utf8'), `ref: refs/heads/${implementationBranch}\n`);
     assert.equal(fs.readFileSync(path.join(root, '.git', 'refs', 'heads', implementationBranch), 'utf8'), `${previous.baseline}\n`);
     return { root, baseline: previous.baseline, implementationBranch };
@@ -362,6 +363,144 @@ function constructFixture(t, implementationBranch) {
   git(root, ['switch', '-c', implementationBranch]);
   return { root, baseline, implementationBranch };
 }
+
+// Reuse completed immutable baselines, never candidate mutations or assertions.
+// Constructors with mutation callbacks or custom Git setup always run normally.
+function copyFixtureSnapshot(directory, root) {
+  const objects = path.join(directory, '.git', 'objects');
+  fs.cpSync(directory, root, { recursive: true, dereference: false, verbatimSymlinks: true,
+    filter: source => source !== objects });
+  // Git reads only the immutable snapshot's objects; new objects, refs, index
+  // and worktree belong exclusively to the caller. Snapshots outlive all tests.
+  write(root, '.git/objects/info/alternates', objects + '\n');
+}
+
+function compositeFixture(t, kind, options, construct) {
+  if (Object.getPrototypeOf(options) !== Object.prototype ||
+      Reflect.ownKeys(options).some(key => typeof key !== 'string' ||
+        !Object.hasOwn(Object.getOwnPropertyDescriptor(options, key), 'value')) ||
+      Object.hasOwn(options, 'mutateBase') ||
+      Object.values(options).some(value => !['string', 'boolean', 'undefined'].includes(typeof value)) ||
+      Object.keys(process.env).some(name => name.startsWith('GIT_') && name !== 'GIT_PAGER')) return construct();
+  const custom = spawnSync('git', ['config', '--includes', '--get-regexp', '^(core\\.[Hh]ooks[Pp]ath|init\\.[Tt]emplate[Dd]ir|include[Ii]f\\..*\\.path)$'], { cwd: os.tmpdir(), encoding: 'utf8' });
+  if (custom.status !== 1) return construct();
+  const inputs = [sourceGuard, sourceResolver, 'docs/platform-v7/autopilot/autopilot-state.json',
+    'scripts/security/discover-cryptography.mjs', 'apps/tai/release-source-manifest.json'];
+  const identity = inputs.map(file => [file, createHash('sha256').update(fs.readFileSync(file)).digest('hex')]);
+  const key = createHash('sha256').update(JSON.stringify([kind, options, identity])).digest('hex');
+  const previous = compositeFixtureSnapshots.get(key);
+  if (previous) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-composite-scope-guard-'));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
+    copyFixtureSnapshot(previous.directory, root);
+    assert.equal(git(root, ['rev-parse', 'HEAD']), previous.head);
+    assert.equal(git(root, ['symbolic-ref', 'HEAD']), `refs/heads/${previous.context.implementationBranch}`);
+    assert.equal(git(root, ['status', '--porcelain']), '');
+    return { ...structuredClone(previous.context), root };
+  }
+  const context = construct();
+  assert.ok(Object.values(context).every(value => typeof value === 'string'));
+  if (fs.readdirSync(path.join(context.root, '.git', 'hooks')).some(name => !name.endsWith('.sample')) ||
+      git(context.root, ['status', '--porcelain']) !== '') return context;
+  fixtureSnapshotDirectory ??= fs.mkdtempSync(path.join(os.tmpdir(), 'p7-fixture-snapshots-'));
+  const directory = path.join(fixtureSnapshotDirectory, 'composite-' + key);
+  fs.cpSync(context.root, directory, { recursive: true, dereference: false, verbatimSymlinks: true });
+  compositeFixtureSnapshots.set(key, { directory, head: git(context.root, ['rev-parse', 'HEAD']),
+    context: structuredClone(context) });
+  return context;
+}
+
+function runControlledCacheRegression(t) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-controlled-cache-regression-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
+  const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_')));
+  delete env.NODE_TEST_CONTEXT;
+  const found = spawnSync('sh', ['-c', 'command -v git'], { env, encoding: 'utf8' });
+  assert.equal(found.status, 0, output(found));
+  const executable = fs.realpathSync(found.stdout.trim());
+  const quote = value => "'" + value.replaceAll("'", "'\\''") + "'";
+  // Configure Git only in its child process. Keep the Node test process free
+  // of Git overrides so the actual cache policy remains under test.
+  write(root, 'bin/git', '#!/bin/sh\nGIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null exec ' +
+    quote(executable) + ' "$@"\n', 0o755);
+  env.PATH = path.join(root, 'bin') + path.delimiter + env.PATH;
+  env.PC_CROP_CACHE_REGRESSION_CHILD = t.name;
+  const pattern = '^' + t.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$';
+  const result = spawnSync(process.execPath, ['--test', '--test-reporter=tap', '--test-name-pattern', pattern,
+    path.resolve('scripts/p7-autopilot-guard.test.mjs')],
+  { env, encoding: 'utf8', timeout: 30000, maxBuffer: 1024 * 1024 });
+  assert.equal(result.status, 0, output(result));
+  const totals = {};
+  for (const name of ['tests', 'pass', 'fail', 'cancelled', 'skipped', 'todo']) {
+    const matches = [...result.stdout.matchAll(new RegExp('^# ' + name + ' ([0-9]+)\\r?$', 'gm'))];
+    assert.equal(matches.length, 1, 'one terminal TAP total for ' + name);
+    totals[name] = Number(matches[0][1]);
+    assert.ok(Number.isSafeInteger(totals[name]));
+  }
+  // Node 20 includes unmatched skipped registrations in its total; newer
+  // runners omit them. Require exactly one executed test on either version.
+  assert.equal(totals.tests, totals.skipped + 1);
+  assert.equal(totals.pass, 1);
+  for (const name of ['fail', 'cancelled', 'todo']) assert.equal(totals[name], 0);
+}
+
+test('composite baseline copies isolate candidate bytes, refs and relative symlinks', (t) => {
+  if (process.env.PC_CROP_CACHE_REGRESSION_CHILD !== t.name) return runControlledCacheRegression(t);
+  let constructions = 0;
+  const construct = () => {
+    constructions++;
+    const context = fixture(t, 'test/composite-snapshot-isolation');
+    write(context.root, 'baseline/value.txt', 'accepted bytes\n', 0o600);
+    fs.symlinkSync('value.txt', path.join(context.root, 'baseline/link'));
+    commit(context.root, 'genuine composite baseline');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    return context;
+  };
+  const first = compositeFixture(t, 'snapshot-isolation-regression', {}, construct);
+  write(first.root, 'baseline/value.txt', 'candidate mutation\n');
+  fs.unlinkSync(path.join(first.root, 'baseline/link'));
+  fs.symlinkSync('../allowed.txt', path.join(first.root, 'baseline/link'));
+  commit(first.root, 'mutated candidate refs and bytes');
+  write(first.root, 'untracked.txt', 'must stay in first caller\n');
+  const second = compositeFixture(t, 'snapshot-isolation-regression', {}, construct);
+  assert.equal(constructions, 1);
+  assert.notEqual(first.root, second.root);
+  assert.equal(git(second.root, ['rev-parse', 'HEAD']), first.baseline);
+  assert.notEqual(git(first.root, ['rev-parse', 'HEAD']), first.baseline);
+  assert.notEqual(spawnSync('git', ['cat-file', '-e', git(first.root, ['rev-parse', 'HEAD'])],
+    { cwd: second.root }).status, 0, 'another candidate must not gain the first caller\'s new objects');
+  assert.equal(fs.readFileSync(path.join(second.root, 'baseline/value.txt'), 'utf8'), 'accepted bytes\n');
+  assert.equal(fs.statSync(path.join(second.root, 'baseline/value.txt')).mode & 0o777, 0o600);
+  assert.equal(fs.readlinkSync(path.join(second.root, 'baseline/link')), 'value.txt');
+  assert.equal(fs.existsSync(path.join(second.root, 'untracked.txt')), false);
+});
+
+test('custom composite mutation callbacks and Git setup never reuse cached baselines', (t) => {
+  if (process.env.PC_CROP_CACHE_REGRESSION_CHILD !== t.name) return runControlledCacheRegression(t);
+  let constructions = 0;
+  const construct = () => { constructions++; return fixture(t, 'test/composite-custom-setup'); };
+  compositeFixture(t, 'custom-setup-regression', {}, construct);
+  compositeFixture(t, 'custom-setup-regression', {}, construct);
+  assert.equal(constructions, 1);
+  compositeFixture(t, 'custom-setup-regression', { mutateBase: () => {} }, construct);
+  assert.equal(constructions, 2);
+  compositeFixture(t, 'custom-setup-regression', Object.create({ admitted: true }), construct);
+  assert.equal(constructions, 3);
+  let getterReads = 0;
+  compositeFixture(t, 'custom-setup-regression', Object.defineProperty({}, 'admitted',
+    { enumerable: true, get() { getterReads++; return true; } }), construct);
+  assert.equal(constructions, 4);
+  assert.equal(getterReads, 0);
+  const old = process.env.GIT_CONFIG_NOSYSTEM;
+  try {
+    process.env.GIT_CONFIG_NOSYSTEM = '1';
+    compositeFixture(t, 'custom-setup-regression', {}, construct);
+    assert.equal(constructions, 5);
+  } finally {
+    if (old === undefined) delete process.env.GIT_CONFIG_NOSYSTEM;
+    else process.env.GIT_CONFIG_NOSYSTEM = old;
+  }
+});
 
 test('IR-20 binding prerequisite admits exactly the five non-authority implementation paths', () => {
   const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
@@ -3270,7 +3409,10 @@ function writeDealRuntimeAdmission(context, mutate = () => {}) {
   mutate(state);
   write(context.root, dealRuntimeStatePath, `${JSON.stringify(state, null, 2)}\n`);
 }
-function dealRuntimeFixture(t, { admitted = false, renewal = true, admission = false } = {}) {
+function dealRuntimeFixture(t, options = {}) {
+  return compositeFixture(t, 'deal-runtime', options, () => constructDealRuntimeFixture(t, options));
+}
+function constructDealRuntimeFixture(t, { admitted = false, renewal = true, admission = false } = {}) {
   const context = fixture(t, admission ? dealRuntimeAdmissionBranch : dealRuntimeImplementationBranch);
   const current = JSON.parse(fs.readFileSync(dealRuntimeStatePath, 'utf8'));
   const renewalRecord = structuredClone(current.coordinationAdmissions[dealRuntimeRenewalKey]);
@@ -3536,6 +3678,9 @@ function generateDealRuntimeInventory(context, sourceSha) {
   assert.equal(result.status, 0, output(result));
 }
 function generatedDealRuntimeFixture(t) {
+  return compositeFixture(t, 'generated-deal-runtime', {}, () => constructGeneratedDealRuntimeFixture(t));
+}
+function constructGeneratedDealRuntimeFixture(t) {
   const context = dealRuntimeFixture(t, { admitted: true });
   write(context.root, dealRuntimeGeneratorPath, fs.readFileSync(dealRuntimeGeneratorPath, 'utf8'));
   write(context.root, dealRuntimePaths[1], 'existing production-resolved test\n');
@@ -3779,6 +3924,9 @@ function expectedAttestationScope(state) {
   return [gitleaksReleaseAttestationPath, ...landingMetadataPaths];
 }
 function landingMetadataFixture(t, implementation = false) {
+  return compositeFixture(t, 'landing-metadata', { implementation }, () => constructLandingMetadataFixture(t, implementation));
+}
+function constructLandingMetadataFixture(t, implementation = false) {
   const context = currentGitleaksReleaseAttestationFixture(t);
   if (!implementation) {
     git(context.root, ['switch', '-c', landingMetadataAdmissionBranch]);
@@ -4452,7 +4600,10 @@ function runLocaleModeBypassControl(context) {
     encoding: 'utf8',
   });
 }
-function dealLocaleFixture(t, { implementation = false, accepted = false, pinnedSources = false, mutateBase = () => {} } = {}) {
+function dealLocaleFixture(t, options = {}) {
+  return compositeFixture(t, 'deal-locale', options, () => constructDealLocaleFixture(t, options));
+}
+function constructDealLocaleFixture(t, { implementation = false, accepted = false, pinnedSources = false, mutateBase = () => {} } = {}) {
   const context = dealRuntimeFixture(t, { admitted: true, admission: !implementation });
   const state = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
   state.coordinationAdmissions[dealLocalePurposeKey] = structuredClone(dealLocalePurpose);
@@ -4518,7 +4669,10 @@ function extendLocaleInventory(context, mutate = () => {}) {
   mutate(state);
   write(context.root, dealRuntimeStatePath, JSON.stringify(state, null, 2) + '\n');
 }
-function localeInventoryFixture(t, { implementation = false, admitted = false, mutateBase = () => {}, generatorMode = '100644' } = {}) {
+function localeInventoryFixture(t, options = {}) {
+  return compositeFixture(t, 'locale-inventory', options, () => constructLocaleInventoryFixture(t, options));
+}
+function constructLocaleInventoryFixture(t, { implementation = false, admitted = false, mutateBase = () => {}, generatorMode = '100644' } = {}) {
   const context = dealLocaleFixture(t, { implementation, accepted: true, pinnedSources: implementation });
   const state = JSON.parse(fs.readFileSync(path.join(context.root, dealRuntimeStatePath), 'utf8'));
   state.coordinationAdmissions[localeInventoryPurposeKey] = structuredClone(localeInventoryPurpose);
@@ -5017,7 +5171,10 @@ function extendBankMoney(context, mutate = () => {}) {
   mutate(state);
   write(context.root, dealRuntimeStatePath, JSON.stringify(state, null, 2) + '\n');
 }
-function bankMoneyFixture(t, { implementation = false, admitted = false, purpose = true, correction = true, mutateBase = () => {} } = {}) {
+function bankMoneyFixture(t, options = {}) {
+  return compositeFixture(t, 'bank-money', options, () => constructBankMoneyFixture(t, options));
+}
+function constructBankMoneyFixture(t, { implementation = false, admitted = false, purpose = true, correction = true, mutateBase = () => {} } = {}) {
   const context = fixture(t, implementation ? bankMoneySourceBranch : bankMoneyAdmissionBranch);
   const state = {
     current: 'BANK unchanged fixture', fullTzReadinessPercent: 5, allowedCurrentScope: ['README.md'],
@@ -5381,7 +5538,10 @@ const routeGuardPins = [
   ['scripts/p7-autopilot-guard.test.mjs', 'db910d2e6c2521957fb8719f7e5af659a8cd0165', routeBlob(routeTestBytes), '100644'],
   [routeWorkflowPath, '90f6c2b52b25b7a4f09446b7dafb36270f9969dc', routeBlob(routeWorkflowBytes), '100644'],
 ];
-function routeFixture(t, { branch = routeSourceBranch, admitted = true, guardAdoption = false, purpose = true } = {}) {
+function routeFixture(t, options = {}) {
+  return compositeFixture(t, 'deal-route', options, () => constructRouteFixture(t, options));
+}
+function constructRouteFixture(t, { branch = routeSourceBranch, admitted = true, guardAdoption = false, purpose = true } = {}) {
   const c = fixture(t, branch);
   fs.mkdirSync(path.join(c.root, 'docs/platform-v7/autopilot/scopes'), { recursive: true });
   const p = path.join(c.root, dealRuntimeStatePath);
