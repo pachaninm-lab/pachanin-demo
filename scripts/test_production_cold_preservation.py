@@ -47,6 +47,17 @@ def valid_bindings_terminal():
     return result
 
 
+
+def valid_stopped_terminal():
+    return {'schemaVersion': 'pc.ir20-stopped-copy.v1', 'targetSha': SHA, 'runId': '12345',
+            'passed': True, 'classification': 'ISOLATED_PHYSICAL_COPY_RECOVERY_VERIFIED_NOT_RELEASE_ACCEPTANCE',
+            'sourceUnchanged': True, 'runtimeUnchanged': True, 'cloneByteCopyVerified': True,
+            'cloneRecoveryVerified': True, 'selectedDatabaseLogicalScan': 'VERIFIED',
+            'amcheck': 'SUPPORTED_RELATIONS_VERIFIED', 'checksums': 'VERIFIED', 'disposableCleanup': 'VERIFIED',
+            'sourceBinding': 'HISTORICAL_POSTGRES_NOT_CANONICAL_API_VERIFIED',
+            'databaseIntegrity': 'NOT_FULLY_ATTESTED', 'runtimeRestored': False, 'startupAuthorized': False,
+            'fullDrAcceptance': 'NOT_PROVEN', 'offHostRecovery': 'NOT_ESTABLISHED'}
+
 class Host:
     def __init__(self):
         self.calls = 0
@@ -289,7 +300,7 @@ class PreservationTests(unittest.TestCase):
         self.assertNotIn('issues: write', global_part + contract)
         self.assertNotIn('concurrency:', global_part + contract)
         for condition in ["github.event_name == 'issue_comment'", 'github.event.issue.number == 4637',
-                          "github.event.comment.body == '/production preserve-stopped-bindings current-main'",
+                          "github.event.comment.body == '/production validate-stopped-pg16 current-main'",
                           'github.event.comment.user.login == github.repository_owner',
                           "github.event.comment.author_association == 'OWNER'",
                           'github.actor == github.repository_owner',
@@ -349,49 +360,104 @@ class PreservationTests(unittest.TestCase):
 
     def test_actual_bash_transport_never_publishes_success_for_unknown_outcome(self):
         import sys
-        _, source = workflow_step('Execute only the separately accepted cold-preservation stage')
-        failed = {'schemaVersion': cold.BINDINGS_SCHEMA, 'passed': False,
-                  'errorCode': 'POST_COPY_RUNTIME_DRIFT', 'runtimeRestored': False,
+        _, source = workflow_step('Execute only the accepted isolated stopped-copy stage')
+        valid = valid_stopped_terminal()
+        failed = {'schemaVersion': 'pc.ir20-stopped-copy.v1', 'passed': False,
+                  'errorCode': 'POST_COPY_RUNTIME_DRIFT', 'runtimeRestored': False, 'startupAuthorized': False,
                   'mutationOutcome': 'RECONCILIATION_REQUIRED_IF_STARTED'}
-        cases = [(valid_bindings_terminal(), 0, SHA, 'success'), (valid_bindings_terminal(), 255, SHA, 'unknown'),
-                 (valid_bindings_terminal(), 1, SHA, 'unknown'), (valid_bindings_terminal(), 0, 'b' * 40, 'unknown'),
-                 ({**valid_bindings_terminal(), 'injected': 'SYNTHETIC_SECRET'}, 0, SHA, 'unknown'),
-                 (failed, 1, SHA, 'failure'), (failed, 0, SHA, 'unknown'), (None, 255, SHA, 'unknown')]
-        for value, status, post, outcome in cases:
-            with self.subTest(status=status, post=post, outcome=outcome), tempfile.TemporaryDirectory() as name:
+        cases = [(valid, 0, SHA, SHA, True),
+                 ({**valid, 'checksums': 'NOT_ENABLED'}, 0, SHA, SHA, True),
+                 (valid, 255, SHA, SHA, False), (valid, 124, SHA, SHA, False),
+                 (valid, 137, SHA, SHA, False), (valid, 1, SHA, SHA, False),
+                 (valid, 0, 'b' * 40, SHA, False), (valid, 0, SHA, 'b' * 40, False),
+                 (failed, 1, SHA, SHA, False), (failed, 0, SHA, SHA, False),
+                 (None, 255, SHA, SHA, False), (b'\xff', 0, SHA, SHA, False),
+                 (b' ' * 16385, 0, SHA, SHA, False),
+                 (json.dumps(valid)[:-1] + ', "passed":true}', 0, SHA, SHA, False)]
+        for change in ({'injected': 'SYNTHETIC_SECRET'}, {'targetSha': 'b' * 40}, {'runId': '54321'},
+                       {'sourceUnchanged': 1}, {'runtimeUnchanged': False}, {'cloneByteCopyVerified': False},
+                       {'cloneRecoveryVerified': False}, {'startupAuthorized': True}, {'runtimeRestored': True},
+                       {'checksums': 'NOT_CHECKED'}, {'databaseIntegrity': 'FULL'}, {'fullDrAcceptance': 'PROVEN'},
+                       {'offHostRecovery': 'ESTABLISHED'}, {'selectedDatabaseLogicalScan': 'SKIPPED'},
+                       {'amcheck': 'SKIPPED'}, {'sourceBinding': 'CANONICAL'}, {'disposableCleanup': 'UNKNOWN'},
+                       {'classification': 'RELEASE_ACCEPTED'}):
+            cases.append(({**valid, **change}, 0, SHA, SHA, False))
+        for value, status, post, api_post, success in cases:
+            with self.subTest(status=status, post=post, api_post=api_post, success=success), tempfile.TemporaryDirectory() as name:
                 root = Path(name)
                 commands = root / 'bin'
                 commands.mkdir()
-                scripts = root / 'scripts'
-                scripts.mkdir()
+                deps = {}
                 for filename in ('production_cold_preservation.py', 'production_stopped_runtime_headroom.py'):
-                    (scripts / filename).write_bytes(Path(__file__).with_name(filename).read_bytes())
+                    p = root / 'scripts' / filename
+                    p.parent.mkdir(exist_ok=True)
+                    p.write_bytes(Path(__file__).with_name(filename).read_bytes())
+                    deps['scripts/' + filename] = hashlib.sha256(p.read_bytes()).hexdigest()
+                engine_path = 'scripts/release/ir20-restore-drill.sh'
+                engine = root / engine_path
+                engine.parent.mkdir()
+                engine.write_text("#!/usr/bin/env bash\npython3 - <<'PY_STOPPED_SOURCE'\n# synthetic transport fixture, never executed\nPY_STOPPED_SOURCE\n")
+                state = root / 'docs/platform-v7/autopilot/autopilot-state.json'
+                state.parent.mkdir(parents=True)
+                state.write_text(json.dumps({'coordinationAdmissions': {'ir20-stopped-copy-source-20261023': {
+                    'dependencySha256': deps, 'sourcePins': [{'path': engine_path,
+                    'sha256': hashlib.sha256(engine.read_bytes()).hexdigest()}]}}}))
                 output = root / 'evidence'
                 output.mkdir()
                 fixture = root / 'output'
-                fixture.write_text('' if value is None else json.dumps(value))
+                data = b'' if value is None else (value if isinstance(value, bytes) else
+                       (value.encode() if isinstance(value, str) else json.dumps(value).encode()))
+                fixture.write_bytes(data)
                 programs = {
-                    'git': "import os,sys,pathlib\na=sys.argv[1:]\nif a[0]=='fetch':sys.exit(0)\nif a==['rev-parse','origin/main']:print(os.environ['FIXTURE_POST'] if pathlib.Path(os.environ['FIXTURE_DONE']).exists() else os.environ['TARGET_SHA'])\nelse:sys.exit(9)\n",
-                    'ssh': "import os,sys,pathlib\npathlib.Path(os.environ['FIXTURE_DONE']).touch()\nsys.stdout.write(pathlib.Path(os.environ['FIXTURE_OUTPUT']).read_text())\nsys.exit(int(os.environ['FIXTURE_STATUS']))\n"}
+                    'git': "import os,sys,pathlib\na=sys.argv[1:]\nroot=pathlib.Path(os.environ['FIXTURE_ROOT'])\nif a[0]=='fetch':sys.exit(0)\nif a==['rev-parse','origin/main']:print(os.environ['FIXTURE_POST'] if pathlib.Path(os.environ['FIXTURE_DONE']).exists() else os.environ['TARGET_SHA'])\nelif a[0]=='show':sys.stdout.buffer.write((root/a[1].split(':',1)[1]).read_bytes())\nelse:sys.exit(9)\n",
+                    'gh': "import os,pathlib\nprint(os.environ['FIXTURE_API_POST'] if pathlib.Path(os.environ['FIXTURE_DONE']).exists() else os.environ['TARGET_SHA'])\n",
+                    'ssh': "import os,sys,pathlib\nsys.stdin.buffer.read()\npathlib.Path(os.environ['FIXTURE_DONE']).touch()\nsys.stdout.buffer.write(pathlib.Path(os.environ['FIXTURE_OUTPUT']).read_bytes())\nsys.exit(int(os.environ['FIXTURE_STATUS']))\n"}
                 for command, code in programs.items():
-                    path = commands / command
-                    path.write_text('#!' + sys.executable + '\n' + code)
-                    path.chmod(0o755)
+                    p = commands / command
+                    p.write_text('#!' + sys.executable + '\n' + code)
+                    p.chmod(0o755)
                 env = {**os.environ, 'PATH': str(commands) + os.pathsep + os.environ['PATH'],
-                       'TARGET_SHA': SHA, 'GITHUB_RUN_ID': '12345', 'EVIDENCE_DIR': str(output),
-                       'SSH_USER_SECRET': 'fixture', 'PROD_HOST': '127.0.0.1', 'PROD_PORT': '1',
-                       'FIXTURE_DONE': str(root / 'done'), 'FIXTURE_POST': post,
-                       'FIXTURE_STATUS': str(status), 'FIXTURE_OUTPUT': str(fixture)}
-                result = subprocess.run(['bash', '-ceu', source], cwd=root, env=env, capture_output=True)
+                       'TARGET_SHA': SHA, 'GITHUB_RUN_ID': '12345', 'GITHUB_REPOSITORY': 'fixture/repo',
+                       'EVIDENCE_DIR': str(output), 'SSH_USER_SECRET': 'fixture', 'PROD_HOST': '127.0.0.1', 'PROD_PORT': '1',
+                       'FIXTURE_ROOT': str(root), 'FIXTURE_DONE': str(root / 'done'), 'FIXTURE_POST': post,
+                       'FIXTURE_API_POST': api_post, 'FIXTURE_STATUS': str(status), 'FIXTURE_OUTPUT': str(fixture)}
+                result = subprocess.run(['bash', '-ceu', source], cwd=root, env=env, capture_output=True, timeout=15)
                 body = (output / 'issue-record.md').read_text()
                 self.assertNotIn('SYNTHETIC_SECRET', body)
-                self.assertEqual(result.returncode == 0, outcome == 'success', result.stderr.decode())
-                if outcome == 'unknown':
-                    self.assertIn('`UNKNOWN`', body)
-                    self.assertFalse((output / 'result.json').exists())
+                self.assertEqual(result.returncode == 0, success, result.stderr.decode())
+                if success:
+                    self.assertNotIn(chr(96) + 'UNKNOWN' + chr(96), body)
+                    self.assertEqual(json.loads((output / 'result.json').read_text()), value)
                 else:
-                    self.assertNotIn('`UNKNOWN`', body)
-                    self.assertTrue((output / 'result.json').is_file())
+                    self.assertIn(chr(96) + 'UNKNOWN' + chr(96), body)
+                    self.assertFalse((output / 'result.json').exists())
+
+    def test_failed_step_publication_invalidates_a_surviving_positive_file(self):
+        import sys
+        workflow, source = workflow_step('Publish bounded terminal evidence')
+        self.assertIn("steps.publish-evidence.outcome == 'success'", workflow)
+        self.assertIn("env.EVIDENCE_INITIALIZED == '1'", workflow)
+        for outcome in ('failure', 'cancelled', 'skipped'):
+            with self.subTest(outcome=outcome), tempfile.TemporaryDirectory() as name:
+                root = Path(name)
+                output = root / 'evidence'
+                output.mkdir()
+                (output / 'result.json').write_text(json.dumps(valid_stopped_terminal()))
+                (output / 'issue-record.md').write_text('SYNTHETIC_SECRET surviving positive report')
+                commands = root / 'bin'
+                commands.mkdir()
+                gh = commands / 'gh'
+                gh.write_text('#!' + sys.executable + '\nimport pathlib,sys\nprint(pathlib.Path(sys.argv[-1]).read_text())\n')
+                gh.chmod(0o755)
+                env = {**os.environ, 'PATH': str(commands) + os.pathsep + os.environ['PATH'],
+                       'TARGET_SHA': SHA, 'EVIDENCE_DIR': str(output), 'EXECUTION_OUTCOME': outcome,
+                       'GITHUB_REPOSITORY': 'fixture/repo'}
+                result = subprocess.run(['bash', '-ceu', source], cwd=root, env=env, capture_output=True, timeout=10)
+                self.assertEqual(result.returncode, 0, result.stderr.decode())
+                self.assertFalse((output / 'result.json').exists())
+                self.assertIn(b'UNKNOWN', result.stdout)
+                self.assertNotIn(b'SYNTHETIC_SECRET', result.stdout)
+
 
 
 class BindingPreservationTests(unittest.TestCase):
@@ -612,7 +678,7 @@ class BindingPreservationTests(unittest.TestCase):
             block = workflow.split('\n  ' + job + ':\n', 1)[1].split('\n    runs-on:', 1)[0]
             expression = ' '.join(re.search(r'\n    if: >-\n((?:      [^\n]*\n)+)', '\n' + block + '\n')[1].split())
             conditions.append(compile(ast.parse(expression.replace('&&', ' and ').replace('||', ' or '), mode='eval'), '<route>', 'eval'))
-        def route(event='issue_comment', issue=4637, body='/production preserve-stopped-bindings current-main',
+        def route(event='issue_comment', issue=4637, body='/production validate-stopped-pg16 current-main',
                   author='owner', actor='owner', triggering='owner', association='OWNER', result='success'):
             context = {'github': NS(event_name=event, repository_owner='owner', actor=actor, triggering_actor=triggering,
                                     event=NS(issue=NS(number=issue), comment=NS(body=body, author_association=association,
@@ -622,7 +688,8 @@ class BindingPreservationTests(unittest.TestCase):
         self.assertEqual(route(), (True, True))
         self.assertEqual(route(event='pull_request'), (True, False))
         for update in ({'event': 'push'}, {'issue': 5469}, {'body': '/production preserve-stopped-data current-main'},
-                       {'body': '/production preserve-stopped-bindings current-main\n'}):
+                       {'body': '/production preserve-stopped-bindings current-main'},
+                       {'body': '/production validate-stopped-pg16 current-main\n'}):
             self.assertEqual(route(**update), (False, False))
         for update in ({'author': 'other'}, {'actor': 'other'}, {'triggering': 'other'}, {'association': 'NONE'},
                        {'result': 'failure'}, {'result': 'skipped'}):
@@ -631,48 +698,94 @@ class BindingPreservationTests(unittest.TestCase):
     def test_actual_source_binding_rejects_missing_pins_wrong_operation_and_payload_drift(self):
         import sys
         workflow, _ = workflow_step('Bind accepted exact main and evidence journal')
-        code = workflow.split("          python3 - <<'PY_BIND'\n", 1)[1].split('          PY_BIND', 1)[0]
-        code = textwrap.dedent(code)
-        names = ['scripts/production_cold_preservation.py', 'scripts/test_production_cold_preservation.py',
-                 '.github/workflows/production-cold-preservation.yml', 'docs/ops/production-cold-preservation.md',
-                 'scripts/test_production_stopped_runtime_headroom.py']
-        dependency = 'scripts/production_stopped_runtime_headroom.py'
+        code = textwrap.dedent(workflow.split("          python3 - <<'PY_BIND'\n", 1)[1].split('          PY_BIND', 1)[0])
+        names = ['.github/workflows/production-cold-preservation.yml',
+                 'scripts/test_production_cold_preservation.py', 'docs/ops/production-cold-preservation.md']
+        dependencies = ['scripts/production_stopped_runtime_headroom.py', 'scripts/production_cold_preservation.py']
+        engine_names = ['scripts/release/ir20-restore-drill.sh', 'scripts/release/test-ir20-restore-drill.py',
+                        'scripts/release/test-ir20-restore-drill-integration.sh', '.github/workflows/ir20-restore-drill.yml',
+                        'docs/ops/ir20-isolated-restore.md', 'docs/platform-v7/autopilot/scopes/ir20-isolated-restore-20260919.json']
+        source_vector = ['scripts/production_cold_preservation.py', 'scripts/test_production_cold_preservation.py',
+                         '.github/workflows/production-cold-preservation.yml', 'docs/ops/production-cold-preservation.md',
+                         'scripts/test_production_stopped_runtime_headroom.py']
         base = Path(__file__).resolve().parent.parent
-        for alteration in ('none', 'owner', 'operation', 'decision', 'acceptance', 'vector', 'hash', 'mode', 'link', 'dependency', 'ancestry'):
+        alterations = ('none', 'missing', 'owner', 'operation', 'decision', 'invocation', 'acceptance', 'startup',
+                       'vector', 'hash', 'mode', 'link', 'dependency', 'ancestry', 'extra', 'controller-scope',
+                       'engine-missing', 'engine-grant', 'engine-scope', 'engine-vector', 'engine-hash',
+                       'engine-extra', 'duplicate')
+        for alteration in alterations:
             with self.subTest(alteration=alteration), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                for name in names + [dependency]:
+                for name in names + dependencies:
                     p = root / name
                     p.parent.mkdir(parents=True, exist_ok=True)
                     p.write_bytes((base / name).read_bytes())
                     p.chmod(0o644)
-                purpose = {'owner': 'ACCOUNT_1_CORE', 'sourceBranch': 'ops/production-cold-preservation-20261022',
-                           'operationName': cold.BINDINGS_OPERATION, 'ownerDecision': '#5469#issuecomment-6354447020',
-                           'productionAcceptance': False, 'authorityBaseExactMain': SHA, 'mode': '100644',
-                           'sha256': {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in names},
-                           'dependencySha256': hashlib.sha256((root / dependency).read_bytes()).hexdigest()}
+                engine_pins = []
+                for i, name in enumerate(engine_names):
+                    p = root / name
+                    p.parent.mkdir(parents=True, exist_ok=True)
+                    p.write_bytes(('synthetic binding-only payload %d\n' % i).encode())
+                    p.chmod(0o755 if i < 3 else 0o644)
+                    engine_pins.append({'path': name, 'mode': '100755' if i < 3 else '100644',
+                                        'sha256': hashlib.sha256(p.read_bytes()).hexdigest()})
+                purpose = {
+                    'owner': 'ACCOUNT_1_CORE', 'sourceBranch': 'ops/production-cold-preservation-20261022',
+                    'authorityBaseExactMain': SHA, 'ownerDecision': '#5469#issuecomment-6377184068',
+                    'operationName': 'ir20-stopped-copy-20261023', 'isolatedCopyInvocationAuthorized': True,
+                    'productionAcceptance': False, 'originalStartupAuthorized': False,
+                    'sourcePins': [{'path': name, 'mode': '100644', 'sha256': hashlib.sha256((root / name).read_bytes()).hexdigest()}
+                                   for name in names],
+                    'limits': 'One serialized no-network volatile PG16 copy. Original runtime, archives and keys retained; no transfer or new cost.'}
+                engine = {
+                    'authorityBaseExactMain': SHA,
+                    'dependencySha256': {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in dependencies},
+                    'limits': 'Six-path source-only stopped PG16 volatile-copy prerequisite. No host dispatch, original startup, transfer or new cost.',
+                    'owner': 'ACCOUNT_1_CORE', 'ownerDecision': '#5469#issuecomment-6354447020',
+                    'productionAcceptance': False, 'productionInvocationAuthorized': False,
+                    'sourceBranch': 'ops/ir20-isolated-restore-20260919', 'sourcePins': engine_pins,
+                    'writerHandoff': '#5469#issuecomment-6368785509'}
+                state_value = {'coordinationAdmissions': {'ir20-stopped-copy-controller-20261024': purpose,
+                                                         'ir20-stopped-copy-source-20261023': engine},
+                               'approvedConcurrentScopes': {purpose['sourceBranch']: source_vector,
+                                                            engine['sourceBranch']: engine_names}}
+                if alteration == 'missing': del state_value['coordinationAdmissions']['ir20-stopped-copy-controller-20261024']
                 if alteration == 'owner': purpose['owner'] = 'OTHER'
-                if alteration == 'operation': purpose['operationName'] = cold.OPERATION_NAME
+                if alteration == 'operation': purpose['operationName'] = cold.BINDINGS_OPERATION
                 if alteration == 'decision': purpose['ownerDecision'] = 'candidate-owned'
+                if alteration == 'invocation': purpose['isolatedCopyInvocationAuthorized'] = False
                 if alteration == 'acceptance': purpose['productionAcceptance'] = True
-                if alteration == 'vector': purpose['sha256']['extra/path'] = 'f' * 64
-                if alteration == 'hash': (root / names[0]).write_bytes(b'changed implementation')
+                if alteration == 'startup': purpose['originalStartupAuthorized'] = True
+                if alteration == 'vector': purpose['sourcePins'].append(dict(purpose['sourcePins'][0]))
+                if alteration == 'hash': (root / names[0]).write_bytes(b'unadmitted controller')
                 if alteration == 'mode': (root / names[0]).chmod(0o755)
                 if alteration == 'link':
                     (root / names[0]).unlink()
                     (root / names[0]).symlink_to(base / names[0])
-                if alteration == 'dependency': (root / dependency).write_bytes(b'changed helper')
+                if alteration == 'dependency': (root / dependencies[0]).write_bytes(b'changed helper')
+                if alteration == 'extra': purpose['additionalAuthority'] = False
+                if alteration == 'controller-scope': state_value['approvedConcurrentScopes'][purpose['sourceBranch']] = source_vector + ['extra']
+                if alteration == 'engine-missing': del state_value['coordinationAdmissions']['ir20-stopped-copy-source-20261023']
+                if alteration == 'engine-grant': engine['productionInvocationAuthorized'] = True
+                if alteration == 'engine-scope': state_value['approvedConcurrentScopes'][engine['sourceBranch']] = engine_names + ['extra']
+                if alteration == 'engine-vector': engine['sourcePins'].reverse()
+                if alteration == 'engine-hash': (root / engine_names[0]).write_bytes(b'changed engine')
+                if alteration == 'engine-extra': engine['additionalAuthority'] = False
                 state = root / 'docs/platform-v7/autopilot/autopilot-state.json'
-                state.parent.mkdir(parents=True)
-                state.write_text(json.dumps({'coordinationAdmissions': {'cold-bindings-preservation-20261023': purpose}}))
+                state.parent.mkdir(parents=True, exist_ok=True)
+                raw = json.dumps(state_value)
+                if alteration == 'duplicate':
+                    raw = raw.replace('"owner": "ACCOUNT_1_CORE"', '"owner": "ACCOUNT_1_CORE", "owner": "OTHER"', 1)
+                state.write_text(raw)
                 commands = root / 'bin'
                 commands.mkdir()
                 git = commands / 'git'
                 git.write_text('#!' + sys.executable + '\nimport sys\nsys.exit(' + ('1' if alteration == 'ancestry' else '0') + ')\n')
                 git.chmod(0o755)
-                result = subprocess.run([sys.executable, '-I', '-c', code], cwd=root, capture_output=True,
+                result = subprocess.run([sys.executable, '-I', '-c', code], cwd=root, capture_output=True, timeout=10,
                                         env={**os.environ, 'PATH': str(commands) + os.pathsep + os.environ['PATH']})
                 self.assertEqual(result.returncode == 0, alteration == 'none', result.stderr.decode())
+
 
 
 if __name__ == '__main__':
