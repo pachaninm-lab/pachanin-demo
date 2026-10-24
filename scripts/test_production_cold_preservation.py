@@ -71,7 +71,7 @@ def valid_bindings_terminal():
 
 
 def valid_configuration_terminal():
-    return {'schemaVersion': 'pc.stopped-configuration.v1', 'targetSha': SHA, 'runId': '12345',
+    return {'schemaVersion': 'pc.stopped-configuration.v2', 'targetSha': SHA, 'runId': '12345',
             'passed': True, 'classification': 'READ_ONLY_CONFIGURATION_OBSERVED_NOT_STARTUP_ACCEPTANCE',
             'readOnly': True, 'runtimeRestored': False, 'startupAuthorized': False,
             'canonicalApiBinding': 'NOT_PROVEN', 'fullComposeParity': 'NOT_FULLY_ATTESTED',
@@ -82,7 +82,9 @@ def valid_configuration_terminal():
             'unprovedCounts': dict.fromkeys(CONFIG_FIELDS, 0),
             'inputCoverage': {'composeFiles': 1, 'projectEnvPresent': True,
                               'declaredEnvFiles': 1, 'labelFileSetsEqual': True, 'savedHostConfigs': 11},
-            'observedFieldsAgreement': 'MATCH', 'savedApiDeclaredTarget': 'DIRECT_POSTGRES_CONFIGURATION_MATCH'}
+            'observedFieldsAgreement': 'MATCH', 'savedApiDeclaredTarget': 'DIRECT_POSTGRES_CONFIGURATION_MATCH',
+            'serviceDispositions': [{'roleClass': role, 'disposition': 'COMPARED', 'mismatchFields': [], 'unprovedFields': []}
+                                    for role in ('api', 'web', 'postgres')]}
 
 
 def embedded_configuration_profile():
@@ -418,7 +420,7 @@ class PreservationTests(unittest.TestCase):
         _, source = workflow_step('Inspect only the accepted stopped configuration')
         vendor_fixture_bytes()
         valid = valid_configuration_terminal()
-        failed = {'schemaVersion': 'pc.stopped-configuration.v1', 'passed': False,
+        failed = {'schemaVersion': 'pc.stopped-configuration.v2', 'passed': False,
                   'errorCode': 'CONFIG_INPUT_DRIFT', 'readOnly': True,
                   'runtimeRestored': False, 'startupAuthorized': False}
         cases = [(valid, 0, SHA, SHA, True),
@@ -792,7 +794,7 @@ class BindingPreservationTests(unittest.TestCase):
                                         'sha256': hashlib.sha256(p.read_bytes()).hexdigest()})
                 purpose = {
                     'owner': 'ACCOUNT_1_CORE', 'sourceBranch': 'ops/production-cold-preservation-20261022',
-                    'authorityBaseExactMain': SHA, 'ownerDecision': '#5469#issuecomment-6381090318',
+                    'authorityBaseExactMain': SHA, 'ownerDecision': '#5469#issuecomment-6381707914',
                     'operationName': 'stopped-configuration-20261024', 'configurationObservationAuthorized': True,
                     'readOnly': True, 'inspectionSha256': hashlib.sha256((root / inspector).read_bytes()).hexdigest(),
                     'composeParserVersion': '5.6.0', 'composeParserBytes': 32663526,
@@ -958,7 +960,7 @@ class ConfigurationObservationTests(unittest.TestCase):
             status = p.configuration_main([SHA, '12345'], Source(), vendor_fixture_bytes())
         self.assertEqual(status, 1)
         value = json.loads(output.getvalue())
-        self.assertEqual(value, {'schemaVersion': 'pc.stopped-configuration.v1', 'passed': False,
+        self.assertEqual(value, {'schemaVersion': 'pc.stopped-configuration.v2', 'passed': False,
                                 'errorCode': 'CONFIG_OBSERVATION_UNAVAILABLE', 'readOnly': True,
                                 'runtimeRestored': False, 'startupAuthorized': False})
         self.assertNotIn('SYNTHETIC_SECRET', output.getvalue())
@@ -1046,10 +1048,13 @@ class ConfigurationObservationTests(unittest.TestCase):
                 validate(invalid)
         mismatch = copy.deepcopy(good)
         mismatch['mismatchCounts']['image'] = 1
+        mismatch['serviceDispositions'][0]['mismatchFields'] = ['image']
         mismatch['observedFieldsAgreement'] = 'MISMATCH'
         self.assertEqual(validate(mismatch), mismatch)
         unproved = copy.deepcopy(good)
         unproved['unprovedCounts']['environment'] = 3
+        for row in unproved['serviceDispositions']:
+            row['unprovedFields'] = ['environment']
         unproved['observedFieldsAgreement'] = 'UNPROVEN'
         self.assertEqual(validate(unproved), unproved)
         for update in ({'observedFieldsAgreement': 'MATCH'}, {'unprovedCounts': dict.fromkeys(CONFIG_FIELDS, True)},
@@ -1058,6 +1063,40 @@ class ConfigurationObservationTests(unittest.TestCase):
                 validate({**unproved, **update})
         with self.assertRaises(ValueError): validate(good, '255')
         with self.assertRaises(ValueError): module.validate_terminal(b'{"passed":true,"passed":false}', SHA, '12345', '0')
+
+    def test_role_dispositions_redact_unknown_names_and_validate_aggregate_binding(self):
+        p = self.profile
+        flags = dict.fromkeys(CONFIG_FIELDS, True)
+        flags['networkNames'] = False
+        flags['environment'] = None
+        row = p.disposition_row('api', 'COMPARED', flags)
+        self.assertEqual(row, {'roleClass': 'api', 'disposition': 'COMPARED',
+                               'mismatchFields': ['networkNames'], 'unprovedFields': ['environment']})
+        self.assertEqual(p.disposition_row('SYNTHETIC_SECRET', 'EXTRA'),
+                         {'roleClass': 'OTHER', 'disposition': 'EXTRA', 'mismatchFields': [], 'unprovedFields': []})
+        _, shell = workflow_step('Inspect only the accepted stopped configuration')
+        code = shell.split("<<'PY_RECORD'\n", 1)[1].split('\nPY_RECORD\n', 1)[0]
+        module = types.ModuleType('terminal_dispositions')
+        exec(compile(code.split('\nimport pathlib, sys\n', 1)[0], '<actual-terminal>', 'exec'), module.__dict__)
+        def validate(value):
+            return module.validate_terminal(json.dumps(value).encode(), SHA, '12345', '0')
+        good = valid_configuration_terminal()
+        for mutation in ('private-role', 'private-key', 'unknown-field', 'duplicate-field', 'overlap',
+                         'duplicate-role', 'missing-row', 'bad-schema', 'false-aggregate', 'wrong-disposition'):
+            value = copy.deepcopy(good)
+            row = value['serviceDispositions'][0]
+            if mutation == 'private-role': row['roleClass'] = 'SYNTHETIC_SECRET'
+            if mutation == 'private-key': row['networkName'] = 'SYNTHETIC_SECRET'
+            if mutation == 'unknown-field': row['mismatchFields'] = ['SYNTHETIC_SECRET']
+            if mutation == 'duplicate-field': row['mismatchFields'] = ['image', 'image']
+            if mutation == 'overlap': row['mismatchFields'] = row['unprovedFields'] = ['image']
+            if mutation == 'duplicate-role': row['roleClass'] = 'web'
+            if mutation == 'missing-row': value['serviceDispositions'].pop()
+            if mutation == 'bad-schema': value['schemaVersion'] = 'pc.stopped-configuration.v1'
+            if mutation == 'false-aggregate': value['mismatchCounts']['image'] = 1
+            if mutation == 'wrong-disposition': row['disposition'] = 'EXTRA'
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                validate(value)
 
     def test_ordered_compose_references_reuse_snapshots_and_keep_bounds(self):
         p = self.profile
@@ -1254,6 +1293,29 @@ volumes:
             serialized = json.dumps(report)
             for private in (directory, 'project$literal', 'DATABASE_URL', 'fixture_database'):
                 self.assertNotIn(private, serialized)
+            fixture_originals = {str(file): file.read_bytes() for file in all_files}
+            try:
+                override.write_text('services:\n  api:\n    environment: {ADDED: from-override}\n    networks: [drift]\n  kafka:\n    image: fixture-pg:1\n  SYNTHETIC_SECRET_DESIRED:\n    image: fixture-pg:1\nnetworks:\n  drift:\n    name: fixture_drift\n')
+                for index, name in ((3, 'marketing-worker'), (4, 'SYNTHETIC_SECRET_SAVED')):
+                    file = docker_root / 'containers' / records[index]['ID'] / 'config.v2.json'
+                    saved = json.loads(file.read_bytes())
+                    saved['Config']['Labels'] = {**shared, 'com.docker.compose.service': name}
+                    file.write_text(json.dumps(saved))
+                modified_before = {str(file): p.file_token(file.stat()) for file in all_files}
+                drift = p.observe_configuration(SHA, '12345', source, binary_bytes=binary_raw, uid=os.getuid())
+                self.assertEqual((drift['missingServiceCount'], drift['extraServiceCount']), (2, 2))
+                rows = drift['serviceDispositions']
+                self.assertIn({'roleClass': 'api', 'disposition': 'COMPARED', 'mismatchFields': ['networkNames'], 'unprovedFields': []}, rows)
+                self.assertIn({'roleClass': 'marketing-worker', 'disposition': 'MISSING', 'mismatchFields': [], 'unprovedFields': []}, rows)
+                self.assertIn({'roleClass': 'kafka', 'disposition': 'EXTRA', 'mismatchFields': [], 'unprovedFields': []}, rows)
+                self.assertEqual(sum(row['roleClass'] == 'OTHER' for row in rows), 2)
+                self.assertNotIn('SYNTHETIC_SECRET', json.dumps(drift))
+                self.assertNotIn('fixture_drift', json.dumps(drift))
+                self.assertEqual({str(file): p.file_token(file.stat()) for file in all_files}, modified_before)
+            finally:
+                for file in all_files:
+                    file.write_bytes(fixture_originals[str(file)])
+                    os.utime(file, ns=(946684800000000000, 978307200000000000))
             # A missing desired image is unknown, never an accepted match.
             images['fixture-api:1']['RepoTags'] = []
             unknown = p.observe_configuration(SHA, '12345', source, binary_bytes=binary_raw, uid=os.getuid())
