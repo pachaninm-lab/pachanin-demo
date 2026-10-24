@@ -1,3 +1,9 @@
+## Ordered Compose-reference correction, 2026-10-24
+
+Read-only diagnostic40071473588 confirmed nonempty saved API/web Compose labels; the earlier observer's COMPOSE_FILE_PROFILE failure did not establish whether repetitions or the ordered count caused rejection. This correction preserves every saved file argument in its original order, including A/B/A. It permits at most176 ordered references within the unchanged8192-character label limit and at most16 distinct normalized source files. Each distinct source is read and sealed once; repeated arguments reuse that snapshot without dropping merge occurrences. Original-spelling path validation, protected no-follow/no-atime reads, private-input/resource/deadline limits and before/after checks remain enforced. Closed inputCoverage.composeFiles reports ordered references, bounded176, without exposing filenames.
+
+The actual pinned native Compose fixture exercises20 references with A/B/A precedence, separate saved HostConfig files and unchanged source tokens. Synthetic controls cover176 references,177 rejection,17 distinct inputs, empty/type/length/path failures and descriptor reuse. Docker specifies applying multiple files in supplied order: https://docs.docker.com/compose/how-tos/multiple-compose-files/merge/ . No production filename or source is guessed, deduplicated or replaced. The unchanged accepted inspector, runtime helpers, IR20 engines, vendor identity, public evidence fields and startup prohibition remain authoritative. Corrected same-purpose pins require separate metadata acceptance, then source acceptance and a fresh concrete read-only host window. This is no startup, recovery, full-parity, release or whole-block acceptance.
+
 # Stopped data: encrypted cold preservation
 
 ## Read-only stopped configuration prerequisite 2026 10 24
