@@ -149,7 +149,7 @@ jobs:
                   'composeParserVersion', 'composeParserBytes', 'composeParserSha256'})
           require(purpose['owner'] == 'ACCOUNT_1_CORE' and
                   purpose['sourceBranch'] == 'ops/production-cold-preservation-20261022' and
-                  purpose['ownerDecision'] == '#5469#issuecomment-6381090318' and
+                  purpose['ownerDecision'] == '#5469#issuecomment-6381707914' and
                   purpose['operationName'] == 'stopped-configuration-20261024' and
                   purpose['configurationObservationAuthorized'] is True and purpose['readOnly'] is True and
                   purpose['inspectionSha256'] == '09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a' and
@@ -374,7 +374,7 @@ jobs:
           import time
           import urllib.parse
 
-          PROFILE_SCHEMA = 'pc.stopped-configuration.v1'
+          PROFILE_SCHEMA = 'pc.stopped-configuration.v2'
           COMPOSE_VERSION = '5.6.0'
           COMPOSE_BYTES = 32663526
           COMPOSE_SHA256 = '40343e21ca777173e69cff5dbafeb37c6f81f3b0d57d9e597f036e95eb63e76a'
@@ -920,6 +920,15 @@ jobs:
                                               'labelFileSetsEqual': api_labels.get('com.docker.compose.project.config_files') == raw_files}
 
 
+          PUBLIC_ROLES = frozenset(('api', 'web', 'postgres', 'postgresql', 'db', 'redis', 'minio', 'kafka', 'caddy', 'outbox-worker', 'auth-mail-worker', 'marketing-worker', 'elasticsearch', 'migration', 'migrations', 'outbox', 'auth-mail', 'pgbouncer', 'zookeeper', 'watchtower'))
+
+
+          def disposition_row(role, disposition, flags=None):
+              return {'roleClass': role if role in PUBLIC_ROLES else 'OTHER', 'disposition': disposition,
+                      'mismatchFields': [field for field in COMPARE_FIELDS if flags is not None and flags[field] is False],
+                      'unprovedFields': [field for field in COMPARE_FIELDS if flags is not None and flags[field] is None]}
+
+
           def observe_configuration(target, run, source, runner=render_command, binary=None, uid=0, binary_bytes=None):
               demand(os.getuid() == os.geteuid() == uid and re.fullmatch('[0-9a-f]{40}', target) and
                      re.fullmatch('[1-9][0-9]{0,19}', run), 'OPERATOR_SOURCE_IDENTITY')
@@ -944,12 +953,15 @@ jobs:
                   unproved = {key: 0 for key in COMPARE_FIELDS}
                   references = {}
                   matched, missing = 0, 0
+                  dispositions = []
                   for record in selected:
                       service = model['services'].get(labels(record)['com.docker.compose.service'])
                       if service is None:
                           missing += 1
+                          dispositions.append(disposition_row(labels(record)['com.docker.compose.service'], 'MISSING'))
                           continue
                       flags = compare_service(record, service, model, source, references, known_ids)
+                      dispositions.append(disposition_row(labels(record)['com.docker.compose.service'], 'COMPARED', flags))
                       matched += 1
                       for key, value in flags.items():
                           if value is None:
@@ -970,7 +982,9 @@ jobs:
                   demand(after['processes'] == before['processes'] and after['volumes'] == before['volumes'] and
                          after['bindings'] == before['bindings'] and after['images'] == before['images'], 'RUNTIME_OR_SOURCE_DRIFT')
                   inputs.recheck()
-                  extra = len(set(model['services']) - {labels(r)['com.docker.compose.service'] for r in selected})
+                  extra_names = set(model['services']) - {labels(r)['com.docker.compose.service'] for r in selected}
+                  extra = len(extra_names)
+                  dispositions.extend(disposition_row(name, 'EXTRA') for name in sorted(extra_names))
                   return {'schemaVersion': PROFILE_SCHEMA, 'targetSha': target, 'runId': run, 'passed': True,
                           'classification': 'READ_ONLY_CONFIGURATION_OBSERVED_NOT_STARTUP_ACCEPTANCE',
                           'readOnly': True, 'runtimeRestored': False, 'startupAuthorized': False,
@@ -980,7 +994,7 @@ jobs:
                           'composeVersion': version,
                           'comparedServiceCount': matched, 'missingServiceCount': missing, 'extraServiceCount': extra,
                           'comparedFields': list(COMPARE_FIELDS), 'mismatchCounts': counters,
-                          'unprovedCounts': unproved, 'inputCoverage': coverage,
+                          'unprovedCounts': unproved, 'inputCoverage': coverage, 'serviceDispositions': dispositions,
                           'observedFieldsAgreement': 'MISMATCH' if missing or extra or any(counters.values()) else
                                                     'UNPROVEN' if any(unproved.values()) or not coverage['labelFileSetsEqual'] else 'MATCH',
                           'savedApiDeclaredTarget': target_profile}
@@ -1041,11 +1055,11 @@ jobs:
               require(type(value) is dict)
               failed = {'schemaVersion', 'passed', 'errorCode', 'readOnly', 'runtimeRestored', 'startupAuthorized'}
               if set(value) == failed:
-                  require(value['schemaVersion'] == 'pc.stopped-configuration.v1' and value['passed'] is False and
+                  require(value['schemaVersion'] == 'pc.stopped-configuration.v2' and value['passed'] is False and
                           value['readOnly'] is True and value['runtimeRestored'] is False and value['startupAuthorized'] is False and
                           type(value['errorCode']) is str and re.fullmatch('[A-Z_]{1,64}', value['errorCode']) and int(status) == 1)
                   return value
-              fixed = {'schemaVersion': 'pc.stopped-configuration.v1', 'targetSha': expected, 'runId': run_id,
+              fixed = {'schemaVersion': 'pc.stopped-configuration.v2', 'targetSha': expected, 'runId': run_id,
                        'passed': True, 'classification': 'READ_ONLY_CONFIGURATION_OBSERVED_NOT_STARTUP_ACCEPTANCE',
                        'readOnly': True, 'runtimeRestored': False, 'startupAuthorized': False,
                        'canonicalApiBinding': 'NOT_PROVEN', 'fullComposeParity': 'NOT_FULLY_ATTESTED',
@@ -1053,7 +1067,7 @@ jobs:
                        'privateInputsUnchanged': True, 'plaintextTransfer': False}
               extra = {'composeVersion', 'comparedServiceCount', 'missingServiceCount', 'extraServiceCount',
                        'comparedFields', 'mismatchCounts', 'unprovedCounts', 'inputCoverage',
-                       'observedFieldsAgreement', 'savedApiDeclaredTarget'}
+                       'observedFieldsAgreement', 'savedApiDeclaredTarget', 'serviceDispositions'}
               require(set(value) == set(fixed) | extra and int(status) == 0)
               require(all(type(value[k]) is type(v) and value[k] == v for k, v in fixed.items()))
               require(type(value['composeVersion']) is str and value['composeVersion'] in ('5.6.0', 'v5.6.0'))
@@ -1072,6 +1086,34 @@ jobs:
                       type(coverage['declaredEnvFiles']) is int and 0 <= coverage['declaredEnvFiles'] <= 512 and
                       type(coverage['projectEnvPresent']) is bool and type(coverage['labelFileSetsEqual']) is bool and
                       type(coverage['savedHostConfigs']) is int and coverage['savedHostConfigs'] == 11)
+              roles = frozenset(('api', 'web', 'postgres', 'postgresql', 'db', 'redis', 'minio', 'kafka', 'caddy', 'outbox-worker', 'auth-mail-worker', 'marketing-worker', 'elasticsearch', 'migration', 'migrations', 'outbox', 'auth-mail', 'pgbouncer', 'zookeeper', 'watchtower')) | {'OTHER'}
+              rows = value['serviceDispositions']
+              require(type(rows) is list and 3 <= len(rows) <= 43)
+              counts = dict.fromkeys(('COMPARED', 'MISSING', 'EXTRA'), 0)
+              mismatch = dict.fromkeys(FIELDS, 0)
+              unproved = dict.fromkeys(FIELDS, 0)
+              known = set()
+              for row in rows:
+                  require(type(row) is dict and set(row) == {'roleClass', 'disposition', 'mismatchFields', 'unprovedFields'})
+                  role, disposition = row['roleClass'], row['disposition']
+                  require(type(role) is str and role in roles and type(disposition) is str and disposition in counts)
+                  # Concrete service names are unique in each model/selected snapshot.
+                  # Several unlisted private names may share the redacted OTHER class.
+                  if role != 'OTHER':
+                      require(role not in known)
+                      known.add(role)
+                  counts[disposition] += 1
+                  for key, counter in (('mismatchFields', mismatch), ('unprovedFields', unproved)):
+                      fields = row[key]
+                      require(type(fields) is list and all(type(f) is str and f in FIELDS for f in fields) and
+                              len(fields) == len(set(fields)) and fields == [f for f in FIELDS if f in fields])
+                      require(disposition == 'COMPARED' or not fields)
+                      for field in fields:
+                          counter[field] += 1
+                  require(not set(row['mismatchFields']) & set(row['unprovedFields']))
+              require(counts == {'COMPARED': value['comparedServiceCount'], 'MISSING': value['missingServiceCount'],
+                                'EXTRA': value['extraServiceCount']} and mismatch == value['mismatchCounts'] and
+                      unproved == value['unprovedCounts'])
               agreement = 'MISMATCH' if value['missingServiceCount'] or value['extraServiceCount'] or any(value['mismatchCounts'].values()) else \
                           'UNPROVEN' if any(value['unprovedCounts'].values()) or not coverage['labelFileSetsEqual'] else 'MATCH'
               require(type(value['observedFieldsAgreement']) is str and value['observedFieldsAgreement'] == agreement)
