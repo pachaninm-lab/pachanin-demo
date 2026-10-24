@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, waitFor } from '@testing-library/react';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { GektaChatWorkspace } from '@/components/gekta/GektaChatWorkspace';
@@ -160,5 +161,79 @@ describe('Gekta interface language inheritance', () => {
     expect(composer).not.toBeNull();
     expect(composer!.closest('[lang]')?.getAttribute('lang')).toBe(language);
     expect(chrome.lang).toBe('ru');
+  });
+});
+
+
+describe('Gekta standalone document language lifecycle', () => {
+  let meta: HTMLMetaElement;
+  beforeEach(() => {
+    window.localStorage.clear();
+    document.documentElement.lang = 'ru';
+    meta = document.createElement('meta');
+    meta.httpEquiv = 'Content-Language';
+    meta.content = 'ru';
+    document.head.appendChild(meta);
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response('{}', { status: 401 }));
+  });
+  afterEach(() => {
+    cleanup();
+    meta.remove();
+    window.history.replaceState(null, '', '/');
+    document.documentElement.lang = 'ru';
+    vi.restoreAllMocks();
+  });
+
+  it('updates the actual mounted workspace and root on RU -> EN -> ZH -> RU client navigation', async () => {
+    window.history.replaceState(null, '', '/gekta');
+    const view = render(createElement(GektaChatWorkspace, { locale: 'ru' }));
+    for (const [locale, pathname, language] of [
+      ['en', '/gekta/en', 'en'], ['zh', '/gekta/zh', 'zh-CN'], ['ru', '/gekta', 'ru'],
+    ] as const) {
+      window.history.replaceState(null, '', pathname);
+      view.rerender(createElement(GektaChatWorkspace, { locale }));
+      await waitFor(() => expect(document.documentElement.lang).toBe(language));
+      expect(meta.content).toBe(language);
+      expect(view.container.querySelector('textarea')?.closest('[lang]')?.getAttribute('lang')).toBe(language);
+    }
+  });
+
+  it.each(['/platform-v7', '/gekta/console', '/gekta/register', '/gekta/en/price', '/gekta/en-extra', '/gekta'])
+  ('never changes platform or mismatched document language at %s', (pathname) => {
+    window.history.replaceState(null, '', pathname);
+    render(createElement(GektaChatWorkspace, { locale: 'en' }));
+    expect(document.documentElement.lang).toBe('ru');
+    expect(meta.content).toBe('ru');
+  });
+
+  it('restores pre-existing document metadata when the standalone workspace unmounts', async () => {
+    window.history.replaceState(null, '', '/gekta/en');
+    const view = render(createElement(GektaChatWorkspace, { locale: 'en' }));
+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
+    view.unmount();
+    expect(document.documentElement.lang).toBe('ru');
+    expect(meta.content).toBe('ru');
+  });
+
+  it('does not overwrite metadata acquired by a newer page owner', async () => {
+    window.history.replaceState(null, '', '/gekta/zh');
+    const view = render(createElement(GektaChatWorkspace, { locale: 'zh' }));
+    await waitFor(() => expect(document.documentElement.lang).toBe('zh-CN'));
+    document.documentElement.lang = 'fr';
+    meta.content = 'fr';
+    view.unmount();
+    expect(document.documentElement.lang).toBe('fr');
+    expect(meta.content).toBe('fr');
+  });
+
+  it('preserves absent metadata instead of inventing a head element or an old lang', async () => {
+    window.history.replaceState(null, '', '/gekta/en');
+    meta.remove();
+    document.documentElement.removeAttribute('lang');
+    const view = render(createElement(GektaChatWorkspace, { locale: 'en' }));
+    await waitFor(() => expect(document.documentElement.lang).toBe('en'));
+    expect(document.head.querySelector('meta[http-equiv="Content-Language"]')).toBeNull();
+    view.unmount();
+    expect(document.documentElement.hasAttribute('lang')).toBe(false);
   });
 });
