@@ -792,7 +792,7 @@ class BindingPreservationTests(unittest.TestCase):
                                         'sha256': hashlib.sha256(p.read_bytes()).hexdigest()})
                 purpose = {
                     'owner': 'ACCOUNT_1_CORE', 'sourceBranch': 'ops/production-cold-preservation-20261022',
-                    'authorityBaseExactMain': SHA, 'ownerDecision': '#5469#issuecomment-6380353929',
+                    'authorityBaseExactMain': SHA, 'ownerDecision': '#5469#issuecomment-6381090318',
                     'operationName': 'stopped-configuration-20261024', 'configurationObservationAuthorized': True,
                     'readOnly': True, 'inspectionSha256': hashlib.sha256((root / inspector).read_bytes()).hexdigest(),
                     'composeParserVersion': '5.6.0', 'composeParserBytes': 32663526,
@@ -1035,6 +1035,15 @@ class ConfigurationObservationTests(unittest.TestCase):
         validate = lambda value, status='0': module.validate_terminal(json.dumps(value).encode(), SHA, '12345', status)
         good = valid_configuration_terminal()
         self.assertEqual(validate(good), good)
+        for count in (20, 176):
+            repeated = copy.deepcopy(good)
+            repeated['inputCoverage']['composeFiles'] = count
+            self.assertEqual(validate(repeated), repeated)
+        for count in (0, 177, True):
+            invalid = copy.deepcopy(good)
+            invalid['inputCoverage']['composeFiles'] = count
+            with self.subTest(ordered_reference_count=count), self.assertRaises(ValueError):
+                validate(invalid)
         mismatch = copy.deepcopy(good)
         mismatch['mismatchCounts']['image'] = 1
         mismatch['observedFieldsAgreement'] = 'MISMATCH'
@@ -1050,12 +1059,60 @@ class ConfigurationObservationTests(unittest.TestCase):
         with self.assertRaises(ValueError): validate(good, '255')
         with self.assertRaises(ValueError): module.validate_terminal(b'{"passed":true,"passed":false}', SHA, '12345', '0')
 
+    def test_ordered_compose_references_reuse_snapshots_and_keep_bounds(self):
+        p = self.profile
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first, second = root / 'first.yaml', root / 'second.yaml'
+            for file in (first, second):
+                file.write_text('services: {api: {image: fixture:1}, web: {image: fixture:1}}\n')
+                file.chmod(0o600)
+                os.utime(file, ns=(946684800000000000, 978307200000000000))
+            before = {str(file): p.file_token(file.stat()) for file in (first, second)}
+            shared = {'com.docker.compose.project': 'fixture',
+                      'com.docker.compose.project.working_dir': directory,
+                      'com.docker.compose.project.config_files': ','.join([str(first), str(second), str(first)] + [str(second)] * 173)}
+            records = [{'Config': {'Labels': {**shared, 'com.docker.compose.service': role}}}
+                       for role in ('api', 'web')]
+            model = {'name': 'fixture', 'services': {'api': {'image': 'fixture:1'}, 'web': {'image': 'fixture:1'}}}
+            calls = []
+            def runner(argv, descriptors):
+                calls.append(list(argv))
+                return json.dumps(model).encode()
+            inputs = p.PrivateInputs(None, os.getuid())
+            try:
+                report = p.render_model(None, records, inputs, runner, '/sealed-parser')
+                actual = [calls[0][i + 1] for i, word in enumerate(calls[0]) if word == '--file']
+                self.assertEqual(len(actual), 176)
+                self.assertEqual(actual[0], actual[2])
+                self.assertEqual(actual[1], actual[-1])
+                self.assertNotEqual(actual[0], actual[1])
+                self.assertEqual(len(inputs.originals), 2)
+                self.assertEqual(report[3]['composeFiles'], 176)
+                inputs.recheck()
+                self.assertEqual({str(file): p.file_token(file.stat()) for file in (first, second)}, before)
+            finally:
+                inputs.close()
+            for invalid in (','.join([str(first)] * 177), ','.join(str(root / str(i)) for i in range(17)),
+                            str(first) + ',', '', None, str(first) + ',' + str(root / '..' / root.name / 'first.yaml'),
+                            str(first) + ',' + str(first) + '\0', 'x' * 8193):
+                candidate = copy.deepcopy(records)
+                for record in candidate:
+                    record['Config']['Labels']['com.docker.compose.project.config_files'] = invalid
+                inputs = p.PrivateInputs(None, os.getuid())
+                try:
+                    with self.subTest(invalid_type=type(invalid).__name__), self.assertRaises(p.ConfigurationError):
+                        p.render_model(None, candidate, inputs, runner, '/sealed-parser')
+                finally:
+                    inputs.close()
+
     def test_native_compose_resolves_sealed_files_and_actual_environment_without_source_writes(self):
         p = self.profile
         binary_raw = vendor_fixture_bytes()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             config, override = root / 'compose.yaml', root / 'override.yaml'
+            middle = root / 'middle.yaml'
             config.write_text('''services:
   api:
     image: fixture-api:1
@@ -1087,17 +1144,18 @@ volumes:
   database: {external: true, name: fixture_database}
 ''')
             override.write_text('services:\n  api:\n    environment: {ADDED: from-override}\n')
+            middle.write_text('services:\n  api:\n    environment: {ADDED: middle-would-win-if-deduplicated}\n')
             (root / '.env').write_text("TOP='project$literal'\n")
             (root / 'api.env').write_text("EXPLICIT=base\nLOW=from-file\nFROM_TOP=${TOP}\nDOLLAR_ENV='two$$dollars'\nDATABASE_URL=postgresql://postgres:5432/fixturedb\n")
             (root / 'raw.env').write_text('RAW=${TOP}$$literal\n')
-            all_files = [config, override, root / '.env', root / 'api.env', root / 'raw.env']
+            all_files = [config, override, middle, root / '.env', root / 'api.env', root / 'raw.env']
             for file in all_files:
                 file.chmod(0o600)
                 os.utime(file, ns=(946684800000000000, 978307200000000000))
             before = {str(file): p.file_token(file.stat()) for file in all_files}
             shared = {'com.docker.compose.project': 'fixture',
                       'com.docker.compose.project.working_dir': directory,
-                      'com.docker.compose.project.config_files': str(config) + ',' + str(override)}
+                      'com.docker.compose.project.config_files': ','.join(map(str, [config, override, middle, override] + [override] * 16))}
             images = {'fixture-' + name + ':1': {'Id': 'sha256:' + digit * 64,
                       'RepoTags': ['fixture-' + name + ':1'], 'RepoDigests': [],
                       'Config': {'Env': ['PATH=/bin'], 'Cmd': ['image-command'],
@@ -1187,7 +1245,7 @@ volumes:
                 source.api('/images/fixture-api%3A1/json')
             report = p.observe_configuration(SHA, '12345', source, binary_bytes=binary_raw, uid=os.getuid())
             self.assertEqual(report['observedFieldsAgreement'], 'MATCH', report)
-            self.assertEqual(report['inputCoverage'], {'composeFiles': 2, 'projectEnvPresent': True,
+            self.assertEqual(report['inputCoverage'], {'composeFiles': 20, 'projectEnvPresent': True,
                                                        'declaredEnvFiles': 3, 'labelFileSetsEqual': True, 'savedHostConfigs': 11})
             self.assertEqual(report['savedApiDeclaredTarget'], 'DIRECT_POSTGRES_CONFIGURATION_MATCH')
             self.assertFalse(report['runtimeRestored'])

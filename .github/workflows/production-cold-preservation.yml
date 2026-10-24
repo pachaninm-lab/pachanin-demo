@@ -149,7 +149,7 @@ jobs:
                   'composeParserVersion', 'composeParserBytes', 'composeParserSha256'})
           require(purpose['owner'] == 'ACCOUNT_1_CORE' and
                   purpose['sourceBranch'] == 'ops/production-cold-preservation-20261022' and
-                  purpose['ownerDecision'] == '#5469#issuecomment-6380353929' and
+                  purpose['ownerDecision'] == '#5469#issuecomment-6381090318' and
                   purpose['operationName'] == 'stopped-configuration-20261024' and
                   purpose['configurationObservationAuthorized'] is True and purpose['readOnly'] is True and
                   purpose['inspectionSha256'] == '09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a' and
@@ -849,13 +849,26 @@ jobs:
               raw_files = web_labels.get('com.docker.compose.project.config_files')
               demand(type(raw_files) is str and 0 < len(raw_files) <= 8192, 'COMPOSE_FILE_PROFILE')
               files = raw_files.split(',')
-              demand(0 < len(files) <= 16 and len(set(files)) == len(files) and all(files), 'COMPOSE_FILE_PROFILE')
+              demand(0 < len(files) <= 176 and all(files), 'COMPOSE_FILE_PROFILE')
+              # Each occurrence participates in Compose merge order, including A/B/A.
+              # Snapshot each normalized input once without removing ordered arguments.
+              paths = [os.path.normpath(file if file.startswith('/') else directory.rstrip('/') + '/' + file)
+                       for file in files]
+              demand(len(set(paths)) <= 16, 'COMPOSE_FILE_PROFILE')
               argv = [binary, '--project-directory', directory, '--project-name', project]
-              for file in files:
-                  path = file if file.startswith('/') else directory.rstrip('/') + '/' + file
-                  raw = inputs.read(path)
-                  reject_external_profile(raw)
-                  argv += ['--file', inputs.stage(raw)]
+              snapshots = {}
+              for file, path in zip(files, paths):
+                  if path not in snapshots:
+                      # Validate the original spelling before normalization can hide '..'.
+                      original = file if file.startswith('/') else directory.rstrip('/') + '/' + file
+                      raw = inputs.read(original)
+                      reject_external_profile(raw)
+                      snapshots[path] = inputs.stage(raw)
+                  else:
+                      demand('..' not in file.split('/') and '\0' not in file and len(
+                          (file if file.startswith('/') else directory.rstrip('/') + '/' + file).encode()) <= 4096,
+                          'CONFIG_PATH_PROFILE')
+                  argv += ['--file', snapshots[path]]
               project_env = inputs.read(directory.rstrip('/') + '/.env', optional=True)
               env_path = inputs.stage(project_env or b'')
               argv += ['--env-file', env_path]
@@ -1055,7 +1068,7 @@ jobs:
               require(all(value['mismatchCounts'][key] + value['unprovedCounts'][key] <= value['comparedServiceCount'] for key in FIELDS))
               coverage = value['inputCoverage']
               require(type(coverage) is dict and set(coverage) == {'composeFiles', 'projectEnvPresent', 'declaredEnvFiles', 'labelFileSetsEqual', 'savedHostConfigs'})
-              require(type(coverage['composeFiles']) is int and 1 <= coverage['composeFiles'] <= 16 and
+              require(type(coverage['composeFiles']) is int and 1 <= coverage['composeFiles'] <= 176 and
                       type(coverage['declaredEnvFiles']) is int and 0 <= coverage['declaredEnvFiles'] <= 512 and
                       type(coverage['projectEnvPresent']) is bool and type(coverage['labelFileSetsEqual']) is bool and
                       type(coverage['savedHostConfigs']) is int and coverage['savedHostConfigs'] == 11)
