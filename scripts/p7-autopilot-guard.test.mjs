@@ -430,9 +430,18 @@ function runControlledCacheRegression(t) {
     path.resolve('scripts/p7-autopilot-guard.test.mjs')],
   { env, encoding: 'utf8', timeout: 30000, maxBuffer: 1024 * 1024 });
   assert.equal(result.status, 0, output(result));
-  assert.match(result.stdout, /# tests 1\n/);
-  assert.match(result.stdout, /# pass 1\n/);
-  assert.match(result.stdout, /# fail 0\n/);
+  const totals = {};
+  for (const name of ['tests', 'pass', 'fail', 'cancelled', 'skipped', 'todo']) {
+    const matches = [...result.stdout.matchAll(new RegExp('^# ' + name + ' ([0-9]+)\\r?$', 'gm'))];
+    assert.equal(matches.length, 1, 'one terminal TAP total for ' + name);
+    totals[name] = Number(matches[0][1]);
+    assert.ok(Number.isSafeInteger(totals[name]));
+  }
+  // Node 20 includes unmatched skipped registrations in its total; newer
+  // runners omit them. Require exactly one executed test on either version.
+  assert.equal(totals.tests, totals.skipped + 1);
+  assert.equal(totals.pass, 1);
+  for (const name of ['fail', 'cancelled', 'todo']) assert.equal(totals[name], 0);
 }
 
 test('composite baseline copies isolate candidate bytes, refs and relative symlinks', (t) => {
