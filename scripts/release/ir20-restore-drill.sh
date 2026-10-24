@@ -352,8 +352,9 @@ printf 'local all all trust\\n' > /tmp/pc-ir20-pg_hba.conf
                                '-U', user, '-d', database], data=b"BEGIN READ ONLY; SELECT current_setting('server_version_num')::int BETWEEN 160000 AND 169999 AND NOT pg_is_in_recovery() AND (SELECT rolsuper FROM pg_roles WHERE rolname=current_user); ROLLBACK;\n")
         check(result.stdout.strip() == b't', 'CLONE_DATABASE_AUTHORITY')
         # pg_dump scans all logical rows in this selected database; it is not a complete physical integrity proof.
+        # The discarded scan cannot fsync /dev/null; database/report fsync stays enabled.
         self.execute(['pg_dump', '-h', '/var/run/postgresql', '-w', '-U', user, '-d', database,
-                      '--format=custom', '--file=/dev/null'], seconds=180)
+                      '--format=custom', '--file=/dev/null', '--no-sync'], seconds=180)
         # Install/check amcheck only in this disposable clone. PostgreSQL documents
         # its limited relation coverage; the aggregate never claims full integrity.
         self.execute(['env', 'PGOPTIONS=-c default_transaction_read_only=off -c statement_timeout=120000',

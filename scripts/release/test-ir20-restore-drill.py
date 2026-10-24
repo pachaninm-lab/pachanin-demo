@@ -713,6 +713,8 @@ class StoppedPhysicalCopyTests(unittest.TestCase):
         with mock.patch.object(copy, 'execute', side_effect=[subprocess.CompletedProcess([],0,v) for v in outputs]) as execute:
             self.assertEqual(copy.recover('postgres','fixture'),'VERIFIED')
         calls=[call.args[0] for call in execute.call_args_list]
+        self.assertIn(['pg_dump', '-h', '/var/run/postgresql', '-w', '-U', 'postgres', '-d', 'fixture',
+                       '--format=custom', '--file=/dev/null', '--no-sync'], calls)
         self.assertIn(['pg_checksums','--check','-D',self.module.DATA], calls)
         self.assertFalse(any('--enable' in call or '--disable' in call for call in calls))
         setup=execute.call_args_list[0].kwargs['data']
