@@ -410,7 +410,33 @@ function compositeFixture(t, kind, options, construct) {
   return context;
 }
 
+function runControlledCacheRegression(t) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-controlled-cache-regression-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
+  const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_')));
+  delete env.NODE_TEST_CONTEXT;
+  const found = spawnSync('sh', ['-c', 'command -v git'], { env, encoding: 'utf8' });
+  assert.equal(found.status, 0, output(found));
+  const executable = fs.realpathSync(found.stdout.trim());
+  const quote = value => "'" + value.replaceAll("'", "'\\''") + "'";
+  // Configure Git only in its child process. Keep the Node test process free
+  // of Git overrides so the actual cache policy remains under test.
+  write(root, 'bin/git', '#!/bin/sh\nGIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null exec ' +
+    quote(executable) + ' "$@"\n', 0o755);
+  env.PATH = path.join(root, 'bin') + path.delimiter + env.PATH;
+  env.PC_CROP_CACHE_REGRESSION_CHILD = t.name;
+  const pattern = '^' + t.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$';
+  const result = spawnSync(process.execPath, ['--test', '--test-reporter=tap', '--test-name-pattern', pattern,
+    path.resolve('scripts/p7-autopilot-guard.test.mjs')],
+  { env, encoding: 'utf8', timeout: 30000, maxBuffer: 1024 * 1024 });
+  assert.equal(result.status, 0, output(result));
+  assert.match(result.stdout, /# tests 1\n/);
+  assert.match(result.stdout, /# pass 1\n/);
+  assert.match(result.stdout, /# fail 0\n/);
+}
+
 test('composite baseline copies isolate candidate bytes, refs and relative symlinks', (t) => {
+  if (process.env.PC_CROP_CACHE_REGRESSION_CHILD !== t.name) return runControlledCacheRegression(t);
   let constructions = 0;
   const construct = () => {
     constructions++;
@@ -441,6 +467,7 @@ test('composite baseline copies isolate candidate bytes, refs and relative symli
 });
 
 test('custom composite mutation callbacks and Git setup never reuse cached baselines', (t) => {
+  if (process.env.PC_CROP_CACHE_REGRESSION_CHILD !== t.name) return runControlledCacheRegression(t);
   let constructions = 0;
   const construct = () => { constructions++; return fixture(t, 'test/composite-custom-setup'); };
   compositeFixture(t, 'custom-setup-regression', {}, construct);
