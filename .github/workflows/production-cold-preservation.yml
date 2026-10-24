@@ -12,6 +12,12 @@ on:
       - '.github/workflows/production-full-stack-exact-sha.yml'
       - '.github/workflows/production-docker-headroom-recovery.yml'
       - '.github/workflows/production-docker-headroom-owner-push-once.yml'
+      - 'scripts/release/ir20-restore-drill.sh'
+      - 'scripts/release/test-ir20-restore-drill.py'
+      - 'scripts/release/test-ir20-restore-drill-integration.sh'
+      - '.github/workflows/ir20-restore-drill.yml'
+      - 'docs/ops/ir20-isolated-restore.md'
+      - 'docs/platform-v7/autopilot/scopes/ir20-isolated-restore-20260919.json'
   issue_comment:
     types: [created]
 
@@ -29,7 +35,7 @@ jobs:
       github.event_name == 'pull_request' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.number == 4637 &&
-       github.event.comment.body == '/production preserve-stopped-bindings current-main')
+       github.event.comment.body == '/production validate-stopped-pg16 current-main')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -47,7 +53,7 @@ jobs:
     if: >-
       github.event_name == 'issue_comment' &&
       github.event.issue.number == 4637 &&
-      github.event.comment.body == '/production preserve-stopped-bindings current-main' &&
+      github.event.comment.body == '/production validate-stopped-pg16 current-main' &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
       github.actor == github.repository_owner &&
@@ -82,7 +88,8 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          mkdir -p "$EVIDENCE_DIR"
+          mkdir -p "$(dirname "$EVIDENCE_DIR")"
+          mkdir -- "$EVIDENCE_DIR"
           target_sha="$GITHUB_SHA"
           [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
           [[ "$GITHUB_WORKFLOW_SHA" == "$target_sha" ]]
@@ -93,33 +100,77 @@ jobs:
           [[ "$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)" == "$target_sha" ]]
           echo "TARGET_SHA=$target_sha" >> "$GITHUB_ENV"
           printf '%s\n' "$target_sha" > "$EVIDENCE_DIR/target-sha.txt"
+          echo "EVIDENCE_INITIALIZED=1" >> "$GITHUB_ENV"
           python3 - <<'PY_BIND'
           import hashlib, json, pathlib, re, stat, subprocess
-          state = json.loads(pathlib.Path('docs/platform-v7/autopilot/autopilot-state.json').read_text())
-          purpose = state.get('coordinationAdmissions', {}).get('cold-bindings-preservation-20261023')
-          if not isinstance(purpose, dict) or purpose.get('owner') != 'ACCOUNT_1_CORE' or purpose.get('sourceBranch') != 'ops/production-cold-preservation-20261022':
-              raise SystemExit('ACCEPTED_SOURCE_PURPOSE_MISSING')
-          if (purpose.get('operationName') != 'cold-bindings-preservation-20261023' or
-              purpose.get('ownerDecision') != '#5469#issuecomment-6354447020' or
-              purpose.get('productionAcceptance') is not False or
-              not isinstance(purpose.get('authorityBaseExactMain'), str) or
-              not re.fullmatch('[0-9a-f]{40}', purpose['authorityBaseExactMain'])):
-              raise SystemExit('ACCEPTED_OPERATION_PURPOSE_MISMATCH')
-          if subprocess.run(['git', 'merge-base', '--is-ancestor', purpose['authorityBaseExactMain'], 'HEAD'],
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
-              raise SystemExit('ACCEPTED_OPERATION_ANCESTRY_MISMATCH')
-          expected = ['scripts/production_cold_preservation.py', 'scripts/test_production_cold_preservation.py', '.github/workflows/production-cold-preservation.yml', 'docs/ops/production-cold-preservation.md', 'scripts/test_production_stopped_runtime_headroom.py']
-          if list(purpose.get('sha256', {})) != expected or purpose.get('mode') != '100644':
-              raise SystemExit('SOURCE_VECTOR_MISMATCH')
-          payloads = dict(purpose['sha256'])
-          payloads['scripts/production_stopped_runtime_headroom.py'] = purpose.get('dependencySha256')
-          for name, expected_hash in payloads.items():
-              path = pathlib.Path(name)
-              info = path.lstat()
-              if not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != 0o644 or not 0 < info.st_size <= 200000:
-                  raise SystemExit('SOURCE_TYPE_MODE_SIZE_MISMATCH')
-              if hashlib.sha256(path.read_bytes()).hexdigest() != expected_hash:
-                  raise SystemExit('SOURCE_PAYLOAD_MISMATCH')
+          def require(ok):
+              if not ok:
+                  raise SystemExit('ACCEPTED_IR20_CONTROLLER_BINDING_INVALID')
+          def closed(pairs):
+              require(len(pairs) == len(dict(pairs)))
+              return dict(pairs)
+          def accepted(path, mode, digest):
+              p = pathlib.Path(path)
+              info = p.lstat()
+              require(stat.S_ISREG(info.st_mode) and not p.is_symlink() and
+                      stat.S_IMODE(info.st_mode) == (int(mode, 8) & 0o7777) and 0 < info.st_size <= 200000)
+              require(hashlib.sha256(p.read_bytes()).hexdigest() == digest)
+          def ancestor(value):
+              require(type(value) is str and re.fullmatch('[0-9a-f]{40}', value) is not None)
+              require(subprocess.run(['git', 'merge-base', '--is-ancestor', value, 'HEAD'],
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0)
+          state_bytes = pathlib.Path('docs/platform-v7/autopilot/autopilot-state.json').read_bytes()
+          require(0 < len(state_bytes) <= 3 * 1024 * 1024)
+          state = json.loads(state_bytes.decode('utf-8', errors='strict'), object_pairs_hook=closed)
+          purpose = state.get('coordinationAdmissions', {}).get('ir20-stopped-copy-controller-20261024')
+          require(type(purpose) is dict and set(purpose) == {
+              'owner', 'sourceBranch', 'authorityBaseExactMain', 'ownerDecision', 'operationName',
+              'isolatedCopyInvocationAuthorized', 'productionAcceptance', 'originalStartupAuthorized',
+              'sourcePins', 'limits'})
+          require(purpose['owner'] == 'ACCOUNT_1_CORE' and
+                  purpose['sourceBranch'] == 'ops/production-cold-preservation-20261022' and
+                  purpose['ownerDecision'] == '#5469#issuecomment-6377184068' and
+                  purpose['operationName'] == 'ir20-stopped-copy-20261023' and
+                  purpose['isolatedCopyInvocationAuthorized'] is True and
+                  purpose['productionAcceptance'] is False and purpose['originalStartupAuthorized'] is False and
+                  purpose['limits'] == 'One serialized no-network volatile PG16 copy. Original runtime, archives and keys retained; no transfer or new cost.')
+          ancestor(purpose['authorityBaseExactMain'])
+          require(state.get('approvedConcurrentScopes', {}).get(purpose['sourceBranch']) == [
+              'scripts/production_cold_preservation.py', 'scripts/test_production_cold_preservation.py',
+              '.github/workflows/production-cold-preservation.yml', 'docs/ops/production-cold-preservation.md',
+              'scripts/test_production_stopped_runtime_headroom.py'])
+          controller_paths = ['.github/workflows/production-cold-preservation.yml',
+                              'scripts/test_production_cold_preservation.py', 'docs/ops/production-cold-preservation.md']
+          def pins(items, paths, modes):
+              require(type(items) is list and len(items) == len(paths))
+              for item, path, mode in zip(items, paths, modes):
+                  require(type(item) is dict and set(item) == {'path', 'mode', 'sha256'} and
+                          item['path'] == path and item['mode'] == mode and
+                          type(item['sha256']) is str and re.fullmatch('[0-9a-f]{64}', item['sha256']) is not None)
+                  accepted(path, mode, item['sha256'])
+          pins(purpose['sourcePins'], controller_paths, ['100644'] * 3)
+          engine = state.get('coordinationAdmissions', {}).get('ir20-stopped-copy-source-20261023')
+          require(type(engine) is dict and set(engine) == {
+              'authorityBaseExactMain', 'dependencySha256', 'limits', 'owner', 'ownerDecision',
+              'productionAcceptance', 'productionInvocationAuthorized', 'sourceBranch', 'sourcePins', 'writerHandoff'})
+          require(engine['owner'] == 'ACCOUNT_1_CORE' and
+                  engine['sourceBranch'] == 'ops/ir20-isolated-restore-20260919' and
+                  engine['ownerDecision'] == '#5469#issuecomment-6354447020' and
+                  engine['writerHandoff'] == '#5469#issuecomment-6368785509' and
+                  engine['productionAcceptance'] is False and engine['productionInvocationAuthorized'] is False and
+                  engine['limits'] == 'Six-path source-only stopped PG16 volatile-copy prerequisite. No host dispatch, original startup, transfer or new cost.')
+          ancestor(engine['authorityBaseExactMain'])
+          engine_paths = ['scripts/release/ir20-restore-drill.sh', 'scripts/release/test-ir20-restore-drill.py',
+                          'scripts/release/test-ir20-restore-drill-integration.sh', '.github/workflows/ir20-restore-drill.yml',
+                          'docs/ops/ir20-isolated-restore.md', 'docs/platform-v7/autopilot/scopes/ir20-isolated-restore-20260919.json']
+          require(state.get('approvedConcurrentScopes', {}).get(engine['sourceBranch']) == engine_paths)
+          pins(engine['sourcePins'], engine_paths, ['100755'] * 3 + ['100644'] * 3)
+          dependencies = {
+              'scripts/production_stopped_runtime_headroom.py': '6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14',
+              'scripts/production_cold_preservation.py': '19c873694debb0076701a912b394aad6bb0e092947f04d97e5144320ca5ca832'}
+          require(engine['dependencySha256'] == dependencies)
+          for path, digest in dependencies.items():
+              accepted(path, '100644', digest)
           PY_BIND
           read -r state comments is_pr < <(gh api "repos/${GITHUB_REPOSITORY}/issues/4637" --jq '[.state,.comments,has("pull_request")] | @tsv')
           [[ "$state" == open && "$comments" =~ ^[0-9]+$ && "$is_pr" == false ]] && (( comments < 2500 ))
@@ -193,60 +244,122 @@ jobs:
             > "$EVIDENCE_DIR/ssh-auth.txt"
           grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
 
-      - name: Execute only the separately accepted cold-preservation stage
+      - name: Execute only the accepted isolated stopped-copy stage
+        id: isolated-copy
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -Eeuo pipefail
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]{0,19}$ ]]
           git fetch --no-tags origin main
           [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
           python3 - "$TARGET_SHA" "$EVIDENCE_DIR" <<'PY_PENDING'
           import pathlib, re, sys
           target, output = sys.argv[1:]
           if not re.fullmatch('[0-9a-f]{40}', target):
               raise SystemExit('INVALID_SOURCE_SHA')
-          body = '# Cold preservation\n\nExact source: `'+target+'`.\n\n'
-          body += 'Stage outcome: `UNKNOWN`; runtime restored: `false`; restore verification: `NOT_PERFORMED`.\n'
-          body += 'Do not retry. Reconcile the private operation and durable receipt through a separately accepted read-only step.\n'
-          pathlib.Path(output,'issue-record.md').write_text(body)
+          q = chr(96)
+          body = f'# Isolated stopped PostgreSQL copy\n\nExact source: {q}{target}{q}.\n\n'
+          body += f'Stage outcome: {q}UNKNOWN{q}; runtime restored: {q}false{q}; original startup authorized: {q}false{q}.\n'
+          body += 'Do not retry. Retain the owned journal, original volumes and both private copies/keys for reconciliation.\n'
+          with pathlib.Path(output, 'issue-record.md').open('x') as handle:
+              handle.write(body)
           PY_PENDING
           raw="$(mktemp)"
           payload="$(mktemp)"
           trap 'rm -f "$raw" "$payload"' EXIT
-          python3 - > "$payload" <<'PY_PAYLOAD'
-          import base64, pathlib
-          common = base64.b64encode(pathlib.Path('scripts/production_stopped_runtime_headroom.py').read_bytes()).decode('ascii')
-          source = base64.b64encode(pathlib.Path('scripts/production_cold_preservation.py').read_bytes()).decode('ascii')
-          print('import sys,types,base64')
-          print("module=types.ModuleType('production_stopped_runtime_headroom')")
-          print("sys.modules[module.__name__]=module")
-          print("exec(compile(base64.b64decode("+repr(common)+"),'<accepted-read-only-dependency>','exec'),module.__dict__)")
-          print("exec(compile(base64.b64decode("+repr(source)+"),'<accepted-cold-preservation>','exec'),globals())")
+          python3 - "$TARGET_SHA" > "$payload" <<'PY_PAYLOAD'
+          import base64, hashlib, json, subprocess, sys
+          target = sys.argv[1]
+          def source(path):
+              return subprocess.check_output(['git', 'show', target+':'+path])
+          state = json.loads(source('docs/platform-v7/autopilot/autopilot-state.json'))
+          pins = state['coordinationAdmissions']['ir20-stopped-copy-source-20261023']
+          expected = pins['dependencySha256']
+          print('import sys,types,base64,hashlib')
+          for name in ('production_stopped_runtime_headroom', 'production_cold_preservation'):
+              path = 'scripts/'+name+'.py'
+              raw = source(path)
+              digest = hashlib.sha256(raw).hexdigest()
+              if digest != expected[path]:
+                  raise SystemExit('PAYLOAD_DEPENDENCY_DRIFT')
+              print('module=types.ModuleType('+repr(name)+')')
+              print("module.__file__='<pinned-memory-dependency>'")
+              print('module.__ir20_accepted_sha256__='+repr(digest))
+              print('sys.modules[module.__name__]=module')
+              print('exec(compile(base64.b64decode('+repr(base64.b64encode(raw).decode())+'),'
+                    "'<accepted-ir20-dependency>','exec'),module.__dict__)")
+          raw = source('scripts/release/ir20-restore-drill.sh')
+          wanted = next(x['sha256'] for x in pins['sourcePins'] if x['path'] == 'scripts/release/ir20-restore-drill.sh')
+          if hashlib.sha256(raw).hexdigest() != wanted:
+              raise SystemExit('PAYLOAD_ENGINE_DRIFT')
+          begin, end = b"<<'PY_STOPPED_SOURCE'\n", b'\nPY_STOPPED_SOURCE\n'
+          if raw.count(begin) != 1 or raw.count(end) != 1:
+              raise SystemExit('PAYLOAD_ENGINE_BOUNDARY')
+          body = raw.split(begin, 1)[1].split(end, 1)[0]
+          print('exec(compile(base64.b64decode('+repr(base64.b64encode(body).decode())+'),'
+                "'<accepted-stopped-copy>','exec'),globals())")
           PY_PAYLOAD
           set +e
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
-            "$SSH_USER_SECRET@$PROD_HOST" "python3 - --sha '$TARGET_SHA' --run-id '$GITHUB_RUN_ID' --execute --bindings" \
-            < "$payload" > "$raw" 2>/dev/null
+          /usr/bin/timeout --signal=TERM --kill-after=10s 1000s \
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            "$SSH_USER_SECRET@$PROD_HOST" "/usr/bin/timeout --signal=TERM --kill-after=70s 900s /usr/bin/python3 -I - '$TARGET_SHA' '$GITHUB_RUN_ID' '<pinned-memory-transport>'" \
+            < "$payload" 2>/dev/null | head -c 16385 > "$raw"
           rc=$?
           set -e
           git fetch --no-tags origin main
           [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
           python3 - "$raw" "$TARGET_SHA" "$GITHUB_RUN_ID" "$EVIDENCE_DIR" "$rc" <<'PY_RECORD'
-          import json, pathlib, sys
-          sys.path.insert(0, 'scripts')
-          from production_cold_preservation import validate_bindings_terminal as validate_terminal
+          import json, pathlib, re, sys
           raw, expected, run_id, output, status = sys.argv[1:]
-          with pathlib.Path(raw).open('rb') as handle:
-              data = handle.read(16385)
-          result = validate_terminal(data, expected, run_id, int(status))
-          body = '# Cold preservation\n\nExact source: `'+expected+'`.\n\n'
-          body += 'Preservation passed: `'+str(result['passed'])+'`; runtime restored: `false`; restore verification: `NOT_PERFORMED`.\n'
-          if result['passed']:
-              body += 'Authenticated bind/configuration archive contents and unchanged source/runtime were checked; Compose parity and env-file coverage are not attested. This is not a database restore or off-host recovery acceptance.\n'
-              body += 'Ciphertext SHA256: `'+result['ciphertextSha256']+'`; selected roots: `'+str(result['selectedRoots'])+'`.\n'
-          else:
-              body += 'Failure code: `'+result['errorCode']+'`. Do not retry; retain the key/archive for read-only reconciliation.\n'
-          pathlib.Path(output,'result.json').write_text(json.dumps(result,separators=(',',':'))+'\n')
-          pathlib.Path(output,'issue-record.md').write_text(body)
+          def require(ok):
+              if not ok:
+                  raise ValueError()
+          def closed(pairs):
+              require(len(pairs) == len(dict(pairs)))
+              return dict(pairs)
+          try:
+              with pathlib.Path(raw).open('rb') as handle:
+                  data = handle.read(16385)
+              require(0 < len(data) <= 16384)
+              value = json.loads(data.decode('utf-8', errors='strict'), object_pairs_hook=closed)
+              require(type(value) is dict)
+              failed = {'schemaVersion', 'passed', 'errorCode', 'runtimeRestored', 'startupAuthorized', 'mutationOutcome'}
+              if set(value) == failed:
+                  require(value['schemaVersion'] == 'pc.ir20-stopped-copy.v1' and value['passed'] is False and
+                          value['runtimeRestored'] is False and value['startupAuthorized'] is False and
+                          value['mutationOutcome'] == 'RECONCILIATION_REQUIRED_IF_STARTED' and
+                          type(value['errorCode']) is str and re.fullmatch('[A-Z_]{1,64}', value['errorCode']) and
+                          int(status) == 1)
+                  print('IR20_EXECUTOR_FAILURE='+value['errorCode'])
+              else:
+                  fixed = {
+                      'schemaVersion': 'pc.ir20-stopped-copy.v1', 'targetSha': expected, 'runId': run_id,
+                      'passed': True, 'classification': 'ISOLATED_PHYSICAL_COPY_RECOVERY_VERIFIED_NOT_RELEASE_ACCEPTANCE',
+                      'sourceUnchanged': True, 'runtimeUnchanged': True, 'cloneByteCopyVerified': True,
+                      'cloneRecoveryVerified': True, 'selectedDatabaseLogicalScan': 'VERIFIED',
+                      'amcheck': 'SUPPORTED_RELATIONS_VERIFIED', 'disposableCleanup': 'VERIFIED',
+                      'sourceBinding': 'HISTORICAL_POSTGRES_NOT_CANONICAL_API_VERIFIED',
+                      'databaseIntegrity': 'NOT_FULLY_ATTESTED', 'runtimeRestored': False, 'startupAuthorized': False,
+                      'fullDrAcceptance': 'NOT_PROVEN', 'offHostRecovery': 'NOT_ESTABLISHED'}
+                  require(set(value) == set(fixed) | {'checksums'} and
+                          type(value['checksums']) is str and value['checksums'] in ('VERIFIED', 'NOT_ENABLED') and
+                          all(type(value[k]) is type(v) and value[k] == v for k, v in fixed.items()) and int(status) == 0)
+          except BaseException:
+              raise SystemExit('IR20_TERMINAL_INVALID') from None
+          if value['passed'] is not True:
+              raise SystemExit('IR20_RECONCILIATION_REQUIRED')
+          with pathlib.Path(output, 'result.json').open('x') as handle:
+              handle.write(json.dumps(value, separators=(',', ':'))+'\n')
+          q = chr(96)
+          body = f'# Isolated stopped PostgreSQL copy\n\nExact source: {q}{expected}{q}.\n\n'
+          body += f'Isolated copy checks passed: {q}true{q}; original runtime restored: {q}false{q}; original startup authorized: {q}false{q}.\n'
+          body += 'Only the volatile clone was started and removed. Original source/runtime and preserved ciphertexts remained unchanged.\n'
+          body += 'Historical PostgreSQL is not yet bound to the canonical API. Full database integrity, logical critical-state roundtrip and release/DR acceptance remain unproved.\n'
+          pathlib.Path(output, 'issue-record.md').write_text(body)
           PY_RECORD
           (( rc == 0 ))
       - name: Cleanup protected transport
@@ -254,17 +367,33 @@ jobs:
         shell: bash
         run: rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
       - name: Publish bounded terminal evidence
-        if: always()
+        id: publish-evidence
+        if: always() && env.EVIDENCE_INITIALIZED == '1'
         env:
           GH_TOKEN: ${{ github.token }}
+          EXECUTION_OUTCOME: ${{ steps.isolated-copy.outcome }}
         shell: bash
         run: |
           set -Eeuo pipefail
+          if [[ "$EXECUTION_OUTCOME" != success ]]; then
+            rm -f "$EVIDENCE_DIR/result.json"
+            python3 - "$TARGET_SHA" "$EVIDENCE_DIR" <<'PY_UNKNOWN'
+          import pathlib, re, sys
+          target, output = sys.argv[1:]
+          if not re.fullmatch('[0-9a-f]{40}', target):
+              raise SystemExit('INVALID_SOURCE_SHA')
+          q = chr(96)
+          body = f'# Isolated stopped PostgreSQL copy\n\nExact source: {q}{target}{q}.\n\n'
+          body += f'Stage outcome: {q}UNKNOWN{q}; runtime restored: {q}false{q}; original startup authorized: {q}false{q}.\n'
+          body += 'Do not retry. Retain the owned journal, original volumes and both private copies/keys for reconciliation.\n'
+          pathlib.Path(output, 'issue-record.md').write_text(body)
+          PY_UNKNOWN
+          fi
           if [[ -f "$EVIDENCE_DIR/issue-record.md" ]]; then
             gh issue comment 4637 --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/issue-record.md"
           fi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
+        if: always() && env.EVIDENCE_INITIALIZED == '1' && steps.publish-evidence.outcome == 'success'
         with:
           name: cold-preservation-${{ github.run_id }}
           path: |
