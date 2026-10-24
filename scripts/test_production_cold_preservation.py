@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Synthetic local files only: no Docker socket, production host or credential."""
 import copy
+import ast
 import hashlib
 import io
 import json
@@ -11,12 +12,21 @@ import subprocess
 import tarfile
 import tempfile
 import textwrap
+import sys
+import time
+import types
 import unittest
 from unittest.mock import patch
 
 import production_cold_preservation as cold
 
 SHA = 'a' * 40
+CONFIG_FIELDS = ('image', 'environment', 'command', 'entrypoint', 'user', 'workingDirectory',
+                 'mounts', 'networkNames', 'ports', 'restart', 'privileged', 'readOnly',
+                 'capAdd', 'capDrop', 'securityOptions')
+REQUIRE_NATIVE_COMPOSE = '--require-native-compose' in sys.argv
+if REQUIRE_NATIVE_COMPOSE:
+    sys.argv.remove('--require-native-compose')
 
 
 def workflow_step(name):
@@ -48,15 +58,31 @@ def valid_bindings_terminal():
 
 
 
-def valid_stopped_terminal():
-    return {'schemaVersion': 'pc.ir20-stopped-copy.v1', 'targetSha': SHA, 'runId': '12345',
-            'passed': True, 'classification': 'ISOLATED_PHYSICAL_COPY_RECOVERY_VERIFIED_NOT_RELEASE_ACCEPTANCE',
-            'sourceUnchanged': True, 'runtimeUnchanged': True, 'cloneByteCopyVerified': True,
-            'cloneRecoveryVerified': True, 'selectedDatabaseLogicalScan': 'VERIFIED',
-            'amcheck': 'SUPPORTED_RELATIONS_VERIFIED', 'checksums': 'VERIFIED', 'disposableCleanup': 'VERIFIED',
-            'sourceBinding': 'HISTORICAL_POSTGRES_NOT_CANONICAL_API_VERIFIED',
-            'databaseIntegrity': 'NOT_FULLY_ATTESTED', 'runtimeRestored': False, 'startupAuthorized': False,
-            'fullDrAcceptance': 'NOT_PROVEN', 'offHostRecovery': 'NOT_ESTABLISHED'}
+def valid_configuration_terminal():
+    return {'schemaVersion': 'pc.stopped-configuration.v1', 'targetSha': SHA, 'runId': '12345',
+            'passed': True, 'classification': 'READ_ONLY_CONFIGURATION_OBSERVED_NOT_STARTUP_ACCEPTANCE',
+            'readOnly': True, 'runtimeRestored': False, 'startupAuthorized': False,
+            'canonicalApiBinding': 'NOT_PROVEN', 'fullComposeParity': 'NOT_FULLY_ATTESTED',
+            'databaseIntegrity': 'NOT_FULLY_ATTESTED', 'sourceRuntimeUnchanged': True,
+            'privateInputsUnchanged': True, 'plaintextTransfer': False, 'composeVersion': '2.39.1',
+            'comparedServiceCount': 3, 'missingServiceCount': 0, 'extraServiceCount': 0,
+            'comparedFields': list(CONFIG_FIELDS), 'mismatchCounts': dict.fromkeys(CONFIG_FIELDS, 0),
+            'unprovedCounts': dict.fromkeys(CONFIG_FIELDS, 0),
+            'inputCoverage': {'composeFiles': 1, 'projectEnvPresent': True,
+                              'declaredEnvFiles': 1, 'labelFileSetsEqual': True},
+            'observedFieldsAgreement': 'MATCH', 'savedApiDeclaredTarget': 'DIRECT_POSTGRES_CONFIGURATION_MATCH'}
+
+
+def embedded_configuration_profile():
+    _, shell = workflow_step('Inspect only the accepted stopped configuration')
+    code = shell.split("<<'PY_PAYLOAD'\n", 1)[1].split('\nPY_PAYLOAD\n', 1)[0]
+    values = [ast.literal_eval(node.value) for node in ast.parse(code).body if isinstance(node, ast.Assign)
+              and any(isinstance(target, ast.Name) and target.id == 'profile' for target in node.targets)]
+    if len(values) != 1:
+        raise AssertionError('one literal observer is required')
+    module = types.ModuleType('configuration_fixture')
+    exec(compile(values[0], '<actual-configuration-profile>', 'exec'), module.__dict__)
+    return module
 
 class Host:
     def __init__(self):
@@ -300,7 +326,7 @@ class PreservationTests(unittest.TestCase):
         self.assertNotIn('issues: write', global_part + contract)
         self.assertNotIn('concurrency:', global_part + contract)
         for condition in ["github.event_name == 'issue_comment'", 'github.event.issue.number == 4637',
-                          "github.event.comment.body == '/production validate-stopped-pg16 current-main'",
+                          "github.event.comment.body == '/production inspect-stopped-configuration current-main'",
                           'github.event.comment.user.login == github.repository_owner',
                           "github.event.comment.author_association == 'OWNER'",
                           'github.actor == github.repository_owner',
@@ -360,13 +386,13 @@ class PreservationTests(unittest.TestCase):
 
     def test_actual_bash_transport_never_publishes_success_for_unknown_outcome(self):
         import sys
-        _, source = workflow_step('Execute only the accepted isolated stopped-copy stage')
-        valid = valid_stopped_terminal()
-        failed = {'schemaVersion': 'pc.ir20-stopped-copy.v1', 'passed': False,
-                  'errorCode': 'POST_COPY_RUNTIME_DRIFT', 'runtimeRestored': False, 'startupAuthorized': False,
-                  'mutationOutcome': 'RECONCILIATION_REQUIRED_IF_STARTED'}
+        _, source = workflow_step('Inspect only the accepted stopped configuration')
+        valid = valid_configuration_terminal()
+        failed = {'schemaVersion': 'pc.stopped-configuration.v1', 'passed': False,
+                  'errorCode': 'CONFIG_INPUT_DRIFT', 'readOnly': True,
+                  'runtimeRestored': False, 'startupAuthorized': False}
         cases = [(valid, 0, SHA, SHA, True),
-                 ({**valid, 'checksums': 'NOT_ENABLED'}, 0, SHA, SHA, True),
+                 ({**valid, 'savedApiDeclaredTarget': 'NOT_PROVEN'}, 0, SHA, SHA, True),
                  (valid, 255, SHA, SHA, False), (valid, 124, SHA, SHA, False),
                  (valid, 137, SHA, SHA, False), (valid, 1, SHA, SHA, False),
                  (valid, 0, 'b' * 40, SHA, False), (valid, 0, SHA, 'b' * 40, False),
@@ -375,11 +401,13 @@ class PreservationTests(unittest.TestCase):
                  (b' ' * 16385, 0, SHA, SHA, False),
                  (json.dumps(valid)[:-1] + ', "passed":true}', 0, SHA, SHA, False)]
         for change in ({'injected': 'SYNTHETIC_SECRET'}, {'targetSha': 'b' * 40}, {'runId': '54321'},
-                       {'sourceUnchanged': 1}, {'runtimeUnchanged': False}, {'cloneByteCopyVerified': False},
-                       {'cloneRecoveryVerified': False}, {'startupAuthorized': True}, {'runtimeRestored': True},
-                       {'checksums': 'NOT_CHECKED'}, {'databaseIntegrity': 'FULL'}, {'fullDrAcceptance': 'PROVEN'},
-                       {'offHostRecovery': 'ESTABLISHED'}, {'selectedDatabaseLogicalScan': 'SKIPPED'},
-                       {'amcheck': 'SKIPPED'}, {'sourceBinding': 'CANONICAL'}, {'disposableCleanup': 'UNKNOWN'},
+                       {'sourceRuntimeUnchanged': 1}, {'privateInputsUnchanged': False},
+                       {'readOnly': False}, {'plaintextTransfer': True}, {'startupAuthorized': True},
+                       {'runtimeRestored': True}, {'databaseIntegrity': 'FULL'}, {'fullComposeParity': 'FULL'},
+                       {'canonicalApiBinding': 'VERIFIED'}, {'comparedServiceCount': True},
+                       {'comparedServiceCount': 12}, {'missingServiceCount': -1},
+                       {'comparedFields': []}, {'inputCoverage': {}}, {'composeVersion': '1.29.2'},
+                       {'observedFieldsAgreement': 'MISMATCH'}, {'savedApiDeclaredTarget': 'LIVE'},
                        {'classification': 'RELEASE_ACCEPTED'}):
             cases.append(({**valid, **change}, 0, SHA, SHA, False))
         for value, status, post, api_post, success in cases:
@@ -393,15 +421,13 @@ class PreservationTests(unittest.TestCase):
                     p.parent.mkdir(exist_ok=True)
                     p.write_bytes(Path(__file__).with_name(filename).read_bytes())
                     deps['scripts/' + filename] = hashlib.sha256(p.read_bytes()).hexdigest()
-                engine_path = 'scripts/release/ir20-restore-drill.sh'
-                engine = root / engine_path
-                engine.parent.mkdir()
-                engine.write_text("#!/usr/bin/env bash\npython3 - <<'PY_STOPPED_SOURCE'\n# synthetic transport fixture, never executed\nPY_STOPPED_SOURCE\n")
+                diagnostic = root / '.github/workflows/production-docker-headroom-diagnostic.yml'
+                diagnostic.parent.mkdir(parents=True)
+                diagnostic.write_bytes((Path(__file__).resolve().parent.parent / '.github/workflows/production-docker-headroom-diagnostic.yml').read_bytes())
                 state = root / 'docs/platform-v7/autopilot/autopilot-state.json'
                 state.parent.mkdir(parents=True)
-                state.write_text(json.dumps({'coordinationAdmissions': {'ir20-stopped-copy-source-20261023': {
-                    'dependencySha256': deps, 'sourcePins': [{'path': engine_path,
-                    'sha256': hashlib.sha256(engine.read_bytes()).hexdigest()}]}}}))
+                state.write_text(json.dumps({'coordinationAdmissions': {'stopped-configuration-controller-20261024': {
+                    'inspectionSha256': hashlib.sha256(diagnostic.read_bytes()).hexdigest()}}}))
                 output = root / 'evidence'
                 output.mkdir()
                 fixture = root / 'output'
@@ -442,7 +468,7 @@ class PreservationTests(unittest.TestCase):
                 root = Path(name)
                 output = root / 'evidence'
                 output.mkdir()
-                (output / 'result.json').write_text(json.dumps(valid_stopped_terminal()))
+                (output / 'result.json').write_text(json.dumps(valid_configuration_terminal()))
                 (output / 'issue-record.md').write_text('SYNTHETIC_SECRET surviving positive report')
                 commands = root / 'bin'
                 commands.mkdir()
@@ -678,7 +704,7 @@ class BindingPreservationTests(unittest.TestCase):
             block = workflow.split('\n  ' + job + ':\n', 1)[1].split('\n    runs-on:', 1)[0]
             expression = ' '.join(re.search(r'\n    if: >-\n((?:      [^\n]*\n)+)', '\n' + block + '\n')[1].split())
             conditions.append(compile(ast.parse(expression.replace('&&', ' and ').replace('||', ' or '), mode='eval'), '<route>', 'eval'))
-        def route(event='issue_comment', issue=4637, body='/production validate-stopped-pg16 current-main',
+        def route(event='issue_comment', issue=4637, body='/production inspect-stopped-configuration current-main',
                   author='owner', actor='owner', triggering='owner', association='OWNER', result='success'):
             context = {'github': NS(event_name=event, repository_owner='owner', actor=actor, triggering_actor=triggering,
                                     event=NS(issue=NS(number=issue), comment=NS(body=body, author_association=association,
@@ -689,7 +715,8 @@ class BindingPreservationTests(unittest.TestCase):
         self.assertEqual(route(event='pull_request'), (True, False))
         for update in ({'event': 'push'}, {'issue': 5469}, {'body': '/production preserve-stopped-data current-main'},
                        {'body': '/production preserve-stopped-bindings current-main'},
-                       {'body': '/production validate-stopped-pg16 current-main\n'}):
+                       {'body': '/production validate-stopped-pg16 current-main'},
+                       {'body': '/production inspect-stopped-configuration current-main\n'}):
             self.assertEqual(route(**update), (False, False))
         for update in ({'author': 'other'}, {'actor': 'other'}, {'triggering': 'other'}, {'association': 'NONE'},
                        {'result': 'failure'}, {'result': 'skipped'}):
@@ -702,6 +729,7 @@ class BindingPreservationTests(unittest.TestCase):
         names = ['.github/workflows/production-cold-preservation.yml',
                  'scripts/test_production_cold_preservation.py', 'docs/ops/production-cold-preservation.md']
         dependencies = ['scripts/production_stopped_runtime_headroom.py', 'scripts/production_cold_preservation.py']
+        inspector = '.github/workflows/production-docker-headroom-diagnostic.yml'
         engine_names = ['scripts/release/ir20-restore-drill.sh', 'scripts/release/test-ir20-restore-drill.py',
                         'scripts/release/test-ir20-restore-drill-integration.sh', '.github/workflows/ir20-restore-drill.yml',
                         'docs/ops/ir20-isolated-restore.md', 'docs/platform-v7/autopilot/scopes/ir20-isolated-restore-20260919.json']
@@ -712,11 +740,11 @@ class BindingPreservationTests(unittest.TestCase):
         alterations = ('none', 'missing', 'owner', 'operation', 'decision', 'invocation', 'acceptance', 'startup',
                        'vector', 'hash', 'mode', 'link', 'dependency', 'ancestry', 'extra', 'controller-scope',
                        'engine-missing', 'engine-grant', 'engine-scope', 'engine-vector', 'engine-hash',
-                       'engine-extra', 'duplicate')
+                       'engine-extra', 'duplicate', 'readonly', 'inspector-hash', 'inspector-drift', 'inspector-mode')
         for alteration in alterations:
             with self.subTest(alteration=alteration), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                for name in names + dependencies:
+                for name in names + dependencies + [inspector]:
                     p = root / name
                     p.parent.mkdir(parents=True, exist_ok=True)
                     p.write_bytes((base / name).read_bytes())
@@ -731,12 +759,13 @@ class BindingPreservationTests(unittest.TestCase):
                                         'sha256': hashlib.sha256(p.read_bytes()).hexdigest()})
                 purpose = {
                     'owner': 'ACCOUNT_1_CORE', 'sourceBranch': 'ops/production-cold-preservation-20261022',
-                    'authorityBaseExactMain': SHA, 'ownerDecision': '#5469#issuecomment-6377184068',
-                    'operationName': 'ir20-stopped-copy-20261023', 'isolatedCopyInvocationAuthorized': True,
+                    'authorityBaseExactMain': SHA, 'ownerDecision': '#5469#issuecomment-6379896668',
+                    'operationName': 'stopped-configuration-20261024', 'configurationObservationAuthorized': True,
+                    'readOnly': True, 'inspectionSha256': hashlib.sha256((root / inspector).read_bytes()).hexdigest(),
                     'productionAcceptance': False, 'originalStartupAuthorized': False,
                     'sourcePins': [{'path': name, 'mode': '100644', 'sha256': hashlib.sha256((root / name).read_bytes()).hexdigest()}
                                    for name in names],
-                    'limits': 'One serialized no-network volatile PG16 copy. Original runtime, archives and keys retained; no transfer or new cost.'}
+                    'limits': 'One serialized read-only Compose/environment observation. Private values stay on-host; no startup, transfer or new cost.'}
                 engine = {
                     'authorityBaseExactMain': SHA,
                     'dependencySha256': {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in dependencies},
@@ -745,15 +774,15 @@ class BindingPreservationTests(unittest.TestCase):
                     'productionAcceptance': False, 'productionInvocationAuthorized': False,
                     'sourceBranch': 'ops/ir20-isolated-restore-20260919', 'sourcePins': engine_pins,
                     'writerHandoff': '#5469#issuecomment-6368785509'}
-                state_value = {'coordinationAdmissions': {'ir20-stopped-copy-controller-20261024': purpose,
+                state_value = {'coordinationAdmissions': {'stopped-configuration-controller-20261024': purpose,
                                                          'ir20-stopped-copy-source-20261023': engine},
                                'approvedConcurrentScopes': {purpose['sourceBranch']: source_vector,
                                                             engine['sourceBranch']: engine_names}}
-                if alteration == 'missing': del state_value['coordinationAdmissions']['ir20-stopped-copy-controller-20261024']
+                if alteration == 'missing': del state_value['coordinationAdmissions']['stopped-configuration-controller-20261024']
                 if alteration == 'owner': purpose['owner'] = 'OTHER'
                 if alteration == 'operation': purpose['operationName'] = cold.BINDINGS_OPERATION
                 if alteration == 'decision': purpose['ownerDecision'] = 'candidate-owned'
-                if alteration == 'invocation': purpose['isolatedCopyInvocationAuthorized'] = False
+                if alteration == 'invocation': purpose['configurationObservationAuthorized'] = False
                 if alteration == 'acceptance': purpose['productionAcceptance'] = True
                 if alteration == 'startup': purpose['originalStartupAuthorized'] = True
                 if alteration == 'vector': purpose['sourcePins'].append(dict(purpose['sourcePins'][0]))
@@ -763,6 +792,10 @@ class BindingPreservationTests(unittest.TestCase):
                     (root / names[0]).unlink()
                     (root / names[0]).symlink_to(base / names[0])
                 if alteration == 'dependency': (root / dependencies[0]).write_bytes(b'changed helper')
+                if alteration == 'readonly': purpose['readOnly'] = False
+                if alteration == 'inspector-hash': purpose['inspectionSha256'] = 'b' * 64
+                if alteration == 'inspector-drift': (root / inspector).write_bytes(b'changed inspector')
+                if alteration == 'inspector-mode': (root / inspector).chmod(0o755)
                 if alteration == 'extra': purpose['additionalAuthority'] = False
                 if alteration == 'controller-scope': state_value['approvedConcurrentScopes'][purpose['sourceBranch']] = source_vector + ['extra']
                 if alteration == 'engine-missing': del state_value['coordinationAdmissions']['ir20-stopped-copy-source-20261023']
@@ -786,6 +819,287 @@ class BindingPreservationTests(unittest.TestCase):
                                         env={**os.environ, 'PATH': str(commands) + os.pathsep + os.environ['PATH']})
                 self.assertEqual(result.returncode == 0, alteration == 'none', result.stderr.decode())
 
+
+
+class ConfigurationObservationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.profile = embedded_configuration_profile()
+
+    class DirectorySource:
+        def open_directory(self, path):
+            return os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NOATIME)
+
+    def test_private_inputs_keep_atime_seal_memory_and_reject_replaced_sources(self):
+        import fcntl
+        p = self.profile
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'private.env'
+            path.write_bytes(b'SYNTHETIC_SECRET=private\n')
+            path.chmod(0o600)
+            os.utime(path, ns=(946684800000000000, 978307200000000000))
+            before = path.stat()
+            inputs = p.PrivateInputs(self.DirectorySource(), os.getuid())
+            try:
+                raw = inputs.read(str(path))
+                memory = inputs.stage(raw)
+                fd = int(memory.rsplit('/', 1)[1])
+                self.assertEqual(fcntl.fcntl(fd, p.GET_SEALS) & p.INPUT_SEALS, p.INPUT_SEALS)
+                with self.assertRaises(OSError):
+                    os.write(fd, b'changed')
+                self.assertEqual(path.stat().st_atime_ns, before.st_atime_ns)
+                inputs.recheck()
+                path.unlink()
+                path.write_bytes(raw)
+                path.chmod(0o600)
+                with self.assertRaisesRegex(p.ConfigurationError, 'CONFIG_INPUT_DRIFT'):
+                    inputs.recheck()
+            finally:
+                original_fds = [x[0] for x in inputs.originals] + inputs.memory
+                inputs.close()
+            for fd in original_fds:
+                with self.assertRaises(OSError):
+                    os.fstat(fd)
+
+    def test_private_input_links_modes_sizes_optional_absence_and_total_bound(self):
+        p = self.profile
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'private'
+            inputs = p.PrivateInputs(self.DirectorySource(), os.getuid())
+            try:
+                self.assertIsNone(inputs.read(str(path), optional=True))
+                path.symlink_to('/etc/passwd')
+                with self.assertRaisesRegex(p.ConfigurationError, 'CONFIG_INPUT_DRIFT'):
+                    inputs.recheck()
+                with self.assertRaises(OSError): inputs.read(str(path))
+                path.unlink()
+                os.mkfifo(path, 0o600)
+                with self.assertRaisesRegex(p.ConfigurationError, 'CONFIG_INPUT_PROFILE'):
+                    inputs.read(str(path))
+                path.unlink()
+                path.write_bytes(b'fixture')
+                path.chmod(0o666)
+                with self.assertRaisesRegex(p.ConfigurationError, 'CONFIG_INPUT_PROFILE'):
+                    inputs.read(str(path))
+                path.chmod(0o600)
+                parent = Path(directory) / 'unsafe-parent'
+                parent.mkdir()
+                nested = parent / 'private'
+                nested.write_bytes(b'fixture')
+                nested.chmod(0o600)
+                parent.chmod(0o777)
+                with self.assertRaisesRegex(p.ConfigurationError, 'CONFIG_DIRECTORY_PROFILE'):
+                    inputs.read(str(nested))
+                parent.chmod(0o700)
+                inputs.total = 8 * 1024 * 1024
+                with self.assertRaisesRegex(p.ConfigurationError, 'CONFIG_INPUT_BOUND'):
+                    inputs.read(str(path))
+                inputs.total = 0
+                with path.open('wb') as handle: handle.truncate(1024 * 1024 + 1)
+                with self.assertRaisesRegex(p.ConfigurationError, 'CONFIG_INPUT_PROFILE'):
+                    inputs.read(str(path))
+                for forbidden in ('/proc/self/environ', '/sys/x', '/dev/x', '/run/docker.sock',
+                                  '/var/lib/docker/private', '/var/lib/pc-release-authority/key',
+                                  str(path.parent / '..' / path.name)):
+                    with self.assertRaisesRegex(p.ConfigurationError, 'CONFIG_PATH_PROFILE'):
+                        inputs.read(forbidden)
+            finally:
+                inputs.close()
+
+    def test_unexpected_private_exception_is_redacted_at_the_actual_entrypoint(self):
+        import contextlib
+        p = self.profile
+        class Source:
+            def inspect(self, *args):
+                raise ValueError('SYNTHETIC_SECRET /protected/private/path')
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), patch.object(p.signal, 'signal'):
+            status = p.configuration_main([SHA, '12345'], Source())
+        self.assertEqual(status, 1)
+        value = json.loads(output.getvalue())
+        self.assertEqual(value, {'schemaVersion': 'pc.stopped-configuration.v1', 'passed': False,
+                                'errorCode': 'CONFIG_OBSERVATION_UNAVAILABLE', 'readOnly': True,
+                                'runtimeRestored': False, 'startupAuthorized': False})
+        self.assertNotIn('SYNTHETIC_SECRET', output.getvalue())
+
+    def test_external_yaml_sources_are_rejected_before_compose_can_resolve_them(self):
+        p = self.profile
+        for raw in (b'include: https://example.invalid/config.yml',
+                    b'{services: {api: {extends: remote.yml}}}',
+                    b'"include": remote.yml', b"'configs': {}", b'? include\n: remote.yml',
+                    b'&key include: remote.yml', b'*key: remote.yml', b'!str include: remote.yml',
+                    b'"incl\\u0075de": remote.yml', b'"incl\\x75de": remote.yml',
+                    b'"incl\\U00000075de": remote.yml', b'"incl\\\nude": remote.yml',
+                    b'services:\n  api:\n    label_file: private', b'provider: {}'):
+            with self.subTest(raw=raw), self.assertRaises(p.ConfigurationError):
+                p.reject_external_profile(raw)
+        p.reject_external_profile(b'services:\n  api:\n    environment:\n      AI_PROVIDER: local\n    ports: !reset []\n')
+
+    def test_real_process_bounds_cleanup_and_private_stderr(self):
+        p = self.profile
+        self.assertEqual(p.render_command([sys.executable, '-c', 'print("fixture")'], []), b'fixture\n')
+        for program, expected in (("import sys;sys.stderr.write('SYNTHETIC_SECRET');sys.exit(3)", 'COMPOSE_RENDER_FAILED'),
+                                  ("import sys;sys.stdout.write('x'*2097153)", 'COMPOSE_RENDER_OUTPUT_BOUND'),
+                                  ("import sys;sys.stderr.write('x'*65537)", 'COMPOSE_RENDER_OUTPUT_BOUND'),
+                                  ("import time;time.sleep(5)", 'COMPOSE_RENDER_TIMEOUT')):
+            started = time.monotonic()
+            with self.subTest(expected=expected), self.assertRaisesRegex(p.ConfigurationError, expected) as error:
+                p.render_command([sys.executable, '-c', program], [], timeout=0.4)
+            self.assertLess(time.monotonic() - started, 3)
+            self.assertNotIn('SYNTHETIC_SECRET', str(error.exception))
+        program = "import os,time;pid=os.fork();print(pid,flush=True) if pid else time.sleep(30)"
+        with self.assertRaisesRegex(p.ConfigurationError, 'COMPOSE_RENDER_TIMEOUT'):
+            p.render_command([sys.executable, '-c', program], [], timeout=0.4)
+        # The whole owned process group is killed even when the parent has
+        # exited but a descendant still holds the captured pipes open.
+        program = ("import os,time;pid=os.fork();"
+                   "print(pid,flush=True) if pid else (os.close(1),os.close(2),time.sleep(30))")
+        child = int(p.render_command([sys.executable, '-c', program], [], timeout=1))
+        deadline = time.monotonic() + 1
+        while Path('/proc/' + str(child) + '/stat').exists():
+            state = Path('/proc/' + str(child) + '/stat').read_text().split(') ', 1)[1].split()[0]
+            if state == 'Z':
+                break
+            self.assertLess(time.monotonic(), deadline, 'owned descendant survived cleanup')
+            time.sleep(0.01)
+
+    def test_closed_terminal_rejects_false_match_unknown_keys_and_false_authority(self):
+        _, shell = workflow_step('Inspect only the accepted stopped configuration')
+        code = shell.split("<<'PY_RECORD'\n", 1)[1].split('\nPY_RECORD\n', 1)[0]
+        module = types.ModuleType('terminal_fixture')
+        exec(compile(code.split('\nimport pathlib, sys\n', 1)[0], '<actual-terminal>', 'exec'), module.__dict__)
+        validate = lambda value, status='0': module.validate_terminal(json.dumps(value).encode(), SHA, '12345', status)
+        good = valid_configuration_terminal()
+        self.assertEqual(validate(good), good)
+        mismatch = copy.deepcopy(good)
+        mismatch['mismatchCounts']['image'] = 1
+        mismatch['observedFieldsAgreement'] = 'MISMATCH'
+        self.assertEqual(validate(mismatch), mismatch)
+        unproved = copy.deepcopy(good)
+        unproved['unprovedCounts']['environment'] = 3
+        unproved['observedFieldsAgreement'] = 'UNPROVEN'
+        self.assertEqual(validate(unproved), unproved)
+        for update in ({'observedFieldsAgreement': 'MATCH'}, {'unprovedCounts': dict.fromkeys(CONFIG_FIELDS, True)},
+                       {'startupAuthorized': True}, {'plaintextTransfer': True}, {'privatePath': 'SYNTHETIC_SECRET'}):
+            with self.subTest(update=update), self.assertRaises(ValueError):
+                validate({**unproved, **update})
+        with self.assertRaises(ValueError): validate(good, '255')
+        with self.assertRaises(ValueError): module.validate_terminal(b'{"passed":true,"passed":false}', SHA, '12345', '0')
+
+    def test_native_compose_resolves_sealed_files_and_actual_environment_without_source_writes(self):
+        p = self.profile
+        requested = os.environ.get('PC_CROP_TEST_COMPOSE_BINARY')
+        candidates = [requested] if requested else list(p.COMPOSE_PATHS)
+        binary = next((value for value in candidates if value and Path(value).is_file() and os.access(value, os.X_OK)), None)
+        if not binary:
+            if REQUIRE_NATIVE_COMPOSE:
+                self.fail('native Compose binary is mandatory for this contract')
+            self.skipTest('native Compose binary unavailable; contract requires it in CI')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config, override = root / 'compose.yaml', root / 'override.yaml'
+            config.write_text('''services:
+  api:
+    image: fixture-api:1
+    env_file:
+      - path: api.env
+      - path: raw.env
+        format: raw
+      - path: absent.env
+        required: false
+    environment:
+      TOP: ${TOP}
+      EXPLICIT: override
+      DOLLAR: $$literal
+    command: ["app", "$$ARG"]
+  web:
+    image: fixture-web:1
+    entrypoint: ["custom-entry"]
+    ports: ["127.0.0.1:8080:80"]
+    restart: unless-stopped
+  postgres:
+    image: fixture-pg:1
+    environment: {POSTGRES_DB: fixturedb}
+    volumes: ["database:/var/lib/postgresql/data"]
+volumes:
+  database: {external: true, name: fixture_database}
+''')
+            override.write_text('services:\n  api:\n    environment: {ADDED: from-override}\n')
+            (root / '.env').write_text("TOP='project$literal'\n")
+            (root / 'api.env').write_text("EXPLICIT=base\nLOW=from-file\nFROM_TOP=${TOP}\nDOLLAR_ENV='two$$dollars'\nDATABASE_URL=postgresql://postgres:5432/fixturedb\n")
+            (root / 'raw.env').write_text('RAW=${TOP}$$literal\n')
+            all_files = [config, override, root / '.env', root / 'api.env', root / 'raw.env']
+            for file in all_files:
+                file.chmod(0o600)
+                os.utime(file, ns=(946684800000000000, 978307200000000000))
+            before = {str(file): p.file_token(file.stat()) for file in all_files}
+            shared = {'com.docker.compose.project': 'fixture',
+                      'com.docker.compose.project.working_dir': directory,
+                      'com.docker.compose.project.config_files': str(config) + ',' + str(override)}
+            images = {'fixture-' + name + ':1': {'Id': 'sha256:' + digit * 64,
+                      'Config': {'Env': ['PATH=/bin'], 'Cmd': ['image-command'],
+                                 'Entrypoint': ['image-entry'], 'User': '1000', 'WorkingDir': '/app'}}
+                      for name, digit in (('api', '1'), ('web', '2'), ('pg', '3'))}
+            expected_api = {'PATH': '/bin', 'TOP': 'project$literal', 'EXPLICIT': 'override',
+                            'DOLLAR': '$literal', 'ADDED': 'from-override', 'LOW': 'from-file',
+                            'FROM_TOP': 'project$literal', 'DOLLAR_ENV': 'two$$dollars',
+                            'RAW': '${TOP}$$literal', 'DATABASE_URL': 'postgresql://postgres:5432/fixturedb'}
+            records = []
+            for name, image in (('api', 'fixture-api:1'), ('web', 'fixture-web:1'), ('postgres', 'fixture-pg:1')):
+                env = expected_api if name == 'api' else {'PATH': '/bin', **({'POSTGRES_DB': 'fixturedb'} if name == 'postgres' else {})}
+                records.append({'Image': images[image]['Id'], 'Config': {
+                    'Labels': {**shared, 'com.docker.compose.service': name},
+                    'Env': [key + '=' + value for key, value in env.items()],
+                    'Cmd': ['app', '$ARG'] if name == 'api' else ([] if name == 'web' else ['image-command']),
+                    'Entrypoint': ['custom-entry'] if name == 'web' else ['image-entry'],
+                    'User': '1000', 'WorkingDir': '/app'}, 'HostConfig': {
+                    'PortBindings': {'80/tcp': [{'HostIp': '127.0.0.1', 'HostPort': '8080'}]} if name == 'web' else {},
+                    'RestartPolicy': {'Name': 'unless-stopped' if name == 'web' else 'no', 'MaximumRetryCount': 0}},
+                    'MountPoints': {'/var/lib/postgresql/data': {'Type': 'volume', 'Name': 'fixture_database',
+                                    'Destination': '/var/lib/postgresql/data', 'RW': True}} if name == 'postgres' else {},
+                    'NetworkSettings': {'Networks': {'fixture_default': {'Aliases': [name]}}}})
+            class Source(self.DirectorySource):
+                def __init__(self):
+                    self.image_queries = []
+                    self.drift = False
+                def inspect(self, target, run):
+                    return {'processes': {'postgres': 0, 'caddy': 0}, 'bindings': {'postgresImage': images['fixture-pg:1']['Id']},
+                            'volumes': ['fixture'], 'images': ['fixture']}
+                def validate(self, value, target, run, status):
+                    if target != SHA or run != '12345' or status != 0: raise AssertionError('identity')
+                def metadata(self): return copy.deepcopy(records)
+                def api(self, path):
+                    from urllib.parse import unquote
+                    if not path.startswith('/images/') or not path.endswith('/json'): raise AssertionError('read-only image GET only')
+                    self.image_queries.append(path)
+                    ref = unquote(path[len('/images/'):-len('/json')])
+                    return copy.deepcopy(images[ref])
+            source = Source()
+            report = p.observe_configuration(SHA, '12345', source, binary=binary, uid=os.getuid())
+            self.assertEqual(report['observedFieldsAgreement'], 'MATCH', report)
+            self.assertEqual(report['inputCoverage'], {'composeFiles': 2, 'projectEnvPresent': True,
+                                                       'declaredEnvFiles': 3, 'labelFileSetsEqual': True})
+            self.assertEqual(report['savedApiDeclaredTarget'], 'DIRECT_POSTGRES_CONFIGURATION_MATCH')
+            self.assertFalse(report['runtimeRestored'])
+            self.assertTrue(source.image_queries)
+            self.assertEqual({str(file): p.file_token(file.stat()) for file in all_files}, before)
+            serialized = json.dumps(report)
+            for private in (directory, 'project$literal', 'DATABASE_URL', 'fixture_database'):
+                self.assertNotIn(private, serialized)
+            # A missing desired image is unknown, never an accepted match.
+            del images['fixture-api:1']
+            unknown = p.observe_configuration(SHA, '12345', source, binary=binary, uid=os.getuid())
+            self.assertEqual(unknown['observedFieldsAgreement'], 'UNPROVEN')
+            self.assertEqual(unknown['unprovedCounts']['image'], 1)
+            self.assertEqual(unknown['mismatchCounts']['image'], 0)
+            # Changing current image defaults must compare against the desired
+            # image, rather than accepting the saved record's old defaults.
+            images['fixture-api:1'] = copy.deepcopy(images['fixture-web:1'])
+            images['fixture-api:1']['Config']['Env'] = ['PATH=/changed']
+            changed = p.observe_configuration(SHA, '12345', source, binary=binary, uid=os.getuid())
+            self.assertEqual(changed['observedFieldsAgreement'], 'MISMATCH')
+            self.assertEqual(changed['mismatchCounts']['image'], 1)
+            self.assertEqual(changed['mismatchCounts']['environment'], 1)
 
 
 if __name__ == '__main__':

@@ -35,7 +35,7 @@ jobs:
       github.event_name == 'pull_request' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.number == 4637 &&
-       github.event.comment.body == '/production validate-stopped-pg16 current-main')
+       github.event.comment.body == '/production inspect-stopped-configuration current-main')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -43,9 +43,9 @@ jobs:
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event.repository.default_branch }}
           persist-credentials: false
-      - name: Verify encrypted preservation and shared production contracts
+      - name: Verify stopped recovery controllers and shared production contracts
         run: |
-          python3 -B scripts/test_production_cold_preservation.py
+          python3 -B scripts/test_production_cold_preservation.py --require-native-compose
           python3 -B scripts/test_production_stopped_runtime_headroom.py
 
   recover:
@@ -53,7 +53,7 @@ jobs:
     if: >-
       github.event_name == 'issue_comment' &&
       github.event.issue.number == 4637 &&
-      github.event.comment.body == '/production validate-stopped-pg16 current-main' &&
+      github.event.comment.body == '/production inspect-stopped-configuration current-main' &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
       github.actor == github.repository_owner &&
@@ -122,19 +122,21 @@ jobs:
           state_bytes = pathlib.Path('docs/platform-v7/autopilot/autopilot-state.json').read_bytes()
           require(0 < len(state_bytes) <= 3 * 1024 * 1024)
           state = json.loads(state_bytes.decode('utf-8', errors='strict'), object_pairs_hook=closed)
-          purpose = state.get('coordinationAdmissions', {}).get('ir20-stopped-copy-controller-20261024')
+          purpose = state.get('coordinationAdmissions', {}).get('stopped-configuration-controller-20261024')
           require(type(purpose) is dict and set(purpose) == {
               'owner', 'sourceBranch', 'authorityBaseExactMain', 'ownerDecision', 'operationName',
-              'isolatedCopyInvocationAuthorized', 'productionAcceptance', 'originalStartupAuthorized',
-              'sourcePins', 'limits'})
+              'configurationObservationAuthorized', 'productionAcceptance', 'originalStartupAuthorized',
+              'sourcePins', 'limits', 'readOnly', 'inspectionSha256'})
           require(purpose['owner'] == 'ACCOUNT_1_CORE' and
                   purpose['sourceBranch'] == 'ops/production-cold-preservation-20261022' and
-                  purpose['ownerDecision'] == '#5469#issuecomment-6377184068' and
-                  purpose['operationName'] == 'ir20-stopped-copy-20261023' and
-                  purpose['isolatedCopyInvocationAuthorized'] is True and
+                  purpose['ownerDecision'] == '#5469#issuecomment-6379896668' and
+                  purpose['operationName'] == 'stopped-configuration-20261024' and
+                  purpose['configurationObservationAuthorized'] is True and purpose['readOnly'] is True and
+                  purpose['inspectionSha256'] == '09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a' and
                   purpose['productionAcceptance'] is False and purpose['originalStartupAuthorized'] is False and
-                  purpose['limits'] == 'One serialized no-network volatile PG16 copy. Original runtime, archives and keys retained; no transfer or new cost.')
+                  purpose['limits'] == 'One serialized read-only Compose/environment observation. Private values stay on-host; no startup, transfer or new cost.')
           ancestor(purpose['authorityBaseExactMain'])
+          accepted('.github/workflows/production-docker-headroom-diagnostic.yml', '100644', purpose['inspectionSha256'])
           require(state.get('approvedConcurrentScopes', {}).get(purpose['sourceBranch']) == [
               'scripts/production_cold_preservation.py', 'scripts/test_production_cold_preservation.py',
               '.github/workflows/production-cold-preservation.yml', 'docs/ops/production-cold-preservation.md',
@@ -244,8 +246,8 @@ jobs:
             > "$EVIDENCE_DIR/ssh-auth.txt"
           grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
 
-      - name: Execute only the accepted isolated stopped-copy stage
-        id: isolated-copy
+      - name: Inspect only the accepted stopped configuration
+        id: configuration-observer
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -261,9 +263,9 @@ jobs:
           if not re.fullmatch('[0-9a-f]{40}', target):
               raise SystemExit('INVALID_SOURCE_SHA')
           q = chr(96)
-          body = f'# Isolated stopped PostgreSQL copy\n\nExact source: {q}{target}{q}.\n\n'
+          body = f'# Stopped configuration observation\n\nExact source: {q}{target}{q}.\n\n'
           body += f'Stage outcome: {q}UNKNOWN{q}; runtime restored: {q}false{q}; original startup authorized: {q}false{q}.\n'
-          body += 'Do not retry. Retain the owned journal, original volumes and both private copies/keys for reconciliation.\n'
+          body += 'No startup follows from this read-only outcome. Retain original volumes, archives, keys and all spent journals; obtain a fresh governed observation if needed.\n'
           with pathlib.Path(output, 'issue-record.md').open('x') as handle:
               handle.write(body)
           PY_PENDING
@@ -271,41 +273,659 @@ jobs:
           payload="$(mktemp)"
           trap 'rm -f "$raw" "$payload"' EXIT
           python3 - "$TARGET_SHA" > "$payload" <<'PY_PAYLOAD'
-          import base64, hashlib, json, subprocess, sys
+          import ast, base64, hashlib, json, subprocess, sys, textwrap
           target = sys.argv[1]
           def source(path):
-              return subprocess.check_output(['git', 'show', target+':'+path])
+              return subprocess.check_output(['git', 'show', target + ':' + path])
           state = json.loads(source('docs/platform-v7/autopilot/autopilot-state.json'))
-          pins = state['coordinationAdmissions']['ir20-stopped-copy-source-20261023']
-          expected = pins['dependencySha256']
-          print('import sys,types,base64,hashlib')
-          for name in ('production_stopped_runtime_headroom', 'production_cold_preservation'):
-              path = 'scripts/'+name+'.py'
-              raw = source(path)
-              digest = hashlib.sha256(raw).hexdigest()
-              if digest != expected[path]:
-                  raise SystemExit('PAYLOAD_DEPENDENCY_DRIFT')
-              print('module=types.ModuleType('+repr(name)+')')
-              print("module.__file__='<pinned-memory-dependency>'")
-              print('module.__ir20_accepted_sha256__='+repr(digest))
-              print('sys.modules[module.__name__]=module')
-              print('exec(compile(base64.b64decode('+repr(base64.b64encode(raw).decode())+'),'
-                    "'<accepted-ir20-dependency>','exec'),module.__dict__)")
-          raw = source('scripts/release/ir20-restore-drill.sh')
-          wanted = next(x['sha256'] for x in pins['sourcePins'] if x['path'] == 'scripts/release/ir20-restore-drill.sh')
-          if hashlib.sha256(raw).hexdigest() != wanted:
-              raise SystemExit('PAYLOAD_ENGINE_DRIFT')
-          begin, end = b"<<'PY_STOPPED_SOURCE'\n", b'\nPY_STOPPED_SOURCE\n'
-          if raw.count(begin) != 1 or raw.count(end) != 1:
-              raise SystemExit('PAYLOAD_ENGINE_BOUNDARY')
-          body = raw.split(begin, 1)[1].split(end, 1)[0]
-          print('exec(compile(base64.b64decode('+repr(base64.b64encode(body).decode())+'),'
-                "'<accepted-stopped-copy>','exec'),globals())")
+          purpose = state['coordinationAdmissions']['stopped-configuration-controller-20261024']
+          helper = source('scripts/production_stopped_runtime_headroom.py')
+          if hashlib.sha256(helper).hexdigest() != '6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14':
+              raise SystemExit('PAYLOAD_HELPER_DRIFT')
+          tree = ast.parse(helper)
+          refs = [ast.literal_eval(node.value) for node in tree.body if isinstance(node, ast.Assign)
+                  and any(isinstance(t, ast.Name) and t.id == 'EXPECTED_REFS' for t in node.targets)]
+          if len(refs) != 1 or type(refs[0]) is not tuple or len(refs[0]) != 11 or tuple(sorted(refs[0])) != refs[0]:
+              raise SystemExit('PAYLOAD_REFERENCE_PROFILE')
+          workflow = source('.github/workflows/production-docker-headroom-diagnostic.yml')
+          if hashlib.sha256(workflow).hexdigest() != purpose['inspectionSha256'] or purpose['inspectionSha256'] != '09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a':
+              raise SystemExit('PAYLOAD_INSPECTOR_DRIFT')
+          parts = []
+          for name in ('PY_INSPECTION_0', 'PY_INSPECTION_1', 'PY_INSPECTION_2'):
+              begin, end = ("<<'" + name + "'\n").encode(), ('\n          ' + name + '\n').encode()
+              if workflow.count(begin) != 1 or workflow.count(end) != 1:
+                  raise SystemExit('PAYLOAD_INSPECTOR_BOUNDARY')
+              parts.append(textwrap.dedent(workflow.split(begin, 1)[1].split(end, 1)[0].decode()))
+          print('import sys,types,base64')
+          print("inspector=types.ModuleType('accepted_stopped_inspector')")
+          print("inspector.__file__='<accepted-memory-inspector>'")
+          print('inspector.EXPECTED_REFS=' + repr(refs[0]))
+          print('sys.modules[inspector.__name__]=inspector')
+          print('exec(compile(base64.b64decode(' + repr(base64.b64encode(('\n'.join(parts)).encode()).decode()) + "),'<accepted-memory-inspector>','exec'),inspector.__dict__)")
+          profile = r'''
+          import contextlib
+          import ctypes
+          import fcntl
+          import hashlib
+          import json
+          import os
+          import pwd
+          import re
+          import resource
+          import selectors
+          import signal
+          import stat
+          import subprocess
+          import time
+          import urllib.parse
+
+          PROFILE_SCHEMA = 'pc.stopped-configuration.v1'
+          COMPOSE_PATHS = ('/usr/libexec/docker/cli-plugins/docker-compose',
+                           '/usr/lib/docker/cli-plugins/docker-compose',
+                           '/usr/local/lib/docker/cli-plugins/docker-compose',
+                           '/usr/local/bin/docker-compose', '/usr/bin/docker-compose')
+          COMPARE_FIELDS = ('image', 'environment', 'command', 'entrypoint', 'user', 'workingDirectory',
+                            'mounts', 'networkNames', 'ports', 'restart', 'privileged', 'readOnly',
+                            'capAdd', 'capDrop', 'securityOptions')
+          # Linux UAPI values, also for Python builds whose fcntl module omits the names.
+          ADD_SEALS, GET_SEALS = getattr(fcntl, 'F_ADD_SEALS', 1033), getattr(fcntl, 'F_GET_SEALS', 1034)
+          INPUT_SEALS = 0x0001 | 0x0002 | 0x0004 | 0x0008
+
+
+          class ConfigurationError(Exception):
+              pass
+
+
+          def demand(value, code):
+              if not value:
+                  raise ConfigurationError(code)
+
+
+          def closed_json(raw):
+              def pairs(items):
+                  demand(len(items) == len(dict(items)), 'DUPLICATE_JSON_KEY')
+                  return dict(items)
+              try:
+                  return json.loads(raw.decode('utf-8', errors='strict'), object_pairs_hook=pairs,
+                                    parse_constant=lambda value: (_ for _ in ()).throw(ConfigurationError('JSON_CONSTANT')))
+              except ConfigurationError:
+                  raise
+              except Exception:
+                  raise ConfigurationError('COMPOSE_JSON_INVALID') from None
+
+
+          def file_token(value):
+              return (value.st_dev, value.st_ino, value.st_mode, value.st_uid, value.st_gid,
+                      value.st_size, value.st_mtime_ns, value.st_ctime_ns, value.st_atime_ns)
+
+
+          def protected_directory(path, uid=0):
+              demand(type(path) is str and path.startswith('/') and len(path.encode()) <= 4096,
+                     'CONFIG_DIRECTORY_PROFILE')
+              parts = path.split('/')[1:] if path != '/' else []
+              demand(len(parts) <= 64 and all(part not in ('', '.', '..') for part in parts),
+                     'CONFIG_DIRECTORY_PROFILE')
+              flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+              # The protected host entrypoint requires root. Unprivileged native fixtures
+              # can traverse root-owned ancestors without FOWNER; no directory is read.
+              if os.geteuid() == 0:
+                  flags |= os.O_NOATIME
+              fd = os.open('/', flags)
+              try:
+                  for index in range(len(parts) + 1):
+                      info = os.fstat(fd)
+                      # Root-owned sticky shared ancestors cannot rename somebody else's
+                      # owned child. The private leaf itself must never be shared-writable.
+                      shared_ancestor = index < len(parts) and info.st_uid == 0 and bool(info.st_mode & stat.S_ISVTX)
+                      demand(stat.S_ISDIR(info.st_mode) and info.st_uid in (0, uid) and
+                             (not info.st_mode & 0o022 or shared_ancestor), 'CONFIG_DIRECTORY_PROFILE')
+                      if index == len(parts):
+                          return fd
+                      child = os.open(parts[index], flags, dir_fd=fd)
+                      os.close(fd)
+                      fd = child
+              except BaseException:
+                  os.close(fd)
+                  raise
+
+
+          class PrivateInputs:
+              def __init__(self, source, uid=0):
+                  self.source, self.uid, self.originals, self.memory = source, uid, [], []
+                  self.absent = []
+                  self.total = 0
+
+              def close(self):
+                  for fd in self.memory + [fd for fd, _, _ in self.originals]:
+                      os.close(fd)
+                  self.memory.clear()
+                  self.originals.clear()
+                  self.absent.clear()
+
+              def recheck(self):
+                  for path in self.absent:
+                      parent, name = path.rsplit('/', 1)
+                      directory = protected_directory(parent or '/', self.uid)
+                      try:
+                          try:
+                              os.stat(name, dir_fd=directory, follow_symlinks=False)
+                          except FileNotFoundError:
+                              continue
+                          raise ConfigurationError('CONFIG_INPUT_DRIFT')
+                      finally:
+                          os.close(directory)
+                  for fd, token, path in self.originals:
+                      demand(file_token(os.fstat(fd)) == token, 'CONFIG_INPUT_DRIFT')
+                      parent, name = path.rsplit('/', 1)
+                      directory = protected_directory(parent or '/', self.uid)
+                      try:
+                          demand(file_token(os.stat(name, dir_fd=directory, follow_symlinks=False)) == token,
+                                 'CONFIG_INPUT_DRIFT')
+                      finally:
+                          os.close(directory)
+
+              def read(self, path, optional=False):
+                  demand(type(path) is str and path.startswith('/') and '\0' not in path and
+                         '..' not in path.split('/') and len(path.encode()) <= 4096, 'CONFIG_PATH_PROFILE')
+                  path = os.path.normpath(path)
+                  demand(not any(path == root or path.startswith(root + '/') for root in
+                                 ('/proc', '/sys', '/dev', '/run', '/var/lib/docker', '/var/lib/pc-release-authority')),
+                         'CONFIG_PATH_PROFILE')
+                  parent, name = path.rsplit('/', 1)
+                  demand(len(self.originals) + len(self.absent) < 64, 'CONFIG_INPUT_BOUND')
+                  directory = protected_directory(parent or '/', self.uid)
+                  try:
+                      try:
+                          fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC | os.O_NONBLOCK, dir_fd=directory)
+                      except FileNotFoundError:
+                          if optional:
+                              self.absent.append(path)
+                              return None
+                          raise ConfigurationError('CONFIG_INPUT_MISSING') from None
+                  finally:
+                      os.close(directory)
+                  try:
+                      before = os.fstat(fd)
+                      demand(stat.S_ISREG(before.st_mode) and before.st_uid == self.uid and
+                             not before.st_mode & 0o022 and 0 <= before.st_size <= 1024 * 1024,
+                             'CONFIG_INPUT_PROFILE')
+                      demand(len(self.originals) < 64 and self.total + before.st_size <= 8 * 1024 * 1024,
+                             'CONFIG_INPUT_BOUND')
+                      raw = bytearray()
+                      while len(raw) <= 1024 * 1024:
+                          block = os.read(fd, min(65536, 1024 * 1024 + 1 - len(raw)))
+                          if not block:
+                              break
+                          raw.extend(block)
+                      demand(len(raw) == before.st_size and file_token(os.fstat(fd)) == file_token(before),
+                             'CONFIG_INPUT_DRIFT')
+                      self.total += len(raw)
+                      self.originals.append((fd, file_token(before), path))
+                      fd = None
+                      return bytes(raw)
+                  finally:
+                      if fd is not None:
+                          os.close(fd)
+
+              def stage(self, raw):
+                  demand(type(raw) is bytes and len(raw) <= 4 * 1024 * 1024, 'MEMORY_INPUT_BOUND')
+                  fd = os.memfd_create('pc-stopped-config', os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+                  try:
+                      os.fchmod(fd, 0o600)
+                      offset = 0
+                      while offset < len(raw):
+                          written = os.write(fd, raw[offset:])
+                          demand(written > 0, 'MEMORY_INPUT_WRITE')
+                          offset += written
+                      os.lseek(fd, 0, os.SEEK_SET)
+                      fcntl.fcntl(fd, ADD_SEALS, INPUT_SEALS)
+                      demand(fcntl.fcntl(fd, GET_SEALS) & INPUT_SEALS == INPUT_SEALS, 'MEMORY_INPUT_SEAL')
+                      self.memory.append(fd)
+                      return '/proc/self/fd/' + str(fd)
+                  except BaseException:
+                      os.close(fd)
+                      raise
+
+
+          def child_boundary(parent):
+              library = ctypes.CDLL(None, use_errno=True)
+              if library.prctl(1, signal.SIGKILL, 0, 0, 0) != 0 or os.getppid() != parent:
+                  os._exit(119)
+              resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+              resource.setrlimit(resource.RLIMIT_CPU, (20, 20))
+              resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
+
+
+          def render_command(argv, descriptors, timeout=20):
+              env = {'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+                     'LC_ALL': 'C.UTF-8', 'DOCKER_HOST': 'unix:///var/run/docker.sock',
+                     'COMPOSE_DISABLE_ENV_FILE': '1', 'GOMEMLIMIT': '256MiB'}
+              owner = os.getpid()
+              process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE, cwd='/', env=env, pass_fds=tuple(descriptors),
+                                         start_new_session=True, preexec_fn=lambda: child_boundary(owner))
+              selector = selectors.DefaultSelector()
+              data = {'out': bytearray(), 'err': bytearray()}
+              deadline = time.monotonic() + timeout
+              try:
+                  for stream, label in ((process.stdout, 'out'), (process.stderr, 'err')):
+                      os.set_blocking(stream.fileno(), False)
+                      selector.register(stream, selectors.EVENT_READ, label)
+                  while selector.get_map():
+                      demand(time.monotonic() < deadline, 'COMPOSE_RENDER_TIMEOUT')
+                      for key, _ in selector.select(min(0.2, max(0, deadline - time.monotonic()))):
+                          part = os.read(key.fileobj.fileno(), 65536)
+                          if not part:
+                              selector.unregister(key.fileobj)
+                              continue
+                          data[key.data].extend(part)
+                          demand(len(data[key.data]) <= (2 * 1024 * 1024 if key.data == 'out' else 65536),
+                                 'COMPOSE_RENDER_OUTPUT_BOUND')
+                  # Hold the child unreaped until its owned process group is cleaned; its
+                  # PID cannot be recycled as an unrelated process group during cleanup.
+                  while True:
+                      demand(time.monotonic() < deadline, 'COMPOSE_RENDER_TIMEOUT')
+                      result = os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOWAIT | os.WNOHANG)
+                      if result is not None:
+                          demand(result.si_code == os.CLD_EXITED and result.si_status == 0, 'COMPOSE_RENDER_FAILED')
+                          break
+                      time.sleep(0.01)
+                  return bytes(data['out'])
+              finally:
+                  selector.close()
+                  with contextlib.suppress(ProcessLookupError):
+                      os.killpg(process.pid, signal.SIGKILL)
+                  process.wait(timeout=5)
+                  process.stdout.close()
+                  process.stderr.close()
+
+
+          def compose_binary(source):
+              root_home = pwd.getpwuid(0).pw_dir
+              demand(type(root_home) is str and root_home.startswith('/') and '..' not in root_home.split('/'),
+                     'COMPOSE_BINARY_PROFILE')
+              for path in (root_home.rstrip('/') + '/.docker/cli-plugins/docker-compose',) + COMPOSE_PATHS:
+                  parent, name = path.rsplit('/', 1)
+                  try:
+                      fd = protected_directory(parent)
+                  except FileNotFoundError:
+                      continue
+                  try:
+                      try:
+                          info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                      except FileNotFoundError:
+                          continue
+                      demand(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and not info.st_mode & 0o6022
+                             and info.st_mode & 0o111, 'COMPOSE_BINARY_PROFILE')
+                      return path
+                  finally:
+                      os.close(fd)
+              raise ConfigurationError('COMPOSE_BINARY_UNAVAILABLE')
+
+
+          def reject_external_profile(raw):
+              # Tight input profile: encoded YAML keys, indirection and remote composition
+              # are unsupported rather than resolved on the production host.
+              demand(type(raw) is bytes and b'\0' not in raw, 'COMPOSE_INPUT_ENCODING')
+              lowered = raw.lower()
+              demand(not any(word in lowered for word in (b'\\u', b'\\x', b'\\\n', b'\\\r\n')),
+                     'COMPOSE_EXTERNAL_PROFILE')
+              # YAML mappings using explicit, aliased or tagged keys are outside this
+              # intentionally small source profile. Value tags such as !reset remain
+              # available; application environment names containing PROVIDER are ordinary.
+              demand(re.search(rb'(?m)(?:^|[{},\n])\s*[?*!&]', raw) is None,
+                     'COMPOSE_EXTERNAL_PROFILE')
+              key = rb'(?:include|extends|label_file|secrets|configs|provider)'
+              demand(re.search(rb'(?im)(?:^|[{},\n])\s*(?:' + key + rb'|"' + key + rb'"|\x27' + key + rb'\x27)\s*:', raw) is None,
+                     'COMPOSE_EXTERNAL_PROFILE')
+
+
+          def labels(record):
+              value = record.get('Config', {}).get('Labels') or {}
+              demand(type(value) is dict, 'RECORD_LABEL_PROFILE')
+              return value
+
+
+          def environment(items):
+              demand(type(items) is list and len(items) <= 4096, 'ENVIRONMENT_PROFILE')
+              result = {}
+              for item in items:
+                  demand(type(item) is str and '=' in item, 'ENVIRONMENT_PROFILE')
+                  key, value = item.split('=', 1)
+                  demand(re.fullmatch('[A-Za-z_][A-Za-z0-9_]{0,127}', key) and key not in result,
+                         'ENVIRONMENT_PROFILE')
+                  result[key] = value
+              return result
+
+
+          def model_environment(value):
+              demand(type(value) is dict and len(value) <= 4096 and
+                     all(type(k) is str and type(v) is str for k, v in value.items()), 'MODEL_ENVIRONMENT_PROFILE')
+              return environment([key + '=' + value for key, value in value.items()])
+
+
+          def string_list(value, code):
+              demand(type(value) is list and len(value) <= 256 and all(type(v) is str for v in value), code)
+              return value
+
+
+          def record_mounts(record):
+              result = []
+              for point in record['MountPoints'].values():
+                  kind = point.get('Type')
+                  demand(kind in ('volume', 'bind') and type(point.get('RW')) is bool, 'RECORD_MOUNT_PROFILE')
+                  source = point.get('Name') if kind == 'volume' else point.get('Source')
+                  demand(type(source) is str and type(point.get('Destination')) is str, 'RECORD_MOUNT_PROFILE')
+                  result.append((kind, source, point['Destination'].rstrip('/'), not point['RW']))
+              return sorted(result)
+
+
+          def model_mounts(service, model):
+              result = []
+              for point in service.get('volumes') or []:
+                  demand(type(point) is dict and point.get('type') in ('volume', 'bind'), 'MODEL_MOUNT_PROFILE')
+                  kind, source, target = point['type'], point.get('source'), point.get('target')
+                  demand(type(source) is str and type(target) is str and target.startswith('/'), 'MODEL_MOUNT_PROFILE')
+                  readonly = point.get('read_only', False)
+                  demand(type(readonly) is bool, 'MODEL_MOUNT_PROFILE')
+                  if kind == 'volume':
+                      definition = (model.get('volumes') or {}).get(source)
+                      demand(type(definition) is dict and type(definition.get('name')) is str, 'MODEL_VOLUME_IDENTITY')
+                      source = definition['name']
+                  result.append((kind, source, target.rstrip('/'), readonly))
+              return sorted(result)
+
+
+          def port_number(value):
+              demand(type(value) in (str, int) and re.fullmatch('[0-9]{1,5}', str(value)) and
+                     0 < int(value) <= 65535, 'PORT_PROFILE')
+              return int(value)
+
+
+          def model_ports(service):
+              result = []
+              for value in service.get('ports') or []:
+                  demand(type(value) is dict and value.get('protocol', 'tcp') in ('tcp', 'udp'), 'PORT_PROFILE')
+                  host = value.get('host_ip') or '0.0.0.0'
+                  demand(type(host) is str, 'PORT_PROFILE')
+                  result.append((port_number(value['target']), value.get('protocol', 'tcp'), host,
+                                 port_number(value['published'])))
+              return sorted(result)
+
+
+          def record_ports(record):
+              result = []
+              for key, values in (record.get('HostConfig', {}).get('PortBindings') or {}).items():
+                  match = re.fullmatch('([0-9]{1,5})/(tcp|udp)', key)
+                  demand(match is not None and type(values) is list, 'PORT_PROFILE')
+                  for value in values:
+                      demand(type(value) is dict and type(value.get('HostIp')) is str, 'PORT_PROFILE')
+                      result.append((port_number(match[1]), match[2], value['HostIp'] or '0.0.0.0',
+                                     port_number(value['HostPort'])))
+              return sorted(result)
+
+
+          def model_networks(service, model):
+              mode = service.get('network_mode')
+              if mode is not None:
+                  demand(mode in ('host', 'none', 'bridge'), 'NETWORK_PROFILE')
+                  return mode, set()
+              names = service.get('networks') or {'default': None}
+              demand(type(names) is dict, 'NETWORK_PROFILE')
+              result = set()
+              for key in names:
+                  value = (model.get('networks') or {}).get(key)
+                  demand(type(value) is dict and type(value.get('name')) is str, 'NETWORK_PROFILE')
+                  result.add(value['name'])
+              return None, result
+
+
+          def image_reference(source, ref):
+              try:
+                  result = source.api('/images/' + urllib.parse.quote(ref, safe='') + '/json')
+                  demand(type(result) is dict and type(result.get('Id')) is str and
+                         re.fullmatch('sha256:[0-9a-f]{64}', result['Id']) and type(result.get('Config')) is dict,
+                         'DESIRED_IMAGE_PROFILE')
+                  return result
+              except Exception:
+                  return None
+
+
+          def compare_service(record, service, model, source, references):
+              demand(type(service) is dict and type(service.get('image')) is str, 'MODEL_SERVICE_PROFILE')
+              ref = service['image']
+              demand(re.fullmatch('[A-Za-z0-9][A-Za-z0-9_./:@+-]{0,511}', ref), 'IMAGE_REFERENCE_PROFILE')
+              selected = image_reference(source, ref)
+              identity = selected['Id'] if selected is not None else None
+              demand(ref not in references or references[ref] == identity, 'IMAGE_REFERENCE_DRIFT')
+              references[ref] = identity
+              image_match = identity == record['Image'] if selected is not None else None
+              base = selected['Config'] if selected is not None else {}
+              expected_env = environment(base.get('Env') or [])
+              expected_env.update(model_environment(service.get('environment') or {}))
+              config, host = record['Config'], record.get('HostConfig') or {}
+              demand(type(host) is dict, 'HOST_PROFILE')
+              def argv(field, fallback):
+                  value = service.get(field)
+                  return string_list(fallback or [], 'COMMAND_PROFILE') if value is None else string_list(value, 'COMMAND_PROFILE')
+              mode, names = model_networks(service, model)
+              observed_names = set((record.get('NetworkSettings', {}).get('Networks') or {}).keys())
+              restart = service.get('restart', 'no')
+              demand(type(restart) is str and re.fullmatch('(no|always|unless-stopped|on-failure(:[0-9]{1,3})?)', restart),
+                     'RESTART_PROFILE')
+              restart_name, _, retry = restart.partition(':')
+              actual_restart = host.get('RestartPolicy') or {}
+              flags = {
+                  'image': image_match,
+                  'environment': expected_env == environment(config.get('Env') or []),
+                  'command': argv('command', base.get('Cmd') if service.get('entrypoint') is None else []) == (config.get('Cmd') or []),
+                  'entrypoint': argv('entrypoint', base.get('Entrypoint')) == (config.get('Entrypoint') or []),
+                  'user': str(service.get('user', base.get('User') or '')) == (config.get('User') or ''),
+                  'workingDirectory': service.get('working_dir', base.get('WorkingDir') or '') == (config.get('WorkingDir') or ''),
+                  'mounts': model_mounts(service, model) == record_mounts(record),
+                  'networkNames': (host.get('NetworkMode') == mode if mode else names == observed_names),
+                  'ports': model_ports(service) == record_ports(record),
+                  'restart': actual_restart.get('Name', 'no') == restart_name and
+                             actual_restart.get('MaximumRetryCount', 0) == int(retry or 0),
+              }
+              for key, target, default in (('privileged', 'Privileged', False), ('read_only', 'ReadonlyRootfs', False)):
+                  value = service.get(key, default)
+                  demand(type(value) is bool and type(host.get(target, default)) is bool, 'SECURITY_PROFILE')
+                  flags['privileged' if key == 'privileged' else 'readOnly'] = value == host.get(target, default)
+              for key, target, label in (('cap_add', 'CapAdd', 'capAdd'), ('cap_drop', 'CapDrop', 'capDrop'),
+                                         ('security_opt', 'SecurityOpt', 'securityOptions')):
+                  flags[label] = sorted(string_list(service.get(key) or [], 'SECURITY_PROFILE')) == \
+                                 sorted(string_list(host.get(target) or [], 'SECURITY_PROFILE'))
+              if selected is None:
+                  for key in ('environment', 'command', 'entrypoint', 'user', 'workingDirectory'):
+                      flags[key] = None
+              demand(set(flags) == set(COMPARE_FIELDS) and all(v is None or type(v) is bool for v in flags.values()),
+                     'COMPARISON_SCHEMA')
+              return flags
+
+
+          def declared_database_target(api_record, pg_record):
+              try:
+                  value = environment(api_record['Config'].get('Env') or [])['DATABASE_URL']
+                  url = urllib.parse.urlsplit(value)
+                  demand(url.scheme in ('postgres', 'postgresql') and url.hostname and url.path.startswith('/'), 'DATABASE_PROFILE')
+                  query = urllib.parse.parse_qsl(url.query, keep_blank_values=True, strict_parsing=True)
+                  demand(not any(k.lower() in ('host', 'hostaddr', 'port', 'dbname', 'database', 'service') for k, _ in query),
+                         'DATABASE_PROFILE')
+                  pg_env = environment(pg_record['Config'].get('Env') or [])
+                  database = pg_env.get('POSTGRES_DB') or pg_env.get('POSTGRES_USER') or 'postgres'
+                  api_networks = api_record.get('NetworkSettings', {}).get('Networks') or {}
+                  pg_networks = pg_record.get('NetworkSettings', {}).get('Networks') or {}
+                  aliases = set()
+                  for key in set(api_networks) & set(pg_networks):
+                      values = pg_networks[key].get('Aliases') or []
+                      demand(type(values) is list and all(type(v) is str for v in values), 'DATABASE_PROFILE')
+                      aliases.update(values)
+                  direct = url.hostname in aliases and (url.port or 5432) == 5432 and urllib.parse.unquote(url.path[1:]) == database
+                  return 'DIRECT_POSTGRES_CONFIGURATION_MATCH' if direct else 'INTERMEDIATE_OR_EXTERNAL_NOT_PROVEN'
+              except Exception:
+                  return 'NOT_PROVEN'
+
+
+          def render_model(source, records, inputs, runner, binary):
+              targets = {}
+              for role in ('api', 'web'):
+                  values = [r for r in records if labels(r).get('com.docker.compose.service') == role]
+                  demand(len(values) == 1, 'APPLICATION_RECORD_AMBIGUOUS')
+                  targets[role] = values[0]
+              web_labels, api_labels = labels(targets['web']), labels(targets['api'])
+              project = web_labels.get('com.docker.compose.project')
+              directory = web_labels.get('com.docker.compose.project.working_dir')
+              demand(type(project) is str and re.fullmatch('[a-z0-9][a-z0-9_-]{0,127}', project) and
+                     type(directory) is str and directory.startswith('/') and '..' not in directory.split('/'), 'PROJECT_PROFILE')
+              demand(api_labels.get('com.docker.compose.project') == project and
+                     api_labels.get('com.docker.compose.project.working_dir') == directory, 'APPLICATION_PROJECT_MISMATCH')
+              raw_files = web_labels.get('com.docker.compose.project.config_files')
+              demand(type(raw_files) is str and 0 < len(raw_files) <= 8192, 'COMPOSE_FILE_PROFILE')
+              files = raw_files.split(',')
+              demand(0 < len(files) <= 16 and len(set(files)) == len(files) and all(files), 'COMPOSE_FILE_PROFILE')
+              argv = [binary, '--project-directory', directory, '--project-name', project]
+              for file in files:
+                  path = file if file.startswith('/') else directory.rstrip('/') + '/' + file
+                  raw = inputs.read(path)
+                  reject_external_profile(raw)
+                  argv += ['--file', inputs.stage(raw)]
+              project_env = inputs.read(directory.rstrip('/') + '/.env', optional=True)
+              env_path = inputs.stage(project_env or b'')
+              argv += ['--env-file', env_path]
+              model = closed_json(runner(argv + ['config', '--format', 'json', '--no-env-resolution'], inputs.memory))
+              demand(type(model) is dict and type(model.get('services')) is dict and 0 < len(model['services']) <= 32 and
+                     model.get('name') == project, 'COMPOSE_MODEL_PROFILE')
+              demand(not any(key in model for key in ('include', 'secrets', 'configs')), 'COMPOSE_EXTERNAL_PROFILE')
+              env_files = 0
+              for service in model['services'].values():
+                  demand(type(service) is dict and not any(key in service for key in ('extends', 'label_file', 'provider', 'secrets', 'configs')),
+                         'COMPOSE_EXTERNAL_PROFILE')
+                  references = service.get('env_file') or []
+                  demand(type(references) is list and len(references) <= 16, 'ENV_FILE_PROFILE')
+                  replacement = []
+                  for reference in references:
+                      if type(reference) is str:
+                          path, required, raw_format = reference, True, False
+                      else:
+                          demand(type(reference) is dict and set(reference) <= {'path', 'required', 'format'}, 'ENV_FILE_PROFILE')
+                          path, required, raw_format = reference.get('path'), reference.get('required', True), reference.get('format') == 'raw'
+                          demand(type(required) is bool and reference.get('format') in (None, 'raw'), 'ENV_FILE_PROFILE')
+                      demand(type(path) is str and path.startswith('/'), 'ENV_FILE_PROFILE')
+                      # `config` doubles every dollar in its serialized output so it can
+                      # be loaded again. Decode only this path before opening its source.
+                      path = path.replace('$$', '$')
+                      raw = inputs.read(path, optional=not required)
+                      if raw is not None:
+                          item = {'path': inputs.stage(raw), 'required': True}
+                          if raw_format:
+                              item['format'] = 'raw'
+                          replacement.append(item)
+                      env_files += 1
+                  if references:
+                      service['env_file'] = replacement
+              rendered = inputs.stage(json.dumps(model, ensure_ascii=False, separators=(',', ':')).encode())
+              argv = [binary, '--project-directory', directory, '--project-name', project,
+                      '--file', rendered, '--env-file', env_path, 'config', '--format', 'json']
+              # Keep interpolation enabled: --no-interpolate also skips env_file
+              # resolution. The first model is already escaped for this round trip;
+              # decode the final CLI serialization exactly once for comparison.
+              model = closed_json(runner(argv, inputs.memory).replace(b'$$', b'$'))
+              demand(type(model) is dict and type(model.get('services')) is dict and model.get('name') == project,
+                     'COMPOSE_MODEL_PROFILE')
+              selected = [r for r in records if labels(r).get('com.docker.compose.project') == project]
+              names = [labels(r).get('com.docker.compose.service') for r in selected]
+              demand(all(type(n) is str for n in names) and len(names) == len(set(names)), 'SERVICE_RECORD_AMBIGUOUS')
+              return model, selected, targets, {'composeFiles': len(files), 'projectEnvPresent': project_env is not None,
+                                              'declaredEnvFiles': env_files,
+                                              'labelFileSetsEqual': api_labels.get('com.docker.compose.project.config_files') == raw_files}
+
+
+          def observe_configuration(target, run, source, runner=render_command, binary=None, uid=0):
+              demand(os.getuid() == os.geteuid() == uid and re.fullmatch('[0-9a-f]{40}', target) and
+                     re.fullmatch('[1-9][0-9]{0,19}', run), 'OPERATOR_SOURCE_IDENTITY')
+              before = source.inspect(target, run)
+              source.validate(before, target, run, 0)
+              demand(before['processes'] == {'postgres': 0, 'caddy': 0}, 'ORIGINAL_PROCESS_PRESENT')
+              records = source.metadata()
+              inputs = PrivateInputs(source, uid)
+              try:
+                  binary = binary or compose_binary(source)
+                  version = runner([binary, 'version', '--short'], [], timeout=5).decode('ascii', errors='strict').strip()
+                  demand(re.fullmatch(r'v?(?:[2-9]|[1-9][0-9])\.[0-9]{1,3}\.[0-9]{1,3}(?:-[A-Za-z0-9.-]{1,40})?', version),
+                         'COMPOSE_VERSION_PROFILE')
+                  model, selected, targets, coverage = render_model(source, records, inputs, runner, binary)
+                  counters = {key: 0 for key in COMPARE_FIELDS}
+                  unproved = {key: 0 for key in COMPARE_FIELDS}
+                  references = {}
+                  matched, missing = 0, 0
+                  for record in selected:
+                      service = model['services'].get(labels(record)['com.docker.compose.service'])
+                      if service is None:
+                          missing += 1
+                          continue
+                      flags = compare_service(record, service, model, source, references)
+                      matched += 1
+                      for key, value in flags.items():
+                          if value is None:
+                              unproved[key] += 1
+                          else:
+                              counters[key] += int(not value)
+                  pg = [r for r in selected if r['Image'] == before['bindings']['postgresImage'] and
+                        labels(r).get('com.docker.compose.service') in ('postgres', 'postgresql', 'db')]
+                  demand(len(pg) == 1, 'POSTGRES_PROJECT_AMBIGUOUS')
+                  target_profile = declared_database_target(targets['api'], pg[0])
+                  inputs.recheck()
+                  for ref, identity in references.items():
+                      image = image_reference(source, ref)
+                      demand((image['Id'] if image is not None else None) == identity, 'IMAGE_REFERENCE_DRIFT')
+                  demand(records == source.metadata(), 'SAVED_RECORD_DRIFT')
+                  after = source.inspect(target, run)
+                  source.validate(after, target, run, 0)
+                  demand(after['processes'] == before['processes'] and after['volumes'] == before['volumes'] and
+                         after['bindings'] == before['bindings'] and after['images'] == before['images'], 'RUNTIME_OR_SOURCE_DRIFT')
+                  inputs.recheck()
+                  extra = len(set(model['services']) - {labels(r)['com.docker.compose.service'] for r in selected})
+                  return {'schemaVersion': PROFILE_SCHEMA, 'targetSha': target, 'runId': run, 'passed': True,
+                          'classification': 'READ_ONLY_CONFIGURATION_OBSERVED_NOT_STARTUP_ACCEPTANCE',
+                          'readOnly': True, 'runtimeRestored': False, 'startupAuthorized': False,
+                          'canonicalApiBinding': 'NOT_PROVEN', 'fullComposeParity': 'NOT_FULLY_ATTESTED',
+                          'databaseIntegrity': 'NOT_FULLY_ATTESTED', 'sourceRuntimeUnchanged': True,
+                          'privateInputsUnchanged': True, 'plaintextTransfer': False,
+                          'composeVersion': version,
+                          'comparedServiceCount': matched, 'missingServiceCount': missing, 'extraServiceCount': extra,
+                          'comparedFields': list(COMPARE_FIELDS), 'mismatchCounts': counters,
+                          'unprovedCounts': unproved, 'inputCoverage': coverage,
+                          'observedFieldsAgreement': 'MISMATCH' if missing or extra or any(counters.values()) else
+                                                    'UNPROVEN' if any(unproved.values()) or not coverage['labelFileSetsEqual'] else 'MATCH',
+                          'savedApiDeclaredTarget': target_profile}
+              finally:
+                  inputs.close()
+
+
+          def configuration_main(arguments, source):
+              def interrupted(_signum, _frame):
+                  raise ConfigurationError('OPERATION_INTERRUPTED')
+              signal.signal(signal.SIGTERM, interrupted)
+              signal.signal(signal.SIGINT, interrupted)
+              try:
+                  demand(len(arguments) == 2, 'ARGUMENTS')
+                  result = observe_configuration(arguments[0], arguments[1], source)
+              except BaseException as error:
+                  code = error.args[0] if type(error) is ConfigurationError and error.args and \
+                         type(error.args[0]) is str and re.fullmatch('[A-Z_]{1,64}', error.args[0]) else 'CONFIG_OBSERVATION_UNAVAILABLE'
+                  result = {'schemaVersion': PROFILE_SCHEMA, 'passed': False, 'errorCode': code,
+                            'readOnly': True, 'runtimeRestored': False, 'startupAuthorized': False}
+              print(json.dumps(result, separators=(',', ':')))
+              return 0 if result['passed'] is True else 1
+          '''
+          print('exec(compile(base64.b64decode(' + repr(base64.b64encode(profile.encode()).decode()) + "),'<accepted-configuration-observer>','exec'),globals())")
+          print('raise SystemExit(configuration_main(sys.argv[1:], inspector))')
           PY_PAYLOAD
           set +e
-          /usr/bin/timeout --signal=TERM --kill-after=10s 1000s \
+          /usr/bin/timeout --signal=TERM --kill-after=10s 300s \
             ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
-            "$SSH_USER_SECRET@$PROD_HOST" "/usr/bin/timeout --signal=TERM --kill-after=70s 900s /usr/bin/python3 -I - '$TARGET_SHA' '$GITHUB_RUN_ID' '<pinned-memory-transport>'" \
+            "$SSH_USER_SECRET@$PROD_HOST" "/usr/bin/timeout --signal=TERM --kill-after=30s 240s /usr/bin/python3 -I - '$TARGET_SHA' '$GITHUB_RUN_ID'" \
             < "$payload" 2>/dev/null | head -c 16385 > "$raw"
           rc=$?
           set -e
@@ -313,52 +933,82 @@ jobs:
           [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
           python3 - "$raw" "$TARGET_SHA" "$GITHUB_RUN_ID" "$EVIDENCE_DIR" "$rc" <<'PY_RECORD'
-          import json, pathlib, re, sys
-          raw, expected, run_id, output, status = sys.argv[1:]
-          def require(ok):
-              if not ok:
-                  raise ValueError()
-          def closed(pairs):
-              require(len(pairs) == len(dict(pairs)))
-              return dict(pairs)
-          try:
-              with pathlib.Path(raw).open('rb') as handle:
-                  data = handle.read(16385)
-              require(0 < len(data) <= 16384)
-              value = json.loads(data.decode('utf-8', errors='strict'), object_pairs_hook=closed)
+          import json
+          import re
+
+          FIELDS = ('image', 'environment', 'command', 'entrypoint', 'user', 'workingDirectory',
+                    'mounts', 'networkNames', 'ports', 'restart', 'privileged', 'readOnly',
+                    'capAdd', 'capDrop', 'securityOptions')
+
+
+          def validate_terminal(data, expected, run_id, status):
+              def require(ok):
+                  if not ok:
+                      raise ValueError()
+              def closed(pairs):
+                  require(len(pairs) == len(dict(pairs)))
+                  return dict(pairs)
+              require(type(data) is bytes and 0 < len(data) <= 16384)
+              value = json.loads(data.decode('utf-8', errors='strict'), object_pairs_hook=closed,
+                                 parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
               require(type(value) is dict)
-              failed = {'schemaVersion', 'passed', 'errorCode', 'runtimeRestored', 'startupAuthorized', 'mutationOutcome'}
+              failed = {'schemaVersion', 'passed', 'errorCode', 'readOnly', 'runtimeRestored', 'startupAuthorized'}
               if set(value) == failed:
-                  require(value['schemaVersion'] == 'pc.ir20-stopped-copy.v1' and value['passed'] is False and
-                          value['runtimeRestored'] is False and value['startupAuthorized'] is False and
-                          value['mutationOutcome'] == 'RECONCILIATION_REQUIRED_IF_STARTED' and
-                          type(value['errorCode']) is str and re.fullmatch('[A-Z_]{1,64}', value['errorCode']) and
-                          int(status) == 1)
-                  print('IR20_EXECUTOR_FAILURE='+value['errorCode'])
-              else:
-                  fixed = {
-                      'schemaVersion': 'pc.ir20-stopped-copy.v1', 'targetSha': expected, 'runId': run_id,
-                      'passed': True, 'classification': 'ISOLATED_PHYSICAL_COPY_RECOVERY_VERIFIED_NOT_RELEASE_ACCEPTANCE',
-                      'sourceUnchanged': True, 'runtimeUnchanged': True, 'cloneByteCopyVerified': True,
-                      'cloneRecoveryVerified': True, 'selectedDatabaseLogicalScan': 'VERIFIED',
-                      'amcheck': 'SUPPORTED_RELATIONS_VERIFIED', 'disposableCleanup': 'VERIFIED',
-                      'sourceBinding': 'HISTORICAL_POSTGRES_NOT_CANONICAL_API_VERIFIED',
-                      'databaseIntegrity': 'NOT_FULLY_ATTESTED', 'runtimeRestored': False, 'startupAuthorized': False,
-                      'fullDrAcceptance': 'NOT_PROVEN', 'offHostRecovery': 'NOT_ESTABLISHED'}
-                  require(set(value) == set(fixed) | {'checksums'} and
-                          type(value['checksums']) is str and value['checksums'] in ('VERIFIED', 'NOT_ENABLED') and
-                          all(type(value[k]) is type(v) and value[k] == v for k, v in fixed.items()) and int(status) == 0)
+                  require(value['schemaVersion'] == 'pc.stopped-configuration.v1' and value['passed'] is False and
+                          value['readOnly'] is True and value['runtimeRestored'] is False and value['startupAuthorized'] is False and
+                          type(value['errorCode']) is str and re.fullmatch('[A-Z_]{1,64}', value['errorCode']) and int(status) == 1)
+                  return value
+              fixed = {'schemaVersion': 'pc.stopped-configuration.v1', 'targetSha': expected, 'runId': run_id,
+                       'passed': True, 'classification': 'READ_ONLY_CONFIGURATION_OBSERVED_NOT_STARTUP_ACCEPTANCE',
+                       'readOnly': True, 'runtimeRestored': False, 'startupAuthorized': False,
+                       'canonicalApiBinding': 'NOT_PROVEN', 'fullComposeParity': 'NOT_FULLY_ATTESTED',
+                       'databaseIntegrity': 'NOT_FULLY_ATTESTED', 'sourceRuntimeUnchanged': True,
+                       'privateInputsUnchanged': True, 'plaintextTransfer': False}
+              extra = {'composeVersion', 'comparedServiceCount', 'missingServiceCount', 'extraServiceCount',
+                       'comparedFields', 'mismatchCounts', 'unprovedCounts', 'inputCoverage',
+                       'observedFieldsAgreement', 'savedApiDeclaredTarget'}
+              require(set(value) == set(fixed) | extra and int(status) == 0)
+              require(all(type(value[k]) is type(v) and value[k] == v for k, v in fixed.items()))
+              require(type(value['composeVersion']) is str and re.fullmatch(
+                      r'v?(?:[2-9]|[1-9][0-9])\.[0-9]{1,3}\.[0-9]{1,3}(?:-[A-Za-z0-9.-]{1,40})?', value['composeVersion']))
+              for key, limit in (('comparedServiceCount', 11), ('missingServiceCount', 11), ('extraServiceCount', 32)):
+                  require(type(value[key]) is int and 0 <= value[key] <= limit)
+              require(3 <= value['comparedServiceCount'] + value['missingServiceCount'] <= 11)
+              require(value['comparedFields'] == list(FIELDS))
+              for key in ('mismatchCounts', 'unprovedCounts'):
+                  counts = value[key]
+                  require(type(counts) is dict and set(counts) == set(FIELDS) and
+                          all(type(v) is int and 0 <= v <= value['comparedServiceCount'] for v in counts.values()))
+              require(all(value['mismatchCounts'][key] + value['unprovedCounts'][key] <= value['comparedServiceCount'] for key in FIELDS))
+              coverage = value['inputCoverage']
+              require(type(coverage) is dict and set(coverage) == {'composeFiles', 'projectEnvPresent', 'declaredEnvFiles', 'labelFileSetsEqual'})
+              require(type(coverage['composeFiles']) is int and 1 <= coverage['composeFiles'] <= 16 and
+                      type(coverage['declaredEnvFiles']) is int and 0 <= coverage['declaredEnvFiles'] <= 512 and
+                      type(coverage['projectEnvPresent']) is bool and type(coverage['labelFileSetsEqual']) is bool)
+              agreement = 'MISMATCH' if value['missingServiceCount'] or value['extraServiceCount'] or any(value['mismatchCounts'].values()) else \
+                          'UNPROVEN' if any(value['unprovedCounts'].values()) or not coverage['labelFileSetsEqual'] else 'MATCH'
+              require(type(value['observedFieldsAgreement']) is str and value['observedFieldsAgreement'] == agreement)
+              require(type(value['savedApiDeclaredTarget']) is str and value['savedApiDeclaredTarget'] in
+                      ('DIRECT_POSTGRES_CONFIGURATION_MATCH', 'INTERMEDIATE_OR_EXTERNAL_NOT_PROVEN', 'NOT_PROVEN'))
+              return value
+
+          import pathlib, sys
+          raw_name, expected, run_id, output, status = sys.argv[1:]
+          try:
+              with pathlib.Path(raw_name).open('rb') as handle:
+                  value = validate_terminal(handle.read(16385), expected, run_id, status)
           except BaseException:
-              raise SystemExit('IR20_TERMINAL_INVALID') from None
+              raise SystemExit('CONFIGURATION_TERMINAL_INVALID') from None
           if value['passed'] is not True:
-              raise SystemExit('IR20_RECONCILIATION_REQUIRED')
+              print('CONFIGURATION_EXECUTOR_FAILURE=' + value['errorCode'])
+              raise SystemExit('CONFIGURATION_OBSERVATION_FAILED')
           with pathlib.Path(output, 'result.json').open('x') as handle:
-              handle.write(json.dumps(value, separators=(',', ':'))+'\n')
+              handle.write(json.dumps(value, separators=(',', ':')) + '\n')
           q = chr(96)
-          body = f'# Isolated stopped PostgreSQL copy\n\nExact source: {q}{expected}{q}.\n\n'
-          body += f'Isolated copy checks passed: {q}true{q}; original runtime restored: {q}false{q}; original startup authorized: {q}false{q}.\n'
-          body += 'Only the volatile clone was started and removed. Original source/runtime and preserved ciphertexts remained unchanged.\n'
-          body += 'Historical PostgreSQL is not yet bound to the canonical API. Full database integrity, logical critical-state roundtrip and release/DR acceptance remain unproved.\n'
+          body = f'# Stopped configuration observation\n\nExact source: {q}{expected}{q}.\n\n'
+          body += f'Observed field agreement: {q}{value["observedFieldsAgreement"]}{q}; original runtime restored: {q}false{q}; startup authorized: {q}false{q}.\n'
+          body += 'Only bounded Compose config rendering from anonymous in-memory inputs and read-only Docker metadata queries were allowed. Private values, source paths and raw model/output are not published.\n'
+          body += 'Compared/unavailable/missing field counts are in the closed aggregate artifact. Full Compose parity, canonical live API binding, full database integrity and release remain unproved. No startup follows from an observation.\n'
           pathlib.Path(output, 'issue-record.md').write_text(body)
           PY_RECORD
           (( rc == 0 ))
@@ -371,7 +1021,7 @@ jobs:
         if: always() && env.EVIDENCE_INITIALIZED == '1'
         env:
           GH_TOKEN: ${{ github.token }}
-          EXECUTION_OUTCOME: ${{ steps.isolated-copy.outcome }}
+          EXECUTION_OUTCOME: ${{ steps.configuration-observer.outcome }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -383,9 +1033,9 @@ jobs:
           if not re.fullmatch('[0-9a-f]{40}', target):
               raise SystemExit('INVALID_SOURCE_SHA')
           q = chr(96)
-          body = f'# Isolated stopped PostgreSQL copy\n\nExact source: {q}{target}{q}.\n\n'
+          body = f'# Stopped configuration observation\n\nExact source: {q}{target}{q}.\n\n'
           body += f'Stage outcome: {q}UNKNOWN{q}; runtime restored: {q}false{q}; original startup authorized: {q}false{q}.\n'
-          body += 'Do not retry. Retain the owned journal, original volumes and both private copies/keys for reconciliation.\n'
+          body += 'No startup follows from this read-only outcome. Retain original volumes, archives, keys and all spent journals; obtain a fresh governed observation if needed.\n'
           pathlib.Path(output, 'issue-record.md').write_text(body)
           PY_UNKNOWN
           fi
