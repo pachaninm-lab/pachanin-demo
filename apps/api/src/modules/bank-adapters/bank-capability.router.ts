@@ -4,9 +4,10 @@ import {
   type BankCapability,
 } from '../../../../../packages/domain-core/src/bank-capability';
 import type { IntegrationCapabilityMaturity } from '../../../../../packages/domain-core/src/integration-capability';
-import type {
-  BankProviderFamily,
-  BankReferenceAdapter,
+import {
+  REAL_BANK_PROVIDER_FAMILIES,
+  type BankProviderFamily,
+  type BankReferenceAdapter,
 } from './bank-adapter.port';
 
 export type BankRoutingReadiness = 'VERIFIED_CURRENT' | 'MISSING_OR_UNKNOWN' | 'EXPIRED_OR_REVOKED';
@@ -50,15 +51,35 @@ function isRuntimeNonBlankString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function isRuntimeProviderFamily(value: unknown): value is BankProviderFamily {
+  return typeof value === 'string'
+    && (REAL_BANK_PROVIDER_FAMILIES as readonly string[]).includes(value);
+}
+
+function readRuntimeProviderFamily(value: unknown): BankProviderFamily | null {
+  if (typeof value !== 'object' || value === null) return null;
+  // Provider identity must be an own data field, as on reference adapters and
+  // server-held DTOs. Reading an identity getter could mutate an already checked
+  // adapter/authority pair, including during the final readiness check itself.
+  const identity = Object.getOwnPropertyDescriptor(value, 'providerFamily');
+  return identity && Object.hasOwn(identity, 'value') && isRuntimeProviderFamily(identity.value)
+    ? identity.value
+    : null;
+}
+
 export class BankCapabilityRouter {
   private readonly byProvider = new Map<BankProviderFamily, BankReferenceAdapter>();
 
   constructor(adapters: readonly BankReferenceAdapter[]) {
     for (const adapter of adapters) {
-      if (this.byProvider.has(adapter.providerFamily)) {
-        throw new Error(`DUPLICATE_BANK_ADAPTER:${adapter.providerFamily}`);
+      const providerFamily = readRuntimeProviderFamily(adapter);
+      if (providerFamily === null) {
+        throw new Error('NO_ADAPTER_FOR_SERVER_HELD_PROVIDER');
       }
-      this.byProvider.set(adapter.providerFamily, adapter);
+      if (this.byProvider.has(providerFamily)) {
+        throw new Error(`DUPLICATE_BANK_ADAPTER:${providerFamily}`);
+      }
+      this.byProvider.set(providerFamily, adapter);
     }
   }
 
@@ -74,8 +95,11 @@ export class BankCapabilityRouter {
       };
     }
 
-    const adapter = this.byProvider.get(authority.providerFamily) ?? null;
-    if (!adapter) {
+    const providerFamily = readRuntimeProviderFamily(authority);
+    const adapter = providerFamily !== null
+      ? this.byProvider.get(providerFamily) ?? null
+      : null;
+    if (!adapter || readRuntimeProviderFamily(adapter) !== providerFamily) {
       return {
         status: 'UNAVAILABLE',
         adapter: null,
@@ -175,6 +199,16 @@ export class BankCapabilityRouter {
         status: 'NOT_ACTIVATED',
         adapter,
         reason: 'REFERENCE_ADAPTER_HAS_NO_LIVE_TRANSPORT',
+      };
+    }
+
+    // Capability/readiness properties may be accessors. Revalidate identity
+    // without invoking identity getters those reads may have installed.
+    if (readRuntimeProviderFamily(adapter) !== providerFamily || readRuntimeProviderFamily(authority) !== providerFamily) {
+      return {
+        status: 'UNAVAILABLE',
+        adapter: null,
+        reason: 'NO_ADAPTER_FOR_SERVER_HELD_PROVIDER',
       };
     }
 
