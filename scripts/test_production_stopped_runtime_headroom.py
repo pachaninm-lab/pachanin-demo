@@ -344,7 +344,8 @@ class RecoveryTests(unittest.TestCase):
                     if block.count('queue: max') != 1 or block.count('cancel-in-progress: false') != 1:
                         raise ValueError('SHARED_PRODUCTION_PENDING_REPLACEMENT:' + name)
             return participants
-        expected = {'production-cold-preservation.yml',
+        expected = {'production-docker-headroom-diagnostic.yml',
+                    'production-cold-preservation.yml',
                     'production-full-stack-exact-sha.yml',
                     'production-stopped-runtime-headroom.yml',
                     'production-docker-headroom-recovery.yml',

@@ -8014,3 +8014,262 @@ class RecoveryTests(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main()
 ~~~~
+
+## Stopped recovery inspection shared queue test prerequisite 20261023
+
+Owner decision: Team Hub #5469 comment 6354447020 explicitly transfers the existing CORE recovery and source merge coordination to the current executor. This replaces the wait for a CORE writer handoff; mandatory review, substantive native checks and manual expected SHA acceptance remain unchanged. The preserved cold copy is not replayed, restored, opened or deleted by this source prerequisite.
+
+Current accepted source is `a509789c22298375130d70fde95915b8daa7634a`. Retained inspection PR #5921 at `b6b1521d28e92b9fe5e3a68462c9c6cd2abaefdf` adds the sixth shared production workflow. Its unchanged stopped runtime test still expects five participants. The prior exact experiment #5921 comment 6351985211 reproduced 23 passing tests and one failure; adding the diagnostic participant to the expected set produced 24 passing tests without changing any assertion or mutation loop. Those local results do not constitute native or production acceptance.
+
+This metadata phase changes exactly this queue and the state registry: append the existing stopped runtime test to the retained diagnostic branch vector, and append only the compact `stopped-recovery-inspection-test-20261023` record. All other semantic values and previous admission object bytes remain unchanged. The fixed 3 MiB state reader limit remains unchanged; the resulting registry must stay within it. Official production progress remains 5/100.
+
+The previously selected `governance/pc-crop-post-registration-progress-scope-4997` ref is still bound by the accepted guard to the older exact Deal route guard payload. Reusing it for this correction would fail that existing gate. Continue the necessary two file guard prerequisite on the already accepted `governance/industrial-load-diagnostics-20260919` ref instead. This is the same existing trusted guard owner and validator, with no additional writer, new branch route or permission waiver. Its accepted seven path vector remains unchanged; only `scripts/p7-autopilot-guard.sh` and `scripts/p7-autopilot-guard.test.mjs` may change for this prerequisite, with modes 100755 and 100644 respectively. State, workflow entry points and every other source leaf stay identical to accepted metadata main. Preserve all historical exact source and routing checks for other branches.
+
+The future guard must read this purpose and the complete two path diagnostic vector only from accepted BASE, require an unchanged HEAD state, a BASE ancestor and exactly two modified regular 100644 source paths. The diagnostic workflow retains its existing review controlled source authority. The additional test file is limited to the exact frozen change below, checked by full Git blob, SHA256, byte length and literal before to after transformation. A candidate cannot add its own purpose or vector, replace the guard, include extra files, remove assertions or use executable, symlink, rename or partial source changes. In the absence of this purpose, preserve the original workflow only diagnostic behavior. Add actual Git fixture regressions for these positive and negative cases and run the complete existing suite without lowering its coverage, assertions or timeout.
+
+Frozen test payload:
+
+```json
+{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","beforeBlob":"ea6430963a568e1356a7706c8514d5215fdd9c38","afterBlob":"bc2c092cea71aaca1c94121b02d1bd87cf83df5f","sha256":"6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9","bytes":34069}
+```
+
+```diff
+-        expected = {'production-cold-preservation.yml',
++        expected = {'production-docker-headroom-diagnostic.yml',
++                    'production-cold-preservation.yml',
+```
+
+After this metadata is independently reviewed, substantively checked and accepted, accept the two file trusted guard prerequisite with its own fresh independent review, separate author audit, full native checks and readiness. Then refresh the original #5921 branch normally on actual accepted main, retain all original ancestry and its existing inspector, and apply only the frozen test correction alongside that workflow. The corrected source requires fresh whole head review, applicable CI/security and resolved findings before a manual full expected SHA merge. No previous head review or readiness is transferred.
+
+Before any once only read only inspection command, reconcile the actual original command and workflow/job history and confirm no prior dispatch of that command or concurrent production operation. Source acceptance does not authorize a restore or service startup. Controlled PostgreSQL validation, capacity, Compose/bind parity, service/worker activation, exact release and authenticated cabinet acceptance remain subsequent explicit source and operational gates. No money movement, signature, government mutation, new access, secret transfer, new cost or production completion follows from this metadata.
+
+## PC-CROP stopped inspection failure classification prerequisite — 2026-10-23
+
+Owner: ACCOUNT_1_CORE under owner takeover #5469#issuecomment-6354447020.
+Authority base: `05ea2dda74ced6eafb3255beb2a44df5abce9a78`.
+Actual read-only inspection run39936972622 ended INSPECTION_FAILED / INSPECTION_UNAVAILABLE; receipt #4637#issuecomment-6362510624 and closed artifact12492974787 SHA256 `2dfcfcb42af857d93cd1b0ab29e5b62ad8852725388dc48ece224a381baf2f3b`. All SSH/remote/receipt/upload/cleanup steps completed; final acceptance failed. No underlying host cause or database integrity is established. Two owner command comments produced one actual inspection; no unchanged third command or failed-job rerun is permitted.
+
+Disposition: EXTEND_EXISTING the accepted stopped inspector, not a new recovery controller. This metadata prerequisite changes exactly this queue and the state registry. Remove only whitespace BETWEEN the 120 existing coordination record properties, preserving each complete historical record value byte-for-byte. Preserve all JSON tokens/escapes/property order, all219 ordered concurrent vectors, current/writable scopes, every prior authority and official5/100. Then append only the compact purpose `stopped-inspection-errors-20261023`. The fixed3MiB state reader cap is unchanged. No source or guard is admitted by candidate-owned metadata alone.
+
+Existing source branch: `fix/gekta-docker-diagnostic-route-20260927`.
+One regular100644 source path: `.github/workflows/production-docker-headroom-diagnostic.yml`.
+Exact before blob: `18401c26bc8f91bb4d47d084bea8edec6fd33675`.
+Exact after blob: `274708ec5cff763ffeccd0137c3048346b720b05`.
+After UTF-8 bytes:183028; SHA256:`177abf22e507e68a888b5b2233a82eed779d0b12ec759e8d08145f687de2b254`.
+Retain current helper test blob `bc2c092cea71aaca1c94121b02d1bd87cf83df5f` unchanged.
+
+Prepared source only adds nine fixed observation-stage exception boundaries, publishes existing literal invariant codes through a closed allowlist, and preserves a generic fallback without evaluating arbitrary exception text. The output schema/failed SSH status, no-startup/no-restore flags, complete success checks, all actual probes and their ordering, limits/timeouts, archive/PG/mode/drift requirements, shared non-cancelling max production queue, owner/event/current-main/pinned-host gates and runner cleanup remain. The issue receipt may expose only the validated fixed failure code. Embedded actual-source fixtures cover all9 stages, preserved invariant failures, foreign/multiargument/subclass/secret-bearing exceptions, actual CLI invalid arguments, forged failure codes and closed publication. First3 actual contract scalars remain byte-identical; fourth and all23 Bash syntax checks pass locally. This is not a diagnosed host repair or runtime acceptance.
+
+Acceptance sequence: independently review and normally accept this exact two-file metadata delta after native/security/readiness gates; then separately extend the retained `governance/industrial-load-diagnostics-20260919` guard lane with exactly guard+guard tests, consuming only accepted purpose and enforcing the pinned one-workflow transition and unchanged test/state/all other paths/modes/ancestry. Preserve the historical test-correction guard when the new purpose is absent. After separate guard acceptance, adopt only these exact source bytes on the original diagnostic branch, with new independent whole-head review, separate author audit, all substantive native checks and fresh exact-head manual readiness. No force/automatic merge or #5923 exception reuse.
+
+Only after these real acceptances and fresh soleCORE/main/host serialization may a separately recorded bounded NEW diagnostic observation use the corrected source; no unchanged retry, startup/restart/restore/migration/delete/replay or archive/passphrase/config-content access. Its result remains metadata only, runtimeRestored=false, startupAuthorized=false, database integrity and current Compose parity NOT_ATTESTED. Preserve REG.RU-only production, existing data/rollback authority, BANK/FGIS original producers, all holds, zero new recurring costs, official5/100 and UX/BANKS/FGIS NOT_CLOSED.
+
+## PC-CROP stopped Compose-label failure classification — 2026-10-23
+
+Sole CORE owner decision: #5469#issuecomment-6354447020. Existing diagnostic lane only; prerequisite to understand the already closed failed read-only observation39945459692 (receipt4637#6363724323), not restoration or production acceptance.
+
+Accepted observation target: `bab8d46b1c82d8c82faf1a51690cc19662f103f4`. Fixed code `COMPOSE_LABEL_BOUND` proves the existing conjunction rejected a config_files label, but does not distinguish its8192-character limit from its16-component limit. No label values, protected paths or raw metadata were published. No startup/restore follows from this failure.
+
+Append only compact coordination purpose `stopped-compose-label-errors-20261023`: owner ACCOUNT_1_CORE, ownerDecision #5469#issuecomment-6354447020, authorityBaseExactMain bab8d46b1c82d8c82faf1a51690cc19662f103f4, sourceBeforeBlob274708ec5cff763ffeccd0137c3048346b720b05, sourceAfterBlob e1ab7a02bc7a1f7db106077128821a563d6ef689, productionAcceptance=false. Every prior state byte and ordered scope vector stays intact; unchanged3MiB cap remains enforced.
+
+Frozen next source is ONLY regular100644 `.github/workflows/production-docker-headroom-diagnostic.yml`,185937 UTF-8 bytes, SHA256 `50adc9a41e460f367396571c4f121fd54ff4552a48f52806ad2beca7b2af2ffc`. Original branch `fix/gekta-docker-diagnostic-route-20260927`; helperbc2 and all other leaves unchanged. Split the SAME rejection predicate into fixed size/count/both codes, using bounded in-memory comma count. Retain both thresholds, original failure status/schema and false authority flags, all success checks, observation/SSH/current-main/owner/serialization/cleanup boundaries. No new read, path/config/archive/passphrase publication, host mutation, worker launch or limit relaxation.
+
+Actual-source contract fixtures cover each failure shape, unchanged8192-character (including Unicode) and16-component success boundaries, absence of reference access on invalid labels, private-value exclusion and closed publication of each new code. First3 contract scalars remain byte-identical. Local4/4 contracts PASS; native exact-head checks/independent review/readiness remain mandatory for each later accepted change.
+
+Adoption sequence remains separate ordinary metadata acceptance -> exact accepted-base guard/test admission -> exact pinned one-workflow source acceptance. This metadata alone authorizes neither that source diff nor a new host observation. Only after all prerequisites are accepted and a separately recorded main/host window may a NEW bounded read-only observation use the materially changed classification. Do not rerun unchanged failed source. Do not widen scopes, rewrite history or forge progress. Virtual-server recovery pending; whole UX/BANKS/FGIS NOT_CLOSED, official5/100.
+
+## PC-CROP aggregate stopped Compose-reference budget — 2026-10-23
+
+Sole CORE owner decision #5469#issuecomment-6354447020. Closed actual observation39951100441 on main `b5f8d55cef2034ebfa59effba367cf6c083ab42f`, receipt4637#6364531950/artifact12500785489, fixed COMPOSE_LABEL_COUNT_BOUND: label<=8192characters but>16comma-components. This does not prove distinct-file count, valid Compose parity or data integrity. No unchanged host retry.
+
+Append six-field purpose `stopped-compose-reference-budget-20261023`: owner ACCOUNT_1_CORE, ownerDecision #5469#issuecomment-6354447020, authorityBaseExactMain b5f8d55cef2034ebfa59effba367cf6c083ab42f, sourceBeforeBlob e1ab7a02bc7a1f7db106077128821a563d6ef689, sourceAfterBlob03dbdc1d5e9a97687ddd7713e896fb3094f0f8a0, productionAcceptance=false. State keeps the3MiB cap. Reclaim618 non-string whitespace characters ONLY within the existing CORE-owned gekta-firstuser-mfa-button-binding-correction-20261011 record; preserve every JSON token/string/escape/value there. All121 other prior coordination record raw values and all219 scope vectors' raw bytes/order unchanged. Remove only new purpose and ignore non-string whitespace: full prior token SHA256d27d352f276336119c987b6bc8bf562d930423c91e994252bb51521a0e256198 unchanged. No semantic Gekta source/admission change. New state3145326bytes,402remaining, blob969feb4587432721b79fcb677134dc0c139b8029/SHA2566620a7ab3be6d8dcf6526bd89f55e42d60434a4ada92b4bea5e99dbb3af4afbc.
+
+Frozen next source: ONLY original regular100644 `.github/workflows/production-docker-headroom-diagnostic.yml`,191427UTF-8bytes, SHA256 `09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a`. Original diagnostic branch retained; every other source leaf/helper remains unchanged.
+
+Correction changes the allocation rule explicitly: replace per-label16 components with a GLOBAL176 distinct-reference budget derived from pinned11records x prior16. Existing relative resolution/global set are retained, not new path normalization. Every distinct reference still gets the old nofollow/regular-type check or explicit missing count; never skip a reference to pass. Total filesystem checks cannot exceed the old176 worst case. Preserve8192characters per label; add working-directory4096-character bound, reject empty/NUL references,15second traversal deadline checked before/after each lookup, and require published present+missing<=176. Existing success assertions,9phases, fixed-error privacy, exact-main/owner/DNS/SSH/shared noncancelling production lock/timeouts/cleanup/output schema/false authority flags remain. No contents/config/key/archive/passphrase read, new runtime action or recovery authority.
+
+Actual-source local4/4 contracts PASS, first3 unchanged; fourth1f6649cb58f5cd94990a7b6fa16bb82096975a157cafadf8dbd222ffaadffdf8. Positive17 and176 references in one label and across11records, repeated labels/dedup count, old8192/Unicode bounds;177 unique/oversize/working/path/time/type violations fail closed before or after bounded lookup as applicable. Real file metadata checked without opening contents; closed publication/schema rejects overbudget counts.24/24helper and121/121scope PASS. Local source preparation is not actual-head native/independent or production acceptance.
+
+Separate ordinary metadata acceptance -> exact accepted-base guard/test admission -> exact pinned source acceptance; no wildcard or parallel core. Each needs actual independent review/native substantive+security gates/author audit/canonical readiness. This metadata alone permits no source adoption/host operation. Only after source acceptance and a fresh separately recorded main/host window may ONE new materially corrected-source read-only observation occur. No Docker restart/service/worker/restore/bootstrap/migration/delete/replay. Virtual-server recovery pending; whole UX/BANKS/FGIS NOT_CLOSED, official5/100.
+
+
+## PC-CROP stopped external configuration preservation prerequisite — 2026-10-23
+
+Owner continuation: Team Hub6354447020, observation closure/preparation claim6367244865. Actual closed read-only run39968504141 on accepted21b99892e820b3e7418c76a1d40005318fef368e found8read-only bind references outside the original19-volume copy and8existing distinct Compose-label files. No writable/unknown mounts, but external source types/content/ownership and Compose parity remain unproved. Original private ciphertext hash800264a1819ba26869e4b79d1f6874dc5078aa982ab333fdd999629f6b490603 and its key are retained. No host operation follows from this metadata.
+
+Disposition EXTEND_EXISTING the original cold-preservation source ref and four existing source paths, with its unchanged fifth shared-test dependency. No new branch, workflow, scope vector, source path, permission or parallel recovery core. Append only cold-bindings-preservation-20261023 below. Reclaim only non-string whitespace within existing CORE-continuation gekta-history-import-purge-20261008; every token/string/escape/semantic value there remains identical and every other previous coordination record raw value remains byte-identical. All219 scope vectors/order and3MiB state cap remain unchanged.
+
+Accepted future purpose:
+```json
+{"owner":"ACCOUNT_1_CORE","sourceBranch":"ops/production-cold-preservation-20261022","authorityBaseExactMain":"21b99892e820b3e7418c76a1d40005318fef368e","ownerDecision":"#5469#issuecomment-6354447020","operationName":"cold-bindings-preservation-20261023","mode":"100644","sha256":{"scripts/production_cold_preservation.py":"19c873694debb0076701a912b394aad6bb0e092947f04d97e5144320ca5ca832","scripts/test_production_cold_preservation.py":"847a5fbadddd61bba6259d85cf3445f31b803edfe6c2c2df6a0f437030758bec",".github/workflows/production-cold-preservation.yml":"4519e83dd5d5f12d10a91910b839938da0312b9b720fdbdb2529fa77878b9fd1","docs/ops/production-cold-preservation.md":"ed44622b6f377733854853449731441d1df28c210d492b9eba77d3634537a320","scripts/test_production_stopped_runtime_headroom.py":"6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9"},"dependencySha256":"6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14","productionAcceptance":false,"limits":"One-use encrypted on-host config copy; exact8RO binds/8Compose,128MiB source/192MiB archive/4096entries. No startup/restore/replay/delete/transfer/new access/cost; original archive/key retained; official5/100."}
+```
+
+Frozen future payloads; only the first four change, fifth remains unchanged:
+```json
+[{"path":"scripts/production_cold_preservation.py","mode":"100644","beforeBlob":"bdbadce366d6ab59327c30a3cfbf5fc7ebf42b02","afterBlob":"52e27a087e7a0cc6b031387e8824846ce84f49c0","sha256":"19c873694debb0076701a912b394aad6bb0e092947f04d97e5144320ca5ca832","bytes":42229},{"path":"scripts/test_production_cold_preservation.py","mode":"100644","beforeBlob":"4c5aca90466fb076d942ac34a1f9a0e036b02805","afterBlob":"36bb9b652088fc9517f9e854e0f4cb4a5746edaa","sha256":"847a5fbadddd61bba6259d85cf3445f31b803edfe6c2c2df6a0f437030758bec","bytes":40452},{"path":".github/workflows/production-cold-preservation.yml","mode":"100644","beforeBlob":"2eee047e8821f64ea33156c3bb5daf44a09c2ecd","afterBlob":"525e9c5fca351a10961538102492a24c0bf9cf58","sha256":"4519e83dd5d5f12d10a91910b839938da0312b9b720fdbdb2529fa77878b9fd1","bytes":15010},{"path":"docs/ops/production-cold-preservation.md","mode":"100644","beforeBlob":"a0eab1991d5c65c49e9f44ab20a6ae2a528e7bee","afterBlob":"b9d3606308a6015dad50fc0f9b4b419e6dca8226","sha256":"ed44622b6f377733854853449731441d1df28c210d492b9eba77d3634537a320","bytes":15243},{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","beforeBlob":"bc2c092cea71aaca1c94121b02d1bd87cf83df5f","afterBlob":"bc2c092cea71aaca1c94121b02d1bd87cf83df5f","sha256":"6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9","bytes":34069}]
+```
+
+Future source requirements: preserve all original snapshot/archive verification defaults and tests; add the stricter configuration snapshot with descriptor/no-follow/no-atime checks, exact historical-record hashes,8RO binds/8Compose references, no guesses for dotenv, overlap/root/device/link/special/control-endpoint rejection,128MiB/4096entry/30s source bound and192MiB ciphertext/plaintext bounds. Require original2GiB reserve plus two192MiB budgets and256MiB margin before writing; recheck2GiB reserve afterwards. Unsupported metadata or socket references block before writes, never skip to PASS. Root-private one-use directory/new archive-specific passphrase remains on the same existing server; original archive/key/19volumes untouched. Authentication, complete per-entry verification, two source passes, host drift checks and durable receipt required.
+
+The spent preserve-stopped-data workflow route is disabled by the separately accepted source; only the distinct owner4637 preserve-stopped-bindings command is admitted then. Existing exact-event/main/ancestry/source-pin/DNS/SSH/shared noncancelling production lock, no protected PR credentials, cleanup and three-file closed publication retained. Actual-source tests cover new route/old-command rejection, source-pin tampering, real tar/GPG roundtrip, no-write rejection, fault/drift, source retention and forged output. Local26cold+24shared tests,6Bash scalars PASS; local evidence is not native review or host acceptance.
+
+First accept this exact two-file metadata through independent current-head review, separate author audit, native substantive/security checks, canonical readiness and ordinary expected-SHA merge. Only afterwards publish/accept the exact four-file source on the original ops ref with fresh independent review and all applicable native gates. Source acceptance still needs a separately recorded fresh main/host decision before ONE operation. Never auto/force merge, waive security, change protections or reuse spent grants.
+
+New success ENCRYPTED_BINDINGS_PRESERVATION_VERIFIED leaves runtimeRestored/startupAuthorized=false, databaseIntegrity/currentComposeParity=NOT_ATTESTED, environmentFilesCovered=false, restoreVerification=NOT_PERFORMED and offHostRecovery=NOT_ESTABLISHED. No Docker restart/service/worker/bootstrap/migration/delete/replay/offhost transfer or new cost. Isolated PostgreSQL16 restoration, Compose/env parity, controlled activation, exact release and UX/BANKS/FGIS live acceptance remain pending. Whole blockNOT_CLOSED; official5/100.
+
+
+## Separate source admission ir20 stopped copy 2026 10 23
+
+Owner: ACCOUNT_1_CORE under owner continuation6354447020, handoff6368785509
+and source continuation6376438168. The original six-file authority base remains
+c938b74a745f2a7ef466dbdf204a971594443113. Trusted validator5938 is accepted on
+current main d79d376df8b5b06ab4acfd8937c1e6c9c699e3b3.
+This metadata resolves current-scope review P1 4361735415 on source PR5936.
+The historical source-controlled manifest and a green legacy guard did not put
+the original IR20 six-path ref in current approvedConcurrentScopes.
+
+Admit only the original ops/ir20-isolated-restore-20260919 six-path vector below,
+with the exact corrected source/dependency hashes. Frozen correction54d61272
+retains the original logical executor, the remaining-time fix and the synthetic
+CI bind root999:999. It invalidates both report markers on publication failure,
+retains the nonreplayable identity journal and reports unproved invalidation.
+Local42/42 synthetic tests passed; real PostgreSQL and native source checks
+remain required. No source or host operation follows from this metadata. Source must compose these exact pins on the then-current accepted main,
+retain source ancestry, and pass fresh independent whole-head review, separate
+author audit, native real-PostgreSQL/substantive/security/Kubernetes checks,
+canonical readiness and ordinary full-expected-SHA acceptance.
+
+State remains below its unchanged3MiB cap. Only outside-string whitespace in the
+existing CORE-owned gekta-consent-first-user-release-prerequisites-20261008 value
+is compacted. Its JSON tokens/strings/escapes/values are unchanged. Every other
+old admission raw value, all existing ordered scope vectors/raw values and every
+other top-level byte/value are preserved. Remove the new vector/purpose and the
+entire old semantic state is identical. No Gekta source/behavior or other owner's
+authority changes. Primary/current/next-step/progress remain unchanged.
+
+The source prerequisite uses only an isolated owned volatile non-root networkless
+PG16 copy. No production workflow event, protected credential, host dispatch,
+original database/application/worker startup, migration, archive decryption or key read,
+offhost transfer, provider action or new cost is admitted. A later actual host
+controller and fresh serialized operation decision remain separate requirements.
+Bindings39979779958 remains complete/spent; original19volumes and both private
+archives/keys are retained. Whole UX/BANKS/FGIS NOT_CLOSED; official5/100.
+
+Exact admitted purpose and source pins:
+
+```json
+{"owner":"ACCOUNT_1_CORE","sourceBranch":"ops/ir20-isolated-restore-20260919","ownerDecision":"#5469#issuecomment-6354447020","writerHandoff":"#5469#issuecomment-6368785509","authorityBaseExactMain":"c938b74a745f2a7ef466dbdf204a971594443113","sourcePins":[{"path":"scripts/release/ir20-restore-drill.sh","mode":"100755","sha256":"f3459f23ca7db27e64ebe91e5faa5ff36ff546498f933e7941c011dba1682710"},{"path":"scripts/release/test-ir20-restore-drill.py","mode":"100755","sha256":"940f400d8e30491e4662399df65303b010c0b4d6d82acd21e3dcd2688bb4a574"},{"path":"scripts/release/test-ir20-restore-drill-integration.sh","mode":"100755","sha256":"8427fb929e5455008252f8e868b1ce6da578efd67e47813b00f97cf76a94aaf2"},{"path":".github/workflows/ir20-restore-drill.yml","mode":"100644","sha256":"0eef2d1b6b7258db3e4ac3bbc4d13f1e3b2362fb37b9fa03617be3d79f5fabf0"},{"path":"docs/ops/ir20-isolated-restore.md","mode":"100644","sha256":"ff3ed080c9a5daa72b437bdfa78b6552d52c82fe4402d63bcebc88b3f460df3e"},{"path":"docs/platform-v7/autopilot/scopes/ir20-isolated-restore-20260919.json","mode":"100644","sha256":"3bf2cb622a6b4b0ca8f8b7fe7f4b9fbd89b648439db7dd36b82ee47a135689f4"}],"dependencySha256":{"scripts/production_stopped_runtime_headroom.py":"6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14","scripts/production_cold_preservation.py":"19c873694debb0076701a912b394aad6bb0e092947f04d97e5144320ca5ca832"},"productionInvocationAuthorized":false,"productionAcceptance":false,"limits":"Six-path source-only stopped PG16 volatile-copy prerequisite. No host dispatch, original startup, transfer or new cost."}
+```
+
+
+## Separate isolated stopped PostgreSQL controller admission 2026-10-24
+
+Corrected six-file IR20 source #5936 is accepted on main7b139a06e2b67e0b5ba30cbf2123587b2e0f402b/tree498234ca598e24899ac5ec9e852cfb962f81ea4f, reviewed head01cafe36ac9f6c254061cfad1e919ffb20b9891c. Native real logical/stopped PostgreSQL, bounded1037 source preflight, Kubernetes/outbox and security checks passed; genuine independent6378967174 and actual canonical40059141146 READY preceded ordinary SHA-bound acceptance. This is one closed controller-purpose admission on the existing cold-preservation branch and five-path vector; only its existing workflow, test and runbook are pinned below. Source preparation is frozen4fd9f98cb1310319505a6aeee897bd92adbcacee and claim6377184068; bounded metadata claim6378107969. No additional scope vector is added. The two runtime helpers and both private preservation engines stay unchanged.
+
+The state adds this single979byte compact entry and removes242 outside-string whitespace bytes only from existing gekta-dispatcher-future-fixture-correction-20261009. Its strings, escapes, token order, owner and meaning remain identical; all125 prior admissions,220 ordered vectors, other raw records and primary/current/progress values are preserved. State3145591bytes leaves137bytes under the unchanged3145728byte limit. Removing this new purpose restores the complete prior token stream and semantic state.
+
+Independently accept this metadata first. Then publish exactly the three pinned source payloads on actual main, preserve the original cold branch history and every other tree leaf, and obtain genuine independent whole-current-head review, separate owner audit, complete native substantive/security checks, fresh canonical READY and ordinary full expected-SHA manual source acceptance. The later protected operation additionally needs a fresh concrete accepted-main/shared-window/queue/journal/DNS/SSH decision.
+
+The only new route is owner-only /production validate-stopped-pg16 current-main in4637, through the same recovery job/shared production-full-stack-exact-sha queue with queue:max and cancel:false. Both preservation commands remain spent. Only one new owned volatile non-root networkless PG16 clone may run; original19 volumes, runtime, both private archives/passphrases and completed39979779958 remain preserved. No original startup, daemon restart, replay, migration, archive/key transfer, provider action, new identity or cost. runtimeRestored=false, originalStartupAuthorized=false, productionAcceptance=false. Full UX/BANKS/FGIS NOT_CLOSED; official5/100.
+
+Exact closed controller purpose:
+
+```json
+{"owner":"ACCOUNT_1_CORE","sourceBranch":"ops/production-cold-preservation-20261022","authorityBaseExactMain":"7b139a06e2b67e0b5ba30cbf2123587b2e0f402b","ownerDecision":"#5469#issuecomment-6377184068","operationName":"ir20-stopped-copy-20261023","isolatedCopyInvocationAuthorized":true,"productionAcceptance":false,"originalStartupAuthorized":false,"sourcePins":[{"path":".github/workflows/production-cold-preservation.yml","mode":"100644","sha256":"24c8de4e99e861048ae64e0181b046efcdf01935dc70769b1010f514bee1f5e3"},{"path":"scripts/test_production_cold_preservation.py","mode":"100644","sha256":"8466dcb8b9f260d862dfa951204998a7903b795ad039d02507fc00385f9be50c"},{"path":"docs/ops/production-cold-preservation.md","mode":"100644","sha256":"d84a2e31f463788b0ffcea14aad620e4c77e68f09f529c3eb7563f05217ca6da"}],"limits":"One serialized no-network volatile PG16 copy. Original runtime, archives and keys retained; no transfer or new cost."}
+```
+
+
+## Accepted stopped configuration controller purpose 2026-10-24
+
+Necessary continuation of P0 recovery under owner instruction, Team Hub claim6379896668 and released clone window6379784736. The historical PG16 clone40061557888 is verified and SPENT; the original server is still unrestored. Source base `c6e3899f2c54927f775f6641cadf0edbf962d3bc`. Closed purpose `stopped-configuration-controller-20261024` admits only one separately governed read-only observation, fixed descriptor `stopped-configuration-20261024`, on existing `ops/production-cold-preservation-20261022`; production acceptance and original startup authority remain false. The new source route retires the spent clone command and compares protected current Compose/env configuration with saved records without starting original services or changing data/configuration. All archives, passphrases, nineteen volumes and spent journals remain retained.
+
+Frozen source payloads for the later separate source PR:
+- `.github/workflows/production-cold-preservation.yml` mode `100644`, SHA256 `e69198099ca539688c503190c1fa6ea0e498e95d95bf1b60614646aafbe7f877`.
+- `scripts/test_production_cold_preservation.py` mode `100644`, SHA256 `1e48b22ebe9fa1b927f25bc6f3c32eb67fee53cc6ff7f404c7c419cec44af2d4`.
+- `docs/ops/production-cold-preservation.md` mode `100644`, SHA256 `256ae870375cb4d8163c6fb487f1b75bb157b21cd2d72a0b4dcb1dc3a725c1d5`.
+
+The unchanged diagnostic workflow dependency has SHA256 `09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a`; only its accepted read-only Python primitives and literal saved-record identities are reused. No diagnostic/helper/IR20 source bytes, existing five-path cold vector, other ordered vectors or active primary authority change. Exactly2466 outside-string whitespace bytes are removed from the existing CORE-owned `gekta-anonymous-reserve-interface-locale-correction-20261010` record, preserving every token/string/escape/order/value/owner. All126 older admissions and220 ordered vectors remain semantically identical; exact raw undo reconstructs every old byte. New state3144220bytes leaves1508bytes under the unchanged3MiB cap; no guard exception or limit increase.
+
+This metadata PR changes only state plus append-only copies of this block in both current prompts and execution queue. It does not install or execute the three source payloads. Their local actual-controller tests34PASS14.564s (including verified official Compose5.6.0 and real sealed-memory environment resolution), unchanged headroom tests24PASS2.319s and actual embedded-Python syntax checks are preparation evidence. Local full pnpm/typecheck/test did not pass, and the hosting-authority check cannot complete without local Docker; complete applicable native substantive/security checks remain mandatory. Genuine independent review of each exact current head, separate owner audit, canonical READY and ordinary full expected-SHA merge remain required for both PRs. A fresh concrete host-window/queue/main/journal/DNS/pinned-SSH decision is a later gate.
+
+The observation publishes only closed aggregate mismatch/unproved counts and bounded coverage. `MATCH` covers fifteen fields only, never full Compose parity, live canonical API binding, full database integrity, startup, release or DR acceptance. No secret/path/model/per-file digest transfer, image pull, daemon/service start, migration, external transaction/signature, new identity or cost is admitted. Full UX/BANKS/FGIS remains NOT_CLOSED; MASTER progress stays5/100. Existing source owners, holds and immutable producer-after-byte requirements remain unchanged.
+
+
+## Corrected stopped configuration parser and saved-record boundary 2026-10-24
+
+Actual source5947/dabb27df8fb935a504fd4baa3e126972963a5d41 is BLOCKED: native40065772571/job120788594980 failed two cases, and genuine review4366106981/4366109121 plus4366106984/4366109120 raised image allowlist and separate saved HostConfig findings, including P1. recover was SKIPPED and no host invocation occurred. Old source pins and their local preparation are not acceptance. Corrective decision6380353929 and clarification6380466114 retain the same source3/metadata4 paths and existing5-path vector.
+
+Correct ONLY the existing stopped-configuration-controller-20261024 purpose, bound to accepted base bca11c8627dfa0cf8d64417c9c540c06e843e1bd. Other126admissions/220orderedvectors/primary/progress and every other raw state byte remain unchanged. No admission count/vector/cap increase or whitespace compaction. State3144389bytes leaves1339bytes under unchanged3MiB. The new source is still a later separate whole-head source PR and not installed by this metadata change.
+
+Current frozen three100644 source payloads:
+- `.github/workflows/production-cold-preservation.yml`: SHA256 `03ad33cff1c7cbf388ad93c8c061d5a3e36c0db295231c7c3d24499ef665f2c7`.
+- `scripts/test_production_cold_preservation.py`: SHA256 `3eb9cec7c762b69181865ff49e7454f34a5053679a376cbd1dc1b2244c461ea8`.
+- `docs/ops/production-cold-preservation.md`: SHA256 `098916c93baeeb84b39c5452644805f3c9553155b1daf1ae2e71e86b7cdf206d`.
+
+Pin official Docker Compose5.6.0 linux-x86_64 public release asset605922749, exactly32663526bytes and SHA25640343e21ca777173e69cff5dbafeb37c6f81f3b0d57d9e597f036e95eb63e76a. The runner downloads/verifies only that recognized public vendor binary for mandatory real native fixtures and protected payload construction. Only these public bytes may additionally travel to the same existing REG.RU host; reverify there and execute from an immutable root-private executable memfd. No installed-parser fallback, persistent/global installation, host network download, private config/data/archive/key transfer, new identity/access or cost. Before any private observation verify vendor identity; original root gate, before/after stopped-source checks, fixed bounded children/cleanup and closed redacted evidence remain mandatory. Original startup and production acceptance remain false.
+
+Read/recheck the fixed eleven saved hostconfig.json files separately from actual config.v2.json, attach only to bound identities and never invent absent host settings. Image lookups use only raw SHA256 GETs already permitted by the unchanged accepted inspector; resolve tags/digests within that bounded archived-image catalog, treat uncatalogued evidence as unproved and propagate capability/profile failures. Native fixtures execute the ACTUAL accepted metadata/API-allowlist primitives against eleven separate saved record pairs, with only Docker HTTP transport/stopped-PG observations represented by fixtures; non-default host fields, forbidden encoded paths, version/hash/size, sealed executable parser, missing files and corruption are tested. The rootless redaction fixture injects at its intended boundary and separately proves the production root gate.
+
+Final private source35PASS26.555s with the actual vendor binary executing from sealed memory; unchanged headroom24PASS2.283s. These are preparation, not current-head native acceptance. Complete exact metadata/source diffs each still require genuine independent review, separate owner audit, applicable native/security/strictTypeScript/runtime image checks, canonical READY and ordinary full expected-SHA merge. Current5947failed native/review evidence cannot be waived or replayed as acceptance. Resolve actual findings explicitly only with corrected-source evidence. A separate fresh shared-window/queue/main/journal/quiet/DNS/pinnedSSH decision remains required after source acceptance; no host window is active here.
+
+Keep all19originalvolumes, both private ciphertexts/passphrases and all spent journals. No preservation/clone replay, original daemon/service/worker activation, migration, pull, external transaction/signature or new cost. Canonical live API binding, full Compose parity, full database integrity, startup, release/DR and UX/BANKS/FGIS remain unproved. Original server is unrestored; fullblock NOT_CLOSED and MASTER5/100 unchanged. Immutable producer-byte requirements and all other owner holds remain in force.
+
+
+## Stopped observer ordered Compose-reference correction 2026-10-24
+
+Decision6381090318 continues released diagnostic window6381086775 on actual accepted4635d12435182327de2b02ed397fbbf363fc275f. Actual read-only40071473588/12551640863 (253776 bytes, SHA256b4f57509248d26483dd1b424f54c5241f1c5cc7f3017ea3ec3f87f53caefa607) passed; saved API/web Compose labels are nonempty strings,19volumes remain, Engine containers0/hostPG0. Prior40069327015 stopped at COMPOSE_FILE_PROFILE before rendering. Duplicate versus ordered-count cause remains unresolved; do not invent it.
+
+Correct only existing stopped-configuration-controller-20261024 purpose base/decision/three source pins. Preserve all other126admissions/220orderedvectors/primary/progress and every other raw state byte. State stays3144389bytes/1339headroom under unchanged3MiBcap; no new purpose/vector/whitespace compaction. Three future source100644pins:
+- `.github/workflows/production-cold-preservation.yml` SHA256 `a47c247d7ce600ce7ead4ac7dd29422d8a9238077c44016aed652780eb547267`.
+- `scripts/test_production_cold_preservation.py` SHA256 `c6258a1a8534f6d74f366b09f5fbb183642922b2ce4cc0f499b0c2542012d63d`.
+- `docs/ops/production-cold-preservation.md` SHA256 `419e41afc6e061cf5b6f5b928239ff76780ca15a813d93807af6437541cbf329`.
+
+Preserve every original ordered -f occurrence, including A/B/A. Permit<=176orderedreferences within unchanged8192labelchars and<=16distinct normalized Compose inputs; snapshot each distinct private file once and reuse its sealed descriptor for repetitions. Do not deduplicate semantic arguments or guess production files. Preserve original-spelling path validation, nofollow/noatime/private modes,64input/8MiB bounds, exact pinned public Compose5.6.0 in sealed memory, real saved HostConfig/accepted raw-SHA image allowlist, deadlines/cleanup and closed output. inputCoverage.composeFiles reports orderedreferences<=176; no new public fields/private values. Actual final local36testsPASS25.118s with pinned native20-reference/A-B-A fixture; unchanged24headroomtestsPASS2.242s. These are local preparation only, not hosted/native/currentreview or server acceptance. Complete exact new metadata diff requires genuine independent review, separate owner audit, all applicable native/security checks, canonical READY and ordinary expected-SHA merge. Only then recompose and separately accept exact3sourcepayloads on freshmain with genuine newhead review/native/canonical/manual gates; old5947acceptance does not transfer.
+
+All source helper/diagnostic/IR20 bytes, original19volumes,bothprivatearchives/passphrases/spentjournals and other owners/holds remain unchanged. No active host window, original startup/daemon/worker/replay/migration/pull/private transfer/newidentity/cost or external transaction/signature. A fresh concrete readonly host fence remains required after source acceptance. Server unrestored/fullUXBANKSFGIS NOT_CLOSED/MASTER5of100; immutable producer-after-byte requirements retained.
+
+
+## Stopped observer classified role-disposition evidence 2026-10-24
+
+Decision6381707914 follows successful40075669860 and released window6381693333. Actual aggregate artifact12552528635/1492bytes/SHA9013a200a5b8eade3f09577ab9e97da8d3ee27001ce0f0c21dec67214f952ec0 verified targetdf76afc32437d2955f4f318e3d9bf4dfc5d0cf5e/run/readOnly/sourceRuntimeUnchanged/privateInputsUnchanged. It found48orderedComposeReferences,8compared/2missing/3extra services and networkNames1mismatch, allotherfields0mismatch/0unproved; saved API directPostgreSQL configuration matches. It does not identify affected roles or authorize startup. Original runtime remains unrestored.
+
+Correct ONLY current stopped-configuration-controller-20261024 purpose base/decision/threepins. Other126admissions/220vectors/allotherrawstate/primary/progress remain unchanged; exact rawundo proven. State3144389/1339headroom under unchanged3MiB; no newpurpose/vector/compaction. Frozen future3source100644pins:
+- `.github/workflows/production-cold-preservation.yml` SHA256 `cf0f6664d59ff4f633497da09c23d1bc8c5e1692174a76215fd89c58bb774467`.
+- `scripts/test_production_cold_preservation.py` SHA256 `9242d092b2bfb6346a5e8c5e486b0c382204c88b4e9037bf624888c4168deed4`.
+- `docs/ops/production-cold-preservation.md` SHA256 `5614db76be2a86b2b77097fe09ab4971ad4141913e3429eead1efe8ca836e3a4`.
+
+Future source adds only closed redacted pc.stopped-configuration.v2 serviceDispositions from ALREADY OBSERVED selected records/model/comparison flags. <=43rows use fixed public roles from accepted inspectors (unlisted names become OTHER), COMPARED/MISSING/EXTRA and canonical field names. Row/field totals reconcile to existing aggregates; known-role uniqueness, unique/disjoint ordered field lists, strict keys/types/version and16384byte envelope remain enforced. No raw/private service/network names, configs, paths, environment, images or digests. Existing v1 receipts remain immutable, not converted to v2. No new host reads/API/process/inputbytes/fds/time/vendor/permissions/startup capability. Existing48reference handling and all previous readonly/runtime/source/private-input checks remain unchanged. Actual final local37testsPASS26.237s with pinned native fixture identifying knownnetwork/missing/extra roles and unknown-name redaction; unchanged24headroomtestsPASS. Local preparation is not current metadata/source hosted/review/acceptance evidence.
+
+Metadata4 must independently pass genuine exacthead fullreview, separate owneraudit, complete applicable native/security checks, canonicalREADY and ordinary expectedSHAmerge FIRST. Then separately recompose/accept exact3sourceafters on freshmain with new genuine review/native/security/canonical/manual gates. Only then a fresh concrete one-observation hostwindow may classify actual drift for a later separately accepted CORE restoration boundary. Preserve19volumes,bothprivatecopies/keys/spentjournals/otherownersholds. No activewindow/hostcommand/startup/daemon/worker/replay/migration/pull/privatetransfer/newidentity/cost or externaltransaction/signature. Serverunrestored/fullUXBANKSFGIS NOT_CLOSED/MASTER5of100; producer-byte requirements retained.
+
+
+## Historical core bootstrap boundary 2026-10-24
+
+Owner urgent restoration instruction is implemented by operator decision6386199764 and6core refinement6386337952. Existing release requires running API/web/PostgreSQL and is not bootstrap. New closed purpose stopped-core-bootstrap-20261024 permits ONLY separately admitted historical6core creation/start; old127admissions including readonlyobserverpurpose remain byte-for-byte unchanged. All220orderedvectors/primary/progress/cap preserved; no newvector, parallelCORE, account, billing or cost. Scope delta replaces another standalone observation with actual readonly source/resource/PG0/ctr0/bothcopy/prewrite proof inside the one-use operation before Docker writes. It restores saved historical topology, does not silently adopt currentCompose2missing/3extra/network1drift.
+
+Future source100644pins:
+- `.github/workflows/production-cold-preservation.yml` SHA256 `08fd3d65c06657310929089afd11afbb74f4d0b7d5a0d8339863588844bc3acf`.
+- `scripts/test_production_cold_preservation.py` SHA256 `e9a878ab0fe3b7a26885b709914659feff84f95c4a36bdef9555c65b3b81118d`.
+- `docs/ops/production-cold-preservation.md` SHA256 `51828da40867f96a749bfdd7155a41f79bba3725173a39bc520b55f3777f6764`.
+
+Exactly6global source-bound roles: postgres|postgresql|db,redis,minio,api,web,caddy. PgBouncer is quarantined because actual40075669860 proved API→directPostgreSQL; remaining4worker/unknownrecords also quarantined (5total). Existing rawSHA256images,19volumes/6networks, explicitmounts/NoCopy/noanonymousvolumes/nobindmkdir/servicealiases/restartno; no pull/retag/newresources/daemonrestart/migration. Config/Env remains local in memory/Unixsocket. Entrypoint/Cmd/Healthcheck/loaderEnv and API/web OCIrevision require exact historicalimage/publicsource policy. Mandatorybefore_first_write rerunsactualhelperbaseline/Engine0/ctr0/PG0/Caddy0 afterlongpreflight; afterPGstart do NOT falsely requirePG0/unchangedDBbytes. SixfinalRunning+actualreadinesschecks precedeCOMPLETE.
+
+Both incidentcopies retain ciphertexts/receipts and65byte stat-onlykeys; hash actualretainedFDs beforewrite, retainprotectedoldConfig/HostConfig/binding/copytokens, detectreplacement. One-use privatefsyncedjournal recordsintentbeforecreate/start. AmbiguousCREATE/START is spent/UNKNOWN; stoponlyverifiedownedobjects evenafterconfigdrift/lostreply, no removals/replay/data-rollbackclaim. Native realDockerwire fixture is mandatory: actual1.51create/inspect/start/SQL/stop on syntheticfixture-ownedresources with exactmirroredPG16/NoCopy/noanonymousvolume; syntheticunitPASS is notrealEnginePASS. Existing37observer tests retainedasSHA-boundgoldenregressions/profileequality;79activeunit/controller/protocol/policytests passedlocally, while realDocker andfullacceptedtreebinding requireactualnativeCI. Source/metadataeach requiregenuinefullheadindependentreview,separateowneraudit,allapplicablenative/security,canonicalREADY,manualexpectedSHAmerge.
+
+This metadata does not installsource or authorizea hostcommand. After acceptedsource onlya freshconcrete queue/main/Hub/4637/quiet/DNS/pinnedSSH/root window may issueONE /production restore-historical-core current-main. Core-only restoration is notexactcurrent-mainrelease,registration,13cabinet,money/FGIS orwholeblockacceptance. Ordinaryrelease→authmailcutover/reviewerreadiness→actualfarmerfirstcustomer/9roles/Founder13 remainsrequired. All19originalvolumes/bothcopies/keys/spentjournals/otherownerholds retained. Serverunrestored/fullUXBANKSFGIS NOT_CLOSED/MASTER5of100.
+
+
+## Historical core recovery: libpq service environment correction
+
+Decision6391790945 continues the existing sole CORE recovery on acceptedmain e48117a2acf2030dffb845ff48e4807f694d01be. Metadata5955 is accepted; source5954/54f0ce6428e75c549a0600aa153b25fbe6f41fd0 is NOT accepted: actualnative40149307142/job121037256082 passed37+89+24 and pinnedDocker28.5.1/API1.51/create/inspect/start/NoCopy, then PostgreSQL SQLreadiness90s failed. recover121037895552SKIPPED; noREG.RUaccess. Preserve old a418/native40124421984 and genuineP14368205572 history; corrected journal/UNKNOWN/owned-stop bytes remain unchanged.
+
+Correct ONLY existing stopped-core-bootstrap-20261024 base/decision/three source pins; all other127admissions/220orderedvectors/primary/progress/cap/otherrawstate remain unchanged. Exact rawundo proves the sole entry delta. State3145454bytes/274headroom remains under unchanged3MiB. No newpurpose/vector/compaction/hostwindow or cost.
+
+Future exact100644 source pins:
+- `.github/workflows/production-cold-preservation.yml` SHA256 `2d854d7cde4a0fc4c155401b066173c2b6c77ecbe461907c8947e866365b1878`.
+- `scripts/test_production_cold_preservation.py` SHA256 `72f4b7d59703126e6123caa554a89b5b55323e579f005faff9905c936c504254`.
+- `docs/ops/production-cold-preservation.md` SHA256 `88fdf715f1e7d41e950d241482e43cbcedb360b062dbaceb60f60206d44c604f`.
+
+Fixed PostgreSQL probe uses only `/usr/bin/env -u PGSERVICE psql`, not emptyPGSERVICE. Same declared user/database/authenticatedloopback/read-onlySQL/timeouts/passfile/servicefile/SSL/options guards and exactexecallowlist remain. No shell/arbitraryprobe/productioncontainerconfig change. Real isolated pinnedPG16.14 reproduced oldemptyservice exit2; correctedSQL and hostileinheritedservice exec PASS. Actual nativefixture includes both controls, existingcreate/inspect/start/SQL/stop/NoCopy/noanonymousvolume/ownedcleanup unchanged. Local89active,37retainedwithpinnedCompose5.6.0,24headroom PASS. Local realwire PASS uses Docker28.4/API1.51 and is explicitly NOT mandatory hostedDocker28.5.1 acceptance. Official PostgreSQL16 libpq environment reference verified2026-10-25. No oldPASS transfers.
+
+Metadata4 FIRST requires genuine independent complete exacthead review, separate owneraudit, allapplicablenative/security/actualcanonicalREADY and ordinaryfullSHAmanualmerge. Then separately recompose ONLY frozen3sourceafters on freshmain on existing5954branch; obtain fresh genuine exactheadreview, mandatory hosted28.5.1wire/security/owneraudit/actualREADY/manualmerge. Do not advance sourcebranch before metadata acceptance; do not resolve oldP1 from mere local preparation. Fresh concrete main/queue/Hub/4637/quiet/DNS/pinnedSSH/root window is stillrequired before ONE historical-core operation. No activehostwindow/hostcommand/startup/release/registration/Founder13/wholeblockPASS. Retain19volumes,bothprivatecopies/keys/allspentjournals andotherownerholds. CurrentproductionSHA UNKNOWN; historicalMASTER5/100 is not revalidated or increased by this metadata. Corehealth cannot promote exactrelease/mail/farmer/9roles/Founder13/bank/FGIS acceptance.

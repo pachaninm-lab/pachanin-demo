@@ -27,7 +27,8 @@ jobs:
       github.event_name == 'pull_request' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.number == 4637 &&
-       github.event.comment.body == '/production diagnose-docker current-main')
+       (github.event.comment.body == '/production diagnose-docker current-main' ||
+        github.event.comment.body == '/production inspect-stopped-recovery current-main'))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -136,6 +137,7 @@ jobs:
 
           cases = [
               ('owner successor command', {}, (True, True)),
+              ('separate stopped inspection', {'body': '/production inspect-stopped-recovery current-main'}, (True, False)),
               ('historical full journal', {'issue': 3072}, (False, False)),
               ('unrelated issue', {'issue': 5469}, (False, False)),
               ('non-owner author', {'author': 'other'}, (True, False)),
@@ -713,6 +715,557 @@ jobs:
               assert (evidence / 'remote-output.txt').read_text() == raw
           print('PASS: 2048-entry arrays stay in the artifact while the actual issue summary remains under6000 bytes.')
           PY
+
+      - name: Verify stopped recovery inspection fixtures
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY_INSPECTION_TESTS'
+          import ast
+          import copy
+          import contextlib
+          import hashlib
+          import io
+          import json
+          import os
+          import pathlib
+          import re
+          import subprocess
+          import tempfile
+          import textwrap
+          from types import SimpleNamespace as N
+          from unittest.mock import patch
+
+          workflow = pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_text()
+
+
+          def step(name):
+              block = workflow.split('      - name: ' + name + '\n', 1)[1].split('\n      - ', 1)[0]
+              return textwrap.dedent(block.split('        run: |\n', 1)[1])
+
+
+          with tempfile.TemporaryDirectory() as temporary:
+              base = pathlib.Path(temporary)
+              env = dict(os.environ, RUNNER_TEMP=temporary)
+              for name in ('Prepare stopped recovery inspector primitives',
+                           'Prepare stopped recovery inspector observations',
+                           'Prepare stopped recovery inspector publication schema'):
+                  subprocess.run(['bash', '-c', step(name)], env=env, check=True, capture_output=True)
+              source = (base / 'stopped-recovery-inspector.py').read_text()
+              namespace = {'__name__': 'inspection_fixture'}
+              exec(compile(source, '<actual assembled inspector>', 'exec'), namespace)
+              E = namespace['InspectionError']
+
+              def rejected(call):
+                  try:
+                      call()
+                  except (E, OSError, ValueError, TypeError):
+                      return
+                  raise AssertionError('unsafe fixture was accepted')
+
+              secret = 'PRIVATE_VALUE_MUST_NOT_APPEAR'
+              image = 'sha256:' + 'a' * 64
+              fixture = {'Id': image, 'Size': 123, 'Os': 'linux', 'Architecture': 'amd64',
+                         'Config': {'Env': ['PASSWORD=' + secret, 'PG_MAJOR=16'],
+                                    'Labels': {'org.opencontainers.image.revision': 'b' * 40,
+                                               secret: secret}}}
+              normalized = namespace['image_metadata'](fixture, image)
+              assert normalized['postgresMajor'] == 16 and secret not in json.dumps(normalized)
+              rejected(lambda: namespace['image_metadata'](fixture, 'sha256:' + 'c' * 64))
+              assert namespace['image_metadata']({**fixture, 'Config': {'Labels': {
+                  'org.opencontainers.image.revision': secret}}}, image)['revision'] is None
+              for path in ('/containers/create', '/images/x/json', '/info?x=' + secret):
+                  rejected(lambda: namespace['api'](path))
+
+              private = base / 'private'
+              private.mkdir(mode=0o700)
+              content = private / 'data'
+              content.write_bytes(b'metadata fixture')
+              content.chmod(0o600)
+              descriptor = namespace['open_directory'](str(private))
+              before = content.stat().st_atime_ns
+              try:
+                  assert namespace['read_regular'](descriptor, 'data')[0] == b'metadata fixture'
+                  assert content.stat().st_atime_ns == before
+                  (private / 'link').symlink_to(content)
+                  rejected(lambda: namespace['read_regular'](descriptor, 'link'))
+                  rejected(lambda: namespace['read_regular'](descriptor, 'data', 2))
+                  rejected(lambda: namespace['read_regular'](descriptor, '../data'))
+                  os.mkfifo(private / 'pipe')
+                  rejected(lambda: namespace['read_regular'](descriptor, 'pipe'))
+                  real_read = os.read
+                  changed = [False]
+
+                  def racing_read(fd, size):
+                      result = real_read(fd, size)
+                      if result and not changed[0]:
+                          changed[0] = True
+                          content.write_bytes(b'changed contents')
+                      return result
+
+                  with patch.object(namespace['os'], 'read', racing_read):
+                      rejected(lambda: namespace['read_regular'](descriptor, 'data'))
+              finally:
+                  os.close(descriptor)
+              (base / 'ancestor-link').symlink_to(private, target_is_directory=True)
+              rejected(lambda: namespace['open_directory'](str(base / 'ancestor-link')))
+
+              stored = base / 'stored-docker'
+              for cid, image_id in namespace['EXPECTED_REFS']:
+                  child = stored / 'containers' / cid
+                  child.mkdir(parents=True)
+                  (child / 'config.v2.json').write_text(json.dumps({'ID': cid, 'Image': image_id,
+                      'Config': {'Env': ['PASSWORD=' + secret]}, 'MountPoints': {}}))
+              observed = namespace['metadata'](str(stored))
+              assert len(observed) == 11
+              config_path = stored / 'containers' / namespace['EXPECTED_REFS'][0][0] / 'config.v2.json'
+              original = config_path.read_text()
+              config_path.write_text(original.replace(namespace['EXPECTED_REFS'][0][1], 'sha256:' + 'f' * 64))
+              rejected(lambda: namespace['metadata'](str(stored)))
+              config_path.unlink()
+              config_path.symlink_to(content)
+              rejected(lambda: namespace['metadata'](str(stored)))
+
+              # Build 19 synthetic volumes and one structural PostgreSQL 16 cluster.
+              docker = base / 'docker'
+              names = ['volume' + str(i) for i in range(19)]
+              for name in names:
+                  (docker / 'volumes' / name / '_data').mkdir(parents=True)
+              pg = docker / 'volumes' / names[0] / '_data'
+              (pg / 'PG_VERSION').write_bytes(b'16\n')
+              (pg / 'global').mkdir()
+              (pg / 'global' / 'pg_control').write_bytes(b'x' * 8192)
+              profile, pg_path, roots, device, tokens = namespace['volume_profile'](names, str(docker))
+              assert profile['postgres']['logicalBytes'] == 8195 and profile['volumes'] == 19
+              assert secret not in json.dumps(profile) and profile['postgres']['integrity'] == 'NOT_ATTESTED'
+              # Normal PG16 layout: root plus per-database markers, never additional clusters.
+              for oid in ('1', '16384'):
+                  database = pg / 'base' / oid
+                  database.mkdir(parents=True)
+                  (database / 'PG_VERSION').write_bytes(b'16\n')
+              (pg / 'base' / '16384' / 'client_table').write_text(secret)
+              open_before_profile = os.open
+
+              def metadata_only_open(name, *args, **kwargs):
+                  assert name not in ('client_table', 'pg_control'), 'database content was opened'
+                  return open_before_profile(name, *args, **kwargs)
+
+              with patch.object(namespace['os'], 'open', metadata_only_open):
+                  normal = namespace['volume_profile'](names, str(docker))[0]
+              assert normal['postgres']['logicalBytes'] == 8201 + len(secret)
+              assert normal['postgres']['major'] == 16 and secret not in json.dumps(normal)
+              (pg / 'PG_VERSION').rename(pg / 'PG_VERSION.saved')
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              (pg / 'PG_VERSION.saved').rename(pg / 'PG_VERSION')
+              (pg / 'global').rename(pg / 'global.saved')
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              (pg / 'global.saved').rename(pg / 'global')
+              (pg / 'global' / 'pg_control').rename(pg / 'global' / 'pg_control.saved')
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              (pg / 'global' / 'pg_control.saved').rename(pg / 'global' / 'pg_control')
+              (pg / 'base' / '1' / 'PG_VERSION').write_bytes(b'15\n')
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              (pg / 'base' / '1' / 'PG_VERSION').write_bytes(b'16\n')
+              (pg / 'base' / 'invalid-oid').mkdir()
+              (pg / 'base' / 'invalid-oid' / 'PG_VERSION').write_bytes(b'16\n')
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              (pg / 'base' / 'invalid-oid' / 'PG_VERSION').unlink()
+              (pg / 'base' / 'invalid-oid').rmdir()
+              other = docker / 'volumes' / names[1] / '_data'
+              (other / 'PG_VERSION').write_bytes(b'16\n')
+              (other / 'global').mkdir()
+              (other / 'global' / 'pg_control').write_bytes(b'control')
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              (other / 'global' / 'pg_control').unlink()
+              (other / 'global').rmdir()
+              (other / 'PG_VERSION').unlink()
+              (pg / 'postmaster.pid').write_text('stale or active, never assume')
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              (pg / 'postmaster.pid').unlink()
+              (pg / 'PG_VERSION').write_bytes(b'15\n')
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              (pg / 'PG_VERSION').write_bytes(b'16\n')
+              (pg / 'unsafe').symlink_to(base)
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              (pg / 'unsafe').unlink()
+              saved = namespace['MAX_ENTRIES']
+              namespace['MAX_ENTRIES'] = 1
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              namespace['MAX_ENTRIES'] = saved
+              with patch.object(namespace['time'], 'monotonic', side_effect=[0, 1000, 1000]):
+                  rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              nested = pg
+              for _ in range(65):
+                  nested = nested / 'deep'
+                  nested.mkdir()
+              rejected(lambda: namespace['volume_profile'](names, str(docker)))
+              for _ in range(65):
+                  parent = nested.parent
+                  nested.rmdir()
+                  nested = parent
+
+              record = {'ID': 'd' * 64, 'Image': image,
+                        'Config': {'Env': ['PGDATA=/db', 'PASSWORD=' + secret],
+                                   'Labels': {'com.docker.compose.service': 'postgres'}},
+                        'MountPoints': {'/db': {'Type': 'volume', 'Source': str(pg), 'Destination': '/db'},
+                                        '/outside': {'Type': 'bind', 'Source': '/' + secret,
+                                                     'Destination': '/outside', 'RW': True}}}
+              bound = namespace['bindings']([record], roots, str(pg), {image: normalized})
+              assert bound['readWriteBindsOutsideCopy'] == 1
+              assert bound['currentComposeParity'] == 'NOT_ATTESTED' and secret not in json.dumps(bound)
+              # Move the old 11 x 16 filesystem budget across labels, never enlarge it.
+              assert len(namespace['EXPECTED_REFS']) == 11
+              assert namespace['MAX_COMPOSE_REFERENCES'] == 176
+
+              def label_record(files, primary=True, working='/' + secret):
+                  labelled = copy.deepcopy(record)
+                  if not primary:
+                      labelled['Config']['Env'] = []
+                      labelled['Config']['Labels']['com.docker.compose.service'] = 'web'
+                      labelled['MountPoints'] = {}
+                  labelled['Config']['Labels'].update({
+                      'com.docker.compose.project.working_dir': working,
+                      'com.docker.compose.project.config_files': files})
+                  return labelled
+
+              def label_result(rows):
+                  accessed = []
+                  def missing_reference(path):
+                      accessed.append(path)
+                      raise FileNotFoundError()
+                  with patch.dict(namespace, open_directory=missing_reference):
+                      result = namespace['bindings'](rows, roots, str(pg), {image: normalized})
+                  assert result['currentComposeParity'] == 'NOT_ATTESTED'
+                  assert result['bindContentsPreserved'] is False and secret not in json.dumps(result)
+                  assert result['composeLabelFilesMissing'] == len(accessed)
+                  return result, accessed
+
+              def label_failure(rows, code):
+                  def forbidden_reference(*args):
+                      raise AssertionError('rejected Compose references must not be inspected')
+                  with patch.dict(namespace, open_directory=forbidden_reference):
+                      try:
+                          namespace['bindings'](rows, roots, str(pg), {image: normalized})
+                      except E as error:
+                          assert error.args == (code,) and secret not in str(error)
+                      else:
+                          raise AssertionError('a Compose reference guard was skipped')
+
+              for files in (secret + 'x' * (8193 - len(secret)),
+                            ','.join([secret + 'x' * 512] * 17)):
+                  label_failure([label_record(files)], 'COMPOSE_LABEL_SIZE_BOUND')
+              label_failure([label_record('x', working='/' + 'x' * 4096)], 'COMPOSE_WORKING_BOUND')
+              for files in ('', ',x', 'x,,y', 'x,', 'x\0y'):
+                  label_failure([label_record(files)], 'COMPOSE_REFERENCE_PATH')
+              for files in ('x' * 8192, '\u00e9' * 8192, ','.join(['x'] * 16),
+                            ','.join(['x'] * 257)):
+                  result, accessed = label_result([label_record(files)])
+                  assert len(accessed) == 1
+              seventeen = ','.join('ref' + str(i) for i in range(17))
+              assert len(label_result([label_record(seventeen)])[1]) == 17
+              # Duplicate labels across all11 records must not multiply filesystem work.
+              duplicated = [label_record(seventeen, primary=(i == 0)) for i in range(11)]
+              assert len(label_result(duplicated)[1]) == 17
+
+              def distributed_references(total):
+                  refs = ['ref' + str(i) for i in range(total)]
+                  return [label_record(','.join(refs[total*i//11:total*(i+1)//11]), primary=(i == 0))
+                          for i in range(11)]
+
+              assert len(label_result([label_record(','.join('ref' + str(i) for i in range(176)))])[1]) == 176
+              assert len(label_result(distributed_references(176))[1]) == 176
+              label_failure([label_record(','.join('ref' + str(i) for i in range(177)))],
+                            'COMPOSE_REFERENCE_BOUND')
+              label_failure(distributed_references(177), 'COMPOSE_REFERENCE_BOUND')
+              with patch.object(namespace['time'], 'monotonic', side_effect=[0, 16]):
+                  label_failure([label_record('x')], 'COMPOSE_REFERENCE_TIME_BOUND')
+              with patch.object(namespace['time'], 'monotonic', side_effect=[0, 0, 16]):
+                  try:
+                      label_result([label_record('x')])
+                  except E as error:
+                      assert error.args == ('COMPOSE_REFERENCE_TIME_BOUND',)
+                  else:
+                      raise AssertionError('a completed slow lookup escaped the deadline')
+              with patch.object(namespace['time'], 'monotonic', side_effect=[0, 15, 15]):
+                  assert len(label_result([label_record('x')])[1]) == 1
+
+              # Real nofollow/type checks still inspect every distinct reference without opening contents.
+              compose_root = base / 'compose-references'
+              compose_root.mkdir()
+              (compose_root / 'app.yml').write_text(secret)
+              (compose_root / 'not-a-file').mkdir()
+              real_reference_open = namespace['os'].open
+              def reference_open(name, *args, **kwargs):
+                  assert name not in ('app.yml', 'not-a-file'), 'Compose contents were opened'
+                  return real_reference_open(name, *args, **kwargs)
+              with patch.object(namespace['os'], 'open', reference_open):
+                  checked = namespace['bindings']([label_record('app.yml', working=str(compose_root))],
+                                                  roots, str(pg), {image: normalized})
+                  assert checked['composeLabelFilesPresent'] == 1 and secret not in json.dumps(checked)
+                  try:
+                      namespace['bindings']([label_record('app.yml,not-a-file', working=str(compose_root))],
+                                            roots, str(pg), {image: normalized})
+                  except E as error:
+                      assert error.args == ('COMPOSE_REFERENCE_TYPE',)
+                  else:
+                      raise AssertionError('a non-regular reference was skipped')
+              print('PASS: Compose labels share the old176-reference budget;8192-character/privacy/nofollow/type guards and15s deadline stay fail-closed.')
+              broken = copy.deepcopy(record)
+              broken['Config']['Env'] = ['PGDATA=/wrong']
+              rejected(lambda: namespace['bindings']([broken], roots, str(pg), {image: normalized}))
+              rejected(lambda: namespace['bindings']([record], roots, str(pg),
+                                                    {image: {**normalized, 'postgresMajor': 15}}))
+              broken = copy.deepcopy(record)
+              broken['MountPoints']['/db']['Source'] = '/' + secret
+              rejected(lambda: namespace['bindings']([broken], roots, str(pg), {image: normalized}))
+
+              # Archive verification uses a synthetic digest; the passphrase must never be opened.
+              archived = base / 'archive'
+              archived.mkdir(mode=0o700)
+              cipher = b'synthetic encrypted bytes'
+              namespace['COPY_SHA'] = hashlib.sha256(cipher).hexdigest()
+              receipt = {'schemaVersion': 'pc.cold-preservation.v1', 'targetSha': namespace['COPY_MAIN'],
+                         'runId': namespace['COPY_RUN'], 'passed': True,
+                         'status': 'ENCRYPTED_COLD_PRESERVATION_VERIFIED', 'ciphertextBytes': len(cipher),
+                         'ciphertextSha256': namespace['COPY_SHA'], 'entries': 42, 'sourceBytes': 8195,
+                         'volumes': 19, 'sourceUnchanged': True, 'runtimeUnchanged': True,
+                         'runtimeRestored': False, 'databaseIntegrity': 'NOT_ATTESTED',
+                         'restoreVerification': 'NOT_PERFORMED', 'offHostRecovery': 'NOT_ESTABLISHED'}
+              for name, data in [('preservation.tar.gpg', cipher), ('passphrase', secret.encode()),
+                                 ('receipt.json', json.dumps(receipt).encode())]:
+                  (archived / name).write_bytes(data)
+                  (archived / name).chmod(0o600)
+              real_open = os.open
+
+              def guarded_open(name, *args, **kwargs):
+                  assert name != 'passphrase', 'archive passphrase was opened'
+                  return real_open(name, *args, **kwargs)
+
+              with patch.object(namespace['os'], 'open', guarded_open):
+                  copied, archive_device = namespace['archive'](str(archived), owner_uid=os.getuid())
+              assert copied['ciphertextBytes'] == len(cipher) and secret not in json.dumps(copied)
+              (archived / 'preservation.tar.gpg').write_bytes(b'corrupt')
+              rejected(lambda: namespace['archive'](str(archived), owner_uid=os.getuid()))
+              (archived / 'preservation.tar.gpg').write_bytes(cipher)
+              (archived / 'passphrase').chmod(0o644)
+              rejected(lambda: namespace['archive'](str(archived), owner_uid=os.getuid()))
+              (archived / 'passphrase').chmod(0o600)
+
+              # Execute the actual orchestration with harmless in-memory API/metadata adapters.
+              profile, pg_path, roots, device, tokens = namespace['volume_profile'](names, str(docker))
+              refs = namespace['EXPECTED_REFS']
+              records = [copy.deepcopy(record) for _ in refs]
+              for item, (cid, image_id) in zip(records, refs):
+                  item['ID'], item['Image'] = cid, image_id
+                  item['Config']['Labels'] = {'com.docker.compose.service': 'UNKNOWN'}
+                  item['Config']['Env'] = []
+              records[0]['Config']['Env'] = ['PGDATA=/db']
+              records[0]['Config']['Labels'] = {'com.docker.compose.service': 'postgres'}
+
+              def fake_api(path):
+                  if path == '/info':
+                      return {'DockerRootDir': namespace['DOCKER_ROOT'], 'Containers': 0}
+                  if path == '/containers/json?all=true':
+                      return []
+                  if path == '/volumes':
+                      return {'Volumes': [{'Name': n} for n in names]}
+                  image_id = path[len('/images/'):-len('/json')]
+                  return {**fixture, 'Id': image_id}
+
+              real = {key: namespace[key] for key in ('archive', 'metadata', 'volume_profile', 'api', 'mem_available', 'process_counts')}
+              namespace.update(archive=lambda: (copied, archive_device), metadata=lambda: records,
+                               volume_profile=lambda n: (profile, str(pg), roots, device, tokens),
+                               api=fake_api, mem_available=lambda: 1024**3,
+                               process_counts=lambda: {'postgres': 0, 'caddy': 1})
+              result = namespace['inspect']('e' * 40, '12345')
+              namespace['validate'](result, 'e' * 40, '12345', 0)
+              assert secret not in json.dumps(result)
+              for present, missing, accepted in ((176, 0, True), (0, 176, True), (88, 88, True),
+                                                 (176, 1, False), (1, 176, False), (4096, 0, False)):
+                  counted = copy.deepcopy(result)
+                  counted['bindings'].update(composeLabelFilesPresent=present, composeLabelFilesMissing=missing)
+                  if accepted:
+                      namespace['validate'](counted, 'e' * 40, '12345', 0)
+                  else:
+                      rejected(lambda: namespace['validate'](counted, 'e' * 40, '12345', 0))
+              for status in (1, 255):
+                  rejected(lambda: namespace['validate'](result, 'e' * 40, '12345', status))
+              rejected(lambda: namespace['validate'](result, 'f' * 40, '12345', 0))
+              poisoned = copy.deepcopy(result)
+              poisoned['archive']['passphrase'] = secret
+              rejected(lambda: namespace['validate'](poisoned, 'e' * 40, '12345', 0))
+              poisoned = copy.deepcopy(result)
+              poisoned['bindings']['services'][0]['role'] = secret
+              rejected(lambda: namespace['validate'](poisoned, 'e' * 40, '12345', 0))
+
+              # Exercise the real orchestration/closed result, including unexpected failures
+              # at every observation boundary. Exception strings must never become evidence.
+              def failure():
+                  raise OSError(secret)
+
+              def check_failure(code):
+                  failed = namespace['inspection_result']('e' * 40, '12345')
+                  assert failed == {'schemaVersion': namespace['SCHEMA'], 'passed': False,
+                      'status': 'INSPECTION_FAILED', 'runtimeRestored': False,
+                      'startupAuthorized': False, 'errorCode': code}
+                  namespace['validate'](failed, 'e' * 40, '12345', 1)
+                  assert secret not in json.dumps(failed)
+                  rejected(lambda: namespace['validate'](failed, 'e' * 40, '12345', 0))
+                  rejected(lambda: namespace['validate'](failed, 'e' * 40, '12345', 255))
+                  return failed
+
+              for name, stage in (('archive', 'ARCHIVE'), ('metadata', 'METADATA'),
+                                  ('volume_profile', 'VOLUMES'), ('image_metadata', 'IMAGES'),
+                                  ('bindings', 'BINDINGS'), ('mem_available', 'CAPACITY'),
+                                  ('process_counts', 'PROCESSES')):
+                  saved_function = namespace[name]
+                  namespace[name] = lambda *args: failure()
+                  check_failure(stage + '_UNAVAILABLE')
+                  namespace[name] = saved_function
+              saved_api = namespace['api']
+              for path, stage in (('/info', 'ENGINE'), ('/volumes', 'VOLUMES')):
+                  namespace['api'] = lambda requested: failure() if requested == path else saved_api(requested)
+                  check_failure(stage + '_UNAVAILABLE')
+              namespace['api'] = saved_api
+              saved_metadata = namespace['metadata']
+              metadata_calls = [0]
+
+              def revalidation_failure():
+                  metadata_calls[0] += 1
+                  return saved_metadata() if metadata_calls[0] == 1 else failure()
+
+              namespace['metadata'] = revalidation_failure
+              check_failure('REVALIDATION_UNAVAILABLE')
+              namespace['metadata'] = saved_metadata
+              assert namespace['inspection_result']('e' * 40, '12345')['passed'] is True
+
+              # Fixed invariant failures remain specific; foreign exceptions/codes stay generic.
+              saved_inspect = namespace['inspect']
+
+              class UntrustedError(E):
+                  def __str__(self):
+                      raise AssertionError('exception text must not be evaluated')
+
+              for error, code in ((E('MOUNT_PATH'), 'MOUNT_PATH'), (E('API_STATUS'), 'API_STATUS'),
+                                  (E('COMPOSE_LABEL_SIZE_BOUND'), 'COMPOSE_LABEL_SIZE_BOUND'),
+                                  (E('COMPOSE_LABEL_COUNT_BOUND'), 'COMPOSE_LABEL_COUNT_BOUND'),
+                                  (E('COMPOSE_LABEL_BOTH_BOUND'), 'COMPOSE_LABEL_BOTH_BOUND'),
+                                  (E('COMPOSE_WORKING_BOUND'), 'COMPOSE_WORKING_BOUND'),
+                                  (E('COMPOSE_REFERENCE_PATH'), 'COMPOSE_REFERENCE_PATH'),
+                                  (E('COMPOSE_REFERENCE_BOUND'), 'COMPOSE_REFERENCE_BOUND'),
+                                  (E('COMPOSE_REFERENCE_TIME_BOUND'), 'COMPOSE_REFERENCE_TIME_BOUND'),
+                                  (E(secret), 'INSPECTION_UNAVAILABLE'),
+                                  (E('ARCHIVE_DIGEST', secret), 'INSPECTION_UNAVAILABLE'),
+                                  (UntrustedError('ARCHIVE_DIGEST'), 'INSPECTION_UNAVAILABLE'),
+                                  (ValueError(secret), 'INSPECTION_UNAVAILABLE')):
+                  def fail_inspect(*args):
+                      raise error
+                  namespace['inspect'] = fail_inspect
+                  check_failure(code)
+              namespace['inspect'] = saved_inspect
+              tree = ast.parse(source)
+              fixed_codes = {node.args[-1].value for node in ast.walk(tree)
+                  if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and
+                  node.func.id in ('require', 'InspectionError') and node.args and
+                  isinstance(node.args[-1], ast.Constant) and type(node.args[-1].value) is str}
+              assert fixed_codes <= namespace['ERROR_CODES'], 'a fixed rejection code was hidden'
+              assert all(re.fullmatch('[A-Z][A-Z0-9_]{0,63}', code) for code in namespace['ERROR_CODES'])
+              with namespace['observation']('ARCHIVE'):
+                  pass
+              rejected(lambda: namespace['observation'](secret).__enter__())
+              main = next(node for node in tree.body if isinstance(node, ast.If) and
+                  ast.unparse(node.test) == "__name__ == '__main__'")
+              entry = compile(ast.Module(body=[main], type_ignores=[]), '<actual inspector entry>', 'exec')
+              for argv in (['inspector'], ['inspector', 'invalid'], ['inspector', 'invalid', '12345']):
+                  stdout = io.StringIO()
+                  with patch.dict(namespace, {'__name__': '__main__'}), \
+                          patch.object(namespace['sys'], 'argv', argv), contextlib.redirect_stdout(stdout):
+                      try:
+                          exec(entry, namespace)
+                      except SystemExit as exit_status:
+                          assert exit_status.code == 1
+                      else:
+                          raise AssertionError('invalid invocation did not fail')
+                  assert json.loads(stdout.getvalue())['errorCode'] == 'INVOCATION'
+                  assert secret not in stdout.getvalue()
+              print('PASS: all9 observation stages fail closed; fixed invariants survive; foreign codes/exception text are excluded; actual CLI failures remain closed JSON.')
+              namespace.update(real)
+
+              # Exercise actual publication, including invalid/oversized/transport/drift paths.
+              evidence = base / 'evidence'
+              evidence.mkdir()
+              publish_env = dict(os.environ, RUNNER_TEMP=temporary, EVIDENCE_DIR=str(evidence),
+                                 TARGET_SHA='e' * 40, GITHUB_RUN_ID='12345', SSH_STATUS='0',
+                                 POST_MAIN='e' * 40)
+              # The production pinned checksum, rather than the synthetic archive digest, is required.
+              result['archive']['ciphertextSha256'] = '800264a1819ba26869e4b79d1f6874dc5078aa982ab333fdd999629f6b490603'
+              failed_fixture = {'schemaVersion': namespace['SCHEMA'], 'passed': False,
+                  'status': 'INSPECTION_FAILED', 'runtimeRestored': False,
+                  'startupAuthorized': False, 'errorCode': 'ARCHIVE_UNAVAILABLE'}
+              for raw, changes, success in [(json.dumps(result), {}, True),
+                                            (json.dumps(failed_fixture), {'SSH_STATUS': '1'}, False),
+                                            (json.dumps({**failed_fixture, 'errorCode': secret}), {'SSH_STATUS': '1'}, False),
+                                            (secret, {}, False), ('x' * 32769, {}, False),
+                                            (json.dumps(result), {'SSH_STATUS': '255'}, False),
+                                            (json.dumps(result), {'POST_MAIN': 'f' * 40}, False)]:
+                  (base / 'inspection-remote.json').write_text(raw)
+                  subprocess.run(['bash', '-c', step('Build closed inspection receipt')],
+                                 env={**publish_env, **changes}, check=True, capture_output=True)
+                  published = json.loads((evidence / 'inspection.json').read_text())
+                  summary = (evidence / 'issue-record.md').read_text()
+                  assert published['passed'] is success and secret not in summary and len(summary) < 6000
+                  assert secret not in json.dumps(published)
+                  if published.get('errorCode') == 'ARCHIVE_UNAVAILABLE':
+                      assert '`ARCHIVE_UNAVAILABLE`' in summary and published['status'] == 'INSPECTION_FAILED'
+
+          # The operational job joins the same non-cancelling queue as production writers.
+          lock = ('    concurrency:\n'
+                  '      group: production-full-stack-exact-sha\n'
+                  '      cancel-in-progress: false\n'
+                  '      queue: max\n')
+          operational_header = workflow.split('\n  inspect:\n', 1)[1].split('\n    steps:\n', 1)[0]
+          assert operational_header.count(lock) == 1
+          for existing in ('production-cold-preservation.yml', 'production-stopped-runtime-headroom.yml'):
+              accepted = pathlib.Path('.github/workflows', existing).read_text()
+              assert lock in accepted, 'inspection must use the existing shared production queue contract'
+          contract_block = workflow.split('\n  contract:\n', 1)[1].split('\n  diagnose:\n', 1)[0]
+          assert not re.search(r'^    concurrency:', contract_block, re.M)
+          assert '  group: production-docker-headroom-readonly-diagnostic' in workflow.split('\njobs:\n', 1)[0]
+          print('PASS: actual inspection uses the accepted shared production lock, non-cancelling max queue; PR contract remains unprivileged.')
+
+          conditions = {}
+          for job in ('contract', 'diagnose', 'inspect'):
+              block = workflow.split('\n  ' + job + ':\n', 1)[1].split('\n    runs-on:', 1)[0]
+              expression = ' '.join(re.search(r'\n    if: >-\n((?:      [^\n]*\n)+)', block + '\n')[1].split())
+              conditions[job] = compile(ast.parse(expression.replace('&&', ' and ').replace('||', ' or '),
+                                                  mode='eval'), '<actual route>', 'eval')
+
+
+          def route(**changes):
+              fields = dict(event='issue_comment', issue=4637, body='/production inspect-stopped-recovery current-main',
+                            author='owner', actor='owner', triggering='owner', association='OWNER', result='success')
+              fields.update(changes)
+              github = N(event_name=fields['event'], repository_owner='owner', actor=fields['actor'],
+                         triggering_actor=fields['triggering'], event=N(issue=N(number=fields['issue']),
+                         comment=N(body=fields['body'], user=N(login=fields['author']),
+                                   author_association=fields['association'])))
+              context = {'github': github, 'needs': N(contract=N(result=fields['result']))}
+              return tuple(bool(eval(conditions[name], {'__builtins__': {}}, context))
+                           for name in ('contract', 'diagnose', 'inspect'))
+
+
+          assert route() == (True, False, True)
+          for changes in ({'author': 'other'}, {'actor': 'other'}, {'triggering': 'other'},
+                          {'association': 'MEMBER'}, {'result': 'failure'}):
+              assert route(**changes) == (True, False, False)
+          for changes in ({'issue': 5469}, {'event': 'push'}, {'body': '/production inspect-stopped-recovery current-main\n'}):
+              assert route(**changes) == (False, False, False)
+          assert route(event='pull_request') == (True, False, False)
+          assert route(body='/production diagnose-docker current-main') == (True, True, False)
+          assert route(body='/production preserve-stopped-data current-main') == (False, False, False)
+          print('PASS: actual assembled inspector, archive digest/private modes/no key reads, 19-volume normal PG16 root/base OID markers, malformed/orphan/multiple-cluster rejection, metadata-only DB reads, bounds/races/symlinks, closed publication/transport/main drift, owner-only separate routes.')
+
+          PY_INSPECTION_TESTS
 
 
   diagnose:
@@ -1875,3 +2428,862 @@ jobs:
           if-no-files-found: error
           retention-days: 90
           compression-level: 0
+
+
+  inspect:
+    name: Inspect stopped recovery metadata without starting services
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4637 &&
+      github.event.comment.body == '/production inspect-stopped-recovery current-main' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      needs.contract.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    concurrency:
+      group: production-full-stack-exact-sha
+      cancel-in-progress: false
+      queue: max
+    env:
+      EVIDENCE_DIR: artifacts/stopped-recovery-inspection
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind exact inspection main and initialize receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' 'Stopped recovery inspection: UNKNOWN; no validated host result. No startup or restore performed.' > "$EVIDENCE_DIR/issue-record.md"
+          printf '%s\n' '{"passed":false,"status":"UNKNOWN","runtimeRestored":false,"startupAuthorized":false}' > "$EVIDENCE_DIR/inspection.json"
+          target_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target_sha" == "$GITHUB_SHA" && "$target_sha" == "$GITHUB_WORKFLOW_SHA" && "$target_sha" == "$(git rev-parse HEAD)" ]]
+          read -r state comments is_pr < <(gh api "repos/${GITHUB_REPOSITORY}/issues/${AUTHORITY_ISSUE_NUMBER}" --jq '[.state,.comments,has("pull_request")] | @tsv')
+          [[ "$state" == open && "$comments" =~ ^[0-9]+$ && "$is_pr" == false ]]
+          (( comments < 2500 ))
+          echo "TARGET_SHA=$target_sha" >> "$GITHUB_ENV"
+          printf '%s\n' "$target_sha" > "$EVIDENCE_DIR/target-sha.txt"
+
+      - name: Resolve protected key and pinned VPS identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'Canonical VPS mismatch.' >&2; exit 10; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo 'Protected production principal is missing or invalid.' >&2; exit 11; }
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo 'Pinned host fingerprint is required.' >&2; exit 13; }
+          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
+          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            ssh-keygen -lf "$pub" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || {
+            echo 'No valid protected SSH private key is configured.' >&2
+            exit 14
+          }
+
+          scan="$(mktemp)"; match="$(mktemp)"
+          pinned_ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned_ready=1; break; fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; echo 'Pinned host key mismatch after bounded retries.' >&2; exit 15; }
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          echo "PROD_HOST=$host" >> "$GITHUB_ENV"
+          echo "PROD_PORT=$port" >> "$GITHUB_ENV"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$SSH_USER_SECRET@$host" \
+            'set -Eeuo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; echo SSH_AUTH_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+
+      - name: Prepare stopped recovery inspector primitives
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - "$RUNNER_TEMP/stopped-recovery-inspector.py" <<'PY_PINS'
+          import ast
+          import hashlib
+          from pathlib import Path
+          import sys
+          raw = Path('scripts/production_stopped_runtime_headroom.py').read_bytes()
+          assert hashlib.sha256(raw).hexdigest() == '6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14'
+          tree = ast.parse(raw)
+          refs = next(ast.literal_eval(node.value) for node in tree.body if isinstance(node, ast.Assign)
+                      and any(isinstance(t, ast.Name) and t.id == 'EXPECTED_REFS' for t in node.targets))
+          assert len(refs) == 11 and tuple(sorted(refs)) == refs
+          Path(sys.argv[1]).write_text('EXPECTED_REFS = ' + repr(refs) + '\n')
+          PY_PINS
+          cat >> "$RUNNER_TEMP/stopped-recovery-inspector.py" <<'PY_INSPECTION_0'
+          import hashlib
+          import http.client
+          import json
+          import os
+          import re
+          import socket
+          import stat
+          import sys
+          import time
+          from contextlib import contextmanager
+
+          SCHEMA = 'pc.stopped-recovery-inspection.v1'
+          COPY_SHA = '800264a1819ba26869e4b79d1f6874dc5078aa982ab333fdd999629f6b490603'
+          COPY_MAIN = 'a509789c22298375130d70fde95915b8daa7634a'
+          COPY_RUN = '39779050389'
+          COPY_ROOT = '/var/lib/pc-release-authority/backups/cold-preservation-20261022'
+          DOCKER_ROOT = '/var/lib/docker'
+          IMAGE = re.compile(r'sha256:[0-9a-f]{64}')
+          HEX = re.compile(r'[0-9a-f]{40}')
+          MAX_BYTES = 4 * 1024 * 1024
+          MAX_ARCHIVE = 2 * 1024 * 1024 * 1024
+          MAX_ENTRIES = 100000
+          # Preserve the old 11-record x 16-reference total filesystem-check budget.
+          MAX_COMPOSE_REFERENCES = 16 * len(EXPECTED_REFS)
+          ROLES = frozenset(('api', 'web', 'postgres', 'postgresql', 'db', 'redis', 'minio',
+                             'kafka', 'caddy', 'outbox-worker', 'auth-mail-worker', 'marketing-worker',
+                             'elasticsearch', 'migration', 'outbox', 'auth-mail'))
+
+
+          class InspectionError(Exception):
+              pass
+
+
+          def require(value, code):
+              if not value:
+                  raise InspectionError(code)
+
+
+          OBSERVATION_STAGES = frozenset(('ARCHIVE', 'ENGINE', 'METADATA', 'VOLUMES',
+                                         'IMAGES', 'BINDINGS', 'REVALIDATION', 'CAPACITY', 'PROCESSES'))
+
+
+          @contextmanager
+          def observation(stage):
+              require(stage in OBSERVATION_STAGES, 'INVOCATION')
+              try:
+                  yield
+              except InspectionError:
+                  raise
+              except Exception:
+                  # Fixed source-owned phase only; never exception text, paths or input values.
+                  raise InspectionError(stage + '_UNAVAILABLE') from None
+
+
+          def integer(value, maximum=2**63-1):
+              require(type(value) is int and 0 <= value <= maximum, 'INTEGER')
+              return value
+
+
+          def signature(info):
+              return (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_gid,
+                      info.st_nlink, info.st_size, info.st_mtime_ns, info.st_ctime_ns, info.st_atime_ns)
+
+
+          def open_directory(path):
+              # Check every component; following an ancestor symlink is forbidden too.
+              require(isinstance(path, str) and path.startswith('/'), 'DIRECTORY_PATH')
+              parts = path.split('/')[1:]
+              require(parts and all(p not in ('', '.', '..') for p in parts), 'DIRECTORY_PATH')
+              fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+              try:
+                  for part in parts:
+                      child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                      dir_fd=fd)
+                      os.close(fd)
+                      fd = child
+                  leaf = os.open('.', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NOATIME, dir_fd=fd)
+                  os.close(fd)
+                  return leaf
+              except BaseException:
+                  os.close(fd)
+                  raise
+
+
+          def read_regular(parent, name, limit=MAX_BYTES, digest=False):
+              require('/' not in name and name not in ('', '.', '..'), 'LEAF_NAME')
+              fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_NONBLOCK, dir_fd=parent)
+              try:
+                  before = os.fstat(fd)
+                  require(stat.S_ISREG(before.st_mode) and before.st_nlink == 1 and
+                          0 <= before.st_size <= limit, 'FILE_TYPE_SIZE')
+                  data, total, hashed = [], 0, hashlib.sha256()
+                  deadline = time.monotonic() + 60
+                  while True:
+                      require(time.monotonic() <= deadline, 'FILE_TIMEOUT')
+                      chunk = os.read(fd, min(1024 * 1024, limit + 1 - total))
+                      if not chunk:
+                          break
+                      total += len(chunk)
+                      require(total <= limit, 'FILE_LIMIT')
+                      if digest:
+                          hashed.update(chunk)
+                      else:
+                          data.append(chunk)
+                  require(total == before.st_size and signature(before) == signature(os.fstat(fd)) and
+                          signature(before) == signature(os.stat(name, dir_fd=parent, follow_symlinks=False)),
+                          'FILE_CHANGED')
+                  return (hashed.hexdigest() if digest else b''.join(data)), before
+              finally:
+                  os.close(fd)
+
+
+          def archive(root=COPY_ROOT, owner_uid=0):
+              fd = open_directory(root)
+              try:
+                  details = os.fstat(fd)
+                  require(details.st_uid == owner_uid and stat.S_IMODE(details.st_mode) == 0o700, 'ARCHIVE_DIRECTORY')
+                  raw, receipt_stat = read_regular(fd, 'receipt.json', 16384)
+                  value = json.loads(raw)
+                  expected = {'schemaVersion', 'targetSha', 'runId', 'passed', 'status', 'ciphertextBytes',
+                              'ciphertextSha256', 'entries', 'sourceBytes', 'volumes', 'sourceUnchanged',
+                              'runtimeUnchanged', 'runtimeRestored', 'databaseIntegrity', 'restoreVerification',
+                              'offHostRecovery'}
+                  require(type(value) is dict and set(value) == expected and
+                          value['schemaVersion'] == 'pc.cold-preservation.v1' and
+                          value['targetSha'] == COPY_MAIN and value['runId'] == COPY_RUN and
+                          value['passed'] is True and value['sourceUnchanged'] is True and
+                          value['runtimeUnchanged'] is True and value['runtimeRestored'] is False and
+                          value['status'] == 'ENCRYPTED_COLD_PRESERVATION_VERIFIED' and
+                          value['databaseIntegrity'] == 'NOT_ATTESTED' and
+                          value['restoreVerification'] == 'NOT_PERFORMED' and
+                          value['offHostRecovery'] == 'NOT_ESTABLISHED' and
+                          value['ciphertextSha256'] == COPY_SHA and value['volumes'] == 19,
+                          'ARCHIVE_RECEIPT')
+                  integer(value['entries'], MAX_ENTRIES)
+                  integer(value['sourceBytes'], 1024**3)
+                  integer(value['ciphertextBytes'], MAX_ARCHIVE)
+                  digest, cipher_stat = read_regular(fd, 'preservation.tar.gpg', MAX_ARCHIVE, digest=True)
+                  # The passphrase is never opened, read, hashed or copied.
+                  key_stat = os.stat('passphrase', dir_fd=fd, follow_symlinks=False)
+                  for item in (receipt_stat, cipher_stat, key_stat):
+                      require(stat.S_ISREG(item.st_mode) and item.st_uid == owner_uid and item.st_nlink == 1 and
+                              stat.S_IMODE(item.st_mode) == 0o600, 'ARCHIVE_PRIVATE_MODE')
+                  require(digest == COPY_SHA and cipher_stat.st_size == value['ciphertextBytes'], 'ARCHIVE_DIGEST')
+                  free = os.fstatvfs(fd)
+                  return {'ciphertextBytes': cipher_stat.st_size, 'ciphertextSha256': digest,
+                          'sourceBytes': value['sourceBytes'], 'sourceEntries': value['entries'],
+                          'volumes': 19, 'privateModesVerified': True,
+                          'availableBytes': integer(free.f_bavail * free.f_frsize),
+                          'availableInodes': integer(free.f_favail)}, details.st_dev
+              finally:
+                  os.close(fd)
+
+
+
+          PY_INSPECTION_0
+
+      - name: Prepare stopped recovery inspector observations
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat >> "$RUNNER_TEMP/stopped-recovery-inspector.py" <<'PY_INSPECTION_1'
+          class Connection(http.client.HTTPConnection):
+              def connect(self):
+                  self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                  self.sock.settimeout(self.timeout)
+                  self.sock.connect('/var/run/docker.sock')
+
+
+          def api(path):
+              require(path in ('/info', '/containers/json?all=true', '/volumes') or
+                      re.fullmatch(r'/images/sha256:[0-9a-f]{64}/json', path), 'API_PATH')
+              endpoint = os.stat('/var/run/docker.sock', follow_symlinks=False)
+              require(stat.S_ISSOCK(endpoint.st_mode) and endpoint.st_uid == 0, 'SOCKET_IDENTITY')
+              connection = Connection('localhost', timeout=5)
+              try:
+                  connection.request('GET', path)
+                  response = connection.getresponse()
+                  require(response.status == 200, 'API_STATUS')
+                  raw = response.read(MAX_BYTES + 1)
+                  require(len(raw) <= MAX_BYTES, 'API_LIMIT')
+                  return json.loads(raw)
+              finally:
+                  connection.close()
+
+
+          def metadata(root=DOCKER_ROOT):
+              root_fd = open_directory(root + '/containers')
+              result = []
+              try:
+                  names = sorted(os.listdir(root_fd))
+                  require(len(names) == len(EXPECTED_REFS), 'CONTAINER_METADATA_COUNT')
+                  for name in names:
+                      require(re.fullmatch('[0-9a-f]{64}', name), 'CONTAINER_ID')
+                      fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NOATIME,
+                                   dir_fd=root_fd)
+                      try:
+                          raw, _ = read_regular(fd, 'config.v2.json')
+                          value = json.loads(raw)
+                          require(type(value) is dict and value.get('ID') == name and
+                                  IMAGE.fullmatch(value.get('Image', '')) and type(value.get('Config')) is dict and
+                                  type(value.get('MountPoints')) is dict, 'CONTAINER_METADATA')
+                          result.append(value)
+                      finally:
+                          os.close(fd)
+                  require([(item['ID'], item['Image']) for item in result] == list(EXPECTED_REFS),
+                          'HISTORICAL_BINDING_DRIFT')
+                  return result
+              finally:
+                  os.close(root_fd)
+
+
+          def volume_profile(names, root=DOCKER_ROOT):
+              require(type(names) is list and len(names) == len(set(names)) == 19 and
+                      all(type(n) is str and re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.-]{0,254}', n)
+                          for n in names), 'VOLUME_NAMES')
+              deadline, count = time.monotonic() + 20, 0
+              markers, clusters, sizes, roots, tokens = [], [], {}, set(), []
+              root_fd = open_directory(root + '/volumes')
+              device = os.fstat(root_fd).st_dev
+
+              def visit(fd, private_path, depth):
+                  nonlocal count
+                  before = os.fstat(fd)
+                  require(depth <= 64 and time.monotonic() <= deadline, 'PROFILE_BOUND')
+                  require(before.st_dev == device, 'PROFILE_DEVICE')
+                  total, allocated = 0, 0
+                  with os.scandir(fd) as entries:
+                      for entry in entries:
+                          count += 1
+                          require(count <= MAX_ENTRIES and time.monotonic() <= deadline, 'PROFILE_BOUND')
+                          info = entry.stat(follow_symlinks=False)
+                          require(info.st_dev == device, 'PROFILE_DEVICE')
+                          require(stat.S_ISDIR(info.st_mode) or stat.S_ISREG(info.st_mode), 'PROFILE_TYPE')
+                          path = private_path + '/' + entry.name
+                          if stat.S_ISDIR(info.st_mode):
+                              child = os.open(entry.name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW |
+                                              os.O_NOATIME, dir_fd=fd)
+                              try:
+                                  require(signature(info) == signature(os.fstat(child)), 'PROFILE_CHANGED')
+                                  a, b = visit(child, path, depth + 1)
+                                  total += a
+                                  allocated += b
+                              finally:
+                                  os.close(child)
+                          else:
+                              total += info.st_size
+                              allocated += info.st_blocks * 512
+                              if entry.name == 'PG_VERSION':
+                                  version, _ = read_regular(fd, entry.name, 32)
+                                  require(version.strip() == b'16', 'POSTGRES_VERSION')
+                                  markers.append((private_path, info.st_uid, info.st_gid))
+                          tokens.append((path, signature(info)))
+                  require(signature(before) == signature(os.fstat(fd)), 'PROFILE_CHANGED')
+                  tokens.append((private_path, signature(before)))
+                  sizes[private_path] = (total, allocated)
+                  return total, allocated
+
+              try:
+                  total, allocated = 0, 0
+                  for name in sorted(names):
+                      private = root + '/volumes/' + name + '/_data'
+                      fd = open_directory(private)
+                      roots.add(private)
+                      try:
+                          a, b = visit(fd, private, 0)
+                          total += a
+                          allocated += b
+                      finally:
+                          os.close(fd)
+                  # initdb writes both the cluster PG_VERSION and base/<databaseOID>/PG_VERSION.
+                  # Classify after traversal so directory enumeration order cannot affect it.
+                  for path, uid, gid in markers:
+                      require(time.monotonic() <= deadline, 'PROFILE_BOUND')
+                      fd = open_directory(path)
+                      try:
+                          try:
+                              control = os.open('global', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW |
+                                                os.O_NOATIME, dir_fd=fd)
+                          except FileNotFoundError:
+                              continue
+                          try:
+                              ctrl = os.stat('pg_control', dir_fd=control, follow_symlinks=False)
+                              require(stat.S_ISREG(ctrl.st_mode) and ctrl.st_size > 0, 'POSTGRES_CONTROL')
+                          finally:
+                              os.close(control)
+                          try:
+                              os.stat('postmaster.pid', dir_fd=fd, follow_symlinks=False)
+                          except FileNotFoundError:
+                              pass
+                          else:
+                              raise InspectionError('POSTMASTER_PID_PRESENT')
+                          clusters.append((path, uid, gid))
+                      finally:
+                          os.close(fd)
+                  require(len(clusters) == 1, 'POSTGRES_CLUSTER_COUNT')
+                  path, uid, gid = clusters[0]
+                  for marker, marker_uid, marker_gid in markers:
+                      if marker == path:
+                          continue
+                      prefix = path + '/base/'
+                      oid = marker[len(prefix):] if marker.startswith(prefix) else ''
+                      require(re.fullmatch('[1-9][0-9]{0,9}', oid) and int(oid) <= 4294967295 and
+                              (marker_uid, marker_gid) == (uid, gid), 'POSTGRES_DATABASE_MARKER')
+                  logical, blocks = sizes[path]
+                  return {'volumes': 19, 'entries': count, 'logicalBytes': total, 'allocatedBytes': allocated,
+                          'postgres': {'major': 16, 'uid': uid, 'gid': gid,
+                                       'logicalBytes': logical, 'allocatedBytes': blocks,
+                                       'integrity': 'NOT_ATTESTED'}}, path, roots, device, tokens
+              finally:
+                  os.close(root_fd)
+
+
+          def image_metadata(value, image_id):
+              require(type(value) is dict and value.get('Id') == image_id and IMAGE.fullmatch(image_id),
+                      'IMAGE_IDENTITY')
+              config = value.get('Config') or {}
+              require(type(config) is dict, 'IMAGE_CONFIG')
+              labels = config.get('Labels') or {}
+              require(type(labels) is dict, 'IMAGE_LABELS')
+              revision = labels.get('org.opencontainers.image.revision')
+              env = config.get('Env') or []
+              require(type(env) is list and all(type(s) is str for s in env), 'IMAGE_ENV')
+              majors = [s.split('=', 1)[1] for s in env if s.startswith('PG_MAJOR=')]
+              return {'id': image_id, 'bytes': integer(value.get('Size')),
+                      'revision': revision if type(revision) is str and HEX.fullmatch(revision) else None,
+                      'os': value.get('Os') if value.get('Os') in ('linux', 'windows') else 'UNKNOWN',
+                      'architecture': value.get('Architecture') if value.get('Architecture') in
+                      ('amd64', 'arm64', '386', 'arm', 'ppc64le', 's390x') else 'UNKNOWN',
+                      'postgresMajor': int(majors[0]) if len(majors) == 1 and
+                      re.fullmatch('[0-9]{1,2}', majors[0]) else None}
+
+
+          def bindings(records, roots, pg_path, images):
+              services, rw_binds, ro_binds, unknown, pg_bindings = [], 0, 0, 0, []
+              compose_files = set()
+              for record in records:
+                  config = record['Config']
+                  labels = config.get('Labels') or {}
+                  require(type(labels) is dict, 'CONTAINER_LABELS')
+                  role = labels.get('com.docker.compose.service')
+                  public_role = role if role in ROLES else 'UNKNOWN'
+                  env = config.get('Env') or []
+                  require(type(env) is list and all(type(s) is str for s in env), 'CONTAINER_ENV')
+                  pgdata = [s.split('=', 1)[1].rstrip('/') for s in env if s.startswith('PGDATA=')]
+                  candidates = []
+                  volume_count = 0
+                  for point in record['MountPoints'].values():
+                      require(type(point) is dict, 'MOUNT_METADATA')
+                      source, dest = point.get('Source'), point.get('Destination')
+                      require(type(source) is str and source.startswith('/') and
+                              type(dest) is str and dest.startswith('/') and
+                              '..' not in source.split('/') and '..' not in dest.split('/'), 'MOUNT_PATH')
+                      source, dest = source.rstrip('/'), dest.rstrip('/')
+                      if point.get('Type') == 'volume':
+                          require(source in roots, 'VOLUME_OUTSIDE_COPY')
+                          volume_count += 1
+                      elif point.get('Type') == 'bind' and type(point.get('RW')) is bool:
+                          if point['RW']:
+                              rw_binds += 1
+                          else:
+                              ro_binds += 1
+                      else:
+                          unknown += 1
+                      if len(pgdata) == 1 and (pgdata[0] == dest or pgdata[0].startswith(dest + '/')):
+                          candidates.append((len(dest), source + pgdata[0][len(dest):]))
+                  if candidates and max(candidates)[1] == pg_path:
+                      pg_bindings.append(record['Image'])
+                  services.append({'role': public_role, 'image': record['Image'], 'volumes': volume_count})
+                  files = labels.get('com.docker.compose.project.config_files')
+                  working = labels.get('com.docker.compose.project.working_dir')
+                  if type(files) is str and type(working) is str and working.startswith('/'):
+                      require(len(files) <= 8192, 'COMPOSE_LABEL_SIZE_BOUND')
+                      require(len(working) <= 4096, 'COMPOSE_WORKING_BOUND')
+                      for path in files.split(','):
+                          require(path and '\0' not in path, 'COMPOSE_REFERENCE_PATH')
+                          if not path.startswith('/'):
+                              path = working.rstrip('/') + '/' + path
+                          compose_files.add(path)
+                          require(len(compose_files) <= MAX_COMPOSE_REFERENCES, 'COMPOSE_REFERENCE_BOUND')
+              require(len(pg_bindings) == 1 and images[pg_bindings[0]]['postgresMajor'] == 16,
+                      'POSTGRES_IMAGE_BINDING')
+              # Metadata only: no Compose compiler, dotenv resolution, credential reads or config contents.
+              existing, missing = 0, 0
+              deadline = time.monotonic() + 15
+              for path in sorted(compose_files):
+                  require(time.monotonic() <= deadline, 'COMPOSE_REFERENCE_TIME_BOUND')
+                  try:
+                      parent, name = path.rsplit('/', 1)
+                      fd = open_directory(parent)
+                      try:
+                          info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                          require(stat.S_ISREG(info.st_mode), 'COMPOSE_REFERENCE_TYPE')
+                          existing += 1
+                      finally:
+                          os.close(fd)
+                  except FileNotFoundError:
+                      missing += 1
+                  require(time.monotonic() <= deadline, 'COMPOSE_REFERENCE_TIME_BOUND')
+              return {'services': services, 'postgresImage': pg_bindings[0],
+                      'readWriteBindsOutsideCopy': rw_binds, 'readOnlyBindsOutsideCopy': ro_binds,
+                      'unknownMounts': unknown, 'composeLabelFilesPresent': existing,
+                      'composeLabelFilesMissing': missing, 'currentComposeParity': 'NOT_ATTESTED',
+                      'bindContentsPreserved': False}
+
+
+
+          PY_INSPECTION_1
+
+      - name: Prepare stopped recovery inspector publication schema
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat >> "$RUNNER_TEMP/stopped-recovery-inspector.py" <<'PY_INSPECTION_2'
+          def mem_available():
+              # procfs system metadata, never process environment or command lines.
+              with open('/proc/meminfo', 'rb') as handle:
+                  raw = handle.read(16385)
+              require(len(raw) <= 16384, 'MEMINFO_BOUND')
+              match = re.search(rb'^MemAvailable:\s+([0-9]+) kB$', raw, re.M)
+              require(match is not None, 'MEMINFO_SCHEMA')
+              return integer(int(match[1]) * 1024)
+
+
+          def process_counts():
+              counts = {'postgres': 0, 'caddy': 0}
+              started = time.monotonic()
+              names = os.listdir('/proc')
+              require(len(names) <= 32768, 'PROCESS_BOUND')
+              for name in names:
+                  require(time.monotonic() - started <= 5, 'PROCESS_BOUND')
+                  if not name.isdecimal():
+                      continue
+                  try:
+                      with open('/proc/' + name + '/comm', 'rb') as handle:
+                          comm = handle.read(64).strip()
+                  except (FileNotFoundError, ProcessLookupError):
+                      continue
+                  if comm in (b'postgres', b'postmaster'):
+                      counts['postgres'] += 1
+                  elif comm == b'caddy':
+                      counts['caddy'] += 1
+              return counts
+
+
+          def inspect(target, run):
+              require(HEX.fullmatch(target) and re.fullmatch('[0-9]{1,20}', run), 'INVOCATION')
+              with observation('ARCHIVE'):
+                  copied, device = archive()
+              with observation('ENGINE'):
+                  info = api('/info')
+                  containers = api('/containers/json?all=true')
+                  require(type(info) is dict and info.get('DockerRootDir') == DOCKER_ROOT and
+                          type(containers) is list and not containers and info.get('Containers') == 0,
+                          'ENGINE_NOT_EMPTY')
+              with observation('METADATA'):
+                  records = metadata()
+              with observation('VOLUMES'):
+                  inventory = api('/volumes')
+                  require(type(inventory) is dict and type(inventory.get('Volumes')) is list, 'VOLUME_API')
+                  names = [item['Name'] for item in inventory['Volumes']]
+                  profile, pg_path, roots, data_device, tokens = volume_profile(names)
+              with observation('IMAGES'):
+                  images = {image: image_metadata(api('/images/' + image + '/json'), image)
+                            for image in sorted({record['Image'] for record in records})}
+              with observation('BINDINGS'):
+                  bound = bindings(records, roots, pg_path, images)
+              with observation('REVALIDATION'):
+                  # Recheck identities after inspection; no atomic-snapshot claim.
+                  require(records == metadata() and api('/containers/json?all=true') == [], 'RUNTIME_DRIFT')
+                  deadline = time.monotonic() + 30
+                  for path, token in tokens:
+                      require(time.monotonic() <= deadline, 'PROFILE_BOUND')
+                      parent, name = path.rsplit('/', 1)
+                      fd = open_directory(parent)
+                      try:
+                          require(signature(os.stat(name, dir_fd=fd, follow_symlinks=False)) == token,
+                                  'PROFILE_CHANGED')
+                      finally:
+                          os.close(fd)
+              with observation('CAPACITY'):
+                  available = mem_available()
+              with observation('PROCESSES'):
+                  processes = process_counts()
+              return {'schemaVersion': SCHEMA, 'targetSha': target, 'runId': run, 'passed': True,
+                      'status': 'READ_ONLY_METADATA_INSPECTED', 'runtimeRestored': False,
+                      'startupAuthorized': False, 'archive': copied, 'volumes': profile,
+                      'images': list(images.values()), 'bindings': bound,
+                      'capacity': {'memAvailableBytes': available,
+                                   'archiveAndDataSameFilesystem': device == data_device},
+                      'processes': processes,
+                      'databaseIntegrity': 'NOT_ATTESTED'}
+
+
+          def validate(value, target, run, ssh_status):
+              require(type(value) is dict, 'OUTPUT_TYPE')
+              failed = {'schemaVersion', 'passed', 'status', 'runtimeRestored', 'startupAuthorized', 'errorCode'}
+              complete = (failed - {'errorCode'}) | {'targetSha', 'runId', 'archive', 'volumes', 'images', 'bindings',
+                                                    'capacity', 'processes', 'databaseIntegrity'}
+              require(set(value) in (failed, complete) and value['schemaVersion'] == SCHEMA and
+                      value['runtimeRestored'] is False and value['startupAuthorized'] is False,
+                      'OUTPUT_SCHEMA')
+              if set(value) == failed:
+                  require(value['passed'] is False and value['status'] == 'INSPECTION_FAILED' and
+                          value['errorCode'] in ERROR_CODES and ssh_status == 1, 'OUTPUT_FAILURE')
+                  return value
+              require(value['passed'] is True and ssh_status == 0 and value['targetSha'] == target and
+                      HEX.fullmatch(target) and value['runId'] == run and re.fullmatch('[0-9]{1,20}', run) and
+                      value['status'] == 'READ_ONLY_METADATA_INSPECTED' and
+                      value['databaseIntegrity'] == 'NOT_ATTESTED', 'OUTPUT_IDENTITY')
+              copied = value['archive']
+              require(type(copied) is dict and set(copied) == {'ciphertextBytes', 'ciphertextSha256',
+                      'sourceBytes', 'sourceEntries', 'volumes', 'privateModesVerified',
+                      'availableBytes', 'availableInodes'} and copied['ciphertextSha256'] == COPY_SHA and
+                      copied['privateModesVerified'] is True and copied['volumes'] == 19, 'OUTPUT_ARCHIVE')
+              for key in ('ciphertextBytes', 'sourceBytes', 'sourceEntries', 'availableBytes', 'availableInodes'):
+                  integer(copied[key])
+              require(0 < copied['ciphertextBytes'] <= MAX_ARCHIVE and
+                      copied['sourceBytes'] <= 1024**3 and copied['sourceEntries'] <= MAX_ENTRIES,
+                      'OUTPUT_ARCHIVE_BOUND')
+              volumes = value['volumes']
+              require(type(volumes) is dict and set(volumes) == {'volumes', 'entries', 'logicalBytes',
+                      'allocatedBytes', 'postgres'} and volumes['volumes'] == 19, 'OUTPUT_VOLUMES')
+              for key in ('entries', 'logicalBytes', 'allocatedBytes'):
+                  integer(volumes[key])
+              require(volumes['entries'] <= MAX_ENTRIES, 'OUTPUT_ENTRY_BOUND')
+              pg = volumes['postgres']
+              require(type(pg) is dict and set(pg) == {'major', 'uid', 'gid', 'logicalBytes',
+                      'allocatedBytes', 'integrity'} and pg['major'] == 16 and
+                      pg['integrity'] == 'NOT_ATTESTED', 'OUTPUT_POSTGRES')
+              for key in ('uid', 'gid', 'logicalBytes', 'allocatedBytes'):
+                  integer(pg[key])
+              images = value['images']
+              require(type(images) is list and 1 <= len(images) <= 32, 'OUTPUT_IMAGES')
+              image_ids = set()
+              for item in images:
+                  require(type(item) is dict and set(item) == {'id', 'bytes', 'revision', 'os',
+                          'architecture', 'postgresMajor'} and type(item['id']) is str and
+                          IMAGE.fullmatch(item['id']) and item['id'] not in image_ids and
+                          (item['revision'] is None or type(item['revision']) is str and HEX.fullmatch(item['revision'])) and
+                          item['os'] in ('linux', 'windows', 'UNKNOWN') and item['architecture'] in
+                          ('amd64', 'arm64', '386', 'arm', 'ppc64le', 's390x', 'UNKNOWN') and
+                          (item['postgresMajor'] is None or type(item['postgresMajor']) is int and
+                           0 <= item['postgresMajor'] <= 99), 'OUTPUT_IMAGE')
+                  integer(item['bytes'])
+                  image_ids.add(item['id'])
+              bound = value['bindings']
+              require(type(bound) is dict and set(bound) == {'services', 'postgresImage',
+                      'readWriteBindsOutsideCopy', 'readOnlyBindsOutsideCopy', 'unknownMounts',
+                      'composeLabelFilesPresent', 'composeLabelFilesMissing', 'currentComposeParity',
+                      'bindContentsPreserved'} and bound['postgresImage'] in image_ids and
+                      bound['currentComposeParity'] == 'NOT_ATTESTED' and bound['bindContentsPreserved'] is False,
+                      'OUTPUT_BINDINGS')
+              for key in ('readWriteBindsOutsideCopy', 'readOnlyBindsOutsideCopy', 'unknownMounts',
+                          'composeLabelFilesPresent', 'composeLabelFilesMissing'):
+                  integer(bound[key], 4096)
+              require(bound['composeLabelFilesPresent'] + bound['composeLabelFilesMissing'] <=
+                      MAX_COMPOSE_REFERENCES, 'OUTPUT_BINDINGS')
+              require(type(bound['services']) is list and len(bound['services']) == len(EXPECTED_REFS),
+                      'OUTPUT_SERVICES')
+              for service in bound['services']:
+                  require(type(service) is dict and set(service) == {'role', 'image', 'volumes'} and
+                          service['role'] in ROLES | {'UNKNOWN'} and service['image'] in image_ids,
+                          'OUTPUT_SERVICE')
+                  integer(service['volumes'], 128)
+              require(type(value['capacity']) is dict and set(value['capacity']) ==
+                      {'memAvailableBytes', 'archiveAndDataSameFilesystem'} and
+                      type(value['capacity']['archiveAndDataSameFilesystem']) is bool, 'OUTPUT_CAPACITY')
+              integer(value['capacity']['memAvailableBytes'])
+              require(type(value['processes']) is dict and set(value['processes']) == {'postgres', 'caddy'},
+                      'OUTPUT_PROCESSES')
+              for count in value['processes'].values():
+                  integer(count, 32768)
+              require(len(json.dumps(value).encode()) < 32768, 'OUTPUT_BOUND')
+              return value
+
+
+          ERROR_CODES = frozenset(('INVOCATION', 'INTEGER', 'DIRECTORY_PATH', 'LEAF_NAME',
+              'ARCHIVE_DIGEST', 'ARCHIVE_DIRECTORY', 'ARCHIVE_PRIVATE_MODE', 'ARCHIVE_RECEIPT',
+              'ENGINE_NOT_EMPTY', 'API_PATH', 'SOCKET_IDENTITY', 'API_STATUS', 'API_LIMIT',
+              'CONTAINER_METADATA_COUNT', 'CONTAINER_ID', 'CONTAINER_METADATA', 'CONTAINER_LABELS',
+              'CONTAINER_ENV', 'HISTORICAL_BINDING_DRIFT', 'VOLUME_API', 'POSTGRES_IMAGE_BINDING',
+              'POSTGRES_CLUSTER_COUNT', 'POSTGRES_VERSION', 'POSTGRES_CONTROL', 'POSTGRES_DATABASE_MARKER',
+              'POSTMASTER_PID_PRESENT', 'IMAGE_IDENTITY', 'IMAGE_CONFIG', 'IMAGE_LABELS', 'IMAGE_ENV',
+              'MOUNT_METADATA', 'MOUNT_PATH', 'COMPOSE_LABEL_BOUND', 'COMPOSE_REFERENCE_TYPE',
+              'COMPOSE_LABEL_SIZE_BOUND', 'COMPOSE_LABEL_COUNT_BOUND', 'COMPOSE_LABEL_BOTH_BOUND',
+              'COMPOSE_WORKING_BOUND', 'COMPOSE_REFERENCE_PATH', 'COMPOSE_REFERENCE_BOUND', 'COMPOSE_REFERENCE_TIME_BOUND',
+              'PROFILE_BOUND', 'PROFILE_CHANGED', 'PROFILE_DEVICE', 'PROFILE_TYPE', 'RUNTIME_DRIFT',
+              'VOLUME_OUTSIDE_COPY', 'VOLUME_NAMES', 'FILE_CHANGED', 'FILE_LIMIT', 'FILE_TIMEOUT',
+              'FILE_TYPE_SIZE', 'PROCESS_BOUND', 'MEMINFO_BOUND', 'MEMINFO_SCHEMA',
+              'OUTPUT_TYPE', 'OUTPUT_SCHEMA', 'OUTPUT_FAILURE', 'OUTPUT_IDENTITY', 'OUTPUT_ARCHIVE',
+              'OUTPUT_ARCHIVE_BOUND', 'OUTPUT_VOLUMES', 'OUTPUT_ENTRY_BOUND', 'OUTPUT_POSTGRES',
+              'OUTPUT_IMAGES', 'OUTPUT_IMAGE', 'OUTPUT_BINDINGS', 'OUTPUT_SERVICES', 'OUTPUT_SERVICE',
+              'OUTPUT_CAPACITY', 'OUTPUT_PROCESSES', 'OUTPUT_BOUND', 'INSPECTION_UNAVAILABLE')) | \
+              frozenset(stage + '_UNAVAILABLE' for stage in OBSERVATION_STAGES)
+
+
+          def inspection_result(target, run):
+              try:
+                  result = inspect(target, run)
+                  validate(result, target, run, 0)
+              except Exception as error:
+                  # Never serialize exception text, paths, raw input or remote stderr.
+                  result = {'schemaVersion': SCHEMA, 'passed': False, 'status': 'INSPECTION_FAILED',
+                            'runtimeRestored': False, 'startupAuthorized': False,
+                            'errorCode': error.args[0] if type(error) is InspectionError and
+                            len(error.args) == 1 and type(error.args[0]) is str and
+                            error.args[0] in ERROR_CODES else 'INSPECTION_UNAVAILABLE'}
+              return result
+
+
+          if __name__ == '__main__':
+              result = inspection_result(sys.argv[1] if len(sys.argv) > 1 else '',
+                                         sys.argv[2] if len(sys.argv) > 2 else '')
+              print(json.dumps(result, separators=(',', ':'), sort_keys=True))
+              raise SystemExit(0 if result['passed'] else 1)
+
+          PY_INSPECTION_2
+
+      - name: Read stopped recovery metadata once
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ && "$GITHUB_RUN_ID" =~ ^[0-9]{1,20}$ ]]
+          [[ "$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')" == "$TARGET_SHA" ]]
+          set +e
+          timeout 240 ssh -i "$HOME/.ssh/id_pc_prod" -p "$PROD_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$SSH_USER_SECRET@$PROD_HOST" \
+            "python3 -B -I - '$TARGET_SHA' '$GITHUB_RUN_ID'" < "$RUNNER_TEMP/stopped-recovery-inspector.py" \
+            > "$RUNNER_TEMP/inspection-remote.json" 2> "$RUNNER_TEMP/inspection-remote.stderr"
+          ssh_status=$?
+          set -e
+          echo "SSH_STATUS=$ssh_status" >> "$GITHUB_ENV"
+          post_main="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          echo "POST_MAIN=$post_main" >> "$GITHUB_ENV"
+
+      - name: Build closed inspection receipt
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY_INSPECTION_RECEIPT'
+          import json
+          import os
+          from pathlib import Path
+          namespace = {'__name__': 'inspection_receipt'}
+          exec(compile((Path(os.environ['RUNNER_TEMP']) / 'stopped-recovery-inspector.py').read_text(), '<accepted inspection schema>', 'exec'), namespace)
+          root = Path(os.environ['EVIDENCE_DIR'])
+          result = {'passed': False, 'status': 'UNKNOWN', 'runtimeRestored': False, 'startupAuthorized': False}
+          try:
+              raw = (Path(os.environ['RUNNER_TEMP']) / 'inspection-remote.json').read_bytes()
+              assert len(raw) <= 32768
+              assert os.environ['POST_MAIN'] == os.environ['TARGET_SHA']
+              result = namespace['validate'](json.loads(raw), os.environ['TARGET_SHA'], os.environ['GITHUB_RUN_ID'], int(os.environ['SSH_STATUS']))
+          except Exception:
+              pass
+          (root / 'inspection.json').write_text(json.dumps(result, separators=(',', ':'), sort_keys=True) + '\n')
+          summary = '## Stopped recovery inspection\n\n'
+          summary += 'Target: `' + os.environ['TARGET_SHA'] + '`; run ' + os.environ['GITHUB_RUN_ID'] + '.\n\n'
+          summary += 'Status: **' + result['status'] + '**. Services were not started; database integrity is NOT_ATTESTED.\n'
+          if result.get('errorCode') in namespace['ERROR_CODES']:
+              summary += '\nFixed failure code: `' + result['errorCode'] + '`.\n'
+          if result['passed']:
+              summary += '\nArchive/capacity: `' + json.dumps(result['archive'], separators=(',', ':')) + '`\n'
+              summary += '\nVolumes/PostgreSQL: `' + json.dumps(result['volumes'], separators=(',', ':')) + '`\n'
+              summary += '\nMemory/filesystem: `' + json.dumps(result['capacity'], separators=(',', ':')) + '`\n'
+              summary += '\nProcess counts: `' + json.dumps(result['processes'], separators=(',', ':')) + '`\n'
+              bound = result['bindings']
+              summary += '\nMount/config coverage: `' + json.dumps({key: value for key, value in bound.items() if key != 'services'}, separators=(',', ':')) + '`\n'
+              summary += '\nImage IDs/revisions and fixed service roles are in the closed technical artifact. Current Compose parity and bind-content preservation are not attested.\n'
+          summary += '\nNo archive, passphrase, configuration contents, raw metadata or raw transport output is published. This receipt does not authorize startup or restore.\n'
+          assert len(summary.encode()) < 6000
+          (root / 'issue-record.md').write_text(summary)
+          PY_INSPECTION_RECEIPT
+
+      - name: Publish bounded stopped recovery receipt
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ -f "$EVIDENCE_DIR/issue-record.md" ]]; then
+            gh issue comment "$AUTHORITY_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/issue-record.md"
+          fi
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: stopped-recovery-inspection-${{ github.run_id }}
+          path: |
+            artifacts/stopped-recovery-inspection/target-sha.txt
+            artifacts/stopped-recovery-inspection/inspection.json
+            artifacts/stopped-recovery-inspection/issue-record.md
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Clear runner-only inspection transport
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$HOME/.ssh/id_pc_prod" "$RUNNER_TEMP/inspection-remote.json" "$RUNNER_TEMP/inspection-remote.stderr" "$RUNNER_TEMP/stopped-recovery-inspector.py"
+
+      - name: Require validated stopped recovery inspection
+        shell: bash
+        run: |
+          python3 - <<'PY_INSPECTION_RESULT'
+          import json
+          import os
+          from pathlib import Path
+          value = json.loads((Path(os.environ['EVIDENCE_DIR']) / 'inspection.json').read_text())
+          assert value.get('passed') is True and value.get('status') == 'READ_ONLY_METADATA_INSPECTED'
+          PY_INSPECTION_RESULT
