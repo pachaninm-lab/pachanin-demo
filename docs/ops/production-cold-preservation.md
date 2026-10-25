@@ -1,3 +1,15 @@
+## Historical six-core bootstrap boundary, 2026-10-24
+
+The standalone configuration-observer command is retired. A different closed purpose, stopped-core-bootstrap-20261024, and owner-only /production restore-historical-core current-main in4637 govern one historical core restoration. The old readonly purpose remains immutable and cannot authorize startup. Only PostgreSQL, Redis, MinIO, API, web and Caddy may be created from the exact eleven saved records and existing immutable images/mounts/networks. Five other historical records, including PgBouncer and all workers, stay quarantined. No daemon restart, image pull, network/volume creation, migration, private transfer or new cost is admitted on production.
+
+Before the first durable write, enforce actual root/current event/main/DNS/pinned SSH, the new exact purpose/three source pins, accepted inspector/helper/cold hashes, both private archive digests/modes and immutable preserved bindings, zero Engine/containerd/host PostgreSQL runtime, complete six-core plan, fixed startup commands and actual probe support. Saved Config/Env travels only in process memory and Docker Unix HTTP. Each existing named volume uses NoCopy and every image volume target must be explicitly covered; retain all nineteen volumes. Per-operation names and labels, exact create bodies, fsynced intent/receipt journal, actual post-create mount/image/network checks and restart=no precede owned start. No unknown object may be started or stopped. Recheck immutable saved files/binds/copies and inventory after PostgreSQL starts, without falsely requiring unchanged database bytes or PG0.
+
+The engine has600seconds plus bounded60second owned-stop cleanup, remote720seconds with75second TERM-to-KILL grace, runner840seconds with90second grace, recover job25minutes. A failed/ambiguous create/start/health/transport/main check retains all created objects and the one-use UNKNOWN journal. Stop only verified owned objects, retain original data/ciphertexts/keys, never claim data rollback or automatically replay. Historical core health does not prove exact-current-main release or farmer registration. Closed16384byte pc.core-bootstrap.v1 evidence reports6created/5quarantined only after actual SQL/RESP/MinIO/API/web/canonical TLS health. Failure outputs and artifacts contain no private values, names, paths, payloads, logs or digests. Only target-sha.txt, issue-record.md and validated result.json are uploaded.
+
+Native CI separately names the37 retained preservation/config regressions, the current bootstrap engine/contracts, and a mandatory REAL isolated PostgreSQL Docker Unix-wire fixture using the existing VERIFIED mirrored PostgreSQL16 manifest. The golden accepted observer workflow is SHA-bound compressed test data; its active file-primitives profile must equal the profile used by the production attestor. The Compose vendor is downloaded only on the runner for these historical regressions and is not transferred to production. The real Docker fixture creates its own random labeled network/volume and container, verifies NoCopy/no anonymous volume, rejects unowned mutations, executes actual SQL through the admitted wire API, verifies owned stop, then removes only its own fixture-labeled runner objects. Synthetic tests or skipped local Docker cannot satisfy that native fixture or establish production acceptance.
+
+Source preparation grants no host window. Separate metadata admission, genuine whole-current-head independent review, owner audit, all applicable native/security gates, canonical readiness, ordinary full-expected-SHA merge and fresh serialized host/main/queue/journal/quiet fences remain mandatory. Full UX/BANKS/FGIS remains NOT_CLOSED and MASTER5/100 until its separate live acceptance.
+
 ## Classified topology evidence, 2026-10-24
 
 Successful read-only40075669860 found48orderedfile references,8compared/2missing/3extra services and one network mismatch. This is no startup acceptance. Closed schema pc.stopped-configuration.v2 adds serviceDispositions from the already observed model, records and flags: fixed public role classes (unlisted names become OTHER), COMPARED/MISSING/EXTRA and canonical mismatch/unproved field names only. The maximum43rows and16384byte envelope remain bounded. Row totals, field totals, unique/disjoint canonical field lists and known-role uniqueness must reconcile to the existing aggregates. No actual service/network name, config, path, environment, image or digest is disclosed. Existing v1 evidence remains immutable; the new reader rejects v1 rather than inventing classifications.
@@ -111,3 +123,67 @@ Copy only /var/lib/docker/containers, the volumes directory metadata and all19 E
 The only recipient is the same existing production server and its existing root operators. The exclusive directory is /var/lib/pc-release-authority/backups/cold-preservation-20261022/, mode0700; passphrase, archive and receipt are0600. The archive-specific passphrase is a durable new encryption secret, not a one-time login code or new SSH/API/database credential. Generate it only inside the accepted on-host operation and retain it there. No archive, key or manifest is sent to GitHub, ChatGPT, Library or an operator workstation.
 
 Verification temporarily writes decrypted archive bytes to an anonymous0600 file on the same production filesystem, up to2GiB. Closing/unlinking that file does not guarantee erasure of its disk blocks. Key and ciphertext share a host; this protects a pre-change incident copy, not server-loss disaster recovery or root compromise. Existing paid-service/billing settings must not change; unavailable included Actions/storage quota blocks execution instead of authorizing overage. Public artifact retention is90days and does not govern the private archive hold.
+
+
+### Native runner API 1.51 correction
+
+The first real wire run on source a4182e5e6d1bdc7487b20537fdaa98643842518a
+failed before container creation because its Ubuntu runner image supplied Docker28.0.4
+(maximum API1.48). The native contract now installs only the official SHA256-pinned
+Docker28.5.1 CLI and daemon on a guarded ephemeral GitHub-hosted Linux runner,
+retains distro containerd/runc and service configuration, restarts only that runner's
+Docker units, then requires actual server28.5.1/API1.51 before the same real fixture.
+The archive is exactly82150845bytes with SHA256
+`5c0d19f31fece1accd0358bb8cff591fe25d7b6cba19f0fd412cbfdc07f75ff6`.
+There is no production daemon install/restart or transport downgrade.
+
+The create plan also explicitly supplies each already-attested retained NetworkID
+alongside the original service aliases. Moby28.5.1 stores supplied endpoint settings
+at create time and fills operational endpoint fields only on start. Providing the
+retained identity supports strict inspect-before-start verification without copying
+old IP/MAC/EndpointID or permitting empty network identity. Strict mismatch checks
+remain mandatory both before start and after actual readiness.
+
+
+### Journal persistence failure during owned cleanup
+
+A successful durable CREATE_INTENT/START_INTENT remains mandatory before each
+create/start call. Once any Docker mutation is attempted, a later failure has the
+monotonic UNKNOWN outcome, including failure of the final journal write. Cleanup
+attempts STOP_INTENT/STOPPED/UNKNOWN records independently of ownership-proved
+stops: a broken journal must not leave already created or running owned services
+untouched. One stop failure does not suppress attempts for the other owned objects
+within the existing bounded cleanup deadline. Retained acknowledged create IDs
+are reconciled against the exact attempted plan and independent ID/name/image/
+operation/role proof; a truly unacknowledged response grants no ownership or retry.
+Before any Docker mutation, failed intent persistence returns REFUSED and leaves
+the one-use operation spent. Neither path claims data rollback or removes objects.
+
+
+## PostgreSQL readiness: unset libpq service, 2026-10-25
+
+Current source54f0ce6428e75c549a0600aa153b25fbe6f41fd0 failed mandatory
+native40149307142/job121037256082 at the90s SQL readiness boundary. This
+failure remains evidence, not acceptance. An isolated run of its actual probe
+on the same pinned mirrored PostgreSQL16.14 reproduced exit2 with
+`definition of service "" not found`: `PGSERVICE=` supplies an empty service
+name rather than removing the variable.
+
+The bounded PostgreSQL command now begins `/usr/bin/env -u PGSERVICE psql`.
+It removes inherited service selection before libpq starts, retains the exact
+loopback host/address/5432, declared user/database, authenticated read-only SQL,
+connection/statement/lock timeouts and disabled service/password file/SSL/options
+redirect inputs. No credential value or raw production stderr is published.
+The mandatory native fixture uses an exec-only unadmitted inherited service name
+and a real libpq negative control proving the old empty assignment exits2. It still
+requires Docker28.5.1/API1.51, actual create/inspect/start/SQL/stop, explicit
+NoCopy/noanonymousvolume and ownership-checked cleanup. No deadline, admission,
+source attestor, journal/UNKNOWN behavior or production permission is relaxed.
+
+PostgreSQL16 primary reference checked2026-10-25:
+https://www.postgresql.org/docs/16/libpq-envars.html .
+Decision6391790945 authorizes this same-purpose correction. It needs metadata acceptance before
+source publication, then fresh exact-head independent review, applicable native/
+security/canonical checks and ordinary full-SHA manual acceptance. Old PASS does
+not transfer. No host window is issued; restoration, release, registration,
+Founder13, external integrations and whole MASTER acceptance remain unproved.
