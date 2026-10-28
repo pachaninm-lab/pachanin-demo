@@ -280,7 +280,7 @@ function write(root, file, content, mode) {
 // it and fails with ENOTEMPTY even after its retries (CI runs git 2.55). The
 // setting is repository-local, so it also covers every git call the guard
 // script itself makes inside the fixture. No assertion changes.
-const FIXTURE_GIT_CONFIG = [['maintenance.auto', 'false'], ['gc.auto', '0']];
+const FIXTURE_GIT_CONFIG = [['maintenance.auto', 'false'], ['gc.auto', '0'], ['core.looseCompression', '0']];
 
 function git(root, args) {
   const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
