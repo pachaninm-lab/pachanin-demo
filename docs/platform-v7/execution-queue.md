@@ -8273,3 +8273,44 @@ Future exact100644 source pins:
 Fixed PostgreSQL probe uses only `/usr/bin/env -u PGSERVICE psql`, not emptyPGSERVICE. Same declared user/database/authenticatedloopback/read-onlySQL/timeouts/passfile/servicefile/SSL/options guards and exactexecallowlist remain. No shell/arbitraryprobe/productioncontainerconfig change. Real isolated pinnedPG16.14 reproduced oldemptyservice exit2; correctedSQL and hostileinheritedservice exec PASS. Actual nativefixture includes both controls, existingcreate/inspect/start/SQL/stop/NoCopy/noanonymousvolume/ownedcleanup unchanged. Local89active,37retainedwithpinnedCompose5.6.0,24headroom PASS. Local realwire PASS uses Docker28.4/API1.51 and is explicitly NOT mandatory hostedDocker28.5.1 acceptance. Official PostgreSQL16 libpq environment reference verified2026-10-25. No oldPASS transfers.
 
 Metadata4 FIRST requires genuine independent complete exacthead review, separate owneraudit, allapplicablenative/security/actualcanonicalREADY and ordinaryfullSHAmanualmerge. Then separately recompose ONLY frozen3sourceafters on freshmain on existing5954branch; obtain fresh genuine exactheadreview, mandatory hosted28.5.1wire/security/owneraudit/actualREADY/manualmerge. Do not advance sourcebranch before metadata acceptance; do not resolve oldP1 from mere local preparation. Fresh concrete main/queue/Hub/4637/quiet/DNS/pinnedSSH/root window is stillrequired before ONE historical-core operation. No activehostwindow/hostcommand/startup/release/registration/Founder13/wholeblockPASS. Retain19volumes,bothprivatecopies/keys/allspentjournals andotherownerholds. CurrentproductionSHA UNKNOWN; historicalMASTER5/100 is not revalidated or increased by this metadata. Corehealth cannot promote exactrelease/mail/farmer/9roles/Founder13/bank/FGIS acceptance.
+
+
+# Registration prerequisite: fixture Git compression, 28Oct2026
+
+Metadata preparation only. PR5957 remains blocked on repeated actual180s source-preflight timeout. Primary R1 scope, all old owners/vectors/full payloads and historical progress remain unchanged. This proposal grants no runtime or production operation.
+
+```json
+{
+  "schema": "pc-crop.fixture-git-compression-proposal.v1",
+  "owner": "ACCOUNT_1_CORE/root",
+  "ownerPurpose": "Urgent registration5957 continuation; user28Oct and TeamHub6471492800; narrower performance proposal supersedes copier-only research.",
+  "authorityBaseExactMain": "7d4e72c31f4bf04ce78eb0353db9eff2a5361a1d",
+  "implementationBranch": "fix/guard-fixture-compression-20261028",
+  "allowedPaths": [
+    "scripts/p7-autopilot-guard.test.mjs"
+  ],
+  "sourcePayload": {
+    "path": "scripts/p7-autopilot-guard.test.mjs",
+    "mode": "100644",
+    "beforeBlob": "b73caca4eeb7b1de1ddfd2ee4c38915561da0687",
+    "beforeSha256": "3e7422fcd6f9a4208f844ae59fa2739b461da3ffa801f9fc5be8239bb699c689",
+    "afterBlob": "4a6c638e4f163a72da095dd3b5a0fd57c086e51d",
+    "afterSha256": "cabdad0d98402f9cecdf2e9ae46a2f93c435dafd72126f12abeab88c07ba9ad7",
+    "afterBytes": 668156,
+    "sourcePatch": "diff --git a/scripts/p7-autopilot-guard.test.mjs b/scripts/p7-autopilot-guard.test.mjs\nindex b73caca4e..4a6c638e4 100644\n--- a/scripts/p7-autopilot-guard.test.mjs\n+++ b/scripts/p7-autopilot-guard.test.mjs\n@@ -280,7 +280,7 @@ function write(root, file, content, mode) {\n // it and fails with ENOTEMPTY even after its retries (CI runs git 2.55). The\n // setting is repository-local, so it also covers every git call the guard\n // script itself makes inside the fixture. No assertion changes.\n-const FIXTURE_GIT_CONFIG = [['maintenance.auto', 'false'], ['gc.auto', '0']];\n+const FIXTURE_GIT_CONFIG = [['maintenance.auto', 'false'], ['gc.auto', '0'], ['core.looseCompression', '0']];\n \n function git(root, args) {\n   const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });\n"
+  },
+  "status": "METADATA_PREPARATION_NOT_ACCEPTED",
+  "limits": "Add only fixture-local core.looseCompression=0 after real git init. No runtime/production Git setting, changed test selection/assertions/timeout, cached Git/test results, source guard/workflow/security/progress expansion.",
+  "truth": "All original1037 tests and assertions remain byte-identical; only one existing fixture config line differs. Disk usage may increase in disposable fixtures; cleanup stays unchanged.",
+  "prototypeEvidence": "Local Node24.22.1 complete1037 suite PASS, fail/cancelled/skipped0, exit0, duration549674.71059ms, after complete historical Git fetch, on source SHA256cabdad0d98402f9cecdf2e9ae46a2f93c435dafd72126f12abeab88c07ba9ad7. This is not hostedNode24.8/180s or production acceptance. Earlier CPU-profile baseline1033PASS/4missing-historyFAIL is diagnostic and not comparable timing or acceptance; no overall speed percentage is claimed. Copy-only research is not this payload.",
+  "requiredChecks": [
+    "Before source publication, separately accept this exact metadata with genuine independent review/audit and actual required gates.",
+    "Source diff exactly one regular100644 file with pinned before/after, every other accepted tree leaf unchanged; independent nonauthor full-head review and separate author audit.",
+    "Actual full1037 test suite with zero failures/cancelled/skipped; monitor disposable fixture storage. Complete applicable native/security and fresh canonical readiness before ordinary full-expected-SHA manual merge.",
+    "Missing/skipped Kubernetes on test-only path is not runtime or180s acceptance. Recompose retained PR5957 on accepted main, obtain fresh real180s source preflight and full Kubernetes/deep-outbox/storage/cleanup PASS, then exact release/live acceptance."
+  ],
+  "productionInvocationAuthorized": false,
+  "productionAcceptance": false,
+  "masterCredit": 0
+}
+```
