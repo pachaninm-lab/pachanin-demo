@@ -540,9 +540,9 @@ test.describe('canonical protected cabinet boundary', () => {
     await loginAs(page, 'buyer', baseURL!);
 
     const copy = {
-      ru: { description: 'Сервер проверяет доступ к сделкам для роли покупателя', ready: 'сервер подтверждён', empty: 'очередь пуста', unknown: 'Следующее обязательное действие не опубликовано', emptyTitle: 'Рабочих объектов пока нет' },
-      en: { description: 'The server checks Deal access for the buyer role', ready: 'server confirmed', empty: 'queue is empty', unknown: 'Required next action is not published', emptyTitle: 'No work objects yet' },
-      zh: { description: '服务器会核查买方角色的交易访问权限', ready: '服务器已确认', empty: '队列为空', unknown: '服务器未提供优先执行的操作', emptyTitle: '暂时没有工作对象' },
+      ru: { description: 'Сервер проверяет доступ к сделкам для роли покупателя', ready: 'сервер подтверждён', empty: 'очередь пуста', unknown: 'Следующее обязательное действие не опубликовано', emptyTitle: 'Рабочих объектов пока нет', teamTitle: 'Роли и участники из PostgreSQL' },
+      en: { description: 'The server checks Deal access for the buyer role', ready: 'server confirmed', empty: 'queue is empty', unknown: 'Required next action is not published', emptyTitle: 'No work objects yet', teamTitle: 'Roles and members from PostgreSQL' },
+      zh: { description: '服务器会核查买方角色的交易访问权限', ready: '服务器已确认', empty: '队列为空', unknown: '服务器未提供优先执行的操作', emptyTitle: '暂时没有工作对象', teamTitle: '来自 PostgreSQL 的角色和成员' },
     } as const;
     for (const [locale, expected] of Object.entries(copy)) {
       const response = await page.goto(`/platform-v7/buyer?lang=${locale}`, { waitUntil: 'domcontentloaded' });
@@ -554,15 +554,28 @@ test.describe('canonical protected cabinet boundary', () => {
       const confirmed = header.getByText(expected.ready, { exact: true });
       const empty = header.getByText(expected.empty, { exact: true });
       await expect(confirmed.or(empty)).toBeVisible();
+      await expect(workspace.locator('a[href^="/platform-v7/profile/team"]'))
+        .toHaveAttribute('href', `/platform-v7/profile/team?lang=${locale}`);
       if (await confirmed.isVisible()) {
         await expect(workspace.getByRole('heading', { name: expected.unknown })).toBeVisible();
         await expect(workspace.getByText('UNKNOWN', { exact: true })).toBeVisible();
-        await expect(workspace.locator('#first-customer-work-queue a[href^="/platform-v7/deals/"]')).not.toHaveCount(0);
+        const dealLinks = workspace.locator('#first-customer-work-queue a[href^="/platform-v7/deals/"]');
+        await expect(dealLinks).not.toHaveCount(0);
+        for (const dealLink of await dealLinks.all()) {
+          await expect(dealLink).toHaveAttribute('href', new RegExp(`\\?lang=${locale}$`));
+        }
       } else {
         await expect(workspace.getByRole('heading', { name: expected.emptyTitle })).toBeVisible();
+        await expect(workspace.locator('a[href^="/platform-v7/profile?"]'))
+          .toHaveAttribute('href', `/platform-v7/profile?lang=${locale}`);
       }
       await expect(page.locator('[data-transaction-role-cockpit]')).toHaveCount(0);
       await canonicalNoOverflow(page);
+      await workspace.locator('a[href^="/platform-v7/profile/team"]').click();
+      await expect(page).toHaveURL(new RegExp(`/platform-v7/profile/team\\?lang=${locale}$`));
+      await expect(page.locator('html')).toHaveAttribute('lang', locale === 'zh' ? 'zh-CN' : locale);
+      await expect(page.getByTestId('platform-v7-profile-team-v8').getByRole('heading', { name: expected.teamTitle, exact: true }))
+        .toBeVisible();
     }
   });
 

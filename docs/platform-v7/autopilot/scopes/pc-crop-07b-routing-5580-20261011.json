@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "status": "active",
+  "authorizedBy": "explicit-owner-instruction-2026-10-11-prinimay-i-dovodi-do-finisha-necessary-native-gate-compatibility",
+  "owner": "ACCOUNT_1_CORE",
+  "contributor": "ACCOUNT_2_PRODUCT",
+  "authorityBaseExactMain": "755eb770b7fcaef0261bf314e30f6edc6306f45d",
+  "teamHubClaim": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6107022087",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "branch": "fix/pc-crop-07b-routing-5580-20261011",
+  "purpose": "Preserve complete PC-CROP-07B acceptance while classifying only the already admitted exact four-file protected-entry routing vector as compatible shared navigation source.",
+  "effectiveAfter": "This metadata-only admission must be independently reviewed and ordinarily accepted first; compatibility SOURCE begins from actual current main containing this unchanged manifest and changes exactly the four regular files below.",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-07b.yml",
+    "scripts/verify-pc-crop-07b-routing-compat.py",
+    "scripts/test-pc-crop-07b-routing-compat.py",
+    "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts"
+  ],
+  "blockedSourcePR": 5892,
+  "blockedSourceHead": "786f62889f8a17f9d25e92e5b8a6e4941d8f205d",
+  "failureRun": 38123764834,
+  "failureJob": 114423720664,
+  "immutableRoutingManifest": "docs/platform-v7/autopilot/scopes/protected-entry-locale-5580-20261011.json",
+  "immutableRoutingManifestBlob": "21fae00fe9c50555a386109c995bf327cadec5c9",
+  "routingBranch": "fix/protected-entry-locale-5580-20261011",
+  "routingSourcePins": [
+    {
+      "path": "apps/web/middleware.ts",
+      "mode": "100644",
+      "beforeBlob": "fcf36722990a429513d7b304361dbe2428ba3a62",
+      "afterBlob": "d778d95a76f5202c15da6368372447ea498df41e"
+    },
+    {
+      "path": "apps/web/next.config.js",
+      "mode": "100644",
+      "beforeBlob": "7f5a895c112cbf19f675c7473a2700652ca848a3",
+      "afterBlob": "0c8c80852df01456ba1c5d41ec0ebdf66e85b0ea"
+    },
+    {
+      "path": "apps/web/app/platform-v7/integrations/page.tsx",
+      "mode": "100644",
+      "beforeBlob": "7621fd99e140688ce5ca46240578d7e21fb36dee",
+      "afterBlob": "2a83714b4e82545e4d2e53157dfc1277a307675d"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts",
+      "mode": "100644",
+      "beforeBlob": "fff4b75ad6fdc2f240311cb16e7dea3e21f3971c",
+      "afterBlob": "d6e864371ae76d09efddc8761b14f432d995a3c5"
+    }
+  ],
+  "requiredInvariants": [
+    "Keep the original regulatory scope allowlist and immutable FGIS quartet/test-config classifier logic intact. Only add the two exact classifier/test script paths as gate-owned files and trigger this same full acceptance on the workflow and these scripts.",
+    "The additive routing classifier accepts only the original routing branch on pull_request or refs/heads/main on push, actual full exact HEAD, accepted base ancestor, whole-tree diff exactly the four admitted paths and no stale extra leaf, all eight before/after regular100644 blob pins, and the unchanged fixed accepted routing manifest in both trees. Changed evidence/path/mode/pin/branch/base/manifest, partial diff, extra source, rename/delete and candidate-owned authorization all reject.",
+    "Automated tests must exercise acceptance and the failure cases above, plus preserve the original quartet classifier and the complete migration, API authority typecheck, policy/read-model, PostgreSQL tenant/command, protected web typecheck, BFF/UX, machine-readable invariants and exact-head evidence steps. Neither skip, continue-on-error, retries, threshold reduction nor transfer of old-head results is allowed.",
+    "The one admitted existing FGIS test file changes exactly the pinned one-line structural assertion. No skip, deletion, retry, mock/auth weakening or other test-body change is permitted; both actual original/accepted source syntaxes and wrong destinations must be tested. Original FGIS admission/pin records remain immutable. The routing SOURCE still changes only its original four fixed leaves.",
+    "Compatibility SOURCE changes exactly these four files and no other leaf. All source/admission/state/owners/PRIMARY/current/progress/other guard/workflow/test registry bytes remain unchanged. This PR does not change any runtime or the original four routing SOURCE bytes.",
+    "Every current published compatibility or subsequent routing HEAD needs genuine independent whole-diff review, separate exact-head owner audit, complete substantive native/security/readiness and ordinary expected-full-SHA manual merge. The routing PR must ordinarily merge accepted current main into its branch without force, then obtain fresh review and native checks; compatibility acceptance is not routing acceptance or REG.RU deployment."
+  ],
+  "forbiddenChanges": [
+    "all app runtime implementation; the only admitted app test change is the exact one-line structural assertion",
+    "packages/**",
+    "infra/**",
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/scopes/**",
+    "docs/platform-v7/autopilot/progress.json",
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-source-controlled-scope.mjs",
+    "all other workflows or scripts",
+    "pnpm-lock.yaml",
+    "package.json",
+    "production credentials or server configuration"
+  ],
+  "structuralAssertionCompatibility": {
+    "path": "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts",
+    "mode": "100644",
+    "beforeBlob": "91c9f62d99c4ca2cec8dee681af446b51885d3e0",
+    "afterBlob": "c1158e456ca42bdb1a887b9885cd3128d48a0bcf",
+    "purpose": "Change only the existing login-call assertion from single-quote text matching to a quote-aware fixed platform login prefix regex; both old literal and admitted template forms pass, other destinations fail. All other original test bodies/assertions and actual page behavior requirements remain unchanged."
+  }
+}

@@ -14,6 +14,7 @@ const UI = {
     and: 'и',
     privacy: 'политику конфиденциальности',
     cta: 'Понятно, начать',
+    failed: 'Не удалось сохранить подтверждение. Попробуйте ещё раз.',
   },
   en: {
     title: 'Before you start',
@@ -23,6 +24,7 @@ const UI = {
     and: 'and the',
     privacy: 'privacy policy',
     cta: 'Got it, start',
+    failed: 'Could not save your confirmation. Please try again.',
   },
   zh: {
     title: '开始之前',
@@ -32,6 +34,7 @@ const UI = {
     and: '与',
     privacy: '隐私政策',
     cta: '知道了，开始',
+    failed: '无法保存确认，请重试。',
   },
 } as const;
 
@@ -52,7 +55,9 @@ function activeDraftAtMount(): boolean {
  * instead of stealing focus from the composer while the mobile keyboard owns
  * the visual viewport. The intercepted submit is never sent before consent.
  */
-export function GektaConsentDialog({ locale, onAccept }: { locale: GektaLocale; onAccept: () => void }) {
+export function GektaConsentDialog({ locale, onAccept, termsHref = '/legal/usloviya-ispolzovaniya-gekta', privacyHref = '/legal/politika-konfidencialnosti', disabled = false, failed = false }: {
+  locale: GektaLocale; onAccept: () => void; termsHref?: string; privacyHref?: string; disabled?: boolean; failed?: boolean;
+}) {
   const ui = UI[locale];
   const [deferred, setDeferred] = React.useState(activeDraftAtMount);
   // Accepting is the only way out: Escape is swallowed but never treated as consent.
@@ -107,13 +112,15 @@ export function GektaConsentDialog({ locale, onAccept }: { locale: GektaLocale; 
         <p className='mt-2 text-sm leading-6 text-slate-600'>{ui.body}</p>
         <p className='mt-3 text-xs leading-5 text-slate-500'>
           {ui.accept}{' '}
-          <Link href='/legal/usloviya-ispolzovaniya-gekta' className={legalLinkClass}>{ui.terms}</Link>{' '}
+          <Link href={termsHref} className={legalLinkClass}>{ui.terms}</Link>{' '}
           {ui.and}{' '}
-          <Link href='/legal/politika-konfidencialnosti' className={legalLinkClass}>{ui.privacy}</Link>.
+          <Link href={privacyHref} className={legalLinkClass}>{ui.privacy}</Link>.
         </p>
+        {failed ? <p role='alert' className='mt-3 text-sm text-red-700'>{ui.failed}</p> : null}
         <button
           type='button'
           onClick={onAccept}
+          disabled={disabled}
           className='mt-5 min-h-11 w-full rounded-xl bg-emerald-800 px-4 text-sm font-semibold text-white hover:bg-emerald-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700'
           data-gekta-consent-accept='true'
         >

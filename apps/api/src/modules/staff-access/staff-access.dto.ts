@@ -9,6 +9,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
@@ -43,6 +44,12 @@ export class RevokeStaffAssignmentDto {
 }
 
 export class RequestStaffAccessDto {
+  // Additive opt-in: legacy creators retain their existing contract until their
+  // separately owned consumer rollout supplies a stable intent.
+  @IsOptional()
+  @IsUUID('4')
+  createIntentId?: string;
+
   @IsString()
   @MinLength(3)
   @MaxLength(128)
@@ -99,6 +106,12 @@ export class RequestStaffAccessDto {
 }
 
 export class RequestFounderRoleModeDto {
+  // Additive opt-in: legacy creators retain their existing contract until their
+  // separately owned consumer rollout supplies a stable intent.
+  @IsOptional()
+  @IsUUID('4')
+  createIntentId?: string;
+
   @IsString()
   @MinLength(2)
   @MaxLength(32)

@@ -76,7 +76,7 @@ type SessionContext = {
   code?: string;
   message?: string;
 };
-type OwnSession = { id: string; status?: string };
+type OwnSession = { id: string; status?: string; grant_id?: string };
 type CabinetProjection = {
   mode?: string;
   effectiveOrganizationId?: string;
@@ -103,9 +103,174 @@ type ApiErrorPayload = {
   message?: string;
 };
 
+export const OWNER_REGISTRATION_PERMISSIONS = [
+  'staff-assignment:read', 'staff-assignment:write', 'staff-request:read',
+  'staff-request:approve', 'staff-session:read', 'staff-session:revoke', 'audit:read',
+] as const;
+export type OwnerPendingCreate = {
+  schema: 'pc-owner-create.v1'; actorId: string; createIntentId: string;
+  kind: 'founder' | 'registration'; body: Record<string, unknown>;
+  phase: 'prepared' | 'create-unknown' | 'created' | 'activation-unknown';
+};
+export type OwnerCreateRecovery = {
+  createIntentId: string;
+  originalReceipt: { createIntentId: string; requestId: string; status: 'GRANTED' | 'PENDING';
+    grantId: string | null; expiresAt: string; schemaVersion?: string; roleMode?: RoleModeInfo };
+  currentProjection: { requestId: string; requestStatus: string; grantId: string | null;
+    grantStatus: string | null; expiresAt: string; activationEligible: boolean; requiresLiveActivationChecks: true };
+};
+const OWNER_CREATE_SCHEMA = 'pc-owner-create.v1';
+const OWNER_CREATE_PREFIX = 'pc-owner-create:';
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+function ownerActorId(value: string | undefined): string {
+  if (!value || value !== value.trim() || value.length > 128) throw new Error('OWNER_CREATE_IDENTITY_UNAVAILABLE');
+  return value;
+}
+function canonicalOwnerBody(kind: OwnerPendingCreate['kind'], body: Record<string, unknown>) {
+  const text = (name: string, min: number, max: number) => {
+    const value = body[name];
+    if (typeof value !== 'string' || value.trim().length < min || value.trim().length > max) throw new Error('OWNER_CREATE_BODY_INVALID');
+    return value.trim();
+  };
+  const durationSeconds = body.durationSeconds;
+  if (!Number.isInteger(durationSeconds) || Number(durationSeconds) < 60 || Number(durationSeconds) > 3600) throw new Error('OWNER_CREATE_BODY_INVALID');
+  const common = { reason: text('reason', 10, 2000), ticketId: text('ticketId', 3, 128), durationSeconds };
+  if (kind === 'founder') return { cabinetKey: text('cabinetKey', 2, 32), organizationId: text('organizationId', 3, 128), ...common };
+  const permissions = body.permissions;
+  if (body.accessMode !== 'CONTROL_PLANE' || durationSeconds !== 1800 || !Array.isArray(permissions)
+    || JSON.stringify([...permissions].sort()) !== JSON.stringify([...OWNER_REGISTRATION_PERMISSIONS].sort())) throw new Error('OWNER_CREATE_BODY_INVALID');
+  return { assignmentId: text('assignmentId', 3, 128), accessMode: 'CONTROL_PLANE',
+    permissions: [...OWNER_REGISTRATION_PERMISSIONS], ...common };
+}
+export function readOwnerPendingCreate(actor: string | undefined): OwnerPendingCreate | null {
+  const actorId = ownerActorId(actor);
+  let raw: string | null;
+  try { raw = window.sessionStorage.getItem(OWNER_CREATE_PREFIX + encodeURIComponent(actorId)); }
+  catch { throw new Error('OWNER_CREATE_STORAGE_UNAVAILABLE'); }
+  if (raw === null) return null;
+  try {
+    if (raw.length > 16_384) throw new Error();
+    const record = JSON.parse(raw) as OwnerPendingCreate;
+    if (record.schema !== OWNER_CREATE_SCHEMA || record.actorId !== actorId || !UUID_V4.test(record.createIntentId)
+      || !['founder', 'registration'].includes(record.kind)
+      || !['prepared', 'create-unknown', 'created', 'activation-unknown'].includes(record.phase)
+      || !record.body || typeof record.body !== 'object' || Array.isArray(record.body)
+      || Object.keys(record).sort().join(',') !== 'actorId,body,createIntentId,kind,phase,schema') throw new Error();
+    const body = canonicalOwnerBody(record.kind, record.body);
+    if (JSON.stringify(body) !== JSON.stringify(record.body)) throw new Error();
+    return { ...record, body };
+  } catch { throw new Error('OWNER_CREATE_RECORD_INVALID'); }
+}
+function saveOwnerPendingCreate(record: OwnerPendingCreate, coordinator: OwnerAccessOpeningCoordinator, initial = false) {
+  const key = OWNER_CREATE_PREFIX + encodeURIComponent(ownerActorId(record.actorId));
+  const existing = readOwnerPendingCreate(record.actorId);
+  if ((!initial && (!existing || existing.createIntentId !== record.createIntentId || existing.kind !== record.kind
+    || JSON.stringify(existing.body) !== JSON.stringify(record.body))) || (initial && existing)) throw new Error('OWNER_CREATE_RECORD_CHANGED');
+  const raw = JSON.stringify(record);
+  try {
+    window.sessionStorage.setItem(key, raw);
+    if (window.sessionStorage.getItem(key) !== raw) throw new Error();
+  } catch { throw new Error('OWNER_CREATE_STORAGE_UNAVAILABLE'); }
+  coordinator.pendingCreate = record;
+  return record;
+}
+export function loadOwnerPendingCreate(actor: string | undefined, coordinator: OwnerAccessOpeningCoordinator) {
+  const actorId = ownerActorId(actor);
+  const pending = readOwnerPendingCreate(actorId);
+  if (!pending && coordinator.pendingCreate?.actorId === actorId) throw new Error('OWNER_CREATE_RECORD_CHANGED');
+  return pending;
+}
+export function prepareOwnerCreate(actor: string | undefined, kind: OwnerPendingCreate['kind'], body: Record<string, unknown>, coordinator: OwnerAccessOpeningCoordinator, existingOnly = false) {
+  const actorId = ownerActorId(actor);
+  const existing = readOwnerPendingCreate(actorId);
+  if (existing) {
+    if (existing.kind !== kind) throw new Error('OWNER_CREATE_RECOVERY_REQUIRED');
+    coordinator.pendingCreate = existing;
+    return existing;
+  }
+  if (coordinator.pendingCreate?.actorId === actorId) throw new Error('OWNER_CREATE_RECORD_CHANGED');
+  if (existingOnly) throw new Error('OWNER_CREATE_RECOVERY_REQUIRED');
+  if (typeof window.crypto?.randomUUID !== 'function') throw new Error('OWNER_CREATE_CRYPTO_UNAVAILABLE');
+  return saveOwnerPendingCreate({ schema: OWNER_CREATE_SCHEMA, actorId, kind,
+    createIntentId: window.crypto.randomUUID().toLowerCase(), body: canonicalOwnerBody(kind, body), phase: 'prepared' }, coordinator, true);
+}
+export function markOwnerActivation(record: OwnerPendingCreate, coordinator: OwnerAccessOpeningCoordinator) {
+  return saveOwnerPendingCreate({ ...record, phase: 'activation-unknown' }, coordinator);
+}
+export function completeOwnerCreate(record: OwnerPendingCreate, coordinator: OwnerAccessOpeningCoordinator) {
+  const existing = readOwnerPendingCreate(record.actorId);
+  if (existing?.createIntentId !== record.createIntentId) throw new Error('OWNER_CREATE_RECORD_CHANGED');
+  try { window.sessionStorage.removeItem(OWNER_CREATE_PREFIX + encodeURIComponent(record.actorId)); }
+  catch { throw new Error('OWNER_CREATE_STORAGE_UNAVAILABLE'); }
+  coordinator.pendingCreate = null;
+}
+
+function parseOwnerRecovery(value: unknown, pending: OwnerPendingCreate): OwnerCreateRecovery {
+  const row = value as OwnerCreateRecovery | null;
+  const receipt = row?.originalReceipt;
+  const current = row?.currentProjection;
+  if (!row || row.createIntentId !== pending.createIntentId || receipt?.createIntentId !== pending.createIntentId
+    || typeof receipt.requestId !== 'string' || !receipt.requestId || !['GRANTED', 'PENDING'].includes(receipt.status)
+    || !(receipt.grantId === null || typeof receipt.grantId === 'string') || !Number.isFinite(Date.parse(receipt.expiresAt))
+    || !current || current.requestId !== receipt.requestId || typeof current.requestStatus !== 'string'
+    || !(current.grantId === null || typeof current.grantId === 'string')
+    || !(current.grantStatus === null || typeof current.grantStatus === 'string')
+    || typeof current.activationEligible !== 'boolean' || current.requiresLiveActivationChecks !== true
+    || !Number.isFinite(Date.parse(current.expiresAt))
+    || (receipt.status === 'GRANTED' && (current.grantId !== receipt.grantId || receipt.grantId === null
+      || current.expiresAt !== receipt.expiresAt))) throw new Error('OWNER_CREATE_RECOVERY_INVALID');
+  if (pending.kind === 'founder' && (receipt.schemaVersion !== 'pc-crop.founder-role-mode.v1'
+    || receipt.roleMode?.cabinetKey !== pending.body.cabinetKey
+    || receipt.roleMode?.effectiveOrganizationId !== pending.body.organizationId
+    || receipt.roleMode?.mode !== 'VIEW_AS' || receipt.roleMode?.readOnly !== true)) throw new Error('OWNER_CREATE_RECOVERY_INVALID');
+  return row;
+}
+export async function recoverOwnerCreate(pending: OwnerPendingCreate, signal: AbortSignal) {
+  const query = new URLSearchParams({ view: 'create-intent', createIntentId: pending.createIntentId });
+  const response = await fetch(`/platform-v7/staff/role-mode?${query}`, {
+    credentials: 'same-origin', cache: 'no-store', redirect: 'error', headers: { Accept: 'application/json' }, signal,
+  });
+  const payload = await response.json().catch(() => null) as ApiErrorPayload | null;
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(payloadMessage(payload, 'OWNER_CREATE_RECOVERY_UNAVAILABLE'));
+  return parseOwnerRecovery(payload, pending);
+}
+export async function resolveOwnerCreate(pending: OwnerPendingCreate, coordinator: OwnerAccessOpeningCoordinator,
+  options: { signal: AbortSignal; csrfToken: string; refreshCsrf: () => Promise<string>; isCurrent: () => boolean }) {
+  let record = pending;
+  let recovered = await recoverOwnerCreate(record, options.signal);
+  let token = options.csrfToken;
+  if (!recovered) {
+    if (record.phase === 'created' || record.phase === 'activation-unknown') throw new Error('OWNER_CREATE_RECOVERY_REQUIRED');
+    if (!options.isCurrent()) throw new Error('OWNER_CREATE_IDENTITY_CHANGED');
+    record = saveOwnerPendingCreate({ ...record, phase: 'create-unknown' }, coordinator);
+    const send = () => fetch(record.kind === 'founder' ? '/platform-v7/staff/role-mode' : '/api/staff/access/requests', {
+      method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: {
+        Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-Token': token,
+      }, body: JSON.stringify({ ...record.body, createIntentId: record.createIntentId }), signal: options.signal,
+    });
+    let response = await send();
+    let payload = await response.json().catch(() => null) as RoleModeRequestResponse | null;
+    if (response.status === 403 && payload?.code === 'CSRF_REJECTED') {
+      token = await options.refreshCsrf();
+      if (!options.isCurrent()) throw new Error('OWNER_CREATE_IDENTITY_CHANGED');
+      response = await send();
+      payload = await response.json().catch(() => null) as RoleModeRequestResponse | null;
+    }
+    if (!response.ok || !payload) throw new Error(payloadMessage(payload, 'OWNER_CREATE_OUTCOME_UNKNOWN'));
+    if (!options.isCurrent()) throw new Error('OWNER_CREATE_IDENTITY_CHANGED');
+    record = saveOwnerPendingCreate({ ...record, phase: 'created' }, coordinator);
+    recovered = await recoverOwnerCreate(record, options.signal);
+    if (!recovered) throw new Error('OWNER_CREATE_RECOVERY_REQUIRED');
+  }
+  if (!options.isCurrent()) throw new Error('OWNER_CREATE_IDENTITY_CHANGED');
+  return { record, recovered, token };
+}
+
 // The wrapper supplies one explicit coordinator to both mounted owner surfaces.
 // CORE enforces the actor-wide invariant for concurrent tabs and API callers.
-export type OwnerAccessOpeningCoordinator = { opening: boolean };
+export type OwnerAccessOpeningCoordinator = { opening: boolean; pendingCreate?: OwnerPendingCreate | null };
 export function isOwnerAccessOpening(coordinator: OwnerAccessOpeningCoordinator) { return coordinator.opening; }
 export function reserveOwnerAccessOpening(coordinator: OwnerAccessOpeningCoordinator) {
   if (coordinator.opening) return false;
@@ -179,6 +344,10 @@ const OWNER_COPY = {
     protectedSessionActive: 'Уже активна другая защищённая staff-сессия. Завершите её перед открытием Founder role-mode.',
     sessionUnknown: 'Состояние защищённой сессии не подтверждено. Повторите проверку перед открытием кабинета.',
     retry: 'Повторить проверку сессии',
+    resumeCreate: 'Восстановить запрос',
+    createPending: 'Незавершённый запрос сохранён в этой вкладке. Восстановите его результат перед новым действием.',
+    createStorage: 'Не удалось сохранить запрос в этой вкладке. Разрешите хранение данных и повторите.',
+    createResolved: 'Предыдущий запрос завершён и больше не даёт доступа. Можно начать новое действие.',
   },
   en: {
     eyebrow: 'Platform owner',
@@ -218,6 +387,10 @@ const OWNER_COPY = {
     protectedSessionActive: 'Another protected staff session is active. End it before opening Founder role mode.',
     sessionUnknown: 'The protected session state is unverified. Check it again before opening a cabinet.',
     retry: 'Check session again',
+    resumeCreate: 'Recover request',
+    createPending: 'An unfinished request is saved in this tab. Recover its result before another action.',
+    createStorage: 'This tab could not save the request. Allow site storage and try again.',
+    createResolved: 'The previous request has ended and grants no access. You can start a new action.',
   },
   zh: {
     eyebrow: '平台所有者',
@@ -257,6 +430,10 @@ const OWNER_COPY = {
     protectedSessionActive: '已有其他受保护 staff 会话。请先结束该会话，再开启 Founder role-mode。',
     sessionUnknown: '受保护会话状态尚未确认。请重新检查后再打开工作台。',
     retry: '重新检查会话',
+    resumeCreate: '恢复请求',
+    createPending: '此标签页保存着未完成的请求。请先恢复其结果，再开始其他操作。',
+    createStorage: '此标签页无法保存请求。请允许网站存储后重试。',
+    createResolved: '先前的请求已结束且不再提供访问权限。现在可以开始新的操作。',
   },
 } as const;
 
@@ -365,6 +542,7 @@ export function OwnerAccessCenter(props: Props) {
   const [sessionKnown, setSessionKnown] = useState(false);
   const loadGeneration = useRef(0);
   const [activeMode, setActiveMode] = useState<ActiveRoleMode | null>(null);
+  const [verifiedActorId, setVerifiedActorId] = useState(identity?.id);
   const [projection, setProjection] = useState<CabinetProjection | null>(null);
   const [projectionUnavailable, setProjectionUnavailable] = useState(false);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -374,6 +552,16 @@ export function OwnerAccessCenter(props: Props) {
   const [ticketId, setTicketId] = useState('');
   const [reason, setReason] = useState('');
   const [durationSeconds, setDurationSeconds] = useState(15 * 60);
+  const [pendingCreate, setPendingCreate] = useState<OwnerPendingCreate | null>(null);
+  const actorRef = useRef(identity?.id);
+  actorRef.current = identity?.id;
+  const operationGeneration = useRef(0);
+  const createController = useRef<AbortController | null>(null);
+  useEffect(() => () => { operationGeneration.current += 1; createController.current?.abort(); }, [identity?.id]);
+  useEffect(() => {
+    setOrganizationId(''); setTicketId(''); setReason(''); setDurationSeconds(900);
+    setPendingCreate(null); setActiveMode(null); setProjection(null); setSessionKnown(false);
+  }, [identity?.id]);
 
   const cabinetLabels = useMemo(
     () => registry?.cabinets.map((cabinet, index) => ({
@@ -434,7 +622,8 @@ export function OwnerAccessCenter(props: Props) {
 
   const loadRoleMode = useCallback(async () => {
     const generation = ++loadGeneration.current;
-    const isCurrent = () => generation === loadGeneration.current;
+    const loadActorId = identity?.id;
+    const isCurrent = () => generation === loadGeneration.current && actorRef.current === loadActorId;
     setSessionKnown(false);
     if (!apiAvailable) {
       setRegistry(null);
@@ -446,7 +635,6 @@ export function OwnerAccessCenter(props: Props) {
       return;
     }
     setChecking(true);
-    setOpenError(null);
     try {
       const [assignmentsResponse, registryResponse, sessionResponse, roleModeSessionResponse, ownSessionsResponse] = await Promise.all([
         fetch('/api/staff/assignments/me', {
@@ -487,6 +675,12 @@ export function OwnerAccessCenter(props: Props) {
         && assignments.some((item) => item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE');
       if (!isCurrent()) return;
       setIsOwner(owner);
+      const savedCreate = owner && identity?.id ? loadOwnerPendingCreate(identity.id, coordinator) : null;
+      if (!isCurrent()) return;
+      setPendingCreate(savedCreate);
+      coordinator.pendingCreate = savedCreate;
+      const savedRecovery = savedCreate ? await recoverOwnerCreate(savedCreate, AbortSignal.timeout(8_000)) : null;
+      if (!isCurrent()) return;
       if (!owner) {
         setRegistry(null);
         setSessionContext({ active: false, session: null });
@@ -560,6 +754,7 @@ export function OwnerAccessCenter(props: Props) {
         }
         if (!valid) throw new Error(text.openFailed);
 
+        setVerifiedActorId(identity?.id);
         setActiveMode({
           cabinetKey: canonical.cabinetKey,
           canonicalPath: canonical.canonicalPath,
@@ -576,9 +771,17 @@ export function OwnerAccessCenter(props: Props) {
         });
         setOrganizationId(canonical.effectiveOrganizationId);
         setNotice(null);
+        if (savedCreate?.kind === 'founder' && savedRecovery
+          && ownSessions[0].grant_id === savedRecovery.currentProjection.grantId
+          && canonical.cabinetKey === savedCreate.body.cabinetKey
+          && canonical.effectiveOrganizationId === savedCreate.body.organizationId) {
+          completeOwnerCreate(savedCreate, coordinator);
+          setPendingCreate(null);
+        }
         setSessionKnown(true);
         await loadProjection(session, isCurrent);
       } else {
+        setVerifiedActorId(identity?.id);
         setActiveMode(null);
         setProjection(null);
         setProjectionUnavailable(false);
@@ -586,6 +789,17 @@ export function OwnerAccessCenter(props: Props) {
           setNotice(text.protectedSessionActive);
         } else {
           setNotice(null);
+        }
+        if (savedCreate) {
+          const terminal = savedRecovery && !savedRecovery.currentProjection.activationEligible
+            && (['DENIED', 'REVOKED', 'EXPIRED'].includes(savedRecovery.currentProjection.requestStatus)
+              || ['REVOKED', 'EXPIRED'].includes(savedRecovery.currentProjection.grantStatus || '')
+              || Date.parse(savedRecovery.currentProjection.expiresAt) <= Date.now());
+          if (terminal && savedCreate.phase !== 'activation-unknown') {
+            completeOwnerCreate(savedCreate, coordinator);
+            setPendingCreate(null);
+            setNotice(text.createResolved);
+          } else setNotice(text.createPending);
         }
         setSessionKnown(true);
       }
@@ -601,7 +815,7 @@ export function OwnerAccessCenter(props: Props) {
     } finally {
       if (isCurrent()) setChecking(false);
     }
-  }, [apiAvailable, loadProjection, text.openFailed, text.protectedSessionActive, text.registryUnavailable, text.sessionUnknown]);
+  }, [apiAvailable, coordinator, identity?.id, loadProjection, text.openFailed, text.protectedSessionActive, text.registryUnavailable, text.sessionUnknown, text.createPending, text.createResolved]);
 
   useEffect(() => {
     void loadRoleMode();
@@ -642,80 +856,59 @@ export function OwnerAccessCenter(props: Props) {
     };
   }, [activeMode, loadRoleMode]);
 
-  async function requestRoleMode(cabinet: FounderCabinet, token: string, signal: AbortSignal) {
-    const response = await fetch('/platform-v7/staff/role-mode', {
-      method: 'POST',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': token,
-      },
-      body: JSON.stringify({
-        cabinetKey: cabinet.key,
-        organizationId: organizationId.trim(),
-        reason: reason.trim(),
-        ticketId: ticketId.trim(),
-        durationSeconds,
-      }),
-      signal,
-    });
-    const payload = await response.json().catch(() => null) as RoleModeRequestResponse | null;
-    return { response, payload };
+  async function requestRoleMode(pending: OwnerPendingCreate, token: string, signal: AbortSignal, isCurrent: () => boolean) {
+    return resolveOwnerCreate(pending, coordinator, { signal, csrfToken: token,
+      refreshCsrf: () => refreshCsrf(signal), isCurrent });
   }
 
-  async function openCabinet(cabinet: FounderCabinet) {
-    if (busyKey || sessionContext.active || !sessionKnown) return;
-    if (organizationId.trim().length < 3) {
-      setOpenError(text.organizationHint);
-      return;
-    }
-    if (ticketId.trim().length < 3 || reason.trim().length < 10) {
-      setOpenError(text.openFailed);
-      return;
-    }
+  async function openCabinet(cabinet: FounderCabinet, resume = false) {
+    if (busyKey || sessionContext.active || !sessionKnown || (!resume && pendingCreate)) return;
+    if (!resume && organizationId.trim().length < 3) { setOpenError(text.organizationHint); return; }
+    if (!resume && (ticketId.trim().length < 3 || reason.trim().length < 10)) { setOpenError(text.openFailed); return; }
     if (!reserveOwnerAccessOpening(coordinator)) return;
-
+    const actorId = identity?.id;
+    const generation = ++operationGeneration.current;
+    const isCurrent = () => generation === operationGeneration.current && actorRef.current === actorId;
     setBusyKey(cabinet.key);
     setSessionKnown(false);
     setOpenError(null);
     setNotice(null);
     const controller = new AbortController();
+    createController.current = controller;
     const timeoutId = window.setTimeout(() => controller.abort(), 20_000);
     let activationAttempted = false;
-
     try {
+      let pending = prepareOwnerCreate(actorId, 'founder', { cabinetKey: cabinet.key,
+        organizationId, reason, ticketId, durationSeconds }, coordinator, resume);
+      setPendingCreate(pending);
+      if (pending.body.cabinetKey !== cabinet.key) throw new Error('OWNER_CREATE_RECOVERY_REQUIRED');
       let token = await refreshCsrf(controller.signal);
-      let requested = await requestRoleMode(cabinet, token, controller.signal);
-
-      if (requested.response.status === 403 && requested.payload?.code === 'CSRF_REJECTED') {
-        token = await refreshCsrf(controller.signal);
-        requested = await requestRoleMode(cabinet, token, controller.signal);
+      const result = await requestRoleMode(pending, token, controller.signal, isCurrent);
+      pending = result.record;
+      token = result.token;
+      const recovered = result.recovered;
+      const roleMode = recovered.originalReceipt.roleMode;
+      if (!isCurrent()) return;
+      setPendingCreate(pending);
+      if (!roleMode || roleMode.cabinetKey !== cabinet.key
+        || roleMode.effectiveOrganizationId !== pending.body.organizationId
+        || roleMode.effectiveRole !== cabinet.effectiveRole || roleMode.mode !== 'VIEW_AS'
+        || roleMode.readOnly !== true || roleMode.canonicalPath !== cabinet.canonicalPath) throw new Error(text.openFailed);
+      if (pending.phase === 'activation-unknown') {
+        setNotice(text.sessionUnknown);
+        return;
       }
-      if (!requested.response.ok || !requested.payload) {
-        throw new Error(payloadMessage(requested.payload, text.openFailed));
-      }
-
-      const roleMode = requested.payload.roleMode;
-      if (
-        !roleMode
-        || roleMode.cabinetKey !== cabinet.key
-        || roleMode.effectiveOrganizationId !== organizationId.trim()
-        || roleMode.effectiveRole !== cabinet.effectiveRole
-        || roleMode.mode !== 'VIEW_AS'
-        || roleMode.readOnly !== true
-        || roleMode.canonicalPath !== cabinet.canonicalPath
-      ) {
-        throw new Error(text.openFailed);
-      }
-      if (!requested.payload.grantId) {
+      if (!recovered.currentProjection.activationEligible || !recovered.currentProjection.grantId
+        || recovered.currentProjection.grantStatus !== 'ACTIVE'
+        || Date.parse(recovered.currentProjection.expiresAt) <= Date.now()) {
         setNotice(text.statusPending);
         return;
       }
-
+      if (!isCurrent()) return;
+      pending = markOwnerActivation(pending, coordinator);
+      setPendingCreate(pending);
       activationAttempted = true;
-      const activationResponse = await fetch(`/api/staff/access/grants/${encodeURIComponent(requested.payload.grantId)}/activate`, {
+      const activationResponse = await fetch(`/api/staff/access/grants/${encodeURIComponent(recovered.currentProjection.grantId!)}/activate`, {
         method: 'POST',
         credentials: 'same-origin',
         cache: 'no-store',
@@ -727,7 +920,7 @@ export function OwnerAccessCenter(props: Props) {
         body: '{}',
         signal: controller.signal,
       });
-      const activationPayload = await activationResponse.json().catch(() => null) as ApiErrorPayload | null;
+      const activationPayload = await activationResponse.json().catch(() => null) as (ApiErrorPayload & { accessSessionId?: string }) | null;
       if (!activationResponse.ok) {
         throw new Error(payloadMessage(activationPayload, text.openFailed));
       }
@@ -748,6 +941,7 @@ export function OwnerAccessCenter(props: Props) {
       ]);
       const sessionPayload = await sessionResponse.json().catch(() => null) as SessionContext | null;
       const canonical = await roleModeSessionResponse.json().catch(() => null) as FounderRoleModeSession | null;
+      if (!isCurrent()) return;
       const session = sessionPayload?.session;
       if (
         !sessionResponse.ok
@@ -760,6 +954,7 @@ export function OwnerAccessCenter(props: Props) {
         || canonical.mode !== 'VIEW_AS'
         || canonical.readOnly !== true
         || canonical.mfaRequired !== true
+        || canonical.accessSessionId !== activationPayload?.accessSessionId
         || canonical.accessSessionId !== session.accessSessionId
         || canonical.cabinetKey !== roleMode.cabinetKey
         || canonical.canonicalPath !== roleMode.canonicalPath
@@ -779,6 +974,9 @@ export function OwnerAccessCenter(props: Props) {
         throw new Error(text.openFailed);
       }
 
+      completeOwnerCreate(pending, coordinator);
+      setPendingCreate(null);
+      setVerifiedActorId(actorId);
       setSessionContext(sessionPayload);
       setSessionKnown(true);
       setActiveMode({
@@ -797,22 +995,31 @@ export function OwnerAccessCenter(props: Props) {
       });
       window.dispatchEvent(new Event('pc:staff-session-changed'));
     } catch (error) {
-      if (activationAttempted) {
-        setSessionContext({ active: false, session: null });
-        setSessionKnown(false);
-        setActiveMode(null);
-        setProjection(null);
-        setProjectionUnavailable(true);
-        setNotice(text.sessionUnknown);
-      }
-      const timedOut = error instanceof DOMException && error.name === 'AbortError';
-      setOpenError(timedOut ? text.openFailed : error instanceof Error ? error.message : text.openFailed);
+      if (!isCurrent()) return;
+      setSessionContext({ active: false, session: null });
+      setSessionKnown(false);
+      setActiveMode(null);
+      setProjection(null);
+      setProjectionUnavailable(true);
+      setNotice(activationAttempted ? text.sessionUnknown : text.createPending);
+      const storageError = error instanceof Error && /OWNER_CREATE_(?:STORAGE|CRYPTO|IDENTITY)_/.test(error.message);
+      setOpenError(storageError ? text.createStorage : error instanceof Error && error.message.startsWith('OWNER_CREATE_')
+        ? text.createPending : error instanceof Error ? error.message : text.openFailed);
     } finally {
-      if (!activationAttempted) setSessionKnown(true);
+      if (isCurrent() && !activationAttempted && !coordinator.pendingCreate) setSessionKnown(true);
       window.clearTimeout(timeoutId);
-      setBusyKey(null);
+      if (createController.current === controller) createController.current = null;
+      if (isCurrent()) setBusyKey(null);
       releaseOwnerAccessOpening(coordinator);
     }
+  }
+
+  async function resumePendingCreate() {
+    if (!pendingCreate || busyKey) return;
+    if (pendingCreate.kind !== 'founder' || pendingCreate.phase === 'activation-unknown') { await loadRoleMode(); return; }
+    const cabinet = registry?.cabinets.find((item) => item.key === pendingCreate.body.cabinetKey);
+    if (!cabinet || !sessionKnown) { await loadRoleMode(); return; }
+    await openCabinet(cabinet, true);
   }
 
   async function returnToControlCenter() {
@@ -905,13 +1112,19 @@ export function OwnerAccessCenter(props: Props) {
 
       {openError && <section className={styles.error} role="alert" aria-live="assertive">{openError}</section>}
       {notice && <section className={styles.notice} role="status" aria-live="polite">{notice}</section>}
-      {!sessionKnown && !checking && apiAvailable && (
-        <button type="button" className={styles.advancedButton} onClick={() => void loadRoleMode()} disabled={busyKey !== null}>
+      {pendingCreate && pendingCreate.actorId === identity?.id && (
+        <button type="button" className={styles.advancedButton} onClick={() => void resumePendingCreate()}
+          disabled={busyKey !== null || checking || sessionContext.active} data-owner-create-recovery>
+          {pendingCreate.phase === 'activation-unknown' ? text.retry : text.resumeCreate}
+        </button>
+      )}
+      {!sessionKnown && !checking && apiAvailable && !pendingCreate && (
+        <button type="button" className={styles.advancedButton} onClick={() => { setOpenError(null); void loadRoleMode(); }} disabled={busyKey !== null}>
           {text.retry}
         </button>
       )}
 
-      {sessionContext.active && sessionContext.session && activeMode ? (
+      {verifiedActorId === identity?.id && sessionContext.active && sessionContext.session && activeMode ? (
         <section className={styles.activeMode} data-founder-role-mode-active>
           <div className={styles.activeModeHeader}>
             <div>
@@ -970,7 +1183,7 @@ export function OwnerAccessCenter(props: Props) {
               <label>
                 <span>{text.organization}</span>
                 <input
-                  value={organizationId}
+                  value={verifiedActorId === identity?.id ? organizationId : ''}
                   onChange={(event) => setOrganizationId(event.target.value)}
                   maxLength={128}
                   autoComplete="off"
@@ -981,7 +1194,7 @@ export function OwnerAccessCenter(props: Props) {
               <label>
                 <span>{text.ticket}</span>
                 <input
-                  value={ticketId}
+                  value={verifiedActorId === identity?.id ? ticketId : ''}
                   onChange={(event) => setTicketId(event.target.value)}
                   maxLength={128}
                   autoComplete="off"
@@ -989,7 +1202,7 @@ export function OwnerAccessCenter(props: Props) {
               </label>
               <label>
                 <span>{text.duration}</span>
-                <select value={durationSeconds} onChange={(event) => setDurationSeconds(Number(event.target.value))}>
+                <select value={verifiedActorId === identity?.id ? durationSeconds : 900} onChange={(event) => setDurationSeconds(Number(event.target.value))}>
                   {[5, 10, 15, 30, 60].map((minutes) => (
                     <option key={minutes} value={minutes * 60}>{minutes} {text.minutes}</option>
                   ))}
@@ -998,7 +1211,7 @@ export function OwnerAccessCenter(props: Props) {
               <label className={styles.reasonField}>
                 <span>{text.reason}</span>
                 <textarea
-                  value={reason}
+                  value={verifiedActorId === identity?.id ? reason : ''}
                   onChange={(event) => setReason(event.target.value)}
                   rows={3}
                   maxLength={2000}
@@ -1020,6 +1233,9 @@ export function OwnerAccessCenter(props: Props) {
                     busyKey !== null
                     || sessionContext.active
                     || !sessionKnown
+                    || !identity?.id
+                    || verifiedActorId !== identity?.id
+                    || pendingCreate !== null
                     || organizationId.trim().length < 3
                     || ticketId.trim().length < 3
                     || reason.trim().length < 10

@@ -47,6 +47,7 @@ jobs:
       contents: read
     env:
       EXACT_BASE: ${{ github.event.pull_request.base.sha }}
+      SOURCE_BUDGET_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
     steps:
       - name: Checkout complete exact-head history
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -57,6 +58,258 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '24.8.0'
+      - name: Test owned-ref source budget contract
+        run: |
+          python3 -I - <<'PY_SOURCE_BUDGET_TESTS'
+          from pathlib import Path
+          import tempfile, subprocess, os, json, hashlib, zipfile, unittest, sys
+
+          WORKFLOW = Path.cwd() / '.github/workflows/production-like-kubernetes-acceptance.yml'
+          source = WORKFLOW.read_text()
+          start = "          python3 -I - <<'PY_SOURCE_PREFLIGHT'\n"
+          end = "          PY_SOURCE_PREFLIGHT\n"
+          assert source.count(start) == 1 and source.count(end) == 1
+          block = source.split(start, 1)[1].split(end, 1)[0]
+          assert all(not line or line.startswith('          ') for line in block.splitlines())
+          collector = '\n'.join(line[10:] for line in block.splitlines()) + '\n'
+          GUARD = 'scripts/p7-autopilot-guard.sh'
+          TEST = 'scripts/p7-autopilot-guard.test.mjs'
+          FIXED = ['AGENTS.md', '.github/workflows/platform-v7-autopilot-guard.yml',
+                   '.github/workflows/production-like-kubernetes-acceptance.yml', GUARD, TEST,
+                   'scripts/p7-source-controlled-scope.mjs', 'docs/platform-v7/autopilot/autopilot-state.json',
+                   'docs/platform-v7/autopilot/scopes/fixture.json']
+
+          # Execute the actual extracted collector with an instrumented subprocess
+          # boundary. Synthetic timing does not represent native-suite acceptance.
+          from unittest import mock
+          import signal
+          import time
+
+
+          class SourceBudgetChecks(unittest.TestCase):
+              def fixture(self, root, test_fail=False, guard_fail=False):
+                      repo=root/'repo';repo.mkdir();out=root/'runner';out.mkdir()
+                      def git(*args):
+                          return subprocess.check_output(['git',*args],cwd=repo,stderr=subprocess.DEVNULL).decode().strip()
+                      git('init','-b','main');git('config','user.email','fixture@example.invalid');git('config','user.name','fixture')
+                      for name in FIXED:
+                          p=repo/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('{}\n')
+                      (repo/GUARD).write_text('#!/bin/bash\nexit '+str(1 if guard_fail else 0)+'\n')
+                      (repo/TEST).write_text("import test from 'node:test'; import assert from 'node:assert/strict';\n"
+                           + "test('source fixture', () => { assert.equal(1, "+str(2 if test_fail else 1)+"); });\n")
+                      git('add','.');git('commit','-m','base');base=git('rev-parse','HEAD')
+                      git('checkout','-b','ir/k8s-production-like-2659');(repo/'AGENTS.md').write_text('public candidate\n')
+                      git('add','.');git('commit','-m','candidate');head=git('rev-parse','HEAD')
+                      env=dict(os.environ,EXACT_HEAD=head,EXACT_BASE=base,RUNNER_TEMP=str(out),GITHUB_RUN_ID='123',GITHUB_RUN_ATTEMPT='1',GITHUB_HEAD_REF='ir/k8s-production-like-2659')
+                      return repo,out,env,git
+
+              def execute_collector(self, behavior='pass', head_ref='fix/public-registration-final-copy-4916',
+                                    guard_seconds=300, head_repository='fixture/repository',
+                                    repository='fixture/repository'):
+                  with tempfile.TemporaryDirectory(prefix='source-budget-contract-') as temp:
+                      directory = Path(temp)
+                      repo, out, env, git = self.fixture(directory)
+                      env.update(GITHUB_HEAD_REF=head_ref, GITHUB_REPOSITORY=repository,
+                                 SOURCE_BUDGET_HEAD_REPOSITORY=head_repository)
+                      namespace = {'__name__': 'source_budget_contract_probe'}
+                      exec(compile(collector, str(WORKFLOW) + ':embedded-python', 'exec'), namespace)
+                      original_run = subprocess.run
+                      original_temporary_file = tempfile.TemporaryFile
+                      calls, raw_files = [], []
+                      group_proof = {}
+
+                      def temporary_file(*args, **kwargs):
+                          value = original_temporary_file(*args, **kwargs)
+                          raw_files.append(value)
+                          return value
+
+                      def run_group_timeout(stdout):
+                          # Scale only the test adapter's clock, after observing the
+                          # unchanged production --kill-after=5s and selected budget.
+                          # GNU timeout still signals an actual separate process group.
+                          probe = directory / 'owned-process-group'
+                          probe.mkdir()
+                          child_source = r"""
+          import json, os, signal, sys, time
+          from pathlib import Path
+          root = Path(sys.argv[1])
+          def stopped(signum, frame):
+              (root / 'child.term').write_text(str(signum))
+              sys.exit(0)
+          signal.signal(signal.SIGTERM, stopped)
+          (root / 'child.json').write_text(json.dumps({'pid': os.getpid(), 'group': os.getpgrp()}))
+          while True:
+              time.sleep(0.01)
+          """
+                          parent_source = r"""
+          import json, os, signal, subprocess, sys, time
+          from pathlib import Path
+          root = Path(sys.argv[1])
+          child = None
+          def stopped(signum, frame):
+              (root / 'parent.term').write_text(str(signum))
+              if child is not None:
+                  child.wait(timeout=1)
+              sys.exit(0)
+          signal.signal(signal.SIGTERM, stopped)
+          child = subprocess.Popen([sys.executable, '-c', sys.argv[2], str(root)])
+          (root / 'parent.json').write_text(json.dumps({'pid': os.getpid(), 'group': os.getpgrp()}))
+          while True:
+              time.sleep(0.01)
+          """
+                          result = original_run(
+                              ['timeout', '--kill-after=0.5s', '1s',
+                               sys.executable, '-I', '-c', parent_source, str(probe), child_source],
+                              stdout=stdout, stderr=subprocess.STDOUT, timeout=4,
+                              start_new_session=True,
+                          )
+                          parent = json.loads((probe / 'parent.json').read_text())
+                          child = json.loads((probe / 'child.json').read_text())
+                          self.assertEqual(result.returncode, 124)
+                          self.assertEqual(parent['group'], child['group'])
+                          self.assertNotEqual(parent['group'], os.getpgrp())
+                          self.assertEqual((probe / 'parent.term').read_text(), str(signal.SIGTERM))
+                          self.assertEqual((probe / 'child.term').read_text(), str(signal.SIGTERM))
+                          # The parent reaps the descendant; timeout reaps the parent.
+                          for process in [parent, child]:
+                              with self.assertRaises(ProcessLookupError):
+                                  os.kill(process['pid'], 0)
+                          group_proof.update(parent=parent, child=child, exit_code=result.returncode)
+                          return result
+
+                      def run(command, *args, **kwargs):
+                          if not isinstance(command, list) or not command or command[0] != 'timeout':
+                              return original_run(command, *args, **kwargs)
+                          calls.append({'command': command[:], 'outer_timeout': kwargs.get('timeout')})
+                          self.assertEqual(command[1], '--kill-after=5s')
+                          self.assertEqual(kwargs['stderr'], subprocess.STDOUT)
+                          self.assertEqual(kwargs['env']['BASE_REF'], env['EXACT_BASE'])
+                          self.assertEqual(kwargs['env']['HEAD_REF'], env['EXACT_HEAD'])
+                          guard = command[3:] == ['node', '--test', '--test-reporter=tap', TEST]
+                          branch = command[3:] == ['bash', GUARD]
+                          self.assertTrue(guard or branch)
+                          self.assertEqual(command[2], str(guard_seconds) + 's' if guard else '180s')
+                          self.assertEqual(kwargs['timeout'], guard_seconds + 15 if guard else 195)
+                          if guard and behavior == 'outer-timeout':
+                              kwargs['stdout'].write(b'do-not-publish\n')
+                              raise subprocess.TimeoutExpired(command, kwargs['timeout'])
+                          if guard and behavior == 'guard-timeout':
+                              return run_group_timeout(kwargs['stdout'])
+                          if branch and behavior == 'branch-timeout':
+                              return subprocess.CompletedProcess(command, 124)
+                          if guard:
+                              kwargs['stdout'].write(
+                                  b'TAP version 13\n1..1\n# tests 1\n# pass 1\n# fail 0\n'
+                                  b'# cancelled 0\n# skipped 0\n'
+                              )
+                          return subprocess.CompletedProcess(command, 0)
+
+                      previous_directory = Path.cwd()
+                      try:
+                          os.chdir(repo)
+                          with mock.patch.dict(os.environ, env), \
+                               mock.patch.object(subprocess, 'run', run), \
+                               mock.patch.object(tempfile, 'TemporaryFile', temporary_file):
+                              if behavior == 'outer-timeout':
+                                  with self.assertRaises(subprocess.TimeoutExpired):
+                                      namespace['main']()
+                              elif behavior in ('guard-timeout', 'branch-timeout'):
+                                  with self.assertRaisesRegex(ValueError, 'SOURCE_PREFLIGHT_REJECTED'):
+                                      namespace['main']()
+                              else:
+                                  namespace['main']()
+                      finally:
+                          os.chdir(previous_directory)
+                      self.assertTrue(raw_files)
+                      self.assertTrue(all(value.closed for value in raw_files))
+                      artifact = out / 'ir20-source-preflight'
+                      report = json.loads((artifact / 'report.json').read_text())
+                      self.assertFalse(report['independent_review'])
+                      self.assertFalse(report['production_acceptance'])
+                      self.assertNotIn('do-not-publish', json.dumps(report))
+                      self.assertEqual(report['head'], env['EXACT_HEAD'])
+                      self.assertEqual(report['base'], env['EXACT_BASE'])
+                      archive_path = artifact / 'public-sources.zip'
+                      self.assertEqual(hashlib.sha256(archive_path.read_bytes()).hexdigest(),
+                                       report['source_zip_sha256'])
+                      with zipfile.ZipFile(archive_path) as archive:
+                          self.assertEqual(len(archive.namelist()), len(report['sources']))
+                          for entry in report['sources']:
+                              raw = archive.read(entry['ref'] + '/' + entry['path'])
+                              self.assertEqual(hashlib.sha256(raw).hexdigest(), entry['sha256'])
+                              self.assertEqual(hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest(),
+                                               entry['blob'])
+                      self.assertCountEqual([path.name for path in artifact.iterdir()],
+                                            ['report.json', 'public-sources.zip'])
+                      return report, calls, group_proof
+
+              def test_both_owned_refs_get_guard_300_outer_315(self):
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028']:
+                      with self.subTest(ref=ref):
+                          report, calls, _ = self.execute_collector(head_ref=ref)
+                          self.assertEqual(report['result'], 'PASS')
+                          self.assertEqual(report['stage'], 'complete')
+                          self.assertEqual(len(calls), 2)
+                          self.assertEqual([check['exit_code'] for check in report['checks']], [0, 0])
+                          self.assertEqual(report['checks'][0]['tap_totals']['tests'], 1)
+
+              def test_other_and_empty_refs_keep_guard_180_outer_195(self):
+                  for ref in ['ir/k8s-production-like-2659', '']:
+                      with self.subTest(ref=ref):
+                          report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=180)
+                          self.assertEqual(report['result'], 'PASS')
+                          self.assertEqual(calls[0]['outer_timeout'], 195)
+
+              def test_fork_name_collision_and_missing_identity_keep_original_budget(self):
+                  for head_repo, repo in [('fork/repository', 'fixture/repository'), ('', '')]:
+                      with self.subTest(head_repository=head_repo, repository=repo):
+                          report, calls, _ = self.execute_collector(guard_seconds=180,
+                              head_repository=head_repo, repository=repo)
+                          self.assertEqual(report['result'], 'PASS')
+                          self.assertEqual(calls[0]['outer_timeout'], 195)
+
+              def test_guard_timeout_124_kills_owned_group_and_keeps_scope_and_artifact(self):
+                  report, calls, group = self.execute_collector('guard-timeout')
+                  self.assertEqual(report['result'], 'FAIL')
+                  self.assertEqual(len(calls), 2)
+                  self.assertEqual(group['exit_code'], 124)
+                  self.assertEqual([check['exit_code'] for check in report['checks']], [124, 0])
+
+              def test_branch_timeout_keeps_180_outer_195_and_cannot_pass(self):
+                  report, calls, _ = self.execute_collector('branch-timeout')
+                  self.assertEqual(report['result'], 'FAIL')
+                  self.assertEqual(len(calls), 2)
+                  self.assertEqual([check['exit_code'] for check in report['checks']], [0, 124])
+
+              def test_outer_guard_timeout_retains_failed_bound_artifact_and_closes_raw_file(self):
+                  report, calls, _ = self.execute_collector('outer-timeout')
+                  self.assertEqual(report['result'], 'FAIL')
+                  self.assertEqual(report['stage'], 'guard-regressions')
+                  self.assertEqual(len(calls), 1)
+                  self.assertEqual(calls[0]['outer_timeout'], 315)
+                  self.assertEqual(report['checks'], [])
+
+              def test_workflow_retains_job_bounds_and_always_artifact_step(self):
+                  preflight = source.split('\n  source-preflight:\n', 1)[1].split(
+                      '\n  production-like-kubernetes:\n', 1)[0]
+                  runtime = source.split('\n  production-like-kubernetes:\n', 1)[1].split(
+                      '\n  production-like-kubernetes-gate:\n', 1)[0]
+                  self.assertIn('    timeout-minutes: 8\n', preflight)
+                  self.assertIn('    timeout-minutes: 300\n', runtime)
+                  self.assertIn("          node-version: '24.8.0'\n", preflight)
+                  self.assertIn('      - name: Retain source-bound result without raw errors\n'
+                                '        if: always()\n', preflight)
+                  self.assertIn('          if-no-files-found: error\n', preflight)
+                  self.assertIn('      - name: Enforce machine-readable Kubernetes evidence\n'
+                                '        if: always()\n', runtime)
+                  self.assertIn('      - name: Enforce exact-head outbox runtime evidence\n'
+                                '        if: always()\n', runtime)
+                  self.assertIn('      - name: Cleanup disposable acceptance environment\n'
+                                '        if: always()\n', runtime)
+
+
+          unittest.main(verbosity=2)
+          PY_SOURCE_BUDGET_TESTS
       - name: Test source collector rejection paths
         run: bash scripts/release/production-like-kubernetes-source-preflight-test.sh
       - name: Bind public source bytes to bounded guard execution
@@ -127,7 +380,9 @@ jobs:
                               require(len(entry) == 4 and entry[0] in ('100644', '100755') and entry[1] == 'blob' and entry[3] == path)
                               content = git('cat-file', 'blob', entry[2])
                               total += len(content)
-                              require(len(content) <= 2 * 1024 * 1024 and total <= 32 * 1024 * 1024)
+                              # Full reviewed payloads grow the one named governance registry; all other source limits stay fixed.
+                              max_source_bytes = (3 if path == 'docs/platform-v7/autopilot/autopilot-state.json' else 2) * 1024 * 1024
+                              require(len(content) <= max_source_bytes and total <= 32 * 1024 * 1024)
                               content.decode('utf-8')
                               require(hashlib.sha1(b'blob ' + str(len(content)).encode() + b'\0' + content).hexdigest() == entry[2])
                               report['sources'].append({'ref': label, 'path': path, 'blob': entry[2],
@@ -139,15 +394,24 @@ jobs:
                   report['source_zip_sha256'] = digest((out / 'public-sources.zip').read_bytes())
                   save()
                   env = dict(os.environ, BASE_REF=base, HEAD_REF=head)
+                  owned_budget_refs = {
+                      'fix/public-registration-final-copy-4916',
+                      'fix/guard-fixture-compression-20261028',
+                  }
+                  own_repository = os.environ.get('GITHUB_REPOSITORY', '')
+                  owned_budget = (os.environ.get('GITHUB_HEAD_REF', '') in owned_budget_refs and
+                                  bool(own_repository) and
+                                  os.environ.get('SOURCE_BUDGET_HEAD_REPOSITORY', '') == own_repository)
                   commands = [('guard-regressions', ['node', '--test', '--test-reporter=tap', 'scripts/p7-autopilot-guard.test.mjs']),
                               ('branch-scope', ['bash', 'scripts/p7-autopilot-guard.sh'])]
                   for name, command in commands:
+                      budget_seconds = 300 if name == 'guard-regressions' and owned_budget else 180
                       report['stage'] = name
                       save()
                       # Raw test errors are private temporary bytes, not uploaded logs.
                       with tempfile.TemporaryFile() as raw:
-                          result = subprocess.run(['timeout', '--kill-after=5s', '180s', *command], env=env,
-                                                  stdout=raw, stderr=subprocess.STDOUT, timeout=195)
+                          result = subprocess.run(['timeout', '--kill-after=5s', f'{budget_seconds}s', *command], env=env,
+                                                  stdout=raw, stderr=subprocess.STDOUT, timeout=budget_seconds + 15)
                           raw.seek(0)
                           output_hash, length, prefix = hashlib.sha256(), 0, b''
                           while chunk := raw.read(65536):

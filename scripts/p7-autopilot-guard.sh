@@ -54,8 +54,96 @@ PRODUCT_DEAL_RUNTIME_BRANCH="ux/deal-runtime-unknown-20260929"
 PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH="governance/product-deal-runtime-admission-20260929"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
+# The stopped-copy executor is executable recovery authority. Its six source
+# objects must match a separate admission already present in the trusted base;
+# a manifest or admission supplied by the candidate cannot authorize itself.
+if [ "$CURRENT_BRANCH" = 'ops/ir20-isolated-restore-20260919' ]; then
+  BASE_REF="$BASE_REF" HEAD_REF="$HEAD_REF" STATE_FILE="$STATE_FILE" node - <<'JS_IR20_SOURCE_PINS'
+const { execFileSync } = require('node:child_process');
+const { createHash } = require('node:crypto');
+const { isDeepStrictEqual } = require('node:util');
+const base = process.env.BASE_REF;
+const head = process.env.HEAD_REF;
+const branch = 'ops/ir20-isolated-restore-20260919';
+const stateFile = process.env.STATE_FILE;
+const capacity = 3 * 1024 * 1024;
+function reject(reason) { throw new Error(`IR20_SOURCE_PINS:${reason}`); }
+function git(args, maxBuffer = capacity + 1) {
+  return execFileSync('git', args, { maxBuffer });
+}
+function bytes(ref, file, maxBuffer) { return git(['show', `${ref}:${file}`], maxBuffer); }
+function digest(value) { return createHash('sha256').update(value).digest('hex'); }
+function entry(ref, file) {
+  const value = git(['ls-tree', ref, '--', file]).toString('utf8').trim();
+  const match = /^(100644|100755) blob ([0-9a-f]{40})\t(.+)$/.exec(value);
+  if (!match || match[3] !== file) reject(`REGULAR_FILE:${file}`);
+  return match[1];
+}
+const paths = [
+  'scripts/release/ir20-restore-drill.sh',
+  'scripts/release/test-ir20-restore-drill.py',
+  'scripts/release/test-ir20-restore-drill-integration.sh',
+  '.github/workflows/ir20-restore-drill.yml',
+  'docs/ops/ir20-isolated-restore.md',
+  'docs/platform-v7/autopilot/scopes/ir20-isolated-restore-20260919.json',
+];
+const modes = ['100755', '100755', '100755', '100644', '100644', '100644'];
+const stateBytes = bytes(base, stateFile);
+if (stateBytes.length > capacity) reject('STATE_CAPACITY');
+let state;
+try { state = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(stateBytes)); }
+catch { reject('STATE_ENCODING_OR_JSON'); }
+const admission = state.coordinationAdmissions?.['ir20-stopped-copy-source-20261023'];
+if (!admission) reject('ACCEPTED_ADMISSION_MISSING');
+if (!isDeepStrictEqual(Object.keys(admission).sort(), [
+    'authorityBaseExactMain', 'dependencySha256', 'limits', 'owner', 'ownerDecision',
+    'productionAcceptance', 'productionInvocationAuthorized', 'sourceBranch', 'sourcePins', 'writerHandoff',
+  ])) reject('ADMISSION_SCHEMA');
+if (admission.owner !== 'ACCOUNT_1_CORE' || admission.sourceBranch !== branch ||
+    admission.ownerDecision !== '#5469#issuecomment-6354447020' ||
+    admission.writerHandoff !== '#5469#issuecomment-6368785509' ||
+    admission.productionInvocationAuthorized !== false || admission.productionAcceptance !== false ||
+    !/^[0-9a-f]{40}$/.test(admission.authorityBaseExactMain || '') ||
+    admission.limits !== 'Six-path source-only stopped PG16 volatile-copy prerequisite. No host dispatch, original startup, transfer or new cost.') reject('ADMISSION_IDENTITY');
+if (!isDeepStrictEqual(state.approvedConcurrentScopes?.[branch], paths)) reject('ACCEPTED_VECTOR');
+if (!Array.isArray(admission.sourcePins) || admission.sourcePins.length !== paths.length) reject('PIN_COUNT');
+git(['merge-base', '--is-ancestor', admission.authorityBaseExactMain, base]);
+git(['merge-base', '--is-ancestor', base, head]);
+if (!bytes(head, stateFile).equals(stateBytes)) reject('CANDIDATE_STATE_MUTATION');
+const changes = git(['diff', '--no-renames', '--name-status', `${base}...${head}`])
+  .toString('utf8').trim().split('\n').filter(Boolean).map(line => line.split('\t'));
+if (changes.length !== paths.length || changes.some(([status, file, extra]) =>
+    status !== 'M' || extra || !paths.includes(file))) reject('EXACT_SIX_PATH_DIFF');
+for (let index = 0; index < paths.length; index++) {
+  const file = paths[index];
+  const pin = admission.sourcePins[index];
+  if (!pin || !isDeepStrictEqual(Object.keys(pin).sort(), ['mode', 'path', 'sha256']) ||
+      pin.path !== file || pin.mode !== modes[index] || !/^[0-9a-f]{64}$/.test(pin.sha256 || '')) reject(`PIN_SCHEMA:${file}`);
+  if (entry(admission.authorityBaseExactMain, file) !== pin.mode ||
+      entry(base, file) !== pin.mode || entry(head, file) !== pin.mode) reject(`MODE:${file}`);
+  // The admission's immutable main SHA binds the complete before bytes too.
+  // A later main fix must receive a new reviewed transition, never be reverted
+  // merely because the candidate still matches the old after-payload pins.
+  if (!bytes(base, file).equals(bytes(admission.authorityBaseExactMain, file))) reject(`REPLACEMENT_BASE_DRIFT:${file}`);
+  if (digest(bytes(head, file)) !== pin.sha256) reject(`DIGEST:${file}`);
+}
+const dependencies = {
+  'scripts/production_stopped_runtime_headroom.py': '6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14',
+  'scripts/production_cold_preservation.py': '19c873694debb0076701a912b394aad6bb0e092947f04d97e5144320ca5ca832',
+};
+if (!isDeepStrictEqual(admission.dependencySha256, dependencies)) reject('DEPENDENCY_PINS');
+for (const [file, sha] of Object.entries(dependencies)) {
+  if (entry(base, file) !== entry(head, file) || digest(bytes(base, file)) !== sha ||
+      digest(bytes(head, file)) !== sha) reject(`DEPENDENCY:${file}`);
+}
+console.log('IR20_SOURCE_PINS: accepted-base exact six-file payload verified; no production invocation grant.');
+JS_IR20_SOURCE_PINS
+fi
+
 is_immutable_scope_branch() {
   case "$1" in
+    'ops/ir20-isolated-restore-20260919') return 0 ;;
+    "fix/pc-crop-docker-headroom-rollover-4637") return 0 ;;
     "security/accounting-bff-csrf-3-5-1"|"security/module-body-validation"|"security/bff-upstream-path-encoding-4459"|"security/request-cookie-single-reader-4459"|"security/open-redirect-demo-login-4459"|"security/email-check-length-first-4459"|"security/browser-hardening-headers-4459"|"security/outbound-redirect-and-surface-4459"|"security/credential-surface-4459"|"fix/tai-release-run-event-filter-20261008") return 0 ;;
     "fix/gekta-history-lifecycle-5818"|"governance/gekta-history-lifecycle-source-admission-5818") return 0 ;;
     "$PRODUCT_DEAL_RUNTIME_BRANCH"|"$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH") return 0 ;;
@@ -521,8 +609,27 @@ if [ "${GITHUB_HEAD_REF:-}" = "fix/exact-main-live-evidence-2659" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$EXACT_MAIN_LIVE_EVIDENCE_SCOPE")
 fi
 
+P7_EXACT_SCOPE_FRAME_ATTEMPTED=0
+P7_EXACT_SCOPE_FRAME_VALID=0
+P7_EXACT_SCOPE_CHECKSUM_UNAVAILABLE=0
+P7_EXACT_SCOPE_CAPTURE_DIFF=''
+P7_EXACT_SCOPE_CAPTURE_SCOPE=''
+P7_EXACT_SCOPE_CAPTURE_MODE=''
+P7_EXACT_SCOPE_CAPTURE_BRANCH=''
+P7_EXACT_SCOPE_PRECOMPUTED_RESULT=''
 if is_immutable_scope_branch "$CURRENT_BRANCH"; then
-  APPROVED_BRANCH_SCOPE=$(BASE_REF="$BASE_REF" HEAD_REF="$HEAD_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" PUBLIC_HOME_IMPLEMENTATION_BRANCH="$PUBLIC_HOME_IMPLEMENTATION_BRANCH" PUBLIC_HOME_GOVERNANCE_MANIFEST="$PUBLIC_HOME_GOVERNANCE_MANIFEST" PUBLIC_HOME_IMPLEMENTATION_MANIFEST="$PUBLIC_HOME_IMPLEMENTATION_MANIFEST" POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH="$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" POISON_ISOLATION_IMPLEMENTATION_BRANCH="$POISON_ISOLATION_IMPLEMENTATION_BRANCH" POISON_ISOLATION_MANIFEST="$POISON_ISOLATION_MANIFEST" node - <<'JS'
+  P7_EXACT_SCOPE_FRAME_ATTEMPTED=1
+  P7_EXACT_SCOPE_CAPTURE_DIFF="$DIFF_FILES"
+  P7_EXACT_SCOPE_CAPTURE_MODE=1
+  P7_EXACT_SCOPE_CAPTURE_BRANCH="$CURRENT_BRANCH"
+  # Keep the raw diff out of argv/environment until authority validation has
+  # completed. An orphan head can produce a diff larger than one exec string.
+  p7_exact_scope_diff_size() {
+    local LC_ALL=C
+    P7_EXACT_SCOPE_DIFF_BYTES=${#DIFF_FILES}
+  }
+  p7_exact_scope_diff_size
+  P7_EXACT_SCOPE_FRAME=$(P7_EXACT_SCOPE_DIFF_BYTES="$P7_EXACT_SCOPE_DIFF_BYTES" P7_EXACT_APPROVED_SCOPE=1 BASE_REF="$BASE_REF" HEAD_REF="$HEAD_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" PUBLIC_HOME_IMPLEMENTATION_BRANCH="$PUBLIC_HOME_IMPLEMENTATION_BRANCH" PUBLIC_HOME_GOVERNANCE_MANIFEST="$PUBLIC_HOME_GOVERNANCE_MANIFEST" PUBLIC_HOME_IMPLEMENTATION_MANIFEST="$PUBLIC_HOME_IMPLEMENTATION_MANIFEST" POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH="$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" POISON_ISOLATION_IMPLEMENTATION_BRANCH="$POISON_ISOLATION_IMPLEMENTATION_BRANCH" POISON_ISOLATION_MANIFEST="$POISON_ISOLATION_MANIFEST" node - 3< <(printf '%s' "$DIFF_FILES" 2>/dev/null) <<'JS'
 const { execFileSync } = require('node:child_process');
 
 const baseRef = String(process.env.BASE_REF || '').trim();
@@ -537,6 +644,26 @@ const poisonIsolationImplementationBranch = String(process.env.POISON_ISOLATION_
 const poisonIsolationManifest = String(process.env.POISON_ISOLATION_MANIFEST || '').trim();
 if (!baseRef || !stateFile || !branch) {
   throw new Error('P7_IMMUTABLE_SCOPE: immutable scope inputs are required');
+}
+
+// Only the named immutable registry gets this fixed allowance. Read complete
+// bytes before decoding; every manifest/source reader keeps its existing bound.
+const immutableStateCapacity = 3 * 1024 * 1024;
+function readImmutableState(ref) {
+  if (stateFile !== 'docs/platform-v7/autopilot/autopilot-state.json') {
+    throw new Error('P7_IMMUTABLE_STATE_PATH');
+  }
+  let bytes;
+  try {
+    bytes = execFileSync('git', ['show', `${ref}:${stateFile}`], { maxBuffer: immutableStateCapacity + 1 });
+  } catch (error) {
+    if (error?.code === 'ENOBUFS') throw new Error('P7_IMMUTABLE_STATE_CAPACITY');
+    throw error;
+  }
+  if (bytes.length > immutableStateCapacity) throw new Error('P7_IMMUTABLE_STATE_CAPACITY');
+  const text = bytes.toString('utf8');
+  if (!Buffer.from(text, 'utf8').equals(bytes)) throw new Error('P7_IMMUTABLE_STATE_UTF8');
+  return text;
 }
 
 // These bounded recovery routes are owned by the accepted base guard.
@@ -580,8 +707,171 @@ const gektaRecoveryScopes = {
   ]
 };
 let scopes;
-if (Object.hasOwn(gektaRecoveryScopes, branch)) {
+if (branch === 'fix/pc-crop-docker-headroom-rollover-4637') {
+  // This source may consume only a separately accepted, base-owned purpose.
+  // PRIMARY, a candidate manifest and candidate guard never grant authority.
+  const { isDeepStrictEqual } = require('node:util');
+  const { createHash } = require('node:crypto');
+  const fail = code => { throw new Error('PC_CROP_HEADROOM_SCOPE_' + code); };
+  const headRef = String(process.env.HEAD_REF || '').trim();
+  const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 + 1 });
+  const read = (ref, file) => file === stateFile ? readImmutableState(ref) : git(['show', `${ref}:${file}`]);
+  const baseSha = git(['rev-parse', `${baseRef}^{commit}`]).trim();
+  if (!headRef || git(['merge-base', baseRef, headRef]).trim() !== baseSha) fail('BASE_NOT_ANCESTOR');
+  const queuePath = 'docs/platform-v7/execution-queue.md';
+  const marker = '\n## PC-CROP bounded Docker headroom parent-prune correction — 2026-10-11\n\n```json\n';
+  const queue = read(baseRef, queuePath);
+  const parts = queue.split(marker);
+  if (parts.length !== 2) fail('PURPOSE_NOT_ACCEPTED');
+  const end = parts[1].indexOf('\n```\n');
+  if (end < 0) fail('PURPOSE_FORMAT');
+  let purpose;
+  try { purpose = JSON.parse(parts[1].slice(0, end)); } catch { fail('PURPOSE_FORMAT'); }
+  const paths = ["scripts/production-docker-headroom-recovery.sh", ".github/workflows/production-docker-headroom-recovery.yml", "docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json"];
+  const payloads = [{"path":"scripts/production-docker-headroom-recovery.sh","mode":"100755","beforeBlob":"3dd97da34a9b149f53b1c188b26d720d7576d0ab","afterBlob":"6bcee2671c9cd5a100d956c30734bc1bf42768af","sha256":"379271a11f6a51b91aee4c8b9a80fd0473094098f6109aa1a77a3587947b840a","bytes":19235},{"path":".github/workflows/production-docker-headroom-recovery.yml","mode":"100644","beforeBlob":"f9ab8807f33328eac803d4d7da7dd092c1f5ee9b","afterBlob":"13564e9ebae27c85cbb12e23d2b03ead2406d422","sha256":"e4c764905a3ad70ef0502fa0f0c90c1d3dadb7ccde25eb7cd9731c125b75307b","bytes":37545},{"path":"docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json","mode":"100644","beforeBlob":"4a795f9aa2e07c3d58751748d9102797947862c0","afterBlob":"deb7672c69db09ab0b233cf011e79a904bc5f1a7","sha256":"f79d23760cd655e414d64171478ddfdf08889a798eadd9630b00399d31ca7a4b","bytes":4489}];
+  if (purpose.purposeId !== 'pc-crop-bounded-docker-headroom-no-prune-20261011' ||
+      purpose.sourceBranch !== branch || purpose.owner !== 'ACCOUNT_1_CORE' ||
+      purpose.contributor !== 'ACCOUNT_2_PRODUCT' ||
+      purpose.authorityBaseExactMain !== '4abe41186f78022fa6e6b08e338880eb33e7d2d8' ||
+      !isDeepStrictEqual(purpose.sourcePayloads, payloads)) fail('PURPOSE_IDENTITY');
+  try { execFileSync('git', ['merge-base', '--is-ancestor', purpose.authorityBaseExactMain, baseRef], { stdio: 'pipe' }); }
+  catch { fail('AUTHORITY_NOT_ANCESTOR'); }
+  const accepted = JSON.parse(readImmutableState(baseRef));
+  if (!isDeepStrictEqual(accepted.approvedConcurrentScopes?.[branch], paths)) fail('SOURCE_NOT_ADMITTED');
+  if (read(headRef, stateFile) !== read(baseRef, stateFile)) fail('STATE_MUTATION');
+  const guardPaths = ['scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs', '.github/workflows/platform-v7-autopilot-guard.yml'];
+  if (!Array.isArray(purpose.guardPayloads) || purpose.guardPayloads.length !== guardPaths.length ||
+      !isDeepStrictEqual(purpose.guardPayloads.map(item => item.path), guardPaths)) fail('GUARD_PAYLOAD_IDENTITY');
+  const entry = (ref, file) => git(['ls-tree', ref, '--', file]).trim();
+  const exact = (ref, item, blob) => {
+    if (!['100644', '100755'].includes(item.mode) || !/^[0-9a-f]{40}$/.test(blob || '') ||
+        entry(ref, item.path) !== `${item.mode} blob ${blob}\t${item.path}`) fail('BLOB_OR_MODE:' + item.path);
+  };
+  for (const item of purpose.guardPayloads) {
+    exact(baseRef, item, item.afterBlob);
+    const bytes = execFileSync('git', ['show', `${baseRef}:${item.path}`], { maxBuffer: 2 * 1024 * 1024 });
+    if (bytes.length !== item.bytes || createHash('sha256').update(bytes).digest('hex') !== item.sha256) fail('GUARD_NOT_ACCEPTED');
+  }
+  const fields = git(['diff', '--raw', '--no-abbrev', '--no-renames', '-z', baseRef, headRef]).split('\0');
+  if (fields.pop() !== '' || fields.length !== payloads.length * 2) fail('EXACT_THREE_PATHS_REQUIRED');
+  const expected = new Map(payloads.map(item => [item.path, item]));
+  for (let i = 0; i < fields.length; i += 2) {
+    const item = expected.get(fields[i + 1]);
+    if (!item || fields[i] !== `:${item.mode} ${item.mode} ${item.beforeBlob} ${item.afterBlob} M`) fail('SOURCE_PAYLOAD_OR_MODE');
+    expected.delete(item.path);
+    exact(baseRef, item, item.beforeBlob); exact(headRef, item, item.afterBlob);
+    const bytes = execFileSync('git', ['show', `${headRef}:${item.path}`]);
+    if (bytes.length !== item.bytes || createHash('sha256').update(bytes).digest('hex') !== item.sha256) fail('SOURCE_CONTENT');
+  }
+  if (expected.size) fail('EXACT_THREE_PATHS_REQUIRED');
+  scopes = paths;
+} else if (Object.hasOwn(gektaRecoveryScopes, branch)) {
   scopes = gektaRecoveryScopes[branch];
+  if (branch === 'fix/gekta-docker-diagnostic-route-20260927') {
+    const { isDeepStrictEqual } = require('node:util');
+    const { createHash } = require('node:crypto');
+    const acceptedText = readImmutableState(baseRef);
+    const accepted = JSON.parse(acceptedText);
+    const purpose = accepted.coordinationAdmissions?.['stopped-recovery-inspection-test-20261023'];
+    const errorsPurpose = accepted.coordinationAdmissions?.['stopped-inspection-errors-20261023'];
+    const composePurpose = accepted.coordinationAdmissions?.['stopped-compose-label-errors-20261023'];
+    const referencePurpose = accepted.coordinationAdmissions?.['stopped-compose-reference-budget-20261023'];
+    // New phases consume accepted-base authority; absence retains the historical route.
+    // Candidate metadata cannot enable either pinned transition.
+    if (referencePurpose !== undefined || composePurpose !== undefined || errorsPurpose !== undefined) {
+      const fail = reason => { throw new Error('STOPPED_INSPECTION_ERRORS_SCOPE_' + reason); };
+      const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
+      const headRef = String(process.env.HEAD_REF || '').trim();
+      const compose = composePurpose !== undefined;
+      const reference = referencePurpose !== undefined;
+      const selectedPurpose = reference ? referencePurpose : compose ? composePurpose : errorsPurpose;
+      const origin = reference ? 'b5f8d55cef2034ebfa59effba367cf6c083ab42f' :
+        compose ? 'bab8d46b1c82d8c82faf1a51690cc19662f103f4' : '05ea2dda74ced6eafb3255beb2a44df5abce9a78';
+      const workflow = '.github/workflows/production-docker-headroom-diagnostic.yml';
+      const testPath = 'scripts/test_production_stopped_runtime_headroom.py';
+      const beforeBlob = reference ? 'e1ab7a02bc7a1f7db106077128821a563d6ef689' :
+        compose ? '274708ec5cff763ffeccd0137c3048346b720b05' : '18401c26bc8f91bb4d47d084bea8edec6fd33675';
+      const afterBlob = reference ? '03dbdc1d5e9a97687ddd7713e896fb3094f0f8a0' :
+        compose ? 'e1ab7a02bc7a1f7db106077128821a563d6ef689' : '274708ec5cff763ffeccd0137c3048346b720b05';
+      if ((reference || compose) && !isDeepStrictEqual(errorsPurpose, { owner: 'ACCOUNT_1_CORE',
+          ownerDecision: '#5469#issuecomment-6354447020',
+          authorityBaseExactMain: '05ea2dda74ced6eafb3255beb2a44df5abce9a78',
+          sourceBeforeBlob: '18401c26bc8f91bb4d47d084bea8edec6fd33675',
+          sourceAfterBlob: '274708ec5cff763ffeccd0137c3048346b720b05',
+          productionAcceptance: false })) fail('PRIOR_PURPOSE');
+      if (reference && !isDeepStrictEqual(composePurpose, { owner: 'ACCOUNT_1_CORE',
+          ownerDecision: '#5469#issuecomment-6354447020',
+          authorityBaseExactMain: 'bab8d46b1c82d8c82faf1a51690cc19662f103f4',
+          sourceBeforeBlob: '274708ec5cff763ffeccd0137c3048346b720b05',
+          sourceAfterBlob: 'e1ab7a02bc7a1f7db106077128821a563d6ef689',
+          productionAcceptance: false })) fail('PRIOR_COMPOSE_PURPOSE');
+      if (!isDeepStrictEqual(selectedPurpose, { owner: 'ACCOUNT_1_CORE',
+          ownerDecision: '#5469#issuecomment-6354447020', authorityBaseExactMain: origin,
+          sourceBeforeBlob: beforeBlob, sourceAfterBlob: afterBlob, productionAcceptance: false }) ||
+          !isDeepStrictEqual(accepted.approvedConcurrentScopes?.[branch], [workflow, testPath])) fail('ACCEPTED_PURPOSE');
+      try {
+        if (!headRef || git(['merge-base', baseRef, headRef]) !== git(['rev-parse', `${baseRef}^{commit}`]) ||
+            git(['merge-base', origin, baseRef]) !== origin) fail('ANCESTRY');
+      } catch { fail('ANCESTRY'); }
+      const exactEntry = (ref, file, blob) => {
+        if (git(['ls-tree', ref, '--', file]) !== `100644 blob ${blob}\t${file}`) fail('BLOB_OR_MODE');
+      };
+      for (const ref of [baseRef, headRef]) {
+        if (!git(['ls-tree', ref, '--', stateFile]).startsWith('100644 blob ')) fail('STATE_MODE');
+        exactEntry(ref, testPath, 'bc2c092cea71aaca1c94121b02d1bd87cf83df5f');
+      }
+      if (readImmutableState(headRef) !== acceptedText) fail('STATE_MUTATION');
+      const changes = git(['diff', '--raw', '--no-abbrev', '--no-renames', '-z', baseRef, headRef]);
+      if (changes !== `:100644 100644 ${beforeBlob} ${afterBlob} M\0${workflow}\0`) fail('EXACT_WORKFLOW');
+      exactEntry(baseRef, workflow, beforeBlob); exactEntry(headRef, workflow, afterBlob);
+      const after = execFileSync('git', ['show', `${headRef}:${workflow}`]);
+      if (after.length !== (reference ? 191427 : compose ? 185937 : 183028) || createHash('sha256').update(after).digest('hex') !==
+          (reference ? '09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a' :
+            compose ? '50adc9a41e460f367396571c4f121fd54ff4552a48f52806ad2beca7b2af2ffc' :
+            '177abf22e507e68a888b5b2233a82eed779d0b12ec759e8d08145f687de2b254')) fail('SOURCE_CONTENT');
+      scopes = [workflow];
+    } else if (purpose !== undefined) {
+      const fail = reason => { throw new Error('STOPPED_INSPECTION_SCOPE_' + reason); };
+      const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
+      const headRef = String(process.env.HEAD_REF || '').trim();
+      const origin = purpose?.authorityBaseExactMain;
+      const testPath = 'scripts/test_production_stopped_runtime_headroom.py';
+      const paths = [...gektaRecoveryScopes[branch], testPath];
+      if (typeof origin !== 'string' || !/^[0-9a-f]{40}$/u.test(origin) ||
+          !isDeepStrictEqual(purpose, { owner: 'ACCOUNT_1_CORE', ownerDecision: '#5469#issuecomment-6354447020',
+            productionAcceptance: false, authorityBaseExactMain: origin }) ||
+          !isDeepStrictEqual(accepted.approvedConcurrentScopes?.[branch], paths)) fail('ACCEPTED_PURPOSE');
+      try {
+        if (!headRef || git(['merge-base', baseRef, headRef]) !== git(['rev-parse', `${baseRef}^{commit}`]) ||
+            git(['merge-base', origin, baseRef]) !== origin) fail('ANCESTRY');
+      } catch { fail('ANCESTRY'); }
+      for (const ref of [baseRef, headRef]) {
+        if (!git(['ls-tree', ref, '--', stateFile]).startsWith('100644 blob ')) fail('STATE_MODE');
+      }
+      if (readImmutableState(headRef) !== acceptedText) fail('STATE_MUTATION');
+      const changes = git(['diff', '--no-renames', '--name-status', `${baseRef}...${headRef}`])
+        .split('\n').filter(Boolean).map(line => line.split('\t'));
+      if (!isDeepStrictEqual(changes, paths.map(file => ['M', file]).sort((a, b) => a[1].localeCompare(b[1], 'en')))) fail('EXACT_TWO_PATHS');
+      for (const file of paths) for (const ref of [baseRef, headRef]) {
+        if (!git(['ls-tree', ref, '--', file]).startsWith('100644 blob ')) fail('FILE_MODE');
+      }
+      const beforeBlob = 'ea6430963a568e1356a7706c8514d5215fdd9c38';
+      const afterBlob = 'bc2c092cea71aaca1c94121b02d1bd87cf83df5f';
+      if (git(['rev-parse', `${baseRef}:${testPath}`]) !== beforeBlob ||
+          git(['rev-parse', `${headRef}:${testPath}`]) !== afterBlob) fail('TEST_BLOB');
+      const before = execFileSync('git', ['show', `${baseRef}:${testPath}`]);
+      const after = execFileSync('git', ['show', `${headRef}:${testPath}`]);
+      if (before.length !== 34004 || after.length !== 34069 ||
+          createHash('sha256').update(before).digest('hex') !== '6658a4492242e7ee3e7be9b83be4df005cd879c389b0ee00cb0aefa6d2cf7201' ||
+          createHash('sha256').update(after).digest('hex') !== '6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9') fail('TEST_CONTENT');
+      const oldLine = "        expected = {'production-cold-preservation.yml',\n";
+      const newLines = "        expected = {'production-docker-headroom-diagnostic.yml',\n" +
+        "                    'production-cold-preservation.yml',\n";
+      const text = before.toString('utf8');
+      if (text.split(oldLine).length !== 2 || !Buffer.from(text.replace(oldLine, newLines), 'utf8').equals(after)) fail('TEST_REPLACEMENT');
+      scopes = paths;
+    }
+  }
   if (branch === 'fix/gekta-history-lifecycle-5818' || branch === 'governance/gekta-history-lifecycle-source-admission-5818') {
     const { isDeepStrictEqual } = require('node:util');
     const { createHash } = require('node:crypto');
@@ -591,7 +881,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     const admissionBranch = 'governance/gekta-history-lifecycle-source-admission-5818';
     const admissionKey = 'gekta-history-lifecycle-5818-20261007';
     const headRef = String(process.env.HEAD_REF || '').trim();
-    const accepted = JSON.parse(git(['show', `${baseRef}:${stateFile}`]));
+    const accepted = JSON.parse(readImmutableState(baseRef));
     const purpose = accepted.coordinationAdmissions?.['gekta-history-lifecycle-guard-purpose-5818-20261007'];
     const paths = gektaRecoveryScopes[implementationBranch];
     const template = purpose?.stagedSourceAdmission;
@@ -623,7 +913,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
       expected.coordinationAdmissions[admissionKey] = {
         ...template, authorityBaseExactMain: git(['rev-parse', baseRef]).trim(),
       };
-      const candidate = JSON.parse(git(['show', `${headRef}:${stateFile}`]));
+      const candidate = JSON.parse(readImmutableState(headRef));
       if (!isDeepStrictEqual(candidate, expected)) fail('STATE_TRANSITION_MISMATCH');
     } else {
       const admission = accepted.coordinationAdmissions?.[admissionKey];
@@ -647,7 +937,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     const headRef = String(process.env.HEAD_REF || '').trim();
     const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
     const fail = reason => { throw new Error(`GEKTA_READONLY_DIAGNOSTIC_${reason}`); };
-    const accepted = JSON.parse(git(['show', `${baseRef}:${stateFile}`]));
+    const accepted = JSON.parse(readImmutableState(baseRef));
     const purpose = accepted.coordinationAdmissions?.['gekta-readonly-control-diagnostic-prerequisite-20261001'];
     if (!purpose || purpose.stagedDiagnosticBranch !== branch ||
         !isDeepStrictEqual(purpose.stagedDiagnosticPaths, scopes)) fail('PURPOSE_NOT_ACCEPTED');
@@ -696,7 +986,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
 } else {
   let state;
   try {
-    const raw = execFileSync('git', ['show', `${baseRef}:${stateFile}`], { encoding: 'utf8' });
+    const raw = readImmutableState(baseRef);
     state = JSON.parse(raw);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -785,7 +1075,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     const combinedScope = [...originalTestScope, ...metadataPaths];
     const headRef = String(process.env.HEAD_REF || 'HEAD');
     const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
-    const readState = ref => execFileSync('git', ['show', `${ref}:${stateFile}`], { encoding: 'utf8' });
+    const readState = ref => readImmutableState(ref);
     const treeEntry = (ref, file) => git(['ls-tree', ref, '--', file]);
     const regularBlob = (ref, file, blob) => assert.equal(treeEntry(ref, file), `100644 blob ${blob}\t${file}`, `LANDING_METADATA_EXACT_FILE:${ref}:${file}`);
     const regularState = ref => assert.match(treeEntry(ref, stateFile), /^100644 blob [0-9a-f]{40}\t/u, 'LANDING_METADATA_STATE_FILE_MODE');
@@ -896,7 +1186,7 @@ if (Object.hasOwn(gektaRecoveryScopes, branch)) {
     const baseSha = execFileSync('git', ['rev-parse', `${baseRef}^{commit}`], { encoding: 'utf8' }).trim();
     const mergeBase = execFileSync('git', ['merge-base', baseRef, headRef], { encoding: 'utf8' }).trim();
     if (mergeBase !== baseSha) throw new Error('DEAL_RUNTIME_BASE_NOT_ANCESTOR');
-    const readState = (ref) => execFileSync('git', ['show', `${ref}:${stateFile}`], { encoding: 'utf8' });
+    const readState = (ref) => readImmutableState(ref);
     const fileMode = (ref, file) => execFileSync('git', ['ls-tree', ref, '--', file], { encoding: 'utf8' }).split(' ')[0];
     const fields = execFileSync('git', ['diff', '--no-renames', '--name-status', '-z', `${baseRef}...${headRef}`], { encoding: 'utf8' }).split('\0');
     if (fields.pop() !== '' || fields.length % 2 !== 0) throw new Error('DEAL_RUNTIME_DIFF_METADATA_INVALID');
@@ -1547,7 +1837,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
     const { isDeepStrictEqual } = require('node:util');
     const headRef = String(process.env.HEAD_REF || 'HEAD');
     const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${statePath}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     const key = 'ux-buyer-first-customer-route-20260927-coordination';
     const implementationBranch = 'ux/buyer-first-customer-home-20260925';
     const originalKey = 'ux-buyer-first-customer-home-20260925-coordination';
@@ -1627,7 +1917,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
         Object.hasOwn(state.coordinationAdmissions || {}, coordinationKey)) {
       throw new Error('PRODUCT_BUYER_ADMISSION_ALREADY_PRESENT');
     }
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${statePath}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     const expected = structuredClone(state);
     if (!expected.coordinationAdmissions) expected.coordinationAdmissions = {};
     const baseSha = execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim();
@@ -1676,7 +1966,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
         Object.hasOwn(state.coordinationAdmissions || {}, coordinationKey)) {
       throw new Error('PRODUCT_BANK_HOME_ADMISSION_ALREADY_PRESENT');
     }
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${statePath}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     const expected = structuredClone(state);
     if (!expected.coordinationAdmissions) expected.coordinationAdmissions = {};
     const baseSha = execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim();
@@ -1957,7 +2247,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
     const priorKey = 'bank-deep-visible-copy-guard-20260924-coordination';
     const headRef = String(process.env.HEAD_REF || 'HEAD');
     const baseSha = execFileSync('git', ['rev-parse', `${baseRef}^{commit}`], { encoding: 'utf8' }).trim();
-    const read = (ref, file) => execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+    const read = (ref, file) => file === stateFile ? readImmutableState(ref) : execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8', maxBuffer: 1024 * 1024 });
     const entry = (ref, file) => execFileSync('git', ['ls-tree', ref, '--', file], { encoding: 'utf8' }).trim();
     const mode = (ref, file) => entry(ref, file).split(' ')[0];
     if (!isDeepStrictEqual(state.coordinationAdmissions[bankMoneyPurposeKey], requiredPurpose) ||
@@ -2051,7 +2341,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
   if (branch === 'governance/product-bank-fgis-ux-source-admission-20260924' && !bankMoneyPhase) {
     const { isDeepStrictEqual } = require('node:util');
     const headRef = String(process.env.HEAD_REF || 'HEAD');
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${stateFile}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     const expected = new Map([
       ['bank/deep-visible-copy-guard-20260924', {
         key: 'bank-deep-visible-copy-guard-20260924-coordination',
@@ -2257,7 +2547,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
     }
     if (!isDeepStrictEqual(scopes, expected)) throw new Error('INDUSTRIAL_DIAGNOSTIC_ACCEPTED_SCOPE_MISMATCH');
     const headRef = String(process.env.HEAD_REF || 'HEAD');
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${stateFile}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     if (!isDeepStrictEqual(candidate, baseline)) throw new Error('INDUSTRIAL_DIAGNOSTIC_STATE_MUTATION');
     const changes = execFileSync('git', ['diff', '--no-renames', '--name-status', `${baseRef}...${headRef}`], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
     for (const change of changes) {
@@ -2280,7 +2570,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
         throw new Error('P7_IMMUTABLE_SCOPE: public governance requires unchanged regular-file modes');
       }
     }
-    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${stateFile}`], { encoding: 'utf8' }));
+    const candidate = JSON.parse(readImmutableState(headRef));
     const baseline = JSON.parse(JSON.stringify(state));
     for (const admittedBranch of ['agent/platform-v7-strategic-rebuild-v3', 'fix/public-registration-final-copy-4916']) {
       if (candidate.approvedConcurrentScopes) delete candidate.approvedConcurrentScopes[admittedBranch];
@@ -2342,7 +2632,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
   const purposeKey = 'deal-execution-route-guard-purpose-20261001';
   const admissionKey = 'deal-execution-route-20261001';
   const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
-  const read = (ref, file) => execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8' });
+  const read = (ref, file) => file === stateFile ? readImmutableState(ref) : execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8' });
   const headRef = String(process.env.HEAD_REF || 'HEAD');
   const base = JSON.parse(read(baseRef, stateFile));
   const relevant = branch === admissionBranch || branch === sourceBranch ||
@@ -2579,16 +2869,150 @@ if (new Set(normalized).size !== normalized.length) {
   throw new Error('P7_IMMUTABLE_SCOPE: duplicate immutable approved paths');
 }
 process.stdout.write(`${normalized.join('\n')}\n`);
+// Compute the pure final matcher in this same invocation. Do not report its
+// result until all existing intervening authority and forbidden-path checks run.
+// Match Bash command substitution's NUL and trailing-LF normalization exactly.
+const frameScope = Buffer.from(normalized.join('\n'), 'utf8').toString('utf8')
+  .replace(/\0/g, '').replace(/\n+$/g, '');
+process.env.ALLOWED_CURRENT = frameScope;
+try {
+  // Read this invocation's dedicated raw pipe only after every immutable
+  // authority check above. The byte count detects incomplete transport.
+  const frameDiffBytes = require('node:fs').readFileSync(3);
+  if (frameDiffBytes.length !== Number(process.env.P7_EXACT_SCOPE_DIFF_BYTES)) {
+    throw new Error('P7_EXACT_SCOPE_DIFF_TRANSPORT');
+  }
+  process.env.DIFF_FILES = frameDiffBytes.toString('utf8');
+  const result = (() => {
+const files = String(process.env.DIFF_FILES || '').split(/\r?\n/).map((file) => file.trim()).filter(Boolean);
+const allowedCurrent = String(process.env.ALLOWED_CURRENT || '').split(/\r?\n/).map((file) => file.trim()).filter(Boolean);
+const exactApprovedScope = process.env.P7_EXACT_APPROVED_SCOPE === '1';
+const allowedInfra = /^(AGENTS\.md|docs\/platform-v7\/execution-queue\.md|docs\/platform-v7\/autopilot\/.+|scripts\/p7-autopilot-guard\.sh|scripts\/p7-agent-runner\.sh|scripts\/p7-autopilot-dispatcher\.mjs|scripts\/p7-autopilot-scope-cleaner\.mjs|\.github\/workflows\/automerge\.yml|\.github\/workflows\/ci\.yml|\.github\/workflows\/web-unit\.yml|\.github\/workflows\/platform-v7-autopilot-guard\.yml|\.github\/workflows\/platform-v7-autopilot-generated-merge\.yml|\.github\/workflows\/platform-v7-autopilot-loop\.yml|\.github\/workflows\/platform-v7-agent-runner\.yml|\.github\/workflows\/platform-v7-generated-pr-cleanup\.yml|\.github\/workflows\/platform-v7-autopilot-watchdog\.yml|\.github\/workflows\/platform-v7-safe-merge\.yml|\.github\/ISSUE_TEMPLATE\/platform-v7-agent-run\.md)$/;
+
+function normalizePath(input) { return String(input ?? '').trim().replace(/\\/g, '/').replace(/\/+$/g, ''); }
+function escapeRegExp(input) { return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function globToRegExp(glob) {
+  const normalized = normalizePath(glob);
+  let pattern = '';
+  for (let index = 0; index < normalized.length; index += 1) {
+    const character = normalized[index];
+    const next = normalized[index + 1];
+    if (character === '*' && next === '*') { pattern += '.*'; index += 1; }
+    else if (character === '*') pattern += '[^/]*';
+    else pattern += escapeRegExp(character);
+  }
+  return new RegExp(`^${pattern}$`);
+}
+function scopeMatches(allowedEntry, candidate) {
+  const allowed = normalizePath(allowedEntry);
+  const file = normalizePath(candidate);
+  if (!allowed || !file) return false;
+  if (allowed === file) return true;
+  if (allowed.includes('*')) return globToRegExp(allowed).test(file);
+  return file.startsWith(`${allowed}/`);
+}
+function exactScopeMatches(allowedEntry, candidate) {
+  const allowed = normalizePath(allowedEntry);
+  const file = normalizePath(candidate);
+  if (!allowed || !file) return false;
+  if (allowed.includes('*')) return globToRegExp(allowed).test(file);
+  return allowed === file;
+}
+const disallowed = files.filter((file) => {
+  const approved = allowedCurrent.some((scope) => (
+    exactApprovedScope ? exactScopeMatches(scope, file) : scopeMatches(scope, file)
+  ));
+  return exactApprovedScope ? !approved : !allowedInfra.test(file) && !approved;
+});
+    return disallowed.join('\n');
+  })().replace(/\0/g, '').replace(/\n+$/g, '');
+  const digest = require('node:crypto').createHash('sha256')
+    .update(frameScope).update('\0').update('1').update('\0').update(result).digest('hex');
+  process.stdout.write(`P7_EXACT_SCOPE_RESULT_HEX:${Buffer.from(result).toString('hex')}:${digest}\n`);
+} catch {
+  // Defer protocol failure too, so it cannot precede existing shell checks.
+  process.stdout.write('P7_EXACT_SCOPE_RESULT_HEX:ERROR\n');
+}
+
 JS
   )
+
+  # The producer's last nonempty line is an ASCII frame. Scope lines remain
+  # unchanged; no untrusted text is evaluated as shell code.
+  P7_EXACT_SCOPE_FOOTER="${P7_EXACT_SCOPE_FRAME##*$'\n'}"
+  APPROVED_BRANCH_SCOPE="$P7_EXACT_SCOPE_FRAME"
+  if [[ "$P7_EXACT_SCOPE_FRAME" == *$'\n'* && "$P7_EXACT_SCOPE_FOOTER" == P7_EXACT_SCOPE_RESULT_HEX:* ]]; then
+    APPROVED_BRANCH_SCOPE="${P7_EXACT_SCOPE_FRAME%$'\n'*}"
+    while [[ "$APPROVED_BRANCH_SCOPE" == *$'\n' ]]; do
+      APPROVED_BRANCH_SCOPE="${APPROVED_BRANCH_SCOPE%$'\n'}"
+    done
+    P7_EXACT_SCOPE_CAPTURE_SCOPE="$APPROVED_BRANCH_SCOPE"
+    P7_EXACT_SCOPE_PAYLOAD="${P7_EXACT_SCOPE_FOOTER#P7_EXACT_SCOPE_RESULT_HEX:}"
+    P7_EXACT_SCOPE_HEX="${P7_EXACT_SCOPE_PAYLOAD%:*}"
+    P7_EXACT_SCOPE_DIGEST="${P7_EXACT_SCOPE_PAYLOAD##*:}"
+    if [[ "$P7_EXACT_SCOPE_PAYLOAD" == *:* && "$P7_EXACT_SCOPE_HEX" != *:* &&
+          "$P7_EXACT_SCOPE_HEX" != *[!0-9a-f]* && "$P7_EXACT_SCOPE_DIGEST" =~ ^[0-9a-f]{64}$ ]] &&
+        (( ${#P7_EXACT_SCOPE_HEX} % 2 == 0 )); then
+      # Bound substring and append work to one small ASCII chunk. Locale is
+      # function-local; byte escapes reproduce UTF-8 without changing grep.
+      p7_exact_scope_decode_hex() {
+        local LC_ALL=C
+        local chunk escapes pair index length
+        while IFS= read -r -n 256 chunk; do
+          [[ -n "$chunk" ]] || break
+          escapes=''
+          length=${#chunk}
+          for ((index=0; index<length; index+=2)); do
+            pair="${chunk:index:2}"
+            if [[ "$pair" == 00 ]]; then return 1; fi
+            escapes+="\\x$pair"
+          done
+          printf '%b' "$escapes"
+        done <<< "$P7_EXACT_SCOPE_HEX"
+      }
+      if P7_EXACT_SCOPE_PRECOMPUTED_RESULT=$(p7_exact_scope_decode_hex); then
+        # Verify the scope, mode and result bytes. The raw diff is captured and
+        # compared byte-for-byte below, including non-UTF-8 Git filename bytes.
+        # The utility was previously needed only by a CA path; if absent, retain
+        # the old final Node matcher without trusting the precomputed result.
+        if command -v sha256sum >/dev/null 2>&1; then
+          P7_EXACT_SCOPE_ACTUAL_DIGEST=$(printf '%s\0%s\0%s' "$P7_EXACT_SCOPE_CAPTURE_SCOPE" \
+            "$P7_EXACT_SCOPE_CAPTURE_MODE" "$P7_EXACT_SCOPE_PRECOMPUTED_RESULT" \
+            | sha256sum 2>/dev/null) || P7_EXACT_SCOPE_ACTUAL_DIGEST=''
+          P7_EXACT_SCOPE_ACTUAL_DIGEST="${P7_EXACT_SCOPE_ACTUAL_DIGEST%% *}"
+          if [[ "$P7_EXACT_SCOPE_ACTUAL_DIGEST" == "$P7_EXACT_SCOPE_DIGEST" ]]; then
+            P7_EXACT_SCOPE_FRAME_VALID=1
+          fi
+        else
+          P7_EXACT_SCOPE_CHECKSUM_UNAVAILABLE=1
+        fi
+      fi
+    fi
+  fi
 else
   APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="$CURRENT_BRANCH" P7_SCOPE_BASE_REF="$BASE_REF" P7_SCOPE_HEAD_REF="$HEAD_REF" node - <<'JS'
 const fs = require('fs');
 const { execFileSync } = require('node:child_process');
 const { isDeepStrictEqual } = require('node:util');
 const branch = String(process.env.GITHUB_HEAD_REF || '').trim();
+// Match the existing immutable registry ceiling, only for this named state
+// reader. Never enlarge ordinary source/manifest buffers or truncate authority.
+function readSecurityPatchState(ref) {
+  const capacity = 3 * 1024 * 1024;
+  let bytes;
+  try {
+    bytes = execFileSync('git', ['show', `${ref}:docs/platform-v7/autopilot/autopilot-state.json`], { maxBuffer: capacity + 1 });
+  } catch (error) {
+    if (error?.code === 'ENOBUFS') throw new Error('NEXT_SECURITY_PATCH_STATE_CAPACITY');
+    throw error;
+  }
+  if (bytes.length > capacity) throw new Error('NEXT_SECURITY_PATCH_STATE_CAPACITY');
+  const text = bytes.toString('utf8');
+  if (!Buffer.from(text, 'utf8').equals(bytes)) throw new Error('NEXT_SECURITY_PATCH_STATE_UTF8');
+  return text;
+}
 const state = JSON.parse(branch === 'security/pc-crop-next-15-5-24-4997'
-  ? execFileSync('git', ['show', `${process.env.P7_SCOPE_HEAD_REF}:docs/platform-v7/autopilot/autopilot-state.json`], { encoding: 'utf8' })
+  ? readSecurityPatchState(process.env.P7_SCOPE_HEAD_REF)
   : fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
 let scopes = branch ? state.approvedConcurrentScopes?.[branch] : undefined;
 if (branch === 'security/pc-crop-next-15-5-24-4997') {
@@ -2600,7 +3024,7 @@ if (branch === 'security/pc-crop-next-15-5-24-4997') {
   // Bootstrap is bound to that exact base state; it is not a generic fallback.
   let accepted;
   try {
-    accepted = JSON.parse(execFileSync('git', ['show', `${process.env.P7_SCOPE_BASE_REF}:docs/platform-v7/autopilot/autopilot-state.json`], { encoding: 'utf8' }));
+    accepted = JSON.parse(readSecurityPatchState(process.env.P7_SCOPE_BASE_REF));
   } catch {
     throw new Error('NEXT_SECURITY_PATCH_ACCEPTED_SCOPE_MISSING');
   }
@@ -2650,6 +3074,15 @@ fi
 
 if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$IR20_BINDING_PREREQUISITE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_SCOPE_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BUYER_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BANK_HOME_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "governance/product-deal-execution-route-20261001" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "governance/gekta-history-lifecycle-source-admission-5818" ]; then
   MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-autopilot-guard\.test\.mjs$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$|\.github/workflows/automerge\.yml$)' || true)
+  if [ "$CURRENT_BRANCH" = 'ops/ir20-isolated-restore-20260919' ]; then
+    # This exact manifest has already matched the immutable accepted-base pin.
+    MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -v -x 'docs/platform-v7/autopilot/scopes/ir20-isolated-restore-20260919.json' || true)
+  fi
+  # The source branch above has already matched every full before/after blob,
+  # mode and content hash against the separately accepted base purpose.
+  if [ "$CURRENT_BRANCH" = "fix/pc-crop-docker-headroom-rollover-4637" ]; then
+    MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv 'docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json' || true)
+  fi
   # These manifests document the exact accepted path sets. They are not scope
   # authority: only approvedConcurrentScopes from the trusted base is used.
   case "$CURRENT_BRANCH" in
@@ -2832,6 +3265,18 @@ else
   P7_EXACT_APPROVED_SCOPE=0
 fi
 
+if [[ "$P7_EXACT_SCOPE_FRAME_ATTEMPTED" == 1 && "$P7_EXACT_SCOPE_FRAME_VALID" != 1 &&
+      "$P7_EXACT_SCOPE_CHECKSUM_UNAVAILABLE" != 1 ]]; then
+  echo 'P7_EXACT_SCOPE_FRAME_INVALID'
+  exit 1
+fi
+if [[ "$P7_EXACT_SCOPE_FRAME_VALID" == 1 &&
+      "$CURRENT_BRANCH" == "$P7_EXACT_SCOPE_CAPTURE_BRANCH" &&
+      "$P7_EXACT_APPROVED_SCOPE" == "$P7_EXACT_SCOPE_CAPTURE_MODE" &&
+      "$DIFF_FILES" == "$P7_EXACT_SCOPE_CAPTURE_DIFF" &&
+      "$ALLOWED_CURRENT" == "$P7_EXACT_SCOPE_CAPTURE_SCOPE" ]]; then
+  SCOPE_RESULT="$P7_EXACT_SCOPE_PRECOMPUTED_RESULT"
+else
 SCOPE_RESULT=$(DIFF_FILES="$DIFF_FILES" ALLOWED_CURRENT="$ALLOWED_CURRENT" P7_EXACT_APPROVED_SCOPE="$P7_EXACT_APPROVED_SCOPE" node - <<'JS'
 const files = String(process.env.DIFF_FILES || '').split(/\r?\n/).map((file) => file.trim()).filter(Boolean);
 const allowedCurrent = String(process.env.ALLOWED_CURRENT || '').split(/\r?\n/).map((file) => file.trim()).filter(Boolean);
@@ -2879,6 +3324,7 @@ if (disallowed.length > 0) {
 }
 JS
 ) || true
+fi
 
 if [ -n "$SCOPE_RESULT" ]; then
   echo "Files outside current autopilot scope:"

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -99,6 +100,10 @@ type Copy = Readonly<{
   confirm: string;
   executing: string;
   receipt: string;
+  commandUnknown: string;
+  commandRecovery: string;
+  commandReference: string;
+  close: string;
   credentialBoundary: string;
 }>;
 
@@ -159,6 +164,10 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     confirm: 'Подтвердить на сервере',
     executing: 'Фиксируем команду…',
     receipt: 'Команда зафиксирована сервером; данные перечитаны из authority.',
+    commandUnknown: 'UNKNOWN / PENDING_RECONCILIATION: результат команды не подтверждён.',
+    commandRecovery: 'Ответ потерян или не содержит проверяемой квитанции. Сохраняем исходную попытку на этом экране. До серверной сверки не отправляйте новую команду, в том числе после повторного открытия страницы. Подтверждение провайдера и юридический результат не установлены.',
+    commandReference: 'Исходная попытка',
+    close: 'Закрыть',
     credentialBoundary: 'Срок reference на credential не показывается: в принятом authority нет безопасной metadata-записи. Секреты и key references не выводятся.',
   },
   en: {
@@ -186,6 +195,10 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     primaryAction: 'Next governed action', serverAuthority: 'Action, role, tenant and organization are server-derived.',
     actionTitle: 'Governed action confirmation', reason: 'Reason', reasonPlaceholder: 'Enter a verifiable operational or regulatory reason…',
     cancel: 'Cancel', confirm: 'Confirm on server', executing: 'Committing command…', receipt: 'The server committed the command and authority was reloaded.',
+    commandUnknown: 'UNKNOWN / PENDING_RECONCILIATION: command outcome is unconfirmed.',
+    commandRecovery: 'The response was lost or has no verifiable receipt. The original attempt is retained on this screen. Wait for server reconciliation before submitting a new command, including after reopening this page. Provider acceptance and legal outcome are unknown.',
+    commandReference: 'Original attempt',
+    close: 'Close',
     credentialBoundary: 'Credential reference expiry is not displayed because no safe metadata authority exists. Secrets and key references are never rendered.',
   },
   zh: {
@@ -211,6 +224,10 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     primaryAction: '下一项受控操作', serverAuthority: '操作、角色、tenant 和 organization 均由服务器确定。', actionTitle: '确认受控操作',
     reason: '依据', reasonPlaceholder: '请输入可核验的运营或法规依据…', cancel: '取消', confirm: '在服务器确认', executing: '正在提交命令…',
     receipt: '服务器已记录命令并重新加载权威数据。', credentialBoundary: '没有安全的 credential metadata authority，因此不显示 reference 到期时间；绝不显示密钥或 secret。',
+    commandUnknown: 'UNKNOWN / PENDING_RECONCILIATION：命令结果尚未确认。',
+    commandRecovery: '响应丢失或不包含可核验的回执。原始尝试保留在此页面。提交新命令之前请等待服务器核对，包括重新打开页面之后。提供方接受情况及法律结果尚不明确。',
+    commandReference: '原始尝试',
+    close: '关闭',
   },
 };
 
@@ -256,6 +273,22 @@ function responsePhase(status: number): StablePhase {
   return 'error';
 }
 
+// Validate only the currently accepted API receipt, not provider/business finality.
+function hasRecordedCommandReceipt(payload: unknown, pending: PendingAction): boolean {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+  const source = payload as JsonRecord;
+  const safeId = /^[A-Za-z0-9][A-Za-z0-9:_.-]{2,239}$/;
+  if ((source.kind !== 'APPLIED' && source.kind !== 'REPLAY')
+    || typeof source.auditEventId !== 'string' || !safeId.test(source.auditEventId)
+    || typeof source.outboxEntryId !== 'string' || !safeId.test(source.outboxEntryId)
+    || source.correlationId !== pending.correlationId) return false;
+  if (pending.action === 'REDRIVE') return source.entryId === pending.entryId;
+  return source.adapterCode === pending.adapterCode
+    && typeof source.aggregateVersion === 'string'
+    && source.aggregateVersion === pending.ifMatch
+    && /^(0|[1-9][0-9]{0,18})$/.test(source.aggregateVersion);
+}
+
 async function readJson(response: Response): Promise<unknown> {
   return response.json().catch(() => null);
 }
@@ -289,8 +322,27 @@ export function IntegrationControlTowerClient({
   const [query, setQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<IntegrationHonestStatus | 'ALL'>('ALL');
   const [pending, setPending] = React.useState<PendingAction | null>(null);
+  const [confirmationOpen, setConfirmationOpen] = React.useState(false);
   const [executing, setExecuting] = React.useState(false);
+  const [commandUnknown, setCommandUnknown] = React.useState(false);
   const [receipt, setReceipt] = React.useState('');
+  const inFlight = React.useRef(false);
+  const actionOrigin = React.useRef<{ element: HTMLButtonElement; sessionToken: string } | null>(null);
+  const reasonInput = React.useRef<HTMLTextAreaElement>(null);
+  const stateHeading = React.useRef<HTMLHeadingElement>(null);
+  const focusAfterRead = React.useRef(false);
+  const currentPhase = React.useRef(state.phase);
+  const currentToken = React.useRef(csrfToken);
+  currentPhase.current = state.phase;
+  currentToken.current = csrfToken;
+  React.useEffect(() => {
+    if (executing) reasonInput.current?.focus();
+  }, [executing]);
+  React.useEffect(() => {
+    if (!focusAfterRead.current || state.phase === 'loading') return;
+    focusAfterRead.current = false;
+    if (actionOrigin.current?.sessionToken === csrfToken) stateHeading.current?.focus();
+  }, [csrfToken, state.phase]);
 
   const loadDetail = React.useCallback(async (
     adapterCode: string,
@@ -407,8 +459,10 @@ export function IntegrationControlTowerClient({
     });
   }, [locale, query, state.records, statusFilter]);
 
-  const prepareAction = () => {
-    if (!selected) return;
+  const prepareAction = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (!selected || commandUnknown || inFlight.current) return;
+    focusAfterRead.current = false;
+    actionOrigin.current = { element: event.currentTarget, sessionToken: csrfToken };
     const action = selected.primaryAction;
     const eventVersion = action.entryId
       ? selected.recentEvents.find((event) => event.id === action.entryId)?.version
@@ -423,11 +477,19 @@ export function IntegrationControlTowerClient({
       idempotencyKey: commandToken('integration-idempotency'),
       correlationId: commandToken('integration-correlation'),
     });
+    setConfirmationOpen(true);
     setReceipt('');
   };
 
+  const dismissPending = () => {
+    if (inFlight.current) return;
+    setConfirmationOpen(false);
+    if (!commandUnknown) setPending(null);
+  };
+
   const execute = async () => {
-    if (!pending || pending.reason.trim().length < 12 || !pending.ifMatch) return;
+    if (!pending || commandUnknown || inFlight.current || pending.reason.trim().length < 12 || !pending.ifMatch) return;
+    inFlight.current = true;
     setExecuting(true);
     try {
       const path = pending.action === 'REDRIVE'
@@ -451,6 +513,10 @@ export function IntegrationControlTowerClient({
         cache: 'no-store',
       });
       const payload = await readJson(response);
+      if (response.status === 408 || response.status >= 500 || (response.ok && !hasRecordedCommandReceipt(payload, pending))) {
+        setCommandUnknown(true);
+        return;
+      }
       if (!response.ok) {
         const phase = responsePhase(response.status);
         setLiveState(phase);
@@ -459,18 +525,34 @@ export function IntegrationControlTowerClient({
       }
       setReceipt(copy.receipt);
       setPending(null);
+      setConfirmationOpen(false);
       await load('retry');
+    } catch {
+      // A lost response cannot prove rollback or permit a replacement identity.
+      setCommandUnknown(true);
     } finally {
+      inFlight.current = false;
       setExecuting(false);
     }
   };
+
+  const unknownCommandNotice = commandUnknown && pending ? (
+    <div role='alert' data-command-outcome='UNKNOWN_PENDING_RECONCILIATION'>
+      <InlineNotice tone='critical' title={copy.commandUnknown}>
+        <span>{copy.commandRecovery}</span>
+        <br />
+        <span>{copy.commandReference}: <code>{pending.commandId}</code> · <code>{pending.correlationId}</code></span>
+      </InlineNotice>
+    </div>
+  ) : null;
 
   if (state.phase !== 'ready') {
     const message = state.message || (state.phase === 'loading' ? copy.loading : state.phase === 'empty' ? copy.empty : copy.error);
     return (
       <Surface className={styles.stateSurface} role={state.phase === 'error' || state.phase === 'conflict' ? 'alert' : undefined}>
         {state.phase === 'loading' ? <RefreshCw className={styles.spin} size={28} /> : <AlertTriangle size={30} />}
-        <h1>{message}</h1>
+        <h1 ref={stateHeading} tabIndex={-1}>{message}</h1>
+        {unknownCommandNotice}
         {state.phase !== 'loading' && state.phase !== 'forbidden' && state.phase !== 'empty' ? (
           <Button variant='secondary' onClick={() => void load('retry')}><RefreshCw size={18} />{copy.retry}</Button>
         ) : null}
@@ -483,7 +565,7 @@ export function IntegrationControlTowerClient({
       <Surface className={styles.hero}>
         <div>
           <StatusChip tone='information'>{copy.eyebrow}</StatusChip>
-          <h1 id='integration-control-tower-title'>{copy.title}</h1>
+          <h1 ref={stateHeading} tabIndex={-1} id='integration-control-tower-title'>{copy.title}</h1>
           <p>{copy.lead}</p>
           <InlineNotice tone='neutral' title={copy.status} icon={<ShieldCheck size={18} />}>
             {copy.evidenceBoundary}
@@ -499,6 +581,7 @@ export function IntegrationControlTowerClient({
       {liveState === 'reconnecting' ? <InlineNotice tone='information' title={copy.reconnecting}>{copy.serverAuthority}</InlineNotice> : null}
       {liveState === 'degraded' ? <InlineNotice tone='critical' title={copy.degraded}>{copy.serverAuthority}</InlineNotice> : null}
       {receipt ? <InlineNotice tone='success' title={copy.primaryAction} icon={<CheckCircle2 size={18} />}>{receipt}</InlineNotice> : null}
+      {!confirmationOpen ? unknownCommandNotice : null}
 
       <Surface className={styles.toolbar} variant='subtle'>
         <label><span>{copy.search}</span><input type='search' value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder={copy.searchPlaceholder} /></label>
@@ -561,7 +644,7 @@ export function IntegrationControlTowerClient({
 
             <Surface className={styles.actionCard}>
               <div><span>{copy.primaryAction}</span><h3>{selected.primaryAction.label}</h3><p>{selected.primaryAction.reason}</p><small>{copy.serverAuthority}</small></div>
-              <Button disabled={!selected.primaryAction.allowed} onClick={prepareAction}>{selected.primaryAction.label}</Button>
+              <Button disabled={!selected.primaryAction.allowed || commandUnknown} onClick={prepareAction}>{selected.primaryAction.label}</Button>
             </Surface>
 
             <Surface className={styles.events} padded={false}>
@@ -581,15 +664,35 @@ export function IntegrationControlTowerClient({
         ) : null}
       </div>
 
-      {pending ? (
-        <div className={styles.dialogBackdrop} role='presentation'>
-          <Surface className={styles.dialog} role='dialog' aria-modal='true' aria-labelledby='integration-action-title'>
-            <header><AlertTriangle size={24} /><h2 id='integration-action-title'>{copy.actionTitle}</h2></header>
-            <p>{selected?.primaryAction.reason}</p>
-            <label><span>{copy.reason}</span><textarea value={pending.reason} onChange={(event) => setPending({ ...pending, reason: event.currentTarget.value })} placeholder={copy.reasonPlaceholder} rows={5} /></label>
-            <div><Button variant='secondary' disabled={executing} onClick={() => setPending(null)}>{copy.cancel}</Button><Button disabled={executing || pending.reason.trim().length < 12 || !pending.ifMatch} onClick={() => void execute()}>{executing ? copy.executing : copy.confirm}</Button></div>
-          </Surface>
-        </div>
+      {pending && confirmationOpen ? (
+        <Dialog.Root open onOpenChange={(open) => { if (!open) dismissPending(); }}>
+          <Dialog.Portal>
+            <Dialog.Overlay className={styles.dialogBackdrop}>
+              <Dialog.Content className={styles.dialogFrame} role='dialog' aria-modal='true' aria-busy={executing}
+                onOpenAutoFocus={(event) => { event.preventDefault(); reasonInput.current?.focus(); }}
+                onEscapeKeyDown={(event) => { if (inFlight.current) event.preventDefault(); }}
+                onInteractOutside={(event) => event.preventDefault()}
+                onCloseAutoFocus={(event) => {
+                  event.preventDefault();
+                  const origin = actionOrigin.current;
+                  if (origin?.sessionToken !== currentToken.current) return;
+                  if (origin.element.isConnected && !origin.element.disabled) origin.element.focus();
+                  else {
+                    focusAfterRead.current = currentPhase.current === 'loading';
+                    stateHeading.current?.focus();
+                  }
+                }}>
+                <Surface className={styles.dialog}>
+                  <header><AlertTriangle size={24} /><Dialog.Title asChild><h2>{copy.actionTitle}</h2></Dialog.Title></header>
+                  <Dialog.Description asChild><p>{selected?.primaryAction.reason}</p></Dialog.Description>
+                  {unknownCommandNotice}
+                  <label><span>{copy.reason}</span><textarea ref={reasonInput} readOnly={executing || commandUnknown} value={pending.reason} onChange={(event) => setPending({ ...pending, reason: event.currentTarget.value })} placeholder={copy.reasonPlaceholder} rows={5} /></label>
+                  <div><Button variant='secondary' disabled={executing} onClick={dismissPending}>{commandUnknown ? copy.close : copy.cancel}</Button><Button disabled={executing || commandUnknown || pending.reason.trim().length < 12 || !pending.ifMatch} onClick={() => void execute()}>{executing ? copy.executing : copy.confirm}</Button></div>
+                </Surface>
+              </Dialog.Content>
+            </Dialog.Overlay>
+          </Dialog.Portal>
+        </Dialog.Root>
       ) : null}
     </section>
   );

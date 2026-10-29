@@ -29,6 +29,7 @@ describe('Founder role-mode request boundary', () => {
   const origin = `https://${CONTROL_PLATFORM_HOST}`;
   const csrf = 'test-csrf-value';
   const requestBody = {
+    createIntentId: '11111111-1111-4111-8111-111111111111',
     cabinetKey: 'buyer', organizationId: 'organization-1',
     reason: 'Review the real organization cabinet', ticketId: 'ticket-1', durationSeconds: 900,
   };
@@ -184,7 +185,7 @@ function roleModeFixtures() {
   };
   const props = {
     locale: 'ru' as const, copy: ownerAccessCenterMessages.ru,
-    identity: { email: 'owner@example.test' }, apiAvailable: true, accessCatalog: [], csrfToken: '',
+    identity: { id: 'owner-user-1', email: 'owner@example.test' }, apiAvailable: true, accessCatalog: [], csrfToken: '',
   };
   return { cabinets, session, registry, canonical, props };
 }
@@ -194,6 +195,7 @@ function json(body: unknown, status = 200) {
 }
 
 describe('platform-v7 owner access center task UX', () => {
+  beforeEach(() => { window.sessionStorage.clear(); });
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -208,6 +210,7 @@ describe('platform-v7 owner access center task UX', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
       if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path.startsWith('/platform-v7/staff/role-mode?view=create-intent')) return json({ message: 'Create intent not found' }, 404);
       if (path === '/platform-v7/staff/role-mode') return json(registry);
       if (path === '/api/staff/session-context') return ended ? reconciliation : json({ active: true, session });
       if (path === '/api/staff/access/sessions') return json(ended ? [] : [{ id: session.accessSessionId, status: 'ACTIVE' }]);
@@ -290,6 +293,7 @@ describe('platform-v7 owner access center task UX', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
       if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path.startsWith('/platform-v7/staff/role-mode?view=create-intent')) return json({ message: 'Create intent not found' }, 404);
       if (path === '/platform-v7/staff/role-mode') return json(registry);
       if (path === '/api/staff/session-context') return json({ code: 'UNAVAILABLE' }, 503);
       if (path === '/api/staff/access/sessions') return json([]);
@@ -308,21 +312,24 @@ describe('platform-v7 owner access center task UX', () => {
     const { registry, canonical, props } = roleModeFixtures();
     let activationAttempted = false;
     let requestCount = 0;
+    let intentId = "";
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input);
       if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
       if (path === '/platform-v7/staff/role-mode' && init?.method === 'POST') {
         requestCount += 1;
+        intentId = JSON.parse(String(init?.body)).createIntentId;
         return json({ grantId: 'grant-1', roleMode: {
           cabinetKey: 'buyer', canonicalPath: '/platform-v7/buyer', effectiveRole: 'BUYER',
           effectiveOrganizationId: 'organization-1', mode: 'VIEW_AS', readOnly: true,
         } });
       }
+      if (path.startsWith('/platform-v7/staff/role-mode?view=create-intent')) return intentId ? json({ createIntentId: intentId, originalReceipt: { createIntentId: intentId, requestId: 'request-1', status: 'GRANTED', grantId: 'grant-1', expiresAt: canonical.expiresAt, schemaVersion: registry.schemaVersion, roleMode: canonical }, currentProjection: { requestId: 'request-1', requestStatus: 'GRANTED', grantId: 'grant-1', grantStatus: 'ACTIVE', expiresAt: canonical.expiresAt, activationEligible: true, requiresLiveActivationChecks: true } }) : json({ message: 'Create intent not found' }, 404);
       if (path === '/platform-v7/staff/role-mode') return json(registry);
       if (path === '/platform-v7/staff/prepare?format=json') return json({ ok: true, csrfToken: 'a'.repeat(32) });
       if (path === '/api/staff/access/grants/grant-1/activate') {
         activationAttempted = true;
-        return json({ ok: true });
+        return json({ ok: true, accessSessionId: canonical.accessSessionId });
       }
       if (path === '/api/staff/session-context') return json({ active: false, session: null });
       if (path === '/api/staff/access/sessions') return json(activationAttempted ? [{ id: canonical.accessSessionId, status: 'ACTIVE' }] : []);
@@ -352,6 +359,7 @@ describe('platform-v7 owner access center task UX', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
       if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path.startsWith('/platform-v7/staff/role-mode?view=create-intent')) return intentId ? json({ createIntentId: intentId, originalReceipt: { createIntentId: intentId, requestId: 'request-1', status: 'GRANTED', grantId: 'grant-1', expiresAt: canonical.expiresAt, schemaVersion: registry.schemaVersion, roleMode: canonical }, currentProjection: { requestId: 'request-1', requestStatus: 'GRANTED', grantId: 'grant-1', grantStatus: 'ACTIVE', expiresAt: canonical.expiresAt, activationEligible: true, requiresLiveActivationChecks: true } }) : json({ message: 'Create intent not found' }, 404);
       if (path === '/platform-v7/staff/role-mode') return json(registry);
       if (path === '/api/staff/session-context') return json({ active: true, session: {
         accessSessionId: canonical.accessSessionId, accessMode: 'VIEW_AS', permissions: ['cabinet:view-as'],
@@ -374,6 +382,7 @@ describe('platform-v7 owner access center task UX', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
       if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path.startsWith('/platform-v7/staff/role-mode?view=create-intent')) return json({ message: 'Create intent not found' }, 404);
       if (path === '/platform-v7/staff/role-mode') return json(registry);
       if (path === '/api/staff/session-context') return json(active ? { active: true, session } : { active: false, session: null });
       if (path === '/api/staff/access/sessions') return json(active ? [{ id: session.accessSessionId, status: 'ACTIVE' }] : []);
@@ -398,6 +407,7 @@ describe('platform-v7 owner access center task UX', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
       if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path.startsWith('/platform-v7/staff/role-mode?view=create-intent')) return json({ message: 'Create intent not found' }, 404);
       if (path === '/platform-v7/staff/role-mode') return json(registry);
       if (path === '/api/staff/session-context') return json(active ? { active: true, session } : { active: false, session: null });
       if (path === '/api/staff/access/sessions') return json(active ? [{ id: session.accessSessionId, status: 'ACTIVE' }] : []);
@@ -424,6 +434,7 @@ describe('platform-v7 owner access center task UX', () => {
       const path = String(input);
       if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
       if (path === '/platform-v7/staff/role-mode' && init?.method === 'POST') return pendingRequest;
+      if (path.startsWith('/platform-v7/staff/role-mode?view=create-intent')) return json({ message: 'Create intent not found' }, 404);
       if (path === '/platform-v7/staff/role-mode') return json(registry);
       if (path === '/platform-v7/staff/prepare?format=json') return json({ ok: true, csrfToken: 'a'.repeat(32) });
       if (path === '/api/staff/session-context') return json({ active: false, session: null });
@@ -457,6 +468,7 @@ describe('platform-v7 owner access center task UX', () => {
       const path = String(input);
       const active = Date.now() < Date.parse(expiresAt);
       if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path.startsWith('/platform-v7/staff/role-mode?view=create-intent')) return json({ message: 'Create intent not found' }, 404);
       if (path === '/platform-v7/staff/role-mode') return json(registry);
       if (path === '/api/staff/session-context') return json(active ? { active: true, session } : { active: false, session: null });
       if (path === '/api/staff/access/sessions') return json(active ? [{ id: session.accessSessionId, status: 'ACTIVE' }] : []);
@@ -477,6 +489,7 @@ describe('platform-v7 owner access center task UX', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
       if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path.startsWith('/platform-v7/staff/role-mode?view=create-intent')) return json({ message: 'Create intent not found' }, 404);
       if (path === '/platform-v7/staff/role-mode') return json(registry);
       if (path === '/api/staff/session-context') return json({ active: false, session: null });
       if (path === '/api/staff/access/sessions') return json(ownSessions);
@@ -511,7 +524,9 @@ describe('platform-v7 owner access center task UX', () => {
     expect(directCenter).not.toContain('CONTROLLED_CABINET_CONTEXTS');
     expect(directCenter).not.toContain('controlled-test-organizations');
     expect(directCenter).not.toContain('action="/platform-v7/staff/open-cabinet/submit"');
-    expect(directCenter).not.toContain('window.sessionStorage');
+    expect(directCenter).toContain('OWNER_CREATE_PREFIX');
+    expect(directCenter).toContain('OWNER_CREATE_SCHEMA');
+    expect(directCenter).not.toContain('accessToken');
     expect(directCenter).not.toContain('PLATFORM_V7_ACTIVE_ROLE_KEY');
   });
 
@@ -546,12 +561,12 @@ describe('platform-v7 owner access center task UX', () => {
     expect(prepareRoute).toContain('response.cookies.set(CSRF_COOKIE');
     expect(directCenter).toContain("fetch('/platform-v7/staff/prepare?format=json'");
     expect(directCenter).toContain('let token = await refreshCsrf(controller.signal)');
-    expect(directCenter).toContain("requested.payload?.code === 'CSRF_REJECTED'");
+    expect(directCenter).toContain("payload?.code === 'CSRF_REJECTED'");
     expect(directCenter).toContain("'X-CSRF-Token': token");
   });
 
   it('activates the durable grant and re-verifies the canonical Founder session before display', () => {
-    expect(directCenter).toContain("fetch(`/api/staff/access/grants/${encodeURIComponent(requested.payload.grantId)}/activate`");
+    expect(directCenter).toContain("fetch(`/api/staff/access/grants/${encodeURIComponent(recovered.currentProjection.grantId!)}/activate`");
     expect(directCenter).toContain("fetch('/api/staff/session-context'");
     expect(directCenter.match(/fetch\('\/api\/staff\/founder\/role-mode\/session'/g)).toHaveLength(2);
     expect(directCenter).not.toContain('/platform-v7/staff/role-mode?view=session');
@@ -613,11 +628,12 @@ describe('platform-v7 owner access center task UX', () => {
   it('keeps the separate bounded manage-staff CONTROL_PLANE bootstrap unchanged', () => {
     expect(bootstrap).toContain("item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE'");
     expect(bootstrap).toContain("accessMode: 'CONTROL_PLANE'");
-    expect(bootstrap).toContain("'staff-request:read'");
-    expect(bootstrap).toContain("'staff-request:approve'");
+    expect(directCenter).toContain("'staff-request:read'");
+    expect(directCenter).toContain("'staff-request:approve'");
     expect(bootstrap).toContain("ticketId: 'PC-CROP-3785'");
     expect(bootstrap).toContain('durationSeconds: 30 * 60');
-    expect(bootstrap).toContain("fetch('/api/staff/access/requests'");
+    expect(bootstrap).toContain('resolveOwnerCreate(pending, openingCoordinator.current');
+    expect(directCenter).toContain("'/api/staff/access/requests'");
     expect(bootstrap).toContain("fetch(`/api/staff/access/grants/${encodeURIComponent(grantId)}/activate`");
     expect(bootstrap).not.toContain('break-glass');
     expect(bootstrap).not.toContain('localStorage');

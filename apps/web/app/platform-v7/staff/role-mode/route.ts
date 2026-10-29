@@ -12,6 +12,7 @@ export const maxDuration = 12;
 
 const API_BASE_URL = resolveServerApiBaseUrl();
 const MAX_BODY_BYTES = 16 * 1024;
+const CREATE_INTENT = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -116,9 +117,12 @@ async function proxyRequest(request: NextRequest, accessToken: string, correlati
   const reason = boundedString(raw.reason, 10, 2000);
   const ticketId = boundedString(raw.ticketId, 3, 128);
   const durationSeconds = raw.durationSeconds === undefined ? 900 : Number(raw.durationSeconds);
+  const createIntentId = typeof raw.createIntentId === 'string' && CREATE_INTENT.test(raw.createIntentId)
+    ? raw.createIntentId.toLowerCase() : null;
 
   if (
-    !cabinetKey
+    !createIntentId
+    || !cabinetKey
     || !organizationId
     || !reason
     || !ticketId
@@ -136,6 +140,7 @@ async function proxyRequest(request: NextRequest, accessToken: string, correlati
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
+      createIntentId,
       cabinetKey,
       organizationId,
       reason,
@@ -156,6 +161,35 @@ async function proxyRequest(request: NextRequest, accessToken: string, correlati
     : { correlationId: correlation };
   delete safePayload.accessToken;
   return json(safePayload, upstream.status);
+}
+
+function withoutCredentials(value: unknown, depth = 0): unknown {
+  if (depth > 8) return null;
+  if (Array.isArray(value)) return value.map((item) => withoutCredentials(item, depth + 1));
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).filter(([key]) => !/^(?:access[_-]?token|refresh[_-]?token|authorization|password|secret|token)$/i.test(key))
+    .map(([key, item]) => [key, withoutCredentials(item, depth + 1)]));
+}
+
+async function proxyCreateRecovery(request: NextRequest, accessToken: string, correlation: string) {
+  const ids = request.nextUrl.searchParams.getAll('createIntentId');
+  const views = request.nextUrl.searchParams.getAll('view');
+  if (ids.length !== 1 || views.length !== 1 || views[0] !== 'create-intent' || !CREATE_INTENT.test(ids[0])
+    || [...request.nextUrl.searchParams.keys()].some((key) => key !== 'view' && key !== 'createIntentId')) {
+    return json({ ok: false, code: 'CREATE_INTENT_INVALID', correlationId: correlation }, 400);
+  }
+  const upstream = await fetch(`${API_BASE_URL}/staff/access/request-intents/${encodeURIComponent(ids[0].toLowerCase())}`, {
+    headers: baseHeaders(request, accessToken, correlation), cache: 'no-store', redirect: 'manual',
+    signal: AbortSignal.timeout(8_000),
+  });
+  if (upstream.status >= 300 && upstream.status < 400) return json({ ok: false, code: 'UPSTREAM_REDIRECT_REJECTED', correlationId: correlation }, 502);
+  const raw = await readBoundedBody(upstream.body, 64 * 1024);
+  if (!raw) return json({ ok: false, code: 'CREATE_INTENT_RESPONSE_INVALID', correlationId: correlation }, 502);
+  let payload: unknown;
+  try { payload = JSON.parse(new TextDecoder().decode(raw)); }
+  catch { return json({ ok: false, code: 'CREATE_INTENT_RESPONSE_INVALID', correlationId: correlation }, 502); }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return json({ ok: false, code: 'CREATE_INTENT_RESPONSE_INVALID', correlationId: correlation }, 502);
+  return json({ ...withoutCredentials(payload) as JsonRecord, correlationId: correlation }, upstream.status);
 }
 
 function preflight(request: NextRequest) {
@@ -191,6 +225,9 @@ export async function GET(request: NextRequest) {
   try {
     if (request.nextUrl.searchParams.get('view') === 'session') {
       return json({ ok: false, code: 'ROLE_MODE_SESSION_USE_STAFF_BFF', correlationId: checked.correlation }, 410);
+    }
+    if (request.nextUrl.searchParams.has('createIntentId') || request.nextUrl.searchParams.has('view')) {
+      return await proxyCreateRecovery(request, checked.accessToken, checked.correlation);
     }
     return await proxyRegistry(request, checked.accessToken, checked.correlation);
   } catch {

@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "status": "active",
+  "authorizedBy": "explicit-owner-instruction-2026-10-11-prinimay-i-dovodi-do-finisha-necessary-bounded-predecessor-compatibility",
+  "owner": "ACCOUNT_1_CORE",
+  "contributor": "ACCOUNT_2_PRODUCT",
+  "authorityBaseExactMain": "43aa983e9ccc4f723cbb964b7b76a898172b05fe",
+  "teamHubClaim": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6107266520",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "branch": "fix/pc-crop-predecessor-5580-20261011",
+  "purpose": "Complete one cohesive engineering unblock: preserve every original predecessor lock/legacy variant and the exact80b workflow, validate accepted-base complete source scope, and classify the finite eight-leaf combined repair without skipping any full PostgreSQL/BFF acceptance.",
+  "allowedPaths": [
+    "scripts/pc-crop-predecessor-trigger-governance.mjs",
+    "scripts/test-pc-crop-predecessor-07b-compat.mjs",
+    ".github/workflows/pc-crop-predecessor-trigger-governance.yml",
+    "scripts/p7-source-controlled-scope.mjs",
+    ".github/workflows/pc-crop-07b.yml",
+    "scripts/verify-pc-crop-07b-routing-compat.py",
+    "scripts/test-pc-crop-07b-routing-compat.py",
+    "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts"
+  ],
+  "effectiveAfter": "Metadata-only admission independently accepted first; one cohesive GUARDCOMPAT SOURCE changes only these eight regular files from actual accepted main and cannot change this manifest or lock.",
+  "blockedSourcePR": 5894,
+  "blockedSourceHead": "666b86471404c57fe175057bc2dcdd367e20fca8",
+  "failureRun": 38125703133,
+  "failureJob": 114429510735,
+  "pinnedCompatibility": {
+    "workflow": ".github/workflows/pc-crop-07b.yml",
+    "mode": "100644",
+    "afterBlob": "80b574492cbdc6a4549849886dda3d4ba61926f8",
+    "sha256": "bd1ceffd85e2de0c46914e3d75c3ec9a234d698ff8db08124a227a11d807c412",
+    "sourceHead": "666b86471404c57fe175057bc2dcdd367e20fca8",
+    "sourceTree": "b8b499df1725860cf3af513fd171a2e403ef4189",
+    "nativeFullAcceptanceRun": 38125703077,
+    "nativeFullAcceptanceJob": 114429510724,
+    "additionalTriggers": [
+      ".github/workflows/pc-crop-07b.yml",
+      "scripts/verify-pc-crop-07b-routing-compat.py",
+      "scripts/test-pc-crop-07b-routing-compat.py"
+    ]
+  },
+  "requiredInvariants": [
+    "Keep pc-crop-predecessor-trigger-lock.json bytes and all five original locked legacy variants and original exact trigger maps intact. All four other predecessor workflows and successor handoff contract remain unchanged.",
+    "The sole additive PC-CROP-07B variant must match the complete fixed blob and SHA256 above. Its variant authority is this exact unchanged regular100644 manifest from an actual accepted ancestor base, never candidate-owned metadata, a working-tree pin, arbitrary environment hash or newly generated lock. Wrong/missing/stale/nonancestor/metadata/control/mode/blob/hash/byte or extra trigger rejects.",
+    "For the additive variant only, preserve exactly its three additional gate/script trigger paths and verify its complete fixed bytes before any canonical apply. No general workflow self-trigger/body drift allowance. Apply remains idempotent and never changes a submitted accepted variant.",
+    "Original FGIS quartet classifier and complete migration/APIpolicy/PostgreSQLtenantcommands/protectedwebtypecheck/BFFUX/failclosed exactHEADevidence remain byte-identical in the fixed07Bvariant. The exact SOURCE666 workflow80b and single-line FGIS testc115 are preserved; only the two already reserved Python classifier/test afterblobs are refined to classify this exact complete eight-leaf SOURCE from immutable acceptedBASE, with the new full pins above; one existing FGIS assertion is exactly91c9f62d99c4ca2cec8dee681af446b51885d3e0 to c1158e456ca42bdb1a887b9885cd3128d48a0bcf and all other original test bytes stay identical. No original routing5892 runtime/test leaf changes.",
+    "Regression runs actual predecessor guard with genuine Git fixture authorities: original and exact added variants pass/idempotent, drifted full workflow/trigger/body/other predecessor/lock, wrong candidate/base manifest, absent/malformed/unreachable authority all fail. No test removed, substantive gate skip, continue-on-error, threshold decrease, generic mutable lock or guard bypass.",
+    "Existing predecessor workflow adds exact regression invocation and exact script/admission triggers, preserving all other jobs/services/permissions/successor checks/upload and clean-tree enforcement. Required checks remain mandatory.",
+    "Exactly eight regular SOURCE leaves; all other tree leaves/state/PRIMARY/current/progress/owners/locks/other guards/workflows/runtime/contracts/provider and budget/hosting bytes unchanged.",
+    "Every published META/combinedGUARDCOMPAT/routing HEAD needs fresh genuine independent complete-head review, separate audit, all substantive native/security/latest completedSUCCESSreadiness and ordinary expected-fullSHA manual merge. SOURCE5894 stays blocked unmerged evidence until combinedSOURCE actually accepted, then explicitly superseded without PASS transfer. Originalrouting5892 ordinarily merges actual acceptedMAIN with no force and obtains fresh own-head checks; no previous-head approval transfer.",
+    "For exactly this GUARD branch, fix/pc-crop-07b-routing-5580-20261011 and fix/protected-entry-locale-5580-20261011, source-controlled resolver binds real accepted BASE ancestor, loads branch manifest from BASE, requires identical regular manifest in BASE/HEAD/worktree, exact whole BASE-to-HEAD allowed source path set and all regular source HEAD leaves. Candidate-owned authority/extra runtime or infrastructure/partial/stale/rename/delete/mode vectors reject before generic scope allowlists. Other branches and governance resolution remain unchanged; the immutable literal p7-autopilot-guard and global state remain untouched. Actual Git regressions reproduce old candidate expansion PASS and verify corrected rejection.",
+    "The existing predecessor workflow must directly validate complete exact SOURCE scope for these three finish branches independently of the legacy shell guard's empty-merge-base-diff early return. For compatibility/routing PRs, invoke executable helper bytes copied from actual accepted BASE, never candidate validators; include the original routing four exact source paths as triggers. For this separately admitted validator-changing GUARD SOURCE, current candidate helper execution is test evidence only: genuine nonauthor complete-head manual review and all native gates approve the new code. Regression exercises the actual native step for both exact downstream source vectors and rejects candidate-validator replacement and stale-empty source even when the legacy shell guard reports No changed files. No claim of trusted self-approval or a changed literal shell guard is permitted.",
+    "Current combinedSOURCE executes explicit31classifier/preservation checks in the predecessor workflow only for this exact combined branch; other future events/branches retain all29default classifier negatives and full substantive acceptance, so historical full-file preservation never freezes unrelated later FGIS changes. Complete combinedHEAD nativePG/BFF/Kubernetes/security mandatory, no gate skip/threshold change or proof transfer.",
+    "The existing original four-runtime routing classifier function and all original15negative groups remain unchanged. The sole additive combined classifier admits only this exact combined branch or main push with all eight complete regular SOURCE paths, immutable acceptedBASE/HEAD/worktree authority and all four exact admitted afterblob/SHA256 pins; malformed/stale/nonancestor/extra/partial/empty/renamed/mode/pin/candidate-authority/evidence vectors reject. It never skips or downgrades the unchanged full07B PostgreSQL/BFF acceptance. Test the actual native07Bscope Bash step on real Git vectors, beyond pure classifier unit fixtures."
+  ],
+  "forbiddenChanges": [
+    "all runtime or API/business/command source; only the one exact pinned existing FGIS test assertion is admitted",
+    "all workflows/scripts except the exact eight allowedPaths",
+    "docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json",
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/scopes/**",
+    "docs/platform-v7/autopilot/progress.json",
+    "pnpm-lock.yaml",
+    "package.json",
+    "production credentials or server configuration"
+  ],
+  "scopeRefinementClaim": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6107326625",
+  "combinedSourceClaim": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6107411012",
+  "pinnedCompatibilitySource": [
+    {
+      "path": ".github/workflows/pc-crop-07b.yml",
+      "mode": "100644",
+      "afterBlob": "80b574492cbdc6a4549849886dda3d4ba61926f8",
+      "sha256": "bd1ceffd85e2de0c46914e3d75c3ec9a234d698ff8db08124a227a11d807c412"
+    },
+    {
+      "path": "scripts/verify-pc-crop-07b-routing-compat.py",
+      "mode": "100644",
+      "afterBlob": "ca823adaad8edfcf8f9aca8790f5d430a01a5eed",
+      "sha256": "2655c45f54d4acf7b51deb7f007a2b6c1c680bac31935a630b713c11c4b4ca03"
+    },
+    {
+      "path": "scripts/test-pc-crop-07b-routing-compat.py",
+      "mode": "100644",
+      "afterBlob": "e040f90c2a46827794064aca5d1698181540fc7a",
+      "sha256": "dcb66ce5052ba29c306498d85562b28207bdfbd6455de1198f9f7783596a1a5c"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts",
+      "mode": "100644",
+      "afterBlob": "c1158e456ca42bdb1a887b9885cd3128d48a0bcf",
+      "sha256": "926f5ebc9e77970bbcf9963a61531d8b6a4a5ec5cf63b7879fdac8e60f1a720b"
+    }
+  ],
+  "combinedClassifierRefinementClaim": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6107523913"
+}
