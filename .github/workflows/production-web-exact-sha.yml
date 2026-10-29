@@ -359,9 +359,9 @@ jobs:
           DOMAIN = 'xn----8sbjf4befbjgs9b.xn--p1ai'
           NP = 'NOT_PROVEN'
           DEADLINE = None
-          REJECT_REASONS = ['CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_BOUND', 'FILE_LIST_DUPLICATE', 'FILE_LIST_VALUE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_TOTAL_BOUND', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_AMBIGUOUS_SCALAR', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_STRUCTURE', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE']
-          REJECT_STAGES = ['FORMAT_CLOSURE', 'LABEL_PATHS', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL']
-          INPUT_ROLES = ['HARDENING_OVERRIDE', 'IMAGE_OVERRIDE', 'LABEL_AND_SELECTED_COMPOSE', 'LABEL_COMPOSE', 'NONE', 'SELECTED_COMPOSE']
+          REJECT_REASONS = ['ANALYTICS_PAIR_PARTIAL', 'CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_CONTROL', 'FILE_LIST_EMPTY', 'FILE_LIST_LOCALE_EDGE', 'FILE_LIST_RAW_LIMIT', 'FILE_LIST_TOO_MANY', 'FILE_LIST_TYPE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'MODEL_RENDER_FAILED', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_BYTES_LIMIT', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_UNIQUE_LIMIT', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_AMBIGUOUS_SCALAR', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_STRUCTURE', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE']
+          REJECT_STAGES = ['FORMAT_CLOSURE', 'LABEL_PATHS', 'MODEL_RENDER', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL']
+          INPUT_ROLES = ['ANALYTICS_OVERRIDE', 'HARDENING_OVERRIDE', 'IMAGE_OVERRIDE', 'LABEL_AND_SELECTED_COMPOSE', 'LABEL_COMPOSE', 'NONE', 'SELECTED_COMPOSE']
 
           def bounded(argv, payload=None, limit=LIMIT, seconds=10):
               """Bound output while reading; never publish stderr or exception text."""
@@ -441,7 +441,7 @@ jobs:
               return (row.get('Id'), row.get('Image'), labels(row).get('org.opencontainers.image.revision'),
                       (row.get('State') or {}).get('StartedAt'), row.get('RestartCount'))
 
-          def files_for(directory, raw):
+          def files_for(directory, raw, stats=None):
               if not isinstance(directory, str) or not directory.startswith('/') or len(directory) > 4096:
                   raise UnsupportedModel('DIRECTORY_VALUE')
               root = Path(directory)
@@ -449,14 +449,31 @@ jobs:
                   raise UnsupportedModel('DIRECTORY_SYMLINK')
               if not root.is_dir():
                   raise UnsupportedModel('DIRECTORY_TYPE')
-              if not isinstance(raw, str) or len(raw) > 16384:
-                  raise UnsupportedModel('FILE_LIST_VALUE')
-              values = raw.split(',')
-              if not 1 <= len(values) <= 16 or any(not v.strip() for v in values):
-                  raise UnsupportedModel('FILE_LIST_BOUND')
-              paths = [Path(v.strip()) if v.strip().startswith('/') else root / v.strip() for v in values]
-              if len(set(paths)) != len(paths):
-                  raise UnsupportedModel('FILE_LIST_DUPLICATE')
+              if not isinstance(raw, str):
+                  raise UnsupportedModel('FILE_LIST_TYPE')
+              if len(raw) > 16384:
+                  raise UnsupportedModel('FILE_LIST_RAW_LIMIT')
+              # Canonical-compatible supported subset: omit blanks and preserve ordered
+              # duplicates. A path cache must never deduplicate the native -f vector.
+              if any(c in raw for c in ('\0', '\r', '\n')):
+                  raise UnsupportedModel('FILE_LIST_CONTROL')
+              values = []
+              for item in raw.split(','):
+                  # Supported canonical subset: Bash ASCII shellspace is unambiguous
+                  # across C/C.UTF-8. Preserve other ASCII controls as filename bytes;
+                  # never silently remove them using Python's wider default strip.
+                  value = item.strip(' \t\n\r\v\f')
+                  if value and any(ord(c) > 127 and c.isspace() for c in (value[0], value[-1])):
+                      raise UnsupportedModel('FILE_LIST_LOCALE_EDGE')
+                  if value:
+                      values.append(value)
+              if not values:
+                  raise UnsupportedModel('FILE_LIST_EMPTY')
+              if len(values) > 128:
+                  raise UnsupportedModel('FILE_LIST_TOO_MANY')
+              paths = [Path(v) if v.startswith('/') else root / v for v in values]
+              if stats is not None:
+                  stats.update(entries=len(paths), duplicates=len(paths) - len(set(paths)))
               for p in paths:
                   if p.is_symlink():
                       raise UnsupportedModel('INPUT_SYMLINK')
@@ -614,6 +631,8 @@ jobs:
                   self.directory_allocation_started = False
 
               def add(self, path):
+                  if self.directory_allocation_started:
+                      raise UnsupportedModel('SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_SEAL')
                   path = Path(path)
                   if path in self.entries:
                       if not self.entries[path]['complete']:
@@ -625,8 +644,10 @@ jobs:
                       fields = rejection(error, 'REGULAR_READ', 'NONE')
                       raise UnsupportedModel(fields['reject_reason'], 'REGULAR_READ') from None
                   closed_compose_bytes(raw, self.trusted_hardening)
-                  if len(self.entries) >= 48 or self.total + len(raw) > 4 * LIMIT:
-                      raise UnsupportedModel('SNAPSHOT_TOTAL_BOUND', 'SNAPSHOT_SEAL')
+                  if len(self.entries) >= 128:
+                      raise UnsupportedModel('SNAPSHOT_UNIQUE_LIMIT', 'SNAPSHOT_SEAL')
+                  if self.total + len(raw) > 4 * LIMIT:
+                      raise UnsupportedModel('SNAPSHOT_BYTES_LIMIT', 'SNAPSHOT_SEAL')
                   if self.directory is None:
                       allocation_signals = {signal.SIGALRM, signal.SIGTERM, signal.SIGHUP}
                       allocation_mask = signal.pthread_sigmask(signal.SIG_BLOCK, allocation_signals)
@@ -848,8 +869,74 @@ jobs:
                   return NP
 
 
+          def v5_fields():
+              value = {'coverage': 'NONE', 'selected_basis': NP, 'project_runtime_binding': NP,
+                       'persisted_runtime_binding': NP, 'label_persisted_relation': NP,
+                       'analytics_presence': NP, 'bounded_model_scope': 'SNAPSHOT_CONFIG_ENV_STABILITY_NOT_ATTESTED',
+                       'docker_storage_status': NP, 'docker_storage_basis': NP,
+                       'docker_storage_available_kib': None, 'docker_storage_total_kib': None,
+                       'docker_storage_available_inodes': None, 'docker_storage_total_inodes': None,
+                       'docker_storage_conventional': NP, 'docker_storage_conventional_basis': NP}
+              for prefix in ('label', 'selected', 'persisted'):
+                  value.update({prefix + '_closure': NP, prefix + '_reject_stage': 'NONE',
+                                prefix + '_reject_reason': 'NONE', prefix + '_entries': None,
+                                prefix + '_duplicates': None, prefix + '_list_state': NP})
+              return value
+
+          def storage_observation():
+              result = {k: v for k, v in v5_fields().items() if k.startswith('docker_storage_')}
+              try:
+                  raw = bounded(['docker', 'info', '--format', '{{.DockerRootDir}}'], limit=8192, seconds=3)
+              except Exception:
+                  result['docker_storage_status'] = 'INFO_UNAVAILABLE'
+                  return result
+              try:
+                  root = raw.decode('utf-8', errors='strict')
+                  if root.endswith('\n'):
+                      root = root[:-1]
+                  if not root.startswith('/') or not 1 <= len(root.encode('utf-8')) <= 4096 or any(c in root for c in ('\0', '\r', '\n')):
+                      raise ValueError('ROOT')
+              except (ValueError, UnicodeError):
+                  result['docker_storage_status'] = 'ROOT_UNSUPPORTED'
+                  return result
+              try:
+                  details = os.stat(root, follow_symlinks=False)
+                  if not stat.S_ISDIR(details.st_mode):
+                      result['docker_storage_status'] = 'ROOT_UNSUPPORTED'
+                      return result
+              except OSError:
+                  result['docker_storage_status'] = 'STAT_UNAVAILABLE'
+                  return result
+              try:
+                  fs = os.statvfs(root)
+              except OSError:
+                  result['docker_storage_status'] = 'STATVFS_UNAVAILABLE'
+                  return result
+              fragment = fs.f_frsize or fs.f_bsize
+              numbers = (fragment, fs.f_bavail, fs.f_blocks, fs.f_favail, fs.f_files)
+              if (any(type(v) is not int or v < 0 for v in numbers) or fragment == 0
+                      or fs.f_bavail > fs.f_blocks or fs.f_favail > fs.f_files):
+                  result['docker_storage_status'] = 'METRICS_UNSUPPORTED'
+                  return result
+              available, total = fs.f_bavail * fragment // 1024, fs.f_blocks * fragment // 1024
+              if any(v > 2 ** 63 - 1 for v in (available, total, fs.f_favail, fs.f_files)):
+                  result['docker_storage_status'] = 'METRICS_UNSUPPORTED'
+                  return result
+              result.update(docker_storage_status='MEASURED', docker_storage_basis='STATVFS_F_BAVAIL_1024',
+                            docker_storage_available_kib=available, docker_storage_total_kib=total,
+                            docker_storage_available_inodes=fs.f_favail, docker_storage_total_inodes=fs.f_files)
+              try:
+                  conventional = os.stat('/var/lib/docker', follow_symlinks=False)
+                  if stat.S_ISDIR(conventional.st_mode):
+                      result['docker_storage_conventional'] = 'SAME' if details.st_dev == conventional.st_dev else 'DIFFERENT'
+                      result['docker_storage_conventional_basis'] = 'STAT_ST_DEV'
+              except OSError:
+                  pass
+              return result
+
+
           def _collect(inputs):
-              out = {'schema': 'pc.web-readonly-preconditions.v2', 'source_sha': inputs['source_sha'],
+              out = {'schema': 'pc.web-readonly-preconditions.v3', 'source_sha': inputs['source_sha'],
                      'closure': NP, 'observation': 'BLOCKED', 'snapshot_cleanup': 'NOT_NEEDED',
                      'reject_stage': 'NONE', 'reject_reason': 'NONE', 'input_role': 'NONE',
                      'selectors': NP, 'label_model': NP, 'selected_model': NP, 'models_relation': NP,
@@ -858,6 +945,8 @@ jobs:
                      'container_image_binding': NP, 'rollback_local': NP, 'caddy_mode': NP,
                      'caddy_count': 0, 'caddy_admin_route': NP, 'public_readiness': NP,
                      'runtime_stability': NP, 'observed_file_stability': NP, 'production_mutation': 'NONE'}
+              out.update(v5_fields())
+              out.update(storage_observation())
               if not SHA.fullmatch(inputs['source_sha']):
                   raise ValueError('SOURCE')
               ids = bounded(['docker', 'ps', '-q', '--no-trunc'], limit=8192).decode().splitlines()
@@ -889,92 +978,144 @@ jobs:
               peers = [r for r in rows if labels(r).get('com.docker.compose.project') == project]
               apis = [r for r in peers if labels(r).get('com.docker.compose.service') == 'api']
               observed = {}
-              reject_stage, input_role = 'LABEL_PATHS', 'LABEL_COMPOSE'
-              try:
-                  label_paths = files_for(wl.get('com.docker.compose.project.working_dir'), wl.get('com.docker.compose.project.config_files'))
-                  reject_stage, input_role = 'SELECTED_PATHS', 'SELECTED_COMPOSE'
-                  directory, raw = inputs.get('directory', ''), inputs.get('compose', '')
-                  if bool(directory) != bool(raw):
-                      out['selectors'] = 'PARTIAL'
-                      raise UnsupportedModel('SELECTORS_PARTIAL')
-                  if not directory:
-                      directory, raw = wl.get('com.docker.compose.project.working_dir'), wl.get('com.docker.compose.project.config_files')
-                  selected_paths = files_for(directory, raw)
-                  all_paths = list(dict.fromkeys(label_paths + selected_paths))
-                  reject_stage, input_role = 'PERSISTED_PATHS', 'HARDENING_OVERRIDE'
-                  for name in ('compose.production-hardening.override.yml', 'compose.production-web-image.override.yml'):
-                      input_role = 'HARDENING_OVERRIDE' if name == 'compose.production-hardening.override.yml' else 'IMAGE_OVERRIDE'
-                      candidate = Path(directory) / name
-                      if candidate.exists() or candidate.is_symlink():
-                          all_paths.append(candidate)
-                  reject_stage = 'SNAPSHOT_SEAL'
-                  for candidate in all_paths:
-                      input_role = ('LABEL_AND_SELECTED_COMPOSE' if candidate in label_paths and candidate in selected_paths else
-                                    'LABEL_COMPOSE' if candidate in label_paths else 'SELECTED_COMPOSE' if candidate in selected_paths else
-                                    'HARDENING_OVERRIDE' if candidate == Path(directory) / 'compose.production-hardening.override.yml' else 'IMAGE_OVERRIDE')
-                      entry = SNAPSHOTS.add(candidate)
-                      observed.setdefault(candidate, entry['digest'])
-                  out['closure'] = 'SUPPORTED'
-              except (UnsupportedModel, ValueError, UnicodeError, OSError) as error:
-                  out['closure'] = 'UNSUPPORTED'
-                  out.update(rejection(error, reject_stage, input_role))
-                  return out
-              out['observation'] = 'COMPLETE'
-              def render(directory, raw, chosen_project):
-                  paths = files_for(directory, raw)
-                  for p in paths:
-                      observed.setdefault(p, SNAPSHOTS.add(p)['digest'])
-                  return model(directory, chosen_project, paths), paths
-              lm = sm = None
-              try:
-                  lm, _ = render(wl.get('com.docker.compose.project.working_dir'), wl.get('com.docker.compose.project.config_files'), project)
-                  out['label_model'] = 'OBSERVED'
-              except Exception:
-                  pass
+              models = {}
               directory, raw = inputs.get('directory', ''), inputs.get('compose', '')
-              if bool(directory) != bool(raw):
-                  out['selectors'] = 'PARTIAL'
-              else:
-                  out['selectors'] = 'EXPLICIT' if directory else 'LABEL_FALLBACK'
-                  if not directory:
-                      directory, raw = wl.get('com.docker.compose.project.working_dir'), wl.get('com.docker.compose.project.config_files')
+              explicit = bool(directory) and bool(raw)
+              out['selectors'] = 'PARTIAL' if bool(directory) != bool(raw) else 'EXPLICIT' if explicit else 'LABEL_FALLBACK'
+              out['selected_basis'] = 'PROTECTED_EXPLICIT' if explicit else 'LABEL_CANONICAL_BASE' if out['selectors'] == 'LABEL_FALLBACK' else NP
+
+              def fail_model(prefix, error, stage, role):
+                  fields = rejection(error, stage, role)
+                  out[prefix + '_reject_stage'] = fields['reject_stage']
+                  out[prefix + '_reject_reason'] = fields['reject_reason']
+                  if out[prefix + '_closure'] != 'SUPPORTED':
+                      out[prefix + '_closure'] = 'UNSUPPORTED'
+                  if out['reject_reason'] == 'NONE':
+                      out.update(fields)
+
+              def render_checked(prefix, model_dir, chosen_project, paths, stats):
+                  out[prefix + '_entries'] = stats['entries']
+                  out[prefix + '_duplicates'] = stats['duplicates']
+                  out[prefix + '_list_state'] = 'NORMALIZED_DUPLICATES' if stats['duplicates'] else 'NORMALIZED_UNIQUE'
+                  role = 'LABEL_COMPOSE' if prefix == 'label' else 'SELECTED_COMPOSE'
                   try:
-                      chosen_project = inputs.get('project') or (project if out['selectors'] == 'LABEL_FALLBACK' else '')
-                      sm, paths = render(directory, raw, chosen_project)
-                      out['selected_model'] = 'OBSERVED'
-                      if lm is not None:
-                          out['models_relation'] = 'MATCH' if lm == sm else 'DIFFERENT'
-                      services = sm['services']
-                      migrations = [s for name, s in services.items() if re.search(r'(^|[-_])(migrate|migration)([-_]|$)', name, re.I)
-                                    or 'grainflow-migration' in str(s.get('image', ''))
-                                    or ('prisma' in str(s.get('command', '')) and 'migrate' in str(s.get('command', '')))]
-                      out['migration'] = 'MISSING' if not migrations else 'UNIQUE' if len(migrations) == 1 else 'AMBIGUOUS'
-                      if len(migrations) == 1 and len(apis) == 1:
-                          try:
-                              value = (migrations[0].get('environment') or {}).get('DATABASE_URL')
-                              out['migration_database'] = ('SAME_API_AUTHORITY' if authority(value) == authority(environment(apis[0]).get('DATABASE_URL')) else 'DIFFERENT_API_AUTHORITY')
-                          except Exception:
-                              out['migration_database'] = 'MALFORMED_OR_MISSING'
+                      for path in paths:
+                          if prefix == 'persisted':
+                              role = ('HARDENING_OVERRIDE' if path == Path(model_dir) / 'compose.production-hardening.override.yml' else
+                                      'IMAGE_OVERRIDE' if path == Path(model_dir) / 'compose.production-web-image.override.yml' else
+                                      'ANALYTICS_OVERRIDE' if path == Path(model_dir) / 'compose.pc-posthog-public-analytics.override.yml' else 'SELECTED_COMPOSE')
+                          observed.setdefault(path, SNAPSHOTS.add(path)['digest'])
+                      out[prefix + '_closure'] = 'SUPPORTED'
+                  except Exception as error:
+                      if SNAPSHOTS.directory_allocation_started:
+                          error = UnsupportedModel('SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_SEAL')
+                      fail_model(prefix, error, 'SNAPSHOT_SEAL', role)
+                      return None
+                  try:
+                      value = model(model_dir, chosen_project, paths)
+                      out[prefix + '_model'] = 'OBSERVED'
+                      models[prefix] = value
+                      return value
+                  except Exception:
+                      fail_model(prefix, UnsupportedModel('MODEL_RENDER_FAILED', 'MODEL_RENDER'), 'MODEL_RENDER', role)
+                      return None
+
+              def finish_models():
+                  selected_ok, persisted_ok, label_ok = (out[p + '_model'] == 'OBSERVED' for p in ('selected', 'persisted', 'label'))
+                  out['coverage'] = ('FULL' if selected_ok and persisted_ok and label_ok else
+                                     'SELECTED_PERSISTED_ONLY' if selected_ok and persisted_ok else
+                                     'SELECTED_ONLY' if selected_ok else 'LABEL_ONLY' if label_ok else 'NONE')
+                  closures = [out[p + '_closure'] for p in ('label', 'selected', 'persisted')]
+                  out['closure'] = ('SUPPORTED' if all(v == 'SUPPORTED' for v in closures) else
+                                    'PARTIAL' if 'SUPPORTED' in closures else 'UNSUPPORTED' if 'UNSUPPORTED' in closures else NP)
+                  out['observation'] = 'COMPLETE' if out['coverage'] == 'FULL' else 'PARTIAL' if out['coverage'] != 'NONE' else 'BLOCKED'
+
+              selected_paths = None
+              chosen_project = inputs.get('project') or (project if out['selectors'] == 'LABEL_FALLBACK' else '')
+              # Authoritative explicit inputs are checked first. An unavailable advisory
+              # label never becomes an alternate source of selected production authority.
+              try:
+                  if out['selectors'] == 'PARTIAL':
+                      raise UnsupportedModel('SELECTORS_PARTIAL')
+                  if not explicit:
+                      directory = wl.get('com.docker.compose.project.working_dir')
+                      raw = wl.get('com.docker.compose.project.config_files')
+                  stats = {}
+                  selected_paths = files_for(directory, raw, stats)
+                  if not explicit:
+                      selected_paths = [p for p in selected_paths if p.name not in (
+                          'compose.production-hardening.override.yml', 'compose.production-web-image.override.yml')]
+                      if not selected_paths:
+                          raise UnsupportedModel('FILE_LIST_EMPTY')
+                      stats = {'entries': len(selected_paths), 'duplicates': len(selected_paths) - len(set(selected_paths))}
+                  sm = render_checked('selected', directory, chosen_project, selected_paths, stats)
+              except Exception as error:
+                  fail_model('selected', error, 'SELECTED_PATHS', 'SELECTED_COMPOSE' if explicit or out['selectors'] == 'PARTIAL' else 'LABEL_COMPOSE')
+                  sm = None
+              if SNAPSHOTS.directory_allocation_started:
+                  finish_models()
+                  return out
+              if sm is not None:
+                  name = sm.get('name')
+                  out['project_runtime_binding'] = ('MATCH' if isinstance(name, str) and name and name == project else
+                                                    'DIFFERENT' if isinstance(name, str) and name and isinstance(project, str) and project else NP)
+                  services = sm['services']
+                  migrations = [s for name, s in services.items() if re.search(r'(^|[-_])(migrate|migration)([-_]|$)', name, re.I)
+                                or 'grainflow-migration' in str(s.get('image', ''))
+                                or ('prisma' in str(s.get('command', '')) and 'migrate' in str(s.get('command', '')))]
+                  out['migration'] = 'MISSING' if not migrations else 'UNIQUE' if len(migrations) == 1 else 'AMBIGUOUS'
+                  if len(migrations) == 1 and len(apis) == 1:
+                      try:
+                          value = (migrations[0].get('environment') or {}).get('DATABASE_URL')
+                          out['migration_database'] = ('SAME_API_AUTHORITY' if authority(value) == authority(environment(apis[0]).get('DATABASE_URL')) else 'DIFFERENT_API_AUTHORITY')
+                      except Exception:
+                          out['migration_database'] = 'MALFORMED_OR_MISSING'
+                  # Match the canonical persistent vector order: named base entries,
+                  # hardening, optional already-present analytics override, then image.
+                  try:
                       hardening = Path(directory) / 'compose.production-hardening.override.yml'
                       image = Path(directory) / 'compose.production-web-image.override.yml'
-                      extra = []
                       if not hardening.exists():
                           out['persisted_hardening'] = 'ABSENT'
-                      elif not hardening.is_symlink() and hardening.is_file() and hardening.stat().st_size <= LIMIT:
-                          out['persisted_hardening'] = ('MATCH_SOURCE' if SNAPSHOTS.add(hardening)['digest'].hex() == inputs['hardening_sha256'] else 'DIFFERENT_SOURCE')
-                      for p in (hardening, image):
-                          if p.is_symlink() or not p.is_file() or p.stat().st_size > LIMIT:
-                              raise ValueError('PERSISTED_FILE')
-                          observed.setdefault(p, SNAPSHOTS.add(p)['digest'])
-                          if p not in paths:
-                              extra.append(p)
-                      out['persisted_hardening'] = ('MATCH_SOURCE' if observed[hardening].hex() == inputs['hardening_sha256'] else 'DIFFERENT_SOURCE')
-                      pm = model(directory, chosen_project, paths + extra)
-                      out['persisted_model'] = 'OBSERVED'
-                      image_ref = pm['services']['web'].get('image')
-                      out['persisted_image'] = 'MATCH_RUNTIME_REF' if image_ref == (web.get('Config') or {}).get('Image') else 'DIFFERENT_RUNTIME_REF'
-                  except Exception:
-                      pass
+                      analytics_env = Path(directory) / '.pc-posthog-public-analytics.env'
+                      analytics = Path(directory) / 'compose.pc-posthog-public-analytics.override.yml'
+                      env_present = analytics_env.exists() or analytics_env.is_symlink()
+                      analytics_present = analytics.exists() or analytics.is_symlink()
+                      out['analytics_presence'] = 'PAIR_PRESENT' if env_present and analytics_present else 'PARTIAL' if env_present != analytics_present else 'ABSENT'
+                      if env_present != analytics_present:
+                          raise UnsupportedModel('ANALYTICS_PAIR_PARTIAL')
+                      persisted_paths = selected_paths + [hardening] + ([analytics] if analytics_present else []) + [image]
+                      pm = render_checked('persisted', directory, chosen_project, persisted_paths,
+                                          {'entries': len(persisted_paths), 'duplicates': len(persisted_paths) - len(set(persisted_paths))})
+                      if hardening in SNAPSHOTS.entries:
+                          out['persisted_hardening'] = ('MATCH_SOURCE' if SNAPSHOTS.entries[hardening]['digest'].hex() == inputs['hardening_sha256'] else 'DIFFERENT_SOURCE')
+                      if pm is not None:
+                          image_ref = pm['services']['web'].get('image')
+                          out['persisted_image'] = 'MATCH_RUNTIME_REF' if image_ref == (web.get('Config') or {}).get('Image') else 'DIFFERENT_RUNTIME_REF'
+                          name = pm.get('name')
+                          out['persisted_runtime_binding'] = ('MATCH' if name == project and isinstance(name, str) and name and
+                              out['persisted_image'] == 'MATCH_RUNTIME_REF' and out['container_image_binding'] == 'MATCH' else
+                              'DIFFERENT' if isinstance(name, str) and name and isinstance(project, str) and project else NP)
+                  except Exception as error:
+                      fail_model('persisted', error, 'PERSISTED_PATHS', 'SELECTED_COMPOSE')
+              if SNAPSHOTS.directory_allocation_started:
+                  finish_models()
+                  return out
+              try:
+                  stats = {}
+                  label_paths = files_for(wl.get('com.docker.compose.project.working_dir'), wl.get('com.docker.compose.project.config_files'), stats)
+                  lm = render_checked('label', wl.get('com.docker.compose.project.working_dir'), project, label_paths, stats)
+              except Exception as error:
+                  fail_model('label', error, 'LABEL_PATHS', 'LABEL_COMPOSE')
+                  lm = None
+              if SNAPSHOTS.directory_allocation_started:
+                  finish_models()
+                  return out
+              if lm is not None and sm is not None:
+                  out['models_relation'] = 'MATCH' if lm == sm else 'DIFFERENT'
+              if lm is not None and models.get('persisted') is not None:
+                  out['label_persisted_relation'] = 'MATCH' if lm == models['persisted'] else 'DIFFERENT'
+              finish_models()
               caddies = [r for r in rows if labels(r).get('com.docker.compose.service') == 'caddy'
                          or re.fullmatch(r'(?:[^ /]+/)*caddy(?::[^ ]+|@sha256:[0-9a-f]{64})?', str((r.get('Config') or {}).get('Image', '')))]
               out['caddy_count'] = len(caddies)
@@ -1038,7 +1179,7 @@ jobs:
                   out = _collect(inputs)
               except (ObserverDeadline, ObserverAbort, Exception) as error:
                   # Fixed report only; no original exception/transport/config data escapes.
-                  out = {'schema': 'pc.web-readonly-preconditions.v2', 'source_sha': inputs['source_sha'],
+                  out = {'schema': 'pc.web-readonly-preconditions.v3', 'source_sha': inputs['source_sha'],
                          'closure': NP, 'observation': 'DEADLINE' if isinstance(error, ObserverDeadline) else 'ABORTED' if isinstance(error, ObserverAbort) else 'FAILED',
                          'snapshot_cleanup': 'UNKNOWN',
                          'reject_stage': 'OBSERVER',
@@ -1049,6 +1190,7 @@ jobs:
                          'container_image_binding': NP, 'rollback_local': NP, 'caddy_mode': NP, 'caddy_count': 0,
                          'caddy_admin_route': NP, 'public_readiness': NP, 'runtime_stability': NP,
                          'observed_file_stability': NP, 'production_mutation': 'NONE'}
+                  out.update(v5_fields())
                   if isinstance(error, UnsupportedModel):
                       out.update(rejection(error, 'OBSERVER', 'NONE'))
               finally:
@@ -1090,31 +1232,8 @@ jobs:
           import shlex
           import sys
 
-          ENUMS = {
-              'reject_stage': ['FORMAT_CLOSURE', 'LABEL_PATHS', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL'],
-              'reject_reason': ['CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_BOUND', 'FILE_LIST_DUPLICATE', 'FILE_LIST_VALUE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_TOTAL_BOUND', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_AMBIGUOUS_SCALAR', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_STRUCTURE', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE'],
-              'input_role': ['HARDENING_OVERRIDE', 'IMAGE_OVERRIDE', 'LABEL_AND_SELECTED_COMPOSE', 'LABEL_COMPOSE', 'NONE', 'SELECTED_COMPOSE'],
-              'closure': {'SUPPORTED', 'UNSUPPORTED', 'NOT_PROVEN'},
-              'observation': {'COMPLETE', 'BLOCKED', 'DEADLINE', 'ABORTED', 'FAILED'},
-              'snapshot_cleanup': {'COMPLETE', 'UNKNOWN', 'NOT_NEEDED'},
-              'selectors': {'EXPLICIT', 'LABEL_FALLBACK', 'PARTIAL', 'NOT_PROVEN'},
-              'label_model': {'OBSERVED', 'NOT_PROVEN'},
-              'selected_model': {'OBSERVED', 'NOT_PROVEN'},
-              'models_relation': {'MATCH', 'DIFFERENT', 'NOT_PROVEN'},
-              'migration': {'MISSING', 'UNIQUE', 'AMBIGUOUS', 'NOT_PROVEN'},
-              'migration_database': {'SAME_API_AUTHORITY', 'DIFFERENT_API_AUTHORITY', 'MALFORMED_OR_MISSING', 'NOT_PROVEN'},
-              'persisted_model': {'OBSERVED', 'NOT_PROVEN'},
-              'persisted_image': {'MATCH_RUNTIME_REF', 'DIFFERENT_RUNTIME_REF', 'NOT_PROVEN'},
-              'persisted_hardening': {'MATCH_SOURCE', 'DIFFERENT_SOURCE', 'ABSENT', 'NOT_PROVEN'},
-              'web_health': {'healthy', 'unhealthy', 'starting', 'running', 'exited', 'created', 'restarting', 'paused', 'dead', 'removing', 'NOT_PROVEN'},
-              'container_image_binding': {'MATCH', 'MISMATCH', 'NOT_PROVEN'},
-              'rollback_local': {'EXACT_LOCAL_MATCH', 'NON_EXACT_REF', 'LOCAL_IMAGE_NOT_PROVEN', 'LOCAL_TAG_REBOUND', 'REVISION_MISMATCH', 'NOT_PROVEN'},
-              'caddy_mode': {'COMPOSE', 'SYSTEMD', 'AMBIGUOUS', 'NOT_PROVEN'},
-              'caddy_admin_route': {'MATCH', 'NOT_PROVEN'},
-              'public_readiness': {'CURRENT_REVISION', 'DIFFERENT_REVISION', 'NOT_READY', 'NOT_PROVEN'},
-              'runtime_stability': {'UNCHANGED', 'CHANGED', 'NOT_PROVEN'},
-              'observed_file_stability': {'UNCHANGED', 'CHANGED', 'NOT_PROVEN'},
-          }
+          ENUMS = {'reject_stage': ['FORMAT_CLOSURE', 'LABEL_PATHS', 'MODEL_RENDER', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL'], 'reject_reason': ['ANALYTICS_PAIR_PARTIAL', 'CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_CONTROL', 'FILE_LIST_EMPTY', 'FILE_LIST_LOCALE_EDGE', 'FILE_LIST_RAW_LIMIT', 'FILE_LIST_TOO_MANY', 'FILE_LIST_TYPE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'MODEL_RENDER_FAILED', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_BYTES_LIMIT', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_UNIQUE_LIMIT', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_AMBIGUOUS_SCALAR', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_STRUCTURE', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE'], 'input_role': ['ANALYTICS_OVERRIDE', 'HARDENING_OVERRIDE', 'IMAGE_OVERRIDE', 'LABEL_AND_SELECTED_COMPOSE', 'LABEL_COMPOSE', 'NONE', 'SELECTED_COMPOSE'], 'closure': ['NOT_PROVEN', 'PARTIAL', 'SUPPORTED', 'UNSUPPORTED'], 'observation': ['ABORTED', 'BLOCKED', 'COMPLETE', 'DEADLINE', 'FAILED', 'PARTIAL'], 'snapshot_cleanup': ['COMPLETE', 'NOT_NEEDED', 'UNKNOWN'], 'selectors': ['EXPLICIT', 'LABEL_FALLBACK', 'NOT_PROVEN', 'PARTIAL'], 'label_model': ['NOT_PROVEN', 'OBSERVED'], 'selected_model': ['NOT_PROVEN', 'OBSERVED'], 'models_relation': ['DIFFERENT', 'MATCH', 'NOT_PROVEN'], 'migration': ['AMBIGUOUS', 'MISSING', 'NOT_PROVEN', 'UNIQUE'], 'migration_database': ['DIFFERENT_API_AUTHORITY', 'MALFORMED_OR_MISSING', 'NOT_PROVEN', 'SAME_API_AUTHORITY'], 'persisted_model': ['NOT_PROVEN', 'OBSERVED'], 'persisted_image': ['DIFFERENT_RUNTIME_REF', 'MATCH_RUNTIME_REF', 'NOT_PROVEN'], 'persisted_hardening': ['ABSENT', 'DIFFERENT_SOURCE', 'MATCH_SOURCE', 'NOT_PROVEN'], 'web_health': ['NOT_PROVEN', 'created', 'dead', 'exited', 'healthy', 'paused', 'removing', 'restarting', 'running', 'starting', 'unhealthy'], 'container_image_binding': ['MATCH', 'MISMATCH', 'NOT_PROVEN'], 'rollback_local': ['EXACT_LOCAL_MATCH', 'LOCAL_IMAGE_NOT_PROVEN', 'LOCAL_TAG_REBOUND', 'NON_EXACT_REF', 'NOT_PROVEN', 'REVISION_MISMATCH'], 'caddy_mode': ['AMBIGUOUS', 'COMPOSE', 'NOT_PROVEN', 'SYSTEMD'], 'caddy_admin_route': ['MATCH', 'NOT_PROVEN'], 'public_readiness': ['CURRENT_REVISION', 'DIFFERENT_REVISION', 'NOT_PROVEN', 'NOT_READY'], 'runtime_stability': ['CHANGED', 'NOT_PROVEN', 'UNCHANGED'], 'observed_file_stability': ['CHANGED', 'NOT_PROVEN', 'UNCHANGED'], 'analytics_presence': ['ABSENT', 'NOT_PROVEN', 'PAIR_PRESENT', 'PARTIAL'], 'bounded_model_scope': ['SNAPSHOT_CONFIG_ENV_STABILITY_NOT_ATTESTED'], 'coverage': ['FULL', 'LABEL_ONLY', 'NONE', 'SELECTED_ONLY', 'SELECTED_PERSISTED_ONLY'], 'selected_basis': ['LABEL_CANONICAL_BASE', 'NOT_PROVEN', 'PROTECTED_EXPLICIT'], 'project_runtime_binding': ['DIFFERENT', 'MATCH', 'NOT_PROVEN'], 'persisted_runtime_binding': ['DIFFERENT', 'MATCH', 'NOT_PROVEN'], 'label_persisted_relation': ['DIFFERENT', 'MATCH', 'NOT_PROVEN'], 'docker_storage_status': ['INFO_UNAVAILABLE', 'MEASURED', 'METRICS_UNSUPPORTED', 'NOT_PROVEN', 'ROOT_UNSUPPORTED', 'STATVFS_UNAVAILABLE', 'STAT_UNAVAILABLE'], 'docker_storage_basis': ['NOT_PROVEN', 'STATVFS_F_BAVAIL_1024'], 'docker_storage_conventional': ['DIFFERENT', 'NOT_PROVEN', 'SAME'], 'docker_storage_conventional_basis': ['NOT_PROVEN', 'STAT_ST_DEV'], 'label_closure': ['NOT_PROVEN', 'SUPPORTED', 'UNSUPPORTED'], 'label_reject_stage': ['FORMAT_CLOSURE', 'LABEL_PATHS', 'MODEL_RENDER', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL'], 'label_reject_reason': ['ANALYTICS_PAIR_PARTIAL', 'CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_CONTROL', 'FILE_LIST_EMPTY', 'FILE_LIST_LOCALE_EDGE', 'FILE_LIST_RAW_LIMIT', 'FILE_LIST_TOO_MANY', 'FILE_LIST_TYPE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'MODEL_RENDER_FAILED', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_BYTES_LIMIT', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_UNIQUE_LIMIT', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_AMBIGUOUS_SCALAR', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_STRUCTURE', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE'], 'label_list_state': ['NORMALIZED_DUPLICATES', 'NORMALIZED_UNIQUE', 'NOT_PROVEN'], 'selected_closure': ['NOT_PROVEN', 'SUPPORTED', 'UNSUPPORTED'], 'selected_reject_stage': ['FORMAT_CLOSURE', 'LABEL_PATHS', 'MODEL_RENDER', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL'], 'selected_reject_reason': ['ANALYTICS_PAIR_PARTIAL', 'CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_CONTROL', 'FILE_LIST_EMPTY', 'FILE_LIST_LOCALE_EDGE', 'FILE_LIST_RAW_LIMIT', 'FILE_LIST_TOO_MANY', 'FILE_LIST_TYPE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'MODEL_RENDER_FAILED', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_BYTES_LIMIT', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_UNIQUE_LIMIT', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_AMBIGUOUS_SCALAR', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_STRUCTURE', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE'], 'selected_list_state': ['NORMALIZED_DUPLICATES', 'NORMALIZED_UNIQUE', 'NOT_PROVEN'], 'persisted_closure': ['NOT_PROVEN', 'SUPPORTED', 'UNSUPPORTED'], 'persisted_reject_stage': ['FORMAT_CLOSURE', 'LABEL_PATHS', 'MODEL_RENDER', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL'], 'persisted_reject_reason': ['ANALYTICS_PAIR_PARTIAL', 'CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_CONTROL', 'FILE_LIST_EMPTY', 'FILE_LIST_LOCALE_EDGE', 'FILE_LIST_RAW_LIMIT', 'FILE_LIST_TOO_MANY', 'FILE_LIST_TYPE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'MODEL_RENDER_FAILED', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_BYTES_LIMIT', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_UNIQUE_LIMIT', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_AMBIGUOUS_SCALAR', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_STRUCTURE', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE'], 'persisted_list_state': ['NORMALIZED_DUPLICATES', 'NORMALIZED_UNIQUE', 'NOT_PROVEN']}
+          NULLABLE_COUNTS = {'label_entries': (1, 128), 'label_duplicates': (0, 127), 'selected_entries': (1, 128), 'selected_duplicates': (0, 127), 'persisted_entries': (1, 131), 'persisted_duplicates': (0, 130), 'docker_storage_available_kib': (0, 9223372036854775807), 'docker_storage_total_kib': (0, 9223372036854775807), 'docker_storage_available_inodes': (0, 9223372036854775807), 'docker_storage_total_inodes': (0, 9223372036854775807)}
 
           def validate_report(raw, source_sha):
               if not 0 < len(raw) <= 4096:
@@ -1122,16 +1241,20 @@ jobs:
               ns = {'__name__': 'audit_admission'}
               exec(compile(COLLECTOR, '<audit-collector>', 'exec'), ns)
               value = ns['decode'](raw)
-              expected = set(ENUMS) | {'schema', 'source_sha', 'web_revision', 'caddy_count', 'production_mutation'}
+              expected = set(ENUMS) | set(NULLABLE_COUNTS) | {'schema', 'source_sha', 'web_revision', 'caddy_count', 'production_mutation'}
               if not isinstance(value, dict) or set(value) != expected:
                   raise ValueError('SCHEMA')
-              if value['schema'] != 'pc.web-readonly-preconditions.v2' or value['source_sha'] != source_sha or not re.fullmatch(r'[0-9a-f]{40}', source_sha):
+              if value['schema'] != 'pc.web-readonly-preconditions.v3' or value['source_sha'] != source_sha or not re.fullmatch(r'[0-9a-f]{40}', source_sha):
                   raise ValueError('BINDING')
               if value['production_mutation'] != 'NONE':
                   raise ValueError('AUTHORITY')
               for key, choices in ENUMS.items():
                   if not isinstance(value[key], str) or value[key] not in choices:
                       raise ValueError('ENUM')
+              for key, (minimum, maximum) in NULLABLE_COUNTS.items():
+                  count = value[key]
+                  if count is not None and (type(count) is not int or not minimum <= count <= maximum):
+                      raise ValueError('COUNT')
               if type(value['caddy_count']) is not int or not 0 <= value['caddy_count'] <= 64:
                   raise ValueError('COUNT')
               if not isinstance(value['web_revision'], str) or not re.fullmatch(r'(?:[0-9a-f]{40}|unknown)', value['web_revision']):
@@ -1144,24 +1267,64 @@ jobs:
                   raise ValueError('DIAGNOSTIC_COMPLETE')
               if value['observation'] != 'COMPLETE' and value['reject_reason'] == 'NONE':
                   raise ValueError('DIAGNOSTIC_MISSING')
-              if value['observation'] == 'COMPLETE' and value['closure'] != 'SUPPORTED':
+              for prefix in ('label', 'selected', 'persisted'):
+                  observed = value[prefix + '_model'] == 'OBSERVED'
+                  closure = value[prefix + '_closure']
+                  stage, reason = value[prefix + '_reject_stage'], value[prefix + '_reject_reason']
+                  entries, duplicates = value[prefix + '_entries'], value[prefix + '_duplicates']
+                  state = value[prefix + '_list_state']
+                  if (stage == 'NONE') != (reason == 'NONE') or observed and (closure != 'SUPPORTED' or reason != 'NONE'):
+                      raise ValueError('MODEL_DIAGNOSTIC')
+                  if closure == 'UNSUPPORTED' and reason == 'NONE' or closure == 'NOT_PROVEN' and reason != 'NONE':
+                      raise ValueError('MODEL_CLOSURE')
+                  if entries is None or duplicates is None:
+                      if entries is not None or duplicates is not None or state != 'NOT_PROVEN' or observed:
+                          raise ValueError('MODEL_COUNTS')
+                  elif duplicates >= entries or state != ('NORMALIZED_DUPLICATES' if duplicates else 'NORMALIZED_UNIQUE'):
+                      raise ValueError('MODEL_COUNTS')
+              selected, persisted, label = (value[p + '_model'] == 'OBSERVED' for p in ('selected', 'persisted', 'label'))
+              coverage = ('FULL' if selected and persisted and label else 'SELECTED_PERSISTED_ONLY' if selected and persisted else
+                          'SELECTED_ONLY' if selected else 'LABEL_ONLY' if label else 'NONE')
+              if value['coverage'] != coverage or persisted and not selected:
+                  raise ValueError('COVERAGE')
+              closures = [value[p + '_closure'] for p in ('label', 'selected', 'persisted')]
+              closure = ('SUPPORTED' if all(v == 'SUPPORTED' for v in closures) else 'PARTIAL' if 'SUPPORTED' in closures else
+                         'UNSUPPORTED' if 'UNSUPPORTED' in closures else 'NOT_PROVEN')
+              if value['closure'] != closure:
                   raise ValueError('CLOSURE')
-              if value['closure'] != 'SUPPORTED' and any(value[k] != 'NOT_PROVEN' for k in ('label_model', 'selected_model', 'models_relation', 'migration', 'migration_database', 'persisted_model', 'persisted_image', 'persisted_hardening')):
-                  raise ValueError('UNSUPPORTED_RENDER')
+              if value['observation'] == 'COMPLETE' and coverage != 'FULL' or value['observation'] == 'PARTIAL' and coverage in ('FULL', 'NONE'):
+                  raise ValueError('OBSERVATION_COVERAGE')
+              if value['observation'] == 'BLOCKED' and coverage != 'NONE':
+                  raise ValueError('OBSERVATION_COVERAGE')
+              if value['selectors'] == 'PARTIAL' and selected:
+                  raise ValueError('SELECTION')
+              basis = 'PROTECTED_EXPLICIT' if value['selectors'] == 'EXPLICIT' else 'LABEL_CANONICAL_BASE' if value['selectors'] == 'LABEL_FALLBACK' else 'NOT_PROVEN'
+              if value['selected_basis'] != basis:
+                  raise ValueError('SELECTION_BASIS')
+              if value['models_relation'] != 'NOT_PROVEN' and not (selected and label):
+                  raise ValueError('RELATION')
+              if value['label_persisted_relation'] != 'NOT_PROVEN' and not (persisted and label):
+                  raise ValueError('RELATION')
+              if value['project_runtime_binding'] != 'NOT_PROVEN' and not selected or value['persisted_runtime_binding'] != 'NOT_PROVEN' and not persisted:
+                  raise ValueError('PROJECT_BINDING')
+              if value['persisted_runtime_binding'] == 'MATCH' and (value['persisted_image'] != 'MATCH_RUNTIME_REF' or value['container_image_binding'] != 'MATCH'):
+                  raise ValueError('RUNTIME_BINDING')
+              if value['migration'] != 'NOT_PROVEN' and not selected or value['migration_database'] != 'NOT_PROVEN' and value['migration'] != 'UNIQUE':
+                  raise ValueError('MIGRATION')
               if value['caddy_mode'] == 'COMPOSE' and value['caddy_count'] != 1 or value['caddy_mode'] == 'SYSTEMD' and value['caddy_count'] != 0:
                   raise ValueError('CADDY')
-              if value['selectors'] == 'PARTIAL' and value['selected_model'] != 'NOT_PROVEN':
-                  raise ValueError('SELECTION')
-              if value['migration'] != 'NOT_PROVEN' and value['selected_model'] != 'OBSERVED':
-                  raise ValueError('MODEL')
-              if value['migration_database'] != 'NOT_PROVEN' and value['migration'] != 'UNIQUE':
-                  raise ValueError('MIGRATION')
-              if value['persisted_model'] == 'OBSERVED' and value['selected_model'] != 'OBSERVED':
-                  raise ValueError('PERSISTED')
               if value['public_readiness'] == 'CURRENT_REVISION' and value['web_revision'] == 'unknown':
                   raise ValueError('PUBLIC_REVISION')
               if value['rollback_local'] == 'EXACT_LOCAL_MATCH' and value['container_image_binding'] != 'MATCH':
                   raise ValueError('LOCAL_BINDING')
+              storage = [value['docker_storage_' + k] for k in ('available_kib', 'total_kib', 'available_inodes', 'total_inodes')]
+              if value['docker_storage_status'] == 'MEASURED':
+                  if any(v is None for v in storage) or storage[0] > storage[1] or storage[2] > storage[3] or value['docker_storage_basis'] != 'STATVFS_F_BAVAIL_1024':
+                      raise ValueError('STORAGE')
+              elif any(v is not None for v in storage) or value['docker_storage_basis'] != 'NOT_PROVEN' or value['docker_storage_conventional'] != 'NOT_PROVEN':
+                  raise ValueError('STORAGE')
+              if (value['docker_storage_conventional'] == 'NOT_PROVEN') != (value['docker_storage_conventional_basis'] == 'NOT_PROVEN'):
+                  raise ValueError('STORAGE_BASIS')
               return json.dumps(value, sort_keys=True, separators=(',', ':')).encode() + b'\n'
 
           def main():
