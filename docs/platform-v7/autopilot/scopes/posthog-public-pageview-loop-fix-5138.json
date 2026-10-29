@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/posthog-public-pageview-loop-5138",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction-2026-09-08-posthog-live-acceptance-fix",
+  "purpose": "Correct the live PostHog public_page_view amplification discovered during genuine REG.RU mobile acceptance without widening the accepted public analytics privacy, identity, route or production boundaries.",
+  "authorityBaseExactMain": "fccf0cf74f466908da3a9c5be271c0218478f3a6",
+  "effectiveAfter": "This governance manifest is merged to main. The implementation branch must then synchronize to that accepted main and stay within the finite path set below.",
+  "allowedPaths": [
+    "apps/web/components/analytics/PublicAnalytics.tsx",
+    "apps/web/tests/unit/publicAnalyticsBoundary.test.ts"
+  ],
+  "requiredInvariants": [
+    "A same-route Server Action reference refresh or React remount must not emit another automatic public_page_view or reset the bounded per-route event budget.",
+    "An actual pathname transition may establish a fresh route lifecycle; a full browser reload may establish a fresh tab runtime lifecycle.",
+    "Ordinary allowlisted product analytics events must continue to use the latest Server Action callback without rearming automatic page-view capture.",
+    "The behavioral regression remains inside the already-accounted publicAnalyticsBoundary unit suite; no unregistered test surface is introduced.",
+    "Session replay, autocapture and browser-side PostHog SDK loading remain disabled.",
+    "Analytics remains fail-closed outside the existing public allowlist plus exact /platform-v7; no descendant /platform-v7/* route becomes eligible by prefix.",
+    "The browser sends analytics only to the existing Next.js application boundary; third-party capture remains server-side, bounded and fail-soft.",
+    "No event-name, property, free-text, PII, URL, auth, tenant, registration, RBAC, database, CSP, release-topology or external-host allowlist is widened by this fix.",
+    "Person-profile suppression and geo-IP enrichment disablement remain enforced by the existing server capture boundary.",
+    "No new npm dependency, recurring paid infrastructure commitment or non-web production mutation is introduced by this scope."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

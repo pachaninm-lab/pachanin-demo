@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/local-qwen-qwen3-reviewer-20260911",
+  "status": "active",
+  "purpose": "Replace the weak Qwen2.5-Coder-3B review model, which repeatedly produced generic false-positive findings on owner-cabinet PR #5184, with the already governed canonical Qwen3-8B Q4_K_M runtime on the dedicated tai-model host, while aligning exact-head verifier identity constants and preserving fail-closed review authority.",
+  "authorityBaseExactMain": "243e0b242a3d0e9995a5b850bf026cbe18d87c86",
+  "evidence": {
+    "substantivePullRequest": 5184,
+    "failedWeakModelRuns": [34535436314, 34536461810, 34538117230],
+    "weakModelRevision": "aebf6a0f72261b12fb8199bc580fe172fe86c901",
+    "weakModelSha256": "724fb256bec1ff062b2f65e4569e871ad2e95ab2a3989723d1769c54294730b7",
+    "canonicalModelId": "Qwen/Qwen3-8B",
+    "canonicalModelRevision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+    "canonicalModelSha256": "107afd988cdbdcced3b8e76ebc3a8e83b5a18a5c796fca20778410cb9c47a814",
+    "canonicalQuantization": "Q4_K_M",
+    "canonicalModelSizeBytes": 5027784032,
+    "productionModelIdentity": "tai-qwen3-8b-q4km",
+    "productionModelPort": 18080,
+    "currentTrustedPolicySha256": "e083823ced2f5b63ecfaca345e59274c5f194e36c0cdd20b2cae9cee3b4f9ed3"
+  },
+  "allowedPaths": [
+    ".github/workflows/local-qwen-independent-review.yml",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+  ],
+  "requiredChange": {
+    "summary": "Use the already-running canonical Qwen3-8B Q4_K_M service through the repository's pinned model-host SSH transport for deterministic read-only semantic review; update verifier constants/tests to the exact Qwen3 model revision/hash and current trusted-policy hash.",
+    "semanticPaths": [
+      "Local Qwen model/runtime transport",
+      "exact-head Local Qwen attestation identity constants",
+      "review-gate unit tests for the updated pinned identity"
+    ]
+  },
+  "requiredInvariants": [
+    "The model-host connection must use TAI_MODEL_HOST, TAI_MODEL_SSH_USER, TAI_MODEL_SSH_PORT, TAI_MODEL_SSH_KEY and TAI_MODEL_SSH_HOST_KEY from protected GitHub secrets with pinned-host-key verification before credential use.",
+    "Review inference is read-only: no sudo, systemctl mutation, process kill, package installation, model download, model conversion, model replacement, production routing change or service restart is permitted.",
+    "The workflow must discover and validate the running tai-qwen3-8b.service process owned by the authenticated tai-model user, derive its bound listener and protected API key without logging the key, and require canonical model identity tai-qwen3-8b-q4km.",
+    "Only exact PR diff chunks and trusted review instructions may be sent to the model. Raw prompts, model responses, API keys and SSH credentials must not be uploaded as artifacts or written to issue/PR comments except the existing bounded canonical PASS/BLOCK evidence.",
+    "Review remains deterministic and bounded: temperature 0, thinking disabled, finite output budget, bounded chunk count/input size and strict post-generation JSON/schema/path/line validation.",
+    "Exact-head revalidation before evidence publication, latest-provider-status binding, immutable workflow-run binding and fail-closed behavior remain mandatory.",
+    "Verifier constants must match the exact canonical Qwen3-8B source revision/hash and the currently pinned trusted review-policy SHA-256. Stale Qwen2.5 or stale policy attestations must fail closed.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data, dependency, lockfile or production runtime behavior change is included.",
+    "The provider-maintenance PR itself does not claim independent-provider PASS. After merge, PR #5184 must synchronize forward-only to current main and obtain a new genuine exact-head independent review.",
+    "Production hosting remains REG.RU only and new recurring cost remains 0 RUB."
+  ],
+  "admission": [
+    "Authority PR changes exactly this manifest path.",
+    "Implementation PR changes only the three allowed provider/verifier paths and only as required by this authority.",
+    "All applicable ordinary exact-head CI/security/runtime gates are terminal green before each merge.",
+    "Verifier tests must prove acceptance of only the new exact model/policy identity and rejection of stale model/policy attestations.",
+    "Unresolved review findings and active CHANGES_REQUESTED are zero.",
+    "Owner exact-head self-audit may establish provider-maintenance scope evidence but does not substitute for independent semantic review.",
+    "Live main must match each implementation PR base immediately before merge."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

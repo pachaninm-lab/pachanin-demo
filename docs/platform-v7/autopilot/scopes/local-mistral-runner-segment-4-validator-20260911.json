@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-runner-segment-4-validator-20260911",
+  "status": "active",
+  "purpose": "Stage and independently review the fourth inert segment of the future Local Mistral review runner: deterministic fail-closed structural candidate validation plus canonical output without runtime activation.",
+  "authorityBaseExactMain": "d0bfc94d20d7d8ef60c79394b9a985497744a40f",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-runner.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-runner-segment-4-validator-20260911.json"
+  ],
+  "requiredInvariants": [
+    "The staged .inert file is not executed or referenced by any workflow.",
+    "Candidate content is bounded to 65536 UTF-8 bytes and must contain no thinking tags.",
+    "Candidate JSON is fail-closed: exact findings-only top-level shape, at most one finding, exact finding field set, P0/P1/P2 severity allowlist, canonical changed-path authority, positive integer line, bounded title and reason, and speculative-reason rejection.",
+    "Path authority is frozen directly from the already validated changed_paths input; validate_candidate accepts no caller-supplied path allowlist.",
+    "The validator returns canonical JSON separately from the raw model text; malformed or ambiguous output has no canonical value and cannot become PASS.",
+    "An empty findings array is canonicalized to exactly {\"findings\":[]} and is the only clean result.",
+    "This segment does not authorize publication or runtime execution; sensitive-output filtering and publication authority require a separately reviewed segment before any activation.",
+    "Local Qwen workflow and exact-head verifier remain unchanged and are the independent authority for this PR.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data or production routing behavior changes.",
+    "Production hosting remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

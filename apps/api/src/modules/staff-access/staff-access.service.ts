@@ -8,7 +8,8 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomBytes, randomUUID } from 'crypto';
-import { RequestUser } from '../../common/types/request-user';
+import { isRetryableTransactionConflict } from '../../common/prisma/rls-transaction.service';
+import { Role, RequestUser } from '../../common/types/request-user';
 import { digestOpaqueAuthToken, issueStaffAccessCredential } from '../auth/opaque-token-authority';
 import {
   hashAuthMaterial,
@@ -22,6 +23,7 @@ import {
   StaffAccessRequestRow,
   StaffGrantRow,
   StaffSessionRow,
+  StaffSessionActivationRetryExhaustedError,
   StaffSqlClient,
 } from './staff-access.repository';
 import {
@@ -64,6 +66,75 @@ const ROLE_ALLOWED_MODES: Readonly<Record<StaffRole, readonly StaffAccessMode[]>
   BREAK_GLASS_ADMIN: [StaffAccessMode.CONTROL_PLANE, StaffAccessMode.BREAK_GLASS],
 };
 
+export const FOUNDER_ROLE_MODE_SCHEMA = 'pc-crop.founder-role-mode.v1' as const;
+export const FOUNDER_ROLE_MODE_RETURN_PATH = '/platform-v7/staff' as const;
+export const FOUNDER_ROLE_MODE_DEFAULT_DURATION_SECONDS = 15 * 60;
+export const FOUNDER_ROLE_MODE_MAX_DURATION_SECONDS = 60 * 60;
+
+export const FOUNDER_ROLE_MODE_RESTRICTIONS = [
+  'READ_ONLY',
+  'NO_PAYMENT_RELEASE',
+  'NO_BANK_CALLBACK_CONFIRM',
+  'NO_DOCUMENT_SIGN',
+  'NO_LAB_FINALIZE',
+  'NO_ACCEPTANCE_SIGN',
+  'NO_ARBITRATION_DECIDE',
+  'NO_EVIDENCE_DELETE',
+] as const;
+
+export const FOUNDER_ROLE_MODE_CABINETS = [
+  { key: 'operator', canonicalPath: '/platform-v7/operator', effectiveRole: Role.SUPPORT_MANAGER },
+  { key: 'buyer', canonicalPath: '/platform-v7/buyer', effectiveRole: Role.BUYER },
+  { key: 'seller', canonicalPath: '/platform-v7/seller', effectiveRole: Role.FARMER },
+  { key: 'logistics', canonicalPath: '/platform-v7/logistics', effectiveRole: Role.LOGISTICIAN },
+  { key: 'driver', canonicalPath: '/platform-v7/driver/field', effectiveRole: Role.DRIVER },
+  { key: 'surveyor', canonicalPath: '/platform-v7/surveyor', effectiveRole: Role.SURVEYOR },
+  { key: 'elevator', canonicalPath: '/platform-v7/elevator', effectiveRole: Role.ELEVATOR },
+  { key: 'lab', canonicalPath: '/platform-v7/lab', effectiveRole: Role.LAB },
+  { key: 'bank', canonicalPath: '/platform-v7/bank', effectiveRole: Role.ACCOUNTING },
+  { key: 'organization', canonicalPath: '/platform-v7/profile', effectiveRole: Role.GUEST },
+  { key: 'arbitrator', canonicalPath: '/platform-v7/arbitrator', effectiveRole: Role.ARBITRATOR },
+  { key: 'compliance', canonicalPath: '/platform-v7/compliance', effectiveRole: Role.COMPLIANCE_OFFICER },
+  { key: 'executive', canonicalPath: '/platform-v7/executive', effectiveRole: Role.EXECUTIVE },
+] as const;
+
+export type FounderRoleModeCabinetKey = (typeof FOUNDER_ROLE_MODE_CABINETS)[number]['key'];
+export type FounderRoleModeCabinet = (typeof FOUNDER_ROLE_MODE_CABINETS)[number];
+
+export type RequestFounderRoleModeInput = Readonly<{
+  cabinetKey: string;
+  organizationId: string;
+  reason: string;
+  ticketId: string;
+  durationSeconds?: number;
+}>;
+
+const FOUNDER_VIEW_AS_PERMISSIONS = [
+  StaffPermission.CABINET_VIEW_AS,
+  StaffPermission.DEAL_READ,
+  StaffPermission.DOCUMENT_METADATA_READ,
+] as const;
+
+const FOUNDER_CABINET_BY_KEY = new Map<string, FounderRoleModeCabinet>(
+  FOUNDER_ROLE_MODE_CABINETS.map((cabinet) => [cabinet.key, cabinet]),
+);
+const FOUNDER_CABINET_BY_EFFECTIVE_ROLE = new Map<string, FounderRoleModeCabinet>(
+  FOUNDER_ROLE_MODE_CABINETS.map((cabinet) => [cabinet.effectiveRole, cabinet]),
+);
+const CONTROLLED_TEST_TENANT_ID = 'tenant-canonical-test';
+const CONTROLLED_TEST_ORGANIZATION_PREFIX = 'org-canonical-';
+
+function founderRoleModeCabinetByKey(value: unknown): FounderRoleModeCabinet | null {
+  return typeof value === 'string' ? FOUNDER_CABINET_BY_KEY.get(value) ?? null : null;
+}
+function founderRoleModeCabinetByEffectiveRole(value: unknown): FounderRoleModeCabinet | null {
+  return typeof value === 'string' ? FOUNDER_CABINET_BY_EFFECTIVE_ROLE.get(value) ?? null : null;
+}
+function controlledTestFounderTarget(tenantId: string | null, organizationId: string | null): boolean {
+  return tenantId === CONTROLLED_TEST_TENANT_ID
+    || String(organizationId || '').startsWith(CONTROLLED_TEST_ORGANIZATION_PREFIX);
+}
+
 export type RequestStaffAccessInput = {
   assignmentId: string;
   accessMode: StaffAccessMode;
@@ -98,6 +169,144 @@ export class StaffAccessService {
 
   listMyAssignments(user: RequestUser) {
     return this.repository.listActiveAssignments(this.repository.prisma, user.id);
+  }
+
+  async requireActivePlatformOwner(user: RequestUser) {
+    this.assertRecentMfa(user);
+    const assignments = await this.repository.listActiveAssignments(this.repository.prisma, user.id);
+    const assignment = assignments.find((item) => (
+      item.role === StaffRole.PLATFORM_OWNER && item.status === 'ACTIVE'
+    ));
+    if (!assignment) {
+      throw new ForbiddenException('Active PLATFORM_OWNER assignment is required');
+    }
+    return assignment;
+  }
+
+  async founderRoleModeRegistry(user: RequestUser) {
+    await this.requireActivePlatformOwner(user);
+    return {
+      schemaVersion: FOUNDER_ROLE_MODE_SCHEMA,
+      mode: StaffAccessMode.VIEW_AS,
+      readOnly: true,
+      returnPath: FOUNDER_ROLE_MODE_RETURN_PATH,
+      restrictions: [...FOUNDER_ROLE_MODE_RESTRICTIONS],
+      cabinets: FOUNDER_ROLE_MODE_CABINETS.map((cabinet) => ({ ...cabinet })),
+    };
+  }
+
+  async requestFounderRoleMode(
+    user: RequestUser,
+    input: RequestFounderRoleModeInput,
+    correlationId?: string,
+  ) {
+    const assignment = await this.requireActivePlatformOwner(user);
+    const cabinet = founderRoleModeCabinetByKey(input.cabinetKey);
+    if (!cabinet) throw new BadRequestException('Unknown founder role-mode cabinet');
+
+    const organizationId = String(input.organizationId || '').trim();
+    if (!organizationId || organizationId.length > 128) {
+      throw new BadRequestException('A bounded organizationId is required');
+    }
+
+    const target = await this.repository.resolveTargetScope(this.repository.prisma, {
+      actorUserId: user.id,
+      assignmentId: assignment.id,
+      targetOrganizationId: organizationId,
+    });
+    if (
+      !target
+      || !target.tenant_id
+      || !target.organization_id
+      || target.organization_id !== organizationId
+    ) {
+      throw new ForbiddenException('Founder role-mode target scope could not be verified');
+    }
+    if (controlledTestFounderTarget(target.tenant_id, target.organization_id)) {
+      throw new ForbiddenException('Controlled test targets are not R1 production role-mode authority');
+    }
+
+    const durationSeconds = input.durationSeconds ?? FOUNDER_ROLE_MODE_DEFAULT_DURATION_SECONDS;
+    if (
+      !Number.isInteger(durationSeconds)
+      || durationSeconds < 60
+      || durationSeconds > FOUNDER_ROLE_MODE_MAX_DURATION_SECONDS
+    ) {
+      throw new BadRequestException('Founder role-mode duration must be between 60 and 3600 seconds');
+    }
+
+    const created = await this.requestAccess(user, {
+      assignmentId: assignment.id,
+      accessMode: StaffAccessMode.VIEW_AS,
+      permissions: [...FOUNDER_VIEW_AS_PERMISSIONS],
+      targetTenantId: target.tenant_id,
+      targetOrganizationId: target.organization_id,
+      targetRole: cabinet.effectiveRole,
+      reason: input.reason,
+      ticketId: input.ticketId,
+      durationSeconds,
+    }, correlationId);
+
+    return {
+      schemaVersion: FOUNDER_ROLE_MODE_SCHEMA,
+      ...created,
+      roleMode: {
+        cabinetKey: cabinet.key,
+        canonicalPath: cabinet.canonicalPath,
+        effectiveRole: cabinet.effectiveRole,
+        effectiveOrganizationId: target.organization_id,
+        effectiveTenantId: target.tenant_id,
+        mode: StaffAccessMode.VIEW_AS,
+        readOnly: true,
+        restrictions: [...FOUNDER_ROLE_MODE_RESTRICTIONS],
+        returnPath: FOUNDER_ROLE_MODE_RETURN_PATH,
+      },
+    };
+  }
+
+  async founderRoleModeSession(user: RequestUser, context: StaffAccessContext) {
+    await this.requireActivePlatformOwner(user);
+    if (context.actorUserId !== user.id || context.staffRole !== StaffRole.PLATFORM_OWNER) {
+      throw new ForbiddenException('Founder role-mode session must belong to the active platform owner');
+    }
+    if (context.accessMode !== StaffAccessMode.VIEW_AS) {
+      throw new ForbiddenException('Founder role-mode requires VIEW_AS');
+    }
+    if (!context.permissions.includes(StaffPermission.CABINET_VIEW_AS)) {
+      throw new ForbiddenException('Founder role-mode session lacks cabinet:view-as');
+    }
+    const allowed = new Set<string>(FOUNDER_VIEW_AS_PERMISSIONS);
+    if (context.permissions.some((permission) => !allowed.has(permission))) {
+      throw new ForbiddenException('Founder role-mode session contains non-canonical permissions');
+    }
+
+    const cabinet = founderRoleModeCabinetByEffectiveRole(context.effectiveRole);
+    if (!cabinet || !context.effectiveOrganizationId || !context.effectiveTenantId) {
+      throw new ForbiddenException('Founder role-mode session scope is incomplete');
+    }
+    if (controlledTestFounderTarget(context.effectiveTenantId, context.effectiveOrganizationId)) {
+      throw new ForbiddenException('Controlled test targets are not R1 production role-mode authority');
+    }
+
+    const displayName = String(user.fullName || '').trim().slice(0, 160) || 'Platform owner';
+    return {
+      schemaVersion: FOUNDER_ROLE_MODE_SCHEMA,
+      active: true,
+      accessSessionId: context.accessSessionId,
+      actor: { displayName },
+      cabinetKey: cabinet.key,
+      canonicalPath: cabinet.canonicalPath,
+      effectiveRole: cabinet.effectiveRole,
+      effectiveOrganizationId: context.effectiveOrganizationId,
+      effectiveTenantId: context.effectiveTenantId,
+      mode: StaffAccessMode.VIEW_AS,
+      readOnly: true,
+      restrictions: [...FOUNDER_ROLE_MODE_RESTRICTIONS],
+      expiresAt: context.expiresAt.toISOString(),
+      ticketId: context.ticketId,
+      mfaRequired: true,
+      returnPath: FOUNDER_ROLE_MODE_RETURN_PATH,
+    };
   }
 
   async listRequests(user: RequestUser) {
@@ -295,13 +504,15 @@ export class StaffAccessService {
   ) {
     this.assertRecentMfa(user);
     const token = this.makeAccessToken();
-    return this.repository.transaction(async (tx) => {
+    return this.repository.activateSessionTransaction(async (tx) => {
       const grant = await this.repository.getGrant(tx, grantId, user.id, true);
       if (!grant || !isStaffRole(grant.staff_role)) throw new NotFoundException('Staff grant not found');
       this.assertGrantActive(grant);
-      const existing = await this.repository.listActiveSessions(tx, user.id);
-      if (existing.some((session) => session.grant_id === grant.id)) {
-        throw new ConflictException('Grant already has an active session');
+      if (await this.repository.hasActiveSession(tx, user.id)) {
+        throw new ConflictException({
+          code: 'STAFF_ACTIVE_SESSION_CONFLICT',
+          message: 'End the active staff session before activating another grant.',
+        });
       }
       const sessionId = `sas_${randomUUID()}`;
       await this.repository.createAccessSession(tx, {
@@ -338,6 +549,15 @@ export class StaffAccessService {
         accessMode: grant.access_mode,
         permissions: this.permissions(grant.permissions),
       };
+    }).catch((error: unknown) => {
+      if (error instanceof StaffSessionActivationRetryExhaustedError) {
+        throw new ConflictException({
+          code: 'STAFF_SESSION_ACTIVATION_CONFLICT',
+          message: 'Refresh active staff sessions before retrying activation.',
+          retryable: true,
+        });
+      }
+      throw error;
     });
   }
 
@@ -349,8 +569,25 @@ export class StaffAccessService {
     if (!session || !isStaffRole(session.staff_role) || !isStaffAccessMode(session.access_mode)) {
       throw new UnauthorizedException('Invalid staff access session');
     }
-    if (session.status !== 'ACTIVE' || session.expires_at <= new Date()) {
+    if (session.actor_user_id !== user.id || session.status !== 'ACTIVE'
+      || !(session.expires_at instanceof Date) || !Number.isFinite(session.expires_at.getTime())
+      || session.expires_at <= new Date()) {
       throw new UnauthorizedException('Staff access session is not active');
+    }
+    // The repository revalidates this exact session's grant and assignment;
+    // an unrelated current assignment must not supply its role/permission ceiling.
+    if (!ROLE_ALLOWED_MODES[session.staff_role].includes(session.access_mode)) {
+      throw new UnauthorizedException('Staff access session mode exceeds its assignment');
+    }
+    try {
+      const permissions = this.normalizePermissions(session.permissions);
+      this.assertPermissionCeiling(session.staff_role, permissions);
+      this.assertModePermissions(session.access_mode, permissions);
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof ForbiddenException) {
+        throw new UnauthorizedException('Staff access session permissions are not valid');
+      }
+      throw error;
     }
     await this.repository.touchAccessSession(this.repository.prisma, session.id);
     return this.toContext(session);
@@ -363,23 +600,24 @@ export class StaffAccessService {
     correlationId: string = randomUUID(),
   ) {
     const roles = await this.requireAssignments(user);
-    const own = await this.repository.listActiveSessions(this.repository.prisma, user.id);
-    const target = own.find((session) => session.id === sessionId);
-    if (!target || !isStaffRole(target.staff_role)) throw new NotFoundException('Active staff session not found');
-    const ended = await this.repository.endAccessSession(this.repository.prisma, sessionId, user.id, reason);
-    if (!ended) throw new ConflictException('Staff session is no longer active');
-    await this.repository.transaction((tx) => this.audit(tx, {
-      actor: user,
-      staffRole: roles[0].role,
-      accessSessionId: sessionId,
-      grantId: target.grant_id,
-      action: 'staff.session.end',
-      outcome: 'SUCCESS',
-      reason,
-      ticketId: target.ticket_id,
-      correlationId,
-    }));
-    return { success: true, sessionId };
+    return this.sessionLifecycleTransaction(async (tx) => {
+      const target = await this.repository.getActiveAccessSession(tx, sessionId, user.id);
+      if (!target || !isStaffRole(target.staff_role)) throw new NotFoundException('Active staff session not found');
+      const ended = await this.repository.endAccessSession(tx, sessionId, user.id, reason);
+      if (!ended) throw new ConflictException('Staff session is no longer active');
+      await this.audit(tx, {
+        actor: user,
+        staffRole: roles[0].role,
+        accessSessionId: sessionId,
+        grantId: target.grant_id,
+        action: 'staff.session.end',
+        outcome: 'SUCCESS',
+        reason,
+        ticketId: target.ticket_id,
+        correlationId,
+      });
+      return { success: true, sessionId };
+    });
   }
 
   async revokeSession(
@@ -389,29 +627,25 @@ export class StaffAccessService {
     correlationId: string = randomUUID(),
   ) {
     const staffRole = await this.requirePermission(user, StaffPermission.STAFF_SESSION_REVOKE);
-    const active = await this.repository.listActiveSessions(this.repository.prisma);
-    const target = active.find((session) => session.id === sessionId);
-    if (!target || !isStaffRole(target.staff_role)) throw new NotFoundException('Active staff session not found');
-    const ended = await this.repository.endAccessSession(
-      this.repository.prisma,
-      sessionId,
-      target.actor_user_id,
-      reason,
-    );
-    if (!ended) throw new ConflictException('Staff session is no longer active');
-    await this.repository.transaction((tx) => this.audit(tx, {
-      actor: user,
-      staffRole,
-      accessSessionId: sessionId,
-      grantId: target.grant_id,
-      action: 'staff.session.revoke',
-      outcome: 'SUCCESS',
-      reason,
-      ticketId: target.ticket_id,
-      correlationId,
-      metadata: { targetActorUserId: target.actor_user_id },
-    }));
-    return { success: true, sessionId };
+    return this.sessionLifecycleTransaction(async (tx) => {
+      const target = await this.repository.getActiveAccessSession(tx, sessionId);
+      if (!target || !isStaffRole(target.staff_role)) throw new NotFoundException('Active staff session not found');
+      const ended = await this.repository.endAccessSession(tx, sessionId, target.actor_user_id, reason);
+      if (!ended) throw new ConflictException('Staff session is no longer active');
+      await this.audit(tx, {
+        actor: user,
+        staffRole,
+        accessSessionId: sessionId,
+        grantId: target.grant_id,
+        action: 'staff.session.revoke',
+        outcome: 'SUCCESS',
+        reason,
+        ticketId: target.ticket_id,
+        correlationId,
+        metadata: { targetActorUserId: target.actor_user_id },
+      });
+      return { success: true, sessionId };
+    });
   }
 
   async listActiveSessions(user: RequestUser) {
@@ -585,6 +819,21 @@ export class StaffAccessService {
       .map((row) => ({ ...row, role: row.role as StaffRole }));
     if (assignments.length === 0) throw new ForbiddenException('Active staff assignment is required');
     return assignments;
+  }
+
+  private async sessionLifecycleTransaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    try {
+      return await this.repository.transaction(work);
+    } catch (error) {
+      if (isRetryableTransactionConflict(error)) {
+        throw new ConflictException({
+          code: 'STAFF_SESSION_LIFECYCLE_CONFLICT',
+          message: 'Refresh the staff session before retrying completion.',
+          retryable: true,
+        });
+      }
+      throw error;
+    }
   }
 
   private assertRecentMfa(user: RequestUser) {

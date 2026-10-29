@@ -8,6 +8,9 @@ on:
       - "apps/web/**"
       - "apps/tai/**"
       - "infra/docker/Dockerfile.api"
+      - "infra/docker/Dockerfile.outbox-worker"
+      - "scripts/release/verify-published-outbox-worker.mjs"
+      - "scripts/release/verify-published-outbox-worker.test.mjs"
       - "infra/docker/Dockerfile.web"
       - "infra/docker/Dockerfile.migrations"
       - "infra/docker/Dockerfile.tai"
@@ -70,13 +73,13 @@ on:
   workflow_dispatch:
     inputs:
       services:
-        description: "Canonical services to build: api, web, tai, migration or all"
+        description: "Canonical services to build: api, web, tai, migration or all. Also accepts outbox-worker."
         default: "all"
         required: false
   workflow_call:
     inputs:
       services:
-        description: "Canonical services to build: api, web, tai, migration or all"
+        description: "Canonical services to build: api, web, tai, migration or all. Also accepts outbox-worker."
         type: string
         default: "all"
         required: false
@@ -132,6 +135,78 @@ jobs:
           build-args: |
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             GIT_COMMIT=${{ github.sha }}
+
+  build-outbox-worker:
+    name: Build canonical outbox worker image
+    runs-on: ubuntu-latest
+    if: >-
+      github.ref == 'refs/heads/main' && (
+      contains(inputs.services, 'outbox-worker') ||
+      inputs.services == 'all' ||
+      github.event_name == 'push')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate published worker verifier
+        run: node --test scripts/release/verify-published-outbox-worker.test.mjs
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta-worker
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-outbox-worker
+          tags: |
+            type=sha,format=short
+
+      - name: Build and push canonical outbox worker
+        id: worker-build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/Dockerfile.outbox-worker
+          push: true
+          tags: ${{ steps.meta-worker.outputs.tags }}
+          labels: ${{ steps.meta-worker.outputs.labels }}
+          cache-from: type=gha,scope=outbox-worker
+          cache-to: type=gha,mode=max,scope=outbox-worker,ignore-error=true
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_COMMIT=${{ github.sha }}
+
+      - name: Verify published canonical worker identity
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          WORKER_REPOSITORY: ${{ env.IMAGE_PREFIX }}-outbox-worker
+          WORKER_DIGEST: ${{ steps.worker-build.outputs.digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$WORKER_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          reference="$WORKER_REPOSITORY@$WORKER_DIGEST"
+          docker pull "$reference"
+          node scripts/release/verify-published-outbox-worker.mjs "$EXPECTED_SHA" "$reference" > worker-image-evidence.json
+          cat worker-image-evidence.json
+
+      - name: Retain worker publication evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: outbox-worker-publication-${{ github.sha }}
+          path: worker-image-evidence.json
+          if-no-files-found: error
 
   build-web:
     name: Build web image

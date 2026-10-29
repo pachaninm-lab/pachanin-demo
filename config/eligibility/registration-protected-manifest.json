@@ -1,0 +1,22 @@
+{
+  "baselineSha": "d0fe9bfc275321e0768ec86ce55e82c958e07880",
+  "meaning": "REGISTRATION_CODE_CHANGED=0 iff every listed path has the same Git blob object as baselineSha.",
+  "paths": [
+    "apps/api/src/modules/auth/dto/register.dto.ts",
+    "apps/api/src/modules/auth/registration-application.service.ts",
+    "apps/api/src/modules/auth/registration-decision.service.ts",
+    "apps/api/src/modules/auth/registration-token.ts",
+    "apps/api/src/modules/auth-mail/auth-mail-outbox.service.ts",
+    "apps/api/prisma/migrations/20260731201000_p0_registration_applications/migration.sql",
+    "apps/api/prisma/migrations/20260801130000_p0_auth_state_integrity/migration.sql",
+    "apps/api/prisma/migrations/20260808110000_p0_registration_lifecycle_authority/migration.sql",
+    "apps/api/prisma/migrations/20260808140000_p0_registration_decision_authority/migration.sql",
+    "apps/api/prisma/migrations/20260808213000_p0_registration_lifecycle_receipt/migration.sql",
+    "apps/api/prisma/migrations/20260831211500_p0_registration_decision_mail_status/migration.sql",
+    "scripts/production-p0-first-customer-acceptance.sh",
+    "scripts/check-production-p0-first-customer-acceptance.mjs",
+    ".github/workflows/production-p0-first-customer-acceptance.yml",
+    "scripts/production-p0-all-role-registration.sh",
+    ".github/workflows/production-p0-all-role-registration.yml"
+  ]
+}

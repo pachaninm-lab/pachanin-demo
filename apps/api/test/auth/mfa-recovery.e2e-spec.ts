@@ -6,6 +6,7 @@ import { AuthPrismaService } from '../../src/modules/auth/auth-prisma.service';
 import { AuthService } from '../../src/modules/auth/auth.service';
 import { OrganizationInvitationService } from '../../src/modules/auth/organization-invitation.service';
 import { PersistentAuthRepository } from '../../src/modules/auth/persistent-auth.repository';
+import { totp } from '../one-deal/persistent-auth-actors';
 
 const PASSWORD = 'Current-Recovery-Password-9!';
 const DELIVERY_KEY = 'organization-invitation-delivery-key-for-mfa-e2e';
@@ -166,7 +167,7 @@ describe('controlled PostgreSQL MFA recovery', () => {
   it('changes no credential until subject proof, then revokes sessions and forces re-enrollment exactly once', async () => {
     const identity = await seed();
     const pendingLogin = await auth.login({ email: identity.targetEmail, password: PASSWORD }) as any;
-    expect(pendingLogin).toMatchObject({ mfaRequired: true });
+    expect(pendingLogin).toMatchObject({ mfaRequired: false, user: { mfaVerified: false } });
 
     const initiated = await recovery.resetMembershipMfa(
       identity.actor,
@@ -194,7 +195,7 @@ describe('controlled PostgreSQL MFA recovery', () => {
     expect(beforeProof).toMatchObject({
       mfa_enabled: true,
       mfa_secret_ciphertext: 'v1:test-encrypted-secret',
-      session_status: 'MFA_PENDING',
+      session_status: 'ACTIVE',
     });
 
     await expect(recovery.confirmMfaRecovery(
@@ -260,7 +261,17 @@ describe('controlled PostgreSQL MFA recovery', () => {
       DELIVERY_KEY,
     )).rejects.toThrow();
     const reenrollment = await auth.login({ email: identity.targetEmail, password: PASSWORD }) as any;
-    expect(reenrollment).toMatchObject({ mfaRequired: true, setupSecret: expect.any(String) });
+    expect(reenrollment).toMatchObject({ mfaRequired: false, user: { mfaVerified: false } });
+    const recoveredActor = await auth.verifyAccessToken(reenrollment.accessToken);
+    const explicitEnrollment = await auth.startMfaStepUp(recoveredActor);
+    expect(explicitEnrollment).toMatchObject({ enrollmentRequired: true, setupSecret: expect.any(String) });
+    expect((await auth.verifyAccessToken(reenrollment.accessToken)).mfaVerified).toBe(false);
+    const restored = await auth.verifyMfaStepUp(recoveredActor, {
+      challengeToken: explicitEnrollment.challengeToken, code: totp(explicitEnrollment.setupSecret!),
+    });
+    expect(restored.mfaVerified).toBe(true);
+    expect(restored.backupCodes).toHaveLength(8);
+    expect((await auth.verifyAccessToken(reenrollment.accessToken)).mfaVerified).toBe(true);
 
     const [event] = await prisma.$queryRaw<Array<{ id: string }>>`
       SELECT id FROM auth.mfa_recovery_events

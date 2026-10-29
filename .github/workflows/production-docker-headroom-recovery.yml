@@ -17,6 +17,7 @@ concurrency:
   # Serialize this storage mutation with the exact-SHA production rollout.
   group: production-full-stack-exact-sha
   cancel-in-progress: false
+  queue: max
 
 env:
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
@@ -84,6 +85,8 @@ jobs:
               "revision == target_sha",
               "[:2]",
               "docker', 'image', 'rm'",
+              "'rm', '--no-prune', ref",
+              "'rm', '--no-prune', record['id']",
               'BOUNDED_UNUSED_CANONICAL_IMAGE_RECLAIM',
               'DOCKER_HEADROOM_RECOVERY=',
           ]
@@ -120,6 +123,323 @@ jobs:
               raise SystemExit('scope recurring cost mismatch')
           print('PASS: bounded hosted recovery preserves running/stopped container images, exact-main images, two newest canonical rollback images, and forbids broad prune/delete capabilities.')
           PY
+
+      - name: Prove actual bounded reclaim positive and negative scenarios
+        shell: bash
+        run: |
+          python3 - <<'PY_RECLAIM_TEST'
+          import ast
+          import copy
+          import hashlib
+          import json
+          import pathlib
+          import re
+          import subprocess
+          import sys
+          import tempfile
+          import unittest
+          from unittest.mock import patch
+          
+          SOURCE = pathlib.Path('scripts/production-docker-headroom-recovery.sh').read_text()
+          PAYLOAD = SOURCE.split("<<'PY_RECLAIM'\n", 1)[1].split('\nPY_RECLAIM\n', 1)[0]
+          TARGET = 'f' * 40
+          GIB_KB = 1024 * 1024
+          
+          
+          def image(component, generation, namespace='transfer', revision=None):
+              revision = revision or hashlib.sha1(f'{component}-{namespace}-{generation}'.encode()).hexdigest()
+              image_id = 'sha256:' + hashlib.sha256(f'{component}-{namespace}-{generation}'.encode()).hexdigest()
+              prefix = f'pc-crop-transfer/{component}' if namespace == 'transfer' else f'ghcr.io/pachaninm-lab/grainflow-{component}'
+              return {
+                  'Id': image_id, 'Size': 1024 * 1024,
+                  'Created': f'2026-09-{generation:02d}T00:00:00.000000000Z',
+                  'RepoTags': [f'{prefix}:{revision}'],
+                  'RepoDigests': [f'{prefix}@{image_id}'],
+                  'Config': {'Labels': {'org.opencontainers.image.revision': revision}},
+              }
+          
+          
+          class DockerFixture:
+              def __init__(self, items=None, free=0, gain=6 * GIB_KB, all_become_used=False, changed_refs=False, changed_ref_target=False, removal_error=False, retain_unreferenced=False, parent_chain=False):
+                  items = items or [image(c, g, n) for c in ('api', 'web', 'migration') for n in ('transfer', 'canonical') for g in (1, 2, 3)]
+                  self.images = {i['Id']: copy.deepcopy(i) for i in items}
+                  self.parent_links = {}
+                  self.unattested_parents = ()
+                  if parent_chain:
+                      child = image('web', 1)['Id']
+                      parent_ids = tuple('sha256:' + hashlib.sha256(f'unproven-parent-{n}'.encode()).hexdigest() for n in (1, 2))
+                      for parent_id in parent_ids:
+                          self.images[parent_id] = {'Id': parent_id, 'Size': 0, 'Created': '2026-08-01T00:00:00Z',
+                                                    'RepoTags': [], 'RepoDigests': [], 'Config': {'Labels': None}}
+                      self.parent_links = {child: parent_ids[0], parent_ids[0]: parent_ids[1]}
+                      self.unattested_parents = parent_ids
+                  self.before = copy.deepcopy(self.images)
+                  self.containers = {}
+                  self.free = free
+                  self.gain = gain
+                  self.all_become_used = all_become_used
+                  self.changed_refs = changed_refs
+                  self.changed_ref_target = changed_ref_target
+                  self.removal_error = removal_error
+                  self.retain_unreferenced = retain_unreferenced
+                  self.ps_calls = 0
+                  self.ls_done = False
+                  self.removed_refs = []
+                  self.deleted = []
+                  self.all_commands = []
+          
+              def resolve(self, ref):
+                  if ref in self.images:
+                      return self.images[ref]
+                  return next((x for x in self.images.values() if ref in (x.get('RepoTags') or []) + (x.get('RepoDigests') or [])), None)
+          
+              def run(self, argv, **kwargs):
+                  self.all_commands.append(argv)
+                  assert kwargs['stdout'] == subprocess.PIPE and kwargs['stderr'] == subprocess.PIPE
+                  stdout, stderr, rc = '', '', 0
+                  if argv[:2] == ['df', '-Pk']:
+                      stdout = f'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/test 99999999 100 {self.free} 100% /test\n'
+                  elif argv == ['docker', 'ps', '-aq', '--no-trunc']:
+                      self.ps_calls += 1
+                      if self.all_become_used and self.ps_calls > 1:
+                          self.containers = {f'container-{i}': k for i, k in enumerate(self.images)}
+                      stdout = '\n'.join(self.containers)
+                  elif argv[:2] == ['docker', 'inspect']:
+                      stdout = json.dumps([{'Image': self.containers[argv[2]]}])
+                  elif argv == ['docker', 'image', 'ls', '-q', '--no-trunc']:
+                      self.ls_done = True
+                      stdout = '\n'.join(self.images)
+                  elif argv[:3] == ['docker', 'image', 'inspect']:
+                      ref = argv[3]
+                      row = self.resolve(ref)
+                      if self.changed_refs and self.ps_calls > 1 and row:
+                          row['RepoTags'] = ['third-party/unapproved:latest']
+                      if self.changed_ref_target and not ref.startswith('sha256:') and self.ps_calls > 1 and row:
+                          row = {**row, 'Id': 'sha256:' + 'e' * 64}
+                      if row:
+                          stdout = json.dumps([row])
+                      else:
+                          rc, stderr = 1, 'No such image'
+                  elif argv[:3] == ['docker', 'image', 'rm']:
+                      arguments = argv[3:]
+                      no_prune = arguments[:1] == ['--no-prune']
+                      ref = arguments[-1]
+                      assert arguments == (['--no-prune', ref] if no_prune else [ref]) and not ref.startswith('-'), argv
+                      row = self.resolve(ref)
+                      if self.removal_error:
+                          rc, stderr = 1, 'no space left on device'
+                      elif row is None:
+                          rc, stderr = 1, 'No such image'
+                      else:
+                          assert row['Id'] not in self.containers.values(), 'referenced image removal attempted'
+                          self.removed_refs.append(ref)
+                          for key in ('RepoTags', 'RepoDigests'):
+                              row[key] = [r for r in (row.get(key) or []) if r != ref]
+                          if ref == row['Id'] or not self.retain_unreferenced and not row['RepoTags'] + row['RepoDigests']:
+                              self.deleted.append(row['Id'])
+                              del self.images[row['Id']]
+                              self.free += self.gain
+                              # Model Docker's documented automatic deletion of untagged parents.
+                              parent_id = self.parent_links.get(row['Id'])
+                              while not no_prune and parent_id in self.images:
+                                  parent = self.images[parent_id]
+                                  if parent_id in self.containers.values() or parent['RepoTags'] or parent['RepoDigests']:
+                                      break
+                                  self.deleted.append(parent_id)
+                                  del self.images[parent_id]
+                                  parent_id = self.parent_links.get(parent_id)
+                  else:
+                      raise AssertionError(f'unexpected capability: {argv}')
+                  return subprocess.CompletedProcess(argv, rc, stdout, stderr)
+          
+          
+          def execute(fixture):
+              with tempfile.TemporaryDirectory() as tmp:
+                  report = pathlib.Path(tmp) / 'report.json'
+                  argv = ['reclaim', TARGET, '123', str(report), str(5 * GIB_KB), str(6 * GIB_KB), '/test']
+                  code = 0
+                  with patch.object(sys, 'argv', argv), patch.object(subprocess, 'run', fixture.run):
+                      try:
+                          exec(compile(PAYLOAD, '<actual recovery payload>', 'exec'), {})
+                      except SystemExit as e:
+                          code = e.code
+                  return code, json.loads(report.read_text())
+          
+          
+          class RecoveryTests(unittest.TestCase):
+              def test_proven_transfer_tag_then_digest_removes_object(self):
+                  f = DockerFixture([image('web', g) for g in (1, 2, 3)])
+                  code, report = execute(f)
+                  self.assertEqual(code, 0)
+                  self.assertEqual(report['removedReferenceCount'], 2)
+                  self.assertEqual(report['deletedImageCount'], 1)
+                  self.assertNotIn(image('web', 1)['Id'], f.images)
+                  self.assertIn(image('web', 2)['Id'], f.images)
+                  self.assertIn(image('web', 3)['Id'], f.images)
+          
+              def test_attested_orphan_removed_only_by_exact_id(self):
+                  f = DockerFixture([image('web', g) for g in (1, 2, 3)], retain_unreferenced=True)
+                  code, report = execute(f)
+                  self.assertEqual(code, 0)
+                  self.assertEqual(report['removedReferenceCount'], 2)
+                  self.assertEqual(report['deletedImageCount'], 1)
+                  self.assertEqual(f.removed_refs[-1], image('web', 1)['Id'])
+          
+              def assert_unattested_parent_chain_survives(self, retain_unreferenced):
+                  f = DockerFixture([image('web', g) for g in (1, 2, 3)],
+                                    retain_unreferenced=retain_unreferenced, parent_chain=True)
+                  code, report = execute(f)
+                  self.assertEqual(code, 0)
+                  self.assertTrue(report['passed'])
+                  self.assertEqual(report['eligibleImageCount'], 1)
+                  self.assertEqual(report['deletedImageCount'], 1)
+                  self.assertEqual(f.deleted, [image('web', 1)['Id']])
+                  for parent_id in f.unattested_parents:
+                      self.assertEqual(f.images.get(parent_id), f.before[parent_id])
+                  self.assertIn(image('web', 2)['Id'], f.images)
+                  self.assertIn(image('web', 3)['Id'], f.images)
+                  if retain_unreferenced:
+                      self.assertEqual(f.removed_refs[-1], image('web', 1)['Id'])
+                  else:
+                      self.assertFalse(f.removed_refs[-1].startswith('sha256:'))
+          
+              def test_reference_removal_preserves_unattested_parent_chain(self):
+                  self.assert_unattested_parent_chain_survives(retain_unreferenced=False)
+          
+              def test_immutable_id_removal_preserves_unattested_parent_chain(self):
+                  self.assert_unattested_parent_chain_survives(retain_unreferenced=True)
+          
+              def test_actual_payload_stops_at_target_and_preserves_both_reserves(self):
+                  f = DockerFixture()
+                  code, report = execute(f)
+                  self.assertEqual(code, 0)
+                  self.assertEqual(report['deletedImageCount'], 1)
+                  self.assertEqual(report['afterAvailableKb'], 6 * GIB_KB)
+                  self.assertTrue(report['passed'])
+                  self.assertEqual(report['eligibleImageCount'], 6)
+                  for c in ('api', 'web', 'migration'):
+                      for n in ('canonical', 'transfer'):
+                          for g in (2, 3):
+                              self.assertIn(image(c, g, n)['Id'], f.images)
+          
+              def test_no_removal_when_capacity_already_sufficient(self):
+                  f = DockerFixture(free=6 * GIB_KB)
+                  _, report = execute(f)
+                  self.assertEqual(f.removed_refs, [])
+                  self.assertEqual(report['attemptedImageCount'], 0)
+          
+              def test_running_and_stopped_container_images_are_protected(self):
+                  f = DockerFixture()
+                  for n in ('canonical', 'transfer'):
+                      for c in ('api', 'web', 'migration'):
+                          f.containers[f'{n}-{c}-stopped'] = image(c, 1, n)['Id']
+                  code, report = execute(f)
+                  self.assertEqual(code, 91)
+                  self.assertEqual(report['eligibleImageCount'], 0)
+                  self.assertEqual(f.removed_refs, [])
+          
+              def test_new_container_reference_before_removal_fails_closed(self):
+                  f = DockerFixture(all_become_used=True)
+                  code, report = execute(f)
+                  self.assertEqual(code, 91)
+                  self.assertEqual(f.removed_refs, [])
+                  self.assertEqual(report['removeFailureCounts']['CONTAINER_REFERENCE'], 6)
+          
+              def test_changed_reference_namespace_fails_closed(self):
+                  f = DockerFixture(changed_refs=True)
+                  code, report = execute(f)
+                  self.assertEqual(code, 91)
+                  self.assertEqual(f.removed_refs, [])
+                  self.assertEqual(report['removeFailureCounts']['UNEXPECTED_REFERENCE_STATE'], 6)
+          
+              def test_reference_now_resolves_to_different_image_fails_closed(self):
+                  f = DockerFixture(changed_ref_target=True)
+                  code, report = execute(f)
+                  self.assertEqual(code, 91)
+                  self.assertEqual(f.removed_refs, [])
+                  self.assertEqual(report['removeFailureCounts']['UNEXPECTED_REFERENCE_STATE'], 6)
+          
+              def test_docker_removal_failure_has_no_false_capacity_pass(self):
+                  f = DockerFixture(removal_error=True)
+                  code, report = execute(f)
+                  self.assertEqual(code, 91)
+                  self.assertFalse(report['passed'])
+                  self.assertEqual(report['deletedImageCount'], 0)
+                  self.assertEqual(report['afterAvailableKb'], 0)
+                  self.assertEqual(report['removeFailureCounts']['NO_SPACE'], 6)
+          
+              def test_exact_main_revision_is_protected(self):
+                  items = [image('web', g) for g in (1, 2, 3)]
+                  items[0] = image('web', 1, revision=TARGET)
+                  f = DockerFixture(items)
+                  code, report = execute(f)
+                  self.assertEqual(code, 91)
+                  self.assertEqual(report['eligibleImageCount'], 0)
+                  self.assertEqual(f.removed_refs, [])
+          
+              def test_new_registry_import_cannot_displace_transfer_rollback(self):
+                  items = [image('web', g, n) for n, generations in [('canonical', (1, 5, 6)), ('transfer', (1, 2, 3))] for g in generations]
+                  f = DockerFixture(items)
+                  _, report = execute(f)
+                  self.assertEqual(report['eligibleImageCount'], 2)
+                  self.assertIn(image('web', 2)['Id'], f.images)
+                  self.assertIn(image('web', 3)['Id'], f.images)
+                  self.assertIn(image('web', 5, 'canonical')['Id'], f.images)
+                  self.assertIn(image('web', 6, 'canonical')['Id'], f.images)
+          
+              def test_container_environment_never_enters_report(self):
+                  f = DockerFixture()
+                  for row in f.images.values():
+                      row['Config']['Env'] = ['SECRET=CUSTOMER_ENV_SENTINEL']
+                  _, report = execute(f)
+                  self.assertNotIn('CUSTOMER_ENV_SENTINEL', json.dumps(report))
+          
+              def test_invalid_image_identity_fails_before_any_removal(self):
+                  f = DockerFixture()
+                  next(iter(f.images.values()))['Id'] = 'sha256:' + 'e' * 64
+                  with self.assertRaisesRegex(RuntimeError, 'image_inspect_id_mismatch'):
+                      execute(f)
+                  self.assertEqual(f.removed_refs, [])
+          
+              def test_classifier_positive_and_negative_cases_from_actual_source(self):
+                  module = ast.parse(PAYLOAD)
+                  constants = {'canonical_tag', 'canonical_digest', 'transfer_tag', 'transfer_digest', 'revision_re', 'image_id_re', 'reclaim_components'}
+                  functions = {'image_refs', 'ref_component', 'classify_release_image'}
+                  nodes = [n for n in module.body if isinstance(n, (ast.Import, ast.ImportFrom)) or isinstance(n, ast.FunctionDef) and n.name in functions or isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id in constants for t in n.targets)]
+                  ns = {}
+                  exec(compile(ast.Module(body=nodes, type_ignores=[]), '<actual classifier>', 'exec'), ns)
+                  classify = ns['classify_release_image']
+                  positive = image('web', 1)
+                  self.assertIsNotNone(classify(positive, require_tag=False))
+                  digest_only = image('web', 1, 'canonical')
+                  digest_only['RepoTags'] = []
+                  self.assertIsNotNone(classify(digest_only, require_tag=False))
+                  cases = []
+                  for component in ('tai', 'outbox-worker'):
+                      cases.extend([image(component, 1, 'canonical'), image(component, 1)])
+                  for config in (None, {}, {'Labels': None}, {'Labels': {}}, {'Labels': {'org.opencontainers.image.revision': 'unknown'}}, {'Labels': {'org.opencontainers.image.revision': 'a' * 39}}):
+                      cases.append({**positive, 'Config': config})
+                  cases.extend([
+                      {**positive, 'RepoTags': []},
+                      {**positive, 'RepoTags': None},
+                      {**positive, 'RepoTags': ['pc-crop-transfer/web:latest']},
+                      {**positive, 'RepoTags': ['pc-crop-transfer/web:' + 'd' * 40]},
+                      {**positive, 'RepoTags': [1]},
+                      {**positive, 'RepoDigests': ['pc-crop-transfer/api@sha256:' + 'b' * 64]},
+                      {**positive, 'RepoDigests': ['third-party/web@sha256:' + 'b' * 64]},
+                      {**positive, 'RepoDigests': ['ghcr.io/pachaninm-lab/grainflow-web@sha256:' + 'b' * 64]},
+                      {**positive, 'RepoTags': positive['RepoTags'] + ['third-party/unapproved:latest']},
+                      {**positive, 'RepoTags': positive['RepoTags'] + ['pc-crop-transfer/api:' + positive['Config']['Labels']['org.opencontainers.image.revision']]},
+                  ])
+                  for i, row in enumerate(cases):
+                      with self.subTest(case=i):
+                          self.assertIsNone(classify(row, require_tag=False))
+                  print(f'CLASSIFIER_NEGATIVE_CASES={len(cases)}')
+          
+          
+          if __name__ == '__main__':
+              unittest.main()
+          PY_RECLAIM_TEST
 
   resolve:
     name: Resolve owner-authorized exact current main

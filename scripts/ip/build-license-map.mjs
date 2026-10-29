@@ -83,6 +83,93 @@ function internalManifestEvidence(component) {
   return path;
 }
 
+/**
+ * Разрешение лицензии по установленному артефакту.
+ *
+ * cdxgen оставляет `licenses: null` у части компонентов — на этом дереве у 266
+ * из 1193, и среди них next, react-dom, recharts, zustand, lucide-react и все
+ * пакеты со скоупом. Карта честно писала UNKNOWN, но это ложный неизвестный:
+ * лицензия объявлена в манифесте того самого пакета, который и поставляется.
+ * Ложный UNKNOWN хуже пропуска — он делает 116 из 152 поставляемых компонентов
+ * непроверяемыми и тем самым обесценивает всю карту.
+ *
+ * Источник здесь — не догадка и не таблица известных пакетов, а `package.json`
+ * установленного артефакта. Происхождение записывается отдельной строкой
+ * evidence, чтобы объявленное SBOM и снятое с диска никогда не смешивались.
+ * Не нашли — остаётся UNKNOWN: отсутствие ответа лучше выдуманного.
+ */
+const PNPM_ROOT = 'node_modules/.pnpm';
+const storeIndex = new Map();
+let storeIndexed = false;
+
+function indexInstalledStore() {
+  if (storeIndexed) return;
+  storeIndexed = true;
+  if (!existsSync(PNPM_ROOT) || !lstatSync(PNPM_ROOT).isDirectory()) return;
+  for (const entry of readdirSync(PNPM_ROOT)) {
+    // <escaped-name>@<version>[_<peer suffix>]; у скоупа `/` заменён на `+`.
+    const parsed = /^(@?[^@]+)@([^_]+)/u.exec(entry);
+    if (!parsed) continue;
+    const key = `${parsed[1]}@${parsed[2]}`;
+    if (!storeIndex.has(key)) storeIndex.set(key, entry);
+  }
+}
+
+function purlIdentity(purl) {
+  const match = /^pkg:npm\/(.+)@([^@?#]+)(?:[?#].*)?$/u.exec(String(purl ?? ''));
+  if (!match) return null;
+  let name;
+  try {
+    name = decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+  if (!name || name.includes('..') || name.startsWith('/')) return null;
+  return { name, version: decodeURIComponent(match[2]) };
+}
+
+function declaredLicenseOf(manifest) {
+  const direct = manifest.license;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+  if (direct && typeof direct === 'object' && typeof direct.type === 'string') return direct.type.trim();
+  const legacy = Array.isArray(manifest.licenses) ? manifest.licenses : [];
+  const values = legacy
+    .map((entry) => (typeof entry === 'string' ? entry : entry?.type))
+    .filter((value) => typeof value === 'string' && value.trim());
+  return values.length ? [...new Set(values)].join(' OR ') : '';
+}
+
+const installedCache = new Map();
+function installedManifestLicense(purl) {
+  if (installedCache.has(purl)) return installedCache.get(purl);
+  let resolved = null;
+  const identity = purlIdentity(purl);
+  if (identity) {
+    indexInstalledStore();
+    const dir = storeIndex.get(`${identity.name.replace('/', '+')}@${identity.version}`);
+    const candidates = [];
+    if (dir) candidates.push(join(PNPM_ROOT, dir, 'node_modules', identity.name, 'package.json'));
+    candidates.push(join('node_modules', identity.name, 'package.json'));
+    for (const path of candidates) {
+      if (!existsSync(path) || !lstatSync(path).isFile()) continue;
+      let manifest;
+      try {
+        manifest = JSON.parse(readFileSync(path, 'utf8'));
+      } catch {
+        continue;
+      }
+      // Версия обязана совпасть: иначе это лицензия другого артефакта.
+      if (String(manifest.version ?? '') !== identity.version) continue;
+      const license = declaredLicenseOf(manifest);
+      if (!license) continue;
+      resolved = { license, path };
+      break;
+    }
+  }
+  installedCache.set(purl, resolved);
+  return resolved;
+}
+
 const overrides = new Map();
 if (existsSync(overridesPath)) {
   if (!lstatSync(overridesPath).isFile()) throw new Error(`License override path is not a regular file: ${overridesPath}`);
@@ -107,6 +194,7 @@ for (const file of sbomFiles) {
     const props = propertyMap(component);
     const item = byKey.get(key) ?? {
       name: component.name ?? '',
+      group: component.group ?? '',
       version: component.version ?? '',
       purl,
       type: component.type ?? '',
@@ -133,6 +221,7 @@ const rows = [...byKey.values()].map((item) => {
   let classification = classifyLicenseExpression(detectedLicense);
   let evidence = '';
 
+  let installedEvidence = '';
   if (item.internalManifest) {
     license = 'Proprietary / UNLICENSED';
     classification = 'INTERNAL_PROPRIETARY';
@@ -142,11 +231,21 @@ const rows = [...byKey.values()].map((item) => {
     electedLicense = override.electedLicense ?? '';
     classification = override.classification ?? classifyLicenseExpression(electedLicense || license);
     evidence = override.evidenceUrl ?? '';
+  } else if (detectedLicense === 'UNKNOWN') {
+    // SBOM не объявил ничего — спрашиваем сам поставляемый артефакт.
+    const installed = installedManifestLicense(item.purl);
+    if (installed) {
+      license = installed.license;
+      classification = classifyLicenseExpression(installed.license);
+      evidence = `Installed package manifest: ${installed.path}`;
+      installedEvidence = installed.path;
+    }
   }
 
   return {
-    name: item.name,
+    name: item.group ? `${item.group}/${item.name}` : item.name,
     version: item.version,
+    installedEvidence,
     purl: item.purl,
     type: item.type,
     dependencyScope: [...item.scopes].sort().join(';'),
@@ -183,6 +282,8 @@ writeFileSync(join(outDir, 'license-summary.json'), JSON.stringify({
   components: rows.length,
   internalComponents: rows.filter((row) => row.classification === 'INTERNAL_PROPRIETARY').length,
   internalEvidenceMode: 'SBOM_SRCFILE_TO_EXACT_REPOSITORY_MANIFEST',
+  licensesResolvedFromInstalledArtifact: rows.filter((row) => row.installedEvidence).length,
+  unresolvedAfterInstalledLookup: rows.filter((row) => row.classification === 'UNKNOWN_REVIEW').length,
   classifications: summary,
   dependencyScopes: scopeSummary,
   overridesApplied: rows.filter((row) => overrides.has(row.purl)).length,
@@ -190,6 +291,7 @@ writeFileSync(join(outDir, 'license-summary.json'), JSON.stringify({
     blocked: 'A required AGPL/GPL/SSPL/BUSL-only expression is blocked pending explicit legal approval. Dual-license OR expressions are evaluated by the elected/available permissive branch.',
     review: 'Weak copyleft, attribution-heavy, custom and unresolved licenses remain explicit review items; they are not silently treated as proprietary code.',
     internal: 'A component is internal only when its SBOM SrcFile identifies an approved repository manifest whose private/name/version metadata matches exactly. Name prefixes alone never establish first-party origin.',
+    installedArtifact: 'When the SBOM declares no license, the license is read from the installed package manifest the build actually ships, and the evidence column names that exact path. The version must match the component version. Nothing is inferred from a package name, and a component that cannot be resolved stays UNKNOWN_REVIEW rather than being guessed.',
   },
 }, null, 2) + '\n');
 

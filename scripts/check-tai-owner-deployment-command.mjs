@@ -18,6 +18,54 @@ const forbid = (pattern, message) => {
   if (pattern.test(workflow)) violations.push(message);
 };
 
+const productionLifecycleGroup = 'pc-crop-registration-lifecycle';
+const lifecycleConcurrencyBlock = [
+  'concurrency:',
+  '  group: >-',
+  '    ${{',
+  '      (',
+  "        github.event_name == 'pull_request' &&",
+  "        format('tai-owner-reg-ru-deployment-command-pr-{0}', github.event.pull_request.number)",
+  '      ) ||',
+  '      (',
+  '        (',
+  "          github.event_name == 'workflow_dispatch' &&",
+  "          inputs.target == 'current-main' &&",
+  "          github.ref == 'refs/heads/main' &&",
+  '          github.actor == github.repository_owner &&',
+  '          github.triggering_actor == github.repository_owner',
+  '        ) ||',
+  '        (',
+  "          github.event_name == 'issue_comment' &&",
+  '          github.event.issue.number == 3365 &&',
+  "          github.event.comment.body == '/tai deploy current-main' &&",
+  '          github.event.comment.user.login == github.repository_owner &&',
+  '          github.actor == github.repository_owner &&',
+  '          github.triggering_actor == github.repository_owner',
+  '        )',
+  '      ) &&',
+  `      '${productionLifecycleGroup}' ||`,
+  "      format('tai-owner-reg-ru-deployment-command-unauthorized-{0}', github.run_id)",
+  '    }}',
+  '  cancel-in-progress: false',
+  '  queue: max',
+].join('\n');
+const verifyLifecycleConcurrency = (source) => {
+  const errors = [];
+  const blocks = [...source.matchAll(/^concurrency:\r?\n((?:^[ \t].*(?:\r?\n|$))*)/gmu)];
+  if (blocks.length !== 1) {
+    errors.push(`expected exactly one top-level concurrency block, found ${blocks.length}`);
+    return errors;
+  }
+  const actual = `concurrency:\n${blocks[0][1].replaceAll('\r\n', '\n').trimEnd()}`;
+  if (actual !== lifecycleConcurrencyBlock) {
+    errors.push('concurrency must reserve the literal production lifecycle group only for authorized deployment, isolate PR and unauthorized events, disable cancellation, and set queue max');
+  }
+  return errors;
+};
+
+for (const error of verifyLifecycleConcurrency(workflow)) violations.push(error);
+
 for (const fragment of [
   'name: TAI Owner REG.RU Deployment Command',
   'workflow_dispatch:',
@@ -30,7 +78,6 @@ for (const fragment of [
   "github.event.comment.body == '/tai deploy current-main'",
   "github.event_name == 'workflow_dispatch'",
   "github.event_name == 'issue_comment' || github.event_name == 'workflow_dispatch'",
-  "github.event.issue.number || github.event.pull_request.number || '3365'",
   'COMMENTER: ${{ github.event.comment.user.login }}',
   'REQUESTED_TARGET: ${{ inputs.target }}',
   'REF: ${{ github.ref }}',
@@ -107,6 +154,36 @@ if (!dockerPublish.includes('- ".github/workflows/tai-owner-reg-ru-deployment-co
   violations.push(`${dockerPublishPath}: owner deployment authority changes must publish exact canonical images`);
 }
 
+if (verifyLifecycleConcurrency(lifecycleConcurrencyBlock).length !== 0) {
+  violations.push('valid owner lifecycle concurrency fixture unexpectedly failed');
+}
+const expectConcurrencyBlocked = (label, source) => {
+  if (verifyLifecycleConcurrency(source).length === 0) {
+    violations.push(`owner lifecycle concurrency fixture ${label} unexpectedly passed`);
+  }
+};
+expectConcurrencyBlocked('legacy-group', [
+  'concurrency:',
+  "  group: tai-owner-reg-ru-deployment-command-${{ github.event.issue.number || github.event.pull_request.number || '3365' }}",
+  '  cancel-in-progress: false',
+  '  queue: max',
+].join('\n'));
+expectConcurrencyBlocked(
+  'dynamic-production-group',
+  lifecycleConcurrencyBlock.replace(
+    `'${productionLifecycleGroup}'`,
+    `format('${productionLifecycleGroup}-{0}', github.run_id)`,
+  ),
+);
+expectConcurrencyBlocked(
+  'cancel-in-progress',
+  lifecycleConcurrencyBlock.replace('cancel-in-progress: false', 'cancel-in-progress: true'),
+);
+expectConcurrencyBlocked(
+  'missing-queue-max',
+  lifecycleConcurrencyBlock.replace('\n  queue: max', ''),
+);
+
 forbid(/pull_request_target:/u, 'pull_request_target is forbidden');
 forbid(/continue-on-error:\s*true/mu, 'continue-on-error is forbidden');
 forbid(/\/tai\s+deploy\s+(?!current-main)/u, 'alternate deployment command is forbidden');
@@ -128,4 +205,4 @@ if (violations.length) {
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI owner deployment command contract PASS: the REG.RU deployment runner is actionless, exact activation proof and rootless image authority remain mandatory, and deployment evidence is target-bound and checksummed locally.');
+console.log('TAI owner deployment command contract PASS: authorized production deployment shares the non-cancelling registration lifecycle queue, PR and unauthorized events remain isolated, and the actionless exact-main deployment authority stays fail-closed.');

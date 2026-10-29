@@ -9,14 +9,12 @@ import test from 'node:test';
  * The out-of-scope boundary of the PC-CROP-01B.3 gate, exercised rather than
  * described.
  *
- * The gate fires on any pull request touching apps/api/src/app.module.ts and
- * refuses one carrying anything outside its own contour. The autopilot guard,
- * separately, refuses a change to app.module.ts without a source-controlled
- * scope file under docs/platform-v7/autopilot/scopes/. Each gate was right on
- * its own and together they made the root Nest module unreachable to every
- * contour but PC-CROP-01B.3: the scope file gate 1 demands is an out-of-scope
- * file to gate 2. Raised as #4765, resolved by the owner as variant A - the
- * scope directory, and nothing else, is admitted here.
+ * The gate fires on any pull request touching apps/api/src/app.module.ts. That
+ * root module is a shared dependency: a change must rerun 01B.3 acceptance but
+ * must not make this historical slice claim ownership of every unrelated file
+ * in the pull request. Bounded scope therefore applies only when one of the
+ * commodity-profile command implementation files changes. The scope directory
+ * remains admitted for genuine 01B.3 changes, preserving the #4765 resolution.
  *
  * The exception is deliberately narrow, and this file exists to prove it stayed
  * narrow. A regex written to let one thing through is exactly the kind of change
@@ -78,6 +76,17 @@ const IN_CONTOUR = [
 
 test('the contour it governs is still admitted in full', () => {
   assert.deepEqual(outOfScope(IN_CONTOUR), []);
+});
+
+test('shared root-module changes rerun acceptance without claiming unrelated files', () => {
+  assert.match(
+    workflow,
+    /if \[ ! -s "\$EVIDENCE_DIR\/slice-files\.txt" \]; then\n\s*printf '%s\\n' 'SHARED_INFRASTRUCTURE_ONLY'/u,
+  );
+  assert.match(
+    workflow,
+    /grep -E '\^apps\/api\/src\/modules\/commodity-profiles\//u,
+  );
 });
 
 test('a source-controlled scope file is admitted, which is the deadlock this resolves', () => {

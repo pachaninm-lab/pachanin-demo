@@ -1,5 +1,6 @@
 import { RequestMethod } from '@nestjs/common';
 import { GUARDS_METADATA, METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
+import { FounderControlController } from '../founder-control/founder-control.controller';
 import { StaffAccessController } from './staff-access.controller';
 import { StaffAccessGuard } from './staff-access.guard';
 import { STAFF_ACCESS_MODES_KEY } from './staff-access-modes.decorator';
@@ -33,6 +34,7 @@ const controllers: ControllerType[] = [
   StaffAccessController as unknown as ControllerType,
   StaffCapabilitiesController as unknown as ControllerType,
   StaffWorkspaceController as unknown as ControllerType,
+  FounderControlController as unknown as ControllerType,
 ];
 
 function joinPath(base: string, child: string): string {
@@ -156,6 +158,7 @@ describe('Company OS staff endpoint authorization and audit policy gate', () => 
       'POST /staff/access/grants/:id/activate',
       'POST /staff/access/requests',
       'POST /staff/access/sessions/:id/end',
+      'POST /staff/founder/role-mode/requests',
     ]);
     expect(selfMutations.every((entry) => entry.auditClass === StaffAuditClass.MUTATION)).toBe(true);
     expect(selfMutations.every((entry) => entry.scopeContract === 'ACTOR_OWNED_RESOURCE' || entry.scopeContract === 'SERVER_VALIDATED_SCOPE')).toBe(true);

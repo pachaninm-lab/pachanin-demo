@@ -228,7 +228,12 @@ function mergeDeals(current: AccessibleDealRef[], incoming: AccessibleDealRef[])
   const byId = new Map<string, AccessibleDealRef>();
   for (const deal of current) byId.set(deal.id, deal);
   for (const deal of incoming) byId.set(deal.id, deal);
-  return prioritizeDeals([...byId.values()]);
+  // Loading another page must not silently navigate away from the open Deal.
+  const openedId = current[0]?.id;
+  const merged = [...byId.values()];
+  if (!openedId) return prioritizeDeals(merged);
+  const opened = byId.get(openedId)!;
+  return [opened, ...prioritizeDeals(merged.filter((deal) => deal.id !== openedId))];
 }
 
 function actionCountLabel(count: number, locale: Locale, copy: DashboardCopy): string {

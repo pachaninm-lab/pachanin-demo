@@ -377,6 +377,11 @@ function expectFail(name, mutate, expectedCode) {
 
 if (resolverSource) {
   expectPass('postgres plus provision selects only postgres', () => {}, 'DB_SERVICE=postgres');
+  // The API's own database role has to reach the shell, or the confinement gate
+  // (#4890) would have nothing to check. The fixture's DATABASE_URL is
+  // postgresql://app:secret@postgres:5432/platform, so the role is `app` - and
+  // it must be the API's role, never the admin's.
+  expectPass('the API database role reaches the shell', () => {}, 'DB_APP_USER=app');
   for (const scenario of [
     {
       name: 'missing running exact-main API container fails',

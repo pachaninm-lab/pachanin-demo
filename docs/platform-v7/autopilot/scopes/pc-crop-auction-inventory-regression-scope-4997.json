@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "authorityBaseExactMain": "ad68300994068ae292d5da1bf62213d238e3aacf",
+  "authorization": "The owner authorized continuous execution of the supplied specification, push/PR/merge and faster parallel work. This separate approval adds one existing regression-test path after a concrete PostgreSQL failure; no implementation is admitted through a branch-local scope edit.",
+  "branch": "governance/pc-crop-auction-inventory-regression-scope-4997",
+  "purpose": "Preserve the Inventory destructive-write regression under the new mandatory Auction foreign-key dependency set in PR #5040.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-auction-inventory-authority-4997.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-auction-inventory-regression-scope-4997.json"
+  ],
+  "boundaries": {
+    "implementationChange": false,
+    "registrationChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false,
+    "terminalCredit": 0
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4890,
+  "branch": "security/api-db-principal-confinement-4890",
+  "status": "active",
+  "purpose": "Close point 1 of #4890: nothing on the deploy path checked that the API's own database principal cannot bypass row level security. The DATABASE_URL parser reads the role name and asserts only that it is non-empty, so an admin role would deploy cleanly and every RLS policy in this repository would be inert with no gate noticing. The gate runs before apply_tai_migrations, so a violation stops the deploy with the database untouched.",
+  "authorityBaseExactMain": "24a55e7687b219bd31b1e54942b1c51de72ca168",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/api-db-principal-confinement-4890.json",
+    "scripts/tai-reg-ru-deploy.sh",
+    "scripts/check-api-database-principal-confinement.mjs",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    ".github/workflows/api-test.yml"
+  ],
+  "requiredInvariants": [
+    "Point 1 of #4890 only. Nothing is migrated to a confined role, no production value is read or written, and no claim is made about what the VPS env file currently contains - that remains the owner action the issue names. This pass makes the open question a fail-closed invariant; it does not answer it.",
+    "The gate is a check. It changes no deploy behaviour on a conforming deployment, and it runs before apply_tai_migrations so a refusal costs nothing and leaves the database untouched.",
+    "rolsuper and rolbypassrls alone are NOT the check, because measurement showed they are not sufficient. Three further shapes read f/f and still bypass: a role GRANTed a BYPASSRLS role, a role GRANTed a superuser role, and the owner of an RLS table that lacks FORCE ROW LEVEL SECURITY.",
+    "Membership is tested with pg_has_role 'MEMBER', not 'USAGE'. Measured on a NOINHERIT member: USAGE reads false, MEMBER reads true, and the role reads every row after SET ROLE. A USAGE-based gate would clear a principal that can take the bypass whenever it likes.",
+    "The ownership clause keys on the missing FORCE rather than on ownership, proven both ways: the owner is flagged without FORCE and cleared with it, and its actual row count moves with the verdict.",
+    "The proof does not restate the gate. It extracts the SQL out of scripts/tai-reg-ru-deploy.sh and runs that exact text, so it cannot drift from what deploys - a second copy kept correct by attention is how the #4683 docstring went stale.",
+    "No production, REG.RU, DNS, database or credential mutation. No migration, no schema change, no new dependency, no lockfile change. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Six role shapes plus the FORCE case, each asserted twice: what the gate reports, and how many rows the role can actually read through a USING (false) policy. A gate whose verdict disagreed with the row count would be reporting something other than a bypass.",
+    "Measured correspondence, no false positive and no false negative: confined role 0 rows and no finding; direct BYPASSRLS 2 rows; owner without FORCE 2 rows; owner with FORCE 0 rows and no finding; both membership shapes 0 rows as themselves and 2 after the SET ROLE hop they are entitled to take.",
+    "Six mutations, all caught: MEMBER to USAGE; ownership clause removed; ownership clause re-narrowed to schema public; direct BYPASSRLS clause removed; SUPERUSER clause removed; DB_APP_USER export removed.",
+    "Two of those six escaped the first version of the proof and the proof was strengthened rather than the result reported. MEMBER-to-USAGE escaped because both membership probes used INHERIT, where USAGE and MEMBER agree - a NOINHERIT probe was added, which is the only shape that separates them. Removing the SUPERUSER clause escaped because no probe role was a real superuser and the probe cannot create one unless it already is one - the clause is now asserted against a superuser the cluster already has, which on the deploy path is exactly the compose POSTGRES_USER this issue is about.",
+    "The proof also found a real limitation in the first gate: it scoped ownership to schema public, so an RLS table owned by the API principal in any other schema was invisible to it. Widened to every non-system schema and the finding is schema-qualified.",
+    "The gate's exit code 27 was free; returns in this script stop at 26.",
+    "TAI REG.RU deployment contract PASS with 28 negative fixtures; shell syntax check clean; api-test.yml parses."
+  ]
+}

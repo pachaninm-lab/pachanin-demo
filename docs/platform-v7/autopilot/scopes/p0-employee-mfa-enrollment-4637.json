@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4637,
+  "branch": "fix/p0-employee-mfa-enrollment-4637",
+  "status": "active",
+  "purpose": "Close the production P0 all-role failure P0_EMPLOYEE_MFA_ENROLLMENT_MISSING by binding the server-derived organization employee GUEST role to the central MFA-required role policy and documenting the resulting session policy.",
+  "authorityBaseExactMain": "de998d2e4724c63fccc78f2586ba76839e46f7dc",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/api/src/common/types/request-user.ts",
+    "apps/api/src/modules/auth/employee-mfa-policy.spec.ts",
+    "docs/security/SESSION_POLICY.md",
+    "docs/platform-v7/autopilot/scopes/p0-employee-mfa-enrollment-4637.json"
+  ],
+  "requiredInvariants": [
+    "The employee role remains server-derived as Role.GUEST; the client cannot select or override role, tenant or organization.",
+    "A newly activated organization employee cannot receive an active platform session before successful TOTP enrollment and verification.",
+    "No database schema, migration, RLS, organization approval, reviewer credential, mail, token format, rate-limit or acceptance-runner change is permitted.",
+    "The central MFA-required role set remains the single authority used by login enforcement, access validation and role-selected idle timeout.",
+    "No production mutation occurs in this pull request; rollout is only through the canonical exact-SHA release authority after green CI."
+  ],
+  "acceptance": [
+    "Focused Jest coverage proves Role.GUEST is MFA-bound.",
+    "Existing session-idle-timeout coverage automatically proves every role in ROLES_REQUIRING_MFA receives the fifteen-minute tier.",
+    "All required pull-request checks pass before merge.",
+    "After merge, a canonical exact-SHA release, fresh First Customer PASS and fresh terminal 9/9 all-role PASS are required before registration is declared open."
+  ]
+}

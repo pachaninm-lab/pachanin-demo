@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "authorityBaseExactMain": "ad68300994068ae292d5da1bf62213d238e3aacf",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP specification without stopping; existing push, PR and merge authorization. No implementation change is admitted until this independent finite approval is merged.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "branch": "feat/pc-crop-auction-inventory-authority-4997",
+  "purpose": "W2-B: bind the existing Auction lot-registration authority to one canonical inventory reservation, expose declared-versus-independent-verification state, and prevent early release of stock backing an active or awarded lot.",
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql",
+    "apps/api/src/modules/auctions/auction-command.service.ts",
+    "apps/api/src/modules/auctions/auction-authority.service.ts",
+    "apps/api/src/modules/auctions/auctions.controller.ts",
+    "apps/api/src/modules/auctions/auction-command.service.spec.ts",
+    "apps/api/src/modules/auctions/auction-postgresql-authority.spec.ts",
+    "apps/api/src/modules/auctions/auction-fgis-self-verification.spec.ts",
+    "apps/api/src/modules/auctions/dto/auction-inventory.dto.ts",
+    "apps/api/src/modules/auctions/auction-inventory.contract.ts",
+    "apps/api/src/modules/auctions/auction-inventory.contract.spec.ts",
+    "apps/api/test/industrial/auction-inventory-authority.e2e-spec.ts",
+    "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts",
+    "apps/api/test/industrial/auction-atomic-execution.e2e-spec.ts",
+    "scripts/verify-pc-crop-auction-inventory-scope.test.mjs",
+    ".github/workflows/auction-atomic-acceptance.yml",
+    "scripts/auction-atomic-acceptance.mjs",
+    "scripts/platform-v7-one-deal-e2e.sh",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "sourcePlan": "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json",
+  "regressionApproval": {
+    "sourcePr": 5040,
+    "observedHead": "604375d3d9ca6e1725b52eba5f14cf4ad151871a",
+    "reason": "The real Inventory PostgreSQL gate passes 14/15 cases. The new mandatory foreign keys add Auction tables to TRUNCATE CASCADE, so the existing accidental-grant fixture no longer reaches its intended BEFORE TRUNCATE guard; PostgreSQL denies missing transitive table privileges first.",
+    "addedPath": "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts",
+    "boundary": "Adapt only the existing disposable destructive-denial fixture to the actual foreign-key dependency set, retaining native privilege denial, immutable trigger denial after temporary accidental grants, zero mutation and exact grant restoration. Do not delete mandatory foreign keys, weaken production privileges, skip assertions or alter inventory implementation.",
+    "effectiveAfter": "This independent regression-scope approval is merged to main; implementation loads the amended manifest from that immutable accepted base."
+  },
+  "requiredInvariants": [
+    "Reuse the existing Auction lot, command receipt, audit/outbox and canonical Deal; reuse inventory position, quantity conversion, reserve/release and pinned CommodityProfile. No parallel engine.",
+    "All new application lot registration requires a tenant/organization-consistent inventory binding with exact quantity and pinned commodity/profile identity; browser culture/source/verified claims are not authority.",
+    "Declared public trading is allowed without manufacturing source_verified_at, ownership, custody, FGIS or other independent evidence. FGIS legacy quarantine and all actual mandatory blockers remain.",
+    "Current database membership, organization and user are checked and locked before command and replay; no cached admin, role or tenant claim grants authority.",
+    "Lot, reservation, immutable binding/receipt, inventory quantities and both domains' event/audit/outbox effects commit atomically; flush deferred evidence before API acknowledgement.",
+    "Concurrent lots cannot reserve more than one known position allows at READ COMMITTED. CAS, stable payload-bound idempotency and lock ordering preserve replay and deny conflicting payloads.",
+    "Bound reservation cannot be released, rewritten or reused while its lot is active or awarded. Any accepted release must preserve the canonical lot lifecycle and transaction evidence.",
+    "Legacy registration SQL cannot serve as an application bypass. Existing unbound lots remain explicitly legacy/unbound; no fabricated inventory or independent-verification backfill.",
+    "Runtime principals gain no direct inventory, binding, evidence or destructive write authority. New function owners are memberless/non-login/non-bypass and search paths are pinned.",
+    "Historical migrations, registration, role eligibility, accounting lock #4321, packages, lockfiles, global validation and production topology remain unchanged.",
+    "The implementation scope is loaded from immutable accepted base; branch-local manifest or scope expansion never authorizes additional paths.",
+    "Acceptance scripts may be updated only to assert the new stronger command/binding boundary; no existing substantive test, evidence gate, trigger or RLS control may be disabled."
+  ],
+  "acceptance": [
+    "Actual HTTP requests keep DTO validation and reject unknown authority fields; response reports PostgreSQL-derived declared/trade state and binding identity.",
+    "Restricted raw SQL proves cross-lot contention, exact replay, changed-payload conflict, stale inventory version, cross-tenant and same-tenant outsider denial.",
+    "Membership/profile revocation, mismatched profile/quantity, insufficient capacity and audit/outbox failure leave no partial lot or reservation.",
+    "Direct DML, legacy function calls and release/reuse of an active or awarded lot's reservation fail; historical receipts remain unmodified.",
+    "Existing auction race, restart, winner, one canonical Deal, admission and FGIS denial tests remain effective and pass with explicit stock fixtures.",
+    "Forward migration chain, no public schema drift, shared one-deal/restore, cryptographic freshness and full exact-head CI pass."
+  ],
+  "remainingTerminalBoundary": [
+    "Complete Offer/Deal inventory consumption and committed/shipped/accepted/sold lifecycle, genealogy, custody/title/restrictions and risk acknowledgements.",
+    "Complete user-facing stock-to-lot flow, warning/acknowledgement UX and verified REG.RU runtime acceptance before terminal INVENTORY/DOUBLE_SELL_PROTECTION/UNVERIFIED_TRADING credit."
+  ],
+  "terminalCredit": 0
+}

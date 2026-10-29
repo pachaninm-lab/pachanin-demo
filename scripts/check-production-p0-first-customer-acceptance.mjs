@@ -1,10 +1,16 @@
 import fs from 'node:fs';
+import assert from 'node:assert/strict';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const ACCEPTANCE='scripts/production-p0-first-customer-acceptance.sh';
 const WORKFLOW='.github/workflows/production-p0-first-customer-acceptance.yml';
+const RELEASE_CONTROLLER='.github/workflows/platform-v7-safe-merge.yml';
+const FULL_STACK_WORKFLOW='.github/workflows/production-full-stack-exact-sha.yml';
+const FULL_STACK_CALLER='production-full-stack-execution-3072';
+const DECISION='apps/api/src/modules/auth/registration-decision.service.ts';
+const HUMAN_CEREMONY_TEST='apps/web/tests/unit/p0HumanReviewerCeremony.test.ts';
 const CORE_BLOB='b02ce590dc308ce46c41df33416dd7b11700ae98';
 const CHECKER_BLOB='5b315be49d4f7025069441a5ff551729dbc46d36';
 const HISTORICAL_COMMIT='c8038e36adb95d62ea9c862deccdda26547f7799';
@@ -17,6 +23,62 @@ const run=(cmd,args,opts={})=>{
 
 const wrapper=fs.readFileSync(ACCEPTANCE,'utf8');
 const workflow=fs.readFileSync(WORKFLOW,'utf8');
+const releaseController=fs.readFileSync(RELEASE_CONTROLLER,'utf8');
+const fullStackWorkflow=fs.readFileSync(FULL_STACK_WORKFLOW,'utf8');
+
+function workflowJob(source,key) {
+  const headers=[...source.matchAll(/^  ([A-Za-z0-9_-]+):$/gmu)];
+  const matches=headers.filter((header)=>header[1]===key);
+  if(matches.length!==1) fail(`release binding: expected one job ${key}`);
+  const start=matches[0].index;
+  const next=headers.find((header)=>header.index>start);
+  return source.slice(start,next?.index??source.length);
+}
+
+function assertReleaseDeployBinding(firstCustomer,controller,fullStack) {
+  const deploy=workflowJob(fullStack,'deploy');
+  const names=[...deploy.matchAll(/^    name: ([^\r\n]+)$/gmu)];
+  if(names.length!==1) fail('release binding: canonical deploy job must have one literal name');
+  const deployName=names[0][1];
+  if(deployName!==deployName.trim() || deployName.length>180 || deployName.includes('${{')) {
+    fail('release binding: canonical deploy job name must be a bounded literal');
+  }
+  const caller=workflowJob(controller,FULL_STACK_CALLER);
+  const uses=[...caller.matchAll(/^    uses: ([^\r\n]+)$/gmu)];
+  if(uses.length!==1 || uses[0][1]!==`./${FULL_STACK_WORKFLOW}`) {
+    fail('release binding: controller must invoke the canonical reusable full-stack workflow');
+  }
+  for(const marker of [
+    "needs.production-release-control-3072.result == 'success'",
+    "github.event_name == 'issue_comment'",
+    '(github.event.issue.number == 3072 || github.event.issue.number == 4637)',
+    'github.event.comment.user.login == github.repository_owner',
+    "github.event.comment.author_association == 'OWNER'",
+    "github.event.comment.body == '/production release current-main'",
+    'github.actor == github.repository_owner',
+    'github.triggering_actor == github.repository_owner',
+    '      owner_release_authorized: true',
+    '      target_sha: ${{ github.sha }}',
+    '      controller_issue_number: ${{ github.event.issue.number }}',
+  ]) if(!caller.includes(marker)) fail(`release binding: canonical caller marker missing: ${marker}`);
+  const blocks=[...firstCustomer.matchAll(/^          const required = \[\n([\s\S]*?)^          \];$/gmu)];
+  if(blocks.length!==1) fail('release binding: expected one literal first-customer required-job array');
+  const requiredJobs=blocks[0][1].split('\n').filter((line)=>line.trim()).map((line)=>{
+    const match=/^            '([^']+)',?$/u.exec(line);
+    if(!match) fail('release binding: first-customer required jobs must stay literal names');
+    return match[1];
+  });
+  const qualified=`${FULL_STACK_CALLER} / ${deployName}`;
+  if(requiredJobs.filter((name)=>name===qualified).length!==1) {
+    fail('release binding: first-customer required jobs do not match the canonical deploy job');
+  }
+  if(controller.split(`select(.name == "${deployName}")`).length-1!==1) {
+    fail('release binding: advisory collector does not match the canonical deploy job');
+  }
+  return {deployName,qualified,requiredJobs};
+}
+
+const releaseBinding=assertReleaseDeployBinding(workflow,releaseController,fullStackWorkflow);
 for(const marker of [
   'github.event.issue.number == 4637',
   "github.event.comment.body == '/production p0-first-customer current-main'",
@@ -120,12 +182,38 @@ if(workflow.includes('platform-v7-safe-merge.yml/runs?event=issue_comment&status
 const releaseJobs=[
   'production-release-control-3072',
   'production-full-stack-execution-3072 / Validate full-stack release contract',
-  'production-full-stack-execution-3072 / Migrate, deploy API and web, verify live intake',
+  releaseBinding.qualified,
   'production-auth-mail-cutover-3072 / Validate auth-mail cutover contract',
   'production-auth-mail-cutover-3072 / Cut over exact production to durable auth-mail worker',
   'production-reviewer-readiness-3072 / Validate production reviewer inspect contract',
   'production-reviewer-readiness-3072 / Read-only REG.RU reviewer login readiness',
 ];
+if(JSON.stringify(releaseBinding.requiredJobs)!==JSON.stringify(releaseJobs)) {
+  fail('release binding: workflow must preserve the complete exact required-job inventory');
+}
+const replaceBindingFixture=(source,before,after)=>{
+  if(source.split(before).length-1!==1) fail('release binding regression fixture must replace one occurrence');
+  return source.replace(before,after);
+};
+const staleDeployName='Migrate, deploy API and web, verify live intake';
+assert.throws(()=>assertReleaseDeployBinding(
+  replaceBindingFixture(workflow,releaseBinding.qualified,`${FULL_STACK_CALLER} / ${staleDeployName}`),
+  releaseController,fullStackWorkflow,
+),/release binding: first-customer required jobs do not match the canonical deploy job/u);
+assert.throws(()=>assertReleaseDeployBinding(
+  workflow,releaseController,
+  replaceBindingFixture(fullStackWorkflow,`    name: ${releaseBinding.deployName}`,'    name: Changed canonical deployment label'),
+),/release binding: first-customer required jobs do not match the canonical deploy job/u);
+assert.throws(()=>assertReleaseDeployBinding(
+  workflow,
+  replaceBindingFixture(releaseController,`select(.name == "${releaseBinding.deployName}")`,`select(.name == "${staleDeployName}")`),
+  fullStackWorkflow,
+),/release binding: advisory collector does not match the canonical deploy job/u);
+assert.throws(()=>assertReleaseDeployBinding(
+  workflow,
+  replaceBindingFixture(releaseController,`uses: ./${FULL_STACK_WORKFLOW}`,'uses: ./.github/workflows/production-web-exact-sha.yml'),
+  fullStackWorkflow,
+),/release binding: controller must invoke the canonical reusable full-stack workflow/u);
 const releaseVerdict=(runs)=>{
   for(const run of runs){
     const control=run.jobs.filter((job)=>job.name===releaseJobs[0]);
@@ -266,6 +354,84 @@ if(setURegression.status!==0) {
   fail(`set -u read_customer_resource regression failed: ${(setURegression.stderr||setURegression.stdout||'').trim().slice(0,600)}`);
 }
 
+const decisionSource=fs.readFileSync(DECISION,'utf8');
+const humanCeremonySource=fs.readFileSync(HUMAN_CEREMONY_TEST,'utf8');
+const durableModeSignals=[
+  'queueRegistrationDecisionNotification(',
+  'completeDecisionResponse(',
+  'waitForRegistrationDecisionDelivery(',
+];
+const durableSignalCount=durableModeSignals.filter((marker)=>decisionSource.includes(marker)).length;
+if(durableSignalCount!==0 && durableSignalCount!==durableModeSignals.length) {
+  fail('registration decision durable outbox transition is only partially present');
+}
+const durableDecision=durableSignalCount===durableModeSignals.length;
+if(durableDecision) {
+  for(const marker of [
+    'await this.audit(tx, {',
+    'await this.emitRegistrationLifecycleReceipt(tx, application.id, correlationId);',
+    'await this.emitRegistrationLifecycleReceipt(tx, applicationId, correlationId);',
+    'FROM auth.emit_registration_lifecycle_receipt(',
+    'REGISTRATION_LIFECYCLE_RECEIPT_MISSING',
+    'private async queueRegistrationDecisionNotification(',
+    'private async completeDecisionResponse(',
+    'await this.mailOutbox.waitForRegistrationDecisionDelivery(',
+    "if (delivery.status !== 'SENT')",
+    "'REGISTRATION_DECISION_NOTIFICATION_FAILED'",
+    "'REGISTRATION_DECISION_NOTIFICATION_PENDING'",
+    "return { ...outcome.response, notificationDelivery: { status: 'SENT' } };",
+  ]) if(!decisionSource.includes(marker)) fail(`durable decision marker missing: ${marker}`);
+
+  const replayRead='response: await this.readResult(tx, applicationId, true),';
+  if((decisionSource.split(replayRead).length-1)!==2) {
+    fail('both exact decision replay branches must return replayed state after durable enqueue recovery');
+  }
+  const queueCall='await this.queueRegistrationDecisionNotification(';
+  if((decisionSource.split(queueCall).length-1)!==4) {
+    fail('both new decisions and both exact replays must bind one durable notification enqueue path');
+  }
+  const completionCall='return this.completeDecisionResponse(outcome, deliveryKey);';
+  if((decisionSource.split(completionCall).length-1)!==2) {
+    fail('both decision entry points must wait on the same durable delivery proof boundary');
+  }
+  for(const forbidden of [
+    'return this.readResult(tx, applicationId, deliveryKey, true);',
+    '...(!replayed && deliveryAuthorized(deliveryKey)',
+  ]) if(decisionSource.includes(forbidden)) fail(`legacy decision notification path remains: ${forbidden}`);
+
+  for(const receipt of [
+    'await this.emitRegistrationLifecycleReceipt(tx, application.id, correlationId);',
+    'await this.emitRegistrationLifecycleReceipt(tx, applicationId, correlationId);',
+  ]) {
+    const receiptIndex=decisionSource.indexOf(receipt);
+    const auditIndex=decisionSource.lastIndexOf('await this.audit(tx, {',receiptIndex);
+    const enqueueIndex=decisionSource.indexOf(queueCall,receiptIndex);
+    if(receiptIndex<0 || auditIndex<0 || auditIndex>receiptIndex || enqueueIndex<receiptIndex) {
+      fail(`durable notification must follow approval audit and causal receipt for ${receipt}`);
+    }
+  }
+
+  for(const marker of [
+    "await import('@/app/api/staff/[...path]/route')",
+    "await POST(decisionRequest('p0-human-approve:reg_p0_human_ceremony'), context)",
+    "await POST(decisionRequest('p0-human-replay:reg_p0_human_ceremony'), context)",
+    "notificationDelivery: { status: 'SENT' }",
+    "notificationDelivered: true",
+    "notificationSuppressed: true",
+    "fails closed when a successful upstream replay lacks durable SENT evidence",
+    "expect(response.status).toBe(503)",
+    "code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING'",
+    "expect(payload).not.toHaveProperty('notificationDelivery')",
+    "expect(payload).not.toHaveProperty('notificationDelivered')",
+  ]) if(!humanCeremonySource.includes(marker)) fail(`durable reviewer ceremony marker missing: ${marker}`);
+  if((humanCeremonySource.split("notificationDelivery: { status: 'SENT' }").length-1)!==2) {
+    fail('reviewer ceremony must prove durable SENT on initial delivery and exact replay');
+  }
+  if(humanCeremonySource.includes('sendTransactionalMail')) {
+    fail('reviewer ceremony must not retain a direct SMTP dependency');
+  }
+}
+
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'pc-p0-first-customer-contract-'));
 const oldChecker=path.join(dir,'checker.mjs');
 const oldAcceptance=path.join(dir,'acceptance.sh');
@@ -280,15 +446,29 @@ try {
   const current=fs.readFileSync(ACCEPTANCE);
   const currentMode=fs.statSync(ACCEPTANCE).mode & 0o777;
   const currentWorkflow=fs.readFileSync(WORKFLOW);
+  const currentDecision=durableDecision ? fs.readFileSync(DECISION) : null;
+  const currentDecisionMode=durableDecision ? fs.statSync(DECISION).mode & 0o777 : null;
+  const currentHumanCeremony=durableDecision ? fs.readFileSync(HUMAN_CEREMONY_TEST) : null;
+  const currentHumanCeremonyMode=durableDecision ? fs.statSync(HUMAN_CEREMONY_TEST).mode & 0o777 : null;
   try {
     fs.copyFileSync(oldAcceptance,ACCEPTANCE);
     fs.copyFileSync(oldWorkflow,WORKFLOW);
+    if(durableDecision) {
+      fs.writeFileSync(DECISION,run('git',['show',`${HISTORICAL_COMMIT}:${DECISION}`]));
+      fs.writeFileSync(HUMAN_CEREMONY_TEST,run('git',['show',`${HISTORICAL_COMMIT}:${HUMAN_CEREMONY_TEST}`]));
+    }
     const historical=spawnSync(process.execPath,[oldChecker],{encoding:'utf8'});
     if(historical.status!==0) fail(`historical contract failed: ${(historical.stderr||historical.stdout||'').trim().slice(0,1200)}`);
   } finally {
     fs.writeFileSync(ACCEPTANCE,current);
     fs.chmodSync(ACCEPTANCE,currentMode);
     fs.writeFileSync(WORKFLOW,currentWorkflow);
+    if(durableDecision) {
+      fs.writeFileSync(DECISION,currentDecision);
+      fs.chmodSync(DECISION,currentDecisionMode);
+      fs.writeFileSync(HUMAN_CEREMONY_TEST,currentHumanCeremony);
+      fs.chmodSync(HUMAN_CEREMONY_TEST,currentHumanCeremonyMode);
+    }
   }
 } finally {
   fs.rmSync(dir,{recursive:true,force:true});
@@ -305,8 +485,11 @@ if(!restored.includes('REGISTRATION_FAILURE_CLASSIFIER')
   fail('registration failure evidence wrapper restore failed');
 }
 console.log('P0_FIRST_CUSTOMER_ACCEPTANCE_CONTRACT=PASS');
+console.log('P0_FIRST_CUSTOMER_RELEASE_JOB_BINDING=CANONICAL_CALLEE_AND_CALLER');
+console.log('P0_FIRST_CUSTOMER_RELEASE_JOB_BINDING_NEGATIVE_CONTROLS=4_PASS');
 console.log('P0_FIRST_CUSTOMER_AUTH_ALIAS_COMPATIBILITY=HARDENED_LEGACY_APP_SERVICE');
 console.log('P0_FIRST_CUSTOMER_IMAP_RECIPIENT_CANONICALIZATION=IDNA_ASCII');
 console.log('P0_FIRST_CUSTOMER_REMOTE_BLOCKER_PROPAGATION=SHARED_TMP_FAIL_CLOSED');
 console.log('P0_FIRST_CUSTOMER_REGISTRATION_FAILURE_EVIDENCE=HTTP_STATUS_AND_ALLOWLISTED_PUBLIC_CODE_ONLY');
 console.log('P0_FIRST_CUSTOMER_READ_RESOURCE_SET_U=PASS');
+console.log(`P0_FIRST_CUSTOMER_DECISION_NOTIFICATION_CONTRACT=${durableDecision?'DURABLE_OUTBOX':'LEGACY_SYNCHRONOUS'}`);

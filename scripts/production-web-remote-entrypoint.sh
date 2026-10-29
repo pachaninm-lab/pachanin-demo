@@ -24,6 +24,35 @@ fail() {
   return 1
 }
 
+resolve_reclaim_web_id() {
+  local -a reclaim_dc=(docker compose --project-directory "$prod_dir")
+  local file ids id service project working_dir running
+  [[ -z "$prod_project" ]] || reclaim_dc+=(-p "$prod_project")
+  for file in "${resolved_files[@]}"; do
+    file="$(trim "$file")"
+    [[ -n "$file" ]] || continue
+    [[ "$file" == /* ]] || file="${prod_dir%/}/$file"
+    reclaim_dc+=(-f "$file")
+  done
+  ids="$("${reclaim_dc[@]}" ps -q web)" || {
+    fail 'cannot resolve the production Compose web container'; return 1;
+  }
+  [[ -n "$ids" && "$ids" != *$'\n'* && "$ids" =~ ^[a-f0-9]{12,64}$ ]] || {
+    fail 'safe Docker reclaim requires exactly one production Compose web container'; return 1;
+  }
+  id="$ids"
+  service="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.service" }}' "$id")" || return 1
+  project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$id")" || return 1
+  working_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$id")" || return 1
+  running="$(docker inspect --format '{{.State.Running}}' "$id")" || return 1
+  [[ "$service" == web && "$project" =~ ^[a-z0-9][a-z0-9_-]*$ &&
+     ( -z "$prod_project" || "$project" == "$prod_project" ) &&
+     "$working_dir" == "$prod_dir" && "$running" == true ]] || {
+    fail 'production Compose web identity mismatch before Docker reclaim'; return 1;
+  }
+  printf '%s\n' "$id"
+}
+
 reclaim_web_pull_space() {
   local current_web_id current_image_ref current_image_id short_sha target_image docker_root
   local image_ref image_id
@@ -31,17 +60,7 @@ reclaim_web_pull_space() {
   short_sha="${TARGET_SHA:0:7}"
   target_image="ghcr.io/pachaninm-lab/grainflow-web:sha-${short_sha}"
 
-  mapfile -t running_web_ids < <(
-    docker ps -q --no-trunc |
-      while read -r id; do
-        image="$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null || true)"
-        if [[ "$image" == *grainflow-web* ]]; then printf '%s\n' "$id"; fi
-      done
-  )
-  (( ${#running_web_ids[@]} == 1 )) ||
-    fail "safe Docker reclaim requires exactly one running grainflow-web container; found ${#running_web_ids[@]}"
-
-  current_web_id="${running_web_ids[0]}"
+  current_web_id="$(resolve_reclaim_web_id)" || return 1
   current_image_ref="$(docker inspect --format '{{.Config.Image}}' "$current_web_id")"
   current_image_id="$(docker inspect --format '{{.Image}}' "$current_web_id")"
   docker_root="$(docker info --format '{{.DockerRootDir}}')"
@@ -176,9 +195,9 @@ if [[ "$ACTION" == audit ]]; then
   printf 'PERSISTENT_OVERRIDE_MUTATED=0\n'
 else
   active_hardening_override="${prod_dir%/}/compose.production-hardening.override.yml"
+  reclaim_web_pull_space
   install -m 0644 "$remote_override" "$active_hardening_override"
   printf 'PERSISTENT_OVERRIDE_MUTATED=1\n'
-  reclaim_web_pull_space
 fi
 
 image_override="${prod_dir%/}/compose.production-web-image.override.yml"

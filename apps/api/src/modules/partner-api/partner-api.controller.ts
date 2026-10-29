@@ -5,6 +5,7 @@ import { RequestUser } from '../../common/types/request-user';
 import { PartnerApiService } from './partner-api.service';
 import { WebhookDispatcherService } from './webhook-dispatcher.service';
 import { configuredAllowedHosts, safeOutboundRequest } from '../../common/security/safe-outbound-request';
+import { GenerateApiKeyDto, SubscribeWebhookDto, TestWebhookDto } from './dto/partner-api.dto';
 
 @Controller('api/partner')
 @UseGuards(JwtAuthGuard)
@@ -16,7 +17,7 @@ export class PartnerApiController {
 
   @Post('api-keys')
   generateKey(
-    @Body() body: { name: string; scopes: string[]; rateLimit?: number; expiresInDays?: number },
+    @Body() body: GenerateApiKeyDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.partnerApi.generateApiKey(body, user);
@@ -34,7 +35,7 @@ export class PartnerApiController {
 
   @Post('webhooks')
   subscribeWebhook(
-    @Body() body: { url: string; events: string[] },
+    @Body() body: SubscribeWebhookDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.partnerApi.subscribeWebhook(body, user);
@@ -53,7 +54,7 @@ export class PartnerApiController {
   @Post('webhooks/:id/test')
   async testWebhook(
     @Param('id') id: string,
-    @Body() body: { eventType?: string; testData?: Record<string, unknown> },
+    @Body() body: TestWebhookDto,
     @CurrentUser() user: RequestUser,
   ) {
     const active = this.partnerApi.getActiveSubscriptionsForEvent(body.eventType ?? 'test.ping');

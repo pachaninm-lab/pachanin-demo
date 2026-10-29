@@ -25,35 +25,38 @@ describe('platform-v7 public homepage typography', () => {
     expect(strategic).toContain('--pc-v6-font-body');
     expect(strategic).toContain('--pc-v6-font-display');
     expect(strategic).toContain('font-family: var(--pc-v6-font-body)');
-    expect(landing).toContain('font-family: var(--pc-v6-font-display)');
-    expect(landing).toContain('font-family: -apple-system, BlinkMacSystemFont');
+    expect(landing).toContain('font-family: var(--pc-entry-font-body)');
+    expect(landing).toContain('font-family: Arial, sans-serif');
   });
 
-  it('does not introduce remote fonts or synthetic ultra-heavy weights', () => {
+  it('does not introduce remote fonts, pseudo-copy or synthetic ultra-heavy weights', () => {
     const combined = `${landing}\n${strategic}\n${finalCss}`;
     expect(combined).not.toMatch(/@import\s+url/i);
-    expect(combined).not.toMatch(/https?:\/\//i);
+    expect(combined).not.toMatch(/https?:\/\/[^#]/i);
     expect(combined).not.toContain('font-weight: 950');
     expect(combined).not.toContain('fontWeight: 950');
+    expect(landing).not.toContain('.pc-v6-kicker::before');
+    expect(landing).not.toContain('font-size: 0');
   });
 
-  it('keeps phone and desktop hero typography deliberate', () => {
+  it('keeps phone and desktop hero typography deliberate with semantic title spans', () => {
     expect(landing).toContain('@media (max-width: 767px)');
     expect(landing).toContain('@media (max-width: 359px)');
     expect(landing).toContain('@media (min-width: 768px)');
     expect(landing).toContain('font-size: clamp(33px, 8.7vw, 36px)');
     expect(landing).toContain('font-size: clamp(48px, 5vw, 64px)');
-    expect(landing).toContain('.pc-v6-hero-brand::after { display: none; }');
-    expect(landing).toContain('.pc-v6-hero-title-line { display: block; }');
+    expect(landing).toContain('.pc-v6-hero-title-main,');
+    expect(landing).toContain('.pc-v6-hero-title-accent { display: block; }');
     expect(finalCss).toContain('font-size: clamp(32px, 8.35vw, 36px) !important');
   });
 
-  it('preserves readable body copy and defers only offscreen sections in the final stylesheet', () => {
+  it('preserves readable body copy and does not defer critical entry sections', () => {
     expect(landing).toContain('font-size: 18px');
     expect(landing).toContain('line-height: 1.5');
     expect(landing).toContain('text-rendering: auto');
-    expect(finalCss).toContain('@supports (content-visibility: auto)');
-    expect(finalCss).toContain('content-visibility: auto;');
+    expect(landing).toContain('@supports (content-visibility: auto)');
+    expect(landing).toContain('.pc-v7-public-entry #participants,');
+    expect(landing).toContain('content-visibility: visible !important;');
     expect(finalCss).not.toMatch(/\.pc-v7-public-entry \.pc-v6-hero[^}]*content-visibility/);
     expect(finalCss).not.toMatch(/\.pc-v7-public-entry #participants[^}]*content-visibility/);
   });

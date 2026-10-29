@@ -70,8 +70,8 @@ export function InvitationAcceptClient({ token, locale }: { token: string; local
       fullName: String(form.get('fullName') || '').trim(),
       phone: String(form.get('phone') || '').trim() || undefined,
       password: String(form.get('password') || ''),
-      termsVersion: '2026-07-31',
-      privacyVersion: '2026-07-31',
+      termsVersion: '2026-09-03',
+      privacyVersion: '2026-09-03',
       acceptTerms: true,
       acceptPrivacy: true,
     };

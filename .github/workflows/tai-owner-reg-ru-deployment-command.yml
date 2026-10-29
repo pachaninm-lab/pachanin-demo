@@ -33,8 +33,34 @@ permissions:
   contents: read
 
 concurrency:
-  group: tai-owner-reg-ru-deployment-command-${{ github.event.issue.number || github.event.pull_request.number || '3365' }}
+  group: >-
+    ${{
+      (
+        github.event_name == 'pull_request' &&
+        format('tai-owner-reg-ru-deployment-command-pr-{0}', github.event.pull_request.number)
+      ) ||
+      (
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.target == 'current-main' &&
+          github.ref == 'refs/heads/main' &&
+          github.actor == github.repository_owner &&
+          github.triggering_actor == github.repository_owner
+        ) ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.issue.number == 3365 &&
+          github.event.comment.body == '/tai deploy current-main' &&
+          github.event.comment.user.login == github.repository_owner &&
+          github.actor == github.repository_owner &&
+          github.triggering_actor == github.repository_owner
+        )
+      ) &&
+      'pc-crop-registration-lifecycle' ||
+      format('tai-owner-reg-ru-deployment-command-unauthorized-{0}', github.run_id)
+    }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   authority:

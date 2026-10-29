@@ -1,0 +1,526 @@
+name: Production Auth-Mail Runtime Authority Diagnostic 20260926
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-auth-mail-runtime-authority-diagnostic-20260926.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.event_name == 'issue_comment' && github.event.issue.number == 4637 && github.event.comment.body == '/production auth-mail-runtime-authority-diagnostic current-main' && 'pc-crop-registration-lifecycle' || format('auth-mail-runtime-authority-diagnostic-{0}', github.event.pull_request.number || github.run_id) }}
+  cancel-in-progress: false
+  queue: max
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  CONTINUATION_ISSUE_NUMBER: '4637'
+  DIAGNOSTIC_COMMAND: /production auth-mail-runtime-authority-diagnostic current-main
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  contract:
+    name: Validate read-only runtime-authority diagnostic contract
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Enforce read-only sanitized boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('.github/workflows/production-auth-mail-runtime-authority-diagnostic-20260926.yml')
+          text=p.read_text(encoding='utf-8')
+          required=[
+            "github.event.issue.number == 4637",
+            "github.event.comment.body == '/production auth-mail-runtime-authority-diagnostic current-main'",
+            'pc-crop-registration-lifecycle',
+            'StrictHostKeyChecking=yes',
+            'PC_PROD_SSH_HOST_FINGERPRINT',
+            'SOURCE_AUTHORITY_CLASS',
+            'RUNTIME_PROJECTION_CLASS',
+            'SOURCE_REBASED_CONNECT_CLASS',
+            'PROJECTION_REBASED_CONNECT_CLASS',
+            'MIGRATION_AUTHORITY_CLASS',
+            'PREDICTED_BOOTSTRAP_PATH',
+            'PRODUCTION_MUTATION=NONE',
+            'SECRETS_PUBLISHED=NONE',
+          ]
+          missing=[x for x in required if x not in text]
+          if missing:
+              raise SystemExit('missing diagnostic invariant: '+' | '.join(missing))
+          diagnostic=text.split('\n  diagnostic:\n',1)[1]
+          forbidden=[
+            r'docker\s+(?:rm|rmi|restart|stop|kill|create|run|pull|push|build|prune|update)',
+            r'docker\s+compose[^\n]*(?:up|down|run|restart|stop|rm|pull|build)',
+            r'\b(?:ALTER|CREATE|DROP|GRANT|REVOKE|INSERT|UPDATE|DELETE|TRUNCATE)\b',
+            r'prisma\s+(?:migrate|db\s+execute)',
+            r'curl[^\n]*(?:-X|--request)\s*(?:POST|PUT|PATCH|DELETE)',
+            r'StrictHostKeyChecking=no',
+          ]
+          for pattern in forbidden:
+              if re.search(pattern, diagnostic, re.I):
+                  raise SystemExit('mutation surface forbidden: '+pattern)
+          print('PASS: diagnostic is read-only, pinned-SSH and class-only.')
+          PY
+
+  diagnostic:
+    name: Classify source projection and migration authority without mutation
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4637 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production auth-mail-runtime-authority-diagnostic current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind exact current main
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$target_sha" ]]
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || exit 10
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || exit 11
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || exit 13
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"; chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || exit 14
+
+          scan="$(mktemp)"; match="$(mktemp)"; ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do
+              [[ -n "$line" ]] || continue
+              fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+              [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+            done < "$scan"
+            sort -u -o "$match" "$match"
+            [[ "$(grep -c . "$match" || true)" == 1 ]] && { ready=1; break; }
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$ready" == 1 ]] || exit 15
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host"             'set -Eeuo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; python3 --version >/dev/null; echo SSH_AUTH_OK'             | grep -Fxq SSH_AUTH_OK
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Read-only production authority classifier
+        id: classify
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          raw="$(mktemp)"; clean="$(mktemp)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST"             "bash -s -- '$TARGET_SHA'" > "$raw" 2>&1 <<'REMOTE'
+          set -Eeuo pipefail
+          umask 077
+          target_sha="$1"
+          authority_dir='/var/lib/pc-secret-authority'
+          source_file="$authority_dir/auth-mail-database-url"
+          projection_dir="$authority_dir/runtime"
+          projection_file="$projection_dir/database-url"
+          tmp="$(mktemp -d /tmp/pc-auth-mail-authority-diagnostic.XXXXXX)"
+          trap 'rm -rf -- "$tmp"' EXIT
+          emit(){ printf '%s=%s\n' "$1" "$2"; }
+          fail(){ emit DIAGNOSTIC_RESULT FAIL; emit SAFE_ERROR "$1"; emit PRODUCTION_MUTATION NONE; emit SECRETS_PUBLISHED NONE; exit "${2:-1}"; }
+
+          [[ "$(id -u)" -eq 0 ]] || fail ROOT_REQUIRED 20
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]] || fail TARGET_SHA_INVALID 21
+
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 )) || fail WEB_CARDINALITY 22
+          web_id="${web_ids[0]}"
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          working_dir="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$web_id")"
+          config_files="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$web_id")"
+          [[ "$project" =~ ^[A-Za-z0-9_.-]{1,128}$ && "$working_dir" == /* && "$working_dir" != / && -d "$working_dir" && ! -L "$working_dir" && -n "$config_files" ]] || fail COMPOSE_AUTHORITY_INVALID 23
+          working_dir="$(realpath -e -- "$working_dir")"
+
+          mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
+          (( ${#api_ids[@]} == 1 )) || fail API_CARDINALITY 24
+          api_id="${api_ids[0]}"
+          api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
+          web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
+          [[ "$api_revision" =~ ^[0-9a-f]{40}$ && "$web_revision" =~ ^[0-9a-f]{40}$ ]] || fail RUNTIME_REVISION_INVALID 25
+          [[ "$api_revision" == "$web_revision" ]] || fail API_WEB_REVISION_MISMATCH 26
+          emit DEPLOYED_REVISION "$api_revision"
+
+          api_auth="$tmp/api-auth"
+          docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" | sed -n 's/^AUTH_DATABASE_URL=//p' | head -1 > "$api_auth"
+          chmod 600 "$api_auth"
+          [[ -s "$api_auth" ]] || fail API_AUTH_DATABASE_URL_MISSING 27
+
+          python3 - "$api_auth" <<'PY' > "$tmp/api-class" || exit 28
+          import sys
+          from urllib.parse import urlsplit
+          u=urlsplit(open(sys.argv[1],encoding='utf-8').read().strip())
+          ok=u.scheme in ('postgres','postgresql') and bool(u.username and u.password and u.hostname and u.path.strip('/'))
+          print('PASS' if ok else 'INVALID')
+          raise SystemExit(0 if ok else 1)
+          PY
+          emit API_AUTHORITY_CLASS PASS
+
+          source_class='MISSING'
+          if [[ -e "$source_file" ]]; then
+            if [[ ! -f "$source_file" || -L "$source_file" || "$(stat -c '%a:%u:%g' "$source_file" 2>/dev/null || true)" != '600:0:0' ]]; then
+              source_class='MISOWNED_OR_SHAPE_INVALID'
+            else
+              if python3 - "$source_file" "$api_auth" <<'PY' > "$tmp/source-class"
+          import sys
+          from urllib.parse import parse_qsl,urlsplit
+          worker=urlsplit(open(sys.argv[1],encoding='utf-8').read().strip())
+          api=urlsplit(open(sys.argv[2],encoding='utf-8').read().strip())
+          def authority(u):
+              return ((u.hostname or '').lower(),u.port or 5432,u.path,tuple(sorted(parse_qsl(u.query,keep_blank_values=True))))
+          if worker.scheme not in ('postgres','postgresql') or worker.username!='pc_auth_mail_runtime' or not worker.password or not worker.hostname or not worker.path.strip('/'):
+              print('MALFORMED'); raise SystemExit(0)
+          print('VALID_PARITY' if authority(worker)==authority(api) else 'VALID_STALE')
+          PY
+              then
+                source_class="$(cat "$tmp/source-class")"
+              else
+                source_class='CLASSIFIER_FAILED'
+              fi
+            fi
+          fi
+          emit SOURCE_AUTHORITY_CLASS "$source_class"
+
+          projection_class='MISSING'
+          if [[ -e "$projection_dir" ]]; then
+            if [[ ! -d "$projection_dir" || -L "$projection_dir" || "$(stat -c '%a:%u:%g' "$projection_dir" 2>/dev/null || true)" != '700:0:0' ]]; then
+              projection_class='PARENT_AUTHORITY_INVALID'
+            elif [[ ! -f "$projection_file" || -L "$projection_file" ]]; then
+              projection_class='FILE_MISSING_OR_SHAPE_INVALID'
+            elif [[ "$(stat -c '%a:%u:%g' "$projection_file" 2>/dev/null || true)" != '444:0:0' ]]; then
+              projection_class='FILE_AUTHORITY_INVALID'
+            else
+              if python3 - "$projection_file" "$api_auth" <<'PY' > "$tmp/projection-class"
+          import sys
+          from urllib.parse import parse_qsl,urlsplit
+          worker=urlsplit(open(sys.argv[1],encoding='utf-8').read().strip())
+          api=urlsplit(open(sys.argv[2],encoding='utf-8').read().strip())
+          def authority(u):
+              return ((u.hostname or '').lower(),u.port or 5432,u.path,tuple(sorted(parse_qsl(u.query,keep_blank_values=True))))
+          if worker.scheme not in ('postgres','postgresql') or worker.username!='pc_auth_mail_runtime' or not worker.password:
+              print('MALFORMED'); raise SystemExit(0)
+          print('VALID_PARITY' if authority(worker)==authority(api) else 'VALID_STALE')
+          PY
+              then
+                projection_class="$(cat "$tmp/projection-class")"
+              else
+                projection_class='CLASSIFIER_FAILED'
+              fi
+            fi
+          fi
+          emit RUNTIME_PROJECTION_CLASS "$projection_class"
+
+          probe_rebased_credential() {
+            local candidate="$1" candidate_class="$2" label="$3"
+            local rebased="$tmp/rebased-$label" result_file="$tmp/rebased-$label.result"
+            if [[ "$candidate_class" != 'VALID_STALE' && "$candidate_class" != 'VALID_PARITY' ]]; then
+              printf 'NOT_RUN'
+              return 0
+            fi
+            if ! python3 - "$candidate" "$api_auth" > "$rebased" <<'PY'
+          import sys
+          from urllib.parse import quote, unquote, urlsplit, urlunsplit
+          worker=urlsplit(open(sys.argv[1],encoding='utf-8').read().strip())
+          api=urlsplit(open(sys.argv[2],encoding='utf-8').read().strip())
+          if worker.scheme not in ('postgres','postgresql') or worker.username!='pc_auth_mail_runtime' or not worker.password:
+              raise SystemExit(1)
+          if api.scheme not in ('postgres','postgresql') or not api.hostname or not api.path.strip('/'):
+              raise SystemExit(1)
+          user=quote(unquote(worker.username or ''),safe='')
+          password=quote(unquote(worker.password or ''),safe='')
+          host=api.hostname or ''
+          if ':' in host and not host.startswith('['):
+              host=f'[{host}]'
+          if api.port:
+              host=f'{host}:{api.port}'
+          print(urlunsplit((api.scheme,f'{user}:{password}@{host}',api.path,api.query,'')))
+          PY
+            then
+              printf 'CANDIDATE_INVALID'
+              return 0
+            fi
+            chmod 0600 "$rebased"
+            set +e
+            cat "$rebased" | docker exec -i "$api_id" /nodejs/bin/node -e '
+              const fs=require("fs");
+              const {PrismaClient}=require("@prisma/client");
+              const url=fs.readFileSync(0,"utf8").trim();
+              const p=new PrismaClient({datasources:{db:{url}},log:[]});
+              const out=(v)=>process.stdout.write(String(v)+"\n");
+              const classify=(e)=>{
+                const m=String(e?.message||"");
+                if(/authentication failed|password/i.test(m)) return "AUTH_FAILED";
+                if(/can.t reach|connection refused|timed out|timeout/i.test(m)) return "NETWORK_FAILED";
+                if(/does not exist/i.test(m)) return "DATABASE_OR_ROLE_MISSING";
+                if(/ssl|tls|certificate/i.test(m)) return "TLS_FAILED";
+                return "OTHER_FAILURE";
+              };
+              (async()=>{
+                try {
+                  await p.$connect();
+                  const rows=await p.$queryRawUnsafe("SELECT current_user");
+                  out(rows?.[0]?.current_user==="pc_auth_mail_runtime" ? "PASS" : "WRONG_PRINCIPAL");
+                } catch(e) {
+                  out(classify(e));
+                } finally {
+                  await p.$disconnect().catch(()=>{});
+                }
+              })();
+            ' > "$result_file" 2>/dev/null
+            local rc=$?
+            set -e
+            rm -f -- "$rebased"
+            if (( rc != 0 )); then
+              printf 'NO_SAFE_RESULT'
+              return 0
+            fi
+            local value
+            value="$(sed -nE '/^(PASS|WRONG_PRINCIPAL|AUTH_FAILED|NETWORK_FAILED|DATABASE_OR_ROLE_MISSING|TLS_FAILED|OTHER_FAILURE)$/p' "$result_file" | head -1)"
+            [[ -n "$value" ]] || value='NO_SAFE_RESULT'
+            printf '%s' "$value"
+          }
+
+          source_rebased_connect="$(probe_rebased_credential "$source_file" "$source_class" source)"
+          projection_rebased_connect="$(probe_rebased_credential "$projection_file" "$projection_class" projection)"
+          emit SOURCE_REBASED_CONNECT_CLASS "$source_rebased_connect"
+          emit PROJECTION_REBASED_CONNECT_CLASS "$projection_rebased_connect"
+
+          IFS=',' read -r -a raw_compose_files <<< "$config_files"
+          compose_files=()
+          for raw_file in "${raw_compose_files[@]}"; do
+            file="${raw_file#"${raw_file%%[![:space:]]*}"}"
+            file="${file%"${file##*[![:space:]]}"}"
+            [[ -n "$file" ]] || continue
+            [[ "$file" == /* ]] || file="$working_dir/$file"
+            [[ -f "$file" && ! -L "$file" ]] || fail COMPOSE_FILE_INVALID 29
+            compose_files+=("$(realpath -e -- "$file")")
+          done
+          (( ${#compose_files[@]} >= 1 )) || fail COMPOSE_AUTHORITY_EMPTY 30
+          dc=(docker compose --project-directory "$working_dir" --project-name "$project")
+          for file in "${compose_files[@]}"; do dc+=(-f "$file"); done
+          compose_json="$tmp/compose.json"
+          if ! "${dc[@]}" config --format json > "$compose_json" 2>/dev/null; then
+            migration_class='COMPOSE_RENDER_FAILED'
+          else
+            migration_class="$(python3 - "$compose_json" "$api_auth" <<'PY'
+          import json,re,sys
+          from urllib.parse import parse_qsl,urlsplit
+          services=(json.load(open(sys.argv[1],encoding='utf-8')).get('services') or {})
+          api=urlsplit(open(sys.argv[2],encoding='utf-8').read().strip())
+          candidates=[]
+          for name,service in services.items():
+              image=str(service.get('image') or '')
+              command=service.get('command')
+              command=' '.join(command) if isinstance(command,list) else str(command or '')
+              if re.search(r'(^|[-_])(migrate|migration)([-_]|$)',name,re.I) or 'grainflow-migration' in image or ('prisma' in command and 'migrate' in command):
+                  candidates.append(name)
+          if len(candidates)==0:
+              print('MISSING'); raise SystemExit(0)
+          if len(candidates)!=1:
+              print('AMBIGUOUS'); raise SystemExit(0)
+          env=services[candidates[0]].get('environment') or {}
+          if isinstance(env,list):
+              env=dict(item.split('=',1) for item in env if isinstance(item,str) and '=' in item)
+          value=str(env.get('DATABASE_URL') or '').strip()
+          migration=urlsplit(value)
+          if migration.scheme not in ('postgres','postgresql') or not migration.username or not migration.password or not migration.hostname or not migration.path.strip('/'):
+              print('DATABASE_URL_INVALID'); raise SystemExit(0)
+          def authority(u):
+              return ((u.hostname or '').lower(),u.port or 5432,u.path,tuple(sorted(parse_qsl(u.query,keep_blank_values=True))))
+          print('VALID_PARITY' if authority(migration)==authority(api) else 'VALID_MISMATCH')
+          PY
+          )"
+          fi
+          emit MIGRATION_AUTHORITY_CLASS "$migration_class"
+
+          recovery_candidate='NO'
+          if [[ "$source_class" == 'MISSING' || "$source_class" == 'VALID_STALE' ]]; then recovery_candidate='YES'; fi
+          emit PROJECTION_RECOVERY_CANDIDATE "$recovery_candidate"
+
+          if [[ "$source_class" == 'VALID_PARITY' ]]; then
+            predicted='EXISTING_SOURCE'
+          elif [[ "$recovery_candidate" == YES && "$projection_class" == 'VALID_PARITY' ]]; then
+            predicted='RUNTIME_PROJECTION_RECOVERY'
+          elif [[ "$source_class" == 'MISOWNED_OR_SHAPE_INVALID' ]]; then
+            predicted='FAIL_DATABASE_SECRET_AUTHORITY'
+          elif [[ "$migration_class" == 'VALID_PARITY' ]]; then
+            predicted='MIGRATION_RECONCILE'
+          else
+            predicted='FAIL_MIGRATION_DATABASE_AUTHORITY'
+          fi
+          emit PREDICTED_BOOTSTRAP_PATH "$predicted"
+          emit DIAGNOSTIC_RESULT PASS
+          emit SAFE_ERROR NONE
+          emit PRODUCTION_MUTATION NONE
+          emit SECRETS_PUBLISHED NONE
+          REMOTE
+          rc=$?
+          set -e
+          sed -nE '/^(DEPLOYED_REVISION|API_AUTHORITY_CLASS|SOURCE_AUTHORITY_CLASS|RUNTIME_PROJECTION_CLASS|SOURCE_REBASED_CONNECT_CLASS|PROJECTION_REBASED_CONNECT_CLASS|MIGRATION_AUTHORITY_CLASS|PROJECTION_RECOVERY_CANDIDATE|PREDICTED_BOOTSTRAP_PATH|DIAGNOSTIC_RESULT|SAFE_ERROR|PRODUCTION_MUTATION|SECRETS_PUBLISHED)=[A-Za-z0-9_.:-]{1,160}$/p' "$raw" > "$clean"
+          rm -f "$raw"
+          cat "$clean"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          while IFS='=' read -r key value; do
+            case "$key" in
+              DEPLOYED_REVISION|API_AUTHORITY_CLASS|SOURCE_AUTHORITY_CLASS|RUNTIME_PROJECTION_CLASS|SOURCE_REBASED_CONNECT_CLASS|PROJECTION_REBASED_CONNECT_CLASS|MIGRATION_AUTHORITY_CLASS|PROJECTION_RECOVERY_CANDIDATE|PREDICTED_BOOTSTRAP_PATH|DIAGNOSTIC_RESULT|SAFE_ERROR|PRODUCTION_MUTATION|SECRETS_PUBLISHED)
+                echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
+                ;;
+            esac
+          done < "$clean"
+          rm -f "$clean"
+
+      - name: Verify deployed revision ancestry
+        id: ancestry
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+          DEPLOYED_REVISION: ${{ steps.classify.outputs.deployed_revision }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$DEPLOYED_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          comparison="$(gh api "repos/$GITHUB_REPOSITORY/compare/$DEPLOYED_REVISION...$TARGET_SHA" --jq .status)"
+          [[ "$comparison" == ahead || "$comparison" == identical ]]
+          echo "class=ANCESTOR_OR_EQUAL_CURRENT_MAIN" >> "$GITHUB_OUTPUT"
+
+      - name: Publish sanitized diagnostic evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.target_sha }}
+          DEPLOYED_REVISION: ${{ steps.classify.outputs.deployed_revision }}
+          ANCESTRY_CLASS: ${{ steps.ancestry.outputs.class }}
+          API_AUTHORITY_CLASS: ${{ steps.classify.outputs.api_authority_class }}
+          SOURCE_AUTHORITY_CLASS: ${{ steps.classify.outputs.source_authority_class }}
+          RUNTIME_PROJECTION_CLASS: ${{ steps.classify.outputs.runtime_projection_class }}
+          SOURCE_REBASED_CONNECT_CLASS: ${{ steps.classify.outputs.source_rebased_connect_class }}
+          PROJECTION_REBASED_CONNECT_CLASS: ${{ steps.classify.outputs.projection_rebased_connect_class }}
+          MIGRATION_AUTHORITY_CLASS: ${{ steps.classify.outputs.migration_authority_class }}
+          PROJECTION_RECOVERY_CANDIDATE: ${{ steps.classify.outputs.projection_recovery_candidate }}
+          PREDICTED_BOOTSTRAP_PATH: ${{ steps.classify.outputs.predicted_bootstrap_path }}
+          DIAGNOSTIC_RESULT: ${{ steps.classify.outputs.diagnostic_result }}
+          SAFE_ERROR: ${{ steps.classify.outputs.safe_error }}
+          PRODUCTION_MUTATION: ${{ steps.classify.outputs.production_mutation }}
+          SECRETS_PUBLISHED: ${{ steps.classify.outputs.secrets_published }}
+          REMOTE_RC: ${{ steps.classify.outputs.rc }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          record="$(mktemp)"
+          {
+            echo '## Auth-mail runtime authority diagnostic'
+            echo
+            printf -- '- current main: `%s`\n' "${TARGET_SHA:-unknown}"
+            printf -- '- deployed API/Web revision: `%s`\n' "${DEPLOYED_REVISION:-unknown}"
+            printf -- '- deployed revision relation: `%s`\n' "${ANCESTRY_CLASS:-unknown}"
+            printf -- '- API auth datasource: `%s`\n' "${API_AUTHORITY_CLASS:-unknown}"
+            printf -- '- source DB authority: `%s`\n' "${SOURCE_AUTHORITY_CLASS:-unknown}"
+            printf -- '- runtime projection: `%s`\n' "${RUNTIME_PROJECTION_CLASS:-unknown}"
+            printf -- '- source rebased credential: `%s`\n' "${SOURCE_REBASED_CONNECT_CLASS:-unknown}"
+            printf -- '- projection rebased credential: `%s`\n' "${PROJECTION_REBASED_CONNECT_CLASS:-unknown}"
+            printf -- '- migration authority: `%s`\n' "${MIGRATION_AUTHORITY_CLASS:-unknown}"
+            printf -- '- projection recovery candidate: `%s`\n' "${PROJECTION_RECOVERY_CANDIDATE:-unknown}"
+            printf -- '- predicted bootstrap path: `%s`\n' "${PREDICTED_BOOTSTRAP_PATH:-unknown}"
+            printf -- '- diagnostic: `%s` (rc=`%s`, safe=`%s`)\n' "${DIAGNOSTIC_RESULT:-unknown}" "${REMOTE_RC:-unknown}" "${SAFE_ERROR:-unknown}"
+            printf -- '- production mutation: `%s`\n' "${PRODUCTION_MUTATION:-unknown}"
+            printf -- '- secrets published: `%s`\n' "${SECRETS_PUBLISHED:-unknown}"
+            echo '- no DSN, hostname, database name, credential, password, raw Compose, raw Docker inspect or customer data is published.'
+          } > "$record"
+          gh issue comment "$CONTINUATION_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f "$record"
+
+      - name: Cleanup protected transport
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
+
+      - name: Enforce read-only diagnostic result
+        if: always()
+        env:
+          REMOTE_RC: ${{ steps.classify.outputs.rc }}
+          RESULT: ${{ steps.classify.outputs.diagnostic_result }}
+          PRODUCTION_MUTATION: ${{ steps.classify.outputs.production_mutation }}
+          SECRETS_PUBLISHED: ${{ steps.classify.outputs.secrets_published }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "${REMOTE_RC:-1}" == 0 ]]
+          [[ "${RESULT:-}" == PASS ]]
+          [[ "${PRODUCTION_MUTATION:-}" == NONE ]]
+          [[ "${SECRETS_PUBLISHED:-}" == NONE ]]

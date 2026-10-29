@@ -20,6 +20,7 @@ import { PLATFORM_V7_AI_ROUTE } from '@/lib/platform-v7/routes';
 import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
 import { applyCsrfHeader } from '@/lib/csrf';
 import styles from './HeaderUtilityMenu.module.css';
+import { clearClientSessionState } from '@/lib/client-session-cleanup';
 
 const PUBLIC_PATHS = new Set([
   '/platform-v7',
@@ -164,6 +165,9 @@ export function HeaderUtilityMenu() {
       });
     } finally {
       clearRoleSelection();
+      // Точечные removeItem ниже оставлены как есть; общая уборка идёт первой и
+      // покрывает всё, что сессия оставила, а не только эти два ключа.
+      clearClientSessionState();
       window.sessionStorage.removeItem(ACTIVE_ROLE_KEY);
       window.localStorage.removeItem(STORE_KEY);
       clearCookie('pc-role');

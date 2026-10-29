@@ -4,13 +4,13 @@ export type { OrganizationConnectCopy, OrganizationConnectLocale } from './platf
 /** Stable phrases retained for source-level acceptance tests. */
 export const platformV7OrganizationConnectCopyAcceptance = {
   ru: {
-    submit: 'Начать подключение',
-    note: 'После отправки вы получите номер заявки и подтверждённый следующий шаг.',
+    submit: 'Отправить запрос на помощь',
+    note: 'После отправки вы получите номер обращения. Для создания аккаунта используйте отдельную регистрацию платформы.',
   },
   en: {
-    submit: 'Start connection',
+    submit: 'Send assistance request',
   },
   zh: {
-    submit: '开始接入',
+    submit: '发送协助请求',
   },
 } as const;

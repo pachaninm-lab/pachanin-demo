@@ -385,7 +385,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: minio
-          image: minio/minio:RELEASE.2024-05-10T01-41-38Z
+          image: quay.io/minio/minio:RELEASE.2024-05-10T01-41-38Z@sha256:420663b8685c5396f06405ad516d611db4465939a141cc7d40266342d0f2632d
           imagePullPolicy: IfNotPresent
           args: [server, /data, --console-address, ":9001"]
           envFrom:

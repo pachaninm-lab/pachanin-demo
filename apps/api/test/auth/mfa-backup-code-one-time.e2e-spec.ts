@@ -128,15 +128,17 @@ describe('MFA backup codes are strictly one-time', () => {
 
   async function pendingChallenge() {
     const login = await first.auth.login({ email, password: PASSWORD }) as any;
-    expect(login.mfaRequired).toBe(true);
-    expect(login.challengeToken).toMatch(/^mc_/);
-    return login;
+    expect(login).toMatchObject({ mfaRequired: false, user: { mfaVerified: false } });
+    const actor = await first.auth.verifyAccessToken(login.accessToken);
+    const challenge = await first.auth.startMfaStepUp(actor);
+    expect(challenge.challengeToken).toMatch(/^mc_/);
+    return { ...challenge, actor, accessToken: login.accessToken };
   }
 
   it('consumes a backup code once and rejects sequential and concurrent replay', async () => {
     const enrollment = await pendingChallenge();
     expect(enrollment.setupSecret).toEqual(expect.any(String));
-    const enrolled = await first.auth.verifyMfa({
+    const enrolled = await first.auth.verifyMfaStepUp(enrollment.actor, {
       challengeToken: enrollment.challengeToken,
       code: totp(enrollment.setupSecret),
     }) as any;
@@ -145,27 +147,27 @@ describe('MFA backup codes are strictly one-time', () => {
 
     const sequentialCode = enrolled.backupCodes[0];
     const sequentialChallenge = await pendingChallenge();
-    const firstUse = await second.auth.verifyMfa({
+    const firstUse = await second.auth.verifyMfaStepUp(sequentialChallenge.actor, {
       challengeToken: sequentialChallenge.challengeToken,
       code: sequentialCode,
     }) as any;
-    expect(firstUse.accessToken).toEqual(expect.any(String));
-    expect(firstUse.refreshToken).toMatch(/^rt_/);
+    expect(firstUse).toMatchObject({ ok: true, mfaVerified: true });
+    expect((await first.auth.verifyAccessToken(sequentialChallenge.accessToken)).mfaVerified).toBe(true);
     expect(await backupHashes()).toHaveLength(7);
 
     const replayChallenge = await pendingChallenge();
-    await expect(second.auth.verifyMfa({
+    await expect(second.auth.verifyMfaStepUp(replayChallenge.actor, {
       challengeToken: replayChallenge.challengeToken,
       code: sequentialCode,
-    })).rejects.toThrow(/Invalid or expired MFA challenge/i);
+    })).rejects.toThrow(/Invalid or expired MFA step-up challenge/i);
     expect(await backupHashes()).toHaveLength(7);
 
     const concurrentCode = enrolled.backupCodes[1];
     const left = await pendingChallenge();
     const right = await pendingChallenge();
     const attempts = await Promise.allSettled([
-      first.auth.verifyMfa({ challengeToken: left.challengeToken, code: concurrentCode }),
-      second.auth.verifyMfa({ challengeToken: right.challengeToken, code: concurrentCode }),
+      first.auth.verifyMfaStepUp(left.actor, { challengeToken: left.challengeToken, code: concurrentCode }),
+      second.auth.verifyMfaStepUp(right.actor, { challengeToken: right.challengeToken, code: concurrentCode }),
     ]);
 
     expect(attempts.filter((attempt) => attempt.status === 'fulfilled')).toHaveLength(1);
@@ -194,7 +196,7 @@ describe('MFA backup codes are strictly one-time', () => {
       expect.objectContaining({
         challenge_status: 'PENDING',
         attempts: 1,
-        refresh_count: 0n,
+        refresh_count: 1n,
       }),
     ]);
   });

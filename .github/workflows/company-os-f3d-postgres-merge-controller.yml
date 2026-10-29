@@ -24,10 +24,20 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 130
     steps:
+      - name: Checkout trusted review gate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          fetch-depth: 1
+
       - name: Wait for parents, retarget, validate and merge F3D
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         with:
           script: |
+            const { execFileSync } = require('node:child_process');
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const headRef = 'company-os/f3d-postgres-authority';
@@ -172,6 +182,19 @@ jobs:
             await validateFiles();
             pr = (await github.rest.pulls.get({ owner, repo, pull_number: pr.number })).data;
             if (pr.head.sha !== stableHead || pr.mergeable === false || pr.mergeable_state === 'dirty') throw new Error(`F3D PR is not mergeable: ${pr.mergeable_state}`);
+
+            execFileSync('node', ['docs/platform-v7/autopilot/verify-pr-review-gate.mjs'], {
+              stdio: 'inherit',
+              env: {
+                ...process.env,
+                GH_TOKEN: process.env.GH_TOKEN,
+                REPO: `${owner}/${repo}`,
+                PR_NUMBER: String(pr.number),
+                HEAD_SHA: stableHead,
+                REQUIRE_GREEN_CI: '1',
+              },
+            });
+
             const merged = await github.rest.pulls.merge({
               owner,
               repo,

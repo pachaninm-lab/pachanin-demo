@@ -91,6 +91,15 @@ CREATE POLICY deal_participants_update ON public."deal_participants" FOR UPDATE 
 -- ── deals ─────────────────────────────────────────────────────────────────────
 ALTER TABLE public."deals" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."deals" FORCE ROW LEVEL SECURITY;
+-- 20260831180000 replaced deals_app_access with two narrowly named permissive
+-- policies for the migration-only database, where the uncontexted read and the
+-- two contextless system writers still need them. This artifact installs the
+-- strict set instead, and permissive policies combine with OR - so leaving
+-- those two in place here would OR away the very policies below. They are
+-- dropped rather than kept: an environment that applies this file never had a
+-- permissive fallback on deals, and must not gain one.
+DROP POLICY IF EXISTS deals_uncontexted_read ON public."deals";
+DROP POLICY IF EXISTS deals_uncontexted_update ON public."deals";
 DROP POLICY IF EXISTS deals_app_access ON public."deals";
 DROP POLICY IF EXISTS deals_select ON public."deals";
 DROP POLICY IF EXISTS deals_insert ON public."deals";

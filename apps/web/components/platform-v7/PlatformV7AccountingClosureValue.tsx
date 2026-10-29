@@ -32,11 +32,11 @@ export function PlatformV7AccountingClosureValue({ locale }: { locale: string })
         <p>{copy.lead}</p>
       </div>
 
-      <div className={styles.flow} role='list' aria-label={copy.flowLabel}>
+      <div className={styles.flow} role='group' aria-label={copy.flowLabel}>
         {copy.flow.map((step, index) => {
           const Icon = flowIcons[index] ?? CheckCircle2;
           return (
-            <article key={step.label} role='listitem'>
+            <article key={step.label}>
               <Icon className={styles.flowIcon} aria-hidden='true' />
               <strong>{step.label}</strong>
               <span>{step.text}</span>

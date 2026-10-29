@@ -4,6 +4,7 @@ import { ComplianceService } from './compliance.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/request-user';
+import { attachmentDisposition } from '../../common/security/content-disposition';
 
 @Controller('api/compliance')
 @UseGuards(JwtAuthGuard)
@@ -64,7 +65,7 @@ export class ComplianceController {
   ) {
     const csv = await this.compliance.exportAuditCsv(user, { dealId, from, to });
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="audit-${Date.now()}.csv"`);
+    res.setHeader('Content-Disposition', attachmentDisposition(`audit-${Date.now()}.csv`));
     res.send(csv);
   }
 

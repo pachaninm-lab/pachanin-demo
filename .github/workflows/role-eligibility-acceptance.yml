@@ -1,0 +1,186 @@
+name: Role Eligibility Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/modules/role-eligibility/**'
+      - 'apps/api/src/role-eligibility-worker.ts'
+      - 'apps/api/scripts/role-eligibility-*.mjs'
+      - 'apps/api/src/app.module.ts'
+      - 'apps/api/package.json'
+      - 'apps/api/prisma/migrations/20260902140000_role_eligibility_shadow/**'
+      - 'apps/api/prisma/migrations/20260902143000_role_eligibility_superseded_current_guard/**'
+      - 'apps/api/prisma/migrations/20260902150000_role_eligibility_runtime_principal_boundary/**'
+      - 'config/eligibility/**'
+      - 'infra/docker/Dockerfile.api'
+      - 'scripts/check-role-eligibility-*.mjs'
+      - 'scripts/role-eligibility-*.sh'
+      - '.github/workflows/role-eligibility-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: role-eligibility-acceptance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Role Eligibility bounded contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Generate Prisma clients
+        run: pnpm --filter @pc/api prisma generate
+      - name: Protected registration manifest
+        run: node scripts/check-role-eligibility-registration-protected-manifest.mjs
+      - name: Bounded registration behavior contracts
+        run: >-
+          pnpm --filter @pc/api test --
+          registration-decision.service.spec.ts
+          registration-token.spec.ts
+          registrationIdempotencyContract.spec.ts
+          gekta-registration.spec.ts
+          --runInBand
+      - name: Record registration behavior proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/role-eligibility
+          cat > artifacts/role-eligibility/registration-behavior.json <<JSON
+          {
+            "passed": true,
+            "baselineSha": "d0fe9bfc275321e0768ec86ce55e82c958e07880",
+            "headSha": "${GITHUB_SHA}",
+            "registrationBehaviorChanged": false,
+            "scope": [
+              "registration-decision.service.spec.ts",
+              "registration-token.spec.ts",
+              "registrationIdempotencyContract.spec.ts",
+              "gekta-registration.spec.ts"
+            ]
+          }
+          JSON
+          echo 'REGISTRATION_BEHAVIOR_CHANGED=0'
+      - name: Static authority acceptance
+        run: node scripts/check-role-eligibility-static-acceptance.mjs
+      - name: API typecheck
+        run: pnpm --filter @pc/api typecheck
+      - name: Complete deterministic Role Eligibility suite
+        run: >-
+          pnpm --filter @pc/api test --
+          role-eligibility-contract.spec.ts
+          role-eligibility-policy.spec.ts
+          role-eligibility-specialized-policy.spec.ts
+          role-eligibility.service.spec.ts
+          role-eligibility-registry-sync.spec.ts
+          role-eligibility-source-freshness.spec.ts
+          role-eligibility-security.spec.ts
+          --runInBand
+      - name: Upload bounded evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: role-eligibility-contract-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/role-eligibility
+          if-no-files-found: warn
+          retention-days: 90
+
+  postgres-authority:
+    name: Role Eligibility PostgreSQL authority
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: role_eligibility
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d role_eligibility"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: PostgreSQL privilege, idempotency, race and atomicity proof
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility
+        run: bash scripts/role-eligibility-postgres-smoke.sh
+      - name: Existing runtime principal remains bounded
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility
+        run: bash scripts/role-eligibility-runtime-principal-smoke.sh
+
+  load-fault:
+    name: Role Eligibility load, registry import and fault acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: role_eligibility_load
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d role_eligibility_load"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @pc/api prisma generate
+      - name: Establish atomic authority and fault rollback baseline
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility_load
+        run: bash scripts/role-eligibility-postgres-smoke.sh
+      - name: Concurrent publication load and single-current race proof
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility_load
+          ROLE_ELIGIBILITY_LOAD_CASES: '200'
+          ROLE_ELIGIBILITY_RACE_CASES: '24'
+          ROLE_ELIGIBILITY_LOAD_PARALLELISM: '24'
+        run: bash scripts/role-eligibility-load-fault.sh
+      - name: 1000 concurrent warm local lookups and 50001-record atomic registry import
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility_load?connection_limit=50&pool_timeout=10
+        run: node scripts/role-eligibility-load-acceptance.mjs
+      - name: Upload load and registry-import evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: role-eligibility-load-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/role-eligibility
+          if-no-files-found: error
+          retention-days: 90

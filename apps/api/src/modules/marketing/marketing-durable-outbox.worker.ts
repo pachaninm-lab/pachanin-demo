@@ -12,10 +12,10 @@ const DEFAULT_LEASE_SECONDS = 60;
 /**
  * Dedicated social-delivery worker.
  *
- * The platform-wide durable worker claims every outbox type, so reusing it in a
- * second process would allow a marketing process to lease FGIS/bank/domain work.
- * This subclass narrows the SQL claim itself to the single versioned marketing
- * event type. Inherited retry/DLQ/lease state transitions remain unchanged.
+ * The canonical worker deliberately excludes the marketing event type. This
+ * subclass is the sole marketing claimant: inherited drainOnce() dispatches to
+ * this override, which claims only the versioned marketing event type under the
+ * same protocol-v2 lease contract as the canonical worker.
  */
 @Injectable()
 export class MarketingDurableOutboxWorker extends DurableOutboxWorker {
@@ -36,27 +36,38 @@ export class MarketingDurableOutboxWorker extends DurableOutboxWorker {
       throw new Error('leaseSeconds must be between 1 and 3600');
     }
 
-    return this.marketingPrisma.$queryRaw<ClaimedOutboxEntry[]>(Prisma.sql`
-      UPDATE "outbox_entries"
-      SET "status" = 'PROCESSING',
-          "leaseOwner" = ${workerId},
-          "leaseToken" = md5(random()::text || clock_timestamp()::text || "id" || ${workerId}),
-          "leaseExpiresAt" = NOW() + make_interval(secs => ${leaseSeconds}),
-          "heartbeatAt" = NOW()
-      WHERE "id" IN (
-        SELECT "id"
-        FROM "outbox_entries"
-        WHERE "type" = ${MARKETING_SOCIAL_PUBLISH_EVENT_TYPE}
-          AND (
-            ("status" = 'PENDING' AND "nextRetryAt" <= NOW())
-            OR ("status" = 'PROCESSING' AND "leaseExpiresAt" < NOW())
-          )
-        ORDER BY "createdAt", "id"
-        LIMIT ${limit}
-        FOR UPDATE SKIP LOCKED
-      )
-      RETURNING "id", "type", "dealId", "payload", "retryCount", "maxRetries",
-                "correlationId", "idempotencyKey", "leaseToken"
-    `);
+    return this.marketingPrisma.$transaction(async (tx) => {
+      await tx.$executeRaw(Prisma.sql`
+        SET LOCAL pc_crop.outbox_claim_protocol = '2'
+      `);
+
+      return tx.$queryRaw<ClaimedOutboxEntry[]>(Prisma.sql`
+        UPDATE "outbox_entries"
+        SET "status" = 'PROCESSING',
+            "leaseOwner" = ${workerId},
+            "leaseToken" = md5(random()::text || clock_timestamp()::text || "id" || ${workerId}),
+            "leaseExpiresAt" = NOW() + make_interval(secs => ${leaseSeconds}),
+            "heartbeatAt" = NOW(),
+            "lastAttemptAt" = NULL
+        WHERE "id" IN (
+          SELECT "id"
+          FROM "outbox_entries"
+          WHERE "type" = ${MARKETING_SOCIAL_PUBLISH_EVENT_TYPE}
+            AND (
+              ("status" = 'PENDING' AND "nextRetryAt" <= NOW())
+              OR (
+                "status" = 'PROCESSING'
+                AND "leaseExpiresAt" < NOW()
+                AND "lastAttemptAt" IS NULL
+              )
+            )
+          ORDER BY "createdAt", "id"
+          LIMIT ${limit}
+          FOR UPDATE SKIP LOCKED
+        )
+        RETURNING "id", "type", "dealId", "payload", "retryCount", "maxRetries",
+                  "correlationId", "idempotencyKey", "leaseToken"
+      `);
+    });
   }
 }

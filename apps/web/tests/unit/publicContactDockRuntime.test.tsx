@@ -104,7 +104,7 @@ describe('PublicContactDock runtime', () => {
     render(<PublicContactDock />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Открыть Гекту' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Открыть поддержку' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Поддержка' }));
 
     expect(assistantClick).toHaveBeenCalledOnce();
     expect(supportClick).toHaveBeenCalledOnce();
@@ -179,9 +179,16 @@ describe('PublicContactDock runtime', () => {
     document.body.append(dialog);
 
     await waitFor(() => expect(dock).toHaveAttribute('data-dialog-open', 'true'));
-    expect(dock).toHaveAttribute('aria-hidden', 'true');
+    expect(dock).not.toBeVisible();
+    for (const button of dock.querySelectorAll('button')) {
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute('tabindex', '-1');
+    }
+    expect(dock.querySelector('a')).toHaveAttribute('tabindex', '-1');
 
     dialog.remove();
     await waitFor(() => expect(dock).toHaveAttribute('data-dialog-open', 'false'));
+    expect(dock).toBeVisible();
+    expect(dock.querySelector('button')).toBeEnabled();
   });
 });

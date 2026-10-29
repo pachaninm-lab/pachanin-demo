@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/gekta-body-validation",
+  "status": "active",
+  "purpose": "V2.2.1/V2.2.2: all thirteen handlers across GektaController and GektaOperatorController declared their body as an inline type, which erases to Object, so the global ValidationPipe checked nothing. Two findings mattered more than the missing DTOs. The anonymous-history import wrote message.role verbatim into a VarChar(16) column while the live append route normalised anything that was not 'assistant' to 'user' - two write paths, one column, two different rules. And the import silently truncated: one hundred short conversations fit in a single 64 KiB part, the server imports at most sixty per request and answered ok, so the client marked the migration done and forty conversations of a user's history disappeared without an error anywhere.",
+  "authorityBaseExactMain": "5ec9a302e45fd0718b3888910ce5f7846535af0d",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/gekta-body-validation.json",
+    "apps/api/src/modules/gekta/gekta.controller.ts",
+    "apps/api/src/modules/gekta/gekta.contract.ts",
+    "apps/api/src/modules/gekta/dto/gekta.dto.ts",
+    "apps/api/src/modules/gekta/dto/gekta-operator.dto.ts",
+    "apps/api/src/modules/gekta/gekta-workspace.service.ts",
+    "apps/api/src/modules/gekta/gekta-phone.service.ts",
+    "apps/api/src/modules/gekta/gekta-access.service.ts",
+    "apps/api/src/modules/gekta/gekta-body-validation.spec.ts",
+    "apps/web/lib/gekta/server-workspace.ts",
+    "apps/web/tests/unit/gektaServerHistory.test.ts",
+    "docs/security/request-validation-baseline.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "scripts/security/verify-request-validation-coverage.mjs",
+    "scripts/security/verify-request-validation-coverage.test.mjs"
+  ],
+  "requiredInvariants": [
+    "The module's existing authorisation controls are NOT touched and NOT duplicated in the DTO. GektaOperatorGuard still decides every operator route; GektaSessionGuard still supplies the account identity, so no accountId is ever read from a body; GektaWorkspaceService.assertOwned still proves ownership of every project and conversation. Those are working controls and a DTO does not replace them.",
+    "The lists have exactly one home: gekta.contract.ts. The message-role union, the manual grant kinds and the import caps are read from there by both the DTO and the service, rather than restated beside each other - the lesson from #4991 and #4995.",
+    "LIFETIME is deliberately absent from GEKTA_MANUAL_GRANT_KINDS. It has its own route and its own permission, entitlement.grant_lifetime. The old silent fallback to DAYS_7 was a correct privilege boundary; rejecting the value at the boundary is honest without weakening that boundary, and LIFETIME is still unreachable from accounts/:id/grant.",
+    "days carries no @Type(() => Number). Coercion would run before @IsInt and the string \"30\" would silently become a number - the defect class review found in #4993. The console sends a real number.",
+    "The web import chunker is corrected rather than accommodated. Raising the server cap to match the client would have kept a boundary that exists for request cost; capping the client part by count binds it to the server's own constant with a cross-file test, so the two cannot drift apart again.",
+    "V2.2.1 and V2.2.2 stay FAIL and are re-pointed in the same pass at railway.controller.ts and route-planner.controller.ts. admin.controller.ts is deliberately not cited: part of it is the inert legacy boundary that throws ServiceUnavailable, so it validates nothing and also does nothing.",
+    "No schema change, no migration, no RLS policy edit, no dependency. Nothing outside apps/api/src/modules/gekta plus the web import chunker and the governance files. gekta-registration.controller.ts is untouched: it is registration business logic. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB.",
+    "The ratchet itself is corrected, not worked around. It counted the pattern @Body() body: { inside a COMMENT, so the DTO file that documents the defect was charged with carrying it. Rewording the comment would have hidden a real miscount in a gate. CORRECTION after review: the first fix stripped comments with a regular expression, and that was a silent BYPASS of the gate - review reproduced it and so did I: a file with `const start = \"/*\";` and a later `const end = \"*/\";` had everything between the literals removed, real handlers included, and the unvalidated count fell from two to zero. It is now a character scanner that tracks string, template and regular-expression literals. It is written to fail in the safe direction: when the parse is uncertain it does NOT strip, because a commented-out @Body() counted as unvalidated is a false positive that keeps the gate closed, while a real @Body() missed is a bypass. A // is stripped only when it occupies the whole line, and an unterminated /* is never stripped at all. Whole-tree counts are unchanged at 66 unvalidated / 129 DTO-typed."
+  ],
+  "acceptance": [
+    "Measured before the fix, not argued. On PostgreSQL 16.13: inserting nine characters into varchar(8) raises 'value too long for type character varying(8)' - PostgreSQL refuses on insert rather than truncating - so an over-long locale made user input a 500, and String({}) alone yields the fifteen-character literal '[object Object]'. On the service: a conversation with no messages raised TypeError: Cannot read properties of undefined (reading 'slice'), one with no title the same on 'replace', an unparseable createdAt reached Prisma as Invalid Date, and the role 'system' was persisted verbatim through the import path while varchar(16) accepted it.",
+    "Measured on the operator surface: body?.suspended !== false is true for the string \"false\" and for 0, so an operator lifting a suspension re-applied it; new Date('garbage') is an object and therefore truthy, so the service's own !expiresAt guard never caught an unparseable until; and String(body?.reason ?? '') wrote an object into the immutable audit trail as '[object Object]' and accepted an empty reason, while the owner console had been refusing to submit without one all along - a check that runs only in the browser is not enforcement.",
+    "Measured data loss: one hundred short conversations serialise to 13 391 bytes, well under the 64 KiB part threshold, so they went as a single part; the server imported the first sixty and returned ok; the client then called markImportDone. Forty conversations were lost silently. The client now splits by count as well as by bytes.",
+    "Fourteen mutations applied. Thirteen were caught on the first run; the fourteenth found a hole in these very tests - removing @IsInt() from the trial extension changed nothing because the fractional value used was 0.5, which @Min(1) already rejects. Re-measured with 30.5, inside the permitted range, that mutation now fails. All fourteen are caught.",
+    "Reverse direction tested against what the real clients send: every payload GektaChatWorkspace and GektaOwnerConsole actually post still passes, projectId: null is still accepted and still distinguishable from an absent field, the trial extension stays optional because the controller defaults to thirty days, and an unknown property is stripped by whitelist before reaching the service.",
+    "The runtime assertion is taken from Nest's own __routeArguments__ metadata rather than from the source text: it locates the @Body() parameter index and asserts the metatype there is the DTO class and not Object. A source-level grep alone is walked past by any reformulation.",
+    "api typecheck exit 0, web tsc exit 0, full @pc/api suite green, scripts/security re-run AFTER the commit, ratchet 79 -> 66 unvalidated and 116 -> 129 DTO-typed measured against main at 5ec9a302e with the baseline tightened, matrix unchanged at 129 PASS / 90 FAIL / 88 NOT_APPLICABLE / 38 NOT_ASSESSED.",
+    "Gate mutations: removing the comment handling entirely fails one of the gate's tests, and reverting to the regular-expression stripper that review found fails five of twenty-seven - the string-literal, single-quote, template, interpolated-template and escaped-quote cases. Twelve scanner cases are asserted on the function directly rather than only through a repository fixture, because the fixture would not have exposed the hole: it contained no string literal holding /* and no regular expression."
+  ],
+  "notClosed": [
+    "The daily answer counter is driven by a client-declared field: appendMessage increments it only when the body says role 'assistant', so a client that labels an answer 'user' never moves the meter. This pass does NOT fix that and must not be read as fixing it. Measured mitigation of its severity: answersToday is written in gekta-access.service.ts and read only in gekta-operator.service.ts for display - nothing denies service on it - so today it is a reporting-accuracy defect, not an access-control bypass. Making the server the authority on when an answer completed is a design change to the metering path, not a validation change, and it is reported on #4459 rather than smuggled in here.",
+    "The contents of citations and attachments are not validated. They are Json columns and only the number of entries is bounded. This must not be cited as validation of their contents."
+  ]
+}

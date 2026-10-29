@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/ledger-vacuous-invariant-4459",
+  "status": "active",
+  "purpose": "Инварианты двойной записи проверяли сами себя. В packages/domain-core/src/double-entry-ledger.ts метод verifyDoubleEntryInvariant начинался с `total === debitTotal`, где обе величины вычислялись БУКВАЛЬНО одной и той же редукцией по amountKopecks. В apps/api/src/modules/ledger/ledger-v2.service.ts метод verifyDealBalance вычислял totalDebit и totalCredit тем же способом и возвращал их равенство, то есть `balanced` было тождественно true: метод с именем verify не мог вернуть false ни при каких данных, и вызовов у него не было ни одного. Отдельно измерено, что validateEntry не проверял принадлежность счетов известному набору: книга с одной проводкой BUYER_ESCROW → TYPO_ACCOUNT на 50 000 копеек показывала BUYER_ESCROW −50 000 при нулях по остальным счетам, потому что getBalances() неизвестный счёт не перечисляет.",
+  "authorityBaseExactMain": "08318d991",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/ledger-vacuous-invariant-4459.json",
+    "packages/domain-core/src/double-entry-ledger.ts",
+    "packages/domain-core/src/double-entry-ledger-invariant.test.ts",
+    "apps/api/src/modules/ledger/ledger-v2.service.ts",
+    "apps/api/src/modules/ledger/ledger-v2-invariant.spec.ts"
+  ],
+  "requiredInvariants": [
+    "Список счетов книги — один источник правды: LEDGER_ACCOUNTS как `as const`, тип выводится из него, getBalances() перечисляет его же. Раньше список существовал дважды — в union типа и в массиве внутри getBalances(), — и мог разъехаться молча: новый счёт в union, забытый в массиве, сделал бы проводки по нему невидимыми в балансах.",
+    "validateEntry отвергает счёт вне известного набора на входе, а не оставляет искажённые балансы на выходе. Измерено на прежнем коде: одна такая проводка на 50 000 копеек давала BUYER_ESCROW −50 000 при нулях по остальным счетам.",
+    "Из verifyDoubleEntryInvariant убрана половина `total === debitTotal`: обе величины вычислялись одним выражением, и половина давала true в том числе для книги с проводкой на счёт вне набора. Осталась единственная величина, которая действительно может разойтись, — сумма балансов по всем счетам.",
+    "verifyDealBalance проверяет то, что в строках БД действительно может быть нарушено: непозитивную сумму, пустой счёт стороны, самоперевод. Равенство дебета и кредита в этой схеме структурно — одна строка несёт одну пару счетов и одну сумму, — поэтому оно не выдаётся за проверку. Колонки объявлены лишь NOT NULL, а amountKopecks не имеет CHECK, так что строка из миграции, восстановления или ручной правки проверок record() не проходила.",
+    "record() отвергает самоперевод и пустой счёт. Доменная книга это уже запрещала, а путь записи в БД — нет. Самоперевод не меняет баланс, но одинаково завышает дебетовый и кредитовый итоги счёта, а на них опирается assertSufficientBalance.",
+    "Ужесточение не ломает существующие вызовы: все пять call-sites record() спаривают системный счёт (`sys:*`) с org id либо два разных системных счёта. Проверено перечислением, а не предположением.",
+    "Схема БД и миграции не трогаются: CHECK-ограничения не добавляются, продакшн не мутируется. Исправление целиком в коде приложения.",
+    "Сторожа, которые по построению не могут упасть, не добавляются взамен снятых. Каждый оставшийся отзываем негативной мутацией."
+  ],
+  "acceptance": [
+    "packages/domain-core: 14 тестов зелёные (5 новых плюс 9 существующих в double-entry-ledger.test.ts, ни один не сломан).",
+    "apps/api: 8 тестов в ledger-v2-invariant.spec.ts зелёные.",
+    "Мутации, каждая ловится: снятие проверки счетов в validateEntry валит 2 теста; возврат тавтологического `total === debitTotal` валит тест «инвариант падает, если getBalances перечисляет не все счета»; снятие guard самоперевода в record() валит 1 тест; возврат тавтологической verifyDealBalance валит 4 теста.",
+    "Полный набор @pc/api, typecheck rc=0, матрица ASVS 345 требований и 0 изменившихся вердиктов, PROTOTYPE_KEY_WRITES PASS, SECRET_SCAN NO_FINDINGS.",
+    "Решения ASVS книгу не цитируют: docs/security/asvs-applicability-decisions.json не содержит ссылок на double-entry-ledger или ledger-v2. Проверено поиском."
+  ]
+}

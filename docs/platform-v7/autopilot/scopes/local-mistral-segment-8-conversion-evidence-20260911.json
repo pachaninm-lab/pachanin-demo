@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-segment-8-conversion-evidence-20260911",
+  "status": "active",
+  "purpose": "Stage and independently review only inert literal-path pinned inode identity primitives beneath an already-open conversion-root directory FD for future Local Mistral conversion evidence verification.",
+  "authorityBaseExactMain": "476781906951d4021b771c769ad8b285d3bcbda0",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-conversion-evidence.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-segment-8-conversion-evidence-20260911.json"
+  ],
+  "requiredInvariants": [
+    "This PR is inert and stages only pinned filesystem identity. It does not establish content trust, owner/mode trust, immutable bytes, size authority, hashes, conversion-root authority, report/model/server semantics, model invocation, evidence publication, provider status or workflow activation.",
+    "The caller supplies an already-open conversion-root directory FD. This segment only verifies that the supplied FD currently refers to a directory; discovery and authorization of that root are deferred to a later separately reviewed segment.",
+    "This segment never opens '/', never walks /srv/tai-models/conversion-runs and never derives exact-main/run/attempt filesystem paths.",
+    "Only compile-time literal child directories evidence, artifacts, toolchain and bin are admissible beneath the supplied root; directory identities are opened with O_PATH, O_DIRECTORY, O_NOFOLLOW and O_CLOEXEC.",
+    "Only the three exact authority-relative literals for conversion report, Mistral GGUF and llama-server are admissible, and those authority strings are equality checks only and are never supplied to os.open.",
+    "Only the three compile-time literal final filenames conversion-report.json, mistral-7b-instruct-v0.3-q4-k-m.gguf and llama-server are admissible; each final identity is opened with O_PATH, O_NOFOLLOW and O_CLOEXEC and must fstat as a regular file.",
+    "A successful result is only a still-open O_PATH-pinned regular-file identity plus stable device/inode identity. It deliberately exposes no size, uid, mode or content authority and cannot read file bytes through the returned FD.",
+    "Pathname replacement after a successful O_PATH open cannot retarget the already-open identity FD. In-place byte mutation is intentionally outside this segment because no bytes or mutable metadata are consumed or trusted here.",
+    "The later content-verification segment must independently reopen or snapshot from the pinned identity, revalidate permissions and mutable metadata at consumption time, and prove exact content identity/hash before any semantic or execution authority is granted.",
+    "All fail-closed ConversionEvidenceError raises suppress chained operating-system exception context and expose only fixed internal error codes.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data or production-routing behavior is activated.",
+    "Local Qwen is the independent reviewer because this changes future Local Mistral authority only.",
+    "REG.RU remains production authority and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

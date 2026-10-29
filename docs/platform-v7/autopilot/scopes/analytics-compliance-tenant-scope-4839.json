@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4839,
+  "branch": "security/analytics-compliance-tenant-scope-8-2-2",
+  "status": "active",
+  "purpose": "The COMMENT on the live policy deals_uncontexted_read names its own reason for existing: 'while the export and analytics readers still run outside an RLS context'. This pass closes the analytics half. AnalyticsService.getUnitEconomics and getLedgerSummary had no tenant boundary at all - the second had no WHERE clause whatsoever - and ComplianceService.generateRegulatoryReport built a regulator-bound report from every tenant's deals. Removing the .catch handlers that hid this also unmasked a live BigInt arithmetic crash the same handlers were concealing from the type checker.",
+  "authorityBaseExactMain": "b515d5c5e85250dcea68b41f659279e4e226c271",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/analytics-compliance-tenant-scope-4839.json",
+    "apps/api/src/modules/analytics/analytics.service.ts",
+    "apps/api/src/modules/analytics/analytics-tenant-scope.spec.ts",
+    "apps/api/src/modules/compliance/compliance.service.ts",
+    "apps/api/src/modules/compliance/compliance-tenant-scope.spec.ts"
+  ],
+  "requiredInvariants": [
+    "Role check stays first, before the tenant check and before any read, in both services. A caller whose role is not on the list must not learn about a missing tenant instead.",
+    "The tenant predicate is in the query. ANALYTICS_ROLES and EXPORT_ALLOWED_ROLES are the same four roles, and exports.service.ts already scopes all six of its reads for them; the boundary claimed here is that same one, not a new one.",
+    "An entry with no deal belongs to no tenant and is excluded. Same rule as the outbox pass; ledger_entries and disputes have no tenant column of their own.",
+    "Scope of the compliance change is named narrowly and not widened: only the DEAL read of generateRegulatoryReport. The KYC queue, audit log, sanction flags and organization reads of that service are a different table set, are NOT claimed closed here, and their remaining .catch handlers stay untouched.",
+    "No schema change, no migration, no RLS policy edit. deals_uncontexted_read is not dropped in this pass - it stays until the export readers are inside an RLS context too. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "getUnitEconomics, getLedgerSummary and generateRegulatoryReport each refuse a caller with no tenant, and refuse before any read.",
+    "getUnitEconomics filters deals by tenantId and counts disputes over exactly those deal ids, so the dispute rate cannot carry the platform's denominator.",
+    "getLedgerSummary, which had no WHERE clause at all, reads only ledger entries of the tenant's deals; an empty deal set yields an empty predicate rather than an unbounded read.",
+    "BigInt: totalKopecks and amountKopecks are BigInt in the schema. Measured in node, not reasoned: 0 += 100n raises TypeError: Cannot mix BigInt and other types. Regression tests hold real bigint values in the mocks, so they would pass on the old code if the mocks held numbers - they do not.",
+    "Thirteen mutations applied and all thirteen caught, each verified to have actually applied before the run: four tenant predicates dropped, three assertTenantScope calls removed, four .catch handlers restored, two BigInt conversions undone.",
+    "api typecheck exit 0 and the full @pc/api suite green."
+  ]
+}

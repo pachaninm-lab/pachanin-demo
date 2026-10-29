@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/platform-v7-autopilot-cleanup-retry-20260913",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction-2026-09-13-continue-master-v2.1",
+  "purpose": "Repair the platform-v7 autopilot guard test harness cleanup race exposed by the Node 24 hosted runner without changing guard policy, production code, branch authority, or acceptance semantics.",
+  "authorityBaseExactMain": "a9e3a8757214df98b3e7ff6b77efce89b4253eaf",
+  "effectiveAfter": "This governance-only manifest is reviewed and merged to main. The implementation branch must then start from or synchronize to that accepted exact main before changing the authorized test file.",
+  "allowedPaths": [
+    "scripts/p7-autopilot-guard.test.mjs"
+  ],
+  "requiredInvariants": [
+    "No production/runtime/schema/registration/role-eligibility code changes are authorized.",
+    "The guard's branch scope, immutable-base authority, fail-closed behavior and assertions must not be weakened, skipped, bypassed or broadened.",
+    "The implementation may only make temporary-directory teardown resilient to transient ENOTEMPTY/EBUSY/EPERM conditions already supported by Node fs.rmSync recursive retry semantics.",
+    "All existing positive and negative governance tests must remain semantically unchanged and continue to execute.",
+    "No blind rerun is accepted: the triggering failure is run 34766879796, job 103749343428, first causal error ENOTEMPTY in the fixture teardown hook at scripts/p7-autopilot-guard.test.mjs:97 while 135/136 tests passed."
+  ],
+  "acceptance": [
+    "The implementation diff contains exactly scripts/p7-autopilot-guard.test.mjs.",
+    "Cleanup uses bounded retry parameters only; test assertions, fixtures, guard command and approved scopes are unchanged.",
+    "Fresh exact-head platform-v7 autopilot guard validation completes with all tests PASS and no hook failure.",
+    "Fresh independent review reports zero unresolved findings before any merge.",
+    "PR #5349 is synchronized to the accepted main afterwards so its business diff remains the original ten authorized farmer/public-market paths."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

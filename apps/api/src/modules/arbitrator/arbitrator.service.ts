@@ -4,8 +4,58 @@ import { ActionExecutorService } from '../../common/action-executor/action-execu
 import { RequestUser, Role } from '../../common/types/request-user';
 import { AuditService } from '../audit/audit.service';
 import { LedgerV2Service } from '../ledger/ledger-v2.service';
+import { DISPUTE_OUTCOMES, DisputeOutcomeValue } from './dto/resolve-dispute.dto';
 
-type DisputeOutcome = 'BUYER_WINS' | 'SELLER_WINS' | 'SPLIT' | 'CANCELLED';
+type DisputeOutcome = DisputeOutcomeValue;
+
+/**
+ * Разбор решения арбитра до того, как что-либо сдвинется.
+ *
+ * Граница проверяет форму полей, а это — их связь и повторная проверка формы.
+ * Вызывающий в обход границы не должен уметь провести раздел на доле, которой
+ * нет, на отрицательной доле или на доле больше ста процентов: замер показал,
+ * что каждый из этих входов двигал реальные деньги.
+ */
+function parseResolution(resolution: {
+  outcome: DisputeOutcome;
+  splitPct?: number;
+  reason: string;
+}): { outcome: DisputeOutcome; splitPct?: number } {
+  const outcome = resolution?.outcome;
+  if (!DISPUTE_OUTCOMES.includes(outcome as DisputeOutcomeValue)) {
+    throw new BadRequestException(
+      `Исход спора должен быть одним из: ${DISPUTE_OUTCOMES.join(', ')}.`,
+    );
+  }
+  if (typeof resolution?.reason !== 'string' || resolution.reason.trim().length === 0) {
+    // Основание попадает в аудит денежного решения. Объект превращался там в
+    // «[object Object]», то есть запись оставалась, а причина решения терялась.
+    throw new BadRequestException('Основание решения должно быть непустой строкой.');
+  }
+
+  const splitPct = resolution?.splitPct;
+  if (outcome !== 'SPLIT') {
+    if (splitPct !== undefined) {
+      // Доля вне раздела всё равно писалась в outcomeSplitPct и противоречила
+      // самой выплате: покупателю ушло сто процентов, а в записи стояла доля.
+      throw new BadRequestException('Доля покупателя допустима только при исходе SPLIT.');
+    }
+    return { outcome };
+  }
+
+  if (splitPct === undefined) {
+    // Раздел без доли — это не раздел: деньги не двигались, спор помечался
+    // RESOLVED, и удержание оставалось запертым без возможности вернуться.
+    throw new BadRequestException('Раздел требует указания доли покупателя.');
+  }
+  if (typeof splitPct !== 'number' || !Number.isInteger(splitPct)) {
+    throw new BadRequestException('Доля покупателя должна быть целым числом процентов.');
+  }
+  if (splitPct < 0 || splitPct > 100) {
+    throw new BadRequestException('Доля покупателя должна быть в пределах от 0 до 100 процентов.');
+  }
+  return { outcome, splitPct };
+}
 
 @Injectable()
 export class ArbitratorService {
@@ -102,6 +152,7 @@ export class ArbitratorService {
     user: RequestUser,
   ) {
     this.assertArbitratorRole(user);
+    const decision = parseResolution(resolution);
 
     const dispute = await this.prisma.dispute.findUnique({
       where: { id: disputeId },
@@ -116,13 +167,15 @@ export class ArbitratorService {
     // Execute money resolution — integer kopecks only, bigint arithmetic
     const holdAmount = BigInt(dispute.moneyHold?.amountKopecks ?? 0);
     if (holdAmount > 0n && dispute.dealId) {
-      if (resolution.outcome === 'BUYER_WINS') {
+      if (decision.outcome === 'BUYER_WINS') {
         await this.ledger.refundFromDispute(dispute.dealId, disputeId, dispute.initiatorOrgId, holdAmount);
-      } else if (resolution.outcome === 'SELLER_WINS') {
+      } else if (decision.outcome === 'SELLER_WINS') {
         await this.ledger.release(dispute.dealId, dispute.respondentOrgId ?? '', holdAmount, 0, `dispute-resolve:${disputeId}`);
-      } else if (resolution.outcome === 'SPLIT' && resolution.splitPct !== undefined) {
-        // Round half up, deterministically, in integer space
-        const buyerShare = (holdAmount * BigInt(Math.trunc(resolution.splitPct)) + 50n) / 100n;
+      } else if (decision.outcome === 'SPLIT') {
+        // Round half up, deterministically, in integer space. The share is
+        // already a whole 0..100 by here, so no truncation is applied: silently
+        // rounding a money split is the defect this path was carrying.
+        const buyerShare = (holdAmount * BigInt(decision.splitPct as number) + 50n) / 100n;
         const sellerShare = holdAmount - buyerShare;
         if (buyerShare > 0n) await this.ledger.refundFromDispute(dispute.dealId, disputeId, dispute.initiatorOrgId, buyerShare);
         if (sellerShare > 0n) await this.ledger.release(dispute.dealId, dispute.respondentOrgId ?? '', sellerShare, 0, `dispute-split:${disputeId}`);
@@ -134,8 +187,8 @@ export class ArbitratorService {
       where: { id: disputeId },
       data: {
         status: 'RESOLVED',
-        outcome: resolution.outcome,
-        outcomeSplitPct: resolution.splitPct,
+        outcome: decision.outcome,
+        outcomeSplitPct: decision.splitPct ?? null,
         resolvedAt: new Date(),
         updatedAt: new Date(),
       },
@@ -151,10 +204,10 @@ export class ArbitratorService {
       beforeState: before,
       afterState: resolved,
       outcome: 'SUCCESS',
-      reason: `${resolution.outcome}: ${resolution.reason}`,
+      reason: `${decision.outcome}: ${resolution.reason}`,
     });
 
-    this.logger.log(`Dispute ${disputeId} resolved: ${resolution.outcome} by ${user.id}`);
+    this.logger.log(`Dispute ${disputeId} resolved: ${decision.outcome} by ${user.id}`);
     return resolved;
   }
 }

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/role-eligibility-fns-egrul-authority-5016",
+  "status": "active",
+  "purpose": "Implement the bounded official FNS EGRUL authority foundation for arbitrary Russian legal-entity identity/activity evidence without changing registration or enabling enforcement.",
+  "authorityBaseExactMain": "c0cf342bd5e06d8f4828e2afa5b67955a839fd9b",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "allowedPaths": [
+    "apps/api/src/modules/role-eligibility/adapters/fns-egrul-feed.parser.ts",
+    "apps/api/src/modules/role-eligibility/adapters/fns-egrul-feed.parser.spec.ts",
+    "apps/api/src/modules/role-eligibility/adapters/fns-evidence.adapter.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-fns-egrul-ingest.repository.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility.module.ts",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json",
+    "docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-authority-5016.json"
+  ],
+  "boundaries": [
+    "REGISTRATION_CODE_CHANGED=0",
+    "REGISTRATION_BEHAVIOR_CHANGED=0",
+    "ROLE_ELIGIBILITY_ENFORCEMENT=false",
+    "PRODUCTION_DATABASE_MUTATION=0",
+    "no undocumented egrul.nalog.ru or pb.nalog.ru endpoint reverse engineering",
+    "no third-party commercial EGRUL source may become authority",
+    "bulk machine feed remains fail-closed until official FNS subscriber access is provisioned",
+    "free single-entity extract is not authoritative until FNS cryptographic provenance is verified",
+    "EGRUL 4.08 is current and EGRUL 4.07 is transitional only",
+    "windows-1251 XML, DTD/XXE rejection, INN/OGRN integrity, bounded record counts and chunked PostgreSQL ingestion are mandatory",
+    "no production import, migration, backfill, deletion, verdict rewrite or source activation in this slice",
+    "NEW_MANDATORY_RECURRING_COST_RUB=0"
+  ]
+}

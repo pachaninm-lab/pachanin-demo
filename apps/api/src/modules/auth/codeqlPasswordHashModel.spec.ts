@@ -150,10 +150,17 @@ describe('CodeQL password-hash model correction', () => {
     const query = readFileSync(join(REPO_ROOT,
       'codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql'), 'utf8');
 
-    expect(lock.codeqlCli).toBe('2.26.4');
-    expect(lock.queriesPack).toEqual({ name: 'codeql/javascript-queries', version: '2.4.4' });
-    expect(lock.upstreamTag).toBe('codeql-cli/v2.26.4');
-    expect(query).toContain(`Derived from the upstream query at ${lock.upstreamTag},`);
+    expect(lock.codeqlCli).toBe('2.27.3');
+    expect(lock.queriesPack).toEqual({ name: 'codeql/javascript-queries', version: '2.4.8' });
+    expect(lock.derivedFromTag).toBe('codeql-cli/v2.26.4');
+    expect(lock.upstreamTag).toBe('codeql-cli/v2.27.3');
+    expect(lock.bundledLibraryPacks).toEqual({ 'codeql/javascript-all': '2.10.4' });
+    expect(lock.reviewEvidence).toEqual({
+      queryBlobSha: '1cfc3111ad9138f0c0be3bc294d8d8f0480c7865',
+      flowConfigBlobSha: 'c295925698802511a21679e28940f25e11e9d593',
+      customizationsBlobSha: '8901be9962f84fe7b1b7a7930cebe120bc326048',
+    });
+    expect(query).toContain(`Derived from the upstream query at ${lock.derivedFromTag},`);
     expect(lock.upstream.query).toContain('CWE-916/InsufficientPasswordHash.ql');
     expect(lock.replacedRuleId).toBe('js/insufficient-password-hash');
     expect(lock.semanticDiff.length).toBeGreaterThan(0);

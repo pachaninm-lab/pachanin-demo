@@ -46,6 +46,36 @@ function fixture(activeSessions: unknown[] = []) {
 }
 
 describe('StaffAccessService standing authority boundary', () => {
+  it('requires an ACTIVE PLATFORM_OWNER assignment for Founder role mode', async () => {
+    const { service, repository } = fixture();
+    repository.listActiveAssignments.mockResolvedValueOnce([{
+      id: 'assignment-owner',
+      user_id: actor.id,
+      role: StaffRole.PLATFORM_OWNER,
+      status: 'ACTIVE',
+      valid_from: new Date(0),
+      valid_until: null,
+    }]);
+    await expect(service.requireActivePlatformOwner(actor)).resolves.toEqual(expect.objectContaining({
+      id: 'assignment-owner',
+      role: StaffRole.PLATFORM_OWNER,
+      status: 'ACTIVE',
+    }));
+  });
+
+  it('does not treat an ELIGIBLE owner assignment as active Founder role-mode authority', async () => {
+    const { service, repository } = fixture();
+    repository.listActiveAssignments.mockResolvedValueOnce([{
+      id: 'assignment-owner',
+      user_id: actor.id,
+      role: StaffRole.PLATFORM_OWNER,
+      status: 'ELIGIBLE',
+      valid_from: new Date(0),
+      valid_until: null,
+    }]);
+    await expect(service.requireActivePlatformOwner(actor)).rejects.toThrow('Active PLATFORM_OWNER assignment is required');
+  });
+
   it('returns only the actor own access requests without a time-bound review session', async () => {
     const { service, repository, prisma } = fixture();
     await service.listRequests(actor);
