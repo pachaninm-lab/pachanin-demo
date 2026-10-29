@@ -333,7 +333,7 @@ function fixture(t, implementationBranch) {
       fs.readdirSync(path.join(context.root, '.git', 'hooks')).some(name => !name.endsWith('.sample'))) return context;
   fixtureSnapshotDirectory ??= fs.mkdtempSync(path.join(os.tmpdir(), 'p7-fixture-snapshots-'));
   const directory = path.join(fixtureSnapshotDirectory, key);
-  fs.cpSync(context.root, directory, { recursive: true, dereference: false });
+  captureFixtureSnapshot(context.root, directory);
   fixtureSnapshots.set(key, { directory, baseline: context.baseline });
   return context;
 }
@@ -365,6 +365,24 @@ function constructFixture(t, implementationBranch) {
   return { root, baseline, implementationBranch };
 }
 
+// Preserve modes when freezing the baseline too: recursive cp implementations
+// may recreate directories without their special permission bits. Restoring
+// modes only when cloning would retain that already-normalized snapshot mode.
+function captureFixtureSnapshot(source, directory) {
+  fs.cpSync(source, directory, { recursive: true, dereference: false, verbatimSymlinks: true });
+  const restoreModes = (relative) => {
+    const original = path.join(source, relative);
+    const metadata = fs.lstatSync(original);
+    if (metadata.isSymbolicLink()) return;
+    assert.ok(metadata.isDirectory() || metadata.isFile(), 'fixture snapshots contain only directories, files and symlinks');
+    if (metadata.isDirectory()) {
+      for (const name of fs.readdirSync(original)) restoreModes(path.join(relative, name));
+    }
+    fs.chmodSync(path.join(directory, relative), metadata.mode & 0o7777);
+  };
+  restoreModes('');
+}
+
 // Reuse completed immutable baselines, never candidate mutations or assertions.
 // Constructors with mutation callbacks or custom Git setup always run normally.
 function copyFixtureSnapshot(directory, root) {
@@ -383,7 +401,7 @@ function copyFixtureSnapshot(directory, root) {
         entries.push({ relative, kind: 'symlink', target: fs.readlinkSync(source) });
       } else {
         assert.ok(metadata.isFile(), 'fixture snapshots contain only directories, files and symlinks');
-        entries.push({ relative, kind: 'file' });
+        entries.push({ relative, kind: 'file', mode: metadata.mode & 0o7777 });
       }
     };
     visit('');
@@ -395,18 +413,22 @@ function copyFixtureSnapshot(directory, root) {
     const target = path.join(root, entry.relative);
     if (entry.kind === 'directory') {
       if (entry.relative) {
-        fs.mkdirSync(target, { mode: entry.mode });
-        fs.chmodSync(target, entry.mode);
+        fs.mkdirSync(target, { mode: 0o700 });
       }
     } else if (entry.kind === 'symlink') {
       fs.symlinkSync(entry.target, target);
     } else {
       fs.copyFileSync(path.join(directory, entry.relative), target);
+      fs.chmodSync(target, entry.mode);
     }
   }
   // Git reads only the immutable snapshot's objects; new objects, refs, index
   // and worktree belong exclusively to the caller. Snapshots outlive all tests.
   write(root, '.git/objects/info/alternates', objects + '\n');
+  // Populate first so read-only source directories still accept their children.
+  for (const entry of [...entries].reverse()) {
+    if (entry.kind === 'directory' && entry.relative) fs.chmodSync(path.join(root, entry.relative), entry.mode);
+  }
 }
 
 function compositeFixture(t, kind, options, construct) {
@@ -438,7 +460,7 @@ function compositeFixture(t, kind, options, construct) {
       git(context.root, ['status', '--porcelain']) !== '') return context;
   fixtureSnapshotDirectory ??= fs.mkdtempSync(path.join(os.tmpdir(), 'p7-fixture-snapshots-'));
   const directory = path.join(fixtureSnapshotDirectory, 'composite-' + key);
-  fs.cpSync(context.root, directory, { recursive: true, dereference: false, verbatimSymlinks: true });
+  captureFixtureSnapshot(context.root, directory);
   compositeFixtureSnapshots.set(key, { directory, head: git(context.root, ['rev-parse', 'HEAD']),
     context: structuredClone(context) });
   return context;
@@ -489,12 +511,33 @@ test('composite baseline copies isolate candidate bytes, refs and relative symli
     fs.symlinkSync('missing/target', path.join(context.root, 'baseline/dangling'));
     fs.mkdirSync(path.join(context.root, 'baseline/empty'));
     fs.chmodSync(path.join(context.root, 'baseline/empty'), 0o1777);
+    write(context.root, 'baseline/readonly.txt', 'read-only bytes\n', 0o400);
+    fs.mkdirSync(path.join(context.root, 'baseline/readonly'));
+    fs.chmodSync(path.join(context.root, 'baseline/readonly'), 0o500);
     fs.chmodSync(context.root, 0o1700);
     commit(context.root, 'genuine composite baseline');
     context.baseline = git(context.root, ['rev-parse', 'HEAD']);
     return context;
   };
-  const first = compositeFixture(t, 'snapshot-isolation-regression', {}, construct);
+  const copy = fs.cpSync;
+  let normalizedDirectoryModes = 0;
+  let first;
+  try {
+    // Reproduce platforms that normalize directory modes during the initial
+    // snapshot copy, even when this runtime's cp already preserves them.
+    fs.cpSync = (source, directory, options) => {
+      copy(source, directory, options);
+      const empty = path.join(directory, 'baseline/empty');
+      if (fs.existsSync(empty)) {
+        fs.chmodSync(empty, 0o755);
+        normalizedDirectoryModes++;
+      }
+    };
+    first = compositeFixture(t, 'snapshot-isolation-regression', {}, construct);
+  } finally {
+    fs.cpSync = copy;
+  }
+  assert.equal(normalizedDirectoryModes, 1);
   write(first.root, 'baseline/value.txt', 'candidate mutation\n');
   fs.unlinkSync(path.join(first.root, 'baseline/link'));
   fs.symlinkSync('../allowed.txt', path.join(first.root, 'baseline/link'));
@@ -522,6 +565,9 @@ test('composite baseline copies isolate candidate bytes, refs and relative symli
   assert.equal(fs.statSync(path.join(third.root, 'baseline/empty')).mode & 0o7777, 0o1777);
   assert.equal(fs.statSync(third.root).mode & 0o7777, 0o700);
   assert.deepEqual(fs.readdirSync(path.join(third.root, 'baseline/empty')), []);
+  assert.equal(fs.statSync(path.join(third.root, 'baseline/readonly')).mode & 0o7777, 0o500);
+  assert.equal(fs.statSync(path.join(third.root, 'baseline/readonly.txt')).mode & 0o7777, 0o400);
+  assert.equal(fs.readFileSync(path.join(third.root, 'baseline/readonly.txt'), 'utf8'), 'read-only bytes\n');
   assert.equal(git(third.root, ['rev-parse', 'HEAD']), first.baseline);
   assert.notEqual(fs.statSync(path.join(second.root, '.git/index')).ino,
     fs.statSync(path.join(third.root, '.git/index')).ino);
