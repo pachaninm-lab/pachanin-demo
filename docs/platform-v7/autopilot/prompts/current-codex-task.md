@@ -2394,3 +2394,13 @@ Metadata4 FIRST requires genuine independent complete exacthead review, separate
 ## Bounded registration prerequisite under preparation
 
 PR5957/head2fc2bed remains unchanged and blocked by repeated actual180s guard-suite timeout. The queue records exact compression-only proposal `guard-fixture-compression-20261028`: one existing fixture-config line, all1037 original tests/assertions and all runtime/security/workflow/timeout boundaries unchanged. Require actual full-suite/native evidence and separate exact-head reviews before source acceptance; no further unchanged-head retry or red merge. Prototype measurements are not production evidence. Primary scope/owners/official progress remain unchanged.
+
+
+## Registration source preflight fixture construction proposal
+
+Exact one-file candidate fd146ca62015cb05026e0835ed4e96b1d284a3ab / SHA2564f945a1a6a18bf686761dfa1034662e1f5b7d2b2e0c8ed5440726f359bc34af4 is pinned in the execution queue. Reuse the original fixture source ref/vector only after this metadata is independently accepted; preserve5958/5959 and every other owner/path/payload. Local full1037 PASS is diagnostic evidence only, not hosted180s/native/REG.RU or whole-block acceptance. No guard/workflow/testselection/assertion/timeout weakening, cached results, new authority or progress credit. Source publication, exact-head native gates, fresh readiness and manual expected-SHA acceptance remain separate.
+
+
+## Canonical web release trust prerequisite
+
+Separately review this five-file metadata before exact two-file source publication on fix/web-trust-3048. Execution queue pins the entire private patch, modes, before/after blobs and local/independent evidence. Preserve every old state byte/value except the one exact branch vector; keep3MiB capacity unchanged. Do not execute unchanged unpinned canonical web release, expose raw logs, replay restoration, infer native/production acceptance or add progress. No source, host command or provider authority is granted by metadata alone.

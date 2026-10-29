@@ -60,6 +60,7 @@ env:
   SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
   SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
   SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
   PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
   PROD_COMPOSE_SECRET: ${{ secrets.PC_PROD_COMPOSE }}
   PROD_PROJECT_SECRET: ${{ secrets.PC_PROD_PROJECT }}
@@ -160,6 +161,77 @@ jobs:
           echo 'Exact canonical web image is unavailable.' >&2
           exit 6
 
+      - name: Prepare bounded release evidence parser
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          cat > "$RUNNER_TEMP/pc-web-evidence-$GITHUB_RUN_ID.py" <<'PY_WEB_EVIDENCE'
+          import hashlib
+          import re
+          import sys
+          from pathlib import Path
+
+          def main():
+              raw, destination, action, target, status = sys.argv[1:]
+              if action not in ('audit', 'deploy', 'rollback') or not re.fullmatch(r'\d{1,3}', status):
+                  raise ValueError()
+              if int(status) > 255 or (action != 'audit' and not re.fullmatch(r'[0-9a-f]{40}', target)):
+                  raise ValueError()
+              data = Path(raw).read_bytes()
+              if len(data) > 4 * 1024 * 1024:
+                  raise ValueError()
+              boolean = r'(?:0|1|unknown)'
+              revision = r'(?:[0-9a-f]{40}|unknown)'
+              state = r'(?:healthy|unhealthy|starting|running|exited|created|restarting|paused|dead|removing|unknown)'
+              fields = {
+                  'DEPLOYMENT_COMPLETE': boolean,
+                  'DEPLOYED_WEB_REVISION': revision,
+                  'DEPLOYED_WEB_STATE': state,
+                  'ROLLBACK_BASELINE_REVISION': revision,
+                  'WATCHTOWER_RETIRED': boolean,
+                  'PERSISTENT_OVERRIDE_MUTATED': boolean,
+                  'AUTOMATIC_ROLLBACK_ATTEMPTED': boolean,
+                  'AUTOMATIC_ROLLBACK_COMPLETED': boolean,
+                  'ROLLBACK_WEB_REVISION': revision,
+                  'ROLLBACK_READY': boolean,
+                  'CURRENT_WEB_REVISION': revision,
+                  'CURRENT_WEB_STATE': state,
+              }
+              values = {}
+              for line in data.decode('utf-8').splitlines():
+                  name, separator, value = line.partition('=')
+                  if separator and name in fields:
+                      if name in values or not re.fullmatch(fields[name], value):
+                          raise ValueError()
+                      values[name] = value
+              if values.get('DEPLOYMENT_COMPLETE') == '1':
+                  if int(status) != 0 or action == 'audit' or values.get('DEPLOYED_WEB_REVISION') != target:
+                      raise ValueError()
+                  if values.get('DEPLOYED_WEB_STATE') != 'healthy' or values.get('WATCHTOWER_RETIRED') != '1':
+                      raise ValueError()
+              if int(status) == 0:
+                  if action == 'audit':
+                      if values.get('PERSISTENT_OVERRIDE_MUTATED') != '0':
+                          raise ValueError()
+                  elif values.get('DEPLOYMENT_COMPLETE') != '1' or values.get('PERSISTENT_OVERRIDE_MUTATED') != '1':
+                      raise ValueError()
+              lines = [
+                  'EVIDENCE_SCHEMA=pc.web-release-evidence.v1',
+                  'TRANSPORT_EXIT_CODE=' + status,
+                  'RAW_OUTPUT_BYTES=' + str(len(data)),
+                  'RAW_OUTPUT_SHA256=' + hashlib.sha256(data).hexdigest(),
+              ]
+              lines.extend(name + '=' + values.get(name, 'unknown') for name in fields)
+              Path(destination).write_text('\n'.join(lines) + '\n', encoding='utf-8')
+
+          try:
+              main()
+          except (OSError, UnicodeError, ValueError):
+              sys.stderr.write('Release aggregate evidence rejected.\n')
+              raise SystemExit(1)
+          PY_WEB_EVIDENCE
+
       - name: Resolve key-only production SSH
         id: ssh
         shell: bash
@@ -173,16 +245,46 @@ jobs:
             printf '%s' "$value"
           }
 
+          verify_pinned_host() {
+            local host="$1" port="$2" expected="$3" known="$4"
+            local scan match line fingerprint
+            [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/]{43}$ ]] || return 1
+            scan="$(mktemp)" || return 1
+            match="$(mktemp)" || { rm -f "$scan"; return 1; }
+            ssh-keyscan -T 10 -p "$port" -H "$host" > "$scan" 2>/dev/null || true
+            while IFS= read -r line; do
+              [[ -n "$line" ]] || continue
+              if fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}')"; then
+                [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              fi
+            done < "$scan"
+            sort -u -o "$match" "$match" || { rm -f "$scan" "$match"; return 1; }
+            if [[ "$(grep -c . "$match" || true)" != 1 ]]; then
+              rm -f "$scan" "$match"
+              return 1
+            fi
+            chmod 600 "$match" && mv -T "$match" "$known" || {
+              rm -f "$scan" "$match"
+              return 1
+            }
+            rm -f "$scan"
+          }
+
           host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
           user="$(trim "${SSH_USER_SECRET:-}")"
           port="$(trim "${SSH_PORT_SECRET:-22}")"
           key="${SSH_KEY_PRIMARY:-${SSH_KEY_SECONDARY:-${SSH_KEY_FALLBACK:-}}}"
+          expected_host_fingerprint="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$expected_host_fingerprint" =~ ^SHA256:[A-Za-z0-9+/]{43}$ ]] || {
+            echo 'A protected production host fingerprint is required.' >&2
+            exit 12
+          }
 
           [[ "$host" == "$DEFAULT_HOST" ]] || {
             echo 'SSH host is not the canonical REG.RU VPS.' >&2
             exit 7
           }
-          [[ -n "$user" ]] || {
+          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || {
             echo 'PC_PROD_SSH_USER is required in protected operational storage.' >&2
             exit 8
           }
@@ -199,16 +301,19 @@ jobs:
           chmod 700 "$HOME/.ssh"
           printf '%s\n' "$key" | tr -d '\r' > "$HOME/.ssh/id_pc_prod"
           chmod 600 "$HOME/.ssh/id_pc_prod"
-          ssh-keygen -y -f "$HOME/.ssh/id_pc_prod" > "$EVIDENCE_DIR/ssh-public-key.txt"
-          ssh-keygen -lf "$EVIDENCE_DIR/ssh-public-key.txt" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
-          rm -f "$EVIDENCE_DIR/ssh-public-key.txt"
+          key_fingerprint="$(ssh-keygen -y -P '' -f "$HOME/.ssh/id_pc_prod" </dev/null 2>/dev/null |
+            ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}')"
+          [[ "$key_fingerprint" =~ ^SHA256:[A-Za-z0-9+/]{43}$ ]]
+          printf '%s\n' "$key_fingerprint" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
 
           domain_ips="$(getent ahostsv4 xn----8sbjf4befbjgs9b.xn--p1ai | awk '{print $1}' | sort -u || true)"
           printf '%s\n' "$domain_ips" > "$EVIDENCE_DIR/domain-ip.txt"
           grep -Fxq "$DEFAULT_HOST" "$EVIDENCE_DIR/domain-ip.txt"
 
-          ssh-keyscan -T 10 -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
-          chmod 600 "$HOME/.ssh/known_hosts"
+          verify_pinned_host "$host" "$port" "$expected_host_fingerprint" "$HOME/.ssh/known_hosts" || {
+            echo 'Protected production host fingerprint did not match.' >&2
+            exit 13
+          }
 
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" \
             -o BatchMode=yes \
@@ -263,6 +368,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          umask 077
+          raw="$(mktemp)"
+          trap 'rm -f "$raw"' EXIT
 
           encode() {
             printf '%s' "$1" | base64 -w0
@@ -284,10 +392,14 @@ jobs:
             -o StrictHostKeyChecking=yes \
             "$SSH_USER@$SSH_HOST" \
             "chmod 0700 '$remote_entrypoint' && PROD_DIR_B64='$prod_dir_b64' PROD_COMPOSE_B64='$prod_compose_b64' PROD_PROJECT_B64='$prod_project_b64' '$remote_entrypoint' '$ACTION' '$TARGET_SHA' '$GITHUB_RUN_ID'" \
-            > "$EVIDENCE_DIR/production-action.log" 2>&1
+            > "$raw" 2>&1
           rc=$?
           set -e
 
+          python3 "$RUNNER_TEMP/pc-web-evidence-$GITHUB_RUN_ID.py" "$raw" \
+            "$EVIDENCE_DIR/production-action.log" "$ACTION" "$TARGET_SHA" "$rc"
+          rm -f "$raw"
+          trap - EXIT
           cat "$EVIDENCE_DIR/production-action.log"
 
           baseline_revision="$(sed -n 's/^ROLLBACK_BASELINE_REVISION=//p' "$EVIDENCE_DIR/production-action.log" | tail -1)"
@@ -336,6 +448,9 @@ jobs:
             echo 'No exact rollback baseline revision is available.' >&2
             exit 30
           }
+          umask 077
+          raw="$(mktemp)"
+          trap 'rm -f "$raw"' EXIT
 
           encode() {
             printf '%s' "$1" | base64 -w0
@@ -345,6 +460,7 @@ jobs:
           prod_project_b64="$(encode "${PROD_PROJECT_SECRET:-}")"
           remote_entrypoint="/tmp/pc-production-web-remote-entrypoint-${GITHUB_RUN_ID}.sh"
 
+          set +e
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$SSH_PORT" \
             -o BatchMode=yes \
             -o ConnectTimeout=20 \
@@ -355,7 +471,22 @@ jobs:
             -o StrictHostKeyChecking=yes \
             "$SSH_USER@$SSH_HOST" \
             "PROD_DIR_B64='$prod_dir_b64' PROD_COMPOSE_B64='$prod_compose_b64' PROD_PROJECT_B64='$prod_project_b64' '$remote_entrypoint' rollback '$BASELINE_SHA' '$GITHUB_RUN_ID'" \
-            | tee "$EVIDENCE_DIR/live-failure-rollback.log"
+            > "$raw" 2>&1
+          rc=$?
+          set -e
+          python3 "$RUNNER_TEMP/pc-web-evidence-$GITHUB_RUN_ID.py" "$raw" \
+            "$EVIDENCE_DIR/live-failure-rollback.log" rollback "$BASELINE_SHA" "$rc"
+          rm -f "$raw"
+          trap - EXIT
+          cat "$EVIDENCE_DIR/live-failure-rollback.log"
+          (( rc == 0 )) || exit "$rc"
+
+      - name: Remove private runner release material
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/pc-web-evidence-$GITHUB_RUN_ID.py" \
+            "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
 
       - name: Enforce final release result
         if: always()
