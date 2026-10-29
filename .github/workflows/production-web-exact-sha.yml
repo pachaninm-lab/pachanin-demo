@@ -359,6 +359,9 @@ jobs:
           DOMAIN = 'xn----8sbjf4befbjgs9b.xn--p1ai'
           NP = 'NOT_PROVEN'
           DEADLINE = None
+          REJECT_REASONS = ['CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_BOUND', 'FILE_LIST_DUPLICATE', 'FILE_LIST_VALUE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_TOTAL_BOUND', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_AMBIGUOUS_SCALAR', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_STRUCTURE', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE']
+          REJECT_STAGES = ['FORMAT_CLOSURE', 'LABEL_PATHS', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL']
+          INPUT_ROLES = ['HARDENING_OVERRIDE', 'IMAGE_OVERRIDE', 'LABEL_AND_SELECTED_COMPOSE', 'LABEL_COMPOSE', 'NONE', 'SELECTED_COMPOSE']
 
           def bounded(argv, payload=None, limit=LIMIT, seconds=10):
               """Bound output while reading; never publish stderr or exception text."""
@@ -410,11 +413,14 @@ jobs:
                   if p.stdin is not None and not p.stdin.closed:
                       p.stdin.close()
 
+          class DuplicateJSON(ValueError):
+              pass
+
           def unique(pairs):
               out = {}
               for key, value in pairs:
                   if key in out:
-                      raise ValueError('DUPLICATE')
+                      raise DuplicateJSON()
                   out[key] = value
               return out
 
@@ -437,33 +443,60 @@ jobs:
 
           def files_for(directory, raw):
               if not isinstance(directory, str) or not directory.startswith('/') or len(directory) > 4096:
-                  raise ValueError('DIRECTORY')
+                  raise UnsupportedModel('DIRECTORY_VALUE')
               root = Path(directory)
-              if root.is_symlink() or not root.is_dir() or not isinstance(raw, str) or len(raw) > 16384:
-                  raise ValueError('FILES')
+              if root.is_symlink():
+                  raise UnsupportedModel('DIRECTORY_SYMLINK')
+              if not root.is_dir():
+                  raise UnsupportedModel('DIRECTORY_TYPE')
+              if not isinstance(raw, str) or len(raw) > 16384:
+                  raise UnsupportedModel('FILE_LIST_VALUE')
               values = raw.split(',')
               if not 1 <= len(values) <= 16 or any(not v.strip() for v in values):
-                  raise ValueError('FILES')
+                  raise UnsupportedModel('FILE_LIST_BOUND')
               paths = [Path(v.strip()) if v.strip().startswith('/') else root / v.strip() for v in values]
               if len(set(paths)) != len(paths):
-                  raise ValueError('FILES')
+                  raise UnsupportedModel('FILE_LIST_DUPLICATE')
               for p in paths:
-                  if p.is_symlink() or not p.is_file() or p.stat().st_size > LIMIT:
-                      raise ValueError('FILE')
+                  if p.is_symlink():
+                      raise UnsupportedModel('INPUT_SYMLINK')
+                  if not p.is_file():
+                      raise UnsupportedModel('INPUT_TYPE')
+                  if p.stat().st_size > LIMIT:
+                      raise UnsupportedModel('INPUT_SIZE')
               return paths
 
           import stat
           import tempfile
 
           class UnsupportedModel(Exception):
-              pass
+              def __init__(self, reason='UNCLASSIFIED_REJECT', stage=None):
+                  super().__init__()
+                  self.reason = reason if reason in REJECT_REASONS and reason != 'NONE' else 'UNCLASSIFIED_REJECT'
+                  self.stage = stage if stage in REJECT_STAGES and stage != 'NONE' else None
+
+          def rejection(error, stage, role):
+              if isinstance(error, UnsupportedModel):
+                  reason, stage = error.reason, error.stage or stage
+              elif isinstance(error, PermissionError):
+                  reason = 'READ_PERMISSION'
+              elif isinstance(error, FileNotFoundError):
+                  reason = 'READ_MISSING'
+              elif isinstance(error, OSError):
+                  reason = 'READ_OSERROR'
+              else:
+                  reason = 'UNCLASSIFIED_REJECT'
+              return {'reject_stage': stage if stage in REJECT_STAGES and stage != 'NONE' else 'OBSERVER',
+                      'reject_reason': reason, 'input_role': role if role in INPUT_ROLES else 'NONE'}
 
           def read_regular(path):
               fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
               try:
                   before = os.fstat(fd)
-                  if not stat.S_ISREG(before.st_mode) or before.st_size > LIMIT:
-                      raise UnsupportedModel()
+                  if not stat.S_ISREG(before.st_mode):
+                      raise UnsupportedModel('READ_TYPE', 'REGULAR_READ')
+                  if before.st_size > LIMIT:
+                      raise UnsupportedModel('READ_SIZE', 'REGULAR_READ')
                   raw = bytearray()
                   while True:
                       part = os.read(fd, min(16384, LIMIT + 1 - len(raw)))
@@ -471,10 +504,10 @@ jobs:
                           break
                       raw.extend(part)
                       if len(raw) > LIMIT:
-                          raise UnsupportedModel()
+                          raise UnsupportedModel('READ_SIZE', 'REGULAR_READ')
                   after = os.fstat(fd)
                   if (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns) != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns):
-                      raise UnsupportedModel()
+                      raise UnsupportedModel('READ_CHANGED', 'REGULAR_READ')
                   return bytes(raw)
               finally:
                   os.close(fd)
@@ -484,25 +517,33 @@ jobs:
               # A byte-identical accepted hardening file is the sole custom-tag exception.
               if hashlib.sha256(raw).hexdigest() == trusted_hardening:
                   return
-              text = raw.decode('utf-8', errors='strict')
+              try:
+                  text = raw.decode('utf-8', errors='strict')
+              except UnicodeError:
+                  raise UnsupportedModel('ENCODING_UTF8', 'FORMAT_CLOSURE') from None
               forbidden = {'include', 'extends', 'build', 'develop', 'provider'}
               if text.lstrip().startswith('{'):
-                  value = decode(raw)
+                  try:
+                      value = decode(raw)
+                  except DuplicateJSON:
+                      raise UnsupportedModel('JSON_DUPLICATE', 'FORMAT_CLOSURE') from None
+                  except (ValueError, UnicodeError):
+                      raise UnsupportedModel('JSON_INVALID', 'FORMAT_CLOSURE') from None
                   def walk(item):
                       if isinstance(item, dict):
                           for key, child in item.items():
                               if not isinstance(key, str) or key.lower() in forbidden or key == '<<':
-                                  raise UnsupportedModel()
+                                  raise UnsupportedModel('JSON_FORBIDDEN_KEY', 'FORMAT_CLOSURE')
                               walk(child)
                       elif isinstance(item, list):
                           for child in item:
                               walk(child)
                   if not isinstance(value, dict) or set(value) - {'name', 'version', 'services', 'networks', 'volumes', 'configs', 'secrets'}:
-                      raise UnsupportedModel()
+                      raise UnsupportedModel('JSON_ROOT_SHAPE', 'FORMAT_CLOSURE')
                   walk(value)
                   return
               if any(c in text for c in ('\0', '\r', '\t', '\\')):
-                  raise UnsupportedModel()
+                  raise UnsupportedModel('YAML_CONTROL_OR_ESCAPE', 'FORMAT_CLOSURE')
               parents, seen, roots = [], set(), 0
               for number, original in enumerate(text.splitlines()):
                   if not original.strip() or original.lstrip().startswith('#'):
@@ -510,7 +551,7 @@ jobs:
                   indent = len(original) - len(original.lstrip(' '))
                   line = original[indent:]
                   if indent % 2 or line.startswith(('%', '---', '...', '?', ':')):
-                      raise UnsupportedModel()
+                      raise UnsupportedModel('YAML_STRUCTURE', 'FORMAT_CLOSURE')
                   # Keep quoted scalar text opaque; reject escapes/multiline quotes and
                   # all YAML flow/tag/alias/anchor/merge syntax outside scalar quotes.
                   quote, clean = None, []
@@ -525,14 +566,14 @@ jobs:
                       elif char == '#':
                           break
                       elif char in '{}[]&*!|>?%@':
-                          raise UnsupportedModel()
+                          raise UnsupportedModel('YAML_FLOW_TAG_OR_ALIAS', 'FORMAT_CLOSURE')
                       else:
                           clean.append(char)
                   if quote:
-                      raise UnsupportedModel()
+                      raise UnsupportedModel('YAML_UNCLOSED_QUOTE', 'FORMAT_CLOSURE')
                   token = ''.join(clean).rstrip()
                   if re.match(r'^(?:- )?Q:', token):
-                      raise UnsupportedModel()
+                      raise UnsupportedModel('YAML_QUOTED_KEY', 'FORMAT_CLOSURE')
                   while parents and parents[-1][0] >= indent:
                       parents.pop()
                   if token.startswith('- '):
@@ -547,22 +588,24 @@ jobs:
                       # A plain/quoted sequence scalar cannot introduce a mapping key.
                       if parents and parents[-1][1].startswith('item-') and not re.search(r':\s', token):
                           continue
-                      raise UnsupportedModel()
+                      raise UnsupportedModel('YAML_UNSUPPORTED_LINE', 'FORMAT_CLOSURE')
                   key, value = match.groups()
-                  if key.lower() in forbidden or value and re.search(r':\s', value):
-                      raise UnsupportedModel()
+                  if key.lower() in forbidden:
+                      raise UnsupportedModel('YAML_FORBIDDEN_KEY', 'FORMAT_CLOSURE')
+                  if value and re.search(r':\s', value):
+                      raise UnsupportedModel('YAML_AMBIGUOUS_SCALAR', 'FORMAT_CLOSURE')
                   scope = (tuple(parents), indent, key)
                   if scope in seen:
-                      raise UnsupportedModel()
+                      raise UnsupportedModel('YAML_DUPLICATE_KEY', 'FORMAT_CLOSURE')
                   seen.add(scope)
                   if indent == 0:
                       roots += 1
                       if key not in ('name', 'version', 'services', 'networks', 'volumes', 'configs', 'secrets') and not key.startswith('x-'):
-                          raise UnsupportedModel()
+                          raise UnsupportedModel('YAML_ROOT_KEY', 'FORMAT_CLOSURE')
                   if value is None:
                       parents.append((indent, key))
               if not roots:
-                  raise UnsupportedModel()
+                  raise UnsupportedModel('YAML_EMPTY', 'FORMAT_CLOSURE')
 
           class SnapshotSet:
               def __init__(self, trusted_hardening):
@@ -574,12 +617,16 @@ jobs:
                   path = Path(path)
                   if path in self.entries:
                       if not self.entries[path]['complete']:
-                          raise UnsupportedModel()
+                          raise UnsupportedModel('SNAPSHOT_INCOMPLETE', 'SNAPSHOT_SEAL')
                       return self.entries[path]
-                  raw = read_regular(path)
+                  try:
+                      raw = read_regular(path)
+                  except OSError as error:
+                      fields = rejection(error, 'REGULAR_READ', 'NONE')
+                      raise UnsupportedModel(fields['reject_reason'], 'REGULAR_READ') from None
                   closed_compose_bytes(raw, self.trusted_hardening)
                   if len(self.entries) >= 48 or self.total + len(raw) > 4 * LIMIT:
-                      raise UnsupportedModel()
+                      raise UnsupportedModel('SNAPSHOT_TOTAL_BOUND', 'SNAPSHOT_SEAL')
                   if self.directory is None:
                       allocation_signals = {signal.SIGALRM, signal.SIGTERM, signal.SIGHUP}
                       allocation_mask = signal.pthread_sigmask(signal.SIG_BLOCK, allocation_signals)
@@ -589,7 +636,7 @@ jobs:
                           self.directory.chmod(0o700)
                           self.directory_stat = self.directory.lstat()
                           if self.directory_stat.st_uid != os.geteuid() or stat.S_IMODE(self.directory_stat.st_mode) != 0o700:
-                              raise UnsupportedModel()
+                              raise UnsupportedModel('SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_SEAL')
                           self.directory_allocation_started = False
                       finally:
                           # Deliver the original pending signal only after the directory
@@ -610,12 +657,12 @@ jobs:
                       signal.pthread_sigmask(signal.SIG_SETMASK, old_mask)
                   try:
                       if record.st_uid != os.geteuid() or not stat.S_ISREG(record.st_mode) or stat.S_IMODE(record.st_mode) != 0o600 or record.st_nlink != 1:
-                          raise UnsupportedModel()
+                          raise UnsupportedModel('SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_SEAL')
                       offset = 0
                       while offset < len(raw):
                           offset += os.write(fd, raw[offset:])
                       if os.fstat(fd).st_size != len(raw):
-                          raise UnsupportedModel()
+                          raise UnsupportedModel('SNAPSHOT_WRITE_SIZE', 'SNAPSHOT_SEAL')
                       entry['complete'] = True
                   finally:
                       if fd is not None:
@@ -802,8 +849,9 @@ jobs:
 
 
           def _collect(inputs):
-              out = {'schema': 'pc.web-readonly-preconditions.v1', 'source_sha': inputs['source_sha'],
+              out = {'schema': 'pc.web-readonly-preconditions.v2', 'source_sha': inputs['source_sha'],
                      'closure': NP, 'observation': 'BLOCKED', 'snapshot_cleanup': 'NOT_NEEDED',
+                     'reject_stage': 'NONE', 'reject_reason': 'NONE', 'input_role': 'NONE',
                      'selectors': NP, 'label_model': NP, 'selected_model': NP, 'models_relation': NP,
                      'migration': NP, 'migration_database': NP, 'persisted_model': NP, 'persisted_image': NP,
                      'persisted_hardening': NP, 'web_revision': 'unknown', 'web_health': NP,
@@ -814,10 +862,12 @@ jobs:
                   raise ValueError('SOURCE')
               ids = bounded(['docker', 'ps', '-q', '--no-trunc'], limit=8192).decode().splitlines()
               if not 1 <= len(ids) <= 64 or any(not re.fullmatch(r'[0-9a-f]{12,64}', v) for v in ids):
+                  out.update(rejection(UnsupportedModel('CONTAINER_CARDINALITY'), 'RUNTIME_INVENTORY', 'NONE'))
                   return out
               rows = [inspect(v) for v in ids]
               webs = [r for r in rows if labels(r).get('com.docker.compose.service') == 'web']
               if len(webs) != 1:
+                  out.update(rejection(UnsupportedModel('WEB_CARDINALITY'), 'RUNTIME_INVENTORY', 'NONE'))
                   return out
               web = webs[0]
               wl = labels(web)
@@ -839,26 +889,35 @@ jobs:
               peers = [r for r in rows if labels(r).get('com.docker.compose.project') == project]
               apis = [r for r in peers if labels(r).get('com.docker.compose.service') == 'api']
               observed = {}
+              reject_stage, input_role = 'LABEL_PATHS', 'LABEL_COMPOSE'
               try:
                   label_paths = files_for(wl.get('com.docker.compose.project.working_dir'), wl.get('com.docker.compose.project.config_files'))
+                  reject_stage, input_role = 'SELECTED_PATHS', 'SELECTED_COMPOSE'
                   directory, raw = inputs.get('directory', ''), inputs.get('compose', '')
                   if bool(directory) != bool(raw):
                       out['selectors'] = 'PARTIAL'
-                      raise UnsupportedModel()
+                      raise UnsupportedModel('SELECTORS_PARTIAL')
                   if not directory:
                       directory, raw = wl.get('com.docker.compose.project.working_dir'), wl.get('com.docker.compose.project.config_files')
                   selected_paths = files_for(directory, raw)
                   all_paths = list(dict.fromkeys(label_paths + selected_paths))
+                  reject_stage, input_role = 'PERSISTED_PATHS', 'HARDENING_OVERRIDE'
                   for name in ('compose.production-hardening.override.yml', 'compose.production-web-image.override.yml'):
+                      input_role = 'HARDENING_OVERRIDE' if name == 'compose.production-hardening.override.yml' else 'IMAGE_OVERRIDE'
                       candidate = Path(directory) / name
                       if candidate.exists() or candidate.is_symlink():
                           all_paths.append(candidate)
+                  reject_stage = 'SNAPSHOT_SEAL'
                   for candidate in all_paths:
+                      input_role = ('LABEL_AND_SELECTED_COMPOSE' if candidate in label_paths and candidate in selected_paths else
+                                    'LABEL_COMPOSE' if candidate in label_paths else 'SELECTED_COMPOSE' if candidate in selected_paths else
+                                    'HARDENING_OVERRIDE' if candidate == Path(directory) / 'compose.production-hardening.override.yml' else 'IMAGE_OVERRIDE')
                       entry = SNAPSHOTS.add(candidate)
                       observed.setdefault(candidate, entry['digest'])
                   out['closure'] = 'SUPPORTED'
-              except (UnsupportedModel, ValueError, UnicodeError, OSError):
+              except (UnsupportedModel, ValueError, UnicodeError, OSError) as error:
                   out['closure'] = 'UNSUPPORTED'
+                  out.update(rejection(error, reject_stage, input_role))
                   return out
               out['observation'] = 'COMPLETE'
               def render(directory, raw, chosen_project):
@@ -954,7 +1013,7 @@ jobs:
 
           def require_root():
               if os.geteuid() != 0:
-                  raise UnsupportedModel()
+                  raise UnsupportedModel('ROOT_REQUIRED', 'ROOT_AUTHORITY')
 
           def collect(inputs, seconds=60):
               global DEADLINE, SNAPSHOTS
@@ -979,14 +1038,19 @@ jobs:
                   out = _collect(inputs)
               except (ObserverDeadline, ObserverAbort, Exception) as error:
                   # Fixed report only; no original exception/transport/config data escapes.
-                  out = {'schema': 'pc.web-readonly-preconditions.v1', 'source_sha': inputs['source_sha'],
+                  out = {'schema': 'pc.web-readonly-preconditions.v2', 'source_sha': inputs['source_sha'],
                          'closure': NP, 'observation': 'DEADLINE' if isinstance(error, ObserverDeadline) else 'ABORTED' if isinstance(error, ObserverAbort) else 'FAILED',
-                         'snapshot_cleanup': 'UNKNOWN', 'selectors': NP, 'label_model': NP, 'selected_model': NP, 'models_relation': NP,
+                         'snapshot_cleanup': 'UNKNOWN',
+                         'reject_stage': 'OBSERVER',
+                         'reject_reason': 'OBSERVER_DEADLINE' if isinstance(error, ObserverDeadline) else 'OBSERVER_ABORTED' if isinstance(error, ObserverAbort) else 'UNCLASSIFIED_FAILURE',
+                         'input_role': 'NONE', 'selectors': NP, 'label_model': NP, 'selected_model': NP, 'models_relation': NP,
                          'migration': NP, 'migration_database': NP, 'persisted_model': NP, 'persisted_image': NP,
                          'persisted_hardening': NP, 'web_revision': 'unknown', 'web_health': NP,
                          'container_image_binding': NP, 'rollback_local': NP, 'caddy_mode': NP, 'caddy_count': 0,
                          'caddy_admin_route': NP, 'public_readiness': NP, 'runtime_stability': NP,
                          'observed_file_stability': NP, 'production_mutation': 'NONE'}
+                  if isinstance(error, UnsupportedModel):
+                      out.update(rejection(error, 'OBSERVER', 'NONE'))
               finally:
                   signal.setitimer(signal.ITIMER_REAL, 0)
                   old_mask = signal.pthread_sigmask(signal.SIG_BLOCK, set(signals))
@@ -1027,6 +1091,9 @@ jobs:
           import sys
 
           ENUMS = {
+              'reject_stage': ['FORMAT_CLOSURE', 'LABEL_PATHS', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL'],
+              'reject_reason': ['CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_BOUND', 'FILE_LIST_DUPLICATE', 'FILE_LIST_VALUE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_TOTAL_BOUND', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_AMBIGUOUS_SCALAR', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_STRUCTURE', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE'],
+              'input_role': ['HARDENING_OVERRIDE', 'IMAGE_OVERRIDE', 'LABEL_AND_SELECTED_COMPOSE', 'LABEL_COMPOSE', 'NONE', 'SELECTED_COMPOSE'],
               'closure': {'SUPPORTED', 'UNSUPPORTED', 'NOT_PROVEN'},
               'observation': {'COMPLETE', 'BLOCKED', 'DEADLINE', 'ABORTED', 'FAILED'},
               'snapshot_cleanup': {'COMPLETE', 'UNKNOWN', 'NOT_NEEDED'},
@@ -1058,7 +1125,7 @@ jobs:
               expected = set(ENUMS) | {'schema', 'source_sha', 'web_revision', 'caddy_count', 'production_mutation'}
               if not isinstance(value, dict) or set(value) != expected:
                   raise ValueError('SCHEMA')
-              if value['schema'] != 'pc.web-readonly-preconditions.v1' or value['source_sha'] != source_sha or not re.fullmatch(r'[0-9a-f]{40}', source_sha):
+              if value['schema'] != 'pc.web-readonly-preconditions.v2' or value['source_sha'] != source_sha or not re.fullmatch(r'[0-9a-f]{40}', source_sha):
                   raise ValueError('BINDING')
               if value['production_mutation'] != 'NONE':
                   raise ValueError('AUTHORITY')
@@ -1069,6 +1136,14 @@ jobs:
                   raise ValueError('COUNT')
               if not isinstance(value['web_revision'], str) or not re.fullmatch(r'(?:[0-9a-f]{40}|unknown)', value['web_revision']):
                   raise ValueError('REVISION')
+              if (value['reject_stage'] == 'NONE') != (value['reject_reason'] == 'NONE'):
+                  raise ValueError('DIAGNOSTIC_PAIR')
+              if value['reject_stage'] == 'NONE' and value['input_role'] != 'NONE':
+                  raise ValueError('DIAGNOSTIC_ROLE')
+              if value['observation'] == 'COMPLETE' and value['reject_reason'] != 'NONE':
+                  raise ValueError('DIAGNOSTIC_COMPLETE')
+              if value['observation'] != 'COMPLETE' and value['reject_reason'] == 'NONE':
+                  raise ValueError('DIAGNOSTIC_MISSING')
               if value['observation'] == 'COMPLETE' and value['closure'] != 'SUPPORTED':
                   raise ValueError('CLOSURE')
               if value['closure'] != 'SUPPORTED' and any(value[k] != 'NOT_PROVEN' for k in ('label_model', 'selected_model', 'models_relation', 'migration', 'migration_database', 'persisted_model', 'persisted_image', 'persisted_hardening')):

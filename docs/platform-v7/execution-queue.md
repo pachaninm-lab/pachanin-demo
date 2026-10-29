@@ -9107,3 +9107,5 @@ NEW exact four-document observer purpose on the unchanged web-trust two-path vec
   "masterCredit": 0
 }
 ```
+
+WA4 git show d9138e0dcffa12e1686129fa5048290a49400563 block:d3d1634bf51b66b4f1c35c2a0181db3db270ea37e800eec6cb02c0ce54e7f4f5
