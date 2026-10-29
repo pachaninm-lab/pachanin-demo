@@ -43,6 +43,7 @@ export type StaffAccessRequestRow = {
 };
 
 export type StaffGrantRow = {
+  revoked_at?: Date | null;
   id: string;
   request_id: string;
   grantee_user_id: string;
@@ -99,6 +100,22 @@ export type CriticalActionRow = {
   consumed_at: Date | null;
 };
 
+export type StaffCreateEventRow = {
+  id: string; actor_user_id: string; staff_role: string;
+  access_session_id: string | null; grant_id: string | null;
+  effective_tenant_id: string | null; effective_organization_id: string | null;
+  effective_user_id: string | null; effective_role: string | null;
+  access_mode: string | null; action: string; resource_type: string | null;
+  resource_id: string | null; outcome: string; reason: string | null;
+  ticket_id: string | null; correlation_id: string; metadata: unknown;
+  prev_hash: string | null; hash: string;
+};
+
+// Only the targeted request-PK reservation creates this marker. Other unique
+// violations and audit-chain errors retain their original database failure.
+export class StaffCreateIdentityCollisionError extends Error {}
+export class StaffCreateIntentRetryExhaustedError extends Error {}
+
 export class StaffSessionActivationRetryExhaustedError extends Error {
   constructor() {
     super('Staff session activation conflicted repeatedly');
@@ -129,6 +146,35 @@ export class StaffAccessRepository {
         if (attempt >= 2) throw new StaffSessionActivationRetryExhaustedError();
       }
     }
+  }
+
+  async createIntentTransaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await this.transaction(work);
+      } catch (error) {
+        if (!(error instanceof StaffCreateIdentityCollisionError) && !isRetryableTransactionConflict(error)) throw error;
+        if (attempt >= 2) throw new StaffCreateIntentRetryExhaustedError();
+      }
+    }
+  }
+
+  async getCreateEvent(client: StaffSqlClient, eventId: string): Promise<StaffCreateEventRow | null> {
+    const rows = await client.$queryRaw<StaffCreateEventRow[]>(Prisma.sql`
+      SELECT * FROM auth.staff_access_events WHERE id = ${eventId}
+    `);
+    return rows[0] ?? null;
+  }
+
+  async getGrantForRequest(client: StaffSqlClient, requestId: string): Promise<StaffGrantRow | null> {
+    const rows = await client.$queryRaw<StaffGrantRow[]>(Prisma.sql`
+      SELECT g.*, a.role AS staff_role, r.reason, r.ticket_id
+      FROM auth.staff_access_grants g
+      JOIN auth.staff_assignments a ON a.id = g.assignment_id
+      JOIN auth.staff_access_requests r ON r.id = g.request_id
+      WHERE g.request_id = ${requestId}
+    `);
+    return rows[0] ?? null;
   }
 
   async resolveTargetScope(
@@ -216,8 +262,9 @@ export class StaffAccessRepository {
     ticketId: string;
     maxDurationSeconds: number;
     expiresAt: Date;
-  }): Promise<void> {
-    await client.$executeRaw(Prisma.sql`
+    reserveIntent?: boolean;
+  }): Promise<boolean> {
+    const insert = Prisma.sql`
       INSERT INTO auth.staff_access_requests (
         id, requester_user_id, assignment_id, access_mode,
         target_tenant_id, target_organization_id, target_user_id, target_role, target_deal_id,
@@ -229,7 +276,15 @@ export class StaffAccessRepository {
         ${JSON.stringify(input.permissions)}::jsonb, ${input.reason}, ${input.ticketId},
         ${input.maxDurationSeconds}, ${input.expiresAt}
       )
-    `);
+    `;
+    if (input.reserveIntent) {
+      const rows = await client.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        ${insert} ON CONFLICT (id) DO NOTHING RETURNING id
+      `);
+      return rows.length === 1 && rows[0].id === input.id;
+    }
+    await client.$executeRaw(insert);
+    return true;
   }
 
   async getAccessRequest(
