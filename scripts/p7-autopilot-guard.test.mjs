@@ -303,6 +303,7 @@ function commit(root, message) {
 // constructor. Every caller receives separate files, refs and mutable history.
 const fixtureSnapshots = new Map();
 const compositeFixtureSnapshots = new Map();
+const fixtureSnapshotEntries = new Map();
 let fixtureSnapshotDirectory;
 after(() => {
   if (fixtureSnapshotDirectory) fs.rmSync(fixtureSnapshotDirectory, { recursive: true, force: true });
@@ -368,8 +369,41 @@ function constructFixture(t, implementationBranch) {
 // Constructors with mutation callbacks or custom Git setup always run normally.
 function copyFixtureSnapshot(directory, root) {
   const objects = path.join(directory, '.git', 'objects');
-  fs.cpSync(directory, root, { recursive: true, dereference: false, verbatimSymlinks: true,
-    filter: source => source !== objects });
+  let entries = fixtureSnapshotEntries.get(directory);
+  if (!entries) {
+    entries = [];
+    const visit = (relative) => {
+      const source = path.join(directory, relative);
+      if (source === objects) return;
+      const metadata = fs.lstatSync(source);
+      if (metadata.isDirectory()) {
+        entries.push({ relative, kind: 'directory', mode: metadata.mode & 0o7777 });
+        for (const name of fs.readdirSync(source)) visit(path.join(relative, name));
+      } else if (metadata.isSymbolicLink()) {
+        entries.push({ relative, kind: 'symlink', target: fs.readlinkSync(source) });
+      } else {
+        assert.ok(metadata.isFile(), 'fixture snapshots contain only directories, files and symlinks');
+        entries.push({ relative, kind: 'file' });
+      }
+    };
+    visit('');
+    fixtureSnapshotEntries.set(directory, entries);
+  }
+  // Only traversal metadata is reused. Every file, link, index and ref is
+  // copied into this caller's own worktree; no candidate bytes are cached.
+  for (const entry of entries) {
+    const target = path.join(root, entry.relative);
+    if (entry.kind === 'directory') {
+      if (entry.relative) {
+        fs.mkdirSync(target, { mode: entry.mode });
+        fs.chmodSync(target, entry.mode);
+      }
+    } else if (entry.kind === 'symlink') {
+      fs.symlinkSync(entry.target, target);
+    } else {
+      fs.copyFileSync(path.join(directory, entry.relative), target);
+    }
+  }
   // Git reads only the immutable snapshot's objects; new objects, refs, index
   // and worktree belong exclusively to the caller. Snapshots outlive all tests.
   write(root, '.git/objects/info/alternates', objects + '\n');
@@ -452,6 +486,10 @@ test('composite baseline copies isolate candidate bytes, refs and relative symli
     const context = fixture(t, 'test/composite-snapshot-isolation');
     write(context.root, 'baseline/value.txt', 'accepted bytes\n', 0o600);
     fs.symlinkSync('value.txt', path.join(context.root, 'baseline/link'));
+    fs.symlinkSync('missing/target', path.join(context.root, 'baseline/dangling'));
+    fs.mkdirSync(path.join(context.root, 'baseline/empty'));
+    fs.chmodSync(path.join(context.root, 'baseline/empty'), 0o1777);
+    fs.chmodSync(context.root, 0o1700);
     commit(context.root, 'genuine composite baseline');
     context.baseline = git(context.root, ['rev-parse', 'HEAD']);
     return context;
@@ -473,6 +511,20 @@ test('composite baseline copies isolate candidate bytes, refs and relative symli
   assert.equal(fs.statSync(path.join(second.root, 'baseline/value.txt')).mode & 0o777, 0o600);
   assert.equal(fs.readlinkSync(path.join(second.root, 'baseline/link')), 'value.txt');
   assert.equal(fs.existsSync(path.join(second.root, 'untracked.txt')), false);
+  write(second.root, 'baseline/value.txt', 'second mutation\n');
+  commit(second.root, 'second caller mutation');
+  const third = compositeFixture(t, 'snapshot-isolation-regression', {}, construct);
+  assert.equal(constructions, 1);
+  assert.equal(fs.readFileSync(path.join(third.root, 'baseline/value.txt'), 'utf8'), 'accepted bytes\n');
+  assert.equal(fs.statSync(path.join(third.root, 'baseline/value.txt')).mode & 0o777, 0o600);
+  assert.equal(fs.readlinkSync(path.join(third.root, 'baseline/link')), 'value.txt');
+  assert.equal(fs.readlinkSync(path.join(third.root, 'baseline/dangling')), 'missing/target');
+  assert.equal(fs.statSync(path.join(third.root, 'baseline/empty')).mode & 0o7777, 0o1777);
+  assert.equal(fs.statSync(third.root).mode & 0o7777, 0o700);
+  assert.deepEqual(fs.readdirSync(path.join(third.root, 'baseline/empty')), []);
+  assert.equal(git(third.root, ['rev-parse', 'HEAD']), first.baseline);
+  assert.notEqual(fs.statSync(path.join(second.root, '.git/index')).ino,
+    fs.statSync(path.join(third.root, '.git/index')).ino);
 });
 
 test('custom composite mutation callbacks and Git setup never reuse cached baselines', (t) => {
@@ -514,7 +566,12 @@ test('IR-20 binding prerequisite admits exactly the five non-authority implement
   assert.equal(ir20BindingImplementationPaths.some((file) => file.includes('/scopes/')), false);
 });
 
-function publicHomeImplementationFixture(t, { withManifest = true } = {}) {
+function publicHomeImplementationFixture(t, options = {}) {
+  return compositeFixture(t, 'public-home-implementation', options,
+    () => constructPublicHomeImplementationFixture(t, options));
+}
+
+function constructPublicHomeImplementationFixture(t, { withManifest = true } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-public-home-immutable-scope-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
@@ -542,7 +599,12 @@ function publicHomeImplementationFixture(t, { withManifest = true } = {}) {
   return { root, baseline, implementationBranch: publicHomeImplementationBranch };
 }
 
-function poisonIsolationFixture(t, { manifest = 'valid' } = {}) {
+function poisonIsolationFixture(t, options = {}) {
+  return compositeFixture(t, 'poison-isolation', options,
+    () => constructPoisonIsolationFixture(t, options));
+}
+
+function constructPoisonIsolationFixture(t, { manifest = 'valid' } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-poison-isolation-immutable-scope-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
@@ -575,6 +637,11 @@ function poisonIsolationFixture(t, { manifest = 'valid' } = {}) {
 }
 
 function publicHomeGovernanceFixture(t) {
+  return compositeFixture(t, 'public-home-governance', {},
+    () => constructPublicHomeGovernanceFixture(t));
+}
+
+function constructPublicHomeGovernanceFixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-public-home-governance-scope-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
@@ -797,6 +864,11 @@ for (const mutation of ['oversize', 'invalid UTF-8']) {
 }
 
 function qwenFailedEvidenceFixture(t) {
+  return compositeFixture(t, 'qwen-failed-evidence', {},
+    () => constructQwenFailedEvidenceFixture(t));
+}
+
+function constructQwenFailedEvidenceFixture(t) {
   const context = fixture(t, qwenFailedEvidenceBranch);
   fs.mkdirSync(path.join(context.root, 'docs/platform-v7/autopilot/scopes'), { recursive: true });
   write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify({
@@ -809,6 +881,11 @@ function qwenFailedEvidenceFixture(t) {
 }
 
 function kindMinioImageSourceFixture(t) {
+  return compositeFixture(t, 'kind-minio-image-source', {},
+    () => constructKindMinioImageSourceFixture(t));
+}
+
+function constructKindMinioImageSourceFixture(t) {
   const context = fixture(t, kindMinioImageSourceBranch);
   write(context.root, 'infra/kind/production-like/dependencies.yaml', 'baseline dependencies\n');
   write(context.root, 'infra/kind/production-like/minio-tls-check.yaml', 'baseline TLS check\n');
@@ -1289,6 +1366,11 @@ for (const forbidden of ['README.md', '.github/workflows/ci.yml']) {
 }
 
 function finalPublicManifestFallbackFixture(t) {
+  return compositeFixture(t, 'final-public-manifest-fallback', {},
+    () => constructFinalPublicManifestFallbackFixture(t));
+}
+
+function constructFinalPublicManifestFallbackFixture(t) {
   const implementationBranch = finalPublicBranches[1];
   const manifestPath = 'docs/platform-v7/autopilot/scopes/farmer-public-market-teaser-20260913.json';
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-final-public-fallback-'));
@@ -1454,6 +1536,11 @@ for (const [branch, allowed, rejected] of [
 }
 
 function finalPublicGovernanceFixture(t, admitted = true) {
+  return compositeFixture(t, 'final-public-governance', { admitted },
+    () => constructFinalPublicGovernanceFixture(t, admitted));
+}
+
+function constructFinalPublicGovernanceFixture(t, admitted = true) {
   const context = fixture(t, finalPublicGovernanceBranch);
   for (const file of finalPublicGovernancePaths.slice(1, 3)) write(context.root, file, '{}\n');
   write(context.root, 'scripts/p7-autopilot-guard.test.mjs', '// baseline regression\n');
@@ -2195,6 +2282,11 @@ for (const mutation of ['approved append', 'extra fingerprint', 'remove prior en
 const nextSecurityPatchBranch = 'security/pc-crop-next-15-5-24-4997';
 const nextSecurityPaths = ['.github/workflows/platform-v7-autopilot-guard.yml', '.github/workflows/sbom-scan.yml', 'apps/web/package.json', 'package.json', 'pnpm-lock.yaml', 'docs/platform-v7/autopilot/autopilot-state.json', 'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs'];
 function nextSecurityFixture(t) {
+  return compositeFixture(t, 'next-security', {},
+    () => constructNextSecurityFixture(t));
+}
+
+function constructNextSecurityFixture(t) {
   const context = fixture(t, nextSecurityPatchBranch);
   write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify({
     allowedCurrentScope: ['README.md'],
@@ -2375,6 +2467,11 @@ for (const mutation of ['unapproved file', 'candidate global scope']) {
 }
 
 function industrialFixture(t, branch, admitted = true) {
+  return compositeFixture(t, 'industrial', { branch, admitted },
+    () => constructIndustrialFixture(t, branch, admitted));
+}
+
+function constructIndustrialFixture(t, branch, admitted = true) {
   const context = fixture(t, branch);
   const statePath = industrialGovernancePaths[0];
   const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
