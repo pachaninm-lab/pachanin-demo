@@ -8607,3 +8607,311 @@ The runtime guard path is a new purpose, separately admitted before source publi
   "masterCredit": 0
 }
 ```
+
+
+# Atomic registration and owned-ref source capacity — 2026-10-29
+
+This NEW coordinator-owned purpose keeps the retained registration three afters intact and adds only its necessary pinned CORE workflow prerequisite on the existing5957 ref, after separate five-document metadata admission. It retires only completed future fixture permissions and does not transfer another owner or any old PASS. The workflow-only private alternative remains history; no explicit human300-second instruction, native capacity or source/production acceptance is claimed.
+
+```json
+{
+  "schema": "pc-crop.atomic-registration-owned-budget-purpose.v1",
+  "id": "registration-atomic-owned-source-budget-20261029",
+  "owner": "ACCOUNT_1_CORE/root",
+  "purpose": "Complete the retained registration step with its three original frozen source afters and the exact necessary CORE workflow budget contribution on the same existing5957 ref, after separately accepting these five metadata documents; preserve every fresh native/runtime/security gate.",
+  "coordinatorDecision": "The root session coordinator makes this NEW exact registration-and-CI prerequisite decision under the existing user instruction to finish UX/bank/FGIS work, use the team and operate the approved own refs. It is a coordinator-owned bounded capacity/source-scope decision, not an invented human instruction specifying300seconds. It does not accept source or authorize host operations.",
+  "authorityBaseExactMain": "deaa1d51232dfb8389e23d88eba6826d43f9dfc2",
+  "metadataBranch": "governance/guard-fixture-construction-20261028",
+  "metadataPreviousPublishedHead": "0b27bc4a35d1a71647f7d7ed5baae15e9eb065e5",
+  "implementationBranch": "fix/public-registration-final-copy-4916",
+  "supersedesOnly": "For the next source step, retire only the completed ROOT fixture vector and append only the pinned CORE workflow to the existing five-path registration vector. The old five product paths and all other owners/PRIMARY/global/current/nextStep/scores remain unchanged. Supersede180/195 only for the exact guard-regressions command on the two already named same-repository ROOT refs through the separately admitted exact workflow. Preserve every old purpose/source/failure byte; the6156 native180FAIL stays FAIL. Do not publish the separate workflow-only private alternative.",
+  "sourcePatchUtf8": "diff --git a/apps/web/app/platform-v7/register/RegisterFormClient.tsx b/apps/web/app/platform-v7/register/RegisterFormClient.tsx\nindex 53e1c0f8d0480ea9a94d036578a46312e95bea42..d2d342ca982e92808c509fa87413e553128a9b5d 100644\n--- a/apps/web/app/platform-v7/register/RegisterFormClient.tsx\n+++ b/apps/web/app/platform-v7/register/RegisterFormClient.tsx\n@@ -445,6 +445,7 @@\n   const submitLockRef = React.useRef(false);\n   const confirmPasswordRef = React.useRef<HTMLInputElement>(null);\n   const unknownOperationRef = React.useRef<RegistrationUnknownOperation | null>(null);\n+  const statusReadGenerationRef = React.useRef(0);\n   const [submitting, setSubmitting] = React.useState(false);\n   const [error, setError] = React.useState('');\n   const [correlationId, setCorrelationId] = React.useState('');\n@@ -463,7 +464,8 @@\n   const [passwordVisible, setPasswordVisible] = React.useState(false);\n \n   const loadStatus = React.useCallback(async (token: string) => {\n-    if (!token) return;\n+    if (!token) return null;\n+    const generation = ++statusReadGenerationRef.current;\n     setStatusLoading(true);\n     setStatusReadState('loading');\n     setStatus(null);\n@@ -474,6 +476,7 @@\n         credentials: 'same-origin',\n       });\n       const payload: unknown = await response.json().catch(() => null);\n+      if (generation !== statusReadGenerationRef.current) return null;\n       const row = payload && typeof payload === 'object' && !Array.isArray(payload)\n         ? payload as Record<string, unknown> : null;\n       setCorrelationId(typeof row?.correlationId === 'string' ? row.correlationId : '');\n@@ -481,14 +484,16 @@\n       if (verdict.kind === 'available') {\n         setStatus(verdict.status);\n         setStatusReadState('available');\n+        return verdict.status;\n       } else {\n         setStatusReadState(verdict.kind);\n       }\n     } catch {\n-      setStatusReadState('unavailable');\n+      if (generation === statusReadGenerationRef.current) setStatusReadState('unavailable');\n     } finally {\n-      setStatusLoading(false);\n-    }\n+      if (generation === statusReadGenerationRef.current) setStatusLoading(false);\n+    }\n+    return null;\n   }, []);\n \n   React.useEffect(() => {\n@@ -625,6 +630,8 @@\n \n   async function verifyEmail() {\n     if (!verifyToken || submitting) return;\n+    ++statusReadGenerationRef.current;\n+    setStatusLoading(false);\n     setSubmitting(true);\n     setError('');\n     try {\n@@ -647,7 +654,8 @@\n       setStatusReadState('available');\n       window.history.replaceState(null, '', continuationHref);\n     } catch {\n-      setError(copy.verifyInvalid);\n+      const recovered = statusToken ? await loadStatus(statusToken) : null;\n+      if (!recovered || recovered.status === 'EMAIL_VERIFICATION_REQUIRED') setError(copy.verifyInvalid);\n     } finally {\n       setSubmitting(false);\n     }\n@@ -693,7 +701,7 @@\n \n   const reference = correlationId || status?.correlationId || '';\n \n-  if (verifyToken && !verificationCompleted && !status) {\n+  if (verifyToken && !verificationCompleted && (!status || status.status === 'EMAIL_VERIFICATION_REQUIRED')) {\n     return (\n       <section className='p0-register-card p0-register-state' aria-labelledby='p0-register-verify-title'>\n         <ShieldCheck size={40} aria-hidden='true' />\ndiff --git a/apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx b/apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx\nindex 2b28a3ff2f308c73f5e97f5ced69b1a904544ab4..bbdcfdf30c631804711334b3aad6081a0c0b09d4 100644\n--- a/apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx\n+++ b/apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx\n@@ -71,6 +71,7 @@\n   const submitLockRef = React.useRef(false);\n   const confirmPasswordRef = React.useRef<HTMLInputElement>(null);\n   const unknownOperationRef = React.useRef<RegistrationUnknownOperation | null>(null);\n+  const statusReadGenerationRef = React.useRef(0);\n   const [workspace, setWorkspace] = React.useState<RegistrationWorkspace | ''>(initialWorkspace || '');\n   const [submitting, setSubmitting] = React.useState(false);\n   const [error, setError] = React.useState('');\n@@ -90,7 +91,8 @@\n   const [passwordVisible, setPasswordVisible] = React.useState(false);\n \n   const loadStatus = React.useCallback(async (token: string) => {\n-    if (!token) return;\n+    if (!token) return null;\n+    const generation = ++statusReadGenerationRef.current;\n     setStatusLoading(true);\n     setStatusReadState('loading');\n     setStatus(null);\n@@ -100,6 +102,7 @@\n         cache: 'no-store', credentials: 'same-origin',\n       });\n       const payload: unknown = await response.json().catch(() => null);\n+      if (generation !== statusReadGenerationRef.current) return null;\n       const row = payload && typeof payload === 'object' && !Array.isArray(payload)\n         ? payload as Record<string, unknown> : null;\n       setCorrelationId(typeof row?.correlationId === 'string' ? row.correlationId : '');\n@@ -107,14 +110,16 @@\n       if (verdict.kind === 'available') {\n         setStatus(verdict.status);\n         setStatusReadState('available');\n+        return verdict.status;\n       } else {\n         setStatusReadState(verdict.kind);\n       }\n     } catch {\n-      setStatusReadState('unavailable');\n+      if (generation === statusReadGenerationRef.current) setStatusReadState('unavailable');\n     } finally {\n-      setStatusLoading(false);\n-    }\n+      if (generation === statusReadGenerationRef.current) setStatusLoading(false);\n+    }\n+    return null;\n   }, []);\n \n   React.useEffect(() => {\n@@ -234,6 +239,8 @@\n \n   async function verifyEmail() {\n     if (!verifyToken || submitting) return;\n+    ++statusReadGenerationRef.current;\n+    setStatusLoading(false);\n     setSubmitting(true); setError('');\n     try {\n       const response = await fetch('/api/auth/registration/verify', {\n@@ -249,7 +256,10 @@\n       setVerificationCompleted(true); setStatusToken(result.statusToken); setStatus(verifiedStatus); setStatusReadState('available');\n       window.history.replaceState(null, '', continuationHref);\n     } catch {\n-      setError('Ссылка недействительна, срок её действия истёк или она уже была использована.');\n+      const recovered = statusToken ? await loadStatus(statusToken) : null;\n+      if (!recovered || recovered.status === 'EMAIL_VERIFICATION_REQUIRED') {\n+        setError('Ссылка недействительна, срок её действия истёк или она уже была использована.');\n+      }\n     } finally { setSubmitting(false); }\n   }\n \n@@ -283,7 +293,7 @@\n \n   const reference = correlationId || status?.correlationId || '';\n \n-  if (verifyToken && !verificationCompleted && !status) {\n+  if (verifyToken && !verificationCompleted && (!status || status.status === 'EMAIL_VERIFICATION_REQUIRED')) {\n     return <section className='p0-register-card p0-register-state' aria-labelledby='p0-register-verify-title'>\n       <ShieldCheck size={40} aria-hidden='true' />\n       <h2 id='p0-register-verify-title'>Подтверждение электронной почты</h2>\ndiff --git a/apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts b/apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts\nindex ebf75d816a2e1806831464ec031a96f145feac2e..e3b0fd6e0bb4bc615d4d6b1a1dc5fb1cd9adae69 100644\n--- a/apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts\n+++ b/apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts\n@@ -747,6 +747,138 @@\n const REF = 'market-11111111-1111-4111-8111-111111111111';\n const STATUS = 'fixture-status-token';\n \n+describe('registration email link keeps verification ahead of status recovery', () => {\n+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });\n+\n+  const pending = {\n+    ok: true, applicationId: 'fixture-application',\n+    status: 'EMAIL_VERIFICATION_REQUIRED', nextAction: 'VERIFY_EMAIL',\n+  };\n+  const verified = {\n+    ok: true, applicationId: 'fixture-application', statusToken: STATUS,\n+    status: 'ORGANIZATION_VERIFICATION_PENDING', nextAction: 'WAIT_FOR_REVIEW',\n+  };\n+  const response = (value: unknown) => ({ ok: true, status: 200, json: async () => value });\n+  const confirmButton = (container: HTMLElement) => container.querySelector('#p0-register-verify-title')\n+    ?.closest('section')?.querySelector<HTMLButtonElement>('button');\n+\n+  for (const locale of ['ru', 'en', 'zh'] as const) {\n+    const props = { locale, verifyToken: 'fixture-verification-token', initialStatusToken: STATUS };\n+\n+    it(`${locale}: keeps email confirmation actionable after the initial pending status resolves`, async () => {\n+      const fetchMock = vi.fn().mockResolvedValue(response(pending));\n+      vi.stubGlobal('fetch', fetchMock);\n+      const { container } = render(createElement(RegisterFormClientPublic, props));\n+      await act(async () => { await Promise.resolve(); });\n+      expect(confirmButton(container)).toBeTruthy();\n+      expect(confirmButton(container)?.disabled).toBe(false);\n+      expect(fetchMock).toHaveBeenCalledTimes(1);\n+      expect(fetchMock.mock.calls[0][0]).toBe(`/api/auth/registration/status?token=${STATUS}`);\n+    });\n+\n+    it(`${locale}: verifies once, then permits an explicit status refresh`, async () => {\n+      let committed = false;\n+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {\n+        if (init?.method === 'POST') committed = true;\n+        return response(committed ? verified : pending);\n+      });\n+      vi.stubGlobal('fetch', fetchMock);\n+      const { container } = render(createElement(RegisterFormClientPublic, props));\n+      await act(async () => { await Promise.resolve(); });\n+      expect(confirmButton(container)).toBeTruthy();\n+      await act(async () => { fireEvent.click(confirmButton(container)!); });\n+      expect(fetchMock).toHaveBeenCalledTimes(2);\n+      expect(fetchMock.mock.calls[1][0]).toBe('/api/auth/registration/verify');\n+      expect(fetchMock.mock.calls[1][1]).toMatchObject({\n+        method: 'POST', body: JSON.stringify({ token: props.verifyToken, locale }),\n+      });\n+      expect(container.querySelector('#p0-register-verify-title')).toBeNull();\n+      expect(container.querySelector('#p0-register-status-title')).toBeTruthy();\n+      const refresh = container.querySelector<HTMLButtonElement>('button.p0-register-secondary');\n+      expect(refresh?.disabled).toBe(false);\n+      await act(async () => { fireEvent.click(refresh!); });\n+      expect(fetchMock).toHaveBeenCalledTimes(3);\n+      expect(fetchMock.mock.calls[2][0]).toBe(`/api/auth/registration/status?token=${STATUS}`);\n+      expect(container.querySelector('#p0-register-verify-title')).toBeNull();\n+    });\n+\n+    it(`${locale}: keeps confirmation retry available when verification and recovery are still pending`, async () => {\n+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => init?.method === 'POST'\n+        ? { ok: false, status: 503, json: async () => ({ ok: false }) } : response(pending));\n+      vi.stubGlobal('fetch', fetchMock);\n+      const { container } = render(createElement(RegisterFormClientPublic, props));\n+      await act(async () => { await Promise.resolve(); });\n+      await act(async () => { fireEvent.click(confirmButton(container)!); });\n+      expect(fetchMock).toHaveBeenCalledTimes(3);\n+      expect(container.querySelector('[role=\"alert\"]')?.textContent).toBeTruthy();\n+      expect(confirmButton(container)).toBeTruthy();\n+      expect(confirmButton(container)?.disabled).toBe(false);\n+    });\n+\n+    it(`${locale}: still restores the application status from a status-only link`, async () => {\n+      const fetchMock = vi.fn().mockResolvedValue(response(verified));\n+      vi.stubGlobal('fetch', fetchMock);\n+      const { container } = render(createElement(RegisterFormClientPublic, { locale, initialStatusToken: STATUS }));\n+      await waitFor(() => expect(container.querySelector('button.p0-register-secondary')).toBeEnabled());\n+      expect(fetchMock).toHaveBeenCalledTimes(1);\n+      expect(fetchMock.mock.calls[0][0]).toBe(`/api/auth/registration/status?token=${STATUS}`);\n+      expect(container.querySelector('#p0-register-verify-title')).toBeNull();\n+      expect(container.querySelector('#p0-register-status-title')).toBeTruthy();\n+    });\n+\n+    it(`${locale}: reopens an already verified email link without repeating verification`, async () => {\n+      const fetchMock = vi.fn().mockResolvedValue(response(verified));\n+      vi.stubGlobal('fetch', fetchMock);\n+      const { container } = render(createElement(RegisterFormClientPublic, props));\n+      await act(async () => { await Promise.resolve(); });\n+      expect(fetchMock).toHaveBeenCalledTimes(1);\n+      expect(container.querySelector('#p0-register-verify-title')).toBeNull();\n+      expect(container.querySelector('#p0-register-status-title')).toBeTruthy();\n+    });\n+\n+    for (const lateResult of ['pending', 'unavailable'] as const) {\n+      it(`${locale}: ignores an older ${lateResult} status response after successful verification`, async () => {\n+        let resolveRead!: (value: ReturnType<typeof response>) => void;\n+        let rejectRead!: (error: Error) => void;\n+        const fetchMock = vi.fn()\n+          .mockImplementationOnce(() => new Promise((resolve, reject) => { resolveRead = resolve; rejectRead = reject; }))\n+          .mockResolvedValue(response(verified));\n+        vi.stubGlobal('fetch', fetchMock);\n+        const { container } = render(createElement(RegisterFormClientPublic, props));\n+        await act(async () => { fireEvent.click(confirmButton(container)!); });\n+        expect(container.querySelector('#p0-register-status-title')).toBeTruthy();\n+        await act(async () => {\n+          if (lateResult === 'pending') resolveRead(response(pending));\n+          else rejectRead(new Error('fixture read unavailable'));\n+        });\n+        expect(container.querySelector('#p0-register-verify-title')).toBeNull();\n+        expect(container.querySelector('#p0-register-status-title')).toBeTruthy();\n+        expect(container.querySelector('button.p0-register-secondary')).toBeEnabled();\n+        expect(container.querySelector('dl')?.textContent).toContain('fixture-application');\n+        expect(fetchMock).toHaveBeenCalledTimes(2);\n+      });\n+    }\n+\n+    it(`${locale}: recovers the committed status after a lost verification response without another mutation`, async () => {\n+      let committed = false;\n+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {\n+        if (init?.method === 'POST') { committed = true; throw new Error('fixture response lost after commit'); }\n+        return response(committed ? verified : pending);\n+      });\n+      vi.stubGlobal('fetch', fetchMock);\n+      const { container } = render(createElement(RegisterFormClientPublic, props));\n+      await act(async () => { await Promise.resolve(); });\n+      await act(async () => { fireEvent.click(confirmButton(container)!); });\n+      expect(fetchMock).toHaveBeenCalledTimes(3);\n+      expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);\n+      expect(fetchMock.mock.calls[2][0]).toBe(`/api/auth/registration/status?token=${STATUS}`);\n+      expect(container.querySelector('#p0-register-verify-title')).toBeNull();\n+      expect(container.querySelector('#p0-register-status-title')).toBeTruthy();\n+      expect(container.querySelector('[role=\"alert\"]')).toBeNull();\n+    });\n+  }\n+});\n+\n describe('public registration verified continuation UX-14', () => {\n   for (const locale of ['ru', 'en', 'zh'] as const) {\n     it(`${locale}: drops the spent verify secret and preserves only a valid public selection`, () => {\ndiff --git a/.github/workflows/production-like-kubernetes-acceptance.yml b/.github/workflows/production-like-kubernetes-acceptance.yml\nindex 515cfd1333e26564f6b8d1e7e4b9e7b8f40664e6..9e14bfb522ee299c36fcc0f7883a794b5020d10e 100644\n--- a/.github/workflows/production-like-kubernetes-acceptance.yml\n+++ b/.github/workflows/production-like-kubernetes-acceptance.yml\n@@ -47,6 +47,7 @@\n       contents: read\n     env:\n       EXACT_BASE: ${{ github.event.pull_request.base.sha }}\n+      SOURCE_BUDGET_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}\n     steps:\n       - name: Checkout complete exact-head history\n         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262\n@@ -57,6 +58,258 @@\n       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020\n         with:\n           node-version: '24.8.0'\n+      - name: Test owned-ref source budget contract\n+        run: |\n+          python3 -I - <<'PY_SOURCE_BUDGET_TESTS'\n+          from pathlib import Path\n+          import tempfile, subprocess, os, json, hashlib, zipfile, unittest, sys\n+\n+          WORKFLOW = Path.cwd() / '.github/workflows/production-like-kubernetes-acceptance.yml'\n+          source = WORKFLOW.read_text()\n+          start = \"          python3 -I - <<'PY_SOURCE_PREFLIGHT'\\n\"\n+          end = \"          PY_SOURCE_PREFLIGHT\\n\"\n+          assert source.count(start) == 1 and source.count(end) == 1\n+          block = source.split(start, 1)[1].split(end, 1)[0]\n+          assert all(not line or line.startswith('          ') for line in block.splitlines())\n+          collector = '\\n'.join(line[10:] for line in block.splitlines()) + '\\n'\n+          GUARD = 'scripts/p7-autopilot-guard.sh'\n+          TEST = 'scripts/p7-autopilot-guard.test.mjs'\n+          FIXED = ['AGENTS.md', '.github/workflows/platform-v7-autopilot-guard.yml',\n+                   '.github/workflows/production-like-kubernetes-acceptance.yml', GUARD, TEST,\n+                   'scripts/p7-source-controlled-scope.mjs', 'docs/platform-v7/autopilot/autopilot-state.json',\n+                   'docs/platform-v7/autopilot/scopes/fixture.json']\n+\n+          # Execute the actual extracted collector with an instrumented subprocess\n+          # boundary. Synthetic timing does not represent native-suite acceptance.\n+          from unittest import mock\n+          import signal\n+          import time\n+\n+\n+          class SourceBudgetChecks(unittest.TestCase):\n+              def fixture(self, root, test_fail=False, guard_fail=False):\n+                      repo=root/'repo';repo.mkdir();out=root/'runner';out.mkdir()\n+                      def git(*args):\n+                          return subprocess.check_output(['git',*args],cwd=repo,stderr=subprocess.DEVNULL).decode().strip()\n+                      git('init','-b','main');git('config','user.email','fixture@example.invalid');git('config','user.name','fixture')\n+                      for name in FIXED:\n+                          p=repo/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('{}\\n')\n+                      (repo/GUARD).write_text('#!/bin/bash\\nexit '+str(1 if guard_fail else 0)+'\\n')\n+                      (repo/TEST).write_text(\"import test from 'node:test'; import assert from 'node:assert/strict';\\n\"\n+                           + \"test('source fixture', () => { assert.equal(1, \"+str(2 if test_fail else 1)+\"); });\\n\")\n+                      git('add','.');git('commit','-m','base');base=git('rev-parse','HEAD')\n+                      git('checkout','-b','ir/k8s-production-like-2659');(repo/'AGENTS.md').write_text('public candidate\\n')\n+                      git('add','.');git('commit','-m','candidate');head=git('rev-parse','HEAD')\n+                      env=dict(os.environ,EXACT_HEAD=head,EXACT_BASE=base,RUNNER_TEMP=str(out),GITHUB_RUN_ID='123',GITHUB_RUN_ATTEMPT='1',GITHUB_HEAD_REF='ir/k8s-production-like-2659')\n+                      return repo,out,env,git\n+\n+              def execute_collector(self, behavior='pass', head_ref='fix/public-registration-final-copy-4916',\n+                                    guard_seconds=300, head_repository='fixture/repository',\n+                                    repository='fixture/repository'):\n+                  with tempfile.TemporaryDirectory(prefix='source-budget-contract-') as temp:\n+                      directory = Path(temp)\n+                      repo, out, env, git = self.fixture(directory)\n+                      env.update(GITHUB_HEAD_REF=head_ref, GITHUB_REPOSITORY=repository,\n+                                 SOURCE_BUDGET_HEAD_REPOSITORY=head_repository)\n+                      namespace = {'__name__': 'source_budget_contract_probe'}\n+                      exec(compile(collector, str(WORKFLOW) + ':embedded-python', 'exec'), namespace)\n+                      original_run = subprocess.run\n+                      original_temporary_file = tempfile.TemporaryFile\n+                      calls, raw_files = [], []\n+                      group_proof = {}\n+\n+                      def temporary_file(*args, **kwargs):\n+                          value = original_temporary_file(*args, **kwargs)\n+                          raw_files.append(value)\n+                          return value\n+\n+                      def run_group_timeout(stdout):\n+                          # Scale only the test adapter's clock, after observing the\n+                          # unchanged production --kill-after=5s and selected budget.\n+                          # GNU timeout still signals an actual separate process group.\n+                          probe = directory / 'owned-process-group'\n+                          probe.mkdir()\n+                          child_source = r\"\"\"\n+          import json, os, signal, sys, time\n+          from pathlib import Path\n+          root = Path(sys.argv[1])\n+          def stopped(signum, frame):\n+              (root / 'child.term').write_text(str(signum))\n+              sys.exit(0)\n+          signal.signal(signal.SIGTERM, stopped)\n+          (root / 'child.json').write_text(json.dumps({'pid': os.getpid(), 'group': os.getpgrp()}))\n+          while True:\n+              time.sleep(0.01)\n+          \"\"\"\n+                          parent_source = r\"\"\"\n+          import json, os, signal, subprocess, sys, time\n+          from pathlib import Path\n+          root = Path(sys.argv[1])\n+          child = None\n+          def stopped(signum, frame):\n+              (root / 'parent.term').write_text(str(signum))\n+              if child is not None:\n+                  child.wait(timeout=1)\n+              sys.exit(0)\n+          signal.signal(signal.SIGTERM, stopped)\n+          child = subprocess.Popen([sys.executable, '-c', sys.argv[2], str(root)])\n+          (root / 'parent.json').write_text(json.dumps({'pid': os.getpid(), 'group': os.getpgrp()}))\n+          while True:\n+              time.sleep(0.01)\n+          \"\"\"\n+                          result = original_run(\n+                              ['timeout', '--kill-after=0.5s', '1s',\n+                               sys.executable, '-I', '-c', parent_source, str(probe), child_source],\n+                              stdout=stdout, stderr=subprocess.STDOUT, timeout=4,\n+                              start_new_session=True,\n+                          )\n+                          parent = json.loads((probe / 'parent.json').read_text())\n+                          child = json.loads((probe / 'child.json').read_text())\n+                          self.assertEqual(result.returncode, 124)\n+                          self.assertEqual(parent['group'], child['group'])\n+                          self.assertNotEqual(parent['group'], os.getpgrp())\n+                          self.assertEqual((probe / 'parent.term').read_text(), str(signal.SIGTERM))\n+                          self.assertEqual((probe / 'child.term').read_text(), str(signal.SIGTERM))\n+                          # The parent reaps the descendant; timeout reaps the parent.\n+                          for process in [parent, child]:\n+                              with self.assertRaises(ProcessLookupError):\n+                                  os.kill(process['pid'], 0)\n+                          group_proof.update(parent=parent, child=child, exit_code=result.returncode)\n+                          return result\n+\n+                      def run(command, *args, **kwargs):\n+                          if not isinstance(command, list) or not command or command[0] != 'timeout':\n+                              return original_run(command, *args, **kwargs)\n+                          calls.append({'command': command[:], 'outer_timeout': kwargs.get('timeout')})\n+                          self.assertEqual(command[1], '--kill-after=5s')\n+                          self.assertEqual(kwargs['stderr'], subprocess.STDOUT)\n+                          self.assertEqual(kwargs['env']['BASE_REF'], env['EXACT_BASE'])\n+                          self.assertEqual(kwargs['env']['HEAD_REF'], env['EXACT_HEAD'])\n+                          guard = command[3:] == ['node', '--test', '--test-reporter=tap', TEST]\n+                          branch = command[3:] == ['bash', GUARD]\n+                          self.assertTrue(guard or branch)\n+                          self.assertEqual(command[2], str(guard_seconds) + 's' if guard else '180s')\n+                          self.assertEqual(kwargs['timeout'], guard_seconds + 15 if guard else 195)\n+                          if guard and behavior == 'outer-timeout':\n+                              kwargs['stdout'].write(b'do-not-publish\\n')\n+                              raise subprocess.TimeoutExpired(command, kwargs['timeout'])\n+                          if guard and behavior == 'guard-timeout':\n+                              return run_group_timeout(kwargs['stdout'])\n+                          if branch and behavior == 'branch-timeout':\n+                              return subprocess.CompletedProcess(command, 124)\n+                          if guard:\n+                              kwargs['stdout'].write(\n+                                  b'TAP version 13\\n1..1\\n# tests 1\\n# pass 1\\n# fail 0\\n'\n+                                  b'# cancelled 0\\n# skipped 0\\n'\n+                              )\n+                          return subprocess.CompletedProcess(command, 0)\n+\n+                      previous_directory = Path.cwd()\n+                      try:\n+                          os.chdir(repo)\n+                          with mock.patch.dict(os.environ, env), \\\n+                               mock.patch.object(subprocess, 'run', run), \\\n+                               mock.patch.object(tempfile, 'TemporaryFile', temporary_file):\n+                              if behavior == 'outer-timeout':\n+                                  with self.assertRaises(subprocess.TimeoutExpired):\n+                                      namespace['main']()\n+                              elif behavior in ('guard-timeout', 'branch-timeout'):\n+                                  with self.assertRaisesRegex(ValueError, 'SOURCE_PREFLIGHT_REJECTED'):\n+                                      namespace['main']()\n+                              else:\n+                                  namespace['main']()\n+                      finally:\n+                          os.chdir(previous_directory)\n+                      self.assertTrue(raw_files)\n+                      self.assertTrue(all(value.closed for value in raw_files))\n+                      artifact = out / 'ir20-source-preflight'\n+                      report = json.loads((artifact / 'report.json').read_text())\n+                      self.assertFalse(report['independent_review'])\n+                      self.assertFalse(report['production_acceptance'])\n+                      self.assertNotIn('do-not-publish', json.dumps(report))\n+                      self.assertEqual(report['head'], env['EXACT_HEAD'])\n+                      self.assertEqual(report['base'], env['EXACT_BASE'])\n+                      archive_path = artifact / 'public-sources.zip'\n+                      self.assertEqual(hashlib.sha256(archive_path.read_bytes()).hexdigest(),\n+                                       report['source_zip_sha256'])\n+                      with zipfile.ZipFile(archive_path) as archive:\n+                          self.assertEqual(len(archive.namelist()), len(report['sources']))\n+                          for entry in report['sources']:\n+                              raw = archive.read(entry['ref'] + '/' + entry['path'])\n+                              self.assertEqual(hashlib.sha256(raw).hexdigest(), entry['sha256'])\n+                              self.assertEqual(hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\\0' + raw).hexdigest(),\n+                                               entry['blob'])\n+                      self.assertCountEqual([path.name for path in artifact.iterdir()],\n+                                            ['report.json', 'public-sources.zip'])\n+                      return report, calls, group_proof\n+\n+              def test_both_owned_refs_get_guard_300_outer_315(self):\n+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028']:\n+                      with self.subTest(ref=ref):\n+                          report, calls, _ = self.execute_collector(head_ref=ref)\n+                          self.assertEqual(report['result'], 'PASS')\n+                          self.assertEqual(report['stage'], 'complete')\n+                          self.assertEqual(len(calls), 2)\n+                          self.assertEqual([check['exit_code'] for check in report['checks']], [0, 0])\n+                          self.assertEqual(report['checks'][0]['tap_totals']['tests'], 1)\n+\n+              def test_other_and_empty_refs_keep_guard_180_outer_195(self):\n+                  for ref in ['ir/k8s-production-like-2659', '']:\n+                      with self.subTest(ref=ref):\n+                          report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=180)\n+                          self.assertEqual(report['result'], 'PASS')\n+                          self.assertEqual(calls[0]['outer_timeout'], 195)\n+\n+              def test_fork_name_collision_and_missing_identity_keep_original_budget(self):\n+                  for head_repo, repo in [('fork/repository', 'fixture/repository'), ('', '')]:\n+                      with self.subTest(head_repository=head_repo, repository=repo):\n+                          report, calls, _ = self.execute_collector(guard_seconds=180,\n+                              head_repository=head_repo, repository=repo)\n+                          self.assertEqual(report['result'], 'PASS')\n+                          self.assertEqual(calls[0]['outer_timeout'], 195)\n+\n+              def test_guard_timeout_124_kills_owned_group_and_keeps_scope_and_artifact(self):\n+                  report, calls, group = self.execute_collector('guard-timeout')\n+                  self.assertEqual(report['result'], 'FAIL')\n+                  self.assertEqual(len(calls), 2)\n+                  self.assertEqual(group['exit_code'], 124)\n+                  self.assertEqual([check['exit_code'] for check in report['checks']], [124, 0])\n+\n+              def test_branch_timeout_keeps_180_outer_195_and_cannot_pass(self):\n+                  report, calls, _ = self.execute_collector('branch-timeout')\n+                  self.assertEqual(report['result'], 'FAIL')\n+                  self.assertEqual(len(calls), 2)\n+                  self.assertEqual([check['exit_code'] for check in report['checks']], [0, 124])\n+\n+              def test_outer_guard_timeout_retains_failed_bound_artifact_and_closes_raw_file(self):\n+                  report, calls, _ = self.execute_collector('outer-timeout')\n+                  self.assertEqual(report['result'], 'FAIL')\n+                  self.assertEqual(report['stage'], 'guard-regressions')\n+                  self.assertEqual(len(calls), 1)\n+                  self.assertEqual(calls[0]['outer_timeout'], 315)\n+                  self.assertEqual(report['checks'], [])\n+\n+              def test_workflow_retains_job_bounds_and_always_artifact_step(self):\n+                  preflight = source.split('\\n  source-preflight:\\n', 1)[1].split(\n+                      '\\n  production-like-kubernetes:\\n', 1)[0]\n+                  runtime = source.split('\\n  production-like-kubernetes:\\n', 1)[1].split(\n+                      '\\n  production-like-kubernetes-gate:\\n', 1)[0]\n+                  self.assertIn('    timeout-minutes: 8\\n', preflight)\n+                  self.assertIn('    timeout-minutes: 300\\n', runtime)\n+                  self.assertIn(\"          node-version: '24.8.0'\\n\", preflight)\n+                  self.assertIn('      - name: Retain source-bound result without raw errors\\n'\n+                                '        if: always()\\n', preflight)\n+                  self.assertIn('          if-no-files-found: error\\n', preflight)\n+                  self.assertIn('      - name: Enforce machine-readable Kubernetes evidence\\n'\n+                                '        if: always()\\n', runtime)\n+                  self.assertIn('      - name: Enforce exact-head outbox runtime evidence\\n'\n+                                '        if: always()\\n', runtime)\n+                  self.assertIn('      - name: Cleanup disposable acceptance environment\\n'\n+                                '        if: always()\\n', runtime)\n+\n+\n+          unittest.main(verbosity=2)\n+          PY_SOURCE_BUDGET_TESTS\n       - name: Test source collector rejection paths\n         run: bash scripts/release/production-like-kubernetes-source-preflight-test.sh\n       - name: Bind public source bytes to bounded guard execution\n@@ -141,15 +394,24 @@\n                   report['source_zip_sha256'] = digest((out / 'public-sources.zip').read_bytes())\n                   save()\n                   env = dict(os.environ, BASE_REF=base, HEAD_REF=head)\n+                  owned_budget_refs = {\n+                      'fix/public-registration-final-copy-4916',\n+                      'fix/guard-fixture-compression-20261028',\n+                  }\n+                  own_repository = os.environ.get('GITHUB_REPOSITORY', '')\n+                  owned_budget = (os.environ.get('GITHUB_HEAD_REF', '') in owned_budget_refs and\n+                                  bool(own_repository) and\n+                                  os.environ.get('SOURCE_BUDGET_HEAD_REPOSITORY', '') == own_repository)\n                   commands = [('guard-regressions', ['node', '--test', '--test-reporter=tap', 'scripts/p7-autopilot-guard.test.mjs']),\n                               ('branch-scope', ['bash', 'scripts/p7-autopilot-guard.sh'])]\n                   for name, command in commands:\n+                      budget_seconds = 300 if name == 'guard-regressions' and owned_budget else 180\n                       report['stage'] = name\n                       save()\n                       # Raw test errors are private temporary bytes, not uploaded logs.\n                       with tempfile.TemporaryFile() as raw:\n-                          result = subprocess.run(['timeout', '--kill-after=5s', '180s', *command], env=env,\n-                                                  stdout=raw, stderr=subprocess.STDOUT, timeout=195)\n+                          result = subprocess.run(['timeout', '--kill-after=5s', f'{budget_seconds}s', *command], env=env,\n+                                                  stdout=raw, stderr=subprocess.STDOUT, timeout=budget_seconds + 15)\n                           raw.seek(0)\n                           output_hash, length, prefix = hashlib.sha256(), 0, b''\n                           while chunk := raw.read(65536):\n",
+  "sourcePatchSha256": "89f42fcba3153b9711d2ad36ec52865b3b3df253fb2787276ef9383059b3769c",
+  "sourcePatchBytes": 35485,
+  "budgetContract": {
+    "eligibleHeadRefs": [
+      "fix/public-registration-final-copy-4916",
+      "fix/guard-fixture-compression-20261028"
+    ],
+    "repositoryIdentity": "Nonempty GITHUB_REPOSITORY must equal SOURCE_BUDGET_HEAD_REPOSITORY supplied directly from github.event.pull_request.head.repo.full_name; fork same-name and missing identity retain old bounds.",
+    "guardRegressionsEligible": {
+      "gnuSeconds": 300,
+      "pythonOuterSeconds": 315
+    },
+    "guardRegressionsAllOtherEmptyForkMissingIdentity": {
+      "gnuSeconds": 180,
+      "pythonOuterSeconds": 195
+    },
+    "branchScopeEveryRef": {
+      "gnuSeconds": 180,
+      "pythonOuterSeconds": 195
+    },
+    "killAfterSeconds": 5,
+    "sourceJobMinutes": 8,
+    "runtimeJobMinutes": 300,
+    "unfilteredGuardCases": 1074,
+    "originalCollectorSchemaCases": 25,
+    "newEmbeddedBudgetMethods": 7,
+    "nodePin": "24.8.0"
+  },
+  "preservedSemantics": [
+    "Exactly four regular100644 source leaves: original registration d2d342ca982e92808c509fa87413e553128a9b5d,bbdcfdf30c631804711334b3aad6081a0c0b09d4,e3b0fd6e0bb4bc615d4d6b1a1dc5fb1cd9adae69 plus the unchanged independently reviewed workflow9e14. UI afters are byte-identical to original2fc/6156; no source scope granted by candidate state.",
+    "All1074 guard cases/assertions, actual whole-suite command, guard/resolver/test source, all25 existing collector/schema cases and their original workflow step remain byte-identical. No filter, shard, skip, reduced assertion or cached result.",
+    "The new standard-library harness extracts and executes the actual proposed embedded collector; it does not duplicate the selector as the implementation under test. It observes300/315 only for both exact same-repository own refs,180/195 for other/empty/fork/missing identity, and branch180/195 in every case.",
+    "A shortened real GNUtimeout fixture proves124, TERM of the separate parent/descendant group and reaping. Synthetic outer315 TimeoutExpired preserves fail-closed report/ZIP and closes raw temporary files. This is not a real300-second wait, general production cleanup proof or hosted upload execution.",
+    "Keep full-history/exact-head/base binding, every source mode/blob/SHA256/UTF8/dirty/symlink check, named3MiB/ordinary2MiB/combined32MiB/5000paths, full ZIP/provenance, private raw errors and fail-closed results unchanged.",
+    "Keep Kubernetes/deep-outbox/storage/evidence/upload/disposable cleanup/blocking and optional review jobs unchanged. The source8min/runtime300min, kill5, other-owner budgets and all bank/FGIS/REG.RU boundaries remain.",
+    "The four-leaf combination is the same functional registration step plus its necessary bounded CI prerequisite, not unrelated source batching. It reduces separate source cycles without waiving or transferring a single current-head native gate."
+  ],
+  "freshNativeFailure": {
+    "registrationPr": 5957,
+    "head": "6156e3602a78f2a678cadcec7d3d129a9bfdd618",
+    "base": "deaa1d51232dfb8389e23d88eba6826d43f9dfc2",
+    "run": 40829267853,
+    "attempt": 1,
+    "sourceJob": 123299446892,
+    "artifact": 12878346059,
+    "artifactBytes": 3807611,
+    "artifactSha256": "443698ff3170850e619e2330c49e48c342ff6f7fbc38e1059c40e7ce91aa8bd7",
+    "sourceZipSha256": "0c32e5cf836174175c9b28eeb03e4842c8fdbb3ab2ed316ba53baa5df2738f3f",
+    "sourceVerificationReviewer": "/root/fixture_mode_fix",
+    "sourceVerificationReportSha256": "76498b9d7c6261598cdaf21dd620246073ec9faa80f753067492b13a3687a2ec",
+    "verifiedSourceEntries": 1346,
+    "sourceEntriesByRef": {
+      "base": 673,
+      "head": 673
+    },
+    "allBytesSizesSha256GitBlobsModesAndRefsVerified": true,
+    "node": "v24.8.0",
+    "guardExitCode": 124,
+    "guardBoundSeconds": 180,
+    "guardOutputBytes": 15,
+    "tapTotals": {},
+    "branchScopeExitCode": 0,
+    "status": "Actual fresh changed-head180FAIL, not an unchanged-head retry. Registration source remains unaccepted; runtime/browser success cannot waive this failure."
+  },
+  "standardSuiteContext": {
+    "sameRegistrationHead": {
+      "run": 40829267732,
+      "job": 123299446121,
+      "tests": 1195,
+      "pass": 1195,
+      "durationMs": 215509.3312
+    },
+    "acceptedSourcePrerequisite": {
+      "pr": 5965,
+      "head": "bfcc3aed1cfcb54b206acddaf86e3f6cc72609d5",
+      "run": 40827712853,
+      "job": 123294470362,
+      "tests": 1195,
+      "pass": 1195,
+      "durationMs": 225330.365336
+    },
+    "limitation": "These genuine standard correctness runs are longer than180seconds and support considering bounded capacity; they do not prove hosted300,1074source-preflight,wholeK8 or registration acceptance."
+  },
+  "preservedPrivateHistory": {
+    "globalTwoFileV1": {
+      "status": "Historical inert proposal only; not accepted, never published by this author.",
+      "exactSourcePaths": [
+        ".github/workflows/production-like-kubernetes-acceptance.yml",
+        "scripts/release/production-like-kubernetes-source-preflight-test.sh"
+      ],
+      "stateAfterHypothetical": 3145746,
+      "overCapBytes": 18,
+      "disposition": "Historical global two-file18B-overflow packet remains preserved; workflow component now joins the three unchanged registration afters under this new separately admitted atomic purpose."
+    },
+    "runtimeGuardV1AndV2": "Preserve all existing E2BIG/four-ancestry failure and corrected600cc/96e review/full-suite/native source records; completed guard/test source stays byte-identical.",
+    "workflowOnlyFiveDocumentAlternative": {
+      "privateHead": "8366b73fbab5a7f7949afae2db52fe8556cd765b",
+      "tree": "7f7118f11fd4ab98595a8ced588ec8e6906663fb",
+      "status": "Preserved private alternative only; never published or accepted. Its one-workflow-only future vector/pipeline is not the selected next source route."
+    }
+  },
+  "residualBudgetRisk": {
+    "eligibleCombinedOuterSeconds": 510,
+    "unchangedSourceJobSeconds": 480,
+    "eligibleCombinedGnuPlusKillSeconds": 490,
+    "checkoutSetupBindingNewTestsUploadAdditional": true,
+    "limitation": "Two long/hanging commands can hit the unchanged8-minute job ceiling before report/upload. always() is preserved configuration, not a guarantee after job cancellation. Cancellation stays failure; no hosted upload or native300 success is promised.",
+    "optional8to10SourceJobChange": "NOT INCLUDED OR AUTHORIZED by this exact purpose/payload; would require a different exact source, review and separate decision.",
+    "allOtherRefsCombinedOuterSeconds": 390
+  },
+  "metadataLimits": [
+    "Exactly the five existing primary metadata documents. State changes only the two named future own vectors, with full raw-byte inverse and semantic undo equal; all original five registration paths/order and other owners retained. Progress only appends currentTaskExecution text; queue/prompts only append.",
+    "No dispatcher write or primary11/current/nextStep/official5/scores/other-owner/old-record rewrite. No source leaf changes in metadata, no new namespace/alias/glob, no capacity increase or dependency addition.",
+    "This new purpose supersedes no other owner budget, source permission or gate. It grants no host invocation, deployment, restored startup, secret/key/account/MFA/role/API/DB/provider/FGIS/legal authority or production acceptance."
+  ],
+  "requiredAcceptance": [
+    "FIRST: genuine independent complete exact-head five-document metadata review, separate implementation-owner audit, all applicable substantive native/security checks, fresh actual canonical READY and ordinary full-expected-SHA manual merge on the retained metadata ref. No candidate state may admit itself.",
+    "THEN ONE ATOMIC SOURCE STEP: on then-current accepted main, recheck every four-file before mode/blob/SHA and replay the full35485-byte patch. If any before changed, stop and recompose/review the purpose. Recompose only retained PR5957/ref fix/public-registration-final-copy-4916, preserve6156/original source ancestry and authors, and add only the pinned CORE workflow leaf with expected-old forcefalse. Do not publish a separate workflow-only source PR.",
+    "The complete new four-file head needs its own genuine whole-source independent review, separate owner audit, all actual applicable native/security/readiness checks and manual full-expected-SHA acceptance. Guard300/outer315 is available only on the two exact same-repository ROOT names through this separately admitted workflow; all other refs and every branch-scope remain180/195.",
+    "Require genuinely fresh actual atomic-head full1074 guard/source300, branch-scope180, full Kubernetes/deep-outbox/storage/cleanup/browser and every other applicable gate. Historical6156 runtime/browser success or standard1195 correctness cannot transfer to the new head. No unchanged-head retry, red merge, skipped test or weaker assertion.",
+    "REG.RU exact OCI/running/persisted revision, Caddy/live acceptance and real authorized registration/role journeys remain separate later operations after source acceptance. No bank/FGIS integration, whole-block or MASTER credit from metadata or CI capacity."
+  ],
+  "status": "NEW_ATOMIC_METADATA_PREPARATION_NOT_SOURCE_OR_NATIVE_ACCEPTANCE",
+  "sourcePublicationAuthorizedBeforeMetadataAcceptance": false,
+  "productionInvocationAuthorized": false,
+  "productionAcceptance": false,
+  "masterCredit": 0,
+  "retainedSourcePr": 5957,
+  "sourcePaths": [
+    "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
+    "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+    "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
+    ".github/workflows/production-like-kubernetes-acceptance.yml"
+  ],
+  "sourcePayloads": [
+    {
+      "path": "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
+      "mode": "100644",
+      "beforeBlob": "53e1c0f8d0480ea9a94d036578a46312e95bea42",
+      "beforeSha256": "439b9df9f9f850e7824cd322ae18181992b07615090d2e321e468e9905706046",
+      "beforeBytes": 47557,
+      "afterBlob": "d2d342ca982e92808c509fa87413e553128a9b5d",
+      "afterSha256": "5258f27531b1b76edde1db8b521736e274f464535cc075c62f984bf9fbc61b7d",
+      "afterBytes": 48161,
+      "originalRegistration6156AfterUnchanged": true
+    },
+    {
+      "path": "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+      "mode": "100644",
+      "beforeBlob": "2b28a3ff2f308c73f5e97f5ced69b1a904544ab4",
+      "beforeSha256": "d3c9cc65a87a0cff4a6193581efd0a00dbd2eae488722abdc806daeb10975aca",
+      "beforeBytes": 32228,
+      "afterBlob": "bbdcfdf30c631804711334b3aad6081a0c0b09d4",
+      "afterSha256": "16a02d96c09a5cb4fd413ee71043c8623c1ff212c91f1607dbafad11c9d23b0e",
+      "afterBytes": 32850,
+      "originalRegistration6156AfterUnchanged": true
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
+      "mode": "100644",
+      "beforeBlob": "ebf75d816a2e1806831464ec031a96f145feac2e",
+      "beforeSha256": "b3c03849d048e5c64fa31be62e729925e03b8bbdfbd401ba8c85041f68bf3b58",
+      "beforeBytes": 54005,
+      "afterBlob": "e3b0fd6e0bb4bc615d4d6b1a1dc5fb1cd9adae69",
+      "afterSha256": "115dd9cb3d74d33635fbd49714cc099891681f6ec01248c5f625bc4dc618d071",
+      "afterBytes": 61767,
+      "originalRegistration6156AfterUnchanged": true
+    },
+    {
+      "path": ".github/workflows/production-like-kubernetes-acceptance.yml",
+      "mode": "100644",
+      "beforeBlob": "515cfd1333e26564f6b8d1e7e4b9e7b8f40664e6",
+      "beforeSha256": "cd82d4cc827ebfddf255b47bb1fdf768eeeef642556fbd4200e9cd3beda169dc",
+      "beforeBytes": 17312,
+      "afterBlob": "9e14bfb522ee299c36fcc0f7883a794b5020d10e",
+      "afterSha256": "56e03b0455c6d21e7019724c92029716194aa94b7da919b0083c45ff87fa8ed6",
+      "afterBytes": 34463,
+      "originalRegistration6156AfterUnchanged": false
+    }
+  ],
+  "sourceContributors": {
+    "registration": "Retain the original registration authors, original2fc/6156 three afters and existing5957 source ancestry. No new UI rewrite or transfer of PRODUCT, bank or FGIS ownership.",
+    "workflow": "ACCOUNT_1_CORE/root contributes only the pinned workflow leaf and coordinates this necessary CI-capacity prerequisite on the existing registration ref.",
+    "serialization": "Only the retained registration source ref is the next publishing route; no separate workflow source PR or competing owner/ref is authorized by this record."
+  },
+  "futureScopeTransitions": [
+    {
+      "branch": "fix/guard-fixture-compression-20261028",
+      "before": [
+        "scripts/p7-autopilot-guard.test.mjs",
+        "scripts/p7-autopilot-guard.sh"
+      ],
+      "after": [],
+      "purpose": "Retire only completed future fixture source permissions; retain the key, all completed600cc/96e source bytes and historical purpose/failure/review evidence."
+    },
+    {
+      "branch": "fix/public-registration-final-copy-4916",
+      "before": [
+        "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
+        "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+        "apps/web/app/platform-v7/register/page.tsx",
+        "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
+        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts"
+      ],
+      "after": [
+        "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
+        "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+        "apps/web/app/platform-v7/register/page.tsx",
+        "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
+        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+        ".github/workflows/production-like-kubernetes-acceptance.yml"
+      ],
+      "purpose": "Retain all five original registration paths and order, append only the one exact CORE workflow path for the next atomic registration step."
+    }
+  ],
+  "registryCapacity": {
+    "beforeBytes": 3145684,
+    "fixtureRetirementBytes": -69,
+    "registrationAppendBytes": 62,
+    "deltaBytes": -7,
+    "afterBytes": 3145677,
+    "capBytes": 3145728,
+    "remainingBytes": 51
+  },
+  "workflowComponentPatch": {
+    "bytes": 19702,
+    "sha256": "b1631f67c6c6ce2880d7e624055e113834103ab4cd8708991de2469d65b48739",
+    "afterBlob": "9e14bfb522ee299c36fcc0f7883a794b5020d10e",
+    "afterSha256": "56e03b0455c6d21e7019724c92029716194aa94b7da919b0083c45ff87fa8ed6"
+  },
+  "privateIndependentWorkflowComponentReview": {
+    "reviewer": "/root/ci_evidence",
+    "independentOfImplementationAuthor": true,
+    "type": "Genuine complete frozen one-workflow private source review, exact patch replay and independent actual-YAML7/original25 executions; not metadata admission or native/human approval",
+    "reportSha256": "4af573e9e8002f89c8e987ec2a4d86fe942ef047251dfc58f0f5d65323a2691b",
+    "verdict": "PRIVATE_EXACT_ONE_WORKFLOW_CLEAN_WITHIN_REVIEWED_SCOPE_NOT_ADMITTED",
+    "findings": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0
+    },
+    "actualExecutions": [
+      {
+        "label": "embedded",
+        "node": "v24.8.0",
+        "exitCode": 0,
+        "pass": 7,
+        "fail": 0,
+        "durationSeconds": 3.5159546380018583,
+        "logSha256": "0fcb0fbe7f60785f65363a8909525fc4d7eb0f198732c4582903e238da95f8af"
+      },
+      {
+        "label": "original",
+        "node": "v24.8.0",
+        "exitCode": 0,
+        "pass": 25,
+        "fail": 0,
+        "durationSeconds": 8.903114985005232,
+        "logSha256": "fcbd0cf28a80a3d0db0cd64c74a1f6d2de74a0996e199aaa9064459f51bee8a8"
+      }
+    ],
+    "notMetadataOrNativeOrHumanApproval": true,
+    "notAtomicWholeSourceOrMetadataReview": true
+  },
+  "atomicWholeSourceReview": "The private4af573 review covers only the unchanged workflow component, not this complete four-file atomic source or these new five metadata documents. Both require their own actual independent exact-head reviews and separate owner audits before acceptance.",
+  "mechanicalScopeEvidence": {
+    "type": "Inert private Git-object commits only; no public refs or project source file changes. Unchanged accepted trusted guard600cc executed with official Node24.8.0.",
+    "reportSha256": "601cc40f278b20d9cb3bedee6f562928b9c0f443d543ec51b90b3eb7801d934d",
+    "trustedSixPathBaseExactFourAftersExit": 0,
+    "oldFivePathBaseExactFourAftersExit": 1,
+    "candidateOnlyScopeSelfGrantExit": 1,
+    "extraUnscopedSourceExit": 1,
+    "limits": "Positive scope is not source/native acceptance or proof of exact byte/mode pins; independent whole-tree four-leaf/mode/blob/SHA checks remain mandatory.",
+    "guardAndWorkflowsUnchanged": "Existing trusted-base and PR-head4916 routes resolve accepted-base state, with no hardcoded five-count. Existing old3750 checker applies only to its historical branch. No guard or routing workflow was changed for this proof."
+  },
+  "retiredVectorConsumerEvidence": {
+    "reportSha256": "3f385ed48c17e668ebbde668e4dbc1304e1251b534a19f4b078d1b28d42a9439",
+    "scopeGovernanceConsumer": "Actual verifier PASS; does not read state concurrent map; manifest minItems is not a global state-vector rule.",
+    "registryConsumer": "Actual PC-CROP-10A normal metadata verifier PASS/NOT_ATTESTED; its branch-selected --scope-guard is not active for this metadata ref.",
+    "dispatcherPureFunction": "Actual isolated coordinationAdmissionBlockers function returns identical13 blockers; no retired-ref coordination record. Dispatcher main was not executed.",
+    "globalEmptyProhibitionFound": false
+  },
+  "sourcePatchReplayEvidence": {
+    "reportSha256": "ed5d9eb8711f33cad487af2a376c2b391f62aa02c760b88c4e920b4c45cc550d",
+    "fourModeAndAfterPinsReplayed": true,
+    "fullBeforeBytesRestoredByReverse": true
+  }
+}
+```
