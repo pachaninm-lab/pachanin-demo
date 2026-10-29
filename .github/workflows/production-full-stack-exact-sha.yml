@@ -7,6 +7,11 @@ on:
         description: 'Set only by the owner-authorized production release controller.'
         required: true
         type: boolean
+      owner_audit_authorized:
+        description: 'Audit-only owner controller; grants no release or repair authority.'
+        required: false
+        default: false
+        type: boolean
       target_sha:
         description: 'Immutable release candidate captured by the owner controller.'
         required: false
@@ -80,12 +85,37 @@ jobs:
     name: Validate full-stack release contract
     if: >-
       inputs.owner_release_authorized == true ||
+      inputs.owner_audit_authorized == true ||
       github.event_name == 'pull_request' ||
       github.event_name == 'push'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify immutable contract source before executing source tests
+        shell: bash
+        env:
+          EXPECTED_SOURCE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EVENT_SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          case "$GITHUB_EVENT_NAME" in
+            pull_request)
+              [[ "$PR_HEAD_SHA" =~ ^[0-9a-f]{40}$ && "$EXPECTED_SOURCE_SHA" == "$PR_HEAD_SHA" ]]
+              ;;
+            push|issue_comment)
+              [[ "$EVENT_SOURCE_SHA" =~ ^[0-9a-f]{40}$ && "$EXPECTED_SOURCE_SHA" == "$EVENT_SOURCE_SHA" ]]
+              ;;
+            *) exit 1 ;;
+          esac
+          actual_source_sha="$(git rev-parse HEAD)"
+          [[ "$actual_source_sha" =~ ^[0-9a-f]{40}$ && "$actual_source_sha" == "$EXPECTED_SOURCE_SHA" ]]
+          printf 'CONTRACT_EXACT_SOURCE_SHA=%s event=%s\n' "$actual_source_sha" "$GITHUB_EVENT_NAME"
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -110,6 +140,29 @@ jobs:
           [[ "$COMMAND" == '/production release current-main' ]]
           [[ "$GITHUB_ACTOR" == "$REPOSITORY_OWNER" ]]
           [[ "$GITHUB_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]]
+      - name: Reject every non-controller audit authority
+        if: inputs.owner_audit_authorized == true
+        shell: bash
+        env:
+          AUDIT_AUTHORIZED: ${{ inputs.owner_audit_authorized }}
+          RELEASE_AUTHORIZED: ${{ inputs.owner_release_authorized }}
+          TARGET_SHA: ${{ inputs.target_sha }}
+          EVENT_SHA: ${{ github.sha }}
+          CONTROLLER_ISSUE_NUMBER: ${{ inputs.controller_issue_number }}
+          EVENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ASSOCIATION: ${{ github.event.comment.author_association }}
+          COMMAND: ${{ github.event.comment.body }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          [[ "$AUDIT_AUTHORIZED" == true && "$RELEASE_AUTHORIZED" == false ]]
+          [[ "$GITHUB_EVENT_NAME" == issue_comment ]]
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ && "$TARGET_SHA" == "$EVENT_SHA" ]]
+          [[ "$CONTROLLER_ISSUE_NUMBER" == 4637 && "$EVENT_ISSUE_NUMBER" == 4637 ]]
+          [[ "$COMMENTER" == "$REPOSITORY_OWNER" && "$ASSOCIATION" == OWNER ]]
+          [[ "$GITHUB_ACTOR" == "$REPOSITORY_OWNER" && "$GITHUB_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]]
+          [[ "$COMMAND" == '/production migration-authority-audit current-main' ]]
       - run: node scripts/check-production-full-stack-release.mjs
       - name: Exercise release target isolation
         run: python3 -B scripts/test-production-release-target-isolation.py
@@ -712,3 +765,238 @@ jobs:
           if-no-files-found: error
           retention-days: 90
           compression-level: 0
+
+  audit:
+    name: Read-only migration authority audit (HOLD is not release eligibility)
+    needs: contract
+    if: >-
+      inputs.owner_audit_authorized == true && inputs.owner_release_authorized == false &&
+      github.event_name == 'issue_comment' &&
+      inputs.controller_issue_number == 4637 && github.event.issue.number == 4637 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner && github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production migration-authority-audit current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    concurrency:
+      group: pc-crop-production-release-candidate
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.target_sha }}
+          fetch-depth: 0
+      - name: Reject moved or substituted audit source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ inputs.target_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ && "$TARGET_SHA" == "$GITHUB_SHA" && "$TARGET_SHA" == "$current_main" ]]
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse --is-shallow-repository)" == false ]]
+      - name: Require accepted audit-only source admission before SSH
+        shell: bash
+        run: |
+          python3 -I - <<'PY_AUDIT_ADMISSION'
+          import hashlib, json, subprocess
+          from pathlib import Path
+          paths = ['.github/workflows/platform-v7-safe-merge.yml',
+                   '.github/workflows/production-full-stack-exact-sha.yml',
+                   'scripts/production-full-stack-exact-sha.sh',
+                   'scripts/check-production-full-stack-release.mjs',
+                   'scripts/test-production-release-target-isolation.py']
+          state = json.loads(Path('docs/platform-v7/autopilot/autopilot-state.json').read_text())
+          admission = state.get('coordinationAdmissions', {}).get('migration-authority-audit-20261029')
+          assert isinstance(admission, dict)
+          assert admission.get('owner') == 'ACCOUNT_1_CORE'
+          assert admission.get('sourceBranch') == 'ops/production-migration-authority-repair-20261029'
+          assert admission.get('readOnly') is True
+          assert admission.get('materializationAuthorized') is False
+          assert admission.get('productionMutationAuthorized') is False
+          pins = admission.get('sourcePins')
+          assert isinstance(pins, list) and len(pins) == len(paths)
+          assert sorted(row['path'] for row in pins) == sorted(paths)
+          for row in pins:
+              path = row['path']
+              data = Path(path).read_bytes()
+              assert not Path(path).is_symlink()
+              mode, kind, blob, actual = subprocess.check_output(
+                  ['git', 'ls-tree', 'HEAD', '--', path], text=True).strip().split()
+              assert actual == path and kind == 'blob' and mode in ('100644', '100755')
+              assert row.get('mode') == mode and row.get('afterBlob') == blob
+              assert row.get('sha256') == hashlib.sha256(data).hexdigest()
+          PY_AUDIT_ADMISSION
+      - name: Resolve protected key and pinned VPS identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'Canonical VPS mismatch.' >&2; exit 10; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo 'Protected production principal is missing or invalid.' >&2; exit 11; }
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo 'Pinned host fingerprint is required.' >&2; exit 13; }
+          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
+          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" fingerprint
+            tr -d '\r' 2>/dev/null < "$source" > "$target" || return 1
+            chmod 600 "$target" 2>/dev/null || return 1
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            fingerprint="$(
+              ssh-keygen -y -P '' -f "$target" </dev/null 2>/dev/null |
+                ssh-keygen -lf /dev/stdin -E sha256 2>/dev/null |
+                awk '{print $2}'
+            )" || return 1
+            [[ "$fingerprint" =~ ^SHA256:[A-Za-z0-9+/]{43}$ ]] || return 1
+            printf '%s\n' "$fingerprint" 2>/dev/null > "$EVIDENCE_DIR/ssh-key-fingerprint.txt" || return 1
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || {
+            printf '%s\n' no-valid-protected-private-key > "$EVIDENCE_DIR/ssh-credential-status.txt"
+            echo 'No valid protected SSH private key is configured.' >&2
+            exit 14
+          }
+          printf '%s\n' valid-private-key > "$EVIDENCE_DIR/ssh-credential-status.txt"
+
+          scan="$(mktemp)"; match="$(mktemp)"
+          pinned_ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"
+            : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then
+                pinned_ready=1
+                break
+              fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; echo 'Pinned host key mismatch after bounded retries.' >&2; exit 15; }
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; command -v gzip >/dev/null; echo SSH_AUTH_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Stream pinned audit executor without installing production assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          TARGET_SHA: ${{ inputs.target_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          raw="$(mktemp)"
+          trap 'rm -f -- "$raw" "$HOME/.ssh/id_pc_prod"' EXIT
+          printf '%s\n' AUDIT_NOT_OBSERVED > "$EVIDENCE_DIR/audit-status.txt"
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$TARGET_SHA" == "$current_main" && "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          git diff --exit-code HEAD -- .github/workflows/platform-v7-safe-merge.yml .github/workflows/production-full-stack-exact-sha.yml scripts/production-full-stack-exact-sha.sh scripts/check-production-full-stack-release.mjs scripts/test-production-release-target-isolation.py >/dev/null
+          dir_b64="$(printf '%s' "$PROD_DIR_SECRET" | base64 -w0)"
+          compose_b64="$(printf '%s' "$PROD_COMPOSE_SECRET" | base64 -w0)"
+          project_b64="$(printf '%s' "$PROD_PROJECT_SECRET" | base64 -w0)"
+          backup_b64="$(printf '%s' "$BACKUP_EVIDENCE_FILE_SECRET" | base64 -w0)"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" \
+            "PC_PROD_DIR_B64='$dir_b64' PC_PROD_COMPOSE_B64='$compose_b64' PC_PROD_PROJECT_B64='$project_b64' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$backup_b64' timeout --kill-after=5s 180s bash -s -- audit '$TARGET_SHA' '$GITHUB_RUN_ID'" \
+            < scripts/production-full-stack-exact-sha.sh > "$raw" 2>/dev/null
+          ssh_rc=$?
+          set -e
+          (( ssh_rc == 0 )) || { echo AUDIT_TRANSPORT_UNKNOWN >&2; exit 1; }
+          python3 -I - "$raw" "$EVIDENCE_DIR/audit.json" <<'PY_AUDIT_RESPONSE'
+          import json, os, re, sys
+          from pathlib import Path
+          try:
+              raw = Path(sys.argv[1]).read_bytes()
+              assert len(raw) <= 16384
+              report = json.loads(raw.decode('utf-8'))
+              assert isinstance(report, dict) and sorted(report) == sorted(['schema', 'configuration_basis', 'environment_authority', 'source_sha', 'run_id', 'observed_at', 'observation', 'result', 'compose', 'migration', 'migration_database', 'migration_principal', 'migration_credential_reference', 'runtime_api_revision', 'runtime_web_revision', 'runtime_api_health', 'runtime_web_health', 'backup_metadata', 'backup_integrity', 'capacity', 'docker_available_kib', 'docker_available_inodes', 'temporary_available_kib', 'observed_volume_count', 'reserve19_authority', 'observed_volume_set_sha256', 'model_sha256', 'input_stability', 'private_cleanup', 'production_mutation', 'release_eligibility', 'reject_reason'])
+              assert report['schema'] == 'pc.migration-authority-audit.v2'
+              assert report['source_sha'] == os.environ['TARGET_SHA']
+              assert report['run_id'] == os.environ['GITHUB_RUN_ID']
+              assert isinstance(report['observed_at'], str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z', report['observed_at'])
+              exact = {'configuration_basis': 'SEALED_FILES_NO_ENV_RESOLUTION',
+                       'environment_authority': 'NOT_OBSERVED', 'result': 'HOLD', 'migration_principal': 'NOT_PROVEN',
+                       'backup_integrity': 'NOT_PROVEN', 'reserve19_authority': 'NOT_PROVEN',
+                       'private_cleanup': 'COMPLETE', 'production_mutation': 'NONE',
+                       'release_eligibility': 'NOT_GRANTED'}
+              assert all(report[k] == v for k, v in exact.items())
+              enums = {'observation': {'COMPLETE', 'INCOMPLETE'}, 'compose': {'MATCH', 'NOT_PROVEN'},
+                       'migration': {'MISSING', 'ONE', 'AMBIGUOUS', 'NOT_PROVEN'},
+                       'migration_database': {'CONFIG_PARITY', 'CONFIG_MISMATCH', 'NOT_PROVEN'},
+                       'migration_credential_reference': {'CONFIG_PRESENT', 'NOT_PROVEN'},
+                       'runtime_api_health': {'HEALTHY', 'RUNNING', 'UNHEALTHY', 'NOT_PROVEN'},
+                       'runtime_web_health': {'HEALTHY', 'RUNNING', 'UNHEALTHY', 'NOT_PROVEN'},
+                       'backup_metadata': {'PRESENT_PRIVATE', 'NOT_PROVEN'},
+                       'capacity': {'MEASURED', 'NOT_PROVEN'},
+                       'input_stability': {'UNCHANGED', 'CHANGED', 'NOT_PROVEN'},
+                       'reject_reason': {'NONE', 'READ_FAILED', 'SELECTOR_INVALID', 'COMPOSE_INPUT_INVALID',
+                                         'PROJECT_AMBIGUOUS', 'PROJECT_MISMATCH', 'RUNTIME_INVALID',
+                                         'RUNTIME_AMBIGUOUS', 'INPUTS_CHANGED'}}
+              assert all(report[k] in v for k, v in enums.items())
+              for key in ['docker_available_kib', 'docker_available_inodes', 'temporary_available_kib', 'observed_volume_count']:
+                  assert type(report[key]) is int and 0 <= report[key] <= 2**63 - 1
+              for key in ['model_sha256', 'observed_volume_set_sha256']:
+                  assert report[key] == 'NOT_PROVEN' or re.fullmatch('[a-f0-9]{64}', report[key])
+              for key in ['runtime_api_revision', 'runtime_web_revision']:
+                  assert report[key] == 'NOT_PROVEN' or re.fullmatch('[a-f0-9]{40}', report[key])
+              Path(sys.argv[2]).write_text(json.dumps(report, sort_keys=True, indent=2) + '\n')
+              if report['observation'] != 'COMPLETE':
+                  raise SystemExit(1)
+          except Exception:
+              print('AUDIT_RESPONSE_INVALID', file=sys.stderr)
+              raise SystemExit(1)
+          PY_AUDIT_RESPONSE
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$TARGET_SHA" == "$current_main" && "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          printf '%s\n' READ_ONLY_AUDIT_COMPLETE_HOLD > "$EVIDENCE_DIR/audit-status.txt"
+          printf '%s\n' "$TARGET_SHA" > "$EVIDENCE_DIR/audit-target-sha.txt"
+      - name: Cleanup audit transport credentials
+        if: always()
+        shell: bash
+        run: rm -f -- "$HOME/.ssh/id_pc_prod"
+      - name: Retain sanitized audit result only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: migration-authority-audit-${{ inputs.target_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.EVIDENCE_DIR }}/audit.json
+            ${{ env.EVIDENCE_DIR }}/audit-status.txt
+            ${{ env.EVIDENCE_DIR }}/audit-target-sha.txt
+          if-no-files-found: error
+          retention-days: 7
