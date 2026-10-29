@@ -5,6 +5,9 @@ import { StaffAccessRepository, StaffSessionActivationRetryExhaustedError } from
 // normal CI executes them; focused runs should select this aggregate only.
 import '../../../test/staff-access/staff-session-activation.service.spec';
 import '../../../test/staff-access/staff-session-lifecycle.service.spec';
+import '../../../test/staff-access/founder-role-mode.service.spec';
+import '../../../test/staff-access/staff-access-request.service.spec';
+import '../../../test/staff-access/staff-access-request-projection.spec';
 
 function sqlText(query: unknown): string {
   return (query as { strings?: readonly string[] }).strings?.join('?') || String(query);
@@ -191,5 +194,54 @@ describe('StaffAccessRepository actor session activation', () => {
     transaction.mockReset().mockRejectedValue(Object.assign(new Error('conflict'), { code: 'P2034' }));
     await expect(repository.transaction(jest.fn())).rejects.toMatchObject({ code: 'P2034' });
     expect(transaction).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe('StaffAccessRepository durable create identity', () => {
+  it('looks up exact event and request grant keys without a latest-N heuristic', async () => {
+    const queryRaw = jest.fn().mockResolvedValue([]);
+    const repository = new StaffAccessRepository({} as never);
+    await repository.getCreateEvent({ $queryRaw: queryRaw } as never, "event' OR TRUE --");
+    await repository.getGrantForRequest({ $queryRaw: queryRaw } as never, 'sar-exact');
+    const event = queryRaw.mock.calls[0][0] as Prisma.Sql; const grant = queryRaw.mock.calls[1][0] as Prisma.Sql;
+    expect(event.values).toEqual(["event' OR TRUE --"]); expect(grant.values).toEqual(['sar-exact']);
+    expect(sqlText(event)).toContain('WHERE id = ?'); expect(sqlText(grant)).toContain('WHERE g.request_id = ?');
+    for (const query of [event, grant]) { expect(sqlText(query)).not.toContain('LIMIT'); expect(sqlText(query)).not.toContain('ORDER BY'); }
+  });
+  it('reserves only the deterministic request PK, before any grant/event, using the existing auth insert surface', async () => {
+    const queryRaw = jest.fn().mockResolvedValue([]); const executeRaw = jest.fn();
+    const repository = new StaffAccessRepository({} as never);
+    const result = await repository.createAccessRequest({ $queryRaw: queryRaw, $executeRaw: executeRaw } as never, {
+      id: 'sar-deterministic', requesterUserId: 'actor', assignmentId: 'assignment', accessMode: 'VIEW_AS',
+      permissions: ['cabinet:view-as'], reason: 'Exact deterministic reservation', ticketId: 'R1-TEST',
+      maxDurationSeconds: 600, expiresAt: new Date('2030-01-01T00:00:00Z'), reserveIntent: true,
+    });
+    expect(result).toBe(false); expect(executeRaw).not.toHaveBeenCalled();
+    expect(sqlText(queryRaw.mock.calls[0][0])).toContain('ON CONFLICT (id) DO NOTHING RETURNING id');
+    expect(sqlText(queryRaw.mock.calls[0][0])).not.toContain('ON CONFLICT DO NOTHING');
+  });
+  it('retries the specific reservation marker only after a failed whole transaction finishes', async () => {
+    const { StaffCreateIdentityCollisionError } = await import('./staff-access.repository');
+    const calls: string[] = []; const work = jest.fn();
+    const transaction = jest.fn().mockImplementationOnce(async () => { calls.push('rolled-back'); throw new StaffCreateIdentityCollisionError(); })
+      .mockImplementationOnce(async () => { calls.push('fresh-transaction'); return 'original-receipt'; });
+    const repository = new StaffAccessRepository({} as never); repository.transaction = transaction;
+    await expect(repository.createIntentTransaction(work)).resolves.toBe('original-receipt');
+    expect(calls).toEqual(['rolled-back', 'fresh-transaction']); expect(transaction).toHaveBeenCalledTimes(2);
+  });
+  it('retries recognized serialization conflicts on fresh transactions and bounds exhaustion', async () => {
+    const { StaffCreateIntentRetryExhaustedError } = await import('./staff-access.repository');
+    const failure = new Prisma.PrismaClientKnownRequestError('serialization failure', { code: 'P2034', clientVersion: '5.22.0' });
+    const transaction = jest.fn().mockRejectedValue(failure);
+    const repository = new StaffAccessRepository({} as never); repository.transaction = transaction;
+    await expect(repository.createIntentTransaction(async () => 'unused')).rejects.toBeInstanceOf(StaffCreateIntentRetryExhaustedError);
+    expect(transaction).toHaveBeenCalledTimes(3);
+  });
+  it.each(['23505', '23514', '42501'])('does not blanket-retry raw SQLSTATE %s or manufacture a receipt', async code => {
+    const failure = new Prisma.PrismaClientKnownRequestError('database rejected operation', { code: 'P2010', clientVersion: '5.22.0', meta: { code } });
+    const transaction = jest.fn().mockRejectedValue(failure);
+    const repository = new StaffAccessRepository({} as never); repository.transaction = transaction;
+    await expect(repository.createIntentTransaction(async () => 'unused')).rejects.toBe(failure); expect(transaction).toHaveBeenCalledTimes(1);
   });
 });

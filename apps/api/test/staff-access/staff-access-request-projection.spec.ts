@@ -1,3 +1,4 @@
+import { StaffAccessController } from '../../src/modules/staff-access/staff-access.controller';
 import { Role, RequestUser } from '../../src/common/types/request-user';
 import { StaffAccessRequestService } from '../../src/modules/staff-access/staff-access-request.service';
 import {
@@ -80,5 +81,15 @@ describe('StaffAccessRequestService refreshed activation projection', () => {
     await expect(service.listRequests(user, context)).resolves.toEqual([{ id: 'review-request' }]);
     expect(access.requirePermission).toHaveBeenCalledWith(user, StaffPermission.STAFF_REQUEST_READ);
     expect(repository.listAccessRequests).toHaveBeenCalledWith(repository.prisma, user.id, true);
+  });
+});
+
+
+describe('Exact create-intent recovery controller transport', () => {
+  it('passes only the authenticated actor and exact intent ID, with no target/actor override or list scan', async () => {
+    const result = { createIntentId: 'intent-exact', originalReceipt: { requestId: 'original' }, currentProjection: { grantStatus: 'REVOKED' } };
+    const recoverCreateIntent = jest.fn().mockResolvedValue(result);
+    const returned = await StaffAccessController.prototype.recoverCreateIntent.call({ access: { recoverCreateIntent } } as any, { user } as any, 'intent-exact');
+    expect(returned).toBe(result); expect(recoverCreateIntent).toHaveBeenCalledWith(user, 'intent-exact');
   });
 });
