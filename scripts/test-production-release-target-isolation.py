@@ -440,8 +440,59 @@ class MigrationAuthorityReadOnlyAudit(unittest.TestCase):
 
     def test_backup_pass_substring_is_only_private_metadata(self):
         report,_=self.audit(backup=True)
-        self.assertEqual(report['backup_metadata'],'PRESENT_PRIVATE')
+        # A file created by this runner has its effective UID. Non-root CI
+        # must observe the same owner rejection as the real executor.
+        expected='PRESENT_PRIVATE' if os.geteuid()==0 else 'NOT_PROVEN'
+        self.assertEqual(report['backup_metadata'],expected)
         self.assertEqual(report['backup_integrity'],'NOT_PROVEN')
+
+    def test_actual_backup_metadata_guard_requires_root_private_regular_nonempty_file(self):
+        import ast
+        import stat
+        from unittest import mock
+        audit=SOURCE.split("<<'PY_MIGRATION_AUTHORITY_AUDIT'\n",1)[1].split('\nPY_MIGRATION_AUTHORITY_AUDIT',1)[0]
+        # Execute the actual complete backup try/except, with real file opens
+        # and metadata. Only the returned UID is controlled so every runner
+        # proves both owner branches without chown, sudo or a runtime hook.
+        blocks=[node for node in ast.walk(ast.parse(audit)) if isinstance(node,ast.Try)
+                and any(isinstance(item,ast.Assign) and any(isinstance(target,ast.Name) and target.id=='backup'
+                            for target in item.targets) for item in node.body)]
+        self.assertEqual(len(blocks),1)
+        code=compile(ast.Module(body=blocks,type_ignores=[]),'actual-backup-metadata-guard','exec')
+        real_fstat=os.fstat
+        cases=[(0,mode,b'STATUS=PASS\n'+CANARY.encode(),'PRESENT_PRIVATE') for mode in (0o400,0o440,0o600,0o640)]
+        cases += [(1000,0o600,b'STATUS=PASS\n'+CANARY.encode(),'NOT_PROVEN'),
+                  (65534,0o600,b'STATUS=PASS\n'+CANARY.encode(),'NOT_PROVEN'),
+                  (0,0o644,b'STATUS=PASS\n'+CANARY.encode(),'NOT_PROVEN'),
+                  (0,0o600,b'','NOT_PROVEN')]
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            for index,(owner,mode,contents,expected) in enumerate(cases):
+                with self.subTest(owner=owner,mode=oct(mode),empty=not contents):
+                    evidence=root/('backup-'+str(index));evidence.write_bytes(contents);evidence.chmod(mode)
+                    report={'backup_metadata':'NOT_PROVEN','backup_integrity':'NOT_PROVEN'}
+                    namespace={'os':os,'stat':stat,'Path':Path,'report':report,
+                               'selector':lambda name:str(evidence) if name=='PC_PROD_BACKUP_EVIDENCE_FILE_B64' else ''}
+                    def owned_metadata(fd):
+                        metadata=list(real_fstat(fd));metadata[4]=owner
+                        return os.stat_result(metadata)
+                    with mock.patch.object(os,'fstat',side_effect=owned_metadata) as observed:
+                        exec(code,namespace)
+                    observed.assert_called_once()
+                    self.assertEqual(report,{'backup_metadata':expected,'backup_integrity':'NOT_PROVEN'})
+                    self.assertEqual(evidence.read_bytes(),contents)
+                    self.assertEqual(stat.S_IMODE(evidence.stat().st_mode),mode)
+                    self.assertNotIn(CANARY,json.dumps(report))
+                    evidence.unlink()
+            for kind in ('directory','symlink'):
+                with self.subTest(kind=kind):
+                    evidence=root/kind
+                    if kind=='directory':evidence.mkdir()
+                    else:evidence.symlink_to(root/'missing-private-target')
+                    report={'backup_metadata':'NOT_PROVEN','backup_integrity':'NOT_PROVEN'}
+                    namespace={'os':os,'stat':stat,'Path':Path,'report':report,'selector':lambda name:str(evidence)}
+                    exec(code,namespace)
+                    self.assertEqual(report,{'backup_metadata':'NOT_PROVEN','backup_integrity':'NOT_PROVEN'})
 
     def test_docker_errors_are_not_leaked_or_converted_to_observations(self):
         report,_=self.audit(docker_failure=True)
