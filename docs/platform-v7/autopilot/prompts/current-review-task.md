@@ -3470,3 +3470,9 @@ Queue purpose web-readonly-preconditions-audit-v3-20261029 is a NEW4GOV draft, n
 
 NEW sole ROOT/CORE producer purpose. Review the entire five-document diff and twelve exact source pins/patch; disclose the state whitespace transformation separately from the one completed owned-scope array replacement. Every old state literal token/order outside that array, owner/payload/history/PRIMARY11/current/next/score and original PRODUCT9 must remain. Private CLEAN does not transfer to published head or real confined PostgreSQL. Require actual new source/native/security/review/audit/READY/manual acceptance; no guard/workflow/timeout/test selection or production operation belongs here. Full literal purpose/source is in the immutable complete official Codex blob below.
 CR1 git show c2c923679628f91f9e933e74c42b1bcedff60d2d block:a6cc75b1dc51448244a1bf65d289f68b0f9315027a95027a3cb6ca39db443f37
+
+
+## CR2 exact native creation fault proof amendment review
+
+Review entire4GOV diff and complete frozen12source payload. Accepted state/scope paths stay byte-identical; only one existing native e2e after differs from V2. Retain fullCR1 history, owners/scores, actual829 source-onlyCLEAN/native44PASS and explicit HOLD for two missing create-fault families. Four generic/founder controls must execute in actual confined PostgreSQL on new source head. Application reply loss after realcommit is not wire COMMIT-ack fault injection. Require fresh whole12review/native/security/K8/READY/manualSHA. No selector/timeout/grant/schema/host change or native48PASS inference. Complete literal purpose is recoverable in immutable fullCodexblob.
+CR2 git show fa982e34a4e1481b40b1dc015a8204e299338b0a block:457a833f962b78655b050e6af593fd05047f1686f31ced83ac4812e6498b1b8f
