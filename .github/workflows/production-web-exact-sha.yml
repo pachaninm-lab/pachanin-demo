@@ -359,8 +359,8 @@ jobs:
           DOMAIN = 'xn----8sbjf4befbjgs9b.xn--p1ai'
           NP = 'NOT_PROVEN'
           DEADLINE = None
-          REJECT_REASONS = ['ANALYTICS_PAIR_PARTIAL', 'CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_CONTROL', 'FILE_LIST_EMPTY', 'FILE_LIST_LOCALE_EDGE', 'FILE_LIST_RAW_LIMIT', 'FILE_LIST_TOO_MANY', 'FILE_LIST_TYPE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'MODEL_RENDER_FAILED', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_BYTES_LIMIT', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_UNIQUE_LIMIT', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_AMBIGUOUS_SCALAR', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_STRUCTURE', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE']
-          REJECT_STAGES = ['FORMAT_CLOSURE', 'LABEL_PATHS', 'MODEL_RENDER', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL']
+          REJECT_REASONS = ['ANALYTICS_PAIR_PARTIAL', 'CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_CONTROL', 'FILE_LIST_EMPTY', 'FILE_LIST_LOCALE_EDGE', 'FILE_LIST_RAW_LIMIT', 'FILE_LIST_TOO_MANY', 'FILE_LIST_TYPE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'MODEL_RENDER_FAILED', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_BYTES_LIMIT', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_UNIQUE_LIMIT', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_ALIAS_BOUND', 'YAML_ALIAS_GRAPH', 'YAML_AMBIGUOUS_SCALAR', 'YAML_ANCHOR_BOUND', 'YAML_COMPLEX_KEY', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DEPTH_BOUND', 'YAML_DIRECTIVE', 'YAML_DOCUMENT_BOUND', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_EVENT_BOUND', 'YAML_EXPANSION_BOUND', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_MODEL_ALIAS_BOUND', 'YAML_MODEL_EXPANSION_BOUND', 'YAML_MODEL_NODE_BOUND', 'YAML_PARSER_BUNDLE', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_ROOT_SHAPE', 'YAML_STRUCTURE', 'YAML_SYNTAX', 'YAML_TAG', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE']
+          REJECT_STAGES = ['FORMAT_CLOSURE', 'LABEL_PATHS', 'MODEL_RENDER', 'MODEL_RESOURCE', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL']
           INPUT_ROLES = ['ANALYTICS_OVERRIDE', 'HARDENING_OVERRIDE', 'IMAGE_OVERRIDE', 'LABEL_AND_SELECTED_COMPOSE', 'LABEL_COMPOSE', 'NONE', 'SELECTED_COMPOSE']
 
           def bounded(argv, payload=None, limit=LIMIT, seconds=10):
@@ -529,100 +529,215 @@ jobs:
               finally:
                   os.close(fd)
 
+          # PyYAML6.0.3 event-only upstream MIT source; exact module hashes/license in bundle.
+          PYYAML_LICENSE = 'Copyright (c) 2017-2021 Ingy döt Net\nCopyright (c) 2006-2016 Kirill Simonov\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of\nthis software and associated documentation files (the "Software"), to deal in\nthe Software without restriction, including without limitation the rights to\nuse, copy, modify, merge, publish, distribute, sublicense, and/or sell copies\nof the Software, and to permit persons to whom the Software is furnished to do\nso, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n'
+          PYYAML_EVENT_ZIP_BYTES = 17723
+          PYYAML_EVENT_ZIP_SHA256 = '2cab6ed6ea68aa815e7492fc084162a44bd6c926c60a13f416c8199829824850'
+          PYYAML_EVENT_MEMBERS = {'error.py': (2533, '021f73fada072546c4f63f8cf18a7181244ce4280b09cc15cc980b2d1176171a'), 'tokens.py': (2573, '953408cd2570f0c83dc2fe39f7e4e388e41eeb05738aa69196a5f6ffcf6ba79e'), 'events.py': (2445, 'e74fd392c810884e2ea7e94aa3f57e9c1cbeb402319083d0c58e6a0e1282787c'), 'reader.py': (6794, 'd1d9b38ab3a20c6e17a38d519ee412ecaf6b918df18c78956ac7c330d4ea08dc'), 'scanner.py': (51279, '60433788b652690c17710460da5d91e0c753d3318fd85f5e1e42862a71f25906'), 'parser.py': (25495, '8a55a9e6fbe0a07146cef3990c8b45a068c3e83e369e1959ad9ca30306b4a09a'), 'LICENSE': (1101, '8d3928f9dc4490fd635707cb88eb26bd764102a7282954307d3e5167a577e8a4')}
+          PYYAML_EVENT_BUNDLE = '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'
+
+          _YAML_EVENT_TYPES = None
+
+          def event_parser_types():
+              global _YAML_EVENT_TYPES
+              if _YAML_EVENT_TYPES is not None:
+                  return _YAML_EVENT_TYPES
+              # Only pinned upstream source is compiled. Protected YAML is input data;
+              # no composer, resolver, constructor, installed yaml import or disk cache.
+              import base64
+              import builtins
+              import io
+              import types
+              import zipfile
+              try:
+                  archive = base64.b64decode(PYYAML_EVENT_BUNDLE, validate=True)
+                  if len(archive) != PYYAML_EVENT_ZIP_BYTES or hashlib.sha256(archive).hexdigest() != PYYAML_EVENT_ZIP_SHA256:
+                      raise ValueError('BUNDLE')
+                  modules = {}
+                  def trusted_import(name, globals=None, locals=None, fromlist=(), level=0):
+                      if level == 1 and name in modules:
+                          return modules[name]
+                      if level == 0 and name in ('codecs', 're'):
+                          return builtins.__import__(name, globals, locals, fromlist, level)
+                      raise ImportError('BUNDLE_IMPORT')
+                  with zipfile.ZipFile(io.BytesIO(archive)) as zipped:
+                      if zipped.namelist() != list(PYYAML_EVENT_MEMBERS):
+                          raise ValueError('MEMBERS')
+                      for name, (length, digest) in PYYAML_EVENT_MEMBERS.items():
+                          info = zipped.getinfo(name)
+                          if info.file_size != length:
+                              raise ValueError('SIZE')
+                          raw = zipped.read(name)
+                          if len(raw) != length or hashlib.sha256(raw).hexdigest() != digest:
+                              raise ValueError('DIGEST')
+                          if name == 'LICENSE':
+                              continue
+                          key = name[:-3]
+                          module = types.ModuleType('_pc_yaml603.' + key)
+                          module.__package__ = '_pc_yaml603'
+                          module.__dict__['__builtins__'] = dict(vars(builtins), __import__=trusted_import)
+                          exec(compile(raw, '<pc-pyyaml603-' + key + '>', 'exec'), module.__dict__)
+                          modules[key] = module
+                  Reader, Scanner, Parser = modules['reader'].Reader, modules['scanner'].Scanner, modules['parser'].Parser
+                  class EventParser(Reader, Scanner, Parser):
+                      def __init__(self, text):
+                          Reader.__init__(self, text)
+                          Scanner.__init__(self)
+                          Parser.__init__(self)
+                      def get_token(self):
+                          token = Scanner.get_token(self)
+                          # The real scanner recognizes directives; unknown directives
+                          # are otherwise discarded by Parser.process_directives.
+                          if isinstance(token, modules['tokens'].DirectiveToken):
+                              raise UnsupportedModel('YAML_DIRECTIVE', 'FORMAT_CLOSURE')
+                          return token
+                  _YAML_EVENT_TYPES = (EventParser, modules['events'])
+                  return _YAML_EVENT_TYPES
+              except Exception:
+                  raise UnsupportedModel('YAML_PARSER_BUNDLE', 'FORMAT_CLOSURE') from None
+
           def closed_compose_bytes(raw, trusted_hardening):
-              # A deliberately narrow block-YAML subset, not a second Compose/YAML engine.
-              # A byte-identical accepted hardening file is the sole custom-tag exception.
-              if hashlib.sha256(raw).hexdigest() == trusted_hardening:
-                  return
+              # Sole existing custom-tag exception: exact accepted source-owned hardening
+              # bytes, bound by the whole-head/driver hash. No untrusted !reset exception.
+              trusted = hashlib.sha256(raw).hexdigest() == trusted_hardening
               try:
                   text = raw.decode('utf-8', errors='strict')
               except UnicodeError:
                   raise UnsupportedModel('ENCODING_UTF8', 'FORMAT_CLOSURE') from None
               forbidden = {'include', 'extends', 'build', 'develop', 'provider'}
+              if any(c in text for c in ('\0', '\r', '\t')):
+                  raise UnsupportedModel('YAML_CONTROL_OR_ESCAPE', 'FORMAT_CLOSURE')
+              if not text.strip():
+                  raise UnsupportedModel('YAML_EMPTY', 'FORMAT_CLOSURE')
+              # Preserve strict JSON diagnostics, then apply the same event-cost limits.
+              # Non-JSON flow mappings continue to the real YAML scanner/parser.
               if text.lstrip().startswith('{'):
                   try:
                       value = decode(raw)
                   except DuplicateJSON:
                       raise UnsupportedModel('JSON_DUPLICATE', 'FORMAT_CLOSURE') from None
-                  except (ValueError, UnicodeError):
-                      raise UnsupportedModel('JSON_INVALID', 'FORMAT_CLOSURE') from None
-                  def walk(item):
-                      if isinstance(item, dict):
-                          for key, child in item.items():
-                              if not isinstance(key, str) or key.lower() in forbidden or key == '<<':
-                                  raise UnsupportedModel('JSON_FORBIDDEN_KEY', 'FORMAT_CLOSURE')
-                              walk(child)
-                      elif isinstance(item, list):
-                          for child in item:
-                              walk(child)
-                  if not isinstance(value, dict) or set(value) - {'name', 'version', 'services', 'networks', 'volumes', 'configs', 'secrets'}:
-                      raise UnsupportedModel('JSON_ROOT_SHAPE', 'FORMAT_CLOSURE')
-                  walk(value)
-                  return
-              if any(c in text for c in ('\0', '\r', '\t', '\\')):
-                  raise UnsupportedModel('YAML_CONTROL_OR_ESCAPE', 'FORMAT_CLOSURE')
-              parents, seen, roots = [], set(), 0
-              for number, original in enumerate(text.splitlines()):
-                  if not original.strip() or original.lstrip().startswith('#'):
-                      continue
-                  indent = len(original) - len(original.lstrip(' '))
-                  line = original[indent:]
-                  if indent % 2 or line.startswith(('%', '---', '...', '?', ':')):
-                      raise UnsupportedModel('YAML_STRUCTURE', 'FORMAT_CLOSURE')
-                  # Keep quoted scalar text opaque; reject escapes/multiline quotes and
-                  # all YAML flow/tag/alias/anchor/merge syntax outside scalar quotes.
-                  quote, clean = None, []
-                  for char in line:
-                      if quote:
-                          if char == quote:
-                              quote = None
+                  except (ValueError, UnicodeError, RecursionError):
+                      value = None
+                  if value is not None:
+                      def walk(item):
+                          pending = [item]
+                          while pending:
+                              child = pending.pop()
+                              if isinstance(child, dict):
+                                  for key, value in child.items():
+                                      if not isinstance(key, str) or key.lower() in forbidden or key == '<<':
+                                          raise UnsupportedModel('JSON_FORBIDDEN_KEY', 'FORMAT_CLOSURE')
+                                      pending.append(value)
+                              elif isinstance(child, list):
+                                  pending.extend(child)
+                      if not isinstance(value, dict) or set(value) - {'name', 'version', 'services', 'networks', 'volumes', 'configs', 'secrets'}:
+                          raise UnsupportedModel('JSON_ROOT_SHAPE', 'FORMAT_CLOSURE')
+                      walk(value)
+              try:
+                  EventParser, E = event_parser_types()
+                  parser = EventParser(text)
+                  stack, anchors, names = [], {}, set()
+                  root, documents, events, aliases = None, 0, 0, 0
+                  def deny(code):
+                      raise UnsupportedModel(code, 'FORMAT_CLOSURE')
+                  def bounds(meta):
+                      if meta['nodes'] > 65536 or meta['bytes'] > 4 * LIMIT:
+                          deny('YAML_EXPANSION_BOUND')
+                      if meta['depth'] > 64:
+                          deny('YAML_DEPTH_BOUND')
+                  def attach(meta, scalar=None):
+                      nonlocal root
+                      bounds(meta)
+                      if not stack:
+                          if root is not None or meta['kind'] != 'map':
+                              deny('YAML_ROOT_SHAPE')
+                          root = meta
+                          return
+                      parent = stack[-1]
+                      if parent['kind'] == 'map' and parent['key']:
+                          if meta['kind'] != 'scalar' or scalar is None:
+                              deny('YAML_COMPLEX_KEY')
+                          if scalar.lower() in forbidden:
+                              deny('YAML_FORBIDDEN_KEY')
+                          if scalar in parent['keys']:
+                              deny('YAML_DUPLICATE_KEY')
+                          parent['keys'].add(scalar)
+                          if len(stack) == 1 and scalar not in ('name', 'version', 'services', 'networks', 'volumes', 'configs', 'secrets') and not scalar.startswith('x-'):
+                              deny('YAML_ROOT_KEY')
+                          parent['key'] = False
+                      elif parent['kind'] == 'map':
+                          parent['key'] = True
+                      parent['nodes'] += meta['nodes']
+                      parent['bytes'] += meta['bytes']
+                      parent['aliases'] += meta['aliases']
+                      parent['depth'] = max(parent['depth'], meta['depth'] + 1)
+                      bounds(parent)
+                  def reserve(anchor):
+                      if anchor is None:
+                          return
+                      if not isinstance(anchor, str) or not 0 < len(anchor) <= 128 or anchor in names or len(names) >= 128:
+                          deny('YAML_ANCHOR_BOUND')
+                      names.add(anchor)
+                  while parser.check_event():
+                      if DEADLINE is not None and time.monotonic() >= DEADLINE:
+                          raise ObserverDeadline()
+                      event = parser.get_event()
+                      events += 1
+                      if events > 65536:
+                          deny('YAML_EVENT_BOUND')
+                      if isinstance(event, E.DocumentStartEvent):
+                          documents += 1
+                          if documents != 1 or event.version is not None or event.tags:
+                              deny('YAML_DOCUMENT_BOUND')
+                      elif isinstance(event, (E.StreamStartEvent, E.StreamEndEvent, E.DocumentEndEvent)):
                           continue
-                      if char in ('"', "'"):
-                          quote = char
-                          clean.append('Q')
-                      elif char == '#':
-                          break
-                      elif char in '{}[]&*!|>?%@':
-                          raise UnsupportedModel('YAML_FLOW_TAG_OR_ALIAS', 'FORMAT_CLOSURE')
+                      elif isinstance(event, E.AliasEvent):
+                          aliases += 1
+                          if aliases > 1024:
+                              deny('YAML_ALIAS_BOUND')
+                          if any(frame['anchor'] is not None for frame in stack) or event.anchor not in anchors:
+                              deny('YAML_ALIAS_GRAPH')
+                          if stack and stack[-1]['kind'] == 'map' and stack[-1]['key']:
+                              deny('YAML_COMPLEX_KEY')
+                          meta = dict(anchors[event.anchor])
+                          meta['nodes'] += 1
+                          meta['aliases'] += 1
+                          attach(meta)
+                      elif isinstance(event, (E.MappingStartEvent, E.SequenceStartEvent, E.ScalarEvent)):
+                          if event.tag is not None and not (trusted and event.tag == '!reset'):
+                              deny('YAML_TAG')
+                          reserve(event.anchor)
+                          is_key = stack and stack[-1]['kind'] == 'map' and stack[-1]['key']
+                          if is_key and (not isinstance(event, E.ScalarEvent) or event.anchor is not None):
+                              deny('YAML_COMPLEX_KEY')
+                          if isinstance(event, E.ScalarEvent):
+                              meta = {'kind': 'scalar', 'nodes': 1, 'bytes': len(event.value.encode('utf-8')), 'depth': 1, 'aliases': 0}
+                              bounds(meta)
+                              if event.anchor is not None:
+                                  anchors[event.anchor] = dict(meta)
+                              attach(meta, event.value)
+                          else:
+                              if len(stack) >= 64:
+                                  deny('YAML_DEPTH_BOUND')
+                              stack.append({'kind': 'map' if isinstance(event, E.MappingStartEvent) else 'seq',
+                                            'nodes': 1, 'bytes': 0, 'depth': 1, 'aliases': 0, 'key': True, 'keys': set(), 'anchor': event.anchor})
+                      elif isinstance(event, (E.MappingEndEvent, E.SequenceEndEvent)):
+                          frame = stack.pop()
+                          if frame['kind'] == 'map' and not frame['key']:
+                              deny('YAML_SYNTAX')
+                          meta = {key: frame[key] for key in ('kind', 'nodes', 'bytes', 'depth', 'aliases')}
+                          if frame['anchor'] is not None:
+                              anchors[frame['anchor']] = dict(meta)
+                          attach(meta)
                       else:
-                          clean.append(char)
-                  if quote:
-                      raise UnsupportedModel('YAML_UNCLOSED_QUOTE', 'FORMAT_CLOSURE')
-                  token = ''.join(clean).rstrip()
-                  if re.match(r'^(?:- )?Q:', token):
-                      raise UnsupportedModel('YAML_QUOTED_KEY', 'FORMAT_CLOSURE')
-                  while parents and parents[-1][0] >= indent:
-                      parents.pop()
-                  if token.startswith('- '):
-                      parents.append((indent, 'item-' + str(number)))
-                      token = token[2:]
-                      indent += 2
-                  elif token == '-':
-                      parents.append((indent, 'item-' + str(number)))
-                      continue
-                  match = re.fullmatch(r'([A-Za-z_][A-Za-z0-9_.-]*):(?: (.*))?', token)
-                  if not match:
-                      # A plain/quoted sequence scalar cannot introduce a mapping key.
-                      if parents and parents[-1][1].startswith('item-') and not re.search(r':\s', token):
-                          continue
-                      raise UnsupportedModel('YAML_UNSUPPORTED_LINE', 'FORMAT_CLOSURE')
-                  key, value = match.groups()
-                  if key.lower() in forbidden:
-                      raise UnsupportedModel('YAML_FORBIDDEN_KEY', 'FORMAT_CLOSURE')
-                  if value and re.search(r':\s', value):
-                      raise UnsupportedModel('YAML_AMBIGUOUS_SCALAR', 'FORMAT_CLOSURE')
-                  scope = (tuple(parents), indent, key)
-                  if scope in seen:
-                      raise UnsupportedModel('YAML_DUPLICATE_KEY', 'FORMAT_CLOSURE')
-                  seen.add(scope)
-                  if indent == 0:
-                      roots += 1
-                      if key not in ('name', 'version', 'services', 'networks', 'volumes', 'configs', 'secrets') and not key.startswith('x-'):
-                          raise UnsupportedModel('YAML_ROOT_KEY', 'FORMAT_CLOSURE')
-                  if value is None:
-                      parents.append((indent, key))
-              if not roots:
-                  raise UnsupportedModel('YAML_EMPTY', 'FORMAT_CLOSURE')
+                          deny('YAML_SYNTAX')
+                  if documents != 1 or stack or root is None:
+                      deny('YAML_SYNTAX')
+                  return {key: root[key] for key in ('nodes', 'bytes', 'depth', 'aliases')}
+              except UnsupportedModel:
+                  raise
+              except Exception:
+                  raise UnsupportedModel('YAML_SYNTAX', 'FORMAT_CLOSURE') from None
 
           class SnapshotSet:
               def __init__(self, trusted_hardening):
@@ -721,8 +836,24 @@ jobs:
               argv = ['docker', 'compose', '--project-directory', directory]
               if project:
                   argv += ['--project-name', project]
+              # Compute costs from the captured immutable bytes, never reopen originals.
+              # Cache only event metadata by content digest; charge EVERY ordered input,
+              # including duplicates, before the single Compose model render.
+              costs, total = {}, {'nodes': 0, 'bytes': 0, 'aliases': 0}
               for p in paths:
                   entry = SNAPSHOTS.add(p)
+                  digest = entry['digest']
+                  if digest not in costs:
+                      costs[digest] = closed_compose_bytes(entry['raw'], SNAPSHOTS.trusted_hardening)
+                  cost = costs[digest]
+                  for key in total:
+                      total[key] += cost[key]
+                  if total['nodes'] > 65536:
+                      raise UnsupportedModel('YAML_MODEL_NODE_BOUND', 'MODEL_RESOURCE')
+                  if total['bytes'] > 4 * LIMIT:
+                      raise UnsupportedModel('YAML_MODEL_EXPANSION_BOUND', 'MODEL_RESOURCE')
+                  if total['aliases'] > 1024:
+                      raise UnsupportedModel('YAML_MODEL_ALIAS_BOUND', 'MODEL_RESOURCE')
                   argv += ['-f', str(entry['path'])]
               value = decode(bounded(argv + ['config', '--format', 'json'], seconds=15))
               services = value.get('services') if isinstance(value, dict) else None
@@ -747,20 +878,42 @@ jobs:
                   raise ValueError('URL')
               return (u.hostname.lower(), u.port or 5432, u.path, tuple(sorted(parse_qsl(u.query, keep_blank_values=True))))
 
+          def reference_kind(ref, revision):
+              if not isinstance(ref, str) or not 0 < len(ref) <= 512:
+                  return 'UNSUPPORTED'
+              if re.fullmatch(r'(?:sha256:)?[0-9a-f]{64}', ref):
+                  return 'IMAGE_ID'
+              repo = r'[a-z0-9][a-z0-9._-]*(?::[0-9]{1,5})?(?:/[a-z0-9][a-z0-9._-]*)*'
+              if re.fullmatch(repo + r'@sha256:[0-9a-f]{64}', ref):
+                  return 'REPOSITORY_DIGEST'
+              if re.fullmatch(repo + r'(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})?', ref):
+                  if isinstance(revision, str) and SHA.fullmatch(revision) and ref == 'ghcr.io/pachaninm-lab/grainflow-web:sha-' + revision[:7]:
+                      return 'CANONICAL_TAG'
+                  return 'LOCAL_ALIAS'
+              return 'UNSUPPORTED'
+
           def local_exact(ref, revision, runtime_id):
-              if not isinstance(ref, str) or not SHA.fullmatch(revision):
+              kind = reference_kind(ref, revision)
+              if kind == 'UNSUPPORTED':
+                  return 'UNSUPPORTED_REF'
+              if not isinstance(revision, str) or not SHA.fullmatch(revision) or not isinstance(runtime_id, str) or not IMAGE_ID.fullmatch(runtime_id):
                   return NP
-              if ref != 'ghcr.io/pachaninm-lab/grainflow-web:sha-' + revision[:7]:
-                  return 'NON_EXACT_REF'
               try:
                   row = inspect(ref, True)
               except Exception:
                   return 'LOCAL_IMAGE_NOT_PROVEN'
-              if row.get('Id') != runtime_id:
-                  return 'LOCAL_TAG_REBOUND'
+              if row.get('Id') != runtime_id or kind == 'IMAGE_ID' and (ref if ref.startswith('sha256:') else 'sha256:' + ref) != runtime_id:
+                  return 'LOCAL_TAG_REBOUND' if kind == 'CANONICAL_TAG' else 'LOCAL_REF_REBOUND'
               if labels(row).get('org.opencontainers.image.revision') != revision:
                   return 'REVISION_MISMATCH'
-              return 'EXACT_LOCAL_MATCH'
+              return {'CANONICAL_TAG': 'EXACT_LOCAL_MATCH', 'IMAGE_ID': 'IMAGE_ID_LOCAL_MATCH',
+                      'REPOSITORY_DIGEST': 'DIGEST_LOCAL_MATCH', 'LOCAL_ALIAS': 'ALIAS_LOCAL_MATCH'}[kind]
+
+          def reference_binding(result):
+              if result in ('EXACT_LOCAL_MATCH', 'IMAGE_ID_LOCAL_MATCH', 'DIGEST_LOCAL_MATCH', 'ALIAS_LOCAL_MATCH'):
+                  return 'MATCH'
+              return {'LOCAL_TAG_REBOUND': 'REBOUND', 'LOCAL_REF_REBOUND': 'REBOUND', 'REVISION_MISMATCH': 'REVISION_MISMATCH',
+                      'LOCAL_IMAGE_NOT_PROVEN': 'MISSING_OR_UNREADABLE', 'UNSUPPORTED_REF': 'UNSUPPORTED'}.get(result, NP)
 
           class NoRedirect(urllib.request.HTTPRedirectHandler):
               def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -870,7 +1023,7 @@ jobs:
 
 
           def v5_fields():
-              value = {'coverage': 'NONE', 'selected_basis': NP, 'project_runtime_binding': NP,
+              value = {'rollback_reference_kind': NP, 'rollback_reference_binding': NP, 'coverage': 'NONE', 'selected_basis': NP, 'project_runtime_binding': NP,
                        'persisted_runtime_binding': NP, 'label_persisted_relation': NP,
                        'analytics_presence': NP, 'bounded_model_scope': 'SNAPSHOT_CONFIG_ENV_STABILITY_NOT_ATTESTED',
                        'docker_storage_status': NP, 'docker_storage_basis': NP,
@@ -936,7 +1089,7 @@ jobs:
 
 
           def _collect(inputs):
-              out = {'schema': 'pc.web-readonly-preconditions.v3', 'source_sha': inputs['source_sha'],
+              out = {'schema': 'pc.web-readonly-preconditions.v4', 'source_sha': inputs['source_sha'],
                      'closure': NP, 'observation': 'BLOCKED', 'snapshot_cleanup': 'NOT_NEEDED',
                      'reject_stage': 'NONE', 'reject_reason': 'NONE', 'input_role': 'NONE',
                      'selectors': NP, 'label_model': NP, 'selected_model': NP, 'models_relation': NP,
@@ -973,7 +1126,9 @@ jobs:
                       and labels(row).get('org.opencontainers.image.revision') == rev and SHA.fullmatch(rev) else 'MISMATCH')
               except Exception:
                   pass
+              out['rollback_reference_kind'] = reference_kind((web.get('Config') or {}).get('Image'), rev)
               out['rollback_local'] = local_exact((web.get('Config') or {}).get('Image'), rev, runtime_id)
+              out['rollback_reference_binding'] = reference_binding(out['rollback_local'])
               project = wl.get('com.docker.compose.project', '')
               peers = [r for r in rows if labels(r).get('com.docker.compose.project') == project]
               apis = [r for r in peers if labels(r).get('com.docker.compose.service') == 'api']
@@ -1016,6 +1171,10 @@ jobs:
                       out[prefix + '_model'] = 'OBSERVED'
                       models[prefix] = value
                       return value
+                  except UnsupportedModel as error:
+                      out[prefix + '_closure'] = 'UNSUPPORTED'
+                      fail_model(prefix, error, 'MODEL_RESOURCE', role)
+                      return None
                   except Exception:
                       fail_model(prefix, UnsupportedModel('MODEL_RENDER_FAILED', 'MODEL_RENDER'), 'MODEL_RENDER', role)
                       return None
@@ -1143,7 +1302,7 @@ jobs:
                   pass
               try:
                   out['runtime_stability'] = 'UNCHANGED' if identity(web) == identity(inspect(web['Id'])) else 'CHANGED'
-                  out['observed_file_stability'] = ('UNCHANGED' if observed and all(not p.is_symlink() and p.is_file()
+                  out['observed_file_stability'] = (NP if not observed else 'UNCHANGED' if all(not p.is_symlink() and p.is_file()
                       and p.stat().st_size <= LIMIT and hashlib.sha256(read_regular(p)).digest() == digest for p, digest in observed.items()) else 'CHANGED')
               except Exception:
                   pass
@@ -1179,7 +1338,7 @@ jobs:
                   out = _collect(inputs)
               except (ObserverDeadline, ObserverAbort, Exception) as error:
                   # Fixed report only; no original exception/transport/config data escapes.
-                  out = {'schema': 'pc.web-readonly-preconditions.v3', 'source_sha': inputs['source_sha'],
+                  out = {'schema': 'pc.web-readonly-preconditions.v4', 'source_sha': inputs['source_sha'],
                          'closure': NP, 'observation': 'DEADLINE' if isinstance(error, ObserverDeadline) else 'ABORTED' if isinstance(error, ObserverAbort) else 'FAILED',
                          'snapshot_cleanup': 'UNKNOWN',
                          'reject_stage': 'OBSERVER',
@@ -1232,7 +1391,7 @@ jobs:
           import shlex
           import sys
 
-          ENUMS = {'reject_stage': ['FORMAT_CLOSURE', 'LABEL_PATHS', 'MODEL_RENDER', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL'], 'reject_reason': ['ANALYTICS_PAIR_PARTIAL', 'CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_CONTROL', 'FILE_LIST_EMPTY', 'FILE_LIST_LOCALE_EDGE', 'FILE_LIST_RAW_LIMIT', 'FILE_LIST_TOO_MANY', 'FILE_LIST_TYPE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'MODEL_RENDER_FAILED', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_BYTES_LIMIT', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_UNIQUE_LIMIT', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_AMBIGUOUS_SCALAR', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_STRUCTURE', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE'], 'input_role': ['ANALYTICS_OVERRIDE', 'HARDENING_OVERRIDE', 'IMAGE_OVERRIDE', 'LABEL_AND_SELECTED_COMPOSE', 'LABEL_COMPOSE', 'NONE', 'SELECTED_COMPOSE'], 'closure': ['NOT_PROVEN', 'PARTIAL', 'SUPPORTED', 'UNSUPPORTED'], 'observation': ['ABORTED', 'BLOCKED', 'COMPLETE', 'DEADLINE', 'FAILED', 'PARTIAL'], 'snapshot_cleanup': ['COMPLETE', 'NOT_NEEDED', 'UNKNOWN'], 'selectors': ['EXPLICIT', 'LABEL_FALLBACK', 'NOT_PROVEN', 'PARTIAL'], 'label_model': ['NOT_PROVEN', 'OBSERVED'], 'selected_model': ['NOT_PROVEN', 'OBSERVED'], 'models_relation': ['DIFFERENT', 'MATCH', 'NOT_PROVEN'], 'migration': ['AMBIGUOUS', 'MISSING', 'NOT_PROVEN', 'UNIQUE'], 'migration_database': ['DIFFERENT_API_AUTHORITY', 'MALFORMED_OR_MISSING', 'NOT_PROVEN', 'SAME_API_AUTHORITY'], 'persisted_model': ['NOT_PROVEN', 'OBSERVED'], 'persisted_image': ['DIFFERENT_RUNTIME_REF', 'MATCH_RUNTIME_REF', 'NOT_PROVEN'], 'persisted_hardening': ['ABSENT', 'DIFFERENT_SOURCE', 'MATCH_SOURCE', 'NOT_PROVEN'], 'web_health': ['NOT_PROVEN', 'created', 'dead', 'exited', 'healthy', 'paused', 'removing', 'restarting', 'running', 'starting', 'unhealthy'], 'container_image_binding': ['MATCH', 'MISMATCH', 'NOT_PROVEN'], 'rollback_local': ['EXACT_LOCAL_MATCH', 'LOCAL_IMAGE_NOT_PROVEN', 'LOCAL_TAG_REBOUND', 'NON_EXACT_REF', 'NOT_PROVEN', 'REVISION_MISMATCH'], 'caddy_mode': ['AMBIGUOUS', 'COMPOSE', 'NOT_PROVEN', 'SYSTEMD'], 'caddy_admin_route': ['MATCH', 'NOT_PROVEN'], 'public_readiness': ['CURRENT_REVISION', 'DIFFERENT_REVISION', 'NOT_PROVEN', 'NOT_READY'], 'runtime_stability': ['CHANGED', 'NOT_PROVEN', 'UNCHANGED'], 'observed_file_stability': ['CHANGED', 'NOT_PROVEN', 'UNCHANGED'], 'analytics_presence': ['ABSENT', 'NOT_PROVEN', 'PAIR_PRESENT', 'PARTIAL'], 'bounded_model_scope': ['SNAPSHOT_CONFIG_ENV_STABILITY_NOT_ATTESTED'], 'coverage': ['FULL', 'LABEL_ONLY', 'NONE', 'SELECTED_ONLY', 'SELECTED_PERSISTED_ONLY'], 'selected_basis': ['LABEL_CANONICAL_BASE', 'NOT_PROVEN', 'PROTECTED_EXPLICIT'], 'project_runtime_binding': ['DIFFERENT', 'MATCH', 'NOT_PROVEN'], 'persisted_runtime_binding': ['DIFFERENT', 'MATCH', 'NOT_PROVEN'], 'label_persisted_relation': ['DIFFERENT', 'MATCH', 'NOT_PROVEN'], 'docker_storage_status': ['INFO_UNAVAILABLE', 'MEASURED', 'METRICS_UNSUPPORTED', 'NOT_PROVEN', 'ROOT_UNSUPPORTED', 'STATVFS_UNAVAILABLE', 'STAT_UNAVAILABLE'], 'docker_storage_basis': ['NOT_PROVEN', 'STATVFS_F_BAVAIL_1024'], 'docker_storage_conventional': ['DIFFERENT', 'NOT_PROVEN', 'SAME'], 'docker_storage_conventional_basis': ['NOT_PROVEN', 'STAT_ST_DEV'], 'label_closure': ['NOT_PROVEN', 'SUPPORTED', 'UNSUPPORTED'], 'label_reject_stage': ['FORMAT_CLOSURE', 'LABEL_PATHS', 'MODEL_RENDER', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL'], 'label_reject_reason': ['ANALYTICS_PAIR_PARTIAL', 'CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_CONTROL', 'FILE_LIST_EMPTY', 'FILE_LIST_LOCALE_EDGE', 'FILE_LIST_RAW_LIMIT', 'FILE_LIST_TOO_MANY', 'FILE_LIST_TYPE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'MODEL_RENDER_FAILED', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_BYTES_LIMIT', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_UNIQUE_LIMIT', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_AMBIGUOUS_SCALAR', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_STRUCTURE', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE'], 'label_list_state': ['NORMALIZED_DUPLICATES', 'NORMALIZED_UNIQUE', 'NOT_PROVEN'], 'selected_closure': ['NOT_PROVEN', 'SUPPORTED', 'UNSUPPORTED'], 'selected_reject_stage': ['FORMAT_CLOSURE', 'LABEL_PATHS', 'MODEL_RENDER', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL'], 'selected_reject_reason': ['ANALYTICS_PAIR_PARTIAL', 'CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_CONTROL', 'FILE_LIST_EMPTY', 'FILE_LIST_LOCALE_EDGE', 'FILE_LIST_RAW_LIMIT', 'FILE_LIST_TOO_MANY', 'FILE_LIST_TYPE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'MODEL_RENDER_FAILED', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_BYTES_LIMIT', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_UNIQUE_LIMIT', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_AMBIGUOUS_SCALAR', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_STRUCTURE', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE'], 'selected_list_state': ['NORMALIZED_DUPLICATES', 'NORMALIZED_UNIQUE', 'NOT_PROVEN'], 'persisted_closure': ['NOT_PROVEN', 'SUPPORTED', 'UNSUPPORTED'], 'persisted_reject_stage': ['FORMAT_CLOSURE', 'LABEL_PATHS', 'MODEL_RENDER', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL'], 'persisted_reject_reason': ['ANALYTICS_PAIR_PARTIAL', 'CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_CONTROL', 'FILE_LIST_EMPTY', 'FILE_LIST_LOCALE_EDGE', 'FILE_LIST_RAW_LIMIT', 'FILE_LIST_TOO_MANY', 'FILE_LIST_TYPE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'MODEL_RENDER_FAILED', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_BYTES_LIMIT', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_UNIQUE_LIMIT', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_AMBIGUOUS_SCALAR', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_STRUCTURE', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE'], 'persisted_list_state': ['NORMALIZED_DUPLICATES', 'NORMALIZED_UNIQUE', 'NOT_PROVEN']}
+          ENUMS = {'reject_stage': ['FORMAT_CLOSURE', 'LABEL_PATHS', 'MODEL_RENDER', 'MODEL_RESOURCE', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL'], 'reject_reason': ['ANALYTICS_PAIR_PARTIAL', 'CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_CONTROL', 'FILE_LIST_EMPTY', 'FILE_LIST_LOCALE_EDGE', 'FILE_LIST_RAW_LIMIT', 'FILE_LIST_TOO_MANY', 'FILE_LIST_TYPE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'MODEL_RENDER_FAILED', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_BYTES_LIMIT', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_UNIQUE_LIMIT', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_ALIAS_BOUND', 'YAML_ALIAS_GRAPH', 'YAML_AMBIGUOUS_SCALAR', 'YAML_ANCHOR_BOUND', 'YAML_COMPLEX_KEY', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DEPTH_BOUND', 'YAML_DIRECTIVE', 'YAML_DOCUMENT_BOUND', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_EVENT_BOUND', 'YAML_EXPANSION_BOUND', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_MODEL_ALIAS_BOUND', 'YAML_MODEL_EXPANSION_BOUND', 'YAML_MODEL_NODE_BOUND', 'YAML_PARSER_BUNDLE', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_ROOT_SHAPE', 'YAML_STRUCTURE', 'YAML_SYNTAX', 'YAML_TAG', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE'], 'input_role': ['ANALYTICS_OVERRIDE', 'HARDENING_OVERRIDE', 'IMAGE_OVERRIDE', 'LABEL_AND_SELECTED_COMPOSE', 'LABEL_COMPOSE', 'NONE', 'SELECTED_COMPOSE'], 'closure': ['NOT_PROVEN', 'PARTIAL', 'SUPPORTED', 'UNSUPPORTED'], 'observation': ['ABORTED', 'BLOCKED', 'COMPLETE', 'DEADLINE', 'FAILED', 'PARTIAL'], 'snapshot_cleanup': ['COMPLETE', 'NOT_NEEDED', 'UNKNOWN'], 'selectors': ['EXPLICIT', 'LABEL_FALLBACK', 'NOT_PROVEN', 'PARTIAL'], 'label_model': ['NOT_PROVEN', 'OBSERVED'], 'selected_model': ['NOT_PROVEN', 'OBSERVED'], 'models_relation': ['DIFFERENT', 'MATCH', 'NOT_PROVEN'], 'migration': ['AMBIGUOUS', 'MISSING', 'NOT_PROVEN', 'UNIQUE'], 'migration_database': ['DIFFERENT_API_AUTHORITY', 'MALFORMED_OR_MISSING', 'NOT_PROVEN', 'SAME_API_AUTHORITY'], 'persisted_model': ['NOT_PROVEN', 'OBSERVED'], 'persisted_image': ['DIFFERENT_RUNTIME_REF', 'MATCH_RUNTIME_REF', 'NOT_PROVEN'], 'persisted_hardening': ['ABSENT', 'DIFFERENT_SOURCE', 'MATCH_SOURCE', 'NOT_PROVEN'], 'web_health': ['NOT_PROVEN', 'created', 'dead', 'exited', 'healthy', 'paused', 'removing', 'restarting', 'running', 'starting', 'unhealthy'], 'container_image_binding': ['MATCH', 'MISMATCH', 'NOT_PROVEN'], 'rollback_local': ['ALIAS_LOCAL_MATCH', 'DIGEST_LOCAL_MATCH', 'EXACT_LOCAL_MATCH', 'IMAGE_ID_LOCAL_MATCH', 'LOCAL_IMAGE_NOT_PROVEN', 'LOCAL_REF_REBOUND', 'LOCAL_TAG_REBOUND', 'NOT_PROVEN', 'REVISION_MISMATCH', 'UNSUPPORTED_REF'], 'caddy_mode': ['AMBIGUOUS', 'COMPOSE', 'NOT_PROVEN', 'SYSTEMD'], 'caddy_admin_route': ['MATCH', 'NOT_PROVEN'], 'public_readiness': ['CURRENT_REVISION', 'DIFFERENT_REVISION', 'NOT_PROVEN', 'NOT_READY'], 'runtime_stability': ['CHANGED', 'NOT_PROVEN', 'UNCHANGED'], 'observed_file_stability': ['CHANGED', 'NOT_PROVEN', 'UNCHANGED'], 'analytics_presence': ['ABSENT', 'NOT_PROVEN', 'PAIR_PRESENT', 'PARTIAL'], 'bounded_model_scope': ['SNAPSHOT_CONFIG_ENV_STABILITY_NOT_ATTESTED'], 'coverage': ['FULL', 'LABEL_ONLY', 'NONE', 'SELECTED_ONLY', 'SELECTED_PERSISTED_ONLY'], 'selected_basis': ['LABEL_CANONICAL_BASE', 'NOT_PROVEN', 'PROTECTED_EXPLICIT'], 'project_runtime_binding': ['DIFFERENT', 'MATCH', 'NOT_PROVEN'], 'persisted_runtime_binding': ['DIFFERENT', 'MATCH', 'NOT_PROVEN'], 'label_persisted_relation': ['DIFFERENT', 'MATCH', 'NOT_PROVEN'], 'docker_storage_status': ['INFO_UNAVAILABLE', 'MEASURED', 'METRICS_UNSUPPORTED', 'NOT_PROVEN', 'ROOT_UNSUPPORTED', 'STATVFS_UNAVAILABLE', 'STAT_UNAVAILABLE'], 'docker_storage_basis': ['NOT_PROVEN', 'STATVFS_F_BAVAIL_1024'], 'docker_storage_conventional': ['DIFFERENT', 'NOT_PROVEN', 'SAME'], 'docker_storage_conventional_basis': ['NOT_PROVEN', 'STAT_ST_DEV'], 'label_closure': ['NOT_PROVEN', 'SUPPORTED', 'UNSUPPORTED'], 'label_reject_stage': ['FORMAT_CLOSURE', 'LABEL_PATHS', 'MODEL_RENDER', 'MODEL_RESOURCE', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL'], 'label_reject_reason': ['ANALYTICS_PAIR_PARTIAL', 'CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_CONTROL', 'FILE_LIST_EMPTY', 'FILE_LIST_LOCALE_EDGE', 'FILE_LIST_RAW_LIMIT', 'FILE_LIST_TOO_MANY', 'FILE_LIST_TYPE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'MODEL_RENDER_FAILED', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_BYTES_LIMIT', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_UNIQUE_LIMIT', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_ALIAS_BOUND', 'YAML_ALIAS_GRAPH', 'YAML_AMBIGUOUS_SCALAR', 'YAML_ANCHOR_BOUND', 'YAML_COMPLEX_KEY', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DEPTH_BOUND', 'YAML_DIRECTIVE', 'YAML_DOCUMENT_BOUND', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_EVENT_BOUND', 'YAML_EXPANSION_BOUND', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_MODEL_ALIAS_BOUND', 'YAML_MODEL_EXPANSION_BOUND', 'YAML_MODEL_NODE_BOUND', 'YAML_PARSER_BUNDLE', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_ROOT_SHAPE', 'YAML_STRUCTURE', 'YAML_SYNTAX', 'YAML_TAG', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE'], 'label_list_state': ['NORMALIZED_DUPLICATES', 'NORMALIZED_UNIQUE', 'NOT_PROVEN'], 'selected_closure': ['NOT_PROVEN', 'SUPPORTED', 'UNSUPPORTED'], 'selected_reject_stage': ['FORMAT_CLOSURE', 'LABEL_PATHS', 'MODEL_RENDER', 'MODEL_RESOURCE', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL'], 'selected_reject_reason': ['ANALYTICS_PAIR_PARTIAL', 'CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_CONTROL', 'FILE_LIST_EMPTY', 'FILE_LIST_LOCALE_EDGE', 'FILE_LIST_RAW_LIMIT', 'FILE_LIST_TOO_MANY', 'FILE_LIST_TYPE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'MODEL_RENDER_FAILED', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_BYTES_LIMIT', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_UNIQUE_LIMIT', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_ALIAS_BOUND', 'YAML_ALIAS_GRAPH', 'YAML_AMBIGUOUS_SCALAR', 'YAML_ANCHOR_BOUND', 'YAML_COMPLEX_KEY', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DEPTH_BOUND', 'YAML_DIRECTIVE', 'YAML_DOCUMENT_BOUND', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_EVENT_BOUND', 'YAML_EXPANSION_BOUND', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_MODEL_ALIAS_BOUND', 'YAML_MODEL_EXPANSION_BOUND', 'YAML_MODEL_NODE_BOUND', 'YAML_PARSER_BUNDLE', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_ROOT_SHAPE', 'YAML_STRUCTURE', 'YAML_SYNTAX', 'YAML_TAG', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE'], 'selected_list_state': ['NORMALIZED_DUPLICATES', 'NORMALIZED_UNIQUE', 'NOT_PROVEN'], 'persisted_closure': ['NOT_PROVEN', 'SUPPORTED', 'UNSUPPORTED'], 'persisted_reject_stage': ['FORMAT_CLOSURE', 'LABEL_PATHS', 'MODEL_RENDER', 'MODEL_RESOURCE', 'NONE', 'OBSERVER', 'PERSISTED_PATHS', 'REGULAR_READ', 'ROOT_AUTHORITY', 'RUNTIME_INVENTORY', 'SELECTED_PATHS', 'SNAPSHOT_SEAL'], 'persisted_reject_reason': ['ANALYTICS_PAIR_PARTIAL', 'CONTAINER_CARDINALITY', 'DIRECTORY_SYMLINK', 'DIRECTORY_TYPE', 'DIRECTORY_VALUE', 'ENCODING_UTF8', 'FILE_LIST_CONTROL', 'FILE_LIST_EMPTY', 'FILE_LIST_LOCALE_EDGE', 'FILE_LIST_RAW_LIMIT', 'FILE_LIST_TOO_MANY', 'FILE_LIST_TYPE', 'INPUT_SIZE', 'INPUT_SYMLINK', 'INPUT_TYPE', 'JSON_DUPLICATE', 'JSON_FORBIDDEN_KEY', 'JSON_INVALID', 'JSON_ROOT_SHAPE', 'MODEL_RENDER_FAILED', 'NONE', 'OBSERVER_ABORTED', 'OBSERVER_DEADLINE', 'READ_CHANGED', 'READ_MISSING', 'READ_OSERROR', 'READ_PERMISSION', 'READ_SIZE', 'READ_TYPE', 'ROOT_REQUIRED', 'SELECTORS_PARTIAL', 'SNAPSHOT_BYTES_LIMIT', 'SNAPSHOT_DIRECTORY_IDENTITY', 'SNAPSHOT_FILE_IDENTITY', 'SNAPSHOT_IDENTITY_UNKNOWN', 'SNAPSHOT_INCOMPLETE', 'SNAPSHOT_UNIQUE_LIMIT', 'SNAPSHOT_WRITE_SIZE', 'UNCLASSIFIED_FAILURE', 'UNCLASSIFIED_REJECT', 'WEB_CARDINALITY', 'YAML_ALIAS_BOUND', 'YAML_ALIAS_GRAPH', 'YAML_AMBIGUOUS_SCALAR', 'YAML_ANCHOR_BOUND', 'YAML_COMPLEX_KEY', 'YAML_CONTROL_OR_ESCAPE', 'YAML_DEPTH_BOUND', 'YAML_DIRECTIVE', 'YAML_DOCUMENT_BOUND', 'YAML_DUPLICATE_KEY', 'YAML_EMPTY', 'YAML_EVENT_BOUND', 'YAML_EXPANSION_BOUND', 'YAML_FLOW_TAG_OR_ALIAS', 'YAML_FORBIDDEN_KEY', 'YAML_MODEL_ALIAS_BOUND', 'YAML_MODEL_EXPANSION_BOUND', 'YAML_MODEL_NODE_BOUND', 'YAML_PARSER_BUNDLE', 'YAML_QUOTED_KEY', 'YAML_ROOT_KEY', 'YAML_ROOT_SHAPE', 'YAML_STRUCTURE', 'YAML_SYNTAX', 'YAML_TAG', 'YAML_UNCLOSED_QUOTE', 'YAML_UNSUPPORTED_LINE'], 'persisted_list_state': ['NORMALIZED_DUPLICATES', 'NORMALIZED_UNIQUE', 'NOT_PROVEN'], 'rollback_reference_kind': ['CANONICAL_TAG', 'IMAGE_ID', 'REPOSITORY_DIGEST', 'LOCAL_ALIAS', 'UNSUPPORTED', 'NOT_PROVEN'], 'rollback_reference_binding': ['MATCH', 'REBOUND', 'REVISION_MISMATCH', 'MISSING_OR_UNREADABLE', 'UNSUPPORTED', 'NOT_PROVEN']}
           NULLABLE_COUNTS = {'label_entries': (1, 128), 'label_duplicates': (0, 127), 'selected_entries': (1, 128), 'selected_duplicates': (0, 127), 'persisted_entries': (1, 131), 'persisted_duplicates': (0, 130), 'docker_storage_available_kib': (0, 9223372036854775807), 'docker_storage_total_kib': (0, 9223372036854775807), 'docker_storage_available_inodes': (0, 9223372036854775807), 'docker_storage_total_inodes': (0, 9223372036854775807)}
 
           def validate_report(raw, source_sha):
@@ -1244,7 +1403,7 @@ jobs:
               expected = set(ENUMS) | set(NULLABLE_COUNTS) | {'schema', 'source_sha', 'web_revision', 'caddy_count', 'production_mutation'}
               if not isinstance(value, dict) or set(value) != expected:
                   raise ValueError('SCHEMA')
-              if value['schema'] != 'pc.web-readonly-preconditions.v3' or value['source_sha'] != source_sha or not re.fullmatch(r'[0-9a-f]{40}', source_sha):
+              if value['schema'] != 'pc.web-readonly-preconditions.v4' or value['source_sha'] != source_sha or not re.fullmatch(r'[0-9a-f]{40}', source_sha):
                   raise ValueError('BINDING')
               if value['production_mutation'] != 'NONE':
                   raise ValueError('AUTHORITY')
@@ -1315,7 +1474,20 @@ jobs:
                   raise ValueError('CADDY')
               if value['public_readiness'] == 'CURRENT_REVISION' and value['web_revision'] == 'unknown':
                   raise ValueError('PUBLIC_REVISION')
-              if value['rollback_local'] == 'EXACT_LOCAL_MATCH' and value['container_image_binding'] != 'MATCH':
+              successes = {'EXACT_LOCAL_MATCH': 'CANONICAL_TAG', 'IMAGE_ID_LOCAL_MATCH': 'IMAGE_ID', 'DIGEST_LOCAL_MATCH': 'REPOSITORY_DIGEST', 'ALIAS_LOCAL_MATCH': 'LOCAL_ALIAS'}
+              if value['rollback_reference_binding'] != ns['reference_binding'](value['rollback_local']):
+                  raise ValueError('REFERENCE_BINDING')
+              if value['rollback_local'] in successes and value['rollback_reference_kind'] != successes[value['rollback_local']]:
+                  raise ValueError('REFERENCE_KIND')
+              if value['rollback_local'] == 'LOCAL_TAG_REBOUND' and value['rollback_reference_kind'] != 'CANONICAL_TAG':
+                  raise ValueError('REFERENCE_KIND')
+              if value['rollback_local'] == 'LOCAL_REF_REBOUND' and value['rollback_reference_kind'] not in ('IMAGE_ID', 'REPOSITORY_DIGEST', 'LOCAL_ALIAS'):
+                  raise ValueError('REFERENCE_KIND')
+              if value['rollback_local'] in ('REVISION_MISMATCH', 'LOCAL_IMAGE_NOT_PROVEN') and value['rollback_reference_kind'] not in ('CANONICAL_TAG', 'IMAGE_ID', 'REPOSITORY_DIGEST', 'LOCAL_ALIAS'):
+                  raise ValueError('REFERENCE_KIND')
+              if value['rollback_local'] == 'UNSUPPORTED_REF' and value['rollback_reference_kind'] != 'UNSUPPORTED':
+                  raise ValueError('REFERENCE_KIND')
+              if value['rollback_local'] in successes and value['container_image_binding'] != 'MATCH':
                   raise ValueError('LOCAL_BINDING')
               storage = [value['docker_storage_' + k] for k in ('available_kib', 'total_kib', 'available_inodes', 'total_inodes')]
               if value['docker_storage_status'] == 'MEASURED':

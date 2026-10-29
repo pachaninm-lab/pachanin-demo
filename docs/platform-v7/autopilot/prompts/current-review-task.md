@@ -3464,3 +3464,9 @@ Queue purpose web-readonly-preconditions-audit-v3-20261029 is a NEW4GOV draft, n
   "masterCredit": 0
 }
 ```
+
+
+## CR1 exact CORE12 review prerequisite
+
+NEW sole ROOT/CORE producer purpose. Review the entire five-document diff and twelve exact source pins/patch; disclose the state whitespace transformation separately from the one completed owned-scope array replacement. Every old state literal token/order outside that array, owner/payload/history/PRIMARY11/current/next/score and original PRODUCT9 must remain. Private CLEAN does not transfer to published head or real confined PostgreSQL. Require actual new source/native/security/review/audit/READY/manual acceptance; no guard/workflow/timeout/test selection or production operation belongs here. Full literal purpose/source is in the immutable complete official Codex blob below.
+CR1 git show c2c923679628f91f9e933e74c42b1bcedff60d2d block:a6cc75b1dc51448244a1bf65d289f68b0f9315027a95027a3cb6ca39db443f37
