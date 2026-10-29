@@ -200,7 +200,7 @@ jobs:
           if [[ -n "$release_runs" ]]; then
             while IFS=$'\t' read -r id event status conclusion created updated url; do
               deploy_state=$(gh api -H 'Accept: application/vnd.github+json' "repos/$REPO/actions/runs/$id/jobs?per_page=100" \
-                --jq '[.jobs[] | select(.name == "Migrate, deploy API and web, verify live intake") | (.conclusion // .status)][0] // "missing"')
+                --jq '[.jobs[] | select(.name == "Migrate, deploy API/web and canonical outbox, verify live delivery") | (.conclusion // .status)][0] // "missing"')
               if [[ "$deploy_state" != 'skipped' && "$deploy_state" != 'missing' ]]; then
                 selected_release=$(printf '%s\t%s\t%s\t%s\t%s\t%s\t%s' "$id" "$event" "$status" "$conclusion" "$created" "$updated" "$url")
                 break
