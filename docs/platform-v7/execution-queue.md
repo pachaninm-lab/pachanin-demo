@@ -8316,6 +8316,76 @@ Metadata preparation only. PR5957 remains blocked on repeated actual180s source-
 ```
 
 
+# Registration source preflight fixture construction
+
+The unchanged native180s source gate failed again on3796; the exact failed job and artifact are retained below. This separately reviewed proposal retains all old history and the existing one-file fixture branch vector. It does not modify the production guard or launch any host operation.
+
+```json
+{
+  "schema": "pc-crop.fixture-construction-proposal.v1",
+  "owner": "ACCOUNT_1_CORE/root",
+  "purpose": "Reduce repeated immutable fixture construction for registration5957 source-preflight while executing every original guard case and assertion.",
+  "ownerPurpose": "Urgent registration CI continuation and current explicit subagent instruction. Earlier exact-repository publication authorization is recorded separately.",
+  "publicationApproval": "PENDING_EXACT_PACKAGE_AFTER_AUTO_REVIEW_REJECTION; no publication authorized by this proposal itself.",
+  "authorityBaseExactMain": "f648bf2ef76c41b098e4331a1f530bf17eb14ccb",
+  "implementationBranch": "fix/guard-fixture-compression-20261028",
+  "allowedPaths": [
+    "scripts/p7-autopilot-guard.test.mjs"
+  ],
+  "existingVectorOnly": true,
+  "supersedesOnly": "The old compression-only future-source restriction for the next separately reviewed use of this existing source ref. Retain accepted5958/5959 source and all historical evidence unchanged.",
+  "sourcePayload": {
+    "path": "scripts/p7-autopilot-guard.test.mjs",
+    "mode": "100644",
+    "beforeBlob": "4a6c638e4f163a72da095dd3b5a0fd57c086e51d",
+    "afterBlob": "fd146ca62015cb05026e0835ed4e96b1d284a3ab",
+    "beforeSha256": "cabdad0d98402f9cecdf2e9ae46a2f93c435dafd72126f12abeab88c07ba9ad7",
+    "afterSha256": "4f945a1a6a18bf686761dfa1034662e1f5b7d2b2e0c8ed5440726f359bc34af4",
+    "afterBytes": 672403,
+    "sourcePatch": "diff --git a/scripts/p7-autopilot-guard.test.mjs b/scripts/p7-autopilot-guard.test.mjs\nindex 4a6c638e4..fd146ca62 100644\n--- a/scripts/p7-autopilot-guard.test.mjs\n+++ b/scripts/p7-autopilot-guard.test.mjs\n@@ -303,6 +303,7 @@ function commit(root, message) {\n // constructor. Every caller receives separate files, refs and mutable history.\n const fixtureSnapshots = new Map();\n const compositeFixtureSnapshots = new Map();\n+const fixtureSnapshotEntries = new Map();\n let fixtureSnapshotDirectory;\n after(() => {\n   if (fixtureSnapshotDirectory) fs.rmSync(fixtureSnapshotDirectory, { recursive: true, force: true });\n@@ -368,8 +369,41 @@ function constructFixture(t, implementationBranch) {\n // Constructors with mutation callbacks or custom Git setup always run normally.\n function copyFixtureSnapshot(directory, root) {\n   const objects = path.join(directory, '.git', 'objects');\n-  fs.cpSync(directory, root, { recursive: true, dereference: false, verbatimSymlinks: true,\n-    filter: source => source !== objects });\n+  let entries = fixtureSnapshotEntries.get(directory);\n+  if (!entries) {\n+    entries = [];\n+    const visit = (relative) => {\n+      const source = path.join(directory, relative);\n+      if (source === objects) return;\n+      const metadata = fs.lstatSync(source);\n+      if (metadata.isDirectory()) {\n+        entries.push({ relative, kind: 'directory', mode: metadata.mode & 0o7777 });\n+        for (const name of fs.readdirSync(source)) visit(path.join(relative, name));\n+      } else if (metadata.isSymbolicLink()) {\n+        entries.push({ relative, kind: 'symlink', target: fs.readlinkSync(source) });\n+      } else {\n+        assert.ok(metadata.isFile(), 'fixture snapshots contain only directories, files and symlinks');\n+        entries.push({ relative, kind: 'file' });\n+      }\n+    };\n+    visit('');\n+    fixtureSnapshotEntries.set(directory, entries);\n+  }\n+  // Only traversal metadata is reused. Every file, link, index and ref is\n+  // copied into this caller's own worktree; no candidate bytes are cached.\n+  for (const entry of entries) {\n+    const target = path.join(root, entry.relative);\n+    if (entry.kind === 'directory') {\n+      if (entry.relative) {\n+        fs.mkdirSync(target, { mode: entry.mode });\n+        fs.chmodSync(target, entry.mode);\n+      }\n+    } else if (entry.kind === 'symlink') {\n+      fs.symlinkSync(entry.target, target);\n+    } else {\n+      fs.copyFileSync(path.join(directory, entry.relative), target);\n+    }\n+  }\n   // Git reads only the immutable snapshot's objects; new objects, refs, index\n   // and worktree belong exclusively to the caller. Snapshots outlive all tests.\n   write(root, '.git/objects/info/alternates', objects + '\\n');\n@@ -452,6 +486,10 @@ test('composite baseline copies isolate candidate bytes, refs and relative symli\n     const context = fixture(t, 'test/composite-snapshot-isolation');\n     write(context.root, 'baseline/value.txt', 'accepted bytes\\n', 0o600);\n     fs.symlinkSync('value.txt', path.join(context.root, 'baseline/link'));\n+    fs.symlinkSync('missing/target', path.join(context.root, 'baseline/dangling'));\n+    fs.mkdirSync(path.join(context.root, 'baseline/empty'));\n+    fs.chmodSync(path.join(context.root, 'baseline/empty'), 0o1777);\n+    fs.chmodSync(context.root, 0o1700);\n     commit(context.root, 'genuine composite baseline');\n     context.baseline = git(context.root, ['rev-parse', 'HEAD']);\n     return context;\n@@ -473,6 +511,20 @@ test('composite baseline copies isolate candidate bytes, refs and relative symli\n   assert.equal(fs.statSync(path.join(second.root, 'baseline/value.txt')).mode & 0o777, 0o600);\n   assert.equal(fs.readlinkSync(path.join(second.root, 'baseline/link')), 'value.txt');\n   assert.equal(fs.existsSync(path.join(second.root, 'untracked.txt')), false);\n+  write(second.root, 'baseline/value.txt', 'second mutation\\n');\n+  commit(second.root, 'second caller mutation');\n+  const third = compositeFixture(t, 'snapshot-isolation-regression', {}, construct);\n+  assert.equal(constructions, 1);\n+  assert.equal(fs.readFileSync(path.join(third.root, 'baseline/value.txt'), 'utf8'), 'accepted bytes\\n');\n+  assert.equal(fs.statSync(path.join(third.root, 'baseline/value.txt')).mode & 0o777, 0o600);\n+  assert.equal(fs.readlinkSync(path.join(third.root, 'baseline/link')), 'value.txt');\n+  assert.equal(fs.readlinkSync(path.join(third.root, 'baseline/dangling')), 'missing/target');\n+  assert.equal(fs.statSync(path.join(third.root, 'baseline/empty')).mode & 0o7777, 0o1777);\n+  assert.equal(fs.statSync(third.root).mode & 0o7777, 0o700);\n+  assert.deepEqual(fs.readdirSync(path.join(third.root, 'baseline/empty')), []);\n+  assert.equal(git(third.root, ['rev-parse', 'HEAD']), first.baseline);\n+  assert.notEqual(fs.statSync(path.join(second.root, '.git/index')).ino,\n+    fs.statSync(path.join(third.root, '.git/index')).ino);\n });\n \n test('custom composite mutation callbacks and Git setup never reuse cached baselines', (t) => {\n@@ -514,7 +566,12 @@ test('IR-20 binding prerequisite admits exactly the five non-authority implement\n   assert.equal(ir20BindingImplementationPaths.some((file) => file.includes('/scopes/')), false);\n });\n \n-function publicHomeImplementationFixture(t, { withManifest = true } = {}) {\n+function publicHomeImplementationFixture(t, options = {}) {\n+  return compositeFixture(t, 'public-home-implementation', options,\n+    () => constructPublicHomeImplementationFixture(t, options));\n+}\n+\n+function constructPublicHomeImplementationFixture(t, { withManifest = true } = {}) {\n   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-public-home-immutable-scope-'));\n   t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));\n   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);\n@@ -542,7 +599,12 @@ function publicHomeImplementationFixture(t, { withManifest = true } = {}) {\n   return { root, baseline, implementationBranch: publicHomeImplementationBranch };\n }\n \n-function poisonIsolationFixture(t, { manifest = 'valid' } = {}) {\n+function poisonIsolationFixture(t, options = {}) {\n+  return compositeFixture(t, 'poison-isolation', options,\n+    () => constructPoisonIsolationFixture(t, options));\n+}\n+\n+function constructPoisonIsolationFixture(t, { manifest = 'valid' } = {}) {\n   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-poison-isolation-immutable-scope-'));\n   t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));\n   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);\n@@ -575,6 +637,11 @@ function poisonIsolationFixture(t, { manifest = 'valid' } = {}) {\n }\n \n function publicHomeGovernanceFixture(t) {\n+  return compositeFixture(t, 'public-home-governance', {},\n+    () => constructPublicHomeGovernanceFixture(t));\n+}\n+\n+function constructPublicHomeGovernanceFixture(t) {\n   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-public-home-governance-scope-'));\n   t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));\n   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);\n@@ -797,6 +864,11 @@ for (const mutation of ['oversize', 'invalid UTF-8']) {\n }\n \n function qwenFailedEvidenceFixture(t) {\n+  return compositeFixture(t, 'qwen-failed-evidence', {},\n+    () => constructQwenFailedEvidenceFixture(t));\n+}\n+\n+function constructQwenFailedEvidenceFixture(t) {\n   const context = fixture(t, qwenFailedEvidenceBranch);\n   fs.mkdirSync(path.join(context.root, 'docs/platform-v7/autopilot/scopes'), { recursive: true });\n   write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify({\n@@ -809,6 +881,11 @@ function qwenFailedEvidenceFixture(t) {\n }\n \n function kindMinioImageSourceFixture(t) {\n+  return compositeFixture(t, 'kind-minio-image-source', {},\n+    () => constructKindMinioImageSourceFixture(t));\n+}\n+\n+function constructKindMinioImageSourceFixture(t) {\n   const context = fixture(t, kindMinioImageSourceBranch);\n   write(context.root, 'infra/kind/production-like/dependencies.yaml', 'baseline dependencies\\n');\n   write(context.root, 'infra/kind/production-like/minio-tls-check.yaml', 'baseline TLS check\\n');\n@@ -1289,6 +1366,11 @@ for (const forbidden of ['README.md', '.github/workflows/ci.yml']) {\n }\n \n function finalPublicManifestFallbackFixture(t) {\n+  return compositeFixture(t, 'final-public-manifest-fallback', {},\n+    () => constructFinalPublicManifestFallbackFixture(t));\n+}\n+\n+function constructFinalPublicManifestFallbackFixture(t) {\n   const implementationBranch = finalPublicBranches[1];\n   const manifestPath = 'docs/platform-v7/autopilot/scopes/farmer-public-market-teaser-20260913.json';\n   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-final-public-fallback-'));\n@@ -1454,6 +1536,11 @@ for (const [branch, allowed, rejected] of [\n }\n \n function finalPublicGovernanceFixture(t, admitted = true) {\n+  return compositeFixture(t, 'final-public-governance', { admitted },\n+    () => constructFinalPublicGovernanceFixture(t, admitted));\n+}\n+\n+function constructFinalPublicGovernanceFixture(t, admitted = true) {\n   const context = fixture(t, finalPublicGovernanceBranch);\n   for (const file of finalPublicGovernancePaths.slice(1, 3)) write(context.root, file, '{}\\n');\n   write(context.root, 'scripts/p7-autopilot-guard.test.mjs', '// baseline regression\\n');\n@@ -2195,6 +2282,11 @@ for (const mutation of ['approved append', 'extra fingerprint', 'remove prior en\n const nextSecurityPatchBranch = 'security/pc-crop-next-15-5-24-4997';\n const nextSecurityPaths = ['.github/workflows/platform-v7-autopilot-guard.yml', '.github/workflows/sbom-scan.yml', 'apps/web/package.json', 'package.json', 'pnpm-lock.yaml', 'docs/platform-v7/autopilot/autopilot-state.json', 'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs'];\n function nextSecurityFixture(t) {\n+  return compositeFixture(t, 'next-security', {},\n+    () => constructNextSecurityFixture(t));\n+}\n+\n+function constructNextSecurityFixture(t) {\n   const context = fixture(t, nextSecurityPatchBranch);\n   write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify({\n     allowedCurrentScope: ['README.md'],\n@@ -2375,6 +2467,11 @@ for (const mutation of ['unapproved file', 'candidate global scope']) {\n }\n \n function industrialFixture(t, branch, admitted = true) {\n+  return compositeFixture(t, 'industrial', { branch, admitted },\n+    () => constructIndustrialFixture(t, branch, admitted));\n+}\n+\n+function constructIndustrialFixture(t, branch, admitted = true) {\n   const context = fixture(t, branch);\n   const statePath = industrialGovernancePaths[0];\n   const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));\n"
+  },
+  "localEvidence": {
+    "sourceSha256": "4f945a1a6a18bf686761dfa1034662e1f5b7d2b2e0c8ed5440726f359bc34af4",
+    "completeSuitePass": true,
+    "exitCode": 0,
+    "tests": 1037,
+    "pass": 1037,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "durationMs": 697088.616495,
+    "command": "node --test --test-reporter=tap scripts/p7-autopilot-guard.test.mjs",
+    "noTestSelectionChanges": true,
+    "nativeAcceptance": false
+  },
+  "nativeFailureEvidence": {
+    "head": "3796f30f7135a2bc82c49c657879c39fd0c8f11b",
+    "sourceJob": 122922662032,
+    "artifact": 12830325550,
+    "guardExitCode": 124,
+    "limitSeconds": 180,
+    "artifactSha256": "abfd8ef460ddacae8e51f4dcec16d2d78233ce6c7178810bcf1c645c2ca342a3"
+  },
+  "limits": [
+    "Reuse only immutable completed constructor inputs/traversal; fresh independent mutable files/refs/index and every real guard invocation remain.",
+    "Custom Git/environment, callback/closure setup and all existing immutable-blob assertions remain enforced; no cached guard or test result.",
+    "No runtime guard, workflow, dependency, timeout, test selection, authority, provider, secret or production change.",
+    "State bytes, all old scopes/owners/payloads and official progress remain unchanged. No new path or broad scope."
+  ],
+  "requiredAcceptance": [
+    "Separately review and accept this exact metadata before publishing any replacement source.",
+    "Fresh actual complete-diff independent review, separate owner audit, all applicable substantive native/security/readiness checks and ordinary full-expected-SHA manual acceptance for both metadata and source.",
+    "Future source changes exactly this one regular100644 leaf; all other accepted-main leaves remain byte-identical. Native hosted180s acceptance is not inferred from local diagnostics.",
+    "Then recompose retained5957 original three afters on accepted currentmain and obtain fresh source180s/Kubernetes/deep-outbox/storage/cleanup and registration release/live acceptance."
+  ],
+  "status": "PROPOSAL_NOT_SOURCE_ACCEPTANCE",
+  "productionInvocationAuthorized": false,
+  "productionAcceptance": false,
+  "masterCredit": 0
+}
+```
+
+
 # Canonical web release host trust and evidence privacy
 
 Private exact two-file correction for the already recorded registration release prerequisite. All source validation below is local/private; no native, publication, SSH, release or whole-block acceptance is inferred.
@@ -8325,13 +8395,13 @@ Private exact two-file correction for the already recorded registration release 
   "schema": "pc-crop.web-trust-proposal.v1",
   "owner": "ACCOUNT_1_CORE/root",
   "purpose": "Existing registration release prerequisite6473020671: authenticate canonical host pin and publish closed-field aggregate release evidence.",
-  "authorityBaseExactMain": "f648bf2ef76c41b098e4331a1f530bf17eb14ccb",
+  "authorityBaseExactMain": "576d61e07b6583a211626b34d3e448d4fcc101b9",
   "implementationBranch": "fix/web-trust-3048",
   "allowedPaths": [
     ".github/workflows/production-web-exact-sha.yml",
     "scripts/check-production-web-hardening.mjs"
   ],
-  "publicationApproval": "PENDING_EXACT_PACKAGE_AFTER_AUTO_REVIEW_REJECTION",
+  "publicationApproval": "USER_APPROVED_EXACT_REPOSITORY_AND_FOUR_NAMED_BRANCHES_2026-10-29; source remains conditional on separate metadata acceptance",
   "sourcePayloads": [
     {
       "path": ".github/workflows/production-web-exact-sha.yml",
