@@ -785,6 +785,38 @@ class MigrationAuthorityAuditControllerContracts(unittest.TestCase):
                     if destination.exists():self.assertNotIn(CANARY,destination.read_text())
 
 
+def native_environment_values(value):
+    """Read both Compose JSON environment forms without resolving any value."""
+    if type(value) is dict:
+        assert all(type(k) is str and k and '=' not in k and type(v) is str
+                   for k,v in value.items())
+        return dict(value)
+    assert type(value) is list
+    result={}
+    for item in value:
+        assert type(item) is str
+        key,separator,content=item.partition('=')
+        assert separator and key and key not in result
+        result[key]=content
+    return result
+
+
+class NativeEnvironmentShapeContracts(unittest.TestCase):
+    def test_mapping_and_list_retain_literal_values_and_empty_or_equals_values(self):
+        expected={'ORDER':'first','INLINE':'${PC_AUDIT_CANARY}','EMPTY':'','EQUALS':'a=b'}
+        self.assertEqual(native_environment_values(expected),expected)
+        self.assertEqual(native_environment_values([k+'='+v for k,v in expected.items()]),expected)
+        self.assertEqual(native_environment_values({}),{})
+        self.assertEqual(native_environment_values([]),{})
+
+    def test_ambiguous_or_unsupported_environment_is_rejected(self):
+        for value in (None,True,'ORDER=first',{'ORDER':None},{'ORDER':1},{'': 'x'},
+                      {'ORDER=BAD':'x'},{1:'x'},['ORDER'],['=first'],[None],
+                      ['ORDER=first','ORDER=second'],[['ORDER','first']]):
+            with self.subTest(value=value):
+                with self.assertRaises(AssertionError):native_environment_values(value)
+
+
 def native_migration_audit_config():
     """No Docker Engine/create/pull: execute the actual sealed config helper."""
     import ast
@@ -821,7 +853,7 @@ def native_migration_audit_config():
             namespace['DEADLINE']=time.monotonic()+30
             with namespace['sealed_compose_inputs']([str(x) for x in ordered],str(root),project) as (raw,command,model):
                 assert model['name']==(project or root.name)
-                environment=model['services']['api']['environment']
+                environment=native_environment_values(model['services']['api']['environment'])
                 assert environment['ORDER']==expected
                 assert environment['INLINE']=='${PC_AUDIT_CANARY}'
                 assert 'PRIVATE_VALUE_MUST_NOT_APPEAR' not in json.dumps(model)

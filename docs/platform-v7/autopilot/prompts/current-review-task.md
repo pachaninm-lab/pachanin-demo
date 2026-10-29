@@ -3494,3 +3494,9 @@ MA1 git show 98a01f281df37013d6b62c5320cf27bb9069276c block:ef1537ad8ee1eefa6cf3
 
 Read the complete five GOV before/after/diff and full immutable Codex payload. Only the existing test pin plus private source head/tree/whole-patch/review pins change in the same audit-only admission. No new path, scope or authority. Four runtime afters remain V4; root ownership guard remains. Verify complete V5 test, full V4-to-V5 delta, whole5 reconstruction/digest and fresh private whole5 review. Retain complete original payload and actual e6 native63PASS/1FAIL plus blocked review; Compose probe NOT_REACHED, no transferred PASS. Every other state literal, owner, primary11, CORE12, PRODUCT9, old fullstack9, history and official5 remains. Prompts keep full prefixes; queue replaces only owned125B MA1 pointer. Source requires accepted new pins before public update, fresh actual whole5/native exact-source+real Compose5PASS/security/READY/manual. No host invocation or MASTER credit.
 MA2 git show e7b45c38cf2c49c85ae80e0e4afa54f00f08950f block:61f7f65e91ae96fe06139a20f6ddd9eceef0750fa2d0244a21611e249e84c1d1
+
+
+## MA3 literal Compose environment fixture amendment review
+
+Review complete5GOV actual diff, exact existing test/private pin replacement, complete V5-to-V6 delta and full private source/blocked380 reviews in the immutable Codex block. Reconstruct exact whole5 from unchanged complete V4/V5 prefixes plus delta. Four runtime afters/root ownership guard, scope, owners, all other state literals/history/score remain unchanged. Map/list parsing preserves literal canaries; unsupported or duplicate forms reject. Actual38065PASS then realComposeTypeError is retained, not nativePASS. Separate metadata then source actualwhole5/native realCompose5PASS/security/READY/manual gates remain mandatory; no host or MASTER credit.
+MA3 git show 6ee31f77f32e1e7c6d9ed65aeed89e324b74a5e7 block:8c7dfdbd98a21205249eaf91edcfe492c97740128edf69fcf546e9d651fd4685
