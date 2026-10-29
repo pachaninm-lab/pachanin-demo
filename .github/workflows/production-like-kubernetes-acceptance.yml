@@ -243,8 +243,8 @@ jobs:
                                             ['report.json', 'public-sources.zip'])
                       return report, calls, group_proof
 
-              def test_both_owned_refs_get_guard_300_outer_315(self):
-                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028']:
+              def test_named_owned_refs_get_guard_300_outer_315(self):
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921']:
                       with self.subTest(ref=ref):
                           report, calls, _ = self.execute_collector(head_ref=ref)
                           self.assertEqual(report['result'], 'PASS')
@@ -254,40 +254,47 @@ jobs:
                           self.assertEqual(report['checks'][0]['tap_totals']['tests'], 1)
 
               def test_other_and_empty_refs_keep_guard_180_outer_195(self):
-                  for ref in ['ir/k8s-production-like-2659', '']:
+                  for ref in ['ir/k8s-production-like-2659', '', 'product/r1-role-mode-consumer-20260921-extra']:
                       with self.subTest(ref=ref):
                           report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=180)
                           self.assertEqual(report['result'], 'PASS')
                           self.assertEqual(calls[0]['outer_timeout'], 195)
 
               def test_fork_name_collision_and_missing_identity_keep_original_budget(self):
-                  for head_repo, repo in [('fork/repository', 'fixture/repository'), ('', '')]:
-                      with self.subTest(head_repository=head_repo, repository=repo):
-                          report, calls, _ = self.execute_collector(guard_seconds=180,
-                              head_repository=head_repo, repository=repo)
-                          self.assertEqual(report['result'], 'PASS')
-                          self.assertEqual(calls[0]['outer_timeout'], 195)
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921']:
+                      for head_repo, repo in [('fork/repository', 'fixture/repository'), ('', '')]:
+                          with self.subTest(ref=ref, head_repository=head_repo, repository=repo):
+                              report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=180,
+                                  head_repository=head_repo, repository=repo)
+                              self.assertEqual(report['result'], 'PASS')
+                              self.assertEqual(calls[0]['outer_timeout'], 195)
 
               def test_guard_timeout_124_kills_owned_group_and_keeps_scope_and_artifact(self):
-                  report, calls, group = self.execute_collector('guard-timeout')
-                  self.assertEqual(report['result'], 'FAIL')
-                  self.assertEqual(len(calls), 2)
-                  self.assertEqual(group['exit_code'], 124)
-                  self.assertEqual([check['exit_code'] for check in report['checks']], [124, 0])
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921']:
+                      with self.subTest(ref=ref):
+                          report, calls, group = self.execute_collector('guard-timeout', head_ref=ref)
+                          self.assertEqual(report['result'], 'FAIL')
+                          self.assertEqual(len(calls), 2)
+                          self.assertEqual(group['exit_code'], 124)
+                          self.assertEqual([check['exit_code'] for check in report['checks']], [124, 0])
 
               def test_branch_timeout_keeps_180_outer_195_and_cannot_pass(self):
-                  report, calls, _ = self.execute_collector('branch-timeout')
-                  self.assertEqual(report['result'], 'FAIL')
-                  self.assertEqual(len(calls), 2)
-                  self.assertEqual([check['exit_code'] for check in report['checks']], [0, 124])
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921']:
+                      with self.subTest(ref=ref):
+                          report, calls, _ = self.execute_collector('branch-timeout', head_ref=ref)
+                          self.assertEqual(report['result'], 'FAIL')
+                          self.assertEqual(len(calls), 2)
+                          self.assertEqual([check['exit_code'] for check in report['checks']], [0, 124])
 
               def test_outer_guard_timeout_retains_failed_bound_artifact_and_closes_raw_file(self):
-                  report, calls, _ = self.execute_collector('outer-timeout')
-                  self.assertEqual(report['result'], 'FAIL')
-                  self.assertEqual(report['stage'], 'guard-regressions')
-                  self.assertEqual(len(calls), 1)
-                  self.assertEqual(calls[0]['outer_timeout'], 315)
-                  self.assertEqual(report['checks'], [])
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921']:
+                      with self.subTest(ref=ref):
+                          report, calls, _ = self.execute_collector('outer-timeout', head_ref=ref)
+                          self.assertEqual(report['result'], 'FAIL')
+                          self.assertEqual(report['stage'], 'guard-regressions')
+                          self.assertEqual(len(calls), 1)
+                          self.assertEqual(calls[0]['outer_timeout'], 315)
+                          self.assertEqual(report['checks'], [])
 
               def test_workflow_retains_job_bounds_and_always_artifact_step(self):
                   preflight = source.split('\n  source-preflight:\n', 1)[1].split(
@@ -397,6 +404,7 @@ jobs:
                   owned_budget_refs = {
                       'fix/public-registration-final-copy-4916',
                       'fix/guard-fixture-compression-20261028',
+                      'product/r1-role-mode-consumer-20260921',
                   }
                   own_repository = os.environ.get('GITHUB_REPOSITORY', '')
                   owned_budget = (os.environ.get('GITHUB_HEAD_REF', '') in owned_budget_refs and
