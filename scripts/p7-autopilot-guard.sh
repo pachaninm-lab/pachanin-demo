@@ -609,8 +609,27 @@ if [ "${GITHUB_HEAD_REF:-}" = "fix/exact-main-live-evidence-2659" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$EXACT_MAIN_LIVE_EVIDENCE_SCOPE")
 fi
 
+P7_EXACT_SCOPE_FRAME_ATTEMPTED=0
+P7_EXACT_SCOPE_FRAME_VALID=0
+P7_EXACT_SCOPE_CHECKSUM_UNAVAILABLE=0
+P7_EXACT_SCOPE_CAPTURE_DIFF=''
+P7_EXACT_SCOPE_CAPTURE_SCOPE=''
+P7_EXACT_SCOPE_CAPTURE_MODE=''
+P7_EXACT_SCOPE_CAPTURE_BRANCH=''
+P7_EXACT_SCOPE_PRECOMPUTED_RESULT=''
 if is_immutable_scope_branch "$CURRENT_BRANCH"; then
-  APPROVED_BRANCH_SCOPE=$(BASE_REF="$BASE_REF" HEAD_REF="$HEAD_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" PUBLIC_HOME_IMPLEMENTATION_BRANCH="$PUBLIC_HOME_IMPLEMENTATION_BRANCH" PUBLIC_HOME_GOVERNANCE_MANIFEST="$PUBLIC_HOME_GOVERNANCE_MANIFEST" PUBLIC_HOME_IMPLEMENTATION_MANIFEST="$PUBLIC_HOME_IMPLEMENTATION_MANIFEST" POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH="$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" POISON_ISOLATION_IMPLEMENTATION_BRANCH="$POISON_ISOLATION_IMPLEMENTATION_BRANCH" POISON_ISOLATION_MANIFEST="$POISON_ISOLATION_MANIFEST" node - <<'JS'
+  P7_EXACT_SCOPE_FRAME_ATTEMPTED=1
+  P7_EXACT_SCOPE_CAPTURE_DIFF="$DIFF_FILES"
+  P7_EXACT_SCOPE_CAPTURE_MODE=1
+  P7_EXACT_SCOPE_CAPTURE_BRANCH="$CURRENT_BRANCH"
+  # Keep the raw diff out of argv/environment until authority validation has
+  # completed. An orphan head can produce a diff larger than one exec string.
+  p7_exact_scope_diff_size() {
+    local LC_ALL=C
+    P7_EXACT_SCOPE_DIFF_BYTES=${#DIFF_FILES}
+  }
+  p7_exact_scope_diff_size
+  P7_EXACT_SCOPE_FRAME=$(P7_EXACT_SCOPE_DIFF_BYTES="$P7_EXACT_SCOPE_DIFF_BYTES" P7_EXACT_APPROVED_SCOPE=1 BASE_REF="$BASE_REF" HEAD_REF="$HEAD_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" PUBLIC_HOME_IMPLEMENTATION_BRANCH="$PUBLIC_HOME_IMPLEMENTATION_BRANCH" PUBLIC_HOME_GOVERNANCE_MANIFEST="$PUBLIC_HOME_GOVERNANCE_MANIFEST" PUBLIC_HOME_IMPLEMENTATION_MANIFEST="$PUBLIC_HOME_IMPLEMENTATION_MANIFEST" POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH="$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" POISON_ISOLATION_IMPLEMENTATION_BRANCH="$POISON_ISOLATION_IMPLEMENTATION_BRANCH" POISON_ISOLATION_MANIFEST="$POISON_ISOLATION_MANIFEST" node - 3< <(printf '%s' "$DIFF_FILES" 2>/dev/null) <<'JS'
 const { execFileSync } = require('node:child_process');
 
 const baseRef = String(process.env.BASE_REF || '').trim();
@@ -2850,8 +2869,126 @@ if (new Set(normalized).size !== normalized.length) {
   throw new Error('P7_IMMUTABLE_SCOPE: duplicate immutable approved paths');
 }
 process.stdout.write(`${normalized.join('\n')}\n`);
+// Compute the pure final matcher in this same invocation. Do not report its
+// result until all existing intervening authority and forbidden-path checks run.
+// Match Bash command substitution's NUL and trailing-LF normalization exactly.
+const frameScope = Buffer.from(normalized.join('\n'), 'utf8').toString('utf8')
+  .replace(/\0/g, '').replace(/\n+$/g, '');
+process.env.ALLOWED_CURRENT = frameScope;
+try {
+  // Read this invocation's dedicated raw pipe only after every immutable
+  // authority check above. The byte count detects incomplete transport.
+  const frameDiffBytes = require('node:fs').readFileSync(3);
+  if (frameDiffBytes.length !== Number(process.env.P7_EXACT_SCOPE_DIFF_BYTES)) {
+    throw new Error('P7_EXACT_SCOPE_DIFF_TRANSPORT');
+  }
+  process.env.DIFF_FILES = frameDiffBytes.toString('utf8');
+  const result = (() => {
+const files = String(process.env.DIFF_FILES || '').split(/\r?\n/).map((file) => file.trim()).filter(Boolean);
+const allowedCurrent = String(process.env.ALLOWED_CURRENT || '').split(/\r?\n/).map((file) => file.trim()).filter(Boolean);
+const exactApprovedScope = process.env.P7_EXACT_APPROVED_SCOPE === '1';
+const allowedInfra = /^(AGENTS\.md|docs\/platform-v7\/execution-queue\.md|docs\/platform-v7\/autopilot\/.+|scripts\/p7-autopilot-guard\.sh|scripts\/p7-agent-runner\.sh|scripts\/p7-autopilot-dispatcher\.mjs|scripts\/p7-autopilot-scope-cleaner\.mjs|\.github\/workflows\/automerge\.yml|\.github\/workflows\/ci\.yml|\.github\/workflows\/web-unit\.yml|\.github\/workflows\/platform-v7-autopilot-guard\.yml|\.github\/workflows\/platform-v7-autopilot-generated-merge\.yml|\.github\/workflows\/platform-v7-autopilot-loop\.yml|\.github\/workflows\/platform-v7-agent-runner\.yml|\.github\/workflows\/platform-v7-generated-pr-cleanup\.yml|\.github\/workflows\/platform-v7-autopilot-watchdog\.yml|\.github\/workflows\/platform-v7-safe-merge\.yml|\.github\/ISSUE_TEMPLATE\/platform-v7-agent-run\.md)$/;
+
+function normalizePath(input) { return String(input ?? '').trim().replace(/\\/g, '/').replace(/\/+$/g, ''); }
+function escapeRegExp(input) { return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function globToRegExp(glob) {
+  const normalized = normalizePath(glob);
+  let pattern = '';
+  for (let index = 0; index < normalized.length; index += 1) {
+    const character = normalized[index];
+    const next = normalized[index + 1];
+    if (character === '*' && next === '*') { pattern += '.*'; index += 1; }
+    else if (character === '*') pattern += '[^/]*';
+    else pattern += escapeRegExp(character);
+  }
+  return new RegExp(`^${pattern}$`);
+}
+function scopeMatches(allowedEntry, candidate) {
+  const allowed = normalizePath(allowedEntry);
+  const file = normalizePath(candidate);
+  if (!allowed || !file) return false;
+  if (allowed === file) return true;
+  if (allowed.includes('*')) return globToRegExp(allowed).test(file);
+  return file.startsWith(`${allowed}/`);
+}
+function exactScopeMatches(allowedEntry, candidate) {
+  const allowed = normalizePath(allowedEntry);
+  const file = normalizePath(candidate);
+  if (!allowed || !file) return false;
+  if (allowed.includes('*')) return globToRegExp(allowed).test(file);
+  return allowed === file;
+}
+const disallowed = files.filter((file) => {
+  const approved = allowedCurrent.some((scope) => (
+    exactApprovedScope ? exactScopeMatches(scope, file) : scopeMatches(scope, file)
+  ));
+  return exactApprovedScope ? !approved : !allowedInfra.test(file) && !approved;
+});
+    return disallowed.join('\n');
+  })().replace(/\0/g, '').replace(/\n+$/g, '');
+  const digest = require('node:crypto').createHash('sha256')
+    .update(frameScope).update('\0').update('1').update('\0').update(result).digest('hex');
+  process.stdout.write(`P7_EXACT_SCOPE_RESULT_HEX:${Buffer.from(result).toString('hex')}:${digest}\n`);
+} catch {
+  // Defer protocol failure too, so it cannot precede existing shell checks.
+  process.stdout.write('P7_EXACT_SCOPE_RESULT_HEX:ERROR\n');
+}
+
 JS
   )
+
+  # The producer's last nonempty line is an ASCII frame. Scope lines remain
+  # unchanged; no untrusted text is evaluated as shell code.
+  P7_EXACT_SCOPE_FOOTER="${P7_EXACT_SCOPE_FRAME##*$'\n'}"
+  APPROVED_BRANCH_SCOPE="$P7_EXACT_SCOPE_FRAME"
+  if [[ "$P7_EXACT_SCOPE_FRAME" == *$'\n'* && "$P7_EXACT_SCOPE_FOOTER" == P7_EXACT_SCOPE_RESULT_HEX:* ]]; then
+    APPROVED_BRANCH_SCOPE="${P7_EXACT_SCOPE_FRAME%$'\n'*}"
+    while [[ "$APPROVED_BRANCH_SCOPE" == *$'\n' ]]; do
+      APPROVED_BRANCH_SCOPE="${APPROVED_BRANCH_SCOPE%$'\n'}"
+    done
+    P7_EXACT_SCOPE_CAPTURE_SCOPE="$APPROVED_BRANCH_SCOPE"
+    P7_EXACT_SCOPE_PAYLOAD="${P7_EXACT_SCOPE_FOOTER#P7_EXACT_SCOPE_RESULT_HEX:}"
+    P7_EXACT_SCOPE_HEX="${P7_EXACT_SCOPE_PAYLOAD%:*}"
+    P7_EXACT_SCOPE_DIGEST="${P7_EXACT_SCOPE_PAYLOAD##*:}"
+    if [[ "$P7_EXACT_SCOPE_PAYLOAD" == *:* && "$P7_EXACT_SCOPE_HEX" != *:* &&
+          "$P7_EXACT_SCOPE_HEX" != *[!0-9a-f]* && "$P7_EXACT_SCOPE_DIGEST" =~ ^[0-9a-f]{64}$ ]] &&
+        (( ${#P7_EXACT_SCOPE_HEX} % 2 == 0 )); then
+      # Bound substring and append work to one small ASCII chunk. Locale is
+      # function-local; byte escapes reproduce UTF-8 without changing grep.
+      p7_exact_scope_decode_hex() {
+        local LC_ALL=C
+        local chunk escapes pair index length
+        while IFS= read -r -n 256 chunk; do
+          [[ -n "$chunk" ]] || break
+          escapes=''
+          length=${#chunk}
+          for ((index=0; index<length; index+=2)); do
+            pair="${chunk:index:2}"
+            if [[ "$pair" == 00 ]]; then return 1; fi
+            escapes+="\\x$pair"
+          done
+          printf '%b' "$escapes"
+        done <<< "$P7_EXACT_SCOPE_HEX"
+      }
+      if P7_EXACT_SCOPE_PRECOMPUTED_RESULT=$(p7_exact_scope_decode_hex); then
+        # Verify the scope, mode and result bytes. The raw diff is captured and
+        # compared byte-for-byte below, including non-UTF-8 Git filename bytes.
+        # The utility was previously needed only by a CA path; if absent, retain
+        # the old final Node matcher without trusting the precomputed result.
+        if command -v sha256sum >/dev/null 2>&1; then
+          P7_EXACT_SCOPE_ACTUAL_DIGEST=$(printf '%s\0%s\0%s' "$P7_EXACT_SCOPE_CAPTURE_SCOPE" \
+            "$P7_EXACT_SCOPE_CAPTURE_MODE" "$P7_EXACT_SCOPE_PRECOMPUTED_RESULT" \
+            | sha256sum 2>/dev/null) || P7_EXACT_SCOPE_ACTUAL_DIGEST=''
+          P7_EXACT_SCOPE_ACTUAL_DIGEST="${P7_EXACT_SCOPE_ACTUAL_DIGEST%% *}"
+          if [[ "$P7_EXACT_SCOPE_ACTUAL_DIGEST" == "$P7_EXACT_SCOPE_DIGEST" ]]; then
+            P7_EXACT_SCOPE_FRAME_VALID=1
+          fi
+        else
+          P7_EXACT_SCOPE_CHECKSUM_UNAVAILABLE=1
+        fi
+      fi
+    fi
+  fi
 else
   APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="$CURRENT_BRANCH" P7_SCOPE_BASE_REF="$BASE_REF" P7_SCOPE_HEAD_REF="$HEAD_REF" node - <<'JS'
 const fs = require('fs');
@@ -3128,6 +3265,18 @@ else
   P7_EXACT_APPROVED_SCOPE=0
 fi
 
+if [[ "$P7_EXACT_SCOPE_FRAME_ATTEMPTED" == 1 && "$P7_EXACT_SCOPE_FRAME_VALID" != 1 &&
+      "$P7_EXACT_SCOPE_CHECKSUM_UNAVAILABLE" != 1 ]]; then
+  echo 'P7_EXACT_SCOPE_FRAME_INVALID'
+  exit 1
+fi
+if [[ "$P7_EXACT_SCOPE_FRAME_VALID" == 1 &&
+      "$CURRENT_BRANCH" == "$P7_EXACT_SCOPE_CAPTURE_BRANCH" &&
+      "$P7_EXACT_APPROVED_SCOPE" == "$P7_EXACT_SCOPE_CAPTURE_MODE" &&
+      "$DIFF_FILES" == "$P7_EXACT_SCOPE_CAPTURE_DIFF" &&
+      "$ALLOWED_CURRENT" == "$P7_EXACT_SCOPE_CAPTURE_SCOPE" ]]; then
+  SCOPE_RESULT="$P7_EXACT_SCOPE_PRECOMPUTED_RESULT"
+else
 SCOPE_RESULT=$(DIFF_FILES="$DIFF_FILES" ALLOWED_CURRENT="$ALLOWED_CURRENT" P7_EXACT_APPROVED_SCOPE="$P7_EXACT_APPROVED_SCOPE" node - <<'JS'
 const files = String(process.env.DIFF_FILES || '').split(/\r?\n/).map((file) => file.trim()).filter(Boolean);
 const allowedCurrent = String(process.env.ALLOWED_CURRENT || '').split(/\r?\n/).map((file) => file.trim()).filter(Boolean);
@@ -3175,6 +3324,7 @@ if (disallowed.length > 0) {
 }
 JS
 ) || true
+fi
 
 if [ -n "$SCOPE_RESULT" ]; then
   echo "Files outside current autopilot scope:"

@@ -445,6 +445,7 @@ export function RegisterFormClient({
   const submitLockRef = React.useRef(false);
   const confirmPasswordRef = React.useRef<HTMLInputElement>(null);
   const unknownOperationRef = React.useRef<RegistrationUnknownOperation | null>(null);
+  const statusReadGenerationRef = React.useRef(0);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
   const [correlationId, setCorrelationId] = React.useState('');
@@ -463,7 +464,8 @@ export function RegisterFormClient({
   const [passwordVisible, setPasswordVisible] = React.useState(false);
 
   const loadStatus = React.useCallback(async (token: string) => {
-    if (!token) return;
+    if (!token) return null;
+    const generation = ++statusReadGenerationRef.current;
     setStatusLoading(true);
     setStatusReadState('loading');
     setStatus(null);
@@ -474,6 +476,7 @@ export function RegisterFormClient({
         credentials: 'same-origin',
       });
       const payload: unknown = await response.json().catch(() => null);
+      if (generation !== statusReadGenerationRef.current) return null;
       const row = payload && typeof payload === 'object' && !Array.isArray(payload)
         ? payload as Record<string, unknown> : null;
       setCorrelationId(typeof row?.correlationId === 'string' ? row.correlationId : '');
@@ -481,14 +484,16 @@ export function RegisterFormClient({
       if (verdict.kind === 'available') {
         setStatus(verdict.status);
         setStatusReadState('available');
+        return verdict.status;
       } else {
         setStatusReadState(verdict.kind);
       }
     } catch {
-      setStatusReadState('unavailable');
+      if (generation === statusReadGenerationRef.current) setStatusReadState('unavailable');
     } finally {
-      setStatusLoading(false);
+      if (generation === statusReadGenerationRef.current) setStatusLoading(false);
     }
+    return null;
   }, []);
 
   React.useEffect(() => {
@@ -625,6 +630,8 @@ export function RegisterFormClient({
 
   async function verifyEmail() {
     if (!verifyToken || submitting) return;
+    ++statusReadGenerationRef.current;
+    setStatusLoading(false);
     setSubmitting(true);
     setError('');
     try {
@@ -647,7 +654,8 @@ export function RegisterFormClient({
       setStatusReadState('available');
       window.history.replaceState(null, '', continuationHref);
     } catch {
-      setError(copy.verifyInvalid);
+      const recovered = statusToken ? await loadStatus(statusToken) : null;
+      if (!recovered || recovered.status === 'EMAIL_VERIFICATION_REQUIRED') setError(copy.verifyInvalid);
     } finally {
       setSubmitting(false);
     }
@@ -693,7 +701,7 @@ export function RegisterFormClient({
 
   const reference = correlationId || status?.correlationId || '';
 
-  if (verifyToken && !verificationCompleted && !status) {
+  if (verifyToken && !verificationCompleted && (!status || status.status === 'EMAIL_VERIFICATION_REQUIRED')) {
     return (
       <section className='p0-register-card p0-register-state' aria-labelledby='p0-register-verify-title'>
         <ShieldCheck size={40} aria-hidden='true' />
