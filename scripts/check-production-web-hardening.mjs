@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const files = {
@@ -161,6 +163,143 @@ requireText('workflow', [
 ]);
 
 const workflow = contents.get('workflow') ?? '';
+function canonicalTransportFailures(source) {
+  const errors = [];
+  const required = [
+    'SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}',
+    'expected_host_fingerprint="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"',
+    'verify_pinned_host "$host" "$port" "$expected_host_fingerprint" "$HOME/.ssh/known_hosts"',
+    '"$EVIDENCE_DIR/production-action.log" "$ACTION" "$TARGET_SHA" "$rc"',
+    '"$EVIDENCE_DIR/live-failure-rollback.log" rollback "$BASELINE_SHA" "$rc"',
+    'EVIDENCE_SCHEMA=pc.web-release-evidence.v1',
+    'TRANSPORT_EXIT_CODE=',
+    'Remove private runner release material',
+  ];
+  for (const needle of required) if (!source.includes(needle)) errors.push('missing canonical transport/evidence boundary');
+  const pin = source.indexOf('          verify_pinned_host "$host"');
+  const authenticated = source.indexOf('          ssh -i ');
+  const copy = source.indexOf('          scp ');
+  if (!(pin >= 0 && authenticated > pin && copy > authenticated)) errors.push('host pin must precede every authenticated transport');
+  if ((source.match(/> "\$raw" 2>&1/g) ?? []).length !== 2 ||
+      (source.match(/trap 'rm -f "\$raw"' EXIT/g) ?? []).length !== 2) errors.push('both remote outputs must remain private temporary files');
+  for (const pattern of [
+    /(?:cat|tee)\s+"?\$raw"?/,
+    />\s*"\$EVIDENCE_DIR\/(?:production-action|live-failure-rollback)\.log"\s+2>&1/,
+    /\|\s*tee\s+"\$EVIDENCE_DIR\/live-failure-rollback\.log"/,
+    /StrictHostKeyChecking=no/,
+    /UserKnownHostsFile=\/dev\/null/,
+    /set\s+-x/,
+  ]) if (pattern.test(source)) errors.push('raw output or host-verification bypass');
+  return errors;
+}
+failures.push(...canonicalTransportFailures(workflow));
+const canonicalMutants = [
+  workflow.replace('SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}', ''),
+  workflow.replace('          verify_pinned_host "$host"', '          : "$host"'),
+  workflow.replace('          ssh -i ', '          ssh -i "$PRE_PIN_AUTH"\n          ssh -i ').replace('          verify_pinned_host "$host"', '          ssh -i "$PRE_PIN_AUTH"\n          verify_pinned_host "$host"'),
+  workflow + '\ncat "$raw"\n',
+  workflow.replace('> "$raw" 2>&1', '> "$EVIDENCE_DIR/production-action.log" 2>&1'),
+];
+for (const [index, mutant] of canonicalMutants.entries()) {
+  if (canonicalTransportFailures(mutant).length === 0) failures.push('canonical transport negative control was accepted: ' + index);
+}
+
+const pinFunction = workflow.match(/^          verify_pinned_host\(\) \{\n[\s\S]*?^          \}/m)?.[0]?.replace(/^ {10}/gm, '');
+const aggregateParser = workflow.match(/<<'PY_WEB_EVIDENCE'\n([\s\S]*?)^          PY_WEB_EVIDENCE$/m)?.[1]?.replace(/^ {10}/gm, '');
+if (!pinFunction || !aggregateParser) {
+  failures.push('Canonical host-pin function and bounded evidence parser must be executable by regression probes');
+} else {
+  const probeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-web-trust-probes-'));
+  try {
+    const publicBytes = Buffer.concat([
+      Buffer.from([0, 0, 0, 11]), Buffer.from('ssh-ed25519'), Buffer.from([0, 0, 0, 32]), Buffer.alloc(32, 7),
+    ]).toString('base64');
+    const publicLine = 'example.invalid ssh-ed25519 ' + publicBytes;
+    const fingerprintResult = spawnSync('ssh-keygen', ['-lf', '-', '-E', 'sha256'], { input: publicLine + '\n', encoding: 'utf8' });
+    const fingerprint = fingerprintResult.stdout.trim().split(/\s+/)[1];
+    if (fingerprintResult.status !== 0 || !/^SHA256:[A-Za-z0-9+/]{43}$/.test(fingerprint ?? '')) {
+      failures.push('Synthetic public-only host-key fixture could not be fingerprinted');
+    } else {
+      const pinCases = [
+        ['valid', fingerprint, publicLine, true],
+        ['duplicate', fingerprint, publicLine + '\n' + publicLine, true],
+        ['wrong', 'SHA256:' + 'A'.repeat(43), publicLine, false],
+        ['missing', '', publicLine, false],
+        ['malformed', 'SHA256:bad', publicLine, false],
+        ['empty-scan', fingerprint, '', false],
+        ['invalid-key', fingerprint, 'invalid public bytes', false],
+        ['ambiguous', fingerprint, publicLine + '\n' + publicLine.replace('example.invalid', 'other.invalid'), false],
+        ['keygen-error', fingerprint, publicLine, false],
+        ['write-error', fingerprint, publicLine, false],
+      ];
+      const probe = [
+        'set -euo pipefail',
+        pinFunction,
+        'ssh-keyscan() { printf "%s\\n" "$PIN_PROBE_SCAN"; }',
+        'ssh-keygen() {',
+        '  if [[ "$PIN_PROBE_CASE" == keygen-error ]]; then printf "256 %s synthetic\\n" "$PIN_PROBE_EXPECTED"; return 23; fi',
+        '  command ssh-keygen "$@"',
+        '}',
+        'verify_pinned_host example.invalid 22 "$PIN_PROBE_EXPECTED" "$PIN_PROBE_KNOWN" || exit 77',
+        'printf "AUTHENTICATED_TRANSPORT_ALLOWED\\n"',
+      ].join('\n');
+      for (const [name, expected, scan, shouldPass] of pinCases) {
+        const known = path.join(probeRoot, 'known-' + name);
+        if (name === 'write-error') fs.mkdirSync(known);
+        const result = spawnSync('bash', ['-c', probe], { encoding: 'utf8', env: {
+          ...process.env, PIN_PROBE_CASE: name, PIN_PROBE_EXPECTED: expected, PIN_PROBE_SCAN: scan, PIN_PROBE_KNOWN: known,
+        } });
+        if (shouldPass) {
+          if (result.status !== 0 || result.stdout !== 'AUTHENTICATED_TRANSPORT_ALLOWED\n' ||
+              fs.readFileSync(known, 'utf8') !== publicLine + '\n' || (fs.statSync(known).mode & 0o777) !== 0o600) {
+            failures.push('Canonical pinned-host probe failed: ' + name);
+          }
+        } else if (result.status === 0 || result.stdout.includes('AUTHENTICATED_TRANSPORT_ALLOWED')) {
+          failures.push('Canonical pinned-host probe accepted unsafe input: ' + name);
+        }
+      }
+    }
+    const revision = 'a'.repeat(40);
+    const valid = [
+      'DEPLOYMENT_COMPLETE=1', 'DEPLOYED_WEB_REVISION=' + revision, 'DEPLOYED_WEB_STATE=healthy',
+      'ROLLBACK_BASELINE_REVISION=' + 'b'.repeat(40), 'WATCHTOWER_RETIRED=1', 'PERSISTENT_OVERRIDE_MUTATED=1',
+      'PERSISTENT_IMAGE_OVERRIDE=/SYNTHETIC_PRIVATE_CANARY/compose.yml',
+      'ERROR: SYNTHETIC_PRIVATE_CANARY must never enter logs or evidence',
+    ].join('\n') + '\n';
+    const aggregateCases = [
+      ['deploy', valid, 'deploy', revision, '0', true],
+      ['rollback', valid, 'rollback', revision, '0', true],
+      ['audit', 'PERSISTENT_OVERRIDE_MUTATED=0\nCURRENT_WEB_REVISION=' + revision + '\nSYNTHETIC_PRIVATE_CANARY\n', 'audit', '', '0', true],
+      ['failed-transport', 'SYNTHETIC_PRIVATE_CANARY\n', 'deploy', revision, '255', true],
+      ['wrong-target', valid, 'deploy', 'c'.repeat(40), '0', false],
+      ['duplicate', valid + 'DEPLOYMENT_COMPLETE=1\n', 'deploy', revision, '0', false],
+      ['missing-revision', valid.replace('DEPLOYED_WEB_REVISION=' + revision + '\n', ''), 'deploy', revision, '0', false],
+      ['missing-completion', valid.replace('DEPLOYMENT_COMPLETE=1\n', ''), 'deploy', revision, '0', false],
+      ['bad-state', valid.replace('DEPLOYED_WEB_STATE=healthy', 'DEPLOYED_WEB_STATE=/SYNTHETIC_PRIVATE_CANARY'), 'deploy', revision, '0', false],
+      ['unknown-execution', valid, 'deploy', revision, '255', false],
+      ['oversized', 'X'.repeat(4 * 1024 * 1024 + 1), 'deploy', revision, '1', false],
+      ['invalid-utf8', Buffer.from([255]), 'deploy', revision, '1', false],
+    ];
+    for (const [name, raw, action, target, status, shouldPass] of aggregateCases) {
+      const input = path.join(probeRoot, name + '.raw');
+      const output = path.join(probeRoot, name + '.log');
+      fs.writeFileSync(input, raw);
+      const result = spawnSync('python3', ['-c', aggregateParser, input, output, action, target, status], { encoding: 'utf8' });
+      const evidence = fs.existsSync(output) ? fs.readFileSync(output, 'utf8') : '';
+      if ((result.status === 0) !== shouldPass || (!shouldPass && evidence) ||
+          (evidence + result.stdout + result.stderr).includes('SYNTHETIC_PRIVATE_CANARY')) {
+        failures.push('Canonical aggregate evidence probe failed: ' + name);
+      }
+      if (shouldPass && (!evidence.includes('EVIDENCE_SCHEMA=pc.web-release-evidence.v1\n') ||
+          !evidence.includes('TRANSPORT_EXIT_CODE=' + status + '\n') ||
+          !/^RAW_OUTPUT_SHA256=[0-9a-f]{64}$/m.test(evidence))) {
+        failures.push('Canonical aggregate evidence identity is missing: ' + name);
+      }
+    }
+  } finally {
+    fs.rmSync(probeRoot, { recursive: true, force: true });
+  }
+}
 const recordIndex = workflow.indexOf('record="$EVIDENCE_DIR/release-issue-comment.md"');
 const finalChecksumIndex = workflow.lastIndexOf('xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"');
 if (recordIndex < 0 || finalChecksumIndex <= recordIndex) {
