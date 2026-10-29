@@ -6543,3 +6543,223 @@ test('stopped references: head must descend from the exact accepted base', t => 
   assert.notEqual(result.status, 0, output(result));
   assert.match(output(result), /STOPPED_INSPECTION_ERRORS_SCOPE_ANCESTRY/u);
 });
+
+// Differential reference is the immutable accepted guard before this process-
+// consolidation change, not a candidate-controlled copy or cached decision.
+const singleNodeReferenceGuard = acceptedBlob('530f10e9c42d71e66da575efa1f1568421324be1');
+const singleNodeFinalMarker = 'SCOPE_RESULT=$(DIFF_FILES="$DIFF_FILES" ALLOWED_CURRENT="$ALLOWED_CURRENT" P7_EXACT_APPROVED_SCOPE="$P7_EXACT_APPROVED_SCOPE" node - <<\'JS\'\n';
+const singleNodeProtocolMarker = '\n  # The producer\'s last nonempty line is an ASCII frame.';
+
+function singleNodeFixture(t, item, { corruption = '', afterCapture = '' } = {}) {
+  const context = fixture(t, item.generic ? 'analysis/generic-scope-differential' : implementationBranches[0]);
+  const stateFile = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, stateFile), 'utf8'));
+  state.approvedConcurrentScopes[context.implementationBranch] = item.scopes;
+  write(context.root, stateFile, JSON.stringify(state) + '\n');
+  fs.mkdirSync(path.join(context.root, 'docs/platform-v7/autopilot/scopes'), { recursive: true });
+  git(context.root, ['config', 'core.quotePath', 'false']);
+  for (const [file, content] of Object.entries(item.before || {})) write(context.root, file, content);
+  commit(context.root, 'accepted differential source scope');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  for (const file of item.changes || []) write(context.root, file, 'candidate source\n');
+  if (item.rename) git(context.root, ['mv', item.rename[0], item.rename[1]]);
+  if (item.rawNameHex) fs.writeFileSync(Buffer.concat([Buffer.from(context.root + path.sep), Buffer.from(item.rawNameHex, 'hex')]), 'candidate source\n');
+  if ((item.changes || []).length || item.rename || item.rawNameHex) commit(context.root, 'candidate differential source');
+  let proposed = fs.readFileSync(sourceGuard, 'utf8');
+  let reference = singleNodeReferenceGuard;
+  if (corruption) {
+    assert.equal(proposed.split(singleNodeProtocolMarker).length, 2);
+    proposed = proposed.replace(singleNodeProtocolMarker, () => '\n' + corruption + singleNodeProtocolMarker);
+  }
+  if (afterCapture) {
+    const marker = 'if [[ "$P7_EXACT_SCOPE_FRAME_ATTEMPTED" == 1 && "$P7_EXACT_SCOPE_FRAME_VALID" != 1 &&\n';
+    assert.equal(proposed.split(marker).length, 2);
+    proposed = proposed.replace(marker, () => afterCapture + '\n' + marker);
+    assert.equal(reference.split(singleNodeFinalMarker).length, 2);
+    reference = reference.replace(singleNodeFinalMarker, () => afterCapture + '\n' + singleNodeFinalMarker);
+  }
+  const candidate = path.join(context.root, '.git', 'proposed-differential-guard.sh');
+  const before = path.join(context.root, '.git', 'accepted-differential-guard.sh');
+  fs.writeFileSync(candidate, proposed);
+  fs.writeFileSync(before, reference);
+  return { ...context, candidate, before };
+}
+
+function singleNodeRun(context, file, traceFile) {
+  const command = spawnSync('bash', [file], { cwd: context.root, encoding: 'utf8', env: {
+    ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD',
+    GITHUB_HEAD_REF: context.implementationBranch, ...(traceFile ? { PC_P7_NODE_TRACE: traceFile } : {}),
+  } });
+  return { status: command.status, stdout: command.stdout, stderr: command.stderr };
+}
+function singleNodeComparableStderr(value) {
+  // Bash includes the script path and shifted source line in its NUL warning.
+  // Compare the warning itself without treating this source-location metadata
+  // as a change in authority, matching, diagnostic text or exit behavior.
+  return value.replace(/^.*?: line [0-9]+: warning: command substitution:/gm, 'warning: command substitution:');
+}
+function singleNodeAssertSame(context) {
+  const before = singleNodeRun(context, context.before);
+  const after = singleNodeRun(context, context.candidate);
+  assert.equal(after.status, before.status);
+  assert.equal(after.stdout, before.stdout);
+  assert.equal(singleNodeComparableStderr(after.stderr), singleNodeComparableStderr(before.stderr));
+  return after;
+}
+
+const singleNodeCases = [
+  { title: 'exact allow', scopes: ['allowed.txt'], changes: ['allowed.txt'], status: 0 },
+  { title: 'exact deny', scopes: ['allowed.txt'], changes: ['outside.txt'], status: 1 },
+  { title: 'single star allow', scopes: ['approved/*.ts'], changes: ['approved/one.ts'], status: 0 },
+  { title: 'single star excludes descendants', scopes: ['approved/*.ts'], changes: ['approved/deep/one.ts'], status: 1 },
+  { title: 'double star allows descendants', scopes: ['approved/**'], changes: ['approved/deep/one.ts'], status: 0 },
+  { title: 'plain exact path is not a subtree', scopes: ['approved'], changes: ['approved/one.ts'], status: 1 },
+  { title: 'regex metacharacters are literal', scopes: ['approved/[x]+(one).ts'], changes: ['approved/[x]+(one).ts'], status: 0 },
+  { title: 'invalid UTF-8 Git filename uses the same env decoding', scopes: ['name\ufffd.txt'], rawNameHex: '6e616d65ff2e747874', status: 0 },
+  { title: 'lone high surrogate scope uses stdout replacement', scopes: ['approved/\ud800.ts'], changes: ['approved/\ufffd.ts'], status: 0 },
+  { title: 'lone low surrogate scope uses stdout replacement', scopes: ['approved/\udc00.ts'], changes: ['approved/\ufffd.ts'], status: 0 },
+  { title: 'Unicode exact path', scopes: ['approved/пшеница-中文.ts'], changes: ['approved/пшеница-中文.ts'], status: 0 },
+  { title: 'Unicode whitespace and trailing slash', scopes: ['\u00a0allowed.txt/\r\n'], changes: ['allowed.txt'], status: 0 },
+  { title: 'embedded CRLF scope lines', scopes: ['allowed.txt\r\napproved/**'], changes: ['approved/deep.ts'], status: 0 },
+  { title: 'embedded NUL scope bytes', scopes: ['allowed.\0txt'], changes: ['allowed.txt'], status: 0 },
+  { title: 'NUL and final LF scope normalization', scopes: ['allowed.txt', '\0\n'], changes: ['allowed.txt'], status: 0 },
+  { title: 'newline file name stays Git quoted', scopes: ['approved/**'], changes: ['approved/line\nname.ts'], status: 1 },
+  { title: 'rename retains both accepted paths', scopes: ['allowed.txt', 'to.txt'], before: { 'allowed.txt': 'rename source\n' }, rename: ['allowed.txt', 'to.txt'], status: 0 },
+  { title: 'rename rejects source outside scope', scopes: ['to.txt'], before: { 'allowed.txt': 'rename source\n' }, rename: ['allowed.txt', 'to.txt'], status: 1 },
+  { title: 'forbidden error precedes scope denial', scopes: ['allowed.txt'], changes: ['apps/landing/unsafe.ts'], status: 1, diagnostic: 'Forbidden path changed' },
+  { title: 'mutable authority precedes scope denial', scopes: ['allowed.txt'], changes: ['docs/platform-v7/autopilot/rejected.json'], status: 1, diagnostic: 'Mutable scope authority changed' },
+  { title: 'generic branch keeps prefix matching', generic: true, scopes: ['approved'], changes: ['approved/one.ts'], status: 0 },
+  { title: 'empty diff keeps the earlier shortcut', scopes: ['allowed.txt'], changes: [], status: 0 },
+];
+for (const item of singleNodeCases) {
+  test('single-node scope: differential ' + item.title, (t) => {
+    const result = singleNodeAssertSame(singleNodeFixture(t, item));
+    assert.equal(result.status, item.status, result.stdout + result.stderr);
+    if (item.diagnostic) assert.ok(result.stdout.includes(item.diagnostic), result.stdout);
+  });
+}
+
+const singleNodeCorruptions = [
+  ['missing footer', 'P7_EXACT_SCOPE_FRAME="${P7_EXACT_SCOPE_FRAME%$\'\\n\'*}"'],
+  ['invalid footer prefix', 'P7_EXACT_SCOPE_FRAME="${P7_EXACT_SCOPE_FRAME/P7_EXACT_SCOPE_RESULT_HEX:/P7_BROKEN_SCOPE_RESULT_HEX:}"'],
+  ['malformed hex digest', 'P7_EXACT_SCOPE_FRAME="${P7_EXACT_SCOPE_FRAME%?}z"'],
+  ['NUL byte in hex result', 'P7_EXACT_SCOPE_FRAME="${P7_EXACT_SCOPE_FRAME/P7_EXACT_SCOPE_RESULT_HEX:6f/P7_EXACT_SCOPE_RESULT_HEX:00}"'],
+  ['valid hex result spoof', 'P7_EXACT_SCOPE_FRAME="${P7_EXACT_SCOPE_FRAME/P7_EXACT_SCOPE_RESULT_HEX:6f/P7_EXACT_SCOPE_RESULT_HEX:70}"'],
+];
+for (const [title, corruption] of singleNodeCorruptions) {
+  test('single-node scope: fails closed on ' + title, (t) => {
+    const context = singleNodeFixture(t, { scopes: ['allowed.txt'], changes: ['outside.txt'] }, { corruption });
+    const result = singleNodeRun(context, context.candidate);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.ok(result.stdout.includes('P7_EXACT_SCOPE_FRAME_INVALID'), result.stdout + result.stderr);
+    assert.equal(result.stdout.includes('Scope guard passed.'), false);
+  });
+}
+test('single-node scope: forbidden error precedes a corrupt footer', (t) => {
+  const context = singleNodeFixture(t, { scopes: ['allowed.txt'], changes: ['apps/landing/unsafe.ts'] },
+    { corruption: singleNodeCorruptions[2][1] });
+  const result = singleNodeRun(context, context.candidate);
+  assert.equal(result.status, 1);
+  assert.ok(result.stdout.includes('Forbidden path changed'), result.stdout);
+  assert.equal(result.stdout.includes('P7_EXACT_SCOPE_FRAME_INVALID'), false);
+});
+
+for (const item of [
+  { title: 'scope changes', scopes: ['allowed.txt'], changes: ['outside.txt'], afterCapture: "ALLOWED_CURRENT='outside.txt'" },
+  { title: 'diff changes', scopes: ['allowed.txt'], changes: ['outside.txt'], afterCapture: "DIFF_FILES='allowed.txt'" },
+  { title: 'matching mode changes', scopes: ['approved'], changes: ['approved/one.ts'], afterCapture: 'P7_EXACT_APPROVED_SCOPE=0' },
+]) {
+  test('single-node scope: runs original matcher when ' + item.title, (t) => {
+    const context = singleNodeFixture(t, item, { afterCapture: item.afterCapture });
+    const result = singleNodeAssertSame(context);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  });
+}
+
+test('single-node scope: saves one real Node process without skipping the guard', (t) => {
+  const context = singleNodeFixture(t, { scopes: ['allowed.txt'], changes: ['allowed.txt'] });
+  const lookup = spawnSync('sh', ['-c', 'command -v node'], { encoding: 'utf8' });
+  assert.equal(lookup.status, 0, output(lookup));
+  const node = fs.realpathSync(lookup.stdout.trim());
+  const quote = value => "'" + value.replaceAll("'", "'\\''") + "'";
+  const bin = path.join(context.root, '.git', 'trace-bin');
+  const trace = path.join(context.root, '.git', 'node-processes.txt');
+  write(context.root, '.git/trace-bin/node', '#!/bin/sh\nprintf \'node\\n\' >> "$PC_P7_NODE_TRACE"\nexec ' + quote(node) + ' "$@"\n', 0o755);
+  const oldPath = process.env.PATH;
+  try {
+    process.env.PATH = bin + path.delimiter + oldPath;
+    fs.writeFileSync(trace, '');
+    const before = singleNodeRun(context, context.before, trace);
+    const beforeCount = fs.readFileSync(trace, 'utf8').trim().split('\n').length;
+    fs.writeFileSync(trace, '');
+    const after = singleNodeRun(context, context.candidate, trace);
+    const afterCount = fs.readFileSync(trace, 'utf8').trim().split('\n').length;
+    assert.equal(before.status, 0, before.stdout + before.stderr);
+    assert.equal(after.status, 0, after.stdout + after.stderr);
+    assert.equal(after.stdout, before.stdout);
+    assert.ok(beforeCount >= 2);
+    assert.equal(afterCount, beforeCount - 1);
+  } finally {
+    if (oldPath === undefined) delete process.env.PATH;
+    else process.env.PATH = oldPath;
+  }
+});
+
+for (const denied of [false, true]) {
+  test('single-node scope: absent checksum utility retains original matcher ' + (denied ? 'deny' : 'allow'), t => {
+    const context = singleNodeFixture(t, { scopes: ['allowed.txt'], changes: [denied ? 'outside.txt' : 'allowed.txt'] });
+    const bin = path.join(context.root, '.git', 'without-checksum-bin');
+    fs.mkdirSync(bin);
+    for (const executable of ['bash', 'git', 'node', 'grep']) {
+      const found = spawnSync('sh', ['-c', 'command -v "$1"', 'lookup', executable], { encoding: 'utf8' });
+      assert.equal(found.status, 0, output(found));
+      fs.symlinkSync(fs.realpathSync(found.stdout.trim()), path.join(bin, executable));
+    }
+    const oldPath = process.env.PATH;
+    try {
+      process.env.PATH = bin;
+      const absent = spawnSync('bash', ['-c', 'command -v sha256sum'], { encoding: 'utf8' });
+      assert.notEqual(absent.status, 0);
+      const result = singleNodeAssertSame(context);
+      assert.equal(result.status, denied ? 1 : 0, result.stdout + result.stderr);
+    } finally {
+      if (oldPath === undefined) delete process.env.PATH;
+      else process.env.PATH = oldPath;
+    }
+  });
+}
+
+test('single-node scope: long denied result decodes every byte across chunks', t => {
+  const context = singleNodeFixture(t, {
+    scopes: ['allowed.txt'],
+    changes: Array.from({ length: 180 }, (_, index) => 'outside/file-' + String(index).padStart(3, '0') + '-' + 'x'.repeat(70) + '.ts'),
+  });
+  const result = singleNodeAssertSame(context);
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.ok(Buffer.byteLength(result.stdout) > 15000);
+});
+
+test('single-node scope: truncated raw diff pipe fails closed after authority checks', t => {
+  const context = singleNodeFixture(t, { scopes: ['allowed.txt'], changes: ['outside.txt'] });
+  const source = fs.readFileSync(context.candidate, 'utf8');
+  const marker = "3< <(printf '%s' \"$DIFF_FILES\" 2>/dev/null)";
+  assert.equal(source.split(marker).length, 2);
+  fs.writeFileSync(context.candidate, source.replace(marker, '3< /dev/null'));
+  const result = singleNodeRun(context, context.candidate);
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.ok(result.stdout.includes('P7_EXACT_SCOPE_FRAME_INVALID'), result.stdout + result.stderr);
+});
+
+test('single-node scope: decoder and byte count retain the caller locale', t => {
+  const afterCapture = `if [[ "\${LC_ALL-}" != 'C.UTF-8' ]]; then echo 'LOCALE_CHANGED'; exit 1; fi`;
+  const context = singleNodeFixture(t, { scopes: ['allowed.txt'], changes: ['allowed.txt'] }, { afterCapture });
+  const oldLocale = process.env.LC_ALL;
+  try {
+    process.env.LC_ALL = 'C.UTF-8';
+    const result = singleNodeAssertSame(context);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  } finally {
+    if (oldLocale === undefined) delete process.env.LC_ALL;
+    else process.env.LC_ALL = oldLocale;
+  }
+});
