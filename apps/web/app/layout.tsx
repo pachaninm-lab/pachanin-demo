@@ -5,12 +5,10 @@ import './platform-v7/_styles/public-supporting-shell.css';
 import './platform-v7/_styles/public-header-accessibility.css';
 import type { Metadata, Viewport } from 'next';
 import { ReactNode } from 'react';
-import { PublicAnalytics } from '../components/analytics/PublicAnalytics';
 import { headers } from 'next/headers';
 import { Inter, Manrope, JetBrains_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
-import { FeatureFlagsDevPanel } from '@/components/platform-v7/FeatureFlagsDevPanel';
 import {
   buildPublicBrandRuntimeScript,
   normalizePublicBrandText,
@@ -177,6 +175,10 @@ async function capturePublicProductAnalytics(input: PublicProductAnalyticsCaptur
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale();
   const pathname = normalizePath((await headers()).get('x-pc-pathname'));
+  const canonicalPublicHome = pathname === '/platform-v7' || pathname === '/pc-public-entry/platform-v7';
+  const TailwindRuntime = canonicalPublicHome
+    ? null
+    : (await import('@/components/platform-v7/PlatformV7TailwindRuntime')).PlatformV7TailwindRuntime;
   const leanPublicEntry = LEAN_PUBLIC_ENTRY_PATHS.has(pathname)
     || pathname === '/platform-v7/staff'
     || pathname.startsWith('/platform-v7/staff/');
@@ -189,6 +191,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const showDevPanel = !leanPublicEntry && process.env.NEXT_PUBLIC_DEV_MODE === 'true';
   const fontVariables = leanPublicEntry ? '' : `${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`;
   const posthogConfigured = posthogCaptureConfiguration() !== null;
+  const FeatureFlagsDevPanel = showDevPanel
+    ? (await import('@/components/platform-v7/FeatureFlagsDevPanel')).FeatureFlagsDevPanel
+    : null;
+  const PublicAnalytics = (YM_ID || posthogConfigured)
+    ? (await import('../components/analytics/PublicAnalytics')).PublicAnalytics
+    : null;
 
   return (
     <html
@@ -199,22 +207,25 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       className={`notranslate${fontVariables ? ` ${fontVariables}` : ''}`}
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: brandUrlAuthorityScript }} />
-        <script dangerouslySetInnerHTML={{ __html: serviceWorkerRecoveryScript }} />
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {!canonicalPublicHome ? <script dangerouslySetInnerHTML={{ __html: brandUrlAuthorityScript }} /> : null}
+        {!canonicalPublicHome ? <script dangerouslySetInnerHTML={{ __html: serviceWorkerRecoveryScript }} /> : null}
+        {!canonicalPublicHome ? <script dangerouslySetInnerHTML={{ __html: themeScript }} /> : null}
         <meta name='description' content={pageDescription} />
         <meta name='google' content='notranslate' />
         <meta name='googlebot' content='notranslate' />
         <meta httpEquiv='Content-Language' content={HTML_LANG[locale] ?? 'ru'} />
       </head>
       <body translate='no' className='notranslate'>
+        {TailwindRuntime ? <TailwindRuntime /> : null}
         {content}
-        {showDevPanel ? <FeatureFlagsDevPanel /> : null}
-        <PublicAnalytics
-          counterId={YM_ID}
-          locale={locale}
-          capturePublicProductAnalyticsAction={posthogConfigured ? capturePublicProductAnalytics : undefined}
-        />
+        {FeatureFlagsDevPanel ? <FeatureFlagsDevPanel /> : null}
+        {PublicAnalytics ? (
+          <PublicAnalytics
+            counterId={YM_ID}
+            locale={locale}
+            capturePublicProductAnalyticsAction={posthogConfigured ? capturePublicProductAnalytics : undefined}
+          />
+        ) : null}
       </body>
     </html>
   );

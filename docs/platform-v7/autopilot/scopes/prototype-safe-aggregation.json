@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/prototype-safe-aggregation",
+  "status": "active",
+  "purpose": "V15.3.6 (prototype pollution class) и V1.2.10 (CSV injection) в двух сервисах API. Статистика адаптеров в compliance.getIntegrationStatus и integration-events.getStats копилась в объектный литерал по имени адаптера из записи события: имя, совпадающее с членом Object.prototype, портило счётчики, а '__proto__' пропадал из ответа целиком. Накопитель стал Map, на границе API Object.fromEntries, форма ответа не меняется. Счётчики статусов в industrial-deal-command.gateway исправлены как тот же класс; сегодня не эксплуатируемы, потому что статус берётся из колонки-перечисления. Выгрузка журнала аудита в compliance собирала CSV вручную: кавычки удваивались, но ячейка, начинающаяся с =, +, - или @, исполнялась бы как формула в Excel и LibreOffice, а reason — свободный текст вызывающего. Теперь ячейки идут через общий csvRow. Сужено 2026-09-26: правка отчёта 29-СХ вынесена в #5135 (там она полнее), общий разбор Cookie — в #5625, сторож редиректа демо-входа — в #5616, решения реестра ASVS — в #5617.",
+  "authorityBaseExactMain": "9504fa801603669709ff8f7157ab6a5e0abcda70",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/prototype-safe-aggregation.json",
+    "apps/api/src/modules/compliance/compliance.service.ts",
+    "apps/api/src/modules/compliance/compliance-csv-output-encoding.spec.ts",
+    "apps/api/src/modules/compliance/prototype-safe-aggregation.spec.ts",
+    "apps/api/src/modules/integration-events/integration-events.service.ts",
+    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "Форма ответа API не меняется. compliance и integration-events возвращали объект и возвращают объект: накопитель стал Map, а на границе стоит Object.fromEntries, который создаёт СОБСТВЕННОЕ свойство даже для __proto__.",
+    "Тесты гоняют НАСТОЯЩИЕ сервисы со стабом prisma, а не копию логики рядом.",
+    "Выгрузка аудита сохраняет заголовок и порядок колонок; меняется только экранирование ячеек, через уже используемый регуляторными отчётами csvRow.",
+    "Шлюз industrial-deal-command сегодня не эксплуатируем: статус приходит из группировки по колонке-перечислению. Исправлен как тот же класс и прямо назван неэксплуатируемым.",
+    "Схема БД, миграции, RLS, зависимости, роли и проверки доступа не тронуты. Production/REG.RU/DNS/БД/креденшелы не мутировались. Новые обязательные расходы: 0 ₽.",
+    "Merge и зелёный CI не являются доказательством развёртывания на REG.RU."
+  ],
+  "acceptance": [
+    "compliance.getIntegrationStatus на настоящем сервисе: '__proto__' остаётся собственным свойством со своими счётчиками, 'toString' считается отдельно, прототип ответа не подменён, запись переживает JSON.stringify.",
+    "integration-events.getStats на настоящем сервисе: '__proto__', 'constructor' и 'hasOwnProperty' дают верные total/ok/error/avgMs, лишних ключей нет.",
+    "Выгрузка аудита: ячейка, начинающаяся с символа формулы, в CSV обезврежена — и в reason, и в action; кавычка в значении сохраняется удвоенной, запятая не создаёт колонок, отсутствующее значение остаётся пустым полем; заголовок и число колонок прежние; роль проверяется до выгрузки.",
+    "Мутации: возврат integration-events к литералу — 1 падение; возврат compliance.service к main — 6 падений."
+  ],
+  "notClosed": [
+    "V15.3.6 остаётся FAIL: data-keyed записи в объектный литерал есть и в других местах, в том числе sensitive-data.ts, server-field-masking.ts и real-adapter-shell.ts. Отчёт 29-СХ закрывает #5135.",
+    "Шлюз сделок прогоном сервиса не покрыт: исправлен как тот же класс, покрыт проверкой границы Object.fromEntries."
+  ],
+  "ownerRatificationRequired": [
+    "Scope authorization. Манифест написан агентом-исполнителем: утверждённой concurrent scope для ветки не было, и scripts/p7-autopilot-guard.sh блокировал. Это объявленный в репозитории механизм, но он самообъявлен и считается авторизацией только после ратификации владельцем в ревью."
+  ]
+}

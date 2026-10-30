@@ -9,6 +9,7 @@ import {
   Length,
   Matches,
   MaxLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import {
@@ -169,6 +170,13 @@ export class ImportMessageDto {
 }
 
 export class ImportConversationDto {
+  /** Стабильный идентификатор локального диалога; старые клиенты используют fallback. */
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsString()
+  @Length(1, 128)
+  @Matches(/^[A-Za-z0-9_-]+$/u)
+  sourceId?: string;
+
   @IsString()
   @Length(1, GEKTA_CONVERSATION_TITLE_MAX)
   title!: string;

@@ -125,6 +125,7 @@ export class MlClientService {
       const resp = await fetch(`${ML_BASE}${path}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        redirect: 'error',
         body: JSON.stringify(body),
         signal: controller.signal,
       });

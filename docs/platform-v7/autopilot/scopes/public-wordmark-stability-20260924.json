@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-wordmark-stability-20260924",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-24",
+  "purpose": "Preserve the canonical public header wordmark across DOM translation passes; repair the exact production mobile acceptance finding from run 35939028603 without changing acceptance thresholds.",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PublicSiteHeader.tsx",
+    "apps/web/tests/unit/platformV7TranslationRuntime.test.ts",
+    "docs/platform-v7/autopilot/scopes/public-wordmark-stability-20260924.json"
+  ],
+  "requiredInvariants": [
+    "Only the visible wordmark opts out of translation; navigation, tagline, accessibility labels and document title keep existing locale behavior.",
+    "No change to translation runtime, dictionaries, authentication, Gekta controller, server authority or acceptance thresholds.",
+    "Fresh exact-head CI, implementation self-audit, independent nonauthor review and trusted readiness precede any manual SHA-bound merge."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

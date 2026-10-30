@@ -265,6 +265,7 @@ export function buildBankReleaseProjection(
       && ['RESERVED', 'RELEASE_REQUESTED', 'RELEASED'].includes(payment.status)
       && reserveOperation
       && reserveOperation.amountKopecks === amountKopecks
+      && reserveOperation.currency === workspace.deal.currency
       && reserveOperation.status === 'DONE'
       && reserveOperation.confirmedAt
       && reserveOperation.bankRef,
@@ -272,12 +273,14 @@ export function buildBankReleaseProjection(
   const releaseRequested = Boolean(
     releaseOperation
       && releaseOperation.amountKopecks === amountKopecks
+      && releaseOperation.currency === workspace.deal.currency
       && ['PENDING', 'SENT', 'DONE'].includes(releaseOperation.status)
       && releaseOutbox
       && ['PENDING', 'SENT', 'CONFIRMED'].includes(releaseOutbox.status),
   );
   const releaseConfirmed = Boolean(
-    payment
+    reserveConfirmed
+      && payment
       && payment.amountKopecks === amountKopecks
       && payment.status === 'RELEASED'
       && payment.releasedAt
@@ -285,6 +288,7 @@ export function buildBankReleaseProjection(
       && payment.bankRef
       && releaseOperation
       && releaseOperation.amountKopecks === amountKopecks
+      && releaseOperation.currency === workspace.deal.currency
       && releaseOperation.status === 'DONE'
       && releaseOperation.confirmedAt
       && releaseOperation.bankRef === payment.bankRef
@@ -299,6 +303,16 @@ export function buildBankReleaseProjection(
   if (!payment) blockers.push('PAYMENT_NOT_PERSISTED');
   if (payment && payment.amountKopecks !== amountKopecks) blockers.push('PAYMENT_AMOUNT_MISMATCH');
   if (!reserveConfirmed) blockers.push('RESERVE_NOT_CONFIRMED');
+  if ([reserveOperation, releaseOperation].some((operation) =>
+    operation && operation.currency !== workspace.deal.currency,
+  )) {
+    blockers.push('BANK_OPERATION_CURRENCY_REQUIRES_MANUAL_REVIEW');
+  }
+  if ([reserveOperation, releaseOperation].some((operation) =>
+    operation && operation.amountKopecks !== amountKopecks,
+  )) {
+    blockers.push('BANK_OPERATION_AMOUNT_REQUIRES_MANUAL_REVIEW');
+  }
   if (openDisputes.length > 0) blockers.push('OPEN_DISPUTE');
   if (activeHoldKopecks > 0n) blockers.push('ACTIVE_MONEY_HOLD');
   if (payment && CALLBACK_FAILURE_STATES.has(payment.callbackState.toUpperCase())) {

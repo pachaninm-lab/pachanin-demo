@@ -69,6 +69,9 @@ const originalFetch = globalThis.fetch;
 describe('the public assistant binds to the gateway stream', () => {
   beforeEach(() => {
     document.documentElement.lang = 'ru';
+    // The assistant restores the current tab's conversation from sessionStorage;
+    // without a reset each test inherited the previous test's messages.
+    window.sessionStorage.clear();
   });
 
   afterEach(() => {
@@ -76,7 +79,7 @@ describe('the public assistant binds to the gateway stream', () => {
     Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: originalFetch });
   });
 
-  it('renders a completed stream as the answer, with the admitted model named', async () => {
+  it('renders a completed stream as the answer, without publishing a model identity', async () => {
     installFetch((url) => {
       if (url.includes('stream=1')) return sse([meta(), token('Сделка '), token('работает так.'), done(true)]);
       if (url.includes('locale=')) return catalogResponse();
@@ -86,13 +89,14 @@ describe('the public assistant binds to the gateway stream', () => {
     await ask();
 
     await waitFor(() => expect(screen.getByText('Сделка работает так.')).toBeInTheDocument());
-    expect(screen.getByText(/qwen@sha256:abc/)).toBeInTheDocument();
+    // The public contour never projects model identity into the page.
+    expect(screen.queryByText(/qwen@sha256:abc/)).not.toBeInTheDocument();
     // The knowledge-base answer must not also appear: one question, one answer.
     expect(screen.queryByText(KNOWLEDGE_ANSWER.answer)).not.toBeInTheDocument();
   });
 
-  it('leaves no partial text on screen when the stream never completes', async () => {
-    installFetch((url) => {
+  it('keeps partial text marked as interrupted when the stream never completes, without a second request', async () => {
+    const spy = installFetch((url) => {
       if (url.includes('stream=1')) return sse([meta(), token('половина ответа')]);
       if (url.includes('locale=')) return catalogResponse();
       return knowledgeResponse();
@@ -100,8 +104,12 @@ describe('the public assistant binds to the gateway stream', () => {
 
     await ask();
 
-    await waitFor(() => expect(screen.getByText(/Ответ не был завершён/)).toBeInTheDocument());
-    expect(screen.queryByText('половина ответа')).not.toBeInTheDocument();
+    // EOF without `done` is never a success: the text the reader already saw
+    // stays, visibly marked incomplete, and nothing is re-requested.
+    await waitFor(() => expect(screen.getByText('половина ответа')).toBeInTheDocument());
+    expect(screen.getByText('Ответ прерван и не завершён')).toBeInTheDocument();
+    expect(screen.queryByText(KNOWLEDGE_ANSWER.answer)).not.toBeInTheDocument();
+    expect(spy.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
   });
 
   it('shows an abstention as a refusal instead of substituting a prepared answer', async () => {

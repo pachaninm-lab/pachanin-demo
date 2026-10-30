@@ -64,6 +64,67 @@ class Checks(unittest.TestCase):
                         self.assertEqual(hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(),f['blob'])
             return r.returncode,value,r.stdout+r.stderr
 
+    def commit_sized_source(self, repo, env, git, path, size, both_refs=False):
+        target = repo / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b' ' * (size - 3) + b'{}\n')
+        git('add', '.'); git('commit', '-m', 'bounded public source fixture')
+        if both_refs:
+            env['EXACT_BASE'] = git('rev-parse', 'HEAD')
+            (repo / 'AGENTS.md').write_text('public next candidate\n')
+            git('add', '.'); git('commit', '-m', 'next fixture head')
+        env['EXACT_HEAD'] = git('rev-parse', 'HEAD')
+
+    def test_real_retained_governance_size_is_preserved_in_both_refs(self):
+        path = 'docs/platform-v7/autopilot/autopilot-state.json'
+        rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,path,2214412,True))
+        self.assertEqual(rc, 0); self.assertEqual(value['result'], 'PASS')
+        self.assertEqual([s['bytes'] for s in value['sources'] if s['path'] == path], [2214412,2214412])
+
+    def test_named_governance_exact_three_mib_is_preserved(self):
+        path = 'docs/platform-v7/autopilot/autopilot-state.json'
+        rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,path,3*1024*1024,True))
+        self.assertEqual(rc, 0); self.assertEqual(value['result'], 'PASS')
+        self.assertEqual([s['bytes'] for s in value['sources'] if s['path'] == path], [3*1024*1024]*2)
+
+    def test_named_governance_over_three_mib_fails_before_checks(self):
+        path = 'docs/platform-v7/autopilot/autopilot-state.json'
+        rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,path,3*1024*1024+1))
+        self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
+
+    def test_other_fixed_source_exact_two_mib_passes(self):
+        rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,'AGENTS.md',2*1024*1024))
+        self.assertEqual(rc, 0); self.assertEqual(value['result'], 'PASS')
+
+    def test_other_fixed_source_over_two_mib_remains_rejected(self):
+        rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,'AGENTS.md',2*1024*1024+1))
+        self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
+
+    def test_scope_manifest_over_two_mib_remains_rejected(self):
+        rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,'docs/platform-v7/autopilot/scopes/fixture.json',2*1024*1024+1))
+        self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
+
+    def test_dirty_large_governance_is_rejected_before_checks(self):
+        path = 'docs/platform-v7/autopilot/autopilot-state.json'
+        def change(repo, out, env, git):
+            self.commit_sized_source(repo,env,git,path,2214412)
+            (repo/path).write_bytes(b' ' * 2214410 + b'{}\n')
+        rc, value, _ = self.run_case(change)
+        self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
+
+    def test_combined_thirty_two_mib_limit_remains_rejected(self):
+        def change(repo, out, env, git):
+            for n in range(17):
+                path = repo / ('docs/platform-v7/autopilot/scopes/bounded-' + str(n) + '.json')
+                path.write_bytes(b' ' * (1024*1024 - 3) + b'{}\n')
+            git('add', '.'); git('commit', '-m', 'bounded aggregate fixture')
+            env['EXACT_BASE'] = git('rev-parse', 'HEAD')
+            (repo/'AGENTS.md').write_text('public final candidate\n')
+            git('add', '.'); git('commit', '-m', 'aggregate candidate')
+            env['EXACT_HEAD'] = git('rev-parse', 'HEAD')
+        rc, value, _ = self.run_case(change)
+        self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
+
     def test_exact_source_and_original_checks_pass(self):
         rc,v,_=self.run_case();self.assertEqual(rc,0);self.assertEqual(v['result'],'PASS');self.assertEqual(v['checks'][0]['tap_totals']['tests'],1)
     def test_failed_regression_stays_failed_but_scope_still_observed(self):

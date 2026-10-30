@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { isRetryableTransactionConflict } from '../../common/prisma/rls-transaction.service';
 
 export type StaffSqlClient = Pick<Prisma.TransactionClient, '$queryRaw' | '$executeRaw'>;
 
@@ -42,6 +43,7 @@ export type StaffAccessRequestRow = {
 };
 
 export type StaffGrantRow = {
+  revoked_at?: Date | null;
   id: string;
   request_id: string;
   grantee_user_id: string;
@@ -98,6 +100,29 @@ export type CriticalActionRow = {
   consumed_at: Date | null;
 };
 
+export type StaffCreateEventRow = {
+  id: string; actor_user_id: string; staff_role: string;
+  access_session_id: string | null; grant_id: string | null;
+  effective_tenant_id: string | null; effective_organization_id: string | null;
+  effective_user_id: string | null; effective_role: string | null;
+  access_mode: string | null; action: string; resource_type: string | null;
+  resource_id: string | null; outcome: string; reason: string | null;
+  ticket_id: string | null; correlation_id: string; metadata: unknown;
+  prev_hash: string | null; hash: string;
+};
+
+// Only the targeted request-PK reservation creates this marker. Other unique
+// violations and audit-chain errors retain their original database failure.
+export class StaffCreateIdentityCollisionError extends Error {}
+export class StaffCreateIntentRetryExhaustedError extends Error {}
+
+export class StaffSessionActivationRetryExhaustedError extends Error {
+  constructor() {
+    super('Staff session activation conflicted repeatedly');
+    this.name = 'StaffSessionActivationRetryExhaustedError';
+  }
+}
+
 @Injectable()
 export class StaffAccessRepository {
   constructor(readonly prisma: PrismaClient) {}
@@ -108,6 +133,48 @@ export class StaffAccessRepository {
       maxWait: 5_000,
       timeout: 15_000,
     });
+  }
+
+  async activateSessionTransaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    // Retry only an aborted activation, on a fresh SERIALIZABLE transaction.
+    // All callback effects are database writes; a token is returned only after commit.
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await this.transaction(work);
+      } catch (error) {
+        if (!isRetryableTransactionConflict(error)) throw error;
+        if (attempt >= 2) throw new StaffSessionActivationRetryExhaustedError();
+      }
+    }
+  }
+
+  async createIntentTransaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await this.transaction(work);
+      } catch (error) {
+        if (!(error instanceof StaffCreateIdentityCollisionError) && !isRetryableTransactionConflict(error)) throw error;
+        if (attempt >= 2) throw new StaffCreateIntentRetryExhaustedError();
+      }
+    }
+  }
+
+  async getCreateEvent(client: StaffSqlClient, eventId: string): Promise<StaffCreateEventRow | null> {
+    const rows = await client.$queryRaw<StaffCreateEventRow[]>(Prisma.sql`
+      SELECT * FROM auth.staff_access_events WHERE id = ${eventId}
+    `);
+    return rows[0] ?? null;
+  }
+
+  async getGrantForRequest(client: StaffSqlClient, requestId: string): Promise<StaffGrantRow | null> {
+    const rows = await client.$queryRaw<StaffGrantRow[]>(Prisma.sql`
+      SELECT g.*, a.role AS staff_role, r.reason, r.ticket_id
+      FROM auth.staff_access_grants g
+      JOIN auth.staff_assignments a ON a.id = g.assignment_id
+      JOIN auth.staff_access_requests r ON r.id = g.request_id
+      WHERE g.request_id = ${requestId}
+    `);
+    return rows[0] ?? null;
   }
 
   async resolveTargetScope(
@@ -195,8 +262,9 @@ export class StaffAccessRepository {
     ticketId: string;
     maxDurationSeconds: number;
     expiresAt: Date;
-  }): Promise<void> {
-    await client.$executeRaw(Prisma.sql`
+    reserveIntent?: boolean;
+  }): Promise<boolean> {
+    const insert = Prisma.sql`
       INSERT INTO auth.staff_access_requests (
         id, requester_user_id, assignment_id, access_mode,
         target_tenant_id, target_organization_id, target_user_id, target_role, target_deal_id,
@@ -208,7 +276,15 @@ export class StaffAccessRepository {
         ${JSON.stringify(input.permissions)}::jsonb, ${input.reason}, ${input.ticketId},
         ${input.maxDurationSeconds}, ${input.expiresAt}
       )
-    `);
+    `;
+    if (input.reserveIntent) {
+      const rows = await client.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        ${insert} ON CONFLICT (id) DO NOTHING RETURNING id
+      `);
+      return rows.length === 1 && rows[0].id === input.id;
+    }
+    await client.$executeRaw(insert);
+    return true;
   }
 
   async getAccessRequest(
@@ -355,12 +431,46 @@ export class StaffAccessRepository {
       SELECT
         s.*,
         a.role AS staff_role,
-        g.target_deal_id
+        g.target_deal_id,
+        LEAST(s.expires_at, g.expires_at, COALESCE(a.valid_until, s.expires_at)) AS expires_at
       FROM auth.staff_access_sessions s
       JOIN auth.staff_access_grants g ON g.id = s.grant_id
       JOIN auth.staff_assignments a ON a.id = g.assignment_id
       WHERE s.token_hash = ${tokenHash}
-        AND s.actor_user_id = ${actorUserId}${lock}
+        AND s.actor_user_id = ${actorUserId}
+        AND s.status = 'ACTIVE' AND s.ended_at IS NULL AND s.expires_at > NOW()
+        AND g.grantee_user_id = s.actor_user_id
+        AND g.status = 'ACTIVE' AND g.revoked_at IS NULL
+        AND g.starts_at <= NOW() AND g.expires_at > NOW()
+        AND a.user_id = s.actor_user_id
+        AND a.status IN ('ELIGIBLE', 'ACTIVE') AND a.revoked_at IS NULL
+        AND a.valid_from <= NOW() AND (a.valid_until IS NULL OR a.valid_until > NOW())
+        AND s.access_mode = g.access_mode
+        AND s.effective_tenant_id IS NOT DISTINCT FROM g.target_tenant_id
+        AND s.effective_organization_id IS NOT DISTINCT FROM g.target_organization_id
+        AND s.effective_user_id IS NOT DISTINCT FROM g.target_user_id
+        AND s.effective_role IS NOT DISTINCT FROM g.target_role
+        AND s.permissions <@ g.permissions${lock}
+    `);
+    return rows[0] ?? null;
+  }
+
+  async getActiveAccessSession(
+    client: StaffSqlClient,
+    id: string,
+    actorUserId?: string,
+  ): Promise<StaffSessionRow | null> {
+    const actorFilter = actorUserId === undefined
+      ? Prisma.empty
+      : Prisma.sql` AND s.actor_user_id = ${actorUserId}`;
+    const rows = await client.$queryRaw<StaffSessionRow[]>(Prisma.sql`
+      SELECT s.*, a.role AS staff_role, g.target_deal_id
+      FROM auth.staff_access_sessions s
+      JOIN auth.staff_access_grants g ON g.id = s.grant_id
+      JOIN auth.staff_assignments a ON a.id = g.assignment_id
+      WHERE s.id = ${id}
+        AND s.status = 'ACTIVE' AND s.expires_at > NOW()${actorFilter}
+      FOR UPDATE OF s
     `);
     return rows[0] ?? null;
   }
@@ -385,6 +495,20 @@ export class StaffAccessRepository {
       WHERE id = ${id} AND actor_user_id = ${actorUserId} AND status = 'ACTIVE'
     `);
     return changed === 1;
+  }
+
+  async hasActiveSession(client: StaffSqlClient, actorUserId: string): Promise<boolean> {
+    const rows = await client.$queryRaw<Array<{ active: boolean }>>(Prisma.sql`
+      SELECT EXISTS (
+        SELECT 1 FROM auth.staff_access_sessions
+        WHERE actor_user_id = ${actorUserId}
+          AND status = 'ACTIVE' AND expires_at > NOW()
+      ) AS active
+    `);
+    if (!Array.isArray(rows) || rows.length !== 1 || typeof rows[0]?.active !== 'boolean') {
+      throw new Error('Staff active-session predicate is unavailable');
+    }
+    return rows[0].active;
   }
 
   listActiveSessions(client: StaffSqlClient, actorUserId?: string): Promise<StaffSessionRow[]> {

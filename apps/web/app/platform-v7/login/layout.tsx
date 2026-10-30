@@ -1,3 +1,4 @@
+import '@/styles/platform-v7-canonical-public-v1.css';
 import '@/styles/platform-v7-public-header.css';
 import '@/styles/platform-v7-public-auth.css';
 import '@/styles/platform-v7-public-mobile-safe-area.css';

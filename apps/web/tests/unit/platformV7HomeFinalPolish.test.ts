@@ -101,3 +101,28 @@ describe('platform-v7 final homepage polish contract', () => {
     expect(scenarioCss).toContain('overflow-x: auto');
   });
 });
+
+
+describe('owner UX v2 anonymous Sell/Buy symmetry', () => {
+  it('gives homepage Sell and Buy the same primary class and same ArrowRight iconography', () => {
+    const source = read('components/platform-v7/PlatformV7StrategicHome.tsx');
+    expect(source).toContain("className='pc-cp-button' href={`${registerBase}&intent=sell`}>{copy.sell}<ArrowRight size={17}");
+    expect(source).toContain("className='pc-cp-button' href={`${registerBase}&intent=buy`}>{copy.buy}<ArrowRight size={17}");
+    expect(source).not.toContain("pc-cp-button--secondary' href={`${registerBase}&intent=buy`}");
+    expect(source).not.toContain("pc-cp-button--secondary' href={`${registerBase}&intent=sell`}");
+  });
+
+  it('gives crop-catalogue Sell and Buy the same primary class and same ArrowRight iconography', () => {
+    const source = read('components/platform-v7/PublicCanonicalMarket.tsx');
+    expect(source).toContain("className='pc-cp-button' href={marketApplicationHref(lang, 'sell', selectedContext)}>{copy.sell}<ArrowRight size={16}");
+    expect(source).toContain("className='pc-cp-button' href={marketApplicationHref(lang, 'buy', selectedContext)}>{copy.buy}<ArrowRight size={16}");
+    expect(source).not.toContain("pc-cp-button--secondary' href={marketApplicationHref(lang, 'sell'");
+    expect(source).not.toContain("pc-cp-button--secondary' href={marketApplicationHref(lang, 'buy'");
+  });
+
+  it('keeps language selection a utility treatment rather than the primary green CTA', () => {
+    const header = read('components/platform-v7/PublicSiteHeader.tsx');
+    expect(header).toContain(".pc-site-locale-option[data-active='true']{background:#e3f2e8;color:#0a5a41");
+    expect(header).toContain(":is(.pc-v6-header-cta,.pc-ppe-primary-button,.p7-about-register,.p7-contact-register){background:#0b6046");
+  });
+});

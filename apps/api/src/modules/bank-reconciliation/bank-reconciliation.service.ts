@@ -42,6 +42,33 @@ export interface ImportResult {
   matched: number;
   mismatched: number;
   unmatched: number;
+  /** Строки, отвергнутые разбором: шесть цифр, не складывающиеся в календарную дату. */
+  rejected: number;
+}
+
+/**
+ * Шесть цифр — ещё не дата.
+ *
+ * Разбор строил `20YY-MM-DD` из любых шести цифр, прошедших `\d{6}`, и отдавал
+ * результат прямо в `new Date(...)`. Замерено на выписке из трёх строк:
+ *
+ *   :61:269999...  → valueDate = Invalid Date, строка при этом импортирована
+ *   :61:260230...  → 30 февраля молча стало 2026-03-02
+ *   :61:260115...  → корректно
+ *
+ * Первое — это отказ записи в БД, то есть 500 на содержимом выписки. Второе
+ * хуже: строка выписки уезжает на два дня, а сверка идёт в том числе по датам,
+ * и никакой ошибки при этом не возникает.
+ *
+ * Возвращает дату только если она сходится обратно посимвольно: `2026-02-30`
+ * даёт `2026-03-02` и потому отвергается.
+ */
+function calendarDate(yymmdd: string): string | null {
+  if (!/^\d{6}$/u.test(yymmdd)) return null;
+  const iso = `20${yymmdd.slice(0, 2)}-${yymmdd.slice(2, 4)}-${yymmdd.slice(4, 6)}`;
+  const parsed = new Date(`${iso}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString().slice(0, 10) === iso ? iso : null;
 }
 
 function sha256(value: string): string {
@@ -83,7 +110,7 @@ export class BankReconciliationService {
 
     const batchId = `BATCH-${randomUUID()}`;
     const statementSha256 = sha256(trimmed);
-    const rows = this.parseMT940(trimmed);
+    const { rows, rejected } = this.parseMT940(trimmed);
 
     let imported = 0;
     let duplicates = 0;
@@ -164,9 +191,9 @@ export class BankReconciliationService {
     });
 
     this.logger.log(
-      `Reconciliation run ${run.id}: imported=${imported} duplicates=${duplicates} matched=${matched} mismatch=${mismatched}`,
+      `Reconciliation run ${run.id}: imported=${imported} duplicates=${duplicates} matched=${matched} mismatch=${mismatched} rejected=${rejected}`,
     );
-    return { runId: run.id, batchId, imported, duplicates, matched, mismatched, unmatched };
+    return { runId: run.id, batchId, imported, duplicates, matched, mismatched, unmatched, rejected };
   }
 
   /**
@@ -197,8 +224,9 @@ export class BankReconciliationService {
     return { status: 'MATCHED', dealId: operation.dealId, bankOperationId: operation.id, mismatchReason: null };
   }
 
-  private parseMT940(content: string): ParsedStatementRow[] {
+  private parseMT940(content: string): { rows: ParsedStatementRow[]; rejected: number } {
     const rows: ParsedStatementRow[] = [];
+    let rejected = 0;
     const lines = content.split('\n').map((line) => line.trim()).filter(Boolean);
 
     let statementDate: string | null = null;
@@ -206,10 +234,7 @@ export class BankReconciliationService {
       const line = lines[i];
 
       if (line.startsWith(':60F:') || line.startsWith(':60M:')) {
-        const dateStr = line.slice(5, 11);
-        if (/^\d{6}$/.test(dateStr)) {
-          statementDate = `20${dateStr.slice(0, 2)}-${dateStr.slice(2, 4)}-${dateStr.slice(4, 6)}`;
-        }
+        statementDate = calendarDate(line.slice(5, 11)) ?? statementDate;
         continue;
       }
 
@@ -219,7 +244,14 @@ export class BankReconciliationService {
       const match = rest.match(/^(\d{6})(\d{4})?(C|D)(RD?|CR?)?(\d+,?\d*)(N\w{3})?(\S+)?/);
       if (!match) continue;
 
-      const valueDate = `20${rest.slice(0, 2)}-${rest.slice(2, 4)}-${rest.slice(4, 6)}`;
+      const valueDate = calendarDate(rest.slice(0, 6));
+      if (!valueDate) {
+        // Строка без настоящей календарной даты сверке не подлежит — ровно как
+        // строка без банковской ссылки ниже. Пропущенные считаются отдельно,
+        // чтобы «импортировано меньше, чем строк» было видно, а не молчало.
+        rejected += 1;
+        continue;
+      }
       const amountKopecks = parseKopecksFromDecimal(match[5] ?? '0');
       const reference = (match[7] ?? '').trim();
       if (!reference) continue; // a row without a bank reference cannot be reconciled
@@ -251,11 +283,20 @@ export class BankReconciliationService {
       });
     }
 
-    return rows;
+    return { rows, rejected };
   }
 
   async manualMatch(entryId: string, dealId: string, user: RequestUser) {
     this.assertCanMutate(user);
+    // Отказывает и сервис: граница проверяет форму полей по отдельности, а
+    // «хотя бы один идентификатор строки задан» — свойство их сочетания, и
+    // решается оно здесь же, где выбирается, что считать идентификатором.
+    if (typeof entryId !== 'string' || entryId.length === 0) {
+      throw new BadRequestException('Не указан идентификатор строки выписки.');
+    }
+    if (typeof dealId !== 'string' || dealId.length === 0) {
+      throw new BadRequestException('Не указан идентификатор сделки.');
+    }
     const entry = await this.prisma.bankStatementEntry.findUnique({ where: { id: entryId } });
     if (!entry) throw new NotFoundException(`Строка выписки ${entryId} не найдена`);
     if (entry.matchStatus === 'MATCHED') {

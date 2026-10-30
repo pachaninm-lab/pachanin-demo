@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { FirstCustomerWorkspace } from '@/components/platform-v7/FirstCustomerWorkspace';
 import { firstCustomerWorkspaceRequired } from '@/lib/first-customer-workspace-server';
-import { StatusChip, Surface } from '@pc/design-system-v8';
+import { StatusChip } from '@pc/design-system-v8';
 import {
   MoneyBoundary,
   MoneyCockpitSection,
@@ -9,202 +9,206 @@ import {
   MoneyQueue,
   MoneyQueueLink,
   moneyCockpitClasses,
+  type MoneyPriority,
 } from '@/components/transaction-ux/MoneyObligationCockpit';
-import { PushNotificationBanner } from '@/components/platform-v7/PushNotificationBanner';
-import { PriceChart } from '@/components/platform-v7/PriceChart';
-import { SellerInlineLotEditor } from '@/components/platform-v7/SellerInlineLotEditor';
-import { getDealsCanonical } from '@/lib/deals-server';
-import { getDisputes, openDisputeCount } from '@/lib/disputes-server';
-import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
-import { WorkflowActionPanel } from '@/components/platform-v7/WorkflowActionPanel';
-import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
-import { P7ActionStateChip } from '@/components/platform-v7/P7ActionStateChip';
-import { JournalPreview } from '@/components/platform-v7/JournalPreview';
-import { ConditionReasonStrip } from '@/components/platform-v7/ConditionReasonStrip';
-import { DocumentReadinessMiniMatrix } from '@/components/platform-v7/DocumentReadinessMiniMatrix';
-import { MoneyImpactSummaryStrip } from '@/components/platform-v7/MoneyImpactSummaryStrip';
-import { MoneyGateRing } from '@/components/v7r/MoneyGateRing';
+import { getDealsSnapshot } from '@/lib/deals-server';
+import { getDisputesSnapshot, openDisputeCount } from '@/lib/disputes-server';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
-import { FactoringPanel } from '@/components/platform-v7/FactoringPanel';
-import { CommissionCalculator } from '@/components/platform-v7/CommissionCalculator';
-import { IncotermsExportWidget } from '@/components/platform-v7/IncotermsExportWidget';
-import { FtsCustomsPanel } from '@/components/platform-v7/FtsCustomsPanel';
-import { DocumentTemplatesPanel } from '@/components/platform-v7/DocumentTemplatesPanel';
-import { EdoDocflowPanel } from '@/components/platform-v7/EdoDocflowPanel';
-import { PaymentHeatmap } from '@/components/platform-v7/PaymentHeatmap';
-import { buildDemoPaymentHeatmapData } from '@/components/platform-v7/PaymentHeatmap.data';
-import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
-import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
-import { ActionFeedbackPreviewStrip } from '@/components/platform-v7/ActionFeedbackPreviewStrip';
-import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
-import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
-import { UnlockPath } from '@/components/platform-v7/visual/UnlockPath';
 
-const sellerHandoff: HandoffItem[] = [
-  { direction: 'sends', role: 'продавец → покупатель', requirement: 'публикует лот и ожидает подтверждённое предложение покупателя', entity: 'LOT-2403', href: '/platform-v7/lots/LOT-2403', documentImpact: true },
-  { direction: 'awaits', role: 'от покупателя и банка', requirement: 'резерв ожидает банковского подтверждения', moneyImpact: true },
-  { direction: 'awaits', role: 'от ФГИС «Зерно»', requirement: 'СДИЗ ожидает закрытия', moneyImpact: true, documentImpact: true },
-  { direction: 'blockedBy', requirement: 'ЭТрН, акт приёмки и протокол качества ещё не закрыты', documentImpact: true, moneyImpact: true },
-  { direction: 'next', requirement: 'закрыть СДИЗ и ЭТрН для передачи основания банку на проверку', entity: 'DL-9106', href: '/platform-v7/deals/DL-9106/clean', moneyImpact: true },
-];
-
-const sellerLots = [
-  { id: 'LOT-2403', title: 'Пшеница 4 класса · 600 т · EXW', status: 'предложение принято', money: 'резерв 9,65 млн ₽ · к проверке банком 0 ₽', next: 'закрыть СДИЗ, ЭТрН и приёмку', href: '/platform-v7/lots/LOT-2403' },
-  { id: 'LOT-2405', title: 'Пшеница 4 класса · 240 т · EXW', status: 'идут предложения', money: 'лучшая ставка 16 120 ₽/т', next: 'проверить рейтинг покупателя и условия резерва', href: '/platform-v7/lots/LOT-2405' },
-] as const;
+type CanonicalDealSummary = Readonly<{
+  id: string;
+  label: string;
+  status: string | null;
+  culture: string | null;
+  region: string | null;
+}>;
 
 const sellerPaths = [
-  { title: 'Создать партию', href: '/platform-v7/seller/batches/new', note: 'культура, объём, качество, документы, ФГИС' },
-  { title: 'Опубликовать лот', href: '/platform-v7/seller/lots', note: 'управляемая публикация через рабочую поверхность лотов' },
-  { title: 'Проверить запросы', href: '/platform-v7/seller/matches', note: 'спрос, netback и риск покупателя' },
-  { title: 'Открыть сделку', href: '/platform-v7/deals/DL-9106/clean', note: 'документы, рейс, пакет для банка и статус проверки' },
+  { title: 'Создать партию', href: '/platform-v7/seller/batches/new', note: 'открыть форму новой партии без предположений о текущей сделке' },
+  { title: 'Партии и лоты', href: '/platform-v7/seller/lots', note: 'перейти к доступной рабочей поверхности продавца' },
+  { title: 'Проверить запросы', href: '/platform-v7/seller/matches', note: 'открыть запросы и сопоставления без локального статуса сделки' },
 ] as const;
+
+function canonicalText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return normalized ? normalized : null;
+}
+
+function parseCanonicalDeal(value: unknown): CanonicalDealSummary | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const item = value as Record<string, unknown>;
+  const id = canonicalText(item.id);
+  if (!id) return null;
+
+  return {
+    id,
+    label: canonicalText(item.dealNumber) ?? id,
+    status: canonicalText(item.status),
+    culture: canonicalText(item.culture),
+    region: canonicalText(item.region),
+  };
+}
+
+function dealDetail(deal: CanonicalDealSummary): string {
+  return [
+    deal.status ? `статус ${deal.status}` : 'статус UNKNOWN',
+    deal.culture,
+    deal.region,
+  ].filter((value): value is string => Boolean(value)).join(' · ');
+}
 
 export default async function PlatformV7SellerPage() {
   if (firstCustomerWorkspaceRequired()) {
     return <FirstCustomerWorkspace surface='seller' />;
   }
 
-  const [deals, disputes] = await Promise.all([getDealsCanonical(), getDisputes()]);
-  const apiOnline = deals.length > 0;
-  const disputeCount = openDisputeCount(disputes);
+  const [dealSnapshot, disputeSnapshot] = await Promise.all([
+    getDealsSnapshot(),
+    getDisputesSnapshot(),
+  ]);
+
+  const canonicalDeals = dealSnapshot.deals
+    .map(parseCanonicalDeal)
+    .filter((deal): deal is CanonicalDealSummary => deal !== null);
+  const dealPayloadValid = canonicalDeals.length === dealSnapshot.deals.length;
+  const dealRegistryAvailable = dealSnapshot.isApiAvailable && dealPayloadValid;
+  const dealRegistryComplete = dealRegistryAvailable && dealSnapshot.isComplete;
+  const disputeRegistryAvailable = disputeSnapshot.isApiAvailable;
+  const disputeCount = disputeRegistryAvailable ? openDisputeCount(disputeSnapshot.disputes) : null;
+  const dealCount = dealRegistryAvailable ? canonicalDeals.length : null;
+  const dealCountLabel = dealCount === null
+    ? 'UNKNOWN'
+    : dealRegistryComplete
+      ? String(dealCount)
+      : `${dealCount}+`;
+
+  const priority: MoneyPriority = !dealRegistryAvailable
+    ? {
+        eyebrow: 'Техническое восстановление данных',
+        title: 'Проверить доступность серверного реестра сделок',
+        description: 'Канонический список сделок сейчас не подтверждён. Это техническое восстановление данных, а не назначенное бизнес-действие. Кабинет не подставляет демонстрационные лоты, суммы, документы, регуляторные статусы или банковские результаты.',
+        state: 'waiting',
+        blocker: 'канонический список сделок недоступен или содержит неприемлемые данные',
+        owner: 'серверный контур сделки',
+        result: 'подтверждённый сервером список сделок',
+        primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/seller'>Обновить данные</Link>,
+        secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/seller/lots'>Партии и лоты</Link>,
+      }
+    : {
+        eyebrow: 'Серверный приоритет действия',
+        title: 'Приоритет бизнес-действия не опубликован',
+        description: dealCount === 0
+          ? 'Серверный реестр доступен и пуст, но отдельный приоритет следующего действия сервер не опубликовал. Кабинет не назначает создание партии как обязательный следующий шаг без серверной state/policy/permission authority.'
+          : 'Сервер подтвердил список сделок, но не опубликовал приоритет следующего действия. Порядок записей в ответе не превращается в бизнес-приоритет; сделки ниже остаются обычной навигацией.',
+        state: 'waiting',
+        primaryAction: (
+          <a className={moneyCockpitClasses.primaryLink} href={dealCount === 0 ? '#routes' : '#overview'}>
+            {dealCount === 0 ? 'Рабочие маршруты' : 'Список сделок'}
+          </a>
+        ),
+        secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/seller/lots'>Партии и лоты</Link>,
+      };
+
+  const statusLabel = !dealRegistryAvailable
+    ? 'Состояние сделок не подтверждено'
+    : dealRegistryComplete
+      ? 'Серверный реестр сделок доступен'
+      : 'Серверный реестр доступен · итоговое число UNKNOWN';
+
+  const overviewSummary = !dealRegistryAvailable
+    ? 'канонические данные недоступны'
+    : dealCount === 0
+      ? 'канонический реестр пуст'
+      : dealRegistryComplete
+        ? `${dealCount} подтверждённых сервером сделок`
+        : `в текущем ответе: ${dealCount}+ · итоговое число сделок UNKNOWN`;
 
   return (
     <MoneyObligationCockpit
       testId='platform-v7-seller-cockpit'
-      eyebrow='Продавец · обязательства сделки'
-      title='Закрыть документы, чтобы банк получил основание'
-      description='Продавец видит одну сделку, денежное влияние, обязательные документы и следующий безопасный шаг. Резерв не называется выплатой.'
-      statusLabel={apiOnline ? 'Сервер подтверждён' : 'Статичный контур'}
-      statusTone={apiOnline ? 'success' : 'warning'}
-      liveStatus={(
-        <LiveApiStatusBar
-          apiOnline={apiOnline}
-          openDisputes={disputeCount}
-          role='ПРОДАВЕЦ · КАБИНЕТ СДЕЛКИ'
-          summary={apiOnline ? `${deals.length} сделок · ${disputeCount} открытых споров` : 'Внешние подключения не активны'}
-        />
-      )}
-      priority={{
-        title: 'Закрыть СДИЗ и ЭТрН по DL-9106',
-        description: 'Пока документный пакет неполон, основание не передаётся банку. Движение денег подтверждает только банк после собственной проверки.',
-        state: 'waiting',
-        amount: '9,65 млн ₽ резерв · не выплата',
-        blocker: 'СДИЗ, ЭТрН, акт приёмки и протокол качества',
-        owner: 'продавец и ответственные за документы',
-        result: 'пакет готов к банковской проверке',
-        primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals/DL-9106/clean'>Открыть сделку</Link>,
-        secondaryAction: <a className={moneyCockpitClasses.secondaryLink} href='#documents'>Документы</a>,
-      }}
+      eyebrow='Продавец · серверные факты сделки'
+      title={dealRegistryAvailable ? 'Рабочий кабинет продавца по подтверждённым данным' : 'Состояние сделок сейчас не подтверждено'}
+      description='Первый экран строится только из серверного реестра сделок и серверного реестра споров, уже ограниченных правами текущего участника. Данные без подтверждения остаются UNKNOWN.'
+      statusLabel={statusLabel}
+      statusTone={dealRegistryComplete ? 'success' : 'warning'}
+      priority={priority}
       facts={[
-        { label: 'Сделка', value: 'LOT-2403 → DL-9106', hint: 'покупатель заявил резерв' },
-        { label: 'К проверке банком', value: '0 ₽', hint: 'основание ещё не сформировано' },
-        { label: 'Открытые споры', value: String(disputeCount), hint: 'учитываются до передачи основания' },
-        { label: 'Следующий результат', value: 'закрытый пакет', hint: 'СДИЗ · ЭТрН · акт · качество' },
+        {
+          label: dealRegistryComplete ? 'Сделки' : 'Сделки в ответе',
+          value: dealCountLabel,
+          hint: !dealRegistryAvailable
+            ? 'серверный ответ не подтверждён'
+            : dealRegistryComplete
+              ? 'данные получены из серверного списка сделок'
+              : 'достигнут предел серверного ответа; итоговое число не выводится как факт',
+        },
+        {
+          label: 'Серверный приоритет',
+          value: 'UNKNOWN',
+          hint: dealRegistryAvailable
+            ? 'контракт списка сделок не публикует next-best-action; порядок ответа не используется как authority'
+            : 'нет валидного серверного ответа, из которого можно определить приоритет',
+        },
+        {
+          label: 'Открытые споры',
+          value: disputeCount === null ? 'UNKNOWN' : String(disputeCount),
+          hint: disputeRegistryAvailable ? 'данные получены из серверного реестра споров' : 'реестр споров недоступен',
+        },
       ]}
     >
       <MoneyBoundary>
-        Платформа показывает резерв, блокеры и доказательства. Она не подтверждает выплату и не подменяет банковское решение.
+        Кабинет не делает выводов о резерве, выплате, СДИЗ, ЭТрН, применимости ФГИС, провайдере или статусе банка без подтверждённых серверных данных. Технический ответ внешнего сервиса сам по себе не означает завершение операции.
       </MoneyBoundary>
 
       <MoneyCockpitSection id='overview'>
-        <CollapsibleSection title='Состояние сделки продавца' summary='партия · лот · блокер · следующий шаг' defaultOpen>
-          <RoleExecutionCockpitContent cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.seller} />
-        </CollapsibleSection>
-      </MoneyCockpitSection>
-
-      <MoneyCockpitSection id='documents'>
-        <CollapsibleSection title='Документы для банковской проверки' summary='СДИЗ · ЭТрН · акт · протокол' defaultOpen>
+        <CollapsibleSection title='Серверные данные сделок' summary={overviewSummary} defaultOpen>
           <div className={moneyCockpitClasses.sectionStack}>
-            <DocumentReadinessMiniMatrix role='seller' />
-            <WorkflowActionPanel context='seller' />
+            {!dealRegistryAvailable ? (
+              <p className={moneyCockpitClasses.muted}>
+                Канонический список сделок недоступен или некорректен. Деловые факты скрыты до получения валидного серверного ответа.
+              </p>
+            ) : canonicalDeals.length === 0 ? (
+              <p className={moneyCockpitClasses.muted}>
+                Сервер подтвердил пустой список сделок для текущего участника. Демонстрационные сделки не подставляются.
+              </p>
+            ) : (
+              <>
+                <p className={moneyCockpitClasses.muted}>
+                  Список — навигация по подтверждённым сделкам, а не ранжирование следующего действия.
+                </p>
+                <MoneyQueue>
+                  {canonicalDeals.slice(0, 5).map((deal) => (
+                    <MoneyQueueLink
+                      key={deal.id}
+                      href={`/platform-v7/deals/${encodeURIComponent(deal.id)}/clean`}
+                      title={deal.label}
+                      detail={dealDetail(deal)}
+                      status={<StatusChip tone='information'>{deal.status ?? 'UNKNOWN'}</StatusChip>}
+                    />
+                  ))}
+                </MoneyQueue>
+              </>
+            )}
           </div>
         </CollapsibleSection>
       </MoneyCockpitSection>
 
-      <MoneyCockpitSection id='money'>
-        <CollapsibleSection title='Деньги и банковская проверка' summary='резерв 9,65 млн ₽ · к проверке 0 ₽' defaultOpen={false}>
-          <div className={moneyCockpitClasses.sectionStack}>
-            <MoneyGateRing
-              title='Деньги по сделке DL-9106'
-              totalRub={9_648_000}
-              segments={[
-                { label: 'Банк подтвердил выплату', amountRub: 0, state: 'released' },
-                { label: 'Резерв заявлен покупателем', amountRub: 9_648_000, state: 'reserved' },
-              ]}
-              caption='Резерв ожидает банковской проверки; выплата остановлена документными условиями.'
-            />
-            <MoneyImpactSummaryStrip
-              amountContext='резерв 9,65 млн ₽ · к проверке банком 0 ₽'
-              pilotState='waiting'
-              pilotStateLabel='ожидание документов'
-              responsible='продавец · ФГИС «Зерно»'
-              nextStep='закрыть СДИЗ и ЭТрН, затем отправить пакет документов в банк'
-              stopReason='банковская проверка остановлена: СДИЗ и ЭТрН не закрыты'
-              requiredEvidence='закрытый СДИЗ, ЭТрН, акт приёмки и протокол качества'
-              afterResolved='пакет документов передаётся банку; банк проверяет выплату по своим правилам'
-              bankPlatformBoundary='платформа показывает основание и статус; банк подтверждает проверку и движение денег'
-            />
-          </div>
+      <MoneyCockpitSection id='routes'>
+        <CollapsibleSection title='Рабочие маршруты продавца' summary='навигация без выдуманного состояния' defaultOpen={false}>
+          <MoneyQueue>
+            {sellerPaths.map((path) => (
+              <MoneyQueueLink
+                key={path.href}
+                href={path.href}
+                title={path.title}
+                detail={path.note}
+                status={<StatusChip tone='information'>Открыть</StatusChip>}
+              />
+            ))}
+          </MoneyQueue>
         </CollapsibleSection>
       </MoneyCockpitSection>
-
-      <MoneyCockpitSection id='blockers'>
-        <CollapsibleSection title='Что мешает передаче основания' summary='причина → действие → проверка' defaultOpen={false}>
-          <div className={moneyCockpitClasses.sectionStack}>
-            <P7ActionStateChip status='waiting' label='контур исполнения' nextActor='ФГИС «Зерно» и банк' blocker='СДИЗ и ЭТрН не закрыты' moneyEffect='банковская проверка остановлена' />
-            <ConditionReasonStrip condition='ожидание документов' responsible='ФГИС «Зерно» и банк' documentState='СДИЗ и ЭТрН не закрыты' stopReason='банковская проверка остановлена' />
-            <CauseLine cause={{ text: 'СДИЗ не закрыт', tone: 'blocked' }} relation='blocks' effect={{ text: 'отправку пакета документов в банк', tone: 'money' }} moneyAmount='9,65 млн ₽' moneyTone='blocked' />
-            <CauseLine cause={{ text: 'ЭТрН не подписан', tone: 'blocked' }} relation='blocks' effect={{ text: 'банковскую проверку выплаты', tone: 'money' }} moneyTone='blocked' />
-            <UnlockPath title='Чтобы передать сделку на проверку банком:' steps={[
-              { id: '1', label: 'Закрыть СДИЗ в ФГИС «Зерно»', status: 'current' },
-              { id: '2', label: 'Подписать ЭТрН', status: 'upcoming' },
-              { id: '3', label: 'Отправить пакет документов в банк', status: 'upcoming' },
-            ]} />
-          </div>
-        </CollapsibleSection>
-      </MoneyCockpitSection>
-
-      <MoneyCockpitSection id='actions'>
-        <CollapsibleSection title='Передача и журнал' summary='ответственный · ожидание · доказательство' defaultOpen={false}>
-          <div className={moneyCockpitClasses.sectionStack}>
-            <ActionFeedbackPreviewStrip context='seller' />
-            <RoleExecutionHandoff items={sellerHandoff} title='исполнение: что продавец отправляет и ожидает' />
-            <SmartSectionSummary label='Журнал' facts={['3 последних события · СДИЗ и ЭТрН не закрыты']} />
-            <JournalPreview role='seller' maxEntries={3} />
-          </div>
-        </CollapsibleSection>
-      </MoneyCockpitSection>
-
-      <MoneyCockpitSection id='parties'>
-        <CollapsibleSection title='Партии, лоты и рабочие маршруты' summary='детали продаж' defaultOpen={false}>
-          <div className={moneyCockpitClasses.sectionStack}>
-            <MoneyQueue>
-              {sellerPaths.map((path) => <MoneyQueueLink key={path.href} href={path.href} title={path.title} detail={path.note} status={<StatusChip tone='information'>Открыть</StatusChip>} />)}
-            </MoneyQueue>
-            <MoneyQueue>
-              {sellerLots.map((lot) => <MoneyQueueLink key={lot.id} href={lot.href} title={`${lot.id} · ${lot.title}`} detail={`${lot.money} · ${lot.next}`} status={<StatusChip tone={lot.status === 'предложение принято' ? 'success' : 'warning'}>{lot.status}</StatusChip>} />)}
-            </MoneyQueue>
-            <Surface><SellerInlineLotEditor /></Surface>
-          </div>
-        </CollapsibleSection>
-      </MoneyCockpitSection>
-
-      <MoneyCockpitSection>
-        <CollapsibleSection title='Дополнительные инструменты продавца' summary='аналитика · комиссия · финансирование · экспорт · ЭДО' defaultOpen={false}>
-          <div className={moneyCockpitClasses.toolGrid}>
-            <Surface><PaymentHeatmap data={buildDemoPaymentHeatmapData()} year={2024} month={2} /></Surface>
-            <Surface><PriceChart cultures={['wheat_3', 'wheat_4', 'barley']} defaultPeriod={12} title='Динамика закупочных цен' /></Surface>
-            <Surface><CommissionCalculator /></Surface>
-            <Surface><FactoringPanel /></Surface>
-            <Surface><IncotermsExportWidget /></Surface>
-            <Surface><FtsCustomsPanel /></Surface>
-            <Surface><DocumentTemplatesPanel /><EdoDocflowPanel /></Surface>
-          </div>
-        </CollapsibleSection>
-      </MoneyCockpitSection>
-
-      <PushNotificationBanner />
     </MoneyObligationCockpit>
   );
 }

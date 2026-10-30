@@ -108,6 +108,14 @@
   display: grid;
   gap: 14px;
 }
+.p0-register-fields {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
 .p0-register-card {
   display: grid;
   gap: 14px;

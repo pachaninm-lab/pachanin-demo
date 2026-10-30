@@ -12,6 +12,7 @@ import {
 } from '@pc/ai-assistant-admission-manifest';
 import {
   answerPublicPlatformQuestion,
+  answerFarmerStarterQuestion,
   publicAssistantCatalog,
   type PublicAssistantLocale,
 } from '@/lib/platform-v7/public-assistant-knowledge';
@@ -207,10 +208,14 @@ function resolveAnswer(
   locale: PublicAssistantLocale,
   outcome: AssistantRelevanceOutcome,
   role: string | null,
+  originalQuestion: string,
 ): ResolvedAnswer {
   if (outcome.decision === 'BLOCK_SAFETY' && outcome.safetyReason) {
     return fromComposed(composeSafetyAnswer(locale, outcome.safetyReason), 'refused', 'security', locale, 'high');
   }
+
+  const farmerAnswer = answerFarmerStarterQuestion(originalQuestion, locale);
+  if (farmerAnswer) return { ...farmerAnswer, resolution: 'answered' };
 
   if (outcome.decision === 'REDIRECT_UNRELATED') {
     return fromComposed(composeRedirectAnswer(locale), 'redirected', 'overview', locale, 'high');
@@ -402,7 +407,7 @@ function streamPublicAnswer(
       // Everything else is answered. A question that only earned a redirect
       // still gets text a reader can use — what this assistant covers and how to
       // rephrase — instead of a refusal frame carrying nothing.
-      const answer = resolveAnswer(correctedQuestion, locale, outcome, context.role);
+      const answer = resolveAnswer(correctedQuestion, locale, outcome, context.role, message);
 
       const base = (process.env.NEXT_PUBLIC_SITE_URL || '').trim() || null;
       for (const source of answer.sources) {
@@ -500,7 +505,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const answer = resolveAnswer(correctedQuestion, locale, outcome, context.role);
+  const answer = resolveAnswer(correctedQuestion, locale, outcome, context.role, message);
 
   // A redirected question is still a signal about what readers expect from this
   // assistant. It is recorded as a hash and a length, never as text, and never

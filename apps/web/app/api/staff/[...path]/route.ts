@@ -22,6 +22,7 @@ const READ_PATHS = [
   /^access\/requests\/review$/,
   /^access\/sessions$/,
   /^access\/sessions\/review$/,
+  /^founder\/role-mode\/session$/,
   /^organizations$/,
   /^organizations\/[^/]+\/users$/,
   /^organizations\/[^/]+\/cabinet\/[^/]+$/,
@@ -111,7 +112,10 @@ function normalizePath(segments: string[]) {
   try {
     const decoded = segments.map((part) => decodeURIComponent(part).trim()).filter(Boolean);
     if (decoded.some((part) => part === '.' || part === '..' || part.includes('/') || part.includes('\\'))) return '';
-    return decoded.join('/');
+    // Each checked segment is re-encoded, as in staff/workspaces: the path is
+    // concatenated into the upstream URL, where fetch() would otherwise read a
+    // '?', '#' or '%2e%2e' inside a segment as URL syntax.
+    return decoded.map(encodeURIComponent).join('/');
   } catch {
     return '';
   }
@@ -316,6 +320,11 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
   }
 
   const staffAccessToken = request.cookies.get(STAFF_ACCESS_COOKIE)?.value;
+  const roleModeSessionRead = method === 'GET' && path === 'founder/role-mode/session';
+  if (roleModeSessionRead && !staffAccessToken) {
+    return json({ ok: false, code: 'ROLE_MODE_SESSION_INACTIVE', correlationId }, 401);
+  }
+
   const contentLength = Number(request.headers.get('content-length') || 0);
   if (!Number.isFinite(contentLength) || contentLength < 0 || contentLength > MAX_BODY_BYTES) {
     return json({ ok: false, code: 'PAYLOAD_TOO_LARGE', message: 'Запрос превышает допустимый размер.', correlationId }, 413);
@@ -493,7 +502,12 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
       method,
       reason: error instanceof Error ? error.name : 'unknown',
     }));
-    return json({ ok: false, code: 'STAFF_SERVICE_UNAVAILABLE', message: 'Контур управления временно недоступен.', correlationId }, 503);
+    return json({
+      ok: false,
+      code: roleModeSessionRead ? 'ROLE_MODE_SESSION_UNAVAILABLE' : 'STAFF_SERVICE_UNAVAILABLE',
+      message: 'Контур управления временно недоступен.',
+      correlationId,
+    }, 503);
   }
 }
 

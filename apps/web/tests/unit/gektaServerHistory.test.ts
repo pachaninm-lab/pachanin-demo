@@ -69,7 +69,16 @@ describe('Gekta imports anonymous history without inventing content', () => {
     const payload = importablePayload([conversation()]);
     expect(payload.conversations).toHaveLength(1);
     expect(payload.conversations[0]?.createdAt).toBe('2026-08-01T10:00:00.000Z');
+    expect(payload.conversations[0]?.sourceId).toBe('c-1');
     expect(payload.conversations[0]?.messages).toHaveLength(2);
+  });
+
+  it('preserves different stable identities even when titles and content are identical', () => {
+    const rows = [conversation({ id: 'local-a' }), conversation({ id: 'local-b' })];
+    const first = importablePayload(rows);
+    expect(first.conversations.map(r => r.sourceId)).toEqual(['local-a', 'local-b']);
+    expect(importablePayload(rows)).toEqual(first);
+    expect(chunkImport(first.conversations, 1).flat().map(r => r.sourceId)).toEqual(['local-a', 'local-b']);
   });
 
   it('splits the import so a long history does not exceed the request body limit', () => {

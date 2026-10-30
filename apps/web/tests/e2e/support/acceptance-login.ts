@@ -1,4 +1,6 @@
-import { createHmac } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
 import { expect, type BrowserContext, type Page } from '@playwright/test';
 
 /**
@@ -8,7 +10,7 @@ import { expect, type BrowserContext, type Page } from '@playwright/test';
  * organization and tenant match a live /auth/me profile, so a hand-minted
  * cookie cannot open a cabinet and should not be able to. This helper drives
  * the ordinary login route instead: the server verifies the password against
- * PostgreSQL, enforces the second factor, and mints both the session and the
+ * PostgreSQL and mints both the session and the
  * cabinet cookie through the same code production runs.
  *
  * Nothing here weakens the boundary. The only test-supplied inputs are a
@@ -18,10 +20,9 @@ import { expect, type BrowserContext, type Page } from '@playwright/test';
 export const ACCEPTANCE_PASSWORD = 'Acceptance!Passw0rd-v8';
 
 /**
- * The TOTP secret the seed enrols for every acceptance account. The API only
- * discloses a generated secret during enrolment, so pre-enrolling with a known
- * one is what lets each browser project perform an ordinary returning-user
- * login instead of a first-time setup.
+ * Public TOTP fixture material for the original pre-enrolled identities and
+ * isolated READY bank journey. Fresh role subjects enroll a newly generated
+ * secret through the real authenticated server endpoints.
  */
 export const ACCEPTANCE_TOTP_SECRET = 'KRSXG5CTMVRXEZLUKRSXG5CTMVRXEZLU';
 
@@ -75,53 +76,98 @@ async function csrfToken(context: BrowserContext, baseURL: string): Promise<stri
   return token as string;
 }
 
+/** Each scenario gets its own disposable subject under the existing seeded
+ * membership authority. The server allows five MFA starts per user in 300
+ * seconds. Different browser scenarios must not share that user's allowance.
+ * No session or assurance is
+ * seeded: password login and TOTP still run through the real server endpoints.
+ */
+async function isolatedAcceptanceEmail(role: CabinetRole, baseURL: string): Promise<string> {
+  const database = new URL(String(process.env.DATABASE_URL || ''));
+  const browserTarget = new URL(baseURL);
+  if (browserTarget.protocol !== 'https:'
+    || !['localhost', '127.0.0.1'].includes(browserTarget.hostname)
+    || !['postgres:', 'postgresql:'].includes(database.protocol)
+    || !['localhost', '127.0.0.1', 'postgres'].includes(database.hostname)
+    || database.pathname !== '/dsv8_acceptance') {
+    throw new Error('Isolated role fixtures require the localhost TLS/disposable dsv8_acceptance matrix');
+  }
+  const apiRequire = createRequire(resolve(process.cwd(), '../api/package.json'));
+  const { PrismaClient } = apiRequire('@prisma/client');
+  const prisma = new PrismaClient();
+  const email = `dsv8.${role}.${randomUUID()}@acceptance.invalid`;
+  try {
+    return await prisma.$transaction(async (tx: typeof prisma) => {
+      const template = await tx.user.findUnique({ where: { email: acceptanceEmail(role) } });
+      expect(template?.status, 'existing activated seed identity').toBe('ACTIVE');
+      expect(template?.passwordHash, 'existing seeded password credential').toBeTruthy();
+      const memberships = await tx.userOrg.findMany({
+        where: { userId: template.id, isDefault: true, status: 'ACTIVE' },
+        include: { organization: true },
+      });
+      expect(memberships, 'exactly one existing default role membership').toHaveLength(1);
+      const membership = memberships[0];
+      expect(membership.organization.status, 'existing verified seed organization').toBe('VERIFIED');
+      expect(membership.isOrgAdmin, 'original fixture has no organization-admin grant').toBe(false);
+      const user = await tx.user.create({ data: {
+        email, passwordHash: template.passwordHash, fullName: template.fullName, status: 'ACTIVE',
+      } });
+      await tx.userOrg.create({ data: {
+        userId: user.id, organizationId: membership.organizationId, role: membership.role,
+        status: 'ACTIVE', isDefault: true, isOrgAdmin: false, activatedAt: new Date(),
+      } });
+      // Enrollment is performed through the real authenticated start/verify
+      // endpoints after password login, never by seeding credential assurance.
+      return email;
+    });
+  } finally { await prisma.$disconnect(); }
+}
+
 /**
- * Logs the given seeded role in through the real login route, completing the
- * second factor when the server demands it. Leaves the browser context holding
+ * Logs the seeded role in with a password, then explicitly completes action
+ * MFA when the acceptance scenario requests it. Leaves the browser context holding
  * exactly the cookies a real login produces.
  */
-export async function loginAs(page: Page, role: CabinetRole, baseURL: string): Promise<void> {
+export async function loginAs(page: Page, role: CabinetRole, baseURL: string, requireMfa = true): Promise<void> {
+  const email = await isolatedAcceptanceEmail(role, baseURL);
   const context = page.context();
   await context.clearCookies();
-
-  // The login page is what issues the CSRF cookie in production.
   await page.goto('/platform-v7/login', { waitUntil: 'load' });
   const token = await csrfToken(context, baseURL);
-
   const login = await context.request.post('/api/auth/login', {
     headers: { 'content-type': 'application/json', 'x-csrf-token': token },
-    data: { email: acceptanceEmail(role), password: ACCEPTANCE_PASSWORD },
+    data: { email, password: ACCEPTANCE_PASSWORD },
   });
-  expect(login.status(), `login status for ${role}`).toBeLessThan(400);
+  expect(login.status(), `password login status for ${role}`).toBeLessThan(400);
   const body = await login.json();
+  expect(body.ok, `password login for ${role}`).toBe(true);
+  expect(body.mfaRequired, `opening ${role} must not require a code`).not.toBe(true);
 
-  if (body.mfaRequired) {
-    // A generated secret is only returned when the account still has to enrol;
-    // the seeded accounts are already enrolled on the shared secret.
-    const secret = String(body.setupSecret || ACCEPTANCE_TOTP_SECRET);
-
-    // Entering the MFA-pending state intentionally rotates the browser session
-    // and its CSRF token. Read the server-minted replacement instead of
-    // replaying the pre-login token captured above.
-    const mfaToken = await csrfToken(context, baseURL);
-
-    // A TOTP code cannot be presented twice, so a login landing in the same
-    // 30-second window as a previous one for the same account has to wait for
-    // the next step rather than fail the matrix.
+  // Protected-role acceptance explicitly proves possession after password
+  // login. These are ordinary authenticated step-up endpoints, never fixture
+  // authority flags or hand-minted cookies.
+  if (requireMfa) {
     let verified = false;
-    let lastStatus = 0;
     for (let attempt = 0; attempt < 3 && !verified; attempt += 1) {
       if (attempt > 0) await page.waitForTimeout(30_000 - (Date.now() % 30_000) + 1_000);
-      const verify = await context.request.post('/api/auth/mfa-login', {
-        headers: { 'content-type': 'application/json', 'x-csrf-token': mfaToken },
-        data: { code: totp(secret) },
+      const start = await context.request.post('/api/auth/mfa-step-up/start', {
+        headers: { 'content-type': 'application/json', 'x-csrf-token': await csrfToken(context, baseURL) }, data: {},
       });
-      lastStatus = verify.status();
-      verified = lastStatus < 400 && (await verify.json()).ok === true;
+      expect(start.status(), `authenticated MFA start for ${role}`).toBeLessThan(400);
+      const setup = await start.json();
+      expect(setup.ok, `authenticated enrollment start for ${role}`).toBe(true);
+      expect(setup.enrollmentRequired, `fresh ${role} subject must enroll its own secret`).toBe(true);
+      expect(setup.setupSecret, `server-generated enrollment secret for ${role}`).toMatch(/^[A-Z2-7]+$/);
+      const remaining = 30_000 - (Date.now() % 30_000);
+      if (remaining < 5_000) await page.waitForTimeout(remaining + 100);
+      const verify = await context.request.post('/api/auth/mfa-step-up/verify', {
+        headers: { 'content-type': 'application/json', 'x-csrf-token': await csrfToken(context, baseURL) },
+        data: { code: totp(setup.setupSecret) },
+      });
+      const result = await verify.json().catch(() => ({}));
+      verified = verify.ok() && result.mfaVerified === true;
     }
-    expect(verified, `MFA verification for ${role} (last status ${lastStatus})`).toBe(true);
-  } else {
-    expect(body.ok, `login for ${role}`).toBe(true);
+    expect(verified, `actual action MFA for ${role}`).toBe(true);
   }
 
   const cookies = await context.cookies(baseURL);

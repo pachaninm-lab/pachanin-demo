@@ -40,7 +40,7 @@ describe('platform-v7 primary role execution cockpit', () => {
 
   it('wires primary pages to an explicit cockpit marker or shared cockpit component', () => {
     const files = [
-      { file: 'app/platform-v7/seller/page.tsx', marker: 'data-platform-v7-seller-cockpit-pass' },
+      { file: 'app/platform-v7/seller/page.tsx', marker: "testId='platform-v7-seller-cockpit'" },
       { file: 'app/platform-v7/buyer/page.tsx', marker: 'data-platform-v7-buyer-cockpit-pass' },
       { file: 'app/platform-v7/bank/page.tsx', marker: 'data-platform-v7-bank-cockpit-pass' },
       { file: 'app/platform-v7/compliance/page.tsx', marker: 'data-platform-v7-compliance-cockpit-pass' },

@@ -8,7 +8,7 @@ import {
   sessionMarkerCookie,
   csrfCookieSecurity,
 } from '../../../../../../lib/auth-cookies';
-import { generateCsrfToken } from '../../../../../../lib/server-request-security';
+import { generateCsrfToken, resolveSameOriginRedirectTarget } from '../../../../../../lib/server-request-security';
 import { demoLoginAllowed } from '../../../../../../lib/platform-v7/demo-login-policy';
 
 type DemoTarget = {
@@ -37,11 +37,6 @@ const ROLE_TARGETS: Record<string, DemoTarget> = {
   admin: { role: 'ADMIN', email: 'admin@demo.ru', firstPage: '/cabinet' },
 };
 
-function sanitizeDestination(raw: string | null | undefined, fallback: string): string {
-  if (!raw) return fallback;
-  return raw.startsWith('/') ? raw : fallback;
-}
-
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ role: string }> },
@@ -54,14 +49,13 @@ export async function GET(
   }
   const slug = ((await context.params).role || 'farmer').toLowerCase();
   const target = ROLE_TARGETS[slug] ?? ROLE_TARGETS.farmer;
-  const to = sanitizeDestination(request.nextUrl.searchParams.get('to'), target.firstPage);
 
   const exp = Math.floor(Date.now() / 1000) + 8 * 3600;
   const sessionValue = encodeURIComponent(
     JSON.stringify({ role: target.role, exp, email: target.email }),
   );
 
-  const url = new URL(to, request.url);
+  const url = resolveSameOriginRedirectTarget(request.nextUrl.searchParams.get('to'), target.firstPage, request);
   const res = NextResponse.redirect(url);
 
   res.cookies.set(SESSION_COOKIE, sessionValue, sessionMarkerCookie());

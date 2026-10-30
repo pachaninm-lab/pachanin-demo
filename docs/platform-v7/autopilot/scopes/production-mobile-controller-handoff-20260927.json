@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "production-mobile-controller-handoff-20260927",
+  "branch": "fix/production-mobile-controller-handoff-20260927",
+  "issue": 4637,
+  "status": "active",
+  "authorizedBy": "trusted-base-immutable-scope-admission",
+  "baseline": {
+    "branch": "main",
+    "commit": "202093945454dd1c743741c7821b60fecc17a2fc"
+  },
+  "intent": "Run fresh Chromium and WebKit production mobile acceptance after an owner-controlled full-stack deployment nested in platform-v7 safe merge.",
+  "allowedPaths": [
+    ".github/workflows/platform-v7-production-mobile-acceptance.yml",
+    "docs/platform-v7/autopilot/scopes/production-mobile-controller-handoff-20260927.json"
+  ],
+  "forbidden": [
+    "treating a routine or skipped safe-merge run as a deployment",
+    "using workflow-run head SHA without successful nested deployment evidence",
+    "loosening live manifest, Playwright viewport, Chromium, WebKit, artifact or no-retry gates",
+    "changing production release, API, database, public UI, market source, auth-mail or IR-20 authority"
+  ],
+  "acceptance": [
+    "exact owner issue-comment controller and nested full-stack, auth-mail and reviewer jobs succeed",
+    "the exact same-run full-stack artifact binds target SHA and all deployment and live acceptance markers",
+    "main and live manifest match the target before and after zero-retry dual-engine browser acceptance",
+    "Chromium and WebKit verify public Gekta hides when the mobile burger opens, returns after close, and opens the real assistant panel",
+    "fresh exact-head CI and independent review before merge"
+  ]
+}

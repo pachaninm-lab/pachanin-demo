@@ -168,7 +168,7 @@ jobs:
           [[ "$UPSTREAM_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]]
           for required_job in \
             'production-full-stack-execution-3072 / Validate full-stack release contract' \
-            'production-full-stack-execution-3072 / Migrate, deploy API and web, verify live intake'; do
+            'production-full-stack-execution-3072 / Migrate, deploy API/web and canonical outbox, verify live delivery'; do
             mapfile -t conclusions < <(gh api \
               -H 'Accept: application/vnd.github+json' \
               "repos/$REPO/actions/runs/$UPSTREAM_RUN_ID/jobs?filter=latest&per_page=100" \

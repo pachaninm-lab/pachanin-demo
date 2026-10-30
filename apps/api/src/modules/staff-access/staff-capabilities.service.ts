@@ -108,6 +108,22 @@ type PendingApprovalSummary = {
 export class StaffCapabilitiesService {
   constructor(private readonly repository: StaffAccessRepository) {}
 
+  async getHome(user: RequestUser) {
+    const assignments = (await this.repository.listActiveAssignments(this.repository.prisma, user.id))
+      .filter((assignment): assignment is StaffAssignmentRow & { role: StaffRole } => (
+        assignment.user_id === user.id && isStaffRole(assignment.role) && assignment.status === 'ACTIVE'
+      ))
+      .map((assignment) => this.safeAssignment(assignment));
+    if (assignments.length === 0) throw new ForbiddenException('Active staff assignment is required');
+    // Own identity and assignment labels only. No capabilities, customer scope,
+    // staff access sessions, approval counts or operational data are returned.
+    return {
+      identity: { id: user.id, email: user.email, fullName: user.fullName ?? null },
+      assignments,
+      authenticationAssurance: { mfaVerified: user.mfaVerified === true },
+    };
+  }
+
   async getMine(user: RequestUser) {
     if (user.mfaVerified !== true) {
       throw new ForbiddenException('Staff MFA verification is required');

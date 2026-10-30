@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "test/public-crop-photo-consistency-20260923",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
+  "purpose": "UX-18/T20 verification-only: prove the existing eight pinned CC0 crop-photo pipeline renders locally and consistently before considering any replacement asset.",
+  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, section 5.4 and UX-18/T20.",
+  "allowedPaths": [
+    "apps/web/playwright.canonical-visual.config.ts",
+    "apps/web/tests/e2e/platform-v7-crop-photo-consistency.spec.ts",
+    "docs/platform-v7/autopilot/scopes/public-crop-photo-consistency-20260923.json"
+  ],
+  "requiredInvariants": [
+    "No crop image, source URL, digest, license, runtime component or CSS is changed by this verification slice.",
+    "All eight crop categories load local WebP renditions from the existing build-time materialization contract.",
+    "Rendered crop images use 8:5 geometry, object-fit cover, one object-position rule and no per-image CSS filter.",
+    "Evidence is captured at 390 and 1280 for every crop in catalogue order with no whole-document horizontal overflow.",
+    "Automated geometry does not substitute for visual review of crop/scale/colour-temperature consistency; UX-18 stays open if screenshots remain inconsistent."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
