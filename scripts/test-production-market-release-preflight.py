@@ -1093,17 +1093,17 @@ class Publication(unittest.TestCase):
             self.assertIsNone(opener.requests[1][0].get_header('Authorization'))
             self.assertTrue(all(r.get_method()=='GET' and 0<t<=5 for r,t in opener.requests))
 
-    def test_storage_namespace_rejects_traversal_controls_and_unbounded_identifiers(self):
+    def test_storage_path_rejects_traversal_controls_and_unbounded_envelope(self):
         url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
-        for path in ('sha256/'+ 'a'*257,'../'+m.PUBLICATION['config'],m.PUBLICATION['config'].replace(':','%253A'),
+        for path in ('sha256/'+ 'a'*2049,'../'+m.PUBLICATION['config'],m.PUBLICATION['config'].replace(':','%253A'),
                      'sha256/../'+m.PUBLICATION['config'],'object%00','object%5Cfile','a//b','a/./b',
-                     'a/'*9+'object'):
+                     'a/'*33+'object'):
             target='https://pkg-containers.githubusercontent.com/ghcr1/blobs/'+path
             e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
-            with self.subTest(path=path),self.assertRaisesRegex(ValueError,'PUBLICATION_STORAGE_PATH'):
+            with self.subTest(path=path),self.assertRaisesRegex(ValueError,'PUBLICATION_STORAGE_'):
                 self.get(url,responses=[e,self.Response(target)],allow_blob_redirect=True)
 
-    def test_uri_decoding_is_namespace_policy_and_keeps_the_signed_url(self):
+    def test_uri_decoding_is_path_policy_and_keeps_the_signed_url(self):
         url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
         exact='/ghcr1/blobs/'+m.PUBLICATION['config']
         paths=(exact.replace(':','%3A'),exact.replace(':','%3a'),exact.replace('/blobs/','/blobs%2F'),
@@ -1118,7 +1118,17 @@ class Publication(unittest.TestCase):
                      '/ghcr1/blobs/%2e%2e/'+m.PUBLICATION['config'],exact+'%00',exact+'%FF'):
             target='https://pkg-containers.githubusercontent.com'+path
             e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
-            with self.subTest(path=path),self.assertRaisesRegex(ValueError,'PUBLICATION_STORAGE_PATH'):
+            with self.subTest(path=path),self.assertRaisesRegex(ValueError,'PUBLICATION_STORAGE_'):
+                self.get(url,responses=[e,self.Response(target)],allow_blob_redirect=True)
+
+    def test_storage_failure_taxonomy_is_bounded_and_contains_no_location(self):
+        url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        for path,code in (('/'+'a'*2049,'LENGTH'),('/bad%zz','ENCODING'),('/double%253A','ENCODING'),
+                          ('/bad%FF','ENCODING'),('/bad%00','PATH'),('/bad%5Cfile','PATH'),
+                          ('/a/../b','SEGMENTS'),('/a//b','SEGMENTS'),('/'+'a/'*33+'b','SEGMENTS')):
+            target='https://pkg-containers.githubusercontent.com'+path+'?PRIVATE=secret'
+            e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
+            with self.subTest(code=code),self.assertRaisesRegex(ValueError,'^PUBLICATION_STORAGE_'+code+'$'):
                 self.get(url,responses=[e,self.Response(target)],allow_blob_redirect=True)
 
     def test_unreviewed_redirect_or_token_redirect_is_rejected(self):
@@ -1137,6 +1147,35 @@ class Publication(unittest.TestCase):
             with self.subTest(options=list(options)),self.assertRaises(ValueError):self.get(url,**options)
         with self.assertRaisesRegex(ValueError,'PUBLICATION_TIMEOUT'):
             m.publication_get(url,'PRIVATE',m.time.monotonic()-1,self.Opener([]),[0,0])
+
+    def test_raw_redirect_controls_and_relative_resolution_never_issue_a_get(self):
+        url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        good='https://pkg-containers.githubusercontent.com/opaque/object?PRIVATE=secret'
+        locations=(good.replace('/opaque','/opa\nque'),good+'\r',good+'\t',good+' ',
+                   '../config','/a/../config','https://pkg-containers.githubusercontent.com/a/../config',
+                   '//pkg-containers.githubusercontent.com/a/./config',
+                   'https://pkg-containers.githubusercontent.com/a/%2e%2e/config')
+        for location in locations:
+            opener=self.Opener([m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':location},None),
+                                self.Response(good)])
+            with self.subTest(location=repr(location)),self.assertRaises(ValueError):
+                m.publication_get(url,'Bearer PRIVATE',m.time.monotonic()+60,opener,[0,0],allow_blob_redirect=True)
+            self.assertEqual(len(opener.requests),1)
+        error=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':good},None)
+        later=m.urllib.error.HTTPError(good,307,'PRIVATE',{'Location':'../config'},None)
+        opener=self.Opener([error,later,self.Response('https://pkg-containers.githubusercontent.com/config')])
+        with self.assertRaises(ValueError):
+            m.publication_get(url,'Bearer PRIVATE',m.time.monotonic()+60,opener,[0,0],allow_blob_redirect=True)
+        self.assertEqual(len(opener.requests),2)
+        self.assertIsNone(opener.requests[-1][0].get_header('Authorization'))
+
+    def test_scheme_relative_storage_location_keeps_signed_path_and_query(self):
+        url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        location='//pkg-containers.githubusercontent.com/opaque/object?PRIVATE=secret'
+        e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':location},None)
+        data,opener=self.get(url,responses=[e,self.Response('https:'+location)],allow_blob_redirect=True)
+        self.assertEqual(data,b'{}');self.assertEqual(opener.requests[1][0].full_url,'https:'+location)
+        self.assertIsNone(opener.requests[1][0].get_header('Authorization'))
 
     def test_http_challenge_and_automatic_redirect_never_followed(self):
         url='https://ghcr.io/token'
@@ -1173,7 +1212,7 @@ class Publication(unittest.TestCase):
         token_url='https://ghcr.io/token?service=ghcr.io&scope=repository%3Apachaninm-lab%2Fgrainflow-api%3Apull'
         prefix='https://ghcr.io/v2/'+pins['repository']+'/'
         config_url=prefix+'blobs/'+pins['config']
-        target='https://pkg-containers.githubusercontent.com/ghcr1/blobs/opaque.storage_object?PRIVATE=secret'
+        target='https://pkg-containers.githubusercontent.com/opaque-pool/config-cache/opaque.storage_object?PRIVATE=secret'
         for body in (docs[2],docs[2]+b' '):
             responses=[self.Response(token_url,b'{"token":"PRIVATE_BEARER"}'),
                 self.Response(prefix+'manifests/'+pins['index'],docs[0]),

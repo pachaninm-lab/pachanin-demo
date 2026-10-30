@@ -1184,6 +1184,9 @@ def publication_get(url: str, authorization: str, deadline: float,
     if allow_blob_redirect and url != ('https://ghcr.io/v2/' + PUBLICATION['repository'] + '/blobs/' + PUBLICATION['config']):
         raise ValueError('PUBLICATION_ORIGIN')
     for redirect in range(3):
+        if (not isinstance(url, str) or not 0 < len(url) <= 8192
+                or any(not 33 <= ord(char) <= 126 for char in url)):
+            raise ValueError('PUBLICATION_REDIRECT')
         parsed = urllib.parse.urlsplit(url)
         registry = parsed.hostname == 'ghcr.io'
         storage = parsed.hostname == 'pkg-containers.githubusercontent.com'
@@ -1192,21 +1195,28 @@ def publication_get(url: str, authorization: str, deadline: float,
                 or (not registry and not (allow_blob_redirect and storage))):
             raise ValueError('PUBLICATION_ORIGIN')
         if storage:
-            # Decode once for this namespace policy, without rewriting the
+            # Decode once for this bounded path policy, without rewriting the
             # signed URL or asserting general URI equivalence. Byte-digest
             # verification remains mandatory before any document is admitted.
+            if not 1 < len(parsed.path) <= 2048:
+                raise ValueError('PUBLICATION_STORAGE_LENGTH')
             if re.search(r'%(?![0-9A-Fa-f]{2})', parsed.path):
-                raise ValueError('PUBLICATION_STORAGE_PATH')
+                raise ValueError('PUBLICATION_STORAGE_ENCODING')
             try:
                 storage_path = urllib.parse.unquote_to_bytes(parsed.path).decode('ascii', errors='strict')
             except UnicodeError:
-                raise ValueError('PUBLICATION_STORAGE_PATH') from None
-            prefix = '/ghcr1/blobs/'
-            identifier = storage_path[len(prefix):] if storage_path.startswith(prefix) else ''
-            if (not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}', identifier)
-                    or len(identifier.split('/')) > 8
-                    or any(part in ('', '.', '..') for part in identifier.split('/'))):
+                raise ValueError('PUBLICATION_STORAGE_ENCODING') from None
+            if '%' in storage_path:
+                raise ValueError('PUBLICATION_STORAGE_ENCODING')
+            if not 1 < len(storage_path) <= 2048:
+                raise ValueError('PUBLICATION_STORAGE_LENGTH')
+            # Storage layout is opaque. The fixed origin and content digest,
+            # rather than a guessed pool/filename, bind the returned resource.
+            if not re.fullmatch(r"/[A-Za-z0-9._~!$&'()*+,;=:@/-]+", storage_path):
                 raise ValueError('PUBLICATION_STORAGE_PATH')
+            segments = storage_path[1:].split('/')
+            if len(segments) > 32 or any(part in ('', '.', '..') for part in segments):
+                raise ValueError('PUBLICATION_STORAGE_SEGMENTS')
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise ValueError('PUBLICATION_TIMEOUT')
@@ -1225,8 +1235,19 @@ def publication_get(url: str, authorization: str, deadline: float,
                 error.close()
                 # Registry credentials never follow a redirect, even to the registry.
                 authorization = ''
-                url = urllib.parse.urljoin(url, location)
-                if not location or urllib.parse.urlsplit(url).hostname != 'pkg-containers.githubusercontent.com':
+                # Do not let URL resolution erase raw controls or dot segments.
+                # Cross-origin absolute and scheme-relative HTTPS locations
+                # preserve their signed path/query; relative paths are denied.
+                if (not isinstance(location, str) or not 0 < len(location) <= 8192
+                        or any(not 33 <= ord(char) <= 126 for char in location)):
+                    raise ValueError('PUBLICATION_REDIRECT') from None
+                if location.startswith('https://'):
+                    url = location
+                elif location.startswith('//'):
+                    url = 'https:' + location
+                else:
+                    raise ValueError('PUBLICATION_ORIGIN') from None
+                if urllib.parse.urlsplit(url).hostname != 'pkg-containers.githubusercontent.com':
                     raise ValueError('PUBLICATION_ORIGIN') from None
                 continue
             error.close()
@@ -1293,7 +1314,8 @@ def main() -> None:
             print(json.dumps(published_api_baseline(), sort_keys=True, separators=(',', ':')))
         except Exception as error:
             safe = {'PUBLICATION_' + name for name in ('AUTH', 'AUTHORIZATION', 'BOUNDS', 'CONFIG', 'DIGEST',
-                    'HTTP', 'INDEX', 'JSON', 'LAYERS', 'ORIGIN', 'PLATFORM', 'REVISION', 'ROOTFS', 'RUNNER_ONLY', 'STORAGE_PATH', 'TIMEOUT')}
+                    'HTTP', 'INDEX', 'JSON', 'LAYERS', 'ORIGIN', 'PLATFORM', 'REDIRECT', 'REVISION', 'ROOTFS', 'RUNNER_ONLY',
+                    'STORAGE_PATH', 'STORAGE_ENCODING', 'STORAGE_LENGTH', 'STORAGE_SEGMENTS', 'TIMEOUT')}
             code = str(error) if type(error) is ValueError and str(error) in safe else 'PUBLICATION_UNAVAILABLE'
             print(json.dumps({'schema': 'pc-crop.api-publication-baseline.v1', 'status': 'NOT_PROVEN',
                               'failure': code, 'host_binding': 'NOT_PERFORMED',
