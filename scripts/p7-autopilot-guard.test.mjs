@@ -6763,3 +6763,250 @@ test('single-node scope: decoder and byte count retain the caller locale', t => 
     else process.env.LC_ALL = oldLocale;
   }
 });
+
+// Separate current phase; retained historical headroom fixtures remain unchanged.
+const liveHeadroomMarker = '\n## PC-CROP live Docker headroom clean fixture correction v4 — 2026-10-30\n\n```json\n';
+function liveHeadroomPurpose() {
+  const parts = fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8').split(liveHeadroomMarker);
+  assert.equal(parts.length, 2);
+  return JSON.parse(parts[1].slice(0, parts[1].indexOf('\n```\n')));
+}
+function liveHeadroomFixture(t, mutate = () => {}, { ancestry = true, companionStage = false } = {}) {
+  const original = liveHeadroomPurpose();
+  const purpose = structuredClone(original);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-live-headroom-safety-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = { allowedCurrentScope: ['README.md', 'apps/api/src/main.ts'],
+    approvedConcurrentScopes: { [headroomBranch]: [...purpose.originalScope], [purpose.companionBranch]: [...purpose.companionScope] } };
+  mutate(purpose, state);
+  const fromObject = sha => {
+    const r = spawnSync('git', ['cat-file', 'blob', sha], { encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 + 1 });
+    assert.equal(r.status, 0, output(r)); return r.stdout;
+  };
+  for (const item of original.guardPayloads) write(root, item.path, fromObject(item.afterBlob), item.mode === '100755' ? 0o755 : 0o644);
+  for (const item of original.sourcePayloads) write(root, item.path, fromObject(item.beforeBlob), item.mode === '100755' ? 0o755 : 0o644);
+  for (const item of original.companionPayloads) write(root, item.path, fromObject(item.beforeBlob), 0o644);
+  if (!companionStage) {
+    // The prerequisite guard runs before these future companion bytes are tracked.
+    // Reconstruct them from accepted metadata instead of unpublished Git objects.
+    const applied = spawnSync('git', ['apply', '-'], { cwd: root, input: original.companionPatch.text,
+      encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 });
+    assert.equal(applied.status, 0, output(applied));
+    for (const item of original.companionPayloads) {
+      const bytes = fs.readFileSync(path.join(root, item.path));
+      assert.equal(bytes.length, item.bytes);
+      assert.equal(createHash('sha256').update(bytes).digest('hex'), item.sha256);
+    }
+  }
+  const manifest = original.originalScope[2];
+  write(root, manifest, fromObject('deb7672c69db09ab0b233cf011e79a904bc5f1a7'), 0o644);
+  write(root, 'scripts/p7-source-controlled-scope.mjs', fs.readFileSync(sourceResolver, 'utf8'), 0o644);
+  write(root, statePath, JSON.stringify(state));
+  write(root, 'docs/platform-v7/execution-queue.md', liveHeadroomMarker + JSON.stringify(purpose) + '\n```\n');
+  write(root, 'README.md', 'unrelated protected source\n');
+  git(root, ['init', '--initial-branch=main']);
+  git(root, ['config', 'user.name', 'Live headroom regression']);
+  git(root, ['config', 'user.email', 'live-headroom@example.invalid']);
+  const objectDir = spawnSync('git', ['rev-parse', '--path-format=absolute', '--git-path', 'objects'], { encoding: 'utf8' });
+  assert.equal(objectDir.status, 0, output(objectDir));
+  write(root, '.git/objects/info/alternates', objectDir.stdout.trim() + '\n');
+  // The real accepted commit object remains exact. Bound this synthetic fixture
+  // at that ancestor instead of importing unrelated pre-authority history.
+  write(root, '.git/shallow', original.authorityBaseExactMain + '\n');
+  git(root, ['add', '.']);
+  const tree = git(root, ['write-tree']);
+  const baseline = git(root, ['commit-tree', tree, ...(ancestry ? ['-p', original.authorityBaseExactMain] : []), '-m', 'accepted exact safety metadata']);
+  git(root, ['update-ref', 'HEAD', baseline]);
+  const implementationBranch = companionStage ? original.companionBranch : headroomBranch;
+  git(root, ['switch', '-c', implementationBranch]);
+  return { root, baseline, implementationBranch, companionStage };
+}
+function applyLiveHeadroom(c) {
+  const r = spawnSync('git', ['apply', '--index', '-'], { cwd: c.root, input: (c.companionStage ? liveHeadroomPurpose().companionPatch : liveHeadroomPurpose().sourcePatch).text,
+    encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 });
+  assert.equal(r.status, 0, output(r));
+}
+function checkLiveHeadroom(c, expected = 1) {
+  git(c.root, ['add', '--all']);
+  git(c.root, ['commit', '--allow-empty', '-m', 'current live cleanup source']);
+  const r = runTrustedHeadroomGuard(c);
+  assert.equal(r.status === 0 ? 0 : 1, expected, output(r));
+  if (expected) assert.match(output(r), /PC_CROP_LIVE_HEADROOM_SAFETY_SCOPE_|PC_CROP_HEADROOM_SCOPE_|Mutable scope authority changed/u);
+}
+test('live headroom safety: exact two-source payload passes from accepted base', t => {
+  const c = liveHeadroomFixture(t); applyLiveHeadroom(c); checkLiveHeadroom(c, 0);
+});
+for (const [name, mutate] of [
+  ['wrong owner', p => { p.owner = 'ACCOUNT_2_PRODUCT'; }],
+  ['wrong source branch', p => { p.sourceBranch = 'fix/other'; }],
+  ['wrong guard branch', p => { p.guardBranch = 'governance/trusted-concurrent-scope-routing-guard-20261007'; }],
+  ['wrong authority', p => { p.authorityBaseExactMain = 'a'.repeat(40); }],
+  ['production invocation', p => { p.productionInvocationAuthorized = true; }],
+  ['production credit', p => { p.masterCredit = 1; }],
+  ['unknown purpose field', p => { p.extra = true; }],
+  ['source after blob', p => { p.sourcePayloads[0].afterBlob = 'a'.repeat(40); }],
+  ['source bytes', p => { p.sourcePayloads[0].bytes += 1; }],
+  ['source mode', p => { p.sourcePayloads[0].mode = '100644'; }],
+  ['guard after blob', p => { p.guardPayloads[0].afterBlob = 'a'.repeat(40); }],
+  ['guard sha256', p => { p.guardPayloads[0].sha256 = 'a'.repeat(64); }],
+  ['guard bytes', p => { p.guardPayloads[0].bytes += 1; }],
+  ['guard mode', p => { p.guardPayloads[0].mode = '100644'; }],
+  ['missing guard pin', p => { p.guardPayloads.pop(); }],
+  ['missing source scope', (_, s) => { delete s.approvedConcurrentScopes[headroomBranch]; }],
+  ['expanded source scope', (_, s) => { s.approvedConcurrentScopes[headroomBranch].push('README.md'); }],
+]) test('live headroom safety: rejects ' + name, t => {
+  const c = liveHeadroomFixture(t, mutate); applyLiveHeadroom(c); checkLiveHeadroom(c);
+});
+test('live headroom safety: rejects absent accepted ancestry', t => {
+  const c = liveHeadroomFixture(t, () => {}, { ancestry: false }); applyLiveHeadroom(c); checkLiveHeadroom(c);
+});
+for (const kind of ['duplicate', 'malformed', 'removed']) test('live headroom safety: rejects ' + kind + ' accepted marker', t => {
+  const c = liveHeadroomFixture(t);
+  const file = 'docs/platform-v7/execution-queue.md';
+  const old = fs.readFileSync(path.join(c.root, file), 'utf8');
+  write(c.root, file, kind === 'duplicate' ? old + old : kind === 'malformed' ? liveHeadroomMarker + '{broken}\n```\n' : 'old purpose unavailable\n');
+  commit(c.root, 'changed accepted marker'); c.baseline = git(c.root, ['rev-parse', 'HEAD']);
+  applyLiveHeadroom(c); checkLiveHeadroom(c);
+});
+for (const file of ['scripts/production-docker-headroom-recovery.sh', '.github/workflows/production-docker-headroom-recovery.yml']) {
+  for (const kind of ['missing', 'bytes', 'mode']) test('live headroom safety: rejects ' + kind + ' of ' + file, t => {
+    const c = liveHeadroomFixture(t); applyLiveHeadroom(c);
+    if (kind === 'missing') git(c.root, ['restore', '--source=HEAD', '--staged', '--worktree', '--', file]);
+    if (kind === 'bytes') fs.appendFileSync(path.join(c.root, file), '\n');
+    if (kind === 'mode') fs.chmodSync(path.join(c.root, file), file.endsWith('.sh') ? 0o644 : 0o755);
+    checkLiveHeadroom(c);
+  });
+}
+for (const file of ['README.md', 'scripts/p7-autopilot-guard.sh', 'docs/platform-v7/autopilot/autopilot-state.json',
+  'docs/platform-v7/execution-queue.md', 'docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json']) {
+  test('live headroom safety: rejects candidate authority or third-path change ' + file, t => {
+    const c = liveHeadroomFixture(t); applyLiveHeadroom(c); fs.appendFileSync(path.join(c.root, file), '\n'); checkLiveHeadroom(c);
+  });
+}
+test('live headroom safety: dirty bytes cannot rescue committed wrong payload', t => {
+  const c = liveHeadroomFixture(t); applyLiveHeadroom(c);
+  const file = path.join(c.root, 'scripts/production-docker-headroom-recovery.sh');
+  const correct = fs.readFileSync(file); fs.appendFileSync(file, '\n'); commit(c.root, 'wrong committed source'); fs.writeFileSync(file, correct);
+  const r = runTrustedHeadroomGuard(c); assert.notEqual(r.status, 0, output(r));
+  assert.match(output(r), /PC_CROP_LIVE_HEADROOM_SAFETY_SCOPE_SOURCE_PAYLOAD_OR_MODE/u);
+});
+
+test('live headroom safety: rejects the superseded template-invalid V1 source', t => {
+  const c = liveHeadroomFixture(t);
+  const marker = '\n## PC-CROP live Docker headroom safety correction — 2026-10-30\n\n```json\n';
+  const pieces = fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8').split(marker);
+  assert.equal(pieces.length, 2);
+  const old = JSON.parse(pieces[1].slice(0, pieces[1].indexOf('\n```\n')));
+  assert.equal(old.purposeId, 'pc-crop-live-headroom-safety-20261030');
+  const applied = spawnSync('git', ['apply', '--index', '-'], { cwd: c.root,
+    input: old.sourcePatch.text, encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 });
+  assert.equal(applied.status, 0, output(applied));
+  checkLiveHeadroom(c);
+});
+
+test('live headroom workflow: exact companion uses trusted BASE and PR-head defense', () => {
+  const purpose = liveHeadroomPurpose(); const branch = purpose.companionBranch;
+  const before = acceptedBlob(purpose.guardPayloads[2].beforeBlob), after = acceptedBlob(purpose.guardPayloads[2].afterBlob);
+  assert.deepEqual(routeWorkflowSelection(before, branch), { trusted: false, defense: false, standard: true, active: true });
+  assert.deepEqual(routeWorkflowSelection(after, branch), { trusted: true, defense: true, standard: false, active: false });
+  assert.ok(after.includes("      - '.github/workflows/production-docker-headroom-owner-push-once.yml'"));
+  for (const name of ['trusted-immutable-scope', 'guard']) {
+    assert.notEqual(routeWorkflowShellBranch(routeWorkflowJobText(before, name), branch).status, 0);
+    assert.equal(routeWorkflowShellBranch(routeWorkflowJobText(after, name), branch).status, 0);
+  }
+  assert.ok(routeWorkflowJobText(after, 'trusted-immutable-scope').includes('ref: '+'$'+'{{ github.event.pull_request.base.sha }}'));
+  const defense = routeWorkflowStepText(routeWorkflowJobText(after, 'guard'), 'Validate immutable scope with trusted base guard on PR head');
+  assert.ok(defense.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh"'));
+});
+test('live headroom workflow: companion routing preserves all other selected branch results', () => {
+  const purpose = liveHeadroomPurpose(), branch = purpose.companionBranch;
+  const before = acceptedBlob(purpose.guardPayloads[2].beforeBlob), after = acceptedBlob(purpose.guardPayloads[2].afterBlob);
+  for (const candidate of [branch+'-extra', branch.slice(0,-1), '', 'fix/unrelated', headroomBranch, industrialGovernanceBranch,
+    'fix/gekta-docker-diagnostic-route-20260927', routeSourceBranch, routeAdmissionBranch]) {
+    assert.deepEqual(routeWorkflowSelection(after, candidate), routeWorkflowSelection(before, candidate), candidate);
+  }
+  for (const name of ['trusted-immutable-scope', 'guard']) for (const candidate of [branch+'-extra', branch.slice(0,-1), '']) {
+    assert.notEqual(routeWorkflowShellBranch(routeWorkflowJobText(after, name), candidate).status, 0);
+  }
+});
+test('live headroom workflow: actual trusted step rejects companion fork before Git access', t => {
+  const purpose = liveHeadroomPurpose(); const workflow = acceptedBlob(purpose.guardPayloads[2].afterBlob);
+  const step = routeWorkflowStepText(routeWorkflowJobText(workflow, 'trusted-immutable-scope'), 'Validate untrusted head with trusted base guard');
+  const body = step.split('        run: |\n')[1].split('\n').map(line => line.startsWith('          ') ? line.slice(10) : line).join('\n');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'companion-fork-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  write(root, 'bin/git', '#!/bin/sh\nprintf forbidden > "$GIT_WAS_CALLED"\nexit 99\n', 0o755);
+  const result = spawnSync('bash', ['-c', body], { cwd: root, encoding: 'utf8', env: { ...process.env,
+    PATH: path.join(root, 'bin')+':'+process.env.PATH, GITHUB_REPOSITORY: 'pachaninm-lab/pachanin-demo',
+    HEAD_REPOSITORY: 'foreign/repository', IMMUTABLE_SCOPE_BRANCH: purpose.companionBranch,
+    BASE_SHA: 'f'.repeat(40), HEAD_SHA: 'e'.repeat(40), RUNNER_TEMP: root,
+    GITHUB_OUTPUT: path.join(root, 'outputs'), GIT_WAS_CALLED: path.join(root, 'git-called') } });
+  assert.equal(result.status, 0, output(result));
+  assert.match(fs.readFileSync(path.join(root, 'outputs'), 'utf8'), /^rc=1\n$/u);
+  assert.match(result.stdout, /rejects same-name branches from forks/u);
+  assert.equal(fs.existsSync(path.join(root, 'git-called')), false);
+});
+test('live headroom safety: rejects actual superseded V2 source payload', t => {
+  const c = liveHeadroomFixture(t);
+  const marker = '\n## PC-CROP live Docker headroom workflow template correction v2 — 2026-10-30\n\n```json\n';
+  const tail = fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8').split(marker)[1];
+  const purpose = JSON.parse(tail.slice(0, tail.indexOf('\n```\n')));
+  const applied = spawnSync('git', ['apply', '--index', '-'], { cwd: c.root, input: purpose.sourcePatch.text, encoding: 'utf8' });
+  assert.equal(applied.status, 0, output(applied)); checkLiveHeadroom(c);
+});
+test('live headroom safety: SOURCE rejects companion prerequisite not yet accepted', t => {
+  const c = liveHeadroomFixture(t);
+  const pin = liveHeadroomPurpose().companionPayloads[0];
+  write(c.root, pin.path, acceptedBlob(pin.beforeBlob), 0o644);
+  commit(c.root, 'companion prerequisite not accepted'); c.baseline = git(c.root, ['rev-parse', 'HEAD']);
+  applyLiveHeadroom(c); checkLiveHeadroom(c);
+});
+test('live headroom companion: exact one-contract payload passes from accepted base', t => {
+  const c = liveHeadroomFixture(t, () => {}, { companionStage: true }); applyLiveHeadroom(c); checkLiveHeadroom(c, 0);
+});
+for (const [name, mutate] of [
+  ['wrong companion branch', p => { p.companionBranch = 'ops/other'; }],
+  ['widened companion scope', p => { p.companionScope.push('README.md'); }],
+  ['wrong companion after', p => { p.companionPayloads[0].afterBlob = 'a'.repeat(40); }],
+  ['wrong companion before', p => { p.companionPayloads[0].beforeBlob = 'a'.repeat(40); }],
+  ['wrong companion mode', p => { p.companionPayloads[0].mode = '100755'; }],
+  ['wrong companion digest', p => { p.companionPayloads[0].sha256 = 'a'.repeat(64); }],
+  ['wrong companion bytes', p => { p.companionPayloads[0].bytes += 1; }],
+  ['missing companion scope', (p, s) => { delete s.approvedConcurrentScopes[p.companionBranch]; }],
+]) test('live headroom companion: rejects ' + name, t => {
+  const c = liveHeadroomFixture(t, mutate, { companionStage: true }); applyLiveHeadroom(c); checkLiveHeadroom(c);
+});
+for (const kind of ['removed', 'duplicate', 'candidate-only']) test('live headroom companion: rejects ' + kind + ' purpose', t => {
+  const c = liveHeadroomFixture(t, () => {}, { companionStage: true });
+  const file = 'docs/platform-v7/execution-queue.md'; const original = fs.readFileSync(path.join(c.root, file), 'utf8');
+  write(c.root, file, kind === 'duplicate' ? original + original : 'no accepted V4 purpose\n');
+  commit(c.root, 'missing or ambiguous accepted companion purpose'); c.baseline = git(c.root, ['rev-parse', 'HEAD']);
+  applyLiveHeadroom(c); if (kind === 'candidate-only') write(c.root, file, original); checkLiveHeadroom(c);
+});
+for (const file of ['README.md', 'scripts/p7-autopilot-guard.sh', 'docs/platform-v7/autopilot/autopilot-state.json',
+  'docs/platform-v7/execution-queue.md', 'scripts/production-docker-headroom-recovery.sh']) {
+  test('live headroom companion: rejects extra or authority path ' + file, t => {
+    const c = liveHeadroomFixture(t, () => {}, { companionStage: true }); applyLiveHeadroom(c);
+    fs.appendFileSync(path.join(c.root, file), '\n'); checkLiveHeadroom(c);
+  });
+}
+for (const kind of ['missing', 'bytes', 'mode']) test('live headroom companion: rejects ' + kind + ' payload', t => {
+  const c = liveHeadroomFixture(t, () => {}, { companionStage: true }); applyLiveHeadroom(c);
+  const file = liveHeadroomPurpose().companionPayloads[0].path;
+  if (kind === 'missing') git(c.root, ['restore', '--source=HEAD', '--staged', '--worktree', '--', file]);
+  if (kind === 'bytes') fs.appendFileSync(path.join(c.root, file), '\n');
+  if (kind === 'mode') fs.chmodSync(path.join(c.root, file), 0o755);
+  checkLiveHeadroom(c);
+});
+test('live headroom companion: rejects missing accepted ancestry', t => {
+  const c = liveHeadroomFixture(t, () => {}, { ancestry: false, companionStage: true }); applyLiveHeadroom(c); checkLiveHeadroom(c);
+});
+test('live headroom companion: rejects source runtime already changed in accepted base', t => {
+  const c = liveHeadroomFixture(t, () => {}, { companionStage: true });
+  applyLiveHeadroom({ ...c, companionStage: false });
+  const workflow = liveHeadroomPurpose().sourcePayloads[1].path;
+  git(c.root, ['restore', '--source=HEAD', '--staged', '--worktree', '--', workflow]);
+  commit(c.root, 'legacy runtime already changed'); c.baseline = git(c.root, ['rev-parse', 'HEAD']);
+  applyLiveHeadroom(c); checkLiveHeadroom(c);
+});

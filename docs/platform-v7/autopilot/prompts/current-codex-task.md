@@ -2494,3 +2494,15 @@ NEW ROOT-owned purpose only; full source patch and contract in officialreview#wa
 ```json
 {"purpose":"ir20-binding-ci-capacity-20261030","decision":6512591807,"base":"10a4dc035cb9d2073a1e3e0563ba7fb87f091e10","privateHead":"294237fa44bba1d33d109b7ef36c2318c51fa1f0","sourcePatchSha256":"e953070e0ac4d1c67ec948492e5791ee19f9a6f29774c3120a8260e3831c1858","privateReviewSha256":"6c1255dd84bf79c1b501d450283d254ec4c6dc26ccc356ace34f8df53b2fbd88","exactPayload":"New state admission holds complete one-file patch/pins/private review/owner proof. Full failure review is appended to review prompt. Old CB1/all previous prefixes/state members/vector remain.","next":"Separate metadata then source exact-head review/native/security/READY/manual; actual300 fit and5988 recomposition remain unproved.","masterCredit":0}
 ```
+
+
+## Live headroom safety 20261030
+
+Queue purpose `pc-crop-live-headroom-safety-20261030` pins the private source and guard. Metadata precedes trusted guard, then original live SOURCE. State/owners/PRIMARY/current/next/5/100 stay unchanged. Fresh independent/native/security/readiness/manual gates and later finite host decision remain required; no host authority or production credit.
+
+
+V2 queue: pc-crop-live-headroom-template-safety-20261030-v2 supersedes unaccepted #5996. Metadata -> guard -> SOURCE; state/scopes/owners/5/100 unchanged; no host grant.
+
+V3: queue pc-crop-live-headroom-native-contracts-20261030-v3. Staged gates; no host/credit.
+
+V4: clean fixture admission.
