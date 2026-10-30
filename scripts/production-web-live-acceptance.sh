@@ -52,6 +52,50 @@ sys.stdout.write(ticket)
 PY
 }
 
+build_anonymous_notice_payload() {
+  python3 - "$1" "$2" <<'PY'
+import json
+import re
+import sys
+
+try:
+    with open(sys.argv[1], "rb") as source:
+        value = json.load(source)
+    notice = value.get("legalPresentation") if isinstance(value, dict) else None
+    snapshot = notice.get("snapshot") if isinstance(notice, dict) else None
+    if not isinstance(snapshot, str) or len(snapshot) > 2048 or not re.fullmatch(r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}", snapshot) or notice.get("locale") != "ru":
+        raise ValueError("invalid anonymous notice")
+    with open(sys.argv[2], "w", encoding="utf-8") as target:
+        json.dump({"action": "consent", "noticeSnapshot": snapshot, "locale": "ru"}, target)
+except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
+    raise SystemExit(1)
+PY
+}
+
+verify_current_consent() {
+  python3 - "$1" <<'PY'
+import json
+import re
+import sys
+
+try:
+    with open(sys.argv[1], "rb") as source:
+        payload = json.load(source)
+except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+    raise SystemExit(1)
+
+if not isinstance(payload, dict):
+    raise SystemExit(1)
+version = payload.get("legalVersion")
+consent = payload.get("consent")
+if not isinstance(version, str) or not version or not isinstance(consent, dict):
+    raise SystemExit(1)
+at = consent.get("at")
+if consent.get("version") != version or type(at) is not int or at < 0 or at > 9007199254740991 or payload.get("consentCurrent") is not True or consent.get("surfaceLocale") != "ru" or not isinstance(consent.get("evidenceHash"), str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", consent["evidenceHash"]):
+    raise SystemExit(1)
+PY
+}
+
 check_html() {
   local body="$1" locale_label="$2" lang="$3" title="$4" h1="$5" canonical="$6"
   local html_tag missing=()
@@ -154,17 +198,45 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
 
   stream_id="gektaaccept${TARGET_SHA:0:12}${attempt}"
   cookie_jar="$(mktemp)"
+  notice_body="$(mktemp)"
+  notice_payload="$(mktemp)"
+  consent_body="$(mktemp)"
   reserve_body="$(mktemp)"
   stream_headers="$(mktemp)"
   stream_body="$(mktemp)"
 
   set +e
-  reserve_code="$(curl -sS -c "$cookie_jar" -b "$cookie_jar" -o "$reserve_body" -w '%{http_code}' --max-time 20 \
-    -H 'Content-Type: application/json' -H 'Accept: application/json' \
-    --data '{"action":"reserve"}' \
-    "$LIVE_BASE/api/gekta/entitlement")"
-  reserve_rc=$?
+  notice_code="$(curl -sS -c "$cookie_jar" -b "$cookie_jar" -o "$notice_body" -w '%{http_code}' --max-time 20 \
+    -H 'Accept: application/json' "$LIVE_BASE/api/gekta/entitlement?lang=ru")"
+  notice_rc=$?
   set -e
+  consent_code=000
+  consent_rc=1
+  if [[ "$notice_rc" == 0 && "$notice_code" == 200 ]] && build_anonymous_notice_payload "$notice_body" "$notice_payload"; then
+    set +e
+    consent_code="$(curl -sS -c "$cookie_jar" -b "$cookie_jar" -o "$consent_body" -w '%{http_code}' --max-time 20 \
+      -H 'Content-Type: application/json' -H 'Accept: application/json' \
+      --data-binary "@$notice_payload" \
+      "$LIVE_BASE/api/gekta/entitlement")"
+    consent_rc=$?
+    set -e
+  fi
+
+  consent_ok=0
+  if [[ "$consent_rc" == 0 && "$consent_code" == 200 ]] && verify_current_consent "$consent_body"; then
+    consent_ok=1
+  fi
+  reserve_code=000
+  reserve_rc=1
+  if (( consent_ok == 1 )); then
+    set +e
+    reserve_code="$(curl -sS -c "$cookie_jar" -b "$cookie_jar" -o "$reserve_body" -w '%{http_code}' --max-time 20 \
+      -H 'Content-Type: application/json' -H 'Accept: application/json' \
+      --data '{"action":"reserve"}' \
+      "$LIVE_BASE/api/gekta/entitlement")"
+    reserve_rc=$?
+    set -e
+  fi
 
   answer_ticket="$(extract_entitlement_ticket "$reserve_body" 2>/dev/null || true)"
   reserve_ok=0
@@ -174,15 +246,19 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
     ticket_state=valid
   fi
 
-  set +e
-  stream_code="$(curl -sS -D "$stream_headers" -o "$stream_body" -w '%{http_code}' --no-buffer --max-time 155 \
+  stream_code=000
+  stream_rc=1
+  if (( consent_ok == 1 && reserve_ok == 1 )); then
+    set +e
+    stream_code="$(curl -sS -D "$stream_headers" -o "$stream_body" -w '%{http_code}' --no-buffer --max-time 155 \
     -c "$cookie_jar" -b "$cookie_jar" \
     -H 'Content-Type: application/json' -H 'Accept: text/event-stream' \
     -H "x-gekta-answer-ticket: $answer_ticket" \
     --data "{\"message\":\"Ответь одним коротким предложением: что проверить при падении урожайности озимой пшеницы?\",\"locale\":\"ru\",\"context\":\"gekta-standalone\",\"conversationId\":\"$stream_id\",\"history\":[]}" \
     "$LIVE_BASE/api/agro-chat?stream=1")"
-  stream_rc=$?
-  set -e
+    stream_rc=$?
+    set -e
+  fi
 
   stream_type="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/ {sub(/^[^:]+:[[:space:]]*/, ""); print; exit}' "$stream_headers" | tr -d '\r')"
   stream_type_ok=0
@@ -208,7 +284,7 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
   stream_body_bytes="$(wc -c < "$stream_body" | tr -d '[:space:]')"
 
   stream_ok=0
-  if (( reserve_ok == 1 )) \
+  if (( consent_ok == 1 && reserve_ok == 1 )) \
     && [[ "$stream_rc" == 0 ]] \
     && [[ "$stream_code" == 200 ]] \
     && (( stream_type_ok == 1 )) \
@@ -220,12 +296,12 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
     stream_ok=1
   fi
 
-  printf 'GEKTA_STREAM_DETAIL attempt=%s reserve_rc=%s reserve_http=%s ticket=%s stream_rc=%s stream_http=%s content_type=%s meta=%s token=%s done=%s complete=%s leak=%s body_bytes=%s\n' \
-    "$attempt" "$reserve_rc" "${reserve_code:-000}" "$ticket_state" \
+  printf 'GEKTA_STREAM_DETAIL attempt=%s consent_rc=%s consent_http=%s consent=%s reserve_rc=%s reserve_http=%s ticket=%s stream_rc=%s stream_http=%s content_type=%s meta=%s token=%s done=%s complete=%s leak=%s body_bytes=%s\n' \
+    "$attempt" "$consent_rc" "${consent_code:-000}" "$consent_ok" "$reserve_rc" "${reserve_code:-000}" "$ticket_state" \
     "$stream_rc" "${stream_code:-000}" "$stream_type_class" \
     "$stream_meta" "$stream_token" "$stream_done" "$stream_complete" "$stream_leak" "${stream_body_bytes:-0}"
 
-  rm -f "$cookie_jar" "$reserve_body" "$stream_headers" "$stream_body"
+  rm -f "$cookie_jar" "$notice_body" "$notice_payload" "$consent_body" "$reserve_body" "$stream_headers" "$stream_body"
 
   if (( manifest_ok == 1 && crawler_ok == 1 && compat_ok == 1 && indexation_ok == 1 && stream_ok == 1 )) \
     && [[ "$ru_code" == 200 && "$en_code" == 200 && "$zh_code" == 200 ]] \
@@ -240,6 +316,7 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
     printf 'LIVE_GEKTA_CODES=ru:%s,en:%s,zh:%s\n' "$gekta_ru_code" "$gekta_en_code" "$gekta_zh_code"
     printf 'GEKTA_CRAWLER_HTML=PASS\n'
     printf 'GEKTA_COMPAT_REDIRECT=PASS\n'
+    printf 'GEKTA_CONSENT=PASS\n'
     printf 'GEKTA_STREAM=PASS\n'
     printf 'LIVE_INDEXATION=robots:allow,sitemap:gekta-locales+cluster,public:noindex-absent\n'
     exit 0

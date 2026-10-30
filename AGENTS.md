@@ -85,16 +85,22 @@ Include:
 - Known limitations
 - Virtual-server deployment state: `not required`, `pending`, or `verified`, with the target Git SHA when applicable
 
-## Codex role
+## Implementation role
 
-Codex writes implementation PRs only for the current allowed step.
+Implementation agents write PRs only for the current allowed step. Codex is one optional development tool; its availability, subscription or review quota is not a merge prerequisite.
 
-## Claude role
+## Independent reviewer role
 
-Claude should be used as reviewer, architect and risk auditor. Claude should not write competing implementation PRs for the same current step.
+An independent reviewer may be a human or a separate review agent, including Claude. The reviewer must inspect the actual diff and must not be the implementation author or write competing implementation changes for the reviewed step.
 
 ## Review rule
 
 Review the diff, not the agent report. If changed files exceed allowed scope, block merge.
 
-Every non-draft PR must have a completed Codex review bound to the exact current head SHA before merge or automerge. A head change invalidates the previous review gate. Current, non-outdated review threads must be resolved, and an active latest `CHANGES_REQUESTED` review blocks merge. Automated merge additionally requires all substantive exact-head CI/status checks to be terminal `SUCCESS`, `SKIPPED`, or `NEUTRAL`; pending or red checks defer merge. The repository automation records a passing exact-head review with the `review-gate-passed` label; that label is removed automatically when the review gate no longer holds.
+The owner-authorized policy of 2026-09-18 removes mandatory availability of Codex, Copilot, Qwen, Octopus or any other AI review service. It supersedes the earlier native-provider binding and the old provider-migration sequence in the execution queue. Qwen remains confined to Gekta; no Gekta or product runtime change is authorized by this policy.
+
+Every non-draft PR still requires actual independent review of its exact current head before a manual SHA-bound merge. A separate session reviewer is valid: record the full reviewed SHA, reviewer identity and independence, inspected diff, checks and findings. Label that evidence accurately as session review; never represent it as a native GitHub bot review, a human GitHub approval or implementation self-audit. A head change invalidates prior review and readiness evidence. Implementation-owner exact-head self-audit remains a separate requirement.
+
+The engineering-readiness verifier checks current head identity, complete applicable substantive CI/security results, owner audit, active latest `CHANGES_REQUESTED` and unresolved current review threads. Red or pending substantive checks and unresolved findings block; historical findings are not dismissed by provider retirement. Provider availability and quota are not readiness requirements. `--manual-readiness` may return `READY_FOR_MANUAL_REVIEW`; that means only the deterministic checks completed, not independent-review PASS or merge approval. The default CLI refuses automatic merge with `AUTOMATIC_MERGE_DISABLED`.
+
+Automated merging and label-based merge authority are disabled. The authorized operator must inspect the actual independent review and freshly recheck head and readiness immediately before submitting a manual merge with the full expected head SHA. Existing GitHub branch protections still apply. Never forge review/status evidence, override required checks or force a merge. AI reviews can provide advisory findings but cannot turn missing substantive CI or unresolved defects into acceptance.

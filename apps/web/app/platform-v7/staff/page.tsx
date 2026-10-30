@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { PasswordStaffHome } from '@/components/platform-v7/staff/PasswordStaffHome';
 import { OwnerAccessCenter } from '@/components/platform-v7/staff/OwnerAccessCenter';
 import { StaffOperationalWorkspacesDeferred } from '@/components/platform-v7/staff/StaffOperationalWorkspacesDeferred';
 import { StaffPlatformShell } from '@/components/platform-v7/staff/StaffPlatformShell';
 import { RegistrationReviewQueue } from '@/components/platform-v7/staff/RegistrationReviewQueue';
 import { ACCESS_COOKIE, CSRF_COOKIE } from '@/lib/auth-cookies';
-import { parseStaffCapabilitiesContract } from '@/lib/platform-v7/staff-capabilities';
+import { parseStaffCapabilitiesContract, parseStaffHomeContract, type StaffHomeContract } from '@/lib/platform-v7/staff-capabilities';
 import { verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
 import { FIXTURE_AUDIENCE, fixtureTokenIsForService } from '@/lib/platform-v7/fixture-token';
 import { staffAccessTaskCatalog } from '@/lib/platform-v7/staff-access-task-catalog';
@@ -62,6 +63,7 @@ type VerifiedIdentity = {
 
 type Verification =
   | { status: 'verified'; identity: VerifiedIdentity }
+  | { status: 'password'; identity: VerifiedIdentity; home: StaffHomeContract }
   | { status: 'forbidden'; identity: VerifiedIdentity }
   | { status: 'unauthenticated' }
   | { status: 'unavailable' };
@@ -140,6 +142,21 @@ async function verifyIdentity(accessToken: string): Promise<Verification> {
       return { status: 'unauthenticated' };
     }
 
+    if (identity.mfaVerified === false) {
+      const homeResponse = await fetch(`${API_BASE_URL}/staff/capabilities/home`, {
+        headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+        cache: 'no-store', redirect: 'manual', signal: AbortSignal.timeout(6_000),
+      });
+      if (homeResponse.status === 401) return { status: 'unauthenticated' };
+      if (homeResponse.status === 403) return { status: 'forbidden', identity };
+      if (!homeResponse.ok) return { status: 'unavailable' };
+      const home = parseStaffHomeContract(await homeResponse.json().catch(() => null));
+      if (!home || home.identity.id !== identity.id || home.authenticationAssurance.mfaVerified !== false) {
+        return { status: 'unavailable' };
+      }
+      return { status: 'password', identity, home };
+    }
+
     const capabilitiesResponse = await fetch(`${API_BASE_URL}/staff/capabilities/me`, {
       headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
       cache: 'no-store',
@@ -193,9 +210,13 @@ export default async function StaffControlCenterPage() {
       ? platformHome(role, verification.identity.isOrgAdmin === true)
       : '/platform-v7/login');
   }
-  if (verification.status === 'verified' && !csrfToken) {
+  if ((verification.status === 'verified' || verification.status === 'password') && !csrfToken) {
     redirect('/platform-v7/staff/prepare');
   }
+
+  if (verification.status === 'password') return <StaffPlatformShell locale={locale}>
+    <PasswordStaffHome locale={locale} home={verification.home} />
+  </StaffPlatformShell>;
 
   return (
     <StaffPlatformShell locale={locale}>

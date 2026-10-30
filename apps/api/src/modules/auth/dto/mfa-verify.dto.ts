@@ -6,6 +6,6 @@ export class MfaVerifyDto {
   challengeToken!: string;
 
   @IsString()
-  @Matches(/^(?:\d{6}|[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4})$/)
+  @Matches(/^(?:\d{6}|[A-Za-z2-7]{6}(?:-[A-Za-z2-7]{6}){3}|[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4})$/)
   code!: string;
 }

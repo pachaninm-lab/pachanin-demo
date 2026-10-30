@@ -44,7 +44,7 @@ export const ROLES_REQUIRING_MFA: Role[] = [
   Role.COMPLIANCE_OFFICER,
   Role.ARBITRATOR,
   // GUEST is the server role assigned to an approved organization employee.
-  // It is a real tenant membership, not anonymous access, and must complete TOTP.
+  // It is a real tenant membership with the privileged idle and action MFA policy.
   Role.GUEST,
 ];
 

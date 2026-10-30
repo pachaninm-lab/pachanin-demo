@@ -57,6 +57,7 @@ import { AiInsightsModule } from './modules/ai-insights/ai-insights.module';
 import { RuntimeSnapshotModule } from './modules/runtime-snapshot/runtime-snapshot.module';
 import { RuntimePersistenceModule } from './modules/runtime-persistence/runtime-persistence.module';
 import { StaffAccessModule } from './modules/staff-access/staff-access.module';
+import { FounderControlModule } from './modules/founder-control/founder-control.module';
 import { RoleEligibilityModule } from './modules/role-eligibility/role-eligibility.module';
 import { TaiToolsModule } from './modules/tai-tools/tai-tools.module';
 import { GektaModule } from './modules/gekta/gekta.module';
@@ -71,6 +72,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
     RateLimitModule,
     DatabaseModule,
     StaffAccessModule,
+    FounderControlModule,
     RoleEligibilityModule,
     AdminModule,
     EvidencePackModule,

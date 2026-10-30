@@ -1,10 +1,15 @@
-import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 
 const LIVE_BASE = process.env.PLAYWRIGHT_BASE_URL || 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
 
 const locales = [
   { code: 'en', htmlLang: 'en', label: 'EN' },
   { code: 'zh', htmlLang: 'zh-CN', label: 'ZH' },
+] as const;
+
+const loginRegisterLocales = [
+  { code: 'ru', htmlLang: 'ru', label: 'RU' },
+  ...locales,
 ] as const;
 
 const viewports = [
@@ -99,7 +104,7 @@ async function expectLocalizedSurface(page: Page, htmlLang: string) {
 }
 
 async function expectChineseTypography(page: Page) {
-  const root = page.locator('.pc-v7-public-entry').first();
+  const root = page.locator('.pc-canonical-public.pc-cp-page-home').first();
   await expect(root).toBeVisible();
   const rootStyle = await root.evaluate((node) => {
     const style = window.getComputedStyle(node);
@@ -108,7 +113,7 @@ async function expectChineseTypography(page: Page) {
   expect(rootStyle.fontFamily).toMatch(/PingFang SC|Noto Sans SC|Microsoft YaHei/u);
   expect(['0px', 'normal']).toContain(rootStyle.letterSpacing);
 
-  const heading = page.locator('.pc-v7-public-entry h1:visible, .pc-v7-public-entry h2:visible').first();
+  const heading = page.locator('.pc-canonical-public.pc-cp-page-home h1:visible, .pc-canonical-public.pc-cp-page-home h2:visible').first();
   await expect(heading).toBeVisible();
   const headingStyle = await heading.evaluate((node) => {
     const style = window.getComputedStyle(node);
@@ -125,6 +130,7 @@ async function expectChineseTypography(page: Page) {
 async function expectProductionHomepageDesignGates(
   page: Page,
   viewport: AcceptanceViewport,
+  expectedLocale: 'ru' | 'en' | 'zh',
   expectedBrand?: string,
 ) {
   const brand = page.locator("[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text strong");
@@ -164,17 +170,37 @@ async function expectProductionHomepageDesignGates(
   expect(brandGeometry.scrollFits).toBe(true);
 
   if (viewport.width <= 430) {
-    for (const selector of ['.pc-site-mobile-menu > summary', '.pc-site-locale-switch', '.entry-login']) {
-      const control = page.locator(selector).first();
+    const header = page.locator('[data-public-site-header="canonical"]');
+    const menu = header.locator('details.pc-site-mobile-menu');
+    const summary = menu.locator(':scope > summary');
+    const activeLocale = header.locator(':scope > .pc-site-actions > .pc-site-locale-cluster .pc-site-locale-option[data-active="true"]');
+    const expectTarget = async (control: Locator, label: string) => {
+      await expect(control).toHaveCount(1);
       await expect(control).toBeVisible();
       const box = await control.boundingBox();
-      expect(box, `${selector} production bounding box`).not.toBeNull();
-      expect(box!.width, `${selector} production width`).toBeGreaterThanOrEqual(44 - TARGET_SIZE_EPSILON);
-      expect(box!.height, `${selector} production height`).toBeGreaterThanOrEqual(44 - TARGET_SIZE_EPSILON);
+      expect(box, `${label} production bounding box`).not.toBeNull();
+      expect(box!.width, `${label} production width`).toBeGreaterThanOrEqual(44 - TARGET_SIZE_EPSILON);
+      expect(box!.height, `${label} production height`).toBeGreaterThanOrEqual(44 - TARGET_SIZE_EPSILON);
+    };
+    await expectTarget(summary, 'mobile menu');
+    await expectTarget(activeLocale, 'current language');
+    await expect(activeLocale).toHaveAttribute('lang', expectedLocale === 'zh' ? 'zh-CN' : expectedLocale);
+    await expect(activeLocale).toHaveAttribute('href', new RegExp(`[?&]lang=${expectedLocale}(?:&|$)`));
+    await summary.click();
+    await expect(menu).toHaveAttribute('open', '');
+    const languageLinks = menu.locator('.pc-site-mobile-locale .pc-site-locale-option');
+    await expect(languageLinks).toHaveCount(3);
+    for (const locale of ['ru', 'en', 'zh']) {
+      await expectTarget(menu.locator(`.pc-site-mobile-locale .pc-site-locale-option[href*='lang=${locale}']`), `menu language ${locale}`);
     }
+    await expectTarget(menu.locator('.pc-site-mobile-utility a[href^="/platform-v7/login?"]'), 'menu login');
+    await menu.locator('.pc-site-menu-close').click();
+    await expect(menu).not.toHaveAttribute('open');
+    await expect(summary).toBeFocused();
   }
 
-  const card = page.locator('[data-testid="platform-v7-deal-card"]');
+  const card = page.locator('.pc-cp-hero .pc-cp-deal-lens');
+  await expect(card).toHaveCount(1);
   await expect(card).toBeVisible();
   const tinyText = await card.evaluate((root) => {
     const offenders: Array<{ text: string; fontSize: number; tag: string }> = [];
@@ -201,7 +227,7 @@ async function expectProductionHomepageDesignGates(
   expect(tinyText, JSON.stringify(tinyText, null, 2)).toEqual([]);
 
   if (viewport.width === 320 && viewport.height === 700) {
-    const heading = page.locator('#pc-v6-title');
+    const heading = page.locator('#pc-cp-home-title');
     await expect(heading).toBeVisible();
     const lineCount = await heading.evaluate((node) => {
       // Count only rendered text fragments. A Range over the H1 parent also
@@ -226,7 +252,7 @@ async function expectProductionHomepageDesignGates(
     expect(lineCount, 'production 320px Hero H1 line count').toBeGreaterThanOrEqual(1);
     expect(lineCount, 'production 320px Hero H1 line count').toBeLessThanOrEqual(5);
 
-    const primary = page.locator('.pc-v6-actions .pc-v6-primary').first();
+    const primary = page.locator('.pc-cp-hero .pc-cp-actions a[href*="intent=sell"]').first();
     await expect(primary).toBeVisible();
     const primaryBox = await primary.boundingBox();
     expect(primaryBox, 'production primary Hero CTA bounding box').not.toBeNull();
@@ -247,29 +273,76 @@ async function captureEvidence(page: Page, testInfo: TestInfo, locale: string, v
   });
 }
 
+async function expectClientChunksSettledWithoutErrors(page: Page, pageErrors: string[], route: string) {
+  // The production WebKit failure was a rejected Next.js chunk promise after
+  // load. Keep the page alive until its requests and next render frames settle.
+  await page.waitForLoadState('networkidle', { timeout: 15_000 });
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+  expect(pageErrors, `${route} page errors after client chunks settled`).toEqual([]);
+}
+
 test.describe('Platform V7 exact production i18n acceptance', () => {
   test.describe.configure({ mode: 'serial' });
 
   for (const locale of locales) {
     for (const viewport of viewports) {
-      test(`${locale.label} ${viewport.name}: public localization, reflow and typography`, async ({ page }, testInfo) => {
-        const pageErrors: string[] = [];
-        page.on('pageerror', (error) => pageErrors.push(error.message));
-        await page.setViewportSize({ width: viewport.width, height: viewport.height });
-
+      test(`${locale.label} ${viewport.name}: public localization, reflow and typography`, async ({ context }, testInfo) => {
         for (const route of publicRoutes) {
-          const marker = `${testInfo.project.name}-${locale.code}-${viewport.name}-${route.name}`;
-          const response = await page.goto(localizedUrl(route.path, locale.code, marker), { waitUntil: 'load' });
-          expect(response?.ok(), `${route.path} did not return a successful final response`).toBe(true);
-          await expectLocalizedSurface(page, locale.htmlLang);
-          if (route.name === 'home') await expectProductionHomepageDesignGates(page, viewport);
-          if (locale.code === 'zh' && route.name === 'home') await expectChineseTypography(page);
-          await captureEvidence(page, testInfo, locale.code, viewport.name, route.name);
+          const page = await context.newPage();
+          const pageErrors: string[] = [];
+          page.on('pageerror', (error) => pageErrors.push(error.message));
+          try {
+            await page.setViewportSize({ width: viewport.width, height: viewport.height });
+            const marker = `${testInfo.project.name}-${locale.code}-${viewport.name}-${route.name}`;
+            const response = await page.goto(localizedUrl(route.path, locale.code, marker), { waitUntil: 'load' });
+            expect(response?.ok(), `${route.path} did not return a successful final response`).toBe(true);
+            await expectLocalizedSurface(page, locale.htmlLang);
+            if (route.name === 'home') await expectProductionHomepageDesignGates(page, viewport, locale.code);
+            if (locale.code === 'zh' && route.name === 'home') await expectChineseTypography(page);
+            await captureEvidence(page, testInfo, locale.code, viewport.name, route.name);
+            await expectClientChunksSettledWithoutErrors(page, pageErrors, route.path);
+          } finally {
+            await page.close();
+          }
         }
-
-        expect(pageErrors).toEqual([]);
       });
     }
+  }
+
+  for (const locale of loginRegisterLocales) {
+    test(`${locale.label} 320x700: login registration link preserves locale without page errors`, async ({ page }, testInfo) => {
+      const pageErrors: string[] = [];
+      page.on('pageerror', (error) => pageErrors.push(error.message));
+      await page.setViewportSize({ width: 320, height: 700 });
+
+      const response = await page.goto(
+        localizedUrl('/platform-v7/login', locale.code, `${testInfo.project.name}-${locale.code}-login-register-click`),
+        { waitUntil: 'load' },
+      );
+      expect(response?.ok()).toBe(true);
+      if (locale.code === 'ru') {
+        await expect(page.locator('html')).toHaveAttribute('lang', locale.htmlLang);
+        await expectNoHorizontalOverflow(page);
+      } else {
+        await expectLocalizedSurface(page, locale.htmlLang);
+      }
+      const registerHref = `/platform-v7/register?lang=${locale.code}`;
+      const registerLink = page.locator(`.pc-auth-register a[href="${registerHref}"]`);
+      await expect(registerLink).toBeVisible();
+      await expect(registerLink).toHaveAttribute('href', registerHref);
+      await registerLink.click();
+      await expect(page).toHaveURL(new URL(registerHref, LIVE_BASE).toString());
+      await page.waitForLoadState('load');
+      if (locale.code === 'ru') {
+        await expect(page.locator('html')).toHaveAttribute('lang', locale.htmlLang);
+        await expectNoHorizontalOverflow(page);
+      } else {
+        await expectLocalizedSurface(page, locale.htmlLang);
+      }
+      await expectClientChunksSettledWithoutErrors(page, pageErrors, 'login → register');
+    });
   }
 
   test('RU 320x700: exact production homepage master design gates', async ({ page }, testInfo) => {
@@ -284,7 +357,7 @@ test.describe('Platform V7 exact production i18n acceptance', () => {
     );
     expect(response?.ok()).toBe(true);
     await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
-    await expectProductionHomepageDesignGates(page, viewport, 'Прозрачная Цена');
+    await expectProductionHomepageDesignGates(page, viewport, 'ru', 'Прозрачная Цена');
     await captureEvidence(page, testInfo, 'ru', viewport.name, 'home');
     expect(pageErrors).toEqual([]);
   });

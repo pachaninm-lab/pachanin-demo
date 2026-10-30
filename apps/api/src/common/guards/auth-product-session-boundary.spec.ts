@@ -1,9 +1,9 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { GektaController, GektaOperatorController } from '../../modules/gekta/gekta.controller';
 import { PRODUCT_SESSION_ROUTE } from '../decorators/product-session.decorator';
-import { PUBLIC_ROUTE, PUBLIC_ROUTE_OPTIONS } from '../decorators/public.decorator';
+import { PASSWORD_SESSION_AUTH_ACTION, PUBLIC_ROUTE, PUBLIC_ROUTE_OPTIONS } from '../decorators/public.decorator';
 import type { RequestProductUser } from '../types/product-session';
 import { Role, type RequestUser } from '../types/request-user';
 import { AppAuthGuard } from './auth.guard';
@@ -67,6 +67,7 @@ function guard(allowsProductSession: boolean) {
       productSessions as never,
     ),
     authService,
+    reflector,
     productSessions,
   };
 }
@@ -108,5 +109,38 @@ describe('AppAuthGuard product-session boundary', () => {
     const reflector = new Reflector();
     expect(reflector.get(PRODUCT_SESSION_ROUTE, GektaController)).toBe(true);
     expect(reflector.get(PRODUCT_SESSION_ROUTE, GektaOperatorController)).not.toBe(true);
+  });
+});
+
+describe('password sessions at the privileged command boundary', () => {
+  it.each([
+    [Role.ARBITRATOR, '/api/arbitrator/disputes/deal-a/resolve'],
+    [Role.COMPLIANCE_OFFICER, '/api/compliance/resolve'],
+    [Role.ADMIN, '/api/compliance/block-org'],
+    [Role.GUEST, '/api/deals/deal-a/command'],
+  ])('denies %s commands even without a client amount/action id', async (role, url) => {
+    const boundary = guard(false);
+    boundary.authService.verifyAccessToken.mockResolvedValue({ ...platformUser, role });
+    await expect(boundary.instance.canActivate(requestContext({ method: 'POST', url,
+      headers: { authorization: 'Bearer active-password-token' }, params: {}, body: {},
+    }))).rejects.toBeInstanceOf(ForbiddenException);
+    expect(boundary.authService.assertRecentFinancialMfa).not.toHaveBeenCalled();
+  });
+  it('allows READ with the real password actor but denies organization-admin mutations', async () => {
+    const boundary = guard(false);
+    boundary.authService.verifyAccessToken.mockResolvedValue({ ...platformUser, isOrgAdmin: true });
+    const request = { method: 'GET', url: '/api/auth/me', headers: { authorization: 'Bearer active-password-token' } };
+    await expect(boundary.instance.canActivate(requestContext(request))).resolves.toBe(true);
+    expect(request).toHaveProperty('user.mfaVerified', false);
+    await expect(boundary.instance.canActivate(requestContext({ ...request, method: 'DELETE' }))).rejects.toBeInstanceOf(ForbiddenException);
+  });
+  it('allows authenticated self-MFA proof without opening a public or mutation bypass', async () => {
+    const boundary = guard(false);
+    boundary.authService.verifyAccessToken.mockResolvedValue({ ...platformUser, role: Role.ADMIN });
+    boundary.reflector.getAllAndOverride.mockImplementation((key: string) => key === PASSWORD_SESSION_AUTH_ACTION ? true : undefined);
+    await expect(boundary.instance.canActivate(requestContext({ method: 'POST', url: '/api/auth/mfa/step-up/start',
+      headers: { authorization: 'Bearer active-password-token' }, body: {},
+    }))).resolves.toBe(true);
+    expect(boundary.authService.verifyAccessToken).toHaveBeenCalledWith('active-password-token');
   });
 });

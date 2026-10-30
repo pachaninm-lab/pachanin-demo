@@ -81,6 +81,7 @@ export function toProject(row: ServerProjectRow, now: string): GektaProject | nu
 }
 
 export type ImportableConversation = {
+  sourceId?: string;
   title: string;
   locale: string;
   createdAt: string;
@@ -99,6 +100,7 @@ export function importablePayload(conversations: readonly GektaConversation[]): 
       .filter((conversation) => conversation.title.trim() && conversation.messages.length > 0)
       .slice(0, 100)
       .map((conversation) => ({
+        sourceId: conversation.id,
         title: conversation.title,
         locale: conversation.locale,
         createdAt: conversation.createdAt,

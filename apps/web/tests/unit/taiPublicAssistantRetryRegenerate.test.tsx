@@ -285,7 +285,7 @@ describe('stopping keeps what the reader already saw', () => {
     });
   });
 
-  it('does not leave an empty assistant bubble when nothing was emitted', async () => {
+  it('shows an explicit stopped state when nothing was emitted', async () => {
     const encoder = new TextEncoder();
     const spy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
@@ -308,7 +308,10 @@ describe('stopping keeps what the reader already saw', () => {
     await user.click(stop);
 
     await waitFor(() => {
-      expect(document.querySelectorAll('.pc-public-assistant-message[data-role="assistant"]')).toHaveLength(0);
+      const stopped = document.querySelector('.pc-public-assistant-message[data-role="assistant"][data-interrupted="true"]');
+      expect(stopped).not.toBeNull();
+      expect(stopped?.textContent).toContain('Ответ остановлен и не завершён');
+      expect(document.querySelectorAll('[data-stream-status="answered"]')).toHaveLength(0);
     });
   });
 });

@@ -1913,6 +1913,10 @@ model OutboxEntry {
   retryCount            Int       @default(0)
   nextRetryAt           DateTime  @default(now())
   lastError             String?
+  lastErrorCode         String?   @db.VarChar(64)
+  lastErrorCategory     String?
+  lastAttemptAt         DateTime?
+  manualReviewAt        DateTime?
   correlationId         String?
   auditId               String?
   runtimeSnapshotId     String?
@@ -1950,10 +1954,15 @@ model OutboxRedriveEvent {
   id                 String   @id @default(cuid())
   outboxEntryId      String
   idempotencyKey     String   @unique
+  requestFingerprint String?  @db.VarChar(64)
   actorUserId        String
   reason             String
   previousStatus     String
   previousRetryCount Int
+  previousErrorCode  String?   @db.VarChar(64)
+  previousErrorCategory String?
+  previousLastAttemptAt DateTime?
+  previousManualReviewAt DateTime?
   prevHash           String?
   hash               String
   createdAt          DateTime @default(now())
@@ -3069,6 +3078,7 @@ model GektaAccount {
   grants        GektaEntitlementGrant[]
   projects      GektaProject[]
   conversations GektaConversation[]
+  historyImports GektaHistoryImportReceipt[]
   consents      GektaConsent[]
   supportGrants GektaSupportGrant[]
   payments      GektaPayment[]
@@ -3198,6 +3208,25 @@ model GektaMessage {
 
   @@index([conversationId, createdAt], map: "gekta_messages_conversation_idx")
   @@map("gekta_messages")
+}
+
+/// Минимальная техническая квитанция переноса. Текст, заголовок, вложения и
+/// цитаты здесь не сохраняются. Отпечаток — purpose-bound HMAC, а не открытый
+/// hash содержимого. Квитанция переживает удаление диалога, чтобы
+/// старая вкладка не восстановила удалённую переписку повторным импортом;
+/// удаление аккаунта удаляет и квитанции.
+model GektaHistoryImportReceipt {
+  accountId      String
+  importKey      String   @db.VarChar(80)
+  payloadHash    String   @db.VarChar(64)
+  conversationId String
+  importedAt     DateTime @default(now()) @db.Timestamptz(6)
+
+  account GektaAccount @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "gekta_history_imports_account_fk")
+
+  @@id([accountId, importKey], map: "gekta_history_imports_pkey")
+  @@index([accountId, conversationId], map: "gekta_history_imports_conversation_idx")
+  @@map("gekta_history_imports")
 }
 
 /// Согласия по целям. Одно согласие — одна цель: 152-ФЗ требует конкретного,

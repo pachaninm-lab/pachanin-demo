@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "test/public-mobile-current-routes-20260924",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-24",
+  "purpose": "Align production mobile smoke with existing Gekta entry versus ai-in-action route split and honest empty market states; keep all thresholds and explicitly reject unavailable market responses.",
+  "allowedPaths": [
+    "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+    "docs/platform-v7/autopilot/scopes/public-mobile-current-routes-20260924.json"
+  ],
+  "requiredInvariants": [
+    "Preserve all current tests, 12px readable-copy and 44px target floors, no-overflow and locale/header/authority checks.",
+    "Move the workspace assertion to its implemented ai-in-action route and add that route to RU/EN/ZH Chromium/WebKit coverage.",
+    "Assert Gekta entry, topic and prompt counts, prompt target sizes and locale-bound link to the explanation.",
+    "Allow empty/noMatch market rendering only with visible readable state copy and 44px action; unavailable must fail.",
+    "No runtime, workflow, auth, private-data or production POST changes."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

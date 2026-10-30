@@ -1,12 +1,13 @@
 import { ExecutionContext, ServiceUnavailableException } from '@nestjs/common';
 import { PreAuthRateLimitGuard } from './pre-auth-rate-limit.guard';
 
-function runtime(path = '/api/auth/login') {
+function runtime(path = '/api/auth/login', method = 'GET') {
   const headers = new Map<string, string>();
   const response = {
     setHeader: jest.fn((name: string, value: string) => headers.set(name, String(value))),
   };
   const request = {
+    method,
     path,
     url: path,
     headers: {},
@@ -19,7 +20,7 @@ function runtime(path = '/api/auth/login') {
       getResponse: () => response,
     }),
   } as unknown as ExecutionContext;
-  return { context, response, headers };
+  return { context, response, headers, request };
 }
 
 describe('PreAuthRateLimitGuard', () => {
@@ -102,5 +103,49 @@ describe('PreAuthRateLimitGuard', () => {
     );
     await expect(guard.canActivate(runtime('/health/detailed').context)).resolves.toBe(true);
     expect(rateLimits.consume).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('PreAuthRateLimitGuard — actual readiness route semantics', () => {
+  it.each(['GET', 'HEAD'])('keeps %s readiness aliases independent of a failed limiter', async (method) => {
+    for (const path of ['/ready', '/ready/', '/READY', '/READY/', '/Ready', '/Ready/']) {
+      const rateLimits = { consume: jest.fn().mockRejectedValue(new Error('database unavailable')) };
+      const proxy = { resolveRequestIp: jest.fn().mockReturnValue('203.0.113.10') };
+      const guard = new PreAuthRateLimitGuard(rateLimits as any, proxy as any);
+      await expect(guard.canActivate(runtime(path, method).context)).resolves.toBe(true);
+      expect(rateLimits.consume).not.toHaveBeenCalled();
+      expect(proxy.resolveRequestIp).not.toHaveBeenCalled();
+    }
+  });
+
+  it.each([
+    '/ready//', '/ready/deals', '/readiness', '/api/ready', '//ready',
+    '/%72eady', '/ready%2F', '/READY/deals', '/health/', '/HEALTH',
+  ])('does not exempt adjacent or unrecognized probe path %s', async (path) => {
+    const rateLimits = { consume: jest.fn().mockRejectedValue(new Error('database unavailable')) };
+    const guard = new PreAuthRateLimitGuard(rateLimits as any,
+      { resolveRequestIp: jest.fn().mockReturnValue('203.0.113.10') } as any);
+    await expect(guard.canActivate(runtime(path, 'GET').context)).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(rateLimits.consume).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['POST', 'PUT', 'PATCH', 'DELETE'])('does not add a %s alias exemption', async (method) => {
+    for (const path of ['/ready/', '/READY', '/READY/']) {
+      const rateLimits = { consume: jest.fn().mockRejectedValue(new Error('database unavailable')) };
+      const guard = new PreAuthRateLimitGuard(rateLimits as any,
+        { resolveRequestIp: jest.fn().mockReturnValue('203.0.113.10') } as any);
+      await expect(guard.canActivate(runtime(path, method).context)).rejects.toBeInstanceOf(ServiceUnavailableException);
+      expect(rateLimits.consume).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('uses the query-free URL fallback only when Express path is unavailable', async () => {
+    const rateLimits = { consume: jest.fn().mockRejectedValue(new Error('database unavailable')) };
+    const guard = new PreAuthRateLimitGuard(rateLimits as any,
+      { resolveRequestIp: jest.fn().mockReturnValue('203.0.113.10') } as any);
+    const target = runtime('', 'HEAD');
+    target.request.url = '/READY/?probe=1';
+    await expect(guard.canActivate(target.context)).resolves.toBe(true);
+    expect(rateLimits.consume).not.toHaveBeenCalled();
   });
 });

@@ -45,24 +45,24 @@ grep -Fxq 'STATIC_READINESS=PASS' "$EVIDENCE_DIR/static-readiness.log"
 for locale in ru en zh; do
   case "$locale" in
     ru)
-      expected_kicker_primary='Платформа управления агросделками в растениеводстве'
-      expected_kicker_secondary='с собственным искусственным интеллектом'
-      expected_title='Управляйте агросделкой'
-      expected_accent='от цены до расчёта'
+      expected_hero_kicker='Платформа для агросделок'
+      expected_sell='Продать'
+      expected_hero_title='Продавайте и покупайте урожай. Держите сделку под контролем.'
+      expected_buy='Купить'
       retired_title='Цена согласована. Теперь нужно исполнить Сделку.'
       ;;
     en)
-      expected_kicker_primary='Crop Deal management platform'
-      expected_kicker_secondary='with proprietary artificial intelligence'
-      expected_title='Manage an agricultural Deal'
-      expected_accent='from price to settlement'
+      expected_hero_kicker='A platform for agricultural Deals'
+      expected_sell='Sell'
+      expected_hero_title='Sell and buy crops. Keep your Deal under control.'
+      expected_buy='Buy'
       retired_title='The price is agreed. Now the Deal must be executed.'
       ;;
     zh)
-      expected_kicker_primary='种植业农业交易管理平台'
-      expected_kicker_secondary='配备自主人工智能'
-      expected_title='管理农业交易'
-      expected_accent='从价格到结算'
+      expected_hero_kicker='农业交易平台'
+      expected_sell='出售'
+      expected_hero_title='销售与采购农产品，掌握交易进展。'
+      expected_buy='购买'
       retired_title='价格已经确定。现在需要完成交易履约。'
       ;;
   esac
@@ -70,14 +70,18 @@ for locale in ru en zh; do
   CURRENT_CHECK="public-route-$locale"
   route="$LIVE_BASE/platform-v7?lang=$locale&release=$TARGET_SHA&run=$RELEASE_RUN_ID"
   curl "${curl_common[@]}" "$route" > "$EVIDENCE_DIR/platform-$locale.html"
-  grep -Fq 'connect-organization' "$EVIDENCE_DIR/platform-$locale.html"
+  for canonical_anchor in market deal-path participants live trust gekta capabilities; do
+    grep -Fq "id=\"$canonical_anchor\"" "$EVIDENCE_DIR/platform-$locale.html"
+  done
+  grep -Fq 'intent=sell' "$EVIDENCE_DIR/platform-$locale.html"
+  grep -Fq 'intent=buy' "$EVIDENCE_DIR/platform-$locale.html"
   grep -Fq 'data-testid="platform-v7-root-execution-cockpit"' "$EVIDENCE_DIR/platform-$locale.html"
 
   CURRENT_CHECK="approved-homepage-content-$locale"
-  grep -Fq "$expected_kicker_primary" "$EVIDENCE_DIR/platform-$locale.html"
-  grep -Fq "$expected_kicker_secondary" "$EVIDENCE_DIR/platform-$locale.html"
-  grep -Fq "$expected_title" "$EVIDENCE_DIR/platform-$locale.html"
-  grep -Fq "$expected_accent" "$EVIDENCE_DIR/platform-$locale.html"
+  grep -Fq "$expected_hero_kicker" "$EVIDENCE_DIR/platform-$locale.html"
+  grep -Fq "$expected_sell" "$EVIDENCE_DIR/platform-$locale.html"
+  grep -Fq "$expected_hero_title" "$EVIDENCE_DIR/platform-$locale.html"
+  grep -Fq "$expected_buy" "$EVIDENCE_DIR/platform-$locale.html"
   if grep -Fq "$retired_title" "$EVIDENCE_DIR/platform-$locale.html"; then
     printf 'Retired homepage hero is still live for locale %s.\n' "$locale" >&2
     exit 29

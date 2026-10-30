@@ -57,7 +57,7 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   margin-top: 26px;
 }
@@ -198,11 +198,15 @@
 }
 .source svg { color: #087a3b; }
 
-.actions { display: flex; gap: 9px; align-items: center; }
+.actions { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
 .primary,
 .secondary {
   display: inline-flex;
-  min-height: 42px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -237,8 +241,19 @@
   .header h2 { font-size: clamp(29px, 8.3vw, 36px); }
   .header p { font-size: 14px; line-height: 1.5; }
   .accessNote { font-size: 12px; }
-  .grid { grid-template-columns: 1fr; gap: 10px; margin-top: 18px; }
-  .card { padding: 16px; border-radius: 17px; }
+  .grid {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(270px, 86%);
+    gap: 10px;
+    margin: 18px -16px 0 0;
+    padding: 0 16px 10px 0;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: thin;
+  }
+  .card { padding: 16px; border-radius: 17px; scroll-snap-align: start; }
   .culture { font-size: 19px; }
   .metrics { margin-top: 14px; }
   .footer { align-items: stretch; flex-direction: column; }

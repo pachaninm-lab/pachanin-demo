@@ -26,7 +26,7 @@ const CONTROLLED_PILOT_NOTICE = [
   'Maturity: controlled-pilot / pre-integration.',
   'Do not overstate maturity or imply live external integrations.',
   'Do not change apps/landing, production UI, visual/theme/onboarding, adapters, server actions, AI gateway runtime, DB/migrations or lockfiles unless the current step explicitly allows it.',
-  'Do not auto-merge. Human review and green checks are required.',
+  'Do not auto-merge. Independent review and green checks are required before a manual SHA-bound merge.',
 ].join('\n');
 
 function repoPath(relativePath) {
@@ -87,6 +87,54 @@ function isGreenOrClosed(state) {
   return ['green', 'closed', 'mergeable', 'merged'].includes(status);
 }
 
+function coordinationAdmissionBlockers(state) {
+  const records = state.coordinationAdmissions ?? {};
+  if (typeof records !== 'object' || Array.isArray(records)) throw new Error('Invalid dispatcher admission supersession: records');
+  const blockers = new Map();
+  for (const [name, record] of Object.entries(records)) {
+    if (!record || typeof record !== 'object' || !Object.hasOwn(record, 'dispatcherBlocker')) continue;
+    const value = record.dispatcherBlocker;
+    if (typeof value !== 'string' || !value.trim() || value.length > 2000 || /[\r\n]/u.test(value)) {
+      throw new Error(`Invalid dispatcher admission blocker: ${name}`);
+    }
+    blockers.set(name, value.trim());
+  }
+  const replacements = new Map();
+  const retired = new Set();
+  const invalid = name => { throw new Error(`Invalid dispatcher admission supersession: ${name}`); };
+  function sourcePaths(record, name) {
+    const branch = record.implementationBranch;
+    const scope = typeof branch === 'string' && Object.hasOwn(state.approvedConcurrentScopes ?? {}, branch)
+      ? state.approvedConcurrentScopes[branch] : null;
+    if (!Array.isArray(scope) || !Array.isArray(record.sourcePayloads) || !record.sourcePayloads.length) invalid(name);
+    const paths = record.sourcePayloads.map(pin => pin?.path);
+    if (paths.some(value => typeof value !== 'string' || !value || value.length > 512 || /[\r\n]/u.test(value) || !scope.includes(value)) ||
+        new Set(paths).size !== paths.length) invalid(name);
+    return new Set(paths);
+  }
+  for (const [name, record] of Object.entries(records)) {
+    if (!record || typeof record !== 'object' || !Object.hasOwn(record, 'supersedesUnacceptedPayloadOf')) continue;
+    const target = record.supersedesUnacceptedPayloadOf;
+    if (typeof target !== 'string' || !target || target.trim() !== target || target.length > 200 || /[\r\n]/u.test(target) ||
+        target === name || !Object.hasOwn(records, target) || !blockers.has(name) || !blockers.has(target)) invalid(name);
+    const previous = records[target];
+    if (typeof record.owner !== 'string' || !record.owner.trim() || record.owner !== previous.owner) invalid(name);
+    const currentPaths = sourcePaths(record, name);
+    const previousPaths = sourcePaths(previous, name);
+    if (![...currentPaths].every(value => previousPaths.has(value)) && ![...previousPaths].every(value => currentPaths.has(value))) invalid(name);
+    if (retired.has(target)) invalid(name);
+    retired.add(target); replacements.set(name, target);
+  }
+  for (const name of replacements.keys()) {
+    const visited = new Set(); let current = name;
+    while (replacements.has(current)) {
+      if (visited.has(current)) invalid(name);
+      visited.add(current); current = replacements.get(current);
+    }
+  }
+  return [...new Set([...blockers].filter(([name]) => !retired.has(name)).map(([, value]) => value))];
+}
+
 function assertNoForbiddenClaim(text, target) {
   const lowered = text.toLowerCase();
   const found = FORBIDDEN_CLAIMS.filter((claim) => lowered.includes(claim.toLowerCase()));
@@ -132,7 +180,7 @@ function buildCurrentPrompt(input) {
     '',
     blockedBy.length > 0
       ? blockedBy.map((item) => `- BLOCKED: ${item}`).join('\n')
-      : '- Current step is allowed to advance after human-reviewed green/closed/mergeable status.',
+      : '- Current step is allowed to advance only after independently reviewed acceptance and manual SHA-bound merge.',
     '',
     '## Allowed current scope',
     '',
@@ -185,7 +233,7 @@ function buildReviewPrompt(input) {
     '',
     blockedBy.length > 0
       ? blockedBy.map((item) => `- BLOCKED: ${item}`).join('\n')
-      : '- Current step may be advanced only after human merge approval.',
+      : '- Current step may be advanced only after independently reviewed acceptance and manual SHA-bound merge.',
     '',
     '## Queue snapshot',
     '',
@@ -209,9 +257,10 @@ async function main() {
   const locked = state.lockedUntilCurrentGreen ?? parseListAfterHeading(queue, 'LOCKED UNTIL 5.1 GREEN');
   const nextCandidate = locked[0] ?? 'No queued next step.';
   const currentClosed = isGreenOrClosed(state);
-  const blockedBy = currentClosed
-    ? []
-    : [`${current} is not green/closed/mergeable. Dispatcher will not advance to ${nextCandidate}.`];
+  const blockedBy = [...new Set([
+    ...(currentClosed ? [] : [`${current} is not green/closed/mergeable. Dispatcher will not advance to ${nextCandidate}.`]),
+    ...coordinationAdmissionBlockers(state),
+  ])];
 
   const codexPromptPath = promptNameForCurrent(current, 'codex');
   const reviewPromptPath = promptNameForCurrent(current, 'review');

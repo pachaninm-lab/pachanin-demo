@@ -3,8 +3,6 @@ import { getLocale } from 'next-intl/server';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { PublicLinkedSurfaceShell } from '@/components/platform-v7/PublicLinkedSurfaceShell';
-import { HydrationSafeChatSupport } from '@/components/platform-v7/HydrationSafeChatSupport';
 import { getAuthProfile } from '@/lib/auth-profile-server';
 import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
 import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-route-policy';
@@ -57,7 +55,10 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/roadmap',
   '/platform-v7/deal-flow',
   '/platform-v7/how-it-works',
+  '/platform-v7/capabilities',
+  '/platform-v7/market',
   '/platform-v7/ai-in-action',
+  '/platform-v7/gekta',
   '/platform-v7/demo',
   '/platform-v7/contact',
   '/platform-v7/request',
@@ -187,6 +188,7 @@ const ALIAS_DYNAMIC_PATHS = [
   /^\/platform-v7\/counterparty\/[^/]+$/,
   /^\/platform-v7\/deal-drafts\/[^/]+$/,
   /^\/platform-v7\/deals\/[^/]+$/,
+  /^\/platform-v7\/deals\/[^/]+\/clean$/,
   /^\/platform-v7\/dispute\/[^/]+$/,
   /^\/platform-v7\/disputes\/[^/]+\/hold$/,
   /^\/platform-v7\/disputes\/[^/]+$/,
@@ -204,6 +206,17 @@ function normalizePath(value: string | null) {
 
 function isPublicPath(pathname: string) {
   return PUBLIC_EXACT_PATHS.has(pathname) || PUBLIC_PREFIX_PATHS.some((prefix) => pathname.startsWith(prefix));
+}
+
+const CANONICAL_PUBLIC_GEKTA_PATHS = new Set([
+  '/platform-v7', '/platform-v7/market', '/platform-v7/how-it-works', '/platform-v7/capabilities',
+  '/platform-v7/ai-in-action', '/platform-v7/gekta', '/platform-v7/trust', '/platform-v7/about', '/platform-v7/contact',
+  '/platform-v7/register', '/platform-v7/login', '/platform-v7/deal-flow',
+]);
+
+function shouldMountLegacyPublicDock(pathname: string) {
+  if (CANONICAL_PUBLIC_GEKTA_PATHS.has(pathname)) return false;
+  return true;
 }
 
 function isStaffPath(pathname: string) {
@@ -266,14 +279,32 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   // The contact dock is mounted at the route boundary so supporting pages that
   // do not render PublicSiteHeader still expose the same AI/support/call entry.
   if (isPublicPath(pathname)) {
-    const publicContent = pathname === '/platform-v7/terms' || pathname === '/platform-v7/privacy'
+    const linkedSurfacePath = pathname === '/platform-v7/terms' || pathname === '/platform-v7/privacy'
       || pathname === '/platform-v7/oferta' || pathname === '/platform-v7/docs'
-      ? <PublicLinkedSurfaceShell pathname={pathname} locale={await getLocale()}>{children}</PublicLinkedSurfaceShell>
+      ? pathname
+      : null;
+    const PublicLinkedSurfaceShell = linkedSurfacePath
+      ? (await import('@/components/platform-v7/PublicLinkedSurfaceShell')).PublicLinkedSurfaceShell
+      : null;
+    const canonicalGekta = CANONICAL_PUBLIC_GEKTA_PATHS.has(pathname);
+    const HydrationSafeChatSupport = (canonicalGekta || shouldMountLegacyPublicDock(pathname))
+      ? (await import('@/components/platform-v7/HydrationSafeChatSupport')).HydrationSafeChatSupport
+      : null;
+    const PublicContactDock = canonicalGekta
+      ? (await import('@/components/platform-v7/PublicContactDock')).PublicContactDock
+      : null;
+    const publicContent = PublicLinkedSurfaceShell && linkedSurfacePath
+      ? <PublicLinkedSurfaceShell pathname={linkedSurfacePath} locale={await getLocale()}>{children}</PublicLinkedSurfaceShell>
       : children;
     return (
       <>
         {publicContent}
-        <HydrationSafeChatSupport />
+        {PublicContactDock ? <PublicContactDock assistantContext='public' publicMode='gekta' /> : null}
+        {HydrationSafeChatSupport
+          ? canonicalGekta
+            ? <HydrationSafeChatSupport renderDock={false} legacyPublicPolish={false} />
+            : <HydrationSafeChatSupport />
+          : null}
       </>
     );
   }
