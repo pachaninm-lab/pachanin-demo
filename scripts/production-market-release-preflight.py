@@ -1520,7 +1520,7 @@ def validate_image_reclaim_plan(value: Any, profile: dict[str, Any]) -> None:
                 row['initial_rm_calls_lower'] != 1 or row['initial_rm_calls_upper'] != row['initial_reference_count'] + 1):
             raise ValueError('IMAGE_PLAN_CANDIDATE')
     subtotal = sum(row['logical_bytes_upper'] for row in rows)
-    if subtotal > total or eligible <= 2 and subtotal != total:
+    if not subtotal <= total <= subtotal + (eligible - len(rows)) * (2**63 - 1):
         raise ValueError('IMAGE_PLAN_SIZE')
 
 

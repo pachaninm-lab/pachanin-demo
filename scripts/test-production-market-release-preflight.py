@@ -2077,6 +2077,7 @@ class InitialImageReclaimPlan(unittest.TestCase):
             lambda p:p.update(physical_reclaim='PROVEN'),lambda p:p.update(raw='PRIVATE'),
             lambda p:p.update(eligible_image_count=True),lambda p:p.update(eligible_image_count=8),
             lambda p:p.update(eligible_logical_bytes_upper=False),lambda p:p.update(first_candidates=[]),
+            lambda p:p.update(eligible_logical_bytes_upper=p['eligible_image_count']*(2**63-1)),
             lambda p:p['first_candidates'][0].update(initial_rm_calls_upper=99),
             lambda p:p['first_candidates'][0].update(logical_bytes_upper=2**63),
             lambda p:p['first_candidates'][0].update(image_id='PRIVATE')):
