@@ -3696,3 +3696,6 @@ Complete independently verified5988 failure assessment (SHA256 c89a9cba47e739f26
 ## Live headroom safety 20261030
 
 Queue purpose `pc-crop-live-headroom-safety-20261030` pins the private source and guard. Metadata precedes trusted guard, then original live SOURCE. State/owners/PRIMARY/current/next/5/100 stay unchanged. Fresh independent/native/security/readiness/manual gates and later finite host decision remain required; no host authority or production credit.
+
+
+V2 queue: pc-crop-live-headroom-template-safety-20261030-v2 supersedes unaccepted #5996. Metadata -> guard -> SOURCE; state/scopes/owners/5/100 unchanged; no host grant.
