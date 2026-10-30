@@ -3701,3 +3701,5 @@ Queue purpose `pc-crop-live-headroom-safety-20261030` pins the private source an
 V2 queue: pc-crop-live-headroom-template-safety-20261030-v2 supersedes unaccepted #5996. Metadata -> guard -> SOURCE; state/scopes/owners/5/100 unchanged; no host grant.
 
 V3: queue pc-crop-live-headroom-native-contracts-20261030-v3. Staged gates; no host/credit.
+
+V4: clean fixture admission.

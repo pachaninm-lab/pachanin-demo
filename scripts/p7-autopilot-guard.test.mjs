@@ -6765,7 +6765,7 @@ test('single-node scope: decoder and byte count retain the caller locale', t => 
 });
 
 // Separate current phase; retained historical headroom fixtures remain unchanged.
-const liveHeadroomMarker = '\n## PC-CROP live Docker headroom native contract correction v3 — 2026-10-30\n\n```json\n';
+const liveHeadroomMarker = '\n## PC-CROP live Docker headroom clean fixture correction v4 — 2026-10-30\n\n```json\n';
 function liveHeadroomPurpose() {
   const parts = fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8').split(liveHeadroomMarker);
   assert.equal(parts.length, 2);
@@ -6786,7 +6786,19 @@ function liveHeadroomFixture(t, mutate = () => {}, { ancestry = true, companionS
   };
   for (const item of original.guardPayloads) write(root, item.path, fromObject(item.afterBlob), item.mode === '100755' ? 0o755 : 0o644);
   for (const item of original.sourcePayloads) write(root, item.path, fromObject(item.beforeBlob), item.mode === '100755' ? 0o755 : 0o644);
-  for (const item of original.companionPayloads) write(root, item.path, fromObject(companionStage ? item.beforeBlob : item.afterBlob), 0o644);
+  for (const item of original.companionPayloads) write(root, item.path, fromObject(item.beforeBlob), 0o644);
+  if (!companionStage) {
+    // The prerequisite guard runs before these future companion bytes are tracked.
+    // Reconstruct them from accepted metadata instead of unpublished Git objects.
+    const applied = spawnSync('git', ['apply', '-'], { cwd: root, input: original.companionPatch.text,
+      encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 });
+    assert.equal(applied.status, 0, output(applied));
+    for (const item of original.companionPayloads) {
+      const bytes = fs.readFileSync(path.join(root, item.path));
+      assert.equal(bytes.length, item.bytes);
+      assert.equal(createHash('sha256').update(bytes).digest('hex'), item.sha256);
+    }
+  }
   const manifest = original.originalScope[2];
   write(root, manifest, fromObject('deb7672c69db09ab0b233cf011e79a904bc5f1a7'), 0o644);
   write(root, 'scripts/p7-source-controlled-scope.mjs', fs.readFileSync(sourceResolver, 'utf8'), 0o644);
@@ -6968,7 +6980,7 @@ for (const [name, mutate] of [
 for (const kind of ['removed', 'duplicate', 'candidate-only']) test('live headroom companion: rejects ' + kind + ' purpose', t => {
   const c = liveHeadroomFixture(t, () => {}, { companionStage: true });
   const file = 'docs/platform-v7/execution-queue.md'; const original = fs.readFileSync(path.join(c.root, file), 'utf8');
-  write(c.root, file, kind === 'duplicate' ? original + original : 'no accepted V3 purpose\n');
+  write(c.root, file, kind === 'duplicate' ? original + original : 'no accepted V4 purpose\n');
   commit(c.root, 'missing or ambiguous accepted companion purpose'); c.baseline = git(c.root, ['rev-parse', 'HEAD']);
   applyLiveHeadroom(c); if (kind === 'candidate-only') write(c.root, file, original); checkLiveHeadroom(c);
 });
@@ -6992,7 +7004,9 @@ test('live headroom companion: rejects missing accepted ancestry', t => {
 });
 test('live headroom companion: rejects source runtime already changed in accepted base', t => {
   const c = liveHeadroomFixture(t, () => {}, { companionStage: true });
-  const pin = liveHeadroomPurpose().sourcePayloads[0]; write(c.root, pin.path, acceptedBlob(pin.afterBlob), 0o755);
+  applyLiveHeadroom({ ...c, companionStage: false });
+  const workflow = liveHeadroomPurpose().sourcePayloads[1].path;
+  git(c.root, ['restore', '--source=HEAD', '--staged', '--worktree', '--', workflow]);
   commit(c.root, 'legacy runtime already changed'); c.baseline = git(c.root, ['rev-parse', 'HEAD']);
   applyLiveHeadroom(c); checkLiveHeadroom(c);
 });

@@ -69,8 +69,8 @@ let scopes;
 if (branch === 'ops/production-stopped-runtime-headroom-20261022' ||
     (branch === 'fix/pc-crop-docker-headroom-rollover-4637' &&
       execFileSync('git', ['show', `${baseRef}:docs/platform-v7/execution-queue.md`],
-        { encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 + 1 }).includes('\n## PC-CROP live Docker headroom native contract correction v3 — 2026-10-30\n\n```json\n'))) {
-  // Only separately accepted immutable base V3 metadata admits either exact stage.
+        { encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 + 1 }).includes('\n## PC-CROP live Docker headroom clean fixture correction v4 — 2026-10-30\n\n```json\n'))) {
+  // Only separately accepted immutable base V4 metadata admits either exact stage.
   // V2 explicitly replaces the accepted V1 guard phase for its unaccepted template-invalid SOURCE.
   // The retained 20261011 phase below is unchanged when this marker is absent.
   const { isDeepStrictEqual } = require('node:util');
@@ -82,7 +82,7 @@ if (branch === 'ops/production-stopped-runtime-headroom-20261022' ||
   const headRef = String(process.env.HEAD_REF || '').trim();
   if (!headRef || git(['merge-base', baseRef, headRef]).trim() !== baseSha) fail('BASE_NOT_ANCESTOR');
   const queuePath = 'docs/platform-v7/execution-queue.md';
-  const marker = '\n## PC-CROP live Docker headroom native contract correction v3 — 2026-10-30\n\n```json\n';
+  const marker = '\n## PC-CROP live Docker headroom clean fixture correction v4 — 2026-10-30\n\n```json\n';
   const parts = read(baseRef, queuePath).split(marker);
   if (parts.length !== 2) fail('PURPOSE_NOT_UNIQUE');
   const end = parts[1].indexOf('\n```\n');
@@ -103,7 +103,7 @@ if (branch === 'ops/production-stopped-runtime-headroom-20261022' ||
     'companionBranch', 'companionScope', 'companionPayloads', 'companionPatch', 'independentCompanionReview'];
   if (!purpose || Array.isArray(purpose) || !isDeepStrictEqual(Object.keys(purpose).sort(), expectedFields.sort()) ||
       purpose.schemaVersion !== 'pc.live-headroom-safety-admission.v2' ||
-      purpose.purposeId !== 'pc-crop-live-headroom-native-contracts-20261030-v3' || purpose.owner !== 'ACCOUNT_1_CORE' ||
+      purpose.purposeId !== 'pc-crop-live-headroom-clean-fixtures-20261030-v4' || purpose.owner !== 'ACCOUNT_1_CORE' ||
       purpose.sourceBranch !== sourceBranch || purpose.guardBranch !== 'governance/industrial-load-diagnostics-20260919' ||
       purpose.authorityBaseExactMain !== '22faa5ec075a47e292b79373ff514e6b21eb4636' ||
       purpose.productionInvocationAuthorized !== false || purpose.productionAcceptance !== false || purpose.masterCredit !== 0 ||
@@ -819,8 +819,8 @@ let scopes;
 if (branch === 'ops/production-stopped-runtime-headroom-20261022' ||
     (branch === 'fix/pc-crop-docker-headroom-rollover-4637' &&
       execFileSync('git', ['show', `${baseRef}:docs/platform-v7/execution-queue.md`],
-        { encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 + 1 }).includes('\n## PC-CROP live Docker headroom native contract correction v3 — 2026-10-30\n\n```json\n'))) {
-  // Only separately accepted immutable base V3 metadata admits either exact stage.
+        { encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 + 1 }).includes('\n## PC-CROP live Docker headroom clean fixture correction v4 — 2026-10-30\n\n```json\n'))) {
+  // Only separately accepted immutable base V4 metadata admits either exact stage.
   // V2 explicitly replaces the accepted V1 guard phase for its unaccepted template-invalid SOURCE.
   // The retained 20261011 phase below is unchanged when this marker is absent.
   const { isDeepStrictEqual } = require('node:util');
@@ -832,7 +832,7 @@ if (branch === 'ops/production-stopped-runtime-headroom-20261022' ||
   const headRef = String(process.env.HEAD_REF || '').trim();
   if (!headRef || git(['merge-base', baseRef, headRef]).trim() !== baseSha) fail('BASE_NOT_ANCESTOR');
   const queuePath = 'docs/platform-v7/execution-queue.md';
-  const marker = '\n## PC-CROP live Docker headroom native contract correction v3 — 2026-10-30\n\n```json\n';
+  const marker = '\n## PC-CROP live Docker headroom clean fixture correction v4 — 2026-10-30\n\n```json\n';
   const parts = read(baseRef, queuePath).split(marker);
   if (parts.length !== 2) fail('PURPOSE_NOT_UNIQUE');
   const end = parts[1].indexOf('\n```\n');
@@ -853,7 +853,7 @@ if (branch === 'ops/production-stopped-runtime-headroom-20261022' ||
     'companionBranch', 'companionScope', 'companionPayloads', 'companionPatch', 'independentCompanionReview'];
   if (!purpose || Array.isArray(purpose) || !isDeepStrictEqual(Object.keys(purpose).sort(), expectedFields.sort()) ||
       purpose.schemaVersion !== 'pc.live-headroom-safety-admission.v2' ||
-      purpose.purposeId !== 'pc-crop-live-headroom-native-contracts-20261030-v3' || purpose.owner !== 'ACCOUNT_1_CORE' ||
+      purpose.purposeId !== 'pc-crop-live-headroom-clean-fixtures-20261030-v4' || purpose.owner !== 'ACCOUNT_1_CORE' ||
       purpose.sourceBranch !== sourceBranch || purpose.guardBranch !== 'governance/industrial-load-diagnostics-20260919' ||
       purpose.authorityBaseExactMain !== '22faa5ec075a47e292b79373ff514e6b21eb4636' ||
       purpose.productionInvocationAuthorized !== false || purpose.productionAcceptance !== false || purpose.masterCredit !== 0 ||
