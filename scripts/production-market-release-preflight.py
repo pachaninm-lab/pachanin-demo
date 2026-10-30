@@ -1497,7 +1497,7 @@ def validate_image_reclaim_plan(value: Any, profile: dict[str, Any]) -> None:
     container_count = profile['commands']['containers_list']['count']
     if (profile['image_batches']['status'] != 'SUCCESS' or
             profile['commands']['containers_inspect']['status'] != 'SUCCESS' or
-            type(count) is not int or type(container_count) is not int):
+            type(count) is not int or type(container_count) is not int or container_count < 2):
         raise ValueError('IMAGE_PLAN_DEPENDENCY')
     for key in ('canonical_image_count', 'eligible_image_count', 'container_protected_image_count', 'protected_image_count'):
         if type(value[key]) is not int or not 0 <= value[key] <= count:
@@ -1506,7 +1506,9 @@ def validate_image_reclaim_plan(value: Any, profile: dict[str, Any]) -> None:
         ('canonical_image_count', 'eligible_image_count', 'container_protected_image_count', 'protected_image_count'))
     total = value['eligible_logical_bytes_upper']
     if (not 1 <= referenced <= min(container_count, protected) or eligible > min(canonical, count - protected) or
-            canonical - eligible > protected or type(total) is not int or not 0 <= total <= eligible * (2**63 - 1)):
+            not min(2, canonical) <= canonical - eligible <= protected or
+            protected > referenced + canonical - eligible or
+            type(total) is not int or not 0 <= total <= eligible * (2**63 - 1)):
         raise ValueError('IMAGE_PLAN_RELATION')
     rows = value['first_candidates']
     if not isinstance(rows, list) or len(rows) != min(2, eligible):

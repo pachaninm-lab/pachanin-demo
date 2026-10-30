@@ -2091,6 +2091,18 @@ class InitialImageReclaimPlan(unittest.TestCase):
     def test_legacy_v5_cannot_be_relabelled_v6_without_closed_plan(self):
         value=report();value['schema']='pc-crop.market-release-preflight.v5'
         with self.assertRaises(ValueError):m.validate_report(value,SHA)
+
+    def test_impossible_reserve_union_and_missing_runtime_roles_are_rejected(self):
+        helper=CapacityDiagnosticProfile()
+        value,_=helper.profile({'_image_count':8,'_planning_fixture':self.fixture()})
+        for counts in ({'canonical_image_count':8,'eligible_image_count':7,'container_protected_image_count':1,'protected_image_count':1},
+                       {'canonical_image_count':0,'eligible_image_count':0,'container_protected_image_count':1,'protected_image_count':8,
+                        'eligible_logical_bytes_upper':0,'first_candidates':[]}):
+            bad=copy.deepcopy(value);bad['image_reclaim_plan'].update(counts)
+            with self.assertRaises(ValueError):m.validate_capacity_profile(bad)
+        bad=copy.deepcopy(value)
+        for key in ('containers_list','containers_inspect'):bad['commands'][key]['count']=1
+        with self.assertRaises(ValueError):m.validate_capacity_profile(bad)
         value=report();value['capacity_diagnostics'].pop('image_reclaim_plan')
         with self.assertRaises(ValueError):m.validate_report(value,SHA)
 
