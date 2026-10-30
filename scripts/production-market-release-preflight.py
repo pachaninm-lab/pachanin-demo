@@ -323,7 +323,7 @@ def validate_report(value: Any, target: str) -> dict[str, Any]:
             'registration_binding', 'api_publication_config', 'filesystem_capacity', 'capacity_diagnostics'}
     if not isinstance(value, dict) or set(value) != keys or not SHA.fullmatch(target):
         raise ValueError('REPORT_SCHEMA')
-    for key, expected in {'schema': 'pc-crop.market-release-preflight.v4', 'target_sha': target,
+    for key, expected in {'schema': 'pc-crop.market-release-preflight.v5', 'target_sha': target,
                           'production_mutation': 'NONE', 'live_acceptance': 'NOT_PERFORMED',
                           'protected_values': 'NOT_PUBLISHED'}.items():
         if value[key] != expected:
@@ -1357,7 +1357,7 @@ CAPACITY_PROFILE_SECONDS = 35
 CAPACITY_OUTPUT_BYTES = 2 * 1024 * 1024
 CAPACITY_TOTAL_BYTES = 16 * 1024 * 1024
 CAPACITY_QUERY_KEYS = ('containers_list', 'containers_inspect', 'volumes_list',
-                       'networks_list', 'images_list', 'images_inspect')
+                       'networks_list', 'images_list', 'images_inspect_after_warm')
 CAPACITY_DISK_PATHS = {'docker_containers': '/var/lib/docker/containers',
                        'docker_image_metadata': '/var/lib/docker/image',
                        'docker_build_cache': '/var/lib/docker/buildkit',
@@ -1368,7 +1368,12 @@ CAPACITY_STATUSES = {'NOT_RUN', 'SUCCESS', 'TIMED_OUT', 'OUTPUT_LIMIT', 'NONZERO
 def empty_capacity_profile() -> dict[str, Any]:
     return {'status': 'NOT_PERFORMED', 'assurance': 'FRESH_READ_ONLY_OBSERVATION_NOT_RECLAIMABLE',
             'elapsed_ms': 0, 'command_budget_seconds': 5, 'profile_budget_seconds': 35,
-            'commands': {key: {'status': 'NOT_RUN', 'elapsed_ms': 0, 'count': None} for key in CAPACITY_QUERY_KEYS},
+            'stdout_bytes': None, 'io_bytes': None,
+            'image_batches': {'status': 'NOT_RUN', 'batch_size': 64, 'batch_count': 0,
+                              'batch_complete_count': 0, 'complete_image_count': None, 'maxbatch_ms': None,
+                              'elapsed_ms': 0, 'stdout_bytes': None, 'io_bytes': None},
+            'commands': {key: {'status': 'NOT_RUN', 'elapsed_ms': 0, 'count': None,
+                               'stdout_bytes': None, 'io_bytes': None} for key in CAPACITY_QUERY_KEYS},
             'disk_usage': {key: {'status': 'NOT_RUN', 'elapsed_ms': 0, 'bytes': None} for key in CAPACITY_DISK_PATHS}}
 
 
@@ -1402,11 +1407,16 @@ class CapacityProfileRunner:
         self.started = time.monotonic()
         self.deadline = min(self.started + CAPACITY_PROFILE_SECONDS, outer_deadline)
         self.total = 0
+        self.calls = 0
+        self.stdout_total = 0
+        self.last_stdout_bytes = 0
+        self.last_io_bytes = 0
         self.clean = True
         self.exhausted = False
 
     def execute(self, key: str, identities: list[str] | None = None) -> tuple[str, int, bytes | None]:
         started = time.monotonic()
+        self.last_stdout_bytes = self.last_io_bytes = 0
         if not self.clean or self.exhausted or self.total >= CAPACITY_TOTAL_BYTES or self.deadline - started <= 0.25:
             return 'NOT_RUN', 0, None
         fixed = {'containers_list': ['ps', '-aq', '--no-trunc'],
@@ -1436,6 +1446,7 @@ class CapacityProfileRunner:
             if ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGKILL, 0, 0, 0) != 0 or os.getppid() != parent:
                 os._exit(125)
         try:
+            self.calls += 1
             proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                     env={'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LC_ALL': 'C'}, cwd='/',
                                     close_fds=True, start_new_session=True, preexec_fn=child_limits)
@@ -1449,7 +1460,10 @@ class CapacityProfileRunner:
                     break
                 for item, _ in poller.select(min(remaining, 0.05)):
                     try:
-                        chunk = os.read(item.fileobj.fileno(), 65536)
+                        # At most one extra byte proves either exhausted cap.
+                        size = max(1, min(65536, CAPACITY_OUTPUT_BYTES - sizes[item.data] + 1,
+                                          CAPACITY_TOTAL_BYTES - self.total + 1))
+                        chunk = os.read(item.fileobj.fileno(), size)
                     except BlockingIOError:
                         continue
                     if not chunk:
@@ -1457,6 +1471,8 @@ class CapacityProfileRunner:
                         continue
                     sizes[item.data] += len(chunk)
                     self.total += len(chunk)
+                    if item.data == 'out':
+                        self.stdout_total += len(chunk)
                     if sizes[item.data] > CAPACITY_OUTPUT_BYTES or self.total > CAPACITY_TOTAL_BYTES:
                         if self.total > CAPACITY_TOTAL_BYTES:
                             self.exhausted = True
@@ -1500,9 +1516,27 @@ class CapacityProfileRunner:
                 except (OSError, subprocess.TimeoutExpired):
                     self.clean = False
         elapsed = max(0, int((time.monotonic() - started) * 1000))
+        self.last_stdout_bytes, self.last_io_bytes = sizes['out'], sizes['out'] + sizes['err']
         if not self.clean or elapsed > CAPACITY_COMMAND_SECONDS * 1000:
             return 'UNKNOWN', elapsed, None
         return status, elapsed, payload
+
+
+def capacity_inspected_rows(raw: bytes, expected: list[str]) -> dict[str, Any]:
+    def pairs(items):
+        value = {}
+        for name, item in items:
+            if name in value:
+                raise ValueError('INVALID')
+            value[name] = item
+        return value
+    value = json.loads(raw.decode('utf-8', errors='strict'), object_pairs_hook=pairs,
+                       parse_constant=lambda _: (_ for _ in ()).throw(ValueError('INVALID')))
+    if (not isinstance(value, list) or len(value) != len(expected) or
+            any(not isinstance(row, dict) or not isinstance(row.get('Id'), str) for row in value) or
+            {row['Id'] for row in value} != set(expected)):
+        raise ValueError('INVALID')
+    return {row['Id']: row for row in value}
 
 
 def capacity_readonly_profile(outer_deadline: float) -> dict[str, Any]:
@@ -1511,8 +1545,9 @@ def capacity_readonly_profile(outer_deadline: float) -> dict[str, Any]:
         return result
     runner = CapacityProfileRunner(outer_deadline)
     ids: dict[str, list[str]] = {}
+    stopped = False
     if capacity_docker_ready():
-        for key in CAPACITY_QUERY_KEYS:
+        for key in CAPACITY_QUERY_KEYS[:-1]:
             source = 'containers_list' if key == 'containers_inspect' else 'images_list'
             if key.endswith('_inspect') and not ids.get(source):
                 continue
@@ -1521,21 +1556,8 @@ def capacity_readonly_profile(outer_deadline: float) -> dict[str, Any]:
             if status == 'SUCCESS':
                 try:
                     if key.endswith('_inspect'):
-                        def pairs(items):
-                            value = {}
-                            for name, item in items:
-                                if name in value:
-                                    raise ValueError('INVALID')
-                                value[name] = item
-                            return value
-                        value = json.loads(raw.decode('utf-8', errors='strict'), object_pairs_hook=pairs,
-                                           parse_constant=lambda _: (_ for _ in ()).throw(ValueError('INVALID')))
                         expected = ids[source]
-                        if (not isinstance(value, list) or len(value) != len(expected) or
-                                any(not isinstance(row, dict) or not isinstance(row.get('Id'), str) for row in value) or
-                                {row['Id'] for row in value} != set(expected)):
-                            raise ValueError('INVALID')
-                        count = len(value)
+                        count = len(capacity_inspected_rows(raw, expected))
                     else:
                         values = raw.decode('ascii', errors='strict').splitlines()
                         maximum = {'containers_list': 128, 'volumes_list': 512, 'networks_list': 128, 'images_list': 512}[key]
@@ -1548,8 +1570,60 @@ def capacity_readonly_profile(outer_deadline: float) -> dict[str, Any]:
                         ids[key], count = unique, len(unique)
                 except (UnicodeError, ValueError, TypeError, RecursionError):
                     status = 'INVALID'
-            result['commands'][key] = {'status': status, 'elapsed_ms': elapsed, 'count': count}
-    if capacity_fixed_path_ready('/usr/bin/du', directory=False):
+            result['commands'][key] = {'status': status, 'elapsed_ms': elapsed, 'count': count,
+                                      'stdout_bytes': runner.last_stdout_bytes if status != 'NOT_RUN' else None,
+                                      'io_bytes': runner.last_io_bytes if status != 'NOT_RUN' else None}
+            if status != 'SUCCESS':
+                stopped = True
+                break
+        if not stopped and ids.get('images_list'):
+            expected, metadata = ids['images_list'], {}
+            batches = result['image_batches']
+            for offset in range(0, len(expected), 64):
+                batch = expected[offset:offset + 64]
+                status, elapsed, raw = runner.execute('images_inspect', batch)
+                if status == 'NOT_RUN':
+                    batches['status'] = 'UNKNOWN' if batches['batch_count'] else 'NOT_RUN'
+                    stopped = True
+                    break
+                batches['batch_count'] += 1
+                batches['elapsed_ms'] += elapsed
+                batches['maxbatch_ms'] = max(batches['maxbatch_ms'] or 0, elapsed)
+                batches['stdout_bytes'] = (batches['stdout_bytes'] or 0) + runner.last_stdout_bytes
+                batches['io_bytes'] = (batches['io_bytes'] or 0) + runner.last_io_bytes
+                if status == 'SUCCESS':
+                    try:
+                        inspected = capacity_inspected_rows(raw, batch)
+                        if set(inspected) & set(metadata):
+                            raise ValueError('INVALID')
+                        metadata.update(inspected)
+                        batches['batch_complete_count'] += 1
+                    except (UnicodeError, ValueError, TypeError, RecursionError):
+                        status = 'UNKNOWN'
+                if status != 'SUCCESS':
+                    batches['status'], stopped = status, True
+                    break
+            else:
+                batches['status'] = 'SUCCESS'
+                batches['complete_image_count'] = len(metadata)
+            if batches['status'] == 'SUCCESS':
+                status, elapsed, raw = runner.execute('images_inspect', expected)
+                count = None
+                if status == 'SUCCESS':
+                    try:
+                        current = capacity_inspected_rows(raw, expected)
+                        canonical = lambda value: json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False)
+                        if canonical(current) != canonical(metadata):
+                            raise ValueError('DRIFT')
+                        count = len(expected)
+                    except (UnicodeError, ValueError, TypeError, RecursionError):
+                        status = 'UNKNOWN'
+                result['commands']['images_inspect_after_warm'] = {
+                    'status': status, 'elapsed_ms': elapsed, 'count': count,
+                    'stdout_bytes': runner.last_stdout_bytes if status != 'NOT_RUN' else None,
+                    'io_bytes': runner.last_io_bytes if status != 'NOT_RUN' else None}
+                stopped = status != 'SUCCESS'
+    if not stopped and capacity_fixed_path_ready('/usr/bin/du', directory=False):
         for key, path in CAPACITY_DISK_PATHS.items():
             if not capacity_fixed_path_ready(path, directory=True):
                 result['disk_usage'][key]['status'] = 'UNKNOWN'
@@ -1564,9 +1638,11 @@ def capacity_readonly_profile(outer_deadline: float) -> dict[str, Any]:
                     size = int(match[1])
             result['disk_usage'][key] = {'status': status, 'elapsed_ms': elapsed, 'bytes': size}
     result['elapsed_ms'] = max(0, int((time.monotonic() - runner.started) * 1000))
+    if runner.calls:
+        result['stdout_bytes'], result['io_bytes'] = runner.stdout_total, runner.total
     rows = [*result['commands'].values(), *result['disk_usage'].values()]
     result['status'] = ('NOT_PERFORMED' if all(row['status'] == 'NOT_RUN' for row in rows) else
-                        'COMPLETE_READ_ONLY' if all(row['status'] == 'SUCCESS' for row in rows) and result['elapsed_ms'] <= 35000 else 'PARTIAL_READ_ONLY')
+                        'COMPLETE_READ_ONLY' if all(row['status'] == 'SUCCESS' for row in rows) and result['image_batches']['status'] == 'SUCCESS' and result['elapsed_ms'] <= 35000 else 'PARTIAL_READ_ONLY')
     return result
 
 
@@ -1578,30 +1654,81 @@ def validate_capacity_profile(value: Any) -> None:
             type(value['profile_budget_seconds']) is not int or type(value['elapsed_ms']) is not int or
             not 0 <= value['elapsed_ms'] <= 180000 or value['status'] not in ('NOT_PERFORMED', 'COMPLETE_READ_ONLY', 'PARTIAL_READ_ONLY')):
         raise ValueError('CAPACITY_PROFILE_SCHEMA')
+    def metrics(stdout, total, *, missing=False, maximum=16777217):
+        if missing:
+            return stdout is None and total is None
+        return (type(stdout) is int and type(total) is int and 0 <= stdout <= total <= maximum)
+    if not metrics(value['stdout_bytes'], value['io_bytes'], missing=value['io_bytes'] is None):
+        raise ValueError('CAPACITY_PROFILE_IO')
     rows = []
     for section, keys, measure in [('commands', CAPACITY_QUERY_KEYS, 'count'), ('disk_usage', CAPACITY_DISK_PATHS, 'bytes')]:
         if not isinstance(value[section], dict) or set(value[section]) != set(keys):
             raise ValueError('CAPACITY_PROFILE_KEYS')
         for key, row in value[section].items():
-            if (not isinstance(row, dict) or set(row) != {'status', 'elapsed_ms', measure} or
+            expected = {'status', 'elapsed_ms', measure} | ({'stdout_bytes', 'io_bytes'} if section == 'commands' else set())
+            if (not isinstance(row, dict) or set(row) != expected or
                     not isinstance(row['status'], str) or row['status'] not in CAPACITY_STATUSES or type(row['elapsed_ms']) is not int or not 0 <= row['elapsed_ms'] <= 180000 or
                     (row['status'] == 'SUCCESS' and (type(row[measure]) is not int or not 0 <= row[measure] < 2**63 or row['elapsed_ms'] > 5000)) or
                     (row['status'] != 'SUCCESS' and row[measure] is not None) or
                     (row['status'] == 'NOT_RUN' and row['elapsed_ms'] != 0)):
                 raise ValueError('CAPACITY_PROFILE_ROW')
-            if section == 'commands' and row['status'] == 'SUCCESS' and row['count'] > (512 if key in ('volumes_list', 'images_list', 'images_inspect') else 128):
-                raise ValueError('CAPACITY_PROFILE_COUNT')
+            if section == 'commands':
+                if (not metrics(row['stdout_bytes'], row['io_bytes'], missing=row['status'] == 'NOT_RUN', maximum=4194305) or
+                        (row['stdout_bytes'] is not None and row['stdout_bytes'] > 2097153) or
+                        (row['status'] == 'SUCCESS' and (row['stdout_bytes'] > 2097152 or row['io_bytes'] > 4194304))):
+                    raise ValueError('CAPACITY_PROFILE_COMMAND_IO')
+                if row['status'] == 'SUCCESS' and row['count'] > (512 if key in ('volumes_list', 'images_list', 'images_inspect_after_warm') else 128):
+                    raise ValueError('CAPACITY_PROFILE_COUNT')
             rows.append(row)
-    for source, inspect in [('containers_list', 'containers_inspect'), ('images_list', 'images_inspect')]:
-        listed, inspected = value['commands'][source], value['commands'][inspect]
-        if inspected['status'] == 'SUCCESS' and (listed['status'] != 'SUCCESS' or not listed['count'] or inspected['count'] != listed['count']):
+    batches = value['image_batches']
+    if (not isinstance(batches, dict) or set(batches) != set(template['image_batches']) or
+            not isinstance(batches['status'], str) or batches['status'] not in CAPACITY_STATUSES or
+            type(batches['batch_size']) is not int or batches['batch_size'] != 64 or
+            type(batches['batch_count']) is not int or not 0 <= batches['batch_count'] <= 8 or
+            type(batches['batch_complete_count']) is not int or not 0 <= batches['batch_complete_count'] <= batches['batch_count'] or
+            type(batches['elapsed_ms']) is not int or not 0 <= batches['elapsed_ms'] <= 180000 or
+            not metrics(batches['stdout_bytes'], batches['io_bytes'], missing=batches['batch_count'] == 0)):
+        raise ValueError('CAPACITY_BATCH_SCHEMA')
+    if batches['batch_count'] == 0:
+        if batches != template['image_batches']:
+            raise ValueError('CAPACITY_BATCH_NOT_RUN')
+    elif (type(batches['maxbatch_ms']) is not int or not 0 <= batches['maxbatch_ms'] <= batches['elapsed_ms'] or
+          batches['elapsed_ms'] > batches['batch_count'] * batches['maxbatch_ms'] or batches['status'] == 'NOT_RUN'):
+        raise ValueError('CAPACITY_BATCH_TIMING')
+    listed = value['commands']['images_list']
+    if batches['status'] == 'SUCCESS':
+        if (listed['status'] != 'SUCCESS' or not listed['count'] or
+                type(batches['complete_image_count']) is not int or batches['complete_image_count'] != listed['count'] or
+                batches['batch_count'] != (listed['count'] + 63) // 64 or
+                batches['batch_complete_count'] != batches['batch_count'] or batches['maxbatch_ms'] > 5000 or
+                batches['stdout_bytes'] > min(16777216, batches['batch_count'] * 2097152) or
+                batches['io_bytes'] > min(16777216, batches['batch_count'] * 4194304)):
+            raise ValueError('CAPACITY_BATCH_COMPLETE')
+    elif batches['complete_image_count'] is not None:
+        raise ValueError('CAPACITY_BATCH_UNKNOWN_COUNT')
+    if batches['batch_count'] and (listed['status'] != 'SUCCESS' or not listed['count'] or batches['batch_count'] > (listed['count'] + 63) // 64):
+        raise ValueError('CAPACITY_BATCH_DEPENDENCY')
+    for source, inspect in [('containers_list', 'containers_inspect'), ('images_list', 'images_inspect_after_warm')]:
+        source_row, inspected = value['commands'][source], value['commands'][inspect]
+        if inspected['status'] == 'SUCCESS' and (source_row['status'] != 'SUCCESS' or not source_row['count'] or inspected['count'] != source_row['count']):
             raise ValueError('CAPACITY_PROFILE_DEPENDENCY')
-    if sum(row['elapsed_ms'] for row in rows) > value['elapsed_ms']:
+    warm = value['commands']['images_inspect_after_warm']
+    if warm['status'] != 'NOT_RUN' and batches['status'] != 'SUCCESS':
+        raise ValueError('CAPACITY_WARM_BEFORE_COMPLETE_BATCHES')
+    if sum(row['elapsed_ms'] for row in rows) + batches['elapsed_ms'] > value['elapsed_ms']:
         raise ValueError('CAPACITY_PROFILE_TIMING')
+    known_io = sum(row['io_bytes'] or 0 for row in value['commands'].values()) + (batches['io_bytes'] or 0)
+    known_stdout = sum(row['stdout_bytes'] or 0 for row in value['commands'].values()) + (batches['stdout_bytes'] or 0)
+    if (known_io and value['io_bytes'] is None or known_stdout and value['stdout_bytes'] is None or
+            value['io_bytes'] is not None and known_io > value['io_bytes'] or
+            value['stdout_bytes'] is not None and known_stdout > value['stdout_bytes']):
+        raise ValueError('CAPACITY_PROFILE_IO_TOTAL')
     expected = ('NOT_PERFORMED' if all(row['status'] == 'NOT_RUN' for row in rows) else
-                'COMPLETE_READ_ONLY' if all(row['status'] == 'SUCCESS' for row in rows) and value['elapsed_ms'] <= 35000 else 'PARTIAL_READ_ONLY')
+                'COMPLETE_READ_ONLY' if all(row['status'] == 'SUCCESS' for row in rows) and batches['status'] == 'SUCCESS' and value['elapsed_ms'] <= 35000 else 'PARTIAL_READ_ONLY')
     if value['status'] != expected:
         raise ValueError('CAPACITY_PROFILE_CONTRADICTION')
+    if value['status'] == 'COMPLETE_READ_ONLY' and (value['io_bytes'] is None or value['io_bytes'] > 16777216):
+        raise ValueError('CAPACITY_COMPLETE_OUTPUT_BUDGET')
 
 
 def collect(target: str) -> dict[str, Any]:
@@ -1646,7 +1773,7 @@ def collect(target: str) -> dict[str, Any]:
               and runtime_identity(api) == runtime_identity(after_api[0]))
     checks['runtime_configuration_stability'] = 'UNCHANGED' if stable else 'NOT_PROVEN'
     checks['caddy_configuration_stability'] = ('UNCHANGED' if caddy_before is not None and caddy_before == caddy_config() else 'NOT_PROVEN')
-    result = {'schema': 'pc-crop.market-release-preflight.v4', 'target_sha': target,
+    result = {'schema': 'pc-crop.market-release-preflight.v5', 'target_sha': target,
             'observed_at_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
             'running_web_revision': revision(web), 'running_api_revision': revision(api),
             'checks': checks, 'migration_inventory': db, 'capacity': capacity,
@@ -1932,7 +2059,7 @@ def main() -> None:
         print(encoded)
     except Exception:
         # Never serialize raw exception messages or command/environment contents.
-        print('{"schema":"pc-crop.market-release-preflight.v4","collection":"NOT_PROVEN","production_mutation":"NONE","deployment_authorized":false}')
+        print('{"schema":"pc-crop.market-release-preflight.v5","collection":"NOT_PROVEN","production_mutation":"NONE","deployment_authorized":false}')
         raise SystemExit(1)
 
 
