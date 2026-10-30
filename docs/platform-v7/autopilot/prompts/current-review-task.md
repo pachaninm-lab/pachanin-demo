@@ -3482,3 +3482,212 @@ CR2 git show fa982e34a4e1481b40b1dc015a8204e299338b0a block:457a833f962b78655b05
 
 Review complete5GOV diff and frozenoneYAML/source/privatewhole1 findings. Only completedfixture empty-vector becomesone existingworkflow path; retain every other literal token, PRIMARY11, CORE12, PRODUCT9, owners/history/current/next/score and all prior fullprompt prefixes. Currente99 sourcepreflightFAIL124 at180 is real; branchscopePASS does not erase it. Standardcombined1195PASS234s differs from priorguard-only1074; local300timeout is retained and future300PASS is not guaranteed. Frozen patch adds only exactPRODUCTsame-repositoryref to alreadybounded300/315class and extends embedded adversarial matrices; all selectors/guard/test sources/numericbounds/runtimeassertions/always-artifacts unchanged. Metadata is not source or runtime acceptance. Require new actualwhole1 and nativeguard/security/K8/READY/manual, then originalconsumer currentbase composition and freshactualwhole9/native gates. No host or MASTER credit. Full literal purpose/source/evidence is pinned in complete immutable Codex blob.
 CB1 git show 2275751061ac10f76f0e1765227fb510feed99d7 block:221fd644299becb5ef131377b209f7b2c60c5a9e8dcba91977d704564db73b0c
+
+
+## MA1 read-only migration authority audit review
+
+Read complete5GOV before/after/diff and the complete immutable source/private-review payload in the pinned Codex block. State inserts only the new exact5path concurrent branch and audit-only coordination admission; every prior literal/value remains. Preserve primary11, CORE12, PRODUCT9, old fullstack9, owners, histories, scores and all prior prompt prefixes. Source is observation only before image dispatch/SCP/load/pull/Redis/release and must require accepted exactsourcepins before SSH. HOLD/NOT_GRANTED never proves principal, backup integrity, original19 baseline or release eligibility. No DB/credential reuse/materialization/grant/account change. Fresh actualwhole5 source review, separate owner audit, all applicable native/security/readiness/manual gates then a new finite coordinated RO window are mandatory. No host/MASTER credit here.
+MA1 git show 98a01f281df37013d6b62c5320cf27bb9069276c block:ef1537ad8ee1eefa6cf3522477f69f97075ac6c5e3a8df6762027f51b460fbd3
+
+
+## MA2 portable backup fixture pin amendment review
+
+Read the complete five GOV before/after/diff and full immutable Codex payload. Only the existing test pin plus private source head/tree/whole-patch/review pins change in the same audit-only admission. No new path, scope or authority. Four runtime afters remain V4; root ownership guard remains. Verify complete V5 test, full V4-to-V5 delta, whole5 reconstruction/digest and fresh private whole5 review. Retain complete original payload and actual e6 native63PASS/1FAIL plus blocked review; Compose probe NOT_REACHED, no transferred PASS. Every other state literal, owner, primary11, CORE12, PRODUCT9, old fullstack9, history and official5 remains. Prompts keep full prefixes; queue replaces only owned125B MA1 pointer. Source requires accepted new pins before public update, fresh actual whole5/native exact-source+real Compose5PASS/security/READY/manual. No host invocation or MASTER credit.
+MA2 git show e7b45c38cf2c49c85ae80e0e4afa54f00f08950f block:61f7f65e91ae96fe06139a20f6ddd9eceef0750fa2d0244a21611e249e84c1d1
+
+
+## MA3 literal Compose environment fixture amendment review
+
+Review complete5GOV actual diff, exact existing test/private pin replacement, complete V5-to-V6 delta and full private source/blocked380 reviews in the immutable Codex block. Reconstruct exact whole5 from unchanged complete V4/V5 prefixes plus delta. Four runtime afters/root ownership guard, scope, owners, all other state literals/history/score remain unchanged. Map/list parsing preserves literal canaries; unsupported or duplicate forms reject. Actual38065PASS then realComposeTypeError is retained, not nativePASS. Separate metadata then source actualwhole5/native realCompose5PASS/security/READY/manual gates remain mandatory; no host or MASTER credit.
+MA3 git show 6ee31f77f32e1e7c6d9ed65aeed89e324b74a5e7 block:8c7dfdbd98a21205249eaf91edcfe492c97740128edf69fcf546e9d651fd4685
+
+
+## Existing market preflight evidence ordering review
+
+Inspect complete five-governance-file diff and literal preservation of every existing state member and document prefix. New admission contains full two-source patch, exact mode/blob/SHA256 pins, full independent private review and separate owner checks. Collector and strict legacy parity remain unchanged; only existing read-only collection/validation precedes legacy checks and validated-only upload survives their failure. Negative synthetic transport/schema/source/authority cases admit nothing. Private CLEAN is not published source/native acceptance; keep metadata and source gates separate. No host or MASTER credit.
+MPO git show 30fd3718ea1e75fdb6746acec83a20a003182242 block:9f652c977a055d05d217b1fe6d17ac12a858c927e61a8adaeeffcce9c662e00d
+
+
+## MP2 expression boundary amendment review
+
+Review complete five-governance diff and exact existing-admission byte undo. Same two-path vector and read-only authority. Full corrected source patch and new blocked/private reviews are embedded; old full admission remains in immutable455/stateblob588. Verify only Python literal splitting plus two actual template-boundary regressions, unchanged collector/legacy gate/artifact condition,119local tests as preparation only. Actual160/nativeFAIL retained; fresh actualsource native119PASS is mandatory. Separate metadata/source gates; no host or MASTER credit.
+MP2 git show 1147cb88777c335744b01976598fa89ab2c4ca37 block:f5ec7e9f81e808790cef5b96fd84cb0249da98421163a28cba20d2055ceb393a
+
+
+## BC2 exact IR20 source budget review
+
+Review the complete five-document diff and full one-file frozen payload in the new state purpose. Keep old CB1 literal purpose/payload, all prior prompt prefixes/state bytes/vector/owners/scores. Only exact same-repo IR20 ref joins existing300/315 class; all commands/selectors/guard/numericbounds/branch180/runtime/cleanup/privacy remain. Actual180 and local300 timeouts stay FAIL with no completed count; new native300 fit must be proven, not presumed. Require separate metadata then actual source independent review/owner/native/security/READY/manual, followed by unchanged5988 current-main recomposition and entirely fresh acceptance. No host or MASTER credit.
+BC2 git show 70d739473bae45d0bfdc9043da6ff3adcf96c14f block:3150f2bf9f6f3dff4f3b890e16bc89550f61a26d65f275e7ffe3c8f5b0f618fc
+
+Complete independently verified5988 failure assessment (SHA256 c89a9cba47e739f266389353fdfb5c145bfa43614c1918713d43e778cb4aa0e0):
+
+```json
+{
+  "schema": "pc.independent-ir20-source-preflight-failure-scope-review.v1",
+  "reviewer": "/root/review_host_audit",
+  "mode": "Read-only failure/purpose assessment; no implementation/public/ref/host changes.",
+  "verdict": "ACTUAL_PREFLIGHT_TIMEOUT_FAIL_RETAINED_NEW_EXACT_CAPACITY_PURPOSE_REQUIRED",
+  "actual_source": {
+    "pr": 5988,
+    "head": "54b8035efa98c869df66cba17dc88d1252e3ab02",
+    "base": "10a4dc035cb9d2073a1e3e0563ba7fb87f091e10",
+    "head_tree": "cf178a2dddcd59e4800e3418550b36e2958655ea",
+    "base_tree": "d89ff18f225b8e2c399e8d4ad308a5741df989bb",
+    "branch": "ops/ir20-api-database-binding-20260919",
+    "changed_paths": [
+      "docs/ops/ir20-api-database-binding.md",
+      "scripts/release/ir20-api-database-binding.py",
+      "scripts/release/test-ir20-api-database-binding-integration.py",
+      "scripts/release/test-ir20-api-database-binding.py"
+    ]
+  },
+  "native_failure": {
+    "run": 40984388620,
+    "attempt": 1,
+    "job": 123831863730,
+    "job_conclusion": "failure",
+    "failed_step": "Bind public source bytes to bounded guard execution",
+    "started_at": "2026-10-30T01:12:26.8329674Z",
+    "failure_at": "2026-10-30T01:15:31.3149213Z",
+    "node": "v24.8.0",
+    "public_marker": "SOURCE_PREFLIGHT_FAILED",
+    "checks": [
+      {
+        "name": "guard-regressions",
+        "exit_code": 124,
+        "output_bytes": 15,
+        "output_sha256": "7cb03ab03edf5190a8aa546c78285344395fad3d42d4011cd224f934aef96b3f",
+        "summary_truncated": false,
+        "tap_totals": {},
+        "failing_ordinals": [],
+        "source_matched_failing_names": [],
+        "test_locations": []
+      },
+      {
+        "name": "branch-scope",
+        "exit_code": 0,
+        "output_bytes": 258,
+        "output_sha256": "d4b672423c87b26e4ae2590c5df9f6dd66a6864f813932266bf35d32979f6a86",
+        "summary_truncated": false
+      }
+    ],
+    "result": "FAIL",
+    "last_stage": "branch-scope",
+    "stage_qualification": "branch-scope is last executed stage and exited0; final all-exit-zero enforcement failed because guard-regressions exited124.",
+    "run_snapshot": "Independent Actions read saw overallrun/runtimejob123831863548 in_progress. No terminal runtime conclusion inferred; completed source failure remains blocking."
+  },
+  "artifact_proof": {
+    "id": 12946900162,
+    "outer_bytes": 3830697,
+    "outer_sha256": "d54ef5f18157a48f8dfd40e1de9028deaf340d1d51e9ae5e6b5b21eb370a85e4",
+    "members": [
+      "public-sources.zip",
+      "report.json"
+    ],
+    "report_bytes": 391317,
+    "report_sha256": "dec2a083a11f60a1184fc3bb7455a1d220f560ec2c94f52a2e1aee0aef072a65",
+    "source_zip_sha256": "7ad25dccdd04c24dc539691e70f00c6b38e454b4175e9c908a79f33209978438",
+    "both_CRC": "PASS",
+    "entries": 1346,
+    "unique_actual_git_blobs": 673,
+    "every_entry_actual_Git_bytes_mode_length_SHA256_blobSHA1": "PASS",
+    "exact_manifest_member_set": "PASS",
+    "head_base_trees_and_changed_paths": "PASS",
+    "API_artifact_job_upload_digest_and_head_binding": "PASS",
+    "scope": "Two snapshots of fixed guard/source-policy inputs plus scope JSON files; not every repository file or a database backup."
+  },
+  "diagnosis": {
+    "supported": "The unchanged full guard command reached configured180s bounded execution and exited124; only15-byte TAP version13 header was captured. Timeout evidence, not an assertion-failure diagnosis. Branch scope separately passed.",
+    "exact_output": "TAP version 13\n",
+    "output_SHA256": "7cb03ab03edf5190a8aa546c78285344395fad3d42d4011cd224f934aef96b3f",
+    "test_completion_or_failure_count": "NOT_OBSERVABLE: no totals/failing ordinals. Header-only output proves neither zero executed tests nor any pass/assertion count.",
+    "current_guard_selector": [
+      "node",
+      "--test",
+      "--test-reporter=tap",
+      "scripts/p7-autopilot-guard.test.mjs"
+    ],
+    "count_qualification": "Accepted CB1 historical1195/234.153s is separate combined guard plus gekta-recovery-scope selector(121+1074), not current guard-only completion. Current artifact has no completed count. Historical timing does not guarantee300s sufficiency.",
+    "unchanged_input_pins": {
+      ".github/workflows/production-like-kubernetes-acceptance.yml": {
+        "bytes": 35609,
+        "sha256": "bf42b58b6476ed99d4e1f74af528bbd135251ade529eeb655b79f30ea852d104",
+        "blob": "13a7af11ef8b00f906e8c434b086c630422235be"
+      },
+      "scripts/p7-autopilot-guard.test.mjs": {
+        "bytes": 688753,
+        "sha256": "c1541092aff19bfe1df8e8d7b53658a7130f0508b7a6c9fb1b3cc17932b318e6",
+        "blob": "96e10ffa0a9709b5d6d5c4e6397cbd66d2bff6bc"
+      },
+      "scripts/p7-autopilot-guard.sh": {
+        "bytes": 219984,
+        "sha256": "59bb086b9a5720b3fb44d745c301092bb6316be062d8f3e4763023ae0167e141",
+        "blob": "600cc95e8a58a2a2beb5720fed31c9cadbc1cee9"
+      },
+      "scripts/p7-source-controlled-scope.mjs": {
+        "bytes": 5678,
+        "sha256": "e1716a4bdf7181ea5a3703ff88c8a787a2e90afcf85f13a467125bb32c661596",
+        "blob": "eb2230c0c07ab3b29601c12b934df1f8b34bc101"
+      }
+    },
+    "no_waiver": "Actual54 source-only CLEAN and genuine nativeIR20PG6 PASS remain valid within scope, but cannot erase this red mandatory preflight or authorize merge/retry."
+  },
+  "current_budget": {
+    "owned_refs": [
+      "fix/public-registration-final-copy-4916",
+      "fix/guard-fixture-compression-20261028",
+      "product/r1-role-mode-consumer-20260921"
+    ],
+    "same_nonempty_repository_required": true,
+    "IR20_ref_matches": false,
+    "actual_guard_seconds": 180,
+    "actual_outer_seconds": 195,
+    "owned_guard_seconds": 300,
+    "owned_outer_seconds": 315,
+    "branch_scope_seconds": 180,
+    "branch_outer_seconds": 195,
+    "kill_after_seconds": 5,
+    "source_job_minutes": 8,
+    "runtime_job_minutes": 300
+  },
+  "governing_CB1": {
+    "path": "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+    "line": 2450,
+    "heading": "CB1 exact PRODUCT source-preflight capacity prerequisite",
+    "block_bytes": 58326,
+    "block_sha256": "06874745c1c952b074af371e735729b7a8a73ebd31d0437bb54d2e088b7cd1ed",
+    "purposeId": "CB1-exact-product-guard-source-preflight-capacity",
+    "sourceBranch": "fix/guard-fixture-compression-20261028",
+    "beneficiaryBranch": "product/r1-role-mode-consumer-20260921",
+    "frozen_workflow_after_blob": "13a7af11ef8b00f906e8c434b086c630422235be",
+    "frozen_workflow_after_SHA256": "bf42b58b6476ed99d4e1f74af528bbd135251ade529eeb655b79f30ea852d104",
+    "actual_current_workflow_matches_frozen_after": true,
+    "explicit_text": [
+      "Only exact PRODUCT same-repository ref joins the existing bounded300/315 guard resource class.",
+      "do not publish before separate metadata acceptance.",
+      "Separately accept exact5GOV metadata. Then publish only frozenoneYAML"
+    ]
+  },
+  "scope_assessment": {
+    "existing_path_vector": [
+      ".github/workflows/production-like-kubernetes-acceptance.yml"
+    ],
+    "interpretation": "The one-file vector is active, but accepted CB1 is an exact beneficiary/payload purpose. Adding IR20 changes its frozen purpose and after blob. One-file path-guard PASS does not extend the accepted PRODUCT-only decision. A new explicit bounded purpose/pin metadata amendment is required before CI source publication; CB1 does not already cover this beneficiary.",
+    "scope_expansion_needed": false,
+    "new_exact_purpose_before_publication_needed": true,
+    "qualification": "No empty-scope reactivation is needed: path already admitted. Retain oldCB1/payload/history and record the new concrete reviewed source/purpose through the minimum governance amendment; preserve caps/owners/PRIMARY/CORE/PRODUCT/official5."
+  },
+  "narrow_next_step": [
+    "Prepare one existing-workflow-only candidate adding exactly the same-repository IR20 branch to existing300/315 guard class. Extend exact-name/fork/missing-identity/near-name and guard/outer/branch timeout/artifact matrices. No numeric-bound/test-selector/source/skip/shard/assertion/cache-PASS/runtime/hosting changes.",
+    "Independently review complete one-file payload; separately accept new exact purpose/pins through actual metadata/owner/native/security/readiness/manual gates before source publication. Preserve original owned ref history with ordinary nonforce update; source needs fresh actual review/native gates.",
+    "After CI source acceptance, recompose unchanged fourIR20 source afters on accepted main to avoid reverting new workflow/governance. Require fresh actual whole4 review/owner audit, genuinely new full source-preflight completion plus PG6/K8/runtime/evidence/cleanup/security/readiness/manual acceptance.",
+    "Retain54/preflightFAIL and earlier timeouts. A new300s timeout remains failure. No unchanged failed-head rerun, status rewrite or product/host acceptance inferred."
+  ],
+  "limitations": [
+    "No candidate implementation, timeout/test/source/ref/public/host mutation by reviewer.",
+    "Current run/jobs/log/artifact and all1346 source bytes independently verified. Historical CB1 comparisons read as accepted records; old native logs not independently refetched in this assessment.",
+    "No fullIR20/runtime/backup/registration/13cabinets/BANK/FGIS/MASTER credit or guaranteed300s success."
+  ]
+}
+
+```
