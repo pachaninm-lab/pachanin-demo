@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Bounded, read-only REG.RU inventory. A collection result NEVER authorizes release.
 
-Only Docker inspection, bounded Compose config rendering, READ ONLY metadata
-transactions, local Caddy configuration GET and filesystem metadata are used. Raw configuration, stderr, credentials,
+The default host mode uses only Docker inspection, bounded Compose config rendering, READ ONLY metadata
+transactions, local Caddy configuration GET and filesystem metadata. Raw configuration, stderr, credentials,
 addresses, protected paths and customer records are never emitted.
+The separate PR-only publication mode reads pinned registry metadata, never layers or a host.
 """
 from __future__ import annotations
 import datetime as dt
+import base64
 import hashlib
 import ipaddress
 import json
@@ -20,6 +22,8 @@ import stat
 import subprocess
 import sys
 import urllib.request
+import urllib.error
+import urllib.parse
 from typing import Any
 
 SHA = re.compile(r"[0-9a-f]{40}\Z")
@@ -1055,7 +1059,269 @@ def collect(target: str) -> dict[str, Any]:
     return result
 
 
+PUBLICATION = {
+    'repository': 'pachaninm-lab/grainflow-api',
+    'source_sha': 'a6784252a57a8a5e14f231bc18a64d67ab0fd274',
+    'index': 'sha256:9f9095cfdb1c007f62c2eed8c35850c3248d047a4cad440af96a38438469f6e5',
+    'manifest': 'sha256:45e109ea493164683c8f717f5e095bd2771dfa1f562c168cc2dd8c920ef73365',
+    'config': 'sha256:b7fb48be36e4254d13daa21a56504170b784d6b28ea0b2256b937fdf427109bf',
+}
+OCI_INDEX = 'application/vnd.oci.image.index.v1+json'
+OCI_MANIFEST = 'application/vnd.oci.image.manifest.v1+json'
+OCI_CONFIG = 'application/vnd.oci.image.config.v1+json'
+PUBLICATION_MAX_BYTES = 512 * 1024
+PUBLICATION_MAX_TOTAL = 2 * 1024 * 1024
+PUBLICATION_SECONDS = 60
+
+
+def publication_json(raw: bytes) -> dict[str, Any]:
+    def pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
+        value: dict[str, Any] = {}
+        for key, item in items:
+            if key in value:
+                raise ValueError('PUBLICATION_JSON')
+            value[key] = item
+        return value
+    def nonfinite(_: str) -> None:
+        raise ValueError('PUBLICATION_JSON')
+    if not isinstance(raw, bytes) or not 0 < len(raw) <= PUBLICATION_MAX_BYTES:
+        raise ValueError('PUBLICATION_BOUNDS')
+    try:
+        value = json.loads(raw.decode('utf-8', errors='strict'), object_pairs_hook=pairs,
+                           parse_constant=nonfinite)
+    except (UnicodeError, ValueError, RecursionError):
+        raise ValueError('PUBLICATION_JSON') from None
+    if not isinstance(value, dict):
+        raise ValueError('PUBLICATION_JSON')
+    return value
+
+
+def publication_digest(raw: bytes, expected: str) -> dict[str, Any]:
+    if not isinstance(raw, bytes) or 'sha256:' + hashlib.sha256(raw).hexdigest() != expected:
+        raise ValueError('PUBLICATION_DIGEST')
+    return publication_json(raw)
+
+
+def verify_publication_documents(index_raw: bytes, manifest_raw: bytes,
+                                 config_raw: bytes) -> dict[str, Any]:
+    """Verify pinned metadata only. No image layers or installed code are read."""
+    index = publication_digest(index_raw, PUBLICATION['index'])
+    manifest = publication_digest(manifest_raw, PUBLICATION['manifest'])
+    config = publication_digest(config_raw, PUBLICATION['config'])
+    if type(index.get('schemaVersion')) is not int or index['schemaVersion'] != 2 or index.get('mediaType') != OCI_INDEX:
+        raise ValueError('PUBLICATION_INDEX')
+    descriptors = index.get('manifests')
+    if not isinstance(descriptors, list) or not 0 < len(descriptors) <= 16:
+        raise ValueError('PUBLICATION_INDEX')
+    candidates = [d for d in descriptors if isinstance(d, dict) and d.get('digest') == PUBLICATION['manifest']]
+    if len(candidates) != 1:
+        raise ValueError('PUBLICATION_PLATFORM')
+    selected = candidates[0]
+    platform = selected.get('platform')
+    if (not isinstance(platform, dict) or platform.get('os') != 'linux' or platform.get('architecture') != 'amd64'
+            or platform.get('variant') not in (None, '') or selected.get('mediaType') != OCI_MANIFEST
+            or type(selected.get('size')) is not int or selected['size'] != len(manifest_raw)):
+        raise ValueError('PUBLICATION_PLATFORM')
+    descriptor = manifest.get('config')
+    if (type(manifest.get('schemaVersion')) is not int or manifest['schemaVersion'] != 2 or manifest.get('mediaType') != OCI_MANIFEST
+            or not isinstance(descriptor, dict) or descriptor.get('mediaType') != OCI_CONFIG
+            or descriptor.get('digest') != PUBLICATION['config']
+            or type(descriptor.get('size')) is not int or descriptor['size'] != len(config_raw)):
+        raise ValueError('PUBLICATION_CONFIG')
+    layers = manifest.get('layers')
+    if not isinstance(layers, list) or not 0 < len(layers) <= 128:
+        raise ValueError('PUBLICATION_LAYERS')
+    total = 0
+    for layer in layers:
+        if (not isinstance(layer, dict) or not isinstance(layer.get('digest'), str)
+                or not re.fullmatch(r'sha256:[0-9a-f]{64}', layer['digest'])
+                or type(layer.get('size')) is not int or not 0 < layer['size'] <= 1024**3
+                or layer.get('mediaType') not in ('application/vnd.oci.image.layer.v1.tar+gzip',
+                                                'application/vnd.oci.image.layer.v1.tar')):
+            raise ValueError('PUBLICATION_LAYERS')
+        total += layer['size']
+    if total > 4 * 1024**3:
+        raise ValueError('PUBLICATION_LAYERS')
+    rootfs = config.get('rootfs')
+    image_config = config.get('config')
+    labels = image_config.get('Labels') if isinstance(image_config, dict) else None
+    if (config.get('os') != 'linux' or config.get('architecture') != 'amd64'
+            or not isinstance(labels, dict) or labels.get('org.opencontainers.image.revision') != PUBLICATION['source_sha']
+            or labels.get('org.opencontainers.image.source') != 'https://github.com/pachaninm-lab/pachanin-demo'
+            or not isinstance(rootfs, dict) or rootfs.get('type') != 'layers'):
+        raise ValueError('PUBLICATION_REVISION')
+    diff_ids = rootfs.get('diff_ids')
+    if (not isinstance(diff_ids, list) or len(diff_ids) != len(layers)
+            or any(not isinstance(d, str) or not re.fullmatch(r'sha256:[0-9a-f]{64}', d) for d in diff_ids)):
+        raise ValueError('PUBLICATION_ROOTFS')
+    # Never export arbitrary labels, environment, history, URLs or registry output.
+    return {
+        'schema': 'pc-crop.api-publication-baseline.v1',
+        'status': 'PINNED_METADATA_VERIFIED',
+        'source_sha': PUBLICATION['source_sha'],
+        'index_digest': PUBLICATION['index'],
+        'manifest_digest': PUBLICATION['manifest'],
+        'image_config_digest': PUBLICATION['config'],
+        'platform': 'linux/amd64',
+        'layer_count': len(layers),
+        'declared_layer_bytes': total,
+        'layer_contents': 'NOT_DOWNLOADED',
+        'installed_code': 'NOT_INSPECTED',
+        'host_binding': 'NOT_PERFORMED',
+        'registration_binding': 'NOT_PERFORMED',
+        'production_mutation': 'NONE',
+        'deployment_authorized': False,
+    }
+
+
+def publication_get(url: str, authorization: str, deadline: float,
+                    opener: Any, budget: list[int], *, max_bytes: int = PUBLICATION_MAX_BYTES,
+                    allow_blob_redirect: bool = False) -> bytes:
+    """Bounded GET; fixed registry origin or credential-free GitHub blob redirect."""
+    # The authenticated fixed config endpoint supplies a storage location.
+    # Its bounded namespace is transport policy; the pinned response-byte SHA
+    # below is the resource identity. Storage object names need not be digests.
+    if allow_blob_redirect and url != ('https://ghcr.io/v2/' + PUBLICATION['repository'] + '/blobs/' + PUBLICATION['config']):
+        raise ValueError('PUBLICATION_ORIGIN')
+    for redirect in range(3):
+        if (not isinstance(url, str) or not 0 < len(url) <= 8192
+                or any(not 33 <= ord(char) <= 126 for char in url)):
+            raise ValueError('PUBLICATION_REDIRECT')
+        parsed = urllib.parse.urlsplit(url)
+        registry = parsed.hostname == 'ghcr.io'
+        storage = parsed.hostname == 'pkg-containers.githubusercontent.com'
+        if (len(url) > 8192 or parsed.scheme != 'https' or parsed.port not in (None, 443)
+                or parsed.username is not None or parsed.password is not None or parsed.fragment
+                or (not registry and not (allow_blob_redirect and storage))):
+            raise ValueError('PUBLICATION_ORIGIN')
+        if storage:
+            # Decode once for this bounded path policy, without rewriting the
+            # signed URL or asserting general URI equivalence. Byte-digest
+            # verification remains mandatory before any document is admitted.
+            if not 1 < len(parsed.path) <= 2048:
+                raise ValueError('PUBLICATION_STORAGE_LENGTH')
+            if re.search(r'%(?![0-9A-Fa-f]{2})', parsed.path):
+                raise ValueError('PUBLICATION_STORAGE_ENCODING')
+            try:
+                storage_path = urllib.parse.unquote_to_bytes(parsed.path).decode('ascii', errors='strict')
+            except UnicodeError:
+                raise ValueError('PUBLICATION_STORAGE_ENCODING') from None
+            if '%' in storage_path:
+                raise ValueError('PUBLICATION_STORAGE_ENCODING')
+            if not 1 < len(storage_path) <= 2048:
+                raise ValueError('PUBLICATION_STORAGE_LENGTH')
+            # Storage layout is opaque. The fixed origin and content digest,
+            # rather than a guessed pool/filename, bind the returned resource.
+            if not re.fullmatch(r"/[A-Za-z0-9._~!$&'()*+,;=:@/-]+", storage_path):
+                raise ValueError('PUBLICATION_STORAGE_PATH')
+            segments = storage_path[1:].split('/')
+            if len(segments) > 32 or any(part in ('', '.', '..') for part in segments):
+                raise ValueError('PUBLICATION_STORAGE_SEGMENTS')
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise ValueError('PUBLICATION_TIMEOUT')
+        headers = {'Accept': OCI_INDEX + ', ' + OCI_MANIFEST + ', ' + OCI_CONFIG}
+        if registry:
+            headers['Authorization'] = authorization
+        request = urllib.request.Request(url, headers=headers, method='GET')
+        budget[1] += 1
+        if budget[1] > 8:
+            raise ValueError('PUBLICATION_BOUNDS')
+        try:
+            response = opener.open(request, timeout=min(5, remaining))
+        except urllib.error.HTTPError as error:
+            if allow_blob_redirect and error.code in (301, 302, 303, 307, 308) and redirect < 2:
+                location = error.headers.get('Location', '')
+                error.close()
+                # Registry credentials never follow a redirect, even to the registry.
+                authorization = ''
+                # Do not let URL resolution erase raw controls or dot segments.
+                # Cross-origin absolute and scheme-relative HTTPS locations
+                # preserve their signed path/query; relative paths are denied.
+                if (not isinstance(location, str) or not 0 < len(location) <= 8192
+                        or any(not 33 <= ord(char) <= 126 for char in location)):
+                    raise ValueError('PUBLICATION_REDIRECT') from None
+                if location.startswith('https://'):
+                    url = location
+                elif location.startswith('//'):
+                    url = 'https:' + location
+                else:
+                    raise ValueError('PUBLICATION_ORIGIN') from None
+                if urllib.parse.urlsplit(url).hostname != 'pkg-containers.githubusercontent.com':
+                    raise ValueError('PUBLICATION_ORIGIN') from None
+                continue
+            error.close()
+            raise ValueError('PUBLICATION_AUTHORIZATION' if error.code in (401, 403) else 'PUBLICATION_HTTP') from None
+        with response:
+            if response.status != 200 or response.geturl() != url:
+                raise ValueError('PUBLICATION_HTTP')
+            length = response.headers.get('Content-Length')
+            if length is not None and (not length.isascii() or not length.isdigit() or int(length) > max_bytes):
+                raise ValueError('PUBLICATION_BOUNDS')
+            chunks = []
+            size = 0
+            while True:
+                if time.monotonic() >= deadline:
+                    raise ValueError('PUBLICATION_TIMEOUT')
+                chunk = response.read1(min(16384, max_bytes + 1 - size))
+                if not chunk:
+                    break
+                size += len(chunk)
+                budget[0] += len(chunk)
+                if size > max_bytes or budget[0] > PUBLICATION_MAX_TOTAL:
+                    raise ValueError('PUBLICATION_BOUNDS')
+                chunks.append(chunk)
+            if not size:
+                raise ValueError('PUBLICATION_BOUNDS')
+            return b''.join(chunks)
+    raise ValueError('PUBLICATION_HTTP')
+
+
+def published_api_baseline() -> dict[str, Any]:
+    # A separate same-repository PR runner, never the issue-command host collector.
+    required = {'GITHUB_ACTIONS': 'true', 'GITHUB_EVENT_NAME': 'pull_request',
+                'GITHUB_REPOSITORY': 'pachaninm-lab/pachanin-demo',
+                'GITHUB_HEAD_REF': 'ops/farmer-market-release-preflight-20260916'}
+    if any(os.environ.get(key) != value for key, value in required.items()):
+        raise ValueError('PUBLICATION_RUNNER_ONLY')
+    actor, token = os.environ.get('GITHUB_ACTOR', ''), os.environ.get('GH_TOKEN', '')
+    producer = os.environ.get('GITHUB_SHA', '')
+    if not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', actor) or not token or len(token) > 2048 or not SHA.fullmatch(producer):
+        raise ValueError('PUBLICATION_RUNNER_ONLY')
+    deadline, budget = time.monotonic() + PUBLICATION_SECONDS, [0, 0]
+    opener = urllib.request.build_opener(NoRedirect())
+    basic = 'Basic ' + base64.b64encode((actor + ':' + token).encode()).decode('ascii')
+    token_url = 'https://ghcr.io/token?' + urllib.parse.urlencode({
+        'service': 'ghcr.io', 'scope': 'repository:' + PUBLICATION['repository'] + ':pull'})
+    auth = publication_json(publication_get(token_url, basic, deadline, opener, budget, max_bytes=65536)).get('token')
+    if not isinstance(auth, str) or not 0 < len(auth) <= 20000 or not re.fullmatch(r'[!-~]+', auth):
+        raise ValueError('PUBLICATION_AUTH')
+    bearer = 'Bearer ' + auth
+    prefix = 'https://ghcr.io/v2/' + PUBLICATION['repository'] + '/'
+    index = publication_get(prefix + 'manifests/' + PUBLICATION['index'], bearer, deadline, opener, budget)
+    manifest = publication_get(prefix + 'manifests/' + PUBLICATION['manifest'], bearer, deadline, opener, budget)
+    config = publication_get(prefix + 'blobs/' + PUBLICATION['config'], bearer, deadline, opener, budget,
+                             allow_blob_redirect=True)
+    result = verify_publication_documents(index, manifest, config)
+    result['producer_actions_sha'] = producer
+    result['producer_source_sha256'] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    return result
+
+
 def main() -> None:
+    if sys.argv[1:] == ['--published-api-baseline']:
+        try:
+            print(json.dumps(published_api_baseline(), sort_keys=True, separators=(',', ':')))
+        except Exception as error:
+            safe = {'PUBLICATION_' + name for name in ('AUTH', 'AUTHORIZATION', 'BOUNDS', 'CONFIG', 'DIGEST',
+                    'HTTP', 'INDEX', 'JSON', 'LAYERS', 'ORIGIN', 'PLATFORM', 'REDIRECT', 'REVISION', 'ROOTFS', 'RUNNER_ONLY',
+                    'STORAGE_PATH', 'STORAGE_ENCODING', 'STORAGE_LENGTH', 'STORAGE_SEGMENTS', 'TIMEOUT')}
+            code = str(error) if type(error) is ValueError and str(error) in safe else 'PUBLICATION_UNAVAILABLE'
+            print(json.dumps({'schema': 'pc-crop.api-publication-baseline.v1', 'status': 'NOT_PROVEN',
+                              'failure': code, 'host_binding': 'NOT_PERFORMED',
+                              'production_mutation': 'NONE', 'deployment_authorized': False}, sort_keys=True))
+            raise SystemExit(1)
+        return
     try:
         value = collect(sys.argv[1] if len(sys.argv) == 2 else '')
         encoded = json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(',', ':'))

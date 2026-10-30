@@ -986,5 +986,269 @@ class RegistrationPreconditions(unittest.TestCase):
         with self.assertRaises(ValueError):m.validate_report(old,SHA)
 
 
+class Publication(unittest.TestCase):
+    def fixture(self, *, edit_config=None, edit_manifest=None, edit_index=None):
+        encode=lambda d: json.dumps(d,separators=(',',':')).encode()
+        digest=lambda b:'sha256:'+m.hashlib.sha256(b).hexdigest()
+        config={'os':'linux','architecture':'amd64','rootfs':{'type':'layers','diff_ids':['sha256:'+'a'*64]},
+                'config':{'Labels':{'org.opencontainers.image.revision':m.PUBLICATION['source_sha'],
+                 'org.opencontainers.image.source':'https://github.com/pachaninm-lab/pachanin-demo',
+                 'private':'DO_NOT_EXPORT'},'Env':['PRIVATE=DO_NOT_EXPORT']}}
+        if edit_config:edit_config(config)
+        cr=encode(config)
+        manifest={'schemaVersion':2,'mediaType':m.OCI_MANIFEST,
+                  'config':{'mediaType':m.OCI_CONFIG,'digest':digest(cr),'size':len(cr)},
+                  'layers':[{'mediaType':'application/vnd.oci.image.layer.v1.tar+gzip','digest':'sha256:'+'b'*64,'size':123}]}
+        if edit_manifest:edit_manifest(manifest)
+        mr=encode(manifest)
+        index={'schemaVersion':2,'mediaType':m.OCI_INDEX,'manifests':[{'mediaType':m.OCI_MANIFEST,
+               'digest':digest(mr),'size':len(mr),'platform':{'os':'linux','architecture':'amd64'}}]}
+        if edit_index:edit_index(index)
+        ir=encode(index)
+        return {**m.PUBLICATION,'index':digest(ir),'manifest':digest(mr),'config':digest(cr)},(ir,mr,cr)
+
+    def verify(self,**changes):
+        pins,docs=self.fixture(**changes)
+        with patch.dict(m.PUBLICATION,pins,clear=True):return m.verify_publication_documents(*docs)
+
+    def test_valid_metadata_cannot_claim_host_registration_or_code_proof(self):
+        v=self.verify();self.assertEqual(v['status'],'PINNED_METADATA_VERIFIED')
+        for key in ('host_binding','registration_binding'):self.assertEqual(v[key],'NOT_PERFORMED')
+        self.assertEqual(v['installed_code'],'NOT_INSPECTED');self.assertEqual(v['layer_contents'],'NOT_DOWNLOADED')
+        self.assertFalse(v['deployment_authorized']);self.assertNotIn('DO_NOT_EXPORT',json.dumps(v))
+        self.assertEqual(set(v),{'schema','status','source_sha','index_digest','manifest_digest','image_config_digest',
+            'platform','layer_count','declared_layer_bytes','layer_contents','installed_code','host_binding',
+            'registration_binding','production_mutation','deployment_authorized'})
+
+    def test_each_exact_response_digest_is_required(self):
+        pins,docs=self.fixture()
+        with patch.dict(m.PUBLICATION,pins,clear=True):
+            for i in range(3):
+                changed=list(docs);changed[i]+=b' '
+                with self.subTest(i=i),self.assertRaisesRegex(ValueError,'PUBLICATION_DIGEST'):
+                    m.verify_publication_documents(*changed)
+
+    def test_descriptor_platform_count_size_type_and_digest_tampering(self):
+        cases=[('edit_index',lambda d:d['manifests'][0]['platform'].update(architecture='arm64')),
+          ('edit_index',lambda d:d['manifests'][0].update(size=1)),
+          ('edit_index',lambda d:d['manifests'].append(copy.deepcopy(d['manifests'][0]))),
+          ('edit_index',lambda d:d.update(schemaVersion=2.0)),
+          ('edit_manifest',lambda d:d['config'].update(digest='sha256:'+'c'*64)),
+          ('edit_manifest',lambda d:d['config'].update(size=False)),
+          ('edit_manifest',lambda d:d['config'].update(mediaType='other')),
+          ('edit_manifest',lambda d:d.update(layers=[])),
+          ('edit_manifest',lambda d:d['layers'][0].update(size=-1)),
+          ('edit_manifest',lambda d:d['layers'][0].update(size=2**31)),
+          ('edit_manifest',lambda d:d['layers'][0].update(digest='PRIVATE'))]
+        for key,edit in cases:
+            with self.subTest(key=key,edit=edit),self.assertRaises(ValueError):self.verify(**{key:edit})
+
+    def test_wrong_revision_source_architecture_or_rootfs_rejected(self):
+        edits=[lambda d:d.update(os='other'),lambda d:d.update(architecture='arm64'),
+          lambda d:d['config']['Labels'].update({'org.opencontainers.image.revision':'c'*40}),
+          lambda d:d['config']['Labels'].update({'org.opencontainers.image.source':'https://other.invalid'}),
+          lambda d:d['rootfs'].update(type='other'),lambda d:d['rootfs'].update(diff_ids=[]),
+          lambda d:d['rootfs'].update(diff_ids=['PRIVATE'])]
+        for edit in edits:
+            with self.subTest(edit=edit),self.assertRaises(ValueError):self.verify(edit_config=edit)
+
+    def test_strict_json_rejects_duplicates_nonfinite_invalid_utf8_and_overflow(self):
+        for raw in (b'',b'{"x":1,"x":2}',b'{"x":NaN}',b'{"x":Infinity}',b'[]',b'\xff',b' '*(m.PUBLICATION_MAX_BYTES+1)):
+            with self.subTest(raw=raw[:25]),self.assertRaises(ValueError):m.publication_json(raw)
+
+    class Response:
+        status=200
+        def __init__(self,url,data=b'{}',headers=None):self.url,self.data,self.headers=url,data,headers or {}
+        def geturl(self):return self.url
+        def read1(self,size):v,self.data=self.data[:size],self.data[size:];return v
+        def __enter__(self):return self
+        def __exit__(self,*_):pass
+    class Opener:
+        def __init__(self,responses):self.responses,self.requests=iter(responses),[]
+        def open(self,request,timeout):
+            self.requests.append((request,timeout));v=next(self.responses)
+            if isinstance(v,Exception):raise v
+            return v
+    def get(self,url=None,*,responses=None,budget=None,**options):
+        url=url or 'https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        opener=self.Opener(responses or [self.Response(url)])
+        value=m.publication_get(url,'Bearer PRIVATE',m.time.monotonic()+60,opener,
+                               [0,0] if budget is None else budget,**options)
+        return value,opener
+
+    def test_only_fixed_https_origins_are_requested(self):
+        for url in ('http://ghcr.io/x','https://ghcr.io.evil.invalid/x','https://user:secret@ghcr.io/x',
+                    'https://ghcr.io:444/x','https://ghcr.io/x#secret','file:///secret',
+                    'https://pkg-containers.githubusercontent.com/other/path'):
+            with self.subTest(url=url),self.assertRaises(ValueError):self.get(url)
+
+    def test_exact_config_colon_and_slash_paths_strip_authorization(self):
+        url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        for path in (m.PUBLICATION['config'],m.PUBLICATION['config'].replace(':','/')):
+            target='https://pkg-containers.githubusercontent.com/ghcr1/blobs/'+path+'?PRIVATE=secret'
+            e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
+            value,opener=self.get(url,responses=[e,self.Response(target)],allow_blob_redirect=True)
+            self.assertEqual(value,b'{}');self.assertEqual(len(opener.requests),2)
+            self.assertEqual(opener.requests[0][0].get_header('Authorization'),'Bearer PRIVATE')
+            self.assertIsNone(opener.requests[1][0].get_header('Authorization'))
+            self.assertTrue(all(r.get_method()=='GET' and 0<t<=5 for r,t in opener.requests))
+
+    def test_storage_path_rejects_traversal_controls_and_unbounded_envelope(self):
+        url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        for path in ('sha256/'+ 'a'*2049,'../'+m.PUBLICATION['config'],m.PUBLICATION['config'].replace(':','%253A'),
+                     'sha256/../'+m.PUBLICATION['config'],'object%00','object%5Cfile','a//b','a/./b',
+                     'a/'*33+'object'):
+            target='https://pkg-containers.githubusercontent.com/ghcr1/blobs/'+path
+            e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
+            with self.subTest(path=path),self.assertRaisesRegex(ValueError,'PUBLICATION_STORAGE_'):
+                self.get(url,responses=[e,self.Response(target)],allow_blob_redirect=True)
+
+    def test_uri_decoding_is_path_policy_and_keeps_the_signed_url(self):
+        url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        exact='/ghcr1/blobs/'+m.PUBLICATION['config']
+        paths=(exact.replace(':','%3A'),exact.replace(':','%3a'),exact.replace('/blobs/','/blobs%2F'),
+               exact.replace('b','%62'))
+        for path in paths:
+            target='https://pkg-containers.githubusercontent.com'+path+'?PRIVATE=secret'
+            e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
+            value,opener=self.get(url,responses=[e,self.Response(target)],allow_blob_redirect=True)
+            self.assertEqual(value,b'{}');self.assertEqual(opener.requests[1][0].full_url,target)
+            self.assertIsNone(opener.requests[1][0].get_header('Authorization'))
+        for path in (exact.replace(':','%253A'),exact+'%',exact+'%zz',
+                     '/ghcr1/blobs/%2e%2e/'+m.PUBLICATION['config'],exact+'%00',exact+'%FF'):
+            target='https://pkg-containers.githubusercontent.com'+path
+            e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
+            with self.subTest(path=path),self.assertRaisesRegex(ValueError,'PUBLICATION_STORAGE_'):
+                self.get(url,responses=[e,self.Response(target)],allow_blob_redirect=True)
+
+    def test_storage_failure_taxonomy_is_bounded_and_contains_no_location(self):
+        url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        for path,code in (('/'+'a'*2049,'LENGTH'),('/bad%zz','ENCODING'),('/double%253A','ENCODING'),
+                          ('/bad%FF','ENCODING'),('/bad%00','PATH'),('/bad%5Cfile','PATH'),
+                          ('/a/../b','SEGMENTS'),('/a//b','SEGMENTS'),('/'+'a/'*33+'b','SEGMENTS')):
+            target='https://pkg-containers.githubusercontent.com'+path+'?PRIVATE=secret'
+            e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
+            with self.subTest(code=code),self.assertRaisesRegex(ValueError,'^PUBLICATION_STORAGE_'+code+'$'):
+                self.get(url,responses=[e,self.Response(target)],allow_blob_redirect=True)
+
+    def test_unreviewed_redirect_or_token_redirect_is_rejected(self):
+        url='https://ghcr.io/token'
+        for allowed,target in ((False,'https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256/a'),
+            (True,'https://evil.invalid/ghcr1/blobs/sha256/a'),(True,'https://ghcr.io/unreviewed')):
+            e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
+            with self.subTest(target=target),self.assertRaises(ValueError):self.get(url,responses=[e],allow_blob_redirect=allowed)
+
+    def test_body_total_request_and_deadline_limits(self):
+        url='https://ghcr.io/token'
+        cases=[{'responses':[self.Response(url,b'x'*11)],'max_bytes':10},
+               {'responses':[self.Response(url,headers={'Content-Length':str(m.PUBLICATION_MAX_BYTES+1)})]},
+               {'responses':[self.Response(url,b'')]},{'budget':[m.PUBLICATION_MAX_TOTAL,0]},{'budget':[0,8]}]
+        for options in cases:
+            with self.subTest(options=list(options)),self.assertRaises(ValueError):self.get(url,**options)
+        with self.assertRaisesRegex(ValueError,'PUBLICATION_TIMEOUT'):
+            m.publication_get(url,'PRIVATE',m.time.monotonic()-1,self.Opener([]),[0,0])
+
+    def test_raw_redirect_controls_and_relative_resolution_never_issue_a_get(self):
+        url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        good='https://pkg-containers.githubusercontent.com/opaque/object?PRIVATE=secret'
+        locations=(good.replace('/opaque','/opa\nque'),good+'\r',good+'\t',good+' ',
+                   '../config','/a/../config','https://pkg-containers.githubusercontent.com/a/../config',
+                   '//pkg-containers.githubusercontent.com/a/./config',
+                   'https://pkg-containers.githubusercontent.com/a/%2e%2e/config')
+        for location in locations:
+            opener=self.Opener([m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':location},None),
+                                self.Response(good)])
+            with self.subTest(location=repr(location)),self.assertRaises(ValueError):
+                m.publication_get(url,'Bearer PRIVATE',m.time.monotonic()+60,opener,[0,0],allow_blob_redirect=True)
+            self.assertEqual(len(opener.requests),1)
+        error=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':good},None)
+        later=m.urllib.error.HTTPError(good,307,'PRIVATE',{'Location':'../config'},None)
+        opener=self.Opener([error,later,self.Response('https://pkg-containers.githubusercontent.com/config')])
+        with self.assertRaises(ValueError):
+            m.publication_get(url,'Bearer PRIVATE',m.time.monotonic()+60,opener,[0,0],allow_blob_redirect=True)
+        self.assertEqual(len(opener.requests),2)
+        self.assertIsNone(opener.requests[-1][0].get_header('Authorization'))
+
+    def test_scheme_relative_storage_location_keeps_signed_path_and_query(self):
+        url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        location='//pkg-containers.githubusercontent.com/opaque/object?PRIVATE=secret'
+        e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':location},None)
+        data,opener=self.get(url,responses=[e,self.Response('https:'+location)],allow_blob_redirect=True)
+        self.assertEqual(data,b'{}');self.assertEqual(opener.requests[1][0].full_url,'https:'+location)
+        self.assertIsNone(opener.requests[1][0].get_header('Authorization'))
+
+    def test_http_challenge_and_automatic_redirect_never_followed(self):
+        url='https://ghcr.io/token'
+        e=m.urllib.error.HTTPError(url,401,'PRIVATE',{'WWW-Authenticate':'Bearer realm=https://evil.invalid'},None)
+        with self.assertRaisesRegex(ValueError,'PUBLICATION_AUTHORIZATION'):self.get(url,responses=[e])
+        with self.assertRaisesRegex(ValueError,'PUBLICATION_HTTP'):self.get(responses=[self.Response('https://evil.invalid')])
+
+    def test_issue_event_cannot_dispatch_runner_network(self):
+        with patch.dict(os.environ,{'GITHUB_EVENT_NAME':'issue_comment'},clear=True), \
+             patch.object(m,'collect') as collect,patch.object(m.urllib.request,'build_opener') as network:
+            with self.assertRaisesRegex(ValueError,'PUBLICATION_RUNNER_ONLY'):m.published_api_baseline()
+            collect.assert_not_called();network.assert_not_called()
+
+    def test_exact_runner_request_plan_and_producer_receipt(self):
+        pins,docs=self.fixture()
+        env={'GITHUB_ACTIONS':'true','GITHUB_EVENT_NAME':'pull_request','GITHUB_REPOSITORY':'pachaninm-lab/pachanin-demo',
+             'GITHUB_HEAD_REF':'ops/farmer-market-release-preflight-20260916','GITHUB_ACTOR':'pachaninm-lab',
+             'GH_TOKEN':'DO_NOT_EXPORT','GITHUB_SHA':'d'*40}
+        with patch.dict(m.PUBLICATION,pins,clear=True),patch.dict(os.environ,env,clear=True), \
+             patch.object(m,'publication_get',side_effect=[b'{"token":"PRIVATE_BEARER"}',*docs]) as fetch:
+            v=m.published_api_baseline()
+        calls=fetch.call_args_list;self.assertEqual(len(calls),4)
+        self.assertEqual(calls[0].args[0],'https://ghcr.io/token?service=ghcr.io&scope=repository%3Apachaninm-lab%2Fgrainflow-api%3Apull')
+        self.assertEqual(calls[0].kwargs,{'max_bytes':65536});self.assertTrue(calls[0].args[1].startswith('Basic '))
+        self.assertEqual(calls[1].args[1],'Bearer PRIVATE_BEARER');self.assertEqual(calls[3].kwargs,{'allow_blob_redirect':True})
+        self.assertEqual(v['producer_actions_sha'],'d'*40);self.assertEqual(v['producer_source_sha256'],m.hashlib.sha256(PATH.read_bytes()).hexdigest())
+        self.assertNotIn('PRIVATE',json.dumps(v));self.assertNotIn('DO_NOT_EXPORT',json.dumps(v))
+
+    def test_opaque_storage_name_still_requires_exact_config_bytes(self):
+        pins,docs=self.fixture()
+        env={'GITHUB_ACTIONS':'true','GITHUB_EVENT_NAME':'pull_request','GITHUB_REPOSITORY':'pachaninm-lab/pachanin-demo',
+             'GITHUB_HEAD_REF':'ops/farmer-market-release-preflight-20260916','GITHUB_ACTOR':'pachaninm-lab',
+             'GH_TOKEN':'DO_NOT_EXPORT','GITHUB_SHA':'d'*40}
+        token_url='https://ghcr.io/token?service=ghcr.io&scope=repository%3Apachaninm-lab%2Fgrainflow-api%3Apull'
+        prefix='https://ghcr.io/v2/'+pins['repository']+'/'
+        config_url=prefix+'blobs/'+pins['config']
+        target='https://pkg-containers.githubusercontent.com/opaque-pool/config-cache/opaque.storage_object?PRIVATE=secret'
+        for body in (docs[2],docs[2]+b' '):
+            responses=[self.Response(token_url,b'{"token":"PRIVATE_BEARER"}'),
+                self.Response(prefix+'manifests/'+pins['index'],docs[0]),
+                self.Response(prefix+'manifests/'+pins['manifest'],docs[1]),
+                m.urllib.error.HTTPError(config_url,307,'PRIVATE',{'Location':target},None),self.Response(target,body)]
+            opener=self.Opener(responses)
+            with patch.dict(m.PUBLICATION,pins,clear=True),patch.dict(os.environ,env,clear=True), \
+                 patch.object(m.urllib.request,'build_opener',return_value=opener):
+                if body==docs[2]:
+                    v=m.published_api_baseline();self.assertEqual(v['status'],'PINNED_METADATA_VERIFIED')
+                    self.assertNotIn('PRIVATE',json.dumps(v));self.assertEqual(v['host_binding'],'NOT_PERFORMED')
+                else:
+                    with self.assertRaisesRegex(ValueError,'PUBLICATION_DIGEST'):m.published_api_baseline()
+            self.assertEqual(len(opener.requests),5)
+            self.assertIsNone(opener.requests[-1][0].get_header('Authorization'))
+
+    def test_cli_failure_never_exports_error_or_calls_host(self):
+        import io,contextlib
+        out=io.StringIO()
+        with patch.object(sys,'argv',['collector','--published-api-baseline']), \
+             patch.object(m,'published_api_baseline',side_effect=RuntimeError('PRIVATE_SECRET')), \
+             patch.object(m,'collect') as collect,contextlib.redirect_stdout(out):
+            with self.assertRaises(SystemExit):m.main()
+        v=json.loads(out.getvalue());self.assertEqual(v['failure'],'PUBLICATION_UNAVAILABLE')
+        self.assertEqual(v['status'],'NOT_PROVEN');self.assertNotIn('PRIVATE',out.getvalue());collect.assert_not_called()
+
+    def test_workflow_has_isolated_pr_only_least_privilege_and_hard_deadline(self):
+        wf=(PATH.parents[1]/'.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml').read_text()
+        block=wf.split('\n  publication-baseline:\n',1)[1].split('\n  diagnostic:\n',1)[0]
+        for marker in ("github.event_name == 'pull_request'",'github.event.pull_request.head.repo.full_name == github.repository',
+            "github.head_ref == 'ops/farmer-market-release-preflight-20260916'",'packages: read',
+            'timeout --signal=TERM --kill-after=5s 75s','persist-credentials: false'):
+            self.assertIn(marker,block)
+        for forbidden in ('secrets.','ssh','issue_comment'):self.assertNotIn(forbidden,block)
+        self.assertEqual(wf.count('packages: read'),1)
+
+
 if __name__ == '__main__':
     unittest.main()
