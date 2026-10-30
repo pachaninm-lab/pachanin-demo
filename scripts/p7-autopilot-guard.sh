@@ -54,6 +54,115 @@ PRODUCT_DEAL_RUNTIME_BRANCH="ux/deal-runtime-unknown-20260929"
 PRODUCT_DEAL_RUNTIME_ADMISSION_BRANCH="governance/product-deal-runtime-admission-20260929"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
+# This retired companion has an existing six-path owner, but this new step
+# admits exactly one read-only contract. Enforce before generic branch routing.
+if [ "$CURRENT_BRANCH" = 'ops/production-stopped-runtime-headroom-20261022' ]; then
+  BASE_REF="$BASE_REF" HEAD_REF="$HEAD_REF" STATE_FILE="$STATE_FILE" node - <<'JS_HEADROOM_COMPANION_PINS'
+const { execFileSync } = require('node:child_process');
+const baseRef = process.env.BASE_REF;
+const stateFile = process.env.STATE_FILE;
+const branch = 'ops/production-stopped-runtime-headroom-20261022';
+function readImmutableState(ref) {
+  return execFileSync('git', ['show', `${ref}:${stateFile}`], { encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 + 1 });
+}
+let scopes;
+if (branch === 'ops/production-stopped-runtime-headroom-20261022' ||
+    (branch === 'fix/pc-crop-docker-headroom-rollover-4637' &&
+      execFileSync('git', ['show', `${baseRef}:docs/platform-v7/execution-queue.md`],
+        { encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 + 1 }).includes('\n## PC-CROP live Docker headroom native contract correction v3 — 2026-10-30\n\n```json\n'))) {
+  // Only separately accepted immutable base V3 metadata admits either exact stage.
+  // V2 explicitly replaces the accepted V1 guard phase for its unaccepted template-invalid SOURCE.
+  // The retained 20261011 phase below is unchanged when this marker is absent.
+  const { isDeepStrictEqual } = require('node:util');
+  const { createHash } = require('node:crypto');
+  const fail = code => { throw new Error('PC_CROP_LIVE_HEADROOM_SAFETY_SCOPE_' + code); };
+  const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 + 1 });
+  const read = (ref, file) => file === stateFile ? readImmutableState(ref) : git(['show', `${ref}:${file}`]);
+  const baseSha = git(['rev-parse', `${baseRef}^{commit}`]).trim();
+  const headRef = String(process.env.HEAD_REF || '').trim();
+  if (!headRef || git(['merge-base', baseRef, headRef]).trim() !== baseSha) fail('BASE_NOT_ANCESTOR');
+  const queuePath = 'docs/platform-v7/execution-queue.md';
+  const marker = '\n## PC-CROP live Docker headroom native contract correction v3 — 2026-10-30\n\n```json\n';
+  const parts = read(baseRef, queuePath).split(marker);
+  if (parts.length !== 2) fail('PURPOSE_NOT_UNIQUE');
+  const end = parts[1].indexOf('\n```\n');
+  if (end < 0) fail('PURPOSE_FORMAT');
+  let purpose;
+  try { purpose = JSON.parse(parts[1].slice(0, end)); } catch { fail('PURPOSE_FORMAT'); }
+  const sourceBranch = 'fix/pc-crop-docker-headroom-rollover-4637';
+  const originalScope = ['scripts/production-docker-headroom-recovery.sh', '.github/workflows/production-docker-headroom-recovery.yml',
+    'docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json'];
+  const sourcePayloads = [{"path":"scripts/production-docker-headroom-recovery.sh","mode":"100755","beforeBlob":"6bcee2671c9cd5a100d956c30734bc1bf42768af","afterBlob":"d9539026cc0f4ade08a7adcdd086eced7085c1f2","sha256":"d1c94dc50d66e79923425f9b078793c1b39540cb87e10095800fdc2fd1449618","bytes":27830},{"path":".github/workflows/production-docker-headroom-recovery.yml","mode":"100644","beforeBlob":"aa78eee35b3c6145cb4d875925036d8da9ebe449","afterBlob":"68eeba7446ec04da91facffcb2da81a64c90c706","sha256":"4fd3aa5e9e2333bea2f3ecf0ff05cdafd9f892d2291cf794ede8d6c7e8d876af","bytes":92348}];
+  const companionBranch = "ops/production-stopped-runtime-headroom-20261022";
+  const companionScope = ["scripts/production_stopped_runtime_headroom.py","scripts/test_production_stopped_runtime_headroom.py",".github/workflows/production-stopped-runtime-headroom.yml","docs/ops/production-stopped-runtime-headroom.md",".github/workflows/production-docker-headroom-recovery.yml",".github/workflows/production-docker-headroom-owner-push-once.yml"];
+  const companionPayloads = [{"path":".github/workflows/production-docker-headroom-owner-push-once.yml","mode":"100644","beforeBlob":"44ac362f0a8993e506739f237a4808355e0b1792","afterBlob":"5946380f33a50e4500d9ba95117bf2f5795c9d16","sha256":"c399d975c1ef639f21e8076c3a4878d23d0e5b734791ed45fe8ee16df8892943","bytes":18220}];
+  const payloads = branch === companionBranch ? companionPayloads : sourcePayloads;
+  const expectedFields = ['schemaVersion', 'purposeId', 'owner', 'sourceBranch', 'guardBranch', 'authorityBaseExactMain',
+    'sourcePayloads', 'guardPayloads', 'originalScope', 'sourcePatch', 'guardPatch', 'independentSourceReview',
+    'independentGuardReview', 'invariants', 'productionInvocationAuthorized', 'productionAcceptance', 'masterCredit',
+    'companionBranch', 'companionScope', 'companionPayloads', 'companionPatch', 'independentCompanionReview'];
+  if (!purpose || Array.isArray(purpose) || !isDeepStrictEqual(Object.keys(purpose).sort(), expectedFields.sort()) ||
+      purpose.schemaVersion !== 'pc.live-headroom-safety-admission.v2' ||
+      purpose.purposeId !== 'pc-crop-live-headroom-native-contracts-20261030-v3' || purpose.owner !== 'ACCOUNT_1_CORE' ||
+      purpose.sourceBranch !== sourceBranch || purpose.guardBranch !== 'governance/industrial-load-diagnostics-20260919' ||
+      purpose.authorityBaseExactMain !== '22faa5ec075a47e292b79373ff514e6b21eb4636' ||
+      purpose.productionInvocationAuthorized !== false || purpose.productionAcceptance !== false || purpose.masterCredit !== 0 ||
+      !isDeepStrictEqual(purpose.originalScope, originalScope) || !isDeepStrictEqual(purpose.sourcePayloads, sourcePayloads) ||
+      purpose.companionBranch !== companionBranch || !isDeepStrictEqual(purpose.companionScope, companionScope) ||
+      !isDeepStrictEqual(purpose.companionPayloads, companionPayloads)) fail('PURPOSE_IDENTITY');
+  try { execFileSync('git', ['merge-base', '--is-ancestor', purpose.authorityBaseExactMain, baseRef], { stdio: 'pipe' }); }
+  catch { fail('AUTHORITY_NOT_ANCESTOR'); }
+  const state = JSON.parse(readImmutableState(baseRef));
+  if (!isDeepStrictEqual(state.approvedConcurrentScopes?.[sourceBranch], originalScope)) fail('SOURCE_NOT_ADMITTED');
+  if (!isDeepStrictEqual(state.approvedConcurrentScopes?.[companionBranch], companionScope)) fail('COMPANION_NOT_ADMITTED');
+  if (readImmutableState(headRef) !== readImmutableState(baseRef) || read(headRef, queuePath) !== read(baseRef, queuePath)) fail('AUTHORITY_MUTATION');
+  const entry = (ref, file) => git(['ls-tree', ref, '--', file]).trim();
+  const exact = (ref, file, mode, sha) => {
+    if (!/^[0-9a-f]{40}$/.test(sha || '') || !['100644', '100755'].includes(mode) ||
+        entry(ref, file) !== `${mode} blob ${sha}\t${file}`) fail('BLOB_OR_MODE:' + file);
+  };
+  const manifest = originalScope[2];
+  for (const ref of [baseRef, headRef]) exact(ref, manifest, '100644', 'deb7672c69db09ab0b233cf011e79a904bc5f1a7');
+  if (branch === companionBranch) {
+    // The retired companion contract is accepted on unchanged legacy runtime first.
+    for (const item of sourcePayloads) for (const ref of [baseRef, headRef]) exact(ref, item.path, item.mode, item.beforeBlob);
+  } else {
+    // SOURCE cannot be admitted before its separate companion prerequisite.
+    for (const item of companionPayloads) for (const ref of [baseRef, headRef]) exact(ref, item.path, item.mode, item.afterBlob);
+  }
+  const guards = [['scripts/p7-autopilot-guard.sh', '100755'], ['scripts/p7-autopilot-guard.test.mjs', '100644'],
+    ['.github/workflows/platform-v7-autopilot-guard.yml', '100644']];
+  if (!Array.isArray(purpose.guardPayloads) || purpose.guardPayloads.length !== guards.length) fail('GUARD_PAYLOAD_IDENTITY');
+  for (const [i, [file, mode]] of guards.entries()) {
+    const item = purpose.guardPayloads[i];
+    if (!item || !isDeepStrictEqual(Object.keys(item).sort(), ['path', 'mode', 'beforeBlob', 'afterBlob', 'sha256', 'bytes'].sort()) ||
+        item.path !== file || item.mode !== mode || !/^[0-9a-f]{40}$/.test(item.beforeBlob || '') ||
+        !/^[0-9a-f]{64}$/.test(item.sha256 || '') || !Number.isSafeInteger(item.bytes) || item.bytes < 1 || item.bytes > 2 * 1024 * 1024) fail('GUARD_PAYLOAD_IDENTITY');
+    exact(baseRef, file, mode, item.afterBlob);
+    const bytes = execFileSync('git', ['show', `${baseRef}:${file}`], { maxBuffer: 2 * 1024 * 1024 });
+    if (bytes.length !== item.bytes || createHash('sha256').update(bytes).digest('hex') !== item.sha256) fail('GUARD_NOT_ACCEPTED');
+  }
+  const fields = git(['diff', '--raw', '--no-abbrev', '--no-renames', '-z', baseRef, headRef]).split('\0');
+  if (fields.pop() !== '' || fields.length !== payloads.length * 2) fail('EXACT_STAGE_PATHS_REQUIRED');
+  const expected = new Map(payloads.map(item => [item.path, item]));
+  for (let i = 0; i < fields.length; i += 2) {
+    const item = expected.get(fields[i + 1]);
+    if (!item || fields[i] !== `:${item.mode} ${item.mode} ${item.beforeBlob} ${item.afterBlob} M`) fail('SOURCE_PAYLOAD_OR_MODE');
+    exact(baseRef, item.path, item.mode, item.beforeBlob); exact(headRef, item.path, item.mode, item.afterBlob);
+    const bytes = execFileSync('git', ['show', `${headRef}:${item.path}`], { maxBuffer: 2 * 1024 * 1024 });
+    if (bytes.length !== item.bytes || createHash('sha256').update(bytes).digest('hex') !== item.sha256) fail('SOURCE_CONTENT');
+    expected.delete(item.path);
+  }
+  if (expected.size) fail('EXACT_STAGE_PATHS_REQUIRED');
+  scopes = payloads.map(item => item.path);
+}
+if (!Array.isArray(scopes) || scopes.length !== 1 || scopes[0] !== '.github/workflows/production-docker-headroom-owner-push-once.yml') {
+  throw new Error('PC_CROP_LIVE_HEADROOM_SAFETY_SCOPE_COMPANION_STAGE');
+}
+console.log('Companion exact accepted-base contract payload verified; no production invocation grant.');
+JS_HEADROOM_COMPANION_PINS
+fi
+
 # The stopped-copy executor is executable recovery authority. Its six source
 # objects must match a separate admission already present in the trusted base;
 # a manifest or admission supplied by the candidate cannot authorize itself.
@@ -707,10 +816,11 @@ const gektaRecoveryScopes = {
   ]
 };
 let scopes;
-if (branch === 'fix/pc-crop-docker-headroom-rollover-4637' &&
-    execFileSync('git', ['show', `${baseRef}:docs/platform-v7/execution-queue.md`],
-      { encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 + 1 }).includes('\n## PC-CROP live Docker headroom workflow template correction v2 — 2026-10-30\n\n```json\n')) {
-  // Only separately accepted immutable base metadata may select this phase.
+if (branch === 'ops/production-stopped-runtime-headroom-20261022' ||
+    (branch === 'fix/pc-crop-docker-headroom-rollover-4637' &&
+      execFileSync('git', ['show', `${baseRef}:docs/platform-v7/execution-queue.md`],
+        { encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 + 1 }).includes('\n## PC-CROP live Docker headroom native contract correction v3 — 2026-10-30\n\n```json\n'))) {
+  // Only separately accepted immutable base V3 metadata admits either exact stage.
   // V2 explicitly replaces the accepted V1 guard phase for its unaccepted template-invalid SOURCE.
   // The retained 20261011 phase below is unchanged when this marker is absent.
   const { isDeepStrictEqual } = require('node:util');
@@ -722,7 +832,7 @@ if (branch === 'fix/pc-crop-docker-headroom-rollover-4637' &&
   const headRef = String(process.env.HEAD_REF || '').trim();
   if (!headRef || git(['merge-base', baseRef, headRef]).trim() !== baseSha) fail('BASE_NOT_ANCESTOR');
   const queuePath = 'docs/platform-v7/execution-queue.md';
-  const marker = '\n## PC-CROP live Docker headroom workflow template correction v2 — 2026-10-30\n\n```json\n';
+  const marker = '\n## PC-CROP live Docker headroom native contract correction v3 — 2026-10-30\n\n```json\n';
   const parts = read(baseRef, queuePath).split(marker);
   if (parts.length !== 2) fail('PURPOSE_NOT_UNIQUE');
   const end = parts[1].indexOf('\n```\n');
@@ -732,21 +842,29 @@ if (branch === 'fix/pc-crop-docker-headroom-rollover-4637' &&
   const sourceBranch = 'fix/pc-crop-docker-headroom-rollover-4637';
   const originalScope = ['scripts/production-docker-headroom-recovery.sh', '.github/workflows/production-docker-headroom-recovery.yml',
     'docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json'];
-  const payloads = [{"path":"scripts/production-docker-headroom-recovery.sh","mode":"100755","beforeBlob":"6bcee2671c9cd5a100d956c30734bc1bf42768af","afterBlob":"d9539026cc0f4ade08a7adcdd086eced7085c1f2","sha256":"d1c94dc50d66e79923425f9b078793c1b39540cb87e10095800fdc2fd1449618","bytes":27830},{"path":".github/workflows/production-docker-headroom-recovery.yml","mode":"100644","beforeBlob":"aa78eee35b3c6145cb4d875925036d8da9ebe449","afterBlob":"28570c7d131370551cf6f90bd11be21ba1eadc46","sha256":"96c5b3552df099de2cff098f48b22450fdcc4baead25c1f18720958ad7ab2afb","bytes":90351}];
+  const sourcePayloads = [{"path":"scripts/production-docker-headroom-recovery.sh","mode":"100755","beforeBlob":"6bcee2671c9cd5a100d956c30734bc1bf42768af","afterBlob":"d9539026cc0f4ade08a7adcdd086eced7085c1f2","sha256":"d1c94dc50d66e79923425f9b078793c1b39540cb87e10095800fdc2fd1449618","bytes":27830},{"path":".github/workflows/production-docker-headroom-recovery.yml","mode":"100644","beforeBlob":"aa78eee35b3c6145cb4d875925036d8da9ebe449","afterBlob":"68eeba7446ec04da91facffcb2da81a64c90c706","sha256":"4fd3aa5e9e2333bea2f3ecf0ff05cdafd9f892d2291cf794ede8d6c7e8d876af","bytes":92348}];
+  const companionBranch = "ops/production-stopped-runtime-headroom-20261022";
+  const companionScope = ["scripts/production_stopped_runtime_headroom.py","scripts/test_production_stopped_runtime_headroom.py",".github/workflows/production-stopped-runtime-headroom.yml","docs/ops/production-stopped-runtime-headroom.md",".github/workflows/production-docker-headroom-recovery.yml",".github/workflows/production-docker-headroom-owner-push-once.yml"];
+  const companionPayloads = [{"path":".github/workflows/production-docker-headroom-owner-push-once.yml","mode":"100644","beforeBlob":"44ac362f0a8993e506739f237a4808355e0b1792","afterBlob":"5946380f33a50e4500d9ba95117bf2f5795c9d16","sha256":"c399d975c1ef639f21e8076c3a4878d23d0e5b734791ed45fe8ee16df8892943","bytes":18220}];
+  const payloads = branch === companionBranch ? companionPayloads : sourcePayloads;
   const expectedFields = ['schemaVersion', 'purposeId', 'owner', 'sourceBranch', 'guardBranch', 'authorityBaseExactMain',
     'sourcePayloads', 'guardPayloads', 'originalScope', 'sourcePatch', 'guardPatch', 'independentSourceReview',
-    'independentGuardReview', 'invariants', 'productionInvocationAuthorized', 'productionAcceptance', 'masterCredit'];
+    'independentGuardReview', 'invariants', 'productionInvocationAuthorized', 'productionAcceptance', 'masterCredit',
+    'companionBranch', 'companionScope', 'companionPayloads', 'companionPatch', 'independentCompanionReview'];
   if (!purpose || Array.isArray(purpose) || !isDeepStrictEqual(Object.keys(purpose).sort(), expectedFields.sort()) ||
-      purpose.schemaVersion !== 'pc.live-headroom-safety-admission.v1' ||
-      purpose.purposeId !== 'pc-crop-live-headroom-template-safety-20261030-v2' || purpose.owner !== 'ACCOUNT_1_CORE' ||
+      purpose.schemaVersion !== 'pc.live-headroom-safety-admission.v2' ||
+      purpose.purposeId !== 'pc-crop-live-headroom-native-contracts-20261030-v3' || purpose.owner !== 'ACCOUNT_1_CORE' ||
       purpose.sourceBranch !== sourceBranch || purpose.guardBranch !== 'governance/industrial-load-diagnostics-20260919' ||
-      purpose.authorityBaseExactMain !== '30f0835122ea626d186a08f56cc3b82965d92bf3' ||
+      purpose.authorityBaseExactMain !== '22faa5ec075a47e292b79373ff514e6b21eb4636' ||
       purpose.productionInvocationAuthorized !== false || purpose.productionAcceptance !== false || purpose.masterCredit !== 0 ||
-      !isDeepStrictEqual(purpose.originalScope, originalScope) || !isDeepStrictEqual(purpose.sourcePayloads, payloads)) fail('PURPOSE_IDENTITY');
+      !isDeepStrictEqual(purpose.originalScope, originalScope) || !isDeepStrictEqual(purpose.sourcePayloads, sourcePayloads) ||
+      purpose.companionBranch !== companionBranch || !isDeepStrictEqual(purpose.companionScope, companionScope) ||
+      !isDeepStrictEqual(purpose.companionPayloads, companionPayloads)) fail('PURPOSE_IDENTITY');
   try { execFileSync('git', ['merge-base', '--is-ancestor', purpose.authorityBaseExactMain, baseRef], { stdio: 'pipe' }); }
   catch { fail('AUTHORITY_NOT_ANCESTOR'); }
   const state = JSON.parse(readImmutableState(baseRef));
   if (!isDeepStrictEqual(state.approvedConcurrentScopes?.[sourceBranch], originalScope)) fail('SOURCE_NOT_ADMITTED');
+  if (!isDeepStrictEqual(state.approvedConcurrentScopes?.[companionBranch], companionScope)) fail('COMPANION_NOT_ADMITTED');
   if (readImmutableState(headRef) !== readImmutableState(baseRef) || read(headRef, queuePath) !== read(baseRef, queuePath)) fail('AUTHORITY_MUTATION');
   const entry = (ref, file) => git(['ls-tree', ref, '--', file]).trim();
   const exact = (ref, file, mode, sha) => {
@@ -755,6 +873,13 @@ if (branch === 'fix/pc-crop-docker-headroom-rollover-4637' &&
   };
   const manifest = originalScope[2];
   for (const ref of [baseRef, headRef]) exact(ref, manifest, '100644', 'deb7672c69db09ab0b233cf011e79a904bc5f1a7');
+  if (branch === companionBranch) {
+    // The retired companion contract is accepted on unchanged legacy runtime first.
+    for (const item of sourcePayloads) for (const ref of [baseRef, headRef]) exact(ref, item.path, item.mode, item.beforeBlob);
+  } else {
+    // SOURCE cannot be admitted before its separate companion prerequisite.
+    for (const item of companionPayloads) for (const ref of [baseRef, headRef]) exact(ref, item.path, item.mode, item.afterBlob);
+  }
   const guards = [['scripts/p7-autopilot-guard.sh', '100755'], ['scripts/p7-autopilot-guard.test.mjs', '100644'],
     ['.github/workflows/platform-v7-autopilot-guard.yml', '100644']];
   if (!Array.isArray(purpose.guardPayloads) || purpose.guardPayloads.length !== guards.length) fail('GUARD_PAYLOAD_IDENTITY');
@@ -768,7 +893,7 @@ if (branch === 'fix/pc-crop-docker-headroom-rollover-4637' &&
     if (bytes.length !== item.bytes || createHash('sha256').update(bytes).digest('hex') !== item.sha256) fail('GUARD_NOT_ACCEPTED');
   }
   const fields = git(['diff', '--raw', '--no-abbrev', '--no-renames', '-z', baseRef, headRef]).split('\0');
-  if (fields.pop() !== '' || fields.length !== payloads.length * 2) fail('EXACT_TWO_PATHS_REQUIRED');
+  if (fields.pop() !== '' || fields.length !== payloads.length * 2) fail('EXACT_STAGE_PATHS_REQUIRED');
   const expected = new Map(payloads.map(item => [item.path, item]));
   for (let i = 0; i < fields.length; i += 2) {
     const item = expected.get(fields[i + 1]);
@@ -778,7 +903,7 @@ if (branch === 'fix/pc-crop-docker-headroom-rollover-4637' &&
     if (bytes.length !== item.bytes || createHash('sha256').update(bytes).digest('hex') !== item.sha256) fail('SOURCE_CONTENT');
     expected.delete(item.path);
   }
-  if (expected.size) fail('EXACT_TWO_PATHS_REQUIRED');
+  if (expected.size) fail('EXACT_STAGE_PATHS_REQUIRED');
   scopes = payloads.map(item => item.path);
 } else 
 if (branch === 'fix/pc-crop-docker-headroom-rollover-4637') {
