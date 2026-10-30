@@ -321,6 +321,18 @@ class WorkflowContract(unittest.TestCase):
     def test_sql_read_only_change_rejected(self):
         with self.assertRaisesRegex(SystemExit,'TRANSPORTED_SCRIPT_DIGEST_MISMATCH'):
             self.enforce(self.source.replace(b'SET TRANSACTION READ ONLY',b'SET TRANSACTION READ WRITE'))
+    def test_collection_after_legacy_transport_rejected(self):
+        marker='          # Collect bounded evidence before legacy parity; collection never grants release.'
+        changed=self.workflow.replace(marker, '')
+        changed=changed.replace('          ssh -i "$key" -p "$port"', marker+'\n          ssh -i "$key" -p "$port"',1)
+        with self.assertRaisesRegex(SystemExit,'READ_ONLY_COLLECTION_MUST_PRECEDE_LEGACY_PARITY'):
+            # Move the marker behind the legacy transport, preserving every other guard.
+            changed=changed.replace(marker+'\n', '',1)
+            changed=changed.replace('          REMOTE\n','          REMOTE\n'+marker+'\n',1)
+            self.enforce(self.source,changed)
+    def test_success_only_artifact_retention_rejected(self):
+        with self.assertRaisesRegex(SystemExit,'VALIDATED_EVIDENCE_MUST_SURVIVE_LEGACY_FAILURE'):
+            self.enforce(self.source,self.workflow.replace('        if: ${{ always() }}\n',''))
     def test_sanitized_transport_error_keeps_original_exit(self):
         start=self.workflow.index('          if (( preflight_status != 0 )); then')
         end=self.workflow.index('          fi',start)+len('          fi')
@@ -332,6 +344,85 @@ class WorkflowContract(unittest.TestCase):
                 self.assertEqual(result.returncode,code)
                 self.assertEqual(result.stdout,'')
                 self.assertEqual(result.stderr,'MARKET_PREFLIGHT_FAILURE='+classification+'\n')
+
+
+class PreflightFailureEvidence(unittest.TestCase):
+    """Execute the real shell order/validator with local synthetic SSH responses."""
+    def execute(self, payload, preflight_exit=0, legacy_exit=0):
+        workflow=(PATH.parents[1]/'.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml').read_text()
+        marker='          # Collect bounded evidence before legacy parity; collection never grants release.'
+        command=textwrap.dedent(workflow.split(marker,1)[1].split('\n      - name: Preserve validated read-only market observations',1)[0])
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory); binaries=root/'bin';binaries.mkdir()
+            (root/'response.json').write_text(json.dumps(payload))
+            (binaries/'gh').write_text('#!/bin/sh\nprintf "%s\\n" "$TARGET_SHA"\n')
+            (binaries/'ssh').write_text('''#!/usr/bin/env python3
+import os,sys
+from pathlib import Path
+root=Path(os.environ['SYNTHETIC_FIXTURE'])
+sys.stdin.buffer.read()
+if sys.argv[-1].startswith("python3 - '"):
+    (root/'preflight-called').touch()
+    print('synthetic-secret-stderr',file=sys.stderr)
+    print((root/'response.json').read_text())
+    raise SystemExit(int(os.environ['SYNTHETIC_PREFLIGHT_EXIT']))
+(root/'legacy-called').touch()
+print('synthetic-secret-stderr',file=sys.stderr)
+if int(os.environ['SYNTHETIC_LEGACY_EXIT']):
+    raise SystemExit(int(os.environ['SYNTHETIC_LEGACY_EXIT']))
+for key,value in {'API_REVISION':'a'*40,'WEB_REVISION':'b'*40,
+                  'AUTH_MAIL_WORKER_REVISION':'a'*40,'AUTH_MAIL_WORKER_STATE':'running',
+                  'AUTH_MAIL_WORKER_HEALTH':'healthy','RUNTIME_STABILITY':'PASS',
+                  'PRODUCTION_MUTATION':'NONE'}.items(): print(key+'='+value)
+print('REVIEWER_LOGIN_READINESS|pc_staff_runtime|1|1|1|1|1|1')
+''')
+            for f in binaries.iterdir():f.chmod(0o700)
+            env=dict(os.environ,PATH=str(binaries)+os.pathsep+os.environ['PATH'],
+                     TARGET_SHA=SHA,RUNNER_TEMP=directory,GITHUB_STEP_SUMMARY=str(root/'summary'),
+                     GITHUB_REPOSITORY='synthetic/fixture',SYNTHETIC_FIXTURE=directory,
+                     SYNTHETIC_PREFLIGHT_EXIT=str(preflight_exit),SYNTHETIC_LEGACY_EXIT=str(legacy_exit),
+                     key='fixture-key',port='22',known='fixture-known',user='fixture',host='fixture',
+                     preflight_raw=str(root/'untrusted.json'),raw=str(root/'legacy.raw'))
+            result=subprocess.run(['bash','-c','set -Eeuo pipefail\n'+command],cwd=PATH.parents[1],
+                                  env=env,capture_output=True,text=True,timeout=15)
+            output=root/'market-preflight.json'
+            return result,json.loads(output.read_text()) if output.exists() else None,(root/'legacy-called').exists()
+
+    def test_validated_report_survives_actual_split_revision_failure(self):
+        payload=report();payload['running_web_revision']='b'*40
+        result,evidence,legacy=self.execute(payload)
+        self.assertEqual(result.returncode,1)
+        self.assertTrue(legacy)
+        self.assertEqual(evidence['running_web_revision'],'b'*40)
+        self.assertIs(evidence['deployment_authorized'],False)
+        self.assertEqual(evidence['live_acceptance'],'NOT_PERFORMED')
+        self.assertIn('MARKET_PREFLIGHT_COLLECTION=VALIDATED_READ_ONLY',result.stdout)
+        self.assertNotIn('REVISION_PARITY=PASS',result.stdout)
+        self.assertNotIn('synthetic-secret',result.stdout+result.stderr)
+
+    def test_validated_report_survives_later_ssh_failure(self):
+        result,evidence,legacy=self.execute(report(),legacy_exit=23)
+        self.assertEqual(result.returncode,23)
+        self.assertTrue(legacy)
+        self.assertIs(evidence['deployment_authorized'],False)
+        self.assertNotIn('synthetic-secret',result.stdout+result.stderr)
+
+    def test_failed_preflight_transport_admits_nothing_and_stops(self):
+        result,evidence,legacy=self.execute(report(),preflight_exit=255)
+        self.assertEqual(result.returncode,255)
+        self.assertIsNone(evidence)
+        self.assertFalse(legacy)
+        self.assertEqual(result.stderr,'MARKET_PREFLIGHT_FAILURE=SSH_TRANSPORT_OR_AUTHORITY\n')
+
+    def test_invalid_or_wrong_source_report_admits_nothing_and_stops(self):
+        for change in ({'secret':'synthetic-secret'},{'target_sha':'c'*40},{'deployment_authorized':True}):
+            with self.subTest(change=change):
+                payload=report();payload.update(change)
+                result,evidence,legacy=self.execute(payload)
+                self.assertEqual(result.returncode,1)
+                self.assertIsNone(evidence)
+                self.assertFalse(legacy)
+                self.assertNotIn('synthetic-secret',result.stdout+result.stderr)
 
 
 def outbox_fixture():
