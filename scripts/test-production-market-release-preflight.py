@@ -884,5 +884,107 @@ class PersistedReleaseInventory(unittest.TestCase):
                     result=json.loads(p.stdout);m.validate_database_probe(result);self.assertEqual(result['status'],status)
 
 
+class RegistrationPreconditions(unittest.TestCase):
+    def fixture(self):
+        a=api(); a['Mounts']=[]; a['HostConfig']['ReadonlyRootfs']=True
+        a['Config']['Env'].append('AUTH_DATABASE_URL=private-do-not-publish')
+        checks={**report()['checks'], 'caddy_configuration_stability':'UNCHANGED'}
+        topology={'runtime_stability':'UNCHANGED','api_image':{
+            'container_image_binding':True,'immutable_config_ref':True,
+            'registry_digest':'sha256:'+'a'*64}}
+        return a,checks,topology
+
+    def test_positive_observations_never_execute_or_prove_binding(self):
+        a,c,t=self.fixture()
+        with patch.object(m,'run',side_effect=AssertionError('no new command permitted')):
+            value=m.registration_preconditions(a,c,t)
+        self.assertEqual(value['route_configuration'],'OBSERVED_CONFIGURATION_ONLY')
+        self.assertEqual(value['local_image_binding'],'OBSERVED')
+        self.assertEqual(value['immutable_reference'],'OBSERVED')
+        self.assertIs(value['binding_proven'],False)
+        self.assertEqual(value['helper_execution'],'NOT_PERFORMED')
+        self.assertEqual(value['blocking_reasons'],['INSTALLED_CODE_PROOF_MISSING',
+            'REGISTRATION_BINDING_NOT_PERFORMED','TRUSTED_IMAGE_PROOF_MISSING'])
+        self.assertNotIn('private-do-not-publish',json.dumps(value))
+        m.validate_registration_preconditions(value,c,t)
+
+    def test_missing_caddy_and_runtime_never_infer_route(self):
+        for field in ['caddy_configuration_stability','caddy_route_and_headers',
+                      'runtime_configuration_stability','canonical_api_origin','api_web_peer_trust','web_ingress']:
+            a,c,t=self.fixture(); c[field]='NOT_PROVEN'
+            value=m.registration_preconditions(a,c,t)
+            self.assertEqual(value['route_configuration'],'NOT_PROVEN')
+            self.assertIn('ROUTE_CHAIN_NOT_PROVEN',value['blocking_reasons'])
+
+    def test_changed_topology_invalidates_image_and_route_observations(self):
+        a,c,t=self.fixture(); t['runtime_stability']='NOT_PROVEN'
+        value=m.registration_preconditions(a,c,t)
+        for key in ['runtime_stability','route_configuration','local_image_binding','immutable_reference']:
+            self.assertEqual(value[key],'NOT_PROVEN')
+
+    def test_tag_or_missing_local_image_does_not_attest_provenance(self):
+        a,c,t=self.fixture();t['api_image']['immutable_config_ref']=False
+        value=m.registration_preconditions(a,c,t)
+        self.assertEqual(value['immutable_reference'],'NOT_PROVEN')
+        self.assertIn('TRUSTED_IMAGE_PROOF_MISSING',value['blocking_reasons'])
+        t['api_image']['container_image_binding']=False
+        self.assertEqual(m.registration_preconditions(a,c,t)['local_image_binding'],'NOT_PROVEN')
+
+    def test_mount_overlap_uses_components_and_covers_parent_and_child(self):
+        for dest in ['/', '/app', '/app/dist', '/app/dist/module.js', '/app/node_modules/pkg', '/nodejs/bin/node']:
+            self.assertEqual(m.code_mount_observation({'Mounts':[{'Destination':dest}]}),'CODE_PATH_OVERLAP')
+        for dest in ['/app/distinct','/app/node_modules-old','/nodejs-old','/etc/config']:
+            self.assertEqual(m.code_mount_observation({'Mounts':[{'Destination':dest}]}),'NO_CODE_MOUNT_OBSERVED')
+
+    def test_missing_or_malformed_mounts_are_unknown_without_path_disclosure(self):
+        for mounts in [None,{},[None],[{}],[{'Destination':'relative'}],
+                       [{'Destination':'//app/dist'}],[{'Destination':'/app/../dist'}],
+                       [{'Destination':'/app/dist/'}],[{'Destination':'/private\x00secret'}]]:
+            self.assertEqual(m.code_mount_observation({'Mounts':mounts}),'NOT_PROVEN')
+
+    def test_env_unknown_missing_empty_duplicate_and_false_values(self):
+        for env,expected in [(None,'NOT_PROVEN'),({},'NOT_PROVEN'),([7],'NOT_PROVEN'),
+                             (['MALFORMED'],'NOT_PROVEN'),([], 'MISSING'),
+                             (['AUTH_DATABASE_URL= '],'MISSING'),
+                             (['AUTH_DATABASE_URL=x','AUTH_DATABASE_URL=y'],'NOT_PROVEN')]:
+            a,c,t=self.fixture();a['Config']['Env']=env
+            value=m.registration_preconditions(a,c,t)
+            self.assertEqual(value['registration_url'],expected)
+            self.assertIn('REGISTRATION_URL_NOT_CONFIGURED',value['blocking_reasons'])
+
+    def test_writable_or_unknown_root_remains_blocked(self):
+        for readonly,state in [(False,'WRITABLE'),(None,'NOT_PROVEN'),(1,'NOT_PROVEN')]:
+            a,c,t=self.fixture();a['HostConfig']['ReadonlyRootfs']=readonly
+            value=m.registration_preconditions(a,c,t)
+            self.assertEqual(value['root_filesystem'],state)
+            self.assertIn('WRITABLE_ROOT_OR_UNKNOWN',value['blocking_reasons'])
+
+    def test_extra_fields_unknown_strings_and_false_success_rejected(self):
+        for key,bad in [('secret','private-value'),('binding_proven',True),('binding_proven',0),
+                        ('helper_execution','PASS'),('status','READY'),('code_mounts','private-path')]:
+            a,c,t=self.fixture();value=m.registration_preconditions(a,c,t);value[key]=bad
+            with self.assertRaises(ValueError):m.validate_registration_preconditions(value,c,t)
+
+    def test_missing_duplicate_reordered_or_injected_blockers_rejected(self):
+        a,c,t=self.fixture();original=m.registration_preconditions(a,c,t)
+        for reasons in [[],original['blocking_reasons']*2,list(reversed(original['blocking_reasons'])),['private-path']]:
+            value=copy.deepcopy(original);value['blocking_reasons']=reasons
+            with self.assertRaises(ValueError):m.validate_registration_preconditions(value,c,t)
+
+    def test_route_image_and_runtime_contradictions_rejected(self):
+        for field in ['route_configuration','local_image_binding','immutable_reference','runtime_stability']:
+            a,c,t=self.fixture();value=m.registration_preconditions(a,c,t);value[field]='NOT_PROVEN'
+            value['blocking_reasons']=m.registration_blockers(value)
+            with self.assertRaises(ValueError):m.validate_registration_preconditions(value,c,t)
+
+    def test_current_envelope_requires_new_section_and_schema(self):
+        value=report(); self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v2')
+        self.assertEqual(m.validate_report(value,SHA),value)
+        old=copy.deepcopy(value);old.pop('registration_binding')
+        with self.assertRaises(ValueError):m.validate_report(old,SHA)
+        old=copy.deepcopy(value);old['schema']='pc-crop.market-release-preflight.v1'
+        with self.assertRaises(ValueError):m.validate_report(old,SHA)
+
+
 if __name__ == '__main__':
     unittest.main()

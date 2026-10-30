@@ -11,7 +11,7 @@ import hashlib
 import ipaddress
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shutil
 import selectors
@@ -313,10 +313,11 @@ def validate_report(value: Any, target: str) -> dict[str, Any]:
     """Hosted-side strict admission of remote diagnostic data, never release approval."""
     keys = {'schema', 'target_sha', 'observed_at_utc', 'running_web_revision', 'running_api_revision',
             'checks', 'migration_inventory', 'capacity', 'backup', 'production_mutation',
-            'deployment_authorized', 'live_acceptance', 'protected_values', 'outbox_topology', 'release_inventory'}
+            'deployment_authorized', 'live_acceptance', 'protected_values', 'outbox_topology', 'release_inventory',
+            'registration_binding'}
     if not isinstance(value, dict) or set(value) != keys or not SHA.fullmatch(target):
         raise ValueError('REPORT_SCHEMA')
-    for key, expected in {'schema': 'pc-crop.market-release-preflight.v1', 'target_sha': target,
+    for key, expected in {'schema': 'pc-crop.market-release-preflight.v2', 'target_sha': target,
                           'production_mutation': 'NONE', 'live_acceptance': 'NOT_PERFORMED',
                           'protected_values': 'NOT_PUBLISHED'}.items():
         if value[key] != expected:
@@ -371,6 +372,7 @@ def validate_report(value: Any, target: str) -> dict[str, Any]:
             raise ValueError('REPORT_DB_INTEGRITY')
     validate_outbox_topology(value['outbox_topology'])
     validate_release_inventory(value['release_inventory'])
+    validate_registration_preconditions(value['registration_binding'], checks, value['outbox_topology'])
     # No unknown key, string, path, address, error or payload can pass to artifacts.
     return value
 
@@ -895,6 +897,113 @@ def validate_release_inventory(value: Any) -> None:
             raise ValueError('RUNTIME_INVENTORY_SCHEMA')
 
 
+def code_mount_observation(api: dict[str, Any]) -> str:
+    mounts = api.get('Mounts')
+    if not isinstance(mounts, list):
+        return 'NOT_PROVEN'
+    protected = [PurePosixPath(p) for p in ('/nodejs', '/app/dist', '/app/node_modules')]
+    overlap = False
+    for mount in mounts:
+        destination = mount.get('Destination') if isinstance(mount, dict) else None
+        if (not isinstance(destination, str) or not destination.startswith('/') or destination.startswith('//') or
+                any(ord(c) < 32 for c in destination) or
+                any(p in ('.', '..') for p in destination.split('/')) or
+                str(PurePosixPath(destination)) != destination):
+            return 'NOT_PROVEN'
+        path = PurePosixPath(destination)
+        overlap |= any(path == p or path in p.parents or p in path.parents for p in protected)
+    return 'CODE_PATH_OVERLAP' if overlap else 'NO_CODE_MOUNT_OBSERVED'
+
+
+def registration_blockers(value: dict[str, Any]) -> list[str]:
+    # Local image metadata, read-only rootfs and a matching route configuration
+    # do not attest registry provenance, the existing writable layer or a live
+    # registration database binding. These three limitations always remain.
+    blockers = {'TRUSTED_IMAGE_PROOF_MISSING', 'INSTALLED_CODE_PROOF_MISSING',
+                'REGISTRATION_BINDING_NOT_PERFORMED'}
+    for key, expected, reason in (
+        ('route_configuration', 'OBSERVED_CONFIGURATION_ONLY', 'ROUTE_CHAIN_NOT_PROVEN'),
+        ('local_image_binding', 'OBSERVED', 'LOCAL_IMAGE_BINDING_NOT_PROVEN'),
+        ('immutable_reference', 'OBSERVED', 'IMMUTABLE_REFERENCE_NOT_OBSERVED'),
+        ('code_mounts', 'NO_CODE_MOUNT_OBSERVED', 'CODE_MOUNTS_NOT_ATTESTED'),
+        ('root_filesystem', 'READ_ONLY', 'WRITABLE_ROOT_OR_UNKNOWN'),
+        ('registration_url', 'CONFIGURED', 'REGISTRATION_URL_NOT_CONFIGURED'),
+        ('runtime_stability', 'UNCHANGED', 'RUNTIME_STABILITY_NOT_PROVEN'),
+    ):
+        if value[key] != expected:
+            blockers.add(reason)
+    return sorted(blockers)
+
+
+def registration_preconditions(api: dict[str, Any], checks: dict[str, Any],
+                               topology: dict[str, Any]) -> dict[str, Any]:
+    """Passive observations only: no command, constructor, SQL or helper call.
+
+    This explains why the accepted IR20 primitive cannot yet be invoked. It
+    neither establishes a live Caddy/API route nor authorizes a subsequent call.
+    """
+    image = topology.get('api_image') or {}
+    stable = (checks.get('runtime_configuration_stability') == 'UNCHANGED' and
+              topology.get('runtime_stability') == 'UNCHANGED')
+    route = stable and all(checks.get(k) == v for k, v in (
+        ('web_ingress', 'NO_PUBLIC_DOCKER_BINDING'),
+        ('canonical_api_origin', 'CANONICAL'),
+        ('api_web_peer_trust', 'OBSERVED_WEB_PEERS_TRUSTED'),
+        ('caddy_route_and_headers', 'CANONICAL_WEB_ROUTE_OBSERVED'),
+        ('caddy_configuration_stability', 'UNCHANGED'),
+    ))
+    config = api.get('Config') or {}
+    entries = config.get('Env')
+    url = 'NOT_PROVEN'
+    if isinstance(entries, list) and all(isinstance(v, str) and '=' in v for v in entries):
+        matches = [v.partition('=')[2] for v in entries if v.partition('=')[0] == 'AUTH_DATABASE_URL']
+        if len(matches) <= 1:
+            url = 'CONFIGURED' if matches and matches[0].strip() else 'MISSING'
+    readonly = (api.get('HostConfig') or {}).get('ReadonlyRootfs')
+    value = {
+        'status': 'PRECONDITIONS_ONLY_NOT_BINDING',
+        'route_configuration': 'OBSERVED_CONFIGURATION_ONLY' if route else 'NOT_PROVEN',
+        'local_image_binding': 'OBSERVED' if stable and image.get('container_image_binding') is True else 'NOT_PROVEN',
+        'immutable_reference': 'OBSERVED' if stable and image.get('container_image_binding') is True
+            and image.get('immutable_config_ref') is True
+            and isinstance(image.get('registry_digest'), str)
+            and IMAGE_ID.fullmatch(image['registry_digest']) else 'NOT_PROVEN',
+        'code_mounts': code_mount_observation(api),
+        'root_filesystem': 'READ_ONLY' if readonly is True else 'WRITABLE' if readonly is False else 'NOT_PROVEN',
+        'registration_url': url,
+        'runtime_stability': 'UNCHANGED' if stable else 'NOT_PROVEN',
+        'binding_proven': False,
+        'helper_execution': 'NOT_PERFORMED',
+    }
+    value['blocking_reasons'] = registration_blockers(value)
+    return value
+
+
+def validate_registration_preconditions(value: Any, checks: dict[str, Any],
+                                        topology: dict[str, Any]) -> None:
+    choices = {
+        'status': {'PRECONDITIONS_ONLY_NOT_BINDING'},
+        'route_configuration': {'OBSERVED_CONFIGURATION_ONLY', 'NOT_PROVEN'},
+        'local_image_binding': {'OBSERVED', 'NOT_PROVEN'},
+        'immutable_reference': {'OBSERVED', 'NOT_PROVEN'},
+        'code_mounts': {'NO_CODE_MOUNT_OBSERVED', 'CODE_PATH_OVERLAP', 'NOT_PROVEN'},
+        'root_filesystem': {'READ_ONLY', 'WRITABLE', 'NOT_PROVEN'},
+        'registration_url': {'CONFIGURED', 'MISSING', 'NOT_PROVEN'},
+        'runtime_stability': {'UNCHANGED', 'NOT_PROVEN'},
+        'helper_execution': {'NOT_PERFORMED'},
+    }
+    if (not isinstance(value, dict) or set(value) != set(choices) | {'binding_proven', 'blocking_reasons'} or
+            value.get('binding_proven') is not False or
+            any(not isinstance(value[k], str) or value[k] not in allowed for k, allowed in choices.items())):
+        raise ValueError('REGISTRATION_PRECONDITIONS_SCHEMA')
+    expected = registration_preconditions({}, checks, topology)
+    for key in ('route_configuration', 'local_image_binding', 'immutable_reference', 'runtime_stability'):
+        if value[key] != expected[key]:
+            raise ValueError('REGISTRATION_PRECONDITIONS_CONTRADICTION')
+    if value['blocking_reasons'] != registration_blockers(value):
+        raise ValueError('REGISTRATION_PRECONDITIONS_BLOCKERS')
+
+
 def collect(target: str) -> dict[str, Any]:
     if not SHA.fullmatch(target):
         raise ValueError('INVALID_TARGET_SHA')
@@ -934,7 +1043,7 @@ def collect(target: str) -> dict[str, Any]:
               and runtime_identity(api) == runtime_identity(after_api[0]))
     checks['runtime_configuration_stability'] = 'UNCHANGED' if stable else 'NOT_PROVEN'
     checks['caddy_configuration_stability'] = ('UNCHANGED' if caddy_before is not None and caddy_before == caddy_config() else 'NOT_PROVEN')
-    return {'schema': 'pc-crop.market-release-preflight.v1', 'target_sha': target,
+    result = {'schema': 'pc-crop.market-release-preflight.v2', 'target_sha': target,
             'observed_at_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
             'running_web_revision': revision(web), 'running_api_revision': revision(api),
             'checks': checks, 'migration_inventory': db, 'capacity': capacity,
@@ -942,6 +1051,8 @@ def collect(target: str) -> dict[str, Any]:
             'release_inventory': release_inventory(web, api, project),
             'production_mutation': 'NONE', 'deployment_authorized': False,
             'live_acceptance': 'NOT_PERFORMED', 'protected_values': 'NOT_PUBLISHED'}
+    result['registration_binding'] = registration_preconditions(api, checks, result['outbox_topology'])
+    return result
 
 
 def main() -> None:
@@ -953,7 +1064,7 @@ def main() -> None:
         print(encoded)
     except Exception:
         # Never serialize raw exception messages or command/environment contents.
-        print('{"schema":"pc-crop.market-release-preflight.v1","collection":"NOT_PROVEN","production_mutation":"NONE","deployment_authorized":false}')
+        print('{"schema":"pc-crop.market-release-preflight.v2","collection":"NOT_PROVEN","production_mutation":"NONE","deployment_authorized":false}')
         raise SystemExit(1)
 
 
