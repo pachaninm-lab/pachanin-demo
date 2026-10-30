@@ -323,7 +323,7 @@ def validate_report(value: Any, target: str) -> dict[str, Any]:
             'registration_binding', 'api_publication_config', 'filesystem_capacity', 'capacity_diagnostics'}
     if not isinstance(value, dict) or set(value) != keys or not SHA.fullmatch(target):
         raise ValueError('REPORT_SCHEMA')
-    for key, expected in {'schema': 'pc-crop.market-release-preflight.v5', 'target_sha': target,
+    for key, expected in {'schema': 'pc-crop.market-release-preflight.v6', 'target_sha': target,
                           'production_mutation': 'NONE', 'live_acceptance': 'NOT_PERFORMED',
                           'protected_values': 'NOT_PUBLISHED'}.items():
         if value[key] != expected:
@@ -1365,10 +1365,179 @@ CAPACITY_DISK_PATHS = {'docker_containers': '/var/lib/docker/containers',
 CAPACITY_STATUSES = {'NOT_RUN', 'SUCCESS', 'TIMED_OUT', 'OUTPUT_LIMIT', 'NONZERO', 'INVALID', 'UNKNOWN'}
 
 
+def empty_image_reclaim_plan() -> dict[str, Any]:
+    return {'status': 'NOT_PROVEN', 'assurance': 'INITIAL_SNAPSHOT_LOGICAL_UPPER_ONLY',
+            'catalog_stability': 'NOT_PROVEN', 'physical_reclaim': 'NOT_PROVEN',
+            'cleanup_authorized': False, 'canonical_image_count': None,
+            'eligible_image_count': None, 'container_protected_image_count': None,
+            'protected_image_count': None, 'eligible_logical_bytes_upper': None,
+            'first_candidates': []}
+
+
+def capacity_image_classification(item: dict[str, Any]):
+    """D953 initial classifier only; no attested intermediate/digest-only alias authority."""
+    refs = []
+    for key in ('RepoTags', 'RepoDigests'):
+        values = item.get(key)
+        if values is None:
+            values = []
+        if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+            raise ValueError('IMAGE_REFS')
+        refs.extend(value for value in values if value and value not in ('<none>', '<none>:<none>'))
+    refs = tuple(sorted(set(refs)))
+    if len(refs) > 128:
+        raise ValueError('IMAGE_REFS')
+    if not refs:
+        return None
+    patterns = ((r'ghcr[.]io/pachaninm-lab/grainflow-(api|web|migration|tai):[A-Za-z0-9_.-]+', 'TAG', 'REGISTRY_CANONICAL'),
+                (r'ghcr[.]io/pachaninm-lab/grainflow-(api|web|migration|tai)@sha256:[0-9a-f]{64}', 'DIGEST', 'REGISTRY_CANONICAL'),
+                (r'pc-crop-transfer/(api|web|migration):([0-9a-f]{40})', 'TAG', 'EXACT_SHA_TRANSFER_ALIAS'),
+                (r'pc-crop-transfer/(api|web|migration)@sha256:[0-9a-f]{64}', 'DIGEST', 'EXACT_SHA_TRANSFER_ALIAS'))
+    components, namespaces, tags = set(), set(), []
+    for ref in refs:
+        matches = [(re.fullmatch(pattern, ref), kind, namespace) for pattern, kind, namespace in patterns]
+        matches = [(match, kind, namespace) for match, kind, namespace in matches if match]
+        if len(matches) != 1:
+            return None
+        match, kind, namespace = matches[0]
+        components.add(match[1]); namespaces.add(namespace)
+        if kind == 'TAG':
+            tags.append((ref, match[2] if namespace == 'EXACT_SHA_TRANSFER_ALIAS' else None))
+    if len(components) != 1 or len(namespaces) != 1 or next(iter(components)) not in ('api', 'web', 'migration'):
+        return None
+    config = item.get('Config') if isinstance(item.get('Config'), dict) else {}
+    labels = config.get('Labels') if isinstance(config.get('Labels'), dict) else {}
+    revision = labels.get('org.opencontainers.image.revision')
+    if not isinstance(revision, str) or not SHA.fullmatch(revision):
+        return None
+    namespace = next(iter(namespaces))
+    if namespace == 'EXACT_SHA_TRANSFER_ALIAS' and (not tags or any(tag_revision != revision for _, tag_revision in tags)):
+        return None
+    return next(iter(components)), namespace, refs, revision
+
+
+def capacity_image_reclaim_plan(containers: Any, images: Any, target: Any) -> dict[str, Any]:
+    """Reuse captured batches. Logical sizes overlap layers and never promise freed bytes."""
+    unknown = empty_image_reclaim_plan()
+    try:
+        if (not isinstance(target, str) or not SHA.fullmatch(target) or
+                not isinstance(containers, dict) or not 1 <= len(containers) <= 128 or
+                not isinstance(images, dict) or not 1 <= len(images) <= 512):
+            return unknown
+        referenced, roles, records = set(), {'api': 0, 'web': 0}, {}
+        for identity, item in containers.items():
+            if (not isinstance(identity, str) or not CONTAINER_ID.fullmatch(identity) or
+                    not isinstance(item, dict) or item.get('Id') != identity or
+                    not isinstance(item.get('Image'), str) or not IMAGE_ID.fullmatch(item['Image']) or
+                    any(not isinstance(item.get(key), dict) for key in ('Config', 'HostConfig', 'NetworkSettings', 'State'))):
+                return unknown
+            labels = item['Config'].get('Labels') or {}
+            if not isinstance(labels, dict):
+                return unknown
+            role = labels.get('com.docker.compose.service')
+            if role in roles and item['State'].get('Running') is True:
+                revision = labels.get('org.opencontainers.image.revision')
+                if not isinstance(revision, str) or not SHA.fullmatch(revision):
+                    return unknown
+                roles[role] += 1
+            referenced.add(item['Image'])
+        if any(count != 1 for count in roles.values()) or not referenced <= set(images):
+            return unknown
+        for identity, item in images.items():
+            if (not isinstance(identity, str) or not IMAGE_ID.fullmatch(identity) or
+                    not isinstance(item, dict) or item.get('Id') != identity):
+                return unknown
+            classified = capacity_image_classification(item)
+            if classified is None:
+                continue
+            component, namespace, refs, revision = classified
+            size, created = item.get('Size'), item.get('Created')
+            match = re.fullmatch(r'(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:[.](\d{1,9}))?Z', created) if isinstance(created, str) else None
+            if type(size) is not int or not 0 <= size < 2**63 or match is None:
+                return unknown
+            seconds = int(dt.datetime.fromisoformat(match[1] + '+00:00').timestamp())
+            records[identity] = {'id': identity, 'component': component, 'namespace': namespace,
+                                 'revision': revision, 'refs': refs, 'size': size,
+                                 'created': (seconds, (match[2] or '').ljust(9, '0'), identity)}
+        protected, groups = set(referenced), {}
+        for identity, row in records.items():
+            if row['revision'] == target:
+                protected.add(identity)
+            groups.setdefault((row['component'], row['namespace']), []).append(row)
+        for rows in groups.values():
+            protected.update(row['id'] for row in sorted(rows, key=lambda row: row['created'], reverse=True)[:2])
+        eligible = sorted((row for identity, row in records.items() if identity not in protected),
+                          key=lambda row: row['created'], reverse=True)
+        # Bounded numeric prefix only; logical sizes never predict physical reclaim.
+        candidates, cumulative = [], 0
+        for rank, row in enumerate(eligible[:8], 1):
+            cumulative += row['size']
+            candidates.append({'rank': rank, 'logical_bytes_upper': row['size'],
+                               'cumulative_logical_bytes_upper': cumulative,
+                               'initial_reference_count': len(row['refs']),
+                               'initial_rm_calls_lower': 1, 'initial_rm_calls_upper': len(row['refs']) + 1})
+        return {**unknown, 'status': 'INITIAL_SNAPSHOT_ONLY', 'canonical_image_count': len(records),
+                'eligible_image_count': len(eligible), 'container_protected_image_count': len(referenced),
+                'protected_image_count': len(protected),
+                'eligible_logical_bytes_upper': sum(row['size'] for row in eligible),
+                'first_candidates': candidates}
+    except (ValueError, TypeError, OverflowError, OSError, KeyError):
+        return unknown
+
+
+def validate_image_reclaim_plan(value: Any, profile: dict[str, Any]) -> None:
+    template = empty_image_reclaim_plan()
+    if (not isinstance(value, dict) or set(value) != set(template) or
+            any(value[key] != template[key] for key in ('assurance', 'catalog_stability', 'physical_reclaim')) or
+            value['cleanup_authorized'] is not False):
+        raise ValueError('IMAGE_PLAN_SCHEMA')
+    if value['status'] == 'NOT_PROVEN':
+        # Strict null shape prevents False==0 equality from admitting fabricated counts.
+        if any(value[key] is not None for key in ('canonical_image_count', 'eligible_image_count',
+                'container_protected_image_count', 'protected_image_count', 'eligible_logical_bytes_upper')) or value['first_candidates'] != []:
+            raise ValueError('IMAGE_PLAN_UNKNOWN')
+        return
+    if value['status'] != 'INITIAL_SNAPSHOT_ONLY':
+        raise ValueError('IMAGE_PLAN_STATUS')
+    count = profile['commands']['images_list']['count']
+    container_count = profile['commands']['containers_list']['count']
+    if (profile['image_batches']['status'] != 'SUCCESS' or
+            profile['commands']['containers_inspect']['status'] != 'SUCCESS' or
+            type(count) is not int or type(container_count) is not int or container_count < 2):
+        raise ValueError('IMAGE_PLAN_DEPENDENCY')
+    for key in ('canonical_image_count', 'eligible_image_count', 'container_protected_image_count', 'protected_image_count'):
+        if type(value[key]) is not int or not 0 <= value[key] <= count:
+            raise ValueError('IMAGE_PLAN_COUNT')
+    canonical, eligible, referenced, protected = (value[key] for key in
+        ('canonical_image_count', 'eligible_image_count', 'container_protected_image_count', 'protected_image_count'))
+    total = value['eligible_logical_bytes_upper']
+    if (not 1 <= referenced <= min(container_count, protected) or eligible > min(canonical, count - protected) or
+            not min(2, canonical) <= canonical - eligible <= protected or
+            protected > referenced + canonical - eligible or
+            type(total) is not int or not 0 <= total <= eligible * (2**63 - 1)):
+        raise ValueError('IMAGE_PLAN_RELATION')
+    rows = value['first_candidates']
+    if not isinstance(rows, list) or len(rows) != min(8, eligible):
+        raise ValueError('IMAGE_PLAN_CANDIDATES')
+    cumulative = 0
+    for rank, row in enumerate(rows, 1):
+        if (not isinstance(row, dict) or set(row) != {'rank', 'cumulative_logical_bytes_upper', 'logical_bytes_upper', 'initial_reference_count', 'initial_rm_calls_lower', 'initial_rm_calls_upper'} or
+                any(type(number) is not int for number in row.values()) or row['rank'] != rank or
+                not 0 <= row['logical_bytes_upper'] < 2**63 or not 1 <= row['initial_reference_count'] <= 128 or
+                row['initial_rm_calls_lower'] != 1 or row['initial_rm_calls_upper'] != row['initial_reference_count'] + 1):
+            raise ValueError('IMAGE_PLAN_CANDIDATE')
+        cumulative += row['logical_bytes_upper']
+        if row['cumulative_logical_bytes_upper'] != cumulative:
+            raise ValueError('IMAGE_PLAN_CUMULATIVE')
+    subtotal = sum(row['logical_bytes_upper'] for row in rows)
+    if not subtotal <= total <= subtotal + (eligible - len(rows)) * (2**63 - 1):
+        raise ValueError('IMAGE_PLAN_SIZE')
+
+
 def empty_capacity_profile() -> dict[str, Any]:
     return {'status': 'NOT_PERFORMED', 'assurance': 'FRESH_READ_ONLY_OBSERVATION_NOT_RECLAIMABLE',
             'elapsed_ms': 0, 'command_budget_seconds': 5, 'profile_budget_seconds': 35,
-            'stdout_bytes': None, 'io_bytes': None,
+            'stdout_bytes': None, 'io_bytes': None, 'image_reclaim_plan': empty_image_reclaim_plan(),
             'image_batches': {'status': 'NOT_RUN', 'batch_size': 64, 'batch_count': 0,
                               'batch_complete_count': 0, 'complete_image_count': None, 'maxbatch_ms': None,
                               'elapsed_ms': 0, 'stdout_bytes': None, 'io_bytes': None},
@@ -1539,13 +1708,15 @@ def capacity_inspected_rows(raw: bytes, expected: list[str]) -> dict[str, Any]:
     return {row['Id']: row for row in value}
 
 
-def capacity_readonly_profile(outer_deadline: float) -> dict[str, Any]:
+def capacity_readonly_profile(outer_deadline: float, target: str | None = None) -> dict[str, Any]:
     result = empty_capacity_profile()
     if os.geteuid() != 0:
         return result
     runner = CapacityProfileRunner(outer_deadline)
     ids: dict[str, list[str]] = {}
+    container_metadata = None
     stopped = False
+    clean_warm_timeout = False
     if capacity_docker_ready():
         for key in CAPACITY_QUERY_KEYS[:-1]:
             source = 'containers_list' if key == 'containers_inspect' else 'images_list'
@@ -1557,7 +1728,8 @@ def capacity_readonly_profile(outer_deadline: float) -> dict[str, Any]:
                 try:
                     if key.endswith('_inspect'):
                         expected = ids[source]
-                        count = len(capacity_inspected_rows(raw, expected))
+                        container_metadata = capacity_inspected_rows(raw, expected)
+                        count = len(container_metadata)
                     else:
                         values = raw.decode('ascii', errors='strict').splitlines()
                         maximum = {'containers_list': 128, 'volumes_list': 512, 'networks_list': 128, 'images_list': 512}[key]
@@ -1607,6 +1779,7 @@ def capacity_readonly_profile(outer_deadline: float) -> dict[str, Any]:
                 batches['status'] = 'SUCCESS'
                 batches['complete_image_count'] = len(metadata)
             if batches['status'] == 'SUCCESS':
+                result['image_reclaim_plan'] = capacity_image_reclaim_plan(container_metadata, metadata, target)
                 status, elapsed, raw = runner.execute('images_inspect', expected)
                 count = None
                 if status == 'SUCCESS':
@@ -1623,7 +1796,9 @@ def capacity_readonly_profile(outer_deadline: float) -> dict[str, Any]:
                     'stdout_bytes': runner.last_stdout_bytes if status != 'NOT_RUN' else None,
                     'io_bytes': runner.last_io_bytes if status != 'NOT_RUN' else None}
                 stopped = status != 'SUCCESS'
-    if not stopped and capacity_fixed_path_ready('/usr/bin/du', directory=False):
+                clean_warm_timeout = (status == 'TIMED_OUT' and batches['status'] == 'SUCCESS'
+                                      and runner.clean and not runner.exhausted)
+    if (not stopped or clean_warm_timeout) and runner.clean and not runner.exhausted and capacity_fixed_path_ready('/usr/bin/du', directory=False):
         for key, path in CAPACITY_DISK_PATHS.items():
             if not capacity_fixed_path_ready(path, directory=True):
                 result['disk_usage'][key]['status'] = 'UNKNOWN'
@@ -1637,6 +1812,8 @@ def capacity_readonly_profile(outer_deadline: float) -> dict[str, Any]:
                 else:
                     size = int(match[1])
             result['disk_usage'][key] = {'status': status, 'elapsed_ms': elapsed, 'bytes': size}
+            if status == 'OUTPUT_LIMIT' or not runner.clean or runner.exhausted:
+                break
     result['elapsed_ms'] = max(0, int((time.monotonic() - runner.started) * 1000))
     if runner.calls:
         result['stdout_bytes'], result['io_bytes'] = runner.stdout_total, runner.total
@@ -1729,6 +1906,7 @@ def validate_capacity_profile(value: Any) -> None:
         raise ValueError('CAPACITY_PROFILE_CONTRADICTION')
     if value['status'] == 'COMPLETE_READ_ONLY' and (value['io_bytes'] is None or value['io_bytes'] > 16777216):
         raise ValueError('CAPACITY_COMPLETE_OUTPUT_BUDGET')
+    validate_image_reclaim_plan(value['image_reclaim_plan'], value)
 
 
 def collect(target: str) -> dict[str, Any]:
@@ -1764,7 +1942,7 @@ def collect(target: str) -> dict[str, Any]:
         pass
     backup = backups(Path('/var/lib/pc-release-authority/backups'))
     filesystem_observation = filesystem_capacity()
-    capacity_profile = capacity_readonly_profile(collection_deadline)
+    capacity_profile = capacity_readonly_profile(collection_deadline, target)
     after_web = containers('web')
     after_api = containers('api', project) if isinstance(project, str) and project else []
     stable = (runtime_identity(web) is not None and runtime_identity(api) is not None
@@ -1773,7 +1951,7 @@ def collect(target: str) -> dict[str, Any]:
               and runtime_identity(api) == runtime_identity(after_api[0]))
     checks['runtime_configuration_stability'] = 'UNCHANGED' if stable else 'NOT_PROVEN'
     checks['caddy_configuration_stability'] = ('UNCHANGED' if caddy_before is not None and caddy_before == caddy_config() else 'NOT_PROVEN')
-    result = {'schema': 'pc-crop.market-release-preflight.v5', 'target_sha': target,
+    result = {'schema': 'pc-crop.market-release-preflight.v6', 'target_sha': target,
             'observed_at_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
             'running_web_revision': revision(web), 'running_api_revision': revision(api),
             'checks': checks, 'migration_inventory': db, 'capacity': capacity,
@@ -2059,7 +2237,7 @@ def main() -> None:
         print(encoded)
     except Exception:
         # Never serialize raw exception messages or command/environment contents.
-        print('{"schema":"pc-crop.market-release-preflight.v5","collection":"NOT_PROVEN","production_mutation":"NONE","deployment_authorized":false}')
+        print('{"schema":"pc-crop.market-release-preflight.v6","collection":"NOT_PROVEN","production_mutation":"NONE","deployment_authorized":false}')
         raise SystemExit(1)
 
 

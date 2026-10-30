@@ -981,7 +981,7 @@ class RegistrationPreconditions(unittest.TestCase):
             with self.assertRaises(ValueError):m.validate_registration_preconditions(value,c,t)
 
     def test_current_envelope_requires_new_section_and_schema(self):
-        value=report(); self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v5')
+        value=report(); self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v6')
         self.assertEqual(m.validate_report(value,SHA),value)
         old=copy.deepcopy(value);old.pop('registration_binding')
         with self.assertRaises(ValueError):m.validate_report(old,SHA)
@@ -1138,7 +1138,7 @@ class FilesystemAndConfigObservation(unittest.TestCase):
         m.validate_report(value,SHA)
 
     def test_v3_requires_new_sections_and_rejects_old_v2_artifacts(self):
-        value=report();self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v5')
+        value=report();self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v6')
         m.validate_report(value,SHA)
         for key in ('api_publication_config','filesystem_capacity'):
             bad=copy.deepcopy(value);bad.pop(key)
@@ -1414,7 +1414,7 @@ class DeclaredDatabaseRelations(unittest.TestCase):
         self.assertIs(value['declared_database_relations']['auth_declared_target_matches_selected_pg'],True)
 
     def test_v4_declared_section_is_mandatory_and_prior_v3_is_rejected(self):
-        value=report();self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v5')
+        value=report();self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v6')
         old=copy.deepcopy(value);old['schema']='pc-crop.market-release-preflight.v3'
         with self.assertRaises(ValueError):m.validate_report(old,SHA)
         missing=copy.deepcopy(value);missing['release_inventory'].pop('declared_database_relations')
@@ -1444,6 +1444,9 @@ class CapacityDiagnosticProfile(unittest.TestCase):
                     identities=args[1:] if key=='containers_inspect' else args[2:]
                     if key=='images_inspect':inspect_sizes.append(len(identities))
                     raw=json.dumps([{'Id':v,'Config':{'Env':['PRIVATE_SECRET=NEVER_EMIT']},'RepoTags':['PRIVATE_REF'],'synthetic_type':False} for v in identities])
+                    if '_planning_fixture' in cases:
+                        source=cases['_planning_fixture'][0 if key=='containers_inspect' else 1]
+                        raw=json.dumps([source[v] for v in identities])
             else:
                 self.assertEqual(argv[:6],['/usr/bin/du','--summarize','--block-size=1','--one-file-system','--null','--'])
                 self.assertIn(argv[-1],m.CAPACITY_DISK_PATHS.values());key=next(k for k,v in m.CAPACITY_DISK_PATHS.items() if v==argv[-1]);raw='4096\t'+argv[-1]+'\x00'
@@ -1474,7 +1477,7 @@ class CapacityDiagnosticProfile(unittest.TestCase):
         fake,calls=self.fake_popen(cases)
         with patch.object(m.os,'geteuid',return_value=0),patch.object(m,'capacity_docker_ready',return_value=True), \
              patch.object(m,'capacity_fixed_path_ready',return_value=True),patch.object(m.subprocess,'Popen',side_effect=fake):
-            result=m.capacity_readonly_profile(deadline or m.time.monotonic()+180)
+            result=m.capacity_readonly_profile(deadline or m.time.monotonic()+180, SHA)
         m.validate_capacity_profile(result)
         for marker in ('PRIVATE_','sha256:','/var/lib/','1'*64,'NEVER_EMIT','RepoTags','Env'):
             self.assertNotIn(marker,json.dumps(result))
@@ -1943,6 +1946,263 @@ class Publication(unittest.TestCase):
             self.assertIn(marker,block)
         for forbidden in ('secrets.','ssh','issue_comment'):self.assertNotIn(forbidden,block)
         self.assertEqual(wf.count('packages: read'),1)
+
+
+class InitialImageReclaimPlan(unittest.TestCase):
+    @staticmethod
+    def fixture():
+        images={}
+        for index in range(1,9):
+            identity='sha256:'+format(index,'064x')
+            images[identity]={'Id':identity,'RepoTags':['ghcr.io/pachaninm-lab/grainflow-api:old'+str(index)],
+                'RepoDigests':[], 'Config':{'Labels':{'org.opencontainers.image.revision':format(index,'040x')},
+                    'Env':['PRIVATE_SECRET=NEVER_EMIT']},
+                'Size':index*1024, 'Created':'2026-10-'+format(index,'02d')+'T01:02:03.123456789Z'}
+        containers={}
+        for index,role in ((1,'api'),(2,'web')):
+            identity=str(index)*64
+            containers[identity]={'Id':identity,'Image':'sha256:'+format(index,'064x'),
+                'Config':{'Labels':{'com.docker.compose.service':role,'org.opencontainers.image.revision':SHA},
+                          'Env':['PRIVATE_CUSTOMER_SECRET']},'HostConfig':{},'NetworkSettings':{},'State':{'Running':True}}
+        return containers,images
+
+    def test_actual_initial_d953_catalog_reserve_and_order_parity(self):
+        import types
+        source=PATH.with_name('production-docker-headroom-recovery.sh').read_bytes()
+        self.assertEqual(m.hashlib.sha1(b'blob '+str(len(source)).encode()+b'\x00'+source).hexdigest(),
+                         'd9539026cc0f4ade08a7adcdd086eced7085c1f2')
+        engine={'__name__':'test_only_no_operational_entrypoint'}
+        body=source.decode().split("<<'PY_RECLAIM'\n",1)[1].rsplit('\nPY_RECLAIM',1)[0]
+        exec(compile(body,'accepted-d953-source','exec'),engine)
+        for case in range(20):
+            containers,images=self.fixture()
+            # Exercise namespaces, cross-namespace/component mixtures, target protection,
+            # valid digest-only canonical images, invalid aliases and stopped references.
+            for index,item in enumerate(images.values(),1):
+                component=('api','web','migration')[case%3]
+                revision=item['Config']['Labels']['org.opencontainers.image.revision']
+                if case%4==0:item['RepoTags']=['pc-crop-transfer/'+component+':'+revision]
+                elif case%4==1:item['RepoTags']=['ghcr.io/pachaninm-lab/grainflow-'+component+':v'+str(index)]
+                elif case%4==2:item['RepoTags']=[];item['RepoDigests']=['ghcr.io/pachaninm-lab/grainflow-'+component+'@sha256:'+'b'*64]
+                else:item['RepoTags']=['pc-crop-transfer/'+component+':'+SHA]
+                if index==3 and case%2==0:item['RepoDigests'].append('FOREIGN_PRIVATE_REF')
+                if index==4 and case%3==0:item['Config']['Labels']['org.opencontainers.image.revision']=SHA
+            if case%2==0:
+                stopped=copy.deepcopy(containers['1'*64]);stopped.update(Id='3'*64,Image='sha256:'+format(5,'064x'))
+                stopped['State']['Running']=False;containers['3'*64]=stopped
+            recovery=engine['Recovery'](SHA,'1',runner=object())
+            recovery.command=lambda args:types.SimpleNamespace(stdout='\n'.join(images))
+            recovery.array=lambda args,ids,key:images
+            _,records=recovery.catalog()
+            refs={row['Image'] for row in containers.values()}
+            protected=recovery.reserve(records,{'images':refs})
+            eligible=sorted((row for identity,row in records.items() if identity not in protected),key=lambda row:row['created'],reverse=True)
+            plan=m.capacity_image_reclaim_plan(containers,images,SHA)
+            self.assertEqual(plan['status'],'INITIAL_SNAPSHOT_ONLY')
+            self.assertEqual((plan['canonical_image_count'],plan['eligible_image_count'],plan['protected_image_count'],plan['container_protected_image_count']),
+                             (len(records),len(eligible),len(protected),len(refs)))
+            self.assertEqual(plan['eligible_logical_bytes_upper'],sum(row['size'] for row in eligible))
+            self.assertEqual([r['logical_bytes_upper'] for r in plan['first_candidates']],[r['size'] for r in eligible[:8]])
+            self.assertEqual([r['initial_reference_count'] for r in plan['first_candidates']],[len(r['refs']) for r in eligible[:8]])
+
+    def test_current_target_stopped_containers_and_top_two_are_protected(self):
+        containers,images=self.fixture()
+        images['sha256:'+format(6,'064x')]['Config']['Labels']['org.opencontainers.image.revision']=SHA
+        stopped=copy.deepcopy(containers['1'*64]);stopped.update(Id='3'*64,Image='sha256:'+format(5,'064x'));stopped['State']['Running']=False
+        containers['3'*64]=stopped
+        plan=m.capacity_image_reclaim_plan(containers,images,SHA)
+        self.assertEqual((plan['protected_image_count'],plan['eligible_image_count']),(6,2))
+        self.assertEqual(plan['eligible_logical_bytes_upper'],(3+4)*1024)
+        self.assertEqual([row['logical_bytes_upper'] for row in plan['first_candidates']],[4096,3072])
+
+    def test_reserves_are_per_component_and_namespace(self):
+        containers,images=self.fixture()
+        for index,item in enumerate(images.values(),1):
+            if index%2==0:
+                revision=item['Config']['Labels']['org.opencontainers.image.revision']
+                item['RepoTags']=['pc-crop-transfer/api:'+revision]
+        plan=m.capacity_image_reclaim_plan(containers,images,SHA)
+        self.assertEqual((plan['protected_image_count'],plan['eligible_image_count']),(6,2))
+
+    def test_initial_reference_call_bounds_include_possible_final_id(self):
+        containers,images=self.fixture()
+        item=images['sha256:'+format(6,'064x')]
+        item['RepoTags']+=['ghcr.io/pachaninm-lab/grainflow-api:second']
+        item['RepoDigests']=['ghcr.io/pachaninm-lab/grainflow-api@sha256:'+'b'*64]
+        row=m.capacity_image_reclaim_plan(containers,images,SHA)['first_candidates'][0]
+        self.assertEqual((row['initial_reference_count'],row['initial_rm_calls_lower'],row['initial_rm_calls_upper']),(3,1,4))
+
+    def test_invalid_catalog_or_runtime_never_becomes_zero_eligibility(self):
+        mutations=[lambda c,i:i.pop(next(iter(i))),lambda c,i:c['1'*64]['State'].update(Running=False),
+            lambda c,i:c['1'*64].update(Image='PRIVATE'),lambda c,i:c['1'*64].update(HostConfig=None),
+            lambda c,i:i[next(iter(i))].update(Size=True),lambda c,i:i[next(iter(i))].update(Size=-1),
+            lambda c,i:i[next(iter(i))].update(Size=2**63),lambda c,i:i[next(iter(i))].update(Created='2026-13-01T00:00:00Z'),
+            lambda c,i:i[next(iter(i))].update(RepoTags=['x']*1+[True]),
+            lambda c,i:i[next(iter(i))].update(RepoTags=['foreign'+str(n) for n in range(129)]),
+            lambda c,i:c['1'*64]['Config']['Labels'].update({'com.docker.compose.service':[]})]
+        for mutate in mutations:
+            c,i=self.fixture();mutate(c,i)
+            with self.subTest(mutate=mutate):self.assertEqual(m.capacity_image_reclaim_plan(c,i,SHA),m.empty_image_reclaim_plan())
+        for c,i,t in (({},self.fixture()[1],SHA),(*self.fixture(),None),(*self.fixture(),True)):
+            self.assertEqual(m.capacity_image_reclaim_plan(c,i,t),m.empty_image_reclaim_plan())
+
+    def test_noncanonical_images_remain_excluded_and_can_have_unrelated_metadata(self):
+        containers,images=self.fixture()
+        for item in images.values():item.update(RepoTags=['PRIVATE_FOREIGN_IMAGE'],Created=None,Size=None)
+        plan=m.capacity_image_reclaim_plan(containers,images,SHA)
+        self.assertEqual(plan['status'],'INITIAL_SNAPSHOT_ONLY')
+        self.assertEqual((plan['canonical_image_count'],plan['eligible_image_count'],plan['eligible_logical_bytes_upper']),(0,0,0))
+
+    def test_batch_plan_survives_warm_timeout_without_extra_cli_or_physical_claim(self):
+        fixture=self.fixture()
+        helper=CapacityDiagnosticProfile()
+        with patch.object(m,'CAPACITY_COMMAND_SECONDS',0.5),patch.object(m,'CAPACITY_PROFILE_SECONDS',2):
+            value,calls=helper.profile({'_image_count':8,'_planning_fixture':fixture,'images_inspect':[None,'timeout']})
+        plan=value['image_reclaim_plan']
+        self.assertEqual(plan['status'],'INITIAL_SNAPSHOT_ONLY')
+        self.assertEqual(calls.count('images_inspect'),2)
+        self.assertEqual((plan['physical_reclaim'],plan['catalog_stability'],plan['cleanup_authorized']),('NOT_PROVEN','NOT_PROVEN',False))
+        self.assertEqual(value['status'],'PARTIAL_READ_ONLY')
+        if value['commands']['images_inspect_after_warm']['status']=='TIMED_OUT':
+            self.assertEqual(calls[-4:],list(m.CAPACITY_DISK_PATHS))
+            self.assertTrue(all(row['status']=='SUCCESS' for row in value['disk_usage'].values()))
+
+    def test_failed_batch_leaves_plan_unknown_and_no_new_query(self):
+        helper=CapacityDiagnosticProfile()
+        value,calls=helper.profile({'_image_count':8,'_planning_fixture':self.fixture(),'images_inspect':'nonzero'})
+        self.assertEqual(value['image_reclaim_plan'],m.empty_image_reclaim_plan())
+        self.assertEqual(calls.count('images_inspect'),1)
+
+    def test_closed_schema_rejects_authority_ids_coercion_and_impossible_counts(self):
+        helper=CapacityDiagnosticProfile()
+        value,_=helper.profile({'_image_count':8,'_planning_fixture':self.fixture()})
+        for mutate in (lambda p:p.update(cleanup_authorized=True),lambda p:p.update(catalog_stability='PASS'),
+            lambda p:p.update(physical_reclaim='PROVEN'),lambda p:p.update(raw='PRIVATE'),
+            lambda p:p.update(eligible_image_count=True),lambda p:p.update(eligible_image_count=8),
+            lambda p:p.update(eligible_logical_bytes_upper=False),lambda p:p.update(first_candidates=[]),
+            lambda p:p.update(eligible_logical_bytes_upper=p['eligible_image_count']*(2**63-1)),
+            lambda p:p['first_candidates'][0].update(initial_rm_calls_upper=99),
+            lambda p:p['first_candidates'][0].update(logical_bytes_upper=2**63),
+            lambda p:p['first_candidates'][0].update(image_id='PRIVATE')):
+            bad=copy.deepcopy(value);mutate(bad['image_reclaim_plan'])
+            with self.assertRaises(ValueError):m.validate_capacity_profile(bad)
+        bad=copy.deepcopy(value);bad['commands']['containers_inspect'].update(status='UNKNOWN',count=None)
+        bad['status']='PARTIAL_READ_ONLY'
+        with self.assertRaises(ValueError):m.validate_capacity_profile(bad)
+        bad=m.empty_capacity_profile();bad['image_reclaim_plan']['eligible_image_count']=False
+        with self.assertRaises(ValueError):m.validate_capacity_profile(bad)
+
+    def test_legacy_v5_cannot_be_relabelled_v6_without_closed_plan(self):
+        value=report();value['schema']='pc-crop.market-release-preflight.v5'
+        with self.assertRaises(ValueError):m.validate_report(value,SHA)
+
+    def test_impossible_reserve_union_and_missing_runtime_roles_are_rejected(self):
+        helper=CapacityDiagnosticProfile()
+        value,_=helper.profile({'_image_count':8,'_planning_fixture':self.fixture()})
+        for counts in ({'canonical_image_count':8,'eligible_image_count':7,'container_protected_image_count':1,'protected_image_count':1},
+                       {'canonical_image_count':0,'eligible_image_count':0,'container_protected_image_count':1,'protected_image_count':8,
+                        'eligible_logical_bytes_upper':0,'first_candidates':[]}):
+            bad=copy.deepcopy(value);bad['image_reclaim_plan'].update(counts)
+            with self.assertRaises(ValueError):m.validate_capacity_profile(bad)
+        bad=copy.deepcopy(value)
+        for key in ('containers_list','containers_inspect'):bad['commands'][key]['count']=1
+        with self.assertRaises(ValueError):m.validate_capacity_profile(bad)
+        value=report();value['capacity_diagnostics'].pop('image_reclaim_plan')
+        with self.assertRaises(ValueError):m.validate_report(value,SHA)
+
+
+    def integrated_profile(self, warm_status='TIMED_OUT', *, clean=True, exhausted=False, bad_batch=False, du_limit=False, du_unclean=False):
+        containers,images=self.fixture();calls=[]
+        def execute(runner,key,identities=None):
+            calls.append(key);runner.calls+=1
+            if key=='containers_list':raw=('\n'.join(containers)+'\n').encode()
+            elif key=='containers_inspect':raw=json.dumps(list(containers.values())).encode()
+            elif key=='volumes_list':raw=b'private_volume\n'
+            elif key=='networks_list':raw=('b'*64+'\n').encode()
+            elif key=='images_list':raw=('\n'.join(images)+'\n').encode()
+            elif key=='images_inspect':
+                if calls.count(key)==1:
+                    if bad_batch:
+                        runner.last_stdout_bytes=runner.last_io_bytes=0
+                        return 'UNKNOWN',0,None
+                    raw=json.dumps([images[x] for x in identities]).encode()
+                else:
+                    runner.clean=clean;runner.exhausted=exhausted
+                    runner.last_stdout_bytes=runner.last_io_bytes=0
+                    if warm_status!='SUCCESS':return warm_status,0,None
+                    raw=json.dumps([images[x] for x in identities]).encode()
+            else:
+                if du_unclean:
+                    runner.clean=False;runner.last_stdout_bytes=runner.last_io_bytes=0
+                    return 'UNKNOWN',0,None
+                if du_limit:
+                    runner.last_stdout_bytes=runner.last_io_bytes=0
+                    return 'OUTPUT_LIMIT',0,None
+                raw=('4096\t'+m.CAPACITY_DISK_PATHS[key]+'\x00').encode()
+            runner.last_stdout_bytes=runner.last_io_bytes=len(raw)
+            runner.stdout_total+=len(raw);runner.total+=len(raw)
+            return 'SUCCESS',0,raw
+        with patch.object(m.os,'geteuid',return_value=0),patch.object(m,'capacity_docker_ready',return_value=True),patch.object(m,'capacity_fixed_path_ready',return_value=True),patch.object(m.CapacityProfileRunner,'execute',new=execute):
+            value=m.capacity_readonly_profile(m.time.monotonic()+180,SHA)
+        m.validate_capacity_profile(value)
+        return value,calls
+
+    def test_initial_plan_is_computed_before_warm_timeout_and_existing_du_can_run(self):
+        value,calls=self.integrated_profile()
+        containers,images=self.fixture()
+        self.assertEqual(value['image_reclaim_plan'],m.capacity_image_reclaim_plan(containers,images,SHA))
+        self.assertEqual(value['image_reclaim_plan']['status'],'INITIAL_SNAPSHOT_ONLY')
+        self.assertEqual(value['status'],'PARTIAL_READ_ONLY')
+        self.assertEqual(calls[-4:],list(m.CAPACITY_DISK_PATHS))
+        self.assertTrue(all(row['status']=='SUCCESS' and row['bytes']==4096 for row in value['disk_usage'].values()))
+
+    def test_du_after_warm_requires_exact_timeout_clean_complete_nonexhausted(self):
+        cases=[{'warm_status':'UNKNOWN'},{'warm_status':'OUTPUT_LIMIT'},{'warm_status':'INVALID'},{'warm_status':'TIMED_OUT','clean':False},{'warm_status':'TIMED_OUT','exhausted':True},{'bad_batch':True}]
+        for case in cases:
+            value,calls=self.integrated_profile(**case)
+            self.assertTrue(all(key not in calls for key in m.CAPACITY_DISK_PATHS))
+            self.assertTrue(all(row['status']=='NOT_RUN' for row in value['disk_usage'].values()))
+            if case.get('bad_batch'):self.assertEqual(value['image_reclaim_plan'],m.empty_image_reclaim_plan())
+
+    def test_du_output_limit_after_clean_warm_timeout_stops_remaining_du(self):
+        value,calls=self.integrated_profile(du_limit=True)
+        self.assertEqual(calls[-1],next(iter(m.CAPACITY_DISK_PATHS)))
+        self.assertEqual(sum(key in calls for key in m.CAPACITY_DISK_PATHS),1)
+        self.assertEqual(value['disk_usage']['docker_containers']['status'],'OUTPUT_LIMIT')
+        self.assertEqual(value['disk_usage']['containerd']['status'],'NOT_RUN')
+
+    def test_uncertain_du_cleanup_after_clean_warm_timeout_stops_remaining_du(self):
+        value,calls=self.integrated_profile(du_unclean=True)
+        self.assertEqual(sum(key in calls for key in m.CAPACITY_DISK_PATHS),1)
+        self.assertEqual(value['disk_usage']['docker_containers']['status'],'UNKNOWN')
+        self.assertEqual(value['disk_usage']['containerd']['status'],'NOT_RUN')
+
+    def test_nine_eligible_truncate_eight_and_cumulative_logical_values_are_closed_typed(self):
+        containers,images=self.fixture()
+        template=copy.deepcopy(next(iter(images.values())))
+        for index in range(9,14):
+            identity='sha256:'+format(index,'064x');row=copy.deepcopy(template)
+            row.update(Id=identity,Size=2**63-1,Created='2026-10-'+format(index,'02d')+'T01:02:03.123456789Z')
+            images[identity]=row
+        plan=m.capacity_image_reclaim_plan(containers,images,SHA)
+        self.assertEqual(plan['eligible_image_count'],9)
+        rows=plan['first_candidates'];self.assertEqual(len(rows),8)
+        self.assertEqual([row['rank'] for row in rows],list(range(1,9)))
+        cumulative=0
+        for row in rows:
+            cumulative+=row['logical_bytes_upper'];self.assertEqual(row['cumulative_logical_bytes_upper'],cumulative)
+        self.assertGreater(cumulative,2**63)
+        profile=m.empty_capacity_profile();profile['commands']['images_list'].update(count=13)
+        profile['commands']['containers_list'].update(count=2);profile['commands']['containers_inspect'].update(status='SUCCESS')
+        profile['image_batches']['status']='SUCCESS'
+        m.validate_image_reclaim_plan(plan,profile)
+        for mutate in (lambda v:v['first_candidates'].append(copy.deepcopy(v['first_candidates'][-1])),
+                       lambda v:v['first_candidates'][-1].update(rank=9),
+                       lambda v:v['first_candidates'][0].update(rank=True),
+                       lambda v:v['first_candidates'][0].update(cumulative_logical_bytes_upper=True),
+                       lambda v:v['first_candidates'][-1].update(cumulative_logical_bytes_upper=0)):
+            bad=copy.deepcopy(plan);mutate(bad)
+            with self.assertRaises(ValueError):m.validate_image_reclaim_plan(bad,profile)
 
 
 if __name__ == '__main__':

@@ -61,7 +61,7 @@ jobs:
           if str(inspector_path) not in workflow_text:
               raise SystemExit('TRANSPORTED_SCRIPT_PATH_MISSING')
           inspector_source = inspector_path.read_bytes()
-          if hashlib.sha256(inspector_source).hexdigest() != '3575eee2d071647ffab6190889e206dad4cccbe4b8b829d227827535dd23d9e8':
+          if hashlib.sha256(inspector_source).hexdigest() != '135c5c33fc28a9efcf6bee729551f3d6c3760b8eecec8ada0e3081d3840638c1':
               raise SystemExit('TRANSPORTED_SCRIPT_DIGEST_MISMATCH')
           text = workflow_text + '\n' + inspector_source.decode('utf-8', errors='strict')
           for marker in ('SET TRANSACTION READ ONLY', 'statement_timeout', "'deployment_authorized': False", 'def validate_report('):
