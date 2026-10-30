@@ -884,5 +884,528 @@ class PersistedReleaseInventory(unittest.TestCase):
                     result=json.loads(p.stdout);m.validate_database_probe(result);self.assertEqual(result['status'],status)
 
 
+class RegistrationPreconditions(unittest.TestCase):
+    def fixture(self):
+        a=api(); a['Mounts']=[]; a['HostConfig']['ReadonlyRootfs']=True
+        a['Config']['Env'].append('AUTH_DATABASE_URL=private-do-not-publish')
+        checks={**report()['checks'], 'caddy_configuration_stability':'UNCHANGED'}
+        topology={'runtime_stability':'UNCHANGED','api_image':{
+            'container_image_binding':True,'immutable_config_ref':True,
+            'registry_digest':'sha256:'+'a'*64}}
+        return a,checks,topology
+
+    def test_positive_observations_never_execute_or_prove_binding(self):
+        a,c,t=self.fixture()
+        with patch.object(m,'run',side_effect=AssertionError('no new command permitted')):
+            value=m.registration_preconditions(a,c,t)
+        self.assertEqual(value['route_configuration'],'OBSERVED_CONFIGURATION_ONLY')
+        self.assertEqual(value['local_image_binding'],'OBSERVED')
+        self.assertEqual(value['immutable_reference'],'OBSERVED')
+        self.assertIs(value['binding_proven'],False)
+        self.assertEqual(value['helper_execution'],'NOT_PERFORMED')
+        self.assertEqual(value['blocking_reasons'],['INSTALLED_CODE_PROOF_MISSING',
+            'REGISTRATION_BINDING_NOT_PERFORMED','TRUSTED_IMAGE_PROOF_MISSING'])
+        self.assertNotIn('private-do-not-publish',json.dumps(value))
+        m.validate_registration_preconditions(value,c,t)
+
+    def test_missing_caddy_and_runtime_never_infer_route(self):
+        for field in ['caddy_configuration_stability','caddy_route_and_headers',
+                      'runtime_configuration_stability','canonical_api_origin','api_web_peer_trust','web_ingress']:
+            a,c,t=self.fixture(); c[field]='NOT_PROVEN'
+            value=m.registration_preconditions(a,c,t)
+            self.assertEqual(value['route_configuration'],'NOT_PROVEN')
+            self.assertIn('ROUTE_CHAIN_NOT_PROVEN',value['blocking_reasons'])
+
+    def test_changed_topology_invalidates_image_and_route_observations(self):
+        a,c,t=self.fixture(); t['runtime_stability']='NOT_PROVEN'
+        value=m.registration_preconditions(a,c,t)
+        for key in ['runtime_stability','route_configuration','local_image_binding','immutable_reference']:
+            self.assertEqual(value[key],'NOT_PROVEN')
+
+    def test_tag_or_missing_local_image_does_not_attest_provenance(self):
+        a,c,t=self.fixture();t['api_image']['immutable_config_ref']=False
+        value=m.registration_preconditions(a,c,t)
+        self.assertEqual(value['immutable_reference'],'NOT_PROVEN')
+        self.assertIn('TRUSTED_IMAGE_PROOF_MISSING',value['blocking_reasons'])
+        t['api_image']['container_image_binding']=False
+        self.assertEqual(m.registration_preconditions(a,c,t)['local_image_binding'],'NOT_PROVEN')
+
+    def test_mount_overlap_uses_components_and_covers_parent_and_child(self):
+        for dest in ['/', '/app', '/app/dist', '/app/dist/module.js', '/app/node_modules/pkg', '/nodejs/bin/node']:
+            self.assertEqual(m.code_mount_observation({'Mounts':[{'Destination':dest}]}),'CODE_PATH_OVERLAP')
+        for dest in ['/app/distinct','/app/node_modules-old','/nodejs-old','/etc/config']:
+            self.assertEqual(m.code_mount_observation({'Mounts':[{'Destination':dest}]}),'NO_CODE_MOUNT_OBSERVED')
+
+    def test_missing_or_malformed_mounts_are_unknown_without_path_disclosure(self):
+        for mounts in [None,{},[None],[{}],[{'Destination':'relative'}],
+                       [{'Destination':'//app/dist'}],[{'Destination':'/app/../dist'}],
+                       [{'Destination':'/app/dist/'}],[{'Destination':'/private\x00secret'}]]:
+            self.assertEqual(m.code_mount_observation({'Mounts':mounts}),'NOT_PROVEN')
+
+    def test_env_unknown_missing_empty_duplicate_and_false_values(self):
+        for env,expected in [(None,'NOT_PROVEN'),({},'NOT_PROVEN'),([7],'NOT_PROVEN'),
+                             (['MALFORMED'],'NOT_PROVEN'),([], 'MISSING'),
+                             (['AUTH_DATABASE_URL= '],'MISSING'),
+                             (['AUTH_DATABASE_URL=x','AUTH_DATABASE_URL=y'],'NOT_PROVEN')]:
+            a,c,t=self.fixture();a['Config']['Env']=env
+            value=m.registration_preconditions(a,c,t)
+            self.assertEqual(value['registration_url'],expected)
+            self.assertIn('REGISTRATION_URL_NOT_CONFIGURED',value['blocking_reasons'])
+
+    def test_writable_or_unknown_root_remains_blocked(self):
+        for readonly,state in [(False,'WRITABLE'),(None,'NOT_PROVEN'),(1,'NOT_PROVEN')]:
+            a,c,t=self.fixture();a['HostConfig']['ReadonlyRootfs']=readonly
+            value=m.registration_preconditions(a,c,t)
+            self.assertEqual(value['root_filesystem'],state)
+            self.assertIn('WRITABLE_ROOT_OR_UNKNOWN',value['blocking_reasons'])
+
+    def test_extra_fields_unknown_strings_and_false_success_rejected(self):
+        for key,bad in [('secret','private-value'),('binding_proven',True),('binding_proven',0),
+                        ('helper_execution','PASS'),('status','READY'),('code_mounts','private-path')]:
+            a,c,t=self.fixture();value=m.registration_preconditions(a,c,t);value[key]=bad
+            with self.assertRaises(ValueError):m.validate_registration_preconditions(value,c,t)
+
+    def test_missing_duplicate_reordered_or_injected_blockers_rejected(self):
+        a,c,t=self.fixture();original=m.registration_preconditions(a,c,t)
+        for reasons in [[],original['blocking_reasons']*2,list(reversed(original['blocking_reasons'])),['private-path']]:
+            value=copy.deepcopy(original);value['blocking_reasons']=reasons
+            with self.assertRaises(ValueError):m.validate_registration_preconditions(value,c,t)
+
+    def test_route_image_and_runtime_contradictions_rejected(self):
+        for field in ['route_configuration','local_image_binding','immutable_reference','runtime_stability']:
+            a,c,t=self.fixture();value=m.registration_preconditions(a,c,t);value[field]='NOT_PROVEN'
+            value['blocking_reasons']=m.registration_blockers(value)
+            with self.assertRaises(ValueError):m.validate_registration_preconditions(value,c,t)
+
+    def test_current_envelope_requires_new_section_and_schema(self):
+        value=report(); self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v3')
+        self.assertEqual(m.validate_report(value,SHA),value)
+        old=copy.deepcopy(value);old.pop('registration_binding')
+        with self.assertRaises(ValueError):m.validate_report(old,SHA)
+        old=copy.deepcopy(value);old['schema']='pc-crop.market-release-preflight.v1'
+        with self.assertRaises(ValueError):m.validate_report(old,SHA)
+
+
+class FilesystemAndConfigObservation(unittest.TestCase):
+    def checks(self):return {'runtime_configuration_stability':'UNCHANGED'}
+    def topology(self):
+        return {'runtime_stability':'UNCHANGED','api_image':{'container_image_binding':True,
+            'running':True,'revision':m.PUBLICATION['source_sha']}}
+    def sample(self):
+        return {'status':'OBSERVED_METADATA_ONLY','total_bytes':409600,'free_bytes':122880,
+                'available_bytes':81920,'inodes':{'status':'OBSERVED','total':50,'free':15,'available':10}}
+
+    def test_only_full_stable_bound_published_config_matches(self):
+        value=m.api_publication_config({'Image':m.PUBLICATION['config']},self.checks(),self.topology())
+        self.assertEqual(value['status'],'DECLARED_BASE_CONFIG_ID_MATCH_ONLY')
+        self.assertEqual(value['installed_code'],'NOT_INSPECTED')
+        self.assertEqual(value['registration_binding'],'NOT_PERFORMED')
+        m.validate_api_publication_config(value,self.checks(),self.topology())
+        for field,replacement in (('runtime_stability','NOT_PROVEN'),('api_image',{})):
+            t=self.topology();t[field]=replacement
+            self.assertEqual(m.api_publication_config({'Image':m.PUBLICATION['config']},self.checks(),t)['status'],'NOT_PROVEN')
+        for field,replacement in (('container_image_binding',False),('running',False),('revision','d'*40)):
+            t=self.topology();t['api_image'][field]=replacement
+            self.assertEqual(m.api_publication_config({'Image':m.PUBLICATION['config']},self.checks(),t)['status'],'NOT_PROVEN')
+        self.assertEqual(m.api_publication_config({'Image':m.PUBLICATION['config']},{},self.topology())['status'],'NOT_PROVEN')
+
+    def test_label_or_short_id_cannot_substitute_for_full_config_id(self):
+        for image in ('b7fb48be36e4',m.PUBLICATION['config'].split(':')[1],None,'private-secret'):
+            v=m.api_publication_config({'Image':image},self.checks(),self.topology())
+            self.assertEqual(v['status'],'NOT_PROVEN');self.assertEqual(v['observed_image_id'],'NOT_PROVEN')
+            self.assertNotIn('private-secret',json.dumps(v))
+        for image in ('sha256:'+'a'*64,m.PUBLICATION['index'],m.PUBLICATION['manifest']):
+            v=m.api_publication_config({'Image':image},self.checks(),self.topology())
+            self.assertEqual(v['status'],'NOT_PROVEN');self.assertEqual(v['observed_image_id'],image)
+            m.validate_api_publication_config(v,self.checks(),self.topology())
+
+    def test_config_observation_rejects_extra_or_contradictory_authority(self):
+        v=m.api_publication_config({'Image':m.PUBLICATION['config']},self.checks(),self.topology())
+        for change in ({'private':'secret'},{'installed_code':'VERIFIED'},{'registration_binding':'PASS'},
+                       {'expected_config_digest':'sha256:'+'a'*64},{'observed_image_id':'private'}):
+            bad={**v,**change}
+            with self.subTest(change=change),self.assertRaises(ValueError):
+                m.validate_api_publication_config(bad,self.checks(),self.topology())
+
+    def test_config_match_does_not_remove_any_registration_blocker(self):
+        t=self.topology();c={'runtime_configuration_stability':'UNCHANGED'}
+        api={'Image':m.PUBLICATION['config'],'Config':{'Env':['AUTH_DATABASE_URL=private']},
+             'HostConfig':{'ReadonlyRootfs':False},'Mounts':[]}
+        self.assertEqual(m.api_publication_config(api,c,t)['status'],'DECLARED_BASE_CONFIG_ID_MATCH_ONLY')
+        r=m.registration_preconditions(api,c,t)
+        self.assertIs(r['binding_proven'],False);self.assertEqual(r['helper_execution'],'NOT_PERFORMED')
+        for blocker in ('INSTALLED_CODE_PROOF_MISSING','TRUSTED_IMAGE_PROOF_MISSING',
+                        'REGISTRATION_BINDING_NOT_PERFORMED','WRITABLE_ROOT_OR_UNKNOWN'):
+            self.assertIn(blocker,r['blocking_reasons'])
+
+    def test_descriptor_metadata_preserves_atime_without_content_or_listing(self):
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td);child=p/'private';child.mkdir();(child/'never-read').write_text('PRIVATE_CUSTOMER_BYTES')
+            for path in (p,child):os.utime(path,ns=(1,path.stat().st_mtime_ns))
+            with patch.object(os,'scandir',side_effect=AssertionError('no enumeration')), \
+                 patch.object(os,'listdir',side_effect=AssertionError('no enumeration')):
+                value,device=m.filesystem_snapshot(str(child))
+            self.assertEqual(value['status'],'OBSERVED_METADATA_ONLY');self.assertIs(type(device),int)
+            self.assertEqual(p.stat().st_atime_ns,1);self.assertEqual(child.stat().st_atime_ns,1)
+            self.assertNotIn(td,json.dumps(value));self.assertNotIn('PRIVATE',json.dumps(value))
+
+    def test_symlink_relative_control_and_deep_paths_fail_without_following(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);target=root/'target';target.mkdir();(root/'alias').symlink_to(target,target_is_directory=True)
+            for path in (str(root/'alias'),str(root/'alias'/'child'),'relative','/a/../b','/a//b',
+                         '/a/./b','/private\nsecret','/'+'a/'*65+'b','/'+'a'*4096):
+                with self.subTest(path=path):self.assertEqual(m.filesystem_snapshot(path),({'status':'NOT_PROVEN'},None))
+        with patch.object(os,'O_PATH',None):
+            self.assertEqual(m.filesystem_snapshot('/'),({'status':'NOT_PROVEN'},None))
+
+    def test_available_bytes_exclude_reserved_blocks_and_unknown_inodes_stay_unknown(self):
+        from types import SimpleNamespace as S
+        values=S(f_frsize=4096,f_blocks=100,f_bfree=30,f_bavail=20,f_files=50,f_ffree=15,f_favail=10)
+        with patch.object(os,'fstatvfs',return_value=values):v,_=m.filesystem_snapshot('/')
+        self.assertEqual(v,self.sample())
+        values.f_files=values.f_ffree=values.f_favail=-1
+        with patch.object(os,'fstatvfs',return_value=values):v,_=m.filesystem_snapshot('/')
+        self.assertEqual(v['available_bytes'],81920);self.assertEqual(v['inodes'],{'status':'NOT_PROVEN'})
+        for field,bad in (('f_bavail',31),('f_bavail',True),('f_frsize',0),('f_blocks',2**63)):
+            broken=copy.copy(values);setattr(broken,field,bad)
+            with self.subTest(field=field,bad=bad),patch.object(os,'fstatvfs',return_value=broken):
+                self.assertEqual(m.filesystem_snapshot('/'),({'status':'NOT_PROVEN'},None))
+
+    def test_permission_or_stat_error_is_closed_and_descriptors_are_released(self):
+        with patch.object(os,'open',side_effect=PermissionError('PRIVATE_PATH')):
+            self.assertEqual(m.filesystem_snapshot('/'),({'status':'NOT_PROVEN'},None))
+        real_close=os.close
+        with patch.object(os,'fstatvfs',side_effect=OSError('PRIVATE_PATH')),patch.object(os,'close',wraps=real_close) as closed:
+            self.assertEqual(m.filesystem_snapshot('/'),({'status':'NOT_PROVEN'},None))
+        self.assertEqual(closed.call_count,1)
+
+    def test_three_fixed_descriptor_observations_and_one_docker_metadata_command(self):
+        with patch.object(m,'filesystem_snapshot',side_effect=[(self.sample(),10),(self.sample(),20),(self.sample(),10)]) as observe, \
+             patch.object(m,'run',return_value=json.dumps('/private/docker-root')) as command:
+            value=m.filesystem_capacity()
+        self.assertEqual([c.args[0] for c in observe.call_args_list],['/','/var/lib/pc-release-authority/backups','/private/docker-root'])
+        command.assert_called_once_with(['docker','info','--format','{{json .DockerRootDir}}'])
+        self.assertEqual(value['root_docker'],'SAME_FILESYSTEM_OBSERVED')
+        self.assertEqual(value['root_backup'],'DIFFERENT_FILESYSTEM_OBSERVED')
+        self.assertEqual(value['admission'],'NOT_GRANTED');self.assertNotIn('/private',json.dumps(value))
+        m.validate_filesystem_capacity(value)
+
+    def test_unknown_filesystem_never_becomes_zero_or_a_relation(self):
+        with patch.object(m,'filesystem_snapshot',return_value=({'status':'NOT_PROVEN'},None)),patch.object(m,'run',return_value=None):
+            value=m.filesystem_capacity()
+        m.validate_filesystem_capacity(value)
+        self.assertEqual(value['root'],{'status':'NOT_PROVEN'})
+        self.assertEqual(value['docker_backup'],'NOT_PROVEN')
+        bad=copy.deepcopy(value);bad['root_docker']='SAME_FILESYSTEM_OBSERVED'
+        with self.assertRaises(ValueError):m.validate_filesystem_capacity(bad)
+
+    def test_closed_filesystem_schema_rejects_paths_ranges_authority_and_contradictions(self):
+        with patch.object(m,'filesystem_snapshot',return_value=(self.sample(),10)),patch.object(m,'run',return_value='"/fixed"'):
+            value=m.filesystem_capacity()
+        for mutate in (lambda d:d.update(path='/PRIVATE'),lambda d:d.update(admission='READY'),
+                       lambda d:d['root'].update(path='/PRIVATE'),lambda d:d['root'].update(available_bytes=True),
+                       lambda d:d['root'].update(available_bytes=2**64),lambda d:d['root']['inodes'].update(available=99),
+                       lambda d:d.update(docker_backup='DIFFERENT_FILESYSTEM_OBSERVED')):
+            bad=copy.deepcopy(value);mutate(bad)
+            with self.subTest(mutate=mutate),self.assertRaises(ValueError):m.validate_filesystem_capacity(bad)
+
+    def test_capacity_observation_precedes_runtime_revalidation(self):
+        changed=[False]
+        a=api();a['Image']=m.PUBLICATION['config']
+        def selected(service,*args):
+            if service=='web':return [web()]
+            value=copy.deepcopy(a)
+            if changed[0]:value['Id']='9'*64
+            return [value]
+        def capacity_change():
+            changed[0]=True
+            return {'root':{'status':'NOT_PROVEN'},'docker':{'status':'NOT_PROVEN'},
+                    'backup':{'status':'NOT_PROVEN'},'root_docker':'NOT_PROVEN',
+                    'root_backup':'NOT_PROVEN','docker_backup':'NOT_PROVEN','admission':'NOT_GRANTED'}
+        with patch.object(m,'containers',side_effect=selected),patch.object(m,'caddy_config',return_value=caddy()), \
+             patch.object(m,'run',return_value=json.dumps(migrations())), \
+             patch.object(m,'backups',return_value={'artifact':'NOT_OBSERVED','archive_catalog':'NOT_CHECKED','restore_verification':'NOT_PROVEN'}), \
+             patch.object(m,'filesystem_capacity',side_effect=capacity_change):
+            # A capacity-stage runtime change must be covered by the existing final sampling.
+            value=m.collect(SHA)
+        self.assertEqual(value['checks']['runtime_configuration_stability'],'NOT_PROVEN')
+        self.assertEqual(value['api_publication_config']['status'],'NOT_PROVEN')
+        self.assertIs(value['registration_binding']['binding_proven'],False)
+        m.validate_report(value,SHA)
+
+    def test_v3_requires_new_sections_and_rejects_old_v2_artifacts(self):
+        value=report();self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v3')
+        m.validate_report(value,SHA)
+        for key in ('api_publication_config','filesystem_capacity'):
+            bad=copy.deepcopy(value);bad.pop(key)
+            with self.assertRaises(ValueError):m.validate_report(bad,SHA)
+        old=copy.deepcopy(value);old['schema']='pc-crop.market-release-preflight.v2'
+        with self.assertRaises(ValueError):m.validate_report(old,SHA)
+
+
+class Publication(unittest.TestCase):
+    def fixture(self, *, edit_config=None, edit_manifest=None, edit_index=None):
+        encode=lambda d: json.dumps(d,separators=(',',':')).encode()
+        digest=lambda b:'sha256:'+m.hashlib.sha256(b).hexdigest()
+        config={'os':'linux','architecture':'amd64','rootfs':{'type':'layers','diff_ids':['sha256:'+'a'*64]},
+                'config':{'Labels':{'org.opencontainers.image.revision':m.PUBLICATION['source_sha'],
+                 'org.opencontainers.image.source':'https://github.com/pachaninm-lab/pachanin-demo',
+                 'private':'DO_NOT_EXPORT'},'Env':['PRIVATE=DO_NOT_EXPORT']}}
+        if edit_config:edit_config(config)
+        cr=encode(config)
+        manifest={'schemaVersion':2,'mediaType':m.OCI_MANIFEST,
+                  'config':{'mediaType':m.OCI_CONFIG,'digest':digest(cr),'size':len(cr)},
+                  'layers':[{'mediaType':'application/vnd.oci.image.layer.v1.tar+gzip','digest':'sha256:'+'b'*64,'size':123}]}
+        if edit_manifest:edit_manifest(manifest)
+        mr=encode(manifest)
+        index={'schemaVersion':2,'mediaType':m.OCI_INDEX,'manifests':[{'mediaType':m.OCI_MANIFEST,
+               'digest':digest(mr),'size':len(mr),'platform':{'os':'linux','architecture':'amd64'}}]}
+        if edit_index:edit_index(index)
+        ir=encode(index)
+        return {**m.PUBLICATION,'index':digest(ir),'manifest':digest(mr),'config':digest(cr)},(ir,mr,cr)
+
+    def verify(self,**changes):
+        pins,docs=self.fixture(**changes)
+        with patch.dict(m.PUBLICATION,pins,clear=True):return m.verify_publication_documents(*docs)
+
+    def test_valid_metadata_cannot_claim_host_registration_or_code_proof(self):
+        v=self.verify();self.assertEqual(v['status'],'PINNED_METADATA_VERIFIED')
+        for key in ('host_binding','registration_binding'):self.assertEqual(v[key],'NOT_PERFORMED')
+        self.assertEqual(v['installed_code'],'NOT_INSPECTED');self.assertEqual(v['layer_contents'],'NOT_DOWNLOADED')
+        self.assertFalse(v['deployment_authorized']);self.assertNotIn('DO_NOT_EXPORT',json.dumps(v))
+        self.assertEqual(set(v),{'schema','status','source_sha','index_digest','manifest_digest','image_config_digest',
+            'platform','layer_count','declared_layer_bytes','layer_contents','installed_code','host_binding',
+            'registration_binding','production_mutation','deployment_authorized'})
+
+    def test_each_exact_response_digest_is_required(self):
+        pins,docs=self.fixture()
+        with patch.dict(m.PUBLICATION,pins,clear=True):
+            for i in range(3):
+                changed=list(docs);changed[i]+=b' '
+                with self.subTest(i=i),self.assertRaisesRegex(ValueError,'PUBLICATION_DIGEST'):
+                    m.verify_publication_documents(*changed)
+
+    def test_descriptor_platform_count_size_type_and_digest_tampering(self):
+        cases=[('edit_index',lambda d:d['manifests'][0]['platform'].update(architecture='arm64')),
+          ('edit_index',lambda d:d['manifests'][0].update(size=1)),
+          ('edit_index',lambda d:d['manifests'].append(copy.deepcopy(d['manifests'][0]))),
+          ('edit_index',lambda d:d.update(schemaVersion=2.0)),
+          ('edit_manifest',lambda d:d['config'].update(digest='sha256:'+'c'*64)),
+          ('edit_manifest',lambda d:d['config'].update(size=False)),
+          ('edit_manifest',lambda d:d['config'].update(mediaType='other')),
+          ('edit_manifest',lambda d:d.update(layers=[])),
+          ('edit_manifest',lambda d:d['layers'][0].update(size=-1)),
+          ('edit_manifest',lambda d:d['layers'][0].update(size=2**31)),
+          ('edit_manifest',lambda d:d['layers'][0].update(digest='PRIVATE'))]
+        for key,edit in cases:
+            with self.subTest(key=key,edit=edit),self.assertRaises(ValueError):self.verify(**{key:edit})
+
+    def test_wrong_revision_source_architecture_or_rootfs_rejected(self):
+        edits=[lambda d:d.update(os='other'),lambda d:d.update(architecture='arm64'),
+          lambda d:d['config']['Labels'].update({'org.opencontainers.image.revision':'c'*40}),
+          lambda d:d['config']['Labels'].update({'org.opencontainers.image.source':'https://other.invalid'}),
+          lambda d:d['rootfs'].update(type='other'),lambda d:d['rootfs'].update(diff_ids=[]),
+          lambda d:d['rootfs'].update(diff_ids=['PRIVATE'])]
+        for edit in edits:
+            with self.subTest(edit=edit),self.assertRaises(ValueError):self.verify(edit_config=edit)
+
+    def test_strict_json_rejects_duplicates_nonfinite_invalid_utf8_and_overflow(self):
+        for raw in (b'',b'{"x":1,"x":2}',b'{"x":NaN}',b'{"x":Infinity}',b'[]',b'\xff',b' '*(m.PUBLICATION_MAX_BYTES+1)):
+            with self.subTest(raw=raw[:25]),self.assertRaises(ValueError):m.publication_json(raw)
+
+    class Response:
+        status=200
+        def __init__(self,url,data=b'{}',headers=None):self.url,self.data,self.headers=url,data,headers or {}
+        def geturl(self):return self.url
+        def read1(self,size):v,self.data=self.data[:size],self.data[size:];return v
+        def __enter__(self):return self
+        def __exit__(self,*_):pass
+    class Opener:
+        def __init__(self,responses):self.responses,self.requests=iter(responses),[]
+        def open(self,request,timeout):
+            self.requests.append((request,timeout));v=next(self.responses)
+            if isinstance(v,Exception):raise v
+            return v
+    def get(self,url=None,*,responses=None,budget=None,**options):
+        url=url or 'https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        opener=self.Opener(responses or [self.Response(url)])
+        value=m.publication_get(url,'Bearer PRIVATE',m.time.monotonic()+60,opener,
+                               [0,0] if budget is None else budget,**options)
+        return value,opener
+
+    def test_only_fixed_https_origins_are_requested(self):
+        for url in ('http://ghcr.io/x','https://ghcr.io.evil.invalid/x','https://user:secret@ghcr.io/x',
+                    'https://ghcr.io:444/x','https://ghcr.io/x#secret','file:///secret',
+                    'https://pkg-containers.githubusercontent.com/other/path'):
+            with self.subTest(url=url),self.assertRaises(ValueError):self.get(url)
+
+    def test_exact_config_colon_and_slash_paths_strip_authorization(self):
+        url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        for path in (m.PUBLICATION['config'],m.PUBLICATION['config'].replace(':','/')):
+            target='https://pkg-containers.githubusercontent.com/ghcr1/blobs/'+path+'?PRIVATE=secret'
+            e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
+            value,opener=self.get(url,responses=[e,self.Response(target)],allow_blob_redirect=True)
+            self.assertEqual(value,b'{}');self.assertEqual(len(opener.requests),2)
+            self.assertEqual(opener.requests[0][0].get_header('Authorization'),'Bearer PRIVATE')
+            self.assertIsNone(opener.requests[1][0].get_header('Authorization'))
+            self.assertTrue(all(r.get_method()=='GET' and 0<t<=5 for r,t in opener.requests))
+
+    def test_storage_path_rejects_traversal_controls_and_unbounded_envelope(self):
+        url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        for path in ('sha256/'+ 'a'*2049,'../'+m.PUBLICATION['config'],m.PUBLICATION['config'].replace(':','%253A'),
+                     'sha256/../'+m.PUBLICATION['config'],'object%00','object%5Cfile','a//b','a/./b',
+                     'a/'*33+'object'):
+            target='https://pkg-containers.githubusercontent.com/ghcr1/blobs/'+path
+            e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
+            with self.subTest(path=path),self.assertRaisesRegex(ValueError,'PUBLICATION_STORAGE_'):
+                self.get(url,responses=[e,self.Response(target)],allow_blob_redirect=True)
+
+    def test_uri_decoding_is_path_policy_and_keeps_the_signed_url(self):
+        url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        exact='/ghcr1/blobs/'+m.PUBLICATION['config']
+        paths=(exact.replace(':','%3A'),exact.replace(':','%3a'),exact.replace('/blobs/','/blobs%2F'),
+               exact.replace('b','%62'))
+        for path in paths:
+            target='https://pkg-containers.githubusercontent.com'+path+'?PRIVATE=secret'
+            e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
+            value,opener=self.get(url,responses=[e,self.Response(target)],allow_blob_redirect=True)
+            self.assertEqual(value,b'{}');self.assertEqual(opener.requests[1][0].full_url,target)
+            self.assertIsNone(opener.requests[1][0].get_header('Authorization'))
+        for path in (exact.replace(':','%253A'),exact+'%',exact+'%zz',
+                     '/ghcr1/blobs/%2e%2e/'+m.PUBLICATION['config'],exact+'%00',exact+'%FF'):
+            target='https://pkg-containers.githubusercontent.com'+path
+            e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
+            with self.subTest(path=path),self.assertRaisesRegex(ValueError,'PUBLICATION_STORAGE_'):
+                self.get(url,responses=[e,self.Response(target)],allow_blob_redirect=True)
+
+    def test_storage_failure_taxonomy_is_bounded_and_contains_no_location(self):
+        url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        for path,code in (('/'+'a'*2049,'LENGTH'),('/bad%zz','ENCODING'),('/double%253A','ENCODING'),
+                          ('/bad%FF','ENCODING'),('/bad%00','PATH'),('/bad%5Cfile','PATH'),
+                          ('/a/../b','SEGMENTS'),('/a//b','SEGMENTS'),('/'+'a/'*33+'b','SEGMENTS')):
+            target='https://pkg-containers.githubusercontent.com'+path+'?PRIVATE=secret'
+            e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
+            with self.subTest(code=code),self.assertRaisesRegex(ValueError,'^PUBLICATION_STORAGE_'+code+'$'):
+                self.get(url,responses=[e,self.Response(target)],allow_blob_redirect=True)
+
+    def test_unreviewed_redirect_or_token_redirect_is_rejected(self):
+        url='https://ghcr.io/token'
+        for allowed,target in ((False,'https://pkg-containers.githubusercontent.com/ghcr1/blobs/sha256/a'),
+            (True,'https://evil.invalid/ghcr1/blobs/sha256/a'),(True,'https://ghcr.io/unreviewed')):
+            e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
+            with self.subTest(target=target),self.assertRaises(ValueError):self.get(url,responses=[e],allow_blob_redirect=allowed)
+
+    def test_body_total_request_and_deadline_limits(self):
+        url='https://ghcr.io/token'
+        cases=[{'responses':[self.Response(url,b'x'*11)],'max_bytes':10},
+               {'responses':[self.Response(url,headers={'Content-Length':str(m.PUBLICATION_MAX_BYTES+1)})]},
+               {'responses':[self.Response(url,b'')]},{'budget':[m.PUBLICATION_MAX_TOTAL,0]},{'budget':[0,8]}]
+        for options in cases:
+            with self.subTest(options=list(options)),self.assertRaises(ValueError):self.get(url,**options)
+        with self.assertRaisesRegex(ValueError,'PUBLICATION_TIMEOUT'):
+            m.publication_get(url,'PRIVATE',m.time.monotonic()-1,self.Opener([]),[0,0])
+
+    def test_raw_redirect_controls_and_relative_resolution_never_issue_a_get(self):
+        url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        good='https://pkg-containers.githubusercontent.com/opaque/object?PRIVATE=secret'
+        locations=(good.replace('/opaque','/opa\nque'),good+'\r',good+'\t',good+' ',
+                   '../config','/a/../config','https://pkg-containers.githubusercontent.com/a/../config',
+                   '//pkg-containers.githubusercontent.com/a/./config',
+                   'https://pkg-containers.githubusercontent.com/a/%2e%2e/config')
+        for location in locations:
+            opener=self.Opener([m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':location},None),
+                                self.Response(good)])
+            with self.subTest(location=repr(location)),self.assertRaises(ValueError):
+                m.publication_get(url,'Bearer PRIVATE',m.time.monotonic()+60,opener,[0,0],allow_blob_redirect=True)
+            self.assertEqual(len(opener.requests),1)
+        error=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':good},None)
+        later=m.urllib.error.HTTPError(good,307,'PRIVATE',{'Location':'../config'},None)
+        opener=self.Opener([error,later,self.Response('https://pkg-containers.githubusercontent.com/config')])
+        with self.assertRaises(ValueError):
+            m.publication_get(url,'Bearer PRIVATE',m.time.monotonic()+60,opener,[0,0],allow_blob_redirect=True)
+        self.assertEqual(len(opener.requests),2)
+        self.assertIsNone(opener.requests[-1][0].get_header('Authorization'))
+
+    def test_scheme_relative_storage_location_keeps_signed_path_and_query(self):
+        url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        location='//pkg-containers.githubusercontent.com/opaque/object?PRIVATE=secret'
+        e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':location},None)
+        data,opener=self.get(url,responses=[e,self.Response('https:'+location)],allow_blob_redirect=True)
+        self.assertEqual(data,b'{}');self.assertEqual(opener.requests[1][0].full_url,'https:'+location)
+        self.assertIsNone(opener.requests[1][0].get_header('Authorization'))
+
+    def test_http_challenge_and_automatic_redirect_never_followed(self):
+        url='https://ghcr.io/token'
+        e=m.urllib.error.HTTPError(url,401,'PRIVATE',{'WWW-Authenticate':'Bearer realm=https://evil.invalid'},None)
+        with self.assertRaisesRegex(ValueError,'PUBLICATION_AUTHORIZATION'):self.get(url,responses=[e])
+        with self.assertRaisesRegex(ValueError,'PUBLICATION_HTTP'):self.get(responses=[self.Response('https://evil.invalid')])
+
+    def test_issue_event_cannot_dispatch_runner_network(self):
+        with patch.dict(os.environ,{'GITHUB_EVENT_NAME':'issue_comment'},clear=True), \
+             patch.object(m,'collect') as collect,patch.object(m.urllib.request,'build_opener') as network:
+            with self.assertRaisesRegex(ValueError,'PUBLICATION_RUNNER_ONLY'):m.published_api_baseline()
+            collect.assert_not_called();network.assert_not_called()
+
+    def test_exact_runner_request_plan_and_producer_receipt(self):
+        pins,docs=self.fixture()
+        env={'GITHUB_ACTIONS':'true','GITHUB_EVENT_NAME':'pull_request','GITHUB_REPOSITORY':'pachaninm-lab/pachanin-demo',
+             'GITHUB_HEAD_REF':'ops/farmer-market-release-preflight-20260916','GITHUB_ACTOR':'pachaninm-lab',
+             'GH_TOKEN':'DO_NOT_EXPORT','GITHUB_SHA':'d'*40}
+        with patch.dict(m.PUBLICATION,pins,clear=True),patch.dict(os.environ,env,clear=True), \
+             patch.object(m,'publication_get',side_effect=[b'{"token":"PRIVATE_BEARER"}',*docs]) as fetch:
+            v=m.published_api_baseline()
+        calls=fetch.call_args_list;self.assertEqual(len(calls),4)
+        self.assertEqual(calls[0].args[0],'https://ghcr.io/token?service=ghcr.io&scope=repository%3Apachaninm-lab%2Fgrainflow-api%3Apull')
+        self.assertEqual(calls[0].kwargs,{'max_bytes':65536});self.assertTrue(calls[0].args[1].startswith('Basic '))
+        self.assertEqual(calls[1].args[1],'Bearer PRIVATE_BEARER');self.assertEqual(calls[3].kwargs,{'allow_blob_redirect':True})
+        self.assertEqual(v['producer_actions_sha'],'d'*40);self.assertEqual(v['producer_source_sha256'],m.hashlib.sha256(PATH.read_bytes()).hexdigest())
+        self.assertNotIn('PRIVATE',json.dumps(v));self.assertNotIn('DO_NOT_EXPORT',json.dumps(v))
+
+    def test_opaque_storage_name_still_requires_exact_config_bytes(self):
+        pins,docs=self.fixture()
+        env={'GITHUB_ACTIONS':'true','GITHUB_EVENT_NAME':'pull_request','GITHUB_REPOSITORY':'pachaninm-lab/pachanin-demo',
+             'GITHUB_HEAD_REF':'ops/farmer-market-release-preflight-20260916','GITHUB_ACTOR':'pachaninm-lab',
+             'GH_TOKEN':'DO_NOT_EXPORT','GITHUB_SHA':'d'*40}
+        token_url='https://ghcr.io/token?service=ghcr.io&scope=repository%3Apachaninm-lab%2Fgrainflow-api%3Apull'
+        prefix='https://ghcr.io/v2/'+pins['repository']+'/'
+        config_url=prefix+'blobs/'+pins['config']
+        target='https://pkg-containers.githubusercontent.com/opaque-pool/config-cache/opaque.storage_object?PRIVATE=secret'
+        for body in (docs[2],docs[2]+b' '):
+            responses=[self.Response(token_url,b'{"token":"PRIVATE_BEARER"}'),
+                self.Response(prefix+'manifests/'+pins['index'],docs[0]),
+                self.Response(prefix+'manifests/'+pins['manifest'],docs[1]),
+                m.urllib.error.HTTPError(config_url,307,'PRIVATE',{'Location':target},None),self.Response(target,body)]
+            opener=self.Opener(responses)
+            with patch.dict(m.PUBLICATION,pins,clear=True),patch.dict(os.environ,env,clear=True), \
+                 patch.object(m.urllib.request,'build_opener',return_value=opener):
+                if body==docs[2]:
+                    v=m.published_api_baseline();self.assertEqual(v['status'],'PINNED_METADATA_VERIFIED')
+                    self.assertNotIn('PRIVATE',json.dumps(v));self.assertEqual(v['host_binding'],'NOT_PERFORMED')
+                else:
+                    with self.assertRaisesRegex(ValueError,'PUBLICATION_DIGEST'):m.published_api_baseline()
+            self.assertEqual(len(opener.requests),5)
+            self.assertIsNone(opener.requests[-1][0].get_header('Authorization'))
+
+    def test_cli_failure_never_exports_error_or_calls_host(self):
+        import io,contextlib
+        out=io.StringIO()
+        with patch.object(sys,'argv',['collector','--published-api-baseline']), \
+             patch.object(m,'published_api_baseline',side_effect=RuntimeError('PRIVATE_SECRET')), \
+             patch.object(m,'collect') as collect,contextlib.redirect_stdout(out):
+            with self.assertRaises(SystemExit):m.main()
+        v=json.loads(out.getvalue());self.assertEqual(v['failure'],'PUBLICATION_UNAVAILABLE')
+        self.assertEqual(v['status'],'NOT_PROVEN');self.assertNotIn('PRIVATE',out.getvalue());collect.assert_not_called()
+
+    def test_workflow_has_isolated_pr_only_least_privilege_and_hard_deadline(self):
+        wf=(PATH.parents[1]/'.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml').read_text()
+        block=wf.split('\n  publication-baseline:\n',1)[1].split('\n  diagnostic:\n',1)[0]
+        for marker in ("github.event_name == 'pull_request'",'github.event.pull_request.head.repo.full_name == github.repository',
+            "github.head_ref == 'ops/farmer-market-release-preflight-20260916'",'packages: read',
+            'timeout --signal=TERM --kill-after=5s 75s','persist-credentials: false'):
+            self.assertIn(marker,block)
+        for forbidden in ('secrets.','ssh','issue_comment'):self.assertNotIn(forbidden,block)
+        self.assertEqual(wf.count('packages: read'),1)
+
+
 if __name__ == '__main__':
     unittest.main()
