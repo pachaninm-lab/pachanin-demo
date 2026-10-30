@@ -436,6 +436,186 @@ PY
   fi
 fi
 
+# Optional bounded observation; this cannot add, remove, or satisfy any gate.
+cat > "$work/topology-observer.py" <<'PY_TOPOLOGY_OBSERVER'
+"""Diagnostic facts from the existing preflight snapshot; no added host probes."""
+import json
+import re
+import sys
+
+SCHEMA = 'tai.reg-ru.topology-observation.v1'
+MAX_MODEL_BYTES = 4 * 1024 * 1024
+MAX_CONTEXT_BYTES = 65536
+MAX_PAYLOAD_BYTES = 48000
+MAX_INPUTS = 256
+MAX_SERVICES = 64
+
+
+class Unproven(Exception):
+    pass
+
+
+def require(condition):
+    if not condition:
+        raise Unproven()
+
+
+def unknown():
+    return {'schemaVersion': SCHEMA, 'classification': 'NOT_PROVEN',
+            'reason': 'OPTIONAL_OBSERVATION_UNAVAILABLE', 'registryProvenance': 'NOT_PROVEN',
+            'preflightConjuncts': {'hasApi': None, 'hasWeb': None, 'migrationCount': None},
+            'preflightSnapshot': None, 'persisted': None, 'releaseDiscovery': None, 'comparison': None}
+
+
+def bounded_json(raw, maximum):
+    require(isinstance(raw, bytes) and len(raw) <= maximum)
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            require(key not in result)
+            result[key] = value
+        return result
+    return json.loads(raw, object_pairs_hook=pairs,
+                      parse_constant=lambda _: (_ for _ in ()).throw(Unproven()))
+
+
+def candidate_matches(name, service):
+    image = str(service.get('image') or '')
+    command = service.get('command')
+    command = ' '.join(command) if isinstance(command, list) else str(command or '')
+    # Exactly the existing detector: these facts cannot change its decision.
+    return {'name': bool(re.search(r'(^|[-_])(migrate|migration)([-_]|$)', name, re.I)),
+            'image': 'grainflow-migration' in image,
+            'explicitCommand': 'prisma' in command and 'migrate' in command}
+
+
+def collect(context, model):
+    require(isinstance(context, list) and 5 <= len(context) <= MAX_INPUTS + 4)
+    has_api, has_web, count, service_count, *paths = context
+    require(has_api in ('0', '1') and has_web in ('0', '1'))
+    require(re.fullmatch(r'[0-9]{1,3}', count) and re.fullmatch(r'[0-9]{1,3}', service_count))
+    require(all(isinstance(path, str) and path.startswith('/') and '\0' not in path for path in paths))
+    require(isinstance(model, dict) and isinstance(model.get('services'), dict))
+    services = model['services']
+    require(0 < len(services) <= MAX_SERVICES and int(service_count) == len(services))
+    facts = []
+    for ordinal, (name, service) in enumerate(services.items(), 1):
+        require(isinstance(name, str) and name and isinstance(service, dict))
+        require(service.get('image') is None or isinstance(service.get('image'), str))
+        for key in ('command', 'entrypoint'):
+            value = service.get(key)
+            require(value is None or isinstance(value, str) or isinstance(value, list)
+                    and all(isinstance(item, str) for item in value))
+        matches = candidate_matches(name, service)
+        facts.append({'serviceOrdinal': ordinal, 'matches': matches, 'candidate': any(matches.values()),
+                      'commandSpecified': service.get('command') is not None,
+                      'entrypointSpecified': service.get('entrypoint') is not None, 'localImage': None})
+    core = {'hasApi': 'api' in services, 'hasWeb': 'web' in services,
+            'migrationCount': sum(row['candidate'] for row in facts)}
+    require(core == {'hasApi': has_api == '1', 'hasWeb': has_web == '1', 'migrationCount': int(count)})
+    result = unknown()
+    result['reason'] = 'EXISTING_PREFLIGHT_SNAPSHOT_ONLY'
+    result['preflightConjuncts'] = core
+    result['preflightSnapshot'] = {
+        'freshness': 'NOT_PROVEN', 'source': 'EXISTING_PREFLIGHT_COMPOSE_JSON',
+        'inputs': {'total': len(paths), 'unique': len(set(paths)), 'duplicates': len(paths) - len(set(paths))},
+        'serviceCount': len(services), 'conjuncts': core.copy(), 'services': facts,
+    }
+    return validate(result)
+
+
+def validate(value):
+    require(isinstance(value, dict) and set(value) == set(unknown()))
+    require(value['schemaVersion'] == SCHEMA and value['classification'] == 'NOT_PROVEN'
+            and value['registryProvenance'] == 'NOT_PROVEN')
+    require(all(value[key] is None for key in ('persisted', 'releaseDiscovery', 'comparison')))
+    if value['preflightSnapshot'] is None:
+        require(value == unknown())
+        return value
+    require(value['reason'] == 'EXISTING_PREFLIGHT_SNAPSHOT_ONLY')
+    core = value['preflightConjuncts']
+    require(isinstance(core, dict) and set(core) == {'hasApi', 'hasWeb', 'migrationCount'})
+    require(type(core['hasApi']) is bool and type(core['hasWeb']) is bool)
+    require(type(core['migrationCount']) is int and 0 <= core['migrationCount'] <= MAX_SERVICES)
+    snapshot = value['preflightSnapshot']
+    require(isinstance(snapshot, dict) and set(snapshot) == {'freshness', 'source', 'inputs', 'serviceCount', 'conjuncts', 'services'})
+    require(snapshot['freshness'] == 'NOT_PROVEN' and snapshot['source'] == 'EXISTING_PREFLIGHT_COMPOSE_JSON')
+    require(isinstance(snapshot['conjuncts'], dict) and set(snapshot['conjuncts']) == set(core))
+    require(all(type(snapshot['conjuncts'][key]) is type(core[key]) for key in core) and snapshot['conjuncts'] == core)
+    inputs = snapshot['inputs']
+    require(isinstance(inputs, dict) and set(inputs) == {'total', 'unique', 'duplicates'})
+    require(all(type(number) is int for number in inputs.values()))
+    require(1 <= inputs['unique'] <= inputs['total'] <= MAX_INPUTS
+            and inputs['duplicates'] == inputs['total'] - inputs['unique'])
+    count = snapshot['serviceCount']
+    require(type(count) is int and 0 < count <= MAX_SERVICES and isinstance(snapshot['services'], list)
+            and len(snapshot['services']) == count)
+    for ordinal, row in enumerate(snapshot['services'], 1):
+        require(isinstance(row, dict) and set(row) == {'serviceOrdinal', 'matches', 'candidate', 'commandSpecified', 'entrypointSpecified', 'localImage'})
+        require(type(row['serviceOrdinal']) is int and row['serviceOrdinal'] == ordinal and row['localImage'] is None)
+        require(isinstance(row['matches'], dict) and set(row['matches']) == {'name', 'image', 'explicitCommand'})
+        require(all(type(item) is bool for item in row['matches'].values()))
+        require(all(type(row[key]) is bool for key in ('candidate', 'commandSpecified', 'entrypointSpecified')))
+        require(row['candidate'] == any(row['matches'].values()))
+    require(core['migrationCount'] == sum(row['candidate'] for row in snapshot['services']))
+    require(len(json.dumps(value, ensure_ascii=False, separators=(',', ':')).encode()) <= MAX_PAYLOAD_BYTES)
+    return value
+
+
+def safely_collect(context, model):
+    try:
+        return collect(context, model)
+    except (Unproven, ValueError, TypeError, KeyError, UnicodeError, RecursionError):
+        return unknown()
+
+
+def attach_observation(report, path):
+    try:
+        with open(path, 'rb') as stream:
+            value = validate(bounded_json(stream.read(MAX_PAYLOAD_BYTES + 1), MAX_PAYLOAD_BYTES))
+    except FileNotFoundError:
+        return report
+    except (Unproven, OSError, ValueError, TypeError, KeyError, UnicodeError, RecursionError):
+        value = unknown()
+    guards = [row for row in report.get('checks', []) if row.get('name') == 'mutation_guard']
+    if len(guards) != 1 or guards[0].get('status') != 'PASS' or guards[0].get('code') != 'NO_PRODUCTION_MUTATION_DETECTED':
+        value = unknown()
+    if value['preflightSnapshot'] is not None:
+        topology = [row for row in report.get('checks', []) if row.get('name') == 'topology']
+        core = value['preflightConjuncts']
+        ready = core['hasApi'] and core['hasWeb'] and core['migrationCount'] == 1
+        expected = {'name': 'topology', 'status': 'PASS' if ready else 'BLOCKED',
+                    'code': 'CORE_TOPOLOGY_READY' if ready else 'CORE_TOPOLOGY_INCOMPLETE',
+                    'value': str(value['preflightSnapshot']['serviceCount'])}
+        if topology != [expected]:
+            value = unknown()
+    report['topologyObservation'] = value
+    def size():
+        return len(json.dumps(report, ensure_ascii=False, separators=(',', ':')).encode()) + 1
+    if size() > 65536:
+        report['topologyObservation'] = unknown()
+    if size() > 65536:
+        del report['topologyObservation']
+    return report
+
+
+if __name__ == '__main__':
+    try:
+        raw = sys.stdin.buffer.read(MAX_CONTEXT_BYTES + 1)
+        require(len(raw) <= MAX_CONTEXT_BYTES and raw.endswith(b'\0'))
+        context = raw[:-1].decode().split('\0')
+        with open(sys.argv[1], 'rb') as stream:
+            model = bounded_json(stream.read(MAX_MODEL_BYTES + 1), MAX_MODEL_BYTES)
+        result = safely_collect(context, model)
+    except (Unproven, OSError, ValueError, TypeError, KeyError, UnicodeError, RecursionError):
+        result = unknown()
+    print(json.dumps(result, ensure_ascii=False, separators=(',', ':')))
+PY_TOPOLOGY_OBSERVER
+if (( compose_ready == 1 )); then
+  printf '%s\0' "${HAS_API:-}" "${HAS_WEB:-}" "${MIGRATION_COUNT:-}" "${SERVICE_COUNT:-}" "${compose_files[@]}" \
+    | python3 "$work/topology-observer.py" "$work/compose.json" > "$work/topology-observation.json" 2>/dev/null || true
+fi
+
 if (( compose_ready == 1 )); then
   sha256sum "${compose_files[@]}" | sort > "$compose_hash_after"
 fi
@@ -446,10 +626,10 @@ else
   record mutation_guard BLOCKED PRODUCTION_MUTATION_DETECTED
 fi
 
-python3 - "$TARGET_SHA" "$TAI_IMAGE" "$TAI_IMAGE_DIGEST" "$checks" "$blockers" <<'PY'
-import json, sys
+python3 - "$TARGET_SHA" "$TAI_IMAGE" "$TAI_IMAGE_DIGEST" "$checks" "$blockers" "$work" <<'PY'
+import json, sys, runpy
 from datetime import datetime, timezone
-sha, image, digest, checks_path, blockers_path = sys.argv[1:]
+sha, image, digest, checks_path, blockers_path, work = sys.argv[1:]
 checks = []
 for line in open(checks_path, encoding='utf-8'):
     name, status, code, value = line.rstrip('\n').split('\t')
@@ -471,5 +651,12 @@ report = {
     'blockers': blockers,
     'passed': not blockers,
 }
+try:
+    observer = runpy.run_path(work + '/topology-observer.py')
+    observer['attach_observation'](report, work + '/topology-observation.json')
+except Exception:
+    report['topologyObservation'] = {'schemaVersion': 'tai.reg-ru.topology-observation.v1', 'classification': 'NOT_PROVEN', 'reason': 'OPTIONAL_OBSERVATION_UNAVAILABLE', 'registryProvenance': 'NOT_PROVEN', 'preflightConjuncts': {'hasApi': None, 'hasWeb': None, 'migrationCount': None}, 'preflightSnapshot': None, 'persisted': None, 'releaseDiscovery': None, 'comparison': None}
+if 'topologyObservation' in report and len(json.dumps(report, ensure_ascii=False, separators=(',', ':')).encode()) + 1 > 65536:
+    del report['topologyObservation']
 print(json.dumps(report, ensure_ascii=False, separators=(',', ':')))
 PY
