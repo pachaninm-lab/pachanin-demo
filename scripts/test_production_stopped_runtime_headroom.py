@@ -318,7 +318,8 @@ class RecoveryTests(unittest.TestCase):
                      if p.suffix in ('.yml', '.yaml')}
         # In the private proposal, overlay the exact future payloads. In source
         # CI these same files already reside in .github/workflows.
-        for name in ('production-stopped-runtime-headroom.yml',
+        for name in ('production-cold-preservation.yml',
+                     'production-stopped-runtime-headroom.yml',
                      'production-docker-headroom-recovery.yml',
                      'production-docker-headroom-owner-push-once.yml'):
             if (here / name).is_file():
@@ -343,7 +344,9 @@ class RecoveryTests(unittest.TestCase):
                     if block.count('queue: max') != 1 or block.count('cancel-in-progress: false') != 1:
                         raise ValueError('SHARED_PRODUCTION_PENDING_REPLACEMENT:' + name)
             return participants
-        expected = {'production-full-stack-exact-sha.yml',
+        expected = {'production-docker-headroom-diagnostic.yml',
+                    'production-cold-preservation.yml',
+                    'production-full-stack-exact-sha.yml',
                     'production-stopped-runtime-headroom.yml',
                     'production-docker-headroom-recovery.yml',
                     'production-docker-headroom-owner-push-once.yml'}
