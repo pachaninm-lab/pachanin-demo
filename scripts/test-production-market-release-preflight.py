@@ -2002,8 +2002,8 @@ class InitialImageReclaimPlan(unittest.TestCase):
             self.assertEqual((plan['canonical_image_count'],plan['eligible_image_count'],plan['protected_image_count'],plan['container_protected_image_count']),
                              (len(records),len(eligible),len(protected),len(refs)))
             self.assertEqual(plan['eligible_logical_bytes_upper'],sum(row['size'] for row in eligible))
-            self.assertEqual([r['logical_bytes_upper'] for r in plan['first_candidates']],[r['size'] for r in eligible[:2]])
-            self.assertEqual([r['initial_reference_count'] for r in plan['first_candidates']],[len(r['refs']) for r in eligible[:2]])
+            self.assertEqual([r['logical_bytes_upper'] for r in plan['first_candidates']],[r['size'] for r in eligible[:8]])
+            self.assertEqual([r['initial_reference_count'] for r in plan['first_candidates']],[len(r['refs']) for r in eligible[:8]])
 
     def test_current_target_stopped_containers_and_top_two_are_protected(self):
         containers,images=self.fixture()
@@ -2063,6 +2063,9 @@ class InitialImageReclaimPlan(unittest.TestCase):
         self.assertEqual(calls.count('images_inspect'),2)
         self.assertEqual((plan['physical_reclaim'],plan['catalog_stability'],plan['cleanup_authorized']),('NOT_PROVEN','NOT_PROVEN',False))
         self.assertEqual(value['status'],'PARTIAL_READ_ONLY')
+        if value['commands']['images_inspect_after_warm']['status']=='TIMED_OUT':
+            self.assertEqual(calls[-4:],list(m.CAPACITY_DISK_PATHS))
+            self.assertTrue(all(row['status']=='SUCCESS' for row in value['disk_usage'].values()))
 
     def test_failed_batch_leaves_plan_unknown_and_no_new_query(self):
         helper=CapacityDiagnosticProfile()
@@ -2106,6 +2109,100 @@ class InitialImageReclaimPlan(unittest.TestCase):
         with self.assertRaises(ValueError):m.validate_capacity_profile(bad)
         value=report();value['capacity_diagnostics'].pop('image_reclaim_plan')
         with self.assertRaises(ValueError):m.validate_report(value,SHA)
+
+
+    def integrated_profile(self, warm_status='TIMED_OUT', *, clean=True, exhausted=False, bad_batch=False, du_limit=False, du_unclean=False):
+        containers,images=self.fixture();calls=[]
+        def execute(runner,key,identities=None):
+            calls.append(key);runner.calls+=1
+            if key=='containers_list':raw=('\n'.join(containers)+'\n').encode()
+            elif key=='containers_inspect':raw=json.dumps(list(containers.values())).encode()
+            elif key=='volumes_list':raw=b'private_volume\n'
+            elif key=='networks_list':raw=('b'*64+'\n').encode()
+            elif key=='images_list':raw=('\n'.join(images)+'\n').encode()
+            elif key=='images_inspect':
+                if calls.count(key)==1:
+                    if bad_batch:
+                        runner.last_stdout_bytes=runner.last_io_bytes=0
+                        return 'UNKNOWN',0,None
+                    raw=json.dumps([images[x] for x in identities]).encode()
+                else:
+                    runner.clean=clean;runner.exhausted=exhausted
+                    runner.last_stdout_bytes=runner.last_io_bytes=0
+                    if warm_status!='SUCCESS':return warm_status,0,None
+                    raw=json.dumps([images[x] for x in identities]).encode()
+            else:
+                if du_unclean:
+                    runner.clean=False;runner.last_stdout_bytes=runner.last_io_bytes=0
+                    return 'UNKNOWN',0,None
+                if du_limit:
+                    runner.last_stdout_bytes=runner.last_io_bytes=0
+                    return 'OUTPUT_LIMIT',0,None
+                raw=('4096\t'+m.CAPACITY_DISK_PATHS[key]+'\x00').encode()
+            runner.last_stdout_bytes=runner.last_io_bytes=len(raw)
+            runner.stdout_total+=len(raw);runner.total+=len(raw)
+            return 'SUCCESS',0,raw
+        with patch.object(m.os,'geteuid',return_value=0),patch.object(m,'capacity_docker_ready',return_value=True),patch.object(m,'capacity_fixed_path_ready',return_value=True),patch.object(m.CapacityProfileRunner,'execute',new=execute):
+            value=m.capacity_readonly_profile(m.time.monotonic()+180,SHA)
+        m.validate_capacity_profile(value)
+        return value,calls
+
+    def test_initial_plan_is_computed_before_warm_timeout_and_existing_du_can_run(self):
+        value,calls=self.integrated_profile()
+        containers,images=self.fixture()
+        self.assertEqual(value['image_reclaim_plan'],m.capacity_image_reclaim_plan(containers,images,SHA))
+        self.assertEqual(value['image_reclaim_plan']['status'],'INITIAL_SNAPSHOT_ONLY')
+        self.assertEqual(value['status'],'PARTIAL_READ_ONLY')
+        self.assertEqual(calls[-4:],list(m.CAPACITY_DISK_PATHS))
+        self.assertTrue(all(row['status']=='SUCCESS' and row['bytes']==4096 for row in value['disk_usage'].values()))
+
+    def test_du_after_warm_requires_exact_timeout_clean_complete_nonexhausted(self):
+        cases=[{'warm_status':'UNKNOWN'},{'warm_status':'OUTPUT_LIMIT'},{'warm_status':'INVALID'},{'warm_status':'TIMED_OUT','clean':False},{'warm_status':'TIMED_OUT','exhausted':True},{'bad_batch':True}]
+        for case in cases:
+            value,calls=self.integrated_profile(**case)
+            self.assertTrue(all(key not in calls for key in m.CAPACITY_DISK_PATHS))
+            self.assertTrue(all(row['status']=='NOT_RUN' for row in value['disk_usage'].values()))
+            if case.get('bad_batch'):self.assertEqual(value['image_reclaim_plan'],m.empty_image_reclaim_plan())
+
+    def test_du_output_limit_after_clean_warm_timeout_stops_remaining_du(self):
+        value,calls=self.integrated_profile(du_limit=True)
+        self.assertEqual(calls[-1],next(iter(m.CAPACITY_DISK_PATHS)))
+        self.assertEqual(sum(key in calls for key in m.CAPACITY_DISK_PATHS),1)
+        self.assertEqual(value['disk_usage']['docker_containers']['status'],'OUTPUT_LIMIT')
+        self.assertEqual(value['disk_usage']['containerd']['status'],'NOT_RUN')
+
+    def test_uncertain_du_cleanup_after_clean_warm_timeout_stops_remaining_du(self):
+        value,calls=self.integrated_profile(du_unclean=True)
+        self.assertEqual(sum(key in calls for key in m.CAPACITY_DISK_PATHS),1)
+        self.assertEqual(value['disk_usage']['docker_containers']['status'],'UNKNOWN')
+        self.assertEqual(value['disk_usage']['containerd']['status'],'NOT_RUN')
+
+    def test_nine_eligible_truncate_eight_and_cumulative_logical_values_are_closed_typed(self):
+        containers,images=self.fixture()
+        template=copy.deepcopy(next(iter(images.values())))
+        for index in range(9,14):
+            identity='sha256:'+format(index,'064x');row=copy.deepcopy(template)
+            row.update(Id=identity,Size=2**63-1,Created='2026-10-'+format(index,'02d')+'T01:02:03.123456789Z')
+            images[identity]=row
+        plan=m.capacity_image_reclaim_plan(containers,images,SHA)
+        self.assertEqual(plan['eligible_image_count'],9)
+        rows=plan['first_candidates'];self.assertEqual(len(rows),8)
+        self.assertEqual([row['rank'] for row in rows],list(range(1,9)))
+        cumulative=0
+        for row in rows:
+            cumulative+=row['logical_bytes_upper'];self.assertEqual(row['cumulative_logical_bytes_upper'],cumulative)
+        self.assertGreater(cumulative,2**63)
+        profile=m.empty_capacity_profile();profile['commands']['images_list'].update(count=13)
+        profile['commands']['containers_list'].update(count=2);profile['commands']['containers_inspect'].update(status='SUCCESS')
+        profile['image_batches']['status']='SUCCESS'
+        m.validate_image_reclaim_plan(plan,profile)
+        for mutate in (lambda v:v['first_candidates'].append(copy.deepcopy(v['first_candidates'][-1])),
+                       lambda v:v['first_candidates'][-1].update(rank=9),
+                       lambda v:v['first_candidates'][0].update(rank=True),
+                       lambda v:v['first_candidates'][0].update(cumulative_logical_bytes_upper=True),
+                       lambda v:v['first_candidates'][-1].update(cumulative_logical_bytes_upper=0)):
+            bad=copy.deepcopy(plan);mutate(bad)
+            with self.assertRaises(ValueError):m.validate_image_reclaim_plan(bad,profile)
 
 
 if __name__ == '__main__':

@@ -1468,13 +1468,19 @@ def capacity_image_reclaim_plan(containers: Any, images: Any, target: Any) -> di
             protected.update(row['id'] for row in sorted(rows, key=lambda row: row['created'], reverse=True)[:2])
         eligible = sorted((row for identity, row in records.items() if identity not in protected),
                           key=lambda row: row['created'], reverse=True)
+        # Bounded numeric prefix only; logical sizes never predict physical reclaim.
+        candidates, cumulative = [], 0
+        for rank, row in enumerate(eligible[:8], 1):
+            cumulative += row['size']
+            candidates.append({'rank': rank, 'logical_bytes_upper': row['size'],
+                               'cumulative_logical_bytes_upper': cumulative,
+                               'initial_reference_count': len(row['refs']),
+                               'initial_rm_calls_lower': 1, 'initial_rm_calls_upper': len(row['refs']) + 1})
         return {**unknown, 'status': 'INITIAL_SNAPSHOT_ONLY', 'canonical_image_count': len(records),
                 'eligible_image_count': len(eligible), 'container_protected_image_count': len(referenced),
                 'protected_image_count': len(protected),
                 'eligible_logical_bytes_upper': sum(row['size'] for row in eligible),
-                'first_candidates': [{'logical_bytes_upper': row['size'], 'initial_reference_count': len(row['refs']),
-                                      'initial_rm_calls_lower': 1, 'initial_rm_calls_upper': len(row['refs']) + 1}
-                                     for row in eligible[:2]]}
+                'first_candidates': candidates}
     except (ValueError, TypeError, OverflowError, OSError, KeyError):
         return unknown
 
@@ -1511,14 +1517,18 @@ def validate_image_reclaim_plan(value: Any, profile: dict[str, Any]) -> None:
             type(total) is not int or not 0 <= total <= eligible * (2**63 - 1)):
         raise ValueError('IMAGE_PLAN_RELATION')
     rows = value['first_candidates']
-    if not isinstance(rows, list) or len(rows) != min(2, eligible):
+    if not isinstance(rows, list) or len(rows) != min(8, eligible):
         raise ValueError('IMAGE_PLAN_CANDIDATES')
-    for row in rows:
-        if (not isinstance(row, dict) or set(row) != {'logical_bytes_upper', 'initial_reference_count', 'initial_rm_calls_lower', 'initial_rm_calls_upper'} or
-                any(type(number) is not int for number in row.values()) or
+    cumulative = 0
+    for rank, row in enumerate(rows, 1):
+        if (not isinstance(row, dict) or set(row) != {'rank', 'cumulative_logical_bytes_upper', 'logical_bytes_upper', 'initial_reference_count', 'initial_rm_calls_lower', 'initial_rm_calls_upper'} or
+                any(type(number) is not int for number in row.values()) or row['rank'] != rank or
                 not 0 <= row['logical_bytes_upper'] < 2**63 or not 1 <= row['initial_reference_count'] <= 128 or
                 row['initial_rm_calls_lower'] != 1 or row['initial_rm_calls_upper'] != row['initial_reference_count'] + 1):
             raise ValueError('IMAGE_PLAN_CANDIDATE')
+        cumulative += row['logical_bytes_upper']
+        if row['cumulative_logical_bytes_upper'] != cumulative:
+            raise ValueError('IMAGE_PLAN_CUMULATIVE')
     subtotal = sum(row['logical_bytes_upper'] for row in rows)
     if not subtotal <= total <= subtotal + (eligible - len(rows)) * (2**63 - 1):
         raise ValueError('IMAGE_PLAN_SIZE')
@@ -1706,6 +1716,7 @@ def capacity_readonly_profile(outer_deadline: float, target: str | None = None) 
     ids: dict[str, list[str]] = {}
     container_metadata = None
     stopped = False
+    clean_warm_timeout = False
     if capacity_docker_ready():
         for key in CAPACITY_QUERY_KEYS[:-1]:
             source = 'containers_list' if key == 'containers_inspect' else 'images_list'
@@ -1785,7 +1796,9 @@ def capacity_readonly_profile(outer_deadline: float, target: str | None = None) 
                     'stdout_bytes': runner.last_stdout_bytes if status != 'NOT_RUN' else None,
                     'io_bytes': runner.last_io_bytes if status != 'NOT_RUN' else None}
                 stopped = status != 'SUCCESS'
-    if not stopped and capacity_fixed_path_ready('/usr/bin/du', directory=False):
+                clean_warm_timeout = (status == 'TIMED_OUT' and batches['status'] == 'SUCCESS'
+                                      and runner.clean and not runner.exhausted)
+    if (not stopped or clean_warm_timeout) and runner.clean and not runner.exhausted and capacity_fixed_path_ready('/usr/bin/du', directory=False):
         for key, path in CAPACITY_DISK_PATHS.items():
             if not capacity_fixed_path_ready(path, directory=True):
                 result['disk_usage'][key]['status'] = 'UNKNOWN'
@@ -1799,6 +1812,8 @@ def capacity_readonly_profile(outer_deadline: float, target: str | None = None) 
                 else:
                     size = int(match[1])
             result['disk_usage'][key] = {'status': status, 'elapsed_ms': elapsed, 'bytes': size}
+            if status == 'OUTPUT_LIMIT' or not runner.clean or runner.exhausted:
+                break
     result['elapsed_ms'] = max(0, int((time.monotonic() - runner.started) * 1000))
     if runner.calls:
         result['stdout_bytes'], result['io_bytes'] = runner.stdout_total, runner.total
