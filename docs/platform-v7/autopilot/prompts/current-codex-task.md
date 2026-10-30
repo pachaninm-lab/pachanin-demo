@@ -2480,3 +2480,10 @@ NEW ROOT-owned purpose only; full source patch and contract in officialreview#wa
 ```json
 {"purpose":"market-preflight-evidence-order-20261030","decision":6511318123,"base":"dda29d0cc46818034a0f517ed9f88a8567d91a3a","privateHead":"dae2f0de7aa83ae6a6decb1091076a4f23d83f55","sourcePatchSha256":"052432ba9dbafc11df998643f7015d2f676c3b1807b5bf36897105e1a888ffd4","privateReviewSha256":"a6941a6dcd583b2592fd2891b4c5fc19acb1b8ca960cd9453b790c0521d80421","completeReconstruction":"The new state admission contains full source patch, two exact mode/blob/SHA256 pins, full independent private review and separate owner checks. All old document prefixes/state members remain unchanged.","next":"Separate metadata review/checks/manual acceptance; then publish exact two source files with fresh actual review/native/security/readiness/manual gates. No host invocation in this admission.","masterCredit":0}
 ```
+
+
+## MP2 Actions expression boundary amendment
+
+```json
+{"schema":"pc.market-preflight.expression-boundary-pin-amendment.v2","purpose":"market-preflight-evidence-order-20261030","base":"45592c9e81a18b0d9f75bee116350c5a70073a67","sourceHead":"9edd1bf1a38dac62dde8a6bf6610e8efb4566d19","sourceTree":"7f2adb70cc6774c169c0ad05e075fea0e184f68a","wholeSourcePatchSha256":"b01fd7dea305625d2fba28d96943df4d6388acc9005005a267e115a98e9a2d13","privateReviewSha256":"d5ba5f4e83755c3e287b99a48305018e67ac9c2ba666e3b31b6d04cdb09725d6","blockedPublishedHead":"160e81fefa531297697939753e6963eefa813faa","blockedReviewSha256":"cbccb2c3e3fc4fc26ec8642bd978095545dcfad5eae8168e72a98c9c4fd20dc4","completePayload":"State admission contains the full corrected two-source patch, exact pins and complete blocked/private reviews. Previous full admission remains at accepted455/stateblob588b3ca01de761d0e16acafe03464bad5e6a6c7b.","constraints":"Existing two-path vector/read-only authority only. Separate metadata then actual source review/native119/security/readiness/manual acceptance. No failed-head retry, host or MASTER credit."}
+```
