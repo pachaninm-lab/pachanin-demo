@@ -3500,3 +3500,9 @@ MA2 git show e7b45c38cf2c49c85ae80e0e4afa54f00f08950f block:61f7f65e91ae96fe0613
 
 Review complete5GOV actual diff, exact existing test/private pin replacement, complete V5-to-V6 delta and full private source/blocked380 reviews in the immutable Codex block. Reconstruct exact whole5 from unchanged complete V4/V5 prefixes plus delta. Four runtime afters/root ownership guard, scope, owners, all other state literals/history/score remain unchanged. Map/list parsing preserves literal canaries; unsupported or duplicate forms reject. Actual38065PASS then realComposeTypeError is retained, not nativePASS. Separate metadata then source actualwhole5/native realCompose5PASS/security/READY/manual gates remain mandatory; no host or MASTER credit.
 MA3 git show 6ee31f77f32e1e7c6d9ed65aeed89e324b74a5e7 block:8c7dfdbd98a21205249eaf91edcfe492c97740128edf69fcf546e9d651fd4685
+
+
+## Existing market preflight evidence ordering review
+
+Inspect complete five-governance-file diff and literal preservation of every existing state member and document prefix. New admission contains full two-source patch, exact mode/blob/SHA256 pins, full independent private review and separate owner checks. Collector and strict legacy parity remain unchanged; only existing read-only collection/validation precedes legacy checks and validated-only upload survives their failure. Negative synthetic transport/schema/source/authority cases admit nothing. Private CLEAN is not published source/native acceptance; keep metadata and source gates separate. No host or MASTER credit.
+MPO git show 30fd3718ea1e75fdb6746acec83a20a003182242 block:9f652c977a055d05d217b1fe6d17ac12a858c927e61a8adaeeffcce9c662e00d
