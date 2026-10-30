@@ -6765,7 +6765,7 @@ test('single-node scope: decoder and byte count retain the caller locale', t => 
 });
 
 // Separate current phase; retained historical headroom fixtures remain unchanged.
-const liveHeadroomMarker = '\n## PC-CROP live Docker headroom safety correction — 2026-10-30\n\n```json\n';
+const liveHeadroomMarker = '\n## PC-CROP live Docker headroom workflow template correction v2 — 2026-10-30\n\n```json\n';
 function liveHeadroomPurpose() {
   const parts = fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8').split(liveHeadroomMarker);
   assert.equal(parts.length, 2);
@@ -6875,4 +6875,17 @@ test('live headroom safety: dirty bytes cannot rescue committed wrong payload', 
   const correct = fs.readFileSync(file); fs.appendFileSync(file, '\n'); commit(c.root, 'wrong committed source'); fs.writeFileSync(file, correct);
   const r = runTrustedHeadroomGuard(c); assert.notEqual(r.status, 0, output(r));
   assert.match(output(r), /PC_CROP_LIVE_HEADROOM_SAFETY_SCOPE_SOURCE_PAYLOAD_OR_MODE/u);
+});
+
+test('live headroom safety: rejects the superseded template-invalid V1 source', t => {
+  const c = liveHeadroomFixture(t);
+  const marker = '\n## PC-CROP live Docker headroom safety correction — 2026-10-30\n\n```json\n';
+  const pieces = fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8').split(marker);
+  assert.equal(pieces.length, 2);
+  const old = JSON.parse(pieces[1].slice(0, pieces[1].indexOf('\n```\n')));
+  assert.equal(old.purposeId, 'pc-crop-live-headroom-safety-20261030');
+  const applied = spawnSync('git', ['apply', '--index', '-'], { cwd: c.root,
+    input: old.sourcePatch.text, encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 });
+  assert.equal(applied.status, 0, output(applied));
+  checkLiveHeadroom(c);
 });
