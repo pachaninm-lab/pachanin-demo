@@ -161,6 +161,29 @@ function track(event: string, locale: GektaLocale, extra?: Record<string, string
 
 export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat }: { locale?: GektaLocale; discoveryHero?: React.ReactNode; onEnteredChat?: () => void }) {
   const router = useRouter();
+  React.useEffect(() => {
+    // Next client navigation retains the root layout. Only a matching standalone
+    // route may update document language; embedded chat keeps its host's locale.
+    if (window.location.pathname !== GEKTA_PATHS[locale]) return;
+    const root = document.documentElement;
+    const language = locale === 'zh' ? 'zh-CN' : locale;
+    const previousLanguage = root.getAttribute('lang');
+    const contentLanguage = document.querySelector<HTMLMetaElement>('meta[http-equiv="Content-Language" i]');
+    const previousContentLanguage = contentLanguage?.getAttribute('content') ?? null;
+    root.setAttribute('lang', language);
+    contentLanguage?.setAttribute('content', language);
+    return () => {
+      // A newly mounted page may already own these attributes. Never overwrite it.
+      if (root.getAttribute('lang') === language) {
+        if (previousLanguage === null) root.removeAttribute('lang');
+        else root.setAttribute('lang', previousLanguage);
+      }
+      if (contentLanguage?.getAttribute('content') === language) {
+        if (previousContentLanguage === null) contentLanguage.removeAttribute('content');
+        else contentLanguage.setAttribute('content', previousContentLanguage);
+      }
+    };
+  }, [locale]);
   const product = getGektaCopy(locale);
   const ui = CHAT_UI[locale];
   const [messages, setMessages] = React.useState<GektaMessage[]>([]);
