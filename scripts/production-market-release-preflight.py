@@ -318,10 +318,10 @@ def validate_report(value: Any, target: str) -> dict[str, Any]:
     keys = {'schema', 'target_sha', 'observed_at_utc', 'running_web_revision', 'running_api_revision',
             'checks', 'migration_inventory', 'capacity', 'backup', 'production_mutation',
             'deployment_authorized', 'live_acceptance', 'protected_values', 'outbox_topology', 'release_inventory',
-            'registration_binding'}
+            'registration_binding', 'api_publication_config', 'filesystem_capacity'}
     if not isinstance(value, dict) or set(value) != keys or not SHA.fullmatch(target):
         raise ValueError('REPORT_SCHEMA')
-    for key, expected in {'schema': 'pc-crop.market-release-preflight.v2', 'target_sha': target,
+    for key, expected in {'schema': 'pc-crop.market-release-preflight.v3', 'target_sha': target,
                           'production_mutation': 'NONE', 'live_acceptance': 'NOT_PERFORMED',
                           'protected_values': 'NOT_PUBLISHED'}.items():
         if value[key] != expected:
@@ -377,6 +377,8 @@ def validate_report(value: Any, target: str) -> dict[str, Any]:
     validate_outbox_topology(value['outbox_topology'])
     validate_release_inventory(value['release_inventory'])
     validate_registration_preconditions(value['registration_binding'], checks, value['outbox_topology'])
+    validate_api_publication_config(value['api_publication_config'], checks, value['outbox_topology'])
+    validate_filesystem_capacity(value['filesystem_capacity'])
     # No unknown key, string, path, address, error or payload can pass to artifacts.
     return value
 
@@ -1008,6 +1010,137 @@ def validate_registration_preconditions(value: Any, checks: dict[str, Any],
         raise ValueError('REGISTRATION_PRECONDITIONS_BLOCKERS')
 
 
+def api_publication_config(api: dict[str, Any], checks: dict[str, Any],
+                           topology: dict[str, Any]) -> dict[str, Any]:
+    """Compare declared base config metadata, never mutable installed contents."""
+    observed = api.get('Image')
+    observed = observed if isinstance(observed, str) and IMAGE_ID.fullmatch(observed) else 'NOT_PROVEN'
+    image = topology.get('api_image') or {}
+    stable = (checks.get('runtime_configuration_stability') == 'UNCHANGED'
+              and topology.get('runtime_stability') == 'UNCHANGED')
+    status = 'NOT_PROVEN'
+    if (stable and image.get('container_image_binding') is True and image.get('running') is True
+            and observed == PUBLICATION['config'] and image.get('revision') == PUBLICATION['source_sha']):
+        status = 'DECLARED_BASE_CONFIG_ID_MATCH_ONLY'
+    return {'status': status, 'expected_config_digest': PUBLICATION['config'],
+            'expected_source_sha': PUBLICATION['source_sha'], 'observed_image_id': observed,
+            'assurance': 'BASE_CONFIG_METADATA_ONLY', 'installed_code': 'NOT_INSPECTED',
+            'registration_binding': 'NOT_PERFORMED'}
+
+
+def validate_api_publication_config(value: Any, checks: dict[str, Any], topology: dict[str, Any]) -> None:
+    if not isinstance(value, dict) or not isinstance(value.get('observed_image_id'), str):
+        raise ValueError('PUBLICATION_CONFIG_OBSERVATION')
+    digest = value['observed_image_id']
+    if digest != 'NOT_PROVEN' and not IMAGE_ID.fullmatch(digest):
+        raise ValueError('PUBLICATION_CONFIG_OBSERVATION')
+    if value != api_publication_config({'Image': digest}, checks, topology):
+        raise ValueError('PUBLICATION_CONFIG_OBSERVATION')
+
+
+def filesystem_snapshot(path: Any) -> tuple[dict[str, Any], int | None]:
+    """Directory descriptors and statvfs only: no entries, file bytes or atime reads."""
+    unknown: dict[str, Any] = {'status': 'NOT_PROVEN'}
+    fd = None
+    try:
+        flags = (getattr(os, 'O_PATH', None), getattr(os, 'O_DIRECTORY', None), getattr(os, 'O_NOFOLLOW', None))
+        if (any(type(flag) is not int or flag <= 0 for flag in flags) or not isinstance(path, str)
+                or not path.startswith('/') or len(path.encode('utf-8')) > 4096
+                or any(ord(char) < 32 or ord(char) == 127 for char in path)):
+            return unknown, None
+        parts = [] if path == '/' else path[1:].split('/')
+        if len(parts) > 64 or any(part in ('', '.', '..') for part in parts):
+            return unknown, None
+        mode = flags[0] | flags[1] | flags[2]
+        fd = os.open('/', mode)
+        for part in parts:
+            child = os.open(part, mode, dir_fd=fd)
+            os.close(fd)
+            fd = child
+            if not stat.S_ISDIR(os.fstat(fd).st_mode):
+                return unknown, None
+        before = os.fstat(fd)
+        if not stat.S_ISDIR(before.st_mode) or type(before.st_dev) is not int:
+            return unknown, None
+        values = os.fstatvfs(fd)
+        after = os.fstat(fd)
+        if (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino):
+            return unknown, None
+        unit, total, free, available = values.f_frsize, values.f_blocks, values.f_bfree, values.f_bavail
+        if (any(type(v) is not int for v in (unit, total, free, available)) or unit <= 0
+                or not 0 <= available <= free <= total or total * unit > 2**63 - 1):
+            return unknown, None
+        inodes: dict[str, Any] = {'status': 'NOT_PROVEN'}
+        itotal, ifree, iavailable = values.f_files, values.f_ffree, values.f_favail
+        if (all(type(v) is int for v in (itotal, ifree, iavailable))
+                and 0 <= iavailable <= ifree <= itotal <= 2**63 - 1):
+            inodes = {'status': 'OBSERVED', 'total': itotal, 'free': ifree, 'available': iavailable}
+        return {'status': 'OBSERVED_METADATA_ONLY', 'total_bytes': total * unit,
+                'free_bytes': free * unit, 'available_bytes': available * unit,
+                'inodes': inodes}, before.st_dev
+    except (OSError, ValueError, UnicodeError, AttributeError, OverflowError):
+        return unknown, None
+    finally:
+        if fd is not None:
+            os.close(fd)
+
+
+def filesystem_capacity() -> dict[str, Any]:
+    root, root_device = filesystem_snapshot('/')
+    backup, backup_device = filesystem_snapshot('/var/lib/pc-release-authority/backups')
+    docker_path = None
+    try:
+        docker_path = json.loads(run(['docker', 'info', '--format', '{{json .DockerRootDir}}']) or 'null')
+    except (ValueError, TypeError):
+        pass
+    docker, docker_device = filesystem_snapshot(docker_path)
+    def relation(left: int | None, right: int | None) -> str:
+        if left is None or right is None:
+            return 'NOT_PROVEN'
+        return 'SAME_FILESYSTEM_OBSERVED' if left == right else 'DIFFERENT_FILESYSTEM_OBSERVED'
+    return {'root': root, 'docker': docker, 'backup': backup,
+            'root_docker': relation(root_device, docker_device),
+            'root_backup': relation(root_device, backup_device),
+            'docker_backup': relation(docker_device, backup_device), 'admission': 'NOT_GRANTED'}
+
+
+def validate_filesystem_capacity(value: Any) -> None:
+    if (not isinstance(value, dict) or set(value) != {'root', 'docker', 'backup', 'root_docker',
+            'root_backup', 'docker_backup', 'admission'} or value['admission'] != 'NOT_GRANTED'):
+        raise ValueError('FILESYSTEM_CAPACITY_SCHEMA')
+    observed = {}
+    for name in ('root', 'docker', 'backup'):
+        item = value[name]
+        if item == {'status': 'NOT_PROVEN'}:
+            observed[name] = False
+            continue
+        if (not isinstance(item, dict) or set(item) != {'status', 'total_bytes', 'free_bytes', 'available_bytes', 'inodes'}
+                or item['status'] != 'OBSERVED_METADATA_ONLY'
+                or any(type(item[k]) is not int for k in ('total_bytes', 'free_bytes', 'available_bytes'))
+                or not 0 <= item['available_bytes'] <= item['free_bytes'] <= item['total_bytes'] <= 2**63 - 1):
+            raise ValueError('FILESYSTEM_CAPACITY_VALUE')
+        inode = item['inodes']
+        if inode != {'status': 'NOT_PROVEN'}:
+            if (not isinstance(inode, dict) or set(inode) != {'status', 'total', 'free', 'available'}
+                    or inode['status'] != 'OBSERVED'
+                    or any(type(inode[k]) is not int for k in ('total', 'free', 'available'))
+                    or not 0 <= inode['available'] <= inode['free'] <= inode['total'] <= 2**63 - 1):
+                raise ValueError('FILESYSTEM_CAPACITY_INODES')
+        observed[name] = True
+    pairs = (('root_docker', 'root', 'docker'), ('root_backup', 'root', 'backup'), ('docker_backup', 'docker', 'backup'))
+    groups = {name: name for name in observed}
+    for key, left, right in pairs:
+        fact = value[key]
+        choices = {'SAME_FILESYSTEM_OBSERVED', 'DIFFERENT_FILESYSTEM_OBSERVED'} if observed[left] and observed[right] else {'NOT_PROVEN'}
+        if not isinstance(fact, str) or fact not in choices:
+            raise ValueError('FILESYSTEM_CAPACITY_RELATION')
+        if fact == 'SAME_FILESYSTEM_OBSERVED':
+            old, new = groups[right], groups[left]
+            groups = {name: new if group == old else group for name, group in groups.items()}
+    if any(value[key] == 'DIFFERENT_FILESYSTEM_OBSERVED' and groups[left] == groups[right] for key, left, right in pairs):
+        raise ValueError('FILESYSTEM_CAPACITY_CONTRADICTION')
+
+
 def collect(target: str) -> dict[str, Any]:
     if not SHA.fullmatch(target):
         raise ValueError('INVALID_TARGET_SHA')
@@ -1039,6 +1172,7 @@ def collect(target: str) -> dict[str, Any]:
     except OSError:
         pass
     backup = backups(Path('/var/lib/pc-release-authority/backups'))
+    filesystem_observation = filesystem_capacity()
     after_web = containers('web')
     after_api = containers('api', project) if isinstance(project, str) and project else []
     stable = (runtime_identity(web) is not None and runtime_identity(api) is not None
@@ -1047,7 +1181,7 @@ def collect(target: str) -> dict[str, Any]:
               and runtime_identity(api) == runtime_identity(after_api[0]))
     checks['runtime_configuration_stability'] = 'UNCHANGED' if stable else 'NOT_PROVEN'
     checks['caddy_configuration_stability'] = ('UNCHANGED' if caddy_before is not None and caddy_before == caddy_config() else 'NOT_PROVEN')
-    result = {'schema': 'pc-crop.market-release-preflight.v2', 'target_sha': target,
+    result = {'schema': 'pc-crop.market-release-preflight.v3', 'target_sha': target,
             'observed_at_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
             'running_web_revision': revision(web), 'running_api_revision': revision(api),
             'checks': checks, 'migration_inventory': db, 'capacity': capacity,
@@ -1056,6 +1190,8 @@ def collect(target: str) -> dict[str, Any]:
             'production_mutation': 'NONE', 'deployment_authorized': False,
             'live_acceptance': 'NOT_PERFORMED', 'protected_values': 'NOT_PUBLISHED'}
     result['registration_binding'] = registration_preconditions(api, checks, result['outbox_topology'])
+    result['api_publication_config'] = api_publication_config(api, checks, result['outbox_topology'])
+    result['filesystem_capacity'] = filesystem_observation
     return result
 
 
@@ -1330,7 +1466,7 @@ def main() -> None:
         print(encoded)
     except Exception:
         # Never serialize raw exception messages or command/environment contents.
-        print('{"schema":"pc-crop.market-release-preflight.v2","collection":"NOT_PROVEN","production_mutation":"NONE","deployment_authorized":false}')
+        print('{"schema":"pc-crop.market-release-preflight.v3","collection":"NOT_PROVEN","production_mutation":"NONE","deployment_authorized":false}')
         raise SystemExit(1)
 
 

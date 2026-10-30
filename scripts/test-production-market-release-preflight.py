@@ -978,11 +978,168 @@ class RegistrationPreconditions(unittest.TestCase):
             with self.assertRaises(ValueError):m.validate_registration_preconditions(value,c,t)
 
     def test_current_envelope_requires_new_section_and_schema(self):
-        value=report(); self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v2')
+        value=report(); self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v3')
         self.assertEqual(m.validate_report(value,SHA),value)
         old=copy.deepcopy(value);old.pop('registration_binding')
         with self.assertRaises(ValueError):m.validate_report(old,SHA)
         old=copy.deepcopy(value);old['schema']='pc-crop.market-release-preflight.v1'
+        with self.assertRaises(ValueError):m.validate_report(old,SHA)
+
+
+class FilesystemAndConfigObservation(unittest.TestCase):
+    def checks(self):return {'runtime_configuration_stability':'UNCHANGED'}
+    def topology(self):
+        return {'runtime_stability':'UNCHANGED','api_image':{'container_image_binding':True,
+            'running':True,'revision':m.PUBLICATION['source_sha']}}
+    def sample(self):
+        return {'status':'OBSERVED_METADATA_ONLY','total_bytes':409600,'free_bytes':122880,
+                'available_bytes':81920,'inodes':{'status':'OBSERVED','total':50,'free':15,'available':10}}
+
+    def test_only_full_stable_bound_published_config_matches(self):
+        value=m.api_publication_config({'Image':m.PUBLICATION['config']},self.checks(),self.topology())
+        self.assertEqual(value['status'],'DECLARED_BASE_CONFIG_ID_MATCH_ONLY')
+        self.assertEqual(value['installed_code'],'NOT_INSPECTED')
+        self.assertEqual(value['registration_binding'],'NOT_PERFORMED')
+        m.validate_api_publication_config(value,self.checks(),self.topology())
+        for field,replacement in (('runtime_stability','NOT_PROVEN'),('api_image',{})):
+            t=self.topology();t[field]=replacement
+            self.assertEqual(m.api_publication_config({'Image':m.PUBLICATION['config']},self.checks(),t)['status'],'NOT_PROVEN')
+        for field,replacement in (('container_image_binding',False),('running',False),('revision','d'*40)):
+            t=self.topology();t['api_image'][field]=replacement
+            self.assertEqual(m.api_publication_config({'Image':m.PUBLICATION['config']},self.checks(),t)['status'],'NOT_PROVEN')
+        self.assertEqual(m.api_publication_config({'Image':m.PUBLICATION['config']},{},self.topology())['status'],'NOT_PROVEN')
+
+    def test_label_or_short_id_cannot_substitute_for_full_config_id(self):
+        for image in ('b7fb48be36e4',m.PUBLICATION['config'].split(':')[1],None,'private-secret'):
+            v=m.api_publication_config({'Image':image},self.checks(),self.topology())
+            self.assertEqual(v['status'],'NOT_PROVEN');self.assertEqual(v['observed_image_id'],'NOT_PROVEN')
+            self.assertNotIn('private-secret',json.dumps(v))
+        for image in ('sha256:'+'a'*64,m.PUBLICATION['index'],m.PUBLICATION['manifest']):
+            v=m.api_publication_config({'Image':image},self.checks(),self.topology())
+            self.assertEqual(v['status'],'NOT_PROVEN');self.assertEqual(v['observed_image_id'],image)
+            m.validate_api_publication_config(v,self.checks(),self.topology())
+
+    def test_config_observation_rejects_extra_or_contradictory_authority(self):
+        v=m.api_publication_config({'Image':m.PUBLICATION['config']},self.checks(),self.topology())
+        for change in ({'private':'secret'},{'installed_code':'VERIFIED'},{'registration_binding':'PASS'},
+                       {'expected_config_digest':'sha256:'+'a'*64},{'observed_image_id':'private'}):
+            bad={**v,**change}
+            with self.subTest(change=change),self.assertRaises(ValueError):
+                m.validate_api_publication_config(bad,self.checks(),self.topology())
+
+    def test_config_match_does_not_remove_any_registration_blocker(self):
+        t=self.topology();c={'runtime_configuration_stability':'UNCHANGED'}
+        api={'Image':m.PUBLICATION['config'],'Config':{'Env':['AUTH_DATABASE_URL=private']},
+             'HostConfig':{'ReadonlyRootfs':False},'Mounts':[]}
+        self.assertEqual(m.api_publication_config(api,c,t)['status'],'DECLARED_BASE_CONFIG_ID_MATCH_ONLY')
+        r=m.registration_preconditions(api,c,t)
+        self.assertIs(r['binding_proven'],False);self.assertEqual(r['helper_execution'],'NOT_PERFORMED')
+        for blocker in ('INSTALLED_CODE_PROOF_MISSING','TRUSTED_IMAGE_PROOF_MISSING',
+                        'REGISTRATION_BINDING_NOT_PERFORMED','WRITABLE_ROOT_OR_UNKNOWN'):
+            self.assertIn(blocker,r['blocking_reasons'])
+
+    def test_descriptor_metadata_preserves_atime_without_content_or_listing(self):
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td);child=p/'private';child.mkdir();(child/'never-read').write_text('PRIVATE_CUSTOMER_BYTES')
+            for path in (p,child):os.utime(path,ns=(1,path.stat().st_mtime_ns))
+            with patch.object(os,'scandir',side_effect=AssertionError('no enumeration')), \
+                 patch.object(os,'listdir',side_effect=AssertionError('no enumeration')):
+                value,device=m.filesystem_snapshot(str(child))
+            self.assertEqual(value['status'],'OBSERVED_METADATA_ONLY');self.assertIs(type(device),int)
+            self.assertEqual(p.stat().st_atime_ns,1);self.assertEqual(child.stat().st_atime_ns,1)
+            self.assertNotIn(td,json.dumps(value));self.assertNotIn('PRIVATE',json.dumps(value))
+
+    def test_symlink_relative_control_and_deep_paths_fail_without_following(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);target=root/'target';target.mkdir();(root/'alias').symlink_to(target,target_is_directory=True)
+            for path in (str(root/'alias'),str(root/'alias'/'child'),'relative','/a/../b','/a//b',
+                         '/a/./b','/private\nsecret','/'+'a/'*65+'b','/'+'a'*4096):
+                with self.subTest(path=path):self.assertEqual(m.filesystem_snapshot(path),({'status':'NOT_PROVEN'},None))
+        with patch.object(os,'O_PATH',None):
+            self.assertEqual(m.filesystem_snapshot('/'),({'status':'NOT_PROVEN'},None))
+
+    def test_available_bytes_exclude_reserved_blocks_and_unknown_inodes_stay_unknown(self):
+        from types import SimpleNamespace as S
+        values=S(f_frsize=4096,f_blocks=100,f_bfree=30,f_bavail=20,f_files=50,f_ffree=15,f_favail=10)
+        with patch.object(os,'fstatvfs',return_value=values):v,_=m.filesystem_snapshot('/')
+        self.assertEqual(v,self.sample())
+        values.f_files=values.f_ffree=values.f_favail=-1
+        with patch.object(os,'fstatvfs',return_value=values):v,_=m.filesystem_snapshot('/')
+        self.assertEqual(v['available_bytes'],81920);self.assertEqual(v['inodes'],{'status':'NOT_PROVEN'})
+        for field,bad in (('f_bavail',31),('f_bavail',True),('f_frsize',0),('f_blocks',2**63)):
+            broken=copy.copy(values);setattr(broken,field,bad)
+            with self.subTest(field=field,bad=bad),patch.object(os,'fstatvfs',return_value=broken):
+                self.assertEqual(m.filesystem_snapshot('/'),({'status':'NOT_PROVEN'},None))
+
+    def test_permission_or_stat_error_is_closed_and_descriptors_are_released(self):
+        with patch.object(os,'open',side_effect=PermissionError('PRIVATE_PATH')):
+            self.assertEqual(m.filesystem_snapshot('/'),({'status':'NOT_PROVEN'},None))
+        real_close=os.close
+        with patch.object(os,'fstatvfs',side_effect=OSError('PRIVATE_PATH')),patch.object(os,'close',wraps=real_close) as closed:
+            self.assertEqual(m.filesystem_snapshot('/'),({'status':'NOT_PROVEN'},None))
+        self.assertEqual(closed.call_count,1)
+
+    def test_three_fixed_descriptor_observations_and_one_docker_metadata_command(self):
+        with patch.object(m,'filesystem_snapshot',side_effect=[(self.sample(),10),(self.sample(),20),(self.sample(),10)]) as observe, \
+             patch.object(m,'run',return_value=json.dumps('/private/docker-root')) as command:
+            value=m.filesystem_capacity()
+        self.assertEqual([c.args[0] for c in observe.call_args_list],['/','/var/lib/pc-release-authority/backups','/private/docker-root'])
+        command.assert_called_once_with(['docker','info','--format','{{json .DockerRootDir}}'])
+        self.assertEqual(value['root_docker'],'SAME_FILESYSTEM_OBSERVED')
+        self.assertEqual(value['root_backup'],'DIFFERENT_FILESYSTEM_OBSERVED')
+        self.assertEqual(value['admission'],'NOT_GRANTED');self.assertNotIn('/private',json.dumps(value))
+        m.validate_filesystem_capacity(value)
+
+    def test_unknown_filesystem_never_becomes_zero_or_a_relation(self):
+        with patch.object(m,'filesystem_snapshot',return_value=({'status':'NOT_PROVEN'},None)),patch.object(m,'run',return_value=None):
+            value=m.filesystem_capacity()
+        m.validate_filesystem_capacity(value)
+        self.assertEqual(value['root'],{'status':'NOT_PROVEN'})
+        self.assertEqual(value['docker_backup'],'NOT_PROVEN')
+        bad=copy.deepcopy(value);bad['root_docker']='SAME_FILESYSTEM_OBSERVED'
+        with self.assertRaises(ValueError):m.validate_filesystem_capacity(bad)
+
+    def test_closed_filesystem_schema_rejects_paths_ranges_authority_and_contradictions(self):
+        with patch.object(m,'filesystem_snapshot',return_value=(self.sample(),10)),patch.object(m,'run',return_value='"/fixed"'):
+            value=m.filesystem_capacity()
+        for mutate in (lambda d:d.update(path='/PRIVATE'),lambda d:d.update(admission='READY'),
+                       lambda d:d['root'].update(path='/PRIVATE'),lambda d:d['root'].update(available_bytes=True),
+                       lambda d:d['root'].update(available_bytes=2**64),lambda d:d['root']['inodes'].update(available=99),
+                       lambda d:d.update(docker_backup='DIFFERENT_FILESYSTEM_OBSERVED')):
+            bad=copy.deepcopy(value);mutate(bad)
+            with self.subTest(mutate=mutate),self.assertRaises(ValueError):m.validate_filesystem_capacity(bad)
+
+    def test_capacity_observation_precedes_runtime_revalidation(self):
+        changed=[False]
+        a=api();a['Image']=m.PUBLICATION['config']
+        def selected(service,*args):
+            if service=='web':return [web()]
+            value=copy.deepcopy(a)
+            if changed[0]:value['Id']='9'*64
+            return [value]
+        def capacity_change():
+            changed[0]=True
+            return {'root':{'status':'NOT_PROVEN'},'docker':{'status':'NOT_PROVEN'},
+                    'backup':{'status':'NOT_PROVEN'},'root_docker':'NOT_PROVEN',
+                    'root_backup':'NOT_PROVEN','docker_backup':'NOT_PROVEN','admission':'NOT_GRANTED'}
+        with patch.object(m,'containers',side_effect=selected),patch.object(m,'caddy_config',return_value=caddy()), \
+             patch.object(m,'run',return_value=json.dumps(migrations())), \
+             patch.object(m,'backups',return_value={'artifact':'NOT_OBSERVED','archive_catalog':'NOT_CHECKED','restore_verification':'NOT_PROVEN'}), \
+             patch.object(m,'filesystem_capacity',side_effect=capacity_change):
+            # A capacity-stage runtime change must be covered by the existing final sampling.
+            value=m.collect(SHA)
+        self.assertEqual(value['checks']['runtime_configuration_stability'],'NOT_PROVEN')
+        self.assertEqual(value['api_publication_config']['status'],'NOT_PROVEN')
+        self.assertIs(value['registration_binding']['binding_proven'],False)
+        m.validate_report(value,SHA)
+
+    def test_v3_requires_new_sections_and_rejects_old_v2_artifacts(self):
+        value=report();self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v3')
+        m.validate_report(value,SHA)
+        for key in ('api_publication_config','filesystem_capacity'):
+            bad=copy.deepcopy(value);bad.pop(key)
+            with self.assertRaises(ValueError):m.validate_report(bad,SHA)
+        old=copy.deepcopy(value);old['schema']='pc-crop.market-release-preflight.v2'
         with self.assertRaises(ValueError):m.validate_report(old,SHA)
 
 

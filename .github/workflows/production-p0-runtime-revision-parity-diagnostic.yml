@@ -61,7 +61,7 @@ jobs:
           if str(inspector_path) not in workflow_text:
               raise SystemExit('TRANSPORTED_SCRIPT_PATH_MISSING')
           inspector_source = inspector_path.read_bytes()
-          if hashlib.sha256(inspector_source).hexdigest() != 'eabc446d8f822de79262c92e977a8d19a972b600984d1809e243e13c8a642462':
+          if hashlib.sha256(inspector_source).hexdigest() != '8bae0abbcd8fe74eda93047fdef4fcdb6b504b16b0fa4406fae59aa3fb6cbec3':
               raise SystemExit('TRANSPORTED_SCRIPT_DIGEST_MISMATCH')
           text = workflow_text + '\n' + inspector_source.decode('utf-8', errors='strict')
           for marker in ('SET TRANSACTION READ ONLY', 'statement_timeout', "'deployment_authorized': False", 'def validate_report('):
@@ -356,6 +356,12 @@ jobs:
               lines = ['## Read-only market release preflight', '', 'Collection is NOT deployment approval.', '', 'Target: `' + sys.argv[1] + '`']
               lines += ['- ' + key + ': `' + value + '`' for key, value in report['checks'].items()]
               lines += ['- migration metadata: `' + report['migration_inventory']['status'] + '`', '- backup: `' + report['backup']['artifact'] + '`', '- restore verification: `NOT_PROVEN`', '- production mutation: `NONE`', '- deployment authorized: `false`']
+              lines += ['- API base-config metadata: `' + report['api_publication_config']['status'] + '`; installed code: `NOT_INSPECTED`']
+              for name in ('root', 'docker', 'backup'):
+                  sample = report['filesystem_capacity'][name]
+                  available = str(sample['available_bytes']) if sample['status'] == 'OBSERVED_METADATA_ONLY' else 'NOT_PROVEN'
+                  lines += ['- ' + name + ' filesystem: `' + sample['status'] + '`; available bytes: `' + available + '`']
+              lines += ['- filesystem admission: `NOT_GRANTED`']
               with pathlib.Path(sys.argv[4]).open('a', encoding='utf-8') as summary:
                   summary.write('\n'.join(lines) + '\n')
               print('MARKET_PREFLIGHT_COLLECTION=VALIDATED_READ_ONLY')
