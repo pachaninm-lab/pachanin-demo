@@ -100,7 +100,7 @@ jobs:
           if diagnostic.count(collection) != 1 or diagnostic.index(collection) > diagnostic.index(legacy):
               raise SystemExit('READ_ONLY_COLLECTION_MUST_PRECEDE_LEGACY_PARITY')
           retention = diagnostic.split('      - name: Preserve validated read-only market observations\n', 1)[1]
-          if not retention.startswith('        if: ${{ always() }}\n'):
+          if not retention.startswith('        if: ' + '$' + '{{ always() }}\n'):
               raise SystemExit('VALIDATED_EVIDENCE_MUST_SURVIVE_LEGACY_FAILURE')
           forbidden = [
               'docker ' + 'restart', 'docker ' + 'rm', 'docker ' + 'stop',

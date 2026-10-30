@@ -333,6 +333,22 @@ class WorkflowContract(unittest.TestCase):
     def test_success_only_artifact_retention_rejected(self):
         with self.assertRaisesRegex(SystemExit,'VALIDATED_EVIDENCE_MUST_SURVIVE_LEGACY_FAILURE'):
             self.enforce(self.source,self.workflow.replace('        if: ${{ always() }}\n',''))
+    def test_status_functions_are_not_evaluated_inside_native_contract(self):
+        # GitHub permits status functions in step.if, not step.run. A Python
+        # quoted string inside run does not protect a contiguous expression.
+        self.assertIsNone(m.re.search(r'\$\{\{\s*(?:always|cancelled|success|failure)\s*\(',self.contract))
+        rendered=m.re.sub(r'\$\{\{\s*always\(\)\s*\}\}','true',self.contract)
+        with patch.object(Path,'read_text',return_value=self.workflow), patch.object(Path,'read_bytes',return_value=self.source):
+            exec(compile(rendered,'rendered-native-contract','exec'),{})
+    def test_quoted_status_expression_is_not_a_template_escape(self):
+        # Reproduce the original error against actual checked-out YAML; this
+        # substitution is a local engine-boundary model, not a hosted result.
+        broken=self.contract.replace("'        if: ' + '$' + '{{ always() }}\\n'", "'        if: ${{ always() }}\\n'")
+        self.assertNotEqual(broken,self.contract)
+        rendered=m.re.sub(r'\$\{\{\s*always\(\)\s*\}\}','true',broken)
+        with patch.object(Path,'read_text',return_value=self.workflow), patch.object(Path,'read_bytes',return_value=self.source):
+            with self.assertRaisesRegex(SystemExit,'VALIDATED_EVIDENCE_MUST_SURVIVE_LEGACY_FAILURE'):
+                exec(compile(rendered,'quoted-expression-regression','exec'),{})
     def test_sanitized_transport_error_keeps_original_exit(self):
         start=self.workflow.index('          if (( preflight_status != 0 )); then')
         end=self.workflow.index('          fi',start)+len('          fi')
