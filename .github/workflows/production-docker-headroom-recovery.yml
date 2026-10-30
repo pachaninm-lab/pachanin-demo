@@ -415,6 +415,33 @@ jobs:
               def test_real_stderr_overflow_is_rejected(self):
                   with self.assertRaises(NS['Refusal']) as e:self.process("import os;os.write(2,b'x'*20000)",MAX_OUTPUT=4096)
                   self.assertEqual(e.exception.code,'OUTPUT_LIMIT')
+              def wait_for_child_termination(self,path,deadline):
+                  import time
+                  while True:
+                      try:state=path.read_text().split()[2]
+                      except (FileNotFoundError,ProcessLookupError):return
+                      if state in ('Z','X'):return
+                      remaining=deadline-time.monotonic()
+                      self.assertGreater(remaining,0,'owned descendant still live at fixed deadline')
+                      time.sleep(min(0.01,remaining))
+              def test_child_termination_wait_is_bounded_and_requires_terminal_state(self):
+                  from unittest.mock import Mock
+                  for states in [('R','S','Z'),('R','X')]:
+                      path=Mock();path.read_text.side_effect=['1 (owned) '+state for state in states]
+                      with self.subTest(states=states),patch('time.monotonic',return_value=0),patch('time.sleep') as sleep:
+                          self.wait_for_child_termination(path,1)
+                          self.assertEqual(sleep.call_count,len(states)-1)
+                  for absent in (FileNotFoundError,ProcessLookupError):
+                      path=Mock();path.read_text.side_effect=absent
+                      with self.subTest(absent=absent.__name__),patch('time.sleep') as sleep:
+                          self.wait_for_child_termination(path,0);sleep.assert_not_called()
+                  path=Mock();path.read_text.side_effect=PermissionError
+                  with self.assertRaises(PermissionError):self.wait_for_child_termination(path,1)
+                  path=Mock();path.read_text.return_value='1 (owned) R'
+                  with patch('time.monotonic',side_effect=[0,0.04]),patch('time.sleep') as sleep:
+                      with self.assertRaisesRegex(AssertionError,'owned descendant still live'):
+                          self.wait_for_child_termination(path,0.03)
+                      self.assertEqual(sleep.call_count,1)
               def test_real_pipe_deadline_kills_owned_descendant(self):
                   import time
                   with tempfile.TemporaryDirectory() as tmp:
@@ -424,8 +451,8 @@ jobs:
                       with self.assertRaises(NS['Refusal']) as e:self.process(code,COMMAND_SECONDS=0.3,OPERATION_SECONDS=1)
                       self.assertEqual(e.exception.code,'DEADLINE');self.assertLess(time.monotonic()-started,3)
                       self.assertTrue(child.exists());pid=int(child.read_text())
-                      path=pathlib.Path('/proc')/str(pid)/'stat'
-                      if path.exists():self.assertIn(path.read_text().split()[2],('Z','X'))
+                      self.wait_for_child_termination(pathlib.Path('/proc')/str(pid)/'stat',started+3)
+                      self.assertLess(time.monotonic()-started,3)
               def test_invalid_utf8_output_is_rejected(self):
                   with self.assertRaises(NS['Refusal']) as e:self.process("import os;os.write(1,b'\\xff')")
                   self.assertEqual(e.exception.code,'COMMAND_NOT_PROVEN')
