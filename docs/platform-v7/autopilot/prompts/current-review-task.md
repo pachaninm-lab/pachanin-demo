@@ -3506,3 +3506,9 @@ MA3 git show 6ee31f77f32e1e7c6d9ed65aeed89e324b74a5e7 block:8c7dfdbd98a21205249e
 
 Inspect complete five-governance-file diff and literal preservation of every existing state member and document prefix. New admission contains full two-source patch, exact mode/blob/SHA256 pins, full independent private review and separate owner checks. Collector and strict legacy parity remain unchanged; only existing read-only collection/validation precedes legacy checks and validated-only upload survives their failure. Negative synthetic transport/schema/source/authority cases admit nothing. Private CLEAN is not published source/native acceptance; keep metadata and source gates separate. No host or MASTER credit.
 MPO git show 30fd3718ea1e75fdb6746acec83a20a003182242 block:9f652c977a055d05d217b1fe6d17ac12a858c927e61a8adaeeffcce9c662e00d
+
+
+## MP2 expression boundary amendment review
+
+Review complete five-governance diff and exact existing-admission byte undo. Same two-path vector and read-only authority. Full corrected source patch and new blocked/private reviews are embedded; old full admission remains in immutable455/stateblob588. Verify only Python literal splitting plus two actual template-boundary regressions, unchanged collector/legacy gate/artifact condition,119local tests as preparation only. Actual160/nativeFAIL retained; fresh actualsource native119PASS is mandatory. Separate metadata/source gates; no host or MASTER credit.
+MP2 git show 1147cb88777c335744b01976598fa89ab2c4ca37 block:f5ec7e9f81e808790cef5b96fd84cb0249da98421163a28cba20d2055ceb393a
