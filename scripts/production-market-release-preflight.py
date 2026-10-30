@@ -1178,10 +1178,9 @@ def publication_get(url: str, authorization: str, deadline: float,
                     opener: Any, budget: list[int], *, max_bytes: int = PUBLICATION_MAX_BYTES,
                     allow_blob_redirect: bool = False) -> bytes:
     """Bounded GET; fixed registry origin or credential-free GitHub blob redirect."""
-    # GHCR represents the OCI digest in its blob path. Accept only the two
-    # explicit separators for this one pinned config, never a general prefix.
-    storage_paths = {'/ghcr1/blobs/' + PUBLICATION['config'],
-                     '/ghcr1/blobs/' + PUBLICATION['config'].replace(':', '/')}
+    # The authenticated fixed config endpoint supplies a storage location.
+    # Its bounded namespace is transport policy; the pinned response-byte SHA
+    # below is the resource identity. Storage object names need not be digests.
     if allow_blob_redirect and url != ('https://ghcr.io/v2/' + PUBLICATION['repository'] + '/blobs/' + PUBLICATION['config']):
         raise ValueError('PUBLICATION_ORIGIN')
     for redirect in range(3):
@@ -1192,8 +1191,22 @@ def publication_get(url: str, authorization: str, deadline: float,
                 or parsed.username is not None or parsed.password is not None or parsed.fragment
                 or (not registry and not (allow_blob_redirect and storage))):
             raise ValueError('PUBLICATION_ORIGIN')
-        if storage and parsed.path not in storage_paths:
-            raise ValueError('PUBLICATION_STORAGE_PATH')
+        if storage:
+            # Decode once for this namespace policy, without rewriting the
+            # signed URL or asserting general URI equivalence. Byte-digest
+            # verification remains mandatory before any document is admitted.
+            if re.search(r'%(?![0-9A-Fa-f]{2})', parsed.path):
+                raise ValueError('PUBLICATION_STORAGE_PATH')
+            try:
+                storage_path = urllib.parse.unquote_to_bytes(parsed.path).decode('ascii', errors='strict')
+            except UnicodeError:
+                raise ValueError('PUBLICATION_STORAGE_PATH') from None
+            prefix = '/ghcr1/blobs/'
+            identifier = storage_path[len(prefix):] if storage_path.startswith(prefix) else ''
+            if (not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}', identifier)
+                    or len(identifier.split('/')) > 8
+                    or any(part in ('', '.', '..') for part in identifier.split('/'))):
+                raise ValueError('PUBLICATION_STORAGE_PATH')
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise ValueError('PUBLICATION_TIMEOUT')

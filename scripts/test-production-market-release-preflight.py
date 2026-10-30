@@ -1093,11 +1093,30 @@ class Publication(unittest.TestCase):
             self.assertIsNone(opener.requests[1][0].get_header('Authorization'))
             self.assertTrue(all(r.get_method()=='GET' and 0<t<=5 for r,t in opener.requests))
 
-    def test_other_digest_prefix_suffix_and_encoded_path_are_rejected(self):
+    def test_storage_namespace_rejects_traversal_controls_and_unbounded_identifiers(self):
         url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
-        for path in ('sha256:'+'a'*64,'sha256/'+ 'a'*64,m.PUBLICATION['config']+'/extra',
-                     m.PUBLICATION['config'].replace(':','%3A'),'sha256/../'+m.PUBLICATION['config']):
+        for path in ('sha256/'+ 'a'*257,'../'+m.PUBLICATION['config'],m.PUBLICATION['config'].replace(':','%253A'),
+                     'sha256/../'+m.PUBLICATION['config'],'object%00','object%5Cfile','a//b','a/./b',
+                     'a/'*9+'object'):
             target='https://pkg-containers.githubusercontent.com/ghcr1/blobs/'+path
+            e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
+            with self.subTest(path=path),self.assertRaisesRegex(ValueError,'PUBLICATION_STORAGE_PATH'):
+                self.get(url,responses=[e,self.Response(target)],allow_blob_redirect=True)
+
+    def test_uri_decoding_is_namespace_policy_and_keeps_the_signed_url(self):
+        url='https://ghcr.io/v2/'+m.PUBLICATION['repository']+'/blobs/'+m.PUBLICATION['config']
+        exact='/ghcr1/blobs/'+m.PUBLICATION['config']
+        paths=(exact.replace(':','%3A'),exact.replace(':','%3a'),exact.replace('/blobs/','/blobs%2F'),
+               exact.replace('b','%62'))
+        for path in paths:
+            target='https://pkg-containers.githubusercontent.com'+path+'?PRIVATE=secret'
+            e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
+            value,opener=self.get(url,responses=[e,self.Response(target)],allow_blob_redirect=True)
+            self.assertEqual(value,b'{}');self.assertEqual(opener.requests[1][0].full_url,target)
+            self.assertIsNone(opener.requests[1][0].get_header('Authorization'))
+        for path in (exact.replace(':','%253A'),exact+'%',exact+'%zz',
+                     '/ghcr1/blobs/%2e%2e/'+m.PUBLICATION['config'],exact+'%00',exact+'%FF'):
+            target='https://pkg-containers.githubusercontent.com'+path
             e=m.urllib.error.HTTPError(url,307,'PRIVATE',{'Location':target},None)
             with self.subTest(path=path),self.assertRaisesRegex(ValueError,'PUBLICATION_STORAGE_PATH'):
                 self.get(url,responses=[e,self.Response(target)],allow_blob_redirect=True)
@@ -1145,6 +1164,31 @@ class Publication(unittest.TestCase):
         self.assertEqual(calls[1].args[1],'Bearer PRIVATE_BEARER');self.assertEqual(calls[3].kwargs,{'allow_blob_redirect':True})
         self.assertEqual(v['producer_actions_sha'],'d'*40);self.assertEqual(v['producer_source_sha256'],m.hashlib.sha256(PATH.read_bytes()).hexdigest())
         self.assertNotIn('PRIVATE',json.dumps(v));self.assertNotIn('DO_NOT_EXPORT',json.dumps(v))
+
+    def test_opaque_storage_name_still_requires_exact_config_bytes(self):
+        pins,docs=self.fixture()
+        env={'GITHUB_ACTIONS':'true','GITHUB_EVENT_NAME':'pull_request','GITHUB_REPOSITORY':'pachaninm-lab/pachanin-demo',
+             'GITHUB_HEAD_REF':'ops/farmer-market-release-preflight-20260916','GITHUB_ACTOR':'pachaninm-lab',
+             'GH_TOKEN':'DO_NOT_EXPORT','GITHUB_SHA':'d'*40}
+        token_url='https://ghcr.io/token?service=ghcr.io&scope=repository%3Apachaninm-lab%2Fgrainflow-api%3Apull'
+        prefix='https://ghcr.io/v2/'+pins['repository']+'/'
+        config_url=prefix+'blobs/'+pins['config']
+        target='https://pkg-containers.githubusercontent.com/ghcr1/blobs/opaque.storage_object?PRIVATE=secret'
+        for body in (docs[2],docs[2]+b' '):
+            responses=[self.Response(token_url,b'{"token":"PRIVATE_BEARER"}'),
+                self.Response(prefix+'manifests/'+pins['index'],docs[0]),
+                self.Response(prefix+'manifests/'+pins['manifest'],docs[1]),
+                m.urllib.error.HTTPError(config_url,307,'PRIVATE',{'Location':target},None),self.Response(target,body)]
+            opener=self.Opener(responses)
+            with patch.dict(m.PUBLICATION,pins,clear=True),patch.dict(os.environ,env,clear=True), \
+                 patch.object(m.urllib.request,'build_opener',return_value=opener):
+                if body==docs[2]:
+                    v=m.published_api_baseline();self.assertEqual(v['status'],'PINNED_METADATA_VERIFIED')
+                    self.assertNotIn('PRIVATE',json.dumps(v));self.assertEqual(v['host_binding'],'NOT_PERFORMED')
+                else:
+                    with self.assertRaisesRegex(ValueError,'PUBLICATION_DIGEST'):m.published_api_baseline()
+            self.assertEqual(len(opener.requests),5)
+            self.assertIsNone(opener.requests[-1][0].get_header('Authorization'))
 
     def test_cli_failure_never_exports_error_or_calls_host(self):
         import io,contextlib
