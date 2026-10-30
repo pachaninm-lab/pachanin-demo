@@ -2487,3 +2487,10 @@ NEW ROOT-owned purpose only; full source patch and contract in officialreview#wa
 ```json
 {"schema":"pc.market-preflight.expression-boundary-pin-amendment.v2","purpose":"market-preflight-evidence-order-20261030","base":"45592c9e81a18b0d9f75bee116350c5a70073a67","sourceHead":"9edd1bf1a38dac62dde8a6bf6610e8efb4566d19","sourceTree":"7f2adb70cc6774c169c0ad05e075fea0e184f68a","wholeSourcePatchSha256":"b01fd7dea305625d2fba28d96943df4d6388acc9005005a267e115a98e9a2d13","privateReviewSha256":"d5ba5f4e83755c3e287b99a48305018e67ac9c2ba666e3b31b6d04cdb09725d6","blockedPublishedHead":"160e81fefa531297697939753e6963eefa813faa","blockedReviewSha256":"cbccb2c3e3fc4fc26ec8642bd978095545dcfad5eae8168e72a98c9c4fd20dc4","completePayload":"State admission contains the full corrected two-source patch, exact pins and complete blocked/private reviews. Previous full admission remains at accepted455/stateblob588b3ca01de761d0e16acafe03464bad5e6a6c7b.","constraints":"Existing two-path vector/read-only authority only. Separate metadata then actual source review/native119/security/readiness/manual acceptance. No failed-head retry, host or MASTER credit."}
 ```
+
+
+## BC2 exact IR20 CI capacity purpose
+
+```json
+{"purpose":"ir20-binding-ci-capacity-20261030","decision":6512591807,"base":"10a4dc035cb9d2073a1e3e0563ba7fb87f091e10","privateHead":"294237fa44bba1d33d109b7ef36c2318c51fa1f0","sourcePatchSha256":"e953070e0ac4d1c67ec948492e5791ee19f9a6f29774c3120a8260e3831c1858","privateReviewSha256":"6c1255dd84bf79c1b501d450283d254ec4c6dc26ccc356ace34f8df53b2fbd88","exactPayload":"New state admission holds complete one-file patch/pins/private review/owner proof. Full failure review is appended to review prompt. Old CB1/all previous prefixes/state members/vector remain.","next":"Separate metadata then source exact-head review/native/security/READY/manual; actual300 fit and5988 recomposition remain unproved.","masterCredit":0}
+```
