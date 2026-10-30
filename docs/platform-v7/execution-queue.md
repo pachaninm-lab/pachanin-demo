@@ -9108,4 +9108,4 @@ NEW exact four-document observer purpose on the unchanged web-trust two-path vec
 }
 ```
 
-MP2 git show 1147cb88777c335744b01976598fa89ab2c4ca37 block:f5ec7e9f81e808790cef5b96fd84cb0249da98421163a28cba20d2055ceb393a
+BC2 git show 70d739473bae45d0bfdc9043da6ff3adcf96c14f block:3150f2bf9f6f3dff4f3b890e16bc89550f61a26d65f275e7ffe3c8f5b0f618fc
