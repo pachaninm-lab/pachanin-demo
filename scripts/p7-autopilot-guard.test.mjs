@@ -280,7 +280,7 @@ function write(root, file, content, mode) {
 // it and fails with ENOTEMPTY even after its retries (CI runs git 2.55). The
 // setting is repository-local, so it also covers every git call the guard
 // script itself makes inside the fixture. No assertion changes.
-const FIXTURE_GIT_CONFIG = [['maintenance.auto', 'false'], ['gc.auto', '0']];
+const FIXTURE_GIT_CONFIG = [['maintenance.auto', 'false'], ['gc.auto', '0'], ['core.looseCompression', '0']];
 
 function git(root, args) {
   const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
@@ -303,6 +303,7 @@ function commit(root, message) {
 // constructor. Every caller receives separate files, refs and mutable history.
 const fixtureSnapshots = new Map();
 const compositeFixtureSnapshots = new Map();
+const fixtureSnapshotEntries = new Map();
 let fixtureSnapshotDirectory;
 after(() => {
   if (fixtureSnapshotDirectory) fs.rmSync(fixtureSnapshotDirectory, { recursive: true, force: true });
@@ -332,7 +333,7 @@ function fixture(t, implementationBranch) {
       fs.readdirSync(path.join(context.root, '.git', 'hooks')).some(name => !name.endsWith('.sample'))) return context;
   fixtureSnapshotDirectory ??= fs.mkdtempSync(path.join(os.tmpdir(), 'p7-fixture-snapshots-'));
   const directory = path.join(fixtureSnapshotDirectory, key);
-  fs.cpSync(context.root, directory, { recursive: true, dereference: false });
+  captureFixtureSnapshot(context.root, directory);
   fixtureSnapshots.set(key, { directory, baseline: context.baseline });
   return context;
 }
@@ -364,15 +365,70 @@ function constructFixture(t, implementationBranch) {
   return { root, baseline, implementationBranch };
 }
 
+// Preserve modes when freezing the baseline too: recursive cp implementations
+// may recreate directories without their special permission bits. Restoring
+// modes only when cloning would retain that already-normalized snapshot mode.
+function captureFixtureSnapshot(source, directory) {
+  fs.cpSync(source, directory, { recursive: true, dereference: false, verbatimSymlinks: true });
+  const restoreModes = (relative) => {
+    const original = path.join(source, relative);
+    const metadata = fs.lstatSync(original);
+    if (metadata.isSymbolicLink()) return;
+    assert.ok(metadata.isDirectory() || metadata.isFile(), 'fixture snapshots contain only directories, files and symlinks');
+    if (metadata.isDirectory()) {
+      for (const name of fs.readdirSync(original)) restoreModes(path.join(relative, name));
+    }
+    fs.chmodSync(path.join(directory, relative), metadata.mode & 0o7777);
+  };
+  restoreModes('');
+}
+
 // Reuse completed immutable baselines, never candidate mutations or assertions.
 // Constructors with mutation callbacks or custom Git setup always run normally.
 function copyFixtureSnapshot(directory, root) {
   const objects = path.join(directory, '.git', 'objects');
-  fs.cpSync(directory, root, { recursive: true, dereference: false, verbatimSymlinks: true,
-    filter: source => source !== objects });
+  let entries = fixtureSnapshotEntries.get(directory);
+  if (!entries) {
+    entries = [];
+    const visit = (relative) => {
+      const source = path.join(directory, relative);
+      if (source === objects) return;
+      const metadata = fs.lstatSync(source);
+      if (metadata.isDirectory()) {
+        entries.push({ relative, kind: 'directory', mode: metadata.mode & 0o7777 });
+        for (const name of fs.readdirSync(source)) visit(path.join(relative, name));
+      } else if (metadata.isSymbolicLink()) {
+        entries.push({ relative, kind: 'symlink', target: fs.readlinkSync(source) });
+      } else {
+        assert.ok(metadata.isFile(), 'fixture snapshots contain only directories, files and symlinks');
+        entries.push({ relative, kind: 'file', mode: metadata.mode & 0o7777 });
+      }
+    };
+    visit('');
+    fixtureSnapshotEntries.set(directory, entries);
+  }
+  // Only traversal metadata is reused. Every file, link, index and ref is
+  // copied into this caller's own worktree; no candidate bytes are cached.
+  for (const entry of entries) {
+    const target = path.join(root, entry.relative);
+    if (entry.kind === 'directory') {
+      if (entry.relative) {
+        fs.mkdirSync(target, { mode: 0o700 });
+      }
+    } else if (entry.kind === 'symlink') {
+      fs.symlinkSync(entry.target, target);
+    } else {
+      fs.copyFileSync(path.join(directory, entry.relative), target);
+      fs.chmodSync(target, entry.mode);
+    }
+  }
   // Git reads only the immutable snapshot's objects; new objects, refs, index
   // and worktree belong exclusively to the caller. Snapshots outlive all tests.
   write(root, '.git/objects/info/alternates', objects + '\n');
+  // Populate first so read-only source directories still accept their children.
+  for (const entry of [...entries].reverse()) {
+    if (entry.kind === 'directory' && entry.relative) fs.chmodSync(path.join(root, entry.relative), entry.mode);
+  }
 }
 
 function compositeFixture(t, kind, options, construct) {
@@ -404,7 +460,7 @@ function compositeFixture(t, kind, options, construct) {
       git(context.root, ['status', '--porcelain']) !== '') return context;
   fixtureSnapshotDirectory ??= fs.mkdtempSync(path.join(os.tmpdir(), 'p7-fixture-snapshots-'));
   const directory = path.join(fixtureSnapshotDirectory, 'composite-' + key);
-  fs.cpSync(context.root, directory, { recursive: true, dereference: false, verbatimSymlinks: true });
+  captureFixtureSnapshot(context.root, directory);
   compositeFixtureSnapshots.set(key, { directory, head: git(context.root, ['rev-parse', 'HEAD']),
     context: structuredClone(context) });
   return context;
@@ -452,11 +508,36 @@ test('composite baseline copies isolate candidate bytes, refs and relative symli
     const context = fixture(t, 'test/composite-snapshot-isolation');
     write(context.root, 'baseline/value.txt', 'accepted bytes\n', 0o600);
     fs.symlinkSync('value.txt', path.join(context.root, 'baseline/link'));
+    fs.symlinkSync('missing/target', path.join(context.root, 'baseline/dangling'));
+    fs.mkdirSync(path.join(context.root, 'baseline/empty'));
+    fs.chmodSync(path.join(context.root, 'baseline/empty'), 0o1777);
+    write(context.root, 'baseline/readonly.txt', 'read-only bytes\n', 0o400);
+    fs.mkdirSync(path.join(context.root, 'baseline/readonly'));
+    fs.chmodSync(path.join(context.root, 'baseline/readonly'), 0o500);
+    fs.chmodSync(context.root, 0o1700);
     commit(context.root, 'genuine composite baseline');
     context.baseline = git(context.root, ['rev-parse', 'HEAD']);
     return context;
   };
-  const first = compositeFixture(t, 'snapshot-isolation-regression', {}, construct);
+  const copy = fs.cpSync;
+  let normalizedDirectoryModes = 0;
+  let first;
+  try {
+    // Reproduce platforms that normalize directory modes during the initial
+    // snapshot copy, even when this runtime's cp already preserves them.
+    fs.cpSync = (source, directory, options) => {
+      copy(source, directory, options);
+      const empty = path.join(directory, 'baseline/empty');
+      if (fs.existsSync(empty)) {
+        fs.chmodSync(empty, 0o755);
+        normalizedDirectoryModes++;
+      }
+    };
+    first = compositeFixture(t, 'snapshot-isolation-regression', {}, construct);
+  } finally {
+    fs.cpSync = copy;
+  }
+  assert.equal(normalizedDirectoryModes, 1);
   write(first.root, 'baseline/value.txt', 'candidate mutation\n');
   fs.unlinkSync(path.join(first.root, 'baseline/link'));
   fs.symlinkSync('../allowed.txt', path.join(first.root, 'baseline/link'));
@@ -473,6 +554,23 @@ test('composite baseline copies isolate candidate bytes, refs and relative symli
   assert.equal(fs.statSync(path.join(second.root, 'baseline/value.txt')).mode & 0o777, 0o600);
   assert.equal(fs.readlinkSync(path.join(second.root, 'baseline/link')), 'value.txt');
   assert.equal(fs.existsSync(path.join(second.root, 'untracked.txt')), false);
+  write(second.root, 'baseline/value.txt', 'second mutation\n');
+  commit(second.root, 'second caller mutation');
+  const third = compositeFixture(t, 'snapshot-isolation-regression', {}, construct);
+  assert.equal(constructions, 1);
+  assert.equal(fs.readFileSync(path.join(third.root, 'baseline/value.txt'), 'utf8'), 'accepted bytes\n');
+  assert.equal(fs.statSync(path.join(third.root, 'baseline/value.txt')).mode & 0o777, 0o600);
+  assert.equal(fs.readlinkSync(path.join(third.root, 'baseline/link')), 'value.txt');
+  assert.equal(fs.readlinkSync(path.join(third.root, 'baseline/dangling')), 'missing/target');
+  assert.equal(fs.statSync(path.join(third.root, 'baseline/empty')).mode & 0o7777, 0o1777);
+  assert.equal(fs.statSync(third.root).mode & 0o7777, 0o700);
+  assert.deepEqual(fs.readdirSync(path.join(third.root, 'baseline/empty')), []);
+  assert.equal(fs.statSync(path.join(third.root, 'baseline/readonly')).mode & 0o7777, 0o500);
+  assert.equal(fs.statSync(path.join(third.root, 'baseline/readonly.txt')).mode & 0o7777, 0o400);
+  assert.equal(fs.readFileSync(path.join(third.root, 'baseline/readonly.txt'), 'utf8'), 'read-only bytes\n');
+  assert.equal(git(third.root, ['rev-parse', 'HEAD']), first.baseline);
+  assert.notEqual(fs.statSync(path.join(second.root, '.git/index')).ino,
+    fs.statSync(path.join(third.root, '.git/index')).ino);
 });
 
 test('custom composite mutation callbacks and Git setup never reuse cached baselines', (t) => {
@@ -514,7 +612,12 @@ test('IR-20 binding prerequisite admits exactly the five non-authority implement
   assert.equal(ir20BindingImplementationPaths.some((file) => file.includes('/scopes/')), false);
 });
 
-function publicHomeImplementationFixture(t, { withManifest = true } = {}) {
+function publicHomeImplementationFixture(t, options = {}) {
+  return compositeFixture(t, 'public-home-implementation', options,
+    () => constructPublicHomeImplementationFixture(t, options));
+}
+
+function constructPublicHomeImplementationFixture(t, { withManifest = true } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-public-home-immutable-scope-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
@@ -542,7 +645,12 @@ function publicHomeImplementationFixture(t, { withManifest = true } = {}) {
   return { root, baseline, implementationBranch: publicHomeImplementationBranch };
 }
 
-function poisonIsolationFixture(t, { manifest = 'valid' } = {}) {
+function poisonIsolationFixture(t, options = {}) {
+  return compositeFixture(t, 'poison-isolation', options,
+    () => constructPoisonIsolationFixture(t, options));
+}
+
+function constructPoisonIsolationFixture(t, { manifest = 'valid' } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-poison-isolation-immutable-scope-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
@@ -575,6 +683,11 @@ function poisonIsolationFixture(t, { manifest = 'valid' } = {}) {
 }
 
 function publicHomeGovernanceFixture(t) {
+  return compositeFixture(t, 'public-home-governance', {},
+    () => constructPublicHomeGovernanceFixture(t));
+}
+
+function constructPublicHomeGovernanceFixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-public-home-governance-scope-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
@@ -797,6 +910,11 @@ for (const mutation of ['oversize', 'invalid UTF-8']) {
 }
 
 function qwenFailedEvidenceFixture(t) {
+  return compositeFixture(t, 'qwen-failed-evidence', {},
+    () => constructQwenFailedEvidenceFixture(t));
+}
+
+function constructQwenFailedEvidenceFixture(t) {
   const context = fixture(t, qwenFailedEvidenceBranch);
   fs.mkdirSync(path.join(context.root, 'docs/platform-v7/autopilot/scopes'), { recursive: true });
   write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify({
@@ -809,6 +927,11 @@ function qwenFailedEvidenceFixture(t) {
 }
 
 function kindMinioImageSourceFixture(t) {
+  return compositeFixture(t, 'kind-minio-image-source', {},
+    () => constructKindMinioImageSourceFixture(t));
+}
+
+function constructKindMinioImageSourceFixture(t) {
   const context = fixture(t, kindMinioImageSourceBranch);
   write(context.root, 'infra/kind/production-like/dependencies.yaml', 'baseline dependencies\n');
   write(context.root, 'infra/kind/production-like/minio-tls-check.yaml', 'baseline TLS check\n');
@@ -1289,6 +1412,11 @@ for (const forbidden of ['README.md', '.github/workflows/ci.yml']) {
 }
 
 function finalPublicManifestFallbackFixture(t) {
+  return compositeFixture(t, 'final-public-manifest-fallback', {},
+    () => constructFinalPublicManifestFallbackFixture(t));
+}
+
+function constructFinalPublicManifestFallbackFixture(t) {
   const implementationBranch = finalPublicBranches[1];
   const manifestPath = 'docs/platform-v7/autopilot/scopes/farmer-public-market-teaser-20260913.json';
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-final-public-fallback-'));
@@ -1454,6 +1582,11 @@ for (const [branch, allowed, rejected] of [
 }
 
 function finalPublicGovernanceFixture(t, admitted = true) {
+  return compositeFixture(t, 'final-public-governance', { admitted },
+    () => constructFinalPublicGovernanceFixture(t, admitted));
+}
+
+function constructFinalPublicGovernanceFixture(t, admitted = true) {
   const context = fixture(t, finalPublicGovernanceBranch);
   for (const file of finalPublicGovernancePaths.slice(1, 3)) write(context.root, file, '{}\n');
   write(context.root, 'scripts/p7-autopilot-guard.test.mjs', '// baseline regression\n');
@@ -2195,6 +2328,11 @@ for (const mutation of ['approved append', 'extra fingerprint', 'remove prior en
 const nextSecurityPatchBranch = 'security/pc-crop-next-15-5-24-4997';
 const nextSecurityPaths = ['.github/workflows/platform-v7-autopilot-guard.yml', '.github/workflows/sbom-scan.yml', 'apps/web/package.json', 'package.json', 'pnpm-lock.yaml', 'docs/platform-v7/autopilot/autopilot-state.json', 'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs'];
 function nextSecurityFixture(t) {
+  return compositeFixture(t, 'next-security', {},
+    () => constructNextSecurityFixture(t));
+}
+
+function constructNextSecurityFixture(t) {
   const context = fixture(t, nextSecurityPatchBranch);
   write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify({
     allowedCurrentScope: ['README.md'],
@@ -2375,6 +2513,11 @@ for (const mutation of ['unapproved file', 'candidate global scope']) {
 }
 
 function industrialFixture(t, branch, admitted = true) {
+  return compositeFixture(t, 'industrial', { branch, admitted },
+    () => constructIndustrialFixture(t, branch, admitted));
+}
+
+function constructIndustrialFixture(t, branch, admitted = true) {
   const context = fixture(t, branch);
   const statePath = industrialGovernancePaths[0];
   const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
@@ -6399,4 +6542,337 @@ test('stopped references: head must descend from the exact accepted base', t => 
   const result = runIndustrialTrustedGuard(c);
   assert.notEqual(result.status, 0, output(result));
   assert.match(output(result), /STOPPED_INSPECTION_ERRORS_SCOPE_ANCESTRY/u);
+});
+
+// Differential reference is the immutable accepted guard before this process-
+// consolidation change, not a candidate-controlled copy or cached decision.
+const singleNodeReferenceGuard = acceptedBlob('530f10e9c42d71e66da575efa1f1568421324be1');
+const singleNodeFinalMarker = 'SCOPE_RESULT=$(DIFF_FILES="$DIFF_FILES" ALLOWED_CURRENT="$ALLOWED_CURRENT" P7_EXACT_APPROVED_SCOPE="$P7_EXACT_APPROVED_SCOPE" node - <<\'JS\'\n';
+const singleNodeProtocolMarker = '\n  # The producer\'s last nonempty line is an ASCII frame.';
+
+function singleNodeFixture(t, item, { corruption = '', afterCapture = '' } = {}) {
+  const context = fixture(t, item.generic ? 'analysis/generic-scope-differential' : implementationBranches[0]);
+  const stateFile = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, stateFile), 'utf8'));
+  state.approvedConcurrentScopes[context.implementationBranch] = item.scopes;
+  write(context.root, stateFile, JSON.stringify(state) + '\n');
+  fs.mkdirSync(path.join(context.root, 'docs/platform-v7/autopilot/scopes'), { recursive: true });
+  git(context.root, ['config', 'core.quotePath', 'false']);
+  for (const [file, content] of Object.entries(item.before || {})) write(context.root, file, content);
+  commit(context.root, 'accepted differential source scope');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  for (const file of item.changes || []) write(context.root, file, 'candidate source\n');
+  if (item.rename) git(context.root, ['mv', item.rename[0], item.rename[1]]);
+  if (item.rawNameHex) fs.writeFileSync(Buffer.concat([Buffer.from(context.root + path.sep), Buffer.from(item.rawNameHex, 'hex')]), 'candidate source\n');
+  if ((item.changes || []).length || item.rename || item.rawNameHex) commit(context.root, 'candidate differential source');
+  let proposed = fs.readFileSync(sourceGuard, 'utf8');
+  let reference = singleNodeReferenceGuard;
+  if (corruption) {
+    assert.equal(proposed.split(singleNodeProtocolMarker).length, 2);
+    proposed = proposed.replace(singleNodeProtocolMarker, () => '\n' + corruption + singleNodeProtocolMarker);
+  }
+  if (afterCapture) {
+    const marker = 'if [[ "$P7_EXACT_SCOPE_FRAME_ATTEMPTED" == 1 && "$P7_EXACT_SCOPE_FRAME_VALID" != 1 &&\n';
+    assert.equal(proposed.split(marker).length, 2);
+    proposed = proposed.replace(marker, () => afterCapture + '\n' + marker);
+    assert.equal(reference.split(singleNodeFinalMarker).length, 2);
+    reference = reference.replace(singleNodeFinalMarker, () => afterCapture + '\n' + singleNodeFinalMarker);
+  }
+  const candidate = path.join(context.root, '.git', 'proposed-differential-guard.sh');
+  const before = path.join(context.root, '.git', 'accepted-differential-guard.sh');
+  fs.writeFileSync(candidate, proposed);
+  fs.writeFileSync(before, reference);
+  return { ...context, candidate, before };
+}
+
+function singleNodeRun(context, file, traceFile) {
+  const command = spawnSync('bash', [file], { cwd: context.root, encoding: 'utf8', env: {
+    ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD',
+    GITHUB_HEAD_REF: context.implementationBranch, ...(traceFile ? { PC_P7_NODE_TRACE: traceFile } : {}),
+  } });
+  return { status: command.status, stdout: command.stdout, stderr: command.stderr };
+}
+function singleNodeComparableStderr(value) {
+  // Bash includes the script path and shifted source line in its NUL warning.
+  // Compare the warning itself without treating this source-location metadata
+  // as a change in authority, matching, diagnostic text or exit behavior.
+  return value.replace(/^.*?: line [0-9]+: warning: command substitution:/gm, 'warning: command substitution:');
+}
+function singleNodeAssertSame(context) {
+  const before = singleNodeRun(context, context.before);
+  const after = singleNodeRun(context, context.candidate);
+  assert.equal(after.status, before.status);
+  assert.equal(after.stdout, before.stdout);
+  assert.equal(singleNodeComparableStderr(after.stderr), singleNodeComparableStderr(before.stderr));
+  return after;
+}
+
+const singleNodeCases = [
+  { title: 'exact allow', scopes: ['allowed.txt'], changes: ['allowed.txt'], status: 0 },
+  { title: 'exact deny', scopes: ['allowed.txt'], changes: ['outside.txt'], status: 1 },
+  { title: 'single star allow', scopes: ['approved/*.ts'], changes: ['approved/one.ts'], status: 0 },
+  { title: 'single star excludes descendants', scopes: ['approved/*.ts'], changes: ['approved/deep/one.ts'], status: 1 },
+  { title: 'double star allows descendants', scopes: ['approved/**'], changes: ['approved/deep/one.ts'], status: 0 },
+  { title: 'plain exact path is not a subtree', scopes: ['approved'], changes: ['approved/one.ts'], status: 1 },
+  { title: 'regex metacharacters are literal', scopes: ['approved/[x]+(one).ts'], changes: ['approved/[x]+(one).ts'], status: 0 },
+  { title: 'invalid UTF-8 Git filename uses the same env decoding', scopes: ['name\ufffd.txt'], rawNameHex: '6e616d65ff2e747874', status: 0 },
+  { title: 'lone high surrogate scope uses stdout replacement', scopes: ['approved/\ud800.ts'], changes: ['approved/\ufffd.ts'], status: 0 },
+  { title: 'lone low surrogate scope uses stdout replacement', scopes: ['approved/\udc00.ts'], changes: ['approved/\ufffd.ts'], status: 0 },
+  { title: 'Unicode exact path', scopes: ['approved/пшеница-中文.ts'], changes: ['approved/пшеница-中文.ts'], status: 0 },
+  { title: 'Unicode whitespace and trailing slash', scopes: ['\u00a0allowed.txt/\r\n'], changes: ['allowed.txt'], status: 0 },
+  { title: 'embedded CRLF scope lines', scopes: ['allowed.txt\r\napproved/**'], changes: ['approved/deep.ts'], status: 0 },
+  { title: 'embedded NUL scope bytes', scopes: ['allowed.\0txt'], changes: ['allowed.txt'], status: 0 },
+  { title: 'NUL and final LF scope normalization', scopes: ['allowed.txt', '\0\n'], changes: ['allowed.txt'], status: 0 },
+  { title: 'newline file name stays Git quoted', scopes: ['approved/**'], changes: ['approved/line\nname.ts'], status: 1 },
+  { title: 'rename retains both accepted paths', scopes: ['allowed.txt', 'to.txt'], before: { 'allowed.txt': 'rename source\n' }, rename: ['allowed.txt', 'to.txt'], status: 0 },
+  { title: 'rename rejects source outside scope', scopes: ['to.txt'], before: { 'allowed.txt': 'rename source\n' }, rename: ['allowed.txt', 'to.txt'], status: 1 },
+  { title: 'forbidden error precedes scope denial', scopes: ['allowed.txt'], changes: ['apps/landing/unsafe.ts'], status: 1, diagnostic: 'Forbidden path changed' },
+  { title: 'mutable authority precedes scope denial', scopes: ['allowed.txt'], changes: ['docs/platform-v7/autopilot/rejected.json'], status: 1, diagnostic: 'Mutable scope authority changed' },
+  { title: 'generic branch keeps prefix matching', generic: true, scopes: ['approved'], changes: ['approved/one.ts'], status: 0 },
+  { title: 'empty diff keeps the earlier shortcut', scopes: ['allowed.txt'], changes: [], status: 0 },
+];
+for (const item of singleNodeCases) {
+  test('single-node scope: differential ' + item.title, (t) => {
+    const result = singleNodeAssertSame(singleNodeFixture(t, item));
+    assert.equal(result.status, item.status, result.stdout + result.stderr);
+    if (item.diagnostic) assert.ok(result.stdout.includes(item.diagnostic), result.stdout);
+  });
+}
+
+const singleNodeCorruptions = [
+  ['missing footer', 'P7_EXACT_SCOPE_FRAME="${P7_EXACT_SCOPE_FRAME%$\'\\n\'*}"'],
+  ['invalid footer prefix', 'P7_EXACT_SCOPE_FRAME="${P7_EXACT_SCOPE_FRAME/P7_EXACT_SCOPE_RESULT_HEX:/P7_BROKEN_SCOPE_RESULT_HEX:}"'],
+  ['malformed hex digest', 'P7_EXACT_SCOPE_FRAME="${P7_EXACT_SCOPE_FRAME%?}z"'],
+  ['NUL byte in hex result', 'P7_EXACT_SCOPE_FRAME="${P7_EXACT_SCOPE_FRAME/P7_EXACT_SCOPE_RESULT_HEX:6f/P7_EXACT_SCOPE_RESULT_HEX:00}"'],
+  ['valid hex result spoof', 'P7_EXACT_SCOPE_FRAME="${P7_EXACT_SCOPE_FRAME/P7_EXACT_SCOPE_RESULT_HEX:6f/P7_EXACT_SCOPE_RESULT_HEX:70}"'],
+];
+for (const [title, corruption] of singleNodeCorruptions) {
+  test('single-node scope: fails closed on ' + title, (t) => {
+    const context = singleNodeFixture(t, { scopes: ['allowed.txt'], changes: ['outside.txt'] }, { corruption });
+    const result = singleNodeRun(context, context.candidate);
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.ok(result.stdout.includes('P7_EXACT_SCOPE_FRAME_INVALID'), result.stdout + result.stderr);
+    assert.equal(result.stdout.includes('Scope guard passed.'), false);
+  });
+}
+test('single-node scope: forbidden error precedes a corrupt footer', (t) => {
+  const context = singleNodeFixture(t, { scopes: ['allowed.txt'], changes: ['apps/landing/unsafe.ts'] },
+    { corruption: singleNodeCorruptions[2][1] });
+  const result = singleNodeRun(context, context.candidate);
+  assert.equal(result.status, 1);
+  assert.ok(result.stdout.includes('Forbidden path changed'), result.stdout);
+  assert.equal(result.stdout.includes('P7_EXACT_SCOPE_FRAME_INVALID'), false);
+});
+
+for (const item of [
+  { title: 'scope changes', scopes: ['allowed.txt'], changes: ['outside.txt'], afterCapture: "ALLOWED_CURRENT='outside.txt'" },
+  { title: 'diff changes', scopes: ['allowed.txt'], changes: ['outside.txt'], afterCapture: "DIFF_FILES='allowed.txt'" },
+  { title: 'matching mode changes', scopes: ['approved'], changes: ['approved/one.ts'], afterCapture: 'P7_EXACT_APPROVED_SCOPE=0' },
+]) {
+  test('single-node scope: runs original matcher when ' + item.title, (t) => {
+    const context = singleNodeFixture(t, item, { afterCapture: item.afterCapture });
+    const result = singleNodeAssertSame(context);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  });
+}
+
+test('single-node scope: saves one real Node process without skipping the guard', (t) => {
+  const context = singleNodeFixture(t, { scopes: ['allowed.txt'], changes: ['allowed.txt'] });
+  const lookup = spawnSync('sh', ['-c', 'command -v node'], { encoding: 'utf8' });
+  assert.equal(lookup.status, 0, output(lookup));
+  const node = fs.realpathSync(lookup.stdout.trim());
+  const quote = value => "'" + value.replaceAll("'", "'\\''") + "'";
+  const bin = path.join(context.root, '.git', 'trace-bin');
+  const trace = path.join(context.root, '.git', 'node-processes.txt');
+  write(context.root, '.git/trace-bin/node', '#!/bin/sh\nprintf \'node\\n\' >> "$PC_P7_NODE_TRACE"\nexec ' + quote(node) + ' "$@"\n', 0o755);
+  const oldPath = process.env.PATH;
+  try {
+    process.env.PATH = bin + path.delimiter + oldPath;
+    fs.writeFileSync(trace, '');
+    const before = singleNodeRun(context, context.before, trace);
+    const beforeCount = fs.readFileSync(trace, 'utf8').trim().split('\n').length;
+    fs.writeFileSync(trace, '');
+    const after = singleNodeRun(context, context.candidate, trace);
+    const afterCount = fs.readFileSync(trace, 'utf8').trim().split('\n').length;
+    assert.equal(before.status, 0, before.stdout + before.stderr);
+    assert.equal(after.status, 0, after.stdout + after.stderr);
+    assert.equal(after.stdout, before.stdout);
+    assert.ok(beforeCount >= 2);
+    assert.equal(afterCount, beforeCount - 1);
+  } finally {
+    if (oldPath === undefined) delete process.env.PATH;
+    else process.env.PATH = oldPath;
+  }
+});
+
+for (const denied of [false, true]) {
+  test('single-node scope: absent checksum utility retains original matcher ' + (denied ? 'deny' : 'allow'), t => {
+    const context = singleNodeFixture(t, { scopes: ['allowed.txt'], changes: [denied ? 'outside.txt' : 'allowed.txt'] });
+    const bin = path.join(context.root, '.git', 'without-checksum-bin');
+    fs.mkdirSync(bin);
+    for (const executable of ['bash', 'git', 'node', 'grep']) {
+      const found = spawnSync('sh', ['-c', 'command -v "$1"', 'lookup', executable], { encoding: 'utf8' });
+      assert.equal(found.status, 0, output(found));
+      fs.symlinkSync(fs.realpathSync(found.stdout.trim()), path.join(bin, executable));
+    }
+    const oldPath = process.env.PATH;
+    try {
+      process.env.PATH = bin;
+      const absent = spawnSync('bash', ['-c', 'command -v sha256sum'], { encoding: 'utf8' });
+      assert.notEqual(absent.status, 0);
+      const result = singleNodeAssertSame(context);
+      assert.equal(result.status, denied ? 1 : 0, result.stdout + result.stderr);
+    } finally {
+      if (oldPath === undefined) delete process.env.PATH;
+      else process.env.PATH = oldPath;
+    }
+  });
+}
+
+test('single-node scope: long denied result decodes every byte across chunks', t => {
+  const context = singleNodeFixture(t, {
+    scopes: ['allowed.txt'],
+    changes: Array.from({ length: 180 }, (_, index) => 'outside/file-' + String(index).padStart(3, '0') + '-' + 'x'.repeat(70) + '.ts'),
+  });
+  const result = singleNodeAssertSame(context);
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.ok(Buffer.byteLength(result.stdout) > 15000);
+});
+
+test('single-node scope: truncated raw diff pipe fails closed after authority checks', t => {
+  const context = singleNodeFixture(t, { scopes: ['allowed.txt'], changes: ['outside.txt'] });
+  const source = fs.readFileSync(context.candidate, 'utf8');
+  const marker = "3< <(printf '%s' \"$DIFF_FILES\" 2>/dev/null)";
+  assert.equal(source.split(marker).length, 2);
+  fs.writeFileSync(context.candidate, source.replace(marker, '3< /dev/null'));
+  const result = singleNodeRun(context, context.candidate);
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.ok(result.stdout.includes('P7_EXACT_SCOPE_FRAME_INVALID'), result.stdout + result.stderr);
+});
+
+test('single-node scope: decoder and byte count retain the caller locale', t => {
+  const afterCapture = `if [[ "\${LC_ALL-}" != 'C.UTF-8' ]]; then echo 'LOCALE_CHANGED'; exit 1; fi`;
+  const context = singleNodeFixture(t, { scopes: ['allowed.txt'], changes: ['allowed.txt'] }, { afterCapture });
+  const oldLocale = process.env.LC_ALL;
+  try {
+    process.env.LC_ALL = 'C.UTF-8';
+    const result = singleNodeAssertSame(context);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  } finally {
+    if (oldLocale === undefined) delete process.env.LC_ALL;
+    else process.env.LC_ALL = oldLocale;
+  }
+});
+
+// Separate current phase; retained historical headroom fixtures remain unchanged.
+const liveHeadroomMarker = '\n## PC-CROP live Docker headroom safety correction — 2026-10-30\n\n```json\n';
+function liveHeadroomPurpose() {
+  const parts = fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8').split(liveHeadroomMarker);
+  assert.equal(parts.length, 2);
+  return JSON.parse(parts[1].slice(0, parts[1].indexOf('\n```\n')));
+}
+function liveHeadroomFixture(t, mutate = () => {}, { ancestry = true } = {}) {
+  const original = liveHeadroomPurpose();
+  const purpose = structuredClone(original);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-live-headroom-safety-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = { allowedCurrentScope: ['README.md', 'apps/api/src/main.ts'],
+    approvedConcurrentScopes: { [headroomBranch]: [...purpose.originalScope] } };
+  mutate(purpose, state);
+  const fromObject = sha => {
+    const r = spawnSync('git', ['cat-file', 'blob', sha], { encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 + 1 });
+    assert.equal(r.status, 0, output(r)); return r.stdout;
+  };
+  for (const item of original.guardPayloads) write(root, item.path, fromObject(item.afterBlob), item.mode === '100755' ? 0o755 : 0o644);
+  for (const item of original.sourcePayloads) write(root, item.path, fromObject(item.beforeBlob), item.mode === '100755' ? 0o755 : 0o644);
+  const manifest = original.originalScope[2];
+  write(root, manifest, fromObject('deb7672c69db09ab0b233cf011e79a904bc5f1a7'), 0o644);
+  write(root, 'scripts/p7-source-controlled-scope.mjs', fs.readFileSync(sourceResolver, 'utf8'), 0o644);
+  write(root, statePath, JSON.stringify(state));
+  write(root, 'docs/platform-v7/execution-queue.md', liveHeadroomMarker + JSON.stringify(purpose) + '\n```\n');
+  write(root, 'README.md', 'unrelated protected source\n');
+  git(root, ['init', '--initial-branch=main']);
+  git(root, ['config', 'user.name', 'Live headroom regression']);
+  git(root, ['config', 'user.email', 'live-headroom@example.invalid']);
+  const objectDir = spawnSync('git', ['rev-parse', '--path-format=absolute', '--git-path', 'objects'], { encoding: 'utf8' });
+  assert.equal(objectDir.status, 0, output(objectDir));
+  write(root, '.git/objects/info/alternates', objectDir.stdout.trim() + '\n');
+  // The real accepted commit object remains exact. Bound this synthetic fixture
+  // at that ancestor instead of importing unrelated pre-authority history.
+  write(root, '.git/shallow', original.authorityBaseExactMain + '\n');
+  git(root, ['add', '.']);
+  const tree = git(root, ['write-tree']);
+  const baseline = git(root, ['commit-tree', tree, ...(ancestry ? ['-p', original.authorityBaseExactMain] : []), '-m', 'accepted exact safety metadata']);
+  git(root, ['update-ref', 'HEAD', baseline]);
+  git(root, ['switch', '-c', headroomBranch]);
+  return { root, baseline, implementationBranch: headroomBranch };
+}
+function applyLiveHeadroom(c) {
+  const r = spawnSync('git', ['apply', '--index', '-'], { cwd: c.root, input: liveHeadroomPurpose().sourcePatch.text,
+    encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 });
+  assert.equal(r.status, 0, output(r));
+}
+function checkLiveHeadroom(c, expected = 1) {
+  commit(c.root, 'current live cleanup source');
+  const r = runTrustedHeadroomGuard(c);
+  assert.equal(r.status === 0 ? 0 : 1, expected, output(r));
+  if (expected) assert.match(output(r), /PC_CROP_LIVE_HEADROOM_SAFETY_SCOPE_|PC_CROP_HEADROOM_SCOPE_|Mutable scope authority changed/u);
+}
+test('live headroom safety: exact two-source payload passes from accepted base', t => {
+  const c = liveHeadroomFixture(t); applyLiveHeadroom(c); checkLiveHeadroom(c, 0);
+});
+for (const [name, mutate] of [
+  ['wrong owner', p => { p.owner = 'ACCOUNT_2_PRODUCT'; }],
+  ['wrong source branch', p => { p.sourceBranch = 'fix/other'; }],
+  ['wrong guard branch', p => { p.guardBranch = 'governance/trusted-concurrent-scope-routing-guard-20261007'; }],
+  ['wrong authority', p => { p.authorityBaseExactMain = 'a'.repeat(40); }],
+  ['production invocation', p => { p.productionInvocationAuthorized = true; }],
+  ['production credit', p => { p.masterCredit = 1; }],
+  ['unknown purpose field', p => { p.extra = true; }],
+  ['source after blob', p => { p.sourcePayloads[0].afterBlob = 'a'.repeat(40); }],
+  ['source bytes', p => { p.sourcePayloads[0].bytes += 1; }],
+  ['source mode', p => { p.sourcePayloads[0].mode = '100644'; }],
+  ['guard after blob', p => { p.guardPayloads[0].afterBlob = 'a'.repeat(40); }],
+  ['guard sha256', p => { p.guardPayloads[0].sha256 = 'a'.repeat(64); }],
+  ['guard bytes', p => { p.guardPayloads[0].bytes += 1; }],
+  ['guard mode', p => { p.guardPayloads[0].mode = '100644'; }],
+  ['missing guard pin', p => { p.guardPayloads.pop(); }],
+  ['missing source scope', (_, s) => { delete s.approvedConcurrentScopes[headroomBranch]; }],
+  ['expanded source scope', (_, s) => { s.approvedConcurrentScopes[headroomBranch].push('README.md'); }],
+]) test('live headroom safety: rejects ' + name, t => {
+  const c = liveHeadroomFixture(t, mutate); applyLiveHeadroom(c); checkLiveHeadroom(c);
+});
+test('live headroom safety: rejects absent accepted ancestry', t => {
+  const c = liveHeadroomFixture(t, () => {}, { ancestry: false }); applyLiveHeadroom(c); checkLiveHeadroom(c);
+});
+for (const kind of ['duplicate', 'malformed', 'removed']) test('live headroom safety: rejects ' + kind + ' accepted marker', t => {
+  const c = liveHeadroomFixture(t);
+  const file = 'docs/platform-v7/execution-queue.md';
+  const old = fs.readFileSync(path.join(c.root, file), 'utf8');
+  write(c.root, file, kind === 'duplicate' ? old + old : kind === 'malformed' ? liveHeadroomMarker + '{broken}\n```\n' : 'old purpose unavailable\n');
+  commit(c.root, 'changed accepted marker'); c.baseline = git(c.root, ['rev-parse', 'HEAD']);
+  applyLiveHeadroom(c); checkLiveHeadroom(c);
+});
+for (const file of ['scripts/production-docker-headroom-recovery.sh', '.github/workflows/production-docker-headroom-recovery.yml']) {
+  for (const kind of ['missing', 'bytes', 'mode']) test('live headroom safety: rejects ' + kind + ' of ' + file, t => {
+    const c = liveHeadroomFixture(t); applyLiveHeadroom(c);
+    if (kind === 'missing') git(c.root, ['restore', '--source=HEAD', '--staged', '--worktree', '--', file]);
+    if (kind === 'bytes') fs.appendFileSync(path.join(c.root, file), '\n');
+    if (kind === 'mode') fs.chmodSync(path.join(c.root, file), file.endsWith('.sh') ? 0o644 : 0o755);
+    checkLiveHeadroom(c);
+  });
+}
+for (const file of ['README.md', 'scripts/p7-autopilot-guard.sh', 'docs/platform-v7/autopilot/autopilot-state.json',
+  'docs/platform-v7/execution-queue.md', 'docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json']) {
+  test('live headroom safety: rejects candidate authority or third-path change ' + file, t => {
+    const c = liveHeadroomFixture(t); applyLiveHeadroom(c); fs.appendFileSync(path.join(c.root, file), '\n'); checkLiveHeadroom(c);
+  });
+}
+test('live headroom safety: dirty bytes cannot rescue committed wrong payload', t => {
+  const c = liveHeadroomFixture(t); applyLiveHeadroom(c);
+  const file = path.join(c.root, 'scripts/production-docker-headroom-recovery.sh');
+  const correct = fs.readFileSync(file); fs.appendFileSync(file, '\n'); commit(c.root, 'wrong committed source'); fs.writeFileSync(file, correct);
+  const r = runTrustedHeadroomGuard(c); assert.notEqual(r.status, 0, output(r));
+  assert.match(output(r), /PC_CROP_LIVE_HEADROOM_SAFETY_SCOPE_SOURCE_PAYLOAD_OR_MODE/u);
 });
