@@ -47,7 +47,9 @@ class FixtureRuntime(binding.Runtime):
     def __init__(self, database='binding_fixture'):
         self.database = database
 
-    def session(self, api, marker):
+    def session(self, api, marker, client='default'):
+        if client not in ('default', 'registration'):
+            raise RuntimeError('FIXTURE_CLIENT')
         return PsqlSession(api, marker, self.database)
 
 
@@ -112,20 +114,25 @@ def main():
             else:
                 raise RuntimeError('FIXTURE_POSTGRES_NOT_READY')
         target = 'a' * 40
-        report = binding.bind(target, ids['api'], ids['source'], project, FixtureRuntime())
-        if report['api_default_database_binding'] != 'VERIFIED_LIVE_BACKEND_MARKER':
-            raise RuntimeError('POSITIVE_CHALLENGE_FAILED')
-        # A different database in the same cluster and an identically named
-        # database in another cluster must both be rejected by the actual query.
-        for source, runtime in ((ids['source'], FixtureRuntime('postgres')),
-                                (ids['other'], FixtureRuntime())):
-            try:
-                binding.bind(target, ids['api'], source, project, runtime)
-            except binding.BindingError as exc:
-                if str(exc) != 'DATABASE_BINDING_NOT_PROVEN':
-                    raise
-            else:
-                raise RuntimeError('WRONG_DATABASE_ACCEPTED')
+        for client in ('default', 'registration'):
+            report = binding.bind(target, ids['api'], ids['source'], project,
+                                  FixtureRuntime(), client=client)
+            key = ('api_default_database_binding' if client == 'default' else
+                   'api_registration_client_database_binding')
+            if report[key] != 'VERIFIED_LIVE_BACKEND_MARKER':
+                raise RuntimeError('POSITIVE_CHALLENGE_FAILED')
+            # A different database in the same cluster and an identically named
+            # database in another cluster must both reject for each selector.
+            # This PSQL transport does not test the installed AuthPrisma factory.
+            for source, runtime in ((ids['source'], FixtureRuntime('postgres')),
+                                    (ids['other'], FixtureRuntime())):
+                try:
+                    binding.bind(target, ids['api'], source, project, runtime, client=client)
+                except binding.BindingError as exc:
+                    if str(exc) != 'DATABASE_BINDING_NOT_PROVEN':
+                        raise
+                else:
+                    raise RuntimeError('WRONG_DATABASE_ACCEPTED')
     finally:
         cleanup_errors = []
         for name in reversed(names):
@@ -151,8 +158,9 @@ def main():
         if cleanup_errors:
             raise RuntimeError('FIXTURE_CLEANUP_FAILED:' + ','.join(cleanup_errors))
 
-    print(json.dumps({'real_postgresql_marker_cases': 3, 'result': 'PASS',
+    print(json.dumps({'real_postgresql_marker_cases': 6, 'result': 'PASS',
                       'api_transport': 'PSQL_FIXTURE_NOT_PRODUCTION_PRISMA_IMAGE',
+                      'registration_factory_transport': 'NOT_TESTED_BY_THIS_FIXTURE',
                       'deployment_authorized': False}))
 
 

@@ -1,10 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { GektaChatWorkspace } from '@/components/gekta/GektaChatWorkspace';
 import { GEKTA_SPEECH_LOCALES, pickVoice, transcriptFrom } from '@/lib/gekta/speech';
 import { GEKTA_LEGAL_DOCUMENTS, GEKTA_LEGAL_VERSION, getGektaLegalDocument } from '@/lib/gekta/legal';
 import { createAnonymousSession, parseAnonymousSession, recordConsent, serializeAnonymousSession } from '@/lib/gekta/anonymous-session';
 import seoRoutes from '@/lib/platform-v7/public-seo-routes.json';
+
+vi.mock('next/navigation', async (importOriginal) => ({
+  ...await importOriginal<typeof import('next/navigation')>(),
+  useRouter: () => ({ push: vi.fn() }),
+}));
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 
@@ -130,5 +138,27 @@ describe('Gekta legal surface', () => {
     for (const document of GEKTA_LEGAL_DOCUMENTS) {
       expect(paths.has(`/legal/${document.slug}`)).toBe(true);
     }
+  });
+});
+
+describe('Gekta interface language inheritance', () => {
+  it.each([
+    { locale: 'ru' as const, language: 'ru', menu: 'Открыть историю' },
+    { locale: 'en' as const, language: 'en', menu: 'Open history' },
+    { locale: 'zh' as const, language: 'zh-CN', menu: '打开历史记录' },
+  ])('declares $language for the actual $locale workspace under Russian platform chrome', ({ locale, language, menu }) => {
+    const chrome = document.createElement('div');
+    chrome.lang = 'ru';
+    chrome.innerHTML = renderToStaticMarkup(createElement(GektaChatWorkspace, { locale }));
+    const region = chrome.querySelector<HTMLElement>('[data-gekta-chat-workspace]');
+    expect(region).not.toBeNull();
+    expect(region!.lang).toBe(language);
+    const menuButton = Array.from(region!.querySelectorAll('button')).find(button => button.getAttribute('aria-label') === menu);
+    expect(menuButton).toBeDefined();
+    expect(menuButton!.closest('[lang]')?.getAttribute('lang')).toBe(language);
+    const composer = region!.querySelector('textarea');
+    expect(composer).not.toBeNull();
+    expect(composer!.closest('[lang]')?.getAttribute('lang')).toBe(language);
+    expect(chrome.lang).toBe('ru');
   });
 });

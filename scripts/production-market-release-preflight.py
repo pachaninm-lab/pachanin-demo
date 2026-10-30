@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """Bounded, read-only REG.RU inventory. A collection result NEVER authorizes release.
 
-Only Docker inspection, bounded Compose config rendering, READ ONLY metadata
-transactions, local Caddy configuration GET and filesystem metadata are used. Raw configuration, stderr, credentials,
+The default host mode uses only Docker inspection, bounded Compose config rendering, READ ONLY metadata
+transactions, local Caddy configuration GET and filesystem metadata. Raw configuration, stderr, credentials,
 addresses, protected paths and customer records are never emitted.
+The separate PR-only publication mode reads pinned registry metadata, never layers or a host.
 """
 from __future__ import annotations
 import datetime as dt
+import base64
 import hashlib
 import ipaddress
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shutil
 import selectors
@@ -20,6 +22,8 @@ import stat
 import subprocess
 import sys
 import urllib.request
+import urllib.error
+import urllib.parse
 from typing import Any
 
 SHA = re.compile(r"[0-9a-f]{40}\Z")
@@ -313,10 +317,11 @@ def validate_report(value: Any, target: str) -> dict[str, Any]:
     """Hosted-side strict admission of remote diagnostic data, never release approval."""
     keys = {'schema', 'target_sha', 'observed_at_utc', 'running_web_revision', 'running_api_revision',
             'checks', 'migration_inventory', 'capacity', 'backup', 'production_mutation',
-            'deployment_authorized', 'live_acceptance', 'protected_values', 'outbox_topology', 'release_inventory'}
+            'deployment_authorized', 'live_acceptance', 'protected_values', 'outbox_topology', 'release_inventory',
+            'registration_binding', 'api_publication_config', 'filesystem_capacity'}
     if not isinstance(value, dict) or set(value) != keys or not SHA.fullmatch(target):
         raise ValueError('REPORT_SCHEMA')
-    for key, expected in {'schema': 'pc-crop.market-release-preflight.v1', 'target_sha': target,
+    for key, expected in {'schema': 'pc-crop.market-release-preflight.v3', 'target_sha': target,
                           'production_mutation': 'NONE', 'live_acceptance': 'NOT_PERFORMED',
                           'protected_values': 'NOT_PUBLISHED'}.items():
         if value[key] != expected:
@@ -371,6 +376,9 @@ def validate_report(value: Any, target: str) -> dict[str, Any]:
             raise ValueError('REPORT_DB_INTEGRITY')
     validate_outbox_topology(value['outbox_topology'])
     validate_release_inventory(value['release_inventory'])
+    validate_registration_preconditions(value['registration_binding'], checks, value['outbox_topology'])
+    validate_api_publication_config(value['api_publication_config'], checks, value['outbox_topology'])
+    validate_filesystem_capacity(value['filesystem_capacity'])
     # No unknown key, string, path, address, error or payload can pass to artifacts.
     return value
 
@@ -895,6 +903,244 @@ def validate_release_inventory(value: Any) -> None:
             raise ValueError('RUNTIME_INVENTORY_SCHEMA')
 
 
+def code_mount_observation(api: dict[str, Any]) -> str:
+    mounts = api.get('Mounts')
+    if not isinstance(mounts, list):
+        return 'NOT_PROVEN'
+    protected = [PurePosixPath(p) for p in ('/nodejs', '/app/dist', '/app/node_modules')]
+    overlap = False
+    for mount in mounts:
+        destination = mount.get('Destination') if isinstance(mount, dict) else None
+        if (not isinstance(destination, str) or not destination.startswith('/') or destination.startswith('//') or
+                any(ord(c) < 32 for c in destination) or
+                any(p in ('.', '..') for p in destination.split('/')) or
+                str(PurePosixPath(destination)) != destination):
+            return 'NOT_PROVEN'
+        path = PurePosixPath(destination)
+        overlap |= any(path == p or path in p.parents or p in path.parents for p in protected)
+    return 'CODE_PATH_OVERLAP' if overlap else 'NO_CODE_MOUNT_OBSERVED'
+
+
+def registration_blockers(value: dict[str, Any]) -> list[str]:
+    # Local image metadata, read-only rootfs and a matching route configuration
+    # do not attest registry provenance, the existing writable layer or a live
+    # registration database binding. These three limitations always remain.
+    blockers = {'TRUSTED_IMAGE_PROOF_MISSING', 'INSTALLED_CODE_PROOF_MISSING',
+                'REGISTRATION_BINDING_NOT_PERFORMED'}
+    for key, expected, reason in (
+        ('route_configuration', 'OBSERVED_CONFIGURATION_ONLY', 'ROUTE_CHAIN_NOT_PROVEN'),
+        ('local_image_binding', 'OBSERVED', 'LOCAL_IMAGE_BINDING_NOT_PROVEN'),
+        ('immutable_reference', 'OBSERVED', 'IMMUTABLE_REFERENCE_NOT_OBSERVED'),
+        ('code_mounts', 'NO_CODE_MOUNT_OBSERVED', 'CODE_MOUNTS_NOT_ATTESTED'),
+        ('root_filesystem', 'READ_ONLY', 'WRITABLE_ROOT_OR_UNKNOWN'),
+        ('registration_url', 'CONFIGURED', 'REGISTRATION_URL_NOT_CONFIGURED'),
+        ('runtime_stability', 'UNCHANGED', 'RUNTIME_STABILITY_NOT_PROVEN'),
+    ):
+        if value[key] != expected:
+            blockers.add(reason)
+    return sorted(blockers)
+
+
+def registration_preconditions(api: dict[str, Any], checks: dict[str, Any],
+                               topology: dict[str, Any]) -> dict[str, Any]:
+    """Passive observations only: no command, constructor, SQL or helper call.
+
+    This explains why the accepted IR20 primitive cannot yet be invoked. It
+    neither establishes a live Caddy/API route nor authorizes a subsequent call.
+    """
+    image = topology.get('api_image') or {}
+    stable = (checks.get('runtime_configuration_stability') == 'UNCHANGED' and
+              topology.get('runtime_stability') == 'UNCHANGED')
+    route = stable and all(checks.get(k) == v for k, v in (
+        ('web_ingress', 'NO_PUBLIC_DOCKER_BINDING'),
+        ('canonical_api_origin', 'CANONICAL'),
+        ('api_web_peer_trust', 'OBSERVED_WEB_PEERS_TRUSTED'),
+        ('caddy_route_and_headers', 'CANONICAL_WEB_ROUTE_OBSERVED'),
+        ('caddy_configuration_stability', 'UNCHANGED'),
+    ))
+    config = api.get('Config') or {}
+    entries = config.get('Env')
+    url = 'NOT_PROVEN'
+    if isinstance(entries, list) and all(isinstance(v, str) and '=' in v for v in entries):
+        matches = [v.partition('=')[2] for v in entries if v.partition('=')[0] == 'AUTH_DATABASE_URL']
+        if len(matches) <= 1:
+            url = 'CONFIGURED' if matches and matches[0].strip() else 'MISSING'
+    readonly = (api.get('HostConfig') or {}).get('ReadonlyRootfs')
+    value = {
+        'status': 'PRECONDITIONS_ONLY_NOT_BINDING',
+        'route_configuration': 'OBSERVED_CONFIGURATION_ONLY' if route else 'NOT_PROVEN',
+        'local_image_binding': 'OBSERVED' if stable and image.get('container_image_binding') is True else 'NOT_PROVEN',
+        'immutable_reference': 'OBSERVED' if stable and image.get('container_image_binding') is True
+            and image.get('immutable_config_ref') is True
+            and isinstance(image.get('registry_digest'), str)
+            and IMAGE_ID.fullmatch(image['registry_digest']) else 'NOT_PROVEN',
+        'code_mounts': code_mount_observation(api),
+        'root_filesystem': 'READ_ONLY' if readonly is True else 'WRITABLE' if readonly is False else 'NOT_PROVEN',
+        'registration_url': url,
+        'runtime_stability': 'UNCHANGED' if stable else 'NOT_PROVEN',
+        'binding_proven': False,
+        'helper_execution': 'NOT_PERFORMED',
+    }
+    value['blocking_reasons'] = registration_blockers(value)
+    return value
+
+
+def validate_registration_preconditions(value: Any, checks: dict[str, Any],
+                                        topology: dict[str, Any]) -> None:
+    choices = {
+        'status': {'PRECONDITIONS_ONLY_NOT_BINDING'},
+        'route_configuration': {'OBSERVED_CONFIGURATION_ONLY', 'NOT_PROVEN'},
+        'local_image_binding': {'OBSERVED', 'NOT_PROVEN'},
+        'immutable_reference': {'OBSERVED', 'NOT_PROVEN'},
+        'code_mounts': {'NO_CODE_MOUNT_OBSERVED', 'CODE_PATH_OVERLAP', 'NOT_PROVEN'},
+        'root_filesystem': {'READ_ONLY', 'WRITABLE', 'NOT_PROVEN'},
+        'registration_url': {'CONFIGURED', 'MISSING', 'NOT_PROVEN'},
+        'runtime_stability': {'UNCHANGED', 'NOT_PROVEN'},
+        'helper_execution': {'NOT_PERFORMED'},
+    }
+    if (not isinstance(value, dict) or set(value) != set(choices) | {'binding_proven', 'blocking_reasons'} or
+            value.get('binding_proven') is not False or
+            any(not isinstance(value[k], str) or value[k] not in allowed for k, allowed in choices.items())):
+        raise ValueError('REGISTRATION_PRECONDITIONS_SCHEMA')
+    expected = registration_preconditions({}, checks, topology)
+    for key in ('route_configuration', 'local_image_binding', 'immutable_reference', 'runtime_stability'):
+        if value[key] != expected[key]:
+            raise ValueError('REGISTRATION_PRECONDITIONS_CONTRADICTION')
+    if value['blocking_reasons'] != registration_blockers(value):
+        raise ValueError('REGISTRATION_PRECONDITIONS_BLOCKERS')
+
+
+def api_publication_config(api: dict[str, Any], checks: dict[str, Any],
+                           topology: dict[str, Any]) -> dict[str, Any]:
+    """Compare declared base config metadata, never mutable installed contents."""
+    observed = api.get('Image')
+    observed = observed if isinstance(observed, str) and IMAGE_ID.fullmatch(observed) else 'NOT_PROVEN'
+    image = topology.get('api_image') or {}
+    stable = (checks.get('runtime_configuration_stability') == 'UNCHANGED'
+              and topology.get('runtime_stability') == 'UNCHANGED')
+    status = 'NOT_PROVEN'
+    if (stable and image.get('container_image_binding') is True and image.get('running') is True
+            and observed == PUBLICATION['config'] and image.get('revision') == PUBLICATION['source_sha']):
+        status = 'DECLARED_BASE_CONFIG_ID_MATCH_ONLY'
+    return {'status': status, 'expected_config_digest': PUBLICATION['config'],
+            'expected_source_sha': PUBLICATION['source_sha'], 'observed_image_id': observed,
+            'assurance': 'BASE_CONFIG_METADATA_ONLY', 'installed_code': 'NOT_INSPECTED',
+            'registration_binding': 'NOT_PERFORMED'}
+
+
+def validate_api_publication_config(value: Any, checks: dict[str, Any], topology: dict[str, Any]) -> None:
+    if not isinstance(value, dict) or not isinstance(value.get('observed_image_id'), str):
+        raise ValueError('PUBLICATION_CONFIG_OBSERVATION')
+    digest = value['observed_image_id']
+    if digest != 'NOT_PROVEN' and not IMAGE_ID.fullmatch(digest):
+        raise ValueError('PUBLICATION_CONFIG_OBSERVATION')
+    if value != api_publication_config({'Image': digest}, checks, topology):
+        raise ValueError('PUBLICATION_CONFIG_OBSERVATION')
+
+
+def filesystem_snapshot(path: Any) -> tuple[dict[str, Any], int | None]:
+    """Directory descriptors and statvfs only: no entries, file bytes or atime reads."""
+    unknown: dict[str, Any] = {'status': 'NOT_PROVEN'}
+    fd = None
+    try:
+        flags = (getattr(os, 'O_PATH', None), getattr(os, 'O_DIRECTORY', None), getattr(os, 'O_NOFOLLOW', None))
+        if (any(type(flag) is not int or flag <= 0 for flag in flags) or not isinstance(path, str)
+                or not path.startswith('/') or len(path.encode('utf-8')) > 4096
+                or any(ord(char) < 32 or ord(char) == 127 for char in path)):
+            return unknown, None
+        parts = [] if path == '/' else path[1:].split('/')
+        if len(parts) > 64 or any(part in ('', '.', '..') for part in parts):
+            return unknown, None
+        mode = flags[0] | flags[1] | flags[2]
+        fd = os.open('/', mode)
+        for part in parts:
+            child = os.open(part, mode, dir_fd=fd)
+            os.close(fd)
+            fd = child
+            if not stat.S_ISDIR(os.fstat(fd).st_mode):
+                return unknown, None
+        before = os.fstat(fd)
+        if not stat.S_ISDIR(before.st_mode) or type(before.st_dev) is not int:
+            return unknown, None
+        values = os.fstatvfs(fd)
+        after = os.fstat(fd)
+        if (before.st_dev, before.st_ino) != (after.st_dev, after.st_ino):
+            return unknown, None
+        unit, total, free, available = values.f_frsize, values.f_blocks, values.f_bfree, values.f_bavail
+        if (any(type(v) is not int for v in (unit, total, free, available)) or unit <= 0
+                or not 0 <= available <= free <= total or total * unit > 2**63 - 1):
+            return unknown, None
+        inodes: dict[str, Any] = {'status': 'NOT_PROVEN'}
+        itotal, ifree, iavailable = values.f_files, values.f_ffree, values.f_favail
+        if (all(type(v) is int for v in (itotal, ifree, iavailable))
+                and 0 <= iavailable <= ifree <= itotal <= 2**63 - 1):
+            inodes = {'status': 'OBSERVED', 'total': itotal, 'free': ifree, 'available': iavailable}
+        return {'status': 'OBSERVED_METADATA_ONLY', 'total_bytes': total * unit,
+                'free_bytes': free * unit, 'available_bytes': available * unit,
+                'inodes': inodes}, before.st_dev
+    except (OSError, ValueError, UnicodeError, AttributeError, OverflowError):
+        return unknown, None
+    finally:
+        if fd is not None:
+            os.close(fd)
+
+
+def filesystem_capacity() -> dict[str, Any]:
+    root, root_device = filesystem_snapshot('/')
+    backup, backup_device = filesystem_snapshot('/var/lib/pc-release-authority/backups')
+    docker_path = None
+    try:
+        docker_path = json.loads(run(['docker', 'info', '--format', '{{json .DockerRootDir}}']) or 'null')
+    except (ValueError, TypeError):
+        pass
+    docker, docker_device = filesystem_snapshot(docker_path)
+    def relation(left: int | None, right: int | None) -> str:
+        if left is None or right is None:
+            return 'NOT_PROVEN'
+        return 'SAME_FILESYSTEM_OBSERVED' if left == right else 'DIFFERENT_FILESYSTEM_OBSERVED'
+    return {'root': root, 'docker': docker, 'backup': backup,
+            'root_docker': relation(root_device, docker_device),
+            'root_backup': relation(root_device, backup_device),
+            'docker_backup': relation(docker_device, backup_device), 'admission': 'NOT_GRANTED'}
+
+
+def validate_filesystem_capacity(value: Any) -> None:
+    if (not isinstance(value, dict) or set(value) != {'root', 'docker', 'backup', 'root_docker',
+            'root_backup', 'docker_backup', 'admission'} or value['admission'] != 'NOT_GRANTED'):
+        raise ValueError('FILESYSTEM_CAPACITY_SCHEMA')
+    observed = {}
+    for name in ('root', 'docker', 'backup'):
+        item = value[name]
+        if item == {'status': 'NOT_PROVEN'}:
+            observed[name] = False
+            continue
+        if (not isinstance(item, dict) or set(item) != {'status', 'total_bytes', 'free_bytes', 'available_bytes', 'inodes'}
+                or item['status'] != 'OBSERVED_METADATA_ONLY'
+                or any(type(item[k]) is not int for k in ('total_bytes', 'free_bytes', 'available_bytes'))
+                or not 0 <= item['available_bytes'] <= item['free_bytes'] <= item['total_bytes'] <= 2**63 - 1):
+            raise ValueError('FILESYSTEM_CAPACITY_VALUE')
+        inode = item['inodes']
+        if inode != {'status': 'NOT_PROVEN'}:
+            if (not isinstance(inode, dict) or set(inode) != {'status', 'total', 'free', 'available'}
+                    or inode['status'] != 'OBSERVED'
+                    or any(type(inode[k]) is not int for k in ('total', 'free', 'available'))
+                    or not 0 <= inode['available'] <= inode['free'] <= inode['total'] <= 2**63 - 1):
+                raise ValueError('FILESYSTEM_CAPACITY_INODES')
+        observed[name] = True
+    pairs = (('root_docker', 'root', 'docker'), ('root_backup', 'root', 'backup'), ('docker_backup', 'docker', 'backup'))
+    groups = {name: name for name in observed}
+    for key, left, right in pairs:
+        fact = value[key]
+        choices = {'SAME_FILESYSTEM_OBSERVED', 'DIFFERENT_FILESYSTEM_OBSERVED'} if observed[left] and observed[right] else {'NOT_PROVEN'}
+        if not isinstance(fact, str) or fact not in choices:
+            raise ValueError('FILESYSTEM_CAPACITY_RELATION')
+        if fact == 'SAME_FILESYSTEM_OBSERVED':
+            old, new = groups[right], groups[left]
+            groups = {name: new if group == old else group for name, group in groups.items()}
+    if any(value[key] == 'DIFFERENT_FILESYSTEM_OBSERVED' and groups[left] == groups[right] for key, left, right in pairs):
+        raise ValueError('FILESYSTEM_CAPACITY_CONTRADICTION')
+
+
 def collect(target: str) -> dict[str, Any]:
     if not SHA.fullmatch(target):
         raise ValueError('INVALID_TARGET_SHA')
@@ -926,6 +1172,7 @@ def collect(target: str) -> dict[str, Any]:
     except OSError:
         pass
     backup = backups(Path('/var/lib/pc-release-authority/backups'))
+    filesystem_observation = filesystem_capacity()
     after_web = containers('web')
     after_api = containers('api', project) if isinstance(project, str) and project else []
     stable = (runtime_identity(web) is not None and runtime_identity(api) is not None
@@ -934,7 +1181,7 @@ def collect(target: str) -> dict[str, Any]:
               and runtime_identity(api) == runtime_identity(after_api[0]))
     checks['runtime_configuration_stability'] = 'UNCHANGED' if stable else 'NOT_PROVEN'
     checks['caddy_configuration_stability'] = ('UNCHANGED' if caddy_before is not None and caddy_before == caddy_config() else 'NOT_PROVEN')
-    return {'schema': 'pc-crop.market-release-preflight.v1', 'target_sha': target,
+    result = {'schema': 'pc-crop.market-release-preflight.v3', 'target_sha': target,
             'observed_at_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
             'running_web_revision': revision(web), 'running_api_revision': revision(api),
             'checks': checks, 'migration_inventory': db, 'capacity': capacity,
@@ -942,9 +1189,275 @@ def collect(target: str) -> dict[str, Any]:
             'release_inventory': release_inventory(web, api, project),
             'production_mutation': 'NONE', 'deployment_authorized': False,
             'live_acceptance': 'NOT_PERFORMED', 'protected_values': 'NOT_PUBLISHED'}
+    result['registration_binding'] = registration_preconditions(api, checks, result['outbox_topology'])
+    result['api_publication_config'] = api_publication_config(api, checks, result['outbox_topology'])
+    result['filesystem_capacity'] = filesystem_observation
+    return result
+
+
+PUBLICATION = {
+    'repository': 'pachaninm-lab/grainflow-api',
+    'source_sha': 'a6784252a57a8a5e14f231bc18a64d67ab0fd274',
+    'index': 'sha256:9f9095cfdb1c007f62c2eed8c35850c3248d047a4cad440af96a38438469f6e5',
+    'manifest': 'sha256:45e109ea493164683c8f717f5e095bd2771dfa1f562c168cc2dd8c920ef73365',
+    'config': 'sha256:b7fb48be36e4254d13daa21a56504170b784d6b28ea0b2256b937fdf427109bf',
+}
+OCI_INDEX = 'application/vnd.oci.image.index.v1+json'
+OCI_MANIFEST = 'application/vnd.oci.image.manifest.v1+json'
+OCI_CONFIG = 'application/vnd.oci.image.config.v1+json'
+PUBLICATION_MAX_BYTES = 512 * 1024
+PUBLICATION_MAX_TOTAL = 2 * 1024 * 1024
+PUBLICATION_SECONDS = 60
+
+
+def publication_json(raw: bytes) -> dict[str, Any]:
+    def pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
+        value: dict[str, Any] = {}
+        for key, item in items:
+            if key in value:
+                raise ValueError('PUBLICATION_JSON')
+            value[key] = item
+        return value
+    def nonfinite(_: str) -> None:
+        raise ValueError('PUBLICATION_JSON')
+    if not isinstance(raw, bytes) or not 0 < len(raw) <= PUBLICATION_MAX_BYTES:
+        raise ValueError('PUBLICATION_BOUNDS')
+    try:
+        value = json.loads(raw.decode('utf-8', errors='strict'), object_pairs_hook=pairs,
+                           parse_constant=nonfinite)
+    except (UnicodeError, ValueError, RecursionError):
+        raise ValueError('PUBLICATION_JSON') from None
+    if not isinstance(value, dict):
+        raise ValueError('PUBLICATION_JSON')
+    return value
+
+
+def publication_digest(raw: bytes, expected: str) -> dict[str, Any]:
+    if not isinstance(raw, bytes) or 'sha256:' + hashlib.sha256(raw).hexdigest() != expected:
+        raise ValueError('PUBLICATION_DIGEST')
+    return publication_json(raw)
+
+
+def verify_publication_documents(index_raw: bytes, manifest_raw: bytes,
+                                 config_raw: bytes) -> dict[str, Any]:
+    """Verify pinned metadata only. No image layers or installed code are read."""
+    index = publication_digest(index_raw, PUBLICATION['index'])
+    manifest = publication_digest(manifest_raw, PUBLICATION['manifest'])
+    config = publication_digest(config_raw, PUBLICATION['config'])
+    if type(index.get('schemaVersion')) is not int or index['schemaVersion'] != 2 or index.get('mediaType') != OCI_INDEX:
+        raise ValueError('PUBLICATION_INDEX')
+    descriptors = index.get('manifests')
+    if not isinstance(descriptors, list) or not 0 < len(descriptors) <= 16:
+        raise ValueError('PUBLICATION_INDEX')
+    candidates = [d for d in descriptors if isinstance(d, dict) and d.get('digest') == PUBLICATION['manifest']]
+    if len(candidates) != 1:
+        raise ValueError('PUBLICATION_PLATFORM')
+    selected = candidates[0]
+    platform = selected.get('platform')
+    if (not isinstance(platform, dict) or platform.get('os') != 'linux' or platform.get('architecture') != 'amd64'
+            or platform.get('variant') not in (None, '') or selected.get('mediaType') != OCI_MANIFEST
+            or type(selected.get('size')) is not int or selected['size'] != len(manifest_raw)):
+        raise ValueError('PUBLICATION_PLATFORM')
+    descriptor = manifest.get('config')
+    if (type(manifest.get('schemaVersion')) is not int or manifest['schemaVersion'] != 2 or manifest.get('mediaType') != OCI_MANIFEST
+            or not isinstance(descriptor, dict) or descriptor.get('mediaType') != OCI_CONFIG
+            or descriptor.get('digest') != PUBLICATION['config']
+            or type(descriptor.get('size')) is not int or descriptor['size'] != len(config_raw)):
+        raise ValueError('PUBLICATION_CONFIG')
+    layers = manifest.get('layers')
+    if not isinstance(layers, list) or not 0 < len(layers) <= 128:
+        raise ValueError('PUBLICATION_LAYERS')
+    total = 0
+    for layer in layers:
+        if (not isinstance(layer, dict) or not isinstance(layer.get('digest'), str)
+                or not re.fullmatch(r'sha256:[0-9a-f]{64}', layer['digest'])
+                or type(layer.get('size')) is not int or not 0 < layer['size'] <= 1024**3
+                or layer.get('mediaType') not in ('application/vnd.oci.image.layer.v1.tar+gzip',
+                                                'application/vnd.oci.image.layer.v1.tar')):
+            raise ValueError('PUBLICATION_LAYERS')
+        total += layer['size']
+    if total > 4 * 1024**3:
+        raise ValueError('PUBLICATION_LAYERS')
+    rootfs = config.get('rootfs')
+    image_config = config.get('config')
+    labels = image_config.get('Labels') if isinstance(image_config, dict) else None
+    if (config.get('os') != 'linux' or config.get('architecture') != 'amd64'
+            or not isinstance(labels, dict) or labels.get('org.opencontainers.image.revision') != PUBLICATION['source_sha']
+            or labels.get('org.opencontainers.image.source') != 'https://github.com/pachaninm-lab/pachanin-demo'
+            or not isinstance(rootfs, dict) or rootfs.get('type') != 'layers'):
+        raise ValueError('PUBLICATION_REVISION')
+    diff_ids = rootfs.get('diff_ids')
+    if (not isinstance(diff_ids, list) or len(diff_ids) != len(layers)
+            or any(not isinstance(d, str) or not re.fullmatch(r'sha256:[0-9a-f]{64}', d) for d in diff_ids)):
+        raise ValueError('PUBLICATION_ROOTFS')
+    # Never export arbitrary labels, environment, history, URLs or registry output.
+    return {
+        'schema': 'pc-crop.api-publication-baseline.v1',
+        'status': 'PINNED_METADATA_VERIFIED',
+        'source_sha': PUBLICATION['source_sha'],
+        'index_digest': PUBLICATION['index'],
+        'manifest_digest': PUBLICATION['manifest'],
+        'image_config_digest': PUBLICATION['config'],
+        'platform': 'linux/amd64',
+        'layer_count': len(layers),
+        'declared_layer_bytes': total,
+        'layer_contents': 'NOT_DOWNLOADED',
+        'installed_code': 'NOT_INSPECTED',
+        'host_binding': 'NOT_PERFORMED',
+        'registration_binding': 'NOT_PERFORMED',
+        'production_mutation': 'NONE',
+        'deployment_authorized': False,
+    }
+
+
+def publication_get(url: str, authorization: str, deadline: float,
+                    opener: Any, budget: list[int], *, max_bytes: int = PUBLICATION_MAX_BYTES,
+                    allow_blob_redirect: bool = False) -> bytes:
+    """Bounded GET; fixed registry origin or credential-free GitHub blob redirect."""
+    # The authenticated fixed config endpoint supplies a storage location.
+    # Its bounded namespace is transport policy; the pinned response-byte SHA
+    # below is the resource identity. Storage object names need not be digests.
+    if allow_blob_redirect and url != ('https://ghcr.io/v2/' + PUBLICATION['repository'] + '/blobs/' + PUBLICATION['config']):
+        raise ValueError('PUBLICATION_ORIGIN')
+    for redirect in range(3):
+        if (not isinstance(url, str) or not 0 < len(url) <= 8192
+                or any(not 33 <= ord(char) <= 126 for char in url)):
+            raise ValueError('PUBLICATION_REDIRECT')
+        parsed = urllib.parse.urlsplit(url)
+        registry = parsed.hostname == 'ghcr.io'
+        storage = parsed.hostname == 'pkg-containers.githubusercontent.com'
+        if (len(url) > 8192 or parsed.scheme != 'https' or parsed.port not in (None, 443)
+                or parsed.username is not None or parsed.password is not None or parsed.fragment
+                or (not registry and not (allow_blob_redirect and storage))):
+            raise ValueError('PUBLICATION_ORIGIN')
+        if storage:
+            # Decode once for this bounded path policy, without rewriting the
+            # signed URL or asserting general URI equivalence. Byte-digest
+            # verification remains mandatory before any document is admitted.
+            if not 1 < len(parsed.path) <= 2048:
+                raise ValueError('PUBLICATION_STORAGE_LENGTH')
+            if re.search(r'%(?![0-9A-Fa-f]{2})', parsed.path):
+                raise ValueError('PUBLICATION_STORAGE_ENCODING')
+            try:
+                storage_path = urllib.parse.unquote_to_bytes(parsed.path).decode('ascii', errors='strict')
+            except UnicodeError:
+                raise ValueError('PUBLICATION_STORAGE_ENCODING') from None
+            if '%' in storage_path:
+                raise ValueError('PUBLICATION_STORAGE_ENCODING')
+            if not 1 < len(storage_path) <= 2048:
+                raise ValueError('PUBLICATION_STORAGE_LENGTH')
+            # Storage layout is opaque. The fixed origin and content digest,
+            # rather than a guessed pool/filename, bind the returned resource.
+            if not re.fullmatch(r"/[A-Za-z0-9._~!$&'()*+,;=:@/-]+", storage_path):
+                raise ValueError('PUBLICATION_STORAGE_PATH')
+            segments = storage_path[1:].split('/')
+            if len(segments) > 32 or any(part in ('', '.', '..') for part in segments):
+                raise ValueError('PUBLICATION_STORAGE_SEGMENTS')
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise ValueError('PUBLICATION_TIMEOUT')
+        headers = {'Accept': OCI_INDEX + ', ' + OCI_MANIFEST + ', ' + OCI_CONFIG}
+        if registry:
+            headers['Authorization'] = authorization
+        request = urllib.request.Request(url, headers=headers, method='GET')
+        budget[1] += 1
+        if budget[1] > 8:
+            raise ValueError('PUBLICATION_BOUNDS')
+        try:
+            response = opener.open(request, timeout=min(5, remaining))
+        except urllib.error.HTTPError as error:
+            if allow_blob_redirect and error.code in (301, 302, 303, 307, 308) and redirect < 2:
+                location = error.headers.get('Location', '')
+                error.close()
+                # Registry credentials never follow a redirect, even to the registry.
+                authorization = ''
+                # Do not let URL resolution erase raw controls or dot segments.
+                # Cross-origin absolute and scheme-relative HTTPS locations
+                # preserve their signed path/query; relative paths are denied.
+                if (not isinstance(location, str) or not 0 < len(location) <= 8192
+                        or any(not 33 <= ord(char) <= 126 for char in location)):
+                    raise ValueError('PUBLICATION_REDIRECT') from None
+                if location.startswith('https://'):
+                    url = location
+                elif location.startswith('//'):
+                    url = 'https:' + location
+                else:
+                    raise ValueError('PUBLICATION_ORIGIN') from None
+                if urllib.parse.urlsplit(url).hostname != 'pkg-containers.githubusercontent.com':
+                    raise ValueError('PUBLICATION_ORIGIN') from None
+                continue
+            error.close()
+            raise ValueError('PUBLICATION_AUTHORIZATION' if error.code in (401, 403) else 'PUBLICATION_HTTP') from None
+        with response:
+            if response.status != 200 or response.geturl() != url:
+                raise ValueError('PUBLICATION_HTTP')
+            length = response.headers.get('Content-Length')
+            if length is not None and (not length.isascii() or not length.isdigit() or int(length) > max_bytes):
+                raise ValueError('PUBLICATION_BOUNDS')
+            chunks = []
+            size = 0
+            while True:
+                if time.monotonic() >= deadline:
+                    raise ValueError('PUBLICATION_TIMEOUT')
+                chunk = response.read1(min(16384, max_bytes + 1 - size))
+                if not chunk:
+                    break
+                size += len(chunk)
+                budget[0] += len(chunk)
+                if size > max_bytes or budget[0] > PUBLICATION_MAX_TOTAL:
+                    raise ValueError('PUBLICATION_BOUNDS')
+                chunks.append(chunk)
+            if not size:
+                raise ValueError('PUBLICATION_BOUNDS')
+            return b''.join(chunks)
+    raise ValueError('PUBLICATION_HTTP')
+
+
+def published_api_baseline() -> dict[str, Any]:
+    # A separate same-repository PR runner, never the issue-command host collector.
+    required = {'GITHUB_ACTIONS': 'true', 'GITHUB_EVENT_NAME': 'pull_request',
+                'GITHUB_REPOSITORY': 'pachaninm-lab/pachanin-demo',
+                'GITHUB_HEAD_REF': 'ops/farmer-market-release-preflight-20260916'}
+    if any(os.environ.get(key) != value for key, value in required.items()):
+        raise ValueError('PUBLICATION_RUNNER_ONLY')
+    actor, token = os.environ.get('GITHUB_ACTOR', ''), os.environ.get('GH_TOKEN', '')
+    producer = os.environ.get('GITHUB_SHA', '')
+    if not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', actor) or not token or len(token) > 2048 or not SHA.fullmatch(producer):
+        raise ValueError('PUBLICATION_RUNNER_ONLY')
+    deadline, budget = time.monotonic() + PUBLICATION_SECONDS, [0, 0]
+    opener = urllib.request.build_opener(NoRedirect())
+    basic = 'Basic ' + base64.b64encode((actor + ':' + token).encode()).decode('ascii')
+    token_url = 'https://ghcr.io/token?' + urllib.parse.urlencode({
+        'service': 'ghcr.io', 'scope': 'repository:' + PUBLICATION['repository'] + ':pull'})
+    auth = publication_json(publication_get(token_url, basic, deadline, opener, budget, max_bytes=65536)).get('token')
+    if not isinstance(auth, str) or not 0 < len(auth) <= 20000 or not re.fullmatch(r'[!-~]+', auth):
+        raise ValueError('PUBLICATION_AUTH')
+    bearer = 'Bearer ' + auth
+    prefix = 'https://ghcr.io/v2/' + PUBLICATION['repository'] + '/'
+    index = publication_get(prefix + 'manifests/' + PUBLICATION['index'], bearer, deadline, opener, budget)
+    manifest = publication_get(prefix + 'manifests/' + PUBLICATION['manifest'], bearer, deadline, opener, budget)
+    config = publication_get(prefix + 'blobs/' + PUBLICATION['config'], bearer, deadline, opener, budget,
+                             allow_blob_redirect=True)
+    result = verify_publication_documents(index, manifest, config)
+    result['producer_actions_sha'] = producer
+    result['producer_source_sha256'] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    return result
 
 
 def main() -> None:
+    if sys.argv[1:] == ['--published-api-baseline']:
+        try:
+            print(json.dumps(published_api_baseline(), sort_keys=True, separators=(',', ':')))
+        except Exception as error:
+            safe = {'PUBLICATION_' + name for name in ('AUTH', 'AUTHORIZATION', 'BOUNDS', 'CONFIG', 'DIGEST',
+                    'HTTP', 'INDEX', 'JSON', 'LAYERS', 'ORIGIN', 'PLATFORM', 'REDIRECT', 'REVISION', 'ROOTFS', 'RUNNER_ONLY',
+                    'STORAGE_PATH', 'STORAGE_ENCODING', 'STORAGE_LENGTH', 'STORAGE_SEGMENTS', 'TIMEOUT')}
+            code = str(error) if type(error) is ValueError and str(error) in safe else 'PUBLICATION_UNAVAILABLE'
+            print(json.dumps({'schema': 'pc-crop.api-publication-baseline.v1', 'status': 'NOT_PROVEN',
+                              'failure': code, 'host_binding': 'NOT_PERFORMED',
+                              'production_mutation': 'NONE', 'deployment_authorized': False}, sort_keys=True))
+            raise SystemExit(1)
+        return
     try:
         value = collect(sys.argv[1] if len(sys.argv) == 2 else '')
         encoded = json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(',', ':'))
@@ -953,7 +1466,7 @@ def main() -> None:
         print(encoded)
     except Exception:
         # Never serialize raw exception messages or command/environment contents.
-        print('{"schema":"pc-crop.market-release-preflight.v1","collection":"NOT_PROVEN","production_mutation":"NONE","deployment_authorized":false}')
+        print('{"schema":"pc-crop.market-release-preflight.v3","collection":"NOT_PROVEN","production_mutation":"NONE","deployment_authorized":false}')
         raise SystemExit(1)
 
 

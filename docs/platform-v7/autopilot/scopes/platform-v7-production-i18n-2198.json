@@ -42,7 +42,8 @@
     "320/375/390/430 plus desktop reflow and no horizontal overflow",
     "CJK computed typography checks",
     "exact public revision gate before browser acceptance",
-    "git diff --check"
+    "git diff --check",
+    "i18n evidence archive contract: all uploaded non-hidden records, including late target/outcome records and byte-faithful generated Playwright metadata, are checksum-covered"
   ],
   "deploymentState": "not-deployed",
   "maturityBoundary": "This scope creates read-only production acceptance evidence only. It does not change application behavior and does not attest authenticated role-cockpit localization until those protected surfaces are exercised with valid production identities."

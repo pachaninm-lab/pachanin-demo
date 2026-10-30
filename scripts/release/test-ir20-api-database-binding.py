@@ -8,8 +8,10 @@ import copy
 import importlib.util
 import io
 import json
+import os
 import pathlib
 import shutil
+import subprocess
 import sys
 import unittest
 from unittest.mock import patch
@@ -66,6 +68,7 @@ class Runtime:
         self.released = False
         self.child = None
         self.calls = []
+        self.client = None
 
     def inspect(self, identity):
         result = copy.deepcopy(self.initial[identity])
@@ -74,8 +77,9 @@ class Runtime:
             self.change_after(result)
         return result
 
-    def session(self, api, marker):
+    def session(self, api, marker, client='default'):
         assert api == API
+        self.client = client
         self.child = Session(marker, self)
         return self.child
 
@@ -104,9 +108,71 @@ class BindingTests(unittest.TestCase):
         for key in ('deployment_authorized', 'restore_authorized', 'backup_created'):
             self.assertIs(result[key], False)
         self.assertTrue(self.runtime.released)
+        self.assertEqual(self.runtime.client, 'default')
         text = json.dumps(result)
         for forbidden in ('do-not-publish', 'postgres', 'grain', PROJECT, API, SOURCE, '4321'):
             self.assertNotIn(forbidden, text)
+
+    def test_registration_has_distinct_receipt_without_default_or_live_acceptance(self):
+        result = binding.bind(TARGET, API, SOURCE, PROJECT, self.runtime, client='registration')
+        self.assertEqual(self.runtime.client, 'registration')
+        self.assertNotIn('api_default_database_binding', result)
+        self.assertEqual(result['schema'], 'pc-crop.ir20-registration-database-binding.v1')
+        self.assertEqual(result['api_registration_client_database_binding'], 'VERIFIED_LIVE_BACKEND_MARKER')
+        self.assertEqual(result['client_instantiation'], 'INSTALLED_AUTH_PRISMA_CONSTRUCTOR_ONLY')
+        self.assertEqual(result['application_running_session'], 'NOT_ATTESTED')
+        self.assertEqual(result['startup_principal_policy'], 'NOT_ATTESTED')
+        self.assertEqual(result['registration_live_acceptance'], 'NOT_PERFORMED')
+        self.assertEqual(result['canonical_api_identity'], 'CALLER_REQUIRED_NOT_PROVEN')
+        for key in ('deployment_authorized', 'restore_authorized', 'backup_created'):
+            self.assertIs(result[key], False)
+        self.assertNotIn('do-not-publish', json.dumps(result))
+
+    def test_existing_two_argument_injected_runtime_remains_default_compatible(self):
+        class LegacyRuntime(Runtime):
+            def session(self, api, marker):
+                return super().session(api, marker)
+        result = binding.bind(TARGET, API, SOURCE, PROJECT, LegacyRuntime())
+        self.assertEqual(result['schema'], 'pc-crop.ir20-api-database-binding.v1')
+        self.assertEqual(result['api_default_database_binding'], 'VERIFIED_LIVE_BACKEND_MARKER')
+
+    def test_unknown_client_rejected_before_runtime_inspection(self):
+        for client in ('auth', '', 'Registration', '../registration', None, [], True):
+            with self.subTest(client=client), self.assertRaises(binding.BindingError):
+                binding.bind(TARGET, API, SOURCE, PROJECT, self.runtime, client=client)
+        self.assertEqual(self.runtime.counts, {API: 0, SOURCE: 0})
+        self.assertIsNone(self.runtime.child)
+
+    def test_registration_cannot_bypass_source_or_completion_rejection(self):
+        for mutation in ('proof', 'receipt', 'drift'):
+            with self.subTest(mutation=mutation):
+                runtime = Runtime()
+                if mutation == 'proof':
+                    runtime.proof = b'0\n'
+                elif mutation == 'receipt':
+                    runtime.receipt = b''
+                else:
+                    runtime.change_after = lambda c: c.update(RestartCount=1)
+                with self.assertRaises(binding.BindingError):
+                    binding.bind(TARGET, API, SOURCE, PROJECT, runtime, client='registration')
+                self.assertTrue(runtime.child.closed)
+
+    def test_runtime_uses_fixed_auth_selector_and_distroless_node(self):
+        with patch.object(binding, 'Process') as process:
+            binding.Runtime().session(API, 'pc-ir20-bind-' + 'e'*32, 'registration')
+        argv, timeout = process.call_args.args
+        self.assertEqual(timeout, 14)
+        self.assertEqual(argv, binding.DOCKER + ['exec', '-i', API, '/nodejs/bin/node', '-e',
+                                               binding.API_PROGRAM, 'pc-ir20-bind-' + 'e'*32,
+                                               'registration'])
+
+    def test_main_preserves_four_argument_default_and_explicit_registration(self):
+        for extra, client in (([], 'default'), (['registration'], 'registration')):
+            with self.subTest(client=client), patch.object(binding.os, 'geteuid', return_value=0), \
+                 patch.object(binding, 'bind', return_value={'test': 'receipt'}) as bind, \
+                 contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(binding.main([TARGET, API, SOURCE, PROJECT] + extra), 0)
+                self.assertEqual(bind.call_args.kwargs, {'client': client})
 
     def test_invalid_arguments_never_start_session(self):
         for args in [(TARGET, API, API, PROJECT), ('x'*40, API, SOURCE, PROJECT),
@@ -226,6 +292,75 @@ class BindingTests(unittest.TestCase):
 
 
 class ProcessTests(unittest.TestCase):
+    def test_actual_node_auth_factory_selection_failure_redaction_and_no_fallback(self):
+        node = shutil.which('node')
+        self.assertIsNotNone(node)
+        # The actual helper program executes. Only the installed-module loader is
+        # injected; this is NOT the real API image or its real Prisma transport.
+        shim = r'''
+const Module = require('module');
+const original = Module._load;
+let auth = 0, defaultClient = 0;
+class FakeClient {
+  async $transaction(callback) { return callback(this); }
+  async $executeRawUnsafe() { return 0; }
+  async $queryRawUnsafe(query) {
+    if (query.includes('pg_backend_pid')) return [{pid:4321,ro:'on',version:160004}];
+    if (query.includes('transaction_read_only')) return [{ro:'on'}];
+    return [{set_config:'ok'}];
+  }
+  async $disconnect() {}
+  onModuleInit() { throw new Error('must-not-call-lifecycle-secret'); }
+}
+Module._load = function(name, ...args) {
+  if (name === '@prisma/client') {
+    return {PrismaClient: class extends FakeClient {
+      constructor(options) { super(); defaultClient++;
+        if (process.env.IR20_TEST_MODULE === 'constructor') throw new Error('protected-default-dsn-secret');
+        if (options.log.length) throw new Error('LOG_CONFIG'); }
+    }};
+  }
+  if (name === '/app/dist/apps/api/src/modules/auth/auth-prisma.service.js') {
+    const mode = process.env.IR20_TEST_MODULE;
+    if (mode === 'missing') throw new Error('protected-import-secret');
+    if (mode === 'export') return {};
+    return {AuthPrismaService: class extends FakeClient {
+      constructor(...args) { super(); auth++;
+        if (args.length) throw new Error('NO_DSN_ARGUMENT_ALLOWED');
+        if (mode === 'constructor') throw new Error('protected-auth-dsn-secret'); }
+    }};
+  }
+  return original.call(this, name, ...args);
+};
+process.on('exit', () => {
+  // Test harness alone emits this allowlisted diagnostic to stderr.
+  process.stderr.write(JSON.stringify({auth,defaultClient}));
+});
+'''
+        marker = 'pc-ir20-bind-' + 'e'*32
+        cases = [('default', 'ok', 0, {'auth':0,'defaultClient':1}),
+                 ('registration', 'ok', 0, {'auth':1,'defaultClient':0}),
+                 ('default', 'constructor', 1, {'auth':0,'defaultClient':1}),
+                 ('registration', 'missing', 1, {'auth':0,'defaultClient':0}),
+                 ('registration', 'export', 1, {'auth':0,'defaultClient':0}),
+                 ('registration', 'constructor', 1, {'auth':1,'defaultClient':0}),
+                 ('unknown', 'ok', 1, {'auth':0,'defaultClient':0})]
+        for client, mode, code, counts in cases:
+            with self.subTest(client=client, mode=mode):
+                result = subprocess.run([node, '-e', shim + binding.API_PROGRAM, marker, client],
+                                        input=b'release\n', stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE, timeout=5,
+                                        env={**os.environ, 'IR20_TEST_MODULE': mode})
+                self.assertEqual(result.returncode, code)
+                self.assertEqual(json.loads(result.stderr), counts)
+                if code == 0:
+                    identity, receipt = result.stdout.splitlines()
+                    self.assertEqual(binding.decode(identity), {'pid':4321,'marker':marker})
+                    self.assertEqual(receipt, b'RELEASED')
+                else:
+                    self.assertEqual(result.stdout, b'')
+                self.assertNotIn(b'secret', result.stderr + result.stdout)
+
     def test_real_subprocess_output_and_nonzero(self):
         for code, error in [("print('ok')", False), ("print('not proof');raise SystemExit(2)", True)]:
             process = binding.Process([sys.executable, '-I', '-c', code], 3)

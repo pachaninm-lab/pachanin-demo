@@ -23,7 +23,7 @@ describe('Platform V7 Integration Control Tower vertical', () => {
     expect(exists('app/api/staff/integrations/[adapterCode]/commands/reconcile/route.ts')).toBe(true);
     const page = read('app/platform-v7/integrations/page.tsx');
     expect(page).toContain('ACCESS_COOKIE');
-    expect(page).toContain("redirect('/platform-v7/login");
+    expect(page).toMatch(/redirect\(['"`]\/platform-v7\/login\?/);
     expect(page).toContain("data-authority='postgresql-private-bff'");
     expect(page).toContain("data-static-authority-fallback='false'");
   });
@@ -170,16 +170,16 @@ describe('Control Tower confirmation keyboard focus', () => {
   ];
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-  async function mount(locale: string, action: string, post?: () => Promise<Response>, beforeRead?: () => Promise<void> | undefined) {
+  async function mount(locale: string, action: string, post?: (init: RequestInit) => Promise<Response>, beforeRead?: () => Promise<void> | undefined, readRecord: unknown = record) {
     const fetchBoundary = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (init?.method === 'POST') {
         if (!post) throw new Error('unexpected command');
-        return post();
+        return post(init);
       }
       if (!url.startsWith('/api/staff/integration-control-tower')) throw new Error(`unexpected read ${url}`);
       await beforeRead?.();
-      return new Response(JSON.stringify(url.includes('eventLimit=') ? record : { items: [record], nextCursor: null }),
+      return new Response(JSON.stringify(url.includes('eventLimit=') ? readRecord : { items: [readRecord], nextCursor: null }),
         { status: 200, headers: { 'Content-Type': 'application/json' } });
     });
     vi.stubGlobal('fetch', fetchBoundary);
@@ -216,6 +216,7 @@ describe('Control Tower confirmation keyboard focus', () => {
     const buttons = dialog.querySelectorAll('button');
     await user.click(buttons[1]!);
     await waitFor(() => expect(dialog).toHaveAttribute('aria-busy', 'true'));
+    expect(reason).toHaveAttribute('readonly');
     await user.keyboard('{Escape}');
     expect(screen.getByRole('dialog')).toBe(dialog);
     await user.tab();
@@ -234,8 +235,8 @@ describe('Control Tower confirmation keyboard focus', () => {
     let posted = false;
     let releaseRead!: () => void;
     const readReady = new Promise<void>(resolve => { releaseRead = resolve; });
-    const { user, reason, dialog, fetchBoundary } = await mount('en', 'Start reconciliation', async () =>
-      { posted = true; return new Response(JSON.stringify({ commandId: 'local-receipt' }), { status: 200 }); },
+    const { user, reason, dialog, fetchBoundary } = await mount('en', 'Start reconciliation', async init =>
+      { posted = true; return new Response(JSON.stringify(receiptFor(init)), { status: 200 }); },
       () => posted ? readReady : undefined);
     await user.type(reason, 'Verifiable local keyboard reason');
     await user.click(dialog.querySelectorAll('button')[1]!);
@@ -273,5 +274,153 @@ describe('Control Tower confirmation keyboard focus', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 })));
     expect(fetchBoundary.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
+  });
+
+  function receiptFor(init: RequestInit, kind: 'APPLIED' | 'REPLAY' = 'APPLIED') {
+    const command = JSON.parse(String(init.body)) as { correlationId: string };
+    return { kind, adapterCode: record.adapterCode, aggregateVersion: '7',
+      auditEventId: 'local-audit-evidence', outboxEntryId: 'local-outbox-evidence', correlationId: command.correlationId };
+  }
+
+  const redriveEntryId = 'local-dead-inbox-entry';
+  const redriveRecord = { ...record, recentEvents: [{
+    id: redriveEntryId, provider: record.provider, externalEventId: 'local-external-event',
+    state: 'DEAD', schemaVersion: '1', mappingVersion: '1', receivedAt: record.freshnessAt, occurredAt: record.freshnessAt,
+    attempts: 3, nextAttemptAt: null, providerAcknowledgedAt: null, businessAcceptedAt: null,
+    lastErrorCode: 'LOCAL_FAILURE', lastErrorCategory: 'LOCAL_FAILURE', correlationId: 'local-event-correlation', version: '7',
+  }], primaryAction: { ...record.primaryAction, id: 'REDRIVE', entryId: redriveEntryId } };
+
+  it.each([
+    { action: 'RECONCILE', kind: 'APPLIED' }, { action: 'RECONCILE', kind: 'REPLAY' },
+    { action: 'REDRIVE', kind: 'APPLIED' }, { action: 'REDRIVE', kind: 'REPLAY' },
+  ] as const)('accepts the current canonical $action/$kind receipt without provider finality', async ({ action, kind }) => {
+    const isRedrive = action === 'REDRIVE';
+    const { user, reason, dialog, fetchBoundary } = await mount('en', isRedrive ? 'Redrive event' : 'Start reconciliation', async init => {
+      const receipt = receiptFor(init, kind);
+      return new Response(JSON.stringify(isRedrive ? {
+        kind, entryId: redriveEntryId, auditEventId: receipt.auditEventId,
+        outboxEntryId: receipt.outboxEntryId, correlationId: receipt.correlationId,
+      } : receipt), { status: 200 });
+    }, undefined, isRedrive ? redriveRecord : record);
+    await user.type(reason, 'Verifiable local receipt reason');
+    await user.click(dialog.querySelectorAll('button')[1]!);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await screen.findByText('The server committed the command and authority was reloaded.');
+    const posts = fetchBoundary.mock.calls.filter(([, init]) => init?.method === 'POST');
+    expect(posts).toHaveLength(1);
+    expect(Object.keys(JSON.parse(String(posts[0]![1]!.body))).sort()).toEqual(['commandId', 'correlationId', 'idempotencyKey', 'reason']);
+    expect(screen.queryByText(/command outcome is unconfirmed/)).toBeNull();
+    expect(screen.getByText(/Provider ACK or HTTP 2xx is only transport\/provider acknowledgement/)).toBeTruthy();
+  });
+
+  it.each([
+    'APPLIED', 'REPLAY',
+  ] as const)('keeps a RECONCILE %s receipt for another version as UNKNOWN', async kind => {
+    const { user, reason, dialog, fetchBoundary } = await mount('en', 'Start reconciliation', async init =>
+      new Response(JSON.stringify({ ...receiptFor(init, kind), aggregateVersion: '8' }), { status: 200 }));
+    await user.type(reason, 'Verifiable local version-bound receipt reason');
+    await user.click(dialog.querySelectorAll('button')[1]!);
+    await screen.findByText('UNKNOWN / PENDING_RECONCILIATION: command outcome is unconfirmed.');
+    expect(screen.getByRole('dialog')).toBe(dialog);
+    expect(screen.queryByText('The server committed the command and authority was reloaded.')).toBeNull();
+    const posts = fetchBoundary.mock.calls.filter(([, init]) => init?.method === 'POST');
+    expect(posts).toHaveLength(1);
+    expect(new Headers(posts[0]![1]!.headers).get('If-Match')).toBe('"7"');
+    const command = JSON.parse(String(posts[0]![1]!.body));
+    expect(screen.getByText(command.commandId)).toBeTruthy();
+    expect(screen.getByText(command.correlationId)).toBeTruthy();
+    expect(reason).toHaveAttribute('readonly');
+    const confirm = dialog.querySelectorAll('button')[1]!;
+    expect(confirm).toBeDisabled();
+    await user.click(confirm);
+    expect(fetchBoundary.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
+  });
+
+  it.each([
+    ['missing evidence', () => ({ commandId: 'local-receipt' })],
+    ['null body', () => null],
+    ['wrong kind', (receipt: ReturnType<typeof receiptFor>) => ({ ...receipt, kind: 'CONFIRMED' })],
+    ['wrong adapter', (receipt: ReturnType<typeof receiptFor>) => ({ ...receipt, adapterCode: 'UNRELATED_ADAPTER' })],
+    ['wrong correlation', (receipt: ReturnType<typeof receiptFor>) => ({ ...receipt, correlationId: 'unrelated-command-correlation' })],
+    ['missing audit', (receipt: ReturnType<typeof receiptFor>) => ({ ...receipt, auditEventId: null })],
+    ['missing outbox', (receipt: ReturnType<typeof receiptFor>) => ({ ...receipt, outboxEntryId: '' })],
+    ['invalid version', (receipt: ReturnType<typeof receiptFor>) => ({ ...receipt, aggregateVersion: '7.0' })],
+  ] as const)('keeps false-200 %s as UNKNOWN and retains the original attempt', async (_name, corrupt) => {
+    const { user, reason, dialog, fetchBoundary } = await mount('en', 'Start reconciliation', async init =>
+      new Response(JSON.stringify(corrupt(receiptFor(init))), { status: 200 }));
+    await user.type(reason, 'Verifiable local receipt reason');
+    await user.click(dialog.querySelectorAll('button')[1]!);
+    const unknown = await screen.findByText('UNKNOWN / PENDING_RECONCILIATION: command outcome is unconfirmed.');
+    expect(unknown.closest('[data-command-outcome]')).toHaveAttribute('data-command-outcome', 'UNKNOWN_PENDING_RECONCILIATION');
+    expect(screen.queryByText('The server committed the command and authority was reloaded.')).toBeNull();
+    const posts = fetchBoundary.mock.calls.filter(([, init]) => init?.method === 'POST');
+    expect(posts).toHaveLength(1);
+    const command = JSON.parse(String(posts[0]![1]!.body));
+    expect(screen.getByText(command.commandId)).toBeTruthy();
+    expect(screen.getByText(command.correlationId)).toBeTruthy();
+    expect(reason).toHaveAttribute('readonly');
+    expect(reason.value).toBe(command.reason);
+    const [cancel, confirm] = Array.from(dialog.querySelectorAll('button'));
+    expect(cancel).toBeEnabled();
+    expect(confirm).toBeDisabled();
+    await user.click(confirm!);
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByText('UNKNOWN / PENDING_RECONCILIATION: command outcome is unconfirmed.')).toBeTruthy();
+    expect(screen.getByText(command.commandId)).toBeTruthy();
+    expect(screen.getByText(command.correlationId)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Start reconciliation' })).toBeDisabled();
+    expect(fetchBoundary.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
+  });
+
+  it('does not accept a REDRIVE receipt for another inbox entry', async () => {
+    const { user, reason, dialog } = await mount('en', 'Redrive event', async init => {
+      const receipt = receiptFor(init);
+      return new Response(JSON.stringify({ kind: receipt.kind, entryId: 'unrelated-inbox-entry',
+        auditEventId: receipt.auditEventId, outboxEntryId: receipt.outboxEntryId, correlationId: receipt.correlationId }), { status: 200 });
+    }, undefined, redriveRecord);
+    await user.type(reason, 'Verifiable local receipt reason');
+    await user.click(dialog.querySelectorAll('button')[1]!);
+    await screen.findByText('UNKNOWN / PENDING_RECONCILIATION: command outcome is unconfirmed.');
+    expect(screen.getByRole('dialog')).toBe(dialog);
+    expect(screen.queryByText('The server committed the command and authority was reloaded.')).toBeNull();
+  });
+
+  it.each(locales)('shows lost-network outcome and preserves the immutable reason in $locale', async ({ locale, action }) => {
+    const { user, reason, dialog, fetchBoundary } = await mount(locale, action, async () => { throw new TypeError('Local lost response'); });
+    await user.type(reason, 'Verifiable local immutable reason');
+    await user.click(dialog.querySelectorAll('button')[1]!);
+    await waitFor(() => expect(dialog.querySelector('[data-command-outcome]')).toHaveAttribute('data-command-outcome', 'UNKNOWN_PENDING_RECONCILIATION'));
+    const notice = dialog.querySelector('[data-command-outcome]')!;
+    // This mounts the actual design-system InlineNotice, whose copy is a paragraph.
+    // The localized recovery text and attempt references must remain valid HTML.
+    expect(notice.querySelector('p')).not.toBeNull();
+    expect(notice.querySelector('p p')).toBeNull();
+    expect(reason.value).toBe('Verifiable local immutable reason');
+    expect(reason).toHaveAttribute('readonly');
+    expect(dialog.querySelectorAll('button')[0]).toBeEnabled();
+    expect(dialog.querySelectorAll('button')[1]).toBeDisabled();
+    await user.click(dialog.querySelectorAll('button')[0]!);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.querySelector('[data-command-outcome]')).toHaveAttribute('data-command-outcome', 'UNKNOWN_PENDING_RECONCILIATION');
+    expect(document.querySelector('[data-command-outcome] p p')).toBeNull();
+    expect(screen.getByRole('button', { name: action })).toBeDisabled();
+    expect(fetchBoundary.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
+  });
+
+  it.each([408, 502, 503])('treats HTTP %s as unresolved without generating a replacement', async status => {
+    const { user, reason, dialog, fetchBoundary } = await mount('en', 'Start reconciliation', async () =>
+      new Response(JSON.stringify({ code: 'INTEGRATION_SERVICE_UNAVAILABLE' }), { status }));
+    await user.type(reason, 'Verifiable local ambiguous response');
+    await user.click(dialog.querySelectorAll('button')[1]!);
+    await screen.findByText('UNKNOWN / PENDING_RECONCILIATION: command outcome is unconfirmed.');
+    const command = JSON.parse(String(fetchBoundary.mock.calls.find(([, init]) => init?.method === 'POST')![1]!.body));
+    await user.click(dialog.querySelectorAll('button')[0]!);
+    await act(async () => { window.dispatchEvent(new Event('online')); });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByText(command.commandId)).toBeTruthy();
+    expect(screen.getByText(command.correlationId)).toBeTruthy();
+    expect(fetchBoundary.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Start reconciliation' })).toBeDisabled();
   });
 });
