@@ -61,7 +61,7 @@ jobs:
           if str(inspector_path) not in workflow_text:
               raise SystemExit('TRANSPORTED_SCRIPT_PATH_MISSING')
           inspector_source = inspector_path.read_bytes()
-          if hashlib.sha256(inspector_source).hexdigest() != '595bc09ec98264a3fb5aa47227adb8ded3edde81f36f0148e3f04fef6d81ff09':
+          if hashlib.sha256(inspector_source).hexdigest() != '1eb37c6d3ef74008035103e7b024cf28a7c7a7bd0f1cb749bb699f1e38f48edb':
               raise SystemExit('TRANSPORTED_SCRIPT_DIGEST_MISMATCH')
           text = workflow_text + '\n' + inspector_source.decode('utf-8', errors='strict')
           for marker in ('SET TRANSACTION READ ONLY', 'statement_timeout', "'deployment_authorized': False", 'def validate_report('):
@@ -164,6 +164,51 @@ jobs:
           [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
           [[ -z "$(git status --porcelain=v1)" ]]
           echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  publication-baseline:
+    name: Verify pinned API publication metadata on isolated PR runner
+    needs: contract
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'ops/farmer-market-release-preflight-20260916'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify immutable index, runtime manifest and image configuration
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          report="$RUNNER_TEMP/api-publication-baseline.json"
+          status=0
+          timeout --signal=TERM --kill-after=5s 75s python3 -B scripts/production-market-release-preflight.py --published-api-baseline > "$report" || status=$?
+          if [[ "$status" == 124 || "$status" == 137 ]]; then
+            python3 - "$report" <<'PYTIMEOUT'
+          import json, pathlib, sys
+          value = {'schema': 'pc-crop.api-publication-baseline.v1', 'status': 'NOT_PROVEN',
+                   'failure': 'PUBLICATION_TIMEOUT', 'host_binding': 'NOT_PERFORMED',
+                   'production_mutation': 'NONE', 'deployment_authorized': False}
+          pathlib.Path(sys.argv[1]).write_text(json.dumps(value, sort_keys=True) + '\n')
+          PYTIMEOUT
+          fi
+          exit "$status"
+      - name: Retain separate API publication metadata result
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: api-publication-baseline-a678425-${{ github.run_id }}
+          path: ${{ runner.temp }}/api-publication-baseline.json
+          if-no-files-found: error
+          retention-days: 14
 
   diagnostic:
     name: Inspect API, Web and auth-mail-worker revisions
