@@ -981,7 +981,7 @@ class RegistrationPreconditions(unittest.TestCase):
             with self.assertRaises(ValueError):m.validate_registration_preconditions(value,c,t)
 
     def test_current_envelope_requires_new_section_and_schema(self):
-        value=report(); self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v4')
+        value=report(); self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v5')
         self.assertEqual(m.validate_report(value,SHA),value)
         old=copy.deepcopy(value);old.pop('registration_binding')
         with self.assertRaises(ValueError):m.validate_report(old,SHA)
@@ -1138,7 +1138,7 @@ class FilesystemAndConfigObservation(unittest.TestCase):
         m.validate_report(value,SHA)
 
     def test_v3_requires_new_sections_and_rejects_old_v2_artifacts(self):
-        value=report();self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v4')
+        value=report();self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v5')
         m.validate_report(value,SHA)
         for key in ('api_publication_config','filesystem_capacity'):
             bad=copy.deepcopy(value);bad.pop(key)
@@ -1414,7 +1414,7 @@ class DeclaredDatabaseRelations(unittest.TestCase):
         self.assertIs(value['declared_database_relations']['auth_declared_target_matches_selected_pg'],True)
 
     def test_v4_declared_section_is_mandatory_and_prior_v3_is_rejected(self):
-        value=report();self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v4')
+        value=report();self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v5')
         old=copy.deepcopy(value);old['schema']='pc-crop.market-release-preflight.v3'
         with self.assertRaises(ValueError):m.validate_report(old,SHA)
         missing=copy.deepcopy(value);missing['release_inventory'].pop('declared_database_relations')
@@ -1423,7 +1423,7 @@ class DeclaredDatabaseRelations(unittest.TestCase):
 
 class CapacityDiagnosticProfile(unittest.TestCase):
     def fake_popen(self, cases=None):
-        real=subprocess.Popen;calls=[];cases=cases or {}
+        real=subprocess.Popen;calls=[];cases=cases or {};inspect_sizes=[];seen={}
         def launch(argv,**kwargs):
             self.assertEqual(kwargs['env'],{'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LC_ALL':'C'})
             self.assertTrue(kwargs['start_new_session']);self.assertTrue(kwargs['close_fds'])
@@ -1436,16 +1436,20 @@ class CapacityDiagnosticProfile(unittest.TestCase):
                 elif args[0]=='inspect':key='containers_inspect'
                 elif args[:2]==['image','inspect']:key='images_inspect'
                 else:raise AssertionError('UNSUPPORTED_DOCKER_ARGV')
+                image_ids=['sha256:'+format(i+1,'064x') for i in range(cases.get('_image_count',1))]
                 values={'containers_list':'1'*64+'\n'+'2'*64+'\n','volumes_list':'PRIVATE_CUSTOMER_VOLUME\n',
-                        'networks_list':'a'*64+'\n','images_list':'sha256:'+'f'*64+'\n'}
+                        'networks_list':'a'*64+'\n','images_list':'\n'.join(image_ids)+ ('\n' if image_ids else '')}
                 raw=values.get(key)
                 if raw is None:
                     identities=args[1:] if key=='containers_inspect' else args[2:]
-                    raw=json.dumps([{'Id':v,'Config':{'Env':['PRIVATE_SECRET=NEVER_EMIT']},'RepoTags':['PRIVATE_REF']} for v in identities])
+                    if key=='images_inspect':inspect_sizes.append(len(identities))
+                    raw=json.dumps([{'Id':v,'Config':{'Env':['PRIVATE_SECRET=NEVER_EMIT']},'RepoTags':['PRIVATE_REF'],'synthetic_type':False} for v in identities])
             else:
                 self.assertEqual(argv[:6],['/usr/bin/du','--summarize','--block-size=1','--one-file-system','--null','--'])
                 self.assertIn(argv[-1],m.CAPACITY_DISK_PATHS.values());key=next(k for k,v in m.CAPACITY_DISK_PATHS.items() if v==argv[-1]);raw='4096\t'+argv[-1]+'\x00'
             calls.append(key);mode=cases.get(key)
+            if isinstance(mode,list):
+                offset=seen.get(key,0);seen[key]=offset+1;mode=mode[offset] if offset<len(mode) else None
             script='import sys,time,subprocess\n'
             if mode=='timeout':script+='time.sleep(30)\n'
             elif mode=='descendant':script+='subprocess.Popen([sys.executable,"-c","import time;time.sleep(30)"]);sys.exit(0)\n'
@@ -1456,10 +1460,14 @@ class CapacityDiagnosticProfile(unittest.TestCase):
                 elif mode=='empty':raw=''
                 elif mode=='wrong_inspect':raw=json.dumps([{'Id':'9'*64}])
                 elif mode=='duplicate_json':raw='[{"Id":"'+'1'*64+'","Id":"'+'1'*64+'"}]'
+                elif mode=='duplicate_row':raw=json.dumps([{'Id':identities[0]} for _ in identities])
+                elif mode=='metadata_drift':raw=json.dumps([{'Id':v,'Config':{'Env':['PRIVATE_DRIFT']},'RepoTags':['PRIVATE_REF']} for v in identities])
+                elif mode=='numeric_type_drift':raw=json.dumps([{'Id':v,'Config':{'Env':['PRIVATE_SECRET=NEVER_EMIT']},'RepoTags':['PRIVATE_REF'],'synthetic_type':0} for v in identities])
                 elif mode=='du_wrong_path':raw='4096\t/PRIVATE_CUSTOMER\x00'
                 elif mode=='du_multiple':raw+=raw
                 script+='sys.stdout.write('+repr(raw)+')\n'
             return real([sys.executable,'-c',script],**kwargs)
+        self.last_inspect_sizes=inspect_sizes
         return launch,calls
 
     def profile(self,cases=None,*,deadline=None):
@@ -1472,11 +1480,13 @@ class CapacityDiagnosticProfile(unittest.TestCase):
             self.assertNotIn(marker,json.dumps(result))
         return result,calls
 
-    def test_real_mock_cli_profile_has_exact_six_queries_four_numeric_categories(self):
+    def test_real_mock_cli_profile_has_fixed_queries_one_batch_one_warm_bulk_four_categories(self):
         result,calls=self.profile()
-        self.assertEqual(calls,list(m.CAPACITY_QUERY_KEYS)+list(m.CAPACITY_DISK_PATHS))
+        self.assertEqual(calls,list(m.CAPACITY_QUERY_KEYS[:-1])+['images_inspect','images_inspect']+list(m.CAPACITY_DISK_PATHS))
         self.assertEqual(result['status'],'COMPLETE_READ_ONLY')
         self.assertEqual(result['commands']['containers_inspect']['count'],2)
+        self.assertEqual(self.last_inspect_sizes,[1,1])
+        self.assertEqual(result['image_batches']['complete_image_count'],1)
         self.assertEqual(result['disk_usage']['containerd']['bytes'],4096)
 
     def test_missing_preconditions_do_not_spawn_or_invent_zero(self):
@@ -1573,9 +1583,102 @@ class CapacityDiagnosticProfile(unittest.TestCase):
             bad=copy.deepcopy(value);mutate(bad)
             with self.assertRaises(ValueError):m.validate_capacity_profile(bad)
 
-    def test_new_profile_is_required_in_final_unpublished_v4(self):
+    def test_new_profile_is_required_in_v5(self):
         value=report();m.validate_report(value,SHA);value.pop('capacity_diagnostics')
         with self.assertRaises(ValueError):m.validate_report(value,SHA)
+
+    def test_454_images_are_inspected_in_64_batches_then_exactly_one_warm_full_probe(self):
+        value,calls=self.profile({'_image_count':454})
+        self.assertEqual(self.last_inspect_sizes,[64]*7+[6,454])
+        batch=value['image_batches'];self.assertEqual(batch['status'],'SUCCESS')
+        self.assertEqual((batch['batch_count'],batch['batch_complete_count'],batch['complete_image_count']),(8,8,454))
+        self.assertEqual(value['commands']['images_inspect_after_warm']['count'],454)
+        self.assertGreater(batch['stdout_bytes'],0);self.assertGreaterEqual(batch['io_bytes'],batch['stdout_bytes'])
+        self.assertGreaterEqual(value['io_bytes'],batch['io_bytes']+value['commands']['images_inspect_after_warm']['io_bytes'])
+        self.assertEqual(calls.count('images_inspect'),9)
+
+    def test_failed_or_duplicate_batch_never_runs_warm_bulk_or_du(self):
+        for mode in ('wrong_inspect','duplicate_row','malformed','nonzero'):
+            value,calls=self.profile({'_image_count':130,'images_inspect':[None,mode]})
+            self.assertEqual(calls.count('images_inspect'),2)
+            self.assertEqual(value['image_batches']['batch_count'],2)
+            self.assertEqual(value['image_batches']['batch_complete_count'],1)
+            self.assertIsNone(value['image_batches']['complete_image_count'])
+            self.assertEqual(value['commands']['images_inspect_after_warm']['status'],'NOT_RUN')
+            self.assertTrue(all(row['status']=='NOT_RUN' for row in value['disk_usage'].values()))
+
+    def test_warm_full_bulk_metadata_drift_is_unknown_and_not_complete(self):
+        value,calls=self.profile({'images_inspect':[None,'metadata_drift']})
+        self.assertEqual(value['image_batches']['status'],'SUCCESS')
+        self.assertEqual(value['commands']['images_inspect_after_warm']['status'],'UNKNOWN')
+        self.assertIsNone(value['commands']['images_inspect_after_warm']['count'])
+        self.assertEqual(calls.count('images_inspect'),2)
+        self.assertTrue(all(row['status']=='NOT_RUN' for row in value['disk_usage'].values()))
+
+    def test_actual_cli_boolean_to_integer_metadata_drift_is_unknown(self):
+        value,calls=self.profile({'images_inspect':[None,'numeric_type_drift']})
+        self.assertEqual(value['image_batches']['status'],'SUCCESS')
+        self.assertEqual(value['commands']['images_inspect_after_warm']['status'],'UNKNOWN')
+        self.assertIsNone(value['commands']['images_inspect_after_warm']['count'])
+        self.assertEqual(calls.count('images_inspect'),2)
+        self.assertTrue(all(row['status']=='NOT_RUN' for row in value['disk_usage'].values()))
+
+    def test_full_bulk_after_warm_timeout_retains_complete_batches_and_numeric_io(self):
+        with patch.object(m,'CAPACITY_COMMAND_SECONDS',0.5),patch.object(m,'CAPACITY_PROFILE_SECONDS',1.5):
+            value,calls=self.profile({'images_inspect':[None,'timeout']})
+        self.assertEqual(value['image_batches']['complete_image_count'],1)
+        warm=value['commands']['images_inspect_after_warm']
+        self.assertIn(warm['status'],('TIMED_OUT','UNKNOWN'));self.assertIsNone(warm['count'])
+        self.assertEqual(warm['stdout_bytes'],0);self.assertEqual(warm['io_bytes'],0)
+
+    def test_global_output_cap_is_shared_between_batches_and_warm_full_probe(self):
+        with patch.object(m,'CAPACITY_TOTAL_BYTES',1100),patch.object(m,'CAPACITY_OUTPUT_BYTES',8192):
+            value,calls=self.profile({'_image_count':2})
+        self.assertLessEqual(value['io_bytes'],1101)
+        self.assertEqual(value['image_batches']['status'],'SUCCESS')
+        self.assertEqual(value['commands']['images_inspect_after_warm']['status'],'OUTPUT_LIMIT')
+        self.assertEqual(calls.count('images_inspect'),2)
+        self.assertTrue(all(row['status']=='NOT_RUN' for row in value['disk_usage'].values()))
+
+    def test_empty_image_list_does_not_mean_complete_metadata_or_warm_probe(self):
+        value,calls=self.profile({'_image_count':0})
+        self.assertEqual(value['commands']['images_list']['count'],0)
+        self.assertEqual(value['image_batches']['status'],'NOT_RUN')
+        self.assertIsNone(value['image_batches']['complete_image_count'])
+        self.assertNotIn('images_inspect',calls)
+
+    def test_strict_batch_schema_rejects_partial_complete_count_or_early_warm_probe(self):
+        value,_=self.profile({'_image_count':130})
+        for mutate in (lambda v:v['image_batches'].update(batch_size=65),
+                       lambda v:v['image_batches'].update(batch_count=2),
+                       lambda v:v['image_batches'].update(batch_complete_count=1),
+                       lambda v:v['image_batches'].update(complete_image_count=129),
+                       lambda v:v['image_batches'].update(status='UNKNOWN'),
+                       lambda v:v['image_batches'].update(stdout_bytes=True),
+                       lambda v:v['commands']['images_inspect_after_warm'].update(stdout_bytes='PRIVATE'),
+                       lambda v:v.update(io_bytes=0),lambda v:v['image_batches'].update(raw='PRIVATE')):
+            bad=copy.deepcopy(value);mutate(bad)
+            with self.assertRaises(ValueError):m.validate_capacity_profile(bad)
+
+    def test_v4_receipt_cannot_be_relabelled_as_v5_with_missing_batch_evidence(self):
+        value=report();value['schema']='pc-crop.market-release-preflight.v4'
+        with self.assertRaises(ValueError):m.validate_report(value,SHA)
+        value=report();value['capacity_diagnostics'].pop('image_batches')
+        with self.assertRaises(ValueError):m.validate_report(value,SHA)
+
+    def test_positive_full_or_batch_success_cannot_exceed_output_budget_but_negative_overflow_survives(self):
+        value,_=self.profile()
+        bad=copy.deepcopy(value);bad['io_bytes']=16777217
+        with self.assertRaises(ValueError):m.validate_capacity_profile(bad)
+        for measure,amount in [('stdout_bytes',2097153),('io_bytes',4194305)]:
+            bad=copy.deepcopy(value);bad['image_batches'][measure]=amount
+            if measure=='stdout_bytes':bad['image_batches']['io_bytes']=amount
+            bad['io_bytes']=max(bad['io_bytes'],amount+4096);bad['stdout_bytes']=bad['io_bytes']
+            with self.assertRaises(ValueError):m.validate_capacity_profile(bad)
+        negative=copy.deepcopy(value);negative.update(status='PARTIAL_READ_ONLY',io_bytes=16777217,stdout_bytes=16777217)
+        negative['commands']['images_inspect_after_warm'].update(status='OUTPUT_LIMIT',count=None,stdout_bytes=2097153,io_bytes=2097153)
+        for row in negative['disk_usage'].values():row.update(status='NOT_RUN',elapsed_ms=0,bytes=None)
+        m.validate_capacity_profile(negative)
 
 
 class Publication(unittest.TestCase):
