@@ -1178,14 +1178,22 @@ def publication_get(url: str, authorization: str, deadline: float,
                     opener: Any, budget: list[int], *, max_bytes: int = PUBLICATION_MAX_BYTES,
                     allow_blob_redirect: bool = False) -> bytes:
     """Bounded GET; fixed registry origin or credential-free GitHub blob redirect."""
+    # GHCR represents the OCI digest in its blob path. Accept only the two
+    # explicit separators for this one pinned config, never a general prefix.
+    storage_paths = {'/ghcr1/blobs/' + PUBLICATION['config'],
+                     '/ghcr1/blobs/' + PUBLICATION['config'].replace(':', '/')}
+    if allow_blob_redirect and url != ('https://ghcr.io/v2/' + PUBLICATION['repository'] + '/blobs/' + PUBLICATION['config']):
+        raise ValueError('PUBLICATION_ORIGIN')
     for redirect in range(3):
         parsed = urllib.parse.urlsplit(url)
         registry = parsed.hostname == 'ghcr.io'
         storage = parsed.hostname == 'pkg-containers.githubusercontent.com'
         if (len(url) > 8192 or parsed.scheme != 'https' or parsed.port not in (None, 443)
                 or parsed.username is not None or parsed.password is not None or parsed.fragment
-                or (not registry and not (allow_blob_redirect and storage and parsed.path.startswith('/ghcr1/blobs/sha256/')))):
+                or (not registry and not (allow_blob_redirect and storage))):
             raise ValueError('PUBLICATION_ORIGIN')
+        if storage and parsed.path not in storage_paths:
+            raise ValueError('PUBLICATION_STORAGE_PATH')
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise ValueError('PUBLICATION_TIMEOUT')
@@ -1272,7 +1280,7 @@ def main() -> None:
             print(json.dumps(published_api_baseline(), sort_keys=True, separators=(',', ':')))
         except Exception as error:
             safe = {'PUBLICATION_' + name for name in ('AUTH', 'AUTHORIZATION', 'BOUNDS', 'CONFIG', 'DIGEST',
-                    'HTTP', 'INDEX', 'JSON', 'LAYERS', 'ORIGIN', 'PLATFORM', 'REVISION', 'ROOTFS', 'RUNNER_ONLY', 'TIMEOUT')}
+                    'HTTP', 'INDEX', 'JSON', 'LAYERS', 'ORIGIN', 'PLATFORM', 'REVISION', 'ROOTFS', 'RUNNER_ONLY', 'STORAGE_PATH', 'TIMEOUT')}
             code = str(error) if type(error) is ValueError and str(error) in safe else 'PUBLICATION_UNAVAILABLE'
             print(json.dumps({'schema': 'pc-crop.api-publication-baseline.v1', 'status': 'NOT_PROVEN',
                               'failure': code, 'host_binding': 'NOT_PERFORMED',
