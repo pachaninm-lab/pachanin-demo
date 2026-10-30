@@ -196,7 +196,8 @@ class Boundary(unittest.TestCase):
         with patch.object(m,'containers',side_effect=lambda s,*args:[web() if s=='web' else api()]), \
              patch.object(m,'caddy_config',return_value=caddy()), \
              patch.object(m,'run',return_value=json.dumps(migrations())), \
-             patch.object(m,'backups',return_value={'restore_verification':'NOT_PROVEN'}):
+             patch.object(m,'backups',return_value={'restore_verification':'NOT_PROVEN'}), \
+             patch.object(m,'capacity_readonly_profile',return_value=m.empty_capacity_profile()):
             r=m.collect(SHA)
         self.assertFalse(r['deployment_authorized']); self.assertEqual(r['production_mutation'],'NONE')
         self.assertEqual(r['running_web_revision'],SHA)
@@ -213,7 +214,8 @@ def report():
     with patch.object(m,'containers',side_effect=lambda s,*args:[web() if s=='web' else api()]), \
          patch.object(m,'caddy_config',return_value=caddy()), \
          patch.object(m,'run',return_value=json.dumps(migrations())), \
-         patch.object(m,'backups',return_value={'artifact':'NOT_OBSERVED','archive_catalog':'NOT_CHECKED','restore_verification':'NOT_PROVEN'}):
+         patch.object(m,'backups',return_value={'artifact':'NOT_OBSERVED','archive_catalog':'NOT_CHECKED','restore_verification':'NOT_PROVEN'}), \
+         patch.object(m,'capacity_readonly_profile',return_value=m.empty_capacity_profile()):
         return m.collect(SHA)
 
 
@@ -270,7 +272,8 @@ class Evidence(unittest.TestCase):
         with patch.object(m,'containers',side_effect=[[web()],[api()],[changed],[api()]]), \
              patch.object(m,'caddy_config',return_value=caddy()), \
              patch.object(m,'run',return_value=None), \
-             patch.object(m,'backups',return_value={}):
+             patch.object(m,'backups',return_value={}), \
+             patch.object(m,'capacity_readonly_profile',return_value=m.empty_capacity_profile()):
             r=m.collect(SHA)
         self.assertEqual(r['checks']['runtime_configuration_stability'],'NOT_PROVEN')
     def test_stopped_runtime_not_stable(self):
@@ -978,7 +981,7 @@ class RegistrationPreconditions(unittest.TestCase):
             with self.assertRaises(ValueError):m.validate_registration_preconditions(value,c,t)
 
     def test_current_envelope_requires_new_section_and_schema(self):
-        value=report(); self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v3')
+        value=report(); self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v4')
         self.assertEqual(m.validate_report(value,SHA),value)
         old=copy.deepcopy(value);old.pop('registration_binding')
         with self.assertRaises(ValueError):m.validate_report(old,SHA)
@@ -1125,7 +1128,8 @@ class FilesystemAndConfigObservation(unittest.TestCase):
         with patch.object(m,'containers',side_effect=selected),patch.object(m,'caddy_config',return_value=caddy()), \
              patch.object(m,'run',return_value=json.dumps(migrations())), \
              patch.object(m,'backups',return_value={'artifact':'NOT_OBSERVED','archive_catalog':'NOT_CHECKED','restore_verification':'NOT_PROVEN'}), \
-             patch.object(m,'filesystem_capacity',side_effect=capacity_change):
+             patch.object(m,'filesystem_capacity',side_effect=capacity_change), \
+             patch.object(m,'capacity_readonly_profile',return_value=m.empty_capacity_profile()):
             # A capacity-stage runtime change must be covered by the existing final sampling.
             value=m.collect(SHA)
         self.assertEqual(value['checks']['runtime_configuration_stability'],'NOT_PROVEN')
@@ -1134,13 +1138,444 @@ class FilesystemAndConfigObservation(unittest.TestCase):
         m.validate_report(value,SHA)
 
     def test_v3_requires_new_sections_and_rejects_old_v2_artifacts(self):
-        value=report();self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v3')
+        value=report();self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v4')
         m.validate_report(value,SHA)
         for key in ('api_publication_config','filesystem_capacity'):
             bad=copy.deepcopy(value);bad.pop(key)
             with self.assertRaises(ValueError):m.validate_report(bad,SHA)
         old=copy.deepcopy(value);old['schema']='pc-crop.market-release-preflight.v2'
         with self.assertRaises(ValueError):m.validate_report(old,SHA)
+
+
+class DeclaredDatabaseRelations(unittest.TestCase):
+    def fixture(self):
+        a=api();a['Config']['Env'] += ['AUTH_DATABASE_URL=postgresql://AUTH_USER:PRIVATE_AUTH@db:5432/domain_db',
+                                      'DATABASE_URL=postgres://DEFAULT_USER:PRIVATE_DEFAULT@db/domain_db']
+        a['Config'].update(Hostname='api-private',Domainname='');a['Mounts']=[]
+        a['NetworkSettings']['Networks']['private'].update(NetworkID='e'*64,Aliases=['api'])
+        pg=copy.deepcopy(a);pg['Id']='4'*64
+        pg['Config'].update(Image='postgres:16',Cmd=['postgres'],Entrypoint=['docker-entrypoint.sh'],Env=['PG_MAJOR=16','POSTGRES_DB=domain_db'])
+        pg['Config']['Labels']['com.docker.compose.service']='postgres'
+        pg['NetworkSettings']['Networks']['private'].update(IPAddress='172.20.0.4',Aliases=['db','postgres'])
+        return a,[a,pg]
+
+    def check(self,a,rows):
+        with patch.object(m,'run',side_effect=AssertionError('NEW_HOST_COMMAND')), \
+             patch.object(m.subprocess,'Popen',side_effect=AssertionError('NEW_PROCESS')), \
+             patch.object(m.urllib.request,'urlopen',side_effect=AssertionError('NEW_NETWORK')):
+            value=m.declared_database_relations(a,rows,'private-project')
+        m.validate_declared_database_relations(value)
+        self.assertIs(value['binding_proven'],False)
+        self.assertEqual(value['helper_execution'],'NOT_PERFORMED')
+        self.assertEqual(value['assurance'],'DECLARED_CONFIG_ONLY_NOT_RUNTIME_BINDING')
+        for secret in ('PRIVATE_','AUTH_USER','DEFAULT_USER','domain_db','172.20.0.4','private-project','postgresql:'):
+            self.assertNotIn(secret,json.dumps(value))
+        return value
+
+    def test_matching_declarations_are_metadata_only_and_make_no_calls(self):
+        a,rows=self.fixture();value=self.check(a,rows)
+        for key in m.DECLARED_DB_FLAGS:self.assertIs(value[key],True)
+
+    def test_distinct_aliases_can_declare_the_same_selected_pg(self):
+        a,rows=self.fixture();a['Config']['Env'][-1]='DATABASE_URL=postgres://USER:PASS@172.20.0.4/domain_db'
+        value=self.check(a,rows)
+        self.assertIs(value['auth_default_declared_target_equal'],False)
+        self.assertIs(value['auth_declared_target_matches_selected_pg'],True)
+        self.assertIs(value['default_declared_target_matches_selected_pg'],True)
+
+    def test_ambiguous_pg_inventory_is_not_selected(self):
+        a,rows=self.fixture();other=copy.deepcopy(rows[-1]);other['Id']='5'*64;rows.append(other)
+        value=self.check(a,rows)
+        self.assertIs(value['unique_project_pg16'],False)
+        self.assertEqual(value['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_duplicate_env_even_with_identical_values_is_unknown(self):
+        for selection in ('api','pg'):
+            a,rows=self.fixture();target=a if selection=='api' else rows[-1]
+            target['Config']['Env'].append(target['Config']['Env'][-1])
+            value=self.check(a,rows)
+            self.assertEqual(value['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+            if selection=='api':self.assertEqual(value['auth_default_declared_target_equal'],'UNKNOWN')
+
+    def test_missing_malformed_and_query_option_dsns_are_unknown(self):
+        values=['',None,'PRIVATE_SECRET','mysql://user:pass@db/domain_db','postgresql://user:pass@db',
+                'postgresql://user:pass@db:/domain_db','postgresql://user:pass@db:0/domain_db',
+                'postgresql://user:pass@db:65536/domain_db','postgresql://user:pass@db:bad/domain_db',
+                'postgresql://user:pass@db/domain%ZZ','postgresql://user:pass@db/domain%00',
+                'postgresql://user:pass@db/domain%2fdb','postgresql://user:pass@db/%FF',
+                'postgresql://user:pass@db/domain_db?schema=auth',
+                'postgresql://user:pass@db/domain_db?host=other',
+                'postgresql://user:pass@db/domain_db?options=-csearch_path%3Dauth',
+                'postgresql://user:pass@db/domain_db?', 'postgresql://user:pass@db/domain_db#',
+                'postgresql://user:pass@db/domain_db\n','postgresql://user:pass@db\\other/domain_db']
+        for raw in values:
+            with self.subTest(raw=raw):
+                a,rows=self.fixture();a['Config']['Env'][-2]='AUTH_DATABASE_URL='+str(raw)
+                value=self.check(a,rows)
+                self.assertEqual(value['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+                self.assertEqual(value['auth_default_declared_target_equal'],'UNKNOWN')
+
+    def test_localhost_is_not_a_docker_alias_or_selected_pg(self):
+        for host in ('localhost','127.0.0.1','0.0.0.0','[::1]','child.localhost'):
+            with self.subTest(host=host):
+                a,rows=self.fixture();a['Config']['Env'][-2]=f'AUTH_DATABASE_URL=postgres://u:p@{host}/domain_db'
+                value=self.check(a,rows)
+                self.assertEqual(value['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+                self.assertEqual(value['auth_default_declared_target_equal'],'UNKNOWN')
+
+    def test_database_name_mismatch_is_explicit_false(self):
+        a,rows=self.fixture();a['Config']['Env'][-2]='AUTH_DATABASE_URL=postgres://u:p@db/auth_db'
+        value=self.check(a,rows)
+        self.assertIs(value['auth_default_declared_target_equal'],False)
+        self.assertIs(value['auth_declared_target_matches_selected_pg'],False)
+        self.assertIs(value['default_declared_target_matches_selected_pg'],True)
+
+    def test_selected_pg_database_mismatch_is_explicit_false(self):
+        a,rows=self.fixture();rows[-1]['Config']['Env'][-1]='POSTGRES_DB=another_db'
+        value=self.check(a,rows)
+        self.assertIs(value['auth_default_declared_target_equal'],True)
+        self.assertIs(value['auth_declared_target_matches_selected_pg'],False)
+        self.assertIs(value['default_declared_target_matches_selected_pg'],False)
+
+    def test_nondefault_port_does_not_match_selected_pg_declaration(self):
+        a,rows=self.fixture();a['Config']['Env'][-2]='AUTH_DATABASE_URL=postgres://u:p@db:5433/domain_db'
+        self.assertIs(self.check(a,rows)['auth_declared_target_matches_selected_pg'],False)
+
+    def test_unknown_or_ambiguous_alias_is_not_assumed_to_resolve(self):
+        for ambiguous in (False,True):
+            a,rows=self.fixture()
+            if ambiguous:
+                other=copy.deepcopy(a);other['Id']='5'*64;other['NetworkSettings']['Networks']['private']['Aliases']=['db'];rows.append(other)
+            else:a['Config']['Env'][-2]='AUTH_DATABASE_URL=postgres://u:p@external.example/domain_db'
+            self.assertEqual(self.check(a,rows)['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_missing_network_identity_and_unshared_network_are_unknown(self):
+        for edit in (lambda n:n.pop('NetworkID'),lambda n:n.update(NetworkID='f'*64),lambda n:n.update(Aliases='db')):
+            a,rows=self.fixture();edit(rows[-1]['NetworkSettings']['Networks']['private'])
+            self.assertEqual(self.check(a,rows)['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_missing_stopped_unknown_version_or_command_overrides_pg_is_unknown(self):
+        edits=[lambda p:p['Config'].update(Image='custom-pg:16'),lambda p:p['State'].update(Running=False),
+               lambda p:p['Config']['Env'].append('PG_MAJOR=17'),lambda p:p['Config'].update(Cmd=['postgres','-p','5433']),
+               lambda p:p['Config']['Env'].append('PGPORT=5433'),lambda p:p['Config']['Env'].pop()]
+        for edit in edits:
+            a,rows=self.fixture();edit(rows[-1])
+            self.assertEqual(self.check(a,rows)['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_explicit_image_major_cannot_be_overridden_by_pg_major_environment(self):
+        for image in ('postgres:15','postgres:17','postgres:17-alpine','docker.io/library/postgres:15.9',
+                      'postgres:latest','postgres','postgres:16invalid'):
+            with self.subTest(image=image):
+                a,rows=self.fixture();rows[-1]['Config']['Image']=image
+                value=self.check(a,rows)
+                self.assertEqual(value['unique_project_pg16'],'UNKNOWN')
+                self.assertEqual(value['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+                self.assertEqual(value['default_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_supported_explicit_pg16_and_pinned_digest_declarations_remain_metadata_only(self):
+        for image in ('postgres:16.4','postgres:16-alpine','docker.io/library/postgres:16.4-bookworm',
+                      'postgres@sha256:'+'b'*64):
+            with self.subTest(image=image):
+                a,rows=self.fixture();rows[-1]['Config']['Image']=image
+                self.assertIs(self.check(a,rows)['unique_project_pg16'],True)
+
+    def test_pg_entrypoint_override_missing_or_malformed_is_unknown(self):
+        for entrypoint in (None,[],['/bin/sleep'],['docker-entrypoint.sh','postgres'],'docker-entrypoint.sh',1,{}):
+            with self.subTest(entrypoint=entrypoint):
+                a,rows=self.fixture();rows[-1]['Config']['Entrypoint']=entrypoint
+                value=self.check(a,rows)
+                self.assertEqual(value['unique_project_pg16'],'UNKNOWN')
+                self.assertEqual(value['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_hosts_file_override_never_yields_selected_pg_alias_proof(self):
+        for override in (['db:172.20.0.99'],['db:172.20.0.4'],['db:host-gateway'],
+                         'db:172.20.0.99',{'db':'172.20.0.99'},True,42,''):
+            with self.subTest(override=override):
+                a,rows=self.fixture();a['HostConfig']['ExtraHosts']=override
+                value=self.check(a,rows)
+                self.assertEqual(value['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+                self.assertEqual(value['default_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_declared_dns_links_or_network_mode_overrides_are_unknown(self):
+        for key,value in [('Dns',['192.0.2.1']),('DnsSearch',['private.invalid']),('DnsOptions',['ndots:5']),
+                          ('Links',['other:db']),('NetworkMode','host'),('NetworkMode','none'),
+                          ('NetworkMode','container:other'),('NetworkMode',None)]:
+            with self.subTest(key=key,value=value):
+                a,rows=self.fixture();a['HostConfig'][key]=value
+                result=self.check(a,rows)
+                self.assertEqual(result['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_malformed_nested_inspect_shapes_return_unknown_without_exceptions(self):
+        for selected in ('api','pg'):
+            for key in ('Config','HostConfig','State','NetworkSettings'):
+                for malformed in ('PRIVATE_MALFORMED',1,True,[],['PRIVATE'],None):
+                    with self.subTest(selected=selected,key=key,malformed=malformed):
+                        a,rows=self.fixture();target=a if selected=='api' else rows[-1];target[key]=malformed
+                        value=self.check(a,rows)
+                        self.assertEqual(value['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+        for labels in ('PRIVATE_LABELS',[],1,True,None):
+            a,rows=self.fixture();rows[-1]['Config']['Labels']=labels
+            self.assertEqual(self.check(a,rows)['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_invalid_network_ids_cannot_prove_a_shared_network(self):
+        for identifier in ('PRIVATE_NETWORK_ID','',None,True,1,{},[], 'e'*63,'g'*64):
+            with self.subTest(identifier=identifier):
+                a,rows=self.fixture()
+                for row in rows:row['NetworkSettings']['Networks']['private']['NetworkID']=identifier
+                value=self.check(a,rows)
+                self.assertEqual(value['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+                self.assertEqual(value['default_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_malformed_network_ip_cannot_masquerade_as_target_alias(self):
+        for value in ('db','127.0.0.1','0.0.0.0','224.0.0.1','172.020.0.4',None,True,1,{},[]):
+            with self.subTest(value=value):
+                a,rows=self.fixture();rows[-1]['NetworkSettings']['Networks']['private'].update(IPAddress=value,Aliases=[])
+                result=self.check(a,rows)
+                self.assertEqual(result['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_numeric_target_is_not_matched_through_a_docker_alias(self):
+        a,rows=self.fixture();a['Config']['Env'][-2]='AUTH_DATABASE_URL=postgres://u:p@172.20.0.99/domain_db'
+        rows[-1]['NetworkSettings']['Networks']['private']['Aliases'].append('172.20.0.99')
+        self.assertEqual(self.check(a,rows)['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_alias_list_malformed_elements_are_unknown(self):
+        for aliases in (['db',None],['db',1],['db',{}],['db','bad alias'],['db','bad/alias'],['db','a'*254]):
+            a,rows=self.fixture();rows[-1]['NetworkSettings']['Networks']['private']['Aliases']=aliases
+            self.assertEqual(self.check(a,rows)['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_own_hostname_and_fqdn_masking_the_pg_alias_are_unknown(self):
+        for hostname,domain,target in [('db','','db'),('DB','','db'),('db','private','db.private'),('api','db','api.db')]:
+            with self.subTest(hostname=hostname,domain=domain,target=target):
+                a,rows=self.fixture();a['Config'].update(Hostname=hostname,Domainname=domain)
+                a['Config']['Env'][-2]=f'AUTH_DATABASE_URL=postgres://u:p@{target}/domain_db'
+                rows[-1]['NetworkSettings']['Networks']['private']['Aliases'].append(target)
+                self.assertEqual(self.check(a,rows)['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_malformed_own_hostname_or_domain_cannot_yield_alias_mapping(self):
+        for key in ('Hostname','Domainname'):
+            for value in (None,True,1,[],{},'private name','bad/name'):
+                a,rows=self.fixture();a['Config'][key]=value
+                self.assertEqual(self.check(a,rows)['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_mounts_over_resolution_files_or_ancestors_are_unknown(self):
+        for destination in ('/','/etc','/etc/hosts','/etc/resolv.conf','/etc/nsswitch.conf','/etc/host.conf','/etc/gai.conf'):
+            a,rows=self.fixture();a['Mounts']=[{'Destination':destination}]
+            self.assertEqual(self.check(a,rows)['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_unrelated_mounts_do_not_claim_installed_code_or_block_declared_relation(self):
+        a,rows=self.fixture();a['Mounts']=[{'Destination':'/app/data'}]
+        value=self.check(a,rows)
+        self.assertIs(value['auth_declared_target_matches_selected_pg'],True)
+        self.assertIs(value['binding_proven'],False)
+
+    def test_missing_or_malformed_mount_metadata_is_unknown(self):
+        for mounts in (None,{},'PRIVATE',True,[{}],[{'Destination':'relative'}],[{'Destination':'/etc/../etc/hosts'}],
+                       [{'Destination':'//etc/hosts'}],[{'Destination':'/etc//hosts'}],[{'Destination':'/etc/hosts\n'}]):
+            a,rows=self.fixture();a['Mounts']=mounts
+            self.assertEqual(self.check(a,rows)['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_known_resolver_environment_overrides_are_unknown(self):
+        for key in ('HOSTALIASES','LOCALDOMAIN','RES_OPTIONS'):
+            a,rows=self.fixture();a['Config']['Env'].append(key+'=PRIVATE_OVERRIDE')
+            self.assertEqual(self.check(a,rows)['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_unobserved_or_inconsistent_api_project_identity_is_unknown(self):
+        for mode in ('absent','duplicate','foreign','drift'):
+            a,rows=self.fixture()
+            if mode=='absent':rows=rows[1:]
+            elif mode=='duplicate':rows.append(copy.deepcopy(rows[-1]))
+            elif mode=='foreign':rows[-1]['Config']['Labels']['com.docker.compose.project']='another-project'
+            else:rows[0]=copy.deepcopy(a);rows[0]['Config']['Env'].append('EXTRA=DRIFT')
+            self.assertEqual(self.check(a,rows)['auth_declared_target_matches_selected_pg'],'UNKNOWN')
+
+    def test_strict_schema_rejects_coercion_unknown_fields_or_binding_claims(self):
+        a,rows=self.fixture();value=self.check(a,rows)
+        mutations=[('assurance','LIVE_PROOF'),('binding_proven',True),('binding_proven',0),
+                   ('helper_execution','PASS'),('auth_default_declared_target_equal',1),
+                   ('unique_project_pg16','true'),('private','PRIVATE_SECRET')]
+        for key,item in mutations:
+            bad=copy.deepcopy(value);bad[key]=item
+            with self.subTest(key=key,item=item),self.assertRaises(ValueError):m.validate_declared_database_relations(bad)
+        for key in value:
+            bad=copy.deepcopy(value);bad.pop(key)
+            with self.assertRaises(ValueError):m.validate_declared_database_relations(bad)
+
+    def test_schema_rejects_selected_target_without_unique_pg(self):
+        a,rows=self.fixture();value=self.check(a,rows);value['unique_project_pg16']=False
+        with self.assertRaises(ValueError):m.validate_declared_database_relations(value)
+
+    def test_release_inventory_reuses_existing_snapshot_and_keeps_all_other_fields(self):
+        a,rows=self.fixture()
+        with patch.object(m,'rendered_compose',return_value=None),patch.object(m,'project_containers',return_value=rows) as sample, \
+             patch.object(m,'database_probe',return_value={'status':'NOT_PROVEN'}):
+            value=m.release_inventory(web(),a,'private-project')
+        sample.assert_called_once_with('private-project')
+        m.validate_release_inventory(value)
+        self.assertIs(value['declared_database_relations']['auth_declared_target_matches_selected_pg'],True)
+
+    def test_v4_declared_section_is_mandatory_and_prior_v3_is_rejected(self):
+        value=report();self.assertEqual(value['schema'],'pc-crop.market-release-preflight.v4')
+        old=copy.deepcopy(value);old['schema']='pc-crop.market-release-preflight.v3'
+        with self.assertRaises(ValueError):m.validate_report(old,SHA)
+        missing=copy.deepcopy(value);missing['release_inventory'].pop('declared_database_relations')
+        with self.assertRaises(ValueError):m.validate_report(missing,SHA)
+
+
+class CapacityDiagnosticProfile(unittest.TestCase):
+    def fake_popen(self, cases=None):
+        real=subprocess.Popen;calls=[];cases=cases or {}
+        def launch(argv,**kwargs):
+            self.assertEqual(kwargs['env'],{'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LC_ALL':'C'})
+            self.assertTrue(kwargs['start_new_session']);self.assertTrue(kwargs['close_fds'])
+            self.assertTrue(callable(kwargs['preexec_fn']));self.assertEqual(kwargs['cwd'],'/')
+            if argv[0]=='/usr/bin/docker':
+                self.assertEqual(argv[1:3],['--host','unix:///run/docker.sock']);args=argv[3:]
+                keys={('ps','-aq','--no-trunc'):'containers_list',('volume','ls','-q'):'volumes_list',
+                      ('network','ls','-q','--no-trunc'):'networks_list',('image','ls','-aq','--no-trunc'):'images_list'}
+                if tuple(args) in keys:key=keys[tuple(args)]
+                elif args[0]=='inspect':key='containers_inspect'
+                elif args[:2]==['image','inspect']:key='images_inspect'
+                else:raise AssertionError('UNSUPPORTED_DOCKER_ARGV')
+                values={'containers_list':'1'*64+'\n'+'2'*64+'\n','volumes_list':'PRIVATE_CUSTOMER_VOLUME\n',
+                        'networks_list':'a'*64+'\n','images_list':'sha256:'+'f'*64+'\n'}
+                raw=values.get(key)
+                if raw is None:
+                    identities=args[1:] if key=='containers_inspect' else args[2:]
+                    raw=json.dumps([{'Id':v,'Config':{'Env':['PRIVATE_SECRET=NEVER_EMIT']},'RepoTags':['PRIVATE_REF']} for v in identities])
+            else:
+                self.assertEqual(argv[:6],['/usr/bin/du','--summarize','--block-size=1','--one-file-system','--null','--'])
+                self.assertIn(argv[-1],m.CAPACITY_DISK_PATHS.values());key=next(k for k,v in m.CAPACITY_DISK_PATHS.items() if v==argv[-1]);raw='4096\t'+argv[-1]+'\x00'
+            calls.append(key);mode=cases.get(key)
+            script='import sys,time,subprocess\n'
+            if mode=='timeout':script+='time.sleep(30)\n'
+            elif mode=='descendant':script+='subprocess.Popen([sys.executable,"-c","import time;time.sleep(30)"]);sys.exit(0)\n'
+            elif mode=='nonzero':script+='sys.stderr.write("PRIVATE_ERROR");sys.exit(7)\n'
+            elif mode=='overflow':script+='sys.stdout.write("x"*4096)\n'
+            else:
+                if mode=='malformed':raw='PRIVATE_MALFORMED\n'
+                elif mode=='empty':raw=''
+                elif mode=='wrong_inspect':raw=json.dumps([{'Id':'9'*64}])
+                elif mode=='duplicate_json':raw='[{"Id":"'+'1'*64+'","Id":"'+'1'*64+'"}]'
+                elif mode=='du_wrong_path':raw='4096\t/PRIVATE_CUSTOMER\x00'
+                elif mode=='du_multiple':raw+=raw
+                script+='sys.stdout.write('+repr(raw)+')\n'
+            return real([sys.executable,'-c',script],**kwargs)
+        return launch,calls
+
+    def profile(self,cases=None,*,deadline=None):
+        fake,calls=self.fake_popen(cases)
+        with patch.object(m.os,'geteuid',return_value=0),patch.object(m,'capacity_docker_ready',return_value=True), \
+             patch.object(m,'capacity_fixed_path_ready',return_value=True),patch.object(m.subprocess,'Popen',side_effect=fake):
+            result=m.capacity_readonly_profile(deadline or m.time.monotonic()+180)
+        m.validate_capacity_profile(result)
+        for marker in ('PRIVATE_','sha256:','/var/lib/','1'*64,'NEVER_EMIT','RepoTags','Env'):
+            self.assertNotIn(marker,json.dumps(result))
+        return result,calls
+
+    def test_real_mock_cli_profile_has_exact_six_queries_four_numeric_categories(self):
+        result,calls=self.profile()
+        self.assertEqual(calls,list(m.CAPACITY_QUERY_KEYS)+list(m.CAPACITY_DISK_PATHS))
+        self.assertEqual(result['status'],'COMPLETE_READ_ONLY')
+        self.assertEqual(result['commands']['containers_inspect']['count'],2)
+        self.assertEqual(result['disk_usage']['containerd']['bytes'],4096)
+
+    def test_missing_preconditions_do_not_spawn_or_invent_zero(self):
+        with patch.object(m.os,'geteuid',return_value=0),patch.object(m,'capacity_docker_ready',return_value=False), \
+             patch.object(m,'capacity_fixed_path_ready',return_value=False),patch.object(m.subprocess,'Popen') as popen:
+            result=m.capacity_readonly_profile(m.time.monotonic()+180)
+        popen.assert_not_called();m.validate_capacity_profile(result)
+        self.assertIsNone(result['commands']['containers_list']['count'])
+        self.assertIsNone(result['disk_usage']['containerd']['bytes'])
+
+    def test_nonroot_and_expired_whole_deadline_do_not_spawn(self):
+        with patch.object(m.os,'geteuid',return_value=1),patch.object(m.subprocess,'Popen') as popen:
+            self.assertEqual(m.capacity_readonly_profile(m.time.monotonic()+180),m.empty_capacity_profile())
+        popen.assert_not_called()
+        result,calls=self.profile(deadline=m.time.monotonic()-1);self.assertEqual(calls,[])
+
+    def test_unvalidated_id_list_never_reaches_inspect(self):
+        for mode in ('malformed','empty'):
+            result,calls=self.profile({'containers_list':mode})
+            self.assertNotIn('containers_inspect',calls)
+            self.assertEqual(result['commands']['containers_inspect']['status'],'NOT_RUN')
+            self.assertEqual(result['commands']['containers_list']['count'],0 if mode=='empty' else None)
+
+    def test_wrong_or_duplicate_inspect_json_is_invalid_not_zero(self):
+        for mode in ('wrong_inspect','duplicate_json'):
+            result,_=self.profile({'containers_inspect':mode})
+            self.assertEqual(result['commands']['containers_inspect']['status'],'INVALID')
+            self.assertIsNone(result['commands']['containers_inspect']['count'])
+
+    def test_nonzero_and_raw_stderr_produce_only_closed_status(self):
+        result,_=self.profile({'volumes_list':'nonzero'})
+        self.assertEqual(result['commands']['volumes_list']['status'],'NONZERO')
+        self.assertIsNone(result['commands']['volumes_list']['count'])
+
+    def test_aggregate_output_spent_stops_all_later_processes(self):
+        with patch.object(m,'CAPACITY_TOTAL_BYTES',128),patch.object(m,'CAPACITY_OUTPUT_BYTES',8192):
+            result,calls=self.profile({'containers_list':'overflow'})
+        self.assertEqual(calls,['containers_list'])
+        self.assertEqual(result['commands']['containers_list']['status'],'OUTPUT_LIMIT')
+        self.assertEqual(result['commands']['images_list']['status'],'NOT_RUN')
+
+    def test_per_stream_output_is_capped_without_raw_payload(self):
+        with patch.object(m,'CAPACITY_OUTPUT_BYTES',512):
+            result,_=self.profile({'containers_list':'overflow'})
+        self.assertEqual(result['commands']['containers_list']['status'],'OUTPUT_LIMIT')
+        self.assertEqual(result['commands']['containers_inspect']['status'],'NOT_RUN')
+
+    def test_shortened_test_clock_timeout_and_global_budget_do_not_reset(self):
+        started=m.time.monotonic()
+        with patch.object(m,'CAPACITY_COMMAND_SECONDS',0.45),patch.object(m,'CAPACITY_PROFILE_SECONDS',0.8):
+            result,calls=self.profile({key:'timeout' for key in m.CAPACITY_QUERY_KEYS})
+        self.assertLess(m.time.monotonic()-started,1.2)
+        self.assertLess(len(calls),10)
+        self.assertTrue(any(row['status'] in ('TIMED_OUT','UNKNOWN') for row in result['commands'].values()))
+        self.assertTrue(any(row['status']=='NOT_RUN' for row in result['disk_usage'].values()))
+
+    def test_descendant_retaining_pipes_cannot_outlive_profile_as_a_running_process(self):
+        with patch.object(m,'CAPACITY_COMMAND_SECONDS',0.5),patch.object(m,'CAPACITY_PROFILE_SECONDS',0.8):
+            result,_=self.profile({'containers_list':'descendant'})
+        self.assertIn(result['commands']['containers_list']['status'],('TIMED_OUT','UNKNOWN'))
+
+    def test_arbitrary_commands_and_option_like_ids_never_spawn(self):
+        runner=m.CapacityProfileRunner(m.time.monotonic()+180)
+        with patch.object(m.subprocess,'Popen') as popen:
+            for key,identities in [('rm',None),('containers_inspect',['--privileged']),('images_inspect',['x']),('containers_inspect',[])]:
+                self.assertEqual(runner.execute(key,identities),('NOT_RUN',0,None))
+        popen.assert_not_called()
+
+    def test_du_wrong_path_multiple_or_malformed_totals_are_invalid(self):
+        for mode in ('du_wrong_path','du_multiple','malformed'):
+            result,_=self.profile({'containerd':mode})
+            self.assertEqual(result['disk_usage']['containerd']['status'],'INVALID')
+            self.assertIsNone(result['disk_usage']['containerd']['bytes'])
+
+    def test_fixed_path_preflight_refuses_symlinks_and_writable_ancestors(self):
+        import types,stat
+        def fake_stat(path,**kwargs):
+            mode=stat.S_IFDIR|0o755 if path!='/usr/bin/du' else stat.S_IFREG|0o755
+            return types.SimpleNamespace(st_uid=0,st_mode=mode)
+        with patch.object(m.os,'stat',side_effect=fake_stat):self.assertTrue(m.capacity_fixed_path_ready('/usr/bin/du',directory=False))
+        for mode in (stat.S_IFLNK|0o777,stat.S_IFDIR|0o777):
+            with patch.object(m.os,'stat',return_value=types.SimpleNamespace(st_uid=0,st_mode=mode)):
+                self.assertFalse(m.capacity_fixed_path_ready('/var/lib/docker/containers',directory=True))
+
+    def test_strict_profile_rejects_raw_fields_forged_counts_and_dependency(self):
+        value,_=self.profile()
+        for mutate in (lambda v:v.update(raw='PRIVATE'),lambda v:v.update(command_budget_seconds=6),
+                       lambda v:v['commands']['containers_list'].update(count=True),
+                       lambda v:v['commands']['containers_inspect'].update(count=1),
+                       lambda v:v['commands']['containers_list'].update(status='NOT_RUN',count=None,elapsed_ms=0),
+                       lambda v:v['disk_usage']['containerd'].update(bytes='4096'),
+                       lambda v:v['commands']['containers_list'].update(status=[]),
+                       lambda v:v.update(elapsed_ms=0)):
+            bad=copy.deepcopy(value);mutate(bad)
+            with self.assertRaises(ValueError):m.validate_capacity_profile(bad)
+
+    def test_new_profile_is_required_in_final_unpublished_v4(self):
+        value=report();m.validate_report(value,SHA);value.pop('capacity_diagnostics')
+        with self.assertRaises(ValueError):m.validate_report(value,SHA)
 
 
 class Publication(unittest.TestCase):

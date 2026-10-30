@@ -8,6 +8,7 @@ The separate PR-only publication mode reads pinned registry metadata, never laye
 """
 from __future__ import annotations
 import datetime as dt
+import ctypes
 import base64
 import hashlib
 import ipaddress
@@ -17,6 +18,7 @@ from pathlib import Path, PurePosixPath
 import re
 import shutil
 import selectors
+import signal
 import time
 import stat
 import subprocess
@@ -318,10 +320,10 @@ def validate_report(value: Any, target: str) -> dict[str, Any]:
     keys = {'schema', 'target_sha', 'observed_at_utc', 'running_web_revision', 'running_api_revision',
             'checks', 'migration_inventory', 'capacity', 'backup', 'production_mutation',
             'deployment_authorized', 'live_acceptance', 'protected_values', 'outbox_topology', 'release_inventory',
-            'registration_binding', 'api_publication_config', 'filesystem_capacity'}
+            'registration_binding', 'api_publication_config', 'filesystem_capacity', 'capacity_diagnostics'}
     if not isinstance(value, dict) or set(value) != keys or not SHA.fullmatch(target):
         raise ValueError('REPORT_SCHEMA')
-    for key, expected in {'schema': 'pc-crop.market-release-preflight.v3', 'target_sha': target,
+    for key, expected in {'schema': 'pc-crop.market-release-preflight.v4', 'target_sha': target,
                           'production_mutation': 'NONE', 'live_acceptance': 'NOT_PERFORMED',
                           'protected_values': 'NOT_PUBLISHED'}.items():
         if value[key] != expected:
@@ -379,6 +381,7 @@ def validate_report(value: Any, target: str) -> dict[str, Any]:
     validate_registration_preconditions(value['registration_binding'], checks, value['outbox_topology'])
     validate_api_publication_config(value['api_publication_config'], checks, value['outbox_topology'])
     validate_filesystem_capacity(value['filesystem_capacity'])
+    validate_capacity_profile(value['capacity_diagnostics'])
     # No unknown key, string, path, address, error or payload can pass to artifacts.
     return value
 
@@ -849,6 +852,212 @@ def migration_candidate(name: str, service: dict[str, Any]) -> bool:
             or isinstance(command, str) and 'prisma' in command and 'migrate' in command)
 
 
+DECLARED_DB_FLAGS = {'auth_default_declared_target_equal',
+                     'auth_declared_target_matches_selected_pg',
+                     'default_declared_target_matches_selected_pg', 'unique_project_pg16'}
+
+
+def declared_env(container: dict[str, Any]) -> dict[str, str] | None:
+    """Keep values private; malformed or duplicate configuration is unknown."""
+    if not isinstance(container, dict) or not isinstance(container.get('Config'), dict):
+        return None
+    entries = container['Config'].get('Env')
+    if not isinstance(entries, list) or len(entries) > 512:
+        return None
+    result = {}
+    for row in entries:
+        if not isinstance(row, str) or len(row) > 65536 or '=' not in row or any(ord(c) < 32 for c in row):
+            return None
+        name, value = row.split('=', 1)
+        if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', name) or name in result:
+            return None
+        result[name] = value
+    return result
+
+
+def declared_db_target(raw: Any) -> tuple[str, int, str] | None:
+    """Conservative URL metadata only; never resolves DNS or instantiates a client."""
+    if (not isinstance(raw, str) or not 1 <= len(raw) <= 8192 or
+            any(ord(c) <= 32 or ord(c) == 127 for c in raw) or
+            re.search(r'%(?![0-9A-Fa-f]{2})', raw) or '?' in raw or '#' in raw or '\\' in raw):
+        return None
+    try:
+        url = urllib.parse.urlsplit(raw)
+        if (url.scheme not in ('postgres', 'postgresql') or not url.netloc or not url.hostname or
+                url.netloc.count('@') > 1 or url.netloc.rsplit('@', 1)[-1].endswith(':')):
+            return None
+        host = url.hostname.lower()
+        if not re.fullmatch(r'[a-z0-9][a-z0-9_.-]{0,252}', host) or host.endswith('.'):
+            return None
+        if host == 'localhost' or host.endswith('.localhost'):
+            return None
+        try:
+            address = ipaddress.ip_address(host)
+            if address.is_loopback or address.is_unspecified or address.is_link_local:
+                return None
+        except ValueError:
+            if re.fullmatch(r'[0-9.]+', host):
+                return None
+        port = url.port if url.port is not None else 5432
+        if not 1 <= port <= 65535 or not url.path.startswith('/'):
+            return None
+        database = urllib.parse.unquote(url.path[1:], encoding='utf-8', errors='strict')
+        if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_$-]{0,62}', database):
+            return None
+        # Missing credentials do not change a declared target. No credential
+        # parsing or fallback is used to claim application resolver behavior.
+        return host, port, database
+    except (ValueError, UnicodeError):
+        return None
+
+
+def declared_database_relations(api: dict[str, Any], rows: Any, project: str) -> dict[str, Any]:
+    """Compare already inspected declarations. This is never live database binding."""
+    result = {key: 'UNKNOWN' for key in DECLARED_DB_FLAGS}
+    result.update(assurance='DECLARED_CONFIG_ONLY_NOT_RUNTIME_BINDING',
+                  binding_proven=False, helper_execution='NOT_PERFORMED')
+    def shape(row: Any) -> bool:
+        return (isinstance(row, dict) and isinstance(row.get('Id'), str) and CONTAINER_ID.fullmatch(row['Id']) is not None
+                and all(isinstance(row.get(key), dict) for key in ('Config', 'HostConfig', 'State', 'NetworkSettings'))
+                and isinstance(row['Config'].get('Labels'), dict)
+                and row['Config']['Labels'].get('com.docker.compose.project') == project
+                and type(row['State'].get('Running')) is bool
+                and isinstance(row['State'].get('StartedAt'), str))
+    if not isinstance(project, str) or not PROJECT.fullmatch(project) or not shape(api):
+        return result
+    environment = declared_env(api)
+    auth = declared_db_target(environment.get('AUTH_DATABASE_URL')) if environment is not None else None
+    default = declared_db_target(environment.get('DATABASE_URL')) if environment is not None else None
+    if auth is not None and default is not None:
+        result['auth_default_declared_target_equal'] = auth == default
+    if (not isinstance(rows, list) or not 1 <= len(rows) <= 64 or
+            any(not shape(row) for row in rows) or
+            len({row['Id'] for row in rows}) != len(rows)):
+        return result
+    selected = [row for row in rows if row['Id'] == api.get('Id')]
+    identity = project_runtime_identity(api)
+    if len(selected) != 1 or identity is None or project_runtime_identity(selected[0]) != identity:
+        return result
+    postgres = [row for row in rows if isinstance((row.get('Config') or {}).get('Image'), str) and
+                re.fullmatch(r'(?:(?:docker[.]io/)?library/)?postgres(?::[^\s@]+|@sha256:[0-9a-f]{64})?', row['Config']['Image'])]
+    if len(postgres) != 1:
+        if len(postgres) > 1:
+            result['unique_project_pg16'] = False
+        return result
+    pg = postgres[0]
+    pg_env = declared_env(pg)
+    image = pg['Config']['Image']
+    # An environment claim cannot override an explicit conflicting image tag.
+    # Mutable/implicit tags do not establish this narrow PG16 declaration profile.
+    version_tag = re.search(r':([0-9]+)(?:[.-][A-Za-z0-9_.-]+)?\Z', image)
+    version_supported = (version_tag is not None and version_tag[1] == '16'
+                         or '@sha256:' in image and pg_env is not None and pg_env.get('PG_MAJOR') == '16')
+    if (pg_env is None or (pg.get('State') or {}).get('Running') is not True or
+            not version_supported or
+            pg_env.get('PG_MAJOR', '16') != '16' or pg_env.get('PGPORT', '5432') != '5432' or
+            pg['Config'].get('Cmd') != ['postgres'] or
+            pg['Config'].get('Entrypoint') not in (['docker-entrypoint.sh'], ['/usr/local/bin/docker-entrypoint.sh']) or
+            not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_$-]{0,62}', pg_env.get('POSTGRES_DB', ''))):
+        return result
+    result['unique_project_pg16'] = True
+    # Hosts-file, legacy-link or DNS overrides have precedence/semantics outside
+    # this supported declaration profile. Do not infer resolution through them.
+    host = api['HostConfig']
+    if (any(host.get(key) not in (None, []) for key in ('ExtraHosts', 'Links', 'Dns', 'DnsSearch', 'DnsOptions')) or
+            not isinstance(host.get('NetworkMode'), str) or host['NetworkMode'] in ('host', 'none') or
+            host['NetworkMode'].startswith('container:') or environment is None or
+            any(environment.get(key) for key in ('HOSTALIASES', 'LOCALDOMAIN', 'RES_OPTIONS'))):
+        return result
+    own_hostname, own_domain = api['Config'].get('Hostname'), api['Config'].get('Domainname')
+    valid_name = lambda value: isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,252}', value) is not None
+    if not valid_name(own_hostname) or not (own_domain == '' or valid_name(own_domain)):
+        return result
+    own_names = {own_hostname.lower(), (own_hostname + '.' + own_domain).lower()} if own_domain else {own_hostname.lower()}
+    mounts = api.get('Mounts')
+    if not isinstance(mounts, list) or len(mounts) > 128:
+        return result
+    resolution_paths = [PurePosixPath(p) for p in ('/etc/hosts', '/etc/resolv.conf', '/etc/nsswitch.conf', '/etc/host.conf', '/etc/gai.conf')]
+    for mount in mounts:
+        destination = mount.get('Destination') if isinstance(mount, dict) else None
+        if (not isinstance(destination, str) or not destination.startswith('/') or destination.startswith('//') or
+                len(destination) > 4096 or any(ord(c) < 32 for c in destination) or
+                any(p in ('.', '..') for p in destination.split('/')) or str(PurePosixPath(destination)) != destination):
+            return result
+        path = PurePosixPath(destination)
+        if any(path == protected or path in protected.parents for protected in resolution_paths):
+            return result
+    own = api['NetworkSettings'].get('Networks')
+    if not isinstance(own, dict) or not own:
+        return result
+    if any(not isinstance(network, dict) or not isinstance(network.get('NetworkID'), str)
+           or not CONTAINER_ID.fullmatch(network['NetworkID']) for network in own.values()):
+        return result
+    for key, target in [('auth_declared_target_matches_selected_pg', auth),
+                        ('default_declared_target_matches_selected_pg', default)]:
+        if target is None:
+            continue
+        host, port, database = target
+        if host in own_names:
+            continue
+        peers, complete = set(), True
+        for row in rows:
+            networks = row['NetworkSettings'].get('Networks')
+            if not isinstance(networks, dict):
+                complete = False
+                break
+            for name, network in networks.items():
+                source = own.get(name)
+                if not isinstance(source, dict) or not source.get('NetworkID'):
+                    continue
+                if (not isinstance(network, dict) or not isinstance(network.get('NetworkID'), str)
+                        or not CONTAINER_ID.fullmatch(network['NetworkID'])):
+                    complete = False
+                    break
+                if source['NetworkID'] != network.get('NetworkID'):
+                    continue
+                aliases = network.get('Aliases')
+                if aliases is None:
+                    aliases = []
+                if (not isinstance(aliases, list) or len(aliases) > 128 or
+                        any(not valid_name(alias) for alias in aliases)):
+                    complete = False
+                    break
+                address = network.get('IPAddress')
+                if not isinstance(address, str):
+                    complete = False
+                    break
+                try:
+                    if address and (str(ipaddress.IPv4Address(address)) != address or
+                                    ipaddress.IPv4Address(address).is_loopback or
+                                    ipaddress.IPv4Address(address).is_unspecified or
+                                    ipaddress.IPv4Address(address).is_multicast):
+                        complete = False
+                        break
+                except ValueError:
+                    complete = False
+                    break
+                # Numeric IPv4 literals bypass DNS aliases, even if an alias
+                # happens to be spelled as an address belonging to another peer.
+                match = host == address if re.fullmatch(r'[0-9.]+', host) else host in {alias.lower() for alias in aliases}
+                if match:
+                    peers.add(row['Id'])
+        if complete and len(peers) == 1:
+            result[key] = peers == {pg['Id']} and port == 5432 and database == pg_env['POSTGRES_DB']
+    return result
+
+
+def validate_declared_database_relations(value: Any) -> None:
+    if (not isinstance(value, dict) or set(value) != DECLARED_DB_FLAGS | {'assurance', 'binding_proven', 'helper_execution'} or
+            value['assurance'] != 'DECLARED_CONFIG_ONLY_NOT_RUNTIME_BINDING' or
+            value['binding_proven'] is not False or value['helper_execution'] != 'NOT_PERFORMED' or
+            any(type(value[k]) is not bool and value[k] != 'UNKNOWN' for k in DECLARED_DB_FLAGS)):
+        raise ValueError('DECLARED_DATABASE_RELATIONS_SCHEMA')
+    mappings = [value['auth_declared_target_matches_selected_pg'], value['default_declared_target_matches_selected_pg']]
+    if ((value['unique_project_pg16'] is not True and any(v != 'UNKNOWN' for v in mappings)) or
+            (value['auth_default_declared_target_equal'] is True and mappings[0] != mappings[1])):
+        raise ValueError('DECLARED_DATABASE_RELATIONS_CONTRADICTION')
+
+
 def release_inventory(web: dict[str, Any], api: dict[str, Any], project: str) -> dict[str, Any]:
     model = rendered_compose(web, project)
     compose = {'status': 'NOT_PROVEN'}
@@ -879,13 +1088,15 @@ def release_inventory(web: dict[str, Any], api: dict[str, Any], project: str) ->
         runtime = {'status': 'OBSERVED_IMAGE_METADATA', 'broker_candidates': len(brokers),
                    'running_broker_candidates': sum((r.get('State') or {}).get('Running') is True for r in brokers),
                    'enabled_delivery_candidates': sum(env_of(r).get('OUTBOX_WORKER_ENABLED') == 'true' for r in rows)}
-    return {'compose': compose, 'runtime': runtime, 'database_probe': database_probe(api)}
+    return {'compose': compose, 'runtime': runtime, 'database_probe': database_probe(api),
+            'declared_database_relations': declared_database_relations(api, rows, project)}
 
 
 def validate_release_inventory(value: Any) -> None:
-    if not isinstance(value, dict) or set(value) != {'compose', 'runtime', 'database_probe'}:
+    if not isinstance(value, dict) or set(value) != {'compose', 'runtime', 'database_probe', 'declared_database_relations'}:
         raise ValueError('RELEASE_INVENTORY_SCHEMA')
     validate_database_probe(value['database_probe'])
+    validate_declared_database_relations(value['declared_database_relations'])
     compose = value['compose']
     if compose != {'status': 'NOT_PROVEN'}:
         if not isinstance(compose, dict) or set(compose) != COMPOSE_COUNTS | COMPOSE_FLAGS | {'status', 'configuration_stability'} or compose['status'] != 'OBSERVED_READ_ONLY' or compose['configuration_stability'] not in ('UNCHANGED', 'NOT_PROVEN'):
@@ -1141,9 +1352,262 @@ def validate_filesystem_capacity(value: Any) -> None:
         raise ValueError('FILESYSTEM_CAPACITY_CONTRADICTION')
 
 
+CAPACITY_COMMAND_SECONDS = 5
+CAPACITY_PROFILE_SECONDS = 35
+CAPACITY_OUTPUT_BYTES = 2 * 1024 * 1024
+CAPACITY_TOTAL_BYTES = 16 * 1024 * 1024
+CAPACITY_QUERY_KEYS = ('containers_list', 'containers_inspect', 'volumes_list',
+                       'networks_list', 'images_list', 'images_inspect')
+CAPACITY_DISK_PATHS = {'docker_containers': '/var/lib/docker/containers',
+                       'docker_image_metadata': '/var/lib/docker/image',
+                       'docker_build_cache': '/var/lib/docker/buildkit',
+                       'containerd': '/var/lib/containerd'}
+CAPACITY_STATUSES = {'NOT_RUN', 'SUCCESS', 'TIMED_OUT', 'OUTPUT_LIMIT', 'NONZERO', 'INVALID', 'UNKNOWN'}
+
+
+def empty_capacity_profile() -> dict[str, Any]:
+    return {'status': 'NOT_PERFORMED', 'assurance': 'FRESH_READ_ONLY_OBSERVATION_NOT_RECLAIMABLE',
+            'elapsed_ms': 0, 'command_budget_seconds': 5, 'profile_budget_seconds': 35,
+            'commands': {key: {'status': 'NOT_RUN', 'elapsed_ms': 0, 'count': None} for key in CAPACITY_QUERY_KEYS},
+            'disk_usage': {key: {'status': 'NOT_RUN', 'elapsed_ms': 0, 'bytes': None} for key in CAPACITY_DISK_PATHS}}
+
+
+def capacity_fixed_path_ready(path: str, *, directory: bool) -> bool:
+    """Fixed root-owned ancestors only; never follow a replacement symlink."""
+    try:
+        parts = PurePosixPath(path).parts
+        for index in range(1, len(parts) + 1):
+            info = os.stat(str(PurePosixPath(*parts[:index])), follow_symlinks=False)
+            last = index == len(parts)
+            if (info.st_uid != 0 or info.st_mode & 0o022 or
+                    not (stat.S_ISDIR(info.st_mode) if not last or directory else stat.S_ISREG(info.st_mode))):
+                return False
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def capacity_docker_ready() -> bool:
+    try:
+        info = os.stat('/run/docker.sock', follow_symlinks=False)
+        return (os.geteuid() == 0 and stat.S_ISSOCK(info.st_mode) and info.st_uid == 0
+                and not info.st_mode & 0o002 and capacity_fixed_path_ready('/usr/bin/docker', directory=False))
+    except OSError:
+        return False
+
+
+class CapacityProfileRunner:
+    """Fixed read-only argv; private bounded pipes and one nonrenewable deadline."""
+    def __init__(self, outer_deadline: float):
+        self.started = time.monotonic()
+        self.deadline = min(self.started + CAPACITY_PROFILE_SECONDS, outer_deadline)
+        self.total = 0
+        self.clean = True
+        self.exhausted = False
+
+    def execute(self, key: str, identities: list[str] | None = None) -> tuple[str, int, bytes | None]:
+        started = time.monotonic()
+        if not self.clean or self.exhausted or self.total >= CAPACITY_TOTAL_BYTES or self.deadline - started <= 0.25:
+            return 'NOT_RUN', 0, None
+        fixed = {'containers_list': ['ps', '-aq', '--no-trunc'],
+                 'volumes_list': ['volume', 'ls', '-q'], 'networks_list': ['network', 'ls', '-q', '--no-trunc'],
+                 'images_list': ['image', 'ls', '-aq', '--no-trunc']}
+        if key in fixed:
+            argv = ['/usr/bin/docker', '--host', 'unix:///run/docker.sock'] + fixed[key]
+        elif key in ('containers_inspect', 'images_inspect'):
+            pattern, maximum = (CONTAINER_ID, 128) if key == 'containers_inspect' else (IMAGE_ID, 512)
+            if (not isinstance(identities, list) or not 1 <= len(identities) <= maximum or
+                    any(not isinstance(value, str) or not pattern.fullmatch(value) for value in identities) or
+                    len(set(identities)) != len(identities)):
+                return 'NOT_RUN', 0, None
+            argv = ['/usr/bin/docker', '--host', 'unix:///run/docker.sock'] + (['inspect'] if key == 'containers_inspect' else ['image', 'inspect']) + sorted(identities)
+        elif key in CAPACITY_DISK_PATHS:
+            argv = ['/usr/bin/du', '--summarize', '--block-size=1', '--one-file-system', '--null', '--', CAPACITY_DISK_PATHS[key]]
+        else:
+            return 'NOT_RUN', 0, None
+        deadline = min(started + CAPACITY_COMMAND_SECONDS, self.deadline)
+        work_deadline = deadline - 0.25
+        proc, poller, stdout = None, selectors.DefaultSelector(), bytearray()
+        sizes, status, payload = {'out': 0, 'err': 0}, 'UNKNOWN', None
+        parent = os.getpid()
+        def child_limits():
+            import resource
+            resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+            if ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGKILL, 0, 0, 0) != 0 or os.getppid() != parent:
+                os._exit(125)
+        try:
+            proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                    env={'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LC_ALL': 'C'}, cwd='/',
+                                    close_fds=True, start_new_session=True, preexec_fn=child_limits)
+            for stream, name in ((proc.stdout, 'out'), (proc.stderr, 'err')):
+                os.set_blocking(stream.fileno(), False)
+                poller.register(stream, selectors.EVENT_READ, name)
+            while poller.get_map():
+                remaining = work_deadline - time.monotonic()
+                if remaining <= 0:
+                    status = 'TIMED_OUT'
+                    break
+                for item, _ in poller.select(min(remaining, 0.05)):
+                    try:
+                        chunk = os.read(item.fileobj.fileno(), 65536)
+                    except BlockingIOError:
+                        continue
+                    if not chunk:
+                        poller.unregister(item.fileobj)
+                        continue
+                    sizes[item.data] += len(chunk)
+                    self.total += len(chunk)
+                    if sizes[item.data] > CAPACITY_OUTPUT_BYTES or self.total > CAPACITY_TOTAL_BYTES:
+                        if self.total > CAPACITY_TOTAL_BYTES:
+                            self.exhausted = True
+                        status = 'OUTPUT_LIMIT'
+                        break
+                    if item.data == 'out':
+                        stdout.extend(chunk)
+                if status == 'OUTPUT_LIMIT':
+                    break
+            else:
+                code = proc.wait(timeout=max(0.001, work_deadline - time.monotonic()))
+                status = 'SUCCESS' if code == 0 else 'NONZERO'
+                payload = bytes(stdout) if status == 'SUCCESS' else None
+        except subprocess.TimeoutExpired:
+            status = 'TIMED_OUT'
+        except (OSError, ValueError, subprocess.SubprocessError):
+            status = 'UNKNOWN'
+        finally:
+            poller.close()
+            if proc is not None:
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                except OSError:
+                    self.clean = False
+                for stream in (proc.stdout, proc.stderr):
+                    if stream is not None:
+                        stream.close()
+                try:
+                    proc.wait(timeout=max(0.001, deadline - time.monotonic()))
+                    while True:
+                        try:
+                            os.killpg(proc.pid, 0)
+                        except ProcessLookupError:
+                            break
+                        if time.monotonic() >= deadline:
+                            self.clean = False
+                            break
+                        time.sleep(0.005)
+                except (OSError, subprocess.TimeoutExpired):
+                    self.clean = False
+        elapsed = max(0, int((time.monotonic() - started) * 1000))
+        if not self.clean or elapsed > CAPACITY_COMMAND_SECONDS * 1000:
+            return 'UNKNOWN', elapsed, None
+        return status, elapsed, payload
+
+
+def capacity_readonly_profile(outer_deadline: float) -> dict[str, Any]:
+    result = empty_capacity_profile()
+    if os.geteuid() != 0:
+        return result
+    runner = CapacityProfileRunner(outer_deadline)
+    ids: dict[str, list[str]] = {}
+    if capacity_docker_ready():
+        for key in CAPACITY_QUERY_KEYS:
+            source = 'containers_list' if key == 'containers_inspect' else 'images_list'
+            if key.endswith('_inspect') and not ids.get(source):
+                continue
+            status, elapsed, raw = runner.execute(key, ids.get(source))
+            count = None
+            if status == 'SUCCESS':
+                try:
+                    if key.endswith('_inspect'):
+                        def pairs(items):
+                            value = {}
+                            for name, item in items:
+                                if name in value:
+                                    raise ValueError('INVALID')
+                                value[name] = item
+                            return value
+                        value = json.loads(raw.decode('utf-8', errors='strict'), object_pairs_hook=pairs,
+                                           parse_constant=lambda _: (_ for _ in ()).throw(ValueError('INVALID')))
+                        expected = ids[source]
+                        if (not isinstance(value, list) or len(value) != len(expected) or
+                                any(not isinstance(row, dict) or not isinstance(row.get('Id'), str) for row in value) or
+                                {row['Id'] for row in value} != set(expected)):
+                            raise ValueError('INVALID')
+                        count = len(value)
+                    else:
+                        values = raw.decode('ascii', errors='strict').splitlines()
+                        maximum = {'containers_list': 128, 'volumes_list': 512, 'networks_list': 128, 'images_list': 512}[key]
+                        pattern = IMAGE_ID if key == 'images_list' else re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,254}\Z') if key == 'volumes_list' else CONTAINER_ID
+                        unique = sorted(set(values))
+                        if (len(values) > maximum * (128 if key == 'images_list' else 1) or len(unique) > maximum or
+                                any(not pattern.fullmatch(value) for value in values) or
+                                key != 'images_list' and len(values) != len(unique)):
+                            raise ValueError('INVALID')
+                        ids[key], count = unique, len(unique)
+                except (UnicodeError, ValueError, TypeError, RecursionError):
+                    status = 'INVALID'
+            result['commands'][key] = {'status': status, 'elapsed_ms': elapsed, 'count': count}
+    if capacity_fixed_path_ready('/usr/bin/du', directory=False):
+        for key, path in CAPACITY_DISK_PATHS.items():
+            if not capacity_fixed_path_ready(path, directory=True):
+                result['disk_usage'][key]['status'] = 'UNKNOWN'
+                continue
+            status, elapsed, raw = runner.execute(key)
+            size = None
+            if status == 'SUCCESS':
+                match = re.fullmatch(rb'([0-9]{1,19})\t' + re.escape(path.encode('ascii')) + b'\x00', raw)
+                if match is None or int(match[1]) >= 2**63:
+                    status = 'INVALID'
+                else:
+                    size = int(match[1])
+            result['disk_usage'][key] = {'status': status, 'elapsed_ms': elapsed, 'bytes': size}
+    result['elapsed_ms'] = max(0, int((time.monotonic() - runner.started) * 1000))
+    rows = [*result['commands'].values(), *result['disk_usage'].values()]
+    result['status'] = ('NOT_PERFORMED' if all(row['status'] == 'NOT_RUN' for row in rows) else
+                        'COMPLETE_READ_ONLY' if all(row['status'] == 'SUCCESS' for row in rows) and result['elapsed_ms'] <= 35000 else 'PARTIAL_READ_ONLY')
+    return result
+
+
+def validate_capacity_profile(value: Any) -> None:
+    template = empty_capacity_profile()
+    if (not isinstance(value, dict) or set(value) != set(template) or
+            value['assurance'] != template['assurance'] or value['command_budget_seconds'] != 5 or
+            type(value['command_budget_seconds']) is not int or value['profile_budget_seconds'] != 35 or
+            type(value['profile_budget_seconds']) is not int or type(value['elapsed_ms']) is not int or
+            not 0 <= value['elapsed_ms'] <= 180000 or value['status'] not in ('NOT_PERFORMED', 'COMPLETE_READ_ONLY', 'PARTIAL_READ_ONLY')):
+        raise ValueError('CAPACITY_PROFILE_SCHEMA')
+    rows = []
+    for section, keys, measure in [('commands', CAPACITY_QUERY_KEYS, 'count'), ('disk_usage', CAPACITY_DISK_PATHS, 'bytes')]:
+        if not isinstance(value[section], dict) or set(value[section]) != set(keys):
+            raise ValueError('CAPACITY_PROFILE_KEYS')
+        for key, row in value[section].items():
+            if (not isinstance(row, dict) or set(row) != {'status', 'elapsed_ms', measure} or
+                    not isinstance(row['status'], str) or row['status'] not in CAPACITY_STATUSES or type(row['elapsed_ms']) is not int or not 0 <= row['elapsed_ms'] <= 180000 or
+                    (row['status'] == 'SUCCESS' and (type(row[measure]) is not int or not 0 <= row[measure] < 2**63 or row['elapsed_ms'] > 5000)) or
+                    (row['status'] != 'SUCCESS' and row[measure] is not None) or
+                    (row['status'] == 'NOT_RUN' and row['elapsed_ms'] != 0)):
+                raise ValueError('CAPACITY_PROFILE_ROW')
+            if section == 'commands' and row['status'] == 'SUCCESS' and row['count'] > (512 if key in ('volumes_list', 'images_list', 'images_inspect') else 128):
+                raise ValueError('CAPACITY_PROFILE_COUNT')
+            rows.append(row)
+    for source, inspect in [('containers_list', 'containers_inspect'), ('images_list', 'images_inspect')]:
+        listed, inspected = value['commands'][source], value['commands'][inspect]
+        if inspected['status'] == 'SUCCESS' and (listed['status'] != 'SUCCESS' or not listed['count'] or inspected['count'] != listed['count']):
+            raise ValueError('CAPACITY_PROFILE_DEPENDENCY')
+    if sum(row['elapsed_ms'] for row in rows) > value['elapsed_ms']:
+        raise ValueError('CAPACITY_PROFILE_TIMING')
+    expected = ('NOT_PERFORMED' if all(row['status'] == 'NOT_RUN' for row in rows) else
+                'COMPLETE_READ_ONLY' if all(row['status'] == 'SUCCESS' for row in rows) and value['elapsed_ms'] <= 35000 else 'PARTIAL_READ_ONLY')
+    if value['status'] != expected:
+        raise ValueError('CAPACITY_PROFILE_CONTRADICTION')
+
+
 def collect(target: str) -> dict[str, Any]:
     if not SHA.fullmatch(target):
         raise ValueError('INVALID_TARGET_SHA')
+    collection_deadline = time.monotonic() + 180
     wr = containers('web')
     web = wr[0] if wr else {}
     project = ((web.get('Config') or {}).get('Labels') or {}).get('com.docker.compose.project')
@@ -1173,6 +1637,7 @@ def collect(target: str) -> dict[str, Any]:
         pass
     backup = backups(Path('/var/lib/pc-release-authority/backups'))
     filesystem_observation = filesystem_capacity()
+    capacity_profile = capacity_readonly_profile(collection_deadline)
     after_web = containers('web')
     after_api = containers('api', project) if isinstance(project, str) and project else []
     stable = (runtime_identity(web) is not None and runtime_identity(api) is not None
@@ -1181,7 +1646,7 @@ def collect(target: str) -> dict[str, Any]:
               and runtime_identity(api) == runtime_identity(after_api[0]))
     checks['runtime_configuration_stability'] = 'UNCHANGED' if stable else 'NOT_PROVEN'
     checks['caddy_configuration_stability'] = ('UNCHANGED' if caddy_before is not None and caddy_before == caddy_config() else 'NOT_PROVEN')
-    result = {'schema': 'pc-crop.market-release-preflight.v3', 'target_sha': target,
+    result = {'schema': 'pc-crop.market-release-preflight.v4', 'target_sha': target,
             'observed_at_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
             'running_web_revision': revision(web), 'running_api_revision': revision(api),
             'checks': checks, 'migration_inventory': db, 'capacity': capacity,
@@ -1192,6 +1657,7 @@ def collect(target: str) -> dict[str, Any]:
     result['registration_binding'] = registration_preconditions(api, checks, result['outbox_topology'])
     result['api_publication_config'] = api_publication_config(api, checks, result['outbox_topology'])
     result['filesystem_capacity'] = filesystem_observation
+    result['capacity_diagnostics'] = capacity_profile
     return result
 
 
@@ -1466,7 +1932,7 @@ def main() -> None:
         print(encoded)
     except Exception:
         # Never serialize raw exception messages or command/environment contents.
-        print('{"schema":"pc-crop.market-release-preflight.v3","collection":"NOT_PROVEN","production_mutation":"NONE","deployment_authorized":false}')
+        print('{"schema":"pc-crop.market-release-preflight.v4","collection":"NOT_PROVEN","production_mutation":"NONE","deployment_authorized":false}')
         raise SystemExit(1)
 
 
