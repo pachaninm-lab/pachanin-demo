@@ -709,8 +709,9 @@ const gektaRecoveryScopes = {
 let scopes;
 if (branch === 'fix/pc-crop-docker-headroom-rollover-4637' &&
     execFileSync('git', ['show', `${baseRef}:docs/platform-v7/execution-queue.md`],
-      { encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 + 1 }).includes('\n## PC-CROP live Docker headroom safety correction — 2026-10-30\n\n```json\n')) {
+      { encoding: 'utf8', maxBuffer: 3 * 1024 * 1024 + 1 }).includes('\n## PC-CROP live Docker headroom workflow template correction v2 — 2026-10-30\n\n```json\n')) {
   // Only separately accepted immutable base metadata may select this phase.
+  // V2 explicitly replaces the accepted V1 guard phase for its unaccepted template-invalid SOURCE.
   // The retained 20261011 phase below is unchanged when this marker is absent.
   const { isDeepStrictEqual } = require('node:util');
   const { createHash } = require('node:crypto');
@@ -721,7 +722,7 @@ if (branch === 'fix/pc-crop-docker-headroom-rollover-4637' &&
   const headRef = String(process.env.HEAD_REF || '').trim();
   if (!headRef || git(['merge-base', baseRef, headRef]).trim() !== baseSha) fail('BASE_NOT_ANCESTOR');
   const queuePath = 'docs/platform-v7/execution-queue.md';
-  const marker = '\n## PC-CROP live Docker headroom safety correction — 2026-10-30\n\n```json\n';
+  const marker = '\n## PC-CROP live Docker headroom workflow template correction v2 — 2026-10-30\n\n```json\n';
   const parts = read(baseRef, queuePath).split(marker);
   if (parts.length !== 2) fail('PURPOSE_NOT_UNIQUE');
   const end = parts[1].indexOf('\n```\n');
@@ -731,13 +732,13 @@ if (branch === 'fix/pc-crop-docker-headroom-rollover-4637' &&
   const sourceBranch = 'fix/pc-crop-docker-headroom-rollover-4637';
   const originalScope = ['scripts/production-docker-headroom-recovery.sh', '.github/workflows/production-docker-headroom-recovery.yml',
     'docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json'];
-  const payloads = [{"path":"scripts/production-docker-headroom-recovery.sh","mode":"100755","beforeBlob":"6bcee2671c9cd5a100d956c30734bc1bf42768af","afterBlob":"d9539026cc0f4ade08a7adcdd086eced7085c1f2","sha256":"d1c94dc50d66e79923425f9b078793c1b39540cb87e10095800fdc2fd1449618","bytes":27830},{"path":".github/workflows/production-docker-headroom-recovery.yml","mode":"100644","beforeBlob":"aa78eee35b3c6145cb4d875925036d8da9ebe449","afterBlob":"08bc709852591f909ea2b2183e9e3aa948f4ce91","sha256":"dd7f6826991c9d230f8a09d75e87ec20f4deded16032f5c1f659b00beca47fec","bytes":89031}];
+  const payloads = [{"path":"scripts/production-docker-headroom-recovery.sh","mode":"100755","beforeBlob":"6bcee2671c9cd5a100d956c30734bc1bf42768af","afterBlob":"d9539026cc0f4ade08a7adcdd086eced7085c1f2","sha256":"d1c94dc50d66e79923425f9b078793c1b39540cb87e10095800fdc2fd1449618","bytes":27830},{"path":".github/workflows/production-docker-headroom-recovery.yml","mode":"100644","beforeBlob":"aa78eee35b3c6145cb4d875925036d8da9ebe449","afterBlob":"28570c7d131370551cf6f90bd11be21ba1eadc46","sha256":"96c5b3552df099de2cff098f48b22450fdcc4baead25c1f18720958ad7ab2afb","bytes":90351}];
   const expectedFields = ['schemaVersion', 'purposeId', 'owner', 'sourceBranch', 'guardBranch', 'authorityBaseExactMain',
     'sourcePayloads', 'guardPayloads', 'originalScope', 'sourcePatch', 'guardPatch', 'independentSourceReview',
     'independentGuardReview', 'invariants', 'productionInvocationAuthorized', 'productionAcceptance', 'masterCredit'];
   if (!purpose || Array.isArray(purpose) || !isDeepStrictEqual(Object.keys(purpose).sort(), expectedFields.sort()) ||
       purpose.schemaVersion !== 'pc.live-headroom-safety-admission.v1' ||
-      purpose.purposeId !== 'pc-crop-live-headroom-safety-20261030' || purpose.owner !== 'ACCOUNT_1_CORE' ||
+      purpose.purposeId !== 'pc-crop-live-headroom-template-safety-20261030-v2' || purpose.owner !== 'ACCOUNT_1_CORE' ||
       purpose.sourceBranch !== sourceBranch || purpose.guardBranch !== 'governance/industrial-load-diagnostics-20260919' ||
       purpose.authorityBaseExactMain !== '30f0835122ea626d186a08f56cc3b82965d92bf3' ||
       purpose.productionInvocationAuthorized !== false || purpose.productionAcceptance !== false || purpose.masterCredit !== 0 ||
