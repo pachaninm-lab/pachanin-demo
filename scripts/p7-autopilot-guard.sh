@@ -975,8 +975,60 @@ if (branch === 'fix/pc-crop-docker-headroom-rollover-4637') {
     const errorsPurpose = accepted.coordinationAdmissions?.['stopped-inspection-errors-20261023'];
     const composePurpose = accepted.coordinationAdmissions?.['stopped-compose-label-errors-20261023'];
     const referencePurpose = accepted.coordinationAdmissions?.['stopped-compose-reference-budget-20261023'];
+    const geometryPurpose = accepted.coordinationAdmissions?.['root-filesystem-geometry-20261031'];
     // New phases consume accepted-base authority; absence retains the historical route.
     // Candidate metadata cannot enable either pinned transition.
+    // ROOT_GEOMETRY_EXACT_SOURCE_BEGIN: separate accepted-base purpose, no host grant.
+    if (geometryPurpose !== undefined) {
+      const fail = reason => { throw new Error('ROOT_GEOMETRY_SCOPE_' + reason); };
+      const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 }).trim();
+      const headRef = String(process.env.HEAD_REF || '').trim();
+      const origin = '5b1a9143e8cc5ee69705f222bde457bf6731d595';
+      const workflow = '.github/workflows/production-docker-headroom-diagnostic.yml';
+      const testPath = 'scripts/test_production_stopped_runtime_headroom.py';
+      const queuePath = 'docs/platform-v7/execution-queue.md';
+      const beforeBlob = '03dbdc1d5e9a97687ddd7713e896fb3094f0f8a0';
+      const afterBlob = 'cb71a92fed47bed533147891ca453a432ea29945';
+      const expectedPurpose = {"owner":"OWNER_AUTHORIZED_SESSION","ownerBasis":"Accepted gekta-recovery-implementation-20260927 bounded REG.RU recovery plus current owner restore/agents continuation; no exact-source approval or API/product ownership transfer asserted.","ownerDecision":"https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6537351880","independentReviewStatus":"PRIVATE_WHOLE_SOURCE_CLEAN","independentReviewSha256":"4d339d0f6b0e5653e1a733ec054b58723d9a666dcb0e51591f7d11b6f478dabc","admissionState":"STAGED_NEEDS_ACCEPTED_LITERAL_GUARD","authorityBaseExactMain":"5b1a9143e8cc5ee69705f222bde457bf6731d595","sourceBranch":"fix/gekta-docker-diagnostic-route-20260927","guardBranch":"governance/gekta-recovery-trusted-routes-20260927","command":"/production inspect-root-filesystem current-main","sourcePayload":{"path":".github/workflows/production-docker-headroom-diagnostic.yml","mode":"100644","beforeBlob":"03dbdc1d5e9a97687ddd7713e896fb3094f0f8a0","beforeBytes":191427,"beforeSha256":"09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a","afterBlob":"cb71a92fed47bed533147891ca453a432ea29945","bytes":254318,"sha256":"3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e"},"collectorSha256":"4078001f9e60b6a1ff28090f90f71cf3ade4157df85efcb8b16eec15feb15c88","retainedHelper":{"path":"scripts/test_production_stopped_runtime_headroom.py","blob":"bc2c092cea71aaca1c94121b02d1bd87cf83df5f"},"guardStagePaths":["scripts/p7-autopilot-guard.sh","docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs"],"authorityGranted":"PURPOSE_AND_PINS_ONLY","sourcePublicationAuthorized":false,"guardPublicationAuthorized":false,"productionInvocationAuthorized":false,"releaseAuthorized":false,"filesystemGrowthAuthorized":false,"productionAcceptance":false,"limits":"One append-only existing-workflow read-only root/mount/block metadata observer. No Docker/DB or persistent file contents; no resize/grow/write/restore/restart/release/provider/cost grant. Preserve legacy prefix, helpers, old purposes, primary scopes/current/next/score. Separate accepted guard/source and finite host window remain necessary."};
+      if (!isDeepStrictEqual(geometryPurpose, expectedPurpose) ||
+          !isDeepStrictEqual(accepted.approvedConcurrentScopes?.[branch], [workflow, testPath])) fail('ACCEPTED_PURPOSE');
+      try {
+        if (!headRef || git(['merge-base', baseRef, headRef]) !== git(['rev-parse', `${baseRef}^{commit}`]) ||
+            git(['merge-base', origin, baseRef]) !== origin) fail('ANCESTRY');
+      } catch { fail('ANCESTRY'); }
+      const original = JSON.parse(readImmutableState(origin));
+      for (const [key, value] of Object.entries(original)) {
+        if (key !== 'coordinationAdmissions' && !isDeepStrictEqual(accepted[key], value)) fail('PRIOR_STATE');
+      }
+      for (const [key, value] of Object.entries(original.coordinationAdmissions || {})) {
+        if (!isDeepStrictEqual(accepted.coordinationAdmissions?.[key], value)) fail('PRIOR_PURPOSE');
+      }
+      const exactEntry = (ref, file, blob) => {
+        if (git(['ls-tree', ref, '--', file]) !== `100644 blob ${blob}\t${file}`) fail('BLOB_OR_MODE');
+      };
+      for (const ref of [baseRef, headRef]) {
+        if (!git(['ls-tree', ref, '--', stateFile]).startsWith('100644 blob ')) fail('STATE_MODE');
+        exactEntry(ref, testPath, 'bc2c092cea71aaca1c94121b02d1bd87cf83df5f');
+      }
+      if (readImmutableState(headRef) !== acceptedText) fail('STATE_MUTATION');
+      const queueEntry = git(['ls-tree', baseRef, '--', queuePath]);
+      if (!queueEntry.startsWith('100644 blob ') || git(['ls-tree', headRef, '--', queuePath]) !== queueEntry) fail('QUEUE_MUTATION');
+      const originalQueue = execFileSync('git', ['show', `${origin}:${queuePath}`], { maxBuffer: 4 * 1024 * 1024 });
+      const acceptedQueue = execFileSync('git', ['show', `${baseRef}:${queuePath}`], { maxBuffer: 4 * 1024 * 1024 });
+      if (!acceptedQueue.subarray(0, originalQueue.length).equals(originalQueue)) fail('PRIOR_QUEUE');
+      const changes = execFileSync('git', ['diff', '--raw', '--no-abbrev', '--no-renames', '-z', baseRef, headRef], { encoding: 'utf8' });
+      if (changes !== `:100644 100644 ${beforeBlob} ${afterBlob} M\0${workflow}\0`) fail('EXACT_WORKFLOW');
+      exactEntry(baseRef, workflow, beforeBlob); exactEntry(headRef, workflow, afterBlob);
+      const before = execFileSync('git', ['show', `${baseRef}:${workflow}`]);
+      const after = execFileSync('git', ['show', `${headRef}:${workflow}`]);
+      if (before.length !== 191427 || createHash('sha256').update(before).digest('hex') !==
+          '09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a' ||
+          after.length !== 254318 || createHash('sha256').update(after).digest('hex') !==
+          '3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e' ||
+          !after.subarray(0, before.length).equals(before)) fail('SOURCE_CONTENT');
+      scopes = [workflow];
+    // ROOT_GEOMETRY_EXACT_SOURCE_END
+    } else
     if (referencePurpose !== undefined || composePurpose !== undefined || errorsPurpose !== undefined) {
       const fail = reason => { throw new Error('STOPPED_INSPECTION_ERRORS_SCOPE_' + reason); };
       const git = args => execFileSync('git', args, { encoding: 'utf8' }).trim();
