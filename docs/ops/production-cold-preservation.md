@@ -208,3 +208,28 @@ Its UNKNOWN record remains. Source acceptance does not reconcile current journal
 or object ownership: require a fresh bounded read-only reconciliation and a new
 finite operational disposition before any bootstrap invocation. No restoration,
 registration, release or MASTER progress is established by this dependency fix.
+
+
+## Accepted Oct29 web transition in the bootstrap profile
+
+The historical helper and standalone inspector remain byte-exact. Bootstrap
+loads a separately named helper module with only the exact approved web-pair
+transition: e643540a/4a9a5687 to b97bfde4/74d23045. The raw helper digest fixes
+all eleven historical pairs; the ten other pairs cannot change. The current
+pair is pinned from diagnostic41183993309, not derived from future observations.
+The inspector and Source use the same explicit eleven-pair profile. The web
+image/revision is 74d23045 / 3de749725b270a810f463bef34e6120f22fb7ce7;
+API stays 4d7ca23e / a6784252a57a8a5e14f231bc18a64d67ab0fd274.
+
+OWNER command6500972034 and successful exact-web release40902238969 establish
+the accepted Oct29 image/revision; its artifact does not contain a container-ID
+receipt. Current CID attribution is a pinned fresh observation, corroborated by
+saved startup time, not a claim of cryptographic historical CID provenance.
+All command, loader, health, mount, copy, configuration, process/containerd,
+prewrite and exclusive-journal checks still apply. Saved Kafka Running=true
+is not proof of a live task; actual containerd emptiness remains mandatory.
+No startup, retry, archive reset or production acceptance follows from source
+acceptance. A fresh read-only observation and finite operational disposition
+remain required. A historical-profile standalone inspection may still refuse
+the newer web pair; bootstrap's complete inline inspection uses this separately
+reviewed current profile before its first durable write.
