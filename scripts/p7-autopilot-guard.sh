@@ -976,8 +976,69 @@ if (branch === 'fix/pc-crop-docker-headroom-rollover-4637') {
     const composePurpose = accepted.coordinationAdmissions?.['stopped-compose-label-errors-20261023'];
     const referencePurpose = accepted.coordinationAdmissions?.['stopped-compose-reference-budget-20261023'];
     const geometryPurpose = accepted.coordinationAdmissions?.['root-filesystem-geometry-20261031'];
+    const growthPurpose = accepted.coordinationAdmissions?.['root-filesystem-growth-20261031'];
     // New phases consume accepted-base authority; absence retains the historical route.
     // Candidate metadata cannot enable either pinned transition.
+    // ROOT_GROWTH_EXACT_SOURCE_BEGIN: source admission only; no host write grant.
+    if (growthPurpose !== undefined) {
+      const fail = reason => { throw new Error('ROOT_GROWTH_SCOPE_' + reason); };
+      const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 }).trim();
+      const headRef = String(process.env.HEAD_REF || '').trim();
+      const origin = '58bbc762c0e781ac4df33a8004d4221e1f91f7e5';
+      const workflow = '.github/workflows/production-docker-headroom-diagnostic.yml';
+      const helper = 'scripts/test_production_stopped_runtime_headroom.py';
+      const queuePath = 'docs/platform-v7/execution-queue.md';
+      const beforeBlob = 'cb71a92fed47bed533147891ca453a432ea29945';
+      const afterBlob = "b023200b68d283d9ae2ef81b84e7773e4b135bbf";
+      const afterBytes = 366370;
+      const afterSha256 = "abe917df723d98b9428bb59c4e74a4a739090d9a6f41075495fd66b2ee6bcdd2";
+      const acceptedStateBlob = "951af50504d6797196ae4a13830b0ef9cd939b10";
+      const acceptedQueueBlob = "d6348eb454beaa602485d000cc61b7dd2665d554";
+      const expectedPurpose = {"owner":"OWNER_AUTHORIZED_SESSION","ownerDecision":"https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6538563345","authorityBaseExactMain":"58bbc762c0e781ac4df33a8004d4221e1f91f7e5","sourceBranch":"fix/gekta-docker-diagnostic-route-20260927","beforeBlob":"cb71a92fed47bed533147891ca453a432ea29945","afterBlob":"b023200b68d283d9ae2ef81b84e7773e4b135bbf","bytes":366370,"sha256":"abe917df723d98b9428bb59c4e74a4a739090d9a6f41075495fd66b2ee6bcdd2","reviewSha256":"315456f93bf83a92a714902525bc07a694269fa0875e46c7fa5de2df4b92ab2e","sourceOnly":true,"filesystemWriteAuthorized":false,"productionAcceptance":false,"limits":"One frozen existing-workflow PLAN and separate APPLY source only. Bounded raw table metadata export disclosed; actual write needs fresh plan/backup/unused intent/finite OWNER lock. No move/shrink/format/restore/startup."};
+      if (!/^[a-f0-9]{40}$/u.test(afterBlob) || !/^[a-f0-9]{64}$/u.test(afterSha256) ||
+          !Number.isSafeInteger(afterBytes) || afterBytes <= 254318 ||
+          !/^[a-f0-9]{40}$/u.test(acceptedStateBlob) || !/^[a-f0-9]{40}$/u.test(acceptedQueueBlob) ||
+          !/^https:\/\/github\.com\/pachaninm-lab\/pachanin-demo\/issues\/5469#issuecomment-[0-9]+$/u.test(expectedPurpose.ownerDecision) ||
+          !/^[a-f0-9]{64}$/u.test(expectedPurpose.reviewSha256)) fail('UNFROZEN_ADMISSION');
+      if (!isDeepStrictEqual(growthPurpose, expectedPurpose) ||
+          !isDeepStrictEqual(accepted.approvedConcurrentScopes?.[branch], [workflow, helper])) fail('ACCEPTED_PURPOSE');
+      try {
+        if (!headRef || git(['merge-base', baseRef, headRef]) !== git(['rev-parse', `${baseRef}^{commit}`]) ||
+            git(['merge-base', origin, baseRef]) !== origin) fail('ANCESTRY');
+      } catch { fail('ANCESTRY'); }
+      const original = JSON.parse(readImmutableState(origin));
+      for (const [key, value] of Object.entries(original)) {
+        if (key !== 'coordinationAdmissions' && !isDeepStrictEqual(accepted[key], value)) fail('PRIOR_STATE');
+      }
+      for (const [key, value] of Object.entries(original.coordinationAdmissions || {})) {
+        if (!isDeepStrictEqual(accepted.coordinationAdmissions?.[key], value)) fail('PRIOR_PURPOSE');
+      }
+      const exactEntry = (ref, file, blob) => {
+        if (git(['ls-tree', ref, '--', file]) !== `100644 blob ${blob}\t${file}`) fail('BLOB_OR_MODE');
+      };
+      for (const ref of [baseRef, headRef]) {
+        exactEntry(ref, stateFile, acceptedStateBlob);
+        exactEntry(ref, queuePath, acceptedQueueBlob);
+        exactEntry(ref, helper, 'bc2c092cea71aaca1c94121b02d1bd87cf83df5f');
+      }
+      if (readImmutableState(headRef) !== acceptedText) fail('STATE_MUTATION');
+      const originalQueue = execFileSync('git', ['show', `${origin}:${queuePath}`], { maxBuffer: 4 * 1024 * 1024 });
+      const acceptedQueue = execFileSync('git', ['show', `${baseRef}:${queuePath}`], { maxBuffer: 4 * 1024 * 1024 });
+      if (!acceptedQueue.subarray(0, originalQueue.length).equals(originalQueue)) fail('PRIOR_QUEUE');
+      const changes = execFileSync('git', ['diff', '--raw', '--no-abbrev', '--no-renames', '-z', baseRef, headRef],
+        { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+      if (changes !== `:100644 100644 ${beforeBlob} ${afterBlob} M\0${workflow}\0`) fail('EXACT_WORKFLOW');
+      exactEntry(baseRef, workflow, beforeBlob);
+      exactEntry(headRef, workflow, afterBlob);
+      const before = execFileSync('git', ['show', `${baseRef}:${workflow}`], { maxBuffer: 1024 * 1024 });
+      const after = execFileSync('git', ['show', `${headRef}:${workflow}`], { maxBuffer: 1024 * 1024 });
+      if (before.length !== 254318 || createHash('sha256').update(before).digest('hex') !==
+          '3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e' ||
+          after.length !== afterBytes || createHash('sha256').update(after).digest('hex') !== afterSha256 ||
+          !after.subarray(0, before.length).equals(before)) fail('SOURCE_CONTENT');
+      scopes = [workflow];
+    // ROOT_GROWTH_EXACT_SOURCE_END
+    } else
     // ROOT_GEOMETRY_EXACT_SOURCE_BEGIN: separate accepted-base purpose, no host grant.
     if (geometryPurpose !== undefined) {
       const fail = reason => { throw new Error('ROOT_GEOMETRY_SCOPE_' + reason); };
