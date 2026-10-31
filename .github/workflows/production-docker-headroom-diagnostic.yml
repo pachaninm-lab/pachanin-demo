@@ -4479,3 +4479,1717 @@ jobs:
         run: |
           rm -rf "$RUNNER_TEMP/root-geometry-private"
           rm -f "$RUNNER_TEMP/root-geometry.py" "$RUNNER_TEMP/root-geometry-candidate.json"
+
+  growth-contract:
+    name: Validate root growth protocol without host access
+    if: github.event_name == 'pull_request' || (github.event_name == 'issue_comment' && github.event.issue.number == 4637 && github.event.comment.user.login == github.repository_owner && github.event.comment.author_association == 'OWNER' && ((github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) || github.event.comment.performed_via_github_app.id == 1144995) && (github.event.comment.body == '/production plan-root-filesystem-growth current-main' || startsWith(github.event.comment.body, '/production apply-root-filesystem-growth plan-')))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    env:
+      GROWTH_SOURCE_SHA256: e27aec7abf99c3795a8a75a306d951724b58d2241aa58f6ca03b519c906ec924
+      GROWTH_CONTROLLER_SHA256: 4de6cab1ba7e319c606dfa2bd74e69cc2237f5ac35819be9761888ad0611e617
+      GITHUB_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+    outputs:
+      operation: ${{ steps.route.outputs.operation }}
+      target_sha: ${{ steps.route.outputs.target_sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Materialize growth host chunk 0
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat > "$RUNNER_TEMP/root-growth-host.py" <<'PY_ROOT_GROWTH_HOST_0'
+          """Root growth protocol. Production entrypoints are selected by exact owner routes."""
+          import base64
+          import binascii
+          import ctypes
+          import datetime as dt
+          import fcntl
+          import hashlib
+          import json
+          import math
+          import os
+          from pathlib import Path
+          import platform
+          import re
+          import selectors
+          import shutil
+          import signal
+          import stat
+          import struct
+          import subprocess
+          import sys
+          import tempfile
+          import time
+          import uuid
+
+          SCHEMA = 'root-filesystem-growth-v1'
+          PURPOSE = 'root-filesystem-growth-20261031'
+          LIMIT = (1 << 63) - 1
+          WIRE_CAP = 196608
+          RAW_CAP = 65536
+          COMMAND_CAP = 131072
+          LINUX_FS = uuid.UUID('0fc63daf-8483-4772-8e79-3d69d8477de4').bytes_le
+
+
+          class Stop(Exception):
+              pass
+
+
+          def require(value, reason):
+              if not value:
+                  raise Stop(reason)
+
+
+          def integer(value, low=0, high=LIMIT):
+              require(type(value) is int and low <= value <= high, 'INTEGER')
+              return value
+
+
+          def canonical(value):
+              return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=True, allow_nan=False).encode()
+
+
+          def digest(value):
+              return hashlib.sha256(value).hexdigest()
+
+
+          def no_dupes(pairs):
+              result = {}
+              for key, value in pairs:
+                  require(key not in result, 'DUPLICATE_KEY')
+                  result[key] = value
+              return result
+
+
+          def decode(raw, cap=WIRE_CAP):
+              require(type(raw) is bytes and len(raw) <= cap, 'INPUT_CAP')
+              return json.loads(raw, object_pairs_hook=no_dupes)
+
+
+          def fresh(stamp, seconds=900, now=None):
+              require(type(stamp) is str and len(stamp) <= 40, 'TIME')
+              value = dt.datetime.fromisoformat(stamp.replace('Z', '+00:00'))
+              require(value.tzinfo is not None and value.utcoffset() == dt.timedelta(0), 'TIME')
+              age = ((now or dt.datetime.now(dt.timezone.utc)) - value).total_seconds()
+              require(0 <= age <= seconds, 'STALE')
+
+
+          def utc():
+              return dt.datetime.now(dt.timezone.utc).isoformat()
+
+
+          def ext4(raw):
+              require(len(raw) == 1024 and struct.unpack_from('<H', raw, 56)[0] == 0xef53, 'EXT4_MAGIC')
+              log = struct.unpack_from('<I', raw, 24)[0]
+              require(log <= 2, 'EXT4_BLOCK_SIZE')
+              block = 1024 << log
+              incompat = struct.unpack_from('<I', raw, 96)[0]
+              rocompat = struct.unpack_from('<I', raw, 100)[0]
+              # No bigalloc, encryption, verity or unsupported block-size/feature conversion.
+              require(not rocompat & (0x200 | 0x8000) and not incompat & (0x10000 | 0x20000), 'EXT4_FEATURE')
+              blocks = struct.unpack_from('<I', raw, 4)[0]
+              if incompat & 0x80:
+                  blocks |= struct.unpack_from('<I', raw, 336)[0] << 32
+              integer(blocks, 1)
+              return {'block_bytes': block, 'blocks': blocks, 'uuid_hash': digest(raw[104:120]),
+                      'compat': struct.unpack_from('<I', raw, 92)[0], 'incompat': incompat, 'rocompat': rocompat}
+
+
+          def parse_table(read, disk_bytes, sector):
+              """Read only validated GPT headers/arrays or the DOS logical table sector."""
+              integer(disk_bytes, 1)
+              require(sector in (512, 4096) and disk_bytes % sector == 0, 'SECTOR')
+              total = disk_bytes // sector
+              captured = {}
+              def take(offset, length):
+                  integer(offset); integer(length, 1, RAW_CAP)
+                  require(offset + length <= disk_bytes and sum(map(len, captured.values())) + length <= RAW_CAP, 'METADATA_RANGE')
+                  raw = read(offset, length)
+                  require(type(raw) is bytes and len(raw) == length, 'SHORT_READ')
+                  captured[offset] = raw
+                  return raw
+              mbr = take(0, sector)
+              require(mbr[510:512] == b'\x55\xaa', 'MBR_SIGNATURE')
+              slots = [mbr[446+i*16:462+i*16] for i in range(4)]
+              used = [(i+1, item) for i, item in enumerate(slots) if item[4] != 0]
+              gpt = any(item[4] == 0xee for _, item in used)
+              if not gpt:
+                  entries = []
+                  for index, raw in used:
+                      require(raw[4] not in (5, 15, 0x85), 'EXTENDED_DOS_UNSUPPORTED')
+                      start, length = struct.unpack_from('<II', raw, 8)
+                      require(length > 0, 'PARTITION_SIZE')
+                      entries.append({'number': index, 'start': start, 'size': length, 'type': raw[4],
+                                      'identity': digest(raw[:12]), 'bootable': raw[0]})
+                  table = {'label': 'dos', 'sector_bytes': sector, 'disk_bytes': disk_bytes,
+                           'disk_id_hash': digest(mbr[440:444]), 'boot_hash': digest(mbr[:440]),
+                           'first_usable': 1, 'last_usable': total-1, 'entries': entries}
+              else:
+                  require(len(used) == 1 and used[0][1][4] == 0xee, 'HYBRID_GPT')
+                  require(struct.unpack_from('<I', used[0][1], 8)[0] == 1, 'PROTECTIVE_MBR')
+                  def header(raw, expected):
+                      require(raw[:8] == b'EFI PART', 'GPT_SIGNATURE')
+                      size = struct.unpack_from('<I', raw, 12)[0]
+                      require(92 <= size <= sector and struct.unpack_from('<I', raw, 8)[0] == 0x10000, 'GPT_HEADER')
+                      copy = bytearray(raw[:size]); wanted = struct.unpack_from('<I', copy, 16)[0]
+                      copy[16:20] = b'\0'*4
+                      require(binascii.crc32(copy) & 0xffffffff == wanted, 'GPT_HEADER_CRC')
+                      current, other, first, last = struct.unpack_from('<QQQQ', raw, 24)
+                      array, count, stride, crc = struct.unpack_from('<QIII', raw, 72)
+                      require(current == expected and 0 < other < total and first <= last < total, 'GPT_HEADER_RANGE')
+                      require(count == 128 and stride == 128, 'GPT_ARRAY_PROFILE')
+                      return {'current': current, 'other': other, 'first': first, 'last': last,
+                              'array': array, 'count': count, 'stride': stride, 'crc': crc, 'guid': raw[56:72]}
+                  primary = header(take(sector, sector), 1)
+                  array_sectors = math.ceil(primary['count']*primary['stride']/sector)
+                  require(primary['array'] == 2 and primary['first'] >= 2+array_sectors, 'GPT_PRIMARY_LAYOUT')
+                  require(primary['other'] > primary['last'] + array_sectors and primary['other'] < total, 'GPT_BACKUP_LAYOUT')
+                  main_array = take(primary['array']*sector, array_sectors*sector)
+                  require(binascii.crc32(main_array[:16384]) & 0xffffffff == primary['crc'], 'GPT_ARRAY_CRC')
+                  entries = []
+                  for index in range(128):
+                      raw = main_array[index*128:(index+1)*128]
+                      if raw[:16] == b'\0'*16:
+                          require(raw == b'\0'*128, 'GPT_UNUSED_ENTRY')
+                          continue
+                      start, end, attrs = struct.unpack_from('<QQQ', raw, 32)
+                      require(primary['first'] <= start <= end <= primary['last'], 'GPT_ENTRY_RANGE')
+                      entries.append({'number': index+1, 'start': start, 'size': end-start+1,
+                                      'type': raw[:16].hex(), 'identity': digest(raw[:32]+raw[48:]),
+                                      'attributes': attrs})
+                  # Before any backup read, prove its exact header/array ranges are outside all data entries.
+                  backup_start = primary['other']-array_sectors
+                  require(all(e['start']+e['size'] <= backup_start for e in entries), 'GPT_BACKUP_OVERLAP')
+                  backup = header(take(primary['other']*sector, sector), primary['other'])
+                  require(backup['other'] == 1 and backup['array'] == backup_start, 'GPT_BACKUP_POINTER')
+                  require(all(backup[k] == primary[k] for k in ('first','last','count','stride','crc','guid')), 'GPT_BACKUP_IDENTITY')
+                  backup_array = take(backup_start*sector, array_sectors*sector)
+                  require(backup_array[:16384] == main_array[:16384], 'GPT_BACKUP_ARRAY')
+                  table = {'label': 'gpt', 'sector_bytes': sector, 'disk_bytes': disk_bytes,
+                           'disk_id_hash': digest(primary['guid']), 'boot_hash': digest(mbr[:440]),
+                           'first_usable': primary['first'], 'last_usable': primary['last'],
+                           'backup_lba': primary['other'], 'array_sectors': array_sectors, 'entries': entries}
+              ordered = sorted(table['entries'], key=lambda e:e['start'])
+              require(0 < len(ordered) <= 128, 'PARTITION_COUNT')
+              end = 1
+              for entry in ordered:
+                  require(entry['start'] >= end and entry['start']+entry['size'] <= total, 'PARTITION_OVERLAP')
+                  end = entry['start']+entry['size']
+              segments = [{'offset':off, 'length':len(raw), 'sha256':digest(raw),
+                           'base64':base64.b64encode(raw).decode()} for off,raw in sorted(captured.items())]
+              return table, {'schema': SCHEMA+'-table-backup', 'sector_bytes':sector,
+                             'disk_bytes':disk_bytes, 'table_digest':digest(canonical(table)), 'segments':segments}
+
+
+          def validate_backup(backup):
+              require(type(backup) is dict and set(backup) == {'schema','sector_bytes','disk_bytes','table_digest','segments'}, 'BACKUP_SCHEMA')
+              require(backup['schema'] == SCHEMA+'-table-backup', 'BACKUP_SCHEMA')
+              segments = backup['segments']; require(type(segments) is list and 1 <= len(segments) <= 5, 'BACKUP_SEGMENTS')
+              data = {}; end = 0
+              for item in segments:
+                  require(type(item) is dict and set(item) == {'offset','length','sha256','base64'}, 'BACKUP_SEGMENT_SCHEMA')
+                  off = integer(item['offset']); length = integer(item['length'],1,RAW_CAP)
+                  require(off >= end and off+length <= backup['disk_bytes'], 'BACKUP_SEGMENT_RANGE')
+                  raw = base64.b64decode(item['base64'], validate=True)
+                  require(len(raw) == length and digest(raw) == item['sha256'], 'BACKUP_SEGMENT_DIGEST')
+                  data[off] = raw; end = off+length
+              require(sum(map(len,data.values())) <= RAW_CAP, 'BACKUP_CAP')
+              def read(off,length):
+                  require(off in data and len(data[off]) == length, 'BACKUP_EXACT_METADATA_RANGE')
+                  return data[off]
+              table, rebuilt = parse_table(read, backup['disk_bytes'], backup['sector_bytes'])
+              require(canonical(rebuilt) == canonical(backup), 'BACKUP_RECONSTRUCTION')
+              return table
+
+
+          def proposal(table, root_number=4):
+              roots = [e for e in table['entries'] if e['number'] == root_number]
+              require(len(roots) == 1, 'ROOT_ENTRY')
+              root = roots[0]; sector = table['sector_bytes']
+              require(root['start']*sector == 1189150720 and root['size']*sector == 106185014784,
+                      'ROOT_BASELINE')
+              require(all(e is root or e['start']+e['size'] <= root['start'] for e in table['entries']), 'ROOT_NOT_LAST')
+              if table['label'] == 'gpt':
+                  require(root['type'] == LINUX_FS.hex(), 'ROOT_PARTITION_TYPE')
+                  last = table['disk_bytes']//sector-2-table['array_sectors']
+              else:
+                  require(root['type'] == 0x83, 'ROOT_PARTITION_TYPE')
+                  last = table['last_usable']
+              size = last-root['start']+1
+              require(size > root['size'] and size*sector <= LIMIT, 'NO_APPROVED_GROWTH')
+              return {'number':root_number, 'start_sector':root['start'], 'old_size_sector':root['size'],
+                      'new_size_sector':size, 'new_size_bytes':size*sector,
+                      'new_last_usable':last, 'requires_gpt_relocation':table['label']=='gpt' and table['backup_lba'] != table['disk_bytes']//sector-1}
+
+
+          def check_post(before, after, change):
+              for key in ('label','sector_bytes','disk_bytes','disk_id_hash','boot_hash','first_usable'):
+                  require(before[key] == after[key], 'POST_TABLE_IDENTITY')
+              require(len(before['entries']) == len(after['entries']), 'POST_ENTRY_COUNT')
+              bynumber = {e['number']:e for e in after['entries']}
+              for entry in before['entries']:
+                  wanted = dict(entry)
+                  if entry['number'] == change['number']:
+                      wanted['size'] = change['new_size_sector']
+                  require(bynumber.get(entry['number']) == wanted, 'POST_OTHER_ENTRY_OR_START_CHANGED')
+              require(after['last_usable'] == change['new_last_usable'], 'POST_LAST_USABLE')
+              if after['label']=='gpt':
+                  require(after['backup_lba'] == after['disk_bytes']//after['sector_bytes']-1, 'POST_BACKUP_LOCATION')
+
+
+          class Budget:
+              def __init__(self, seconds):
+                  self.start = time.monotonic(); self.seconds = seconds; self.read_bytes = 0
+              def check(self):
+                  require(time.monotonic()-self.start < self.seconds, 'DEADLINE')
+              def read(self, fd, off, length):
+                  self.check(); integer(length,1,RAW_CAP)
+                  require(self.read_bytes+length <= 1024*1024, 'READ_BUDGET')
+                  raw = os.pread(fd,length,off); self.read_bytes += len(raw)
+                  require(len(raw)==length, 'SHORT_READ'); self.check(); return raw
+
+
+          def run(args, seconds, data=b'', pass_fds=(), cap=COMMAND_CAP, budget=None):
+              """Bounded pipe I/O and finite cleanup. Missing reaping remains UNKNOWN."""
+              if budget: budget.check(); seconds=min(seconds,budget.seconds-(time.monotonic()-budget.start)-7)
+              require(seconds>0, 'CHILD_RESERVE')
+              process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE, pass_fds=pass_fds, start_new_session=True,
+                                         env={'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LANG':'C','LC_ALL':'C',
+                                              'TMPDIR':os.environ.get('GROWTH_TMP','/nonexistent'),
+                                              'HOME':os.environ.get('GROWTH_TMP','/nonexistent')})
+              mux = selectors.DefaultSelector(); output=bytearray(); errors=bytearray(); sent=0
+              started=time.monotonic(); acknowledged=False
+              for stream,events,label in ((process.stdin,selectors.EVENT_WRITE,'in'),(process.stdout,selectors.EVENT_READ,'out'),(process.stderr,selectors.EVENT_READ,'err')):
+                  os.set_blocking(stream.fileno(),False); mux.register(stream,events,label)
+              try:
+                  while mux.get_map():
+                      remaining=seconds-(time.monotonic()-started); require(remaining>0,'CHILD_DEADLINE')
+                      for key,_ in mux.select(min(.1,remaining)):
+                          if key.data=='in':
+                              if sent<len(data): sent+=os.write(key.fd,data[sent:sent+4096])
+          PY_ROOT_GROWTH_HOST_0
+      - name: Materialize growth host chunk 1
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat >> "$RUNNER_TEMP/root-growth-host.py" <<'PY_ROOT_GROWTH_HOST_1'
+                              if sent==len(data): mux.unregister(key.fileobj); key.fileobj.close()
+                          else:
+                              dest=output if key.data=='out' else errors
+                              chunk=os.read(key.fd,min(4096,cap+1-len(dest)))
+                              if not chunk: mux.unregister(key.fileobj);key.fileobj.close()
+                              else: dest.extend(chunk);require(len(dest)<=cap,'CHILD_OUTPUT')
+                  code=process.wait(timeout=max(.001,seconds-(time.monotonic()-started)))
+                  require(time.monotonic()-started<seconds,'CHILD_DEADLINE'); acknowledged=True
+                  return code,bytes(output),bytes(errors)
+              finally:
+                  mux.close()
+                  if process.poll() is None:
+                      os.killpg(process.pid,signal.SIGTERM)
+                      try: process.wait(timeout=5)
+                      except subprocess.TimeoutExpired:
+                          os.killpg(process.pid,signal.SIGKILL)
+                          try:process.wait(timeout=2)
+                          except subprocess.TimeoutExpired:raise Stop('CHILD_TERMINATION_UNKNOWN')
+                  for stream in (process.stdin,process.stdout,process.stderr):
+                      if not stream.closed:stream.close()
+                  if budget:budget.check()
+
+
+          def kernel_text(path, cap=65536):
+              require(str(path).startswith(('/proc/','/sys/')), 'KERNEL_PATH')
+              fd=os.open(path,os.O_RDONLY|os.O_CLOEXEC)
+              try:raw=os.read(fd,cap+1);require(len(raw)<=cap,'KERNEL_CAP');return raw
+              finally:os.close(fd)
+
+
+          class Device:
+              def __init__(self,budget):
+                  self.budget=budget;self.fds=[]
+                  require(os.geteuid()==0 and platform.machine()=='x86_64' and ctypes.sizeof(ctypes.c_void_p)==8,'HOST_PROFILE')
+                  me=os.stat('/proc/self/ns/mnt');init=os.stat('/proc/1/ns/mnt')
+                  require((me.st_dev,me.st_ino)==(init.st_dev,init.st_ino),'MOUNT_NAMESPACE')
+                  root=os.stat('/');pidroot=os.stat('/proc/1/root')
+                  require((root.st_dev,root.st_ino)==(pidroot.st_dev,pidroot.st_ino),'ROOT_NAMESPACE')
+                  mounts=kernel_text('/proc/self/mountinfo').splitlines(); roots=[]
+                  for line in mounts:
+                      parts=line.split();sep=parts.index(b'-')
+                      if parts[4]==b'/':roots.append(parts)
+                  require(len(roots)==1,'ROOT_MOUNT');parts=roots[0];sep=parts.index(b'-')
+                  require(parts[2]==b'8:4' and parts[3]==b'/' and parts[sep+1]==b'ext4' and b'rw' in parts[5].split(b','),'ROOT_MOUNT')
+                  require((os.major(root.st_dev),os.minor(root.st_dev))==(8,4),'ROOT_DEVICE')
+                  path=Path('/sys/dev/block/8:4').resolve(strict=True)
+                  require(str(path).startswith('/sys/devices/') and int(kernel_text(str(path/'partition')))==4,'SYSFS_PARTITION')
+                  parent=path.parent
+                  require(kernel_text(str(parent/'dev')).strip()==b'8:0','SYSFS_PARENT')
+                  require(int(kernel_text(str(path/'start')))*512==1189150720,'START_CHANGED')
+                  self.root_size=int(kernel_text(str(path/'size')))*512
+                  self.disk_size=int(kernel_text(str(parent/'size')))*512
+                  require(self.disk_size==128849018880,'DISK_SIZE')
+                  self.partition_path=path;self.parent_path=parent
+                  self.disk=self.open_node(parent,(8,0));self.part=self.open_node(path,(8,4))
+                  fcntl.flock(self.disk,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                  # BLKSSZGET and BLKGETSIZE64 are read-only fixed ioctls on held descriptors.
+                  value=bytearray(4);fcntl.ioctl(self.disk,0x1268,value,True);self.sector=struct.unpack('I',value)[0]
+                  require(self.sector in (512,4096),'LOGICAL_SECTOR')
+                  self.identity={'mount_namespace_hash':digest(('%d:%d'%(me.st_dev,me.st_ino)).encode()),
+                                 'root_inode':root.st_ino,'root_major':8,'root_minor':4,'disk_major':8,'disk_minor':0,
+                                 'mount_id':int(parts[0]),'root_mount_mode':'rw','root_fs':'ext4','root_bind_state':'NOT_PROVEN',
+                                 'disk_bytes':self.disk_size,'partition_number':4,'start_bytes':1189150720,
+                                 'logical_sector_bytes':self.sector}
+              def open_node(self,path,pair):
+                  fields=dict(line.split('=',1) for line in kernel_text(str(path/'uevent')).decode().splitlines() if '=' in line)
+                  name=fields.get('DEVNAME','');require(re.fullmatch(r'[A-Za-z0-9_/-]{1,128}',name) and '..' not in name.split('/'),'DEVICE_NAME')
+                  node='/dev/'+name;fd=os.open(node,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC)
+                  meta=os.fstat(fd);require(stat.S_ISBLK(meta.st_mode) and (os.major(meta.st_rdev),os.minor(meta.st_rdev))==pair,'NODE_IDENTITY')
+                  self.fds.append(fd);return fd
+              def table(self):return parse_table(lambda off,n:self.budget.read(self.disk,off,n),self.disk_size,self.sector)
+              def fs(self):return ext4(self.budget.read(self.part,1024,1024))
+              def kernel_size(self):return int(kernel_text(str(self.partition_path/'size')))*512
+              def close(self):
+                  for fd in reversed(self.fds):os.close(fd)
+
+
+          def tool_profile(budget):
+              tools={}
+              for name in ('sfdisk','resize2fs'):
+                  path=shutil.which(name,path='/usr/sbin:/usr/bin:/sbin:/bin')
+                  if not path:tools[name]={'available':False};continue
+                  real=Path(path).resolve(strict=True);meta=real.stat()
+                  require(meta.st_uid==0 and not meta.st_mode&0o022,'TOOL_PERMISSIONS')
+                  require(meta.st_size<=4*1024*1024,'TOOL_CAP')
+                  with open(real,'rb') as stream:raw=stream.read(4*1024*1024+1)
+                  require(len(raw)<=4*1024*1024 and raw[:4]==b'\x7fELF','TOOL_CAP')
+                  args=[str(real),'--version'] if name=='sfdisk' else [str(real),'-V']
+                  code,out,err=run(args,3,budget=budget,cap=4096)
+                  text=(out+b'\n'+err).decode('ascii','replace')
+                  pattern=r'sfdisk from util-linux (2\.[0-9]+\.[0-9]+)' if name=='sfdisk' else r'resize2fs (1\.[0-9]+\.[0-9]+)'
+                  match=re.search(pattern,text);require(match is not None,'TOOL_VERSION')
+                  tools[name]={'available':True,'version':match[1],'sha256':digest(raw),'path_hash':digest(str(real).encode())}
+              return tools
+
+
+          def ram_directory():
+              roots=[]
+              for line in kernel_text('/proc/self/mountinfo').splitlines():
+                  f=line.split();i=f.index(b'-')
+                  if f[4] in (b'/run',b'/dev/shm') and f[i+1]==b'tmpfs':roots.append((f[4].decode(),f[5].split(b','),f[i+3].split(b',')))
+              swaps=kernel_text('/proc/swaps').splitlines()
+              for path,mountopts,superopts in roots:
+                  if len(swaps)>1 and b'noswap' not in mountopts+superopts:continue
+                  fs=os.statvfs(path)
+                  if fs.f_bavail*fs.f_frsize<16*1024*1024 or fs.f_favail<32:continue
+                  directory=tempfile.mkdtemp(prefix='pc-root-growth-',dir=path);os.chmod(directory,0o700)
+                  return directory
+              raise Stop('RAM_TMPFS_NOT_PROVEN')
+
+
+          def sfdisk_args(tool,fd,change,dry=False):
+              # Parent holds the exclusive device flock. A child re-open has a distinct
+              # open-file description: taking its own flock would conflict with our lock.
+              args=[tool,'--no-reread','--no-tell-kernel','--lock=no','--wipe=never','--wipe-partitions=never','-N',str(change['number'])]
+              if dry:args.append('--no-act')
+              return args+['/proc/self/fd/'+str(fd)]
+
+
+          def profile_image(device,table,backup,change,tools,directory,budget):
+              """Exercise exact installed writer/FD/options on an image containing ONLY table metadata."""
+              require(all(tools.get(t,{}).get('available') for t in ('sfdisk','resize2fs')),'TOOLS_UNAVAILABLE')
+              require(device.sector==512,'SECTOR_PROFILE_UNSUPPORTED')
+              sfdisk=shutil.which('sfdisk',path='/usr/sbin:/usr/bin:/sbin:/bin')
+              version=tuple(map(int,tools['sfdisk']['version'].split('.')))
+              require((2,26,3)<=version<(2,44,0),'SFDISK_PROFILE_VERSION')
+              require(re.fullmatch(r'1\.(?:4[5-9]|5[0-9])\.[0-9]+',tools['resize2fs']['version']) is not None,'RESIZE_PROFILE_VERSION')
+              file=Path(directory)/'table-image';fd=os.open(file,os.O_CREAT|os.O_EXCL|os.O_RDWR|os.O_CLOEXEC,0o600)
+              try:
+                  fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                  os.ftruncate(fd,device.disk_size)
+                  for segment in backup['segments']:os.pwrite(fd,base64.b64decode(segment['base64']),segment['offset'])
+                  before,_=parse_table(lambda off,n:os.pread(fd,n,off),device.disk_size,device.sector)
+                  require(canonical(before)==canonical(table),'IMAGE_PRESTATE')
+                  data=('start=%d, size=%d\n'%(change['start_sector'],change['new_size_sector'])).encode()
+                  code,_,_=run(sfdisk_args(sfdisk,fd,change,True),8,data,pass_fds=(fd,),budget=budget)
+                  require(code==0,'TABLE_DRYRUN')
+                  unmodified,_=parse_table(lambda off,n:os.pread(fd,n,off),device.disk_size,device.sector)
+                  require(canonical(unmodified)==canonical(table),'DRYRUN_WROTE')
+                  code,_,_=run(sfdisk_args(sfdisk,fd,change),8,data,pass_fds=(fd,),budget=budget)
+                  require(code==0,'IMAGE_WRITE_PROFILE')
+                  after,postbackup=parse_table(lambda off,n:os.pread(fd,n,off),device.disk_size,device.sector)
+                  check_post(table,after,change)
+                  ranges={(s['offset'],s['length']) for s in backup['segments']+postbackup['segments']}
+                  expected=[{'offset':off,'length':length,'sha256':digest(os.pread(fd,length,off))} for off,length in sorted(ranges)]
+                  # Rehearse again with a different byte pattern in newly introduced table
+                  # sectors. Only profiles that fully determine their written metadata pass.
+                  oldranges={(s['offset'],s['length']) for s in backup['segments']}
+                  os.ftruncate(fd,0);os.ftruncate(fd,device.disk_size)
+                  for segment in backup['segments']:os.pwrite(fd,base64.b64decode(segment['base64']),segment['offset'])
+                  for off,length in ranges-oldranges:os.pwrite(fd,b'\xa5'*length,off)
+                  code,_,_=run(sfdisk_args(sfdisk,fd,change),8,data,pass_fds=(fd,),budget=budget)
+                  require(code==0 and all(digest(os.pread(fd,s['length'],s['offset']))==s['sha256'] for s in expected),'POST_PADDING_PROFILE_UNSUPPORTED')
+                  return {'table':after,'metadata':expected}
+              finally:os.close(fd);file.unlink(missing_ok=True)
+
+
+          class Partition(ctypes.Structure):
+              _fields_=[('start',ctypes.c_longlong),('length',ctypes.c_longlong),('pno',ctypes.c_int),('devname',ctypes.c_char*64),('volname',ctypes.c_char*64)]
+          class PartitionArgument(ctypes.Structure):
+              _fields_=[('op',ctypes.c_int),('flags',ctypes.c_int),('datalen',ctypes.c_int),('data',ctypes.c_void_p)]
+
+
+          def resize_kernel(fd,start,length,number,ioctl=fcntl.ioctl):
+              require(ctypes.sizeof(Partition)==152 and ctypes.sizeof(PartitionArgument)==24 and platform.machine()=='x86_64','IOCTL_ABI')
+              integer(start);integer(length,1);require(number==4,'IOCTL_TARGET')
+              part=Partition(start,length,number,b'',b'')
+              arg=PartitionArgument(3,0,ctypes.sizeof(part),ctypes.addressof(part))
+              ioctl(fd,0x1269,bytes(arg))  # BLKPG/BLKPG_RESIZE_PARTITION only; no delete/add/reread.
+
+
+          def validate_plan(plan,backup,target,source,now=None,require_supported=True):
+              keys={'schema','purpose','target_sha','source_sha256','created_at','context','identity','table','table_digest',
+                    'backup_digest','filesystem','tools','proposal','post_table','post_metadata','target_fs_blocks','status','profile_reason'}
+              require(type(plan)is dict and set(plan)==keys,'PLAN_SCHEMA')
+              require(plan['schema']==SCHEMA+'-plan' and plan['purpose']==PURPOSE and plan['target_sha']==target and plan['source_sha256']==source,'PLAN_IDENTITY')
+              require(re.fullmatch('[0-9a-f]{40}',target) and re.fullmatch('[0-9a-f]{64}',source),'SOURCE_FORMAT')
+              fresh(plan['created_at'],900,now)
+              require(type(plan['context'])is dict and set(plan['context'])=={'repository','owner_comment_id','owner_comment_created_at','run_id','run_attempt'},'CONTEXT_SCHEMA')
+              context=plan['context'];require(re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+',context['repository']) and context['run_attempt']==1,'CONTEXT')
+              integer(context['owner_comment_id'],1);integer(context['run_id'],1);integer(context['run_attempt'],1,1)
+              require(type(plan['identity'])is dict and set(plan['identity'])=={'mount_namespace_hash','root_inode','root_major','root_minor','disk_major','disk_minor','mount_id','root_mount_mode','root_fs','root_bind_state','disk_bytes','partition_number','start_bytes','logical_sector_bytes'},'IDENTITY_SCHEMA')
+              identity=plan['identity'];require(re.fullmatch('[0-9a-f]{64}',identity['mount_namespace_hash']) and
+                  (identity['root_major'],identity['root_minor'],identity['disk_major'],identity['disk_minor'],identity['partition_number'],identity['start_bytes'],identity['disk_bytes'])==(8,4,8,0,4,1189150720,128849018880) and
+                  identity['root_mount_mode']=='rw' and identity['root_fs']=='ext4' and identity['root_bind_state']=='NOT_PROVEN' and identity['logical_sector_bytes'] in (512,4096),'IDENTITY')
+              integer(identity['root_inode'],1);integer(identity['mount_id'],1)
+              fs=plan['filesystem'];require(type(fs)is dict and set(fs)=={'block_bytes','blocks','uuid_hash','compat','incompat','rocompat'},'FILESYSTEM_SCHEMA')
+              require(fs['block_bytes'] in (1024,2048,4096) and re.fullmatch('[0-9a-f]{64}',fs['uuid_hash']),'FILESYSTEM_IDENTITY')
+              for key in ('blocks','compat','incompat','rocompat'):integer(fs[key])
+              tools=plan['tools'];require(type(tools)is dict and set(tools)=={'sfdisk','resize2fs'},'TOOLS_SCHEMA')
+              for name,item in tools.items():
+                  require(type(item)is dict and type(item.get('available'))is bool,'TOOL_SCHEMA')
+                  if not item['available']:require(set(item)=={'available'},'TOOL_SCHEMA')
+                  else:require(set(item)=={'available','version','sha256','path_hash'} and re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',item['version']) and
+          PY_ROOT_GROWTH_HOST_1
+      - name: Materialize growth host chunk 2
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat >> "$RUNNER_TEMP/root-growth-host.py" <<'PY_ROOT_GROWTH_HOST_2'
+                               all(re.fullmatch('[0-9a-f]{64}',item[k]) for k in ('sha256','path_hash')),'TOOL_SCHEMA')
+              table=validate_backup(backup)
+              require(canonical(table)==canonical(plan['table']) and plan['table_digest']==digest(canonical(table)) and plan['backup_digest']==digest(canonical(backup)),'PLAN_BACKUP')
+              require(plan['proposal']==proposal(table),'PLAN_PROPOSAL')
+              require(plan['target_fs_blocks']==plan['proposal']['new_size_bytes']//plan['filesystem']['block_bytes'],'PLAN_FS_TARGET')
+              if plan['status']=='SUPPORTED_PLAN':
+                  require(plan['profile_reason'] is None and type(plan['post_metadata'])is list and 1<=len(plan['post_metadata'])<=7,'PLAN_PROFILE');check_post(table,plan['post_table'],plan['proposal'])
+                  for item in plan['post_metadata']:
+                      require(type(item)is dict and set(item)=={'offset','length','sha256'} and re.fullmatch('[0-9a-f]{64}',item['sha256']),'POST_METADATA_SCHEMA')
+                      integer(item['offset']);integer(item['length'],1,RAW_CAP)
+              else:
+                  require(not require_supported and plan['status']=='BLOCKED_TOOL_PROFILE' and plan['post_table'] is None and plan['post_metadata'] is None and
+                          plan['profile_reason'] in {'TOOLS_UNAVAILABLE','SFDISK_PROFILE_VERSION','RESIZE_PROFILE_VERSION',
+                              'TABLE_DRYRUN','DRYRUN_WROTE','IMAGE_WRITE_PROFILE','RAM_TMPFS_NOT_PROVEN',
+                              'SECTOR_PROFILE_UNSUPPORTED','POST_PADDING_PROFILE_UNSUPPORTED'},'PLAN_UNSUPPORTED')
+
+
+          def observe(request,budget):
+              require(set(request)=={'target','source','context'},'PLAN_REQUEST')
+              device=Device(budget);directory=None
+              try:
+                  table,backup=device.table();change=proposal(table);fs=device.fs();tools=tool_profile(budget)
+                  require(device.root_size==106185014784 and fs['blocks']*fs['block_bytes']<=device.root_size,'FS_BASELINE')
+                  post=None;profile_reason=None
+                  try:
+                      directory=ram_directory();os.environ['GROWTH_TMP']=directory
+                      post=profile_image(device,table,backup,change,tools,directory,budget)
+                  except Stop as exc:
+                      if str(exc) not in {'TOOLS_UNAVAILABLE','SFDISK_PROFILE_VERSION','RESIZE_PROFILE_VERSION','TABLE_DRYRUN',
+                                          'DRYRUN_WROTE','IMAGE_WRITE_PROFILE','RAM_TMPFS_NOT_PROVEN',
+                                          'SECTOR_PROFILE_UNSUPPORTED','POST_PADDING_PROFILE_UNSUPPORTED'}:raise
+                      profile_reason=str(exc)
+                  plan={'schema':SCHEMA+'-plan','purpose':PURPOSE,'target_sha':request['target'],'source_sha256':request['source'],
+                        'created_at':utc(),'context':request['context'],'identity':device.identity,'table':table,'table_digest':digest(canonical(table)),
+                        'backup_digest':digest(canonical(backup)),'filesystem':fs,'tools':tools,'proposal':change,
+                        'post_table':post['table'] if post else None,'post_metadata':post['metadata'] if post else None,
+                        'target_fs_blocks':change['new_size_bytes']//fs['block_bytes'],
+                        'status':'SUPPORTED_PLAN' if post else 'BLOCKED_TOOL_PROFILE','profile_reason':profile_reason}
+                  validate_plan(plan,backup,request['target'],request['source'],require_supported=False)
+                  return {'schema':SCHEMA+'-envelope','plan':plan,'backup':backup,'plan_digest':digest(canonical(plan)),
+                          'backup_digest':digest(canonical(backup)),'public_export':'EXACT_PARTITION_TABLE_METADATA_BOOTCODE_PADDING_NO_CUSTOMER_FILES'}
+              finally:
+                  if directory:shutil.rmtree(directory)
+                  device.close()
+
+
+          def validate_intent(intent,target,plan,backup,now=None):
+              require(type(intent)is dict and set(intent)=={'verified','commit','created_at','expires_at','context','source_sha','plan_digest','backup_digest'} and
+                      intent['verified'] is True and re.fullmatch('[0-9a-f]{40}',intent['commit']),'INTENT')
+              now=now or dt.datetime.now(dt.timezone.utc)
+              created=dt.datetime.fromisoformat(intent['created_at']);expires=dt.datetime.fromisoformat(intent['expires_at'])
+              require(created.tzinfo is not None and expires.tzinfo is not None and created<=now<expires and
+                      0<(expires-created).total_seconds()<=240,'INTENT_EXPIRED')
+              require(intent['source_sha']==target and intent['plan_digest']==digest(canonical(plan)) and
+                      intent['backup_digest']==digest(canonical(backup)),'INTENT_BINDING')
+              context=intent['context']
+              require(type(context)is dict and set(context)=={'repository','owner_comment_id','owner_comment_created_at','run_id','run_attempt'} and
+                      context['repository']==plan['context']['repository'] and context['run_attempt']==1,'INTENT_CONTEXT')
+              integer(context['run_id'],1);integer(context['owner_comment_id'],1);integer(context['run_attempt'],1,1)
+              fresh(context['owner_comment_created_at'],300,now)
+
+
+          def apply(request,budget):
+              require(set(request)=={'target','source','plan','backup','intent'},'APPLY_REQUEST')
+              plan=request['plan'];backup=request['backup'];validate_plan(plan,backup,request['target'],request['source'])
+              intent=request['intent']
+              def unexpired():
+                  validate_intent(intent,request['target'],plan,backup)
+              unexpired()
+              device=Device(budget);directory=None;phase='PREWRITE'
+              try:
+                  table,current_backup=device.table();fs=device.fs();tools=tool_profile(budget)
+                  require(canonical(device.identity)==canonical(plan['identity']) and canonical(table)==canonical(plan['table']) and
+                          canonical(current_backup)==canonical(backup) and fs==plan['filesystem'] and tools==plan['tools'],'PRESTATE_DRIFT')
+                  directory=ram_directory();os.environ['GROWTH_TMP']=directory
+                  rehearsed=profile_image(device,table,backup,plan['proposal'],tools,directory,budget)
+                  require(rehearsed=={'table':plan['post_table'],'metadata':plan['post_metadata']},'PROFILE_DRIFT')
+                  budget.check();sfdisk=shutil.which('sfdisk',path='/usr/sbin:/usr/bin:/sbin:/bin')
+                  # Reopen only the same pinned whole-disk node for the narrowly scoped writer.
+                  node=os.readlink('/proc/self/fd/'+str(device.disk));wfd=os.open(node,os.O_RDWR|os.O_NOFOLLOW|os.O_CLOEXEC)
+                  try:
+                      meta=os.fstat(wfd);require(stat.S_ISBLK(meta.st_mode) and meta.st_rdev==os.fstat(device.disk).st_rdev,'WRITE_FD_IDENTITY')
+                      unexpired();phase='TABLE_WRITE_STARTED'
+                      change=plan['proposal'];data=('start=%d, size=%d\n'%(change['start_sector'],change['new_size_sector'])).encode()
+                      code,_,_=run(sfdisk_args(sfdisk,wfd,change),15,data,pass_fds=(wfd,),budget=budget)
+                      require(code==0,'TABLE_WRITE_UNKNOWN')
+                      after,_=device.table();require(after==plan['post_table'],'POST_TABLE_DRIFT')
+                      require(all(digest(budget.read(device.disk,s['offset'],s['length']))==s['sha256'] for s in plan['post_metadata']),'POST_RAW_METADATA_DRIFT');phase='TABLE_CONFIRMED'
+                      resize_kernel(wfd,change['start_sector']*device.sector,change['new_size_bytes'],4)
+                      require(device.kernel_size()==change['new_size_bytes'],'KERNEL_SIZE_NOT_CONFIRMED');phase='KERNEL_CONFIRMED'
+                  finally:os.close(wfd)
+                  budget.check();resize=shutil.which('resize2fs',path='/usr/sbin:/usr/bin:/sbin:/bin')
+                  unexpired();phase='FILESYSTEM_WRITE_STARTED'
+                  code,_,_=run([resize,'/proc/self/fd/'+str(device.part),str(plan['target_fs_blocks'])],120,pass_fds=(device.part,),budget=budget)
+                  require(code==0,'FILESYSTEM_WRITE_UNKNOWN');afterfs=device.fs()
+                  require(afterfs['blocks']==plan['target_fs_blocks'] and all(afterfs[k]==fs[k] for k in fs if k!='blocks'),'FILESYSTEM_POSTSTATE')
+                  stats=os.statvfs('/')
+                  return {'schema':SCHEMA+'-result','status':'GEOMETRY_GROWN_ONLY','phase':'FILESYSTEM_CONFIRMED',
+                          'target_sha':request['target'],'source_sha256':request['source'],'plan_digest':digest(canonical(plan)),
+                          'backup_digest':digest(canonical(backup)),'intent_commit':request['intent']['commit'],'observed_at':utc(),
+                          'filesystem_blocks':afterfs['blocks'],'filesystem_block_bytes':afterfs['block_bytes'],
+                          'available_bytes':max(0,stats.f_bavail)*stats.f_frsize,'startup_authorization':'NOT_GRANTED','release_authorization':'NOT_GRANTED'}
+              except BaseException:
+                  return {'schema':SCHEMA+'-result','status':'PARTIAL_OR_UNKNOWN','phase':phase,
+                          'target_sha':request['target'],'source_sha256':request['source'],'plan_digest':digest(canonical(plan)),
+                          'backup_digest':digest(canonical(backup)),'intent_commit':request['intent']['commit'],
+                          'observed_at':utc(),'startup_authorization':'NOT_GRANTED','release_authorization':'NOT_GRANTED'}
+              finally:
+                  if directory:shutil.rmtree(directory)
+                  device.close()
+
+
+          def main():
+              require(len(sys.argv)==3 and sys.argv[1] in ('--plan','--apply'),'MODE')
+              require(len(sys.argv[2])<=120000 and re.fullmatch('[A-Za-z0-9+/=]+',sys.argv[2]),'REQUEST_WIRE')
+              request=decode(base64.b64decode(sys.argv[2],validate=True))
+              budget=Budget(75 if sys.argv[1]=='--plan' else 210)
+              signal.signal(signal.SIGALRM,lambda *_:(_ for _ in ()).throw(Stop('DEADLINE')))
+              signal.setitimer(signal.ITIMER_REAL,budget.seconds)
+              try:
+                  value=observe(request,budget) if sys.argv[1]=='--plan' else apply(request,budget)
+                  raw=canonical(value)+b'\n';require(len(raw)<=WIRE_CAP,'OUTPUT_CAP');budget.check()
+                  require(os.write(1,raw)==len(raw),'SHORT_OUTPUT');budget.check();return 0
+              except BaseException:
+                  # No exception text, raw paths, tool stderr or partial success is published.
+                  return 1
+              finally:signal.setitimer(signal.ITIMER_REAL,0)
+
+
+          if __name__=='__main__':sys.exit(main())
+          PY_ROOT_GROWTH_HOST_2
+      - name: Materialize growth controller chunk 0
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat > "$RUNNER_TEMP/root-growth-controller.py" <<'PY_ROOT_GROWTH_CONTROLLER_0'
+          """Hosted controller; no host operation before exact owner/source/receipt checks."""
+          import base64
+          import datetime as dt
+          import hashlib
+          import importlib.util
+          import io
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import stat
+          import sys
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          import zipfile
+
+          SPEC=importlib.util.spec_from_file_location('growth_host',Path(os.environ['RUNNER_TEMP'])/'root-growth-host.py')
+          h=importlib.util.module_from_spec(SPEC);SPEC.loader.exec_module(h)
+          WORKFLOW='.github/workflows/production-docker-headroom-diagnostic.yml'
+          INTENT_REF='refs/tags/pc-crop-rootfs-growth-intent-20261031'
+          PLAN_COMMAND='/production plan-root-filesystem-growth current-main'
+          APPLY_RE=re.compile(r'/production apply-root-filesystem-growth plan-([0-9a-f]{64}) backup-([0-9a-f]{64})\Z')
+          CAP=4*1024*1024
+
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self,*args,**kwargs):return None
+
+
+          class API:
+              def __init__(self,repository,token):
+                  h.require(re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+',repository),'REPOSITORY')
+                  self.repo=repository;self.token=token;self.deadline=time.monotonic()+210
+              def request(self,path,method='GET',payload=None,expected=200,raw=False):
+                  h.require((path=='/repos/'+self.repo or path.startswith('/repos/'+self.repo+'/')) and time.monotonic()<self.deadline,'API_SCOPE')
+                  body=None if payload is None else h.canonical(payload)
+                  req=urllib.request.Request('https://api.github.com'+path,data=body,method=method,
+                      headers={'Authorization':'Bearer '+self.token,'Accept':'application/vnd.github+json',
+                               'X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'})
+                  try:
+                      with urllib.request.build_opener(NoRedirect).open(req,timeout=min(15,max(1,self.deadline-time.monotonic()))) as response:
+                          h.require(response.status==expected,'API_STATUS')
+                          value=response.read(CAP+1);h.require(len(value)<=CAP,'API_CAP')
+                          return value if raw else h.decode(value,CAP)
+                  except urllib.error.HTTPError as error:
+                      if error.code==404 and expected==404:return None
+                      if error.code==302 and expected==302:
+                          location=error.headers.get('Location','');url=urllib.parse.urlsplit(location)
+                          h.require(url.scheme=='https' and not url.username and not url.password and not url.fragment and
+                              (url.hostname.endswith('.blob.core.windows.net') or url.hostname.endswith('.actions.githubusercontent.com') or url.hostname.endswith('.s3.amazonaws.com')),'ARTIFACT_REDIRECT')
+                          # Deliberately a new request without the GitHub Authorization header.
+                          with urllib.request.build_opener(NoRedirect).open(urllib.request.Request(location),timeout=15) as response:
+                              h.require(response.status==200,'ARTIFACT_STATUS');value=response.read(CAP+1)
+                              h.require(len(value)<=CAP,'ARTIFACT_CAP');return value
+                      raise h.Stop('API_FAILURE') from None
+              def get(self,path):return self.request('/repos/'+self.repo+('/'+path if path else ''))
+              def post(self,path,payload):return self.request('/repos/'+self.repo+'/'+path,'POST',payload,201)
+              def absent_ref(self):
+                  path='/repos/'+self.repo+'/git/ref/tags/pc-crop-rootfs-growth-intent-20261031'
+                  try:
+                      self.request(path)
+                  except h.Stop as error:
+                      # Only an actual HTTP404 establishes absence; other failures propagate.
+                      raise
+                  raise h.Stop('PURPOSE_ALREADY_SPENT')
+              def probe_ref(self):
+                  path='/repos/'+self.repo+'/git/ref/tags/pc-crop-rootfs-growth-intent-20261031'
+                  try:
+                      req=urllib.request.Request('https://api.github.com'+path,headers={'Authorization':'Bearer '+self.token,
+                           'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'})
+                      with urllib.request.build_opener(NoRedirect).open(req,timeout=15) as response:
+                          raw=response.read(CAP+1);h.require(len(raw)<=CAP,'REF_CAP')
+                          return h.decode(raw,CAP)
+                  except urllib.error.HTTPError as error:
+                      h.require(error.code==404,'INTENT_ABSENCE_UNKNOWN');return None
+
+
+          def provenance(api,event,body,source_target):
+              repo=api.get('');owner=repo['owner']['login']
+              h.require(repo['full_name']==api.repo and repo['private'] is False,'PUBLIC_REPOSITORY_DISCLOSURE')
+              h.require(os.environ['GITHUB_EVENT_NAME']=='issue_comment' and os.environ['GITHUB_RUN_ATTEMPT']=='1','EVENT_OR_RERUN')
+              h.require(event['issue']['number']==4637 and 'pull_request' not in event['issue'],'ISSUE')
+              original=event['comment'];comment=api.get('issues/comments/'+str(h.integer(original['id'],1)))
+              h.require(comment['id']==original['id'] and comment['created_at']==original['created_at'] and
+                        comment['issue_url'].endswith('/issues/4637') and comment['user']['login']==owner and
+                        comment['author_association']=='OWNER' and comment['body']==body and original['body']==body,'LIVE_OWNER_COMMAND')
+              h.fresh(comment['created_at'],300)
+              direct=os.environ['GITHUB_ACTOR']==owner and os.environ['GITHUB_TRIGGERING_ACTOR']==owner
+              h.require(direct or comment.get('performed_via_github_app',{}).get('id')==1144995,'OWNER_PROVENANCE')
+              main=api.get('commits/main');h.require(main['sha']==source_target==os.environ['GITHUB_SHA'],'CURRENT_MAIN')
+              h.require(api.get('issues/4637')['state']=='open','OPEN_AUTHORITY_ISSUE')
+              return {'repository':api.repo,'owner_comment_id':comment['id'],'owner_comment_created_at':comment['created_at'],
+                      'run_id':int(os.environ['GITHUB_RUN_ID']),'run_attempt':1},main
+
+
+          def extract_zip(raw):
+              h.require(len(raw)<=CAP,'ZIP_CAP')
+              with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                  infos=archive.infolist();h.require(len(infos)==2,'ZIP_MEMBERS')
+                  h.require({i.filename for i in infos}=={'plan.json','table-backup.json'},'ZIP_ALLOWLIST')
+                  result={}
+                  for info in infos:
+                      h.require(not info.is_dir() and not info.flag_bits&1 and not stat.S_ISLNK(info.external_attr>>16) and
+                                info.file_size<=h.WIRE_CAP and info.compress_size<=CAP,'ZIP_ENTRY')
+                      with archive.open(info) as stream:data=stream.read(h.WIRE_CAP+1)
+                      h.require(len(data)==info.file_size and len(data)<=h.WIRE_CAP,'ZIP_CONTENT')
+                      result[info.filename]=h.decode(data)
+                  return result
+
+
+          def artifact_plan(api,plan_digest,backup_digest,target,source):
+              name='root-growth-plan-'+plan_digest
+              listing=api.get('actions/artifacts?name='+name+'&per_page=100&page=1')
+              h.require(listing['total_count']==len(listing['artifacts'])==1,'EXACT_PLAN_ARTIFACT')
+              artifact=listing['artifacts'][0]
+              h.require(artifact['name']==name and artifact['expired'] is False and artifact['size_in_bytes']<=CAP,'PLAN_ARTIFACT')
+              run=api.get('actions/runs/'+str(h.integer(artifact['workflow_run']['id'],1)))
+              h.require(run['path']==WORKFLOW and run['head_sha']==target and run['event']=='issue_comment' and run['run_attempt']==1 and
+                        run['status']=='completed' and run['conclusion']=='success','PLAN_RUN')
+              raw=api.request('/repos/'+api.repo+'/actions/artifacts/'+str(artifact['id'])+'/zip',expected=302)
+              if artifact.get('digest'):
+                  h.require(artifact['digest']=='sha256:'+h.digest(raw),'ARTIFACT_ZIP_DIGEST')
+              files=extract_zip(raw);plan=files['plan.json'];backup=files['table-backup.json']
+              h.require(h.digest(h.canonical(plan))==plan_digest and h.digest(h.canonical(backup))==backup_digest,'OWNER_APPROVED_DIGESTS')
+              h.validate_plan(plan,backup,target,source)
+              context=plan['context']
+              h.require(context['repository']==api.repo and context['run_id']==run['id'] and context['run_attempt']==1,'PLAN_CONTEXT')
+              original=api.get('issues/comments/'+str(context['owner_comment_id']))
+              owner=api.get('')['owner']['login']
+              h.require(original['user']['login']==owner and original['author_association']=='OWNER' and
+                        original['body']==PLAN_COMMAND and original['created_at']==context['owner_comment_created_at'] and
+                        original['issue_url'].endswith('/issues/4637'),'PLAN_LIVE_PROVENANCE')
+              direct=run['actor']['login']==owner and run['triggering_actor']['login']==owner
+              h.require(direct or original.get('performed_via_github_app',{}).get('id')==1144995,'PLAN_ACTOR')
+              return plan,backup,{'artifact_id':artifact['id'],'artifact_run_id':run['id'],
+                                 'artifact_zip_sha256':h.digest(raw),'plan_digest':plan_digest,'backup_digest':backup_digest}
+
+
+          def consume_intent(api,context,main,plan_digest,backup_digest,receipt,now=None):
+              h.require(api.probe_ref() is None,'PURPOSE_ALREADY_SPENT')
+              now=now or dt.datetime.now(dt.timezone.utc)
+              intent={'schema':'root-filesystem-growth-intent-v1','purpose':h.PURPOSE,'repository':api.repo,
+                      'source_sha':main['sha'],'source_tree':main['commit']['tree']['sha'],'comment_id':context['owner_comment_id'],
+                      'run_id':context['run_id'],'run_attempt':1,'plan_digest':plan_digest,'backup_digest':backup_digest,
+                      'backup_artifact_id':receipt['artifact_id'],'created_at':now.isoformat(),
+                      'expires_at':(now+dt.timedelta(seconds=240)).isoformat()}
+              text=h.canonical(intent).decode()
+              commit=api.post('git/commits',{'message':text,'tree':main['commit']['tree']['sha'],'parents':[main['sha']]})
+              sha=commit['sha'];h.require(re.fullmatch('[0-9a-f]{40}',sha),'INTENT_COMMIT')
+              # Only atomic create. There is deliberately no PATCH/DELETE/ref-update path.
+              created=api.post('git/refs',{'ref':INTENT_REF,'sha':sha})
+              h.require(created['ref']==INTENT_REF and created['object']['sha']==sha,'INTENT_CREATE_ACK')
+              actual=api.get('git/ref/tags/pc-crop-rootfs-growth-intent-20261031')
+              h.require(actual['ref']==INTENT_REF and actual['object']['type']=='commit' and actual['object']['sha']==sha,'INTENT_REF_READBACK')
+              object=api.get('git/commits/'+sha)
+              h.require(object['sha']==sha and object['tree']['sha']==main['commit']['tree']['sha'] and
+                        [p['sha'] for p in object['parents']]==[main['sha']] and object['message']==text,'INTENT_OBJECT_READBACK')
+              return {'verified':True,'commit':sha,'created_at':intent['created_at'],'expires_at':intent['expires_at'],
+                      'context':context,'source_sha':main['sha'],'plan_digest':plan_digest,'backup_digest':backup_digest}
+
+
+          def transport(mode,request,host_source):
+              private=Path(os.environ['RUNNER_TEMP'])/'root-growth-private'
+              encoded=base64.b64encode(h.canonical(request)).decode();h.require(len(encoded)<=120000,'ARGUMENT_CAP')
+              command='python3 -I -B - '+mode+' '+encoded
+              args=['ssh','-F','/dev/null','-i',str(private/'key'),'-p',os.environ['GROWTH_PORT'],
+                    '-o','BatchMode=yes','-o','IdentitiesOnly=yes','-o','StrictHostKeyChecking=yes',
+                    '-o','UserKnownHostsFile='+str(private/'known_hosts'),'-o','ConnectTimeout=10',
+                    '-o','ServerAliveInterval=5','-o','ServerAliveCountMax=2',
+                    os.environ['SSH_USER_SECRET']+'@'+os.environ['DEFAULT_HOST'],command]
+              code,out,_=h.run(args,100 if mode=='--plan' else 260,host_source,cap=h.WIRE_CAP)
+              h.require(code==0,'REMOTE_COMPLETION_NOT_PROVEN');return h.decode(out)
+
+
+          def validate_result(value,target,source,plan,backup,intent):
+              common={'schema','status','phase','target_sha','source_sha256','plan_digest','backup_digest',
+                      'intent_commit','observed_at','startup_authorization','release_authorization'}
+              success={'filesystem_blocks','filesystem_block_bytes','available_bytes'}
+              h.require(type(value)is dict and set(value)==common|(success if value.get('status')=='GEOMETRY_GROWN_ONLY' else set()),'RESULT_SCHEMA')
+              h.require(value['schema']==h.SCHEMA+'-result' and value['target_sha']==target and value['source_sha256']==source and
+                        value['plan_digest']==h.digest(h.canonical(plan)) and value['backup_digest']==h.digest(h.canonical(backup)) and
+                        value['intent_commit']==intent['commit'] and value['startup_authorization']=='NOT_GRANTED' and
+                        value['release_authorization']=='NOT_GRANTED','RESULT_BINDING')
+              h.fresh(value['observed_at'],300)
+              if value['status']=='GEOMETRY_GROWN_ONLY':
+                  h.require(value['phase']=='FILESYSTEM_CONFIRMED' and value['filesystem_blocks']==plan['target_fs_blocks'] and
+                            value['filesystem_block_bytes']==plan['filesystem']['block_bytes'],'RESULT_POSTSTATE')
+                  h.integer(value['available_bytes'])
+              else:h.require(value['status']=='PARTIAL_OR_UNKNOWN' and value['phase'] in
+                    {'PREWRITE','TABLE_WRITE_STARTED','TABLE_CONFIRMED','KERNEL_CONFIRMED','FILESYSTEM_WRITE_STARTED'},'RESULT_PHASE')
+
+
+          def main():
+              mode=sys.argv[1];h.require(mode in ('--plan','--apply','--route'),'MODE')
+              host_path=Path(os.environ['RUNNER_TEMP'])/'root-growth-host.py';host_source=host_path.read_bytes()
+              source=os.environ['GROWTH_SOURCE_SHA256'];h.require(h.digest(host_source)==source,'SOURCE_DIGEST')
+              target=os.environ['GITHUB_SHA'];event=h.decode(Path(os.environ['GITHUB_EVENT_PATH']).read_bytes(),1024*1024)
+              body=event['comment']['body'];operation='plan' if body==PLAN_COMMAND else 'apply' if APPLY_RE.fullmatch(body) else None
+              h.require(operation is not None and (mode=='--route' or mode=='--'+operation),'COMMAND')
+          PY_ROOT_GROWTH_CONTROLLER_0
+      - name: Materialize growth controller chunk 1
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat >> "$RUNNER_TEMP/root-growth-controller.py" <<'PY_ROOT_GROWTH_CONTROLLER_1'
+              api=API(os.environ['GITHUB_REPOSITORY'],os.environ['GH_TOKEN'])
+              context,main_commit=provenance(api,event,body,target)
+              if mode=='--route':
+                  with open(os.environ['GITHUB_OUTPUT'],'a') as stream:stream.write('operation='+operation+'\ntarget_sha='+target+'\n')
+                  return 0
+              directory=Path(os.environ['RUNNER_TEMP'])/'root-growth-output';directory.mkdir(mode=0o700,exist_ok=False)
+              if mode=='--plan':
+                  value=transport(mode,{'target':target,'source':source,'context':context},host_source)
+                  h.require(type(value)is dict and set(value)=={'schema','plan','backup','plan_digest','backup_digest','public_export'} and
+                            value['schema']==h.SCHEMA+'-envelope' and
+                            value['public_export']=='EXACT_PARTITION_TABLE_METADATA_BOOTCODE_PADDING_NO_CUSTOMER_FILES','PLAN_ENVELOPE')
+                  h.validate_plan(value['plan'],value['backup'],target,source,require_supported=False)
+                  h.require(value['plan']['context']==context and value['plan_digest']==h.digest(h.canonical(value['plan'])) and
+                            value['backup_digest']==h.digest(h.canonical(value['backup'])),'PLAN_ENVELOPE_DIGEST')
+                  provenance(api,event,body,target)
+                  for name,key in (('plan.json','plan'),('table-backup.json','backup')):(directory/name).write_bytes(h.canonical(value[key]))
+                  with open(os.environ['GITHUB_OUTPUT'],'a') as stream:stream.write('plan_digest='+value['plan_digest']+'\nbackup_digest='+value['backup_digest']+'\n')
+                  print('PLAN_DIGEST='+value['plan_digest']+'; BACKUP_DIGEST='+value['backup_digest'])
+                  print('ROOT_GROWTH_PLAN='+value['plan']['status']+'; PUBLIC_TABLE_METADATA_EXPORT=EXPLICIT; WRITE_AUTHORIZATION=NOT_GRANTED')
+                  return 0
+              match=APPLY_RE.fullmatch(body);plan,backup,receipt=artifact_plan(api,match[1],match[2],target,source)
+              context,main_commit=provenance(api,event,body,target)
+              intent=consume_intent(api,context,main_commit,match[1],match[2],receipt)
+              # A refusal/withdrawal/main drift after intent is safe but permanently spent.
+              provenance(api,event,body,target)
+              h.validate_intent(intent,target,plan,backup)
+              value=transport(mode,{'target':target,'source':source,'plan':plan,'backup':backup,'intent':intent},host_source)
+              validate_result(value,target,source,plan,backup,intent)
+              (directory/'result.json').write_bytes(h.canonical(value))
+              print('ROOT_GROWTH_RESULT='+value['status']+'; STARTUP_AUTHORIZATION=NOT_GRANTED')
+              return 0 if value['status']=='GEOMETRY_GROWN_ONLY' else 1
+
+
+          if __name__=='__main__':
+              try:sys.exit(main())
+              except BaseException as error:
+                  if isinstance(error,SystemExit):raise
+                  # Missing/invalid output never produces a synthetic growth success.
+                  print('ROOT_GROWTH_NOT_PROVEN; INTENT_MAY_BE_SPENT; GUEST_TERMINATION=NOT_PROVEN')
+                  sys.exit(1)
+          PY_ROOT_GROWTH_CONTROLLER_1
+      - name: Verify inline growth pins and unchanged legacy prefix
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(sha256sum "$RUNNER_TEMP/root-growth-host.py" | cut -d ' ' -f 1)" == "$GROWTH_SOURCE_SHA256" ]]
+          [[ "$(sha256sum "$RUNNER_TEMP/root-growth-controller.py" | cut -d ' ' -f 1)" == "$GROWTH_CONTROLLER_SHA256" ]]
+          python3 - <<'PY_GROWTH_PREFIX'
+          import hashlib,pathlib
+          raw=pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_bytes()
+          assert hashlib.sha256(raw[:254318]).hexdigest()=='3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
+          PY_GROWTH_PREFIX
+          [[ "$(git hash-object scripts/test_production_stopped_runtime_headroom.py)" == bc2c092cea71aaca1c94121b02d1bd87cf83df5f ]]
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          git diff --quiet
+          git diff --cached --quiet
+      - name: Materialize growth fixture chunk 0
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat > "$RUNNER_TEMP/test-root-growth.py" <<'PY_ROOT_GROWTH_TEST_0'
+          """Pure metadata/protocol fixtures; never open a real block device or network."""
+          import base64
+          import binascii
+          import copy
+          import ctypes
+          import datetime as dt
+          import fcntl
+          import importlib.util
+          import io
+          import inspect
+          import json
+          import os
+          from pathlib import Path
+          import signal
+          import stat
+          import struct
+          import subprocess
+          import sys
+          import tempfile
+          import time
+          import unittest
+          from unittest.mock import patch
+          import uuid
+          import zipfile
+
+          HERE = Path(__file__).resolve().parent
+          _modules = tempfile.TemporaryDirectory(prefix='growth-test-modules-')
+          RUNTIME = Path(os.environ.get('RUNNER_TEMP', _modules.name))
+          host_path = RUNTIME / 'root-growth-host.py'
+          controller_path = RUNTIME / 'root-growth-controller.py'
+          if not host_path.exists():
+              RUNTIME = Path(_modules.name)
+              host_path = RUNTIME / 'root-growth-host.py'
+              controller_path = RUNTIME / 'root-growth-controller.py'
+              host_path.write_bytes((HERE / 'host.py').read_bytes())
+              controller_path.write_bytes((HERE / 'controller.py').read_bytes())
+          with patch.dict(os.environ, {'RUNNER_TEMP': str(RUNTIME)}):
+              spec = importlib.util.spec_from_file_location('growth_controller_fixtures', controller_path)
+              c = importlib.util.module_from_spec(spec)
+              spec.loader.exec_module(c)
+          h = c.h
+          DISK = 128849018880
+          START = 1189150720
+          SIZE = 106185014784
+          TARGET = 'a' * 40
+          SOURCE = 'b' * 64
+          CTX = {'repository': 'fixture/project', 'owner_comment_id': 123, 'run_id': 456,
+                 'owner_comment_created_at': '2026-10-31T00:00:00+00:00', 'run_attempt': 1}
+
+
+          def mbr_partition(kind, start, size, boot=0):
+              item = bytearray(16)
+              item[0] = boot
+              item[4] = kind
+              struct.pack_into('<II', item, 8, start, size)
+              return bytes(item)
+
+
+          def dos_image():
+              raw = bytearray(512)
+              marker = b'FIXTURE_BOOT_CODE_NO_CUSTOMERDATA'
+              raw[:len(marker)] = marker
+              raw[440:444] = b'TEST'
+              for number, start, size in ((1, 2048, 2048), (2, 4096, 2048), (3, 6144, 4096),
+                                          (4, START // 512, SIZE // 512)):
+                  raw[446 + (number - 1) * 16:462 + (number - 1) * 16] = mbr_partition(0x83, start, size)
+              raw[510:512] = b'\x55\xaa'
+              return {0: bytes(raw)}
+
+
+          def gpt_image(sector=512):
+              old_sectors = 107374182400 // sector
+              last = old_sectors - 1
+              arrays = 16384 // sector
+              primary = bytearray(sector)
+              primary[510:512] = b'\x55\xaa'
+              primary[446:462] = mbr_partition(0xee, 1, old_sectors - 1)
+              entries = bytearray(16384)
+              rootsize = SIZE // sector
+              for number, start, size in ((1, 2048, 1024), (2, 4096, 1024), (3, 6144, 1024),
+                                          (4, START // sector, rootsize)):
+                  raw = bytearray(128)
+                  raw[:16] = h.LINUX_FS
+                  raw[16:32] = uuid.UUID(int=number).bytes_le
+                  struct.pack_into('<QQQ', raw, 32, start, start + size - 1, 0)
+                  raw[56:56 + len('fixture'.encode('utf-16-le'))] = 'fixture'.encode('utf-16-le')
+                  entries[(number - 1) * 128:number * 128] = raw
+              crc = binascii.crc32(entries) & 0xffffffff
+              disk_guid = uuid.UUID('baf0f00d-1111-2222-3333-444444444444').bytes_le
+
+              def header(current, other, array):
+                  raw = bytearray(sector)
+                  raw[:8] = b'EFI PART'
+                  struct.pack_into('<III', raw, 8, 0x10000, 92, 0)
+                  struct.pack_into('<QQQQ', raw, 24, current, other, 2048, last - arrays - 1)
+                  raw[56:72] = disk_guid
+                  struct.pack_into('<QIII', raw, 72, array, 128, 128, crc)
+                  struct.pack_into('<I', raw, 16, binascii.crc32(raw[:92]) & 0xffffffff)
+                  return bytes(raw)
+              return {0: bytes(primary), sector: header(1, last, 2), 2 * sector: bytes(entries),
+                      (last - arrays) * sector: bytes(entries), last * sector: header(last, 1, last - arrays)}
+
+
+          def fix_header(raw):
+              value = bytearray(raw)
+              value[16:20] = b'\0' * 4
+              size = struct.unpack_from('<I', value, 12)[0]
+              struct.pack_into('<I', value, 16, binascii.crc32(value[:size]) & 0xffffffff)
+              return bytes(value)
+
+
+          def parsed(image=None, sector=512):
+              image = image if image is not None else gpt_image(sector)
+              calls = []
+              def read(off, length):
+                  calls.append((off, length))
+                  if off not in image or len(image[off]) != length:
+                      raise AssertionError('fixture attempted a nonmetadata read')
+                  return image[off]
+              table, backup = h.parse_table(read, DISK, sector)
+              return table, backup, calls
+
+
+          def post_table(table):
+              change = h.proposal(table)
+              post = copy.deepcopy(table)
+              for entry in post['entries']:
+                  if entry['number'] == 4:
+                      entry['size'] = change['new_size_sector']
+              post['last_usable'] = change['new_last_usable']
+              if post['label'] == 'gpt':
+                  post['backup_lba'] = DISK // post['sector_bytes'] - 1
+              return post
+
+
+          def superblock(blocks=SIZE // 4096, block_bytes=4096):
+              raw = bytearray(1024)
+              struct.pack_into('<I', raw, 4, blocks & 0xffffffff)
+              struct.pack_into('<I', raw, 24, {1024: 0, 2048: 1, 4096: 2}[block_bytes])
+              struct.pack_into('<H', raw, 56, 0xef53)
+              struct.pack_into('<III', raw, 92, 0x3c, 0x2c6, 0x46b)
+              struct.pack_into('<I', raw, 336, blocks >> 32)
+              raw[104:120] = uuid.UUID(int=42).bytes_le
+              return bytes(raw)
+
+
+          def plan_fixture(supported=True):
+              table, backup, _ = parsed()
+              fs = h.ext4(superblock())
+              plan = {'schema': h.SCHEMA + '-plan', 'purpose': h.PURPOSE, 'target_sha': TARGET,
+                      'source_sha256': SOURCE, 'created_at': h.utc(), 'context': copy.deepcopy(CTX),
+                      'identity': {'mount_namespace_hash': 'c' * 64, 'root_inode': 2, 'root_major': 8,
+                          'root_minor': 4, 'disk_major': 8, 'disk_minor': 0, 'mount_id': 1,
+                          'root_mount_mode': 'rw', 'root_fs': 'ext4', 'root_bind_state': 'NOT_PROVEN',
+                          'disk_bytes': DISK, 'partition_number': 4, 'start_bytes': START,
+                          'logical_sector_bytes': 512},
+                      'table': table, 'table_digest': h.digest(h.canonical(table)),
+                      'backup_digest': h.digest(h.canonical(backup)), 'filesystem': fs,
+                      'tools': {name: {'available': True, 'version': version, 'sha256': 'd' * 64,
+                          'path_hash': 'e' * 64} for name, version in (('sfdisk', '2.39.3'), ('resize2fs', '1.47.0'))},
+                      'proposal': h.proposal(table), 'post_table': post_table(table) if supported else None,
+                      'post_metadata': [{'offset': 0, 'length': 512, 'sha256': 'f' * 64}] if supported else None,
+                      'target_fs_blocks': h.proposal(table)['new_size_bytes'] // fs['block_bytes'],
+                      'status': 'SUPPORTED_PLAN' if supported else 'BLOCKED_TOOL_PROFILE',
+                      'profile_reason': None if supported else 'TOOLS_UNAVAILABLE'}
+              return plan, backup
+
+
+          class TableTests(unittest.TestCase):
+              def test_gpt_valid_backup_and_exact_metadata_reads(self):
+                  table, backup, calls = parsed()
+                  self.assertEqual(table['label'], 'gpt')
+                  self.assertEqual(len(table['entries']), 4)
+                  self.assertEqual(h.validate_backup(backup), table)
+                  self.assertEqual(len(calls), 5)
+                  self.assertLess(sum(n for _, n in calls), h.RAW_CAP)
+                  self.assertNotIn((DISK - 1048576, 1048576), calls)
+                  self.assertTrue(all(off < START or off >= START + SIZE for off, _ in calls))
+
+              def test_dos_primary_valid(self):
+                  table, backup, calls = parsed(dos_image())
+                  self.assertEqual(table['label'], 'dos')
+                  self.assertEqual(calls, [(0, 512)])
+                  self.assertEqual(h.validate_backup(backup), table)
+
+              def test_gpt_proposal_preserves_start_and_finds_last_usable(self):
+                  table, _, _ = parsed()
+                  change = h.proposal(table)
+                  self.assertEqual(change['start_sector'] * 512, START)
+                  self.assertGreater(change['new_size_bytes'], SIZE)
+                  self.assertTrue(change['requires_gpt_relocation'])
+                  h.check_post(table, post_table(table), change)
+
+              def test_dos_supported_growth_preserves_other_entries(self):
+                  table, _, _ = parsed(dos_image())
+                  h.check_post(table, post_table(table), h.proposal(table))
+
+              def test_invalid_header_crc(self):
+                  image = gpt_image()
+                  bad = bytearray(image[512]); bad[56] ^= 1; image[512] = bytes(bad)
+                  with self.assertRaisesRegex(h.Stop, 'GPT_HEADER_CRC'): parsed(image)
+
+              def test_invalid_array_crc(self):
+                  image = gpt_image()
+                  bad = bytearray(image[1024]); bad[80] ^= 1; image[1024] = bytes(bad)
+                  with self.assertRaisesRegex(h.Stop, 'GPT_ARRAY_CRC'): parsed(image)
+
+              def test_hybrid_rejected_before_extra_reads(self):
+                  image = gpt_image(); raw = bytearray(image[0]); raw[462:478] = mbr_partition(0x83, 2048, 2); image[0] = bytes(raw)
+                  with self.assertRaisesRegex(h.Stop, 'HYBRID_GPT'): parsed(image)
+
+              def test_dos_extended_types_rejected(self):
+                  for kind in (5, 15, 0x85):
+                      image = dos_image(); raw = bytearray(image[0]); raw[450] = kind; image[0] = bytes(raw)
+                      with self.subTest(kind=kind), self.assertRaisesRegex(h.Stop, 'EXTENDED_DOS'): parsed(image)
+
+              def test_dos_overlap_rejected(self):
+                  image = dos_image(); raw = bytearray(image[0]); raw[462:478] = mbr_partition(0x83, 2048, 100); image[0] = bytes(raw)
+                  with self.assertRaisesRegex(h.Stop, 'PARTITION_OVERLAP'): parsed(image)
+
+              def test_wrong_root_number_type_start_and_not_last(self):
+                  table, _, _ = parsed()
+                  for mutation in ('start', 'type', 'not-last', 'missing-root'):
+                      value = copy.deepcopy(table)
+                      if mutation == 'start': value['entries'][3]['start'] += 1
+                      if mutation == 'type': value['entries'][3]['type'] = '00' * 16
+                      if mutation == 'not-last': value['entries'].append({'number': 5, 'start': DISK // 512 - 50, 'size': 1})
+                      if mutation == 'missing-root': value['entries'][3]['number'] = 5
+                      with self.subTest(mutation=mutation), self.assertRaises(h.Stop): h.proposal(value)
+
+              def test_gpt_backup_identity_mismatch(self):
+                  image = gpt_image(); off = max(image)
+                  raw = bytearray(image[off]); raw[56] ^= 1; image[off] = fix_header(raw)
+                  with self.assertRaisesRegex(h.Stop, 'GPT_BACKUP_IDENTITY'): parsed(image)
+
+              def test_gpt_invalid_array_profile_rejected(self):
+                  for count, stride in ((129, 128), (128, 256)):
+                      image = gpt_image(); raw = bytearray(image[512]); struct.pack_into('<II', raw, 80, count, stride); image[512] = fix_header(raw)
+                      with self.subTest(count=count, stride=stride), self.assertRaisesRegex(h.Stop, 'GPT_ARRAY_PROFILE'): parsed(image)
+
+              def test_executed_counterfactual_crc_gate_removal_admits_corruption(self):
+                  image = gpt_image(); raw = bytearray(image[512]); raw[16] ^= 1; image[512] = bytes(raw)
+                  with self.assertRaisesRegex(h.Stop, 'GPT_HEADER_CRC'): parsed(image)
+                  source = inspect.getsource(h.parse_table)
+                  marker = "require(binascii.crc32(copy) & 0xffffffff == wanted, 'GPT_HEADER_CRC')"
+                  self.assertEqual(source.count(marker), 1)
+                  namespace = dict(h.__dict__)
+                  exec(compile(source.replace(marker, 'pass'), '<counterfactual metadata CRC>', 'exec'), namespace)
+                  table, _ = namespace['parse_table'](lambda off, n: image[off], DISK, 512)
+                  self.assertEqual(table['label'], 'gpt')
+
+              def test_gpt_backup_pointer_cannot_read_customer_region(self):
+                  image = gpt_image(); raw = bytearray(image[512]); struct.pack_into('<Q', raw, 32, START // 512 + 100); image[512] = fix_header(raw)
+                  with self.assertRaises(h.Stop): parsed(image)
+
+              def test_short_reads_and_invalid_sector(self):
+                  with self.assertRaisesRegex(h.Stop, 'SHORT_READ'): h.parse_table(lambda *_: b'', DISK, 512)
+                  for sector in (0, 1024, 8192):
+                      with self.subTest(sector=sector), self.assertRaises(h.Stop): h.parse_table(lambda *_: b'', DISK, sector)
+
+              def test_backup_hash_range_schema_and_base64_negatives(self):
+                  _, original, _ = parsed()
+                  for mutation in ('digest', 'length', 'offset', 'extra', 'raw', 'table', 'duplicate'):
+                      backup = copy.deepcopy(original)
+                      if mutation == 'digest': backup['segments'][0]['sha256'] = '0' * 64
+                      if mutation == 'length': backup['segments'][0]['length'] += 1
+                      if mutation == 'offset': backup['segments'][0]['offset'] = START
+                      if mutation == 'extra': backup['segments'][0]['extra'] = 'private'
+                      if mutation == 'raw': backup['segments'][0]['base64'] = '!!'
+                      if mutation == 'table': backup['table_digest'] = '0' * 64
+                      if mutation == 'duplicate': backup['segments'].append(copy.deepcopy(backup['segments'][-1]))
+                      with self.subTest(mutation=mutation), self.assertRaises((h.Stop, ValueError, binascii.Error)): h.validate_backup(backup)
+
+              def test_post_rejects_other_partition_uuid_type_start_and_count(self):
+                  before, _, _ = parsed(); change = h.proposal(before)
+                  for key in ('identity', 'type', 'start', 'count'):
+                      after = post_table(before)
+                      if key == 'count': after['entries'].pop(0)
+                      else: after['entries'][0][key] = 'changed' if key != 'start' else 999
+                      with self.subTest(key=key), self.assertRaises(h.Stop): h.check_post(before, after, change)
+
+              def test_raw_backup_preserves_reserved_boot_padding_bytes(self):
+                  # check_post intentionally closes normalized geometry; raw metadata digest
+                  # must additionally distinguish reserved bytes before/after a writer.
+                  image = dos_image(); table, backup, _ = parsed(image)
+          PY_ROOT_GROWTH_TEST_0
+      - name: Materialize growth fixture chunk 1
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat >> "$RUNNER_TEMP/test-root-growth.py" <<'PY_ROOT_GROWTH_TEST_1'
+                  changed = bytearray(image[0]); struct.pack_into('<I', changed, 446 + 3 * 16 + 12, h.proposal(table)['new_size_sector']); changed[444:446] = b'ZZ'
+                  post, postbackup, _ = parsed({0: bytes(changed)})
+                  h.check_post(table, post, h.proposal(table))
+                  self.assertNotEqual(backup['segments'][0]['sha256'], postbackup['segments'][0]['sha256'])
+                  source = host_path.read_text()
+                  self.assertIn("POST_RAW_METADATA_DRIFT", source)
+                  self.assertIn("plan['post_metadata']", source)
+
+
+          class FilesystemAndBudgetTests(unittest.TestCase):
+              def test_superblock_not_statfs_total_is_resize_basis(self):
+                  raw_blocks = SIZE // 4096
+                  value = h.ext4(superblock(raw_blocks))
+                  self.assertEqual(value['blocks'], raw_blocks)
+                  reported_statfs_total = 102916472832
+                  self.assertNotEqual(value['blocks'] * value['block_bytes'], reported_statfs_total)
+                  self.assertNotEqual(SIZE - reported_statfs_total, SIZE - value['blocks'] * value['block_bytes'])
+
+              def test_ext4_64bit_block_count(self):
+                  blocks = (1 << 32) + 123
+                  self.assertEqual(h.ext4(superblock(blocks))['blocks'], blocks)
+
+              def test_ext4_bad_magic_block_size_and_features(self):
+                  for mutation in ('magic', 'block-size', 'bigalloc', 'encrypted'):
+                      raw = bytearray(superblock())
+                      if mutation == 'magic': raw[56] = 0
+                      if mutation == 'block-size': struct.pack_into('<I', raw, 24, 3)
+                      if mutation == 'bigalloc': struct.pack_into('<I', raw, 100, 0x200)
+                      if mutation == 'encrypted': struct.pack_into('<I', raw, 96, 0x10000)
+                      with self.subTest(mutation=mutation), self.assertRaises(h.Stop): h.ext4(bytes(raw))
+
+              def test_freshness_exact_boundary_plus_one_future(self):
+                  stamp = dt.datetime(2026, 10, 31, tzinfo=dt.timezone.utc)
+                  h.fresh(stamp.isoformat(), 900, stamp + dt.timedelta(seconds=900))
+                  for seconds in (900.000001, -0.000001):
+                      with self.subTest(seconds=seconds), self.assertRaises(h.Stop): h.fresh(stamp.isoformat(), 900, stamp + dt.timedelta(seconds=seconds))
+
+              def test_budget_deadline_is_inclusive(self):
+                  budget = h.Budget(1)
+                  with patch.object(h.time, 'monotonic', return_value=budget.start + 1), self.assertRaises(h.Stop): budget.check()
+
+              def test_scalar_and_duplicate_caps(self):
+                  for value in (True, -1, 1 << 63):
+                      with self.subTest(value=value), self.assertRaises(h.Stop): h.integer(value)
+                  with self.assertRaises(h.Stop): h.decode(b'{"x":1,"x":2}')
+                  with self.assertRaises(h.Stop): h.decode(b'0' * (h.WIRE_CAP + 1))
+
+              def test_resize_ioctl_fixed_resize_only_payload_and_wrong_target(self):
+                  calls = []
+                  def ioctl(fd, request, raw):
+                      arg = h.PartitionArgument.from_buffer_copy(raw)
+                      part = ctypes.cast(arg.data, ctypes.POINTER(h.Partition)).contents
+                      calls.append((fd, request, arg.op, arg.flags, arg.datalen, part.start, part.length, part.pno))
+                  h.resize_kernel(99, START, SIZE + 1024, 4, ioctl)
+                  self.assertEqual(calls, [(99, 0x1269, 3, 0, 152, START, SIZE + 1024, 4)])
+                  with self.assertRaises(h.Stop): h.resize_kernel(99, START, SIZE, 3, ioctl)
+                  self.assertEqual(len(calls), 1)
+
+              def test_real_parent_flock_conflict_and_explicit_child_lock_no(self):
+                  with tempfile.TemporaryFile() as file:
+                      fcntl.flock(file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                      source = ('import fcntl,os,sys\n'
+                          'fd=os.open("/proc/self/fd/"+sys.argv[1],os.O_RDWR)\n'
+                          'try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)\n'
+                          'except BlockingIOError:sys.exit(23)\n'
+                          'sys.exit(0)\n')
+                      code, _, _ = h.run([sys.executable, '-c', source, str(file.fileno())], 2, pass_fds=(file.fileno(),))
+                      self.assertEqual(code, 23)
+                      args = h.sfdisk_args('fixture-sfdisk', file.fileno(), {'number': 4})
+                      self.assertIn('--lock=no', args)
+                      self.assertNotIn('--lock=nonblock', args)
+                      self.assertNotIn('--force', args)
+
+              def test_actual_child_output_cap_and_timeout(self):
+                  with self.assertRaisesRegex(h.Stop, 'CHILD_OUTPUT'):
+                      h.run([sys.executable, '-c', 'import os;os.write(1,b"x"*101)'], 2, cap=100)
+                  started = time.monotonic()
+                  with self.assertRaisesRegex(h.Stop, 'CHILD_DEADLINE'):
+                      h.run([sys.executable, '-c', 'import time;time.sleep(5)'], .05)
+                  self.assertLess(time.monotonic() - started, 2)
+
+              def test_supported_and_unsupported_plan_contract(self):
+                  plan, backup = plan_fixture()
+                  h.validate_plan(plan, backup, TARGET, SOURCE)
+                  plan, backup = plan_fixture(False)
+                  h.validate_plan(plan, backup, TARGET, SOURCE, require_supported=False)
+                  with self.assertRaises(h.Stop): h.validate_plan(plan, backup, TARGET, SOURCE)
+
+              def test_plan_unknown_nested_source_and_drift_fields(self):
+                  for mutation in ('top', 'context', 'identity', 'tools', 'filesystem', 'source', 'backup', 'post'):
+                      plan, backup = plan_fixture()
+                      if mutation == 'top': plan['extra'] = 'private'
+                      elif mutation in ('context', 'identity', 'tools', 'filesystem'): plan[mutation]['extra'] = 'private'
+                      elif mutation == 'source': plan['source_sha256'] = '0' * 64
+                      elif mutation == 'backup': plan['backup_digest'] = '0' * 64
+                      else: plan['post_table']['entries'][0]['start'] += 1
+                      with self.subTest(mutation=mutation), self.assertRaises(h.Stop): h.validate_plan(plan, backup, TARGET, SOURCE)
+
+
+          class FakeIntentAPI:
+              repo = 'fixture/project'
+              def __init__(self, attack=''):
+                  self.attack = attack
+                  self.calls = []
+                  self.message = None
+              def probe_ref(self):
+                  self.calls.append(('probe',))
+                  if self.attack == 'probe-error': raise h.Stop('INTENT_ABSENCE_UNKNOWN')
+                  return {'ref': c.INTENT_REF} if self.attack in ('preexisting', 'other-plan') else None
+              def post(self, path, payload):
+                  self.calls.append(('POST', path, copy.deepcopy(payload)))
+                  if path == 'git/commits':
+                      self.message = payload['message']
+                      if self.attack == 'commit-ack': raise h.Stop('API_FAILURE')
+                      return {'sha': 'c' * 40}
+                  if self.attack in ('ref-conflict', 'ref-lost-ack'): raise h.Stop('API_FAILURE')
+                  return {'ref': c.INTENT_REF, 'object': {'sha': 'd' * 40 if self.attack == 'create-mismatch' else 'c' * 40}}
+              def get(self, path):
+                  self.calls.append(('GET', path))
+                  if path.startswith('git/ref/'):
+                      if self.attack == 'readback-error': raise h.Stop('API_FAILURE')
+                      return {'ref': c.INTENT_REF, 'object': {'type': 'commit', 'sha': 'd' * 40 if self.attack == 'ref-readback' else 'c' * 40}}
+                  return {'sha': 'c' * 40, 'tree': {'sha': 'd' * 40 if self.attack == 'tree' else 'b' * 40},
+                          'parents': [{'sha': 'a' * 40}] + ([{'sha': 'f' * 40}] if self.attack == 'parents' else []),
+                          'message': self.message + (' ' if self.attack == 'message' else '')}
+
+
+          class ControllerTests(unittest.TestCase):
+              def consume(self, api):
+                  main = {'sha': 'a' * 40, 'commit': {'tree': {'sha': 'b' * 40}}}
+                  return c.consume_intent(api, copy.deepcopy(CTX), main, '1' * 64, '2' * 64, {'artifact_id': 999})
+
+              def test_intent_atomic_create_readback_and_unchanged_tree(self):
+                  api = FakeIntentAPI()
+                  value = self.consume(api)
+                  self.assertTrue(value['verified'])
+                  posts = [call for call in api.calls if call[0] == 'POST']
+                  self.assertEqual([call[1] for call in posts], ['git/commits', 'git/refs'])
+                  self.assertEqual(posts[0][2]['tree'], 'b' * 40)
+                  self.assertEqual(posts[0][2]['parents'], ['a' * 40])
+                  self.assertEqual(posts[1][2], {'ref': c.INTENT_REF, 'sha': 'c' * 40})
+                  intent = json.loads(posts[0][2]['message'])
+                  self.assertEqual(intent['run_attempt'], 1)
+                  self.assertEqual(intent['comment_id'], 123)
+                  self.assertEqual(intent['plan_digest'], '1' * 64)
+
+              def test_intent_existing_any_plan_unknown_lost_ack_and_mismatch_stop(self):
+                  for attack in ('preexisting', 'other-plan', 'probe-error', 'commit-ack', 'ref-conflict',
+                                 'ref-lost-ack', 'create-mismatch', 'readback-error', 'ref-readback', 'tree', 'parents', 'message'):
+                      api = FakeIntentAPI(attack)
+                      with self.subTest(attack=attack), self.assertRaises(h.Stop): self.consume(api)
+                      self.assertFalse(any(call[0] in ('PATCH', 'DELETE') for call in api.calls))
+                      if attack in ('preexisting', 'other-plan', 'probe-error'):
+                          self.assertFalse(any(call[0] == 'POST' for call in api.calls))
+
+              def test_exact_apply_grammar_rejects_paths_whitespace_and_uppercase(self):
+                  good = '/production apply-root-filesystem-growth plan-' + 'a' * 64 + ' backup-' + 'b' * 64
+                  self.assertIsNotNone(c.APPLY_RE.fullmatch(good))
+                  for text in (good + '\n', good + ' ', ' ' + good, good.replace('a' * 64, 'A' * 64),
+                               good.replace('backup-', 'backup-/dev/'), good.replace('a' * 64, 'a' * 63)):
+                      with self.subTest(text=text): self.assertIsNone(c.APPLY_RE.fullmatch(text))
+
+              def zip(self, files, symlink=False):
+                  out = io.BytesIO()
+                  with zipfile.ZipFile(out, 'w') as archive:
+                      for name, value in files:
+                          info = zipfile.ZipInfo(name)
+                          if symlink: info.external_attr = (stat.S_IFLNK | 0o777) << 16
+                          archive.writestr(info, value)
+                  return out.getvalue()
+
+              def test_zip_exact_allowlist_positive(self):
+                  raw = self.zip([('plan.json', b'{"plan":1}'), ('table-backup.json', b'{"backup":2}')])
+                  self.assertEqual(c.extract_zip(raw), {'plan.json': {'plan': 1}, 'table-backup.json': {'backup': 2}})
+
+              def test_zip_rejects_traversal_extra_duplicate_symlink_and_oversize(self):
+                  values = [self.zip([('../plan.json', b'{}'), ('table-backup.json', b'{}')]),
+                            self.zip([('plan.json', b'{}'), ('table-backup.json', b'{}'), ('secret', b'x')]),
+                            self.zip([('plan.json', b'{}'), ('plan.json', b'{}')]),
+                            self.zip([('plan.json', b'{}'), ('table-backup.json', b'{}')], True),
+                            self.zip([('plan.json', b'x' * (h.WIRE_CAP + 1)), ('table-backup.json', b'{}')])]
+                  for value in values:
+                      with self.subTest(size=len(value)), self.assertRaises((h.Stop, ValueError)): c.extract_zip(value)
+
+              def test_no_redirect_handler_cannot_forward_authorization(self):
+                  request = c.urllib.request.Request('https://api.github.com/a', headers={'Authorization': 'Bearer FIXTURE_SECRET'})
+                  self.assertIsNone(c.NoRedirect().redirect_request(request, None, 302, 'found', {}, 'https://fixture.blob.core.windows.net/a'))
+
+              def test_actual_artifact_redirect_strips_token_and_checks_origin(self):
+                  class Response:
+                      status = 200
+                      def __enter__(self): return self
+                      def __exit__(self, *args): pass
+                      def read(self, cap): return b'fixture-archive'
+                  class Opener:
+                      def __init__(self, location): self.requests = []; self.location = location
+                      def open(self, request, timeout):
+                          self.requests.append(request)
+                          if len(self.requests) == 1:
+                              raise c.urllib.error.HTTPError(request.full_url, 302, 'found', {'Location': self.location}, None)
+                          return Response()
+                  for location, admitted in (('https://fixture.blob.core.windows.net/archive?sig=PRIVATE', True),
+                                             ('https://untrusted.invalid/archive', False)):
+                      opener = Opener(location)
+                      api = c.API('fixture/project', 'FIXTURE_TOKEN')
+                      with patch.object(c.urllib.request, 'build_opener', return_value=opener):
+                          if admitted:
+                              self.assertEqual(api.request('/repos/fixture/project/actions/artifacts/1/zip', expected=302), b'fixture-archive')
+                              self.assertIn('Authorization', opener.requests[0].headers)
+                              self.assertNotIn('Authorization', opener.requests[1].headers)
+                          else:
+                              with self.assertRaises(h.Stop): api.request('/repos/fixture/project/actions/artifacts/1/zip', expected=302)
+                              self.assertEqual(len(opener.requests), 1)
+
+              def test_executed_counterfactual_intent_gate_removal_reuses_spent_purpose(self):
+                  source = inspect.getsource(c.consume_intent)
+                  marker = "h.require(api.probe_ref() is None,'PURPOSE_ALREADY_SPENT')"
+                  self.assertEqual(source.count(marker), 1)
+                  namespace = dict(c.__dict__)
+                  exec(compile(source.replace(marker, 'pass'), '<counterfactual intent>', 'exec'), namespace)
+                  main = {'sha': 'a' * 40, 'commit': {'tree': {'sha': 'b' * 40}}}
+                  with self.assertRaises(h.Stop): self.consume(FakeIntentAPI('other-plan'))
+                  value = namespace['consume_intent'](FakeIntentAPI('other-plan'), copy.deepcopy(CTX), main,
+                                                     '1' * 64, '2' * 64, {'artifact_id': 999})
+                  self.assertTrue(value['verified'])
+
+              def test_result_partial_closed_binding_not_success(self):
+                  plan, backup = plan_fixture()
+                  intent = {'commit': 'f' * 40}
+          PY_ROOT_GROWTH_TEST_1
+      - name: Materialize growth fixture chunk 2
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat >> "$RUNNER_TEMP/test-root-growth.py" <<'PY_ROOT_GROWTH_TEST_2'
+                  result = {'schema': h.SCHEMA + '-result', 'status': 'PARTIAL_OR_UNKNOWN', 'phase': 'TABLE_WRITE_STARTED',
+                            'target_sha': TARGET, 'source_sha256': SOURCE, 'plan_digest': h.digest(h.canonical(plan)),
+                            'backup_digest': h.digest(h.canonical(backup)), 'intent_commit': intent['commit'],
+                            'observed_at': h.utc(), 'startup_authorization': 'NOT_GRANTED', 'release_authorization': 'NOT_GRANTED'}
+                  c.validate_result(result, TARGET, SOURCE, plan, backup, intent)
+                  for key, value in (('status', 'PASS'), ('phase', 'UNKNOWN_RAW_PATH'), ('target_sha', '0' * 40),
+                                     ('extra', 'PRIVATE_CREDENTIAL'), ('startup_authorization', 'GRANTED')):
+                      bad = dict(result); bad[key] = value
+                      with self.subTest(key=key), self.assertRaises(h.Stop): c.validate_result(bad, TARGET, SOURCE, plan, backup, intent)
+
+
+          if __name__ == '__main__':
+              print('FIXTURE_MODULE_SHA256 host=' + h.digest(Path(h.__file__).read_bytes()) +
+                    ' controller=' + h.digest(Path(c.__file__).read_bytes()), flush=True)
+              unittest.main(verbosity=2)
+          PY_ROOT_GROWTH_TEST_2
+      - name: Test exact growth protocol without production access
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -B "$RUNNER_TEMP/test-root-growth.py"
+      - name: Resolve fresh owner command and current source
+        shell: bash
+        id: route
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          python3 -B "$RUNNER_TEMP/root-growth-controller.py" --route
+  growth-plan:
+    name: Root filesystem growth PLAN
+    needs: growth-contract
+    if: github.event_name == 'issue_comment' && github.event.issue.number == 4637 && github.event.comment.user.login == github.repository_owner && github.event.comment.author_association == 'OWNER' && ((github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) || github.event.comment.performed_via_github_app.id == 1144995) && (github.event.comment.body == '/production plan-root-filesystem-growth current-main' || startsWith(github.event.comment.body, '/production apply-root-filesystem-growth plan-')) && needs.growth-contract.result == 'success' && needs.growth-contract.outputs.operation == 'plan'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: pc-crop-registration-lifecycle
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+      issues: read
+      actions: read
+    env:
+      GROWTH_SOURCE_SHA256: e27aec7abf99c3795a8a75a306d951724b58d2241aa58f6ca03b519c906ec924
+      GROWTH_CONTROLLER_SHA256: 4de6cab1ba7e319c606dfa2bd74e69cc2237f5ac35819be9761888ad0611e617
+      GITHUB_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.growth-contract.outputs.target_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Extract exact accepted growth implementation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY_GROWTH_EXTRACT'
+          import hashlib, os, pathlib, re, textwrap
+          text=pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_text()
+          assert hashlib.sha256(text.encode()[:254318]).hexdigest()=='3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
+          for kind in ('HOST','CONTROLLER'):
+              pattern=r"^          cat (?:>|>>) \"\$RUNNER_TEMP/root-growth-"+kind.lower()+r"\.py\" <<'PY_ROOT_GROWTH_"+kind+r"_([0-9]+)'\n(.*?)^          PY_ROOT_GROWTH_"+kind+r"_\1\n"
+              matches=re.findall(pattern,text,re.M|re.S)
+              assert matches and [int(i) for i,_ in matches]==list(range(len(matches)))
+              raw=''.join(textwrap.dedent(body) for _,body in matches).encode()
+              assert hashlib.sha256(raw).hexdigest()==os.environ['GROWTH_SOURCE_SHA256' if kind=='HOST' else 'GROWTH_CONTROLLER_SHA256']
+              pathlib.Path(os.environ['RUNNER_TEMP'],'root-growth-'+kind.lower()+'.py').write_bytes(raw)
+          PY_GROWTH_EXTRACT
+      - name: Verify source and clean checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(sha256sum "$RUNNER_TEMP/root-growth-host.py" | cut -d ' ' -f 1)" == "$GROWTH_SOURCE_SHA256" ]]
+          [[ "$(sha256sum "$RUNNER_TEMP/root-growth-controller.py" | cut -d ' ' -f 1)" == "$GROWTH_CONTROLLER_SHA256" ]]
+          python3 - <<'PY_GROWTH_PREFIX'
+          import hashlib,pathlib
+          raw=pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_bytes()
+          assert hashlib.sha256(raw[:254318]).hexdigest()=='3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
+          PY_GROWTH_PREFIX
+          [[ "$(git hash-object scripts/test_production_stopped_runtime_headroom.py)" == bc2c092cea71aaca1c94121b02d1bd87cf83df5f ]]
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          git diff --quiet
+          git diff --cached --quiet
+      - name: Resolve protected pinned SSH transport without remote probe
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          private="$RUNNER_TEMP/root-growth-private"
+          mkdir "$private"
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ "$SSH_USER_SECRET" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]{1,5}$ ]] && ((10#$port >= 1 && 10#$port <= 65535))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          timeout --kill-after=2s 10s getent ahostsv4 "$LIVE_DOMAIN" 2>/dev/null | awk '{print $1}' | grep -Fxq "$DEFAULT_HOST"
+          validate_key(){
+            tr -d '\r' < "$1" > "$private/key"
+            chmod 600 "$private/key"
+            timeout --kill-after=2s 5s ssh-keygen -y -P '' -f "$private/key" >/dev/null 2>&1
+          }
+          try_key(){
+            [[ -n "$1" ]] || return 1
+            printf '%s\n' "$1" > "$private/raw"
+            validate_key "$private/raw" && return 0
+            printf '%s' "${1//\\n/$'\n'}" > "$private/raw"
+            validate_key "$private/raw" && return 0
+            printf '%s' "$1" | base64 --decode > "$private/raw" 2>/dev/null && validate_key "$private/raw"
+          }
+          try_key "${SSH_KEY_PRIMARY:-}" || try_key "${SSH_KEY_SECONDARY:-}" || try_key "${SSH_KEY_FALLBACK:-}"
+          timeout --kill-after=2s 12s ssh-keyscan -T 8 -p "$port" "$host" > "$private/scan" 2>/dev/null
+          : > "$private/match"
+          while IFS= read -r line; do
+            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}')"
+            [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$private/match"
+          done < "$private/scan"
+          sort -u "$private/match" > "$private/known_hosts"
+          [[ "$(wc -l < "$private/known_hosts")" == 1 ]]
+          rm -f "$private/raw" "$private/scan" "$private/match"
+          echo "GROWTH_PORT=$port" >> "$GITHUB_ENV"
+      - name: Collect bounded root growth plan
+        shell: bash
+        id: collect
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          python3 -B "$RUNNER_TEMP/root-growth-controller.py" --plan
+      - name: Preserve explicitly public table-only backup and frozen plan
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: root-growth-plan-${{ steps.collect.outputs.plan_digest }}
+          path: |-
+            ${{ runner.temp }}/root-growth-output/plan.json
+            ${{ runner.temp }}/root-growth-output/table-backup.json
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+      - name: Clear runner-only growth transport
+        shell: bash
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/root-growth-private" "$RUNNER_TEMP/root-growth-output"
+          rm -f "$RUNNER_TEMP/root-growth-host.py" "$RUNNER_TEMP/root-growth-controller.py"
+  growth-apply:
+    name: Root filesystem growth APPLY
+    needs: growth-contract
+    if: github.event_name == 'issue_comment' && github.event.issue.number == 4637 && github.event.comment.user.login == github.repository_owner && github.event.comment.author_association == 'OWNER' && ((github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) || github.event.comment.performed_via_github_app.id == 1144995) && (github.event.comment.body == '/production plan-root-filesystem-growth current-main' || startsWith(github.event.comment.body, '/production apply-root-filesystem-growth plan-')) && needs.growth-contract.result == 'success' && needs.growth-contract.outputs.operation == 'apply'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: pc-crop-registration-lifecycle
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: write
+      issues: read
+      actions: read
+    env:
+      GROWTH_SOURCE_SHA256: e27aec7abf99c3795a8a75a306d951724b58d2241aa58f6ca03b519c906ec924
+      GROWTH_CONTROLLER_SHA256: 4de6cab1ba7e319c606dfa2bd74e69cc2237f5ac35819be9761888ad0611e617
+      GITHUB_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.growth-contract.outputs.target_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Extract exact accepted growth implementation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY_GROWTH_EXTRACT'
+          import hashlib, os, pathlib, re, textwrap
+          text=pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_text()
+          assert hashlib.sha256(text.encode()[:254318]).hexdigest()=='3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
+          for kind in ('HOST','CONTROLLER'):
+              pattern=r"^          cat (?:>|>>) \"\$RUNNER_TEMP/root-growth-"+kind.lower()+r"\.py\" <<'PY_ROOT_GROWTH_"+kind+r"_([0-9]+)'\n(.*?)^          PY_ROOT_GROWTH_"+kind+r"_\1\n"
+              matches=re.findall(pattern,text,re.M|re.S)
+              assert matches and [int(i) for i,_ in matches]==list(range(len(matches)))
+              raw=''.join(textwrap.dedent(body) for _,body in matches).encode()
+              assert hashlib.sha256(raw).hexdigest()==os.environ['GROWTH_SOURCE_SHA256' if kind=='HOST' else 'GROWTH_CONTROLLER_SHA256']
+              pathlib.Path(os.environ['RUNNER_TEMP'],'root-growth-'+kind.lower()+'.py').write_bytes(raw)
+          PY_GROWTH_EXTRACT
+      - name: Verify source and clean checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(sha256sum "$RUNNER_TEMP/root-growth-host.py" | cut -d ' ' -f 1)" == "$GROWTH_SOURCE_SHA256" ]]
+          [[ "$(sha256sum "$RUNNER_TEMP/root-growth-controller.py" | cut -d ' ' -f 1)" == "$GROWTH_CONTROLLER_SHA256" ]]
+          python3 - <<'PY_GROWTH_PREFIX'
+          import hashlib,pathlib
+          raw=pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_bytes()
+          assert hashlib.sha256(raw[:254318]).hexdigest()=='3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
+          PY_GROWTH_PREFIX
+          [[ "$(git hash-object scripts/test_production_stopped_runtime_headroom.py)" == bc2c092cea71aaca1c94121b02d1bd87cf83df5f ]]
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          git diff --quiet
+          git diff --cached --quiet
+      - name: Resolve protected pinned SSH transport without remote probe
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          private="$RUNNER_TEMP/root-growth-private"
+          mkdir "$private"
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ "$SSH_USER_SECRET" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]{1,5}$ ]] && ((10#$port >= 1 && 10#$port <= 65535))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          timeout --kill-after=2s 10s getent ahostsv4 "$LIVE_DOMAIN" 2>/dev/null | awk '{print $1}' | grep -Fxq "$DEFAULT_HOST"
+          validate_key(){
+            tr -d '\r' < "$1" > "$private/key"
+            chmod 600 "$private/key"
+            timeout --kill-after=2s 5s ssh-keygen -y -P '' -f "$private/key" >/dev/null 2>&1
+          }
+          try_key(){
+            [[ -n "$1" ]] || return 1
+            printf '%s\n' "$1" > "$private/raw"
+            validate_key "$private/raw" && return 0
+            printf '%s' "${1//\\n/$'\n'}" > "$private/raw"
+            validate_key "$private/raw" && return 0
+            printf '%s' "$1" | base64 --decode > "$private/raw" 2>/dev/null && validate_key "$private/raw"
+          }
+          try_key "${SSH_KEY_PRIMARY:-}" || try_key "${SSH_KEY_SECONDARY:-}" || try_key "${SSH_KEY_FALLBACK:-}"
+          timeout --kill-after=2s 12s ssh-keyscan -T 8 -p "$port" "$host" > "$private/scan" 2>/dev/null
+          : > "$private/match"
+          while IFS= read -r line; do
+            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}')"
+            [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$private/match"
+          done < "$private/scan"
+          sort -u "$private/match" > "$private/known_hosts"
+          [[ "$(wc -l < "$private/known_hosts")" == 1 ]]
+          rm -f "$private/raw" "$private/scan" "$private/match"
+          echo "GROWTH_PORT=$port" >> "$GITHUB_ENV"
+      - name: Collect bounded root growth apply
+        shell: bash
+        id: collect
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          python3 -B "$RUNNER_TEMP/root-growth-controller.py" --apply
+      - name: Preserve only validated closed growth result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: root-growth-result-${{ github.run_id }}
+          path: ${{ runner.temp }}/root-growth-output/result.json
+          if-no-files-found: ignore
+          retention-days: 30
+          compression-level: 0
+      - name: Clear runner-only growth transport
+        shell: bash
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/root-growth-private" "$RUNNER_TEMP/root-growth-output"
+          rm -f "$RUNNER_TEMP/root-growth-host.py" "$RUNNER_TEMP/root-growth-controller.py"
