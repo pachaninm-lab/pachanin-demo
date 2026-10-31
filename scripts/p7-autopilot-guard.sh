@@ -989,12 +989,12 @@ if (branch === 'fix/pc-crop-docker-headroom-rollover-4637') {
       const helper = 'scripts/test_production_stopped_runtime_headroom.py';
       const queuePath = 'docs/platform-v7/execution-queue.md';
       const beforeBlob = 'cb71a92fed47bed533147891ca453a432ea29945';
-      const afterBlob = "58b0f775fee27d78cafd320fff8c43c085e8fb0e";
-      const afterBytes = 367037;
-      const afterSha256 = "23dfc7758b8cfe21d4e5a6effcb995cc1250ec4be1340fdb9f1ba6b8e0d4a2dd";
-      const acceptedStateBlob = "2e2774e4daa332a7c26fa4b9078785ec629c9bf8";
-      const acceptedQueueBlob = "8bc68d3c73ebcb72b963032ad0877b3b42c877a8";
-      const expectedPurpose = {"owner":"OWNER_AUTHORIZED_SESSION","ownerDecision":"https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6539741383","authorityBaseExactMain":"58bbc762c0e781ac4df33a8004d4221e1f91f7e5","sourceBranch":"fix/gekta-docker-diagnostic-route-20260927","beforeBlob":"cb71a92fed47bed533147891ca453a432ea29945","afterBlob":"58b0f775fee27d78cafd320fff8c43c085e8fb0e","bytes":367037,"sha256":"23dfc7758b8cfe21d4e5a6effcb995cc1250ec4be1340fdb9f1ba6b8e0d4a2dd","reviewSha256":"df202dc3398b27671c91a93862e5f2367cbc6e4c6980f0bfec4845c04767d62d","sourceOnly":true,"filesystemWriteAuthorized":false,"productionAcceptance":false,"limits":"One frozen existing-workflow PLAN and separate APPLY source only. Bounded raw table metadata export disclosed; actual write needs fresh plan/backup/unused intent/finite OWNER lock. No move/shrink/format/restore/startup."};
+      const afterBlob = "e0f8fa5731af0addc0b82c9ca7fab24abcecddb7";
+      const afterBytes = 370287;
+      const afterSha256 = "31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7";
+      const acceptedStateBlob = "42c89eeade2939f74240e6e3a0cb6dcb0daef829";
+      const acceptedQueueBlob = "acff7046c8d78258d4069db00f959c745ead3dfa";
+      const expectedPurpose = {"owner":"OWNER_AUTHORIZED_SESSION","ownerDecision":"https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6539927156","authorityBaseExactMain":"58bbc762c0e781ac4df33a8004d4221e1f91f7e5","sourceBranch":"fix/gekta-docker-diagnostic-route-20260927","beforeBlob":"cb71a92fed47bed533147891ca453a432ea29945","afterBlob":"e0f8fa5731af0addc0b82c9ca7fab24abcecddb7","bytes":370287,"sha256":"31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7","reviewSha256":"cfc3f105cd5592b395ed43b580764e5a2323efea270dbbe5383a6f0b48e52de7","sourceOnly":true,"filesystemWriteAuthorized":false,"productionAcceptance":false,"limits":"One frozen existing-workflow PLAN and separate APPLY source only. Bounded raw table metadata export disclosed; actual write needs fresh plan/backup/unused intent/finite OWNER lock. No move/shrink/format/restore/startup."};
       if (!/^[a-f0-9]{40}$/u.test(afterBlob) || !/^[a-f0-9]{64}$/u.test(afterSha256) ||
           !Number.isSafeInteger(afterBytes) || afterBytes <= 254318 ||
           !/^[a-f0-9]{40}$/u.test(acceptedStateBlob) || !/^[a-f0-9]{40}$/u.test(acceptedQueueBlob) ||
