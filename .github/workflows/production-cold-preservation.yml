@@ -196,7 +196,8 @@ jobs:
               p = pathlib.Path(path)
               info = p.lstat()
               require(stat.S_ISREG(info.st_mode) and not p.is_symlink() and
-                      stat.S_IMODE(info.st_mode) == (int(mode, 8) & 0o7777) and 0 < info.st_size <= 200000)
+                      stat.S_IMODE(info.st_mode) == (int(mode, 8) & 0o7777) and
+                      0 < info.st_size <= (370287 if path == '.github/workflows/production-docker-headroom-diagnostic.yml' else 200000))
               require(hashlib.sha256(p.read_bytes()).hexdigest() == digest)
           def ancestor(value):
               require(type(value) is str and re.fullmatch('[0-9a-f]{40}', value) is not None)
@@ -206,7 +207,7 @@ jobs:
           require(0 < len(state_bytes) <= 3 * 1024 * 1024)
           state = json.loads(state_bytes.decode('utf-8', errors='strict'), object_pairs_hook=closed)
           purpose = state.get('coordinationAdmissions', {}).get('stopped-core-bootstrap-20261024')
-          expected_purpose = {'owner': 'ACCOUNT_1_CORE', 'sourceBranch': 'ops/production-cold-preservation-20261022', 'authorityBaseExactMain': 'e48117a2acf2030dffb845ff48e4807f694d01be', 'ownerDecision': '#5469#issuecomment-6391790945', 'operationName': 'core-bootstrap-20261024', 'originalStartupAuthorized': True, 'workersAuthorized': False, 'productionAcceptance': False, 'inspectionSha256': '09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a', 'limits': 'Historical6core only; existing images/mounts/networks; no workers, PgBouncer, daemon restart, pull, migration, private transfer or new cost.'}
+          expected_purpose = {'owner': 'ACCOUNT_1_CORE', 'sourceBranch': 'ops/production-cold-preservation-20261022', 'authorityBaseExactMain': 'e48117a2acf2030dffb845ff48e4807f694d01be', 'ownerDecision': '#5469#issuecomment-6391790945', 'operationName': 'core-bootstrap-20261024', 'originalStartupAuthorized': True, 'workersAuthorized': False, 'productionAcceptance': False, 'inspectionSha256': '31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7', 'limits': 'Historical6core only; existing images/mounts/networks; no workers, PgBouncer, daemon restart, pull, migration, private transfer or new cost.'}
           require(type(purpose) is dict and set(purpose) == set(expected_purpose) | {'sourcePins'})
           require(all(type(purpose[k]) is type(v) and purpose[k] == v for k, v in expected_purpose.items()))
           observer = state.get('coordinationAdmissions', {}).get('stopped-configuration-controller-20261024')
@@ -361,7 +362,7 @@ jobs:
           if len(refs)!=1 or type(refs[0]) is not tuple or len(refs[0])!=11 or tuple(sorted(refs[0]))!=refs[0]:
               raise SystemExit('BOOTSTRAP_SAVED_REFERENCE_PROFILE')
           workflow = source('.github/workflows/production-docker-headroom-diagnostic.yml')
-          if hashlib.sha256(workflow).hexdigest() != '09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a':
+          if hashlib.sha256(workflow).hexdigest() != '31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7':
               raise SystemExit('BOOTSTRAP_INSPECTOR_IDENTITY')
           parts = []
           for name in ('PY_INSPECTION_0','PY_INSPECTION_1','PY_INSPECTION_2'):

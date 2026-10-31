@@ -187,3 +187,24 @@ source publication, then fresh exact-head independent review, applicable native/
 security/canonical checks and ordinary full-SHA manual acceptance. Old PASS does
 not transfer. No host window is issued; restoration, release, registration,
 Founder13, external integrations and whole MASTER acceptance remain unproved.
+
+
+## Existing bootstrap observer dependency, 2026-10-31
+
+The accepted root-capacity workflow is now 370287 bytes, SHA256
+`31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7`.
+Its complete 191427-byte historical observer prefix still hashes to the prior
+`09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a`.
+Bind that exact complete current dependency; its additional bytes do not add
+commands to the extracted observer. Only this fixed dependency may exceed the
+old 200000-byte source cap, up to its exact 370287-byte length. Every other
+source keeps its old bound. Engine, one-use journals, transport, startup policy,
+workers quarantine, timeouts and private custody remain unchanged.
+
+The isolated PostgreSQL copy run40061557888 is historical VERIFIED/SPENT evidence;
+do not run the private clone-controller proposal or reset that operation.
+Bootstrap40193352988 failed before SSH authentication and before its restore step.
+Its UNKNOWN record remains. Source acceptance does not reconcile current journal
+or object ownership: require a fresh bounded read-only reconciliation and a new
+finite operational disposition before any bootstrap invocation. No restoration,
+registration, release or MASTER progress is established by this dependency fix.
