@@ -112,10 +112,22 @@ def embedded_configuration_profile():
     return module
 
 
+def retained_inspector_workflow_bytes():
+    # Historical regressions execute the immutable observer they originally bound.
+    path = Path(__file__).resolve().parent.parent / '.github/workflows/production-docker-headroom-diagnostic.yml'
+    raw = path.read_bytes()
+    if len(raw) != 370287 or hashlib.sha256(raw).hexdigest() != '31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7':
+        raise AssertionError('retained fixture requires the exact accepted current source')
+    retained = raw[:191427]
+    if hashlib.sha256(retained).hexdigest() != '09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a':
+        raise AssertionError('retained observer prefix identity mismatch')
+    return retained
+
+
 def accepted_inspector_fixture(refs):
     path = Path(__file__).resolve().parent.parent / '.github/workflows/production-docker-headroom-diagnostic.yml'
     raw = path.read_bytes()
-    if hashlib.sha256(raw).hexdigest() != '09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a':
+    if hashlib.sha256(raw).hexdigest() != '31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7':
         raise AssertionError('fixture must use the actual unchanged accepted inspector')
     parts = []
     for name in ('PY_INSPECTION_0', 'PY_INSPECTION_1', 'PY_INSPECTION_2'):
@@ -428,6 +440,17 @@ class PreservationTests(unittest.TestCase):
                 result = subprocess.run(['bash', '-ceu', prefix], cwd=root, env=env, capture_output=True)
                 self.assertEqual(result.returncode == 0, not override)
 
+    def test_retained_observer_fixture_is_exact_and_rejects_source_drift(self):
+        path = Path(__file__).resolve().parent.parent / '.github/workflows/production-docker-headroom-diagnostic.yml'
+        raw = path.read_bytes()
+        retained = retained_inspector_workflow_bytes()
+        self.assertEqual(len(retained), 191427)
+        self.assertEqual(hashlib.sha256(retained).hexdigest(), '09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a')
+        for changed in (bytes([raw[0] ^ 1]) + raw[1:], raw[:-1] + bytes([raw[-1] ^ 1]), raw[:-1], raw + b'\n'):
+            with self.subTest(length=len(changed)), patch.object(Path, 'read_bytes', return_value=changed):
+                with self.assertRaises(AssertionError):
+                    retained_inspector_workflow_bytes()
+
     def test_retained_bash_transport_never_publishes_success_for_unknown_outcome(self):
         import sys
         _, source = workflow_step('Inspect only the accepted stopped configuration')
@@ -468,7 +491,7 @@ class PreservationTests(unittest.TestCase):
                     deps['scripts/' + filename] = hashlib.sha256(p.read_bytes()).hexdigest()
                 diagnostic = root / '.github/workflows/production-docker-headroom-diagnostic.yml'
                 diagnostic.parent.mkdir(parents=True)
-                diagnostic.write_bytes((Path(__file__).resolve().parent.parent / '.github/workflows/production-docker-headroom-diagnostic.yml').read_bytes())
+                diagnostic.write_bytes(retained_inspector_workflow_bytes())
                 state = root / 'docs/platform-v7/autopilot/autopilot-state.json'
                 state.parent.mkdir(parents=True)
                 state.write_text(json.dumps({'coordinationAdmissions': {'stopped-configuration-controller-20261024': {
@@ -795,7 +818,7 @@ class BindingPreservationTests(unittest.TestCase):
                 for name in names + dependencies + [inspector]:
                     p = root / name
                     p.parent.mkdir(parents=True, exist_ok=True)
-                    p.write_bytes((base / name).read_bytes())
+                    p.write_bytes(retained_inspector_workflow_bytes() if name == inspector else (base / name).read_bytes())
                     p.chmod(0o644)
                 engine_pins = []
                 for i, name in enumerate(engine_names):
@@ -2295,6 +2318,13 @@ class BootstrapControllerTests(unittest.TestCase):
                 self.assertEqual(result.returncode == 0, accepted, result.stderr.decode())
                 self.assertEqual((output / 'result.json').exists(), accepted)
 
+    def test_current_growth_workflow_preserves_entire_accepted_inspector_prefix(self):
+        base = Path(__file__).resolve().parent.parent
+        raw = (base / '.github/workflows/production-docker-headroom-diagnostic.yml').read_bytes()
+        self.assertEqual(len(raw), 370287)
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), '31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7')
+        self.assertEqual(hashlib.sha256(raw[:191427]).hexdigest(), '09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a')
+
     def test_active_source_binding_requires_new_purpose_and_cannot_borrow_readonly_authority(self):
         import sys
         _, shell = active_workflow_step('Bind accepted exact main and evidence journal')
@@ -2313,7 +2343,8 @@ class BootstrapControllerTests(unittest.TestCase):
         paths.update(pin['path'] for pin in engine['sourcePins'])
         for alteration in ('none', 'only-old-purpose', 'startup-false', 'workers-true', 'release-true',
                            'unknown-key', 'wrong-operation', 'wrong-decision', 'old-startup-true',
-                           'source-hash-drift', 'source-mode-drift', 'duplicate-pin', 'source-scope-drift'):
+                           'source-hash-drift', 'source-mode-drift', 'duplicate-pin', 'source-scope-drift',
+                            'inspector-prefix-drift', 'inspector-tail-drift', 'oversized-controller'):
             with self.subTest(alteration=alteration), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 for path in paths:
@@ -2338,6 +2369,14 @@ class BootstrapControllerTests(unittest.TestCase):
                 if alteration == 'old-startup-true': value['coordinationAdmissions'][old_key]['originalStartupAuthorized'] = True
                 if alteration == 'source-hash-drift': (root / controller[0]).write_bytes(b'drift')
                 if alteration == 'source-mode-drift': (root / controller[0]).chmod(0o755)
+                if alteration in ('inspector-prefix-drift', 'inspector-tail-drift'):
+                    inspector_path = root / '.github/workflows/production-docker-headroom-diagnostic.yml'
+                    raw = bytearray(inspector_path.read_bytes())
+                    raw[0 if alteration == 'inspector-prefix-drift' else -1] ^= 1
+                    inspector_path.write_bytes(raw)
+                if alteration == 'oversized-controller':
+                    (root / controller[0]).write_bytes(b'x' * 200001)
+                    purpose['sourcePins'][0]['sha256'] = hashlib.sha256((root / controller[0]).read_bytes()).hexdigest()
                 if alteration == 'duplicate-pin': purpose['sourcePins'].append(dict(purpose['sourcePins'][0]))
                 if alteration == 'source-scope-drift': value['approvedConcurrentScopes'][fixed['sourceBranch']].reverse()
                 state_path = root / 'docs/platform-v7/autopilot/autopilot-state.json'
