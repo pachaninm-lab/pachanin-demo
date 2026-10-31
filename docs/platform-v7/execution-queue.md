@@ -11228,4 +11228,4 @@ Metadata acceptance precedes original cold-source publication. Retain ancestry a
 
 V2 bootstrap fixture OWNER6540665424: fullpatch c243f28925b551da14741d352e441516f7d613a7; review e4bb444f6763c89a2230ac692384b3d1571e8887. Only existing testpin->b3377b91cdc941f2506aec35300eff26db52e726457e4e754741fc7873dcf5d1; otherafters/authority unchanged. 7e9/run41180384638 retained37/3FAIL preserved. Metadata->SOURCE->freshnative38+90/Compose/PGwire/review/READY/manual. NOhost/credit.
 
-WP1 git-blob: f90a78c4af30a3d4d68e759d9f6244f76ca2fe85
+WP1 [record](autopilot/prompts/current-review-task.md#wp1)
