@@ -35,7 +35,8 @@ jobs:
       github.event_name == 'pull_request' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.number == 4637 &&
-       github.event.comment.body == '/production restore-historical-core current-main')
+       (github.event.comment.body == '/production restore-historical-core current-main' ||
+       github.event.comment.body == '/production inspect-core-startup current-main'))
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -136,7 +137,8 @@ jobs:
     if: >-
       github.event_name == 'issue_comment' &&
       github.event.issue.number == 4637 &&
-      github.event.comment.body == '/production restore-historical-core current-main' &&
+      (github.event.comment.body == '/production restore-historical-core current-main' ||
+       github.event.comment.body == '/production inspect-core-startup current-main') &&
       github.event.comment.user.login == github.repository_owner &&
       github.event.comment.author_association == 'OWNER' &&
       github.actor == github.repository_owner &&
@@ -151,6 +153,7 @@ jobs:
       cancel-in-progress: false
       queue: max
     env:
+      OPERATION_KIND: ${{ github.event.comment.body == '/production inspect-core-startup current-main' && 'inspect' || 'bootstrap' }}
       SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
       SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
       SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
@@ -229,6 +232,16 @@ jobs:
                           type(item['sha256']) is str and re.fullmatch('[0-9a-f]{64}', item['sha256']) is not None)
                   accepted(path, mode, item['sha256'])
           pins(purpose['sourcePins'], controller_paths, ['100644'] * 3)
+          import os
+          operation_kind = os.environ.get('OPERATION_KIND', 'bootstrap')
+          require(operation_kind in ('bootstrap', 'inspect'))
+          if operation_kind == 'inspect':
+              observation = state.get('coordinationAdmissions', {}).get('stopped-core-startup-observation-20261031')
+              require(observation == {'owner': 'ACCOUNT_1_CORE', 'sourceBranch': 'ops/production-cold-preservation-20261022',
+                  'sourcePurpose': 'stopped-core-bootstrap-20261024', 'operationName': 'core-startup-observation-20261031',
+                  'readOnly': True, 'originalStartupAuthorized': False, 'workersAuthorized': False, 'productionAcceptance': False})
+              require(all(type(observation[k]) is type(v) for k, v in {
+                  'readOnly': True, 'originalStartupAuthorized': False, 'workersAuthorized': False, 'productionAcceptance': False}.items()))
           engine = state.get('coordinationAdmissions', {}).get('ir20-stopped-copy-source-20261023')
           require(type(engine) is dict and set(engine) == {
               'authorityBaseExactMain', 'dependencySha256', 'limits', 'owner', 'ownerDecision',
@@ -345,12 +358,22 @@ jobs:
           body+='Keep original volumes, both archives/keys, created objects and the one-use journal. Do not replay.\n'
           pathlib.Path(output,'issue-record.md').write_text(body)
           PY_PENDING
+          if [[ "${OPERATION_KIND:-bootstrap}" == inspect ]]; then
+            python3 - "$TARGET_SHA" "$EVIDENCE_DIR" <<'PY_OBS_PENDING'
+          import pathlib,re,sys
+          target,output=sys.argv[1:]
+          if not re.fullmatch('[0-9a-f]{40}',target): raise SystemExit('INVALID_SOURCE_SHA')
+          pathlib.Path(output,'issue-record.md').write_text('# Read-only core startup inspection\n\nExact source: '+target+'.\nObservation outcome: UNKNOWN. Startup and restoration are not authorized or established.\n')
+          PY_OBS_PENDING
+          fi
           raw="$(mktemp)"
           payload="$(mktemp)"
           trap 'rm -f "$raw" "$payload"' EXIT
           python3 - "$TARGET_SHA" > "$payload" <<'PY_PAYLOAD'
-          import ast,base64,hashlib,subprocess,sys,textwrap
+          import ast,base64,hashlib,os,subprocess,sys,textwrap
           target = sys.argv[1]
+          operation_kind = os.environ.get('OPERATION_KIND', 'bootstrap')
+          if operation_kind not in ('bootstrap', 'inspect'): raise SystemExit('OPERATION_KIND_INVALID')
           def source(path):
               return subprocess.check_output(['git','show',target+':'+path])
           helper = source('scripts/production_stopped_runtime_headroom.py')
@@ -381,6 +404,7 @@ jobs:
           startup_policy = '"""Conservative OFFLINE startup predicate; no host IO and no execution.\n\nPreparation only: root must include/review/pin this with the real controller.\nImages are pinned to the accepted API baseline and the separately accepted Oct29 web release; never mutable tags.\nNo unknown saved shell/Node script is accepted. False means REFUSE, not bypass.\n\nPublic authority inspected:\n- PC-CROP a6784252a57a8a5e14f231bc18a64d67ab0fd274 API and\n  3de749725b270a810f463bef34e6120f22fb7ce7 web Dockerfiles,\n  infra/compose/production-web-hardening.override.yml and full-stack release.\n- edoburu/docker-pgbouncer 91a581b7e9ea0c6b3e9001db39d67efa8b05dfb2\n  Dockerfile/entrypoint (nearest source commit before saved image creation;\n  this temporal match is NOT a build-provenance attestation).\n- minio/minio 2b34e5b9ae62390a4ba3e19fefd9c55b2dbd6c7c Dockerfile.release,\n  official docs/docker/README.md and cmd/healthcheck-router.go.\n- redis/docker-library-redis official 7.4/debian/Dockerfile,\n  caddyserver/caddy-docker official Dockerfile.tmpl.\n\nRoot MUST separately verify volumes/PG_VERSION, bind contents, configs,\nnetwork/ports and application worker-disable boundaries. Cmd equality alone\ndoes not attest those. This module intentionally refuses other overrides.\n"""\nimport re\n\nREVISIONS = {\'api\': \'a6784252a57a8a5e14f231bc18a64d67ab0fd274\',\n             \'web\': \'3de749725b270a810f463bef34e6120f22fb7ce7\'}\nIMAGES = {\n    \'postgres\': \'sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20\',\n    \'redis\': \'sha256:a8f08480e1f88f2647fed492d1178c06abb0d0c1fbf02c682a61e2f483fb3954\',\n    \'minio\': \'sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e\',\n    \'pgbouncer\': \'sha256:4c1ca296ef525f108f5d3552cc337c0c09587cf8dae7f0067fd93349e47dc1cd\',\n    \'api\': \'sha256:4d7ca23ed1e7e090c3e2f1b89e1b89e836b420ee7f378b93f639bb7f0581a6fc\',\n    \'web\': \'sha256:74d2304531d758ff945da74f52c80fbc71126f51a8f108555fabdd319c8d4dd8\',\n    \'caddy\': \'sha256:844f60b64e4724a5aa8245e019dace0d3f199f7433ce6c57676cb30a920dbad9\',\n}\nDEFAULT_COMMAND = {\n    \'postgres\': (\'postgres\',),\n    \'redis\': (\'redis-server\',),\n    \'minio\': (\'minio\',),\n    \'pgbouncer\': (\'/usr/bin/pgbouncer\', \'/etc/pgbouncer/pgbouncer.ini\'),\n    \'api\': (\'dist/apps/api/src/main.js\',),\n    \'web\': (\'node_modules/next/dist/bin/next\', \'start\', \'-p\', \'3000\'),\n    \'caddy\': (\'caddy\', \'run\', \'--config\', \'/etc/caddy/Caddyfile\', \'--adapter\', \'caddyfile\'),\n}\nENTRYPOINTS = {\n    \'postgres\': {(\'docker-entrypoint.sh\',), (\'/usr/local/bin/docker-entrypoint.sh\',)},\n    \'redis\': {(\'docker-entrypoint.sh\',), (\'/usr/local/bin/docker-entrypoint.sh\',)},\n    \'minio\': {(\'/usr/bin/docker-entrypoint.sh\',)},\n    \'pgbouncer\': {(\'/entrypoint.sh\',)},\n    \'api\': {(\'/nodejs/bin/node\',)},\n    \'web\': {(\'/nodejs/bin/node\',)},\n    \'caddy\': {()},\n}\nWEB_IMAGE_PROBE = "fetch(\'http://127.0.0.1:3000/api/health/ready\',{signal:AbortSignal.timeout(5000)}).then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))"\nWEB_HARDENING_PROBE = " ".join((\n    "fetch(\'http://127.0.0.1:3000/api/health/ready\',{signal:AbortSignal.timeout(5000)})",\n    ".then((response)=>response.ok?true:fetch(\'http://127.0.0.1:3000/platform-v7\',{signal:AbortSignal.timeout(5000)}).then((fallback)=>fallback.ok))",\n    ".then((ok)=>{if(!ok)process.exit(1)})", ".catch(()=>process.exit(1))"))\nAPI_RELEASE_PROBE = "fetch(\'http://127.0.0.1:3001/ready\',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"\nHEALTH_KEYS = {\'Test\', \'Interval\', \'Timeout\', \'Retries\', \'StartPeriod\', \'StartInterval\'}\n\n\ndef argv(value, *, empty=True):\n    if value is None and empty:\n        return ()\n    if type(value) is not list or len(value) > 64 or (not value and not empty):\n        raise ValueError(\'ARGV_PROFILE\')\n    if any(type(v) is not str or \'\\0\' in v or len(v.encode()) > 4096 for v in value):\n        raise ValueError(\'ARGV_PROFILE\')\n    return tuple(value)\n\n\ndef environment(config):\n    values = config.get(\'Env\') or []\n    if type(values) is not list or len(values) > 4096:\n        raise ValueError(\'ENV_PROFILE\')\n    result = {}\n    for value in values:\n        if type(value) is not str or \'=\' not in value or \'\\0\' in value:\n            raise ValueError(\'ENV_PROFILE\')\n        key, val = value.split(\'=\', 1)\n        if not re.fullmatch(\'[A-Za-z_][A-Za-z0-9_]{0,127}\', key) or key in result:\n            raise ValueError(\'ENV_PROFILE\')\n        result[key] = val\n    return result\n\n\ndef health_allowed(role, health, env):\n    if health is None or health == {}:\n        return True\n    if type(health) is not dict or set(health) - HEALTH_KEYS:\n        return False\n    for key, value in health.items():\n        if key != \'Test\' and (type(value) is not int or not 0 <= value <= (100 if key == \'Retries\' else 300_000_000_000)):\n            return False\n    try:\n        test = argv(health.get(\'Test\'), empty=False)\n    except ValueError:\n        return False\n    if test == (\'NONE\',):\n        return True\n    if role == \'web\':\n        return test in {(\'CMD\', \'/nodejs/bin/node\', \'-e\', WEB_IMAGE_PROBE),\n                       (\'CMD\', \'/nodejs/bin/node\', \'-e\', WEB_HARDENING_PROBE)}\n    if role == \'api\':\n        return test == (\'CMD\', \'/nodejs/bin/node\', \'-e\', API_RELEASE_PROBE)\n    if role == \'redis\':\n        return test in {(\'CMD\', \'redis-cli\', \'ping\'), (\'CMD\', \'/usr/local/bin/redis-cli\', \'ping\')}\n    if role == \'pgbouncer\':\n        return test in {(\'CMD\', \'pg_isready\', \'-h\', \'localhost\'),\n                       (\'CMD\', \'pg_isready\', \'-h\', \'127.0.0.1\', \'-p\', \'5432\')}\n    if role == \'minio\':\n        return test in {\n            (\'CMD\', \'curl\', \'-f\', \'http://localhost:9000/minio/health/live\'),\n            (\'CMD\', \'curl\', \'-f\', \'http://localhost:9000/minio/health/ready\'),\n            (\'CMD\', \'/usr/bin/curl\', \'-f\', \'http://127.0.0.1:9000/minio/health/ready\'),\n        }\n    if role == \'postgres\':\n        user, database = env.get(\'POSTGRES_USER\'), env.get(\'POSTGRES_DB\')\n        if not all(type(v) is str and re.fullmatch(\'[A-Za-z_][A-Za-z0-9_]{0,62}\', v) for v in (user, database)):\n            return False\n        return test in {\n            (\'CMD\', \'pg_isready\', \'-U\', user, \'-d\', database),\n            # Fixed program only; quoted env substitutions have bounded identifiers.\n            (\'CMD-SHELL\', \'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"\'),\n            (\'CMD-SHELL\', \'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}\'),\n            (\'CMD-SHELL\', \'pg_isready -U \' + user + \' -d \' + database),\n        }\n    # No public native Caddy health program was proven.\n    return False\n\n\ndef native_health_supported(role, record, image):\n    """Presence is determined from actual image/record; never assumed."""\n    cfg = record.get(\'Config\') or {}\n    base = image.get(\'Config\') or {}\n    health = cfg.get(\'Healthcheck\')\n    if health is None:\n        health = base.get(\'Healthcheck\')\n    try:\n        return bool(type(health) is dict and argv(health.get(\'Test\'), empty=False) != (\'NONE\',)\n                    and health_allowed(role, health, environment(cfg)))\n    except (ValueError, TypeError):\n        return False\n\n\ndef startup_safe(role, record, image):\n    """Closed callback suitable for Source.startup_safe; no truthy fallback."""\n    try:\n        if role not in IMAGES or type(record) is not dict or type(image) is not dict:\n            return False\n        if record.get(\'Image\') != IMAGES[role] or image.get(\'Id\') != IMAGES[role]:\n            return False\n        cfg, base = record.get(\'Config\'), image.get(\'Config\')\n        if type(cfg) is not dict or type(base) is not dict:\n            return False\n        if argv(base.get(\'Entrypoint\')) not in ENTRYPOINTS[role] or argv(cfg.get(\'Entrypoint\')) != argv(base.get(\'Entrypoint\')):\n            return False\n        if argv(base.get(\'Cmd\')) != DEFAULT_COMMAND[role]:\n            return False\n        command = argv(cfg.get(\'Cmd\'))\n        allowed_commands = {DEFAULT_COMMAND[role]}\n        # These two explicitly documented fixed argv exceptions run only their\n        # service binary, never arbitrary shell/entrypoint/config program.\n        if role == \'minio\':\n            allowed_commands = {(\'server\', \'/data\'), (\'server\', \'/data\', \'--console-address\', \':9001\')}\n        if role == \'redis\':\n            allowed_commands.add((\'redis-server\', \'--appendonly\', \'yes\'))\n        if command not in allowed_commands:\n            return False\n        if role in (\'api\', \'web\') and (base.get(\'Labels\') or {}).get(\'org.opencontainers.image.revision\') != REVISIONS[role]:\n            return False\n        env, base_env = environment(cfg), environment(base)\n        # A safe argv must not be redirected through a changed PATH or injected\n        # runtime loader/preload/script mechanism. Other app env is a separate\n        # authority reviewed by the integrating controller.\n        for key in (\'PATH\', \'LD_PRELOAD\', \'LD_AUDIT\', \'LD_LIBRARY_PATH\', \'NODE_OPTIONS\', \'NODE_PATH\',\n                    \'BASH_ENV\', \'ENV\', \'PYTHONPATH\', \'PYTHONSTARTUP\', \'SHELLOPTS\', \'BASHOPTS\', \'PS4\'):\n            if env.get(key) != base_env.get(key):\n                return False\n        return health_allowed(role, base.get(\'Healthcheck\'), base_env) and health_allowed(role, cfg.get(\'Healthcheck\'), env)\n    except (ValueError, TypeError, AttributeError):\n        return False\n'
           entrypoint = "import json\nimport re\nimport sys\n\n\ndef bootstrap_main(arguments, inspector, profile, engine, attestor, startup_policy, helper, cold):\n    target = arguments[0] if len(arguments) == 2 else ''\n    run = arguments[1] if len(arguments) == 2 else ''\n    if not re.fullmatch('[0-9a-f]{40}', target) or not re.fullmatch('[1-9][0-9]{0,19}', run):\n        raise SystemExit('BOOTSTRAP_ARGUMENTS_INVALID')\n    source = None\n    try:\n        source = attestor.Source(inspector, profile, engine, startup_policy, target, run, helper, cold)\n        try:\n            result = engine.controlled_bootstrap(\n                source, engine.LocalDocker(), inspector.EXPECTED_REFS, target,\n                source.journal_factory,\n                engine.NativeReadiness('xn----8sbjf4befbjgs9b.xn--p1ai', '195.19.12.120'),\n                uid=0, deadline_seconds=600)\n        finally:\n            source.close()\n    except BaseException as error:\n        # Constructor/cleanup/outer failures cannot prove that no write occurred.\n        # Nothing from an exception message or private source may be published.\n        code = error.args[0] if type(error) is engine.Refusal and error.args and \\\n               type(error.args[0]) is str and re.fullmatch('[A-Z_]{1,64}', error.args[0]) else 'BOOTSTRAP_BOUNDARY_UNAVAILABLE'\n        result = {'schemaVersion': 'pc.core-bootstrap.v1', 'passed': False,\n                  'outcome': 'UNKNOWN', 'errorCode': code, 'registrationAccepted': False,\n                  'exactCurrentMainReleased': False, 'dataRollbackClaimed': False}\n    result.update(targetSha=target, runId=run)\n    print(json.dumps(result, separators=(',', ':')))\n    return 0 if result.get('passed') is True else 1\n"
 
+          startup_observer = '"""Closed startup compatibility observation. No runtime mutation or private output."""\nimport json\nimport os\nimport re\n\nSCHEMA = \'pc.core-startup-inspection.v1\'\nROLES = (\'postgres\', \'redis\', \'minio\', \'api\', \'web\', \'caddy\')\nLOADERS = (\'PATH\', \'LD_PRELOAD\', \'LD_AUDIT\', \'LD_LIBRARY_PATH\', \'NODE_OPTIONS\', \'NODE_PATH\',\n           \'BASH_ENV\', \'ENV\', \'PYTHONPATH\', \'PYTHONSTARTUP\', \'SHELLOPTS\', \'BASHOPTS\', \'PS4\')\nREASONS = frozenset((\'MATCH\', \'INPUT_PROFILE\', \'IMAGE_IDENTITY\', \'CONFIG_SHAPE\',\n                     \'ENTRYPOINT_PROFILE\', \'IMAGE_COMMAND_PROFILE\', \'SAVED_COMMAND_PROFILE\',\n                     \'APPLICATION_REVISION\', \'ENVIRONMENT_SHAPE\', \'IMAGE_HEALTH_PROFILE\',\n                     \'SAVED_HEALTH_PROFILE\', \'UNCLASSIFIED_REFUSAL\')) | frozenset(\'LOADER_\' + k for k in LOADERS)\n\n\nclass ObservationError(Exception):\n    pass\n\n\ndef require(ok):\n    if not ok:\n        raise ObservationError(\'STARTUP_OBSERVATION_INVALID\')\n\n\ndef explain(policy, role, record, image):\n    """Explain only the existing pure predicate; never authorize a new profile."""\n    def first_reason():\n        try:\n            if role not in policy.IMAGES or type(record) is not dict or type(image) is not dict:\n                return \'INPUT_PROFILE\'\n            if record.get(\'Image\') != policy.IMAGES[role] or image.get(\'Id\') != policy.IMAGES[role]:\n                return \'IMAGE_IDENTITY\'\n            cfg, base = record.get(\'Config\'), image.get(\'Config\')\n            if type(cfg) is not dict or type(base) is not dict:\n                return \'CONFIG_SHAPE\'\n            if policy.argv(base.get(\'Entrypoint\')) not in policy.ENTRYPOINTS[role] or policy.argv(cfg.get(\'Entrypoint\')) != policy.argv(base.get(\'Entrypoint\')):\n                return \'ENTRYPOINT_PROFILE\'\n            if policy.argv(base.get(\'Cmd\')) != policy.DEFAULT_COMMAND[role]:\n                return \'IMAGE_COMMAND_PROFILE\'\n            allowed = {policy.DEFAULT_COMMAND[role]}\n            if role == \'minio\':\n                allowed = {(\'server\', \'/data\'), (\'server\', \'/data\', \'--console-address\', \':9001\')}\n            if role == \'redis\':\n                allowed.add((\'redis-server\', \'--appendonly\', \'yes\'))\n            if policy.argv(cfg.get(\'Cmd\')) not in allowed:\n                return \'SAVED_COMMAND_PROFILE\'\n            if role in (\'api\', \'web\') and (base.get(\'Labels\') or {}).get(\'org.opencontainers.image.revision\') != policy.REVISIONS[role]:\n                return \'APPLICATION_REVISION\'\n            try:\n                env, base_env = policy.environment(cfg), policy.environment(base)\n            except (ValueError, TypeError, AttributeError):\n                return \'ENVIRONMENT_SHAPE\'\n            for key in LOADERS:\n                if env.get(key) != base_env.get(key):\n                    return \'LOADER_\' + key\n            if not policy.health_allowed(role, base.get(\'Healthcheck\'), base_env):\n                return \'IMAGE_HEALTH_PROFILE\'\n            if not policy.health_allowed(role, cfg.get(\'Healthcheck\'), env):\n                return \'SAVED_HEALTH_PROFILE\'\n            return \'MATCH\'\n        except (ValueError, TypeError, AttributeError):\n            return \'UNCLASSIFIED_REFUSAL\'\n    actual = policy.startup_safe(role, record, image)\n    reason = first_reason()\n    require(type(actual) is bool and reason in REASONS and actual is (reason == \'MATCH\'))\n    return {\'role\': role, \'compatible\': actual, \'reason\': reason}\n\n\ndef journal_slot(profile, engine, cold):\n    """Stat only the one fixed slot; absence is a snapshot, never a reservation."""\n    parent = None\n    try:\n        require(engine.OP == \'core-bootstrap-20261024\')\n        parent = profile.protected_directory(cold.BACKUP_ROOT, 0)\n        try:\n            os.stat(engine.OP, dir_fd=parent, follow_symlinks=False)\n        except FileNotFoundError:\n            return \'ABSENT\'\n        return \'PRESENT\'\n    except BaseException:\n        return \'UNAVAILABLE\'\n    finally:\n        if parent is not None:\n            os.close(parent)\n\n\ndef fixed(target, run):\n    require(type(target) is str and re.fullmatch(\'[0-9a-f]{40}\', target) and\n            type(run) is str and re.fullmatch(\'[1-9][0-9]{0,19}\', run))\n    return {\'schemaVersion\': SCHEMA, \'targetSha\': target, \'runId\': run,\n            \'startupAuthorized\': False, \'runtimeRestored\': False,\n            \'exactCurrentMainReleased\': False, \'registrationAccepted\': False,\n            \'dataRollbackClaimed\': False}\n\n\ndef observe_main(arguments, inspector, profile, engine, attestor, policy, helper, cold):\n    target, run = arguments if len(arguments) == 2 else (\'\', \'\')\n    result = fixed(target, run)\n    source = None\n    try:\n        require(tuple(engine.CORE) == ROLES)\n        source = attestor.Source(inspector, profile, engine, policy, target, run, helper, cold)\n        token = source.attest(target, inspector.EXPECTED_REFS)\n        records = source.records()\n        selected = {}\n        require(type(records) is list and len(records) == 11)\n        for record in records:\n            role = engine.role_of(record)\n            if role in ROLES:\n                require(role not in selected)\n                selected[role] = record\n        require(set(selected) == set(ROLES))\n        profiles = [explain(policy, role, selected[role], source.image(selected[role][\'Image\'])) for role in ROLES]\n        slot = journal_slot(profile, engine, cold)\n        source.recheck(token)\n        require(helper.Host().observe() == source._host_baseline)\n        result.update(observationComplete=True, policyCompatible=all(p[\'compatible\'] for p in profiles),\n                      profiles=profiles, journalSlot=slot, errorCode=\'NONE\')\n    except BaseException:\n        # Even malformed private objects and exception messages remain private.\n        result.update(observationComplete=False, policyCompatible=False, profiles=[],\n                      journalSlot=\'UNAVAILABLE\', errorCode=\'OBSERVATION_UNAVAILABLE\')\n    finally:\n        if source is not None:\n            try:\n                source.close()\n            except BaseException:\n                result.update(observationComplete=False, policyCompatible=False, profiles=[],\n                              journalSlot=\'UNAVAILABLE\', errorCode=\'OBSERVATION_UNAVAILABLE\')\n    raw = json.dumps(result, separators=(\',\', \':\')).encode()\n    status = \'0\' if result[\'observationComplete\'] is True else \'1\'\n    validate_terminal(raw, target, run, status)\n    print(raw.decode())\n    return int(status)\n\n\ndef validate_terminal(data, target, run, status):\n    def pairs(items):\n        require(len(items) == len(dict(items)))\n        return dict(items)\n    require(type(data) is bytes and 0 < len(data) <= 16384 and type(status) is str and status in (\'0\', \'1\'))\n    value = json.loads(data.decode(\'utf-8\', errors=\'strict\'), object_pairs_hook=pairs,\n                       parse_constant=lambda _: (_ for _ in ()).throw(ObservationError()))\n    expected = fixed(target, run)\n    require(type(value) is dict and set(value) == set(expected) | {\n        \'observationComplete\', \'policyCompatible\', \'profiles\', \'journalSlot\', \'errorCode\'})\n    require(all(type(value.get(k)) is type(v) and value[k] == v for k, v in expected.items()))\n    require(type(value[\'observationComplete\']) is bool and type(value[\'policyCompatible\']) is bool and\n            type(value[\'profiles\']) is list and type(value[\'journalSlot\']) is str and\n            value[\'journalSlot\'] in (\'ABSENT\', \'PRESENT\', \'UNAVAILABLE\'))\n    if value[\'observationComplete\'] is True:\n        require(status == \'0\' and value[\'errorCode\'] == \'NONE\' and len(value[\'profiles\']) == 6)\n        for role, item in zip(ROLES, value[\'profiles\']):\n            require(type(item) is dict and set(item) == {\'role\', \'compatible\', \'reason\'} and\n                    type(item[\'role\']) is str and item[\'role\'] == role and type(item[\'compatible\']) is bool and\n                    type(item[\'reason\']) is str and item[\'reason\'] in REASONS and\n                    item[\'compatible\'] is (item[\'reason\'] == \'MATCH\'))\n        require(value[\'policyCompatible\'] is all(p[\'compatible\'] for p in value[\'profiles\']))\n    else:\n        require(status == \'1\' and value[\'errorCode\'] == \'OBSERVATION_UNAVAILABLE\' and\n                value[\'profiles\'] == [] and value[\'policyCompatible\'] is False and value[\'journalSlot\'] == \'UNAVAILABLE\')\n    return value\n'
           print('import sys,types,base64')
           print("def module(name,source):\n m=types.ModuleType(name);m.__file__='<accepted-memory-'+name+'>';sys.modules[name]=m;exec(compile(source,m.__file__,'exec'),m.__dict__);return m")
           for name,data in (('production_stopped_runtime_headroom',helper),('production_cold_preservation',cold)):
@@ -393,7 +417,11 @@ jobs:
           for name,data in (('profile',profile),('core_bootstrap',bootstrap_engine),('startup_policy',startup_policy),('source_attestor',source_attestor)):
               print(name+"=module("+repr(name)+",base64.b64decode("+repr(base64.b64encode(data.encode()).decode())+"))")
           print("exec(compile(base64.b64decode("+repr(base64.b64encode(entrypoint.encode()).decode())+"),'<accepted-bootstrap-entry>','exec'),globals())")
-          print('raise SystemExit(bootstrap_main(sys.argv[1:],inspector,profile,core_bootstrap,source_attestor,startup_policy,bootstrap_stopped_runtime_headroom,production_cold_preservation))')
+          if operation_kind == 'inspect':
+              print("startup_observer=module('startup_observer',base64.b64decode("+repr(base64.b64encode(startup_observer.encode()).decode())+"))")
+              print('raise SystemExit(startup_observer.observe_main(sys.argv[1:],inspector,profile,core_bootstrap,source_attestor,startup_policy,bootstrap_stopped_runtime_headroom,production_cold_preservation))')
+          else:
+              print('raise SystemExit(bootstrap_main(sys.argv[1:],inspector,profile,core_bootstrap,source_attestor,startup_policy,bootstrap_stopped_runtime_headroom,production_cold_preservation))')
           PY_PAYLOAD
           set +e
           /usr/bin/timeout --signal=TERM --kill-after=90s 840s \
@@ -405,6 +433,27 @@ jobs:
           git fetch --no-tags origin main
           [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          if [[ "${OPERATION_KIND:-bootstrap}" == inspect ]]; then
+            python3 - "$raw" "$TARGET_SHA" "$GITHUB_RUN_ID" "$EVIDENCE_DIR" "$rc" <<'PY_OBS_RECORD'
+          import ast,pathlib,textwrap,types
+          raw=pathlib.Path('.github/workflows/production-cold-preservation.yml').read_text()
+          code=textwrap.dedent(raw.split("<<'PY_PAYLOAD'\n",1)[1].split('\n          PY_PAYLOAD\n',1)[0])
+          items=[ast.literal_eval(n.value) for n in ast.parse(code).body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='startup_observer' for t in n.targets)]
+          if len(items)!=1: raise SystemExit('STARTUP_OBSERVER_SOURCE_INVALID')
+          module=types.ModuleType('accepted_startup_observer')
+          exec(compile(items[0],'<accepted-observer-validator>','exec'),module.__dict__)
+          import json,pathlib,sys
+          raw_name,target,run,output,status=sys.argv[1:]
+          try:
+              value=module.validate_terminal(pathlib.Path(raw_name).read_bytes(),target,run,status)
+          except BaseException:
+              raise SystemExit('STARTUP_OBSERVATION_TERMINAL_INVALID') from None
+          with pathlib.Path(output,'startup-inspection.json').open('x') as handle:
+              handle.write(json.dumps(value,separators=(',',':'))+'\n')
+          pathlib.Path(output,'startup-inspection.json').chmod(0o600)
+          if value['observationComplete'] is not True: raise SystemExit('STARTUP_OBSERVATION_INCOMPLETE')
+          PY_OBS_RECORD
+          else
           python3 - "$raw" "$TARGET_SHA" "$GITHUB_RUN_ID" "$EVIDENCE_DIR" "$rc" <<'PY_RECORD'
           import json
           import re
@@ -456,6 +505,7 @@ jobs:
           body+='Exact-current-main release, farmer registration acceptance and data rollback are not claimed. Original volumes, both archives/keys and the durable journal remain retained.\n'
           pathlib.Path(output,'issue-record.md').write_text(body)
           PY_RECORD
+          fi
           (( rc == 0 ))
       - name: Cleanup protected transport
         if: always()
@@ -470,7 +520,33 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          if [[ "$EXECUTION_OUTCOME" != success ]]; then
+          if [[ "${OPERATION_KIND:-bootstrap}" == inspect ]]; then
+            python3 - "$TARGET_SHA" "$GITHUB_RUN_ID" "$EVIDENCE_DIR" <<'PY_OBS_PUBLISH'
+          import ast,pathlib,textwrap,types
+          raw=pathlib.Path('.github/workflows/production-cold-preservation.yml').read_text()
+          code=textwrap.dedent(raw.split("<<'PY_PAYLOAD'\n",1)[1].split('\n          PY_PAYLOAD\n',1)[0])
+          items=[ast.literal_eval(n.value) for n in ast.parse(code).body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='startup_observer' for t in n.targets)]
+          if len(items)!=1: raise SystemExit('STARTUP_OBSERVER_SOURCE_INVALID')
+          module=types.ModuleType('accepted_startup_observer')
+          exec(compile(items[0],'<accepted-observer-validator>','exec'),module.__dict__)
+          import json,pathlib,sys
+          target,run,output=sys.argv[1:]
+          body='# Read-only core startup inspection\n\nExact source: '+target+'.\n'
+          try:
+              path=pathlib.Path(output,'startup-inspection.json')
+              data=path.read_bytes()
+              parsed=json.loads(data)
+              value=module.validate_terminal(data,target,run,'0' if parsed.get('observationComplete') is True else '1')
+              body+='Observation complete: '+str(value['observationComplete'])+'. Policy compatible: '+str(value['policyCompatible'])+'.\n'
+              body+='Fixed operation journal slot: '+value['journalSlot']+' (snapshot only).\n'
+              for item in value['profiles']:
+                  body+='- '+item['role']+': '+item['reason']+'\n'
+          except BaseException:
+              body+='Observation outcome: UNKNOWN.\n'
+          body+='Startup/restoration/release/registration are not authorized or established by this read-only observation. Preserve all journals, volumes, copies, keys and UNKNOWN/SPENT; no retry/reset.\n'
+          pathlib.Path(output,'issue-record.md').write_text(body)
+          PY_OBS_PUBLISH
+          elif [[ "$EXECUTION_OUTCOME" != success ]]; then
             rm -f "$EVIDENCE_DIR/result.json"
             python3 - "$TARGET_SHA" "$EVIDENCE_DIR" <<'PY_UNKNOWN'
           import pathlib,re,sys
@@ -494,5 +570,6 @@ jobs:
             artifacts/production-cold-preservation/target-sha.txt
             artifacts/production-cold-preservation/issue-record.md
             artifacts/production-cold-preservation/result.json
+            artifacts/production-cold-preservation/startup-inspection.json
           if-no-files-found: error
           retention-days: 90
