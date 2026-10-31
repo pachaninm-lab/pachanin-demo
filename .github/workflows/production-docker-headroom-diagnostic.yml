@@ -3287,3 +3287,1195 @@ jobs:
           value = json.loads((Path(os.environ['EVIDENCE_DIR']) / 'inspection.json').read_text())
           assert value.get('passed') is True and value.get('status') == 'READ_ONLY_METADATA_INSPECTED'
           PY_INSPECTION_RESULT
+
+  geometry-contract:
+    name: Validate prospective root geometry contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 4637 &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.author_association == 'OWNER' &&
+       ((github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+        github.event.comment.performed_via_github_app.id == 1144995) &&
+       github.event.comment.body == '/production inspect-root-filesystem current-main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      target_sha: ${{ steps.geometry-target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Extract exact inline geometry source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY_GEOMETRY_EXTRACT'
+          import ast, hashlib, os, pathlib, re, textwrap
+          from types import SimpleNamespace as N
+          text = pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_text()
+          match = re.search(r"^          cat > \"\$RUNNER_TEMP/root-geometry.py\" <<'PY_ROOT_GEOMETRY'\n(.*?)^          PY_ROOT_GEOMETRY\n", text, re.M | re.S)
+          assert match is not None
+          raw = textwrap.dedent(match[1]).encode()
+          assert hashlib.sha256(raw).hexdigest() == '4078001f9e60b6a1ff28090f90f71cf3ade4157df85efcb8b16eec15feb15c88'
+          tree = ast.parse(raw)
+          for node in ast.walk(tree):
+              if isinstance(node, (ast.Import, ast.ImportFrom)):
+                  names = [x.name for x in node.names] if isinstance(node, ast.Import) else [node.module]
+                  assert not any(x.split('.')[0] in {'subprocess', 'socket', 'ctypes'} for x in names)
+              if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                  assert node.func.attr not in {'system', 'popen', 'execv', 'execve', 'fork', 'spawnv'}
+          pathlib.Path(os.environ['RUNNER_TEMP'], 'root-geometry.py').write_bytes(raw)
+          conditions = {}
+          for job in ('geometry-contract', 'root-geometry'):
+              block = text.split('\n  ' + job + ':\n', 1)[1].split('\n    runs-on:', 1)[0]
+              match = re.search(r'\n    if: >-\n((?:      [^\n]*\n)+)', block + '\n')
+              expression = ' '.join(line.strip() for line in match[1].splitlines())
+              expression = expression.replace('&&', ' and ').replace('||', ' or ').replace('needs.geometry-contract', 'needs.geometry_contract')
+              tree = ast.parse(expression, mode='eval')
+              allowed = (ast.Expression, ast.BoolOp, ast.And, ast.Or, ast.Compare, ast.Eq,
+                         ast.Attribute, ast.Name, ast.Load, ast.Constant)
+              assert all(type(node) in allowed for node in ast.walk(tree))
+              conditions[job] = compile(tree, '<actual geometry condition>', 'eval')
+          def route(event='issue_comment', issue=4637, author='owner', assoc='OWNER',
+                    actor='owner', triggering='owner', app=0,
+                    body='/production inspect-root-filesystem current-main', result='success'):
+              github = N(event_name=event, repository_owner='owner', actor=actor, triggering_actor=triggering,
+                         event=N(issue=N(number=issue), comment=N(user=N(login=author), author_association=assoc,
+                                 performed_via_github_app=N(id=app), body=body)))
+              context = {'github': github, 'needs': N(geometry_contract=N(result=result))}
+              return tuple(bool(eval(conditions[job], {'__builtins__': {}}, context)) for job in conditions)
+          cases = [({}, (True, True)), ({'app': 1144995, 'actor': 'connector', 'triggering': 'connector'}, (True, True)),
+                   ({'event': 'pull_request'}, (True, False)), ({'event': 'push'}, (False, False)),
+                   ({'issue': 3072}, (False, False)), ({'issue': 4638}, (False, False)),
+                   ({'author': 'other'}, (False, False)), ({'assoc': 'MEMBER'}, (False, False)),
+                   ({'actor': 'other'}, (False, False)), ({'triggering': 'other'}, (False, False)),
+                   ({'app': 1, 'actor': 'other'}, (False, False)),
+                   ({'app': 1144995, 'actor': 'other', 'author': 'other'}, (False, False)),
+                   ({'body': '/production inspect-root-filesystem current-main\n'}, (False, False)),
+                   ({'body': '/production inspect-root-filesystem current-main '}, (False, False)),
+                   ({'body': '/production diagnose-docker current-main'}, (False, False)),
+                   ({'body': '/production inspect-root-filesystem other'}, (False, False)),
+                   ({'result': 'failure'}, (True, False)), ({'result': 'skipped'}, (True, False))]
+          for inputs, expected in cases:
+              assert route(**inputs) == expected, (inputs, expected)
+          print('ROOT_GEOMETRY_ACTUAL_ROUTE_FIXTURES=18')
+          PY_GEOMETRY_EXTRACT
+      - name: Direct kernel geometry fixture tests without host access
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat > "$RUNNER_TEMP/root-geometry-fixtures.py" <<'PY_ROOT_GEOMETRY_FIXTURES'
+          import copy
+          import datetime as dt
+          import hashlib
+          import importlib.util
+          import json
+          import os
+          from pathlib import Path
+          import signal
+          import selectors
+          import subprocess
+          import sys
+          import tempfile
+          import textwrap
+          import time
+          from types import SimpleNamespace
+          import unittest
+          from unittest.mock import patch
+          
+          spec = importlib.util.spec_from_file_location('geometry', sys.argv[1])
+          g = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(g)
+          sys.argv = sys.argv[:1]
+          TARGET = 'a' * 40
+          SOURCE = 'b' * 64
+          MOUNTS = (b'1 0 8:1 / / rw,relatime - ext4 /dev/PRIVATE rw\n'
+                    b'2 1 0:1 / /proc rw - proc proc rw\n'
+                    b'3 1 0:2 / /sys ro - sysfs sysfs ro\n')
+          
+          
+          class Fake:
+              def __init__(self):
+                  self.raw = MOUNTS
+                  self.fs_pair = (8, 1)
+                  self.table = {
+                      (8, 1): {'kind': 'partition', 'size': 100, 'start': 8, 'parent': (8, 0), 'part': 1, 'slaves': []},
+                      (8, 0): {'kind': 'disk', 'size': 200, 'slaves': []}}
+          
+              def check(self):
+                  pass
+          
+              def filesystem(self):
+                  return self.fs_pair, {'total_bytes': 40000, 'free_bytes': 2000,
+                                        'available_bytes': 1000, 'block_bytes': 4096, 'readonly': False}
+          
+              def path(self, pair):
+                  return Path('/sys/devices/mock') / ('%d-%d' % pair)
+          
+              def resolve(self, pair):
+                  if pair not in self.table:
+                      raise FileNotFoundError()
+                  return self.path(pair)
+          
+              def lookup(self, path):
+                  for pair, data in self.table.items():
+                      if str(path).startswith(str(self.path(pair)) + '/'):
+                          return pair, data
+                  # The partition fixture uses a canonical nesting so parent/dev can resolve.
+                  if path == Path('/sys/devices/mock/dev'):
+                      return (8, 0), self.table[(8, 0)]
+                  raise AssertionError('unexpected fixture path')
+          
+              def read(self, path, cap=65536):
+                  if str(path) == '/proc/self/mountinfo':
+                      return self.raw
+                  pair, data = self.lookup(path)
+                  name = Path(path).name
+                  if name == 'dev':
+                      return ('%d:%d\n' % pair).encode()
+                  if name == 'partition':
+                      return str(data.get('part', 1)).encode()
+                  if name == 'size':
+                      return str(data['size']).encode()
+                  if name == 'start':
+                      return str(data.get('start', 0)).encode()
+                  raise AssertionError('unexpected kernel read')
+          
+              def exists(self, path):
+                  pair, data = self.lookup(path)
+                  return Path(path).name == {'partition': 'partition', 'disk': 'device', 'dm': 'dm', 'raid': 'md'}.get(data['kind'])
+          
+              def slaves(self, path):
+                  return self.table[next(pair for pair in self.table if self.path(pair) == path)]['slaves']
+          
+          
+          def observed(fake=None):
+              root, nodes, topology = g.collect(fake or Fake())
+              value = g.base(TARGET, SOURCE)
+              value.update(status='OBSERVED', root=root, devices=nodes, topology=topology)
+              return value
+          
+          
+          class GeometryTests(unittest.TestCase):
+              def reject(self, value):
+                  with self.assertRaises((ValueError, g.ClosedError, TypeError)):
+                      g.validate(value, TARGET, SOURCE)
+          
+              def test_partition_positive(self):
+                  v = observed()
+                  g.validate(v, TARGET, SOURCE)
+                  self.assertEqual(v['topology'], 'SIMPLE_PARTITION_WITH_PARENT')
+                  self.assertEqual(v['devices'][0]['parent'], 1)
+                  self.assertLess(v['root']['total_bytes'], v['devices'][0]['size_bytes'])
+          
+              def test_whole_positive(self):
+                  f = Fake()
+                  f.raw = f.raw.replace(b'8:1', b'8:0')
+                  f.fs_pair = (8, 0)
+                  v = observed(f)
+                  g.validate(v, TARGET, SOURCE)
+                  self.assertEqual(v['topology'], 'SIMPLE_WHOLE_DISK')
+          
+              def test_subtree_is_observed_not_nonbind_claim(self):
+                  f = Fake()
+                  f.raw = f.raw.replace(b'8:1 / /', b'8:1 /subtree /')
+                  self.assertEqual(observed(f)['root']['bind_state'], 'SUBTREE_ROOT_OBSERVED')
+                  self.assertEqual(observed()['root']['bind_state'], 'NOT_PROVEN')
+          
+              def test_overlay_unsupported_without_guessing_block(self):
+                  f = Fake()
+                  f.raw = f.raw.replace(b'ext4', b'overlay')
+                  v = observed(f)
+                  g.validate(v, TARGET, SOURCE)
+                  self.assertEqual(v['topology'], 'MAPPED_OR_UNSUPPORTED')
+                  self.assertEqual(v['devices'], [])
+          
+              def test_mapper_and_raid_supported_observation_unsupported_action(self):
+                  for kind in ('dm', 'raid', 'unknown'):
+                      with self.subTest(kind=kind):
+                          f = Fake()
+                          f.table[(8, 1)]['kind'] = kind
+                          f.table[(8, 1)]['slaves'] = [(8, 0)]
+                          v = observed(f)
+                          g.validate(v, TARGET, SOURCE)
+                          self.assertEqual(v['topology'], 'MAPPED_OR_UNSUPPORTED')
+          
+              def test_root_malformed_duplicate_missing_wrong_identity(self):
+                  for raw in (b'bad', MOUNTS + MOUNTS.splitlines()[0] + b'\n',
+                              MOUNTS.replace(b' / / rw', b' / /x rw'),
+                              MOUNTS.replace(b'8:1', b'invalid'), MOUNTS.replace(b'ro - sysfs', b'ro - ext4')):
+                      with self.subTest(raw=raw):
+                          f = Fake()
+                          f.raw = raw
+                          with self.assertRaises(g.ClosedError):
+                              g.collect(f)
+                  f = Fake()
+                  f.fs_pair = (9, 9)
+                  with self.assertRaises(g.ClosedError):
+                      g.collect(f)
+          
+              def test_partition_overlap_and_wrong_parent(self):
+                  for change in ('overlap', 'parent'):
+                      f = Fake()
+                      if change == 'overlap':
+                          f.table[(8, 1)]['size'] = 201
+                      else:
+                          f.table[(8, 0)]['kind'] = 'dm'
+                      with self.assertRaises(g.ClosedError):
+                          g.collect(f)
+          
+              def test_cycle_and_depth(self):
+                  f = Fake()
+                  f.table[(8, 1)]['kind'] = 'dm'
+                  f.table[(8, 1)]['slaves'] = [(8, 0)]
+                  f.table[(8, 0)]['kind'] = 'dm'
+                  f.table[(8, 0)]['slaves'] = [(8, 1)]
+                  with self.assertRaises(g.ClosedError):
+                      g.collect(f)
+                  f = Fake()
+                  for i in range(7):
+                      f.table[(8, i + 1)] = {'kind': 'dm', 'size': 200, 'slaves': [(8, i + 2)] if i < 6 else []}
+                  with self.assertRaises(g.ClosedError):
+                      g.collect(f)
+          
+              def test_node_count_boundary(self):
+                  f = Fake()
+                  f.table[(8, 1)] = {'kind': 'dm', 'size': 200, 'slaves': []}
+                  for i in range(2, 17):
+                      f.table[(8, i)] = {'kind': 'unknown', 'size': 200, 'slaves': []}
+                  # Fanout in two levels avoids conflating the count with the depth cap.
+                  f.table[(8, 1)]['slaves'] = [(8, i) for i in range(2, 10)]
+                  f.table[(8, 2)]['kind'] = 'dm'
+                  f.table[(8, 2)]['slaves'] = [(8, i) for i in range(10, 17)]
+                  v = observed(f)
+                  self.assertEqual(len(v['devices']), 16)
+                  g.validate(v, TARGET, SOURCE)
+                  f.table[(8, 17)] = {'kind': 'unknown', 'size': 200, 'slaves': []}
+                  f.table[(8, 2)]['slaves'].append((8, 17))
+                  with self.assertRaises(g.ClosedError):
+                      g.collect(f)
+          
+              def test_read_exact_boundary_and_plus_one(self):
+                  for length, admitted in ((16, True), (17, False)):
+                      k = g.Kernel()
+                      k.remaining = 17
+                      with patch.object(g.os, 'open', return_value=42), patch.object(g.os, 'close'), \
+                              patch.object(g.os, 'read', side_effect=[b'x' * length, b'']):
+                          if admitted:
+                              self.assertEqual(len(k.read('/proc/self/mountinfo', 16)), 16)
+                          else:
+                              with self.assertRaises(g.ClosedError):
+                                  k.read('/proc/self/mountinfo', 16)
+                  k = g.Kernel()
+                  k.remaining = 16
+                  with patch.object(g.os, 'open', return_value=42), patch.object(g.os, 'close'), \
+                          patch.object(g.os, 'read', return_value=b'x' * 16) as read:
+                      with self.assertRaises(g.ClosedError):
+                          k.read('/proc/self/mountinfo', 16)
+                      self.assertEqual(read.call_args.args[1], 16)
+                  k = g.Kernel()
+                  k.remaining = 0
+                  with patch.object(g.os, 'open', return_value=42), patch.object(g.os, 'close'), \
+                          patch.object(g.os, 'read', return_value=b'x'):
+                      with self.assertRaises(g.ClosedError):
+                          k.read('/proc/self/mountinfo')
+          
+              def test_unknown_path_and_sysfs_escape(self):
+                  k = g.Kernel()
+                  with self.assertRaises(g.ClosedError):
+                      k.read('/etc/PRIVATE')
+                  with patch.object(g.Path, 'resolve', return_value=Path('/etc/PRIVATE')):
+                      with self.assertRaises(g.ClosedError):
+                          k.resolve((8, 1))
+          
+              def test_actual_slave_directory_boundary_plus_one(self):
+                  class Entries:
+                      def __init__(self, count):
+                          self.values = [SimpleNamespace(path='/sys/devices/mock/slave') for _ in range(count)]
+                          self.closed = False
+                      def __enter__(self):
+                          return iter(self.values)
+                      def __iter__(self):
+                          return iter(self.values)
+                      def __exit__(self, *args):
+                          self.closed = True
+                  for count in (g.SLAVE_CAP, g.SLAVE_CAP + 1):
+                      entries = Entries(count)
+                      k = g.Kernel()
+                      with patch.object(g.os, 'scandir', return_value=entries), \
+                              patch.object(g.Path, 'resolve', return_value=Path('/sys/devices/mock/slave')), \
+                              patch.object(k, 'read', side_effect=[('8:%d' % i).encode() for i in range(count)]):
+                          if count == g.SLAVE_CAP:
+                              self.assertEqual(len(k.slaves(Path('/sys/devices/mock'))), count)
+                          else:
+                              with self.assertRaises(g.ClosedError):
+                                  k.slaves(Path('/sys/devices/mock'))
+                      self.assertTrue(entries.closed)
+          
+              def test_deadline_inclusive_and_plus_one(self):
+                  k = g.Kernel()
+                  for elapsed in (g.DEADLINE, g.DEADLINE + 0.001):
+                      with patch.object(g.time, 'monotonic', return_value=k.started + elapsed):
+                          with self.assertRaises(g.ClosedError):
+                              k.check()
+          
+              def test_alarm_interrupts_userspace_without_child(self):
+                  old = signal.signal(signal.SIGALRM, g.alarm_handler)
+                  started = time.monotonic()
+                  try:
+                      signal.setitimer(signal.ITIMER_REAL, 0.02)
+                      with self.assertRaises(g.ClosedError):
+                          while True:
+                              pass
+                  finally:
+                      signal.setitimer(signal.ITIMER_REAL, 0)
+                      signal.signal(signal.SIGALRM, old)
+                  self.assertLess(time.monotonic() - started, 1.0)
+          
+              def test_freshness_exact_boundary_plus_one_future(self):
+                  v = observed()
+                  stamp = dt.datetime.fromisoformat(v['observed_at'])
+                  g.validate(v, TARGET, SOURCE, stamp + dt.timedelta(seconds=300))
+                  for seconds in (300.000001, -0.000001):
+                      with self.assertRaises(ValueError):
+                          g.validate(v, TARGET, SOURCE, stamp + dt.timedelta(seconds=seconds))
+          
+              def test_wrong_sha_target_and_unknown_fields(self):
+                  for key, replacement in (('target_sha', 'c' * 40), ('collector_sha256', 'd' * 64),
+                                           ('PRIVATE', '/dev/PRIVATE'), ('mode', 'WRITE')):
+                      v = observed()
+                      v[key] = replacement
+                      self.reject(v)
+          
+              def test_bad_graph_and_scalars(self):
+                  values = []
+                  for key, value in (('major', True), ('size_bytes', -1), ('size_bytes', 1 << 63),
+                                     ('parent', 99), ('parent', 0), ('slaves', [1, 1]), ('start_bytes', 9999999)):
+                      v = observed()
+                      v['devices'][0][key] = value
+                      values.append(v)
+                  v = observed()
+                  v['devices'][1]['major'] = 7
+                  v['devices'][1]['minor'] = 99
+                  v['devices'][0]['parent'] = None
+                  values.append(v)
+                  v = observed()
+                  v['root']['total_bytes'] = 9999999
+                  values.append(v)
+                  for v in values:
+                      self.reject(v)
+          
+              def test_output_cap_exact_plus_one(self):
+                  self.assertEqual(len(g.encoded('x' * (g.OUTPUT_CAP - 3))), g.OUTPUT_CAP)
+                  with self.assertRaises(g.ClosedError):
+                      g.encoded('x' * (g.OUTPUT_CAP - 2))
+          
+              def test_failure_closed_not_success(self):
+                  v = g.base(TARGET, SOURCE)
+                  v['reason'] = 'KERNEL_IO'
+                  g.validate(v, TARGET, SOURCE)
+                  self.assertEqual(v['status'], 'NOT_PROVEN')
+                  v['reason'] = '/dev/PRIVATE'
+                  self.reject(v)
+          
+              def test_no_published_private_names_or_raw_mount_options(self):
+                  text = g.encoded(observed()).decode()
+                  for marker in ('PRIVATE', '/sys/', '/dev/', 'relatime', 'UUID', 'hostuser'):
+                      self.assertNotIn(marker, text)
+          
+              def test_duplicate_json_keys(self):
+                  with self.assertRaises(ValueError):
+                      json.loads('{"schema":1,"schema":2}', object_pairs_hook=g.no_duplicates)
+          
+              def transport(self, variant):
+                  # Execute the actual inline transport with every process/pipe/clock mocked.
+                  # No SSH binary, socket, or host interface is opened by these fixtures.
+                  import re
+                  workflow = Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_text()
+                  match = re.search(r"^          python3 - <<'PY_GEOMETRY_TRANSPORT'\n(.*?)^          PY_GEOMETRY_TRANSPORT\n", workflow, re.M | re.S)
+                  source_code = Path(g.__file__).read_bytes()
+                  source_sha = hashlib.sha256(source_code).hexdigest()
+                  value = observed()
+                  value['collector_sha256'] = source_sha
+                  if variant == 'stale':
+                      value['observed_at'] = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(seconds=301)).isoformat()
+                  if variant == 'wrong-source':
+                      value['collector_sha256'] = '0' * 64
+                  payload = g.encoded(value)
+                  if variant == 'oversize':
+                      payload = b'x' * (g.OUTPUT_CAP + 1)
+                  if variant == 'invalid-json':
+                      payload = b'NOT_JSON'
+          
+                  class Stream:
+                      def __init__(self, fd):
+                          self.fd, self.closed = fd, False
+                      def fileno(self):
+                          return self.fd
+                      def close(self):
+                          self.closed = True
+          
+                  class Process:
+                      def __init__(self):
+                          self.stdin, self.stdout = Stream(10), Stream(11)
+                          self.pid, self.returncode, self.waits = 12345, None, []
+                      def poll(self):
+                          return self.returncode
+                      def wait(self, timeout):
+                          self.waits.append(timeout)
+                          if variant == 'no-cleanup-ack':
+                              raise subprocess.TimeoutExpired('fixture', timeout)
+                          self.returncode = 255 if variant == 'remote-failure' else 0
+                          return self.returncode
+          
+                  process = Process()
+                  calls, killed = [], []
+          
+                  def popen(args, **kwargs):
+                      calls.append((args, kwargs))
+                      return process
+          
+                  class Mux:
+                      def __init__(self):
+                          self.entries = {}
+                      def register(self, fileobj, events, data):
+                          self.entries[fileobj.fd] = SimpleNamespace(fd=fileobj.fd, fileobj=fileobj, data=data)
+                      def unregister(self, fileobj):
+                          del self.entries[fileobj.fd]
+                      def get_map(self):
+                          return self.entries
+                      def select(self, timeout):
+                          return [(v, 1) for v in list(self.entries.values())]
+                      def close(self):
+                          pass
+          
+                  remaining = bytearray(payload)
+                  def read(fd, amount):
+                      self.assertEqual(fd, 11)
+                      chunk = bytes(remaining[:amount])
+                      del remaining[:amount]
+                      return chunk
+                  def write(fd, raw):
+                      self.assertEqual(fd, 10)
+                      return len(raw)
+                  clock = (iter([0.0, 46.0]) if variant in {'timeout', 'no-cleanup-ack'} else None)
+                  with tempfile.TemporaryDirectory() as directory:
+                      Path(directory, 'root-geometry.py').write_bytes(source_code)
+                      env = {'RUNNER_TEMP': directory, 'GEOMETRY_SOURCE_SHA256': source_sha,
+                             'GEOMETRY_TARGET_SHA': TARGET, 'GEOMETRY_PORT': '22',
+                             'SSH_USER_SECRET': 'fixture-principal', 'DEFAULT_HOST': '192.0.2.1'}
+                      with patch.dict(os.environ, env), patch.object(subprocess, 'Popen', side_effect=popen), \
+                              patch.object(selectors, 'DefaultSelector', Mux), patch.object(os, 'set_blocking'), \
+                              patch.object(os, 'read', side_effect=read), patch.object(os, 'write', side_effect=write), \
+                              patch.object(os, 'killpg', side_effect=lambda *args: killed.append(args)), \
+                              patch.object(time, 'monotonic', side_effect=(lambda: next(clock)) if clock else lambda: 0.0):
+                          if variant == 'success':
+                              exec(compile(textwrap.dedent(match[1]), '<actual transport>', 'exec'), {})
+                          else:
+                              with self.assertRaises(SystemExit) as error:
+                                  exec(compile(textwrap.dedent(match[1]), '<actual transport>', 'exec'), {})
+                              self.assertEqual(error.exception.code, 1)
+                      exists = Path(directory, 'root-geometry-candidate.json').exists()
+                      self.assertEqual(exists, variant == 'success')
+                  self.assertEqual(len(calls), 1)
+                  args, kwargs = calls[0]
+                  self.assertIn('StrictHostKeyChecking=yes', args)
+                  self.assertIn('python3 -I -B - --collect ' + TARGET + ' ' + source_sha, args)
+                  self.assertIs(kwargs['stderr'], subprocess.DEVNULL)
+                  self.assertTrue(process.stdin.closed and process.stdout.closed)
+                  if variant == 'no-cleanup-ack':
+                      self.assertEqual([s for pid, s in killed], [signal.SIGTERM, signal.SIGKILL])
+                      self.assertEqual(process.waits, [5, 2])
+          
+              def test_actual_transport_success(self):
+                  self.transport('success')
+          
+              def test_actual_transport_rejects_output_time_source_and_completion(self):
+                  for variant in ('oversize', 'invalid-json', 'stale', 'wrong-source', 'remote-failure', 'timeout', 'no-cleanup-ack'):
+                      with self.subTest(variant=variant):
+                          self.transport(variant)
+          
+          
+          if __name__ == '__main__':
+              unittest.main(verbosity=2)
+          PY_ROOT_GEOMETRY_FIXTURES
+          python3 -B "$RUNNER_TEMP/root-geometry-fixtures.py" "$RUNNER_TEMP/root-geometry.py"
+      - name: Verify fresh exact owner provenance for geometry purpose
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          EXPECTED_BODY: /production inspect-root-filesystem current-main
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENT_ID" =~ ^[0-9]+$ ]]
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          comment="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID")"
+          [[ "$(jq -r '.user.login' <<< "$comment")" == "$owner" ]]
+          [[ "$(jq -r '.author_association' <<< "$comment")" == OWNER ]]
+          [[ "$(jq -r '.body' <<< "$comment")" == "$EXPECTED_BODY" ]]
+          # jq comparison preserves trailing newlines; shell substitution does not.
+          jq -e --arg body "$EXPECTED_BODY" '.body == $body' <<< "$comment" >/dev/null
+          issue="$(gh api "repos/$GITHUB_REPOSITORY/issues/4637")"
+          jq -e '.state == "open" and (has("pull_request") | not)' <<< "$issue" >/dev/null
+          if [[ "$GITHUB_ACTOR" == "$owner" && "$TRIGGERING_ACTOR" == "$owner" ]]; then
+            echo ROOT_GEOMETRY_OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$(jq -r '.performed_via_github_app.id // 0' <<< "$comment")" == 1144995 ]]
+            echo ROOT_GEOMETRY_OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
+      - name: Resolve exact current main for geometry source
+        id: geometry-target
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          target="$(git rev-parse origin/main)"
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$target" == "$(git rev-parse HEAD)" ]]
+          [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  root-geometry:
+    name: Observe root filesystem kernel geometry only
+    needs: geometry-contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4637 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      ((github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+       github.event.comment.performed_via_github_app.id == 1144995) &&
+      github.event.comment.body == '/production inspect-root-filesystem current-main' &&
+      needs.geometry-contract.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    concurrency:
+      group: pc-crop-registration-lifecycle
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+      issues: read
+    env:
+      GEOMETRY_TARGET_SHA: ${{ needs.geometry-contract.outputs.target_sha }}
+      GEOMETRY_SOURCE_SHA256: '4078001f9e60b6a1ff28090f90f71cf3ade4157df85efcb8b16eec15feb15c88'
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.geometry-contract.outputs.target_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Materialize pinned geometry observer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat > "$RUNNER_TEMP/root-geometry.py" <<'PY_ROOT_GEOMETRY'
+          #!/usr/bin/env python3
+          """Prospective read-only kernel geometry observer; no production admission."""
+          import datetime as dt
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import signal
+          import sys
+          import time
+          
+          DEADLINE = 15.0
+          READ_CAP = 262144
+          OUTPUT_CAP = 16384
+          NODE_CAP = 16
+          SLAVE_CAP = 8
+          DEPTH_CAP = 4
+          MAX = (1 << 63) - 1
+          FS = {'ext4', 'xfs', 'btrfs', 'overlay', 'tmpfs', 'other'}
+          KINDS = {'disk', 'partition', 'dm', 'raid', 'unknown'}
+          REASONS = {'DEADLINE', 'READ_LIMIT', 'OUTPUT_LIMIT', 'KERNEL_IO', 'ROOT_MOUNT',
+                     'ROOT_IDENTITY', 'KERNEL_PATH', 'GEOMETRY', 'GRAPH_LIMIT', 'PRIVILEGE',
+                     'UNEXPECTED'}
+          
+          
+          class ClosedError(Exception):
+              pass
+          
+          
+          def integer(value, minimum=0):
+              if type(value) is not int or not minimum <= value <= MAX:
+                  raise ClosedError('GEOMETRY')
+              return value
+          
+          
+          def number(raw, minimum=0):
+              if not re.fullmatch(rb'[0-9]+\n?', raw):
+                  raise ClosedError('GEOMETRY')
+              return integer(int(raw), minimum)
+          
+          
+          def device(raw):
+              if not re.fullmatch(rb'[0-9]+:[0-9]+\n?', raw):
+                  raise ClosedError('ROOT_IDENTITY')
+              pair = [int(x) for x in raw.strip().split(b':')]
+              if any(x > 1048575 for x in pair):
+                  raise ClosedError('ROOT_IDENTITY')
+              return tuple(pair)
+          
+          
+          class Kernel:
+              """Only fixed proc/sys pseudo-files and metadata on an open root directory."""
+              def __init__(self):
+                  self.remaining = READ_CAP
+                  self.started = time.monotonic()
+          
+              def check(self):
+                  if time.monotonic() - self.started >= DEADLINE:
+                      raise ClosedError('DEADLINE')
+          
+              def read(self, path, cap=65536):
+                  self.check()
+                  path = Path(path)
+                  if str(path) != '/proc/self/mountinfo' and not str(path).startswith('/sys/devices/'):
+                      raise ClosedError('KERNEL_PATH')
+                  fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+                  try:
+                      # Every returned byte, including an overflow witness, is inside READ_CAP.
+                      # Exhaustion without room for an EOF probe is unknown, never admitted.
+                      if self.remaining <= 0:
+                          raise ClosedError('READ_LIMIT')
+                      raw = os.read(fd, min(cap + 1, self.remaining))
+                      self.remaining -= len(raw)
+                      if len(raw) > cap or self.remaining <= 0:
+                          raise ClosedError('READ_LIMIT')
+                      extra = os.read(fd, 1)
+                      self.remaining -= len(extra)
+                      if extra:
+                          raise ClosedError('READ_LIMIT')
+                  finally:
+                      os.close(fd)
+                  self.check()
+                  return raw
+          
+              def resolve(self, pair):
+                  self.check()
+                  path = (Path('/sys/dev/block') / ('%d:%d' % pair)).resolve(strict=True)
+                  if not str(path).startswith('/sys/devices/'):
+                      raise ClosedError('KERNEL_PATH')
+                  if device(self.read(path / 'dev', 64)) != pair:
+                      raise ClosedError('ROOT_IDENTITY')
+                  return path
+          
+              def exists(self, path):
+                  self.check()
+                  # lstat observes kernel-created directory/attribute metadata; no file body.
+                  try:
+                      os.lstat(path)
+                      return True
+                  except FileNotFoundError:
+                      return False
+          
+              def slaves(self, path):
+                  self.check()
+                  result = []
+                  try:
+                      entries = os.scandir(path / 'slaves')
+                  except FileNotFoundError:
+                      return result
+                  with entries:
+                      for entry in entries:
+                          if len(result) >= SLAVE_CAP:
+                              raise ClosedError('GRAPH_LIMIT')
+                          resolved = Path(entry.path).resolve(strict=True)
+                          if not str(resolved).startswith('/sys/devices/'):
+                              raise ClosedError('KERNEL_PATH')
+                          result.append(device(self.read(resolved / 'dev', 64)))
+                  return sorted(result)
+          
+              def filesystem(self):
+                  self.check()
+                  fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+                  try:
+                      fs = os.fstatvfs(fd)
+                      rootdev = os.fstat(fd).st_dev
+                      pair = (os.major(rootdev), os.minor(rootdev))
+                      values = {'total_bytes': integer(fs.f_blocks * fs.f_frsize),
+                                'free_bytes': integer(fs.f_bfree * fs.f_frsize),
+                                'available_bytes': integer(max(0, fs.f_bavail) * fs.f_frsize),
+                                'block_bytes': integer(fs.f_frsize, 1),
+                                'readonly': bool(fs.f_flag & os.ST_RDONLY)}
+                  finally:
+                      os.close(fd)
+                  self.check()
+                  return pair, values
+          
+          
+          def mounts(raw):
+              roots = []
+              saw_proc = saw_sys = False
+              for line in raw.splitlines():
+                  fields = line.split()
+                  try:
+                      sep = fields.index(b'-')
+                  except ValueError:
+                      raise ClosedError('ROOT_MOUNT') from None
+                  if sep < 6 or len(fields) != sep + 4:
+                      raise ClosedError('ROOT_MOUNT')
+                  if fields[4] == b'/proc' and fields[sep + 1] == b'proc':
+                      saw_proc = True
+                  if fields[4] == b'/sys' and fields[sep + 1] == b'sysfs':
+                      saw_sys = True
+                  if fields[4] != b'/':
+                      continue
+                  pair = device(fields[2])
+                  modes = set(fields[5].split(b',')) & {b'ro', b'rw'}
+                  if len(modes) != 1:
+                      raise ClosedError('ROOT_MOUNT')
+                  fstype = fields[sep + 1].decode('ascii', 'strict')
+                  roots.append({'major': pair[0], 'minor': pair[1],
+                                'fs_type': fstype if fstype in FS else 'other',
+                                'mount_mode': next(iter(modes)).decode(),
+                                'bind_state': 'SUBTREE_ROOT_OBSERVED' if fields[3] != b'/' else 'NOT_PROVEN'})
+              if len(roots) != 1 or not saw_proc or not saw_sys:
+                  raise ClosedError('ROOT_MOUNT')
+              return roots[0]
+          
+          
+          def collect(kernel):
+              root = mounts(kernel.read('/proc/self/mountinfo'))
+              pair, fs = kernel.filesystem()
+              if pair != (root['major'], root['minor']):
+                  raise ClosedError('ROOT_IDENTITY')
+              if fs['readonly'] != (root['mount_mode'] == 'ro'):
+                  raise ClosedError('ROOT_MOUNT')
+              root.update(fs)
+              nodes, indexed, active = [], {}, set()
+          
+              def visit(pair, depth):
+                  if depth > DEPTH_CAP or pair in active:
+                      raise ClosedError('GRAPH_LIMIT')
+                  if pair in indexed:
+                      return indexed[pair]
+                  if len(nodes) >= NODE_CAP:
+                      raise ClosedError('GRAPH_LIMIT')
+                  path = kernel.resolve(pair)
+                  index = len(nodes)
+                  indexed[pair] = index
+                  node = {'index': index, 'major': pair[0], 'minor': pair[1], 'kind': 'unknown',
+                          'size_bytes': integer(number(kernel.read(path / 'size', 64)) * 512),
+                          'start_bytes': None, 'partition_number': None, 'parent': None, 'slaves': []}
+                  nodes.append(node)
+                  active.add(pair)
+                  if kernel.exists(path / 'partition'):
+                      node['kind'] = 'partition'
+                      node['partition_number'] = number(kernel.read(path / 'partition', 64), 1)
+                      node['start_bytes'] = integer(number(kernel.read(path / 'start', 64)) * 512)
+                      parent_pair = device(kernel.read(path.parent / 'dev', 64))
+                      parent_index = visit(parent_pair, depth + 1)
+                      parent = nodes[parent_index]
+                      if parent['kind'] != 'disk' or node['start_bytes'] + node['size_bytes'] > parent['size_bytes']:
+                          raise ClosedError('GEOMETRY')
+                      node['parent'] = parent_index
+                  elif kernel.exists(path / 'dm'):
+                      node['kind'] = 'dm'
+                  elif kernel.exists(path / 'md'):
+                      node['kind'] = 'raid'
+                  elif kernel.exists(path / 'device'):
+                      node['kind'] = 'disk'
+                  for slave_pair in kernel.slaves(path):
+                      node['slaves'].append(visit(slave_pair, depth + 1))
+                  if node['kind'] in {'disk', 'partition'} and node['slaves']:
+                      raise ClosedError('GEOMETRY')
+                  active.remove(pair)
+                  return index
+          
+              if root['fs_type'] in {'overlay', 'tmpfs', 'other'}:
+                  topology = 'MAPPED_OR_UNSUPPORTED'
+              else:
+                  try:
+                      visit(pair, 0)
+                  except FileNotFoundError:
+                      # Missing block identity is explicit unsupported, never a guessed device.
+                      nodes = []
+                      topology = 'MAPPED_OR_UNSUPPORTED'
+                  else:
+                      topology = {'disk': 'SIMPLE_WHOLE_DISK', 'partition': 'SIMPLE_PARTITION_WITH_PARENT'}.get(
+                          nodes[0]['kind'], 'MAPPED_OR_UNSUPPORTED')
+              kernel.check()
+              return root, nodes, topology
+          
+          
+          def base(target, source):
+              return {'schema': 'root-filesystem-geometry-v1', 'mode': 'READ_ONLY',
+                      'target_sha': target, 'collector_sha256': source,
+                      'observed_at': dt.datetime.now(dt.timezone.utc).isoformat(),
+                      'snapshot': 'NON_ATOMIC_KERNEL_METADATA', 'startup_authorization': 'NOT_GRANTED',
+                      'status': 'NOT_PROVEN', 'reason': None, 'root': None, 'devices': [],
+                      'topology': 'NOT_PROVEN'}
+          
+          
+          def encoded(value):
+              raw = json.dumps(value, separators=(',', ':'), allow_nan=False).encode() + b'\n'
+              if len(raw) > OUTPUT_CAP:
+                  raise ClosedError('OUTPUT_LIMIT')
+              return raw
+          
+          
+          def validate(value, target, source, now=None):
+              expected = set(base(target, source))
+              if type(value) is not dict or set(value) != expected:
+                  raise ValueError('closed top-level schema')
+              if (value['schema'], value['mode'], value['target_sha'], value['collector_sha256'],
+                  value['snapshot'], value['startup_authorization']) != (
+                      'root-filesystem-geometry-v1', 'READ_ONLY', target, source,
+                      'NON_ATOMIC_KERNEL_METADATA', 'NOT_GRANTED'):
+                  raise ValueError('source or target identity')
+              if not re.fullmatch('[0-9a-f]{40}', target) or not re.fullmatch('[0-9a-f]{64}', source):
+                  raise ValueError('identity format')
+              stamp = dt.datetime.fromisoformat(value['observed_at'])
+              now = now or dt.datetime.now(dt.timezone.utc)
+              if stamp.tzinfo is None or not 0 <= (now - stamp).total_seconds() <= 300:
+                  raise ValueError('freshness')
+              encoded(value)
+              if value['status'] == 'NOT_PROVEN':
+                  if (value['reason'] not in REASONS or value['root'] is not None or
+                          value['devices'] != [] or value['topology'] != 'NOT_PROVEN'):
+                      raise ValueError('failure schema')
+                  return
+              if value['status'] != 'OBSERVED' or value['reason'] is not None:
+                  raise ValueError('status')
+              root = value['root']
+              if type(root) is not dict or set(root) != {'major', 'minor', 'fs_type', 'mount_mode',
+                      'bind_state', 'total_bytes', 'free_bytes', 'available_bytes', 'block_bytes', 'readonly'}:
+                  raise ValueError('root schema')
+              for key in ('major', 'minor', 'total_bytes', 'free_bytes', 'available_bytes'):
+                  integer(root[key])
+              integer(root['block_bytes'], 1)
+              if root['major'] > 1048575 or root['minor'] > 1048575:
+                  raise ValueError('root identity range')
+              if (root['fs_type'] not in FS or root['mount_mode'] not in {'ro', 'rw'} or
+                      root['bind_state'] not in {'NOT_PROVEN', 'SUBTREE_ROOT_OBSERVED'} or
+                      type(root['readonly']) is not bool or root['readonly'] != (root['mount_mode'] == 'ro') or
+                      not root['available_bytes'] <= root['free_bytes'] <= root['total_bytes']):
+                  raise ValueError('root scalars')
+              nodes = value['devices']
+              if type(nodes) is not list or len(nodes) > NODE_CAP:
+                  raise ValueError('nodes')
+              ids = set()
+              for i, node in enumerate(nodes):
+                  if type(node) is not dict or set(node) != {'index', 'major', 'minor', 'kind', 'size_bytes',
+                          'start_bytes', 'partition_number', 'parent', 'slaves'}:
+                      raise ValueError('node schema')
+                  for key in ('index', 'major', 'minor', 'size_bytes'):
+                      integer(node[key])
+                  pair = (node['major'], node['minor'])
+                  if node['index'] != i or pair in ids or any(x > 1048575 for x in pair):
+                      raise ValueError('node identity')
+                  ids.add(pair)
+                  if node['kind'] not in KINDS or type(node['slaves']) is not list or len(node['slaves']) > SLAVE_CAP:
+                      raise ValueError('node kind')
+                  if node['size_bytes'] % 512:
+                      raise ValueError('kernel sector alignment')
+                  refs = node['slaves'] + ([] if node['parent'] is None else [node['parent']])
+                  if any(type(x) is not int or not 0 <= x < len(nodes) or x == i for x in refs) or len(set(refs)) != len(refs):
+                      raise ValueError('node relationships')
+                  if node['kind'] == 'partition':
+                      integer(node['start_bytes'])
+                      integer(node['partition_number'], 1)
+                      if node['start_bytes'] % 512:
+                          raise ValueError('partition sector alignment')
+                      if node['parent'] is None:
+                          raise ValueError('missing parent')
+                      parent = nodes[node['parent']]
+                      if parent['kind'] != 'disk' or node['start_bytes'] + node['size_bytes'] > parent['size_bytes']:
+                          raise ValueError('parent geometry')
+                  elif any(node[x] is not None for x in ('start_bytes', 'partition_number', 'parent')):
+                      raise ValueError('nonpartition parent')
+                  if node['kind'] in {'disk', 'partition'} and node['slaves']:
+                      raise ValueError('simple slaves')
+              seen = set()
+          
+              def walk(index, active, depth):
+                  if index in active or depth > DEPTH_CAP:
+                      raise ValueError('cycle or depth')
+                  seen.add(index)
+                  node = nodes[index]
+                  for ref in node['slaves'] + ([] if node['parent'] is None else [node['parent']]):
+                      walk(ref, active | {index}, depth + 1)
+          
+              if nodes:
+                  if (nodes[0]['major'], nodes[0]['minor']) != (root['major'], root['minor']):
+                      raise ValueError('root relationship')
+                  walk(0, set(), 0)
+                  if seen != set(range(len(nodes))):
+                      raise ValueError('unreachable node')
+              topology = value['topology']
+              if topology not in {'SIMPLE_WHOLE_DISK', 'SIMPLE_PARTITION_WITH_PARENT', 'MAPPED_OR_UNSUPPORTED'}:
+                  raise ValueError('topology')
+              if topology.startswith('SIMPLE_'):
+                  wanted = 'disk' if topology == 'SIMPLE_WHOLE_DISK' else 'partition'
+                  if not nodes or nodes[0]['kind'] != wanted or root['fs_type'] not in {'ext4', 'xfs', 'btrfs'}:
+                      raise ValueError('simple topology')
+                  if root['total_bytes'] > nodes[0]['size_bytes']:
+                      raise ValueError('filesystem exceeds block snapshot')
+              elif nodes and nodes[0]['kind'] in {'disk', 'partition'}:
+                  raise ValueError('unsupported topology inconsistency')
+          
+          
+          def no_duplicates(pairs):
+              result = {}
+              for key, value in pairs:
+                  if key in result:
+                      raise ValueError('duplicate key')
+                  result[key] = value
+              return result
+          
+          
+          def alarm_handler(signum, frame):
+              raise ClosedError('DEADLINE')
+          
+          
+          def main(argv):
+              if len(argv) not in {4, 5} or argv[1] not in {'--collect', '--validate'}:
+                  return 2
+              mode, target, source = argv[1:4]
+              if not re.fullmatch('[0-9a-f]{40}', target) or not re.fullmatch('[0-9a-f]{64}', source):
+                  return 2
+              if mode == '--validate':
+                  if len(argv) != 5:
+                      return 2
+                  with open(argv[4], 'rb') as stream:
+                      raw = stream.read(OUTPUT_CAP + 1)
+                  if len(raw) > OUTPUT_CAP:
+                      return 2
+                  validate(json.loads(raw, object_pairs_hook=no_duplicates), target, source)
+                  return 0
+              if len(argv) != 4:
+                  return 2
+              signal.signal(signal.SIGALRM, alarm_handler)
+              signal.setitimer(signal.ITIMER_REAL, DEADLINE)
+              kernel = Kernel()
+              value = base(target, source)
+              result = 1
+              try:
+                  if os.geteuid() != 0:
+                      raise ClosedError('PRIVILEGE')
+                  root, nodes, topology = collect(kernel)
+                  value.update(status='OBSERVED', root=root, devices=nodes, topology=topology)
+                  kernel.check()
+                  validate(value, target, source)
+                  raw = encoded(value)
+                  kernel.check()
+                  # Alarm remains active through rendering and write. Kernel uninterruptible
+                  # waits still require transport UNKNOWN, never a claimed termination proof.
+                  written = os.write(1, raw)
+                  if written != len(raw):
+                      return 1
+                  kernel.check()
+                  result = 0
+              except BaseException as exc:
+                  reason = str(exc) if isinstance(exc, ClosedError) and str(exc) in REASONS else (
+                      'KERNEL_IO' if isinstance(exc, OSError) else 'UNEXPECTED')
+                  value = base(target, source)
+                  value['reason'] = reason
+                  try:
+                      # No retry after deadline: partial/missing bytes fail runner admission.
+                      kernel.check()
+                      os.write(1, encoded(value))
+                  except BaseException:
+                      pass
+              finally:
+                  signal.setitimer(signal.ITIMER_REAL, 0)
+              return result
+          
+          
+          if __name__ == '__main__':
+              sys.exit(main(sys.argv))
+          PY_ROOT_GEOMETRY
+          [[ "$(sha256sum "$RUNNER_TEMP/root-geometry.py" | cut -d ' ' -f 1)" == "$GEOMETRY_SOURCE_SHA256" ]]
+      - name: Revalidate current main and owner provenance before transport
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$GEOMETRY_TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$GEOMETRY_TARGET_SHA" == "$GITHUB_SHA" && "$GEOMETRY_TARGET_SHA" == "$(git rev-parse HEAD)" ]]
+          [[ "$GEOMETRY_TARGET_SHA" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          comment="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID")"
+          jq -e --arg owner "$owner" --arg body '/production inspect-root-filesystem current-main' \
+            '.user.login == $owner and .author_association == "OWNER" and .body == $body' <<< "$comment" >/dev/null
+          if [[ "$GITHUB_ACTOR" != "$owner" || "$TRIGGERING_ACTOR" != "$owner" ]]; then
+            jq -e '.performed_via_github_app.id == 1144995' <<< "$comment" >/dev/null
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/issues/4637" --jq '.state' | grep -Fxq open
+      - name: Resolve pinned SSH identity without a remote probe
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          private="$RUNNER_TEMP/root-geometry-private"
+          mkdir "$private"
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ "$SSH_USER_SECRET" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]{1,5}$ ]] && ((10#$port >= 1 && 10#$port <= 65535))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          timeout --kill-after=2s 10s getent ahostsv4 "$LIVE_DOMAIN" 2>/dev/null | awk '{print $1}' | grep -Fxq "$DEFAULT_HOST"
+          validate_key(){
+            tr -d '\r' < "$1" > "$private/key"
+            chmod 600 "$private/key"
+            timeout --kill-after=2s 5s ssh-keygen -y -P '' -f "$private/key" >/dev/null 2>&1
+          }
+          try_key(){
+            [[ -n "$1" ]] || return 1
+            printf '%s\n' "$1" > "$private/raw"
+            validate_key "$private/raw" && return 0
+            printf '%s' "${1//\\n/$'\n'}" > "$private/raw"
+            validate_key "$private/raw" && return 0
+            printf '%s' "$1" | base64 --decode > "$private/raw" 2>/dev/null && validate_key "$private/raw"
+          }
+          try_key "${SSH_KEY_PRIMARY:-}" || try_key "${SSH_KEY_SECONDARY:-}" || try_key "${SSH_KEY_FALLBACK:-}"
+          timeout --kill-after=2s 12s ssh-keyscan -T 8 -p "$port" "$host" > "$private/scan" 2>/dev/null
+          : > "$private/match"
+          while IFS= read -r line; do
+            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}')"
+            [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$private/match"
+          done < "$private/scan"
+          sort -u "$private/match" > "$private/known_hosts"
+          [[ "$(wc -l < "$private/known_hosts")" == 1 ]]
+          rm -f "$private/raw" "$private/scan" "$private/match"
+          echo "GEOMETRY_PORT=$port" >> "$GITHUB_ENV"
+      - name: Collect one bounded kernel metadata report
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY_GEOMETRY_TRANSPORT'
+          import hashlib, importlib.util, json, os, pathlib, selectors, signal, subprocess, time
+          path = pathlib.Path(os.environ['RUNNER_TEMP'], 'root-geometry.py')
+          raw_source = path.read_bytes()
+          source = os.environ['GEOMETRY_SOURCE_SHA256']
+          target = os.environ['GEOMETRY_TARGET_SHA']
+          assert hashlib.sha256(raw_source).hexdigest() == source
+          spec = importlib.util.spec_from_file_location('geometry_validator', path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          private = pathlib.Path(os.environ['RUNNER_TEMP'], 'root-geometry-private')
+          args = ['ssh', '-F', '/dev/null', '-i', str(private / 'key'), '-p', os.environ['GEOMETRY_PORT'],
+                  '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=yes',
+                  '-o', 'UserKnownHostsFile=' + str(private / 'known_hosts'), '-o', 'ConnectTimeout=10',
+                  '-o', 'ServerAliveInterval=5', '-o', 'ServerAliveCountMax=2',
+                  os.environ['SSH_USER_SECRET'] + '@' + os.environ['DEFAULT_HOST'],
+                  'python3 -I -B - --collect ' + target + ' ' + source]
+          started = time.monotonic()
+          process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                     stderr=subprocess.DEVNULL, start_new_session=True)
+          # Source is <=20KiB; nonblocking stdin prevents an unbounded send wait.
+          os.set_blocking(process.stdin.fileno(), False)
+          os.set_blocking(process.stdout.fileno(), False)
+          mux = selectors.DefaultSelector()
+          mux.register(process.stdin, selectors.EVENT_WRITE, 'input')
+          mux.register(process.stdout, selectors.EVENT_READ, 'output')
+          sent, output, good = 0, bytearray(), False
+          try:
+              while mux.get_map():
+                  remaining = 45.0 - (time.monotonic() - started)
+                  if remaining <= 0:
+                      raise RuntimeError('transport deadline')
+                  for key, events in mux.select(min(remaining, 0.1)):
+                      if key.data == 'input':
+                          count = os.write(key.fd, raw_source[sent:sent + 4096])
+                          sent += count
+                          if sent == len(raw_source):
+                              mux.unregister(key.fileobj)
+                              process.stdin.close()
+                      else:
+                          chunk = os.read(key.fd, min(4096, module.OUTPUT_CAP + 1 - len(output)))
+                          if not chunk:
+                              mux.unregister(key.fileobj)
+                              process.stdout.close()
+                          else:
+                              output.extend(chunk)
+                              if len(output) > module.OUTPUT_CAP:
+                                  raise RuntimeError('transport output cap')
+              code = process.wait(timeout=max(0.001, 45.0 - (time.monotonic() - started)))
+              if time.monotonic() - started >= 45.0:
+                  raise RuntimeError('transport deadline')
+              if code != 0 or sent != len(raw_source):
+                  raise RuntimeError('remote completion not proven')
+              value = json.loads(output, object_pairs_hook=module.no_duplicates)
+              module.validate(value, target, source)
+              if value['status'] != 'OBSERVED':
+                  raise RuntimeError('observation not proven')
+              pathlib.Path(os.environ['RUNNER_TEMP'], 'root-geometry-candidate.json').write_bytes(module.encoded(value))
+              good = True
+          except BaseException:
+              print('ROOT_GEOMETRY_NOT_PROVEN; GUEST_TERMINATION=NOT_PROVEN')
+          finally:
+              mux.close()
+              if process.poll() is None:
+                  os.killpg(process.pid, signal.SIGTERM)
+                  try:
+                      process.wait(timeout=5)
+                  except subprocess.TimeoutExpired:
+                      os.killpg(process.pid, signal.SIGKILL)
+                      try:
+                          process.wait(timeout=2)
+                      except subprocess.TimeoutExpired:
+                          good = False
+              for stream in (process.stdin, process.stdout):
+                  if not stream.closed:
+                      stream.close()
+          if not good:
+              raise SystemExit(1)
+          print('ROOT_GEOMETRY_CLOSED_OBSERVATION_VALIDATED; STARTUP_AUTHORIZATION=NOT_GRANTED')
+          PY_GEOMETRY_TRANSPORT
+      - name: Admit only fresh current-source closed geometry output
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$GEOMETRY_TARGET_SHA" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          python3 -B "$RUNNER_TEMP/root-geometry.py" --validate "$GEOMETRY_TARGET_SHA" "$GEOMETRY_SOURCE_SHA256" "$RUNNER_TEMP/root-geometry-candidate.json"
+          mkdir -p artifacts/root-filesystem-geometry
+          cp "$RUNNER_TEMP/root-geometry-candidate.json" artifacts/root-filesystem-geometry/observation.json
+      - name: Preserve closed geometry observation only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: root-filesystem-geometry-${{ github.run_id }}
+          path: artifacts/root-filesystem-geometry/observation.json
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+      - name: Clear runner-only geometry transport
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/root-geometry-private"
+          rm -f "$RUNNER_TEMP/root-geometry.py" "$RUNNER_TEMP/root-geometry-candidate.json"
