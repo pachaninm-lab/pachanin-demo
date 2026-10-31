@@ -30,7 +30,7 @@ from typing import Any
 
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 CHECKSUM = re.compile(r"[0-9a-f]{64}\Z")
-NAME = re.compile(r"[0-9]{8,14}_[A-Za-z0-9_]{1,180}\Z")
+NAME = re.compile(r"(?:0001_postgresql_initial|[0-9]{8,14}_[A-Za-z0-9_]{1,180})\Z")
 DOMAIN = "xn----8sbjf4befbjgs9b.xn--p1ai"
 API_ORIGIN = "http://api:3001/api"
 MAX_BYTES = 1024 * 1024

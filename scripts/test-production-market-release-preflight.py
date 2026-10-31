@@ -165,6 +165,111 @@ class Metadata(unittest.TestCase):
         self.assertIn('statement_timeout',m.DB_PROGRAM)
 
 
+class HistoricalMigrationLedger(unittest.TestCase):
+    INITIAL = '0001_postgresql_initial'
+    DATED = '20260913143000_public_market_lot_projection'
+
+    def source_and_ledger(self, root):
+        rows = []
+        for name, sql in ((self.INITIAL, b'CREATE TABLE baseline (id integer);\n'),
+                          (self.DATED, b'CREATE TABLE projection (id integer);\n')):
+            folder = root / name
+            folder.mkdir()
+            (folder / 'migration.sql').write_bytes(sql)
+            rows.append({'migration_name': name, 'checksum': m.hashlib.sha256(sql).hexdigest(),
+                         'finished': True, 'rolled_back': False})
+        payload = migrations()
+        payload['rows'] = rows
+        return payload
+
+    def test_initial_and_dated_ledger_compare_without_migration_authority(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            payload = self.source_and_ledger(root)
+            payload['rows'][0]['private_value'] = 'SYNTHETIC_PRIVATE_SENTINEL'
+            inventory = m.migration_metadata(json.dumps(payload))
+            self.assertEqual(inventory['status'], 'OBSERVED_READ_ONLY')
+            self.assertEqual([row['migration_name'] for row in inventory['rows']], [self.INITIAL, self.DATED])
+            self.assertNotIn('SYNTHETIC_PRIVATE_SENTINEL', json.dumps(inventory))
+            self.assertEqual(m.source_lineage(inventory, root), {
+                'status': 'COMPARED_NOT_MIGRATED', 'source_count': 2, 'applied_count': 2,
+                'pending': [], 'applied_unknown_to_source': [], 'checksum_mismatch': [],
+                'duplicate_applied_names': False, 'failed_unresolved': 0})
+
+    def test_only_exact_historical_initial_name_is_admitted(self):
+        invalid = ('0002_postgresql_initial', '9999_postgresql_initial', '00001_postgresql_initial',
+                   '0001_other', 'x0001_postgresql_initial', '0001_postgresql_initial_',
+                   '0001_postgresql_initial_extra', '0001_postgresql_initial.sql',
+                   '0001_postgresql_initial\n', '0001_postgresql_initial\x00',
+                   '0001_postgresql_initial/child', '0001_postgresql_initial\u200b')
+        for name in invalid:
+            with self.subTest(name=name):
+                payload = migrations()
+                payload['rows'][0]['migration_name'] = name
+                self.assertEqual(m.migration_metadata(json.dumps(payload)), {'status': 'NOT_PROVEN'})
+                with tempfile.TemporaryDirectory() as td:
+                    root = Path(td)
+                    accepted = self.source_and_ledger(root)
+                    # NUL and path separators are not filesystem component names.
+                    if '\x00' not in name and '/' not in name:
+                        folder = root / name
+                        folder.mkdir()
+                        (folder / 'migration.sql').write_text('SELECT 1;\n')
+                        inventory = m.migration_metadata(json.dumps(accepted))
+                        self.assertEqual(m.source_lineage(inventory, root), {'status': 'NOT_PROVEN'})
+
+    def test_existing_dated_name_grammar_is_preserved(self):
+        for name in ('20260101_x', '20261031123456_legacy_name', '2026103112345_previous_shape'):
+            with self.subTest(name=name):
+                payload = migrations()
+                payload['rows'][0]['migration_name'] = name
+                self.assertEqual(m.migration_metadata(json.dumps(payload))['status'], 'OBSERVED_READ_ONLY')
+        for name in ('2026010_x', '202610311234567_x', '20260101_', '20260101_x\n'):
+            with self.subTest(name=name):
+                payload = migrations()
+                payload['rows'][0]['migration_name'] = name
+                self.assertEqual(m.migration_metadata(json.dumps(payload)), {'status': 'NOT_PROVEN'})
+
+    def test_initial_checksum_mismatch_stays_visible(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            payload = self.source_and_ledger(root)
+            payload['rows'][0]['checksum'] = 'f' * 64
+            result = m.source_lineage(m.migration_metadata(json.dumps(payload)), root)
+            self.assertEqual(result['status'], 'COMPARED_NOT_MIGRATED')
+            self.assertEqual(result['checksum_mismatch'], [self.INITIAL])
+
+    def test_missing_initial_stays_pending(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            payload = self.source_and_ledger(root)
+            payload['rows'] = payload['rows'][1:]
+            result = m.source_lineage(m.migration_metadata(json.dumps(payload)), root)
+            self.assertEqual(result['pending'], [self.INITIAL])
+            self.assertEqual(result['applied_count'], 1)
+
+    def test_duplicate_initial_rows_are_not_silently_deduplicated(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            payload = self.source_and_ledger(root)
+            payload['rows'].append(dict(payload['rows'][0]))
+            result = m.source_lineage(m.migration_metadata(json.dumps(payload)), root)
+            self.assertTrue(result['duplicate_applied_names'])
+            self.assertEqual(result['applied_count'], 3)
+
+    def test_unfinished_or_rolled_back_initial_never_counts_as_applied(self):
+        for finished, rolled_back, failed in ((False, False, 1), (False, True, 0), (True, True, 0)):
+            with self.subTest(finished=finished, rolled_back=rolled_back):
+                with tempfile.TemporaryDirectory() as td:
+                    root = Path(td)
+                    payload = self.source_and_ledger(root)
+                    payload['rows'][0].update(finished=finished, rolled_back=rolled_back)
+                    result = m.source_lineage(m.migration_metadata(json.dumps(payload)), root)
+                    self.assertEqual(result['pending'], [self.INITIAL])
+                    self.assertEqual(result['failed_unresolved'], failed)
+                    self.assertEqual(result['applied_count'], 1)
+
+
 class Boundary(unittest.TestCase):
     def test_timeout_does_not_expose_details(self):
         # Accelerate the real command deadline without slowing the suite by 18s.
