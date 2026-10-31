@@ -11230,4 +11230,4 @@ V2 bootstrap fixture OWNER6540665424: fullpatch c243f28925b551da14741d352e441516
 
 WP1 [record](autopilot/prompts/current-review-task.md#wp1)
 
-[WP2](autopilot/prompts/current-review-task.md#wp2)
+[WP3](autopilot/prompts/current-review-task.md#wp3)
