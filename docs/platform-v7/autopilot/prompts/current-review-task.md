@@ -3906,3 +3906,1442 @@ Complete read-only startup compatibility source admission. This tracked body pre
   "gates": "Exact metadata3 private/published reviews + owner/native/security/genuineREADY/manual acceptance BEFORE original cold source3 publication. New actual published source whole-head review, native38+102+24+wire1=165, security/READY/manual required; private136PASS5SKIP and oldnative155 are not new acceptance. Separate finite read-only window only after accepted source/current main/lanes/DNS/fingerprint. Completed observation grants no startup. All old UNKNOWN/SPENT/keys/copies/19volumes/owners/scopes/PRIMARY/current/next/official5 remain; no reset/replay/policy relaxation/cap increase/new cost."
 }
 ```
+
+## WP3
+
+Complete read-only command characterization source admission. The tracked body retains the exact patch, readable observer and tests, independent source review and actual v1 provenance. Recognized option names do not authorize startup. Native acceptance and a later finite read-only observation remain separate.
+
+```json
+{
+  "purposeId": "read-only-core-command-characterization-20261031",
+  "owner": "ACCOUNT_1_CORE",
+  "ownerDecisions": [
+    6542442770
+  ],
+  "baseMain": "f7a1adda04ab193af03b6bb69105346bf600427f",
+  "sourceBranch": "ops/production-cold-preservation-20261022",
+  "sourcePurpose": "stopped-core-bootstrap-20261024",
+  "existingReadOnlyPurpose": "stopped-core-startup-observation-20261031",
+  "sourceOnly": true,
+  "readOnlySource": true,
+  "hostWindow": "NONE",
+  "productionInvocationAuthorized": false,
+  "startupAuthorized": false,
+  "productionAcceptance": false,
+  "masterCredit": 0,
+  "sourceManifest": {
+    "baseMain": "f7a1adda04ab193af03b6bb69105346bf600427f",
+    "sourceBranch": "ops/production-cold-preservation-20261022",
+    "paths": {
+      ".github/workflows/production-cold-preservation.yml": {
+        "before": {
+          "bytes": 156820,
+          "sha256": "ff15754ca0480a8ae1f91511c1efa4560952a50406c0ecc6f2e3605b3b11e6ce",
+          "blob": "425ee8df3ce1e7896bafd4ea5a7dbf528cdbca5a",
+          "mode": "100644"
+        },
+        "after": {
+          "bytes": 169790,
+          "sha256": "dd327aba31e76a1cb3ffe713eecf62091ce470fee53a8de93d863a0ffc0c7ae6",
+          "blob": "338b17efa926ad4a12eb061ebd2543164905aadb",
+          "mode": "100644"
+        }
+      },
+      "scripts/test_production_cold_preservation.py": {
+        "before": {
+          "bytes": 196636,
+          "sha256": "9ee3f11822248e2b20279b8ec2ebbba5b1bb7da9424231bb33e98693d84b4080",
+          "blob": "3b81a8eb47a214ac139adafb49a5d3c19a605bd0",
+          "mode": "100644"
+        },
+        "after": {
+          "bytes": 199236,
+          "sha256": "3a6553fad7ba3bec8ecefdb11536ed3e29c7f296ab6b117672b2ef776063519c",
+          "blob": "e5faf4c8d59a8567eafc3bcd4ef49204a713d275",
+          "mode": "100644"
+        }
+      },
+      "docs/ops/production-cold-preservation.md": {
+        "before": {
+          "bytes": 46437,
+          "sha256": "23774a050a6809e4748592860ea590e5e99efdb1ca03b48a5417f0d9fb89673b",
+          "blob": "2883b4abd917d0bed879a2cad9fe1d6e17c21dfe",
+          "mode": "100644"
+        },
+        "after": {
+          "bytes": 48479,
+          "sha256": "39004266eb20cd4e52ab5123dddc32f053d220db4996a0333a3267c45d220fd2",
+          "blob": "3c8b47d984802cb9092d1279fcaa0c2133739da0",
+          "mode": "100644"
+        }
+      }
+    },
+    "patch": {
+      "bytes": 63411,
+      "sha256": "0480f14899e95696da6ac31bdde002d8a15794b864c63e2a1ff32a6c6ef9895b",
+      "blob": "036ddf8c1cd9d7fa7efd32c276b46449f14c5697",
+      "mode": "100644"
+    }
+  },
+  "completeSourcePatchUtf8": "--- a/.github/workflows/production-cold-preservation.yml\n+++ b/.github/workflows/production-cold-preservation.yml\n@@ -404,7 +404,7 @@\n           startup_policy = '\"\"\"Conservative OFFLINE startup predicate; no host IO and no execution.\\n\\nPreparation only: root must include/review/pin this with the real controller.\\nImages are pinned to the accepted API baseline and the separately accepted Oct29 web release; never mutable tags.\\nNo unknown saved shell/Node script is accepted. False means REFUSE, not bypass.\\n\\nPublic authority inspected:\\n- PC-CROP a6784252a57a8a5e14f231bc18a64d67ab0fd274 API and\\n  3de749725b270a810f463bef34e6120f22fb7ce7 web Dockerfiles,\\n  infra/compose/production-web-hardening.override.yml and full-stack release.\\n- edoburu/docker-pgbouncer 91a581b7e9ea0c6b3e9001db39d67efa8b05dfb2\\n  Dockerfile/entrypoint (nearest source commit before saved image creation;\\n  this temporal match is NOT a build-provenance attestation).\\n- minio/minio 2b34e5b9ae62390a4ba3e19fefd9c55b2dbd6c7c Dockerfile.release,\\n  official docs/docker/README.md and cmd/healthcheck-router.go.\\n- redis/docker-library-redis official 7.4/debian/Dockerfile,\\n  caddyserver/caddy-docker official Dockerfile.tmpl.\\n\\nRoot MUST separately verify volumes/PG_VERSION, bind contents, configs,\\nnetwork/ports and application worker-disable boundaries. Cmd equality alone\\ndoes not attest those. This module intentionally refuses other overrides.\\n\"\"\"\\nimport re\\n\\nREVISIONS = {\\'api\\': \\'a6784252a57a8a5e14f231bc18a64d67ab0fd274\\',\\n             \\'web\\': \\'3de749725b270a810f463bef34e6120f22fb7ce7\\'}\\nIMAGES = {\\n    \\'postgres\\': \\'sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20\\',\\n    \\'redis\\': \\'sha256:a8f08480e1f88f2647fed492d1178c06abb0d0c1fbf02c682a61e2f483fb3954\\',\\n    \\'minio\\': \\'sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e\\',\\n    \\'pgbouncer\\': \\'sha256:4c1ca296ef525f108f5d3552cc337c0c09587cf8dae7f0067fd93349e47dc1cd\\',\\n    \\'api\\': \\'sha256:4d7ca23ed1e7e090c3e2f1b89e1b89e836b420ee7f378b93f639bb7f0581a6fc\\',\\n    \\'web\\': \\'sha256:74d2304531d758ff945da74f52c80fbc71126f51a8f108555fabdd319c8d4dd8\\',\\n    \\'caddy\\': \\'sha256:844f60b64e4724a5aa8245e019dace0d3f199f7433ce6c57676cb30a920dbad9\\',\\n}\\nDEFAULT_COMMAND = {\\n    \\'postgres\\': (\\'postgres\\',),\\n    \\'redis\\': (\\'redis-server\\',),\\n    \\'minio\\': (\\'minio\\',),\\n    \\'pgbouncer\\': (\\'/usr/bin/pgbouncer\\', \\'/etc/pgbouncer/pgbouncer.ini\\'),\\n    \\'api\\': (\\'dist/apps/api/src/main.js\\',),\\n    \\'web\\': (\\'node_modules/next/dist/bin/next\\', \\'start\\', \\'-p\\', \\'3000\\'),\\n    \\'caddy\\': (\\'caddy\\', \\'run\\', \\'--config\\', \\'/etc/caddy/Caddyfile\\', \\'--adapter\\', \\'caddyfile\\'),\\n}\\nENTRYPOINTS = {\\n    \\'postgres\\': {(\\'docker-entrypoint.sh\\',), (\\'/usr/local/bin/docker-entrypoint.sh\\',)},\\n    \\'redis\\': {(\\'docker-entrypoint.sh\\',), (\\'/usr/local/bin/docker-entrypoint.sh\\',)},\\n    \\'minio\\': {(\\'/usr/bin/docker-entrypoint.sh\\',)},\\n    \\'pgbouncer\\': {(\\'/entrypoint.sh\\',)},\\n    \\'api\\': {(\\'/nodejs/bin/node\\',)},\\n    \\'web\\': {(\\'/nodejs/bin/node\\',)},\\n    \\'caddy\\': {()},\\n}\\nWEB_IMAGE_PROBE = \"fetch(\\'http://127.0.0.1:3000/api/health/ready\\',{signal:AbortSignal.timeout(5000)}).then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))\"\\nWEB_HARDENING_PROBE = \" \".join((\\n    \"fetch(\\'http://127.0.0.1:3000/api/health/ready\\',{signal:AbortSignal.timeout(5000)})\",\\n    \".then((response)=>response.ok?true:fetch(\\'http://127.0.0.1:3000/platform-v7\\',{signal:AbortSignal.timeout(5000)}).then((fallback)=>fallback.ok))\",\\n    \".then((ok)=>{if(!ok)process.exit(1)})\", \".catch(()=>process.exit(1))\"))\\nAPI_RELEASE_PROBE = \"fetch(\\'http://127.0.0.1:3001/ready\\',{signal:AbortSignal.timeout(4000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\"\\nHEALTH_KEYS = {\\'Test\\', \\'Interval\\', \\'Timeout\\', \\'Retries\\', \\'StartPeriod\\', \\'StartInterval\\'}\\n\\n\\ndef argv(value, *, empty=True):\\n    if value is None and empty:\\n        return ()\\n    if type(value) is not list or len(value) > 64 or (not value and not empty):\\n        raise ValueError(\\'ARGV_PROFILE\\')\\n    if any(type(v) is not str or \\'\\\\0\\' in v or len(v.encode()) > 4096 for v in value):\\n        raise ValueError(\\'ARGV_PROFILE\\')\\n    return tuple(value)\\n\\n\\ndef environment(config):\\n    values = config.get(\\'Env\\') or []\\n    if type(values) is not list or len(values) > 4096:\\n        raise ValueError(\\'ENV_PROFILE\\')\\n    result = {}\\n    for value in values:\\n        if type(value) is not str or \\'=\\' not in value or \\'\\\\0\\' in value:\\n            raise ValueError(\\'ENV_PROFILE\\')\\n        key, val = value.split(\\'=\\', 1)\\n        if not re.fullmatch(\\'[A-Za-z_][A-Za-z0-9_]{0,127}\\', key) or key in result:\\n            raise ValueError(\\'ENV_PROFILE\\')\\n        result[key] = val\\n    return result\\n\\n\\ndef health_allowed(role, health, env):\\n    if health is None or health == {}:\\n        return True\\n    if type(health) is not dict or set(health) - HEALTH_KEYS:\\n        return False\\n    for key, value in health.items():\\n        if key != \\'Test\\' and (type(value) is not int or not 0 <= value <= (100 if key == \\'Retries\\' else 300_000_000_000)):\\n            return False\\n    try:\\n        test = argv(health.get(\\'Test\\'), empty=False)\\n    except ValueError:\\n        return False\\n    if test == (\\'NONE\\',):\\n        return True\\n    if role == \\'web\\':\\n        return test in {(\\'CMD\\', \\'/nodejs/bin/node\\', \\'-e\\', WEB_IMAGE_PROBE),\\n                       (\\'CMD\\', \\'/nodejs/bin/node\\', \\'-e\\', WEB_HARDENING_PROBE)}\\n    if role == \\'api\\':\\n        return test == (\\'CMD\\', \\'/nodejs/bin/node\\', \\'-e\\', API_RELEASE_PROBE)\\n    if role == \\'redis\\':\\n        return test in {(\\'CMD\\', \\'redis-cli\\', \\'ping\\'), (\\'CMD\\', \\'/usr/local/bin/redis-cli\\', \\'ping\\')}\\n    if role == \\'pgbouncer\\':\\n        return test in {(\\'CMD\\', \\'pg_isready\\', \\'-h\\', \\'localhost\\'),\\n                       (\\'CMD\\', \\'pg_isready\\', \\'-h\\', \\'127.0.0.1\\', \\'-p\\', \\'5432\\')}\\n    if role == \\'minio\\':\\n        return test in {\\n            (\\'CMD\\', \\'curl\\', \\'-f\\', \\'http://localhost:9000/minio/health/live\\'),\\n            (\\'CMD\\', \\'curl\\', \\'-f\\', \\'http://localhost:9000/minio/health/ready\\'),\\n            (\\'CMD\\', \\'/usr/bin/curl\\', \\'-f\\', \\'http://127.0.0.1:9000/minio/health/ready\\'),\\n        }\\n    if role == \\'postgres\\':\\n        user, database = env.get(\\'POSTGRES_USER\\'), env.get(\\'POSTGRES_DB\\')\\n        if not all(type(v) is str and re.fullmatch(\\'[A-Za-z_][A-Za-z0-9_]{0,62}\\', v) for v in (user, database)):\\n            return False\\n        return test in {\\n            (\\'CMD\\', \\'pg_isready\\', \\'-U\\', user, \\'-d\\', database),\\n            # Fixed program only; quoted env substitutions have bounded identifiers.\\n            (\\'CMD-SHELL\\', \\'pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\"\\'),\\n            (\\'CMD-SHELL\\', \\'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}\\'),\\n            (\\'CMD-SHELL\\', \\'pg_isready -U \\' + user + \\' -d \\' + database),\\n        }\\n    # No public native Caddy health program was proven.\\n    return False\\n\\n\\ndef native_health_supported(role, record, image):\\n    \"\"\"Presence is determined from actual image/record; never assumed.\"\"\"\\n    cfg = record.get(\\'Config\\') or {}\\n    base = image.get(\\'Config\\') or {}\\n    health = cfg.get(\\'Healthcheck\\')\\n    if health is None:\\n        health = base.get(\\'Healthcheck\\')\\n    try:\\n        return bool(type(health) is dict and argv(health.get(\\'Test\\'), empty=False) != (\\'NONE\\',)\\n                    and health_allowed(role, health, environment(cfg)))\\n    except (ValueError, TypeError):\\n        return False\\n\\n\\ndef startup_safe(role, record, image):\\n    \"\"\"Closed callback suitable for Source.startup_safe; no truthy fallback.\"\"\"\\n    try:\\n        if role not in IMAGES or type(record) is not dict or type(image) is not dict:\\n            return False\\n        if record.get(\\'Image\\') != IMAGES[role] or image.get(\\'Id\\') != IMAGES[role]:\\n            return False\\n        cfg, base = record.get(\\'Config\\'), image.get(\\'Config\\')\\n        if type(cfg) is not dict or type(base) is not dict:\\n            return False\\n        if argv(base.get(\\'Entrypoint\\')) not in ENTRYPOINTS[role] or argv(cfg.get(\\'Entrypoint\\')) != argv(base.get(\\'Entrypoint\\')):\\n            return False\\n        if argv(base.get(\\'Cmd\\')) != DEFAULT_COMMAND[role]:\\n            return False\\n        command = argv(cfg.get(\\'Cmd\\'))\\n        allowed_commands = {DEFAULT_COMMAND[role]}\\n        # These two explicitly documented fixed argv exceptions run only their\\n        # service binary, never arbitrary shell/entrypoint/config program.\\n        if role == \\'minio\\':\\n            allowed_commands = {(\\'server\\', \\'/data\\'), (\\'server\\', \\'/data\\', \\'--console-address\\', \\':9001\\')}\\n        if role == \\'redis\\':\\n            allowed_commands.add((\\'redis-server\\', \\'--appendonly\\', \\'yes\\'))\\n        if command not in allowed_commands:\\n            return False\\n        if role in (\\'api\\', \\'web\\') and (base.get(\\'Labels\\') or {}).get(\\'org.opencontainers.image.revision\\') != REVISIONS[role]:\\n            return False\\n        env, base_env = environment(cfg), environment(base)\\n        # A safe argv must not be redirected through a changed PATH or injected\\n        # runtime loader/preload/script mechanism. Other app env is a separate\\n        # authority reviewed by the integrating controller.\\n        for key in (\\'PATH\\', \\'LD_PRELOAD\\', \\'LD_AUDIT\\', \\'LD_LIBRARY_PATH\\', \\'NODE_OPTIONS\\', \\'NODE_PATH\\',\\n                    \\'BASH_ENV\\', \\'ENV\\', \\'PYTHONPATH\\', \\'PYTHONSTARTUP\\', \\'SHELLOPTS\\', \\'BASHOPTS\\', \\'PS4\\'):\\n            if env.get(key) != base_env.get(key):\\n                return False\\n        return health_allowed(role, base.get(\\'Healthcheck\\'), base_env) and health_allowed(role, cfg.get(\\'Healthcheck\\'), env)\\n    except (ValueError, TypeError, AttributeError):\\n        return False\\n'\n           entrypoint = \"import json\\nimport re\\nimport sys\\n\\n\\ndef bootstrap_main(arguments, inspector, profile, engine, attestor, startup_policy, helper, cold):\\n    target = arguments[0] if len(arguments) == 2 else ''\\n    run = arguments[1] if len(arguments) == 2 else ''\\n    if not re.fullmatch('[0-9a-f]{40}', target) or not re.fullmatch('[1-9][0-9]{0,19}', run):\\n        raise SystemExit('BOOTSTRAP_ARGUMENTS_INVALID')\\n    source = None\\n    try:\\n        source = attestor.Source(inspector, profile, engine, startup_policy, target, run, helper, cold)\\n        try:\\n            result = engine.controlled_bootstrap(\\n                source, engine.LocalDocker(), inspector.EXPECTED_REFS, target,\\n                source.journal_factory,\\n                engine.NativeReadiness('xn----8sbjf4befbjgs9b.xn--p1ai', '195.19.12.120'),\\n                uid=0, deadline_seconds=600)\\n        finally:\\n            source.close()\\n    except BaseException as error:\\n        # Constructor/cleanup/outer failures cannot prove that no write occurred.\\n        # Nothing from an exception message or private source may be published.\\n        code = error.args[0] if type(error) is engine.Refusal and error.args and \\\\\\n               type(error.args[0]) is str and re.fullmatch('[A-Z_]{1,64}', error.args[0]) else 'BOOTSTRAP_BOUNDARY_UNAVAILABLE'\\n        result = {'schemaVersion': 'pc.core-bootstrap.v1', 'passed': False,\\n                  'outcome': 'UNKNOWN', 'errorCode': code, 'registrationAccepted': False,\\n                  'exactCurrentMainReleased': False, 'dataRollbackClaimed': False}\\n    result.update(targetSha=target, runId=run)\\n    print(json.dumps(result, separators=(',', ':')))\\n    return 0 if result.get('passed') is True else 1\\n\"\n \n-          startup_observer = '\"\"\"Closed startup compatibility observation. No runtime mutation or private output.\"\"\"\\nimport json\\nimport os\\nimport re\\n\\nSCHEMA = \\'pc.core-startup-inspection.v1\\'\\nROLES = (\\'postgres\\', \\'redis\\', \\'minio\\', \\'api\\', \\'web\\', \\'caddy\\')\\nLOADERS = (\\'PATH\\', \\'LD_PRELOAD\\', \\'LD_AUDIT\\', \\'LD_LIBRARY_PATH\\', \\'NODE_OPTIONS\\', \\'NODE_PATH\\',\\n           \\'BASH_ENV\\', \\'ENV\\', \\'PYTHONPATH\\', \\'PYTHONSTARTUP\\', \\'SHELLOPTS\\', \\'BASHOPTS\\', \\'PS4\\')\\nREASONS = frozenset((\\'MATCH\\', \\'INPUT_PROFILE\\', \\'IMAGE_IDENTITY\\', \\'CONFIG_SHAPE\\',\\n                     \\'ENTRYPOINT_PROFILE\\', \\'IMAGE_COMMAND_PROFILE\\', \\'SAVED_COMMAND_PROFILE\\',\\n                     \\'APPLICATION_REVISION\\', \\'ENVIRONMENT_SHAPE\\', \\'IMAGE_HEALTH_PROFILE\\',\\n                     \\'SAVED_HEALTH_PROFILE\\', \\'UNCLASSIFIED_REFUSAL\\')) | frozenset(\\'LOADER_\\' + k for k in LOADERS)\\n\\n\\nclass ObservationError(Exception):\\n    pass\\n\\n\\ndef require(ok):\\n    if not ok:\\n        raise ObservationError(\\'STARTUP_OBSERVATION_INVALID\\')\\n\\n\\ndef explain(policy, role, record, image):\\n    \"\"\"Explain only the existing pure predicate; never authorize a new profile.\"\"\"\\n    def first_reason():\\n        try:\\n            if role not in policy.IMAGES or type(record) is not dict or type(image) is not dict:\\n                return \\'INPUT_PROFILE\\'\\n            if record.get(\\'Image\\') != policy.IMAGES[role] or image.get(\\'Id\\') != policy.IMAGES[role]:\\n                return \\'IMAGE_IDENTITY\\'\\n            cfg, base = record.get(\\'Config\\'), image.get(\\'Config\\')\\n            if type(cfg) is not dict or type(base) is not dict:\\n                return \\'CONFIG_SHAPE\\'\\n            if policy.argv(base.get(\\'Entrypoint\\')) not in policy.ENTRYPOINTS[role] or policy.argv(cfg.get(\\'Entrypoint\\')) != policy.argv(base.get(\\'Entrypoint\\')):\\n                return \\'ENTRYPOINT_PROFILE\\'\\n            if policy.argv(base.get(\\'Cmd\\')) != policy.DEFAULT_COMMAND[role]:\\n                return \\'IMAGE_COMMAND_PROFILE\\'\\n            allowed = {policy.DEFAULT_COMMAND[role]}\\n            if role == \\'minio\\':\\n                allowed = {(\\'server\\', \\'/data\\'), (\\'server\\', \\'/data\\', \\'--console-address\\', \\':9001\\')}\\n            if role == \\'redis\\':\\n                allowed.add((\\'redis-server\\', \\'--appendonly\\', \\'yes\\'))\\n            if policy.argv(cfg.get(\\'Cmd\\')) not in allowed:\\n                return \\'SAVED_COMMAND_PROFILE\\'\\n            if role in (\\'api\\', \\'web\\') and (base.get(\\'Labels\\') or {}).get(\\'org.opencontainers.image.revision\\') != policy.REVISIONS[role]:\\n                return \\'APPLICATION_REVISION\\'\\n            try:\\n                env, base_env = policy.environment(cfg), policy.environment(base)\\n            except (ValueError, TypeError, AttributeError):\\n                return \\'ENVIRONMENT_SHAPE\\'\\n            for key in LOADERS:\\n                if env.get(key) != base_env.get(key):\\n                    return \\'LOADER_\\' + key\\n            if not policy.health_allowed(role, base.get(\\'Healthcheck\\'), base_env):\\n                return \\'IMAGE_HEALTH_PROFILE\\'\\n            if not policy.health_allowed(role, cfg.get(\\'Healthcheck\\'), env):\\n                return \\'SAVED_HEALTH_PROFILE\\'\\n            return \\'MATCH\\'\\n        except (ValueError, TypeError, AttributeError):\\n            return \\'UNCLASSIFIED_REFUSAL\\'\\n    actual = policy.startup_safe(role, record, image)\\n    reason = first_reason()\\n    require(type(actual) is bool and reason in REASONS and actual is (reason == \\'MATCH\\'))\\n    return {\\'role\\': role, \\'compatible\\': actual, \\'reason\\': reason}\\n\\n\\ndef journal_slot(profile, engine, cold):\\n    \"\"\"Stat only the one fixed slot; absence is a snapshot, never a reservation.\"\"\"\\n    parent = None\\n    try:\\n        require(engine.OP == \\'core-bootstrap-20261024\\')\\n        parent = profile.protected_directory(cold.BACKUP_ROOT, 0)\\n        try:\\n            os.stat(engine.OP, dir_fd=parent, follow_symlinks=False)\\n        except FileNotFoundError:\\n            return \\'ABSENT\\'\\n        return \\'PRESENT\\'\\n    except BaseException:\\n        return \\'UNAVAILABLE\\'\\n    finally:\\n        if parent is not None:\\n            os.close(parent)\\n\\n\\ndef fixed(target, run):\\n    require(type(target) is str and re.fullmatch(\\'[0-9a-f]{40}\\', target) and\\n            type(run) is str and re.fullmatch(\\'[1-9][0-9]{0,19}\\', run))\\n    return {\\'schemaVersion\\': SCHEMA, \\'targetSha\\': target, \\'runId\\': run,\\n            \\'startupAuthorized\\': False, \\'runtimeRestored\\': False,\\n            \\'exactCurrentMainReleased\\': False, \\'registrationAccepted\\': False,\\n            \\'dataRollbackClaimed\\': False}\\n\\n\\ndef observe_main(arguments, inspector, profile, engine, attestor, policy, helper, cold):\\n    target, run = arguments if len(arguments) == 2 else (\\'\\', \\'\\')\\n    result = fixed(target, run)\\n    source = None\\n    try:\\n        require(tuple(engine.CORE) == ROLES)\\n        source = attestor.Source(inspector, profile, engine, policy, target, run, helper, cold)\\n        token = source.attest(target, inspector.EXPECTED_REFS)\\n        records = source.records()\\n        selected = {}\\n        require(type(records) is list and len(records) == 11)\\n        for record in records:\\n            role = engine.role_of(record)\\n            if role in ROLES:\\n                require(role not in selected)\\n                selected[role] = record\\n        require(set(selected) == set(ROLES))\\n        profiles = [explain(policy, role, selected[role], source.image(selected[role][\\'Image\\'])) for role in ROLES]\\n        slot = journal_slot(profile, engine, cold)\\n        source.recheck(token)\\n        require(helper.Host().observe() == source._host_baseline)\\n        result.update(observationComplete=True, policyCompatible=all(p[\\'compatible\\'] for p in profiles),\\n                      profiles=profiles, journalSlot=slot, errorCode=\\'NONE\\')\\n    except BaseException:\\n        # Even malformed private objects and exception messages remain private.\\n        result.update(observationComplete=False, policyCompatible=False, profiles=[],\\n                      journalSlot=\\'UNAVAILABLE\\', errorCode=\\'OBSERVATION_UNAVAILABLE\\')\\n    finally:\\n        if source is not None:\\n            try:\\n                source.close()\\n            except BaseException:\\n                result.update(observationComplete=False, policyCompatible=False, profiles=[],\\n                              journalSlot=\\'UNAVAILABLE\\', errorCode=\\'OBSERVATION_UNAVAILABLE\\')\\n    raw = json.dumps(result, separators=(\\',\\', \\':\\')).encode()\\n    status = \\'0\\' if result[\\'observationComplete\\'] is True else \\'1\\'\\n    validate_terminal(raw, target, run, status)\\n    print(raw.decode())\\n    return int(status)\\n\\n\\ndef validate_terminal(data, target, run, status):\\n    def pairs(items):\\n        require(len(items) == len(dict(items)))\\n        return dict(items)\\n    require(type(data) is bytes and 0 < len(data) <= 16384 and type(status) is str and status in (\\'0\\', \\'1\\'))\\n    value = json.loads(data.decode(\\'utf-8\\', errors=\\'strict\\'), object_pairs_hook=pairs,\\n                       parse_constant=lambda _: (_ for _ in ()).throw(ObservationError()))\\n    expected = fixed(target, run)\\n    require(type(value) is dict and set(value) == set(expected) | {\\n        \\'observationComplete\\', \\'policyCompatible\\', \\'profiles\\', \\'journalSlot\\', \\'errorCode\\'})\\n    require(all(type(value.get(k)) is type(v) and value[k] == v for k, v in expected.items()))\\n    require(type(value[\\'observationComplete\\']) is bool and type(value[\\'policyCompatible\\']) is bool and\\n            type(value[\\'profiles\\']) is list and type(value[\\'journalSlot\\']) is str and\\n            value[\\'journalSlot\\'] in (\\'ABSENT\\', \\'PRESENT\\', \\'UNAVAILABLE\\'))\\n    if value[\\'observationComplete\\'] is True:\\n        require(status == \\'0\\' and value[\\'errorCode\\'] == \\'NONE\\' and len(value[\\'profiles\\']) == 6)\\n        for role, item in zip(ROLES, value[\\'profiles\\']):\\n            require(type(item) is dict and set(item) == {\\'role\\', \\'compatible\\', \\'reason\\'} and\\n                    type(item[\\'role\\']) is str and item[\\'role\\'] == role and type(item[\\'compatible\\']) is bool and\\n                    type(item[\\'reason\\']) is str and item[\\'reason\\'] in REASONS and\\n                    item[\\'compatible\\'] is (item[\\'reason\\'] == \\'MATCH\\'))\\n        require(value[\\'policyCompatible\\'] is all(p[\\'compatible\\'] for p in value[\\'profiles\\']))\\n    else:\\n        require(status == \\'1\\' and value[\\'errorCode\\'] == \\'OBSERVATION_UNAVAILABLE\\' and\\n                value[\\'profiles\\'] == [] and value[\\'policyCompatible\\'] is False and value[\\'journalSlot\\'] == \\'UNAVAILABLE\\')\\n    return value\\n'\n+          startup_observer = '\"\"\"Closed startup compatibility observation. No runtime mutation or private output.\"\"\"\\nimport json\\nimport os\\nimport re\\n\\nSCHEMA = \\'pc.core-startup-inspection.v2\\'\\nROLES = (\\'postgres\\', \\'redis\\', \\'minio\\', \\'api\\', \\'web\\', \\'caddy\\')\\nLOADERS = (\\'PATH\\', \\'LD_PRELOAD\\', \\'LD_AUDIT\\', \\'LD_LIBRARY_PATH\\', \\'NODE_OPTIONS\\', \\'NODE_PATH\\',\\n           \\'BASH_ENV\\', \\'ENV\\', \\'PYTHONPATH\\', \\'PYTHONSTARTUP\\', \\'SHELLOPTS\\', \\'BASHOPTS\\', \\'PS4\\')\\nREASONS = frozenset((\\'MATCH\\', \\'INPUT_PROFILE\\', \\'IMAGE_IDENTITY\\', \\'CONFIG_SHAPE\\',\\n                     \\'ENTRYPOINT_PROFILE\\', \\'IMAGE_COMMAND_PROFILE\\', \\'SAVED_COMMAND_PROFILE\\',\\n                     \\'APPLICATION_REVISION\\', \\'ENVIRONMENT_SHAPE\\', \\'IMAGE_HEALTH_PROFILE\\',\\n                     \\'SAVED_HEALTH_PROFILE\\', \\'UNCLASSIFIED_REFUSAL\\')) | frozenset(\\'LOADER_\\' + k for k in LOADERS)\\n\\n\\nclass ObservationError(Exception):\\n    pass\\n\\n\\n# Names are observation vocabulary, NEVER an executable command allowlist.\\n# Unknown names and all values remain private. No shell splitting is performed.\\nPG_NAMES = frozenset((\\'max_connections superuser_reserved_connections reserved_connections \\'\\n    \\'max_prepared_transactions shared_buffers work_mem maintenance_work_mem effective_cache_size \\'\\n    \\'wal_buffers min_wal_size max_wal_size wal_level max_wal_senders max_replication_slots \\'\\n    \\'hot_standby wal_keep_size checkpoint_completion_target checkpoint_timeout \\'\\n    \\'logging_collector log_statement log_duration log_min_duration_statement log_connections \\'\\n    \\'log_disconnections shared_preload_libraries session_preload_libraries local_preload_libraries \\'\\n    \\'config_file hba_file ident_file data_directory listen_addresses port unix_socket_directories \\'\\n    \\'ssl ssl_cert_file ssl_key_file archive_mode archive_command restore_command primary_conninfo\\').split())\\nREDIS_NAMES = frozenset((\\'appendonly appendfsync save maxmemory maxmemory-policy requirepass \\'\\n    \\'masterauth user bind port protected-mode dir dbfilename appenddirname appendfilename logfile \\'\\n    \\'databases tcp-keepalive timeout replicaof loadmodule include daemonize replica-read-only\\').split())\\nSHORT_PG = {\\'-N\\': \\'max_connections\\', \\'-B\\': \\'shared_buffers\\', \\'-S\\': \\'work_mem\\',\\n            \\'-p\\': \\'port\\', \\'-h\\': \\'listen_addresses\\', \\'-D\\': \\'data_directory\\'}\\nREDIS_ALIASES = {\\'slaveof\\': \\'replicaof\\', \\'slave-read-only\\': \\'replica-read-only\\'}\\nVARIABLE_REDIS = frozenset((\\'save\\', \\'user\\', \\'bind\\', \\'replicaof\\', \\'loadmodule\\', \\'include\\'))\\nFORMS = frozenset((\\'DEFAULT\\', \\'ROLE_BINARY\\', \\'ABSOLUTE_ROLE_BINARY\\', \\'ENTRYPOINT_OPTIONS\\', \\'SHELL_WRAPPER\\',\\n                   \\'ENV_WRAPPER\\', \\'OTHER_PROGRAM\\', \\'EMPTY\\', \\'MALFORMED\\'))\\nPARSE_CODES = frozenset((\\'NONE\\', \\'ARGV_INVALID\\', \\'PROGRAM_UNKNOWN\\', \\'OPTION_UNKNOWN\\',\\n    \\'POSITIONAL_OR_CONFIG\\', \\'VALUE_MISSING_OR_AMBIGUOUS\\', \\'VARIABLE_ARITY_UNPROVEN\\'))\\nDETAIL_ROLES = (\\'postgres\\', \\'redis\\')\\n\\n\\ndef option_codes(role):\\n    return frozenset((\\'PG_\\' + k.upper() for k in PG_NAMES) if role == \\'postgres\\' else\\n                     (\\'REDIS_\\' + k.upper().replace(\\'-\\', \\'_\\') for k in REDIS_NAMES))\\n\\n\\ndef command_shape(policy, role, config):\\n    \"\"\"Fully consumed argv grammar is diagnosis only, never value/safety proof.\"\"\"\\n    result = {\\'commandForm\\': \\'MALFORMED\\', \\'optionCodes\\': [], \\'parseCode\\': \\'ARGV_INVALID\\',\\n              \\'commandParseComplete\\': False, \\'repeatedOption\\': False}\\n    try:\\n        command = policy.argv(config.get(\\'Cmd\\'))\\n        if not command:\\n            result.update(commandForm=\\'EMPTY\\')\\n            return result\\n        if command == policy.DEFAULT_COMMAND[role]:\\n            result.update(commandForm=\\'DEFAULT\\', parseCode=\\'NONE\\', commandParseComplete=True)\\n            return result\\n        first = command[0]\\n        absolute = {\\'postgres\\': (\\'/usr/local/bin/postgres\\', \\'/usr/lib/postgresql/16/bin/postgres\\'),\\n                    \\'redis\\': (\\'/usr/local/bin/redis-server\\', \\'/usr/bin/redis-server\\')}\\n        cursor = 1\\n        if first.startswith(\\'-\\'):\\n            result[\\'commandForm\\'] = \\'ENTRYPOINT_OPTIONS\\'\\n            cursor = 0\\n        elif first == policy.DEFAULT_COMMAND[role][0]:\\n            result[\\'commandForm\\'] = \\'ROLE_BINARY\\'\\n        elif first in absolute[role]:\\n            result[\\'commandForm\\'] = \\'ABSOLUTE_ROLE_BINARY\\'\\n        else:\\n            result[\\'commandForm\\'] = (\\'SHELL_WRAPPER\\' if first in (\\'sh\\', \\'/bin/sh\\', \\'bash\\', \\'/bin/bash\\', \\'/usr/bin/bash\\')\\n                                     else \\'ENV_WRAPPER\\' if first in (\\'env\\', \\'/usr/bin/env\\') else \\'OTHER_PROGRAM\\')\\n            result[\\'parseCode\\'] = \\'PROGRAM_UNKNOWN\\'\\n            return result\\n        seen = set()\\n        result[\\'parseCode\\'] = \\'NONE\\'\\n        while cursor < len(command):\\n            item, cursor = command[cursor], cursor + 1\\n            name, value = None, None\\n            if role == \\'postgres\\':\\n                inline = False\\n                if item == \\'-c\\':\\n                    if cursor >= len(command):\\n                        result[\\'parseCode\\'] = \\'VALUE_MISSING_OR_AMBIGUOUS\\'; break\\n                    assignment, cursor = command[cursor], cursor + 1\\n                elif item.startswith(\\'-c\\') and len(item) > 2:\\n                    assignment = item[2:]\\n                elif item.startswith(\\'--\\'):\\n                    assignment = item[2:]\\n                elif item[:2] in SHORT_PG:\\n                    name = SHORT_PG[item[:2]]\\n                    if len(item) > 2:\\n                        value = item[2:]\\n                    elif cursor < len(command):\\n                        value, cursor = command[cursor], cursor + 1\\n                    else:\\n                        result[\\'parseCode\\'] = \\'VALUE_MISSING_OR_AMBIGUOUS\\'; break\\n                    assignment = None\\n                else:\\n                    result[\\'parseCode\\'] = \\'OPTION_UNKNOWN\\' if item.startswith(\\'-\\') else \\'POSITIONAL_OR_CONFIG\\'; break\\n                if assignment is not None:\\n                    if \\'=\\' not in assignment:\\n                        result[\\'parseCode\\'] = \\'VALUE_MISSING_OR_AMBIGUOUS\\'; break\\n                    name, value = assignment.split(\\'=\\', 1)\\n                    name = name.lower().replace(\\'-\\', \\'_\\')\\n                    inline = True\\n                if name not in PG_NAMES:\\n                    result[\\'parseCode\\'] = \\'OPTION_UNKNOWN\\'; break\\n                code = \\'PG_\\' + name.upper()\\n            else:\\n                inline = False\\n                if not item.startswith(\\'--\\') or \\'=\\' in item:\\n                    result[\\'parseCode\\'] = \\'OPTION_UNKNOWN\\' if item.startswith(\\'-\\') else \\'POSITIONAL_OR_CONFIG\\'; break\\n                name = REDIS_ALIASES.get(item[2:].lower(), item[2:].lower())\\n                if name not in REDIS_NAMES:\\n                    # Arity is unknown. Stop; never reinterpret a following secret as a flag.\\n                    result[\\'parseCode\\'] = \\'OPTION_UNKNOWN\\'; break\\n                code = \\'REDIS_\\' + name.upper().replace(\\'-\\', \\'_\\')\\n                if name in VARIABLE_REDIS:\\n                    if code in seen: result[\\'repeatedOption\\'] = True\\n                    seen.add(code)\\n                    result[\\'parseCode\\'] = \\'VARIABLE_ARITY_UNPROVEN\\'; break\\n                if code in seen: result[\\'repeatedOption\\'] = True\\n                seen.add(code)\\n                if cursor >= len(command):\\n                    result[\\'parseCode\\'] = \\'VALUE_MISSING_OR_AMBIGUOUS\\'; break\\n                # Consume exactly this value even when it looks like a public flag.\\n                value, cursor = command[cursor], cursor + 1\\n            if role == \\'postgres\\':\\n                if code in seen: result[\\'repeatedOption\\'] = True\\n                seen.add(code)\\n            if type(value) is not str or not value or (not inline and value.startswith(\\'-\\')):\\n                result[\\'parseCode\\'] = \\'VALUE_MISSING_OR_AMBIGUOUS\\'; break\\n        result.update(optionCodes=sorted(seen), commandParseComplete=result[\\'parseCode\\'] == \\'NONE\\')\\n    except BaseException:\\n        # Preserve no exception detail or partially parsed private object.\\n        result.update(commandForm=\\'MALFORMED\\', optionCodes=[], parseCode=\\'ARGV_INVALID\\',\\n                      commandParseComplete=False, repeatedOption=False)\\n    return result\\n\\n\\ndef command_diagnostic(policy, role, record, image):\\n    \"\"\"Inspect actual remaining fields; never substitute a synthetic command.\"\"\"\\n    require(role in DETAIL_ROLES)\\n    value = {\\'role\\': role, **command_shape(policy, role, record.get(\\'Config\\') or {})}\\n    failures = []\\n    complete = False\\n    try:\\n        config, base = record[\\'Config\\'], image[\\'Config\\']\\n        require(type(config) is dict and type(base) is dict)\\n        env, base_env = policy.environment(config), policy.environment(base)\\n        failures.extend(\\'LOADER_\\' + key for key in LOADERS if env.get(key) != base_env.get(key))\\n        if not policy.health_allowed(role, base.get(\\'Healthcheck\\'), base_env): failures.append(\\'IMAGE_HEALTH_PROFILE\\')\\n        if not policy.health_allowed(role, config.get(\\'Healthcheck\\'), env): failures.append(\\'SAVED_HEALTH_PROFILE\\')\\n        complete = True\\n    except (ValueError, TypeError, AttributeError):\\n        failures = [\\'ENVIRONMENT_SHAPE\\']\\n    except BaseException:\\n        failures = [\\'UNCLASSIFIED_REFUSAL\\']\\n    value.update(remainingChecksComplete=complete, remainingRefusals=failures)\\n    return value\\n\\n\\ndef require(ok):\\n    if not ok:\\n        raise ObservationError(\\'STARTUP_OBSERVATION_INVALID\\')\\n\\n\\ndef explain(policy, role, record, image):\\n    \"\"\"Explain only the existing pure predicate; never authorize a new profile.\"\"\"\\n    def first_reason():\\n        try:\\n            if role not in policy.IMAGES or type(record) is not dict or type(image) is not dict:\\n                return \\'INPUT_PROFILE\\'\\n            if record.get(\\'Image\\') != policy.IMAGES[role] or image.get(\\'Id\\') != policy.IMAGES[role]:\\n                return \\'IMAGE_IDENTITY\\'\\n            cfg, base = record.get(\\'Config\\'), image.get(\\'Config\\')\\n            if type(cfg) is not dict or type(base) is not dict:\\n                return \\'CONFIG_SHAPE\\'\\n            if policy.argv(base.get(\\'Entrypoint\\')) not in policy.ENTRYPOINTS[role] or policy.argv(cfg.get(\\'Entrypoint\\')) != policy.argv(base.get(\\'Entrypoint\\')):\\n                return \\'ENTRYPOINT_PROFILE\\'\\n            if policy.argv(base.get(\\'Cmd\\')) != policy.DEFAULT_COMMAND[role]:\\n                return \\'IMAGE_COMMAND_PROFILE\\'\\n            allowed = {policy.DEFAULT_COMMAND[role]}\\n            if role == \\'minio\\':\\n                allowed = {(\\'server\\', \\'/data\\'), (\\'server\\', \\'/data\\', \\'--console-address\\', \\':9001\\')}\\n            if role == \\'redis\\':\\n                allowed.add((\\'redis-server\\', \\'--appendonly\\', \\'yes\\'))\\n            if policy.argv(cfg.get(\\'Cmd\\')) not in allowed:\\n                return \\'SAVED_COMMAND_PROFILE\\'\\n            if role in (\\'api\\', \\'web\\') and (base.get(\\'Labels\\') or {}).get(\\'org.opencontainers.image.revision\\') != policy.REVISIONS[role]:\\n                return \\'APPLICATION_REVISION\\'\\n            try:\\n                env, base_env = policy.environment(cfg), policy.environment(base)\\n            except (ValueError, TypeError, AttributeError):\\n                return \\'ENVIRONMENT_SHAPE\\'\\n            for key in LOADERS:\\n                if env.get(key) != base_env.get(key):\\n                    return \\'LOADER_\\' + key\\n            if not policy.health_allowed(role, base.get(\\'Healthcheck\\'), base_env):\\n                return \\'IMAGE_HEALTH_PROFILE\\'\\n            if not policy.health_allowed(role, cfg.get(\\'Healthcheck\\'), env):\\n                return \\'SAVED_HEALTH_PROFILE\\'\\n            return \\'MATCH\\'\\n        except (ValueError, TypeError, AttributeError):\\n            return \\'UNCLASSIFIED_REFUSAL\\'\\n    actual = policy.startup_safe(role, record, image)\\n    reason = first_reason()\\n    require(type(actual) is bool and reason in REASONS and actual is (reason == \\'MATCH\\'))\\n    return {\\'role\\': role, \\'compatible\\': actual, \\'reason\\': reason}\\n\\n\\ndef journal_slot(profile, engine, cold):\\n    \"\"\"Stat only the one fixed slot; absence is a snapshot, never a reservation.\"\"\"\\n    parent = None\\n    try:\\n        require(engine.OP == \\'core-bootstrap-20261024\\')\\n        parent = profile.protected_directory(cold.BACKUP_ROOT, 0)\\n        try:\\n            os.stat(engine.OP, dir_fd=parent, follow_symlinks=False)\\n        except FileNotFoundError:\\n            return \\'ABSENT\\'\\n        return \\'PRESENT\\'\\n    except BaseException:\\n        return \\'UNAVAILABLE\\'\\n    finally:\\n        if parent is not None:\\n            os.close(parent)\\n\\n\\ndef fixed(target, run):\\n    require(type(target) is str and re.fullmatch(\\'[0-9a-f]{40}\\', target) and\\n            type(run) is str and re.fullmatch(\\'[1-9][0-9]{0,19}\\', run))\\n    return {\\'schemaVersion\\': SCHEMA, \\'targetSha\\': target, \\'runId\\': run,\\n            \\'startupAuthorized\\': False, \\'runtimeRestored\\': False,\\n            \\'exactCurrentMainReleased\\': False, \\'registrationAccepted\\': False,\\n            \\'dataRollbackClaimed\\': False}\\n\\n\\ndef observe_main(arguments, inspector, profile, engine, attestor, policy, helper, cold):\\n    target, run = arguments if len(arguments) == 2 else (\\'\\', \\'\\')\\n    result = fixed(target, run)\\n    source = None\\n    try:\\n        require(tuple(engine.CORE) == ROLES)\\n        source = attestor.Source(inspector, profile, engine, policy, target, run, helper, cold)\\n        token = source.attest(target, inspector.EXPECTED_REFS)\\n        records = source.records()\\n        selected = {}\\n        require(type(records) is list and len(records) == 11)\\n        for record in records:\\n            role = engine.role_of(record)\\n            if role in ROLES:\\n                require(role not in selected)\\n                selected[role] = record\\n        require(set(selected) == set(ROLES))\\n        images = {role: source.image(selected[role][\\'Image\\']) for role in ROLES}\\n        profiles = [explain(policy, role, selected[role], images[role]) for role in ROLES]\\n        diagnostics = [command_diagnostic(policy, role, selected[role], images[role]) for role in DETAIL_ROLES]\\n        slot = journal_slot(profile, engine, cold)\\n        source.recheck(token)\\n        require(helper.Host().observe() == source._host_baseline)\\n        result.update(observationComplete=True, policyCompatible=all(p[\\'compatible\\'] for p in profiles),\\n                      profiles=profiles, commandDiagnostics=diagnostics, journalSlot=slot, errorCode=\\'NONE\\')\\n    except BaseException:\\n        # Even malformed private objects and exception messages remain private.\\n        result.update(observationComplete=False, policyCompatible=False, profiles=[], commandDiagnostics=[],\\n                      journalSlot=\\'UNAVAILABLE\\', errorCode=\\'OBSERVATION_UNAVAILABLE\\')\\n    finally:\\n        if source is not None:\\n            try:\\n                source.close()\\n            except BaseException:\\n                result.update(observationComplete=False, policyCompatible=False, profiles=[], commandDiagnostics=[],\\n                              journalSlot=\\'UNAVAILABLE\\', errorCode=\\'OBSERVATION_UNAVAILABLE\\')\\n    raw = json.dumps(result, separators=(\\',\\', \\':\\')).encode()\\n    status = \\'0\\' if result[\\'observationComplete\\'] is True else \\'1\\'\\n    validate_terminal(raw, target, run, status)\\n    print(raw.decode())\\n    return int(status)\\n\\n\\ndef validate_terminal(data, target, run, status):\\n    def pairs(items):\\n        require(len(items) == len(dict(items)))\\n        return dict(items)\\n    require(type(data) is bytes and 0 < len(data) <= 16384 and type(status) is str and status in (\\'0\\', \\'1\\'))\\n    value = json.loads(data.decode(\\'utf-8\\', errors=\\'strict\\'), object_pairs_hook=pairs,\\n                       parse_constant=lambda _: (_ for _ in ()).throw(ObservationError()))\\n    expected = fixed(target, run)\\n    require(type(value) is dict and set(value) == set(expected) | {\\n        \\'observationComplete\\', \\'policyCompatible\\', \\'profiles\\', \\'commandDiagnostics\\', \\'journalSlot\\', \\'errorCode\\'})\\n    require(all(type(value.get(k)) is type(v) and value[k] == v for k, v in expected.items()))\\n    require(type(value[\\'observationComplete\\']) is bool and type(value[\\'policyCompatible\\']) is bool and\\n            type(value[\\'profiles\\']) is list and type(value[\\'commandDiagnostics\\']) is list and type(value[\\'journalSlot\\']) is str and\\n            value[\\'journalSlot\\'] in (\\'ABSENT\\', \\'PRESENT\\', \\'UNAVAILABLE\\'))\\n    if value[\\'observationComplete\\'] is True:\\n        require(status == \\'0\\' and value[\\'errorCode\\'] == \\'NONE\\' and len(value[\\'profiles\\']) == 6)\\n        for role, item in zip(ROLES, value[\\'profiles\\']):\\n            require(type(item) is dict and set(item) == {\\'role\\', \\'compatible\\', \\'reason\\'} and\\n                    type(item[\\'role\\']) is str and item[\\'role\\'] == role and type(item[\\'compatible\\']) is bool and\\n                    type(item[\\'reason\\']) is str and item[\\'reason\\'] in REASONS and\\n                    item[\\'compatible\\'] is (item[\\'reason\\'] == \\'MATCH\\'))\\n        require(value[\\'policyCompatible\\'] is all(p[\\'compatible\\'] for p in value[\\'profiles\\']))\\n        require(len(value[\\'commandDiagnostics\\']) == 2)\\n        later_order = [\\'LOADER_\\' + key for key in LOADERS] + [\\'IMAGE_HEALTH_PROFILE\\', \\'SAVED_HEALTH_PROFILE\\']\\n        for role, item in zip(DETAIL_ROLES, value[\\'commandDiagnostics\\']):\\n            require(type(item) is dict and set(item) == {\\'role\\', \\'commandForm\\', \\'optionCodes\\', \\'parseCode\\',\\n                \\'commandParseComplete\\', \\'repeatedOption\\', \\'remainingChecksComplete\\', \\'remainingRefusals\\'})\\n            require(type(item[\\'role\\']) is str and item[\\'role\\'] == role and\\n                type(item[\\'commandForm\\']) is str and item[\\'commandForm\\'] in FORMS and\\n                type(item[\\'parseCode\\']) is str and item[\\'parseCode\\'] in PARSE_CODES and\\n                type(item[\\'commandParseComplete\\']) is bool and item[\\'commandParseComplete\\'] is (item[\\'parseCode\\'] == \\'NONE\\') and\\n                type(item[\\'repeatedOption\\']) is bool and type(item[\\'remainingChecksComplete\\']) is bool)\\n            codes = item[\\'optionCodes\\']\\n            require(type(codes) is list and len(codes) <= 64 and\\n                all(type(code) is str and code in option_codes(role) for code in codes) and codes == sorted(set(codes)))\\n            if item[\\'commandForm\\'] in (\\'MALFORMED\\', \\'EMPTY\\'):\\n                require(item[\\'parseCode\\'] == \\'ARGV_INVALID\\' and codes == [] and item[\\'repeatedOption\\'] is False)\\n            elif item[\\'commandForm\\'] in (\\'SHELL_WRAPPER\\', \\'ENV_WRAPPER\\', \\'OTHER_PROGRAM\\'):\\n                require(item[\\'parseCode\\'] == \\'PROGRAM_UNKNOWN\\' and codes == [] and item[\\'repeatedOption\\'] is False)\\n            elif item[\\'commandForm\\'] == \\'DEFAULT\\':\\n                require(item[\\'parseCode\\'] == \\'NONE\\' and codes == [] and item[\\'repeatedOption\\'] is False)\\n            else:\\n                require(item[\\'parseCode\\'] not in (\\'PROGRAM_UNKNOWN\\', \\'ARGV_INVALID\\'))\\n                if item[\\'parseCode\\'] == \\'NONE\\' and item[\\'commandForm\\'] != \\'ABSOLUTE_ROLE_BINARY\\':\\n                    require(codes != [])\\n            if item[\\'repeatedOption\\'] is True: require(codes != [])\\n            if role == \\'postgres\\': require(item[\\'parseCode\\'] != \\'VARIABLE_ARITY_UNPROVEN\\')\\n            refusals = item[\\'remainingRefusals\\']\\n            require(type(refusals) is list and all(type(code) is str for code in refusals))\\n            if item[\\'remainingChecksComplete\\'] is True:\\n                require(all(code in later_order for code in refusals) and\\n                    refusals == [code for code in later_order if code in refusals])\\n            else:\\n                require(refusals in ([\\'ENVIRONMENT_SHAPE\\'], [\\'UNCLASSIFIED_REFUSAL\\']))\\n            actual = next(p for p in value[\\'profiles\\'] if p[\\'role\\'] == role)\\n            if actual[\\'reason\\'] == \\'SAVED_COMMAND_PROFILE\\':\\n                require(item[\\'commandForm\\'] != \\'DEFAULT\\')\\n            if actual[\\'compatible\\'] is True:\\n                require(item[\\'remainingChecksComplete\\'] is True and refusals == [] and\\n                    item[\\'commandParseComplete\\'] is True and item[\\'repeatedOption\\'] is False)\\n                require(item[\\'commandForm\\'] == \\'DEFAULT\\' or\\n                    (role == \\'redis\\' and item[\\'commandForm\\'] == \\'ROLE_BINARY\\' and codes == [\\'REDIS_APPENDONLY\\']))\\n    else:\\n        require(status == \\'1\\' and value[\\'errorCode\\'] == \\'OBSERVATION_UNAVAILABLE\\' and\\n                value[\\'profiles\\'] == [] and value[\\'commandDiagnostics\\'] == [] and\\n                value[\\'policyCompatible\\'] is False and value[\\'journalSlot\\'] == \\'UNAVAILABLE\\')\\n    return value\\n'\n           print('import sys,types,base64')\n           print(\"def module(name,source):\\n m=types.ModuleType(name);m.__file__='<accepted-memory-'+name+'>';sys.modules[name]=m;exec(compile(source,m.__file__,'exec'),m.__dict__);return m\")\n           for name,data in (('production_stopped_runtime_headroom',helper),('production_cold_preservation',cold)):\n@@ -541,6 +541,9 @@\n               body+='Fixed operation journal slot: '+value['journalSlot']+' (snapshot only).\\n'\n               for item in value['profiles']:\n                   body+='- '+item['role']+': '+item['reason']+'\\n'\n+              body+='Command diagnostics (names only; values and startup safety are not established):\\n'\n+              for item in value['commandDiagnostics']:\n+                  body+='- '+item['role']+': '+item['commandForm']+'; parse='+item['parseCode']+'; option-codes='+(','.join(item['optionCodes']) or 'NONE')+'; repeated='+str(item['repeatedOption'])+'; remaining-complete='+str(item['remainingChecksComplete'])+'; remaining-refusals='+(','.join(item['remainingRefusals']) or 'NONE')+'\\n'\n           except BaseException:\n               body+='Observation outcome: UNKNOWN.\\n'\n           body+='Startup/restoration/release/registration are not authorized or established by this read-only observation. Preserve all journals, volumes, copies, keys and UNKNOWN/SPENT; no retry/reset.\\n'\n--- a/scripts/test_production_cold_preservation.py\n+++ b/scripts/test_production_cold_preservation.py\n@@ -2195,7 +2195,7 @@\n         for sig, handler in previous_signals.items():\n             signal.signal(sig, handler)\n \n-_startup_observation_tests=component_test_module(\"startup_observation_tests\",zlib.decompress(base64.b64decode('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')).decode())\n+_startup_observation_tests=component_test_module(\"startup_observation_tests\",zlib.decompress(base64.b64decode('eNrtPWtz2siy3/MrdPNhJXaBAOZhs8upIjbZcNcGLtjZk2IplR4D1lpIHEn4cVL+77d7ZiSNXjycxLun6riSMkgzPdM9/Z6esbXeuF4gaX5QNtzNU/lW829tSy//6btO2fXL/lbfeK5BfPj45L9Zeu5a2mgBtpEs1ncCX9mLrWMFAfGD6to17sLX0Nq4ffPGsDXfl8a6T7x7LbBc59x1Ak8zAr/7RoIfkywlP9C8YLtRXdqKeOraNbc2UXxiL0usGf6oZcm/JbYt9STob90T9cH17pa2+6D6Adko8hTm4HpEch37SQpuCTQzyCYgpnRr4RvL0GzJgBZyKQJquCYBgBRw1d/YVqC8/eUXefJZnfQ/X477F/IfztuyVC/N6wv+Hp7Er/9wZPq2tohA3mv2lvgAdA7krUIP4mm2SuCx4lTpy5K0dD3JkSwHV6C60TyfKDiTUlV3zSfJWkqWbzlAF8cgilOmrfq+b62ceObxj+aY8P9JEfoErM9IW8Ng+D6oWqbU60lymtgynUuAc3Gq8G5FAr8UI4NrUIUlJF4w+NcWULCJozAMS4h41NAjwdZzgJ6w/A5xAhU5IlzJzKjq0nqE9gSIx4ABAUtvIo6gfaO2d4RsfFWzbegFq77eBhqsphoN5avkETgizS+cEcOhN65tGU9AFol9yq4X56qN9mS7mqnylfOVGEnyuCEGMlRP+iKDgCwtm8hdSTZqtVOtRc407Uzv1M16U2ufNA29oWlNopFavd1qmyetmtGCZ522vlzq7QbRydnpabu5rGt1uZyzrJIk664b+CAuG5U4K8uhYy3P9Jre0gy9ZtQ6ROtoneay3dDPzk4ay2a7U2vrJ+3W8gSGbrXbdfNs2eiAGJydNTqkQZbELBrLd7eeQVSNirLr4VAdUtdqZ2cd3WxqZqd91u40WifLVgswMhunuml2mg0CY5F6RyenMG6nUW8vydI8WWowo2XhUIkloUjpdWKcmkaj01rqQEj9lLRJ4/SkU2s0YeSa0WmddvQG0Eo/OWk3W7peOzvtnDZO6k1AuNkpGgm4w3vauJYT4Cgnp616u1Nvt7U2dNLrZ+2TWqvZbDSbpxTREwMWsnFqwOBGq6WZLRNo3awDXnUYsGbIz8Vy8eWuK3EtWvVvtUarrdxXiYNSrZRK1VvyaForoKzChP8OGB9ljjFfFVhtDYz2XI5YLGY6JkOopHDMImUZt0fwngs9ADx7WZ2OLwezboJEHgFNaJZBSrQVAldjXmPLQgXYr3JBVRBiUvlkSMAHAwxszXIUBqZM51JOjgeq44uMz2FV2GsZpRkMhE6fXXtbfOYRDewRrtxV//r8o/xcqCKombGWFgFdoBm38N31iQk4bR1T857UByu4dbeBuvEsMENEZWR/qcY4dkUMzacKRknQT5GHV/1fB+rwYjC6Hl5/Bl1oa2vd1CQPyASEqW43JkxWGSLJejLjqq4s/STJNVn6UWo3S6VyCuT5ePRh+Ks6+9ifDAoBgg1eWqvefJHtD1OZfp6Mh6NrdTIdfxheZqHMZdZfXoTwBpGU9eYyJ3HF0BygvJwzBkP7fHx11R9dFA1jZYc5X5sHwZ/1Pw0u9sH3Xg6/P5lcDs/718PxSJ0OPg1n8GHH9OfypaYT248H+iK73qrqblA9OAHICvFABeAqVz1yD2acMT1d5GbtOW+VPg2n49EVrFbBUovDD5x7GJs8BsQxlTmQ52rQS2EJwpb3uHDxPg76l9cfj1i7j0Szg1vjlhh3vS/yNQgvYAjNri5w7PSwz0WLuntc7zuMezM6v+zPZsMPQxh+OvhwM+tfHicS9YYINaWnqYYrS9SnoRqb6oqvU9XyA9HlpK5m8JWkEk60QA3J9dlWRzopbG499qvUzRhYj/hbO4D5FOh9Oo204s9AyVgRBlYwEBxO0kJ8AMcsYSLYh+edA4zcYOgocob3Meqpmtv1xuejl5KrdEeeBGOKbv9gOvvma8RAZAQXA4l7Og3qMBS1gpjBcQPpnpkjH5dTwXmDsejJgkO/Y6Sqttmgigi7pej0MuufywXzcN0W0IDRU0W7BiOX3hw9AuBd0SqUW4BtnvF/coThaHIT27P9ToSnmpavrTxC1hjJAP4whKoDCmsIPzCwfS3P4SvZCrnmwXOdFXKOwmVmBEEThm7drPzToL3q6n+CCxrTN5ymry0JXUqM9JgL1aPQc5RDrE7YCk41C/RauIRCPmDgea5X6r5MiWQZGWw4E5mMbn/zlZiiT5pHs++GZCGXUtcWGhNrA7GvRxAHgTEg3AcmtWHt19AOmNpaZzzdY/mQkgCj3h9/5DgAxxFTAecDpl+XwaGXXTHJs97YJBBceYbqecbJz4ZtYVzto6GOo4RDQwRmVtOxzyJvIIC3BmJdWNrKcf3AMnBISpCIECYB98z2w3SFgnj+CYGyo9kz26VBZf/9DNwwNFAEV/kcAj58PBqPBkK86GkPQD7uNdx3RZNzX4rixL26D9bBQv8CxN5bWw6aS+2B5WNgauFqlNF3LPHUSsaUIaMB/xlUuVHFEOVn+lsIkzzr35gloBQGIIrsbZ3AWhOeXku8Ygmj2a2GY+rMXy3lx+JS0q8CoEMEJTdkCskHH22tfQJPGL1f5Bijirm6SsTY1fs6a5rhpTJzBw4bWFy+rAtIB8jjZNSYdPCQO8sSxk9JhaBrmBrCjGrVJGSDH/ji/Izv5kB9VE4C/ff4YNChh0axnKNmBo+Y3bTQN5N2sgeMnGGOBFNAF40yArYGEadTjmlDM1yMPM8AKOa4KkdE0eW3VPzeAnT4nKTpW7loYfIhxWL+tisFwGkMaOJxna3HMWATDPa2y4Ca2w3wEsz1bbdWFr/VyzkdCkfU5ZE2ohAfUQbq7ZPT1mG24qBFxPUpXMCvAVygPOoCeMsxuAi8SP2HfnqO/mevCkQ2YQUW5QJlTd+k9PHNqP+pP7zsv6fxYVIpj0FXTz+xyF1s9/xCxRsTJ0PAskC5QlvOp676MHfVomYGTDYoY2jj2E/UlDsEW2KywFdtoi3TppxuwQRPG+KHXujMwmEx9+9vgPnRDR3NXmz6+UJAh9FMgS8BTU+ChwweCNiDpx43arg9VJa2ltmVOsK+AEtcl0Ep2iaDMZ705KRmrzRqjXa91mgi2aDF+/75bzcTdToeX/fkd5QolVCnbDQP1GZKgdFFjnOnzKgxP1eeTAfUQKP2/gCIQBD4AdOC1CejBp1bcGwwwdX1/dBlo69FRint9Zo5v7g+cyfRxviWSVSyXMLrHp1pCZeEU7xc3J16ejJtTD929wfPvLvIVwpfwHJiKUp5mebwh0+NQ4b4x7ZhxV3HIDSRqhQuX1kCtlCXZq9TL8PC2HRv7mltW86d32M2OjMYRa1wKJGVDiC2SNnum5eTirPp1sF8HHkAp6cU0S3JEG92EA6jRoaRklYBmhHAJASxg3gANQD4s2Ys+2C+QKB9lakSpjlV7GEZpCAExYwieQxwM1ey3PL+kPQ76Y+fJcScboMuUvGaz0Mc9hLD9YQwO+Vo+4I42zXxMHMlOvOlb72TEYaRwwsaO2LkpAWKI/0k1dHYtpuPMuCTDTbDvO4crVPVdI074lXptiRwNF8mChGHzBnRDzMu7CuMwegyjyaEX+UFgqBvknSi6SDNWRGllUuSCPwXxKwr4tWoRYjBB45RV/oSooQfd+AEphRkCMYOQKGY8vPzczom9+f1xZFxOSsVmIIAzOhWZBIl9RasvqprwHUwpsR2stGRSLRC+VJBXKxAVamAlKUfIUTxwQmi7BhSBJBzgEW2RpCSYATAtkB5dxbhYMy0zEJhLRlz0O1vOXDviJOdEycKl9l4s1wMFHib7Hzo0vPpgCkBogdPmanQRsJMkrA5X4W9F6W8GWKSPMQa0ciMwdvkkIwq8RC7FKWZFct0CRXvUqNuRGq1PPRipT7Vo5E1lmkaG74iK+uWCdjkANYJvCXgS3nAMA+eFZCvh31L7A3xmP/yERiROz1d/M5VX/QoZMxS2gli3c/H00FPVGdM3anusqdX+ae4p7sNNltMsltudRZ4lrMajpX9JjF2i6lhS+eyBJcnthcQLDGnDhxQE8ZV2Ngp1YJmduvHWX+OPTVgyjz0gRfUhA7+ORmcX7N9k1lPKTHvrhR7IvCNyXovFnt4HebFGNVZpx25ETalslQTlVBybyLrvjPkqiDblCRKnIQpjLSEgakvwzcL5tngZrFjtlGnMMBZgKoUtztwGfz9Gx4F25zPB8w3m+1ZgOIobJ7O/+RjV7S5kiF0cihGFKYyDPDLg0iVlaX2DjLSHvNKowu0m0eaKfKahTmiTlhqlq0k5X/KsOLSX7jXcYgAfk8Z2iEziNTLpaWeXIfDl6+Yv75W2CBsnufmEYprwzZbDz0TdJ19ArEhDpv0ocHMW0YAX9DHNY8uKnxvYXVdWEhIC80kXCdaVQfBAdgJcJG5st1TWLh5AoFzTqSKxEoM3w9HhfWF+C6nuNABsLRWLadu8I3AXx6yrANMqTihU32f9KgppFKq1vA+UWt4XGWhu0HAsGzqHdBMqCu8j+oKhajd01Y0/8xQuWJRA2LRoxObUxy6DJOfpBMQBlw/FaYFOsjH2pX8qjz3wSG0eK1/fj6+GV2rdRUtLrIXq3B7D26rcYst3I3/DrSwCV4gzLqC4V1lA8BD9gvj2sbukrkJY0GZWn4XvB6zUhwfx1RCCtLMKrblGrkiMD/vdVJYHIhsPgYujzdDQJmvUN5mGf0e2w9kb+L5ue9iYvQpw+OCh6+f3yS9xX9tQc/x5GFSu4U70fgqVLaf8AtXtWwDCx3qrZ8QGWSYyAvDFI7suA5mf2Wak3FWclnAeie+uYgWYQjPLVDgK+AbTBg+wprJKZzC/a+kV52fQQH8k1h8hymDFaNTmocjYWwVUT1+WjgxFNgQ6RDWjskh+NpOYIxsEahw6wA7hpsHGRtIU8ogABD2wLAURZOn32gI+pwZJWQECYJUAn0TArdTiPjMnp+L8ncmWAnF9cEy3Vse1uR8kceTwZQli39DTd1Fkvm45OBlZZNx6blS5u2CdiKGgq4cOHtKqPZgXX9hKaBKaMoqOmhNwO0fjAmJIdMqSRcpESW4ECD9TSWByiCtfaGfcopfkEzdXPVRsG0QC2rpladeYODRJKi3mq86blT5Df/CQk7mWajENzSwDrd5tRnHJrz/U84Z8Pr00M6/0mGD73TiIB7KwbwjKgYHASTm/qDZd0qMBMe2VMrHgU4lFnctCDwOFz9+DeQ+9Lf0bSCCzzjDDI8fQA7ifCQ6jtQTiY7XML/EuCN0M/o2CDb4e+vZEExE0oS/YS25++DsjPEYmj9QveoEEFPatA6az4Bu028t21Q3tkanks2WyELygCdn8NH/chcXK7Zc4PALmhrErxoobTp9Aywd60/XnH1w6aAm4bvo8tbB7QBq1e8gVqJ2D4dVMYSKv+lPoAcKMMVAJVWqQ9EuSLKviENdXhNlnajcxSO+kCimo7FwASZqBD6LH9By44eDcu3/cQoEk6kAEg9yKXkTrarqynZ1YCtVncuqiukKVYVgDKJc37XvMY5j23H8V8pF1EwFpPs+zncqdMR3Ej6dV+J5sr11mDhChtiNrkaiCs4xiccc/OReAS4oc7ISLB6a6ZSV3hPLv8AhwPGxJiKRgvOf0OYhklgkwuSNSgqEuouwsSIogSpNXnBbltowRIK8IE3H4iLBfCP/CKYbJ17hM0ua7ef03gij/Rx7oDeXieWLUw2p8zARKGGxFvlnZHBCTVOvt1vL0zPS1Iy6fqrVdTwwBfHYqUbOGh2zYZpnbVMDArUapt5oGVpbOzOatTPS1rSmIDuBR0giZo5nEnIKJsCw1AuaYWtqGqsbd5OP3tAfRnYPOjGrQD2oHdTANluHTQB7VcmjUV1uHQOxnT2BxK0Hj1YgHwsCs1og1hGotL1NpJcE6A5wqa/dc7HCrVvGu1XmEfki/Z6S3JXgLKSXwFmcohV+jC7BXI5f2rN97vjzrMOwiMpLSGhCE+ns2o4NdQSIqlSwgaycJNc4ipKXu0HgeuL+AB2X1dbvqI+n3lhILVzCwSPaIAxzolUs5VAQ3/0jMv455NuRX64yea8BWxfv5uMuLZt97o51xusDRkMFwOFhOxWfUQ7cNbGhr1AmrTQWiIQg/yoP4FSeY1ZvQZo9113LiwNQpUDBjCT2GcpSOFbyuZBnwBjXTrE0dQfBZUNr4pOkIEgV9giFBawZ+DKS8HqO3ZKRtvA2PBDCOuc7KIC8gzU+YUjCdgKpO7LZ6rYFRp+dgg2LfzHzu/WI/7cMdfjsix2W8fsZrMj5eFros8QtctwWmDSlisFD7YKpTxjlJHoGECYcJqOjpK0wZU7lcM4C+OzMJzfvL4ezj7umzpu8qssVnjGcK9+yRru4Ru/AMm1P+p+esKW1b/cK4y2PRo2sC8vzHF/b/bLqbl3DkhsYt8cLnI+q9aa7hWFtdHZKyisVT75y5STfuynGOlXZ3S2o7E6WG6e2oULashKyRToOA89pgygnQgNexBxud3mEHrQ0C87YUU8khFO9JggYRr4IqxwVauqjosccaw/IhJIdNcNyDFr4T9++i/CqwlOZvqvGsa8ingmgmZtSsU8hBA9gPZQ5Whz0sra09gDIVTGiEyUq8wWA1Fi0mthyo89gbqWQUMAWxoPZQz0Fn7QNygUPTJhQZKbEMjgCjmEalrsxqEQRM3m/PWegAA+wLT4GAeGilfKSreHL/PxmBjilLnqkfjgOjTUp5UvZwxKHTBRJBgqZ3XNBpB+kmtvpdMDrctu12uGuGvNlme3pSTWBVzGPFm4W95LFCIU78Hp2D5ePw+JF6SfhO8h4TtJ4jfe5mAdzmWg9c5nreKbKkIrPSaBVGSkVPmaoVE3CY8kMQJrq7ElKyKSW729JhclHdW3KJZEbXnKGFAfY2RF7YZVLhfpSqADD2kwplpRDAPEZfIwdMN96rPDSPAbYi4/q7AW3V/Rin7XQcLL6qth8Mj0dC6bnPlDfJOfSBzRNH1xvjVr/YvChf3N5zfKczBaasR2jYW/C5O441DVhjdMujkc2mKI0xxT8DjsKLTHStJzVOeZm/DxQvMGUbWSyeT4nrt/As0p+sPIId37QpRHN1zKmWaqAEwiGniUPHgQ69eTx9cfBFD2mX6f9KxS/kC49mT8EC/3baPw7nkjJI0e6Eptn53DMVHzCe6tm5Duom5WKtZPbNfEh+vYsDe/fwTYgCa6D7Gj9G15FR2n81z4qqx5yTDZaFjHBSnFlNarCqlEVJz9AmGaTe2Ln3JxQqay1xwq0ACHEvJLfq9fyN+0BGDTFsu4wvqDleawDvB3Va7UYItDZYWrB7zXgxeKAc68ci8JCuHBF/VttQ+IDqALCadh7S9nKrFZYFGT0y7GCpT/9nBHmBF3m8uRX9ar/TwgERiOI1cG9nGEP/nQ6iG/amF2Or8V3v/cvVfDG8Sg+f4pPLgefBpdyKiTIUx1Hawp8/nxU5VvOtQI/5xExdy0j0T3wtHOGY213pULAC5LIq3Lo5ivu4PYqdTn3hi9EUXk5o8zzSZop3srRKlQFqqBOgieVnzHy+SU9vIjLxSvAAnXr3Dnug/NqN/dQ3GiZAtK6S0sNYaoVnpmkssoqnV1e4fHEF6HCt7Y3Gtvly9w1cqyMhkE0m9MBFaai2NEqyengYjhT+5MJiM14dEllkz2bDv7vZgjS1p/NCiSe8kYIuWCdf/7ayzYYaiJfZ6mdIitVlWuydkNdXHi+4JXJvJ+kqXrgSEehs/Opf3kzUK+Gs9lw9Ks6nqr9q/fDX2/GNzP5OHLlmasdJHx9ci3ylWIeUcYTnn9g3k2ycixM3ioyplrpTrPPiIDVKcz/ombXXTL1qJkMM7ZhaNhbk6Q3DA8hMN5bgmNnRbyQtN+AvEex0nSIuRoVfl9/BuqBl/hpMNp3nwte9Ji7ZqWi2mHG92CbrwZXY2r58/sfxb++DatZ8cLAKaVh6YIm3zrud2HihP5LOQc7WbhQPVDXBn73L1SqjA+zk39S08jr4EQTCd6uZeMzvkFo4t7MFu39q99zN0/EPRnnZMFvcShqMcIWOanEnUCxngRca8FnPh5KJQWhVwQi5Jd99ukF3RPWLKtQwsXNmDkhrAwj0MiFLLxX7BDhYJBC/4e3eS5UHsmjIwc6CrvUF3XXC4d76ZVegrW41TzcBd4ulxC65fFR6SVkEzkrdh4zTIvz+EnuUTnm9uQnfBbdXCGrclmuyCVo5Aa3uBleTPtvp6MgmuLz2IJz6ymlQ5QT35wE/33laWsVj5sy1YSlMOwuzldTRbjGfIplevCV3Qkwh+WOFUZahrAO4+Pg8lL9fYpO8lTee6MMAHy39b134GK8I859AdDB6NNRIHNAJJM+qEBpTmxwNbn+fBDMPWkMNs3o7k/mac0Om63A0zlQxVzAwfS0scKQUvWIVMyC3eUwvry5HqiJYb+ZBO9Vf0m5EtMiC8aHXx8kCazNc4zp3sKaLPCe2Fba0j2ym5rOOovUm3r6gfxHLWNp/h7ElK/6lx/G06vBhbzr8OJhKYkomSvqM4gf/LBEY2kR2/Sje4QjJLc6NA22qD7/tncC5iQ7X3RxXtG1kdHNspe4kT/AatOcLOlofDEI9Ur2ntkdgwhXuNIZHnCNa1xvQaubMwd3+H0Le8OEmBl2ZMAytxIWcnB2y4CKG78AM6aeHN+KKVKN3dKbcw3u4pCIJX87Y1Gckixz6n3TnCcTTkbMqljDrRQTtrSPAynbXtxMcrgu5+ni+y976vz0cbTfySvZm58zuuy+ISoxVn0RBY7RuRmPXirj+JYf4B2nS/A1g/9eE/lXXxNZdEvR7Pzj4Kov3IqYU2Rx35BfcoFkpuqk8CKETI1EeNyNx/z8Bt78KxWFCIMHGJPp8FMfPLXzPnXSFkXOYW7neK8ns/fDsgtRDJk3oaKBEr3S2UYEm+tNhFdDpiIurL4tHEl0ZgpIlmoiuDuFUIs0TXRBptgmUiyCDTp8TfLBFJinxd47SCNWOu5CzTzhXMxrixfftJmYWE/4vO8KzgydDhE4vJlz/70j9IrOGEHq9GP0t0cHzbvdSn1/sx8bpW9Ac+ghTPGb3Xx5NK3YLYP5k4d381Q1Ij2evEun1mXajx4FyUP829zDKaCJd8wVo5mOWgx35eABbZWpSJUeOuRXRsJo1vIpDGCSYchrpmEyqUhlbyY3DvFtd4U1JcWa6CVp1XZzrcuL0re4R+7nI2oxjghIcv3JPK8574/rlHKvLtjv4+bB2plq5Gf9D0nyiu2L/eHdiYB094RnfFQg87V/vijx1wXyK9m/2VpmnPvQlUeZ9X16JST9mwT0Unj0QNjBEZ6F5QUTqm6hZ/FfB/8vdvCTIpN0Wwrq/ZLFVIIv3Mup6Fi8cgjwMgcN74ZM708AGFzLN3+J2xDeWpK5yA1mRQU20zK+va0mLhvv2ONHN/jf0NmrI3axRe14tkgFRH8XlhCb7EX2q8taX4WB/h/n3+fO')).decode())\n _startup_observation_tests.__dict__.update({name:globals()[name] for name in (\"active_workflow_step\",\"active_payload_literals\",\"component_test_module\",\"_bootstrap_policy_tests\",\"SHA\",\"b\")})\n \n class BootstrapControllerTests(_startup_observation_tests.ObservationContracts,unittest.TestCase):\n--- a/docs/ops/production-cold-preservation.md\n+++ b/docs/ops/production-cold-preservation.md\n@@ -246,7 +246,7 @@\n creation or Docker mutations. The existing bootstrap payload and predicates\n remain unchanged; source acceptance does not permit another bootstrap attempt.\n \n-The separate `pc.core-startup-inspection.v1` receipt always has startupAuthorized,\n+The separate `pc.core-startup-inspection.v2` receipt always has startupAuthorized,\n runtimeRestored and release/registration flags false. A zero exit means complete\n observation, including incompatible profiles, never startup admission. Valid\n closed diagnostic JSON is retained even for an incomplete observation; invalid\n@@ -260,3 +260,36 @@\n or safety reduction. New actual-head review/native/security/readiness/manual\n source gates and a finite read-only disposition remain required before use.\n All historical UNKNOWN/SPENT receipts, copies, keys and nineteen volumes remain.\n+\n+\n+### Closed command characterization, receipt version 2\n+\n+The actual version-1 inspection41194011739 found SAVED_COMMAND_PROFILE for\n+PostgreSQL and Redis. It did not reveal their argv or prove later environment,\n+loader and health predicates. No startup allowlist change follows from that\n+result. The two additional version-2 commandDiagnostics rows retain exactly\n+those roles and output only fixed program/form, public option-name codes,\n+bounded parse/completeness/duplicate classifications and remaining refusal\n+codes. All values, paths, scripts, unknown names and exception details stay\n+private. ENTRYPOINT_OPTIONS labels option-first argv only; it does not attest\n+an entrypoint or authorize an implicit executable. No shell splitting,\n+normalization into executable commands or new\n+command admission occurs. Known names and a complete parse are diagnostic\n+facts, never evidence that their values or startup behavior are safe.\n+\n+Unknown names stop parsing; variable Redis arity remains unproved. A value\n+that resembles a flag is consumed as a value and cannot be published as an\n+option. When parsing is incomplete, optionCodes and repeatedOption describe\n+only the recognized prefix; they prove nothing about the remaining arguments.\n+PostgreSQL short/long and Redis legacy option aliases share duplicate\n+detection. Remaining predicates inspect actual environment/loader/health\n+fields directly; no synthetic replacement command is used. The original\n+six-role startup_safe result remains the compatibility authority and every\n+startup/runtime/release/registration/rollback flag stays false. The version-1\n+receipt remains historical evidence; it cannot be replayed into this schema.\n+\n+All five mutator components and the complete bootstrap payload remain\n+byte-identical. No bootstrap retry, journal reservation/reset or runtime\n+startup is authorized. An actual command-profile correction still needs\n+specific evidence and separate exact source/admission/review/native/security/\n+readiness/manual gates, followed by finite operational authorization.\n",
+  "completePrivateIndependentReviewUtf8": "# Independent private whole-source review: command characterization v2\n\nDisposition: CLEAN for the exact corrected PRIVATE three-file candidate below. This is a source/diff and local executable review, not a review of a published PR head, native CI acceptance, host observation or startup permission. Reviewer: `/root/audit_next_recovery`, a separate nonauthor review agent. I inspected the actual complete before/after files, decoded executable strings, complete patch and generated payload. I did not implement the candidate or mutate source, GitHub, host, operation journals or the shared recovery journal. My writes are confined to private review scripts/evidence/report.\n\nThe before snapshot is main `f7a1adda04ab193af03b6bb69105346bf600427f`. Scope is exactly the existing cold workflow, its existing test file and its runbook; no new source path or workflow route. The existing `/production inspect-core-startup current-main` route remains read-only. No source has been published by this review.\n\n## Exact reviewed objects\n\nAll identities below were independently recomputed from entire local bytes and matched the final manifest and fixture, including patch reconstruction in a separate temporary directory. Git blob IDs are computed identities, not a claim that I uploaded objects.\n\n| File | Before blob | Reviewed after blob | Bytes | SHA256 after |\n|---|---|---|---:|---|\n| `.github/workflows/production-cold-preservation.yml` | `425ee8df3ce1e7896bafd4ea5a7dbf528cdbca5a` | `338b17efa926ad4a12eb061ebd2543164905aadb` | 169790 | `dd327aba31e76a1cb3ffe713eecf62091ce470fee53a8de93d863a0ffc0c7ae6` |\n| `scripts/test_production_cold_preservation.py` | `3b81a8eb47a214ac139adafb49a5d3c19a605bd0` | `e5faf4c8d59a8567eafc3bcd4ef49204a713d275` | 199236 | `3a6553fad7ba3bec8ecefdb11536ed3e29c7f296ab6b117672b2ef776063519c` |\n| `docs/ops/production-cold-preservation.md` | `2883b4abd917d0bed879a2cad9fe1d6e17c21dfe` | `3c8b47d984802cb9092d1279fcaa0c2133739da0` | 48479 | `39004266eb20cd4e52ab5123dddc32f053d220db4996a0333a3267c45d220fd2` |\n\nComplete `source.patch`: 63411 bytes, SHA256 `0480f14899e95696da6ac31bdde002d8a15794b864c63e2a1ff32a6c6ef9895b`, blob `036ddf8c1cd9d7fa7efd32c276b46449f14c5697`. Applying its entire contents to all three before files independently reconstructs all three reviewed after blobs. Every source file stays below the unchanged 200000-byte cap; the test has 764 bytes spare.\n\n## Actual change and preserved boundaries\n\nParsed workflow inverse proves that precisely two existing run strings differ: the generated observer literal and the bounded terminal publisher's new diagnostic rows. Replacing those strings with their before values reconstructs the complete parsed workflow. Trigger, permissions, jobs, operational mode selection, owner/source binding, transport, protected identity checks, contract selectors, artifact handling and all other steps remain unchanged. Generator AST inverse is exact after replacing only `startup_observer` with its before literal.\n\nThe observer retains the original six-role `explain`, `journal_slot`, `fixed` and `require` function ASTs. It additionally examines the actual PostgreSQL/Redis saved command and actual remaining environment/loader/health fields. No synthetic normalized command is passed to policy. The existing pure `startup_safe` remains the six-role compatibility authority. Recognized names and complete parsing never change that result or any authorization flag.\n\nThe parser is bounded by the unchanged argv validator. Output consists only of fixed program/form enums, sorted unique role-specific public option-name codes, parse/completeness/duplicate booleans and closed refusal codes. It never emits argument values, unknown names, paths, private config, environment values, scripts, hashes of private values or exception text. Known scalar values are consumed before another token can be interpreted as a name; a dash-leading value is conservatively incomplete. Unknown options stop parsing. Redis variable arity stops with an explicit unproved code. Aliases share duplicate detection. `ENTRYPOINT_OPTIONS` classifies a leading dash and parses from token zero; it does not invent a binary, attest entrypoint behavior or admit execution. Incomplete results describe only the recognized prefix, as the runbook now states.\n\nRemaining checks operate on the actual saved/image environment and health fields even after command refusal. They report ordered fixed loader/health refusals, or a closed incomplete environment/unclassified result. The schema requires exactly two ordered diagnostic roles and six ordered actual profiles, strict typed fields, exact enums/keys, duplicate-free JSON, role-specific sorted codes, status/completeness agreement and all startup/runtime/release/registration/rollback fields false. Version-1 receipts cannot validate as version 2. Valid incomplete observations remain diagnostic evidence, with code 1; code 0 means collection complete even when profiles are incompatible.\n\nNo mutator or startup policy changed. All five complete literals are byte-exact: profile 35000B/SHA256 `c008a5e9aa9b71d14a634cb2aa4eae01656d350c5cb276bffb62ebe98864f1a1`; engine 45748B/`f9b0b5acb0c07ea7a74f62b9932f46706b365f3aa45661d9f27cce9927e2efed`; Source 13070B/`7e1a0997bd4ad76967253f55e01d28bdd742e5f3e17be8b367216fefd3fa2b9f`; startup policy 9298B/`fb1ec8dc275fb5e9b8e6e2837024d760c7587b2f1ab33645bb09878231406b47`; bootstrap entry 1697B/`385167166a66b4b1963054424481a0993cc0028c8e6c55ad5d9b0413671bb00c`. Executing each actual generator locally with source reads replaced by exact fixture bytes produces the same complete bootstrap: 332963B, SHA256 `e4db165f89e4ac1b8a1b98860228ae927d2dd96daead52db25ca6a9c409e6aa4`. Fixed journal access remains stat-only; no entry opening, reservation, reset or replay is added.\n\n## Findings resolved before this disposition\n\nMy initial executable counterexamples showed that the prior private validator accepted a compatible Redis profile with repeated appendonly, and a role-binary form with PROGRAM_UNKNOWN. Both were impossible producer facts. The author corrected the guards and added an isolated regression method. I independently reran both original counterexamples against these exact final bytes: both REJECTED. Positive actual compatible Redis binding still passes. Binary/implied forms cannot report PROGRAM_UNKNOWN or ARGV_INVALID, a complete nonabsolute form requires recognized codes, and a matched profile cannot report repetition. No blocking finding remains in the reviewed candidate.\n\n## Independent validation and limits\n\nThe complete local script ran 149 tests in 6.499s: 144 PASS, 5 explicitly native-only SKIP, no failures/errors. The active Engine/Controller/Source/StartupPolicy selectors independently ran 110 PASS with zero skips. YAML and all nine Bash blocks parse. My independent audit passed 533 assertions, including 163 parser privacy cases across every allowlisted name, unknown programs/names/paths and private canaries, while checking argv immutability.\n\nThe two frozen test modules decode byte-exact to 9977B/SHA256 `7e964adbdb7469f79f6375a35aefad3210da1289afbe1b50abd1ff91487e5494` and 6492B/`a7ddfe4446d93b6f6c2d8d2a3ba6f7bf4934af57d788be6b062290df243aa2e1`. Entire test-module AST inverse is exact outside the existing compressed observer mixin. Every old observer method and assertion is retained; inverse removal of only the four new receipt-fixture fields restores all old method ASTs. Eight new test methods and one fixture helper are appended, with no selector, native flag or cap removal.\n\nSeven further independent integrations execute the actual emitted inspect entry and tail, with an exclusively fake read-only Source and mutator sentinels: default match, implied options, absolute program, unknown program, actual loader plus health refusals, recheck failure and close failure. They confirm current helper/inspector reference wiring, six image reads, cleanup, all false claim flags, no canary export, incompatible collection code 0 and closed incomplete code 1. No controlled bootstrap, build_plan, LocalDocker, Journal, Source.before_first_write or journal_factory may run in that harness. These are local fixtures, not guest observations.\n\nEvidence is saved alongside this report in `independent-static-evidence.json`, `independent-integration-evidence.json`, `independent-counterexamples.json`, `independent-shell-syntax.json` and the two independent audit scripts. The existing downstream workflow_run selector audit remains applicable because all other workflow files and this workflow's name/triggers are unchanged; generic observation SUCCESS grants no bootstrap/release/copy authority.\n\nActual native 173 (38 retained + 110 active + 24 Docker + 1 real PG wire), security and genuine readiness for a newly published source head are NOT_RUN here and remain mandatory before merge. Separate exact metadata admission and actual-published-head independent reviews remain necessary; this private CLEAN cannot be transferred to a new head. No production Compose, argv value or safe future allowlist is established. Historical bootstrap failure41188583511, actual version-1 observation41194011739, all UNKNOWN/SPENT records, legacy guest/D-state uncertainty, nineteen volumes/copies/keys and journal uncertainty remain intact. An ABSENT slot remains a past snapshot, never a reservation or permission to retry. Host window remains NONE.\n",
+  "privateIndependentReview": {
+    "bytes": 9427,
+    "sha256": "d14b2ce31f97fc9f282a881bf3ef11084a46220be8adc5e70db9da8f2f1237be",
+    "gitBlob": "2bc559610a24bb8ab538ca0976eb6bd09ab7a2ac"
+  },
+  "completeReadOnlyObserverUtf8": "\"\"\"Closed startup compatibility observation. No runtime mutation or private output.\"\"\"\nimport json\nimport os\nimport re\n\nSCHEMA = 'pc.core-startup-inspection.v2'\nROLES = ('postgres', 'redis', 'minio', 'api', 'web', 'caddy')\nLOADERS = ('PATH', 'LD_PRELOAD', 'LD_AUDIT', 'LD_LIBRARY_PATH', 'NODE_OPTIONS', 'NODE_PATH',\n           'BASH_ENV', 'ENV', 'PYTHONPATH', 'PYTHONSTARTUP', 'SHELLOPTS', 'BASHOPTS', 'PS4')\nREASONS = frozenset(('MATCH', 'INPUT_PROFILE', 'IMAGE_IDENTITY', 'CONFIG_SHAPE',\n                     'ENTRYPOINT_PROFILE', 'IMAGE_COMMAND_PROFILE', 'SAVED_COMMAND_PROFILE',\n                     'APPLICATION_REVISION', 'ENVIRONMENT_SHAPE', 'IMAGE_HEALTH_PROFILE',\n                     'SAVED_HEALTH_PROFILE', 'UNCLASSIFIED_REFUSAL')) | frozenset('LOADER_' + k for k in LOADERS)\n\n\nclass ObservationError(Exception):\n    pass\n\n\n# Names are observation vocabulary, NEVER an executable command allowlist.\n# Unknown names and all values remain private. No shell splitting is performed.\nPG_NAMES = frozenset(('max_connections superuser_reserved_connections reserved_connections '\n    'max_prepared_transactions shared_buffers work_mem maintenance_work_mem effective_cache_size '\n    'wal_buffers min_wal_size max_wal_size wal_level max_wal_senders max_replication_slots '\n    'hot_standby wal_keep_size checkpoint_completion_target checkpoint_timeout '\n    'logging_collector log_statement log_duration log_min_duration_statement log_connections '\n    'log_disconnections shared_preload_libraries session_preload_libraries local_preload_libraries '\n    'config_file hba_file ident_file data_directory listen_addresses port unix_socket_directories '\n    'ssl ssl_cert_file ssl_key_file archive_mode archive_command restore_command primary_conninfo').split())\nREDIS_NAMES = frozenset(('appendonly appendfsync save maxmemory maxmemory-policy requirepass '\n    'masterauth user bind port protected-mode dir dbfilename appenddirname appendfilename logfile '\n    'databases tcp-keepalive timeout replicaof loadmodule include daemonize replica-read-only').split())\nSHORT_PG = {'-N': 'max_connections', '-B': 'shared_buffers', '-S': 'work_mem',\n            '-p': 'port', '-h': 'listen_addresses', '-D': 'data_directory'}\nREDIS_ALIASES = {'slaveof': 'replicaof', 'slave-read-only': 'replica-read-only'}\nVARIABLE_REDIS = frozenset(('save', 'user', 'bind', 'replicaof', 'loadmodule', 'include'))\nFORMS = frozenset(('DEFAULT', 'ROLE_BINARY', 'ABSOLUTE_ROLE_BINARY', 'ENTRYPOINT_OPTIONS', 'SHELL_WRAPPER',\n                   'ENV_WRAPPER', 'OTHER_PROGRAM', 'EMPTY', 'MALFORMED'))\nPARSE_CODES = frozenset(('NONE', 'ARGV_INVALID', 'PROGRAM_UNKNOWN', 'OPTION_UNKNOWN',\n    'POSITIONAL_OR_CONFIG', 'VALUE_MISSING_OR_AMBIGUOUS', 'VARIABLE_ARITY_UNPROVEN'))\nDETAIL_ROLES = ('postgres', 'redis')\n\n\ndef option_codes(role):\n    return frozenset(('PG_' + k.upper() for k in PG_NAMES) if role == 'postgres' else\n                     ('REDIS_' + k.upper().replace('-', '_') for k in REDIS_NAMES))\n\n\ndef command_shape(policy, role, config):\n    \"\"\"Fully consumed argv grammar is diagnosis only, never value/safety proof.\"\"\"\n    result = {'commandForm': 'MALFORMED', 'optionCodes': [], 'parseCode': 'ARGV_INVALID',\n              'commandParseComplete': False, 'repeatedOption': False}\n    try:\n        command = policy.argv(config.get('Cmd'))\n        if not command:\n            result.update(commandForm='EMPTY')\n            return result\n        if command == policy.DEFAULT_COMMAND[role]:\n            result.update(commandForm='DEFAULT', parseCode='NONE', commandParseComplete=True)\n            return result\n        first = command[0]\n        absolute = {'postgres': ('/usr/local/bin/postgres', '/usr/lib/postgresql/16/bin/postgres'),\n                    'redis': ('/usr/local/bin/redis-server', '/usr/bin/redis-server')}\n        cursor = 1\n        if first.startswith('-'):\n            result['commandForm'] = 'ENTRYPOINT_OPTIONS'\n            cursor = 0\n        elif first == policy.DEFAULT_COMMAND[role][0]:\n            result['commandForm'] = 'ROLE_BINARY'\n        elif first in absolute[role]:\n            result['commandForm'] = 'ABSOLUTE_ROLE_BINARY'\n        else:\n            result['commandForm'] = ('SHELL_WRAPPER' if first in ('sh', '/bin/sh', 'bash', '/bin/bash', '/usr/bin/bash')\n                                     else 'ENV_WRAPPER' if first in ('env', '/usr/bin/env') else 'OTHER_PROGRAM')\n            result['parseCode'] = 'PROGRAM_UNKNOWN'\n            return result\n        seen = set()\n        result['parseCode'] = 'NONE'\n        while cursor < len(command):\n            item, cursor = command[cursor], cursor + 1\n            name, value = None, None\n            if role == 'postgres':\n                inline = False\n                if item == '-c':\n                    if cursor >= len(command):\n                        result['parseCode'] = 'VALUE_MISSING_OR_AMBIGUOUS'; break\n                    assignment, cursor = command[cursor], cursor + 1\n                elif item.startswith('-c') and len(item) > 2:\n                    assignment = item[2:]\n                elif item.startswith('--'):\n                    assignment = item[2:]\n                elif item[:2] in SHORT_PG:\n                    name = SHORT_PG[item[:2]]\n                    if len(item) > 2:\n                        value = item[2:]\n                    elif cursor < len(command):\n                        value, cursor = command[cursor], cursor + 1\n                    else:\n                        result['parseCode'] = 'VALUE_MISSING_OR_AMBIGUOUS'; break\n                    assignment = None\n                else:\n                    result['parseCode'] = 'OPTION_UNKNOWN' if item.startswith('-') else 'POSITIONAL_OR_CONFIG'; break\n                if assignment is not None:\n                    if '=' not in assignment:\n                        result['parseCode'] = 'VALUE_MISSING_OR_AMBIGUOUS'; break\n                    name, value = assignment.split('=', 1)\n                    name = name.lower().replace('-', '_')\n                    inline = True\n                if name not in PG_NAMES:\n                    result['parseCode'] = 'OPTION_UNKNOWN'; break\n                code = 'PG_' + name.upper()\n            else:\n                inline = False\n                if not item.startswith('--') or '=' in item:\n                    result['parseCode'] = 'OPTION_UNKNOWN' if item.startswith('-') else 'POSITIONAL_OR_CONFIG'; break\n                name = REDIS_ALIASES.get(item[2:].lower(), item[2:].lower())\n                if name not in REDIS_NAMES:\n                    # Arity is unknown. Stop; never reinterpret a following secret as a flag.\n                    result['parseCode'] = 'OPTION_UNKNOWN'; break\n                code = 'REDIS_' + name.upper().replace('-', '_')\n                if name in VARIABLE_REDIS:\n                    if code in seen: result['repeatedOption'] = True\n                    seen.add(code)\n                    result['parseCode'] = 'VARIABLE_ARITY_UNPROVEN'; break\n                if code in seen: result['repeatedOption'] = True\n                seen.add(code)\n                if cursor >= len(command):\n                    result['parseCode'] = 'VALUE_MISSING_OR_AMBIGUOUS'; break\n                # Consume exactly this value even when it looks like a public flag.\n                value, cursor = command[cursor], cursor + 1\n            if role == 'postgres':\n                if code in seen: result['repeatedOption'] = True\n                seen.add(code)\n            if type(value) is not str or not value or (not inline and value.startswith('-')):\n                result['parseCode'] = 'VALUE_MISSING_OR_AMBIGUOUS'; break\n        result.update(optionCodes=sorted(seen), commandParseComplete=result['parseCode'] == 'NONE')\n    except BaseException:\n        # Preserve no exception detail or partially parsed private object.\n        result.update(commandForm='MALFORMED', optionCodes=[], parseCode='ARGV_INVALID',\n                      commandParseComplete=False, repeatedOption=False)\n    return result\n\n\ndef command_diagnostic(policy, role, record, image):\n    \"\"\"Inspect actual remaining fields; never substitute a synthetic command.\"\"\"\n    require(role in DETAIL_ROLES)\n    value = {'role': role, **command_shape(policy, role, record.get('Config') or {})}\n    failures = []\n    complete = False\n    try:\n        config, base = record['Config'], image['Config']\n        require(type(config) is dict and type(base) is dict)\n        env, base_env = policy.environment(config), policy.environment(base)\n        failures.extend('LOADER_' + key for key in LOADERS if env.get(key) != base_env.get(key))\n        if not policy.health_allowed(role, base.get('Healthcheck'), base_env): failures.append('IMAGE_HEALTH_PROFILE')\n        if not policy.health_allowed(role, config.get('Healthcheck'), env): failures.append('SAVED_HEALTH_PROFILE')\n        complete = True\n    except (ValueError, TypeError, AttributeError):\n        failures = ['ENVIRONMENT_SHAPE']\n    except BaseException:\n        failures = ['UNCLASSIFIED_REFUSAL']\n    value.update(remainingChecksComplete=complete, remainingRefusals=failures)\n    return value\n\n\ndef require(ok):\n    if not ok:\n        raise ObservationError('STARTUP_OBSERVATION_INVALID')\n\n\ndef explain(policy, role, record, image):\n    \"\"\"Explain only the existing pure predicate; never authorize a new profile.\"\"\"\n    def first_reason():\n        try:\n            if role not in policy.IMAGES or type(record) is not dict or type(image) is not dict:\n                return 'INPUT_PROFILE'\n            if record.get('Image') != policy.IMAGES[role] or image.get('Id') != policy.IMAGES[role]:\n                return 'IMAGE_IDENTITY'\n            cfg, base = record.get('Config'), image.get('Config')\n            if type(cfg) is not dict or type(base) is not dict:\n                return 'CONFIG_SHAPE'\n            if policy.argv(base.get('Entrypoint')) not in policy.ENTRYPOINTS[role] or policy.argv(cfg.get('Entrypoint')) != policy.argv(base.get('Entrypoint')):\n                return 'ENTRYPOINT_PROFILE'\n            if policy.argv(base.get('Cmd')) != policy.DEFAULT_COMMAND[role]:\n                return 'IMAGE_COMMAND_PROFILE'\n            allowed = {policy.DEFAULT_COMMAND[role]}\n            if role == 'minio':\n                allowed = {('server', '/data'), ('server', '/data', '--console-address', ':9001')}\n            if role == 'redis':\n                allowed.add(('redis-server', '--appendonly', 'yes'))\n            if policy.argv(cfg.get('Cmd')) not in allowed:\n                return 'SAVED_COMMAND_PROFILE'\n            if role in ('api', 'web') and (base.get('Labels') or {}).get('org.opencontainers.image.revision') != policy.REVISIONS[role]:\n                return 'APPLICATION_REVISION'\n            try:\n                env, base_env = policy.environment(cfg), policy.environment(base)\n            except (ValueError, TypeError, AttributeError):\n                return 'ENVIRONMENT_SHAPE'\n            for key in LOADERS:\n                if env.get(key) != base_env.get(key):\n                    return 'LOADER_' + key\n            if not policy.health_allowed(role, base.get('Healthcheck'), base_env):\n                return 'IMAGE_HEALTH_PROFILE'\n            if not policy.health_allowed(role, cfg.get('Healthcheck'), env):\n                return 'SAVED_HEALTH_PROFILE'\n            return 'MATCH'\n        except (ValueError, TypeError, AttributeError):\n            return 'UNCLASSIFIED_REFUSAL'\n    actual = policy.startup_safe(role, record, image)\n    reason = first_reason()\n    require(type(actual) is bool and reason in REASONS and actual is (reason == 'MATCH'))\n    return {'role': role, 'compatible': actual, 'reason': reason}\n\n\ndef journal_slot(profile, engine, cold):\n    \"\"\"Stat only the one fixed slot; absence is a snapshot, never a reservation.\"\"\"\n    parent = None\n    try:\n        require(engine.OP == 'core-bootstrap-20261024')\n        parent = profile.protected_directory(cold.BACKUP_ROOT, 0)\n        try:\n            os.stat(engine.OP, dir_fd=parent, follow_symlinks=False)\n        except FileNotFoundError:\n            return 'ABSENT'\n        return 'PRESENT'\n    except BaseException:\n        return 'UNAVAILABLE'\n    finally:\n        if parent is not None:\n            os.close(parent)\n\n\ndef fixed(target, run):\n    require(type(target) is str and re.fullmatch('[0-9a-f]{40}', target) and\n            type(run) is str and re.fullmatch('[1-9][0-9]{0,19}', run))\n    return {'schemaVersion': SCHEMA, 'targetSha': target, 'runId': run,\n            'startupAuthorized': False, 'runtimeRestored': False,\n            'exactCurrentMainReleased': False, 'registrationAccepted': False,\n            'dataRollbackClaimed': False}\n\n\ndef observe_main(arguments, inspector, profile, engine, attestor, policy, helper, cold):\n    target, run = arguments if len(arguments) == 2 else ('', '')\n    result = fixed(target, run)\n    source = None\n    try:\n        require(tuple(engine.CORE) == ROLES)\n        source = attestor.Source(inspector, profile, engine, policy, target, run, helper, cold)\n        token = source.attest(target, inspector.EXPECTED_REFS)\n        records = source.records()\n        selected = {}\n        require(type(records) is list and len(records) == 11)\n        for record in records:\n            role = engine.role_of(record)\n            if role in ROLES:\n                require(role not in selected)\n                selected[role] = record\n        require(set(selected) == set(ROLES))\n        images = {role: source.image(selected[role]['Image']) for role in ROLES}\n        profiles = [explain(policy, role, selected[role], images[role]) for role in ROLES]\n        diagnostics = [command_diagnostic(policy, role, selected[role], images[role]) for role in DETAIL_ROLES]\n        slot = journal_slot(profile, engine, cold)\n        source.recheck(token)\n        require(helper.Host().observe() == source._host_baseline)\n        result.update(observationComplete=True, policyCompatible=all(p['compatible'] for p in profiles),\n                      profiles=profiles, commandDiagnostics=diagnostics, journalSlot=slot, errorCode='NONE')\n    except BaseException:\n        # Even malformed private objects and exception messages remain private.\n        result.update(observationComplete=False, policyCompatible=False, profiles=[], commandDiagnostics=[],\n                      journalSlot='UNAVAILABLE', errorCode='OBSERVATION_UNAVAILABLE')\n    finally:\n        if source is not None:\n            try:\n                source.close()\n            except BaseException:\n                result.update(observationComplete=False, policyCompatible=False, profiles=[], commandDiagnostics=[],\n                              journalSlot='UNAVAILABLE', errorCode='OBSERVATION_UNAVAILABLE')\n    raw = json.dumps(result, separators=(',', ':')).encode()\n    status = '0' if result['observationComplete'] is True else '1'\n    validate_terminal(raw, target, run, status)\n    print(raw.decode())\n    return int(status)\n\n\ndef validate_terminal(data, target, run, status):\n    def pairs(items):\n        require(len(items) == len(dict(items)))\n        return dict(items)\n    require(type(data) is bytes and 0 < len(data) <= 16384 and type(status) is str and status in ('0', '1'))\n    value = json.loads(data.decode('utf-8', errors='strict'), object_pairs_hook=pairs,\n                       parse_constant=lambda _: (_ for _ in ()).throw(ObservationError()))\n    expected = fixed(target, run)\n    require(type(value) is dict and set(value) == set(expected) | {\n        'observationComplete', 'policyCompatible', 'profiles', 'commandDiagnostics', 'journalSlot', 'errorCode'})\n    require(all(type(value.get(k)) is type(v) and value[k] == v for k, v in expected.items()))\n    require(type(value['observationComplete']) is bool and type(value['policyCompatible']) is bool and\n            type(value['profiles']) is list and type(value['commandDiagnostics']) is list and type(value['journalSlot']) is str and\n            value['journalSlot'] in ('ABSENT', 'PRESENT', 'UNAVAILABLE'))\n    if value['observationComplete'] is True:\n        require(status == '0' and value['errorCode'] == 'NONE' and len(value['profiles']) == 6)\n        for role, item in zip(ROLES, value['profiles']):\n            require(type(item) is dict and set(item) == {'role', 'compatible', 'reason'} and\n                    type(item['role']) is str and item['role'] == role and type(item['compatible']) is bool and\n                    type(item['reason']) is str and item['reason'] in REASONS and\n                    item['compatible'] is (item['reason'] == 'MATCH'))\n        require(value['policyCompatible'] is all(p['compatible'] for p in value['profiles']))\n        require(len(value['commandDiagnostics']) == 2)\n        later_order = ['LOADER_' + key for key in LOADERS] + ['IMAGE_HEALTH_PROFILE', 'SAVED_HEALTH_PROFILE']\n        for role, item in zip(DETAIL_ROLES, value['commandDiagnostics']):\n            require(type(item) is dict and set(item) == {'role', 'commandForm', 'optionCodes', 'parseCode',\n                'commandParseComplete', 'repeatedOption', 'remainingChecksComplete', 'remainingRefusals'})\n            require(type(item['role']) is str and item['role'] == role and\n                type(item['commandForm']) is str and item['commandForm'] in FORMS and\n                type(item['parseCode']) is str and item['parseCode'] in PARSE_CODES and\n                type(item['commandParseComplete']) is bool and item['commandParseComplete'] is (item['parseCode'] == 'NONE') and\n                type(item['repeatedOption']) is bool and type(item['remainingChecksComplete']) is bool)\n            codes = item['optionCodes']\n            require(type(codes) is list and len(codes) <= 64 and\n                all(type(code) is str and code in option_codes(role) for code in codes) and codes == sorted(set(codes)))\n            if item['commandForm'] in ('MALFORMED', 'EMPTY'):\n                require(item['parseCode'] == 'ARGV_INVALID' and codes == [] and item['repeatedOption'] is False)\n            elif item['commandForm'] in ('SHELL_WRAPPER', 'ENV_WRAPPER', 'OTHER_PROGRAM'):\n                require(item['parseCode'] == 'PROGRAM_UNKNOWN' and codes == [] and item['repeatedOption'] is False)\n            elif item['commandForm'] == 'DEFAULT':\n                require(item['parseCode'] == 'NONE' and codes == [] and item['repeatedOption'] is False)\n            else:\n                require(item['parseCode'] not in ('PROGRAM_UNKNOWN', 'ARGV_INVALID'))\n                if item['parseCode'] == 'NONE' and item['commandForm'] != 'ABSOLUTE_ROLE_BINARY':\n                    require(codes != [])\n            if item['repeatedOption'] is True: require(codes != [])\n            if role == 'postgres': require(item['parseCode'] != 'VARIABLE_ARITY_UNPROVEN')\n            refusals = item['remainingRefusals']\n            require(type(refusals) is list and all(type(code) is str for code in refusals))\n            if item['remainingChecksComplete'] is True:\n                require(all(code in later_order for code in refusals) and\n                    refusals == [code for code in later_order if code in refusals])\n            else:\n                require(refusals in (['ENVIRONMENT_SHAPE'], ['UNCLASSIFIED_REFUSAL']))\n            actual = next(p for p in value['profiles'] if p['role'] == role)\n            if actual['reason'] == 'SAVED_COMMAND_PROFILE':\n                require(item['commandForm'] != 'DEFAULT')\n            if actual['compatible'] is True:\n                require(item['remainingChecksComplete'] is True and refusals == [] and\n                    item['commandParseComplete'] is True and item['repeatedOption'] is False)\n                require(item['commandForm'] == 'DEFAULT' or\n                    (role == 'redis' and item['commandForm'] == 'ROLE_BINARY' and codes == ['REDIS_APPENDONLY']))\n    else:\n        require(status == '1' and value['errorCode'] == 'OBSERVATION_UNAVAILABLE' and\n                value['profiles'] == [] and value['commandDiagnostics'] == [] and\n                value['policyCompatible'] is False and value['journalSlot'] == 'UNAVAILABLE')\n    return value\n",
+  "completeUpdatedObservationTestsUtf8": "import ast,copy,hashlib,json,os,subprocess,sys\nfrom pathlib import Path\nfrom unittest.mock import patch\n\nclass ObservationContracts:\n    def startup_observer_module(self):\n        _, shell = active_workflow_step('Restore only the accepted historical core')\n        code = shell.split(\"<<'PY_PAYLOAD'\\n\", 1)[1].split('\\nPY_PAYLOAD\\n', 1)[0]\n        values = [ast.literal_eval(n.value) for n in ast.parse(code).body if isinstance(n, ast.Assign)\n                  and any(isinstance(t, ast.Name) and t.id == 'startup_observer' for t in n.targets)]\n        self.assertEqual(len(values), 1)\n        return component_test_module('startup_observer_fixture', values[0])\n\n    def test_observer_keeps_all_five_mutator_components_exact(self):\n        import startup_policy as policy\n        values = active_payload_literals()\n        expected = {'profile': 'c008a5e9aa9b71d14a634cb2aa4eae01656d350c5cb276bffb62ebe98864f1a1',\n                    'bootstrap_engine': 'f9b0b5acb0c07ea7a74f62b9932f46706b365f3aa45661d9f27cce9927e2efed',\n                    'source_attestor': '7e1a0997bd4ad76967253f55e01d28bdd742e5f3e17be8b367216fefd3fa2b9f',\n                    'startup_policy': 'fb1ec8dc275fb5e9b8e6e2837024d760c7587b2f1ab33645bb09878231406b47',\n                    'entrypoint': '385167166a66b4b1963054424481a0993cc0028c8e6c55ad5d9b0413671bb00c'}\n        self.assertEqual({k: hashlib.sha256(v.encode()).hexdigest() for k, v in values.items()}, expected)\n        module = self.startup_observer_module()\n        for role in module.ROLES:\n            record, image = _bootstrap_policy_tests.fixture(role)\n            self.assertEqual(module.explain(policy, role, record, image), {'role': role, 'compatible': True, 'reason': 'MATCH'})\n\n    def test_observer_classifies_each_closed_boundary_without_private_values(self):\n        import startup_policy as policy\n        module = self.startup_observer_module()\n        cases = (\n            ('IMAGE_IDENTITY', lambda r, i: r.update(Image='sha256:' + '0' * 64)),\n            ('CONFIG_SHAPE', lambda r, i: r.update(Config=[])),\n            ('ENTRYPOINT_PROFILE', lambda r, i: r['Config'].update(Entrypoint=['private-canary'])),\n            ('IMAGE_COMMAND_PROFILE', lambda r, i: i['Config'].update(Cmd=['private-canary'])),\n            ('SAVED_COMMAND_PROFILE', lambda r, i: r['Config'].update(Cmd=['private-canary'])),\n            ('APPLICATION_REVISION', lambda r, i: i['Config']['Labels'].update({'org.opencontainers.image.revision': '0' * 40})),\n            ('ENVIRONMENT_SHAPE', lambda r, i: r['Config']['Env'].extend(['SAME=private-canary', 'SAME=private-canary'])),\n            ('IMAGE_HEALTH_PROFILE', lambda r, i: i['Config'].update(Healthcheck={'Test': ['CMD', 'private-canary']})),\n            ('SAVED_HEALTH_PROFILE', lambda r, i: r['Config'].update(Healthcheck={'Test': ['CMD', 'private-canary']})),\n            ('UNCLASSIFIED_REFUSAL', lambda r, i: r['Config'].update(Entrypoint=12)),\n        )\n        for reason, mutate in cases:\n            record, image = _bootstrap_policy_tests.fixture('web')\n            mutate(record, image)\n            with self.subTest(reason=reason):\n                result = module.explain(policy, 'web', record, image)\n                self.assertEqual(result, {'role': 'web', 'compatible': False, 'reason': reason})\n                self.assertNotIn('private-canary', json.dumps(result))\n        for key in module.LOADERS:\n            record, image = _bootstrap_policy_tests.fixture('web')\n            record['Config']['Env'] = [v for v in record['Config']['Env'] if not v.startswith(key + '=')]\n            record['Config']['Env'].append(key + '=private-canary')\n            self.assertEqual(module.explain(policy, 'web', record, image)['reason'], 'LOADER_' + key)\n        self.assertEqual(module.explain(policy, 'not-a-role', {}, {})['reason'], 'INPUT_PROFILE')\n\n    def test_observer_classifier_disagreement_cannot_become_match(self):\n        import startup_policy as policy\n        module = self.startup_observer_module()\n        record, image = _bootstrap_policy_tests.fixture('web')\n        for wrong in (False, None, 1):\n            with patch.object(policy, 'startup_safe', return_value=wrong):\n                with self.assertRaises(module.ObservationError): module.explain(policy, 'web', record, image)\n        record['Config']['Cmd'] = ['private-canary']\n        with patch.object(policy, 'startup_safe', return_value=True):\n            with self.assertRaises(module.ObservationError): module.explain(policy, 'web', record, image)\n\n    def test_observer_closed_receipts_reject_bootstrap_and_malformed_claims(self):\n        module = self.startup_observer_module()\n        value = {**module.fixed(SHA, '1'), 'observationComplete': True, 'policyCompatible': True,\n                 'profiles': [{'role': r, 'compatible': True, 'reason': 'MATCH'} for r in module.ROLES],\n                 'commandDiagnostics': self.observer_details_fixture(), 'journalSlot': 'ABSENT', 'errorCode': 'NONE'}\n        raw = lambda v: json.dumps(v).encode()\n        self.assertEqual(module.validate_terminal(raw(value), SHA, '1', '0'), value)\n        for key, replacement in (('startupAuthorized', True), ('runtimeRestored', True), ('targetSha', 'b' * 40),\n                                 ('runId', '2'), ('schemaVersion', 'pc.core-bootstrap.v1'), ('policyCompatible', False),\n                                 ('journalSlot', 'private-canary'), ('observationComplete', 1), ('profiles', [])):\n            bad = copy.deepcopy(value); bad[key] = replacement\n            with self.subTest(key=key), self.assertRaises(Exception): module.validate_terminal(raw(bad), SHA, '1', '0')\n        for data in (raw({**value, 'private': 'canary'}), raw(value).replace(b'\"MATCH\"', b'\"private-canary\"'),\n                     raw(value).replace(b'\"compatible\": true', b'\"compatible\": 1', 1),\n                     raw(value).replace(b'\"schemaVersion\":', b'\"duplicate\":0,\"duplicate\":1,\"schemaVersion\":', 1),\n                     b'NaN', b'x' * 16385):\n            with self.assertRaises(Exception): module.validate_terminal(data, SHA, '1', '0')\n        with self.assertRaises(Exception): module.validate_terminal(raw(value), SHA, '1', '1')\n        incomplete = {**module.fixed(SHA, '1'), 'observationComplete': False, 'policyCompatible': False,\n                      'profiles': [], 'commandDiagnostics': [], 'journalSlot': 'UNAVAILABLE', 'errorCode': 'OBSERVATION_UNAVAILABLE'}\n        self.assertEqual(module.validate_terminal(raw(incomplete), SHA, '1', '1'), incomplete)\n\n    def test_observer_journal_slot_is_fixed_stat_only_and_never_opens_leaf(self):\n        from types import SimpleNamespace as NS\n        module = self.startup_observer_module()\n        profile = NS(protected_directory=lambda path, uid: 71)\n        engine, cold = NS(OP='core-bootstrap-20261024'), NS(BACKUP_ROOT='/fixed-private-parent')\n        for error, expected in ((None, 'PRESENT'), (FileNotFoundError(), 'ABSENT'), (PermissionError(), 'UNAVAILABLE')):\n            with patch.object(module.os, 'stat', side_effect=error) as observe, patch.object(module.os, 'close') as close:\n                self.assertEqual(module.journal_slot(profile, engine, cold), expected)\n                observe.assert_called_once_with('core-bootstrap-20261024', dir_fd=71, follow_symlinks=False)\n                close.assert_called_once_with(71)\n        with patch.object(module.os, 'stat') as observe:\n            self.assertEqual(module.journal_slot(profile, NS(OP='unreviewed'), cold), 'UNAVAILABLE')\n            observe.assert_not_called()\n\n    def test_actual_observer_main_is_read_only_and_reports_incompatible_service(self):\n        import contextlib, io, startup_policy as policy\n        from types import SimpleNamespace as NS\n        module = self.startup_observer_module(); calls = []\n        records, images = [], {}\n        for n, role in enumerate(module.ROLES):\n            record, image = _bootstrap_policy_tests.fixture(role)\n            record['ID'] = format(n + 1, '064x'); record['Config']['Labels']['com.docker.compose.service'] = role\n            records.append(record); images[record['Image']] = image\n        for n in range(5):\n            records.append({'ID': format(n + 20, '064x'), 'Config': {'Labels': {'com.docker.compose.service': 'quarantined'}}})\n        records[1]['Config']['Cmd'] = ['private-canary']\n        class ReadSource:\n            _host_baseline = 'stable'\n            def __init__(self, *args): calls.append('construct')\n            def attest(self, target, refs): calls.append('attest'); return 'token'\n            def records(self): return copy.deepcopy(records)\n            def image(self, identity): calls.append('image'); return copy.deepcopy(images[identity])\n            def recheck(self, token): calls.append('recheck')\n            def close(self): calls.append('close')\n            def journal_factory(self, *args): raise AssertionError('mutation forbidden')\n            def before_first_write(self, *args): raise AssertionError('mutation forbidden')\n        helper = NS(Host=lambda: NS(observe=lambda: 'stable'))\n        engine = NS(CORE=module.ROLES, role_of=b.role_of)\n        output = io.StringIO()\n        with patch.object(module, 'journal_slot', return_value='ABSENT'), contextlib.redirect_stdout(output):\n            status = module.observe_main([SHA, '1'], NS(EXPECTED_REFS=()), NS(), engine, NS(Source=ReadSource), policy, helper, NS())\n        self.assertEqual(status, 0)\n        result = module.validate_terminal(output.getvalue().encode(), SHA, '1', '0')\n        self.assertFalse(result['policyCompatible'])\n        self.assertEqual(result['profiles'][1], {'role': 'redis', 'compatible': False, 'reason': 'SAVED_COMMAND_PROFILE'})\n        self.assertFalse(result['startupAuthorized']); self.assertFalse(result['runtimeRestored'])\n        self.assertNotIn('private-canary', output.getvalue()); self.assertEqual(calls.count('image'), 6)\n        self.assertEqual(calls[-2:], ['recheck', 'close'])\n        def fail(*args): raise RuntimeError('private-canary')\n        output = io.StringIO()\n        with contextlib.redirect_stdout(output):\n            status = module.observe_main([SHA, '1'], NS(), NS(), engine, NS(Source=fail), policy, helper, NS())\n        self.assertEqual(status, 1); self.assertNotIn('private-canary', output.getvalue())\n        self.assertFalse(module.validate_terminal(output.getvalue().encode(), SHA, '1', '1')['observationComplete'])\n\n    def test_observer_purpose_is_separate_read_only_and_strictly_typed(self):\n        _, shell = active_workflow_step('Bind accepted exact main and evidence journal')\n        code = shell.split(\"python3 - <<'PY_BIND'\\n\", 1)[1].split('\\nPY_BIND\\n', 1)[0]\n        nodes = ast.parse(code).body\n        start = next(n for n, v in enumerate(nodes) if isinstance(v, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'operation_kind' for t in v.targets))\n        fragment = ast.Module(body=nodes[start:start + 3], type_ignores=[])\n        expected = {'owner': 'ACCOUNT_1_CORE', 'sourceBranch': 'ops/production-cold-preservation-20261022',\n                    'sourcePurpose': 'stopped-core-bootstrap-20261024', 'operationName': 'core-startup-observation-20261031',\n                    'readOnly': True, 'originalStartupAuthorized': False, 'workersAuthorized': False, 'productionAcceptance': False}\n        def require(value):\n            if not value: raise ValueError('closed refusal')\n        for mutation in ('none', 'missing', 'readOnly', 'originalStartupAuthorized', 'workersAuthorized', 'productionAcceptance', 'integer', 'extra'):\n            value = copy.deepcopy(expected)\n            if mutation in ('readOnly', 'originalStartupAuthorized', 'workersAuthorized', 'productionAcceptance'): value[mutation] = not value[mutation]\n            if mutation == 'integer': value['originalStartupAuthorized'] = 0\n            if mutation == 'extra': value['private'] = 'canary'\n            state = {'coordinationAdmissions': {} if mutation == 'missing' else {'stopped-core-startup-observation-20261031': value}}\n            with patch.dict(os.environ, {'OPERATION_KIND': 'inspect'}):\n                if mutation == 'none': exec(compile(fragment, '<actual-observer-binding>', 'exec'), {'os': os, 'state': state, 'require': require})\n                else:\n                    with self.assertRaises(ValueError): exec(compile(fragment, '<actual-observer-binding>', 'exec'), {'os': os, 'state': state, 'require': require})\n\n    def test_observer_body_has_no_mutator_or_private_output_escape_hatch(self):\n        module = self.startup_observer_module()\n        _, shell = active_workflow_step('Restore only the accepted historical core')\n        code = shell.split(\"<<'PY_PAYLOAD'\\n\", 1)[1].split('\\nPY_PAYLOAD\\n', 1)[0]\n        literal = next(ast.literal_eval(n.value) for n in ast.parse(code).body if isinstance(n, ast.Assign)\n                       and any(isinstance(t, ast.Name) and t.id == 'startup_observer' for t in n.targets))\n        names = {n.id for n in ast.walk(ast.parse(literal)) if isinstance(n, ast.Name)}\n        attrs = {n.attr for n in ast.walk(ast.parse(literal)) if isinstance(n, ast.Attribute)}\n        self.assertFalse(names & {'bootstrap_main', 'subprocess', 'socket', 'http', 'urllib', 'exec', 'eval', 'open'})\n        self.assertFalse(attrs & {'controlled_bootstrap', 'build_plan', 'before_first_write', 'journal_factory', 'Journal', 'LocalDocker', 'admit', 'create', 'start', 'stop', 'delete', 'unlink', 'mkdir', 'write_text', 'write_bytes'})\n        self.assertIn('startup_safe', attrs)\n\n    def test_actual_generated_mode_preserves_bootstrap_bytes_and_selects_only_readonly(self):\n        import contextlib, io\n        _, shell = active_workflow_step('Restore only the accepted historical core')\n        code = shell.split(\"<<'PY_PAYLOAD'\\n\", 1)[1].split('\\nPY_PAYLOAD\\n', 1)[0]\n        base = Path(active_workflow_step.__globals__['__file__']).resolve().parent.parent\n        def read(argv): return (base / argv[-1].split(':', 1)[1]).read_bytes()\n        rendered = {}\n        for mode in ('bootstrap', 'inspect'):\n            output = io.StringIO()\n            with patch.dict(os.environ, {'OPERATION_KIND': mode}), patch.object(sys, 'argv', ['builder', SHA]), patch('subprocess.check_output', side_effect=read), contextlib.redirect_stdout(output):\n                exec(compile(code, '<actual-mode-builder>', 'exec'), {})\n            rendered[mode] = output.getvalue()\n        self.assertEqual(hashlib.sha256(rendered['bootstrap'].encode()).hexdigest(), 'e4db165f89e4ac1b8a1b98860228ae927d2dd96daead52db25ca6a9c409e6aa4')\n        tree = ast.parse(rendered['inspect']); tail = tree.body.pop()\n        self.assertIsInstance(tail, ast.Raise)\n        self.assertEqual(ast.unparse(tail.exc.func), 'SystemExit')\n        self.assertEqual(ast.unparse(tail.exc.args[0].func), 'startup_observer.observe_main')\n        ns, saved = {}, dict(sys.modules)\n        try:\n            exec(compile(tree, '<actual-inspect-payload>', 'exec'), ns)\n            with patch.object(ns['startup_observer'], 'observe_main', return_value=0) as observe, patch.object(ns['core_bootstrap'], 'controlled_bootstrap', side_effect=AssertionError('mutator forbidden')) as mutate:\n                result = eval(compile(ast.Expression(tail.exc), '<actual-inspect-tail>', 'eval'), ns)\n                self.assertEqual(result.code, 0); observe.assert_called_once(); mutate.assert_not_called()\n                args = observe.call_args.args\n                self.assertIs(args[-2], ns['bootstrap_stopped_runtime_headroom'])\n                self.assertEqual(args[1].EXPECTED_REFS, args[-2].EXPECTED_REFS)\n        finally:\n            for name in set(sys.modules) - set(saved): del sys.modules[name]\n            sys.modules.update(saved)\n\n    def test_actual_runner_observer_record_and_publisher_keep_closed_failures(self):\n        module = self.startup_observer_module()\n        _, shell = active_workflow_step('Restore only the accepted historical core')\n        record_code = shell.split(\"<<'PY_OBS_RECORD'\\n\", 1)[1].split('\\nPY_OBS_RECORD\\n', 1)[0]\n        _, publication = active_workflow_step('Publish bounded terminal evidence')\n        publish_code = publication.split(\"<<'PY_OBS_PUBLISH'\\n\", 1)[1].split('\\nPY_OBS_PUBLISH\\n', 1)[0]\n        base = Path(active_workflow_step.__globals__['__file__']).resolve().parent.parent\n        cases = [({**module.fixed(SHA, '1'), 'observationComplete': True, 'policyCompatible': False,\n                   'profiles': [{'role': r, 'compatible': r != 'redis', 'reason': 'SAVED_COMMAND_PROFILE' if r == 'redis' else 'MATCH'} for r in module.ROLES],\n                   'commandDiagnostics': self.observer_details_fixture(bad_redis=True), 'journalSlot': 'ABSENT', 'errorCode': 'NONE'}, '0', True),\n                 ({**module.fixed(SHA, '1'), 'observationComplete': False, 'policyCompatible': False,\n                   'profiles': [], 'commandDiagnostics': [], 'journalSlot': 'UNAVAILABLE', 'errorCode': 'OBSERVATION_UNAVAILABLE'}, '1', True),\n                 ({'schemaVersion': 'pc.core-bootstrap.v1', 'private': 'private-canary'}, '0', False)]\n        import tempfile\n        for value, status, retained in cases:\n            with tempfile.TemporaryDirectory() as directory:\n                root = Path(directory); raw = root / 'private.raw'; raw.write_text(json.dumps(value))\n                result = subprocess.run([sys.executable, '-c', record_code, str(raw), SHA, '1', str(root), status], cwd=base, capture_output=True)\n                target = root / 'startup-inspection.json'\n                self.assertEqual(target.exists(), retained)\n                if retained:\n                    self.assertEqual(json.loads(target.read_text()), value)\n                    self.assertEqual(target.stat().st_mode & 0o777, 0o600)\n                self.assertEqual(result.returncode == 0, retained and status == '0')\n                self.assertNotIn(b'private-canary', result.stdout + result.stderr)\n                emitted = subprocess.run([sys.executable, '-c', publish_code, SHA, '1', str(root)], cwd=base, capture_output=True)\n                self.assertEqual(emitted.returncode, 0, emitted.stderr.decode())\n                body = (root / 'issue-record.md').read_text()\n                self.assertNotIn('private-canary', body)\n                self.assertIn('Read-only core startup inspection', body)\n                self.assertNotIn('Historical six-service core restored', body)\n                self.assertEqual(target.exists(), retained)\n\n\n    def observer_details_fixture(self, bad_redis=False):\n        rows = [{'role': role, 'commandForm': 'DEFAULT', 'optionCodes': [], 'parseCode': 'NONE',\n                 'commandParseComplete': True, 'repeatedOption': False,\n                 'remainingChecksComplete': True, 'remainingRefusals': []} for role in ('postgres', 'redis')]\n        if bad_redis:\n            rows[1].update(commandForm='OTHER_PROGRAM', parseCode='PROGRAM_UNKNOWN', commandParseComplete=False)\n        return rows\n\n    def test_command_diagnostic_pg_consumes_variants_and_canonicalizes_duplicates(self):\n        import startup_policy as policy\n        module = self.startup_observer_module()\n        record, _ = _bootstrap_policy_tests.fixture('postgres')\n        command = ['postgres', '-c', 'wal_level=private-canary', '--max-wal-senders=10',\n                   '-cmax_replication_slots=10', '-N100', '--max-connections=200']\n        record['Config']['Cmd'] = command\n        result = module.command_shape(policy, 'postgres', record['Config'])\n        self.assertEqual(result, {'commandForm': 'ROLE_BINARY', 'optionCodes':\n            ['PG_MAX_CONNECTIONS', 'PG_MAX_REPLICATION_SLOTS', 'PG_MAX_WAL_SENDERS', 'PG_WAL_LEVEL'],\n            'parseCode': 'NONE', 'commandParseComplete': True, 'repeatedOption': True})\n        self.assertNotIn('private-canary', json.dumps(result)); self.assertEqual(record['Config']['Cmd'], command)\n        record['Config']['Cmd'] = ['postgres', '-c', 'log_min_duration_statement=-1']\n        self.assertTrue(module.command_shape(policy, 'postgres', record['Config'])['commandParseComplete'])\n\n    def test_command_diagnostic_redis_arity_protects_values_and_stops_at_unknown(self):\n        import startup_policy as policy\n        module = self.startup_observer_module()\n        config = {'Cmd': ['redis-server', '--appendonly', 'yes', '--requirepass', 'private-canary']}\n        result = module.command_shape(policy, 'redis', config)\n        self.assertEqual(result['optionCodes'], ['REDIS_APPENDONLY', 'REDIS_REQUIREPASS'])\n        self.assertTrue(result['commandParseComplete']); self.assertNotIn('private-canary', json.dumps(result))\n        config['Cmd'] = ['redis-server', '--requirepass', '--maxmemory', '--private-canary']\n        result = module.command_shape(policy, 'redis', config)\n        self.assertEqual(result['optionCodes'], ['REDIS_REQUIREPASS'])\n        self.assertEqual(result['parseCode'], 'VALUE_MISSING_OR_AMBIGUOUS')\n        config['Cmd'] = ['redis-server', '--private-canary', '--requirepass', '--maxmemory']\n        result = module.command_shape(policy, 'redis', config)\n        self.assertEqual(result['optionCodes'], []); self.assertEqual(result['parseCode'], 'OPTION_UNKNOWN')\n        for name in ('save', 'user', 'bind', 'replicaof', 'loadmodule', 'include'):\n            config['Cmd'] = ['redis-server', '--' + name, 'private-canary', '--maxmemory']\n            result = module.command_shape(policy, 'redis', config)\n            self.assertEqual(result['parseCode'], 'VARIABLE_ARITY_UNPROVEN')\n            self.assertEqual(len(result['optionCodes']), 1); self.assertNotIn('REDIS_MAXMEMORY', result['optionCodes'])\n        config['Cmd'] = ['redis-server', '--slave-read-only', 'yes', '--replica-read-only', 'no']\n        result = module.command_shape(policy, 'redis', config)\n        self.assertTrue(result['repeatedOption']); self.assertEqual(result['optionCodes'], ['REDIS_REPLICA_READ_ONLY'])\n\n    def test_command_diagnostic_rejects_missing_values_and_trailing_unparsed_arguments(self):\n        import startup_policy as policy\n        module = self.startup_observer_module()\n        cases = [('postgres', ['postgres', '-c']), ('postgres', ['postgres', '-N']),\n                 ('postgres', ['postgres', '-c', 'max_connections']),\n                 ('postgres', ['postgres', '--max_connections=']),\n                 ('redis', ['redis-server', '--requirepass']),\n                 ('redis', ['redis-server', '--maxmemory', 'private-canary', 'unparsed-private-canary'])]\n        for role, command in cases:\n            result = module.command_shape(policy, role, {'Cmd': command})\n            self.assertFalse(result['commandParseComplete']); self.assertNotEqual(result['parseCode'], 'NONE')\n            self.assertNotIn('private-canary', json.dumps(result))\n        for name in ('shared_buffers', 'max_connections'):\n            result = module.command_shape(policy, 'postgres', {'Cmd': ['postgres', '-c', name+'=value', '--'+name.replace('_','-')+'=other']})\n            self.assertTrue(result['repeatedOption']); self.assertEqual(result['optionCodes'], ['PG_'+name.upper()])\n\n    def test_command_diagnostic_closed_program_forms_and_argv_bounds(self):\n        import startup_policy as policy\n        module = self.startup_observer_module()\n        for command, form in ((['sh', '-c', 'private-canary'], 'SHELL_WRAPPER'),\n                              (['/usr/bin/env', 'private-canary'], 'ENV_WRAPPER'),\n                              (['private-canary'], 'OTHER_PROGRAM'), ([], 'EMPTY'),\n                              (['-c', 'wal_level=private-canary'], 'ENTRYPOINT_OPTIONS'),\n                              (['postgres', 'private-canary'], 'ROLE_BINARY'),\n                              (['/usr/local/bin/postgres', '-c', 'wal_level=private-canary'], 'ABSOLUTE_ROLE_BINARY')):\n            result = module.command_shape(policy, 'postgres', {'Cmd': command})\n            self.assertEqual(result['commandForm'], form); self.assertNotIn('private-canary', json.dumps(result))\n        for command in ('private-canary', ['postgres'] * 65, ['postgres', 'x' * 4097], ['postgres', 1], ['postgres', '\\0private-canary']):\n            result = module.command_shape(policy, 'postgres', {'Cmd': command})\n            self.assertEqual(result['commandForm'], 'MALFORMED'); self.assertFalse(result['commandParseComplete'])\n\n    def test_remaining_diagnostic_uses_actual_fields_without_command_substitution(self):\n        import startup_policy as policy\n        module = self.startup_observer_module()\n        record, image = _bootstrap_policy_tests.fixture('postgres')\n        record['Config']['Cmd'] = ['private-canary']\n        record['Config']['Env'].extend(['LD_PRELOAD=private-canary', 'NODE_OPTIONS=private-canary'])\n        record['Config']['Healthcheck'] = {'Test': ['CMD', 'private-canary']}\n        before = copy.deepcopy(record)\n        result = module.command_diagnostic(policy, 'postgres', record, image)\n        self.assertEqual(result['remainingRefusals'], ['LOADER_LD_PRELOAD', 'LOADER_NODE_OPTIONS', 'SAVED_HEALTH_PROFILE'])\n        self.assertTrue(result['remainingChecksComplete']); self.assertEqual(record, before)\n        self.assertNotIn('private-canary', json.dumps(result)); self.assertFalse(policy.startup_safe('postgres', record, image))\n        record['Config']['Env'] = ['DUP=private-canary', 'DUP=private-canary']\n        result = module.command_diagnostic(policy, 'postgres', record, image)\n        self.assertFalse(result['remainingChecksComplete']); self.assertEqual(result['remainingRefusals'], ['ENVIRONMENT_SHAPE'])\n\n    def test_v2_diagnostic_schema_rejects_private_or_inconsistent_facets(self):\n        module = self.startup_observer_module()\n        value = {**module.fixed(SHA, '1'), 'observationComplete': True, 'policyCompatible': True,\n                 'profiles': [{'role': r, 'compatible': True, 'reason': 'MATCH'} for r in module.ROLES],\n                 'commandDiagnostics': self.observer_details_fixture(), 'journalSlot': 'ABSENT', 'errorCode': 'NONE'}\n        self.assertEqual(module.SCHEMA, 'pc.core-startup-inspection.v2')\n        self.assertEqual(module.validate_terminal(json.dumps(value).encode(), SHA, '1', '0'), value)\n        mutations = [('role', 'private-canary'), ('optionCodes', ['PG_PRIVATE_CANARY']),\n                     ('optionCodes', ['PG_WAL_LEVEL', 'PG_WAL_LEVEL']), ('parseCode', 'private-canary'),\n                     ('parseCode', 'OPTION_UNKNOWN'), ('commandParseComplete', 1), ('repeatedOption', 0),\n                     ('commandForm', 'private-canary'), ('commandForm', 'MALFORMED'),\n                     ('remainingChecksComplete', False), ('remainingRefusals', ['LOADER_PRIVATE_CANARY']),\n                     ('remainingRefusals', ['SAVED_HEALTH_PROFILE'])]\n        for key, replacement in mutations:\n            bad = copy.deepcopy(value); bad['commandDiagnostics'][0][key] = replacement\n            with self.subTest(key=key, replacement=replacement), self.assertRaises(Exception):\n                module.validate_terminal(json.dumps(bad).encode(), SHA, '1', '0')\n        for diagnostics in ([], self.observer_details_fixture()[::-1], self.observer_details_fixture()*2):\n            bad = copy.deepcopy(value); bad['commandDiagnostics'] = diagnostics\n            with self.assertRaises(Exception): module.validate_terminal(json.dumps(bad).encode(), SHA, '1', '0')\n        old = copy.deepcopy(value); old['schemaVersion'] = 'pc.core-startup-inspection.v1'; old.pop('commandDiagnostics')\n        with self.assertRaises(Exception): module.validate_terminal(json.dumps(old).encode(), SHA, '1', '0')\n\n    def test_recognized_option_names_never_modify_actual_startup_policy(self):\n        import startup_policy as policy\n        module = self.startup_observer_module()\n        for role, command in (('postgres', ['postgres', '-c', 'wal_level=logical']),\n                              ('redis', ['redis-server', '--maxmemory', '64mb'])):\n            record, image = _bootstrap_policy_tests.fixture(role); record['Config']['Cmd'] = command\n            before = copy.deepcopy(record)\n            self.assertFalse(policy.startup_safe(role, record, image))\n            value = module.command_diagnostic(policy, role, record, image)\n            self.assertTrue(value['commandParseComplete']); self.assertTrue(value['remainingChecksComplete'])\n            self.assertEqual(value['remainingRefusals'], []); self.assertEqual(record, before)\n            self.assertEqual(module.explain(policy, role, record, image)['reason'], 'SAVED_COMMAND_PROFILE')\n            self.assertFalse(policy.startup_safe(role, record, image))\n\n    def test_v2_rejects_impossible_matched_repeat_and_program_unknown_binary(self):\n        module = self.startup_observer_module()\n        value = {**module.fixed(SHA, '1'), 'observationComplete': True, 'policyCompatible': True,\n                 'profiles': [{'role': r, 'compatible': True, 'reason': 'MATCH'} for r in module.ROLES],\n                 'commandDiagnostics': self.observer_details_fixture(), 'journalSlot': 'ABSENT', 'errorCode': 'NONE'}\n        value['commandDiagnostics'][1].update(commandForm='ROLE_BINARY', optionCodes=['REDIS_APPENDONLY'])\n        self.assertEqual(module.validate_terminal(json.dumps(value).encode(), SHA, '1', '0'), value)\n        bad = copy.deepcopy(value); bad['commandDiagnostics'][1]['repeatedOption'] = True\n        with self.assertRaises(Exception): module.validate_terminal(json.dumps(bad).encode(), SHA, '1', '0')\n        value['policyCompatible'] = False\n        value['profiles'][0].update(compatible=False, reason='SAVED_COMMAND_PROFILE')\n        value['commandDiagnostics'][0].update(commandForm='ROLE_BINARY', optionCodes=['PG_WAL_LEVEL'])\n        self.assertEqual(module.validate_terminal(json.dumps(value).encode(), SHA, '1', '0'), value)\n        bad = copy.deepcopy(value)\n        bad['commandDiagnostics'][0].update(parseCode='PROGRAM_UNKNOWN', commandParseComplete=False)\n        with self.assertRaises(Exception): module.validate_terminal(json.dumps(bad).encode(), SHA, '1', '0')\n",
+  "completeActualVersion1ObservationReviewUtf8": "# Actual read-only startup inspection41194011739\n\nCompleted, strictly validated READ-ONLY OBSERVATION; compatibility is FALSE. PostgreSQL and Redis each report SAVED_COMMAND_PROFILE. MinIO/API/web/Caddy report MATCH. The fixed bootstrap slot was ABSENT at the stat snapshot. Every startup/runtime/release/registration/rollback flag is false; collection success grants no startup, retry or reservation. Reviewer /root/audit_next_recovery performed no command, GitHub/ref/source/shared journal or production host mutation.\n\n## Actual native authorization and mode\n\nFresh exact OWNER4637 command6542383328 at2026-10-31T10:45:00Z is `/production inspect-core-startup current-main`. Actual Hub6542383175 grants only this one read-only observation on f7a1adda04ab193af03b6bb69105346bf600427f during10:44:58.441→11:04:58.441UTC, with source/main/other host writes frozen; no bootstrap grant. Fresh main matchesf7a. Actual run41194011739 is issue_comment/attempt1/exactf7a/OWNER actor+trigger, created10:45:05Z and completedSUCCESS10:46:48Z. Contract124516411124 and recover124516615660 completedSUCCESS, all applicable steps succeeded. Actual job log records OPERATION_KIND: inspect and separate observer publication. The generic workflow/recover/restore-step names are not taken as evidence of a bootstrap call.\n\nThe accepted source binds inspect to the separate typed read-only purpose and generates only observer.observe_main as its terminal entry. The unchanged mutator definitions are not invoked by this mode. Native success here is the observer's status0 meaning complete collection, including incompatibility; it is not six services restored or healthy. Actual published receipt6542399105 was freshly fetched and matches the artifact receipt bytes exactly.\n\n## Strict actual artifact and schema\n\nIndependently downloaded artifact13039529553, cold-preservation-41194011739,1129 bytes,SHA256f5db33212d799a515e2860ab44d3a32c627bba112f32c244da715808f8fc92b2. Strict exact three-member allowlist, unique flat names, regular files, no encryption/symlinks/directories, bounded sizes and all CRCs pass. There is no result.json. Members:\n\n| Member | Bytes | SHA256 |\n|---|---:|---|\n| target-sha.txt | 41 | cc0507e18f62f7048bc1005fff95fc230a83f54488fccfa35ff6de84e71fb231 |\n| startup-inspection.json | 719 | 55ff32cd7f1f8bb8b3200f7f3105e5ea431052bc2bcbe956723e5c8c20999134 |\n| issue-record.md | 508 | 5fd692d3f0deeb9895f68ef430de092882397b24368e2b45a7ba3022e6a4ff97 |\n\nTarget file matches exactf7a newline. Independently checked duplicate-free strict JSON, exact keyset/schema pc.core-startup-inspection.v1, targetf7a/run41194011739, typed flags, six exact ordered roles, closed reason/slot enums and consistency of compatible/MATCH/policyCompatible. Additionally reconstructed the validator from exact accepted workflow425ee8, observer8298 bytes/SHA0108e2e51d67bf65a41538cba1010f9a9546cbbaf2ead926754ec7d5346cbf8c: it accepts the actual data at status0 and rejects status1. This is independent validation, not reliance on Root's verifier script.\n\n## Actual closed results\n\n| Fixed role | Compatible | First closed reason |\n|---|---|---|\n| postgres | false | SAVED_COMMAND_PROFILE |\n| redis | false | SAVED_COMMAND_PROFILE |\n| minio | true | MATCH |\n| api | true | MATCH |\n| web | true | MATCH |\n| caddy | true | MATCH |\n\nobservationComplete=true, policyCompatible=false, errorCode=NONE, journalSlot=ABSENT. startupAuthorized/runtimeRestored/exactCurrentMainReleased/registrationAccepted/dataRollbackClaimed are all typed false. No argv, environment/health script, private user/path/configuration value or exception detail is exposed.\n\nFor PostgreSQL/Redis, SAVED_COMMAND_PROFILE means the actual saved argv did not match the unchanged policy's narrow allowlist. The first-reason order has already passed input/image/config/entrypoint/image-default-command checks for those records, but does not disclose their actual arguments or demonstrate that later loader/environment/health checks would pass after a change. Do not infer a particular flag, a safe option, a password, a public Compose equivalence or sole remaining failure. The four MATCH rows attest this pure compatibility callback at observation time, not created services, readiness, SQL health, full plan or release acceptance.\n\n## Snapshot and operational boundaries\n\nABSENT is stat-only of the fixed core-bootstrap-20261024 leaf through its protected parent, with no-follow semantics and no journal entry read. It neither reserves the slot nor proves no earlier operation ever executed. It cannot override the unchanged atomic refuse-existing journal constructor on any later attempt. The read-only code calls no bootstrap/build_plan/before_first_write/journal creation/Docker mutation/readiness/SQL/exec; its completed source/recheck path is not a write grant.\n\nThe old bootstrap41188583511 UNKNOWN artifact and validated planning-refusal source-path inference remain unchanged. No role/runtime-start claim is backfilled into that old receipt. Legacy39698516568, withdrawn6537809435 and other historical UNKNOWN outcomes remain UNKNOWN; no general D-state, old guest termination or continuous stability proof follows. All19volumes/copies/keys/reserves, fixed journals and spent growth/clone remain protected.\n\nRoot may terminally reconcile this one read-only window using the actual evidence. Any command-profile correction still requires concrete bounded evidence, exact independent source/admission/native/security/readiness gates and separate finite operational authorization. No blind allowlist widening, repeat/bootstrap/reset/replay, new cost or restoration/registration/DR/progress credit is justified. Complete artifact, exact accepted validator, pins and native bindings are saved beside this report.\n",
+  "actualVersion1ArtifactProof": {
+    "artifactSha256": "f5db33212d799a515e2860ab44d3a32c627bba112f32c244da715808f8fc92b2",
+    "artifactBytes": 1129,
+    "target": "f7a1adda04ab193af03b6bb69105346bf600427f",
+    "run": "41194011739",
+    "remoteStatus": "0",
+    "members": {
+      "target-sha.txt": {
+        "bytes": 41,
+        "sha256": "cc0507e18f62f7048bc1005fff95fc230a83f54488fccfa35ff6de84e71fb231"
+      },
+      "startup-inspection.json": {
+        "bytes": 719,
+        "sha256": "55ff32cd7f1f8bb8b3200f7f3105e5ea431052bc2bcbe956723e5c8c20999134"
+      },
+      "issue-record.md": {
+        "bytes": 508,
+        "sha256": "5fd692d3f0deeb9895f68ef430de092882397b24368e2b45a7ba3022e6a4ff97"
+      }
+    },
+    "validated": {
+      "schemaVersion": "pc.core-startup-inspection.v1",
+      "targetSha": "f7a1adda04ab193af03b6bb69105346bf600427f",
+      "runId": "41194011739",
+      "startupAuthorized": false,
+      "runtimeRestored": false,
+      "exactCurrentMainReleased": false,
+      "registrationAccepted": false,
+      "dataRollbackClaimed": false,
+      "observationComplete": true,
+      "policyCompatible": false,
+      "profiles": [
+        {
+          "role": "postgres",
+          "compatible": false,
+          "reason": "SAVED_COMMAND_PROFILE"
+        },
+        {
+          "role": "redis",
+          "compatible": false,
+          "reason": "SAVED_COMMAND_PROFILE"
+        },
+        {
+          "role": "minio",
+          "compatible": true,
+          "reason": "MATCH"
+        },
+        {
+          "role": "api",
+          "compatible": true,
+          "reason": "MATCH"
+        },
+        {
+          "role": "web",
+          "compatible": true,
+          "reason": "MATCH"
+        },
+        {
+          "role": "caddy",
+          "compatible": true,
+          "reason": "MATCH"
+        }
+      ],
+      "journalSlot": "ABSENT",
+      "errorCode": "NONE"
+    },
+    "hostOperations": 0
+  },
+  "completeCorrectionFeasibilityReviewUtf8": "# PostgreSQL/Redis command correction feasibility: read-only conclusion\n\nNo startup-policy correction is yet justified. Actual observation41194011739 identifies PostgreSQL and Redis SAVED_COMMAND_PROFILE, but neither argv, exact form, arguments nor remaining predicate state. The narrow next evidence step is closed command characterization in the same accepted read-only observer; preserve the actual six-role explain results, unchanged policy and all mutator bytes. This is design review, not implementation CLEAN or an operation grant.\n\n## Primary source and authority findings\n\nComplete accepted repository tree and fresh primary code searches show only root docker-compose.yml and the web-hardening override as ordinary stack Compose sources. Root compose is development configuration, not the eight production label-selected private Compose inputs. PostgreSQL tuning text in a UI component and IR20's disposable-copy configuration do not define the production saved command or authorize reusing clone settings. No public production argv matching the two current saved records was found. Public examples cannot be adopted as an explanation of the observed private mismatch.\n\nThe unchanged Source.attest (13070-byte component/SHA7e1a0997...) verifies current reference/profile, private metadata hashes, fourteen selections/eight Compose references, protected current-footprint capture, copies/keys/resources and rechecks. It does not call render_model, compare_service or the full configuration observer. Fourteen/eight is coverage and stability, not proof of declared-command equality.\n\nThe retained pure profile.compare_service has a command comparison against the resolved declared model, and observe_configuration can invoke the pinned Compose renderer. That route is not currently admitted; its labels/Compose/dotenv/env-file inputs are private, and renderer availability on the guest is not established by the present command. More fundamentally equality to current root-owned private Compose does not by itself supply reviewed public command safety. Reintroducing that full retired observer is broader than the specific gap and cannot be treated as an existing authorized command. The current general Docker diagnostic and current v1 startup report provide no missing command shape. No safe existing route removes the need for a bounded new observation.\n\nPublic engine redis_auth already parses requirepass forms internally for readiness and compares named credentials when present. That is useful existing pure implementation evidence, not proof that the actual failed Redis command uses those forms or that any option is startup-safe. Its return can contain private credentials and must never be emitted; it is not a substitute for command characterization or live readiness. Vendor-backed admission of actual option semantics remains pending until closed facts identify what matters.\n\n## Challenge of the proposed v2 read-only plan\n\nThe proposed receipt v2 is defensible: retain the actual existing six profiles/compatibility booleans and add exactly two ordered PG/Redis commandDiagnostics. Keep program/form and option-name codes strictly enumerated, options sorted/unique, with explicit unknown/repeated indicators. Do not expose raw tokens/values/paths/hashes or private exception text. Unknown names must collapse to a fixed UNKNOWN code/flag rather than being transformed or echoed. Recognizing a public option name is not an allowlist decision.\n\nParser invariants matter: consume every bounded argv element exactly once; never use shell evaluation, interpolation or shlex splitting of an already structured Docker argv. Distinguish explicit service binary, image-entrypoint-implied form, shell/config-file form and unrecognized executable using closed codes. Handle only structurally defined option arities; ambiguous, missing, attached/unrecognized or unconsumed inputs must not appear fully known. Redis values, including secrets, can begin with dashes; do not mistake a value for an option and emit it. PostgreSQL -c and --name=value aliases must share a duplicate-detection identity where supported. Unknown/repeated facts must block any later assumption of a uniquely understood command. Conservative UNKNOWN is preferable to guessed parsing, and exact syntax coverage can remain vendor-qualified.\n\nRemaining environment/loader/image-health/saved-health checks must run directly on actual untouched fields using the existing pure helpers. If environment/config parsing prevents a dependent check, emit a closed unavailable/refusal state. Never normalize Cmd in a synthetic record, invoke startup_safe on invented inputs or publish an implied post-fix startup grant. Keep the actual overall startup_safe result false and ensure added diagnostics never feed its decision. The four current MATCH roles are unchanged; no readiness/SQL/exec or mutation belongs in this observation.\n\nMaintain distinct strict v2 schema validation, exact target/run and typed false startup/runtime/release flags. Validate exactly two role diagnostics and every enum/boolean/order/count; incomplete output must not retain stale complete facts. Existing slot stat remains fixed/no-follow/no-entry-read; ABSENT still is not reservation. A complete observation with unknown options, repeats or incompatible commands remains diagnostic-only, never operation success.\n\n## Smallest source/admission path and tests\n\nExtend the existing inspect-core-startup mode in the same cold workflow/test/runbook, with no new command, workflow, reader path, binary transfer or Compose CLI dependency. Preserve all five mutator components and emitted332963-byte bootstrap/e4db golden, and preserve existing explain semantics. No startup_safe or command allowlist change belongs in this source stage.\n\nTest actual generated RO entry and runner recording/publication, adversarial syntax/arity/aliases/unknown/repeated/canary cases, remaining-predicate dependency failures, v1/v2 separation and all typed flags. Verify zero mutator calls even for all recognized options/all MATCH/ABSENT, plus unchanged old test methods/assertions/frozen bytes/selectors/native requirements. Keep caps/timeouts unchanged; any fixture representation adjustment requires full lossless inverse proof.\n\nActual terminal/source-only Hub6542442770 closes the RO window, keeps HOST_WINDOW=NONE, bounds private analysis/preparation through12:15UTC and permits only the latest exact53-byte WP2 pointer to become WP3 in a new exact admission, retaining all old WP1/WP2 document/history bytes. Three same-length source-pin replacements can preserve state size and the existing typed read-only purpose; no new mutating authority is needed. A full tracked WP3 patch/review/provenance body avoids the earlier unreachable-object defect. This queue change must be reviewed explicitly, not generalized into history compaction.\n\nThen require new independent whole-source and metadata review, metadata-first actual acceptance, fresh published-source/native/security/readiness/manual gates and a separate finite one-read-only disposition. Only actual closed facts plus reviewed vendor semantics may justify a later narrow startup correction, preserving every unrelated predicate and readiness/one-use precondition. Until then no retry/reset, raw private-command export, policy loosening or bootstrap is warranted. UNKNOWN/SPENT, copies/keys/all19volumes, fixed journals and official progress remain unchanged.\n",
+  "primaryGrammarSources": {
+    "purpose": "closed diagnostic grammar only, never production argv provenance or startup authority",
+    "sources": [
+      {
+        "url": "https://www.postgresql.org/docs/16/app-postgres.html",
+        "fact": "PostgreSQL16 documents parameter assignments using -c or long parameter options and named short server options. Values and production use are not attested."
+      },
+      {
+        "url": "https://redis.io/docs/latest/operate/oss_and_stack/management/config/",
+        "fact": "Redis documents passing configuration directives as command-line arguments. This establishes neither the current private argument list nor safe values."
+      }
+    ],
+    "retrievedAt": "2026-10-31",
+    "sourceVersions": "PostgreSQL major16 docs; Redis generic current documentation, no exact-image version admission"
+  },
+  "frozenSourceTests": {
+    "bytes": 9977,
+    "sha256": "7e964adbdb7469f79f6375a35aefad3210da1289afbe1b50abd1ff91487e5494",
+    "beforeLiteralBytes": 10338,
+    "afterEncodedBytes": 3912
+  },
+  "frozenPolicyTests": {
+    "bytes": 6492,
+    "sha256": "a7ddfe4446d93b6f6c2d8d2a3ba6f7bf4934af57d788be6b062290df243aa2e1"
+  },
+  "unchangedBootstrapPayload": {
+    "bytes": 332963,
+    "sha256": "e4db165f89e4ac1b8a1b98860228ae927d2dd96daead52db25ca6a9c409e6aa4"
+  },
+  "unchangedFiveComponents": {
+    "startup_policy.py": {
+      "bytes": 9298,
+      "sha256": "fb1ec8dc275fb5e9b8e6e2837024d760c7587b2f1ab33645bb09878231406b47",
+      "gitBlob": "14a558c5593c3ceeef349e452fa037870b864dae"
+    },
+    "entrypoint.py": {
+      "bytes": 1697,
+      "sha256": "385167166a66b4b1963054424481a0993cc0028c8e6c55ad5d9b0413671bb00c",
+      "gitBlob": "dbc5a83a6ab08ed6e8476f7261b2fa701a3c7272"
+    },
+    "profile.py": {
+      "bytes": 35000,
+      "sha256": "c008a5e9aa9b71d14a634cb2aa4eae01656d350c5cb276bffb62ebe98864f1a1",
+      "gitBlob": "1c1a79c6d3fd848e566d75d71c30750ae247b981"
+    },
+    "source_attestor.py": {
+      "bytes": 13070,
+      "sha256": "7e1a0997bd4ad76967253f55e01d28bdd742e5f3e17be8b367216fefd3fa2b9f",
+      "gitBlob": "1f563152b1e6d645660725a4fba6d422eeb807a3"
+    },
+    "bootstrap_engine.py": {
+      "bytes": 45748,
+      "sha256": "f9b0b5acb0c07ea7a74f62b9932f46706b365f3aa45661d9f27cce9927e2efed",
+      "gitBlob": "48bbb43479819800f3d063aba705727580addd77"
+    }
+  },
+  "rootLocalChecks": {
+    "sourceMain": "f7a1adda04ab193af03b6bb69105346bf600427f",
+    "activeTests": 110,
+    "activePass": 110,
+    "activeSkip": 0,
+    "fullTests": 149,
+    "localPass": 144,
+    "nativeOnlySkipped": 5,
+    "futureNativeExpected": 173,
+    "yaml": "PASS",
+    "bashBlocks": 9,
+    "testBytes": 199236,
+    "testSpare": 764,
+    "stateBytes": 3144712,
+    "stateSpare": 1016,
+    "queueBytes": 2097151,
+    "queueSpare": 1,
+    "hostOperations": 0,
+    "status": "Root local check evidence; independent private source review recorded separately"
+  },
+  "independentStaticEvidence": {
+    "reviewer": "/root/audit_next_recovery (separate nonauthor review agent)",
+    "base": "f7a1adda04ab193af03b6bb69105346bf600427f",
+    "pins": {
+      ".github/workflows/production-cold-preservation.yml": {
+        "before": {
+          "bytes": 156820,
+          "sha256": "ff15754ca0480a8ae1f91511c1efa4560952a50406c0ecc6f2e3605b3b11e6ce",
+          "blob": "425ee8df3ce1e7896bafd4ea5a7dbf528cdbca5a"
+        },
+        "after": {
+          "bytes": 169790,
+          "sha256": "dd327aba31e76a1cb3ffe713eecf62091ce470fee53a8de93d863a0ffc0c7ae6",
+          "blob": "338b17efa926ad4a12eb061ebd2543164905aadb"
+        }
+      },
+      "scripts/test_production_cold_preservation.py": {
+        "before": {
+          "bytes": 196636,
+          "sha256": "9ee3f11822248e2b20279b8ec2ebbba5b1bb7da9424231bb33e98693d84b4080",
+          "blob": "3b81a8eb47a214ac139adafb49a5d3c19a605bd0"
+        },
+        "after": {
+          "bytes": 199236,
+          "sha256": "3a6553fad7ba3bec8ecefdb11536ed3e29c7f296ab6b117672b2ef776063519c",
+          "blob": "e5faf4c8d59a8567eafc3bcd4ef49204a713d275"
+        }
+      },
+      "docs/ops/production-cold-preservation.md": {
+        "before": {
+          "bytes": 46437,
+          "sha256": "23774a050a6809e4748592860ea590e5e99efdb1ca03b48a5417f0d9fb89673b",
+          "blob": "2883b4abd917d0bed879a2cad9fe1d6e17c21dfe"
+        },
+        "after": {
+          "bytes": 48479,
+          "sha256": "39004266eb20cd4e52ab5123dddc32f053d220db4996a0333a3267c45d220fd2",
+          "blob": "3c8b47d984802cb9092d1279fcaa0c2133739da0"
+        }
+      },
+      "source.patch": {
+        "bytes": 63411,
+        "sha256": "0480f14899e95696da6ac31bdde002d8a15794b864c63e2a1ff32a6c6ef9895b",
+        "blob": "036ddf8c1cd9d7fa7efd32c276b46449f14c5697"
+      },
+      "profile": {
+        "bytes": 35000,
+        "sha256": "c008a5e9aa9b71d14a634cb2aa4eae01656d350c5cb276bffb62ebe98864f1a1",
+        "blob": "1c1a79c6d3fd848e566d75d71c30750ae247b981"
+      },
+      "bootstrap_engine": {
+        "bytes": 45748,
+        "sha256": "f9b0b5acb0c07ea7a74f62b9932f46706b365f3aa45661d9f27cce9927e2efed",
+        "blob": "48bbb43479819800f3d063aba705727580addd77"
+      },
+      "source_attestor": {
+        "bytes": 13070,
+        "sha256": "7e1a0997bd4ad76967253f55e01d28bdd742e5f3e17be8b367216fefd3fa2b9f",
+        "blob": "1f563152b1e6d645660725a4fba6d422eeb807a3"
+      },
+      "startup_policy": {
+        "bytes": 9298,
+        "sha256": "fb1ec8dc275fb5e9b8e6e2837024d760c7587b2f1ab33645bb09878231406b47",
+        "blob": "14a558c5593c3ceeef349e452fa037870b864dae"
+      },
+      "entrypoint": {
+        "bytes": 1697,
+        "sha256": "385167166a66b4b1963054424481a0993cc0028c8e6c55ad5d9b0413671bb00c",
+        "blob": "dbc5a83a6ab08ed6e8476f7261b2fa701a3c7272"
+      },
+      "whole-bootstrap": {
+        "bytes": 332963,
+        "sha256": "e4db165f89e4ac1b8a1b98860228ae927d2dd96daead52db25ca6a9c409e6aa4",
+        "blob": "43a3573fdf0c044ccbc0a47a7fe2180d0687c43e"
+      },
+      "bootstrap_source_tests": {
+        "bytes": 9977,
+        "sha256": "7e964adbdb7469f79f6375a35aefad3210da1289afbe1b50abd1ff91487e5494",
+        "blob": "38b484a6563cb48cd08133d4a3bf91dc1a7472bc"
+      },
+      "startup_policy_tests": {
+        "bytes": 6492,
+        "sha256": "a7ddfe4446d93b6f6c2d8d2a3ba6f7bf4934af57d788be6b062290df243aa2e1",
+        "blob": "360d950c46322ed289989ac321e7f638dc0cd8d9"
+      }
+    },
+    "checks": [
+      "before identity .github/workflows/production-cold-preservation.yml",
+      "after identity .github/workflows/production-cold-preservation.yml",
+      "fixture exact .github/workflows/production-cold-preservation.yml",
+      "unchanged 200000-byte cap .github/workflows/production-cold-preservation.yml",
+      "before identity scripts/test_production_cold_preservation.py",
+      "after identity scripts/test_production_cold_preservation.py",
+      "fixture exact scripts/test_production_cold_preservation.py",
+      "unchanged 200000-byte cap scripts/test_production_cold_preservation.py",
+      "before identity docs/ops/production-cold-preservation.md",
+      "after identity docs/ops/production-cold-preservation.md",
+      "fixture exact docs/ops/production-cold-preservation.md",
+      "unchanged 200000-byte cap docs/ops/production-cold-preservation.md",
+      "complete patch identity",
+      "entire source patch independently reconstructs exact three after files",
+      "workflow inverse: precisely two run strings; all trigger/jobs/permissions/transport/source binding unchanged",
+      "unchanged literal profile",
+      "unchanged literal bootstrap_engine",
+      "unchanged literal source_attestor",
+      "unchanged literal startup_policy",
+      "unchanged literal entrypoint",
+      "readable observer exact emitted literal",
+      "generator AST inverse exact outside observer literal",
+      "entire generated bootstrap byte exact",
+      "historical complete bootstrap golden",
+      "recover shell syntax parsed without execution",
+      "decoded frozen exact bootstrap_source_tests",
+      "decoded frozen exact startup_policy_tests",
+      "old observation method retained startup_observer_module",
+      "old observation method/assertions exact except v2 receipt fixture startup_observer_module",
+      "old observation method retained test_observer_keeps_all_five_mutator_components_exact",
+      "old observation method/assertions exact except v2 receipt fixture test_observer_keeps_all_five_mutator_components_exact",
+      "old observation method retained test_observer_classifies_each_closed_boundary_without_private_values",
+      "old observation method/assertions exact except v2 receipt fixture test_observer_classifies_each_closed_boundary_without_private_values",
+      "old observation method retained test_observer_classifier_disagreement_cannot_become_match",
+      "old observation method/assertions exact except v2 receipt fixture test_observer_classifier_disagreement_cannot_become_match",
+      "old observation method retained test_observer_closed_receipts_reject_bootstrap_and_malformed_claims",
+      "old observation method/assertions exact except v2 receipt fixture test_observer_closed_receipts_reject_bootstrap_and_malformed_claims",
+      "old observation method retained test_observer_journal_slot_is_fixed_stat_only_and_never_opens_leaf",
+      "old observation method/assertions exact except v2 receipt fixture test_observer_journal_slot_is_fixed_stat_only_and_never_opens_leaf",
+      "old observation method retained test_actual_observer_main_is_read_only_and_reports_incompatible_service",
+      "old observation method/assertions exact except v2 receipt fixture test_actual_observer_main_is_read_only_and_reports_incompatible_service",
+      "old observation method retained test_observer_purpose_is_separate_read_only_and_strictly_typed",
+      "old observation method/assertions exact except v2 receipt fixture test_observer_purpose_is_separate_read_only_and_strictly_typed",
+      "old observation method retained test_observer_body_has_no_mutator_or_private_output_escape_hatch",
+      "old observation method/assertions exact except v2 receipt fixture test_observer_body_has_no_mutator_or_private_output_escape_hatch",
+      "old observation method retained test_actual_generated_mode_preserves_bootstrap_bytes_and_selects_only_readonly",
+      "old observation method/assertions exact except v2 receipt fixture test_actual_generated_mode_preserves_bootstrap_bytes_and_selects_only_readonly",
+      "old observation method retained test_actual_runner_observer_record_and_publisher_keep_closed_failures",
+      "old observation method/assertions exact except v2 receipt fixture test_actual_runner_observer_record_and_publisher_keep_closed_failures",
+      "old observation method retained fail",
+      "old observation method/assertions exact except v2 receipt fixture fail",
+      "old observation method retained require",
+      "old observation method/assertions exact except v2 receipt fixture require",
+      "old observation method retained read",
+      "old observation method/assertions exact except v2 receipt fixture read",
+      "old observation method retained __init__",
+      "old observation method/assertions exact except v2 receipt fixture __init__",
+      "old observation method retained attest",
+      "old observation method/assertions exact except v2 receipt fixture attest",
+      "old observation method retained records",
+      "old observation method/assertions exact except v2 receipt fixture records",
+      "old observation method retained image",
+      "old observation method/assertions exact except v2 receipt fixture image",
+      "old observation method retained recheck",
+      "old observation method/assertions exact except v2 receipt fixture recheck",
+      "old observation method retained close",
+      "old observation method/assertions exact except v2 receipt fixture close",
+      "old observation method retained journal_factory",
+      "old observation method/assertions exact except v2 receipt fixture journal_factory",
+      "old observation method retained before_first_write",
+      "old observation method/assertions exact except v2 receipt fixture before_first_write",
+      "entire test module AST inverse exact outside observer test encoding",
+      "old observer pure function AST exact explain",
+      "old observer pure function AST exact journal_slot",
+      "old observer pure function AST exact fixed",
+      "old observer pure function AST exact require",
+      "parser leaves actual argv unchanged 0",
+      "fixed output hides every allowlisted option value 0",
+      "codes belong only to public role vocabulary 0",
+      "parser leaves actual argv unchanged 1",
+      "fixed output hides every allowlisted option value 1",
+      "codes belong only to public role vocabulary 1",
+      "parser leaves actual argv unchanged 2",
+      "fixed output hides every allowlisted option value 2",
+      "codes belong only to public role vocabulary 2",
+      "parser leaves actual argv unchanged 3",
+      "fixed output hides every allowlisted option value 3",
+      "codes belong only to public role vocabulary 3",
+      "parser leaves actual argv unchanged 4",
+      "fixed output hides every allowlisted option value 4",
+      "codes belong only to public role vocabulary 4",
+      "parser leaves actual argv unchanged 5",
+      "fixed output hides every allowlisted option value 5",
+      "codes belong only to public role vocabulary 5",
+      "parser leaves actual argv unchanged 6",
+      "fixed output hides every allowlisted option value 6",
+      "codes belong only to public role vocabulary 6",
+      "parser leaves actual argv unchanged 7",
+      "fixed output hides every allowlisted option value 7",
+      "codes belong only to public role vocabulary 7",
+      "parser leaves actual argv unchanged 8",
+      "fixed output hides every allowlisted option value 8",
+      "codes belong only to public role vocabulary 8",
+      "parser leaves actual argv unchanged 9",
+      "fixed output hides every allowlisted option value 9",
+      "codes belong only to public role vocabulary 9",
+      "parser leaves actual argv unchanged 10",
+      "fixed output hides every allowlisted option value 10",
+      "codes belong only to public role vocabulary 10",
+      "parser leaves actual argv unchanged 11",
+      "fixed output hides every allowlisted option value 11",
+      "codes belong only to public role vocabulary 11",
+      "parser leaves actual argv unchanged 12",
+      "fixed output hides every allowlisted option value 12",
+      "codes belong only to public role vocabulary 12",
+      "parser leaves actual argv unchanged 13",
+      "fixed output hides every allowlisted option value 13",
+      "codes belong only to public role vocabulary 13",
+      "parser leaves actual argv unchanged 14",
+      "fixed output hides every allowlisted option value 14",
+      "codes belong only to public role vocabulary 14",
+      "parser leaves actual argv unchanged 15",
+      "fixed output hides every allowlisted option value 15",
+      "codes belong only to public role vocabulary 15",
+      "parser leaves actual argv unchanged 16",
+      "fixed output hides every allowlisted option value 16",
+      "codes belong only to public role vocabulary 16",
+      "parser leaves actual argv unchanged 17",
+      "fixed output hides every allowlisted option value 17",
+      "codes belong only to public role vocabulary 17",
+      "parser leaves actual argv unchanged 18",
+      "fixed output hides every allowlisted option value 18",
+      "codes belong only to public role vocabulary 18",
+      "parser leaves actual argv unchanged 19",
+      "fixed output hides every allowlisted option value 19",
+      "codes belong only to public role vocabulary 19",
+      "parser leaves actual argv unchanged 20",
+      "fixed output hides every allowlisted option value 20",
+      "codes belong only to public role vocabulary 20",
+      "parser leaves actual argv unchanged 21",
+      "fixed output hides every allowlisted option value 21",
+      "codes belong only to public role vocabulary 21",
+      "parser leaves actual argv unchanged 22",
+      "fixed output hides every allowlisted option value 22",
+      "codes belong only to public role vocabulary 22",
+      "parser leaves actual argv unchanged 23",
+      "fixed output hides every allowlisted option value 23",
+      "codes belong only to public role vocabulary 23",
+      "parser leaves actual argv unchanged 24",
+      "fixed output hides every allowlisted option value 24",
+      "codes belong only to public role vocabulary 24",
+      "parser leaves actual argv unchanged 25",
+      "fixed output hides every allowlisted option value 25",
+      "codes belong only to public role vocabulary 25",
+      "parser leaves actual argv unchanged 26",
+      "fixed output hides every allowlisted option value 26",
+      "codes belong only to public role vocabulary 26",
+      "parser leaves actual argv unchanged 27",
+      "fixed output hides every allowlisted option value 27",
+      "codes belong only to public role vocabulary 27",
+      "parser leaves actual argv unchanged 28",
+      "fixed output hides every allowlisted option value 28",
+      "codes belong only to public role vocabulary 28",
+      "parser leaves actual argv unchanged 29",
+      "fixed output hides every allowlisted option value 29",
+      "codes belong only to public role vocabulary 29",
+      "parser leaves actual argv unchanged 30",
+      "fixed output hides every allowlisted option value 30",
+      "codes belong only to public role vocabulary 30",
+      "parser leaves actual argv unchanged 31",
+      "fixed output hides every allowlisted option value 31",
+      "codes belong only to public role vocabulary 31",
+      "parser leaves actual argv unchanged 32",
+      "fixed output hides every allowlisted option value 32",
+      "codes belong only to public role vocabulary 32",
+      "parser leaves actual argv unchanged 33",
+      "fixed output hides every allowlisted option value 33",
+      "codes belong only to public role vocabulary 33",
+      "parser leaves actual argv unchanged 34",
+      "fixed output hides every allowlisted option value 34",
+      "codes belong only to public role vocabulary 34",
+      "parser leaves actual argv unchanged 35",
+      "fixed output hides every allowlisted option value 35",
+      "codes belong only to public role vocabulary 35",
+      "parser leaves actual argv unchanged 36",
+      "fixed output hides every allowlisted option value 36",
+      "codes belong only to public role vocabulary 36",
+      "parser leaves actual argv unchanged 37",
+      "fixed output hides every allowlisted option value 37",
+      "codes belong only to public role vocabulary 37",
+      "parser leaves actual argv unchanged 38",
+      "fixed output hides every allowlisted option value 38",
+      "codes belong only to public role vocabulary 38",
+      "parser leaves actual argv unchanged 39",
+      "fixed output hides every allowlisted option value 39",
+      "codes belong only to public role vocabulary 39",
+      "parser leaves actual argv unchanged 40",
+      "fixed output hides every allowlisted option value 40",
+      "codes belong only to public role vocabulary 40",
+      "parser leaves actual argv unchanged 41",
+      "fixed output hides every allowlisted option value 41",
+      "codes belong only to public role vocabulary 41",
+      "parser leaves actual argv unchanged 42",
+      "fixed output hides every allowlisted option value 42",
+      "codes belong only to public role vocabulary 42",
+      "parser leaves actual argv unchanged 43",
+      "fixed output hides every allowlisted option value 43",
+      "codes belong only to public role vocabulary 43",
+      "parser leaves actual argv unchanged 44",
+      "fixed output hides every allowlisted option value 44",
+      "codes belong only to public role vocabulary 44",
+      "parser leaves actual argv unchanged 45",
+      "fixed output hides every allowlisted option value 45",
+      "codes belong only to public role vocabulary 45",
+      "parser leaves actual argv unchanged 46",
+      "fixed output hides every allowlisted option value 46",
+      "codes belong only to public role vocabulary 46",
+      "parser leaves actual argv unchanged 47",
+      "fixed output hides every allowlisted option value 47",
+      "codes belong only to public role vocabulary 47",
+      "parser leaves actual argv unchanged 48",
+      "fixed output hides every allowlisted option value 48",
+      "codes belong only to public role vocabulary 48",
+      "parser leaves actual argv unchanged 49",
+      "fixed output hides every allowlisted option value 49",
+      "codes belong only to public role vocabulary 49",
+      "parser leaves actual argv unchanged 50",
+      "fixed output hides every allowlisted option value 50",
+      "codes belong only to public role vocabulary 50",
+      "parser leaves actual argv unchanged 51",
+      "fixed output hides every allowlisted option value 51",
+      "codes belong only to public role vocabulary 51",
+      "parser leaves actual argv unchanged 52",
+      "fixed output hides every allowlisted option value 52",
+      "codes belong only to public role vocabulary 52",
+      "parser leaves actual argv unchanged 53",
+      "fixed output hides every allowlisted option value 53",
+      "codes belong only to public role vocabulary 53",
+      "parser leaves actual argv unchanged 54",
+      "fixed output hides every allowlisted option value 54",
+      "codes belong only to public role vocabulary 54",
+      "parser leaves actual argv unchanged 55",
+      "fixed output hides every allowlisted option value 55",
+      "codes belong only to public role vocabulary 55",
+      "parser leaves actual argv unchanged 56",
+      "fixed output hides every allowlisted option value 56",
+      "codes belong only to public role vocabulary 56",
+      "parser leaves actual argv unchanged 57",
+      "fixed output hides every allowlisted option value 57",
+      "codes belong only to public role vocabulary 57",
+      "parser leaves actual argv unchanged 58",
+      "fixed output hides every allowlisted option value 58",
+      "codes belong only to public role vocabulary 58",
+      "parser leaves actual argv unchanged 59",
+      "fixed output hides every allowlisted option value 59",
+      "codes belong only to public role vocabulary 59",
+      "parser leaves actual argv unchanged 60",
+      "fixed output hides every allowlisted option value 60",
+      "codes belong only to public role vocabulary 60",
+      "parser leaves actual argv unchanged 61",
+      "fixed output hides every allowlisted option value 61",
+      "codes belong only to public role vocabulary 61",
+      "parser leaves actual argv unchanged 62",
+      "fixed output hides every allowlisted option value 62",
+      "codes belong only to public role vocabulary 62",
+      "parser leaves actual argv unchanged 63",
+      "fixed output hides every allowlisted option value 63",
+      "codes belong only to public role vocabulary 63",
+      "parser leaves actual argv unchanged 64",
+      "fixed output hides every allowlisted option value 64",
+      "codes belong only to public role vocabulary 64",
+      "parser leaves actual argv unchanged 65",
+      "fixed output hides every allowlisted option value 65",
+      "codes belong only to public role vocabulary 65",
+      "parser leaves actual argv unchanged 66",
+      "fixed output hides every allowlisted option value 66",
+      "codes belong only to public role vocabulary 66",
+      "parser leaves actual argv unchanged 67",
+      "fixed output hides every allowlisted option value 67",
+      "codes belong only to public role vocabulary 67",
+      "parser leaves actual argv unchanged 68",
+      "fixed output hides every allowlisted option value 68",
+      "codes belong only to public role vocabulary 68",
+      "parser leaves actual argv unchanged 69",
+      "fixed output hides every allowlisted option value 69",
+      "codes belong only to public role vocabulary 69",
+      "parser leaves actual argv unchanged 70",
+      "fixed output hides every allowlisted option value 70",
+      "codes belong only to public role vocabulary 70",
+      "parser leaves actual argv unchanged 71",
+      "fixed output hides every allowlisted option value 71",
+      "codes belong only to public role vocabulary 71",
+      "parser leaves actual argv unchanged 72",
+      "fixed output hides every allowlisted option value 72",
+      "codes belong only to public role vocabulary 72",
+      "parser leaves actual argv unchanged 73",
+      "fixed output hides every allowlisted option value 73",
+      "codes belong only to public role vocabulary 73",
+      "parser leaves actual argv unchanged 74",
+      "fixed output hides every allowlisted option value 74",
+      "codes belong only to public role vocabulary 74",
+      "parser leaves actual argv unchanged 75",
+      "fixed output hides every allowlisted option value 75",
+      "codes belong only to public role vocabulary 75",
+      "parser leaves actual argv unchanged 76",
+      "fixed output hides every allowlisted option value 76",
+      "codes belong only to public role vocabulary 76",
+      "parser leaves actual argv unchanged 77",
+      "fixed output hides every allowlisted option value 77",
+      "codes belong only to public role vocabulary 77",
+      "parser leaves actual argv unchanged 78",
+      "fixed output hides every allowlisted option value 78",
+      "codes belong only to public role vocabulary 78",
+      "parser leaves actual argv unchanged 79",
+      "fixed output hides every allowlisted option value 79",
+      "codes belong only to public role vocabulary 79",
+      "parser leaves actual argv unchanged 80",
+      "fixed output hides every allowlisted option value 80",
+      "codes belong only to public role vocabulary 80",
+      "parser leaves actual argv unchanged 81",
+      "fixed output hides every allowlisted option value 81",
+      "codes belong only to public role vocabulary 81",
+      "parser leaves actual argv unchanged 82",
+      "fixed output hides every allowlisted option value 82",
+      "codes belong only to public role vocabulary 82",
+      "parser leaves actual argv unchanged 83",
+      "fixed output hides every allowlisted option value 83",
+      "codes belong only to public role vocabulary 83",
+      "parser leaves actual argv unchanged 84",
+      "fixed output hides every allowlisted option value 84",
+      "codes belong only to public role vocabulary 84",
+      "parser leaves actual argv unchanged 85",
+      "fixed output hides every allowlisted option value 85",
+      "codes belong only to public role vocabulary 85",
+      "parser leaves actual argv unchanged 86",
+      "fixed output hides every allowlisted option value 86",
+      "codes belong only to public role vocabulary 86",
+      "parser leaves actual argv unchanged 87",
+      "fixed output hides every allowlisted option value 87",
+      "codes belong only to public role vocabulary 87",
+      "parser leaves actual argv unchanged 88",
+      "fixed output hides every allowlisted option value 88",
+      "codes belong only to public role vocabulary 88",
+      "parser leaves actual argv unchanged 89",
+      "fixed output hides every allowlisted option value 89",
+      "codes belong only to public role vocabulary 89",
+      "parser leaves actual argv unchanged 90",
+      "fixed output hides every allowlisted option value 90",
+      "codes belong only to public role vocabulary 90",
+      "parser leaves actual argv unchanged 91",
+      "fixed output hides every allowlisted option value 91",
+      "codes belong only to public role vocabulary 91",
+      "parser leaves actual argv unchanged 92",
+      "fixed output hides every allowlisted option value 92",
+      "codes belong only to public role vocabulary 92",
+      "parser leaves actual argv unchanged 93",
+      "fixed output hides every allowlisted option value 93",
+      "codes belong only to public role vocabulary 93",
+      "parser leaves actual argv unchanged 94",
+      "fixed output hides every allowlisted option value 94",
+      "codes belong only to public role vocabulary 94",
+      "parser leaves actual argv unchanged 95",
+      "fixed output hides every allowlisted option value 95",
+      "codes belong only to public role vocabulary 95",
+      "parser leaves actual argv unchanged 96",
+      "fixed output hides every allowlisted option value 96",
+      "codes belong only to public role vocabulary 96",
+      "parser leaves actual argv unchanged 97",
+      "fixed output hides every allowlisted option value 97",
+      "codes belong only to public role vocabulary 97",
+      "parser leaves actual argv unchanged 98",
+      "fixed output hides every allowlisted option value 98",
+      "codes belong only to public role vocabulary 98",
+      "parser leaves actual argv unchanged 99",
+      "fixed output hides every allowlisted option value 99",
+      "codes belong only to public role vocabulary 99",
+      "parser leaves actual argv unchanged 100",
+      "fixed output hides every allowlisted option value 100",
+      "codes belong only to public role vocabulary 100",
+      "parser leaves actual argv unchanged 101",
+      "fixed output hides every allowlisted option value 101",
+      "codes belong only to public role vocabulary 101",
+      "parser leaves actual argv unchanged 102",
+      "fixed output hides every allowlisted option value 102",
+      "codes belong only to public role vocabulary 102",
+      "parser leaves actual argv unchanged 103",
+      "fixed output hides every allowlisted option value 103",
+      "codes belong only to public role vocabulary 103",
+      "parser leaves actual argv unchanged 104",
+      "fixed output hides every allowlisted option value 104",
+      "codes belong only to public role vocabulary 104",
+      "parser leaves actual argv unchanged 105",
+      "fixed output hides every allowlisted option value 105",
+      "codes belong only to public role vocabulary 105",
+      "parser leaves actual argv unchanged 106",
+      "fixed output hides every allowlisted option value 106",
+      "codes belong only to public role vocabulary 106",
+      "parser leaves actual argv unchanged 107",
+      "fixed output hides every allowlisted option value 107",
+      "codes belong only to public role vocabulary 107",
+      "parser leaves actual argv unchanged 108",
+      "fixed output hides every allowlisted option value 108",
+      "codes belong only to public role vocabulary 108",
+      "parser leaves actual argv unchanged 109",
+      "fixed output hides every allowlisted option value 109",
+      "codes belong only to public role vocabulary 109",
+      "parser leaves actual argv unchanged 110",
+      "fixed output hides every allowlisted option value 110",
+      "codes belong only to public role vocabulary 110",
+      "parser leaves actual argv unchanged 111",
+      "fixed output hides every allowlisted option value 111",
+      "codes belong only to public role vocabulary 111",
+      "parser leaves actual argv unchanged 112",
+      "fixed output hides every allowlisted option value 112",
+      "codes belong only to public role vocabulary 112",
+      "parser leaves actual argv unchanged 113",
+      "fixed output hides every allowlisted option value 113",
+      "codes belong only to public role vocabulary 113",
+      "parser leaves actual argv unchanged 114",
+      "fixed output hides every allowlisted option value 114",
+      "codes belong only to public role vocabulary 114",
+      "parser leaves actual argv unchanged 115",
+      "fixed output hides every allowlisted option value 115",
+      "codes belong only to public role vocabulary 115",
+      "parser leaves actual argv unchanged 116",
+      "fixed output hides every allowlisted option value 116",
+      "codes belong only to public role vocabulary 116",
+      "parser leaves actual argv unchanged 117",
+      "fixed output hides every allowlisted option value 117",
+      "codes belong only to public role vocabulary 117",
+      "parser leaves actual argv unchanged 118",
+      "fixed output hides every allowlisted option value 118",
+      "codes belong only to public role vocabulary 118",
+      "parser leaves actual argv unchanged 119",
+      "fixed output hides every allowlisted option value 119",
+      "codes belong only to public role vocabulary 119",
+      "parser leaves actual argv unchanged 120",
+      "fixed output hides every allowlisted option value 120",
+      "codes belong only to public role vocabulary 120",
+      "parser leaves actual argv unchanged 121",
+      "fixed output hides every allowlisted option value 121",
+      "codes belong only to public role vocabulary 121",
+      "parser leaves actual argv unchanged 122",
+      "fixed output hides every allowlisted option value 122",
+      "codes belong only to public role vocabulary 122",
+      "unknown/program/path/value privacy 123",
+      "unknown/program/path/value privacy 124",
+      "unknown/program/path/value privacy 125",
+      "unknown/program/path/value privacy 126",
+      "unknown/program/path/value privacy 127",
+      "unknown/program/path/value privacy 128",
+      "unknown/program/path/value privacy 129",
+      "unknown/program/path/value privacy 130",
+      "parser leaves actual argv unchanged 131",
+      "fixed output hides every allowlisted option value 131",
+      "codes belong only to public role vocabulary 131",
+      "parser leaves actual argv unchanged 132",
+      "fixed output hides every allowlisted option value 132",
+      "codes belong only to public role vocabulary 132",
+      "parser leaves actual argv unchanged 133",
+      "fixed output hides every allowlisted option value 133",
+      "codes belong only to public role vocabulary 133",
+      "parser leaves actual argv unchanged 134",
+      "fixed output hides every allowlisted option value 134",
+      "codes belong only to public role vocabulary 134",
+      "parser leaves actual argv unchanged 135",
+      "fixed output hides every allowlisted option value 135",
+      "codes belong only to public role vocabulary 135",
+      "parser leaves actual argv unchanged 136",
+      "fixed output hides every allowlisted option value 136",
+      "codes belong only to public role vocabulary 136",
+      "parser leaves actual argv unchanged 137",
+      "fixed output hides every allowlisted option value 137",
+      "codes belong only to public role vocabulary 137",
+      "parser leaves actual argv unchanged 138",
+      "fixed output hides every allowlisted option value 138",
+      "codes belong only to public role vocabulary 138",
+      "parser leaves actual argv unchanged 139",
+      "fixed output hides every allowlisted option value 139",
+      "codes belong only to public role vocabulary 139",
+      "parser leaves actual argv unchanged 140",
+      "fixed output hides every allowlisted option value 140",
+      "codes belong only to public role vocabulary 140",
+      "parser leaves actual argv unchanged 141",
+      "fixed output hides every allowlisted option value 141",
+      "codes belong only to public role vocabulary 141",
+      "parser leaves actual argv unchanged 142",
+      "fixed output hides every allowlisted option value 142",
+      "codes belong only to public role vocabulary 142",
+      "parser leaves actual argv unchanged 143",
+      "fixed output hides every allowlisted option value 143",
+      "codes belong only to public role vocabulary 143",
+      "parser leaves actual argv unchanged 144",
+      "fixed output hides every allowlisted option value 144",
+      "codes belong only to public role vocabulary 144",
+      "parser leaves actual argv unchanged 145",
+      "fixed output hides every allowlisted option value 145",
+      "codes belong only to public role vocabulary 145",
+      "parser leaves actual argv unchanged 146",
+      "fixed output hides every allowlisted option value 146",
+      "codes belong only to public role vocabulary 146",
+      "parser leaves actual argv unchanged 147",
+      "fixed output hides every allowlisted option value 147",
+      "codes belong only to public role vocabulary 147",
+      "parser leaves actual argv unchanged 148",
+      "fixed output hides every allowlisted option value 148",
+      "codes belong only to public role vocabulary 148",
+      "parser leaves actual argv unchanged 149",
+      "fixed output hides every allowlisted option value 149",
+      "codes belong only to public role vocabulary 149",
+      "parser leaves actual argv unchanged 150",
+      "fixed output hides every allowlisted option value 150",
+      "codes belong only to public role vocabulary 150",
+      "parser leaves actual argv unchanged 151",
+      "fixed output hides every allowlisted option value 151",
+      "codes belong only to public role vocabulary 151",
+      "parser leaves actual argv unchanged 152",
+      "fixed output hides every allowlisted option value 152",
+      "codes belong only to public role vocabulary 152",
+      "parser leaves actual argv unchanged 153",
+      "fixed output hides every allowlisted option value 153",
+      "codes belong only to public role vocabulary 153",
+      "parser leaves actual argv unchanged 154",
+      "fixed output hides every allowlisted option value 154",
+      "codes belong only to public role vocabulary 154",
+      "unknown/program/path/value privacy 155",
+      "unknown/program/path/value privacy 156",
+      "unknown/program/path/value privacy 157",
+      "unknown/program/path/value privacy 158",
+      "unknown/program/path/value privacy 159",
+      "unknown/program/path/value privacy 160",
+      "unknown/program/path/value privacy 161",
+      "unknown/program/path/value privacy 162"
+    ],
+    "checkCount": 533,
+    "parserPrivacyCases": 163,
+    "newObservationMethods": [
+      "observer_details_fixture",
+      "test_command_diagnostic_closed_program_forms_and_argv_bounds",
+      "test_command_diagnostic_pg_consumes_variants_and_canonicalizes_duplicates",
+      "test_command_diagnostic_redis_arity_protects_values_and_stops_at_unknown",
+      "test_command_diagnostic_rejects_missing_values_and_trailing_unparsed_arguments",
+      "test_recognized_option_names_never_modify_actual_startup_policy",
+      "test_remaining_diagnostic_uses_actual_fields_without_command_substitution",
+      "test_v2_diagnostic_schema_rejects_private_or_inconsistent_facets",
+      "test_v2_rejects_impossible_matched_repeat_and_program_unknown_binary"
+    ],
+    "native": "NOT_RUN; local script native-only skips are not actual native acceptance"
+  },
+  "independentIntegrationEvidence": {
+    "activeTests": 110,
+    "activeSkips": 0,
+    "activeFailures": 0,
+    "activeErrors": 0,
+    "actualGeneratedInspectCases": [
+      {
+        "case": "default",
+        "exit": 0,
+        "closed": {
+          "schemaVersion": "pc.core-startup-inspection.v2",
+          "targetSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "runId": "1",
+          "startupAuthorized": false,
+          "runtimeRestored": false,
+          "exactCurrentMainReleased": false,
+          "registrationAccepted": false,
+          "dataRollbackClaimed": false,
+          "observationComplete": true,
+          "policyCompatible": true,
+          "profiles": [
+            {
+              "role": "postgres",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "redis",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "minio",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "api",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "web",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "caddy",
+              "compatible": true,
+              "reason": "MATCH"
+            }
+          ],
+          "commandDiagnostics": [
+            {
+              "role": "postgres",
+              "commandForm": "DEFAULT",
+              "optionCodes": [],
+              "parseCode": "NONE",
+              "commandParseComplete": true,
+              "repeatedOption": false,
+              "remainingChecksComplete": true,
+              "remainingRefusals": []
+            },
+            {
+              "role": "redis",
+              "commandForm": "DEFAULT",
+              "optionCodes": [],
+              "parseCode": "NONE",
+              "commandParseComplete": true,
+              "repeatedOption": false,
+              "remainingChecksComplete": true,
+              "remainingRefusals": []
+            }
+          ],
+          "journalSlot": "ABSENT",
+          "errorCode": "NONE"
+        },
+        "calls": [
+          "construct",
+          "attest",
+          "image",
+          "image",
+          "image",
+          "image",
+          "image",
+          "image",
+          "recheck",
+          "close"
+        ]
+      },
+      {
+        "case": "implied-options",
+        "exit": 0,
+        "closed": {
+          "schemaVersion": "pc.core-startup-inspection.v2",
+          "targetSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "runId": "1",
+          "startupAuthorized": false,
+          "runtimeRestored": false,
+          "exactCurrentMainReleased": false,
+          "registrationAccepted": false,
+          "dataRollbackClaimed": false,
+          "observationComplete": true,
+          "policyCompatible": false,
+          "profiles": [
+            {
+              "role": "postgres",
+              "compatible": false,
+              "reason": "SAVED_COMMAND_PROFILE"
+            },
+            {
+              "role": "redis",
+              "compatible": false,
+              "reason": "SAVED_COMMAND_PROFILE"
+            },
+            {
+              "role": "minio",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "api",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "web",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "caddy",
+              "compatible": true,
+              "reason": "MATCH"
+            }
+          ],
+          "commandDiagnostics": [
+            {
+              "role": "postgres",
+              "commandForm": "ENTRYPOINT_OPTIONS",
+              "optionCodes": [
+                "PG_WAL_LEVEL"
+              ],
+              "parseCode": "NONE",
+              "commandParseComplete": true,
+              "repeatedOption": false,
+              "remainingChecksComplete": true,
+              "remainingRefusals": []
+            },
+            {
+              "role": "redis",
+              "commandForm": "ENTRYPOINT_OPTIONS",
+              "optionCodes": [
+                "REDIS_REQUIREPASS"
+              ],
+              "parseCode": "NONE",
+              "commandParseComplete": true,
+              "repeatedOption": false,
+              "remainingChecksComplete": true,
+              "remainingRefusals": []
+            }
+          ],
+          "journalSlot": "ABSENT",
+          "errorCode": "NONE"
+        },
+        "calls": [
+          "construct",
+          "attest",
+          "image",
+          "image",
+          "image",
+          "image",
+          "image",
+          "image",
+          "recheck",
+          "close"
+        ]
+      },
+      {
+        "case": "absolute-program",
+        "exit": 0,
+        "closed": {
+          "schemaVersion": "pc.core-startup-inspection.v2",
+          "targetSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "runId": "1",
+          "startupAuthorized": false,
+          "runtimeRestored": false,
+          "exactCurrentMainReleased": false,
+          "registrationAccepted": false,
+          "dataRollbackClaimed": false,
+          "observationComplete": true,
+          "policyCompatible": false,
+          "profiles": [
+            {
+              "role": "postgres",
+              "compatible": false,
+              "reason": "SAVED_COMMAND_PROFILE"
+            },
+            {
+              "role": "redis",
+              "compatible": false,
+              "reason": "SAVED_COMMAND_PROFILE"
+            },
+            {
+              "role": "minio",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "api",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "web",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "caddy",
+              "compatible": true,
+              "reason": "MATCH"
+            }
+          ],
+          "commandDiagnostics": [
+            {
+              "role": "postgres",
+              "commandForm": "ABSOLUTE_ROLE_BINARY",
+              "optionCodes": [],
+              "parseCode": "NONE",
+              "commandParseComplete": true,
+              "repeatedOption": false,
+              "remainingChecksComplete": true,
+              "remainingRefusals": []
+            },
+            {
+              "role": "redis",
+              "commandForm": "ABSOLUTE_ROLE_BINARY",
+              "optionCodes": [
+                "REDIS_APPENDONLY"
+              ],
+              "parseCode": "NONE",
+              "commandParseComplete": true,
+              "repeatedOption": false,
+              "remainingChecksComplete": true,
+              "remainingRefusals": []
+            }
+          ],
+          "journalSlot": "ABSENT",
+          "errorCode": "NONE"
+        },
+        "calls": [
+          "construct",
+          "attest",
+          "image",
+          "image",
+          "image",
+          "image",
+          "image",
+          "image",
+          "recheck",
+          "close"
+        ]
+      },
+      {
+        "case": "unknown-program",
+        "exit": 0,
+        "closed": {
+          "schemaVersion": "pc.core-startup-inspection.v2",
+          "targetSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "runId": "1",
+          "startupAuthorized": false,
+          "runtimeRestored": false,
+          "exactCurrentMainReleased": false,
+          "registrationAccepted": false,
+          "dataRollbackClaimed": false,
+          "observationComplete": true,
+          "policyCompatible": false,
+          "profiles": [
+            {
+              "role": "postgres",
+              "compatible": false,
+              "reason": "SAVED_COMMAND_PROFILE"
+            },
+            {
+              "role": "redis",
+              "compatible": false,
+              "reason": "SAVED_COMMAND_PROFILE"
+            },
+            {
+              "role": "minio",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "api",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "web",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "caddy",
+              "compatible": true,
+              "reason": "MATCH"
+            }
+          ],
+          "commandDiagnostics": [
+            {
+              "role": "postgres",
+              "commandForm": "OTHER_PROGRAM",
+              "optionCodes": [],
+              "parseCode": "PROGRAM_UNKNOWN",
+              "commandParseComplete": false,
+              "repeatedOption": false,
+              "remainingChecksComplete": true,
+              "remainingRefusals": []
+            },
+            {
+              "role": "redis",
+              "commandForm": "OTHER_PROGRAM",
+              "optionCodes": [],
+              "parseCode": "PROGRAM_UNKNOWN",
+              "commandParseComplete": false,
+              "repeatedOption": false,
+              "remainingChecksComplete": true,
+              "remainingRefusals": []
+            }
+          ],
+          "journalSlot": "ABSENT",
+          "errorCode": "NONE"
+        },
+        "calls": [
+          "construct",
+          "attest",
+          "image",
+          "image",
+          "image",
+          "image",
+          "image",
+          "image",
+          "recheck",
+          "close"
+        ]
+      },
+      {
+        "case": "remaining-refusal",
+        "exit": 0,
+        "closed": {
+          "schemaVersion": "pc.core-startup-inspection.v2",
+          "targetSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "runId": "1",
+          "startupAuthorized": false,
+          "runtimeRestored": false,
+          "exactCurrentMainReleased": false,
+          "registrationAccepted": false,
+          "dataRollbackClaimed": false,
+          "observationComplete": true,
+          "policyCompatible": false,
+          "profiles": [
+            {
+              "role": "postgres",
+              "compatible": false,
+              "reason": "SAVED_COMMAND_PROFILE"
+            },
+            {
+              "role": "redis",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "minio",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "api",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "web",
+              "compatible": true,
+              "reason": "MATCH"
+            },
+            {
+              "role": "caddy",
+              "compatible": true,
+              "reason": "MATCH"
+            }
+          ],
+          "commandDiagnostics": [
+            {
+              "role": "postgres",
+              "commandForm": "ROLE_BINARY",
+              "optionCodes": [
+                "PG_WAL_LEVEL"
+              ],
+              "parseCode": "NONE",
+              "commandParseComplete": true,
+              "repeatedOption": false,
+              "remainingChecksComplete": true,
+              "remainingRefusals": [
+                "LOADER_LD_PRELOAD",
+                "SAVED_HEALTH_PROFILE"
+              ]
+            },
+            {
+              "role": "redis",
+              "commandForm": "DEFAULT",
+              "optionCodes": [],
+              "parseCode": "NONE",
+              "commandParseComplete": true,
+              "repeatedOption": false,
+              "remainingChecksComplete": true,
+              "remainingRefusals": []
+            }
+          ],
+          "journalSlot": "ABSENT",
+          "errorCode": "NONE"
+        },
+        "calls": [
+          "construct",
+          "attest",
+          "image",
+          "image",
+          "image",
+          "image",
+          "image",
+          "image",
+          "recheck",
+          "close"
+        ]
+      },
+      {
+        "case": "recheck-failure",
+        "exit": 1,
+        "closed": {
+          "schemaVersion": "pc.core-startup-inspection.v2",
+          "targetSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "runId": "1",
+          "startupAuthorized": false,
+          "runtimeRestored": false,
+          "exactCurrentMainReleased": false,
+          "registrationAccepted": false,
+          "dataRollbackClaimed": false,
+          "observationComplete": false,
+          "policyCompatible": false,
+          "profiles": [],
+          "commandDiagnostics": [],
+          "journalSlot": "UNAVAILABLE",
+          "errorCode": "OBSERVATION_UNAVAILABLE"
+        },
+        "calls": [
+          "construct",
+          "attest",
+          "image",
+          "image",
+          "image",
+          "image",
+          "image",
+          "image",
+          "recheck",
+          "close"
+        ]
+      },
+      {
+        "case": "close-failure",
+        "exit": 1,
+        "closed": {
+          "schemaVersion": "pc.core-startup-inspection.v2",
+          "targetSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "runId": "1",
+          "startupAuthorized": false,
+          "runtimeRestored": false,
+          "exactCurrentMainReleased": false,
+          "registrationAccepted": false,
+          "dataRollbackClaimed": false,
+          "observationComplete": false,
+          "policyCompatible": false,
+          "profiles": [],
+          "commandDiagnostics": [],
+          "journalSlot": "UNAVAILABLE",
+          "errorCode": "OBSERVATION_UNAVAILABLE"
+        },
+        "calls": [
+          "construct",
+          "attest",
+          "image",
+          "image",
+          "image",
+          "image",
+          "image",
+          "image",
+          "recheck",
+          "close"
+        ]
+      }
+    ],
+    "boundary": "All source/host/image/stat operations are local fakes; no host acceptance or grant."
+  },
+  "independentSchemaCounterexamples": {
+    "initialCandidate": "Both accepted before correction; findings sent to author.",
+    "current": [
+      {
+        "case": "compatible-redis-repeat",
+        "result": "REJECTED"
+      },
+      {
+        "case": "role-binary-program-unknown",
+        "result": "REJECTED"
+      }
+    ]
+  },
+  "independentShellSyntax": {
+    "allParsed": true,
+    "blocks": [
+      {
+        "job": "contract",
+        "step": "Prepare only the pinned public Compose parser on the runner",
+        "bytes": 907
+      },
+      {
+        "job": "contract",
+        "step": "Verify stopped recovery controllers and shared production contracts",
+        "bytes": 368
+      },
+      {
+        "job": "contract",
+        "step": "Pin runner Docker 28.5.1 for the production API wire contract",
+        "bytes": 2800
+      },
+      {
+        "job": "contract",
+        "step": "Exercise actual isolated PostgreSQL Docker wire and owned cleanup",
+        "bytes": 897
+      },
+      {
+        "job": "recover",
+        "step": "Bind accepted exact main and evidence journal",
+        "bytes": 7153
+      },
+      {
+        "job": "recover",
+        "step": "Resolve protected key and pinned VPS identity",
+        "bytes": 3183
+      },
+      {
+        "job": "recover",
+        "step": "Restore only the accepted historical core",
+        "bytes": 141780
+      },
+      {
+        "job": "recover",
+        "step": "Cleanup protected transport",
+        "bytes": 54
+      },
+      {
+        "job": "recover",
+        "step": "Publish bounded terminal evidence",
+        "bytes": 3020
+      }
+    ]
+  },
+  "priorCompleteTrackedHistoryAnchor": "wp2; all WP1/WP2 document bytes remain untouched",
+  "gates": "PRIVATE source CLEAN only. Metadata complete private plus actual-published-head independent review, substantive/security/genuine latest readiness/manual expected-SHA acceptance FIRST; then exact source3 ordinary child/newPR/actual whole-head review/NEW38+110+24+real PostgreSQL wire1=173 PASS0SKIP/security/latest genuine readiness/manual acceptance. No host action until separate finite one-read-only disposition. Native173 NOT_RUN. No startup-policy change, bootstrap/retry/reset or progress credit."
+}
+```
