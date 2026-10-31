@@ -989,12 +989,12 @@ if (branch === 'fix/pc-crop-docker-headroom-rollover-4637') {
       const helper = 'scripts/test_production_stopped_runtime_headroom.py';
       const queuePath = 'docs/platform-v7/execution-queue.md';
       const beforeBlob = 'cb71a92fed47bed533147891ca453a432ea29945';
-      const afterBlob = "181a1ad878ab60fb8bcc93aa70d3551a43170e9a";
-      const afterBytes = 366484;
-      const afterSha256 = "d29f795c1519e1aafed773d6c1e098e773d402065cfd7b083360ec499cf1127a";
-      const acceptedStateBlob = "2ab611ff489c80abf9db6a53b817f65442b99a9a";
-      const acceptedQueueBlob = "8708257cce1d9be27c731118d84fb080f1fb5998";
-      const expectedPurpose = {"owner":"OWNER_AUTHORIZED_SESSION","ownerDecision":"https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6539009857","authorityBaseExactMain":"58bbc762c0e781ac4df33a8004d4221e1f91f7e5","sourceBranch":"fix/gekta-docker-diagnostic-route-20260927","beforeBlob":"cb71a92fed47bed533147891ca453a432ea29945","afterBlob":"181a1ad878ab60fb8bcc93aa70d3551a43170e9a","bytes":366484,"sha256":"d29f795c1519e1aafed773d6c1e098e773d402065cfd7b083360ec499cf1127a","reviewSha256":"3254a76f7643b7c21ddbf877457588a7ac84430757fbf44942bf009b9bfa318e","sourceOnly":true,"filesystemWriteAuthorized":false,"productionAcceptance":false,"limits":"One frozen existing-workflow PLAN and separate APPLY source only. Bounded raw table metadata export disclosed; actual write needs fresh plan/backup/unused intent/finite OWNER lock. No move/shrink/format/restore/startup."};
+      const afterBlob = "58b0f775fee27d78cafd320fff8c43c085e8fb0e";
+      const afterBytes = 367037;
+      const afterSha256 = "23dfc7758b8cfe21d4e5a6effcb995cc1250ec4be1340fdb9f1ba6b8e0d4a2dd";
+      const acceptedStateBlob = "2e2774e4daa332a7c26fa4b9078785ec629c9bf8";
+      const acceptedQueueBlob = "8bc68d3c73ebcb72b963032ad0877b3b42c877a8";
+      const expectedPurpose = {"owner":"OWNER_AUTHORIZED_SESSION","ownerDecision":"https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6539741383","authorityBaseExactMain":"58bbc762c0e781ac4df33a8004d4221e1f91f7e5","sourceBranch":"fix/gekta-docker-diagnostic-route-20260927","beforeBlob":"cb71a92fed47bed533147891ca453a432ea29945","afterBlob":"58b0f775fee27d78cafd320fff8c43c085e8fb0e","bytes":367037,"sha256":"23dfc7758b8cfe21d4e5a6effcb995cc1250ec4be1340fdb9f1ba6b8e0d4a2dd","reviewSha256":"df202dc3398b27671c91a93862e5f2367cbc6e4c6980f0bfec4845c04767d62d","sourceOnly":true,"filesystemWriteAuthorized":false,"productionAcceptance":false,"limits":"One frozen existing-workflow PLAN and separate APPLY source only. Bounded raw table metadata export disclosed; actual write needs fresh plan/backup/unused intent/finite OWNER lock. No move/shrink/format/restore/startup."};
       if (!/^[a-f0-9]{40}$/u.test(afterBlob) || !/^[a-f0-9]{64}$/u.test(afterSha256) ||
           !Number.isSafeInteger(afterBytes) || afterBytes <= 254318 ||
           !/^[a-f0-9]{40}$/u.test(acceptedStateBlob) || !/^[a-f0-9]{40}$/u.test(acceptedQueueBlob) ||
@@ -1032,10 +1032,12 @@ if (branch === 'fix/pc-crop-docker-headroom-rollover-4637') {
       exactEntry(headRef, workflow, afterBlob);
       const before = execFileSync('git', ['show', `${baseRef}:${workflow}`], { maxBuffer: 1024 * 1024 });
       const after = execFileSync('git', ['show', `${headRef}:${workflow}`], { maxBuffer: 1024 * 1024 });
+      // Only the deterministic fixture clock line may differ inside the retained prefix.
+      const normalizedPrefix = Buffer.from(after.toString('utf8').replace("                  with patch.object(g.time, 'monotonic', return_value=0.0): k = g.Kernel()\n", "                  k = g.Kernel()\n"));
       if (before.length !== 254318 || createHash('sha256').update(before).digest('hex') !==
           '3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e' ||
           after.length !== afterBytes || createHash('sha256').update(after).digest('hex') !== afterSha256 ||
-          !after.subarray(0, before.length).equals(before)) fail('SOURCE_CONTENT');
+          !normalizedPrefix.subarray(0, before.length).equals(before)) fail('SOURCE_CONTENT');
       scopes = [workflow];
     // ROOT_GROWTH_EXACT_SOURCE_END
     } else
