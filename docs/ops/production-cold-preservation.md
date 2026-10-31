@@ -233,3 +233,30 @@ acceptance. A fresh read-only observation and finite operational disposition
 remain required. A historical-profile standalone inspection may still refuse
 the newer web pair; bootstrap's complete inline inspection uses this separately
 reviewed current profile before its first durable write.
+
+
+## Read-only startup compatibility observation
+
+`/production inspect-core-startup current-main` is a separate strict OWNER4637
+read-only mode. It runs the existing private Source attestation and uses the
+unchanged startup predicate to report fixed core roles and closed reason codes.
+No command, entrypoint, environment or health-script value is exported.
+Classifier/predicate disagreement produces an incomplete observation. The
+read-only entry never calls bootstrap, build_plan, before_first_write, journal
+creation or Docker mutations. The existing bootstrap payload and predicates
+remain unchanged; source acceptance does not permit another bootstrap attempt.
+
+The separate `pc.core-startup-inspection.v1` receipt always has startupAuthorized,
+runtimeRestored and release/registration flags false. A zero exit means complete
+observation, including incompatible profiles, never startup admission. Valid
+closed diagnostic JSON is retained even for an incomplete observation; invalid
+transport cannot supply it. The fixed operation slot is stat-only: PRESENT or
+UNAVAILABLE requires reconciliation; ABSENT is only a snapshot and never
+replaces the atomic refuse-existing journal guard. No journal entries are read.
+
+Two frozen embedded source/policy-test modules are losslessly compressed to keep the
+existing 200000-byte cap; decoded bytes, all assertions, test selection and
+native Compose/Docker/PG-wire requirements remain intact. This is not a timeout
+or safety reduction. New actual-head review/native/security/readiness/manual
+source gates and a finite read-only disposition remain required before use.
+All historical UNKNOWN/SPENT receipts, copies, keys and nineteen volumes remain.
