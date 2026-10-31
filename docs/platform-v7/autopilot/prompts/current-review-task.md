@@ -5345,3 +5345,601 @@ Complete read-only command characterization source admission. The tracked body r
   "gates": "PRIVATE source CLEAN only. Metadata complete private plus actual-published-head independent review, substantive/security/genuine latest readiness/manual expected-SHA acceptance FIRST; then exact source3 ordinary child/newPR/actual whole-head review/NEW38+110+24+real PostgreSQL wire1=173 PASS0SKIP/security/latest genuine readiness/manual acceptance. No host action until separate finite one-read-only disposition. Native173 NOT_RUN. No startup-policy change, bootstrap/retry/reset or progress credit."
 }
 ```
+
+
+## AP1 — API-only release source-preflight proposal — 2026-11-01
+
+This is a literal review proposal, not an executable-source admission or host grant. It preserves all earlier review bytes and every other repository file. No active queue/current step, state, scope, owner, release gate, registration manifest or score changes. Controlled-pilot / pre-integration.
+
+### Measured reason for this route
+
+Authenticated compare of observed API a6784252a57a8a5e14f231bc18a64d67ab0fd274 to main fe7107f010b0108c6d3767f7e67dd8d59c97bae7 gives337commits and66changed files, below the300-file ceiling. Independent directory reads at BOTH exact refs return apps/api/prisma tree952477180a96fbf27c10d3a051044b544120fdde. An API-only release may therefore avoid the full-stack migration-service prerequisite, subject to actual current DB compatibility. This is source equality only; it is not applied-schema evidence.
+
+Existing role-eligibility API-only executor24882813f59507d32d071acf6e6f0a4b1a6f056f is reusable but its #4922 workflow cannot currently pass:14of16 registration protected blobs match baseline d0fe9bfc275321e0768ec86ce55e82c958e07880; two differ. scripts/check-production-p0-first-customer-acceptance.mjs changed3827336825b35410b8c6ddec4f44c2c6ea514467 to0a3317b9b1da8f9f7e0a545cb987fa57f636357f; .github/workflows/production-p0-first-customer-acceptance.yml changed4b5b1b0d54ae99975f9449163376075f4e7da82d to9eb27d492084220d7d1da5c52caabb1f98def23e. Do not rewrite the protected baseline or invoke that command to manufacture a green release. Its optional digest, separate concurrency, limited readiness and absent19-reserve proof also require a properly governed new controller. Autodiscover is unsuitable because it still invokes the full-stack migration path.
+
+### Exact proposal and authority limits
+
+```json
+{
+  "schema": "pc.api-only-source-preflight-proposal.v1",
+  "id": "AP1-20261101",
+  "owner": "ACCOUNT_1_CORE",
+  "basisExactMain": "fe7107f010b0108c6d3767f7e67dd8d59c97bae7",
+  "proposalOnly": true,
+  "runnableSourceInstallationAuthorized": false,
+  "productionInvocationAuthorized": false,
+  "deploymentAuthorized": false,
+  "stateOrScopeExpansion": false,
+  "masterCredit": 0,
+  "candidateSourcePins": [
+    {
+      "path": "scripts/release/verify-api-schema-source-parity.mjs",
+      "mode": "100644",
+      "beforeBlob": null,
+      "afterBlob": "b0a5c61ae649d10d12a6b2ce5778b0497d0c326b",
+      "sha256": "84da6347e8ced2f9b78766c94ec9f5b050c3a1a6b955dc7e20b5faa86e330edf",
+      "bytes": 5553
+    },
+    {
+      "path": "scripts/release/test-api-schema-source-parity.mjs",
+      "mode": "100644",
+      "beforeBlob": null,
+      "afterBlob": "251400154716db3c48e0572f76a7e30fe15f393f",
+      "sha256": "821529f50fa62e974d7e9fd57f9f462d9b54db562050f913fc3a0583fd7a8cf2",
+      "bytes": 9995
+    }
+  ],
+  "sourcePatchSha256": "0ca33c1fdc9bfe3f5bdc833e28d65d5ee4dc146f18cf3c980975cdb505df6e78",
+  "independentPrivateSourceReview": {
+    "identity": "/root/backup_prerequisite_review",
+    "classification": "CLEAN_SOURCE_ONLY",
+    "sha256": "9b41c048f27af1cc9b39b50cc5dcd614f8c55a6cdf8124767060fefa70b5e7c9",
+    "suppliedRealGitTests": 27,
+    "ownAdverseCases": 5,
+    "nativeOrPublishedHeadReview": false
+  },
+  "truthLimits": [
+    "Committed Git objects only; SOURCE_PARITY_ONLY is not runtime DB compatibility, full PRE_RELEASE or deploy eligibility.",
+    "HEAD/origin refs do not prove the supplied baseline is the live canonical API. Future protected controller must bind actual container/image/revision and public API authority.",
+    "Working tree/index is NOT_ATTESTED. Existing trusted CI checkout/cleanliness gates remain separate and cannot be replaced by this module.",
+    "No network fetch, Docker, DB, credentials, environment resolution, config mutation, grant, backup, host write or release command is added.",
+    "Current api-schema-source parity does not prove applied migration checksums or absence of pre-existing DB drift.",
+    "Legacy #4922 registration manifest and its two current mismatches remain unchanged; do not bypass it.",
+    "Existing migration audit admission stays readOnly/materializationfalse. No source ref is self-admitted by this proposal."
+  ],
+  "requiredNext": [
+    "Independent actual published whole-document review and every applicable metadata native/security/readiness/manual gate.",
+    "Separately accepted exact two-path source admission and native real-Git tests before installing either future runnable path.",
+    "Separate complete API-only controller purpose reusing accepted executor, mandatory immutable digest, current DB compatibility, canonical host lock, safe rollback, resource budget and required preservation/backup evidence.",
+    "Only after actual source/native/PRE_RELEASE acceptance may a new finite coordinated host release be considered. Keep UI/registration/mail/MFA/13cabinet/BANK/FGIS/DR acceptance open."
+  ]
+}
+```
+
+### Full two-file candidate patch (not installed at these paths)
+
+```diff
+diff --git a/scripts/release/verify-api-schema-source-parity.mjs b/scripts/release/verify-api-schema-source-parity.mjs
+new file mode 100644
+index 0000000..b0a5c61ae649d10d12a6b2ce5778b0497d0c326b
+--- /dev/null
++++ b/scripts/release/verify-api-schema-source-parity.mjs
+@@ -0,0 +1,117 @@
++#!/usr/bin/env node
++// Source comparison only. This module cannot authorize a production operation.
++import { spawnSync } from 'node:child_process';
++import { createHash } from 'node:crypto';
++import { resolve } from 'node:path';
++import { fileURLToPath } from 'node:url';
++
++const SHA = /^[0-9a-f]{40}$/;
++const PRISMA_ROOT = 'apps/api/prisma/';
++const MAX_BYTES = 4 * 1024 * 1024;
++const MAX_ENTRIES = 20000;
++const utf8 = new TextDecoder('utf-8', { fatal: true });
++const gitEnv = {
++  PATH: '/usr/bin:/bin', LC_ALL: 'C',
++  GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null',
++  GIT_NO_REPLACE_OBJECTS: '1', GIT_GRAFT_FILE: '/dev/null', GIT_TERMINAL_PROMPT: '0',
++  GIT_NO_LAZY_FETCH: '1', GIT_ALLOW_PROTOCOL: '', GIT_PROTOCOL_FROM_USER: '0',
++};
++
++class SourceError extends Error {}
++function requireCondition(condition, code) {
++  if (!condition) throw new SourceError(code);
++}
++
++function git(repository, args) {
++  const result = spawnSync('/usr/bin/git', ['--no-optional-locks',
++    '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null',
++    '-c', 'protocol.allow=never', ...args], {
++    cwd: repository, env: gitEnv, encoding: 'buffer',
++    timeout: 4000, killSignal: 'SIGKILL', maxBuffer: MAX_BYTES,
++    stdio: ['ignore', 'pipe', 'pipe'],
++  });
++  requireCondition(!result.error && result.status === 0 && !result.signal,
++    'GIT_OBSERVATION_FAILED');
++  requireCondition(result.stdout.length <= MAX_BYTES && result.stderr.length <= MAX_BYTES,
++    'GIT_OUTPUT_BOUND');
++  return result.stdout;
++}
++
++function identity(repository, ref) {
++  return utf8.decode(git(repository, ['rev-parse', '--verify', ref])).trim();
++}
++
++function readTree(repository, commit) {
++  const raw = git(repository, ['ls-tree', '--full-tree', '-r', '-z', commit, '--']);
++  requireCondition(raw.length > 0 && raw.at(-1) === 0, 'TREE_FRAMING');
++  const records = utf8.decode(raw).split('\0');
++  records.pop();
++  requireCondition(records.length <= MAX_ENTRIES, 'TREE_ENTRY_BOUND');
++  const entries = new Map();
++  for (const record of records) {
++    const tab = record.indexOf('\t');
++    requireCondition(tab > 0, 'TREE_FRAMING');
++    const header = record.slice(0, tab).match(/^(100644|100755|120000|160000) (blob|commit) ([0-9a-f]{40})$/);
++    const path = record.slice(tab + 1);
++    requireCondition(header && path && path.length <= 4096 && !entries.has(path), 'TREE_ENTRY');
++    requireCondition(!path.startsWith('/') && !path.split('/').some(p => !p || p === '.' || p === '..'), 'TREE_PATH');
++    requireCondition(header[1] !== '160000' && header[2] === 'blob', 'SUBMODULE_NOT_ADMITTED');
++    entries.set(path, { path, mode: header[1], sha: header[3] });
++  }
++  return entries;
++}
++
++function protectedSet(entries) {
++  const selected = [...entries.values()].filter(entry =>
++    entry.path.startsWith(PRISMA_ROOT) || /\.(sql|prisma)$/i.test(entry.path));
++  requireCondition(entries.has(`${PRISMA_ROOT}schema.prisma`), 'PRISMA_SCHEMA_MISSING');
++  requireCondition(selected.some(entry => entry.path.startsWith(`${PRISMA_ROOT}migrations/`) && /\/migration\.sql$/.test(entry.path)), 'MIGRATION_SET_MISSING');
++  requireCondition(selected.every(entry => entry.mode === '100644'), 'SCHEMA_MODE_NOT_REGULAR');
++  selected.sort((a, b) => Buffer.compare(Buffer.from(a.path), Buffer.from(b.path)));
++  return selected;
++}
++
++function checkoutIdentity(repository, target) {
++  requireCondition(identity(repository, 'HEAD^{commit}') === target, 'CHECKOUT_TARGET_MISMATCH');
++  requireCondition(identity(repository, 'refs/remotes/origin/main^{commit}') === target, 'CURRENT_MAIN_MISMATCH');
++}
++
++export function verifySourceParity({ repository, baseline, target }) {
++  const receipt = {
++    schema: 'pc.api-schema-source-parity.v1',
++    result: 'HOLD', reason: 'UNVERIFIED',
++    source_parity: 'NOT_PROVEN',
++    checkout_worktree: 'NOT_ATTESTED',
++    runtime_baseline_binding: 'CALLER_REQUIRED_NOT_PROVEN',
++    database_compatibility: 'NOT_PROVEN',
++    deployment_authorized: false,
++  };
++  try {
++    requireCondition(typeof repository === 'string' && repository.length > 0, 'REPOSITORY_REQUIRED');
++    requireCondition(typeof baseline === 'string' && SHA.test(baseline) &&
++      typeof target === 'string' && SHA.test(target), 'EXACT_COMMIT_REQUIRED');
++    requireCondition(identity(repository, `${baseline}^{commit}`) === baseline &&
++      identity(repository, `${target}^{commit}`) === target, 'COMMIT_IDENTITY');
++    checkoutIdentity(repository, target);
++    git(repository, ['merge-base', '--is-ancestor', baseline, target]);
++    const before = protectedSet(readTree(repository, baseline));
++    const after = protectedSet(readTree(repository, target));
++    requireCondition(JSON.stringify(before) === JSON.stringify(after), 'SCHEMA_SOURCE_CHANGED');
++    checkoutIdentity(repository, target);
++    return { ...receipt, result: 'SOURCE_PARITY_ONLY', reason: 'NONE',
++      source_parity: 'IDENTICAL', baseline_sha: baseline, target_sha: target,
++      schema_entries: after.length,
++      schema_manifest_sha256: createHash('sha256').update(JSON.stringify(after)).digest('hex'),
++    };
++  } catch (error) {
++    return { ...receipt, reason: error instanceof SourceError ? error.message : 'OBSERVATION_UNAVAILABLE' };
++  }
++}
++
++if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
++  const args = process.argv.slice(2);
++  const result = verifySourceParity({ repository: process.cwd(),
++    baseline: args.length === 2 ? args[0] : undefined, target: args[1] });
++  process.stdout.write(`${JSON.stringify(result)}\n`);
++  process.exitCode = result.result === 'SOURCE_PARITY_ONLY' ? 0 : 1;
++}
+diff --git a/scripts/release/test-api-schema-source-parity.mjs b/scripts/release/test-api-schema-source-parity.mjs
+new file mode 100644
+index 0000000..251400154716db3c48e0572f76a7e30fe15f393f
+--- /dev/null
++++ b/scripts/release/test-api-schema-source-parity.mjs
+@@ -0,0 +1,203 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync, symlinkSync, existsSync } from 'node:fs';
++import { tmpdir } from 'node:os';
++import { join } from 'node:path';
++import { spawnSync } from 'node:child_process';
++import { verifySourceParity } from './verify-api-schema-source-parity.mjs';
++
++function fixture(t) {
++  const dir = mkdtempSync(join(tmpdir(), 'pc-schema-source-'));
++  t.after(() => rmSync(dir, { recursive: true, force: true }));
++  const git = (...args) => {
++    const result = spawnSync('/usr/bin/git', args, { cwd: dir, encoding: 'utf8',
++      env: { PATH: '/usr/bin:/bin', LC_ALL: 'C', GIT_CONFIG_NOSYSTEM: '1',
++        GIT_CONFIG_GLOBAL: '/dev/null', GIT_AUTHOR_NAME: 'Fixture', GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
++        GIT_COMMITTER_NAME: 'Fixture', GIT_COMMITTER_EMAIL: 'fixture@example.invalid' } });
++    assert.equal(result.status, 0, result.stderr);
++    return result.stdout.trim();
++  };
++  const write = (path, text) => {
++    mkdirSync(join(dir, path, '..'), { recursive: true });
++    writeFileSync(join(dir, path), text);
++  };
++  const commit = () => {
++    git('add', '-A'); git('commit', '-qm', 'fixture');
++    const sha = git('rev-parse', 'HEAD');
++    git('update-ref', 'refs/remotes/origin/main', sha);
++    return sha;
++  };
++  git('init', '-q', '-b', 'main');
++  write('apps/api/prisma/schema.prisma', 'model Fixture { id String @id }\n');
++  write('apps/api/prisma/migrations/20260101000000_fixture/migration.sql', 'SELECT 1;\n');
++  write('infra/postgres/bootstrap.sql', 'SELECT 2;\n');
++  write('apps/api/src/feature.ts', 'export const feature = 1;\n');
++  const baseline = commit();
++  write('apps/api/src/feature.ts', 'export const feature = 2;\n');
++  let target = commit();
++  const check = () => verifySourceParity({ repository: dir, baseline, target });
++  const change = (path, text) => { write(path, text); target = commit(); };
++  const mutate = callback => { callback(); target = commit(); };
++  return { dir, git, write, commit, baseline, check, change, mutate, get target() { return target; } };
++}
++
++function held(receipt, code) {
++  assert.equal(receipt.result, 'HOLD');
++  assert.equal(receipt.reason, code);
++  assert.equal(receipt.source_parity, 'NOT_PROVEN');
++  assert.equal(receipt.database_compatibility, 'NOT_PROVEN');
++  assert.equal(receipt.deployment_authorized, false);
++}
++
++test('real Git API source change proves source equality only and leaves refs/index untouched', t => {
++  const f = fixture(t);
++  const refs = f.git('show-ref');
++  const result = f.check();
++  assert.equal(result.result, 'SOURCE_PARITY_ONLY');
++  assert.equal(result.source_parity, 'IDENTICAL');
++  assert.equal(result.schema_entries, 3);
++  assert.match(result.schema_manifest_sha256, /^[0-9a-f]{64}$/);
++  assert.equal(result.runtime_baseline_binding, 'CALLER_REQUIRED_NOT_PROVEN');
++  assert.equal(result.database_compatibility, 'NOT_PROVEN');
++  assert.equal(result.deployment_authorized, false);
++  assert.equal(result.checkout_worktree, 'NOT_ATTESTED');
++  assert.equal(f.git('status', '--porcelain'), '');
++  assert.equal(f.git('show-ref'), refs);
++});
++
++for (const [name, path, text] of [
++  ['changed migration', 'apps/api/prisma/migrations/20260101000000_fixture/migration.sql', 'SELECT 9;'],
++  ['new migration', 'apps/api/prisma/migrations/20260201000000_new/migration.sql', 'SELECT 1;'],
++  ['changed schema', 'apps/api/prisma/schema.prisma', 'model Different { id String @id }'],
++  ['external SQL', 'infra/postgres/bootstrap.sql', 'ALTER ROLE fixture NOLOGIN;'],
++  ['new uppercase SQL with a newline name', 'infra/extra\nprivate.SQL', 'SELECT 3;'],
++  ['non-SQL authority under Prisma root', 'apps/api/prisma/migration_lock.toml', 'provider="postgresql"'],
++]) {
++  test(`rejects ${name}`, t => {
++    const f = fixture(t); f.change(path, text); held(f.check(), 'SCHEMA_SOURCE_CHANGED');
++  });
++}
++
++test('rejects deleted external SQL', t => {
++  const f = fixture(t);
++  f.mutate(() => rmSync(join(f.dir, 'infra/postgres/bootstrap.sql')));
++  held(f.check(), 'SCHEMA_SOURCE_CHANGED');
++});
++test('rejects an executable-mode SQL change', t => {
++  const f = fixture(t);
++  f.mutate(() => chmodSync(join(f.dir, 'infra/postgres/bootstrap.sql'), 0o755));
++  held(f.check(), 'SCHEMA_MODE_NOT_REGULAR');
++});
++test('rejects a symlink replacing protected SQL', t => {
++  const f = fixture(t);
++  f.mutate(() => {
++    rmSync(join(f.dir, 'infra/postgres/bootstrap.sql'));
++    symlinkSync('/outside/source.sql', join(f.dir, 'infra/postgres/bootstrap.sql'));
++  });
++  held(f.check(), 'SCHEMA_MODE_NOT_REGULAR');
++});
++test('rejects missing schema even if other files remain', t => {
++  const f = fixture(t);
++  f.mutate(() => rmSync(join(f.dir, 'apps/api/prisma/schema.prisma')));
++  held(f.check(), 'PRISMA_SCHEMA_MISSING');
++});
++test('rejects missing complete migration set', t => {
++  const f = fixture(t);
++  f.mutate(() => rmSync(join(f.dir, 'apps/api/prisma/migrations'), { recursive: true }));
++  held(f.check(), 'MIGRATION_SET_MISSING');
++});
++test('rejects target/main drift', t => {
++  const f = fixture(t); f.git('update-ref', 'refs/remotes/origin/main', f.baseline);
++  held(f.check(), 'CURRENT_MAIN_MISMATCH');
++});
++test('rejects a different checkout', t => {
++  const f = fixture(t); f.git('checkout', '-q', '--detach', f.baseline);
++  held(f.check(), 'CHECKOUT_TARGET_MISMATCH');
++});
++for (const [name, path] of [['tracked', 'apps/api/src/feature.ts'], ['untracked', 'unreviewed.txt']]) {
++  test(`does not attest ${name} working files from committed-tree equality`, t => {
++    const f = fixture(t); f.write(path, 'dirty');
++    const receipt = f.check();
++    assert.equal(receipt.result, 'SOURCE_PARITY_ONLY');
++    assert.equal(receipt.checkout_worktree, 'NOT_ATTESTED');
++    assert.equal(receipt.deployment_authorized, false);
++  });
++}
++for (const flag of ['--assume-unchanged', '--skip-worktree']) {
++  test(`does not mistake ${flag} for working-tree proof`, t => {
++    const f = fixture(t);
++    f.git('update-index', flag, 'apps/api/prisma/schema.prisma');
++    f.write('apps/api/prisma/schema.prisma', 'dirty working schema');
++    const receipt = f.check();
++    assert.equal(receipt.result, 'SOURCE_PARITY_ONLY');
++    assert.equal(receipt.checkout_worktree, 'NOT_ATTESTED');
++    assert.equal(receipt.database_compatibility, 'NOT_PROVEN');
++    assert.equal(receipt.deployment_authorized, false);
++  });
++}
++test('does not execute a repository-local fsmonitor hook', t => {
++  const f = fixture(t);
++  f.git('config', 'core.fsmonitor', '.git/fsmonitor-canary');
++  writeFileSync(join(f.dir, '.git/fsmonitor-canary'), '#!/bin/sh\ntouch .git/fsmonitor-executed\nprintf "0\\0"\n', { mode: 0o755 });
++  assert.equal(f.check().result, 'SOURCE_PARITY_ONLY');
++  assert.equal(existsSync(join(f.dir, '.git/fsmonitor-executed')), false);
++});
++test('does not execute attribute clean filters', t => {
++  const f = fixture(t);
++  f.change('.gitattributes', 'apps/api/prisma/schema.prisma filter=review\n');
++  f.git('config', 'filter.review.clean', 'touch .git/filter-executed; cat');
++  f.write('apps/api/prisma/schema.prisma', 'changed working tree bytes');
++  assert.equal(f.check().result, 'SOURCE_PARITY_ONLY');
++  assert.equal(existsSync(join(f.dir, '.git/filter-executed')), false);
++});
++test('missing promisor object cannot launch a transport or lazy fetch', t => {
++  const f = fixture(t);
++  const tree = f.git('rev-parse', `${f.baseline}^{tree}`);
++  writeFileSync(join(f.dir, '.git/lazy-fetch-canary'), '#!/bin/sh\ntouch .git/lazy-fetch-executed\nexit 1\n', { mode: 0o755 });
++  f.git('config', 'extensions.partialClone', 'origin');
++  f.git('config', 'remote.origin.promisor', 'true');
++  f.git('config', 'remote.origin.url', 'ext::.git/lazy-fetch-canary');
++  f.git('config', 'protocol.ext.allow', 'always');
++  rmSync(join(f.dir, '.git/objects', tree.slice(0, 2), tree.slice(2)));
++  held(f.check(), 'GIT_OBSERVATION_FAILED');
++  assert.equal(existsSync(join(f.dir, '.git/lazy-fetch-executed')), false);
++});
++test('rejects an unrelated baseline commit with the same schema', t => {
++  const f = fixture(t);
++  f.git('checkout', '-q', '--orphan', 'unrelated');
++  f.write('unrelated.txt', 'other history');
++  const other = f.commit();
++  f.git('checkout', '-q', 'main');
++  f.git('update-ref', 'refs/remotes/origin/main', f.target);
++  held(verifySourceParity({ repository: f.dir, baseline: other, target: f.target }), 'GIT_OBSERVATION_FAILED');
++});
++test('replacement refs cannot hide changed schema', t => {
++  const f = fixture(t);
++  f.change('apps/api/prisma/schema.prisma', 'changed schema');
++  f.git('replace', f.target, f.baseline);
++  held(f.check(), 'SCHEMA_SOURCE_CHANGED');
++});
++test('rejects a submodule which could conceal schema authorities', t => {
++  const f = fixture(t);
++  mkdirSync(join(f.dir, 'hidden'));
++  f.git('update-index', '--add', '--cacheinfo', `160000,${f.baseline},hidden`);
++  f.git('commit', '-qm', 'submodule');
++  f.git('update-ref', 'refs/remotes/origin/main', f.git('rev-parse', 'HEAD'));
++  held(verifySourceParity({ repository: f.dir, baseline: f.baseline, target: f.git('rev-parse', 'HEAD') }), 'SUBMODULE_NOT_ADMITTED');
++});
++test('rejects option-like refs and abbreviated commits', t => {
++  const f = fixture(t);
++  for (const baseline of ['main', f.baseline.slice(0, 7), '--upload-pack=secret', f.baseline.toUpperCase()]) {
++    held(verifySourceParity({ repository: f.dir, baseline, target: f.target }), 'EXACT_COMMIT_REQUIRED');
++  }
++});
++test('cannot use a blob as a commit', t => {
++  const f = fixture(t);
++  const blob = f.git('rev-parse', 'HEAD:apps/api/prisma/schema.prisma');
++  held(verifySourceParity({ repository: f.dir, baseline: blob, target: f.target }), 'GIT_OBSERVATION_FAILED');
++});
++test('missing repository has a fixed non-sensitive failure result', () => {
++  const receipt = verifySourceParity({ repository: '/missing/private-dsn-canary', baseline: 'a'.repeat(40), target: 'b'.repeat(40) });
++  held(receipt, 'GIT_OBSERVATION_FAILED');
++  assert.equal(JSON.stringify(receipt).includes('private-dsn-canary'), false);
++});
+```
+
+### Independent private whole-source review
+
+```json
+{
+  "schema": "pc.independent-private-source-review.v1",
+  "created_at_utc": "2026-10-31T21:43:11.301462+00:00",
+  "reviewer": "Separate session agent /root/backup_prerequisite_review; independent from implementation author; root source files never edited",
+  "verdict": "CLEAN_SOURCE_ONLY",
+  "files": [
+    {
+      "path": "scripts/release/verify-api-schema-source-parity.mjs",
+      "bytes": 5553,
+      "sha256": "84da6347e8ced2f9b78766c94ec9f5b050c3a1a6b955dc7e20b5faa86e330edf"
+    },
+    {
+      "path": "scripts/release/test-api-schema-source-parity.mjs",
+      "bytes": 9995,
+      "sha256": "821529f50fa62e974d7e9fd57f9f462d9b54db562050f913fc3a0583fd7a8cf2"
+    }
+  ],
+  "review_coverage": [
+    "Read all 15,548 actual candidate bytes in both files and rechecked hashes after executing tests.",
+    "Reviewed exact full-SHA input restrictions, commit identity/ancestry and repeated local HEAD/origin ref equality; no remote freshness or runtime baseline identity inferred.",
+    "Reviewed NUL-framed UTF-8 tree parsing, complete tree walk with 4MiB output and 20,000-entry limits, path validation, submodule rejection and protected regular100644 mode requirement.",
+    "Reviewed equality of full apps/api/prisma root and case-insensitive global .sql/.prisma entries by exact path/mode/blob, with deterministic manifest hashing.",
+    "Reviewed fixed /usr/bin/git argv/minimal environment, per-child timeout/output bound, replacement/graft suppression, no optional Git locks and disabled external transport/lazy-fetch capabilities.",
+    "No status/worktree/index observation remains. Dirty tracked/untracked bytes and index flags cannot be mistaken for clean checkout evidence: checkout_worktree=NOT_ATTESTED is explicit in every receipt.",
+    "Receipt preserves runtime_baseline_binding=CALLER_REQUIRED_NOT_PROVEN, database_compatibility=NOT_PROVEN, deployment_authorized=false. Off-host source proof cannot become release or schema deployment authority."
+  ],
+  "findings": [],
+  "resolved_findings": [
+    {
+      "id": "R1",
+      "resolution": "git status removed; fixed fsmonitor/hooks configuration; original independent fsmonitor and same-size clean-filter canaries no longer execute."
+    },
+    {
+      "id": "R2",
+      "resolution": "Contract narrowed to committed object equality. Every receipt explicitly leaves checkout_worktree NOT_ATTESTED; own dirty assume-unchanged/skip-worktree specimens retain this limitation."
+    },
+    {
+      "id": "R3",
+      "resolution": "GIT_NO_LAZY_FETCH=1, empty GIT_ALLOW_PROTOCOL, GIT_PROTOCOL_FROM_USER=0 and protocol.allow=never prevent the original promisor/missing-tree ext helper canary. The observation returns HOLD without transport execution."
+    }
+  ],
+  "independent_checks": {
+    "candidate_suite": {
+      "tests": 27,
+      "pass": 27,
+      "fail": 0,
+      "skipped": 0,
+      "native": false
+    },
+    "additional_real_git_adverse": {
+      "cases": 5,
+      "fsmonitor_hook_executed": false,
+      "clean_filter_hook_executed": false,
+      "assume_unchanged_worktree_attested": false,
+      "skip_worktree_attested": false,
+      "missing_promisor_object_helper_executed": false,
+      "missing_object_outcome": "HOLD/GIT_OBSERVATION_FAILED"
+    },
+    "raw_adverse_results": {
+      "same_original_cases": {
+        "root": "/tmp/pc-schema-review-zzMdDy",
+        "filter": {
+          "executed": false,
+          "result": {
+            "schema": "pc.api-schema-source-parity.v1",
+            "result": "SOURCE_PARITY_ONLY",
+            "reason": "NONE",
+            "source_parity": "IDENTICAL",
+            "checkout_worktree": "NOT_ATTESTED",
+            "runtime_baseline_binding": "CALLER_REQUIRED_NOT_PROVEN",
+            "database_compatibility": "NOT_PROVEN",
+            "deployment_authorized": false,
+            "baseline_sha": "6322ff11fef7b3b404027740999c3d27dc273a0a",
+            "target_sha": "1493cc1bdcc5f197e651ea8d2c090d7c89263051",
+            "schema_entries": 2,
+            "schema_manifest_sha256": "ecb153484ed29e8b057e99cd4a30933950a17c3d626fbcfe0d710204306e35b7"
+          }
+        },
+        "fsmonitor": {
+          "executed": false,
+          "result": {
+            "schema": "pc.api-schema-source-parity.v1",
+            "result": "SOURCE_PARITY_ONLY",
+            "reason": "NONE",
+            "source_parity": "IDENTICAL",
+            "checkout_worktree": "NOT_ATTESTED",
+            "runtime_baseline_binding": "CALLER_REQUIRED_NOT_PROVEN",
+            "database_compatibility": "NOT_PROVEN",
+            "deployment_authorized": false,
+            "baseline_sha": "5ff44453801cc6a0e6098589f860abae6d96c844",
+            "target_sha": "c9a2e00306ead2d30c3cec050659f0c2163f7247",
+            "schema_entries": 2,
+            "schema_manifest_sha256": "ecb153484ed29e8b057e99cd4a30933950a17c3d626fbcfe0d710204306e35b7"
+          }
+        },
+        "assumeUnchanged": {
+          "status": "",
+          "actual": "UNCOMMITTED DIFFERENT SCHEMA\n",
+          "result": {
+            "schema": "pc.api-schema-source-parity.v1",
+            "result": "SOURCE_PARITY_ONLY",
+            "reason": "NONE",
+            "source_parity": "IDENTICAL",
+            "checkout_worktree": "NOT_ATTESTED",
+            "runtime_baseline_binding": "CALLER_REQUIRED_NOT_PROVEN",
+            "database_compatibility": "NOT_PROVEN",
+            "deployment_authorized": false,
+            "baseline_sha": "6322ff11fef7b3b404027740999c3d27dc273a0a",
+            "target_sha": "ccd610fc97e567d76fc0c211c0c4383bbb9485d0",
+            "schema_entries": 2,
+            "schema_manifest_sha256": "ecb153484ed29e8b057e99cd4a30933950a17c3d626fbcfe0d710204306e35b7"
+          }
+        },
+        "skipWorktree": {
+          "status": "",
+          "actual": "UNCOMMITTED DIFFERENT SCHEMA\n",
+          "result": {
+            "schema": "pc.api-schema-source-parity.v1",
+            "result": "SOURCE_PARITY_ONLY",
+            "reason": "NONE",
+            "source_parity": "IDENTICAL",
+            "checkout_worktree": "NOT_ATTESTED",
+            "runtime_baseline_binding": "CALLER_REQUIRED_NOT_PROVEN",
+            "database_compatibility": "NOT_PROVEN",
+            "deployment_authorized": false,
+            "baseline_sha": "6322ff11fef7b3b404027740999c3d27dc273a0a",
+            "target_sha": "ccd610fc97e567d76fc0c211c0c4383bbb9485d0",
+            "schema_entries": 2,
+            "schema_manifest_sha256": "ecb153484ed29e8b057e99cd4a30933950a17c3d626fbcfe0d710204306e35b7"
+          }
+        }
+      },
+      "original_lazy_case": {
+        "root": "/tmp/pc-schema-review-X4IIJU",
+        "lazy": {
+          "executed": false,
+          "result": {
+            "schema": "pc.api-schema-source-parity.v1",
+            "result": "HOLD",
+            "reason": "GIT_OBSERVATION_FAILED",
+            "source_parity": "NOT_PROVEN",
+            "checkout_worktree": "NOT_ATTESTED",
+            "runtime_baseline_binding": "CALLER_REQUIRED_NOT_PROVEN",
+            "database_compatibility": "NOT_PROVEN",
+            "deployment_authorized": false
+          }
+        }
+      }
+    }
+  },
+  "evidence_files": {
+    "final-tests.tap": {
+      "bytes": 1821,
+      "sha256": "2fc72153489c0c662218add6aea58b1c0a5167f1f7cc2ab68d5f26894d96b9c3"
+    },
+    "adverse-v2.mjs": {
+      "bytes": 3405,
+      "sha256": "acf49cb307bdef63ffd3ba99da4dae5450080bbb04d7ec044a02cfdb61f40efc"
+    },
+    "lazy-adverse-v2.mjs": {
+      "bytes": 2198,
+      "sha256": "b6a26169beeab910e5c82fa1d80dd6d06907c07bccd40b9a767414a1c4bc9ccb"
+    },
+    "final-adverse-results.json": {
+      "bytes": 2785,
+      "sha256": "afe5628ce9745c3dca991073bd2a6ddada5a7a877a7c0b16d2f1f0056c997470"
+    },
+    "final-lazy-results.json": {
+      "bytes": 450,
+      "sha256": "4a2e12bded9810c044199c2c45c2eb33b7561723d5f6a28c6520a0219bda77ec"
+    }
+  },
+  "limitations": [
+    "PRIVATE source-only review; no actual published source SHA or GitHub/native review approval.",
+    "Local real Git fixtures, not native current-main production acceptance.",
+    "Git object equality does not prove applied migrations, effective DB constraints/principals, lifecycle effects, worktree cleanliness, canonical image identity, backup/restore, data integrity, runtime topology, registration, Founder13 or external BANK/FGIS acceptance.",
+    "No source publication, host/config/DB/grant/deployment authority or MASTER credit.",
+    "No root source modifications; reviewer wrote only its own scratch review/evidence files."
+  ]
+}
+```
+
+### Validation and unresolved work
+
+Root ran all27 real-Git regressions on Node24.22.1/Git2.51.1:27PASS,0FAIL,0SKIP. Independent reviewer ran those27 and5 own adverse cases; fsmonitor/filter/promisor helpers stay unexecuted, dirty/indexflag observations stay NOT_ATTESTED, missing objects stay HOLD. Initial findings were fixed before these final pins: local Git hooks/filter side effects, unproved working-tree cleanliness and implicit partial-clone lazy fetch. Whole corrected source review is PRIVATE CLEAN_SOURCE_ONLY, not a native GitHub review or source admission.
+
+No current-main real-repository invocation, production DB/schema proof, backup restoration, API-only controller/native deployment or live acceptance has occurred. Overall5/100 unchanged. Original19volumes, copies/keys/reserves/journals and all historical UNKNOWN/SPENT operations remain. User payment refusal remains effective; no payment/new cost/monitoring or host window is created.
