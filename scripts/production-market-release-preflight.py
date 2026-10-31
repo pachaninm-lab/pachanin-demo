@@ -31,26 +31,48 @@ from typing import Any
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 CHECKSUM = re.compile(r"[0-9a-f]{64}\Z")
 NAME = re.compile(r"(?:0001_postgresql_initial|[0-9]{8,14}_[A-Za-z0-9_]{1,180})\Z")
+MIGRATION_FAILURE_CODES = frozenset({
+    'NOT_OBSERVED', 'METADATA_BAD_FORMAT', 'PERMISSION_DENIED', 'LEDGER_MISSING',
+    'READ_ONLY_NOT_PROVEN', 'QUERY_FAILED', 'INVENTORY_LIMIT', 'LEGACY_INITIAL_MARKER_PRESENT',
+})
 DOMAIN = "xn----8sbjf4befbjgs9b.xn--p1ai"
 API_ORIGIN = "http://api:3001/api"
 MAX_BYTES = 1024 * 1024
 DB_PROGRAM = r'''
 const { PrismaClient } = require('@prisma/client');
 const p = new PrismaClient();
+let phase = 'READ_ONLY_SETUP';
+let failureCode = 'READ_ONLY_NOT_PROVEN';
 (async () => {
   const result = await p.$transaction(async tx => {
     await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
     await tx.$executeRawUnsafe("SET LOCAL statement_timeout = '8s'");
     const mode = await tx.$queryRawUnsafe("SELECT current_setting('transaction_read_only') AS value");
     if (mode[0]?.value !== 'on') throw new Error('READ_ONLY_REQUIRED');
+    failureCode = 'QUERY_FAILED';
+    phase = 'ROLE_QUERY';
     const roles = await tx.$queryRawUnsafe('SELECT rolsuper, rolbypassrls FROM pg_catalog.pg_roles WHERE rolname=current_user');
+    phase = 'LEDGER_QUERY';
     const rows = await tx.$queryRawUnsafe('SELECT migration_name, checksum, finished_at IS NOT NULL AS finished, rolled_back_at IS NOT NULL AS rolled_back FROM public._prisma_migrations ORDER BY migration_name, started_at LIMIT 5001');
-    if (rows.length > 5000) throw new Error('INVENTORY_LIMIT');
+    phase = 'LEDGER_BOUNDS';
+    if (rows.length > 5000) {
+      failureCode = 'INVENTORY_LIMIT';
+      throw new Error('INVENTORY_LIMIT');
+    }
+    phase = 'SCHEMA_QUERY';
     const schema = await tx.$queryRawUnsafe("SELECT to_regclass('auction.public_market_lot_cards') IS NOT NULL AS projection_present, to_regprocedure('auction.list_public_market_lot_cards(integer)') IS NOT NULL AS reader_present");
     return { read_only: true, restricted_role: roles.length === 1 && !roles[0].rolsuper && !roles[0].rolbypassrls, rows, schema: schema[0] };
   }, { timeout: 12000, maxWait: 3000 });
   process.stdout.write(JSON.stringify(result));
-})().catch(() => { process.exitCode = 1; }).finally(async () => { await p.$disconnect(); });
+})().catch((error) => {
+  if (phase === 'LEDGER_QUERY') {
+    const pgCode = typeof error?.meta?.code === 'string' ? error.meta.code
+      : typeof error?.code === 'string' ? error.code : '';
+    if (pgCode === '42501') failureCode = 'PERMISSION_DENIED';
+    if (pgCode === '42P01') failureCode = 'LEDGER_MISSING';
+  }
+  process.stdout.write(JSON.stringify({ status: 'NOT_PROVEN', failure_code: failureCode }));
+}).finally(async () => { await p.$disconnect(); });
 '''
 
 
@@ -244,28 +266,48 @@ def caddy_assessment(config: dict[str, Any] | None, web: dict[str, Any]) -> str:
 
 
 def migration_metadata(raw: str | None) -> dict[str, Any]:
+    if raw is None:
+        return {'status': 'NOT_PROVEN', 'failure_code': 'NOT_OBSERVED'}
     try:
         v = json.loads(raw or 'null')
+        if v == {'status': 'NOT_PROVEN'}:
+            return v
+        if isinstance(v, dict) and v.get('status') == 'NOT_PROVEN':
+            if (set(v) != {'status', 'failure_code'} or not isinstance(v.get('failure_code'), str)
+                    or v['failure_code'] not in MIGRATION_FAILURE_CODES):
+                raise ValueError()
+            return {'status': 'NOT_PROVEN', 'failure_code': v['failure_code']}
+        if isinstance(v, dict) and v.get('read_only') is False:
+            return {'status': 'NOT_PROVEN', 'failure_code': 'READ_ONLY_NOT_PROVEN'}
         if not isinstance(v, dict) or v.get('read_only') is not True or type(v.get('restricted_role')) is not bool:
             raise ValueError()
         rows = v.get('rows')
         schema = v.get('schema')
         if not isinstance(rows, list) or len(rows) > 5000 or not isinstance(schema, dict):
+            if isinstance(rows, list) and len(rows) > 5000:
+                return {'status': 'NOT_PROVEN', 'failure_code': 'INVENTORY_LIMIT'}
             raise ValueError()
-        safe = []
+        legacy_initial_marker = False
         for r in rows:
-            if not isinstance(r, dict) or not isinstance(r.get('migration_name'), str) or not isinstance(r.get('checksum'), str) or not NAME.fullmatch(r['migration_name']) or not CHECKSUM.fullmatch(r['checksum']):
+            if not isinstance(r, dict) or not isinstance(r.get('migration_name'), str) or not isinstance(r.get('checksum'), str) or not NAME.fullmatch(r['migration_name']):
                 raise ValueError()
             if type(r.get('finished')) is not bool or type(r.get('rolled_back')) is not bool:
                 raise ValueError()
-            safe.append({k: r[k] for k in ('migration_name', 'checksum', 'finished', 'rolled_back')})
+            if not CHECKSUM.fullmatch(r['checksum']):
+                if r['migration_name'] == '0001_postgresql_initial' and r['checksum'] == 'grainflow_v3_initial_postgresql':
+                    legacy_initial_marker = True
+                else:
+                    raise ValueError()
         if any(type(schema.get(k)) is not bool for k in ('projection_present', 'reader_present')):
             raise ValueError()
+        if legacy_initial_marker:
+            return {'status': 'NOT_PROVEN', 'failure_code': 'LEGACY_INITIAL_MARKER_PRESENT'}
+        safe = [{k: r[k] for k in ('migration_name', 'checksum', 'finished', 'rolled_back')} for r in rows]
         return {'status': 'OBSERVED_READ_ONLY', 'restricted_role': v['restricted_role'], 'rows': safe,
                 'failed_unresolved': sum(not r['finished'] and not r['rolled_back'] for r in safe),
                 'projection_present': schema['projection_present'], 'reader_present': schema['reader_present']}
     except (ValueError, TypeError, KeyError):
-        return {'status': 'NOT_PROVEN'}
+        return {'status': 'NOT_PROVEN', 'failure_code': 'METADATA_BAD_FORMAT'}
 
 
 def backups(root: Path) -> dict[str, Any]:
@@ -367,7 +409,13 @@ def validate_report(value: Any, target: str) -> dict[str, Any]:
     elif set(backup) != {'artifact', 'archive_catalog', 'restore_verification'} or backup['archive_catalog'] != 'NOT_CHECKED':
         raise ValueError('REPORT_BACKUP_ABSENT')
     inventory = value['migration_inventory']
-    if inventory != {'status': 'NOT_PROVEN'}:
+    if isinstance(inventory, dict) and inventory.get('status') == 'NOT_PROVEN':
+        if inventory != {'status': 'NOT_PROVEN'} and (
+                set(inventory) != {'status', 'failure_code'}
+                or not isinstance(inventory.get('failure_code'), str)
+                or inventory['failure_code'] not in MIGRATION_FAILURE_CODES):
+            raise ValueError('REPORT_DB_DIAGNOSTIC_SCHEMA')
+    else:
         expected_keys = {'status', 'restricted_role', 'rows', 'failed_unresolved', 'projection_present', 'reader_present'}
         if not isinstance(inventory, dict) or set(inventory) != expected_keys or inventory.get('status') != 'OBSERVED_READ_ONLY':
             raise ValueError('REPORT_DB_SCHEMA')

@@ -133,15 +133,15 @@ class Metadata(unittest.TestCase):
         self.assertEqual(r['status'],'OBSERVED_READ_ONLY'); self.assertNotIn('do-not-print',json.dumps(r))
     def test_read_only_required(self):
         v=migrations(); v['read_only']=False
-        self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN'})
+        self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN','failure_code':'READ_ONLY_NOT_PROVEN'})
     def test_malformed_types_fail_closed(self):
         for key,value in (('restricted_role',1),('rows','invalid'),('schema',None)):
             with self.subTest(key=key):
                 v=migrations(); v[key]=value
-                self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN'})
+                self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN','failure_code':'METADATA_BAD_FORMAT'})
     def test_numeric_checksum_rejected(self):
         v=migrations(); v['rows'][0]['checksum']=int('1'*64)
-        self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN'})
+        self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN','failure_code':'METADATA_BAD_FORMAT'})
     def test_failed_and_rolled_back_separated(self):
         v=migrations(); v['rows'][0]['finished']=False
         self.assertEqual(m.migration_metadata(json.dumps(v))['failed_unresolved'],1)
@@ -151,18 +151,189 @@ class Metadata(unittest.TestCase):
         for key,value in (('migration_name','secret\ntext'),('checksum','wrong'),('finished',1)):
             with self.subTest(key=key):
                 v=migrations(); v['rows'][0][key]=value
-                self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN'})
+                self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN','failure_code':'METADATA_BAD_FORMAT'})
     def test_missing_or_invalid_json(self):
         for value in (None,'null','[]','bad'):
-            self.assertEqual(m.migration_metadata(value),{'status':'NOT_PROVEN'})
+            code='NOT_OBSERVED' if value is None else 'METADATA_BAD_FORMAT'
+            self.assertEqual(m.migration_metadata(value),{'status':'NOT_PROVEN','failure_code':code})
     def test_inventory_bounded(self):
         v=migrations(); v['rows']*=5001
-        self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN'})
+        self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN','failure_code':'INVENTORY_LIMIT'})
     def test_sql_read_only_before_queries(self):
         self.assertLess(m.DB_PROGRAM.index('SET TRANSACTION READ ONLY'),m.DB_PROGRAM.index('tx.$queryRawUnsafe'))
         for forbidden in ('INSERT INTO','DELETE FROM','ALTER TABLE','DROP TABLE','UPDATE auth.'):
             self.assertNotIn(forbidden,m.DB_PROGRAM)
         self.assertIn('statement_timeout',m.DB_PROGRAM)
+
+
+class MigrationInventoryDiagnostics(unittest.TestCase):
+    INITIAL = '0001_postgresql_initial'
+    MARKER = 'grainflow_v3_initial_postgresql'
+    CODES = {'NOT_OBSERVED', 'METADATA_BAD_FORMAT', 'PERMISSION_DENIED', 'LEDGER_MISSING',
+             'READ_ONLY_NOT_PROVEN', 'QUERY_FAILED', 'INVENTORY_LIMIT', 'LEGACY_INITIAL_MARKER_PRESENT'}
+
+    def legacy_payload(self):
+        value = migrations()
+        value['rows'][0].update(migration_name=self.INITIAL, checksum=self.MARKER)
+        return value
+
+    def test_failure_code_set_and_legacy_singleton_are_bounded(self):
+        self.assertEqual(m.MIGRATION_FAILURE_CODES, self.CODES)
+        self.assertEqual(m.migration_metadata('{"status":"NOT_PROVEN"}'), {'status': 'NOT_PROVEN'})
+        for code in self.CODES:
+            with self.subTest(code=code):
+                failure = {'status': 'NOT_PROVEN', 'failure_code': code}
+                self.assertEqual(m.migration_metadata(json.dumps(failure)), failure)
+                self.assertEqual(m.source_lineage(failure, Path('.')), {'status': 'NOT_PROVEN'})
+
+    def test_malformed_failure_payloads_never_publish_values(self):
+        failures = [{'status': 'NOT_PROVEN', 'failure_code': code}
+                    for code in (None, True, 1, ['QUERY_FAILED'], 'PRIVATE_DSN_SENTINEL', 'QUERY_FAILED\n')]
+        failures += [{'status': 'NOT_PROVEN', 'failure_code': 'QUERY_FAILED', 'raw': 'PRIVATE_DSN_SENTINEL'},
+                     {'status': 'PASS', 'failure_code': 'QUERY_FAILED'}]
+        for value in failures:
+            with self.subTest(value=value):
+                result = m.migration_metadata(json.dumps(value))
+                self.assertEqual(result, {'status': 'NOT_PROVEN', 'failure_code': 'METADATA_BAD_FORMAT'})
+                self.assertNotIn('PRIVATE_DSN_SENTINEL', json.dumps(result))
+
+    def test_exact_legacy_marker_is_a_whole_inventory_hold(self):
+        payload = self.legacy_payload()
+        for companion in ([], [{'migration_name': self.INITIAL,
+                               'checksum': '2d3708fa99e4ee855c7b9fe69dc4e4506a317ffed34330e3955f5e995d35ffdd',
+                               'finished': True, 'rolled_back': False}]):
+            with self.subTest(companion=bool(companion)):
+                value = copy.deepcopy(payload)
+                value['rows'] += companion
+                result = m.migration_metadata(json.dumps(value))
+                self.assertEqual(result, {'status': 'NOT_PROVEN', 'failure_code': 'LEGACY_INITIAL_MARKER_PRESENT'})
+                self.assertNotIn('rows', result)
+                self.assertNotIn(self.MARKER, json.dumps(result))
+                self.assertEqual(m.source_lineage(result, Path('.')), {'status': 'NOT_PROVEN'})
+
+    def test_legacy_shape_variants_and_other_bad_rows_stay_bad_format(self):
+        for field, bad in (('migration_name', '0002_postgresql_initial'),
+                           ('migration_name', '20260913143000_public_market_lot_projection'),
+                           ('checksum', self.MARKER + '_extra'), ('checksum', self.MARKER.upper()),
+                           ('checksum', 'PRIVATE_DSN_SENTINEL'), ('finished', 1)):
+            with self.subTest(field=field, bad=bad):
+                value = self.legacy_payload()
+                value['rows'][0][field] = bad
+                self.assertEqual(m.migration_metadata(json.dumps(value)),
+                                 {'status': 'NOT_PROVEN', 'failure_code': 'METADATA_BAD_FORMAT'})
+        value = self.legacy_payload()
+        value['rows'] += [{'migration_name': 'PRIVATE_DSN_SENTINEL', 'checksum': 'b' * 64,
+                          'finished': True, 'rolled_back': False}]
+        self.assertEqual(m.migration_metadata(json.dumps(value)),
+                         {'status': 'NOT_PROVEN', 'failure_code': 'METADATA_BAD_FORMAT'})
+
+    def test_real_sha_drift_remains_distinct_from_the_legacy_marker(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            folder = root / self.INITIAL
+            folder.mkdir()
+            (folder / 'migration.sql').write_text('CREATE TABLE baseline (id integer);\n')
+            value = migrations()
+            value['rows'][0].update(migration_name=self.INITIAL, checksum='f' * 64)
+            inventory = m.migration_metadata(json.dumps(value))
+            self.assertEqual(inventory['status'], 'OBSERVED_READ_ONLY')
+            self.assertNotIn('failure_code', inventory)
+            comparison = m.source_lineage(inventory, root)
+            self.assertEqual(comparison['status'], 'COMPARED_NOT_MIGRATED')
+            self.assertEqual(comparison['checksum_mismatch'], [self.INITIAL])
+
+    def execute_db_program(self, mode):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            module = root / 'node_modules/@prisma/client'
+            module.mkdir(parents=True)
+            trace = root / 'trace.json'
+            module.joinpath('index.js').write_text(r'''
+const fs=require('node:fs');
+const mode=process.env.SYNTHETIC_DB_MODE;
+const calls=[];
+const error=code=>Object.assign(new Error('PRIVATE_DSN_PRINCIPAL_SENTINEL'),
+                               {code:'P2010',meta:{code}});
+const row={migration_name:'20260913143000_public_market_lot_projection',
+           checksum:'b'.repeat(64),finished:true,rolled_back:false};
+class PrismaClient {
+  async $transaction(callback,options) {
+    if(JSON.stringify(options)!=='{"timeout":12000,"maxWait":3000}')throw error('XX000');
+    return callback({
+      async $executeRawUnsafe(sql) {
+        calls.push(['execute',sql]);
+        if(mode==='setup_failure')throw error('42501');
+      },
+      async $queryRawUnsafe(sql) {
+        calls.push(['query',sql]);
+        if(sql.includes("current_setting('transaction_read_only')"))return [{value:mode==='mode_off'?'off':'on'}];
+        if(sql.includes('pg_catalog.pg_roles')) {
+          if(mode==='role_permission')throw error('42501');
+          return [{rolsuper:false,rolbypassrls:false}];
+        }
+        if(sql.includes('public._prisma_migrations')) {
+          if(mode==='ledger_permission')throw error('42501');
+          if(mode==='ledger_missing')throw error('42P01');
+          if(mode==='ledger_other')throw error('XX000');
+          if(mode==='ledger_direct_permission')throw Object.assign(error('XX000'),{meta:undefined,code:'42501'});
+          if(mode==='oversize')return Array.from({length:5001},()=>row);
+          return [row];
+        }
+        if(sql.includes('to_regclass')) {
+          if(mode==='schema_missing')throw error('42P01');
+          return [{projection_present:true,reader_present:true}];
+        }
+        throw error('XX000');
+      }
+    });
+  }
+  async $disconnect(){fs.writeFileSync(process.env.SYNTHETIC_DB_TRACE,JSON.stringify(calls));}
+}
+module.exports={PrismaClient};
+''')
+            env = dict(os.environ, SYNTHETIC_DB_MODE=mode, SYNTHETIC_DB_TRACE=str(trace))
+            result = subprocess.run(['node', '-'], input=m.DB_PROGRAM, cwd=root, env=env,
+                                    capture_output=True, text=True, timeout=5)
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(result.stderr, '')
+            self.assertNotIn('PRIVATE_DSN_PRINCIPAL_SENTINEL', result.stdout)
+            return json.loads(result.stdout), json.loads(trace.read_text())
+
+    def test_actual_node_program_keeps_the_existing_read_only_sql_sequence(self):
+        value, calls = self.execute_db_program('ok')
+        self.assertTrue(value['read_only'])
+        self.assertTrue(value['restricted_role'])
+        self.assertEqual([kind for kind, _ in calls], ['execute', 'execute', 'query', 'query', 'query', 'query'])
+        self.assertEqual(calls[0], ['execute', 'SET TRANSACTION READ ONLY'])
+        self.assertEqual(calls[1], ['execute', "SET LOCAL statement_timeout = '8s'"])
+        self.assertIn("current_setting('transaction_read_only')", calls[2][1])
+        self.assertIn('pg_catalog.pg_roles', calls[3][1])
+        self.assertIn('public._prisma_migrations', calls[4][1])
+        self.assertIn('LIMIT 5001', calls[4][1])
+        self.assertIn('to_regclass', calls[5][1])
+        self.assertLessEqual(len(m.DB_PROGRAM.encode()), 4096)
+
+    def test_ledger_errors_are_classified_without_raw_error_values(self):
+        for mode, code in (('ledger_permission', 'PERMISSION_DENIED'),
+                           ('ledger_direct_permission', 'PERMISSION_DENIED'),
+                           ('ledger_missing', 'LEDGER_MISSING'),
+                           ('ledger_other', 'QUERY_FAILED')):
+            with self.subTest(mode=mode):
+                result, calls = self.execute_db_program(mode)
+                self.assertEqual(result, {'status': 'NOT_PROVEN', 'failure_code': code})
+                self.assertEqual(len(calls), 5)
+                self.assertEqual(m.migration_metadata(json.dumps(result)), result)
+
+    def test_identical_pg_codes_outside_the_ledger_stage_are_not_mislabelled(self):
+        for mode, code, count in (('setup_failure', 'READ_ONLY_NOT_PROVEN', 1),
+                                  ('mode_off', 'READ_ONLY_NOT_PROVEN', 3),
+                                  ('role_permission', 'QUERY_FAILED', 4),
+                                  ('schema_missing', 'QUERY_FAILED', 6),
+                                  ('oversize', 'INVENTORY_LIMIT', 5)):
+            with self.subTest(mode=mode):
+                result, calls = self.execute_db_program(mode)
+                self.assertEqual(result, {'status': 'NOT_PROVEN', 'failure_code': code})
+                self.assertEqual(len(calls), count)
 
 
 class HistoricalMigrationLedger(unittest.TestCase):
@@ -206,7 +377,7 @@ class HistoricalMigrationLedger(unittest.TestCase):
             with self.subTest(name=name):
                 payload = migrations()
                 payload['rows'][0]['migration_name'] = name
-                self.assertEqual(m.migration_metadata(json.dumps(payload)), {'status': 'NOT_PROVEN'})
+                self.assertEqual(m.migration_metadata(json.dumps(payload)), {'status': 'NOT_PROVEN', 'failure_code': 'METADATA_BAD_FORMAT'})
                 with tempfile.TemporaryDirectory() as td:
                     root = Path(td)
                     accepted = self.source_and_ledger(root)
@@ -228,7 +399,7 @@ class HistoricalMigrationLedger(unittest.TestCase):
             with self.subTest(name=name):
                 payload = migrations()
                 payload['rows'][0]['migration_name'] = name
-                self.assertEqual(m.migration_metadata(json.dumps(payload)), {'status': 'NOT_PROVEN'})
+                self.assertEqual(m.migration_metadata(json.dumps(payload)), {'status': 'NOT_PROVEN', 'failure_code': 'METADATA_BAD_FORMAT'})
 
     def test_initial_checksum_mismatch_stays_visible(self):
         with tempfile.TemporaryDirectory() as td:
@@ -402,6 +573,50 @@ class Evidence(unittest.TestCase):
     def test_missing_inventory_no_source_claim(self):
         self.assertEqual(m.source_lineage({'status':'NOT_PROVEN'},Path('.')),{'status':'NOT_PROVEN'})
 
+
+
+class MigrationDiagnosticEvidence(unittest.TestCase):
+    def test_old_and_new_not_proven_objects_remain_non_authorizing(self):
+        for inventory in [{'status': 'NOT_PROVEN'}] + [
+                {'status': 'NOT_PROVEN', 'failure_code': code} for code in MigrationInventoryDiagnostics.CODES]:
+            with self.subTest(inventory=inventory):
+                value = report()
+                value['migration_inventory'] = inventory
+                self.assertEqual(m.validate_report(value, SHA), value)
+                self.assertIs(value['deployment_authorized'], False)
+                self.assertEqual(value['production_mutation'], 'NONE')
+                self.assertEqual(value['live_acceptance'], 'NOT_PERFORMED')
+                self.assertEqual(m.source_lineage(inventory, Path('.')), {'status': 'NOT_PROVEN'})
+
+    def test_failure_diagnostics_have_exact_keys_and_closed_enum(self):
+        invalid = [{'status': 'NOT_PROVEN', 'failure_code': code}
+                   for code in (True, 1, None, [], 'PRIVATE_DSN_SENTINEL', 'QUERY_FAILED\n')]
+        invalid += [{'status': 'NOT_PROVEN', 'failure_code': 'QUERY_FAILED', 'raw': 'PRIVATE_DSN_SENTINEL'},
+                    {'status': 'PASS', 'failure_code': 'QUERY_FAILED'}]
+        for inventory in invalid:
+            with self.subTest(inventory=inventory):
+                value = report()
+                value['migration_inventory'] = inventory
+                with self.assertRaises(ValueError):
+                    m.validate_report(value, SHA)
+
+    def test_failure_code_is_forbidden_on_observed_inventory(self):
+        value = report()
+        value['migration_inventory']['failure_code'] = 'QUERY_FAILED'
+        with self.assertRaises(ValueError):
+            m.validate_report(value, SHA)
+
+    def test_diagnostic_code_does_not_relax_authority_flags(self):
+        for inventory in ({'status': 'NOT_PROVEN'},
+                          {'status': 'NOT_PROVEN', 'failure_code': 'LEGACY_INITIAL_MARKER_PRESENT'}):
+            for key, bad in (('deployment_authorized', True), ('production_mutation', 'ALLOWED'),
+                             ('live_acceptance', 'PASS'), ('protected_values', 'PUBLISHED')):
+                with self.subTest(inventory=inventory, key=key):
+                    value = report()
+                    value['migration_inventory'] = inventory
+                    value[key] = bad
+                    with self.assertRaises(ValueError):
+                        m.validate_report(value, SHA)
 
 
 class WorkflowContract(unittest.TestCase):
