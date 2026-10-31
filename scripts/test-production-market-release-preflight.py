@@ -470,6 +470,215 @@ class WorkflowContract(unittest.TestCase):
                 self.assertEqual(result.stderr,'MARKET_PREFLIGHT_FAILURE='+classification+'\n')
 
 
+class WorkflowFailureClassification(unittest.TestCase):
+    """Execute actual preflight gates locally; every external command is stubbed."""
+    @classmethod
+    def setUpClass(cls):
+        cls.workflow = (PATH.parents[1] / '.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml').read_text()
+        diagnostic = cls.workflow.split('\n  diagnostic:\n', 1)[1]
+        cls.run_body = textwrap.dedent(diagnostic.split('        run: |\n', 1)[1].split('\n      - name: Preserve validated read-only market observations', 1)[0])
+        marker = '# Collect bounded evidence before legacy parity; collection never grants release.'
+        cls.prefix = cls.run_body.split(marker, 1)[0]
+        cls.collection_binding = marker + cls.run_body.split(marker, 1)[1].split('python3 -B - "$TARGET_SHA"', 1)[0]
+
+    def execute(self, overrides=None, collection=False):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            binaries = root / 'bin'
+            binaries.mkdir()
+            trace = root / 'trace'
+            stub = binaries / 'command-stub.py'
+            stub.write_text(r'''#!/usr/bin/env python3
+import os,sys,tempfile
+from pathlib import Path
+name=Path(sys.argv[0]).name
+args=sys.argv[1:]
+trace=Path(os.environ['SYNTHETIC_TRACE'])
+with trace.open('a') as output: output.write(name+':'+(args[0] if args else '')+'\n')
+def fail():
+    print('SYNTHETIC_PRIVATE_ERROR_SENTINEL',file=sys.stderr)
+    raise SystemExit(9)
+if name=='git':
+    if args[:1]==['fetch']:
+        if os.environ.get('SYNTHETIC_FETCH_FAIL')=='1': fail()
+    elif args==['rev-parse','HEAD']: print(os.environ['SYNTHETIC_HEAD'])
+    elif args==['rev-parse','origin/main']: print(os.environ['SYNTHETIC_ORIGIN'])
+    else: raise SystemExit(8)
+elif name=='gh':
+    countfile=Path(os.environ['SYNTHETIC_GH_COUNT'])
+    count=int(countfile.read_text()) if countfile.exists() else 0
+    countfile.write_text(str(count+1))
+    if os.environ.get('SYNTHETIC_GH_FAIL')=='1': fail()
+    values=os.environ['SYNTHETIC_GH_VALUES'].split(',')
+    print(values[min(count,len(values)-1)])
+elif name=='getent':
+    mode=os.environ.get('SYNTHETIC_DNS','ok')
+    if mode=='error': fail()
+    print(('203.0.113.250' if mode=='wrong' else '195.19.12.120')+' STREAM fixture')
+elif name=='ssh-keygen':
+    if '-y' in args:
+        if os.environ.get('SYNTHETIC_KEY_FAIL')=='1': fail()
+        print('ssh-ed25519 PUBLIC_FIXTURE')
+    elif '-lf' in args:
+        value=sys.stdin.read()
+        fingerprint='SHA256:BBBB' if 'wrong' in value else 'SHA256:AAAA'
+        print('256 '+fingerprint+' fixture')
+    else: raise SystemExit(8)
+elif name=='ssh-keyscan':
+    mode=os.environ.get('SYNTHETIC_PIN','ok')
+    if mode!='empty':
+        print('195.19.12.120 ssh-ed25519 '+('wrong' if mode=='wrong' else 'key1'))
+        if mode=='ambiguous': print('195.19.12.120 ecdsa-sha2-nistp256 key2')
+elif name=='sleep': pass
+elif name=='mv':
+    if os.environ.get('SYNTHETIC_KNOWN_MOVE_FAIL')=='1': fail()
+    os.execv('/bin/mv',['/bin/mv',*args])
+elif name=='chmod':
+    if os.environ.get('SYNTHETIC_KNOWN_MODE_FAIL')=='1' and args[-1].endswith('known-hosts'): fail()
+    if os.environ.get('SYNTHETIC_KEY_MODE_FAIL')=='1' and args[-1].endswith('p0-runtime-parity-key'): fail()
+    os.execv('/bin/chmod',['/bin/chmod',*args])
+elif name=='tr':
+    if os.environ.get('SYNTHETIC_KEY_COPY_FAIL')=='1': fail()
+    os.execv('/usr/bin/tr',['/usr/bin/tr',*args])
+elif name=='mktemp':
+    if os.environ.get('SYNTHETIC_TEMP_FAIL')=='1': fail()
+    if os.environ.get('SYNTHETIC_TEMP_DIRECTORY')=='1':
+        print(tempfile.mkdtemp(dir=os.environ['SYNTHETIC_TEMP_ROOT']))
+    else:
+        descriptor,path=tempfile.mkstemp(dir=os.environ['SYNTHETIC_TEMP_ROOT'])
+        os.close(descriptor)
+        print(path)
+elif name=='ssh':
+    sys.stdin.buffer.read()
+    print('{}')
+else: raise SystemExit(8)
+''')
+            stub.chmod(0o700)
+            for name in ('git', 'gh', 'getent', 'ssh-keygen', 'ssh-keyscan', 'sleep', 'mv', 'chmod', 'tr', 'mktemp', 'ssh'):
+                (binaries / name).symlink_to(stub.name)
+            env = dict(os.environ, PATH=str(binaries) + os.pathsep + os.environ['PATH'],
+                       TARGET_SHA=SHA, RUNNER_TEMP=td, GITHUB_REPOSITORY='synthetic/fixture',
+                       PC_PROD_HOST='195.19.12.120', PC_PROD_SSH_USER='fixture',
+                       PC_PROD_SSH_PORT='22', PC_PROD_SSH_HOST_FINGERPRINT='SHA256:AAAA',
+                       PC_PROD_SSH_KEY='PRIVATE_KEY_FIXTURE', PC_PROD_SSH_PRIVATE_KEY='', VPS_SSH_KEY='',
+                       SYNTHETIC_TRACE=str(trace), SYNTHETIC_GH_COUNT=str(root / 'gh-count'), SYNTHETIC_TEMP_ROOT=td,
+                       SYNTHETIC_GH_VALUES=SHA, SYNTHETIC_HEAD=SHA, SYNTHETIC_ORIGIN=SHA)
+            env.update(overrides or {})
+            if collection:
+                body = 'set -Eeuo pipefail\n' + self.collection_binding + '\necho COLLECTION_BINDINGS_PASSED\n'
+                env.update(key='fixture', port='22', known='fixture', user='fixture', host='fixture',
+                           preflight_raw=str(root / 'untrusted.json'))
+            else:
+                body = self.prefix + '\necho PREFLIGHT_GATES_PASSED\n'
+            result = subprocess.run(['bash', '-c', body], cwd=PATH.parents[1], env=env,
+                                    capture_output=True, text=True, timeout=12)
+            return result, trace.read_text().splitlines() if trace.exists() else []
+
+    def assert_failure(self, overrides, code, collection=False):
+        result, calls = self.execute(overrides, collection)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stderr, 'MARKET_PREFLIGHT_FAILURE=' + code + '\n')
+        self.assertNotIn('SYNTHETIC_PRIVATE_ERROR_SENTINEL', result.stdout + result.stderr)
+        self.assertNotIn('PRIVATE_KEY_FIXTURE', result.stdout + result.stderr)
+        self.assertNotIn('PASSED', result.stdout)
+        self.assertNotIn('MARKET_PREFLIGHT_COLLECTION=VALIDATED_READ_ONLY', result.stdout)
+        return calls
+
+    def test_valid_existing_gates_reach_only_the_next_stage(self):
+        result, calls = self.execute()
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stderr, '')
+        self.assertEqual(result.stdout, 'PREFLIGHT_GATES_PASSED\n')
+        self.assertEqual(calls.count('gh:api'), 1)
+        self.assertEqual(calls.count('getent:ahostsv4'), 1)
+        self.assertEqual(calls.count('ssh-keyscan:-T'), 1)
+        self.assertFalse(any(item.startswith('ssh:') for item in calls))
+
+    def test_main_checks_have_closed_codes_and_stop_before_key_or_dns(self):
+        for override, code in (({'SYNTHETIC_FETCH_FAIL': '1'}, 'CURRENT_MAIN_FETCH_FAILED'),
+                               ({'SYNTHETIC_HEAD': 'b' * 40}, 'CURRENT_MAIN_CHECKOUT_NOT_PROVEN'),
+                               ({'SYNTHETIC_ORIGIN': 'b' * 40}, 'CURRENT_MAIN_FETCHED_REF_NOT_PROVEN'),
+                               ({'SYNTHETIC_GH_VALUES': 'b' * 40}, 'CURRENT_MAIN_API_NOT_PROVEN'),
+                               ({'SYNTHETIC_GH_FAIL': '1'}, 'CURRENT_MAIN_API_NOT_PROVEN')):
+            with self.subTest(code=code, override=override):
+                calls = self.assert_failure(override, code)
+                self.assertFalse(any(item.startswith(('getent:', 'ssh-keygen:', 'ssh-keyscan:', 'ssh:')) for item in calls))
+
+    def test_protected_authority_shape_failure_does_not_publish_values(self):
+        cases = (({'PC_PROD_HOST': 'SYNTHETIC_PRIVATE_ERROR_SENTINEL'}, 'CANONICAL_HOST_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_USER': ''}, 'PROTECTED_USER_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_USER': 'SYNTHETIC_PRIVATE_ERROR_SENTINEL/'}, 'PROTECTED_USER_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_PORT': 'SYNTHETIC_PRIVATE_ERROR_SENTINEL'}, 'PROTECTED_PORT_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_PORT': '0'}, 'PROTECTED_PORT_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_PORT': '65536'}, 'PROTECTED_PORT_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_PORT': '08'}, 'PROTECTED_PORT_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_PORT': '18446744073709551638'}, 'PROTECTED_PORT_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_PORT': '9' * 10000}, 'PROTECTED_PORT_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_PORT': '065536'}, 'PROTECTED_PORT_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_HOST_FINGERPRINT': 'SYNTHETIC_PRIVATE_ERROR_SENTINEL'}, 'PINNED_FINGERPRINT_NOT_PROVEN'))
+        for override, code in cases:
+            with self.subTest(code=code, override=override):
+                calls = self.assert_failure(override, code)
+                self.assertFalse(any(item.startswith(('getent:', 'ssh-keygen:', 'ssh-keyscan:', 'ssh:')) for item in calls))
+
+    def test_missing_or_invalid_key_stops_before_dns(self):
+        for override in ({'PC_PROD_SSH_KEY': ''}, {'SYNTHETIC_KEY_FAIL': '1'}):
+            with self.subTest(override=override):
+                calls = self.assert_failure(override, 'PROTECTED_KEY_NOT_PROVEN')
+                self.assertFalse(any(item.startswith(('getent:', 'ssh-keyscan:', 'ssh:')) for item in calls))
+
+    def test_valid_port_shape_keeps_existing_leading_zero_behavior(self):
+        result, calls = self.execute({'PC_PROD_SSH_PORT': '000000000000000000000000000000022'})
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stderr, '')
+        self.assertEqual(result.stdout, 'PREFLIGHT_GATES_PASSED\n')
+        self.assertEqual(calls.count('ssh-keyscan:-T'), 1)
+
+    def test_dns_failure_or_wrong_destination_stops_before_scan(self):
+        for mode in ('wrong', 'error'):
+            with self.subTest(mode=mode):
+                calls = self.assert_failure({'SYNTHETIC_DNS': mode}, 'DNS_AUTHORITY_NOT_PROVEN')
+                self.assertFalse(any(item.startswith(('ssh-keyscan:', 'ssh:')) for item in calls))
+
+    def test_private_key_file_io_failures_never_advance(self):
+        for slot in ('primary', 'fallback'):
+            for failure in ('SYNTHETIC_KEY_COPY_FAIL', 'SYNTHETIC_KEY_MODE_FAIL',
+                            'SYNTHETIC_TEMP_FAIL', 'SYNTHETIC_TEMP_DIRECTORY'):
+                with self.subTest(slot=slot, failure=failure):
+                    override = {failure: '1'}
+                    if slot == 'fallback':
+                        override.update(PC_PROD_SSH_KEY='', VPS_SSH_KEY='PRIVATE_KEY_FIXTURE')
+                    calls = self.assert_failure(override, 'PROTECTED_KEY_NOT_PROVEN')
+                    self.assertFalse(any(item.startswith(('getent:', 'ssh-keyscan:', 'ssh:')) for item in calls))
+
+    def test_pin_failure_keeps_existing_three_attempt_boundary(self):
+        for mode in ('empty', 'wrong', 'ambiguous'):
+            with self.subTest(mode=mode):
+                calls = self.assert_failure({'SYNTHETIC_PIN': mode}, 'PINNED_IDENTITY_NOT_PROVEN')
+                self.assertEqual(calls.count('ssh-keyscan:-T'), 3)
+                self.assertEqual(calls.count('sleep:1'), 1)
+                self.assertEqual(calls.count('sleep:2'), 1)
+                self.assertFalse(any(item.startswith('ssh:') for item in calls))
+
+    def test_known_hosts_file_binding_failure_stays_private(self):
+        for key in ('SYNTHETIC_KNOWN_MOVE_FAIL', 'SYNTHETIC_KNOWN_MODE_FAIL'):
+            with self.subTest(key=key):
+                calls = self.assert_failure({key: '1'}, 'PINNED_KNOWN_HOSTS_NOT_PROVEN')
+                self.assertFalse(any(item.startswith('ssh:') for item in calls))
+
+    def test_main_binding_before_collection_prevents_ssh(self):
+        calls = self.assert_failure({'SYNTHETIC_GH_VALUES': 'b' * 40},
+                                    'CURRENT_MAIN_BEFORE_COLLECTION_NOT_PROVEN', collection=True)
+        self.assertEqual(calls.count('gh:api'), 1)
+        self.assertFalse(any(item.startswith('ssh:') for item in calls))
+
+    def test_main_binding_after_collection_admits_no_evidence(self):
+        calls = self.assert_failure({'SYNTHETIC_GH_VALUES': SHA + ',' + 'b' * 40},
+                                    'CURRENT_MAIN_AFTER_COLLECTION_NOT_PROVEN', collection=True)
+        self.assertEqual(calls.count('gh:api'), 2)
+        self.assertEqual(sum(item.startswith('ssh:') for item in calls), 1)
+
+
 class PreflightFailureEvidence(unittest.TestCase):
     """Execute the real shell order/validator with local synthetic SSH responses."""
     def execute(self, payload, preflight_exit=0, legacy_exit=0):

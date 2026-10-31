@@ -254,32 +254,34 @@ jobs:
           umask 077
           trap 'rm -f -- "$key" "$known" "$raw" "$scan" "$match" "$preflight_raw"' EXIT
 
-          git fetch --no-tags origin main >/dev/null
-          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
-          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          git fetch --no-tags origin main >/dev/null 2>&1 || { echo 'MARKET_PREFLIGHT_FAILURE=CURRENT_MAIN_FETCH_FAILED' >&2; exit 1; }
+          [[ "$(git rev-parse HEAD 2>/dev/null)" == "$TARGET_SHA" ]] || { echo 'MARKET_PREFLIGHT_FAILURE=CURRENT_MAIN_CHECKOUT_NOT_PROVEN' >&2; exit 1; }
+          [[ "$(git rev-parse origin/main 2>/dev/null)" == "$TARGET_SHA" ]] || { echo 'MARKET_PREFLIGHT_FAILURE=CURRENT_MAIN_FETCHED_REF_NOT_PROVEN' >&2; exit 1; }
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha 2>/dev/null)" == "$TARGET_SHA" ]] || { echo 'MARKET_PREFLIGHT_FAILURE=CURRENT_MAIN_API_NOT_PROVEN' >&2; exit 1; }
 
           trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
           validate_key(){
             local src="$1" pub
-            tr -d '\r' < "$src" > "$key"
-            chmod 0600 "$key"
+            tr -d '\r' < "$src" > "$key" || return 1
+            chmod 0600 "$key" || return 1
             grep -Eq '^(ssh-|ecdsa-|sk-)' "$key" && return 1
-            pub="$(mktemp)"
+            pub="$(mktemp)" || return 1
             ssh-keygen -y -P '' -f "$key" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
             rm -f "$pub"
           }
           try_key(){
             local value="$1" plain escaped decoded
             [[ -n "$value" ]] || return 1
-            plain="$(mktemp)"; escaped="$(mktemp)"; decoded="$(mktemp)"
-            printf '%s\n' "$value" > "$plain"
-            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
-            printf '%s' "${value//\\n/$'\n'}" > "$escaped"
-            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            plain="$(mktemp)" || return 1
+            escaped="$(mktemp)" || { rm -f "$plain"; return 1; }
+            decoded="$(mktemp)" || { rm -f "$plain" "$escaped"; return 1; }
+            printf '%s\n' "$value" > "$plain" || { rm -f "$plain" "$escaped" "$decoded"; return 1; }
+            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded" || return 1; return 0; }
+            printf '%s' "${value//\\n/$'\n'}" > "$escaped" || { rm -f "$plain" "$escaped" "$decoded"; return 1; }
+            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded" || return 1; return 0; }
             printf '%s' "$value" | base64 --decode > "$decoded" 2>/dev/null \
               && validate_key "$decoded" \
-              && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+              && { rm -f "$plain" "$escaped" "$decoded" || return 1; return 0; }
             rm -f "$plain" "$escaped" "$decoded"
             return 1
           }
@@ -288,13 +290,14 @@ jobs:
           user="$(trim "${PC_PROD_SSH_USER:-}")"
           port="$(trim "${PC_PROD_SSH_PORT:-22}")"
           expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
-          [[ "$host" == "$DEFAULT_HOST" ]]
-          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
-          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
-          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
-          try_key "${PC_PROD_SSH_KEY:-}" || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_key "${VPS_SSH_KEY:-}"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'MARKET_PREFLIGHT_FAILURE=CANONICAL_HOST_NOT_PROVEN' >&2; exit 1; }
+          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo 'MARKET_PREFLIGHT_FAILURE=PROTECTED_USER_NOT_PROVEN' >&2; exit 1; }
+          port_digits="${port#"${port%%[!0]*}"}"
+          { [[ "$port" =~ ^[0-9]+$ && -n "$port_digits" && ${#port_digits} -le 5 ]] && (( 10#$port_digits <= 65535 )) && (( port >= 1 && port <= 65535 )); } 2>/dev/null || { echo 'MARKET_PREFLIGHT_FAILURE=PROTECTED_PORT_NOT_PROVEN' >&2; exit 1; }
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo 'MARKET_PREFLIGHT_FAILURE=PINNED_FINGERPRINT_NOT_PROVEN' >&2; exit 1; }
+          { try_key "${PC_PROD_SSH_KEY:-}" || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_key "${VPS_SSH_KEY:-}"; } 2>/dev/null || { echo 'MARKET_PREFLIGHT_FAILURE=PROTECTED_KEY_NOT_PROVEN' >&2; exit 1; }
 
-          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          getent ahostsv4 "$LIVE_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST" || { echo 'MARKET_PREFLIGHT_FAILURE=DNS_AUTHORITY_NOT_PROVEN' >&2; exit 1; }
           pinned=0
           for attempt in 1 2 3; do
             : > "$scan"; : > "$match"
@@ -308,12 +311,12 @@ jobs:
             if [[ "$(grep -c . "$match" || true)" == '1' ]]; then pinned=1; break; fi
             (( attempt == 3 )) || sleep "$attempt"
           done
-          [[ "$pinned" == '1' ]]
-          mv "$match" "$known"
-          chmod 0600 "$known"
+          [[ "$pinned" == '1' ]] || { echo 'MARKET_PREFLIGHT_FAILURE=PINNED_IDENTITY_NOT_PROVEN' >&2; exit 1; }
+          mv "$match" "$known" 2>/dev/null || { echo 'MARKET_PREFLIGHT_FAILURE=PINNED_KNOWN_HOSTS_NOT_PROVEN' >&2; exit 1; }
+          chmod 0600 "$known" 2>/dev/null || { echo 'MARKET_PREFLIGHT_FAILURE=PINNED_KNOWN_HOSTS_NOT_PROVEN' >&2; exit 1; }
 
           # Collect bounded evidence before legacy parity; collection never grants release.
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha 2>/dev/null)" == "$TARGET_SHA" ]] || { echo 'MARKET_PREFLIGHT_FAILURE=CURRENT_MAIN_BEFORE_COLLECTION_NOT_PROVEN' >&2; exit 1; }
           preflight_status=0
           timeout 180s ssh -i "$key" -p "$port" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
@@ -330,7 +333,7 @@ jobs:
             esac
             exit "$preflight_status"
           fi
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha 2>/dev/null)" == "$TARGET_SHA" ]] || { echo 'MARKET_PREFLIGHT_FAILURE=CURRENT_MAIN_AFTER_COLLECTION_NOT_PROVEN' >&2; exit 1; }
           python3 -B - "$TARGET_SHA" "$preflight_raw" "$RUNNER_TEMP/market-preflight.json" "$GITHUB_STEP_SUMMARY" <<'PYMARKET'
           import hashlib, importlib.util, json, pathlib, sys
           source = pathlib.Path('scripts/production-market-release-preflight.py')
