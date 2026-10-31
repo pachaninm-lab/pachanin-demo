@@ -5943,3 +5943,63 @@ index 0000000..251400154716db3c48e0572f76a7e30fe15f393f
 Root ran all27 real-Git regressions on Node24.22.1/Git2.51.1:27PASS,0FAIL,0SKIP. Independent reviewer ran those27 and5 own adverse cases; fsmonitor/filter/promisor helpers stay unexecuted, dirty/indexflag observations stay NOT_ATTESTED, missing objects stay HOLD. Initial findings were fixed before these final pins: local Git hooks/filter side effects, unproved working-tree cleanliness and implicit partial-clone lazy fetch. Whole corrected source review is PRIVATE CLEAN_SOURCE_ONLY, not a native GitHub review or source admission.
 
 No current-main real-repository invocation, production DB/schema proof, backup restoration, API-only controller/native deployment or live acceptance has occurred. Overall5/100 unchanged. Original19volumes, copies/keys/reserves/journals and all historical UNKNOWN/SPENT operations remain. User payment refusal remains effective; no payment/new cost/monitoring or host window is created.
+
+
+## AP2
+
+API-only controller bounded admission, 2026-11-01. Accepted preparation remains preparation.
+
+```json
+{
+  "schema": "pc.api-only-controller-purpose.v1",
+  "purposeId": "pc-api-only-20261101",
+  "owner": "ACCOUNT_1_CORE",
+  "authorityBaseExactMain": "19c157cee4b598175401d3266856450788a8d8ae",
+  "metadataBranch": "docs/pc-crop-api-only-release-admission-20261101",
+  "sourceBranch": "ops/production-api-only-release-20261101",
+  "sourcePaths": [
+    "scripts/release/verify-api-schema-source-parity.mjs",
+    "scripts/release/test-api-schema-source-parity.mjs",
+    "scripts/release/api-only-release-controller.py",
+    "scripts/release/test-api-only-release-controller.py",
+    ".github/workflows/production-api-only-release.yml",
+    "docs/ops/production-api-only-release.md"
+  ],
+  "sourceStagePaths": [
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "scripts/release/verify-api-schema-source-parity.mjs",
+    "scripts/release/test-api-schema-source-parity.mjs",
+    "scripts/release/api-only-release-controller.py",
+    "scripts/release/test-api-only-release-controller.py",
+    ".github/workflows/production-api-only-release.yml",
+    "docs/ops/production-api-only-release.md"
+  ],
+  "guardBranch": "governance/industrial-load-diagnostics-20260919",
+  "guardPaths": [
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/p7-autopilot-guard.test.mjs",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
+  ],
+  "stages": [
+    "Accept this two-document bounded purpose only. Do not add the new source branch to approvedConcurrentScopes in this metadata stage. No executable source, guard or host operation is admitted by this PR.",
+    "On the existing accepted industrial governance lane, independently review and accept exact guard3 with state unchanged. It must consume this purpose from immutable BASE only, freeze full six-source mode/blob/SHA256 pins, classify the new source ref as immutable without generic fallback, reject other paths/modes/state/source edits and provide real-Git adverse controls and trusted native contract routing.",
+    "Only after accepted guard3, publish one atomic seven-path source stage: exact frozen source6 plus the state file with only approvedConcurrentScopes[sourceBranch]=sourcePaths added. The trusted guard derives all seven allowed paths and six immutable source pins from already accepted BASE authority, never from candidate state. Reject duplicate JSON keys; candidate state bytes must equal immutable BASE bytes plus exactly one deterministic source-vector insertion, preserving every old byte including whitespace; deep equality alone is insufficient. All old values and the compact purpose remain intact. This is the only admitted atomic sequencing change. Obtain genuine independent actual-seven-path-head review, separate implementation-owner audit, native AP1 27 and controller fault tests, all applicable CI/security, fresh engineering readiness and ordinary full-expected-SHA manual acceptance.",
+    "Only after actual source acceptance may a fresh finite owner-coordinated host window be considered. No host command, release, DB query, backup or configuration operation is authorized by this admission."
+  ],
+  "sequenceDisposition": "Replaces AP1 separate-two-helper publication sequencing only with the separately guarded atomic seven-path stage above. The two AP1 source payloads and their existing pins remain unchanged. No AP1 claim is upgraded to installed-source/native/DB/production acceptance.",
+  "controllerBoundaries": [
+    "API-only scope. Retain web, auth-mail, migrations and all other services/containers, protected Compose/environment, 19 volumes, copies, keys, journals, reserves and historical UNKNOWN/SPENT outcomes.",
+    "Preserve protected DNS, SSH key and host pin, exact-main/source binding, OWNER-only command, shared canonical host lock, least privilege and bounded output. Missing required proof returns HOLD before any production write.",
+    "Require actual live Prisma/AuthPrisma binding, full accepted migration-name/checksum ledger including 0001_postgresql_initial and explicit catalog/principal policy; committed Prisma source equality alone cannot authorize deployment.",
+    "Require immutable target and saved-baseline image ID/digest/revision bindings; preserve exact original override bytes, mode and absence and all sibling identities; rollback must verify original bindings rather than a mutable tag.",
+    "Require actual preservation/headroom/backup/restore evidence before write, effective HTTP/health smoke, bounded failure/rollback evidence and no migration execution or service materialization.",
+    "Legacy #4922 two protected-registration mismatches remain blocking; do not relax, rebase its protected baseline or use it as a shortcut.",
+    "Do not reinterpret successful API-only release as full-stack, registration/mail/MFA, 13-cabinet, UX/BANK/FGIS, external-provider, DR or MASTER acceptance. Existing acceptance requirements remain separate."
+  ],
+  "retainedInvariants": "All old JSON values, paths, owners, admissions, source vectors, primary current/next and official5/100 are retained exactly; approvedConcurrentScopes is unchanged in this purpose-only stage. Queue/current-codex/progress and executable files are unchanged. No reader-capacity increase or whitespace compaction.",
+  "sourcePublicationAuthorized": false,
+  "productionInvocationAuthorized": false,
+  "productionAcceptance": false,
+  "masterCredit": 0
+}
+```
