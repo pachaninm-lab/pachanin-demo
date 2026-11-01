@@ -1268,8 +1268,11 @@ jobs:
           PY_INSPECTION_TESTS
 
 
+      - name: Verify closed Docker diagnostic boundaries
+        run: python3 -m unittest discover -s scripts -p test_production_stopped_runtime_headroom.py
+
   diagnose:
-    name: Diagnose production Docker storage without mutation
+    name: Classify one Docker admission query without mutation
     needs: contract
     if: >-
       github.event_name == 'issue_comment' &&
@@ -1392,12 +1395,464 @@ jobs:
           chmod 600 "$HOME/.ssh/known_hosts"
           echo "PROD_HOST=$host" >> "$GITHUB_ENV"
           echo "PROD_PORT=$port" >> "$GITHUB_ENV"
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$SSH_USER_SECRET@$host" \
-            'set -Eeuo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; echo SSH_AUTH_OK' \
-            > "$EVIDENCE_DIR/ssh-auth.txt"
-          grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          # Authentication/root evidence is collected once by the bounded closed probe.
+          # No preliminary Docker call may hide a Docker admission failure.
+
+      - name: Collect one closed Docker admission signal
+        id: closed_probe
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          source="$RUNNER_TEMP/closed-docker-signal.py"
+          cat > "$source" <<'PY_CLOSED_DOCKER_SIGNAL'
+          import ctypes
+          import json
+          import os
+          import re
+          import selectors
+          import signal
+          import stat
+          import subprocess
+          import time
+
+          SCHEMA = 'pc.closed-docker-failure-signal.v2'
+          CLI = '/usr/bin/docker'
+          SOCKET = '/run/docker.sock'
+          ARGV = (CLI, '--host', 'unix:///run/docker.sock', 'ps', '-aq', '--no-trunc')
+          # The matching minimal startup environment is NOT proof of config isolation:
+          # Docker may resolve HOME via NSS and read its user config; nothing raw is published.
+          ENV = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LC_ALL': 'C'}
+          MAX_STREAM = 16384
+          COMMAND_SECONDS = 12
+          OUTER_SECONDS = 15
+          SIGNALS = frozenset(('NONE', 'UNKNOWN', 'CLI_MISSING', 'CLI_UNTRUSTED', 'SOCKET_MISSING',
+              'SOCKET_UNTRUSTED', 'ROOT_REQUIRED', 'SOCKET_PERMISSION_DENIED', 'DAEMON_ENDPOINT_UNREACHABLE',
+              'DAEMON_RESPONSE_ERROR', 'CLI_ARGUMENT_REJECTED', 'CLIENT_ENDPOINT_RESOLUTION_FAILED',
+              'API_NEGOTIATION_FAILED', 'CONTEXT_RESOLUTION_FAILED', 'EXECUTION_UNAVAILABLE', 'FIXED_PARENT_UNTRUSTED'))
+          STATUSES = frozenset(('SUCCESS', 'NOT_RUN', 'NONZERO', 'TIMED_OUT', 'OUTPUT_LIMIT',
+                               'INVALID_OUTPUT', 'UNSTABLE', 'CLEANUP_UNCONFIRMED', 'UNKNOWN'))
+
+
+          def failure_signal(raw):
+              if type(raw) is not bytes or len(raw) > MAX_STREAM:
+                  return 'UNKNOWN'
+              predicates = {
+                  'SOCKET_PERMISSION_DENIED': b'permission denied while trying to connect to the docker daemon socket',
+                  'DAEMON_ENDPOINT_UNREACHABLE': b'Cannot connect to the Docker daemon at unix:///run/docker.sock. Is the docker daemon running?',
+                  'DAEMON_RESPONSE_ERROR': b'Error response from daemon:',
+                  'CLI_ARGUMENT_REJECTED': b'unknown shorthand flag:',
+                  'CLIENT_ENDPOINT_RESOLUTION_FAILED': b'unable to resolve docker endpoint:',
+                  'API_NEGOTIATION_FAILED': b'client version is too old. Minimum supported API version is',
+                  'CONTEXT_RESOLUTION_FAILED': b'context not found:',
+              }
+              found = [key for key, marker in predicates.items() if marker in raw]
+              return found[0] if len(found) == 1 else 'UNKNOWN'
+
+
+          def fingerprint(value):
+              return (value.st_dev, value.st_ino, value.st_mode, value.st_uid, value.st_gid,
+                      value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+
+
+          def validate_report(value):
+              if type(value) is not dict or set(value) != {
+                  'schema', 'status', 'failure_signal', 'elapsed_ms', 'stdout_bytes', 'stderr_bytes',
+                  'container_count', 'root_cause', 'production_mutation', 'deployment_authorized', 'cleanup_attestation'}:
+                  raise ValueError('CLOSED_SCHEMA')
+              if (value['schema'] != SCHEMA or value['status'] not in STATUSES or
+                      value['failure_signal'] not in SIGNALS or value['root_cause'] != 'NOT_ESTABLISHED' or
+                      value['production_mutation'] is not False or value['deployment_authorized'] is not False):
+                  raise ValueError('CLOSED_VALUES')
+              for key, maximum in [('elapsed_ms', 16000), ('stdout_bytes', MAX_STREAM + 1), ('stderr_bytes', MAX_STREAM + 1)]:
+                  if type(value[key]) is not int or not 0 <= value[key] <= maximum:
+                      raise ValueError('CLOSED_BOUNDS')
+              cleanup = value['cleanup_attestation']
+              if cleanup not in {'NOT_STARTED', 'OWNED_ANCESTRY_REAPED', 'NOT_ATTESTED'}:
+                  raise ValueError('CLOSED_CLEANUP')
+              if (value['status'] == 'CLEANUP_UNCONFIRMED') != (cleanup == 'NOT_ATTESTED'):
+                  raise ValueError('CLOSED_CLEANUP_BINDING')
+              count = value['container_count']
+              if value['status'] == 'SUCCESS':
+                  if (type(count) is not int or not 0 <= count <= 128 or value['failure_signal'] != 'NONE'
+                          or cleanup != 'OWNED_ANCESTRY_REAPED'):
+                      raise ValueError('CLOSED_SUCCESS')
+              elif count is not None or value['failure_signal'] == 'NONE':
+                  raise ValueError('CLOSED_FAILURE')
+              return value
+
+
+          class OwnedChildLease:
+              """One fresh parent's owned child ancestry; no PID-group signals after reaping."""
+              WALL = 0x40000000
+              MAX_REAPED = 128
+
+              def __init__(self):
+                  import threading
+                  self.active = False
+                  self.final_reap_started = False
+                  self.previous = ctypes.c_int(-1)
+                  self.libc = ctypes.CDLL(None, use_errno=True)
+                  if (threading.current_thread() is not threading.main_thread() or threading.active_count() != 1
+                          or signal.getsignal(signal.SIGCHLD) != signal.SIG_DFL):
+                      raise ValueError('CHILD_PARENT_NOT_FRESH')
+                  try:
+                      os.waitid(os.P_ALL, 0, os.WEXITED | os.WNOWAIT | os.WNOHANG | self.WALL)
+                  except ChildProcessError:
+                      pass
+                  else:
+                      raise ValueError('CHILD_PARENT_HAS_CHILDREN')
+                  if self.libc.prctl(37, ctypes.byref(self.previous), 0, 0, 0) != 0 or self.previous.value != 0:
+                      raise ValueError('CHILD_PARENT_SUBREAPER_STATE')
+                  if self.libc.prctl(36, 1, 0, 0, 0) != 0:
+                      raise ValueError('CHILD_SUBREAPER_UNAVAILABLE')
+                  self.active = True
+
+              def observe(self, proc):
+                  if self.final_reap_started:
+                      raise ValueError('CHILD_IDENTITY_RELEASED')
+                  value = os.waitid(os.P_PID, proc.pid, os.WEXITED | os.WNOWAIT | os.WNOHANG | self.WALL)
+                  if value is None:
+                      return None
+                  if value.si_pid != proc.pid or value.si_code not in (os.CLD_EXITED, os.CLD_KILLED, os.CLD_DUMPED):
+                      raise ValueError('CHILD_IDENTITY_INVALID')
+                  return value.si_status if value.si_code == os.CLD_EXITED else -value.si_status
+
+              def wait_without_reap(self, proc, deadline):
+                  while True:
+                      value = self.observe(proc)
+                      if value is not None:
+                          return value
+                      remaining = deadline - time.monotonic()
+                      if remaining <= 0:
+                          raise subprocess.TimeoutExpired(proc.args, 0)
+                      time.sleep(min(remaining, 0.005))
+
+              def close(self, proc, deadline):
+                  clean = True
+                  try:
+                      if proc is None:
+                          return True
+                      # WNOWAIT pins the leader's identity until the single final reap.
+                      # ECHILD rejects an externally/reentrantly reaped leader before any signal.
+                      try:
+                          self.observe(proc)
+                      except (OSError, ValueError):
+                          clean = False
+                      else:
+                          try:
+                              os.killpg(proc.pid, signal.SIGKILL)
+                          except ProcessLookupError:
+                              pass
+                          except OSError:
+                              clean = False
+                      for stream in (getattr(proc, 'stdin', None), proc.stdout, proc.stderr):
+                          if stream is not None:
+                              stream.close()
+                      # After this flag there must never be another group-ID syscall.
+                      self.final_reap_started = True
+                      try:
+                          proc.wait(timeout=max(0.001, deadline - time.monotonic()))
+                      except (OSError, subprocess.TimeoutExpired):
+                          return False
+                      reaped = 0
+                      # Subreaper adoption occurs before a dead parent's waitable exit.
+                      # Reap only this previously child-free parent's adopted ancestry.
+                      # ECHILD proves none remain; a live/escaped child keeps this failed/unknown.
+                      while time.monotonic() < deadline:
+                          if reaped >= self.MAX_REAPED:
+                              try:
+                                  os.waitid(os.P_ALL, 0, os.WEXITED | os.WNOWAIT | os.WNOHANG | self.WALL)
+                              except ChildProcessError:
+                                  return clean
+                              except OSError:
+                                  return False
+                              return False
+                          try:
+                              child = os.waitid(os.P_ALL, 0, os.WEXITED | os.WNOHANG | self.WALL)
+                          except ChildProcessError:
+                              return clean
+                          except OSError:
+                              return False
+                          if child is None:
+                              time.sleep(min(0.005, max(0, deadline - time.monotonic())))
+                              continue
+                          reaped += 1
+                          if child.si_pid == proc.pid:
+                              return False
+                      return False
+                  finally:
+                      if self.active:
+                          self.active = False
+                          # This attribute is process-local and is restored before returning.
+                          # Failed restoration is an unknown cleanup result, never acceptance.
+                          if self.libc.prctl(36, self.previous.value, 0, 0, 0) != 0:
+                              return False
+
+
+          def collect():
+              started = time.monotonic()
+              result = {'schema': SCHEMA, 'status': 'NOT_RUN', 'failure_signal': 'UNKNOWN', 'elapsed_ms': 0,
+                        'stdout_bytes': 0, 'stderr_bytes': 0, 'container_count': None,
+                        'root_cause': 'NOT_ESTABLISHED', 'production_mutation': False, 'deployment_authorized': False,
+                        'cleanup_attestation': 'NOT_STARTED'}
+              if os.geteuid() != 0:
+                  result['failure_signal'] = 'ROOT_REQUIRED'
+                  return result
+              try:
+                  parent_before = {path: os.lstat(path) for path in ('/', '/usr', '/usr/bin', '/run')}
+                  if any(not stat.S_ISDIR(value.st_mode) or value.st_uid != 0 or value.st_mode & 0o022
+                         for value in parent_before.values()):
+                      raise ValueError('UNTRUSTED_PARENT')
+              except (OSError, ValueError):
+                  result['failure_signal'] = 'FIXED_PARENT_UNTRUSTED'
+                  return result
+              try:
+                  cli_before = os.lstat(CLI)
+              except FileNotFoundError:
+                  result['failure_signal'] = 'CLI_MISSING'
+                  return result
+              except OSError:
+                  result['failure_signal'] = 'EXECUTION_UNAVAILABLE'
+                  return result
+              if not stat.S_ISREG(cli_before.st_mode) or cli_before.st_uid != 0 or cli_before.st_mode & 0o022:
+                  result['failure_signal'] = 'CLI_UNTRUSTED'
+                  return result
+              try:
+                  socket_before = os.lstat(SOCKET)
+              except FileNotFoundError:
+                  result['failure_signal'] = 'SOCKET_MISSING'
+                  return result
+              except OSError:
+                  result['failure_signal'] = 'EXECUTION_UNAVAILABLE'
+                  return result
+              if not stat.S_ISSOCK(socket_before.st_mode) or socket_before.st_uid != 0 or socket_before.st_mode & 0o002:
+                  result['failure_signal'] = 'SOCKET_UNTRUSTED'
+                  return result
+              deadline = started + OUTER_SECONDS
+              work_deadline = min(started + COMMAND_SECONDS, deadline - 1)
+              proc = None
+              lease = None
+              poller = selectors.DefaultSelector()
+              streams = {'out': bytearray(), 'err': bytearray()}
+              parent = os.getpid()
+
+              def child_limits():
+                  import resource
+                  resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+                  if ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGKILL, 0, 0, 0) != 0 or os.getppid() != parent:
+                      os._exit(125)
+
+              try:
+                  lease = OwnedChildLease()
+                  proc = subprocess.Popen(ARGV, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                      env=ENV, cwd='/', close_fds=True, start_new_session=True, preexec_fn=child_limits)
+                  for stream, name in ((proc.stdout, 'out'), (proc.stderr, 'err')):
+                      os.set_blocking(stream.fileno(), False)
+                      poller.register(stream, selectors.EVENT_READ, name)
+                  while poller.get_map():
+                      remaining = work_deadline - time.monotonic()
+                      if remaining <= 0:
+                          result['status'] = 'TIMED_OUT'
+                          break
+                      for item, _ in poller.select(min(remaining, 0.05)):
+                          try:
+                              chunk = os.read(item.fileobj.fileno(), min(4096, MAX_STREAM - len(streams[item.data]) + 1))
+                          except BlockingIOError:
+                              continue
+                          if not chunk:
+                              poller.unregister(item.fileobj)
+                              continue
+                          streams[item.data].extend(chunk)
+                          if len(streams[item.data]) > MAX_STREAM:
+                              result['status'] = 'OUTPUT_LIMIT'
+                              break
+                      if result['status'] == 'OUTPUT_LIMIT':
+                          break
+                  else:
+                      code = lease.wait_without_reap(proc, work_deadline)
+                      if code != 0:
+                          result.update(status='NONZERO', failure_signal=failure_signal(bytes(streams['err'])))
+                      else:
+                          rows = bytes(streams['out']).splitlines()
+                          if len(rows) <= 128 and len(set(rows)) == len(rows) and all(re.fullmatch(b'[0-9a-f]{64}', row) for row in rows):
+                              result.update(status='SUCCESS', failure_signal='NONE', container_count=len(rows))
+                          else:
+                              result['status'] = 'INVALID_OUTPUT'
+              except subprocess.TimeoutExpired:
+                  result['status'] = 'TIMED_OUT'
+              except (OSError, ValueError, subprocess.SubprocessError):
+                  result.update(status='UNKNOWN', failure_signal='EXECUTION_UNAVAILABLE')
+              finally:
+                  poller.close()
+                  cleaned = lease.close(proc, deadline) if lease is not None else proc is None
+                  if not cleaned:
+                      result.update(status='CLEANUP_UNCONFIRMED', failure_signal='UNKNOWN', container_count=None,
+                                    cleanup_attestation='NOT_ATTESTED')
+                  elif proc is not None:
+                      result['cleanup_attestation'] = 'OWNED_ANCESTRY_REAPED'
+                  try:
+                      if (fingerprint(os.lstat(CLI)) != fingerprint(cli_before) or
+                              fingerprint(os.lstat(SOCKET)) != fingerprint(socket_before) or
+                              any(fingerprint(os.lstat(path)) != fingerprint(value) for path, value in parent_before.items())):
+                          if result['status'] != 'CLEANUP_UNCONFIRMED':
+                              result.update(status='UNSTABLE', failure_signal='UNKNOWN', container_count=None)
+                  except OSError:
+                      if result['status'] != 'CLEANUP_UNCONFIRMED':
+                          result.update(status='UNSTABLE', failure_signal='UNKNOWN', container_count=None)
+                  elapsed = max(0, int((time.monotonic() - started) * 1000))
+                  if elapsed > OUTER_SECONDS * 1000 and result['status'] != 'CLEANUP_UNCONFIRMED':
+                      result.update(status='TIMED_OUT', failure_signal='UNKNOWN', container_count=None)
+                  result['elapsed_ms'] = min(16000, elapsed)
+                  result['stdout_bytes'] = len(streams['out'])
+                  result['stderr_bytes'] = len(streams['err'])
+              return validate_report(result)
+
+
+          if __name__ == '__main__':
+              try:
+                  report = validate_report(collect())
+                  print(json.dumps(report, sort_keys=True, separators=(',', ':')))
+                  raise SystemExit(0 if report['status'] == 'SUCCESS' else 1)
+              except Exception:
+                  # A failed closed-schema collector emits no raw errors or host fields.
+                  raise SystemExit(1)
+          PY_CLOSED_DOCKER_SIGNAL
+          python3 -I - "$source" "$RUNNER_TEMP/closed-diagnostic-candidate.json" <<'PY_CLOSED_DOCKER_TRANSPORT'
+          import ctypes
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import selectors
+          import signal
+          import subprocess
+          import sys
+          import time
+
+          TRANSPORT_SECONDS = 45
+
+
+          def execute(source, target, output):
+              if len(source.encode()) > 20000 or not re.fullmatch('[0-9a-f]{40}', target):
+                  raise ValueError('CLOSED_INPUT')
+              namespace = {'__name__': 'closed_docker_validator'}
+              exec(compile(source, '<closed-docker-source>', 'exec'), namespace)
+              envelope = {'schema': 'pc.closed-docker-diagnostic-envelope.v2', 'target': target,
+                  'transport_status': 'UNKNOWN', 'diagnostic': None, 'passed': False,
+                  'production_mutation': False, 'deployment_authorized': False, 'local_cleanup_attestation': 'NOT_STARTED'}
+              host = os.environ['PROD_HOST']
+              user = os.environ['SSH_USER_SECRET']
+              port = os.environ['PROD_PORT']
+              if (host != os.environ['DEFAULT_HOST'] or not re.fullmatch('[A-Za-z_][A-Za-z0-9_-]{0,31}', user)
+                      or not re.fullmatch('[0-9]{1,5}', port) or not 1 <= int(port) <= 65535):
+                  raise ValueError('CLOSED_TRANSPORT_IDENTITY')
+              argv = ['/usr/bin/ssh', '-i', os.environ['HOME'] + '/.ssh/id_pc_prod', '-p', port,
+                  '-o', 'BatchMode=yes', '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=yes',
+                  '-o', 'ConnectTimeout=15', '-o', 'ServerAliveInterval=5', '-o', 'ServerAliveCountMax=1',
+                  '-o', 'UserKnownHostsFile=' + os.environ['HOME'] + '/.ssh/known_hosts', user + '@' + host,
+                  'python3 -I -']
+              deadline = time.monotonic() + TRANSPORT_SECONDS
+              work_deadline = deadline - 2
+              proc = None
+              lease = None
+              poller = selectors.DefaultSelector()
+              streams = {'out': bytearray(), 'err': bytearray()}
+              cleanup = True
+              parent = os.getpid()
+
+              def child_limits():
+                  import resource
+                  resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+                  if ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGKILL, 0, 0, 0) != 0 or os.getppid() != parent:
+                      os._exit(125)
+
+              try:
+                  lease = namespace['OwnedChildLease']()
+                  proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                      close_fds=True, start_new_session=True, preexec_fn=child_limits)
+                  # A bounded pipe write is driven with the same deadline as response reads.
+                  pending = memoryview(source.encode())
+                  for stream, events, name in ((proc.stdin, selectors.EVENT_WRITE, 'in'),
+                          (proc.stdout, selectors.EVENT_READ, 'out'), (proc.stderr, selectors.EVENT_READ, 'err')):
+                      os.set_blocking(stream.fileno(), False)
+                      poller.register(stream, events, name)
+                  exhausted = False
+                  while poller.get_map():
+                      remaining = work_deadline - time.monotonic()
+                      if remaining <= 0:
+                          envelope['transport_status'] = 'TIMED_OUT'
+                          break
+                      for item, _ in poller.select(min(remaining, 0.05)):
+                          try:
+                              if item.data == 'in':
+                                  count = os.write(item.fileobj.fileno(), pending[:4096])
+                                  pending = pending[count:]
+                                  if not pending:
+                                      poller.unregister(item.fileobj)
+                                      item.fileobj.close()
+                                  continue
+                              maximum = 4096 if item.data == 'out' else 8192
+                              chunk = os.read(item.fileobj.fileno(), min(4096, maximum - len(streams[item.data]) + 1))
+                          except BlockingIOError:
+                              continue
+                          if not chunk:
+                              poller.unregister(item.fileobj)
+                              continue
+                          streams[item.data].extend(chunk)
+                          if len(streams[item.data]) > maximum:
+                              exhausted = True
+                              envelope['transport_status'] = 'OUTPUT_LIMIT'
+                              break
+                      if exhausted:
+                          break
+                  else:
+                      code = lease.wait_without_reap(proc, work_deadline)
+                      if code not in (0, 1):
+                          envelope['transport_status'] = 'NONZERO'
+                      else:
+                          try:
+                              value = namespace['validate_report'](json.loads(bytes(streams['out']).decode('utf-8', errors='strict')))
+                              if (value['status'] == 'SUCCESS') != (code == 0):
+                                  raise ValueError('CLOSED_EXIT_BINDING')
+                              envelope.update(transport_status='VALIDATED_REMOTE_REPORT', diagnostic=value,
+                                              passed=code == 0)
+                          except (ValueError, TypeError, KeyError):
+                              envelope['transport_status'] = 'INVALID_REMOTE_REPORT'
+              except subprocess.TimeoutExpired:
+                  envelope['transport_status'] = 'TIMED_OUT'
+              except (OSError, ValueError, subprocess.SubprocessError):
+                  envelope['transport_status'] = 'UNKNOWN'
+              finally:
+                  poller.close()
+                  cleanup = lease.close(proc, deadline) if lease is not None else proc is None
+                  if not cleanup:
+                      envelope['local_cleanup_attestation'] = 'NOT_ATTESTED'
+                  elif proc is not None:
+                      envelope['local_cleanup_attestation'] = 'OWNED_ANCESTRY_REAPED'
+                  if not cleanup or time.monotonic() > deadline:
+                      envelope.update(transport_status='CLEANUP_UNCONFIRMED', diagnostic=None, passed=False,
+                                      local_cleanup_attestation='NOT_ATTESTED')
+              raw = json.dumps(envelope, sort_keys=True, separators=(',', ':')) + '\n'
+              if len(raw.encode()) > 4096:
+                  raise ValueError('CLOSED_ENVELOPE_BOUND')
+              output.write_text(raw)
+              return envelope
+
+
+          if __name__ == '__main__':
+              try:
+                  source = Path(sys.argv[1]).read_text()
+                  envelope = execute(source, os.environ['TARGET_SHA'], Path(sys.argv[2]))
+                  raise SystemExit(0 if envelope['passed'] else 1)
+              except Exception:
+                  raise SystemExit(1)
+          PY_CLOSED_DOCKER_TRANSPORT
 
       - name: Prepare bounded preservation preflight payload
+        if: ${{ false }} # Historical broad observer; superseded only for this diagnostic job.
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -1790,6 +2245,7 @@ jobs:
           printf '%s\n' "$preservation_preflight_script" > "$EVIDENCE_DIR/preservation-preflight.py"
 
       - name: Prepare bounded capacity profile payload
+        if: ${{ false }} # Historical broad observer; superseded only for this diagnostic job.
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -1920,6 +2376,7 @@ jobs:
           PY_ASSEMBLE
 
       - name: Collect read-only storage and runtime evidence
+        if: ${{ false }} # Historical broad observer; superseded only for this diagnostic job.
         id: probe
         shell: bash
         run: |
@@ -2262,6 +2719,77 @@ jobs:
           grep -Fxq 'PROBE_COMPLETE=1' "$EVIDENCE_DIR/remote-output.txt"
           echo 'complete=true' >> "$GITHUB_OUTPUT"
 
+      - name: Publish only closed diagnostic fields
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          python3 -I - <<'PY_CLOSED_DOCKER_SUMMARY'
+          import json
+          import os
+          from pathlib import Path
+          import re
+          root = Path(os.environ['EVIDENCE_DIR'])
+          path = Path(os.environ['RUNNER_TEMP']) / 'closed-diagnostic-candidate.json'
+          if not path.exists():
+              record = {'schema': 'pc.closed-docker-diagnostic-envelope.v2', 'target': os.environ['TARGET_SHA'],
+                  'transport_status': 'NOT_COLLECTED', 'diagnostic': None, 'passed': False,
+                  'production_mutation': False, 'deployment_authorized': False, 'local_cleanup_attestation': 'NOT_STARTED'}
+          else:
+              if not path.is_file() or path.is_symlink() or not 0 < path.stat().st_size <= 4096:
+                  raise SystemExit('CLOSED_DIAGNOSTIC_INVALID')
+              record = json.loads(path.read_text())
+          if (set(record) != {'schema', 'target', 'transport_status', 'diagnostic', 'passed', 'production_mutation', 'deployment_authorized', 'local_cleanup_attestation'} or
+                  record['schema'] != 'pc.closed-docker-diagnostic-envelope.v2' or
+                  record['target'] != os.environ['TARGET_SHA'] or not re.fullmatch('[0-9a-f]{40}', record['target']) or
+                  record['production_mutation'] is not False or record['deployment_authorized'] is not False or type(record['passed']) is not bool or
+                  record['local_cleanup_attestation'] not in {'NOT_STARTED', 'OWNED_ANCESTRY_REAPED', 'NOT_ATTESTED'} or
+                  (record['transport_status'] == 'CLEANUP_UNCONFIRMED') != (record['local_cleanup_attestation'] == 'NOT_ATTESTED') or
+                  record['transport_status'] not in {'NOT_COLLECTED', 'UNKNOWN', 'TIMED_OUT', 'OUTPUT_LIMIT', 'NONZERO', 'INVALID_REMOTE_REPORT', 'CLEANUP_UNCONFIRMED', 'VALIDATED_REMOTE_REPORT'}):
+              raise SystemExit('CLOSED_DIAGNOSTIC_INVALID')
+          diagnostic = record['diagnostic']
+          # Reuse the exact source schema validator, never arbitrary remote fields.
+          if record['transport_status'] == 'VALIDATED_REMOTE_REPORT':
+              source = Path(os.environ['RUNNER_TEMP']) / 'closed-docker-signal.py'
+              namespace = {'__name__': 'closed_docker_publication_validator'}
+              exec(compile(source.read_text(), '<closed-source-schema>', 'exec'), namespace)
+              diagnostic = namespace['validate_report'](diagnostic)
+              if record['local_cleanup_attestation'] != 'OWNED_ANCESTRY_REAPED' or record['passed'] != (diagnostic['status'] == 'SUCCESS'):
+                  raise SystemExit('CLOSED_DIAGNOSTIC_PASS_BINDING')
+          elif diagnostic is not None or record['passed']:
+              raise SystemExit('CLOSED_DIAGNOSTIC_TRANSPORT_BINDING')
+          (root / 'closed-diagnostic.json').write_text(json.dumps(record, sort_keys=True, separators=(',', ':')) + '\n')
+          status = diagnostic['status'] if diagnostic is not None else 'NOT_COLLECTED'
+          signal = diagnostic['failure_signal'] if diagnostic is not None else 'UNKNOWN'
+          body = '\n'.join(['## Closed Docker admission diagnostic',
+              '- Exact source: `' + record['target'] + '`.',
+              '- Transport: `' + record['transport_status'] + '`.',
+              '- Docker observation: `' + status + '`; signal: `' + signal + '`.',
+              '- Local cleanup: `' + record['local_cleanup_attestation'] + '`.',
+              '- Root cause: `NOT_ESTABLISHED`; original19/integrity/runtime/DB/backup/rollback: `NOT_ATTESTED`.',
+              '- Mutation: `NONE`; deployment/startup/restore authorization: `NOT_GRANTED`.',
+              '- One fixed read-only query; no automatic retry. No raw errors, IDs, paths or configuration published.',
+              ''])
+          (root / 'closed-issue-record.md').write_text(body)
+          with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a') as handle:
+              handle.write(body)
+          PY_CLOSED_DOCKER_SUMMARY
+          gh issue comment "$AUTHORITY_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/closed-issue-record.md"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-docker-closed-admission-${{ github.run_id }}
+          path: |
+            artifacts/production-docker-headroom-diagnostic/closed-diagnostic.json
+            artifacts/production-docker-headroom-diagnostic/closed-issue-record.md
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
       - name: Cleanup protected transport
         if: always()
         shell: bash
@@ -2270,7 +2798,7 @@ jobs:
           rm -f "$HOME/.ssh/id_pc_prod" "$HOME/.ssh/known_hosts"
 
       - name: Build bounded diagnostic summary
-        if: always()
+        if: ${{ false }} # Historical broad observer; superseded only for this diagnostic job.
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -2412,7 +2940,7 @@ jobs:
           PY
 
       - name: Publish diagnostic evidence
-        if: always()
+        if: ${{ false }} # Historical broad observer; superseded only for this diagnostic job.
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -2421,7 +2949,7 @@ jobs:
           gh issue comment "$AUTHORITY_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/issue-record.md"
 
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: ${{ false }} # Historical broad artifact is never uploaded.
         with:
           name: production-docker-headroom-diagnostic-${{ github.run_id }}
           path: artifacts/production-docker-headroom-diagnostic

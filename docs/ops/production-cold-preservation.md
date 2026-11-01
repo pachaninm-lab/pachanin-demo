@@ -187,3 +187,137 @@ source publication, then fresh exact-head independent review, applicable native/
 security/canonical checks and ordinary full-SHA manual acceptance. Old PASS does
 not transfer. No host window is issued; restoration, release, registration,
 Founder13, external integrations and whole MASTER acceptance remain unproved.
+
+
+## Existing bootstrap observer dependency, 2026-10-31
+
+The accepted root-capacity workflow is now 370287 bytes, SHA256
+`31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7`.
+Its complete 191427-byte historical observer prefix still hashes to the prior
+`09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a`.
+Bind that exact complete current dependency; its additional bytes do not add
+commands to the extracted observer. Only this fixed dependency may exceed the
+old 200000-byte source cap, up to its exact 370287-byte length. Every other
+source keeps its old bound. Engine, one-use journals, transport, startup policy,
+workers quarantine, timeouts and private custody remain unchanged.
+
+The isolated PostgreSQL copy run40061557888 is historical VERIFIED/SPENT evidence;
+do not run the private clone-controller proposal or reset that operation.
+Bootstrap40193352988 failed before SSH authentication and before its restore step.
+Its UNKNOWN record remains. Source acceptance does not reconcile current journal
+or object ownership: require a fresh bounded read-only reconciliation and a new
+finite operational disposition before any bootstrap invocation. No restoration,
+registration, release or MASTER progress is established by this dependency fix.
+
+
+## Accepted Oct29 web transition in the bootstrap profile
+
+The historical helper and standalone inspector remain byte-exact. Bootstrap
+loads a separately named helper module with only the exact approved web-pair
+transition: e643540a/4a9a5687 to b97bfde4/74d23045. The raw helper digest fixes
+all eleven historical pairs; the ten other pairs cannot change. The current
+pair is pinned from diagnostic41183993309, not derived from future observations.
+The inspector and Source use the same explicit eleven-pair profile. The web
+image/revision is 74d23045 / 3de749725b270a810f463bef34e6120f22fb7ce7;
+API stays 4d7ca23e / a6784252a57a8a5e14f231bc18a64d67ab0fd274.
+
+OWNER command6500972034 and successful exact-web release40902238969 establish
+the accepted Oct29 image/revision; its artifact does not contain a container-ID
+receipt. Current CID attribution is a pinned fresh observation, corroborated by
+saved startup time, not a claim of cryptographic historical CID provenance.
+All command, loader, health, mount, copy, configuration, process/containerd,
+prewrite and exclusive-journal checks still apply. Saved Kafka Running=true
+is not proof of a live task; actual containerd emptiness remains mandatory.
+No startup, retry, archive reset or production acceptance follows from source
+acceptance. A fresh read-only observation and finite operational disposition
+remain required. A historical-profile standalone inspection may still refuse
+the newer web pair; bootstrap's complete inline inspection uses this separately
+reviewed current profile before its first durable write.
+
+
+## Read-only startup compatibility observation
+
+`/production inspect-core-startup current-main` is a separate strict OWNER4637
+read-only mode. It runs the existing private Source attestation and uses the
+unchanged startup predicate to report fixed core roles and closed reason codes.
+No command, entrypoint, environment or health-script value is exported.
+Classifier/predicate disagreement produces an incomplete observation. The
+read-only entry never calls bootstrap, build_plan, before_first_write, journal
+creation or Docker mutations. The existing bootstrap payload and predicates
+remain unchanged; source acceptance does not permit another bootstrap attempt.
+
+The separate `pc.core-startup-inspection.v2` receipt always has startupAuthorized,
+runtimeRestored and release/registration flags false. A zero exit means complete
+observation, including incompatible profiles, never startup admission. Valid
+closed diagnostic JSON is retained even for an incomplete observation; invalid
+transport cannot supply it. The fixed operation slot is stat-only: PRESENT or
+UNAVAILABLE requires reconciliation; ABSENT is only a snapshot and never
+replaces the atomic refuse-existing journal guard. No journal entries are read.
+
+Two frozen embedded source/policy-test modules are losslessly compressed to keep the
+existing 200000-byte cap; decoded bytes, all assertions, test selection and
+native Compose/Docker/PG-wire requirements remain intact. This is not a timeout
+or safety reduction. New actual-head review/native/security/readiness/manual
+source gates and a finite read-only disposition remain required before use.
+All historical UNKNOWN/SPENT receipts, copies, keys and nineteen volumes remain.
+
+
+### Closed command characterization, receipt version 2
+
+The actual version-1 inspection41194011739 found SAVED_COMMAND_PROFILE for
+PostgreSQL and Redis. It did not reveal their argv or prove later environment,
+loader and health predicates. No startup allowlist change follows from that
+result. The two additional version-2 commandDiagnostics rows retain exactly
+those roles and output only fixed program/form, public option-name codes,
+bounded parse/completeness/duplicate classifications and remaining refusal
+codes. All values, paths, scripts, unknown names and exception details stay
+private. ENTRYPOINT_OPTIONS labels option-first argv only; it does not attest
+an entrypoint or authorize an implicit executable. No shell splitting,
+normalization into executable commands or new
+command admission occurs. Known names and a complete parse are diagnostic
+facts, never evidence that their values or startup behavior are safe.
+
+Unknown names stop parsing; variable Redis arity remains unproved. A value
+that resembles a flag is consumed as a value and cannot be published as an
+option. When parsing is incomplete, optionCodes and repeatedOption describe
+only the recognized prefix; they prove nothing about the remaining arguments.
+PostgreSQL short/long and Redis legacy option aliases share duplicate
+detection. Remaining predicates inspect actual environment/loader/health
+fields directly; no synthetic replacement command is used. The original
+six-role startup_safe result remains the compatibility authority and every
+startup/runtime/release/registration/rollback flag stays false. The version-1
+receipt remains historical evidence; it cannot be replayed into this schema.
+
+All five mutator components and the complete bootstrap payload remain
+byte-identical. No bootstrap retry, journal reservation/reset or runtime
+startup is authorized. An actual command-profile correction still needs
+specific evidence and separate exact source/admission/review/native/security/
+readiness/manual gates, followed by finite operational authorization.
+
+
+## Private compatibility proposal: exact observer carriers
+
+The proposed source stage recognizes only the complete old diagnostic carrier
+e0f8fa5731af0addc0b82c9ca7fab24abcecddb7 (370287 bytes, SHA256
+31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7)
+and frozen R2 carrier 5f5446369cc96c935fe959ad5ba9aa6bcf95f2ac (400684 bytes,
+SHA256 1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f).
+Every other dependency and controller keeps its existing cap. Unknown or changed
+carriers fail before extraction. The three actual inspector fragments must match
+their fixed identities. R2's first191427 bytes are different; a fixed local inverse
+applied only after the complete R2 identity check must recover the complete old
+e0f8fa file and its immutable191427-byte09ae88 prefix. No network, history lookup,
+new fixture path, generic fallback or historical-test deletion is used.
+
+This is PRIVATE proposed compatibility source, not admitted authority. Exact
+metadata and source admission, actual independent whole-head review, substantive
+native Compose/shared-helper/PostgreSQL wire/security gates, latest readiness and
+manual expected-head acceptance are required. The existing main/owner/purpose
+and exact controller pin binding still applies. A later diagnostic source change
+does not authorize a cold operation: its accepted purpose inspection pin must
+match the exact current carrier. Host invocation additionally requires the fresh
+bounded read-only journal/object reconciliation and separate finite operational
+disposition. Clone40061557888 remains VERIFIED/SPENT; bootstrap40193352988 remains
+UNKNOWN. Never retry, reset or weaken a failed gate to resolve the CI dependency.
+No startup policy, engine, payload behavior, worker quarantine, original19 volume,
+custody, release or production acceptance is established by this proposal.

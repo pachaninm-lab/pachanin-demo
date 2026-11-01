@@ -251,7 +251,9 @@ fi
 
 is_immutable_scope_branch() {
   case "$1" in
+    'ops/production-api-only-release-20261101') return 0 ;;
     'ops/ir20-isolated-restore-20260919') return 0 ;;
+    'ops/production-cold-preservation-20261022') return 0 ;;
     "fix/pc-crop-docker-headroom-rollover-4637") return 0 ;;
     "security/accounting-bff-csrf-3-5-1"|"security/module-body-validation"|"security/bff-upstream-path-encoding-4459"|"security/request-cookie-single-reader-4459"|"security/open-redirect-demo-login-4459"|"security/email-check-length-first-4459"|"security/browser-hardening-headers-4459"|"security/outbound-redirect-and-surface-4459"|"security/credential-surface-4459"|"fix/tai-release-run-event-filter-20261008") return 0 ;;
     "fix/gekta-history-lifecycle-5818"|"governance/gekta-history-lifecycle-source-admission-5818") return 0 ;;
@@ -816,6 +818,382 @@ const gektaRecoveryScopes = {
   ]
 };
 let scopes;
+// DC1_COHERENT_COMPAT_BEGIN: exact accepted BASE stages; no host grant.
+function dc1CoherentStage() {
+  const dockerBranch = 'fix/gekta-docker-diagnostic-route-20260927';
+  const coldBranch = 'ops/production-cold-preservation-20261022';
+  const metadataBranch = 'governance/industrial-load-diagnostics-20260919';
+  if (![dockerBranch, coldBranch, metadataBranch].includes(branch)) return undefined;
+  const { createHash } = require('node:crypto');
+  const { isDeepStrictEqual } = require('node:util');
+  const fail = reason => { throw new Error('DC1_COHERENT_SCOPE_' + reason); };
+  const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+  const headRef = String(process.env.HEAD_REF || '').trim();
+  const raw = git(['diff', '--raw', '--no-abbrev', '--no-renames', '-z', baseRef, headRef]);
+  // Non-state industrial work retains every preexisting default restriction.
+  if (branch === metadataBranch && !raw.split('\0').includes(stateFile)) return undefined;
+  const reviewPath = 'docs/platform-v7/autopilot/prompts/current-review-task.md';
+  const marker = '\n## DC1 — Closed Docker diagnostic source purpose, 2026-11-01\n\n```json\n';
+  const entry = (ref, file) => git(['ls-tree', ref, '--', file]).trim();
+  const exact = (ref, file, mode, blob) => {
+    if (!['100644', '100755'].includes(mode) || !/^[a-f0-9]{40}$/u.test(blob || '') ||
+        entry(ref, file) !== `${mode} blob ${blob}\t${file}`) fail('BLOB_OR_MODE');
+  };
+  const read = (ref, file) => {
+    const capacity = file === reviewPath ? 2 * 1024 * 1024 : 1024 * 1024;
+    let bytes;
+    try { bytes = execFileSync('git', ['show', `${ref}:${file}`], { maxBuffer: capacity + 1 }); }
+    catch { fail('READ_CAPACITY_OR_OBJECT'); }
+    if (bytes.length > capacity) fail('READ_CAPACITY');
+    const text = bytes.toString('utf8');
+    if (!Buffer.from(text, 'utf8').equals(bytes)) fail('READ_UTF8');
+    return bytes;
+  };
+  let purpose;
+  const acceptedReviewEntry = entry(baseRef, reviewPath);
+  if (acceptedReviewEntry) {
+    const parts = read(baseRef, reviewPath).toString('utf8').split(marker);
+    if (parts.length > 2) fail('PURPOSE_NOT_UNIQUE');
+    if (parts.length === 2) {
+      if (!/^100644 blob [a-f0-9]{40}\t/u.test(acceptedReviewEntry)) fail('PURPOSE_MODE');
+      const end = parts[1].indexOf('\n```\n'); if (end < 0) fail('PURPOSE_FORMAT');
+      const encoded = parts[1].slice(0, end);
+      try { purpose = JSON.parse(encoded); } catch { fail('PURPOSE_FORMAT'); }
+      if (JSON.stringify(purpose) !== encoded) fail('PURPOSE_CANONICAL');
+    }
+  }
+  if (purpose === undefined) {
+    if (branch === coldBranch) fail('MISSING_COLD_PURPOSE');
+    return undefined;
+  }
+  const origin = '14b4e6bbd0122a8cd717ea193ecd39c69e0efcdf';
+  const expectedPurposeCore = {"schemaVersion":"gekta.coherent-docker-cold-purpose.v2","purposeId":"gekta-coherent-docker-cold-20261101","owner":"OWNER_AUTHORIZED_SESSION","ownerDecision":"https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6558567311","ownerDecisionQualification":"Narrow retained DC1 metadata/guard/source continuation only; not exact-head source acceptance, publication, host/window, cold-cycle compatibility or release permission.","authorityBaseExactMain":"14b4e6bbd0122a8cd717ea193ecd39c69e0efcdf","sourceBranch":"fix/gekta-docker-diagnostic-route-20260927","guardBranch":"governance/gekta-recovery-trusted-routes-20260927","privateSourceReviewSha256":"9d89e91957c738bc22c2229795de1eb817672372a9175b180da2df199844ce21","sourcePatch":{"blob":"e48c31c76272e61760cad870c49ee8162a71d0f6","bytes":61549,"sha256":"856195baf7c722088b3ecd5e0d80737f6b63f2140d7ac88920be2740b29d81fc"},"supersession":"Only diagnose-docker broad storage observations are replaced by one closed fixed read-only Docker containers_list request and private bounded stderr signal; the other six jobs are preserved.","readDisclosure":"Docker CLI startup may implicitly read configuration and NSS/HOME fallback metadata, including ~/.docker/config.json and credential-store detection. Raw stdout, stderr, configuration and credentials are NOT PUBLISHED; NOT READ is not asserted.","cleanupDisclosure":"Temporary PR_SET_CHILD_SUBREAPER separately in each fresh parent: runner SSH transport and root-side remote Docker collector; each requires prior zero, default SIGCHLD and initial waitid(P_ALL, WNOWAIT|WNOHANG) ECHILD, and each restores its prior zero state. Hold the leader WNOWAIT through the last safe group SIGKILL, reap leader once, then only bounded waitid(P_ALL, WNOHANG) reaps adopted own descendants until ECHILD. No /proc, cgroup, foreign kill or group signal after leader reap; escaped/live children fail CLEANUP_UNCONFIRMED without retry.","invariants":["Preserve all prior immutable purposes, UNKNOWN and SPENT attempts, request fingerprints, 19 volumes and recovery history.","Preserve primary/current/next scopes, owners, score, all existing source/state/review budgets and all old security/runtime gates.","This purpose and exact source admission provide no current host right, finite window, production invocation, release, filesystem growth or production acceptance."],"sourcePublicationAuthorized":false,"guardPublicationAuthorized":false,"productionInvocationAuthorized":false,"releaseAuthorized":false,"filesystemGrowthAuthorized":false,"productionAcceptance":false,"masterCredit":0,"coldOwnerDecision":"#5469#issuecomment-6558882969","privateColdSourceReviewSha256":"239f9e1eabc6d132269bda0fae393749d52abc253861158c114552e9d83fa1ea","privateColdPurposeReviewSha256":"d3ae9335d1c8980d3a21c5e174c18d15cd34dd1204e87644b2577c8b66cf6362","coldPurpose":{"purposeId":"cold-observer-exact-compatibility-20261101","purposeSha256":"9b3c294b12797d0a7c9984fd9cca691ec892c50dd0c66cac8420fa82d1b05c6c","queueBeforeBlob":"8bd9e231fe2bfcbee4ae270718c291802b1a4a3b","queueBlob":"a59124dda99d57ccab6c7b92b01f62b725dda149","queueBytes":2134106,"queueSha256":"0826b8310006d82eee79dcfa43ff0aa9a37f04d53cfc980dcb86a059dfa5e7b6"},"payloadPacketFormat":"gekta.dc1-payload-packet.v1; sorted exact paths; canonical JSON LF; each gekta.dc1-file-pair.v1 canonical JSON LF header followed by complete raw before and after bytes; each pair and root bounded to existing1MiB","canonicalSourcePacket":{"blob":"aa6a4a5ad19f9c4c5ef26dbf6d34d78e5d60358e","bytes":1175,"sha256":"10100488c4ce1a896f21e7e7161000a351860a8b30a99e446689463fe956b1f3"},"canonicalColdPacket":{"blob":"f7538ea86c40cc47a1facf40accdd5891da93adb","bytes":1703,"sha256":"e09af6fff59a8bcaaa58db094fdd69ac6cb6bba5d8085117b5fe407f01ecb7c4"},"packetIdentityRule":"guardPacket and canonicalSourcePacket/canonicalColdPacket bind full before/after modes, Git blobs, byte lengths, SHA256 and complete raw per-file pairs. sourcePatch and original coldPatch retain historical private diff artifact identities only. No file payload, read cap or review/native authority transfers."};
+  const sourcePayloads = [{"path":".github/workflows/production-docker-headroom-diagnostic.yml","mode":"100644","beforeBlob":"e0f8fa5731af0addc0b82c9ca7fab24abcecddb7","beforeBytes":370287,"beforeSha256":"31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7","afterBlob":"5f5446369cc96c935fe959ad5ba9aa6bcf95f2ac","bytes":400684,"sha256":"1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f"},{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","beforeBlob":"bc2c092cea71aaca1c94121b02d1bd87cf83df5f","beforeBytes":34069,"beforeSha256":"6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9","afterBlob":"f48e4de8380851512ea7c9fade0f64b7b1c78a79","bytes":60607,"sha256":"769d1fbc1739bb60761fb4d03a0c0c771e3049db5de4dcacb04e4ad0e1909068"}];
+  const coldPayloads = [{"path":".github/workflows/production-cold-preservation.yml","mode":"100644","beforeBlob":"338b17efa926ad4a12eb061ebd2543164905aadb","beforeBytes":169790,"beforeSha256":"dd327aba31e76a1cb3ffe713eecf62091ce470fee53a8de93d863a0ffc0c7ae6","afterBlob":"6236904ed57f820207e4be2eb918bb956c5f3805","bytes":172672,"sha256":"e322cfee6489d25f17133be7297f3ad900d0574650121e84648d72b0aedff934"},{"path":"scripts/test_production_cold_preservation.py","mode":"100644","beforeBlob":"e5faf4c8d59a8567eafc3bcd4ef49204a713d275","beforeBytes":199236,"beforeSha256":"3a6553fad7ba3bec8ecefdb11536ed3e29c7f296ab6b117672b2ef776063519c","afterBlob":"19632fe1357f16d81835c31da30d5572ec836d65","bytes":199769,"sha256":"3216ead4e4abd2f515a5410756657131f79cb4e548aa077f4083d2c662fb6478"},{"path":"docs/ops/production-cold-preservation.md","mode":"100644","beforeBlob":"3c8b47d984802cb9092d1279fcaa0c2133739da0","beforeBytes":48479,"beforeSha256":"39004266eb20cd4e52ab5123dddc32f053d220db4996a0333a3267c45d220fd2","afterBlob":"1655bb5ce5ae9f9c915b92203818648c6cfb152b","bytes":50343,"sha256":"58280bb7518e782e576c71cc2679b6ece7fa64d8cba2b4bce57ed49f78c644c8"}];
+  const coldPatch = {"blob":"78ef9f341df418da61e247c662d86a3eddbda534","bytes":15391,"sha256":"1d14b17ab85d54fa97909586c414ffe050e70ee64bba4f1576dd469894a3ced0"};
+  const stateStages = {"S0":{"bytes":3145687,"sha256":"6b4a5d16dc47f3ce1d80ef022005a615e3db72ade1f6a0fd243d3ee01fdce4f4","blob":"60930eae9e605e3b96887b5cb9249ac00e91ed06"},"A3":{"bytes":3145687,"sha256":"692fc2a94e6a4dd45ebace52934bcd6614aa21817a79ebcd0bfefb66adca482c","blob":"b90d728b224cdc358fbf35a672bcee75b8723ddd"},"B1":{"bytes":3145687,"sha256":"7bc59d1a3d3201c15258adb2f9886a415878393deb1fe3b6b9f5f03ab05eef99","blob":"9dd9d2a97e54bae0d7c9d18d165e430c06cd6c42"}};
+  const stateReplacements = {"A3":[{"pointer":"/coordinationAdmissions/stopped-core-bootstrap-20261024/sourcePins/0/sha256","path":".github/workflows/production-cold-preservation.yml","byteOffset":3083509,"bytes":64,"before":"dd327aba31e76a1cb3ffe713eecf62091ce470fee53a8de93d863a0ffc0c7ae6","after":"e322cfee6489d25f17133be7297f3ad900d0574650121e84648d72b0aedff934"},{"pointer":"/coordinationAdmissions/stopped-core-bootstrap-20261024/sourcePins/1/sha256","path":"scripts/test_production_cold_preservation.py","byteOffset":3083657,"bytes":64,"before":"3a6553fad7ba3bec8ecefdb11536ed3e29c7f296ab6b117672b2ef776063519c","after":"3216ead4e4abd2f515a5410756657131f79cb4e548aa077f4083d2c662fb6478"},{"pointer":"/coordinationAdmissions/stopped-core-bootstrap-20261024/sourcePins/2/sha256","path":"docs/ops/production-cold-preservation.md","byteOffset":3083801,"bytes":64,"before":"39004266eb20cd4e52ab5123dddc32f053d220db4996a0333a3267c45d220fd2","after":"58280bb7518e782e576c71cc2679b6ece7fa64d8cba2b4bce57ed49f78c644c8"}],"B1":[{"pointer":"/coordinationAdmissions/stopped-core-bootstrap-20261024/inspectionSha256","byteOffset":3083342,"bytes":64,"before":"31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7","after":"1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f"}]};
+  const guardIdentity = [
+    ['scripts/p7-autopilot-guard.sh', '100755', '82ea88bfbede3faa4c88de1122235b6382258ad4'],
+    ['docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs', '100644', 'ed9534d098fff211cf0b1e324dc68bd6b80f13a3'],
+    ['.github/workflows/platform-v7-autopilot-guard.yml', '100644', '70ba69a95c116b329feaed4c0ae81e7735988b0e'],
+  ];
+  if (!purpose || Array.isArray(purpose) || typeof purpose !== 'object') fail('PURPOSE_IDENTITY');
+  const { sourcePayloads: admittedSource, guardPayloads, guardPacket, privateGuardReviewSha256, ...core } = purpose;
+  if (!isDeepStrictEqual(core, expectedPurposeCore) || !isDeepStrictEqual(admittedSource, sourcePayloads)) fail('PURPOSE_IDENTITY');
+  for (const digest of [core.privateSourceReviewSha256, core.privateColdSourceReviewSha256,
+    core.privateColdPurposeReviewSha256, privateGuardReviewSha256]) if (!/^[a-f0-9]{64}$/u.test(digest || '')) fail('PRIVATE_PROOF_IDENTITY');
+  try {
+    if (!headRef || git(['merge-base', baseRef, headRef]).trim() !== git(['rev-parse', `${baseRef}^{commit}`]).trim() ||
+        git(['merge-base', origin, baseRef]).trim() !== origin) fail('ANCESTRY');
+  } catch { fail('ANCESTRY'); }
+  const queuePath = 'docs/platform-v7/execution-queue.md';
+  const queue = expectedPurposeCore.coldPurpose;
+  exact(origin, queuePath, '100644', queue.queueBeforeBlob);
+  // This one reviewed queue object contains the precise cold purpose. Binding
+  // its tree entry and exact object size needs no new queue/source reader.
+  for (const ref of [baseRef, headRef]) {
+    exact(ref, queuePath, '100644', queue.queueBlob);
+    if (git(['cat-file', '-s', `${ref}:${queuePath}`]).trim() !== String(queue.queueBytes)) fail('QUEUE_SIZE');
+  }
+  const originalReview = read(origin, reviewPath);
+  exact(origin, reviewPath, '100644', '13ba4bcc552b89444515e09dbe2746bbe8a6a48a');
+  const acceptedReview = read(baseRef, reviewPath);
+  if (!acceptedReview.subarray(0, originalReview.length).equals(originalReview)) fail('PRIOR_REVIEW');
+  if (entry(headRef, reviewPath) !== acceptedReviewEntry || !read(headRef, reviewPath).equals(acceptedReview)) fail('REVIEW_MUTATION');
+  const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+  const blobDigest = bytes => createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+  const artifact = item => item && isDeepStrictEqual(Object.keys(item).sort(), ['blob', 'bytes', 'sha256'].sort()) &&
+    /^[a-f0-9]{40}$/u.test(item.blob || '') && /^[a-f0-9]{64}$/u.test(item.sha256 || '') &&
+    Number.isSafeInteger(item.bytes) && item.bytes > 0 && item.bytes <= 1024 * 1024;
+  if (!artifact(guardPacket) || !artifact(core.sourcePatch) || !artifact(coldPatch) ||
+      !artifact(core.canonicalSourcePacket) || !artifact(core.canonicalColdPacket)) fail('PACKET_IDENTITY');
+  // Full raw before/after pairs retain content identity without Git diff rendering.
+  // Each read, pair and root retains the existing 1 MiB bound; no cap grows.
+  const checkPacket = (pin, ref, files) => {
+    const side = (at, file) => {
+      const line = entry(at, file), match = /^(100644|100755) blob ([a-f0-9]{40})\t/u.exec(line);
+      if (!match || line !== `${match[1]} blob ${match[2]}\t${file}`) fail('PACKET_MODE');
+      const bytes = read(at, file);
+      if (blobDigest(bytes) !== match[2]) fail('PACKET_BLOB');
+      return { identity: { mode: match[1], blob: match[2], bytes: bytes.length, sha256: digest(bytes) }, bytes };
+    };
+    const entries = [...files].sort().map(file => {
+      const before = side(origin, file), after = side(ref, file);
+      const header = Buffer.from(JSON.stringify({ schemaVersion: 'gekta.dc1-file-pair.v1', path: file,
+        before: before.identity, after: after.identity }) + '\n', 'utf8');
+      const size = header.length + before.bytes.length + after.bytes.length;
+      if (size > 1024 * 1024) fail('PACKET_CAPACITY');
+      const chunks = [header, before.bytes, after.bytes];
+      const hash = algorithm => { const value = createHash(algorithm); for (const chunk of chunks) value.update(chunk); return value.digest('hex'); };
+      const blob = createHash('sha1').update(`blob ${size}\0`);
+      for (const chunk of chunks) blob.update(chunk);
+      return { path: file, before: before.identity, after: after.identity,
+        payloadPair: { blob: blob.digest('hex'), bytes: size, sha256: hash('sha256') } };
+    });
+    const bytes = Buffer.from(JSON.stringify({ schemaVersion: 'gekta.dc1-payload-packet.v1', entries }) + '\n', 'utf8');
+    if (bytes.length > 1024 * 1024) fail('PACKET_CAPACITY');
+    if (bytes.length !== pin.bytes || digest(bytes) !== pin.sha256 || blobDigest(bytes) !== pin.blob) fail('PACKET_CONTENT');
+  };
+  if (!Array.isArray(guardPayloads) || guardPayloads.length !== guardIdentity.length) fail('GUARD_IDENTITY');
+  for (const [index, [file, mode, beforeBlob]] of guardIdentity.entries()) {
+    const pin = guardPayloads[index];
+    if (!pin || !isDeepStrictEqual(Object.keys(pin).sort(), ['path', 'mode', 'beforeBlob', 'afterBlob', 'sha256', 'bytes'].sort()) ||
+        pin.path !== file || pin.mode !== mode || pin.beforeBlob !== beforeBlob ||
+        !/^[a-f0-9]{64}$/u.test(pin.sha256 || '') || !Number.isSafeInteger(pin.bytes) || pin.bytes < 1 || pin.bytes > 1024 * 1024) fail('GUARD_IDENTITY');
+    exact(origin, file, mode, beforeBlob);
+    for (const ref of [baseRef, headRef]) {
+      exact(ref, file, mode, pin.afterBlob); const bytes = read(ref, file);
+      if (bytes.length !== pin.bytes || digest(bytes) !== pin.sha256) fail('GUARD_NOT_ACCEPTED');
+    }
+  }
+  checkPacket(guardPacket, baseRef, guardIdentity.map(item => item[0]));
+  const stateBytes = (ref, stage) => {
+    const pin = stateStages[stage]; exact(ref, stateFile, '100644', pin.blob);
+    const bytes = Buffer.from(readImmutableState(ref), 'utf8');
+    if (bytes.length !== pin.bytes || digest(bytes) !== pin.sha256 || blobDigest(bytes) !== pin.blob) fail('STATE_CONTENT');
+    return bytes;
+  };
+  const originalState = stateBytes(origin, 'S0');
+  const inverse = (bytes, kind) => {
+    const result = Buffer.from(bytes);
+    for (const field of stateReplacements[kind]) {
+      const before = Buffer.from(field.before, 'ascii'), after = Buffer.from(field.after, 'ascii');
+      if (field.bytes !== 64 || before.length !== 64 || after.length !== 64 ||
+          !result.subarray(field.byteOffset, field.byteOffset + 64).equals(after)) fail('STATE_INVERSE_FRAGMENT');
+      before.copy(result, field.byteOffset);
+    }
+    return result;
+  };
+  const validateState = (ref, stage) => {
+    const bytes = stateBytes(ref, stage);
+    if (stage === 'S0') { if (!bytes.equals(originalState)) fail('STATE_INVERSE'); }
+    if (stage === 'A3' && !inverse(bytes, 'A3').equals(originalState)) fail('STATE_INVERSE');
+    if (stage === 'B1') {
+      const a3 = inverse(bytes, 'B1');
+      if (blobDigest(a3) !== stateStages.A3.blob || digest(a3) !== stateStages.A3.sha256 ||
+          !inverse(a3, 'A3').equals(originalState)) fail('STATE_INVERSE');
+    }
+    return bytes;
+  };
+  const acceptedState = JSON.parse(readImmutableState(baseRef));
+  const coldVector = ['scripts/production_cold_preservation.py', 'scripts/test_production_cold_preservation.py',
+    '.github/workflows/production-cold-preservation.yml', 'docs/ops/production-cold-preservation.md', 'scripts/test_production_stopped_runtime_headroom.py'];
+  const metadataVector = [stateFile, queuePath, 'docs/platform-v7/autopilot/prompts/current-codex-task.md', reviewPath,
+    'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs', '.github/workflows/platform-v7-autopilot-guard.yml'];
+  for (const [refBranch, paths] of [[dockerBranch, sourcePayloads.map(item => item.path)], [coldBranch, coldVector],
+    [metadataBranch, metadataVector], [core.guardBranch, guardIdentity.map(item => item[0]).sort()]]) {
+    if (!isDeepStrictEqual(acceptedState.approvedConcurrentScopes?.[refBranch], paths)) fail('ACCEPTED_VECTOR');
+  }
+  const payloadAt = (ref, pin, after) => {
+    const blob = after ? pin.afterBlob : pin.beforeBlob;
+    exact(ref, pin.path, pin.mode, blob); const bytes = read(ref, pin.path);
+    if (bytes.length !== (after ? pin.bytes : pin.beforeBytes) || digest(bytes) !== (after ? pin.sha256 : pin.beforeSha256)) fail('SOURCE_CONTENT');
+  };
+  const unchangedPayloads = (pins, after) => {
+    for (const pin of pins) for (const ref of [baseRef, headRef]) payloadAt(ref, pin, after);
+  };
+  const exactTransition = pins => {
+    const fields = raw.split('\0');
+    if (fields.pop() !== '' || fields.length !== pins.length * 2) fail('EXACT_STAGE_PATHS');
+    const expected = new Map(pins.map(pin => [pin.path, pin]));
+    for (let index = 0; index < fields.length; index += 2) {
+      const pin = expected.get(fields[index + 1]);
+      if (!pin || fields[index] !== `:${pin.mode} ${pin.mode} ${pin.beforeBlob} ${pin.afterBlob} M`) fail('PAYLOAD_OR_MODE');
+      payloadAt(origin, pin, false); payloadAt(baseRef, pin, false); payloadAt(headRef, pin, true); expected.delete(pin.path);
+    }
+    if (expected.size) fail('EXACT_STAGE_PATHS');
+  };
+  if (branch === metadataBranch) {
+    let stage;
+    const before = entry(baseRef, stateFile), after = entry(headRef, stateFile);
+    if (before === `100644 blob ${stateStages.S0.blob}\t${stateFile}` && after === `100644 blob ${stateStages.A3.blob}\t${stateFile}`) stage = 'A3';
+    if (before === `100644 blob ${stateStages.A3.blob}\t${stateFile}` && after === `100644 blob ${stateStages.B1.blob}\t${stateFile}`) stage = 'B1';
+    if (!stage) fail('METADATA_STAGE');
+    const from = stage === 'A3' ? 'S0' : 'A3';
+    if (raw !== `:100644 100644 ${stateStages[from].blob} ${stateStages[stage].blob} M\0${stateFile}\0`) fail('METADATA_EXACT_STATE_ONLY');
+    validateState(baseRef, from); validateState(headRef, stage);
+    unchangedPayloads(coldPayloads, stage === 'B1'); unchangedPayloads(sourcePayloads, stage === 'B1');
+    return { scopes: [stateFile], metadata: true, stage };
+  }
+  const beforeState = validateState(baseRef, 'A3'), afterState = validateState(headRef, 'A3');
+  if (!beforeState.equals(afterState)) fail('SOURCE_STATE_MUTATION');
+  if (branch === coldBranch) {
+    unchangedPayloads(sourcePayloads, false); exactTransition(coldPayloads);
+    checkPacket(core.canonicalColdPacket, headRef, coldPayloads.map(item => item.path));
+    return { scopes: coldPayloads.map(item => item.path), metadata: false, stage: 'COLD3' };
+  }
+  unchangedPayloads(coldPayloads, true); exactTransition(sourcePayloads);
+  checkPacket(core.canonicalSourcePacket, headRef, sourcePayloads.map(item => item.path));
+  return { scopes: sourcePayloads.map(item => item.path), metadata: false, stage: 'R2' };
+}
+const dc1Coherent = dc1CoherentStage();
+if (dc1Coherent !== undefined) {
+  scopes = dc1Coherent.scopes;
+// DC1_COHERENT_COMPAT_END
+} else
+if (branch === 'ops/production-api-only-release-20261101') {
+  // AP2_ATOMIC_API_ONLY_SOURCE_BEGIN
+  // This seven-path bootstrap is authorized only by the separately accepted
+  // BASE purpose. Candidate state and PRIMARY never supply source authority.
+  const { createHash } = require('node:crypto');
+  const { isDeepStrictEqual } = require('node:util');
+  const fail = reason => { throw new Error('API_ONLY_SOURCE_SCOPE:' + reason); };
+  const headRef = String(process.env.HEAD_REF || '').trim();
+  const origin = '19c157cee4b598175401d3266856450788a8d8ae';
+  const reviewFile = 'docs/platform-v7/autopilot/prompts/current-review-task.md';
+  const expectedPurpose = {"owner":"ACCOUNT_1_CORE","base":"19c157cee4b598175401d3266856450788a8d8ae","sourceBranch":"ops/production-api-only-release-20261101","guardBranch":"governance/industrial-load-diagnostics-20260919","record":"docs/platform-v7/autopilot/prompts/current-review-task.md#ap2","sourcePublicationAuthorized":false,"productionInvocationAuthorized":false,"productionAcceptance":false,"masterCredit":0};
+  const purposeSha256 = '1d09e1472c66ce47e273c1cec90f798688a9d4d904679ec7a3787f5384061e25';
+  // API_ONLY_RELEASE_SOURCE_PINS_V1_BEGIN
+  const apiOnlySourcePins = [{"path":"scripts/release/verify-api-schema-source-parity.mjs","mode":"100644","beforeBlob":null,"afterBlob":"b0a5c61ae649d10d12a6b2ce5778b0497d0c326b","sha256":"84da6347e8ced2f9b78766c94ec9f5b050c3a1a6b955dc7e20b5faa86e330edf","bytes":5553},{"path":"scripts/release/test-api-schema-source-parity.mjs","mode":"100644","beforeBlob":null,"afterBlob":"251400154716db3c48e0572f76a7e30fe15f393f","sha256":"821529f50fa62e974d7e9fd57f9f462d9b54db562050f913fc3a0583fd7a8cf2","bytes":9995},{"path":"scripts/release/api-only-release-controller.py","mode":"100644","beforeBlob":null,"afterBlob":"f9adfea6dbb238de3ffe9c83df3566edf1072996","sha256":"d13e193b5fbc47a37a19c50bd2815f1afb098011c20c1d1ad352825753ec669b","bytes":104702},{"path":"scripts/release/test-api-only-release-controller.py","mode":"100644","beforeBlob":null,"afterBlob":"0b9c353cc56152bc3bd1af972b04f790596ece13","sha256":"f561cb6e0e38951b915610c9e3e7e3c711a2ad61b034ef1a2e1a8b4ce0ee4100","bytes":58961},{"path":".github/workflows/production-api-only-release.yml","mode":"100644","beforeBlob":null,"afterBlob":"74a4345b57973e1baceece3ac1124cf2ac06535d","sha256":"fb471e8a95a19247520027f388df1eb84406e3a825eeca339fee53c54f8338c5","bytes":24441},{"path":"docs/ops/production-api-only-release.md","mode":"100644","beforeBlob":null,"afterBlob":"7c4b724763efe2a578730aeace41a267c01c5a9b","sha256":"72b9eb15fc400ca7e45eaa9dedb70b5c676061e849807e069923c2091e594e6a","bytes":8936}];
+  // API_ONLY_RELEASE_SOURCE_PINS_V1_END
+  const pins = apiOnlySourcePins;
+  const paths = pins.map(pin => pin.path);
+  const capacity = 3 * 1024 * 1024;
+  const gitBytes = (args, limit = capacity) => {
+    let bytes;
+    try {
+      bytes = execFileSync('/usr/bin/git', ['--no-optional-locks',
+        '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null',
+        '-c', 'protocol.allow=never', ...args], {
+        encoding: null, timeout: 10000, maxBuffer: limit + 1,
+        stdio: ['ignore', 'pipe', 'ignore'],
+        env: { PATH: '/usr/bin:/bin', LC_ALL: 'C', GIT_NO_LAZY_FETCH: '1', GIT_ALLOW_PROTOCOL: '',
+          GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_NO_REPLACE_OBJECTS: '1',
+          GIT_GRAFT_FILE: '/dev/null', GIT_TERMINAL_PROMPT: '0' },
+      });
+    } catch { fail('GIT_OBSERVATION_FAILED'); }
+    if (bytes.length > limit) fail('GIT_OUTPUT_BOUND');
+    return bytes;
+  };
+  const git = args => {
+    const bytes = gitBytes(args);
+    try { return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes); }
+    catch { fail('GIT_UTF8'); }
+  };
+  const read = (ref, file) => {
+    const text = git(['show', `${ref}:${file}`]);
+    if (Buffer.byteLength(text) > capacity) fail('READ_CAPACITY');
+    return text;
+  };
+  // JSON.parse alone loses duplicate keys. Validate the complete token stream
+  // and retain the exact closing offset of the existing scope object.
+  function strictJson(text) {
+    let parsed;
+    try { parsed = JSON.parse(text); } catch { fail('JSON_FORMAT'); }
+    let i = 0, scopeEnd = -1;
+    const white = () => { while (/[\t\r\n ]/.test(text[i] || '\0')) i++; };
+    const string = () => {
+      const start = i++;
+      while (i < text.length) {
+        if (text[i] === '\\') { i += 2; continue; }
+        if (text[i++] === '"') return JSON.parse(text.slice(start, i));
+      }
+      fail('JSON_STRING');
+    };
+    function value(path, depth = 0) {
+      if (depth > 128) fail('JSON_DEPTH');
+      white();
+      if (text[i] === '"') { string(); return; }
+      if (text[i] === '{') {
+        i++; white(); const keys = new Set();
+        if (text[i] !== '}') for (;;) {
+          const key = string();
+          if (keys.has(key)) fail('DUPLICATE_JSON_KEY');
+          keys.add(key); white(); i++; value([...path, key], depth + 1); white();
+          if (text[i] !== ',') break;
+          i++; white();
+        }
+        if (path.length === 1 && path[0] === 'approvedConcurrentScopes') scopeEnd = i;
+        i++; return;
+      }
+      if (text[i] === '[') {
+        i++; white();
+        if (text[i] !== ']') for (;;) {
+          value([...path, null], depth + 1); white();
+          if (text[i] !== ',') break;
+          i++; white();
+        }
+        i++; return;
+      }
+      while (i < text.length && !/[,}\]\t\r\n ]/.test(text[i])) i++;
+    }
+    value([]); white();
+    if (i !== text.length) fail('JSON_TRAILING_DATA');
+    return { parsed, scopeEnd };
+  }
+  const baseText = read(baseRef, stateFile);
+  const candidateText = read(headRef, stateFile);
+  const baseState = strictJson(baseText);
+  const candidateState = strictJson(candidateText);
+  if (!isDeepStrictEqual(baseState.parsed.coordinationAdmissions?.['pc-api-only-20261101'], expectedPurpose)) fail('BASE_PURPOSE');
+  if (Object.hasOwn(baseState.parsed.approvedConcurrentScopes || {}, branch)) fail('SOURCE_ALREADY_ADMITTED');
+  const review = read(baseRef, reviewFile);
+  const pieces = review.split('\n## AP2\n');
+  if (pieces.length !== 2) fail('AP2_RECORD_IDENTITY');
+  const fences = pieces[1].split('```json\n');
+  if (fences.length !== 2) fail('AP2_RECORD_FORMAT');
+  const end = fences[1].indexOf('\n```\n');
+  if (end < 0) fail('AP2_RECORD_FORMAT');
+  const recordText = fences[1].slice(0, end);
+  const fullPurpose = strictJson(recordText).parsed;
+  if (createHash('sha256').update(recordText).digest('hex') !== purposeSha256 ||
+      fullPurpose.sourceBranch !== branch || fullPurpose.authorityBaseExactMain !== origin ||
+      !isDeepStrictEqual(fullPurpose.sourcePaths, paths) ||
+      !isDeepStrictEqual(fullPurpose.sourceStagePaths, [stateFile, ...paths])) fail('AP2_RECORD_CONTENT');
+  // AP4 retains the original AP2 purpose and separately binds the reviewed
+  // two-payload lock correction from accepted BASE metadata.
+  const correctionPieces = review.split('\n## AP4\n');
+  if (correctionPieces.length !== 2) fail('AP4_RECORD_IDENTITY');
+  const correctionStarts = correctionPieces[1].split('AP4_SOURCE_RECORD_BEGIN\n');
+  if (correctionStarts.length !== 2) fail('AP4_RECORD_FORMAT');
+  const correctionEnds = correctionStarts[1].split('\nAP4_SOURCE_RECORD_END');
+  if (correctionEnds.length !== 2) fail('AP4_RECORD_FORMAT');
+  const correctionText = correctionEnds[0];
+  const correction = strictJson(correctionText).parsed;
+  if (createHash('sha256').update(correctionText).digest('hex') !== 'bc477be3ca04a16a55f9ffc479e87c960eda750fdac48b266889ac0825bba482'
+      || correction.schema !== 'pc.api-only-lock-payload-correction.v1'
+      || correction.owner !== 'ACCOUNT_1_CORE' || correction.sourceBranch !== branch
+      || correction.originalPurposeSHA256 !== purposeSha256
+      || !isDeepStrictEqual(correction.sourcePins, pins)) fail('AP4_RECORD_CONTENT');
+  if (!/^[0-9a-f]{40}$/.test(headRef) || !/^[0-9a-f]{40}$/.test(baseRef)) fail('EXACT_REFS');
+  try {
+    if (git(['rev-parse', `${baseRef}^{commit}`]).trim() !== baseRef ||
+        git(['rev-parse', `${headRef}^{commit}`]).trim() !== headRef ||
+        git(['merge-base', baseRef, headRef]).trim() !== baseRef) fail('BASE_ANCESTRY');
+    git(['merge-base', '--is-ancestor', origin, baseRef]);
+  } catch { fail('BASE_ANCESTRY'); }
+  if (pins.length !== 6 || pins.some(pin => pin.mode !== '100644' || pin.beforeBlob !== null ||
+      !/^[0-9a-f]{40}$/.test(pin.afterBlob || '') || !/^[0-9a-f]{64}$/.test(pin.sha256 || '') ||
+      !Number.isSafeInteger(pin.bytes) || pin.bytes <= 0 || pin.bytes > 1024 * 1024)) fail('UNFROZEN_SOURCE');
+  if (baseState.scopeEnd < 0 || !Object.keys(baseState.parsed.approvedConcurrentScopes || {}).length) fail('BASE_SCOPE_OBJECT');
+  const insertion = ',' + JSON.stringify(branch) + ':' + JSON.stringify(paths);
+  const expectedStateText = baseText.slice(0, baseState.scopeEnd) + insertion + baseText.slice(baseState.scopeEnd);
+  const expectedState = structuredClone(baseState.parsed);
+  expectedState.approvedConcurrentScopes[branch] = paths;
+  if (candidateText !== expectedStateText || !isDeepStrictEqual(candidateState.parsed, expectedState)) fail('EXACT_STATE_INSERTION');
+  const raw = git(['diff', '--raw', '--no-abbrev', '--no-renames', '-z', baseRef, headRef]).split('\0');
+  if (raw.pop() !== '' || raw.length !== 14) fail('EXACT_SEVEN_PATHS');
+  const expected = new Map(pins.map(pin => [pin.path, pin]));
+  let stateSeen = false;
+  for (let i = 0; i < raw.length; i += 2) {
+    const file = raw[i + 1];
+    if (file === stateFile) {
+      if (stateSeen || !/^:100644 100644 [0-9a-f]{40} [0-9a-f]{40} M$/.test(raw[i])) fail('STATE_MODE');
+      stateSeen = true; continue;
+    }
+    const pin = expected.get(file);
+    if (!pin || raw[i] !== `:000000 100644 ${'0'.repeat(40)} ${pin.afterBlob} A`) fail('SOURCE_BLOB_OR_MODE');
+    if (git(['ls-tree', baseRef, '--', file]) !== '' ||
+        git(['ls-tree', headRef, '--', file]).trim() !== `100644 blob ${pin.afterBlob}\t${file}`) fail('SOURCE_ENTRY');
+    const bytes = gitBytes(['show', `${headRef}:${file}`], 1024 * 1024);
+    if (bytes.length !== pin.bytes || createHash('sha256').update(bytes).digest('hex') !== pin.sha256) fail('SOURCE_CONTENT');
+    expected.delete(file);
+  }
+  if (!stateSeen || expected.size) fail('INCOMPLETE_ATOMIC_SOURCE');
+  scopes = [stateFile, ...paths];
+  // AP2_ATOMIC_API_ONLY_SOURCE_END
+} else 
 if (branch === 'ops/production-stopped-runtime-headroom-20261022' ||
     (branch === 'fix/pc-crop-docker-headroom-rollover-4637' &&
       execFileSync('git', ['show', `${baseRef}:docs/platform-v7/execution-queue.md`],
@@ -2829,7 +3207,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
     if (!isDeepStrictEqual(candidate, baseline)) throw new Error('PRODUCT_SCOPE_ADMISSION_STATE_MUTATION');
   }
 
-  if (branch === 'governance/industrial-load-diagnostics-20260919' || branch === 'test/industrial-load-diagnostics-20260919') {
+  if ((branch === 'governance/industrial-load-diagnostics-20260919' || branch === 'test/industrial-load-diagnostics-20260919') && !dc1Coherent?.metadata) {
     const { isDeepStrictEqual } = require('node:util');
     const governance = 'governance/industrial-load-diagnostics-20260919';
     const diagnostic = 'test/industrial-load-diagnostics-20260919';
@@ -3391,6 +3769,10 @@ if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE
   if [ "$CURRENT_BRANCH" = 'ops/ir20-isolated-restore-20260919' ]; then
     # This exact manifest has already matched the immutable accepted-base pin.
     MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -v -x 'docs/platform-v7/autopilot/scopes/ir20-isolated-restore-20260919.json' || true)
+  fi
+  # AP2 permits only the previously validated exact source-vector insertion.
+  if [ "$CURRENT_BRANCH" = 'ops/production-api-only-release-20261101' ]; then
+    MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv 'docs/platform-v7/autopilot/autopilot-state.json' || true)
   fi
   # The source branch above has already matched every full before/after blob,
   # mode and content hash against the separately accepted base purpose.

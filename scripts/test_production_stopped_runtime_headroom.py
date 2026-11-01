@@ -559,6 +559,426 @@ class RecoveryTests(unittest.TestCase):
                 with self.assertRaises(m.RecoveryError):
                     m.metadata(root_name)
 
+class ClosedDockerFailureContract(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import re
+        import textwrap
+        cls.workflow = (Path(__file__).parents[1] / '.github/workflows/production-docker-headroom-diagnostic.yml').read_text()
+        cls.sources = {}
+        for key in ('SIGNAL', 'TRANSPORT', 'SUMMARY'):
+            start = re.search(r"^          (?:cat > .* <<'|python3 .* <<')PY_CLOSED_DOCKER_" + key + "'\\n", cls.workflow, re.M)
+            if not start:
+                raise AssertionError('missing actual closed source ' + key)
+            end = cls.workflow.index('          PY_CLOSED_DOCKER_' + key + '\n', start.end())
+            cls.sources[key] = textwrap.dedent(cls.workflow[start.end():end])
+        cls.module = {'__name__': 'closed_collector_contract'}
+        exec(compile(cls.sources['SIGNAL'], '<actual-closed-signal>', 'exec'), cls.module)
+        cls.transport = {'__name__': 'closed_transport_contract'}
+        exec(compile(cls.sources['TRANSPORT'], '<actual-closed-transport>', 'exec'), cls.transport)
+
+    def metadata(self, path):
+        import stat
+        from types import SimpleNamespace
+        mode = stat.S_IFDIR | 0o755
+        if path == '/usr/bin/docker': mode = stat.S_IFREG | 0o755
+        if path == '/run/docker.sock': mode = stat.S_IFSOCK | 0o660
+        return SimpleNamespace(st_dev=1, st_ino=hash(path), st_mode=mode, st_uid=0, st_gid=0,
+                               st_size=1, st_mtime_ns=1, st_ctime_ns=1)
+
+    def collect(self, source, *, metadata=None):
+        import subprocess
+        import sys
+        real_popen = subprocess.Popen
+        calls = []
+        def popen(argv, **kwargs):
+            self.assertEqual(tuple(argv), self.module['ARGV'])
+            self.assertEqual(kwargs['env'], {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LC_ALL': 'C'})
+            self.assertEqual(kwargs['cwd'], '/')
+            self.assertIs(kwargs['stdin'], subprocess.DEVNULL)
+            self.assertTrue(kwargs['close_fds']); self.assertTrue(kwargs['start_new_session'])
+            self.assertTrue(callable(kwargs['preexec_fn']))
+            calls.append(tuple(argv))
+            return real_popen([sys.executable, '-I', '-c', source], **kwargs)
+        with patch.object(os, 'geteuid', return_value=0), patch.object(os, 'lstat', side_effect=metadata or self.metadata), \
+                patch.object(subprocess, 'Popen', side_effect=popen):
+            result = self.module['collect']()
+        self.assertLessEqual(len(calls), 1)
+        return self.module['validate_report'](result), calls
+
+    def test_fixed_argv_and_zero_success_is_no_volume_attestation(self):
+        result, calls = self.collect('pass')
+        self.assertEqual(result['status'], 'SUCCESS'); self.assertEqual(result['container_count'], 0)
+        self.assertEqual(len(calls), 1); self.assertEqual(result['root_cause'], 'NOT_ESTABLISHED')
+        self.assertFalse(result['deployment_authorized']); self.assertFalse(result['production_mutation'])
+
+    def test_valid_ids_are_counted_without_publishing_identifiers(self):
+        result, _ = self.collect("print('c'*64)")
+        self.assertEqual(result['container_count'], 1); self.assertNotIn('c'*64, json.dumps(result))
+
+    def test_nonzero_permission_signal_has_no_raw_stderr(self):
+        secret = 'SECRET_SHOULD_NEVER_ESCAPE'
+        result, _ = self.collect("import os; os.write(2,b'permission denied while trying to connect to the docker daemon socket SECRET_SHOULD_NEVER_ESCAPE');raise SystemExit(1)")
+        self.assertEqual(result['status'], 'NONZERO')
+        self.assertEqual(result['failure_signal'], 'SOCKET_PERMISSION_DENIED'); self.assertNotIn(secret,json.dumps(result))
+
+    def test_nonzero_unknown_and_ambiguous_errors_stay_unknown(self):
+        for payload in [b'SECRET_RAW_PATH', b'unknown shorthand flag: context not found:']:
+            with self.subTest(payload=payload):
+                result, _ = self.collect('import os;os.write(2,'+repr(payload)+');raise SystemExit(1)')
+                self.assertEqual(result['status'], 'NONZERO'); self.assertEqual(result['failure_signal'], 'UNKNOWN')
+                self.assertNotIn('SECRET_RAW_PATH',json.dumps(result))
+
+    def test_all_allowlisted_signals_only_return_closed_enums(self):
+        cases = {
+            b'Cannot connect to the Docker daemon at unix:///run/docker.sock. Is the docker daemon running?': 'DAEMON_ENDPOINT_UNREACHABLE',
+            b'Error response from daemon: secret': 'DAEMON_RESPONSE_ERROR', b'unknown shorthand flag: secret': 'CLI_ARGUMENT_REJECTED',
+            b'unable to resolve docker endpoint: secret': 'CLIENT_ENDPOINT_RESOLUTION_FAILED',
+            b'client version is too old. Minimum supported API version is secret': 'API_NEGOTIATION_FAILED',
+            b'context not found: secret': 'CONTEXT_RESOLUTION_FAILED'}
+        for raw, expected in cases.items(): self.assertEqual(self.module['failure_signal'](raw), expected)
+        self.assertEqual(self.module['failure_signal'](b'x'*16385),'UNKNOWN')
+
+    def test_stdout_error_and_excess_counts_do_not_become_success(self):
+        for source in ["print('SECRET_INVALID_STDOUT')", "print(('c'*64+'\\n')*129)", "print(('c'*64+'\\n')*2)"]:
+            result,_=self.collect(source);self.assertEqual(result['status'],'INVALID_OUTPUT');self.assertIsNone(result['container_count'])
+
+    def test_output_cap_and_timeout_fail_closed_and_reap(self):
+        result,_=self.collect("import os;os.write(2,b'SECRET'+b'x'*32768)")
+        self.assertEqual(result['status'],'OUTPUT_LIMIT');self.assertLessEqual(result['stderr_bytes'],16385)
+        old_command,old_outer=self.module['COMMAND_SECONDS'],self.module['OUTER_SECONDS']
+        self.module.update(COMMAND_SECONDS=0.08,OUTER_SECONDS=0.5)
+        try: result,_=self.collect('import time;time.sleep(10)')
+        finally:self.module.update(COMMAND_SECONDS=old_command,OUTER_SECONDS=old_outer)
+        self.assertEqual(result['status'],'TIMED_OUT');self.assertIsNone(result['container_count'])
+
+    def test_nonroot_missing_untrusted_paths_do_not_execute(self):
+        import stat
+        with patch.object(os,'geteuid',return_value=1),patch.object(self.module['subprocess'],'Popen') as run:
+            result=self.module['collect']();self.assertEqual(result['failure_signal'],'ROOT_REQUIRED');run.assert_not_called()
+        for target,signal in [('/usr/bin/docker','CLI_MISSING'),('/run/docker.sock','SOCKET_MISSING')]:
+            def metadata(path):
+                if path==target:raise FileNotFoundError()
+                return self.metadata(path)
+            result,calls=self.collect('pass',metadata=metadata);self.assertEqual(result['failure_signal'],signal);self.assertEqual(calls,[])
+        for target,signal in [('/usr/bin','FIXED_PARENT_UNTRUSTED'),('/usr/bin/docker','CLI_UNTRUSTED'),('/run/docker.sock','SOCKET_UNTRUSTED')]:
+            def metadata(path):
+                value=self.metadata(path)
+                if path==target:value.st_mode=stat.S_IFLNK|0o777
+                return value
+            result,calls=self.collect('pass',metadata=metadata);self.assertEqual(result['failure_signal'],signal);self.assertEqual(calls,[])
+
+    def test_changed_fixed_identity_cannot_pass(self):
+        count={}
+        def metadata(path):
+            value=self.metadata(path);count[path]=count.get(path,0)+1
+            if path=='/usr/bin/docker' and count[path]>1:value.st_ino+=1
+            return value
+        result,_=self.collect('pass',metadata=metadata);self.assertEqual(result['status'],'UNSTABLE');self.assertIsNone(result['container_count'])
+
+    def test_cleanup_and_metadata_permission_uncertainty_cannot_pass(self):
+        with patch.object(os, 'killpg', side_effect=PermissionError()):
+            result, _ = self.collect('pass')
+        self.assertEqual(result['status'], 'CLEANUP_UNCONFIRMED'); self.assertIsNone(result['container_count'])
+        for target in ['/usr/bin/docker','/run/docker.sock']:
+            def metadata(path):
+                if path == target: raise PermissionError()
+                return self.metadata(path)
+            result, calls = self.collect('pass', metadata=metadata)
+            self.assertEqual(result['failure_signal'], 'EXECUTION_UNAVAILABLE'); self.assertEqual(calls, [])
+
+    def test_schema_rejects_extra_secret_and_false_success_fields(self):
+        valid,_=self.collect('pass')
+        for changes in [{'raw_stderr':'SECRET'}, {'production_mutation':True}, {'deployment_authorized':True},
+                        {'container_count':True}, {'failure_signal':'SECRET'}, {'root_cause':'DAEMON_STOPPED'}]:
+            with self.assertRaises((ValueError,TypeError)):self.module['validate_report']({**valid,**changes})
+
+    def transport_case(self, payload, code=0):
+        import subprocess,sys
+        real_popen=subprocess.Popen
+        def popen(argv,**kwargs):
+            self.assertEqual(argv[0],'/usr/bin/ssh');self.assertEqual(argv[-1],'python3 -I -')
+            self.assertIn('StrictHostKeyChecking=yes',argv);self.assertIn('BatchMode=yes',argv)
+            child='import sys;sys.stdin.buffer.read();sys.stdout.buffer.write('+repr(payload)+');raise SystemExit('+str(code)+')'
+            return real_popen([sys.executable,'-I','-c',child],**kwargs)
+        with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ,{'PROD_HOST':'fixture','DEFAULT_HOST':'fixture','SSH_USER_SECRET':'fixture','PROD_PORT':'22','HOME':tmp}),patch.object(subprocess,'Popen',side_effect=popen):
+            path=Path(tmp)/'envelope.json'
+            result=self.transport['execute'](self.sources['SIGNAL'],'b'*40,path)
+            self.assertEqual(json.loads(path.read_text()),result)
+            self.assertNotIn('SECRET',path.read_text())
+            return result
+
+    def test_transport_accepts_only_exact_closed_success_with_exit_binding(self):
+        valid,_=self.collect('pass')
+        result=self.transport_case(json.dumps(valid).encode(),0);self.assertTrue(result['passed'])
+        result=self.transport_case(json.dumps(valid).encode(),1);self.assertFalse(result['passed']);self.assertEqual(result['transport_status'],'INVALID_REMOTE_REPORT')
+
+    def test_transport_rejects_raw_errors_extra_keys_and_ssh_failure(self):
+        valid,_=self.collect('pass')
+        for payload,code,status in [(b'SECRET_RAW_STDERR',1,'INVALID_REMOTE_REPORT'),
+                (json.dumps({**valid,'secret':'SECRET'}).encode(),0,'INVALID_REMOTE_REPORT'),
+                (b'',255,'NONZERO'),(b'x'*5000,1,'OUTPUT_LIMIT')]:
+            result=self.transport_case(payload,code);self.assertEqual(result['transport_status'],status);self.assertFalse(result['passed'])
+
+    def test_transport_owned_timeout_and_uncertain_cleanup_are_failed(self):
+        import subprocess,sys
+        real_popen=subprocess.Popen
+        def popen(argv,**kwargs):
+            return real_popen([sys.executable,'-I','-c','import time;time.sleep(10)'],**kwargs)
+        previous=self.transport['TRANSPORT_SECONDS'];self.transport['TRANSPORT_SECONDS']=2.1
+        try:
+            with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ,{'PROD_HOST':'fixture','DEFAULT_HOST':'fixture','SSH_USER_SECRET':'fixture','PROD_PORT':'22','HOME':tmp}),patch.object(subprocess,'Popen',side_effect=popen):
+                result=self.transport['execute'](self.sources['SIGNAL'],'b'*40,Path(tmp)/'envelope.json')
+                self.assertFalse(result['passed']);self.assertIn(result['transport_status'],['TIMED_OUT','CLEANUP_UNCONFIRMED'])
+        finally:self.transport['TRANSPORT_SECONDS']=previous
+        valid,_=self.collect('pass')
+        with patch.object(os,'killpg',side_effect=PermissionError()):
+            result=self.transport_case(json.dumps(valid).encode(),0)
+        self.assertEqual(result['transport_status'],'CLEANUP_UNCONFIRMED');self.assertIsNone(result['diagnostic'])
+
+    def test_unknown_remote_result_is_retained_as_failure_not_acceptance(self):
+        result,_=self.collect("raise SystemExit(1)")
+        envelope=self.transport_case(json.dumps(result).encode(),1)
+        self.assertEqual(envelope['transport_status'],'VALIDATED_REMOTE_REPORT');self.assertFalse(envelope['passed'])
+        self.assertEqual(envelope['diagnostic']['failure_signal'],'UNKNOWN')
+
+    def test_legacy_broad_diagnostic_steps_and_upload_are_statically_unreachable(self):
+        job=self.workflow.split('\n  diagnose:\n',1)[1].split('\n\n  inspect:\n',1)[0]
+        for name in ['Prepare bounded preservation preflight payload','Prepare bounded capacity profile payload',
+                'Collect read-only storage and runtime evidence','Build bounded diagnostic summary','Publish diagnostic evidence']:
+            block=job.split('      - name: '+name+'\n',1)[1].split('\n      - ',1)[0]
+            self.assertIn('        if: ${{ false }}',block)
+            self.assertEqual(block.count('\n        if:'),0)
+        self.assertIn('if: ${{ false }} # Historical broad artifact is never uploaded.',job)
+        self.assertNotIn('docker version >/dev/null',job)
+        newjob=job.split('      - name: Collect one closed Docker admission signal\n',1)[1].split('      - name: Prepare bounded preservation',1)[0]
+        self.assertNotIn('remote-stderr.txt',newjob);self.assertNotIn('shell=True',newjob)
+        self.assertIn('closed-diagnostic-candidate.json',newjob)
+        upload=job.split('name: production-docker-closed-admission-',1)[1].split('\n      - ',1)[0]
+        self.assertIn('/closed-diagnostic.json',upload);self.assertNotIn('path: artifacts/production-docker-headroom-diagnostic\n',upload)
+
+    def summary_case(self, envelope, expected=True, missing=False):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);out=root/'evidence';out.mkdir()
+            (root/'closed-docker-signal.py').write_text(self.sources['SIGNAL'])
+            path=root/'closed-diagnostic-candidate.json'
+            if not missing:path.write_text(json.dumps(envelope))
+            with patch.dict(os.environ,{'RUNNER_TEMP':str(root),'EVIDENCE_DIR':str(out),'TARGET_SHA':'b'*40,'GITHUB_STEP_SUMMARY':str(root/'step.md')}):
+                if expected:exec(compile(self.sources['SUMMARY'],'<actual-closed-summary>','exec'),{'__name__':'closed_summary_test'})
+                else:
+                    with self.assertRaises((SystemExit,ValueError,TypeError)):exec(compile(self.sources['SUMMARY'],'<actual-closed-summary>','exec'),{'__name__':'closed_summary_test'})
+            if expected:
+                self.assertTrue((out/'closed-diagnostic.json').is_file());self.assertTrue((out/'closed-issue-record.md').is_file())
+                self.assertNotIn('SECRET',''.join(p.read_text() for p in out.iterdir()))
+            else:self.assertFalse((out/'closed-diagnostic.json').exists())
+
+    def test_publication_validates_before_copy_and_handles_missing_observation(self):
+        valid,_=self.collect('pass');envelope={'schema':'pc.closed-docker-diagnostic-envelope.v2','target':'b'*40,'transport_status':'VALIDATED_REMOTE_REPORT','diagnostic':valid,'passed':True,'production_mutation':False,'deployment_authorized':False,'local_cleanup_attestation':'OWNED_ANCESTRY_REAPED'}
+        self.summary_case(envelope)
+        self.summary_case(None,missing=True)
+        for changes in [{'raw':'SECRET'},{'target':'SECRET'},{'deployment_authorized':True}, {'diagnostic':{**valid,'stderr':'SECRET'}}]:
+            self.summary_case({**envelope,**changes},expected=False)
+
+
+class ClosedDockerR2OwnershipContract(unittest.TestCase):
+    HARNESS = r'''
+import ctypes, json, os, re, signal, stat, subprocess, sys, tempfile, textwrap, time
+from pathlib import Path
+from unittest.mock import patch
+workflow = Path(sys.argv[1]).read_text()
+sources = {}
+for key in ('SIGNAL', 'TRANSPORT'):
+    found = re.search(r"^          (?:cat > .* <<'|python3 .* <<')PY_CLOSED_DOCKER_" + key + "'\n", workflow, re.M)
+    end = workflow.index('          PY_CLOSED_DOCKER_' + key + '\n', found.end())
+    sources[key] = textwrap.dedent(workflow[found.end():end])
+module = {'__name__': 'isolated_ownership_control'}
+exec(compile(sources['SIGNAL'], '<actual-R2-signal>', 'exec'), module)
+transport = {'__name__': 'isolated_transport_control'}
+exec(compile(sources['TRANSPORT'], '<actual-R2-transport>', 'exec'), transport)
+libc = ctypes.CDLL(None, use_errno=True)
+def subreaper():
+    flag = ctypes.c_int(-1)
+    assert libc.prctl(37, ctypes.byref(flag), 0, 0, 0) == 0
+    return flag.value
+assert subreaper() == 0
+assert signal.getsignal(signal.SIGCHLD) == signal.SIG_DFL
+try:
+    os.waitid(os.P_ALL, 0, os.WEXITED | os.WNOWAIT | os.WNOHANG | 0x40000000)
+except ChildProcessError:
+    pass
+else:
+    raise AssertionError('harness is not fresh')
+real_popen, real_killpg, real_waitid = subprocess.Popen, os.killpg, os.waitid
+events, processes, released = [], [], set()
+def tracked_waitid(kind, identity, options):
+    value = real_waitid(kind, identity, options)
+    if kind == os.P_ALL and not options & os.WNOWAIT and value is not None:
+        assert value.si_pid not in [p.pid for p in processes], 'leader was reaped by ancestry drain'
+        events.append('adopted_descendant_reaped')
+    return value
+
+def tracked_killpg(pgid, signum):
+    assert signum == signal.SIGKILL, 'unapproved group signal'
+    assert pgid in [p.pid for p in processes], 'not the owned leader group'
+    assert pgid not in released, 'group syscall after final reap'
+    real_waitid(os.P_PID, pgid, os.WEXITED | os.WNOWAIT | os.WNOHANG | 0x40000000)
+    events.append('owned_group_signal_before_reap')
+    return real_killpg(pgid, signum)
+
+def wrap_process(proc):
+    processes.append(proc)
+    original_wait = proc.wait
+    def wait(*args, **kwargs):
+        events.append('final_leader_reap_started')
+        value = original_wait(*args, **kwargs)
+        released.add(proc.pid)
+        events.append('leader_reaped')
+        return value
+    proc.wait = wait
+    proc.poll = lambda: (_ for _ in ()).throw(AssertionError('poll may reap early'))
+    return proc
+
+operation, scenario = sys.argv[2:4]
+if operation in ('collect', 'transport'):
+    remote = {'schema': module['SCHEMA'], 'status': 'SUCCESS', 'failure_signal': 'NONE',
+        'elapsed_ms': 1, 'stdout_bytes': 0, 'stderr_bytes': 0, 'container_count': 0,
+        'root_cause': 'NOT_ESTABLISHED', 'production_mutation': False, 'deployment_authorized': False,
+        'cleanup_attestation': 'OWNED_ANCESTRY_REAPED'}
+    if operation == 'collect':
+        if scenario == 'normal': code = "print('c'*64)"
+        elif scenario == 'failure': code = "import os;os.write(2,b'Error response from daemon: PRIVATE_NOT_EXPORTED');raise SystemExit(1)"
+        else:
+            code = 'import time;time.sleep(10)'
+            module.update(COMMAND_SECONDS=0.08, OUTER_SECONDS=0.5)
+    else:
+        if scenario == 'timeout':
+            code = 'import sys,time;sys.stdin.buffer.read();time.sleep(10)'
+            transport['TRANSPORT_SECONDS'] = 2.1
+        else:
+            if scenario == 'failure': remote.update(status='NONZERO',failure_signal='UNKNOWN',container_count=None)
+            code = 'import sys;sys.stdin.buffer.read();print('+repr(json.dumps(remote))+');raise SystemExit('+str(1 if scenario == 'failure' else 0)+')'
+    def popen(argv, **kwargs):
+        if operation == 'collect':
+            assert tuple(argv) == module['ARGV']
+            assert kwargs['env'] == module['ENV']
+        else:
+            assert argv[0] == '/usr/bin/ssh' and argv[-1] == 'python3 -I -'
+        return wrap_process(real_popen([sys.executable, '-I', '-c', code], **kwargs))
+    def metadata(path):
+        from types import SimpleNamespace
+        mode = stat.S_IFDIR | 0o755
+        if path == '/usr/bin/docker': mode = stat.S_IFREG | 0o755
+        if path == '/run/docker.sock': mode = stat.S_IFSOCK | 0o660
+        return SimpleNamespace(st_dev=1,st_ino=hash(path),st_mode=mode,st_uid=0,st_gid=0,st_size=1,st_mtime_ns=1,st_ctime_ns=1)
+    with tempfile.TemporaryDirectory() as tmp, patch.object(subprocess,'Popen',side_effect=popen), patch.object(os,'killpg',side_effect=tracked_killpg), patch.object(os,'waitid',side_effect=tracked_waitid):
+        if operation == 'collect':
+            with patch.object(os,'geteuid',return_value=0), patch.object(os,'lstat',side_effect=metadata):
+                result = module['collect']()
+            assert result['cleanup_attestation'] == 'OWNED_ANCESTRY_REAPED'
+            assert result['status'] == {'normal':'SUCCESS','failure':'NONZERO','timeout':'TIMED_OUT'}[scenario], result
+        else:
+            with patch.dict(os.environ,{'PROD_HOST':'fixture','DEFAULT_HOST':'fixture','SSH_USER_SECRET':'fixture','PROD_PORT':'22','HOME':tmp}):
+                result = transport['execute'](sources['SIGNAL'],'b'*40,Path(tmp)/'envelope.json')
+            assert result['local_cleanup_attestation'] == 'OWNED_ANCESTRY_REAPED'
+            assert result['passed'] == (scenario == 'normal')
+    assert events.count('owned_group_signal_before_reap') == 1
+    assert events.index('owned_group_signal_before_reap') < events.index('leader_reaped')
+    assert events[-1] == 'leader_reaped'
+elif operation == 'ancestry':
+    lease = module['OwnedChildLease']()
+    child = 'import time;time.sleep(10)'
+    leader = 'import subprocess,sys,os;p=subprocess.Popen([sys.executable,"-I","-c",'+repr(child)+'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session='+str(scenario == 'escaped')+');print(p.pid,flush=True);os._exit(0)'
+    proc = wrap_process(real_popen([sys.executable,'-I','-c',leader],stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True))
+    child_pid = int(proc.stdout.readline())
+    # This pidfd exists only in an isolated fixture harness; production uses no pidfd or outside-group signal.
+    child_fd = os.pidfd_open(child_pid)
+    try:
+        assert lease.wait_without_reap(proc,time.monotonic()+2) == 0
+        with patch.object(os,'killpg',side_effect=tracked_killpg), patch.object(os,'waitid',side_effect=tracked_waitid):
+            cleaned = lease.close(proc,time.monotonic()+0.3)
+        assert cleaned == (scenario == 'same-group'), (cleaned,events)
+        assert events.index('owned_group_signal_before_reap') < events.index('leader_reaped')
+        assert events.count('owned_group_signal_before_reap') == 1
+        if scenario == 'same-group': assert 'adopted_descendant_reaped' in events
+        else:
+            # Cleanup only our still-owned escaped fixture by its held pidfd, never by a recycled numeric group ID.
+            signal.pidfd_send_signal(child_fd,signal.SIGKILL)
+            os.waitpid(child_pid,0)
+    finally:
+        os.close(child_fd)
+elif operation == 'existing-child':
+    fixture = real_popen([sys.executable,'-I','-c','import time;time.sleep(10)'])
+    fd = os.pidfd_open(fixture.pid)
+    try:
+        try: module['OwnedChildLease']()
+        except ValueError as error: assert str(error) == 'CHILD_PARENT_HAS_CHILDREN'
+        else: raise AssertionError('preexisting child accepted')
+    finally:
+        signal.pidfd_send_signal(fd,signal.SIGKILL);fixture.wait();os.close(fd)
+elif operation == 'prior-subreaper':
+    assert libc.prctl(36,1,0,0,0) == 0
+    try:
+        try: module['OwnedChildLease']()
+        except ValueError as error: assert str(error) == 'CHILD_PARENT_SUBREAPER_STATE'
+        else: raise AssertionError('prior subreaper accepted')
+        assert subreaper() == 1
+    finally: assert libc.prctl(36,0,0,0,0) == 0
+elif operation == 'ignored-sigchld':
+    signal.signal(signal.SIGCHLD,signal.SIG_IGN)
+    try:
+        try: module['OwnedChildLease']()
+        except ValueError as error: assert str(error) == 'CHILD_PARENT_NOT_FRESH'
+        else: raise AssertionError('ignored SIGCHLD accepted')
+    finally: signal.signal(signal.SIGCHLD,signal.SIG_DFL)
+else:
+    raise AssertionError('unknown ownership control')
+assert subreaper() == 0
+try:
+    real_waitid(os.P_ALL,0,os.WEXITED|os.WNOWAIT|os.WNOHANG|0x40000000)
+except ChildProcessError:
+    pass
+else:
+    raise AssertionError('isolated fixture left a child')
+print(json.dumps({'operation':operation,'scenario':scenario,'events':events,'subreaper_restored':True,'owned_children_absent':True}))
+'''
+
+    def ownership(self, operation, scenario='none'):
+        import subprocess,sys
+        workflow = Path(__file__).parents[1] / '.github/workflows/production-docker-headroom-diagnostic.yml'
+        result = subprocess.run([sys.executable,'-I','-c',self.HARNESS,str(workflow),operation,scenario],
+                                capture_output=True,text=True,timeout=8)
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        proof=json.loads(result.stdout)
+        self.assertTrue(proof['subreaper_restored']);self.assertTrue(proof['owned_children_absent'])
+        return proof
+
+    def test_actual_normal_completion_keeps_leader_identity_until_groupsignal(self):
+        for operation in ['collect','transport']:self.ownership(operation,'normal')
+
+    def test_actual_failed_completion_keeps_leader_identity_until_groupsignal(self):
+        for operation in ['collect','transport']:self.ownership(operation,'failure')
+
+    def test_actual_timeouts_kill_and_reap_before_ancestry_absence(self):
+        for operation in ['collect','transport']:self.ownership(operation,'timeout')
+
+    def test_actual_same_group_descendant_is_killed_and_reaped(self):
+        self.ownership('ancestry','same-group')
+
+    def test_actual_escaped_descendant_is_unknown_without_outside_group_signal(self):
+        self.ownership('ancestry','escaped')
+
+    def test_fresh_parent_rejects_preexisting_child_and_subeaper_state(self):
+        self.ownership('existing-child');self.ownership('prior-subreaper');self.ownership('ignored-sigchld')
+
+    def test_v1_replay_and_unattested_success_are_rejected(self):
+        ClosedDockerFailureContract.setUpClass()
+        module=ClosedDockerFailureContract.module
+        value={'schema':module['SCHEMA'],'status':'SUCCESS','failure_signal':'NONE','elapsed_ms':1,'stdout_bytes':0,'stderr_bytes':0,'container_count':0,'root_cause':'NOT_ESTABLISHED','production_mutation':False,'deployment_authorized':False,'cleanup_attestation':'OWNED_ANCESTRY_REAPED'}
+        self.assertEqual(module['validate_report'](value),value)
+        for changes in [{'schema':'pc.closed-docker-failure-signal.v1'},{'cleanup_attestation':'NOT_ATTESTED'}, {'cleanup_attestation':'NOT_STARTED'}]:
+            with self.assertRaises(ValueError):module['validate_report']({**value,**changes})
+
+
 
 if __name__ == '__main__':
     unittest.main()
