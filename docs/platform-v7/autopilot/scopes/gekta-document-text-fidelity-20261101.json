@@ -7,11 +7,11 @@
   "purpose": "G-A22/G-A23 document fidelity: preserve DOCX literal and numeric comparison signs, formatted-word continuity, and explicitly distinguish tracked text without claiming revision acceptance.",
   "allowedPaths": [
     "apps/web/app/api/public-platform-assistant/attachments/route.ts",
-    "apps/web/tests/unit/publicAssistantDocxTextFidelity.test.ts",
+    "apps/web/tests/unit/uploadDecompressionBudget.spec.ts",
     "docs/platform-v7/autopilot/scopes/gekta-document-text-fidelity-20261101.json"
   ],
   "boundaries": [
-    "Only existing DOCX text extraction and real multipart ZIP regression tests. Preserve archive, request and extracted-text budgets.",
+    "Only existing DOCX text extraction and real multipart ZIP regression tests. Preserve archive, request and extracted-text budgets. Regression cases are included in the existing CI-executed upload suite; no test registry exclusion or workflow waiver.",
     "No dependency, model/provider, role/consent, CORE, global workflow/guard/state or host change.",
     "Headers, PDF/OCR, legacy encoding, XLSX and document-to-model acceptance remain separate follow-ups."
   ],

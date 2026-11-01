@@ -120,7 +120,7 @@ function extractDocx(bytes: Buffer, budget: InflateBudget): { text: string; trun
   let roots = 0;
   // A bounded text-only XML walk. No DTD/entity expansion, network lookup or
   // executable XML feature; namespaces are scoped to each element, not prefixes.
-  const tokens = /<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[([\s\S]*?)\]\]>|<\/?([A-Za-z_][\w.:-]*)(?:\s+[A-Za-z_][\w.:-]*\s*=\s*(?:"[^"<]*"|'[^'<]*'))*\s*\/?>|([^<]+)/gu;
+  const tokens = new RegExp(String.raw`<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[([\s\S]*?)\]\]>|<\/?([A-Za-z_][\w.:-]*)(?:\s+[A-Za-z_][\w.:-]*\s*=\s*(?:"[^"<]*"|'[^'<]*'))*\s*\/?>|([^<]+)`, 'gu');
   const close = (element: Element) => {
     if (element.revision) chunks.push('[Конец правки]');
     if (element.wordName === 'p') chunks.push('\n');
