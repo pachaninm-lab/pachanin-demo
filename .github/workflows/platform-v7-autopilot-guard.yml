@@ -1062,7 +1062,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           python3 -I - <<'DC1_SOURCE_CONTROLS'
-          import os, pathlib, re, subprocess, tempfile
+          import hashlib, json, os, pathlib, re, stat, subprocess, tempfile
           base = os.environ['BASE_SHA']
           head = os.environ['HEAD_SHA']
           if not all(re.fullmatch(r'[0-9a-f]{40}', ref) for ref in (base, head)):
@@ -1084,7 +1084,122 @@ jobs:
               raise SystemExit('DC1_SOURCE_CONTROLS_AUTHORITY_CAPACITY')
           text = authority.decode('utf-8', errors='strict')
           marker = '\n## DC1 — Closed Docker diagnostic source purpose, 2026-11-01\n\n```json\n'
-          if marker not in text:
+          dc2_marker = '\n## DC2 — Corrected Docker and cold source purpose, 2026-11-02\n\n```json\n'
+          if dc2_marker in text:
+              if text.count(dc2_marker) != 1:
+                  raise SystemExit('DC2_SOURCE_CONTROLS_PURPOSE_NOT_UNIQUE')
+              encoded = text.split(dc2_marker, 1)[1].split('\n```\n', 1)[0]
+              purpose = json.loads(encoded)
+              if json.dumps(purpose, ensure_ascii=False, separators=(',', ':')) != encoded:
+                  raise SystemExit('DC2_SOURCE_CONTROLS_PURPOSE_NOT_CANONICAL')
+              def checked(pin, require_base=False):
+                  path = pin['path']
+                  expected = pin['mode'] + ' blob ' + pin['afterBlob'] + '\t' + path
+                  for ref in ([base, head] if require_base else [head]):
+                      if git('ls-tree', ref, '--', path).decode().strip() != expected:
+                          raise SystemExit('DC2_SOURCE_CONTROLS_BLOB_OR_MODE')
+                  data = git('show', head + ':' + path)
+                  if (not 0 < len(data) <= 1024 * 1024 or len(data) != pin['bytes'] or
+                          hashlib.sha256(data).hexdigest() != pin['sha256']):
+                      raise SystemExit('DC2_SOURCE_CONTROLS_CONTENT')
+                  # The checked Git object must equal the actual regular file
+                  # executed below; a clean index alone is not that proof.
+                  physical = pathlib.Path(path)
+                  before = physical.lstat()
+                  token = lambda info: (info.st_dev, info.st_ino, info.st_mode, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+                  fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+                  try:
+                      info = os.fstat(fd)
+                      if (not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode) != (0o755 if pin['mode'] == '100755' else 0o644) or
+                              token(info) != token(before) or info.st_size != len(data)):
+                          raise SystemExit('DC2_SOURCE_CONTROLS_WORKTREE_IDENTITY')
+                      actual = bytearray()
+                      while len(actual) <= len(data):
+                          chunk = os.read(fd, len(data) + 1 - len(actual))
+                          if not chunk:
+                              break
+                          actual.extend(chunk)
+                      if (bytes(actual) != data or token(os.fstat(fd)) != token(info) or
+                              token(physical.lstat()) != token(info)):
+                          raise SystemExit('DC2_SOURCE_CONTROLS_WORKTREE_CONTENT')
+                  finally:
+                      os.close(fd)
+                  return path, data
+              tests = [pin for pin in purpose['guardPayloads'] if pin['path'] == 'scripts/p7-autopilot-guard.test.mjs']
+              sources = [pin for pin in purpose['sourcePayloads'] if pin['path'] == 'scripts/test_production_stopped_runtime_headroom.py']
+              if len(tests) != 1 or len(sources) != 1:
+                  raise SystemExit('DC2_SOURCE_CONTROLS_EXACT_TEST_PINS')
+              execution = {}
+              for pin in purpose['guardPayloads']:
+                  path, data = checked(pin, require_base=True)
+                  execution[path] = data
+              source_tests, data = checked(sources[0])
+              execution[source_tests] = data
+              for pin in purpose['sourceExecutionDependencies']:
+                  # Unchanged dependencies are bound to both immutable Git trees.
+                  dependency = {**pin, 'afterBlob': pin['blob']}
+                  path, data = checked(dependency, require_base=True)
+                  execution[path] = data
+              source_workflow = [pin for pin in purpose['sourcePayloads']
+                                 if pin['path'] == '.github/workflows/production-docker-headroom-diagnostic.yml']
+              if len(source_workflow) != 1:
+                  raise SystemExit('DC2_SOURCE_CONTROLS_WORKFLOW_PIN')
+              path, data = checked(source_workflow[0])
+              execution[path] = data
+              cold_workflow = [pin for pin in purpose['coldPayloads']
+                               if pin['path'] == '.github/workflows/production-cold-preservation.yml']
+              if len(cold_workflow) != 1:
+                  raise SystemExit('DC2_SOURCE_CONTROLS_COLD_WORKFLOW_PIN')
+              path, data = checked(cold_workflow[0], require_base=True)
+              execution[path] = data
+              if len(execution) != 11:
+                  raise SystemExit('DC2_SOURCE_CONTROLS_FIXED_EXECUTION_SET')
+              # Standard validations above run every old/new test unfiltered.
+              # Execute only copied exact Git bytes in a private sparse snapshot;
+              # neither original worktree paths nor untracked sibling fallbacks
+              # or pycache contents are used by this additional SOURCE step.
+              with tempfile.TemporaryDirectory(prefix='dc2-pinned-execution-') as directory:
+                  snapshot = pathlib.Path(directory) / 'source'
+                  subprocess.run(['git', 'clone', '--shared', '--no-hardlinks', '--no-checkout', '.', str(snapshot)], check=True)
+                  subprocess.run(['git', '-C', str(snapshot), 'sparse-checkout', 'set', '--no-cone', '--stdin'],
+                                 input=''.join('/' + path + '\n' for path in sorted(execution)), text=True, check=True)
+                  subprocess.run(['git', '-C', str(snapshot), 'checkout', '--detach', head], check=True)
+                  if subprocess.check_output(['git', '-C', str(snapshot), 'rev-parse', 'HEAD']).decode().strip() != head:
+                      raise SystemExit('DC2_SOURCE_CONTROLS_SNAPSHOT_HEAD')
+                  for path, data in execution.items():
+                      output = snapshot / path
+                      output.parent.mkdir(parents=True, exist_ok=True)
+                      output.write_bytes(data)
+                      output.chmod(0o500 if path == 'scripts/p7-autopilot-guard.sh' else 0o400)
+                      if output.read_bytes() != data:
+                          raise SystemExit('DC2_SOURCE_CONTROLS_SNAPSHOT_CONTENT')
+                  print('DC2_SOURCE_CONTROLS_PINNED_SNAPSHOT=' + json.dumps({
+                      'head': head, 'cwd': str(snapshot), 'files': [
+                          {'path': path, 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
+                          for path, data in sorted(execution.items())]}, separators=(',', ':')), flush=True)
+                  # The standard unfiltered step retains every old main/G3 test.
+                  # This extra route runs every appended DC2 control without
+                  # materializing unrelated legacy module-level fixture inputs.
+                  main = execution['scripts/p7-autopilot-guard.test.mjs'].decode('utf-8', errors='strict')
+                  begin = '// DC2_TESTS_BEGIN — private fixtures never grant public source or host authority.\n'
+                  end = '// DC2_TESTS_END\n'
+                  if main.count(begin) != 1 or main.count(end) != 1 or not main.endswith(end):
+                      raise SystemExit('DC2_SOURCE_CONTROLS_TEST_SECTION')
+                  imports = ("import assert from 'node:assert/strict';\nimport fs from 'node:fs';\n"
+                             "import os from 'node:os';\nimport path from 'node:path';\n"
+                             "import { spawnSync } from 'node:child_process';\n"
+                             "import { createHash } from 'node:crypto';\nimport { inflateSync } from 'node:zlib';\n"
+                             "import test, { after } from 'node:test';\n")
+                  closed_tests = pathlib.Path(directory) / 'closed-dc2-tests.mjs'
+                  closed_tests.write_text(imports + begin + main.split(begin, 1)[1], encoding='utf-8')
+                  closed_tests.chmod(0o400)
+                  subprocess.run(['node', '--test', str(closed_tests)], cwd=snapshot, check=True)
+                  subprocess.run(['python3', '-I', source_tests], cwd=snapshot,
+                                 env={**os.environ, 'PYTHONDONTWRITEBYTECODE': '1'}, check=True)
+              if snapshot.exists():
+                  raise SystemExit('DC2_SOURCE_CONTROLS_SNAPSHOT_CLEANUP')
+              print('DC2_SOURCE_CONTROLS_SNAPSHOT_REMOVED')
+          elif marker not in text:
               print('DC1_SOURCE_CONTROLS_NOT_APPLICABLE_HISTORICAL_PHASE')
           else:
               # No name filter: execute every old and new local synthetic control.

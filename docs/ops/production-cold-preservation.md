@@ -293,3 +293,31 @@ byte-identical. No bootstrap retry, journal reservation/reset or runtime
 startup is authorized. An actual command-profile correction still needs
 specific evidence and separate exact source/admission/review/native/security/
 readiness/manual gates, followed by finite operational authorization.
+
+
+## Private compatibility proposal: exact observer carriers
+
+The proposed source stage recognizes only the complete old diagnostic carrier
+e0f8fa5731af0addc0b82c9ca7fab24abcecddb7 (370287 bytes, SHA256
+31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7)
+and frozen R2 carrier 5f5446369cc96c935fe959ad5ba9aa6bcf95f2ac (400684 bytes,
+SHA256 1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f).
+Every other dependency and controller keeps its existing cap. Unknown or changed
+carriers fail before extraction. The three actual inspector fragments must match
+their fixed identities. R2's first191427 bytes are different; a fixed local inverse
+applied only after the complete R2 identity check must recover the complete old
+e0f8fa file and its immutable191427-byte09ae88 prefix. No network, history lookup,
+new fixture path, generic fallback or historical-test deletion is used.
+
+This is PRIVATE proposed compatibility source, not admitted authority. Exact
+metadata and source admission, actual independent whole-head review, substantive
+native Compose/shared-helper/PostgreSQL wire/security gates, latest readiness and
+manual expected-head acceptance are required. The existing main/owner/purpose
+and exact controller pin binding still applies. A later diagnostic source change
+does not authorize a cold operation: its accepted purpose inspection pin must
+match the exact current carrier. Host invocation additionally requires the fresh
+bounded read-only journal/object reconciliation and separate finite operational
+disposition. Clone40061557888 remains VERIFIED/SPENT; bootstrap40193352988 remains
+UNKNOWN. Never retry, reset or weaken a failed gate to resolve the CI dependency.
+No startup policy, engine, payload behavior, worker quarantine, original19 volume,
+custody, release or production acceptance is established by this proposal.
