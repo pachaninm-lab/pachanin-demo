@@ -323,6 +323,15 @@ async function installConsentFixture(page: Page, options: {
 for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
   test.describe(`G-A02 synthetic browser intent ${viewport.width}px`, () => {
     test.use({ viewport });
+    test.beforeEach(async ({}, testInfo) => {
+      const baseURL = testInfo.project.use.baseURL;
+      const loopback = typeof baseURL === 'string'
+        && ['127.0.0.1', 'localhost'].includes(new URL(baseURL).hostname);
+      const liveProfile = /(?:^|[/\\])playwright\.production-mobile\.config\.ts$/u.test(testInfo.config.configFile);
+      test.skip(liveProfile && !loopback, 'Synthetic consent fixtures apply only to the loopback PR server; live tests remain unmocked.');
+      // A misconfigured PR origin must fail, not silently skip acceptance.
+      expect(loopback, 'Synthetic G-A02 PR browser acceptance requires loopback').toBe(true);
+    });
     for (const intent of ['click', 'enter'] as const) {
       test(`first ${intent} preserves the question and generates once after explicit consent`, async ({ page }) => {
         const server = await installConsentFixture(page, { holdProbe: true });
