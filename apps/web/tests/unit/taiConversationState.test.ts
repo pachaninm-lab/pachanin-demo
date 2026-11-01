@@ -279,6 +279,25 @@ describe('new conversation reset', () => {
 });
 
 describe('bounded context', () => {
+  it.each(['Расскажи о сое', 'На сое появилась тля'])(
+    'recognizes the complete Russian prepositional form: %s', message => {
+      const state = turn(null, message);
+      expect(state.domain).toBe('crop');
+      expect(state.crop?.name).toBe('soy');
+      expect(state.entities.crops).toContain('soy');
+    },
+  );
+
+  it('changes tractor context to soy for the Russian prepositional form', () => {
+    const machinery = turn(null, 'Нужен ремонт трактора МТЗ-82');
+    expect(machinery.domain).toBe('machinery');
+    const state = turn(machinery, 'Теперь речь о сое');
+    expect(state.domain).toBe('crop');
+    expect(state.crop?.name).toBe('soy');
+    expect(state.entities.machinery).toBeUndefined();
+    expect(machinery.domain).toBe('machinery');
+  });
+
   it('keeps the recent window bounded and compacts the overflow into a summary', () => {
     let state = emptyConversationState(CONVERSATION, 'ru');
     for (let index = 0; index < MAX_RECENT_MESSAGES + 6; index += 1) {
