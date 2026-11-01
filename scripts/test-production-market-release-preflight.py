@@ -2734,5 +2734,328 @@ class InitialImageReclaimPlan(unittest.TestCase):
             with self.assertRaises(ValueError):m.validate_image_reclaim_plan(bad,profile)
 
 
+def original_fixture(payload=b'synthetic known file'):
+    import io, tarfile
+    names = tuple('synthetic-volume-%02d' % index for index in range(19))
+    entries = {}
+    paths = ['containers', 'volumes'] + [path for name in names for path in ('volumes/' + name, 'volumes/' + name + '/_data')]
+    for path in paths + ['containers/synthetic-file']:
+        directory = path in paths
+        entries[path] = {'kind': 'directory' if directory else 'file', 'uid': 0, 'gid': 0,
+            'mode': 0o700 if directory else 0o600, 'mtime_ns': 0, 'ctime_ns': 0, 'atime_ns': 0,
+            'device': 1, 'inode': len(entries)+1, 'nlink': 1, 'size': 0 if directory else len(payload),
+            'sha256': None if directory else m.hashlib.sha256(payload).hexdigest(), 'xattrs': {}}
+    manifest = {'schema': 'pc.cold-preservation.manifest.v1', 'entries': entries}
+    raw = json.dumps(manifest, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode('ascii')
+    output = io.BytesIO()
+    with tarfile.open(fileobj=output, mode='w', format=tarfile.PAX_FORMAT) as archive:
+        header = tarfile.TarInfo(m.ORIGINAL_MANIFEST)
+        header.uid = header.gid = 0; header.mode = 0o600; header.size = len(raw)
+        archive.addfile(header, io.BytesIO(raw))
+        for path, item in sorted(entries.items()):
+            header = tarfile.TarInfo(path)
+            header.uid = header.gid = 0; header.mode = item['mode']; header.mtime = 0
+            if item['kind'] == 'directory': header.type = tarfile.DIRTYPE; archive.addfile(header)
+            else: header.size = len(payload); archive.addfile(header, io.BytesIO(payload))
+    return manifest, raw, output.getvalue(), names, dict(m.ORIGINAL_RECEIPT, entries=len(entries), sourceBytes=len(payload))
+
+
+def original_failure():
+    with patch.object(m.os, 'getuid', return_value=12345), patch.object(m.os, 'geteuid', return_value=12345):
+        return m.original_inventory_witness()
+
+
+def original_success():
+    value = original_failure()
+    canonical, newline = m.original_name_digests(tuple('synthetic-volume-%02d' % index for index in range(19)))
+    value.update(status='AUTHENTICATED_ORIGINAL19_MATCH', failure='NONE', original_count=19,
+        current_before_count=19, current_after_count=19, original_canonical_json_sha256=canonical,
+        current_before_canonical_json_sha256=canonical, current_after_canonical_json_sha256=canonical,
+        current_before_newline_sha256=newline, current_after_newline_sha256=newline,
+        full_eof_mdc=True, ciphertext_unchanged=True, metadata_unchanged=True, exact_set_match=True)
+    return value
+
+
+def original_fixture_identity():
+    # Native files/pipes/GPG remain real. Hosted runners own their synthetic
+    # fixtures as a nonroot user; only owner/actor stat fields are substituted.
+    # Production code keeps literal UID/GID0 checks. The forced local profile is
+    # explicitly synthetic and is not claimed as an unprivileged process run.
+    import contextlib
+    from types import SimpleNamespace
+    stack = contextlib.ExitStack()
+    if os.geteuid() != 0 or os.environ.get('PC_ORIGINAL_TEST_UID_PROFILE') == 'synthetic':
+        real_stat, real_fstat = os.stat, os.fstat
+        fields = ('st_dev','st_ino','st_mode','st_uid','st_gid','st_nlink','st_size',
+                  'st_atime_ns','st_mtime_ns','st_ctime_ns')
+        def profile(info):
+            result = {key: getattr(info, key) for key in fields}
+            result.update(st_uid=0, st_gid=0)
+            return SimpleNamespace(**result)
+        stack.enter_context(patch.object(m.os, 'stat', side_effect=lambda *a,**k: profile(real_stat(*a,**k))))
+        stack.enter_context(patch.object(m.os, 'fstat', side_effect=lambda *a,**k: profile(real_fstat(*a,**k))))
+        stack.enter_context(patch.object(m.os, 'getuid', return_value=0))
+        stack.enter_context(patch.object(m.os, 'geteuid', return_value=0))
+    return stack
+
+
+class OriginalInventory(unittest.TestCase):
+    def test_exact_public_receipt_pins(self):
+        self.assertEqual(len(m.ORIGINAL_RECEIPT), 16)
+        self.assertEqual(m.ORIGINAL_RECEIPT['runId'], '39779050389')
+        self.assertEqual(m.ORIGINAL_RECEIPT['ciphertextBytes'], 389954515)
+        self.assertEqual(m.ORIGINAL_RECEIPT['entries'], 8547)
+        self.assertEqual(m.ORIGINAL_RECEIPT['sourceBytes'], 520405747)
+        self.assertEqual(m.ORIGINAL_RECEIPT['ciphertextSha256'], '800264a1819ba26869e4b79d1f6874dc5078aa982ab333fdd999629f6b490603')
+
+    def test_valid_complete_historical_manifest(self):
+        manifest, raw, _, names, receipt = original_fixture()
+        with patch.object(m, 'ORIGINAL_RECEIPT', receipt):
+            self.assertEqual(m.original_manifest(raw), (manifest['entries'], names))
+
+    def test_manifest_closed_fields_and_types(self):
+        manifest, _, _, _, receipt = original_fixture()
+        changes = [lambda v: v.update(extra='sensitive'), lambda v: v['entries']['containers'].update(extra='sensitive'),
+            lambda v: v['entries']['containers'].update(inode=True), lambda v: v['entries']['containers'].update(mode=0o10000),
+            lambda v: v['entries']['containers'].update(sha256='a'*64),
+            lambda v: v['entries']['containers'].update(xattrs={'security.acl': {'bytes': 0, 'sha256': 'a'*64}}),
+            lambda v: v['entries']['containers/synthetic-file'].update(size=1)]
+        with patch.object(m, 'ORIGINAL_RECEIPT', receipt):
+            for change in changes:
+                bad = copy.deepcopy(manifest); change(bad)
+                with self.subTest(change=change), self.assertRaises(m.OriginalRefusal): m.original_manifest(json.dumps(bad).encode())
+
+    def test_manifest_paths_parent_and_exact19(self):
+        manifest, _, _, _, receipt = original_fixture()
+        for old,new in [('containers/synthetic-file','../sensitive'), ('containers/synthetic-file','volumes/synthetic-volume-00/missing/file'),
+                        ('volumes/synthetic-volume-00/_data','volumes/synthetic-volume-19/_data'), ('containers/synthetic-file','/containers/file')]:
+            bad=copy.deepcopy(manifest);bad['entries'][new]=bad['entries'].pop(old)
+            with patch.object(m,'ORIGINAL_RECEIPT',receipt), self.assertRaises(m.OriginalRefusal): m.original_manifest(json.dumps(bad).encode())
+
+    def test_duplicate_json_nonfinite_and_bounds(self):
+        for raw in [b'{"schema":1,"schema":2}',b'{"x":NaN}',b'{"x":Infinity}',b'\xff']:
+            with self.assertRaises(m.OriginalRefusal):m.original_json(raw)
+        with patch.object(m,'ORIGINAL_MANIFEST_LIMIT',8),self.assertRaises(m.OriginalRefusal):m.original_manifest(b'x'*9)
+
+    def test_canonical_json_distinct_from_later_newline(self):
+        names=tuple('synthetic-%02d'%i for i in reversed(range(19)))
+        canonical,newline=m.original_name_digests(names)
+        self.assertEqual(canonical,m.hashlib.sha256(json.dumps(sorted(names),separators=(',',':')).encode()).hexdigest())
+        self.assertEqual(newline,m.hashlib.sha256('\n'.join(sorted(names)).encode()).hexdigest());self.assertNotEqual(canonical,newline)
+
+    def test_current_inventory_exact_count_unique_name_profile(self):
+        names=['synthetic-%02d'%i for i in range(19)]
+        for raw in [None,'','\n'.join(names[:-1]),'\n'.join(names+['other']),'\n'.join(names[:-1]+[names[0]]),'\n'.join(names[:-1]+['../sensitive'])]:
+            with patch.object(m,'run',return_value=raw),self.assertRaises(m.OriginalRefusal):m.original_current_names()
+        with patch.object(m,'run',return_value='\n'.join(names)+'\n') as command:
+            self.assertEqual(m.original_current_names(),tuple(sorted(names)));command.assert_called_once_with(['docker','volume','ls','-q'])
+
+    def test_no_python_key_reader_and_default_v6_unchanged(self):
+        import ast
+        tree=ast.parse(PATH.read_text())
+        fn=next(v for v in tree.body if isinstance(v,ast.FunctionDef) and v.name=='original_inventory_witness')
+        reads=[ast.unparse(n) for n in ast.walk(fn) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr in ('read','read_bytes','read_text')]
+        self.assertEqual(reads,['os.read(receipt_fd, 4097)'])
+        fn=next(v for v in tree.body if isinstance(v,ast.FunctionDef) and v.name=='collect');self.assertNotIn('original_',ast.unparse(fn))
+        m.validate_report(report(),SHA)
+
+    def test_failure_closed_redacted_and_no_partial_claims(self):
+        value=original_failure();m.validate_original_inventory(value);self.assertEqual(value['failure'],'IDENTITY')
+        self.assertNotIn('passphrase',json.dumps(value));self.assertIs(value['deployment_authorized'],False)
+        for key,bad in [('full_eof_mdc',True),('original_count',19),('original_canonical_json_sha256','a'*64)]:
+            changed=dict(value);changed[key]=bad
+            with self.subTest(key=key),self.assertRaises(m.OriginalRefusal):m.validate_original_inventory(changed)
+
+    def test_success_schema_rejects_unproved_claims(self):
+        value=original_success();m.validate_original_inventory(value)
+        for key,bad in [('extra','sensitive'),('original_count',True),('full_eof_mdc',False),('deployment_authorized',True),
+                        ('current_after_canonical_json_sha256','a'*64),('ciphertext_unchanged',1),('failure','sensitive')]:
+            changed=copy.deepcopy(value);changed[key]=bad
+            with self.subTest(key=key),self.assertRaises(m.OriginalRefusal):m.validate_original_inventory(changed)
+
+    def test_complete_tar_required_before_authentication(self):
+        import io
+        _,_,raw,names,receipt=original_fixture()
+        class Stream(io.BytesIO):
+            authenticated=False
+            def authenticate(self):self.authenticated=True
+        with patch.object(m,'ORIGINAL_RECEIPT',receipt):
+            stream=Stream(raw);self.assertEqual(m.original_archive(stream,m.time.monotonic()+5),names);self.assertTrue(stream.authenticated)
+            for bad in [raw[:512],raw+b'sensitive']:
+                stream=Stream(bad)
+                with self.assertRaises((m.OriginalRefusal,ValueError)):m.original_archive(stream,m.time.monotonic()+5)
+                self.assertFalse(stream.authenticated)
+
+    def test_full_authenticated_zero_tail_drained(self):
+        import io
+        _,_,raw,names,receipt=original_fixture()
+        class Stream(io.BytesIO):
+            def authenticate(self):self.authenticated_at=self.tell()
+        stream=Stream(raw+b'\0'*(8*1024*1024))
+        with patch.object(m,'ORIGINAL_RECEIPT',receipt):self.assertEqual(m.original_archive(stream,m.time.monotonic()+5),names)
+        self.assertEqual(stream.authenticated_at,len(stream.getvalue()))
+
+    def test_deadline_precedes_native_process(self):
+        with patch.object(m.subprocess,'Popen') as native,self.assertRaises(m.OriginalRefusal):m.OriginalGPGStream(0,1,m.time.monotonic()-1)
+        native.assert_not_called()
+
+    def test_both_envelope_parts_validate(self):
+        value={'schema':'pc-crop.market-original-inventory-envelope.v1','target_sha':SHA,'market_preflight':report(),
+               'original_inventory':original_success(),'production_mutation':'NONE','deployment_authorized':False}
+        self.assertIs(m.validate_original_envelope(value,SHA),value)
+        for section in ('market_preflight','original_inventory'):
+            bad=copy.deepcopy(value);bad[section]['unknown']='sensitive'
+            with self.subTest(section=section),self.assertRaises(ValueError):m.validate_original_envelope(bad,SHA)
+
+    def test_safe_regular_fd_noatime_and_identity(self):
+        if not hasattr(os,'O_NOATIME'):self.fail('Native noatime unavailable; not PASS or SKIP')
+        with tempfile.TemporaryDirectory() as td:
+            parent=os.open(td,os.O_RDONLY|os.O_DIRECTORY)
+            try:
+                file=Path(td)/'passphrase';file.write_bytes(b'k'*64+b'\n');file.chmod(0o600);before=m.original_token(file.stat())
+                with original_fixture_identity():
+                    fd=m.original_file(parent,'passphrase',65);os.close(fd)
+                self.assertEqual(m.original_token(file.stat()),before)
+                file.chmod(0o644)
+                with original_fixture_identity(),self.assertRaises(m.OriginalRefusal):m.original_file(parent,'passphrase',65)
+                file.chmod(0o600);os.link(file,Path(td)/'alias')
+                with original_fixture_identity(),self.assertRaises(m.OriginalRefusal):m.original_file(parent,'passphrase',65)
+                (Path(td)/'alias').unlink();file.unlink();file.symlink_to('elsewhere')
+                with original_fixture_identity(),self.assertRaises(OSError):m.original_file(parent,'passphrase',65)
+            finally:os.close(parent)
+
+    def purpose(self):
+        sources={name:(PATH.parents[1]/name).read_bytes() for name in m.ORIGINAL_BEFORE_BLOBS}
+        record={'schema':'pc.original19-native-fd-purpose.v1','purposeId':'market-original-inventory-witness-20261101','owner':'ACCOUNT_1_CORE',
+            'authorityBaseExactMain':'9b2b895b3e71648f9084d8a80a97458488ef06df',
+            'sourceBranch':'ops/farmer-market-release-preflight-20260916','nativeFdReadPurpose':'AUTHENTICATED_ORIGINAL19_INVENTORY_ONLY',
+            'readOnly':True,'productionMutationAuthorized':False,'originalReceiptRunId':m.ORIGINAL_RECEIPT['runId'],
+            'originalCiphertextBytes':m.ORIGINAL_RECEIPT['ciphertextBytes'],'originalCiphertextSha256':m.ORIGINAL_RECEIPT['ciphertextSha256'],
+            'authorityGranted':'SOURCE_PURPOSE_ONLY_SEPARATE_FINITE_OWNER_COMMAND_REQUIRED','productionInvocationAuthorized':False,
+            'releaseAuthorized':False,'masterCredit':0,'sourcePins':[{'path':name,'mode':'100644','beforeBlob':m.ORIGINAL_BEFORE_BLOBS[name],
+            'afterBlob':m.hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(),'bytes':len(raw),'sha256':m.hashlib.sha256(raw).hexdigest()} for name,raw in sources.items()]}
+        return record,sources,m.ORIGINAL_PURPOSE_BEGIN+'\n```text\n'+json.dumps(record)+'\n```\n'+m.ORIGINAL_PURPOSE_END
+
+    def test_purpose_closed_record_exact_actual_pins(self):
+        record,sources,text=self.purpose();digest=m.validate_original_purpose_record(text,sources)
+        self.assertEqual(digest,m.hashlib.sha256(json.dumps(record,sort_keys=True,separators=(',',':')).encode()).hexdigest())
+        for changed in [text+text,text.replace('AUTHENTICATED_ORIGINAL19_INVENTORY_ONLY','STAT_ONLY'),text.replace('ACCOUNT_1_CORE','OTHER'),
+                        text.replace('"readOnly": true','"readOnly": 1'),text.replace('"masterCredit": 0','"masterCredit": false'),text.replace('```text','```json')]:
+            with self.assertRaises(m.OriginalRefusal):m.validate_original_purpose_record(changed,sources)
+        changed=dict(sources);path=next(iter(changed));changed[path]+=b'\n'
+        with self.assertRaises(m.OriginalRefusal):m.validate_original_purpose_record(text,changed)
+
+    def test_purpose_marker_literals_in_complete_source_patch_are_not_records(self):
+        _, sources, text = self.purpose()
+        patch = '\n'.join('+ ' + raw.decode('utf-8') for raw in sources.values())
+        # The complete recoverable patch contains marker constants and tests.
+        document = '##AP2\n```text\n' + patch + '\n```\n' + text + '\n'
+        self.assertEqual(m.validate_original_purpose_record(document, sources),
+                         m.validate_original_purpose_record(text, sources))
+        with self.assertRaises(m.OriginalRefusal):
+            m.validate_original_purpose_record(document + '\n' + text, sources)
+
+    def test_workflow_purpose_and_envelope_gates_cannot_disappear(self):
+        check = WorkflowContract()
+        check.setUpClass()
+        for marker in ('module.validate_original_purpose_record(text, sources)',
+                       'module.validate_original_envelope(value, sys.argv[1])', '--original-volume-inventory'):
+            with self.subTest(marker=marker), self.assertRaisesRegex(SystemExit, 'ORIGINAL19_PURPOSE_OR_PROFILE_GATE_MISSING'):
+                check.enforce(check.source, check.workflow.replace(marker, 'disabled_profile_gate'))
+
+    def test_envelope_retained_through_legacy_failure(self):
+        value={'schema':'pc-crop.market-original-inventory-envelope.v1','target_sha':SHA,'market_preflight':report(),
+               'original_inventory':original_success(),'production_mutation':'NONE','deployment_authorized':False}
+        result,evidence,legacy=PreflightFailureEvidence().execute(value,legacy_exit=23)
+        self.assertEqual(result.returncode,23);self.assertTrue(legacy);self.assertEqual(evidence['original_inventory'],value['original_inventory'])
+        self.assertIs(evidence['deployment_authorized'],False)
+
+
+class NativeOriginalGPG(unittest.TestCase):
+    """Real native synthetic crypto only; no original key/cipher/host. Missing profile FAILS."""
+    def decrypt(self,mutate=None,*,tail=0,expired=False):
+        if not Path('/usr/bin/gpg').is_file():self.fail('Native GPG unavailable; not PASS or SKIP')
+        _,_,raw,names,receipt=original_fixture();raw+=b'\0'*tail
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);key=root/'synthetic-key';key.write_bytes(b'known-synthetic-passphrase\n');key.chmod(0o600)
+            home=root/'gnupg';home.mkdir(mode=0o700);key_fd=os.open(key,os.O_RDONLY)
+            try:
+                result=subprocess.run(['/usr/bin/gpg','--no-options','--homedir',str(home),'--batch','--no-tty','--no-autostart',
+                    '--no-symkey-cache','--pinentry-mode','loopback','--passphrase-fd',str(key_fd),'--symmetric','--force-mdc',
+                    '--cipher-algo','AES256','--s2k-count','65536','--compress-algo','none','--output','-'],input=raw,
+                    pass_fds=(key_fd,),capture_output=True,timeout=10)
+                self.assertEqual(result.returncode,0,'Synthetic encryption failed');encrypted=result.stdout
+            finally:os.close(key_fd)
+            if mutate is not None:encrypted=mutate(encrypted)
+            cipher=root/'synthetic-cipher';cipher.write_bytes(encrypted)
+            cipher_fd=os.open(cipher,os.O_RDONLY);key_fd=os.open(key,os.O_RDONLY);stream=None
+            calls=[];actual_read=os.read
+            def read(fd,count):calls.append(fd);return actual_read(fd,count)
+            try:
+                with patch.object(m,'ORIGINAL_RECEIPT',receipt),patch.object(m.os,'read',side_effect=read):
+                    deadline=m.time.monotonic()+(-1 if expired else 10)
+                    stream=m.OriginalGPGStream(cipher_fd,key_fd,deadline)
+                    self.assertEqual(m.original_archive(stream,deadline),names);self.assertEqual(stream.total,len(raw))
+                    self.assertNotIn(key_fd,calls,'Python must not consume native key FD');return stream.total
+            finally:
+                if stream is not None:stream.close()
+                os.close(key_fd);os.close(cipher_fd)
+
+    def test_valid_mdc_complete_eof(self):self.decrypt()
+    def test_wrong_key(self):
+        original=m.OriginalGPGStream.__init__
+        def wrong(stream,cipher_fd,key_fd,deadline):
+            with tempfile.TemporaryFile() as other:
+                other.write(b'wrong-known-synthetic\n');other.seek(0);original(stream,cipher_fd,other.fileno(),deadline)
+        with patch.object(m.OriginalGPGStream,'__init__',wrong),self.assertRaises((m.OriginalRefusal,ValueError)):self.decrypt()
+    def test_truncated_mdc(self):
+        with self.assertRaises((m.OriginalRefusal,ValueError)):self.decrypt(lambda raw:raw[:-12])
+    def test_corrupt_cipher(self):
+        def corrupt(raw):
+            changed=bytearray(raw);changed[len(changed)//2]^=1;return bytes(changed)
+        with self.assertRaises((m.OriginalRefusal,ValueError)):self.decrypt(corrupt)
+    def test_expired_deadline(self):
+        with self.assertRaisesRegex(m.OriginalRefusal,'DEADLINE'):self.decrypt(expired=True)
+    def test_authenticated_eight_mib_tail_eof(self):self.assertGreater(self.decrypt(tail=8*1024*1024),8*1024*1024)
+
+
+    def test_complete_synthetic_reader_native_fd_hashes_and_redaction(self):
+        _,_,plain,names,receipt=original_fixture()
+        with tempfile.TemporaryDirectory() as td:
+            parent=Path(td);operation=parent/'operation';operation.mkdir(mode=0o700)
+            key=operation/'passphrase';key.write_bytes(b'known-synthetic-'+b'k'*48+b'\n');self.assertEqual(key.stat().st_size,65);key.chmod(0o600)
+            home=parent/'gnupg';home.mkdir(mode=0o700);keyfd=os.open(key,os.O_RDONLY|os.O_NOATIME)
+            try:
+                result=subprocess.run(['/usr/bin/gpg','--no-options','--homedir',str(home),'--batch','--no-tty','--no-autostart',
+                    '--no-symkey-cache','--pinentry-mode','loopback','--passphrase-fd',str(keyfd),'--symmetric','--force-mdc',
+                    '--cipher-algo','AES256','--s2k-count','65536','--compress-algo','none','--output','-'],
+                    input=plain,pass_fds=(keyfd,),capture_output=True,timeout=10)
+                self.assertEqual(result.returncode,0)
+            finally:os.close(keyfd)
+            cipher=operation/'preservation.tar.gpg';cipher.write_bytes(result.stdout);cipher.chmod(0o600)
+            receipt.update(ciphertextBytes=len(result.stdout),ciphertextSha256=m.hashlib.sha256(result.stdout).hexdigest())
+            file=operation/'receipt.json';file.write_text(json.dumps(receipt)+'\n');file.chmod(0o600)
+            before={f.name:m.original_token(f.stat()) for f in operation.iterdir()}
+            # Only the fixed-root traversal is substituted for an isolated synthetic root.
+            # Real nofollow/noatime/mode/single-link checks and both full hashes execute.
+            # Nonroot hosted fixtures substitute UID/GID stat fields explicitly.
+            def directory(path):
+                self.assertEqual(path,'/operation')
+                return [os.open(parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOATIME),
+                        os.open(operation,os.O_RDONLY|os.O_DIRECTORY|os.O_NOATIME)]
+            with original_fixture_identity(),patch.object(m,'ORIGINAL_ROOT','/operation'),patch.object(m,'original_directory',side_effect=directory),\
+                 patch.object(m,'ORIGINAL_RECEIPT',receipt),patch.object(m,'original_current_names',side_effect=[names,names]):
+                value=m.original_inventory_witness();m.validate_original_inventory(value)
+            self.assertEqual(value['status'],'AUTHENTICATED_ORIGINAL19_MATCH',value['failure'])
+            self.assertEqual(before,{f.name:m.original_token(f.stat()) for f in operation.iterdir()})
+            encoded=json.dumps(value)
+            for name in names:self.assertNotIn(name,encoded)
+            self.assertNotIn('known-synthetic',encoded)
+
+
 if __name__ == '__main__':
-    unittest.main()
+    if sys.argv[1:] == ['--native-original-gpg']:
+        unittest.main(argv=[sys.argv[0]], defaultTest='NativeOriginalGPG')
+    else:
+        del NativeOriginalGPG
+        unittest.main()
