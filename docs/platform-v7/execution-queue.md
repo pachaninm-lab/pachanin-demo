@@ -11231,3 +11231,80 @@ V2 bootstrap fixture OWNER6540665424: fullpatch c243f28925b551da14741d352e441516
 WP1 [record](autopilot/prompts/current-review-task.md#wp1)
 
 [WP3](autopilot/prompts/current-review-task.md#wp3)
+
+## Gekta named-state producer stage with consumer growth hold — 2026-11-01
+
+```json
+{
+  "schema": "pc.gekta.named-state-producer-stage-purpose.v1",
+  "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+  "authorityBaseExactMain": "e741e8a8b753c48dc4b8e3f9df4c1de8b7270733",
+  "implementationBranch": "fix/gekta-k8s-retained-capacity-20261009",
+  "allowedPaths": [
+    ".github/workflows/production-like-kubernetes-acceptance.yml",
+    "scripts/release/production-like-kubernetes-source-preflight-test.sh"
+  ],
+  "sourcePayloads": [
+    {
+      "path": ".github/workflows/production-like-kubernetes-acceptance.yml",
+      "mode": "100644",
+      "beforeBlob": "5ffb2b704586dfe3b9ac913cb2e999b4683f9101",
+      "beforeSha256": "2b481d4dc02378981b110269221fce726d194f922cab236902ebb0c4198d7e35",
+      "afterBlob": "db28e6fea0d2b5f3e32cd7dc0febb897308fd1b7",
+      "afterSha256": "1876973316cf6c1216c89a5848073e8a4ab090daa0278527141763696bcc04b4"
+    },
+    {
+      "path": "scripts/release/production-like-kubernetes-source-preflight-test.sh",
+      "mode": "100755",
+      "beforeBlob": "55bf8ab34ec91f380585d3ab01b6908d10c4ee3d",
+      "beforeSha256": "b30bc38b181b9c578b841dbcd53d4a9f5a20c20cb6042c01ac925a5a9ef4d94c",
+      "afterBlob": "07786bbd4fb917524f656127383df514d688fe75",
+      "afterSha256": "58dd6f86f2dc4882a3515837b282871472cd56eed3ed13353c555f66249f546e"
+    }
+  ],
+  "phase": "PRODUCER_ONLY; STATE_GROWTH_REMAINS_BLOCKED",
+  "supersedesForThisProducerStage": "gekta-k8s-retained-capacity-20261009 old producer purpose only; all original records and the separate CLAUDE guard purpose remain unchanged historical authority",
+  "why": "Accepted state is3145687B with41B below3MiB. Minimal new vectors for five already prepared product proposals require1163B and cannot fit. Candidate-owned manifests do not replace accepted admission. This stage prepares only the bounded producer; it cannot authorize that growth.",
+  "producerChanges": {
+    "namedStateSnapshotCapacityBytes": 4194304,
+    "otherSourceCapacityBytes": 2097152,
+    "combinedSnapshotCapacityBytes": 33554432,
+    "maxPathsPerRef": 5000,
+    "namedBudgetRef": "fix/gekta-k8s-retained-capacity-20261009",
+    "sameRepositoryGuardSeconds": 300,
+    "sameRepositoryOuterSeconds": 315,
+    "ordinaryEmptyForkAndSuffixSeconds": [
+      180,
+      195
+    ],
+    "branchScopeSeconds": [
+      180,
+      195
+    ],
+    "fullCurrentGuardSuiteRequired": true,
+    "failureAndPrivateArtifactHandlingUnchanged": true
+  },
+  "unresolvedConsumerDependency": {
+    "finding": "CAP-1",
+    "stateGrowthCeilingUntilSeparateConsumerAcceptanceBytes": 3145728,
+    "actualBoundary": "Actual unchanged protected guard passes exact3MiB and rejects3MiB+1 and4MiB with P7_IMMUTABLE_STATE_CAPACITY. The new producer accurately records FAIL branch-scope [0,1] after retaining both enlarged snapshots.",
+    "guardOwner": "CLAUDE_PC_CROP_EXECUTOR",
+    "guardBranch": "governance/trusted-concurrent-scope-routing-guard-20261007",
+    "oldGuardPurpose": "product-immutable-state-capacity-20261009",
+    "requiredBeforeAnyGrowth": "The existing guard owner must separately renew its purpose, implement and accept the bounded named-state readers and tests. No competing guard writer, scope expansion, owner transfer or implicit guard grant is authorized here.",
+    "independentPrivateBlockedRecordSha256": "f5a5be11bcf4ee62532d182f3f50a7d194acdd77ca45ebc42bb5c5ac8fd2508d"
+  },
+  "mandatorySequence": [
+    "Accept this exact metadata only after full nonauthor review, separate owner audit, all applicable native/security/current readiness and ordinary expected-SHA manual acceptance.",
+    "Only then recompose the two-path source on actual accepted main, preserve branch ancestry and foreign leaves, obtain fresh whole2 nonauthor review, owner audit, complete current native guard/security/KIND/deep-outbox/storage/cleanup/readiness and ordinary expected-SHA manual acceptance.",
+    "Producer acceptance is a staged prerequisite only. Keep state at or below3145728B and all new product admissions blocked until the existing guard owners separate purpose/source correction is actually accepted and compatible.",
+    "After both consumer and producer acceptance, proposed product scope metadata still requires its own actual admission/review/current gates. Each actual product head then requires fresh complete source review/native/manual acceptance. No result transfers to a changed head."
+  ],
+  "preservation": [
+    "All preexisting queue bytes remain an exact prefix; state, primary/current/raw-next/global scope, other owners, old admissions and official5/100 remain byte-equal.",
+    "No product/runtime, DB, roles, grants, secrets, lockfiles, release workflow, original19, host window, model activation, backup/rollback or REG.RU installation authority.",
+    "No test selection, skipped failure, broad source exception, truncation, fabricated PASS or forced/automatic merge. Producer and browser/host/live acceptance are separate."
+  ],
+  "status": "PROPOSAL_ONLY; SOURCE_NOT_ACCEPTED; CAP-1_UNRESOLVED; NO_STATE_GROWTH"
+}
+```
