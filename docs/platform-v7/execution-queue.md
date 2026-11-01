@@ -11231,3 +11231,400 @@ V2 bootstrap fixture OWNER6540665424: fullpatch c243f28925b551da14741d352e441516
 WP1 [record](autopilot/prompts/current-review-task.md#wp1)
 
 [WP3](autopilot/prompts/current-review-task.md#wp3)
+
+## Gekta named-state producer stage with consumer growth hold — 2026-11-01
+
+```json
+{
+  "schema": "pc.gekta.named-state-producer-stage-purpose.v1",
+  "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+  "authorityBaseExactMain": "e741e8a8b753c48dc4b8e3f9df4c1de8b7270733",
+  "implementationBranch": "fix/gekta-k8s-retained-capacity-20261009",
+  "allowedPaths": [
+    ".github/workflows/production-like-kubernetes-acceptance.yml",
+    "scripts/release/production-like-kubernetes-source-preflight-test.sh"
+  ],
+  "sourcePayloads": [
+    {
+      "path": ".github/workflows/production-like-kubernetes-acceptance.yml",
+      "mode": "100644",
+      "beforeBlob": "5ffb2b704586dfe3b9ac913cb2e999b4683f9101",
+      "beforeSha256": "2b481d4dc02378981b110269221fce726d194f922cab236902ebb0c4198d7e35",
+      "afterBlob": "db28e6fea0d2b5f3e32cd7dc0febb897308fd1b7",
+      "afterSha256": "1876973316cf6c1216c89a5848073e8a4ab090daa0278527141763696bcc04b4"
+    },
+    {
+      "path": "scripts/release/production-like-kubernetes-source-preflight-test.sh",
+      "mode": "100755",
+      "beforeBlob": "55bf8ab34ec91f380585d3ab01b6908d10c4ee3d",
+      "beforeSha256": "b30bc38b181b9c578b841dbcd53d4a9f5a20c20cb6042c01ac925a5a9ef4d94c",
+      "afterBlob": "07786bbd4fb917524f656127383df514d688fe75",
+      "afterSha256": "58dd6f86f2dc4882a3515837b282871472cd56eed3ed13353c555f66249f546e"
+    }
+  ],
+  "phase": "PRODUCER_ONLY; STATE_GROWTH_REMAINS_BLOCKED",
+  "supersedesForThisProducerStage": "gekta-k8s-retained-capacity-20261009 old producer purpose only; all original records and the separate CLAUDE guard purpose remain unchanged historical authority",
+  "why": "Accepted state is3145687B with41B below3MiB. Minimal new vectors for five already prepared product proposals require1163B and cannot fit. Candidate-owned manifests do not replace accepted admission. This stage prepares only the bounded producer; it cannot authorize that growth.",
+  "producerChanges": {
+    "namedStateSnapshotCapacityBytes": 4194304,
+    "otherSourceCapacityBytes": 2097152,
+    "combinedSnapshotCapacityBytes": 33554432,
+    "maxPathsPerRef": 5000,
+    "namedBudgetRef": "fix/gekta-k8s-retained-capacity-20261009",
+    "sameRepositoryGuardSeconds": 300,
+    "sameRepositoryOuterSeconds": 315,
+    "ordinaryEmptyForkAndSuffixSeconds": [
+      180,
+      195
+    ],
+    "branchScopeSeconds": [
+      180,
+      195
+    ],
+    "fullCurrentGuardSuiteRequired": true,
+    "failureAndPrivateArtifactHandlingUnchanged": true
+  },
+  "unresolvedConsumerDependency": {
+    "finding": "CAP-1",
+    "stateGrowthCeilingUntilSeparateConsumerAcceptanceBytes": 3145728,
+    "actualBoundary": "Actual unchanged protected guard passes exact3MiB and rejects3MiB+1 and4MiB with P7_IMMUTABLE_STATE_CAPACITY. The new producer accurately records FAIL branch-scope [0,1] after retaining both enlarged snapshots.",
+    "guardOwner": "CLAUDE_PC_CROP_EXECUTOR",
+    "guardBranch": "governance/trusted-concurrent-scope-routing-guard-20261007",
+    "oldGuardPurpose": "product-immutable-state-capacity-20261009",
+    "requiredBeforeAnyGrowth": "The existing guard owner must separately renew its purpose, implement and accept the bounded named-state readers and tests. No competing guard writer, scope expansion, owner transfer or implicit guard grant is authorized here.",
+    "independentPrivateBlockedRecordSha256": "f5a5be11bcf4ee62532d182f3f50a7d194acdd77ca45ebc42bb5c5ac8fd2508d"
+  },
+  "mandatorySequence": [
+    "Accept this exact metadata only after full nonauthor review, separate owner audit, all applicable native/security/current readiness and ordinary expected-SHA manual acceptance.",
+    "Only then recompose the two-path source on actual accepted main, preserve branch ancestry and foreign leaves, obtain fresh whole2 nonauthor review, owner audit, complete current native guard/security/KIND/deep-outbox/storage/cleanup/readiness and ordinary expected-SHA manual acceptance.",
+    "Producer acceptance is a staged prerequisite only. Keep state at or below3145728B and all new product admissions blocked until the existing guard owners separate purpose/source correction is actually accepted and compatible.",
+    "After both consumer and producer acceptance, proposed product scope metadata still requires its own actual admission/review/current gates. Each actual product head then requires fresh complete source review/native/manual acceptance. No result transfers to a changed head."
+  ],
+  "preservation": [
+    "All preexisting queue bytes remain an exact prefix; state, primary/current/raw-next/global scope, other owners, old admissions and official5/100 remain byte-equal.",
+    "No product/runtime, DB, roles, grants, secrets, lockfiles, release workflow, original19, host window, model activation, backup/rollback or REG.RU installation authority.",
+    "No test selection, skipped failure, broad source exception, truncation, fabricated PASS or forced/automatic merge. Producer and browser/host/live acceptance are separate."
+  ],
+  "status": "PROPOSAL_ONLY; SOURCE_NOT_ACCEPTED; CAP-1_UNRESOLVED; NO_STATE_GROWTH"
+}
+```
+
+
+## Gekta existing Han lane newest-history purpose — 2026-11-01
+
+```json
+{
+  "schema": "pc.gekta.existing-han-newest-history-purpose.v1",
+  "purposeId": "gekta-han-newest-history-20261101",
+  "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+  "authorityBaseExactMain": "01b9b00e176011495be935a1d003ddf27ebf168d",
+  "implementationBranch": "fix/gekta-han-stream-20260927",
+  "existingAcceptedVectorPreservedExactly": [
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+    "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+    "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+  ],
+  "allowedPaths": [
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts"
+  ],
+  "sourcePayloads": [
+    {
+      "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+      "mode": "100644",
+      "beforeBlob": "0f4591006e01d8cc8ee9311ccd79ddee6f89bded",
+      "beforeBytes": 87379,
+      "beforeSha256": "39f3739687c0dada9a3afcf513dfbfe4bf433cf3c945bb7cf7937fb20b53f455",
+      "afterBlob": "955447837f4e5cd6ee90b11668b00122aae35090",
+      "afterBytes": 88562,
+      "afterSha256": "8bdbc6d2755f722a4906fb7acfb9e43cdc69cd8834c8e3f85abecbb9bc77745a"
+    },
+    {
+      "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+      "mode": "100644",
+      "beforeBlob": "71e2e3f26bd2e49d025391305edbea6d4977c670",
+      "beforeBytes": 57445,
+      "beforeSha256": "bf3ec001b246af91eec3402d69a24f54105f77fa98aabf54cfb4b7a138e4ec2d",
+      "afterBlob": "c2f4a4aa0ee1c029845ae02b229b8b563d4ff8a5",
+      "afterBytes": 57620,
+      "afterSha256": "437dc72834add81a8731771956b1a6c04b3f23622a204afdd7ba8626f0a426a1"
+    },
+    {
+      "path": "apps/web/app/api/agro-chat/route.ts",
+      "mode": "100644",
+      "beforeBlob": "46aa9ccebc710f688ee7e9b408b3e0cbde27b365",
+      "beforeBytes": 40688,
+      "beforeSha256": "d8bea7550194ac14f1a4efa988238278c28a192488619d7b7db5a2b564bdfa57",
+      "afterBlob": "5478ee03189731c67067abf45b8c11ac2597bb07",
+      "afterBytes": 40863,
+      "afterSha256": "62f643568fd99330324b265efb7002a320563c292bda74db3af006ba3d78a27b"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+      "mode": "100644",
+      "beforeBlob": "e1308be3255faf63ea3fbfbe8de36864f97bd137",
+      "beforeBytes": 30880,
+      "beforeSha256": "eb1011c452238d0e1369bcb9aead8282fb787ec267e7f59169dcc91054b02e09",
+      "afterBlob": "6cac0887ef69839c7d665d0d84bdedf1c9e735c8",
+      "afterBytes": 32464,
+      "afterSha256": "f7de908db7076bf893bb8faa4dd9e86c9cf7783b385a41a1636de120e70c7863"
+    }
+  ],
+  "privateProposedSourceHead": "b8438d8797381aff722fc9dbee0a5ee0bc03a08e",
+  "privateProposedSourceTree": "adf273e103399168bf062c4e0a6a7e4e4c4189d4",
+  "retainedOldSourceHead": "6229d4df7d515dc250a8b9cd3cf190110a6a2846",
+  "retainedHanHead": "c6787efe621473d2c6c97ab8614dc0747fbdf5d0",
+  "fullSourcePatchSha256": "2769910c01b7242fbb1528c340f817b54aaf4e7dd6fefa72d13a340fa2adadca",
+  "supersedesForNextSourceOnly": "Renew only the previous exact-two-file localized-subject source-purpose phase on this same retained Han lane. All old admissions, failures, owner, literal nine-path vector, model-trial SPENT/UNKNOWN dispositions and host holds remain unchanged. This is a new exact-four source purpose, not reuse of the old two blobs or the unaccepted PR6034 candidate manifest.",
+  "behavior": "Budget history from newest to oldest and restore chronological order at both actual BFF and API boundaries. Preserve the last twelve raw candidate positions, 2000 characters per turn and 12000 total, current filtering/truncation/overflow/secret/private-field/correction/state/signature semantics and caller-input immutability. Keep latest corrections within that unchanged budget.",
+  "sourceLimits": [
+    "Only the declared exact four after-blobs may be published after this metadata is actually accepted. No new source manifest or state vector, no guard/workflow/DB/lockfile/model/configuration/safety/authorization boundary changes.",
+    "The unchanged Han nine-path vector is necessary but does not itself admit this purpose. No source publication or acceptance follows from this private proposal or an old functional review.",
+    "Current full guard must genuinely complete within its applicable accepted native budget; the Han branch currently has no newly granted 300-second membership. Any required budget correction must be independently admitted and accepted in the existing CI-owner lane before relying on it. No blind failed-run retry, timeout change, test removal or fictional native PASS.",
+    "Actual accepted-main composition, complete new-head independent functional and purpose review, distinct owner audit, every applicable native/security/type/Kubernetes/deep-outbox/cleanup gate and actual canonical readiness precede ordinary full-expected-SHA manual merge. No result transfers to a changed head/base.",
+    "All unchanged state bytes, owners, PRIMARY/current/next/progress, accepted old records and queue prefix remain exact. The 3MiB registry boundary and separate CAP-1 guard-owner dependency are neither changed nor waived. This path uses an existing vector without registry growth.",
+    "No new inference trial/provider call, activation, host window, original19/restore/release/REG.RU installation authority, cost or MASTER credit. Deployment and live quality acceptance remain separate."
+  ],
+  "status": "PROPOSAL_ONLY; PRIVATE_SOURCE_UNACCEPTED; EXISTING_VECTOR_RENEWAL_NOT_STATE_GROWTH",
+  "explicitPriorHoldNarrowRenewal": {
+    "acceptedProducerPurposePr": 6050,
+    "acceptedProducerPurposeHead": "7facd7876d580424b12be666f8d462b492500e08",
+    "actualAcceptedMerge": "01b9b00e176011495be935a1d003ddf27ebf168d",
+    "priorProspectiveWording": "Keep state at or below3145728B and all new product admissions blocked until the existing guard owners separate purpose/source correction is actually accepted and compatible.",
+    "explicitSupersession": "Only after ordinary acceptance of THIS exact new queue purpose, replace that blanket prospective product-admission hold solely for the declared exact-four newest-history source purpose on the existing retained Han nine-path vector and same owner/ancestry, with no state-byte or scope-vector change. This is an explicit separately reviewed renewal, not a silent interpretation of the old record.",
+    "unchangedHolds": "CAP-1 and its existing protected guard owner remain unchanged. No state growth above3145728B, new state-vector/ref admission, other source-purpose renewal, consumer correction, model trial/activation or host operation is admitted. All original records and failures remain preserved; all source/native/readiness/manual gates still apply.",
+    "whyBounded": "The actual accepted immutable reader continues to read identical3145687B state. The exact four paths are already within the unchanged accepted ordered Han9vector; only its bounded source-purpose phase is renewed. No claimed source-quality/native acceptance follows metadata acceptance."
+  },
+  "functionalPrivateReviewReferenceOnly": {
+    "head": "fde6058e38aefcdc58a6b90065488d00aca1701b",
+    "reportSha256": "5d4ccd9e64edbf49204582bd3d2425d39ef815547f1de0b36da1d71da75baa0c",
+    "qualification": "Historical private functional review for identical four after-blobs only; new actual source head requires a fresh complete independent assessment and native gates. This is not automatic transfer."
+  }
+}
+```
+
+
+## Cold observer exact compatibility purpose — 2026-11-01
+
+```json
+{
+  "purpose": "cold-observer-exact-compatibility-20261101",
+  "status": "PRIVATE_PROPOSAL_NOT_ADMITTED",
+  "owner": "ACCOUNT_1_CORE",
+  "ownerDecision": "#5469#issuecomment-6558882969",
+  "authorityBaseExactMain": "14b4e6bbd0122a8cd717ea193ecd39c69e0efcdf",
+  "metadataBranch": "governance/industrial-load-diagnostics-20260919",
+  "sourceBranch": "ops/production-cold-preservation-20261022",
+  "retainedGuardBranch": "governance/gekta-recovery-trusted-routes-20260927",
+  "retainedGuardPaths": [
+    ".github/workflows/platform-v7-autopilot-guard.yml",
+    "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+    "scripts/p7-autopilot-guard.sh"
+  ],
+  "sourceOnly": true,
+  "sourcePublicationAuthorized": false,
+  "productionInvocationAuthorized": false,
+  "startupAuthorized": false,
+  "workersAuthorized": false,
+  "hostWindow": "NONE",
+  "productionAcceptance": false,
+  "masterCredit": 0,
+  "privateSourceHead": "52e3906c8f0cb27a35e090286283e8505fff8c4e",
+  "privateSourceTree": "ea5539add9e405e3105dc7f425c83be3fb54f203",
+  "privateSourcePatchSha256": "1d14b17ab85d54fa97909586c414ffe050e70ee64bba4f1576dd469894a3ced0",
+  "privateIndependentSourceReviewSha256": "239f9e1eabc6d132269bda0fae393749d52abc253861158c114552e9d83fa1ea",
+  "exactSourceThree": {
+    ".github/workflows/production-cold-preservation.yml": {
+      "before": {
+        "bytes": 169790,
+        "sha256": "dd327aba31e76a1cb3ffe713eecf62091ce470fee53a8de93d863a0ffc0c7ae6",
+        "blob": "338b17efa926ad4a12eb061ebd2543164905aadb"
+      },
+      "after": {
+        "bytes": 172672,
+        "sha256": "e322cfee6489d25f17133be7297f3ad900d0574650121e84648d72b0aedff934",
+        "blob": "6236904ed57f820207e4be2eb918bb956c5f3805"
+      },
+      "mode": "100644"
+    },
+    "scripts/test_production_cold_preservation.py": {
+      "before": {
+        "bytes": 199236,
+        "sha256": "3a6553fad7ba3bec8ecefdb11536ed3e29c7f296ab6b117672b2ef776063519c",
+        "blob": "e5faf4c8d59a8567eafc3bcd4ef49204a713d275"
+      },
+      "after": {
+        "bytes": 199769,
+        "sha256": "3216ead4e4abd2f515a5410756657131f79cb4e548aa077f4083d2c662fb6478",
+        "blob": "19632fe1357f16d81835c31da30d5572ec836d65"
+      },
+      "mode": "100644"
+    },
+    "docs/ops/production-cold-preservation.md": {
+      "before": {
+        "bytes": 48479,
+        "sha256": "39004266eb20cd4e52ab5123dddc32f053d220db4996a0333a3267c45d220fd2",
+        "blob": "3c8b47d984802cb9092d1279fcaa0c2133739da0"
+      },
+      "after": {
+        "bytes": 50343,
+        "sha256": "58280bb7518e782e576c71cc2679b6ece7fa64d8cba2b4bce57ed49f78c644c8",
+        "blob": "1655bb5ce5ae9f9c915b92203818648c6cfb152b"
+      },
+      "mode": "100644"
+    }
+  },
+  "exactCarriers": [
+    {
+      "blob": "e0f8fa5731af0addc0b82c9ca7fab24abcecddb7",
+      "bytes": 370287,
+      "sha256": "31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7"
+    },
+    {
+      "blob": "5f5446369cc96c935fe959ad5ba9aa6bcf95f2ac",
+      "bytes": 400684,
+      "sha256": "1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f"
+    }
+  ],
+  "rawFragmentSha256": [
+    "92c6da9777dceef4b31235aa6e4bfc3e5829646404b39a121826846dad392eea",
+    "b01ef2cf05fe0132ddbfce5d26483390789380d6c75a1b0f18e9212ad65fca0f",
+    "e1cd4c77167d3ba2e125e02bb7d3ab5cd1c7269209bbfb819df10822e4ec5143"
+  ],
+  "inverse": {
+    "mechanism": "Fixed10 byte splices decoded from564B static base64/zlib JSON; applied ONLY after exact R2 whole identity and exact actual3fragment identities. Must recover complete old e0f8/370287/31b39 before historical prefix/extraction. No network/Git-history fixture lookup/generic fallback.",
+    "historicalPrefixBytes": 191427,
+    "historicalPrefixSha256": "09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a"
+  },
+  "stateStages": {
+    "status": "MATHEMATICAL_PRIVATE_GEOMETRY_ONLY_NO_STATE_CANDIDATE_OR_ADMISSION",
+    "statePath": "docs/platform-v7/autopilot/autopilot-state.json",
+    "before": {
+      "bytes": 3145687,
+      "sha256": "6b4a5d16dc47f3ce1d80ef022005a615e3db72ade1f6a0fd243d3ee01fdce4f4",
+      "blob": "60930eae9e605e3b96887b5cb9249ac00e91ed06"
+    },
+    "A3": {
+      "after": {
+        "bytes": 3145687,
+        "sha256": "692fc2a94e6a4dd45ebace52934bcd6614aa21817a79ebcd0bfefb66adca482c",
+        "blob": "b90d728b224cdc358fbf35a672bcee75b8723ddd"
+      },
+      "changedFields": [
+        {
+          "pointer": "/coordinationAdmissions/stopped-core-bootstrap-20261024/sourcePins/0/sha256",
+          "path": ".github/workflows/production-cold-preservation.yml",
+          "byteOffset": 3083509,
+          "bytes": 64,
+          "before": "dd327aba31e76a1cb3ffe713eecf62091ce470fee53a8de93d863a0ffc0c7ae6",
+          "after": "e322cfee6489d25f17133be7297f3ad900d0574650121e84648d72b0aedff934"
+        },
+        {
+          "pointer": "/coordinationAdmissions/stopped-core-bootstrap-20261024/sourcePins/1/sha256",
+          "path": "scripts/test_production_cold_preservation.py",
+          "byteOffset": 3083657,
+          "bytes": 64,
+          "before": "3a6553fad7ba3bec8ecefdb11536ed3e29c7f296ab6b117672b2ef776063519c",
+          "after": "3216ead4e4abd2f515a5410756657131f79cb4e548aa077f4083d2c662fb6478"
+        },
+        {
+          "pointer": "/coordinationAdmissions/stopped-core-bootstrap-20261024/sourcePins/2/sha256",
+          "path": "docs/ops/production-cold-preservation.md",
+          "byteOffset": 3083801,
+          "bytes": 64,
+          "before": "39004266eb20cd4e52ab5123dddc32f053d220db4996a0333a3267c45d220fd2",
+          "after": "58280bb7518e782e576c71cc2679b6ece7fa64d8cba2b4bce57ed49f78c644c8"
+        }
+      ],
+      "inspectionSha256Remains": "31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7",
+      "inverseRestoresExactBeforeBytes": true
+    },
+    "B1": {
+      "before": {
+        "bytes": 3145687,
+        "sha256": "692fc2a94e6a4dd45ebace52934bcd6614aa21817a79ebcd0bfefb66adca482c",
+        "blob": "b90d728b224cdc358fbf35a672bcee75b8723ddd"
+      },
+      "after": {
+        "bytes": 3145687,
+        "sha256": "7bc59d1a3d3201c15258adb2f9886a415878393deb1fe3b6b9f5f03ab05eef99",
+        "blob": "9dd9d2a97e54bae0d7c9d18d165e430c06cd6c42"
+      },
+      "changedFields": [
+        {
+          "pointer": "/coordinationAdmissions/stopped-core-bootstrap-20261024/inspectionSha256",
+          "byteOffset": 3083342,
+          "bytes": 64,
+          "before": "31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7",
+          "after": "1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f"
+        }
+      ],
+      "inverseRestoresExactA3Bytes": true
+    },
+    "allOtherParsedStateAndRawBytesUnchanged": true,
+    "stateFilesWritten": false,
+    "stateCapUnchanged": 3145728
+  },
+  "coherentGuardDependency": {
+    "status": "SEPARATE_EXACT_TRUSTED_PREREQUISITE_REQUIRED_NOT_IMPLEMENTED_HERE",
+    "phases": [
+      "Queue-only accepted precise purpose with state byte-unchanged; no guard-patch selfhash recursion.",
+      "One coherent independently reviewed trusted3path guard implementing ONLY exact A3/B1 raw replacements, exact COLD3 source and existing DC1 SOURCE2, with their accepted purpose pins; do not serially invalidate DC1 guardPayloads.",
+      "A3 metadata: only3existing source-pin hash replacements; old carrier inspection pin retained.",
+      "Exact COLD3 ordinary source descendant; state/queue bytes equal its accepted BASE.",
+      "Existing frozen DC1 R2 SOURCE2; permits ONLY explicitly accepted A3 state/current admitted queue, both HEAD byte-equal BASE; no generic state or queue exception.",
+      "B1 metadata: only inspectionSHA old→R2 after actual R2 source acceptance.",
+      "Separate later finite read-only journal/object reconciliation and operational disposition; no source grant."
+    ],
+    "existingBroadColdStateScopePassIsNotAuthority": true,
+    "existingIndustrialParsedStateMutationRemainsForbiddenExceptSeparatelyAdmittedNamedExactStages": true
+  },
+  "gates": [
+    "Full existing contract job and native Compose/Docker28.5.1/API1.51/PostgreSQL wire paths remain unchanged. No native skip or test filter to obtain PASS.",
+    "All baseline149 cold tests remain; compatibility adds one controller method, so the full current cold suite has150 cases, including the one native PostgreSQL wire test exactly once. Full current cold150 + old shared24 =174; full current cold150 + R2 shared48 =198. Historical baseline149 + shared24 =173 remains history. Mandatory native tests are NOT_RUN here; five local environment skips are not native PASS.",
+    "Fresh actual whole-head independent review and owner audit; substantive/native/security; latest canonical readiness; manual full expected-head acceptance at EACH metadata/guard/source stage.",
+    "Current-state inspectionSHA MUST match actual carrier and exact3controller pins; oldstate/newcarrier and mismatchedpins fail closed. Acceptance of two source profiles grants no operation/retry/reset/startup.",
+    "All other state bytes/parsed fields/owners/vectors/PRIMARY/current/next/official5 and source caps unchanged. No state growth, new vector, global buffer/cap exception or ownership transfer."
+  ],
+  "metadataStorage": {
+    "existingReviewDocumentMayLackRoomAfterDC1": true,
+    "proposedTrackedHome": "docs/platform-v7/execution-queue.md",
+    "observedQueueBytes": 2110383,
+    "actualAcceptedNamedQueueReaderBytes": 3145729,
+    "noGlobalTwoMiBLimitAssumed": true,
+    "noGuardAfterBlobSelfhashEmbedded": true
+  },
+  "publicationPrerequisites": [
+    "Verified new owner decision6558882969 recorded; preserve complete current14b4 queue prefix when eventually composing metadata.",
+    "Fresh private source review239f9e1e binds frozen52e390/01b9 only. Future actual published metadata/guard/source heads require independent exact-head review; no current-main/native/host transfer.",
+    "Root must materialize and independently review the coherent exact trusted3path admission against the accepted queue purpose. No guard implementation is supplied or granted here."
+  ],
+  "frozenSourceProposalBaseExactMain": "01b9b00e176011495be935a1d003ddf27ebf168d",
+  "currentQueuePrefix": {
+    "observedMain": "14b4e6bbd0122a8cd717ea193ecd39c69e0efcdf",
+    "queuePath": "docs/platform-v7/execution-queue.md",
+    "bytes": 2110383,
+    "sha256": "8d62f9d661ce365ab8394c3094427539b2987807044306502d947c7089c488a5",
+    "blob": "8bd9e231fe2bfcbee4ae270718c291802b1a4a3b",
+    "old01b9QueueExactPrefix": true,
+    "sourceSuitesNotRepeatedForPureQueueChange": true,
+    "readMechanism": "GitHub exact fetch_blob8bd9; local14b4 object not present; exact whole UTF8 bytes Gitblob verified"
+  },
+  "privateSourceReviewDisposition": "PRIVATE SOURCE CLEAN only for frozen52e390 against01b9; exact authority/native/current published head/host remain HOLD",
+  "supersedesBlockedPrivatePurposeDrafts": [
+    "5055be0322c399b6852278ae8819141252c73a9be31bf8254be85d107a30ddd5",
+    "40b4ca5466fa652e02ab7d3eb5d18f80a85749be7a2aa334c97bbe095ac688fb",
+    "51b3d2bdb3bc594a37b5a1ebe6fdb2d3d0cb5913991f456314b9fadfb15bb227"
+  ],
+  "draftCorrection": "The earlier draft named the BANK one-workflow guard lane and wrong regression path. Both rejected drafts are preserved as BLOCKED history; only the actual accepted Gekta three-path lane above is proposed.",
+  "countCorrection": "Independent purpose review found P3 count-decomposition wording in privateec092/51b3. Replaced with exact full-suite150 plus shared24/48 totals, counting native wire once; old private commit/proof retained as blocked history. No source/test change."
+}
+```
