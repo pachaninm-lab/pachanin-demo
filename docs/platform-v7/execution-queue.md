@@ -11410,3 +11410,130 @@ WP1 [record](autopilot/prompts/current-review-task.md#wp1)
   }
 }
 ```
+
+
+## Gekta producer renewal preserving accepted BANK and retained lane budgets — 2026-11-01
+
+```json
+{
+  "schema": "pc.gekta.named-state-producer-bank-preserving-renewal.v1",
+  "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+  "authorityBaseExactMain": "b4875e19d8cae13be8daac3930dbaf45194a14cf",
+  "implementationBranch": "fix/gekta-k8s-retained-capacity-20261009",
+  "allowedPaths": [
+    ".github/workflows/production-like-kubernetes-acceptance.yml",
+    "scripts/release/production-like-kubernetes-source-preflight-test.sh"
+  ],
+  "sourcePayloads": [
+    {
+      "path": ".github/workflows/production-like-kubernetes-acceptance.yml",
+      "mode": "100644",
+      "beforeBlob": "19bb5ada5bd647cb0d1f0ea3171c5a7ac0da1fc1",
+      "beforeSha256": "7839a09d306269d51b4e572790c912863631dc445fcf777d57b62aca4797c34a",
+      "afterBlob": "12f674f06b56e4674ba79362e5780d5268e20391",
+      "afterSha256": "ac6fa2a3fa28a08a6444a29a3c9a8a298b3a0ffd084924e04ca920372f884d28",
+      "beforeBytes": 39128,
+      "afterBytes": 40021
+    },
+    {
+      "path": "scripts/release/production-like-kubernetes-source-preflight-test.sh",
+      "mode": "100755",
+      "beforeBlob": "55bf8ab34ec91f380585d3ab01b6908d10c4ee3d",
+      "beforeSha256": "b30bc38b181b9c578b841dbcd53d4a9f5a20c20cb6042c01ac925a5a9ef4d94c",
+      "afterBlob": "07786bbd4fb917524f656127383df514d688fe75",
+      "afterSha256": "58dd6f86f2dc4882a3515837b282871472cd56eed3ed13353c555f66249f546e",
+      "beforeBytes": 14613,
+      "afterBytes": 16749
+    }
+  ],
+  "phase": "PRODUCER_ONLY; BANK_PREREQUISITE_ACCEPTED; STATE_GROWTH_REMAINS_BLOCKED",
+  "supersedesForThisProducerStage": "Only after ordinary acceptance of THIS exactcurrent-head renewal, supersede6050 producer source pins5ffb->db28 with the exactacceptedBANK-preserving19bb->12f6 transition and retain55bf->0778 collector helper transition. All old purpose/source/native/BLOCKED history remains. No other source purpose is renewed.",
+  "why": "BANK6049 was actually accepted at b487 with exactworkflow19bb. Existing6052de410 before/afterpins are now stale; its oldfullreview/native/READY cannot transfer. Private83f8 preserves allacceptedBANK bytes and proposes onlythree exactsame-repository retained memberships to existing300/315 plus the previously admitted producer4MiB. ActualprivateHan b843 guard timed out124 under unchanged180 while branch-scope passed. The renewal changes no numericdeadline/default/fork/suffix/scopebudget and fixes no protectedconsumerCAP1.",
+  "producerChanges": {
+    "namedStateSnapshotCapacityBytes": 4194304,
+    "otherSourceCapacityBytes": 2097152,
+    "combinedSnapshotCapacityBytes": 33554432,
+    "maxPathsPerRef": 5000,
+    "sameRepositoryGuardSeconds": 300,
+    "sameRepositoryOuterSeconds": 315,
+    "ordinaryEmptyForkAndSuffixSeconds": [
+      180,
+      195
+    ],
+    "branchScopeSeconds": [
+      180,
+      195
+    ],
+    "fullCurrentGuardSuiteRequired": true,
+    "failureAndPrivateArtifactHandlingUnchanged": true,
+    "namedBudgetRefs": [
+      "fix/gekta-k8s-retained-capacity-20261009",
+      "fix/gekta-han-stream-20260927",
+      "fix/gekta-economic-safety-hardening-20260928"
+    ],
+    "budgetEligibilityOnly": "Budget selection alone is not product-purpose/source acceptance. Retain Han6051 exact4 scope separately; private mathpurpose4d93 is NOT accepted by this record and its exact3 source remains private until its own metadata/source gates. No new ref/vector/owner or new default/suffix/fork privilege."
+  },
+  "unresolvedConsumerDependency": {
+    "finding": "CAP-1",
+    "stateGrowthCeilingUntilSeparateConsumerAcceptanceBytes": 3145728,
+    "actualBoundary": "Actual unchanged protected guard passes exact3MiB and rejects3MiB+1 and4MiB with P7_IMMUTABLE_STATE_CAPACITY. The new producer accurately records FAIL branch-scope [0,1] after retaining both enlarged snapshots.",
+    "guardOwner": "CLAUDE_PC_CROP_EXECUTOR",
+    "guardBranch": "governance/trusted-concurrent-scope-routing-guard-20261007",
+    "oldGuardPurpose": "product-immutable-state-capacity-20261009",
+    "requiredBeforeAnyGrowth": "The existing guard owner must separately renew its purpose, implement and accept the bounded named-state readers and tests. No competing guard writer, scope expansion, owner transfer or implicit guard grant is authorized here.",
+    "independentPrivateBlockedRecordSha256": "f5a5be11bcf4ee62532d182f3f50a7d194acdd77ca45ebc42bb5c5ac8fd2508d"
+  },
+  "mandatorySequence": [
+    "BANK6049 prerequisite is actually accepted as b487 and original hold6559242643 is released for that operation by ownerhandoff6561424093. Preserve its entire19bbworkflow/otherowners and keep subsequent current-main source cycles coordinated; no globalfreeze or takeover of BANK6045/CORE lanes.",
+    "Verify this actualb487 queue-only proposal, precisebefore/afterpins and zero-state-growth. Fresh complete exactpublishedhead nonauthorreview, separateowneraudit and all native/security/currentreadiness/ordinary full-expected-SHA metadata acceptance are required. Conditionalprivate7869 review is historical only.",
+    "Only after THIS precise purpose is actually accepted, ordinarily compose exacttwo source paths on actualacceptedmain while retaining publishedde410 ancestry and BANK payload. Obtain fresh complete whole2nonauthorreview, owneraudit, fullcurrentguard/security/KIND/deepoutbox/storage/cleanup/canonicalREADY and normal expected-SHA sourceacceptance. No oldPASStransfer.",
+    "Keep state<=3145728B/CAP1/protectedCLAUDEconsumerowner and all new state-vector holds. Preserve only the existing6051explicitHanexception; this CI record creates no product exception. Private4d93 math exception requires its separate actualmetadata and source gates.",
+    "Only after the appropriate producer/budget and product-purpose stages are actually accepted may fresh Han/math source runs use the declared300/315 selector. Original19/host/restore/release/model/DB/provider/money/installation remain separately held."
+  ],
+  "preservation": [
+    "Exactprefix append to the accepted queue only; no state/PRIMARY/current/next/progress/scope/owner changes. Preserve all6050/6051/BANK/other-owner records and historical reports.",
+    "Full inverse of only the three declared positive/suffix memberships and one named-state capacity expression restores every39128 bytes of prospectiveBANK19bb. All7097foreignsourceleaves against that prospective source base are identical.",
+    "Keep existing2MiB other-source/32MiB total/5000path limits, completebytes/hash/mode/UTF8/current-tree validation, fulltests, timeouts, cleanup/private-artifact/secret handling and manual rules. No skipping/truncation/new numerical limits.",
+    "No lockfile/product runtime, protectedconsumer guard/ref, owner transfer, host/model/provider/DB/backup/restore/original19/release/install/cost/MASTER authority."
+  ],
+  "status": "PROPOSAL_ONLY; BANK_PREREQUISITE_ACCEPTED; THIS_METADATA_AND_SOURCE_NOT_ACCEPTED; CAP1_UNRESOLVED; NO_STATE_GROWTH",
+  "purposeId": "gekta-producer-bank-preserving-retained-budget-renewal-20261101",
+  "activationPreconditions": {
+    "BANKPrerequisitePr": 6049,
+    "acceptedBankHead": "ade966f8245b59db8c6eaf4eea2eba8f3909a044",
+    "actualAcceptedBankMerge": "b4875e19d8cae13be8daac3930dbaf45194a14cf",
+    "acceptedBankTree": "bcb841bc01dc218a243f277a1051ce6444b7df0d",
+    "requiredAcceptedBeforeWorkflowBlob": "19bb5ada5bd647cb0d1f0ea3171c5a7ac0da1fc1",
+    "actualObservedMainWorkflowBlob": "19bb5ada5bd647cb0d1f0ea3171c5a7ac0da1fc1",
+    "preconditionCurrentlySatisfied": true,
+    "sourceAndMetadataNotAutomaticallyAccepted": "Only BANK6049 prerequisite is now accepted. THIS exactqueue-only purpose still needs fresh full actualpublishedhead nonauthorreview, separateowneraudit, native/security/currentREADY and ordinary expected-SHA metadata acceptance before the two-path source may be published. Any changedbase/pins requires new current composition and review."
+  },
+  "privateSourceReference": {
+    "head": "83f8bd9492070655f31da17fd092b99ebed503be",
+    "tree": "9d33e91c9fdbd1e540a1a2a94360fc1fe1d8e79a",
+    "parents": [
+      "de410bca934254b75dd09ec3b871867e4fc4d773",
+      "ade966f8245b59db8c6eaf4eea2eba8f3909a044"
+    ],
+    "localCollectorContractTests": 29,
+    "localEmbeddedBudgetContractTests": 7,
+    "independentSourceReview": false,
+    "sourcePublication": false,
+    "evidenceQualification": "Private source83f8 is not source-accepted or independently functionally reviewed. Local29/7 are candidate contracts only. The complete actual source must be composed on the future actualacceptedmetadata main preserving publishedde410 ancestry and allacceptedforeignbytes; fresh wholeactualheadreview/native/READY/manual is mandatory. Oldde410orconditional7869 assessments cannottransfer.",
+    "sourceComparisonBankParent": "ade966f8245b59db8c6eaf4eea2eba8f3909a044",
+    "actualAcceptedBeforeBase": "b4875e19d8cae13be8daac3930dbaf45194a14cf"
+  },
+  "localHanFailureReference": {
+    "head": "b8438d8797381aff722fc9dbee0a5ee0bc03a08e",
+    "base": "14b4e6bbd0122a8cd717ea193ecd39c69e0efcdf",
+    "kind": "LOCAL_ACTUAL_ACCEPTED_COLLECTOR_NOT_NATIVE_CI",
+    "guardSeconds": 180,
+    "outerSeconds": 195,
+    "wallSeconds": 187.407,
+    "guardExit": 124,
+    "guardTapTotalsAvailable": false,
+    "branchScopeExit": 0,
+    "qualification": "One local execution; final reportstagebranch-scope is not the failedcause. No fabricated fullsuitePASS or blindretry."
+  }
+}
+```
