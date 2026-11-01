@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-freshness-word-boundaries-20261101",
+  "branch": "fix/gekta-freshness-word-boundaries-20261101",
+  "status": "active",
+  "ownerBasis": "Explicit owner2026-11-01 Gekta audit remediation instruction.",
+  "purpose": "G-A30: do not classify delivery/supply as current interest-rate requests because ставка is contained in доставка/поставка. Preserve complete financial/weather/quotation terms and their Cyrillic inflections.",
+  "allowedPaths": [
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-freshness-word-boundaries-20261101.json"
+  ],
+  "boundaries": [
+    "Only the existing current-evidence noun matcher and actual wire regressions; all explicit temporal terms and current-evidence enforcement remain.",
+    "No provider/model, budget, role/consent, global state/workflow/guard, CORE or host change.",
+    "Source/unit results are not current-market or deployed-model acceptance; fresh independent review and native/manual gates required."
+  ],
+  "virtualServerDeploymentState": "pending"
+}

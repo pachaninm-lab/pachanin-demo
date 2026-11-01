@@ -172,6 +172,21 @@ describe('agro policy at the actual public streaming boundary', () => {
   }
 
   it.each([
+    ['Как посчитать стоимость доставки пшеницы по заданным расходам?', false],
+    ['Как оформляют поставки зерна?', false],
+    ['Какие параметры нужны для доставки зерна?', false],
+    ['Какова ставка по кредиту для хозяйства?', true],
+    ['Где проверить котировки пшеницы?', true],
+    ['Какой курс доллара учитывать фермеру при закупке пшеницы?', true],
+    ['Как проверить погоду для уборки?', true],
+  ] as const)('classifies freshness from complete terms rather than contained words: %s', async (question, expected) => {
+    const response = await send(question);
+    await response.text();
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+    expect(boundary.model.mock.calls[0][1].currentDataRequired).toBe(expected);
+  });
+
+  it.each([
     ['ru', 'Какой фильм посмотреть вечером?', 'агробизнес'],
     ['en', 'Tell me a joke', 'agriculture'],
     ['en', 'Recommend a good movie', 'agriculture'],
