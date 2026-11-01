@@ -241,6 +241,17 @@ async function installConsentFixture(page: Page, options: {
       await route.abort();
       return;
     }
+    // Isolate these Gekta intent fixtures from unrelated platform RSC prefetch.
+    // The upstream HTTP fixture embeds its internal origin in canonical locale
+    // redirects; WebKit correctly rejects that origin from the HTTPS page.
+    // Original unmocked platform/mobile acceptance remains selected separately.
+    const headers = route.request().headers();
+    if (route.request().method() === 'GET' && !route.request().isNavigationRequest()
+      && headers.rsc === '1' && headers['next-router-prefetch'] === '1'
+      && ['/platform-v7', '/platform-v7/trust', '/platform-v7/contact'].includes(url.pathname)) {
+      await route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Synthetic prefetched destination</title>' });
+      return;
+    }
     if (!url.pathname.startsWith('/api/')) { await route.continue(); return; }
     const json = (body: unknown, status = 200, cookie?: string) => route.fulfill({
       status, contentType: 'application/json', body: JSON.stringify(body),
@@ -446,7 +457,9 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
         const box = page.locator('#gekta-composer-input');
         await box.fill('Как подготовить почву под пшеницу?');
         await box.press('Enter');
-        await expect(page.getByRole('alert')).toContainText('Не удалось проверить доступ к Гекте');
+        const accessError = page.locator('[data-gekta-chat-workspace="true"]').getByRole('alert');
+        await expect(accessError).toHaveCount(1);
+        await expect(accessError).toContainText('Не удалось проверить доступ к Гекте');
         await expect(box).toHaveValue('Как подготовить почву под пшеницу?');
         expect(server.generations).toHaveLength(0);
         expect(server.consents).toBe(0);
