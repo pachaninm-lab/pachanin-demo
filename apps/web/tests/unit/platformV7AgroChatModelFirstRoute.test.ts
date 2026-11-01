@@ -171,6 +171,31 @@ describe('agro policy at the actual public streaming boundary', () => {
     }));
   }
 
+  it('keeps the newest history under the shared character budget instead of retiring the latest turns', async () => {
+    const history = Array.from({ length: 12 }, (_, index) => ({
+      role: index % 2 ? 'assistant' : 'user',
+      text: `Пшеница QA_HISTORY_${index}: `.padEnd(2000, 'x'),
+    }));
+    const response = await send('Какие условия ещё уточнить для пшеницы?', 'ru', { history });
+    await response.text();
+    const forwarded = boundary.model.mock.calls[0][1].history;
+    expect(forwarded.map((message: { text: string }) => message.text.match(/QA_HISTORY_(\d+)/u)?.[1]))
+      .toEqual(['6', '7', '8', '9', '10', '11']);
+    expect(forwarded.reduce((sum: number, message: { text: string }) => sum + message.text.length, 0)).toBeLessThanOrEqual(12000);
+    expect(history[0].text).toContain('QA_HISTORY_0:');
+  });
+
+  it('preserves the newest correction even when earlier turns exhaust the budget', async () => {
+    const history = Array.from({ length: 12 }, (_, index) => ({
+      role: index === 11 ? 'user' : index % 2 ? 'assistant' : 'user',
+      text: (index === 11 ? 'Нет, объём партии 180 тонн. QA_CORRECTION_LATEST: ' : `Пшеница QA_OLD_${index}: `).padEnd(2000, 'x'),
+    }));
+    const response = await send('Какие условия ещё уточнить для пшеницы?', 'ru', { history });
+    await response.text();
+    expect(boundary.model.mock.calls[0][1].history.map((message: { text: string }) => message.text).join('\n'))
+      .toContain('QA_CORRECTION_LATEST');
+  });
+
   it.each([
     ['ru', 'Какой фильм посмотреть вечером?', 'агробизнес'],
     ['en', 'Tell me a joke', 'agriculture'],
