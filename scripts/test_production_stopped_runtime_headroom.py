@@ -762,7 +762,7 @@ class ClosedDockerFailureContract(unittest.TestCase):
             root=Path(tmp);out=root/'evidence';out.mkdir()
             (root/'closed-docker-signal.py').write_text(self.sources['SIGNAL'])
             path=root/'closed-diagnostic-candidate.json'
-            if not missing:path.write_text(json.dumps(envelope))
+            if not missing:path.write_bytes(envelope if type(envelope) is bytes else json.dumps(envelope).encode())
             with patch.dict(os.environ,{'RUNNER_TEMP':str(root),'EVIDENCE_DIR':str(out),'TARGET_SHA':'b'*40,'GITHUB_STEP_SUMMARY':str(root/'step.md')}):
                 if expected:exec(compile(self.sources['SUMMARY'],'<actual-closed-summary>','exec'),{'__name__':'closed_summary_test'})
                 else:
@@ -778,6 +778,32 @@ class ClosedDockerFailureContract(unittest.TestCase):
         self.summary_case(None,missing=True)
         for changes in [{'raw':'SECRET'},{'target':'SECRET'},{'deployment_authorized':True}, {'diagnostic':{**valid,'stderr':'SECRET'}}]:
             self.summary_case({**envelope,**changes},expected=False)
+
+
+    def test_transport_refuses_duplicate_remote_keys_at_every_object(self):
+        value,_=self.collect('pass')
+        valid=json.dumps(value).encode()
+        for name, prior in [('status', '"UNKNOWN"'), ('production_mutation', 'true'),
+                            ('deployment_authorized', 'true'), ('container_count', '128')]:
+            payload=('{"'+name+'":'+prior+',').encode()+valid[1:]
+            with self.subTest(field=name):
+                result=self.transport_case(payload)
+                self.assertEqual(result['transport_status'],'INVALID_REMOTE_REPORT')
+                self.assertFalse(result['passed']);self.assertIsNone(result['diagnostic'])
+
+    def test_publication_refuses_duplicate_envelope_and_nested_report_keys(self):
+        value,_=self.collect('pass')
+        envelope={'schema':'pc.closed-docker-diagnostic-envelope.v2','target':'b'*40,
+                  'transport_status':'VALIDATED_REMOTE_REPORT','diagnostic':value,'passed':True,
+                  'production_mutation':False,'deployment_authorized':False,
+                  'local_cleanup_attestation':'OWNED_ANCESTRY_REAPED'}
+        raw=json.dumps(envelope).encode()
+        cases=[b'{"passed":false,'+raw[1:], b'{"production_mutation":true,'+raw[1:],
+               raw.replace(b'"diagnostic": {',b'"diagnostic": {"status":"UNKNOWN",',1),
+               raw.replace(b'"diagnostic": {',b'"diagnostic": {"production_mutation":true,',1)]
+        for payload in cases:
+            self.assertNotEqual(payload,raw)
+            self.summary_case(payload,expected=False)
 
 
 class ClosedDockerR2OwnershipContract(unittest.TestCase):

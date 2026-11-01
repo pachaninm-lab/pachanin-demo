@@ -1735,6 +1735,17 @@ jobs:
           TRANSPORT_SECONDS = 45
 
 
+          def closed_json(raw):
+              def unique(pairs):
+                  value = {}
+                  for name, item in pairs:
+                      if name in value:
+                          raise ValueError('CLOSED_JSON_DUPLICATE_KEY')
+                      value[name] = item
+                  return value
+              return json.loads(raw, object_pairs_hook=unique)
+
+
           def execute(source, target, output):
               if len(source.encode()) > 20000 or not re.fullmatch('[0-9a-f]{40}', target):
                   raise ValueError('CLOSED_INPUT')
@@ -1814,7 +1825,7 @@ jobs:
                           envelope['transport_status'] = 'NONZERO'
                       else:
                           try:
-                              value = namespace['validate_report'](json.loads(bytes(streams['out']).decode('utf-8', errors='strict')))
+                              value = namespace['validate_report'](closed_json(bytes(streams['out']).decode('utf-8', errors='strict')))
                               if (value['status'] == 'SUCCESS') != (code == 0):
                                   raise ValueError('CLOSED_EXIT_BINDING')
                               envelope.update(transport_status='VALIDATED_REMOTE_REPORT', diagnostic=value,
@@ -2732,6 +2743,17 @@ jobs:
           import os
           from pathlib import Path
           import re
+          def closed_json(raw):
+              def unique(pairs):
+                  value = {}
+                  for name, item in pairs:
+                      if name in value:
+                          raise ValueError('CLOSED_JSON_DUPLICATE_KEY')
+                      value[name] = item
+                  return value
+              return json.loads(raw, object_pairs_hook=unique)
+
+
           root = Path(os.environ['EVIDENCE_DIR'])
           path = Path(os.environ['RUNNER_TEMP']) / 'closed-diagnostic-candidate.json'
           if not path.exists():
@@ -2741,7 +2763,7 @@ jobs:
           else:
               if not path.is_file() or path.is_symlink() or not 0 < path.stat().st_size <= 4096:
                   raise SystemExit('CLOSED_DIAGNOSTIC_INVALID')
-              record = json.loads(path.read_text())
+              record = closed_json(path.read_text())
           if (set(record) != {'schema', 'target', 'transport_status', 'diagnostic', 'passed', 'production_mutation', 'deployment_authorized', 'local_cleanup_attestation'} or
                   record['schema'] != 'pc.closed-docker-diagnostic-envelope.v2' or
                   record['target'] != os.environ['TARGET_SHA'] or not re.fullmatch('[0-9a-f]{40}', record['target']) or
@@ -5902,11 +5924,35 @@ jobs:
           [[ "$(sha256sum "$RUNNER_TEMP/root-growth-controller.py" | cut -d ' ' -f 1)" == "$GROWTH_CONTROLLER_SHA256" ]]
           python3 - <<'PY_GROWTH_PREFIX'
           import hashlib,pathlib
+          def retained_root_growth_prefix(raw):
+              # One fixed current prefix; literal inverse preserves the complete old contract.
+              import base64, json, zlib
+              assert type(raw) is bytes
+              raw = raw.replace(b"                  with patch.object(g.time, 'monotonic', return_value=0.0): k = g.Kernel()\n", b'                  k = g.Kernel()\n', 1)
+              prefix = raw[:285489]
+              assert len(prefix) == 285489 and hashlib.sha256(prefix).hexdigest() == '07962ef86728da43d68eb8d593875b22aa539ae1d680afb942d28fe37647141f'
+              packed = base64.b64decode('eNqFUe9L40AQ/VeGIKiQmGw2v1ZR7q7N0SJeoan3xUgIydgstrsxu1H7398ubbnCgTdfhnkz894w7+kpZXFA3JQlMXMd59k1QJJaIKWR64AJUW/xGqa8XgupEPpBtmOjuRQwlc0rDqC0HOo1wgfXnRw1bEdd234pLF8WpwlzCSFxyPaE+1CqA49D6ZzNFg+5f2Vqn7dV31RWoXTA622zl4O2hYQftW66B9ni7Q6VBeYtCs01R7UQm90RLfTAGz2TSt/jbtJh88rF+ticSCGw0Su+RXPpLYmtRFHMqsciX1ZFPlnmq29nnVk2mmVZCjiJc4UavBxHCT3v8aXmmxvQqLQlueAteOOlPRXfILiBdv+cdxyU/dWd3+K7L8aN2cGmM3ca1e+Pq1m1uD//R+rOUua/59P81ySvpvOlb97j1aPurvSnue10ej1gD97Pz7dTyv/uW2usKYxYb5Is2btPaMho5hJKA0qPEEuTwEAsi+MDFGcBM1MJDSNygBIaZcRCxu+/PvOXa6g3H/VOXVweRNMwi2LXJBYFXw/SMIxcm9gXjM9/ALXtx00=', validate=True)
+              inverse = zlib.decompress(packed)
+              assert len(inverse) == 708 and hashlib.sha256(inverse).hexdigest() == '122390d49c83047d1759abe1c2a0a85dcd40200ffd361124912278409c185bba'
+              for start, stop, value in reversed(json.loads(inverse)):
+                  prefix = prefix[:start] + value.encode('utf8') + prefix[stop:]
+              assert len(prefix) == 254318 and hashlib.sha256(prefix).hexdigest() == '3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
+              return prefix
+
           raw=pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_bytes()
-          raw=raw.replace(b"                  with patch.object(g.time, 'monotonic', return_value=0.0): k = g.Kernel()\n", b"                  k = g.Kernel()\n", 1)
-          assert hashlib.sha256(raw[:254318]).hexdigest()=='3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
+          assert hashlib.sha256(retained_root_growth_prefix(raw)).hexdigest()=='3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
           PY_GROWTH_PREFIX
-          [[ "$(git hash-object scripts/test_production_stopped_runtime_headroom.py)" == bc2c092cea71aaca1c94121b02d1bd87cf83df5f ]]
+          python3 - <<'PY_GROWTH_SHARED_PREFIX'
+          import hashlib,pathlib,stat
+          path=pathlib.Path('scripts/test_production_stopped_runtime_headroom.py')
+          info=path.lstat()
+          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size == 62220
+          raw=path.read_bytes()
+          assert len(raw) == 62220 and hashlib.sha256(raw).hexdigest() == 'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9'
+          raw=raw[:34021]+b'\n'+raw[62173:]
+          assert len(raw) == 34069 and hashlib.sha256(raw).hexdigest() == '6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9'
+          assert hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest() == 'bc2c092cea71aaca1c94121b02d1bd87cf83df5f'
+          PY_GROWTH_SHARED_PREFIX
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
           git diff --quiet
           git diff --cached --quiet
@@ -6486,9 +6532,9 @@ jobs:
                            'GROWTH_SOURCE_SHA256':expected['host'],'GROWTH_CONTROLLER_SHA256':expected['controller']}
                       program=body
                       if variant=='normalization-removed':
-                          start=program.index('text.encode().replace(')
-                          end=program.index('[:254318]',start)
-                          program=program[:start]+'text.encode()'+program[end:]
+                          normalizer='    raw = raw.replace(b"                  with patch.object(g.time, \'monotonic\', return_value=0.0): k = g.Kernel()\\n", b\'                  k = g.Kernel()\\n\', 1)'
+                          assert program.count(normalizer)==1
+                          program=program.replace(normalizer,'    raw = raw',1)
                       result=subprocess.run(['bash','-c',program],cwd=base,env=env,stdout=subprocess.PIPE,
                                             stderr=subprocess.STDOUT,timeout=15)
                       assert len(result.stdout)<=16384
@@ -6548,8 +6594,23 @@ jobs:
           set -Eeuo pipefail
           python3 - <<'PY_GROWTH_EXTRACT'
           import hashlib, os, pathlib, re, textwrap
+          def retained_root_growth_prefix(raw):
+              # One fixed current prefix; literal inverse preserves the complete old contract.
+              import base64, json, zlib
+              assert type(raw) is bytes
+              raw = raw.replace(b"                  with patch.object(g.time, 'monotonic', return_value=0.0): k = g.Kernel()\n", b'                  k = g.Kernel()\n', 1)
+              prefix = raw[:285489]
+              assert len(prefix) == 285489 and hashlib.sha256(prefix).hexdigest() == '07962ef86728da43d68eb8d593875b22aa539ae1d680afb942d28fe37647141f'
+              packed = base64.b64decode('eNqFUe9L40AQ/VeGIKiQmGw2v1ZR7q7N0SJeoan3xUgIydgstrsxu1H7398ubbnCgTdfhnkz894w7+kpZXFA3JQlMXMd59k1QJJaIKWR64AJUW/xGqa8XgupEPpBtmOjuRQwlc0rDqC0HOo1wgfXnRw1bEdd234pLF8WpwlzCSFxyPaE+1CqA49D6ZzNFg+5f2Vqn7dV31RWoXTA622zl4O2hYQftW66B9ni7Q6VBeYtCs01R7UQm90RLfTAGz2TSt/jbtJh88rF+ticSCGw0Su+RXPpLYmtRFHMqsciX1ZFPlnmq29nnVk2mmVZCjiJc4UavBxHCT3v8aXmmxvQqLQlueAteOOlPRXfILiBdv+cdxyU/dWd3+K7L8aN2cGmM3ca1e+Pq1m1uD//R+rOUua/59P81ySvpvOlb97j1aPurvSnue10ej1gD97Pz7dTyv/uW2usKYxYb5Is2btPaMho5hJKA0qPEEuTwEAsi+MDFGcBM1MJDSNygBIaZcRCxu+/PvOXa6g3H/VOXVweRNMwi2LXJBYFXw/SMIxcm9gXjM9/ALXtx00=', validate=True)
+              inverse = zlib.decompress(packed)
+              assert len(inverse) == 708 and hashlib.sha256(inverse).hexdigest() == '122390d49c83047d1759abe1c2a0a85dcd40200ffd361124912278409c185bba'
+              for start, stop, value in reversed(json.loads(inverse)):
+                  prefix = prefix[:start] + value.encode('utf8') + prefix[stop:]
+              assert len(prefix) == 254318 and hashlib.sha256(prefix).hexdigest() == '3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
+              return prefix
+
           text=pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_text()
-          assert hashlib.sha256(text.encode().replace(b"                  with patch.object(g.time, 'monotonic', return_value=0.0): k = g.Kernel()\n", b'                  k = g.Kernel()\n', 1)[:254318]).hexdigest()=='3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
+          assert hashlib.sha256(retained_root_growth_prefix(text.encode())).hexdigest()=='3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
           for kind in ('HOST','CONTROLLER'):
               pattern=r"^          cat (?:>|>>) \"\$RUNNER_TEMP/root-growth-"+kind.lower()+r"\.py\" <<'PY_ROOT_GROWTH_"+kind+r"_([0-9]+)'\n(.*?)^          PY_ROOT_GROWTH_"+kind+r"_\1\n"
               matches=re.findall(pattern,text,re.M|re.S)
@@ -6566,11 +6627,35 @@ jobs:
           [[ "$(sha256sum "$RUNNER_TEMP/root-growth-controller.py" | cut -d ' ' -f 1)" == "$GROWTH_CONTROLLER_SHA256" ]]
           python3 - <<'PY_GROWTH_PREFIX'
           import hashlib,pathlib
+          def retained_root_growth_prefix(raw):
+              # One fixed current prefix; literal inverse preserves the complete old contract.
+              import base64, json, zlib
+              assert type(raw) is bytes
+              raw = raw.replace(b"                  with patch.object(g.time, 'monotonic', return_value=0.0): k = g.Kernel()\n", b'                  k = g.Kernel()\n', 1)
+              prefix = raw[:285489]
+              assert len(prefix) == 285489 and hashlib.sha256(prefix).hexdigest() == '07962ef86728da43d68eb8d593875b22aa539ae1d680afb942d28fe37647141f'
+              packed = base64.b64decode('eNqFUe9L40AQ/VeGIKiQmGw2v1ZR7q7N0SJeoan3xUgIydgstrsxu1H7398ubbnCgTdfhnkz894w7+kpZXFA3JQlMXMd59k1QJJaIKWR64AJUW/xGqa8XgupEPpBtmOjuRQwlc0rDqC0HOo1wgfXnRw1bEdd234pLF8WpwlzCSFxyPaE+1CqA49D6ZzNFg+5f2Vqn7dV31RWoXTA622zl4O2hYQftW66B9ni7Q6VBeYtCs01R7UQm90RLfTAGz2TSt/jbtJh88rF+ticSCGw0Su+RXPpLYmtRFHMqsciX1ZFPlnmq29nnVk2mmVZCjiJc4UavBxHCT3v8aXmmxvQqLQlueAteOOlPRXfILiBdv+cdxyU/dWd3+K7L8aN2cGmM3ca1e+Pq1m1uD//R+rOUua/59P81ySvpvOlb97j1aPurvSnue10ej1gD97Pz7dTyv/uW2usKYxYb5Is2btPaMho5hJKA0qPEEuTwEAsi+MDFGcBM1MJDSNygBIaZcRCxu+/PvOXa6g3H/VOXVweRNMwi2LXJBYFXw/SMIxcm9gXjM9/ALXtx00=', validate=True)
+              inverse = zlib.decompress(packed)
+              assert len(inverse) == 708 and hashlib.sha256(inverse).hexdigest() == '122390d49c83047d1759abe1c2a0a85dcd40200ffd361124912278409c185bba'
+              for start, stop, value in reversed(json.loads(inverse)):
+                  prefix = prefix[:start] + value.encode('utf8') + prefix[stop:]
+              assert len(prefix) == 254318 and hashlib.sha256(prefix).hexdigest() == '3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
+              return prefix
+
           raw=pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_bytes()
-          raw=raw.replace(b"                  with patch.object(g.time, 'monotonic', return_value=0.0): k = g.Kernel()\n", b"                  k = g.Kernel()\n", 1)
-          assert hashlib.sha256(raw[:254318]).hexdigest()=='3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
+          assert hashlib.sha256(retained_root_growth_prefix(raw)).hexdigest()=='3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
           PY_GROWTH_PREFIX
-          [[ "$(git hash-object scripts/test_production_stopped_runtime_headroom.py)" == bc2c092cea71aaca1c94121b02d1bd87cf83df5f ]]
+          python3 - <<'PY_GROWTH_SHARED_PREFIX'
+          import hashlib,pathlib,stat
+          path=pathlib.Path('scripts/test_production_stopped_runtime_headroom.py')
+          info=path.lstat()
+          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size == 62220
+          raw=path.read_bytes()
+          assert len(raw) == 62220 and hashlib.sha256(raw).hexdigest() == 'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9'
+          raw=raw[:34021]+b'\n'+raw[62173:]
+          assert len(raw) == 34069 and hashlib.sha256(raw).hexdigest() == '6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9'
+          assert hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest() == 'bc2c092cea71aaca1c94121b02d1bd87cf83df5f'
+          PY_GROWTH_SHARED_PREFIX
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
           git diff --quiet
           git diff --cached --quiet
@@ -6675,8 +6760,23 @@ jobs:
           set -Eeuo pipefail
           python3 - <<'PY_GROWTH_EXTRACT'
           import hashlib, os, pathlib, re, textwrap
+          def retained_root_growth_prefix(raw):
+              # One fixed current prefix; literal inverse preserves the complete old contract.
+              import base64, json, zlib
+              assert type(raw) is bytes
+              raw = raw.replace(b"                  with patch.object(g.time, 'monotonic', return_value=0.0): k = g.Kernel()\n", b'                  k = g.Kernel()\n', 1)
+              prefix = raw[:285489]
+              assert len(prefix) == 285489 and hashlib.sha256(prefix).hexdigest() == '07962ef86728da43d68eb8d593875b22aa539ae1d680afb942d28fe37647141f'
+              packed = base64.b64decode('eNqFUe9L40AQ/VeGIKiQmGw2v1ZR7q7N0SJeoan3xUgIydgstrsxu1H7398ubbnCgTdfhnkz894w7+kpZXFA3JQlMXMd59k1QJJaIKWR64AJUW/xGqa8XgupEPpBtmOjuRQwlc0rDqC0HOo1wgfXnRw1bEdd234pLF8WpwlzCSFxyPaE+1CqA49D6ZzNFg+5f2Vqn7dV31RWoXTA622zl4O2hYQftW66B9ni7Q6VBeYtCs01R7UQm90RLfTAGz2TSt/jbtJh88rF+ticSCGw0Su+RXPpLYmtRFHMqsciX1ZFPlnmq29nnVk2mmVZCjiJc4UavBxHCT3v8aXmmxvQqLQlueAteOOlPRXfILiBdv+cdxyU/dWd3+K7L8aN2cGmM3ca1e+Pq1m1uD//R+rOUua/59P81ySvpvOlb97j1aPurvSnue10ej1gD97Pz7dTyv/uW2usKYxYb5Is2btPaMho5hJKA0qPEEuTwEAsi+MDFGcBM1MJDSNygBIaZcRCxu+/PvOXa6g3H/VOXVweRNMwi2LXJBYFXw/SMIxcm9gXjM9/ALXtx00=', validate=True)
+              inverse = zlib.decompress(packed)
+              assert len(inverse) == 708 and hashlib.sha256(inverse).hexdigest() == '122390d49c83047d1759abe1c2a0a85dcd40200ffd361124912278409c185bba'
+              for start, stop, value in reversed(json.loads(inverse)):
+                  prefix = prefix[:start] + value.encode('utf8') + prefix[stop:]
+              assert len(prefix) == 254318 and hashlib.sha256(prefix).hexdigest() == '3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
+              return prefix
+
           text=pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_text()
-          assert hashlib.sha256(text.encode().replace(b"                  with patch.object(g.time, 'monotonic', return_value=0.0): k = g.Kernel()\n", b'                  k = g.Kernel()\n', 1)[:254318]).hexdigest()=='3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
+          assert hashlib.sha256(retained_root_growth_prefix(text.encode())).hexdigest()=='3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
           for kind in ('HOST','CONTROLLER'):
               pattern=r"^          cat (?:>|>>) \"\$RUNNER_TEMP/root-growth-"+kind.lower()+r"\.py\" <<'PY_ROOT_GROWTH_"+kind+r"_([0-9]+)'\n(.*?)^          PY_ROOT_GROWTH_"+kind+r"_\1\n"
               matches=re.findall(pattern,text,re.M|re.S)
@@ -6693,11 +6793,35 @@ jobs:
           [[ "$(sha256sum "$RUNNER_TEMP/root-growth-controller.py" | cut -d ' ' -f 1)" == "$GROWTH_CONTROLLER_SHA256" ]]
           python3 - <<'PY_GROWTH_PREFIX'
           import hashlib,pathlib
+          def retained_root_growth_prefix(raw):
+              # One fixed current prefix; literal inverse preserves the complete old contract.
+              import base64, json, zlib
+              assert type(raw) is bytes
+              raw = raw.replace(b"                  with patch.object(g.time, 'monotonic', return_value=0.0): k = g.Kernel()\n", b'                  k = g.Kernel()\n', 1)
+              prefix = raw[:285489]
+              assert len(prefix) == 285489 and hashlib.sha256(prefix).hexdigest() == '07962ef86728da43d68eb8d593875b22aa539ae1d680afb942d28fe37647141f'
+              packed = base64.b64decode('eNqFUe9L40AQ/VeGIKiQmGw2v1ZR7q7N0SJeoan3xUgIydgstrsxu1H7398ubbnCgTdfhnkz894w7+kpZXFA3JQlMXMd59k1QJJaIKWR64AJUW/xGqa8XgupEPpBtmOjuRQwlc0rDqC0HOo1wgfXnRw1bEdd234pLF8WpwlzCSFxyPaE+1CqA49D6ZzNFg+5f2Vqn7dV31RWoXTA622zl4O2hYQftW66B9ni7Q6VBeYtCs01R7UQm90RLfTAGz2TSt/jbtJh88rF+ticSCGw0Su+RXPpLYmtRFHMqsciX1ZFPlnmq29nnVk2mmVZCjiJc4UavBxHCT3v8aXmmxvQqLQlueAteOOlPRXfILiBdv+cdxyU/dWd3+K7L8aN2cGmM3ca1e+Pq1m1uD//R+rOUua/59P81ySvpvOlb97j1aPurvSnue10ej1gD97Pz7dTyv/uW2usKYxYb5Is2btPaMho5hJKA0qPEEuTwEAsi+MDFGcBM1MJDSNygBIaZcRCxu+/PvOXa6g3H/VOXVweRNMwi2LXJBYFXw/SMIxcm9gXjM9/ALXtx00=', validate=True)
+              inverse = zlib.decompress(packed)
+              assert len(inverse) == 708 and hashlib.sha256(inverse).hexdigest() == '122390d49c83047d1759abe1c2a0a85dcd40200ffd361124912278409c185bba'
+              for start, stop, value in reversed(json.loads(inverse)):
+                  prefix = prefix[:start] + value.encode('utf8') + prefix[stop:]
+              assert len(prefix) == 254318 and hashlib.sha256(prefix).hexdigest() == '3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
+              return prefix
+
           raw=pathlib.Path('.github/workflows/production-docker-headroom-diagnostic.yml').read_bytes()
-          raw=raw.replace(b"                  with patch.object(g.time, 'monotonic', return_value=0.0): k = g.Kernel()\n", b"                  k = g.Kernel()\n", 1)
-          assert hashlib.sha256(raw[:254318]).hexdigest()=='3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
+          assert hashlib.sha256(retained_root_growth_prefix(raw)).hexdigest()=='3056c9e395639bf8d087bb3bdde1a963c6b7dffc551e48f38da693b9bd297c3e'
           PY_GROWTH_PREFIX
-          [[ "$(git hash-object scripts/test_production_stopped_runtime_headroom.py)" == bc2c092cea71aaca1c94121b02d1bd87cf83df5f ]]
+          python3 - <<'PY_GROWTH_SHARED_PREFIX'
+          import hashlib,pathlib,stat
+          path=pathlib.Path('scripts/test_production_stopped_runtime_headroom.py')
+          info=path.lstat()
+          assert stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_size == 62220
+          raw=path.read_bytes()
+          assert len(raw) == 62220 and hashlib.sha256(raw).hexdigest() == 'ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9'
+          raw=raw[:34021]+b'\n'+raw[62173:]
+          assert len(raw) == 34069 and hashlib.sha256(raw).hexdigest() == '6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9'
+          assert hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest() == 'bc2c092cea71aaca1c94121b02d1bd87cf83df5f'
+          PY_GROWTH_SHARED_PREFIX
           [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
           git diff --quiet
           git diff --cached --quiet
