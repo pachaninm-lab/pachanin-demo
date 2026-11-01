@@ -244,7 +244,7 @@ jobs:
                       return report, calls, group_proof
 
               def test_named_owned_refs_get_guard_300_outer_315(self):
-                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101']:
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101']:
                       with self.subTest(ref=ref):
                           report, calls, _ = self.execute_collector(head_ref=ref)
                           self.assertEqual(report['result'], 'PASS')
@@ -254,14 +254,14 @@ jobs:
                           self.assertEqual(report['checks'][0]['tap_totals']['tests'], 1)
 
               def test_other_and_empty_refs_keep_guard_180_outer_195(self):
-                  for ref in ['ir/k8s-production-like-2659', '', 'product/r1-role-mode-consumer-20260921-extra', 'ops/ir20-api-database-binding-20260919-extra', 'ops/production-api-only-release-20261101-extra', 'fix/gekta-lexical-context-20261101-extra', 'fix/gekta-latest-history-20261101-extra', 'fix/gekta-lab-relevance-20261101-extra', 'fix/gekta-freshness-word-boundaries-20261101-extra', 'fix/gekta-document-text-fidelity-20261101-extra', 'fix/gekta-first-prompt-consent-20261101-extra', 'fix/gekta-source-preflight-budget-20261101-extra']:
+                  for ref in ['ir/k8s-production-like-2659', '', 'product/r1-role-mode-consumer-20260921-extra', 'ops/ir20-api-database-binding-20260919-extra', 'ops/production-api-only-release-20261101-extra', 'fix/gekta-lexical-context-20261101-extra', 'fix/gekta-latest-history-20261101-extra', 'fix/gekta-lab-relevance-20261101-extra', 'fix/gekta-freshness-word-boundaries-20261101-extra', 'fix/gekta-document-text-fidelity-20261101-extra', 'fix/gekta-first-prompt-consent-20261101-extra', 'fix/gekta-source-preflight-budget-20261101-extra', 'fix/gekta-security-capture-20261101-extra']:
                       with self.subTest(ref=ref):
                           report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=180)
                           self.assertEqual(report['result'], 'PASS')
                           self.assertEqual(calls[0]['outer_timeout'], 195)
 
               def test_fork_name_collision_and_missing_identity_keep_original_budget(self):
-                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101']:
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101']:
                       for head_repo, repo in [('fork/repository', 'fixture/repository'), ('', '')]:
                           with self.subTest(ref=ref, head_repository=head_repo, repository=repo):
                               report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=180,
@@ -270,7 +270,7 @@ jobs:
                               self.assertEqual(calls[0]['outer_timeout'], 195)
 
               def test_guard_timeout_124_kills_owned_group_and_keeps_scope_and_artifact(self):
-                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101']:
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101']:
                       with self.subTest(ref=ref):
                           report, calls, group = self.execute_collector('guard-timeout', head_ref=ref)
                           self.assertEqual(report['result'], 'FAIL')
@@ -279,7 +279,7 @@ jobs:
                           self.assertEqual([check['exit_code'] for check in report['checks']], [124, 0])
 
               def test_branch_timeout_keeps_180_outer_195_and_cannot_pass(self):
-                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101']:
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101']:
                       with self.subTest(ref=ref):
                           report, calls, _ = self.execute_collector('branch-timeout', head_ref=ref)
                           self.assertEqual(report['result'], 'FAIL')
@@ -287,7 +287,7 @@ jobs:
                           self.assertEqual([check['exit_code'] for check in report['checks']], [0, 124])
 
               def test_outer_guard_timeout_retains_failed_bound_artifact_and_closes_raw_file(self):
-                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101']:
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101']:
                       with self.subTest(ref=ref):
                           report, calls, _ = self.execute_collector('outer-timeout', head_ref=ref)
                           self.assertEqual(report['result'], 'FAIL')
@@ -413,7 +413,7 @@ jobs:
                       'fix/gekta-freshness-word-boundaries-20261101',
                       'fix/gekta-document-text-fidelity-20261101',
                       'fix/gekta-first-prompt-consent-20261101',
-                      'fix/gekta-source-preflight-budget-20261101',
+                      'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101',
                   }
                   own_repository = os.environ.get('GITHUB_REPOSITORY', '')
                   owned_budget = (os.environ.get('GITHUB_HEAD_REF', '') in owned_budget_refs and
