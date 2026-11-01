@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-source-preflight-budget-20261101",
+  "branch": "fix/gekta-source-preflight-budget-20261101",
+  "status": "active",
+  "ownerBasis": "Explicit owner2026-11-01 instruction to finish Gekta remediation and install on the existing site; necessary bounded CI prerequisite.",
+  "purpose": "Admit only the six explicit Gekta source refs and this prerequisite ref to the existing same-repository guard300/outer315 budget class after default180 timeout. Preserve complete guard/scope/native/security acceptance and the existing CORE API-only owner.",
+  "allowedPaths": [
+    ".github/workflows/production-like-kubernetes-acceptance.yml",
+    "docs/platform-v7/autopilot/scopes/gekta-source-preflight-budget-20261101.json"
+  ],
+  "boundaries": [
+    "Add exactly seven literal same-repository refs to the existing owned class. Existing numbers300/315, ordinary180/195, branch-scope180/195, commands, test selection/count and failure/artifact handling remain unchanged.",
+    "Retain all prior owned refs, fork/empty/suffix restrictions, and add corresponding contract cases for all new refs. No guard script/assertion removal, no CORE API-purpose/state/queue/primary/progress or release/host/model changes.",
+    "A larger bounded runtime cannot establish PASS: actual full exact-head guard totals and all other substantive native/security/readiness/review checks are still required. No skip, force, automatic merge or production claim."
+  ],
+  "virtualServerDeploymentState": "not required"
+}

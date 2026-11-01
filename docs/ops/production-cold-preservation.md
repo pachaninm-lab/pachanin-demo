@@ -246,7 +246,7 @@ read-only entry never calls bootstrap, build_plan, before_first_write, journal
 creation or Docker mutations. The existing bootstrap payload and predicates
 remain unchanged; source acceptance does not permit another bootstrap attempt.
 
-The separate `pc.core-startup-inspection.v1` receipt always has startupAuthorized,
+The separate `pc.core-startup-inspection.v2` receipt always has startupAuthorized,
 runtimeRestored and release/registration flags false. A zero exit means complete
 observation, including incompatible profiles, never startup admission. Valid
 closed diagnostic JSON is retained even for an incomplete observation; invalid
@@ -260,3 +260,36 @@ native Compose/Docker/PG-wire requirements remain intact. This is not a timeout
 or safety reduction. New actual-head review/native/security/readiness/manual
 source gates and a finite read-only disposition remain required before use.
 All historical UNKNOWN/SPENT receipts, copies, keys and nineteen volumes remain.
+
+
+### Closed command characterization, receipt version 2
+
+The actual version-1 inspection41194011739 found SAVED_COMMAND_PROFILE for
+PostgreSQL and Redis. It did not reveal their argv or prove later environment,
+loader and health predicates. No startup allowlist change follows from that
+result. The two additional version-2 commandDiagnostics rows retain exactly
+those roles and output only fixed program/form, public option-name codes,
+bounded parse/completeness/duplicate classifications and remaining refusal
+codes. All values, paths, scripts, unknown names and exception details stay
+private. ENTRYPOINT_OPTIONS labels option-first argv only; it does not attest
+an entrypoint or authorize an implicit executable. No shell splitting,
+normalization into executable commands or new
+command admission occurs. Known names and a complete parse are diagnostic
+facts, never evidence that their values or startup behavior are safe.
+
+Unknown names stop parsing; variable Redis arity remains unproved. A value
+that resembles a flag is consumed as a value and cannot be published as an
+option. When parsing is incomplete, optionCodes and repeatedOption describe
+only the recognized prefix; they prove nothing about the remaining arguments.
+PostgreSQL short/long and Redis legacy option aliases share duplicate
+detection. Remaining predicates inspect actual environment/loader/health
+fields directly; no synthetic replacement command is used. The original
+six-role startup_safe result remains the compatibility authority and every
+startup/runtime/release/registration/rollback flag stays false. The version-1
+receipt remains historical evidence; it cannot be replayed into this schema.
+
+All five mutator components and the complete bootstrap payload remain
+byte-identical. No bootstrap retry, journal reservation/reset or runtime
+startup is authorized. An actual command-profile correction still needs
+specific evidence and separate exact source/admission/review/native/security/
+readiness/manual gates, followed by finite operational authorization.

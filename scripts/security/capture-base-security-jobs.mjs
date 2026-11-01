@@ -211,6 +211,7 @@ export function groupSecurityQualityCandidates(contextNodes) {
       workflowRunId: first.workflowRunId,
       workflowRunNumber: first.workflowRunNumber,
       workflowRunAttempt: currentAttempt.latestAttempt,
+      workflowRunSuiteId: currentAttempt.checks[0]?.suiteId,
       workflowRunEvent: first.workflowRunEvent,
       workflowRunUrl: first.workflowRunUrl,
       checks,
@@ -219,6 +220,7 @@ export function groupSecurityQualityCandidates(contextNodes) {
       activeRequired,
       successful,
       canStillComplete,
+      suiteSuccessful,
     };
   }).sort(candidateOrder);
 }
@@ -321,6 +323,7 @@ function decisionSummary(decision, exactHead) {
       workflowRunId: String(candidate.workflowRunId),
       workflowRunAttempt: candidate.workflowRunAttempt,
       workflowRunEvent: candidate.workflowRunEvent,
+      suiteSuccessful: candidate.suiteSuccessful,
       missing: candidate.missing,
       active: candidate.activeRequired.map((check) => `${check.name}:${check.status}`),
       required: candidate.required.map((check, index) =>
@@ -331,6 +334,104 @@ function decisionSummary(decision, exactHead) {
       canStillComplete: candidate.canStillComplete,
     })),
   };
+}
+
+const NATIVE_RUN_FIELDS = Object.freeze([
+  'id', 'head_sha', 'head_branch', 'name', 'path', 'event', 'workflow_id',
+  'run_number', 'run_attempt', 'check_suite_id', 'status', 'conclusion', 'updated_at',
+]);
+
+function positiveId(value) {
+  return Number.isSafeInteger(value) && value > 0;
+}
+
+function validateNativeRun(run, repository, exactHead, runId) {
+  if (!run || run.id !== runId || run.head_sha !== exactHead
+    || run.repository?.full_name !== repository || run.head_repository?.full_name !== repository
+    || run.name !== SECURITY_QUALITY_WORKFLOW || run.path !== '.github/workflows/security-quality-gate.yml'
+    || !['pull_request', 'push', 'workflow_dispatch'].includes(run.event)
+    || typeof run.head_branch !== 'string' || !run.head_branch
+    || !['completed', 'in_progress', 'queued', 'waiting', 'pending', 'requested'].includes(run.status)
+    || (run.status === 'completed' && typeof run.conclusion !== 'string')
+    || !['workflow_id', 'run_number', 'run_attempt', 'check_suite_id'].every(key => positiveId(run[key]))) {
+    throw new Error('Native security run identity or workflow binding is invalid.');
+  }
+  return JSON.stringify(NATIVE_RUN_FIELDS.map(key => run[key]));
+}
+
+/** This is real Actions authority, never a fabricated GraphQL CheckRun node.
+ * A completed rollup can omit a real job. Capture the full native run instead,
+ * under the existing observation deadline and with stable before/after binding. */
+export async function captureNativeSecurityCandidate({ repository, exactHead, runId, runAttempt, suiteId, fetchJson }) {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository)
+    || !/^[a-f0-9]{40}$/u.test(exactHead) || !positiveId(runId) || !positiveId(runAttempt)
+    || !positiveId(suiteId) || typeof fetchJson !== 'function') {
+    throw new Error('Invalid native security capture inputs.');
+  }
+  const runPath = `repos/${repository}/actions/runs/${runId}`;
+  const before = await fetchJson(runPath);
+  const fingerprint = validateNativeRun(before, repository, exactHead, runId);
+  if (before.run_attempt !== runAttempt || before.check_suite_id !== suiteId) return { state: 'WAIT', selected: null };
+  const jobs = [];
+  const ids = new Set();
+  let total = null;
+  for (let page = 1; page <= MAX_CONTEXT_PAGES; page += 1) {
+    const result = await fetchJson(`${runPath}/jobs?filter=all&per_page=100&page=${page}`);
+    if (!Number.isSafeInteger(result?.total_count) || result.total_count < 0
+      || result.total_count > MAX_CONTEXT_PAGES * CONTEXTS_PER_PAGE || !Array.isArray(result.jobs)
+      || (total !== null && result.total_count !== total)) throw new Error('Incomplete native security job pagination.');
+    total = result.total_count;
+    if (result.jobs.length !== Math.min(CONTEXTS_PER_PAGE, total - jobs.length)) {
+      throw new Error('Native security job page length differs from the complete count.');
+    }
+    for (const job of result.jobs) {
+      if (!positiveId(job?.id) || ids.has(job.id) || job.run_id !== runId || job.head_sha !== exactHead
+        || !positiveId(job.run_attempt) || job.run_attempt > before.run_attempt
+        || job.workflow_name !== SECURITY_QUALITY_WORKFLOW || job.head_branch !== before.head_branch
+        || typeof job.name !== 'string' || !job.name
+        || !['completed', 'in_progress', 'queued', 'waiting', 'pending', 'requested'].includes(job.status)
+        || (job.status === 'completed' && typeof job.conclusion !== 'string')) {
+        throw new Error('Native security job identity, attempt or state is invalid.');
+      }
+      ids.add(job.id); jobs.push(job);
+    }
+    if (jobs.length === total) break;
+  }
+  if (jobs.length !== total) throw new Error('Native security jobs exceed the strict complete-page bound.');
+  const after = await fetchJson(runPath);
+  if (validateNativeRun(after, repository, exactHead, runId) !== fingerprint) return { state: 'WAIT', selected: null };
+  if (after.status !== 'completed') return { state: 'WAIT', selected: null };
+  if (jobs.some(job => job.status !== 'completed')) return { state: 'WAIT', selected: null };
+  if (!jobs.some(job => job.run_attempt === after.run_attempt)) return { state: 'WAIT', selected: null };
+  const checks = deduplicateLatestChecksByName(jobs.map(job => ({
+    name: job.name, databaseId: job.id, status: job.status, conclusion: job.conclusion,
+    detailsUrl: job.html_url, workflowRunId: job.run_id, workflowRunNumber: after.run_number,
+    workflowRunAttempt: job.run_attempt, workflowRunEvent: after.event,
+    workflowRunUrl: after.html_url,
+  })));
+  const required = REQUIRED_SECURITY_QUALITY_JOBS.map(name => checks.find(check => check.name === name));
+  if (after.conclusion !== 'success' || required.some(check => !check || check.status !== 'completed' || check.conclusion !== 'success')) {
+    return { state: 'FAILED', selected: null };
+  }
+  return { state: 'SELECTED', selected: {
+    workflowRunId: after.id, workflowRunNumber: after.run_number, workflowRunAttempt: after.run_attempt,
+    workflowRunEvent: after.event, workflowRunUrl: after.html_url, checks,
+    captureAuthority: 'github-actions-rest-complete-run-jobs.v1',
+    nativeRunMetadata: Object.fromEntries(NATIVE_RUN_FIELDS.map(key => [key, after[key]])),
+    nativeJobCount: jobs.length,
+  } };
+}
+
+async function requestNativeJson(resource, token, remainingMs) {
+  if (remainingMs <= 0) throw new Error('Native security capture observation deadline elapsed.');
+  const response = await fetch(`https://api.github.com/${resource}`, {
+    headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`,
+      'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'pachanin-demo-security-evidence-capture' },
+    signal: AbortSignal.timeout(Math.min(15_000, remainingMs)), cache: 'no-store',
+  });
+  // A failed authority read never becomes a successful job or leaks response bodies.
+  if (!response.ok) throw new Error(`Native security authority HTTP ${response.status}.`);
+  return response.json();
 }
 
 async function main() {
@@ -355,8 +456,23 @@ async function main() {
     const decision = selectSecurityQualityCandidate(contexts);
     console.log(JSON.stringify(decisionSummary(decision, exactHead)));
 
-    if (decision.state === 'SELECTED') {
-      const selected = decision.selected;
+    let selected = decision.selected;
+    let nativePending = false;
+    if (decision.state === 'FAILED') {
+      for (const candidate of decision.candidates.filter(item => item.missing.length > 0 && item.suiteSuccessful
+        && item.required.filter(Boolean).every(check => check.status === 'completed' && check.conclusion === 'success'))) {
+        const native = await captureNativeSecurityCandidate({ repository, exactHead,
+          runId: Number(candidate.workflowRunId), runAttempt: candidate.workflowRunAttempt,
+          suiteId: Number(candidate.workflowRunSuiteId), fetchJson: resource => requestNativeJson(resource, token, deadline - Date.now()) });
+        if (Date.now() >= deadline) throw new Error('Native security capture observation deadline elapsed.');
+        console.log(JSON.stringify({ exactHead, captureAuthority: 'github-actions-rest-complete-run-jobs.v1',
+          workflowRunId: String(candidate.workflowRunId), decision: native.state }));
+        nativePending ||= native.state === 'WAIT';
+        if (native.state === 'SELECTED') { selected = native.selected; break; }
+      }
+    }
+
+    if (selected) {
       const baseSecurityRunId = String(selected.workflowRunId);
       const payload = {
         schemaVersion: 1,
@@ -367,6 +483,8 @@ async function main() {
         workflowRunNumber: selected.workflowRunNumber,
         workflowRunAttempt: selected.workflowRunAttempt,
         workflowRunEvent: selected.workflowRunEvent,
+        captureAuthority: selected.captureAuthority ?? 'github-graphql-commit-rollup.v1',
+        ...(selected.nativeRunMetadata ? { nativeRunMetadata: selected.nativeRunMetadata, nativeJobCount: selected.nativeJobCount } : {}),
         capturedAt: new Date().toISOString(),
         jobs: selected.checks,
       };
@@ -379,7 +497,7 @@ async function main() {
       return;
     }
 
-    if (decision.state === 'FAILED') {
+    if (decision.state === 'FAILED' && !nativePending) {
       const failedRuns = decision.candidates.map((candidate) =>
         `${candidate.workflowRunId}@${candidate.workflowRunAttempt}`).join(', ');
       throw new Error(

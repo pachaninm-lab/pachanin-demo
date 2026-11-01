@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-lexical-context-20261101",
+  "branch": "fix/gekta-lexical-context-20261101",
+  "status": "active",
+  "ownerBasis": "Explicit owner instruction in the current Gekta audit conversation on 2026-11-01 to implement the accumulated findings and test alongside each change. This is a new bounded source correction, not reuse or expansion of a frozen model-host or CORE release purpose.",
+  "purpose": "Resolve audit G-A33 by recognizing actual word forms instead of arbitrary contained substrings; preserve supported languages, positive entity evidence and dialogue topic changes.",
+  "allowedPaths": [
+    "apps/web/lib/platform-v7/tai-conversation-state.ts",
+    "apps/web/tests/unit/taiConversationState.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-lexical-context-20261101.json"
+  ],
+  "boundaries": [
+    "No current CORE scope/state/progress/queue, accepted frozen admission, workflow, guard, lockfile or infrastructure modification.",
+    "No model switch, host action, external transport, database, authority/role/consent change or production acceptance.",
+    "Independent review of the exact complete diff, applicable substantive CI and canonical manual SHA-bound acceptance remain required."
+  ],
+  "virtualServerDeploymentState": "pending"
+}
