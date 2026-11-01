@@ -1457,7 +1457,16 @@ class Host:
                     info = os.stat(name, dir_fd=fd, follow_symlinks=False)
                     demand(stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode), 'PRESERVATION_LINK_OR_SPECIAL')
                     key = prefix + name
-                    if key == 'ir20' and stat.S_ISDIR(info.st_mode):
+                    if key == 'ir20/.drill.lock':
+                        # The pinned drill reopens this empty synchronization
+                        # inode with O_TRUNC. Its timestamps are expected to
+                        # change; its identity, permissions and empty shape are not.
+                        demand(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and
+                               info.st_nlink == 1 and info.st_size == 0,
+                               'PRESERVED_JOURNAL_KEY_OR_COPY_CHANGED')
+                        result[key] = (info.st_dev, info.st_ino, info.st_mode, info.st_uid,
+                                       info.st_gid, info.st_nlink, info.st_size)
+                    elif key == 'ir20' and stat.S_ISDIR(info.st_mode):
                         result[key] = (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_gid)
                     else:
                         result[key] = (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_gid,

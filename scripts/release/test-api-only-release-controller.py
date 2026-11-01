@@ -4,6 +4,7 @@ import contextlib
 import copy
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -959,6 +960,89 @@ vm.runInNewContext(process.argv[2],{require:name=>{
     def test_actual_error_protocol_redacts(self):
         result=self.execute('registration',fail=True);self.assertEqual(result.returncode,1)
         self.assertEqual(result.stdout,b'');self.assertEqual(result.stderr,b'')
+
+
+class RestoreDrillPreservationTests(unittest.TestCase):
+    @contextlib.contextmanager
+    def fixture(self):
+        self.assertEqual(os.geteuid(), 0, 'Use the existing documented sudo test invocation')
+        with tempfile.TemporaryDirectory(prefix='pc-api-drill-lock-', dir='/run') as folder:
+            root = Path(folder)
+            (root / 'ir20').mkdir(mode=0o700)
+            lock = root / 'ir20/.drill.lock'
+            lock.write_bytes(b'')
+            lock.chmod(0o600)
+            os.utime(lock, ns=(1000000000, 1000000000))
+            host = object.__new__(c.Host)
+            host.preserved_ciphers_verified = True
+            original = c.BACKUPS
+            c.BACKUPS = folder
+            try:
+                yield root, lock, host
+            finally:
+                c.BACKUPS = original
+
+    def test_pinned_drill_can_reopen_existing_empty_lock(self):
+        import hashlib
+        drill = PATH.with_name('ir20-restore-drill.sh').read_bytes()
+        self.assertEqual(hashlib.sha256(drill).hexdigest(), c.BACKUP_SHA256)
+        lock_line = next(line for line in drill.decode().splitlines()
+                         if line.startswith('exec 9>') and '$ROOT/.drill.lock' in line)
+        with self.fixture() as (root, lock, host):
+            before = lock.stat()
+            baseline = host.preservation()
+            subprocess.run(['/usr/bin/bash', '-c', 'set -euo pipefail\n' + lock_line + '\nflock -n 9\n'],
+                           env={**os.environ, 'ROOT': str(root / 'ir20')},
+                           capture_output=True, timeout=5, check=True)
+            self.assertNotEqual(lock.stat().st_mtime_ns, before.st_mtime_ns)
+            self.assertEqual(host.preservation(), baseline)
+
+    def test_timestamp_exception_requires_exact_safe_empty_lock(self):
+        for kind in ('nonempty', 'hardlink', 'symlink', 'directory'):
+            with self.subTest(kind=kind), self.fixture() as (root, lock, host):
+                if kind == 'nonempty':
+                    lock.write_bytes(b'not an empty synchronization inode')
+                elif kind == 'hardlink':
+                    os.link(lock, root / 'second-link')
+                elif kind == 'symlink':
+                    lock.unlink()
+                    lock.symlink_to(root / 'missing')
+                else:
+                    lock.unlink()
+                    lock.mkdir(mode=0o700)
+                with self.assertRaises(c.ReleaseError):
+                    host.preservation()
+
+    def test_existing_lock_identity_permissions_and_empty_size_remain_preserved(self):
+        for kind in ('inode', 'mode', 'size'):
+            with self.subTest(kind=kind), self.fixture() as (root, lock, host):
+                host.preservation()
+                held = os.open(lock, os.O_RDONLY | os.O_NOFOLLOW)
+                try:
+                    if kind == 'inode':
+                        lock.unlink()
+                        lock.write_bytes(b'')
+                        lock.chmod(0o600)
+                    elif kind == 'mode':
+                        lock.chmod(0o640)
+                    else:
+                        lock.write_bytes(b'x')
+                    with self.assertRaisesRegex(c.ReleaseError, 'PRESERVED_JOURNAL_KEY_OR_COPY_CHANGED'):
+                        host.preservation()
+                finally:
+                    os.close(held)
+
+    def test_retained_keys_journals_and_other_locks_keep_full_timestamp_checks(self):
+        for name in ('passphrase', 'receipt.json', 'ir20/other.lock'):
+            with self.subTest(name=name), self.fixture() as (root, lock, host):
+                path = root / name
+                path.write_bytes(b'unchanged contents')
+                path.chmod(0o600)
+                os.utime(path, ns=(1000000000, 1000000000))
+                host.preservation()
+                os.utime(path, ns=(2000000000, 2000000000))
+                with self.assertRaisesRegex(c.ReleaseError, 'PRESERVED_JOURNAL_KEY_OR_COPY_CHANGED'):
+                    host.preservation()
 
 
 if __name__ == '__main__':
