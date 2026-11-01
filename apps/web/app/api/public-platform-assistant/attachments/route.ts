@@ -85,22 +85,103 @@ function cleanText(value: string): { text: string; truncated: boolean } {
 }
 
 function decodeXml(value: string): string {
-  return value
-    .replace(/&lt;/gu, '<')
-    .replace(/&gt;/gu, '>')
-    .replace(/&quot;/gu, '"')
-    .replace(/&apos;/gu, "'")
-    .replace(/&amp;/gu, '&');
+  const named: Readonly<Record<string, string>> = { lt: '<', gt: '>', quot: '"', apos: "'", amp: '&' };
+  // XML text is decoded once, after real markup is removed. A literal <...>
+  // from w:t must never become a tag during extraction.
+  return value.replace(/&(#x[0-9a-f]+|#[0-9]+|lt|gt|quot|apos|amp);/giu, (entity, key: string) => {
+    if (!key.startsWith('#')) return named[key] ?? entity;
+    const codePoint = key[1].toLowerCase() === 'x'
+      ? Number.parseInt(key.slice(2), 16)
+      : Number.parseInt(key.slice(1), 10);
+    if (codePoint < 1 || codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) return entity;
+    return String.fromCodePoint(codePoint);
+  });
 }
 
 function extractDocx(bytes: Buffer, budget: InflateBudget): { text: string; truncated: boolean } {
   const xml = readArchiveEntry(bytes, 'word/document.xml', budget).toString('utf8');
-  const text = decodeXml(xml)
-    .replace(/<w:tab\b[^>]*\/>/gu, '\t')
-    .replace(/<w:br\b[^>]*\/>/gu, '\n')
-    .replace(/<\/w:p>/gu, '\n')
-    .replace(/<[^>]+>/gu, ' ');
-  return cleanText(text);
+  const wordNamespaces = new Set([
+    'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+    'http://purl.oclc.org/ooxml/wordprocessingml/main',
+  ]);
+  const mathNamespaces = new Set([
+    'http://schemas.openxmlformats.org/officeDocument/2006/math',
+    'http://purl.oclc.org/ooxml/officeDocument/math',
+  ]);
+  const revisions: Readonly<Record<string, string>> = {
+    del: 'Удалено', ins: 'Вставлено', moveFrom: 'Перенесено из', moveTo: 'Перенесено в',
+  };
+  type Element = { name: string; namespaces: Record<string, string>; wordName: string | null; isText: boolean; revision: boolean };
+  const stack: Element[] = [];
+  const chunks: string[] = [];
+  let hasRevisions = false;
+  let offset = 0;
+  let elements = 0;
+  let roots = 0;
+  // A bounded text-only XML walk. No DTD/entity expansion, network lookup or
+  // executable XML feature; namespaces are scoped to each element, not prefixes.
+  const tokens = /<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[([\s\S]*?)\]\]>|<\/?([A-Za-z_][\w.:-]*)(?:\s+[A-Za-z_][\w.:-]*\s*=\s*(?:"[^"<]*"|'[^'<]*'))*\s*\/?>|([^<]+)/gu;
+  const close = (element: Element) => {
+    if (element.revision) chunks.push('[Конец правки]');
+    if (element.wordName === 'p') chunks.push('\n');
+    if (element.wordName === 'tc') chunks.push('\t');
+  };
+  for (const match of xml.matchAll(tokens)) {
+    if (match.index !== offset) throw new Error('DOCX_XML_UNSUPPORTED_OR_INVALID');
+    offset += match[0].length;
+    const token = match[0];
+    const parent = stack.at(-1);
+    if (token.startsWith('<!--') || token.startsWith('<?')) continue;
+    if (match[1] !== undefined) {
+      if (parent?.isText) chunks.push(match[1]);
+      continue;
+    }
+    if (match[3] !== undefined) {
+      if (parent?.isText) chunks.push(decodeXml(match[3]));
+      else if (!parent && match[3].trim()) throw new Error('DOCX_XML_UNSUPPORTED_OR_INVALID');
+      continue;
+    }
+    const name = match[2];
+    if (token.startsWith('</')) {
+      if (!/^<\/[A-Za-z_][\w.:-]*\s*>$/u.test(token) || parent?.name !== name) throw new Error('DOCX_XML_UNSUPPORTED_OR_INVALID');
+      close(stack.pop()!);
+      continue;
+    }
+    if (parent?.isText || ++elements > 200_000 || stack.length >= 256) throw new Error('DOCX_XML_UNSUPPORTED_OR_INVALID');
+    if (!parent && ++roots > 1) throw new Error('DOCX_XML_UNSUPPORTED_OR_INVALID');
+    const namespaces: Record<string, string> = Object.create(parent?.namespaces ?? null);
+    for (const attribute of token.matchAll(/\s+([A-Za-z_][\w.:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/gu)) {
+      const attributeName = attribute[1];
+      if (attributeName === 'xmlns' || /^xmlns:[A-Za-z_][\w.-]*$/u.test(attributeName)) {
+        namespaces[attributeName === 'xmlns' ? '' : attributeName.slice(6)] = decodeXml(attribute[2] ?? attribute[3]);
+      }
+    }
+    const parts = name.split(':');
+    if (parts.length > 2) throw new Error('DOCX_XML_UNSUPPORTED_OR_INVALID');
+    const prefix = parts.length === 2 ? parts[0] : '';
+    const localName = parts.at(-1)!;
+    const namespace = namespaces[prefix] ?? '';
+    const wordName = wordNamespaces.has(namespace) ? localName : null;
+    const selfClosing = /\/\s*>$/u.test(token);
+    const revision = !selfClosing && wordName !== null && Object.hasOwn(revisions, wordName);
+    const element: Element = {
+      name, namespaces, wordName, revision,
+      isText: wordName === 't' || wordName === 'delText' || (mathNamespaces.has(namespace) && localName === 't'),
+    };
+    if (revision) {
+      hasRevisions = true;
+      chunks.push(`[${revisions[wordName!]} (правка)]`);
+    }
+    if (wordName === 'tab') chunks.push('\t');
+    if (wordName === 'br' || wordName === 'cr') chunks.push('\n');
+    if (selfClosing) close(element);
+    else stack.push(element);
+  }
+  if (offset !== xml.length || stack.length || roots !== 1) throw new Error('DOCX_XML_UNSUPPORTED_OR_INVALID');
+  const notice = hasRevisions
+    ? 'Документ содержит правки: удалённые, вставленные и перенесённые фрагменты помечены. Это не подтверждает принятие изменений.\n'
+    : '';
+  return cleanText(notice + chunks.join(''));
 }
 
 function decodePdfLiteral(value: string): string {
