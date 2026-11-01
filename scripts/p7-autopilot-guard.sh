@@ -853,7 +853,7 @@ if (branch === 'ops/production-api-only-release-20261101') {
   };
   const git = args => {
     const bytes = gitBytes(args);
-    try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
+    try { return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes); }
     catch { fail('GIT_UTF8'); }
   };
   const read = (ref, file) => {

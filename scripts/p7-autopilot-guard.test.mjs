@@ -7100,7 +7100,7 @@ for (const mutation of ['base-purpose-missing', 'base-purpose-extra', 'base-dupl
 for (const mutation of ['missing-source', 'extra-path', 'changed-helper', 'changed-controller',
   'source-executable', 'source-symlink', 'candidate-purpose-addition', 'candidate-state-other',
   'candidate-state-compaction', 'candidate-state-duplicate', 'candidate-state-mode',
-  'candidate-state-invalid-utf8', 'candidate-vector-reordered',
+  'candidate-state-invalid-utf8', 'candidate-state-utf8-bom', 'candidate-vector-reordered',
   'candidate-reviewdoc', 'candidate-guard']) {
   test(`AP2 atomic7 trusted BASE rejects ${mutation}`, t => {
     const context = ap2Fixture(t); ap2WriteSource(context);
@@ -7116,6 +7116,7 @@ for (const mutation of ['missing-source', 'extra-path', 'changed-helper', 'chang
     if (mutation === 'candidate-state-compaction') fs.writeFileSync(state, JSON.stringify(JSON.parse(fs.readFileSync(state, 'utf8')), null, 2));
     if (mutation === 'candidate-state-duplicate') fs.writeFileSync(state, fs.readFileSync(state, 'utf8').replace('"owner":"ACCOUNT_1_CORE"', '"owner":"ACCOUNT_1_CORE","owner":"ACCOUNT_1_CORE"'));
     if (mutation === 'candidate-state-mode') fs.chmodSync(state, 0o755);
+    if (mutation === 'candidate-state-utf8-bom') fs.writeFileSync(state, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), fs.readFileSync(state)]));
     if (mutation === 'candidate-state-invalid-utf8') { const bytes = fs.readFileSync(state); bytes[bytes.indexOf(Buffer.from('unchanged'))] = 0xff; fs.writeFileSync(state, bytes); }
     if (mutation === 'candidate-vector-reordered') { const data = JSON.parse(fs.readFileSync(state, 'utf8')); data.approvedConcurrentScopes[ap2Branch].reverse(); fs.writeFileSync(state, JSON.stringify(data)); }
     if (mutation === 'candidate-reviewdoc') fs.appendFileSync(path.join(context.root, ap2ReviewPath), '\nnew owner authority\n');
