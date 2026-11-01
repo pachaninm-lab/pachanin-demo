@@ -225,7 +225,7 @@ async function installConsentFixture(page: Page, options: {
   const envelope = (current: boolean) => ({
     legalVersion: 'synthetic-browser-version', consentCurrent: current,
     legalPresentation: { locale: 'ru', snapshot: 'synthetic-browser-notice',
-      termsHref: '/legal/test-terms', privacyHref: '/legal/test-privacy' },
+      termsHref: '/legal/usloviya-ispolzovaniya-gekta', privacyHref: '/legal/politika-konfidencialnosti' },
     entitlement: { state: 'ANONYMOUS_FREE', canAsk: true, remaining: 10, limit: 10,
       serverTime: '2026-11-01T00:00:00Z', expiresAt: null },
   });
@@ -239,17 +239,6 @@ async function installConsentFixture(page: Page, options: {
     const url = new URL(route.request().url());
     if (!['127.0.0.1', 'localhost'].includes(url.hostname)) {
       await route.abort();
-      return;
-    }
-    // Isolate these Gekta intent fixtures from unrelated platform RSC prefetch.
-    // The upstream HTTP fixture embeds its internal origin in canonical locale
-    // redirects; WebKit correctly rejects that origin from the HTTPS page.
-    // Original unmocked platform/mobile acceptance remains selected separately.
-    const headers = route.request().headers();
-    if (route.request().method() === 'GET' && !route.request().isNavigationRequest()
-      && headers.rsc === '1' && headers['next-router-prefetch'] === '1'
-      && ['/platform-v7', '/platform-v7/trust', '/platform-v7/contact'].includes(url.pathname)) {
-      await route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Synthetic prefetched destination</title>' });
       return;
     }
     if (!url.pathname.startsWith('/api/')) { await route.continue(); return; }
