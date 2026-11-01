@@ -1,3 +1,4 @@
+// @vitest-environment node
 import fs from 'node:fs';
 import path from 'node:path';
 import { NextRequest, NextResponse } from 'next/server';
@@ -170,6 +171,94 @@ describe('agro policy at the actual public streaming boundary', () => {
       body: JSON.stringify({ message, locale, context: 'platform', ...extra }),
     }));
   }
+
+  it.each(['ru', 'en', 'zh'])('forwards the complete extracted %s document separately from the bounded question', async locale => {
+    const documents = [{ name: 'Условия.docx', text: 'Начало\n  x < 12\n' + 'я'.repeat(8_000) + 'QA_DOCUMENT_END', truncated: true }];
+    const response = await send('Проверь условия выращивания пшеницы в документе.', locale, { documents });
+    await response.text();
+    expect(response.status).toBe(200);
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+    const args = boundary.model.mock.calls[0];
+    expect(JSON.stringify(args)).toContain('QA_DOCUMENT_END');
+    const payload = args.find((arg: unknown) => !!arg && typeof arg === 'object' && 'originalQuestion' in arg);
+    expect(payload.documents).toEqual(documents);
+    expect(payload.originalQuestion).toBe('Проверь условия выращивания пшеницы в документе.');
+    expect(boundary.context.mock.calls[0][1].hasAttachment).toBe(true);
+  });
+
+  it.each(['ru', 'en', 'zh'])('keeps maximum %s documents outside the real verified-knowledge request', async locale => {
+    const knowledge = await vi.importActual<typeof import('@/app/api/public-platform-assistant/route')>(
+      '@/app/api/public-platform-assistant/route',
+    );
+    let lookupBody: Record<string, unknown> | undefined;
+    let lookupHeaders: Headers | undefined;
+    boundary.knowledge.mockImplementation(async (request: NextRequest) => {
+      lookupBody = await request.clone().json();
+      lookupHeaders = request.headers;
+      return knowledge.POST(request);
+    });
+    const documents = [12_000, 12_000, 8_000].map((length, index) => ({
+      name: `Условия-${index}.txt`,
+      text: (locale === 'zh' ? '麦' : 'я').repeat(length - 15) + 'QA_DOCUMENT_END',
+      truncated: index === 1,
+    }));
+    const message = 'How does this platform work?';
+    const history = [{ role: 'user', text: 'Who can see my data?' }];
+    const body = JSON.stringify({ message, locale, context: 'platform', history, documents });
+    const byteLength = new TextEncoder().encode(body).length;
+    expect(byteLength).toBeGreaterThan(20_480);
+    expect(byteLength).toBeLessThan(196_608);
+    const { POST } = await import('@/app/api/agro-chat/route');
+    const response = await POST(new NextRequest('https://example.test/api/agro-chat?stream=1', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': String(byteLength),
+        Origin: 'https://example.test',
+        Cookie: 'boundary-test=preserved',
+      },
+      body,
+    }));
+    await response.text();
+    expect(response.status).toBe(200);
+    expect(boundary.knowledge).toHaveBeenCalledTimes(1);
+    expect(lookupBody).toEqual({ message, locale, context: 'platform', history });
+    expect(lookupHeaders?.get('content-length')).toBeNull();
+    expect(lookupHeaders?.get('content-type')).toBe('application/json');
+    expect(lookupHeaders?.get('origin')).toBe('https://example.test');
+    expect(lookupHeaders?.get('cookie')).toBe('boundary-test=preserved');
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+    expect(boundary.model.mock.calls[0][1].answerMode).toBe('verified_platform');
+    expect(boundary.model.mock.calls[0][1].documents).toEqual(documents);
+    expect(boundary.model.mock.calls[0][1].originalQuestion).toBe(message);
+    expect(JSON.stringify(boundary.model.mock.calls[0][1].grounding)).not.toContain('QA_DOCUMENT_END');
+  });
+
+  it.each([
+    [null, 400], ['text', 400], [[{ name: 'x', text: 'x', truncated: 'false' }], 400],
+    [[{ name: 'x', text: 'x'.repeat(12_001), truncated: false }], 413],
+    [Array.from({ length: 5 }, () => ({ name: 'x', text: 'x', truncated: false })), 413],
+    [[12_000, 12_000, 8_001].map(n => ({ name: 'x', text: 'x'.repeat(n), truncated: false })), 413],
+  ])('rejects invalid document payload before routing or model access', async (documents, status) => {
+    const response = await send('Проверь пшеницу.', 'ru', { documents });
+    expect(response.status).toBe(status);
+    expect(boundary.context).not.toHaveBeenCalled();
+    expect(boundary.model).not.toHaveBeenCalled();
+    expect(boundary.knowledge).not.toHaveBeenCalled();
+  });
+
+  it('blocks a secret near the end of a document rather than examining only its prefix', async () => {
+    const response = await send('Проверь пшеницу.', 'ru', { documents: [{ name: 'x.txt', text: 'я'.repeat(8_000) + ' sk-' + 'a'.repeat(24), truncated: false }] });
+    expect(await response.text()).toContain('SENSITIVE_INPUT_BLOCKED');
+    expect(boundary.model).not.toHaveBeenCalled();
+  });
+
+  it('bounds chunked request bytes even when no content-length is supplied', async () => {
+    const response = await send('Проверь пшеницу.', 'ru', { ignored: 'я'.repeat(110_000) });
+    expect(response.status).toBe(413);
+    expect(boundary.model).not.toHaveBeenCalled();
+    expect(boundary.context).not.toHaveBeenCalled();
+  });
 
   it.each([
     ['ru', 'Какой фильм посмотреть вечером?', 'агробизнес'],

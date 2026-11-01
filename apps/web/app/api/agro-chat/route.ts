@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
+import { readBoundedBody } from '@/lib/uploads/bounded-body';
+import { DocumentContextError, readDocumentContext, type GektaDocumentContext } from '@/lib/gekta/document-context';
 import {
   GatewayStreamWriter,
   absoluteCitationUri,
@@ -84,6 +86,7 @@ type RuntimeConfig = Readonly<{
 
 type PublicEnvelope = Readonly<{
   question: string;
+  documents: readonly GektaDocumentContext[];
   locale: PublicLocale;
   context: string;
   conversationId: string;
@@ -145,8 +148,15 @@ export async function POST(request: NextRequest) {
   if (request.nextUrl.searchParams.get('stream') !== '1') return knowledgePost(request);
   if (request.headers.get('sec-fetch-site') === 'cross-site') return knowledgePost(request);
 
-  const rawBody = await request.text();
-  const envelope = readPublicEnvelope(rawBody);
+  const body = await readBoundedBody(request.body, 196_608);
+  if (body === null) return NextResponse.json({ code: 'DOCUMENT_CONTEXT_TOO_LARGE' }, { status: 413 });
+  const rawBody = new TextDecoder().decode(body);
+  let envelope: PublicEnvelope;
+  try { envelope = readPublicEnvelope(rawBody); }
+  catch (error) {
+    if (!(error instanceof DocumentContextError)) throw error;
+    return NextResponse.json({ code: error.status === 413 ? 'DOCUMENT_CONTEXT_TOO_LARGE' : 'DOCUMENT_CONTEXT_INVALID' }, { status: error.status });
+  }
   if (!envelope.question) return knowledgePost(rebuildRequestWithoutStream(request, rawBody));
 
   const admission = envelope.context === 'gekta-standalone'
@@ -159,7 +169,7 @@ export async function POST(request: NextRequest) {
     locale: envelope.locale,
     recentMessages: envelope.history,
     previousTopic: resolvePreviousTopic(envelope.history),
-    hasAttachment: false,
+    hasAttachment: envelope.documents.length > 0,
     semanticHint: null,
   });
   const routedQuestion = envelope.question;
@@ -167,7 +177,8 @@ export async function POST(request: NextRequest) {
   let answerMode = resolveAnswerMode(routedQuestion, outcome);
   const locale = envelope.locale;
 
-  if (containsSensitiveInput(envelope.question, envelope.history)) {
+  if (containsSensitiveInput(envelope.question, envelope.history)
+    || envelope.documents.some((document) => containsSensitiveInput(`${document.name}\n${document.text}`, []))) {
     return admitted(streamDirectAnswer(sensitiveInputCopy(locale), {
       source: 'policy',
       answerMode,
@@ -202,7 +213,7 @@ export async function POST(request: NextRequest) {
     }));
   }
 
-  if (GREETING_PATTERNS.some((pattern) => pattern.test(envelope.question.trim()))) {
+  if (!envelope.documents.length && GREETING_PATTERNS.some((pattern) => pattern.test(envelope.question.trim()))) {
     return admitted(streamDirectAnswer(greetingCopy(locale, envelope.question), {
       source: 'policy',
       answerMode: 'general_agro',
@@ -215,7 +226,7 @@ export async function POST(request: NextRequest) {
 
   // The visible starter cards have reviewed public guidance. Serve their exact
   // first-turn answers without model queueing; contextual follow-ups keep inference.
-  const starter = envelope.history.length === 0
+  const starter = !envelope.documents.length && envelope.history.length === 0
     ? answerFarmerStarterQuestion(envelope.question, locale)
     : null;
   if (starter) {
@@ -232,7 +243,7 @@ export async function POST(request: NextRequest) {
 
   let grounding: PublicKnowledgeAnswer;
   if (answerMode === 'verified_platform') {
-    const groundingResponse = await knowledgePost(rebuildRequestWithoutStream(request, rawBody));
+    const groundingResponse = await knowledgePost(rebuildRequestWithoutStream(request, rawBody, true));
     if (!groundingResponse.ok) return admitted(groundingResponse);
     try {
       grounding = await groundingResponse.json() as PublicKnowledgeAnswer;
@@ -487,6 +498,7 @@ function streamModelFirstAnswer(
         const payload = {
           question: grounding.understanding?.normalizedQuestion || envelope.question || grounding.title,
           originalQuestion: envelope.question,
+          documents: envelope.documents,
           locale,
           answerMode,
           currentDataRequired,
@@ -747,6 +759,7 @@ function readPublicEnvelope(rawBody: string): PublicEnvelope {
     const history = normalizeHistory(row.history);
     return Object.freeze({
       question,
+      documents: readDocumentContext(row.documents),
       locale,
       context,
       // A label only: nothing is looked up by it, so a forged value reaches no
@@ -754,7 +767,8 @@ function readPublicEnvelope(rawBody: string): PublicEnvelope {
       conversationId: conversationIdFrom(row.conversationId, `${context}-${locale}-${history.length}`),
       history,
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof DocumentContextError) throw error;
     return emptyEnvelope();
   }
 }
@@ -762,6 +776,7 @@ function readPublicEnvelope(rawBody: string): PublicEnvelope {
 function emptyEnvelope(): PublicEnvelope {
   return Object.freeze({
     question: '',
+    documents: Object.freeze([]),
     locale: 'ru',
     context: 'platform',
     conversationId: conversationIdFrom(null, 'empty-envelope'),
@@ -891,12 +906,22 @@ function normalizeIntent(value: string): string {
     .replace(/[^\p{L}\p{N}\s«»"'-]+/gu, ' ').replace(/\s+/gu, ' ').trim();
 }
 
-function rebuildRequestWithoutStream(request: NextRequest, rawBody: string): NextRequest {
+function rebuildRequestWithoutStream(request: NextRequest, rawBody: string, omitDocuments = false): NextRequest {
   const url = new URL(request.url);
   url.searchParams.delete('stream');
   const headers = new Headers(request.headers);
   headers.delete('content-length');
-  return new NextRequest(url, { method: 'POST', headers, body: rawBody });
+  let body = rawBody;
+  if (omitDocuments) {
+    // This branch follows successful envelope parsing. Untrusted attachments
+    // belong only in the model payload, outside the bounded public lookup.
+    const payload = JSON.parse(rawBody) as Record<string, unknown>;
+    delete payload.documents;
+    body = JSON.stringify(payload);
+    headers.delete('content-encoding');
+    headers.delete('transfer-encoding');
+  }
+  return new NextRequest(url, { method: 'POST', headers, body });
 }
 
 
