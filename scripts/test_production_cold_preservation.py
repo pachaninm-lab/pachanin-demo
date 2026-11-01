@@ -2373,7 +2373,7 @@ class BootstrapControllerTests(_startup_observation_tests.ObservationContracts,u
                 self.assertEqual((output / 'result.json').exists(), accepted)
 
     def test_inspector_rejects_types_and_unknown_same_size_carriers(self):
-        for raw in (None, '', bytearray(), b'', b'x' * 370287, b'x' * 400684):
+        for raw in (None, '', bytearray(), b'', b'x' * 370287, b'x' * 400684, b'x' * 411656):
             with self.subTest(kind=type(raw).__name__), patch.object(Path, 'read_bytes', return_value=raw):
                 with self.assertRaises(AssertionError):
                     inspector_workflow_bytes()
