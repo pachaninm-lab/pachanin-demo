@@ -1,3 +1,4 @@
+// @vitest-environment node
 import fs from 'node:fs';
 import path from 'node:path';
 import { NextRequest, NextResponse } from 'next/server';
@@ -183,6 +184,54 @@ describe('agro policy at the actual public streaming boundary', () => {
     expect(payload.documents).toEqual(documents);
     expect(payload.originalQuestion).toBe('Проверь условия выращивания пшеницы в документе.');
     expect(boundary.context.mock.calls[0][1].hasAttachment).toBe(true);
+  });
+
+  it.each(['ru', 'en', 'zh'])('keeps maximum %s documents outside the real verified-knowledge request', async locale => {
+    const knowledge = await vi.importActual<typeof import('@/app/api/public-platform-assistant/route')>(
+      '@/app/api/public-platform-assistant/route',
+    );
+    let lookupBody: Record<string, unknown> | undefined;
+    let lookupHeaders: Headers | undefined;
+    boundary.knowledge.mockImplementation(async (request: NextRequest) => {
+      lookupBody = await request.clone().json();
+      lookupHeaders = request.headers;
+      return knowledge.POST(request);
+    });
+    const documents = [12_000, 12_000, 8_000].map((length, index) => ({
+      name: `Условия-${index}.txt`,
+      text: (locale === 'zh' ? '麦' : 'я').repeat(length - 15) + 'QA_DOCUMENT_END',
+      truncated: index === 1,
+    }));
+    const message = 'How does this platform work?';
+    const history = [{ role: 'user', text: 'Who can see my data?' }];
+    const body = JSON.stringify({ message, locale, context: 'platform', history, documents });
+    const byteLength = new TextEncoder().encode(body).length;
+    expect(byteLength).toBeGreaterThan(20_480);
+    expect(byteLength).toBeLessThan(196_608);
+    const { POST } = await import('@/app/api/agro-chat/route');
+    const response = await POST(new NextRequest('https://example.test/api/agro-chat?stream=1', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': String(byteLength),
+        Origin: 'https://example.test',
+        Cookie: 'boundary-test=preserved',
+      },
+      body,
+    }));
+    await response.text();
+    expect(response.status).toBe(200);
+    expect(boundary.knowledge).toHaveBeenCalledTimes(1);
+    expect(lookupBody).toEqual({ message, locale, context: 'platform', history });
+    expect(lookupHeaders?.get('content-length')).toBeNull();
+    expect(lookupHeaders?.get('content-type')).toBe('application/json');
+    expect(lookupHeaders?.get('origin')).toBe('https://example.test');
+    expect(lookupHeaders?.get('cookie')).toBe('boundary-test=preserved');
+    expect(boundary.model).toHaveBeenCalledTimes(1);
+    expect(boundary.model.mock.calls[0][1].answerMode).toBe('verified_platform');
+    expect(boundary.model.mock.calls[0][1].documents).toEqual(documents);
+    expect(boundary.model.mock.calls[0][1].originalQuestion).toBe(message);
+    expect(JSON.stringify(boundary.model.mock.calls[0][1].grounding)).not.toContain('QA_DOCUMENT_END');
   });
 
   it.each([

@@ -243,7 +243,7 @@ export async function POST(request: NextRequest) {
 
   let grounding: PublicKnowledgeAnswer;
   if (answerMode === 'verified_platform') {
-    const groundingResponse = await knowledgePost(rebuildRequestWithoutStream(request, rawBody));
+    const groundingResponse = await knowledgePost(rebuildRequestWithoutStream(request, rawBody, true));
     if (!groundingResponse.ok) return admitted(groundingResponse);
     try {
       grounding = await groundingResponse.json() as PublicKnowledgeAnswer;
@@ -906,12 +906,22 @@ function normalizeIntent(value: string): string {
     .replace(/[^\p{L}\p{N}\s«»"'-]+/gu, ' ').replace(/\s+/gu, ' ').trim();
 }
 
-function rebuildRequestWithoutStream(request: NextRequest, rawBody: string): NextRequest {
+function rebuildRequestWithoutStream(request: NextRequest, rawBody: string, omitDocuments = false): NextRequest {
   const url = new URL(request.url);
   url.searchParams.delete('stream');
   const headers = new Headers(request.headers);
   headers.delete('content-length');
-  return new NextRequest(url, { method: 'POST', headers, body: rawBody });
+  let body = rawBody;
+  if (omitDocuments) {
+    // This branch follows successful envelope parsing. Untrusted attachments
+    // belong only in the model payload, outside the bounded public lookup.
+    const payload = JSON.parse(rawBody) as Record<string, unknown>;
+    delete payload.documents;
+    body = JSON.stringify(payload);
+    headers.delete('content-encoding');
+    headers.delete('transfer-encoding');
+  }
+  return new NextRequest(url, { method: 'POST', headers, body });
 }
 
 
