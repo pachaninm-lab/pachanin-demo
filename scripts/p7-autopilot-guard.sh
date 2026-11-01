@@ -251,6 +251,7 @@ fi
 
 is_immutable_scope_branch() {
   case "$1" in
+    'ops/production-api-only-release-20261101') return 0 ;;
     'ops/ir20-isolated-restore-20260919') return 0 ;;
     "fix/pc-crop-docker-headroom-rollover-4637") return 0 ;;
     "security/accounting-bff-csrf-3-5-1"|"security/module-body-validation"|"security/bff-upstream-path-encoding-4459"|"security/request-cookie-single-reader-4459"|"security/open-redirect-demo-login-4459"|"security/email-check-length-first-4459"|"security/browser-hardening-headers-4459"|"security/outbound-redirect-and-surface-4459"|"security/credential-surface-4459"|"fix/tai-release-run-event-filter-20261008") return 0 ;;
@@ -816,6 +817,168 @@ const gektaRecoveryScopes = {
   ]
 };
 let scopes;
+if (branch === 'ops/production-api-only-release-20261101') {
+  // AP2_ATOMIC_API_ONLY_SOURCE_BEGIN
+  // This seven-path bootstrap is authorized only by the separately accepted
+  // BASE purpose. Candidate state and PRIMARY never supply source authority.
+  const { createHash } = require('node:crypto');
+  const { isDeepStrictEqual } = require('node:util');
+  const fail = reason => { throw new Error('API_ONLY_SOURCE_SCOPE:' + reason); };
+  const headRef = String(process.env.HEAD_REF || '').trim();
+  const origin = '19c157cee4b598175401d3266856450788a8d8ae';
+  const reviewFile = 'docs/platform-v7/autopilot/prompts/current-review-task.md';
+  const expectedPurpose = {"owner":"ACCOUNT_1_CORE","base":"19c157cee4b598175401d3266856450788a8d8ae","sourceBranch":"ops/production-api-only-release-20261101","guardBranch":"governance/industrial-load-diagnostics-20260919","record":"docs/platform-v7/autopilot/prompts/current-review-task.md#ap2","sourcePublicationAuthorized":false,"productionInvocationAuthorized":false,"productionAcceptance":false,"masterCredit":0};
+  const purposeSha256 = '1d09e1472c66ce47e273c1cec90f798688a9d4d904679ec7a3787f5384061e25';
+  // API_ONLY_RELEASE_SOURCE_PINS_V1_BEGIN
+  const apiOnlySourcePins = [{"path":"scripts/release/verify-api-schema-source-parity.mjs","mode":"100644","beforeBlob":null,"afterBlob":"b0a5c61ae649d10d12a6b2ce5778b0497d0c326b","sha256":"84da6347e8ced2f9b78766c94ec9f5b050c3a1a6b955dc7e20b5faa86e330edf","bytes":5553},{"path":"scripts/release/test-api-schema-source-parity.mjs","mode":"100644","beforeBlob":null,"afterBlob":"251400154716db3c48e0572f76a7e30fe15f393f","sha256":"821529f50fa62e974d7e9fd57f9f462d9b54db562050f913fc3a0583fd7a8cf2","bytes":9995},{"path":"scripts/release/api-only-release-controller.py","mode":"100644","beforeBlob":null,"afterBlob":"f9adfea6dbb238de3ffe9c83df3566edf1072996","sha256":"d13e193b5fbc47a37a19c50bd2815f1afb098011c20c1d1ad352825753ec669b","bytes":104702},{"path":"scripts/release/test-api-only-release-controller.py","mode":"100644","beforeBlob":null,"afterBlob":"0b9c353cc56152bc3bd1af972b04f790596ece13","sha256":"f561cb6e0e38951b915610c9e3e7e3c711a2ad61b034ef1a2e1a8b4ce0ee4100","bytes":58961},{"path":".github/workflows/production-api-only-release.yml","mode":"100644","beforeBlob":null,"afterBlob":"74a4345b57973e1baceece3ac1124cf2ac06535d","sha256":"fb471e8a95a19247520027f388df1eb84406e3a825eeca339fee53c54f8338c5","bytes":24441},{"path":"docs/ops/production-api-only-release.md","mode":"100644","beforeBlob":null,"afterBlob":"7c4b724763efe2a578730aeace41a267c01c5a9b","sha256":"72b9eb15fc400ca7e45eaa9dedb70b5c676061e849807e069923c2091e594e6a","bytes":8936}];
+  // API_ONLY_RELEASE_SOURCE_PINS_V1_END
+  const pins = apiOnlySourcePins;
+  const paths = pins.map(pin => pin.path);
+  const capacity = 3 * 1024 * 1024;
+  const gitBytes = (args, limit = capacity) => {
+    let bytes;
+    try {
+      bytes = execFileSync('/usr/bin/git', ['--no-optional-locks',
+        '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null',
+        '-c', 'protocol.allow=never', ...args], {
+        encoding: null, timeout: 10000, maxBuffer: limit + 1,
+        stdio: ['ignore', 'pipe', 'ignore'],
+        env: { PATH: '/usr/bin:/bin', LC_ALL: 'C', GIT_NO_LAZY_FETCH: '1', GIT_ALLOW_PROTOCOL: '',
+          GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_NO_REPLACE_OBJECTS: '1',
+          GIT_GRAFT_FILE: '/dev/null', GIT_TERMINAL_PROMPT: '0' },
+      });
+    } catch { fail('GIT_OBSERVATION_FAILED'); }
+    if (bytes.length > limit) fail('GIT_OUTPUT_BOUND');
+    return bytes;
+  };
+  const git = args => {
+    const bytes = gitBytes(args);
+    try { return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes); }
+    catch { fail('GIT_UTF8'); }
+  };
+  const read = (ref, file) => {
+    const text = git(['show', `${ref}:${file}`]);
+    if (Buffer.byteLength(text) > capacity) fail('READ_CAPACITY');
+    return text;
+  };
+  // JSON.parse alone loses duplicate keys. Validate the complete token stream
+  // and retain the exact closing offset of the existing scope object.
+  function strictJson(text) {
+    let parsed;
+    try { parsed = JSON.parse(text); } catch { fail('JSON_FORMAT'); }
+    let i = 0, scopeEnd = -1;
+    const white = () => { while (/[\t\r\n ]/.test(text[i] || '\0')) i++; };
+    const string = () => {
+      const start = i++;
+      while (i < text.length) {
+        if (text[i] === '\\') { i += 2; continue; }
+        if (text[i++] === '"') return JSON.parse(text.slice(start, i));
+      }
+      fail('JSON_STRING');
+    };
+    function value(path, depth = 0) {
+      if (depth > 128) fail('JSON_DEPTH');
+      white();
+      if (text[i] === '"') { string(); return; }
+      if (text[i] === '{') {
+        i++; white(); const keys = new Set();
+        if (text[i] !== '}') for (;;) {
+          const key = string();
+          if (keys.has(key)) fail('DUPLICATE_JSON_KEY');
+          keys.add(key); white(); i++; value([...path, key], depth + 1); white();
+          if (text[i] !== ',') break;
+          i++; white();
+        }
+        if (path.length === 1 && path[0] === 'approvedConcurrentScopes') scopeEnd = i;
+        i++; return;
+      }
+      if (text[i] === '[') {
+        i++; white();
+        if (text[i] !== ']') for (;;) {
+          value([...path, null], depth + 1); white();
+          if (text[i] !== ',') break;
+          i++; white();
+        }
+        i++; return;
+      }
+      while (i < text.length && !/[,}\]\t\r\n ]/.test(text[i])) i++;
+    }
+    value([]); white();
+    if (i !== text.length) fail('JSON_TRAILING_DATA');
+    return { parsed, scopeEnd };
+  }
+  const baseText = read(baseRef, stateFile);
+  const candidateText = read(headRef, stateFile);
+  const baseState = strictJson(baseText);
+  const candidateState = strictJson(candidateText);
+  if (!isDeepStrictEqual(baseState.parsed.coordinationAdmissions?.['pc-api-only-20261101'], expectedPurpose)) fail('BASE_PURPOSE');
+  if (Object.hasOwn(baseState.parsed.approvedConcurrentScopes || {}, branch)) fail('SOURCE_ALREADY_ADMITTED');
+  const review = read(baseRef, reviewFile);
+  const pieces = review.split('\n## AP2\n');
+  if (pieces.length !== 2) fail('AP2_RECORD_IDENTITY');
+  const fences = pieces[1].split('```json\n');
+  if (fences.length !== 2) fail('AP2_RECORD_FORMAT');
+  const end = fences[1].indexOf('\n```\n');
+  if (end < 0) fail('AP2_RECORD_FORMAT');
+  const recordText = fences[1].slice(0, end);
+  const fullPurpose = strictJson(recordText).parsed;
+  if (createHash('sha256').update(recordText).digest('hex') !== purposeSha256 ||
+      fullPurpose.sourceBranch !== branch || fullPurpose.authorityBaseExactMain !== origin ||
+      !isDeepStrictEqual(fullPurpose.sourcePaths, paths) ||
+      !isDeepStrictEqual(fullPurpose.sourceStagePaths, [stateFile, ...paths])) fail('AP2_RECORD_CONTENT');
+  // AP4 retains the original AP2 purpose and separately binds the reviewed
+  // two-payload lock correction from accepted BASE metadata.
+  const correctionPieces = review.split('\n## AP4\n');
+  if (correctionPieces.length !== 2) fail('AP4_RECORD_IDENTITY');
+  const correctionStarts = correctionPieces[1].split('AP4_SOURCE_RECORD_BEGIN\n');
+  if (correctionStarts.length !== 2) fail('AP4_RECORD_FORMAT');
+  const correctionEnds = correctionStarts[1].split('\nAP4_SOURCE_RECORD_END');
+  if (correctionEnds.length !== 2) fail('AP4_RECORD_FORMAT');
+  const correctionText = correctionEnds[0];
+  const correction = strictJson(correctionText).parsed;
+  if (createHash('sha256').update(correctionText).digest('hex') !== 'bc477be3ca04a16a55f9ffc479e87c960eda750fdac48b266889ac0825bba482'
+      || correction.schema !== 'pc.api-only-lock-payload-correction.v1'
+      || correction.owner !== 'ACCOUNT_1_CORE' || correction.sourceBranch !== branch
+      || correction.originalPurposeSHA256 !== purposeSha256
+      || !isDeepStrictEqual(correction.sourcePins, pins)) fail('AP4_RECORD_CONTENT');
+  if (!/^[0-9a-f]{40}$/.test(headRef) || !/^[0-9a-f]{40}$/.test(baseRef)) fail('EXACT_REFS');
+  try {
+    if (git(['rev-parse', `${baseRef}^{commit}`]).trim() !== baseRef ||
+        git(['rev-parse', `${headRef}^{commit}`]).trim() !== headRef ||
+        git(['merge-base', baseRef, headRef]).trim() !== baseRef) fail('BASE_ANCESTRY');
+    git(['merge-base', '--is-ancestor', origin, baseRef]);
+  } catch { fail('BASE_ANCESTRY'); }
+  if (pins.length !== 6 || pins.some(pin => pin.mode !== '100644' || pin.beforeBlob !== null ||
+      !/^[0-9a-f]{40}$/.test(pin.afterBlob || '') || !/^[0-9a-f]{64}$/.test(pin.sha256 || '') ||
+      !Number.isSafeInteger(pin.bytes) || pin.bytes <= 0 || pin.bytes > 1024 * 1024)) fail('UNFROZEN_SOURCE');
+  if (baseState.scopeEnd < 0 || !Object.keys(baseState.parsed.approvedConcurrentScopes || {}).length) fail('BASE_SCOPE_OBJECT');
+  const insertion = ',' + JSON.stringify(branch) + ':' + JSON.stringify(paths);
+  const expectedStateText = baseText.slice(0, baseState.scopeEnd) + insertion + baseText.slice(baseState.scopeEnd);
+  const expectedState = structuredClone(baseState.parsed);
+  expectedState.approvedConcurrentScopes[branch] = paths;
+  if (candidateText !== expectedStateText || !isDeepStrictEqual(candidateState.parsed, expectedState)) fail('EXACT_STATE_INSERTION');
+  const raw = git(['diff', '--raw', '--no-abbrev', '--no-renames', '-z', baseRef, headRef]).split('\0');
+  if (raw.pop() !== '' || raw.length !== 14) fail('EXACT_SEVEN_PATHS');
+  const expected = new Map(pins.map(pin => [pin.path, pin]));
+  let stateSeen = false;
+  for (let i = 0; i < raw.length; i += 2) {
+    const file = raw[i + 1];
+    if (file === stateFile) {
+      if (stateSeen || !/^:100644 100644 [0-9a-f]{40} [0-9a-f]{40} M$/.test(raw[i])) fail('STATE_MODE');
+      stateSeen = true; continue;
+    }
+    const pin = expected.get(file);
+    if (!pin || raw[i] !== `:000000 100644 ${'0'.repeat(40)} ${pin.afterBlob} A`) fail('SOURCE_BLOB_OR_MODE');
+    if (git(['ls-tree', baseRef, '--', file]) !== '' ||
+        git(['ls-tree', headRef, '--', file]).trim() !== `100644 blob ${pin.afterBlob}\t${file}`) fail('SOURCE_ENTRY');
+    const bytes = gitBytes(['show', `${headRef}:${file}`], 1024 * 1024);
+    if (bytes.length !== pin.bytes || createHash('sha256').update(bytes).digest('hex') !== pin.sha256) fail('SOURCE_CONTENT');
+    expected.delete(file);
+  }
+  if (!stateSeen || expected.size) fail('INCOMPLETE_ATOMIC_SOURCE');
+  scopes = [stateFile, ...paths];
+  // AP2_ATOMIC_API_ONLY_SOURCE_END
+} else 
 if (branch === 'ops/production-stopped-runtime-headroom-20261022' ||
     (branch === 'fix/pc-crop-docker-headroom-rollover-4637' &&
       execFileSync('git', ['show', `${baseRef}:docs/platform-v7/execution-queue.md`],
@@ -3391,6 +3554,10 @@ if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE
   if [ "$CURRENT_BRANCH" = 'ops/ir20-isolated-restore-20260919' ]; then
     # This exact manifest has already matched the immutable accepted-base pin.
     MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -v -x 'docs/platform-v7/autopilot/scopes/ir20-isolated-restore-20260919.json' || true)
+  fi
+  # AP2 permits only the previously validated exact source-vector insertion.
+  if [ "$CURRENT_BRANCH" = 'ops/production-api-only-release-20261101' ]; then
+    MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv 'docs/platform-v7/autopilot/autopilot-state.json' || true)
   fi
   # The source branch above has already matched every full before/after blob,
   # mode and content hash against the separately accepted base purpose.
