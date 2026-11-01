@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-document-context-20261101",
+  "branch": "fix/gekta-document-context-20261101",
+  "status": "active",
+  "ownerBasis": "Explicit owner instruction on 2026-11-01 to continue Gekta remediation and parallel verification of the existing audit findings.",
+  "purpose": "G-A04 and bounded retry portion of G-A06: deliver extracted document text separately from the short question without silent slicing; retain volatile retry evidence or require reattachment before reserving an answer.",
+  "allowedPaths": [
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/components/gekta/GektaChatWorkspace.tsx",
+    "apps/web/lib/gekta/document-context.ts",
+    "apps/web/tests/unit/gektaDocumentContext.test.ts",
+    "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+    "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-document-context-20261101.json"
+  ],
+  "boundaries": [
+    "No host/runtime, model configuration, response token budget, DB, role, consent, ticket or CORE release change.",
+    "No global state/queue, guard, workflow, lockfile or accepted frozen purpose modification.",
+    "The new structured field accepts at most four extracted documents, 12000 characters each and 32000 total; it preserves explicit truncated markers. Upload/OCR/parser limits are unchanged.",
+    "A bounded 196608-byte streaming request read replaces unbounded request.text; existing nonstreaming knowledge limits remain unchanged.",
+    "Document text is untrusted user evidence and never becomes verified platform grounding or execution authority; secret checks apply to complete extracted text.",
+    "No extracted text is added to persisted history. Eight volatile document request snapshots are isolated per workspace and disposed on language/auth mode change, logout, history removal and unmount.",
+    "Follow-up document retrieval after reload, omitted parser contents and live model context capacity remain open acceptance work.",
+    "Exact-head independent review, applicable substantive CI, integration with earlier remediation and canonical manual acceptance required before merge."
+  ],
+  "virtualServerDeploymentState": "pending"
+}

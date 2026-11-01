@@ -5,6 +5,7 @@ import { ArrowDown, Menu, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PublicAssistantDocument } from '@/components/platform-v7/PublicAssistantAttachmentPicker';
+import { DOCUMENT_CONTEXT_COPY, GektaDocumentRetryCache, readDocumentContext, type GektaDocumentContext } from '@/lib/gekta/document-context';
 import {
   readGatewayStream,
   refusalCopy,
@@ -145,12 +146,6 @@ function finalText(locale: GektaLocale, snapshot: GatewayStreamSnapshot): string
   return snapshot.text || refusalCopy(locale, snapshot.refusal);
 }
 
-function requestWithDocuments(question: string, documents: readonly PublicAssistantDocument[]): string {
-  if (!documents.length) return question;
-  const context = documents.map((document) => `Document: ${document.name}\n${document.text.slice(0, 12_000)}`).join('\n\n').slice(0, 32_000);
-  return `${question}\n\n--- ATTACHED DOCUMENTS ---\n${context}`;
-}
-
 function track(event: string, locale: GektaLocale, extra?: Record<string, string | number | boolean>) {
   if (typeof window === 'undefined') return;
   const detail = { event, locale, ...(extra || {}) };
@@ -195,6 +190,11 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
   const [serverSearch, setServerSearch] = React.useState<ServerSearchState>({ state: 'idle', query: '', results: null });
   const serverConversationIds = React.useRef(new Map<string, string>());
   const sentMessageIds = React.useRef(new Set<string>());
+  const documentRetries = React.useRef(new GektaDocumentRetryCache());
+  React.useEffect(() => {
+    documentRetries.current.clear();
+    return () => documentRetries.current.clear();
+  }, [locale, workspaceMode]);
   /**
    * Открытый диалог, читаемый из асинхронной догрузки реплик. Значение
    * зеркалится эффектом, а не присваивается во время рендера: запись в ref
@@ -512,6 +512,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
 
   const logout = React.useCallback(async () => {
     if (loggingOut) return;
+    documentRetries.current.clear();
     setLoggingOut(true);
     await logoutGektaAccount();
     window.location.assign(GEKTA_PATHS[locale]);
@@ -633,7 +634,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     }
   }, [applyEntitlement]);
 
-  const runGeneration = React.useCallback(async ({ question, history, conversationId, baseMessages, ticket }: { question: string; history: HistoryTurn[]; conversationId: string; baseMessages: readonly GektaMessage[]; ticket: string }) => {
+  const runGeneration = React.useCallback(async ({ question, documents: requestDocuments = [], history, conversationId, baseMessages, ticket }: { question: string; documents?: readonly GektaDocumentContext[]; history: HistoryTurn[]; conversationId: string; baseMessages: readonly GektaMessage[]; ticket: string }) => {
     if (sending) return;
     const assistantId = id('assistant');
     const startedAt = new Date().toISOString();
@@ -662,7 +663,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
               'x-gekta-answer-ticket': ticket,
             },
             signal: controller.signal,
-            body: JSON.stringify({ message: question, locale: answerLocale === 'auto' ? locale : answerLocale, context: 'gekta-standalone', conversationId, history }),
+            body: JSON.stringify({ message: question, documents: requestDocuments, locale: answerLocale === 'auto' ? locale : answerLocale, context: 'gekta-standalone', conversationId, history }),
           });
           terminal = await readGatewayStream(response, {
             mode: 'public',
@@ -712,12 +713,16 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     if (sending) return;
     const question = cleanText(override ?? input).slice(0, 1_200);
     if (!question) return;
+    let requestDocuments: readonly GektaDocumentContext[];
+    try { requestDocuments = readDocumentContext(documents); }
+    catch { setError(DOCUMENT_CONTEXT_COPY[locale].invalid); return; }
     const ticket = await reserveAnswer();
     if (!ticket) return;
     const conversationId = activeId || id('conversation');
     const history = historyFrom(messages);
     const attached = documents.map((document) => ({ name: document.name, size: document.size, mediaType: document.mediaType }));
     const userMessage: GektaMessage = { id: id('user'), role: 'user', text: question, createdAt: new Date().toISOString(), attachments: attached };
+    documentRetries.current.remember(userMessage.id, requestDocuments);
     const baseMessages = [...messages, userMessage];
     setActiveId(conversationId);
     setMessages(baseMessages);
@@ -726,7 +731,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     setDocuments([]);
     onEnteredChat?.();
     track(override ? 'gekta_starter_used' : 'gekta_prompt_submitted', locale, { hasAttachments: attached.length > 0 });
-    await runGeneration({ question: requestWithDocuments(question, documents), history, conversationId, baseMessages, ticket });
+    await runGeneration({ question, documents: requestDocuments, history, conversationId, baseMessages, ticket });
   }, [activeId, documents, input, locale, messages, onEnteredChat, reserveAnswer, runGeneration, saveConversation, sending]);
 
   const retry = React.useCallback(async (assistantIndex: number) => {
@@ -734,6 +739,14 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     let userIndex = -1;
     for (let index = assistantIndex - 1; index >= 0; index -= 1) { if (messages[index]?.role === 'user') { userIndex = index; break; } }
     if (userIndex < 0) return;
+    const original = messages[userIndex];
+    const requestDocuments = documentRetries.current.read(original.id);
+    if (original.attachments?.length && !requestDocuments) {
+      setError(DOCUMENT_CONTEXT_COPY[locale].missing);
+      setInput(original.text);
+      focusComposer();
+      return;
+    }
     const ticket = await reserveAnswer();
     if (!ticket) return;
     const conversationId = activeId || id('conversation');
@@ -742,8 +755,8 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
     setMessages(baseMessages);
     saveConversation(conversationId, baseMessages);
     track('gekta_retry', locale);
-    await runGeneration({ question, history: historyFrom(messages.slice(0, userIndex)), conversationId, baseMessages, ticket });
-  }, [activeId, locale, messages, reserveAnswer, runGeneration, saveConversation, sending]);
+    await runGeneration({ question, documents: requestDocuments, history: historyFrom(messages.slice(0, userIndex)), conversationId, baseMessages, ticket });
+  }, [activeId, focusComposer, locale, messages, reserveAnswer, runGeneration, saveConversation, sending]);
 
   const copyMessage = React.useCallback(async (message: GektaMessage) => {
     try { await navigator.clipboard.writeText(message.text); setCopiedId(message.id); window.setTimeout(() => setCopiedId(''), 1_500); } catch {}
@@ -800,6 +813,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
 
   const deleteConversation = React.useCallback((conversationId: string) => {
     if (!window.confirm(ui.deleteConfirm)) return;
+    documentRetries.current.clear();
     setConversations((current) => current.filter((conversation) => conversation.id !== conversationId));
     if (activeId === conversationId) { setActiveId(null); setMessages([]); setDocuments([]); }
     const serverId = serverIdOf(conversationId);
@@ -808,6 +822,7 @@ export function GektaChatWorkspace({ locale = 'ru', discoveryHero, onEnteredChat
 
   const clearHistory = React.useCallback(() => {
     if (!window.confirm(ui.clearConfirm)) return;
+    documentRetries.current.clear();
     // Очистка адресована текущему языку, поэтому на сервер уходят ровно те
     // диалоги, которые исчезли с экрана. Общий DELETE стёр бы и остальные
     // языки — пользователь этого не подтверждал.
