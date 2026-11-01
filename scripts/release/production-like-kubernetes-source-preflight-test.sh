@@ -87,9 +87,42 @@ class Checks(unittest.TestCase):
         self.assertEqual(rc, 0); self.assertEqual(value['result'], 'PASS')
         self.assertEqual([s['bytes'] for s in value['sources'] if s['path'] == path], [3*1024*1024]*2)
 
-    def test_named_governance_over_three_mib_fails_before_checks(self):
+    def test_named_governance_over_four_mib_fails_before_checks(self):
         path = 'docs/platform-v7/autopilot/autopilot-state.json'
-        rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,path,3*1024*1024+1))
+        rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,path,4*1024*1024+1))
+        self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
+
+    def test_named_governance_exact_four_mib_is_preserved_in_both_refs(self):
+        path = 'docs/platform-v7/autopilot/autopilot-state.json'
+        rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,path,4*1024*1024,True))
+        self.assertEqual(rc, 0); self.assertEqual(value['result'], 'PASS')
+        self.assertEqual([s['bytes'] for s in value['sources'] if s['path'] == path], [4*1024*1024]*2)
+
+    def test_new_capacity_dirty_governance_is_rejected_before_checks(self):
+        path = 'docs/platform-v7/autopilot/autopilot-state.json'
+        def change(repo, out, env, git):
+            self.commit_sized_source(repo,env,git,path,4*1024*1024)
+            (repo/path).write_bytes(b' ' * (4*1024*1024-4) + b'{}\n')
+        rc, value, _ = self.run_case(change)
+        self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
+
+    def test_new_capacity_invalid_utf8_governance_is_rejected_before_checks(self):
+        path = 'docs/platform-v7/autopilot/autopilot-state.json'
+        def change(repo, out, env, git):
+            self.commit_sized_source(repo,env,git,path,4*1024*1024)
+            (repo/path).write_bytes(b' ' * (4*1024*1024-1) + b'\xff')
+            git('add', '.'); git('commit', '-m', 'invalid UTF8 bounded registry fixture')
+            env['EXACT_HEAD'] = git('rev-parse', 'HEAD')
+        rc, value, _ = self.run_case(change)
+        self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
+
+    def test_new_capacity_symlink_governance_is_rejected_before_checks(self):
+        path = 'docs/platform-v7/autopilot/autopilot-state.json'
+        def change(repo, out, env, git):
+            self.commit_sized_source(repo,env,git,path,4*1024*1024)
+            target = out/'same-bytes.json'; target.write_bytes((repo/path).read_bytes())
+            (repo/path).unlink(); (repo/path).symlink_to(target)
+        rc, value, _ = self.run_case(change)
         self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
 
     def test_other_fixed_source_exact_two_mib_passes(self):
