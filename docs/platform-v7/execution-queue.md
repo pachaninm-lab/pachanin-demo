@@ -11562,3 +11562,221 @@ WP1 [record](autopilot/prompts/current-review-task.md#wp1)
   }
 }
 ```
+
+
+## Cold observer exact compatibility purpose — 2026-11-01
+
+```json
+{
+  "purpose": "cold-observer-exact-compatibility-20261101",
+  "status": "PRIVATE_PROPOSAL_NOT_ADMITTED",
+  "owner": "ACCOUNT_1_CORE",
+  "ownerDecision": "#5469#issuecomment-6558882969",
+  "authorityBaseExactMain": "14b4e6bbd0122a8cd717ea193ecd39c69e0efcdf",
+  "metadataBranch": "governance/industrial-load-diagnostics-20260919",
+  "sourceBranch": "ops/production-cold-preservation-20261022",
+  "retainedGuardBranch": "governance/gekta-recovery-trusted-routes-20260927",
+  "retainedGuardPaths": [
+    ".github/workflows/platform-v7-autopilot-guard.yml",
+    "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+    "scripts/p7-autopilot-guard.sh"
+  ],
+  "sourceOnly": true,
+  "sourcePublicationAuthorized": false,
+  "productionInvocationAuthorized": false,
+  "startupAuthorized": false,
+  "workersAuthorized": false,
+  "hostWindow": "NONE",
+  "productionAcceptance": false,
+  "masterCredit": 0,
+  "privateSourceHead": "52e3906c8f0cb27a35e090286283e8505fff8c4e",
+  "privateSourceTree": "ea5539add9e405e3105dc7f425c83be3fb54f203",
+  "privateSourcePatchSha256": "1d14b17ab85d54fa97909586c414ffe050e70ee64bba4f1576dd469894a3ced0",
+  "privateIndependentSourceReviewSha256": "239f9e1eabc6d132269bda0fae393749d52abc253861158c114552e9d83fa1ea",
+  "exactSourceThree": {
+    ".github/workflows/production-cold-preservation.yml": {
+      "before": {
+        "bytes": 169790,
+        "sha256": "dd327aba31e76a1cb3ffe713eecf62091ce470fee53a8de93d863a0ffc0c7ae6",
+        "blob": "338b17efa926ad4a12eb061ebd2543164905aadb"
+      },
+      "after": {
+        "bytes": 172672,
+        "sha256": "e322cfee6489d25f17133be7297f3ad900d0574650121e84648d72b0aedff934",
+        "blob": "6236904ed57f820207e4be2eb918bb956c5f3805"
+      },
+      "mode": "100644"
+    },
+    "scripts/test_production_cold_preservation.py": {
+      "before": {
+        "bytes": 199236,
+        "sha256": "3a6553fad7ba3bec8ecefdb11536ed3e29c7f296ab6b117672b2ef776063519c",
+        "blob": "e5faf4c8d59a8567eafc3bcd4ef49204a713d275"
+      },
+      "after": {
+        "bytes": 199769,
+        "sha256": "3216ead4e4abd2f515a5410756657131f79cb4e548aa077f4083d2c662fb6478",
+        "blob": "19632fe1357f16d81835c31da30d5572ec836d65"
+      },
+      "mode": "100644"
+    },
+    "docs/ops/production-cold-preservation.md": {
+      "before": {
+        "bytes": 48479,
+        "sha256": "39004266eb20cd4e52ab5123dddc32f053d220db4996a0333a3267c45d220fd2",
+        "blob": "3c8b47d984802cb9092d1279fcaa0c2133739da0"
+      },
+      "after": {
+        "bytes": 50343,
+        "sha256": "58280bb7518e782e576c71cc2679b6ece7fa64d8cba2b4bce57ed49f78c644c8",
+        "blob": "1655bb5ce5ae9f9c915b92203818648c6cfb152b"
+      },
+      "mode": "100644"
+    }
+  },
+  "exactCarriers": [
+    {
+      "blob": "e0f8fa5731af0addc0b82c9ca7fab24abcecddb7",
+      "bytes": 370287,
+      "sha256": "31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7"
+    },
+    {
+      "blob": "5f5446369cc96c935fe959ad5ba9aa6bcf95f2ac",
+      "bytes": 400684,
+      "sha256": "1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f"
+    }
+  ],
+  "rawFragmentSha256": [
+    "92c6da9777dceef4b31235aa6e4bfc3e5829646404b39a121826846dad392eea",
+    "b01ef2cf05fe0132ddbfce5d26483390789380d6c75a1b0f18e9212ad65fca0f",
+    "e1cd4c77167d3ba2e125e02bb7d3ab5cd1c7269209bbfb819df10822e4ec5143"
+  ],
+  "inverse": {
+    "mechanism": "Fixed10 byte splices decoded from564B static base64/zlib JSON; applied ONLY after exact R2 whole identity and exact actual3fragment identities. Must recover complete old e0f8/370287/31b39 before historical prefix/extraction. No network/Git-history fixture lookup/generic fallback.",
+    "historicalPrefixBytes": 191427,
+    "historicalPrefixSha256": "09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a"
+  },
+  "stateStages": {
+    "status": "MATHEMATICAL_PRIVATE_GEOMETRY_ONLY_NO_STATE_CANDIDATE_OR_ADMISSION",
+    "statePath": "docs/platform-v7/autopilot/autopilot-state.json",
+    "before": {
+      "bytes": 3145687,
+      "sha256": "6b4a5d16dc47f3ce1d80ef022005a615e3db72ade1f6a0fd243d3ee01fdce4f4",
+      "blob": "60930eae9e605e3b96887b5cb9249ac00e91ed06"
+    },
+    "A3": {
+      "after": {
+        "bytes": 3145687,
+        "sha256": "692fc2a94e6a4dd45ebace52934bcd6614aa21817a79ebcd0bfefb66adca482c",
+        "blob": "b90d728b224cdc358fbf35a672bcee75b8723ddd"
+      },
+      "changedFields": [
+        {
+          "pointer": "/coordinationAdmissions/stopped-core-bootstrap-20261024/sourcePins/0/sha256",
+          "path": ".github/workflows/production-cold-preservation.yml",
+          "byteOffset": 3083509,
+          "bytes": 64,
+          "before": "dd327aba31e76a1cb3ffe713eecf62091ce470fee53a8de93d863a0ffc0c7ae6",
+          "after": "e322cfee6489d25f17133be7297f3ad900d0574650121e84648d72b0aedff934"
+        },
+        {
+          "pointer": "/coordinationAdmissions/stopped-core-bootstrap-20261024/sourcePins/1/sha256",
+          "path": "scripts/test_production_cold_preservation.py",
+          "byteOffset": 3083657,
+          "bytes": 64,
+          "before": "3a6553fad7ba3bec8ecefdb11536ed3e29c7f296ab6b117672b2ef776063519c",
+          "after": "3216ead4e4abd2f515a5410756657131f79cb4e548aa077f4083d2c662fb6478"
+        },
+        {
+          "pointer": "/coordinationAdmissions/stopped-core-bootstrap-20261024/sourcePins/2/sha256",
+          "path": "docs/ops/production-cold-preservation.md",
+          "byteOffset": 3083801,
+          "bytes": 64,
+          "before": "39004266eb20cd4e52ab5123dddc32f053d220db4996a0333a3267c45d220fd2",
+          "after": "58280bb7518e782e576c71cc2679b6ece7fa64d8cba2b4bce57ed49f78c644c8"
+        }
+      ],
+      "inspectionSha256Remains": "31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7",
+      "inverseRestoresExactBeforeBytes": true
+    },
+    "B1": {
+      "before": {
+        "bytes": 3145687,
+        "sha256": "692fc2a94e6a4dd45ebace52934bcd6614aa21817a79ebcd0bfefb66adca482c",
+        "blob": "b90d728b224cdc358fbf35a672bcee75b8723ddd"
+      },
+      "after": {
+        "bytes": 3145687,
+        "sha256": "7bc59d1a3d3201c15258adb2f9886a415878393deb1fe3b6b9f5f03ab05eef99",
+        "blob": "9dd9d2a97e54bae0d7c9d18d165e430c06cd6c42"
+      },
+      "changedFields": [
+        {
+          "pointer": "/coordinationAdmissions/stopped-core-bootstrap-20261024/inspectionSha256",
+          "byteOffset": 3083342,
+          "bytes": 64,
+          "before": "31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7",
+          "after": "1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f"
+        }
+      ],
+      "inverseRestoresExactA3Bytes": true
+    },
+    "allOtherParsedStateAndRawBytesUnchanged": true,
+    "stateFilesWritten": false,
+    "stateCapUnchanged": 3145728
+  },
+  "coherentGuardDependency": {
+    "status": "SEPARATE_EXACT_TRUSTED_PREREQUISITE_REQUIRED_NOT_IMPLEMENTED_HERE",
+    "phases": [
+      "Queue-only accepted precise purpose with state byte-unchanged; no guard-patch selfhash recursion.",
+      "One coherent independently reviewed trusted3path guard implementing ONLY exact A3/B1 raw replacements, exact COLD3 source and existing DC1 SOURCE2, with their accepted purpose pins; do not serially invalidate DC1 guardPayloads.",
+      "A3 metadata: only3existing source-pin hash replacements; old carrier inspection pin retained.",
+      "Exact COLD3 ordinary source descendant; state/queue bytes equal its accepted BASE.",
+      "Existing frozen DC1 R2 SOURCE2; permits ONLY explicitly accepted A3 state/current admitted queue, both HEAD byte-equal BASE; no generic state or queue exception.",
+      "B1 metadata: only inspectionSHA old→R2 after actual R2 source acceptance.",
+      "Separate later finite read-only journal/object reconciliation and operational disposition; no source grant."
+    ],
+    "existingBroadColdStateScopePassIsNotAuthority": true,
+    "existingIndustrialParsedStateMutationRemainsForbiddenExceptSeparatelyAdmittedNamedExactStages": true
+  },
+  "gates": [
+    "Full existing contract job and native Compose/Docker28.5.1/API1.51/PostgreSQL wire paths remain unchanged. No native skip or test filter to obtain PASS.",
+    "All baseline149 cold tests remain; compatibility adds one controller method, so the full current cold suite has150 cases, including the one native PostgreSQL wire test exactly once. Full current cold150 + old shared24 =174; full current cold150 + R2 shared48 =198. Historical baseline149 + shared24 =173 remains history. Mandatory native tests are NOT_RUN here; five local environment skips are not native PASS.",
+    "Fresh actual whole-head independent review and owner audit; substantive/native/security; latest canonical readiness; manual full expected-head acceptance at EACH metadata/guard/source stage.",
+    "Current-state inspectionSHA MUST match actual carrier and exact3controller pins; oldstate/newcarrier and mismatchedpins fail closed. Acceptance of two source profiles grants no operation/retry/reset/startup.",
+    "All other state bytes/parsed fields/owners/vectors/PRIMARY/current/next/official5 and source caps unchanged. No state growth, new vector, global buffer/cap exception or ownership transfer."
+  ],
+  "metadataStorage": {
+    "existingReviewDocumentMayLackRoomAfterDC1": true,
+    "proposedTrackedHome": "docs/platform-v7/execution-queue.md",
+    "observedQueueBytes": 2110383,
+    "actualAcceptedNamedQueueReaderBytes": 3145729,
+    "noGlobalTwoMiBLimitAssumed": true,
+    "noGuardAfterBlobSelfhashEmbedded": true
+  },
+  "publicationPrerequisites": [
+    "Verified new owner decision6558882969 recorded; preserve complete current14b4 queue prefix when eventually composing metadata.",
+    "Fresh private source review239f9e1e binds frozen52e390/01b9 only. Future actual published metadata/guard/source heads require independent exact-head review; no current-main/native/host transfer.",
+    "Root must materialize and independently review the coherent exact trusted3path admission against the accepted queue purpose. No guard implementation is supplied or granted here."
+  ],
+  "frozenSourceProposalBaseExactMain": "01b9b00e176011495be935a1d003ddf27ebf168d",
+  "currentQueuePrefix": {
+    "observedMain": "14b4e6bbd0122a8cd717ea193ecd39c69e0efcdf",
+    "queuePath": "docs/platform-v7/execution-queue.md",
+    "bytes": 2110383,
+    "sha256": "8d62f9d661ce365ab8394c3094427539b2987807044306502d947c7089c488a5",
+    "blob": "8bd9e231fe2bfcbee4ae270718c291802b1a4a3b",
+    "old01b9QueueExactPrefix": true,
+    "sourceSuitesNotRepeatedForPureQueueChange": true,
+    "readMechanism": "GitHub exact fetch_blob8bd9; local14b4 object not present; exact whole UTF8 bytes Gitblob verified"
+  },
+  "privateSourceReviewDisposition": "PRIVATE SOURCE CLEAN only for frozen52e390 against01b9; exact authority/native/current published head/host remain HOLD",
+  "supersedesBlockedPrivatePurposeDrafts": [
+    "5055be0322c399b6852278ae8819141252c73a9be31bf8254be85d107a30ddd5",
+    "40b4ca5466fa652e02ab7d3eb5d18f80a85749be7a2aa334c97bbe095ac688fb",
+    "51b3d2bdb3bc594a37b5a1ebe6fdb2d3d0cb5913991f456314b9fadfb15bb227"
+  ],
+  "draftCorrection": "The earlier draft named the BANK one-workflow guard lane and wrong regression path. Both rejected drafts are preserved as BLOCKED history; only the actual accepted Gekta three-path lane above is proposed.",
+  "countCorrection": "Independent purpose review found P3 count-decomposition wording in privateec092/51b3. Replaced with exact full-suite150 plus shared24/48 totals, counting native wire once; old private commit/proof retained as blocked history. No source/test change."
+}
+```
