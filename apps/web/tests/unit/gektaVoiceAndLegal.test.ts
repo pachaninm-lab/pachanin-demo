@@ -1,6 +1,8 @@
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { encodeFrame, type GatewayFrame } from '@pc/ai-assistant-stream-contract';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { GektaChatWorkspace } from '@/components/gekta/GektaChatWorkspace';
@@ -161,4 +163,226 @@ describe('Gekta interface language inheritance', () => {
     expect(composer!.closest('[lang]')?.getAttribute('lang')).toBe(language);
     expect(chrome.lang).toBe('ru');
   });
+});
+
+// Behavioral coverage runs in the existing CI-executed consent suite.
+describe('G-A02 first prompt behavioral regressions', () => {
+const QUESTION = 'Как подготовить почву под пшеницу?';
+const originalFetch = globalThis.fetch;
+const legalPresentation = {
+  locale: 'ru', snapshot: 'synthetic-ui-notice',
+  termsHref: '/legal/test-terms', privacyHref: '/legal/test-privacy',
+};
+const entitlement = { state: 'ANONYMOUS_FREE', canAsk: true, remaining: 10, limit: 10, serverTime: '2026-11-01T00:00:00Z', expiresAt: null };
+const envelope = (consentCurrent: boolean) => ({ legalVersion: 'synthetic-test-version', consentCurrent, legalPresentation, entitlement });
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+function stream() {
+  const streamId = 'stream-consent-test';
+  const frames: GatewayFrame[] = [
+    { event: 'meta', streamId, mode: 'public', modelIdentity: null },
+    { event: 'token', streamId, text: 'Сначала уточни тип почвы.' },
+    { event: 'done', streamId, complete: true },
+  ];
+  return new Response(frames.map(encodeFrame).join(''), { headers: { 'content-type': 'text/event-stream' } });
+}
+function installServer(options: { consentFails?: boolean; reserveFails?: boolean; delayedProbe?: Promise<Response>; reserveGate?: Promise<void>; firstReserveGate?: Promise<void> } = {}) {
+  let accepted = false;
+  let reserveCount = 0;
+  const spy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.includes('/api/gekta/account/')) return json({}, 401);
+    if (url.includes('/api/gekta/entitlement')) {
+      if (init?.method !== 'POST') return options.delayedProbe ?? json(envelope(false));
+      const body = JSON.parse(String(init.body));
+      if (body.action === 'consent') {
+        if (options.consentFails) return json(envelope(false), 503);
+        accepted = true;
+        return json(envelope(true));
+      }
+      if (body.action === 'reserve') {
+        const reservation = accepted ? { ...envelope(true), allowed: true, ticket: 'synthetic-ticket' } : { ...envelope(false), allowed: false, reason: 'consent_required' };
+        if (options.firstReserveGate && reserveCount++ === 0) await options.firstReserveGate;
+        if (options.reserveGate) await options.reserveGate;
+        if (options.reserveFails) return json({}, 503);
+        return json(reservation);
+      }
+      return json(envelope(accepted));
+    }
+    if (url === '/api/public-platform-assistant/attachments') return json({ documents: [{ id: 'synthetic-doc', name: 'soil.txt', size: 50, mediaType: 'text/plain', text: 'Почва суглинок. QA_SOIL_DOC_754.', checksumSha256: 'a'.repeat(64), truncated: false }], rejected: [] });
+    if (url.startsWith('/api/agro-chat')) return stream();
+    throw new Error(`Unexpected test network ${url}`);
+  });
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: spy });
+  return spy;
+}
+const generations = (spy: ReturnType<typeof installServer>) => spy.mock.calls.filter(([url]) => String(url).startsWith('/api/agro-chat'));
+const consentWrites = (spy: ReturnType<typeof installServer>) => spy.mock.calls.filter(([url, init]) => String(url).startsWith('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'consent');
+async function draft() {
+  render(createElement(GektaChatWorkspace, { discoveryHero: createElement('h1', null, 'Гекта') }));
+  const box = screen.getByRole('textbox');
+  fireEvent.input(box, { target: { value: QUESTION } });
+  await act(async () => {});
+  return box;
+}
+beforeEach(() => {
+  localStorage.clear();
+  window.history.replaceState({}, '', '/gekta');
+  Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value: vi.fn() });
+});
+afterEach(() => {
+  cleanup();
+  Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: originalFetch });
+  vi.restoreAllMocks();
+});
+
+describe('G-A02 first manual question from discovery', () => {
+  it.each(['click', 'enter'])('reveals consent on the first %s and resumes exactly once only after confirmation', async (intent) => {
+    const spy = installServer();
+    const box = await draft();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    if (intent === 'click') fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    else fireEvent.keyDown(box, { key: 'Enter', code: 'Enter' });
+    const dialog = await screen.findByRole('dialog', { name: 'Перед началом' });
+    expect(dialog).toBeTruthy();
+    expect(screen.getByRole('textbox')).toHaveValue(QUESTION);
+    expect(generations(spy)).toHaveLength(0);
+    expect(consentWrites(spy)).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Понятно, начать' }));
+    await waitFor(() => expect(generations(spy)).toHaveLength(1));
+    expect(JSON.parse(String(generations(spy)[0][1]?.body)).message).toBe(QUESTION);
+    expect(consentWrites(spy)).toHaveLength(1);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+  it('keeps a failed confirmation visible and never starts generation', async () => {
+    const spy = installServer({ consentFails: true });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: 'Понятно, начать' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось сохранить подтверждение');
+    expect(screen.getByRole('textbox')).toHaveValue(QUESTION);
+    expect(generations(spy)).toHaveLength(0);
+  });
+  it('shows a visible access error without losing the draft when reserve fails', async () => {
+    const spy = installServer({ reserveFails: true });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось проверить доступ');
+    expect(screen.getByRole('textbox')).toHaveValue(QUESTION);
+    expect(generations(spy)).toHaveLength(0);
+  });
+  it('coalesces rapid first clicks while reserve is pending', async () => {
+    let release!: () => void;
+    const spy = installServer({ reserveGate: new Promise<void>((resolve) => { release = resolve; }) });
+    await draft();
+    const send = screen.getByRole('button', { name: 'Отправить' });
+    fireEvent.click(send); fireEvent.click(send); fireEvent.click(send);
+    await act(async () => release());
+    await screen.findByRole('dialog');
+    const reserves = spy.mock.calls.filter(([url, init]) => String(url).startsWith('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'reserve');
+    expect(reserves).toHaveLength(1);
+    expect(generations(spy)).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Понятно, начать' }));
+    await waitFor(() => expect(generations(spy)).toHaveLength(1));
+  });
+  it('resumes a deferred intent in chat=new after a late probe without stealing typing focus', async () => {
+    let release!: (response: Response) => void;
+    const spy = installServer({ delayedProbe: new Promise<Response>((resolve) => { release = resolve; }) });
+    window.history.replaceState({}, '', '/gekta?chat=new');
+    await draft();
+    const box = screen.getByRole('textbox');
+    box.focus();
+    expect(document.activeElement).toBe(box);
+    await act(async () => release(json(envelope(false))));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(box);
+    fireEvent.keyDown(box, { key: 'Enter', code: 'Enter' });
+    await screen.findByRole('dialog');
+    expect(generations(spy)).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Понятно, начать' }));
+    await waitFor(() => expect(generations(spy)).toHaveLength(1));
+    expect(JSON.parse(String(generations(spy)[0][1]?.body)).message).toBe(QUESTION);
+  });
+  it('ignores the older initial consent probe after a confirmed submission', async () => {
+    let release!: (response: Response) => void;
+    const spy = installServer({ delayedProbe: new Promise<Response>((resolve) => { release = resolve; }) });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: 'Понятно, начать' }));
+    await waitFor(() => expect(generations(spy)).toHaveLength(1));
+    const initialProbe = spy.mock.calls.find(([url, init]) => String(url).startsWith('/api/gekta/entitlement') && init?.method !== 'POST');
+    expect(initialProbe?.[1]?.signal?.aborted).toBe(true);
+    await act(async () => release(json(envelope(false))));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(generations(spy)).toHaveLength(1);
+  });
+  it('never resumes a cancelled first question after New Chat while reserve is pending', async () => {
+    let release!: () => void;
+    const spy = installServer({ reserveGate: new Promise<void>((resolve) => { release = resolve; }) });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    const headerNew = document.querySelector<HTMLButtonElement>('[data-gekta-header-new-chat]')!;
+    fireEvent.click(headerNew);
+    expect(screen.getByRole('textbox')).toHaveValue('');
+    await act(async () => release());
+    const accept = screen.queryByRole('button', { name: 'Понятно, начать' });
+    if (accept) {
+      fireEvent.click(accept);
+      await waitFor(() => expect(consentWrites(spy)).toHaveLength(1));
+    }
+    await act(async () => {});
+    expect(generations(spy)).toHaveLength(0);
+  });
+  it.each(['', '   '])('resumes an attachment-only deferred submit with the same extracted document (draft=%j)', async (emptyDraft) => {
+    let release!: (response: Response) => void;
+    const spy = installServer({ delayedProbe: new Promise<Response>((resolve) => { release = resolve; }) });
+    window.history.replaceState({}, '', '/gekta?chat=new');
+    render(createElement(GektaChatWorkspace, { discoveryHero: createElement('h1', null, 'Гекта') }));
+    await act(async () => {});
+    const fileInput = document.querySelector<HTMLInputElement>('[data-gekta-drop-target] input[type=file]')!;
+    fireEvent.change(fileInput, { target: { files: [new File(['Почва суглинок'], 'soil.txt', { type: 'text/plain' })] } });
+    await screen.findByText('soil.txt');
+    const box = screen.getByRole('textbox');
+    if (emptyDraft) fireEvent.input(box, { target: { value: emptyDraft } });
+    box.focus();
+    expect(document.activeElement).toBe(box);
+    await act(async () => release(json(envelope(false))));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    await screen.findByRole('dialog');
+    expect(generations(spy)).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Понятно, начать' }));
+    await waitFor(() => expect(generations(spy)).toHaveLength(1));
+    const message = JSON.parse(String(generations(spy)[0][1]?.body)).message;
+    expect(message).toContain('Проанализируй приложенные материалы.');
+    expect(message).toContain('QA_SOIL_DOC_754');
+  });
+  it('does not let a cancelled old reservation roll back a newer confirmed question', async () => {
+    let release!: () => void;
+    const spy = installServer({ firstReserveGate: new Promise<void>((resolve) => { release = resolve; }) });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    fireEvent.click(document.querySelector<HTMLButtonElement>('[data-gekta-header-new-chat]')!);
+    fireEvent.input(screen.getByRole('textbox'), { target: { value: 'Как хранить овёс?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: 'Понятно, начать' }));
+    await waitFor(() => expect(generations(spy)).toHaveLength(1));
+    const firstReserve = spy.mock.calls.find(([url, init]) => String(url).startsWith('/api/gekta/entitlement') && init?.method === 'POST' && JSON.parse(String(init.body)).action === 'reserve');
+    expect(firstReserve?.[1]?.signal?.aborted).toBe(true);
+    await act(async () => release());
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(generations(spy)).toHaveLength(1);
+    expect(JSON.parse(String(generations(spy)[0][1]?.body)).message).toBe('Как хранить овёс?');
+  });
+  it('uses the reserve notice when the initial probe is still pending', async () => {
+    const spy = installServer({ delayedProbe: new Promise<Response>(() => {}) });
+    await draft();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить' }));
+    await screen.findByRole('dialog', { name: 'Перед началом' });
+    expect(generations(spy)).toHaveLength(0);
+  });
+});
+
 });

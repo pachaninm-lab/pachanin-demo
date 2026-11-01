@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 
 async function waitForViewportAuthority(page: import('@playwright/test').Page) {
   await page.waitForFunction(() => {
@@ -198,3 +198,264 @@ test('320px drawer keeps security and support inside Gekta and all controls rema
   await expect(page.getByRole('heading', { name: 'Обращение отправлено' })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
+
+// G-A02: real browser fetch cancellation and intent lifecycle. These fixtures
+// intercept all API traffic on loopback; they never accept real legal terms,
+// contact an account/model, or set a production session cookie.
+function consentGate() {
+  let release!: () => void;
+  const promise = new Promise<void>(resolve => { release = resolve; });
+  return { promise, release };
+}
+
+async function installConsentFixture(page: Page, options: {
+  holdProbe?: boolean; holdFirstReserve?: boolean; consentFails?: boolean; reserveFails?: boolean;
+} = {}) {
+  const probeGate = consentGate();
+  const reserveGate = consentGate();
+  let accepted = false;
+  let reserveCount = 0;
+  let probeCount = 0;
+  let consentCount = 0;
+  const generations: Array<{ message: string }> = [];
+  const failures: string[] = [];
+  const canceled: string[] = [];
+  const unexpected: string[] = [];
+  const attempts: Promise<void>[] = [];
+  const envelope = (current: boolean) => ({
+    legalVersion: 'synthetic-browser-version', consentCurrent: current,
+    legalPresentation: { locale: 'ru', snapshot: 'synthetic-browser-notice',
+      termsHref: '/legal/usloviya-ispolzovaniya-gekta', privacyHref: '/legal/politika-konfidencialnosti' },
+    entitlement: { state: 'ANONYMOUS_FREE', canAsk: true, remaining: 10, limit: 10,
+      serverTime: '2026-11-01T00:00:00Z', expiresAt: null },
+  });
+  page.on('pageerror', error => failures.push(error.message));
+  page.on('requestfailed', request => {
+    if (new URL(request.url()).pathname === '/api/gekta/entitlement') {
+      canceled.push(request.method() === 'GET' ? 'probe' : 'reserve');
+    }
+  });
+  await page.route('**/*', async route => {
+    const url = new URL(route.request().url());
+    if (!['127.0.0.1', 'localhost'].includes(url.hostname)) {
+      await route.abort();
+      return;
+    }
+    if (!url.pathname.startsWith('/api/')) { await route.continue(); return; }
+    const json = (body: unknown, status = 200, cookie?: string) => route.fulfill({
+      status, contentType: 'application/json', body: JSON.stringify(body),
+      headers: cookie ? { 'set-cookie': `qa_gekta_state=${cookie}; Path=/; SameSite=Lax; Secure` } : {},
+    });
+    if (url.pathname.startsWith('/api/gekta/account/') || url.pathname === '/api/gekta/auth/refresh') {
+      await json({}, 401); return;
+    }
+    if (url.pathname === '/api/gekta/entitlement') {
+      if (route.request().method() === 'GET') {
+        probeCount += 1;
+        if (options.holdProbe) {
+          attempts.push(releaseLate(route, probeGate.promise, envelope(false), 'stale-probe'));
+          return;
+        }
+        await json(envelope(false)); return;
+      }
+      const body = route.request().postDataJSON();
+      if (body.action === 'consent') {
+        consentCount += 1;
+        // The client must forward the displayed synthetic notice, not omit it.
+        expect(body.noticeSnapshot).toBe('synthetic-browser-notice');
+        expect(body.locale).toBe('ru');
+        if (options.consentFails) { await json(envelope(false), 503); return; }
+        accepted = true;
+        await json(envelope(true), 200, 'accepted'); return;
+      }
+      if (body.action === 'reserve') {
+        reserveCount += 1;
+        const result = accepted ? { ...envelope(true), allowed: true, ticket: 'synthetic-browser-ticket' }
+          : { ...envelope(false), allowed: false, reason: 'consent_required' };
+        if (options.holdFirstReserve && reserveCount === 1) {
+          attempts.push(releaseLate(route, reserveGate.promise, result, 'stale-reserve'));
+          return;
+        }
+        await json(options.reserveFails ? {} : result, options.reserveFails ? 503 : 200); return;
+      }
+      if (body.action === 'complete') { await json(envelope(accepted)); return; }
+    }
+    if (url.pathname === '/api/agro-chat') {
+      generations.push(route.request().postDataJSON());
+      const streamId = 'synthetic-browser-stream';
+      const frames = [
+        { event: 'meta', streamId, mode: 'public', modelIdentity: null },
+        { event: 'token', streamId, text: 'QA_BROWSER_ANSWER: проверь тип почвы.' },
+        { event: 'done', streamId, complete: true },
+      ];
+      await route.fulfill({ contentType: 'text/event-stream',
+        body: frames.map(frame => `event: ${frame.event}\ndata: ${JSON.stringify(frame)}\n\n`).join('') });
+      return;
+    }
+    if (url.pathname === '/api/public-platform-assistant/attachments') {
+      await json({ documents: [{ id: 'synthetic-browser-doc', name: 'soil.txt', size: 50,
+        mediaType: 'text/plain', text: 'Почва суглинок. QA_BROWSER_SOIL_754.',
+        checksumSha256: 'a'.repeat(64), truncated: false }], rejected: [] });
+      return;
+    }
+    unexpected.push(`${route.request().method()} ${url.pathname}`);
+    await route.abort();
+  });
+  async function releaseLate(route: Route, gate: Promise<void>, body: unknown, cookie: string) {
+    await gate;
+    try {
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify(body),
+        headers: { 'set-cookie': `qa_gekta_state=${cookie}; Path=/; SameSite=Lax; Secure` } });
+    } catch (error) {
+      // Chromium/WebKit can reject fulfilment after native fetch cancellation.
+      // The test separately requires requestfailed and checks the cookie jar.
+      if (!/closed|canceled|cancelled|invalid interception/i.test(String(error))) throw error;
+    }
+  }
+  return {
+    generations, failures, canceled, unexpected,
+    get probes() { return probeCount; }, get reserves() { return reserveCount; }, get consents() { return consentCount; },
+    releaseProbe: probeGate.release,
+    async releaseAll() { probeGate.release(); reserveGate.release(); await Promise.all(attempts); },
+  };
+}
+
+for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
+  test.describe(`G-A02 synthetic browser intent ${viewport.width}px`, () => {
+    test.use({ viewport });
+    test.beforeEach(async ({}, testInfo) => {
+      const baseURL = testInfo.project.use.baseURL;
+      const loopback = typeof baseURL === 'string'
+        && ['127.0.0.1', 'localhost'].includes(new URL(baseURL).hostname);
+      const liveProfile = /(?:^|[/\\])playwright\.production-mobile\.config\.ts$/u.test(testInfo.config.configFile);
+      test.skip(liveProfile && !loopback, 'Synthetic consent fixtures apply only to the loopback PR server; live tests remain unmocked.');
+      // A misconfigured PR origin must fail, not silently skip acceptance.
+      expect(loopback, 'Synthetic G-A02 PR browser acceptance requires loopback').toBe(true);
+    });
+    for (const intent of ['click', 'enter'] as const) {
+      test(`first ${intent} preserves the question and generates once after explicit consent`, async ({ page }) => {
+        const server = await installConsentFixture(page, { holdProbe: true });
+        try {
+          await page.goto('/gekta');
+          await expect.poll(() => server.probes).toBe(1);
+          const box = page.locator('#gekta-composer-input');
+          await box.fill('Как подготовить почву под пшеницу?');
+          if (intent === 'enter') await box.press('Enter');
+          else await page.locator('[data-gekta-submit="true"]').click();
+          const notice = page.locator('[data-gekta-consent="true"]');
+          await expect(notice).toBeVisible();
+          await expect(box).toHaveValue('Как подготовить почву под пшеницу?');
+          expect(server.generations).toHaveLength(0);
+          expect(server.consents).toBe(0);
+          await page.locator('[data-gekta-consent-accept="true"]').click();
+          await expect(page.locator('[data-gekta-role="assistant"]')).toContainText('QA_BROWSER_ANSWER');
+          await expect(notice).toHaveCount(0);
+          await server.releaseAll();
+          expect(server.generations.map(item => item.message)).toEqual(['Как подготовить почву под пшеницу?']);
+          expect(server.consents).toBe(1);
+          expect(server.reserves).toBe(2);
+          expect(server.failures).toEqual([]);
+          expect(server.unexpected).toEqual([]);
+          await expectNoHorizontalOverflow(page);
+        } finally { await server.releaseAll(); }
+      });
+    }
+
+    for (const draft of ['', '   ']) {
+      test(`document-only deferred consent retains attachment with ${draft ? 'whitespace' : 'empty'} draft`, async ({ page }) => {
+        const server = await installConsentFixture(page, { holdProbe: true });
+        try {
+          await page.goto('/gekta?chat=new');
+          await expect.poll(() => server.probes).toBe(1);
+          const box = page.locator('#gekta-composer-input');
+          await box.fill(draft);
+          await page.locator('input[type="file"]').setInputFiles({ name: 'soil.txt', mimeType: 'text/plain', buffer: Buffer.from('Synthetic soil fixture') });
+          await expect(page.getByRole('button', { name: 'Удалить: soil.txt' })).toBeVisible();
+          await box.focus();
+          const probe = page.waitForResponse(response => response.request().method() === 'GET' && new URL(response.url()).pathname === '/api/gekta/entitlement');
+          server.releaseProbe();
+          await probe;
+          await expect(box).toBeFocused();
+          await expect(page.locator('[data-gekta-consent="true"]')).toHaveCount(0);
+          await page.locator('[data-gekta-submit="true"]').click();
+          await expect(page.locator('[data-gekta-consent="true"]')).toBeVisible();
+          expect(server.generations).toHaveLength(0);
+          await page.locator('[data-gekta-consent-accept="true"]').click();
+          await expect(page.locator('[data-gekta-role="assistant"]')).toContainText('QA_BROWSER_ANSWER');
+          expect(server.generations).toHaveLength(1);
+          expect(server.generations[0].message).toContain('Проанализируй приложенные материалы.');
+          expect(server.generations[0].message).toContain('QA_BROWSER_SOIL_754');
+          expect(server.consents).toBe(1);
+          expect(server.failures).toEqual([]);
+          expect(server.unexpected).toEqual([]);
+        } finally { await server.releaseAll(); }
+      });
+    }
+
+    test('New chat aborts the old reserve; late GET/POST cannot roll back the accepted cookie or question', async ({ page, context }) => {
+      const server = await installConsentFixture(page, { holdProbe: true, holdFirstReserve: true });
+      try {
+        await page.goto('/gekta');
+        await expect.poll(() => server.probes).toBe(1);
+        const box = page.locator('#gekta-composer-input');
+        await box.fill('Отменённый вопрос о ячмене');
+        await page.locator('[data-gekta-submit="true"]').click();
+        await expect.poll(() => server.reserves).toBe(1);
+        await page.locator('[data-gekta-header-new-chat="true"]').click();
+        await box.fill('Новый вопрос о пшенице');
+        await box.press('Enter');
+        await expect(page.locator('[data-gekta-consent="true"]')).toBeVisible();
+        await page.locator('[data-gekta-consent-accept="true"]').click();
+        await expect(page.locator('[data-gekta-role="assistant"]')).toContainText('QA_BROWSER_ANSWER');
+        await expect.poll(() => server.canceled.includes('probe')).toBe(true);
+        await expect.poll(() => server.canceled.includes('reserve')).toBe(true);
+        await server.releaseAll();
+        await expect(page.locator('[data-gekta-consent="true"]')).toHaveCount(0);
+        expect(server.generations.map(item => item.message)).toEqual(['Новый вопрос о пшенице']);
+        expect((await context.cookies()).filter(cookie => cookie.name === 'qa_gekta_state').map(cookie => cookie.value)).toEqual(['accepted']);
+        expect(server.failures).toEqual([]);
+        expect(server.unexpected).toEqual([]);
+      } finally { await server.releaseAll(); }
+    });
+
+    test('failed consent stays visible and never starts generation', async ({ page }) => {
+      const server = await installConsentFixture(page, { holdProbe: true, consentFails: true });
+      try {
+        await page.goto('/gekta');
+        await expect.poll(() => server.probes).toBe(1);
+        const box = page.locator('#gekta-composer-input');
+        await box.fill('Как подготовить почву под пшеницу?');
+        await box.press('Enter');
+        const notice = page.locator('[data-gekta-consent="true"]');
+        await expect(notice).toBeVisible();
+        await page.locator('[data-gekta-consent-accept="true"]').click();
+        await expect(notice.getByRole('alert')).toBeVisible();
+        await expect(box).toHaveValue('Как подготовить почву под пшеницу?');
+        expect(server.generations).toHaveLength(0);
+        expect(server.consents).toBe(1);
+        expect(server.failures).toEqual([]);
+        expect(server.unexpected).toEqual([]);
+      } finally { await server.releaseAll(); }
+    });
+
+    test('failed reservation preserves the draft and exposes a retryable error', async ({ page }) => {
+      const server = await installConsentFixture(page, { holdProbe: true, reserveFails: true });
+      try {
+        await page.goto('/gekta');
+        await expect.poll(() => server.probes).toBe(1);
+        const box = page.locator('#gekta-composer-input');
+        await box.fill('Как подготовить почву под пшеницу?');
+        await box.press('Enter');
+        const accessError = page.locator('[data-gekta-chat-workspace="true"]').getByRole('alert');
+        await expect(accessError).toHaveCount(1);
+        await expect(accessError).toContainText('Не удалось проверить доступ к Гекте');
+        await expect(box).toHaveValue('Как подготовить почву под пшеницу?');
+        expect(server.generations).toHaveLength(0);
+        expect(server.consents).toBe(0);
+        expect(server.reserves).toBe(1);
+        expect(server.failures).toEqual([]);
+        expect(server.unexpected).toEqual([]);
+      } finally { await server.releaseAll(); }
+    });
+  });
+}

@@ -80,17 +80,20 @@ describe('Gekta anonymous entitlement', () => {
   ])('classifies the actual workspace reservation decision without confusing consent with quota: $reason $allowed', async ({ expected, expectedEvents, ...payload }) => {
     const source = read('components/gekta/GektaChatWorkspace.tsx');
     const start = source.indexOf('const reserveAnswer = React.useCallback(');
-    const terminator = '}, [applyEntitlement, locale, workspaceMode]);';
-    const end = source.indexOf(terminator, start);
+    const end = source.indexOf('\n  }, [', start);
+    const finish = source.indexOf(']);', end) + 3;
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
-    const callback = source.slice(start, end + terminator.length);
+    expect(finish).toBeGreaterThan(end);
+    const callback = source.slice(start, finish);
     const applyEntitlement = vi.fn();
     const track = vi.fn();
     const fetch = vi.fn(async () => new Response(JSON.stringify(payload), { status: 200 }));
     const context = {
       React: { useCallback: (callback: () => Promise<string | null>) => callback },
       workspaceMode: 'local', locale: 'ru', fetch, applyEntitlement, track,
+      entitlementRequestRevision: { current: 0 }, entitlementProbeController: { current: null }, accessError: 'synthetic access error',
+      setConsentRequired: vi.fn(), setError: vi.fn(),
     };
     const compiled = transpileModule(`${callback}\nglobalThis.result = reserveAnswer();`, {}).outputText;
     const result = runInNewContext(`${compiled}\nglobalThis.result`, context, { timeout: 1_000 });
