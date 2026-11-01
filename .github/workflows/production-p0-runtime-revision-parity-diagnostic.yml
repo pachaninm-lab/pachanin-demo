@@ -61,7 +61,7 @@ jobs:
           if str(inspector_path) not in workflow_text:
               raise SystemExit('TRANSPORTED_SCRIPT_PATH_MISSING')
           inspector_source = inspector_path.read_bytes()
-          if hashlib.sha256(inspector_source).hexdigest() != '9f1d013c5f4a85da815be731ef3fda12ec111ac891f53523a901db4168db07e8':
+          if hashlib.sha256(inspector_source).hexdigest() != '61872b8814b2fef3fb62524983fd05bbfe176840479c61a7f1c85d8d77918066':
               raise SystemExit('TRANSPORTED_SCRIPT_DIGEST_MISMATCH')
           text = workflow_text + '\n' + inspector_source.decode('utf-8', errors='strict')
           for marker in ('SET TRANSACTION READ ONLY', 'statement_timeout', "'deployment_authorized': False", 'def validate_report('):
@@ -102,6 +102,11 @@ jobs:
           retention = diagnostic.split('      - name: Preserve validated read-only market observations\n', 1)[1]
           if not retention.startswith('        if: ' + '$' + '{{ always() }}\n'):
               raise SystemExit('VALIDATED_EVIDENCE_MUST_SURVIVE_LEGACY_FAILURE')
+          for marker in ('module.' + 'validate_original_purpose_record(text, sources)',
+                         'module.' + 'validate_original_envelope(value, sys.argv[1])',
+                         '--original-volume-' + 'inventory'):
+              if workflow_text.count(marker) != 1:
+                  raise SystemExit('ORIGINAL19_PURPOSE_OR_PROFILE_GATE_MISSING')
           forbidden = [
               'docker ' + 'restart', 'docker ' + 'rm', 'docker ' + 'stop',
               'docker ' + 'kill', 'docker ' + 'compose up', 'docker ' + 'compose run',
@@ -125,6 +130,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           python3 -B scripts/test-production-market-release-preflight.py
+          python3 -B scripts/test-production-market-release-preflight.py --native-original-gpg
 
       - name: Verify exact owner-issued provenance
         if: github.event_name == 'issue_comment'
@@ -163,6 +169,22 @@ jobs:
           [[ "$target" == "$(git rev-parse HEAD)" ]]
           [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
           [[ -z "$(git status --porcelain=v1)" ]]
+          git merge-base --is-ancestor 9b2b895b3e71648f9084d8a80a97458488ef06df "$target"
+          python3 -B - <<'PYPURPOSE'
+          import importlib.util
+          from pathlib import Path
+          path = Path('scripts/production-market-release-preflight.py')
+          spec = importlib.util.spec_from_file_location('market_preflight', path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          try:
+              text = Path('docs/platform-v7/autopilot/prompts/current-review-task.md').read_text(encoding='utf-8')
+              sources = {name: Path(name).read_bytes() for name in module.ORIGINAL_BEFORE_BLOBS}
+              digest = module.validate_original_purpose_record(text, sources)
+          except Exception:
+              raise SystemExit('ORIGINAL19_NATIVE_FD_PURPOSE_NOT_ACCEPTED')
+          print('ORIGINAL19_ACCEPTED_PURPOSE_SHA256=' + digest)
+          PYPURPOSE
           echo "sha=$target" >> "$GITHUB_OUTPUT"
 
   publication-baseline:
@@ -321,7 +343,7 @@ jobs:
           timeout 180s ssh -i "$key" -p "$port" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$known" -o ConnectTimeout=15 \
-            "$user@$host" "python3 - '$TARGET_SHA'" \
+            "$user@$host" "python3 - '$TARGET_SHA' --original-volume-inventory" \
             < scripts/production-market-release-preflight.py > "$preflight_raw" 2>/dev/null || preflight_status=$?
           if (( preflight_status != 0 )); then
             case "$preflight_status" in
@@ -346,11 +368,18 @@ jobs:
                   raw = handle.read(module.MAX_BYTES + 1)
               if not 0 < len(raw) <= module.MAX_BYTES:
                   raise ValueError('BOUNDS')
-              report = module.validate_report(json.loads(raw.decode('utf-8', errors='strict')), sys.argv[1])
+              value = module.original_json(raw)
+              if value.get('schema') == 'pc-crop.market-original-inventory-envelope.v1':
+                  envelope = module.validate_original_envelope(value, sys.argv[1])
+                  report = envelope['market_preflight']
+              else:
+                  # Preserve strict v6 admission for historical/default diagnostics.
+                  report = module.validate_report(value, sys.argv[1])
+                  envelope = None
               report['transported_source_sha256'] = hashlib.sha256(source.read_bytes()).hexdigest()
               report['source_migration_comparison'] = module.source_lineage(report['migration_inventory'], pathlib.Path('apps/api/prisma/migrations'))
               report['outbox_source_comparison'] = module.outbox_source_comparison(report['outbox_topology'], pathlib.Path('apps/api/prisma/migrations'))
-              payload = json.dumps(report, sort_keys=True, ensure_ascii=True, separators=(',', ':')) + '\n'
+              payload = json.dumps(envelope if envelope is not None else report, sort_keys=True, ensure_ascii=True, separators=(',', ':')) + '\n'
               if len(payload.encode()) > module.MAX_BYTES:
                   raise ValueError('BOUNDS')
               destination = pathlib.Path(sys.argv[3])
@@ -365,6 +394,9 @@ jobs:
                   available = str(sample['available_bytes']) if sample['status'] == 'OBSERVED_METADATA_ONLY' else 'NOT_PROVEN'
                   lines += ['- ' + name + ' filesystem: `' + sample['status'] + '`; available bytes: `' + available + '`']
               lines += ['- filesystem admission: `NOT_GRANTED`']
+              if envelope is not None:
+                  witness = envelope['original_inventory']
+                  lines += ['- authenticated original inventory: `' + witness['status'] + '`; restore: `NOT_PERFORMED`']
               with pathlib.Path(sys.argv[4]).open('a', encoding='utf-8') as summary:
                   summary.write('\n'.join(lines) + '\n')
               print('MARKET_PREFLIGHT_COLLECTION=VALIDATED_READ_ONLY')
