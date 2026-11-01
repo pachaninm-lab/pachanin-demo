@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-first-prompt-consent-20261101",
+  "branch": "fix/gekta-first-prompt-consent-20261101",
+  "status": "active",
+  "ownerBasis": "Explicit owner 2026-11-01 Gekta audit remediation instruction.",
+  "purpose": "G-A02 P0: manual first question reveals the existing consent notice from discovery, preserves the draft, and resumes once only after explicit successful server confirmation. Visible reservation errors and first-submit concurrency guard.",
+  "allowedPaths": [
+    "apps/web/components/gekta/GektaChatWorkspace.tsx",
+    "apps/web/components/gekta/GektaConsentDialog.tsx",
+    "apps/web/components/gekta/GektaComposer.tsx",
+    "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-first-prompt-consent-20261101.json"
+  ],
+  "boundaries": [
+    "Only first-submit/consent intent and access error behavior with real component tests. Preserve passive focus deferral, signed notice submission, server entitlement and ticket authority. Cancelled or changed chat/language invalidates pending intent; Composer exports its existing attachment-only prompt for the same consent flow. Behavioral regressions run in the existing CI-executed voice/legal suite without workflow or registry exclusions.",
+    "No legal acceptance in a real session, no role/entitlement bypass, no provider/model, persistent schema, global workflow/guard/state, CORE, host or visual redesign.",
+    "Component test server responses are synthetic fixtures; live legal/account/mobile acceptance remains pending."
+  ],
+  "virtualServerDeploymentState": "pending"
+}
