@@ -830,7 +830,7 @@ if (branch === 'ops/production-api-only-release-20261101') {
   const expectedPurpose = {"owner":"ACCOUNT_1_CORE","base":"19c157cee4b598175401d3266856450788a8d8ae","sourceBranch":"ops/production-api-only-release-20261101","guardBranch":"governance/industrial-load-diagnostics-20260919","record":"docs/platform-v7/autopilot/prompts/current-review-task.md#ap2","sourcePublicationAuthorized":false,"productionInvocationAuthorized":false,"productionAcceptance":false,"masterCredit":0};
   const purposeSha256 = '1d09e1472c66ce47e273c1cec90f798688a9d4d904679ec7a3787f5384061e25';
   // API_ONLY_RELEASE_SOURCE_PINS_V1_BEGIN
-  const apiOnlySourcePins = [{"path":"scripts/release/verify-api-schema-source-parity.mjs","mode":"100644","beforeBlob":null,"afterBlob":"b0a5c61ae649d10d12a6b2ce5778b0497d0c326b","sha256":"84da6347e8ced2f9b78766c94ec9f5b050c3a1a6b955dc7e20b5faa86e330edf","bytes":5553},{"path":"scripts/release/test-api-schema-source-parity.mjs","mode":"100644","beforeBlob":null,"afterBlob":"251400154716db3c48e0572f76a7e30fe15f393f","sha256":"821529f50fa62e974d7e9fd57f9f462d9b54db562050f913fc3a0583fd7a8cf2","bytes":9995},{"path":"scripts/release/api-only-release-controller.py","mode":"100644","beforeBlob":null,"afterBlob":"d8ea1ddbd801f2638c91dc84e1f5dfc417e9ec12","sha256":"0cc99b45b9ade3c2a2085e3b0800df31051a39e81d901988c4f49a06ef602ebc","bytes":104009},{"path":"scripts/release/test-api-only-release-controller.py","mode":"100644","beforeBlob":null,"afterBlob":"ab0d52cac3c4506e8bac7a245e5837600d79abbb","sha256":"abc10be3a86f1c99ddde24aa8aaeb9454810be7dc18d2512604c91e767f7755a","bytes":54942},{"path":".github/workflows/production-api-only-release.yml","mode":"100644","beforeBlob":null,"afterBlob":"74a4345b57973e1baceece3ac1124cf2ac06535d","sha256":"fb471e8a95a19247520027f388df1eb84406e3a825eeca339fee53c54f8338c5","bytes":24441},{"path":"docs/ops/production-api-only-release.md","mode":"100644","beforeBlob":null,"afterBlob":"7c4b724763efe2a578730aeace41a267c01c5a9b","sha256":"72b9eb15fc400ca7e45eaa9dedb70b5c676061e849807e069923c2091e594e6a","bytes":8936}];
+  const apiOnlySourcePins = [{"path":"scripts/release/verify-api-schema-source-parity.mjs","mode":"100644","beforeBlob":null,"afterBlob":"b0a5c61ae649d10d12a6b2ce5778b0497d0c326b","sha256":"84da6347e8ced2f9b78766c94ec9f5b050c3a1a6b955dc7e20b5faa86e330edf","bytes":5553},{"path":"scripts/release/test-api-schema-source-parity.mjs","mode":"100644","beforeBlob":null,"afterBlob":"251400154716db3c48e0572f76a7e30fe15f393f","sha256":"821529f50fa62e974d7e9fd57f9f462d9b54db562050f913fc3a0583fd7a8cf2","bytes":9995},{"path":"scripts/release/api-only-release-controller.py","mode":"100644","beforeBlob":null,"afterBlob":"f9adfea6dbb238de3ffe9c83df3566edf1072996","sha256":"d13e193b5fbc47a37a19c50bd2815f1afb098011c20c1d1ad352825753ec669b","bytes":104702},{"path":"scripts/release/test-api-only-release-controller.py","mode":"100644","beforeBlob":null,"afterBlob":"0b9c353cc56152bc3bd1af972b04f790596ece13","sha256":"f561cb6e0e38951b915610c9e3e7e3c711a2ad61b034ef1a2e1a8b4ce0ee4100","bytes":58961},{"path":".github/workflows/production-api-only-release.yml","mode":"100644","beforeBlob":null,"afterBlob":"74a4345b57973e1baceece3ac1124cf2ac06535d","sha256":"fb471e8a95a19247520027f388df1eb84406e3a825eeca339fee53c54f8338c5","bytes":24441},{"path":"docs/ops/production-api-only-release.md","mode":"100644","beforeBlob":null,"afterBlob":"7c4b724763efe2a578730aeace41a267c01c5a9b","sha256":"72b9eb15fc400ca7e45eaa9dedb70b5c676061e849807e069923c2091e594e6a","bytes":8936}];
   // API_ONLY_RELEASE_SOURCE_PINS_V1_END
   const pins = apiOnlySourcePins;
   const paths = pins.map(pin => pin.path);
@@ -926,6 +926,21 @@ if (branch === 'ops/production-api-only-release-20261101') {
       fullPurpose.sourceBranch !== branch || fullPurpose.authorityBaseExactMain !== origin ||
       !isDeepStrictEqual(fullPurpose.sourcePaths, paths) ||
       !isDeepStrictEqual(fullPurpose.sourceStagePaths, [stateFile, ...paths])) fail('AP2_RECORD_CONTENT');
+  // AP4 retains the original AP2 purpose and separately binds the reviewed
+  // two-payload lock correction from accepted BASE metadata.
+  const correctionPieces = review.split('\n## AP4\n');
+  if (correctionPieces.length !== 2) fail('AP4_RECORD_IDENTITY');
+  const correctionStarts = correctionPieces[1].split('AP4_SOURCE_RECORD_BEGIN\n');
+  if (correctionStarts.length !== 2) fail('AP4_RECORD_FORMAT');
+  const correctionEnds = correctionStarts[1].split('\nAP4_SOURCE_RECORD_END');
+  if (correctionEnds.length !== 2) fail('AP4_RECORD_FORMAT');
+  const correctionText = correctionEnds[0];
+  const correction = strictJson(correctionText).parsed;
+  if (createHash('sha256').update(correctionText).digest('hex') !== 'bc477be3ca04a16a55f9ffc479e87c960eda750fdac48b266889ac0825bba482'
+      || correction.schema !== 'pc.api-only-lock-payload-correction.v1'
+      || correction.owner !== 'ACCOUNT_1_CORE' || correction.sourceBranch !== branch
+      || correction.originalPurposeSHA256 !== purposeSha256
+      || !isDeepStrictEqual(correction.sourcePins, pins)) fail('AP4_RECORD_CONTENT');
   if (!/^[0-9a-f]{40}$/.test(headRef) || !/^[0-9a-f]{40}$/.test(baseRef)) fail('EXACT_REFS');
   try {
     if (git(['rev-parse', `${baseRef}^{commit}`]).trim() !== baseRef ||
