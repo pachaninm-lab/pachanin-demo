@@ -105,100 +105,100 @@ type Lexicon = Readonly<Record<string, readonly string[]>>;
 
 /** Canonical label -> surface forms across the three supported languages. */
 const CROPS: Lexicon = {
-  wheat: ['пшениц', 'wheat', '小麦'],
-  barley: ['ячмен', 'barley', '大麦'],
-  maize: ['кукуруз', 'maize', 'corn', '玉米'],
-  sunflower: ['подсолнеч', 'sunflower', '向日葵'],
-  rapeseed: ['рапс', 'rapeseed', 'canola', '油菜'],
-  soy: ['сое', 'соя', 'сои', 'soy', 'soybean', '大豆'],
-  rye: ['рожь', 'ржи', 'rye', '黑麦'],
-  oats: ['овс', 'oat', '燕麦'],
-  potato: ['картоф', 'potato', '马铃薯', '土豆'],
-  sugarbeet: ['свекл', 'sugar beet', 'sugarbeet', '甜菜'],
-  rice: ['рис', 'rice', '水稻'],
-  apple: ['яблон', 'apple', '苹果'],
-  tomato: ['томат', 'помидор', 'tomato', '番茄'],
-  pea: ['горох', 'pea', '豌豆'],
+  wheat: ['пшениц*', 'wheat', '小麦'],
+  barley: ['ячмен*', 'barley', '大麦'],
+  maize: ['кукуруз*', 'maize', 'corn', '玉米'],
+  sunflower: ['подсолнеч*', 'sunflower', '向日葵'],
+  rapeseed: ['рапс', 'рапса', 'рапсу', 'рапсом', 'рапсе', 'рапсов*', 'rapeseed', 'canola', '油菜'],
+  soy: ['соев*', 'соя', 'сои', 'сою', 'соей', 'soy', 'soybean', 'soybeans', '大豆'],
+  rye: ['рожь', 'ржи', 'рожью', 'rye', '黑麦'],
+  oats: ['овес', 'овса', 'овсу', 'овсом', 'овсе', 'овсы', 'овсов', 'овсяный', 'овсяная', 'овсяное', 'овсяные', 'овсяного', 'овсяной', 'овсяному', 'овсяным', 'овсяными', 'овсяных', 'овсяную', 'oat', 'oats', '燕麦'],
+  potato: ['картоф*', 'potato', '马铃薯', '土豆'],
+  sugarbeet: ['свекл*', 'sugar beet', 'sugarbeet', '甜菜'],
+  rice: ['рис', 'риса', 'рису', 'рисом', 'рисе', 'рисовый', 'рисовая', 'рисовое', 'рисовые', 'рисового', 'рисовой', 'рисовому', 'рисовым', 'рисовыми', 'рисовую', 'рисовых', 'рисовод*', 'rice', '水稻'],
+  apple: ['яблон*', 'apple', '苹果'],
+  tomato: ['томат*', 'помидор*', 'tomato', '番茄'],
+  pea: ['горох', 'гороха', 'гороху', 'горохом', 'горохе', 'горохов*', 'pea', '豌豆'],
 };
 
 const ANIMALS: Lexicon = {
-  cattle: ['корова', 'коров', 'кру', 'скот', 'cattle', 'cow', '奶牛', '肉牛'],
-  pig: ['свин', 'pig', 'swine', '猪'],
-  poultry: ['птиц', 'кур', 'бройлер', 'poultry', 'chicken', 'broiler', '家禽', '肉鸡'],
-  sheep: ['овц', 'баран', 'sheep', '绵羊'],
-  goat: ['коз', 'goat', '山羊'],
-  fish: ['рыб', 'аквакульт', 'fish', 'aquaculture', '水产'],
+  cattle: ['корова', 'коров*', 'крс', 'скот', 'скота', 'скоту', 'скотом', 'скоте', 'скотовод*', 'cattle', 'cow', 'cows', '奶牛', '肉牛'],
+  pig: ['свинья', 'свиньи', 'свиней', 'свинью', 'свинье', 'свиньей', 'свиньям', 'свиньями', 'свиньях', 'свиновод*', 'свинар*', 'свиноферм*', 'свиной', 'свиная', 'свиное', 'свиные', 'свиного', 'свиному', 'свиным', 'свиными', 'свиных', 'свиную', 'свиномат*', 'поросят*', 'поросен*', 'pig', 'pigs', 'swine', '猪'],
+  poultry: ['птиц*', 'кур', 'куры', 'курам', 'курами', 'курах', 'куриц*', 'курин*', 'бройлер*', 'poultry', 'chicken', 'chickens', 'broiler', 'broilers', '家禽', '肉鸡'],
+  sheep: ['овц*', 'баран*', 'sheep', '绵羊'],
+  goat: ['коз', 'коза', 'козы', 'козе', 'козу', 'козой', 'козою', 'козам', 'козами', 'козах', 'козел', 'козла', 'козлу', 'козлом', 'козле', 'козлы', 'козлов', 'козлам', 'козлами', 'козлах', 'козь*', 'козлен*', 'козовод*', 'козлят*', 'goat', '山羊'],
+  fish: ['рыб*', 'аквакульт*', 'fish', 'aquaculture', '水产'],
 };
 
 const MACHINERY: Lexicon = {
-  tractor: ['трактор', 'tractor', '拖拉机'],
-  combine: ['комбайн', 'combine', 'harvester', '联合收割机'],
-  seeder: ['сеялк', 'посевн', 'seeder', 'drill', '播种机'],
-  sprayer: ['опрыскиват', 'sprayer', '喷雾机'],
-  plough: ['плуг', 'борон', 'культиват', 'plough', 'plow', 'harrow', 'cultivator', '犁'],
-  truck: ['грузовик', 'самосвал', 'truck', '卡车'],
-  dryer: ['сушилк', 'dryer', '烘干机'],
+  tractor: ['трактор*', 'tractor', '拖拉机'],
+  combine: ['комбайн*', 'combine', 'harvester', '联合收割机'],
+  seeder: ['сеялк*', 'посевн*', 'seeder', 'drill', '播种机'],
+  sprayer: ['опрыскиват*', 'sprayer', '喷雾机'],
+  plough: ['плуг*', 'борон*', 'культиват*', 'plough', 'plow', 'harrow', 'cultivator', '犁'],
+  truck: ['грузовик*', 'самосвал*', 'truck', '卡车'],
+  dryer: ['сушилк*', 'dryer', '烘干机'],
 };
 
 const DISEASES: Lexicon = {
-  rust: ['ржавчин', 'rust', '锈病'],
-  mildew: ['мучнист', 'mildew', '白粉病'],
-  blight: ['фитофтор', 'blight', '疫病'],
-  scab: ['парш', 'scab', '黑星病'],
-  rot: ['гнил', 'rot', '腐病'],
-  septoria: ['септориоз', 'septoria', '壳针孢'],
-  fusarium: ['фузариоз', 'fusarium', '镰刀菌'],
+  rust: ['ржавчин*', 'rust', '锈病'],
+  mildew: ['мучнист*', 'mildew', '白粉病'],
+  blight: ['фитофтор*', 'blight', '疫病'],
+  scab: ['парш*', 'scab', '黑星病'],
+  rot: ['гнил*', 'rot', '腐病'],
+  septoria: ['септориоз*', 'septoria', '壳针孢'],
+  fusarium: ['фузариоз*', 'fusarium', '镰刀菌'],
 };
 
 const PESTS: Lexicon = {
-  aphid: ['тля', 'тли', 'aphid', '蚜虫'],
-  weevil: ['долгоносик', 'weevil', '象甲'],
-  mite: ['клещ', 'mite', '螨'],
-  moth: ['совк', 'моль', 'moth', 'armyworm', '夜蛾'],
-  beetle: ['жук', 'beetle', '甲虫'],
+  aphid: ['тля', 'тли', 'тлей', 'тле', 'тлю', 'тлям', 'тлями', 'тлях', 'aphid', '蚜虫'],
+  weevil: ['долгоносик*', 'weevil', '象甲'],
+  mite: ['клещ*', 'mite', '螨'],
+  moth: ['совк*', 'моль', 'moth', 'armyworm', '夜蛾'],
+  beetle: ['жук*', 'beetle', '甲虫'],
 };
 
 const INPUTS: Lexicon = {
-  nitrogen: ['азот', 'карбамид', 'селитр', 'nitrogen', 'urea', '氮肥', '尿素'],
-  phosphorus: ['фосфор', 'phosph', '磷'],
-  potassium: ['кали', 'potassium', 'potash', '钾'],
-  fungicide: ['фунгицид', 'fungicide', '杀菌剂'],
-  herbicide: ['гербицид', 'herbicide', '除草剂'],
-  insecticide: ['инсектицид', 'insecticide', '杀虫剂'],
-  seed: ['семен', 'посевной материал', 'seed', '种子'],
-  feed: ['корм', 'рацион', 'feed', 'ration', '饲料'],
+  nitrogen: ['азот*', 'карбамид*', 'селитр*', 'nitrogen', 'urea', '氮肥', '尿素'],
+  phosphorus: ['фосфор*', 'phosph*', '磷'],
+  potassium: ['калий', 'калия', 'калию', 'калием', 'калии', 'калийн*', 'potassium', 'potash', '钾'],
+  fungicide: ['фунгицид*', 'fungicide', '杀菌剂'],
+  herbicide: ['гербицид*', 'herbicide', '除草剂'],
+  insecticide: ['инсектицид*', 'insecticide', '杀虫剂'],
+  seed: ['семен*', 'посевной материал', 'seed', '种子'],
+  feed: ['корм*', 'рацион', 'рациона', 'рациону', 'рационом', 'рационе', 'рационы', 'рационов', 'рационам', 'рационами', 'рационах', 'feed', 'ration', '饲料'],
 };
 
 const DOCUMENTS: Lexicon = {
-  contract: ['договор', 'контракт', 'contract', '合同'],
-  invoice: ['счёт', 'счет', 'накладн', 'invoice', 'waybill', '发票'],
-  certificate: ['сертификат', 'декларац', 'certificate', 'declaration', '证书'],
-  act: ['акт', 'протокол', 'act', 'report', '记录'],
+  contract: ['договор*', 'контракт*', 'contract', '合同'],
+  invoice: ['счет', 'счета', 'счету', 'счетом', 'счете', 'счетов', 'счетам', 'счетами', 'счетах', 'накладн*', 'invoice', 'waybill', '发票'],
+  certificate: ['сертификат*', 'декларац*', 'certificate', 'declaration', '证书'],
+  act: ['акт', 'акта', 'акту', 'актом', 'акте', 'акты', 'актов', 'актам', 'актами', 'актах', 'протокол*', 'act', 'report', '记录'],
 };
 
 const DOMAIN_TERMS: Readonly<Record<Exclude<ConversationDomain, 'general'>, readonly string[]>> = {
-  crop: ['урожай', 'посев', 'поле', 'почв', 'удобрен', 'сорт', 'всход', 'агроном', 'полив', 'орошен',
-    'yield', 'sowing', 'field', 'soil', 'fertil', 'variety', 'agronom', 'irrigation',
+  crop: ['урожай*', 'посев*', 'поле', 'поля', 'полей', 'полям', 'полях', 'полев*', 'почв*', 'удобрен*', 'сорт*', 'всход*', 'агроном*', 'полив*', 'орошен*',
+    'yield', 'sowing', 'field', 'soil', 'fertil*', 'variety', 'agronom*', 'irrigation',
     '产量', '播种', '田', '土壤', '肥', '品种', '灌溉'],
-  livestock: ['надо', 'привес', 'стад', 'ферм', 'ветеринар', 'рацион', 'доен',
-    'milk yield', 'herd', 'veterinar', 'ration', 'weight gain',
+  livestock: ['надой', 'надои', 'надоя', 'надою', 'надоем', 'надое', 'надоев', 'надоям', 'надоями', 'надоях', 'надоен*', 'удой', 'удои', 'удоя', 'удою', 'удоем', 'удое', 'удоев', 'удоям', 'удоями', 'удоях', 'привес*', 'стадо', 'стада', 'стаду', 'стадом', 'стаде', 'стад', 'стадам', 'стадами', 'стадах', 'ветеринар*', 'рацион', 'рациона', 'рациону', 'рационом', 'рационе', 'рационы', 'рационов', 'рационам', 'рационами', 'рационах', 'доен*',
+    'milk yield', 'herd', 'veterinar*', 'ration', 'weight gain',
     '产奶', '牛群', '兽医', '日粮'],
-  machinery: ['двигател', 'гидравлик', 'навеск', 'мощност', 'л.с', 'ремонт', 'запчаст',
-    'engine', 'hydraulic', 'horsepower', 'repair', 'spare part',
+  machinery: ['двигател*', 'гидравлик*', 'навеск*', 'мощност*', 'л.с', 'ремонт*', 'запчаст*',
+    'engine', 'hydraulic', 'horsepower', 'repair', 'spare part*',
     '发动机', '液压', '马力', '维修'],
-  storage: ['склад', 'хранен', 'элеватор', 'сушк', 'влажност зерна', 'силос',
+  storage: ['склад*', 'хранен*', 'элеватор*', 'сушк*', 'влажност зерна*', 'силос*',
     'storage', 'elevator', 'drying', 'silo',
     '仓储', '烘干', '筒仓'],
-  logistics: ['перевозк', 'логистик', 'достав', 'вагон', 'фрахт', 'маршрут',
+  logistics: ['перевозк*', 'логистик*', 'достав*', 'вагон*', 'фрахт*', 'маршрут*',
     'logistics', 'shipment', 'freight', 'delivery', 'route',
     '物流', '运输', '运费'],
-  trade: ['продаж', 'закуп', 'экспорт', 'импорт', 'тендер', 'аукцион', 'покупател', 'поставщик',
+  trade: ['продаж*', 'закуп*', 'экспорт*', 'импорт*', 'тендер*', 'аукцион*', 'покупател*', 'поставщик*',
     'sale', 'purchase', 'export', 'import', 'tender', 'auction', 'buyer', 'supplier',
     '销售', '采购', '出口', '进口', '招标'],
-  economics: ['рентабельн', 'себестоимост', 'маржа', 'окупаем', 'кредит', 'субсид', 'страхован',
-    'profitab', 'cost price', 'margin', 'payback', 'credit', 'subsidy', 'insurance',
+  economics: ['рентабельн*', 'себестоимост*', 'маржа*', 'окупаем*', 'кредит*', 'субсид*', 'страхован*',
+    'profitab*', 'cost price', 'margin', 'payback', 'credit', 'subsidy', 'insurance',
     '利润', '成本', '补贴', '保险'],
-  platform: ['платформ', 'личный кабинет', 'регистрац', 'прозрачная цена',
+  platform: ['платформ*', 'личный кабинет', 'регистрац*', 'прозрачная цена',
     'platform', 'workspace', 'sign up', 'transparent price',
     '平台', '注册', '透明价格'],
 };
@@ -322,7 +322,7 @@ export function classifyDomain(text: string): ConversationDomain | null {
   let bestScore = 0;
 
   for (const [domain, terms] of Object.entries(DOMAIN_TERMS) as [Exclude<ConversationDomain, 'general'>, readonly string[]][]) {
-    const score = terms.reduce((total, term) => (normalized.includes(normalize(term)) ? total + 1 : total), 0);
+    const score = terms.reduce((total, term) => (matchesTerm(normalized, term) ? total + 1 : total), 0);
     if (score > bestScore) {
       bestScore = score;
       best = domain;
@@ -590,10 +590,25 @@ function normalize(value: string): string {
   return value.normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/gu, 'е');
 }
 
+/**
+ * Han surface forms occur inside unspaced compounds. Other forms must begin at
+ * a Unicode word boundary; only explicitly marked stems admit an inflection.
+ * Short ambiguous forms (рис, кур, act, rice) remain complete words.
+ */
+function matchesTerm(normalized: string, form: string): boolean {
+  const prefix = form.endsWith('*');
+  const term = normalize(prefix ? form.slice(0, -1) : form);
+  if (/\p{Script=Han}/u.test(term)) return normalized.includes(term);
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&').replace(/\s+/gu, '\\s+');
+  const suffix = prefix ? (/\p{Script=Cyrillic}/u.test(term) ? '[а-я]*' : '[a-z]*')
+    : /^[a-z]+(?:\s+[a-z]+)*$/u.test(term) ? '(?:s|es)?' : '';
+  return new RegExp(`(?:^|[^\\p{L}\\p{M}\\p{N}_])${escaped}${suffix}(?=$|[^\\p{L}\\p{M}\\p{N}_])`, 'u').test(normalized);
+}
+
 function matchLexicon(normalized: string, lexicon: Lexicon): string[] {
   const found: string[] = [];
   for (const [label, forms] of Object.entries(lexicon)) {
-    if (forms.some((form) => normalized.includes(normalize(form)))) found.push(label);
+    if (forms.some((form) => matchesTerm(normalized, form))) found.push(label);
   }
   return found;
 }

@@ -20,6 +20,106 @@ function turn(state: ConversationState | null, message: string, extra: Record<st
   return advanceConversationState(state, { conversationId: CONVERSATION, message, ...extra });
 }
 
+describe('entity evidence has word boundaries', () => {
+  it.each([
+    ['Как оценить риск зерновой сделки?', undefined, undefined],
+    ['Фермер в Тамбовской области хочет узнать меры поддержки.', undefined, undefined],
+    ['The wheat price is already given.', ['wheat'], undefined],
+    ['Нужен курс обучения Excel для фермера.', undefined, undefined],
+    ['Какой насос купить? Назначение и характеристики пока не указал.', undefined, undefined],
+    ['Как хранить свинец в мастерской?', undefined, undefined],
+    ['Козырь, рапсодия и рисование.', undefined, undefined],
+    ['Рациональное планирование, стадия роста и калибровка.', undefined, undefined],
+    ['This is a partial report about the transaction.', undefined, undefined],
+  ] as const)('does not invent a crop or animal from %s', (message, crops, animals) => {
+    const state = turn(null, message);
+    expect(state.entities.crops).toEqual(crops);
+    expect(state.entities.animals).toEqual(animals);
+  });
+
+  it.each([
+    ['Выращиваю рапса.', 'rapeseed'],
+    ['Урожай гороха.', 'pea'],
+    ['The apples and potatoes are harvested.', 'apple'],
+    ['The apples and potatoes are harvested.', 'potato'],
+    ['Выращиваю рис.', 'rice'],
+    ['Уход за рисом.', 'rice'],
+    ['Выращиваем овсяные культуры.', 'oats'],
+    ['Выращиваю овёс.', 'oats'],
+    ['Урожай овса.', 'oats'],
+    ['We grow oats and soybeans.', 'oats'],
+    ['We grow oats and soybeans.', 'soy'],
+    ['为什么小麦发黄？', 'wheat'],
+    ['水稻种植', 'rice'],
+  ] as const)('keeps actual crop evidence in %s', (message, crop) => {
+    expect(turn(null, message).entities.crops).toContain(crop);
+  });
+
+  it.each([
+    ['У меня коза.', 'goat'],
+    ['Что происходит со свиньёй?', 'pig'],
+    ['В козьем молоке снизился жир.', 'goat'],
+    ['Скотоводство в хозяйстве.', 'cattle'],
+    ['Козоводство в хозяйстве.', 'goat'],
+    ['Как ухаживать за козлёнком?', 'goat'],
+    ['Проблема у козлов.', 'goat'],
+    ['Развожу козы.', 'goat'],
+    ['Содержание скота.', 'cattle'],
+    ['Свиноматки перестали есть.', 'pig'],
+    ['Чем кормить коров?', 'cattle'],
+    ['Учёт КРС.', 'cattle'],
+    ['Кормление свиней.', 'pig'],
+    ['Содержание кур.', 'poultry'],
+    ['The chickens need feed.', 'poultry'],
+    ['饲养奶牛', 'cattle'],
+  ] as const)('keeps actual animal evidence in %s', (message, animal) => {
+    expect(turn(null, message).entities.animals).toContain(animal);
+  });
+
+  it.each([
+    'Я фермер, начинаю вести учёт в 1С.',
+    'Мне надо сделать отчёт в Excel.',
+    'Нужен курс обучения Excel для фермера.',
+  ] as const)('does not turn a general farm profile into livestock: %s', (message) => {
+    expect(classifyDomain(message)).not.toBe('livestock');
+  });
+
+  it.each(['Как увеличить надои?', 'Причины снижения надоев.'])('keeps actual milk-yield evidence: %s', (message) => {
+    expect(classifyDomain(message)).toBe('livestock');
+  });
+
+  it('keeps machinery, pest, input, storage and document inflections', () => {
+    expect(turn(null, 'The tractors need service.').entities.machinery).toContain('tractor');
+    expect(turn(null, 'Что делать с тлёй?').entities.pests).toContain('aphid');
+    expect(turn(null, 'There are aphids on the crop.').entities.pests).toContain('aphid');
+    expect(turn(null, 'Compare herbicides.').entities.inputs).toContain('herbicide');
+    expect(turn(null, 'Подписали акты.').entities.documents).toContain('act');
+    expect(classifyDomain('Зерно хранится в силосах.')).toBe('storage');
+    expect(turn(null, 'Калина растёт в саду.').entities.inputs).toBeUndefined();
+  });
+
+  it('clears a former crop when the new subject is a goat', () => {
+    const state = turn(turn(null, 'Выращиваю пшеницу.'), 'Теперь у меня коза.');
+    expect(state.domain).toBe('livestock');
+    expect(state.animal?.species).toBe('goat');
+    expect(state.crop).toBeUndefined();
+  });
+
+  it('does not infer a signed act from characteristics', () => {
+    expect(turn(null, 'Нужны характеристики насоса.').entities.documents).toBeUndefined();
+  });
+
+  it('preserves entity evidence through a long dialogue and a genuine topic change', () => {
+    let state = turn(null, 'Выращиваю овёс на поле.');
+    for (let index = 0; index < 12; index += 1) state = turn(state, 'А если после дождя?');
+    expect(state.crop?.name).toBe('oats');
+    state = turn(state, 'Как выбрать трактор для хозяйства?');
+    expect(state.machine?.type).toBe('tractor');
+    expect(state.crop).toBeUndefined();
+    expect(state.entities.crops).toBeUndefined();
+  });
+});
+
 describe('conversation language', () => {
   it('detects the three supported scripts', () => {
     expect(detectLanguage('Почему желтеет пшеница?')).toBe('ru');
