@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-latest-history-20261101",
+  "branch": "fix/gekta-latest-history-20261101",
+  "status": "active",
+  "ownerBasis": "Explicit owner instruction on 2026-11-01 in the Gekta audit conversation to implement findings and test alongside changes.",
+  "purpose": "Resolve G-A05: retain the newest valid conversation turns and latest corrections within unchanged turn and character budgets at both public BFF and model service boundaries.",
+  "allowedPaths": [
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-latest-history-20261101.json"
+  ],
+  "boundaries": [
+    "No model/prompt, safety policy, limits, host/runtime, DB, roles, consent, secret transport or CORE release change.",
+    "No global scope/state/queue, guards, workflows or accepted frozen purpose modification.",
+    "Tests intercept the provider boundary only; they do not establish model quality or deployed behavior.",
+    "Exact-head independent review, applicable substantive CI and canonical manual acceptance required before merge."
+  ],
+  "virtualServerDeploymentState": "pending"
+}
