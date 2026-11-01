@@ -6149,3 +6149,1051 @@ Independent review of this actual metadata head is REQUIRED. Native Codex generi
 Order: actually accept this one-document purpose; then ordinary ancestry-preserving two-file trusted guard amendment on this same retained governance ref with full applicable native/security/READY/manual gates; then recompose the existing6030 branch on actual accepted guard main and replace ONLY the two corrected payloads inside its original six additions plus unchanged348B state insertion. Four payloads, original six paths, AP2 literal hash1d09e147 and every foreign leaf remain. New corrected actualwhole7 review/native27+70/realPG/four negativecases/cleanup/preflight/Kubernetes/security/currentREADY/manual acceptance is mandatory. Old c17 native success remains historical, not transferred acceptance.
 
 No source is published by this metadata. No host command, lock/journal replay, release, backup/restore execution, data/key/volume cleanup, bank/FGIS operation, new cost or MASTER credit. Full UX/BANK/FGIS and production remain OPEN.
+
+
+## Original19 authenticated inventory read purpose - 2026-11-01
+
+This metadata-only refinement belongs to existing ACCOUNT_1_CORE and the retained
+ops/farmer-market-release-preflight-20260916 observer. It changes no executable
+path, state vector, scope manifest, queue, PRIMARY/current/next, score or owner.
+It records the narrow native-FD read purpose needed to compare the authenticated
+original nineteen volume names with a fresh current set. The exact three future
+payloads below are private proposals, not accepted executable source.
+
+The original stat-only key authorities, both preservation copies, SPENT/UNKNOWN
+journals, rollback reserves and all original19 volumes remain protected. Native
+GPG may consume the fixed original key only through its inherited read-only FD
+after separate source acceptance and a new finite owner-command read-only window.
+No Python key-content read, plaintext/name/key export, extraction, file installation,
+restore, replay, startup, deployment, database mutation or external transaction
+is granted. A successful authenticated witness proves only inventory identity,
+not backup freshness, successful restore, DB compatibility or release eligibility.
+
+Accept this one-document purpose first. Then compose only the three pinned source
+changes on the existing observer ref, preserve its history and unchanged v6 default,
+and obtain actual full-head independent review, separate owner audit, complete
+applicable native/security checks, fresh readiness and ordinary expected-SHA manual
+merge. Prior/private/metadata tests are never transferred to the published source.
+Any later host read still needs its own finite existing-owner command and actual
+legacy-operation fence. HOST_WINDOW=NONE; productionInvocationAuthorized=false.
+
+<!-- PC_ORIGINAL19_NATIVE_FD_PURPOSE_V1_BEGIN -->
+```text
+{
+  "schema": "pc.original19-native-fd-purpose.v1",
+  "purposeId": "market-original-inventory-witness-20261101",
+  "owner": "ACCOUNT_1_CORE",
+  "authorityBaseExactMain": "9b2b895b3e71648f9084d8a80a97458488ef06df",
+  "sourceBranch": "ops/farmer-market-release-preflight-20260916",
+  "nativeFdReadPurpose": "AUTHENTICATED_ORIGINAL19_INVENTORY_ONLY",
+  "readOnly": true,
+  "productionMutationAuthorized": false,
+  "originalReceiptRunId": "39779050389",
+  "originalCiphertextBytes": 389954515,
+  "originalCiphertextSha256": "800264a1819ba26869e4b79d1f6874dc5078aa982ab333fdd999629f6b490603",
+  "authorityGranted": "SOURCE_PURPOSE_ONLY_SEPARATE_FINITE_OWNER_COMMAND_REQUIRED",
+  "productionInvocationAuthorized": false,
+  "releaseAuthorized": false,
+  "masterCredit": 0,
+  "sourcePins": [
+    {
+      "path": ".github/workflows/production-p0-runtime-revision-parity-diagnostic.yml",
+      "mode": "100644",
+      "beforeBlob": "b798a3de2e412a19d6821cb388657389403bd2f4",
+      "afterBlob": "8e9becc5c9a2e3f35d1131a8252a7e4ba545badc",
+      "bytes": 34275,
+      "sha256": "60f0f49f1ee80b4c48e027020b0dc0f06dbe2e2b696a82d231807847c156c736"
+    },
+    {
+      "path": "scripts/production-market-release-preflight.py",
+      "mode": "100644",
+      "beforeBlob": "19928c77b2ed4b6663ddc95b66f0c00d706904ca",
+      "afterBlob": "2ef217b6d9b8e730f4fe45538260b338e21621fe",
+      "bytes": 166750,
+      "sha256": "61872b8814b2fef3fb62524983fd05bbfe176840479c61a7f1c85d8d77918066"
+    },
+    {
+      "path": "scripts/test-production-market-release-preflight.py",
+      "mode": "100644",
+      "beforeBlob": "abd503ec9083fb570a2970acc1ff5b39a746329e",
+      "afterBlob": "43422d6d9c39ec8562e2b3b2d914737a1110b338",
+      "bytes": 204536,
+      "sha256": "af126ed0c1e1f85e24f77a969684acdf28ae95fe1b59523bc758f03dd8f228d8"
+    }
+  ]
+}
+```
+<!-- PC_ORIGINAL19_NATIVE_FD_PURPOSE_V1_END -->
+
+
+### Complete private source patch
+
+The immutable UTF-8 patch below is recovery/review material only. It must not be
+executed from this document. The public executable tree still retains all three
+before blobs until a separately accepted source PR. Old missing candidate blobs
+and earlier private287+6 results are historical and are not reused.
+
+```diff
+diff --git a/scripts/production-market-release-preflight.py b/scripts/production-market-release-preflight.py
+index 19928c77b2ed4b6663ddc95b66f0c00d706904ca..2ef217b6d9b8e730f4fe45538260b338e21621fe 100644
+--- a/scripts/production-market-release-preflight.py
++++ b/scripts/production-market-release-preflight.py
+@@ -2263,6 +2263,510 @@
+     return result
+ 
+ 
++# Original-volume inventory is a separately admitted read purpose, never release authority.
++ORIGINAL_RECEIPT = {
++    'schemaVersion': 'pc.cold-preservation.v1',
++    'targetSha': 'a509789c22298375130d70fde95915b8daa7634a', 'runId': '39779050389',
++    'passed': True, 'status': 'ENCRYPTED_COLD_PRESERVATION_VERIFIED',
++    'ciphertextBytes': 389954515,
++    'ciphertextSha256': '800264a1819ba26869e4b79d1f6874dc5078aa982ab333fdd999629f6b490603',
++    'entries': 8547, 'sourceBytes': 520405747, 'volumes': 19,
++    'sourceUnchanged': True, 'runtimeUnchanged': True, 'runtimeRestored': False,
++    'databaseIntegrity': 'NOT_ATTESTED', 'restoreVerification': 'NOT_PERFORMED',
++    'offHostRecovery': 'NOT_ESTABLISHED',
++}
++ORIGINAL_ROOT = '/var/lib/pc-release-authority/backups/cold-preservation-20261022'
++ORIGINAL_MANIFEST = 'pc-cold-preservation-manifest.json'
++ORIGINAL_MANIFEST_LIMIT = 16 * 1024 * 1024
++ORIGINAL_PLAINTEXT_LIMIT = 2 * 1024**3
++ORIGINAL_STATUS_LIMIT = 65536
++ORIGINAL_SECONDS = 90
++ORIGINAL_NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,254}\Z')
++ORIGINAL_FAILURES = frozenset({'IDENTITY', 'RECEIPT', 'CIPHER', 'DEADLINE', 'GPG',
++    'AUTHENTICATION', 'MANIFEST', 'ARCHIVE', 'CURRENT', 'DRIFT', 'BOUNDS', 'UNAVAILABLE'})
++
++
++class OriginalRefusal(ValueError):
++    pass
++
++
++def original_require(condition: Any, code: str) -> None:
++    if not condition:
++        raise OriginalRefusal(code)
++
++
++def original_check_deadline(deadline: float) -> None:
++    original_require(time.monotonic() < deadline, 'DEADLINE')
++
++
++def original_json(raw: bytes) -> Any:
++    def pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
++        value: dict[str, Any] = {}
++        for key, item in items:
++            original_require(key not in value, 'MANIFEST')
++            value[key] = item
++        return value
++    def invalid(_: str) -> None:
++        raise OriginalRefusal('MANIFEST')
++    try:
++        return json.loads(raw.decode('utf-8', errors='strict'), object_pairs_hook=pairs,
++                          parse_constant=invalid)
++    except (ValueError, UnicodeError, RecursionError):
++        raise OriginalRefusal('MANIFEST') from None
++
++
++def original_token(info: Any) -> tuple[Any, ...]:
++    return (info.st_dev, info.st_ino, info.st_mode, info.st_uid, info.st_gid, info.st_nlink,
++            info.st_size, info.st_atime_ns, info.st_mtime_ns, info.st_ctime_ns)
++
++
++def original_directory(path: str) -> list[int]:
++    """Fixed descriptor-only traversal; no symlink, directory enumeration or atime write."""
++    original_require(path == ORIGINAL_ROOT and hasattr(os, 'O_NOATIME'), 'IDENTITY')
++    descriptors: list[int] = []
++    try:
++        for part in ['/', *path.split('/')[1:]]:
++            fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NOATIME,
++                         dir_fd=descriptors[-1] if descriptors else None)
++            descriptors.append(fd)
++            info = os.fstat(fd)
++            original_require(stat.S_ISDIR(info.st_mode) and info.st_uid == info.st_gid == 0
++                             and not stat.S_IMODE(info.st_mode) & 0o022, 'IDENTITY')
++        original_require(stat.S_IMODE(os.fstat(descriptors[-1]).st_mode) == 0o700
++                         and stat.S_IMODE(os.fstat(descriptors[-2]).st_mode) == 0o700, 'IDENTITY')
++        return descriptors
++    except BaseException:
++        for fd in reversed(descriptors):
++            os.close(fd)
++        raise
++
++
++def original_file(parent: int, name: str, size: int | None = None) -> int:
++    original_require(name in {'passphrase', 'preservation.tar.gpg', 'receipt.json'}, 'IDENTITY')
++    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_NONBLOCK, dir_fd=parent)
++    try:
++        info = os.fstat(fd)
++        original_require(stat.S_ISREG(info.st_mode) and info.st_uid == info.st_gid == 0
++                         and stat.S_IMODE(info.st_mode) == 0o600 and info.st_nlink == 1
++                         and 0 < info.st_size <= (ORIGINAL_PLAINTEXT_LIMIT if size is None else size)
++                         and (size is None or info.st_size == size), 'IDENTITY')
++        return fd
++    except BaseException:
++        os.close(fd)
++        raise
++
++
++def original_hash(fd: int, deadline: float) -> str:
++    os.lseek(fd, 0, os.SEEK_SET)
++    digest = hashlib.sha256()
++    count = 0
++    while True:
++        original_check_deadline(deadline)
++        block = os.read(fd, 65536)
++        if not block:
++            break
++        count += len(block)
++        original_require(count <= ORIGINAL_RECEIPT['ciphertextBytes'], 'CIPHER')
++        digest.update(block)
++    original_require(count == ORIGINAL_RECEIPT['ciphertextBytes'], 'CIPHER')
++    return digest.hexdigest()
++
++
++def original_current_names() -> tuple[str, ...]:
++    raw = run(['docker', 'volume', 'ls', '-q'])
++    original_require(type(raw) is str and len(raw) <= 19 * 256, 'CURRENT')
++    names = raw.splitlines()
++    original_require(len(names) == len(set(names)) == 19 and
++                     all(ORIGINAL_NAME.fullmatch(name) for name in names), 'CURRENT')
++    return tuple(sorted(names))
++
++
++def original_name_digests(names: tuple[str, ...]) -> tuple[str, str]:
++    canonical = json.dumps(sorted(names), ensure_ascii=True, separators=(',', ':')).encode('ascii')
++    # Historical later observations hash newline-joined current names without a final LF.
++    return hashlib.sha256(canonical).hexdigest(), hashlib.sha256('\n'.join(sorted(names)).encode('ascii')).hexdigest()
++
++
++def original_manifest(raw: bytes) -> tuple[dict[str, Any], tuple[str, ...]]:
++    original_require(0 < len(raw) <= ORIGINAL_MANIFEST_LIMIT, 'BOUNDS')
++    value = original_json(raw)
++    original_require(type(value) is dict and set(value) == {'schema', 'entries'} and
++                     value['schema'] == 'pc.cold-preservation.manifest.v1', 'MANIFEST')
++    entries = value['entries']
++    original_require(type(entries) is dict and len(entries) == ORIGINAL_RECEIPT['entries'], 'MANIFEST')
++    fields = {'kind', 'uid', 'gid', 'mode', 'mtime_ns', 'ctime_ns', 'atime_ns', 'device',
++              'inode', 'nlink', 'size', 'sha256', 'xattrs'}
++    names: set[str] = set()
++    source_bytes = path_bytes = attribute_bytes = 0
++    for path, entry in entries.items():
++        original_require(type(path) is str and 0 < len(os.fsencode(path)) <= 4096, 'MANIFEST')
++        parts = path.split('/')
++        original_require(len(parts) <= 66 and all(part not in ('', '.', '..') and '\0' not in part for part in parts)
++                         and parts[0] in {'containers', 'volumes'}, 'MANIFEST')
++        path_bytes += len(os.fsencode(path))
++        original_require(path_bytes <= 32 * 1024 * 1024 and type(entry) is dict and set(entry) == fields,
++                         'MANIFEST')
++        original_require(entry['kind'] in {'file', 'directory'}, 'MANIFEST')
++        for key in fields - {'kind', 'sha256', 'xattrs'}:
++            original_require(type(entry[key]) is int and 0 <= entry[key] < 2**63, 'MANIFEST')
++        original_require(entry['mode'] <= 0o7777 and entry['nlink'] > 0 and entry['inode'] > 0, 'MANIFEST')
++        if entry['kind'] == 'directory':
++            original_require(entry['size'] == 0 and entry['sha256'] is None, 'MANIFEST')
++        else:
++            original_require(type(entry['sha256']) is str and CHECKSUM.fullmatch(entry['sha256']), 'MANIFEST')
++            source_bytes += entry['size']
++        attrs = entry['xattrs']
++        original_require(type(attrs) is dict and len(attrs) <= 1024, 'MANIFEST')
++        for key, attr in attrs.items():
++            original_require(type(key) is str and key.startswith('user.') and len(key.encode('utf-8')) <= 255
++                             and '\0' not in key and type(attr) is dict and set(attr) == {'bytes', 'sha256'}
++                             and type(attr['bytes']) is int and 0 <= attr['bytes'] <= 16 * 1024 * 1024
++                             and type(attr['sha256']) is str and CHECKSUM.fullmatch(attr['sha256']), 'MANIFEST')
++            attribute_bytes += len(key.encode('utf-8')) + attr['bytes']
++        original_require(attribute_bytes <= 16 * 1024 * 1024, 'MANIFEST')
++        if parts[0] == 'volumes' and len(parts) >= 2:
++            original_require(ORIGINAL_NAME.fullmatch(parts[1]), 'MANIFEST')
++            names.add(parts[1])
++    original_require(source_bytes == ORIGINAL_RECEIPT['sourceBytes'] and len(names) == 19, 'MANIFEST')
++    for path, entry in entries.items():
++        parts = path.split('/')
++        for index in range(1, len(parts)):
++            original_require(entries.get('/'.join(parts[:index]), {}).get('kind') == 'directory', 'MANIFEST')
++        if len(parts) == 1 or (parts[0] == 'volumes' and len(parts) == 2):
++            original_require(entry['kind'] == 'directory', 'MANIFEST')
++    for name in names:
++        original_require(entries.get('volumes/' + name + '/_data', {}).get('kind') == 'directory', 'MANIFEST')
++    original_require(entries.get('containers', {}).get('kind') == 'directory'
++                     and entries.get('volumes', {}).get('kind') == 'directory', 'MANIFEST')
++    return entries, tuple(sorted(names))
++
++
++def original_child_limits() -> None:
++    import resource
++    parent = os.getppid()
++    libc = ctypes.CDLL(None, use_errno=True)
++    if parent == 1 or libc.prctl(1, signal.SIGKILL, 0, 0, 0) != 0 or os.getppid() != parent:
++        os._exit(125)
++    for kind, maximum in ((resource.RLIMIT_CORE, 0), (resource.RLIMIT_FSIZE, 0),
++                          (resource.RLIMIT_AS, 256 * 1024 * 1024), (resource.RLIMIT_CPU, ORIGINAL_SECONDS)):
++        _, hard = resource.getrlimit(kind)
++        limit = maximum if hard == resource.RLIM_INFINITY else min(maximum, hard)
++        resource.setrlimit(kind, (limit, limit))
++    os.umask(0o077)
++
++
++class OriginalGPGStream:
++    """Multiplex and bound both pipes; never log status arguments or plaintext."""
++    def __init__(self, cipher_fd: int, key_fd: int, deadline: float):
++        original_check_deadline(deadline)
++        self.deadline, self.total, self.status = deadline, 0, bytearray()
++        self.pending = bytearray()
++        self.process = subprocess.Popen([
++            '/usr/bin/gpg', '--no-options', '--homedir', '/nonexistent', '--no-autostart',
++            '--batch', '--no-tty', '--no-symkey-cache', '--no-keyring', '--no-random-seed-file',
++            '--lock-never', '--pinentry-mode', 'loopback', '--passphrase-fd', str(key_fd),
++            '--status-fd', '2', '--decrypt', '--output', '-'],
++            stdin=cipher_fd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
++            pass_fds=(key_fd,), env={'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LC_ALL': 'C.UTF-8'},
++            bufsize=0, start_new_session=True, preexec_fn=original_child_limits)
++        self.poller = selectors.DefaultSelector()
++        self.poller.register(self.process.stdout, selectors.EVENT_READ, 'plain')
++        self.poller.register(self.process.stderr, selectors.EVENT_READ, 'status')
++
++    def read(self, count: int) -> bytes:
++        original_require(type(count) is int and 0 < count <= 65536, 'BOUNDS')
++        while len(self.pending) < count and self.poller.get_map():
++            original_check_deadline(self.deadline)
++            events = self.poller.select(min(0.25, max(0, self.deadline - time.monotonic())))
++            for key, _ in events:
++                block = os.read(key.fileobj.fileno(), 65536)
++                if not block:
++                    self.poller.unregister(key.fileobj)
++                elif key.data == 'status':
++                    self.status.extend(block)
++                    original_require(len(self.status) <= ORIGINAL_STATUS_LIMIT, 'BOUNDS')
++                else:
++                    self.total += len(block)
++                    original_require(self.total <= ORIGINAL_PLAINTEXT_LIMIT, 'BOUNDS')
++                    self.pending.extend(block)
++        result = bytes(self.pending[:count])
++        del self.pending[:count]
++        return result
++
++    def authenticate(self) -> None:
++        original_require(not self.pending and not self.poller.get_map(), 'AUTHENTICATION')
++        original_check_deadline(self.deadline)
++        code = self.process.wait(timeout=max(0.001, self.deadline - time.monotonic()))
++        records = [line[len(b'[GNUPG:] '):].split()
++                   for line in bytes(self.status).splitlines() if line.startswith(b'[GNUPG:] ')]
++        statuses = [record[0] for record in records if record]
++        infos = [record[1:] for record in records if record and record[0] == b'DECRYPTION_INFO']
++        original_require(code == 0 and infos == [[b'2', b'9', b'0']] and
++                         all(statuses.count(word) == 1 for word in
++                         (b'BEGIN_DECRYPTION', b'GOODMDC', b'DECRYPTION_OKAY', b'END_DECRYPTION')) and not
++                         set(statuses) & {b'BADMDC', b'ERRMDC', b'DECRYPTION_FAILED', b'FAILURE', b'ERROR',
++                                          b'NODATA', b'UNEXPECTED'}, 'AUTHENTICATION')
++
++    def close(self) -> None:
++        if self.process.poll() is None:
++            os.killpg(self.process.pid, signal.SIGKILL)
++            self.process.wait(timeout=5)
++        self.poller.close()
++        self.process.stdout.close()
++        self.process.stderr.close()
++        self.status.clear()
++        self.pending.clear()
++
++
++def original_archive(stream: Any, deadline: float) -> tuple[str, ...]:
++    """Verify every authenticated tar member in memory; no extraction or saved plaintext."""
++    import tarfile
++    from decimal import Decimal, InvalidOperation
++    class BoundedTarInfo(tarfile.TarInfo):
++        def _proc_pax(self, archive):
++            original_require(0 <= self.size <= 1024 * 1024, 'BOUNDS')
++            return super()._proc_pax(archive)
++        def _proc_gnulong(self, archive):
++            original_require(0 <= self.size <= 8192, 'BOUNDS')
++            return super()._proc_gnulong(archive)
++    try:
++        with tarfile.open(fileobj=stream, mode='r|', bufsize=512, tarinfo=BoundedTarInfo,
++                          encoding='utf-8', errors='surrogateescape') as archive:
++            first = archive.next()
++            original_require(first is not None and first.name == ORIGINAL_MANIFEST and first.isfile()
++                             and 0 < first.size <= ORIGINAL_MANIFEST_LIMIT and first.uid == first.gid == 0
++                             and first.mode == 0o600 and not first.linkname, 'MANIFEST')
++            source = archive.extractfile(first)
++            original_require(source is not None, 'MANIFEST')
++            entries, names = original_manifest(source.read(ORIGINAL_MANIFEST_LIMIT + 1))
++            seen: set[str] = set()
++            # next() above leaves firstmember pending for iterator semantics.
++            for member in archive:
++                if member is first:
++                    continue
++                original_check_deadline(deadline)
++                name = member.name.rstrip('/')
++                original_require(name not in seen and name in entries, 'ARCHIVE')
++                entry = entries[name]
++                original_require(member.uid == entry['uid'] and member.gid == entry['gid']
++                                 and member.mode == entry['mode'] and
++                                 Decimal(member.pax_headers.get('mtime', str(member.mtime))) * 10**9 == entry['mtime_ns'], 'ARCHIVE')
++                attrs = {}
++                for key, value in member.pax_headers.items():
++                    if key.startswith('SCHILY.xattr.'):
++                        payload = value.encode('utf-8', 'surrogateescape')
++                        attrs[key[len('SCHILY.xattr.'):]] = {'bytes': len(payload), 'sha256': hashlib.sha256(payload).hexdigest()}
++                if entry['kind'] == 'directory':
++                    original_require(member.isdir() and member.size == 0, 'ARCHIVE')
++                elif member.islnk():
++                    target = entries.get(member.linkname)
++                    original_require(member.linkname in seen and type(target) is dict and target['kind'] == 'file'
++                                     and all(target[key] == entry[key] for key in ('device', 'inode', 'size', 'sha256', 'xattrs')), 'ARCHIVE')
++                    if not attrs:
++                        attrs = target['xattrs']
++                else:
++                    original_require(member.isfile() and member.size == entry['size'], 'ARCHIVE')
++                    source = archive.extractfile(member)
++                    original_require(source is not None, 'ARCHIVE')
++                    digest, count = hashlib.sha256(), 0
++                    while True:
++                        original_check_deadline(deadline)
++                        block = source.read(65536)
++                        if not block:
++                            break
++                        count += len(block)
++                        original_require(count <= entry['size'], 'ARCHIVE')
++                        digest.update(block)
++                    original_require(count == entry['size'] and digest.hexdigest() == entry['sha256'], 'ARCHIVE')
++                original_require(attrs == entry['xattrs'], 'ARCHIVE')
++                seen.add(name)
++            original_require(seen == set(entries), 'ARCHIVE')
++            # tarfile stops at the first end block. Drain its buffered remainder AND
++            # the native pipes through EOF; only zero tar padding may follow.
++            padding = 512
++            while True:
++                original_check_deadline(deadline)
++                block = archive.fileobj.read(65536)
++                if not block:
++                    break
++                original_require(not block.strip(b'\0'), 'ARCHIVE')
++                padding += len(block)
++            original_require(padding >= 1024, 'ARCHIVE')
++        stream.authenticate()
++        return names
++    except (tarfile.TarError, UnicodeError, InvalidOperation, OverflowError):
++        raise OriginalRefusal('ARCHIVE') from None
++
++
++def original_inventory_witness() -> dict[str, Any]:
++    """Private proposal until explicit owner purpose acceptance; no default-mode key IO."""
++    result: dict[str, Any] = {'schema': 'pc-crop.original-volume-inventory.v1', 'status': 'NOT_PROVEN',
++        'failure': 'UNAVAILABLE', 'receipt_run_id': ORIGINAL_RECEIPT['runId'],
++        'ciphertext_sha256': ORIGINAL_RECEIPT['ciphertextSha256'],
++        'original_count': 0, 'current_before_count': 0, 'current_after_count': 0,
++        'original_canonical_json_sha256': None, 'current_before_canonical_json_sha256': None,
++        'current_after_canonical_json_sha256': None, 'current_before_newline_sha256': None,
++        'current_after_newline_sha256': None, 'full_eof_mdc': False,
++        'ciphertext_unchanged': False, 'metadata_unchanged': False, 'exact_set_match': False,
++        'production_mutation': 'NONE', 'deployment_authorized': False,
++        'restore_verification': 'NOT_PERFORMED', 'protected_values': 'NOT_PUBLISHED'}
++    descriptors: list[int] = []
++    stream = None
++    try:
++        original_require(os.getuid() == os.geteuid() == 0, 'IDENTITY')
++        deadline = time.monotonic() + ORIGINAL_SECONDS
++        before = original_current_names()
++        descriptors = original_directory(ORIGINAL_ROOT)
++        directory_count = len(descriptors)
++        for name, size in [('receipt.json', None), ('preservation.tar.gpg', ORIGINAL_RECEIPT['ciphertextBytes']), ('passphrase', 65)]:
++            descriptors.append(original_file(descriptors[directory_count - 1], name, size))
++        receipt_fd, cipher_fd, key_fd = descriptors[-3:]
++        tokens = [original_token(os.fstat(fd)) for fd in descriptors]
++        original_require(os.fstat(receipt_fd).st_size <= 4096, 'RECEIPT')
++        raw = os.read(receipt_fd, 4097)
++        receipt = original_json(raw)
++        original_require(len(raw) <= 4096 and receipt == ORIGINAL_RECEIPT
++                         and all(type(receipt[key]) is type(value) for key, value in ORIGINAL_RECEIPT.items()), 'RECEIPT')
++        original_require(original_hash(cipher_fd, deadline) == ORIGINAL_RECEIPT['ciphertextSha256'], 'CIPHER')
++        os.lseek(cipher_fd, 0, os.SEEK_SET)
++        # The passphrase is NEVER read by Python. Only native GPG inherits its FD.
++        stream = OriginalGPGStream(cipher_fd, key_fd, deadline)
++        names = original_archive(stream, deadline)
++        stream.close()
++        stream = None
++        original_require(original_hash(cipher_fd, deadline) == ORIGINAL_RECEIPT['ciphertextSha256'], 'CIPHER')
++        after = original_current_names()
++        original_check_deadline(deadline)
++        original_require(tokens == [original_token(os.fstat(fd)) for fd in descriptors], 'DRIFT')
++        # Recheck every path binding as well as open FD tokens, including ancestors.
++        for index, part in enumerate(ORIGINAL_ROOT.split('/')[1:], 1):
++            original_require(original_token(os.stat(part, dir_fd=descriptors[index - 1], follow_symlinks=False)) == tokens[index], 'DRIFT')
++        for index, name in enumerate(('receipt.json', 'preservation.tar.gpg', 'passphrase'), directory_count):
++            original_require(original_token(os.stat(name, dir_fd=descriptors[directory_count - 1], follow_symlinks=False)) == tokens[index], 'DRIFT')
++        original_require(before == after == names, 'DRIFT')
++        canonical, _ = original_name_digests(names)
++        before_json, before_newline = original_name_digests(before)
++        after_json, after_newline = original_name_digests(after)
++        result.update(status='AUTHENTICATED_ORIGINAL19_MATCH', failure='NONE', original_count=19,
++                      current_before_count=19, current_after_count=19,
++                      original_canonical_json_sha256=canonical, current_before_canonical_json_sha256=before_json,
++                      current_after_canonical_json_sha256=after_json, current_before_newline_sha256=before_newline,
++                      current_after_newline_sha256=after_newline, full_eof_mdc=True, ciphertext_unchanged=True,
++                      metadata_unchanged=True, exact_set_match=True)
++    except Exception as error:
++        result['failure'] = str(error) if type(error) is OriginalRefusal and str(error) in ORIGINAL_FAILURES else 'UNAVAILABLE'
++    finally:
++        if stream is not None:
++            stream.close()
++        for fd in reversed(descriptors):
++            os.close(fd)
++    return result
++
++
++def validate_original_inventory(value: Any) -> None:
++    template = {'schema': 'pc-crop.original-volume-inventory.v1', 'status': 'NOT_PROVEN',
++        'failure': 'UNAVAILABLE', 'receipt_run_id': ORIGINAL_RECEIPT['runId'],
++        'ciphertext_sha256': ORIGINAL_RECEIPT['ciphertextSha256'],
++        'original_count': 0, 'current_before_count': 0, 'current_after_count': 0,
++        'original_canonical_json_sha256': None, 'current_before_canonical_json_sha256': None,
++        'current_after_canonical_json_sha256': None, 'current_before_newline_sha256': None,
++        'current_after_newline_sha256': None, 'full_eof_mdc': False,
++        'ciphertext_unchanged': False, 'metadata_unchanged': False, 'exact_set_match': False,
++        'production_mutation': 'NONE', 'deployment_authorized': False,
++        'restore_verification': 'NOT_PERFORMED', 'protected_values': 'NOT_PUBLISHED'}
++    original_require(type(value) is dict and set(value) == set(template), 'MANIFEST')
++    variable = {'status', 'failure', 'original_count', 'current_before_count', 'current_after_count',
++                'original_canonical_json_sha256', 'current_before_canonical_json_sha256',
++                'current_after_canonical_json_sha256', 'current_before_newline_sha256', 'current_after_newline_sha256',
++                'full_eof_mdc', 'ciphertext_unchanged', 'metadata_unchanged', 'exact_set_match'}
++    original_require(all(type(value[key]) is type(template[key]) and value[key] == template[key]
++                         for key in set(template) - variable), 'MANIFEST')
++    if value['status'] == 'NOT_PROVEN':
++        original_require(type(value['failure']) is str and value['failure'] in ORIGINAL_FAILURES and
++                         all(type(value[key]) is type(template[key]) and value[key] == template[key]
++                             for key in variable - {'failure'}), 'MANIFEST')
++    else:
++        original_require(value['status'] == 'AUTHENTICATED_ORIGINAL19_MATCH' and value['failure'] == 'NONE', 'MANIFEST')
++        original_require(all(type(value[key]) is int and value[key] == 19 for key in
++                             ('original_count', 'current_before_count', 'current_after_count')), 'MANIFEST')
++        digest_keys = [key for key in variable if key.endswith('_sha256')]
++        original_require(all(type(value[key]) is str and CHECKSUM.fullmatch(value[key]) for key in digest_keys), 'MANIFEST')
++        original_require(len({value[key] for key in digest_keys if 'canonical_json' in key}) == 1 and
++                         value['current_before_newline_sha256'] == value['current_after_newline_sha256'], 'MANIFEST')
++        original_require(all(value[key] is True for key in
++                             ('full_eof_mdc', 'ciphertext_unchanged', 'metadata_unchanged', 'exact_set_match')), 'MANIFEST')
++
++
++def collect_with_original_inventory(target: str) -> dict[str, Any]:
++    # The v6 collector and its default CLI are unchanged. Only an explicit option
++    # creates this envelope. Hosted admission validates both nested profiles.
++    base = collect(target)
++    witness = original_inventory_witness()
++    return {'schema': 'pc-crop.market-original-inventory-envelope.v1', 'target_sha': target,
++            'market_preflight': base, 'original_inventory': witness,
++            'production_mutation': 'NONE', 'deployment_authorized': False}
++
++
++def validate_original_envelope(value: Any, target: str) -> dict[str, Any]:
++    original_require(type(value) is dict and set(value) == {'schema', 'target_sha', 'market_preflight',
++        'original_inventory', 'production_mutation', 'deployment_authorized'} and
++        value['schema'] == 'pc-crop.market-original-inventory-envelope.v1' and value['target_sha'] == target
++        and value['production_mutation'] == 'NONE' and value['deployment_authorized'] is False, 'MANIFEST')
++    validate_report(value['market_preflight'], target)
++    validate_original_inventory(value['original_inventory'])
++    return value
++
++
++ORIGINAL_PURPOSE_BEGIN = '<!-- PC_ORIGINAL19_NATIVE_FD_PURPOSE_V1_BEGIN -->'
++ORIGINAL_PURPOSE_END = '<!-- PC_ORIGINAL19_NATIVE_FD_PURPOSE_V1_END -->'
++ORIGINAL_BEFORE_BLOBS = {
++    'scripts/production-market-release-preflight.py': '19928c77b2ed4b6663ddc95b66f0c00d706904ca',
++    'scripts/test-production-market-release-preflight.py': 'abd503ec9083fb570a2970acc1ff5b39a746329e',
++    '.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml': 'b798a3de2e412a19d6821cb388657389403bd2f4',
++}
++
++
++def validate_original_purpose_record(text: str, sources: dict[str, bytes]) -> str:
++    """Accept one closed record in the already accepted main review document only."""
++    original_require(type(text) is str and len(text.encode('utf-8')) <= 4 * 1024 * 1024 and
++                     len(re.findall('^' + re.escape(ORIGINAL_PURPOSE_BEGIN) + '$', text, re.M)) ==
++                     len(re.findall('^' + re.escape(ORIGINAL_PURPOSE_END) + '$', text, re.M)) == 1, 'IDENTITY')
++    match = re.search('^' + re.escape(ORIGINAL_PURPOSE_BEGIN) + r'$([\s\S]*?)^' + re.escape(ORIGINAL_PURPOSE_END) + '$', text, re.M)
++    original_require(match is not None, 'IDENTITY')
++    block = match[1]
++    original_require(block.startswith('\n```text\n') and block.endswith('\n```\n'), 'IDENTITY')
++    raw = block[len('\n```text\n'):-len('\n```\n')].encode('utf-8')
++    original_require(len(raw) <= 16384, 'BOUNDS')
++    record = original_json(raw)
++    fixed = {'schema': 'pc.original19-native-fd-purpose.v1',
++        'purposeId': 'market-original-inventory-witness-20261101', 'owner': 'ACCOUNT_1_CORE',
++        'authorityBaseExactMain': '9b2b895b3e71648f9084d8a80a97458488ef06df',
++        'sourceBranch': 'ops/farmer-market-release-preflight-20260916',
++        'nativeFdReadPurpose': 'AUTHENTICATED_ORIGINAL19_INVENTORY_ONLY', 'readOnly': True,
++        'productionMutationAuthorized': False, 'originalReceiptRunId': ORIGINAL_RECEIPT['runId'],
++        'originalCiphertextBytes': ORIGINAL_RECEIPT['ciphertextBytes'],
++        'originalCiphertextSha256': ORIGINAL_RECEIPT['ciphertextSha256'],
++        'authorityGranted': 'SOURCE_PURPOSE_ONLY_SEPARATE_FINITE_OWNER_COMMAND_REQUIRED',
++        'productionInvocationAuthorized': False, 'releaseAuthorized': False, 'masterCredit': 0}
++    original_require(type(record) is dict and set(record) == set(fixed) | {'sourcePins'} and
++                     all(type(record[key]) is type(value) and record[key] == value for key, value in fixed.items()), 'IDENTITY')
++    pins = record['sourcePins']
++    original_require(type(sources) is dict and set(sources) == set(ORIGINAL_BEFORE_BLOBS) and
++                     type(pins) is list and len(pins) == 3, 'IDENTITY')
++    seen: set[str] = set()
++    for pin in pins:
++        original_require(type(pin) is dict and set(pin) == {'path', 'mode', 'beforeBlob', 'afterBlob', 'bytes', 'sha256'}, 'IDENTITY')
++        path = pin['path']
++        original_require(type(path) is str and path in sources and path not in seen and
++                         pin['mode'] == '100644' and pin['beforeBlob'] == ORIGINAL_BEFORE_BLOBS[path], 'IDENTITY')
++        raw_source = sources[path]
++        original_require(type(raw_source) is bytes and type(pin['bytes']) is int and pin['bytes'] == len(raw_source)
++                         and pin['sha256'] == hashlib.sha256(raw_source).hexdigest() and
++                         pin['afterBlob'] == hashlib.sha1(b'blob ' + str(len(raw_source)).encode('ascii') + b'\0' + raw_source).hexdigest(), 'IDENTITY')
++        seen.add(path)
++    return hashlib.sha256(json.dumps(record, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode('ascii')).hexdigest()
++
++
+ def main() -> None:
+     if sys.argv[1:] == ['--published-api-baseline']:
+         try:
+@@ -2278,7 +2782,15 @@
+             raise SystemExit(1)
+         return
+     try:
+-        value = collect(sys.argv[1] if len(sys.argv) == 2 else '')
++        if len(sys.argv) == 3 and sys.argv[2] == '--original-volume-inventory':
++            import resource
++            for kind, maximum in ((resource.RLIMIT_AS, 512 * 1024 * 1024), (resource.RLIMIT_CORE, 0)):
++                _, hard = resource.getrlimit(kind)
++                limit = maximum if hard == resource.RLIM_INFINITY else min(maximum, hard)
++                resource.setrlimit(kind, (limit, limit))
++            value = collect_with_original_inventory(sys.argv[1])
++        else:
++            value = collect(sys.argv[1] if len(sys.argv) == 2 else '')
+         encoded = json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(',', ':'))
+         if len(encoded.encode()) > MAX_BYTES:
+             raise ValueError('REPORT_BOUND')
+diff --git a/scripts/test-production-market-release-preflight.py b/scripts/test-production-market-release-preflight.py
+index abd503ec9083fb570a2970acc1ff5b39a746329e..43422d6d9c39ec8562e2b3b2d914737a1110b338 100644
+--- a/scripts/test-production-market-release-preflight.py
++++ b/scripts/test-production-market-release-preflight.py
+@@ -2734,5 +2734,328 @@
+             with self.assertRaises(ValueError):m.validate_image_reclaim_plan(bad,profile)
+ 
+ 
++def original_fixture(payload=b'synthetic known file'):
++    import io, tarfile
++    names = tuple('synthetic-volume-%02d' % index for index in range(19))
++    entries = {}
++    paths = ['containers', 'volumes'] + [path for name in names for path in ('volumes/' + name, 'volumes/' + name + '/_data')]
++    for path in paths + ['containers/synthetic-file']:
++        directory = path in paths
++        entries[path] = {'kind': 'directory' if directory else 'file', 'uid': 0, 'gid': 0,
++            'mode': 0o700 if directory else 0o600, 'mtime_ns': 0, 'ctime_ns': 0, 'atime_ns': 0,
++            'device': 1, 'inode': len(entries)+1, 'nlink': 1, 'size': 0 if directory else len(payload),
++            'sha256': None if directory else m.hashlib.sha256(payload).hexdigest(), 'xattrs': {}}
++    manifest = {'schema': 'pc.cold-preservation.manifest.v1', 'entries': entries}
++    raw = json.dumps(manifest, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode('ascii')
++    output = io.BytesIO()
++    with tarfile.open(fileobj=output, mode='w', format=tarfile.PAX_FORMAT) as archive:
++        header = tarfile.TarInfo(m.ORIGINAL_MANIFEST)
++        header.uid = header.gid = 0; header.mode = 0o600; header.size = len(raw)
++        archive.addfile(header, io.BytesIO(raw))
++        for path, item in sorted(entries.items()):
++            header = tarfile.TarInfo(path)
++            header.uid = header.gid = 0; header.mode = item['mode']; header.mtime = 0
++            if item['kind'] == 'directory': header.type = tarfile.DIRTYPE; archive.addfile(header)
++            else: header.size = len(payload); archive.addfile(header, io.BytesIO(payload))
++    return manifest, raw, output.getvalue(), names, dict(m.ORIGINAL_RECEIPT, entries=len(entries), sourceBytes=len(payload))
++
++
++def original_failure():
++    with patch.object(m.os, 'getuid', return_value=12345), patch.object(m.os, 'geteuid', return_value=12345):
++        return m.original_inventory_witness()
++
++
++def original_success():
++    value = original_failure()
++    canonical, newline = m.original_name_digests(tuple('synthetic-volume-%02d' % index for index in range(19)))
++    value.update(status='AUTHENTICATED_ORIGINAL19_MATCH', failure='NONE', original_count=19,
++        current_before_count=19, current_after_count=19, original_canonical_json_sha256=canonical,
++        current_before_canonical_json_sha256=canonical, current_after_canonical_json_sha256=canonical,
++        current_before_newline_sha256=newline, current_after_newline_sha256=newline,
++        full_eof_mdc=True, ciphertext_unchanged=True, metadata_unchanged=True, exact_set_match=True)
++    return value
++
++
++def original_fixture_identity():
++    # Native files/pipes/GPG remain real. Hosted runners own their synthetic
++    # fixtures as a nonroot user; only owner/actor stat fields are substituted.
++    # Production code keeps literal UID/GID0 checks. The forced local profile is
++    # explicitly synthetic and is not claimed as an unprivileged process run.
++    import contextlib
++    from types import SimpleNamespace
++    stack = contextlib.ExitStack()
++    if os.geteuid() != 0 or os.environ.get('PC_ORIGINAL_TEST_UID_PROFILE') == 'synthetic':
++        real_stat, real_fstat = os.stat, os.fstat
++        fields = ('st_dev','st_ino','st_mode','st_uid','st_gid','st_nlink','st_size',
++                  'st_atime_ns','st_mtime_ns','st_ctime_ns')
++        def profile(info):
++            result = {key: getattr(info, key) for key in fields}
++            result.update(st_uid=0, st_gid=0)
++            return SimpleNamespace(**result)
++        stack.enter_context(patch.object(m.os, 'stat', side_effect=lambda *a,**k: profile(real_stat(*a,**k))))
++        stack.enter_context(patch.object(m.os, 'fstat', side_effect=lambda *a,**k: profile(real_fstat(*a,**k))))
++        stack.enter_context(patch.object(m.os, 'getuid', return_value=0))
++        stack.enter_context(patch.object(m.os, 'geteuid', return_value=0))
++    return stack
++
++
++class OriginalInventory(unittest.TestCase):
++    def test_exact_public_receipt_pins(self):
++        self.assertEqual(len(m.ORIGINAL_RECEIPT), 16)
++        self.assertEqual(m.ORIGINAL_RECEIPT['runId'], '39779050389')
++        self.assertEqual(m.ORIGINAL_RECEIPT['ciphertextBytes'], 389954515)
++        self.assertEqual(m.ORIGINAL_RECEIPT['entries'], 8547)
++        self.assertEqual(m.ORIGINAL_RECEIPT['sourceBytes'], 520405747)
++        self.assertEqual(m.ORIGINAL_RECEIPT['ciphertextSha256'], '800264a1819ba26869e4b79d1f6874dc5078aa982ab333fdd999629f6b490603')
++
++    def test_valid_complete_historical_manifest(self):
++        manifest, raw, _, names, receipt = original_fixture()
++        with patch.object(m, 'ORIGINAL_RECEIPT', receipt):
++            self.assertEqual(m.original_manifest(raw), (manifest['entries'], names))
++
++    def test_manifest_closed_fields_and_types(self):
++        manifest, _, _, _, receipt = original_fixture()
++        changes = [lambda v: v.update(extra='sensitive'), lambda v: v['entries']['containers'].update(extra='sensitive'),
++            lambda v: v['entries']['containers'].update(inode=True), lambda v: v['entries']['containers'].update(mode=0o10000),
++            lambda v: v['entries']['containers'].update(sha256='a'*64),
++            lambda v: v['entries']['containers'].update(xattrs={'security.acl': {'bytes': 0, 'sha256': 'a'*64}}),
++            lambda v: v['entries']['containers/synthetic-file'].update(size=1)]
++        with patch.object(m, 'ORIGINAL_RECEIPT', receipt):
++            for change in changes:
++                bad = copy.deepcopy(manifest); change(bad)
++                with self.subTest(change=change), self.assertRaises(m.OriginalRefusal): m.original_manifest(json.dumps(bad).encode())
++
++    def test_manifest_paths_parent_and_exact19(self):
++        manifest, _, _, _, receipt = original_fixture()
++        for old,new in [('containers/synthetic-file','../sensitive'), ('containers/synthetic-file','volumes/synthetic-volume-00/missing/file'),
++                        ('volumes/synthetic-volume-00/_data','volumes/synthetic-volume-19/_data'), ('containers/synthetic-file','/containers/file')]:
++            bad=copy.deepcopy(manifest);bad['entries'][new]=bad['entries'].pop(old)
++            with patch.object(m,'ORIGINAL_RECEIPT',receipt), self.assertRaises(m.OriginalRefusal): m.original_manifest(json.dumps(bad).encode())
++
++    def test_duplicate_json_nonfinite_and_bounds(self):
++        for raw in [b'{"schema":1,"schema":2}',b'{"x":NaN}',b'{"x":Infinity}',b'\xff']:
++            with self.assertRaises(m.OriginalRefusal):m.original_json(raw)
++        with patch.object(m,'ORIGINAL_MANIFEST_LIMIT',8),self.assertRaises(m.OriginalRefusal):m.original_manifest(b'x'*9)
++
++    def test_canonical_json_distinct_from_later_newline(self):
++        names=tuple('synthetic-%02d'%i for i in reversed(range(19)))
++        canonical,newline=m.original_name_digests(names)
++        self.assertEqual(canonical,m.hashlib.sha256(json.dumps(sorted(names),separators=(',',':')).encode()).hexdigest())
++        self.assertEqual(newline,m.hashlib.sha256('\n'.join(sorted(names)).encode()).hexdigest());self.assertNotEqual(canonical,newline)
++
++    def test_current_inventory_exact_count_unique_name_profile(self):
++        names=['synthetic-%02d'%i for i in range(19)]
++        for raw in [None,'','\n'.join(names[:-1]),'\n'.join(names+['other']),'\n'.join(names[:-1]+[names[0]]),'\n'.join(names[:-1]+['../sensitive'])]:
++            with patch.object(m,'run',return_value=raw),self.assertRaises(m.OriginalRefusal):m.original_current_names()
++        with patch.object(m,'run',return_value='\n'.join(names)+'\n') as command:
++            self.assertEqual(m.original_current_names(),tuple(sorted(names)));command.assert_called_once_with(['docker','volume','ls','-q'])
++
++    def test_no_python_key_reader_and_default_v6_unchanged(self):
++        import ast
++        tree=ast.parse(PATH.read_text())
++        fn=next(v for v in tree.body if isinstance(v,ast.FunctionDef) and v.name=='original_inventory_witness')
++        reads=[ast.unparse(n) for n in ast.walk(fn) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr in ('read','read_bytes','read_text')]
++        self.assertEqual(reads,['os.read(receipt_fd, 4097)'])
++        fn=next(v for v in tree.body if isinstance(v,ast.FunctionDef) and v.name=='collect');self.assertNotIn('original_',ast.unparse(fn))
++        m.validate_report(report(),SHA)
++
++    def test_failure_closed_redacted_and_no_partial_claims(self):
++        value=original_failure();m.validate_original_inventory(value);self.assertEqual(value['failure'],'IDENTITY')
++        self.assertNotIn('passphrase',json.dumps(value));self.assertIs(value['deployment_authorized'],False)
++        for key,bad in [('full_eof_mdc',True),('original_count',19),('original_canonical_json_sha256','a'*64)]:
++            changed=dict(value);changed[key]=bad
++            with self.subTest(key=key),self.assertRaises(m.OriginalRefusal):m.validate_original_inventory(changed)
++
++    def test_success_schema_rejects_unproved_claims(self):
++        value=original_success();m.validate_original_inventory(value)
++        for key,bad in [('extra','sensitive'),('original_count',True),('full_eof_mdc',False),('deployment_authorized',True),
++                        ('current_after_canonical_json_sha256','a'*64),('ciphertext_unchanged',1),('failure','sensitive')]:
++            changed=copy.deepcopy(value);changed[key]=bad
++            with self.subTest(key=key),self.assertRaises(m.OriginalRefusal):m.validate_original_inventory(changed)
++
++    def test_complete_tar_required_before_authentication(self):
++        import io
++        _,_,raw,names,receipt=original_fixture()
++        class Stream(io.BytesIO):
++            authenticated=False
++            def authenticate(self):self.authenticated=True
++        with patch.object(m,'ORIGINAL_RECEIPT',receipt):
++            stream=Stream(raw);self.assertEqual(m.original_archive(stream,m.time.monotonic()+5),names);self.assertTrue(stream.authenticated)
++            for bad in [raw[:512],raw+b'sensitive']:
++                stream=Stream(bad)
++                with self.assertRaises((m.OriginalRefusal,ValueError)):m.original_archive(stream,m.time.monotonic()+5)
++                self.assertFalse(stream.authenticated)
++
++    def test_full_authenticated_zero_tail_drained(self):
++        import io
++        _,_,raw,names,receipt=original_fixture()
++        class Stream(io.BytesIO):
++            def authenticate(self):self.authenticated_at=self.tell()
++        stream=Stream(raw+b'\0'*(8*1024*1024))
++        with patch.object(m,'ORIGINAL_RECEIPT',receipt):self.assertEqual(m.original_archive(stream,m.time.monotonic()+5),names)
++        self.assertEqual(stream.authenticated_at,len(stream.getvalue()))
++
++    def test_deadline_precedes_native_process(self):
++        with patch.object(m.subprocess,'Popen') as native,self.assertRaises(m.OriginalRefusal):m.OriginalGPGStream(0,1,m.time.monotonic()-1)
++        native.assert_not_called()
++
++    def test_both_envelope_parts_validate(self):
++        value={'schema':'pc-crop.market-original-inventory-envelope.v1','target_sha':SHA,'market_preflight':report(),
++               'original_inventory':original_success(),'production_mutation':'NONE','deployment_authorized':False}
++        self.assertIs(m.validate_original_envelope(value,SHA),value)
++        for section in ('market_preflight','original_inventory'):
++            bad=copy.deepcopy(value);bad[section]['unknown']='sensitive'
++            with self.subTest(section=section),self.assertRaises(ValueError):m.validate_original_envelope(bad,SHA)
++
++    def test_safe_regular_fd_noatime_and_identity(self):
++        if not hasattr(os,'O_NOATIME'):self.fail('Native noatime unavailable; not PASS or SKIP')
++        with tempfile.TemporaryDirectory() as td:
++            parent=os.open(td,os.O_RDONLY|os.O_DIRECTORY)
++            try:
++                file=Path(td)/'passphrase';file.write_bytes(b'k'*64+b'\n');file.chmod(0o600);before=m.original_token(file.stat())
++                with original_fixture_identity():
++                    fd=m.original_file(parent,'passphrase',65);os.close(fd)
++                self.assertEqual(m.original_token(file.stat()),before)
++                file.chmod(0o644)
++                with original_fixture_identity(),self.assertRaises(m.OriginalRefusal):m.original_file(parent,'passphrase',65)
++                file.chmod(0o600);os.link(file,Path(td)/'alias')
++                with original_fixture_identity(),self.assertRaises(m.OriginalRefusal):m.original_file(parent,'passphrase',65)
++                (Path(td)/'alias').unlink();file.unlink();file.symlink_to('elsewhere')
++                with original_fixture_identity(),self.assertRaises(OSError):m.original_file(parent,'passphrase',65)
++            finally:os.close(parent)
++
++    def purpose(self):
++        sources={name:(PATH.parents[1]/name).read_bytes() for name in m.ORIGINAL_BEFORE_BLOBS}
++        record={'schema':'pc.original19-native-fd-purpose.v1','purposeId':'market-original-inventory-witness-20261101','owner':'ACCOUNT_1_CORE',
++            'authorityBaseExactMain':'9b2b895b3e71648f9084d8a80a97458488ef06df',
++            'sourceBranch':'ops/farmer-market-release-preflight-20260916','nativeFdReadPurpose':'AUTHENTICATED_ORIGINAL19_INVENTORY_ONLY',
++            'readOnly':True,'productionMutationAuthorized':False,'originalReceiptRunId':m.ORIGINAL_RECEIPT['runId'],
++            'originalCiphertextBytes':m.ORIGINAL_RECEIPT['ciphertextBytes'],'originalCiphertextSha256':m.ORIGINAL_RECEIPT['ciphertextSha256'],
++            'authorityGranted':'SOURCE_PURPOSE_ONLY_SEPARATE_FINITE_OWNER_COMMAND_REQUIRED','productionInvocationAuthorized':False,
++            'releaseAuthorized':False,'masterCredit':0,'sourcePins':[{'path':name,'mode':'100644','beforeBlob':m.ORIGINAL_BEFORE_BLOBS[name],
++            'afterBlob':m.hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(),'bytes':len(raw),'sha256':m.hashlib.sha256(raw).hexdigest()} for name,raw in sources.items()]}
++        return record,sources,m.ORIGINAL_PURPOSE_BEGIN+'\n```text\n'+json.dumps(record)+'\n```\n'+m.ORIGINAL_PURPOSE_END
++
++    def test_purpose_closed_record_exact_actual_pins(self):
++        record,sources,text=self.purpose();digest=m.validate_original_purpose_record(text,sources)
++        self.assertEqual(digest,m.hashlib.sha256(json.dumps(record,sort_keys=True,separators=(',',':')).encode()).hexdigest())
++        for changed in [text+text,text.replace('AUTHENTICATED_ORIGINAL19_INVENTORY_ONLY','STAT_ONLY'),text.replace('ACCOUNT_1_CORE','OTHER'),
++                        text.replace('"readOnly": true','"readOnly": 1'),text.replace('"masterCredit": 0','"masterCredit": false'),text.replace('```text','```json')]:
++            with self.assertRaises(m.OriginalRefusal):m.validate_original_purpose_record(changed,sources)
++        changed=dict(sources);path=next(iter(changed));changed[path]+=b'\n'
++        with self.assertRaises(m.OriginalRefusal):m.validate_original_purpose_record(text,changed)
++
++    def test_purpose_marker_literals_in_complete_source_patch_are_not_records(self):
++        _, sources, text = self.purpose()
++        patch = '\n'.join('+ ' + raw.decode('utf-8') for raw in sources.values())
++        # The complete recoverable patch contains marker constants and tests.
++        document = '##AP2\n```text\n' + patch + '\n```\n' + text + '\n'
++        self.assertEqual(m.validate_original_purpose_record(document, sources),
++                         m.validate_original_purpose_record(text, sources))
++        with self.assertRaises(m.OriginalRefusal):
++            m.validate_original_purpose_record(document + '\n' + text, sources)
++
++    def test_workflow_purpose_and_envelope_gates_cannot_disappear(self):
++        check = WorkflowContract()
++        check.setUpClass()
++        for marker in ('module.validate_original_purpose_record(text, sources)',
++                       'module.validate_original_envelope(value, sys.argv[1])', '--original-volume-inventory'):
++            with self.subTest(marker=marker), self.assertRaisesRegex(SystemExit, 'ORIGINAL19_PURPOSE_OR_PROFILE_GATE_MISSING'):
++                check.enforce(check.source, check.workflow.replace(marker, 'disabled_profile_gate'))
++
++    def test_envelope_retained_through_legacy_failure(self):
++        value={'schema':'pc-crop.market-original-inventory-envelope.v1','target_sha':SHA,'market_preflight':report(),
++               'original_inventory':original_success(),'production_mutation':'NONE','deployment_authorized':False}
++        result,evidence,legacy=PreflightFailureEvidence().execute(value,legacy_exit=23)
++        self.assertEqual(result.returncode,23);self.assertTrue(legacy);self.assertEqual(evidence['original_inventory'],value['original_inventory'])
++        self.assertIs(evidence['deployment_authorized'],False)
++
++
++class NativeOriginalGPG(unittest.TestCase):
++    """Real native synthetic crypto only; no original key/cipher/host. Missing profile FAILS."""
++    def decrypt(self,mutate=None,*,tail=0,expired=False):
++        if not Path('/usr/bin/gpg').is_file():self.fail('Native GPG unavailable; not PASS or SKIP')
++        _,_,raw,names,receipt=original_fixture();raw+=b'\0'*tail
++        with tempfile.TemporaryDirectory() as td:
++            root=Path(td);key=root/'synthetic-key';key.write_bytes(b'known-synthetic-passphrase\n');key.chmod(0o600)
++            home=root/'gnupg';home.mkdir(mode=0o700);key_fd=os.open(key,os.O_RDONLY)
++            try:
++                result=subprocess.run(['/usr/bin/gpg','--no-options','--homedir',str(home),'--batch','--no-tty','--no-autostart',
++                    '--no-symkey-cache','--pinentry-mode','loopback','--passphrase-fd',str(key_fd),'--symmetric','--force-mdc',
++                    '--cipher-algo','AES256','--s2k-count','65536','--compress-algo','none','--output','-'],input=raw,
++                    pass_fds=(key_fd,),capture_output=True,timeout=10)
++                self.assertEqual(result.returncode,0,'Synthetic encryption failed');encrypted=result.stdout
++            finally:os.close(key_fd)
++            if mutate is not None:encrypted=mutate(encrypted)
++            cipher=root/'synthetic-cipher';cipher.write_bytes(encrypted)
++            cipher_fd=os.open(cipher,os.O_RDONLY);key_fd=os.open(key,os.O_RDONLY);stream=None
++            calls=[];actual_read=os.read
++            def read(fd,count):calls.append(fd);return actual_read(fd,count)
++            try:
++                with patch.object(m,'ORIGINAL_RECEIPT',receipt),patch.object(m.os,'read',side_effect=read):
++                    deadline=m.time.monotonic()+(-1 if expired else 10)
++                    stream=m.OriginalGPGStream(cipher_fd,key_fd,deadline)
++                    self.assertEqual(m.original_archive(stream,deadline),names);self.assertEqual(stream.total,len(raw))
++                    self.assertNotIn(key_fd,calls,'Python must not consume native key FD');return stream.total
++            finally:
++                if stream is not None:stream.close()
++                os.close(key_fd);os.close(cipher_fd)
++
++    def test_valid_mdc_complete_eof(self):self.decrypt()
++    def test_wrong_key(self):
++        original=m.OriginalGPGStream.__init__
++        def wrong(stream,cipher_fd,key_fd,deadline):
++            with tempfile.TemporaryFile() as other:
++                other.write(b'wrong-known-synthetic\n');other.seek(0);original(stream,cipher_fd,other.fileno(),deadline)
++        with patch.object(m.OriginalGPGStream,'__init__',wrong),self.assertRaises((m.OriginalRefusal,ValueError)):self.decrypt()
++    def test_truncated_mdc(self):
++        with self.assertRaises((m.OriginalRefusal,ValueError)):self.decrypt(lambda raw:raw[:-12])
++    def test_corrupt_cipher(self):
++        def corrupt(raw):
++            changed=bytearray(raw);changed[len(changed)//2]^=1;return bytes(changed)
++        with self.assertRaises((m.OriginalRefusal,ValueError)):self.decrypt(corrupt)
++    def test_expired_deadline(self):
++        with self.assertRaisesRegex(m.OriginalRefusal,'DEADLINE'):self.decrypt(expired=True)
++    def test_authenticated_eight_mib_tail_eof(self):self.assertGreater(self.decrypt(tail=8*1024*1024),8*1024*1024)
++
++
++    def test_complete_synthetic_reader_native_fd_hashes_and_redaction(self):
++        _,_,plain,names,receipt=original_fixture()
++        with tempfile.TemporaryDirectory() as td:
++            parent=Path(td);operation=parent/'operation';operation.mkdir(mode=0o700)
++            key=operation/'passphrase';key.write_bytes(b'known-synthetic-'+b'k'*48+b'\n');self.assertEqual(key.stat().st_size,65);key.chmod(0o600)
++            home=parent/'gnupg';home.mkdir(mode=0o700);keyfd=os.open(key,os.O_RDONLY|os.O_NOATIME)
++            try:
++                result=subprocess.run(['/usr/bin/gpg','--no-options','--homedir',str(home),'--batch','--no-tty','--no-autostart',
++                    '--no-symkey-cache','--pinentry-mode','loopback','--passphrase-fd',str(keyfd),'--symmetric','--force-mdc',
++                    '--cipher-algo','AES256','--s2k-count','65536','--compress-algo','none','--output','-'],
++                    input=plain,pass_fds=(keyfd,),capture_output=True,timeout=10)
++                self.assertEqual(result.returncode,0)
++            finally:os.close(keyfd)
++            cipher=operation/'preservation.tar.gpg';cipher.write_bytes(result.stdout);cipher.chmod(0o600)
++            receipt.update(ciphertextBytes=len(result.stdout),ciphertextSha256=m.hashlib.sha256(result.stdout).hexdigest())
++            file=operation/'receipt.json';file.write_text(json.dumps(receipt)+'\n');file.chmod(0o600)
++            before={f.name:m.original_token(f.stat()) for f in operation.iterdir()}
++            # Only the fixed-root traversal is substituted for an isolated synthetic root.
++            # Real nofollow/noatime/mode/single-link checks and both full hashes execute.
++            # Nonroot hosted fixtures substitute UID/GID stat fields explicitly.
++            def directory(path):
++                self.assertEqual(path,'/operation')
++                return [os.open(parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOATIME),
++                        os.open(operation,os.O_RDONLY|os.O_DIRECTORY|os.O_NOATIME)]
++            with original_fixture_identity(),patch.object(m,'ORIGINAL_ROOT','/operation'),patch.object(m,'original_directory',side_effect=directory),\
++                 patch.object(m,'ORIGINAL_RECEIPT',receipt),patch.object(m,'original_current_names',side_effect=[names,names]):
++                value=m.original_inventory_witness();m.validate_original_inventory(value)
++            self.assertEqual(value['status'],'AUTHENTICATED_ORIGINAL19_MATCH',value['failure'])
++            self.assertEqual(before,{f.name:m.original_token(f.stat()) for f in operation.iterdir()})
++            encoded=json.dumps(value)
++            for name in names:self.assertNotIn(name,encoded)
++            self.assertNotIn('known-synthetic',encoded)
++
++
+ if __name__ == '__main__':
+-    unittest.main()
++    if sys.argv[1:] == ['--native-original-gpg']:
++        unittest.main(argv=[sys.argv[0]], defaultTest='NativeOriginalGPG')
++    else:
++        del NativeOriginalGPG
++        unittest.main()
+diff --git a/.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml b/.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml
+index b798a3de2e412a19d6821cb388657389403bd2f4..8e9becc5c9a2e3f35d1131a8252a7e4ba545badc 100644
+--- a/.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml
++++ b/.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml
+@@ -61,7 +61,7 @@
+           if str(inspector_path) not in workflow_text:
+               raise SystemExit('TRANSPORTED_SCRIPT_PATH_MISSING')
+           inspector_source = inspector_path.read_bytes()
+-          if hashlib.sha256(inspector_source).hexdigest() != '9f1d013c5f4a85da815be731ef3fda12ec111ac891f53523a901db4168db07e8':
++          if hashlib.sha256(inspector_source).hexdigest() != '61872b8814b2fef3fb62524983fd05bbfe176840479c61a7f1c85d8d77918066':
+               raise SystemExit('TRANSPORTED_SCRIPT_DIGEST_MISMATCH')
+           text = workflow_text + '\n' + inspector_source.decode('utf-8', errors='strict')
+           for marker in ('SET TRANSACTION READ ONLY', 'statement_timeout', "'deployment_authorized': False", 'def validate_report('):
+@@ -102,6 +102,11 @@
+           retention = diagnostic.split('      - name: Preserve validated read-only market observations\n', 1)[1]
+           if not retention.startswith('        if: ' + '$' + '{{ always() }}\n'):
+               raise SystemExit('VALIDATED_EVIDENCE_MUST_SURVIVE_LEGACY_FAILURE')
++          for marker in ('module.' + 'validate_original_purpose_record(text, sources)',
++                         'module.' + 'validate_original_envelope(value, sys.argv[1])',
++                         '--original-volume-' + 'inventory'):
++              if workflow_text.count(marker) != 1:
++                  raise SystemExit('ORIGINAL19_PURPOSE_OR_PROFILE_GATE_MISSING')
+           forbidden = [
+               'docker ' + 'restart', 'docker ' + 'rm', 'docker ' + 'stop',
+               'docker ' + 'kill', 'docker ' + 'compose up', 'docker ' + 'compose run',
+@@ -125,6 +130,7 @@
+         run: |
+           set -Eeuo pipefail
+           python3 -B scripts/test-production-market-release-preflight.py
++          python3 -B scripts/test-production-market-release-preflight.py --native-original-gpg
+ 
+       - name: Verify exact owner-issued provenance
+         if: github.event_name == 'issue_comment'
+@@ -163,6 +169,22 @@
+           [[ "$target" == "$(git rev-parse HEAD)" ]]
+           [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+           [[ -z "$(git status --porcelain=v1)" ]]
++          git merge-base --is-ancestor 9b2b895b3e71648f9084d8a80a97458488ef06df "$target"
++          python3 -B - <<'PYPURPOSE'
++          import importlib.util
++          from pathlib import Path
++          path = Path('scripts/production-market-release-preflight.py')
++          spec = importlib.util.spec_from_file_location('market_preflight', path)
++          module = importlib.util.module_from_spec(spec)
++          spec.loader.exec_module(module)
++          try:
++              text = Path('docs/platform-v7/autopilot/prompts/current-review-task.md').read_text(encoding='utf-8')
++              sources = {name: Path(name).read_bytes() for name in module.ORIGINAL_BEFORE_BLOBS}
++              digest = module.validate_original_purpose_record(text, sources)
++          except Exception:
++              raise SystemExit('ORIGINAL19_NATIVE_FD_PURPOSE_NOT_ACCEPTED')
++          print('ORIGINAL19_ACCEPTED_PURPOSE_SHA256=' + digest)
++          PYPURPOSE
+           echo "sha=$target" >> "$GITHUB_OUTPUT"
+ 
+   publication-baseline:
+@@ -321,7 +343,7 @@
+           timeout 180s ssh -i "$key" -p "$port" \
+             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+             -o UserKnownHostsFile="$known" -o ConnectTimeout=15 \
+-            "$user@$host" "python3 - '$TARGET_SHA'" \
++            "$user@$host" "python3 - '$TARGET_SHA' --original-volume-inventory" \
+             < scripts/production-market-release-preflight.py > "$preflight_raw" 2>/dev/null || preflight_status=$?
+           if (( preflight_status != 0 )); then
+             case "$preflight_status" in
+@@ -346,11 +368,18 @@
+                   raw = handle.read(module.MAX_BYTES + 1)
+               if not 0 < len(raw) <= module.MAX_BYTES:
+                   raise ValueError('BOUNDS')
+-              report = module.validate_report(json.loads(raw.decode('utf-8', errors='strict')), sys.argv[1])
++              value = module.original_json(raw)
++              if value.get('schema') == 'pc-crop.market-original-inventory-envelope.v1':
++                  envelope = module.validate_original_envelope(value, sys.argv[1])
++                  report = envelope['market_preflight']
++              else:
++                  # Preserve strict v6 admission for historical/default diagnostics.
++                  report = module.validate_report(value, sys.argv[1])
++                  envelope = None
+               report['transported_source_sha256'] = hashlib.sha256(source.read_bytes()).hexdigest()
+               report['source_migration_comparison'] = module.source_lineage(report['migration_inventory'], pathlib.Path('apps/api/prisma/migrations'))
+               report['outbox_source_comparison'] = module.outbox_source_comparison(report['outbox_topology'], pathlib.Path('apps/api/prisma/migrations'))
+-              payload = json.dumps(report, sort_keys=True, ensure_ascii=True, separators=(',', ':')) + '\n'
++              payload = json.dumps(envelope if envelope is not None else report, sort_keys=True, ensure_ascii=True, separators=(',', ':')) + '\n'
+               if len(payload.encode()) > module.MAX_BYTES:
+                   raise ValueError('BOUNDS')
+               destination = pathlib.Path(sys.argv[3])
+@@ -365,6 +394,9 @@
+                   available = str(sample['available_bytes']) if sample['status'] == 'OBSERVED_METADATA_ONLY' else 'NOT_PROVEN'
+                   lines += ['- ' + name + ' filesystem: `' + sample['status'] + '`; available bytes: `' + available + '`']
+               lines += ['- filesystem admission: `NOT_GRANTED`']
++              if envelope is not None:
++                  witness = envelope['original_inventory']
++                  lines += ['- authenticated original inventory: `' + witness['status'] + '`; restore: `NOT_PERFORMED`']
+               with pathlib.Path(sys.argv[4]).open('a', encoding='utf-8') as summary:
+                   summary.write('\n'.join(lines) + '\n')
+               print('MARKET_PREFLIGHT_COLLECTION=VALIDATED_READ_ONLY')
+```
