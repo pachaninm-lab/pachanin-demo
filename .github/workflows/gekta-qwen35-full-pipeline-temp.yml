@@ -1,0 +1,93 @@
+name: Gekta Qwen3.5-4B Post-5697 Acceptance TEMP
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-qwen35-full-pipeline-temp.yml'
+      - 'scripts/gekta-qwen35-fullpipe-temp.ts'
+
+permissions:
+  contents: read
+
+jobs:
+  full-pipeline:
+    name: Qwen3.5-4B through exact Gekta guards
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify accepted main
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          expected='ff5921014b67ec7cb58008ddbf10e7453f4e6bc9'
+          actual="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          [[ "$actual" == "$expected" ]]
+          echo "FULLPIPE_MAIN_EXACT=$actual"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Build exact production llama.cpp
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git clone --filter=blob:none https://github.com/ggml-org/llama.cpp.git "$RUNNER_TEMP/llama.cpp"
+          cd "$RUNNER_TEMP/llama.cpp"
+          git checkout --detach aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3
+          grep -Fq 'LLM_ARCH_QWEN35' src/llama-arch.h
+          cmake -S . -B build -DGGML_NATIVE=ON -DLLAMA_CURL=OFF -DBUILD_SHARED_LIBS=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF
+          cmake --build build --target llama-server -j"$(nproc)"
+          build/bin/llama-server --version 2>&1 | tee "$RUNNER_TEMP/llama-version.txt"
+          grep -qi 'aedb2a5' "$RUNNER_TEMP/llama-version.txt"
+
+      - name: Run pinned Qwen3.5-4B through exact guards
+        shell: bash
+        env:
+          MODEL_URL: https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/4168f45a16a1290d65a4ec0fa312ae917a4c15d6/Qwen_Qwen3.5-4B-Q4_K_M.gguf
+          MODEL_SHA: 13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983
+          MODEL_SIZE: '3013027808'
+        run: |
+          set -Eeuo pipefail
+          model="$RUNNER_TEMP/qwen35-4b.gguf"
+          log="$RUNNER_TEMP/qwen35-4b-server.log"
+          curl -fL --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 1800 -o "$model" "$MODEL_URL"
+          [[ "$(stat -c %s "$model")" == "$MODEL_SIZE" ]]
+          printf '%s  %s\n' "$MODEL_SHA" "$model" | sha256sum -c -
+          "$RUNNER_TEMP/llama.cpp/build/bin/llama-server" --model "$model" --alias tai-qwen35-4b-q4km --host 127.0.0.1 --port 18083 --ctx-size 8192 --parallel 1 --threads "$(nproc)" --threads-batch "$(nproc)" --batch-size 512 --ubatch-size 128 --metrics > "$log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
+          ready=0
+          for _ in $(seq 1 180); do
+            if curl -fsS --max-time 2 http://127.0.0.1:18083/health | grep -q '"status":"ok"\|"status":"no slot available"'; then ready=1; break; fi
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 1
+          done
+          [[ "$ready" == 1 ]]
+          export TAI_RESTRICTED_QWEN_PUBLIC_ENABLED=true
+          export AI_ASSISTANT_PROVIDER=openai-compatible
+          export AI_ASSISTANT_BASE_URL=http://127.0.0.1:18083/v1/
+          export AI_ASSISTANT_MODEL=tai-qwen35-4b-q4km
+          export AI_ASSISTANT_API_KEY=kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+          export AI_ASSISTANT_ALLOWED_HOSTS=127.0.0.1
+          export AI_ASSISTANT_TIMEOUT_MS=120000
+          export AI_ASSISTANT_MAX_TOKENS=500
+          cd apps/api
+          pnpm exec ts-node --transpile-only --compiler-options '{"module":"CommonJS","moduleResolution":"Node"}' ../../scripts/gekta-qwen35-fullpipe-temp.ts
+          cd ../..
+          curl -fsS http://127.0.0.1:18083/metrics | grep -E 'llamacpp:(prompt_tokens_seconds|predicted_tokens_seconds)' | tail -10 || true
+          echo 'FULLPIPE_PRODUCTION_MUTATION=NONE'
