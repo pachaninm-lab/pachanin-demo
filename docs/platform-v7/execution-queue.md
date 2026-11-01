@@ -11418,7 +11418,7 @@ WP1 [record](autopilot/prompts/current-review-task.md#wp1)
 {
   "schema": "pc.gekta.named-state-producer-bank-preserving-renewal.v1",
   "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
-  "authorityBaseExactMain": "b4875e19d8cae13be8daac3930dbaf45194a14cf",
+  "authorityBaseExactMain": "463cf03c5226005cae782d05a00abec054c7385c",
   "implementationBranch": "fix/gekta-k8s-retained-capacity-20261009",
   "allowedPaths": [
     ".github/workflows/production-like-kubernetes-acceptance.yml",
@@ -11448,7 +11448,7 @@ WP1 [record](autopilot/prompts/current-review-task.md#wp1)
   ],
   "phase": "PRODUCER_ONLY; BANK_PREREQUISITE_ACCEPTED; STATE_GROWTH_REMAINS_BLOCKED",
   "supersedesForThisProducerStage": "Only after ordinary acceptance of THIS exactcurrent-head renewal, supersede6050 producer source pins5ffb->db28 with the exactacceptedBANK-preserving19bb->12f6 transition and retain55bf->0778 collector helper transition. All old purpose/source/native/BLOCKED history remains. No other source purpose is renewed.",
-  "why": "BANK6049 was actually accepted at b487 with exactworkflow19bb. Existing6052de410 before/afterpins are now stale; its oldfullreview/native/READY cannot transfer. Private83f8 preserves allacceptedBANK bytes and proposes onlythree exactsame-repository retained memberships to existing300/315 plus the previously admitted producer4MiB. ActualprivateHan b843 guard timed out124 under unchanged180 while branch-scope passed. The renewal changes no numericdeadline/default/fork/suffix/scopebudget and fixes no protectedconsumerCAP1.",
+  "why": "BANK6049 was actually accepted at b487 with exactworkflow19bb. Existing6052de410 before/afterpins are now stale; its oldfullreview/native/READY cannot transfer. Private83f8 preserves allacceptedBANK bytes and proposes onlythree exactsame-repository retained memberships to existing300/315 plus the previously admitted producer4MiB. ActualprivateHan b843 guard timed out124 under unchanged180 while branch-scope passed. The renewal changes no numericdeadline/default/fork/suffix/scopebudget and fixes no protectedconsumerCAP1. BANK6045 code was subsequently actually accepted on463cf03c5226005cae782d05a00abec054c7385c after fresh whole3/source/runtime acceptance; its three bank files and every other accepted leaf must also remain unchanged in the future actualproducer composition. The prior own39ecyclehold6561651727 is fulfilled by actualmerge and ownerhandoff6562066649.",
   "producerChanges": {
     "namedStateSnapshotCapacityBytes": 4194304,
     "otherSourceCapacityBytes": 2097152,
@@ -11484,19 +11484,19 @@ WP1 [record](autopilot/prompts/current-review-task.md#wp1)
     "independentPrivateBlockedRecordSha256": "f5a5be11bcf4ee62532d182f3f50a7d194acdd77ca45ebc42bb5c5ac8fd2508d"
   },
   "mandatorySequence": [
-    "BANK6049 prerequisite is actually accepted as b487 and original hold6559242643 is released for that operation by ownerhandoff6561424093. Preserve its entire19bbworkflow/otherowners and keep subsequent current-main source cycles coordinated; no globalfreeze or takeover of BANK6045/CORE lanes.",
-    "Verify this actualb487 queue-only proposal, precisebefore/afterpins and zero-state-growth. Fresh complete exactpublishedhead nonauthorreview, separateowneraudit and all native/security/currentreadiness/ordinary full-expected-SHA metadata acceptance are required. Conditionalprivate7869 review is historical only.",
+    "BANK6049 CI prerequisite remains actuallyaccepted asb487 with19bb; BANK6045 code is now actuallyaccepted as463cf03c5226005cae782d05a00abec054c7385c/head39e94a93a5e5408d30b5b9c363b5b27eee674b2f/tree95ad8cdfabc6eca23bd2c0f7bc71fb815d33d2de. Ownhold6561651727 is fulfilled and ownerhandoff6562066649 releases only its BANK-onlysequence. Preserve all three acceptedBANKcodefiles/19bb and coordinate the overlapping CORE/DC1 queue explicitly under6562116773 before manualmetadataacceptance; no globalfreeze or owneroverride.",
+    "Verify this actual463c queue-only proposal, precisebefore/afterpins and zero-state-growth. Fresh complete exactpublishedhead nonauthorreview, separateowneraudit and all native/security/currentreadiness/ordinary full-expected-SHA metadata acceptance are required. Conditionalprivate7869 and priord2d metadatareview/native/READY are historical only and do not transfer.",
     "Only after THIS precise purpose is actually accepted, ordinarily compose exacttwo source paths on actualacceptedmain while retaining publishedde410 ancestry and BANK payload. Obtain fresh complete whole2nonauthorreview, owneraudit, fullcurrentguard/security/KIND/deepoutbox/storage/cleanup/canonicalREADY and normal expected-SHA sourceacceptance. No oldPASStransfer.",
     "Keep state<=3145728B/CAP1/protectedCLAUDEconsumerowner and all new state-vector holds. Preserve only the existing6051explicitHanexception; this CI record creates no product exception. Private4d93 math exception requires its separate actualmetadata and source gates.",
     "Only after the appropriate producer/budget and product-purpose stages are actually accepted may fresh Han/math source runs use the declared300/315 selector. Original19/host/restore/release/model/DB/provider/money/installation remain separately held."
   ],
   "preservation": [
     "Exactprefix append to the accepted queue only; no state/PRIMARY/current/next/progress/scope/owner changes. Preserve all6050/6051/BANK/other-owner records and historical reports.",
-    "Full inverse of only the three declared positive/suffix memberships and one named-state capacity expression restores every39128 bytes of prospectiveBANK19bb. All7097foreignsourceleaves against that prospective source base are identical.",
+    "The future actualsource full inverse of only the three declared positive/suffix memberships and one named-state capacity expression must restore every39128 bytes of acceptedBANK19bb. All7097foreignsourceleaves against THEN-CURRENT accepted source base must be identical, including the three BANK6045 codefiles and this acceptedqueue. Privateprototypes predate that codeacceptance and are not currentmaincomposition or sourceadmission.",
     "Keep existing2MiB other-source/32MiB total/5000path limits, completebytes/hash/mode/UTF8/current-tree validation, fulltests, timeouts, cleanup/private-artifact/secret handling and manual rules. No skipping/truncation/new numerical limits.",
     "No lockfile/product runtime, protectedconsumer guard/ref, owner transfer, host/model/provider/DB/backup/restore/original19/release/install/cost/MASTER authority."
   ],
-  "status": "PROPOSAL_ONLY; BANK_PREREQUISITE_ACCEPTED; THIS_METADATA_AND_SOURCE_NOT_ACCEPTED; CAP1_UNRESOLVED; NO_STATE_GROWTH",
+  "status": "PROPOSAL_ONLY; BANK_CI_AND_CODE_PREREQUISITES_ACCEPTED; THIS_METADATA_AND_SOURCE_NOT_ACCEPTED; CAP1_UNRESOLVED; NO_STATE_GROWTH",
   "purposeId": "gekta-producer-bank-preserving-retained-budget-renewal-20261101",
   "activationPreconditions": {
     "BANKPrerequisitePr": 6049,
@@ -11506,7 +11506,13 @@ WP1 [record](autopilot/prompts/current-review-task.md#wp1)
     "requiredAcceptedBeforeWorkflowBlob": "19bb5ada5bd647cb0d1f0ea3171c5a7ac0da1fc1",
     "actualObservedMainWorkflowBlob": "19bb5ada5bd647cb0d1f0ea3171c5a7ac0da1fc1",
     "preconditionCurrentlySatisfied": true,
-    "sourceAndMetadataNotAutomaticallyAccepted": "Only BANK6049 prerequisite is now accepted. THIS exactqueue-only purpose still needs fresh full actualpublishedhead nonauthorreview, separateowneraudit, native/security/currentREADY and ordinary expected-SHA metadata acceptance before the two-path source may be published. Any changedbase/pins requires new current composition and review."
+    "sourceAndMetadataNotAutomaticallyAccepted": "Only BANK6049 and BANK6045 prerequisites are actually accepted. THIS exactqueue-only purpose still needs NEW complete actualpublishedhead nonauthorreview, separateowneraudit, native/security/currentREADY, explicit overlappingqueuecoordination and ordinary expected-SHA metadata acceptance before the two-path source may be published. Any changedbase/pins requires fresh composition and review. Oldd2d/conditional7869PASS cannottransfer.",
+    "actualCurrentAcceptedMain": "463cf03c5226005cae782d05a00abec054c7385c",
+    "acceptedBankCodePr": 6045,
+    "acceptedBankCodeHead": "39e94a93a5e5408d30b5b9c363b5b27eee674b2f",
+    "actualAcceptedBankCodeMerge": "463cf03c5226005cae782d05a00abec054c7385c",
+    "acceptedBankCodeTree": "95ad8cdfabc6eca23bd2c0f7bc71fb815d33d2de",
+    "bankCodeOwnerHandoff": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6562066649"
   },
   "privateSourceReference": {
     "head": "83f8bd9492070655f31da17fd092b99ebed503be",
@@ -11519,9 +11525,9 @@ WP1 [record](autopilot/prompts/current-review-task.md#wp1)
     "localEmbeddedBudgetContractTests": 7,
     "independentSourceReview": false,
     "sourcePublication": false,
-    "evidenceQualification": "Private source83f8 is not source-accepted or independently functionally reviewed. Local29/7 are candidate contracts only. The complete actual source must be composed on the future actualacceptedmetadata main preserving publishedde410 ancestry and allacceptedforeignbytes; fresh wholeactualheadreview/native/READY/manual is mandatory. Oldde410orconditional7869 assessments cannottransfer.",
+    "evidenceQualification": "Privateprototype83f8 is not source-accepted or independently functionally reviewed. Its29/7 are candidate contracts only. A newer311 assessment below is also PRIVATEONLY and predates BANK6045 codeacceptance. The complete actualsource must be composed on futureactualacceptedmetadata main preserving publishedde410 ancestry and ALL accepted foreignbytes, including BANK6045code. Fresh wholeactualheadreview/native/READY/manual is mandatory; oldde410/d2d/7869/311 evidence cannottransfer as actualcurrentheadacceptance.",
     "sourceComparisonBankParent": "ade966f8245b59db8c6eaf4eea2eba8f3909a044",
-    "actualAcceptedBeforeBase": "b4875e19d8cae13be8daac3930dbaf45194a14cf"
+    "actualAcceptedBeforeBase": "463cf03c5226005cae782d05a00abec054c7385c"
   },
   "localHanFailureReference": {
     "head": "b8438d8797381aff722fc9dbee0a5ee0bc03a08e",
@@ -11534,6 +11540,25 @@ WP1 [record](autopilot/prompts/current-review-task.md#wp1)
     "guardTapTotalsAvailable": false,
     "branchScopeExit": 0,
     "qualification": "One local execution; final reportstagebranch-scope is not the failedcause. No fabricated fullsuitePASS or blindretry."
+  },
+  "newerPrivateSourceAssessment": {
+    "head": "311193fa7a4a753a1860a703df85caed628750e0",
+    "tree": "d8821ac7f2901be5e2e2aee40eaa31d573b88995",
+    "evaluationBase": "d2d160f988aa99336222a6384c1f8ed0abd4f23a",
+    "evaluationBaseAccepted": false,
+    "verdict": "PRIVATE PRODUCER-ONLY FUNCTIONAL/SAFETY PASS; NOT SOURCE ADMISSION",
+    "independentReportSha256": "29dd7469a0c3a403d363e0413b6a1ff9c994ce318e40a00fd6d1adf236c21d11",
+    "authorLocalFullGuard": {
+      "tests": 1168,
+      "pass": 1168,
+      "fail": 0,
+      "skip": 0,
+      "cancel": 0,
+      "exit": 0,
+      "wallSeconds": 265.928,
+      "existingGuardSeconds": 300
+    },
+    "qualification": "Reviewer own29collector/7budget/49readiness and actualrealconsumer boundary controls are separate, overlapping local evidence, not a native1168 claim or formal sourcepurpose. Exact3MiBpasses;3MiB+1and4MiBstillFAILCAP1 withbothsnapshots. Freshactualpublishedsourcewhole2review/nativeKIND/storage/artifact/cleanup/READY/manual remainmandatory after genuineacceptance of THIS metadata. No privatePASStransfer."
   }
 }
 ```
