@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-lab-relevance-20261101",
+  "branch": "fix/gekta-lab-relevance-20261101",
+  "status": "active",
+  "ownerBasis": "Explicit owner 2026-11-01 Gekta audit remediation and parallel testing instruction.",
+  "purpose": "Repair the preexisting native semantic-corpus lab question refusal for arbitrator/logistics/bank; admit whole-word English laboratory shorthand and plurals without interpreting contained substrings as agricultural evidence.",
+  "allowedPaths": [
+    "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+    "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-lab-relevance-20261101.json"
+  ],
+  "boundaries": [
+    "Relevance only: no new data access, role authority, platform capability, provider, safety or runtime change.",
+    "Global state/current scope, frozen purposes, guards, workflows and active CORE release remain unchanged.",
+    "Fresh exact-head independent review, native substantive checks and manual canonical acceptance required."
+  ],
+  "virtualServerDeploymentState": "pending"
+}

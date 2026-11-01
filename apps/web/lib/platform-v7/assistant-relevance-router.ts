@@ -174,7 +174,7 @@ const AGRO_BUSINESS_TERMS = [
   'ттн', 'накладн*', 'счет-фактур*', 'влажност*', 'качеств*', 'деньг*', 'продавец', 'продавц*',
   'покупател*', 'выручк*', 'сумм*', 'цена', 'цены', 'ценам', 'стоимост*',
   'logistics', 'transport*', 'carrier*', 'driver', 'drivers', 'shipment*', 'loading', 'unloading',
-  'acceptance', 'weighing', 'laboratory', 'survey', 'surveyor', 'storage', 'warehouse*',
+  'acceptance', 'weighing', 'laboratory', 'laboratories', 'lab', 'labs', 'survey', 'surveyor', 'storage', 'warehouse*',
   'procurement', 'sales', 'supply', 'quotation*', 'trading', 'export*', 'import*', 'duty', 'duties',
   'payment*', 'settlement*', 'advance', 'deferral', 'dispute*', 'claim*', 'arbitration', 'penalt*',
   'invoice*', 'waybill*', 'consignment*', 'elevator', 'moisture', 'quality',

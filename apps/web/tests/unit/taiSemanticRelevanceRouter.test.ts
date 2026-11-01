@@ -41,6 +41,27 @@ function cabinet(role: string, page: string, overrides: Partial<AssistantRouting
   });
 }
 
+describe('laboratory shorthand keeps legitimate quality questions in scope', () => {
+  it.each(['operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor', 'elevator', 'lab', 'bank', 'organization', 'arbitrator', 'compliance', 'executive'])(
+    'answers the same lab question for %s without inventing platform capability', (role) => {
+      for (const noun of ['lab', 'labs', 'laboratory', 'laboratories']) {
+        const question = `How do I know the ${noun} did not make a mistake?`;
+        const page = role === 'organization' ? '/platform-v7/profile' : role === 'driver' ? '/platform-v7/driver/field' : `/platform-v7/${role}`;
+        const context = cabinet(role, page, { locale: 'en' });
+        const result = routeAssistantQuestion(question, context);
+        expect(isAnswering(result.decision)).toBe(true);
+        expect(result.signals).toContain('agro_term');
+      }
+    },
+  );
+
+  it.each(['Explain the word collaboration.', 'Describe the label on a gaming console.', 'Tell me a story about a Labrador.'])(
+    'does not obtain agricultural evidence from a contained lab substring: %s', (question) => {
+      expect(routeAssistantQuestion(question, emptyRoutingContext('en')).signals).not.toContain('agro_term');
+    },
+  );
+});
+
 describe('mandatory questions from the acceptance set', () => {
   const MANDATORY: readonly [question: string, section: string][] = [
     ['Как защищаются данные?', 'platform_security'],
