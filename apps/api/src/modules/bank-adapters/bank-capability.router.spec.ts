@@ -482,3 +482,160 @@ describe('bank adapter provider identity at runtime', () => {
     for (const call of calls) expect(call).not.toHaveBeenCalled();
   });
 });
+describe('bank routing immutable own-data boundary', () => {
+  it('rejects authority Proxies before descriptor or value traps can upgrade readiness', () => {
+    const adapter = liveTestAdapter('SBER', ['DIRECT_PAYMENT']);
+    const target = authority('SBER', { credentialReadiness: 'EXPIRED_OR_REVOKED' });
+    const descriptor = jest.fn((value: object, key: PropertyKey) => {
+      Object.assign(target, { credentialReadiness: 'VERIFIED_CURRENT' });
+      return Reflect.getOwnPropertyDescriptor(value, key);
+    });
+    const get = jest.fn((value: object, key: PropertyKey) => Reflect.get(value, key));
+    const input = new Proxy<BankRoutingAuthority>(target, { getOwnPropertyDescriptor: descriptor, get });
+    expect(new BankCapabilityRouter([adapter]).route(input, 'DIRECT_PAYMENT')).toMatchObject({ status: 'UNAVAILABLE' });
+    expect(descriptor).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('rejects adapter Proxies at registration before reflection traps run', () => {
+    const descriptor = jest.fn((value: object, key: PropertyKey) => Reflect.getOwnPropertyDescriptor(value, key));
+    const adapter = new Proxy<BankReferenceAdapter>(liveTestAdapter('SBER', ['DIRECT_PAYMENT']), { getOwnPropertyDescriptor: descriptor });
+    expect(() => new BankCapabilityRouter([adapter])).toThrow('NO_ADAPTER_FOR_SERVER_HELD_PROVIDER');
+    expect(descriptor).not.toHaveBeenCalled();
+  });
+
+  it('rejects revoked authority, adapter and registration-list Proxies without throwing from reflection', () => {
+    const adapter = liveTestAdapter('SBER', ['DIRECT_PAYMENT']);
+    const router = new BankCapabilityRouter([adapter]);
+    const auth = Proxy.revocable(authority('SBER'), {}); auth.revoke();
+    expect(router.route(auth.proxy, 'DIRECT_PAYMENT')).toMatchObject({ status: 'UNAVAILABLE' });
+    const registration = Proxy.revocable(adapter, {}); registration.revoke();
+    expect(() => new BankCapabilityRouter([registration.proxy])).toThrow('NO_ADAPTER_FOR_SERVER_HELD_PROVIDER');
+    const list = Proxy.revocable([adapter], {}); list.revoke();
+    expect(() => new BankCapabilityRouter(list.proxy)).toThrow('NO_ADAPTER_FOR_SERVER_HELD_PROVIDER');
+  });
+
+  it.each(['authority', 'adapter'] as const)('rejects a descriptor value containing a capability-array Proxy on %s', target => {
+    const adapter = liveTestAdapter('SBER', ['DIRECT_PAYMENT']);
+    const input = authority('SBER');
+    const descriptor = jest.fn((value: object, key: PropertyKey) => Reflect.getOwnPropertyDescriptor(value, key));
+    const get = jest.fn((value: object, key: PropertyKey) => Reflect.get(value, key));
+    const values = new Proxy(['DIRECT_PAYMENT'], { getOwnPropertyDescriptor: descriptor, get });
+    Object.defineProperty(target === 'authority' ? input : adapter,
+      target === 'authority' ? 'authorizedBankCapabilities' : 'capabilities', { value: values });
+    expect(new BankCapabilityRouter([adapter]).route(input, 'DIRECT_PAYMENT')).toMatchObject({
+      status: target === 'authority' ? 'CONTRADICTORY' : 'UNAVAILABLE',
+    });
+    expect(descriptor).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it.each(['credentialReadiness', 'callbackTrustReadiness', 'maturity', 'evidenceMode',
+    'mayCarryRealTraffic', 'productionEnvironmentConfirmed'] as const)(
+    'does not execute a capability getter that upgrades %s before routing gates', field => {
+      const adapter = liveTestAdapter('SBER', ['DIRECT_PAYMENT']);
+      const input = authority('SBER', {
+        [field]: field === 'maturity' ? 'CONTRACT_PENDING' : field === 'evidenceMode' ? 'CLIENT_HELD'
+          : field.endsWith('Readiness') ? 'EXPIRED_OR_REVOKED' : false,
+      } as Partial<BankRoutingAuthority>);
+      const getter = jest.fn(() => {
+        Object.assign(input, { [field]: field === 'maturity' ? 'LIVE_ACCEPTED' : field === 'evidenceMode' ? 'SERVER_HELD'
+          : field.endsWith('Readiness') ? 'VERIFIED_CURRENT' : true });
+        return ['DIRECT_PAYMENT'];
+      });
+      Object.defineProperty(adapter, 'capabilities', { get: getter });
+      expect(new BankCapabilityRouter([adapter]).route(input, 'DIRECT_PAYMENT')).toMatchObject({ status: 'UNAVAILABLE' });
+      expect(getter).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not invoke authority admission getters or accept their attempted snapshot reentry', () => {
+    const input = authority('SBER');
+    const getter = jest.fn(() => {
+      Object.assign(input, { callbackTrustReadiness: 'VERIFIED_CURRENT' });
+      return 'VERIFIED_CURRENT';
+    });
+    Object.defineProperty(input, 'credentialReadiness', { get: getter });
+    expect(new BankCapabilityRouter([liveTestAdapter('SBER', ['DIRECT_PAYMENT'])]).route(input, 'DIRECT_PAYMENT'))
+      .toMatchObject({ status: 'CONTRADICTORY', reason: 'INCOMPLETE_SERVER_HELD_BINDING_AUTHORITY' });
+    expect(getter).not.toHaveBeenCalled();
+  });
+
+  it.each(['authority', 'adapter'] as const)('ignores injected array every/includes/iterator methods on %s', target => {
+    const adapter = liveTestAdapter('SBER', ['DIRECT_PAYMENT']);
+    const input = authority('SBER');
+    const values = ['DIRECT_PAYMENT'] as BankCapability[];
+    const every = jest.fn(() => true); const includes = jest.fn(() => true);
+    const iterator = jest.fn(function* () { yield 'BILLING'; });
+    Object.defineProperties(values, { every: { value: every }, includes: { value: includes }, [Symbol.iterator]: { value: iterator } });
+    Object.assign(target === 'authority' ? input : adapter,
+      { [target === 'authority' ? 'authorizedBankCapabilities' : 'capabilities']: values });
+    expect(new BankCapabilityRouter([adapter]).route(input, 'DIRECT_PAYMENT')).toMatchObject({ status: 'READY_FOR_REAL_TRAFFIC' });
+    expect(every).not.toHaveBeenCalled(); expect(includes).not.toHaveBeenCalled(); expect(iterator).not.toHaveBeenCalled();
+  });
+
+  it.each(['authority', 'adapter'] as const)('rejects an unknown indexed capability even when %s array methods lie', target => {
+    const adapter = liveTestAdapter('SBER', ['DIRECT_PAYMENT']); const input = authority('SBER');
+    const values = ['UNAUTHORIZED_CAPABILITY'];
+    Object.defineProperties(values, { every: { value: () => true }, includes: { value: () => true } });
+    Object.assign(target === 'authority' ? input : adapter,
+      { [target === 'authority' ? 'authorizedBankCapabilities' : 'capabilities']: values });
+    expect(new BankCapabilityRouter([adapter]).route(input, 'DIRECT_PAYMENT')).toMatchObject({
+      status: target === 'authority' ? 'CONTRADICTORY' : 'UNAVAILABLE',
+    });
+  });
+
+  it.each(['authority', 'adapter'] as const)('rejects sparse capability arrays on %s', target => {
+    const adapter = liveTestAdapter('SBER', ['DIRECT_PAYMENT']); const input = authority('SBER');
+    const values = ['DIRECT_PAYMENT']; values.length = 2;
+    Object.assign(target === 'authority' ? input : adapter,
+      { [target === 'authority' ? 'authorizedBankCapabilities' : 'capabilities']: values });
+    expect(new BankCapabilityRouter([adapter]).route(input, 'DIRECT_PAYMENT')).toMatchObject({
+      status: target === 'authority' ? 'CONTRADICTORY' : 'UNAVAILABLE',
+    });
+  });
+
+  it.each(['authority', 'adapter'] as const)('rejects indexed capability getters on %s without executing them', target => {
+    const adapter = liveTestAdapter('SBER', ['DIRECT_PAYMENT']); const input = authority('SBER');
+    const values = ['DIRECT_PAYMENT']; const getter = jest.fn(() => 'DIRECT_PAYMENT');
+    Object.defineProperty(values, '0', { get: getter });
+    Object.assign(target === 'authority' ? input : adapter,
+      { [target === 'authority' ? 'authorizedBankCapabilities' : 'capabilities']: values });
+    expect(new BankCapabilityRouter([adapter]).route(input, 'DIRECT_PAYMENT')).toMatchObject({
+      status: target === 'authority' ? 'CONTRADICTORY' : 'UNAVAILABLE',
+    });
+    expect(getter).not.toHaveBeenCalled();
+  });
+
+  it('returns an immutable detached authority and capability snapshot', () => {
+    const input = authority('SBER'); const originalValues = input.authorizedBankCapabilities as BankCapability[];
+    const result = new BankCapabilityRouter([liveTestAdapter('SBER', ['DIRECT_PAYMENT'])]).route(input, 'DIRECT_PAYMENT');
+    expect(result.status).toBe('READY_FOR_REAL_TRAFFIC');
+    if (result.status !== 'READY_FOR_REAL_TRAFFIC') throw new Error('test fixture should route');
+    expect(result.authority === input).toBe(false);
+    expect(result.authority.authorizedBankCapabilities === originalValues).toBe(false);
+    expect(Object.isFrozen(result.authority)).toBe(true);
+    expect(Object.isFrozen(result.authority.authorizedBankCapabilities)).toBe(true);
+    Object.assign(input, { providerId: 'changed', credentialReadiness: 'EXPIRED_OR_REVOKED' });
+    originalValues[0] = 'BILLING';
+    expect(result.authority.providerId).toBe('provider-1');
+    expect(result.authority.credentialReadiness).toBe('VERIFIED_CURRENT');
+    expect(result.authority.authorizedBankCapabilities[0]).toBe('SAFE_DEAL_RESERVE_RELEASE');
+  });
+
+  it('does not coerce a Proxy passed as the required capability', () => {
+    const getter = jest.fn(() => { throw new Error('capability coercion must not run'); });
+    const invalid = new Proxy({}, { get: getter }) as unknown as BankCapability;
+    expect(new BankCapabilityRouter([liveTestAdapter('SBER', ['DIRECT_PAYMENT'])]).route(authority('SBER'), invalid))
+      .toMatchObject({ status: 'UNSUPPORTED', reason: 'INVALID_REQUIRED_BANK_CAPABILITY' });
+    expect(getter).not.toHaveBeenCalled();
+  });
+
+  it('does not consume a registration-array iterator that substitutes another provider', () => {
+    const adapter = liveTestAdapter('SBER', ['DIRECT_PAYMENT']); const values = [adapter];
+    const iterator = jest.fn(function* () { yield liveTestAdapter('T_BANK', ['DIRECT_PAYMENT']); });
+    Object.defineProperty(values, Symbol.iterator, { value: iterator });
+    expect(new BankCapabilityRouter(values).route(authority('SBER'), 'DIRECT_PAYMENT')).toMatchObject({ status: 'READY_FOR_REAL_TRAFFIC' });
+    expect(iterator).not.toHaveBeenCalled();
+  });
+});
