@@ -195,12 +195,13 @@ jobs:
           def closed(pairs):
               require(len(pairs) == len(dict(pairs)))
               return dict(pairs)
+          inspection_sizes = {'31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7': 370287, '1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f': 400684}
           def accepted(path, mode, digest):
               p = pathlib.Path(path)
               info = p.lstat()
               require(stat.S_ISREG(info.st_mode) and not p.is_symlink() and
                       stat.S_IMODE(info.st_mode) == (int(mode, 8) & 0o7777) and
-                      0 < info.st_size <= (370287 if path == '.github/workflows/production-docker-headroom-diagnostic.yml' else 200000))
+                      0 < info.st_size <= (inspection_sizes.get(digest, 0) if path == '.github/workflows/production-docker-headroom-diagnostic.yml' else 200000))
               require(hashlib.sha256(p.read_bytes()).hexdigest() == digest)
           def ancestor(value):
               require(type(value) is str and re.fullmatch('[0-9a-f]{40}', value) is not None)
@@ -212,6 +213,8 @@ jobs:
           purpose = state.get('coordinationAdmissions', {}).get('stopped-core-bootstrap-20261024')
           expected_purpose = {'owner': 'ACCOUNT_1_CORE', 'sourceBranch': 'ops/production-cold-preservation-20261022', 'authorityBaseExactMain': 'e48117a2acf2030dffb845ff48e4807f694d01be', 'ownerDecision': '#5469#issuecomment-6391790945', 'operationName': 'core-bootstrap-20261024', 'originalStartupAuthorized': True, 'workersAuthorized': False, 'productionAcceptance': False, 'inspectionSha256': '31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7', 'limits': 'Historical6core only; existing images/mounts/networks; no workers, PgBouncer, daemon restart, pull, migration, private transfer or new cost.'}
           require(type(purpose) is dict and set(purpose) == set(expected_purpose) | {'sourcePins'})
+          require(type(purpose.get('inspectionSha256')) is str and purpose['inspectionSha256'] in inspection_sizes)
+          expected_purpose['inspectionSha256'] = purpose['inspectionSha256']
           require(all(type(purpose[k]) is type(v) and purpose[k] == v for k, v in expected_purpose.items()))
           observer = state.get('coordinationAdmissions', {}).get('stopped-configuration-controller-20261024')
           require(type(observer) is dict and observer.get('readOnly') is True and observer.get('originalStartupAuthorized') is False
@@ -384,9 +387,34 @@ jobs:
           refs = [ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='EXPECTED_REFS' for t in n.targets)]
           if len(refs)!=1 or type(refs[0]) is not tuple or len(refs[0])!=11 or tuple(sorted(refs[0]))!=refs[0]:
               raise SystemExit('BOOTSTRAP_SAVED_REFERENCE_PROFILE')
-          workflow = source('.github/workflows/production-docker-headroom-diagnostic.yml')
-          if hashlib.sha256(workflow).hexdigest() != '31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7':
-              raise SystemExit('BOOTSTRAP_INSPECTOR_IDENTITY')
+          def verified_inspector_workflow(raw):
+              # Only two exact carriers; the inverse is never applied to unknown bytes.
+              import base64, hashlib, json, textwrap, zlib
+              digest = lambda value: hashlib.sha256(value).hexdigest()
+              identities = {'31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7': 370287, '1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f': 400684}
+              if type(raw) is not bytes or len(raw) != identities.get(digest(raw)):
+                  raise AssertionError('BOOTSTRAP_INSPECTOR_IDENTITY')
+              for name, expected in (
+                  ('PY_INSPECTION_0', '92c6da9777dceef4b31235aa6e4bfc3e5829646404b39a121826846dad392eea'),
+                  ('PY_INSPECTION_1', 'b01ef2cf05fe0132ddbfce5d26483390789380d6c75a1b0f18e9212ad65fca0f'),
+                  ('PY_INSPECTION_2', 'e1cd4c77167d3ba2e125e02bb7d3ab5cd1c7269209bbfb819df10822e4ec5143')):
+                  begin, end = ("<<'" + name + "'\n").encode(), ('\n          ' + name + '\n').encode()
+                  if raw.count(begin) != 1 or raw.count(end) != 1:
+                      raise AssertionError('BOOTSTRAP_INSPECTOR_BOUNDARY')
+                  part = textwrap.dedent(raw.split(begin, 1)[1].split(end, 1)[0].decode()).encode()
+                  if digest(part) != expected:
+                      raise AssertionError('BOOTSTRAP_INSPECTOR_FRAGMENT')
+              if len(raw) == 400684:
+                  # Fixed source inverse, not a historical checkout, command or fallback.
+                  for start, stop, value in reversed(json.loads(zlib.decompress(base64.b64decode('eNqFUl1r4zAQ/CuLKbQFu/6IJcUtLXeX+EgovUCc3ktdjLC3sWgiuZbcNv++EkkgcHDdl0WzuzPLjp6eWEai2GcZJZnvec++BShzABulvgc2JN/iNUwFX0ulEbpeNUNthJIwVfUr9qCN6vka4UOYVg0GtoPhrl5KxzcmjGZ+bCNN9oT70LqFQEDpnc0WD3l4Zd+haKqurpxC6UHQuWKneuMeCn5xU7cPqsHbHWoHzBuURhiBeiE3uyNamF7UZqa0ucfdpMX6Vcj1sThRUmJtVmKLdtPbmDiJophVj0W+rIp8ssxXP85aO2w1y7KUcBLnGg0EOQ4KOtHhCxebGzCojSO5EA0Ew6VbFd8guoFmf5x37LW71V3Y4Hsoh42dwbq1e1rVn4+rWbW4P/9H6s5R5n/n0/zPJK+m82VozxPwwbRX5tPudtq97rGD4Pfn2ynlt/POGutJEqXOmyQ7uB+PEkJi3yaa0iOUjdjIQllKxweIMBbbLpqklB0gmrCIOWgcnfgsXq6Bbz74Tl9cHkRZEtkPZlNM6TeNKYlcI0n+w/j8BZHWxyA=')))):
+                      raw = raw[:start] + value.encode() + raw[stop:]
+              if len(raw) != 370287 or digest(raw) != '31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7':
+                  raise AssertionError('BOOTSTRAP_INSPECTOR_INVERSE')
+              return raw
+          try:
+              workflow = verified_inspector_workflow(source('.github/workflows/production-docker-headroom-diagnostic.yml'))
+          except AssertionError:
+              raise SystemExit('BOOTSTRAP_INSPECTOR_IDENTITY') from None
           # Exact Oct29 web transition; never derive authority from host inventory.
           prior_web = ('e643540aecc11ff0158fdca743af410e8746bb7ed408c9cc8b5dd3fccb618d65', 'sha256:4a9a5687ef842f091619ba0c442901c1d760bff225231cd4dbc70b411ce74d49')
           accepted_web = ('b97bfde412b4652d208cc679e8278d56fa5697588ef112d7c9056cda0ab415e9', 'sha256:74d2304531d758ff945da74f52c80fbc71126f51a8f108555fabdd319c8d4dd8')

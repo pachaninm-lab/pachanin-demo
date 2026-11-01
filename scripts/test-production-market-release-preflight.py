@@ -133,15 +133,15 @@ class Metadata(unittest.TestCase):
         self.assertEqual(r['status'],'OBSERVED_READ_ONLY'); self.assertNotIn('do-not-print',json.dumps(r))
     def test_read_only_required(self):
         v=migrations(); v['read_only']=False
-        self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN'})
+        self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN','failure_code':'READ_ONLY_NOT_PROVEN'})
     def test_malformed_types_fail_closed(self):
         for key,value in (('restricted_role',1),('rows','invalid'),('schema',None)):
             with self.subTest(key=key):
                 v=migrations(); v[key]=value
-                self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN'})
+                self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN','failure_code':'METADATA_BAD_FORMAT'})
     def test_numeric_checksum_rejected(self):
         v=migrations(); v['rows'][0]['checksum']=int('1'*64)
-        self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN'})
+        self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN','failure_code':'METADATA_BAD_FORMAT'})
     def test_failed_and_rolled_back_separated(self):
         v=migrations(); v['rows'][0]['finished']=False
         self.assertEqual(m.migration_metadata(json.dumps(v))['failed_unresolved'],1)
@@ -151,18 +151,294 @@ class Metadata(unittest.TestCase):
         for key,value in (('migration_name','secret\ntext'),('checksum','wrong'),('finished',1)):
             with self.subTest(key=key):
                 v=migrations(); v['rows'][0][key]=value
-                self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN'})
+                self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN','failure_code':'METADATA_BAD_FORMAT'})
     def test_missing_or_invalid_json(self):
         for value in (None,'null','[]','bad'):
-            self.assertEqual(m.migration_metadata(value),{'status':'NOT_PROVEN'})
+            code='NOT_OBSERVED' if value is None else 'METADATA_BAD_FORMAT'
+            self.assertEqual(m.migration_metadata(value),{'status':'NOT_PROVEN','failure_code':code})
     def test_inventory_bounded(self):
         v=migrations(); v['rows']*=5001
-        self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN'})
+        self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN','failure_code':'INVENTORY_LIMIT'})
     def test_sql_read_only_before_queries(self):
         self.assertLess(m.DB_PROGRAM.index('SET TRANSACTION READ ONLY'),m.DB_PROGRAM.index('tx.$queryRawUnsafe'))
         for forbidden in ('INSERT INTO','DELETE FROM','ALTER TABLE','DROP TABLE','UPDATE auth.'):
             self.assertNotIn(forbidden,m.DB_PROGRAM)
         self.assertIn('statement_timeout',m.DB_PROGRAM)
+
+
+class MigrationInventoryDiagnostics(unittest.TestCase):
+    INITIAL = '0001_postgresql_initial'
+    MARKER = 'grainflow_v3_initial_postgresql'
+    CODES = {'NOT_OBSERVED', 'METADATA_BAD_FORMAT', 'PERMISSION_DENIED', 'LEDGER_MISSING',
+             'READ_ONLY_NOT_PROVEN', 'QUERY_FAILED', 'INVENTORY_LIMIT', 'LEGACY_INITIAL_MARKER_PRESENT'}
+
+    def legacy_payload(self):
+        value = migrations()
+        value['rows'][0].update(migration_name=self.INITIAL, checksum=self.MARKER)
+        return value
+
+    def test_failure_code_set_and_legacy_singleton_are_bounded(self):
+        self.assertEqual(m.MIGRATION_FAILURE_CODES, self.CODES)
+        self.assertEqual(m.migration_metadata('{"status":"NOT_PROVEN"}'), {'status': 'NOT_PROVEN'})
+        for code in self.CODES:
+            with self.subTest(code=code):
+                failure = {'status': 'NOT_PROVEN', 'failure_code': code}
+                self.assertEqual(m.migration_metadata(json.dumps(failure)), failure)
+                self.assertEqual(m.source_lineage(failure, Path('.')), {'status': 'NOT_PROVEN'})
+
+    def test_malformed_failure_payloads_never_publish_values(self):
+        failures = [{'status': 'NOT_PROVEN', 'failure_code': code}
+                    for code in (None, True, 1, ['QUERY_FAILED'], 'PRIVATE_DSN_SENTINEL', 'QUERY_FAILED\n')]
+        failures += [{'status': 'NOT_PROVEN', 'failure_code': 'QUERY_FAILED', 'raw': 'PRIVATE_DSN_SENTINEL'},
+                     {'status': 'PASS', 'failure_code': 'QUERY_FAILED'}]
+        for value in failures:
+            with self.subTest(value=value):
+                result = m.migration_metadata(json.dumps(value))
+                self.assertEqual(result, {'status': 'NOT_PROVEN', 'failure_code': 'METADATA_BAD_FORMAT'})
+                self.assertNotIn('PRIVATE_DSN_SENTINEL', json.dumps(result))
+
+    def test_exact_legacy_marker_is_a_whole_inventory_hold(self):
+        payload = self.legacy_payload()
+        for companion in ([], [{'migration_name': self.INITIAL,
+                               'checksum': '2d3708fa99e4ee855c7b9fe69dc4e4506a317ffed34330e3955f5e995d35ffdd',
+                               'finished': True, 'rolled_back': False}]):
+            with self.subTest(companion=bool(companion)):
+                value = copy.deepcopy(payload)
+                value['rows'] += companion
+                result = m.migration_metadata(json.dumps(value))
+                self.assertEqual(result, {'status': 'NOT_PROVEN', 'failure_code': 'LEGACY_INITIAL_MARKER_PRESENT'})
+                self.assertNotIn('rows', result)
+                self.assertNotIn(self.MARKER, json.dumps(result))
+                self.assertEqual(m.source_lineage(result, Path('.')), {'status': 'NOT_PROVEN'})
+
+    def test_legacy_shape_variants_and_other_bad_rows_stay_bad_format(self):
+        for field, bad in (('migration_name', '0002_postgresql_initial'),
+                           ('migration_name', '20260913143000_public_market_lot_projection'),
+                           ('checksum', self.MARKER + '_extra'), ('checksum', self.MARKER.upper()),
+                           ('checksum', 'PRIVATE_DSN_SENTINEL'), ('finished', 1)):
+            with self.subTest(field=field, bad=bad):
+                value = self.legacy_payload()
+                value['rows'][0][field] = bad
+                self.assertEqual(m.migration_metadata(json.dumps(value)),
+                                 {'status': 'NOT_PROVEN', 'failure_code': 'METADATA_BAD_FORMAT'})
+        value = self.legacy_payload()
+        value['rows'] += [{'migration_name': 'PRIVATE_DSN_SENTINEL', 'checksum': 'b' * 64,
+                          'finished': True, 'rolled_back': False}]
+        self.assertEqual(m.migration_metadata(json.dumps(value)),
+                         {'status': 'NOT_PROVEN', 'failure_code': 'METADATA_BAD_FORMAT'})
+
+    def test_real_sha_drift_remains_distinct_from_the_legacy_marker(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            folder = root / self.INITIAL
+            folder.mkdir()
+            (folder / 'migration.sql').write_text('CREATE TABLE baseline (id integer);\n')
+            value = migrations()
+            value['rows'][0].update(migration_name=self.INITIAL, checksum='f' * 64)
+            inventory = m.migration_metadata(json.dumps(value))
+            self.assertEqual(inventory['status'], 'OBSERVED_READ_ONLY')
+            self.assertNotIn('failure_code', inventory)
+            comparison = m.source_lineage(inventory, root)
+            self.assertEqual(comparison['status'], 'COMPARED_NOT_MIGRATED')
+            self.assertEqual(comparison['checksum_mismatch'], [self.INITIAL])
+
+    def execute_db_program(self, mode):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            module = root / 'node_modules/@prisma/client'
+            module.mkdir(parents=True)
+            trace = root / 'trace.json'
+            module.joinpath('index.js').write_text(r'''
+const fs=require('node:fs');
+const mode=process.env.SYNTHETIC_DB_MODE;
+const calls=[];
+const error=code=>Object.assign(new Error('PRIVATE_DSN_PRINCIPAL_SENTINEL'),
+                               {code:'P2010',meta:{code}});
+const row={migration_name:'20260913143000_public_market_lot_projection',
+           checksum:'b'.repeat(64),finished:true,rolled_back:false};
+class PrismaClient {
+  async $transaction(callback,options) {
+    if(JSON.stringify(options)!=='{"timeout":12000,"maxWait":3000}')throw error('XX000');
+    return callback({
+      async $executeRawUnsafe(sql) {
+        calls.push(['execute',sql]);
+        if(mode==='setup_failure')throw error('42501');
+      },
+      async $queryRawUnsafe(sql) {
+        calls.push(['query',sql]);
+        if(sql.includes("current_setting('transaction_read_only')"))return [{value:mode==='mode_off'?'off':'on'}];
+        if(sql.includes('pg_catalog.pg_roles')) {
+          if(mode==='role_permission')throw error('42501');
+          return [{rolsuper:false,rolbypassrls:false}];
+        }
+        if(sql.includes('public._prisma_migrations')) {
+          if(mode==='ledger_permission')throw error('42501');
+          if(mode==='ledger_missing')throw error('42P01');
+          if(mode==='ledger_other')throw error('XX000');
+          if(mode==='ledger_direct_permission')throw Object.assign(error('XX000'),{meta:undefined,code:'42501'});
+          if(mode==='oversize')return Array.from({length:5001},()=>row);
+          return [row];
+        }
+        if(sql.includes('to_regclass')) {
+          if(mode==='schema_missing')throw error('42P01');
+          return [{projection_present:true,reader_present:true}];
+        }
+        throw error('XX000');
+      }
+    });
+  }
+  async $disconnect(){fs.writeFileSync(process.env.SYNTHETIC_DB_TRACE,JSON.stringify(calls));}
+}
+module.exports={PrismaClient};
+''')
+            env = dict(os.environ, SYNTHETIC_DB_MODE=mode, SYNTHETIC_DB_TRACE=str(trace))
+            result = subprocess.run(['node', '-'], input=m.DB_PROGRAM, cwd=root, env=env,
+                                    capture_output=True, text=True, timeout=5)
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(result.stderr, '')
+            self.assertNotIn('PRIVATE_DSN_PRINCIPAL_SENTINEL', result.stdout)
+            return json.loads(result.stdout), json.loads(trace.read_text())
+
+    def test_actual_node_program_keeps_the_existing_read_only_sql_sequence(self):
+        value, calls = self.execute_db_program('ok')
+        self.assertTrue(value['read_only'])
+        self.assertTrue(value['restricted_role'])
+        self.assertEqual([kind for kind, _ in calls], ['execute', 'execute', 'query', 'query', 'query', 'query'])
+        self.assertEqual(calls[0], ['execute', 'SET TRANSACTION READ ONLY'])
+        self.assertEqual(calls[1], ['execute', "SET LOCAL statement_timeout = '8s'"])
+        self.assertIn("current_setting('transaction_read_only')", calls[2][1])
+        self.assertIn('pg_catalog.pg_roles', calls[3][1])
+        self.assertIn('public._prisma_migrations', calls[4][1])
+        self.assertIn('LIMIT 5001', calls[4][1])
+        self.assertIn('to_regclass', calls[5][1])
+        self.assertLessEqual(len(m.DB_PROGRAM.encode()), 4096)
+
+    def test_ledger_errors_are_classified_without_raw_error_values(self):
+        for mode, code in (('ledger_permission', 'PERMISSION_DENIED'),
+                           ('ledger_direct_permission', 'PERMISSION_DENIED'),
+                           ('ledger_missing', 'LEDGER_MISSING'),
+                           ('ledger_other', 'QUERY_FAILED')):
+            with self.subTest(mode=mode):
+                result, calls = self.execute_db_program(mode)
+                self.assertEqual(result, {'status': 'NOT_PROVEN', 'failure_code': code})
+                self.assertEqual(len(calls), 5)
+                self.assertEqual(m.migration_metadata(json.dumps(result)), result)
+
+    def test_identical_pg_codes_outside_the_ledger_stage_are_not_mislabelled(self):
+        for mode, code, count in (('setup_failure', 'READ_ONLY_NOT_PROVEN', 1),
+                                  ('mode_off', 'READ_ONLY_NOT_PROVEN', 3),
+                                  ('role_permission', 'QUERY_FAILED', 4),
+                                  ('schema_missing', 'QUERY_FAILED', 6),
+                                  ('oversize', 'INVENTORY_LIMIT', 5)):
+            with self.subTest(mode=mode):
+                result, calls = self.execute_db_program(mode)
+                self.assertEqual(result, {'status': 'NOT_PROVEN', 'failure_code': code})
+                self.assertEqual(len(calls), count)
+
+
+class HistoricalMigrationLedger(unittest.TestCase):
+    INITIAL = '0001_postgresql_initial'
+    DATED = '20260913143000_public_market_lot_projection'
+
+    def source_and_ledger(self, root):
+        rows = []
+        for name, sql in ((self.INITIAL, b'CREATE TABLE baseline (id integer);\n'),
+                          (self.DATED, b'CREATE TABLE projection (id integer);\n')):
+            folder = root / name
+            folder.mkdir()
+            (folder / 'migration.sql').write_bytes(sql)
+            rows.append({'migration_name': name, 'checksum': m.hashlib.sha256(sql).hexdigest(),
+                         'finished': True, 'rolled_back': False})
+        payload = migrations()
+        payload['rows'] = rows
+        return payload
+
+    def test_initial_and_dated_ledger_compare_without_migration_authority(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            payload = self.source_and_ledger(root)
+            payload['rows'][0]['private_value'] = 'SYNTHETIC_PRIVATE_SENTINEL'
+            inventory = m.migration_metadata(json.dumps(payload))
+            self.assertEqual(inventory['status'], 'OBSERVED_READ_ONLY')
+            self.assertEqual([row['migration_name'] for row in inventory['rows']], [self.INITIAL, self.DATED])
+            self.assertNotIn('SYNTHETIC_PRIVATE_SENTINEL', json.dumps(inventory))
+            self.assertEqual(m.source_lineage(inventory, root), {
+                'status': 'COMPARED_NOT_MIGRATED', 'source_count': 2, 'applied_count': 2,
+                'pending': [], 'applied_unknown_to_source': [], 'checksum_mismatch': [],
+                'duplicate_applied_names': False, 'failed_unresolved': 0})
+
+    def test_only_exact_historical_initial_name_is_admitted(self):
+        invalid = ('0002_postgresql_initial', '9999_postgresql_initial', '00001_postgresql_initial',
+                   '0001_other', 'x0001_postgresql_initial', '0001_postgresql_initial_',
+                   '0001_postgresql_initial_extra', '0001_postgresql_initial.sql',
+                   '0001_postgresql_initial\n', '0001_postgresql_initial\x00',
+                   '0001_postgresql_initial/child', '0001_postgresql_initial\u200b')
+        for name in invalid:
+            with self.subTest(name=name):
+                payload = migrations()
+                payload['rows'][0]['migration_name'] = name
+                self.assertEqual(m.migration_metadata(json.dumps(payload)), {'status': 'NOT_PROVEN', 'failure_code': 'METADATA_BAD_FORMAT'})
+                with tempfile.TemporaryDirectory() as td:
+                    root = Path(td)
+                    accepted = self.source_and_ledger(root)
+                    # NUL and path separators are not filesystem component names.
+                    if '\x00' not in name and '/' not in name:
+                        folder = root / name
+                        folder.mkdir()
+                        (folder / 'migration.sql').write_text('SELECT 1;\n')
+                        inventory = m.migration_metadata(json.dumps(accepted))
+                        self.assertEqual(m.source_lineage(inventory, root), {'status': 'NOT_PROVEN'})
+
+    def test_existing_dated_name_grammar_is_preserved(self):
+        for name in ('20260101_x', '20261031123456_legacy_name', '2026103112345_previous_shape'):
+            with self.subTest(name=name):
+                payload = migrations()
+                payload['rows'][0]['migration_name'] = name
+                self.assertEqual(m.migration_metadata(json.dumps(payload))['status'], 'OBSERVED_READ_ONLY')
+        for name in ('2026010_x', '202610311234567_x', '20260101_', '20260101_x\n'):
+            with self.subTest(name=name):
+                payload = migrations()
+                payload['rows'][0]['migration_name'] = name
+                self.assertEqual(m.migration_metadata(json.dumps(payload)), {'status': 'NOT_PROVEN', 'failure_code': 'METADATA_BAD_FORMAT'})
+
+    def test_initial_checksum_mismatch_stays_visible(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            payload = self.source_and_ledger(root)
+            payload['rows'][0]['checksum'] = 'f' * 64
+            result = m.source_lineage(m.migration_metadata(json.dumps(payload)), root)
+            self.assertEqual(result['status'], 'COMPARED_NOT_MIGRATED')
+            self.assertEqual(result['checksum_mismatch'], [self.INITIAL])
+
+    def test_missing_initial_stays_pending(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            payload = self.source_and_ledger(root)
+            payload['rows'] = payload['rows'][1:]
+            result = m.source_lineage(m.migration_metadata(json.dumps(payload)), root)
+            self.assertEqual(result['pending'], [self.INITIAL])
+            self.assertEqual(result['applied_count'], 1)
+
+    def test_duplicate_initial_rows_are_not_silently_deduplicated(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            payload = self.source_and_ledger(root)
+            payload['rows'].append(dict(payload['rows'][0]))
+            result = m.source_lineage(m.migration_metadata(json.dumps(payload)), root)
+            self.assertTrue(result['duplicate_applied_names'])
+            self.assertEqual(result['applied_count'], 3)
+
+    def test_unfinished_or_rolled_back_initial_never_counts_as_applied(self):
+        for finished, rolled_back, failed in ((False, False, 1), (False, True, 0), (True, True, 0)):
+            with self.subTest(finished=finished, rolled_back=rolled_back):
+                with tempfile.TemporaryDirectory() as td:
+                    root = Path(td)
+                    payload = self.source_and_ledger(root)
+                    payload['rows'][0].update(finished=finished, rolled_back=rolled_back)
+                    result = m.source_lineage(m.migration_metadata(json.dumps(payload)), root)
+                    self.assertEqual(result['pending'], [self.INITIAL])
+                    self.assertEqual(result['failed_unresolved'], failed)
+                    self.assertEqual(result['applied_count'], 1)
 
 
 class Boundary(unittest.TestCase):
@@ -299,6 +575,50 @@ class Evidence(unittest.TestCase):
 
 
 
+class MigrationDiagnosticEvidence(unittest.TestCase):
+    def test_old_and_new_not_proven_objects_remain_non_authorizing(self):
+        for inventory in [{'status': 'NOT_PROVEN'}] + [
+                {'status': 'NOT_PROVEN', 'failure_code': code} for code in MigrationInventoryDiagnostics.CODES]:
+            with self.subTest(inventory=inventory):
+                value = report()
+                value['migration_inventory'] = inventory
+                self.assertEqual(m.validate_report(value, SHA), value)
+                self.assertIs(value['deployment_authorized'], False)
+                self.assertEqual(value['production_mutation'], 'NONE')
+                self.assertEqual(value['live_acceptance'], 'NOT_PERFORMED')
+                self.assertEqual(m.source_lineage(inventory, Path('.')), {'status': 'NOT_PROVEN'})
+
+    def test_failure_diagnostics_have_exact_keys_and_closed_enum(self):
+        invalid = [{'status': 'NOT_PROVEN', 'failure_code': code}
+                   for code in (True, 1, None, [], 'PRIVATE_DSN_SENTINEL', 'QUERY_FAILED\n')]
+        invalid += [{'status': 'NOT_PROVEN', 'failure_code': 'QUERY_FAILED', 'raw': 'PRIVATE_DSN_SENTINEL'},
+                    {'status': 'PASS', 'failure_code': 'QUERY_FAILED'}]
+        for inventory in invalid:
+            with self.subTest(inventory=inventory):
+                value = report()
+                value['migration_inventory'] = inventory
+                with self.assertRaises(ValueError):
+                    m.validate_report(value, SHA)
+
+    def test_failure_code_is_forbidden_on_observed_inventory(self):
+        value = report()
+        value['migration_inventory']['failure_code'] = 'QUERY_FAILED'
+        with self.assertRaises(ValueError):
+            m.validate_report(value, SHA)
+
+    def test_diagnostic_code_does_not_relax_authority_flags(self):
+        for inventory in ({'status': 'NOT_PROVEN'},
+                          {'status': 'NOT_PROVEN', 'failure_code': 'LEGACY_INITIAL_MARKER_PRESENT'}):
+            for key, bad in (('deployment_authorized', True), ('production_mutation', 'ALLOWED'),
+                             ('live_acceptance', 'PASS'), ('protected_values', 'PUBLISHED')):
+                with self.subTest(inventory=inventory, key=key):
+                    value = report()
+                    value['migration_inventory'] = inventory
+                    value[key] = bad
+                    with self.assertRaises(ValueError):
+                        m.validate_report(value, SHA)
+
+
 class WorkflowContract(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -363,6 +683,215 @@ class WorkflowContract(unittest.TestCase):
                 self.assertEqual(result.returncode,code)
                 self.assertEqual(result.stdout,'')
                 self.assertEqual(result.stderr,'MARKET_PREFLIGHT_FAILURE='+classification+'\n')
+
+
+class WorkflowFailureClassification(unittest.TestCase):
+    """Execute actual preflight gates locally; every external command is stubbed."""
+    @classmethod
+    def setUpClass(cls):
+        cls.workflow = (PATH.parents[1] / '.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml').read_text()
+        diagnostic = cls.workflow.split('\n  diagnostic:\n', 1)[1]
+        cls.run_body = textwrap.dedent(diagnostic.split('        run: |\n', 1)[1].split('\n      - name: Preserve validated read-only market observations', 1)[0])
+        marker = '# Collect bounded evidence before legacy parity; collection never grants release.'
+        cls.prefix = cls.run_body.split(marker, 1)[0]
+        cls.collection_binding = marker + cls.run_body.split(marker, 1)[1].split('python3 -B - "$TARGET_SHA"', 1)[0]
+
+    def execute(self, overrides=None, collection=False):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            binaries = root / 'bin'
+            binaries.mkdir()
+            trace = root / 'trace'
+            stub = binaries / 'command-stub.py'
+            stub.write_text(r'''#!/usr/bin/env python3
+import os,sys,tempfile
+from pathlib import Path
+name=Path(sys.argv[0]).name
+args=sys.argv[1:]
+trace=Path(os.environ['SYNTHETIC_TRACE'])
+with trace.open('a') as output: output.write(name+':'+(args[0] if args else '')+'\n')
+def fail():
+    print('SYNTHETIC_PRIVATE_ERROR_SENTINEL',file=sys.stderr)
+    raise SystemExit(9)
+if name=='git':
+    if args[:1]==['fetch']:
+        if os.environ.get('SYNTHETIC_FETCH_FAIL')=='1': fail()
+    elif args==['rev-parse','HEAD']: print(os.environ['SYNTHETIC_HEAD'])
+    elif args==['rev-parse','origin/main']: print(os.environ['SYNTHETIC_ORIGIN'])
+    else: raise SystemExit(8)
+elif name=='gh':
+    countfile=Path(os.environ['SYNTHETIC_GH_COUNT'])
+    count=int(countfile.read_text()) if countfile.exists() else 0
+    countfile.write_text(str(count+1))
+    if os.environ.get('SYNTHETIC_GH_FAIL')=='1': fail()
+    values=os.environ['SYNTHETIC_GH_VALUES'].split(',')
+    print(values[min(count,len(values)-1)])
+elif name=='getent':
+    mode=os.environ.get('SYNTHETIC_DNS','ok')
+    if mode=='error': fail()
+    print(('203.0.113.250' if mode=='wrong' else '195.19.12.120')+' STREAM fixture')
+elif name=='ssh-keygen':
+    if '-y' in args:
+        if os.environ.get('SYNTHETIC_KEY_FAIL')=='1': fail()
+        print('ssh-ed25519 PUBLIC_FIXTURE')
+    elif '-lf' in args:
+        value=sys.stdin.read()
+        fingerprint='SHA256:BBBB' if 'wrong' in value else 'SHA256:AAAA'
+        print('256 '+fingerprint+' fixture')
+    else: raise SystemExit(8)
+elif name=='ssh-keyscan':
+    mode=os.environ.get('SYNTHETIC_PIN','ok')
+    if mode!='empty':
+        print('195.19.12.120 ssh-ed25519 '+('wrong' if mode=='wrong' else 'key1'))
+        if mode=='ambiguous': print('195.19.12.120 ecdsa-sha2-nistp256 key2')
+elif name=='sleep': pass
+elif name=='mv':
+    if os.environ.get('SYNTHETIC_KNOWN_MOVE_FAIL')=='1': fail()
+    os.execv('/bin/mv',['/bin/mv',*args])
+elif name=='chmod':
+    if os.environ.get('SYNTHETIC_KNOWN_MODE_FAIL')=='1' and args[-1].endswith('known-hosts'): fail()
+    if os.environ.get('SYNTHETIC_KEY_MODE_FAIL')=='1' and args[-1].endswith('p0-runtime-parity-key'): fail()
+    os.execv('/bin/chmod',['/bin/chmod',*args])
+elif name=='tr':
+    if os.environ.get('SYNTHETIC_KEY_COPY_FAIL')=='1': fail()
+    os.execv('/usr/bin/tr',['/usr/bin/tr',*args])
+elif name=='mktemp':
+    if os.environ.get('SYNTHETIC_TEMP_FAIL')=='1': fail()
+    if os.environ.get('SYNTHETIC_TEMP_DIRECTORY')=='1':
+        print(tempfile.mkdtemp(dir=os.environ['SYNTHETIC_TEMP_ROOT']))
+    else:
+        descriptor,path=tempfile.mkstemp(dir=os.environ['SYNTHETIC_TEMP_ROOT'])
+        os.close(descriptor)
+        print(path)
+elif name=='ssh':
+    sys.stdin.buffer.read()
+    print('{}')
+else: raise SystemExit(8)
+''')
+            stub.chmod(0o700)
+            for name in ('git', 'gh', 'getent', 'ssh-keygen', 'ssh-keyscan', 'sleep', 'mv', 'chmod', 'tr', 'mktemp', 'ssh'):
+                (binaries / name).symlink_to(stub.name)
+            env = dict(os.environ, PATH=str(binaries) + os.pathsep + os.environ['PATH'],
+                       TARGET_SHA=SHA, RUNNER_TEMP=td, GITHUB_REPOSITORY='synthetic/fixture',
+                       PC_PROD_HOST='195.19.12.120', PC_PROD_SSH_USER='fixture',
+                       PC_PROD_SSH_PORT='22', PC_PROD_SSH_HOST_FINGERPRINT='SHA256:AAAA',
+                       PC_PROD_SSH_KEY='PRIVATE_KEY_FIXTURE', PC_PROD_SSH_PRIVATE_KEY='', VPS_SSH_KEY='',
+                       SYNTHETIC_TRACE=str(trace), SYNTHETIC_GH_COUNT=str(root / 'gh-count'), SYNTHETIC_TEMP_ROOT=td,
+                       SYNTHETIC_GH_VALUES=SHA, SYNTHETIC_HEAD=SHA, SYNTHETIC_ORIGIN=SHA)
+            env.update(overrides or {})
+            if collection:
+                body = 'set -Eeuo pipefail\n' + self.collection_binding + '\necho COLLECTION_BINDINGS_PASSED\n'
+                env.update(key='fixture', port='22', known='fixture', user='fixture', host='fixture',
+                           preflight_raw=str(root / 'untrusted.json'))
+            else:
+                body = self.prefix + '\necho PREFLIGHT_GATES_PASSED\n'
+            result = subprocess.run(['bash', '-c', body], cwd=PATH.parents[1], env=env,
+                                    capture_output=True, text=True, timeout=12)
+            return result, trace.read_text().splitlines() if trace.exists() else []
+
+    def assert_failure(self, overrides, code, collection=False):
+        result, calls = self.execute(overrides, collection)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stderr, 'MARKET_PREFLIGHT_FAILURE=' + code + '\n')
+        self.assertNotIn('SYNTHETIC_PRIVATE_ERROR_SENTINEL', result.stdout + result.stderr)
+        self.assertNotIn('PRIVATE_KEY_FIXTURE', result.stdout + result.stderr)
+        self.assertNotIn('PASSED', result.stdout)
+        self.assertNotIn('MARKET_PREFLIGHT_COLLECTION=VALIDATED_READ_ONLY', result.stdout)
+        return calls
+
+    def test_valid_existing_gates_reach_only_the_next_stage(self):
+        result, calls = self.execute()
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stderr, '')
+        self.assertEqual(result.stdout, 'PREFLIGHT_GATES_PASSED\n')
+        self.assertEqual(calls.count('gh:api'), 1)
+        self.assertEqual(calls.count('getent:ahostsv4'), 1)
+        self.assertEqual(calls.count('ssh-keyscan:-T'), 1)
+        self.assertFalse(any(item.startswith('ssh:') for item in calls))
+
+    def test_main_checks_have_closed_codes_and_stop_before_key_or_dns(self):
+        for override, code in (({'SYNTHETIC_FETCH_FAIL': '1'}, 'CURRENT_MAIN_FETCH_FAILED'),
+                               ({'SYNTHETIC_HEAD': 'b' * 40}, 'CURRENT_MAIN_CHECKOUT_NOT_PROVEN'),
+                               ({'SYNTHETIC_ORIGIN': 'b' * 40}, 'CURRENT_MAIN_FETCHED_REF_NOT_PROVEN'),
+                               ({'SYNTHETIC_GH_VALUES': 'b' * 40}, 'CURRENT_MAIN_API_NOT_PROVEN'),
+                               ({'SYNTHETIC_GH_FAIL': '1'}, 'CURRENT_MAIN_API_NOT_PROVEN')):
+            with self.subTest(code=code, override=override):
+                calls = self.assert_failure(override, code)
+                self.assertFalse(any(item.startswith(('getent:', 'ssh-keygen:', 'ssh-keyscan:', 'ssh:')) for item in calls))
+
+    def test_protected_authority_shape_failure_does_not_publish_values(self):
+        cases = (({'PC_PROD_HOST': 'SYNTHETIC_PRIVATE_ERROR_SENTINEL'}, 'CANONICAL_HOST_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_USER': ''}, 'PROTECTED_USER_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_USER': 'SYNTHETIC_PRIVATE_ERROR_SENTINEL/'}, 'PROTECTED_USER_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_PORT': 'SYNTHETIC_PRIVATE_ERROR_SENTINEL'}, 'PROTECTED_PORT_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_PORT': '0'}, 'PROTECTED_PORT_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_PORT': '65536'}, 'PROTECTED_PORT_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_PORT': '08'}, 'PROTECTED_PORT_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_PORT': '18446744073709551638'}, 'PROTECTED_PORT_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_PORT': '9' * 10000}, 'PROTECTED_PORT_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_PORT': '065536'}, 'PROTECTED_PORT_NOT_PROVEN'),
+                 ({'PC_PROD_SSH_HOST_FINGERPRINT': 'SYNTHETIC_PRIVATE_ERROR_SENTINEL'}, 'PINNED_FINGERPRINT_NOT_PROVEN'))
+        for override, code in cases:
+            with self.subTest(code=code, override=override):
+                calls = self.assert_failure(override, code)
+                self.assertFalse(any(item.startswith(('getent:', 'ssh-keygen:', 'ssh-keyscan:', 'ssh:')) for item in calls))
+
+    def test_missing_or_invalid_key_stops_before_dns(self):
+        for override in ({'PC_PROD_SSH_KEY': ''}, {'SYNTHETIC_KEY_FAIL': '1'}):
+            with self.subTest(override=override):
+                calls = self.assert_failure(override, 'PROTECTED_KEY_NOT_PROVEN')
+                self.assertFalse(any(item.startswith(('getent:', 'ssh-keyscan:', 'ssh:')) for item in calls))
+
+    def test_valid_port_shape_keeps_existing_leading_zero_behavior(self):
+        result, calls = self.execute({'PC_PROD_SSH_PORT': '000000000000000000000000000000022'})
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stderr, '')
+        self.assertEqual(result.stdout, 'PREFLIGHT_GATES_PASSED\n')
+        self.assertEqual(calls.count('ssh-keyscan:-T'), 1)
+
+    def test_dns_failure_or_wrong_destination_stops_before_scan(self):
+        for mode in ('wrong', 'error'):
+            with self.subTest(mode=mode):
+                calls = self.assert_failure({'SYNTHETIC_DNS': mode}, 'DNS_AUTHORITY_NOT_PROVEN')
+                self.assertFalse(any(item.startswith(('ssh-keyscan:', 'ssh:')) for item in calls))
+
+    def test_private_key_file_io_failures_never_advance(self):
+        for slot in ('primary', 'fallback'):
+            for failure in ('SYNTHETIC_KEY_COPY_FAIL', 'SYNTHETIC_KEY_MODE_FAIL',
+                            'SYNTHETIC_TEMP_FAIL', 'SYNTHETIC_TEMP_DIRECTORY'):
+                with self.subTest(slot=slot, failure=failure):
+                    override = {failure: '1'}
+                    if slot == 'fallback':
+                        override.update(PC_PROD_SSH_KEY='', VPS_SSH_KEY='PRIVATE_KEY_FIXTURE')
+                    calls = self.assert_failure(override, 'PROTECTED_KEY_NOT_PROVEN')
+                    self.assertFalse(any(item.startswith(('getent:', 'ssh-keyscan:', 'ssh:')) for item in calls))
+
+    def test_pin_failure_keeps_existing_three_attempt_boundary(self):
+        for mode in ('empty', 'wrong', 'ambiguous'):
+            with self.subTest(mode=mode):
+                calls = self.assert_failure({'SYNTHETIC_PIN': mode}, 'PINNED_IDENTITY_NOT_PROVEN')
+                self.assertEqual(calls.count('ssh-keyscan:-T'), 3)
+                self.assertEqual(calls.count('sleep:1'), 1)
+                self.assertEqual(calls.count('sleep:2'), 1)
+                self.assertFalse(any(item.startswith('ssh:') for item in calls))
+
+    def test_known_hosts_file_binding_failure_stays_private(self):
+        for key in ('SYNTHETIC_KNOWN_MOVE_FAIL', 'SYNTHETIC_KNOWN_MODE_FAIL'):
+            with self.subTest(key=key):
+                calls = self.assert_failure({key: '1'}, 'PINNED_KNOWN_HOSTS_NOT_PROVEN')
+                self.assertFalse(any(item.startswith('ssh:') for item in calls))
+
+    def test_main_binding_before_collection_prevents_ssh(self):
+        calls = self.assert_failure({'SYNTHETIC_GH_VALUES': 'b' * 40},
+                                    'CURRENT_MAIN_BEFORE_COLLECTION_NOT_PROVEN', collection=True)
+        self.assertEqual(calls.count('gh:api'), 1)
+        self.assertFalse(any(item.startswith('ssh:') for item in calls))
+
+    def test_main_binding_after_collection_admits_no_evidence(self):
+        calls = self.assert_failure({'SYNTHETIC_GH_VALUES': SHA + ',' + 'b' * 40},
+                                    'CURRENT_MAIN_AFTER_COLLECTION_NOT_PROVEN', collection=True)
+        self.assertEqual(calls.count('gh:api'), 2)
+        self.assertEqual(sum(item.startswith('ssh:') for item in calls), 1)
 
 
 class PreflightFailureEvidence(unittest.TestCase):
@@ -2205,5 +2734,328 @@ class InitialImageReclaimPlan(unittest.TestCase):
             with self.assertRaises(ValueError):m.validate_image_reclaim_plan(bad,profile)
 
 
+def original_fixture(payload=b'synthetic known file'):
+    import io, tarfile
+    names = tuple('synthetic-volume-%02d' % index for index in range(19))
+    entries = {}
+    paths = ['containers', 'volumes'] + [path for name in names for path in ('volumes/' + name, 'volumes/' + name + '/_data')]
+    for path in paths + ['containers/synthetic-file']:
+        directory = path in paths
+        entries[path] = {'kind': 'directory' if directory else 'file', 'uid': 0, 'gid': 0,
+            'mode': 0o700 if directory else 0o600, 'mtime_ns': 0, 'ctime_ns': 0, 'atime_ns': 0,
+            'device': 1, 'inode': len(entries)+1, 'nlink': 1, 'size': 0 if directory else len(payload),
+            'sha256': None if directory else m.hashlib.sha256(payload).hexdigest(), 'xattrs': {}}
+    manifest = {'schema': 'pc.cold-preservation.manifest.v1', 'entries': entries}
+    raw = json.dumps(manifest, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode('ascii')
+    output = io.BytesIO()
+    with tarfile.open(fileobj=output, mode='w', format=tarfile.PAX_FORMAT) as archive:
+        header = tarfile.TarInfo(m.ORIGINAL_MANIFEST)
+        header.uid = header.gid = 0; header.mode = 0o600; header.size = len(raw)
+        archive.addfile(header, io.BytesIO(raw))
+        for path, item in sorted(entries.items()):
+            header = tarfile.TarInfo(path)
+            header.uid = header.gid = 0; header.mode = item['mode']; header.mtime = 0
+            if item['kind'] == 'directory': header.type = tarfile.DIRTYPE; archive.addfile(header)
+            else: header.size = len(payload); archive.addfile(header, io.BytesIO(payload))
+    return manifest, raw, output.getvalue(), names, dict(m.ORIGINAL_RECEIPT, entries=len(entries), sourceBytes=len(payload))
+
+
+def original_failure():
+    with patch.object(m.os, 'getuid', return_value=12345), patch.object(m.os, 'geteuid', return_value=12345):
+        return m.original_inventory_witness()
+
+
+def original_success():
+    value = original_failure()
+    canonical, newline = m.original_name_digests(tuple('synthetic-volume-%02d' % index for index in range(19)))
+    value.update(status='AUTHENTICATED_ORIGINAL19_MATCH', failure='NONE', original_count=19,
+        current_before_count=19, current_after_count=19, original_canonical_json_sha256=canonical,
+        current_before_canonical_json_sha256=canonical, current_after_canonical_json_sha256=canonical,
+        current_before_newline_sha256=newline, current_after_newline_sha256=newline,
+        full_eof_mdc=True, ciphertext_unchanged=True, metadata_unchanged=True, exact_set_match=True)
+    return value
+
+
+def original_fixture_identity():
+    # Native files/pipes/GPG remain real. Hosted runners own their synthetic
+    # fixtures as a nonroot user; only owner/actor stat fields are substituted.
+    # Production code keeps literal UID/GID0 checks. The forced local profile is
+    # explicitly synthetic and is not claimed as an unprivileged process run.
+    import contextlib
+    from types import SimpleNamespace
+    stack = contextlib.ExitStack()
+    if os.geteuid() != 0 or os.environ.get('PC_ORIGINAL_TEST_UID_PROFILE') == 'synthetic':
+        real_stat, real_fstat = os.stat, os.fstat
+        fields = ('st_dev','st_ino','st_mode','st_uid','st_gid','st_nlink','st_size',
+                  'st_atime_ns','st_mtime_ns','st_ctime_ns')
+        def profile(info):
+            result = {key: getattr(info, key) for key in fields}
+            result.update(st_uid=0, st_gid=0)
+            return SimpleNamespace(**result)
+        stack.enter_context(patch.object(m.os, 'stat', side_effect=lambda *a,**k: profile(real_stat(*a,**k))))
+        stack.enter_context(patch.object(m.os, 'fstat', side_effect=lambda *a,**k: profile(real_fstat(*a,**k))))
+        stack.enter_context(patch.object(m.os, 'getuid', return_value=0))
+        stack.enter_context(patch.object(m.os, 'geteuid', return_value=0))
+    return stack
+
+
+class OriginalInventory(unittest.TestCase):
+    def test_exact_public_receipt_pins(self):
+        self.assertEqual(len(m.ORIGINAL_RECEIPT), 16)
+        self.assertEqual(m.ORIGINAL_RECEIPT['runId'], '39779050389')
+        self.assertEqual(m.ORIGINAL_RECEIPT['ciphertextBytes'], 389954515)
+        self.assertEqual(m.ORIGINAL_RECEIPT['entries'], 8547)
+        self.assertEqual(m.ORIGINAL_RECEIPT['sourceBytes'], 520405747)
+        self.assertEqual(m.ORIGINAL_RECEIPT['ciphertextSha256'], '800264a1819ba26869e4b79d1f6874dc5078aa982ab333fdd999629f6b490603')
+
+    def test_valid_complete_historical_manifest(self):
+        manifest, raw, _, names, receipt = original_fixture()
+        with patch.object(m, 'ORIGINAL_RECEIPT', receipt):
+            self.assertEqual(m.original_manifest(raw), (manifest['entries'], names))
+
+    def test_manifest_closed_fields_and_types(self):
+        manifest, _, _, _, receipt = original_fixture()
+        changes = [lambda v: v.update(extra='sensitive'), lambda v: v['entries']['containers'].update(extra='sensitive'),
+            lambda v: v['entries']['containers'].update(inode=True), lambda v: v['entries']['containers'].update(mode=0o10000),
+            lambda v: v['entries']['containers'].update(sha256='a'*64),
+            lambda v: v['entries']['containers'].update(xattrs={'security.acl': {'bytes': 0, 'sha256': 'a'*64}}),
+            lambda v: v['entries']['containers/synthetic-file'].update(size=1)]
+        with patch.object(m, 'ORIGINAL_RECEIPT', receipt):
+            for change in changes:
+                bad = copy.deepcopy(manifest); change(bad)
+                with self.subTest(change=change), self.assertRaises(m.OriginalRefusal): m.original_manifest(json.dumps(bad).encode())
+
+    def test_manifest_paths_parent_and_exact19(self):
+        manifest, _, _, _, receipt = original_fixture()
+        for old,new in [('containers/synthetic-file','../sensitive'), ('containers/synthetic-file','volumes/synthetic-volume-00/missing/file'),
+                        ('volumes/synthetic-volume-00/_data','volumes/synthetic-volume-19/_data'), ('containers/synthetic-file','/containers/file')]:
+            bad=copy.deepcopy(manifest);bad['entries'][new]=bad['entries'].pop(old)
+            with patch.object(m,'ORIGINAL_RECEIPT',receipt), self.assertRaises(m.OriginalRefusal): m.original_manifest(json.dumps(bad).encode())
+
+    def test_duplicate_json_nonfinite_and_bounds(self):
+        for raw in [b'{"schema":1,"schema":2}',b'{"x":NaN}',b'{"x":Infinity}',b'\xff']:
+            with self.assertRaises(m.OriginalRefusal):m.original_json(raw)
+        with patch.object(m,'ORIGINAL_MANIFEST_LIMIT',8),self.assertRaises(m.OriginalRefusal):m.original_manifest(b'x'*9)
+
+    def test_canonical_json_distinct_from_later_newline(self):
+        names=tuple('synthetic-%02d'%i for i in reversed(range(19)))
+        canonical,newline=m.original_name_digests(names)
+        self.assertEqual(canonical,m.hashlib.sha256(json.dumps(sorted(names),separators=(',',':')).encode()).hexdigest())
+        self.assertEqual(newline,m.hashlib.sha256('\n'.join(sorted(names)).encode()).hexdigest());self.assertNotEqual(canonical,newline)
+
+    def test_current_inventory_exact_count_unique_name_profile(self):
+        names=['synthetic-%02d'%i for i in range(19)]
+        for raw in [None,'','\n'.join(names[:-1]),'\n'.join(names+['other']),'\n'.join(names[:-1]+[names[0]]),'\n'.join(names[:-1]+['../sensitive'])]:
+            with patch.object(m,'run',return_value=raw),self.assertRaises(m.OriginalRefusal):m.original_current_names()
+        with patch.object(m,'run',return_value='\n'.join(names)+'\n') as command:
+            self.assertEqual(m.original_current_names(),tuple(sorted(names)));command.assert_called_once_with(['docker','volume','ls','-q'])
+
+    def test_no_python_key_reader_and_default_v6_unchanged(self):
+        import ast
+        tree=ast.parse(PATH.read_text())
+        fn=next(v for v in tree.body if isinstance(v,ast.FunctionDef) and v.name=='original_inventory_witness')
+        reads=[ast.unparse(n) for n in ast.walk(fn) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr in ('read','read_bytes','read_text')]
+        self.assertEqual(reads,['os.read(receipt_fd, 4097)'])
+        fn=next(v for v in tree.body if isinstance(v,ast.FunctionDef) and v.name=='collect');self.assertNotIn('original_',ast.unparse(fn))
+        m.validate_report(report(),SHA)
+
+    def test_failure_closed_redacted_and_no_partial_claims(self):
+        value=original_failure();m.validate_original_inventory(value);self.assertEqual(value['failure'],'IDENTITY')
+        self.assertNotIn('passphrase',json.dumps(value));self.assertIs(value['deployment_authorized'],False)
+        for key,bad in [('full_eof_mdc',True),('original_count',19),('original_canonical_json_sha256','a'*64)]:
+            changed=dict(value);changed[key]=bad
+            with self.subTest(key=key),self.assertRaises(m.OriginalRefusal):m.validate_original_inventory(changed)
+
+    def test_success_schema_rejects_unproved_claims(self):
+        value=original_success();m.validate_original_inventory(value)
+        for key,bad in [('extra','sensitive'),('original_count',True),('full_eof_mdc',False),('deployment_authorized',True),
+                        ('current_after_canonical_json_sha256','a'*64),('ciphertext_unchanged',1),('failure','sensitive')]:
+            changed=copy.deepcopy(value);changed[key]=bad
+            with self.subTest(key=key),self.assertRaises(m.OriginalRefusal):m.validate_original_inventory(changed)
+
+    def test_complete_tar_required_before_authentication(self):
+        import io
+        _,_,raw,names,receipt=original_fixture()
+        class Stream(io.BytesIO):
+            authenticated=False
+            def authenticate(self):self.authenticated=True
+        with patch.object(m,'ORIGINAL_RECEIPT',receipt):
+            stream=Stream(raw);self.assertEqual(m.original_archive(stream,m.time.monotonic()+5),names);self.assertTrue(stream.authenticated)
+            for bad in [raw[:512],raw+b'sensitive']:
+                stream=Stream(bad)
+                with self.assertRaises((m.OriginalRefusal,ValueError)):m.original_archive(stream,m.time.monotonic()+5)
+                self.assertFalse(stream.authenticated)
+
+    def test_full_authenticated_zero_tail_drained(self):
+        import io
+        _,_,raw,names,receipt=original_fixture()
+        class Stream(io.BytesIO):
+            def authenticate(self):self.authenticated_at=self.tell()
+        stream=Stream(raw+b'\0'*(8*1024*1024))
+        with patch.object(m,'ORIGINAL_RECEIPT',receipt):self.assertEqual(m.original_archive(stream,m.time.monotonic()+5),names)
+        self.assertEqual(stream.authenticated_at,len(stream.getvalue()))
+
+    def test_deadline_precedes_native_process(self):
+        with patch.object(m.subprocess,'Popen') as native,self.assertRaises(m.OriginalRefusal):m.OriginalGPGStream(0,1,m.time.monotonic()-1)
+        native.assert_not_called()
+
+    def test_both_envelope_parts_validate(self):
+        value={'schema':'pc-crop.market-original-inventory-envelope.v1','target_sha':SHA,'market_preflight':report(),
+               'original_inventory':original_success(),'production_mutation':'NONE','deployment_authorized':False}
+        self.assertIs(m.validate_original_envelope(value,SHA),value)
+        for section in ('market_preflight','original_inventory'):
+            bad=copy.deepcopy(value);bad[section]['unknown']='sensitive'
+            with self.subTest(section=section),self.assertRaises(ValueError):m.validate_original_envelope(bad,SHA)
+
+    def test_safe_regular_fd_noatime_and_identity(self):
+        if not hasattr(os,'O_NOATIME'):self.fail('Native noatime unavailable; not PASS or SKIP')
+        with tempfile.TemporaryDirectory() as td:
+            parent=os.open(td,os.O_RDONLY|os.O_DIRECTORY)
+            try:
+                file=Path(td)/'passphrase';file.write_bytes(b'k'*64+b'\n');file.chmod(0o600);before=m.original_token(file.stat())
+                with original_fixture_identity():
+                    fd=m.original_file(parent,'passphrase',65);os.close(fd)
+                self.assertEqual(m.original_token(file.stat()),before)
+                file.chmod(0o644)
+                with original_fixture_identity(),self.assertRaises(m.OriginalRefusal):m.original_file(parent,'passphrase',65)
+                file.chmod(0o600);os.link(file,Path(td)/'alias')
+                with original_fixture_identity(),self.assertRaises(m.OriginalRefusal):m.original_file(parent,'passphrase',65)
+                (Path(td)/'alias').unlink();file.unlink();file.symlink_to('elsewhere')
+                with original_fixture_identity(),self.assertRaises(OSError):m.original_file(parent,'passphrase',65)
+            finally:os.close(parent)
+
+    def purpose(self):
+        sources={name:(PATH.parents[1]/name).read_bytes() for name in m.ORIGINAL_BEFORE_BLOBS}
+        record={'schema':'pc.original19-native-fd-purpose.v1','purposeId':'market-original-inventory-witness-20261101','owner':'ACCOUNT_1_CORE',
+            'authorityBaseExactMain':'9b2b895b3e71648f9084d8a80a97458488ef06df',
+            'sourceBranch':'ops/farmer-market-release-preflight-20260916','nativeFdReadPurpose':'AUTHENTICATED_ORIGINAL19_INVENTORY_ONLY',
+            'readOnly':True,'productionMutationAuthorized':False,'originalReceiptRunId':m.ORIGINAL_RECEIPT['runId'],
+            'originalCiphertextBytes':m.ORIGINAL_RECEIPT['ciphertextBytes'],'originalCiphertextSha256':m.ORIGINAL_RECEIPT['ciphertextSha256'],
+            'authorityGranted':'SOURCE_PURPOSE_ONLY_SEPARATE_FINITE_OWNER_COMMAND_REQUIRED','productionInvocationAuthorized':False,
+            'releaseAuthorized':False,'masterCredit':0,'sourcePins':[{'path':name,'mode':'100644','beforeBlob':m.ORIGINAL_BEFORE_BLOBS[name],
+            'afterBlob':m.hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(),'bytes':len(raw),'sha256':m.hashlib.sha256(raw).hexdigest()} for name,raw in sources.items()]}
+        return record,sources,m.ORIGINAL_PURPOSE_BEGIN+'\n```text\n'+json.dumps(record)+'\n```\n'+m.ORIGINAL_PURPOSE_END
+
+    def test_purpose_closed_record_exact_actual_pins(self):
+        record,sources,text=self.purpose();digest=m.validate_original_purpose_record(text,sources)
+        self.assertEqual(digest,m.hashlib.sha256(json.dumps(record,sort_keys=True,separators=(',',':')).encode()).hexdigest())
+        for changed in [text+text,text.replace('AUTHENTICATED_ORIGINAL19_INVENTORY_ONLY','STAT_ONLY'),text.replace('ACCOUNT_1_CORE','OTHER'),
+                        text.replace('"readOnly": true','"readOnly": 1'),text.replace('"masterCredit": 0','"masterCredit": false'),text.replace('```text','```json')]:
+            with self.assertRaises(m.OriginalRefusal):m.validate_original_purpose_record(changed,sources)
+        changed=dict(sources);path=next(iter(changed));changed[path]+=b'\n'
+        with self.assertRaises(m.OriginalRefusal):m.validate_original_purpose_record(text,changed)
+
+    def test_purpose_marker_literals_in_complete_source_patch_are_not_records(self):
+        _, sources, text = self.purpose()
+        patch = '\n'.join('+ ' + raw.decode('utf-8') for raw in sources.values())
+        # The complete recoverable patch contains marker constants and tests.
+        document = '##AP2\n```text\n' + patch + '\n```\n' + text + '\n'
+        self.assertEqual(m.validate_original_purpose_record(document, sources),
+                         m.validate_original_purpose_record(text, sources))
+        with self.assertRaises(m.OriginalRefusal):
+            m.validate_original_purpose_record(document + '\n' + text, sources)
+
+    def test_workflow_purpose_and_envelope_gates_cannot_disappear(self):
+        check = WorkflowContract()
+        check.setUpClass()
+        for marker in ('module.validate_original_purpose_record(text, sources)',
+                       'module.validate_original_envelope(value, sys.argv[1])', '--original-volume-inventory'):
+            with self.subTest(marker=marker), self.assertRaisesRegex(SystemExit, 'ORIGINAL19_PURPOSE_OR_PROFILE_GATE_MISSING'):
+                check.enforce(check.source, check.workflow.replace(marker, 'disabled_profile_gate'))
+
+    def test_envelope_retained_through_legacy_failure(self):
+        value={'schema':'pc-crop.market-original-inventory-envelope.v1','target_sha':SHA,'market_preflight':report(),
+               'original_inventory':original_success(),'production_mutation':'NONE','deployment_authorized':False}
+        result,evidence,legacy=PreflightFailureEvidence().execute(value,legacy_exit=23)
+        self.assertEqual(result.returncode,23);self.assertTrue(legacy);self.assertEqual(evidence['original_inventory'],value['original_inventory'])
+        self.assertIs(evidence['deployment_authorized'],False)
+
+
+class NativeOriginalGPG(unittest.TestCase):
+    """Real native synthetic crypto only; no original key/cipher/host. Missing profile FAILS."""
+    def decrypt(self,mutate=None,*,tail=0,expired=False):
+        if not Path('/usr/bin/gpg').is_file():self.fail('Native GPG unavailable; not PASS or SKIP')
+        _,_,raw,names,receipt=original_fixture();raw+=b'\0'*tail
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);key=root/'synthetic-key';key.write_bytes(b'known-synthetic-passphrase\n');key.chmod(0o600)
+            home=root/'gnupg';home.mkdir(mode=0o700);key_fd=os.open(key,os.O_RDONLY)
+            try:
+                result=subprocess.run(['/usr/bin/gpg','--no-options','--homedir',str(home),'--batch','--no-tty','--no-autostart',
+                    '--no-symkey-cache','--pinentry-mode','loopback','--passphrase-fd',str(key_fd),'--symmetric','--force-mdc',
+                    '--cipher-algo','AES256','--s2k-count','65536','--compress-algo','none','--output','-'],input=raw,
+                    pass_fds=(key_fd,),capture_output=True,timeout=10)
+                self.assertEqual(result.returncode,0,'Synthetic encryption failed');encrypted=result.stdout
+            finally:os.close(key_fd)
+            if mutate is not None:encrypted=mutate(encrypted)
+            cipher=root/'synthetic-cipher';cipher.write_bytes(encrypted)
+            cipher_fd=os.open(cipher,os.O_RDONLY);key_fd=os.open(key,os.O_RDONLY);stream=None
+            calls=[];actual_read=os.read
+            def read(fd,count):calls.append(fd);return actual_read(fd,count)
+            try:
+                with patch.object(m,'ORIGINAL_RECEIPT',receipt),patch.object(m.os,'read',side_effect=read):
+                    deadline=m.time.monotonic()+(-1 if expired else 10)
+                    stream=m.OriginalGPGStream(cipher_fd,key_fd,deadline)
+                    self.assertEqual(m.original_archive(stream,deadline),names);self.assertEqual(stream.total,len(raw))
+                    self.assertNotIn(key_fd,calls,'Python must not consume native key FD');return stream.total
+            finally:
+                if stream is not None:stream.close()
+                os.close(key_fd);os.close(cipher_fd)
+
+    def test_valid_mdc_complete_eof(self):self.decrypt()
+    def test_wrong_key(self):
+        original=m.OriginalGPGStream.__init__
+        def wrong(stream,cipher_fd,key_fd,deadline):
+            with tempfile.TemporaryFile() as other:
+                other.write(b'wrong-known-synthetic\n');other.seek(0);original(stream,cipher_fd,other.fileno(),deadline)
+        with patch.object(m.OriginalGPGStream,'__init__',wrong),self.assertRaises((m.OriginalRefusal,ValueError)):self.decrypt()
+    def test_truncated_mdc(self):
+        with self.assertRaises((m.OriginalRefusal,ValueError)):self.decrypt(lambda raw:raw[:-12])
+    def test_corrupt_cipher(self):
+        def corrupt(raw):
+            changed=bytearray(raw);changed[len(changed)//2]^=1;return bytes(changed)
+        with self.assertRaises((m.OriginalRefusal,ValueError)):self.decrypt(corrupt)
+    def test_expired_deadline(self):
+        with self.assertRaisesRegex(m.OriginalRefusal,'DEADLINE'):self.decrypt(expired=True)
+    def test_authenticated_eight_mib_tail_eof(self):self.assertGreater(self.decrypt(tail=8*1024*1024),8*1024*1024)
+
+
+    def test_complete_synthetic_reader_native_fd_hashes_and_redaction(self):
+        _,_,plain,names,receipt=original_fixture()
+        with tempfile.TemporaryDirectory() as td:
+            parent=Path(td);operation=parent/'operation';operation.mkdir(mode=0o700)
+            key=operation/'passphrase';key.write_bytes(b'known-synthetic-'+b'k'*48+b'\n');self.assertEqual(key.stat().st_size,65);key.chmod(0o600)
+            home=parent/'gnupg';home.mkdir(mode=0o700);keyfd=os.open(key,os.O_RDONLY|os.O_NOATIME)
+            try:
+                result=subprocess.run(['/usr/bin/gpg','--no-options','--homedir',str(home),'--batch','--no-tty','--no-autostart',
+                    '--no-symkey-cache','--pinentry-mode','loopback','--passphrase-fd',str(keyfd),'--symmetric','--force-mdc',
+                    '--cipher-algo','AES256','--s2k-count','65536','--compress-algo','none','--output','-'],
+                    input=plain,pass_fds=(keyfd,),capture_output=True,timeout=10)
+                self.assertEqual(result.returncode,0)
+            finally:os.close(keyfd)
+            cipher=operation/'preservation.tar.gpg';cipher.write_bytes(result.stdout);cipher.chmod(0o600)
+            receipt.update(ciphertextBytes=len(result.stdout),ciphertextSha256=m.hashlib.sha256(result.stdout).hexdigest())
+            file=operation/'receipt.json';file.write_text(json.dumps(receipt)+'\n');file.chmod(0o600)
+            before={f.name:m.original_token(f.stat()) for f in operation.iterdir()}
+            # Only the fixed-root traversal is substituted for an isolated synthetic root.
+            # Real nofollow/noatime/mode/single-link checks and both full hashes execute.
+            # Nonroot hosted fixtures substitute UID/GID stat fields explicitly.
+            def directory(path):
+                self.assertEqual(path,'/operation')
+                return [os.open(parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOATIME),
+                        os.open(operation,os.O_RDONLY|os.O_DIRECTORY|os.O_NOATIME)]
+            with original_fixture_identity(),patch.object(m,'ORIGINAL_ROOT','/operation'),patch.object(m,'original_directory',side_effect=directory),\
+                 patch.object(m,'ORIGINAL_RECEIPT',receipt),patch.object(m,'original_current_names',side_effect=[names,names]):
+                value=m.original_inventory_witness();m.validate_original_inventory(value)
+            self.assertEqual(value['status'],'AUTHENTICATED_ORIGINAL19_MATCH',value['failure'])
+            self.assertEqual(before,{f.name:m.original_token(f.stat()) for f in operation.iterdir()})
+            encoded=json.dumps(value)
+            for name in names:self.assertNotIn(name,encoded)
+            self.assertNotIn('known-synthetic',encoded)
+
+
 if __name__ == '__main__':
-    unittest.main()
+    if sys.argv[1:] == ['--native-original-gpg']:
+        unittest.main(argv=[sys.argv[0]], defaultTest='NativeOriginalGPG')
+    else:
+        del NativeOriginalGPG
+        unittest.main()
