@@ -321,3 +321,26 @@ disposition. Clone40061557888 remains VERIFIED/SPENT; bootstrap40193352988 remai
 UNKNOWN. Never retry, reset or weaken a failed gate to resolve the CI dependency.
 No startup policy, engine, payload behavior, worker quarantine, original19 volume,
 custody, release or production acceptance is established by this proposal.
+
+
+## Corrected private carrier compatibility 2026 11 02
+
+The next proposed exact carrier is 411656 bytes, SHA256
+11a40120e0a0f5982515681f83b65507f6926bebce957746e5476f21bc65616f.
+It rejects duplicate JSON keys and retains the complete historical root-growth
+prefix and shared-helper contracts through bounded fixed inverses. The two
+previous complete carrier identities remain recognized. This new carrier must
+pass its complete identity and three actual inspector-fragment checks before
+its fixed local inverse restores every byte of the same370287-byte old source.
+Other source caps, engine payloads, startup policy, journals and private custody
+remain unchanged. Source admission is separate from host invocation.
+
+This is private preparation pending renewed canonical purpose and guard, exact
+zero-growth source pins, actual source review, mandatory native Compose and
+PostgreSQL wire, full security/readiness and ordinary SHA-bound acceptance.
+The old published9811 R2 failed the mandatory root-growth prefix proof and
+independent duplicate-key probes; successfulCold150/shared48 does not clear
+those findings. Proposed shared tests count50; futureCold150 plusshared50
+would be200 cases with the Docker wire countedonce. Native acceptance of
+the corrected carrier has not run. No current original19/DB/backup/rollback,
+startup/restore/retry/reset, provider or production acceptance is established.
