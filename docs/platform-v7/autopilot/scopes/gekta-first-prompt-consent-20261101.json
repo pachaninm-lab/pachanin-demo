@@ -12,12 +12,13 @@
     "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
     "apps/web/tests/unit/gektaAnonymousDocumentEvidence.test.ts",
     "apps/web/tests/unit/gektaEntitlement.test.ts",
+    "apps/web/tests/e2e/gekta-keyboard-start-acceptance.spec.ts",
     "docs/platform-v7/autopilot/scopes/gekta-first-prompt-consent-20261101.json"
   ],
   "boundaries": [
-    "Only first-submit/consent intent and access error behavior with real component tests. Preserve passive focus deferral, signed notice submission, server entitlement and ticket authority. Cancelled or changed chat/language invalidates pending intent; Composer exports its existing attachment-only prompt for the same consent flow. Behavioral regressions run in the existing CI-executed voice/legal suite without workflow or registry exclusions. Existing callback harnesses receive the new explicit component closure dependencies; legal/quota assertions remain unchanged.",
+    "Only first-submit/consent intent and access error behavior with real component tests. Preserve passive focus deferral, signed notice submission, server entitlement and ticket authority. Cancelled or changed chat/language invalidates pending intent; Composer exports its existing attachment-only prompt for the same consent flow. Behavioral regressions run in the existing CI-executed voice/legal suite without workflow or registry exclusions. Existing callback harnesses receive the new explicit component closure dependencies; legal/quota assertions remain unchanged. The existing CI-selected keyboard E2E suite also covers synthetic desktop/mobile first intent, document-only intent, canceled transport/cookie races and failed consent in real Chromium/WebKit; no workflow/config or gate is changed.",
     "No legal acceptance in a real session, no role/entitlement bypass, no provider/model, persistent schema, global workflow/guard/state, CORE, host or visual redesign.",
-    "Component test server responses are synthetic fixtures; live legal/account/mobile acceptance remains pending."
+    "Component and browser test server responses are synthetic fixtures; browser execution and live legal/account acceptance must be reported with actual execution evidence."
   ],
   "virtualServerDeploymentState": "pending"
 }
