@@ -1,0 +1,126 @@
+name: Gekta Qwen3.5-4B Latest Runtime TEMP
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/gekta-qwen35-4b-latest-runtime-temp.yml"
+      - "scripts/gekta-qwen35-fullpipe-temp.ts"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-qwen35-4b-latest-runtime-temp
+  cancel-in-progress: true
+
+jobs:
+  candidate:
+    name: Qwen3.5-4B latest llama through real Gekta guards
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Verify production main and install API deps
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          baseline='06f686d52247ebe7805f1b75d937b2ca8daf8f6f'
+          git fetch --no-tags --depth=200 origin main
+          actual="$(git rev-parse origin/main)"
+          [[ "$actual" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "$baseline^{commit}"
+          git merge-base --is-ancestor "$baseline" "$actual"
+          if ! git diff --quiet "$baseline" "$actual" -- \
+            apps/api/src/modules/ai-insights \
+            apps/web/app/api/agro-chat \
+            apps/web/lib/platform-v7/tai-internal-stream.ts \
+            apps/tai/tai/production_model_supervisor.py \
+            scripts/gekta-production-request-path-diagnostic.sh; then
+            echo 'QWEN35_GEKTA_RELEVANT_MAIN_DRIFT=1' >&2
+            git diff --name-only "$baseline" "$actual" -- \
+              apps/api/src/modules/ai-insights \
+              apps/web/app/api/agro-chat \
+              apps/web/lib/platform-v7/tai-internal-stream.ts \
+              apps/tai/tai/production_model_supervisor.py \
+              scripts/gekta-production-request-path-diagnostic.sh >&2
+            exit 42
+          fi
+          echo "QWEN35_LATEST_MAIN_EXACT=$actual"
+          echo 'QWEN35_GEKTA_RELEVANT_MAIN_DRIFT=0'
+          pnpm install --frozen-lockfile --filter @pc/api...
+
+      - name: Build pinned latest llama.cpp candidate runtime
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git clone --filter=blob:none https://github.com/ggml-org/llama.cpp.git /tmp/llama-latest
+          cd /tmp/llama-latest
+          git checkout --detach 4da6337767f973e2b4d0797e5b323d77d8565e4a
+          grep -Fq 'LLM_ARCH_QWEN35' src/llama-arch.h
+          cmake -S . -B build -DGGML_NATIVE=ON -DLLAMA_CURL=OFF -DBUILD_SHARED_LIBS=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF
+          cmake --build build --target llama-server -j"$(nproc)"
+          build/bin/llama-server --version 2>&1 | tee /tmp/llama-latest-version.txt
+
+      - name: Download pinned Qwen3.5-4B and start isolated runtime
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl -fL --retry 3 --connect-timeout 20 --max-time 1800             -o /tmp/qwen35-4b.gguf             'https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/4168f45a16a1290d65a4ec0fa312ae917a4c15d6/Qwen_Qwen3.5-4B-Q4_0.gguf'
+          [[ "$(stat -c %s /tmp/qwen35-4b.gguf)" == "2776033248" ]]
+          echo '3e977de32dfb9377ff827f210091cce5d3c05c7b0f0b9b0c8005df7c0677a49b  /tmp/qwen35-4b.gguf' | sha256sum -c -
+          /tmp/llama-latest/build/bin/llama-server             --model /tmp/qwen35-4b.gguf             --alias tai-qwen35-4b-q4_0             --host 127.0.0.1 --port 18084             --ctx-size 8192 --parallel 1             --threads "$(nproc)" --threads-batch "$(nproc)"             --batch-size 2048 --ubatch-size 2048             --api-key 'qwen35-latest-readonly-key-1234567890abcdef'             --metrics > /tmp/qwen35-4b-latest.log 2>&1 &
+          echo "$!" > /tmp/qwen35-latest.pid
+          for _ in $(seq 1 180); do
+            if curl -fsS -H 'Authorization: Bearer qwen35-latest-readonly-key-1234567890abcdef'               --max-time 2 http://127.0.0.1:18084/health | grep -q '"status":"ok"\|"status":"no slot available"'; then
+              echo 'QWEN35_LATEST_READY=1'
+              exit 0
+            fi
+            kill -0 "$(cat /tmp/qwen35-latest.pid)" 2>/dev/null || { tail -100 /tmp/qwen35-4b-latest.log; exit 30; }
+            sleep 1
+          done
+          exit 31
+
+      - name: Run full real Gekta guard quality screen
+        shell: bash
+        env:
+          TAI_RESTRICTED_QWEN_PUBLIC_ENABLED: "true"
+          AI_ASSISTANT_PROVIDER: openai-compatible
+          AI_ASSISTANT_BASE_URL: http://127.0.0.1:18084/v1/
+          AI_ASSISTANT_ALLOWED_HOSTS: 127.0.0.1
+          AI_ASSISTANT_MODEL: tai-qwen35-4b-q4_0
+          AI_ASSISTANT_API_KEY: qwen35-latest-readonly-key-1234567890abcdef
+          AI_ASSISTANT_TIMEOUT_MS: "120000"
+          AI_ASSISTANT_MAX_TOKENS: "500"
+        run: |
+          set -Eeuo pipefail
+          cd apps/api && pnpm exec ts-node --transpile-only --compiler-options '{"module":"CommonJS","moduleResolution":"Node"}' ../../scripts/gekta-qwen35-fullpipe-temp.ts
+
+      - name: Publish candidate metrics
+        if: always()
+        shell: bash
+        run: |
+          curl -fsS -H 'Authorization: Bearer qwen35-latest-readonly-key-1234567890abcdef'             http://127.0.0.1:18084/metrics             | grep -E 'llamacpp:(prompt_tokens_seconds|predicted_tokens_seconds)'             | tail -10 || true
+          echo 'QWEN35_LATEST_PRODUCTION_MUTATION=NONE'
+
+      - name: Stop candidate
+        if: always()
+        shell: bash
+        run: |
+          if [[ -s /tmp/qwen35-latest.pid ]]; then
+            kill "$(cat /tmp/qwen35-latest.pid)" 2>/dev/null || true
+            wait "$(cat /tmp/qwen35-latest.pid)" 2>/dev/null || true
+          fi
