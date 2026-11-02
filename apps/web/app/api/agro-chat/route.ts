@@ -116,13 +116,13 @@ const EXPLICIT_PLATFORM_PATTERNS = [
 // by the user. That decision phrase alone is not fresh evidence, but it may be
 // ignored only when an explicit storage rate exists in this user conversation.
 const SUPPLIED_INPUT_DECISION_NOW_PATTERN = /(?:\b(?:продавать|продать)\s+(?:ли\s+)?сейчас\b|\b(?:sell|selling)\s+now\b|(?:现在卖|现在出售))/giu;
-const EXPLICIT_STORAGE_RATE_PATTERN = /(?:хранени\w*|стоимост\w*\s+хранени\w*)[^\n]{0,48}\d{1,7}(?:[.,]\d{1,2})?\s*(?:руб(?:лей|ля|ль)?\.?|₽|RUB)\s*(?:за\s*тонн[уы]|\/\s*т(?:онн[уы])?)\s*(?:в\s*месяц|\/\s*мес(?:яц)?)/iu;
+const EXPLICIT_STORAGE_RATE_PATTERN = /(?:(?:хранени\w*|стоимост\w*\s+хранени\w*)[^\n]{0,48}\d{1,7}(?:[.,]\d{1,2})?\s*(?:руб(?:лей|ля|ль)?\.?|₽|RUB)\s*(?:за\s*тонн[уы]|\/\s*т(?:онн[уы])?)\s*(?:в\s*месяц|\/\s*мес(?:яц)?)|(?<![\p{L}\p{M}\p{N}_])storage(?=$|[^\p{L}\p{M}\p{N}_])[^\n\p{N}]{0,48}(?<![\d.,])\d{1,7}(?:[.,]\d{1,2})?\s*(?:RUB|rubles?|roubles?|₽|USD|US\$|\$|EUR|€)\s*(?:per\s+ton(?:ne)?s?|\/\s*(?:t|ton(?:ne)?s?))\s*(?:per\s+month|\/\s*(?:month|mo))(?=$|[^\p{L}\p{M}\p{N}_]))/iu;
 
 const CURRENT_EVIDENCE_PATTERNS = [
   /(?:сегодня|сейчас|на\s+данный\s+момент|последн\w*|свеж\w*|актуальн\w*|текущ\w*)/iu,
-  /(?:новост\w*|погод\w*|курс\w*|пошлин\w*|ставк\w*|котировк\w*|индекс\w*|статистик\w*)/iu,
+  /(?:^|[^\p{L}\p{M}\p{N}_])(?:новост|погод|курс|пошлин|ставк|котировк|индекс|статистик)[\p{L}\p{M}]*(?=$|[^\p{L}\p{M}\p{N}_])/iu,
   /(?:цена|стоимост\w*)\s+(?:сегодня|сейчас|на\s+сегодня|в\s+регионе)/iu,
-  /(?:today|current|latest|recent|news|weather|exchange\s+rate|tariff|duty|statistics)/iu,
+  /(?:^|[^\p{L}\p{M}\p{N}_])(?:today|now|current(?:ly)?|latest|recent(?:ly)?|news|weather|exchange\s+rates?|tariffs?|dut(?:y|ies)|statistics?)(?=$|[^\p{L}\p{M}\p{N}_])/iu,
   /(?:今天|当前|最新|新闻|天气|汇率|关税|统计)/u,
 ] as const;
 
@@ -793,7 +793,9 @@ function normalizeHistory(value: unknown): readonly HistoryTurn[] {
   if (!Array.isArray(value)) return [];
   const turns: HistoryTurn[] = [];
   let total = 0;
-  for (const item of value.slice(-MAX_HISTORY_TURNS)) {
+  // Budget from the newest valid turn, then restore chronological wire order.
+  // Filling from the oldest turn silently discarded the latest correction.
+  for (const item of value.slice(-MAX_HISTORY_TURNS).reverse()) {
     const row = asRecord(item);
     const role = row?.role === 'assistant' ? 'assistant' : row?.role === 'user' ? 'user' : null;
     const text = typeof row?.text === 'string'
@@ -804,7 +806,7 @@ function normalizeHistory(value: unknown): readonly HistoryTurn[] {
     turns.push(Object.freeze({ role, text }));
     total += text.length;
   }
-  return Object.freeze(turns);
+  return Object.freeze(turns.reverse());
 }
 
 function historyAfterLatestCorrection(history: readonly HistoryTurn[]): readonly HistoryTurn[] {
@@ -822,10 +824,12 @@ function requiresCurrentEvidence(
   history: readonly HistoryTurn[] = [],
 ): boolean {
   const normalized = normalizeIntent(question);
-  const userSuppliedContext = normalizeIntent([
+  // Preserve explicit storage units and decimal punctuation for this recognizer.
+  const userSuppliedContext = [
     ...history.filter((turn) => turn.role === 'user').map((turn) => turn.text),
     question,
-  ].join(' '));
+  ].join(' ').normalize('NFKC').toLocaleLowerCase('ru-RU')
+    .replace(/ё/gu, 'е').replace(/\s+/gu, ' ').trim();
   const suppliedInputStorageDecision = EXPLICIT_STORAGE_RATE_PATTERN.test(userSuppliedContext)
     && SUPPLIED_INPUT_DECISION_NOW_PATTERN.test(normalized);
   SUPPLIED_INPUT_DECISION_NOW_PATTERN.lastIndex = 0;

@@ -730,7 +730,9 @@ function normalizeHistory(value: unknown): readonly PublicHistoryTurn[] {
   if (!Array.isArray(value)) return [];
   const turns: PublicHistoryTurn[] = [];
   let total = 0;
-  for (const item of value.slice(-MAX_HISTORY_TURNS)) {
+  // Budget from the newest valid turn, then restore chronological wire order.
+  // Filling from the oldest turn silently discarded the latest correction.
+  for (const item of value.slice(-MAX_HISTORY_TURNS).reverse()) {
     const row = asRecord(item);
     const role = row?.role === 'assistant' ? 'assistant' : row?.role === 'user' ? 'user' : null;
     const text = cleanMultilineText(row?.text, MAX_HISTORY_TURN_CHARS);
@@ -740,7 +742,7 @@ function normalizeHistory(value: unknown): readonly PublicHistoryTurn[] {
     turns.push(Object.freeze({ role, text }));
     total += text.length;
   }
-  return Object.freeze(turns);
+  return Object.freeze(turns.reverse());
 }
 
 function normalizeSource(value: unknown): PublicSource {

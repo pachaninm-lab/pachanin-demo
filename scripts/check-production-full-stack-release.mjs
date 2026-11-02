@@ -196,8 +196,8 @@ const rolloutIndex = workflowSource.indexOf('- name: Execute migration and exact
 if (!(transferIndex >= 0 && redisRepairIndex > transferIndex && rolloutIndex > redisRepairIndex)) {
   failures.push(`${paths.workflow}: pinned-SSH exact-image transfer must complete before production mutations`);
 }
-if ((workflowSource.match(/^\s+queue: max$/gmu) || []).length !== 2) {
-  failures.push(`${paths.workflow}: workflow and production job must both retain every serialized pending invocation`);
+if ((workflowSource.match(/^\s+queue: max$/gmu) || []).length !== 3) {
+  failures.push(`${paths.workflow}: workflow and both protected production jobs must retain every serialized pending invocation`);
 }
 if ((workflowSource.match(/git merge-base --is-ancestor "\$TARGET_SHA" "\$current_main"/gu) || []).length < 2
   || !workflowSource.includes('git merge-base --is-ancestor "$target" "$current_main"')) {
@@ -545,6 +545,95 @@ try {
 } catch (error) {
   failures.push(`${paths.scope}: invalid JSON: ${error.message}`);
 }
+
+
+// Native configuration evidence must run the actual immutable PR head, not
+// the default synthetic merge checkout; owner reusable calls retain EVENT/TARGET.
+const contractJob = workflowSource.split('\n  contract:\n')[1]?.split('\n  deploy:\n')[0] ?? '';
+for (const marker of ['actions/checkout@11d5960a326750d5838078e36cf38b85af677262',
+  "ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}",
+  'persist-credentials: false', 'Verify immutable contract source before executing source tests',
+  'CONTRACT_EXACT_SOURCE_SHA=', 'actual_source_sha="$(git rev-parse HEAD)"',
+  '"$EXPECTED_SOURCE_SHA" == "$PR_HEAD_SHA"', '"$EXPECTED_SOURCE_SHA" == "$EVENT_SOURCE_SHA"',
+  '"$actual_source_sha" == "$EXPECTED_SOURCE_SHA"']) {
+  if (!contractJob.includes(marker)) failures.push('contract exact source: missing ' + marker);
+}
+if (!(contractJob.indexOf('Verify immutable contract source') < contractJob.indexOf('node scripts/check-production-full-stack-release.mjs')
+  && contractJob.indexOf('Verify immutable contract source') < contractJob.indexOf('python3 -B scripts/test-production-release-target-isolation.py'))) failures.push('contract source must be verified before tests/native evidence');
+
+// The separate audit is an observation-only branch of the existing contour.
+// Evaluate the ACTUAL new owner gate, rather than a duplicated permissive model.
+const auditController = controllerSource.split('\n  migration-authority-audit-control-4637:\n')[1]?.split('\n  migration-authority-audit-execution-4637:')[0] ?? '';
+const auditWorkflow = workflowSource.split('\n  audit:\n')[1] ?? '';
+const gate = auditController.split('    if: >-\n')[1]?.split('    runs-on:')[0]?.trim();
+const ownerFixture = { event: 'issue_comment', issue: 4637, commenter: 'owner', association: 'OWNER', actor: 'owner', trigger: 'owner', owner: 'owner', command: '/production migration-authority-audit current-main' };
+function acceptsAudit(context) {
+  if (!gate) return false;
+  const fields = {
+    'github.event_name': context.event,
+    'github.event.issue.number': context.issue,
+    'github.event.comment.user.login': context.commenter,
+    'github.event.comment.author_association': context.association,
+    'github.actor': context.actor,
+    'github.triggering_actor': context.trigger,
+    'github.repository_owner': context.owner,
+    'github.event.comment.body': context.command,
+  };
+  let expression = gate;
+  for (const [field, value] of Object.entries(fields).sort((a,b) => b[0].length-a[0].length)) expression = expression.split(field).join(JSON.stringify(value));
+  // This gate deliberately has only equality conjunctions. Reject unsupported
+  // source syntax; do not evaluate YAML or contextual values as JavaScript.
+  const literal = (value) => {
+    if (/^[0-9]+$/u.test(value)) return Number(value);
+    if (value.startsWith('"')) return JSON.parse(value);
+    if (/^'[^']*'$/u.test(value)) return value.slice(1, -1);
+    throw new Error('AUDIT_GATE_SYNTAX');
+  };
+  return expression.split(/\s*&&\s*/u).every((term) => {
+    const match = /^("(?:\\.|[^"\\])*"|'[^']*'|[0-9]+)\s*==\s*("(?:\\.|[^"\\])*"|'[^']*'|[0-9]+)$/u.exec(term.trim());
+    return Boolean(match) && literal(match[1]) === literal(match[2]);
+  });
+}
+try {
+  if (!acceptsAudit(ownerFixture)) failures.push('audit: exact owner gate rejected');
+  for (const changed of [
+    {event:'push'}, {issue:3072}, {commenter:'foreign'}, {association:'MEMBER'},
+    {actor:'foreign'}, {trigger:'foreign'}, {command:'/production release current-main'},
+    {command:'/production migration-authority-audit current-main extra'},
+  ]) if (acceptsAudit({...ownerFixture,...changed})) failures.push('audit: non-owner/nonexact gate accepted');
+} catch { failures.push('audit: actual owner gate could not be evaluated'); }
+for (const marker of ['owner_release_authorized: false', 'owner_audit_authorized: true',
+  'needs: migration-authority-audit-control-4637', 'controller_issue_number: 4637']) {
+  if (!controllerSource.split('\n  migration-authority-audit-execution-4637:\n')[1]?.includes(marker)) failures.push('audit controller: missing ' + marker);
+}
+if (/gh workflow run|docker|scp|auth-mail|reviewer-readiness/u.test(auditController)) failures.push('audit controller must not build images or execute production successors');
+for (const marker of ['owner_audit_authorized == true && inputs.owner_release_authorized == false',
+  'Require accepted audit-only source admission before SSH', 'materializationAuthorized', 'productionMutationAuthorized',
+  "'migration-authority-audit-20261029'", "row.get('afterBlob')", "row.get('sha256')",
+  'Stream pinned audit executor without installing production assets',
+  'timeout --kill-after=5s 180s bash -s -- audit', '< scripts/production-full-stack-exact-sha.sh',
+  "'production_mutation': 'NONE'", "'release_eligibility': 'NOT_GRANTED'",
+  "'result': 'HOLD'", 'AUDIT_TRANSPORT_UNKNOWN', 'Retain sanitized audit result only',
+  'if: always()', 'StrictHostKeyChecking=yes',
+  'actions/checkout@11d5960a326750d5838078e36cf38b85af677262',
+  'actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02']) {
+  if (!auditWorkflow.includes(marker)) failures.push('audit workflow: missing ' + marker);
+}
+if (/\bscp\b|docker (?:pull|load|save)|docker compose (?!version\b)|gh workflow run|services=all|Repair confirmed stale Redis|Execute migration and exact API/u.test(auditWorkflow)) failures.push('audit job contains a production mutation/build path');
+if (!(auditWorkflow.indexOf('Require accepted audit-only source admission before SSH') < auditWorkflow.indexOf('Resolve protected key and pinned VPS identity'))) failures.push('audit admission must precede SSH');
+const earlyAudit = executorSource.split('# Audit is an observation, never migration/deploy eligibility.')[1]?.split('\nresolve_compose_authority\n')[0] ?? '';
+for (const marker of ["'migration': 'NOT_PROVEN'", "'migration_principal': 'NOT_PROVEN'", "'backup_integrity': 'NOT_PROVEN'",
+  "'reserve19_authority': 'NOT_PROVEN'", "'release_eligibility': 'NOT_GRANTED'", "'production_mutation': 'NONE'",
+  "'MISSING' if not candidates", 'os.O_NOFOLLOW', "subprocess.DEVNULL", "selectors.DefaultSelector()",
+  "'CONFIG_PARITY'", "'INPUTS_CHANGED'", 'PY_MIGRATION_AUTHORITY_AUDIT',
+  'SEALED_FILES_NO_ENV_RESOLUTION', 'NOT_OBSERVED', 'closed_compose_bytes(raw,',
+  "'--no-env-resolution'", "'--no-interpolate'", "'--env-file', '/dev/null'",
+  "['docker', 'image', 'inspect'", 'os.killpg(process.pid, signal.SIGKILL)', "total['nodes'] > 65536", "total['bytes'] > 4 * LIMIT",
+  "total['aliases'] > 1024", "total['depth'] > 64"]) {
+  if (!earlyAudit.includes(marker)) failures.push('audit executor: missing ' + marker);
+}
+if (/\b(?:mkdir|chmod|install|scp)\b|docker (?:pull|load|up|create|stop)|CREATE ROLE|ALTER ROLE/u.test(earlyAudit)) failures.push('audit executor contains a protected mutation');
+if (!(executorSource.indexOf('# Audit is an observation') < executorSource.indexOf('resolve_compose_authority\n[[ -d'))) failures.push('audit must return before legacy discovery/state/backup/deploy');
 
 if (failures.length) {
   console.error('Production full-stack release contract failed:');

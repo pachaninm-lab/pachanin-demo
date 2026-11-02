@@ -1,3 +1,4 @@
+import { types as nodeTypes } from 'node:util';
 import {
   isBankCapability,
   supportsBankCapability,
@@ -42,9 +43,53 @@ export type BankRouteDecision =
       reason: string;
     }>;
 
-function isRuntimeCapabilitySet(values: unknown): values is readonly BankCapability[] {
-  return Array.isArray(values)
-    && values.every((value) => typeof value === 'string' && isBankCapability(value));
+type OwnData = Readonly<{ value: unknown }>;
+
+function readOwnData(value: object, key: PropertyKey): OwnData | null {
+  // A Proxy can execute user code even for descriptor reflection. Detect it
+  // with Node's native predicate before any reflection, including revoked ones.
+  if (nodeTypes.isProxy(value)) return null;
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  return descriptor && Object.hasOwn(descriptor, 'value')
+    ? { value: descriptor.value }
+    : null;
+}
+
+function snapshotBankCapabilities(value: unknown): readonly BankCapability[] | null {
+  if (typeof value !== 'object' || value === null || nodeTypes.isProxy(value) || !Array.isArray(value)) {
+    return null;
+  }
+  const length = readOwnData(value, 'length');
+  if (!length || typeof length.value !== 'number' || !Number.isSafeInteger(length.value) || length.value < 0) {
+    return null;
+  }
+  const snapshot: BankCapability[] = [];
+  // Do not use an input iterator, every(), includes(), or indexed getters.
+  for (let index = 0; index < length.value; index += 1) {
+    const item = readOwnData(value, String(index));
+    if (!item || typeof item.value !== 'string' || !isBankCapability(item.value)) return null;
+    snapshot.push(item.value);
+  }
+  return Object.freeze(snapshot);
+}
+
+const AUTHORITY_FIELDS = [
+  'providerFamily', 'integrationBindingId', 'bindingKey', 'providerId',
+  'providerCapabilityId', 'capabilityCode', 'authorizedBankCapabilities',
+  'maturity', 'bindingVersion', 'configurationVersion', 'evidenceMode',
+  'credentialReadiness', 'callbackTrustReadiness',
+  'productionEnvironmentConfirmed', 'mayCarryRealTraffic',
+] as const;
+
+function snapshotAuthorityData(value: object): Record<string, unknown> | null {
+  if (nodeTypes.isProxy(value)) return null;
+  const snapshot: Record<string, unknown> = Object.create(null);
+  for (const key of AUTHORITY_FIELDS) {
+    const field = readOwnData(value, key);
+    if (!field) return null;
+    snapshot[key] = field.value;
+  }
+  return snapshot;
 }
 
 function isRuntimeNonBlankString(value: unknown): value is string {
@@ -57,7 +102,7 @@ function isRuntimeProviderFamily(value: unknown): value is BankProviderFamily {
 }
 
 function readRuntimeProviderFamily(value: unknown): BankProviderFamily | null {
-  if (typeof value !== 'object' || value === null) return null;
+  if (typeof value !== 'object' || value === null || nodeTypes.isProxy(value)) return null;
   // Provider identity must be an own data field, as on reference adapters and
   // server-held DTOs. Reading an identity getter could mutate an already checked
   // adapter/authority pair, including during the final readiness check itself.
@@ -71,7 +116,16 @@ export class BankCapabilityRouter {
   private readonly byProvider = new Map<BankProviderFamily, BankReferenceAdapter>();
 
   constructor(adapters: readonly BankReferenceAdapter[]) {
-    for (const adapter of adapters) {
+    if (nodeTypes.isProxy(adapters) || !Array.isArray(adapters)) {
+      throw new Error('NO_ADAPTER_FOR_SERVER_HELD_PROVIDER');
+    }
+    const length = readOwnData(adapters, 'length');
+    if (!length || typeof length.value !== 'number') {
+      throw new Error('NO_ADAPTER_FOR_SERVER_HELD_PROVIDER');
+    }
+    for (let index = 0; index < length.value; index += 1) {
+      const slot = readOwnData(adapters, String(index));
+      const adapter = slot?.value as BankReferenceAdapter | undefined;
       const providerFamily = readRuntimeProviderFamily(adapter);
       if (providerFamily === null) {
         throw new Error('NO_ADAPTER_FOR_SERVER_HELD_PROVIDER');
@@ -79,7 +133,7 @@ export class BankCapabilityRouter {
       if (this.byProvider.has(providerFamily)) {
         throw new Error(`DUPLICATE_BANK_ADAPTER:${providerFamily}`);
       }
-      this.byProvider.set(providerFamily, adapter);
+      this.byProvider.set(providerFamily, adapter!);
     }
   }
 
@@ -95,6 +149,10 @@ export class BankCapabilityRouter {
       };
     }
 
+    if (typeof requiredCapability !== 'string' || !isBankCapability(requiredCapability)) {
+      return { status: 'UNSUPPORTED', adapter: null, reason: 'INVALID_REQUIRED_BANK_CAPABILITY' };
+    }
+
     const providerFamily = readRuntimeProviderFamily(authority);
     const adapter = providerFamily !== null
       ? this.byProvider.get(providerFamily) ?? null
@@ -107,21 +165,39 @@ export class BankCapabilityRouter {
       };
     }
 
-    if (!isRuntimeCapabilitySet(authority.authorizedBankCapabilities)) {
+    const originalAuthority = authority;
+    const authorityData = snapshotAuthorityData(authority);
+    if (!authorityData) {
       return {
-        status: 'CONTRADICTORY',
-        adapter,
+        status: 'CONTRADICTORY', adapter,
+        reason: 'INCOMPLETE_SERVER_HELD_BINDING_AUTHORITY',
+      };
+    }
+    const authorizedBankCapabilities = snapshotBankCapabilities(authorityData.authorizedBankCapabilities);
+    if (!authorizedBankCapabilities) {
+      return {
+        status: 'CONTRADICTORY', adapter,
         reason: 'INVALID_SERVER_HELD_CAPABILITY_SET',
       };
     }
-
-    if (!isRuntimeCapabilitySet(adapter.capabilities)) {
+    const adapterCapabilityData = readOwnData(adapter, 'capabilities');
+    const adapterTransportData = readOwnData(adapter, 'liveTransportImplemented');
+    if (!adapterCapabilityData || !adapterTransportData) {
       return {
-        status: 'UNAVAILABLE',
-        adapter,
+        status: 'UNAVAILABLE', adapter: null,
+        reason: 'NO_ADAPTER_FOR_SERVER_HELD_PROVIDER',
+      };
+    }
+    const adapterCapabilities = snapshotBankCapabilities(adapterCapabilityData.value);
+    if (!adapterCapabilities) {
+      return {
+        status: 'UNAVAILABLE', adapter,
         reason: 'INVALID_ADAPTER_CAPABILITY_SET',
       };
     }
+    // Only own data reaches this record. Validate every admission field below
+    // against this one immutable view, rather than re-reading mutable input.
+    authority = Object.freeze({ ...authorityData, authorizedBankCapabilities }) as unknown as BankRoutingAuthority;
 
     if (!supportsBankCapability(authority.authorizedBankCapabilities, requiredCapability)) {
       return {
@@ -131,7 +207,7 @@ export class BankCapabilityRouter {
       };
     }
 
-    if (!supportsBankCapability(adapter.capabilities, requiredCapability)) {
+    if (!supportsBankCapability(adapterCapabilities, requiredCapability)) {
       return {
         status: 'UNSUPPORTED',
         adapter,
@@ -194,7 +270,7 @@ export class BankCapabilityRouter {
       };
     }
 
-    if (adapter.liveTransportImplemented !== true) {
+    if (adapterTransportData.value !== true) {
       return {
         status: 'NOT_ACTIVATED',
         adapter,
@@ -202,9 +278,8 @@ export class BankCapabilityRouter {
       };
     }
 
-    // Capability/readiness properties may be accessors. Revalidate identity
-    // without invoking identity getters those reads may have installed.
-    if (readRuntimeProviderFamily(adapter) !== providerFamily || readRuntimeProviderFamily(authority) !== providerFamily) {
+    // Preserve the original provider-identity boundary as well as the snapshot.
+    if (readRuntimeProviderFamily(adapter) !== providerFamily || readRuntimeProviderFamily(originalAuthority) !== providerFamily) {
       return {
         status: 'UNAVAILABLE',
         adapter: null,

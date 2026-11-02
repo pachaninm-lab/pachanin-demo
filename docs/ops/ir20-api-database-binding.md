@@ -1,5 +1,54 @@
 # IR-20 API/database binding prerequisite
 
+## Registration client prerequisite — 2026-10-30
+
+The four-argument invocation and default-client receipt remain available.
+An optional fifth argument, exactly `registration`, selects the installed
+`/app/dist/apps/api/src/modules/auth/auth-prisma.service.js` export
+`AuthPrismaService` inside the selected API container. The helper instantiates
+that class with no arguments and uses the same bounded read-only nonce/backend
+challenge. It does not copy a datasource URL or reproduce the auth resolver.
+Missing modules/exports or a constructor failure reject with no fallback to the
+default client. Imports, construction and disconnect failures do not publish
+their exception text. The executable is the canonical distroless
+`/nodejs/bin/node`, with a fixed module path and no caller-selected program.
+
+The current application registration repository injects `AuthPrismaService`.
+Its constructor calls the application's `resolveAuthDatabaseUrl`, which requires
+`AUTH_DATABASE_URL` in production and rejects an exact default-URL substitution.
+Using the installed constructor keeps the selected image's actual resolver
+semantics, including failure. No Nest application bootstrap or lifecycle hook
+is called, and this helper adds no application source change.
+
+The registration result has a separate closed identity:
+`pc-crop.ir20-registration-database-binding.v1` and
+`api_registration_client_database_binding=VERIFIED_LIVE_BACKEND_MARKER`.
+It never includes `api_default_database_binding`. It explicitly retains
+`client_instantiation=INSTALLED_AUTH_PRISMA_CONSTRUCTOR_ONLY`,
+`application_running_session=NOT_ATTESTED`,
+`startup_principal_policy=NOT_ATTESTED` and
+`registration_live_acceptance=NOT_PERFORMED`. This is a new read-only client
+constructed by the installed factory, not instrumentation of an existing
+application process, startup-principal checks or a completed registration.
+
+The protected controller must still verify canonical public API identity and
+trustworthy immutable image/module provenance before executing installed code,
+select the correct existing PostgreSQL database, maintain the release lock and
+admit read load. The selected source uses its existing `POSTGRES_DB` and local
+socket; another database in that cluster correctly fails rather than being
+silently selected. No DSN, principal, database, container ID or raw module output
+is part of the receipt. No new production entry point, command/event, secret,
+grant, backup or restore authority is added. Restore and deployment remain false.
+
+Unit tests execute the actual embedded Node control protocol with injected
+module exports, including auth-only selection, no lifecycle invocation,
+missing/invalid modules, constructor failure, no default fallback and redaction.
+They are not the actual API image or Prisma wire transport. The existing real
+PostgreSQL fixture runs the positive and two wrong-database marker cases for
+both explicit selectors (six cases), using PSQL instead of either Prisma
+factory. Genuine new native fixture results and independent exact-head review
+remain required; no earlier three-case PASS transfers to this extension.
+
 Base: `8f3617db114f45a5212eb8974fec7832d2f7bce5`, after accepted #5429.
 IR-20 remains active. The isolated restore executor is merged, but its source
 selection is expressly not proof of binding to the canonical API. The observed

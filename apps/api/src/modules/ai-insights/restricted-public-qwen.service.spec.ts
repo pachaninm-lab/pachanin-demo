@@ -235,6 +235,25 @@ describe('RestrictedPublicQwenService', () => {
     expect(body.messages[2]).toEqual({ role: 'assistant', content: 'Сделка проходит от условий до закрытия.' });
   });
 
+  it('retains the newest turns in chronological order when the history character budget fills', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(providerResponse('Проверьте исходные параметры.'));
+    global.fetch = fetchMock as typeof fetch;
+    const history = Array.from({ length: 12 }, (_, index) => ({
+      role: index % 2 ? 'assistant' : 'user',
+      text: `Пшеница QA_HISTORY_${index}: `.padEnd(2000, 'x'),
+    }));
+
+    await new RestrictedPublicQwenService().generate({ ...GENERAL_AGRO_REQUEST, question: 'Какие условия уточнить?', history });
+
+    const body = JSON.parse(String((fetchMock.mock.calls[0] as [URL, RequestInit])[1].body));
+    const forwarded = body.messages.slice(1, -1);
+    expect(forwarded.map((message: { content: string }) => message.content.match(/QA_HISTORY_(\d+)/u)?.[1]))
+      .toEqual(['6', '7', '8', '9', '10', '11']);
+    expect(forwarded.reduce((sum: number, message: { content: string }) => sum + message.content.length, 0)).toBeLessThanOrEqual(12000);
+    expect(history[0].text).toContain('QA_HISTORY_0:');
+    expect(history[11].text).toContain('QA_HISTORY_11:');
+  });
+
   it('preserves useful line breaks and removes raw Markdown links', async () => {
     global.fetch = jest.fn().mockResolvedValue(providerResponse(
       '**Прямой ответ**\n\n1. Первый шаг\n2. Второй шаг\n[Открыть](https://example.test)',
@@ -729,7 +748,7 @@ describe('RestrictedPublicQwenService', () => {
         const { body, prompt } = await captureWire(method, {
           ...GENERAL_AGRO_REQUEST, originalQuestion: question, question, history,
         }, 256);
-        const expectedHistory = history.slice(0, 6).map(({ role, text }) => ({ role, content: text.slice(0, 2_000) }));
+        const expectedHistory = history.slice(-6).map(({ role, text }) => ({ role, content: text.slice(0, 2_000) }));
         expect(body.messages.slice(1, -1)).toEqual(expectedHistory);
         expect(expectedHistory.reduce((total, turn) => total + turn.content.length, 0)).toBe(12_000);
         expect(prompt).toBe(expectedGeneralPrompt(question, question));

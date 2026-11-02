@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only API/default-database binding primitive, NOT restore/release authority.
+"""Read-only API client/database binding primitive, NOT restore/release authority.
 
 A protected caller must establish canonical API identity and serialize releases.
 No DSN is accepted, printed or written. A transaction-local random marker proves
@@ -27,11 +27,12 @@ MAX_OUTPUT = 1024 * 1024
 # Independent watchdog also bounds the container-side process if its Docker
 # client dies. EOF, malformed input and missing release acknowledgement fail.
 API_PROGRAM = r'''
-const { PrismaClient } = require('@prisma/client');
 const marker = process.argv[1];
-if (!/^pc-ir20-bind-[0-9a-f]{32}$/.test(marker)) process.exit(1);
+const client = process.argv[2] === undefined ? 'default' : process.argv[2];
+if (!/^pc-ir20-bind-[0-9a-f]{32}$/.test(marker) ||
+    !['default', 'registration'].includes(client)) process.exit(1);
 const watchdog = setTimeout(() => process.exit(1), 15000);
-const p = new PrismaClient({ log: [] });
+let p;
 let receipt = false, input = '';
 let resolveRelease, rejectRelease;
 const release = new Promise((resolve, reject) => {
@@ -51,6 +52,16 @@ process.stdin.on('end', () => {
   if (!receipt) rejectRelease(new Error('CONTROL_EOF'));
 });
 (async () => {
+  if (client === 'registration') {
+    // Use the selected image's actual auth constructor/resolver, not a copied
+    // DSN selection rule. No lifecycle hook or application bootstrap is run.
+    const { AuthPrismaService } = require('/app/dist/apps/api/src/modules/auth/auth-prisma.service.js');
+    if (typeof AuthPrismaService !== 'function') throw new Error('AUTH_CLIENT_UNAVAILABLE');
+    p = new AuthPrismaService();
+  } else {
+    const { PrismaClient } = require('@prisma/client');
+    p = new PrismaClient({ log: [] });
+  }
   await p.$transaction(async tx => {
     await tx.$executeRawUnsafe('SET TRANSACTION READ ONLY');
     await tx.$executeRawUnsafe("SET LOCAL statement_timeout = '3s'");
@@ -75,7 +86,9 @@ process.stdin.on('end', () => {
   clearTimeout(watchdog);
 })().catch(async () => {
   process.exitCode = 1;
-  try { await p.$disconnect(); } finally {
+  try { if (p) await p.$disconnect(); } catch (_) {
+    // A failed constructor/import/disconnect must not print protected details.
+  } finally {
     process.stdin.pause(); clearTimeout(watchdog);
   }
   // Never print exception text/connection details.
@@ -165,8 +178,9 @@ class Runtime:
         finally:
             child.close()
 
-    def session(self, api_id: str, marker: str) -> Process:
-        return Process(DOCKER + ['exec', '-i', api_id, 'node', '-e', API_PROGRAM, marker], 14)
+    def session(self, api_id: str, marker: str, client: str = 'default') -> Process:
+        return Process(DOCKER + ['exec', '-i', api_id, '/nodejs/bin/node', '-e',
+                                API_PROGRAM, marker, client], 14)
 
     def inspect(self, identity: str) -> dict[str, Any]:
         value = decode(self.run(['container', 'inspect', identity]))
@@ -207,10 +221,12 @@ def stable(container: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def bind(target: str, api_id: str, source_id: str, project: str, runtime: Runtime) -> dict[str, Any]:
+def bind(target: str, api_id: str, source_id: str, project: str, runtime: Runtime,
+         client: str = 'default') -> dict[str, Any]:
     if (not re.fullmatch(r'[0-9a-f]{40}', target) or not HEX_ID.fullmatch(api_id) or
             not HEX_ID.fullmatch(source_id) or api_id == source_id or
-            not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,62}', project)):
+            not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,62}', project) or
+            client not in ('default', 'registration')):
         raise BindingError('ARGUMENTS')
     api, source = runtime.inspect(api_id), runtime.inspect(source_id)
     validate(api, api_id, project, {'api'})
@@ -220,7 +236,9 @@ def bind(target: str, api_id: str, source_id: str, project: str, runtime: Runtim
     if config.get('PG_MAJOR') != '16' or not NAME.fullmatch(user) or not NAME.fullmatch(database):
         raise BindingError('POSTGRES_CONFIGURATION')
     marker = 'pc-ir20-bind-' + secrets.token_hex(16)
-    child = runtime.session(api_id, marker)
+    # Keep the accepted default-mode dependency-injection interface unchanged.
+    child = (runtime.session(api_id, marker) if client == 'default' else
+             runtime.session(api_id, marker, client))
     try:
         identity = decode(child.read(line=True))
         if (not isinstance(identity, dict) or set(identity) != {'pid', 'marker'} or
@@ -249,7 +267,7 @@ def bind(target: str, api_id: str, source_id: str, project: str, runtime: Runtim
     # restart, environment, mount, network or other inspected runtime change.
     if stable(runtime.inspect(api_id)) != stable(api) or stable(runtime.inspect(source_id)) != stable(source):
         raise BindingError('RUNTIME_CHANGED')
-    return {'schema': 'pc-crop.ir20-api-database-binding.v1', 'target_sha': target,
+    report = {'schema': 'pc-crop.ir20-api-database-binding.v1', 'target_sha': target,
             'api_default_database_binding': 'VERIFIED_LIVE_BACKEND_MARKER',
             'canonical_api_identity': 'CALLER_REQUIRED_NOT_PROVEN',
             'runtime_stability': 'UNCHANGED', 'business_data_mutation': 'NONE',
@@ -257,13 +275,23 @@ def bind(target: str, api_id: str, source_id: str, project: str, runtime: Runtim
             'session_effect': 'BOUNDED_TRANSACTION_LOCAL_APPLICATION_NAME',
             'backup_created': False, 'deployment_authorized': False,
             'restore_authorized': False, 'live_delivery': 'NOT_PERFORMED'}
+    if client == 'registration':
+        report['schema'] = 'pc-crop.ir20-registration-database-binding.v1'
+        del report['api_default_database_binding']
+        report['api_registration_client_database_binding'] = 'VERIFIED_LIVE_BACKEND_MARKER'
+        report['client_instantiation'] = 'INSTALLED_AUTH_PRISMA_CONSTRUCTOR_ONLY'
+        report['application_running_session'] = 'NOT_ATTESTED'
+        report['startup_principal_policy'] = 'NOT_ATTESTED'
+        report['registration_live_acceptance'] = 'NOT_PERFORMED'
+    return report
 
 
 def main(arguments: list[str]) -> int:
     try:
-        if os.geteuid() != 0 or len(arguments) != 4:
-            raise BindingError('ROOT_AND_FOUR_ARGUMENTS_REQUIRED')
-        report = bind(*arguments, Runtime())
+        if os.geteuid() != 0 or len(arguments) not in (4, 5):
+            raise BindingError('ROOT_AND_FOUR_OR_FIVE_ARGUMENTS_REQUIRED')
+        client = arguments[4] if len(arguments) == 5 else 'default'
+        report = bind(*arguments[:4], Runtime(), client=client)
         print(json.dumps(report, sort_keys=True))
         return 0
     except BindingError as exc:
