@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/protected-entry-locale-5580-20261011",
+  "status": "active",
+  "authorizedBy": "explicit-owner-instruction-2026-10-11-prinimay-i-dovodi-do-finisha",
+  "owner": "ACCOUNT_1_CORE",
+  "contributor": "ACCOUNT_2_PRODUCT",
+  "purpose": "Preserve an explicit RU/EN/ZH choice through existing protected-entry denial and the integrations cookie-missing fallback; keep canonical integrations and connectors routes separate.",
+  "authorityBaseExactMain": "08939e9ff87e7d11807e3091901214ef71dd8dff",
+  "teamHubClaim": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6106873760",
+  "sourceProposal": "https://github.com/pachaninm-lab/pachanin-demo/issues/5580#issuecomment-6094981045",
+  "effectiveAfter": "This metadata-only scope PR must be independently reviewed and ordinarily merged first. The implementation then starts from the actual accepted current main containing this unchanged manifest. The SOURCE PR changes exactly the four regular files below and does not create or change its own scope, state, guards, workflows or registry.",
+  "allowedPaths": [
+    "apps/web/middleware.ts",
+    "apps/web/next.config.js",
+    "apps/web/app/platform-v7/integrations/page.tsx",
+    "apps/web/tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts"
+  ],
+  "sourcePins": [
+    {
+      "path": "apps/web/middleware.ts",
+      "mode": "100644",
+      "beforeBlob": "fcf36722990a429513d7b304361dbe2428ba3a62",
+      "afterBlob": "d778d95a76f5202c15da6368372447ea498df41e"
+    },
+    {
+      "path": "apps/web/next.config.js",
+      "mode": "100644",
+      "beforeBlob": "7f5a895c112cbf19f675c7473a2700652ca848a3",
+      "afterBlob": "0c8c80852df01456ba1c5d41ec0ebdf66e85b0ea"
+    },
+    {
+      "path": "apps/web/app/platform-v7/integrations/page.tsx",
+      "mode": "100644",
+      "beforeBlob": "7621fd99e140688ce5ca46240578d7e21fb36dee",
+      "afterBlob": "2a83714b4e82545e4d2e53157dfc1277a307675d"
+    }
+  ],
+  "testBeforeBlob": "fff4b75ad6fdc2f240311cb16e7dea3e21f3971c",
+  "requiredInvariants": [
+    "Middleware may only append a validated explicit lang to the existing organization/profile and denied/login-or-role destinations after query clearing. Preserve first-value ru/en/zh validation, 307, no next on verified denial, existing anonymous same-platform next, signed-session checks, role/tenant/control boundaries and private/security headers.",
+    "Next config removes only the exact base /platform-v7/integrations to /platform-v7/connectors redirect. All remaining redirects, rewrites, headers and settings stay byte-identical.",
+    "IntegrationsPage may only preserve trusted middleware x-pc-search as navigation metadata in the existing access-cookie-missing redirect, promote only a validated explicit RU/EN/ZH lang, and preserve signed-in rendering, locale, CSRF and metadata. Query values and next do not grant authentication or role authority.",
+    "The existing already-native CI/web-unit test file retains every original route/manifest test and adds actual NextRequest/NextResponse, genuine signed cabinet-session, actual redirect/config and page-fallback regressions for RU/EN/ZH, conflicting previous choice, absent/invalid/repeated locale, forged role/header metadata, role denial, allowed compliance and unchanged control-realm denial.",
+    "The original FGIS four-path vector, all accepted state/coordination records, PRIMARY/current/progress and canonical CORE/BANK/FGIS owners remain unchanged. No provider access, financial/legal finality, Founder create/recovery, command/idempotency or credential authority is granted.",
+    "Every accepted published SOURCE head requires genuine independent whole-diff review, a separate exact-head owner audit, complete substantive native/security/readiness checks and ordinary manual expected-full-SHA merge. Local tests and a merge do not prove REG.RU deployment or protected 13/13 acceptance."
+  ],
+  "forbiddenChanges": [
+    "apps/landing/**",
+    "apps/api/**",
+    "apps/web/app/api/**",
+    "apps/web/lib/**",
+    "packages/**",
+    "infra/**",
+    "scripts/**",
+    ".github/workflows/**",
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/progress.json",
+    "docs/platform-v7/autopilot/scopes/**",
+    "pnpm-lock.yaml",
+    "package.json",
+    "production credentials or server configuration"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

@@ -541,7 +541,7 @@ jobs:
           const required = [
             'production-release-control-3072',
             'production-full-stack-execution-3072 / Validate full-stack release contract',
-            'production-full-stack-execution-3072 / Migrate, deploy API and web, verify live intake',
+            'production-full-stack-execution-3072 / Migrate, deploy API/web and canonical outbox, verify live delivery',
             'production-auth-mail-cutover-3072 / Validate auth-mail cutover contract',
             'production-auth-mail-cutover-3072 / Cut over exact production to durable auth-mail worker',
             'production-reviewer-readiness-3072 / Validate production reviewer inspect contract',

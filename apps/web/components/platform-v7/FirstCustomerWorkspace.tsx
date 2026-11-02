@@ -83,6 +83,9 @@ export async function FirstCustomerWorkspace({ surface }: { surface: FirstCustom
   const locale = localeOf(await getLocale());
   const copy = COPY[locale];
   const workspace = await getFirstCustomerWorkspace(surface);
+  const buyerHref = (href: string) => surface === 'buyer' && !workspace.ownerControlled
+    ? `${href}?lang=${locale}`
+    : href;
   const first = workspace.items[0];
   const state = workspace.forbidden ? 'forbidden' : !workspace.available ? 'degraded' : workspace.items.length ? 'ready' : 'empty';
   const description = workspace.ownerControlled ? copy.ownerDescription : surface === 'seller' ? copy.sellerDescription : surface === 'buyer' ? copy.buyerDescription : surface === 'bank' ? copy.bankDescription : copy.description;
@@ -95,15 +98,15 @@ export async function FirstCustomerWorkspace({ surface }: { surface: FirstCustom
     description: priorityUnknown ? unknownDescription : state === 'ready' ? copy.ownerReadyDescription : state === 'empty' ? copy.emptyDescription : state === 'forbidden' ? copy.forbiddenDescription : copy.degradedDescription,
     blocker: state === 'degraded' || state === 'forbidden' ? (workspace.correlationId || copy.degradedDescription) : undefined,
     owner: priorityUnknown ? undefined : state === 'degraded' ? copy.status : ROLE_LABEL[locale][surface],
-    result: priorityUnknown ? copy.priorityUnknownResult : state === 'ready' ? first?.status : state === 'empty' ? copy.empty : copy.degraded,
+    result: priorityUnknown ? copy.priorityUnknownResult : state === 'ready' ? first?.status : state === 'empty' ? copy.empty : state === 'forbidden' ? copy.forbidden : copy.degraded,
     primaryAction: priorityUnknown
       ? <a className={operationalCockpitClasses.primaryLink} href='#first-customer-work-queue'>{copy.workQueue}</a>
       : first?.href
         ? <Link className={operationalCockpitClasses.primaryLink} href={first.href}>{copy.open}</Link>
-        : <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/profile'>{copy.profile}</Link>,
+        : <Link className={operationalCockpitClasses.primaryLink} href={buyerHref('/platform-v7/profile')}>{copy.profile}</Link>,
     secondaryAction: workspace.ownerControlled
       ? <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/staff'>{copy.allCabinets}</Link>
-      : <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/profile/team'>{copy.team}</Link>,
+      : <Link className={operationalCockpitClasses.secondaryLink} href={buyerHref('/platform-v7/profile/team')}>{copy.team}</Link>,
   };
 
   return (
@@ -133,7 +136,7 @@ export async function FirstCustomerWorkspace({ surface }: { surface: FirstCustom
         {workspace.available && workspace.items.length ? (
           <OperationalQueue aria-label={copy.queue}>
             {workspace.items.map((item) => item.href ? (
-              <OperationalQueueLink key={item.id} href={surface === 'bank' && !workspace.ownerControlled ? `${item.href}?lang=${locale}` : item.href} title={item.id} detail={surface === 'bank' && !workspace.ownerControlled ? copy.bankQueueDetail : item.nextAction || copy.noNext} status={<StatusChip tone='information'>{item.status}</StatusChip>} />
+              <OperationalQueueLink key={item.id} href={surface === 'bank' && !workspace.ownerControlled ? `${item.href}?lang=${locale}` : buyerHref(item.href)} title={item.id} detail={surface === 'bank' && !workspace.ownerControlled ? copy.bankQueueDetail : item.nextAction || copy.noNext} status={<StatusChip tone='information'>{item.status}</StatusChip>} />
             ) : (
               <InlineNotice key={item.id} tone='information' title={`${item.id} · ${item.status}`}>{surface === 'bank' && !workspace.ownerControlled ? copy.bankQueueDetail : item.nextAction || copy.noNext}</InlineNotice>
             ))}

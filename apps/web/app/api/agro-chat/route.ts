@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
+import { readBoundedBody } from '@/lib/uploads/bounded-body';
+import { DocumentContextError, readDocumentContext, type GektaDocumentContext } from '@/lib/gekta/document-context';
 import {
   GatewayStreamWriter,
   absoluteCitationUri,
@@ -34,6 +36,7 @@ import {
   serializeAnonymousSession,
   type GektaAnonymousSession,
 } from '@/lib/gekta/anonymous-session';
+import { hasCurrentAnonymousConsent } from '@/lib/gekta/anonymous-consent-evidence';
 import { resolveAnonymousEntitlement } from '@/lib/gekta/entitlement';
 import { GEKTA_LEGAL_VERSION } from '@/lib/gekta/legal';
 import {
@@ -83,6 +86,7 @@ type RuntimeConfig = Readonly<{
 
 type PublicEnvelope = Readonly<{
   question: string;
+  documents: readonly GektaDocumentContext[];
   locale: PublicLocale;
   context: string;
   conversationId: string;
@@ -115,13 +119,13 @@ const EXPLICIT_PLATFORM_PATTERNS = [
 // by the user. That decision phrase alone is not fresh evidence, but it may be
 // ignored only when an explicit storage rate exists in this user conversation.
 const SUPPLIED_INPUT_DECISION_NOW_PATTERN = /(?:\b(?:продавать|продать)\s+(?:ли\s+)?сейчас\b|\b(?:sell|selling)\s+now\b|(?:现在卖|现在出售))/giu;
-const EXPLICIT_STORAGE_RATE_PATTERN = /(?:хранени\w*|стоимост\w*\s+хранени\w*)[^\n]{0,48}\d{1,7}(?:[.,]\d{1,2})?\s*(?:руб(?:лей|ля|ль)?\.?|₽|RUB)\s*(?:за\s*тонн[уы]|\/\s*т(?:онн[уы])?)\s*(?:в\s*месяц|\/\s*мес(?:яц)?)/iu;
+const EXPLICIT_STORAGE_RATE_PATTERN = /(?:(?:хранени\w*|стоимост\w*\s+хранени\w*)[^\n]{0,48}\d{1,7}(?:[.,]\d{1,2})?\s*(?:руб(?:лей|ля|ль)?\.?|₽|RUB)\s*(?:за\s*тонн[уы]|\/\s*т(?:онн[уы])?)\s*(?:в\s*месяц|\/\s*мес(?:яц)?)|(?<![\p{L}\p{M}\p{N}_])storage(?=$|[^\p{L}\p{M}\p{N}_])[^\n\p{N}]{0,48}(?<![\d.,])\d{1,7}(?:[.,]\d{1,2})?\s*(?:RUB|rubles?|roubles?|₽|USD|US\$|\$|EUR|€)\s*(?:per\s+ton(?:ne)?s?|\/\s*(?:t|ton(?:ne)?s?))\s*(?:per\s+month|\/\s*(?:month|mo))(?=$|[^\p{L}\p{M}\p{N}_]))/iu;
 
 const CURRENT_EVIDENCE_PATTERNS = [
   /(?:сегодня|сейчас|на\s+данный\s+момент|последн\w*|свеж\w*|актуальн\w*|текущ\w*)/iu,
-  /(?:новост\w*|погод\w*|курс\w*|пошлин\w*|ставк\w*|котировк\w*|индекс\w*|статистик\w*)/iu,
+  /(?:^|[^\p{L}\p{M}\p{N}_])(?:новост|погод|курс|пошлин|ставк|котировк|индекс|статистик)[\p{L}\p{M}]*(?=$|[^\p{L}\p{M}\p{N}_])/iu,
   /(?:цена|стоимост\w*)\s+(?:сегодня|сейчас|на\s+сегодня|в\s+регионе)/iu,
-  /(?:today|current|latest|recent|news|weather|exchange\s+rate|tariff|duty|statistics)/iu,
+  /(?:^|[^\p{L}\p{M}\p{N}_])(?:today|now|current(?:ly)?|latest|recent(?:ly)?|news|weather|exchange\s+rates?|tariffs?|dut(?:y|ies)|statistics?)(?=$|[^\p{L}\p{M}\p{N}_])/iu,
   /(?:今天|当前|最新|新闻|天气|汇率|关税|统计)/u,
 ] as const;
 
@@ -144,8 +148,15 @@ export async function POST(request: NextRequest) {
   if (request.nextUrl.searchParams.get('stream') !== '1') return knowledgePost(request);
   if (request.headers.get('sec-fetch-site') === 'cross-site') return knowledgePost(request);
 
-  const rawBody = await request.text();
-  const envelope = readPublicEnvelope(rawBody);
+  const body = await readBoundedBody(request.body, 196_608);
+  if (body === null) return NextResponse.json({ code: 'DOCUMENT_CONTEXT_TOO_LARGE' }, { status: 413 });
+  const rawBody = new TextDecoder().decode(body);
+  let envelope: PublicEnvelope;
+  try { envelope = readPublicEnvelope(rawBody); }
+  catch (error) {
+    if (!(error instanceof DocumentContextError)) throw error;
+    return NextResponse.json({ code: error.status === 413 ? 'DOCUMENT_CONTEXT_TOO_LARGE' : 'DOCUMENT_CONTEXT_INVALID' }, { status: error.status });
+  }
   if (!envelope.question) return knowledgePost(rebuildRequestWithoutStream(request, rawBody));
 
   const admission = envelope.context === 'gekta-standalone'
@@ -158,7 +169,7 @@ export async function POST(request: NextRequest) {
     locale: envelope.locale,
     recentMessages: envelope.history,
     previousTopic: resolvePreviousTopic(envelope.history),
-    hasAttachment: false,
+    hasAttachment: envelope.documents.length > 0,
     semanticHint: null,
   });
   const routedQuestion = envelope.question;
@@ -166,7 +177,8 @@ export async function POST(request: NextRequest) {
   let answerMode = resolveAnswerMode(routedQuestion, outcome);
   const locale = envelope.locale;
 
-  if (containsSensitiveInput(envelope.question, envelope.history)) {
+  if (containsSensitiveInput(envelope.question, envelope.history)
+    || envelope.documents.some((document) => containsSensitiveInput(`${document.name}\n${document.text}`, []))) {
     return admitted(streamDirectAnswer(sensitiveInputCopy(locale), {
       source: 'policy',
       answerMode,
@@ -201,7 +213,7 @@ export async function POST(request: NextRequest) {
     }));
   }
 
-  if (GREETING_PATTERNS.some((pattern) => pattern.test(envelope.question.trim()))) {
+  if (!envelope.documents.length && GREETING_PATTERNS.some((pattern) => pattern.test(envelope.question.trim()))) {
     return admitted(streamDirectAnswer(greetingCopy(locale, envelope.question), {
       source: 'policy',
       answerMode: 'general_agro',
@@ -214,7 +226,7 @@ export async function POST(request: NextRequest) {
 
   // The visible starter cards have reviewed public guidance. Serve their exact
   // first-turn answers without model queueing; contextual follow-ups keep inference.
-  const starter = envelope.history.length === 0
+  const starter = !envelope.documents.length && envelope.history.length === 0
     ? answerFarmerStarterQuestion(envelope.question, locale)
     : null;
   if (starter) {
@@ -231,7 +243,7 @@ export async function POST(request: NextRequest) {
 
   let grounding: PublicKnowledgeAnswer;
   if (answerMode === 'verified_platform') {
-    const groundingResponse = await knowledgePost(rebuildRequestWithoutStream(request, rawBody));
+    const groundingResponse = await knowledgePost(rebuildRequestWithoutStream(request, rawBody, true));
     if (!groundingResponse.ok) return admitted(groundingResponse);
     try {
       grounding = await groundingResponse.json() as PublicKnowledgeAnswer;
@@ -321,7 +333,7 @@ async function authorizeGektaAnswer(request: NextRequest): Promise<{
       anonymousSession: null,
     };
   }
-  const consumed = admitReservedAnswer(current, ticket, GEKTA_LEGAL_VERSION);
+  const consumed = hasCurrentAnonymousConsent(current) ? admitReservedAnswer(current, ticket, GEKTA_LEGAL_VERSION) : null;
   if (!consumed) {
     return {
       response: NextResponse.json(
@@ -486,6 +498,7 @@ function streamModelFirstAnswer(
         const payload = {
           question: grounding.understanding?.normalizedQuestion || envelope.question || grounding.title,
           originalQuestion: envelope.question,
+          documents: envelope.documents,
           locale,
           answerMode,
           currentDataRequired,
@@ -746,6 +759,7 @@ function readPublicEnvelope(rawBody: string): PublicEnvelope {
     const history = normalizeHistory(row.history);
     return Object.freeze({
       question,
+      documents: readDocumentContext(row.documents),
       locale,
       context,
       // A label only: nothing is looked up by it, so a forged value reaches no
@@ -753,7 +767,8 @@ function readPublicEnvelope(rawBody: string): PublicEnvelope {
       conversationId: conversationIdFrom(row.conversationId, `${context}-${locale}-${history.length}`),
       history,
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof DocumentContextError) throw error;
     return emptyEnvelope();
   }
 }
@@ -761,6 +776,7 @@ function readPublicEnvelope(rawBody: string): PublicEnvelope {
 function emptyEnvelope(): PublicEnvelope {
   return Object.freeze({
     question: '',
+    documents: Object.freeze([]),
     locale: 'ru',
     context: 'platform',
     conversationId: conversationIdFrom(null, 'empty-envelope'),
@@ -792,7 +808,9 @@ function normalizeHistory(value: unknown): readonly HistoryTurn[] {
   if (!Array.isArray(value)) return [];
   const turns: HistoryTurn[] = [];
   let total = 0;
-  for (const item of value.slice(-MAX_HISTORY_TURNS)) {
+  // Budget from the newest valid turn, then restore chronological wire order.
+  // Filling from the oldest turn silently discarded the latest correction.
+  for (const item of value.slice(-MAX_HISTORY_TURNS).reverse()) {
     const row = asRecord(item);
     const role = row?.role === 'assistant' ? 'assistant' : row?.role === 'user' ? 'user' : null;
     const text = typeof row?.text === 'string'
@@ -803,7 +821,7 @@ function normalizeHistory(value: unknown): readonly HistoryTurn[] {
     turns.push(Object.freeze({ role, text }));
     total += text.length;
   }
-  return Object.freeze(turns);
+  return Object.freeze(turns.reverse());
 }
 
 function historyAfterLatestCorrection(history: readonly HistoryTurn[]): readonly HistoryTurn[] {
@@ -821,10 +839,12 @@ function requiresCurrentEvidence(
   history: readonly HistoryTurn[] = [],
 ): boolean {
   const normalized = normalizeIntent(question);
-  const userSuppliedContext = normalizeIntent([
+  // Preserve explicit storage units and decimal punctuation for this recognizer.
+  const userSuppliedContext = [
     ...history.filter((turn) => turn.role === 'user').map((turn) => turn.text),
     question,
-  ].join(' '));
+  ].join(' ').normalize('NFKC').toLocaleLowerCase('ru-RU')
+    .replace(/ё/gu, 'е').replace(/\s+/gu, ' ').trim();
   const suppliedInputStorageDecision = EXPLICIT_STORAGE_RATE_PATTERN.test(userSuppliedContext)
     && SUPPLIED_INPUT_DECISION_NOW_PATTERN.test(normalized);
   SUPPLIED_INPUT_DECISION_NOW_PATTERN.lastIndex = 0;
@@ -890,12 +910,22 @@ function normalizeIntent(value: string): string {
     .replace(/[^\p{L}\p{N}\s«»"'-]+/gu, ' ').replace(/\s+/gu, ' ').trim();
 }
 
-function rebuildRequestWithoutStream(request: NextRequest, rawBody: string): NextRequest {
+function rebuildRequestWithoutStream(request: NextRequest, rawBody: string, omitDocuments = false): NextRequest {
   const url = new URL(request.url);
   url.searchParams.delete('stream');
   const headers = new Headers(request.headers);
   headers.delete('content-length');
-  return new NextRequest(url, { method: 'POST', headers, body: rawBody });
+  let body = rawBody;
+  if (omitDocuments) {
+    // This branch follows successful envelope parsing. Untrusted attachments
+    // belong only in the model payload, outside the bounded public lookup.
+    const payload = JSON.parse(rawBody) as Record<string, unknown>;
+    delete payload.documents;
+    body = JSON.stringify(payload);
+    headers.delete('content-encoding');
+    headers.delete('transfer-encoding');
+  }
+  return new NextRequest(url, { method: 'POST', headers, body });
 }
 
 

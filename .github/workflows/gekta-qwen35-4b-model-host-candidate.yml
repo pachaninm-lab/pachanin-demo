@@ -10,6 +10,7 @@ on:
       - 'apps/api/src/modules/ai-insights/restricted-public-qwen.safety.ts'
       - 'apps/api/src/modules/ai-insights/restricted-public-qwen.safety.spec.ts'
       - 'docs/platform-v7/autopilot/scopes/gekta-qwen35-4b-model-host-candidate-3896.json'
+      - 'docs/gekta/model-oneuse-grant-20261008.md'
   issue_comment:
     types: [created]
 
@@ -22,11 +23,6 @@ concurrency:
 
 env:
   SPEED_ISSUE_NUMBER: '3896'
-  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
-  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
-  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
-  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
-  MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
 
 jobs:
   contract:
@@ -46,7 +42,48 @@ jobs:
         with:
           node-version-file: .node-version
           cache: pnpm
+      - name: Prove SSH secrets follow successful command validation
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import unittest
+          source = Path('.github/workflows/gekta-qwen35-4b-model-host-candidate.yml').read_text()
+          def validate(text):
+              transport = text.index('      - name: Resolve pinned non-root model-user transport\n')
+              end = text.index('      - name: Stage helper and prepare candidate bytes', transport)
+              resolver = text.index('      - name: Resolve exact current main\n')
+              assert resolver < transport
+              block = text[transport:end]
+              assert "        if: steps.target.outcome == 'success'\n" in block
+              assert 'continue-on-error:' not in text[resolver:transport]
+              matches = list(re.finditer(r'(?m)^( +)(MODEL_[A-Z_]+_SECRET): (\$\{\{ secrets\.TAI_MODEL[^}]+\}\})$', text))
+              expected = {'MODEL_HOST_SECRET', 'MODEL_USER_SECRET', 'MODEL_PORT_SECRET', 'MODEL_KEY_SECRET', 'MODEL_HOST_KEY_SECRET'}
+              assert len(matches) == 5 and {m[2] for m in matches} == expected
+              assert all(transport < m.start() < end and len(m[1]) == 10 for m in matches)
+          class CredentialBoundary(unittest.TestCase):
+              def test_current_workflow(self):
+                  validate(source)
+              def test_workflow_level_secret_rejected(self):
+                  expression = '${' + '{ secrets.' + 'TAI_MODEL_SSH_KEY }}'
+                  with self.assertRaises(AssertionError):
+                      validate(source.replace("  SPEED_ISSUE_NUMBER: '3896'", "  SPEED_ISSUE_NUMBER: '3896'\n  MODEL_KEY_SECRET: " + expression))
+              def test_checkout_step_secret_rejected(self):
+                  expression = '${' + '{ secrets.' + 'TAI_MODEL_SSH_KEY }}'
+                  with self.assertRaises(AssertionError):
+                      validate(source.replace('      - name: Resolve exact current main\n', '        env:\n          MODEL_KEY_SECRET: ' + expression + '\n      - name: Resolve exact current main\n'))
+              def test_transport_always_rejected(self):
+                  with self.assertRaises(AssertionError):
+                      validate(source.replace("        if: steps.target.outcome == 'success'\n", '        if: always()\n'))
+              def test_resolver_soft_failure_rejected(self):
+                  with self.assertRaises(AssertionError):
+                      validate(source.replace('      - name: Resolve exact current main\n', '      - name: Resolve exact current main\n        continue-on-error: true\n'))
+          unittest.main(argv=['credential-boundary-contract'], verbosity=2)
+          PY
       - name: Prove immutable non-root candidate helper
+        # Contract jobs and all pre-validation steps remain SSH-secret free.
+        # The command resolver's failure must prevent credential injection.
         run: |
           set -Eeuo pipefail
           helper='scripts/gekta-qwen35-4b-model-host-candidate.py'
@@ -1267,6 +1304,18 @@ jobs:
                       with self.assertRaisesRegex(module.CandidateError, 'already_spent'):
                           self.claim(sha=sha)
 
+              def test_fresh_grant_does_not_change_retired_marker_bytes(self):
+                  os.close(module.execution_state_directory())
+                  retired = self.state / ('execution-' + module.RETIRED_EXECUTION_GRANT + '-critical.json')
+                  retired.write_bytes(b'previous grant spent; never a PASS receipt\n')
+                  retired.chmod(0o600)
+                  before = retired.read_bytes()
+                  with self.assertRaisesRegex(module.CandidateError, 'grant_retired'):
+                      module.reserve_execution(module.RETIRED_EXECUTION_GRANT, 'critical', self.sha, self.sha)
+                  self.claim()
+                  self.assertEqual(retired.read_bytes(), before)
+                  self.assertTrue(self.marker().is_file())
+
               def test_legacy_start_is_rejected_before_any_process_or_secret_read(self):
                   stdin = mock.Mock()
                   with mock.patch.object(module, 'require_nonroot'), mock.patch.object(module.subprocess, 'Popen') as spawn, mock.patch.object(sys, 'argv', [str(path), 'start', '--candidate-key-stdin']), mock.patch.object(sys, 'stdin', stdin), contextlib.redirect_stdout(io.StringIO()):
@@ -1278,6 +1327,8 @@ jobs:
               def test_unknown_grants_corpora_and_source_mismatches_cannot_reserve(self):
                   for grant, corpus, admitted, checkout in (
                       ('other', 'critical', self.sha, self.sha),
+                      (module.RETIRED_EXECUTION_GRANT, 'critical', self.sha, self.sha),
+                      (module.RETIRED_EXECUTION_GRANT, 'extra', self.sha, self.sha),
                       (module.EXECUTION_GRANT, 'both', self.sha, self.sha),
                       (module.EXECUTION_GRANT, 'critical', 'main', 'main'),
                       (module.EXECUTION_GRANT, 'critical', self.sha, 'b' * 40),
@@ -1510,8 +1561,8 @@ jobs:
             const critical = 'src/modules/ai-insights/restricted-public-qwen.qwen35-candidate.spec.ts';
             const extra = 'src/modules/ai-insights/restricted-public-qwen.qwen35-runtime-extra.spec.ts';
             for (const [command, corpus, expected] of [
-              ['/gekta qwen35-4b critical ' + 'a'.repeat(40), 'critical', [critical]],
-              ['/gekta qwen35-4b extra ' + 'a'.repeat(40), 'extra', [extra]],
+              ['/gekta qwen35-4b critical ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse', 'critical', [critical]],
+              ['/gekta qwen35-4b extra ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse', 'extra', [extra]],
             ]) {
               fs.writeFileSync(output, '');
               const selected = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command }, encoding: 'utf8' });
@@ -1525,7 +1576,7 @@ jobs:
                 assert.ok(captured.includes('SYNTHETIC_JEST_STDERR_MARKER'));
               }
             }
-            for (const command of ['', '/gekta qwen35-4b candidate current-main', '/gekta qwen35-4b candidate ' + 'a'.repeat(40), '/gekta qwen35-4b critical current-main', '/gekta qwen35-4b extra current-main', '/gekta qwen35-4b critical ' + 'A'.repeat(40), '/gekta qwen35-4b extra ' + 'a'.repeat(39), '/gekta qwen35-4b extra ' + 'a'.repeat(40) + ' ', '/gekta qwen35-4b extra current-main ', '/gekta qwen35-4b anything current-main', '/gekta qwen35-4b extra arbitrary-sha']) {
+            for (const command of ['/gekta qwen35-4b critical ' + 'a'.repeat(40), '/gekta qwen35-4b extra ' + 'a'.repeat(40), '/gekta qwen35-4b critical ' + 'a'.repeat(40) + ' gekta-critical-5974230017', '/gekta qwen35-4b extra ' + 'a'.repeat(40) + ' gekta-critical-5974230017', '/gekta qwen35-4b critical ' + 'a'.repeat(40) + ' gekta-finish-20261008-4b-oneuse ', '', '/gekta qwen35-4b candidate current-main', '/gekta qwen35-4b candidate ' + 'a'.repeat(40), '/gekta qwen35-4b critical current-main', '/gekta qwen35-4b extra current-main', '/gekta qwen35-4b critical ' + 'A'.repeat(40), '/gekta qwen35-4b extra ' + 'a'.repeat(39), '/gekta qwen35-4b extra ' + 'a'.repeat(40) + ' ', '/gekta qwen35-4b extra current-main ', '/gekta qwen35-4b anything current-main', '/gekta qwen35-4b extra arbitrary-sha']) {
               const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + selection[0]], { env: { ...env, CANDIDATE_COMMAND: command } });
               assert.equal(result.status, 1);
             }
@@ -1543,7 +1594,7 @@ jobs:
             for (const [admitted, main, head, api, status] of [[a,a,a,a,0], [b,a,a,a,1], [a,b,a,a,1], [a,a,b,a,1], [a,a,a,b,1]]) {
               fs.writeFileSync(output, '');
               const result = spawnSync('bash', ['-c', 'set -Eeuo pipefail\n' + resolution], {
-                env: { ...env, GITHUB_REPOSITORY: 'synthetic/repository', CANDIDATE_COMMAND: '/gekta qwen35-4b critical ' + admitted, TEST_MAIN_SHA: main, TEST_HEAD_SHA: head, TEST_API_SHA: api }, encoding: 'utf8',
+                env: { ...env, GITHUB_REPOSITORY: 'synthetic/repository', CANDIDATE_COMMAND: '/gekta qwen35-4b critical ' + admitted + ' gekta-finish-20261008-4b-oneuse', TEST_MAIN_SHA: main, TEST_HEAD_SHA: head, TEST_API_SHA: api }, encoding: 'utf8',
               });
               assert.equal(result.status, status, 'admitted SHA/checkout/current main mismatch must fail before transport');
             }
@@ -1631,7 +1682,7 @@ jobs:
           set -Eeuo pipefail
           # The owner command admits one full source SHA. Legacy/combined commands
           # cannot reach transport; this fence does not create another allowance.
-          if [[ "$CANDIDATE_COMMAND" =~ ^/gekta\ qwen35-4b\ (critical|extra)\ ([0-9a-f]{40})$ ]]; then
+          if [[ "$CANDIDATE_COMMAND" =~ ^/gekta\ qwen35-4b\ (critical|extra)\ ([0-9a-f]{40})\ gekta-finish-20261008-4b-oneuse$ ]]; then
             corpus="${BASH_REMATCH[1]}"
             admitted_sha="${BASH_REMATCH[2]}"
           else
@@ -1660,8 +1711,16 @@ jobs:
         run: pnpm install --frozen-lockfile --filter @pc/api...
       - name: Resolve pinned non-root model-user transport
         id: ssh
+        if: steps.target.outcome == 'success'
         env:
           TARGET_SHA: ${{ steps.target.outputs.sha }}
+          # This step is reached only after the command and exact main validate.
+          # Retired or malformed commands never receive SSH credentials.
+          MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+          MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+          MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+          MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+          MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
         run: |
           set -Eeuo pipefail
           trim(){
@@ -1794,7 +1853,7 @@ jobs:
               -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes \
               -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
               "$MODEL_USER@$MODEL_HOST" \
-              "python3 '$REMOTE_HELPER' start --candidate-key-stdin --execution-grant gekta-critical-5974230017 --corpus '$CANDIDATE_CORPUS' --admitted-sha '$ADMITTED_SHA' --checkout-sha '$TARGET_SHA'" \
+              "python3 '$REMOTE_HELPER' start --candidate-key-stdin --execution-grant gekta-finish-20261008-4b-oneuse --corpus '$CANDIDATE_CORPUS' --admitted-sha '$ADMITTED_SHA' --checkout-sha '$TARGET_SHA'" \
             | tee "$RUNNER_TEMP/qwen35-start"
           grep -Fxq 'QWEN35_CANDIDATE_NONROOT_PARALLEL=1' "$RUNNER_TEMP/qwen35-start"
           grep -Fxq 'QWEN35_CANDIDATE_START=PASS' "$RUNNER_TEMP/qwen35-start"

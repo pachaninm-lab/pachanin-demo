@@ -21,5 +21,19 @@
     "Source-to-canonical-API binding, full DR, worker rollout, rollback compatibility and live acceptance remain separate unproven requirements.",
     "Independent exact-head review and complete applicable CI precede manual SHA-bound merge. IR-20 remains active and official progress remains zero."
   ],
-  "executionMethodNote": "Owner-directed continuation: optional separate read-only full-diff inference on the existing hosted PR runner; candidate evidence only. No new paths, production access, mandatory provider, paid inference, gate relaxation or runtime model changes."
+  "executionMethodNote": "Owner-directed continuation: optional separate read-only full-diff inference on the existing hosted PR runner; candidate evidence only. No new paths, production access, mandatory provider, paid inference, gate relaxation or runtime model changes.",
+  "proposedStoppedSourceExtension": {
+    "ownerHandoff": "#5469#issuecomment-6368785509",
+    "sourceClaim": "#5469#issuecomment-6368803749",
+    "base": "c938b74a745f2a7ef466dbdf204a971594443113",
+    "disposition": "EXTEND_EXISTING_SIX_PATH_SOURCE_ONLY",
+    "productionInvocationAuthorized": false,
+    "newReleaseEntryPoint": false,
+    "behavior": "Validate only a newly owned volatile non-root networkless PostgreSQL16 physical copy; preserve original source/runtime and both private ciphertexts/keys. The existing logical running-source executor remains byte-identical.",
+    "dependencies": {
+      "scripts/production_stopped_runtime_headroom.py": "6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14",
+      "scripts/production_cold_preservation.py": "19c873694debb0076701a912b394aad6bb0e092947f04d97e5144320ca5ca832"
+    },
+    "limits": "One-use private journal; no image pull, host/source mount, published port, original database start, application/worker launch, migration, provider action, archive replay/deletion/transfer or new cost. Current canonical binding, full integrity/DR and actual production acceptance remain unproved."
+  }
 }

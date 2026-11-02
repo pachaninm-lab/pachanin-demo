@@ -23,7 +23,13 @@ const CSRF_COOKIE = 'pc_csrf_token';
 const LOCALE_SELECTION_COOKIE = 'pc-v7-locale-selection-v1';
 
 const PRESENTATION_DOWNLOAD_PATH = '/downloads/prozrachnaya-tsena-presentation.pdf';
-const PUBLIC_EXACT = new Set(['/', '/login', '/register', '/gekta', PRESENTATION_DOWNLOAD_PATH]);
+const PUBLIC_EXACT = new Set([
+  '/', '/login', '/register', '/gekta', PRESENTATION_DOWNLOAD_PATH,
+  '/legal/usloviya-ispolzovaniya-gekta',
+  '/legal/politika-konfidencialnosti',
+  '/legal/politika-obrabotki-personalnyh-dannyh',
+  '/legal/hranenie-i-udalenie-istorii',
+]);
 const PUBLIC_PREFIX = [
   '/_next/',
   '/favicon',
@@ -588,6 +594,8 @@ export async function middleware(req: NextRequest) {
         const target = req.nextUrl.clone();
         target.pathname = '/platform-v7/profile';
         target.search = '';
+        const queryLocale = resolveLocaleFromQuery(req);
+        if (queryLocale) target.searchParams.set('lang', queryLocale);
         return applySecurityHeaders(NextResponse.redirect(target), true);
       }
       const response = withRoleHeaders(req, context.role, true, false);
@@ -600,6 +608,8 @@ export async function middleware(req: NextRequest) {
       target.pathname = access.redirectTo || '/platform-v7/login';
       target.search = '';
       if (!context) target.searchParams.set('next', `${p}${req.nextUrl.search}`);
+      const queryLocale = resolveLocaleFromQuery(req);
+      if (queryLocale) target.searchParams.set('lang', queryLocale);
       return applySecurityHeaders(NextResponse.redirect(target), true);
     }
     const response = withRoleHeaders(req, context!.role, true, false);

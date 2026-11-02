@@ -17,6 +17,7 @@ permissions:
 concurrency:
   group: production-full-stack-exact-sha
   cancel-in-progress: false
+  queue: max
 
 # One-shot recovery bridge for PC-CROP registration. The production mutation is
 # deliberately limited to the already-governed recovery script: unused old
@@ -50,11 +51,13 @@ jobs:
           set -Eeuo pipefail
           bash -n scripts/production-docker-headroom-recovery.sh
           python3 - <<'PY'
+          import ast
+          import hashlib
           import pathlib
           import re
 
           workflow = pathlib.Path('.github/workflows/production-docker-headroom-owner-push-once.yml').read_text(encoding='utf-8')
-          recovery = pathlib.Path('scripts/production-docker-headroom-recovery.sh').read_text(encoding='utf-8')
+          recovery = pathlib.Path('scripts/production-docker-headroom-recovery.sh').read_bytes().decode('utf-8')
           required_workflow = [
               "github.event_name == 'push'",
               'github.actor == github.repository_owner',
@@ -68,7 +71,7 @@ jobs:
               'DOCKER_OBJECT_COUNTS_UNCHANGED=1',
               'CURRENT_MAIN_AFTER_RECOVERY=',
           ]
-          required_recovery = [
+          legacy_required_recovery = [
               'REQUIRED_KB=$((5 * 1024 * 1024))',
               'TARGET_KB=$((6 * 1024 * 1024))',
               "docker', 'ps', '-aq', '--no-trunc'",
@@ -78,12 +81,54 @@ jobs:
               'BOUNDED_UNUSED_CANONICAL_IMAGE_RECLAIM',
               'DOCKER_HEADROOM_RECOVERY=',
           ]
+          def require(value,message):
+              if not value:raise SystemExit(message)
+          def number(node):
+              if isinstance(node,ast.Constant) and type(node.value) is int:return node.value
+              if isinstance(node,ast.BinOp) and isinstance(node.op,ast.Mult):return number(node.left)*number(node.right)
+              raise SystemExit('nonliteral headroom bound')
+          def typed_contract(source):
+              payload=source.split("<<'PY_RECLAIM'\n",1)[1].split('\nPY_RECLAIM',1)[0]
+              tree=ast.parse(payload)
+              recovery_class=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name=='Recovery')
+              init=next(node for node in recovery_class.body if isinstance(node,ast.FunctionDef) and node.name=='__init__')
+              reports=[node.value for node in ast.walk(init) if isinstance(node,ast.Assign) and isinstance(node.value,ast.Dict)
+                       and any(isinstance(target,ast.Attribute) and isinstance(target.value,ast.Name)
+                               and target.value.id=='self' and target.attr=='report' for target in node.targets)]
+              require(len(reports)==1,'unique typed recovery report required')
+              values={ast.literal_eval(key):value for key,value in zip(reports[0].keys,reports[0].values)}
+              for key,expected in [('requiredAvailableKb',5*1024*1024),('targetAvailableKb',6*1024*1024),('rollbackImagesPerComponentPerNamespace',2)]:
+                  require(number(values[key])==expected,'wrong typed recovery bound: '+key)
+              for key,expected in [('mode','BOUNDED_UNUSED_CANONICAL_IMAGE_RECLAIM'),
+                                   ('deleteAuthority','CANONICAL_REFERENCE_OR_FULL_IMAGE_ID_NO_FORCE'),
+                                   ('reclaimComponents',['api','migration','web']),
+                                   ('reclaimNamespaces',['EXACT_SHA_TRANSFER_ALIAS','REGISTRY_CANONICAL']),
+                                   ('productionAcceptance',False),('passed',False),('targetReached',False)]:
+                  require(ast.literal_eval(values[key])==expected,'wrong typed recovery boundary: '+key)
+              calls=[]
+              for node in ast.walk(recovery_class):
+                  if isinstance(node,ast.Call) and isinstance(node.func,ast.Attribute) and node.func.attr=='command' and node.args and isinstance(node.args[0],ast.List):
+                      prefix=[]
+                      for item in node.args[0].elts:
+                          if not isinstance(item,ast.Constant):break
+                          prefix.append(item.value)
+                      calls.append(prefix)
+              removals=[args for args in calls if len(args)>1 and args[1] in ('rm','prune')]
+              require(removals==[['image','rm','--no-prune']],'typed removal must remain nonforce/no-prune image-only')
+              require(['ps','-aq','--no-trunc'] in calls,'complete stopped/running container inventory required')
+          def verify_recovery(source):
+              raw=source.encode('utf-8');blob=hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()
+              # Compatibility verification only; the separate source guard admits one exact new payload.
+              if blob=='6bcee2671c9cd5a100d956c30734bc1bf42768af':
+                  for needle in legacy_required_recovery:require(needle in source,'missing frozen legacy recovery boundary: '+needle)
+                  return 'FROZEN_LEGACY'
+              require(blob=='d9539026cc0f4ade08a7adcdd086eced7085c1f2','unreviewed recovery engine bytes')
+              typed_contract(source)
+              return 'FROZEN_TYPED_V2'
           for needle in required_workflow:
               if needle not in workflow:
                   raise SystemExit(f'missing workflow boundary: {needle}')
-          for needle in required_recovery:
-              if needle not in recovery:
-                  raise SystemExit(f'missing recovery boundary: {needle}')
+          profile=verify_recovery(recovery)
           forbidden = [
               r'docker\s+system\s+prune',
               r'docker\s+image\s+prune',
@@ -98,13 +143,16 @@ jobs:
           for pattern in forbidden:
               if re.search(pattern, combined, re.I):
                   raise SystemExit(f'forbidden recovery capability: {pattern}')
-          print('PASS: owner-push recovery is bounded to unused canonical images and preserves production runtime objects.')
+          print('RECOVERY_SOURCE_CONTRACT=PASS_'+profile)
           PY
 
   recover:
     name: Reclaim unused canonical images on exact owner push
     needs: contract
+    # Retired one-shot bridge: a scheduling correction must never invoke a host mutation.
+    # The owner-command workflow remains the live cleanup authority.
     if: >-
+      false &&
       github.event_name == 'push' &&
       github.actor == github.repository_owner &&
       github.triggering_actor == github.repository_owner

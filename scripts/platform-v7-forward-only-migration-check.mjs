@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { readdir, readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +10,14 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(SCRIPT_DIR, '..');
 const MIGRATIONS_DIR = path.join(ROOT, 'apps/api/prisma/migrations');
 const ACCEPTED_BASELINE = '20260710150000_persistent_identity_sessions';
+
+// This exact additive migration defines an authenticated account-scoped purge;
+// it never invokes it during deployment. Keep its whole file immutable, and
+// continue rejecting every other DELETE and every other destructive rule.
+const GEKTA_PURGE_DEFINITION = {
+  migration: '20261008230000_gekta_history_import_purge',
+  sha256: '82597539b9f2c1feaaa3096d6524bc40069ed450558b1fed9385bf8691bbb1c8',
+};
 
 // Lossless widening conversions are forward-safe: every value representable in
 // the old type is representable in the new one (Int → BIGINT, Int/Float →
@@ -108,9 +117,18 @@ const violations = [];
 
 for (const migration of newMigrations) {
   const file = path.join(MIGRATIONS_DIR, migration, 'migration.sql');
-  const sql = withoutComments(await readFile(file, 'utf8'));
+  const rawSql = await readFile(file, 'utf8');
+  const sql = withoutComments(rawSql);
+  const isPinnedPurgeDefinition = migration === GEKTA_PURGE_DEFINITION.migration
+    && createHash('sha256').update(rawSql, 'utf8').digest('hex') === GEKTA_PURGE_DEFINITION.sha256;
+  if (migration === GEKTA_PURGE_DEFINITION.migration && !isPinnedPurgeDefinition) {
+    violations.push(`${migration}: pinned account-scoped purge definition changed`);
+  }
   for (const rule of destructivePatterns) {
-    if (rule.pattern.test(sql)) violations.push(`${migration}: ${rule.name}`);
+    if (rule.pattern.test(sql)
+      && !(rule.name === 'mass DELETE' && isPinnedPurgeDefinition)) {
+      violations.push(`${migration}: ${rule.name}`);
+    }
   }
   for (const target of findUnsafeTypeRewrites(migration, sql)) {
     violations.push(`${migration}: type rewrite to ${target}`);

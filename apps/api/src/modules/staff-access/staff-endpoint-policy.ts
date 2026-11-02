@@ -82,6 +82,7 @@ export const STAFF_ENDPOINT_POLICIES: readonly StaffEndpointPolicy[] = [
   privileged('GET', '/staff/assignments', StaffAuthorizationClass.STAFF_PRIVILEGED_READ, StaffAuditClass.SENSITIVE_READ, [StaffAccessMode.CONTROL_PLANE], [StaffPermission.STAFF_ASSIGNMENT_READ]),
   privileged('POST', '/staff/assignments', StaffAuthorizationClass.STAFF_CRITICAL_MUTATION, StaffAuditClass.CRITICAL_MUTATION, [StaffAccessMode.CONTROL_PLANE], [StaffPermission.STAFF_ASSIGNMENT_WRITE]),
   privileged('POST', '/staff/assignments/:id/revoke', StaffAuthorizationClass.STAFF_CRITICAL_MUTATION, StaffAuditClass.CRITICAL_MUTATION, [StaffAccessMode.CONTROL_PLANE], [StaffPermission.STAFF_ASSIGNMENT_WRITE]),
+  policy('GET', '/staff/access/request-intents/:createIntentId', StaffAuthorizationClass.STAFF_SELF_AUTHORITY_READ, StaffAuditClass.SENSITIVE_READ),
   policy('GET', '/staff/access/requests', StaffAuthorizationClass.STAFF_SELF_AUTHORITY_READ, StaffAuditClass.STANDARD_READ),
   privileged('GET', '/staff/access/requests/review', StaffAuthorizationClass.STAFF_PRIVILEGED_READ, StaffAuditClass.SENSITIVE_READ, [StaffAccessMode.CONTROL_PLANE], [StaffPermission.STAFF_REQUEST_READ]),
   policy('POST', '/staff/access/requests', StaffAuthorizationClass.STAFF_SELF_GOVERNANCE_MUTATION, StaffAuditClass.MUTATION, { scopeContract: 'SERVER_VALIDATED_SCOPE' }),

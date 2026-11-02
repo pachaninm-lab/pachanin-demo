@@ -1,5 +1,6 @@
-import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Prisma } from '@prisma/client';
 import type { RequestUser } from '../types/request-user';
@@ -291,5 +292,34 @@ describe('platform-v7 database deployment artifacts', () => {
       forwardOnlyMigrationGate: 'passed',
       rollbackScript: 'safe-restore-only',
     });
+  });
+
+  it.each([
+    ['exact additive function definition', '20261008230000_gekta_history_import_purge', (sql: string) => sql, 0],
+    ['same definition at an unadmitted migration', '20261008230001_other', (sql: string) => sql, 1],
+    ['changed account predicate', '20261008230000_gekta_history_import_purge', (sql: string) => sql.replace('"accountId" = p_account_id', 'TRUE'), 1],
+    ['deployment-time purge invocation', '20261008230000_gekta_history_import_purge', (sql: string) => sql + '\nSELECT public.purge_gekta_history(\'victim\', NULL);\n', 1],
+    ['additional mass deletion', '20261008230000_gekta_history_import_purge', (sql: string) => sql + '\nDELETE FROM public.gekta_conversations;\n', 1],
+    ['another destructive statement', '20261008230000_gekta_history_import_purge', (sql: string) => sql + '\nDROP TABLE public.gekta_accounts;\n', 1],
+  ] as const)('keeps forward-only gate closed: %s', (_label, migration, transform, expectedExit) => {
+    const fixtureRoot = mkdtempSync(path.join(tmpdir(), 'gekta-forward-gate-'));
+    try {
+      const scripts = path.join(fixtureRoot, 'scripts');
+      const migrations = path.join(fixtureRoot, 'apps/api/prisma/migrations');
+      mkdirSync(scripts, { recursive: true });
+      mkdirSync(path.join(migrations, '20260710150000_persistent_identity_sessions'), { recursive: true });
+      mkdirSync(path.join(migrations, migration), { recursive: true });
+      const gatePath = path.join(scripts, 'platform-v7-forward-only-migration-check.mjs');
+      writeFileSync(gatePath, readFileSync(repositoryPath('scripts/platform-v7-forward-only-migration-check.mjs')));
+      writeFileSync(path.join(scripts, 'platform-v7-rls-rollback-rehearsal.sh'), '# fixture: restore only\n');
+      const source = readFileSync(repositoryPath('apps/api/prisma/migrations/20261008230000_gekta_history_import_purge/migration.sql'), 'utf8');
+      writeFileSync(path.join(migrations, migration, 'migration.sql'), transform(source));
+      const result = spawnSync(process.execPath, [gatePath], { encoding: 'utf8' });
+      expect(result.status).toBe(expectedExit);
+      if (expectedExit === 0) expect(JSON.parse(result.stdout).forwardOnlyMigrationGate).toBe('passed');
+      else expect(result.stderr).toMatch(/mass DELETE|pinned account-scoped purge definition changed|DROP TABLE/);
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
   });
 });

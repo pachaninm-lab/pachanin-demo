@@ -20,7 +20,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: ${{ github.event_name == 'issue_comment' && (github.event.issue.number == 3072 || github.event.issue.number == 4637) && github.event.comment.user.login == github.repository_owner && github.actor == github.repository_owner && github.event.comment.body == '/production release current-main' && 'pc-crop-registration-lifecycle' || 'platform-v7-safe-merge' }}
+  group: ${{ github.event_name == 'issue_comment' && (github.event.issue.number == 3072 || github.event.issue.number == 4637) && github.event.comment.user.login == github.repository_owner && github.actor == github.repository_owner && (github.event.comment.body == '/production release current-main' || (github.event.issue.number == 4637 && github.event.comment.body == '/production migration-authority-audit current-main')) && 'pc-crop-registration-lifecycle' || 'platform-v7-safe-merge' }}
   cancel-in-progress: false
   queue: max
 
@@ -200,7 +200,7 @@ jobs:
           if [[ -n "$release_runs" ]]; then
             while IFS=$'\t' read -r id event status conclusion created updated url; do
               deploy_state=$(gh api -H 'Accept: application/vnd.github+json' "repos/$REPO/actions/runs/$id/jobs?per_page=100" \
-                --jq '[.jobs[] | select(.name == "Migrate, deploy API and web, verify live intake") | (.conclusion // .status)][0] // "missing"')
+                --jq '[.jobs[] | select(.name == "Migrate, deploy API/web and canonical outbox, verify live delivery") | (.conclusion // .status)][0] // "missing"')
               if [[ "$deploy_state" != 'skipped' && "$deploy_state" != 'missing' ]]; then
                 selected_release=$(printf '%s\t%s\t%s\t%s\t%s\t%s\t%s' "$id" "$event" "$status" "$conclusion" "$created" "$updated" "$url")
                 break
@@ -328,4 +328,40 @@ jobs:
       controller_target_sha: ${{ github.sha }}
       controller_run_id: ${{ github.run_id }}
       controller_issue_number: ${{ github.event.issue.number }}
+    secrets: inherit
+
+  migration-authority-audit-control-4637:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4637 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production migration-authority-audit current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - name: Capture immutable current-main audit source without image dispatch
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$current_main" =~ ^[0-9a-f]{40}$ && "$current_main" == "$GITHUB_SHA" ]]
+          echo "sha=$current_main" >> "$GITHUB_OUTPUT"
+
+  migration-authority-audit-execution-4637:
+    needs: migration-authority-audit-control-4637
+    if: needs.migration-authority-audit-control-4637.result == 'success'
+    uses: ./.github/workflows/production-full-stack-exact-sha.yml
+    with:
+      owner_release_authorized: false
+      owner_audit_authorized: true
+      target_sha: ${{ needs.migration-authority-audit-control-4637.outputs.target_sha }}
+      controller_issue_number: 4637
     secrets: inherit

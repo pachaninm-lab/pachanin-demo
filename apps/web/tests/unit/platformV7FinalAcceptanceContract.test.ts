@@ -747,6 +747,138 @@ describe('canonical public registration accepted next step UX-30', () => {
 const REF = 'market-11111111-1111-4111-8111-111111111111';
 const STATUS = 'fixture-status-token';
 
+describe('registration email link keeps verification ahead of status recovery', () => {
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  const pending = {
+    ok: true, applicationId: 'fixture-application',
+    status: 'EMAIL_VERIFICATION_REQUIRED', nextAction: 'VERIFY_EMAIL',
+  };
+  const verified = {
+    ok: true, applicationId: 'fixture-application', statusToken: STATUS,
+    status: 'ORGANIZATION_VERIFICATION_PENDING', nextAction: 'WAIT_FOR_REVIEW',
+  };
+  const response = (value: unknown) => ({ ok: true, status: 200, json: async () => value });
+  const confirmButton = (container: HTMLElement) => container.querySelector('#p0-register-verify-title')
+    ?.closest('section')?.querySelector<HTMLButtonElement>('button');
+
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    const props = { locale, verifyToken: 'fixture-verification-token', initialStatusToken: STATUS };
+
+    it(`${locale}: keeps email confirmation actionable after the initial pending status resolves`, async () => {
+      const fetchMock = vi.fn().mockResolvedValue(response(pending));
+      vi.stubGlobal('fetch', fetchMock);
+      const { container } = render(createElement(RegisterFormClientPublic, props));
+      await act(async () => { await Promise.resolve(); });
+      expect(confirmButton(container)).toBeTruthy();
+      expect(confirmButton(container)?.disabled).toBe(false);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0][0]).toBe(`/api/auth/registration/status?token=${STATUS}`);
+    });
+
+    it(`${locale}: verifies once, then permits an explicit status refresh`, async () => {
+      let committed = false;
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') committed = true;
+        return response(committed ? verified : pending);
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      const { container } = render(createElement(RegisterFormClientPublic, props));
+      await act(async () => { await Promise.resolve(); });
+      expect(confirmButton(container)).toBeTruthy();
+      await act(async () => { fireEvent.click(confirmButton(container)!); });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock.mock.calls[1][0]).toBe('/api/auth/registration/verify');
+      expect(fetchMock.mock.calls[1][1]).toMatchObject({
+        method: 'POST', body: JSON.stringify({ token: props.verifyToken, locale }),
+      });
+      expect(container.querySelector('#p0-register-verify-title')).toBeNull();
+      expect(container.querySelector('#p0-register-status-title')).toBeTruthy();
+      const refresh = container.querySelector<HTMLButtonElement>('button.p0-register-secondary');
+      expect(refresh?.disabled).toBe(false);
+      await act(async () => { fireEvent.click(refresh!); });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock.mock.calls[2][0]).toBe(`/api/auth/registration/status?token=${STATUS}`);
+      expect(container.querySelector('#p0-register-verify-title')).toBeNull();
+    });
+
+    it(`${locale}: keeps confirmation retry available when verification and recovery are still pending`, async () => {
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => init?.method === 'POST'
+        ? { ok: false, status: 503, json: async () => ({ ok: false }) } : response(pending));
+      vi.stubGlobal('fetch', fetchMock);
+      const { container } = render(createElement(RegisterFormClientPublic, props));
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { fireEvent.click(confirmButton(container)!); });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(container.querySelector('[role="alert"]')?.textContent).toBeTruthy();
+      expect(confirmButton(container)).toBeTruthy();
+      expect(confirmButton(container)?.disabled).toBe(false);
+    });
+
+    it(`${locale}: still restores the application status from a status-only link`, async () => {
+      const fetchMock = vi.fn().mockResolvedValue(response(verified));
+      vi.stubGlobal('fetch', fetchMock);
+      const { container } = render(createElement(RegisterFormClientPublic, { locale, initialStatusToken: STATUS }));
+      await waitFor(() => expect(container.querySelector('button.p0-register-secondary')).toBeEnabled());
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0][0]).toBe(`/api/auth/registration/status?token=${STATUS}`);
+      expect(container.querySelector('#p0-register-verify-title')).toBeNull();
+      expect(container.querySelector('#p0-register-status-title')).toBeTruthy();
+    });
+
+    it(`${locale}: reopens an already verified email link without repeating verification`, async () => {
+      const fetchMock = vi.fn().mockResolvedValue(response(verified));
+      vi.stubGlobal('fetch', fetchMock);
+      const { container } = render(createElement(RegisterFormClientPublic, props));
+      await act(async () => { await Promise.resolve(); });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(container.querySelector('#p0-register-verify-title')).toBeNull();
+      expect(container.querySelector('#p0-register-status-title')).toBeTruthy();
+    });
+
+    for (const lateResult of ['pending', 'unavailable'] as const) {
+      it(`${locale}: ignores an older ${lateResult} status response after successful verification`, async () => {
+        let resolveRead!: (value: ReturnType<typeof response>) => void;
+        let rejectRead!: (error: Error) => void;
+        const fetchMock = vi.fn()
+          .mockImplementationOnce(() => new Promise((resolve, reject) => { resolveRead = resolve; rejectRead = reject; }))
+          .mockResolvedValue(response(verified));
+        vi.stubGlobal('fetch', fetchMock);
+        const { container } = render(createElement(RegisterFormClientPublic, props));
+        await act(async () => { fireEvent.click(confirmButton(container)!); });
+        expect(container.querySelector('#p0-register-status-title')).toBeTruthy();
+        await act(async () => {
+          if (lateResult === 'pending') resolveRead(response(pending));
+          else rejectRead(new Error('fixture read unavailable'));
+        });
+        expect(container.querySelector('#p0-register-verify-title')).toBeNull();
+        expect(container.querySelector('#p0-register-status-title')).toBeTruthy();
+        expect(container.querySelector('button.p0-register-secondary')).toBeEnabled();
+        expect(container.querySelector('dl')?.textContent).toContain('fixture-application');
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+      });
+    }
+
+    it(`${locale}: recovers the committed status after a lost verification response without another mutation`, async () => {
+      let committed = false;
+      const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') { committed = true; throw new Error('fixture response lost after commit'); }
+        return response(committed ? verified : pending);
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      const { container } = render(createElement(RegisterFormClientPublic, props));
+      await act(async () => { await Promise.resolve(); });
+      await act(async () => { fireEvent.click(confirmButton(container)!); });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
+      expect(fetchMock.mock.calls[2][0]).toBe(`/api/auth/registration/status?token=${STATUS}`);
+      expect(container.querySelector('#p0-register-verify-title')).toBeNull();
+      expect(container.querySelector('#p0-register-status-title')).toBeTruthy();
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+    });
+  }
+});
+
 describe('public registration verified continuation UX-14', () => {
   for (const locale of ['ru', 'en', 'zh'] as const) {
     it(`${locale}: drops the spent verify secret and preserves only a valid public selection`, () => {

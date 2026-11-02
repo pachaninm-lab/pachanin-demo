@@ -160,6 +160,12 @@ export class StaffAccessController {
     return this.assignments.revoke(request.user, id, body.reason, correlationId);
   }
 
+  @Get('access/request-intents/:createIntentId')
+  @RateLimit({ name: 'staff_create_intent_recovery', scope: 'user', limit: 60, windowSeconds: 60 })
+  recoverCreateIntent(@Req() request: StaffRequest, @Param('createIntentId') createIntentId: string) {
+    return this.access.recoverCreateIntent(request.user, createIntentId);
+  }
+
   @Get('access/requests')
   listRequests(@Req() request: StaffRequest) {
     return this.accessRequests.listRequests(request.user);

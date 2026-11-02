@@ -71,6 +71,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
   const submitLockRef = React.useRef(false);
   const confirmPasswordRef = React.useRef<HTMLInputElement>(null);
   const unknownOperationRef = React.useRef<RegistrationUnknownOperation | null>(null);
+  const statusReadGenerationRef = React.useRef(0);
   const [workspace, setWorkspace] = React.useState<RegistrationWorkspace | ''>(initialWorkspace || '');
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
@@ -90,7 +91,8 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
   const [passwordVisible, setPasswordVisible] = React.useState(false);
 
   const loadStatus = React.useCallback(async (token: string) => {
-    if (!token) return;
+    if (!token) return null;
+    const generation = ++statusReadGenerationRef.current;
     setStatusLoading(true);
     setStatusReadState('loading');
     setStatus(null);
@@ -100,6 +102,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
         cache: 'no-store', credentials: 'same-origin',
       });
       const payload: unknown = await response.json().catch(() => null);
+      if (generation !== statusReadGenerationRef.current) return null;
       const row = payload && typeof payload === 'object' && !Array.isArray(payload)
         ? payload as Record<string, unknown> : null;
       setCorrelationId(typeof row?.correlationId === 'string' ? row.correlationId : '');
@@ -107,14 +110,16 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       if (verdict.kind === 'available') {
         setStatus(verdict.status);
         setStatusReadState('available');
+        return verdict.status;
       } else {
         setStatusReadState(verdict.kind);
       }
     } catch {
-      setStatusReadState('unavailable');
+      if (generation === statusReadGenerationRef.current) setStatusReadState('unavailable');
     } finally {
-      setStatusLoading(false);
+      if (generation === statusReadGenerationRef.current) setStatusLoading(false);
     }
+    return null;
   }, []);
 
   React.useEffect(() => {
@@ -234,6 +239,8 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
 
   async function verifyEmail() {
     if (!verifyToken || submitting) return;
+    ++statusReadGenerationRef.current;
+    setStatusLoading(false);
     setSubmitting(true); setError('');
     try {
       const response = await fetch('/api/auth/registration/verify', {
@@ -249,7 +256,10 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       setVerificationCompleted(true); setStatusToken(result.statusToken); setStatus(verifiedStatus); setStatusReadState('available');
       window.history.replaceState(null, '', continuationHref);
     } catch {
-      setError('Ссылка недействительна, срок её действия истёк или она уже была использована.');
+      const recovered = statusToken ? await loadStatus(statusToken) : null;
+      if (!recovered || recovered.status === 'EMAIL_VERIFICATION_REQUIRED') {
+        setError('Ссылка недействительна, срок её действия истёк или она уже была использована.');
+      }
     } finally { setSubmitting(false); }
   }
 
@@ -283,7 +293,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
 
   const reference = correlationId || status?.correlationId || '';
 
-  if (verifyToken && !verificationCompleted && !status) {
+  if (verifyToken && !verificationCompleted && (!status || status.status === 'EMAIL_VERIFICATION_REQUIRED')) {
     return <section className='p0-register-card p0-register-state' aria-labelledby='p0-register-verify-title'>
       <ShieldCheck size={40} aria-hidden='true' />
       <h2 id='p0-register-verify-title'>Подтверждение электронной почты</h2>

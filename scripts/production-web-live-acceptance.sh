@@ -52,9 +52,30 @@ sys.stdout.write(ticket)
 PY
 }
 
+build_anonymous_notice_payload() {
+  python3 - "$1" "$2" <<'PY'
+import json
+import re
+import sys
+
+try:
+    with open(sys.argv[1], "rb") as source:
+        value = json.load(source)
+    notice = value.get("legalPresentation") if isinstance(value, dict) else None
+    snapshot = notice.get("snapshot") if isinstance(notice, dict) else None
+    if not isinstance(snapshot, str) or len(snapshot) > 2048 or not re.fullmatch(r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}", snapshot) or notice.get("locale") != "ru":
+        raise ValueError("invalid anonymous notice")
+    with open(sys.argv[2], "w", encoding="utf-8") as target:
+        json.dump({"action": "consent", "noticeSnapshot": snapshot, "locale": "ru"}, target)
+except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
+    raise SystemExit(1)
+PY
+}
+
 verify_current_consent() {
   python3 - "$1" <<'PY'
 import json
+import re
 import sys
 
 try:
@@ -70,7 +91,7 @@ consent = payload.get("consent")
 if not isinstance(version, str) or not version or not isinstance(consent, dict):
     raise SystemExit(1)
 at = consent.get("at")
-if consent.get("version") != version or type(at) is not int or at < 0 or at > 9007199254740991:
+if consent.get("version") != version or type(at) is not int or at < 0 or at > 9007199254740991 or payload.get("consentCurrent") is not True or consent.get("surfaceLocale") != "ru" or not isinstance(consent.get("evidenceHash"), str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", consent["evidenceHash"]):
     raise SystemExit(1)
 PY
 }
@@ -177,18 +198,29 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
 
   stream_id="gektaaccept${TARGET_SHA:0:12}${attempt}"
   cookie_jar="$(mktemp)"
+  notice_body="$(mktemp)"
+  notice_payload="$(mktemp)"
   consent_body="$(mktemp)"
   reserve_body="$(mktemp)"
   stream_headers="$(mktemp)"
   stream_body="$(mktemp)"
 
   set +e
-  consent_code="$(curl -sS -c "$cookie_jar" -b "$cookie_jar" -o "$consent_body" -w '%{http_code}' --max-time 20 \
-    -H 'Content-Type: application/json' -H 'Accept: application/json' \
-    --data '{"action":"consent"}' \
-    "$LIVE_BASE/api/gekta/entitlement")"
-  consent_rc=$?
+  notice_code="$(curl -sS -c "$cookie_jar" -b "$cookie_jar" -o "$notice_body" -w '%{http_code}' --max-time 20 \
+    -H 'Accept: application/json' "$LIVE_BASE/api/gekta/entitlement?lang=ru")"
+  notice_rc=$?
   set -e
+  consent_code=000
+  consent_rc=1
+  if [[ "$notice_rc" == 0 && "$notice_code" == 200 ]] && build_anonymous_notice_payload "$notice_body" "$notice_payload"; then
+    set +e
+    consent_code="$(curl -sS -c "$cookie_jar" -b "$cookie_jar" -o "$consent_body" -w '%{http_code}' --max-time 20 \
+      -H 'Content-Type: application/json' -H 'Accept: application/json' \
+      --data-binary "@$notice_payload" \
+      "$LIVE_BASE/api/gekta/entitlement")"
+    consent_rc=$?
+    set -e
+  fi
 
   consent_ok=0
   if [[ "$consent_rc" == 0 && "$consent_code" == 200 ]] && verify_current_consent "$consent_body"; then
@@ -269,7 +301,7 @@ for attempt in $(seq 1 "$ATTEMPTS"); do
     "$stream_rc" "${stream_code:-000}" "$stream_type_class" \
     "$stream_meta" "$stream_token" "$stream_done" "$stream_complete" "$stream_leak" "${stream_body_bytes:-0}"
 
-  rm -f "$cookie_jar" "$consent_body" "$reserve_body" "$stream_headers" "$stream_body"
+  rm -f "$cookie_jar" "$notice_body" "$notice_payload" "$consent_body" "$reserve_body" "$stream_headers" "$stream_body"
 
   if (( manifest_ok == 1 && crawler_ok == 1 && compat_ok == 1 && indexation_ok == 1 && stream_ok == 1 )) \
     && [[ "$ru_code" == 200 && "$en_code" == 200 && "$zh_code" == 200 ]] \

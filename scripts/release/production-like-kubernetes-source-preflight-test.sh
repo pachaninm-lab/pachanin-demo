@@ -64,6 +64,149 @@ class Checks(unittest.TestCase):
                         self.assertEqual(hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest(),f['blob'])
             return r.returncode,value,r.stdout+r.stderr
 
+    def commit_sized_source(self, repo, env, git, path, size, both_refs=False):
+        target = repo / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b' ' * (size - 3) + b'{}\n')
+        git('add', '.'); git('commit', '-m', 'bounded public source fixture')
+        if both_refs:
+            env['EXACT_BASE'] = git('rev-parse', 'HEAD')
+            (repo / 'AGENTS.md').write_text('public next candidate\n')
+            git('add', '.'); git('commit', '-m', 'next fixture head')
+        env['EXACT_HEAD'] = git('rev-parse', 'HEAD')
+
+    def probe_retained_security_budget(self, branch, repository, head_repository):
+        with tempfile.TemporaryDirectory() as temp:
+            repo, out, env, git = self.fixture(Path(temp))
+            tools = Path(temp) / 'tools'; tools.mkdir()
+            log = Path(temp) / 'timeouts.jsonl'
+            shim = tools / 'timeout'
+            shim.write_text('#!/usr/bin/env python3\n'
+                'import json, os, sys\n'
+                'with open(os.environ["FIXTURE_TIMEOUT_LOG"], "a") as stream: stream.write(json.dumps(sys.argv[1:]) + "\\n")\n'
+                'args = sys.argv[1:]\n'
+                'if args and args[0] == "--kill-after=5s": args.pop(0)\n'
+                'args.pop(0)\n'
+                'os.execvp(args[0], args)\n')
+            shim.chmod(0o755)
+            env.update(GITHUB_HEAD_REF=branch, GITHUB_REPOSITORY=repository,
+                       SOURCE_BUDGET_HEAD_REPOSITORY=head_repository,
+                       FIXTURE_TIMEOUT_LOG=str(log), PATH=str(tools)+os.pathsep+env['PATH'])
+            result = subprocess.run(['bash', str(SCRIPT)], cwd=repo, env=env,
+                                    capture_output=True, text=True, timeout=30)
+            report = json.loads((out/'ir20-source-preflight/report.json').read_text())
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(report['result'], 'PASS')
+            calls = [json.loads(line) for line in log.read_text().splitlines()]
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(calls[0][2:], ['node', '--test', '--test-reporter=tap', TEST])
+            self.assertEqual(calls[1], ['--kill-after=5s', '180s', 'bash', GUARD])
+            self.assertEqual([c['name'] for c in report['checks']], ['guard-regressions','branch-scope'])
+            self.assertEqual(report['checks'][0]['tap_totals']['tests'], 1)
+            self.assertEqual(report['checks'][0]['tap_totals']['pass'], 1)
+            return calls[0][1]
+
+    def test_retained_security_same_repository_gets_only_existing_guard_budget(self):
+        for branch in ['codex/gekta-security-review','fix/gekta-k8s-retained-capacity-20261009']:
+            with self.subTest(branch=branch):
+                self.assertEqual(self.probe_retained_security_budget(branch,
+                    'fixture/project', 'fixture/project'), '420s')
+
+    def test_retained_security_fork_and_missing_repository_keep_ordinary_budget(self):
+        for repository, head in [('fixture/project','fork/project'), ('fixture/project',''), ('','')]:
+            with self.subTest(repository=repository, head=head):
+                self.assertEqual(self.probe_retained_security_budget('codex/gekta-security-review',
+                    repository, head), '180s')
+
+    def test_retained_security_suffix_and_empty_branches_keep_ordinary_budget(self):
+        for branch in ['codex/gekta-security-review-extra', 'codex/gekta-security-review/extra', '', 'unrelated/fixture']:
+            with self.subTest(branch=branch):
+                self.assertEqual(self.probe_retained_security_budget(branch,
+                    'fixture/project', 'fixture/project'), '180s')
+
+    def test_real_retained_governance_size_is_preserved_in_both_refs(self):
+        path = 'docs/platform-v7/autopilot/autopilot-state.json'
+        rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,path,2214412,True))
+        self.assertEqual(rc, 0); self.assertEqual(value['result'], 'PASS')
+        self.assertEqual([s['bytes'] for s in value['sources'] if s['path'] == path], [2214412,2214412])
+
+    def test_named_governance_exact_three_mib_is_preserved(self):
+        path = 'docs/platform-v7/autopilot/autopilot-state.json'
+        rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,path,3*1024*1024,True))
+        self.assertEqual(rc, 0); self.assertEqual(value['result'], 'PASS')
+        self.assertEqual([s['bytes'] for s in value['sources'] if s['path'] == path], [3*1024*1024]*2)
+
+    def test_named_governance_over_four_mib_fails_before_checks(self):
+        path = 'docs/platform-v7/autopilot/autopilot-state.json'
+        rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,path,4*1024*1024+1))
+        self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
+
+    def test_named_governance_exact_four_mib_is_preserved_in_both_refs(self):
+        path = 'docs/platform-v7/autopilot/autopilot-state.json'
+        rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,path,4*1024*1024,True))
+        self.assertEqual(rc, 0); self.assertEqual(value['result'], 'PASS')
+        self.assertEqual([s['bytes'] for s in value['sources'] if s['path'] == path], [4*1024*1024]*2)
+
+    def test_new_capacity_dirty_governance_is_rejected_before_checks(self):
+        path = 'docs/platform-v7/autopilot/autopilot-state.json'
+        def change(repo, out, env, git):
+            self.commit_sized_source(repo,env,git,path,4*1024*1024)
+            (repo/path).write_bytes(b' ' * (4*1024*1024-4) + b'{}\n')
+        rc, value, _ = self.run_case(change)
+        self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
+
+    def test_new_capacity_invalid_utf8_governance_is_rejected_before_checks(self):
+        path = 'docs/platform-v7/autopilot/autopilot-state.json'
+        def change(repo, out, env, git):
+            self.commit_sized_source(repo,env,git,path,4*1024*1024)
+            (repo/path).write_bytes(b' ' * (4*1024*1024-1) + b'\xff')
+            git('add', '.'); git('commit', '-m', 'invalid UTF8 bounded registry fixture')
+            env['EXACT_HEAD'] = git('rev-parse', 'HEAD')
+        rc, value, _ = self.run_case(change)
+        self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
+
+    def test_new_capacity_symlink_governance_is_rejected_before_checks(self):
+        path = 'docs/platform-v7/autopilot/autopilot-state.json'
+        def change(repo, out, env, git):
+            self.commit_sized_source(repo,env,git,path,4*1024*1024)
+            target = out/'same-bytes.json'; target.write_bytes((repo/path).read_bytes())
+            (repo/path).unlink(); (repo/path).symlink_to(target)
+        rc, value, _ = self.run_case(change)
+        self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
+
+    def test_other_fixed_source_exact_two_mib_passes(self):
+        rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,'AGENTS.md',2*1024*1024))
+        self.assertEqual(rc, 0); self.assertEqual(value['result'], 'PASS')
+
+    def test_other_fixed_source_over_two_mib_remains_rejected(self):
+        rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,'AGENTS.md',2*1024*1024+1))
+        self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
+
+    def test_scope_manifest_over_two_mib_remains_rejected(self):
+        rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,'docs/platform-v7/autopilot/scopes/fixture.json',2*1024*1024+1))
+        self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
+
+    def test_dirty_large_governance_is_rejected_before_checks(self):
+        path = 'docs/platform-v7/autopilot/autopilot-state.json'
+        def change(repo, out, env, git):
+            self.commit_sized_source(repo,env,git,path,2214412)
+            (repo/path).write_bytes(b' ' * 2214410 + b'{}\n')
+        rc, value, _ = self.run_case(change)
+        self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
+
+    def test_combined_thirty_two_mib_limit_remains_rejected(self):
+        def change(repo, out, env, git):
+            for n in range(17):
+                path = repo / ('docs/platform-v7/autopilot/scopes/bounded-' + str(n) + '.json')
+                path.write_bytes(b' ' * (1024*1024 - 3) + b'{}\n')
+            git('add', '.'); git('commit', '-m', 'bounded aggregate fixture')
+            env['EXACT_BASE'] = git('rev-parse', 'HEAD')
+            (repo/'AGENTS.md').write_text('public final candidate\n')
+            git('add', '.'); git('commit', '-m', 'aggregate candidate')
+            env['EXACT_HEAD'] = git('rev-parse', 'HEAD')
+        rc, value, _ = self.run_case(change)
+        self.assertEqual(rc, 1); self.assertEqual(value['stage'], 'source-binding'); self.assertEqual(value['checks'], [])
+
     def test_exact_source_and_original_checks_pass(self):
         rc,v,_=self.run_case();self.assertEqual(rc,0);self.assertEqual(v['result'],'PASS');self.assertEqual(v['checks'][0]['tap_totals']['tests'],1)
     def test_failed_regression_stays_failed_but_scope_still_observed(self):
