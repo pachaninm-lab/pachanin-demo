@@ -7211,3 +7211,282 @@ test('AP2 atomic7 blocks real promisor lazy-fetch and never invokes a permitted 
   assert.match(output(result), /API_ONLY_SOURCE_SCOPE:GIT_OBSERVATION_FAILED/u);
   assert.equal(fs.existsSync(marker), false);
 });
+
+// DC2_TESTS_BEGIN — private fixtures never grant public source or host authority.
+const dc2Fixture = JSON.parse(inflateSync(Buffer.from('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', 'base64'), { maxOutputLength: 1024 * 1024 }).toString('utf8'));
+const dc2StatePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+const dc2ReviewPath = 'docs/platform-v7/autopilot/prompts/current-review-task.md';
+const dc2QueuePath = 'docs/platform-v7/execution-queue.md';
+const dc2Marker = '\n## DC2 — Corrected Docker and cold source purpose, 2026-11-02\n\n```json\n';
+const dc2Branches = { A3: 'governance/industrial-load-diagnostics-20260919', COLD3: 'ops/production-cold-preservation-20261022',
+  R3: 'fix/gekta-docker-diagnostic-route-20260927', B1: 'governance/industrial-load-diagnostics-20260919' };
+const dc2GuardPaths = ['scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs', '.github/workflows/platform-v7-autopilot-guard.yml'];
+const dc2Sha = value => createHash('sha256').update(value).digest('hex');
+const dc2Blob = value => createHash('sha1').update(`blob ${value.length}\0`).update(value).digest('hex');
+const dc2Canonical = value => Buffer.from(JSON.stringify(value) + '\n');
+const dc2Command = (root, args, options = {}) => {
+  const result = spawnSync('git', args, { cwd: root, encoding: options.binary ? undefined : 'utf8', maxBuffer: 4 * 1024 * 1024, ...options });
+  assert.equal(result.status, 0, `DC2 git ${args.join(' ')}: ${result.stderr?.toString()}`);
+  return options.binary ? result.stdout : result.stdout.trim();
+};
+const dc2OriginRead = file => dc2Command(process.cwd(), ['show', `${dc2Fixture.origin}:${file}`], { binary: true });
+const dc2Write = (root, file, value, mode) => {
+  const full = path.join(root, file); fs.mkdirSync(path.dirname(full), { recursive: true }); fs.writeFileSync(full, value);
+  if (mode !== undefined) fs.chmodSync(full, mode);
+};
+const dc2Commit = (root, message) => {
+  dc2Command(root, ['add', '--sparse', '--all']); dc2Command(root, ['commit', '-m', 'TEST ONLY DC2 ' + message]);
+  return dc2Command(root, ['rev-parse', 'HEAD']);
+};
+const dc2Roots = [];
+after(() => { for (const root of dc2Roots) fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 }); });
+let dc2Seed;
+function dc2ExpectedAfter(file) {
+  let bytes = dc2OriginRead(file);
+  const item = dc2Fixture.deltas.find(value => value.path === file); assert.ok(item, file);
+  for (const [start, stop, text] of [...item.splices].reverse()) bytes = Buffer.concat([bytes.subarray(0, start), Buffer.from(text), bytes.subarray(stop)]);
+  const pin = [...dc2Fixture.core.sourcePayloads, ...dc2Fixture.core.coldPayloads].find(value => value.path === file);
+  assert.equal(bytes.length, pin.bytes); assert.equal(dc2Sha(bytes), pin.sha256); assert.equal(dc2Blob(bytes), pin.afterBlob);
+  return bytes;
+}
+function dc2State(stage) {
+  let bytes = dc2OriginRead(dc2StatePath);
+  for (const group of stage === 'S0' ? [] : stage === 'A3' ? ['A3'] : ['A3', 'B1']) {
+    for (const item of dc2Fixture.core.stateReplacements[group]) {
+      assert.equal(bytes.subarray(item.byteOffset, item.byteOffset + 64).toString(), item.before);
+      bytes = Buffer.concat([bytes.subarray(0, item.byteOffset), Buffer.from(item.after), bytes.subarray(item.byteOffset + 64)]);
+    }
+  }
+  const pin = dc2Fixture.core.stateStages[stage]; assert.equal(bytes.length, pin.bytes); assert.equal(dc2Sha(bytes), pin.sha256); assert.equal(dc2Blob(bytes), pin.blob);
+  return bytes;
+}
+function dc2Record(root) {
+  const side = (file, before) => {
+    const pin = dc2Fixture.core.guardBefore.find(value => value.path === file);
+    const bytes = before ? dc2OriginRead(file) : fs.readFileSync(path.join(root, file));
+    return { bytes, identity: { mode: pin.mode, blob: dc2Blob(bytes), bytes: bytes.length, sha256: dc2Sha(bytes) } };
+  };
+  const object = chunks => { const raw = Buffer.concat(chunks); return { blob: dc2Blob(raw), bytes: raw.length, sha256: dc2Sha(raw) }; };
+  const pins = dc2GuardPaths.map(file => {
+    const before = side(file, true), after = side(file, false);
+    return { path: file, mode: before.identity.mode, beforeBlob: before.identity.blob, afterBlob: after.identity.blob,
+      bytes: after.identity.bytes, sha256: after.identity.sha256 };
+  });
+  const entries = [...dc2GuardPaths].sort().map(file => {
+    const before = side(file, true), after = side(file, false);
+    const framed = (which, value) => object([dc2Canonical({ schemaVersion: 'pc.dc2-guard-side.v1', path: file, side: which, identity: value.identity }), value.bytes]);
+    return { path: file, before: before.identity, after: after.identity, beforeSide: framed('before', before), afterSide: framed('after', after) };
+  });
+  return { ...dc2Fixture.core, guardPayloads: pins, guardPacket: object([dc2Canonical({ schemaVersion: 'pc.dc2-guard-side-packet.v1', entries })]),
+    privateGuardReviewSha256: '2'.repeat(64) }; // Explicit synthetic TEST record only.
+}
+function dc2WriteRecord(root, record, suffix = '') {
+  dc2Write(root, dc2ReviewPath, Buffer.concat([dc2OriginRead(dc2ReviewPath), Buffer.from(dc2Marker + JSON.stringify(record) + '\n```\n' + suffix)]));
+}
+function dc2SeedContext() {
+  if (dc2Seed) return dc2Seed;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dc2-real-origin-')); dc2Roots.push(root);
+  dc2Command(process.cwd(), ['clone', '--shared', '--no-hardlinks', '--no-checkout', process.cwd(), root]);
+  const paths = [...new Set([dc2StatePath, dc2ReviewPath, dc2QueuePath, ...dc2GuardPaths,
+    ...dc2Fixture.deltas.map(value => value.path), ...dc2Fixture.core.sourceExecutionDependencies.map(value => value.path)])];
+  dc2Command(root, ['sparse-checkout', 'set', '--no-cone', '--stdin'], { input: paths.map(file => '/' + file).join('\n') + '\n' });
+  dc2Command(root, ['checkout', '--detach', dc2Fixture.origin]);
+  dc2Command(root, ['config', 'user.name', 'DC2 private regression']); dc2Command(root, ['config', 'user.email', 'dc2-test@example.invalid']);
+  for (const file of dc2GuardPaths) dc2Write(root, file, fs.readFileSync(path.join(process.cwd(), file)));
+  const purpose = dc2Record(root); dc2WriteRecord(root, purpose);
+  const base = dc2Commit(root, 'accepted fixture guard record');
+  const heads = {};
+  const stageBase = {};
+  for (const stage of ['A3', 'COLD3', 'R3', 'B1']) {
+    stageBase[stage] = dc2Command(root, ['rev-parse', 'HEAD']); dc2ApplyStage(root, stage);
+    heads[stage] = dc2Commit(root, stage);
+  }
+  dc2Seed = { root, purpose, base, heads, stageBase };
+  return dc2Seed;
+}
+function dc2ApplyStage(root, stage) {
+  if (stage === 'A3' || stage === 'B1') dc2Write(root, dc2StatePath, dc2State(stage));
+  else for (const pin of stage === 'COLD3' ? dc2Fixture.core.coldPayloads : dc2Fixture.core.sourcePayloads) dc2Write(root, pin.path, dc2ExpectedAfter(pin.path));
+}
+function dc2Case(stage, baseAttack, headAttack) {
+  const seed = dc2SeedContext(), root = fs.mkdtempSync(path.join(os.tmpdir(), 'dc2-stage-')); dc2Roots.push(root);
+  dc2Command(process.cwd(), ['clone', '--shared', '--no-hardlinks', '--no-checkout', seed.root, root]);
+  dc2Command(root, ['config', 'core.sparseCheckout', 'true']);
+  fs.writeFileSync(path.join(root, '.git/info/sparse-checkout'), fs.readFileSync(path.join(seed.root, '.git/info/sparse-checkout')));
+  dc2Command(root, ['checkout', '--detach', seed.stageBase[stage]]);
+  dc2Command(root, ['config', 'user.name', 'DC2 private regression']); dc2Command(root, ['config', 'user.email', 'dc2-test@example.invalid']);
+  if (baseAttack) { baseAttack(root, structuredClone(seed.purpose)); dc2Commit(root, 'base rejection fixture'); }
+  const base = dc2Command(root, ['rev-parse', 'HEAD']); dc2ApplyStage(root, stage);
+  if (headAttack) headAttack(root);
+  const head = dc2Commit(root, 'head ' + stage);
+  return { root, base, head, stage };
+}
+function dc2Run(context, branch = dc2Branches[context.stage]) {
+  const seed = dc2SeedContext();
+  const trusted = path.join(context.root, 'trusted-dc2-test-guard.sh');
+  fs.writeFileSync(trusted, dc2Command(seed.root, ['show', `${seed.base}:scripts/p7-autopilot-guard.sh`], { binary: true }));
+  return spawnSync('bash', [trusted], { cwd: context.root, encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 15000,
+    env: { ...process.env, BASE_REF: context.base, HEAD_REF: context.head, GITHUB_HEAD_REF: branch } });
+}
+const dc2Reject = context => { const r = dc2Run(context); assert.notEqual(r.status, 0, r.stdout); assert.match(r.stderr, /DC2_COHERENT_SCOPE_|immutable|state|scope/i); return r; };
+
+for (const stage of ['A3', 'COLD3', 'R3', 'B1']) test(`DC2: exact ${stage} stage passes real accepted-origin whole guard`, () => {
+  const r = dc2Run(dc2Case(stage)); assert.equal(r.status, 0, r.stderr); assert.match(r.stdout, /Scope guard passed/);
+});
+for (const [name, attack] of [
+  ['extra file', root => dc2Write(root, 'DC2-extra.txt', 'extra\n')],
+  ['queue mutation', root => dc2Write(root, dc2QueuePath, Buffer.concat([fs.readFileSync(path.join(root, dc2QueuePath)), Buffer.from('x')]))],
+  ['review mutation', root => dc2Write(root, dc2ReviewPath, Buffer.concat([fs.readFileSync(path.join(root, dc2ReviewPath)), Buffer.from('x')]))],
+  ['guard mutation', root => dc2Write(root, dc2GuardPaths[0], Buffer.concat([fs.readFileSync(path.join(root, dc2GuardPaths[0])), Buffer.from('\n# drift\n')]))],
+  ['main test mutation', root => dc2Write(root, dc2GuardPaths[1], Buffer.concat([fs.readFileSync(path.join(root, dc2GuardPaths[1])), Buffer.from('\n// drift\n')]))],
+  ['state newline', root => dc2Write(root, dc2StatePath, Buffer.concat([fs.readFileSync(path.join(root, dc2StatePath)), Buffer.from('\n')]))],
+  ['state executable mode', root => fs.chmodSync(path.join(root, dc2StatePath), 0o755)],
+]) test('DC2: A3 rejects ' + name, () => dc2Reject(dc2Case('A3', null, attack)));
+
+for (const [name, mutate] of [
+  ['unknown purpose field', purpose => { purpose.extra = true; }],
+  ['new source grant', purpose => { purpose.sourcePublicationAuthorized = true; }],
+  ['new host grant', purpose => { purpose.productionInvocationAuthorized = true; }],
+  ['different owner', purpose => { purpose.owner = 'OTHER'; }],
+  ['different current queue', purpose => { purpose.queue.blob = 'a'.repeat(40); }],
+  ['source packet substitution', purpose => { purpose.sourcePacket.sha256 = 'a'.repeat(64); }],
+  ['cold packet substitution', purpose => { purpose.coldPacket.bytes++; }],
+  ['state inverse offset substitution', purpose => { purpose.stateReplacements.A3[0].byteOffset++; }],
+  ['state cap increase', purpose => { purpose.stateStages.S0.bytes = 4 * 1024 * 1024; }],
+  ['guard report zero digest', purpose => { purpose.privateGuardReviewSha256 = '0'.repeat(64); }],
+  ['guard report unknown field', purpose => { purpose.guardPayloads[0].extra = 1; }],
+  ['guard source hash substitution', purpose => { purpose.guardPayloads[0].sha256 = 'a'.repeat(64); }],
+  ['guard side root substitution', purpose => { purpose.guardPacket.sha256 = 'a'.repeat(64); }],
+  ['guard root cap increase', purpose => { purpose.guardPacket.bytes = 1024 * 1024 + 1; }],
+]) test('DC2: accepted BASE record rejects ' + name, () => dc2Reject(dc2Case('A3', (root, purpose) => { mutate(purpose); dc2WriteRecord(root, purpose); })));
+
+test('DC2: duplicate accepted marker never falls through to DC1', () => dc2Reject(dc2Case('A3', (root, purpose) => dc2WriteRecord(root, purpose, dc2Marker + JSON.stringify(purpose) + '\n```\n'))));
+test('DC2: duplicate JSON keys are not canonical accepted authority', () => dc2Reject(dc2Case('A3', (root, purpose) => {
+  const encoded = '{"owner":"OTHER",' + JSON.stringify(purpose).slice(1);
+  dc2Write(root, dc2ReviewPath, Buffer.concat([dc2OriginRead(dc2ReviewPath), Buffer.from(dc2Marker + encoded + '\n```\n')]));
+})));
+test('DC2: malformed present marker never falls through to historical source', () => dc2Reject(dc2Case('R3', root => dc2Write(root, dc2ReviewPath,
+  Buffer.concat([dc2OriginRead(dc2ReviewPath), Buffer.from(dc2Marker + '{bad}\n```\n')])))));
+test('DC2: review retains the two MiB capacity', () => dc2Reject(dc2Case('A3', root => dc2Write(root, dc2ReviewPath, 'x'.repeat(2 * 1024 * 1024 + 1)))));
+test('DC2: full main-test side cannot exceed existing one MiB after framing', () => dc2Reject(dc2Case('A3', root => {
+  dc2Write(root, dc2GuardPaths[1], 'x'.repeat(1024 * 1024)); dc2WriteRecord(root, dc2Record(root));
+})));
+test('DC2: oversized guard source cannot increase the one MiB read/pin cap', () => dc2Reject(dc2Case('A3', root => {
+  dc2Write(root, dc2GuardPaths[1], 'x'.repeat(1024 * 1024 + 1)); dc2WriteRecord(root, dc2Record(root));
+})));
+test('DC2: invalid UTF8 guard source cannot acquire authority through metadata', () => dc2Reject(dc2Case('A3', root => {
+  dc2Write(root, dc2GuardPaths[1], Buffer.from([0xff])); dc2WriteRecord(root, dc2Record(root));
+})));
+
+for (const stage of ['COLD3', 'R3']) for (const [name, mutation] of [
+  ['payload tail', (root, p) => dc2Write(root, p, Buffer.concat([fs.readFileSync(path.join(root, p)), Buffer.from('x')]))],
+  ['payload executable mode', (root, p) => fs.chmodSync(path.join(root, p), 0o755)],
+  ['payload symlink', (root, p) => { fs.unlinkSync(path.join(root, p)); fs.symlinkSync('/not-a-source', path.join(root, p)); }],
+  ['state mutation', root => dc2Write(root, dc2StatePath, Buffer.concat([dc2State('A3'), Buffer.from('\n')]))],
+]) test(`DC2: ${stage} rejects ${name}`, () => dc2Reject(dc2Case(stage, null, root => {
+  const pin = stage === 'COLD3' ? dc2Fixture.core.coldPayloads[0] : dc2Fixture.core.sourcePayloads[0]; mutation(root, pin.path);
+})));
+test('DC2: R3 cannot precede exact cold source acceptance', () => dc2Reject(dc2Case('R3', root => {
+  for (const pin of dc2Fixture.core.coldPayloads) dc2Write(root, pin.path, dc2OriginRead(pin.path));
+})));
+test('DC2: B1 cannot precede exact source acceptance', () => dc2Reject(dc2Case('B1', root => {
+  for (const pin of dc2Fixture.core.sourcePayloads) dc2Write(root, pin.path, dc2OriginRead(pin.path));
+})));
+test('DC2: Cold source cannot precede zero-growth A3 admission', () => dc2Reject(dc2Case('COLD3', root => dc2Write(root, dc2StatePath, dc2State('S0')))));
+test('DC2: unrelated ancestry with identical final tree is rejected', () => {
+  const context = dc2Case('A3');
+  const baseTree = dc2Command(context.root, ['rev-parse', `${context.base}^{tree}`]);
+  const headTree = dc2Command(context.root, ['rev-parse', `${context.head}^{tree}`]);
+  context.base = dc2Command(context.root, ['commit-tree', baseTree, '-m', 'TEST unrelated BASE root']);
+  context.head = dc2Command(context.root, ['commit-tree', headTree, '-p', context.base, '-m', 'TEST unrelated child']);
+  assert.match(dc2Reject(context).stderr, /ANCESTRY/);
+});
+test('DC2: source branch suffix cannot borrow a literal DC2 source scope', () => {
+  const r = dc2Run(dc2Case('R3'), dc2Branches.R3 + '-extra'); assert.notEqual(r.status, 0);
+});
+
+test('DC2: non-state industrial work retains its existing generic queue scope', () => {
+  const context = dc2Case('A3', null, root => {
+    dc2Write(root, dc2StatePath, dc2State('S0'));
+    dc2Write(root, dc2QueuePath, Buffer.concat([fs.readFileSync(path.join(root, dc2QueuePath)), Buffer.from('\n')]));
+  });
+  const r = dc2Run(context); assert.equal(r.status, 0, r.stderr);
+});
+test('DC2: malformed guard packet in present record cannot fall through generic industrial work', () => {
+  const context = dc2Case('A3', (root, purpose) => { purpose.guardPacket = null; dc2WriteRecord(root, purpose); }, root => {
+    dc2Write(root, dc2StatePath, dc2State('S0'));
+    dc2Write(root, dc2QueuePath, Buffer.concat([fs.readFileSync(path.join(root, dc2QueuePath)), Buffer.from('\n')]));
+  });
+  assert.match(dc2Reject(context).stderr, /DC2_COHERENT_SCOPE_GUARD_IDENTITY/);
+});
+
+function dc2WorkflowCode() {
+  const source = fs.readFileSync(path.join(process.cwd(), '.github/workflows/platform-v7-autopilot-guard.yml'), 'utf8');
+  const block = source.split('      - name: Validate DC1 closed Docker source controls at exact accepted head\n')[1].split('\n      - name:', 1)[0];
+  return block.split("python3 -I - <<'DC1_SOURCE_CONTROLS'\n")[1].split('\n          DC1_SOURCE_CONTROLS')[0].split('\n').map(line => line.slice(10)).join('\n');
+}
+function dc2ExecuteWorkflow(context, worktreeAttack, failCommand = null) {
+  dc2Command(context.root, ['checkout', '--detach', context.head]);
+  if (worktreeAttack) worktreeAttack(context.root);
+  const prefix = `import subprocess, atexit\n_real = subprocess.run\n_seen = []\n_snapshots = []\ndef _cleanup():\n    assert all(not p.exists() for p in _snapshots)\n    if _snapshots: print('DC2_TEST_ONLY_CLEANUP_VERIFIED')\natexit.register(_cleanup)\ndef _run(argv, **kwargs):\n    if argv[0] == 'git':\n        return _real(argv, **kwargs)\n    if argv[0] == 'bash':\n        _seen.append('BASE_GUARD')\n        return _real(argv, **kwargs)\n    if argv[0] in ('node', 'python3'):\n        from pathlib import Path\n        snapshot = Path(kwargs['cwd'])\n        if snapshot not in _snapshots: _snapshots.append(snapshot)\n        assert snapshot != Path.cwd()\n        assert not (snapshot/'scripts/production-stopped-runtime-headroom.yml').exists()\n        assert not list(snapshot.glob('scripts/__pycache__/*'))\n        assert len([p for p in snapshot.rglob('*') if p.is_file() and '.git' not in p.relative_to(snapshot).parts]) == 11\n        assert _seen == ['BASE_GUARD'] or _seen == ['BASE_GUARD', 'PINNED_DC2_TESTS']\n        _seen.append('PINNED_DC2_TESTS' if argv[0]=='node' else 'PINNED_SOURCE50')\n        print('DC2_TEST_ONLY_BOUND_COMMAND='+repr(argv))\n        if argv[0] == ${JSON.stringify(failCommand || 'none')}: raise subprocess.CalledProcessError(87, argv)\n        return subprocess.CompletedProcess(argv,0)\n    raise AssertionError(argv)\nsubprocess.run = _run\n`;
+  return spawnSync('python3', ['-I', '-'], { cwd: context.root, input: prefix + dc2WorkflowCode(), encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 20000,
+    env: { ...process.env, BASE_SHA: context.base, HEAD_SHA: context.head } });
+}
+test('DC2: actual SOURCE workflow runs immutable BASE guard before bound new tests and full Python suite', () => {
+  const r = dc2ExecuteWorkflow(dc2Case('R3')); assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /Scope guard passed/); assert.match(r.stdout, /\['node', '--test', '[^']+closed-dc2-tests\.mjs'\]/);
+  assert.match(r.stdout, /\['python3', '-I', 'scripts\/test_production_stopped_runtime_headroom.py'\]/);
+});
+test('DC2: actual SOURCE workflow does not execute head tests after a BASE scope rejection', () => {
+  const r = dc2ExecuteWorkflow(dc2Case('R3', null, root => dc2Write(root, 'DC2-extra.txt', 'unadmitted')));
+  assert.notEqual(r.status, 0); assert.doesNotMatch(r.stdout, /DC2_TEST_ONLY_BOUND_COMMAND/);
+});
+test('DC2: actual SOURCE workflow rejects changed main-test mode before execution', () => {
+  const r = dc2ExecuteWorkflow(dc2Case('R3', null, root => fs.chmodSync(path.join(root, dc2GuardPaths[1]), 0o755)));
+  assert.notEqual(r.status, 0); assert.doesNotMatch(r.stdout, /DC2_TEST_ONLY_BOUND_COMMAND/);
+});
+test('DC2: actual SOURCE workflow refuses uncommitted main-test bytes despite valid Git pins', () => {
+  const r = dc2ExecuteWorkflow(dc2Case('R3'), root => dc2Write(root, dc2GuardPaths[1], '// uncommitted arbitrary code\n'));
+  assert.notEqual(r.status, 0); assert.doesNotMatch(r.stdout, /DC2_TEST_ONLY_BOUND_COMMAND/);
+  assert.match(r.stderr, /WORKTREE/);
+});
+test('DC2: actual SOURCE workflow refuses uncommitted Python-test symlink despite valid Git pins', () => {
+  const r = dc2ExecuteWorkflow(dc2Case('R3'), root => {
+    const file = path.join(root, 'scripts/test_production_stopped_runtime_headroom.py');
+    fs.unlinkSync(file); fs.symlinkSync('/unadmitted-source', file);
+  });
+  assert.notEqual(r.status, 0); assert.doesNotMatch(r.stdout, /DC2_TEST_ONLY_BOUND_COMMAND/);
+});
+test('DC2: SOURCE snapshot omits untracked sibling workflow and pycache redirects', () => {
+  const r = dc2ExecuteWorkflow(dc2Case('R3'), root => {
+    dc2Write(root, 'scripts/production-stopped-runtime-headroom.yml', 'untracked redirect');
+    dc2Write(root, 'scripts/__pycache__/production_stopped_runtime_headroom.cpython-312.pyc', 'untracked bytecode');
+  });
+  assert.equal(r.status, 0, r.stderr); assert.match(r.stdout, /DC2_TEST_ONLY_BOUND_COMMAND/);
+});
+test('DC2: SOURCE rejects an accepted-base dependency drift before head code', () => {
+  const r = dc2ExecuteWorkflow(dc2Case('R3', root => {
+    const file = 'scripts/production_stopped_runtime_headroom.py';
+    dc2Write(root, file, Buffer.concat([dc2OriginRead(file), Buffer.from('\n')]));
+  }));
+  assert.notEqual(r.status, 0); assert.doesNotMatch(r.stdout, /DC2_TEST_ONLY_BOUND_COMMAND/);
+});
+for (const file of ['.github/workflows/production-cold-preservation.yml',
+  '.github/workflows/production-docker-headroom-recovery.yml',
+  '.github/workflows/production-docker-headroom-owner-push-once.yml',
+  '.github/workflows/production-full-stack-exact-sha.yml']) {
+  for (const attack of ['mutation', 'omission']) test(`DC2: SOURCE refuses workflow dependency ${attack}: ${path.basename(file)}`, () => {
+    const r = dc2ExecuteWorkflow(dc2Case('R3'), root => {
+      if (attack === 'omission') fs.unlinkSync(path.join(root, file));
+      else dc2Write(root, file, Buffer.concat([fs.readFileSync(path.join(root, file)), Buffer.from('\n')]));
+    });
+    assert.notEqual(r.status, 0); assert.doesNotMatch(r.stdout, /DC2_TEST_ONLY_BOUND_COMMAND/);
+  });
+}
+for (const command of ['node', 'python3']) test(`DC2: SOURCE removes private snapshot after ${command} failure`, () => {
+  const r = dc2ExecuteWorkflow(dc2Case('R3'), null, command);
+  assert.notEqual(r.status, 0); assert.match(r.stdout, /DC2_TEST_ONLY_CLEANUP_VERIFIED/);
+  assert.doesNotMatch(r.stderr, /Exception ignored in atexit/);
+  if (command === 'node') assert.doesNotMatch(r.stdout, /BOUND_COMMAND=\['python3'/);
+});
+// DC2_TESTS_END
