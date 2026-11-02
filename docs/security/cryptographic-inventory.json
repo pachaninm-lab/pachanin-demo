@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2317,
+  "scannedFiles": 2318,
   "operations": [
     {
       "operation": "encryption",
@@ -292,11 +292,11 @@
     {
       "operation": "uuid",
       "label": "UUID generation",
-      "sites": 241,
+      "sites": 243,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 241,
+          "sites": 243,
           "files": [
             "apps/api/src/modules/accounting/connection-attestation.repository.ts",
             "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
@@ -401,11 +401,13 @@
             "apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx",
             "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
             "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+            "apps/web/app/platform-v7/staff/role-mode/route.ts",
             "apps/web/apps/web/middleware.ts",
             "apps/web/components/crop-platform/CommodityProfileRegistryClient.tsx",
             "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
             "apps/web/components/gekta/GektaChatWorkspace.tsx",
             "apps/web/components/platform-v7/OrganizationConnectForm.tsx",
+            "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx",
             "apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx",
             "apps/web/components/platform-v7/staff/StaffSupportCaseWorkspace.tsx",
             "apps/web/components/transaction-ux/TransactionDealWorkspace.tsx",
