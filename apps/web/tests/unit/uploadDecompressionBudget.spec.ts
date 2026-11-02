@@ -411,6 +411,51 @@ async function upload(body: string, prefix = 'w') {
 
 const paragraph = (text: string) => `<w:p><w:r><w:t>${text}</w:t></w:r></w:p>`;
 
+describe('public assistant CSV encoding fidelity', () => {
+  async function uploadCsv(bytes: Buffer) {
+    const form = new FormData();
+    form.append('files', new File([new Uint8Array(bytes)], 'synthetic.csv'));
+    const response = await POST(new NextRequest('http://localhost/api/public-platform-assistant/attachments', {
+      method: 'POST', body: form,
+    }));
+    return { status: response.status, body: await response.json() };
+  }
+
+  it('reads a real Windows-1251 Russian export without replacing letters or numeric punctuation', async () => {
+    const bytes = Buffer.from('caf3ebfcf2f3f0e03bcce0f1f1e02c20f23bd6e5ede02c20f0f3e12e0d0acff8e5ede8f6e03b3131372c363b31383030300d0acee2b8f13b32343b31353030300d0a', 'hex');
+    const { status, body } = await uploadCsv(bytes);
+    expect(status).toBe(200);
+    expect(body.rejected).toEqual([]);
+    expect(body.documents[0]).toMatchObject({ encoding: 'windows-1251', encodingSource: 'legacy-fallback', truncated: false });
+    expect(body.documents[0].text).toContain('проверьте правильность названий');
+    expect(body.documents[0].text).toContain('Культура;Масса, т;Цена, руб.');
+    expect(body.documents[0].text).toContain('Пшеница;117,6;18000');
+    expect(body.documents[0].text).toContain('Овёс;24;15000');
+    expect(body.documents[0].text).not.toContain('\uFFFD');
+  });
+
+  it.each(['Культура;Масса\nПшеница;117,6', '作物;重量\n小麦;117.6', 'Crop;Mass\nWheat;117.6', '\uFEFFКультура;Масса\nОвёс;24'])('preserves valid UTF-8 CSV %s', async text => {
+    const { status, body } = await uploadCsv(Buffer.from(text, 'utf8'));
+    expect(status).toBe(200);
+    expect(body.documents[0]).toMatchObject({ encoding: 'utf-8', encodingSource: 'validated', text: text.trim(), truncated: false });
+    expect(body.documents[0].text).not.toContain('Windows-1251');
+  });
+
+  it.each(['fffe430072006f0070003b003100', 'e93b310a', 'caf3ebfcf2f3f0e0983b310a'])('rejects an unsupported or binary legacy encoding %s', async hex => {
+    const { status, body } = await uploadCsv(Buffer.from(hex, 'hex'));
+    expect(status).toBe(422);
+    expect(body.rejected).toEqual([{ name: 'synthetic.csv', code: 'CSV_ENCODING_UNSUPPORTED' }]);
+  });
+
+  it('retains the character ceiling and truncation for legacy CSV', async () => {
+    const bytes = Buffer.from(('cff8e5ede8f6e03b3131372c360a').repeat(2500), 'hex');
+    const { status, body } = await uploadCsv(bytes);
+    expect(status).toBe(200);
+    expect(body.documents[0].text.length).toBe(18_000);
+    expect(body.documents[0].truncated).toBe(true);
+  });
+});
+
 describe('public assistant real DOCX text fidelity', () => {
   it('preserves literal comparison signs without treating text as markup', async () => {
     const { text } = await upload(paragraph('Сумма &lt; 5000 и &gt; 1000. A &lt; B и C &gt; D.'));
