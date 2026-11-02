@@ -56,6 +56,8 @@ type ActiveRoleMode = RoleModeInfo & {
   expiresAt: string;
 };
 type RoleModeRequestResponse = {
+  createIntentId?: string;
+  createOutcome?: string;
   status?: string;
   grantId?: string | null;
   roleMode?: RoleModeInfo | null;
@@ -206,6 +208,16 @@ export function completeOwnerCreate(record: OwnerPendingCreate, coordinator: Own
   coordinator.pendingCreate = null;
 }
 
+export function ownerCreateCanRetire(pending: OwnerPendingCreate, recovered: OwnerCreateRecovery | null) {
+  if (!recovered || recovered.currentProjection.activationEligible) return false;
+  const current = recovered.currentProjection;
+  const expired = Date.parse(current.expiresAt) <= Date.now()
+    && Date.parse(recovered.originalReceipt.expiresAt) <= Date.now();
+  if (pending.phase === 'activation-unknown') return expired;
+  return expired || ['DENIED', 'REVOKED', 'EXPIRED'].includes(current.requestStatus)
+    || ['REVOKED', 'EXPIRED'].includes(current.grantStatus || '');
+}
+
 function parseOwnerRecovery(value: unknown, pending: OwnerPendingCreate): OwnerCreateRecovery {
   const row = value as OwnerCreateRecovery | null;
   const receipt = row?.originalReceipt;
@@ -244,6 +256,7 @@ export async function resolveOwnerCreate(pending: OwnerPendingCreate, coordinato
   if (!recovered) {
     if (record.phase === 'created' || record.phase === 'activation-unknown') throw new Error('OWNER_CREATE_RECOVERY_REQUIRED');
     if (!options.isCurrent()) throw new Error('OWNER_CREATE_IDENTITY_CHANGED');
+    const firstTransmission = record.phase === 'prepared';
     record = saveOwnerPendingCreate({ ...record, phase: 'create-unknown' }, coordinator);
     const send = () => fetch(record.kind === 'founder' ? '/platform-v7/staff/role-mode' : '/api/staff/access/requests', {
       method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: {
@@ -258,8 +271,13 @@ export async function resolveOwnerCreate(pending: OwnerPendingCreate, coordinato
       response = await send();
       payload = await response.json().catch(() => null) as RoleModeRequestResponse | null;
     }
-    if (!response.ok || !payload) throw new Error(payloadMessage(payload, 'OWNER_CREATE_OUTCOME_UNKNOWN'));
     if (!options.isCurrent()) throw new Error('OWNER_CREATE_IDENTITY_CHANGED');
+    if (firstTransmission && record.kind === 'founder' && response.status === 403
+      && payload?.createOutcome === 'REJECTED_BEFORE_CREATE' && payload.createIntentId === record.createIntentId) {
+      completeOwnerCreate(record, coordinator);
+      throw new Error('OWNER_CREATE_TARGET_REJECTED');
+    }
+    if (!response.ok || !payload) throw new Error(payloadMessage(payload, 'OWNER_CREATE_OUTCOME_UNKNOWN'));
     record = saveOwnerPendingCreate({ ...record, phase: 'created' }, coordinator);
     recovered = await recoverOwnerCreate(record, options.signal);
     if (!recovered) throw new Error('OWNER_CREATE_RECOVERY_REQUIRED');
@@ -348,6 +366,7 @@ const OWNER_COPY = {
     createPending: 'Незавершённый запрос сохранён в этой вкладке. Восстановите его результат перед новым действием.',
     createStorage: 'Не удалось сохранить запрос в этой вкладке. Разрешите хранение данных и повторите.',
     createResolved: 'Предыдущий запрос завершён и больше не даёт доступа. Можно начать новое действие.',
+    targetRejected: 'Организация не подтверждена. Проверь ID и свои полномочия, затем повтори.',
   },
   en: {
     eyebrow: 'Platform owner',
@@ -391,6 +410,7 @@ const OWNER_COPY = {
     createPending: 'An unfinished request is saved in this tab. Recover its result before another action.',
     createStorage: 'This tab could not save the request. Allow site storage and try again.',
     createResolved: 'The previous request has ended and grants no access. You can start a new action.',
+    targetRejected: 'The organization could not be verified. Check its ID and your authority, then try again.',
   },
   zh: {
     eyebrow: '平台所有者',
@@ -434,6 +454,7 @@ const OWNER_COPY = {
     createPending: '此标签页保存着未完成的请求。请先恢复其结果，再开始其他操作。',
     createStorage: '此标签页无法保存请求。请允许网站存储后重试。',
     createResolved: '先前的请求已结束且不再提供访问权限。现在可以开始新的操作。',
+    targetRejected: '无法确认该组织。请检查组织 ID 和你的权限后重试。',
   },
 } as const;
 
@@ -791,11 +812,7 @@ export function OwnerAccessCenter(props: Props) {
           setNotice(null);
         }
         if (savedCreate) {
-          const terminal = savedRecovery && !savedRecovery.currentProjection.activationEligible
-            && (['DENIED', 'REVOKED', 'EXPIRED'].includes(savedRecovery.currentProjection.requestStatus)
-              || ['REVOKED', 'EXPIRED'].includes(savedRecovery.currentProjection.grantStatus || '')
-              || Date.parse(savedRecovery.currentProjection.expiresAt) <= Date.now());
-          if (terminal && savedCreate.phase !== 'activation-unknown') {
+          if (savedCreate.kind === 'founder' && ownerCreateCanRetire(savedCreate, savedRecovery)) {
             completeOwnerCreate(savedCreate, coordinator);
             setPendingCreate(null);
             setNotice(text.createResolved);
@@ -1001,9 +1018,11 @@ export function OwnerAccessCenter(props: Props) {
       setActiveMode(null);
       setProjection(null);
       setProjectionUnavailable(true);
-      setNotice(activationAttempted ? text.sessionUnknown : text.createPending);
+      const targetRejected = error instanceof Error && error.message === 'OWNER_CREATE_TARGET_REJECTED';
+      if (targetRejected) setPendingCreate(null);
+      setNotice(targetRejected ? null : activationAttempted ? text.sessionUnknown : text.createPending);
       const storageError = error instanceof Error && /OWNER_CREATE_(?:STORAGE|CRYPTO|IDENTITY)_/.test(error.message);
-      setOpenError(storageError ? text.createStorage : error instanceof Error && error.message.startsWith('OWNER_CREATE_')
+      setOpenError(targetRejected ? text.targetRejected : storageError ? text.createStorage : error instanceof Error && error.message.startsWith('OWNER_CREATE_')
         ? text.createPending : error instanceof Error ? error.message : text.openFailed);
     } finally {
       if (isCurrent() && !activationAttempted && !coordinator.pendingCreate) setSessionKnown(true);

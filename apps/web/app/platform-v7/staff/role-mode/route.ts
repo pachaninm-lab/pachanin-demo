@@ -160,6 +160,15 @@ async function proxyRequest(request: NextRequest, accessToken: string, correlati
     ? { ...(payload as JsonRecord), correlationId: correlation }
     : { correlationId: correlation };
   delete safePayload.accessToken;
+  // Only these canonical target checks reject before the create transaction.
+  // This describes this response, never an earlier timed-out transmission.
+  delete safePayload.createOutcome;
+  if (upstream.status === 403 && safePayload.statusCode === 403 && safePayload.error === 'Forbidden'
+    && (safePayload.message === 'Founder role-mode target scope could not be verified'
+      || safePayload.message === 'Controlled test targets are not R1 production role-mode authority')) {
+    safePayload.createOutcome = 'REJECTED_BEFORE_CREATE';
+    safePayload.createIntentId = createIntentId;
+  }
   return json(safePayload, upstream.status);
 }
 

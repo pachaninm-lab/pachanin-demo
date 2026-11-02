@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
 import { OwnerAccessCenter as OwnerAccessCenterV3, isOwnerAccessOpening, reserveOwnerAccessOpening, releaseOwnerAccessOpening } from './OwnerAccessCenterV3';
-import { OWNER_REGISTRATION_PERMISSIONS, loadOwnerPendingCreate, prepareOwnerCreate, resolveOwnerCreate, recoverOwnerCreate, markOwnerActivation, completeOwnerCreate } from './OwnerAccessCenterV3';
+import { OWNER_REGISTRATION_PERMISSIONS, loadOwnerPendingCreate, prepareOwnerCreate, resolveOwnerCreate, recoverOwnerCreate, markOwnerActivation, completeOwnerCreate, ownerCreateCanRetire } from './OwnerAccessCenterV3';
 import type { OwnerAccessOpeningCoordinator, OwnerPendingCreate } from './OwnerAccessCenterV3';
 import styles from './OwnerAccessCenterV4.module.css';
 
@@ -201,12 +201,31 @@ export function OwnerAccessCenter(props: Props) {
         if (registrationActive && savedCreate?.kind === 'registration' && savedRecovery
           && sessions[0].grant_id === savedRecovery.currentProjection.grantId) {
           completeOwnerCreate(savedCreate, openingCoordinator.current);
+          commandError.current = null;
+          setError('');
           setPendingCreate(null);
         }
         setState(registrationActive ? 'active' : 'occupied');
         return false;
       }
       if (savedCreate) {
+        if (savedCreate.kind === 'registration' && ownerCreateCanRetire(savedCreate, savedRecovery)) {
+          const canonicalResponse = await fetch('/api/staff/founder/role-mode/session', {
+            credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' },
+            signal: AbortSignal.timeout(8_000),
+          });
+          const canonical = await canonicalResponse.json().catch(() => null) as { active?: boolean; code?: string } | null;
+          const inactive = (canonicalResponse.status === 401 && canonical?.code === 'ROLE_MODE_SESSION_INACTIVE')
+            || (canonicalResponse.ok && canonical?.active === false);
+          if (!isCurrent() || isOwnerAccessOpening(openingCoordinator.current)) return false;
+          if (!inactive) throw new Error(copy.failed);
+          completeOwnerCreate(savedCreate, openingCoordinator.current);
+          commandError.current = null;
+          setError('');
+          setPendingCreate(null);
+          window.dispatchEvent(new Event('pc:staff-session-changed'));
+          return false;
+        }
         setError(copy.pending);
         setState('error');
         return allowPending && savedCreate.kind === 'registration' && savedCreate.phase !== 'activation-unknown';

@@ -155,7 +155,7 @@ describe('Platform V7 controlled test organization network', () => {
 // TaskUx exclusion and CI selector are deliberately unchanged.
 const INTENT_FIXTURE = '11111111-1111-4111-8111-111111111111';
 function ownerJson(value: unknown, status = 200) { return new Response(JSON.stringify(value), { status }); }
-function ownerModel(options: { lostCreate?: 'committed' | 'absent'; lostActivation?: boolean; context404?: boolean; csrfReject?: boolean; projection?: 'revoked' | 'expired' } = {}) {
+function ownerModel(options: { lostCreate?: 'committed' | 'absent'; lostActivation?: boolean; context404?: boolean; csrfReject?: boolean; projection?: 'revoked' | 'expired'; rejectTargetAtPost?: number; rejectionMarker?: 'missing' | 'wrong-id' } = {}) {
   const cabinets = ['operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor', 'elevator', 'lab', 'bank', 'organization', 'arbitrator', 'compliance', 'executive']
     .map((key) => ({ key, canonicalPath: `/platform-v7/${key}`, effectiveRole: 'BUYER' }));
   const registry = { schemaVersion: 'pc-crop.founder-role-mode.v1', mode: 'VIEW_AS', readOnly: true,
@@ -172,6 +172,7 @@ function ownerModel(options: { lostCreate?: 'committed' | 'absent'; lostActivati
   let committedCreates = 0;
   let rejectedCsrf = false;
   let assignmentId = 'owner-1';
+  let expired = false;
   const canonical = { ...registry, active: true, accessSessionId: 'session-1', actor: { displayName: 'Owner' },
     cabinetKey: 'buyer', canonicalPath: '/platform-v7/buyer', effectiveRole: 'BUYER', effectiveOrganizationId: 'organization-1',
     effectiveTenantId: 'tenant-1', expiresAt: options.projection === 'expired' ? '2000-09-24T00:00:00Z' : '2099-09-24T00:00:00Z', ticketId: 'ticket-1', mfaRequired: true };
@@ -181,11 +182,16 @@ function ownerModel(options: { lostCreate?: 'committed' | 'absent'; lostActivati
     if (path.startsWith('/platform-v7/staff/role-mode?view=create-intent')) {
       if (!receipt || options.context404) return ownerJson({ message: 'Create intent not found' }, 404);
       return ownerJson({ createIntentId: receipt.createIntentId, originalReceipt: receipt,
-        currentProjection: { requestId: 'request-1', requestStatus: 'GRANTED', grantId: 'grant-1', grantStatus: options.projection === 'revoked' ? 'REVOKED' : 'ACTIVE',
-          expiresAt: canonical.expiresAt, activationEligible: !options.projection, requiresLiveActivationChecks: true } });
+        currentProjection: { requestId: 'request-1', requestStatus: 'GRANTED', grantId: 'grant-1', grantStatus: expired ? 'EXPIRED' : options.projection === 'revoked' ? 'REVOKED' : 'ACTIVE',
+          expiresAt: canonical.expiresAt, activationEligible: !options.projection && !expired, requiresLiveActivationChecks: true } });
     }
     if (method === 'POST' && (path === '/platform-v7/staff/role-mode' || path === '/api/staff/access/requests')) {
       const body = JSON.parse(String(init?.body)) as Record<string, unknown>; postBodies.push(body);
+      if (postBodies.length === options.rejectTargetAtPost) return ownerJson({
+        message: 'Founder role-mode target scope could not be verified',
+        ...(options.rejectionMarker === 'missing' ? {} : { createOutcome: 'REJECTED_BEFORE_CREATE',
+          createIntentId: options.rejectionMarker === 'wrong-id' ? '22222222-2222-4222-8222-222222222222' : body.createIntentId }),
+      }, 403);
       if (options.csrfReject && !rejectedCsrf) { rejectedCsrf = true; return ownerJson({ code: 'CSRF_REJECTED' }, 403); }
       if (receipt && options.context404) return ownerJson({ message: 'Create intent not found' }, 404);
       kind = path === '/platform-v7/staff/role-mode' ? 'founder' : 'registration';
@@ -217,7 +223,8 @@ function ownerModel(options: { lostCreate?: 'committed' | 'absent'; lostActivati
     throw new Error(`Unexpected owner fixture request: ${path}`);
   });
   return { props, fetcher, calls, postBodies, activationPosts: () => activationPosts, committedCreates: () => committedCreates, originalReceipt: () => receipt,
-    setAssignmentId: (next: string) => { assignmentId = next; } };
+    setAssignmentId: (next: string) => { assignmentId = next; },
+    expire: () => { expired = true; durable = false; cookie = false; } };
 }
 async function fillOwner(view: ReturnType<typeof render>) {
   await waitFor(() => expect(view.getByLabelText(/ID реальной организации/)).toBeInTheDocument());
@@ -233,6 +240,82 @@ function storedOwnerCommand() {
 describe('native-selected immutable owner create recovery', () => {
   beforeEach(() => { window.sessionStorage.clear(); window.localStorage.clear(); });
   afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+
+  it('allows correcting an organization after the first transmission is definitively rejected before create', async () => {
+    const model = ownerModel({ rejectTargetAtPost: 1 }); vi.stubGlobal('fetch', model.fetcher);
+    const view = render(createElement(BootstrapCenter, model.props)); await fillOwner(view);
+    fireEvent.change(view.getByLabelText(/ID реальной организации/), { target: { value: 'unknown-organization' } });
+    fireEvent.click(view.getAllByRole('button', { name: 'Открыть read-only' })[1]);
+    await waitFor(() => expect(view.getByText(/Организация не подтверждена/)).toBeInTheDocument());
+    await waitFor(() => expect(view.getByRole('button', { name: 'Открыть доступ на 30 минут' })).toBeEnabled());
+    expect(storedOwnerCommand()).toBeNull(); expect(model.committedCreates()).toBe(0);
+    fireEvent.change(view.getByLabelText(/ID реальной организации/), { target: { value: 'organization-1' } });
+    fireEvent.click(view.getAllByRole('button', { name: 'Открыть read-only' })[1]);
+    await waitFor(() => expect(model.activationPosts()).toBe(1));
+    expect(model.postBodies).toHaveLength(2);
+    expect(model.postBodies[1].createIntentId).not.toBe(model.postBodies[0].createIntentId);
+    expect(model.postBodies[1].organizationId).toBe('organization-1'); expect(model.committedCreates()).toBe(1);
+  });
+
+  it.each(['missing', 'wrong-id'] as const)('quarantines a target rejection with a %s exact-intent marker', async (rejectionMarker) => {
+    const model = ownerModel({ rejectTargetAtPost: 1, rejectionMarker }); vi.stubGlobal('fetch', model.fetcher);
+    const view = render(createElement(RoleModeCenter, model.props)); await fillOwner(view);
+    fireEvent.click(view.getAllByRole('button', { name: 'Открыть read-only' })[1]);
+    await waitFor(() => expect(view.getByRole('button', { name: 'Восстановить запрос' })).toBeEnabled());
+    expect(storedOwnerCommand()?.phase).toBe('create-unknown'); expect(model.activationPosts()).toBe(0);
+    expect(view.getAllByRole('button', { name: 'Открыть read-only' }).every((button) => button.hasAttribute('disabled'))).toBe(true);
+  });
+
+  it('keeps an earlier uncertain transmission quarantined even when its retry receives a definite rejection', async () => {
+    const model = ownerModel({ lostCreate: 'absent', rejectTargetAtPost: 2 }); vi.stubGlobal('fetch', model.fetcher);
+    const view = render(createElement(RoleModeCenter, model.props)); await fillOwner(view);
+    fireEvent.click(view.getAllByRole('button', { name: 'Открыть read-only' })[1]);
+    await waitFor(() => expect(view.getByRole('button', { name: 'Восстановить запрос' })).toBeEnabled());
+    const original = storedOwnerCommand(); fireEvent.click(view.getByRole('button', { name: 'Восстановить запрос' }));
+    await waitFor(() => expect(model.postBodies).toHaveLength(2));
+    expect(storedOwnerCommand()?.createIntentId).toBe(original?.createIntentId);
+    expect(model.postBodies[1]).toEqual(model.postBodies[0]); expect(model.activationPosts()).toBe(0);
+  });
+
+  it.each([
+    { kind: 'founder', remount: false }, { kind: 'founder', remount: true },
+    { kind: 'registration', remount: false }, { kind: 'registration', remount: true },
+  ] as const)('retires an expired ambiguous $kind activation after durable inactivity without another POST; remount=$remount', async ({ kind, remount }) => {
+    const model = ownerModel({ lostActivation: true }); vi.stubGlobal('fetch', model.fetcher);
+    let view = render(createElement(kind === 'founder' ? RoleModeCenter : BootstrapCenter, model.props));
+    if (kind === 'founder') { await fillOwner(view); fireEvent.click(view.getAllByRole('button', { name: 'Открыть read-only' })[1]); }
+    else { await waitFor(() => expect(view.getByRole('button', { name: 'Открыть доступ на 30 минут' })).toBeEnabled()); fireEvent.click(view.getByRole('button', { name: 'Открыть доступ на 30 минут' })); }
+    await waitFor(() => expect(storedOwnerCommand()?.phase).toBe('activation-unknown'));
+    await waitFor(() => expect(view.getAllByRole('button', { name: /Повторить проверку/ }).some((button) => !button.hasAttribute('disabled'))).toBe(true));
+    if (remount) view.unmount();
+    model.expire(); vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2100-01-01T00:00:00Z'));
+    if (remount) view = render(createElement(kind === 'founder' ? RoleModeCenter : BootstrapCenter, model.props));
+    else await act(async () => { window.dispatchEvent(new Event('pc:staff-session-changed')); });
+    await waitFor(() => expect(storedOwnerCommand()).toBeNull());
+    if (kind === 'founder') { await fillOwner(view); await waitFor(() => expect(view.getAllByRole('button', { name: 'Открыть read-only' })[1]).toBeEnabled()); }
+    else await waitFor(() => expect(view.getByRole('button', { name: 'Открыть доступ на 30 минут' })).toBeEnabled());
+    expect(model.postBodies).toHaveLength(1); expect(model.activationPosts()).toBe(1);
+    expect(view.container.textContent).not.toContain('PRIVATE-DEAL');
+  });
+
+  it.each(['durable-active', 'canonical-unknown', 'recovery404'] as const)('retains expired activation quarantine when %s is not reconciled', async (variant) => {
+    const model = ownerModel({ lostActivation: true }); let expiredCheck = false;
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (expiredCheck && variant === 'durable-active' && path === '/api/staff/access/sessions') return ownerJson([{ id: 'session-1', status: 'ACTIVE', grant_id: 'grant-1' }]);
+      if (expiredCheck && variant === 'canonical-unknown' && path === '/api/staff/founder/role-mode/session') return ownerJson({ code: 'UNAVAILABLE' }, 503);
+      if (expiredCheck && variant === 'recovery404' && path.includes('view=create-intent')) return ownerJson({ message: 'Create intent not found' }, 404);
+      return model.fetcher(input, init);
+    }));
+    let view = render(createElement(RoleModeCenter, model.props)); await fillOwner(view);
+    fireEvent.click(view.getAllByRole('button', { name: 'Открыть read-only' })[1]);
+    await waitFor(() => expect(storedOwnerCommand()?.phase).toBe('activation-unknown'));
+    view.unmount(); model.expire(); expiredCheck = true; vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2100-01-01T00:00:00Z'));
+    view = render(createElement(RoleModeCenter, model.props));
+    await waitFor(() => expect(view.getByRole('button', { name: 'Повторить проверку сессии' })).toBeEnabled());
+    expect(storedOwnerCommand()?.phase).toBe('activation-unknown'); expect(model.postBodies).toHaveLength(1); expect(model.activationPosts()).toBe(1);
+    expect(view.container.textContent).not.toContain('PRIVATE-DEAL');
+  });
 
   it('recovers a committed create after remount and form edits without creating another grant', async () => {
     const model = ownerModel({ lostCreate: 'committed' }); vi.stubGlobal('fetch', model.fetcher);
@@ -449,6 +532,33 @@ describe('native-selected exact create-intent BFF', () => {
     vi.stubEnv('PC_CONTROL_HOST_ENABLED', 'true'); vi.stubGlobal('fetch', vi.fn());
   });
   afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+
+  it.each([
+    'Founder role-mode target scope could not be verified',
+    'Controlled test targets are not R1 production role-mode authority',
+  ])('identifies the canonical pre-create target rejection: %s', async (message) => {
+    vi.mocked(fetch).mockResolvedValue(ownerJson({ statusCode: 403, error: 'Forbidden', message }, 403));
+    const { POST } = await import('../../app/platform-v7/staff/role-mode/route');
+    const response = await POST(recoveryRequest('', 'POST', { createIntentId: INTENT_FIXTURE,
+      cabinetKey: 'buyer', organizationId: 'organization-1', reason: 'Owner read-only inspection', ticketId: 'ticket-1', durationSeconds: 900 }));
+    expect(response.status).toBe(403); expect(await response.json()).toMatchObject({
+      createOutcome: 'REJECTED_BEFORE_CREATE', createIntentId: INTENT_FIXTURE,
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { status: 403, message: 'Another forbidden response', statusCode: 403, error: 'Forbidden' },
+    { status: 503, message: 'Founder role-mode target scope could not be verified', statusCode: 403, error: 'Forbidden' },
+    { status: 403, message: 'Founder role-mode target scope could not be verified', statusCode: 500, error: 'Forbidden' },
+    { status: 403, message: 'Founder role-mode target scope could not be verified', statusCode: 403, error: 'Other' },
+  ])('does not turn an unrecognized response into a definite rejection: $status $error $message', async ({ status, ...payload }) => {
+    vi.mocked(fetch).mockResolvedValue(ownerJson({ ...payload, createOutcome: 'REJECTED_BEFORE_CREATE' }, status));
+    const { POST } = await import('../../app/platform-v7/staff/role-mode/route');
+    const response = await POST(recoveryRequest('', 'POST', { createIntentId: INTENT_FIXTURE,
+      cabinetKey: 'buyer', organizationId: 'organization-1', reason: 'Owner read-only inspection', ticketId: 'ticket-1', durationSeconds: 900 }));
+    expect((await response.json()).createOutcome).toBeUndefined();
+  });
 
   it.each(['', 'not-a-uuid', '11111111-1111-1111-8111-111111111111'])('rejects invalid or omitted POST identity before upstream', async (id) => {
     const { POST } = await import('../../app/platform-v7/staff/role-mode/route');
