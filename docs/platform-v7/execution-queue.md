@@ -12941,7 +12941,7 @@ WP1 [record](autopilot/prompts/current-review-task.md#wp1)
   "change": "G-A27 only: strict UTF-8 CSV decoding first, bounded Windows-1251 fallback only after UTF-8 failure with Cyrillic/control checks; explicit fallback metadata and a visible uncertainty notice in extracted text. Preserve names, decimal punctuation and all upload/output/decompression/OCR limits. Add nine real-byte route tests alongside all existing38. Encoding is inferred, not guaranteed; unsupported encodings are rejected.",
   "scopeAndHistory": [
     "Exactly the two pinned existing paths on the completed retained lane; no path/vector/admission/state/cap growth or old-purpose/pin rewrite. Every prior queue byte is preserved as a prefix. Existing historical20 source remains accepted and immutable.",
-    "No auth, quota, legal consent, DB, lockfile, model, workflow, API policy, OCR/native PDF, XLSX or UI change. Crypto scanner outputs remain identical; actual committed-inventory8 tests PASS, no manual generated edits.",
+    "No auth, quota, legal consent, DB, lockfile, model, workflow, API policy, OCR/native PDF, XLSX or UI change. Canonical crypto JSON matches committed JSON; Markdown inventory content matches excluding the producer Source SHA provenance line. The existing inventory freshness test passes; no manual generated-file edits.",
     "The generic guard is a broad mechanical path check, not exclusive closed-purpose or source-acceptance proof; exact whole-tree author and independent reviews enforce these after-blobs."
   ],
   "privateChecks": {
