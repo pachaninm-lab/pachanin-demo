@@ -12901,3 +12901,67 @@ WP1 [record](autopilot/prompts/current-review-task.md#wp1)
   "status": "PRIVATE_PROPOSAL_ONLY; INCOMPLETE_FUTURE18_HELD; NEW20_PURPOSE_STATE_SOURCE_NOT_ACCEPTED; NOT_INSTALLED"
 }
 ```
+
+
+## Gekta retained lane legacy CSV fidelity purpose — 2026-11-02
+
+```json
+{
+  "schema": "gekta.closed-source-purpose.v1",
+  "purposeId": "gekta-legacy-csv-fidelity-20261102",
+  "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+  "ownerBasis": "Current explicit user instruction to complete remaining Gekta issues autonomously; this is a coordinator-owned narrowly bounded source continuation, not an invented human instruction to waive review or expand resources.",
+  "ownerCoordination": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6574964693",
+  "authorityBaseExactMainAtPreparation": "a81d69fb9aa0434ed581e057252808f4cda82f08",
+  "retainedMetadataBranch": "governance/gekta-history-han-purpose-20261101",
+  "retainedImplementationBranch": "codex/gekta-security-review",
+  "privateCandidateCommit": "bc3952a1b690d0f7a0795f6444a1047401b86a5d",
+  "sourcePayloads": [
+    {
+      "path": "apps/web/app/api/public-platform-assistant/attachments/route.ts",
+      "mode": "100644",
+      "beforeBlob": "20f110d266748c947c547b1a1739bead49326c23",
+      "beforeBytes": 20968,
+      "beforeSha256": "ad5fdc9ddcfc9581ef297e0b146a4cbbbc9b2393b0d9dc3dd3ed058188df15a6",
+      "afterBlob": "790cdb9258849965d79102d1eea242b8bd638eea",
+      "afterBytes": 22290,
+      "afterSha256": "ecdd37efa42671d124e21b6e5bcb91f86b22e28106b3fadb58fd5806aa165c81"
+    },
+    {
+      "path": "apps/web/tests/unit/uploadDecompressionBudget.spec.ts",
+      "mode": "100644",
+      "beforeBlob": "aa87d5296e0da698c4c118f72661fd5087352dfa",
+      "beforeBytes": 22499,
+      "beforeSha256": "58868af1d7c02101336a0d09c19eae71778b00552c1008fce394d1db575ac55d",
+      "afterBlob": "4a403bdefb2f4a95dc14b5bff611031e2da54136",
+      "afterBytes": 25156,
+      "afterSha256": "589ec376b123317fdfd350f6721a486fce7f70e2debffbb18688b5358f63281a"
+    }
+  ],
+  "change": "G-A27 only: strict UTF-8 CSV decoding first, bounded Windows-1251 fallback only after UTF-8 failure with Cyrillic/control checks; explicit fallback metadata and a visible uncertainty notice in extracted text. Preserve names, decimal punctuation and all upload/output/decompression/OCR limits. Add nine real-byte route tests alongside all existing38. Encoding is inferred, not guaranteed; unsupported encodings are rejected.",
+  "scopeAndHistory": [
+    "Exactly the two pinned existing paths on the completed retained lane; no path/vector/admission/state/cap growth or old-purpose/pin rewrite. Every prior queue byte is preserved as a prefix. Existing historical20 source remains accepted and immutable.",
+    "No auth, quota, legal consent, DB, lockfile, model, workflow, API policy, OCR/native PDF, XLSX or UI change. Canonical crypto JSON matches committed JSON; Markdown inventory content matches excluding the producer Source SHA provenance line. The existing inventory freshness test passes; no manual generated-file edits.",
+    "The generic guard is a broad mechanical path check, not exclusive closed-purpose or source-acceptance proof; exact whole-tree author and independent reviews enforce these after-blobs."
+  ],
+  "privateChecks": {
+    "focusedRouteAndBudgetTests": "47/47 PASS (38 retained +9 new); actual Node file/form/multipart and route, not extractor mocks",
+    "webTypecheck": "PASS",
+    "cryptoInventory": "8/8 PASS, committed inventory not stale",
+    "reviewGateRegression": "49/49 PASS",
+    "actualSourceScopeGuard": "PASS with explicit base/currenthead and retained branch",
+    "dispatcher": "Executed, current R1 still BLOCKED; generated prompt/progress rewrites were restored to exact accepted bytes; not a closure PASS",
+    "localHostingCheck": "NOT PASS: Docker CLI unavailable locally, genuine native hosting/Compose check still required",
+    "apiSuiteAndNativeAndKubernetes": "PENDING; local focused results do not replace actual new exact-head substantive CI/security/K8/readiness"
+  },
+  "sequence": [
+    "First accept this exact queue-only metadata delta after actual full-head independent review, separate owner audit, applicable substantive native/security/readiness and ordinary full-expected-SHA manual merge. No future source is accepted by metadata alone.",
+    "Then recompose only the two pinned source afters on then-current accepted main under the same retained implementation branch. Preserve authors/history and recheck before blobs and all other paths/modes. Expected metadata-only base advancement requires fresh graph/full-tree evidence; a changed source dependency or after-payload requires a new admission composition.",
+    "Publish source only after that separate metadata acceptance; require new complete actual exact-head independent review, separate implementation-owner audit, all applicable CI/security/full K8/source preflight/hosting checks and fresh manual readiness; no force/automerge/check waiver or old PASS transfer.",
+    "Deployment remains separate and pending. Keep current1000 BEFORE public-widget run on its unchanged deployed a81; source acceptance is not running-container/quality acceptance. Later ordinary exact-source deployment and live CSV acceptance must precede closing G-A27."
+  ],
+  "productionAcceptance": false,
+  "modelInvocationAuthorized": false,
+  "masterCredit": 0
+}
+```
