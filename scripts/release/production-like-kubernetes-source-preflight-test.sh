@@ -75,6 +75,53 @@ class Checks(unittest.TestCase):
             git('add', '.'); git('commit', '-m', 'next fixture head')
         env['EXACT_HEAD'] = git('rev-parse', 'HEAD')
 
+    def probe_retained_security_budget(self, branch, repository, head_repository):
+        with tempfile.TemporaryDirectory() as temp:
+            repo, out, env, git = self.fixture(Path(temp))
+            tools = Path(temp) / 'tools'; tools.mkdir()
+            log = Path(temp) / 'timeouts.jsonl'
+            shim = tools / 'timeout'
+            shim.write_text('#!/usr/bin/env python3\n'
+                'import json, os, sys\n'
+                'with open(os.environ["FIXTURE_TIMEOUT_LOG"], "a") as stream: stream.write(json.dumps(sys.argv[1:]) + "\\n")\n'
+                'args = sys.argv[1:]\n'
+                'if args and args[0] == "--kill-after=5s": args.pop(0)\n'
+                'args.pop(0)\n'
+                'os.execvp(args[0], args)\n')
+            shim.chmod(0o755)
+            env.update(GITHUB_HEAD_REF=branch, GITHUB_REPOSITORY=repository,
+                       SOURCE_BUDGET_HEAD_REPOSITORY=head_repository,
+                       FIXTURE_TIMEOUT_LOG=str(log), PATH=str(tools)+os.pathsep+env['PATH'])
+            result = subprocess.run(['bash', str(SCRIPT)], cwd=repo, env=env,
+                                    capture_output=True, text=True, timeout=30)
+            report = json.loads((out/'ir20-source-preflight/report.json').read_text())
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(report['result'], 'PASS')
+            calls = [json.loads(line) for line in log.read_text().splitlines()]
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(calls[0][2:], ['node', '--test', '--test-reporter=tap', TEST])
+            self.assertEqual(calls[1], ['--kill-after=5s', '180s', 'bash', GUARD])
+            self.assertEqual([c['name'] for c in report['checks']], ['guard-regressions','branch-scope'])
+            self.assertEqual(report['checks'][0]['tap_totals']['tests'], 1)
+            self.assertEqual(report['checks'][0]['tap_totals']['pass'], 1)
+            return calls[0][1]
+
+    def test_retained_security_same_repository_gets_only_existing_guard_budget(self):
+        self.assertEqual(self.probe_retained_security_budget('codex/gekta-security-review',
+            'fixture/project', 'fixture/project'), '300s')
+
+    def test_retained_security_fork_and_missing_repository_keep_ordinary_budget(self):
+        for repository, head in [('fixture/project','fork/project'), ('fixture/project',''), ('','')]:
+            with self.subTest(repository=repository, head=head):
+                self.assertEqual(self.probe_retained_security_budget('codex/gekta-security-review',
+                    repository, head), '180s')
+
+    def test_retained_security_suffix_and_empty_branches_keep_ordinary_budget(self):
+        for branch in ['codex/gekta-security-review-extra', 'codex/gekta-security-review/extra', '', 'unrelated/fixture']:
+            with self.subTest(branch=branch):
+                self.assertEqual(self.probe_retained_security_budget(branch,
+                    'fixture/project', 'fixture/project'), '180s')
+
     def test_real_retained_governance_size_is_preserved_in_both_refs(self):
         path = 'docs/platform-v7/autopilot/autopilot-state.json'
         rc, value, _ = self.run_case(lambda r,o,e,g: self.commit_sized_source(r,e,g,path,2214412,True))
