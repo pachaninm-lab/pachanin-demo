@@ -12577,3 +12577,327 @@ WP1 [record](autopilot/prompts/current-review-task.md#wp1)
   }
 }
 ```
+
+
+## Gekta retained lane crypto-complete20 amendment — 2026-11-02
+
+```json
+{
+  "schema": "gekta.crypto-completeness-renewal-amendment.v1",
+  "purposeId": "gekta-retained-lane-crypto-complete20-20261102",
+  "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+  "authorityBaseExactMainAtPreparation": "55253ca1bb38eaa5cde000e903c3dfc988e1d611",
+  "retainedMetadataBranch": "governance/gekta-history-han-purpose-20261101",
+  "retainedImplementationBranch": "codex/gekta-security-review",
+  "retainedSourceAncestor": "aeb7afa68e0ae718e93e2a2b60e0eb56cad42176",
+  "incompleteUnacceptedStateCandidateAncestor": "e5fa8686bbeb2df7a37c046b1e03576701d9177e",
+  "previousStateVectorForThisOneLane": [
+    "apps/api/prisma/migrations/20260813110000_gekta_anonymous_answer_admission/migration.sql",
+    "apps/api/src/modules/gekta/gekta-anonymous-admission.controller.spec.ts",
+    "apps/api/src/modules/gekta/gekta-anonymous-admission.controller.ts",
+    "apps/api/src/modules/gekta/gekta-anonymous-admission.service.spec.ts",
+    "apps/api/src/modules/gekta/gekta-anonymous-admission.service.ts",
+    "apps/api/src/modules/gekta/gekta.module.ts",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/app/api/gekta/entitlement/route.ts",
+    "apps/web/lib/gekta/anonymous-session.ts",
+    "apps/web/lib/gekta/entitlement.ts",
+    "apps/web/lib/gekta/server-workspace.ts",
+    "apps/web/lib/server/gekta-auth-route.ts",
+    "apps/web/tests/unit/gektaEntitlement.test.ts",
+    "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+    "apps/web/tests/unit/gektaServerHistory.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-security-review-20260813.json",
+    "apps/web/components/gekta/GektaChatWorkspace.tsx",
+    "scripts/production-web-live-acceptance.sh",
+    "scripts/check-production-gekta-first-user-acceptance.mjs"
+  ],
+  "replacementStateVectorForThisOneLane": [
+    ".github/workflows/ci.yml",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/app/api/public-platform-assistant/attachments/route.ts",
+    "apps/web/components/gekta/GektaChatWorkspace.tsx",
+    "apps/web/components/gekta/GektaComposer.tsx",
+    "apps/web/components/gekta/GektaConsentDialog.tsx",
+    "apps/web/lib/gekta/document-context.ts",
+    "apps/web/tests/e2e/gekta-keyboard-start-acceptance.spec.ts",
+    "apps/web/tests/unit/gektaAnonymousDocumentEvidence.test.ts",
+    "apps/web/tests/unit/gektaDocumentContext.test.ts",
+    "apps/web/tests/unit/gektaEntitlement.test.ts",
+    "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+    "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
+    "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+    "apps/web/tests/unit/uploadDecompressionBudget.spec.ts",
+    "docs/platform-v7/qa/web-unit-coverage-registry.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "stateOnlyPayload": {
+    "path": "docs/platform-v7/autopilot/autopilot-state.json",
+    "mode": "100644",
+    "beforeBlob": "efec483aad3fc78390df15fad9699eb3c22645d4",
+    "beforeBytes": 3145687,
+    "beforeSha256": "edfc604b3b2ffcf28bd3df5be1594706f8e1ddbb95fa577ef70dede0fc9b5f1c",
+    "afterBlob": "ca6cff24721e594823859e48e10aec5c3dd76a02",
+    "afterBytes": 3145698,
+    "afterSha256": "284002cd06685f4da2b79ed3d45c5bc38313d8de082b1cc9833d58e4bad02f34"
+  },
+  "sourcePayloads": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "mode": "100644",
+      "beforeBlob": "e396e36b3b2f806608690e30d29c962c634d4f70",
+      "beforeBytes": 13055,
+      "beforeSha256": "b0e6d0990b7cc279c405d7cc23431b4186bb3670fc6499ede628e1cebd8bba1a",
+      "afterBlob": "e3bb3c27ac47c19ba543344e2200f949e08011c0",
+      "afterBytes": 13148,
+      "afterSha256": "42d976abe17064d023768bc72aa3fc40d1421467a5fbe0a931e2d5eb5ee932fe"
+    },
+    {
+      "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+      "mode": "100644",
+      "beforeBlob": "955447837f4e5cd6ee90b11668b00122aae35090",
+      "beforeBytes": 88562,
+      "beforeSha256": "8bdbc6d2755f722a4906fb7acfb9e43cdc69cd8834c8e3f85abecbb9bc77745a",
+      "afterBlob": "6701e13f938027fb94b6f73341eb4de217e8ae5e",
+      "afterBytes": 91515,
+      "afterSha256": "93db83fc1916b1bb4293ac103900d920582942022e2b1687a1390b424c3cbdca"
+    },
+    {
+      "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+      "mode": "100644",
+      "beforeBlob": "c2f4a4aa0ee1c029845ae02b229b8b563d4ff8a5",
+      "beforeBytes": 57620,
+      "beforeSha256": "437dc72834add81a8731771956b1a6c04b3f23622a204afdd7ba8626f0a426a1",
+      "afterBlob": "1c422b8408ad0645eda8ac7816df4b79bce1b904",
+      "afterBytes": 59346,
+      "afterSha256": "c8bf18b9ed8321070877286031110b2c698f85502ece9e9212d5022f15384fdf"
+    },
+    {
+      "path": "apps/web/app/api/agro-chat/route.ts",
+      "mode": "100644",
+      "beforeBlob": "3a6314b987573b7ec5720ee8721703cdbdc5f70b",
+      "beforeBytes": 41420,
+      "beforeSha256": "bf928502375472c3ab68001d9981bbb4e26fd46d36f59aba64b3261b9137254b",
+      "afterBlob": "671d2555c9d4bdee33c6a585c43970e967d9995e",
+      "afterBytes": 42916,
+      "afterSha256": "dd275f740ac2a383baa092945f3255e6359774b6eadc79fc84d70991ba64c32f"
+    },
+    {
+      "path": "apps/web/app/api/public-platform-assistant/attachments/route.ts",
+      "mode": "100644",
+      "beforeBlob": "4da99b9b98c8c6e2c0671826d6c82c8749ccaae7",
+      "beforeBytes": 16351,
+      "beforeSha256": "5e3b9e310bac85cb0daa40a562b656ee11a56bb829342a2c5d04c07e5ea278c2",
+      "afterBlob": "20f110d266748c947c547b1a1739bead49326c23",
+      "afterBytes": 20968,
+      "afterSha256": "ad5fdc9ddcfc9581ef297e0b146a4cbbbc9b2393b0d9dc3dd3ed058188df15a6"
+    },
+    {
+      "path": "apps/web/components/gekta/GektaChatWorkspace.tsx",
+      "mode": "100644",
+      "beforeBlob": "87cb729280040854a880497c415ec8f780c79ccd",
+      "beforeBytes": 58372,
+      "beforeSha256": "e7547cbadea00299a4d04bcaac44d98b42bbc7f71ea13d0d2b886b141312f63a",
+      "afterBlob": "35b925928b4388d079714db47f07a60e04313ab0",
+      "afterBytes": 64828,
+      "afterSha256": "ddaa83b89edcece96bff612703c891d1dde7e73be46156f29f6dacd87bcde409"
+    },
+    {
+      "path": "apps/web/components/gekta/GektaComposer.tsx",
+      "mode": "100644",
+      "beforeBlob": "acee0d61084c63ca939b1fc53a776160c2ecd708",
+      "beforeBytes": 6917,
+      "beforeSha256": "589932720387ec192d2bf753ab809d4874315f5aae343b19f71e58b9039c1d9d",
+      "afterBlob": "1966ec542553a2b1d44680f30dee659b49b58dfc",
+      "afterBytes": 6924,
+      "afterSha256": "94ec0196a0970b26bd03a9cb3c0a4a8214d5584ec30a6e7ebb40207b347ae0e8"
+    },
+    {
+      "path": "apps/web/components/gekta/GektaConsentDialog.tsx",
+      "mode": "100644",
+      "beforeBlob": "59c8773df63ed1ee45782d721faeaff90da2f21b",
+      "beforeBytes": 5766,
+      "beforeSha256": "481cc36706c6b792088e06980e0693ca225de7f4e8d26c801cc0c5eb3f7abb2e",
+      "afterBlob": "5fcf6000d65bea28d950438821df927642207154",
+      "afterBytes": 5957,
+      "afterSha256": "a81ace1bdac903a8c98010cec0da47f58d0e9515be567e669716dc9ec7a14b00"
+    },
+    {
+      "path": "apps/web/lib/gekta/document-context.ts",
+      "mode": "100644",
+      "beforeBlob": null,
+      "beforeBytes": 0,
+      "beforeSha256": null,
+      "afterBlob": "79597708ecd818897e3c91f406b3d335a420adda",
+      "afterBytes": 2936,
+      "afterSha256": "33a7dc7b8fc9dff46d0aa63fdf6f7e497d20750f22a4862c987af700b33b5cd9"
+    },
+    {
+      "path": "apps/web/tests/e2e/gekta-keyboard-start-acceptance.spec.ts",
+      "mode": "100644",
+      "beforeBlob": "8b98e3975f5af7fbdb72a8497a38448597c4ae54",
+      "beforeBytes": 11104,
+      "beforeSha256": "76d5445474b97fa0a5700df09dc09110c91279088f45d1bde4924cd6c7febb7b",
+      "afterBlob": "e5ba85d654f46824ef9f69a2946cddc754e7b91a",
+      "afterBytes": 25451,
+      "afterSha256": "b6942b508535ac7fe9defcdd2a313c5acc617cee24e642a6204d23f481bc1b91"
+    },
+    {
+      "path": "apps/web/tests/unit/gektaAnonymousDocumentEvidence.test.ts",
+      "mode": "100644",
+      "beforeBlob": "b7c69ebced31e587cdfc97e4b90fa139ac37ef4a",
+      "beforeBytes": 11472,
+      "beforeSha256": "f5d4f7d08466ca73e9bb7d597cb0f6bce541b9dee197775b8c0b8fe410215c3c",
+      "afterBlob": "f234395fe25a5bdd9ac6f40a18d4e0415909bb36",
+      "afterBytes": 11852,
+      "afterSha256": "e7104496c4bc3bbf1bf15512747055cb465e06203c305729784931b293849e54"
+    },
+    {
+      "path": "apps/web/tests/unit/gektaDocumentContext.test.ts",
+      "mode": "100644",
+      "beforeBlob": null,
+      "beforeBytes": 0,
+      "beforeSha256": null,
+      "afterBlob": "6d3e5373fed7d14ffc22581f9bf4b57a74744248",
+      "afterBytes": 16102,
+      "afterSha256": "ef2e01ccb76c7a9738d65fda5388c71901401b7882fce23c98cb1998ad5e64f8"
+    },
+    {
+      "path": "apps/web/tests/unit/gektaEntitlement.test.ts",
+      "mode": "100644",
+      "beforeBlob": "2b1e715689922b0f8c13b05c5820f2acdb9eb413",
+      "beforeBytes": 15566,
+      "beforeSha256": "ef3a35323e20f66d34c14e671b17a5544b317e5fa3ec610a71ecd7328719e8da",
+      "afterBlob": "44a1218670795ebdeb02eefdb5f23b17317af598",
+      "afterBytes": 16155,
+      "afterSha256": "dc921505323523103311eb185b344c6d633f22cb1bee474499441b00177933b5"
+    },
+    {
+      "path": "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+      "mode": "100644",
+      "beforeBlob": "502c535cad03a7862e233194f3a19cbbf7eebecc",
+      "beforeBytes": 20764,
+      "beforeSha256": "4c158b9cd59478dd470ebad1173b539d581754be05799c5f3669530d69394e77",
+      "afterBlob": "3d995a48790c5b9e964437b2929c19d04e7d2374",
+      "afterBytes": 20818,
+      "afterSha256": "024368a98debac42d628008edfd5176ddc5680d4ee39b8a0735a2e395b9fd249"
+    },
+    {
+      "path": "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
+      "mode": "100644",
+      "beforeBlob": "7c1986cb587f9a5776946dcae6c5aab0fa5e11b6",
+      "beforeBytes": 9859,
+      "beforeSha256": "1c7db0ece39b0e5659759360ce96a3765c6e969ab465373340ebcdd5f278f772",
+      "afterBlob": "68de14a79fe599915f13deb6e87683090b266e3a",
+      "afterBytes": 23645,
+      "afterSha256": "32a13439693fbce642c838b16dcd2f9d5b5353d2c163fd95beec1e6d7ac0470e"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+      "mode": "100644",
+      "beforeBlob": "4262278d775809be44bf237f5347088b1f6712aa",
+      "beforeBytes": 37640,
+      "beforeSha256": "da149fde2e7ad177a91cac5c40af8e173c3da6af01ac581f68beb1622b0ed355",
+      "afterBlob": "3de8572c6edea6a415e5980835b33b271684380e",
+      "afterBytes": 42721,
+      "afterSha256": "787c428236d1c7184614143456aeeb02c7de7da0e8963a6939a92d315584fddc"
+    },
+    {
+      "path": "apps/web/tests/unit/uploadDecompressionBudget.spec.ts",
+      "mode": "100644",
+      "beforeBlob": "90f841f06c82ccdf3defb3e632cca3ecaaf50ac6",
+      "beforeBytes": 15937,
+      "beforeSha256": "5d8b71d08895a4b5bf8a4f99bfd6f2e9dc6285a9b7ce0cdf9d01f22e12f3a98a",
+      "afterBlob": "aa87d5296e0da698c4c118f72661fd5087352dfa",
+      "afterBytes": 22499,
+      "afterSha256": "58868af1d7c02101336a0d09c19eae71778b00552c1008fce394d1db575ac55d"
+    },
+    {
+      "path": "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "mode": "100644",
+      "beforeBlob": "1f133b1cc810259a1cc749e66dd932025de28d63",
+      "beforeBytes": 293946,
+      "beforeSha256": "1a415ef304a8551c60f34fac2fdcad5faac0a04c261c93f575c984c0de7b4c73",
+      "afterBlob": "8178b937dfb70bc0d80cc23c0b8537c53bcded96",
+      "afterBytes": 293612,
+      "afterSha256": "408595232efd754af63488a7c19b19c901952268767d18d569ba7d123672be21"
+    },
+    {
+      "path": "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "mode": "100644",
+      "beforeBlob": "3614b435e87228deeae1724e4565dc5be81d729c",
+      "beforeBytes": 3287,
+      "beforeSha256": "8586601e480773b882cf360706cf0cdeda06d0c9d32c76885099909572082195",
+      "afterBlob": "93e73efd3490f081b287ca90c27281c3774857cf",
+      "afterBytes": 3287,
+      "afterSha256": "8372890ea16d55e13842862365693e7c6ae8ecdff96a3ce4b3b628fc571172ea"
+    },
+    {
+      "path": "docs/security/cryptographic-inventory.json",
+      "mode": "100644",
+      "beforeBlob": "69caca8651838f58727f52e62148f4548dc4eff4",
+      "beforeBytes": 35674,
+      "beforeSha256": "237d0fab1e12bbc08cd943fe11ec17d22442b9ae82bf236e2af807ff0cc4e598",
+      "afterBlob": "7cd37a29c832d380ab756c04b3bf407c16b992af",
+      "afterBytes": 35674,
+      "afterSha256": "a8393043d9c248bc2876ab263773d7a3bac361b33af91e6dc7b73ca3d36499cb"
+    }
+  ],
+  "why": "The unchanged maintained cryptography-inventory test genuinely rejects private exact18 because new runtime helper increases scannedFiles2317to2318. The18 path contract omits its two generated inventory documents. Keep all18 application/test/CI payloads unchanged and add ONLY these two generated documentation payloads. No scanner/test/selection/guard weakening or exclusion.",
+  "genuineFailure": {
+    "head": "0de8fe08f2be381e7f41543a3d0acea3afb81548",
+    "command": "node --test scripts/security/discover-cryptography.test.mjs",
+    "tests": 8,
+    "pass": 7,
+    "fail": 1,
+    "exit": 1,
+    "logBytes": 4451,
+    "logSha256": "a6177bc40976305ee2ff4c2e392afbb680e5fd6501de5e855f94a4c1d3e5be96",
+    "qualification": "Private future18 failure, not actuale5fa state/native failure. Original log and old18 payloads remain unchanged."
+  },
+  "independentCompletenessAddendum": {
+    "path": "new-main-evidence/independent-retained-state-review/independent-future18-crypto-blocker-addendum-e5fa.md",
+    "bytes": 5552,
+    "sha256": "4c8ebb9ead4c09ca24362b8710aaec2cb6e4d016c2febeecae3dc678254c2f7a",
+    "qualification": "Independent blocker/currentstate qualification and private corrected control only. NOT actual newpurpose/state/whole20 SOURCE_CLEAN or native acceptance."
+  },
+  "privateCorrection": {
+    "head": "1428b2f8ccd513ffe0fda2a93912678091d0c89e",
+    "parent": "0de8fe08f2be381e7f41543a3d0acea3afb81548",
+    "onlyTwoGeneratedFilesChanged": true,
+    "generatorSourceShaInMarkdown": "0de8fe08f2be381e7f41543a3d0acea3afb81548",
+    "jsonOnlySemanticChange": "scannedFiles2317to2318; all operations/key names/limits unchanged",
+    "qualification": "Private working-source generation with honest private provenance, no actualsource/native/model/runtime/host acceptance."
+  },
+  "explicitNarrowSupersession": {
+    "acceptedPurposePr": 6066,
+    "replaceOnlyAfterActualAmendmentAcceptance": "Replace6066 future18 vector/statef184 and18-path source contract ONLY with exact20/state pins here. Explicitly replace its negative-growth-only premise with this one bounded net+11B replacement within existing41B spare; current registry count/ref/reader limit remain unchanged. Preserve all6066/6068 records and failed/unaccepted6070 history. Currentacceptedstate isefec, notf184; oldcandidate ancestry is not accepted contents.",
+    "budgetPrerequisiteAlreadyAccepted": "Keep6068 source d6c9/e32f as actually accepted6069→main55253; no budget/workflow/guard/source-preflight change or repeated budget phase.",
+    "unchangedEighteen": "All6066 eighteen application/test/CI before/after pins remain exact. Newtwo source paths are only generated crypto inventory JSON and uppercase Markdown."
+  },
+  "stateTransitionContract": {
+    "exactTransformation": "One unique key-qualified1040B nineteen-path array to1051B twenty-path array. Every other raw byte unchanged; full inverse restores entireefec. Only after actual queue-purpose acceptance publish a separate STATE-only candidate.",
+    "registryBytesBefore": 3145687,
+    "registryBytesAfter": 3145698,
+    "registryByteDelta": 11,
+    "spareBefore": 41,
+    "spareAfter": 30,
+    "unchangedConsumerLimitBytes": 3145728,
+    "vectorCount": 226,
+    "admissionCount": 135,
+    "preservation": "Allother225vectors/135admissions/owners/history/current/PRIMARY/progress/queue/guards/source exact. No new branch/vector/count, protectedCAP1 reader/ref/cap change or broader capacity claim.",
+    "mechanicalGuardLimitation": "Nonimmutablecodex routing still unions candidate20+oldACTIVE19+global11, potentially46unique paths. No mechanicalexclusive20/payload/retirement enforcement claimed. Accepted exactpins and actualwhole20 owner+nonauthor fulltree review/allgates must reject extras; oldmanifest or candidate is not purpose authority."
+  },
+  "mandatorySequence": [
+    "Onlyqueue append first on currentacceptedmain55253; retainedmetadata ancestry may include unaccepted6070 candidate but actual proposedstate/source remainacceptedBASE-exact. NEWactualwholequeue independentreview/rootFULLread/separateowneraudit/native/security/currentREADY/freshrefs/manualfullSHA acceptance.",
+    "Then separateactualSTATE-only exactefec→new20pins/currentbase, allforeignpreserved; NEWwholeactualreview/owneraudit/native/security/currentREADY/freshrefs/manualfullSHA acceptance. DoNOT apply oldf184 or infer grant from11B fit.",
+    "Onlythen compose exact20 afters on actualacceptedmain, preserve retainedcodex/relevantpublicsource ancestry andallforeignleaves. NEWactualwhole20 functional/security/purpose review, authoraudit/APIWeb/types/build/browser/maintainedcrypto8/nativeSOURCEboundartifact/KINDdeepoutbox/storage/cleanup/security/currentREADY/freshheads/manualfullSHA. No oldprivate18/1428/6070 result transfer.",
+    "Then exactfinalmain immutableimages and separatelycoordinated REG.RUOCI/DBbackuprollback/Caddy/liveacceptance. ExistingROOT transport refusal remains a real installationdependency. No generaluserpermission repetition or automatic host action."
+  ],
+  "unchanged": "ProtectedCLAUDECAP1/3MiB/currentPRIMARY/progress/BANK/CORE/otherowners/original19/SPENTUNKNOWN/DB/model/provider/cost/MASTER untouched. Noreset/retry/repin/StrictHostKeyChecking bypass/startup/restore/deploy or renewed operational window.",
+  "status": "PRIVATE_PROPOSAL_ONLY; INCOMPLETE_FUTURE18_HELD; NEW20_PURPOSE_STATE_SOURCE_NOT_ACCEPTED; NOT_INSTALLED"
+}
+```
