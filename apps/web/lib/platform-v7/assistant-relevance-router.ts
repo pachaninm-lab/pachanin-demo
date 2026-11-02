@@ -174,7 +174,7 @@ const AGRO_BUSINESS_TERMS = [
   'ттн', 'накладн*', 'счет-фактур*', 'влажност*', 'качеств*', 'деньг*', 'продавец', 'продавц*',
   'покупател*', 'выручк*', 'сумм*', 'цена', 'цены', 'ценам', 'стоимост*',
   'logistics', 'transport*', 'carrier*', 'driver', 'drivers', 'shipment*', 'loading', 'unloading',
-  'acceptance', 'weighing', 'laboratory', 'survey', 'surveyor', 'storage', 'warehouse*',
+  'acceptance', 'weighing', 'laboratory', 'laboratories', 'lab', 'labs', 'survey', 'surveyor', 'storage', 'warehouse*',
   'procurement', 'sales', 'supply', 'quotation*', 'trading', 'export*', 'import*', 'duty', 'duties',
   'payment*', 'settlement*', 'advance', 'deferral', 'dispute*', 'claim*', 'arbitration', 'penalt*',
   'invoice*', 'waybill*', 'consignment*', 'elevator', 'moisture', 'quality',
@@ -340,7 +340,7 @@ const FINANCIAL_DOCUMENT_ABUSE_PATTERNS = [
   /(?<![\p{L}])(?:поддел(?:ать|ыва(?:ть|йте|й|ю|ем|ют|ешь|ете))|сфальсифицир(?:овать|уй(?:те)?|ую|уем|уют))(?:\s+[\p{L}\p{N}-]+){0,4}\s+(?:документ|накладн|упд|протокол|сертификат)[\p{L}]*(?:\s+(?:хозяйств|ферм|кфх)[\p{L}]*)?/iu,
   /\b(?:hide|conceal)\s+(?:(?:my|our|the|an?)\s+)?(?:farm(?:'s)?\s+)?(?:income|revenue)\b[^.!?;。！？；\n]{0,60}?(?:tax(?:es)?(?:\s+authorit[\p{L}]*)?|authorit[\p{L}]*)\b/iu,
   /\b(?:hide|conceal)\s+from\s+(?:the\s+)?(?:tax(?:\s+authorit[\p{L}]*)?|authorit[\p{L}]*)\s+(?:(?:my|our|the|an?)\s+)?(?:farm(?:'s)?\s+)?(?:income|revenue)\b(?:\s+of\s+(?:my|our|the)\s+farm)?/iu,
-  /\b(?:forge|falsify)\s+(?:an?\s+|the\s+)?(?:invoice|document|certificate|lab\s+report)/iu,
+  /\b(?:forge|falsify)\s+(?:an?\s+|the\s+)?(?:invoice|document|certificate|(?:labs?|laborator(?:y|ies))\s+report)/iu,
   /(?:隐藏|隐瞒)(?:自己的|农场的?)?(?:收入|营收)[^.!?;。！？；\n]{0,30}?(?:税务机关|税务部门|税务局|税务|税局|税)|(?:向|对)?(?:税务机关|税务部门|税务局|税务|税局)[^.!?;。！？；\n]{0,15}?(?:隐藏|隐瞒)(?:自己的|农场的?)?(?:收入|营收)|伪造(?:发票|文件|证书|检验报告)/u,
 ] as const;
 
