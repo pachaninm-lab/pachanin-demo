@@ -42,7 +42,7 @@ jobs:
     name: Exact-head source and scope preflight
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'codex/gekta-security-review') && 10 || 8 }}
     permissions:
       contents: read
     env:
@@ -87,6 +87,9 @@ jobs:
 
 
           class SourceBudgetChecks(unittest.TestCase):
+              def expected_owned_guard_seconds(self, ref):
+                  return 420 if ref in ('fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review') else 300
+
               def fixture(self, root, test_fail=False, guard_fail=False):
                       repo=root/'repo';repo.mkdir();out=root/'runner';out.mkdir()
                       def git(*args):
@@ -197,6 +200,14 @@ jobs:
                               return run_group_timeout(kwargs['stdout'])
                           if branch and behavior == 'branch-timeout':
                               return subprocess.CompletedProcess(command, 124)
+                          if guard and behavior in ('header-only', 'skipped-tap', 'inconsistent-tap'):
+                              payloads = {
+                                  'header-only': b'TAP version 13\n',
+                                  'skipped-tap': b'TAP version 13\n1..1\n# tests 1\n# pass 0\n# fail 0\n# cancelled 0\n# skipped 1\n',
+                                  'inconsistent-tap': b'TAP version 13\n1..2\n# tests 2\n# pass 1\n# fail 0\n# cancelled 0\n# skipped 0\n',
+                              }
+                              kwargs['stdout'].write(payloads[behavior])
+                              return subprocess.CompletedProcess(command, 0)
                           if guard:
                               kwargs['stdout'].write(
                                   b'TAP version 13\n1..1\n# tests 1\n# pass 1\n# fail 0\n'
@@ -213,7 +224,7 @@ jobs:
                               if behavior == 'outer-timeout':
                                   with self.assertRaises(subprocess.TimeoutExpired):
                                       namespace['main']()
-                              elif behavior in ('guard-timeout', 'branch-timeout'):
+                              elif behavior in ('guard-timeout', 'branch-timeout', 'header-only', 'skipped-tap', 'inconsistent-tap'):
                                   with self.assertRaisesRegex(ValueError, 'SOURCE_PREFLIGHT_REJECTED'):
                                       namespace['main']()
                               else:
@@ -243,10 +254,10 @@ jobs:
                                             ['report.json', 'public-sources.zip'])
                       return report, calls, group_proof
 
-              def test_named_owned_refs_get_guard_300_outer_315(self):
-                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997']:
+              def test_named_owned_refs_keep_300_except_admitted_measured_pair(self):
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997']:
                       with self.subTest(ref=ref):
-                          report, calls, _ = self.execute_collector(head_ref=ref)
+                          report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=self.expected_owned_guard_seconds(ref))
                           self.assertEqual(report['result'], 'PASS')
                           self.assertEqual(report['stage'], 'complete')
                           self.assertEqual(len(calls), 2)
@@ -254,14 +265,14 @@ jobs:
                           self.assertEqual(report['checks'][0]['tap_totals']['tests'], 1)
 
               def test_other_and_empty_refs_keep_guard_180_outer_195(self):
-                  for ref in ['ir/k8s-production-like-2659', '', 'product/r1-role-mode-consumer-20260921-extra', 'ops/ir20-api-database-binding-20260919-extra', 'ops/production-api-only-release-20261101-extra', 'fix/gekta-lexical-context-20261101-extra', 'fix/gekta-latest-history-20261101-extra', 'fix/gekta-lab-relevance-20261101-extra', 'fix/gekta-freshness-word-boundaries-20261101-extra', 'fix/gekta-document-text-fidelity-20261101-extra', 'fix/gekta-first-prompt-consent-20261101-extra', 'fix/gekta-source-preflight-budget-20261101-extra', 'fix/gekta-security-capture-20261101-extra', 'fix/gekta-k8s-retained-capacity-20261009-extra', 'fix/gekta-han-stream-20260927-extra', 'fix/gekta-economic-safety-hardening-20260928-extra', 'feat/pc-crop-multi-bank-sber-authority-4997-extra']:
+                  for ref in ['ir/k8s-production-like-2659', '', 'product/r1-role-mode-consumer-20260921-extra', 'ops/ir20-api-database-binding-20260919-extra', 'ops/production-api-only-release-20261101-extra', 'fix/gekta-lexical-context-20261101-extra', 'fix/gekta-latest-history-20261101-extra', 'fix/gekta-lab-relevance-20261101-extra', 'fix/gekta-freshness-word-boundaries-20261101-extra', 'fix/gekta-document-text-fidelity-20261101-extra', 'fix/gekta-first-prompt-consent-20261101-extra', 'fix/gekta-source-preflight-budget-20261101-extra', 'fix/gekta-security-capture-20261101-extra', 'fix/gekta-k8s-retained-capacity-20261009-extra', 'codex/gekta-security-review-extra', 'fix/gekta-han-stream-20260927-extra', 'fix/gekta-economic-safety-hardening-20260928-extra', 'feat/pc-crop-multi-bank-sber-authority-4997-extra']:
                       with self.subTest(ref=ref):
                           report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=180)
                           self.assertEqual(report['result'], 'PASS')
                           self.assertEqual(calls[0]['outer_timeout'], 195)
 
               def test_fork_name_collision_and_missing_identity_keep_original_budget(self):
-                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997']:
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997']:
                       for head_repo, repo in [('fork/repository', 'fixture/repository'), ('', '')]:
                           with self.subTest(ref=ref, head_repository=head_repo, repository=repo):
                               report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=180,
@@ -270,38 +281,75 @@ jobs:
                               self.assertEqual(calls[0]['outer_timeout'], 195)
 
               def test_guard_timeout_124_kills_owned_group_and_keeps_scope_and_artifact(self):
-                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997']:
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997']:
                       with self.subTest(ref=ref):
-                          report, calls, group = self.execute_collector('guard-timeout', head_ref=ref)
+                          report, calls, group = self.execute_collector('guard-timeout', head_ref=ref, guard_seconds=self.expected_owned_guard_seconds(ref))
                           self.assertEqual(report['result'], 'FAIL')
                           self.assertEqual(len(calls), 2)
                           self.assertEqual(group['exit_code'], 124)
                           self.assertEqual([check['exit_code'] for check in report['checks']], [124, 0])
 
               def test_branch_timeout_keeps_180_outer_195_and_cannot_pass(self):
-                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997']:
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997']:
                       with self.subTest(ref=ref):
-                          report, calls, _ = self.execute_collector('branch-timeout', head_ref=ref)
+                          report, calls, _ = self.execute_collector('branch-timeout', head_ref=ref, guard_seconds=self.expected_owned_guard_seconds(ref))
                           self.assertEqual(report['result'], 'FAIL')
                           self.assertEqual(len(calls), 2)
                           self.assertEqual([check['exit_code'] for check in report['checks']], [0, 124])
 
               def test_outer_guard_timeout_retains_failed_bound_artifact_and_closes_raw_file(self):
-                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997']:
+                  for ref in ['fix/public-registration-final-copy-4916', 'fix/guard-fixture-compression-20261028', 'product/r1-role-mode-consumer-20260921', 'ops/ir20-api-database-binding-20260919', 'ops/production-api-only-release-20261101', 'fix/gekta-lexical-context-20261101', 'fix/gekta-latest-history-20261101', 'fix/gekta-lab-relevance-20261101', 'fix/gekta-freshness-word-boundaries-20261101', 'fix/gekta-document-text-fidelity-20261101', 'fix/gekta-first-prompt-consent-20261101', 'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997']:
                       with self.subTest(ref=ref):
-                          report, calls, _ = self.execute_collector('outer-timeout', head_ref=ref)
+                          report, calls, _ = self.execute_collector('outer-timeout', head_ref=ref, guard_seconds=self.expected_owned_guard_seconds(ref))
                           self.assertEqual(report['result'], 'FAIL')
                           self.assertEqual(report['stage'], 'guard-regressions')
                           self.assertEqual(len(calls), 1)
-                          self.assertEqual(calls[0]['outer_timeout'], 315)
+                          self.assertEqual(calls[0]['outer_timeout'], self.expected_owned_guard_seconds(ref) + 15)
                           self.assertEqual(report['checks'], [])
+
+              def test_measured_pair_exact_names_and_repository_controls(self):
+                  positive = ['fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review']
+                  for ref in positive:
+                      with self.subTest(ref=ref):
+                          report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=420)
+                          self.assertEqual(report['result'], 'PASS')
+                          self.assertEqual(calls[0]['outer_timeout'], 435)
+                          self.assertEqual(report['checks'][0]['budget_seconds'], 420)
+                          self.assertEqual(report['checks'][0]['outer_timeout_seconds'], 435)
+                          self.assertGreaterEqual(report['checks'][0]['elapsed_ms'], 0)
+                          self.assertEqual(report['checks'][1]['budget_seconds'], 180)
+                          self.assertEqual(report['checks'][1]['outer_timeout_seconds'], 195)
+                  for ref, head_repo, repo in [
+                      ('CODEX/GEKTA-SECURITY-REVIEW','fixture/repository','fixture/repository'),
+                      ('codex/gekta-security-review ','fixture/repository','fixture/repository'),
+                      ('prefix/codex/gekta-security-review','fixture/repository','fixture/repository'),
+                      ('codex/gekta-security-review-extra','fixture/repository','fixture/repository'),
+                      ('codex/gekta-security-review','fixture/repository/','fixture/repository'),
+                      ('codex/gekta-security-review','Fixture/repository','fixture/repository'),
+                      ('codex/gekta-security-review','fork/repository','fixture/repository'),
+                      ('codex/gekta-security-review','',''),
+                  ]:
+                      with self.subTest(ref=ref, head=head_repo, repo=repo):
+                          report, calls, _ = self.execute_collector(head_ref=ref, guard_seconds=180,
+                              head_repository=head_repo, repository=repo)
+                          self.assertEqual(report['result'], 'PASS')
+                          self.assertEqual(calls[0]['outer_timeout'], 195)
+
+              def test_incomplete_skipped_and_inconsistent_tap_cannot_pass(self):
+                  for behavior in ['header-only','skipped-tap','inconsistent-tap']:
+                      with self.subTest(behavior=behavior):
+                          report, calls, _ = self.execute_collector(behavior,
+                              head_ref='codex/gekta-security-review', guard_seconds=420)
+                          self.assertEqual(report['result'], 'FAIL')
+                          self.assertEqual([c['exit_code'] for c in report['checks']], [0,0])
+                          self.assertEqual(report['checks'][0]['budget_seconds'], 420)
 
               def test_workflow_retains_job_bounds_and_always_artifact_step(self):
                   preflight = source.split('\n  source-preflight:\n', 1)[1].split(
                       '\n  production-like-kubernetes:\n', 1)[0]
                   runtime = source.split('\n  production-like-kubernetes:\n', 1)[1].split(
                       '\n  production-like-kubernetes-gate:\n', 1)[0]
-                  self.assertIn('    timeout-minutes: 8\n', preflight)
+                  self.assertIn('    timeout-minutes: ' + '$' + "{{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'codex/gekta-security-review') && 10 || 8 }}\n", preflight)
                   self.assertIn('    timeout-minutes: 300\n', runtime)
                   self.assertIn("          node-version: '24.8.0'\n", preflight)
                   self.assertIn('      - name: Retain source-bound result without raw errors\n'
@@ -330,6 +378,7 @@ jobs:
           import subprocess
           import sys
           import tempfile
+          import time
           import zipfile
 
 
@@ -413,22 +462,26 @@ jobs:
                       'fix/gekta-freshness-word-boundaries-20261101',
                       'fix/gekta-document-text-fidelity-20261101',
                       'fix/gekta-first-prompt-consent-20261101',
-                      'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997',
+                      'fix/gekta-source-preflight-budget-20261101', 'fix/gekta-security-capture-20261101', 'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review', 'fix/gekta-han-stream-20260927', 'fix/gekta-economic-safety-hardening-20260928', 'feat/pc-crop-multi-bank-sber-authority-4997',
                   }
                   own_repository = os.environ.get('GITHUB_REPOSITORY', '')
                   owned_budget = (os.environ.get('GITHUB_HEAD_REF', '') in owned_budget_refs and
                                   bool(own_repository) and
                                   os.environ.get('SOURCE_BUDGET_HEAD_REPOSITORY', '') == own_repository)
+                  measured_budget_refs = {'fix/gekta-k8s-retained-capacity-20261009', 'codex/gekta-security-review'}
+                  measured_budget = owned_budget and os.environ.get('GITHUB_HEAD_REF', '') in measured_budget_refs
                   commands = [('guard-regressions', ['node', '--test', '--test-reporter=tap', 'scripts/p7-autopilot-guard.test.mjs']),
                               ('branch-scope', ['bash', 'scripts/p7-autopilot-guard.sh'])]
                   for name, command in commands:
-                      budget_seconds = 300 if name == 'guard-regressions' and owned_budget else 180
+                      budget_seconds = (420 if measured_budget else 300) if name == 'guard-regressions' and owned_budget else 180
                       report['stage'] = name
                       save()
                       # Raw test errors are private temporary bytes, not uploaded logs.
                       with tempfile.TemporaryFile() as raw:
+                          execution_started = time.monotonic_ns()
                           result = subprocess.run(['timeout', '--kill-after=5s', f'{budget_seconds}s', *command], env=env,
                                                   stdout=raw, stderr=subprocess.STDOUT, timeout=budget_seconds + 15)
+                          elapsed_ms = round((time.monotonic_ns() - execution_started) / 1000000, 3)
                           raw.seek(0)
                           output_hash, length, prefix = hashlib.sha256(), 0, b''
                           while chunk := raw.read(65536):
@@ -438,6 +491,7 @@ jobs:
                                   prefix += chunk[:2 * 1024 * 1024 - len(prefix)]
                       text = prefix.decode('utf-8', errors='replace')
                       check = {'name': name, 'exit_code': result.returncode, 'output_bytes': length,
+                               'budget_seconds': budget_seconds, 'outer_timeout_seconds': budget_seconds + 15, 'elapsed_ms': elapsed_ms,
                                'output_sha256': output_hash.hexdigest(), 'summary_truncated': length > len(prefix)}
                       if name == 'guard-regressions':
                           check['tap_totals'] = {k: int(v) for k, v in re.findall(r'^# (tests|pass|fail|cancelled|skipped) (\d+)\s*$', text, re.M)}
@@ -450,7 +504,8 @@ jobs:
                   require(all(not Path(p).is_symlink() and digest(Path(p).read_bytes()) == h for p, h in current.items()))
                   require(all(c['exit_code'] == 0 for c in report['checks']))
                   totals = report['checks'][0]['tap_totals']
-                  require(totals.get('tests', 0) > 0 and totals.get('fail') == 0 and totals.get('cancelled') == 0)
+                  require(totals.get('tests', 0) > 0 and totals.get('pass') == totals.get('tests') and
+                          totals.get('fail') == 0 and totals.get('cancelled') == 0 and totals.get('skipped') == 0)
                   report['stage'] = 'complete'
                   report['result'] = 'PASS'
                   save()
