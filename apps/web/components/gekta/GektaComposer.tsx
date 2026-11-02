@@ -20,7 +20,7 @@ const COMPACT_BOUNDARY: Record<GektaLocale, string> = {
   zh: '请勿发送密码、令牌或其他秘密信息。',
 };
 
-const ATTACHMENT_ONLY_PROMPT: Record<GektaLocale, string> = {
+export const ATTACHMENT_ONLY_PROMPT: Record<GektaLocale, string> = {
   ru: 'Проанализируй приложенные материалы.',
   en: 'Analyse the attached materials.',
   zh: '请分析所附材料。',

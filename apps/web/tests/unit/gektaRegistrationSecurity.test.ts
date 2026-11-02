@@ -57,6 +57,7 @@ function bffRequest(body: Record<string, unknown>): Request {
 
 function chatRequest(input: { ticket?: string; cookie?: string }): NextRequest {
   const url = 'https://example.test/api/agro-chat?stream=1';
+  const rawBody = JSON.stringify({ message: 'Посев озимой пшеницы', locale: 'ru', context: 'gekta-standalone', history: [] });
   return {
     url,
     nextUrl: new URL(url),
@@ -72,9 +73,8 @@ function chatRequest(input: { ticket?: string; cookie?: string }): NextRequest {
         : undefined,
     },
     signal: new AbortController().signal,
-    text: async () => JSON.stringify({
-      message: 'Посев озимой пшеницы', locale: 'ru', context: 'gekta-standalone', history: [],
-    }),
+    body: new Response(rawBody).body,
+    text: async () => rawBody,
   } as unknown as NextRequest;
 }
 
