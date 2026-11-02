@@ -107,8 +107,10 @@ class Checks(unittest.TestCase):
             return calls[0][1]
 
     def test_retained_security_same_repository_gets_only_existing_guard_budget(self):
-        self.assertEqual(self.probe_retained_security_budget('codex/gekta-security-review',
-            'fixture/project', 'fixture/project'), '300s')
+        for branch in ['codex/gekta-security-review','fix/gekta-k8s-retained-capacity-20261009']:
+            with self.subTest(branch=branch):
+                self.assertEqual(self.probe_retained_security_budget(branch,
+                    'fixture/project', 'fixture/project'), '420s')
 
     def test_retained_security_fork_and_missing_repository_keep_ordinary_budget(self):
         for repository, head in [('fixture/project','fork/project'), ('fixture/project',''), ('','')]:

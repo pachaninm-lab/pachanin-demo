@@ -12430,3 +12430,150 @@ WP1 [record](autopilot/prompts/current-review-task.md#wp1)
   }
 }
 ```
+
+
+## Gekta measured native deadline and complete-TAP prerequisite amendment — 2026-11-02
+
+```json
+{
+  "schema": "pc.gekta.native-deadline-amendment.v2",
+  "purposeId": "gekta-native-measured-deadline-amendment-20261102",
+  "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+  "authorityBaseExactMainAtPreparation": "0e578cee40e57520740f4b7464e05d1d65246185",
+  "retainedMetadataBranch": "governance/gekta-history-han-purpose-20261101",
+  "implementationBranch": "fix/gekta-k8s-retained-capacity-20261009",
+  "retainedFailedSourceAncestor": "08fdf7d4e4d6987c811ab563c0ea08f44db1239d",
+  "sourcePayloads": [
+    {
+      "path": ".github/workflows/production-like-kubernetes-acceptance.yml",
+      "mode": "100644",
+      "beforeBlob": "12f674f06b56e4674ba79362e5780d5268e20391",
+      "beforeBytes": 40021,
+      "beforeSha256": "ac6fa2a3fa28a08a6444a29a3c9a8a298b3a0ffd084924e04ca920372f884d28",
+      "afterBlob": "d6c9d867842d26c2df6389086969e657dee19554",
+      "afterBytes": 45516,
+      "afterSha256": "54c70a68760adc8849e2a989660ffffa11791154b36a5f3821dad07d9ad3de98"
+    },
+    {
+      "path": "scripts/release/production-like-kubernetes-source-preflight-test.sh",
+      "mode": "100755",
+      "beforeBlob": "07786bbd4fb917524f656127383df514d688fe75",
+      "beforeBytes": 16749,
+      "beforeSha256": "58dd6f86f2dc4882a3515837b282871472cd56eed3ed13353c555f66249f546e",
+      "afterBlob": "e32f78b98d32fa0517bfe9eb69b134a56f5236d1",
+      "afterBytes": 19901,
+      "afterSha256": "35648f3c1b316a94af448fed5e1a0a499fb3bf81deb7ef198d54987e840085ba"
+    }
+  ],
+  "explicitBudgetOnlySupersession": {
+    "acceptedPurposePr": 6066,
+    "acceptedPurposeHead": "a208f66c6eec4dcaec553976bc5ac22b3cf7a4d0",
+    "actualAcceptedMain": "0e578cee40e57520740f4b7464e05d1d65246185",
+    "supersededOnlyAfterThisAmendmentAcceptance": "Replace ONLY6066 separateBudgetPrerequisite source after-pins82ca/f578 and its numeric300/315-only premise for the TWO exact same-repository refs below. Use the exact full before/after payloads pinned here, including retainedcodex membership, bounded measured class and explicit scheduling/TAP/timing tests. Do not infer this replacement from elapsed time or a private review. Preserve6066 full record and every older failure/pin/admission/history verbatim.",
+    "futureStateAndApplicationContractPreserved": "Keep6066 exact STATE-only f1843145610B(-77B)/same226vectors/135admissions and all18futureapplication/CI pins/wholehead-review/native/security/manual requirements UNCHANGED. They remain conditional on actual acceptance of the corrected budget source and then separate actual state/source phases. No product/state/host grant now."
+  },
+  "authenticatedActualFailure": {
+    "head": "08fdf7d4e4d6987c811ab563c0ea08f44db1239d",
+    "base": "0e578cee40e57520740f4b7464e05d1d65246185",
+    "run": 41387079665,
+    "job": 125090178866,
+    "attempt": 1,
+    "node": "v24.8.0",
+    "artifactId": 13116246600,
+    "artifactBytes": 4172609,
+    "artifactSha256": "ef63222ad9651d45ecec419166510226e441c575d6cbcd679eeb2ca87f325e91",
+    "all1350GitBlobModeBytesShaBindingsAndBothCrcVerified": true,
+    "executionResult": "FAIL",
+    "guardExit": 124,
+    "guardDeadlineSeconds": 300,
+    "guardOutputBytes": 15,
+    "tapTotals": {},
+    "branchScopeExit": 0,
+    "disposition": "Genuine incomplete deadline failure. Correct source snapshots and independent codeCLEAN do not accept this execution. No rerun requested, no transient-cause assertion, no old FAIL renamed PASS."
+  },
+  "sameHeadStandardEvidence": {
+    "run": 41387079566,
+    "job": 125090178695,
+    "combinedGuardAndGektaTests": 1545,
+    "pass": 1545,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "combinedDurationMs": 325077.768532,
+    "additionalSuites": [
+      22,
+      38,
+      94
+    ],
+    "qualification": "This is TWO-file combined runtime, NOT isolated1232 timing or proof420fit. SOURCE timed out separately. It supports a measured-budget investigation, not a passing source claim."
+  },
+  "newFiniteCommandBudgets": {
+    "caseSensitiveExactSameRepositoryRefs": [
+      "fix/gekta-k8s-retained-capacity-20261009",
+      "codex/gekta-security-review"
+    ],
+    "guardSeconds": 420,
+    "outerGuardSeconds": 435,
+    "otherAlreadyOwnedGuardSeconds": 300,
+    "otherAlreadyOwnedOuterSeconds": 315,
+    "ordinaryEmptyForkSuffixGuardSeconds": 180,
+    "ordinaryOuterSeconds": 195,
+    "allBranchScopeSeconds": 180,
+    "allBranchScopeOuterSeconds": 195,
+    "eligibility": "Retain existing exact owned set AND nonempty repository AND case-sensitive head-repository equality; only a strict exact two-name subset additionally selects420. No prefix/case/fork/suffix allowance.",
+    "fitNotEstablished": "420/435 is a NEW proposed finite resource policy, not a measured isolated-suite duration or guaranteed native fit. New complete actual source-bound execution must finish with tests=pass>0 and zero fail/cancel/skip; any further failure needs a separate evidenced disposition, never an automatic next increase."
+  },
+  "schedulerBound": {
+    "expression": "${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == github.event.repository.id && (github.event.pull_request.head.ref == 'fix/gekta-k8s-retained-capacity-20261009' || github.event.pull_request.head.ref == 'codex/gekta-security-review') && 10 || 8 }}",
+    "pairJobMinutes": 10,
+    "otherJobMinutes": 8,
+    "caseSemantics": "GitHub expression string comparisons are case-insensitive. The conditional scheduler ceiling10 also includes same-repository case variants of these two names. This scheduling-only effect is explicitly admitted; it does NOT select420 because actual Python eligibility stays case-sensitive and ordinary near-matches remain180/195. No byte-exact scheduler claim. Repository ID equality and pull_request event are required. All unrelated/fork/missing/suffix scheduler cases remain8.",
+    "why": "Observed first source setup precedes collector by about53s;435outer+53 already exceeds old480s before artifact margin. Bound600s supplies finite preparation/artifact margin for the new command class. It grants no host/product operation.",
+    "officialReferences": [
+      "https://docs.github.com/en/actions/reference/workflows-and-actions/contexts",
+      "https://docs.github.com/en/actions/reference/workflows-and-actions/expressions"
+    ]
+  },
+  "additionalBoundedChanges": [
+    "Add numeric per-completed-check budget_seconds/outer_timeout_seconds/monotonic elapsed_ms to the existing source report. No raw error/source content, unbounded log or external call is introduced. Outer-timeout failure still retains the existing empty-check FAIL semantics.",
+    "Strengthen full-TAP acceptance from tests>0/fail0/cancel0 to also require pass==tests and skipped0. Reject header-only, skipped and inconsistent TAP even when both commands exit0. No test is removed, filtered, skipped or downgraded.",
+    "Retain all29original collector/schema tests and3retained-lane controls; update only positive exactpair expected420. Retain all7embedded timing/process/negative/artifact tests, adjust expected budget only for2refs, and add exactpair/near-match plus incomplete/skipped/inconsistent TAP controls. Preserve real scaled process-group termination, raw-file closure, FAIL artifacts and every existing adverse path."
+  ],
+  "unchanged": "No protected guard/test-source/CLAUDE CAP1 owner/ref/3MiB/state/vector/progress/current/PRIMARY/DB/model/dependencies/locks/product/host/provider/cost/MASTER changes. Named-state producer4MiB/other2MiB/total32MiB/5000paths, full exact1232guard command, branchscope command, Node24.8.0, source hashing/current-worktree recheck, private errors, artifact gating, KIND/deepoutbox/storage/cleanup and all security/manual rules remain. Other owner command budgets remain300/315 or180/195; only disclosed scheduler case variants share10min.",
+  "qualifiedIndependentFeasibilityOnly": {
+    "bytes": 6604,
+    "sha256": "74ac4e5a6f1ea88bded29c3fe9158754bedb7354cee63bbd6573c79114f6430a",
+    "rootReadEntire": true,
+    "disposition": "Conditional legitimacy only, not actual proposal/source review,420fit,native acceptance or operator grant."
+  },
+  "mandatorySequence": [
+    "THIS actual queue-only amendment requires NEWwholehead independent review/rootFULLread, distinct owner audit, all applicable native/security/currentREADY/freshrefs/reviews/threads/Hub and ordinary full-expected-SHA manual acceptance before publishing changed source.",
+    "Then compose ONLY exact2newafters on actualacceptedmain, retaining08fd failed-source ancestry and every foreign leaf. NEWactualwhole2code/purpose review, owner audit, all actual native/sourceartifact/fullguard/KIND/deepoutbox/storage/cleanup/security/currentREADY/freshsnapshot/ordinary full-SHA manual acceptance. No old08fd/codeCLEAN/privatefixture/K8 transfer.",
+    "After corrected budget actual acceptance,6066 separateSTATE-only and actualwhole18application phases still need each own new currenthead review/gates/manual. Then finalcurrentmainimages and separately coordinated exactREG.RUOCI/DBbackuprollback/Caddy/live acceptance. No SOURCE/host/install/MASTER completion from metadata."
+  ],
+  "status": "PROPOSAL_ONLY; OLD08FD_NATIVE_BLOCKED; NEW_PURPOSE_AND_SOURCE_NOT_ACCEPTED; NO_RERUN; NOT_INSTALLED",
+  "privatePreparationChecks": {
+    "checks": [
+      {
+        "file": "native-deadline-v2-original300-witness.log",
+        "bytes": 5822,
+        "sha256": "70024a3ff0e5db86d02773c6d43586063a05c5a4cfe364863a93a84caed6f9bb",
+        "result": "Expected BASE control failure:32methods executed, positive method hasTWO subcasefailures because both exactrefs stillreceive300ratherthan420. Other31methods pass; not a native run or a product defect."
+      },
+      {
+        "file": "native-deadline-v2-candidate32.log",
+        "bytes": 4295,
+        "sha256": "0c21b158b27359de5b2541359cb27b9372d62556556111af50711756b645ec0b",
+        "result": "32PASS author-local real collector/rejection/schema controls on exact candidate"
+      },
+      {
+        "file": "native-deadline-v2-candidate-embedded9.log",
+        "bytes": 1532,
+        "sha256": "2f3861ff1c0463153aa0ef06aef0e8049bd76a1cf81049e10dcebe6a6d470569",
+        "result": "9PASS author-local actual embedded budget/process/artifact/TAP controls; not real1232timing or GitHub scheduler execution"
+      }
+    ],
+    "qualification": "Candidate author-local only. New actual metadata/source head requires fresh full independent review/native/security/currentREADY/manual; no native fit claim."
+  }
+}
+```
