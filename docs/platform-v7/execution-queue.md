@@ -11780,3 +11780,293 @@ WP1 [record](autopilot/prompts/current-review-task.md#wp1)
   "countCorrection": "Independent purpose review found P3 count-decomposition wording in privateec092/51b3. Replaced with exact full-suite150 plus shared24/48 totals, counting native wire once; old private commit/proof retained as blocked history. No source/test change."
 }
 ```
+
+
+## Gekta retained Han9 exact-six R5 history, laboratory safety and freshness purpose — 2026-11-02
+
+```json
+{
+  "schema": "pc.gekta.existing-han-six-routing-purpose.v2",
+  "purposeId": "gekta-han-history-lab-freshness-r5-20261102",
+  "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+  "authorityBaseExactMainAtPreparation": "1c455e043cb7cd25c827fa15c9df3e6d201212d4",
+  "implementationBranch": "fix/gekta-han-stream-20260927",
+  "retainedPurposeBranch": "governance/gekta-history-han-purpose-20261101",
+  "existingAcceptedVectorPreservedExactly": [
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+    "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+    "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+  ],
+  "allowedPaths": [
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+    "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+    "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts"
+  ],
+  "sourcePayloads": [
+    {
+      "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+      "mode": "100644",
+      "beforeBlob": "0f4591006e01d8cc8ee9311ccd79ddee6f89bded",
+      "beforeBytes": 87379,
+      "beforeSha256": "39f3739687c0dada9a3afcf513dfbfe4bf433cf3c945bb7cf7937fb20b53f455",
+      "afterBlob": "955447837f4e5cd6ee90b11668b00122aae35090",
+      "afterBytes": 88562,
+      "afterSha256": "8bdbc6d2755f722a4906fb7acfb9e43cdc69cd8834c8e3f85abecbb9bc77745a"
+    },
+    {
+      "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+      "mode": "100644",
+      "beforeBlob": "71e2e3f26bd2e49d025391305edbea6d4977c670",
+      "beforeBytes": 57445,
+      "beforeSha256": "bf3ec001b246af91eec3402d69a24f54105f77fa98aabf54cfb4b7a138e4ec2d",
+      "afterBlob": "c2f4a4aa0ee1c029845ae02b229b8b563d4ff8a5",
+      "afterBytes": 57620,
+      "afterSha256": "437dc72834add81a8731771956b1a6c04b3f23622a204afdd7ba8626f0a426a1"
+    },
+    {
+      "path": "apps/web/app/api/agro-chat/route.ts",
+      "mode": "100644",
+      "beforeBlob": "46aa9ccebc710f688ee7e9b408b3e0cbde27b365",
+      "beforeBytes": 40688,
+      "beforeSha256": "d8bea7550194ac14f1a4efa988238278c28a192488619d7b7db5a2b564bdfa57",
+      "afterBlob": "3a6314b987573b7ec5720ee8721703cdbdc5f70b",
+      "afterBytes": 41420,
+      "afterSha256": "bf928502375472c3ab68001d9981bbb4e26fd46d36f59aba64b3261b9137254b"
+    },
+    {
+      "path": "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+      "mode": "100644",
+      "beforeBlob": "3d55d2e338ac39524a0fd9537b59cd80aa01ea8b",
+      "beforeBytes": 53116,
+      "beforeSha256": "b6acf26572ef657ef8ac3c3fbfdf88b7270aba389a563ee616b22e4d5b71d3ca",
+      "afterBlob": "577c7b57fecbdee85017aaa63ed2478cc1afeb38",
+      "afterBytes": 53172,
+      "afterSha256": "5e6d5de221925658574f5e6a3391b5840c54fcae3a0ee7b3a209ff408bc132f8"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+      "mode": "100644",
+      "beforeBlob": "e1308be3255faf63ea3fbfbe8de36864f97bd137",
+      "beforeBytes": 30880,
+      "beforeSha256": "eb1011c452238d0e1369bcb9aead8282fb787ec267e7f59169dcc91054b02e09",
+      "afterBlob": "4262278d775809be44bf237f5347088b1f6712aa",
+      "afterBytes": 37640,
+      "afterSha256": "da149fde2e7ad177a91cac5c40af8e173c3da6af01ac581f68beb1622b0ed355"
+    },
+    {
+      "path": "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+      "mode": "100644",
+      "beforeBlob": "cf3e7e1b40b4bebaf99434e2f99537e6a63f029c",
+      "beforeBytes": 40190,
+      "beforeSha256": "ebb953447bfe82bb95461856dff3944abb5ee63d3582938c287a7460ba3b33b6",
+      "afterBlob": "f284a428e37b74576a2bef5a0c9891a23bdb2b31",
+      "afterBytes": 42650,
+      "afterSha256": "bfaca7d2b4f436676ba07589149d0e565e31ecfe7e625bd9e030c9bbcfe6eb37"
+    }
+  ],
+  "privateProposedSourceHead": "5b73044f1fc9fc3f01b9a5e3d4a088c73013636a",
+  "privateProposedSourceTree": "8b18526b53473982518ed11632f3f5d8f9c2c6e5",
+  "sourceParents": [
+    "cd769f114467e6326c9e4369e89b904b1c2d36f2"
+  ],
+  "retainedHanAncestor": "c6787efe621473d2c6c97ab8614dc0747fbdf5d0",
+  "retainedLabSourceAncestor": "e0af21bbe74f81b18a3790356bebe6405f20330c",
+  "retainedFreshnessSourceAncestor": "cd0ee424cb072a8238148c6ac56f475349d2a736",
+  "fullSourcePatchBytes": 22127,
+  "fullSourcePatchSha256": "dafbf3598c199db7fd13aab92bf7a623da35b0e001e128bb0150ae5831dac919",
+  "acceptedPriorPurpose": {
+    "pr": 6051,
+    "reviewedHead": "2250cfc89ef0b1ff58308c6a1dc243cd6976cccf",
+    "merge": "14b4e6bbd0122a8cd717ea193ecd39c69e0efcdf",
+    "exactPaths": 4
+  },
+  "explicitPriorHoldNarrowRenewal": {
+    "acceptedProducerPurposePr": 6050,
+    "acceptedProducerPurposeHead": "7facd7876d580424b12be666f8d462b492500e08",
+    "actualAcceptedMerge": "01b9b00e176011495be935a1d003ddf27ebf168d",
+    "priorProspectiveWording": "Keep state at or below3145728B and all new product admissions blocked until the existing guard owners separate purpose/source correction is actually accepted and compatible.",
+    "explicitSupersession": "ONLY after ordinary acceptance of THIS exact new current-head R5 queue purpose, renew the prospective source phase solely for the declared SIX exact R5 payloads on the same retained ordered Han9 vector and same existing owner, with ZERO state/vector growth. This explicitly replaces6051 next-source exact-four phase for this one combined R5 successor; accepted6051 and every older record remain verbatim. Private a4f grants only7bd conditionally and is not R5 authority. This is not reinterpretation of6050 hold, transfer of four-path acceptance to six, a new state admission or admission of any other private fix.",
+    "unchangedHolds": "CAP-1 and its existing protected guard owner remain unchanged. No state growth above3145728B, new state-vector/ref admission, other source-purpose renewal, consumer correction, model trial/activation or host operation is admitted. All original records and failures remain preserved; all source/native/readiness/manual gates still apply.",
+    "whyBounded": "The immutable reader consumes unchanged3145687B state and exact orderedHan9 vector. Accepted6063B1 and exact HANDOFF6566299908 complete the finite CORE source epoch. ONLY this queue-only proposal and, after its actual acceptance, the six declared R5 payloads may resume ordinary source gates. CAP1/protectedconsumer/newvector/model/host holds remain."
+  },
+  "behavior": [
+    "At actual API and BFF boundaries budget only the final12 raw history positions newest-first; retain permitted roles/text filtering,2000 characters per turn and12000 total; return chronological wire order without mutating caller input. No persistence or unlimited recall claim.",
+    "Recognize complete English lab/labs/laboratory/laboratories as agricultural relevance terms across all13roles. Align ONLY the existing forge/falsify lab-report safety alternative with these same four nouns. Direct forgery is BLOCK_SAFETY before model/knowledge invocation; lawful prevention, detection and legal-consequence explanation remain eligible under existing grounding rules. Preserve all other safety/privacy/privilege checks.",
+    "Use Unicode whole-word boundaries for Russian freshness terms so delivery/supply substrings do not masquerade as rates. English whole now/current/currently/latest/recent/recently/news/weather/exchange rates/tariffs/duties/statistics forms are detected without tested weathering/concurrent/newsroom/newspaper/dutiful substring false positives. Chinese detector remains unchanged. This finite detector does not fetch external current data.",
+    "Only user history/current user input can supply an explicit storage-rate exemption for the narrow sell-now calculation. Preserve NFKC/case/yo/whitespace cleanup and amount/unit punctuation only for that input recognizer; generic normalizeIntent and evidence-question normalization are unchanged. Assistant text cannot provide an exemption; explicit current-price/exchange requests still require current data.",
+    "The English amount starts at the first Unicode-number position following the normalized storage keyword, after at most48nonnumeric characters; supported literal ASCII decimal amount has1–7integerdigits and at most2fractiondigits. Scientific/grouped/underscore/other unsupported numeric forms are not skipped to accept a suffix. Extra preceding numeric descriptive fields are conservatively unrecognised. This is not a universal storage/financial parser or a global RUamount-validation change.",
+    "R5 changes ONLY the English storage keyword-to-amount gap from48arbitrary non-newline characters to48nonnumeric non-newline Unicode characters, preventing scientific/grouped/underscore suffix capture. The earlier Russian amount alternative is not replaced by a universal validation grammar. Existing tested currency/tonne/month forms, zero, decimal and NFKC compatibility controls remain."
+  ],
+  "unchanged": "Metadata changes ONLY one append to the full accepted queue. All7098other Git leaves/modes remain currentBASE-exact, including state efec3145687B, current review recorda053/DC2guard3, correctedCOLD3/sourceR3, orderedHan9/scopes/owners/135admissions/226vectors/progress/BANK/producer/CI/DB/model/lockfiles. No new vector/state growth/consumer fix.",
+  "sourceReviewAtPreparation": {
+    "wholeSixSuccessorHead": "5b73044f1fc9fc3f01b9a5e3d4a088c73013636a",
+    "status": "QUALIFIED PRIVATE WHOLE-SIX FUNCTIONAL/SAFETY PASS; NOT FORMAL SOURCE_CLEAN OR ADMISSION",
+    "finalPrivateReport": {
+      "head": "5b73044f1fc9fc3f01b9a5e3d4a088c73013636a",
+      "tree": "8b18526b53473982518ed11632f3f5d8f9c2c6e5",
+      "evaluationBase": "b4a21b9715d3946b6f8bd77a59073bb4f1ec2405",
+      "bytes": 14429,
+      "sha256": "b94b396b0d1e28e65f5344b65024e2e766c87bb94ae72ac86eccced1560e7ff0",
+      "rootPersonallyReadEntireFrozenReport": true,
+      "reviewer": "Separate nonauthor session reviewer; report and own evidence preserved verbatim in the continuation archive",
+      "newFindings": {
+        "P0": 0,
+        "P1": 0,
+        "P2": 0,
+        "P3": 0
+      },
+      "ownFreshChecks": {
+        "apiPassed": 1096,
+        "webPassed": 487,
+        "originalAmountBoundsPassed": 28,
+        "unchangedLabCallerPassed": 24,
+        "originalFf4ObservedOutcomesCorrect": 11,
+        "targetedControlsPassed": 11,
+        "apiTypesExit": 0,
+        "mechanicalHan9ScopeExit": 0
+      },
+      "historicalFixture": {
+        "originalCases": 56,
+        "passed": 54,
+        "obsoleteEnglishExpectationsFailed": 2,
+        "skipped": 0,
+        "newNowAndWeatheringOutcomesAssertedSeparately": true
+      },
+      "qualification": "Reviewer-local mocked/synthetic checks with overlapping counts, not a new hosted/native/full-Web/model PASS. Original56 is NOT unchanged56PASS. Exact frozen R5 only; all future published metadata/source heads require NEW whole-head nonauthor review and native gates."
+    },
+    "rootHistoricalChecksReferenceOnly": {
+      "webTests": 487,
+      "pass": 487,
+      "fail": 0,
+      "skip": 0,
+      "files": 2
+    },
+    "blockedPredecessor": {
+      "head": "cd769f114467e6326c9e4369e89b904b1c2d36f2",
+      "reportBytes": 13933,
+      "reportSha256": "91e4d40ffb2f8c8988bc930e65fe301dbbc341e0b9c7d4763b16721dac717713",
+      "rootPersonallyReadEntireFrozenReport": true,
+      "finding": "P2 FRESHNESS-AMOUNT-BOUND-1",
+      "ownAdverse": {
+        "pass": 24,
+        "fail": 4,
+        "skip": 0
+      }
+    },
+    "failurePreservation": {
+      "r3Initial15": {
+        "selected": 15,
+        "pass": 7,
+        "fail": 8,
+        "unselected": 189
+      },
+      "r4BeforeInputCorrection": {
+        "selected": 14,
+        "pass": 8,
+        "fail": 6,
+        "unselected": 204
+      },
+      "r4FirstRawPatternAttempt": {
+        "total": 483,
+        "pass": 479,
+        "fail": 4,
+        "skip": 0,
+        "qualification": "Real implementation error: slashes were lost in generic intent normalization; original JSON/log retained separately. Corrected by punctuation-preserving supplied-input context only, not by changing tests."
+      }
+    },
+    "additionalHistoricalFailures": "29be direct LAB forgery BLOCKED; ff4 supplied-input freshness P2; cd76 amount suffix P2. Original56 now/weathering expectations remain genuine historical54PASS/2FAIL. No old failure is relabeled PASS.",
+    "qualification": "Fully read b94 frozen private WHOLE6 review remains qualified to5b73/b4a only; it is not current published-head SOURCE_CLEAN/native acceptance. The later combined18 private79 review does not grant this six-source phase or any combined vector. Any future public metadata or source head requires NEW exact whole-head independent review and current native/security/readiness/manual gates."
+  },
+  "explicitResiduals": [
+    "Finite multilingual freshness/relevance/safety and bounded storage-rate grammar only; no universal monetary parser, external retrieval or real current-data/model-quality claim.",
+    "History covers only the bounded raw suffix; persistence, save, recall and real model understanding remain open.",
+    "A12 trace, XLSX/namespace/archive, arithmetic/markup, first-consent, document context/retry and other private packages are outside these six paths. No other purpose or source grant.",
+    "No all40/G-A05/30/40 live closure, mobile/browser/fullbuild/native acceptance, model activation, provider call, server installation, financial/DB operation or MASTER credit."
+  ],
+  "publicationPreconditions": {
+    "acceptedProducer": {
+      "pr": 6052,
+      "reviewedHead": "84344bb61af378b8c9227c6e4ab1ec829bcf4a7d",
+      "merge": "20eba7d6e829ab2ed8e9435ab11428e550a13506",
+      "workflow": "12f674f06b56e4674ba79362e5780d5268e20391",
+      "helper": "07786bbd4fb917524f656127383df514d688fe75",
+      "actuallyAccepted": true
+    },
+    "acceptedCoreColdPurpose": {
+      "pr": 6054,
+      "reviewedHead": "47a3c900baf2412542233a423aa6eab9006aa4a0",
+      "merge": "b4a21b9715d3946b6f8bd77a59073bb4f1ec2405",
+      "queue": "a59124dda99d57ccab6c7b92b01f62b725dda149",
+      "queueBytes": 2134106,
+      "actuallyAccepted": true
+    },
+    "coordination": "Exact source-cycle HANDOFF6566299908 on TeamHub5469 expressly ends the finite SOURCE staging hold after accepted1c455e/efec/a591. Our already approved Gekta scope may resume current-base recomposition and ordinary review/acceptance. This is no new scope, protected CAP1 consumer access or host right. ROOT may separately prepare one closed read-only Docker query; HOST_WINDOW=NONE. Fresh main/queue/state/ownedrefs were re-read before preparing this public metadata head.",
+    "coreExactHandoffObserved": true,
+    "publicSlotAvailable": true,
+    "requiredSequence": "After actual slot release, re-read currentmain/Hub/owners; recompose ONLYthisqueue purpose on THEN-CURRENTmain preserving ALLacceptedprefix bytes and rebind every actualsourcebefore/authority/observedcondition pin truthfully. Fresh complete actualpublishedqueue-head independentreview/rootFULLread, distinctowneraudit, all native/security/strict/currentREADY and ordinaryfull-expected-SHA metadata acceptance precede source. Only then compose EXACTsixafterpaths preservingretainedsourceancestry and EVERYcurrentforeignleaf, obtain NEW complete actualpublishedWHOLEsixreview/rootFULLread, separateowner audit, allapplicablefullnative/sourcepreflight/KIND/deepoutbox/storage/cleanup/security/strict/READY, and ordinaryexpectedfull-SHA manualsource acceptance. Any changedhead invalidates prior review/native readiness. No automatic activation of frozenprivate observations.",
+    "latestObservedAcceptedMain": "1c455e043cb7cd25c827fa15c9df3e6d201212d4",
+    "acceptedCoreColdSource": {
+      "pr": 6062,
+      "reviewedHead": "cba3706300347ee5b24c921d8352adaf2087f282",
+      "merge": "8d17fcf58b97ddf201694e19242b42f2b1bbb20e",
+      "actuallyAccepted": true
+    },
+    "acceptedCoreCorrectedDiagnosticSource": {
+      "pr": 6059,
+      "reviewedHead": "47e8d37a36196a1858d9371997031ce52f2a1ccb",
+      "merge": "f6d1a2441d3ece6446b869e9eb40ce04cc6da5ee",
+      "actuallyAccepted": true,
+      "old9811StillBlockedHistory": true
+    },
+    "acceptedCoreGuardAndState": {
+      "guardPr": 6060,
+      "guardMerge": "3dde73b59b10a01bc27845a7048b0743f61bbaf7",
+      "statePr": 6061,
+      "stateMerge": "40d40be16132f0b0aeb458628ca0b983be88cd39",
+      "actuallyAccepted": true
+    },
+    "acceptedCoreFinalB1": {
+      "pr": 6063,
+      "reviewedHead": "5dd6b40eb561d83a4cac2c8de1ee991a8bd33d47",
+      "merge": "1c455e043cb7cd25c827fa15c9df3e6d201212d4",
+      "actuallyAccepted": true,
+      "stateBlob": "efec483aad3fc78390df15fad9699eb3c22645d4"
+    },
+    "finiteCoreSourceSequenceCompleted": true,
+    "exactHandoff": {
+      "issue": 5469,
+      "comment": 6566299908,
+      "acceptedMain": "1c455e043cb7cd25c827fa15c9df3e6d201212d4",
+      "sourceHoldEnded": true,
+      "hostWindow": "NONE",
+      "newScopeGranted": false
+    }
+  },
+  "unchangedHolds": "State3145687/3145728B/41spare and protectedconsumerowner CLAUDE_PC_CROP_EXECUTOR remain; no newvector or consumer300 eligibility. HOST_WINDOW=NONE, original19/SPENT/UNKNOWN are not replayed. No host/DB/backup/restore/rollback/model/provider/financial/cost/installation/MASTER authority.",
+  "status": "PUBLIC EXACT_R5_QUEUE_PURPOSE_PROPOSAL; CORE_SOURCE_CYCLE_ACCEPTED_AND_EXACT_HANDOFF_OBSERVED; METADATA_REVIEW_AND_ACCEPTANCE_PENDING; NO_SOURCE_OR_HOST_ACCEPTANCE",
+  "sourceEvaluationBase": "b4a21b9715d3946b6f8bd77a59073bb4f1ec2405",
+  "sourceComparisonQualification": "Frozen5b73 source remains evaluated against b4a; all six complete before-pins still match acceptedB1main1c45. This metadata uses full currentB1main1c45 prefix and every foreign leaf, including correctedDC2/A3/ColdR3/diagnosticR3. Future composition transfers ONLYsix exact afters onto THEN-current accepted metadata main; never publish an old whole tree.",
+  "observedCurrentMetadataInputs": {
+    "base": "1c455e043cb7cd25c827fa15c9df3e6d201212d4",
+    "queueBlob": "a59124dda99d57ccab6c7b92b01f62b725dda149",
+    "queueBytes": 2134106,
+    "queueSha256": "0826b8310006d82eee79dcfa43ff0aa9a37f04d53cfc980dcb86a059dfa5e7b6",
+    "stateBlob": "efec483aad3fc78390df15fad9699eb3c22645d4",
+    "stateBytes": 3145687,
+    "stateSha256": "edfc604b3b2ffcf28bd3df5be1594706f8e1ddbb95fa577ef70dede0fc9b5f1c",
+    "stateCapBytes": 3145728,
+    "stateSpareBytes": 41,
+    "allSixCurrentBeforePinsMatch": true,
+    "qualification": "Fresh primary main/queue/state and both retained owned refs read after exact HANDOFF6566299908. Public metadata proposal may proceed through new exact published-head independent review/native/security/strict/latestREADY/manual gates. Acceptance is still pending; this proposal grants no source acceptance or host operation."
+  }
+}
+```
