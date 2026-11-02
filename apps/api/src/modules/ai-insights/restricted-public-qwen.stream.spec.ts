@@ -53,7 +53,10 @@ function installRuntime(script: RuntimeScript): RuntimeProbe {
               controller.error(Object.assign(new Error('aborted'), { name: 'AbortError' }));
               return;
             }
-            await new Promise((resolve) => setTimeout(resolve, script.gapMs ?? 5));
+            // Explicit zero-gap fixtures still yield asynchronously, without
+            // adding a timer tick to every one-character transport delta.
+            if (script.gapMs === 0) await Promise.resolve();
+            else await new Promise((resolve) => setTimeout(resolve, script.gapMs ?? 5));
             controller.enqueue(encoder.encode(
               `data: ${JSON.stringify({ choices: [{ delta: { content: delta } }] })}\n\n`,
             ));
@@ -118,6 +121,704 @@ describe('RestrictedPublicQwenService.generateStream', () => {
     global.fetch = ORIGINAL_FETCH;
   });
 
+  it.each(['stream', 'buffered'].flatMap((mode) => [false, true].flatMap((currentDataRequired) => ([
+    ['ru', 'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб.', true, 'Свежие данные по этому вопросу я сейчас не могу проверить. Ниже — что стоит учесть для решения.', 'Укажите в одном вопросе'],
+    ['ru', 'Сколько выручки?', false, 'Свежие данные по этому вопросу я сейчас не могу проверить. Ниже — что стоит учесть для решения.', 'Укажите в одном вопросе'],
+    ['en', 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.', true, 'I cannot verify fresh information on this question. Here is what to check before deciding.', 'Specify the quantity'],
+    ['en', 'What revenue will our farm earn annually from selling 100 tonnes?', false, 'I cannot verify fresh information on this question. Here is what to check before deciding.', 'Specify the quantity'],
+    ['zh', '销售收入：100吨，价格12000卢布/吨。运输总费用80000卢布。', true, '我目前无法核实这个问题的最新信息。下面说明决策前需要核对的要点。', '请在同一个问题中明确'],
+    ['zh', '销售收入多少?', false, '我目前无法核实这个问题的最新信息。下面说明决策前需要核对的要点。', '请在同一个问题中明确'],
+  ] as const).map(([locale, question, complete, notice, clarification]) => [mode, currentDataRequired, locale, question, complete, notice, clarification] as const))))('preserves current-evidence sale notice in %s (current=%s, %s): %s', async (mode, currentDataRequired, locale, question, complete, notice, clarification) => {
+    const raw = request({ locale, question, originalQuestion: question, currentDataRequired });
+    const content = 'Unchecked revenue is 999999.';
+    let answer = '';
+    let flags: readonly string[] = [];
+    if (mode === 'stream') {
+      installRuntime({ deltas: [content], gapMs: 0 });
+      for await (const event of service.generateStream(raw)) {
+        if (event.type === 'delta') answer += event.text;
+        if (event.type === 'done') flags = event.safetyFlags;
+      }
+    } else {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      const result = await service.generate(raw);
+      answer = result.answer;
+      flags = result.safetyFlags;
+    }
+    expect(answer.split(notice).length - 1).toBe(currentDataRequired ? 1 : 0);
+    expect(answer.startsWith(notice)).toBe(currentDataRequired);
+    expect(flags.includes('CURRENT_EVIDENCE_REQUIRED')).toBe(currentDataRequired);
+    expect(answer).not.toContain('999999');
+    if (complete) {
+      expect(answer).toContain('1200000 − 80000 = 1120000');
+      expect(answer).not.toContain(clarification);
+    } else {
+      expect(answer).toContain(clarification);
+      expect(answer).not.toContain('1120000');
+    }
+  });
+
+  it.each(['stream', 'buffered'].flatMap((mode) => ([
+    ['Выручка равна 999999 рублей. Этот вариант выгоднее. Проверьте условия приёмки. ', '999999'],
+    ['Gross revenue is one million two hundred thousand; proceeds after delivery are nine hundred thousand. ', 'nine hundred thousand'],
+    ['Выручка — миллион двести тысяч; после доставки остаётся девятьсот тысяч. ', 'девятьсот тысяч'],
+    ['销售收入为一百二十万，扣除运输费后为九十万。', '九十万'],
+    ['Harmless'.repeat(2000), 'Harmless'],
+    ['I trans&amp;#102;erred money', 'trans&amp;'],
+  ] as const).map(([content, forbidden]) => [mode, content, forbidden] as const)))('appends only checked sale proceeds in %s output: %s', async (mode, content, forbidden) => {
+    const question = 'Пшеница: 100 тонн по 12 000 рублей за тонну. Доставка 80 000 рублей. Посчитай итоговую выручку после доставки и покажи расчёт.';
+    const raw = request({ question, originalQuestion: question, currentDataRequired: true });
+    let answer = '';
+    let calls = 0;
+    if (mode === 'stream') {
+      const probe = installRuntime({ deltas: [content] });
+      let sawEarlyCalculation = false;
+      for await (const event of service.generateStream(raw)) {
+        if (event.type === 'delta') {
+          answer += event.text;
+          if (event.text.includes('1200000 − 80000 = 1120000 руб')) {
+            expect(probe.generationCompletedAt).toBeNull();
+            expect(probe.requests).toHaveLength(0);
+            sawEarlyCalculation = true;
+          }
+        }
+      }
+      expect(sawEarlyCalculation).toBe(true);
+      calls = probe.requests.length;
+    } else {
+      const fetchMock = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      global.fetch = fetchMock;
+      answer = (await service.generate(raw)).answer;
+      calls = fetchMock.mock.calls.length;
+    }
+    expect(calls).toBe(1);
+    expect(answer).not.toContain('999999');
+    expect(answer).not.toContain(forbidden);
+    expect(answer).not.toContain('вариант выгоднее');
+    expect(answer).toContain('1200000 − 80000 = 1120000 руб');
+    expect(answer).toContain('а не прибыль');
+    expect(answer).toContain('Текущая рыночная цена не проверялась');
+    expect(answer.match(/1200000 − 80000 = 1120000 руб/gu)).toHaveLength(1);
+  });
+
+  it.each(['stream', 'buffered'].flatMap((mode) => [
+    ['en', 'Revenue: 100 tonnes at 12000 RUB/tonne. Total delivery charge 80000 RUB.'],
+    ['en', 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery charge: 80000 RUB.'],
+    ['en', 'Revenue: 100 tonnes at 12000 RUB/tonne. Total delivery cost 80000 RUB.'],
+    ['ru', 'Выручка: 100 тонн по 12000 руб/т. Общая стоимость доставки 80000 руб.'],
+    ['ru', 'Посчитай выручку: 100 тонн по 12000 руб/т. Общую стоимость доставки: 80000 руб.'],
+    ['zh', '销售收入：100吨，价格12000卢布/吨。运输总费用80000卢布。'],
+  ].map(([locale, question]) => [mode, locale, question] as const)))('accepts localized clarification delivery labels in %s: %s %s', async (mode, locale, question) => {
+    const raw = request({ locale, question, originalQuestion: question });
+    let answer = '';
+    if (mode === 'stream') {
+      const probe = installRuntime({ deltas: ['Unchecked revenue is 999999.'] });
+      for await (const event of service.generateStream(raw)) if (event.type === 'delta') answer += event.text;
+      expect(probe.requests).toHaveLength(1);
+    } else {
+      const provider = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: 'Unchecked revenue is 999999.' }, finish_reason: 'stop' }] })));
+      global.fetch = provider;
+      answer = (await service.generate(raw)).answer;
+      expect(provider.mock.calls).toHaveLength(1);
+    }
+    expect(answer).toContain('1200000 − 80000 = 1120000');
+    expect(answer).not.toContain('999999');
+  });
+
+  it.each(['stream', 'buffered'].flatMap((mode) => [
+    '<span title="' + '<'.repeat(16) + 'safe">harmless</span>',
+    "<span title='" + '<'.repeat(32) + "safe'>harmless</span>",
+    '<span title="' + '<'.repeat(4096) + 'safe">harmless</span>',
+    '<span title="' + '&#60;'.repeat(16) + 'safe">harmless</span>',
+    '<span title="' + '< '.repeat(32) + 'safe">harmless</span>',
+    '<span title="' + '<x'.repeat(16) + 'safe">harmless</span>',
+    "<span title='" + '<x a'.repeat(32) + "safe'>harmless</span>",
+    '<span title="' + '<x'.repeat(4096) + 'safe">harmless</span>',
+    '<span title="' + '&lt;x'.repeat(16) + 'safe">harmless</span>',
+    '<span title="' + "<x a='".repeat(32) + 'safe">harmless</span>',
+    "<span title='" + '<x a="'.repeat(32) + "safe'>harmless</span>",
+    '<span title="' + "<x a='".repeat(1024) + 'safe">harmless</span>',
+    '<span title="' + '&lt;x a=&#39;'.repeat(32) + 'safe">harmless</span>',
+    '<span title="<x">harmless</span>'.repeat(32),
+    "<span title='<x'>harmless</span>".repeat(32),
+    '<span title="&lt;x">harmless</span>'.repeat(32),
+    '<span title="<x a">harmless</span>'.repeat(32),
+    ('<span title="' + "<x a='".repeat(15) + 'safe">harmless</span>').repeat(32),
+    ("<span title='" + '<x a="'.repeat(15) + "safe'>harmless</span>").repeat(32),
+  ].map((content) => [mode, content] as const)))('accepts harmless literal less-than attributes in %s sale output: %s', async (mode, content) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    const raw = request({ locale: 'en', question, originalQuestion: question });
+    for (const size of [1, 7, 511, 5000]) {
+      let answer = '';
+      if (mode === 'stream') {
+        installRuntime({ deltas: Array.from({ length: Math.ceil(content.length / size) }, (_, index) => content.slice(index * size, (index + 1) * size)), gapMs: 0 });
+        for await (const event of service.generateStream(raw)) if (event.type === 'delta') answer += event.text;
+      } else {
+        global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+        answer = (await service.generate(raw)).answer;
+      }
+      expect(answer).toContain('1200000 − 80000 = 1120000');
+      expect(answer).not.toContain('harmless');
+    }
+  });
+
+  it.each(['stream', 'buffered'].flatMap((mode) => [
+    '<think I trans<em title="' + 'x'.repeat(5000) + '">ferred</em> money>',
+    '<think Bearer abcdefgh<em title="' + 'x'.repeat(5000) + '">ijklmnop</em>12345>',
+    '<think title="I trans<em title="' + 'x'.repeat(5000) + '">ferred</em> money">harmless</think>',
+    '<think title="Bearer abcdefgh<em title="' + 'x'.repeat(5000) + '">ijklmnop</em>12345">harmless</think>',
+    '<think title="<em title="I trans<strong title=\u0027' + 'x'.repeat(5000) + '\u0027>fer</strong>red money">">harmless</think>',
+    '<think title="<em title="Bearer abcdefgh<strong title=\u0027' + 'x'.repeat(5000) + '\u0027>ijklmnop</strong>12345">">harmless</think>',
+  ].map((content) => [mode, content] as const)))('refuses nested header metadata signatures in %s sale output: %s', async (mode, content) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    const raw = request({ locale: 'en', question, originalQuestion: question });
+    for (const size of [1, 7, 511, 5000]) {
+      let refused = false;
+      let done = false;
+      try {
+        if (mode === 'stream') {
+          installRuntime({ deltas: Array.from({ length: Math.ceil(content.length / size) }, (_, index) => content.slice(index * size, (index + 1) * size)), gapMs: 0 });
+          for await (const event of service.generateStream(raw)) if (event.type === 'done') done = true;
+        } else {
+          global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+          await service.generate(raw);
+          done = true;
+        }
+      } catch { refused = true; }
+      expect(refused).toBe(true);
+      expect(done).toBe(false);
+    }
+  });
+  it.each(['stream', 'buffered'])('calculates explicitly priced Chinese total revenue in %s', async (mode) => {
+    const question = '计算总收入：小麦100吨，价格：12000卢布/吨，运费80000卢布。';
+    const content = '总收入为九十万。';
+    const raw = request({ question, originalQuestion: question, locale: 'zh' });
+    let answer = '';
+    if (mode === 'stream') {
+      installRuntime({ deltas: [content] });
+      for await (const event of service.generateStream(raw)) if (event.type === 'delta') answer += event.text;
+    } else {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      answer = (await service.generate(raw)).answer;
+    }
+    expect(answer).toContain('1200000 − 80000 = 1120000');
+    expect(answer).toContain('不是利润');
+    expect(answer).not.toContain('九十万');
+  });
+  it.each(['stream', 'buffered'].flatMap((mode) => [
+    'Выручка: 1.200 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Revenue: corn delivery 80000 RUB. Wheat 100 tonnes at 12000 RUB/tonne.',
+    'Посчитай выручку от перепродажи: купил 100 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Revenue: 100 tons at 12000 RUB/tonne. Delivery 80000 RUB.',
+    'How much revenue: 1,200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB?',
+    'How much revenue from 100 tonnes?',
+    "What revenue will selling 100 tonnes at 12000 RUB/tonne generate after delivery of 80000 RUB?",
+    "What net proceeds would selling 100 tonnes at 12000 RUB/tonne yield after delivery of 80000 RUB?",
+    "What gross revenue can selling 100 tonnes generate?",
+    "What revenue would we receive from selling 100 tonnes?",
+    "What proceeds did selling 100 tonnes bring after delivery?",
+    "What total revenue will 100 tonnes at 12000 RUB/tonne produce after delivery of 80000 RUB?",
+    "How much revenue did selling 100 tonnes at 12000 RUB/tonne generate after delivery of 80000 RUB?",
+    "How much net proceeds would selling 100 tonnes yield after delivery?",
+    "How much revenue will 100 tonnes at 12000 RUB/tonne produce after delivery of 80000 RUB?",
+    "How much revenue could we receive from selling 100 tonnes?",
+    "How much revenue did selling 1.5 tonnes at 100.20 RUB/tonne generate after delivery of 10.05 RUB?",
+    "What revenue will the sale of 100 tonnes at 12000 RUB/tonne generate after delivery of 80000 RUB?",
+    "How much proceeds will our farm earn from selling 100 tonnes?",
+    "What revenue will that farm make from selling 100 tonnes?",
+    "What revenue was generated by selling 100 tonnes?",
+    "How much revenue could be generated from selling 100 tonnes?",
+    "What revenue have sales generated from selling 100 tonnes?",
+    "How much revenue will selling 100 tonnes at 12000 USD/tonne generate after delivery of 80000 RUB?",
+    "What revenue will our farm earn this year from selling 100 tonnes?",
+    "How much revenue could that farm make today?",
+    "What proceeds would selling 100 tonnes yield after delivery?",
+    "What revenue could our farm generate in 2025?",
+    "What revenue will our farm earn approximately from selling 100 tonnes?",
+    "What revenue will our farm generate annually from selling 100 tonnes?",
+    "How much revenue could our farm receive regularly after delivery?",
+    "What proceeds will our farm earn consistently from selling 100 tonnes?",
+    "What revenue will our farm earn very roughly after delivery?",
+    "What revenue would our farm earn more from selling 100 tonnes?",
+    "What revenue would our farm generate surprisingly in 2026?",
+    "What revenue will our farm generate annually?",
+    "What revenue will our small family farm generate annually from selling 100 tonnes?",
+    "How much revenue would the newly established family farming cooperative earn from selling 100 tonnes?",
+    "What proceeds could our regional sustainable grain farming enterprise receive regularly after delivery?",
+    "What revenue does the entire small family farming business generate monthly?",
+    "What revenue did our very small family grain farm make last year?",
+    "What proceeds will the farm operated by our family members yield from selling 100 tonnes?",
+    "What revenue will selling 100 tonnes of wheat generate annually?",
+    "What revenue will our family's farm earn annually from selling 100 tonnes?",
+    "What revenue could our family’s farm receive after delivery?",
+    "What proceeds would selling 100 kilograms of wheat yield after delivery?",
+    'How much revenue?',
+    'What is the revenue?',
+    'Сколько выручки?',
+    '销售收入是多少？',
+    '总收入是多少？',
+    'How much are the proceeds from selling 100 tonnes?',
+    'How much would the revenue be from 100 tonnes?',
+    'How much is the revenue from 100 tonnes?',
+    'How much will the net proceeds be after delivery?',
+    'How much could our revenue be from selling 100 tonnes?',
+    'How much were proceeds from selling 100 tonnes?',
+    "What does the revenue from 100 tonnes amount to?",
+    "What did our proceeds from selling 100 tonnes come to?",
+    "What might revenue be from 100 tonnes?",
+    "How much may the revenue be from 100 tonnes?",
+    "What would your revenue be from 100 tonnes?",
+    "How much could their proceeds be after delivery?",
+    "What is this revenue from selling 100 tonnes?",
+    "What has that revenue been for 100 tonnes?",
+    "What has the revenue been for 100 tonnes?",
+    "What had our proceeds been after delivery?",
+    "What has revenue been?",
+    "What have the proceeds been from selling 100 tonnes?",
+    "What had our net proceeds been after delivery?",
+    "How much has revenue from 100 tonnes amounted to?",
+    "How much had the proceeds from selling 100 tonnes come to?",
+    "What would revenue have been from 100 tonnes?",
+    "What could proceeds have been after delivery?",
+    "How much does the revenue from 100 tonnes amount to?",
+    "How much do the proceeds from selling 100 tonnes amount to?",
+    "How much did the revenue from 100 tonnes come to?",
+    "How much do the proceeds amount to?",
+    "How much did revenue come to?",
+    "How much does our net revenue amount to?",
+    "How much do our proceeds from 100 tonnes come to?",
+    "What would revenue be?",
+    "What should our proceeds be after delivery?",
+    'What would revenue be from 100 tonnes?',
+    'What is total revenue from 100 tonnes?',
+    "What's revenue from 100 tonnes?",
+    'What could the revenue be from 100 tonnes?',
+    'What should our proceeds be after delivery?',
+    '出售100吨小麦的收入是多少？',
+    '销售100吨小麦的收入有多少？',
+    '销售100吨小麦的收入金额是多少？',
+    '出售100吨小麦的收入？',
+    'What is the revenue from selling 100 tonnes?',
+    'What is the revenue after delivery?',
+    '总收入的金额是多少？',
+    '销售收入大概有多少？',
+    '净收入总共多少？',
+    '请确认总收入是多少？',
+    '请确认小麦100吨总收入是多少？',
+    '小麦100吨总收入是多少？',
+    '计算总收入',
+    'What amount of revenue will 100 tonnes generate?',
+    'What amount of revenue?',
+    'Revenue?',
+    'Revenue for 100 tonnes?',
+    'Net proceeds for 100 tonnes?',
+    'Выручка?',
+    'Выручка от 100 тонн пшеницы?',
+    '销售收入？',
+    'What is the amount of revenue from 100 tonnes?',
+    'What sum of revenue will 100 tonnes generate?',
+    'Какова сумма выручки от 100 тонн пшеницы?',
+    'Каков размер выручки от 100 тонн пшеницы?',
+    'Каков размер выручки?',
+    '销售100吨小麦会获得多少收入？',
+    '出售100吨小麦能获得多少收入？',
+
+    'How much revenue would 100 tonnes of wheat generate?',
+    'Сколько выручки принесут 100 тонн пшеницы?',
+    '100吨小麦能有多少销售收入？',
+
+    'Какая выручка от 100 тонн?',
+    '小麦100吨，净收入是多少？',
+    'What would the proceeds be for 100 tonnes?',
+
+    'Какая выручка: 1.200 тонн по 12000 руб/т. Доставка 80000 руб?',
+    '净收入是多少：小麦1,200吨，价格12000卢布/吨。运输费80000卢布？',
+    'What would the proceeds be for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?',
+    'Сколько составит выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб?',
+    'How much revenue: 100 tonnes at 12000 USD/tonne. Delivery 80000 RUB?',
+
+    'Посчитай выручку: 100 тонн по 12000 руб/т. Доставка 80000 руб. Выведи в документе.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб. На платформе.',
+  ].map((question) => [mode, question] as const)))('clarifies unsupported sale inputs instead of publishing model arithmetic in %s output: %s', async (mode, question) => {
+    const content = 'Gross revenue is one million two hundred thousand; proceeds after delivery are nine hundred thousand. ';
+    const raw = request({ locale: 'en', question, originalQuestion: question, currentDataRequired: false });
+    let answer = '';
+    let calls = 0;
+    if (mode === 'stream') {
+      const probe = installRuntime({ deltas: [content] });
+      for await (const event of service.generateStream(raw)) if (event.type === 'delta') answer += event.text;
+      calls = probe.requests.length;
+    } else {
+      const fetchMock = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      global.fetch = fetchMock;
+      answer = (await service.generate(raw)).answer;
+      calls = fetchMock.mock.calls.length;
+    }
+    expect(calls).toBe(1);
+    expect(answer).toContain('Specify the quantity');
+    expect(answer).not.toContain('nine hundred thousand');
+    expect(answer).not.toContain('1120000');
+  });
+
+  it.each(['stream', 'buffered'].flatMap((mode) => ['', ' \n\t', '<think></think>', '```analysis\n```'].map((content) => [mode, content] as const)))('uses checked sale output after a successful empty provider result in %s: %s', async (mode, content) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    const raw = request({ locale: 'en', question, originalQuestion: question });
+    let answer = '';
+    let calls = 0;
+    let done = false;
+    if (mode === 'stream') {
+      const probe = installRuntime({ deltas: [content] });
+      for await (const event of service.generateStream(raw)) {
+        if (event.type === 'delta') answer += event.text;
+        if (event.type === 'done') done = true;
+      }
+      calls = probe.requests.length;
+    } else {
+      const fetchMock = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      global.fetch = fetchMock;
+      answer = (await service.generate(raw)).answer;
+      calls = fetchMock.mock.calls.length;
+      done = true;
+    }
+    expect(calls).toBe(1);
+    expect(done).toBe(true);
+    expect(answer).toContain('1200000 − 80000 = 1120000 RUB');
+    expect(answer.match(/1200000 − 80000 = 1120000 RUB/gu)).toHaveLength(1);
+  });
+  it.each(['stream', 'buffered'].flatMap((mode) => [
+    '<think>I transferred money</think>',
+    'I\uFEFFtransferred money',
+    'Bearer\uFEFFabcdefghijklmnop12345',
+    'Bearer\uFEFF' + '\u200B'.repeat(5000) + 'abcdefghijklmnop12345',
+    'Bearer&#xFEFF;' + '&#x200B;'.repeat(500) + 'abcdefghijklmnop12345',
+    'Bearer\uFEFF' + '\u200B'.repeat(5000) + 'abcdefgh\uFEFFijklmnop12345',
+    'sk-' + 'a'.repeat(5) + '-Bearer\uFEFF' + 'b'.repeat(40),
+    '<think title="I\uFEFFtrans<em title=\u0027' + 'x'.repeat(5000) + '\u0027>*fer*</em>red money">harmless</think>',
+    '<think>I trans*ferred* money</think>',
+    '<think>I trans<em>ferred</em> money</think>',
+    'I trans&#x66;erred money',
+    'I trans&lt;em&gt;ferred&lt;/em&gt; money',
+    'Bearer abcdefgh&lt;em&gt;ijklmnop&lt;/em&gt;12345',
+    'I trans&#60;em&#62;&#42;ferred&#42;&#60;/em&#62; money',
+    'sk-&#95;&lt;em&gt;' + '&#95;'.repeat(39) + '&lt;/em&gt;',
+    'I trans<em title="a > b">ferred</em> money',
+    'I trans[ferred](https://example.invalid/' + 'x'.repeat(5000) + ') money',
+    '<think title="I trans<em>[fer](https://example.invalid/' + 'x'.repeat(5000) + ')</em>red money">harmless</think>',
+    '<think title="Bearer abcdefgh<em>[ijklmnop](https://example.invalid/' + 'x'.repeat(5000) + ')</em>12345">harmless</think>',
+    "I trans[fer](https://example.invalid/o'reilly/" + 'x'.repeat(5000) + ')red money',
+    'I trans[fer](https://example.invalid/escaped\\)/' + 'x'.repeat(5000) + ')red money',
+    'Bearer abcdefgh[ijklmnop](https://example.invalid/escaped\\)/' + 'x'.repeat(5000) + ')12345',
+    "Bearer abcdefgh[ijklmnop](https://example.invalid/o'reilly/" + 'x'.repeat(5000) + ')12345',
+    'I trans[fer](https://example.invalid/' + 'x'.repeat(5000) + ' "a ) title")red money',
+    "I trans[fer](<https://example.invalid/o'reilly/" + 'x'.repeat(5000) + '>)red money',
+    'I trans[fer](<https://example.invalid/a)/' + 'x'.repeat(5000) + '>)red money',
+    '<think title="I trans<em title=\u0027' + 'x'.repeat(5000) + '\u0027>fer</em>red money">harmless</think>',
+    '<think title="Bearer abcdefgh<em title=\u0027' + 'x'.repeat(5000) + '\u0027>ijklmnop</em>12345">harmless</think>',
+    '<think title="<em title=\u0027I trans<strong title=\u0022' + 'x'.repeat(5000) + '\u0022>fer</strong>red money\u0027>">harmless</think>',
+    '<think title="<em title=\u0027Bearer abcdefgh<strong title=\u0022' + 'x'.repeat(5000) + '\u0022>ijklmnop</strong>12345\u0027>">harmless</think>',
+    '<think title="I trans<em>ferred</em> money">harmless</think>',
+    '<think title="Bearer abcdefgh<em>ijklmnop</em>12345">harmless</think>',
+    'Bearer abcdefgh[ijklmnop](https://example.invalid/' + 'x'.repeat(5000) + ')12345',
+    'I trans&lt;!-- \u0027 > --&gt;ferred money',
+    'Bearer abcdefgh<!-- \u0027 > -->ijklmnop12345',
+    'Bearer abcdefgh<em title="a > b">ijklmnop</em>12345',
+    '<think I trans&#102;erred money',
+    '<think Bearer abcdefgh&#105;jklmnop12345',
+    'Bearer abcdefgh&#x69;jklmnop12345',
+    'I trans&#102erred money',
+    'Bearer&Tab;abcdefghijklmnop12345',
+    'sk-' + '&#95;'.repeat(40),
+    'I trans&#42;ferred&#42; money',
+    '<think>Bearer abcdefgh<em>ijklmnop</em>12345</think>',
+    '<think>I trans_ferred_ money</think>',
+    '<think>Bearer abcdefgh*ijklmnop*12345</think>',
+    '<think>Bearer abcdefgh_ijklmnop_12345</think>',
+    '<analysis>Bearer abcdefghijklmnop12345</analysis>',
+    'Harmless '.repeat(1600) + 'I transferred money',
+    'Harmless '.repeat(1600) + 'Bearer abcdefghijklmnop12345',
+  ].map((content) => [mode, content] as const)))('refuses hidden or late unsafe provider content in %s sale output', async (mode, content) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    const raw = request({ locale: 'en', question, originalQuestion: question });
+    let refused = false;
+    let done = false;
+    let calls = 0;
+    if (mode === 'stream') {
+      const probe = installRuntime({ deltas: [content] });
+      try {
+        for await (const event of service.generateStream(raw)) if (event.type === 'done') done = true;
+      } catch { refused = true; }
+      calls = probe.requests.length;
+    } else {
+      const fetchMock = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      global.fetch = fetchMock;
+      try { await service.generate(raw); done = true; } catch { refused = true; }
+      calls = fetchMock.mock.calls.length;
+    }
+    expect(calls).toBe(1);
+    expect(refused).toBe(true);
+    expect(done).toBe(false);
+  });
+
+  it.each(['stream', 'buffered'].flatMap((mode) => [
+    ["I trans~~ferred~~ money", "WRITE_CLAIM"],
+    ["<think>I trans~~ferred~~ money</think>", "WRITE_CLAIM"],
+    ["<think title=\"I trans~~ferred~~ money\">harmless</think>", "WRITE_CLAIM"],
+    ["I trans&#126;&#126;ferred&#126;&#126; money", "WRITE_CLAIM"],
+    ["<think title=\"I trans<em>[~~fer~~](https://example.invalid/" + 'x'.repeat(5000) + ")</em>red money\">harmless</think>", "WRITE_CLAIM"],
+    ["Bearer abcd~efgh~ijklmn", "SECRET"],
+    ["Bearer abcd~~efgh~~ijklmnop", "SECRET"],
+    ["I trans<em data=a'" + 'x'.repeat(5000) + ">ferred</em> money", "WRITE_CLAIM"],
+    ["I trans<em data=a\"" + 'x'.repeat(5000) + ">ferred</em> money", "WRITE_CLAIM"],
+    ["Bearer abcdefgh<em data=a'" + 'x'.repeat(5000) + ">ijklmnop</em>12345", "SECRET"],
+    ["Bearer abcdefgh<em data=a\"" + 'x'.repeat(5000) + ">ijklmnop</em>12345", "SECRET"],
+    ["I trans<em data=a'" + 'x'.repeat(5000) + " data-next=\"safe > safe\">ferred</em> money", "WRITE_CLAIM"],
+    ["I trans<em a\"=" + 'x'.repeat(5000) + ">ferred</em> money", "WRITE_CLAIM"],
+    ["I trans<em data=a&#39;" + 'x'.repeat(5000) + ">ferred</em> money", "WRITE_CLAIM"],
+    ["I trans<em data=&quot;" + 'x'.repeat(5000) + ">ferred</em> money", "WRITE_CLAIM"],
+    ["Bearer abcdefgh<em data=&#39;" + 'x'.repeat(5000) + ">ijklmnop</em>12345", "SECRET"],
+    ["I trans<em data=&quot;" + 'x'.repeat(5000) + ">&#102;erred</em> money", "WRITE_CLAIM"],
+    ["Bearer abcdefgh<em data=&#39;" + 'x'.repeat(5000) + ">&#105;jklmnop</em>12345", "SECRET"],
+    ["I trans<!--" + 'x'.repeat(5000) + "--!>ferred money", "WRITE_CLAIM"],
+    ["Bearer abcdefgh<!--" + 'x'.repeat(5000) + "--!>ijklmnop12345", "SECRET"],
+    ["I trans<!--" + 'x'.repeat(5000) + "--!>&#102;erred money", "WRITE_CLAIM"],
+    ["Bearer abcdefgh<!--" + 'x'.repeat(5000) + "--!>&#105;jklmnop12345", "SECRET"],
+    ["I trans<!foo data='" + 'x'.repeat(5000) + ">ferred money", "WRITE_CLAIM"],
+    ["Bearer abcdefgh<!foo data='" + 'x'.repeat(5000) + ">ijklmnop12345", "SECRET"],
+    ["I trans<?foo data='" + 'x'.repeat(5000) + ">ferred money", "WRITE_CLAIM"],
+    ["Bearer abcdefgh<?foo data='" + 'x'.repeat(5000) + ">ijklmnop12345", "SECRET"],
+    ['I trans[fer][' + 'r'.repeat(321) + ']red money\n\n[' + 'r'.repeat(321) + ']: https://example.invalid/', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh[ijklmnop][' + 'r'.repeat(321) + ']12345\n\n[' + 'r'.repeat(321) + ']: https://example.invalid/', 'SECRET'],
+    ['I trans[fer][' + 'r'.repeat(900) + ']red money\n\n[' + 'r'.repeat(900) + ']: https://example.invalid/', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh[ijklmnop][' + 'r'.repeat(900) + ']12345\n\n[' + 'r'.repeat(900) + ']: https://example.invalid/', 'SECRET'],
+    ['<think title="I trans<em>[fer][' + 'r'.repeat(321) + ']</em>red money">harmless</think>\n\n[' + 'r'.repeat(321) + ']: https://example.invalid/', 'WRITE_CLAIM'],
+    ['<think title="Bearer abcdefgh<em>[ijklmnop][' + 'r'.repeat(321) + ']</em>12345">harmless</think>\n\n[' + 'r'.repeat(321) + ']: https://example.invalid/', 'SECRET'],
+    ['I trans[fer][' + 'r'.repeat(321) + '\\]r]red money\n\n[' + 'r'.repeat(321) + '\\]r]: https://example.invalid/', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh[ijklmnop][' + 'r'.repeat(321) + '\\]r]12345\n\n[' + 'r'.repeat(321) + '\\]r]: https://example.invalid/', 'SECRET'],
+  ].map(([content]) => [mode, content] as const)))('refuses long reference-style Markdown in %s sale output: %s', async (mode, content) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    const raw = request({ locale: 'en', question, originalQuestion: question });
+    for (const size of [1, 7, 511, 5000]) {
+      let refused = false;
+      let done = false;
+      if (mode === 'stream') {
+        installRuntime({ deltas: Array.from({ length: Math.ceil(content.length / size) }, (_, index) => content.slice(index * size, (index + 1) * size)), gapMs: 0 });
+        try {
+          for await (const event of service.generateStream(raw)) if (event.type === 'done') done = true;
+        } catch { refused = true; }
+      } else {
+        global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+        try { await service.generate(raw); done = true; } catch { refused = true; }
+      }
+      expect(refused).toBe(true);
+      expect(done).toBe(false);
+    }
+  });
+  it.each(['stream', 'buffered'].flatMap((mode) => [
+    '&#x200B;', '&#8203;', '\u200B', '\u200C', '\u2060',
+    '&#x00AD;', '&#x202E;', '&#xE0001;', '\u{E0001}',
+    '&ZeroWidthSpace;', '&shy;', '&#x034F;', '\uFE0F',
+  ].flatMap((invisible) => [
+    'I trans' + invisible + 'ferred money',
+    'Bearer abcdefgh' + invisible + 'ijklmnop12345',
+  ].map((content) => [mode, content] as const))))('refuses invisible token splitting in %s sale output: %s', async (mode, content) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    const raw = request({ locale: 'en', question, originalQuestion: question });
+    for (const size of [1, 7, 511, 5000]) {
+      let refused = false;
+      let done = false;
+      if (mode === 'stream') {
+        installRuntime({ deltas: Array.from({ length: Math.ceil(content.length / size) }, (_, index) => content.slice(index * size, (index + 1) * size)), gapMs: 0 });
+        try {
+          for await (const event of service.generateStream(raw)) if (event.type === 'done') done = true;
+        } catch { refused = true; }
+      } else {
+        global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+        try { await service.generate(raw); done = true; } catch { refused = true; }
+      }
+      expect(refused).toBe(true);
+      expect(done).toBe(false);
+    }
+  });
+  it.each(['stream', 'buffered'].flatMap((mode) => [
+    "What revenue will selling 100 tonnes at 12000 RUB/tonne be recognized as after delivery of 80000 RUB?",
+    "What proceeds would selling 100 tonnes at 12000 RUB/tonne be accounted for after delivery of 80000 RUB?",
+    "What revenue can selling 100 tonnes mean under IFRS?",
+    "What revenue would we recognize from selling 100 tonnes?",
+    "What revenue should be recognized under IFRS when selling 100 tonnes at 12000 RUB/tonne generates cash proceeds after delivery of 80000 RUB?",
+    "How much revenue should be recognized when selling 100 tonnes at 12000 RUB/tonne generates cash?",
+    "What revenue would we recognize if selling 100 tonnes at 12000 RUB/tonne produces cash?",
+    "How much revenue could our farm recognize when selling 100 tonnes generates cash?",
+    "What revenue should be measured according to IFRS because selling 100 tonnes earns cash?",
+    "What revenue will that farm recognize provided the sale of 100 tonnes generates cash?",
+    "What revenue will the new dashboard generate reports about?",
+    "What revenue will the accounting system produce reports for under IFRS?",
+    "How much revenue will the new dashboard generate reports about for 100 tonnes at 12000 RUB/tonne?",
+    "What proceeds would our accounting system make reports about?",
+    "What revenue could that farm get information about?",
+    "What revenue will the new dashboard generate daily reports about?",
+    "What proceeds would our accounting system produce monthly statements for?",
+    "What revenue could that farm get regularly updated information about?",
+    "What revenue will the accounting system make incredibly useful reports about?",
+    "What revenue will our small family farm recognize under IFRS when selling 100 tonnes?",
+    "What revenue will the newly established accounting information system generate daily reports about?",
+    "How much revenue should our regional sustainable farming accounting department disclose in statements?",
+    "What proceeds would the accounting department of our extended family farming business produce monthly statements for?",
+    "What revenue will selling 100 tonnes of wheat recognize under IFRS?",
+    "What revenue should our family's farm recognize under accounting standards?",
+    "What revenue will selling 100 tonnes of wheat produce informational reports about?",
+    "What proceeds should our family’s farming business disclose in statements?",
+    'What is the revenue definition?',
+    'How much would the revenue improve from 100 tonnes of wheat?',
+    'How much can I increase revenue from 100 tonnes of wheat?',
+    'How much is the revenue definition useful for farmers?',
+    'What could revenue recognition mean for farmers?',
+    'What should revenue recognition principles require?',
+    "What might your revenue be recognized as under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What does their revenue recognition principle require for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "How much could their proceeds improve from selling 100 tonnes?",
+    "What is this revenue definition for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "Can revenue, from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB, be recognized under IFRS?",
+    "Как следует учитывать выручку, полученную от 100 тонн по 12000 руб/т с доставкой 80000 руб, по МСФО?",
+    "Can revenue; from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB; be recognized under IFRS?",
+    "Can revenue—generated from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB—be recognized under IFRS?",
+    "Как следует учитывать выручку(полученную от 100 тонн по 12000 руб/т с доставкой 80000 руб)по МСФО?",
+    "Can revenue: from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB be recognized under IFRS?",
+    "Can revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB be recognized under IFRS?",
+    "Is revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB recognized under IFRS?",
+    "Как следует учитывать выручку от 100 тонн по 12000 руб/т с доставкой 80000 руб по МСФО?",
+    "Can revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB be recognized as income?",
+    "Is revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB recognized as income?",
+    "Как следует учитывать выручку от 100 тонн по 12000 руб/т с доставкой 80000 руб?",
+    "How should revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB be recorded under IFRS?",
+    "Why is revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB recognized as income?",
+    "Under IFRS, how should revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB be recognized?",
+    "How should revenue be accounted for under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "How is revenue recognized under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "Under IFRS, what should revenue be accounted for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "Explain how revenue is measured under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "Should revenue be accounted for under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "Under IFRS, what could revenue be disclosed as for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "How should our proceeds be measured for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "Explain how revenue can be valued for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What is revenue recognized as under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "How can revenue recognition principles apply to 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be accounted for under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be measured under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be disclosed under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be valued under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be reconciled under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be interpreted under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be allocated under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be documented under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be recognized as under IFRS?",
+    "What would proceeds be called in accounting?",
+    "What can revenue be used for?",
+    "What should the revenue be recognized as for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What would our proceeds be called in accounting for 100 tonnes?",
+    "What can total revenue be used for on a farm selling 100 tonnes?",
+    "What should revenue be defined as?",
+    "What can revenue be classified as under IFRS?",
+    "What would revenue be from crop diversification?",
+    "What should revenue be for accounting purposes?",
+    "What's revenue?",
+    'What is total revenue?',
+    'What are proceeds?',
+    'What is the revenue after tax definition?',
+    'What is the revenue for accounting purposes?',
+    'What is the revenue from crop diversification?',
+    'What is the revenue for 100 tonnes for accounting purposes?',
+    'What is the revenue from crop diversification for 100 tonnes?',
+    '出售100吨小麦的收入的定义是多少？',
+    'What is the revenue recognition principle?',
+    'Revenue recognition principle for 100 tonnes of wheat?',
+    'Revenue from crop diversification?',
+    '如何提高100吨小麦的总收入？',
+    '总收入的定义是什么？',
+    '如何提高销售收入和总收入？',
+    '总收入的含义是多少？',
+    '销售收入的含义是多少？',
+    '净收入的会计含义是多少？',
+    '总收入的意思是多少？',
+    '总收入的释义是多少？',
+    '总收入的定义是多少？',
+    '销售收入的定义是多少？',
+    '净收入的会计定义是多少？',
+    '总收入的确认原则是多少？',
+    '小麦100吨，总收入的定义是多少？',
+    'Revenue after tax definition?',
+    'Net proceeds from crop rotation benefits?',
+    'Выручка считается доходом?',
+    'Какая выручка считается доходом?',
+  ].map((question) => [mode, question] as const)))('retains accounting explanations in %s output: %s', async (mode, question) => {
+    const content = 'Revenue recognition follows the applicable accounting policy and contractual obligations. ';
+    const raw = request({ question, originalQuestion: question, locale: 'en' });
+    let answer = '';
+    if (mode === 'stream') {
+      installRuntime({ deltas: [content] });
+      for await (const event of service.generateStream(raw)) if (event.type === 'delta') answer += event.text;
+    } else {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] })));
+      answer = (await service.generate(raw)).answer;
+    }
+    expect(answer).toContain('Revenue recognition follows');
+    expect(answer).not.toContain('Specify the quantity');
+  });
+  it.each(['stream', 'buffered'])('keeps empty-provider refusal for non-sale questions in %s', async (mode) => {
+    const raw = request({ question: 'How can I improve wheat crop quality?', originalQuestion: 'How can I improve wheat crop quality?', locale: 'en' });
+    let refused = false;
+    if (mode === 'stream') {
+      installRuntime({ deltas: [' \n\t'] });
+      try { for await (const _event of service.generateStream(raw)) { /* consume */ } } catch { refused = true; }
+    } else {
+      global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: ' \n\t' }, finish_reason: 'stop' }] })));
+      try { await service.generate(raw); } catch { refused = true; }
+    }
+    expect(refused).toBe(true);
+  });
+  it.each(['stream', 'buffered'])('keeps provider HTTP failure even when sale calculation is ready in %s', async (mode) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    const raw = request({ question, originalQuestion: question, locale: 'en' });
+    const fetchMock = jest.fn().mockResolvedValue(new Response('{}', { status: 503 }));
+    global.fetch = fetchMock;
+    let refused = false;
+    let done = false;
+    try {
+      if (mode === 'stream') {
+        for await (const event of service.generateStream(raw)) if (event.type === 'done') done = true;
+      } else { await service.generate(raw); done = true; }
+    } catch { refused = true; }
+    expect(fetchMock.mock.calls).toHaveLength(1);
+    expect(refused).toBe(true);
+    expect(done).toBe(false);
+  });
+  it.each([
+    'data: [DONE]\n\n',
+    'data: {invalid-json}\n\ndata: [DONE]\n\n',
+    'data: {"usage":{"completion_tokens":0}}\n\ndata: [DONE]\n\n',
+    'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n',
+    'data: {"choices":[{"delta":{"content":""}}]}\n\ndata: [DONE]\n\n',
+  ])('refuses malformed empty sale SSE instead of sealing the checked copy: %s', async (body) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    const raw = request({ question, originalQuestion: question, locale: 'en' });
+    const fetchMock = jest.fn().mockResolvedValue(new Response(body, { headers: { 'Content-Type': 'text/event-stream' } }));
+    global.fetch = fetchMock;
+    let refused = false;
+    let done = false;
+    try { for await (const event of service.generateStream(raw)) if (event.type === 'done') done = true; } catch { refused = true; }
+    expect(fetchMock.mock.calls).toHaveLength(1);
+    expect(refused).toBe(true);
+    expect(done).toBe(false);
+  });
+  it.each([
+    { choices: [{ message: {}, finish_reason: 'stop' }] },
+    { choices: [{ message: { content: '' } }] },
+  ])('refuses malformed empty buffered sale completion', async (payload) => {
+    const question = 'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.';
+    global.fetch = jest.fn().mockResolvedValue(new Response(JSON.stringify(payload)));
+    let refused = false;
+    try { await service.generate(request({ question, originalQuestion: question, locale: 'en' })); } catch { refused = true; }
+    expect(refused).toBe(true);
+  });
   it.each(['stream', 'buffered'])('screens economic conclusions and checks user arithmetic in %s output', async (mode) => {
     const question = 'Срок хранения два месяца. Насколько должна вырасти цена, чтобы покрыть только хранение?';
     const raw = request({ question, originalQuestion: question, history: [

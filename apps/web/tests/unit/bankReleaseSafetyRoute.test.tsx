@@ -78,17 +78,17 @@ describe('selected bank payout page reason copy', () => {
   }
   const locales = [
     { locale: 'ru', dispute: 'По Сделке есть открытый спор.', hold: 'На средства действует удержание.',
-      currency: 'Валюта банковской операции расходится с валютой Сделки', reconciliation: 'Результат банковской сверки пока недоступен.',
+      currency: 'Валюта банковской операции расходится с валютой Сделки', amountMismatch: 'Сумма банковской операции расходится с суммой Сделки; требуется ручная сверка.', reconciliation: 'Результат банковской сверки пока недоступен.',
       document: 'Товарно-транспортная накладная: документ не представлен.', signing: 'Лабораторный протокол: подписание не подтверждено.',
       unknownBlocker: 'Дополнительное условие выплаты требует проверки в Сделке.', unknownWarning: 'Дополнительные сведения нужно проверить в Сделке.',
       known: 'выплата подтверждена банком' },
     { locale: 'en', dispute: 'The Deal has an open dispute.', hold: 'A hold applies to the funds.',
-      currency: 'The bank operation currency differs from the Deal currency', reconciliation: 'The bank reconciliation result is not yet available.',
+      currency: 'The bank operation currency differs from the Deal currency', amountMismatch: 'The bank operation amount differs from the Deal amount; manual reconciliation is required.', reconciliation: 'The bank reconciliation result is not yet available.',
       document: 'Consignment note: the document is not provided.', signing: 'Laboratory report: signing is not confirmed.',
       unknownBlocker: 'An additional payout condition needs checking in the Deal.', unknownWarning: 'Additional information needs checking in the Deal.',
       known: 'payout confirmed by bank' },
     { locale: 'zh', dispute: '该交易存在未结争议。', hold: '资金存在冻结或扣留。',
-      currency: '银行操作币种与交易币种不一致', reconciliation: '银行对账结果暂不可用。',
+      currency: '银行操作币种与交易币种不一致', amountMismatch: '银行操作金额与交易金额不一致，需要人工对账。', reconciliation: '银行对账结果暂不可用。',
       document: '货物运输单: 尚未提供文件。', signing: '实验室报告: 签署尚未确认。',
       unknownBlocker: '另有付款条件需要在交易中核查。', unknownWarning: '另有信息需要在交易中核查。',
       known: '银行已确认付款' },
@@ -106,6 +106,15 @@ describe('selected bank payout page reason copy', () => {
     const html = await render(copy.locale);
     expect(html).toContain(copy.document); expect(html).toContain(copy.signing);
     for (const code of projection.blockers) expect(html).not.toContain(code);
+  });
+  it.each(locales)('explains a bank-operation amount conflict without claiming payout in $locale', async copy => {
+    projection.blockers.push('BANK_OPERATION_AMOUNT_REQUIRES_MANUAL_REVIEW');
+    const html = await render(copy.locale);
+    expect(html).toContain(copy.amountMismatch);
+    expect(html).not.toContain('BANK_OPERATION_AMOUNT_REQUIRES_MANUAL_REVIEW');
+    expect(html).not.toContain(copy.known);
+    expect(projection.state).toBe('manual_review');
+    expect(projection.releaseConfirmed).toBe(false);
   });
   it.each(locales)('keeps unknown and prototype reason keys readable without exposing raw values in $locale', async copy => {
     projection.blockers.push('NEW_PRIVATE_GATE', 'constructor', '__proto__', 'DOCUMENT:UNKNOWN_TYPE:UNKNOWN_CHECK',

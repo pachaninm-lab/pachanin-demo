@@ -4,6 +4,7 @@ import {
   economicBlockAllowed,
   economicComparisonFor,
   paymentTimingFromUser,
+  saleProceedsFromUser,
   storageCostFromUser,
   economicComparisonCopy,
 } from './restricted-public-qwen.stream-gate';
@@ -18,6 +19,658 @@ const grounding: PublicGrounding = Object.freeze({
   maturity: 'Только чтение.',
   confidence: 'medium',
   sources: Object.freeze([]),
+});
+
+describe('explicit sale proceeds after delivery', () => {
+  const question = 'Пшеница: 100 тонн по 12 000 рублей за тонну. Доставка 80 000 рублей. Посчитай итоговую выручку после доставки и покажи расчёт.';
+  it.each([
+    [question, 112000000],
+    ['Wheat: 100 tonnes at 12000 RUB per tonne. Delivery 80000 RUB. Calculate revenue after delivery.', 112000000],
+    ['小麦100吨，价格12000卢布/吨。运输费80000卢布。计算净收入。', 112000000],
+    ['Выручка: 1,5 тонны по 100,20 руб/т. Доставка 10,05 руб.', 14025],
+    ['Выручка: 100 тонн по 12000 руб/т. Доставка 0 руб.', 120000000],
+    ['Выручка: 1 тонна по 100 руб/т. Доставка 150 руб.', -5000],
+    ['Выручка: 100 тонн по 12\u00a0000 руб/т. Доставка 80\u202f000 руб.', 112000000],
+    ['Выручка: 100 тонн по 12000 руб/т. Стоимость доставки 80000 руб.', 112000000],
+    ['Delivery cost 80000 RUB. Wheat: 100 tonnes at 12000 RUB/tonne. Calculate revenue.', 112000000],
+    ['Продаю пшеницу: 100 тонн по 12000 руб/т. Доставка 80000 руб. Посчитай выручку.', 112000000],
+    ["Revenue: 100 tonnes at 12000 RUB/tonne. Total delivery charge 80000 RUB.", 112000000],
+    ["Revenue: 100 tonnes at 12000 RUB/tonne. Delivery charge: 80000 RUB.", 112000000],
+    ["Revenue: 100 tonnes at 12000 RUB/tonne. Total delivery cost 80000 RUB.", 112000000],
+    ["Выручка: 100 тонн по 12000 руб/т. Общая стоимость доставки 80000 руб.", 112000000],
+    ["Посчитай выручку: 100 тонн по 12000 руб/т. Общую стоимость доставки: 80000 руб.", 112000000],
+    ["销售收入：100吨，价格12000卢布/吨。运输总费用80000卢布。", 112000000],
+    ['Revenue: 1 200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.', 1432000000],
+    ['计算净收入：小麦1200吨，价格12000卢布/吨。运输费80000卢布。', 1432000000],
+    ['计算总收入：小麦100吨，价格：12000卢布/吨，运费80000卢布。', 112000000],
+    ['Revenue: 0.125 tonnes at 100 RUB/tonne. Delivery 0 RUB.', 1250],
+    ['Выручка: 0.125 тонны по 100 руб/т. Доставка 0 руб.', 1250],
+    ['计算净收入：小麦0.125吨，价格100卢布/吨。运输费0卢布。', 1250],
+    ['Revenue: wheat delivery 80000 RUB. Wheat 100 tonnes at 12000 RUB/tonne.', 112000000],
+    ['Выручка: пшеница доставка 80000 руб. Пшеница 100 тонн по 12000 руб/т.', 112000000],
+    ['Revenue: corn maize 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.', 112000000],
+    ['Revenue: corn 玉米 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.', 112000000],
+  ])('calculates only supplied amounts: %s', (input, proceeds) => {
+    const sale = saleProceedsFromUser(String(input));
+    expect(sale?.proceedsMinor).toBe(proceeds);
+    expect(economicComparisonFor(String(input), [])).toBe('sale_proceeds');
+    for (const locale of ['ru', 'en', 'zh'] as const) {
+      expect(economicComparisonCopy('sale_proceeds', locale, null, null, sale)).toContain(String(Number(proceeds) / 100));
+    }
+  });
+  it.each([
+    'Выручка: 100 тонн по 12000 руб/т.',
+    'Выручка: 100 тонн. Доставка 80000 руб.',
+    'Выручка: по 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка 800 руб/т.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка 800 руб за тонну.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб. Хранение 1000 руб.',
+    'Выручка: 100 или 200 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: -100 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: 100 тонн по -12000 руб/т. Доставка 80000 руб.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка -80000 руб.',
+    'Выручка: не 100 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: 0 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: 100 тонн по 0 руб/т. Доставка 80000 руб.',
+    'Выручка: 100 тонн по 12000 USD/т. Доставка 80000 руб.',
+    'Выручка: 100 тонн по 12 00 руб/т. Доставка 80000 руб.',
+    'Выручка: 0,001 тонны по 0,01 руб/т. Доставка 0 руб.',
+    'Выручка: 0.001 тонны по 0,01 руб/т. Доставка 0 руб.',
+    'Revenue: 1,200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.',
+    '计算净收入：小麦1,200吨，价格12000卢布/吨。运输费80000卢布。',
+    'Выручка: 1,200 тонны по 12000 руб/т. Доставка 80000 руб.',
+    'Revenue: 0,125 tonnes at 100 RUB/tonne. Delivery 0 RUB.',
+    'Выручка: 1.200 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Revenue: 1.200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.',
+    '计算净收入：小麦1.200吨，价格12000卢布/吨。运输费80000卢布。',
+    'Выручка: 12.000 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: 123.456 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: 1 200.500 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Revenue: 00.125 tonnes at 100 RUB/tonne. Delivery 0 RUB.',
+    'Revenue: 100 tons at 12000 RUB/tonne. Delivery 80000 RUB.',
+    'How much revenue: 1,200 tonnes at 12000 RUB/tonne. Delivery 80000 RUB?',
+    'How much revenue from 100 tonnes?',
+    "What revenue will selling 100 tonnes at 12000 RUB/tonne generate after delivery of 80000 RUB?",
+    "What net proceeds would selling 100 tonnes at 12000 RUB/tonne yield after delivery of 80000 RUB?",
+    "What gross revenue can selling 100 tonnes generate?",
+    "What revenue would we receive from selling 100 tonnes?",
+    "What proceeds did selling 100 tonnes bring after delivery?",
+    "What total revenue will 100 tonnes at 12000 RUB/tonne produce after delivery of 80000 RUB?",
+    "How much revenue did selling 100 tonnes at 12000 RUB/tonne generate after delivery of 80000 RUB?",
+    "How much net proceeds would selling 100 tonnes yield after delivery?",
+    "How much revenue will 100 tonnes at 12000 RUB/tonne produce after delivery of 80000 RUB?",
+    "How much revenue could we receive from selling 100 tonnes?",
+    "How much revenue did selling 1.5 tonnes at 100.20 RUB/tonne generate after delivery of 10.05 RUB?",
+    "What revenue will the sale of 100 tonnes at 12000 RUB/tonne generate after delivery of 80000 RUB?",
+    "How much proceeds will our farm earn from selling 100 tonnes?",
+    "What revenue will that farm make from selling 100 tonnes?",
+    "What revenue was generated by selling 100 tonnes?",
+    "How much revenue could be generated from selling 100 tonnes?",
+    "What revenue have sales generated from selling 100 tonnes?",
+    "How much revenue will selling 100 tonnes at 12000 USD/tonne generate after delivery of 80000 RUB?",
+    "What revenue will our farm earn this year from selling 100 tonnes?",
+    "How much revenue could that farm make today?",
+    "What proceeds would selling 100 tonnes yield after delivery?",
+    "What revenue could our farm generate in 2025?",
+    "What revenue will our farm earn approximately from selling 100 tonnes?",
+    "What revenue will our farm generate annually from selling 100 tonnes?",
+    "How much revenue could our farm receive regularly after delivery?",
+    "What proceeds will our farm earn consistently from selling 100 tonnes?",
+    "What revenue will our farm earn very roughly after delivery?",
+    "What revenue would our farm earn more from selling 100 tonnes?",
+    "What revenue would our farm generate surprisingly in 2026?",
+    "What revenue will our farm generate annually?",
+    "What revenue will our small family farm generate annually from selling 100 tonnes?",
+    "How much revenue would the newly established family farming cooperative earn from selling 100 tonnes?",
+    "What proceeds could our regional sustainable grain farming enterprise receive regularly after delivery?",
+    "What revenue does the entire small family farming business generate monthly?",
+    "What revenue did our very small family grain farm make last year?",
+    "What proceeds will the farm operated by our family members yield from selling 100 tonnes?",
+    "What revenue will selling 100 tonnes of wheat generate annually?",
+    "What revenue will our family's farm earn annually from selling 100 tonnes?",
+    "What revenue could our family’s farm receive after delivery?",
+    "What proceeds would selling 100 kilograms of wheat yield after delivery?",
+    'How much revenue?',
+    'What is the revenue?',
+    'Сколько выручки?',
+    '销售收入是多少？',
+    '总收入是多少？',
+    'How much are the proceeds from selling 100 tonnes?',
+    'How much would the revenue be from 100 tonnes?',
+    'How much is the revenue from 100 tonnes?',
+    'How much will the net proceeds be after delivery?',
+    'How much could our revenue be from selling 100 tonnes?',
+    'How much were proceeds from selling 100 tonnes?',
+    "What does the revenue from 100 tonnes amount to?",
+    "What did our proceeds from selling 100 tonnes come to?",
+    "What might revenue be from 100 tonnes?",
+    "How much may the revenue be from 100 tonnes?",
+    "What would your revenue be from 100 tonnes?",
+    "How much could their proceeds be after delivery?",
+    "What is this revenue from selling 100 tonnes?",
+    "What has that revenue been for 100 tonnes?",
+    "What has the revenue been for 100 tonnes?",
+    "What had our proceeds been after delivery?",
+    "What has revenue been?",
+    "What have the proceeds been from selling 100 tonnes?",
+    "What had our net proceeds been after delivery?",
+    "How much has revenue from 100 tonnes amounted to?",
+    "How much had the proceeds from selling 100 tonnes come to?",
+    "What would revenue have been from 100 tonnes?",
+    "What could proceeds have been after delivery?",
+    "How much does the revenue from 100 tonnes amount to?",
+    "How much do the proceeds from selling 100 tonnes amount to?",
+    "How much did the revenue from 100 tonnes come to?",
+    "How much do the proceeds amount to?",
+    "How much did revenue come to?",
+    "How much does our net revenue amount to?",
+    "How much do our proceeds from 100 tonnes come to?",
+    "What would revenue be?",
+    "What should our proceeds be after delivery?",
+    'What would revenue be from 100 tonnes?',
+    'What is total revenue from 100 tonnes?',
+    "What's revenue from 100 tonnes?",
+    'What could the revenue be from 100 tonnes?',
+    'What should our proceeds be after delivery?',
+    '出售100吨小麦的收入是多少？',
+    '销售100吨小麦的收入有多少？',
+    '销售100吨小麦的收入金额是多少？',
+    '出售100吨小麦的收入？',
+    'What is the revenue from selling 100 tonnes?',
+    'What is the revenue after delivery?',
+    '总收入的金额是多少？',
+    '销售收入大概有多少？',
+    '净收入总共多少？',
+    '请确认总收入是多少？',
+    '请确认小麦100吨总收入是多少？',
+    '小麦100吨总收入是多少？',
+    '计算总收入',
+    'What amount of revenue will 100 tonnes generate?',
+    'What amount of revenue?',
+    'Revenue?',
+    'Revenue for 100 tonnes?',
+    'Net proceeds for 100 tonnes?',
+    'Выручка?',
+    'Выручка от 100 тонн пшеницы?',
+    '销售收入？',
+    'What is the amount of revenue from 100 tonnes?',
+    'What sum of revenue will 100 tonnes generate?',
+    'Какова сумма выручки от 100 тонн пшеницы?',
+    'Каков размер выручки от 100 тонн пшеницы?',
+    'Каков размер выручки?',
+    '销售100吨小麦会获得多少收入？',
+    '出售100吨小麦能获得多少收入？',
+
+    'How much revenue would 100 tonnes of wheat generate?',
+    'Сколько выручки принесут 100 тонн пшеницы?',
+    '100吨小麦能有多少销售收入？',
+
+    'Какая выручка от 100 тонн?',
+    '小麦100吨，净收入是多少？',
+    'What would the proceeds be for 100 tonnes?',
+
+    'Какая выручка: 1.200 тонн по 12000 руб/т. Доставка 80000 руб?',
+    '净收入是多少：小麦1,200吨，价格12000卢布/吨。运输费80000卢布？',
+    'What would the proceeds be for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?',
+    'Сколько составит выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб?',
+    'How much revenue: 100 tonnes at 12000 USD/tonne. Delivery 80000 RUB?',
+
+    'Revenue: 100 tonnes at 12000 RUB/ton. Delivery 80000 RUB.',
+    'Revenue: 100 tons at 12000 RUB/ton. Delivery 80000 RUB.',
+    'Посчитай выручку: 100 тонн по 12000 руб/т. Доставка 80000 руб. Выведи в документе.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб. На платформе.',
+    'Revenue: corn delivery 80000 RUB. Wheat 100 tonnes at 12000 RUB/tonne.',
+    'Revenue: wheat 100 tonnes at 12000 RUB/tonne. Corn delivery 80000 RUB.',
+    'Выручка: кукуруза доставка 80000 руб. Пшеница 100 тонн по 12000 руб/т.',
+    'Выручка: пшеница 100 тонн по 12000 руб/т. Рис доставка 80000 руб.',
+    '计算净收入：玉米运输费80000卢布。小麦100吨，价格12000卢布/吨。',
+    'Revenue: wheat 100 tonnes at 12000 RUB/tonne. Soy delivery 80000 RUB.',
+    'Revenue: barley 100 tonnes at 12000 RUB/tonne. Rye delivery 80000 RUB.',
+    'Revenue: rice 100 tonnes at 12000 RUB/tonne. Canola delivery 80000 RUB.',
+    'Revenue: sunflower 100 tonnes at 12000 RUB/tonne. Corn delivery 80000 RUB.',
+    'Выручка: 999999999 тонн по 999999999 руб/т. Доставка 0 руб.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб. НДС включён.',
+    'Выручка: пшеница 100 тонн. Цена сои 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: 100 тонн примерно по 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб в месяц.',
+    'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB each trip.',
+    'Посчитай выручку: стоимость хранения 100 тонн по 12000 руб/т и доставка 80000 руб.',
+    'Выручка: себестоимость 100 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Выручка: тариф на сушку 100 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Revenue: storage costs for 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.',
+    'Revenue: procurement of 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.',
+    'Выручка: покупаю 100 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Посчитай выручку от перепродажи: купил 100 тонн по 12000 руб/т. Доставка 80000 руб.',
+    'Revenue: bought 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB.',
+    '计算净收入：买了100吨，价格12000卢布/吨。运输费80000卢布。',
+    'Пшеница: 100 тонн по 12000 руб/т. Доставка 80000 руб. Я заплатил эту цену; посчитай выручку.',
+    'Wheat: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB. This is what I paid; calculate revenue.',
+    '小麦100吨，价格12000卢布/吨。运输费80000卢布。这是采购价，计算净收入。',
+    'Выручка: страховка 100 тонн по 12000 руб/т. Доставка 80000 руб.',
+    '计算净收入：仓储100吨，价格12000卢布/吨。运输费80000卢布。',
+    'Выручка: 100 тонн по 12000 руб/т. За каждый рейс доставка 80000 руб.',
+    'Выручка: 100 тонн по 12000 руб/т. Доставка 80000 руб., за каждый рейс.',
+    'Выручка: 100 тонн по 12000 руб/т. Ежемесячная доставка 80000 руб.',
+    'Выручка: 100 тонн по 12000 руб/т. За один рейс доставка 80000 руб.',
+    'Revenue: 100 tonnes at 12000 RUB/tonne. Each trip: delivery 80000 RUB.',
+    'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB, each trip.',
+    'Revenue: 100 tonnes at 12000 RUB/tonne. Delivery 80000 RUB. Per trip.',
+    'Revenue: 100 tonnes at 12000 RUB/tonne. Monthly delivery 80000 RUB.',
+    '计算净收入：小麦100吨，价格12000卢布/吨。每趟运输费80000卢布。',
+    '计算净收入：小麦100吨，价格12000卢布/吨。运输费80000卢布，每趟。',
+  ])('does not infer or round ambiguous inputs: %s', (input) => {
+    expect(saleProceedsFromUser(input)).toBeNull();
+    expect(economicComparisonFor(input, [{ role: 'assistant', text: question }])).toBe('sale_proceeds');
+    expect(economicComparisonCopy('sale_proceeds', 'en', null, null, saleProceedsFromUser(input))).toContain('Specify the quantity');
+  });
+  it('does not infer quantity or delivery from history and labels the limited result', () => {
+    expect(economicComparisonFor('Посчитай выручку', [{ role: 'user', text: question }])).toBe('sale_proceeds');
+    expect(economicComparisonCopy('sale_proceeds', 'ru', null, null, saleProceedsFromUser('Посчитай выручку'))).not.toContain('1120000');
+    const copy = economicComparisonCopy('sale_proceeds', 'ru', null, null, saleProceedsFromUser(question));
+    expect(copy).toContain('100 т × 12000 руб/т = 1200000 руб');
+    expect(copy).toContain('1200000 − 80000 = 1120000 руб');
+    expect(copy).toContain('а не прибыль');
+    expect(copy).toContain('Текущая рыночная цена не проверялась');
+  });
+  it.each([
+    'Как повысить выручку хозяйства, которое выращивает 100 тонн пшеницы?',
+    'How can I increase revenue from 100 tonnes of wheat?',
+    'What strategies can increase revenue from 100 tonnes of wheat?',
+    'What are the revenue strategies for 100 tonnes of wheat?',
+    'What would improve revenue from 100 tonnes of wheat?',
+    'Какая стратегия увеличит выручку от 100 тонн пшеницы?',
+    'How can I improve revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?',
+    'What is revenue?',
+    "What revenue will selling 100 tonnes at 12000 RUB/tonne be recognized as after delivery of 80000 RUB?",
+    "What proceeds would selling 100 tonnes at 12000 RUB/tonne be accounted for after delivery of 80000 RUB?",
+    "What revenue can selling 100 tonnes mean under IFRS?",
+    "What revenue would we recognize from selling 100 tonnes?",
+    "What revenue should be recognized under IFRS when selling 100 tonnes at 12000 RUB/tonne generates cash proceeds after delivery of 80000 RUB?",
+    "How much revenue should be recognized when selling 100 tonnes at 12000 RUB/tonne generates cash?",
+    "What revenue would we recognize if selling 100 tonnes at 12000 RUB/tonne produces cash?",
+    "How much revenue could our farm recognize when selling 100 tonnes generates cash?",
+    "What revenue should be measured according to IFRS because selling 100 tonnes earns cash?",
+    "What revenue will that farm recognize provided the sale of 100 tonnes generates cash?",
+    "What revenue will the new dashboard generate reports about?",
+    "What revenue will the accounting system produce reports for under IFRS?",
+    "How much revenue will the new dashboard generate reports about for 100 tonnes at 12000 RUB/tonne?",
+    "What proceeds would our accounting system make reports about?",
+    "What revenue could that farm get information about?",
+    "What revenue will the new dashboard generate daily reports about?",
+    "What proceeds would our accounting system produce monthly statements for?",
+    "What revenue could that farm get regularly updated information about?",
+    "What revenue will the accounting system make incredibly useful reports about?",
+    "What revenue will our small family farm recognize under IFRS when selling 100 tonnes?",
+    "What revenue will the newly established accounting information system generate daily reports about?",
+    "How much revenue should our regional sustainable farming accounting department disclose in statements?",
+    "What proceeds would the accounting department of our extended family farming business produce monthly statements for?",
+    "What revenue will selling 100 tonnes of wheat recognize under IFRS?",
+    "What revenue should our family's farm recognize under accounting standards?",
+    "What revenue will selling 100 tonnes of wheat produce informational reports about?",
+    "What proceeds should our family’s farming business disclose in statements?",
+    'What is the revenue definition?',
+    'How much would the revenue improve from 100 tonnes of wheat?',
+    'How much can I increase revenue from 100 tonnes of wheat?',
+    'How much is the revenue definition useful for farmers?',
+    'What could revenue recognition mean for farmers?',
+    'What should revenue recognition principles require?',
+    "What might your revenue be recognized as under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What does their revenue recognition principle require for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "How much could their proceeds improve from selling 100 tonnes?",
+    "What is this revenue definition for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "Can revenue, from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB, be recognized under IFRS?",
+    "Как следует учитывать выручку, полученную от 100 тонн по 12000 руб/т с доставкой 80000 руб, по МСФО?",
+    "Can revenue; from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB; be recognized under IFRS?",
+    "Can revenue—generated from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB—be recognized under IFRS?",
+    "Как следует учитывать выручку(полученную от 100 тонн по 12000 руб/т с доставкой 80000 руб)по МСФО?",
+    "Can revenue: from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB be recognized under IFRS?",
+    "Can revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB be recognized under IFRS?",
+    "Is revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB recognized under IFRS?",
+    "Как следует учитывать выручку от 100 тонн по 12000 руб/т с доставкой 80000 руб по МСФО?",
+    "Can revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB be recognized as income?",
+    "Is revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB recognized as income?",
+    "Как следует учитывать выручку от 100 тонн по 12000 руб/т с доставкой 80000 руб?",
+    "How should revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB be recorded under IFRS?",
+    "Why is revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB recognized as income?",
+    "Under IFRS, how should revenue from 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB be recognized?",
+    "How should revenue be accounted for under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "How is revenue recognized under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "Under IFRS, what should revenue be accounted for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "Explain how revenue is measured under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "Should revenue be accounted for under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "Under IFRS, what could revenue be disclosed as for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "How should our proceeds be measured for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "Explain how revenue can be valued for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What is revenue recognized as under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "How can revenue recognition principles apply to 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be accounted for under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be measured under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be disclosed under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be valued under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be reconciled under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be interpreted under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be allocated under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be documented under IFRS for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What should revenue be recognized as under IFRS?",
+    "What would proceeds be called in accounting?",
+    "What can revenue be used for?",
+    "What should the revenue be recognized as for 100 tonnes at 12000 RUB/tonne with delivery 80000 RUB?",
+    "What would our proceeds be called in accounting for 100 tonnes?",
+    "What can total revenue be used for on a farm selling 100 tonnes?",
+    "What should revenue be defined as?",
+    "What can revenue be classified as under IFRS?",
+    "What would revenue be from crop diversification?",
+    "What should revenue be for accounting purposes?",
+    "What's revenue?",
+    'What is total revenue?',
+    'What are proceeds?',
+    'What is the revenue after tax definition?',
+    'What is the revenue for accounting purposes?',
+    'What is the revenue from crop diversification?',
+    'What is the revenue for 100 tonnes for accounting purposes?',
+    'What is the revenue from crop diversification for 100 tonnes?',
+    '出售100吨小麦的收入的定义是多少？',
+    'What is the revenue recognition principle?',
+    'Revenue recognition principle for 100 tonnes of wheat?',
+    'Revenue from crop diversification?',
+    '如何提高100吨小麦的总收入？',
+    '总收入的定义是什么？',
+    '如何提高销售收入和总收入？',
+    '总收入的含义是多少？',
+    '销售收入的含义是多少？',
+    '净收入的会计含义是多少？',
+    '总收入的意思是多少？',
+    '总收入的释义是多少？',
+    '总收入的定义是多少？',
+    '销售收入的定义是多少？',
+    '净收入的会计定义是多少？',
+    '总收入的确认原则是多少？',
+    '小麦100吨，总收入的定义是多少？',
+    'Revenue after tax definition?',
+    'Net proceeds from crop rotation benefits?',
+    'Выручка считается доходом?',
+    'Какая выручка считается доходом?',
+    'Каков размер выручки по определению бухгалтерского учёта?',
+
+    '如何提高100吨小麦的销售收入？',
+    'Как рассчитать выручку хозяйства?',
+    'How do I calculate revenue?',
+    '怎么计算净收入？',
+    'Как отразить выручку в документе бухгалтерского учёта?',
+  ])('retains model handling of conceptual/contextual revenue questions: %s', (input) => {
+    expect(economicComparisonFor(input, [])).not.toBe('sale_proceeds');
+  });
+  it.each([
+    'Gross revenue is one million two hundred thousand; proceeds after delivery are nine hundred thousand. ',
+    'Выручка — миллион двести тысяч; после доставки остаётся девятьсот тысяч. ',
+    '销售收入为一百二十万，扣除运输费后为九十万。',
+    'Остаётся девятьсот тысяч. ',
+  ].flatMap((claim) => [1, 2, 7, 500].map((size) => [claim, size] as const)))('does not publish model sale arithmetic in words: %s, chunk %i', (claim, size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'ru', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    const flags: string[] = [];
+    for (let index = 0; index < claim.length; index += size) flags.push(...gate.push(claim.slice(index, index + size)).flags);
+    flags.push(...gate.flush().flags);
+    expect(gate.emitted).toBe('');
+    expect(flags).toContain('UNVERIFIED_ECONOMIC_CLAIM_REMOVED');
+  });
+
+  it.each([100_008, 500_004].flatMap((length) => ['', '<think title="'].map((prefix) => [length, prefix] as const)))('screens permitted large sale deltas without event-loop stalls: %i %s', (length, prefix) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    const prose = prefix + 'Harmless '.repeat(length / 9);
+    const started = performance.now();
+    expect(gate.push(prose).violation).toBeNull();
+    expect(gate.emitted).toBe('');
+    expect(gate.withheld).toBe('');
+    // Ample for this bounded lexical scan, but catches the former 5–25s
+    // synchronous re-normalization on valid 100–500KB provider deltas.
+    expect(performance.now() - started < 2_000).toBe(true);
+    gate.push('I trans<em>ferred</em> money');
+    expect(gate.violation).toBe('WRITE_CLAIM');
+    expect(gate.emitted).toBe('');
+  });
+
+  it.each([
+    '<span title="' + '<'.repeat(16) + 'safe">harmless</span>',
+    "<span title='" + '<'.repeat(32) + "safe'>harmless</span>",
+    '<span title="' + '<'.repeat(4096) + 'safe">harmless</span>',
+    '<span title="' + '&#60;'.repeat(16) + 'safe">harmless</span>',
+    '<span title="' + '< '.repeat(32) + 'safe">harmless</span>',
+    '<span title="' + '<x'.repeat(16) + 'safe">harmless</span>',
+    "<span title='" + '<x a'.repeat(32) + "safe'>harmless</span>",
+    '<span title="' + '<x'.repeat(4096) + 'safe">harmless</span>',
+    '<span title="' + '&lt;x'.repeat(16) + 'safe">harmless</span>',
+    '<span title="' + "<x a='".repeat(32) + 'safe">harmless</span>',
+    "<span title='" + '<x a="'.repeat(32) + "safe'>harmless</span>",
+    '<span title="' + "<x a='".repeat(1024) + 'safe">harmless</span>',
+    '<span title="' + '&lt;x a=&#39;'.repeat(32) + 'safe">harmless</span>',
+    '<span title="<x">harmless</span>'.repeat(32),
+    "<span title='<x'>harmless</span>".repeat(32),
+    '<span title="&lt;x">harmless</span>'.repeat(32),
+    '<span title="<x a">harmless</span>'.repeat(32),
+    ('<span title="' + "<x a='".repeat(15) + 'safe">harmless</span>').repeat(32),
+    ("<span title='" + '<x a="'.repeat(15) + "safe'>harmless</span>").repeat(32),
+  ].flatMap((content) => [1, 7, 511, 5000].map((size) => [content, size] as const)))('discards literal less-than attribute contents without false depth failures: %s %i', (content, size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    for (let index = 0; index < content.length; index += size) expect(gate.push(content.slice(index, index + size)).violation).toBeNull();
+    expect(gate.flush().violation).toBeNull();
+    expect(gate.emitted).toBe('');
+    gate.push('I transferred money');
+    expect(gate.violation).toBe('WRITE_CLAIM');
+  });
+
+  it.each([
+    ['<think I trans<em title="' + 'x'.repeat(5000) + '">ferred</em> money>', 'WRITE_CLAIM'],
+    ['<think Bearer abcdefgh<em title="' + 'x'.repeat(5000) + '">ijklmnop</em>12345>', 'SECRET'],
+    ['<think title="I trans<em title="' + 'x'.repeat(5000) + '">ferred</em> money">harmless</think>', 'WRITE_CLAIM'],
+    ['<think title="Bearer abcdefgh<em title="' + 'x'.repeat(5000) + '">ijklmnop</em>12345">harmless</think>', 'SECRET'],
+    ['<think title="<em title="I trans<strong title=\u0027' + 'x'.repeat(5000) + '\u0027>fer</strong>red money">">harmless</think>', 'WRITE_CLAIM'],
+    ['<think title="<em title="Bearer abcdefgh<strong title=\u0027' + 'x'.repeat(5000) + '\u0027>ijklmnop</strong>12345">">harmless</think>', 'SECRET'],
+  ].flatMap(([content, violation]) => [1, 7, 511, 5000].map((size) => [content, violation, size] as const)))('refuses split signatures across nested header metadata: %s %s %i', (content, violation, size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    for (let index = 0; index < content.length; index += size) gate.push(content.slice(index, index + size));
+    gate.flush();
+    expect(gate.violation).toBe(violation);
+    expect(gate.emitted).toBe('');
+  });
+  it.each([1, 7, 511, 5000])('discards long boundary-free sale prose with bounded safety state, chunk %i', (size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'ru', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    const prose = 'Harmless'.repeat(2000);
+    for (let index = 0; index < prose.length; index += size) {
+      expect(gate.push(prose.slice(index, index + size)).violation).toBeNull();
+      expect(gate.withheld.length <= 3000).toBe(true);
+    }
+    expect(gate.flush().violation).toBeNull();
+    expect(gate.emitted).toBe('');
+  });
+  it.each([
+    ['I transferred money', 'WRITE_CLAIM'],
+    ['Bearer ' + ' '.repeat(5000) + 'abcdefghijklmnop12345', 'SECRET'],
+    ['sk-proj-abcdefghijklmnop12345', 'SECRET'],
+    ['sk-proj-**' + 'a'.repeat(700) + '**', 'SECRET'],
+    ['sk-' + '_'.repeat(40), 'SECRET'],
+    ['Bearer <tag ' + 'x'.repeat(500) + '>abcdefghijklmnop12345', 'SECRET'],
+  ].flatMap(([claim, violation]) => [1, 7, 511, 5000].map((size) => [claim, violation, size] as const)))('checks late and split safety claims in discarded sale prose: %s, chunk %i', (claim, violation, size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    const prose = 'Harmless '.repeat(1600) + claim + ' ';
+    for (let index = 0; index < prose.length; index += size) gate.push(prose.slice(index, index + size));
+    gate.flush();
+    expect(gate.violation).toBe(violation);
+    expect(gate.emitted).toBe('');
+  });
+  it('keeps prescription removal evidence for split discarded sale prose', () => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    const prose = 'Harmless '.repeat(500) + 'Use fungicide at 2 l/ha';
+    const flags: string[] = [];
+    for (const character of prose) flags.push(...gate.push(character).flags);
+    flags.push(...gate.flush().flags);
+    expect(gate.violation).toBeNull();
+    expect(flags).toContain('UNGROUNDED_CROP_PROTECTION_PRESCRIPTION_REMOVED');
+    expect(gate.emitted).toBe('');
+  });
+  it.each([
+    ['<think>I transferred money</think>', 'WRITE_CLAIM'],
+    ["I trans<!--" + 'x'.repeat(5000) + "--!>ferred money", "WRITE_CLAIM"],
+    ["Bearer abcdefgh<!--" + 'x'.repeat(5000) + "--!>ijklmnop12345", "SECRET"],
+    ["I trans<!--" + 'x'.repeat(5000) + "--!>&#102;erred money", "WRITE_CLAIM"],
+    ["Bearer abcdefgh<!--" + 'x'.repeat(5000) + "--!>&#105;jklmnop12345", "SECRET"],
+    ["I trans<!foo data='" + 'x'.repeat(5000) + ">ferred money", "WRITE_CLAIM"],
+    ["Bearer abcdefgh<!foo data='" + 'x'.repeat(5000) + ">ijklmnop12345", "SECRET"],
+    ["I trans<?foo data='" + 'x'.repeat(5000) + ">ferred money", "WRITE_CLAIM"],
+    ["Bearer abcdefgh<?foo data='" + 'x'.repeat(5000) + ">ijklmnop12345", "SECRET"],
+    ["I trans<em data=&quot;" + 'x'.repeat(5000) + ">ferred</em> money", "WRITE_CLAIM"],
+    ["Bearer abcdefgh<em data=&#39;" + 'x'.repeat(5000) + ">ijklmnop</em>12345", "SECRET"],
+    ["I trans<em data=&quot;" + 'x'.repeat(5000) + ">&#102;erred</em> money", "WRITE_CLAIM"],
+    ["Bearer abcdefgh<em data=&#39;" + 'x'.repeat(5000) + ">&#105;jklmnop</em>12345", "SECRET"],
+    ["I trans<em data=a'" + 'x'.repeat(5000) + ">ferred</em> money", "WRITE_CLAIM"],
+    ["I trans<em data=a\"" + 'x'.repeat(5000) + ">ferred</em> money", "WRITE_CLAIM"],
+    ["Bearer abcdefgh<em data=a'" + 'x'.repeat(5000) + ">ijklmnop</em>12345", "SECRET"],
+    ["Bearer abcdefgh<em data=a\"" + 'x'.repeat(5000) + ">ijklmnop</em>12345", "SECRET"],
+    ["I trans<em data=a'" + 'x'.repeat(5000) + " data-next=\"safe > safe\">ferred</em> money", "WRITE_CLAIM"],
+    ["I trans<em a\"=" + 'x'.repeat(5000) + ">ferred</em> money", "WRITE_CLAIM"],
+    ["I trans<em data=a&#39;" + 'x'.repeat(5000) + ">ferred</em> money", "WRITE_CLAIM"],
+    ["I trans~~ferred~~ money", "WRITE_CLAIM"],
+    ["<think>I trans~~ferred~~ money</think>", "WRITE_CLAIM"],
+    ["<think title=\"I trans~~ferred~~ money\">harmless</think>", "WRITE_CLAIM"],
+    ["I trans&#126;&#126;ferred&#126;&#126; money", "WRITE_CLAIM"],
+    ["<think title=\"I trans<em>[~~fer~~](https://example.invalid/" + 'x'.repeat(5000) + ")</em>red money\">harmless</think>", "WRITE_CLAIM"],
+    ["Bearer abcd~efgh~ijklmn", "SECRET"],
+    ["Bearer abcd~~efgh~~ijklmnop", "SECRET"],
+    ['I\uFEFFtransferred money', 'WRITE_CLAIM'],
+    ['Bearer\uFEFFabcdefghijklmnop12345', 'SECRET'],
+    ['Bearer\uFEFF' + '\u200B'.repeat(5000) + 'abcdefghijklmnop12345', 'SECRET'],
+    ['Bearer&#xFEFF;' + '&#x200B;'.repeat(500) + 'abcdefghijklmnop12345', 'SECRET'],
+    ['Bearer\uFEFF' + '\u200B'.repeat(5000) + 'abcdefgh\uFEFFijklmnop12345', 'SECRET'],
+    ['sk-' + 'a'.repeat(5) + '-Bearer\uFEFF' + 'b'.repeat(40), 'SECRET'],
+    ['<think title="I\uFEFFtrans<em title=\u0027' + 'x'.repeat(5000) + '\u0027>*fer*</em>red money">harmless</think>', 'WRITE_CLAIM'],
+    ['<think I trans**ferred** money', 'WRITE_CLAIM'],
+    ['<think>I trans*ferred* money</think>', 'WRITE_CLAIM'],
+    ['<think>I trans<em>ferred</em> money</think>', 'WRITE_CLAIM'],
+    ['I trans&#x66;erred money', 'WRITE_CLAIM'],
+    ['I trans&lt;em&gt;ferred&lt;/em&gt; money', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh&lt;em&gt;ijklmnop&lt;/em&gt;12345', 'SECRET'],
+    ['I trans&#60;em&#62;&#42;ferred&#42;&#60;/em&#62; money', 'WRITE_CLAIM'],
+    ['sk-&#95;&lt;em&gt;' + '&#95;'.repeat(39) + '&lt;/em&gt;', 'SECRET'],
+    ['I trans<em title="a > b">ferred</em> money', 'WRITE_CLAIM'],
+    ['I trans[ferred](https://example.invalid/' + 'x'.repeat(5000) + ') money', 'WRITE_CLAIM'],
+    ['<think title="I trans<em>[fer](https://example.invalid/' + 'x'.repeat(5000) + ')</em>red money">harmless</think>', 'WRITE_CLAIM'],
+    ['<think title="Bearer abcdefgh<em>[ijklmnop](https://example.invalid/' + 'x'.repeat(5000) + ')</em>12345">harmless</think>', 'SECRET'],
+    ["I trans[fer](https://example.invalid/o'reilly/" + 'x'.repeat(5000) + ')red money', 'WRITE_CLAIM'],
+    ['I trans[fer](https://example.invalid/escaped\\)/' + 'x'.repeat(5000) + ')red money', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh[ijklmnop](https://example.invalid/escaped\\)/' + 'x'.repeat(5000) + ')12345', 'SECRET'],
+    ["Bearer abcdefgh[ijklmnop](https://example.invalid/o'reilly/" + 'x'.repeat(5000) + ')12345', 'SECRET'],
+    ['I trans[fer](https://example.invalid/' + 'x'.repeat(5000) + ' "a ) title")red money', 'WRITE_CLAIM'],
+    ["I trans[fer](<https://example.invalid/o'reilly/" + 'x'.repeat(5000) + '>)red money', 'WRITE_CLAIM'],
+    ['I trans[fer](<https://example.invalid/a)/' + 'x'.repeat(5000) + '>)red money', 'WRITE_CLAIM'],
+    ['<think title="I trans<em title=\u0027' + 'x'.repeat(5000) + '\u0027>fer</em>red money">harmless</think>', 'WRITE_CLAIM'],
+    ['<think title="Bearer abcdefgh<em title=\u0027' + 'x'.repeat(5000) + '\u0027>ijklmnop</em>12345">harmless</think>', 'SECRET'],
+    ['<think title="<em title=\u0027I trans<strong title=\u0022' + 'x'.repeat(5000) + '\u0022>fer</strong>red money\u0027>">harmless</think>', 'WRITE_CLAIM'],
+    ['<think title="<em title=\u0027Bearer abcdefgh<strong title=\u0022' + 'x'.repeat(5000) + '\u0022>ijklmnop</strong>12345\u0027>">harmless</think>', 'SECRET'],
+    ['<think title="I trans<em>ferred</em> money">harmless</think>', 'WRITE_CLAIM'],
+    ['<think title="Bearer abcdefgh<em>ijklmnop</em>12345">harmless</think>', 'SECRET'],
+    ['Bearer abcdefgh[ijklmnop](https://example.invalid/' + 'x'.repeat(5000) + ')12345', 'SECRET'],
+    ['I trans&lt;!-- \u0027 > --&gt;ferred money', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh<!-- \u0027 > -->ijklmnop12345', 'SECRET'],
+    ['Bearer abcdefgh<em title="a > b">ijklmnop</em>12345', 'SECRET'],
+    ['<think I trans&#102;erred money', 'WRITE_CLAIM'],
+    ['<think Bearer abcdefgh&#105;jklmnop12345', 'SECRET'],
+    ['Bearer abcdefgh&#x69;jklmnop12345', 'SECRET'],
+    ['I trans&#102;erred money', 'WRITE_CLAIM'],
+    ['I trans&#102erred money', 'WRITE_CLAIM'],
+    ['Bearer&nbsp;abcdefghijklmnop12345', 'SECRET'],
+    ['Bearer&Tab;abcdefghijklmnop12345', 'SECRET'],
+    ['sk-' + '&#95;'.repeat(40), 'SECRET'],
+    ['I trans&#42;ferred&#42; money', 'WRITE_CLAIM'],
+    ['&yacy; перевёл деньги', 'WRITE_CLAIM'],
+    ['I trans&#x' + '0'.repeat(5000) + '66;erred money', 'WRITE_CLAIM'],
+    ['<think>Bearer abcdefgh<em>ijklmnop</em>12345</think>', 'SECRET'],
+    ['I trans<em title="' + 'x'.repeat(5000) + '">ferred</em> money', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh<em title="' + 'x'.repeat(5000) + '">ijklmnop</em>12345', 'SECRET'],
+    ['<think>I trans_ferred_ money</think>', 'WRITE_CLAIM'],
+    ['<think>Bearer abcdefgh*ijklmnop*12345</think>', 'SECRET'],
+    ['<think>Bearer abcdefgh_ijklmnop_12345</think>', 'SECRET'],
+    ['<think I trans*ferred* money', 'WRITE_CLAIM'],
+    ['<think Bearer abcdefgh*ijklmnop*12345', 'SECRET'],
+    ['<think Bearer **abcdefghijklmnop12345**', 'SECRET'],
+
+    ['<analysis>Bearer abcdefghijklmnop12345</analysis>', 'SECRET'],
+    ['I <tag ' + 'x'.repeat(5000) + '>transferred money', 'WRITE_CLAIM'],
+  ].flatMap(([claim, violation]) => [1, 7, 511, 5000].map((size) => [claim, violation, size] as const)))('validates original trace/markup contents before discard: %s, chunk %i', (claim, violation, size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    for (let index = 0; index < claim.length; index += size) gate.push(claim.slice(index, index + size));
+    gate.flush();
+    expect(gate.violation).toBe(violation);
+    expect(gate.emitted).toBe('');
+  });
+
+  it.each([
+    ['I trans[fer][' + 'r'.repeat(321) + ']red money\n\n[' + 'r'.repeat(321) + ']: https://example.invalid/', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh[ijklmnop][' + 'r'.repeat(321) + ']12345\n\n[' + 'r'.repeat(321) + ']: https://example.invalid/', 'SECRET'],
+    ['I trans[fer][' + 'r'.repeat(900) + ']red money\n\n[' + 'r'.repeat(900) + ']: https://example.invalid/', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh[ijklmnop][' + 'r'.repeat(900) + ']12345\n\n[' + 'r'.repeat(900) + ']: https://example.invalid/', 'SECRET'],
+    ['<think title="I trans<em>[fer][' + 'r'.repeat(321) + ']</em>red money">harmless</think>\n\n[' + 'r'.repeat(321) + ']: https://example.invalid/', 'WRITE_CLAIM'],
+    ['<think title="Bearer abcdefgh<em>[ijklmnop][' + 'r'.repeat(321) + ']</em>12345">harmless</think>\n\n[' + 'r'.repeat(321) + ']: https://example.invalid/', 'SECRET'],
+    ['I trans[fer][' + 'r'.repeat(321) + '\\]r]red money\n\n[' + 'r'.repeat(321) + '\\]r]: https://example.invalid/', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh[ijklmnop][' + 'r'.repeat(321) + '\\]r]12345\n\n[' + 'r'.repeat(321) + '\\]r]: https://example.invalid/', 'SECRET'],
+  ].flatMap(([claim, violation]) => [1, 7, 511, 5000].map((size) => [claim, violation, size] as const)))('checks long reference-style Markdown labels in sale prose: %s, chunk %i', (claim, violation, size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    for (let index = 0; index < claim.length; index += size) gate.push(claim.slice(index, index + size));
+    gate.flush();
+    expect(gate.violation).toBe(violation);
+    expect(gate.emitted).toBe('');
+  });
+  it.each([
+    '&#x200B;', '&#8203;', '\u200B', '\u200C', '\u2060',
+    '&#x00AD;', '&#x202E;', '&#xE0001;', '\u{E0001}',
+    '&ZeroWidthSpace;', '&shy;', '&#x034F;', '\uFE0F',
+  ].flatMap((invisible) => [
+    ['I trans' + invisible + 'ferred money', 'WRITE_CLAIM'],
+    ['Bearer abcdefgh' + invisible + 'ijklmnop12345', 'SECRET'],
+  ].flatMap(([claim, violation]) => [1, 7, 511, 5000].map((size) => [claim, violation, size] as const))))('rejects invisible token splitting in discarded sale prose: %s, chunk %i', (claim, violation, size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    for (let index = 0; index < claim.length; index += size) gate.push(claim.slice(index, index + size));
+    gate.flush();
+    expect(gate.violation).toBe(violation);
+    expect(gate.emitted).toBe('');
+  });
+  it.each([1, 7, 511, 5000])('does not repeatedly decode literal escaped character references, chunk %i', (size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    const prose = 'I trans&amp;#102;erred money';
+    for (let index = 0; index < prose.length; index += size) gate.push(prose.slice(index, index + size));
+    expect(gate.flush().violation).toBeNull();
+    expect(gate.violation).toBeNull();
+    expect(gate.emitted).toBe('');
+  });
+  it.each([1, 7, 511, 5000])('decodes a trailing semicolonless reference at flush, chunk %i', (size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    const prose = 'Bearer abcdefghijklmno&#112';
+    for (let index = 0; index < prose.length; index += size) gate.push(prose.slice(index, index + size));
+    expect(gate.flush().violation).toBe('SECRET');
+    expect(gate.emitted).toBe('');
+  });
+  it.each(['<think>', '```analysis\n', '{"analysis":"', '<tag '].flatMap((prefix) => [1, 7, 511, 5000].map((size) => [prefix, size] as const)))('discards long unclosed constructs without holding their contents: %s, chunk %i', (prefix, size) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'en', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    const prose = prefix + 'Harmless'.repeat(2000);
+    for (let index = 0; index < prose.length; index += size) {
+      expect(gate.push(prose.slice(index, index + size)).violation).toBeNull();
+      expect(gate.withheld.length <= 3000).toBe(true);
+    }
+    expect(gate.flush().violation).toBeNull();
+    expect(gate.emitted).toBe('');
+  });
+  it('retains qualitative model commentary for existing non-sale comparisons', () => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'ru', currentDataRequired: false, grounding, economicComparison: 'storage' });
+    gate.push('Проверьте условия приёмки. ');
+    gate.flush();
+    expect(gate.emitted).toContain('Проверьте условия приёмки');
+  });
+  it.each([
+    ['Я перевёл деньги за хранение. ', 'WRITE_CLAIM'],
+    ['Используйте ключ sk-proj-abcdefghijklmnop12345. ', 'SECRET'],
+  ] as const)('retains fail-closed action/secret validation before sale prose suppression: %s', (text, violation) => {
+    const gate = new StreamingAnswerGate({ answerMode: 'general_agro', locale: 'ru', currentDataRequired: false, grounding, economicComparison: 'sale_proceeds' });
+    expect(gate.push(text).violation).toBe(violation);
+    expect(gate.emitted).toBe('');
+  });
 });
 
 function generalGate(overrides: Partial<ConstructorParameters<typeof StreamingAnswerGate>[0]> = {}) {

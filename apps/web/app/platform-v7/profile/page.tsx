@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getLocale } from 'next-intl/server';
 import { InlineNotice, StatusChip } from '@pc/design-system-v8';
 import { getAuthProfile, type AuthProfileSnapshot } from '@/lib/auth-profile-server';
+import { OwnMfaVerificationPanel } from '@/components/platform-v7/staff/PasswordStaffHome';
 import {
   OperationalCockpitSection,
   OperationalDecisionCockpit,
@@ -207,7 +208,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ProfilePage() {
-  const copy = COPY[localeOf(await getLocale())];
+  const locale = localeOf(await getLocale());
+  const copy = COPY[locale];
   const profile = await getAuthProfile();
   const mfaVerified = profile.mfaVerified === true;
   const organizationOnly = profile.role === 'GUEST';
@@ -236,7 +238,9 @@ export default async function ProfilePage() {
           owner: copy.ownerValue,
           impact: copy.mfaImpact,
           result: copy.mfaResult,
-          primaryAction: <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/help'>{copy.openHelp}</Link>,
+          primaryAction: profile.mfaVerified === false
+            ? <Link className={operationalCockpitClasses.primaryLink} href='#own-mfa-verification'>{copy.mfaTitle}</Link>
+            : <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/help'>{copy.openHelp}</Link>,
           secondaryAction: <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/status'>{copy.openStatus}</Link>,
         }
       : {
@@ -284,6 +288,11 @@ export default async function ProfilePage() {
       ]}
       boundary={copy.securityBoundary}
     >
+      {profile.available && profile.mfaVerified === false ? (
+        <OperationalCockpitSection id='own-mfa-verification'>
+          <OwnMfaVerificationPanel locale={locale} />
+        </OperationalCockpitSection>
+      ) : null}
       <OperationalCockpitSection id='workspaces'>
         <OperationalQueue>
           {copy.routes.filter((route) => !organizationOnly || [

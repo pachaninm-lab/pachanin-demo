@@ -61,7 +61,7 @@ jobs:
           if str(inspector_path) not in workflow_text:
               raise SystemExit('TRANSPORTED_SCRIPT_PATH_MISSING')
           inspector_source = inspector_path.read_bytes()
-          if hashlib.sha256(inspector_source).hexdigest() != '0ae4f33050aa2cd885e6612346b70abcc091e8d2072e61e41b0fbf97b13d0ad6':
+          if hashlib.sha256(inspector_source).hexdigest() != '61872b8814b2fef3fb62524983fd05bbfe176840479c61a7f1c85d8d77918066':
               raise SystemExit('TRANSPORTED_SCRIPT_DIGEST_MISMATCH')
           text = workflow_text + '\n' + inspector_source.decode('utf-8', errors='strict')
           for marker in ('SET TRANSACTION READ ONLY', 'statement_timeout', "'deployment_authorized': False", 'def validate_report('):
@@ -94,6 +94,19 @@ jobs:
           wrong_count = [item for item, count in expected_counts.items() if text.count(item) != count]
           if wrong_count:
               raise SystemExit('non-exact continuation invariant: ' + ' | '.join(wrong_count))
+          diagnostic = workflow_text.split('\n  diagnostic:\n', 1)[1]
+          collection = '          ' + '# Collect bounded evidence before legacy parity; collection never grants release.'
+          legacy = '          ' + 'ssh -i "$key" -p "$port"'
+          if diagnostic.count(collection) != 1 or diagnostic.index(collection) > diagnostic.index(legacy):
+              raise SystemExit('READ_ONLY_COLLECTION_MUST_PRECEDE_LEGACY_PARITY')
+          retention = diagnostic.split('      - name: Preserve validated read-only market observations\n', 1)[1]
+          if not retention.startswith('        if: ' + '$' + '{{ always() }}\n'):
+              raise SystemExit('VALIDATED_EVIDENCE_MUST_SURVIVE_LEGACY_FAILURE')
+          for marker in ('module.' + 'validate_original_purpose_record(text, sources)',
+                         'module.' + 'validate_original_envelope(value, sys.argv[1])',
+                         '--original-volume-' + 'inventory'):
+              if workflow_text.count(marker) != 1:
+                  raise SystemExit('ORIGINAL19_PURPOSE_OR_PROFILE_GATE_MISSING')
           forbidden = [
               'docker ' + 'restart', 'docker ' + 'rm', 'docker ' + 'stop',
               'docker ' + 'kill', 'docker ' + 'compose up', 'docker ' + 'compose run',
@@ -117,6 +130,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           python3 -B scripts/test-production-market-release-preflight.py
+          python3 -B scripts/test-production-market-release-preflight.py --native-original-gpg
 
       - name: Verify exact owner-issued provenance
         if: github.event_name == 'issue_comment'
@@ -155,7 +169,68 @@ jobs:
           [[ "$target" == "$(git rev-parse HEAD)" ]]
           [[ "$target" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
           [[ -z "$(git status --porcelain=v1)" ]]
+          git merge-base --is-ancestor 9b2b895b3e71648f9084d8a80a97458488ef06df "$target"
+          python3 -B - <<'PYPURPOSE'
+          import importlib.util
+          from pathlib import Path
+          path = Path('scripts/production-market-release-preflight.py')
+          spec = importlib.util.spec_from_file_location('market_preflight', path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          try:
+              text = Path('docs/platform-v7/autopilot/prompts/current-review-task.md').read_text(encoding='utf-8')
+              sources = {name: Path(name).read_bytes() for name in module.ORIGINAL_BEFORE_BLOBS}
+              digest = module.validate_original_purpose_record(text, sources)
+          except Exception:
+              raise SystemExit('ORIGINAL19_NATIVE_FD_PURPOSE_NOT_ACCEPTED')
+          print('ORIGINAL19_ACCEPTED_PURPOSE_SHA256=' + digest)
+          PYPURPOSE
           echo "sha=$target" >> "$GITHUB_OUTPUT"
+
+  publication-baseline:
+    name: Verify pinned API publication metadata on isolated PR runner
+    needs: contract
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'ops/farmer-market-release-preflight-20260916'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify immutable index, runtime manifest and image configuration
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          report="$RUNNER_TEMP/api-publication-baseline.json"
+          status=0
+          timeout --signal=TERM --kill-after=5s 75s python3 -B scripts/production-market-release-preflight.py --published-api-baseline > "$report" || status=$?
+          if [[ "$status" == 124 || "$status" == 137 ]]; then
+            python3 - "$report" <<'PYTIMEOUT'
+          import json, pathlib, sys
+          value = {'schema': 'pc-crop.api-publication-baseline.v1', 'status': 'NOT_PROVEN',
+                   'failure': 'PUBLICATION_TIMEOUT', 'host_binding': 'NOT_PERFORMED',
+                   'production_mutation': 'NONE', 'deployment_authorized': False}
+          pathlib.Path(sys.argv[1]).write_text(json.dumps(value, sort_keys=True) + '\n')
+          PYTIMEOUT
+          fi
+          exit "$status"
+      - name: Retain separate API publication metadata result
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: api-publication-baseline-a678425-${{ github.run_id }}
+          path: ${{ runner.temp }}/api-publication-baseline.json
+          if-no-files-found: error
+          retention-days: 14
 
   diagnostic:
     name: Inspect API, Web and auth-mail-worker revisions
@@ -201,32 +276,34 @@ jobs:
           umask 077
           trap 'rm -f -- "$key" "$known" "$raw" "$scan" "$match" "$preflight_raw"' EXIT
 
-          git fetch --no-tags origin main >/dev/null
-          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
-          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          git fetch --no-tags origin main >/dev/null 2>&1 || { echo 'MARKET_PREFLIGHT_FAILURE=CURRENT_MAIN_FETCH_FAILED' >&2; exit 1; }
+          [[ "$(git rev-parse HEAD 2>/dev/null)" == "$TARGET_SHA" ]] || { echo 'MARKET_PREFLIGHT_FAILURE=CURRENT_MAIN_CHECKOUT_NOT_PROVEN' >&2; exit 1; }
+          [[ "$(git rev-parse origin/main 2>/dev/null)" == "$TARGET_SHA" ]] || { echo 'MARKET_PREFLIGHT_FAILURE=CURRENT_MAIN_FETCHED_REF_NOT_PROVEN' >&2; exit 1; }
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha 2>/dev/null)" == "$TARGET_SHA" ]] || { echo 'MARKET_PREFLIGHT_FAILURE=CURRENT_MAIN_API_NOT_PROVEN' >&2; exit 1; }
 
           trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
           validate_key(){
             local src="$1" pub
-            tr -d '\r' < "$src" > "$key"
-            chmod 0600 "$key"
+            tr -d '\r' < "$src" > "$key" || return 1
+            chmod 0600 "$key" || return 1
             grep -Eq '^(ssh-|ecdsa-|sk-)' "$key" && return 1
-            pub="$(mktemp)"
+            pub="$(mktemp)" || return 1
             ssh-keygen -y -P '' -f "$key" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
             rm -f "$pub"
           }
           try_key(){
             local value="$1" plain escaped decoded
             [[ -n "$value" ]] || return 1
-            plain="$(mktemp)"; escaped="$(mktemp)"; decoded="$(mktemp)"
-            printf '%s\n' "$value" > "$plain"
-            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
-            printf '%s' "${value//\\n/$'\n'}" > "$escaped"
-            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            plain="$(mktemp)" || return 1
+            escaped="$(mktemp)" || { rm -f "$plain"; return 1; }
+            decoded="$(mktemp)" || { rm -f "$plain" "$escaped"; return 1; }
+            printf '%s\n' "$value" > "$plain" || { rm -f "$plain" "$escaped" "$decoded"; return 1; }
+            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded" || return 1; return 0; }
+            printf '%s' "${value//\\n/$'\n'}" > "$escaped" || { rm -f "$plain" "$escaped" "$decoded"; return 1; }
+            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded" || return 1; return 0; }
             printf '%s' "$value" | base64 --decode > "$decoded" 2>/dev/null \
               && validate_key "$decoded" \
-              && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+              && { rm -f "$plain" "$escaped" "$decoded" || return 1; return 0; }
             rm -f "$plain" "$escaped" "$decoded"
             return 1
           }
@@ -235,13 +312,14 @@ jobs:
           user="$(trim "${PC_PROD_SSH_USER:-}")"
           port="$(trim "${PC_PROD_SSH_PORT:-22}")"
           expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
-          [[ "$host" == "$DEFAULT_HOST" ]]
-          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
-          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
-          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
-          try_key "${PC_PROD_SSH_KEY:-}" || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_key "${VPS_SSH_KEY:-}"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'MARKET_PREFLIGHT_FAILURE=CANONICAL_HOST_NOT_PROVEN' >&2; exit 1; }
+          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo 'MARKET_PREFLIGHT_FAILURE=PROTECTED_USER_NOT_PROVEN' >&2; exit 1; }
+          port_digits="${port#"${port%%[!0]*}"}"
+          { [[ "$port" =~ ^[0-9]+$ && -n "$port_digits" && ${#port_digits} -le 5 ]] && (( 10#$port_digits <= 65535 )) && (( port >= 1 && port <= 65535 )); } 2>/dev/null || { echo 'MARKET_PREFLIGHT_FAILURE=PROTECTED_PORT_NOT_PROVEN' >&2; exit 1; }
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo 'MARKET_PREFLIGHT_FAILURE=PINNED_FINGERPRINT_NOT_PROVEN' >&2; exit 1; }
+          { try_key "${PC_PROD_SSH_KEY:-}" || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_key "${VPS_SSH_KEY:-}"; } 2>/dev/null || { echo 'MARKET_PREFLIGHT_FAILURE=PROTECTED_KEY_NOT_PROVEN' >&2; exit 1; }
 
-          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          getent ahostsv4 "$LIVE_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST" || { echo 'MARKET_PREFLIGHT_FAILURE=DNS_AUTHORITY_NOT_PROVEN' >&2; exit 1; }
           pinned=0
           for attempt in 1 2 3; do
             : > "$scan"; : > "$match"
@@ -255,9 +333,78 @@ jobs:
             if [[ "$(grep -c . "$match" || true)" == '1' ]]; then pinned=1; break; fi
             (( attempt == 3 )) || sleep "$attempt"
           done
-          [[ "$pinned" == '1' ]]
-          mv "$match" "$known"
-          chmod 0600 "$known"
+          [[ "$pinned" == '1' ]] || { echo 'MARKET_PREFLIGHT_FAILURE=PINNED_IDENTITY_NOT_PROVEN' >&2; exit 1; }
+          mv "$match" "$known" 2>/dev/null || { echo 'MARKET_PREFLIGHT_FAILURE=PINNED_KNOWN_HOSTS_NOT_PROVEN' >&2; exit 1; }
+          chmod 0600 "$known" 2>/dev/null || { echo 'MARKET_PREFLIGHT_FAILURE=PINNED_KNOWN_HOSTS_NOT_PROVEN' >&2; exit 1; }
+
+          # Collect bounded evidence before legacy parity; collection never grants release.
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha 2>/dev/null)" == "$TARGET_SHA" ]] || { echo 'MARKET_PREFLIGHT_FAILURE=CURRENT_MAIN_BEFORE_COLLECTION_NOT_PROVEN' >&2; exit 1; }
+          preflight_status=0
+          timeout 180s ssh -i "$key" -p "$port" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$known" -o ConnectTimeout=15 \
+            "$user@$host" "python3 - '$TARGET_SHA' --original-volume-inventory" \
+            < scripts/production-market-release-preflight.py > "$preflight_raw" 2>/dev/null || preflight_status=$?
+          if (( preflight_status != 0 )); then
+            case "$preflight_status" in
+              124) echo 'MARKET_PREFLIGHT_FAILURE=TRANSPORT_DEADLINE' >&2 ;;
+              255) echo 'MARKET_PREFLIGHT_FAILURE=SSH_TRANSPORT_OR_AUTHORITY' >&2 ;;
+              127) echo 'MARKET_PREFLIGHT_FAILURE=REMOTE_INTERPRETER_UNAVAILABLE' >&2 ;;
+              1) echo 'MARKET_PREFLIGHT_FAILURE=REMOTE_COLLECTION_NOT_PROVEN' >&2 ;;
+              *) echo 'MARKET_PREFLIGHT_FAILURE=READ_ONLY_COLLECTION_FAILED' >&2 ;;
+            esac
+            exit "$preflight_status"
+          fi
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha 2>/dev/null)" == "$TARGET_SHA" ]] || { echo 'MARKET_PREFLIGHT_FAILURE=CURRENT_MAIN_AFTER_COLLECTION_NOT_PROVEN' >&2; exit 1; }
+          python3 -B - "$TARGET_SHA" "$preflight_raw" "$RUNNER_TEMP/market-preflight.json" "$GITHUB_STEP_SUMMARY" <<'PYMARKET'
+          import hashlib, importlib.util, json, pathlib, sys
+          source = pathlib.Path('scripts/production-market-release-preflight.py')
+          spec = importlib.util.spec_from_file_location('market_preflight', source)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          try:
+              raw_path = pathlib.Path(sys.argv[2])
+              with raw_path.open('rb') as handle:
+                  raw = handle.read(module.MAX_BYTES + 1)
+              if not 0 < len(raw) <= module.MAX_BYTES:
+                  raise ValueError('BOUNDS')
+              value = module.original_json(raw)
+              if value.get('schema') == 'pc-crop.market-original-inventory-envelope.v1':
+                  envelope = module.validate_original_envelope(value, sys.argv[1])
+                  report = envelope['market_preflight']
+              else:
+                  # Preserve strict v6 admission for historical/default diagnostics.
+                  report = module.validate_report(value, sys.argv[1])
+                  envelope = None
+              report['transported_source_sha256'] = hashlib.sha256(source.read_bytes()).hexdigest()
+              report['source_migration_comparison'] = module.source_lineage(report['migration_inventory'], pathlib.Path('apps/api/prisma/migrations'))
+              report['outbox_source_comparison'] = module.outbox_source_comparison(report['outbox_topology'], pathlib.Path('apps/api/prisma/migrations'))
+              payload = json.dumps(envelope if envelope is not None else report, sort_keys=True, ensure_ascii=True, separators=(',', ':')) + '\n'
+              if len(payload.encode()) > module.MAX_BYTES:
+                  raise ValueError('BOUNDS')
+              destination = pathlib.Path(sys.argv[3])
+              destination.write_text(payload, encoding='utf-8')
+              destination.chmod(0o600)
+              lines = ['## Read-only market release preflight', '', 'Collection is NOT deployment approval.', '', 'Target: `' + sys.argv[1] + '`']
+              lines += ['- ' + key + ': `' + value + '`' for key, value in report['checks'].items()]
+              lines += ['- migration metadata: `' + report['migration_inventory']['status'] + '`', '- backup: `' + report['backup']['artifact'] + '`', '- restore verification: `NOT_PROVEN`', '- production mutation: `NONE`', '- deployment authorized: `false`']
+              lines += ['- API base-config metadata: `' + report['api_publication_config']['status'] + '`; installed code: `NOT_INSPECTED`']
+              for name in ('root', 'docker', 'backup'):
+                  sample = report['filesystem_capacity'][name]
+                  available = str(sample['available_bytes']) if sample['status'] == 'OBSERVED_METADATA_ONLY' else 'NOT_PROVEN'
+                  lines += ['- ' + name + ' filesystem: `' + sample['status'] + '`; available bytes: `' + available + '`']
+              lines += ['- filesystem admission: `NOT_GRANTED`']
+              if envelope is not None:
+                  witness = envelope['original_inventory']
+                  lines += ['- authenticated original inventory: `' + witness['status'] + '`; restore: `NOT_PERFORMED`']
+              with pathlib.Path(sys.argv[4]).open('a', encoding='utf-8') as summary:
+                  summary.write('\n'.join(lines) + '\n')
+              print('MARKET_PREFLIGHT_COLLECTION=VALIDATED_READ_ONLY')
+              print('MARKET_PREFLIGHT_DEPLOYMENT_AUTHORIZED=false')
+          except Exception:
+              pathlib.Path(sys.argv[3]).unlink(missing_ok=True)
+              raise SystemExit('MARKET_PREFLIGHT_EVIDENCE_NOT_ADMITTED')
+          PYMARKET
 
           ssh -i "$key" -p "$port" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
@@ -420,60 +567,10 @@ jobs:
           echo "NEXT=$next"
           echo 'PRODUCTION_MUTATION=NONE'
 
-          # Extend this SAME pinned owner-command session; never check out PR code here.
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
-          preflight_status=0
-          timeout 180s ssh -i "$key" -p "$port" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$known" -o ConnectTimeout=15 \
-            "$user@$host" "python3 - '$TARGET_SHA'" \
-            < scripts/production-market-release-preflight.py > "$preflight_raw" 2>/dev/null || preflight_status=$?
-          if (( preflight_status != 0 )); then
-            case "$preflight_status" in
-              124) echo 'MARKET_PREFLIGHT_FAILURE=TRANSPORT_DEADLINE' >&2 ;;
-              255) echo 'MARKET_PREFLIGHT_FAILURE=SSH_TRANSPORT_OR_AUTHORITY' >&2 ;;
-              127) echo 'MARKET_PREFLIGHT_FAILURE=REMOTE_INTERPRETER_UNAVAILABLE' >&2 ;;
-              1) echo 'MARKET_PREFLIGHT_FAILURE=REMOTE_COLLECTION_NOT_PROVEN' >&2 ;;
-              *) echo 'MARKET_PREFLIGHT_FAILURE=READ_ONLY_COLLECTION_FAILED' >&2 ;;
-            esac
-            exit "$preflight_status"
-          fi
-          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
-          python3 -B - "$TARGET_SHA" "$preflight_raw" "$RUNNER_TEMP/market-preflight.json" "$GITHUB_STEP_SUMMARY" <<'PYMARKET'
-          import hashlib, importlib.util, json, pathlib, sys
-          source = pathlib.Path('scripts/production-market-release-preflight.py')
-          spec = importlib.util.spec_from_file_location('market_preflight', source)
-          module = importlib.util.module_from_spec(spec)
-          spec.loader.exec_module(module)
-          try:
-              raw_path = pathlib.Path(sys.argv[2])
-              with raw_path.open('rb') as handle:
-                  raw = handle.read(module.MAX_BYTES + 1)
-              if not 0 < len(raw) <= module.MAX_BYTES:
-                  raise ValueError('BOUNDS')
-              report = module.validate_report(json.loads(raw.decode('utf-8', errors='strict')), sys.argv[1])
-              report['transported_source_sha256'] = hashlib.sha256(source.read_bytes()).hexdigest()
-              report['source_migration_comparison'] = module.source_lineage(report['migration_inventory'], pathlib.Path('apps/api/prisma/migrations'))
-              report['outbox_source_comparison'] = module.outbox_source_comparison(report['outbox_topology'], pathlib.Path('apps/api/prisma/migrations'))
-              payload = json.dumps(report, sort_keys=True, ensure_ascii=True, separators=(',', ':')) + '\n'
-              if len(payload.encode()) > module.MAX_BYTES:
-                  raise ValueError('BOUNDS')
-              destination = pathlib.Path(sys.argv[3])
-              destination.write_text(payload, encoding='utf-8')
-              destination.chmod(0o600)
-              lines = ['## Read-only market release preflight', '', 'Collection is NOT deployment approval.', '', 'Target: `' + sys.argv[1] + '`']
-              lines += ['- ' + key + ': `' + value + '`' for key, value in report['checks'].items()]
-              lines += ['- migration metadata: `' + report['migration_inventory']['status'] + '`', '- backup: `' + report['backup']['artifact'] + '`', '- restore verification: `NOT_PROVEN`', '- production mutation: `NONE`', '- deployment authorized: `false`']
-              with pathlib.Path(sys.argv[4]).open('a', encoding='utf-8') as summary:
-                  summary.write('\n'.join(lines) + '\n')
-              print('MARKET_PREFLIGHT_COLLECTION=VALIDATED_READ_ONLY')
-              print('MARKET_PREFLIGHT_DEPLOYMENT_AUTHORIZED=false')
-          except Exception:
-              pathlib.Path(sys.argv[3]).unlink(missing_ok=True)
-              raise SystemExit('MARKET_PREFLIGHT_EVIDENCE_NOT_ADMITTED')
-          PYMARKET
+
 
       - name: Preserve validated read-only market observations
+        if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         env:
           GH_TOKEN: ''

@@ -31,6 +31,17 @@ concurrency:
 env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
   RELEASE_ISSUE_NUMBER: 3048
+  MOBILE_EVIDENCE_LIB: |
+    build_mobile_evidence_checksums() {
+      local evidence_dir="$1" last_run='apps/web/test-results/production-mobile/.last-run.json'
+      shift
+      # Preserve the generated Playwright record without enabling uploads of hidden files.
+      if [[ -f "$last_run" ]]; then
+        cp -- "$last_run" "$evidence_dir/playwright-last-run.json"
+      fi
+      find "$@" -type f ! -path '*/.*' ! -name sha256.txt -print0 \
+        | sort -z | xargs -0 -r sha256sum > "$evidence_dir/sha256.txt"
+    }
   CONTROLLER_EVIDENCE_LIB: |
     job_state_json() {
       local jobs_json="$1" name="$2"
@@ -239,6 +250,39 @@ jobs:
           if verify_main_matches "$sha" 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'; then
             echo 'main drift was accepted' >&2
             exit 36
+          fi
+
+      - name: Verify complete evidence without hidden-file uploads
+        shell: bash
+        run: |
+          set -euo pipefail
+          lib="$RUNNER_TEMP/mobile-evidence-lib.sh"
+          printf '%s\n' "$MOBILE_EVIDENCE_LIB" > "$lib"
+          # shellcheck disable=SC1090
+          source "$lib"
+          fixture=$(mktemp -d "$RUNNER_TEMP/mobile-evidence.XXXXXX")
+          trap 'rm -rf -- "$fixture"' EXIT
+          cd "$fixture"
+          evidence_dir='artifacts/platform-v7-production-mobile'
+          results='apps/web/test-results/production-mobile'
+          report='apps/web/playwright-report-production-mobile'
+          mkdir -p "$evidence_dir" "$results/.private" "$report"
+          printf '{"status":"passed","failedTests":[]}\n' > "$results/.last-run.json"
+          printf 'hidden sentinel\n' > "$results/.env"
+          printf 'nested hidden sentinel\n' > "$results/.private/receipt.txt"
+          printf 'PASS\n' > "$evidence_dir/result.txt"
+          printf 'browser evidence\n' > "$results/screenshot.png"
+          printf 'report evidence\n' > "$report/index.html"
+          build_mobile_evidence_checksums "$evidence_dir" "$evidence_dir" "$results" "$report"
+          cmp -- "$results/.last-run.json" "$evidence_dir/playwright-last-run.json"
+          [[ $(wc -l < "$evidence_dir/sha256.txt") == 4 ]]
+          grep -Fq "  $evidence_dir/playwright-last-run.json" "$evidence_dir/sha256.txt"
+          ! grep -Fq '/.' "$evidence_dir/sha256.txt"
+          sha256sum --check --status --strict "$evidence_dir/sha256.txt"
+          printf 'tamper\n' >> "$evidence_dir/playwright-last-run.json"
+          if sha256sum --check --status --strict "$evidence_dir/sha256.txt"; then
+            echo 'tampered Playwright record was accepted' >&2
+            exit 37
           fi
 
   accepted:
@@ -637,7 +681,11 @@ jobs:
           printf '%s\n' '${{ steps.final_revision.outcome }}' > "$evidence_dir/final-revision-outcome.txt"
           printf '%s\n' "$GITHUB_RUN_ATTEMPT" > "$evidence_dir/run-attempt.txt"
           printf '%s\n' 'chromium' 'webkit' > "$evidence_dir/browser-engines.txt"
-          find "${roots[@]}" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$evidence_dir/sha256.txt"
+          lib="$RUNNER_TEMP/mobile-evidence-lib.sh"
+          printf '%s\n' "$MOBILE_EVIDENCE_LIB" > "$lib"
+          # shellcheck disable=SC1090
+          source "$lib"
+          build_mobile_evidence_checksums "$evidence_dir" "${roots[@]}"
 
       - name: Upload production mobile evidence
         if: always()

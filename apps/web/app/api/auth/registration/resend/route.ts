@@ -39,7 +39,8 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   const email = String(body.email || '').trim().toLowerCase();
   const locale = (body.locale === 'en' || body.locale === 'zh' ? body.locale : 'ru') as Locale;
-  if (!/^\S+@\S+\.\S+$/.test(email) || email.length > 254) {
+  // Length first: `||` short-circuits, so the pattern only ever sees a bounded string.
+  if (email.length > 254 || !/^\S+@\S+\.\S+$/.test(email)) {
     return json({ accepted: false, code: 'INVALID_EMAIL', correlationId }, 400);
   }
   const upstream = String(process.env.API_URL || '').trim().replace(/\/$/, '');

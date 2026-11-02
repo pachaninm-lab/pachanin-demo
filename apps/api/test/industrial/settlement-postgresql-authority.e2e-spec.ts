@@ -125,6 +125,45 @@ function acceptableRaceLoss(reason: unknown) {
     || /serialize|concurrent|exact pending settlement operation|callback/.test(message);
 }
 
+async function currencyFacts(instance: SettlementServiceInstance, fixture: DealFixture) {
+  return instance.rls.withTrustedContext(fixture.users.accounting, async (tx) => ({
+    deal: await tx.deal.findUniqueOrThrow({
+      where: { id: fixture.dealId }, select: { currency: true, status: true, version: true },
+    }),
+    terms: await tx.$queryRaw<Array<{ id: string; currency: string }>>(Prisma.sql`
+      SELECT id, currency FROM settlement.payment_terms WHERE deal_id = ${fixture.dealId} ORDER BY id
+    `),
+    payments: await tx.$queryRaw<Array<Record<string, unknown>>>(Prisma.sql`
+      SELECT * FROM settlement.payments WHERE deal_id = ${fixture.dealId} ORDER BY id
+    `),
+    operations: await tx.$queryRaw<Array<Record<string, unknown>>>(Prisma.sql`
+      SELECT * FROM settlement.bank_operations WHERE deal_id = ${fixture.dealId} ORDER BY id
+    `),
+    mirrors: await tx.bankOperation.findMany({ where: { dealId: fixture.dealId }, orderBy: { id: 'asc' } }),
+    callbacks: await tx.$queryRaw<Array<Record<string, unknown>>>(Prisma.sql`
+      SELECT * FROM settlement.bank_callbacks WHERE deal_id = ${fixture.dealId} ORDER BY id
+    `),
+    ledger: await tx.$queryRaw<Array<Record<string, unknown>>>(Prisma.sql`
+      SELECT * FROM settlement.ledger_entries WHERE deal_id = ${fixture.dealId} ORDER BY id
+    `),
+    auditCount: await tx.auditEvent.count({ where: { dealId: fixture.dealId } }),
+    outboxCount: await tx.outboxEntry.count({ where: { dealId: fixture.dealId } }),
+  }));
+}
+
+async function seedLegacyMirrorCurrency(
+  instance: SettlementServiceInstance,
+  fixture: DealFixture,
+  operationId: string,
+) {
+  // Reproduce the old producer's RUB public mirror in this disposable database.
+  // Authority, confirmed counters and append-only callback/ledger facts are untouched.
+  await instance.rls.withTrustedContext(fixture.users.accounting, async (tx) => {
+    await tx.$queryRaw`SELECT set_config('app.settlement_projection_write', 'on', true)`;
+    await tx.bankOperation.update({ where: { id: operationId }, data: { currency: 'RUB' } });
+  });
+}
+
 describe('IR-10.4 Settlement PostgreSQL authority', () => {
   let alpha: SettlementServiceInstance;
 
@@ -136,6 +175,172 @@ describe('IR-10.4 Settlement PostgreSQL authority', () => {
   afterAll(async () => {
     await cleanTenant(alpha.prisma);
     await destroyInstance(alpha);
+  });
+
+  describe.each(['RUB', 'USD', 'CNY'])('canonical %s producer currency', (dealCurrency) => {
+    it.each(['default', 'configured-inherited', 'configured-explicit'])(
+      'preserves %s terms through the active reserve/release producer, callbacks and workspace',
+      async (termsMode) => {
+        const slug = `curr-${dealCurrency.toLowerCase()}-${termsMode}`;
+        const fixture = await provisionDeal(alpha.prisma, slug, 100_000n, dealCurrency);
+        await reachContract(alpha, fixture);
+        if (termsMode !== 'default') {
+          const termsInput = {
+            commandId: `terms:${slug}`, idempotencyKey: `terms:${slug}`,
+            dealId: fixture.dealId, reserveAmountKopecks: '100000',
+            beneficiaries: [{ organizationId: fixture.sellerOrgId, role: 'SELLER' as const,
+              allocationKopecks: '100000' }],
+            ...(termsMode === 'configured-explicit' ? { currency: dealCurrency } : {}),
+          };
+          await alpha.settlement.configureTerms(termsInput, fixture.users.accounting);
+          const beforeReplay = await currencyFacts(alpha, fixture);
+          await expect(alpha.settlement.configureTerms(termsInput, fixture.users.accounting))
+            .resolves.toMatchObject({ duplicate: true });
+          expect(await currencyFacts(alpha, fixture)).toEqual(beforeReplay);
+        }
+
+        const reserveState = await dealState(alpha, fixture.dealId);
+        const reserveVersion = reserveState.version;
+        const reserveDto: ExecuteDealCommandDto = {
+          commandId: `reserve:${slug}`, idempotencyKey: `reserve:${slug}`,
+          expectedVersion: reserveVersion.toString(),
+          expectedUpdatedAt: reserveState.updatedAt.toISOString(),
+          payload: payloadForAction(fixture, 'request_reserve'),
+        };
+        const reserve = await alpha.commands.execute(
+          fixture.dealId, 'request_reserve', reserveDto, fixture.users.buyer,
+        ) as Record<string, any>;
+        const requested = await currencyFacts(alpha, fixture);
+        expect(requested.terms).toHaveLength(1);
+        expect(requested.terms[0].currency).toBe(dealCurrency);
+        expect(requested.payments[0].currency).toBe(dealCurrency);
+        expect(requested.operations).toHaveLength(1);
+        expect(requested.operations[0]).toMatchObject({ id: reserve.operationId, currency: dealCurrency });
+        expect(requested.mirrors[0]).toMatchObject({ id: reserve.operationId, currency: dealCurrency });
+
+        const reserveCallback = callbackInput(fixture, reserve.operationId, 'RESERVE', 'currency-reserve');
+        await alpha.settlement.registerBankCallback(reserveCallback);
+        const afterReserve = await currencyFacts(alpha, fixture);
+        await expect(alpha.settlement.registerBankCallback(reserveCallback))
+          .resolves.toMatchObject({ duplicate: true });
+        await expect(alpha.settlement.requestReserve(fixture.dealId, fixture.users.buyer, {
+          commandId: reserveDto.commandId, idempotencyKey: reserveDto.idempotencyKey,
+          expectedDealVersion: reserveVersion,
+        })).resolves.toMatchObject({ duplicate: true, operationId: reserve.operationId });
+        expect(await currencyFacts(alpha, fixture)).toEqual(afterReserve);
+
+        await reachDocuments(alpha, fixture);
+        const releaseState = await dealState(alpha, fixture.dealId);
+        const releaseDto: ExecuteDealCommandDto = {
+          commandId: `release:${slug}`, idempotencyKey: `release:${slug}`,
+          expectedVersion: releaseState.version.toString(),
+          expectedUpdatedAt: releaseState.updatedAt.toISOString(),
+          payload: payloadForAction(fixture, 'request_release'),
+        };
+        const release = await alpha.commands.execute(
+          fixture.dealId, 'request_release', releaseDto, fixture.users.accounting,
+        ) as Record<string, any>;
+        const releaseCallback = callbackInput(fixture, release.operationId, 'RELEASE', 'currency-release');
+        await alpha.settlement.registerBankCallback(releaseCallback);
+        const completed = await currencyFacts(alpha, fixture);
+        await expect(alpha.commands.execute(
+          fixture.dealId, 'request_release', releaseDto, fixture.users.accounting,
+        )).resolves.toMatchObject({ duplicate: true, operationId: release.operationId });
+        await expect(alpha.settlement.registerBankCallback(releaseCallback))
+          .resolves.toMatchObject({ duplicate: true });
+        expect(await currencyFacts(alpha, fixture)).toEqual(completed);
+        expect(completed.deal).toMatchObject({ currency: dealCurrency, status: 'RELEASED' });
+        expect(completed.operations).toHaveLength(2);
+        expect(completed.operations.every((row) => row.currency === dealCurrency && row.status === 'CONFIRMED')).toBe(true);
+        expect(completed.mirrors.every((row) => row.currency === dealCurrency && row.status === 'DONE')).toBe(true);
+        expect(completed.ledger).toHaveLength(2);
+        expect(completed.ledger.every((row) => row.currency === dealCurrency)).toBe(true);
+        const workspace = await alpha.commands.workspace(fixture.dealId, fixture.users.accounting) as Record<string, any>;
+        expect(workspace.deal.currency).toBe(dealCurrency);
+        expect(workspace.bankOperations).toHaveLength(2);
+        expect(workspace.bankOperations.every((row: any) => row.currency === dealCurrency)).toBe(true);
+      },
+    );
+
+    it('rejects contradictory explicit terms without financial side effects', async () => {
+      const fixture = await provisionDeal(alpha.prisma, `curr-conflict-${dealCurrency}`, 100_000n, dealCurrency);
+      await reachContract(alpha, fixture);
+      const before = await currencyFacts(alpha, fixture);
+      await expect(alpha.settlement.configureTerms({
+        commandId: `terms-conflict:${dealCurrency}`, idempotencyKey: `terms-conflict:${dealCurrency}`,
+        dealId: fixture.dealId, reserveAmountKopecks: '100000',
+        currency: dealCurrency === 'RUB' ? 'USD' : 'RUB',
+        beneficiaries: [{ organizationId: fixture.sellerOrgId, role: 'SELLER', allocationKopecks: '100000' }],
+      }, fixture.users.accounting)).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'SETTLEMENT_CURRENCY_MISMATCH' }),
+      });
+      expect(await currencyFacts(alpha, fixture)).toEqual(before);
+    });
+  });
+
+  it.each(['USD', 'CNY'])('does not confirm or silently repair a legacy RUB mirror for %s', async (dealCurrency) => {
+    const fixture = await provisionDeal(alpha.prisma, `legacy-mirror-${dealCurrency}`, 100_000n, dealCurrency);
+    await reachContract(alpha, fixture);
+    const reserveVersion = (await dealState(alpha, fixture.dealId)).version;
+    const reserveInput = {
+      commandId: `legacy-reserve:${dealCurrency}`, idempotencyKey: `legacy-reserve:${dealCurrency}`,
+      expectedDealVersion: reserveVersion,
+    };
+    const reserve = await alpha.settlement.requestReserve(
+      fixture.dealId, fixture.users.buyer, reserveInput,
+    ) as Record<string, any>;
+    await seedLegacyMirrorCurrency(alpha, fixture, reserve.operationId);
+    const before = await currencyFacts(alpha, fixture);
+    await expect(alpha.settlement.registerBankCallback(
+      callbackInput(fixture, reserve.operationId, 'RESERVE', 'legacy-pending'),
+    )).rejects.toMatchObject({ response: expect.objectContaining({ code: 'BANK_OPERATION_CURRENCY_MISMATCH' }) });
+    await expect(alpha.settlement.requestReserve(fixture.dealId, fixture.users.buyer, reserveInput))
+      .rejects.toMatchObject({ response: expect.objectContaining({ code: 'BANK_OPERATION_CURRENCY_MISMATCH' }) });
+    expect(await currencyFacts(alpha, fixture)).toEqual(before);
+  });
+
+  it('preserves confirmed historical facts when a duplicate callback sees a mismatched mirror', async () => {
+    const fixture = await provisionDeal(alpha.prisma, 'legacy-confirmed-usd', 100_000n, 'USD');
+    await reachContract(alpha, fixture);
+    const reserve = await requestReserve(alpha, fixture, 'confirmed') as Record<string, any>;
+    const callback = callbackInput(fixture, reserve.operationId, 'RESERVE', 'legacy-confirmed');
+    await alpha.settlement.registerBankCallback(callback);
+    await seedLegacyMirrorCurrency(alpha, fixture, reserve.operationId);
+    const before = await currencyFacts(alpha, fixture);
+    expect(before.operations[0]).toMatchObject({ currency: 'USD', status: 'CONFIRMED' });
+    expect(before.mirrors[0]).toMatchObject({ currency: 'RUB', status: 'DONE' });
+    await expect(alpha.settlement.registerBankCallback(callback))
+      .rejects.toMatchObject({ response: expect.objectContaining({ code: 'BANK_OPERATION_CURRENCY_MISMATCH' }) });
+    expect(await currencyFacts(alpha, fixture)).toEqual(before);
+  });
+
+  it('rejects legacy contradictory terms before creating an operation', async () => {
+    const fixture = await provisionDeal(alpha.prisma, 'legacy-terms-usd', 100_000n, 'USD');
+    await reachContract(alpha, fixture);
+    await alpha.rls.withTrustedContext(fixture.users.accounting, (tx, context) => tx.$executeRaw(Prisma.sql`
+      INSERT INTO settlement.payment_terms (
+        id, tenant_id, deal_id, version, currency, reserve_amount_minor,
+        release_basis, status, command_id, idempotency_key, request_fingerprint,
+        created_by_user_id, created_by_org_id
+      ) VALUES (
+        ${`legacy-terms:${fixture.dealId}`}, ${context.tenantId}, ${fixture.dealId}, 1, 'RUB', 100000,
+        '{}'::jsonb, 'ISSUED', 'legacy-default-terms', ${`legacy-terms:${fixture.dealId}`},
+        ${fingerprint({ legacy: fixture.dealId })}, ${context.userId}, ${context.orgId}
+      )
+    `));
+    const before = await currencyFacts(alpha, fixture);
+    await expect(requestReserve(alpha, fixture, 'legacy-terms'))
+      .rejects.toMatchObject({ response: expect.objectContaining({ code: 'SETTLEMENT_CURRENCY_MISMATCH' }) });
+    expect(await currencyFacts(alpha, fixture)).toEqual(before);
+  });
+
+  it('rejects malformed persisted Deal currency without substituting RUB', async () => {
+    const fixture = await provisionDeal(alpha.prisma, 'invalid-deal-currency', 100_000n, 'USDX');
+    await reachContract(alpha, fixture);
+    const before = await currencyFacts(alpha, fixture);
+    await expect(requestReserve(alpha, fixture, 'invalid-currency'))
+      .rejects.toMatchObject({ response: expect.objectContaining({ code: 'DEAL_CURRENCY_REQUIRED' }) });
+    expect(await currencyFacts(alpha, fixture)).toEqual(before);
   });
 
   it('executes terms, reserve, beneficiaries, partial payouts, holds, refund and reconciliation atomically', async () => {

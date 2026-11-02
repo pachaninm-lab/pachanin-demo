@@ -112,7 +112,10 @@ function normalizePath(segments: string[]) {
   try {
     const decoded = segments.map((part) => decodeURIComponent(part).trim()).filter(Boolean);
     if (decoded.some((part) => part === '.' || part === '..' || part.includes('/') || part.includes('\\'))) return '';
-    return decoded.join('/');
+    // Each checked segment is re-encoded, as in staff/workspaces: the path is
+    // concatenated into the upstream URL, where fetch() would otherwise read a
+    // '?', '#' or '%2e%2e' inside a segment as URL syntax.
+    return decoded.map(encodeURIComponent).join('/');
   } catch {
     return '';
   }

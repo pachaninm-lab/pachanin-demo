@@ -1,5 +1,6 @@
 import { RequestMethod } from '@nestjs/common';
 import { GUARDS_METADATA, METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
+import { FounderControlController } from '../founder-control/founder-control.controller';
 import { StaffAccessController } from './staff-access.controller';
 import { StaffAccessGuard } from './staff-access.guard';
 import { STAFF_ACCESS_MODES_KEY } from './staff-access-modes.decorator';
@@ -33,6 +34,7 @@ const controllers: ControllerType[] = [
   StaffAccessController as unknown as ControllerType,
   StaffCapabilitiesController as unknown as ControllerType,
   StaffWorkspaceController as unknown as ControllerType,
+  FounderControlController as unknown as ControllerType,
 ];
 
 function joinPath(base: string, child: string): string {
@@ -143,7 +145,7 @@ describe('Company OS staff endpoint authorization and audit policy gate', () => 
     expect(selfReads.length).toBeGreaterThanOrEqual(4);
     for (const entry of selfReads) {
       expect(entry.method).toBe('GET');
-      expect(entry.path).not.toContain(':');
+      if (entry.path.includes(':')) expect(entry.path).toBe('/staff/access/request-intents/:createIntentId');
       expect(entry.requiresAccessSession).toBe(false);
       expect(entry.scopeContract).toBe('ACTOR_ONLY');
       expect([StaffAuditClass.STANDARD_READ, StaffAuditClass.SENSITIVE_READ]).toContain(entry.auditClass);
@@ -227,5 +229,18 @@ describe('Company OS staff endpoint authorization and audit policy gate', () => 
     if (!entry) return;
     const forged = { ...target, modes: [StaffAccessMode.VIEW_AS] };
     expect(policyMetadataErrors(forged, entry)).toContain('GET /staff/registration/applications: modes mismatch');
+  });
+});
+
+
+describe('Exact actor-private create-intent recovery endpoint', () => {
+  it('exposes only a sensitive self-authority GET with no delegated session prerequisite', () => {
+    const entry = STAFF_ENDPOINT_POLICIES.find(candidate => candidate.path === '/staff/access/request-intents/:createIntentId');
+    expect(entry).toMatchObject({ method: 'GET', authorizationClass: StaffAuthorizationClass.STAFF_SELF_AUTHORITY_READ,
+      auditClass: StaffAuditClass.SENSITIVE_READ, requiresAccessSession: false, scopeContract: 'ACTOR_ONLY' });
+    const handler = StaffAccessController.prototype.recoverCreateIntent;
+    expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe('access/request-intents/:createIntentId');
+    expect(Reflect.getMetadata(METHOD_METADATA, handler)).toBe(RequestMethod.GET);
+    expect(metadataArray(GUARDS_METADATA, handler)).not.toContain(StaffAccessGuard);
   });
 });

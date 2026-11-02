@@ -63,6 +63,7 @@ export const StaffPermission = {
   STAFF_REQUEST_APPROVE: 'staff-request:approve',
   STAFF_SESSION_READ: 'staff-session:read',
   STAFF_SESSION_REVOKE: 'staff-session:revoke',
+  FOUNDER_CONTROL_READ: 'founder-control:read',
   CABINET_VIEW_AS: 'cabinet:view-as',
   CABINET_ASSISTED_ACTION: 'cabinet:assisted-action',
   BREAK_GLASS_ACTIVATE: 'break-glass:activate',

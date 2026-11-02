@@ -146,7 +146,7 @@ describe('Design System v8 money role reference slice', () => {
 // This package is deliberately outside pnpm-workspace.yaml. Render the actual
 // workspace source with bounded presentation stubs so the governed CI job can
 // test bank state decisions without relying on a local node_modules symlink.
-async function renderBankWorkspace(snapshot: FirstCustomerWorkspaceSnapshot, locale = 'ru') {
+async function renderBankWorkspace(snapshot: FirstCustomerWorkspaceSnapshot, locale = 'ru', surface: 'bank' | 'buyer' = 'bank') {
   const compiled = ts.transpileModule(firstCustomerWorkspace, {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
@@ -163,7 +163,7 @@ async function renderBankWorkspace(snapshot: FirstCustomerWorkspaceSnapshot, loc
       priority: { title: string; result?: string; primaryAction?: ReactNode; secondaryAction?: ReactNode }; children: ReactNode;
     }) => createElement('main', { 'data-testid': testId },
       createElement('span', null, statusLabel), createElement('h2', null, priority.title),
-      createElement('span', null, priority.result), priority.primaryAction, priority.secondaryAction, children),
+      createElement('output', { 'aria-label': 'Workspace result' }, priority.result), priority.primaryAction, priority.secondaryAction, children),
     OperationalCockpitSection: ({ id, children }: { id?: string; children: ReactNode }) =>
       createElement('section', { id }, children),
     OperationalQueue: (props: { children: ReactNode }) => withChildren('div', props),
@@ -196,8 +196,8 @@ async function renderBankWorkspace(snapshot: FirstCustomerWorkspaceSnapshot, loc
     require: requireWorkspaceDependency,
   }, { filename: 'FirstCustomerWorkspace.tsx' });
   const workspace = runtimeModule.exports.FirstCustomerWorkspace as
-    (props: { surface: 'bank' }) => Promise<ReactElement>;
-  render(await workspace({ surface: 'bank' }));
+    (props: { surface: 'bank' | 'buyer' }) => Promise<ReactElement>;
+  render(await workspace({ surface }));
 }
 
 const bankErrorSnapshot: FirstCustomerWorkspaceSnapshot = {
@@ -219,6 +219,32 @@ const bankErrorSnapshot: FirstCustomerWorkspaceSnapshot = {
 };
 
 describe('bank first-customer failure states', () => {
+  it.each([
+    { locale: 'ru', lang: 'ru' },
+    { locale: 'en', lang: 'en' },
+    { locale: 'zh-CN', lang: 'zh' },
+  ].flatMap((entry) => ['deal-bank-42', 'deal/银行?А&1#2'].map((dealId) => ({ ...entry, dealId }))))(
+    'preserves $locale on navigation to the exact server-provided Deal $dealId',
+    async ({ locale, lang, dealId }) => {
+      const serverHref = `/platform-v7/deals/${encodeURIComponent(dealId)}/execution`;
+      await renderBankWorkspace({
+        ...bankErrorSnapshot,
+        available: true,
+        forbidden: false,
+        correlationId: null,
+        items: [{ id: dealId, dealId, status: 'DOCUMENTS_PENDING', nextAction: null, href: serverHref }],
+      }, locale);
+      const deal = screen.getByRole('link', { name: new RegExp(dealId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) });
+      const href = deal.getAttribute('href');
+      expect(href).toBe(`${serverHref}?lang=${lang}`);
+      const target = new URL(href!, 'https://navigation.example.test');
+      expect(target.pathname).toBe(serverHref);
+      expect(Array.from(target.searchParams.entries())).toEqual([['lang', lang]]);
+      expect(target.hash).toBe('');
+      expect(screen.getByText('UNKNOWN', { exact: true })).toBeInTheDocument();
+    },
+  );
+
   it('uses a server-shaped Deal snapshot as navigation without turning its nextAction into a bank instruction', async () => {
     await renderBankWorkspace({
       ...bankErrorSnapshot,
@@ -235,7 +261,7 @@ describe('bank first-customer failure states', () => {
     expect(screen.getByRole('heading', { name: 'Следующее обязательное действие не опубликовано' })).toBeInTheDocument();
     expect(screen.getByText('UNKNOWN', { exact: true })).toBeInTheDocument();
     const deal = screen.getByRole('link', { name: /deal-bank-42/ });
-    expect(deal).toHaveAttribute('href', '/platform-v7/deals/deal-bank-42/execution');
+    expect(deal).toHaveAttribute('href', '/platform-v7/deals/deal-bank-42/execution?lang=ru');
     expect(deal).toHaveTextContent('Открыть сделку для проверки серверных фактов');
     expect(screen.queryByText('Серверная подсказка строки, не решение банка')).not.toBeInTheDocument();
     expect(screen.getByText('Банковские факты — UNKNOWN')).toBeInTheDocument();
@@ -287,16 +313,39 @@ describe('bank first-customer failure states', () => {
   });
 
   it.each([
-    { forbidden: true, status: 'доступ запрещён', title: 'Роль не соответствует кабинету' },
-    { forbidden: false, status: 'серверная очередь недоступна', title: 'Не подменять недоступный backend' },
-  ])('keeps $title explicit without making a bank decision', async ({ forbidden, status, title }) => {
-    await renderBankWorkspace({ ...bankErrorSnapshot, forbidden });
+    {
+      locale: 'ru', forbidden: true, status: 'доступ запрещён', title: 'Роль не соответствует кабинету',
+      unknown: 'Банковские факты — UNKNOWN', queueReady: 'очередь сделок доступна',
+    },
+    {
+      locale: 'ru', forbidden: false, status: 'серверная очередь недоступна', title: 'Не подменять недоступный backend',
+      unknown: 'Банковские факты — UNKNOWN', queueReady: 'очередь сделок доступна',
+    },
+    {
+      locale: 'en', forbidden: true, status: 'access denied', title: 'Role does not match this cabinet',
+      unknown: 'Bank facts — UNKNOWN', queueReady: 'Deal queue available',
+    },
+    {
+      locale: 'en', forbidden: false, status: 'server queue unavailable', title: 'Do not substitute an unavailable backend',
+      unknown: 'Bank facts — UNKNOWN', queueReady: 'Deal queue available',
+    },
+    {
+      locale: 'zh-CN', forbidden: true, status: '禁止访问', title: '角色与此工作空间不匹配',
+      unknown: '银行事实 — UNKNOWN', queueReady: '交易队列可用',
+    },
+    {
+      locale: 'zh-CN', forbidden: false, status: '服务器队列不可用', title: '不得替换不可用的 backend',
+      unknown: '银行事实 — UNKNOWN', queueReady: '交易队列可用',
+    },
+  ])('keeps $locale $title and its result explicit without making a bank decision', async ({ locale, forbidden, status, title, unknown, queueReady }) => {
+    await renderBankWorkspace({ ...bankErrorSnapshot, forbidden }, locale);
 
     expect(screen.getAllByText(status, { exact: true }).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('Workspace result')).toHaveTextContent(status, { normalizeWhitespace: true });
     expect(screen.getByRole('heading', { name: title })).toBeInTheDocument();
-    expect(screen.getByText('Банковские факты — UNKNOWN')).toBeInTheDocument();
+    expect(screen.getByText(unknown)).toBeInTheDocument();
     expect(screen.getByText(/Correlation ID: bank-error-correlation/)).toBeInTheDocument();
-    expect(screen.queryByText('очередь сделок доступна')).not.toBeInTheDocument();
+    expect(screen.queryByText(queueReady)).not.toBeInTheDocument();
     expect(screen.queryByText('Сбер')).not.toBeInTheDocument();
   });
 });
@@ -336,7 +385,7 @@ describe('governed first-customer priority source contract', () => {
       expect(workspaceDecision).toContain("href='#first-customer-work-queue'");
       expect(workspaceDecision).toContain("owner: priorityUnknown ? undefined");
       expect(firstCustomerWorkspace).toContain('workspace.items.map((item) => item.href ?');
-      expect(firstCustomerWorkspace).toContain('href={item.href}');
+      expect(firstCustomerWorkspace).toContain("href={surface === 'bank' && !workspace.ownerControlled ? `${item.href}?lang=${locale}` : buyerHref(item.href)}");
     },
   );
 
@@ -346,5 +395,59 @@ describe('governed first-customer priority source contract', () => {
     expect(workspaceDecision).toContain('first?.href');
     expect(firstCustomerWorkspace).toContain("workspace.ownerControlled && state === 'ready' ? copy.ownerReady");
     expect(firstCustomerWorkspace).toContain("href='/platform-v7/staff'");
+  });
+});
+
+
+const buyerSnapshot: FirstCustomerWorkspaceSnapshot = {
+  ...bankErrorSnapshot,
+  profile: { ...bankErrorSnapshot.profile, role: 'BUYER', surfaceRole: 'buyer' },
+  organization: { ...bankErrorSnapshot.organization, currentRole: 'BUYER' },
+};
+
+describe('buyer selected-language navigation', () => {
+  it.each([
+    { locale: 'ru', lang: 'ru' },
+    { locale: 'en', lang: 'en' },
+    { locale: 'zh-CN', lang: 'zh' },
+  ].flatMap((entry) => ['deal-buyer-42', 'deal/银行?А&1#2'].map((dealId) => ({ ...entry, dealId }))))(
+    'keeps $locale on the exact server-provided Deal $dealId',
+    async ({ locale, lang, dealId }) => {
+      const serverHref = `/platform-v7/deals/${encodeURIComponent(dealId)}/execution`;
+      await renderBankWorkspace({
+        ...buyerSnapshot, available: true, forbidden: false, correlationId: null,
+        items: [{ id: dealId, dealId, status: 'DOCUMENTS_PENDING', nextAction: null, href: serverHref }],
+      }, locale, 'buyer');
+      const link = screen.getAllByRole('link').find((entry) => entry.textContent?.includes(dealId));
+      expect(link).toHaveAttribute('href', `${serverHref}?lang=${lang}`);
+      const target = new URL(link!.getAttribute('href')!, 'https://navigation.example.test');
+      expect(target.pathname).toBe(serverHref);
+      expect(Array.from(target.searchParams.entries())).toEqual([['lang', lang]]);
+      expect(target.hash).toBe('');
+      expect(screen.getByText('UNKNOWN', { exact: true })).toBeInTheDocument();
+    },
+  );
+
+  it.each(['ru', 'en', 'zh'].flatMap((locale) => [
+    { locale, available: true, forbidden: false },
+    { locale, available: false, forbidden: false },
+    { locale, available: false, forbidden: true },
+  ]))('keeps $locale when opening profile/team from available=$available forbidden=$forbidden', async ({ locale, available, forbidden }) => {
+    await renderBankWorkspace({ ...buyerSnapshot, available, forbidden }, locale, 'buyer');
+    const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
+    expect(hrefs).toContain(`/platform-v7/profile?lang=${locale}`);
+    expect(hrefs).toContain(`/platform-v7/profile/team?lang=${locale}`);
+    expect(hrefs).not.toContain('/platform-v7/staff');
+  });
+
+  it('preserves the owner-controlled route and return destination', async () => {
+    await renderBankWorkspace({
+      ...buyerSnapshot, available: true, forbidden: false, ownerControlled: true,
+      profile: { ...buyerSnapshot.profile, role: 'PLATFORM_OWNER' },
+      items: [{ id: 'OWNER-BUYER-CONTROLLED', dealId: null, status: 'CONTROLLED_TEST', nextAction: null, href: '/platform-v7/buyer/lots' }],
+    }, 'en', 'buyer');
+    expect(screen.getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual([
+      '/platform-v7/buyer/lots', '/platform-v7/staff', '/platform-v7/buyer/lots',
+    ]);
   });
 });

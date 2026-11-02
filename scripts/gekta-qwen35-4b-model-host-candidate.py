@@ -30,9 +30,10 @@ CANDIDATE_SIZE = 3013027808
 CANDIDATE_HOST = "127.0.0.1"
 CANDIDATE_PORT = 18081
 LEASE_SECONDS = 420
-# This is the existing unresolved delivery, not a fresh runtime allowance.
-# Changing the source SHA, run ID or helper filename cannot replenish its slots.
-EXECUTION_GRANT = "gekta-critical-5974230017"
+# A separately admitted, owner-authorized one-use delivery. Source changes and
+# workflow retries cannot replenish either slot; retired markers stay untouched.
+RETIRED_EXECUTION_GRANT = "gekta-critical-5974230017"
+EXECUTION_GRANT = "gekta-finish-20261008-4b-oneuse"
 LEASE_TERM_MARGIN_SECONDS = 2.0
 LEASE_KILL_MARGIN_SECONDS = 1.0
 LEASE_POLL_SECONDS = 0.25
@@ -1279,6 +1280,8 @@ def emit_candidate_start_diagnostic(log, cursor: tuple, phase: str) -> None:
         pass
 
 def validate_execution_arguments(execution_grant: str, corpus: str, admitted_sha: str, checkout_sha: str) -> None:
+    if execution_grant == RETIRED_EXECUTION_GRANT:
+        fail("candidate_execution_grant_retired")
     if execution_grant != EXECUTION_GRANT or corpus not in ("critical", "extra"):
         fail("candidate_execution_grant_invalid")
     if (

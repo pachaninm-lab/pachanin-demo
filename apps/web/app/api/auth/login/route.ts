@@ -16,6 +16,7 @@ import {
   sealMfaLoginTicket,
 } from '../../../../lib/server/mfa-login-ticket';
 import { assertCsrf, generateCsrfToken } from '../../../../lib/server-request-security';
+import { classifyUpstreamLoginFailure, logLoginRefusal } from '../../../../lib/server/auth-login-failure';
 import {
   MEMBERSHIP_SELECTION_COOKIE,
   clearMembershipSelectionCookieOptions,
@@ -156,7 +157,7 @@ export async function POST(request: Request) {
   const controlPlane = isControlHostRequest(request);
   const csrf = assertCsrf(request);
   if (!csrf.ok) {
-    if (controlPlane) console.warn('control_plane_login_denied', JSON.stringify({ correlationId, reason: 'csrf' }));
+    logLoginRefusal({ correlationId, controlPlane, code: 'CSRF_REJECTED', reason: csrf.reason });
     return json({ ok: false, code: 'CSRF_REJECTED', message: UNIVERSAL_ERROR, correlationId }, 403);
   }
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
@@ -183,14 +184,18 @@ export async function POST(request: Request) {
     const payload = await apiResponse.json().catch(() => ({} as ApiLoginPayload)) as ApiLoginPayload;
 
     if (!apiResponse.ok) {
-      const rateLimited = apiResponse.status === 429;
-      if (controlPlane) console.warn('control_plane_login_denied', JSON.stringify({ correlationId, reason: rateLimited ? 'rate_limited' : 'credentials' }));
+      // Keep the auth service's own distinction: a wrong password, a throttle,
+      // a proven password with an inactive organization/membership and an
+      // unusable auth-service answer are different classes, both for the
+      // person signing in and in the redacted server log.
+      const failure = classifyUpstreamLoginFailure(apiResponse.status, payload);
+      logLoginRefusal({ correlationId, controlPlane, code: failure.code, upstreamStatus: apiResponse.status });
       return json({
         ok: false,
-        code: rateLimited ? 'RATE_LIMITED' : 'INVALID_CREDENTIALS',
+        code: failure.code,
         message: UNIVERSAL_ERROR,
         correlationId,
-      }, rateLimited ? 429 : 401);
+      }, failure.status);
     }
 
     if (payload.membershipSelectionRequired) {

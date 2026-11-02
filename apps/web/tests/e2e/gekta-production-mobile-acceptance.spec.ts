@@ -10,12 +10,12 @@ const viewports = [
 const SEEDED_TITLE = 'Production mobile acceptance';
 const HISTORY_STORAGE = 'gekta-conversations-v2';
 
-async function seedConversation(page: Page) {
-  await page.addInitScript(({ storageKey, title }) => {
+async function seedConversation(page: Page, locale: 'ru' | 'en' | 'zh' = 'ru') {
+  await page.addInitScript(({ storageKey, title, locale }) => {
     const now = '2026-08-12T00:00:00.000Z';
     localStorage.setItem(storageKey, JSON.stringify([{
       id: 'production-mobile-acceptance',
-      locale: 'ru',
+      locale,
       title,
       createdAt: now,
       updatedAt: now,
@@ -31,7 +31,7 @@ async function seedConversation(page: Page) {
         },
       ],
     }]));
-  }, { storageKey: HISTORY_STORAGE, title: SEEDED_TITLE });
+  }, { storageKey: HISTORY_STORAGE, title: SEEDED_TITLE, locale });
 }
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -80,20 +80,76 @@ async function textLineCount(locator: Locator): Promise<number> {
   });
 }
 
+type MobileLegalPresentation = Readonly<{ locale: string; snapshot: string; termsHref: string; privacyHref: string }>;
+
+function mobileConsentLocale(pageUrl: string): 'ru' | 'en' | 'zh' {
+  const match = new URL(pageUrl).pathname.match(/^\/gekta(?:\/(en|zh))?\/?$/u);
+  expect(match).not.toBeNull();
+  return (match?.[1] || 'ru') as 'ru' | 'en' | 'zh';
+}
+
+function assertMobileLegalLinks(hrefs: string[], pageUrl: string, legalVersion: string, locale: string, presentation?: MobileLegalPresentation) {
+  const paths = ['/legal/usloviya-ispolzovaniya-gekta', '/legal/politika-konfidencialnosti'];
+  expect(legalVersion.length).toBeGreaterThan(0);
+  expect(hrefs).toEqual(presentation ? [presentation.termsHref, presentation.privacyHref] : paths);
+  if (presentation) {
+    expect(presentation.locale).toBe(locale);
+    expect(presentation.snapshot.length).toBeGreaterThan(0);
+    expect(presentation.snapshot.length).toBeLessThanOrEqual(2_048);
+  }
+  const urls = hrefs.map((href, index) => {
+    expect(href.startsWith('/legal/')).toBe(true);
+    const url = new URL(href, pageUrl);
+    expect(url.origin).toBe(new URL(pageUrl).origin);
+    expect(url.pathname).toBe(paths[index]);
+    expect(url.hash).toBe('');
+    if (presentation) {
+      expect([...url.searchParams.keys()].sort()).toEqual(['h', 'p', 'v']);
+      expect(url.searchParams.get('v')).toBe(legalVersion);
+      expect(url.searchParams.get('h')).toMatch(/^[0-9a-f]{64}$/u);
+      expect(url.searchParams.get('p')).toMatch(/^[0-9a-f]{64}$/u);
+    } else expect(url.search).toBe('');
+    return url;
+  });
+  if (presentation) {
+    expect(urls[0].searchParams.get('p')).toBe(urls[1].searchParams.get('p'));
+    expect(urls[0].searchParams.get('h')).not.toBe(urls[1].searchParams.get('h'));
+  }
+}
+
 async function acceptRequiredConsent(page: Page) {
   const consent = page.locator('[data-gekta-consent="true"]');
   await expect(consent).toBeVisible();
 
-  const legalLinks = consent.locator([
-    'a[href="/legal/usloviya-ispolzovaniya-gekta"]',
-    'a[href="/legal/politika-konfidencialnosti"]',
-  ].join(', '));
+  const locale = mobileConsentLocale(page.url());
+  const noticeResponse = await page.evaluate(async locale => {
+    const response = await fetch(`/api/gekta/entitlement?lang=${locale}`, { cache: 'no-store' });
+    return { ok: response.ok, body: await response.json() };
+  }, locale);
+  expect(noticeResponse.ok).toBe(true);
+  const notice = noticeResponse.body as { legalVersion: string; legalPresentation?: MobileLegalPresentation };
+  const legalLinks = consent.locator('a');
   await expect(legalLinks).toHaveCount(2);
+  const hrefs = await legalLinks.evaluateAll(nodes => nodes.map(node => node.getAttribute('href') || ''));
+  // The accepted predecessor has bare links and no presentation descriptor.
+  // A descriptor requires the exact committed URLs; stripping hashes cannot pass.
+  assertMobileLegalLinks(hrefs, page.url(), notice.legalVersion, locale, notice.legalPresentation);
   await expectTargetsAtLeast(legalLinks, 44);
 
   const acceptButton = consent.locator('[data-gekta-consent-accept="true"]');
   await expectTargetsAtLeast(acceptButton, 44);
+  const acknowledgement = page.waitForResponse(response => new URL(response.url()).pathname === '/api/gekta/entitlement'
+    && response.request().method() === 'POST' && response.request().postDataJSON()?.action === 'consent');
   await acceptButton.click();
+  const acceptedResponse = await acknowledgement;
+  expect(acceptedResponse.ok()).toBe(true);
+  const accepted = await acceptedResponse.json();
+  expect(accepted.consent?.version).toBe(notice.legalVersion);
+  if (notice.legalPresentation) {
+    expect(accepted.consentCurrent).toBe(true);
+    expect(accepted.consent?.surfaceLocale).toBe(locale);
+    expect(accepted.consent?.evidenceHash).toMatch(/^sha256:[0-9a-f]{64}$/u);
+  }
   await expect(consent).toHaveCount(0);
   // useDialogFocus restores the opener in requestAnimationFrame after unmount.
   // Finish that UI handoff before the next synthetic fill takes keyboard focus.
@@ -161,9 +217,9 @@ async function closeDrawerWithEscape(page: Page, menu: string, closeMenu: string
   }
 }
 
-async function openSeededConversation(page: Page, viewportWidth: number) {
-  await closeDrawerWithEscape(page, 'Открыть историю', 'Закрыть историю', viewportWidth);
-  await page.getByRole('button', { name: 'Открыть историю' }).click();
+async function openSeededConversation(page: Page, viewportWidth: number, menu = 'Открыть историю', closeMenu = 'Закрыть историю') {
+  await closeDrawerWithEscape(page, menu, closeMenu, viewportWidth);
+  await page.getByRole('button', { name: menu }).click();
   const dialog = page.getByRole('dialog', { name: 'Gekta' });
   await expect(dialog).toBeVisible();
   await page.getByRole('button', { name: SEEDED_TITLE }).click();
@@ -285,8 +341,8 @@ test.describe('Gekta exact production mobile acceptance', () => {
   }
 
   for (const route of [
-    { path: '/gekta/en', locale: 'EN', lang: 'en', menu: 'Open history', closeMenu: 'Close history', brand: 'GEKTA' },
-    { path: '/gekta/zh', locale: 'ZH', lang: 'zh-CN', menu: '打开历史记录', closeMenu: '关闭历史记录', brand: 'GEKTA' },
+    { path: '/gekta/en', locale: 'EN', surfaceLocale: 'en', lang: 'en', menu: 'Open history', closeMenu: 'Close history', brand: 'GEKTA' },
+    { path: '/gekta/zh', locale: 'ZH', surfaceLocale: 'zh', lang: 'zh-CN', menu: '打开历史记录', closeMenu: '关闭历史记录', brand: 'GEKTA' },
   ] as const) {
     for (const viewport of viewports) {
       test(`${route.locale} ${viewport.name} remains localized, progressive and 44px-safe`, async ({ page }, testInfo) => {
@@ -296,6 +352,7 @@ test.describe('Gekta exact production mobile acceptance', () => {
           if (message.type() === 'error' && /hydration|uncaught|error boundary/i.test(message.text())) runtimeFailures.push(message.text());
         });
 
+        await seedConversation(page, route.surfaceLocale);
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
         const response = await page.goto(route.path, { waitUntil: 'load' });
         expect(response?.ok()).toBe(true);
@@ -340,6 +397,13 @@ test.describe('Gekta exact production mobile acceptance', () => {
           fullPage: false,
           animations: 'disabled',
         });
+
+        await openSeededConversation(page, viewport.width, route.menu, route.closeMenu);
+        await acceptRequiredConsent(page);
+        await expect(page.locator('[data-gekta-role="assistant"]')).toBeVisible();
+        await expectTargetsAtLeast(visibleWorkspaceTargets(page), 44);
+        await expectNoHorizontalOverflow(page);
+        expect(runtimeFailures).toEqual([]);
       });
     }
   }
