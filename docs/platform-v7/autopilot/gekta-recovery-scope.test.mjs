@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
@@ -142,6 +142,153 @@ test('candidate-owned manifest cannot self-admit an API authority file', t => {
   write(c.root, 'apps/api/src/app.module.ts', 'injected authority');
   const r = check(c);
   assert.notEqual(r.status, 0, r.stdout + r.stderr);
+});
+
+// RG2 regression fixtures are local Git data, never runtime authority.
+test('RG2: exact source, generated attribution and immutable authority boundaries', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rg2-real-git-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
+  coGit(root, ['init', '--initial-branch=main']);
+  for (const [key, value] of [['user.name', 'RG2 synthetic regression'], ['user.email', 'rg2@example.invalid'],
+    ['maintenance.auto', 'false'], ['gc.auto', '0']]) coGit(root, ['config', key, value]);
+  write(root, '.git/objects/info/alternates', coObjectDirectory + '\n');
+  const g = (...args) => coGit(root, args);
+  const put = (file, bytes, mode = '100644') => {
+    const oid = coGit(root, ['hash-object', '-w', '--stdin'], { input: bytes }).toString().trim();
+    g('update-index', '--add', '--cacheinfo', mode, oid, file);
+  };
+  const commit = (from, edits = [], parents = [from]) => {
+    g('read-tree', from);
+    for (const [file, bytes, mode] of edits) put(file, bytes, mode);
+    return g('commit-tree', g('write-tree').toString().trim(), ...parents.flatMap(p => ['-p', p]),
+      '-m', 'SYNTHETIC RG2 source boundary fixture').toString().trim();
+  };
+  const origin = '7349fd3a329fac581c5160096865c61f028c58ef';
+  const fence = String.fromCharCode(96).repeat(3);
+  const marker = '\n## RG2S — Closed geometry receipt source admission, 2026-11-02\n\n' + fence + 'json\n';
+  const reviewPath = 'docs/platform-v7/autopilot/prompts/current-review-task.md';
+  const workflowPath = '.github/workflows/production-docker-headroom-diagnostic.yml';
+  const mdPath = 'docs/security/CRYPTOGRAPHIC_INVENTORY.md';
+  const jsonPath = 'docs/security/cryptographic-inventory.json';
+  const generatorPath = 'scripts/security/discover-cryptography.mjs';
+  const carrier = g('show', origin + ':' + reviewPath).toString();
+  const encoded = carrier.split(marker)[1].split('\n' + fence + '\n')[0];
+  assert.equal(coSha(Buffer.from(encoded)), 'a5438b79e711a365997210678ecbcbbe52e37022d0a9c4f95aeea2fc67ad5328');
+  const purpose = JSON.parse(encoded), patch = Buffer.from(purpose.fullSourcePatch.text);
+  assert.equal(patch.length, purpose.fullSourcePatch.bytes); assert.equal(coSha(patch), purpose.fullSourcePatch.sha256);
+  const base = commit(origin, [
+    ['scripts/p7-autopilot-guard.sh', Buffer.from(sourceGuard), '100755'],
+    ['docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs', fs.readFileSync('docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs')],
+  ]);
+  g('read-tree', base);
+  coGit(root, ['apply', '--cached', '--whitespace=nowarn', '-'], { input: patch });
+  const source = g('commit-tree', g('write-tree').toString().trim(), '-p', base, '-m', 'SYNTHETIC pinned source S').toString().trim();
+  assert.equal(g('rev-parse', source + ':' + workflowPath).toString().trim(), purpose.workflow.afterBlob);
+  g('checkout', '--force', '--detach', source);
+  const producerEnv = { ...process.env }; delete producerEnv.SOURCE_SHA;
+  const produce = () => {
+    const r = spawnSync(process.execPath, [generatorPath], { cwd: root, env: producerEnv, encoding: 'utf8', timeout: 30000 });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    return [fs.readFileSync(path.join(root, mdPath)), fs.readFileSync(path.join(root, jsonPath))];
+  };
+  const [md, inventory] = produce(); assert.deepEqual(produce(), [md, inventory]);
+  const head = commit(source, [[mdPath, md], [jsonPath, inventory]]);
+  assert.match(md.toString(), new RegExp('Source SHA: ' + String.fromCharCode(96) + source));
+  const body = sourceGuard.split('// RG2_SOURCE_STAGE_BEGIN:')[1].split('// RG2_SOURCE_STAGE_END')[0];
+  const functionBody = body.slice(body.indexOf('function rg2SourceStage()'));
+  const branch = 'fix/gekta-docker-diagnostic-route-20260927';
+  const checkStage = (candidate = head, accepted = base, selectedBranch = branch) => runInNewContext(
+    functionBody + '\nrg2SourceStage();', {
+      branch: selectedBranch, baseRef: accepted, stateFile: statePath, Buffer,
+      process: { execPath: process.execPath, env: { ...process.env, HEAD_REF: candidate } },
+      require: name => {
+        assert.equal(name, 'node:crypto'); return { createHash };
+      },
+      execFileSync: (command, args, options) => execFileSync(command, args, { ...options, cwd: root }),
+    }, { timeout: 180000 });
+  const full = (candidate = head, accepted = base) => coCheck({ root, head: candidate, base: accepted, branch },
+    { script: sourceGuard });
+  await t.test('accepts real S then sole-parent generated T and full guard', () => {
+    const result = checkStage();
+    assert.deepEqual(Array.from(result.scopes), [workflowPath, mdPath, jsonPath]);
+    assert.equal(result.metadata, false); assert.equal(result.stage, 'RG2-SOURCE');
+    const r = full(); assert.equal(r.status, 0, r.stdout + r.stderr);
+  });
+  const reject = async (name, candidate, accepted = base, pattern = /RG2_SOURCE_SCOPE_|RG2_GENERATED_/u) => {
+    await t.test(name, () => assert.throws(() => checkStage(candidate, accepted), pattern));
+  };
+  const oldMd = g('show', base + ':' + mdPath);
+  const oldWorkflow = g('show', base + ':' + workflowPath);
+  for (const [name, file, bytes, mode] of [
+    ['rejects PRIMARY path union', 'apps/api/src/main.ts', Buffer.from('injected')],
+    ['rejects historical helper union', 'scripts/test_production_stopped_runtime_headroom.py', Buffer.from('injected')],
+    ['rejects candidate state mutation', statePath, Buffer.from('{}')],
+    ['rejects candidate purpose mutation', reviewPath, Buffer.from(carrier + '\nforged')],
+    ['rejects candidate queue mutation', coQueue, Buffer.from('injected')],
+    ['rejects workflow tampering', workflowPath, Buffer.from(oldWorkflow.toString() + '\nforged')],
+    ['rejects executable workflow', workflowPath, g('show', head + ':' + workflowPath), '100755'],
+    ['rejects symlink workflow', workflowPath, Buffer.from('../README.md'), '120000'],
+    ['rejects generator mutation', generatorPath, Buffer.from('throw new Error("CANDIDATE_CODE_MUST_NOT_RUN")')],
+  ]) {
+    const bad = commit(head, [[file, bytes, mode]]);
+    await reject(name, bad);
+    if (name.includes('union')) {
+      await t.test(name + ' through full guard', () => { const r = full(bad); assert.notEqual(r.status, 0); assert.match(r.stderr, /RG2_SOURCE_SCOPE_DIFF_SCOPE/u); });
+    }
+  }
+  for (const [name, edits] of [
+    ['rejects forged whole MD', [[mdPath, Buffer.concat([md, Buffer.from('\nforged')])]]],
+    ['rejects forged whole JSON', [[mdPath, md], [jsonPath, Buffer.from('{}\n')]]],
+    ['rejects stale source attribution', [[mdPath, oldMd]]],
+    ['rejects executable inventory', [[mdPath, md, '100755']]],
+  ]) await reject(name, commit(source, edits));
+  await reject('rejects multiple final parents', commit(source, [[mdPath, md], [jsonPath, inventory]], [source, base]));
+  await reject('rejects final source content without S parent', commit(base, [
+    [workflowPath, g('show', head + ':' + workflowPath)], [mdPath, md], [jsonPath, inventory],
+  ]));
+  await reject('rejects workflow reverting to old payload', commit(source, [[workflowPath, oldWorkflow], [mdPath, md]]));
+  await reject('rejects unrelated accepted base', head, commit(base, [], []));
+  const forgedPurpose = { ...purpose, runtimeBoundary: { ...purpose.runtimeBoundary, invocationAuthorized: true } };
+  for (const [name, replacement, mode] of [
+    ['rejects altered accepted purpose', JSON.stringify(forgedPurpose)],
+    ['rejects noncanonical accepted JSON', ' ' + encoded],
+    ['rejects duplicate accepted key', encoded.replace('"owner":', '"owner":"forged","owner":')],
+    ['rejects malformed accepted JSON', encoded + ','],
+    ['rejects executable accepted carrier', encoded, '100755'],
+    ['rejects missing accepted fence', encoded + '\ninvalid-fence'],
+  ]) {
+    const changed = name.includes('fence') ? carrier.split(marker)[0] + marker + replacement :
+      carrier.replace(encoded, replacement);
+    await reject(name, head, commit(base, [[reviewPath, Buffer.from(changed), mode]]));
+  }
+  await reject('rejects duplicate accepted marker', head, commit(base, [[reviewPath, Buffer.from(carrier + marker + encoded + '\n' + fence + '\n')]]));
+  await reject('rejects carrier over unchanged 2MiB cap', head,
+    commit(base, [[reviewPath, Buffer.concat([Buffer.from(carrier), Buffer.alloc(2 * 1024 * 1024, 120)])]]));
+  const noPurpose = commit(base, [[reviewPath, Buffer.from(carrier.split(marker)[0])]]);
+  await t.test('missing accepted purpose falls through and full old route rejects new source', () => {
+    assert.equal(checkStage(head, noPurpose), undefined);
+    const r = full(head, noPurpose); assert.notEqual(r.status, 0);
+  });
+  await t.test('candidate-only purpose cannot grant new source', () => {
+    const bad = commit(noPurpose, [[workflowPath, g('show', head + ':' + workflowPath)], [reviewPath, Buffer.from(carrier)], [mdPath, md]]);
+    assert.equal(checkStage(bad, noPurpose), undefined); const r = full(bad, noPurpose); assert.notEqual(r.status, 0);
+  });
+  const changedRegistry = commit(base, [[statePath, Buffer.from('{}')]]);
+  const rebasedSource = commit(changedRegistry, [[workflowPath, g('show', head + ':' + workflowPath)]]);
+  const rebasedFinal = commit(rebasedSource, [[mdPath, Buffer.from(md.toString().replace(source, rebasedSource))], [jsonPath, inventory]]);
+  await reject('changed accepted registry requires recomposition', rebasedFinal, changedRegistry,
+    /RG2_SOURCE_SCOPE_SOURCE_PIN_OR_MODE/u);
+  const intermediate = commit(base);
+  const indirectSource = commit(intermediate, [[workflowPath, g('show', head + ':' + workflowPath)]]);
+  await reject('rejects S without accepted BASE as sole parent', commit(indirectSource,
+    [[mdPath, Buffer.from(md.toString().replace(source, indirectSource))], [jsonPath, inventory]]), base,
+    /RG2_SOURCE_SCOPE_PUBLIC_SOURCE_SOLE_BASE_PARENT/u);
+  await t.test('other branch retains existing validator', () => assert.equal(checkStage(head, base, 'ops/production-cold-preservation-20261022'), undefined));
+  await t.test('candidate worktree is not producer authority', () => {
+    write(root, generatorPath, 'throw new Error("CANDIDATE_WORKTREE_MUST_NOT_RUN");\n');
+    write(root, 'apps/api/src/main.ts', 'throw new Error("WORKTREE_SOURCE_MUST_NOT_RUN");\n');
+    assert.equal(checkStage().stage, 'RG2-SOURCE');
+  });
 });
 
 const readonlyDiagnosticBranch = 'fix/gekta-model-control-probe-20261001';

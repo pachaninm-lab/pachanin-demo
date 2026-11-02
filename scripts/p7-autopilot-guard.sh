@@ -818,6 +818,191 @@ const gektaRecoveryScopes = {
   ]
 };
 let scopes;
+// RG2_SOURCE_STAGE_BEGIN: accepted metadata grants source-only scope, never runtime.
+function rg2SourceStage() {
+  if (branch !== 'fix/gekta-docker-diagnostic-route-20260927') return undefined;
+  const { createHash } = require('node:crypto');
+  const fail = reason => { throw new Error('RG2_SOURCE_SCOPE_' + reason); };
+  const reviewPath = 'docs/platform-v7/autopilot/prompts/current-review-task.md';
+  const workflow = '.github/workflows/production-docker-headroom-diagnostic.yml';
+  const generated = ['docs/security/CRYPTOGRAPHIC_INVENTORY.md', 'docs/security/cryptographic-inventory.json'];
+  const marker = '\n## RG2S — Closed geometry receipt source admission, 2026-11-02\n\n```json\n';
+  const headRef = String(process.env.HEAD_REF || '').trim();
+  const git = (args, options = {}) => execFileSync('git', args, {
+    encoding: 'utf8', maxBuffer: 4 * 1024 * 1024, ...options,
+  });
+  const entry = (ref, file) => git(['ls-tree', ref, '--', file]).trim();
+  if (!entry(baseRef, reviewPath)) return undefined;
+  let accepted;
+  try { accepted = execFileSync('git', ['show', `${baseRef}:${reviewPath}`], { maxBuffer: 2 * 1024 * 1024 + 1 }); }
+  catch (error) {
+    if (Buffer.isBuffer(error.stdout) && error.stdout.includes(Buffer.from(marker))) fail('REVIEW_CAPACITY');
+    return undefined;
+  }
+  // Historical source purposes retain their existing validator and error family.
+  if (!accepted.includes(Buffer.from(marker))) return undefined;
+  if (accepted.length > 2 * 1024 * 1024 || !Buffer.from(accepted.toString('utf8')).equals(accepted)) fail('REVIEW_CAPACITY');
+  if (!/^100644 blob [a-f0-9]{40}\t/u.test(entry(baseRef, reviewPath))) fail('REVIEW_MODE');
+  const parts = accepted.toString('utf8').split(marker);
+  if (parts.length !== 2) fail('PURPOSE_NOT_UNIQUE');
+  const end = parts[1].indexOf('\n```\n');
+  if (end < 0) fail('PURPOSE_FORMAT');
+  const encoded = parts[1].slice(0, end);
+  let purpose;
+  try { purpose = JSON.parse(encoded); } catch { fail('PURPOSE_FORMAT'); }
+  if (JSON.stringify(purpose) !== encoded || createHash('sha256').update(encoded).digest('hex') !==
+      'a5438b79e711a365997210678ecbcbbe52e37022d0a9c4f95aeea2fc67ad5328') fail('ACCEPTED_PURPOSE');
+  const read = (ref, file, cap = 1024 * 1024) => {
+    let raw;
+    try { raw = execFileSync('git', ['show', `${ref}:${file}`], { maxBuffer: cap + 1 }); }
+    catch { fail('SOURCE_READ'); }
+    if (raw.length > cap || !Buffer.from(raw.toString('utf8')).equals(raw)) fail('SOURCE_READ');
+    return raw;
+  };
+  const exact = (ref, file, blob) => {
+    if (entry(ref, file) !== `100644 blob ${blob}\t${file}`) fail('SOURCE_PIN_OR_MODE');
+  };
+  const baseSha = git(['rev-parse', `${baseRef}^{commit}`]).trim();
+  if (!headRef) fail('BASE_ANCESTRY');
+  const headSha = git(['rev-parse', `${headRef}^{commit}`]).trim();
+  try {
+    if (!headRef || git(['merge-base', baseRef, headRef]).trim() !== baseSha) fail('BASE_ANCESTRY');
+    git(['merge-base', '--is-ancestor', purpose.authorityBaseExactMain, baseRef]);
+  } catch { fail('BASE_ANCESTRY'); }
+  const allowed = [workflow, ...generated];
+  const changes = (from, to) => {
+    const raw = git(['diff', '--raw', '--no-abbrev', '--no-renames', '-z', from, to]);
+    const fields = raw.split('\0');
+    if (fields.pop() !== '' || fields.length % 2) fail('DIFF_FORMAT');
+    const paths = [];
+    for (let i = 0; i < fields.length; i += 2) {
+      if (!/^:100644 100644 [a-f0-9]{40} [a-f0-9]{40} M$/u.test(fields[i]) ||
+          !allowed.includes(fields[i + 1]) || paths.includes(fields[i + 1])) fail('DIFF_SCOPE');
+      paths.push(fields[i + 1]);
+    }
+    return paths;
+  };
+  const changed = changes(baseRef, headRef);
+  if (!changed.includes(workflow) || !changed.includes(generated[0])) fail('REQUIRED_SOURCE_AND_ATTRIBUTION');
+  for (const file of [stateFile, reviewPath, 'docs/platform-v7/execution-queue.md']) {
+    if (entry(baseRef, file) !== entry(headRef, file)) fail('FOREIGN_AUTHORITY');
+  }
+  // A changed or revoked accepted registry requires a new reviewed purpose.
+  exact(baseRef, stateFile, 'ca6cff24721e594823859e48e10aec5c3dd76a02');
+  exact(baseRef, workflow, purpose.workflow.beforeBlob);
+  exact(headRef, workflow, purpose.workflow.afterBlob);
+  const before = read(baseRef, workflow), after = read(headRef, workflow);
+  if (before.length !== purpose.workflow.beforeBytes || after.length !== purpose.workflow.afterBytes ||
+      createHash('sha256').update(before).digest('hex') !== purpose.workflow.beforeSha256 ||
+      createHash('sha256').update(after).digest('hex') !== purpose.workflow.afterSha256 ||
+      !after.subarray(0, before.length).equals(before)) fail('SOURCE_BYTES_OR_PREFIX');
+  for (const file of generated) for (const ref of [baseRef, headRef]) {
+    if (!/^100644 blob [a-f0-9]{40}\t/u.test(entry(ref, file))) fail('GENERATED_MODE');
+  }
+  const markdown = read(headRef, generated[0]).toString('utf8');
+  const source = /^Source SHA: \x60([a-f0-9]{40})\x60$/mu.exec(markdown)?.[1];
+  const parents = git(['rev-list', '--parents', '-n', '1', headSha]).trim().split(' ');
+  if (!source || parents.length !== 2 || parents[0] !== headSha || parents[1] !== source) fail('FINAL_SOLE_SOURCE_PARENT');
+  const sourceParents = git(['rev-list', '--parents', '-n', '1', source]).trim().split(' ');
+  if (sourceParents.length !== 2 || sourceParents[1] !== baseSha) fail('PUBLIC_SOURCE_SOLE_BASE_PARENT');
+  if (changes(baseRef, source).join('\0') !== workflow) fail('PUBLIC_SOURCE_SCOPE');
+  exact(source, workflow, purpose.workflow.afterBlob);
+  for (const file of generated) {
+    if (entry(baseRef, file) !== entry(source, file)) fail('PREGENERATION_SOURCE');
+  }
+  const finalChanges = changes(source, headRef);
+  if (!finalChanges.includes(generated[0]) || finalChanges.some(file => !generated.includes(file))) fail('GENERATED_ONLY_FINAL');
+  for (const ref of [baseRef, source, headRef]) exact(ref, purpose.generator.path, purpose.generator.blob);
+  // Existing trusted immutable-tree producer verification; candidate code is data.
+  execFileSync(process.execPath, ['--input-type=module', '-'], {
+    env: { ...process.env, RG2_INVENTORY_BASE: baseRef, RG2_INVENTORY_HEAD: headRef },
+    timeout: 120_000, maxBuffer: 4 * 1024 * 1024,
+    input: String.raw`
+import { execFileSync } from 'node:child_process';
+import { isDeepStrictEqual } from 'node:util';
+const base = process.env.RG2_INVENTORY_BASE;
+const head = process.env.RG2_INVENTORY_HEAD;
+const generatorPath = 'scripts/security/discover-cryptography.mjs';
+const jsonPath = 'docs/security/cryptographic-inventory.json';
+const mdPath = 'docs/security/CRYPTOGRAPHIC_INVENTORY.md';
+const git = (args, options = {}) => execFileSync('git', args, {
+  encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...options,
+});
+const read = (ref, file) => git(['show', ref + ':' + file]);
+const markdown = read(head, mdPath);
+const attribution = /^Source SHA: \x60([0-9a-f]{40})\x60$/mu.exec(markdown);
+if (!attribution) throw new Error('RG2_GENERATED_GENERATED_SOURCE_IDENTITY');
+const source = attribution[1];
+try { git(['merge-base', '--is-ancestor', source, head]); }
+catch { throw new Error('RG2_GENERATED_GENERATED_SOURCE_NOT_ANCESTOR'); }
+const generator = read(base, generatorPath);
+if (read(head, generatorPath) !== generator || read(source, generatorPath) !== generator) {
+  throw new Error('RG2_GENERATED_GENERATOR_NOT_TRUSTED');
+}
+function sourceTree(ref) {
+  const entries = git(['ls-tree', '-r', '-z', ref, '--', 'apps', 'packages']).split('\0').filter(Boolean);
+  const selected = [];
+  for (const entry of entries) {
+    const parsed = /^(\d{6}) (blob|commit) ([0-9a-f]{40})\t([\s\S]+)$/u.exec(entry);
+    if (!parsed) throw new Error('RG2_GENERATED_GENERATED_TREE_METADATA');
+    const [, mode, kind, oid, file] = parsed;
+    if (!/\.(?:ts|tsx|js|jsx|mjs|cjs)$/u.test(file) || file.startsWith('apps/landing/') ||
+        /(?:\.(?:spec|test)\.[cm]?[jt]sx?$)|(?:(?:^|\/)(?:tests?|__tests__)\/)/u.test(file)) continue;
+    let contentOid = oid;
+    if (mode === '120000' && file === 'apps/web/apps/web/middleware.ts') {
+      // One pre-existing compatibility alias is followed by the canonical
+      // scanner. Resolve this exact immutable link through Git, never the host
+      // filesystem, and include its target blob in source-attribution equality.
+      const baselineLink = git(['ls-tree', base, '--', file]);
+      const target = 'apps/web/middleware.ts';
+      const targetEntry = /^(100644|100755) blob ([0-9a-f]{40})\t/u.exec(git(['ls-tree', ref, '--', target]));
+      if (baselineLink !== git(['ls-tree', ref, '--', file]) ||
+          read(ref, file) !== '../../middleware.ts' || !targetEntry) {
+        throw new Error('RG2_GENERATED_GENERATED_ALIAS_MISMATCH');
+      }
+      contentOid = targetEntry[2];
+    } else if (kind !== 'blob' || !['100644', '100755'].includes(mode)) {
+      throw new Error('RG2_GENERATED_GENERATED_NONREGULAR_SOURCE');
+    }
+    if (/[\r\n\t]/u.test(file)) throw new Error('RG2_GENERATED_GENERATED_TREE_METADATA');
+    selected.push([file, mode, oid, contentOid]);
+  }
+  return selected.sort((a, b) => Buffer.compare(Buffer.from(a[0]), Buffer.from(b[0])));
+}
+const entries = sourceTree(head);
+if (!entries.length || !isDeepStrictEqual(sourceTree(source), entries)) {
+  throw new Error('RG2_GENERATED_GENERATED_SOURCE_TREE_MISMATCH');
+}
+const blobs = git(['cat-file', '--batch'], {
+  input: entries.map((entry) => entry[3]).join('\n') + '\n', encoding: null,
+});
+let offset = 0;
+const contents = new Map();
+const decoder = new TextDecoder('utf-8', { fatal: true });
+for (const [file, , , oid] of entries) {
+  const end = blobs.indexOf(10, offset);
+  const header = end >= 0 ? /^([0-9a-f]{40}) blob (\d+)$/u.exec(blobs.subarray(offset, end).toString('ascii')) : null;
+  const size = header ? Number(header[2]) : -1;
+  if (!header || header[1] !== oid || !Number.isSafeInteger(size) || size < 0 || size > 16 * 1024 * 1024 ||
+      end + 1 + size >= blobs.length || blobs[end + 1 + size] !== 10) {
+    throw new Error('RG2_GENERATED_GENERATED_BLOB_METADATA');
+  }
+  offset = end + 1;
+  contents.set(file, decoder.decode(blobs.subarray(offset, offset + size)));
+  offset += size + 1;
+}
+if (offset !== blobs.length) throw new Error('RG2_GENERATED_GENERATED_BLOB_TRAILING_DATA');
+const trusted = await import('data:text/javascript;base64,' + Buffer.from(generator).toString('base64'));
+const inventory = trusted.buildInventory({ files: entries.map(([file]) => file), readFile: (file) => contents.get(file) });
+if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
+    markdown !== trusted.renderMarkdown(inventory, { sourceSha: source })) {
+  throw new Error('RG2_GENERATED_GENERATED_OUTPUT_MISMATCH');
+}`,
+  });
+  return { scopes: allowed, metadata: false, stage: 'RG2-SOURCE' };
+}
+// RG2_SOURCE_STAGE_END
+
 // DC2_COHERENT_COMPAT_BEGIN: separately accepted literal BASE purpose only.
 function dc2CoherentStage() {
   const sourceBranch = 'fix/gekta-docker-diagnostic-route-20260927';
@@ -1035,7 +1220,7 @@ function dc2CoherentStage() {
   sourcePacket(core.sourcePacket, headRef, sourcePayloads.map(item => item.path));
   return { scopes: sourcePayloads.map(item => item.path), metadata: false, stage: 'DC2-R3' };
 }
-const dc2Coherent = dc2CoherentStage();
+const dc2Coherent = (typeof rg2SourceStage === 'function' && rg2SourceStage()) || dc2CoherentStage();
 // DC2_COHERENT_COMPAT_END
 
 // DC1_COHERENT_COMPAT_BEGIN: exact accepted BASE stages; no host grant.
