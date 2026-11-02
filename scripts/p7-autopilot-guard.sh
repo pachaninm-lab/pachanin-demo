@@ -852,6 +852,26 @@ function rg2SourceStage() {
   try { purpose = JSON.parse(encoded); } catch { fail('PURPOSE_FORMAT'); }
   if (JSON.stringify(purpose) !== encoded || createHash('sha256').update(encoded).digest('hex') !==
       'a5438b79e711a365997210678ecbcbbe52e37022d0a9c4f95aeea2fc67ad5328') fail('ACCEPTED_PURPOSE');
+  // A separately accepted pin-only correction preserves the original source disclosure.
+  let workflowPin = purpose.workflow, correction;
+  const pinMarker = '\n## RG2P — Pin-only source correction admission, 2026-11-02\n\n```json\n';
+  const pinParts = accepted.toString('utf8').split(pinMarker);
+  if (pinParts.length > 1) {
+    if (pinParts.length !== 2) fail('PIN_CORRECTION_UNIQUE');
+    const pinEnd = pinParts[1].indexOf('\n```\n');
+    if (pinEnd < 0) fail('PIN_CORRECTION_FORMAT');
+    const pinRaw = pinParts[1].slice(0, pinEnd);
+    try { correction = JSON.parse(pinRaw); } catch { fail('PIN_CORRECTION_FORMAT'); }
+    if (JSON.stringify(correction) !== pinRaw || createHash('sha256').update(pinRaw).digest('hex') !==
+        '3becb5c92d70aa3830fe4b79d99a01e1ca26fd54c85981c8a9bc41b87344ffda') fail('PIN_CORRECTION_PURPOSE');
+    if (correction.originalAcceptedSourcePurposeSha256 !==
+        'a5438b79e711a365997210678ecbcbbe52e37022d0a9c4f95aeea2fc67ad5328' ||
+        correction.workflow.beforeBlob !== purpose.workflow.afterBlob ||
+        correction.workflow.beforeBytes !== purpose.workflow.afterBytes ||
+        correction.workflow.beforeSha256 !== purpose.workflow.afterSha256) fail('PIN_CORRECTION_BINDING');
+    workflowPin = { ...purpose.workflow, afterBlob: correction.workflow.afterBlob,
+      afterBytes: correction.workflow.afterBytes, afterSha256: correction.workflow.afterSha256 };
+  }
   const read = (ref, file, cap = 1024 * 1024) => {
     let raw;
     try { raw = execFileSync('git', ['show', `${ref}:${file}`], { maxBuffer: cap + 1 }); }
@@ -868,6 +888,7 @@ function rg2SourceStage() {
   try {
     if (!headRef || git(['merge-base', baseRef, headRef]).trim() !== baseSha) fail('BASE_ANCESTRY');
     git(['merge-base', '--is-ancestor', purpose.authorityBaseExactMain, baseRef]);
+    if (correction) git(['merge-base', '--is-ancestor', correction.authorityBaseExactMain, baseRef]);
   } catch { fail('BASE_ANCESTRY'); }
   const allowed = [workflow, ...generated];
   const changes = (from, to) => {
@@ -890,12 +911,28 @@ function rg2SourceStage() {
   // A changed or revoked accepted registry requires a new reviewed purpose.
   exact(baseRef, stateFile, 'ca6cff24721e594823859e48e10aec5c3dd76a02');
   exact(baseRef, workflow, purpose.workflow.beforeBlob);
-  exact(headRef, workflow, purpose.workflow.afterBlob);
+  exact(headRef, workflow, workflowPin.afterBlob);
   const before = read(baseRef, workflow), after = read(headRef, workflow);
-  if (before.length !== purpose.workflow.beforeBytes || after.length !== purpose.workflow.afterBytes ||
+  if (before.length !== purpose.workflow.beforeBytes || after.length !== workflowPin.afterBytes ||
       createHash('sha256').update(before).digest('hex') !== purpose.workflow.beforeSha256 ||
-      createHash('sha256').update(after).digest('hex') !== purpose.workflow.afterSha256 ||
+      createHash('sha256').update(after).digest('hex') !== workflowPin.afterSha256 ||
       !after.subarray(0, before.length).equals(before)) fail('SOURCE_BYTES_OR_PREFIX');
+  if (correction) {
+    let restored = Buffer.from(after);
+    const replacements = correction.workflow.replacements;
+    for (let index = replacements.length - 1; index >= 0; index -= 1) {
+      const item = replacements[index];
+      const offset = item.byteOffset + replacements.slice(0, index).reduce((sum, previous) =>
+        sum + Buffer.byteLength(previous.after) - Buffer.byteLength(previous.before), 0);
+      const next = Buffer.from(item.after), prior = Buffer.from(item.before);
+      if (!restored.subarray(offset, offset + next.length).equals(next)) fail('PIN_CORRECTION_BYTES');
+      restored = Buffer.concat([restored.subarray(0, offset), prior, restored.subarray(offset + next.length)]);
+    }
+    if (restored.length !== purpose.workflow.afterBytes ||
+        createHash('sha256').update(restored).digest('hex') !== purpose.workflow.afterSha256 ||
+        createHash('sha1').update(Buffer.from('blob ' + restored.length + '\0')).update(restored).digest('hex') !==
+          purpose.workflow.afterBlob) fail('PIN_CORRECTION_RESTORED_SOURCE');
+  }
   for (const file of generated) for (const ref of [baseRef, headRef]) {
     if (!/^100644 blob [a-f0-9]{40}\t/u.test(entry(ref, file))) fail('GENERATED_MODE');
   }
@@ -906,7 +943,7 @@ function rg2SourceStage() {
   const sourceParents = git(['rev-list', '--parents', '-n', '1', source]).trim().split(' ');
   if (sourceParents.length !== 2 || sourceParents[1] !== baseSha) fail('PUBLIC_SOURCE_SOLE_BASE_PARENT');
   if (changes(baseRef, source).join('\0') !== workflow) fail('PUBLIC_SOURCE_SCOPE');
-  exact(source, workflow, purpose.workflow.afterBlob);
+  exact(source, workflow, workflowPin.afterBlob);
   for (const file of generated) {
     if (entry(baseRef, file) !== entry(source, file)) fail('PREGENERATION_SOURCE');
   }

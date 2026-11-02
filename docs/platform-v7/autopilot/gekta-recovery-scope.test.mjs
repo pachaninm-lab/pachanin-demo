@@ -1262,3 +1262,110 @@ for (const [name, event] of [
 ]) test('DC1 routing: whole workflow closes helper on ' + name, () => {
   assert.equal(dc1WorkflowRoute(workflow, event).helperSelected, false);
 });
+
+// The pin-only purpose never grants an unpinned source or candidate-owned admission.
+test('RG2P: accepted pin correction binds only two new checkout references', async t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rg2-pin-real-git-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
+  coGit(root, ['init', '--initial-branch=main']);
+  for (const [key, value] of [['user.name', 'RG2P synthetic regression'], ['user.email', 'rg2p@example.invalid'],
+    ['maintenance.auto', 'false'], ['gc.auto', '0']]) coGit(root, ['config', key, value]);
+  write(root, '.git/objects/info/alternates', coObjectDirectory + '\n');
+  const g = (...args) => coGit(root, args);
+  const put = (file, raw, mode = '100644') => {
+    const oid = coGit(root, ['hash-object', '-w', '--stdin'], { input: raw }).toString().trim();
+    g('update-index', '--add', '--cacheinfo', mode, oid, file);
+  };
+  const commit = (from, edits = []) => {
+    g('read-tree', from); for (const [file, raw, mode] of edits) put(file, raw, mode);
+    return g('commit-tree', g('write-tree').toString().trim(), '-p', from, '-m', 'SYNTHETIC RG2P boundary').toString().trim();
+  };
+  const origin = '6f1629324ba7922d1718caf2e4e54b8363ccd153';
+  const carrierPath = 'docs/platform-v7/autopilot/prompts/current-review-task.md';
+  const workflowPath = '.github/workflows/production-docker-headroom-diagnostic.yml';
+  const mdPath = 'docs/security/CRYPTOGRAPHIC_INVENTORY.md', jsonPath = 'docs/security/cryptographic-inventory.json';
+  const fence = String.fromCharCode(96).repeat(3);
+  const pinMarker = '\n## RG2P — Pin-only source correction admission, 2026-11-02\n\n' + fence + 'json\n';
+  const originalMarker = '\n## RG2S — Closed geometry receipt source admission, 2026-11-02\n\n' + fence + 'json\n';
+  const carrier = g('show', origin + ':' + carrierPath).toString();
+  const encoded = carrier.split(pinMarker)[1].split('\n' + fence + '\n')[0];
+  assert.equal(coSha(Buffer.from(encoded)), '3becb5c92d70aa3830fe4b79d99a01e1ca26fd54c85981c8a9bc41b87344ffda');
+  const correction = JSON.parse(encoded);
+  const original = JSON.parse(carrier.split(originalMarker)[1].split('\n' + fence + '\n')[0]);
+  const base = commit(origin, [
+    ['scripts/p7-autopilot-guard.sh', Buffer.from(sourceGuard), '100755'],
+    ['docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs', fs.readFileSync('docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs')],
+  ]);
+  g('read-tree', base);
+  coGit(root, ['apply', '--cached', '--whitespace=nowarn', '-'], { input: Buffer.from(original.fullSourcePatch.text) });
+  const unpinnedTree = g('write-tree').toString().trim(), unpinned = g('show', unpinnedTree + ':' + workflowPath);
+  assert.equal(coBlob(unpinned), correction.workflow.beforeBlob);
+  coGit(root, ['apply', '--cached', '--whitespace=nowarn', '-'], { input: Buffer.from(correction.pinOnlyPatch.text) });
+  const pinned = g('show', g('write-tree').toString().trim() + ':' + workflowPath);
+  assert.equal(pinned.length, correction.workflow.afterBytes); assert.equal(coBlob(pinned), correction.workflow.afterBlob);
+  assert.equal(coSha(pinned), correction.workflow.afterSha256);
+  assert.deepEqual(pinned.subarray(0, 411656), unpinned.subarray(0, 411656));
+  const generator = g('show', base + ':scripts/security/discover-cryptography.mjs');
+  const trusted = await import('data:text/javascript;base64,' + generator.toString('base64'));
+  const inventoryRaw = g('show', base + ':' + jsonPath), inventory = JSON.parse(inventoryRaw);
+  const makeSource = (accepted, workflow = pinned, finalEdits = []) => {
+    const s = commit(accepted, [[workflowPath, workflow]]);
+    const markdown = Buffer.from(trusted.renderMarkdown(inventory, { sourceSha: s }));
+    return { s, head: commit(s, [[mdPath, markdown], ...finalEdits]) };
+  };
+  const good = makeSource(base);
+  write(root, statePath, g('show', base + ':' + statePath));
+  write(root, 'scripts/p7-source-controlled-scope.mjs', sourceResolver);
+  g('update-ref', 'HEAD', good.head);
+  const body = sourceGuard.split('// RG2_SOURCE_STAGE_BEGIN:')[1].split('// RG2_SOURCE_STAGE_END')[0];
+  const extracted = body.slice(body.indexOf('function rg2SourceStage()'));
+  const branch = 'fix/gekta-docker-diagnostic-route-20260927';
+  const checkStage = (head, accepted = base) => runInNewContext(extracted + '\nrg2SourceStage();', {
+    branch, baseRef: accepted, stateFile: statePath, Buffer,
+    process: { execPath: process.execPath, env: { ...process.env, HEAD_REF: head } },
+    require: name => { assert.equal(name, 'node:crypto'); return { createHash }; },
+    execFileSync: (command, args, options) => execFileSync(command, args, { ...options, cwd: root }),
+  }, { timeout: 180000 });
+  const full = (head = good.head, accepted = base) => coCheck({ root, base: accepted, head, branch }, { script: sourceGuard });
+  await t.test('accepts only corrected source with complete immutable generated outputs', () => {
+    const result = checkStage(good.head); assert.equal(result.stage, 'RG2-SOURCE');
+    assert.deepEqual(Array.from(result.scopes), [workflowPath, mdPath, jsonPath]);
+    const r = full(); assert.equal(r.status, 0, r.stderr + r.stdout);
+  });
+  await t.test('reverse exact replacements reconstructs the whole original frozen source', () => {
+    let restored = Buffer.from(pinned);
+    for (let i = correction.workflow.replacements.length - 1; i >= 0; i -= 1) {
+      const item = correction.workflow.replacements[i], offset = item.byteOffset + i * 38;
+      assert.equal(restored.subarray(offset, offset + 40).toString(), item.after);
+      restored = Buffer.concat([restored.subarray(0, offset), Buffer.from(item.before), restored.subarray(offset + 40)]);
+    }
+    assert.deepEqual(restored, unpinned); assert.equal(coBlob(restored), original.workflow.afterBlob);
+  });
+  const rejects = async (name, head, accepted = base, pattern = /RG2_SOURCE_SCOPE_|RG2_GENERATED_/u) =>
+    t.test(name, () => assert.throws(() => checkStage(head, accepted), pattern));
+  await rejects('old unpinned payload is not accepted under the new purpose', makeSource(base, unpinned).head);
+  const noPinCarrier = carrier.split(pinMarker)[0];
+  const noPinBase = commit(base, [[carrierPath, Buffer.from(noPinCarrier)]]);
+  await rejects('fixed source cannot self-admit without accepted correction', makeSource(noPinBase).head, noPinBase);
+  const candidateOnly = commit(makeSource(noPinBase).head, [[carrierPath, Buffer.from(carrier)]]);
+  await rejects('candidate-only correction is not accepted authority', candidateOnly, noPinBase);
+  for (const [name, text] of [
+    ['noncanonical correction', carrier.replace(encoded, ' ' + encoded)],
+    ['duplicate correction key', carrier.replace(encoded, encoded.replace('"owner":', '"owner":"FORGED","owner":'))],
+    ['malformed correction', carrier.replace(encoded, encoded + ',')],
+    ['changed pin digest', carrier.replace(encoded, encoded.replace(correction.workflow.afterSha256, 'f'.repeat(64)))],
+    ['duplicate correction marker', carrier + pinMarker + encoded + '\n' + fence + '\n'],
+  ]) {
+    const changedBase = commit(base, [[carrierPath, Buffer.from(text)]]);
+    await rejects(name, makeSource(changedBase).head, changedBase, /RG2_SOURCE_SCOPE_PIN_CORRECTION_/u);
+  }
+  for (const file of ['apps/api/src/main.ts', 'scripts/test_production_stopped_runtime_headroom.py']) {
+    const bad = commit(good.head, [[file, Buffer.from('foreign candidate source')]]);
+    await t.test('full guard rejects source union ' + file, () => {
+      const r = full(bad); assert.notEqual(r.status, 0); assert.match(r.stderr, /RG2_SOURCE_SCOPE_DIFF_SCOPE/u);
+    });
+  }
+  await rejects('full corrected JSON is still verified', makeSource(base, pinned, [[jsonPath, Buffer.from('{}\n')]]).head);
+  await rejects('corrected workflow mode remains regular100644',
+    commit(good.head, [[workflowPath, pinned, '100755']]));
+});
