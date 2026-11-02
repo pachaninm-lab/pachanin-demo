@@ -112,23 +112,22 @@ def embedded_configuration_profile():
     return module
 
 
-def retained_inspector_workflow_bytes():
-    # Historical regressions execute the immutable observer they originally bound.
+def inspector_workflow_bytes():
+    _, shell = active_workflow_step('Restore only the accepted historical core')
+    code = shell.split("<<'PY_PAYLOAD'\n", 1)[1].split('\nPY_PAYLOAD\n', 1)[0]
+    node = next(n for n in ast.parse(code).body if isinstance(n, ast.FunctionDef) and n.name == 'verified_inspector_workflow')
+    scope = {}
+    exec(compile(ast.Module(body=[node], type_ignores=[]), '<actual-inspector-identity>', 'exec'), scope)
     path = Path(__file__).resolve().parent.parent / '.github/workflows/production-docker-headroom-diagnostic.yml'
-    raw = path.read_bytes()
-    if len(raw) != 370287 or hashlib.sha256(raw).hexdigest() != '31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7':
-        raise AssertionError('retained fixture requires the exact accepted current source')
-    retained = raw[:191427]
-    if hashlib.sha256(retained).hexdigest() != '09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a':
-        raise AssertionError('retained observer prefix identity mismatch')
-    return retained
+    return scope[node.name](path.read_bytes())
+
+
+def retained_inspector_workflow_bytes():
+    return inspector_workflow_bytes()[:191427]
 
 
 def accepted_inspector_fixture(refs):
-    path = Path(__file__).resolve().parent.parent / '.github/workflows/production-docker-headroom-diagnostic.yml'
-    raw = path.read_bytes()
-    if hashlib.sha256(raw).hexdigest() != '31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7':
-        raise AssertionError('fixture must use the actual unchanged accepted inspector')
+    raw = inspector_workflow_bytes()
     parts = []
     for name in ('PY_INSPECTION_0', 'PY_INSPECTION_1', 'PY_INSPECTION_2'):
         begin = ("<<'" + name + "'\n").encode()
@@ -2373,9 +2372,15 @@ class BootstrapControllerTests(_startup_observation_tests.ObservationContracts,u
                 self.assertEqual(result.returncode == 0, accepted, result.stderr.decode())
                 self.assertEqual((output / 'result.json').exists(), accepted)
 
-    def test_current_growth_workflow_preserves_entire_accepted_inspector_prefix(self):
+    def test_inspector_rejects_types_and_unknown_same_size_carriers(self):
+        for raw in (None, '', bytearray(), b'', b'x' * 370287, b'x' * 400684, b'x' * 411656):
+            with self.subTest(kind=type(raw).__name__), patch.object(Path, 'read_bytes', return_value=raw):
+                with self.assertRaises(AssertionError):
+                    inspector_workflow_bytes()
+
+    def test_current_carrier_recovers_entire_accepted_inspector_prefix(self):
         base = Path(__file__).resolve().parent.parent
-        raw = (base / '.github/workflows/production-docker-headroom-diagnostic.yml').read_bytes()
+        raw = inspector_workflow_bytes()
         self.assertEqual(len(raw), 370287)
         self.assertEqual(hashlib.sha256(raw).hexdigest(), '31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7')
         self.assertEqual(hashlib.sha256(raw[:191427]).hexdigest(), '09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a')
@@ -2399,7 +2404,7 @@ class BootstrapControllerTests(_startup_observation_tests.ObservationContracts,u
         for alteration in ('none', 'only-old-purpose', 'startup-false', 'workers-true', 'release-true',
                            'unknown-key', 'wrong-operation', 'wrong-decision', 'old-startup-true',
                            'source-hash-drift', 'source-mode-drift', 'duplicate-pin', 'source-scope-drift',
-                            'inspector-prefix-drift', 'inspector-tail-drift', 'oversized-controller'):
+                            'inspector-prefix-drift', 'inspector-tail-drift', 'oversized-controller', 'unknown-inspector', 'stale-inspector-pin'):
             with self.subTest(alteration=alteration), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 for path in paths:
@@ -2407,7 +2412,9 @@ class BootstrapControllerTests(_startup_observation_tests.ObservationContracts,u
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     destination.write_bytes((base / path).read_bytes())
                     destination.chmod((base / path).stat().st_mode & 0o777)
-                purpose = {**copy.deepcopy(fixed), 'sourcePins': [
+                purpose = {**copy.deepcopy(fixed),
+                    'inspectionSha256': hashlib.sha256((root / '.github/workflows/production-docker-headroom-diagnostic.yml').read_bytes()).hexdigest(),
+                    'sourcePins': [
                     {'path': path, 'mode': '100644', 'sha256': hashlib.sha256((root / path).read_bytes()).hexdigest()}
                     for path in controller]}
                 value = {'coordinationAdmissions': {new_key: purpose,
@@ -2421,6 +2428,9 @@ class BootstrapControllerTests(_startup_observation_tests.ObservationContracts,u
                 if alteration == 'unknown-key': purpose['extra'] = True
                 if alteration == 'wrong-operation': purpose['operationName'] = 'stopped-configuration-20261024'
                 if alteration == 'wrong-decision': purpose['ownerDecision'] = 'candidate-owned'
+                if alteration == 'unknown-inspector': purpose['inspectionSha256'] = '0' * 64
+                if alteration == 'stale-inspector-pin':
+                    purpose['inspectionSha256'] = fixed['inspectionSha256'] if purpose['inspectionSha256'] != fixed['inspectionSha256'] else '1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f'
                 if alteration == 'old-startup-true': value['coordinationAdmissions'][old_key]['originalStartupAuthorized'] = True
                 if alteration == 'source-hash-drift': (root / controller[0]).write_bytes(b'drift')
                 if alteration == 'source-mode-drift': (root / controller[0]).chmod(0o755)

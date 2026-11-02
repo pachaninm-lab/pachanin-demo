@@ -422,7 +422,14 @@ const geometryBranch = 'fix/gekta-docker-diagnostic-route-20260927';
 const geometryOrigin = '5b1a9143e8cc5ee69705f222bde457bf6731d595';
 const geometryBeforeBlob = '03dbdc1d5e9a97687ddd7713e896fb3094f0f8a0';
 const geometryAfterBlob = 'cb71a92fed47bed533147891ca453a432ea29945';
-const geometryBefore = fs.readFileSync(geometryWorkflow).subarray(0, 191427);
+// Historical fixtures remain bound to their accepted bytes after DC1 replaces
+// only the current diagnose job. No historical assertion or predicate changes.
+const recoveryHistoricalWorkflowBlob = 'e0f8fa5731af0addc0b82c9ca7fab24abcecddb7';
+const recoveryHistoricalWorkflowResult = spawnSync('git', ['cat-file', 'blob', recoveryHistoricalWorkflowBlob], { maxBuffer: 1024 * 1024 });
+assert.equal(recoveryHistoricalWorkflowResult.status, 0, 'Retained accepted Docker workflow object is required');
+const recoveryHistoricalWorkflow = recoveryHistoricalWorkflowResult.stdout;
+assert.equal(createHash('sha1').update(`blob ${recoveryHistoricalWorkflow.length}\0`).update(recoveryHistoricalWorkflow).digest('hex'), recoveryHistoricalWorkflowBlob);
+const geometryBefore = recoveryHistoricalWorkflow.subarray(0, 191427);
 const geometryAfter = Buffer.concat([geometryBefore, gunzipSync(Buffer.from('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', 'base64'))]);
 const geometryBody = sourceGuard.split('// ROOT_GEOMETRY_EXACT_SOURCE_BEGIN: separate accepted-base purpose, no host grant.')[1]
   .split('// ROOT_GEOMETRY_EXACT_SOURCE_END')[0] + '\n}';
@@ -535,7 +542,7 @@ const growthBranch = 'fix/gekta-docker-diagnostic-route-20260927';
 const growthPurposeId = 'root-filesystem-growth-20261031';
 const growthOrigin = '58bbc762c0e781ac4df33a8004d4221e1f91f7e5';
 const growthBeforeBlob = 'cb71a92fed47bed533147891ca453a432ea29945';
-const growthBefore = Buffer.from(fs.readFileSync(growthWorkflow, 'utf8')
+const growthBefore = Buffer.from(recoveryHistoricalWorkflow.toString('utf8')
   .replace("                  with patch.object(g.time, 'monotonic', return_value=0.0): k = g.Kernel()\n", "                  k = g.Kernel()\n")).subarray(0, 254318);
 const growthHelper = 'scripts/test_production_stopped_runtime_headroom.py';
 const growthQueue = 'docs/platform-v7/execution-queue.md';
@@ -714,4 +721,397 @@ test('root growth: exact fixture clock correction reverses to the retained whole
   const reverted = Buffer.from(actual.toString('utf8').replace(newLine, oldLine));
   assert.deepEqual(reverted.subarray(0, growthBefore.length), growthBefore);
   assert.equal(actual.length - reverted.length, Buffer.byteLength(newLine) - Buffer.byteLength(oldLine));
+});
+
+
+// Current coherent predicate tests use complete actual Git trees and the full
+// proposed guard. These are private authority fixtures, not accepted stages.
+const coBegin = '// DC1_COHERENT_COMPAT_BEGIN: exact accepted BASE stages; no host grant.';
+const coBody = sourceGuard.split(coBegin)[1].split('// DC1_COHERENT_COMPAT_END')[0] + '\n}';
+const coLiteral = name => JSON.parse(coBody.match(new RegExp(`const ${name} = (.*);`, 'u'))[1]);
+const coCore = coLiteral('expectedPurposeCore'), coDocker = coLiteral('sourcePayloads'), coCold = coLiteral('coldPayloads');
+const coStates = coLiteral('stateStages'), coReplacements = coLiteral('stateReplacements');
+const coOrigin = coCore.authorityBaseExactMain;
+const coDB = 'fix/gekta-docker-diagnostic-route-20260927', coCB = 'ops/production-cold-preservation-20261022';
+const coMB = 'governance/industrial-load-diagnostics-20260919', coGB = coCore.guardBranch;
+const coReview = 'docs/platform-v7/autopilot/prompts/current-review-task.md', coQueue = 'docs/platform-v7/execution-queue.md';
+const coG3 = ['scripts/p7-autopilot-guard.sh', 'docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs', '.github/workflows/platform-v7-autopilot-guard.yml'];
+const coMarker = '\n## DC1 — Closed Docker diagnostic source purpose, 2026-11-01\n\n```json\n';
+const coSha = b => createHash('sha256').update(b).digest('hex');
+const coBlob = b => createHash('sha1').update(`blob ${Buffer.byteLength(b)}\0`).update(b).digest('hex');
+const coArtifact = b => ({ blob: coBlob(b), bytes: Buffer.byteLength(b), sha256: coSha(b) });
+function coGit(root, args, { input, env } = {}) {
+  const result = spawnSync('git', args, { cwd: root, input, env, maxBuffer: 3 * 1024 * 1024 + 1 });
+  assert.equal(result.status, 0, result.stderr.toString()); return result.stdout;
+}
+const coRepoGit = (...args) => coGit(process.cwd(), args);
+const coObjectDirectory = coRepoGit('rev-parse', '--path-format=absolute', '--git-path', 'objects').toString().trim();
+const coState0 = coRepoGit('cat-file', 'blob', coStates.S0.blob);
+const coQueue0 = coRepoGit('cat-file', 'blob', coCore.coldPurpose.queueBeforeBlob);
+const coQueue1 = coRepoGit('cat-file', 'blob', coCore.coldPurpose.queueBlob);
+// This exact separately published Gekta prefix must be preserved before the unchanged cold append.
+const coQueuePreCold = coRepoGit('cat-file', 'blob', '92b83432389c40a0454bd829eb8d1d8c953e8e9e');
+function coReplace(bytes, kind, reverse = false) {
+  const result = Buffer.from(bytes);
+  for (const field of coReplacements[kind]) {
+    const before = Buffer.from(reverse ? field.after : field.before), after = Buffer.from(reverse ? field.before : field.after);
+    assert.equal(before.length, 64); assert.equal(after.length, 64);
+    assert.deepEqual(result.subarray(field.byteOffset, field.byteOffset + 64), before);
+    after.copy(result, field.byteOffset);
+  }
+  return result;
+}
+const coStateA3 = coReplace(coState0, 'A3'), coStateB1 = coReplace(coStateA3, 'B1');
+let coSourceMaterial;
+function coMaterial() {
+  if (coSourceMaterial) return coSourceMaterial;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'coherent-real-source-'));
+  const before = new Map(), after = new Map();
+  try {
+    for (const pin of [...coDocker, ...coCold]) {
+      const bytes = coRepoGit('show', coOrigin + ':' + pin.path); before.set(pin.path, bytes); write(root, pin.path, bytes);
+      assert.equal(coBlob(bytes), pin.beforeBlob); assert.equal(bytes.length, pin.beforeBytes); assert.equal(coSha(bytes), pin.beforeSha256);
+    }
+    coGit(root, ['init', '--initial-branch=main']);
+    for (const [compressed, pin] of [[coFrozenR2PatchGzip, coCore.sourcePatch], [coFrozenColdPatchGzip, coLiteral('coldPatch')]]) {
+      const patch = gunzipSync(Buffer.from(compressed, 'base64')); assert.deepEqual(coArtifact(patch), pin);
+      coGit(root, ['apply', '--whitespace=nowarn', '-'], { input: patch });
+    }
+    for (const pin of [...coDocker, ...coCold]) {
+      const bytes = fs.readFileSync(path.join(root, pin.path)); after.set(pin.path, bytes);
+      assert.equal(coBlob(bytes), pin.afterBlob); assert.equal(bytes.length, pin.bytes); assert.equal(coSha(bytes), pin.sha256);
+    }
+    coSourceMaterial = { before, after }; return coSourceMaterial;
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+}
+function coPacket(root, beforeRef, afterRef, files) {
+  const entries = [...files].sort().map(file => {
+    const side = ref => {
+      const line = coGit(root, ['ls-tree', ref, '--', file]).toString().trim();
+      const match = /^(100644|100755) blob ([a-f0-9]{40})\t/u.exec(line);
+      assert.ok(match); assert.equal(line, `${match[1]} blob ${match[2]}\t${file}`);
+      const bytes = coGit(root, ['show', ref + ':' + file]);
+      assert.ok(bytes.length <= 1024 * 1024); assert.equal(coBlob(bytes), match[2]);
+      return { identity: { mode: match[1], ...coArtifact(bytes) }, bytes };
+    };
+    const before = side(beforeRef), after = side(afterRef);
+    const header = Buffer.from(JSON.stringify({ schemaVersion: 'gekta.dc1-file-pair.v1', path: file,
+      before: before.identity, after: after.identity }) + '\n');
+    const pair = Buffer.concat([header, before.bytes, after.bytes]);
+    assert.ok(pair.length <= 1024 * 1024);
+    return { path: file, before: before.identity, after: after.identity, payloadPair: coArtifact(pair) };
+  });
+  const packet = Buffer.from(JSON.stringify({ schemaVersion: 'gekta.dc1-payload-packet.v1', entries }) + '\n');
+  assert.ok(packet.length <= 1024 * 1024); return packet;
+}
+function coFixture(t, stage = 'COLD3', attack = '') {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'coherent-stage-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
+  coGit(root, ['init', '--initial-branch=main']);
+  for (const [key, value] of [['user.name', 'Coherent stage fixture'], ['user.email', 'coherent@example.invalid'],
+    ['maintenance.auto', 'false'], ['gc.auto', '0'], ['core.looseCompression', '0']]) coGit(root, ['config', key, value]);
+  write(root, '.git/objects/info/alternates', coObjectDirectory + '\n');
+  const env = { ...process.env, GIT_INDEX_FILE: path.join(root, '.git', 'coherent-index') };
+  const g = (...args) => coGit(root, args, { env });
+  const readTree = ref => g('read-tree', ref);
+  const put = (file, bytes, mode = '100644') => {
+    const hash = coGit(root, ['hash-object', '-w', '--stdin'], { input: bytes }).toString().trim();
+    g('update-index', '--add', '--cacheinfo', mode, hash, file); return hash;
+  };
+  const tree = () => g('write-tree').toString().trim();
+  const commit = (parents, message) => coGit(root, ['commit-tree', tree(), ...parents.flatMap(ref => ['-p', ref]), '-m', message]).toString().trim();
+  const guards = coG3.map((file, index) => ({ path: file, mode: index === 0 ? '100755' : '100644',
+    beforeBlob: coRepoGit('rev-parse', coOrigin + ':' + file).toString().trim(),
+    afterBlob: coBlob(fs.readFileSync(file)), bytes: fs.readFileSync(file).length, sha256: coSha(fs.readFileSync(file)) }));
+  readTree(coOrigin);
+  for (const pin of guards) put(pin.path, fs.readFileSync(pin.path), pin.mode);
+  const guardTree = tree();
+  const guardPacket = coPacket(root, coOrigin, guardTree, coG3);
+  const purpose = { ...structuredClone(coCore), sourcePayloads: structuredClone(coDocker), guardPayloads: guards,
+    guardPacket: coArtifact(guardPacket), privateGuardReviewSha256: coSha(Buffer.from('PRIVATE_SYNTHETIC_REVIEW_NOT_ACCEPTANCE')) };
+  if (attack === 'wrong-purpose') purpose.purposeId += '-forged';
+  if (attack === 'extra-field') purpose.extra = true;
+  if (attack === 'production-grant') purpose.productionInvocationAuthorized = true;
+  if (attack === 'wrong-private-review') purpose.privateSourceReviewSha256 = 'f'.repeat(64);
+  if (attack === 'wrong-cold-review') purpose.privateColdSourceReviewSha256 = 'f'.repeat(64);
+  if (attack === 'source-pin') purpose.sourcePayloads[0].afterBlob = 'f'.repeat(40);
+  if (attack === 'source-size') purpose.sourcePayloads[1].bytes += 1;
+  if (attack === 'source-digest') purpose.sourcePayloads[1].sha256 = 'f'.repeat(64);
+  if (attack === 'source-path') purpose.sourcePayloads[1].path = 'README.md';
+  if (attack === 'guard-before') purpose.guardPayloads[0].beforeBlob = 'f'.repeat(40);
+  if (attack === 'guard-after') purpose.guardPayloads[0].afterBlob = 'f'.repeat(40);
+  if (attack === 'guard-size') purpose.guardPayloads[1].bytes += 1;
+  if (attack === 'guard-digest') purpose.guardPayloads[2].sha256 = 'f'.repeat(64);
+  if (attack === 'guard-mode') purpose.guardPayloads[0].mode = '100644';
+  if (attack === 'guard-extra-field') purpose.guardPayloads[0].extra = true;
+  if (attack === 'guard-path') purpose.guardPayloads[2].path = 'README.md';
+  if (attack === 'guard-packet') purpose.guardPacket.sha256 = 'f'.repeat(64);
+  if (attack === 'packet-format') purpose.payloadPacketFormat += '-forged';
+  if (attack === 'canonical-source-packet') purpose.canonicalSourcePacket.sha256 = 'f'.repeat(64);
+  if (attack === 'canonical-cold-packet') purpose.canonicalColdPacket.sha256 = 'f'.repeat(64);
+  if (attack === 'packet-size') purpose.guardPacket.bytes += 1;
+  if (attack === 'packet-blob') purpose.guardPacket.blob = 'f'.repeat(40);
+  if (attack === 'packet-capacity') purpose.guardPacket.bytes = 1024 * 1024 + 1;
+  if (attack === 'legacy-purpose') purpose.schemaVersion = 'gekta.coherent-docker-cold-purpose.v1';
+  if (attack === 'source-patch') purpose.sourcePatch.sha256 = 'f'.repeat(64);
+  if (attack === 'pending-guard-review') purpose.privateGuardReviewSha256 = 'PENDING';
+  let raw = JSON.stringify(purpose);
+  if (attack === 'duplicate-top') raw = raw.replace('"owner":', '"owner":"forged","owner":');
+  if (attack === 'duplicate-source') raw = raw.replace('"beforeBytes":', '"beforeBytes":1,"beforeBytes":');
+  if (attack === 'duplicate-guard') raw = raw.replace('"guardPayloads":[{"path":', '"guardPayloads":[{"path":"forged","path":');
+  if (attack === 'alias-key') raw = raw.replace('"owner":', '"\\u006fwner":');
+  if (attack === 'whitespace') raw = ' ' + raw;
+  if (attack === 'malformed-json') raw += ',';
+  const originalReview = coRepoGit('show', coOrigin + ':' + coReview);
+  let review = Buffer.concat([originalReview, Buffer.from(coMarker + raw + '\n```\n')]);
+  if (attack === 'missing-purpose' || attack === 'candidate-purpose') review = originalReview;
+  if (attack === 'duplicate-marker') review = Buffer.concat([review, Buffer.from(coMarker + raw + '\n```\n')]);
+  if (attack === 'wrong-marker') review = Buffer.from(review.toString().replace('## DC1 —', '## FORGED —'));
+  if (attack === 'missing-fence') review = review.subarray(0, review.length - 5);
+  if (attack === 'prior-review') review = Buffer.concat([Buffer.from('forged\n'), review]);
+  if (attack === 'authority-capacity') review = Buffer.concat([review, Buffer.alloc(2 * 1024 * 1024, 120)]);
+  if (attack === 'authority-utf8') review = Buffer.concat([review, Buffer.from([255])]);
+  const material = coMaterial();
+  readTree(coOrigin); put(coQueue, coQueue1); put(coReview, review, attack === 'purpose-mode' ? '100755' : '100644');
+  for (const pin of guards) put(pin.path, fs.readFileSync(pin.path), pin.mode);
+  if (attack === 'accepted-foreign-change' || attack === 'candidate-foreign-revert') put('README.md', Buffer.from('separately accepted foreign source\n'));
+  let guardBase = commit([coOrigin], 'PRIVATE accepted record and coherent guard fixture');
+  readTree(guardBase); put(statePath, coStateA3); let a3 = commit([guardBase], 'PRIVATE A3 fixture');
+  readTree(a3); for (const pin of coCold) put(pin.path, material.after.get(pin.path));
+  let cold = commit([a3], 'PRIVATE cold3 fixture');
+  readTree(cold); for (const pin of coDocker) put(pin.path, material.after.get(pin.path));
+  let docker = commit([cold], 'PRIVATE R2 fixture');
+  readTree(docker); put(statePath, coStateB1); let b1 = commit([docker], 'PRIVATE B1 fixture');
+  let base = ({ A3: guardBase, COLD3: a3, R2: cold, B1: docker })[stage];
+  let head = ({ A3: a3, COLD3: cold, R2: docker, B1: b1 })[stage];
+  const branch = stage === 'A3' || stage === 'B1' ? coMB : stage === 'COLD3' ? coCB : coDB;
+  // Alter the accepted BASE, then derive the requested exact stage from it.
+  const baseAttacks = ['state-owner', 'state-scope', 'state-purpose', 'queue-base', 'queue-mode', 'base-source',
+    'base-executable', 'base-symlink', 'base-missing', 'guard-accepted-content', 'guard-accepted-mode', 'state-mode'];
+  if (baseAttacks.includes(attack)) {
+    readTree(base);
+    if (attack.startsWith('state-') && attack !== 'state-mode') {
+      const changed = JSON.parse(coGit(root, ['show', base + ':' + statePath]).toString());
+      if (attack === 'state-owner') changed.current = 'FORGED_OWNER';
+      if (attack === 'state-scope') changed.approvedConcurrentScopes[coCB] = ['**'];
+      if (attack === 'state-purpose') changed.coordinationAdmissions['stopped-core-bootstrap-20261024'].owner = 'FORGED';
+      put(statePath, Buffer.from(JSON.stringify(changed)));
+    }
+    if (attack === 'queue-base') put(coQueue, coQueue0);
+    if (attack === 'queue-mode') put(coQueue, coQueue1, '100755');
+    if (attack === 'state-mode') put(statePath, coStateA3, '100755');
+    if (attack === 'base-source') put(coCold[0].path, Buffer.from('forged source\n'));
+    if (attack === 'base-executable') put(coCold[0].path, material.before.get(coCold[0].path), '100755');
+    if (attack === 'base-symlink') put(coCold[0].path, Buffer.from('../../README.md'), '120000');
+    if (attack === 'base-missing') g('update-index', '--force-remove', coCold[0].path);
+    if (attack === 'guard-accepted-content') put(coG3[1], Buffer.concat([fs.readFileSync(coG3[1]), Buffer.from('\n// forged\n')]));
+    if (attack === 'guard-accepted-mode') put(coG3[0], Buffer.from(sourceGuard), '100644');
+    base = commit([base], 'PRIVATE altered accepted BASE negative');
+    readTree(base); for (const pin of coCold) put(pin.path, material.after.get(pin.path)); head = commit([base], 'PRIVATE candidate after altered BASE');
+  }
+  readTree(head);
+  if (attack === 'candidate-purpose') put(coReview, Buffer.concat([originalReview, Buffer.from(coMarker + raw + '\n```\n')]));
+  if (attack === 'head-review') put(coReview, Buffer.concat([review, Buffer.from('forged\n')]));
+  if (attack === 'head-review-mode') put(coReview, review, '100755');
+  if (attack === 'head-state') put(statePath, coStateB1);
+  if (attack === 'head-queue') put(coQueue, Buffer.concat([coQueue1, Buffer.from('forged\n')]));
+  if (attack === 'head-guard') put(coG3[0], Buffer.from(sourceGuard + '\n# forged\n'), '100755');
+  if (attack === 'extra-path') put('README.md', Buffer.from('forged foreign source\n'));
+  if (attack === 'candidate-foreign-revert') put('README.md', coRepoGit('show', coOrigin + ':README.md'));
+  if (attack === 'after-content') put(coCold[1].path, Buffer.concat([material.after.get(coCold[1].path), Buffer.from('\n# forged\n')]));
+  if (attack === 'head-executable') put(coCold[1].path, material.after.get(coCold[1].path), '100755');
+  if (attack === 'head-symlink') put(coCold[1].path, Buffer.from('../README.md'), '120000');
+  if (attack === 'delete') g('update-index', '--force-remove', coCold[1].path);
+  if (attack === 'rename') { g('update-index', '--force-remove', coCold[1].path); put('renamed.py', material.after.get(coCold[1].path)); }
+  if (attack === 'one-path-only') put(coCold[1].path, material.before.get(coCold[1].path));
+  if (attack) head = commit([head], 'PRIVATE coherent negative ' + attack);
+  if (attack === 'base-not-ancestor') { readTree(head); head = commit([coOrigin], 'PRIVATE unrelated-to-BASE candidate'); }
+  if (attack === 'origin-not-ancestor') { readTree(base); base = commit([], 'PRIVATE unrelated BASE'); readTree(head); head = commit([base], 'PRIVATE unrelated candidate'); }
+  coGit(root, ['update-ref', 'HEAD', head]);
+  write(root, statePath, coGit(root, ['show', head + ':' + statePath]));
+  write(root, 'scripts/p7-source-controlled-scope.mjs', sourceResolver);
+  return { root, base, head, branch, stage, guardBase, a3, cold, docker, b1, readTree, put, tree, commit };
+}
+function coCheck(c, { script, environment = {} } = {}) {
+  const trusted = script ?? coGit(c.root, ['show', c.base + ':scripts/p7-autopilot-guard.sh']).toString();
+  const file = path.join(c.root, '.git', 'trusted-base-guard.sh'); fs.writeFileSync(file, trusted);
+  return spawnSync('bash', [file], { cwd: c.root, encoding: 'utf8', timeout: 10000,
+    env: { ...process.env, ...environment, BASE_REF: c.base, HEAD_REF: c.head, GITHUB_HEAD_REF: c.branch }, maxBuffer: 1024 * 1024 });
+}
+for (const stage of ['A3', 'COLD3', 'R2', 'B1']) test('coherent: current full guard accepts exact ' + stage + ' real Git stage', t => {
+  const r = coCheck(coFixture(t, stage)); assert.equal(r.status, 0, r.stderr + r.stdout);
+});
+for (const attack of ['wrong-purpose', 'extra-field', 'production-grant', 'wrong-private-review', 'wrong-cold-review',
+  'source-pin', 'source-size', 'source-digest', 'source-path', 'guard-before', 'guard-after', 'guard-size', 'guard-digest',
+  'guard-mode', 'guard-extra-field', 'guard-path', 'guard-packet', 'packet-format', 'canonical-source-packet', 'canonical-cold-packet', 'packet-size', 'packet-blob', 'packet-capacity', 'legacy-purpose', 'source-patch', 'pending-guard-review',
+  'duplicate-top', 'duplicate-source', 'duplicate-guard', 'alias-key', 'whitespace', 'malformed-json', 'duplicate-marker',
+  'wrong-marker', 'missing-purpose', 'candidate-purpose', 'missing-fence', 'prior-review', 'authority-capacity', 'authority-utf8',
+  'purpose-mode', 'state-owner', 'state-scope', 'state-purpose', 'queue-base', 'queue-mode', 'base-source', 'base-executable',
+  'base-symlink', 'base-missing', 'guard-accepted-content', 'guard-accepted-mode', 'state-mode', 'head-review', 'head-review-mode',
+  'head-state', 'head-queue', 'head-guard', 'extra-path', 'after-content', 'head-executable', 'head-symlink', 'delete', 'rename',
+  'one-path-only', 'base-not-ancestor', 'origin-not-ancestor']) {
+  test('coherent: current full guard rejects ' + attack, t => {
+    const r = coCheck(coFixture(t, 'COLD3', attack)); assert.notEqual(r.status, 0, r.stdout);
+    assert.match(r.stderr + r.stdout, /DC1_COHERENT_SCOPE_|fatal:|Files outside/u);
+  });
+}
+test('coherent: exact stages keep full payload packet identity across ambient Git rendering', t => {
+  for (const stage of ['A3', 'COLD3', 'R2', 'B1']) {
+    const fixture = coFixture(t, stage);
+    for (const width of ['9', '10', '40']) {
+      coGit(fixture.root, ['config', 'core.abbrev', width]);
+      const result = coCheck(fixture);
+      assert.equal(result.status, 0, stage + '/' + width + ': ' + result.stderr + result.stdout);
+    }
+    coGit(fixture.root, ['config', '--unset', 'core.abbrev']);
+    coGit(fixture.root, ['config', 'diff.context', '12']);
+    coGit(fixture.root, ['config', 'diff.algorithm', 'histogram']);
+    coGit(fixture.root, ['config', 'diff.indentHeuristic', 'true']);
+    coGit(fixture.root, ['config', 'diff.noprefix', 'true']);
+    coGit(fixture.root, ['config', 'diff.mnemonicPrefix', 'true']);
+    coGit(fixture.root, ['config', 'diff.relative', 'true']);
+    coGit(fixture.root, ['config', 'diff.suppressBlankEmpty', 'true']);
+    const order = path.join(fixture.root, '.git', 'adverse-diff-order');
+    fs.writeFileSync(order, 'scripts/*\n.github/*\n');
+    coGit(fixture.root, ['config', 'diff.orderFile', order]);
+    const result = coCheck(fixture, { environment: { GIT_DIFF_OPTS: '--unified=12' } });
+    assert.equal(result.status, 0, stage + '/auto-adverse-rendering: ' + result.stderr + result.stdout);
+  }
+});
+test('coherent: actual canonical-predicate counterfactual exposes duplicate nested keys', t => {
+  const fixture = coFixture(t, 'COLD3', 'duplicate-source');
+  const r = coCheck(fixture, { script: sourceGuard.replace("if (JSON.stringify(purpose) !== encoded) fail('PURPOSE_CANONICAL');", 'void 0;') });
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+});
+test('coherent: accepted foreign BASE edits remain allowed and cannot be reverted by SOURCE', t => {
+  assert.equal(coCheck(coFixture(t, 'COLD3', 'accepted-foreign-change')).status, 0);
+  assert.notEqual(coCheck(coFixture(t, 'COLD3', 'candidate-foreign-revert')).status, 0);
+});
+test('coherent: exact real state inverses retain every other byte and unchanged cap', () => {
+  assert.deepEqual(coArtifact(coState0), coStates.S0); assert.deepEqual(coArtifact(coStateA3), coStates.A3); assert.deepEqual(coArtifact(coStateB1), coStates.B1);
+  assert.deepEqual(coReplace(coStateA3, 'A3', true), coState0); assert.deepEqual(coReplace(coStateB1, 'B1', true), coStateA3);
+  assert.equal(coState0.length, 3145687); assert.equal(3 * 1024 * 1024 - coState0.length, 41);
+});
+test('coherent: actual purpose queue preserves prefix and full newline-bound purpose identity', () => {
+  assert.deepEqual(coQueue1.subarray(0, coQueue0.length), coQueue0);
+  assert.equal(coQueue1.length, coCore.coldPurpose.queueBytes); assert.equal(coSha(coQueue1), coCore.coldPurpose.queueSha256);
+  assert.deepEqual(coQueuePreCold.subarray(0, coQueue0.length), coQueue0);
+  assert.equal(coQueuePreCold.length, 2122446);
+  assert.equal(coSha(coQueuePreCold), '17960e4edae6796bb5293e1286ca63d058ccad792ff11caa3ba6e35875416124');
+  assert.deepEqual(coQueue1.subarray(0, coQueuePreCold.length), coQueuePreCold);
+  const append = coQueue1.subarray(coQueuePreCold.length); assert.equal(append.length, 11660);
+  const rawPurpose = append.subarray(71, 71 + 11585); assert.equal(rawPurpose.at(-1), 10);
+  assert.equal(coSha(rawPurpose), coCore.coldPurpose.purposeSha256);
+  const purpose = JSON.parse(rawPurpose.toString('utf8'));
+  assert.equal(purpose.retainedGuardBranch, coGB); assert.deepEqual(purpose.retainedGuardPaths, [...coG3].sort());
+  assert.equal(purpose.privateIndependentSourceReviewSha256, coCore.privateColdSourceReviewSha256);
+  for (const pin of coCold) assert.equal(purpose.exactSourceThree[pin.path].after.blob, pin.afterBlob);
+});
+
+const coFrozenR2PatchGzip = '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';
+const coFrozenColdPatchGzip = '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';
+
+const dc1Core = coCore, dc1Branch = coDB, dc1SourcePaths = coDocker.map(item => item.path), dc1GuardPaths = coG3;
+const dc1ReviewPath = coReview, dc1Marker = coMarker;
+const dc1Step = workflow.split("          python3 -I - <<'DC1_SOURCE_CONTROLS'\n")[1]
+  .split('          DC1_SOURCE_CONTROLS\n')[0].split('\n').map(line => line.startsWith('          ') ? line.slice(10) : line).join('\n');
+function dc1ExecuteStep(t, attack = '') {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'dc1-source-step-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  // This stub exercises command selection only; admission predicates above use
+  // the actual extracted production guard with real Git trees.
+  write(root, 'scripts/p7-autopilot-guard.sh', '#!/bin/bash\nprintf BASE_GUARD > base-guard-ran\nexit ' + (attack === 'base-rejects' ? '31' : '0') + '\n');
+  write(root, dc1ReviewPath, '# review\n' + (attack === 'historical' ? '' : dc1Marker + '{}\n```\n'));
+  write(root, 'scripts/test_production_stopped_runtime_headroom.py', 'raise SystemExit("OLD_HELPER_MUST_NOT_EXECUTE")\n');
+  git(root, 'init', '--initial-branch=main'); git(root, 'config', 'user.name', 'DC1 workflow regression'); git(root, 'config', 'user.email', 'dc1@example.invalid');
+  git(root, 'add', '--all'); git(root, 'commit', '-m', 'trusted base'); const base = git(root, 'rev-parse', 'HEAD');
+  write(root, 'scripts/p7-autopilot-guard.sh', '#!/bin/bash\nprintf CANDIDATE_GUARD > candidate-guard-ran\nexit 0\n');
+  write(root, 'scripts/test_production_stopped_runtime_headroom.py', 'import pathlib\npathlib.Path("source-helper-ran").write_text("EXACT_HEAD_ALL_CONTROLS")\n');
+  git(root, 'add', '--all'); git(root, 'commit', '-m', 'candidate source'); const head = git(root, 'rev-parse', 'HEAD');
+  const r = spawnSync('python3', ['-I', '-'], { cwd: root, input: dc1Step, encoding: 'utf8', timeout: 10000,
+    env: { ...process.env, BASE_SHA: base, HEAD_SHA: attack === 'wrong-checkout' ? base : head } });
+  return { ...r, baseRan: fs.existsSync(path.join(root, 'base-guard-ran')), candidateRan: fs.existsSync(path.join(root, 'candidate-guard-ran')),
+    helperRan: fs.existsSync(path.join(root, 'source-helper-ran')) };
+}
+test('DC1: extracted workflow command executes actual source-head helper after BASE guard', t => {
+  const r = dc1ExecuteStep(t); assert.equal(r.status, 0, r.stderr); assert.equal(r.baseRan, true);
+  assert.equal(r.candidateRan, false); assert.equal(r.helperRan, true);
+});
+for (const attack of ['base-rejects', 'historical', 'wrong-checkout']) {
+  test(`DC1: extracted workflow command closes helper execution on ${attack}`, t => {
+    const r = dc1ExecuteStep(t, attack); assert.equal(r.helperRan, false); assert.equal(r.candidateRan, false);
+    assert.equal(r.status === 0, attack === 'historical', r.stderr);
+    assert.equal(r.baseRan, attack !== 'wrong-checkout');
+  });
+}
+
+
+function dc1EventSpec(source, event) {
+  const lines = source.split('\n'); const on = lines.indexOf('on:'); assert.ok(on >= 0);
+  const stop = lines.findIndex((line, index) => index > on && /^\S/u.test(line));
+  const events = lines.slice(on + 1, stop < 0 ? undefined : stop);
+  const start = events.indexOf(`  ${event}:`); if (start < 0) return null;
+  const end = events.findIndex((line, index) => index > start && /^  \S/u.test(line));
+  const block = events.slice(start + 1, end < 0 ? undefined : end);
+  const list = key => {
+    const position = block.indexOf(`    ${key}:`); if (position < 0) return null;
+    const values = [];
+    for (let index = position + 1; index < block.length && block[index].startsWith('      - '); index += 1) {
+      values.push(block[index].slice(8).trim().replace(/^['"]|['"]$/gu, ''));
+    }
+    return values;
+  };
+  assert.equal(list('paths-ignore'), null, 'Keep one unambiguous paths selector');
+  return { branches: list('branches'), paths: list('paths'), types: list('types') ?? ['opened', 'synchronize', 'reopened'] };
+}
+function dc1WorkflowRoute(source, { event = 'pull_request', action = 'opened', base = 'main', branch = dc1Branch, files = dc1SourcePaths } = {}) {
+  const spec = dc1EventSpec(source, event);
+  const matches = (pattern, file) => {
+    const escaped = pattern.replace(/[.+^${}()|[\]\\]/gu, '\\$&');
+    return new RegExp('^' + escaped.replace(/\*\*|\*|\?/gu, glob => glob === '**' ? '.*' : glob === '*' ? '[^/]*' : '[^/]') + '$', 'u').test(file);
+  };
+  const triggered = Boolean(spec && (!spec.branches || spec.branches.includes(base)) &&
+    (!event.startsWith('pull_request') || spec.types.includes(action)) &&
+    (!spec.paths || files.some(file => spec.paths.some(pattern => matches(pattern, file)))));
+  const job = source.split('\n  standard_validation:\n')[1].split(/\n  [A-Za-z_][A-Za-z0-9_-]*:\n/u)[0];
+  const jobIf = job.match(/    if: >-\n([\s\S]*?)    runs-on:/u)?.[1]; assert.ok(jobIf);
+  const step = job.split('      - name: Validate DC1 closed Docker source controls at exact accepted head\n')[1]; assert.ok(step);
+  const stepIf = step.match(/        if: ([^\n]+)/u)?.[1]; assert.ok(stepIf);
+  const github = { event_name: event, head_ref: branch };
+  const selectedJob = runInNewContext(`(${jobIf})`, { github }, { timeout: 1000 });
+  const selectedStep = runInNewContext(`(${stepIf})`, { github }, { timeout: 1000 });
+  return { triggered, selectedJob, selectedStep, helperSelected: triggered && selectedJob && selectedStep };
+}
+test('DC1 routing: exactly the two Docker and three cold SOURCE paths extend the actual PR event filter', () => {
+  const old = spawnSync('git', ['cat-file', 'blob', '70ba69a95c116b329feaed4c0ae81e7735988b0e']);
+  assert.equal(old.status, 0, old.stderr.toString());
+  const before = dc1EventSpec(old.stdout.toString('utf8'), 'pull_request');
+  const after = dc1EventSpec(workflow, 'pull_request');
+  assert.deepEqual(after.branches, before.branches); assert.deepEqual(after.types, before.types);
+  assert.deepEqual(after.paths.slice().sort(), [...before.paths, ...dc1SourcePaths, ...coCold.map(item => item.path)].sort());
+  for (const file of dc1SourcePaths) assert.equal(after.paths.filter(item => item === file).length, 1, file);
+});
+test('DC1 routing: whole workflow selects exact SOURCE PR and executes its head helper', t => {
+  for (const action of ['opened', 'synchronize', 'reopened']) for (const file of dc1SourcePaths) {
+    assert.equal(dc1WorkflowRoute(workflow, { action, files: [file] }).helperSelected, true, `${action}:${file}`);
+  }
+  assert.equal(dc1WorkflowRoute(workflow).helperSelected, true);
+  const executed = dc1ExecuteStep(t); assert.equal(executed.status, 0, executed.stderr);
+  assert.equal(executed.baseRan, true); assert.equal(executed.helperRan, true); assert.equal(executed.candidateRan, false);
+});
+test('DC1 routing: prior missing-path workflow cannot execute the SOURCE helper', () => {
+  let old = workflow;
+  for (const file of dc1SourcePaths) old = old.replace(`      - '${file}'\n`, '');
+  const route = dc1WorkflowRoute(old);
+  assert.equal(route.triggered, false); assert.equal(route.selectedJob, true); assert.equal(route.selectedStep, true);
+  assert.equal(route.helperSelected, false, 'Step selectors alone cannot mask an absent PR event');
+  for (const file of dc1SourcePaths) assert.equal(dc1WorkflowRoute(old, { files: [file] }).helperSelected, false);
+});
+for (const [name, event] of [
+  ['target event', { event: 'pull_request_target' }], ['manual dispatch', { event: 'workflow_dispatch' }],
+  ['wrong head branch', { branch: dc1Branch + '-extra' }], ['guard branch', { branch: dc1Core.guardBranch }],
+  ['wrong base', { base: 'not-main' }], ['unrelated path', { files: ['scripts/unrelated-diagnostic.py'] }],
+  ['unselected PR action', { action: 'labeled' }],
+]) test('DC1 routing: whole workflow closes helper on ' + name, () => {
+  assert.equal(dc1WorkflowRoute(workflow, event).helperSelected, false);
 });

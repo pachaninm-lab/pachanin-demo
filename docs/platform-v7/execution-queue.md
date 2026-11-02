@@ -11562,3 +11562,871 @@ WP1 [record](autopilot/prompts/current-review-task.md#wp1)
   }
 }
 ```
+
+
+## Cold observer exact compatibility purpose — 2026-11-01
+
+```json
+{
+  "purpose": "cold-observer-exact-compatibility-20261101",
+  "status": "PRIVATE_PROPOSAL_NOT_ADMITTED",
+  "owner": "ACCOUNT_1_CORE",
+  "ownerDecision": "#5469#issuecomment-6558882969",
+  "authorityBaseExactMain": "14b4e6bbd0122a8cd717ea193ecd39c69e0efcdf",
+  "metadataBranch": "governance/industrial-load-diagnostics-20260919",
+  "sourceBranch": "ops/production-cold-preservation-20261022",
+  "retainedGuardBranch": "governance/gekta-recovery-trusted-routes-20260927",
+  "retainedGuardPaths": [
+    ".github/workflows/platform-v7-autopilot-guard.yml",
+    "docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs",
+    "scripts/p7-autopilot-guard.sh"
+  ],
+  "sourceOnly": true,
+  "sourcePublicationAuthorized": false,
+  "productionInvocationAuthorized": false,
+  "startupAuthorized": false,
+  "workersAuthorized": false,
+  "hostWindow": "NONE",
+  "productionAcceptance": false,
+  "masterCredit": 0,
+  "privateSourceHead": "52e3906c8f0cb27a35e090286283e8505fff8c4e",
+  "privateSourceTree": "ea5539add9e405e3105dc7f425c83be3fb54f203",
+  "privateSourcePatchSha256": "1d14b17ab85d54fa97909586c414ffe050e70ee64bba4f1576dd469894a3ced0",
+  "privateIndependentSourceReviewSha256": "239f9e1eabc6d132269bda0fae393749d52abc253861158c114552e9d83fa1ea",
+  "exactSourceThree": {
+    ".github/workflows/production-cold-preservation.yml": {
+      "before": {
+        "bytes": 169790,
+        "sha256": "dd327aba31e76a1cb3ffe713eecf62091ce470fee53a8de93d863a0ffc0c7ae6",
+        "blob": "338b17efa926ad4a12eb061ebd2543164905aadb"
+      },
+      "after": {
+        "bytes": 172672,
+        "sha256": "e322cfee6489d25f17133be7297f3ad900d0574650121e84648d72b0aedff934",
+        "blob": "6236904ed57f820207e4be2eb918bb956c5f3805"
+      },
+      "mode": "100644"
+    },
+    "scripts/test_production_cold_preservation.py": {
+      "before": {
+        "bytes": 199236,
+        "sha256": "3a6553fad7ba3bec8ecefdb11536ed3e29c7f296ab6b117672b2ef776063519c",
+        "blob": "e5faf4c8d59a8567eafc3bcd4ef49204a713d275"
+      },
+      "after": {
+        "bytes": 199769,
+        "sha256": "3216ead4e4abd2f515a5410756657131f79cb4e548aa077f4083d2c662fb6478",
+        "blob": "19632fe1357f16d81835c31da30d5572ec836d65"
+      },
+      "mode": "100644"
+    },
+    "docs/ops/production-cold-preservation.md": {
+      "before": {
+        "bytes": 48479,
+        "sha256": "39004266eb20cd4e52ab5123dddc32f053d220db4996a0333a3267c45d220fd2",
+        "blob": "3c8b47d984802cb9092d1279fcaa0c2133739da0"
+      },
+      "after": {
+        "bytes": 50343,
+        "sha256": "58280bb7518e782e576c71cc2679b6ece7fa64d8cba2b4bce57ed49f78c644c8",
+        "blob": "1655bb5ce5ae9f9c915b92203818648c6cfb152b"
+      },
+      "mode": "100644"
+    }
+  },
+  "exactCarriers": [
+    {
+      "blob": "e0f8fa5731af0addc0b82c9ca7fab24abcecddb7",
+      "bytes": 370287,
+      "sha256": "31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7"
+    },
+    {
+      "blob": "5f5446369cc96c935fe959ad5ba9aa6bcf95f2ac",
+      "bytes": 400684,
+      "sha256": "1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f"
+    }
+  ],
+  "rawFragmentSha256": [
+    "92c6da9777dceef4b31235aa6e4bfc3e5829646404b39a121826846dad392eea",
+    "b01ef2cf05fe0132ddbfce5d26483390789380d6c75a1b0f18e9212ad65fca0f",
+    "e1cd4c77167d3ba2e125e02bb7d3ab5cd1c7269209bbfb819df10822e4ec5143"
+  ],
+  "inverse": {
+    "mechanism": "Fixed10 byte splices decoded from564B static base64/zlib JSON; applied ONLY after exact R2 whole identity and exact actual3fragment identities. Must recover complete old e0f8/370287/31b39 before historical prefix/extraction. No network/Git-history fixture lookup/generic fallback.",
+    "historicalPrefixBytes": 191427,
+    "historicalPrefixSha256": "09ae88f0bfcf48b93e5f5dea5302d663d5dd5a709507503701014e4c17d27f5a"
+  },
+  "stateStages": {
+    "status": "MATHEMATICAL_PRIVATE_GEOMETRY_ONLY_NO_STATE_CANDIDATE_OR_ADMISSION",
+    "statePath": "docs/platform-v7/autopilot/autopilot-state.json",
+    "before": {
+      "bytes": 3145687,
+      "sha256": "6b4a5d16dc47f3ce1d80ef022005a615e3db72ade1f6a0fd243d3ee01fdce4f4",
+      "blob": "60930eae9e605e3b96887b5cb9249ac00e91ed06"
+    },
+    "A3": {
+      "after": {
+        "bytes": 3145687,
+        "sha256": "692fc2a94e6a4dd45ebace52934bcd6614aa21817a79ebcd0bfefb66adca482c",
+        "blob": "b90d728b224cdc358fbf35a672bcee75b8723ddd"
+      },
+      "changedFields": [
+        {
+          "pointer": "/coordinationAdmissions/stopped-core-bootstrap-20261024/sourcePins/0/sha256",
+          "path": ".github/workflows/production-cold-preservation.yml",
+          "byteOffset": 3083509,
+          "bytes": 64,
+          "before": "dd327aba31e76a1cb3ffe713eecf62091ce470fee53a8de93d863a0ffc0c7ae6",
+          "after": "e322cfee6489d25f17133be7297f3ad900d0574650121e84648d72b0aedff934"
+        },
+        {
+          "pointer": "/coordinationAdmissions/stopped-core-bootstrap-20261024/sourcePins/1/sha256",
+          "path": "scripts/test_production_cold_preservation.py",
+          "byteOffset": 3083657,
+          "bytes": 64,
+          "before": "3a6553fad7ba3bec8ecefdb11536ed3e29c7f296ab6b117672b2ef776063519c",
+          "after": "3216ead4e4abd2f515a5410756657131f79cb4e548aa077f4083d2c662fb6478"
+        },
+        {
+          "pointer": "/coordinationAdmissions/stopped-core-bootstrap-20261024/sourcePins/2/sha256",
+          "path": "docs/ops/production-cold-preservation.md",
+          "byteOffset": 3083801,
+          "bytes": 64,
+          "before": "39004266eb20cd4e52ab5123dddc32f053d220db4996a0333a3267c45d220fd2",
+          "after": "58280bb7518e782e576c71cc2679b6ece7fa64d8cba2b4bce57ed49f78c644c8"
+        }
+      ],
+      "inspectionSha256Remains": "31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7",
+      "inverseRestoresExactBeforeBytes": true
+    },
+    "B1": {
+      "before": {
+        "bytes": 3145687,
+        "sha256": "692fc2a94e6a4dd45ebace52934bcd6614aa21817a79ebcd0bfefb66adca482c",
+        "blob": "b90d728b224cdc358fbf35a672bcee75b8723ddd"
+      },
+      "after": {
+        "bytes": 3145687,
+        "sha256": "7bc59d1a3d3201c15258adb2f9886a415878393deb1fe3b6b9f5f03ab05eef99",
+        "blob": "9dd9d2a97e54bae0d7c9d18d165e430c06cd6c42"
+      },
+      "changedFields": [
+        {
+          "pointer": "/coordinationAdmissions/stopped-core-bootstrap-20261024/inspectionSha256",
+          "byteOffset": 3083342,
+          "bytes": 64,
+          "before": "31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7",
+          "after": "1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f"
+        }
+      ],
+      "inverseRestoresExactA3Bytes": true
+    },
+    "allOtherParsedStateAndRawBytesUnchanged": true,
+    "stateFilesWritten": false,
+    "stateCapUnchanged": 3145728
+  },
+  "coherentGuardDependency": {
+    "status": "SEPARATE_EXACT_TRUSTED_PREREQUISITE_REQUIRED_NOT_IMPLEMENTED_HERE",
+    "phases": [
+      "Queue-only accepted precise purpose with state byte-unchanged; no guard-patch selfhash recursion.",
+      "One coherent independently reviewed trusted3path guard implementing ONLY exact A3/B1 raw replacements, exact COLD3 source and existing DC1 SOURCE2, with their accepted purpose pins; do not serially invalidate DC1 guardPayloads.",
+      "A3 metadata: only3existing source-pin hash replacements; old carrier inspection pin retained.",
+      "Exact COLD3 ordinary source descendant; state/queue bytes equal its accepted BASE.",
+      "Existing frozen DC1 R2 SOURCE2; permits ONLY explicitly accepted A3 state/current admitted queue, both HEAD byte-equal BASE; no generic state or queue exception.",
+      "B1 metadata: only inspectionSHA old→R2 after actual R2 source acceptance.",
+      "Separate later finite read-only journal/object reconciliation and operational disposition; no source grant."
+    ],
+    "existingBroadColdStateScopePassIsNotAuthority": true,
+    "existingIndustrialParsedStateMutationRemainsForbiddenExceptSeparatelyAdmittedNamedExactStages": true
+  },
+  "gates": [
+    "Full existing contract job and native Compose/Docker28.5.1/API1.51/PostgreSQL wire paths remain unchanged. No native skip or test filter to obtain PASS.",
+    "All baseline149 cold tests remain; compatibility adds one controller method, so the full current cold suite has150 cases, including the one native PostgreSQL wire test exactly once. Full current cold150 + old shared24 =174; full current cold150 + R2 shared48 =198. Historical baseline149 + shared24 =173 remains history. Mandatory native tests are NOT_RUN here; five local environment skips are not native PASS.",
+    "Fresh actual whole-head independent review and owner audit; substantive/native/security; latest canonical readiness; manual full expected-head acceptance at EACH metadata/guard/source stage.",
+    "Current-state inspectionSHA MUST match actual carrier and exact3controller pins; oldstate/newcarrier and mismatchedpins fail closed. Acceptance of two source profiles grants no operation/retry/reset/startup.",
+    "All other state bytes/parsed fields/owners/vectors/PRIMARY/current/next/official5 and source caps unchanged. No state growth, new vector, global buffer/cap exception or ownership transfer."
+  ],
+  "metadataStorage": {
+    "existingReviewDocumentMayLackRoomAfterDC1": true,
+    "proposedTrackedHome": "docs/platform-v7/execution-queue.md",
+    "observedQueueBytes": 2110383,
+    "actualAcceptedNamedQueueReaderBytes": 3145729,
+    "noGlobalTwoMiBLimitAssumed": true,
+    "noGuardAfterBlobSelfhashEmbedded": true
+  },
+  "publicationPrerequisites": [
+    "Verified new owner decision6558882969 recorded; preserve complete current14b4 queue prefix when eventually composing metadata.",
+    "Fresh private source review239f9e1e binds frozen52e390/01b9 only. Future actual published metadata/guard/source heads require independent exact-head review; no current-main/native/host transfer.",
+    "Root must materialize and independently review the coherent exact trusted3path admission against the accepted queue purpose. No guard implementation is supplied or granted here."
+  ],
+  "frozenSourceProposalBaseExactMain": "01b9b00e176011495be935a1d003ddf27ebf168d",
+  "currentQueuePrefix": {
+    "observedMain": "14b4e6bbd0122a8cd717ea193ecd39c69e0efcdf",
+    "queuePath": "docs/platform-v7/execution-queue.md",
+    "bytes": 2110383,
+    "sha256": "8d62f9d661ce365ab8394c3094427539b2987807044306502d947c7089c488a5",
+    "blob": "8bd9e231fe2bfcbee4ae270718c291802b1a4a3b",
+    "old01b9QueueExactPrefix": true,
+    "sourceSuitesNotRepeatedForPureQueueChange": true,
+    "readMechanism": "GitHub exact fetch_blob8bd9; local14b4 object not present; exact whole UTF8 bytes Gitblob verified"
+  },
+  "privateSourceReviewDisposition": "PRIVATE SOURCE CLEAN only for frozen52e390 against01b9; exact authority/native/current published head/host remain HOLD",
+  "supersedesBlockedPrivatePurposeDrafts": [
+    "5055be0322c399b6852278ae8819141252c73a9be31bf8254be85d107a30ddd5",
+    "40b4ca5466fa652e02ab7d3eb5d18f80a85749be7a2aa334c97bbe095ac688fb",
+    "51b3d2bdb3bc594a37b5a1ebe6fdb2d3d0cb5913991f456314b9fadfb15bb227"
+  ],
+  "draftCorrection": "The earlier draft named the BANK one-workflow guard lane and wrong regression path. Both rejected drafts are preserved as BLOCKED history; only the actual accepted Gekta three-path lane above is proposed.",
+  "countCorrection": "Independent purpose review found P3 count-decomposition wording in privateec092/51b3. Replaced with exact full-suite150 plus shared24/48 totals, counting native wire once; old private commit/proof retained as blocked history. No source/test change."
+}
+```
+
+
+## Gekta retained Han9 exact-six R5 history, laboratory safety and freshness purpose — 2026-11-02
+
+```json
+{
+  "schema": "pc.gekta.existing-han-six-routing-purpose.v2",
+  "purposeId": "gekta-han-history-lab-freshness-r5-20261102",
+  "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+  "authorityBaseExactMainAtPreparation": "1c455e043cb7cd25c827fa15c9df3e6d201212d4",
+  "implementationBranch": "fix/gekta-han-stream-20260927",
+  "retainedPurposeBranch": "governance/gekta-history-han-purpose-20261101",
+  "existingAcceptedVectorPreservedExactly": [
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.stream-gate.ts",
+    "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+    "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts"
+  ],
+  "allowedPaths": [
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+    "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+    "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts"
+  ],
+  "sourcePayloads": [
+    {
+      "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+      "mode": "100644",
+      "beforeBlob": "0f4591006e01d8cc8ee9311ccd79ddee6f89bded",
+      "beforeBytes": 87379,
+      "beforeSha256": "39f3739687c0dada9a3afcf513dfbfe4bf433cf3c945bb7cf7937fb20b53f455",
+      "afterBlob": "955447837f4e5cd6ee90b11668b00122aae35090",
+      "afterBytes": 88562,
+      "afterSha256": "8bdbc6d2755f722a4906fb7acfb9e43cdc69cd8834c8e3f85abecbb9bc77745a"
+    },
+    {
+      "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+      "mode": "100644",
+      "beforeBlob": "71e2e3f26bd2e49d025391305edbea6d4977c670",
+      "beforeBytes": 57445,
+      "beforeSha256": "bf3ec001b246af91eec3402d69a24f54105f77fa98aabf54cfb4b7a138e4ec2d",
+      "afterBlob": "c2f4a4aa0ee1c029845ae02b229b8b563d4ff8a5",
+      "afterBytes": 57620,
+      "afterSha256": "437dc72834add81a8731771956b1a6c04b3f23622a204afdd7ba8626f0a426a1"
+    },
+    {
+      "path": "apps/web/app/api/agro-chat/route.ts",
+      "mode": "100644",
+      "beforeBlob": "46aa9ccebc710f688ee7e9b408b3e0cbde27b365",
+      "beforeBytes": 40688,
+      "beforeSha256": "d8bea7550194ac14f1a4efa988238278c28a192488619d7b7db5a2b564bdfa57",
+      "afterBlob": "3a6314b987573b7ec5720ee8721703cdbdc5f70b",
+      "afterBytes": 41420,
+      "afterSha256": "bf928502375472c3ab68001d9981bbb4e26fd46d36f59aba64b3261b9137254b"
+    },
+    {
+      "path": "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+      "mode": "100644",
+      "beforeBlob": "3d55d2e338ac39524a0fd9537b59cd80aa01ea8b",
+      "beforeBytes": 53116,
+      "beforeSha256": "b6acf26572ef657ef8ac3c3fbfdf88b7270aba389a563ee616b22e4d5b71d3ca",
+      "afterBlob": "577c7b57fecbdee85017aaa63ed2478cc1afeb38",
+      "afterBytes": 53172,
+      "afterSha256": "5e6d5de221925658574f5e6a3391b5840c54fcae3a0ee7b3a209ff408bc132f8"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+      "mode": "100644",
+      "beforeBlob": "e1308be3255faf63ea3fbfbe8de36864f97bd137",
+      "beforeBytes": 30880,
+      "beforeSha256": "eb1011c452238d0e1369bcb9aead8282fb787ec267e7f59169dcc91054b02e09",
+      "afterBlob": "4262278d775809be44bf237f5347088b1f6712aa",
+      "afterBytes": 37640,
+      "afterSha256": "da149fde2e7ad177a91cac5c40af8e173c3da6af01ac581f68beb1622b0ed355"
+    },
+    {
+      "path": "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+      "mode": "100644",
+      "beforeBlob": "cf3e7e1b40b4bebaf99434e2f99537e6a63f029c",
+      "beforeBytes": 40190,
+      "beforeSha256": "ebb953447bfe82bb95461856dff3944abb5ee63d3582938c287a7460ba3b33b6",
+      "afterBlob": "f284a428e37b74576a2bef5a0c9891a23bdb2b31",
+      "afterBytes": 42650,
+      "afterSha256": "bfaca7d2b4f436676ba07589149d0e565e31ecfe7e625bd9e030c9bbcfe6eb37"
+    }
+  ],
+  "privateProposedSourceHead": "5b73044f1fc9fc3f01b9a5e3d4a088c73013636a",
+  "privateProposedSourceTree": "8b18526b53473982518ed11632f3f5d8f9c2c6e5",
+  "sourceParents": [
+    "cd769f114467e6326c9e4369e89b904b1c2d36f2"
+  ],
+  "retainedHanAncestor": "c6787efe621473d2c6c97ab8614dc0747fbdf5d0",
+  "retainedLabSourceAncestor": "e0af21bbe74f81b18a3790356bebe6405f20330c",
+  "retainedFreshnessSourceAncestor": "cd0ee424cb072a8238148c6ac56f475349d2a736",
+  "fullSourcePatchBytes": 22127,
+  "fullSourcePatchSha256": "dafbf3598c199db7fd13aab92bf7a623da35b0e001e128bb0150ae5831dac919",
+  "acceptedPriorPurpose": {
+    "pr": 6051,
+    "reviewedHead": "2250cfc89ef0b1ff58308c6a1dc243cd6976cccf",
+    "merge": "14b4e6bbd0122a8cd717ea193ecd39c69e0efcdf",
+    "exactPaths": 4
+  },
+  "explicitPriorHoldNarrowRenewal": {
+    "acceptedProducerPurposePr": 6050,
+    "acceptedProducerPurposeHead": "7facd7876d580424b12be666f8d462b492500e08",
+    "actualAcceptedMerge": "01b9b00e176011495be935a1d003ddf27ebf168d",
+    "priorProspectiveWording": "Keep state at or below3145728B and all new product admissions blocked until the existing guard owners separate purpose/source correction is actually accepted and compatible.",
+    "explicitSupersession": "ONLY after ordinary acceptance of THIS exact new current-head R5 queue purpose, renew the prospective source phase solely for the declared SIX exact R5 payloads on the same retained ordered Han9 vector and same existing owner, with ZERO state/vector growth. This explicitly replaces6051 next-source exact-four phase for this one combined R5 successor; accepted6051 and every older record remain verbatim. Private a4f grants only7bd conditionally and is not R5 authority. This is not reinterpretation of6050 hold, transfer of four-path acceptance to six, a new state admission or admission of any other private fix.",
+    "unchangedHolds": "CAP-1 and its existing protected guard owner remain unchanged. No state growth above3145728B, new state-vector/ref admission, other source-purpose renewal, consumer correction, model trial/activation or host operation is admitted. All original records and failures remain preserved; all source/native/readiness/manual gates still apply.",
+    "whyBounded": "The immutable reader consumes unchanged3145687B state and exact orderedHan9 vector. Accepted6063B1 and exact HANDOFF6566299908 complete the finite CORE source epoch. ONLY this queue-only proposal and, after its actual acceptance, the six declared R5 payloads may resume ordinary source gates. CAP1/protectedconsumer/newvector/model/host holds remain."
+  },
+  "behavior": [
+    "At actual API and BFF boundaries budget only the final12 raw history positions newest-first; retain permitted roles/text filtering,2000 characters per turn and12000 total; return chronological wire order without mutating caller input. No persistence or unlimited recall claim.",
+    "Recognize complete English lab/labs/laboratory/laboratories as agricultural relevance terms across all13roles. Align ONLY the existing forge/falsify lab-report safety alternative with these same four nouns. Direct forgery is BLOCK_SAFETY before model/knowledge invocation; lawful prevention, detection and legal-consequence explanation remain eligible under existing grounding rules. Preserve all other safety/privacy/privilege checks.",
+    "Use Unicode whole-word boundaries for Russian freshness terms so delivery/supply substrings do not masquerade as rates. English whole now/current/currently/latest/recent/recently/news/weather/exchange rates/tariffs/duties/statistics forms are detected without tested weathering/concurrent/newsroom/newspaper/dutiful substring false positives. Chinese detector remains unchanged. This finite detector does not fetch external current data.",
+    "Only user history/current user input can supply an explicit storage-rate exemption for the narrow sell-now calculation. Preserve NFKC/case/yo/whitespace cleanup and amount/unit punctuation only for that input recognizer; generic normalizeIntent and evidence-question normalization are unchanged. Assistant text cannot provide an exemption; explicit current-price/exchange requests still require current data.",
+    "The English amount starts at the first Unicode-number position following the normalized storage keyword, after at most48nonnumeric characters; supported literal ASCII decimal amount has1–7integerdigits and at most2fractiondigits. Scientific/grouped/underscore/other unsupported numeric forms are not skipped to accept a suffix. Extra preceding numeric descriptive fields are conservatively unrecognised. This is not a universal storage/financial parser or a global RUamount-validation change.",
+    "R5 changes ONLY the English storage keyword-to-amount gap from48arbitrary non-newline characters to48nonnumeric non-newline Unicode characters, preventing scientific/grouped/underscore suffix capture. The earlier Russian amount alternative is not replaced by a universal validation grammar. Existing tested currency/tonne/month forms, zero, decimal and NFKC compatibility controls remain."
+  ],
+  "unchanged": "Metadata changes ONLY one append to the full accepted queue. All7098other Git leaves/modes remain currentBASE-exact, including state efec3145687B, current review recorda053/DC2guard3, correctedCOLD3/sourceR3, orderedHan9/scopes/owners/135admissions/226vectors/progress/BANK/producer/CI/DB/model/lockfiles. No new vector/state growth/consumer fix.",
+  "sourceReviewAtPreparation": {
+    "wholeSixSuccessorHead": "5b73044f1fc9fc3f01b9a5e3d4a088c73013636a",
+    "status": "QUALIFIED PRIVATE WHOLE-SIX FUNCTIONAL/SAFETY PASS; NOT FORMAL SOURCE_CLEAN OR ADMISSION",
+    "finalPrivateReport": {
+      "head": "5b73044f1fc9fc3f01b9a5e3d4a088c73013636a",
+      "tree": "8b18526b53473982518ed11632f3f5d8f9c2c6e5",
+      "evaluationBase": "b4a21b9715d3946b6f8bd77a59073bb4f1ec2405",
+      "bytes": 14429,
+      "sha256": "b94b396b0d1e28e65f5344b65024e2e766c87bb94ae72ac86eccced1560e7ff0",
+      "rootPersonallyReadEntireFrozenReport": true,
+      "reviewer": "Separate nonauthor session reviewer; report and own evidence preserved verbatim in the continuation archive",
+      "newFindings": {
+        "P0": 0,
+        "P1": 0,
+        "P2": 0,
+        "P3": 0
+      },
+      "ownFreshChecks": {
+        "apiPassed": 1096,
+        "webPassed": 487,
+        "originalAmountBoundsPassed": 28,
+        "unchangedLabCallerPassed": 24,
+        "originalFf4ObservedOutcomesCorrect": 11,
+        "targetedControlsPassed": 11,
+        "apiTypesExit": 0,
+        "mechanicalHan9ScopeExit": 0
+      },
+      "historicalFixture": {
+        "originalCases": 56,
+        "passed": 54,
+        "obsoleteEnglishExpectationsFailed": 2,
+        "skipped": 0,
+        "newNowAndWeatheringOutcomesAssertedSeparately": true
+      },
+      "qualification": "Reviewer-local mocked/synthetic checks with overlapping counts, not a new hosted/native/full-Web/model PASS. Original56 is NOT unchanged56PASS. Exact frozen R5 only; all future published metadata/source heads require NEW whole-head nonauthor review and native gates."
+    },
+    "rootHistoricalChecksReferenceOnly": {
+      "webTests": 487,
+      "pass": 487,
+      "fail": 0,
+      "skip": 0,
+      "files": 2
+    },
+    "blockedPredecessor": {
+      "head": "cd769f114467e6326c9e4369e89b904b1c2d36f2",
+      "reportBytes": 13933,
+      "reportSha256": "91e4d40ffb2f8c8988bc930e65fe301dbbc341e0b9c7d4763b16721dac717713",
+      "rootPersonallyReadEntireFrozenReport": true,
+      "finding": "P2 FRESHNESS-AMOUNT-BOUND-1",
+      "ownAdverse": {
+        "pass": 24,
+        "fail": 4,
+        "skip": 0
+      }
+    },
+    "failurePreservation": {
+      "r3Initial15": {
+        "selected": 15,
+        "pass": 7,
+        "fail": 8,
+        "unselected": 189
+      },
+      "r4BeforeInputCorrection": {
+        "selected": 14,
+        "pass": 8,
+        "fail": 6,
+        "unselected": 204
+      },
+      "r4FirstRawPatternAttempt": {
+        "total": 483,
+        "pass": 479,
+        "fail": 4,
+        "skip": 0,
+        "qualification": "Real implementation error: slashes were lost in generic intent normalization; original JSON/log retained separately. Corrected by punctuation-preserving supplied-input context only, not by changing tests."
+      }
+    },
+    "additionalHistoricalFailures": "29be direct LAB forgery BLOCKED; ff4 supplied-input freshness P2; cd76 amount suffix P2. Original56 now/weathering expectations remain genuine historical54PASS/2FAIL. No old failure is relabeled PASS.",
+    "qualification": "Fully read b94 frozen private WHOLE6 review remains qualified to5b73/b4a only; it is not current published-head SOURCE_CLEAN/native acceptance. The later combined18 private79 review does not grant this six-source phase or any combined vector. Any future public metadata or source head requires NEW exact whole-head independent review and current native/security/readiness/manual gates."
+  },
+  "explicitResiduals": [
+    "Finite multilingual freshness/relevance/safety and bounded storage-rate grammar only; no universal monetary parser, external retrieval or real current-data/model-quality claim.",
+    "History covers only the bounded raw suffix; persistence, save, recall and real model understanding remain open.",
+    "A12 trace, XLSX/namespace/archive, arithmetic/markup, first-consent, document context/retry and other private packages are outside these six paths. No other purpose or source grant.",
+    "No all40/G-A05/30/40 live closure, mobile/browser/fullbuild/native acceptance, model activation, provider call, server installation, financial/DB operation or MASTER credit."
+  ],
+  "publicationPreconditions": {
+    "acceptedProducer": {
+      "pr": 6052,
+      "reviewedHead": "84344bb61af378b8c9227c6e4ab1ec829bcf4a7d",
+      "merge": "20eba7d6e829ab2ed8e9435ab11428e550a13506",
+      "workflow": "12f674f06b56e4674ba79362e5780d5268e20391",
+      "helper": "07786bbd4fb917524f656127383df514d688fe75",
+      "actuallyAccepted": true
+    },
+    "acceptedCoreColdPurpose": {
+      "pr": 6054,
+      "reviewedHead": "47a3c900baf2412542233a423aa6eab9006aa4a0",
+      "merge": "b4a21b9715d3946b6f8bd77a59073bb4f1ec2405",
+      "queue": "a59124dda99d57ccab6c7b92b01f62b725dda149",
+      "queueBytes": 2134106,
+      "actuallyAccepted": true
+    },
+    "coordination": "Exact source-cycle HANDOFF6566299908 on TeamHub5469 expressly ends the finite SOURCE staging hold after accepted1c455e/efec/a591. Our already approved Gekta scope may resume current-base recomposition and ordinary review/acceptance. This is no new scope, protected CAP1 consumer access or host right. ROOT may separately prepare one closed read-only Docker query; HOST_WINDOW=NONE. Fresh main/queue/state/ownedrefs were re-read before preparing this public metadata head.",
+    "coreExactHandoffObserved": true,
+    "publicSlotAvailable": true,
+    "requiredSequence": "After actual slot release, re-read currentmain/Hub/owners; recompose ONLYthisqueue purpose on THEN-CURRENTmain preserving ALLacceptedprefix bytes and rebind every actualsourcebefore/authority/observedcondition pin truthfully. Fresh complete actualpublishedqueue-head independentreview/rootFULLread, distinctowneraudit, all native/security/strict/currentREADY and ordinaryfull-expected-SHA metadata acceptance precede source. Only then compose EXACTsixafterpaths preservingretainedsourceancestry and EVERYcurrentforeignleaf, obtain NEW complete actualpublishedWHOLEsixreview/rootFULLread, separateowner audit, allapplicablefullnative/sourcepreflight/KIND/deepoutbox/storage/cleanup/security/strict/READY, and ordinaryexpectedfull-SHA manualsource acceptance. Any changedhead invalidates prior review/native readiness. No automatic activation of frozenprivate observations.",
+    "latestObservedAcceptedMain": "1c455e043cb7cd25c827fa15c9df3e6d201212d4",
+    "acceptedCoreColdSource": {
+      "pr": 6062,
+      "reviewedHead": "cba3706300347ee5b24c921d8352adaf2087f282",
+      "merge": "8d17fcf58b97ddf201694e19242b42f2b1bbb20e",
+      "actuallyAccepted": true
+    },
+    "acceptedCoreCorrectedDiagnosticSource": {
+      "pr": 6059,
+      "reviewedHead": "47e8d37a36196a1858d9371997031ce52f2a1ccb",
+      "merge": "f6d1a2441d3ece6446b869e9eb40ce04cc6da5ee",
+      "actuallyAccepted": true,
+      "old9811StillBlockedHistory": true
+    },
+    "acceptedCoreGuardAndState": {
+      "guardPr": 6060,
+      "guardMerge": "3dde73b59b10a01bc27845a7048b0743f61bbaf7",
+      "statePr": 6061,
+      "stateMerge": "40d40be16132f0b0aeb458628ca0b983be88cd39",
+      "actuallyAccepted": true
+    },
+    "acceptedCoreFinalB1": {
+      "pr": 6063,
+      "reviewedHead": "5dd6b40eb561d83a4cac2c8de1ee991a8bd33d47",
+      "merge": "1c455e043cb7cd25c827fa15c9df3e6d201212d4",
+      "actuallyAccepted": true,
+      "stateBlob": "efec483aad3fc78390df15fad9699eb3c22645d4"
+    },
+    "finiteCoreSourceSequenceCompleted": true,
+    "exactHandoff": {
+      "issue": 5469,
+      "comment": 6566299908,
+      "acceptedMain": "1c455e043cb7cd25c827fa15c9df3e6d201212d4",
+      "sourceHoldEnded": true,
+      "hostWindow": "NONE",
+      "newScopeGranted": false
+    }
+  },
+  "unchangedHolds": "State3145687/3145728B/41spare and protectedconsumerowner CLAUDE_PC_CROP_EXECUTOR remain; no newvector or consumer300 eligibility. HOST_WINDOW=NONE, original19/SPENT/UNKNOWN are not replayed. No host/DB/backup/restore/rollback/model/provider/financial/cost/installation/MASTER authority.",
+  "status": "PUBLIC EXACT_R5_QUEUE_PURPOSE_PROPOSAL; CORE_SOURCE_CYCLE_ACCEPTED_AND_EXACT_HANDOFF_OBSERVED; METADATA_REVIEW_AND_ACCEPTANCE_PENDING; NO_SOURCE_OR_HOST_ACCEPTANCE",
+  "sourceEvaluationBase": "b4a21b9715d3946b6f8bd77a59073bb4f1ec2405",
+  "sourceComparisonQualification": "Frozen5b73 source remains evaluated against b4a; all six complete before-pins still match acceptedB1main1c45. This metadata uses full currentB1main1c45 prefix and every foreign leaf, including correctedDC2/A3/ColdR3/diagnosticR3. Future composition transfers ONLYsix exact afters onto THEN-current accepted metadata main; never publish an old whole tree.",
+  "observedCurrentMetadataInputs": {
+    "base": "1c455e043cb7cd25c827fa15c9df3e6d201212d4",
+    "queueBlob": "a59124dda99d57ccab6c7b92b01f62b725dda149",
+    "queueBytes": 2134106,
+    "queueSha256": "0826b8310006d82eee79dcfa43ff0aa9a37f04d53cfc980dcb86a059dfa5e7b6",
+    "stateBlob": "efec483aad3fc78390df15fad9699eb3c22645d4",
+    "stateBytes": 3145687,
+    "stateSha256": "edfc604b3b2ffcf28bd3df5be1594706f8e1ddbb95fa577ef70dede0fc9b5f1c",
+    "stateCapBytes": 3145728,
+    "stateSpareBytes": 41,
+    "allSixCurrentBeforePinsMatch": true,
+    "qualification": "Fresh primary main/queue/state and both retained owned refs read after exact HANDOFF6566299908. Public metadata proposal may proceed through new exact published-head independent review/native/security/strict/latestREADY/manual gates. Acceptance is still pending; this proposal grants no source acceptance or host operation."
+  }
+}
+```
+
+
+## Gekta completed security lane document, consent and DOCX renewal without registry growth — 2026-11-02
+
+```json
+{
+  "schema": "pc.gekta.completed-security-lane-document-consent-renewal.v1",
+  "purposeId": "gekta-retained-security-document-consent-20261102",
+  "owner": "EXISTING_CORE_GEKTA_EXECUTION_CONTINUATION",
+  "authorityBaseExactMainAtPreparation": "c457cd15c13bedcfdb7bb13eb4675e4190d98067",
+  "retainedMetadataBranch": "governance/gekta-history-han-purpose-20261101",
+  "retainedImplementationBranch": "codex/gekta-security-review",
+  "retainedSourceAncestor": "aeb7afa68e0ae718e93e2a2b60e0eb56cad42176",
+  "completedSourcePrs": [
+    4051,
+    5836
+  ],
+  "why": "The current registry has only41B spare and protectedCAP1 is owned separately. Renew only this completed existing CORE Gekta source lane, replacing its current19-path state vector with the exact18 source/test/CI paths below. The literal ordered vector shrinks77B, registry count stays226, no new ref/vector or consumer limit change. The full old vector is retained below; every old admission and the active historical source manifest remain byte-identical and no accepted runtime source is deleted. This is an explicit prospective contract replacement requiring separate acceptance, never an inference from an old scope or a candidate manifest. Generic guard routing still unions historical manifest/global paths; no exclusive mechanical retirement or exact-payload enforcement by the guard is claimed.",
+  "previousStateVectorForThisOneLane": [
+    "apps/api/prisma/migrations/20260813110000_gekta_anonymous_answer_admission/migration.sql",
+    "apps/api/src/modules/gekta/gekta-anonymous-admission.controller.spec.ts",
+    "apps/api/src/modules/gekta/gekta-anonymous-admission.controller.ts",
+    "apps/api/src/modules/gekta/gekta-anonymous-admission.service.spec.ts",
+    "apps/api/src/modules/gekta/gekta-anonymous-admission.service.ts",
+    "apps/api/src/modules/gekta/gekta.module.ts",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/app/api/gekta/entitlement/route.ts",
+    "apps/web/lib/gekta/anonymous-session.ts",
+    "apps/web/lib/gekta/entitlement.ts",
+    "apps/web/lib/gekta/server-workspace.ts",
+    "apps/web/lib/server/gekta-auth-route.ts",
+    "apps/web/tests/unit/gektaEntitlement.test.ts",
+    "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+    "apps/web/tests/unit/gektaServerHistory.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-security-review-20260813.json",
+    "apps/web/components/gekta/GektaChatWorkspace.tsx",
+    "scripts/production-web-live-acceptance.sh",
+    "scripts/check-production-gekta-first-user-acceptance.mjs"
+  ],
+  "replacementStateVectorForThisOneLane": [
+    ".github/workflows/ci.yml",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/web/app/api/agro-chat/route.ts",
+    "apps/web/app/api/public-platform-assistant/attachments/route.ts",
+    "apps/web/components/gekta/GektaChatWorkspace.tsx",
+    "apps/web/components/gekta/GektaComposer.tsx",
+    "apps/web/components/gekta/GektaConsentDialog.tsx",
+    "apps/web/lib/gekta/document-context.ts",
+    "apps/web/tests/e2e/gekta-keyboard-start-acceptance.spec.ts",
+    "apps/web/tests/unit/gektaAnonymousDocumentEvidence.test.ts",
+    "apps/web/tests/unit/gektaDocumentContext.test.ts",
+    "apps/web/tests/unit/gektaEntitlement.test.ts",
+    "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+    "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
+    "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+    "apps/web/tests/unit/uploadDecompressionBudget.spec.ts",
+    "docs/platform-v7/qa/web-unit-coverage-registry.json"
+  ],
+  "stateOnlyPayload": {
+    "path": "docs/platform-v7/autopilot/autopilot-state.json",
+    "mode": "100644",
+    "beforeBlob": "efec483aad3fc78390df15fad9699eb3c22645d4",
+    "beforeBytes": 3145687,
+    "beforeSha256": "edfc604b3b2ffcf28bd3df5be1594706f8e1ddbb95fa577ef70dede0fc9b5f1c",
+    "afterBlob": "f184b1b8db7ae2224401d92a17797a3034a067ee",
+    "afterBytes": 3145610,
+    "afterSha256": "e29b9e8ceb9c54e24e348f50efa2179356124ea2bdfdc4c023567ca6a3fe67e5"
+  },
+  "stateTransitionContract": {
+    "exactTransformation": "Replace exactly one compact JSON value at approvedConcurrentScopes[codex/gekta-security-review]. Every byte before/after that value must be unchanged. No other key/value, whitespace, ownership, PRIMARY/current/raw-next/progress, coordinationAdmissions or historical record may change.",
+    "beforeVectorBytes": 1040,
+    "afterVectorBytes": 963,
+    "registryByteDelta": -77,
+    "beforeVectorCount": 226,
+    "afterVectorCount": 226,
+    "fixedImmutableConsumerLimitBytes": 3145728,
+    "remainingSpareBytes": 118,
+    "historicalEvidence": "Old vector, earlier immutable Git blobs and every historical admission/pin/failure and active source manifest remain. Only the completed retained lane current state vector is renewed. Other225 vectors remain byte-identical.",
+    "mechanicalGuardLimitation": "This branch is not immutable-routed. Its unchanged guard unions the candidate state vector, existing active historical source manifest and generic allowedCurrentScope. Therefore guardPASS is only a broad mechanical path check, not proof of exclusive18 scope, retirement of old paths or exact canonical-purpose enforcement. The separately accepted queue pins and complete actual18 whole-diff/full-tree author and independent review, substantive native/security/readiness/manual gates enforce the finite source contract before acceptance. No old manifest or generic path is an implicit new-purpose grant."
+  },
+  "explicitProspectiveHoldSupersession": {
+    "records": [
+      6050,
+      6051,
+      6052,
+      6056,
+      6064
+    ],
+    "narrowReplacement": "Only after actual separate acceptance of THIS queue-only purpose and the separately accepted exact budget prerequisite below, allow the exact state-only replacement pinned here and then the exact18-path document/consent/DOCX source on the same retained completed codex ref. This explicitly supersedes the blanket new-product hold solely for this finite replacement with negative registry byte growth and no new vector/ref/count. It does not reuse the accepted Han9 R5six exception, extend any old payload or grant source acceptance.",
+    "unchanged": "CAP1/protected CLAUDE_PC_CROP_EXECUTOR consumer branch and3MiB boundary remain unresolved and untouched; no new vector/ref, positive state byte growth, other owner/scope or source purpose, host window, model trial/activation, original19/SPENT/UNKNOWN retry/reset/clone/startup, DB/provider/cost or MASTER authority."
+  },
+  "sourcePayloads": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "mode": "100644",
+      "beforeBlob": "e396e36b3b2f806608690e30d29c962c634d4f70",
+      "beforeBytes": 13055,
+      "beforeSha256": "b0e6d0990b7cc279c405d7cc23431b4186bb3670fc6499ede628e1cebd8bba1a",
+      "afterBlob": "e3bb3c27ac47c19ba543344e2200f949e08011c0",
+      "afterBytes": 13148,
+      "afterSha256": "42d976abe17064d023768bc72aa3fc40d1421467a5fbe0a931e2d5eb5ee932fe"
+    },
+    {
+      "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+      "mode": "100644",
+      "beforeBlob": "955447837f4e5cd6ee90b11668b00122aae35090",
+      "beforeBytes": 88562,
+      "beforeSha256": "8bdbc6d2755f722a4906fb7acfb9e43cdc69cd8834c8e3f85abecbb9bc77745a",
+      "afterBlob": "6701e13f938027fb94b6f73341eb4de217e8ae5e",
+      "afterBytes": 91515,
+      "afterSha256": "93db83fc1916b1bb4293ac103900d920582942022e2b1687a1390b424c3cbdca"
+    },
+    {
+      "path": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+      "mode": "100644",
+      "beforeBlob": "c2f4a4aa0ee1c029845ae02b229b8b563d4ff8a5",
+      "beforeBytes": 57620,
+      "beforeSha256": "437dc72834add81a8731771956b1a6c04b3f23622a204afdd7ba8626f0a426a1",
+      "afterBlob": "1c422b8408ad0645eda8ac7816df4b79bce1b904",
+      "afterBytes": 59346,
+      "afterSha256": "c8bf18b9ed8321070877286031110b2c698f85502ece9e9212d5022f15384fdf"
+    },
+    {
+      "path": "apps/web/app/api/agro-chat/route.ts",
+      "mode": "100644",
+      "beforeBlob": "3a6314b987573b7ec5720ee8721703cdbdc5f70b",
+      "beforeBytes": 41420,
+      "beforeSha256": "bf928502375472c3ab68001d9981bbb4e26fd46d36f59aba64b3261b9137254b",
+      "afterBlob": "671d2555c9d4bdee33c6a585c43970e967d9995e",
+      "afterBytes": 42916,
+      "afterSha256": "dd275f740ac2a383baa092945f3255e6359774b6eadc79fc84d70991ba64c32f"
+    },
+    {
+      "path": "apps/web/app/api/public-platform-assistant/attachments/route.ts",
+      "mode": "100644",
+      "beforeBlob": "4da99b9b98c8c6e2c0671826d6c82c8749ccaae7",
+      "beforeBytes": 16351,
+      "beforeSha256": "5e3b9e310bac85cb0daa40a562b656ee11a56bb829342a2c5d04c07e5ea278c2",
+      "afterBlob": "20f110d266748c947c547b1a1739bead49326c23",
+      "afterBytes": 20968,
+      "afterSha256": "ad5fdc9ddcfc9581ef297e0b146a4cbbbc9b2393b0d9dc3dd3ed058188df15a6"
+    },
+    {
+      "path": "apps/web/components/gekta/GektaChatWorkspace.tsx",
+      "mode": "100644",
+      "beforeBlob": "87cb729280040854a880497c415ec8f780c79ccd",
+      "beforeBytes": 58372,
+      "beforeSha256": "e7547cbadea00299a4d04bcaac44d98b42bbc7f71ea13d0d2b886b141312f63a",
+      "afterBlob": "35b925928b4388d079714db47f07a60e04313ab0",
+      "afterBytes": 64828,
+      "afterSha256": "ddaa83b89edcece96bff612703c891d1dde7e73be46156f29f6dacd87bcde409"
+    },
+    {
+      "path": "apps/web/components/gekta/GektaComposer.tsx",
+      "mode": "100644",
+      "beforeBlob": "acee0d61084c63ca939b1fc53a776160c2ecd708",
+      "beforeBytes": 6917,
+      "beforeSha256": "589932720387ec192d2bf753ab809d4874315f5aae343b19f71e58b9039c1d9d",
+      "afterBlob": "1966ec542553a2b1d44680f30dee659b49b58dfc",
+      "afterBytes": 6924,
+      "afterSha256": "94ec0196a0970b26bd03a9cb3c0a4a8214d5584ec30a6e7ebb40207b347ae0e8"
+    },
+    {
+      "path": "apps/web/components/gekta/GektaConsentDialog.tsx",
+      "mode": "100644",
+      "beforeBlob": "59c8773df63ed1ee45782d721faeaff90da2f21b",
+      "beforeBytes": 5766,
+      "beforeSha256": "481cc36706c6b792088e06980e0693ca225de7f4e8d26c801cc0c5eb3f7abb2e",
+      "afterBlob": "5fcf6000d65bea28d950438821df927642207154",
+      "afterBytes": 5957,
+      "afterSha256": "a81ace1bdac903a8c98010cec0da47f58d0e9515be567e669716dc9ec7a14b00"
+    },
+    {
+      "path": "apps/web/lib/gekta/document-context.ts",
+      "mode": "100644",
+      "beforeBlob": null,
+      "beforeBytes": 0,
+      "beforeSha256": null,
+      "afterBlob": "79597708ecd818897e3c91f406b3d335a420adda",
+      "afterBytes": 2936,
+      "afterSha256": "33a7dc7b8fc9dff46d0aa63fdf6f7e497d20750f22a4862c987af700b33b5cd9"
+    },
+    {
+      "path": "apps/web/tests/e2e/gekta-keyboard-start-acceptance.spec.ts",
+      "mode": "100644",
+      "beforeBlob": "8b98e3975f5af7fbdb72a8497a38448597c4ae54",
+      "beforeBytes": 11104,
+      "beforeSha256": "76d5445474b97fa0a5700df09dc09110c91279088f45d1bde4924cd6c7febb7b",
+      "afterBlob": "e5ba85d654f46824ef9f69a2946cddc754e7b91a",
+      "afterBytes": 25451,
+      "afterSha256": "b6942b508535ac7fe9defcdd2a313c5acc617cee24e642a6204d23f481bc1b91"
+    },
+    {
+      "path": "apps/web/tests/unit/gektaAnonymousDocumentEvidence.test.ts",
+      "mode": "100644",
+      "beforeBlob": "b7c69ebced31e587cdfc97e4b90fa139ac37ef4a",
+      "beforeBytes": 11472,
+      "beforeSha256": "f5d4f7d08466ca73e9bb7d597cb0f6bce541b9dee197775b8c0b8fe410215c3c",
+      "afterBlob": "f234395fe25a5bdd9ac6f40a18d4e0415909bb36",
+      "afterBytes": 11852,
+      "afterSha256": "e7104496c4bc3bbf1bf15512747055cb465e06203c305729784931b293849e54"
+    },
+    {
+      "path": "apps/web/tests/unit/gektaDocumentContext.test.ts",
+      "mode": "100644",
+      "beforeBlob": null,
+      "beforeBytes": 0,
+      "beforeSha256": null,
+      "afterBlob": "6d3e5373fed7d14ffc22581f9bf4b57a74744248",
+      "afterBytes": 16102,
+      "afterSha256": "ef2e01ccb76c7a9738d65fda5388c71901401b7882fce23c98cb1998ad5e64f8"
+    },
+    {
+      "path": "apps/web/tests/unit/gektaEntitlement.test.ts",
+      "mode": "100644",
+      "beforeBlob": "2b1e715689922b0f8c13b05c5820f2acdb9eb413",
+      "beforeBytes": 15566,
+      "beforeSha256": "ef3a35323e20f66d34c14e671b17a5544b317e5fa3ec610a71ecd7328719e8da",
+      "afterBlob": "44a1218670795ebdeb02eefdb5f23b17317af598",
+      "afterBytes": 16155,
+      "afterSha256": "dc921505323523103311eb185b344c6d633f22cb1bee474499441b00177933b5"
+    },
+    {
+      "path": "apps/web/tests/unit/gektaRegistrationSecurity.test.ts",
+      "mode": "100644",
+      "beforeBlob": "502c535cad03a7862e233194f3a19cbbf7eebecc",
+      "beforeBytes": 20764,
+      "beforeSha256": "4c158b9cd59478dd470ebad1173b539d581754be05799c5f3669530d69394e77",
+      "afterBlob": "3d995a48790c5b9e964437b2929c19d04e7d2374",
+      "afterBytes": 20818,
+      "afterSha256": "024368a98debac42d628008edfd5176ddc5680d4ee39b8a0735a2e395b9fd249"
+    },
+    {
+      "path": "apps/web/tests/unit/gektaVoiceAndLegal.test.ts",
+      "mode": "100644",
+      "beforeBlob": "7c1986cb587f9a5776946dcae6c5aab0fa5e11b6",
+      "beforeBytes": 9859,
+      "beforeSha256": "1c7db0ece39b0e5659759360ce96a3765c6e969ab465373340ebcdd5f278f772",
+      "afterBlob": "68de14a79fe599915f13deb6e87683090b266e3a",
+      "afterBytes": 23645,
+      "afterSha256": "32a13439693fbce642c838b16dcd2f9d5b5353d2c163fd95beec1e6d7ac0470e"
+    },
+    {
+      "path": "apps/web/tests/unit/platformV7AgroChatModelFirstRoute.test.ts",
+      "mode": "100644",
+      "beforeBlob": "4262278d775809be44bf237f5347088b1f6712aa",
+      "beforeBytes": 37640,
+      "beforeSha256": "da149fde2e7ad177a91cac5c40af8e173c3da6af01ac581f68beb1622b0ed355",
+      "afterBlob": "3de8572c6edea6a415e5980835b33b271684380e",
+      "afterBytes": 42721,
+      "afterSha256": "787c428236d1c7184614143456aeeb02c7de7da0e8963a6939a92d315584fddc"
+    },
+    {
+      "path": "apps/web/tests/unit/uploadDecompressionBudget.spec.ts",
+      "mode": "100644",
+      "beforeBlob": "90f841f06c82ccdf3defb3e632cca3ecaaf50ac6",
+      "beforeBytes": 15937,
+      "beforeSha256": "5d8b71d08895a4b5bf8a4f99bfd6f2e9dc6285a9b7ce0cdf9d01f22e12f3a98a",
+      "afterBlob": "aa87d5296e0da698c4c118f72661fd5087352dfa",
+      "afterBytes": 22499,
+      "afterSha256": "58868af1d7c02101336a0d09c19eae71778b00552c1008fce394d1db575ac55d"
+    },
+    {
+      "path": "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "mode": "100644",
+      "beforeBlob": "1f133b1cc810259a1cc749e66dd932025de28d63",
+      "beforeBytes": 293946,
+      "beforeSha256": "1a415ef304a8551c60f34fac2fdcad5faac0a04c261c93f575c984c0de7b4c73",
+      "afterBlob": "8178b937dfb70bc0d80cc23c0b8537c53bcded96",
+      "afterBytes": 293612,
+      "afterSha256": "408595232efd754af63488a7c19b19c901952268767d18d569ba7d123672be21"
+    }
+  ],
+  "sourcePreparation": {
+    "privateHead": "5132d9bda1caa760f862d0f0ff8a411eb9047c34",
+    "qualification": "Only the16 app afters come from private5132/currentc457. Two exact CI wiring files are newly proposed here. No old private functional/source/native/build review transfers to this new whole18 source. Whole old79/5132 foreign trees must never be published.",
+    "newUnitSelection": [
+      "tests/unit/gektaDocumentContext.test.ts",
+      "tests/unit/platformV7AgroChatModelFirstRoute.test.ts"
+    ],
+    "coverageChange": "CI44to46; discovered931to932; remove only the existing passed model-first-route exclusion; passed exclusions658to657, failed229 unchanged. New document-context test is actually selected, never exempted. Existing tests and assertions remain."
+  },
+  "separateBudgetPrerequisite": {
+    "implementationBranch": "fix/gekta-k8s-retained-capacity-20261009",
+    "retainedSourceAncestor": "84344bb61af378b8c9227c6e4ab1ec829bcf4a7d",
+    "sourcePayloads": [
+      {
+        "path": ".github/workflows/production-like-kubernetes-acceptance.yml",
+        "mode": "100644",
+        "beforeBlob": "12f674f06b56e4674ba79362e5780d5268e20391",
+        "beforeBytes": 40021,
+        "beforeSha256": "ac6fa2a3fa28a08a6444a29a3c9a8a298b3a0ffd084924e04ca920372f884d28",
+        "afterBlob": "82ca0523fd27503598cc26fa4845860d9751194a",
+        "afterBytes": 40244,
+        "afterSha256": "088208450840677447b51ddc47ffbe9e88ebf895e28cbb09b6508322bbf19002"
+      },
+      {
+        "path": "scripts/release/production-like-kubernetes-source-preflight-test.sh",
+        "mode": "100755",
+        "beforeBlob": "07786bbd4fb917524f656127383df514d688fe75",
+        "beforeBytes": 16749,
+        "beforeSha256": "58dd6f86f2dc4882a3515837b282871472cd56eed3ed13353c555f66249f546e",
+        "afterBlob": "f5786ea7e3e30aac5b481bac3273e541306f72eb",
+        "afterBytes": 19764,
+        "afterSha256": "5aa2cf0f7739da3040eddc471fdf566db2927b11b2aec6cbd1aab4b93767d570"
+      }
+    ],
+    "exactWorkflowChange": "Add exact codex/gekta-security-review membership to the existing same-repository guard300/outer315 selector and its five existing positive/fork/negative native test lists (six literal occurrences total), plus its extra-suffix negative test (one occurrence). Numeric limits/default180/195, branch-scope180/195, fork/empty/suffix exclusion, named-state producer4MiB/other2MiB/total32MiB/5000paths and full guard suite remain unchanged. Inverse of only these seven declared insertions must restore entire accepted workflow.",
+    "helperChange": "Preserve original29 complete synthetic/source/schema tests and add three meaningful collector-execution tests: exact same-repository300; fork/missing repository180; suffix/empty/unrelated branches180. All probe actual full guard command and unchanged branch-scope180. No test removal or skip; no protected guard changes.",
+    "notProductAdmission": "Budget acceptance alone grants no state or product source; each subsequent phase needs separate exact-head review/native/security/readiness/manual acceptance."
+  },
+  "behavior": [
+    "Send extracted document context from the current attachment with its exact provenance; retain the same request snapshot on retry and cancel stale in-flight reservation continuations.",
+    "Reveal current legal documents when consent is required and safely resume only the actual current first question after fresh server acknowledgement. Locale/document/profile changes and stale consent remain fail closed; no quota/safety/auth/role authority bypass.",
+    "Preserve DOCX comparison tables and distinguish tracked insertions/deletions without using deleted text as current evidence. Keep decompression/size/content bounds and explicit test coverage.",
+    "Promote the actual document-context and model-first-route regressions into native CI; preserve current R5 safety/history/relevance/freshness and all unrelated current main leaves."
+  ],
+  "mandatorySequence": [
+    "Accept ONLY this queue append after new complete actual-head independent purpose review, separate owner audit, native/security/current readiness and ordinary full expected-SHA manual merge.",
+    "Compose ONLY the exact two declared budget files on then-current accepted main, preserving retained843 ancestry/current foreign leaves; new whole2 review, owner audit, all native/source-artifact/KIND/deepoutbox/storage/cleanup/security/readiness and ordinary full-SHA manual acceptance. No prior PASS transfer.",
+    "Then publish a separate STATE-ONLY metadata replacement on the retained metadata branch, matching the exact state transformation/pins/current accepted base and preserving all other leaves. New complete exact-head review, owner audit, native/security/readiness/manual acceptance. No source file or candidate self-grant in this phase.",
+    "Only after actual state-only acceptance compose the exact18 source afters on current main, preserving retainedcodex and relevant Gekta source ancestry and every foreign leaf. NEW complete whole18 functional/security/purpose review, separate owner audit, actual selected API/Web/type/build/browser/native source-bound artifact and full unchanged guard suite/KIND/deepoutbox/storage/cleanup/security/READY, fresh refs/reviews/threads/Hub and ordinary full expected-SHA manual merge are mandatory.",
+    "If actual current base/source pins differ, stop that publication and recompose/rebind/review the actual new head; do not overwrite another owner, use a stale whole tree or repeat an old acceptance.",
+    "After actual source acceptance build exact-current-main immutable images and establish a separately coordinated finite REG.RU operational window with fresh DNS/journal/OCI/DB/backup/rollback/Caddy/live acceptance. This purpose grants no host operation or production/MASTER completion."
+  ],
+  "metadataPreservation": "THIS proposal changes only an append to the exact2153562B accepted queue prefix. All7098other current Git leaves/modes, including3145687B stateefec,226vectors,135admissions, protectedguards/currentreview/progress/BANK/CORE/CI/DB/model/locks remain identical. Future phases are not yet authorized by this private proposal.",
+  "status": "PROPOSAL_ONLY; PURPOSE_NOT_ACCEPTED; STATE_AND_SOURCE_UNACCEPTED; CAP1_UNCHANGED; HOST_WINDOW_NONE; NOT_INSTALLED",
+  "qualifiedIndependentFeasibilityOnly": {
+    "reviewer": "/root/review_r5_purpose; separate nonauthor session",
+    "bytes": 9092,
+    "sha256": "589783e8f320d703a25d80b3b227e54377954d28ff9906a1e7195134954993a4",
+    "rootReadWhole": true,
+    "disposition": "Conditional legitimacy of the disclosed nonimmutable route only. NOT review/approval of this actual whole proposal or any state/source/native/install candidate."
+  },
+  "privateBudgetPreparationChecks": {
+    "checks": [
+      {
+        "file": "retained-security-budget-original-workflow-witness.log",
+        "bytes": 4807,
+        "sha256": "3535cd5bc20f760f324d24760b56367714be7f7341f8be2b3096e9522a243c60",
+        "result": "31PASS/1FAIL: actual new same-repository fixture observes180 instead of required300 on unchanged BASE workflow; retained historical failure"
+      },
+      {
+        "file": "retained-security-budget-corrected-workflow-tests.log",
+        "bytes": 4294,
+        "sha256": "509b7cf3f1b972cb978cd6509923f931b06c317824fd5691037b49d05481e72f",
+        "result": "32PASS on proposed actual collector, including the same unchanged witness and fork/missing/suffix/empty controls"
+      },
+      {
+        "file": "retained-security-native-budget-tests.log",
+        "bytes": 1204,
+        "sha256": "3fdfe20d6febd3696424ba5fcee69d8ce57292fdf29105a14d872e3b1a5a62cb",
+        "result": "7PASS actual existing embedded workflow suite with expanded named-ref coverage, full original timeout/process-group/artifact gates retained"
+      }
+    ],
+    "qualification": "Author-local synthetic checks only, not exact public-head independent review or hosted/native actual1232-suite fit/Kubernetes/production acceptance. No old failing result is renamed PASS."
+  }
+}
+```

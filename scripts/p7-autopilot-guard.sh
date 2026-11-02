@@ -253,6 +253,7 @@ is_immutable_scope_branch() {
   case "$1" in
     'ops/production-api-only-release-20261101') return 0 ;;
     'ops/ir20-isolated-restore-20260919') return 0 ;;
+    'ops/production-cold-preservation-20261022') return 0 ;;
     "fix/pc-crop-docker-headroom-rollover-4637") return 0 ;;
     "security/accounting-bff-csrf-3-5-1"|"security/module-body-validation"|"security/bff-upstream-path-encoding-4459"|"security/request-cookie-single-reader-4459"|"security/open-redirect-demo-login-4459"|"security/email-check-length-first-4459"|"security/browser-hardening-headers-4459"|"security/outbound-redirect-and-surface-4459"|"security/credential-surface-4459"|"fix/tai-release-run-event-filter-20261008") return 0 ;;
     "fix/gekta-history-lifecycle-5818"|"governance/gekta-history-lifecycle-source-admission-5818") return 0 ;;
@@ -817,6 +818,441 @@ const gektaRecoveryScopes = {
   ]
 };
 let scopes;
+// DC2_COHERENT_COMPAT_BEGIN: separately accepted literal BASE purpose only.
+function dc2CoherentStage() {
+  const sourceBranch = 'fix/gekta-docker-diagnostic-route-20260927';
+  const coldBranch = 'ops/production-cold-preservation-20261022';
+  const metadataBranch = 'governance/industrial-load-diagnostics-20260919';
+  if (![sourceBranch, coldBranch, metadataBranch].includes(branch)) return undefined;
+  const { createHash } = require('node:crypto');
+  const { isDeepStrictEqual } = require('node:util');
+  const fail = reason => { throw new Error('DC2_COHERENT_SCOPE_' + reason); };
+  const origin = 'e42ddec98774ce38195ff737a8fda41338685222';
+  const reviewPath = 'docs/platform-v7/autopilot/prompts/current-review-task.md';
+  const marker = '\n## DC2 — Corrected Docker and cold source purpose, 2026-11-02\n\n```json\n';
+  const headRef = String(process.env.HEAD_REF || '').trim();
+  const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 }).trim();
+  const entry = (ref, file) => git(['ls-tree', ref, '--', file]);
+  const exact = (ref, file, mode, blob) => {
+    if (!['100644', '100755'].includes(mode) || !/^[a-f0-9]{40}$/u.test(blob || '') ||
+        entry(ref, file) !== `${mode} blob ${blob}\t${file}`) fail('BLOB_OR_MODE');
+  };
+  const read = (ref, file) => {
+    const cap = file === reviewPath ? 2 * 1024 * 1024 : 1024 * 1024;
+    let bytes;
+    try { bytes = execFileSync('git', ['show', `${ref}:${file}`], { maxBuffer: cap + 1 }); }
+    catch { fail('READ_CAPACITY_OR_OBJECT'); }
+    if (bytes.length > cap || !Buffer.from(bytes.toString('utf8'), 'utf8').equals(bytes)) fail('READ_CAPACITY_OR_UTF8');
+    return bytes;
+  };
+  const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+  const blobDigest = bytes => createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+  const reviewEntry = entry(baseRef, reviewPath);
+  if (!reviewEntry) return undefined;
+  // Probe only for this version's raw marker. Historical records without it
+  // retain their historical validator and diagnostics, including malformed ones.
+  let acceptedReview;
+  try { acceptedReview = execFileSync('git', ['show', `${baseRef}:${reviewPath}`], { maxBuffer: 2 * 1024 * 1024 + 1 }); }
+  catch (error) {
+    if (Buffer.isBuffer(error.stdout) && error.stdout.includes(Buffer.from(marker))) fail('READ_CAPACITY_OR_OBJECT');
+    return undefined;
+  }
+  if (!acceptedReview.includes(Buffer.from(marker))) return undefined;
+  if (acceptedReview.length > 2 * 1024 * 1024 ||
+      !Buffer.from(acceptedReview.toString('utf8'), 'utf8').equals(acceptedReview)) fail('READ_CAPACITY_OR_UTF8');
+  const pieces = acceptedReview.toString('utf8').split(marker);
+  if (pieces.length === 1) return undefined;
+  if (pieces.length !== 2) fail('PURPOSE_NOT_UNIQUE');
+  if (!/^100644 blob [a-f0-9]{40}\t/u.test(reviewEntry)) fail('PURPOSE_MODE');
+  const end = pieces[1].indexOf('\n```\n');
+  if (end < 0) fail('PURPOSE_FORMAT');
+  const encoded = pieces[1].slice(0, end);
+  let purpose;
+  try { purpose = JSON.parse(encoded); } catch { fail('PURPOSE_FORMAT'); }
+  if (JSON.stringify(purpose) !== encoded || !purpose || Array.isArray(purpose) || typeof purpose !== 'object') fail('PURPOSE_CANONICAL');
+  const expectedCore = {"schemaVersion":"pc.dc2-coherent-purpose.v1","purposeId":"closed-docker-root-prefix-and-json-20261102","owner":"ACCOUNT_1_CORE","ownerDecision":"https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6564824642","ownerDecisionQualification":"Existing industrial7 PRIVATE preparation and separately reviewed atomic4 prerequisite; no source/host acceptance from this record alone.","authorityBaseExactMain":"e42ddec98774ce38195ff737a8fda41338685222","sourceBranch":"fix/gekta-docker-diagnostic-route-20260927","coldBranch":"ops/production-cold-preservation-20261022","metadataBranch":"governance/industrial-load-diagnostics-20260919","privateSourceReviewSha256":"6b6554764f74c5fc4fcbadac96febbfa8d1fa37e40fd6cc07e2dba5777d47d81","sourceReviewQualification":"Private whole5 SOURCE_CLEAN, NOT_ACCEPTED. Independent unfiltered localCold150 FAILED1/SKIP5 retained; namespace/proc mismatch confirmed, exact original-failure causation UNESTABLISHED. Native Cold150/shared50/fullCI/security/READY/manual mandatory; no host grant.","sourcePayloads":[{"path":".github/workflows/production-docker-headroom-diagnostic.yml","mode":"100644","beforeBlob":"e0f8fa5731af0addc0b82c9ca7fab24abcecddb7","beforeBytes":370287,"beforeSha256":"31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7","afterBlob":"98c43fd598d369a2476d7e17578aff59d1008a12","bytes":411656,"sha256":"11a40120e0a0f5982515681f83b65507f6926bebce957746e5476f21bc65616f"},{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","beforeBlob":"bc2c092cea71aaca1c94121b02d1bd87cf83df5f","beforeBytes":34069,"beforeSha256":"6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9","afterBlob":"ea369352af13df5b064336b7e5a01ed4682a863c","bytes":62220,"sha256":"ba73a1b698ba48de1085574b0863cf1ae2ea8940dbed1977c34d014c537ab4b9"}],"coldPayloads":[{"path":".github/workflows/production-cold-preservation.yml","mode":"100644","beforeBlob":"6236904ed57f820207e4be2eb918bb956c5f3805","beforeBytes":172672,"beforeSha256":"e322cfee6489d25f17133be7297f3ad900d0574650121e84648d72b0aedff934","afterBlob":"c205a662192d1d777a2f8db167e4fce86f92047d","bytes":174348,"sha256":"e5e4d8e73c37433aabd07abfa5d276f11ff502e7ecd12ce416b181f7047b9edc"},{"path":"scripts/test_production_cold_preservation.py","mode":"100644","beforeBlob":"19632fe1357f16d81835c31da30d5572ec836d65","beforeBytes":199769,"beforeSha256":"3216ead4e4abd2f515a5410756657131f79cb4e548aa077f4083d2c662fb6478","afterBlob":"4a4115e6e7a0da39981de42beca227a060ec29d4","bytes":199784,"sha256":"d5eb6ce8315be36b41ee99fde1303f79b297bf9b140e636e6360fbedffb83630"},{"path":"docs/ops/production-cold-preservation.md","mode":"100644","beforeBlob":"1655bb5ce5ae9f9c915b92203818648c6cfb152b","beforeBytes":50343,"beforeSha256":"58280bb7518e782e576c71cc2679b6ece7fa64d8cba2b4bce57ed49f78c644c8","afterBlob":"69231a14f4a52b7109a63634c6b94cbbd890ff66","bytes":51746,"sha256":"0405a85feedbe2e338de66e61d41bab449f8d78a7ad2f1f51876d5b8db5c9aea"}],"sourcePacket":{"blob":"d63df637265e6cfa1275e930469f0f2d5e5f2ed8","bytes":1175,"sha256":"d176c07de9d06d3dc471a3235e2e81553797aedd339439d618733460b8a60b68"},"coldPacket":{"blob":"571fc2e5dca2f7f2091d16ae9d4352ca5ad5569b","bytes":1704,"sha256":"548fe9a02f63ef7386b11c0a7ca095e65a068c1d40d767962d94b9cb2de79d37"},"stateStages":{"S0":{"blob":"b90d728b224cdc358fbf35a672bcee75b8723ddd","bytes":3145687,"sha256":"692fc2a94e6a4dd45ebace52934bcd6614aa21817a79ebcd0bfefb66adca482c"},"A3":{"blob":"d6efef49a41fcd415f063f0ae308d41e3989ce3e","bytes":3145687,"sha256":"0a98994d87484e6223339f63de7ad1c2523d2106f2591d01ac4d627d4ebca7de"},"B1":{"blob":"efec483aad3fc78390df15fad9699eb3c22645d4","bytes":3145687,"sha256":"edfc604b3b2ffcf28bd3df5be1594706f8e1ddbb95fa577ef70dede0fc9b5f1c"}},"stateReplacements":{"A3":[{"byteOffset":3083509,"bytes":64,"before":"e322cfee6489d25f17133be7297f3ad900d0574650121e84648d72b0aedff934","after":"e5e4d8e73c37433aabd07abfa5d276f11ff502e7ecd12ce416b181f7047b9edc"},{"byteOffset":3083657,"bytes":64,"before":"3216ead4e4abd2f515a5410756657131f79cb4e548aa077f4083d2c662fb6478","after":"d5eb6ce8315be36b41ee99fde1303f79b297bf9b140e636e6360fbedffb83630"},{"byteOffset":3083801,"bytes":64,"before":"58280bb7518e782e576c71cc2679b6ece7fa64d8cba2b4bce57ed49f78c644c8","after":"0405a85feedbe2e338de66e61d41bab449f8d78a7ad2f1f51876d5b8db5c9aea"}],"B1":[{"byteOffset":3083342,"bytes":64,"before":"31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7","after":"11a40120e0a0f5982515681f83b65507f6926bebce957746e5476f21bc65616f"}]},"queue":{"path":"docs/platform-v7/execution-queue.md","mode":"100644","blob":"a59124dda99d57ccab6c7b92b01f62b725dda149","bytes":2134106,"sha256":"0826b8310006d82eee79dcfa43ff0aa9a37f04d53cfc980dcb86a059dfa5e7b6"},"reviewPrefix":{"blob":"aaca5e0dd28e593172939acb8b5d9cb94c72b077","bytes":1930192,"sha256":"5ecf2772e8e3e7fcfdeb5d68c611885424db1cd1cdfda0b37cefc335aab1f6d7"},"guardBefore":[{"path":"scripts/p7-autopilot-guard.sh","mode":"100755","blob":"f94b7e333e7507c4554436b495fc6b160fa881d0"},{"path":"scripts/p7-autopilot-guard.test.mjs","mode":"100644","blob":"a57e8e1ec081b479699d5d862a2ca5898d27cb08"},{"path":".github/workflows/platform-v7-autopilot-guard.yml","mode":"100644","blob":"98a49746c5c591280655f67c48675843ca09302d"}],"sourceExecutionDependencies":[{"path":"scripts/production_stopped_runtime_headroom.py","mode":"100644","blob":"1577966d56b9cdd6a5ce586f9f63096a53a4e7b9","bytes":34619,"sha256":"6b121fad2c380a8425f1ca6024e1740406f26172295c215e01bbe0f200768c14"},{"path":".github/workflows/production-stopped-runtime-headroom.yml","mode":"100644","blob":"9d68f6ec4b032f6fae0dad8a68782b53423d1db2","bytes":16047,"sha256":"24530a00803c3d8858271fc566ccd19d201cb687439582ecf72ff84c8e93ca8b"},{"path":".github/workflows/production-docker-headroom-recovery.yml","mode":"100644","blob":"68eeba7446ec04da91facffcb2da81a64c90c706","bytes":92348,"sha256":"4fd3aa5e9e2333bea2f3ecf0ff05cdafd9f892d2291cf794ede8d6c7e8d876af"},{"path":".github/workflows/production-docker-headroom-owner-push-once.yml","mode":"100644","blob":"5946380f33a50e4500d9ba95117bf2f5795c9d16","bytes":18220,"sha256":"c399d975c1ef639f21e8076c3a4878d23d0e5b734791ed45fe8ee16df8892943"},{"path":".github/workflows/production-full-stack-exact-sha.yml","mode":"100644","blob":"f0073b774c9448d8af497be02bbbe3c18f8c9b9d","bytes":61098,"sha256":"87aa4e5002aa68bf4476fe4a6af72e1fd9f3855c96e486b5dd097c7d55ba70cf"}],"guardPacketFormat":"pc.dc2-guard-side-packet.v1; sorted paths; each complete before/after framed side <= existing1MiB, canonical metadata root <= existing1MiB; no combined oversized read, truncation or compression","acceptedVectors":[{"branch":"fix/gekta-docker-diagnostic-route-20260927","paths":[".github/workflows/production-docker-headroom-diagnostic.yml","scripts/test_production_stopped_runtime_headroom.py"]},{"branch":"ops/production-cold-preservation-20261022","paths":["scripts/production_cold_preservation.py","scripts/test_production_cold_preservation.py",".github/workflows/production-cold-preservation.yml","docs/ops/production-cold-preservation.md","scripts/test_production_stopped_runtime_headroom.py"]},{"branch":"governance/industrial-load-diagnostics-20260919","paths":["docs/platform-v7/autopilot/autopilot-state.json","docs/platform-v7/execution-queue.md","docs/platform-v7/autopilot/prompts/current-codex-task.md","docs/platform-v7/autopilot/prompts/current-review-task.md","scripts/p7-autopilot-guard.sh","scripts/p7-autopilot-guard.test.mjs",".github/workflows/platform-v7-autopilot-guard.yml"]},{"branch":"governance/gekta-recovery-trusted-routes-20260927","paths":[".github/workflows/platform-v7-autopilot-guard.yml","docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs","scripts/p7-autopilot-guard.sh"]}],"sequence":["A3","COLD3","R3","B1"],"sourcePublicationAuthorized":false,"productionInvocationAuthorized":false,"releaseAuthorized":false,"filesystemGrowthAuthorized":false,"productionAcceptance":false,"masterCredit":0,"limits":"Preserve original19/UNKNOWN/SPENT/history/owners/current/PRIMARY/progress. No retry/reset/startup/restore/provider/cost. Source stages need new exact-head independent review/native/security/READY/manual acceptance; host needs separate finite disposition."};
+  const { guardPayloads, guardPacket, privateGuardReviewSha256, ...core } = purpose;
+  if (!isDeepStrictEqual(core, expectedCore)) fail('PURPOSE_IDENTITY');
+  if (!/^[a-f0-9]{64}$/u.test(privateGuardReviewSha256 || '') || /^0+$/u.test(privateGuardReviewSha256)) fail('GUARD_REVIEW_IDENTITY');
+  // Even generic non-state work cannot fall through a malformed present record.
+  if (!Array.isArray(guardPayloads) || guardPayloads.length !== core.guardBefore.length || !guardPacket ||
+      !isDeepStrictEqual(Object.keys(guardPacket).sort(), ['blob', 'bytes', 'sha256'].sort()) ||
+      !/^[a-f0-9]{40}$/u.test(guardPacket.blob || '') || !/^[a-f0-9]{64}$/u.test(guardPacket.sha256 || '') ||
+      !Number.isSafeInteger(guardPacket.bytes) || guardPacket.bytes < 1 || guardPacket.bytes > 1024 * 1024) fail('GUARD_IDENTITY');
+  for (let index = 0; index < core.guardBefore.length; index++) {
+    const before = core.guardBefore[index], pin = guardPayloads[index];
+    if (!pin || !isDeepStrictEqual(Object.keys(pin).sort(), ['path', 'mode', 'beforeBlob', 'afterBlob', 'bytes', 'sha256'].sort()) ||
+        pin.path !== before.path || pin.mode !== before.mode || pin.beforeBlob !== before.blob ||
+        !/^[a-f0-9]{40}$/u.test(pin.afterBlob || '') || !/^[a-f0-9]{64}$/u.test(pin.sha256 || '') ||
+        !Number.isSafeInteger(pin.bytes) || pin.bytes < 1 || pin.bytes > 1024 * 1024) fail('GUARD_IDENTITY');
+  }
+  const raw = execFileSync('git', ['diff', '--raw', '--no-abbrev', '--no-renames', '-z', baseRef, headRef],
+    { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+  // Unrelated non-state industrial work keeps every existing generic restriction.
+  // A present malformed DC2 record never falls through to the historical path.
+  if (branch === metadataBranch && !raw.split('\0').includes(stateFile)) return undefined;
+  const { sourcePayloads, coldPayloads, stateStages, stateReplacements } = core;
+  try {
+    if (!headRef || git(['merge-base', origin, baseRef]) !== origin ||
+        git(['merge-base', baseRef, headRef]) !== git(['rev-parse', `${baseRef}^{commit}`])) fail('ANCESTRY');
+  } catch { fail('ANCESTRY'); }
+  const queue = core.queue;
+  for (const ref of [origin, baseRef, headRef]) {
+    exact(ref, queue.path, '100644', queue.blob);
+    if (git(['cat-file', '-s', `${ref}:${queue.path}`]) !== String(queue.bytes)) fail('QUEUE_SIZE');
+  }
+  for (const pin of core.sourceExecutionDependencies) for (const ref of [origin, baseRef, headRef]) {
+    exact(ref, pin.path, pin.mode, pin.blob);
+    const bytes = read(ref, pin.path);
+    if (bytes.length !== pin.bytes || digest(bytes) !== pin.sha256) fail('SOURCE_EXECUTION_DEPENDENCY');
+  }
+  exact(origin, reviewPath, '100644', core.reviewPrefix.blob);
+  const originalReview = read(origin, reviewPath);
+  if (originalReview.length !== core.reviewPrefix.bytes || digest(originalReview) !== core.reviewPrefix.sha256 ||
+      !acceptedReview.subarray(0, originalReview.length).equals(originalReview)) fail('PRIOR_REVIEW');
+  if (entry(headRef, reviewPath) !== reviewEntry || !read(headRef, reviewPath).equals(acceptedReview)) fail('REVIEW_MUTATION');
+  const artifact = item => item && isDeepStrictEqual(Object.keys(item).sort(), ['blob', 'bytes', 'sha256'].sort()) &&
+    /^[a-f0-9]{40}$/u.test(item.blob || '') && /^[a-f0-9]{64}$/u.test(item.sha256 || '') &&
+    Number.isSafeInteger(item.bytes) && item.bytes > 0 && item.bytes <= 1024 * 1024;
+  const side = (ref, file) => {
+    const line = entry(ref, file), match = /^(100644|100755) blob ([a-f0-9]{40})\t/u.exec(line);
+    if (!match || line !== `${match[1]} blob ${match[2]}\t${file}`) fail('PACKET_MODE');
+    const bytes = read(ref, file);
+    if (blobDigest(bytes) !== match[2]) fail('PACKET_BLOB');
+    return { identity: { mode: match[1], blob: match[2], bytes: bytes.length, sha256: digest(bytes) }, bytes };
+  };
+  const packetIdentity = chunks => {
+    const bytes = chunks.reduce((sum, value) => sum + value.length, 0);
+    if (bytes > 1024 * 1024) fail('PACKET_CAPACITY');
+    const sha256 = createHash('sha256'), blob = createHash('sha1').update(`blob ${bytes}\0`);
+    for (const chunk of chunks) { sha256.update(chunk); blob.update(chunk); }
+    return { blob: blob.digest('hex'), bytes, sha256: sha256.digest('hex') };
+  };
+  const rootIdentity = (schemaVersion, entries) => packetIdentity([Buffer.from(JSON.stringify({ schemaVersion, entries }) + '\n')]);
+  const sourcePacket = (pin, ref, paths) => {
+    if (!artifact(pin)) fail('PACKET_IDENTITY');
+    const entries = [...paths].sort().map(file => {
+      const before = side(origin, file), after = side(ref, file);
+      const header = Buffer.from(JSON.stringify({ schemaVersion: 'gekta.dc2-file-pair.v1', path: file,
+        before: before.identity, after: after.identity }) + '\n');
+      return { path: file, before: before.identity, after: after.identity,
+        payloadPair: packetIdentity([header, before.bytes, after.bytes]) };
+    });
+    if (!isDeepStrictEqual(rootIdentity('gekta.dc2-payload-packet.v1', entries), pin)) fail('SOURCE_PACKET_CONTENT');
+  };
+  const guardIdentity = core.guardBefore;
+  if (!Array.isArray(guardPayloads) || guardPayloads.length !== guardIdentity.length || !artifact(guardPacket)) fail('GUARD_IDENTITY');
+  for (let index = 0; index < guardIdentity.length; index++) {
+    const before = guardIdentity[index], pin = guardPayloads[index];
+    if (!pin || !isDeepStrictEqual(Object.keys(pin).sort(), ['path', 'mode', 'beforeBlob', 'afterBlob', 'bytes', 'sha256'].sort()) ||
+        pin.path !== before.path || pin.mode !== before.mode || pin.beforeBlob !== before.blob ||
+        !/^[a-f0-9]{64}$/u.test(pin.sha256 || '') || !Number.isSafeInteger(pin.bytes) || pin.bytes < 1 || pin.bytes > 1024 * 1024) fail('GUARD_IDENTITY');
+    exact(origin, before.path, before.mode, before.blob);
+    for (const ref of [baseRef, headRef]) {
+      exact(ref, pin.path, pin.mode, pin.afterBlob);
+      const bytes = read(ref, pin.path);
+      if (bytes.length !== pin.bytes || digest(bytes) !== pin.sha256) fail('GUARD_NOT_ACCEPTED');
+    }
+  }
+  // Large main-test before+after files stay separate complete bounded sides.
+  // Neither compression, truncation nor a larger combined raw read is permitted.
+  const guardEntries = [...guardIdentity].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0).map(pin => {
+    const before = side(origin, pin.path), after = side(baseRef, pin.path);
+    const framed = (which, value) => packetIdentity([Buffer.from(JSON.stringify({
+      schemaVersion: 'pc.dc2-guard-side.v1', path: pin.path, side: which, identity: value.identity }) + '\n'), value.bytes]);
+    return { path: pin.path, before: before.identity, after: after.identity,
+      beforeSide: framed('before', before), afterSide: framed('after', after) };
+  });
+  if (!isDeepStrictEqual(rootIdentity('pc.dc2-guard-side-packet.v1', guardEntries), guardPacket)) fail('GUARD_PACKET_CONTENT');
+  const stateBytes = (ref, stage) => {
+    const pin = stateStages[stage]; exact(ref, stateFile, '100644', pin.blob);
+    const bytes = Buffer.from(readImmutableState(ref), 'utf8');
+    if (bytes.length !== pin.bytes || digest(bytes) !== pin.sha256 || blobDigest(bytes) !== pin.blob) fail('STATE_CONTENT');
+    return bytes;
+  };
+  const originalState = stateBytes(origin, 'S0');
+  const inverse = (bytes, key) => {
+    const result = Buffer.from(bytes);
+    for (const item of stateReplacements[key]) {
+      const before = Buffer.from(item.before, 'ascii'), after = Buffer.from(item.after, 'ascii');
+      if (item.bytes !== 64 || before.length !== 64 || after.length !== 64 ||
+          !result.subarray(item.byteOffset, item.byteOffset + 64).equals(after)) fail('STATE_INVERSE_FRAGMENT');
+      before.copy(result, item.byteOffset);
+    }
+    return result;
+  };
+  const validateState = (ref, stage) => {
+    const bytes = stateBytes(ref, stage);
+    if (stage === 'S0' && !bytes.equals(originalState)) fail('STATE_INVERSE');
+    if (stage === 'A3' && !inverse(bytes, 'A3').equals(originalState)) fail('STATE_INVERSE');
+    if (stage === 'B1') {
+      const a3 = inverse(bytes, 'B1');
+      if (blobDigest(a3) !== stateStages.A3.blob || digest(a3) !== stateStages.A3.sha256 ||
+          !inverse(a3, 'A3').equals(originalState)) fail('STATE_INVERSE');
+    }
+    return bytes;
+  };
+  const acceptedState = JSON.parse(readImmutableState(baseRef));
+  for (const item of core.acceptedVectors) {
+    if (!isDeepStrictEqual(acceptedState.approvedConcurrentScopes?.[item.branch], item.paths)) fail('ACCEPTED_VECTOR');
+  }
+  const at = (ref, pin, after) => {
+    exact(ref, pin.path, pin.mode, after ? pin.afterBlob : pin.beforeBlob);
+    const bytes = read(ref, pin.path);
+    if (bytes.length !== (after ? pin.bytes : pin.beforeBytes) || digest(bytes) !== (after ? pin.sha256 : pin.beforeSha256)) fail('SOURCE_CONTENT');
+  };
+  const unchanged = (pins, after) => { for (const pin of pins) for (const ref of [baseRef, headRef]) at(ref, pin, after); };
+  const transition = pins => {
+    const fields = raw.split('\0');
+    if (fields.pop() !== '' || fields.length !== pins.length * 2) fail('EXACT_STAGE_PATHS');
+    const left = new Map(pins.map(pin => [pin.path, pin]));
+    for (let index = 0; index < fields.length; index += 2) {
+      const pin = left.get(fields[index + 1]);
+      if (!pin || fields[index] !== `:${pin.mode} ${pin.mode} ${pin.beforeBlob} ${pin.afterBlob} M`) fail('PAYLOAD_OR_MODE');
+      at(origin, pin, false); at(baseRef, pin, false); at(headRef, pin, true); left.delete(pin.path);
+    }
+    if (left.size) fail('EXACT_STAGE_PATHS');
+  };
+  if (branch === metadataBranch) {
+    const before = entry(baseRef, stateFile), after = entry(headRef, stateFile);
+    let stage;
+    if (before === `100644 blob ${stateStages.S0.blob}\t${stateFile}` && after === `100644 blob ${stateStages.A3.blob}\t${stateFile}`) stage = 'A3';
+    if (before === `100644 blob ${stateStages.A3.blob}\t${stateFile}` && after === `100644 blob ${stateStages.B1.blob}\t${stateFile}`) stage = 'B1';
+    if (!stage) fail('METADATA_STAGE');
+    const from = stage === 'A3' ? 'S0' : 'A3';
+    if (raw !== `:100644 100644 ${stateStages[from].blob} ${stateStages[stage].blob} M\0${stateFile}\0`) fail('METADATA_EXACT_STATE_ONLY');
+    validateState(baseRef, from); validateState(headRef, stage);
+    unchanged(coldPayloads, stage === 'B1'); unchanged(sourcePayloads, stage === 'B1');
+    return { scopes: [stateFile], metadata: true, stage: 'DC2-' + stage };
+  }
+  if (!validateState(baseRef, 'A3').equals(validateState(headRef, 'A3'))) fail('SOURCE_STATE_MUTATION');
+  if (branch === coldBranch) {
+    unchanged(sourcePayloads, false); transition(coldPayloads);
+    sourcePacket(core.coldPacket, headRef, coldPayloads.map(item => item.path));
+    return { scopes: coldPayloads.map(item => item.path), metadata: false, stage: 'DC2-COLD3' };
+  }
+  unchanged(coldPayloads, true); transition(sourcePayloads);
+  sourcePacket(core.sourcePacket, headRef, sourcePayloads.map(item => item.path));
+  return { scopes: sourcePayloads.map(item => item.path), metadata: false, stage: 'DC2-R3' };
+}
+const dc2Coherent = dc2CoherentStage();
+// DC2_COHERENT_COMPAT_END
+
+// DC1_COHERENT_COMPAT_BEGIN: exact accepted BASE stages; no host grant.
+function dc1CoherentStage() {
+  if (dc2Coherent !== undefined) return dc2Coherent;
+  const dockerBranch = 'fix/gekta-docker-diagnostic-route-20260927';
+  const coldBranch = 'ops/production-cold-preservation-20261022';
+  const metadataBranch = 'governance/industrial-load-diagnostics-20260919';
+  if (![dockerBranch, coldBranch, metadataBranch].includes(branch)) return undefined;
+  const { createHash } = require('node:crypto');
+  const { isDeepStrictEqual } = require('node:util');
+  const fail = reason => { throw new Error('DC1_COHERENT_SCOPE_' + reason); };
+  const git = args => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+  const headRef = String(process.env.HEAD_REF || '').trim();
+  const raw = git(['diff', '--raw', '--no-abbrev', '--no-renames', '-z', baseRef, headRef]);
+  // Non-state industrial work retains every preexisting default restriction.
+  if (branch === metadataBranch && !raw.split('\0').includes(stateFile)) return undefined;
+  const reviewPath = 'docs/platform-v7/autopilot/prompts/current-review-task.md';
+  const marker = '\n## DC1 — Closed Docker diagnostic source purpose, 2026-11-01\n\n```json\n';
+  const entry = (ref, file) => git(['ls-tree', ref, '--', file]).trim();
+  const exact = (ref, file, mode, blob) => {
+    if (!['100644', '100755'].includes(mode) || !/^[a-f0-9]{40}$/u.test(blob || '') ||
+        entry(ref, file) !== `${mode} blob ${blob}\t${file}`) fail('BLOB_OR_MODE');
+  };
+  const read = (ref, file) => {
+    const capacity = file === reviewPath ? 2 * 1024 * 1024 : 1024 * 1024;
+    let bytes;
+    try { bytes = execFileSync('git', ['show', `${ref}:${file}`], { maxBuffer: capacity + 1 }); }
+    catch { fail('READ_CAPACITY_OR_OBJECT'); }
+    if (bytes.length > capacity) fail('READ_CAPACITY');
+    const text = bytes.toString('utf8');
+    if (!Buffer.from(text, 'utf8').equals(bytes)) fail('READ_UTF8');
+    return bytes;
+  };
+  let purpose;
+  const acceptedReviewEntry = entry(baseRef, reviewPath);
+  if (acceptedReviewEntry) {
+    const parts = read(baseRef, reviewPath).toString('utf8').split(marker);
+    if (parts.length > 2) fail('PURPOSE_NOT_UNIQUE');
+    if (parts.length === 2) {
+      if (!/^100644 blob [a-f0-9]{40}\t/u.test(acceptedReviewEntry)) fail('PURPOSE_MODE');
+      const end = parts[1].indexOf('\n```\n'); if (end < 0) fail('PURPOSE_FORMAT');
+      const encoded = parts[1].slice(0, end);
+      try { purpose = JSON.parse(encoded); } catch { fail('PURPOSE_FORMAT'); }
+      if (JSON.stringify(purpose) !== encoded) fail('PURPOSE_CANONICAL');
+    }
+  }
+  if (purpose === undefined) {
+    if (branch === coldBranch) fail('MISSING_COLD_PURPOSE');
+    return undefined;
+  }
+  const origin = '14b4e6bbd0122a8cd717ea193ecd39c69e0efcdf';
+  const expectedPurposeCore = {"schemaVersion":"gekta.coherent-docker-cold-purpose.v2","purposeId":"gekta-coherent-docker-cold-20261101","owner":"OWNER_AUTHORIZED_SESSION","ownerDecision":"https://github.com/pachaninm-lab/pachanin-demo/issues/5469#issuecomment-6558567311","ownerDecisionQualification":"Narrow retained DC1 metadata/guard/source continuation only; not exact-head source acceptance, publication, host/window, cold-cycle compatibility or release permission.","authorityBaseExactMain":"14b4e6bbd0122a8cd717ea193ecd39c69e0efcdf","sourceBranch":"fix/gekta-docker-diagnostic-route-20260927","guardBranch":"governance/gekta-recovery-trusted-routes-20260927","privateSourceReviewSha256":"9d89e91957c738bc22c2229795de1eb817672372a9175b180da2df199844ce21","sourcePatch":{"blob":"e48c31c76272e61760cad870c49ee8162a71d0f6","bytes":61549,"sha256":"856195baf7c722088b3ecd5e0d80737f6b63f2140d7ac88920be2740b29d81fc"},"supersession":"Only diagnose-docker broad storage observations are replaced by one closed fixed read-only Docker containers_list request and private bounded stderr signal; the other six jobs are preserved.","readDisclosure":"Docker CLI startup may implicitly read configuration and NSS/HOME fallback metadata, including ~/.docker/config.json and credential-store detection. Raw stdout, stderr, configuration and credentials are NOT PUBLISHED; NOT READ is not asserted.","cleanupDisclosure":"Temporary PR_SET_CHILD_SUBREAPER separately in each fresh parent: runner SSH transport and root-side remote Docker collector; each requires prior zero, default SIGCHLD and initial waitid(P_ALL, WNOWAIT|WNOHANG) ECHILD, and each restores its prior zero state. Hold the leader WNOWAIT through the last safe group SIGKILL, reap leader once, then only bounded waitid(P_ALL, WNOHANG) reaps adopted own descendants until ECHILD. No /proc, cgroup, foreign kill or group signal after leader reap; escaped/live children fail CLEANUP_UNCONFIRMED without retry.","invariants":["Preserve all prior immutable purposes, UNKNOWN and SPENT attempts, request fingerprints, 19 volumes and recovery history.","Preserve primary/current/next scopes, owners, score, all existing source/state/review budgets and all old security/runtime gates.","This purpose and exact source admission provide no current host right, finite window, production invocation, release, filesystem growth or production acceptance."],"sourcePublicationAuthorized":false,"guardPublicationAuthorized":false,"productionInvocationAuthorized":false,"releaseAuthorized":false,"filesystemGrowthAuthorized":false,"productionAcceptance":false,"masterCredit":0,"coldOwnerDecision":"#5469#issuecomment-6558882969","privateColdSourceReviewSha256":"239f9e1eabc6d132269bda0fae393749d52abc253861158c114552e9d83fa1ea","privateColdPurposeReviewSha256":"d3ae9335d1c8980d3a21c5e174c18d15cd34dd1204e87644b2577c8b66cf6362","coldPurpose":{"purposeId":"cold-observer-exact-compatibility-20261101","purposeSha256":"9b3c294b12797d0a7c9984fd9cca691ec892c50dd0c66cac8420fa82d1b05c6c","queueBeforeBlob":"8bd9e231fe2bfcbee4ae270718c291802b1a4a3b","queueBlob":"a59124dda99d57ccab6c7b92b01f62b725dda149","queueBytes":2134106,"queueSha256":"0826b8310006d82eee79dcfa43ff0aa9a37f04d53cfc980dcb86a059dfa5e7b6"},"payloadPacketFormat":"gekta.dc1-payload-packet.v1; sorted exact paths; canonical JSON LF; each gekta.dc1-file-pair.v1 canonical JSON LF header followed by complete raw before and after bytes; each pair and root bounded to existing1MiB","canonicalSourcePacket":{"blob":"aa6a4a5ad19f9c4c5ef26dbf6d34d78e5d60358e","bytes":1175,"sha256":"10100488c4ce1a896f21e7e7161000a351860a8b30a99e446689463fe956b1f3"},"canonicalColdPacket":{"blob":"f7538ea86c40cc47a1facf40accdd5891da93adb","bytes":1703,"sha256":"e09af6fff59a8bcaaa58db094fdd69ac6cb6bba5d8085117b5fe407f01ecb7c4"},"packetIdentityRule":"guardPacket and canonicalSourcePacket/canonicalColdPacket bind full before/after modes, Git blobs, byte lengths, SHA256 and complete raw per-file pairs. sourcePatch and original coldPatch retain historical private diff artifact identities only. No file payload, read cap or review/native authority transfers."};
+  const sourcePayloads = [{"path":".github/workflows/production-docker-headroom-diagnostic.yml","mode":"100644","beforeBlob":"e0f8fa5731af0addc0b82c9ca7fab24abcecddb7","beforeBytes":370287,"beforeSha256":"31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7","afterBlob":"5f5446369cc96c935fe959ad5ba9aa6bcf95f2ac","bytes":400684,"sha256":"1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f"},{"path":"scripts/test_production_stopped_runtime_headroom.py","mode":"100644","beforeBlob":"bc2c092cea71aaca1c94121b02d1bd87cf83df5f","beforeBytes":34069,"beforeSha256":"6f3fcdd7662a5027c06a64e9984e00f6fd81ff6beae6c8c8409785f37d30c8f9","afterBlob":"f48e4de8380851512ea7c9fade0f64b7b1c78a79","bytes":60607,"sha256":"769d1fbc1739bb60761fb4d03a0c0c771e3049db5de4dcacb04e4ad0e1909068"}];
+  const coldPayloads = [{"path":".github/workflows/production-cold-preservation.yml","mode":"100644","beforeBlob":"338b17efa926ad4a12eb061ebd2543164905aadb","beforeBytes":169790,"beforeSha256":"dd327aba31e76a1cb3ffe713eecf62091ce470fee53a8de93d863a0ffc0c7ae6","afterBlob":"6236904ed57f820207e4be2eb918bb956c5f3805","bytes":172672,"sha256":"e322cfee6489d25f17133be7297f3ad900d0574650121e84648d72b0aedff934"},{"path":"scripts/test_production_cold_preservation.py","mode":"100644","beforeBlob":"e5faf4c8d59a8567eafc3bcd4ef49204a713d275","beforeBytes":199236,"beforeSha256":"3a6553fad7ba3bec8ecefdb11536ed3e29c7f296ab6b117672b2ef776063519c","afterBlob":"19632fe1357f16d81835c31da30d5572ec836d65","bytes":199769,"sha256":"3216ead4e4abd2f515a5410756657131f79cb4e548aa077f4083d2c662fb6478"},{"path":"docs/ops/production-cold-preservation.md","mode":"100644","beforeBlob":"3c8b47d984802cb9092d1279fcaa0c2133739da0","beforeBytes":48479,"beforeSha256":"39004266eb20cd4e52ab5123dddc32f053d220db4996a0333a3267c45d220fd2","afterBlob":"1655bb5ce5ae9f9c915b92203818648c6cfb152b","bytes":50343,"sha256":"58280bb7518e782e576c71cc2679b6ece7fa64d8cba2b4bce57ed49f78c644c8"}];
+  const coldPatch = {"blob":"78ef9f341df418da61e247c662d86a3eddbda534","bytes":15391,"sha256":"1d14b17ab85d54fa97909586c414ffe050e70ee64bba4f1576dd469894a3ced0"};
+  const stateStages = {"S0":{"bytes":3145687,"sha256":"6b4a5d16dc47f3ce1d80ef022005a615e3db72ade1f6a0fd243d3ee01fdce4f4","blob":"60930eae9e605e3b96887b5cb9249ac00e91ed06"},"A3":{"bytes":3145687,"sha256":"692fc2a94e6a4dd45ebace52934bcd6614aa21817a79ebcd0bfefb66adca482c","blob":"b90d728b224cdc358fbf35a672bcee75b8723ddd"},"B1":{"bytes":3145687,"sha256":"7bc59d1a3d3201c15258adb2f9886a415878393deb1fe3b6b9f5f03ab05eef99","blob":"9dd9d2a97e54bae0d7c9d18d165e430c06cd6c42"}};
+  const stateReplacements = {"A3":[{"pointer":"/coordinationAdmissions/stopped-core-bootstrap-20261024/sourcePins/0/sha256","path":".github/workflows/production-cold-preservation.yml","byteOffset":3083509,"bytes":64,"before":"dd327aba31e76a1cb3ffe713eecf62091ce470fee53a8de93d863a0ffc0c7ae6","after":"e322cfee6489d25f17133be7297f3ad900d0574650121e84648d72b0aedff934"},{"pointer":"/coordinationAdmissions/stopped-core-bootstrap-20261024/sourcePins/1/sha256","path":"scripts/test_production_cold_preservation.py","byteOffset":3083657,"bytes":64,"before":"3a6553fad7ba3bec8ecefdb11536ed3e29c7f296ab6b117672b2ef776063519c","after":"3216ead4e4abd2f515a5410756657131f79cb4e548aa077f4083d2c662fb6478"},{"pointer":"/coordinationAdmissions/stopped-core-bootstrap-20261024/sourcePins/2/sha256","path":"docs/ops/production-cold-preservation.md","byteOffset":3083801,"bytes":64,"before":"39004266eb20cd4e52ab5123dddc32f053d220db4996a0333a3267c45d220fd2","after":"58280bb7518e782e576c71cc2679b6ece7fa64d8cba2b4bce57ed49f78c644c8"}],"B1":[{"pointer":"/coordinationAdmissions/stopped-core-bootstrap-20261024/inspectionSha256","byteOffset":3083342,"bytes":64,"before":"31b39b0436ef704ff8b066cb3f3d4bb9595c6cccdc5abfcd707934ce5d2e2bd7","after":"1ab465091393a7d59af6d045415b30c7387db6418d7167710a8221793971773f"}]};
+  const guardIdentity = [
+    ['scripts/p7-autopilot-guard.sh', '100755', '82ea88bfbede3faa4c88de1122235b6382258ad4'],
+    ['docs/platform-v7/autopilot/gekta-recovery-scope.test.mjs', '100644', 'ed9534d098fff211cf0b1e324dc68bd6b80f13a3'],
+    ['.github/workflows/platform-v7-autopilot-guard.yml', '100644', '70ba69a95c116b329feaed4c0ae81e7735988b0e'],
+  ];
+  if (!purpose || Array.isArray(purpose) || typeof purpose !== 'object') fail('PURPOSE_IDENTITY');
+  const { sourcePayloads: admittedSource, guardPayloads, guardPacket, privateGuardReviewSha256, ...core } = purpose;
+  if (!isDeepStrictEqual(core, expectedPurposeCore) || !isDeepStrictEqual(admittedSource, sourcePayloads)) fail('PURPOSE_IDENTITY');
+  for (const digest of [core.privateSourceReviewSha256, core.privateColdSourceReviewSha256,
+    core.privateColdPurposeReviewSha256, privateGuardReviewSha256]) if (!/^[a-f0-9]{64}$/u.test(digest || '')) fail('PRIVATE_PROOF_IDENTITY');
+  try {
+    if (!headRef || git(['merge-base', baseRef, headRef]).trim() !== git(['rev-parse', `${baseRef}^{commit}`]).trim() ||
+        git(['merge-base', origin, baseRef]).trim() !== origin) fail('ANCESTRY');
+  } catch { fail('ANCESTRY'); }
+  const queuePath = 'docs/platform-v7/execution-queue.md';
+  const queue = expectedPurposeCore.coldPurpose;
+  exact(origin, queuePath, '100644', queue.queueBeforeBlob);
+  // This one reviewed queue object contains the precise cold purpose. Binding
+  // its tree entry and exact object size needs no new queue/source reader.
+  for (const ref of [baseRef, headRef]) {
+    exact(ref, queuePath, '100644', queue.queueBlob);
+    if (git(['cat-file', '-s', `${ref}:${queuePath}`]).trim() !== String(queue.queueBytes)) fail('QUEUE_SIZE');
+  }
+  const originalReview = read(origin, reviewPath);
+  exact(origin, reviewPath, '100644', '13ba4bcc552b89444515e09dbe2746bbe8a6a48a');
+  const acceptedReview = read(baseRef, reviewPath);
+  if (!acceptedReview.subarray(0, originalReview.length).equals(originalReview)) fail('PRIOR_REVIEW');
+  if (entry(headRef, reviewPath) !== acceptedReviewEntry || !read(headRef, reviewPath).equals(acceptedReview)) fail('REVIEW_MUTATION');
+  const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+  const blobDigest = bytes => createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+  const artifact = item => item && isDeepStrictEqual(Object.keys(item).sort(), ['blob', 'bytes', 'sha256'].sort()) &&
+    /^[a-f0-9]{40}$/u.test(item.blob || '') && /^[a-f0-9]{64}$/u.test(item.sha256 || '') &&
+    Number.isSafeInteger(item.bytes) && item.bytes > 0 && item.bytes <= 1024 * 1024;
+  if (!artifact(guardPacket) || !artifact(core.sourcePatch) || !artifact(coldPatch) ||
+      !artifact(core.canonicalSourcePacket) || !artifact(core.canonicalColdPacket)) fail('PACKET_IDENTITY');
+  // Full raw before/after pairs retain content identity without Git diff rendering.
+  // Each read, pair and root retains the existing 1 MiB bound; no cap grows.
+  const checkPacket = (pin, ref, files) => {
+    const side = (at, file) => {
+      const line = entry(at, file), match = /^(100644|100755) blob ([a-f0-9]{40})\t/u.exec(line);
+      if (!match || line !== `${match[1]} blob ${match[2]}\t${file}`) fail('PACKET_MODE');
+      const bytes = read(at, file);
+      if (blobDigest(bytes) !== match[2]) fail('PACKET_BLOB');
+      return { identity: { mode: match[1], blob: match[2], bytes: bytes.length, sha256: digest(bytes) }, bytes };
+    };
+    const entries = [...files].sort().map(file => {
+      const before = side(origin, file), after = side(ref, file);
+      const header = Buffer.from(JSON.stringify({ schemaVersion: 'gekta.dc1-file-pair.v1', path: file,
+        before: before.identity, after: after.identity }) + '\n', 'utf8');
+      const size = header.length + before.bytes.length + after.bytes.length;
+      if (size > 1024 * 1024) fail('PACKET_CAPACITY');
+      const chunks = [header, before.bytes, after.bytes];
+      const hash = algorithm => { const value = createHash(algorithm); for (const chunk of chunks) value.update(chunk); return value.digest('hex'); };
+      const blob = createHash('sha1').update(`blob ${size}\0`);
+      for (const chunk of chunks) blob.update(chunk);
+      return { path: file, before: before.identity, after: after.identity,
+        payloadPair: { blob: blob.digest('hex'), bytes: size, sha256: hash('sha256') } };
+    });
+    const bytes = Buffer.from(JSON.stringify({ schemaVersion: 'gekta.dc1-payload-packet.v1', entries }) + '\n', 'utf8');
+    if (bytes.length > 1024 * 1024) fail('PACKET_CAPACITY');
+    if (bytes.length !== pin.bytes || digest(bytes) !== pin.sha256 || blobDigest(bytes) !== pin.blob) fail('PACKET_CONTENT');
+  };
+  if (!Array.isArray(guardPayloads) || guardPayloads.length !== guardIdentity.length) fail('GUARD_IDENTITY');
+  for (const [index, [file, mode, beforeBlob]] of guardIdentity.entries()) {
+    const pin = guardPayloads[index];
+    if (!pin || !isDeepStrictEqual(Object.keys(pin).sort(), ['path', 'mode', 'beforeBlob', 'afterBlob', 'sha256', 'bytes'].sort()) ||
+        pin.path !== file || pin.mode !== mode || pin.beforeBlob !== beforeBlob ||
+        !/^[a-f0-9]{64}$/u.test(pin.sha256 || '') || !Number.isSafeInteger(pin.bytes) || pin.bytes < 1 || pin.bytes > 1024 * 1024) fail('GUARD_IDENTITY');
+    exact(origin, file, mode, beforeBlob);
+    for (const ref of [baseRef, headRef]) {
+      exact(ref, file, mode, pin.afterBlob); const bytes = read(ref, file);
+      if (bytes.length !== pin.bytes || digest(bytes) !== pin.sha256) fail('GUARD_NOT_ACCEPTED');
+    }
+  }
+  checkPacket(guardPacket, baseRef, guardIdentity.map(item => item[0]));
+  const stateBytes = (ref, stage) => {
+    const pin = stateStages[stage]; exact(ref, stateFile, '100644', pin.blob);
+    const bytes = Buffer.from(readImmutableState(ref), 'utf8');
+    if (bytes.length !== pin.bytes || digest(bytes) !== pin.sha256 || blobDigest(bytes) !== pin.blob) fail('STATE_CONTENT');
+    return bytes;
+  };
+  const originalState = stateBytes(origin, 'S0');
+  const inverse = (bytes, kind) => {
+    const result = Buffer.from(bytes);
+    for (const field of stateReplacements[kind]) {
+      const before = Buffer.from(field.before, 'ascii'), after = Buffer.from(field.after, 'ascii');
+      if (field.bytes !== 64 || before.length !== 64 || after.length !== 64 ||
+          !result.subarray(field.byteOffset, field.byteOffset + 64).equals(after)) fail('STATE_INVERSE_FRAGMENT');
+      before.copy(result, field.byteOffset);
+    }
+    return result;
+  };
+  const validateState = (ref, stage) => {
+    const bytes = stateBytes(ref, stage);
+    if (stage === 'S0') { if (!bytes.equals(originalState)) fail('STATE_INVERSE'); }
+    if (stage === 'A3' && !inverse(bytes, 'A3').equals(originalState)) fail('STATE_INVERSE');
+    if (stage === 'B1') {
+      const a3 = inverse(bytes, 'B1');
+      if (blobDigest(a3) !== stateStages.A3.blob || digest(a3) !== stateStages.A3.sha256 ||
+          !inverse(a3, 'A3').equals(originalState)) fail('STATE_INVERSE');
+    }
+    return bytes;
+  };
+  const acceptedState = JSON.parse(readImmutableState(baseRef));
+  const coldVector = ['scripts/production_cold_preservation.py', 'scripts/test_production_cold_preservation.py',
+    '.github/workflows/production-cold-preservation.yml', 'docs/ops/production-cold-preservation.md', 'scripts/test_production_stopped_runtime_headroom.py'];
+  const metadataVector = [stateFile, queuePath, 'docs/platform-v7/autopilot/prompts/current-codex-task.md', reviewPath,
+    'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs', '.github/workflows/platform-v7-autopilot-guard.yml'];
+  for (const [refBranch, paths] of [[dockerBranch, sourcePayloads.map(item => item.path)], [coldBranch, coldVector],
+    [metadataBranch, metadataVector], [core.guardBranch, guardIdentity.map(item => item[0]).sort()]]) {
+    if (!isDeepStrictEqual(acceptedState.approvedConcurrentScopes?.[refBranch], paths)) fail('ACCEPTED_VECTOR');
+  }
+  const payloadAt = (ref, pin, after) => {
+    const blob = after ? pin.afterBlob : pin.beforeBlob;
+    exact(ref, pin.path, pin.mode, blob); const bytes = read(ref, pin.path);
+    if (bytes.length !== (after ? pin.bytes : pin.beforeBytes) || digest(bytes) !== (after ? pin.sha256 : pin.beforeSha256)) fail('SOURCE_CONTENT');
+  };
+  const unchangedPayloads = (pins, after) => {
+    for (const pin of pins) for (const ref of [baseRef, headRef]) payloadAt(ref, pin, after);
+  };
+  const exactTransition = pins => {
+    const fields = raw.split('\0');
+    if (fields.pop() !== '' || fields.length !== pins.length * 2) fail('EXACT_STAGE_PATHS');
+    const expected = new Map(pins.map(pin => [pin.path, pin]));
+    for (let index = 0; index < fields.length; index += 2) {
+      const pin = expected.get(fields[index + 1]);
+      if (!pin || fields[index] !== `:${pin.mode} ${pin.mode} ${pin.beforeBlob} ${pin.afterBlob} M`) fail('PAYLOAD_OR_MODE');
+      payloadAt(origin, pin, false); payloadAt(baseRef, pin, false); payloadAt(headRef, pin, true); expected.delete(pin.path);
+    }
+    if (expected.size) fail('EXACT_STAGE_PATHS');
+  };
+  if (branch === metadataBranch) {
+    let stage;
+    const before = entry(baseRef, stateFile), after = entry(headRef, stateFile);
+    if (before === `100644 blob ${stateStages.S0.blob}\t${stateFile}` && after === `100644 blob ${stateStages.A3.blob}\t${stateFile}`) stage = 'A3';
+    if (before === `100644 blob ${stateStages.A3.blob}\t${stateFile}` && after === `100644 blob ${stateStages.B1.blob}\t${stateFile}`) stage = 'B1';
+    if (!stage) fail('METADATA_STAGE');
+    const from = stage === 'A3' ? 'S0' : 'A3';
+    if (raw !== `:100644 100644 ${stateStages[from].blob} ${stateStages[stage].blob} M\0${stateFile}\0`) fail('METADATA_EXACT_STATE_ONLY');
+    validateState(baseRef, from); validateState(headRef, stage);
+    unchangedPayloads(coldPayloads, stage === 'B1'); unchangedPayloads(sourcePayloads, stage === 'B1');
+    return { scopes: [stateFile], metadata: true, stage };
+  }
+  const beforeState = validateState(baseRef, 'A3'), afterState = validateState(headRef, 'A3');
+  if (!beforeState.equals(afterState)) fail('SOURCE_STATE_MUTATION');
+  if (branch === coldBranch) {
+    unchangedPayloads(sourcePayloads, false); exactTransition(coldPayloads);
+    checkPacket(core.canonicalColdPacket, headRef, coldPayloads.map(item => item.path));
+    return { scopes: coldPayloads.map(item => item.path), metadata: false, stage: 'COLD3' };
+  }
+  unchangedPayloads(coldPayloads, true); exactTransition(sourcePayloads);
+  checkPacket(core.canonicalSourcePacket, headRef, sourcePayloads.map(item => item.path));
+  return { scopes: sourcePayloads.map(item => item.path), metadata: false, stage: 'R2' };
+}
+const dc1Coherent = dc1CoherentStage();
+if (dc1Coherent !== undefined) {
+  scopes = dc1Coherent.scopes;
+// DC1_COHERENT_COMPAT_END
+} else
 if (branch === 'ops/production-api-only-release-20261101') {
   // AP2_ATOMIC_API_ONLY_SOURCE_BEGIN
   // This seven-path bootstrap is authorized only by the separately accepted
@@ -2992,7 +3428,7 @@ if (read(head, jsonPath) !== JSON.stringify(inventory, null, 2) + '\n' ||
     if (!isDeepStrictEqual(candidate, baseline)) throw new Error('PRODUCT_SCOPE_ADMISSION_STATE_MUTATION');
   }
 
-  if (branch === 'governance/industrial-load-diagnostics-20260919' || branch === 'test/industrial-load-diagnostics-20260919') {
+  if ((branch === 'governance/industrial-load-diagnostics-20260919' || branch === 'test/industrial-load-diagnostics-20260919') && !dc1Coherent?.metadata) {
     const { isDeepStrictEqual } = require('node:util');
     const governance = 'governance/industrial-load-diagnostics-20260919';
     const diagnostic = 'test/industrial-load-diagnostics-20260919';
